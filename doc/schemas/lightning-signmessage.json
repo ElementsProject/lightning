@@ -51,32 +51,34 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:signmessage#1",
-      "method": "signmessage",
-      "params": {
-        "message": "this is a test!"
+      "request": {
+        "id": "example:signmessage#1",
+        "method": "signmessage",
+        "params": {
+          "message": "this is a test!"
+        }
+      },
+      "response": {
+        "signature": "a2ec227012795f9d6b80a3f5ea98374c6d2886917517c05336799923fcf37caf08344c0431275e1a8189da01b444ae978007fe70f0cc9009f38cabe074ade87d",
+        "recid": "00",
+        "zbase": "d6tqaeuonjhi98mmont9m4wag7gg4krg1f4txonug3h31e9h6p6k6nbwjondnj46dkyausobstnk7fhyy998bhgc1yr98dfmhb4k54d7"
       }
     },
     {
-      "id": "example:signmessage#2",
-      "method": "signmessage",
-      "params": {
-        "message": "message for you"
+      "request": {
+        "id": "example:signmessage#2",
+        "method": "signmessage",
+        "params": {
+          "message": "message for you"
+        }
+      },
+      "response": {
+        "signature": "85843b010bc517b32eaafe70232e2c44bb5a354c74d2202390af1b272e4c6ac23ac3f97ea663d8b49116ad6c2d080515b43bcdf1ea4f38cdb18af0edf8209cd8",
+        "recid": "00",
+        "zbase": "d6naeqabbxntxc3qim98ye3qftnmsstijt4prebd1nztsj3qjticrqsd9f9kca6as1etpmmcfwrykfpw8xg9d41x8dg5dnzo7zhnb8ga"
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "signature": "a2ec227012795f9d6b80a3f5ea98374c6d2886917517c05336799923fcf37caf08344c0431275e1a8189da01b444ae978007fe70f0cc9009f38cabe074ade87d",
-      "recid": "00",
-      "zbase": "d6tqaeuonjhi98mmont9m4wag7gg4krg1f4txonug3h31e9h6p6k6nbwjondnj46dkyausobstnk7fhyy998bhgc1yr98dfmhb4k54d7"
-    },
-    {
-      "signature": "85843b010bc517b32eaafe70232e2c44bb5a354c74d2202390af1b272e4c6ac23ac3f97ea663d8b49116ad6c2d080515b43bcdf1ea4f38cdb18af0edf8209cd8",
-      "recid": "00",
-      "zbase": "d6naeqabbxntxc3qim98ye3qftnmsstijt4prebd1nztsj3qjticrqsd9f9kca6as1etpmmcfwrykfpw8xg9d41x8dg5dnzo7zhnb8ga"
     }
   ],
   "author": [

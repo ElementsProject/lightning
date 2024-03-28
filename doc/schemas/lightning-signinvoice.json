@@ -39,18 +39,18 @@
     "",
     "- -1: Catchall nonspecific error."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:signinvoice#1",
-      "method": "signinvoice",
-      "params": [
-        "lnbcrt10n1pjmxt3lsp5jumuz2sv3ca68kzd92hp3wdtpx8ghnxur65fs6maw6dyxsleqd0spp5nadvvh7uzk2qzh8d9d7tsxr08l9uaz2vjeuuahqtufjv52d0eassdq8d9h8vvgxqyjw5qcqp99qxpqysgq4rrn702eum6c9ld9khlz39vdyd8zcwrav5ygqvu6w54aep6yarkyfrnk990yf5prpasgzmj52stektf6mzwdl5hc6qlsglt2a0pwp0spwww44w"
-      ]
-    }
-  ],
-  "example_json_response": [
-    {
-      "bolt11": "lnbcrt10n1pjmxt3lsp5jumuz2sv3ca68kzd92hp3wdtpx8ghnxur65fs6maw6dyxsleqd0spp5nadvvh7uzk2qzh8d9d7tsxr08l9uaz2vjeuuahqtufjv52d0eassdq8d9h8vvgxqyjw5qcqp99qxpqysgq3nhrd72qe7wmc2hvwhaqnx05y6dzxh2tal02kw055er7uutkkrcreccm37ce6wv7ee8q70ktlr9fy3fd635hc2k98a4svd9c8v4cpjsppm2eee"
+      "request": {
+        "id": "example:signinvoice#1",
+        "method": "signinvoice",
+        "params": [
+          "lnbcrt10n1pjmxt3lsp5jumuz2sv3ca68kzd92hp3wdtpx8ghnxur65fs6maw6dyxsleqd0spp5nadvvh7uzk2qzh8d9d7tsxr08l9uaz2vjeuuahqtufjv52d0eassdq8d9h8vvgxqyjw5qcqp99qxpqysgq4rrn702eum6c9ld9khlz39vdyd8zcwrav5ygqvu6w54aep6yarkyfrnk990yf5prpasgzmj52stektf6mzwdl5hc6qlsglt2a0pwp0spwww44w"
+        ]
+      },
+      "response": {
+        "bolt11": "lnbcrt10n1pjmxt3lsp5jumuz2sv3ca68kzd92hp3wdtpx8ghnxur65fs6maw6dyxsleqd0spp5nadvvh7uzk2qzh8d9d7tsxr08l9uaz2vjeuuahqtufjv52d0eassdq8d9h8vvgxqyjw5qcqp99qxpqysgq3nhrd72qe7wmc2hvwhaqnx05y6dzxh2tal02kw055er7uutkkrcreccm37ce6wv7ee8q70ktlr9fy3fd635hc2k98a4svd9c8v4cpjsppm2eee"
+      }
     }
   ],
   "author": [

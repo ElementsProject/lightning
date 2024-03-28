@@ -212,12 +212,31 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:getlog#1",
-      "method": "getlog",
-      "params": {
-        "level": "debug"
+      "request": {
+        "id": "example:getlog#1",
+        "method": "getlog",
+        "params": {
+          "level": "debug"
+        }
+      },
+      "response": {
+        "created_at": "1598192543.820753463",
+        "bytes_used": 89285843,
+        "bytes_max": 104857600,
+        "log": [
+          {
+            "type": "SKIPPED",
+            "num_skipped": 45
+          },
+          {
+            "type": "INFO",
+            "time": "0.453627568",
+            "source": "plugin-autopilot.py",
+            "log": "RPCmethod'autopilot-run-once'doesnothaveadocstring."
+          }
+        ]
       }
     }
   ],
@@ -225,25 +244,6 @@
     "On failure, one of the following error codes may be returned:",
     "",
     "- -32602: Error in given parameters."
-  ],
-  "example_json_response": [
-    {
-      "created_at": "1598192543.820753463",
-      "bytes_used": 89285843,
-      "bytes_max": 104857600,
-      "log": [
-        {
-          "type": "SKIPPED",
-          "num_skipped": 45
-        },
-        {
-          "type": "INFO",
-          "time": "0.453627568",
-          "source": "plugin-autopilot.py",
-          "log": "RPCmethod'autopilot-run-once'doesnothaveadocstring."
-        }
-      ]
-    }
   ],
   "author": [
     "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",

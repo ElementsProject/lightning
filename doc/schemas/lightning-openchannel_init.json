@@ -179,75 +179,77 @@
       "If you sent a *request_amt* and the peer supports `option_will_fund` and is interested in leasing you liquidity in this channel, returns their updated channel fee max (*channel_fee_proportional_basis*, *channel_fee_base_msat*), updated rate card for the lease fee (*lease_fee_proportional_basis*, *lease_fee_base_sat*) and their on-chain weight *weight_charge*, which will be added to the lease fee at a rate of *funding_feerate* * *weight_charge* / 1000."
     ]
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:openchannel_init#1",
-      "method": "openchannel_init",
-      "params": {
-        "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-        "amount": 999000,
-        "initialpsbt": "cHNidP8BADMCAAAAAYbThUhSzYr7ph6Z434bdcW7eoirYOFMmUt2GXZ79sF/AQAAAAD9////AGYAAAAAAQDeAgAAAAABARVD4QKlmwy8SNcNypf1o9TzbIFZjj4dqVzHAL0SLDoTAAAAAAD9////AjOv9ikBAAAAFgAUXJGglH7At5HOVY4ZHp0+19kv655AQg8AAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFlAkcwRAIgVIxRXqIykOOxm/6YPaFFx2Qh1618qlXPUhDiliVQ2KUCIHQcHniUTcm1XT8SyRE8ev52jm0uiIYum15XcR/tPh+NASEC3Pby7xL4+Ig/Z8TchQ0QT1upLGet3da8qjSjgHO9LOJlAAAAAQEfQEIPAAAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQA=",
-        "commitment_feerate": null,
-        "funding_feerate": null,
-        "announce": true,
-        "close_to": null,
-        "request_amt": null,
-        "channel_type": [
-          12,
-          22
-        ]
+      "request": {
+        "id": "example:openchannel_init#1",
+        "method": "openchannel_init",
+        "params": {
+          "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+          "amount": 999000,
+          "initialpsbt": "cHNidP8BADMCAAAAAYbThUhSzYr7ph6Z434bdcW7eoirYOFMmUt2GXZ79sF/AQAAAAD9////AGYAAAAAAQDeAgAAAAABARVD4QKlmwy8SNcNypf1o9TzbIFZjj4dqVzHAL0SLDoTAAAAAAD9////AjOv9ikBAAAAFgAUXJGglH7At5HOVY4ZHp0+19kv655AQg8AAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFlAkcwRAIgVIxRXqIykOOxm/6YPaFFx2Qh1618qlXPUhDiliVQ2KUCIHQcHniUTcm1XT8SyRE8ev52jm0uiIYum15XcR/tPh+NASEC3Pby7xL4+Ig/Z8TchQ0QT1upLGet3da8qjSjgHO9LOJlAAAAAQEfQEIPAAAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQA=",
+          "commitment_feerate": null,
+          "funding_feerate": null,
+          "announce": true,
+          "close_to": null,
+          "request_amt": null,
+          "channel_type": [
+            12,
+            22
+          ]
+        }
+      },
+      "response": {
+        "channel_id": "53fa2b1ca0d8f21abeaaac0495ab9925cdfaf2ca8b04dbe4aeb061823e1ff2c8",
+        "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQEBAQYBAwH7BAIAAAAAAQDeAgAAAAABARVD4QKlmwy8SNcNypf1o9TzbIFZjj4dqVzHAL0SLDoTAAAAAAD9////AjOv9ikBAAAAFgAUXJGglH7At5HOVY4ZHp0+19kv655AQg8AAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFlAkcwRAIgVIxRXqIykOOxm/6YPaFFx2Qh1618qlXPUhDiliVQ2KUCIHQcHniUTcm1XT8SyRE8ev52jm0uiIYum15XcR/tPh+NASEC3Pby7xL4+Ig/Z8TchQ0QT1upLGet3da8qjSjgHO9LOJlAAAAAQEfQEIPAAAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQEOIIbThUhSzYr7ph6Z434bdcW7eoirYOFMmUt2GXZ79sF/AQ8EAQAAAAEQBP3///8M/AlsaWdodG5pbmcBCMCDK/6LyRi8AAEDCFg+DwAAAAAAAQQiACDYM+8ZRsbTj0OCG/yzqLt2buFQn9LuMPDZqFFcgmCmfAz8CWxpZ2h0bmluZwEIchtFHfZ5FBgA",
+        "channel_type": {
+          "bits": [
+            12,
+            22
+          ],
+          "names": [
+            "static_remotekey/even",
+            "anchors_zero_fee_htlc_tx/even"
+          ]
+        },
+        "commitments_secured": false,
+        "funding_serial": 8222241539686471000,
+        "requires_confirmed_inputs": false
       }
     },
     {
-      "id": "example:openchannel_init#2",
-      "method": "openchannel_init",
-      "params": {
-        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-        "amount": 16777216,
-        "initialpsbt": "cHNidP8BADMCAAAAAQVmgyf8sA3N9J6XaH5z7W+GUPDFOM/2L/PuD7iE0RaqAAAAAAD9////AGYAAAAAAQDeAgAAAAABAdWZZguGlQJ1eA+d7WAT500jdCzHJWT9J/TGQIkbS1KfAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFE8Xxp4GJggW2lJcsHg0VLolc/Z/AkcwRAIgEQLtA2JvAk7S1R9QD5o4SVNXCjMwTUIyHtu65taC/d4CIEnpq2PdrqKqitdmZj09U8cFuwV+Ba9kmZSUsctSWx8CASECUKP6EBufpaBXT910uYhCcKdw9z8iqHgyKa3uuX2QgmVlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQA=",
-        "commitment_feerate": null,
-        "funding_feerate": null,
-        "announce": true,
-        "close_to": null,
-        "request_amt": null,
-        "channel_type": null
+      "request": {
+        "id": "example:openchannel_init#2",
+        "method": "openchannel_init",
+        "params": {
+          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "amount": 16777216,
+          "initialpsbt": "cHNidP8BADMCAAAAAQVmgyf8sA3N9J6XaH5z7W+GUPDFOM/2L/PuD7iE0RaqAAAAAAD9////AGYAAAAAAQDeAgAAAAABAdWZZguGlQJ1eA+d7WAT500jdCzHJWT9J/TGQIkbS1KfAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFE8Xxp4GJggW2lJcsHg0VLolc/Z/AkcwRAIgEQLtA2JvAk7S1R9QD5o4SVNXCjMwTUIyHtu65taC/d4CIEnpq2PdrqKqitdmZj09U8cFuwV+Ba9kmZSUsctSWx8CASECUKP6EBufpaBXT910uYhCcKdw9z8iqHgyKa3uuX2QgmVlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQA=",
+          "commitment_feerate": null,
+          "funding_feerate": null,
+          "announce": true,
+          "close_to": null,
+          "request_amt": null,
+          "channel_type": null
+        }
+      },
+      "response": {
+        "channel_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+        "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQEBAQYBAwH7BAIAAAAAAQDeAgAAAAABAdWZZguGlQJ1eA+d7WAT500jdCzHJWT9J/TGQIkbS1KfAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFE8Xxp4GJggW2lJcsHg0VLolc/Z/AkcwRAIgEQLtA2JvAk7S1R9QD5o4SVNXCjMwTUIyHtu65taC/d4CIEnpq2PdrqKqitdmZj09U8cFuwV+Ba9kmZSUsctSWx8CASECUKP6EBufpaBXT910uYhCcKdw9z8iqHgyKa3uuX2QgmVlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQEOIAVmgyf8sA3N9J6XaH5z7W+GUPDFOM/2L/PuD7iE0RaqAQ8EAAAAAAEQBP3///8M/AlsaWdodG5pbmcBCLR8RjOq9lmcAAEDCAAAAAEAAAAAAQQiACBbjNO5FM9nzdj6YnPJMDU902R2c0+9liECwt9TuQiAzQz8CWxpZ2h0bmluZwEIZZtc7LD4y9YA",
+        "channel_type": {
+          "bits": [
+            12,
+            22
+          ],
+          "names": [
+            "static_remotekey/even",
+            "anchors_zero_fee_htlc_tx/even"
+          ]
+        },
+        "commitments_secured": false,
+        "funding_serial": 7321547790872006000,
+        "requires_confirmed_inputs": false
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "channel_id": "53fa2b1ca0d8f21abeaaac0495ab9925cdfaf2ca8b04dbe4aeb061823e1ff2c8",
-      "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQEBAQYBAwH7BAIAAAAAAQDeAgAAAAABARVD4QKlmwy8SNcNypf1o9TzbIFZjj4dqVzHAL0SLDoTAAAAAAD9////AjOv9ikBAAAAFgAUXJGglH7At5HOVY4ZHp0+19kv655AQg8AAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFlAkcwRAIgVIxRXqIykOOxm/6YPaFFx2Qh1618qlXPUhDiliVQ2KUCIHQcHniUTcm1XT8SyRE8ev52jm0uiIYum15XcR/tPh+NASEC3Pby7xL4+Ig/Z8TchQ0QT1upLGet3da8qjSjgHO9LOJlAAAAAQEfQEIPAAAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQEOIIbThUhSzYr7ph6Z434bdcW7eoirYOFMmUt2GXZ79sF/AQ8EAQAAAAEQBP3///8M/AlsaWdodG5pbmcBCMCDK/6LyRi8AAEDCFg+DwAAAAAAAQQiACDYM+8ZRsbTj0OCG/yzqLt2buFQn9LuMPDZqFFcgmCmfAz8CWxpZ2h0bmluZwEIchtFHfZ5FBgA",
-      "channel_type": {
-        "bits": [
-          12,
-          22
-        ],
-        "names": [
-          "static_remotekey/even",
-          "anchors_zero_fee_htlc_tx/even"
-        ]
-      },
-      "commitments_secured": false,
-      "funding_serial": 8222241539686471000,
-      "requires_confirmed_inputs": false
-    },
-    {
-      "channel_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
-      "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQEBAQYBAwH7BAIAAAAAAQDeAgAAAAABAdWZZguGlQJ1eA+d7WAT500jdCzHJWT9J/TGQIkbS1KfAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFE8Xxp4GJggW2lJcsHg0VLolc/Z/AkcwRAIgEQLtA2JvAk7S1R9QD5o4SVNXCjMwTUIyHtu65taC/d4CIEnpq2PdrqKqitdmZj09U8cFuwV+Ba9kmZSUsctSWx8CASECUKP6EBufpaBXT910uYhCcKdw9z8iqHgyKa3uuX2QgmVlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQEOIAVmgyf8sA3N9J6XaH5z7W+GUPDFOM/2L/PuD7iE0RaqAQ8EAAAAAAEQBP3///8M/AlsaWdodG5pbmcBCLR8RjOq9lmcAAEDCAAAAAEAAAAAAQQiACBbjNO5FM9nzdj6YnPJMDU902R2c0+9liECwt9TuQiAzQz8CWxpZ2h0bmluZwEIZZtc7LD4y9YA",
-      "channel_type": {
-        "bits": [
-          12,
-          22
-        ],
-        "names": [
-          "static_remotekey/even",
-          "anchors_zero_fee_htlc_tx/even"
-        ]
-      },
-      "commitments_secured": false,
-      "funding_serial": 7321547790872006000,
-      "requires_confirmed_inputs": false
     }
   ],
   "errors": [

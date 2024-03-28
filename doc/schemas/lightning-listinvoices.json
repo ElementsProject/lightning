@@ -287,37 +287,37 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:listinvoices#1",
-      "method": "listinvoices",
-      "params": {
-        "label": "xEoCR94SIz6UIRUEkxum",
-        "payment_hash": null,
-        "invstring": null,
-        "offer_id": null,
-        "index": null,
-        "start": null,
-        "limit": null
-      }
-    }
-  ],
-  "example_json_response": [
-    {
-      "invoices": [
-        {
+      "request": {
+        "id": "example:listinvoices#1",
+        "method": "listinvoices",
+        "params": {
           "label": "xEoCR94SIz6UIRUEkxum",
-          "bolt11": "lnbcrt110u1pjmr5lzsp5sfjyj3xn7ux592k36hmmt4ax98n6lgct22wvj54yck0upcmep63qpp5qu436g855lr40ftdt7csatk5pdvtdzzfmfqluwtvm0fds95jsadqdpq0pzk7s6j8y69xjt6xe25j5j4g44hsatdxqyjw5qcqp99qxpqysgquwma3zrw4cd8e8j4u9uh4gxukaacckse64kx2l9dqv8rvrysdq5r5dt38t9snqj9u5ar07h2exr4fg56wpudkhkk7gtxlyt72ku5fpqqd4fnlk",
-          "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a",
-          "amount_msat": 11000000,
-          "status": "unpaid",
-          "description": [
-            "XEoCR94SIz6UIRUEkxum."
-          ],
-          "expires_at": 1706757730,
-          "created_index": 1
+          "payment_hash": null,
+          "invstring": null,
+          "offer_id": null,
+          "index": null,
+          "start": null,
+          "limit": null
         }
-      ]
+      },
+      "response": {
+        "invoices": [
+          {
+            "label": "xEoCR94SIz6UIRUEkxum",
+            "bolt11": "lnbcrt110u1pjmr5lzsp5sfjyj3xn7ux592k36hmmt4ax98n6lgct22wvj54yck0upcmep63qpp5qu436g855lr40ftdt7csatk5pdvtdzzfmfqluwtvm0fds95jsadqdpq0pzk7s6j8y69xjt6xe25j5j4g44hsatdxqyjw5qcqp99qxpqysgquwma3zrw4cd8e8j4u9uh4gxukaacckse64kx2l9dqv8rvrysdq5r5dt38t9snqj9u5ar07h2exr4fg56wpudkhkk7gtxlyt72ku5fpqqd4fnlk",
+            "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a",
+            "amount_msat": 11000000,
+            "status": "unpaid",
+            "description": [
+              "XEoCR94SIz6UIRUEkxum."
+            ],
+            "expires_at": 1706757730,
+            "created_index": 1
+          }
+        ]
+      }
     }
   ],
   "author": [

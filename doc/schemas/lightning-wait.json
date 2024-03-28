@@ -291,60 +291,64 @@
     "",
     "- -32602: If the given parameters are wrong."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:wait#1",
-      "method": "wait",
-      "params": {
+      "request": {
+        "id": "example:wait#1",
+        "method": "wait",
+        "params": {
+          "subsystem": "invoices",
+          "indexname": "created",
+          "nextvalue": 1
+        }
+      },
+      "response": {
         "subsystem": "invoices",
-        "indexname": "created",
-        "nextvalue": 1
+        "created": 1,
+        "details": {
+          "status": "unpaid",
+          "label": "invlabel",
+          "bolt11": "lnbcrt420p1pjmxtevsp5d8c6gnaj8lyjy2qly783vklda9dfaqeyzyc37agxxp8h3uguv8pqpp5w6lhwxhqnuew4hle5h7qwjm27zz784mvsrzhmayhscy5t2hy5c4qdqvd9h8ver9wd3sxqyjw5qcqp99qxpqysgq09gxhjhwu9u3z6dlt5ln5f4g8zl78wz4pgh0am3kz54m9lllhqckf4gmhmt2ftrclq5x62zkqmggc7y0ju0ghdfwjz8hyd8l5cqvemgpyyhm6w"
+        }
       }
     },
     {
-      "id": "example:wait#2",
-      "method": "wait",
-      "params": {
+      "request": {
+        "id": "example:wait#2",
+        "method": "wait",
+        "params": {
+          "subsystem": "invoices",
+          "indexname": "updated",
+          "nextvalue": 2
+        }
+      },
+      "response": {
         "subsystem": "invoices",
-        "indexname": "updated",
-        "nextvalue": 2
+        "updated": 2,
+        "details": {
+          "status": "expired"
+        }
       }
     },
     {
-      "id": "example:wait#3",
-      "method": "wait",
-      "params": {
+      "request": {
+        "id": "example:wait#3",
+        "method": "wait",
+        "params": {
+          "subsystem": "sendpays",
+          "indexname": "updated",
+          "nextvalue": 2
+        }
+      },
+      "response": {
         "subsystem": "sendpays",
-        "indexname": "updated",
-        "nextvalue": 2
-      }
-    }
-  ],
-  "example_json_response": [
-    {
-      "subsystem": "invoices",
-      "created": 1,
-      "details": {
-        "status": "unpaid",
-        "label": "invlabel",
-        "bolt11": "lnbcrt420p1pjmxtevsp5d8c6gnaj8lyjy2qly783vklda9dfaqeyzyc37agxxp8h3uguv8pqpp5w6lhwxhqnuew4hle5h7qwjm27zz784mvsrzhmayhscy5t2hy5c4qdqvd9h8ver9wd3sxqyjw5qcqp99qxpqysgq09gxhjhwu9u3z6dlt5ln5f4g8zl78wz4pgh0am3kz54m9lllhqckf4gmhmt2ftrclq5x62zkqmggc7y0ju0ghdfwjz8hyd8l5cqvemgpyyhm6w"
-      }
-    },
-    {
-      "subsystem": "invoices",
-      "updated": 2,
-      "details": {
-        "status": "expired"
-      }
-    },
-    {
-      "subsystem": "sendpays",
-      "updated": 2,
-      "details": {
-        "status": "complete",
-        "partid": 0,
-        "groupid": 1,
-        "payment_hash": "220dcfcf43e1fab3ce30f70eb943c3ce962393f5a65ced52d749e324b443d19e"
+        "updated": 2,
+        "details": {
+          "status": "complete",
+          "partid": 0,
+          "groupid": 1,
+          "payment_hash": "220dcfcf43e1fab3ce30f70eb943c3ce962393f5a65ced52d749e324b443d19e"
+        }
       }
     }
   ],

@@ -169,69 +169,71 @@
     "",
     "- -32602: If the given parameters are wrong."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:listchannels#1",
-      "method": "listchannels",
-      "params": {
-        "short_channel_id": "103x1x0",
-        "source": null,
-        "destination": null
-      }
-    },
-    {
-      "id": "example:listchannels#2",
-      "method": "listchannels",
-      "params": {
-        "short_channel_id": null,
-        "source": null,
-        "destination": null
-      }
-    }
-  ],
-  "example_json_response": [
-    {
-      "channels": []
-    },
-    {
-      "channels": [
-        {
-          "source": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-          "destination": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+      "request": {
+        "id": "example:listchannels#1",
+        "method": "listchannels",
+        "params": {
           "short_channel_id": "103x1x0",
-          "direction": 0,
-          "public": true,
-          "amount_msat": 1000000000,
-          "message_flags": 1,
-          "channel_flags": 0,
-          "active": true,
-          "last_update": 1706153393,
-          "base_fee_millisatoshi": 1,
-          "fee_per_millionth": 10,
-          "delay": 6,
-          "htlc_minimum_msat": 0,
-          "htlc_maximum_msat": 990000000,
-          "features": ""
-        },
-        {
-          "source": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-          "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-          "short_channel_id": "103x1x0",
-          "direction": 1,
-          "public": true,
-          "amount_msat": 1000000000,
-          "message_flags": 1,
-          "channel_flags": 1,
-          "active": true,
-          "last_update": 1706153393,
-          "base_fee_millisatoshi": 1,
-          "fee_per_millionth": 10,
-          "delay": 6,
-          "htlc_minimum_msat": 0,
-          "htlc_maximum_msat": 990000000,
-          "features": ""
+          "source": null,
+          "destination": null
         }
-      ]
+      },
+      "response": {
+        "channels": []
+      }
+    },
+    {
+      "request": {
+        "id": "example:listchannels#2",
+        "method": "listchannels",
+        "params": {
+          "short_channel_id": null,
+          "source": null,
+          "destination": null
+        }
+      },
+      "response": {
+        "channels": [
+          {
+            "source": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "destination": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+            "short_channel_id": "103x1x0",
+            "direction": 0,
+            "public": true,
+            "amount_msat": 1000000000,
+            "message_flags": 1,
+            "channel_flags": 0,
+            "active": true,
+            "last_update": 1706153393,
+            "base_fee_millisatoshi": 1,
+            "fee_per_millionth": 10,
+            "delay": 6,
+            "htlc_minimum_msat": 0,
+            "htlc_maximum_msat": 990000000,
+            "features": ""
+          },
+          {
+            "source": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+            "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "short_channel_id": "103x1x0",
+            "direction": 1,
+            "public": true,
+            "amount_msat": 1000000000,
+            "message_flags": 1,
+            "channel_flags": 1,
+            "active": true,
+            "last_update": 1706153393,
+            "base_fee_millisatoshi": 1,
+            "fee_per_millionth": 10,
+            "delay": 6,
+            "htlc_minimum_msat": 0,
+            "htlc_maximum_msat": 990000000,
+            "features": ""
+          }
+        ]
+      }
     }
   ],
   "author": [

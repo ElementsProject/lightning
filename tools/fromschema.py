@@ -7,8 +7,8 @@ import json
 import re
 
 # To maintain the sequence of the before return value (body) and after return value (footer) sections in the markdown file
-BODY_KEY_SEQUENCE = ['reliability', 'usage', 'restriction_format', 'permitted_sqlite3_functions', 'treatment_of_types', 'tables', 'example_usage', 'example_json_request', 'notes', 'notifications', 'sharing_runes', 'riskfactor_effect_on_routing', 'recommended_riskfactor_values', 'optimality', 'randomization']
-FOOTER_KEY_SEQUENCE = ['example_json_response', 'errors', 'example_json_notifications', 'trivia', 'author', 'see_also', 'resources']
+BODY_KEY_SEQUENCE = ['reliability', 'usage', 'restriction_format', 'permitted_sqlite3_functions', 'treatment_of_types', 'tables', 'example_usage', 'notes', 'notifications', 'sharing_runes', 'riskfactor_effect_on_routing', 'recommended_riskfactor_values', 'optimality', 'randomization']
+FOOTER_KEY_SEQUENCE = ['errors', 'json_example', 'trivia', 'author', 'see_also', 'resources']
 
 
 def output_title(title, underline='-', num_leading_newlines=1, num_trailing_newlines=2):
@@ -426,13 +426,7 @@ def generate_body(schema):
         body_key_found = True
         output_title(key.replace('_', ' ').upper(), '-', 1 if first_matching_key else 2)
         first_matching_key = False
-        if key == 'example_json_request' and len(schema[key]) > 0:
-            output('```json\n')
-            for example in schema.get(key, []):
-                output(json.dumps(example, indent=2).strip() + '\n')
-            output('```')
-        else:
-            outputs(schema[key], '\n')
+        outputs(schema[key], '\n')
     if body_key_found:
         output('\n')
 
@@ -448,20 +442,17 @@ def generate_footer(schema):
         if key == 'see_also':
             # Wrap see_also list with comma separated values
             output(esc_underscores(', '.join(schema[key])))
-        elif key.startswith('example_json_') and len(schema[key]) > 0:
-            # For printing example_json_response and example_json_notifications into code block
+        elif key == 'json_example' and len(schema[key]) > 0:
             for i, example in enumerate(schema.get(key, [])):
-                # For printing string elements from example json response; example: `createonion`
-                if isinstance(example, str):
-                    output(example)
-                    if i + 1 < len(schema[key]):
-                        output('\n')
-                else:
-                    if i == 0:
-                        output('```json\n')
-                    output(json.dumps(example, indent=2).strip() + '\n')
-                    if i + 1 == len(schema[key]):
-                        output('```')
+                output('{}**Example {}**: {}\n'.format('' if i == 0 else '\n\n', i + 1, '\n'.join(example.get('description', ''))))
+                output('\nRequest:\n')
+                output('```json\n')
+                output(json.dumps(example['request'], indent=2).strip() + '\n')
+                output('```')
+                output('\nResponse:\n')
+                output('```json\n')
+                output(json.dumps(example['response'], indent=2).strip() + '\n')
+                output('```')
         else:
             outputs(schema[key], '\n')
     output('\n')

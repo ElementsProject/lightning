@@ -346,108 +346,110 @@
     "}",
     "```"
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:multifundchannel#1",
-      "method": "multifundchannel",
-      "params": {
-        "destinations": [
+      "request": {
+        "id": "example:multifundchannel#1",
+        "method": "multifundchannel",
+        "params": {
+          "destinations": [
+            {
+              "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59@localhost:41939",
+              "amount": 50000
+            }
+          ],
+          "feerate": "10000perkw",
+          "minconf": null,
+          "utxos": null,
+          "minchannels": null,
+          "commitment_feerate": "2000perkw"
+        }
+      },
+      "response": {
+        "tx": "0200000000010100a8ceb6f76c49c8c0c809ca359461540708a9a5ac56e56e6a7aaafb35f4d3850000000000fdffffff0250c30000000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd0623ff030000000022512063ffee4ea7d51e6cadf9086e286a2527922aaa25b8c53aebf32fa32a0a627f5a02473044022064763837f2cc84507eb1fc28c9e95d51174e1da4b8755da8e67fe21e37d0a8b402206295d0f19625f014819361a20572b936d81f6c5ba419e56997e882f3a7be094a012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf66000000",
+        "txid": "ecba36e93bcf40542d43a05ef550bb0e4be51d766aa2ec8c5640a0d431ab0d06",
+        "channel_ids": [
           {
-            "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59@localhost:41939",
-            "amount": 50000
+            "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "channel_id": "060dab31d4a040568ceca26a761de54b0ebb50f55ea0432d5440cf3be936baec",
+            "channel_type": {
+              "bits": [
+                12
+              ],
+              "names": [
+                "static_remotekey/even"
+              ]
+            },
+            "outnum": 0
           }
         ],
-        "feerate": "10000perkw",
-        "minconf": null,
-        "utxos": null,
-        "minchannels": null,
-        "commitment_feerate": "2000perkw"
+        "failed": []
       }
     },
     {
-      "id": "example:multifundchannel#2",
-      "method": "multifundchannel",
-      "params": {
-        "destinations": [
+      "request": {
+        "id": "example:multifundchannel#2",
+        "method": "multifundchannel",
+        "params": {
+          "destinations": [
+            {
+              "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59@localhost:44663",
+              "amount": 50000
+            },
+            {
+              "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d@localhost:34631",
+              "amount": 50000
+            },
+            {
+              "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199@localhost:34617",
+              "amount": 50000
+            }
+          ],
+          "feerate": null,
+          "minconf": null,
+          "utxos": null,
+          "minchannels": 1
+        }
+      },
+      "response": {
+        "tx": "020000000001023041611dac05004825ab64781b4a33bf622380bf90196fae689196b1850a1f8f0000000000fdffffff5646519c565466c9588a88400ec71a39a2c0b6988beadb32491a13d9b89f85360100000000fdffffff0250c3000000000000220020181492c29a989f099fd2cf412c74b192dd095e81f4e4f6bec45bd1fbfdd2cfd983720000000000002251203e8a03f678bb7ca048baecc39788530560ea049816d604f72925e425288446c80140caa3b93c6667e4fe0026417cc87ae9dfd16d80018e7c6dcd6dfcee4d6cab7c7e84181baeb95ba25934ad1aa6b57f83c8287bf1b727123350b35549a3abe15b060140b3c6626b9b57081cc7eb5e4f518669764d265fb84316d8fb610e19ede13c5a370c1072861b909ec923acec980adb4a3e488ee3c6f9c49164bd4596945b52f62678000000",
+        "txid": "1fcc6d46200443ad21e3a1a1628b862bafd0d75c0b4454f5494957097bc7930d",
+        "channel_ids": [
           {
-            "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59@localhost:44663",
-            "amount": 50000
-          },
-          {
-            "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d@localhost:34631",
-            "amount": 50000
-          },
-          {
-            "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199@localhost:34617",
-            "amount": 50000
+            "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
+            "channel_id": "0d93c77b09574949f554440b5cd7d0af2b868b62a1a1e321ad430420466dcc1f",
+            "channel_type": {
+              "bits": [
+                12,
+                22
+              ],
+              "names": [
+                "static_remotekey/even",
+                "anchors_zero_fee_htlc_tx/even"
+              ]
+            },
+            "outnum": 0
           }
         ],
-        "feerate": null,
-        "minconf": null,
-        "utxos": null,
-        "minchannels": 1
+        "failed": [
+          {
+            "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "method": "connect",
+            "error": {
+              "code": 401,
+              "message": "All addresses failed: 127.0.0.1:44663: Connection establishment: Connection refused. "
+            }
+          },
+          {
+            "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            "method": "connect",
+            "error": {
+              "code": 401,
+              "message": "All addresses failed: 127.0.0.1:34631: Connection establishment: Connection refused. "
+            }
+          }
+        ]
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "tx": "0200000000010100a8ceb6f76c49c8c0c809ca359461540708a9a5ac56e56e6a7aaafb35f4d3850000000000fdffffff0250c30000000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd0623ff030000000022512063ffee4ea7d51e6cadf9086e286a2527922aaa25b8c53aebf32fa32a0a627f5a02473044022064763837f2cc84507eb1fc28c9e95d51174e1da4b8755da8e67fe21e37d0a8b402206295d0f19625f014819361a20572b936d81f6c5ba419e56997e882f3a7be094a012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf66000000",
-      "txid": "ecba36e93bcf40542d43a05ef550bb0e4be51d766aa2ec8c5640a0d431ab0d06",
-      "channel_ids": [
-        {
-          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-          "channel_id": "060dab31d4a040568ceca26a761de54b0ebb50f55ea0432d5440cf3be936baec",
-          "channel_type": {
-            "bits": [
-              12
-            ],
-            "names": [
-              "static_remotekey/even"
-            ]
-          },
-          "outnum": 0
-        }
-      ],
-      "failed": []
-    },
-    {
-      "tx": "020000000001023041611dac05004825ab64781b4a33bf622380bf90196fae689196b1850a1f8f0000000000fdffffff5646519c565466c9588a88400ec71a39a2c0b6988beadb32491a13d9b89f85360100000000fdffffff0250c3000000000000220020181492c29a989f099fd2cf412c74b192dd095e81f4e4f6bec45bd1fbfdd2cfd983720000000000002251203e8a03f678bb7ca048baecc39788530560ea049816d604f72925e425288446c80140caa3b93c6667e4fe0026417cc87ae9dfd16d80018e7c6dcd6dfcee4d6cab7c7e84181baeb95ba25934ad1aa6b57f83c8287bf1b727123350b35549a3abe15b060140b3c6626b9b57081cc7eb5e4f518669764d265fb84316d8fb610e19ede13c5a370c1072861b909ec923acec980adb4a3e488ee3c6f9c49164bd4596945b52f62678000000",
-      "txid": "1fcc6d46200443ad21e3a1a1628b862bafd0d75c0b4454f5494957097bc7930d",
-      "channel_ids": [
-        {
-          "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
-          "channel_id": "0d93c77b09574949f554440b5cd7d0af2b868b62a1a1e321ad430420466dcc1f",
-          "channel_type": {
-            "bits": [
-              12,
-              22
-            ],
-            "names": [
-              "static_remotekey/even",
-              "anchors_zero_fee_htlc_tx/even"
-            ]
-          },
-          "outnum": 0
-        }
-      ],
-      "failed": [
-        {
-          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-          "method": "connect",
-          "error": {
-            "code": 401,
-            "message": "All addresses failed: 127.0.0.1:44663: Connection establishment: Connection refused. "
-          }
-        },
-        {
-          "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-          "method": "connect",
-          "error": {
-            "code": 401,
-            "message": "All addresses failed: 127.0.0.1:34631: Connection establishment: Connection refused. "
-          }
-        }
-      ]
     }
   ],
   "author": [

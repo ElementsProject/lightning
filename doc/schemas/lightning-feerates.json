@@ -369,106 +369,108 @@
   "trivia": [
     "In C-lightning we like to call the weight unit \"sipa\" in honor of Pieter Wuille, who uses the name \"sipa\" on IRC and elsewhere. Internally we call the *perkw* style as \"feerate per kilosipa\"."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:feerates#1",
-      "method": "feerates",
-      "params": {
-        "style": "perkw",
-        "urgent": null,
-        "normal": null,
-        "slow": null
+      "request": {
+        "id": "example:feerates#1",
+        "method": "feerates",
+        "params": {
+          "style": "perkw",
+          "urgent": null,
+          "normal": null,
+          "slow": null
+        }
+      },
+      "response": {
+        "perkw": {
+          "opening": 1000000,
+          "mutual_close": 26362,
+          "unilateral_close": 26362,
+          "unilateral_anchor_close": 1000000,
+          "penalty": 26362,
+          "min_acceptable": 3750,
+          "max_acceptable": 10000000,
+          "floor": 253,
+          "estimates": [
+            {
+              "blockcount": 2,
+              "feerate": 1000000,
+              "smoothed_feerate": 26362
+            },
+            {
+              "blockcount": 6,
+              "feerate": 1000000,
+              "smoothed_feerate": 26362
+            },
+            {
+              "blockcount": 12,
+              "feerate": 1000000,
+              "smoothed_feerate": 26362
+            },
+            {
+              "blockcount": 100,
+              "feerate": 1000000,
+              "smoothed_feerate": 26362
+            }
+          ]
+        },
+        "onchain_fee_estimates": {
+          "opening_channel_satoshis": 702000,
+          "mutual_close_satoshis": 17741,
+          "unilateral_close_satoshis": 1112000,
+          "unilateral_close_nonanchor_satoshis": 15764,
+          "htlc_timeout_satoshis": 17478,
+          "htlc_success_satoshis": 18532
+        }
       }
     },
     {
-      "id": "example:feerates#2",
-      "method": "feerates",
-      "params": {
-        "style": "perkb",
-        "urgent": null,
-        "normal": null,
-        "slow": null
-      }
-    }
-  ],
-  "example_json_response": [
-    {
-      "perkw": {
-        "opening": 1000000,
-        "mutual_close": 26362,
-        "unilateral_close": 26362,
-        "unilateral_anchor_close": 1000000,
-        "penalty": 26362,
-        "min_acceptable": 3750,
-        "max_acceptable": 10000000,
-        "floor": 253,
-        "estimates": [
-          {
-            "blockcount": 2,
-            "feerate": 1000000,
-            "smoothed_feerate": 26362
-          },
-          {
-            "blockcount": 6,
-            "feerate": 1000000,
-            "smoothed_feerate": 26362
-          },
-          {
-            "blockcount": 12,
-            "feerate": 1000000,
-            "smoothed_feerate": 26362
-          },
-          {
-            "blockcount": 100,
-            "feerate": 1000000,
-            "smoothed_feerate": 26362
-          }
-        ]
+      "request": {
+        "id": "example:feerates#2",
+        "method": "feerates",
+        "params": {
+          "style": "perkb",
+          "urgent": null,
+          "normal": null,
+          "slow": null
+        }
       },
-      "onchain_fee_estimates": {
-        "opening_channel_satoshis": 702000,
-        "mutual_close_satoshis": 17741,
-        "unilateral_close_satoshis": 1112000,
-        "unilateral_close_nonanchor_satoshis": 15764,
-        "htlc_timeout_satoshis": 17478,
-        "htlc_success_satoshis": 18532
-      }
-    },
-    {
-      "perkb": {
-        "opening": 25000,
-        "mutual_close": 25000,
-        "unilateral_close": 44000,
-        "unilateral_anchor_close": 25000,
-        "penalty": 25000,
-        "min_acceptable": 12500,
-        "max_acceptable": 600000,
-        "floor": 1012,
-        "estimates": [
-          {
-            "blockcount": 2,
-            "feerate": 60000,
-            "smoothed_feerate": 60000
-          },
-          {
-            "blockcount": 6,
-            "feerate": 44000,
-            "smoothed_feerate": 44000
-          },
-          {
-            "blockcount": 12,
-            "feerate": 25000,
-            "smoothed_feerate": 25000
-          }
-        ]
-      },
-      "onchain_fee_estimates": {
-        "opening_channel_satoshis": 4387,
-        "mutual_close_satoshis": 4206,
-        "unilateral_close_satoshis": 6578,
-        "unilateral_close_nonanchor_satoshis": 6578,
-        "htlc_timeout_satoshis": 7293,
-        "htlc_success_satoshis": 7733
+      "response": {
+        "perkb": {
+          "opening": 25000,
+          "mutual_close": 25000,
+          "unilateral_close": 44000,
+          "unilateral_anchor_close": 25000,
+          "penalty": 25000,
+          "min_acceptable": 12500,
+          "max_acceptable": 600000,
+          "floor": 1012,
+          "estimates": [
+            {
+              "blockcount": 2,
+              "feerate": 60000,
+              "smoothed_feerate": 60000
+            },
+            {
+              "blockcount": 6,
+              "feerate": 44000,
+              "smoothed_feerate": 44000
+            },
+            {
+              "blockcount": 12,
+              "feerate": 25000,
+              "smoothed_feerate": 25000
+            }
+          ]
+        },
+        "onchain_fee_estimates": {
+          "opening_channel_satoshis": 4387,
+          "mutual_close_satoshis": 4206,
+          "unilateral_close_satoshis": 6578,
+          "unilateral_close_nonanchor_satoshis": 6578,
+          "htlc_timeout_satoshis": 7293,
+          "htlc_success_satoshis": 7733
+        }
       }
     }
   ],

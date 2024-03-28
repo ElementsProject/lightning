@@ -79,42 +79,44 @@
     "- 1201: the key does exist, but the generation is wrong",
     "- -32602: invalid parameters"
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:deldatastore#1",
-      "method": "deldatastore",
-      "params": {
-        "key": "otherkey",
-        "generation": 1
+      "request": {
+        "id": "example:deldatastore#1",
+        "method": "deldatastore",
+        "params": {
+          "key": "otherkey",
+          "generation": 1
+        }
+      },
+      "response": {
+        "key": [
+          "otherkey"
+        ],
+        "generation": 1,
+        "hex": "6f746865726461746161",
+        "string": "otherdataa"
       }
     },
     {
-      "id": "example:deldatastore#2",
-      "method": "deldatastore",
-      "params": {
+      "request": {
+        "id": "example:deldatastore#2",
+        "method": "deldatastore",
+        "params": {
+          "key": [
+            "a"
+          ],
+          "generation": null
+        }
+      },
+      "response": {
         "key": [
           "a"
         ],
-        "generation": null
+        "generation": 0,
+        "hex": "6176616c",
+        "string": "aval"
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "key": [
-        "otherkey"
-      ],
-      "generation": 1,
-      "hex": "6f746865726461746161",
-      "string": "otherdataa"
-    },
-    {
-      "key": [
-        "a"
-      ],
-      "generation": 0,
-      "hex": "6176616c",
-      "string": "aval"
     }
   ],
   "author": [

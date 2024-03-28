@@ -45,27 +45,29 @@
     "- -32602: If the given parameters are wrong.",
     "- -1: Catchall nonspecific error."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:disconnect#1",
-      "method": "disconnect",
-      "params": {
-        "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-        "force": false
-      }
+      "request": {
+        "id": "example:disconnect#1",
+        "method": "disconnect",
+        "params": {
+          "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+          "force": false
+        }
+      },
+      "response": {}
     },
     {
-      "id": "example:disconnect#2",
-      "method": "disconnect",
-      "params": {
-        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-        "force": true
-      }
+      "request": {
+        "id": "example:disconnect#2",
+        "method": "disconnect",
+        "params": {
+          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "force": true
+        }
+      },
+      "response": {}
     }
-  ],
-  "example_json_response": [
-    {},
-    {}
   ],
   "author": [
     "Michael Hawkins <<michael.hawkins@protonmail.com>>."

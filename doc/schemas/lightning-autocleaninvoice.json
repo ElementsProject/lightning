@@ -77,34 +77,36 @@
       }
     ]
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:autocleaninvoice#1",
-      "method": "autocleaninvoice",
-      "params": {
+      "request": {
+        "id": "example:autocleaninvoice#1",
+        "method": "autocleaninvoice",
+        "params": {
+          "cycle_seconds": 8,
+          "expired_by": 2
+        }
+      },
+      "response": {
+        "enabled": true,
         "cycle_seconds": 8,
         "expired_by": 2
       }
     },
     {
-      "id": "example:autocleaninvoice#2",
-      "method": "autocleaninvoice",
-      "params": {
+      "request": {
+        "id": "example:autocleaninvoice#2",
+        "method": "autocleaninvoice",
+        "params": {
+          "cycle_seconds": 1,
+          "expired_by": 1
+        }
+      },
+      "response": {
+        "enabled": true,
         "cycle_seconds": 1,
         "expired_by": 1
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "enabled": true,
-      "cycle_seconds": 8,
-      "expired_by": 2
-    },
-    {
-      "enabled": true,
-      "cycle_seconds": 1,
-      "expired_by": 1
     }
   ],
   "author": [

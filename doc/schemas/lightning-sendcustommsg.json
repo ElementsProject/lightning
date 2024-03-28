@@ -48,19 +48,19 @@
       "If any of the above limitations is not respected the method returns an explicit error message stating the issue."
     ]
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:sendcustommsg#5",
-      "method": "sendcustommsg",
-      "params": {
-        "node_id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-        "msg": "77770012"
+      "request": {
+        "id": "example:sendcustommsg#5",
+        "method": "sendcustommsg",
+        "params": {
+          "node_id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+          "msg": "77770012"
+        }
+      },
+      "response": {
+        "status": "Message sent to connectd for delivery"
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "status": "Message sent to connectd for delivery"
     }
   ],
   "author": [

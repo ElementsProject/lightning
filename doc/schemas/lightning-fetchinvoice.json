@@ -174,44 +174,48 @@
     "- 1004: The node making the offer returned an error message.",
     "- 1005: We timed out trying to fetch an invoice."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:fetchinvoice#1",
-      "method": "fetchinvoice",
-      "params": {
-        "offer": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqypq5zmnd9khqmr9yp6x2um5zcssxhftzxfdlwsnfcgw2sy8t5mxa0ytcdfat2nkdwqvpy9nnsa9mzza",
-        "payer_note": "Thanks for the fish!"
+      "request": {
+        "id": "example:fetchinvoice#1",
+        "method": "fetchinvoice",
+        "params": {
+          "offer": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqypq5zmnd9khqmr9yp6x2um5zcssxhftzxfdlwsnfcgw2sy8t5mxa0ytcdfat2nkdwqvpy9nnsa9mzza",
+          "payer_note": "Thanks for the fish!"
+        }
+      },
+      "response": {
+        "invoice": "lni1qqgvcm9h7yakcmw4mzazspu8vfgpwq3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy8ssqgzpg9hx6tdwpkx2gr5v4ehg93pqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky965pqqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy84sggren772kj8mau5jp86nc6fszx48rv7ep0quszyyls8rlld3sshjr94j9z5dpsku6mnypnx7u3qw35x2grxd9eksgdqnqp462c3jt0m5y6wzrj5pp6axehtez7r20265antsrqfpvuu8fwcshgr0tsv8e6829e8xmv7laz0kwhtlx6vtk8q3d6rtthdhtwvnn6j585szquc2t7us8kguxypzasg8ewkakgx2ny5ugks0f32x67sm9e5fms4asqrylajc2dqh8ag55mv5p5ghy3e2z8zwmllle8uu7jsxv5ke8d6rr5h7kthmz7ya0hxp4nt7elvw7vghcl6fgsuqqqqqqqqqqqqqqq9qqqqqqqqqqqqq8fykt06c5sqqqqqpfqyvhtunn4gyzy0lphn4wn6ctzlsajy46wscjcglf3hxcnvlaxqs3ydkhgaklsc42spq2czzq6a9vge9ha6zd8ppe2qsawnvm4u30p484d2we4cpsyskwwr5hvgthcyqyuen02ejwpa9cjjrttvp223yxsqkrwnlaszkhas84w0ape300ued4p75xu3cqtcg0cslsx9fvh7dhdqx565t6wa0alf6u2hug90j2hs",
+        "changes": {}
       }
     },
     {
-      "id": "example:fetchinvoice#2",
-      "method": "fetchinvoice",
-      "params": {
-        "offer": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqypq5zmnd9khqmr9yp6x2um5zcssxhftzxfdlwsnfcgw2sy8t5mxa0ytcdfat2nkdwqvpy9nnsa9mzza",
-        "amount_msat": 3
+      "request": {
+        "id": "example:fetchinvoice#2",
+        "method": "fetchinvoice",
+        "params": {
+          "offer": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqypq5zmnd9khqmr9yp6x2um5zcssxhftzxfdlwsnfcgw2sy8t5mxa0ytcdfat2nkdwqvpy9nnsa9mzza",
+          "amount_msat": 3
+        }
+      },
+      "response": {
+        "invoice": "lni1qqg0mfchkz0gkmn8zzu5zaxd0qvlzq3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy8ssqgzpg9hx6tdwpkx2gr5v4ehg93pqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky965pqqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy84yqgrtqss8d4vgzd3286u9rk0zg9qr7a6z2xm6mjnz9pydztcn0j74tjvch0f5zvqxhftzxfdlwsnfcgw2sy8t5mxa0ytcdfat2nkdwqvpy9nnsa9mzzaqth4fzjqxxmsaxvc4v2urs6hsh6k0e564x00g68vuyp5w7yjedzxvqgr8ltzmj0n7ltxr0tz9rafn9zcy9jldjqfuf20w6gjmr7nj04d360sqvkdwprxn22dlp3xay9yq4nhrw2jm0c8t6r7japhdad6leawxyqzkg92tx8gqxp9f2d8j5k2axta0gr7yr9zrsqqqqqqqqqqqqqqq5qqqqqqqqqqqqqayjedltzjqqqqqq9yq3ja0jwj4qswt3kgs9mxq7gck66x60m5rndykpw3a7hf4ntlp9qe2vgwzzrvcwd2qypmqggrt543ryklhgf5uy89gzr46dnwhj9ux5744fmxhqxqjzeecwja3pwlqsxyjcdwur4hl4qf7nsjgg8euvy45lznufh5kydkwz6llsucuhvwp9ezeggaj3k057ge6ftvaffjkwn6j3y7faeuysrx3m2xccphu65sx",
+        "changes": {}
       }
     },
     {
-      "id": "example:fetchinvoice#3",
-      "method": "fetchinvoice",
-      "params": {
-        "offer": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqypq5zmnd9khqmr9yp6x2um5zsqs593pqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4j",
-        "quantity": 2
+      "request": {
+        "id": "example:fetchinvoice#3",
+        "method": "fetchinvoice",
+        "params": {
+          "offer": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqypq5zmnd9khqmr9yp6x2um5zsqs593pqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4j",
+          "quantity": 2
+        }
+      },
+      "response": {
+        "invoice": "lni1qqgd508mv9rpjg2ec8dr8qcslf2cjq3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy8ssqgzpg9hx6tdwpkx2gr5v4ehg9qppgtzzq3dygmzpg6e53ll0aavg37gt3rvjg762vufygdqq4xprs0regcat9gzqp3zderpzxstt8927ynqg044h0egcd8n5h3n9g0u0v4h8ncc3yg02cqsykppqfkyy6q8ry9pchxtuajh456hhcf7dxx733cx76etuv5ftfmfa2ymhgycqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jq6uhkeymz26zx7zgw4gdmw2vj9xqn4hu2sqxhp0pcgt87pf9chyfvqsywtejxjh603kx7am3zaf6d6xuumw30p8zmcdz7r95nn4lr92exk3qqe2x6xqwpdzh2zwq3vnyra8nfc6d7y6hegpkvc7p2nulj7hvhwl5hjfr23wn60mjftqspn7d4ejhrpsr5m2y8qqqqqqqqqqqqqqqpgqqqqqqqqqqqqp6f9jm7k9yqqqqqq2gpr96l9mt2pqxuyr0gqw92h0xz2y2uy5uxss4ujcac5jehj9ay2sxkapr80t5ha65qgykqssytfzxcs2xkdy0lml0tzy0jzugmyj8kjn8zfzrgq9fsgurc72x82e7pqxhl4u29cjluw5s8fwa9wtvh0qytr7vqk0vtndsz07mrrtmjw629m8mnqkjaf43kt889qeq2f7deu6t853lngpzclapt8nj0g528v9ay",
+        "changes": {}
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "invoice": "lni1qqgvcm9h7yakcmw4mzazspu8vfgpwq3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy8ssqgzpg9hx6tdwpkx2gr5v4ehg93pqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky965pqqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy84sggren772kj8mau5jp86nc6fszx48rv7ep0quszyyls8rlld3sshjr94j9z5dpsku6mnypnx7u3qw35x2grxd9eksgdqnqp462c3jt0m5y6wzrj5pp6axehtez7r20265antsrqfpvuu8fwcshgr0tsv8e6829e8xmv7laz0kwhtlx6vtk8q3d6rtthdhtwvnn6j585szquc2t7us8kguxypzasg8ewkakgx2ny5ugks0f32x67sm9e5fms4asqrylajc2dqh8ag55mv5p5ghy3e2z8zwmllle8uu7jsxv5ke8d6rr5h7kthmz7ya0hxp4nt7elvw7vghcl6fgsuqqqqqqqqqqqqqqq9qqqqqqqqqqqqq8fykt06c5sqqqqqpfqyvhtunn4gyzy0lphn4wn6ctzlsajy46wscjcglf3hxcnvlaxqs3ydkhgaklsc42spq2czzq6a9vge9ha6zd8ppe2qsawnvm4u30p484d2we4cpsyskwwr5hvgthcyqyuen02ejwpa9cjjrttvp223yxsqkrwnlaszkhas84w0ape300ued4p75xu3cqtcg0cslsx9fvh7dhdqx565t6wa0alf6u2hug90j2hs",
-      "changes": {}
-    },
-    {
-      "invoice": "lni1qqg0mfchkz0gkmn8zzu5zaxd0qvlzq3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy8ssqgzpg9hx6tdwpkx2gr5v4ehg93pqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky965pqqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy84yqgrtqss8d4vgzd3286u9rk0zg9qr7a6z2xm6mjnz9pydztcn0j74tjvch0f5zvqxhftzxfdlwsnfcgw2sy8t5mxa0ytcdfat2nkdwqvpy9nnsa9mzzaqth4fzjqxxmsaxvc4v2urs6hsh6k0e564x00g68vuyp5w7yjedzxvqgr8ltzmj0n7ltxr0tz9rafn9zcy9jldjqfuf20w6gjmr7nj04d360sqvkdwprxn22dlp3xay9yq4nhrw2jm0c8t6r7japhdad6leawxyqzkg92tx8gqxp9f2d8j5k2axta0gr7yr9zrsqqqqqqqqqqqqqqq5qqqqqqqqqqqqqayjedltzjqqqqqq9yq3ja0jwj4qswt3kgs9mxq7gck66x60m5rndykpw3a7hf4ntlp9qe2vgwzzrvcwd2qypmqggrt543ryklhgf5uy89gzr46dnwhj9ux5744fmxhqxqjzeecwja3pwlqsxyjcdwur4hl4qf7nsjgg8euvy45lznufh5kydkwz6llsucuhvwp9ezeggaj3k057ge6ftvaffjkwn6j3y7faeuysrx3m2xccphu65sx",
-      "changes": {}
-    },
-    {
-      "invoice": "lni1qqgd508mv9rpjg2ec8dr8qcslf2cjq3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy8ssqgzpg9hx6tdwpkx2gr5v4ehg9qppgtzzq3dygmzpg6e53ll0aavg37gt3rvjg762vufygdqq4xprs0regcat9gzqp3zderpzxstt8927ynqg044h0egcd8n5h3n9g0u0v4h8ncc3yg02cqsykppqfkyy6q8ry9pchxtuajh456hhcf7dxx733cx76etuv5ftfmfa2ymhgycqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jq6uhkeymz26zx7zgw4gdmw2vj9xqn4hu2sqxhp0pcgt87pf9chyfvqsywtejxjh603kx7am3zaf6d6xuumw30p8zmcdz7r95nn4lr92exk3qqe2x6xqwpdzh2zwq3vnyra8nfc6d7y6hegpkvc7p2nulj7hvhwl5hjfr23wn60mjftqspn7d4ejhrpsr5m2y8qqqqqqqqqqqqqqqpgqqqqqqqqqqqqp6f9jm7k9yqqqqqq2gpr96l9mt2pqxuyr0gqw92h0xz2y2uy5uxss4ujcac5jehj9ay2sxkapr80t5ha65qgykqssytfzxcs2xkdy0lml0tzy0jzugmyj8kjn8zfzrgq9fsgurc72x82e7pqxhl4u29cjluw5s8fwa9wtvh0qytr7vqk0vtndsz07mrrtmjw629m8mnqkjaf43kt889qeq2f7deu6t853lngpzclapt8nj0g528v9ay",
-      "changes": {}
     }
   ],
   "author": [

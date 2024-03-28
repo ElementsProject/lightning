@@ -71,59 +71,63 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:commando-blacklist#1",
-      "method": "commando-blacklist",
-      "params": {
-        "start": 2
-      }
-    },
-    {
-      "id": "example:commando-blacklist#2",
-      "method": "commando-blacklist",
-      "params": {
-        "start": 5,
-        "end": 7
-      }
-    },
-    {
-      "id": "example:commando-blacklist#3",
-      "method": "commando-blacklist",
-      "params": {
-        "start": 3,
-        "end": 4
-      }
-    }
-  ],
-  "example_json_response": [
-    {
-      "blacklist": [
-        {
-          "start": 2,
-          "end": 2
+      "request": {
+        "id": "example:commando-blacklist#1",
+        "method": "commando-blacklist",
+        "params": {
+          "start": 2
         }
-      ]
+      },
+      "response": {
+        "blacklist": [
+          {
+            "start": 2,
+            "end": 2
+          }
+        ]
+      }
     },
     {
-      "blacklist": [
-        {
-          "start": 2,
-          "end": 2
-        },
-        {
+      "request": {
+        "id": "example:commando-blacklist#2",
+        "method": "commando-blacklist",
+        "params": {
           "start": 5,
           "end": 7
         }
-      ]
+      },
+      "response": {
+        "blacklist": [
+          {
+            "start": 2,
+            "end": 2
+          },
+          {
+            "start": 5,
+            "end": 7
+          }
+        ]
+      }
     },
     {
-      "blacklist": [
-        {
-          "start": 2,
-          "end": 7
+      "request": {
+        "id": "example:commando-blacklist#3",
+        "method": "commando-blacklist",
+        "params": {
+          "start": 3,
+          "end": 4
         }
-      ]
+      },
+      "response": {
+        "blacklist": [
+          {
+            "start": 2,
+            "end": 7
+          }
+        ]
+      }
     }
   ],
   "author": [

@@ -172,107 +172,109 @@
   "errors": [
     "On error, the reason why the action could not be taken upon the plugin is returned."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:plugin#1",
-      "method": "plugin",
-      "params": [
-        "list"
-      ]
-    },
-    {
-      "id": "example:plugin#2",
-      "method": "plugin",
-      "params": {
-        "subcommand": "stop",
-        "plugin": "fail_htlcs.py"
+      "request": {
+        "id": "example:plugin#1",
+        "method": "plugin",
+        "params": [
+          "list"
+        ]
+      },
+      "response": {
+        "command": "list",
+        "plugins": [
+          {
+            "name": "~/lightning/plugins/autoclean",
+            "active": true,
+            "dynamic": false
+          },
+          {
+            "name": "~/lightning/plugins/chanbackup",
+            "active": true,
+            "dynamic": false
+          },
+          {
+            "name": "~/lightning/plugins/bcli",
+            "active": true,
+            "dynamic": false
+          },
+          {
+            "name": "~/lightning/plugins/commando",
+            "active": true,
+            "dynamic": false
+          },
+          {
+            "name": "~/lightning/plugins/funder",
+            "active": true,
+            "dynamic": true
+          },
+          {
+            "name": "~/lightning/plugins/topology",
+            "active": true,
+            "dynamic": false
+          },
+          {
+            "name": "~/lightning/plugins/keysend",
+            "active": true,
+            "dynamic": false
+          },
+          {
+            "name": "~/lightning/plugins/offers",
+            "active": true,
+            "dynamic": true
+          },
+          {
+            "name": "~/lightning/plugins/pay",
+            "active": true,
+            "dynamic": true
+          },
+          {
+            "name": "~/lightning/plugins/txprepare",
+            "active": true,
+            "dynamic": true
+          },
+          {
+            "name": "~/lightning/plugins/cln-renepay",
+            "active": true,
+            "dynamic": true
+          },
+          {
+            "name": "~/lightning/plugins/spenderp",
+            "active": true,
+            "dynamic": false
+          },
+          {
+            "name": "~/lightning/plugins/sql",
+            "active": true,
+            "dynamic": true
+          },
+          {
+            "name": "~/lightning/plugins/bookkeeper",
+            "active": true,
+            "dynamic": false
+          },
+          {
+            "name": "~/lightning/target/debug/examples/cln-plugin-startup",
+            "active": true,
+            "dynamic": false
+          }
+        ]
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "command": "list",
-      "plugins": [
-        {
-          "name": "~/lightning/plugins/autoclean",
-          "active": true,
-          "dynamic": false
-        },
-        {
-          "name": "~/lightning/plugins/chanbackup",
-          "active": true,
-          "dynamic": false
-        },
-        {
-          "name": "~/lightning/plugins/bcli",
-          "active": true,
-          "dynamic": false
-        },
-        {
-          "name": "~/lightning/plugins/commando",
-          "active": true,
-          "dynamic": false
-        },
-        {
-          "name": "~/lightning/plugins/funder",
-          "active": true,
-          "dynamic": true
-        },
-        {
-          "name": "~/lightning/plugins/topology",
-          "active": true,
-          "dynamic": false
-        },
-        {
-          "name": "~/lightning/plugins/keysend",
-          "active": true,
-          "dynamic": false
-        },
-        {
-          "name": "~/lightning/plugins/offers",
-          "active": true,
-          "dynamic": true
-        },
-        {
-          "name": "~/lightning/plugins/pay",
-          "active": true,
-          "dynamic": true
-        },
-        {
-          "name": "~/lightning/plugins/txprepare",
-          "active": true,
-          "dynamic": true
-        },
-        {
-          "name": "~/lightning/plugins/cln-renepay",
-          "active": true,
-          "dynamic": true
-        },
-        {
-          "name": "~/lightning/plugins/spenderp",
-          "active": true,
-          "dynamic": false
-        },
-        {
-          "name": "~/lightning/plugins/sql",
-          "active": true,
-          "dynamic": true
-        },
-        {
-          "name": "~/lightning/plugins/bookkeeper",
-          "active": true,
-          "dynamic": false
-        },
-        {
-          "name": "~/lightning/target/debug/examples/cln-plugin-startup",
-          "active": true,
-          "dynamic": false
-        }
-      ]
     },
     {
-      "command": "stop",
-      "result": "Successfully stopped fail_htlcs.py."
+      "request": {
+        "id": "example:plugin#2",
+        "method": "plugin",
+        "params": {
+          "subcommand": "stop",
+          "plugin": "fail_htlcs.py"
+        }
+      },
+      "response": {
+        "command": "stop",
+        "result": "Successfully stopped fail_htlcs.py."
+      }
     }
   ],
   "author": [

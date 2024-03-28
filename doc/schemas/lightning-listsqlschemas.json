@@ -96,173 +96,175 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:listsqlschemas#1",
-      "method": "listsqlschemas",
-      "params": {
-        "table": "offers"
+      "request": {
+        "id": "example:listsqlschemas#1",
+        "method": "listsqlschemas",
+        "params": {
+          "table": "offers"
+        }
+      },
+      "response": {
+        "schemas": [
+          {
+            "tablename": "offers",
+            "columns": [
+              {
+                "name": "offer_id",
+                "type": "BLOB"
+              },
+              {
+                "name": "active",
+                "type": "INTEGER"
+              },
+              {
+                "name": "single_use",
+                "type": "INTEGER"
+              },
+              {
+                "name": "bolt12",
+                "type": "TEXT"
+              },
+              {
+                "name": "bolt12_unsigned",
+                "type": "TEXT"
+              },
+              {
+                "name": "used",
+                "type": "INTEGER"
+              },
+              {
+                "name": "label",
+                "type": "TEXT"
+              }
+            ],
+            "indices": [
+              [
+                "offer_id"
+              ]
+            ]
+          }
+        ]
       }
     },
     {
-      "id": "example:listsqlschemas#2",
-      "method": "listsqlschemas",
-      "params": [
-        "closedchannels"
-      ]
-    }
-  ],
-  "example_json_response": [
-    {
-      "schemas": [
-        {
-          "tablename": "offers",
-          "columns": [
-            {
-              "name": "offer_id",
-              "type": "BLOB"
-            },
-            {
-              "name": "active",
-              "type": "INTEGER"
-            },
-            {
-              "name": "single_use",
-              "type": "INTEGER"
-            },
-            {
-              "name": "bolt12",
-              "type": "TEXT"
-            },
-            {
-              "name": "bolt12_unsigned",
-              "type": "TEXT"
-            },
-            {
-              "name": "used",
-              "type": "INTEGER"
-            },
-            {
-              "name": "label",
-              "type": "TEXT"
-            }
-          ],
-          "indices": [
-            [
-              "offer_id"
+      "request": {
+        "id": "example:listsqlschemas#2",
+        "method": "listsqlschemas",
+        "params": [
+          "closedchannels"
+        ]
+      },
+      "response": {
+        "schemas": [
+          {
+            "tablename": "closedchannels",
+            "columns": [
+              {
+                "name": "rowid",
+                "type": "INTEGER"
+              },
+              {
+                "name": "peer_id",
+                "type": "BLOB"
+              },
+              {
+                "name": "channel_id",
+                "type": "BLOB"
+              },
+              {
+                "name": "short_channel_id",
+                "type": "TEXT"
+              },
+              {
+                "name": "alias_local",
+                "type": "TEXT"
+              },
+              {
+                "name": "alias_remote",
+                "type": "TEXT"
+              },
+              {
+                "name": "opener",
+                "type": "TEXT"
+              },
+              {
+                "name": "closer",
+                "type": "TEXT"
+              },
+              {
+                "name": "private",
+                "type": "INTEGER"
+              },
+              {
+                "name": "total_local_commitments",
+                "type": "INTEGER"
+              },
+              {
+                "name": "total_remote_commitments",
+                "type": "INTEGER"
+              },
+              {
+                "name": "total_htlcs_sent",
+                "type": "INTEGER"
+              },
+              {
+                "name": "funding_txid",
+                "type": "BLOB"
+              },
+              {
+                "name": "funding_outnum",
+                "type": "INTEGER"
+              },
+              {
+                "name": "leased",
+                "type": "INTEGER"
+              },
+              {
+                "name": "funding_fee_paid_msat",
+                "type": "INTEGER"
+              },
+              {
+                "name": "funding_fee_rcvd_msat",
+                "type": "INTEGER"
+              },
+              {
+                "name": "funding_pushed_msat",
+                "type": "INTEGER"
+              },
+              {
+                "name": "total_msat",
+                "type": "INTEGER"
+              },
+              {
+                "name": "final_to_us_msat",
+                "type": "INTEGER"
+              },
+              {
+                "name": "min_to_us_msat",
+                "type": "INTEGER"
+              },
+              {
+                "name": "max_to_us_msat",
+                "type": "INTEGER"
+              },
+              {
+                "name": "last_commitment_txid",
+                "type": "BLOB"
+              },
+              {
+                "name": "last_commitment_fee_msat",
+                "type": "INTEGER"
+              },
+              {
+                "name": "close_cause",
+                "type": "TEXT"
+              }
             ]
-          ]
-        }
-      ]
-    },
-    {
-      "schemas": [
-        {
-          "tablename": "closedchannels",
-          "columns": [
-            {
-              "name": "rowid",
-              "type": "INTEGER"
-            },
-            {
-              "name": "peer_id",
-              "type": "BLOB"
-            },
-            {
-              "name": "channel_id",
-              "type": "BLOB"
-            },
-            {
-              "name": "short_channel_id",
-              "type": "TEXT"
-            },
-            {
-              "name": "alias_local",
-              "type": "TEXT"
-            },
-            {
-              "name": "alias_remote",
-              "type": "TEXT"
-            },
-            {
-              "name": "opener",
-              "type": "TEXT"
-            },
-            {
-              "name": "closer",
-              "type": "TEXT"
-            },
-            {
-              "name": "private",
-              "type": "INTEGER"
-            },
-            {
-              "name": "total_local_commitments",
-              "type": "INTEGER"
-            },
-            {
-              "name": "total_remote_commitments",
-              "type": "INTEGER"
-            },
-            {
-              "name": "total_htlcs_sent",
-              "type": "INTEGER"
-            },
-            {
-              "name": "funding_txid",
-              "type": "BLOB"
-            },
-            {
-              "name": "funding_outnum",
-              "type": "INTEGER"
-            },
-            {
-              "name": "leased",
-              "type": "INTEGER"
-            },
-            {
-              "name": "funding_fee_paid_msat",
-              "type": "INTEGER"
-            },
-            {
-              "name": "funding_fee_rcvd_msat",
-              "type": "INTEGER"
-            },
-            {
-              "name": "funding_pushed_msat",
-              "type": "INTEGER"
-            },
-            {
-              "name": "total_msat",
-              "type": "INTEGER"
-            },
-            {
-              "name": "final_to_us_msat",
-              "type": "INTEGER"
-            },
-            {
-              "name": "min_to_us_msat",
-              "type": "INTEGER"
-            },
-            {
-              "name": "max_to_us_msat",
-              "type": "INTEGER"
-            },
-            {
-              "name": "last_commitment_txid",
-              "type": "BLOB"
-            },
-            {
-              "name": "last_commitment_fee_msat",
-              "type": "INTEGER"
-            },
-            {
-              "name": "close_cause",
-              "type": "TEXT"
-            }
-          ]
-        }
-      ]
+          }
+        ]
+      }
     }
   ],
   "author": [

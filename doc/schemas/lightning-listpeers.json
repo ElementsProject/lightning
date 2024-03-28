@@ -301,50 +301,52 @@
     "",
     "- -32602: If the given parameters are wrong."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:listpeers#1",
-      "method": "listpeers",
-      "params": {
-        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-        "level": null
-      }
-    },
-    {
-      "id": "example:listpeers#2",
-      "method": "listpeers",
-      "params": {
-        "id": null,
-        "level": null
-      }
-    }
-  ],
-  "example_json_response": [
-    {
-      "peers": [
-        {
+      "request": {
+        "id": "example:listpeers#1",
+        "method": "listpeers",
+        "params": {
           "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-          "connected": true,
-          "num_channels": 1,
-          "netaddr": [
-            "127.0.0.1:44619"
-          ],
-          "features": "08a0000a0a69a2"
+          "level": null
         }
-      ]
+      },
+      "response": {
+        "peers": [
+          {
+            "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "connected": true,
+            "num_channels": 1,
+            "netaddr": [
+              "127.0.0.1:44619"
+            ],
+            "features": "08a0000a0a69a2"
+          }
+        ]
+      }
     },
     {
-      "peers": [
-        {
-          "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-          "connected": true,
-          "num_channels": 1,
-          "netaddr": [
-            "127.0.0.1:48862"
-          ],
-          "features": "08a0000a0a69a2"
+      "request": {
+        "id": "example:listpeers#2",
+        "method": "listpeers",
+        "params": {
+          "id": null,
+          "level": null
         }
-      ]
+      },
+      "response": {
+        "peers": [
+          {
+            "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+            "connected": true,
+            "num_channels": 1,
+            "netaddr": [
+              "127.0.0.1:48862"
+            ],
+            "features": "08a0000a0a69a2"
+          }
+        ]
+      }
     }
   ],
   "author": [

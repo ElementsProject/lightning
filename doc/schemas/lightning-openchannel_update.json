@@ -184,57 +184,59 @@
     "- 311: Unknown channel id.",
     "- 312: Channel in an invalid state"
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:openchannel_update#1",
-      "method": "openchannel_update",
-      "params": {
+      "request": {
+        "id": "example:openchannel_update#1",
+        "method": "openchannel_update",
+        "params": {
+          "channel_id": "c3a282c1136f44dc2e499c116a9d9e6ea64649c3eabdd396cb96fb30a86fad8e",
+          "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQEBAQYBAwH7BAIAAAAAAQDeAgAAAAABAdWZZguGlQJ1eA+d7WAT500jdCzHJWT9J/TGQIkbS1KfAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFE8Xxp4GJggW2lJcsHg0VLolc/Z/AkcwRAIgEQLtA2JvAk7S1R9QD5o4SVNXCjMwTUIyHtu65taC/d4CIEnpq2PdrqKqitdmZj09U8cFuwV+Ba9kmZSUsctSWx8CASECUKP6EBufpaBXT910uYhCcKdw9z8iqHgyKa3uuX2QgmVlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQEOIAVmgyf8sA3N9J6XaH5z7W+GUPDFOM/2L/PuD7iE0RaqAQ8EAAAAAAEQBP3///8M/AlsaWdodG5pbmcBCH932EuFXyxeAAEDCEBCDwAAAAAAAQQiACA/FzDCfUe+WFEBa+aPSY4TZTYt6liPHz5OHo04w2gQ3wz8CWxpZ2h0bmluZwEI42voJCAYLKQA"
+        }
+      },
+      "response": {
         "channel_id": "c3a282c1136f44dc2e499c116a9d9e6ea64649c3eabdd396cb96fb30a86fad8e",
-        "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQEBAQYBAwH7BAIAAAAAAQDeAgAAAAABAdWZZguGlQJ1eA+d7WAT500jdCzHJWT9J/TGQIkbS1KfAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFE8Xxp4GJggW2lJcsHg0VLolc/Z/AkcwRAIgEQLtA2JvAk7S1R9QD5o4SVNXCjMwTUIyHtu65taC/d4CIEnpq2PdrqKqitdmZj09U8cFuwV+Ba9kmZSUsctSWx8CASECUKP6EBufpaBXT910uYhCcKdw9z8iqHgyKa3uuX2QgmVlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQEOIAVmgyf8sA3N9J6XaH5z7W+GUPDFOM/2L/PuD7iE0RaqAQ8EAAAAAAEQBP3///8M/AlsaWdodG5pbmcBCH932EuFXyxeAAEDCEBCDwAAAAAAAQQiACA/FzDCfUe+WFEBa+aPSY4TZTYt6liPHz5OHo04w2gQ3wz8CWxpZ2h0bmluZwEI42voJCAYLKQA"
+        "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQEBAQYBAwH7BAIAAAAAAQDeAgAAAAABAdWZZguGlQJ1eA+d7WAT500jdCzHJWT9J/TGQIkbS1KfAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFE8Xxp4GJggW2lJcsHg0VLolc/Z/AkcwRAIgEQLtA2JvAk7S1R9QD5o4SVNXCjMwTUIyHtu65taC/d4CIEnpq2PdrqKqitdmZj09U8cFuwV+Ba9kmZSUsctSWx8CASECUKP6EBufpaBXT910uYhCcKdw9z8iqHgyKa3uuX2QgmVlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQEOIAVmgyf8sA3N9J6XaH5z7W+GUPDFOM/2L/PuD7iE0RaqAQ8EAAAAAAEQBP3///8M/AlsaWdodG5pbmcBCH932EuFXyxeAAEDCEBCDwAAAAAAAQQiACA/FzDCfUe+WFEBa+aPSY4TZTYt6liPHz5OHo04w2gQ3wz8CWxpZ2h0bmluZwEI42voJCAYLKQA",
+        "channel_type": {
+          "bits": [
+            12,
+            22
+          ],
+          "names": [
+            "static_remotekey/even",
+            "anchors_zero_fee_htlc_tx/even"
+          ]
+        },
+        "commitments_secured": true,
+        "funding_outnum": 0
       }
     },
     {
-      "id": "example:openchannel_update#2",
-      "method": "openchannel_update",
-      "params": {
+      "request": {
+        "id": "example:openchannel_update#2",
+        "method": "openchannel_update",
+        "params": {
+          "channel_id": "c3a282c1136f44dc2e499c116a9d9e6ea64649c3eabdd396cb96fb30a86fad8e",
+          "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQEBAQYBAwH7BAIAAAAAAQDeAgAAAAABAdWZZguGlQJ1eA+d7WAT500jdCzHJWT9J/TGQIkbS1KfAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFE8Xxp4GJggW2lJcsHg0VLolc/Z/AkcwRAIgEQLtA2JvAk7S1R9QD5o4SVNXCjMwTUIyHtu65taC/d4CIEnpq2PdrqKqitdmZj09U8cFuwV+Ba9kmZSUsctSWx8CASECUKP6EBufpaBXT910uYhCcKdw9z8iqHgyKa3uuX2QgmVlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQEOIAVmgyf8sA3N9J6XaH5z7W+GUPDFOM/2L/PuD7iE0RaqAQ8EAAAAAAEQBP3///8M/AlsaWdodG5pbmcBCH932EuFXyxeAAEDCEBCDwAAAAAAAQQiACA/FzDCfUe+WFEBa+aPSY4TZTYt6liPHz5OHo04w2gQ3wz8CWxpZ2h0bmluZwEI42voJCAYLKQA"
+        }
+      },
+      "response": {
         "channel_id": "c3a282c1136f44dc2e499c116a9d9e6ea64649c3eabdd396cb96fb30a86fad8e",
-        "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQEBAQYBAwH7BAIAAAAAAQDeAgAAAAABAdWZZguGlQJ1eA+d7WAT500jdCzHJWT9J/TGQIkbS1KfAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFE8Xxp4GJggW2lJcsHg0VLolc/Z/AkcwRAIgEQLtA2JvAk7S1R9QD5o4SVNXCjMwTUIyHtu65taC/d4CIEnpq2PdrqKqitdmZj09U8cFuwV+Ba9kmZSUsctSWx8CASECUKP6EBufpaBXT910uYhCcKdw9z8iqHgyKa3uuX2QgmVlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQEOIAVmgyf8sA3N9J6XaH5z7W+GUPDFOM/2L/PuD7iE0RaqAQ8EAAAAAAEQBP3///8M/AlsaWdodG5pbmcBCH932EuFXyxeAAEDCEBCDwAAAAAAAQQiACA/FzDCfUe+WFEBa+aPSY4TZTYt6liPHz5OHo04w2gQ3wz8CWxpZ2h0bmluZwEI42voJCAYLKQA"
+        "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQEBAQYBAwH7BAIAAAAAAQDeAgAAAAABAdWZZguGlQJ1eA+d7WAT500jdCzHJWT9J/TGQIkbS1KfAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFE8Xxp4GJggW2lJcsHg0VLolc/Z/AkcwRAIgEQLtA2JvAk7S1R9QD5o4SVNXCjMwTUIyHtu65taC/d4CIEnpq2PdrqKqitdmZj09U8cFuwV+Ba9kmZSUsctSWx8CASECUKP6EBufpaBXT910uYhCcKdw9z8iqHgyKa3uuX2QgmVlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQEOIAVmgyf8sA3N9J6XaH5z7W+GUPDFOM/2L/PuD7iE0RaqAQ8EAAAAAAEQBP3///8M/AlsaWdodG5pbmcBCH932EuFXyxeAAEDCEBCDwAAAAAAAQQiACA/FzDCfUe+WFEBa+aPSY4TZTYt6liPHz5OHo04w2gQ3wz8CWxpZ2h0bmluZwEI42voJCAYLKQA",
+        "channel_type": {
+          "bits": [
+            12,
+            22
+          ],
+          "names": [
+            "static_remotekey/even",
+            "anchors_zero_fee_htlc_tx/even"
+          ]
+        },
+        "commitments_secured": true,
+        "funding_outnum": 0,
+        "close_to": "5120eed745804da9784cc203f563efa99ffa54fdf01b137bc964e63c3124070ffbe6"
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "channel_id": "c3a282c1136f44dc2e499c116a9d9e6ea64649c3eabdd396cb96fb30a86fad8e",
-      "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQEBAQYBAwH7BAIAAAAAAQDeAgAAAAABAdWZZguGlQJ1eA+d7WAT500jdCzHJWT9J/TGQIkbS1KfAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFE8Xxp4GJggW2lJcsHg0VLolc/Z/AkcwRAIgEQLtA2JvAk7S1R9QD5o4SVNXCjMwTUIyHtu65taC/d4CIEnpq2PdrqKqitdmZj09U8cFuwV+Ba9kmZSUsctSWx8CASECUKP6EBufpaBXT910uYhCcKdw9z8iqHgyKa3uuX2QgmVlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQEOIAVmgyf8sA3N9J6XaH5z7W+GUPDFOM/2L/PuD7iE0RaqAQ8EAAAAAAEQBP3///8M/AlsaWdodG5pbmcBCH932EuFXyxeAAEDCEBCDwAAAAAAAQQiACA/FzDCfUe+WFEBa+aPSY4TZTYt6liPHz5OHo04w2gQ3wz8CWxpZ2h0bmluZwEI42voJCAYLKQA",
-      "channel_type": {
-        "bits": [
-          12,
-          22
-        ],
-        "names": [
-          "static_remotekey/even",
-          "anchors_zero_fee_htlc_tx/even"
-        ]
-      },
-      "commitments_secured": true,
-      "funding_outnum": 0
-    },
-    {
-      "channel_id": "c3a282c1136f44dc2e499c116a9d9e6ea64649c3eabdd396cb96fb30a86fad8e",
-      "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQEBAQYBAwH7BAIAAAAAAQDeAgAAAAABAdWZZguGlQJ1eA+d7WAT500jdCzHJWT9J/TGQIkbS1KfAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFE8Xxp4GJggW2lJcsHg0VLolc/Z/AkcwRAIgEQLtA2JvAk7S1R9QD5o4SVNXCjMwTUIyHtu65taC/d4CIEnpq2PdrqKqitdmZj09U8cFuwV+Ba9kmZSUsctSWx8CASECUKP6EBufpaBXT910uYhCcKdw9z8iqHgyKa3uuX2QgmVlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQEOIAVmgyf8sA3N9J6XaH5z7W+GUPDFOM/2L/PuD7iE0RaqAQ8EAAAAAAEQBP3///8M/AlsaWdodG5pbmcBCH932EuFXyxeAAEDCEBCDwAAAAAAAQQiACA/FzDCfUe+WFEBa+aPSY4TZTYt6liPHz5OHo04w2gQ3wz8CWxpZ2h0bmluZwEI42voJCAYLKQA",
-      "channel_type": {
-        "bits": [
-          12,
-          22
-        ],
-        "names": [
-          "static_remotekey/even",
-          "anchors_zero_fee_htlc_tx/even"
-        ]
-      },
-      "commitments_secured": true,
-      "funding_outnum": 0,
-      "close_to": "5120eed745804da9784cc203f563efa99ffa54fdf01b137bc964e63c3124070ffbe6"
     }
   ],
   "author": [

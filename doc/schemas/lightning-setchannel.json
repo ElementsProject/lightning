@@ -157,62 +157,64 @@
     "- -1: Channel is in incorrect state, i.e. Catchall nonspecific error.",
     "- -32602: JSONRPC2_INVALID_PARAMS, i.e. Given id is not a channel ID or short channel ID."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:setchannel#1",
-      "method": "setchannel",
-      "params": {
-        "id": "103x1x0",
-        "feebase": null,
-        "feeppm": null,
-        "htlcmin": null,
-        "htlcmax": null,
-        "enforcedelay": null,
-        "ignorefeelimits": true
+      "request": {
+        "id": "example:setchannel#1",
+        "method": "setchannel",
+        "params": {
+          "id": "103x1x0",
+          "feebase": null,
+          "feeppm": null,
+          "htlcmin": null,
+          "htlcmax": null,
+          "enforcedelay": null,
+          "ignorefeelimits": true
+        }
+      },
+      "response": {
+        "channels": [
+          {
+            "peer_id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+            "channel_id": "90210d39d12a65d239ece267c5f48e0a82e7cb95724e658f6d99f370064faad1",
+            "short_channel_id": "103x1x0",
+            "fee_base_msat": 1,
+            "fee_proportional_millionths": 10,
+            "minimum_htlc_out_msat": 0,
+            "maximum_htlc_out_msat": 990000000,
+            "ignore_fee_limits": true
+          }
+        ]
       }
     },
     {
-      "id": "example:setchannel#2",
-      "method": "setchannel",
-      "params": {
-        "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
-        "feebase": 4000,
-        "feeppm": 300,
-        "htlcmin": null,
-        "htlcmax": null,
-        "enforcedelay": 0,
-        "ignorefeelimits": null
+      "request": {
+        "id": "example:setchannel#2",
+        "method": "setchannel",
+        "params": {
+          "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
+          "feebase": 4000,
+          "feeppm": 300,
+          "htlcmin": null,
+          "htlcmax": null,
+          "enforcedelay": 0,
+          "ignorefeelimits": null
+        }
+      },
+      "response": {
+        "channels": [
+          {
+            "peer_id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
+            "channel_id": "9c54c71bbbe59591cc3162e14fc4ff58c146f085c07d0f206ea679a8231d03ab",
+            "short_channel_id": "103x3x0",
+            "fee_base_msat": 4000,
+            "fee_proportional_millionths": 300,
+            "minimum_htlc_out_msat": 0,
+            "maximum_htlc_out_msat": 990000000,
+            "ignore_fee_limits": false
+          }
+        ]
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "channels": [
-        {
-          "peer_id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-          "channel_id": "90210d39d12a65d239ece267c5f48e0a82e7cb95724e658f6d99f370064faad1",
-          "short_channel_id": "103x1x0",
-          "fee_base_msat": 1,
-          "fee_proportional_millionths": 10,
-          "minimum_htlc_out_msat": 0,
-          "maximum_htlc_out_msat": 990000000,
-          "ignore_fee_limits": true
-        }
-      ]
-    },
-    {
-      "channels": [
-        {
-          "peer_id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
-          "channel_id": "9c54c71bbbe59591cc3162e14fc4ff58c146f085c07d0f206ea679a8231d03ab",
-          "short_channel_id": "103x3x0",
-          "fee_base_msat": 4000,
-          "fee_proportional_millionths": 300,
-          "minimum_htlc_out_msat": 0,
-          "maximum_htlc_out_msat": 990000000,
-          "ignore_fee_limits": false
-        }
-      ]
     }
   ],
   "author": [

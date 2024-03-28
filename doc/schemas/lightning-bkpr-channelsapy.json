@@ -191,59 +191,59 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:bkpr-channelsapy#1",
-      "method": "bkpr-channelsapy",
-      "params": "{}"
-    }
-  ],
-  "example_json_response": [
-    {
-      "channels_apy": [
-        {
-          "account": "e41b2ec83e9139a9fd8f1d89b01e5d7df73099494e6b91504c39445e37485b0d",
-          "routed_out_msat": 1431440,
-          "routed_in_msat": 0,
-          "lease_fee_paid_msat": 0,
-          "lease_fee_earned_msat": 0,
-          "pushed_out_msat": 0,
-          "pushed_in_msat": 0,
-          "our_start_balance_msat": 1000000000,
-          "channel_start_balance_msat": 1000000000,
-          "fees_out_msat": 0,
-          "fees_in_msat": 0,
-          "utilization_out": "0.1431%",
-          "utilization_out_initial": "0.1431%",
-          "utilization_in": "0.0000%",
-          "apy_out": "0.0000%",
-          "apy_out_initial": "0.0000%",
-          "apy_in": "0.0000%",
-          "apy_total": "0.0000%",
-          "apy_total_initial": "0.0000%"
-        },
-        {
-          "account": "net",
-          "routed_out_msat": 1431440,
-          "routed_in_msat": 0,
-          "lease_fee_paid_msat": 0,
-          "lease_fee_earned_msat": 0,
-          "pushed_out_msat": 0,
-          "pushed_in_msat": 0,
-          "our_start_balance_msat": 1000000000,
-          "channel_start_balance_msat": 1000000000,
-          "fees_out_msat": 0,
-          "fees_in_msat": 0,
-          "utilization_out": "0.1431%",
-          "utilization_out_initial": "0.1431%",
-          "utilization_in": "0.0000%",
-          "apy_out": "0.0000%",
-          "apy_out_initial": "0.0000%",
-          "apy_in": "0.0000%",
-          "apy_total": "0.0000%",
-          "apy_total_initial": "0.0000%"
-        }
-      ]
+      "request": {
+        "id": "example:bkpr-channelsapy#1",
+        "method": "bkpr-channelsapy",
+        "params": "{}"
+      },
+      "response": {
+        "channels_apy": [
+          {
+            "account": "e41b2ec83e9139a9fd8f1d89b01e5d7df73099494e6b91504c39445e37485b0d",
+            "routed_out_msat": 1431440,
+            "routed_in_msat": 0,
+            "lease_fee_paid_msat": 0,
+            "lease_fee_earned_msat": 0,
+            "pushed_out_msat": 0,
+            "pushed_in_msat": 0,
+            "our_start_balance_msat": 1000000000,
+            "channel_start_balance_msat": 1000000000,
+            "fees_out_msat": 0,
+            "fees_in_msat": 0,
+            "utilization_out": "0.1431%",
+            "utilization_out_initial": "0.1431%",
+            "utilization_in": "0.0000%",
+            "apy_out": "0.0000%",
+            "apy_out_initial": "0.0000%",
+            "apy_in": "0.0000%",
+            "apy_total": "0.0000%",
+            "apy_total_initial": "0.0000%"
+          },
+          {
+            "account": "net",
+            "routed_out_msat": 1431440,
+            "routed_in_msat": 0,
+            "lease_fee_paid_msat": 0,
+            "lease_fee_earned_msat": 0,
+            "pushed_out_msat": 0,
+            "pushed_in_msat": 0,
+            "our_start_balance_msat": 1000000000,
+            "channel_start_balance_msat": 1000000000,
+            "fees_out_msat": 0,
+            "fees_in_msat": 0,
+            "utilization_out": "0.1431%",
+            "utilization_out_initial": "0.1431%",
+            "utilization_in": "0.0000%",
+            "apy_out": "0.0000%",
+            "apy_out_initial": "0.0000%",
+            "apy_in": "0.0000%",
+            "apy_total": "0.0000%",
+            "apy_total_initial": "0.0000%"
+          }
+        ]
+      }
     }
   ],
   "author": [

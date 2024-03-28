@@ -122,26 +122,26 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:bkpr-listbalances#1",
-      "method": "bkpr-listbalances",
-      "params": "{}"
-    }
-  ],
-  "example_json_response": [
-    {
-      "accounts": [
-        {
-          "account": "wallet",
-          "balances": [
-            {
-              "balance_msat": 2222222000,
-              "coin_type": "bcrt"
-            }
-          ]
-        }
-      ]
+      "request": {
+        "id": "example:bkpr-listbalances#1",
+        "method": "bkpr-listbalances",
+        "params": "{}"
+      },
+      "response": {
+        "accounts": [
+          {
+            "account": "wallet",
+            "balances": [
+              {
+                "balance_msat": 2222222000,
+                "coin_type": "bcrt"
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "author": [

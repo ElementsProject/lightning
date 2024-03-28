@@ -171,45 +171,47 @@
     "- 402: If the peer disconnected while we were connecting",
     "- -32602: If the given parameters are wrong"
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:connect#1",
-      "method": "connect",
-      "params": {
+      "request": {
+        "id": "example:connect#1",
+        "method": "connect",
+        "params": {
+          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "host": "localhost",
+          "port": 44619
+        }
+      },
+      "response": {
         "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-        "host": "localhost",
-        "port": 44619
+        "features": "08a0000a0a69a2",
+        "direction": "out",
+        "address": {
+          "type": "ipv4",
+          "address": "127.0.0.1",
+          "port": 44619
+        }
       }
     },
     {
-      "id": "example:connect#2",
-      "method": "connect",
-      "params": {
+      "request": {
+        "id": "example:connect#2",
+        "method": "connect",
+        "params": {
+          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "host": "127.0.0.1",
+          "port": 42839
+        }
+      },
+      "response": {
         "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-        "host": "127.0.0.1",
-        "port": 42839
-      }
-    }
-  ],
-  "example_json_response": [
-    {
-      "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-      "features": "08a0000a0a69a2",
-      "direction": "out",
-      "address": {
-        "type": "ipv4",
-        "address": "127.0.0.1",
-        "port": 44619
-      }
-    },
-    {
-      "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-      "features": "08a0000a8a5961",
-      "direction": "out",
-      "address": {
-        "type": "ipv4",
-        "address": "127.0.0.1",
-        "port": 42839
+        "features": "08a0000a8a5961",
+        "direction": "out",
+        "address": {
+          "type": "ipv4",
+          "address": "127.0.0.1",
+          "port": 42839
+        }
       }
     }
   ],

@@ -73,20 +73,20 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:bkpr-dumpincomecsv#1",
-      "method": "bkpr-dumpincomecsv",
-      "params": [
-        "koinly",
-        "koinly.csv"
-      ]
-    }
-  ],
-  "example_json_response": [
-    {
-      "csv_file": "koinly.csv",
-      "csv_format": "koinly"
+      "request": {
+        "id": "example:bkpr-dumpincomecsv#1",
+        "method": "bkpr-dumpincomecsv",
+        "params": [
+          "koinly",
+          "koinly.csv"
+        ]
+      },
+      "response": {
+        "csv_file": "koinly.csv",
+        "csv_format": "koinly"
+      }
     }
   ],
   "author": [

@@ -62,49 +62,53 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:datastoreusage#1",
-      "method": "datastoreusage",
-      "params": {
-        "key": null
+      "request": {
+        "id": "example:datastoreusage#1",
+        "method": "datastoreusage",
+        "params": {
+          "key": null
+        }
+      },
+      "response": {
+        "datastoreusage": {
+          "key": "[]",
+          "total_bytes": 0
+        }
       }
     },
     {
-      "id": "example:datastoreusage#2",
-      "method": "datastoreusage",
-      "params": {
-        "key": "a"
+      "request": {
+        "id": "example:datastoreusage#2",
+        "method": "datastoreusage",
+        "params": {
+          "key": "a"
+        }
+      },
+      "response": {
+        "datastoreusage": {
+          "key": "[a]",
+          "total_bytes": 32
+        }
       }
     },
     {
-      "id": "example:datastoreusage#3",
-      "method": "datastoreusage",
-      "params": {
-        "key": [
-          "a",
-          "thisissomelongkeythattriestostore46bytesofdata"
-        ]
-      }
-    }
-  ],
-  "example_json_response": [
-    {
-      "datastoreusage": {
-        "key": "[]",
-        "total_bytes": 0
-      }
-    },
-    {
-      "datastoreusage": {
-        "key": "[a]",
-        "total_bytes": 32
-      }
-    },
-    {
-      "datastoreusage": {
-        "key": "[a,thisissomelongkeythattriestostore46bytesofdata]",
-        "total_bytes": 77
+      "request": {
+        "id": "example:datastoreusage#3",
+        "method": "datastoreusage",
+        "params": {
+          "key": [
+            "a",
+            "thisissomelongkeythattriestostore46bytesofdata"
+          ]
+        }
+      },
+      "response": {
+        "datastoreusage": {
+          "key": "[a,thisissomelongkeythattriestostore46bytesofdata]",
+          "total_bytes": 77
+        }
       }
     }
   ],

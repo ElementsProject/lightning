@@ -41,22 +41,22 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:recoverchannel#1",
-      "method": "recoverchannel",
-      "params": [
-        [
-          "0000000000000001c3a7b9d74a174497122bc52d74d6d69836acadc77e0429c6d8b68b48d5c9139a022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d5904017f0000019f0bc3a7b9d74a174497122bc52d74d6d69836acadc77e0429c6d8b68b48d5c9139a0000000000000000000186a000021000"
+      "request": {
+        "id": "example:recoverchannel#1",
+        "method": "recoverchannel",
+        "params": [
+          [
+            "0000000000000001c3a7b9d74a174497122bc52d74d6d69836acadc77e0429c6d8b68b48d5c9139a022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d5904017f0000019f0bc3a7b9d74a174497122bc52d74d6d69836acadc77e0429c6d8b68b48d5c9139a0000000000000000000186a000021000"
+          ]
         ]
-      ]
-    }
-  ],
-  "example_json_response": [
-    {
-      "stubs": [
-        "c3a7b9d74a174497122bc52d74d6d69836acadc77e0429c6d8b68b48d5c9139a"
-      ]
+      },
+      "response": {
+        "stubs": [
+          "c3a7b9d74a174497122bc52d74d6d69836acadc77e0429c6d8b68b48d5c9139a"
+        ]
+      }
     }
   ],
   "author": [

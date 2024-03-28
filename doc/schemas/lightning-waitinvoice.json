@@ -216,32 +216,32 @@
     "- -1: If the invoice is deleted while unpaid, or the invoice does not exist.",
     "- 903: If the invoice expires before being paid, or is already expired."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:waitinvoice#1",
-      "method": "waitinvoice",
-      "params": {
-        "label": "inv2"
+      "request": {
+        "id": "example:waitinvoice#1",
+        "method": "waitinvoice",
+        "params": {
+          "label": "inv2"
+        }
+      },
+      "response": {
+        "label": "inv2",
+        "bolt11": "lnbcrt10n1pjmxtwjsp5mzvdu6v8hqsf2tlj0nlyks23afqp7ejs444syjxf74p60ztmld8qpp5q4ayz5pys3t0yj0dmkmh7ctarkv9z434paz4u9rdwnj4f43thhaqdq8d9h8vvsxqyjw5qcqp99qxpqysgqn0055ttns6pafsxh6xuqce6e4vz8gtxlzqx0l9d9f5crmqx4jymh4zy9jdaszm0dj89sq39fvhpwcs626dt0n3gw8kassfdehp5sy3sq7fzy3w",
+        "payment_hash": "057a4150248456f249edddb77f617d1d985156350f455e146d74e554d62bbdfa",
+        "amount_msat": 1000,
+        "status": "paid",
+        "pay_index": 1,
+        "amount_received_msat": 1000,
+        "paid_at": 1706241494,
+        "payment_preimage": "34ccd37cc85e067cb376f9ea8c70d70469f58bf296f2566ed9ad4dfb70971a26",
+        "description": [
+          "Inv2."
+        ],
+        "expires_at": 1706846290,
+        "created_index": 2,
+        "updated_index": 1
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "label": "inv2",
-      "bolt11": "lnbcrt10n1pjmxtwjsp5mzvdu6v8hqsf2tlj0nlyks23afqp7ejs444syjxf74p60ztmld8qpp5q4ayz5pys3t0yj0dmkmh7ctarkv9z434paz4u9rdwnj4f43thhaqdq8d9h8vvsxqyjw5qcqp99qxpqysgqn0055ttns6pafsxh6xuqce6e4vz8gtxlzqx0l9d9f5crmqx4jymh4zy9jdaszm0dj89sq39fvhpwcs626dt0n3gw8kassfdehp5sy3sq7fzy3w",
-      "payment_hash": "057a4150248456f249edddb77f617d1d985156350f455e146d74e554d62bbdfa",
-      "amount_msat": 1000,
-      "status": "paid",
-      "pay_index": 1,
-      "amount_received_msat": 1000,
-      "paid_at": 1706241494,
-      "payment_preimage": "34ccd37cc85e067cb376f9ea8c70d70469f58bf296f2566ed9ad4dfb70971a26",
-      "description": [
-        "Inv2."
-      ],
-      "expires_at": 1706846290,
-      "created_index": 2,
-      "updated_index": 1
     }
   ],
   "author": [

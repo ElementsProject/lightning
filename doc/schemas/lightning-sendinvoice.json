@@ -198,31 +198,31 @@
     "- 1004: The node making the offer returned an error message.",
     "- 1005: We timed out waiting for the invoice to be paid"
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:sendinvoice#1",
-      "method": "sendinvoice",
-      "params": {
-        "invreq": "lnr1qqg804wzdsyn8g4mf2yc22k8xvjpjzstwd5k6urvv5s8getnw3gzqp3zderpzxstt8927ynqg044h0egcd8n5h3n9g0u0v4h8ncc3yg02gqsykppqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4nuzqw5w7y7xqm2rushk5a5n3mcuvqel954raykd5nqa830nq9hpd4s4fcnxw266vp9d5c8f3m3w40hmm6gm8akxx3rsnr7d4usunv0x3q8q",
-        "label": "payme for real!"
+      "request": {
+        "id": "example:sendinvoice#1",
+        "method": "sendinvoice",
+        "params": {
+          "invreq": "lnr1qqg804wzdsyn8g4mf2yc22k8xvjpjzstwd5k6urvv5s8getnw3gzqp3zderpzxstt8927ynqg044h0egcd8n5h3n9g0u0v4h8ncc3yg02gqsykppqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4nuzqw5w7y7xqm2rushk5a5n3mcuvqel954raykd5nqa830nq9hpd4s4fcnxw266vp9d5c8f3m3w40hmm6gm8akxx3rsnr7d4usunv0x3q8q",
+          "label": "payme for real!"
+        }
+      },
+      "response": {
+        "label": "payme for real!",
+        "bolt12": "lni1qqg804wzdsyn8g4mf2yc22k8xvjpjzstwd5k6urvv5s8getnw3gzqp3zderpzxstt8927ynqg044h0egcd8n5h3n9g0u0v4h8ncc3yg02gqsykppqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4ngycqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky96qmcmtl30xtt7jdakfyhzm8f0gny6f4d2ukx5gurem04z8lfd2wza5qs9pz6wp9vu7cm6n4wmmrz77y4w6z5xv4q93yudkdtkl5zmzdzuawzqqex7gd5v0x0r83pqj82udd542fl4krh50s0dkx47d0hd5wh77g52xxl75ccpkt35mc8n282wslju9ufyys2y8qqqqqqqqqqqqqqqpgqqqqqqqqqqqqp6f9jm7k9yqqqqqq2gpr96l99lfspt25zqnyfgu7hznmt2tzkjdt92d2wc3dsq7keph7w8gudjs46spfzqrlu4gqs9vppqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky9muzqpze8kk43g0wh4h8qlac5lswwesrvsaxcza2f5j90c2h3ts8yzmn9g4mxqe89fngrqny8nf52xxuxep6548etda8lp876jr0nnxgdkdq",
+        "payment_hash": "4c89473d714f6b52c56935655354ec45b007ad90dfce3a38d942ba8052200ffc",
+        "amount_msat": 2,
+        "status": "paid",
+        "pay_index": 1,
+        "amount_received_msat": 2,
+        "paid_at": 1708640865,
+        "payment_preimage": "305951ab02cb2ea5eb884dbfd8fb110b4e088ecb8338b3e84e8f9c70919c19bf",
+        "description": "simple test",
+        "expires_at": 1708640953,
+        "created_index": 2,
+        "updated_index": 1
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "label": "payme for real!",
-      "bolt12": "lni1qqg804wzdsyn8g4mf2yc22k8xvjpjzstwd5k6urvv5s8getnw3gzqp3zderpzxstt8927ynqg044h0egcd8n5h3n9g0u0v4h8ncc3yg02gqsykppqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4ngycqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky96qmcmtl30xtt7jdakfyhzm8f0gny6f4d2ukx5gurem04z8lfd2wza5qs9pz6wp9vu7cm6n4wmmrz77y4w6z5xv4q93yudkdtkl5zmzdzuawzqqex7gd5v0x0r83pqj82udd542fl4krh50s0dkx47d0hd5wh77g52xxl75ccpkt35mc8n282wslju9ufyys2y8qqqqqqqqqqqqqqqpgqqqqqqqqqqqqp6f9jm7k9yqqqqqq2gpr96l99lfspt25zqnyfgu7hznmt2tzkjdt92d2wc3dsq7keph7w8gudjs46spfzqrlu4gqs9vppqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky9muzqpze8kk43g0wh4h8qlac5lswwesrvsaxcza2f5j90c2h3ts8yzmn9g4mxqe89fngrqny8nf52xxuxep6548etda8lp876jr0nnxgdkdq",
-      "payment_hash": "4c89473d714f6b52c56935655354ec45b007ad90dfce3a38d942ba8052200ffc",
-      "amount_msat": 2,
-      "status": "paid",
-      "pay_index": 1,
-      "amount_received_msat": 2,
-      "paid_at": 1708640865,
-      "payment_preimage": "305951ab02cb2ea5eb884dbfd8fb110b4e088ecb8338b3e84e8f9c70919c19bf",
-      "description": "simple test",
-      "expires_at": 1708640953,
-      "created_index": 2,
-      "updated_index": 1
     }
   ],
   "author": [

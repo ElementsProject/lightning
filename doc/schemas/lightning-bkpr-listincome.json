@@ -118,82 +118,84 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:bkpr-listincome#1",
-      "method": "bkpr-listincome",
-      "params": "{}"
-    },
-    {
-      "id": "example:bkpr-listincome#2",
-      "method": "bkpr-listincome",
-      "params": {
-        "consolidate_fees": false
+      "request": {
+        "id": "example:bkpr-listincome#1",
+        "method": "bkpr-listincome",
+        "params": "{}"
+      },
+      "response": {
+        "income_events": [
+          {
+            "account": "wallet",
+            "tag": "deposit",
+            "credit_msat": 1111111000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "timestamp": 1706153060,
+            "outpoint": "6d813d2e99ae7181b61e59ff224c43de698bd08b8ca5b8034ccc13aa7b6428ef:0"
+          },
+          {
+            "account": "wallet",
+            "tag": "deposit",
+            "credit_msat": 1111111000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "timestamp": 1706153060,
+            "outpoint": "0bbbe965f76525af3876ae6f1520d91047d4be04cb4e46b7229120a60c5dc9c5:0"
+          }
+        ]
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "income_events": [
-        {
-          "account": "wallet",
-          "tag": "deposit",
-          "credit_msat": 1111111000,
-          "debit_msat": 0,
-          "currency": "bcrt",
-          "timestamp": 1706153060,
-          "outpoint": "6d813d2e99ae7181b61e59ff224c43de698bd08b8ca5b8034ccc13aa7b6428ef:0"
-        },
-        {
-          "account": "wallet",
-          "tag": "deposit",
-          "credit_msat": 1111111000,
-          "debit_msat": 0,
-          "currency": "bcrt",
-          "timestamp": 1706153060,
-          "outpoint": "0bbbe965f76525af3876ae6f1520d91047d4be04cb4e46b7229120a60c5dc9c5:0"
-        }
-      ]
     },
     {
-      "income_events": [
-        {
-          "account": "wallet",
-          "tag": "deposit",
-          "credit_msat": 1111111000,
-          "debit_msat": 0,
-          "currency": "bcrt",
-          "timestamp": 1708624181,
-          "outpoint": "895b5eaad4544d24c99628883b4d84b2c6024d6a2da4c1de54098d985f280943:1"
-        },
-        {
-          "account": "wallet",
-          "tag": "withdrawal",
-          "credit_msat": 0,
-          "debit_msat": 555555000,
-          "currency": "bcrt",
-          "timestamp": 1708624182,
-          "outpoint": "d28a2cba55da10700ddd7f1f23618160dafb3134650055654551d9b0382dcd71:0"
-        },
-        {
-          "account": "wallet",
-          "tag": "onchain_fee",
-          "credit_msat": 0,
-          "debit_msat": 555556000,
-          "currency": "bcrt",
-          "timestamp": 1708624183,
-          "txid": "d28a2cba55da10700ddd7f1f23618160dafb3134650055654551d9b0382dcd71"
-        },
-        {
-          "account": "wallet",
-          "tag": "onchain_fee",
-          "credit_msat": 554947000,
-          "debit_msat": 0,
-          "currency": "bcrt",
-          "timestamp": 1708624183,
-          "txid": "d28a2cba55da10700ddd7f1f23618160dafb3134650055654551d9b0382dcd71"
+      "request": {
+        "id": "example:bkpr-listincome#2",
+        "method": "bkpr-listincome",
+        "params": {
+          "consolidate_fees": false
         }
-      ]
+      },
+      "response": {
+        "income_events": [
+          {
+            "account": "wallet",
+            "tag": "deposit",
+            "credit_msat": 1111111000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "timestamp": 1708624181,
+            "outpoint": "895b5eaad4544d24c99628883b4d84b2c6024d6a2da4c1de54098d985f280943:1"
+          },
+          {
+            "account": "wallet",
+            "tag": "withdrawal",
+            "credit_msat": 0,
+            "debit_msat": 555555000,
+            "currency": "bcrt",
+            "timestamp": 1708624182,
+            "outpoint": "d28a2cba55da10700ddd7f1f23618160dafb3134650055654551d9b0382dcd71:0"
+          },
+          {
+            "account": "wallet",
+            "tag": "onchain_fee",
+            "credit_msat": 0,
+            "debit_msat": 555556000,
+            "currency": "bcrt",
+            "timestamp": 1708624183,
+            "txid": "d28a2cba55da10700ddd7f1f23618160dafb3134650055654551d9b0382dcd71"
+          },
+          {
+            "account": "wallet",
+            "tag": "onchain_fee",
+            "credit_msat": 554947000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "timestamp": 1708624183,
+            "txid": "d28a2cba55da10700ddd7f1f23618160dafb3134650055654551d9b0382dcd71"
+          }
+        ]
+      }
     }
   ],
   "author": [

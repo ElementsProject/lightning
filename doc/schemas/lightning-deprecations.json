@@ -24,17 +24,17 @@
   "response": {
     "properties": {}
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:deprecations#1",
-      "method": "deprecations",
-      "params": {
-        "enable": false
-      }
+      "request": {
+        "id": "example:deprecations#1",
+        "method": "deprecations",
+        "params": {
+          "enable": false
+        }
+      },
+      "response": {}
     }
-  ],
-  "example_json_response": [
-    {}
   ],
   "errors": [
     "On failure, one of the following error codes may be returned:",

@@ -64,25 +64,27 @@
       }
     }
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:notifications#1",
-      "method": "notifications",
-      "params": {
-        "enable": true
-      }
+      "request": {
+        "id": "example:notifications#1",
+        "method": "notifications",
+        "params": {
+          "enable": true
+        }
+      },
+      "response": {}
     },
     {
-      "id": "example:notifications#2",
-      "method": "notifications",
-      "params": {
-        "enable": false
-      }
+      "request": {
+        "id": "example:notifications#2",
+        "method": "notifications",
+        "params": {
+          "enable": false
+        }
+      },
+      "response": {}
     }
-  ],
-  "example_json_response": [
-    {},
-    {}
   ],
   "author": [
     "Rusty Russell <<rusty@blockstream.com>> wrote the initial version of this man page."
