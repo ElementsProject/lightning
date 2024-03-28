@@ -489,12 +489,12 @@ def test_htlc_max(node_factory):
         ]
     )
 
-    inv = l6.rpc.invoice("1800000sat", "inv", "description")
+    inv = l6.rpc.invoice("800000sat", "inv", "description")
 
     l1.rpc.call("renepay", {"invstring": inv["bolt11"]})
     l1.wait_for_htlcs()
     invoice = only_one(l6.rpc.listinvoices("inv")["invoices"])
-    assert invoice["amount_received_msat"] >= Millisatoshi("1800000sat")
+    assert invoice["amount_received_msat"] >= Millisatoshi("800000sat")
 
 
 def test_previous_sendpays(node_factory, bitcoind):
@@ -624,3 +624,95 @@ def test_fees(node_factory):
     source.rpc.call("renepay", {"invstring": invstr})
     invoice = only_one(dest.rpc.listinvoices("inv2")["invoices"])
     assert invoice["amount_received_msat"] == Millisatoshi("150000sat")
+
+
+def test_local_htlcmax0(node_factory):
+    """Testing a simple pay route when local channels have htlcmax=0."""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    l1.rpc.setchannel(l2.info["id"], htlcmax=0)
+    inv = l3.rpc.invoice(123000, "test_renepay", "description")["bolt11"]
+    details = l1.rpc.call("renepay", {"invstring": inv})
+    assert details["status"] == "complete"
+    assert details["amount_msat"] == Millisatoshi(123000)
+    assert details["destination"] == l3.info["id"]
+
+
+def test_htlcmax0(node_factory):
+    """
+    Topology:
+    1----2----4
+    |         |
+    3----5----6
+    Tests the plugin when some routes have htlc_max=0.
+    """
+    opts = [
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
+        {
+            "disable-mpp": None,
+            "fee-base": 0,
+            "fee-per-satoshi": 0,
+            "htlc-maximum-msat": 0,
+        },
+        {
+            "disable-mpp": None,
+            "fee-base": 0,
+            "fee-per-satoshi": 0,
+            "htlc-maximum-msat": 800000000,
+        },
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
+    ]
+    l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=opts)
+    start_channels(
+        [
+            (l1, l2, 10000000),
+            (l2, l4, 1000000),
+            (l4, l6, 1000000),
+            (l1, l3, 10000000),
+            (l3, l5, 1000000),
+            (l5, l6, 1000000),
+        ]
+    )
+
+    inv = l6.rpc.invoice("600000sat", "inv", "description")
+
+    l1.rpc.call("renepay", {"invstring": inv["bolt11"]})
+    l1.wait_for_htlcs()
+    invoice = only_one(l6.rpc.listinvoices("inv")["invoices"])
+    assert invoice["amount_received_msat"] >= Millisatoshi("600000sat")
+
+
+def test_concurrency(node_factory):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts=[{}, {}, {}])
+    inv = l3.rpc.invoice("1000sat", "test_renepay", "description")["bolt11"]
+    p1 = subprocess.Popen(
+        [
+            "cli/lightning-cli",
+            "--network={}".format(TEST_NETWORK),
+            "--lightning-dir={}".format(l1.daemon.lightning_dir),
+            "-k",
+            "pay",
+            "bolt11={}".format(inv),
+        ],
+        stdout=subprocess.PIPE,
+    )
+    # make several other spurious requests
+    for i in range(4):
+        subprocess.Popen(
+            [
+                "cli/lightning-cli",
+                "--network={}".format(TEST_NETWORK),
+                "--lightning-dir={}".format(l1.daemon.lightning_dir),
+                "-k",
+                "pay",
+                "bolt11={}".format(inv),
+            ],
+            stdout=subprocess.PIPE,
+        )
+    p1.wait(timeout=60)
+    out1 = p1.stdout.read().decode()
+    assert out1["status"] == "complete"
+    assert out1["amount_msat"] == Millisatoshi("1000sat")
+    invoice = only_one(l3.rpc.listinvoices("inv")["invoices"])
+    assert invoice["amount_received_msat"] >= Millisatoshi("1000sat")

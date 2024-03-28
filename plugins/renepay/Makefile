@@ -1,7 +1,35 @@
-PLUGIN_RENEPAY_SRC := plugins/renepay/pay.c plugins/renepay/pay_flow.c plugins/renepay/flow.c plugins/renepay/mcf.c plugins/renepay/dijkstra.c \
-	plugins/renepay/payment.c plugins/renepay/uncertainty_network.c
-PLUGIN_RENEPAY_HDRS := plugins/renepay/pay.h plugins/renepay/pay_flow.h plugins/renepay/flow.h plugins/renepay/mcf.h plugins/renepay/dijkstra.h \
-	plugins/renepay/payment.h plugins/renepay/uncertainty_network.h
+PLUGIN_RENEPAY_SRC :=				\
+	plugins/renepay/main.c			\
+	plugins/renepay/flow.c			\
+	plugins/renepay/mcf.c			\
+	plugins/renepay/dijkstra.c		\
+	plugins/renepay/payment.c		\
+	plugins/renepay/chan_extra.c		\
+	plugins/renepay/route.c			\
+	plugins/renepay/routebuilder.c		\
+	plugins/renepay/routetracker.c		\
+	plugins/renepay/routefail.c		\
+	plugins/renepay/uncertainty.c		\
+	plugins/renepay/mods.c			\
+	plugins/renepay/errorcodes.c		\
+	plugins/renepay/json.c
+
+PLUGIN_RENEPAY_HDRS :=				\
+	plugins/renepay/payplugin.h		\
+	plugins/renepay/flow.h			\
+	plugins/renepay/mcf.h			\
+	plugins/renepay/dijkstra.h		\
+	plugins/renepay/payment.h		\
+	plugins/renepay/chan_extra.h		\
+	plugins/renepay/route.h			\
+	plugins/renepay/routebuilder.h		\
+	plugins/renepay/routetracker.h		\
+	plugins/renepay/routefail.h		\
+	plugins/renepay/uncertainty.h		\
+	plugins/renepay/mods.h			\
+	plugins/renepay/errorcodes.h		\
+	plugins/renepay/json.c
+
 PLUGIN_RENEPAY_OBJS := $(PLUGIN_RENEPAY_SRC:.c=.o)
 
 # Make sure these depend on everything.

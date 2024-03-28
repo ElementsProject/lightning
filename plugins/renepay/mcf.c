@@ -483,11 +483,18 @@ static bool linearize_channel(const struct pay_parameters *params,
 	a = MAX(a,0);
 	b = MAX(a+1,b);
 
+	/* An extra bound on capacity, here we use it to reduce the flow such
+	 * that it does not exceed htlcmax. */
+	s64 cap_on_capacity =
+	 channel_htlc_max(c, dir).millisatoshis/1000; /* Raw: linearize_channel */
+
 	capacity[0]=a;
 	cost[0]=0;
 	for(size_t i=1;i<CHANNEL_PARTS;++i)
 	{
-		capacity[i] = params->cap_fraction[i]*(b-a);
+		capacity[i] = MIN(params->cap_fraction[i]*(b-a), cap_on_capacity);
+		cap_on_capacity -= capacity[i];
+		assert(cap_on_capacity>=0);
 
 		cost[i] = params->cost_fraction[i]
 		          *params->amount.millisatoshis /* Raw: linearize_channel */
@@ -1254,7 +1261,6 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 	       char **fail)
 {
 	tal_t *this_ctx = tal(ctx,tal_t);
-	char *errmsg;
 	struct flow **flows = tal_arr(ctx,struct flow*,0);
 
 	assert(amount_msat_less(excess, AMOUNT_MSAT(1000)));
@@ -1421,15 +1427,21 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 			}
 			excess = amount_msat(0);
 
-			// complete the flow path by adding real fees and
-			// probabilities.
-			if (!flow_complete(this_ctx, fp, gossmap,
-					   chan_extra_map, delivered,
-					   &errmsg)) {
+			if (!flow_assign_delivery(fp, gossmap, chan_extra_map,
+						  delivered)) {
 				if (fail)
-				*fail = tal_fmt(
-				    ctx, "flow_complete failed: %s",
-				    errmsg);
+					*fail =
+					    tal_fmt(ctx, "failed to add final "
+							 "amount to flow");
+				goto function_fail;
+			}
+			fp->success_prob =
+			    flow_probability(fp, gossmap, chan_extra_map);
+			if (fp->success_prob < 0) {
+				if (fail)
+					*fail =
+					    tal_fmt(ctx, "failed to compute "
+							 "flow probability");
 				goto function_fail;
 			}
 
