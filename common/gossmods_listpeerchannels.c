@@ -9,16 +9,23 @@ void gossmod_add_localchan(struct gossmap_localmods *mods,
 			   const struct node_id *self,
 			   const struct node_id *peer,
 			   const struct short_channel_id_dir *scidd,
-			   struct amount_msat min,
-			   struct amount_msat max,
+			   struct amount_msat htlcmin,
+			   struct amount_msat htlcmax,
+			   struct amount_msat spendable,
 			   struct amount_msat fee_base,
 			   u32 fee_proportional,
 			   u32 cltv_delta,
 			   bool enabled,
+			   bool is_local UNUSED,
 			   const char *buf UNUSED,
 			   const jsmntok_t *chantok UNUSED,
 			   void *cbarg UNUSED)
 {
+	struct amount_msat min = htlcmin, max = htlcmax;
+
+	if (amount_msat_less(spendable, max))
+		max = spendable;
+
 	/* FIXME: features? */
 	gossmap_local_addchan(mods, self, peer, scidd->scid, NULL);
 
@@ -40,12 +47,14 @@ gossmods_from_listpeerchannels_(const tal_t *ctx,
 					   const struct node_id *self,
 					   const struct node_id *peer,
 					   const struct short_channel_id_dir *scidd,
-					   struct amount_msat min,
-					   struct amount_msat max,
+					   struct amount_msat htlcmin,
+					   struct amount_msat htlcmax,
+					   struct amount_msat sr_able,
 					   struct amount_msat fee_base,
 					   u32 fee_proportional,
 					   u32 cltv_delta,
 					   bool enabled,
+					   bool is_local,
 					   const char *buf,
 					   const jsmntok_t *chantok,
 					   void *cbarg),
@@ -130,10 +139,6 @@ gossmods_from_listpeerchannels_(const tal_t *ctx,
 		      && !streq(state, "CHANNELD_AWAITING_SPLICE"))
 			enabled = false;
 
-		/* Cut htlc max to spendable. */
-		if (amount_msat_less(spendable, htlc_max[LOCAL]))
-			htlc_max[LOCAL] = spendable;
-
 		/* We route better if we know we won't charge
 		 * ourselves fees (though if fees are a signal on what
 		 * channel we prefer to use, this ignores that
@@ -146,8 +151,8 @@ gossmods_from_listpeerchannels_(const tal_t *ctx,
 
 		/* We add both directions */
 		cb(mods, self, &dst, &scidd, htlc_min[LOCAL], htlc_max[LOCAL],
-		   fee_base[LOCAL], fee_proportional[LOCAL], cltv_delta[LOCAL],
-		   enabled, buf, channel, cbarg);
+		   spendable, fee_base[LOCAL], fee_proportional[LOCAL],
+		   cltv_delta[LOCAL], enabled, true, buf, channel, cbarg);
 
 		/* If we didn't have a remote update, it's not usable yet */
 		if (fee_proportional[REMOTE] == -1U)
@@ -155,13 +160,9 @@ gossmods_from_listpeerchannels_(const tal_t *ctx,
 
 		scidd.dir = !scidd.dir;
 
-		/* Cut htlc max to receivable. */
-		if (amount_msat_less(receivable, htlc_max[REMOTE]))
-			htlc_max[REMOTE] = receivable;
-
 		cb(mods, self, &dst, &scidd, htlc_min[REMOTE], htlc_max[REMOTE],
-		   fee_base[REMOTE], fee_proportional[REMOTE], cltv_delta[REMOTE],
-		   enabled, buf, channel, cbarg);
+		   receivable, fee_base[REMOTE], fee_proportional[REMOTE],
+		   cltv_delta[REMOTE], enabled, false, buf, channel, cbarg);
 	}
 
 	return mods;
