@@ -1158,17 +1158,6 @@ static struct command_result *fundchannel_start(struct command *cmd,
 	peer->uncommitted_channel->fc = tal_steal(peer->uncommitted_channel, fc);
 	fc->uc = peer->uncommitted_channel;
 
-	/* BOLT #2:
-	 *
-	 * The sender:
-	 *   - if `channel_type` includes `option_zeroconf`:
-	 *      - MUST set `minimum_depth` to zero.
-	 *   - otherwise:
-	 *     - SHOULD set `minimum_depth` to a number of blocks it
-	 *       considers reasonable to avoid double-spending of the
-	 *       funding transaction.
-	 */
-	/* FIXME: What does that quote have to do with this??? --RR */
 	fc->uc->minimum_depth = mindepth;
 
 	fc->uc->reserve = tal_steal(fc->uc, reserve);
@@ -1259,7 +1248,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 			 p_opt_def("announce", param_bool, &announce_channel, true),
 			 p_opt("close_to", param_bitcoin_address, &fc->our_upfront_shutdown_script),
 			 p_opt("push_msat", param_msat, &push_msat),
-			 p_opt_def("mindepth", param_u32, &mindepth, cmd->ld->config.anchor_confirms),
+			 p_opt("mindepth", param_u32, &mindepth),
 			 p_opt("reserve", param_sat, &reserve),
 			 p_opt("channel_type", param_channel_type, &ctype),
 			 NULL))
@@ -1274,9 +1263,32 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "channel_type not supported");
 		}
+		/* BOLT #2:
+		 *
+		 * The sender:
+		 *   - if `channel_type` includes `option_zeroconf`:
+		 *      - MUST set `minimum_depth` to zero.
+		 *   - otherwise:
+		 *     - SHOULD set `minimum_depth` to a number of blocks it
+		 *       considers reasonable to avoid double-spending of the
+		 *       funding transaction.
+		 */
+		if (channel_type_has(ctype, OPT_ZEROCONF)) {
+			if (mindepth && *mindepth != 0) {
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Cannot set non-zero mindepth for zero-conf channel_type");
+			}
+			if (!mindepth) {
+				mindepth = tal(cmd, u32);
+				*mindepth = 0;
+			}
+		}
 	} else {
 		fc->channel_type = NULL;
 	}
+
+	if (!mindepth)
+		mindepth = tal_dup(cmd, u32, &cmd->ld->config.anchor_confirms);
 
 	if (push_msat && amount_msat_greater_sat(*push_msat, *amount))
 		return command_fail(cmd, FUND_CANNOT_AFFORD,
