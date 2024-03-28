@@ -155,11 +155,11 @@ def test_invoice_preimage(node_factory):
 def test_invoice_routeboost(node_factory, bitcoind):
     """Test routeboost 'r' hint in bolt11 invoice.
     """
-    l0, l1, l2 = node_factory.line_graph(3, fundamount=2 * (10**5), wait_for_announce=True)
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=2 * (10**5), wait_for_announce=True)
 
     # Check routeboost.
     # Make invoice and pay it
-    inv = l2.rpc.invoice(amount_msat=123456, label="inv1", description="?")
+    inv = l3.rpc.invoice(amount_msat=123456, label="inv1", description="?")
     # Check routeboost.
     assert 'warning_private_unused' not in inv
     assert 'warning_capacity' not in inv
@@ -167,19 +167,19 @@ def test_invoice_routeboost(node_factory, bitcoind):
     assert 'warning_deadends' not in inv
     assert 'warning_mpp' not in inv
     # Route array has single route with single element.
-    r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
-    assert r['pubkey'] == l1.info['id']
-    assert r['short_channel_id'] == l2.rpc.listpeerchannels(l1.info['id'])['channels'][0]['short_channel_id']
+    r = only_one(only_one(l2.rpc.decodepay(inv['bolt11'])['routes']))
+    assert r['pubkey'] == l2.info['id']
+    assert r['short_channel_id'] == l3.rpc.listpeerchannels(l2.info['id'])['channels'][0]['short_channel_id']
     assert r['fee_base_msat'] == 1
     assert r['fee_proportional_millionths'] == 10
     assert r['cltv_expiry_delta'] == 6
 
-    # Pay it (and make sure it's fully resolved before we take l1 offline!)
-    l1.rpc.pay(inv['bolt11'])
-    wait_channel_quiescent(l1, l2)
+    # Pay it (and make sure it's fully resolved before we take l2 offline!)
+    l2.rpc.pay(inv['bolt11'])
+    wait_channel_quiescent(l2, l3)
 
-    # Due to reserve & fees, l1 doesn't have capacity to pay this.
-    inv = l2.rpc.invoice(amount_msat=2 * (10**8) - 123456, label="inv2", description="?")
+    # Due to reserve & fees, l2 doesn't have capacity to pay this.
+    inv = l3.rpc.invoice(amount_msat=2 * (10**8) - 123456, label="inv2", description="?")
     # Check warning
     assert 'warning_capacity' in inv
     assert 'warning_private_unused' not in inv
@@ -187,10 +187,10 @@ def test_invoice_routeboost(node_factory, bitcoind):
     assert 'warning_deadends' not in inv
     assert 'warning_mpp' not in inv
 
-    l1.rpc.disconnect(l2.info['id'], True)
-    wait_for(lambda: not only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
+    l2.rpc.disconnect(l3.info['id'], True)
+    wait_for(lambda: not only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['connected'])
 
-    inv = l2.rpc.invoice(123456, label="inv3", description="?")
+    inv = l3.rpc.invoice(123456, label="inv3", description="?")
     # Check warning.
     assert 'warning_private_unused' not in inv
     assert 'warning_capacity' not in inv
@@ -198,14 +198,14 @@ def test_invoice_routeboost(node_factory, bitcoind):
     assert 'warning_offline' in inv
     assert 'warning_mpp' not in inv
 
-    # Close l0, l2 will not use l1 at all.
-    l0.rpc.close(l1.info['id'])
-    l0.wait_for_channel_onchain(l1.info['id'])
+    # Close l1, l3 will not use l2 at all.
+    l1.rpc.close(l2.info['id'])
+    l1.wait_for_channel_onchain(l2.info['id'])
     bitcoind.generate_block(100)
 
-    # l2 has to notice channel is gone.
-    wait_for(lambda: len(l2.rpc.listchannels()['channels']) == 2)
-    inv = l2.rpc.invoice(123456, label="inv4", description="?")
+    # l3 has to notice channel is gone.
+    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
+    inv = l3.rpc.invoice(123456, label="inv4", description="?")
     # Check warning.
     assert 'warning_deadends' in inv
     assert 'warning_private_unused' not in inv
