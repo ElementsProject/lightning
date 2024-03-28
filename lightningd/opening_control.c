@@ -1129,6 +1129,107 @@ static struct command_result *json_fundchannel_cancel(struct command *cmd,
 	return cancel_channel_before_broadcast(cmd, peer);
 }
 
+static struct command_result *fundchannel_start(struct command *cmd,
+						struct peer *peer,
+						struct funding_channel *fc STEALS,
+						const struct channel_id *tmp_channel_id,
+						u32 mindepth,
+						struct amount_sat *reserve STEALS)
+{
+	int fds[2];
+
+	/* Re-check in case it's changed */
+	if (!peer->uncommitted_channel) {
+		log_debug(cmd->ld->log, "fundchannel_start: allocating uncommitted_channel");
+		peer->uncommitted_channel = new_uncommitted_channel(peer);
+	} else
+		log_debug(cmd->ld->log, "fundchannel_start: reusing uncommitted_channel");
+
+	if (peer->uncommitted_channel->fc) {
+		return command_fail(cmd, LIGHTNINGD, "Already funding channel");
+	}
+
+	if (peer->uncommitted_channel->got_offer) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Have in-progress "
+				    "`open_channel` from "
+				    "peer");
+	}
+
+	peer->uncommitted_channel->cid = *tmp_channel_id;
+
+	peer->uncommitted_channel->fc = tal_steal(peer->uncommitted_channel, fc);
+	fc->uc = peer->uncommitted_channel;
+
+	/* BOLT #2:
+	 *
+	 * The sender:
+	 *   - if `channel_type` includes `option_zeroconf`:
+	 *      - MUST set `minimum_depth` to zero.
+	 *   - otherwise:
+	 *     - SHOULD set `minimum_depth` to a number of blocks it
+	 *       considers reasonable to avoid double-spending of the
+	 *       funding transaction.
+	 */
+	/* FIXME: What does that quote have to do with this??? --RR */
+	fc->uc->minimum_depth = mindepth;
+
+	fc->uc->reserve = tal_steal(fc->uc, reserve);
+
+	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+		return command_fail(cmd, FUND_MAX_EXCEEDED,
+				    "Failed to create socketpair: %s",
+				    strerror(errno));
+	}
+	if (!peer_start_openingd(peer, new_peer_fd(cmd, fds[0]))) {
+		close(fds[1]);
+		/* FIXME: gets completed by failure path above! */
+		return command_its_complicated("completed by peer_start_openingd");
+	}
+
+	/* Tell it to start funding */
+	subd_send_msg(peer->uncommitted_channel->open_daemon, fc->open_msg);
+
+	/* Tell connectd connect this to this channel id. */
+	subd_send_msg(peer->ld->connectd,
+		      take(towire_connectd_peer_connect_subd(NULL,
+							     &peer->id,
+							     peer->connectd_counter,
+							     &peer->uncommitted_channel->cid)));
+	subd_send_fd(peer->ld->connectd, fds[1]);
+	return command_still_pending(cmd);
+}
+
+struct fundchannel_start_info {
+	struct command *cmd;
+	struct node_id id;
+	struct funding_channel *fc;
+	struct channel_id tmp_channel_id;
+	struct amount_sat *reserve;
+	u32 mindepth;
+};
+
+static void fundchannel_start_after_sync(struct chain_topology *topo,
+					 struct fundchannel_start_info *info)
+{
+	struct peer *peer;
+
+	/* Look up peer again in case it's gone! */
+	peer = peer_by_id(info->cmd->ld, &info->id);
+	if (!peer) {
+		was_pending(command_fail(info->cmd, FUNDING_UNKNOWN_PEER, "Unknown peer"));
+		return;
+	}
+
+	if (peer->connected != PEER_CONNECTED)
+		was_pending(command_fail(info->cmd, FUNDING_PEER_NOT_CONNECTED,
+					 "Peer %s",
+					 peer->connected == PEER_DISCONNECTED
+					 ? "not connected" : "still connecting"));
+	fundchannel_start(info->cmd, peer, info->fc,
+			  &info->tmp_channel_id, info->mindepth, info->reserve);
+}
+
 /**
  * json_fundchannel_start - Entrypoint for funding a channel
  */
@@ -1142,7 +1243,6 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	struct peer *peer;
 	bool *announce_channel;
 	u32 *feerate_non_anchor, feerate_anchor, *mindepth;
-	int fds[2];
 	struct amount_sat *amount, *reserve;
 	struct amount_msat *push_msat;
 	u32 *upfront_shutdown_script_wallet_index;
@@ -1217,11 +1317,6 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 				    *feerate_non_anchor, get_feerate_floor(cmd->ld->topology));
 	}
 
-	if (!topology_synced(cmd->ld->topology)) {
-		return command_fail(cmd, FUNDING_STILL_SYNCING_BITCOIN,
-				    "Still syncing with bitcoin network");
-	}
-
 	peer = peer_by_id(cmd->ld, id);
 	if (!peer) {
 		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
@@ -1232,36 +1327,6 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 				    "Peer %s",
 				    peer->connected == PEER_DISCONNECTED
 				    ? "not connected" : "still connecting");
-
-	temporary_channel_id(&tmp_channel_id);
-
-	if (!peer->uncommitted_channel) {
-		if (feature_negotiated(cmd->ld->our_features,
-				       peer->their_features,
-				       OPT_DUAL_FUND))
-			return command_fail(cmd, FUNDING_STATE_INVALID,
-					    "Peer negotiated"
-					    " `option_dual_fund`,"
-					    " must use `openchannel_init` not"
-					    " `fundchannel_start`.");
-
-		log_debug(cmd->ld->log, "fundchannel_start: allocating uncommitted_channel");
-		peer->uncommitted_channel = new_uncommitted_channel(peer);
-	} else
-		log_debug(cmd->ld->log, "fundchannel_start: reusing uncommitted_channel");
-
-	if (peer->uncommitted_channel->fc) {
-		return command_fail(cmd, LIGHTNINGD, "Already funding channel");
-	}
-
-	if (peer->uncommitted_channel->got_offer) {
-		return command_fail(cmd, LIGHTNINGD,
-				    "Have in-progress "
-				    "`open_channel` from "
-				    "peer");
-	}
-
-	peer->uncommitted_channel->cid = tmp_channel_id;
 
 	/* BOLT #2:
 	 *  - if both nodes advertised `option_support_large_channel`:
@@ -1277,6 +1342,28 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 				    fmt_amount_sat(tmpctx,
 						   chainparams->max_funding));
 
+	if (feature_negotiated(cmd->ld->our_features,
+			       peer->their_features,
+			       OPT_DUAL_FUND))
+		return command_fail(cmd, FUNDING_STATE_INVALID,
+				    "Peer negotiated"
+				    " `option_dual_fund`,"
+				    " must use `openchannel_init` not"
+				    " `fundchannel_start`.");
+
+	if (peer->uncommitted_channel) {
+		if (peer->uncommitted_channel->fc) {
+			return command_fail(cmd, LIGHTNINGD, "Already funding channel");
+		}
+
+		if (peer->uncommitted_channel->got_offer) {
+			return command_fail(cmd, LIGHTNINGD,
+					    "Have in-progress "
+					    "`open_channel` from "
+					    "peer");
+		}
+	}
+
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
@@ -1287,24 +1374,6 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 		log_info(peer->ld->log, "Will open private channel with node %s",
 			fmt_node_id(fc, id));
 	}
-
-	peer->uncommitted_channel->fc = tal_steal(peer->uncommitted_channel, fc);
-	fc->uc = peer->uncommitted_channel;
-
-	/* BOLT #2:
-	 *
-	 * The sender:
-	 *   - if `channel_type` includes `option_zeroconf`:
-	 *      - MUST set `minimum_depth` to zero.
-	 *   - otherwise:
-	 *     - SHOULD set `minimum_depth` to a number of blocks it
-	 *       considers reasonable to avoid double-spending of the
-	 *       funding transaction.
-	 */
-	assert(mindepth != NULL);
-	fc->uc->minimum_depth = *mindepth;
-
-	fc->uc->reserve = reserve;
 
 	/* Needs to be stolen away from cmd */
 	if (fc->our_upfront_shutdown_script)
@@ -1322,6 +1391,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	} else
 		upfront_shutdown_script_wallet_index = NULL;
 
+	temporary_channel_id(&tmp_channel_id);
 	fc->open_msg = towire_openingd_funder_start(
 			fc,
 			*amount,
@@ -1332,30 +1402,32 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 			feerate_anchor,
 			&tmp_channel_id,
 			fc->channel_flags,
-			fc->uc->reserve,
+			reserve,
 			ctype);
 
-	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
-		return command_fail(cmd, FUND_MAX_EXCEEDED,
-				    "Failed to create socketpair: %s",
-				    strerror(errno));
-	}
-	if (!peer_start_openingd(peer, new_peer_fd(cmd, fds[0]))) {
-		close(fds[1]);
-		/* FIXME: gets completed by failure path above! */
-		return command_its_complicated("completed by peer_start_openingd");
-	}
-	/* Tell it to start funding */
-	subd_send_msg(peer->uncommitted_channel->open_daemon, fc->open_msg);
+	if (!topology_synced(cmd->ld->topology)) {
+		struct fundchannel_start_info *info
+			= tal(cmd, struct fundchannel_start_info);
 
-	/* Tell connectd connect this to this channel id. */
-	subd_send_msg(peer->ld->connectd,
-		      take(towire_connectd_peer_connect_subd(NULL,
-							     &peer->id,
-							     peer->connectd_counter,
-							     &peer->uncommitted_channel->cid)));
-	subd_send_fd(peer->ld->connectd, fds[1]);
-	return command_still_pending(cmd);
+		json_notify_fmt(cmd, LOG_UNUSUAL,
+				"Waiting to sync with bitcoind network (block %u of %u)",
+				get_block_height(cmd->ld->topology),
+				get_network_blockheight(cmd->ld->topology));
+
+		info->cmd = cmd;
+		info->fc = fc;
+		info->id = *id;
+		info->tmp_channel_id = tmp_channel_id;
+		info->reserve = reserve;
+		info->mindepth = *mindepth;
+		topology_add_sync_waiter(cmd, cmd->ld->topology,
+					 fundchannel_start_after_sync,
+					 info);
+		return command_still_pending(cmd);
+	}
+
+	return fundchannel_start(cmd, peer, fc,
+				 &tmp_channel_id, *mindepth, reserve);
 }
 
 static struct channel *stub_chan(struct command *cmd,
