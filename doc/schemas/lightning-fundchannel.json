@@ -222,67 +222,69 @@
     "lightning-cli -k fundchannel id=03f...fc1 amount=all feerate=normal utxos='[\"bcc1...39c:0\"]'",
     "```"
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:fundchannel#1",
-      "method": "fundchannel",
-      "params": {
-        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-        "amount": 1000000,
-        "feerate": null,
-        "announce": true,
-        "minconf": null,
-        "utxos": null,
-        "push_msat": null,
-        "close_to": null,
-        "request_amt": null,
-        "compact_lease": null,
-        "mindepth": null,
-        "reserve": null
-      }
-    },
-    {
-      "id": "example:fundchannel#2",
-      "method": "fundchannel",
-      "params": {
-        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-        "amount": 10000000,
-        "feerate": null,
-        "announce": true,
-        "minconf": null,
-        "utxos": null,
-        "push_msat": 1000000000,
-        "close_to": null,
-        "request_amt": null,
-        "compact_lease": null,
-        "mindepth": null,
-        "reserve": null,
-        "channel_type": null
-      }
-    }
-  ],
-  "example_json_response": [
-    {
-      "tx": "020000000001014ca47b75e6982fce6b5ebb6e7ec163dc5b6bed1562934e6febe816103b2b207e0000000000fdffffff0240420f00000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd012f0f000000000022512063ffee4ea7d51e6cadf9086e286a2527922aaa25b8c53aebf32fa32a0a627f5a02473044022058fc4d51c8254d37b266d3db3f8fda7420882b6ec9226d66b8c0139f2707c09602205798d8ce23d4c692a7384362a2e0afd9703f062239a786d7a1840a28d3a1152e012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf66000000",
-      "txid": "6c0a3d8f32f556f3bd8b8c85413c4636a9513c6195abb925ea73c47183d40b7b",
-      "channel_id": "7b0bd48371c473ea25b9ab95613c51a936463c41858c8bbdf356f5328f3d0a6c",
-      "outnum": 0
-    },
-    {
-      "tx": "0200000000010141cfa0e9957c7c6d0bb5069d92937f9545e6e6ee9b4650f47f509d5ea65df4690100000000fdffffff0280969800000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd4118530b0000000022512063ffee4ea7d51e6cadf9086e286a2527922aaa25b8c53aebf32fa32a0a627f5a0247304402206488c7dfbc4180781ed0d5ca7ff2c8ce134480c349d03978765053a393229d9a022066c75dee1f19b410ea1c7756d0cb2c097e52b13f4d9bbd033efa4ed95d817e14012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf66000000",
-      "txid": "6aa1231b6356777468a55aea1f49dad6415592aef6c1e652f8a64357c7235301",
-      "channel_id": "015323c75743a6f852e6c1f6ae925541d6da491fea5aa568747756631b23a16a",
-      "channel_type": {
-        "bits": [
-          12,
-          22
-        ],
-        "names": [
-          "static_remotekey/even",
-          "anchors_zero_fee_htlc_tx/even"
-        ]
+      "request": {
+        "id": "example:fundchannel#1",
+        "method": "fundchannel",
+        "params": {
+          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "amount": 1000000,
+          "feerate": null,
+          "announce": true,
+          "minconf": null,
+          "utxos": null,
+          "push_msat": null,
+          "close_to": null,
+          "request_amt": null,
+          "compact_lease": null,
+          "mindepth": null,
+          "reserve": null
+        }
       },
-      "outnum": 0
+      "response": {
+        "tx": "020000000001014ca47b75e6982fce6b5ebb6e7ec163dc5b6bed1562934e6febe816103b2b207e0000000000fdffffff0240420f00000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd012f0f000000000022512063ffee4ea7d51e6cadf9086e286a2527922aaa25b8c53aebf32fa32a0a627f5a02473044022058fc4d51c8254d37b266d3db3f8fda7420882b6ec9226d66b8c0139f2707c09602205798d8ce23d4c692a7384362a2e0afd9703f062239a786d7a1840a28d3a1152e012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf66000000",
+        "txid": "6c0a3d8f32f556f3bd8b8c85413c4636a9513c6195abb925ea73c47183d40b7b",
+        "channel_id": "7b0bd48371c473ea25b9ab95613c51a936463c41858c8bbdf356f5328f3d0a6c",
+        "outnum": 0
+      }
+    },
+    {
+      "request": {
+        "id": "example:fundchannel#2",
+        "method": "fundchannel",
+        "params": {
+          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "amount": 10000000,
+          "feerate": null,
+          "announce": true,
+          "minconf": null,
+          "utxos": null,
+          "push_msat": 1000000000,
+          "close_to": null,
+          "request_amt": null,
+          "compact_lease": null,
+          "mindepth": null,
+          "reserve": null,
+          "channel_type": null
+        }
+      },
+      "response": {
+        "tx": "0200000000010141cfa0e9957c7c6d0bb5069d92937f9545e6e6ee9b4650f47f509d5ea65df4690100000000fdffffff0280969800000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd4118530b0000000022512063ffee4ea7d51e6cadf9086e286a2527922aaa25b8c53aebf32fa32a0a627f5a0247304402206488c7dfbc4180781ed0d5ca7ff2c8ce134480c349d03978765053a393229d9a022066c75dee1f19b410ea1c7756d0cb2c097e52b13f4d9bbd033efa4ed95d817e14012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf66000000",
+        "txid": "6aa1231b6356777468a55aea1f49dad6415592aef6c1e652f8a64357c7235301",
+        "channel_id": "015323c75743a6f852e6c1f6ae925541d6da491fea5aa568747756631b23a16a",
+        "channel_type": {
+          "bits": [
+            12,
+            22
+          ],
+          "names": [
+            "static_remotekey/even",
+            "anchors_zero_fee_htlc_tx/even"
+          ]
+        },
+        "outnum": 0
+      }
     }
   ],
   "errors": [

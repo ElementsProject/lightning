@@ -186,53 +186,55 @@
     "- 306: Unknown peer id.",
     "- 312: Peer negotiated `option_dual_fund`, must use `openchannel_init` not `fundchannel_start`. (Only if ``experimental-dual-fund` is enabled)"
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:fundchannel_start#1",
-      "method": "fundchannel_start",
-      "params": {
-        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-        "amount": 16777216,
-        "feerate": null,
-        "announce": true,
-        "close_to": null,
-        "mindepth": null
-      }
-    },
-    {
-      "id": "example:fundchannel_start#2",
-      "method": "fundchannel_start",
-      "params": {
-        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-        "amount": "100000sat",
-        "feerate": null,
-        "announce": true,
-        "close_to": null,
-        "mindepth": null,
-        "channel_type": null
-      }
-    }
-  ],
-  "example_json_response": [
-    {
-      "funding_address": "bcrt1qtwxd8wg5eanumk86vfeujvp48hfkgannf77evggzct048wggsrxsum2pmm",
-      "scriptpubkey": "00205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd",
-      "warning_usage": "The funding transaction MUST NOT be broadcast until after channel establishment has been successfully completed by running `fundchannel_complete`"
-    },
-    {
-      "funding_address": "bcrt1qtwxd8wg5eanumk86vfeujvp48hfkgannf77evggzct048wggsrxsum2pmm",
-      "scriptpubkey": "00205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd",
-      "channel_type": {
-        "bits": [
-          12,
-          22
-        ],
-        "names": [
-          "static_remotekey/even",
-          "anchors_zero_fee_htlc_tx/even"
-        ]
+      "request": {
+        "id": "example:fundchannel_start#1",
+        "method": "fundchannel_start",
+        "params": {
+          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "amount": 16777216,
+          "feerate": null,
+          "announce": true,
+          "close_to": null,
+          "mindepth": null
+        }
       },
-      "warning_usage": "The funding transaction MUST NOT be broadcast until after channel establishment has been successfully completed by running `fundchannel_complete`"
+      "response": {
+        "funding_address": "bcrt1qtwxd8wg5eanumk86vfeujvp48hfkgannf77evggzct048wggsrxsum2pmm",
+        "scriptpubkey": "00205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd",
+        "warning_usage": "The funding transaction MUST NOT be broadcast until after channel establishment has been successfully completed by running `fundchannel_complete`"
+      }
+    },
+    {
+      "request": {
+        "id": "example:fundchannel_start#2",
+        "method": "fundchannel_start",
+        "params": {
+          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "amount": "100000sat",
+          "feerate": null,
+          "announce": true,
+          "close_to": null,
+          "mindepth": null,
+          "channel_type": null
+        }
+      },
+      "response": {
+        "funding_address": "bcrt1qtwxd8wg5eanumk86vfeujvp48hfkgannf77evggzct048wggsrxsum2pmm",
+        "scriptpubkey": "00205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd",
+        "channel_type": {
+          "bits": [
+            12,
+            22
+          ],
+          "names": [
+            "static_remotekey/even",
+            "anchors_zero_fee_htlc_tx/even"
+          ]
+        },
+        "warning_usage": "The funding transaction MUST NOT be broadcast until after channel establishment has been successfully completed by running `fundchannel_complete`"
+      }
     }
   ],
   "author": [

@@ -48,30 +48,32 @@
     "",
     "- 2000: Timed out."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:waitblockheight#1",
-      "method": "waitblockheight",
-      "params": {
-        "blockheight": 99,
-        "timeout": null
+      "request": {
+        "id": "example:waitblockheight#1",
+        "method": "waitblockheight",
+        "params": {
+          "blockheight": 99,
+          "timeout": null
+        }
+      },
+      "response": {
+        "blockheight": 99
       }
     },
     {
-      "id": "example:waitblockheight#2",
-      "method": "waitblockheight",
-      "params": {
-        "blockheight": 103,
-        "timeout": 600
+      "request": {
+        "id": "example:waitblockheight#2",
+        "method": "waitblockheight",
+        "params": {
+          "blockheight": 103,
+          "timeout": 600
+        }
+      },
+      "response": {
+        "blockheight": 103
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "blockheight": 99
-    },
-    {
-      "blockheight": 103
     }
   ],
   "author": [

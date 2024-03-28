@@ -49,28 +49,30 @@
   "errors": [
     "If an unrecognized address type is requested an error message will be returned."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:newaddr#1",
-      "method": "newaddr",
-      "params": {
-        "addresstype": null
+      "request": {
+        "id": "example:newaddr#1",
+        "method": "newaddr",
+        "params": {
+          "addresstype": null
+        }
+      },
+      "response": {
+        "bech32": "bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf"
       }
     },
     {
-      "id": "example:newaddr#2",
-      "method": "newaddr",
-      "params": {
-        "addresstype": "bech32"
+      "request": {
+        "id": "example:newaddr#2",
+        "method": "newaddr",
+        "params": {
+          "addresstype": "bech32"
+        }
+      },
+      "response": {
+        "bech32": "bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf"
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "bech32": "bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf"
-    },
-    {
-      "bech32": "bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf"
     }
   ],
   "author": [

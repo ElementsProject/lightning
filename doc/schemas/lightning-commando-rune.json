@@ -220,65 +220,71 @@
     "",
     "If a rune has a ratelimit, any derived rune will have the same id, and thus will compete for that ratelimit. You might want to consider adding a tighter ratelimit to a rune before sharing it, so you will keep the remainder. For example, if you rune has a limit of 60 times per minute, adding a limit of 5 times per minute and handing that rune out means you can still use your original rune 55 times per minute."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:commando-rune#1",
-      "method": "commando-rune",
-      "params": "{}"
-    },
-    {
-      "id": "example:commando-rune#2",
-      "method": "commando-rune",
-      "params": {
-        "restrictions": "readonly"
+      "request": {
+        "id": "example:commando-rune#1",
+        "method": "commando-rune",
+        "params": "{}"
+      },
+      "response": {
+        "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",
+        "unique_id": "0",
+        "warning_unrestricted_rune": "WARNING: This rune has no restrictions! Anyone who has access to this rune could drain funds from your node. Be careful when giving this to apps that you don't trust. Consider using the restrictions parameter to only allow access to specific rpc methods."
       }
     },
     {
-      "id": "example:commando-rune#3",
-      "method": "commando-rune",
-      "params": {
-        "restrictions": [
-          [
-            "id^022d223620a359a47ff7"
-          ],
-          [
-            "method=listpeers"
+      "request": {
+        "id": "example:commando-rune#2",
+        "method": "commando-rune",
+        "params": {
+          "restrictions": "readonly"
+        }
+      },
+      "response": {
+        "rune": "zm0x_eLgHexaTvZn3Cz7gb_YlvrlYGDo_w4BYlR9SS09MSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl",
+        "unique_id": "1"
+      }
+    },
+    {
+      "request": {
+        "id": "example:commando-rune#3",
+        "method": "commando-rune",
+        "params": {
+          "restrictions": [
+            [
+              "id^022d223620a359a47ff7"
+            ],
+            [
+              "method=listpeers"
+            ]
           ]
-        ]
+        }
+      },
+      "response": {
+        "rune": "YPojv9qgHPa3im0eiqRb-g8aRq76OasyfltGGqdFUOU9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz",
+        "unique_id": "2"
       }
     },
     {
-      "id": "example:commando-rune#4",
-      "method": "commando-rune",
-      "params": {
-        "restrictions": [
-          [
-            "method=pay"
-          ],
-          [
-            "pnameamountmsat<10000"
+      "request": {
+        "id": "example:commando-rune#4",
+        "method": "commando-rune",
+        "params": {
+          "restrictions": [
+            [
+              "method=pay"
+            ],
+            [
+              "pnameamountmsat<10000"
+            ]
           ]
-        ]
+        }
+      },
+      "response": {
+        "rune": "b3hXuEM7Pqzk-C7HUw83xzvHOV7fmuGaWjdo-wHdfg89MCZtZXRob2Q9cGF5JnBuYW1lYW1vdW50bXNhdDwxMDAwMA==",
+        "unique_id": "3"
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",
-      "unique_id": "0",
-      "warning_unrestricted_rune": "WARNING: This rune has no restrictions! Anyone who has access to this rune could drain funds from your node. Be careful when giving this to apps that you don't trust. Consider using the restrictions parameter to only allow access to specific rpc methods."
-    },
-    {
-      "rune": "zm0x_eLgHexaTvZn3Cz7gb_YlvrlYGDo_w4BYlR9SS09MSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl",
-      "unique_id": "1"
-    },
-    {
-      "rune": "YPojv9qgHPa3im0eiqRb-g8aRq76OasyfltGGqdFUOU9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz",
-      "unique_id": "2"
-    },
-    {
-      "rune": "b3hXuEM7Pqzk-C7HUw83xzvHOV7fmuGaWjdo-wHdfg89MCZtZXRob2Q9cGF5JnBuYW1lYW1vdW50bXNhdDwxMDAwMA==",
-      "unique_id": "3"
     }
   ],
   "author": [

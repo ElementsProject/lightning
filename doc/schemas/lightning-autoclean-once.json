@@ -186,38 +186,40 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:autoclean-once#1",
-      "method": "autoclean-once",
-      "params": [
-        "failedpays",
-        1
-      ]
-    },
-    {
-      "id": "example:autoclean-once#2",
-      "method": "autoclean-once",
-      "params": [
-        "succeededpays",
-        1
-      ]
-    }
-  ],
-  "example_json_response": [
-    {
-      "autoclean": {
-        "failedpays": {
-          "cleaned": 1,
-          "uncleaned": 1
+      "request": {
+        "id": "example:autoclean-once#1",
+        "method": "autoclean-once",
+        "params": [
+          "failedpays",
+          1
+        ]
+      },
+      "response": {
+        "autoclean": {
+          "failedpays": {
+            "cleaned": 1,
+            "uncleaned": 1
+          }
         }
       }
     },
     {
-      "autoclean": {
-        "succeededpays": {
-          "cleaned": 1,
-          "uncleaned": 0
+      "request": {
+        "id": "example:autoclean-once#2",
+        "method": "autoclean-once",
+        "params": [
+          "succeededpays",
+          1
+        ]
+      },
+      "response": {
+        "autoclean": {
+          "succeededpays": {
+            "cleaned": 1,
+            "uncleaned": 0
+          }
         }
       }
     }

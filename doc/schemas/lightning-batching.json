@@ -24,17 +24,17 @@
   "response": {
     "properties": {}
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:batching#1",
-      "method": "batching",
-      "params": {
-        "enable": true
-      }
+      "request": {
+        "id": "example:batching#1",
+        "method": "batching",
+        "params": {
+          "enable": true
+        }
+      },
+      "response": {}
     }
-  ],
-  "example_json_response": [
-    {}
   ],
   "errors": [
     "On failure, one of the following error codes may be returned:",

@@ -75,19 +75,45 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:help#1",
-      "method": "help",
-      "params": {
-        "command": "pay"
+      "request": {
+        "id": "example:help#1",
+        "method": "help",
+        "params": {
+          "command": "pay"
+        }
+      },
+      "response": {
+        "help": [
+          {
+            "command": "pay bolt11 [amount_msat] [label] [riskfactor] [maxfeepercent] [retry_for] [maxdelay] [exemptfee] [localinvreqid] [exclude] [maxfee] [description] [dev_use_shadow]",
+            "category": "plugin",
+            "description": "Send payment specified by {bolt11}",
+            "verbose": "Attempt to pay the {bolt11} invoice."
+          }
+        ],
+        "format-hint": "simple"
       }
     },
     {
-      "id": "example:help#2",
-      "method": "help",
-      "params": {
-        "command": "dev"
+      "request": {
+        "id": "example:help#2",
+        "method": "help",
+        "params": {
+          "command": "dev"
+        }
+      },
+      "response": {
+        "help": [
+          {
+            "command": "dev subcommand=crash|rhash|slowcmd",
+            "category": "developer",
+            "description": "Developer command test multiplexer",
+            "verbose": "dev rhash {secret}\n\tShow SHA256 of {secret}\ndev crash\n\tCrash lightningd by calling fatal()\ndev slowcmd {msec}\n\tTorture test for slow commands, optional {msec}\n"
+          }
+        ],
+        "format-hint": "simple"
       }
     }
   ],
@@ -95,30 +121,6 @@
     "On failure, one of the following error codes may be returned:",
     "",
     "- -32602: Error in given parameters."
-  ],
-  "example_json_response": [
-    {
-      "help": [
-        {
-          "command": "pay bolt11 [amount_msat] [label] [riskfactor] [maxfeepercent] [retry_for] [maxdelay] [exemptfee] [localinvreqid] [exclude] [maxfee] [description] [dev_use_shadow]",
-          "category": "plugin",
-          "description": "Send payment specified by {bolt11}",
-          "verbose": "Attempt to pay the {bolt11} invoice."
-        }
-      ],
-      "format-hint": "simple"
-    },
-    {
-      "help": [
-        {
-          "command": "dev subcommand=crash|rhash|slowcmd",
-          "category": "developer",
-          "description": "Developer command test multiplexer",
-          "verbose": "dev rhash {secret}\n\tShow SHA256 of {secret}\ndev crash\n\tCrash lightningd by calling fatal()\ndev slowcmd {msec}\n\tTorture test for slow commands, optional {msec}\n"
-        }
-      ],
-      "format-hint": "simple"
-    }
   ],
   "author": [
     "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",

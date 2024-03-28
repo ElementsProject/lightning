@@ -389,16 +389,50 @@
                 "type": "string"
             }
         },
-        "example_json_request": {
+        "json_example": {
             "type": "array",
             "items": {
-                "id": {
-                    "type": "integer"
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "description": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "request": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "string"
+                            },
+                            "method": {
+                                "type": "string"
+                            },
+                            "params": {}
+                        },
+                        "required": [
+                            "id",
+                            "method",
+                            "params"
+                        ]
+                    },
+                    "response": {
+                        "type": "object",
+                        "properties": {
+                            "patternProperties": {
+                                "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+                                    "$ref": "#/definitions/schemaArray"
+                                }
+                            }
+                        }
+                    }
                 },
-                "method": {
-                    "type": "string"
-                },
-                "params": {}
+                "required": [
+                    "request",
+                    "response"
+                ]
             }
         },
         "notes": {
@@ -463,10 +497,6 @@
             "items": {
                 "type": "string"
             }
-        },
-        "example_json_response": {
-            "type": "array",
-            "items": {}
         },
         "example_json_notifications": {
             "type": "array",

@@ -223,50 +223,54 @@
     "",
     "If a rune has a ratelimit, any derived rune will have the same id, and thus will compete for that ratelimit. You might want to consider adding a tighter ratelimit to a rune before sharing it, so you will keep the remainder. For example, if you rune has a limit of 60 times per minute, adding a limit of 5 times per minute and handing that rune out means you can still use your original rune 55 times per minute."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:createrune#1",
-      "method": "createrune",
-      "params": {
-        "restrictions": [
-          [
-            "method/getinfo"
+      "request": {
+        "id": "example:createrune#1",
+        "method": "createrune",
+        "params": {
+          "restrictions": [
+            [
+              "method/getinfo"
+            ]
           ]
-        ]
+        }
+      },
+      "response": {
+        "rune": "S5f-BKt3rR-cvJmujdpDCUQm_XLahfB4iQuDlwqMJiQ9MCZtZXRob2QvZ2V0aW5mbw==",
+        "unique_id": "0"
       }
     },
     {
-      "id": "example:createrune#2",
-      "method": "createrune",
-      "params": {
-        "restrictions": "readonly"
+      "request": {
+        "id": "example:createrune#2",
+        "method": "createrune",
+        "params": {
+          "restrictions": "readonly"
+        }
+      },
+      "response": {
+        "rune": "oVkzoiQ67VCU1h_aRjPqCeWktGX54ARDsqqQgDL-uMs9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl",
+        "unique_id": "1"
       }
     },
     {
-      "id": "example:createrune#3",
-      "method": "createrune",
-      "params": [
-        "enX0sTpHB8y1ktyTAF80CnEvGetG340Ne3AGItudBS49NCZwbnVtPTA=",
-        [
+      "request": {
+        "id": "example:createrune#3",
+        "method": "createrune",
+        "params": [
+          "enX0sTpHB8y1ktyTAF80CnEvGetG340Ne3AGItudBS49NCZwbnVtPTA=",
           [
-            "rate=3"
+            [
+              "rate=3"
+            ]
           ]
         ]
-      ]
-    }
-  ],
-  "example_json_response": [
-    {
-      "rune": "S5f-BKt3rR-cvJmujdpDCUQm_XLahfB4iQuDlwqMJiQ9MCZtZXRob2QvZ2V0aW5mbw==",
-      "unique_id": "0"
-    },
-    {
-      "rune": "oVkzoiQ67VCU1h_aRjPqCeWktGX54ARDsqqQgDL-uMs9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl",
-      "unique_id": "1"
-    },
-    {
-      "rune": "_h2eKjoK7ITAF-JQ1S5oum9oMQesrz-t1FR9kDChRB49NCZwbnVtPTAmcmF0ZT0z",
-      "unique_id": "2"
+      },
+      "response": {
+        "rune": "_h2eKjoK7ITAF-JQ1S5oum9oMQesrz-t1FR9kDChRB49NCZwbnVtPTAmcmF0ZT0z",
+        "unique_id": "2"
+      }
     }
   ],
   "author": [

@@ -154,76 +154,78 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:showrunes#1",
-      "method": "showrunes",
-      "params": "{}"
-    },
-    {
-      "id": "example:showrunes#2",
-      "method": "showrunes",
-      "params": {
-        "rune": "Bl0V_vkVkGr4h356JbCMCcoDyyKE8djkoQ2156iPB509MCZwZXI9MTAwMDAwMDAwMG5zZWM="
+      "request": {
+        "id": "example:showrunes#1",
+        "method": "showrunes",
+        "params": "{}"
+      },
+      "response": {
+        "runes": [
+          {
+            "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",
+            "unique_id": "0",
+            "restrictions": [],
+            "restrictions_as_english": ""
+          },
+          {
+            "rune": "geZmO6U7yqpHn-moaX93FVMVWrDRfSNY4AXx9ypLcqg9MQ==",
+            "unique_id": "1",
+            "restrictions": [],
+            "restrictions_as_english": ""
+          },
+          {
+            "rune": "Bl0V_vkVkGr4h356JbCMCcoDyyKE8djkoQ2156iPB509MCZwZXI9MTAwMDAwMDAwMG5zZWM=",
+            "unique_id": "2",
+            "restrictions": [
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "per",
+                    "value": "1000000000nsec",
+                    "condition": "=",
+                    "english": "per equal to 1000000000nsec"
+                  }
+                ],
+                "english": "per equal to 1000000000nsec"
+              }
+            ],
+            "restrictions_as_english": "per equal to 1000000000nsec"
+          }
+        ]
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "runes": [
-        {
-          "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",
-          "unique_id": "0",
-          "restrictions": [],
-          "restrictions_as_english": ""
-        },
-        {
-          "rune": "geZmO6U7yqpHn-moaX93FVMVWrDRfSNY4AXx9ypLcqg9MQ==",
-          "unique_id": "1",
-          "restrictions": [],
-          "restrictions_as_english": ""
-        },
-        {
-          "rune": "Bl0V_vkVkGr4h356JbCMCcoDyyKE8djkoQ2156iPB509MCZwZXI9MTAwMDAwMDAwMG5zZWM=",
-          "unique_id": "2",
-          "restrictions": [
-            {
-              "alternatives": [
-                {
-                  "fieldname": "per",
-                  "value": "1000000000nsec",
-                  "condition": "=",
-                  "english": "per equal to 1000000000nsec"
-                }
-              ],
-              "english": "per equal to 1000000000nsec"
-            }
-          ],
-          "restrictions_as_english": "per equal to 1000000000nsec"
-        }
-      ]
     },
     {
-      "runes": [
-        {
-          "rune": "Bl0V_vkVkGr4h356JbCMCcoDyyKE8djkoQ2156iPB509MCZwZXI9MTAwMDAwMDAwMG5zZWM=",
-          "unique_id": "2",
-          "restrictions": [
-            {
-              "alternatives": [
-                {
-                  "fieldname": "per",
-                  "value": "1000000000nsec",
-                  "condition": "=",
-                  "english": "per equal to 1000000000nsec"
-                }
-              ],
-              "english": "per equal to 1000000000nsec"
-            }
-          ],
-          "restrictions_as_english": "per equal to 1000000000nsec"
+      "request": {
+        "id": "example:showrunes#2",
+        "method": "showrunes",
+        "params": {
+          "rune": "Bl0V_vkVkGr4h356JbCMCcoDyyKE8djkoQ2156iPB509MCZwZXI9MTAwMDAwMDAwMG5zZWM="
         }
-      ]
+      },
+      "response": {
+        "runes": [
+          {
+            "rune": "Bl0V_vkVkGr4h356JbCMCcoDyyKE8djkoQ2156iPB509MCZwZXI9MTAwMDAwMDAwMG5zZWM=",
+            "unique_id": "2",
+            "restrictions": [
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "per",
+                    "value": "1000000000nsec",
+                    "condition": "=",
+                    "english": "per equal to 1000000000nsec"
+                  }
+                ],
+                "english": "per equal to 1000000000nsec"
+              }
+            ],
+            "restrictions_as_english": "per equal to 1000000000nsec"
+          }
+        ]
+      }
     }
   ],
   "author": [

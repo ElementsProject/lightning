@@ -61,20 +61,20 @@
     "- 306: Unknown peer id.",
     "- 309: PSBT does not have a unique, correct output to fund the channel."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:fundchannel_complete#1",
-      "method": "fundchannel_complete",
-      "params": {
-        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-        "psbt": "cHNidP8BAIkCAAAAASYd4TeOHEIzrUbbELM2DK0IX09WaXqWsJFlLD455MPPAAAAAAD9////Av///wAAAAAAIgAgW4zTuRTPZ83Y+mJzyTA1PdNkdnNPvZYhAsLfU7kIgM1c8QUpAQAAACJRIH8AZYBKMKON4/oVmJVsVt6zy/+PkBPzziE+LtkuFvWXAAAAAAABAIMCAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////wJRAP////8CAPIFKgEAAAAWABQ5FIjuMd8ar9WFRV9eGNLF+3RMcAAAAAAAAAAAJmokqiGp7eL2HD9x0d79P6mZ36NpU3VcaQaJeZlitIvr2DaXToz5AAAAAAEBHwDyBSoBAAAAFgAUORSI7jHfGq/VhUVfXhjSxft0THAiBgMegIxEPDa2OseVTaV6ANtSwQuoj/j2an7X/Is2EekvWBhhFDNgVAAAgAEAAIAAAACAAAAAAAAAAAAAAAEFIEm9AFgqUlJwbPFtyt3a9dzvb+nAGZiQ3CT1CImhjBFpIQdJvQBYKlJScGzxbcrd2vXc72/pwBmYkNwk9QiJoYwRaRkAYRQzYFYAAIABAACAAAAAgAEAAAAAAAAAAA=="
+      "request": {
+        "id": "example:fundchannel_complete#1",
+        "method": "fundchannel_complete",
+        "params": {
+          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "psbt": "cHNidP8BAIkCAAAAASYd4TeOHEIzrUbbELM2DK0IX09WaXqWsJFlLD455MPPAAAAAAD9////Av///wAAAAAAIgAgW4zTuRTPZ83Y+mJzyTA1PdNkdnNPvZYhAsLfU7kIgM1c8QUpAQAAACJRIH8AZYBKMKON4/oVmJVsVt6zy/+PkBPzziE+LtkuFvWXAAAAAAABAIMCAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////wJRAP////8CAPIFKgEAAAAWABQ5FIjuMd8ar9WFRV9eGNLF+3RMcAAAAAAAAAAAJmokqiGp7eL2HD9x0d79P6mZ36NpU3VcaQaJeZlitIvr2DaXToz5AAAAAAEBHwDyBSoBAAAAFgAUORSI7jHfGq/VhUVfXhjSxft0THAiBgMegIxEPDa2OseVTaV6ANtSwQuoj/j2an7X/Is2EekvWBhhFDNgVAAAgAEAAIAAAACAAAAAAAAAAAAAAAEFIEm9AFgqUlJwbPFtyt3a9dzvb+nAGZiQ3CT1CImhjBFpIQdJvQBYKlJScGzxbcrd2vXc72/pwBmYkNwk9QiJoYwRaRkAYRQzYFYAAIABAACAAAAAgAEAAAAAAAAAAA=="
+        }
+      },
+      "response": {
+        "channel_id": "049217e5035a4a60449c6382c445b5c105bd63588d66137ad0511c57a16db6d9",
+        "commitments_secured": true
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "channel_id": "049217e5035a4a60449c6382c445b5c105bd63588d66137ad0511c57a16db6d9",
-      "commitments_secured": true
     }
   ],
   "author": [

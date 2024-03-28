@@ -218,33 +218,33 @@
     "*failcode*: The failure code, as per BOLT #4.",
     "*failcodename*: The human-readable name corresponding to *failcode*, if known."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:waitsendpay#1",
-      "method": "waitsendpay",
-      "params": {
+      "request": {
+        "id": "example:waitsendpay#1",
+        "method": "waitsendpay",
+        "params": {
+          "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a",
+          "timeout": null,
+          "partid": null,
+          "groupid": null
+        }
+      },
+      "response": {
+        "created_index": 1,
+        "id": 1,
         "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a",
-        "timeout": null,
-        "partid": null,
-        "groupid": null
+        "groupid": 1,
+        "updated_index": 1,
+        "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+        "amount_msat": 11000000,
+        "amount_sent_msat": 11000000,
+        "created_at": 1706152930,
+        "completed_at": 1706152933,
+        "status": "complete",
+        "payment_preimage": "af7ba559629f719c04c43a82767fe3622790a539164d6270db07f765203e574b",
+        "bolt11": "lnbcrt110u1pjmr5lzsp5sfjyj3xn7ux592k36hmmt4ax98n6lgct22wvj54yck0upcmep63qpp5qu436g855lr40ftdt7csatk5pdvtdzzfmfqluwtvm0fds95jsadqdpq0pzk7s6j8y69xjt6xe25j5j4g44hsatdxqyjw5qcqp99qxpqysgquwma3zrw4cd8e8j4u9uh4gxukaacckse64kx2l9dqv8rvrysdq5r5dt38t9snqj9u5ar07h2exr4fg56wpudkhkk7gtxlyt72ku5fpqqd4fnlk"
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "created_index": 1,
-      "id": 1,
-      "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a",
-      "groupid": 1,
-      "updated_index": 1,
-      "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-      "amount_msat": 11000000,
-      "amount_sent_msat": 11000000,
-      "created_at": 1706152930,
-      "completed_at": 1706152933,
-      "status": "complete",
-      "payment_preimage": "af7ba559629f719c04c43a82767fe3622790a539164d6270db07f765203e574b",
-      "bolt11": "lnbcrt110u1pjmr5lzsp5sfjyj3xn7ux592k36hmmt4ax98n6lgct22wvj54yck0upcmep63qpp5qu436g855lr40ftdt7csatk5pdvtdzzfmfqluwtvm0fds95jsadqdpq0pzk7s6j8y69xjt6xe25j5j4g44hsatdxqyjw5qcqp99qxpqysgquwma3zrw4cd8e8j4u9uh4gxukaacckse64kx2l9dqv8rvrysdq5r5dt38t9snqj9u5ar07h2exr4fg56wpudkhkk7gtxlyt72ku5fpqqd4fnlk"
     }
   ],
   "author": [

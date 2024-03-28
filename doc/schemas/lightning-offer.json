@@ -165,41 +165,43 @@
     "- -1: Catchall nonspecific error.",
     "- 1000: Offer with this offer_id already exists (but is not active)."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:offer#1",
-      "method": "offer",
-      "params": {
-        "amount": "1msat",
-        "description": "test for 1msat"
+      "request": {
+        "id": "example:offer#1",
+        "method": "offer",
+        "params": {
+          "amount": "1msat",
+          "description": "test for 1msat"
+        }
+      },
+      "response": {
+        "offer_id": "f61cca153d1948dade19349792d9bcdc9cef687fd27db0b553a67979f55aae48",
+        "active": true,
+        "single_use": false,
+        "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqyqs5rn5v4ehggrxdaezqvtdwdshg93pqfnwgkvdr57yzh6h92zg3qctvrm7w38djg67kzcm4yeg8vc4cq63s",
+        "used": false,
+        "created": true
       }
     },
     {
-      "id": "example:offer#2",
-      "method": "offer",
-      "params": {
-        "amount": "100000sat",
-        "description": "quantity_max test",
-        "recurrence": "1week"
+      "request": {
+        "id": "example:offer#2",
+        "method": "offer",
+        "params": {
+          "amount": "100000sat",
+          "description": "quantity_max test",
+          "recurrence": "1week"
+        }
+      },
+      "response": {
+        "offer_id": "f7a501e51e2a90d032150b9100b1977c625f05cfda22469bdc81d8a20b1e303f",
+        "active": true,
+        "single_use": false,
+        "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqszltcgqpgghzatpde6xjaretakkz7pqw3jhxaqkyypxdeze35wncs2l2u4gfzyrpds00e6yakfrt6ctrw5n9qanzhqr2xq6qgqsw",
+        "used": false,
+        "created": true
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "offer_id": "f61cca153d1948dade19349792d9bcdc9cef687fd27db0b553a67979f55aae48",
-      "active": true,
-      "single_use": false,
-      "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqyqs5rn5v4ehggrxdaezqvtdwdshg93pqfnwgkvdr57yzh6h92zg3qctvrm7w38djg67kzcm4yeg8vc4cq63s",
-      "used": false,
-      "created": true
-    },
-    {
-      "offer_id": "f7a501e51e2a90d032150b9100b1977c625f05cfda22469bdc81d8a20b1e303f",
-      "active": true,
-      "single_use": false,
-      "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqszltcgqpgghzatpde6xjaretakkz7pqw3jhxaqkyypxdeze35wncs2l2u4gfzyrpds00e6yakfrt6ctrw5n9qanzhqr2xq6qgqsw",
-      "used": false,
-      "created": true
     }
   ],
   "author": [

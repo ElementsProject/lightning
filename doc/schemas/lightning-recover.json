@@ -38,26 +38,28 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:recover#1",
-      "method": "recover",
-      "params": {
-        "hsmsecret": "cl10leetsd35kw6r5de5kueedxgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdeuq7xuh94k9g"
-      }
+      "request": {
+        "id": "example:recover#1",
+        "method": "recover",
+        "params": {
+          "hsmsecret": "cl10leetsd35kw6r5de5kueedxgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdeuq7xuh94k9g"
+        }
+      },
+      "response": {}
     },
     {
-      "id": "example:recover#2",
-      "method": "recover",
-      "params": {
-        "hsmsecret": "6c696768746e696e672d31000000000000000000000000000000000000000000"
+      "request": {
+        "id": "example:recover#2",
+        "method": "recover",
+        "params": {
+          "hsmsecret": "6c696768746e696e672d31000000000000000000000000000000000000000000"
+        }
+      },
+      "response": {
+        "result": "Recovery restart in progress"
       }
-    }
-  ],
-  "example_json_response": [
-    {},
-    {
-      "result": "Recovery restart in progress"
     }
   ],
   "author": [

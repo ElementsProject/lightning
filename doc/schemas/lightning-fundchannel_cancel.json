@@ -37,28 +37,30 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:fundchannel_cancel#1",
-      "method": "fundchannel_cancel",
-      "params": {
-        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+      "request": {
+        "id": "example:fundchannel_cancel#1",
+        "method": "fundchannel_cancel",
+        "params": {
+          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+        }
+      },
+      "response": {
+        "cancelled": "Channel open canceled by RPC"
       }
     },
     {
-      "id": "example:fundchannel_cancel#2",
-      "method": "fundchannel_cancel",
-      "params": {
-        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+      "request": {
+        "id": "example:fundchannel_cancel#2",
+        "method": "fundchannel_cancel",
+        "params": {
+          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+        }
+      },
+      "response": {
+        "cancelled": "Channel open canceled by RPC(after fundchannel_complete)"
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "cancelled": "Channel open canceled by RPC"
-    },
-    {
-      "cancelled": "Channel open canceled by RPC(after fundchannel_complete)"
     }
   ],
   "errors": [

@@ -40,36 +40,38 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:setpsbtversion#1",
-      "method": "setpsbtversion",
-      "params": {
-        "psbt": "cHNidP8BAAoCAAAAAAAAAAAAAA==",
-        "version": "2"
+      "request": {
+        "id": "example:setpsbtversion#1",
+        "method": "setpsbtversion",
+        "params": {
+          "psbt": "cHNidP8BAAoCAAAAAAAAAAAAAA==",
+          "version": "2"
+        }
+      },
+      "response": {
+        "psbt": "cHNidP8BAgQCAAAAAQQBAAEFAQABBgEDAfsEAgAAAAA="
       }
     },
     {
-      "id": "example:setpsbtversion#2",
-      "method": "setpsbtversion",
-      "params": [
-        "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQABBQEBAQYBAwH7BAIAAAAAAQMIQEIPAAAAAAABBCJRIJd6ICNAQALFOMhoUHuSVSuzcaUdkDKlk4K+A+DR9+4uAA==",
-        0
-      ]
+      "request": {
+        "id": "example:setpsbtversion#2",
+        "method": "setpsbtversion",
+        "params": [
+          "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQABBQEBAQYBAwH7BAIAAAAAAQMIQEIPAAAAAAABBCJRIJd6ICNAQALFOMhoUHuSVSuzcaUdkDKlk4K+A+DR9+4uAA==",
+          0
+        ]
+      },
+      "response": {
+        "psbt": "cHNidP8BADUCAAAAAAFAQg8AAAAAACJRIJd6ICNAQALFOMhoUHuSVSuzcaUdkDKlk4K+A+DR9+4ubwAAAAAA"
+      }
     }
   ],
   "errors": [
     "The following error codes may occur:",
     "",
     "- -32602: Parameter missed or malformed."
-  ],
-  "example_json_response": [
-    {
-      "psbt": "cHNidP8BAgQCAAAAAQQBAAEFAQABBgEDAfsEAgAAAAA="
-    },
-    {
-      "psbt": "cHNidP8BADUCAAAAAAFAQg8AAAAAACJRIJd6ICNAQALFOMhoUHuSVSuzcaUdkDKlk4K+A+DR9+4ubwAAAAAA"
-    }
   ],
   "author": [
     "Gregory Sanders <<gsanders87@gmail.com>> is mainly responsible."

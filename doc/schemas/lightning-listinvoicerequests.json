@@ -85,26 +85,26 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:listinvoicerequests#1",
-      "method": "listinvoicerequests",
-      "params": [
-        "cf0b41d4eb248d975909deb9accf9722b1c86839de80ee8815ce907bbb700a1d"
-      ]
-    }
-  ],
-  "example_json_response": [
-    {
-      "invoicerequests": [
-        {
-          "invreq_id": "cf0b41d4eb248d975909deb9accf9722b1c86839de80ee8815ce907bbb700a1d",
-          "active": true,
-          "single_use": true,
-          "bolt12": "lnr1qqgx9ag7nmtns87htndlgcfndlq0wzstwd5k6urvv5s8getnw3gzqp3zderpzxstt8927ynqg044h0egcd8n5h3n9g0u0v4h8ncc3yg02gzqta0pqpvzzqnxu3vc68fug904w25y3zpskc8huazwmy34av93h2fjswe3tsp4rrcyps5sf5jwnn2tr3ghn32mdta8jvax62pwzhna8sktmaezl3f4s3zy35gx6dfay7r8zn299uwr7ugpze74zft4m8q3fnk2sr0ljqpve3jq",
-          "used": false
-        }
-      ]
+      "request": {
+        "id": "example:listinvoicerequests#1",
+        "method": "listinvoicerequests",
+        "params": [
+          "cf0b41d4eb248d975909deb9accf9722b1c86839de80ee8815ce907bbb700a1d"
+        ]
+      },
+      "response": {
+        "invoicerequests": [
+          {
+            "invreq_id": "cf0b41d4eb248d975909deb9accf9722b1c86839de80ee8815ce907bbb700a1d",
+            "active": true,
+            "single_use": true,
+            "bolt12": "lnr1qqgx9ag7nmtns87htndlgcfndlq0wzstwd5k6urvv5s8getnw3gzqp3zderpzxstt8927ynqg044h0egcd8n5h3n9g0u0v4h8ncc3yg02gzqta0pqpvzzqnxu3vc68fug904w25y3zpskc8huazwmy34av93h2fjswe3tsp4rrcyps5sf5jwnn2tr3ghn32mdta8jvax62pwzhna8sktmaezl3f4s3zy35gx6dfay7r8zn299uwr7ugpze74zft4m8q3fnk2sr0ljqpve3jq",
+            "used": false
+          }
+        ]
+      }
     }
   ],
   "author": [

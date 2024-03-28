@@ -69,59 +69,63 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:blacklistrune#1",
-      "method": "blacklistrune",
-      "params": {
-        "start": 2
-      }
-    },
-    {
-      "id": "example:blacklistrune#2",
-      "method": "blacklistrune",
-      "params": {
-        "start": 5,
-        "end": 7
-      }
-    },
-    {
-      "id": "example:blacklistrune#3",
-      "method": "blacklistrune",
-      "params": {
-        "start": 3,
-        "end": 4
-      }
-    }
-  ],
-  "example_json_response": [
-    {
-      "blacklist": [
-        {
-          "start": 2,
-          "end": 2
+      "request": {
+        "id": "example:blacklistrune#1",
+        "method": "blacklistrune",
+        "params": {
+          "start": 2
         }
-      ]
+      },
+      "response": {
+        "blacklist": [
+          {
+            "start": 2,
+            "end": 2
+          }
+        ]
+      }
     },
     {
-      "blacklist": [
-        {
-          "start": 2,
-          "end": 2
-        },
-        {
+      "request": {
+        "id": "example:blacklistrune#2",
+        "method": "blacklistrune",
+        "params": {
           "start": 5,
           "end": 7
         }
-      ]
+      },
+      "response": {
+        "blacklist": [
+          {
+            "start": 2,
+            "end": 2
+          },
+          {
+            "start": 5,
+            "end": 7
+          }
+        ]
+      }
     },
     {
-      "blacklist": [
-        {
-          "start": 2,
-          "end": 7
+      "request": {
+        "id": "example:blacklistrune#3",
+        "method": "blacklistrune",
+        "params": {
+          "start": 3,
+          "end": 4
         }
-      ]
+      },
+      "response": {
+        "blacklist": [
+          {
+            "start": 2,
+            "end": 7
+          }
+        ]
+      }
     }
   ],
   "author": [

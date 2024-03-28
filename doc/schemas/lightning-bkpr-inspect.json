@@ -195,33 +195,33 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:bkpr-inspect#1",
-      "method": "bkpr-inspect",
-      "params": [
-        "f30a7bab1ec077622d8fe877634bc6dd38bb08122ad49606199c565e0383b2ab"
-      ]
-    }
-  ],
-  "example_json_response": [
-    {
-      "txs": [
-        {
-          "txid": "abb283035e569c190696d42a1208bb38ddc64b6377e88f2d6277c01eab7b0af3",
-          "fees_paid_msat": 0,
-          "outputs": [
-            {
-              "account": "f30a7bab1ec077622d8fe877634bc6dd38bb08122ad49606199c565e0383b2ab",
-              "outnum": 0,
-              "output_tag": "channel_proposed",
-              "output_value_msat": 996363000,
-              "credit_msat": 996363000,
-              "currency": "bcrt"
-            }
-          ]
-        }
-      ]
+      "request": {
+        "id": "example:bkpr-inspect#1",
+        "method": "bkpr-inspect",
+        "params": [
+          "f30a7bab1ec077622d8fe877634bc6dd38bb08122ad49606199c565e0383b2ab"
+        ]
+      },
+      "response": {
+        "txs": [
+          {
+            "txid": "abb283035e569c190696d42a1208bb38ddc64b6377e88f2d6277c01eab7b0af3",
+            "fees_paid_msat": 0,
+            "outputs": [
+              {
+                "account": "f30a7bab1ec077622d8fe877634bc6dd38bb08122ad49606199c565e0383b2ab",
+                "outnum": 0,
+                "output_tag": "channel_proposed",
+                "output_value_msat": 996363000,
+                "credit_msat": 996363000,
+                "currency": "bcrt"
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "author": [

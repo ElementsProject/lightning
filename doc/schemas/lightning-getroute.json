@@ -352,79 +352,81 @@
     "",
     "The default for lightning-pay(7) is 10, which starts to become a major factor for larger amounts, and is basically ignored for tiny ones."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:getroute#1",
-      "method": "getroute",
-      "params": {
-        "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-        "amount_msat": 50000000,
-        "riskfactor": 1,
-        "cltv": 9,
-        "fromid": null,
-        "fuzzpercent": null,
-        "exclude": null,
-        "maxhops": null
-      }
-    },
-    {
-      "id": "example:getroute#2",
-      "method": "getroute",
-      "params": {
-        "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-        "amount_msat": "50000sat",
-        "riskfactor": 10
-      }
-    }
-  ],
-  "example_json_response": [
-    {
-      "route": [
-        {
-          "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-          "channel": "103x3x0",
-          "direction": 1,
-          "amount_msat": 50001002,
-          "delay": 21,
-          "style": "tlv"
-        },
-        {
-          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-          "channel": "103x1x0",
-          "direction": 1,
-          "amount_msat": 50000501,
-          "delay": 15,
-          "style": "tlv"
-        },
-        {
+      "request": {
+        "id": "example:getroute#1",
+        "method": "getroute",
+        "params": {
           "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-          "channel": "103x2x0",
-          "direction": 0,
           "amount_msat": 50000000,
-          "delay": 9,
-          "style": "tlv"
+          "riskfactor": 1,
+          "cltv": 9,
+          "fromid": null,
+          "fuzzpercent": null,
+          "exclude": null,
+          "maxhops": null
         }
-      ]
+      },
+      "response": {
+        "route": [
+          {
+            "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            "channel": "103x3x0",
+            "direction": 1,
+            "amount_msat": 50001002,
+            "delay": 21,
+            "style": "tlv"
+          },
+          {
+            "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "channel": "103x1x0",
+            "direction": 1,
+            "amount_msat": 50000501,
+            "delay": 15,
+            "style": "tlv"
+          },
+          {
+            "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+            "channel": "103x2x0",
+            "direction": 0,
+            "amount_msat": 50000000,
+            "delay": 9,
+            "style": "tlv"
+          }
+        ]
+      }
     },
     {
-      "route": [
-        {
-          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-          "channel": "103x2x0",
-          "direction": 1,
-          "amount_msat": 50051000,
-          "delay": 15,
-          "style": "tlv"
-        },
-        {
+      "request": {
+        "id": "example:getroute#2",
+        "method": "getroute",
+        "params": {
           "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-          "channel": "103x1x0",
-          "direction": 0,
-          "amount_msat": 50000000,
-          "delay": 9,
-          "style": "tlv"
+          "amount_msat": "50000sat",
+          "riskfactor": 10
         }
-      ]
+      },
+      "response": {
+        "route": [
+          {
+            "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "channel": "103x2x0",
+            "direction": 1,
+            "amount_msat": 50051000,
+            "delay": 15,
+            "style": "tlv"
+          },
+          {
+            "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            "channel": "103x1x0",
+            "direction": 0,
+            "amount_msat": 50000000,
+            "delay": 9,
+            "style": "tlv"
+          }
+        ]
+      }
     }
   ],
   "author": [

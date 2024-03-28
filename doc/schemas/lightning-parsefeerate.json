@@ -32,48 +32,54 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:parsefeerate#1",
-      "method": "parsefeerate",
-      "params": [
-        "unilateral_close"
-      ]
+      "request": {
+        "id": "example:parsefeerate#1",
+        "method": "parsefeerate",
+        "params": [
+          "unilateral_close"
+        ]
+      },
+      "response": {
+        "perkw": 11000
+      }
     },
     {
-      "id": "example:parsefeerate#2",
-      "method": "parsefeerate",
-      "params": [
-        "9999perkw"
-      ]
+      "request": {
+        "id": "example:parsefeerate#2",
+        "method": "parsefeerate",
+        "params": [
+          "9999perkw"
+        ]
+      },
+      "response": {
+        "perkw": 9999
+      }
     },
     {
-      "id": "example:parsefeerate#3",
-      "method": "parsefeerate",
-      "params": [
-        10000
-      ]
+      "request": {
+        "id": "example:parsefeerate#3",
+        "method": "parsefeerate",
+        "params": [
+          10000
+        ]
+      },
+      "response": {
+        "perkw": 2500
+      }
     },
     {
-      "id": "example:parsefeerate#4",
-      "method": "parsefeerate",
-      "params": [
-        "urgent"
-      ]
-    }
-  ],
-  "example_json_response": [
-    {
-      "perkw": 11000
-    },
-    {
-      "perkw": 9999
-    },
-    {
-      "perkw": 2500
-    },
-    {
-      "perkw": 11000
+      "request": {
+        "id": "example:parsefeerate#4",
+        "method": "parsefeerate",
+        "params": [
+          "urgent"
+        ]
+      },
+      "response": {
+        "perkw": 11000
+      }
     }
   ],
   "errors": [

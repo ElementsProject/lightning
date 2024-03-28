@@ -58,34 +58,36 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:checkmessage#1",
-      "method": "checkmessage",
-      "params": {
-        "message": "testcase to check new rpc error",
-        "zbase": "d66bqz3qsku5fxtqsi37j11pci47ydxa95iusphutggz9ezaxt56neh77kxe5hyr41kwgkncgiu94p9ecxiexgpgsz8daoq4tw8kj8yx",
-        "pubkey": "03be3b0e9992153b1d5a6e1623670b6c3663f72ce6cf2e0dd39c0a373a7de5a3b7"
+      "request": {
+        "id": "example:checkmessage#1",
+        "method": "checkmessage",
+        "params": {
+          "message": "testcase to check new rpc error",
+          "zbase": "d66bqz3qsku5fxtqsi37j11pci47ydxa95iusphutggz9ezaxt56neh77kxe5hyr41kwgkncgiu94p9ecxiexgpgsz8daoq4tw8kj8yx",
+          "pubkey": "03be3b0e9992153b1d5a6e1623670b6c3663f72ce6cf2e0dd39c0a373a7de5a3b7"
+        }
+      },
+      "response": {
+        "pubkey": "03be3b0e9992153b1d5a6e1623670b6c3663f72ce6cf2e0dd39c0a373a7de5a3b7",
+        "verified": true
       }
     },
     {
-      "id": "example:checkmessage#2",
-      "method": "checkmessage",
-      "params": {
-        "message": "this is a test!",
-        "zbase": "d6tqaeuonjhi98mmont9m4wag7gg4krg1f4txonug3h31e9h6p6k6nbwjondnj46dkyausobstnk7fhyy998bhgc1yr98dfmhb4k54d7",
-        "pubkey": null
+      "request": {
+        "id": "example:checkmessage#2",
+        "method": "checkmessage",
+        "params": {
+          "message": "this is a test!",
+          "zbase": "d6tqaeuonjhi98mmont9m4wag7gg4krg1f4txonug3h31e9h6p6k6nbwjondnj46dkyausobstnk7fhyy998bhgc1yr98dfmhb4k54d7",
+          "pubkey": null
+        }
+      },
+      "response": {
+        "pubkey": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+        "verified": true
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "pubkey": "03be3b0e9992153b1d5a6e1623670b6c3663f72ce6cf2e0dd39c0a373a7de5a3b7",
-      "verified": true
-    },
-    {
-      "pubkey": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-      "verified": true
     }
   ],
   "errors": [

@@ -114,36 +114,72 @@
     "- 1206: One of the parents already exists with a value.",
     "- -32602: invalid parameters"
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:datastore#1",
-      "method": "datastore",
-      "params": {
+      "request": {
+        "id": "example:datastore#1",
+        "method": "datastore",
+        "params": {
+          "key": [
+            "test_libplugin",
+            "name"
+          ],
+          "string": "foobar",
+          "hex": null,
+          "mode": "must-replace",
+          "generation": null
+        }
+      },
+      "response": {
         "key": [
           "test_libplugin",
           "name"
         ],
-        "string": "foobar",
-        "hex": null,
-        "mode": "must-replace",
-        "generation": null
+        "generation": 1,
+        "hex": "666f6f626172",
+        "string": "foobar"
       }
     },
     {
-      "id": "example:datastore#2",
-      "method": "datastore",
-      "params": {
-        "key": "somekey",
-        "string": null,
-        "hex": "61",
-        "mode": "create-or-append",
-        "generation": null
+      "request": {
+        "id": "example:datastore#2",
+        "method": "datastore",
+        "params": {
+          "key": "somekey",
+          "string": null,
+          "hex": "61",
+          "mode": "create-or-append",
+          "generation": null
+        }
+      },
+      "response": {
+        "key": [
+          "somekey"
+        ],
+        "generation": 3,
+        "hex": "736f6d6564617461",
+        "string": "somedata"
       }
     },
     {
-      "id": "example:datastore#3",
-      "method": "datastore",
-      "params": {
+      "request": {
+        "id": "example:datastore#3",
+        "method": "datastore",
+        "params": {
+          "key": [
+            "a",
+            "d",
+            "e",
+            "f",
+            "g"
+          ],
+          "string": "somedatatostoreinthedatastore",
+          "hex": null,
+          "mode": null,
+          "generation": null
+        }
+      },
+      "response": {
         "key": [
           "a",
           "d",
@@ -151,42 +187,10 @@
           "f",
           "g"
         ],
-        "string": "somedatatostoreinthedatastore",
-        "hex": null,
-        "mode": null,
-        "generation": null
+        "generation": 0,
+        "hex": "736f6d6564617461746f73746f7265696e7468656461746173746f7265",
+        "string": "somedatatostoreinthedatastore"
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "key": [
-        "test_libplugin",
-        "name"
-      ],
-      "generation": 1,
-      "hex": "666f6f626172",
-      "string": "foobar"
-    },
-    {
-      "key": [
-        "somekey"
-      ],
-      "generation": 3,
-      "hex": "736f6d6564617461",
-      "string": "somedata"
-    },
-    {
-      "key": [
-        "a",
-        "d",
-        "e",
-        "f",
-        "g"
-      ],
-      "generation": 0,
-      "hex": "736f6d6564617461746f73746f7265696e7468656461746173746f7265",
-      "string": "somedatatostoreinthedatastore"
     }
   ],
   "author": [

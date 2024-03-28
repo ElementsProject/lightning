@@ -200,53 +200,55 @@
     "}",
     "```"
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:sql#1",
-      "method": "sql",
-      "params": [
-        "SELECT * FROM forwards;"
-      ]
-    },
-    {
-      "id": "example:sql#2",
-      "method": "sql",
-      "params": [
-        "SELECT * from peerchannels_features"
-      ]
-    }
-  ],
-  "example_json_response": [
-    {
-      "rows": []
-    },
-    {
-      "rows": [
-        [
-          6,
-          1,
-          0,
-          "option_static_remotekey"
-        ],
-        [
-          7,
-          1,
-          1,
-          "option_anchors_zero_fee_htlc_tx"
-        ],
-        [
-          16,
-          11,
-          0,
-          "option_static_remotekey"
-        ],
-        [
-          17,
-          11,
-          1,
-          "option_anchors_zero_fee_htlc_tx"
+      "request": {
+        "id": "example:sql#1",
+        "method": "sql",
+        "params": [
+          "SELECT * FROM forwards;"
         ]
-      ]
+      },
+      "response": {
+        "rows": []
+      }
+    },
+    {
+      "request": {
+        "id": "example:sql#2",
+        "method": "sql",
+        "params": [
+          "SELECT * from peerchannels_features"
+        ]
+      },
+      "response": {
+        "rows": [
+          [
+            6,
+            1,
+            0,
+            "option_static_remotekey"
+          ],
+          [
+            7,
+            1,
+            1,
+            "option_anchors_zero_fee_htlc_tx"
+          ],
+          [
+            16,
+            11,
+            0,
+            "option_static_remotekey"
+          ],
+          [
+            17,
+            11,
+            1,
+            "option_anchors_zero_fee_htlc_tx"
+          ]
+        ]
+      }
     }
   ],
   "author": [

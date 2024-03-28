@@ -2009,70 +2009,72 @@
       }
     ]
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:decode#1",
-      "method": "decode",
-      "params": [
-        "zm0x_eLgHexaTvZn3Cz7gb_YlvrlYGDo_w4BYlR9SS09MSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl"
-      ]
-    },
-    {
-      "id": "example:decode#2",
-      "method": "decode",
-      "params": [
-        "lnbcrt1m1pja0f2hsp5xyssdvdsu24dmmesrt6x84wfrm4mscsnzq7hl2suzeu90wy6g53qpp5zyyu3anwfsfl64pewe0tg7j28map2wwnhvaam5nt70rlwxa0cegqdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqvuqqqqgqqqqqqqlgqqqq86qqqc9qxpqysgq7u4f99u4kepagme27t5c3gdl7czlnjaw7kxryxgm87w2j02j3g94r2vrukhpgedhcdkcdec27m7jrl2lvcr6uh3rdv9lgpz0vc0zcfcqnugjdw"
-      ]
-    }
-  ],
-  "example_json_response": [
-    {
-      "type": "rune",
-      "unique_id": "1",
-      "string": "ce6d31fde2e01dec5a4ef667dc2cfb81bfd896fae56060e8ff0e0162547d492d:=1&method^list|method^get|method=summary&method/listdatastore",
-      "restrictions": [
-        {
-          "alternatives": [
-            "method^list",
-            "method^get",
-            "method=summary"
-          ],
-          "summary": "method (of command) starts with 'list' OR method (of command) starts with 'get' OR method (of command) equal to 'summary'"
-        },
-        {
-          "alternatives": [
-            "method/listdatastore"
-          ],
-          "summary": "method (of command) unequal to 'listdatastore'"
-        }
-      ],
-      "valid": true
-    },
-    {
-      "type": "bolt11 invoice",
-      "currency": "bcrt",
-      "created_at": 1708631383,
-      "expiry": 604800,
-      "payee": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-      "amount_msat": 100000000,
-      "description": "description",
-      "min_final_cltv_expiry": 5,
-      "payment_secret": "312106b1b0e2aaddef301af463d5c91eebb86213103d7faa1c167857b89a4522",
-      "features": "02024100",
-      "routes": [
-        [
-          {
-            "pubkey": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-            "short_channel_id": "103x1x0",
-            "fee_base_msat": 1000,
-            "fee_proportional_millionths": 1000,
-            "cltv_expiry_delta": 6
-          }
+      "request": {
+        "id": "example:decode#1",
+        "method": "decode",
+        "params": [
+          "zm0x_eLgHexaTvZn3Cz7gb_YlvrlYGDo_w4BYlR9SS09MSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl"
         ]
-      ],
-      "payment_hash": "1109c8f66e4c13fd5439765eb47a4a3efa1539d3bb3bddd26bf3c7f71bafc650",
-      "signature": "3045022100f72a929795b643d46f2af2e988a1bff605f9cbaef58c32191b3f9ca93d528a0b022051a983e5ae1465b7c36d86e70af6fd21fd5f6607ae5e236b0bf4044f661e2c27",
-      "valid": true
+      },
+      "response": {
+        "type": "rune",
+        "unique_id": "1",
+        "string": "ce6d31fde2e01dec5a4ef667dc2cfb81bfd896fae56060e8ff0e0162547d492d:=1&method^list|method^get|method=summary&method/listdatastore",
+        "restrictions": [
+          {
+            "alternatives": [
+              "method^list",
+              "method^get",
+              "method=summary"
+            ],
+            "summary": "method (of command) starts with 'list' OR method (of command) starts with 'get' OR method (of command) equal to 'summary'"
+          },
+          {
+            "alternatives": [
+              "method/listdatastore"
+            ],
+            "summary": "method (of command) unequal to 'listdatastore'"
+          }
+        ],
+        "valid": true
+      }
+    },
+    {
+      "request": {
+        "id": "example:decode#2",
+        "method": "decode",
+        "params": [
+          "lnbcrt1m1pja0f2hsp5xyssdvdsu24dmmesrt6x84wfrm4mscsnzq7hl2suzeu90wy6g53qpp5zyyu3anwfsfl64pewe0tg7j28map2wwnhvaam5nt70rlwxa0cegqdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqvuqqqqgqqqqqqqlgqqqq86qqqc9qxpqysgq7u4f99u4kepagme27t5c3gdl7czlnjaw7kxryxgm87w2j02j3g94r2vrukhpgedhcdkcdec27m7jrl2lvcr6uh3rdv9lgpz0vc0zcfcqnugjdw"
+        ]
+      },
+      "response": {
+        "type": "bolt11 invoice",
+        "currency": "bcrt",
+        "created_at": 1708631383,
+        "expiry": 604800,
+        "payee": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+        "amount_msat": 100000000,
+        "description": "description",
+        "min_final_cltv_expiry": 5,
+        "payment_secret": "312106b1b0e2aaddef301af463d5c91eebb86213103d7faa1c167857b89a4522",
+        "features": "02024100",
+        "routes": [
+          [
+            {
+              "pubkey": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+              "short_channel_id": "103x1x0",
+              "fee_base_msat": 1000,
+              "fee_proportional_millionths": 1000,
+              "cltv_expiry_delta": 6
+            }
+          ]
+        ],
+        "payment_hash": "1109c8f66e4c13fd5439765eb47a4a3efa1539d3bb3bddd26bf3c7f71bafc650",
+        "signature": "3045022100f72a929795b643d46f2af2e988a1bff605f9cbaef58c32191b3f9ca93d528a0b022051a983e5ae1465b7c36d86e70af6fd21fd5f6607ae5e236b0bf4044f661e2c27",
+        "valid": true
+      }
     }
   ],
   "author": [

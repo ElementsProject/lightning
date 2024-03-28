@@ -267,59 +267,61 @@
     "",
     "- -32602: If the given parameters are invalid."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:funderupdate#1",
-      "method": "funderupdate",
-      "params": "{}"
-    },
-    {
-      "id": "example:funderupdate#2",
-      "method": "funderupdate",
-      "params": {
-        "policy": "fixed",
-        "policy_mod": "50000sat",
-        "min_their_funding_msat": 1000,
-        "per_channel_min_msat": "1000sat",
-        "per_channel_max_msat": "500000sat",
-        "fund_probability": 100,
+      "request": {
+        "id": "example:funderupdate#1",
+        "method": "funderupdate",
+        "params": "{}"
+      },
+      "response": {
+        "summary": "match (100%)",
+        "policy": "match",
+        "policy_mod": 100,
+        "leases_only": true,
+        "min_their_funding_msat": 10000000,
+        "max_their_funding_msat": 4294967295000,
+        "per_channel_min_msat": 10000000,
+        "per_channel_max_msat": 4294967295000,
+        "reserve_tank_msat": 0,
         "fuzz_percent": 0,
-        "leases_only": false
+        "fund_probability": 100,
+        "lease_fee_base_msat": 100000,
+        "lease_fee_basis": 100,
+        "funding_weight": 666,
+        "channel_fee_max_base_msat": 5000000,
+        "channel_fee_max_proportional_thousandths": 100,
+        "compact_lease": "029a00640064000000644c4b40"
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "summary": "match (100%)",
-      "policy": "match",
-      "policy_mod": 100,
-      "leases_only": true,
-      "min_their_funding_msat": 10000000,
-      "max_their_funding_msat": 4294967295000,
-      "per_channel_min_msat": 10000000,
-      "per_channel_max_msat": 4294967295000,
-      "reserve_tank_msat": 0,
-      "fuzz_percent": 0,
-      "fund_probability": 100,
-      "lease_fee_base_msat": 100000,
-      "lease_fee_basis": 100,
-      "funding_weight": 666,
-      "channel_fee_max_base_msat": 5000000,
-      "channel_fee_max_proportional_thousandths": 100,
-      "compact_lease": "029a00640064000000644c4b40"
     },
     {
-      "summary": "fixed (50000sat)",
-      "policy": "fixed",
-      "policy_mod": 50000,
-      "leases_only": false,
-      "min_their_funding_msat": 1000,
-      "max_their_funding_msat": 4294967295000,
-      "per_channel_min_msat": 1000000,
-      "per_channel_max_msat": 500000000,
-      "reserve_tank_msat": 0,
-      "fuzz_percent": 0,
-      "fund_probability": 100
+      "request": {
+        "id": "example:funderupdate#2",
+        "method": "funderupdate",
+        "params": {
+          "policy": "fixed",
+          "policy_mod": "50000sat",
+          "min_their_funding_msat": 1000,
+          "per_channel_min_msat": "1000sat",
+          "per_channel_max_msat": "500000sat",
+          "fund_probability": 100,
+          "fuzz_percent": 0,
+          "leases_only": false
+        }
+      },
+      "response": {
+        "summary": "fixed (50000sat)",
+        "policy": "fixed",
+        "policy_mod": 50000,
+        "leases_only": false,
+        "min_their_funding_msat": 1000,
+        "max_their_funding_msat": 4294967295000,
+        "per_channel_min_msat": 1000000,
+        "per_channel_max_msat": 500000000,
+        "reserve_tank_msat": 0,
+        "fuzz_percent": 0,
+        "fund_probability": 100
+      }
     }
   ],
   "author": [

@@ -329,40 +329,40 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:listfunds#1",
-      "method": "listfunds",
-      "params": {
-        "spent": null
-      }
-    }
-  ],
-  "example_json_response": [
-    {
-      "outputs": [
-        {
-          "txid": "0f184b101569bf777af3449fa266948a9d55768f97867e48416a2c92858dd1bc",
-          "output": 1,
-          "amount_msat": 1111111000,
-          "scriptpubkey": "001401fad90abcd66697e2592164722de4a95ebee165",
-          "address": "bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf",
-          "status": "confirmed",
-          "blockheight": 102,
-          "reserved": false
-        },
-        {
-          "txid": "4bee7dc3a28f2434e9bb3e9aaab418dd276485a8705b0f787bf741d3f979ec3b",
-          "output": 1,
-          "amount_msat": 1111111000,
-          "scriptpubkey": "001401fad90abcd66697e2592164722de4a95ebee165",
-          "address": "bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf",
-          "status": "confirmed",
-          "blockheight": 102,
-          "reserved": false
+      "request": {
+        "id": "example:listfunds#1",
+        "method": "listfunds",
+        "params": {
+          "spent": null
         }
-      ],
-      "channels": []
+      },
+      "response": {
+        "outputs": [
+          {
+            "txid": "0f184b101569bf777af3449fa266948a9d55768f97867e48416a2c92858dd1bc",
+            "output": 1,
+            "amount_msat": 1111111000,
+            "scriptpubkey": "001401fad90abcd66697e2592164722de4a95ebee165",
+            "address": "bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf",
+            "status": "confirmed",
+            "blockheight": 102,
+            "reserved": false
+          },
+          {
+            "txid": "4bee7dc3a28f2434e9bb3e9aaab418dd276485a8705b0f787bf741d3f979ec3b",
+            "output": 1,
+            "amount_msat": 1111111000,
+            "scriptpubkey": "001401fad90abcd66697e2592164722de4a95ebee165",
+            "address": "bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf",
+            "status": "confirmed",
+            "blockheight": 102,
+            "reserved": false
+          }
+        ],
+        "channels": []
+      }
     }
   ],
   "author": [

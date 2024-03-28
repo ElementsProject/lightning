@@ -161,43 +161,45 @@
     "- 210: Payment timed out without a payment in progress.",
     "- 212: Invoice is invalid."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:renepay#1",
-      "method": "renepay",
-      "params": {
-        "invstring": "lnbcrt1230n1pjmxj9jsp5suc4cag0lv3wemllkvms56e6ll0w867cczqfttuu8cpfl089f9kspp56wvxtdh8fxg5r5y3kg3klxceakqaydskwzatga25v95da8nzkmwqdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qxpqysgqkmyhymt0j7hy38vzqxx465s4ys0fg78flnjqfx4clvdq9mrmgglpcnjrrnhtk7maa87pfvjez88hke8w97zvuecwswaf9gzyqlsthegpza67eu"
+      "request": {
+        "id": "example:renepay#1",
+        "method": "renepay",
+        "params": {
+          "invstring": "lnbcrt1230n1pjmxj9jsp5suc4cag0lv3wemllkvms56e6ll0w867cczqfttuu8cpfl089f9kspp56wvxtdh8fxg5r5y3kg3klxceakqaydskwzatga25v95da8nzkmwqdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qxpqysgqkmyhymt0j7hy38vzqxx465s4ys0fg78flnjqfx4clvdq9mrmgglpcnjrrnhtk7maa87pfvjez88hke8w97zvuecwswaf9gzyqlsthegpza67eu"
+        }
+      },
+      "response": {
+        "payment_preimage": "0a3fd704b34f47d6e306dbac78141753be83848d3a19725c972abfc367dcc591",
+        "payment_hash": "d39865b6e7499141d091b2236f9b19ed81d2361670bab475546168de9e62b6dc",
+        "created_at": 1706248370.6267352,
+        "parts": 1,
+        "amount_msat": 123000,
+        "amount_sent_msat": 123000,
+        "status": "complete",
+        "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
       }
     },
     {
-      "id": "example:renepay#2",
-      "method": "renepay",
-      "params": {
-        "invstring": "lnbcrt1pja0f9asp50kzadmeyy78eymjvhnlk5dznl3g5k5x8agh52ewjtg0jclas4ylspp5crsutd9hg05lxyhzphdcuyng6z3knrsdae83mxwawa842gz3vj3sdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qxpqysgqr5yzhxmup4muyaz6x8u2dy4qyu9t5qzuf5k9xayvj5kg7tve60gjk4jrv2l76exnj2xkuzhtwky23pkkxedzy6p9yrsgyqdwj7dv5gsp4zcw6v",
-        "amount_msat": 548925
+      "request": {
+        "id": "example:renepay#2",
+        "method": "renepay",
+        "params": {
+          "invstring": "lnbcrt1pja0f9asp50kzadmeyy78eymjvhnlk5dznl3g5k5x8agh52ewjtg0jclas4ylspp5crsutd9hg05lxyhzphdcuyng6z3knrsdae83mxwawa842gz3vj3sdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qxpqysgqr5yzhxmup4muyaz6x8u2dy4qyu9t5qzuf5k9xayvj5kg7tve60gjk4jrv2l76exnj2xkuzhtwky23pkkxedzy6p9yrsgyqdwj7dv5gsp4zcw6v",
+          "amount_msat": 548925
+        }
+      },
+      "response": {
+        "payment_preimage": "a635e92d024beebfc58519e6544888aa560ba3bcaba7e74924e4b8432eaa56f5",
+        "payment_hash": "c0e1c5b4b743e9f312e20ddb8e1268d0a3698e0dee4f1d99dd774f55205164a3",
+        "created_at": 1708631229.7841823,
+        "parts": 1,
+        "amount_msat": 548925,
+        "amount_sent_msat": 548925,
+        "status": "complete",
+        "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "payment_preimage": "0a3fd704b34f47d6e306dbac78141753be83848d3a19725c972abfc367dcc591",
-      "payment_hash": "d39865b6e7499141d091b2236f9b19ed81d2361670bab475546168de9e62b6dc",
-      "created_at": 1706248370.6267352,
-      "parts": 1,
-      "amount_msat": 123000,
-      "amount_sent_msat": 123000,
-      "status": "complete",
-      "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
-    },
-    {
-      "payment_preimage": "a635e92d024beebfc58519e6544888aa560ba3bcaba7e74924e4b8432eaa56f5",
-      "payment_hash": "c0e1c5b4b743e9f312e20ddb8e1268d0a3698e0dee4f1d99dd774f55205164a3",
-      "created_at": 1708631229.7841823,
-      "parts": 1,
-      "amount_msat": 548925,
-      "amount_sent_msat": 548925,
-      "status": "complete",
-      "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
     }
   ],
   "author": [

@@ -29,26 +29,28 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:emergencyrecover#1",
-      "method": "emergencyrecover",
-      "params": "{}"
+      "request": {
+        "id": "example:emergencyrecover#1",
+        "method": "emergencyrecover",
+        "params": "{}"
+      },
+      "response": {
+        "stubs": []
+      }
     },
     {
-      "id": "example:emergencyrecover#2",
-      "method": "emergencyrecover",
-      "params": "{}"
-    }
-  ],
-  "example_json_response": [
-    {
-      "stubs": []
-    },
-    {
-      "stubs": [
-        "c00734472f344fdadd0bf787de182e5cf144ccda5d731b0f7c75befd1f1eff52"
-      ]
+      "request": {
+        "id": "example:emergencyrecover#2",
+        "method": "emergencyrecover",
+        "params": "{}"
+      },
+      "response": {
+        "stubs": [
+          "c00734472f344fdadd0bf787de182e5cf144ccda5d731b0f7c75befd1f1eff52"
+        ]
+      }
     }
   ],
   "author": [

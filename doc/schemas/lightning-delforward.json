@@ -50,29 +50,31 @@
     "",
     "- 1401: The forward specified does not exist."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:delforward#1",
-      "method": "delforward",
-      "params": {
-        "in_channel": "103x1x0",
-        "in_htlc_id": 2,
-        "status": "local_failed"
-      }
+      "request": {
+        "id": "example:delforward#1",
+        "method": "delforward",
+        "params": {
+          "in_channel": "103x1x0",
+          "in_htlc_id": 2,
+          "status": "local_failed"
+        }
+      },
+      "response": {}
     },
     {
-      "id": "example:delforward#2",
-      "method": "delforward",
-      "params": [
-        "103x1x0",
-        1,
-        "failed"
-      ]
+      "request": {
+        "id": "example:delforward#2",
+        "method": "delforward",
+        "params": [
+          "103x1x0",
+          1,
+          "failed"
+        ]
+      },
+      "response": {}
     }
-  ],
-  "example_json_response": [
-    {},
-    {}
   ],
   "author": [
     "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."

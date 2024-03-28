@@ -192,71 +192,73 @@
     "- -1: Catchall nonspecific error.",
     "- 301: Insufficient UTXOs to meet *satoshi* value."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:utxopsbt#1",
-      "method": "utxopsbt",
-      "params": {
-        "satoshi": 0,
-        "feerate": "253perkw",
-        "startweight": 0,
-        "utxos": [
-          "d82a99192fb333106ea8d08f5231ed45f2ed5b1ef9eb81b0fef8f9ea354d2637:1"
-        ],
-        "reserve": 0,
-        "reservedok": true,
-        "locktime": null,
-        "min_witness_weight": null,
-        "excess_as_change": false
-      }
-    },
-    {
-      "id": "example:utxopsbt#2",
-      "method": "utxopsbt",
-      "params": {
-        "satoshi": 1000000,
-        "feerate": "7500perkw",
-        "startweight": 0,
-        "utxos": [
-          "2fc3b9f8d4aed120f6d9a6f206f07c35ef4d518ec0305d1d974873d256e38ca7:1",
-          "2f669f6a605ee5c7ddd2abb753bc64b1a90bd1b7448264f5d78a7ca823c00a1b:1"
-        ],
-        "reserve": null,
-        "reservedok": true,
-        "locktime": null,
-        "min_witness_weight": null,
-        "excess_as_change": false
-      }
-    }
-  ],
-  "example_json_response": [
-    {
-      "psbt": "cHNidP8BADMCAAAAATcmTTXq+fj+sIHr+R5b7fJF7TFSj9CobhAzsy8ZmSrYAQAAAAD9////AGYAAAAAAQDeAgAAAAABAWQACJva49ga8OCYXvPRWQRhoXndrJykwjgXbwT251dEAAAAAAD9////AiOI9ikBAAAAFgAU3gClv/YpAKRpfDuiFu6mIL2E4+5QaQ8AAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFlAkcwRAIgUXIQFs7oRkorVThUn3sLj7WI7g8c8RHai4ChoCvIkWsCICp1CqHl4BlMJCKFHRWHXhhekaj0r1EFSNrh8UnvysQPASEDqHIAEdaH3H6pb3VJzbJNDG4lL8PTfsheL+h2p6baK3JlAAAAAQEfUGkPAAAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQA=",
-      "feerate_per_kw": 253,
-      "estimated_final_weight": 271,
-      "excess_msat": 1009932000
-    },
-    {
-      "psbt": "cHNidP8BAFwCAAAAAqeM41bSc0iXHV0wwI5RTe81fPAG8qbZ9iDRrtT4ucMvAQAAAAD9////GwrAI6h8itf1ZIJEt9ELqbFkvFO3q9Ldx+VeYGqfZi8BAAAAAP3///8AZgAAAAABAN4CAAAAAAEBEaK0TQ97IsrzuO1gLt+vYbvLBG90NrCOZp7SCgrRknYAAAAAAP3///8CM6/2KQEAAAAWABQ1B/KkIVbg7yFRcCEN/VOptfOX/EBCDwAAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WUCRzBEAiA1oI1us81XEa/DRlvcP2qnbWLsV5pZcRfvj9MLyT202gIgb7noMqHYWMmm7H7VNEfWa29jjtuV9yrrSc9ui11ECQ0BIQKhZOHR4gFKMu2EKKgZ/7qnhzq9PvhtnAW2sxPZ4c9RIWUAAAABAR9AQg8AAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFlAAEA3gIAAAAAAQGnjONW0nNIlx1dMMCOUU3vNXzwBvKm2fYg0a7U+LnDLwAAAAAA/f///wJmbOcpAQAAABYAFOwPo5eUrDF7UgZBFQLRHOeX6PiGQEIPAAAAAAAWABTCzKsXHCpb6dq1LsQbglhjAkxUZgJHMEQCICgjGlauGj2eiMS4MWUK6zAWqMe1OuidQR+Hy9ZgSTuzAiA8JTb9OrLqS3hiWtT+TQ/NBsKJ2hhHLDaKUUNdgi4OkAEhA9g3oH5ejmGIqUY2ZWxc8YWF2+T+XpE/6oC40Cx3+e97ZQAAAAEBH0BCDwAAAAAAFgAUwsyrFxwqW+natS7EG4JYYwJMVGYA",
-      "feerate_per_kw": 7500,
-      "estimated_final_weight": 542,
-      "excess_msat": 995935000,
-      "reservations": [
-        {
-          "txid": "2fc3b9f8d4aed120f6d9a6f206f07c35ef4d518ec0305d1d974873d256e38ca7",
-          "vout": 1,
-          "was_reserved": true,
-          "reserved": true,
-          "reserved_to_block": 246
-        },
-        {
-          "txid": "2f669f6a605ee5c7ddd2abb753bc64b1a90bd1b7448264f5d78a7ca823c00a1b",
-          "vout": 1,
-          "was_reserved": true,
-          "reserved": true,
-          "reserved_to_block": 246
+      "request": {
+        "id": "example:utxopsbt#1",
+        "method": "utxopsbt",
+        "params": {
+          "satoshi": 0,
+          "feerate": "253perkw",
+          "startweight": 0,
+          "utxos": [
+            "d82a99192fb333106ea8d08f5231ed45f2ed5b1ef9eb81b0fef8f9ea354d2637:1"
+          ],
+          "reserve": 0,
+          "reservedok": true,
+          "locktime": null,
+          "min_witness_weight": null,
+          "excess_as_change": false
         }
-      ]
+      },
+      "response": {
+        "psbt": "cHNidP8BADMCAAAAATcmTTXq+fj+sIHr+R5b7fJF7TFSj9CobhAzsy8ZmSrYAQAAAAD9////AGYAAAAAAQDeAgAAAAABAWQACJva49ga8OCYXvPRWQRhoXndrJykwjgXbwT251dEAAAAAAD9////AiOI9ikBAAAAFgAU3gClv/YpAKRpfDuiFu6mIL2E4+5QaQ8AAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFlAkcwRAIgUXIQFs7oRkorVThUn3sLj7WI7g8c8RHai4ChoCvIkWsCICp1CqHl4BlMJCKFHRWHXhhekaj0r1EFSNrh8UnvysQPASEDqHIAEdaH3H6pb3VJzbJNDG4lL8PTfsheL+h2p6baK3JlAAAAAQEfUGkPAAAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQA=",
+        "feerate_per_kw": 253,
+        "estimated_final_weight": 271,
+        "excess_msat": 1009932000
+      }
+    },
+    {
+      "request": {
+        "id": "example:utxopsbt#2",
+        "method": "utxopsbt",
+        "params": {
+          "satoshi": 1000000,
+          "feerate": "7500perkw",
+          "startweight": 0,
+          "utxos": [
+            "2fc3b9f8d4aed120f6d9a6f206f07c35ef4d518ec0305d1d974873d256e38ca7:1",
+            "2f669f6a605ee5c7ddd2abb753bc64b1a90bd1b7448264f5d78a7ca823c00a1b:1"
+          ],
+          "reserve": null,
+          "reservedok": true,
+          "locktime": null,
+          "min_witness_weight": null,
+          "excess_as_change": false
+        }
+      },
+      "response": {
+        "psbt": "cHNidP8BAFwCAAAAAqeM41bSc0iXHV0wwI5RTe81fPAG8qbZ9iDRrtT4ucMvAQAAAAD9////GwrAI6h8itf1ZIJEt9ELqbFkvFO3q9Ldx+VeYGqfZi8BAAAAAP3///8AZgAAAAABAN4CAAAAAAEBEaK0TQ97IsrzuO1gLt+vYbvLBG90NrCOZp7SCgrRknYAAAAAAP3///8CM6/2KQEAAAAWABQ1B/KkIVbg7yFRcCEN/VOptfOX/EBCDwAAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WUCRzBEAiA1oI1us81XEa/DRlvcP2qnbWLsV5pZcRfvj9MLyT202gIgb7noMqHYWMmm7H7VNEfWa29jjtuV9yrrSc9ui11ECQ0BIQKhZOHR4gFKMu2EKKgZ/7qnhzq9PvhtnAW2sxPZ4c9RIWUAAAABAR9AQg8AAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFlAAEA3gIAAAAAAQGnjONW0nNIlx1dMMCOUU3vNXzwBvKm2fYg0a7U+LnDLwAAAAAA/f///wJmbOcpAQAAABYAFOwPo5eUrDF7UgZBFQLRHOeX6PiGQEIPAAAAAAAWABTCzKsXHCpb6dq1LsQbglhjAkxUZgJHMEQCICgjGlauGj2eiMS4MWUK6zAWqMe1OuidQR+Hy9ZgSTuzAiA8JTb9OrLqS3hiWtT+TQ/NBsKJ2hhHLDaKUUNdgi4OkAEhA9g3oH5ejmGIqUY2ZWxc8YWF2+T+XpE/6oC40Cx3+e97ZQAAAAEBH0BCDwAAAAAAFgAUwsyrFxwqW+natS7EG4JYYwJMVGYA",
+        "feerate_per_kw": 7500,
+        "estimated_final_weight": 542,
+        "excess_msat": 995935000,
+        "reservations": [
+          {
+            "txid": "2fc3b9f8d4aed120f6d9a6f206f07c35ef4d518ec0305d1d974873d256e38ca7",
+            "vout": 1,
+            "was_reserved": true,
+            "reserved": true,
+            "reserved_to_block": 246
+          },
+          {
+            "txid": "2f669f6a605ee5c7ddd2abb753bc64b1a90bd1b7448264f5d78a7ca823c00a1b",
+            "vout": 1,
+            "was_reserved": true,
+            "reserved": true,
+            "reserved_to_block": 246
+          }
+        ]
+      }
     }
   ],
   "author": [

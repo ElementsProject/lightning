@@ -25,16 +25,16 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:stop#1",
-      "method": "stop",
-      "params": {}
-    }
-  ],
-  "example_json_response": [
-    {
-      "result": "Shutdown complete"
+      "request": {
+        "id": "example:stop#1",
+        "method": "stop",
+        "params": {}
+      },
+      "response": {
+        "result": "Shutdown complete"
+      }
     }
   ],
   "author": [

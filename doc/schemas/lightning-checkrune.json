@@ -73,57 +73,61 @@
     "- 1502 (RUNE_NOT_PERMITTED): rune does not allow this usage (includes a detailed reason why)",
     "- 1503 (RUNE_BLACKLISTED): rune has been explicitly blacklisted."
   ],
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:checkrune#1",
-      "method": "checkrune",
-      "params": {
-        "nodeid": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-        "rune": "617Obfct0oRBj_uqGFQxDk3XZ1sDFiC2Q5ltm5z1i_k9NSZtZXRob2Q9aW52b2ljZSZwbmFtZWRlc2NyaXB0aW9uPUB0aXBqYXJcfGpiNTVAc2VuZHNhdHMubG9s",
-        "method": "invoice",
+      "request": {
+        "id": "example:checkrune#1",
+        "method": "checkrune",
         "params": {
-          "amount_msat": "any",
-          "label": "lbl",
-          "description": [
-            "@tipjar|jb55@sendsats.lol."
-          ]
+          "nodeid": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+          "rune": "617Obfct0oRBj_uqGFQxDk3XZ1sDFiC2Q5ltm5z1i_k9NSZtZXRob2Q9aW52b2ljZSZwbmFtZWRlc2NyaXB0aW9uPUB0aXBqYXJcfGpiNTVAc2VuZHNhdHMubG9s",
+          "method": "invoice",
+          "params": {
+            "amount_msat": "any",
+            "label": "lbl",
+            "description": [
+              "@tipjar|jb55@sendsats.lol."
+            ]
+          }
         }
+      },
+      "response": {
+        "valid": true
       }
     },
     {
-      "id": "example:checkrune#2",
-      "method": "checkrune",
-      "params": {
-        "nodeid": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-        "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",
-        "method": "listpeers",
-        "params": {}
-      }
-    },
-    {
-      "id": "example:checkrune#3",
-      "method": "checkrune",
-      "params": {
-        "nodeid": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-        "rune": "617Obfct0oRBj_uqGFQxDk3XZ1sDFiC2Q5ltm5z1i_k9NSZtZXRob2Q9aW52b2ljZSZwbmFtZWRlc2NyaXB0aW9uPUB0aXBqYXJcfGpiNTVAc2VuZHNhdHMubG9s",
-        "method": "invoice",
+      "request": {
+        "id": "example:checkrune#2",
+        "method": "checkrune",
         "params": {
-          "amount_msat": "any",
-          "label": "lbl",
-          "description": "@tipjar|jb55@sendsats.lol"
+          "nodeid": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+          "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",
+          "method": "listpeers",
+          "params": {}
         }
+      },
+      "response": {
+        "valid": true
       }
-    }
-  ],
-  "example_json_response": [
-    {
-      "valid": true
     },
     {
-      "valid": true
-    },
-    {
-      "valid": true
+      "request": {
+        "id": "example:checkrune#3",
+        "method": "checkrune",
+        "params": {
+          "nodeid": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+          "rune": "617Obfct0oRBj_uqGFQxDk3XZ1sDFiC2Q5ltm5z1i_k9NSZtZXRob2Q9aW52b2ljZSZwbmFtZWRlc2NyaXB0aW9uPUB0aXBqYXJcfGpiNTVAc2VuZHNhdHMubG9s",
+          "method": "invoice",
+          "params": {
+            "amount_msat": "any",
+            "label": "lbl",
+            "description": "@tipjar|jb55@sendsats.lol"
+          }
+        }
+      },
+      "response": {
+        "valid": true
+      }
     }
   ],
   "author": [

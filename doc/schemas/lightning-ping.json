@@ -47,22 +47,32 @@
       }
     }
   },
-  "example_json_request": [
+  "json_example": [
     {
-      "id": "example:ping#1",
-      "method": "ping",
-      "params": {
-        "len": 128,
-        "pongbytes": 128
+      "request": {
+        "id": "example:ping#1",
+        "method": "ping",
+        "params": {
+          "len": 128,
+          "pongbytes": 128
+        }
+      },
+      "response": {
+        "totlen": 132
       }
     },
     {
-      "id": "example:ping#2",
-      "method": "ping",
-      "params": {
-        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-        "len": 1000,
-        "pongbytes": 65535
+      "request": {
+        "id": "example:ping#2",
+        "method": "ping",
+        "params": {
+          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "len": 1000,
+          "pongbytes": 65535
+        }
+      },
+      "response": {
+        "totlen": 0
       }
     }
   ],
@@ -70,14 +80,6 @@
     "On failure, one of the following error codes may be returned:",
     "",
     "- -32602: Error in given parameters or we're already waiting for a ping response from peer."
-  ],
-  "example_json_response": [
-    {
-      "totlen": 132
-    },
-    {
-      "totlen": 0
-    }
   ],
   "author": [
     "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
