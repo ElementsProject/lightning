@@ -4020,7 +4020,7 @@ static void splice_initiator_user_update(struct peer *peer, const u8 *inmsg)
 }
 
 /* This occurs when the user has signed the final version of the PSBT. At this
- * point we do a commitment transaciton round with our peer via
+ * point we do a commitment transaction round with our peer via
  * `interactive_send_commitments`.
  *
  * Then we finalize the PSBT some more and sign away our funding output,
