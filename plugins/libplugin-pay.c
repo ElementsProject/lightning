@@ -583,15 +583,19 @@ apply_changes:
 				curhint->local->htlc_budget--;
 		}
 
-		if (remove && !amount_msat_add(
+		/* Don't get fancy and replace this with remove && !amount_msat_add
+		 * It won't work! */
+		if (remove) {
+			if (!amount_msat_add(
 			    &curhint->estimated_capacity,
 			    curhint->estimated_capacity,
 			    curhop->amount)) {
-			/* This should never happen, it'd mean
-			 * that we unapply a route that would
-			 * result in a msatoshi
-			 * wrap-around. */
-			abort();
+				/* This should never happen, it'd mean
+				 * that we unapply a route that would
+				 * result in a msatoshi
+				 * wrap-around. */
+				abort();
+			}
 		} else if (!amount_msat_sub(
 				   &curhint->estimated_capacity,
 				   curhint->estimated_capacity,
