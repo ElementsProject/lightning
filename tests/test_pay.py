@@ -1866,6 +1866,74 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
 
 
 @pytest.mark.slow_test
+def test_pay_avoid_low_fee_chan(node_factory, bitcoind, executor, chainparams):
+    """Make sure we're able to route around a low fee depleted channel """
+
+    # NOTE: This test did not consistently fail. If this test is flaky, that
+    # probably means it needs to be fixed!
+
+    # Setup:
+    # sender - router --------- dest
+    #             \              /
+    #              - randomnode -
+    # router is connected to the destination
+    # randomnode is also connected to router and the destination, with a low fee
+    # path. The channel however, is depleted.
+    sender, router, randomnode, dest = node_factory.get_nodes(4)
+    sender.rpc.connect(router.info['id'], 'localhost', router.port)
+    sender.fundchannel(router, 200000, wait_for_active=True)
+    router.rpc.connect(dest.info['id'], 'localhost', dest.port)
+    router_dest_scid, _ = router.fundchannel(dest, 10**6, wait_for_active=True)
+    randomnode.rpc.connect(dest.info['id'], 'localhost', dest.port)
+    randomnode_dest_scid, _ = randomnode.fundchannel(dest, 10**6, wait_for_active=True)
+
+    # Router has a depleted channel to randomnode. Mimic this by opening the
+    # channel the other way around.
+    randomnode.rpc.connect(router.info['id'], 'localhost', router.port)
+    scid_router_random, _ = randomnode.fundchannel(router, 10**6, wait_for_active=True)
+
+    # Set relevant fees:
+    # - High fee from router to dest
+    # - Low fee from router to randomnode and randomnode to dest
+    router.rpc.setchannel(router_dest_scid, feebase=0, feeppm=2000, htlcmin=1)
+    router.rpc.setchannel(scid_router_random, feebase=0, feeppm=1, htlcmin=1)
+    randomnode.rpc.setchannel(randomnode_dest_scid, feebase=0, feeppm=1, htlcmin=1)
+
+    def has_gossip():
+        channels = sender.rpc.listchannels()['channels']
+        if sum(1 for c in channels if c['fee_per_millionth'] == 1) != 2:
+            return False
+
+        if sum(1 for c in channels if c['fee_per_millionth'] == 2000) != 1:
+            return False
+
+        return True
+
+    # Make sure all relevant gossip reached the sender.
+    mine_funding_to_announce(bitcoind, [sender, router, randomnode, dest])
+    wait_for(has_gossip)
+
+    def listpays_nofail(b11):
+        while True:
+            pays = sender.rpc.listpays(b11)['pays']
+            if len(pays) != 0:
+                if only_one(pays)['status'] == 'complete':
+                    return
+                assert only_one(pays)['status'] != 'failed'
+
+    inv = dest.rpc.invoice(100000000, 'test_low_fee', 'test_low_fee')
+
+    # Make sure listpays doesn't transiently show failure while pay
+    # is retrying.
+    fut = executor.submit(listpays_nofail, inv['bolt11'])
+
+    # Pay sender->dest should succeed via non-depleted channel
+    sender.dev_pay(inv['bolt11'], dev_use_shadow=False)
+
+    fut.result()
+
+
+@pytest.mark.slow_test
 def test_pay_routeboost(node_factory, bitcoind):
     """Make sure we can use routeboost information. """
     # l1->l2->l3--private-->l4
