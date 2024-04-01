@@ -8794,6 +8794,8 @@
     "title": "Command to remove the DB entries from the database after a close",
     "warning": "For advanced users only",
     "description": [
+      "Never use any `dev` command, including this one, unless you know exactly what you are doing; and have checked with a developer that your understanding is correct. They are meant only as a means of last resort and have the potential to mess things up. You have been warned\u2757\ufe0f",
+      "",
       "The **dev-forget-channel** forgets the channel with given details. It will perform additional checks on whether it is safe to forget the channel, and only then remove the channel from the DB. Notice that this command is only available if CLN was started with --developer.",
       "",
       "Also see https://docs.corelightning.org/docs/faq#how-to-forget-about-a-channel"

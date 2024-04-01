@@ -93,6 +93,12 @@ Effort has been made to get `lightningd` running on Android, [see issue #3484](h
 
 ### How to forget about a channel?
 
+> 🚧 
+> 
+> Never use any `dev` command unless you know exactly what you are doing, and have checked with a developer that your understanding is correct. They are meant only as a means of last resort and have the potential to mess things up. You have been warned❗️
+> 
+
+
 Channels may end up stuck during funding and never confirm on-chain. There is a variety of causes, the most common ones being that the funds have been double-spent, or the funding fee was too low to be confirmed. This is unlikely to happen in normal operation, as CLN tries to use sane defaults and prevents double-spends whenever possible, but using custom feerates or when the bitcoin backend has no good fee estimates it is still possible.
 
 Before forgetting about a channel it is important to ensure that the funding transaction will never be confirmable by double-spending the funds. To do so you have to rescan the UTXOs using  
