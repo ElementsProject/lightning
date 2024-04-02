@@ -16,7 +16,6 @@ void gossmod_add_localchan(struct gossmap_localmods *mods,
 			   u32 fee_proportional,
 			   u32 cltv_delta,
 			   bool enabled,
-			   bool is_local UNUSED,
 			   const char *buf UNUSED,
 			   const jsmntok_t *chantok UNUSED,
 			   void *cbarg UNUSED)
@@ -54,7 +53,6 @@ gossmods_from_listpeerchannels_(const tal_t *ctx,
 					   u32 fee_proportional,
 					   u32 cltv_delta,
 					   bool enabled,
-					   bool is_local,
 					   const char *buf,
 					   const jsmntok_t *chantok,
 					   void *cbarg),
@@ -152,7 +150,7 @@ gossmods_from_listpeerchannels_(const tal_t *ctx,
 		/* We add both directions */
 		cb(mods, self, &dst, &scidd, htlc_min[LOCAL], htlc_max[LOCAL],
 		   spendable, fee_base[LOCAL], fee_proportional[LOCAL],
-		   cltv_delta[LOCAL], enabled, true, buf, channel, cbarg);
+		   cltv_delta[LOCAL], enabled, buf, channel, cbarg);
 
 		/* If we didn't have a remote update, it's not usable yet */
 		if (fee_proportional[REMOTE] == -1U)
@@ -162,7 +160,7 @@ gossmods_from_listpeerchannels_(const tal_t *ctx,
 
 		cb(mods, self, &dst, &scidd, htlc_min[REMOTE], htlc_max[REMOTE],
 		   receivable, fee_base[REMOTE], fee_proportional[REMOTE],
-		   cltv_delta[REMOTE], enabled, false, buf, channel, cbarg);
+		   cltv_delta[REMOTE], enabled, buf, channel, cbarg);
 	}
 
 	return mods;

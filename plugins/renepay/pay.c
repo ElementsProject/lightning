@@ -465,19 +465,18 @@ static void gossmod_cb(struct gossmap_localmods *mods,
 		       u32 fee_proportional,
 		       u32 cltv_delta,
 		       bool enabled,
-		       bool is_local,
 		       const char *buf,
 		       const jsmntok_t *chantok,
 		       struct payment *payment)
 {
 	struct amount_msat min, max;
 
-	if (is_local) {
-		/* local channels can send up to what's spendable */
+	if (scidd->dir == node_id_idx(self, peer)) {
+		/* our side of the channel can send up to what's spendable */
 		min = AMOUNT_MSAT(0);
 		max = spendable;
 	} else {
-		/* remote channels can send up no more than spendable */
+		/* the remote side can send up to no more than spendable */
 		min = htlcmin;
 		max = amount_msat_min(spendable, htlcmax);
 	}
