@@ -795,6 +795,7 @@ def listpeerchannels_channels2py(m):
         "fee_proportional_millionths": m.fee_proportional_millionths,  # PrimitiveField in generate_composite
         "dust_limit_msat": amount2msat(m.dust_limit_msat),  # PrimitiveField in generate_composite
         "max_total_htlc_in_msat": amount2msat(m.max_total_htlc_in_msat),  # PrimitiveField in generate_composite
+        "max_total_htlc_out_msat": amount2msat(m.max_total_htlc_out_msat),  # PrimitiveField in generate_composite
         "their_reserve_msat": amount2msat(m.their_reserve_msat),  # PrimitiveField in generate_composite
         "our_reserve_msat": amount2msat(m.our_reserve_msat),  # PrimitiveField in generate_composite
         "spendable_msat": amount2msat(m.spendable_msat),  # PrimitiveField in generate_composite

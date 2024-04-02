@@ -19642,6 +19642,13 @@
                   "Max amount accept in a single payment."
                 ]
               },
+              "max_total_htlc_out_msat": {
+                "type": "msat",
+                "added": "v24.05",
+                "description": [
+                  "Max total amount that can be sent, independently on how much is on our side."
+                ]
+              },
               "their_reserve_msat": {
                 "type": "msat",
                 "description": [
