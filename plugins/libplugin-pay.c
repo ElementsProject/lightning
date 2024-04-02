@@ -505,21 +505,15 @@ static struct channel_hint *payment_chanhints_get(struct payment *p,
  * calls don't accidentally try to use those out-of-date estimates. We unapply
  * if the payment failed, i.e., all HTLCs we might have added have been torn
  * down again. Finally we leave the update in place if the payment went
- * through, since the balances really changed in that case. The `remove`
- * argument indicates whether we want to apply (`remove=false`), or clear a
- * prior application (`remove=true`). */
-static bool payment_chanhints_apply_route(struct payment *p, bool remove)
+ * through, since the balances really changed in that case.
+ */
+static bool payment_chanhints_apply_route(struct payment *p)
 {
 	bool apply;
 	struct route_hop *curhop;
 	struct channel_hint *curhint;
 	struct payment *root = payment_root(p);
 	assert(p->route != NULL);
-
-	/* No need to check for applicability if we increase
-	 * capacity and budgets. */
-	if (remove)
-		goto apply_changes;
 
 	/* First round: make sure we can cleanly apply the update. */
 	for (size_t i = 0; i < tal_count(p->route); i++) {
@@ -566,7 +560,6 @@ static bool payment_chanhints_apply_route(struct payment *p, bool remove)
 		}
 	}
 
-apply_changes:
 	/* Second round: apply the changes, now that we know they'll succeed. */
 	for (size_t i = 0; i < tal_count(p->route); i++) {
 		curhop = &p->route[i];
@@ -577,29 +570,12 @@ apply_changes:
 		/* Update the number of htlcs for any local
 		 * channel in the route */
 		if (curhint->local) {
-			if (remove)
-				curhint->local->htlc_budget++;
-			else
-				curhint->local->htlc_budget--;
+			curhint->local->htlc_budget--;
 		}
 
-		/* Don't get fancy and replace this with remove && !amount_msat_add
-		 * It won't work! */
-		if (remove) {
-			if (!amount_msat_add(
-			    &curhint->estimated_capacity,
-			    curhint->estimated_capacity,
-			    curhop->amount)) {
-				/* This should never happen, it'd mean
-				 * that we unapply a route that would
-				 * result in a msatoshi
-				 * wrap-around. */
-				abort();
-			}
-		} else if (!amount_msat_sub(
-				   &curhint->estimated_capacity,
-				   curhint->estimated_capacity,
-				   curhop->amount)) {
+		if (!amount_msat_sub(&curhint->estimated_capacity,
+				     curhint->estimated_capacity,
+				     curhop->amount)) {
 			/* Given our preemptive test
 			 * above, this should never
 			 * happen either. */
@@ -607,6 +583,37 @@ apply_changes:
 		}
 	}
 	return true;
+}
+
+/* Undo route changes above */
+static void payment_chanhints_unapply_route(struct payment *p)
+{
+	struct payment *root = payment_root(p);
+
+	for (size_t i = 0; i < tal_count(p->route); i++) {
+		struct route_hop *curhop;
+		struct channel_hint *curhint;
+
+		curhop = &p->route[i];
+		curhint = payment_chanhints_get(root, curhop);
+		if (!curhint)
+			continue;
+
+		/* Update the number of htlcs for any local
+		 * channel in the route */
+		if (curhint->local)
+			curhint->local->htlc_budget++;
+
+		if (!amount_msat_add(&curhint->estimated_capacity,
+				     curhint->estimated_capacity,
+				     curhop->amount)) {
+			/* This should never happen, it'd mean
+			 * that we unapply a route that would
+			 * result in a msatoshi
+			 * wrap-around. */
+			abort();
+		}
+	}
 }
 
 static const struct short_channel_id_dir *
@@ -1585,7 +1592,7 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 		return command_still_pending(cmd);
 	}
 
-	payment_chanhints_apply_route(p, true);
+	payment_chanhints_unapply_route(p);
 
 	/* Tell gossipd, if we received an update */
 	update = channel_update_from_onion_error(tmpctx, p->result->raw_message);
@@ -1780,7 +1787,7 @@ static void payment_compute_onion_payloads(struct payment *p)
 	/* Now that we are about to fix the route parameters by
 	 * encoding them in an onion is the right time to update the
 	 * channel hints. */
-	if (!payment_chanhints_apply_route(p, false)) {
+	if (!payment_chanhints_apply_route(p)) {
 		/* We can still end up with a failed channel_hints
 		 * update, either because a plugin changed the route,
 		 * or because a modifier was not synchronous, allowing
