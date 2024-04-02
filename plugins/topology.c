@@ -369,7 +369,6 @@ static void gossmod_add_unknown_localchan(struct gossmap_localmods *mods,
 					  u32 fee_proportional,
 					  u32 cltv_delta,
 					  bool enabled,
-					  bool is_local,
 					  const char *buf UNUSED,
 					  const jsmntok_t *chantok UNUSED,
 					  struct gossmap *gossmap)
@@ -379,7 +378,7 @@ static void gossmod_add_unknown_localchan(struct gossmap_localmods *mods,
 
 	gossmod_add_localchan(mods, self, peer, scidd, min, max, spendable,
 			      fee_base, fee_proportional, cltv_delta, enabled,
-			      is_local, buf, chantok, gossmap);
+			      buf, chantok, gossmap);
 }
 
 /* FIXME: We don't need this listpeerchannels at all if not deprecated! */
