@@ -119,6 +119,19 @@ bool plugin_hook_continue(void *unused, const char *buffer, const jsmntok_t *tok
 	return resrestok && json_tok_streq(buffer, resrestok, "continue");
 }
 
+static void cleanup_ph_req(struct plugin_hook_request *ph_req)
+{
+	/* We need to remove the destructors from the remaining
+	 * call-chain, otherwise they'd still be called when the
+	 * plugin dies or we shut down. */
+	for (size_t i=0; i<tal_count(ph_req->hooks); i++) {
+		tal_del_destructor2(ph_req->hooks[i],
+				    destroy_hook_in_ph_req, ph_req);
+	}
+
+	tal_free(ph_req);
+}
+
 /**
  * Callback to be passed to the jsonrpc_request.
  *
@@ -159,7 +172,8 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 		if (!ph_req->hook->deserialize_cb(ph_req->cb_arg,
 						  buffer, resulttok)) {
 			tal_free(ph_req->cb_arg);
-			goto cleanup;
+			cleanup_ph_req(ph_req);
+			return;
 		}
 	} else {
 		log_debug(ph_req->ld->log, "Plugin died from %s hook call",
@@ -167,18 +181,6 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 	}
 
 	plugin_hook_call_next(ph_req);
-	return;
-
-cleanup:
-	/* We need to remove the destructors from the remaining
-	 * call-chain, otherwise they'd still be called when the
-	 * plugin dies or we shut down. */
-	for (size_t i=0; i<tal_count(ph_req->hooks); i++) {
-		tal_del_destructor2(ph_req->hooks[i],
-				    destroy_hook_in_ph_req, ph_req);
-	}
-
-	tal_free(ph_req);
 }
 
 static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
@@ -192,6 +194,7 @@ static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
 		ph_req->hook_index++;
 		if (ph_req->hook_index >= tal_count(ph_req->hooks)) {
 			ph_req->hook->final_cb(ph_req->cb_arg);
+			cleanup_ph_req(ph_req);
 			return;
 		}
 	} while (ph_req->hooks[ph_req->hook_index] == NULL);
