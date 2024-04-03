@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
-export BITCOIN_VERSION=25.1
+export BITCOIN_VERSION=26.1
 export ELEMENTS_VERSION=22.0.2
 export RUST_VERSION=stable
 
