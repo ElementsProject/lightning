@@ -12,6 +12,8 @@ msgtype,hsmd_dev_preinit,99
 msgdata,hsmd_dev_preinit,tlvs,hsmd_dev_preinit_tlvs,
 tlvtype,hsmd_dev_preinit_tlvs,fail_preapprove,1
 tlvdata,hsmd_dev_preinit_tlvs,fail_preapprove,fail,bool,
+tlvtype,hsmd_dev_preinit_tlvs,no_preapprove_check,3
+tlvdata,hsmd_dev_preinit_tlvs,no_preapprove_check,disable,bool,
 
 #include <bitcoin/chainparams.h>
 # Start the HSM.
@@ -163,6 +165,26 @@ msgdata,hsmd_preapprove_keysend,amount_msat,amount_msat,
 # Result is true if approved, declined if false 
 msgtype,hsmd_preapprove_keysend_reply,139
 msgdata,hsmd_preapprove_keysend_reply,approved,bool,
+
+# Preapprove an invoice for payment (with "check_only" option)
+msgtype,hsmd_preapprove_invoice_check,51
+msgdata,hsmd_preapprove_invoice_check,invstring,wirestring,
+msgdata,hsmd_preapprove_invoice_check,check_only,bool,
+
+# Result is true if approved, declined if false 
+msgtype,hsmd_preapprove_invoice_check_reply,151
+msgdata,hsmd_preapprove_invoice_check_reply,approved,bool,
+
+# Preapprove a keysend payment (with "check_only" option)
+msgtype,hsmd_preapprove_keysend_check,52
+msgdata,hsmd_preapprove_keysend_check,destination,node_id,
+msgdata,hsmd_preapprove_keysend_check,payment_hash,sha256,
+msgdata,hsmd_preapprove_keysend_check,amount_msat,amount_msat,
+msgdata,hsmd_preapprove_keysend_check,check_only,bool,
+
+# Result is true if approved, declined if false 
+msgtype,hsmd_preapprove_keysend_check_reply,152
+msgdata,hsmd_preapprove_keysend_check_reply,approved,bool,
 
 # Give me ECDH(node-id-secret,point)
 msgtype,hsmd_ecdh_req,1
