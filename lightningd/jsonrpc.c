@@ -55,12 +55,16 @@ struct command_result *command_param_failed(void)
 	return &param_failed;
 }
 
-/* For our purposes, the same as command_param_failed: we examine
- * cmd->mode to see if it's really done. */
+/* We immediately respond with success if we reach here. */
 struct command_result *command_check_done(struct command *cmd)
 {
+	struct json_stream *response;
+
 	assert(cmd->mode == CMD_CHECK);
-	return &param_failed;
+
+	response = json_stream_success(cmd);
+	json_add_string(response, "command_to_check", cmd->json_cmd->name);
+	return command_success(cmd, response);
 }
 
 struct command_result *command_its_complicated(const char *relationship_details
@@ -599,12 +603,6 @@ struct command_result *command_raw_complete(struct command *cmd,
 	/* If we have a jcon, it will free result for us. */
 	if (cmd->jcon)
 		tal_steal(cmd->jcon, result);
-
-	/* Don't free it here if we're doing `check` */
-	if (command_check_only(cmd)) {
-		cmd->mode = CMD_CHECK_FAILED;
-		return command_param_failed();
-	}
 
 	tal_free(cmd);
 	return &complete;
@@ -1673,8 +1671,8 @@ static struct command_result *json_check(struct command *cmd,
 {
 	jsmntok_t *mod_params;
 	const jsmntok_t *name_tok;
-	struct json_stream *response;
 	struct command_result *res;
+	struct lightningd *ld = cmd->ld;
 
 	if (cmd->mode == CMD_USAGE) {
 		mod_params = NULL;
@@ -1696,22 +1694,10 @@ static struct command_result *json_check(struct command *cmd,
 
 	cmd->mode = CMD_CHECK;
 	/* Make *sure* it doesn't try to manip db! */
-	db_set_readonly(cmd->ld->wallet->db, true);
+	db_set_readonly(ld->wallet->db, true);
 	res = cmd->json_cmd->dispatch(cmd, buffer, mod_params, mod_params);
-	db_set_readonly(cmd->ld->wallet->db, false);
+	db_set_readonly(ld->wallet->db, false);
 
-	/* CMD_CHECK always makes it "fail" parameter parsing. */
-	assert(res == &param_failed);
-	if (cmd->mode == CMD_CHECK_FAILED) {
-		tal_free(cmd);
-		return res;
-	}
-
-	response = json_stream_success(cmd);
-	json_add_string(response, "command_to_check", cmd->json_cmd->name);
-	res = command_success(cmd, response);
-	/* CMD_CHECK means we don't get freed! */
-	tal_free(cmd);
 	return res;
 }
 
