@@ -435,10 +435,6 @@ struct route_exclusions_data {
 	struct route_exclusion **exclusions;
 };
 
-struct preapproveinvoice_data {
-	bool approved;
-};
-
 /* List of globally available payment modifiers. */
 REGISTER_PAYMENT_MODIFIER_HEADER(retry, struct retry_mod_data);
 REGISTER_PAYMENT_MODIFIER_HEADER(routehints, struct routehints_data);
@@ -460,7 +456,6 @@ REGISTER_PAYMENT_MODIFIER_HEADER(local_channel_hints, void);
  * each of those channels can bear.  */
 REGISTER_PAYMENT_MODIFIER_HEADER(payee_incoming_limit, void);
 REGISTER_PAYMENT_MODIFIER_HEADER(route_exclusions, struct route_exclusions_data);
-REGISTER_PAYMENT_MODIFIER_HEADER(check_preapproveinvoice, struct preapproveinvoice_data);
 
 
 struct payment *payment_new(tal_t *ctx, struct command *cmd,
