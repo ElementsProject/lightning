@@ -11,6 +11,14 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
+/* Define this for better optimization if you never override errfn
+ * to something tat returns */
+#ifdef CCAN_TAL_NEVER_RETURN_NULL
+#define TAL_RETURN_PTR RETURNS_NONNULL
+#else
+#define TAL_RETURN_PTR
+#endif /* CCAN_TAL_NEVER_RETURN_NULL */
+
 /**
  * tal_t - convenient alias for void to mark tal pointers.
  *
@@ -417,7 +425,8 @@ tal_t *tal_parent(const tal_t *ctx);
  * @error_fn: called on errors or NULL (default is abort)
  *
  * The defaults are set up so tal functions never return NULL, but you
- * can override erorr_fn to change that.  error_fn can return, and is
+ * can override error_fn to change that.  error_fn can return (only if
+ * you haven't defined CCAN_TAL_NEVER_RETURN_NULL!), and is
  * called if alloc_fn or resize_fn fail.
  *
  * If any parameter is NULL, that function is unchanged.
@@ -521,9 +530,11 @@ bool tal_set_name_(tal_t *ctx, const char *name, bool literal);
 #define tal_typechk_(ptr, ptype) (ptr)
 #endif
 
-void *tal_alloc_(const tal_t *ctx, size_t bytes, bool clear, const char *label);
+void *tal_alloc_(const tal_t *ctx, size_t bytes, bool clear, const char *label)
+	TAL_RETURN_PTR;
 void *tal_alloc_arr_(const tal_t *ctx, size_t bytes, size_t count, bool clear,
-		     const char *label);
+		     const char *label)
+	TAL_RETURN_PTR;
 
 void *tal_dup_(const tal_t *ctx, const void *p TAKES, size_t size,
 	       size_t n, size_t extra, bool nullok, const char *label);
