@@ -3881,6 +3881,22 @@ def test_setconfig(node_factory, bitcoind):
     with pytest.raises(RpcError, match='is not a number'):
         l2.rpc.setconfig(config='min-capacity-sat', val="abcd")
 
+    # Check will fail the same way.
+    with pytest.raises(RpcError, match='requires a value'):
+        l2.rpc.check('setconfig', config='min-capacity-sat')
+
+    with pytest.raises(RpcError, match='is not a number'):
+        l2.rpc.check('setconfig', config='min-capacity-sat', val="abcd")
+
+    # Check will pass, but NOT change value.
+    assert l2.rpc.check(command_to_check='setconfig', config='min-capacity-sat', val=500000) == {'command_to_check': 'setconfig'}
+
+    assert (l2.rpc.listconfigs('min-capacity-sat')['configs']
+            == {'min-capacity-sat':
+                {'source': 'default',
+                 'value_int': 10000,
+                 'dynamic': True}})
+
     ret = l2.rpc.setconfig(config='min-capacity-sat', val=500000)
     assert ret == {'config':
                    {'config': 'min-capacity-sat',

@@ -68,6 +68,18 @@ static char *opt_set_u64(const char *arg, u64 *u)
 		return tal_fmt(tmpctx, "'%s' is out of range", arg);
 	return NULL;
 }
+
+static char *opt_set_u64_dynamic(const char *arg, u64 *u)
+{
+	u64 ignored;
+
+	/* In case we're called for arg checking only */
+	if (!u)
+		u = &ignored;
+
+	return opt_set_u64(arg, u);
+}
+
 static char *opt_set_u32(const char *arg, u32 *u)
 {
 	char *endp;
@@ -1533,9 +1545,10 @@ static void register_opts(struct lightningd *ld)
 		       opt_set_msat,
 		       opt_show_msat, &ld->config.max_dust_htlc_exposure_msat,
 		       "Max HTLC amount that can be trimmed");
-	clnopt_witharg("--min-capacity-sat", OPT_SHOWINT|OPT_DYNAMIC, opt_set_u64, opt_show_u64,
-			 &ld->config.min_capacity_sat,
-			 "Minimum capacity in satoshis for accepting channels");
+	clnopt_witharg("--min-capacity-sat", OPT_SHOWINT|OPT_DYNAMIC,
+		       opt_set_u64_dynamic, opt_show_u64,
+		       &ld->config.min_capacity_sat,
+		       "Minimum capacity in satoshis for accepting channels");
 	clnopt_witharg("--addr", OPT_MULTI, opt_add_addr, NULL,
 		       ld,
 		       "Set an IP address (v4 or v6) to listen on and announce to the network for incoming connections");
