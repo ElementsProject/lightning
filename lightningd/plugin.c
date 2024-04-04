@@ -2377,12 +2377,25 @@ struct command_result *plugin_set_dynamic_opt(struct command *cmd,
 	psr->optname = tal_strdup(psr, ot->names + 2);
 	psr->success = success;
 
-	req = jsonrpc_request_start(cmd, "setconfig",
-				    cmd->id,
-				    plugin->non_numeric_ids,
-				    command_log(cmd),
-				    NULL, plugin_setconfig_done,
-				    psr);
+	if (command_check_only(cmd)) {
+		/* If plugin doesn't support check, we can't check */
+		if (!plugin->can_check)
+			return command_check_done(cmd);
+		req = jsonrpc_request_start(cmd, "check",
+					    cmd->id,
+					    plugin->non_numeric_ids,
+					    command_log(cmd),
+					    NULL, plugin_setconfig_done,
+					    psr);
+		json_add_string(req->stream, "command_to_check", "setconfig");
+	} else {
+		req = jsonrpc_request_start(cmd, "setconfig",
+					    cmd->id,
+					    plugin->non_numeric_ids,
+					    command_log(cmd),
+					    NULL, plugin_setconfig_done,
+					    psr);
+	}
 	json_add_string(req->stream, "config", psr->optname);
 	if (psr->val)
 		json_add_string(req->stream, "val", psr->val);

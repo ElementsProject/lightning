@@ -74,21 +74,6 @@ struct plugin_command {
 	bool dev_only;
 };
 
-/* Create an array of these, one for each --option you support. */
-struct plugin_option {
-	const char *name;
-	const char *type;
-	const char *description;
-	char *(*handle)(struct plugin *plugin, const char *str, void *arg);
-	void *arg;
-	/* If true, this option requires --developer to be enabled */
-	bool dev_only;
-	/* If it's deprecated from a particular release (or NULL) */
-	const char *depr_start, *depr_end;
-	/* If true, allow setting after plugin has initialized */
-	bool dynamic;
-};
-
 /* Create an array of these, one for each notification you subscribe to. */
 struct plugin_notification {
 	/* "*" means wildcard: notify me on everything (should be last!) */
@@ -424,7 +409,9 @@ void plugin_notify_progress(struct command *cmd,
 
 /* Simply exists to check that `set` to plugin_option* is correct type */
 static inline void *plugin_option_cb_check(char *(*set)(struct plugin *plugin,
-							const char *arg, void *))
+							const char *arg,
+							bool check_only,
+							void *))
 {
 	return set;
 }
@@ -440,7 +427,7 @@ bool plugin_developer_mode(const struct plugin *plugin);
 	plugin_option_cb_check(typesafe_cb_preargs(char *, void *,	\
 						   (set), (arg),	\
 						   struct plugin *,	\
-						   const char *)),	\
+						   const char *, bool)),\
 	(arg),								\
 	(dev_only),							\
 	(depr_start),							\
@@ -460,12 +447,12 @@ bool plugin_developer_mode(const struct plugin *plugin);
 	plugin_option_((name), (type), (description), (set), (arg), false, (depr_start), (depr_end), false)
 
 /* Standard helpers */
-char *u64_option(struct plugin *plugin, const char *arg, u64 *i);
-char *u32_option(struct plugin *plugin, const char *arg, u32 *i);
-char *u16_option(struct plugin *plugin, const char *arg, u16 *i);
-char *bool_option(struct plugin *plugin, const char *arg, bool *i);
-char *charp_option(struct plugin *plugin, const char *arg, char **p);
-char *flag_option(struct plugin *plugin, const char *arg, bool *i);
+char *u64_option(struct plugin *plugin, const char *arg, bool check_only, u64 *i);
+char *u32_option(struct plugin *plugin, const char *arg, bool check_only, u32 *i);
+char *u16_option(struct plugin *plugin, const char *arg, bool check_only, u16 *i);
+char *bool_option(struct plugin *plugin, const char *arg, bool check_only, bool *i);
+char *charp_option(struct plugin *plugin, const char *arg, bool check_only, char **p);
+char *flag_option(struct plugin *plugin, const char *arg, bool check_only, bool *i);
 
 /* The main plugin runner: append with 0 or more plugin_option(), then NULL. */
 void NORETURN LAST_ARG_NULL plugin_main(char *argv[],
