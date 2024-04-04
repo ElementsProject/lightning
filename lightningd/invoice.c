@@ -1870,6 +1870,7 @@ static struct command_result *json_preapproveinvoice(struct command *cmd,
 	const char *invstring;
 	struct json_stream *response;
 	bool approved;
+	u8 *req;
 	const u8 *msg;
 
 	if (!param(cmd, buffer, params,
@@ -1878,11 +1879,20 @@ static struct command_result *json_preapproveinvoice(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	msg = hsm_sync_req(tmpctx, cmd->ld,
-			   take(towire_hsmd_preapprove_invoice(NULL, invstring)));
-        if (!fromwire_hsmd_preapprove_invoice_reply(msg, &approved))
+	/* Old version didn't have `bool check_only` at end */
+	if (!hsm_capable(cmd->ld, WIRE_HSMD_PREAPPROVE_INVOICE_CHECK))
+		req = towire_hsmd_preapprove_invoice(NULL, invstring);
+	else
+		req = towire_hsmd_preapprove_invoice_check(NULL, invstring, false);
+
+	msg = hsm_sync_req(tmpctx, cmd->ld, take(req));
+
+	/* These are identical, but use separate numbers for clarity */
+        if (!fromwire_hsmd_preapprove_invoice_reply(msg, &approved)
+	    && !fromwire_hsmd_preapprove_invoice_check_reply(msg, &approved)) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "HSM gave bad preapprove_invoice_reply %s", tal_hex(msg, msg));
+	}
 
 	if (!approved)
 		return command_fail(cmd, PAY_INVOICE_PREAPPROVAL_DECLINED, "invoice was declined");
@@ -1910,6 +1920,7 @@ static struct command_result *json_preapprovekeysend(struct command *cmd,
 	struct json_stream *response;
 	bool approved;
 	const u8 *msg;
+	u8 *req;
 
 	if (!param(cmd, buffer, params,
 		   p_req("destination", param_node_id, &destination),
@@ -1918,12 +1929,20 @@ static struct command_result *json_preapprovekeysend(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	msg = towire_hsmd_preapprove_keysend(NULL, destination, payment_hash, *amount);
+	if (!hsm_capable(cmd->ld, WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK))
+		req = towire_hsmd_preapprove_keysend(NULL, destination, payment_hash, *amount);
+	else
+		req = towire_hsmd_preapprove_keysend_check(NULL, destination, payment_hash,
+							   *amount, false);
 
-	msg = hsm_sync_req(tmpctx, cmd->ld, take(msg));
-        if (!fromwire_hsmd_preapprove_keysend_reply(msg, &approved))
+	msg = hsm_sync_req(tmpctx, cmd->ld, take(req));
+
+	/* These are identical, but use separate numbers for clarity */
+        if (!fromwire_hsmd_preapprove_keysend_reply(msg, &approved)
+	    && !fromwire_hsmd_preapprove_keysend_check_reply(msg, &approved)) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "HSM gave bad preapprove_keysend_reply %s", tal_hex(msg, msg));
+	}
 
 	if (!approved)
 		return command_fail(cmd, PAY_KEYSEND_PREAPPROVAL_DECLINED, "keysend was declined");

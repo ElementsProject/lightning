@@ -290,9 +290,15 @@ bool fromwire_connectd_peer_spoke(const tal_t *ctx UNNEEDED, const void *p UNNEE
 /* Generated stub for fromwire_dualopend_dev_memleak_reply */
 bool fromwire_dualopend_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_dualopend_dev_memleak_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_preapprove_invoice_check_reply */
+bool fromwire_hsmd_preapprove_invoice_check_reply(const void *p UNNEEDED, bool *approved UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_preapprove_invoice_check_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_preapprove_invoice_reply */
 bool fromwire_hsmd_preapprove_invoice_reply(const void *p UNNEEDED, bool *approved UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_preapprove_invoice_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_preapprove_keysend_check_reply */
+bool fromwire_hsmd_preapprove_keysend_check_reply(const void *p UNNEEDED, bool *approved UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_preapprove_keysend_check_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_preapprove_keysend_reply */
 bool fromwire_hsmd_preapprove_keysend_reply(const void *p UNNEEDED, bool *approved UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_preapprove_keysend_reply called!\n"); abort(); }
@@ -325,6 +331,9 @@ u32 get_feerate(const struct fee_states *fee_states UNNEEDED,
 /* Generated stub for hash_htlc_key */
 size_t hash_htlc_key(const struct htlc_key *htlc_key UNNEEDED)
 { fprintf(stderr, "hash_htlc_key called!\n"); abort(); }
+/* Generated stub for hsm_capable */
+bool hsm_capable(struct lightningd *ld UNNEEDED, u32 msgtype UNNEEDED)
+{ fprintf(stderr, "hsm_capable called!\n"); abort(); }
 /* Generated stub for hsm_sync_req */
 const u8 *hsm_sync_req(const tal_t *ctx UNNEEDED,
 		       struct lightningd *ld UNNEEDED,
@@ -949,9 +958,15 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 /* Generated stub for towire_hsmd_preapprove_invoice */
 u8 *towire_hsmd_preapprove_invoice(const tal_t *ctx UNNEEDED, const wirestring *invstring UNNEEDED)
 { fprintf(stderr, "towire_hsmd_preapprove_invoice called!\n"); abort(); }
+/* Generated stub for towire_hsmd_preapprove_invoice_check */
+u8 *towire_hsmd_preapprove_invoice_check(const tal_t *ctx UNNEEDED, const wirestring *invstring UNNEEDED, bool check_only UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_preapprove_invoice_check called!\n"); abort(); }
 /* Generated stub for towire_hsmd_preapprove_keysend */
 u8 *towire_hsmd_preapprove_keysend(const tal_t *ctx UNNEEDED, const struct node_id *destination UNNEEDED, const struct sha256 *payment_hash UNNEEDED, struct amount_msat amount_msat UNNEEDED)
 { fprintf(stderr, "towire_hsmd_preapprove_keysend called!\n"); abort(); }
+/* Generated stub for towire_hsmd_preapprove_keysend_check */
+u8 *towire_hsmd_preapprove_keysend_check(const tal_t *ctx UNNEEDED, const struct node_id *destination UNNEEDED, const struct sha256 *payment_hash UNNEEDED, struct amount_msat amount_msat UNNEEDED, bool check_only UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_preapprove_keysend_check called!\n"); abort(); }
 /* Generated stub for towire_hsmd_sign_bolt12 */
 u8 *towire_hsmd_sign_bolt12(const tal_t *ctx UNNEEDED, const wirestring *messagename UNNEEDED, const wirestring *fieldname UNNEEDED, const struct sha256 *merkleroot UNNEEDED, const u8 *publictweak UNNEEDED)
 { fprintf(stderr, "towire_hsmd_sign_bolt12 called!\n"); abort(); }

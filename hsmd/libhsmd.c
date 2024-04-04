@@ -35,6 +35,7 @@ bool initialized = false;
 
 /* Do we fail all preapprove requests? */
 bool dev_fail_preapprove = false;
+bool dev_no_preapprove_check = false;
 
 struct hsmd_client *hsmd_client_new_main(const tal_t *ctx, u64 capabilities,
 					 void *extra)
@@ -134,6 +135,8 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_BOLT12:
 	case WIRE_HSMD_PREAPPROVE_INVOICE:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND:
+	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK:
+	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK:
 	case WIRE_HSMD_DERIVE_SECRET:
 	case WIRE_HSMD_CHECK_PUBKEY:
 	case WIRE_HSMD_SIGN_ANY_PENALTY_TO_US:
@@ -177,6 +180,8 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_BOLT12_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
+	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK_REPLY:
+	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK_REPLY:
 	case WIRE_HSMD_DERIVE_SECRET_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
@@ -775,7 +780,10 @@ static u8 *handle_preapprove_invoice(struct hsmd_client *c, const u8 *msg_in)
 {
 	char *invstring;
 	bool approved;
-	if (!fromwire_hsmd_preapprove_invoice(tmpctx, msg_in, &invstring))
+	bool check_only = false;
+
+	if (!fromwire_hsmd_preapprove_invoice(tmpctx, msg_in, &invstring)
+	    && !fromwire_hsmd_preapprove_invoice_check(tmpctx, msg_in, &invstring, &check_only))
 		return hsmd_status_malformed_request(c, msg_in);
 
 	/* This stub always approves unless overridden */
@@ -793,8 +801,13 @@ static u8 *handle_preapprove_keysend(struct hsmd_client *c, const u8 *msg_in)
 	struct sha256 payment_hash;
 	struct amount_msat amount_msat;
 	bool approved;
-	if (!fromwire_hsmd_preapprove_keysend(msg_in, &destination, &payment_hash, &amount_msat))
+	bool check_only = false;
+
+	if (!fromwire_hsmd_preapprove_keysend(msg_in, &destination, &payment_hash, &amount_msat)
+	    && !fromwire_hsmd_preapprove_keysend_check(msg_in, &destination, &payment_hash,
+						       &amount_msat, &check_only)) {
 		return hsmd_status_malformed_request(c, msg_in);
+	}
 
 	/* This stub always approves unless overridden */
 	approved = !dev_fail_preapprove;
@@ -2049,8 +2062,10 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_BOLT12:
 		return handle_sign_bolt12(client, msg);
 	case WIRE_HSMD_PREAPPROVE_INVOICE:
+	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK:
 		return handle_preapprove_invoice(client, msg);
 	case WIRE_HSMD_PREAPPROVE_KEYSEND:
+	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK:
 		return handle_preapprove_keysend(client, msg);
 	case WIRE_HSMD_SIGN_MESSAGE:
 		return handle_sign_message(client, msg);
@@ -2140,6 +2155,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_BOLT12_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
+	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK_REPLY:
+	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
 	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE_REPLY:
@@ -2166,7 +2183,10 @@ u8 *hsmd_init(struct secret hsm_secret, const u64 hsmd_version,
 		WIRE_HSMD_CHECK_OUTPOINT,
 		WIRE_HSMD_FORGET_CHANNEL,
 		WIRE_HSMD_REVOKE_COMMITMENT_TX,
+		WIRE_HSMD_PREAPPROVE_INVOICE_CHECK,
+		WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK,
 	};
+	const u32 *caps;
 
 	/*~ Don't swap this. */
 	sodium_mlock(secretstuff.hsm_secret.data,
@@ -2288,6 +2308,17 @@ u8 *hsmd_init(struct secret hsm_secret, const u64 hsmd_version,
 		    &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret),
 		    "derived secrets", strlen("derived secrets"));
 
+	/* Capabilities arg needs to be a tal array */
+	if (dev_no_preapprove_check) {
+		/* Skip preapprove capabilities */
+		caps = tal_dup_arr(tmpctx, u32,
+				   capabilities, ARRAY_SIZE(capabilities) - 2,
+				   0);
+	} else {
+		caps = tal_dup_arr(tmpctx, u32,
+				   capabilities, ARRAY_SIZE(capabilities), 0);
+	}
+
 	/*~ Note: marshalling a bip32 tree only marshals the public side,
 	 * not the secrets!  So we're not actually handing them out here!
 	 *
@@ -2295,10 +2326,7 @@ u8 *hsmd_init(struct secret hsm_secret, const u64 hsmd_version,
 	 * incompatibility detection) with alternate implementations.
 	 */
 	return take(towire_hsmd_init_reply_v4(
-			    NULL, hsmd_version,
-			    /* Capabilities arg needs to be a tal array */
-			    tal_dup_arr(tmpctx, u32, capabilities,
-					ARRAY_SIZE(capabilities), 0),
+			    NULL, hsmd_version, caps,
 			    &node_id, &secretstuff.bip32,
 			    &bolt12));
 }

@@ -439,6 +439,9 @@ static struct io_plan *preinit_hsm(struct io_conn *conn,
 	if (tlv->fail_preapprove)
 		dev_fail_preapprove = *tlv->fail_preapprove;
 
+	if (tlv->no_preapprove_check)
+		dev_no_preapprove_check = *tlv->no_preapprove_check;
+
 	/* We don't send a reply, just read next */
 	return client_read_next(conn, c);
 }
@@ -688,6 +691,8 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_BOLT12:
 	case WIRE_HSMD_PREAPPROVE_INVOICE:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND:
+	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK:
+	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK:
 	case WIRE_HSMD_ECDH_REQ:
 	case WIRE_HSMD_CHECK_FUTURE_SECRET:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
@@ -741,6 +746,8 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_BOLT12_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
+	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK_REPLY:
+	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
 	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE_REPLY:
