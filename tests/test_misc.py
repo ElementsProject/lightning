@@ -4094,3 +4094,68 @@ def test_set_feerate_offset(node_factory, bitcoind):
 
     l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
     l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+
+
+@pytest.mark.parametrize("preapprove", [False, True])
+def test_preapprove(node_factory, bitcoind, preapprove):
+    # l1 uses old routine which doesn't support check.
+    opts = [{'dev-hsmd-no-preapprove-check': None}, {}]
+    if preapprove is False:
+        opts[0]['dev-hsmd-fail-preapprove'] = None
+        opts[1]['dev-hsmd-fail-preapprove'] = None
+
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+
+    inv = l1.rpc.invoice(123000, 'label', 'description', 3700)['bolt11']
+    if preapprove:
+        l2.rpc.check('preapproveinvoice', bolt11=inv)
+    else:
+        with pytest.raises(RpcError, match='invoice was declined'):
+            l2.rpc.check('preapproveinvoice', bolt11=inv)
+
+    l2.daemon.wait_for_log("preapprove_invoice: check_only=1")
+
+    # But l1 can't check properly, will always pass.
+    inv = l2.rpc.invoice(123000, 'label', 'description', 3700)['bolt11']
+    l1.rpc.check('preapproveinvoice', bolt11=inv)
+
+    assert not l1.daemon.is_in_log("preapprove_invoice: check_only=1")
+
+    # But if we try to actually preapprove we fail if told.
+    if preapprove:
+        l1.rpc.preapproveinvoice(inv)
+    else:
+        with pytest.raises(RpcError, match='invoice was declined'):
+            l1.rpc.preapproveinvoice(bolt11=inv)
+    l1.daemon.wait_for_log("preapprove_invoice: check_only=0")
+
+    # Same for keysend
+    if preapprove:
+        l2.rpc.check('preapprovekeysend',
+                     destination=l1.info['id'],
+                     payment_hash='00' * 32,
+                     amount_msat=1000)
+    else:
+        with pytest.raises(RpcError, match='keysend was declined'):
+            l2.rpc.check('preapprovekeysend',
+                         destination=l1.info['id'],
+                         payment_hash='00' * 32,
+                         amount_msat=1000)
+
+    l2.daemon.wait_for_log("preapprove_keysend: check_only=1")
+
+    # But l1 can't check properly, will always pass.
+    l1.rpc.check('preapprovekeysend',
+                 destination=l2.info['id'],
+                 payment_hash='00' * 32,
+                 amount_msat=1000)
+
+    assert not l1.daemon.is_in_log("preapprove_keysend: check_only=1")
+
+    # But if we try to actually preapprove we fail if told.
+    if preapprove:
+        l1.rpc.preapprovekeysend(l2.info['id'], '00' * 32, 1000)
+    else:
+        with pytest.raises(RpcError, match='keysend was declined'):
+            l1.rpc.preapprovekeysend(l2.info['id'], '00' * 32, 1000)
+    l1.daemon.wait_for_log("preapprove_keysend: check_only=0")

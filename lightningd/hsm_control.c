@@ -109,6 +109,21 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	}
 
 	ld->hsm_fd = fds[0];
+
+	if (ld->developer) {
+		struct tlv_hsmd_dev_preinit_tlvs *tlv;
+
+		tlv = tlv_hsmd_dev_preinit_tlvs_new(tmpctx);
+		tlv->fail_preapprove = tal_dup(tlv, bool,
+					       &ld->dev_hsmd_fail_preapprove);
+		tlv->no_preapprove_check = tal_dup(tlv, bool,
+						   &ld->dev_hsmd_no_preapprove_check);
+
+		msg = towire_hsmd_dev_preinit(tmpctx, tlv);
+		if (!wire_sync_write(ld->hsm_fd, msg))
+		    err(EXITCODE_HSM_GENERIC_ERROR, "Writing preinit msg to hsm");
+	}
+
 	if (!wire_sync_write(ld->hsm_fd, towire_hsmd_init(tmpctx,
 							  &chainparams->bip32_key_version,
 							  chainparams,

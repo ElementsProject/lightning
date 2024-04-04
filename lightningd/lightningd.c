@@ -146,6 +146,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_no_ping_timer = false;
 	ld->dev_any_channel_type = false;
 	ld->dev_allow_shutdown_destination_change = false;
+	ld->dev_hsmd_no_preapprove_check = false;
+	ld->dev_hsmd_fail_preapprove = false;
 
 	/*~ This is a CCAN list: an embedded double-linked list.  It's not
 	 * really typesafe, but relies on convention to access the contents.

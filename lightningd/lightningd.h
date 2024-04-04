@@ -349,6 +349,10 @@ struct lightningd {
 	/* Allow changing of shutdown output point even if dangerous */
 	bool dev_allow_shutdown_destination_change;
 
+	/* hsmd characteristic tweaks */
+	bool dev_hsmd_no_preapprove_check;
+	bool dev_hsmd_fail_preapprove;
+
 	/* tor support */
 	struct wireaddr *proxyaddr;
 	bool always_use_proxy;
