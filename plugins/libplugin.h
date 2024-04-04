@@ -53,6 +53,7 @@ struct command {
 	const char *id;
 	const char *methodname;
 	bool usage_only;
+	bool check;
 	struct plugin *plugin;
 	/* Optional output field filter. */
 	struct json_filter *filter;

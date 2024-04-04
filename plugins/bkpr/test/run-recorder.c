@@ -173,12 +173,19 @@ bool json_to_u16(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 /* Generated stub for json_tok_bin_from_hex */
 u8 *json_tok_bin_from_hex(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
 { fprintf(stderr, "json_tok_bin_from_hex called!\n"); abort(); }
+/* Generated stub for json_tok_copy */
+jsmntok_t *json_tok_copy(const tal_t *ctx UNNEEDED, const jsmntok_t *tok UNNEEDED)
+{ fprintf(stderr, "json_tok_copy called!\n"); abort(); }
 /* Generated stub for json_tok_full */
 const char *json_tok_full(const char *buffer UNNEEDED, const jsmntok_t *t UNNEEDED)
 { fprintf(stderr, "json_tok_full called!\n"); abort(); }
 /* Generated stub for json_tok_full_len */
 int json_tok_full_len(const jsmntok_t *t UNNEEDED)
 { fprintf(stderr, "json_tok_full_len called!\n"); abort(); }
+/* Generated stub for json_tok_remove */
+void json_tok_remove(jsmntok_t **tokens UNNEEDED,
+		     jsmntok_t *obj_or_array UNNEEDED, const jsmntok_t *tok UNNEEDED, size_t num UNNEEDED)
+{ fprintf(stderr, "json_tok_remove called!\n"); abort(); }
 /* Generated stub for json_tok_streq */
 bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, const char *str UNNEEDED)
 { fprintf(stderr, "json_tok_streq called!\n"); abort(); }
@@ -199,6 +206,11 @@ struct channel_event *new_channel_event(const tal_t *ctx UNNEEDED,
 					u32 part_id UNNEEDED,
 					u64 timestamp UNNEEDED)
 { fprintf(stderr, "new_channel_event called!\n"); abort(); }
+/* Generated stub for param_check */
+bool param_check(struct command *cmd UNNEEDED,
+		 const char *buffer UNNEEDED,
+		 const jsmntok_t tokens[] UNNEEDED, ...)
+{ fprintf(stderr, "param_check called!\n"); abort(); }
 /* Generated stub for toks_alloc */
 jsmntok_t *toks_alloc(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "toks_alloc called!\n"); abort(); }

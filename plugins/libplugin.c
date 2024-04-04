@@ -9,6 +9,7 @@
 #include <common/daemon.h>
 #include <common/deprecation.h>
 #include <common/json_filter.h>
+#include <common/json_param.h>
 #include <common/json_parse_simple.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
@@ -595,15 +596,18 @@ bool command_dev_apis(const struct command *cmd)
 	return cmd->plugin->developer;
 }
 
-/* FIXME: would be good to support this! */
 bool command_check_only(const struct command *cmd)
 {
-	return false;
+	return cmd->check;
 }
 
 struct command_result *command_check_done(struct command *cmd)
 {
-	abort();
+	assert(command_check_only(cmd));
+
+	return command_success(cmd,
+			       json_out_obj(cmd, "command_to_check",
+					    cmd->methodname));
 }
 
 void command_set_usage(struct command *cmd, const char *usage TAKES)
@@ -1098,6 +1102,7 @@ handle_getmanifest(struct command *getmanifest_cmd,
 
 	json_add_bool(params, "dynamic", p->restartability == PLUGIN_RESTARTABLE);
 	json_add_bool(params, "nonnumericids", true);
+	json_add_bool(params, "cancheck", true);
 
 	json_array_start(params, "notifications");
 	for (size_t i = 0; p->notif_topics && i < p->num_notif_topics; i++) {
@@ -1681,6 +1686,14 @@ bool command_deprecated_ok_flag(const struct command *cmd)
 	return cmd->plugin->deprecated_ok;
 }
 
+static struct command_result *param_tok(struct command *cmd, const char *name,
+					const char *buffer, const jsmntok_t * tok,
+					const jsmntok_t **out)
+{
+	*out = tok;
+	return NULL;
+}
+
 static void ld_command_handle(struct plugin *plugin,
 			      const jsmntok_t *toks)
 {
@@ -1778,6 +1791,34 @@ static void ld_command_handle(struct plugin *plugin,
 			return;
 	}
 
+	/* Is this actually a check command? */
+	cmd->check = streq(cmd->methodname, "check");
+	if (cmd->check) {
+		const jsmntok_t *method;
+		jsmntok_t *mod_params;
+
+		/* We're going to mangle it, so make a copy */
+		mod_params = json_tok_copy(cmd, paramstok);
+		if (!param_check(cmd, plugin->buffer, mod_params,
+				 p_req("command_to_check", param_tok, &method),
+				 p_opt_any(),
+				 NULL)) {
+			plugin_err(plugin,
+				   "lightningd check without command_to_check: %.*s",
+				   json_tok_full_len(toks),
+				   json_tok_full(plugin->buffer, toks));
+		}
+		tal_free(cmd->methodname);
+		cmd->methodname = json_strdup(cmd, plugin->buffer, method);
+
+		/* Point method to the name, not the value */
+		if (mod_params->type == JSMN_OBJECT)
+			method--;
+
+		json_tok_remove(&mod_params, mod_params, method, 1);
+		paramstok = mod_params;
+	}
+
 	for (size_t i = 0; i < plugin->num_commands; i++) {
 		if (streq(cmd->methodname, plugin->commands[i].name)) {
 			plugin->commands[i].handle(cmd,
@@ -1809,6 +1850,12 @@ static void ld_command_handle(struct plugin *plugin,
 				   "lightningd setconfig non-dynamic option '%s'?",
 				   config);
 		}
+		/* FIXME: allow checking into handler! */
+		if (command_check_only(cmd)) {
+			ret = command_check_done(cmd);
+			return;
+		}
+
 		valtok = json_get_member(plugin->buffer, paramstok, "val");
 		if (valtok)
 			val = json_strdup(tmpctx, plugin->buffer, valtok);
