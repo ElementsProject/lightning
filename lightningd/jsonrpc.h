@@ -151,11 +151,6 @@ struct logger *command_log(struct command *cmd);
 extern struct command_result *command_param_failed(void)
 	 WARN_UNUSED_RESULT;
 
-/* To return after param_check() succeeds but we're still
- * command_check_only(cmd). */
-struct command_result *command_check_done(struct command *cmd)
-	 WARN_UNUSED_RESULT;
-
 /* Wrapper for pending commands (ignores return) */
 static inline void was_pending(const struct command_result *res)
 {

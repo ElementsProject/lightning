@@ -57,4 +57,9 @@ void command_set_usage(struct command *cmd, const char *usage);
 /* Also caller supplied: is this invoked simply to check parameters? */
 bool command_check_only(const struct command *cmd);
 
+/* To return after param_check() succeeds but we're still
+ * command_check_only(cmd). */
+struct command_result *command_check_done(struct command *cmd)
+	 WARN_UNUSED_RESULT;
+
 #endif /* LIGHTNING_COMMON_JSON_COMMAND_H */

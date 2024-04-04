@@ -601,6 +601,11 @@ bool command_check_only(const struct command *cmd)
 	return false;
 }
 
+struct command_result *command_check_done(struct command *cmd)
+{
+	abort();
+}
+
 void command_set_usage(struct command *cmd, const char *usage TAKES)
 {
 	usage = tal_strdup(NULL, usage);

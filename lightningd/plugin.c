@@ -1309,8 +1309,9 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	struct jsonrpc_request *req;
 	bool cmd_ok;
 
-	if (cmd->mode == CMD_CHECK)
-		return command_param_failed();
+	/* FIXME: Pass through to plugins! */
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	plugin = find_plugin_for_command(cmd->ld, cmd->json_cmd->name);
 	if (!plugin)

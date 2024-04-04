@@ -378,9 +378,13 @@ bool param(struct command *cmd,
 	ret = param_core(cmd, buffer, tokens, ap);
 	va_end(ap);
 
-	/* Always fail if we're just checking! */
-	if (ret && command_check_only(cmd))
+	/* Always "fail" if we're just checking! */
+	if (ret && command_check_only(cmd)) {
+		/* We really do ignore result here! */
+		if (command_check_done(cmd))
+			;
 		ret = false;
+	}
 	return ret;
 }
 
