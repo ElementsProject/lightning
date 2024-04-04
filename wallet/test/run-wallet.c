@@ -993,6 +993,9 @@ void subkey_from_hmac(const char *prefix UNNEEDED,
 		      const struct secret *base UNNEEDED,
 		      struct secret *key UNNEEDED)
 { fprintf(stderr, "subkey_from_hmac called!\n"); abort(); }
+/* Generated stub for tlv_hsmd_dev_preinit_tlvs_new */
+struct tlv_hsmd_dev_preinit_tlvs *tlv_hsmd_dev_preinit_tlvs_new(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "tlv_hsmd_dev_preinit_tlvs_new called!\n"); abort(); }
 /* Generated stub for to_canonical_invstr */
 const char *to_canonical_invstr(const tal_t *ctx UNNEEDED, const char *invstring UNNEEDED)
 { fprintf(stderr, "to_canonical_invstr called!\n"); abort(); }
@@ -1077,6 +1080,9 @@ u8 *towire_hsmd_cupdate_sig_req(const tal_t *ctx UNNEEDED, const u8 *cu UNNEEDED
 /* Generated stub for towire_hsmd_derive_secret */
 u8 *towire_hsmd_derive_secret(const tal_t *ctx UNNEEDED, const u8 *info UNNEEDED)
 { fprintf(stderr, "towire_hsmd_derive_secret called!\n"); abort(); }
+/* Generated stub for towire_hsmd_dev_preinit */
+u8 *towire_hsmd_dev_preinit(const tal_t *ctx UNNEEDED, const struct tlv_hsmd_dev_preinit_tlvs *tlvs UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_dev_preinit called!\n"); abort(); }
 /* Generated stub for towire_hsmd_forget_channel */
 u8 *towire_hsmd_forget_channel(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 dbid UNNEEDED)
 { fprintf(stderr, "towire_hsmd_forget_channel called!\n"); abort(); }

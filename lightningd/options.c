@@ -931,6 +931,14 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_allow_shutdown_destination_change,
 		     "Allow destination override on close, even if risky");
+	clnopt_noarg("--dev-hsmd-no-preapprove-check", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_hsmd_no_preapprove_check,
+		     "Tell hsmd not to support preapprove_check msgs");
+	clnopt_noarg("--dev-hsmd-fail-preapprove", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_hsmd_fail_preapprove,
+		     "Tell hsmd to always deny preapprove_invoice / preapprove_keysend");
 	/* This is handled directly in daemon_developer_mode(), so we ignore it here */
 	clnopt_noarg("--dev-debug-self", OPT_DEV,
 		     opt_ignore,

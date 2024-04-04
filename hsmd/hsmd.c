@@ -442,6 +442,8 @@ static struct io_plan *preinit_hsm(struct io_conn *conn,
 	if (tlv->no_preapprove_check)
 		dev_no_preapprove_check = *tlv->no_preapprove_check;
 
+	status_debug("preinit: dev_fail_preapprove = %u, dev_no_preapprove_check = %u",
+		     dev_fail_preapprove, dev_no_preapprove_check);
 	/* We don't send a reply, just read next */
 	return client_read_next(conn, c);
 }

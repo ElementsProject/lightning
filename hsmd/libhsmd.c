@@ -786,6 +786,8 @@ static u8 *handle_preapprove_invoice(struct hsmd_client *c, const u8 *msg_in)
 	    && !fromwire_hsmd_preapprove_invoice_check(tmpctx, msg_in, &invstring, &check_only))
 		return hsmd_status_malformed_request(c, msg_in);
 
+	hsmd_status_debug("preapprove_invoice: check_only=%u", check_only);
+
 	/* This stub always approves unless overridden */
 	approved = !dev_fail_preapprove;
 
@@ -808,6 +810,8 @@ static u8 *handle_preapprove_keysend(struct hsmd_client *c, const u8 *msg_in)
 						       &amount_msat, &check_only)) {
 		return hsmd_status_malformed_request(c, msg_in);
 	}
+
+	hsmd_status_debug("preapprove_keysend: check_only=%u", check_only);
 
 	/* This stub always approves unless overridden */
 	approved = !dev_fail_preapprove;
