@@ -64,6 +64,11 @@ struct json_command {
 	const char *verbose;
 	bool dev_only;
 	const char *depr_start, *depr_end;
+	/* Special hook if we want raw access for check command */
+	struct command_result *(*check)(struct command *,
+					const char *buffer,
+					const jsmntok_t *obj,
+					const jsmntok_t *params);
 };
 
 struct jsonrpc_notification {
