@@ -14,20 +14,13 @@
 
 char *tal_strdup_(const tal_t *ctx, const char *p, const char *label)
 {
-	/* We have to let through NULL for take(). */
-	return tal_dup_arr_label(ctx, char, p, p ? strlen(p) + 1: 1, 0, label);
+	return tal_dup_arr_label(ctx, char, p, strlen(p) + 1, 0, label);
 }
 
 char *tal_strndup_(const tal_t *ctx, const char *p, size_t n, const char *label)
 {
-	size_t len;
+	size_t len = strnlen(p, n);
 	char *ret;
-
-	/* We have to let through NULL for take(). */
-	if (likely(p))
-		len = strnlen(p, n);
-	else
-		len = n;
 
 	ret = tal_dup_arr_label(ctx, char, p, len, 1, label);
 	if (ret)
@@ -84,9 +77,6 @@ char *tal_vfmt_(const tal_t *ctx, const char *fmt, va_list ap, const char *label
 {
 	char *buf;
 
-	if (!fmt && taken(fmt))
-		return NULL;
-
 	/* A decent guess to start. */
 	buf = tal_arr_label(ctx, char, strlen(fmt) * 2, label);
 	if (!do_vfmt(&buf, 0, fmt, ap))
@@ -96,9 +86,6 @@ char *tal_vfmt_(const tal_t *ctx, const char *fmt, va_list ap, const char *label
 
 bool tal_append_vfmt(char **baseptr, const char *fmt, va_list ap)
 {
-	if (!fmt && taken(fmt))
-		return false;
-
 	return do_vfmt(baseptr, strlen(*baseptr), fmt, ap);
 }
 
@@ -120,13 +107,7 @@ char *tal_strcat_(const tal_t *ctx, const char *s1, const char *s2,
 	size_t len1, len2;
 	char *ret;
 
-	if (unlikely(!s2) && taken(s2)) {
-		if (taken(s1))
-			tal_free(s1);
-		return NULL;
-	}
-	/* We have to let through NULL for take(). */
-	len1 = s1 ? strlen(s1) : 0;
+	len1 = strlen(s1);
 	len2 = strlen(s2);
 
 	ret = tal_dup_arr_label(ctx, char, s1, len1, len2 + 1, label);
@@ -151,12 +132,10 @@ char **tal_strsplit_(const tal_t *ctx,
 			tal_free(string);
 		if (taken(delims))
 			tal_free(delims);
-		return NULL;
+		return parts;
 	}
 	str = tal_strdup(parts, string);
 	if (unlikely(!str))
-		goto fail;
-	if (unlikely(!delims) && is_taken(delims))
 		goto fail;
 
 	if (flags == STR_NO_EMPTY)
@@ -185,10 +164,14 @@ char **tal_strsplit_(const tal_t *ctx,
 	return parts;
 
 fail:
+#ifdef CCAN_TAL_NEVER_RETURN_NULL
+	abort();
+#else
 	tal_free(parts);
 	if (taken(delims))
 		tal_free(delims);
 	return NULL;
+#endif
 }
 
 char *tal_strjoin_(const tal_t *ctx,
@@ -198,12 +181,6 @@ char *tal_strjoin_(const tal_t *ctx,
 	unsigned int i;
 	char *ret = NULL;
 	size_t totlen = 0, dlen;
-
-	if (unlikely(!strings) && is_taken(strings))
-		goto fail;
-
-	if (unlikely(!delim) && is_taken(delim))
-		goto fail;
 
 	dlen = strlen(delim);
 	ret = tal_arr_label(ctx, char, dlen*2+1, label);
@@ -269,14 +246,8 @@ bool tal_strreg_(const tal_t *ctx, const char *string, const char *label,
 	unsigned int i;
 	va_list ap;
 
-	if (unlikely(!regex) && is_taken(regex))
-		goto fail_no_re;
-
 	if (regcomp(&r, regex, REG_EXTENDED) != 0)
 		goto fail_no_re;
-
-	if (unlikely(!string) && is_taken(string))
-		goto fail;
 
 	if (regexec(&r, string, nmatch, matches, 0) != 0)
 		goto fail;

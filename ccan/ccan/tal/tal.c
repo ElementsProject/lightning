@@ -456,13 +456,24 @@ static void del_tree(struct tal_hdr *t, const tal_t *orig, int saved_errno)
         freefn(t);
 }
 
+/* Don't have compiler complain we're returning NULL if we promised not to! */
+static void *null_alloc_failed(void)
+{
+#ifdef CCAN_TAL_NEVER_RETURN_NULL
+	abort();
+#else
+	return NULL;
+#endif /* CCAN_TAL_NEVER_RETURN_NULL */
+}
+
 void *tal_alloc_(const tal_t *ctx, size_t size, bool clear, const char *label)
 {
         struct tal_hdr *child, *parent = debug_tal(to_tal_hdr_or_null(ctx));
 
         child = allocate(sizeof(struct tal_hdr) + size);
 	if (!child)
-		return NULL;
+		return null_alloc_failed();
+
 	if (clear)
 		memset(from_tal_hdr(child), 0, size);
         child->prop = (void *)label;
@@ -470,7 +481,7 @@ void *tal_alloc_(const tal_t *ctx, size_t size, bool clear, const char *label)
 
         if (!add_child(parent, child)) {
 		freefn(child);
-		return NULL;
+		return null_alloc_failed();
 	}
 	debug_tal(parent);
 	if (notifiers)
@@ -501,7 +512,7 @@ void *tal_alloc_arr_(const tal_t *ctx, size_t size, size_t count, bool clear,
 		     const char *label)
 {
 	if (!adjust_size(&size, count))
-		return NULL;
+		return null_alloc_failed();
 
 	return tal_alloc_(ctx, size, clear, label);
 }

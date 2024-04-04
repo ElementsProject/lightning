@@ -12,17 +12,18 @@
 /**
  * tal_strdup - duplicate a string
  * @ctx: NULL, or tal allocated object to be parent.
- * @p: the string to copy (can be take()).
+ * @p: the string to copy (can be take(), must not be NULL).
  *
  * The returned string will have tal_count() == strlen() + 1.
  */
 #define tal_strdup(ctx, p) tal_strdup_(ctx, p, TAL_LABEL(char, "[]"))
-char *tal_strdup_(const tal_t *ctx, const char *p TAKES, const char *label);
+char *tal_strdup_(const tal_t *ctx, const char *p TAKES, const char *label)
+	TAL_RETURN_PTR NON_NULL_ARGS(2);
 
 /**
  * tal_strndup - duplicate a limited amount of a string.
  * @ctx: NULL, or tal allocated object to be parent.
- * @p: the string to copy (can be take()).
+ * @p: the string to copy (can be take(), must not be NULL).
  * @n: the maximum length to copy.
  *
  * Always gives a nul-terminated string, with strlen() <= @n.
@@ -30,24 +31,25 @@ char *tal_strdup_(const tal_t *ctx, const char *p TAKES, const char *label);
  */
 #define tal_strndup(ctx, p, n) tal_strndup_(ctx, p, n, TAL_LABEL(char, "[]"))
 char *tal_strndup_(const tal_t *ctx, const char *p TAKES, size_t n,
-		   const char *label);
+		   const char *label)
+	TAL_RETURN_PTR NON_NULL_ARGS(2);
 
 /**
  * tal_fmt - allocate a formatted string
  * @ctx: NULL, or tal allocated object to be parent.
- * @fmt: the printf-style format (can be take()).
+ * @fmt: the printf-style format (can be take(), must not be NULL).
  *
  * The returned string will have tal_count() == strlen() + 1.
  */
 #define tal_fmt(ctx, ...)				 \
 	tal_fmt_(ctx, TAL_LABEL(char, "[]"), __VA_ARGS__)
 char *tal_fmt_(const tal_t *ctx, const char *label, const char *fmt TAKES,
-	        ...) PRINTF_FMT(3,4);
+	       ...) PRINTF_FMT(3,4) TAL_RETURN_PTR NON_NULL_ARGS(3);
 
 /**
  * tal_vfmt - allocate a formatted string (va_list version)
  * @ctx: NULL, or tal allocated object to be parent.
- * @fmt: the printf-style format (can be take()).
+ * @fmt: the printf-style format (can be take(), must not be NULL).
  * @va: the va_list containing the format args.
  *
  * The returned string will have tal_count() == strlen() + 1.
@@ -56,40 +58,42 @@ char *tal_fmt_(const tal_t *ctx, const char *label, const char *fmt TAKES,
 	tal_vfmt_(ctx, fmt, va, TAL_LABEL(char, "[]"))
 char *tal_vfmt_(const tal_t *ctx, const char *fmt TAKES, va_list ap,
 		const char *label)
-	PRINTF_FMT(2,0);
+	PRINTF_FMT(2,0) TAL_RETURN_PTR NON_NULL_ARGS(2);
 
 /**
  * tal_append_fmt - append a formatted string to a talloc string.
  * @baseptr: a pointer to the tal string to be appended to.
- * @fmt: the printf-style format (can be take()).
+ * @fmt: the printf-style format (can be take(), must not be NULL).
  *
  * Returns false on allocation failure.
  * Otherwise tal_count(*@baseptr) == strlen(*@baseptr) + 1.
  */
-bool tal_append_fmt(char **baseptr, const char *fmt TAKES, ...) PRINTF_FMT(2,3);
+bool tal_append_fmt(char **baseptr, const char *fmt TAKES, ...)
+	PRINTF_FMT(2,3) NON_NULL_ARGS(2);
 
 /**
  * tal_append_vfmt - append a formatted string to a talloc string (va_list)
  * @baseptr: a pointer to the tal string to be appended to.
- * @fmt: the printf-style format (can be take()).
+ * @fmt: the printf-style format (can be take(), must not be NULL).
  * @va: the va_list containing the format args.
  *
  * Returns false on allocation failure.
  * Otherwise tal_count(*@baseptr) == strlen(*@baseptr) + 1.
  */
-bool tal_append_vfmt(char **baseptr, const char *fmt TAKES, va_list ap);
+bool tal_append_vfmt(char **baseptr, const char *fmt TAKES, va_list ap)
+	NON_NULL_ARGS(2);
 
 /**
  * tal_strcat - join two strings together
  * @ctx: NULL, or tal allocated object to be parent.
- * @s1: the first string (can be take()).
- * @s2: the second string (can be take()).
+ * @s1: the first string (can be take(), must not be NULL).
+ * @s2: the second string (can be take(), must not be NULL).
  *
  * The returned string will have tal_count() == strlen() + 1.
  */
 #define tal_strcat(ctx, s1, s2) tal_strcat_(ctx, s1, s2, TAL_LABEL(char, "[]"))
 char *tal_strcat_(const tal_t *ctx, const char *s1 TAKES, const char *s2 TAKES,
-		  const char *label);
+		  const char *label) TAL_RETURN_PTR NON_NULL_ARGS(2,3);
 
 enum strsplit {
 	STR_EMPTY_OK,
@@ -99,8 +103,8 @@ enum strsplit {
 /**
  * tal_strsplit - Split string into an array of substrings
  * @ctx: the context to tal from (often NULL).
- * @string: the string to split (can be take()).
- * @delims: delimiters where lines should be split (can be take()).
+ * @string: the string to split (can be take(), must not be NULL).
+ * @delims: delimiters where lines should be split (can be take(), must not be NULL).
  * @flags: whether to include empty substrings.
  *
  * This function splits a single string into multiple strings.
@@ -137,7 +141,8 @@ char **tal_strsplit_(const tal_t *ctx,
 		     const char *string TAKES,
 		     const char *delims TAKES,
 		     enum strsplit flag,
-		     const char *label);
+		     const char *label)
+	TAL_RETURN_PTR NON_NULL_ARGS(2,3);
 
 enum strjoin {
 	STR_TRAIL,
@@ -147,8 +152,8 @@ enum strjoin {
 /**
  * tal_strjoin - Join an array of substrings into one long string
  * @ctx: the context to tal from (often NULL).
- * @strings: the NULL-terminated array of strings to join (can be take())
- * @delim: the delimiter to insert between the strings (can be take())
+ * @strings: the NULL-terminated array of strings to join (can be take(), must not be NULL)
+ * @delim: the delimiter to insert between the strings (can be take(), must not be NULL)
  * @flags: whether to add a delimieter to the end
  *
  * This function joins an array of strings into a single string.  The
@@ -175,13 +180,14 @@ char *tal_strjoin_(const void *ctx,
 		   char *strings[] TAKES,
 		   const char *delim TAKES,
 		   enum strjoin flags,
-		   const char *label);
+		   const char *label)
+	TAL_RETURN_PTR NON_NULL_ARGS(2,3);
 
 /**
  * tal_strreg - match/extract from a string via (extended) regular expressions.
  * @ctx: the context to tal from (often NULL)
- * @string: the string to try to match (can be take())
- * @regex: the regular expression to match (can be take())
+ * @string: the string to try to match (can be take(), must not be NULL)
+ * @regex: the regular expression to match (can be take(), must not be NULL)
  * ...: pointers to strings to allocate for subexpressions.
  *
  * Returns true if we matched, in which case any parenthesized
@@ -221,5 +227,6 @@ char *tal_strjoin_(const void *ctx,
 #define tal_strreg(ctx, string, ...)					\
 	tal_strreg_(ctx, string, TAL_LABEL(char, "[]"), __VA_ARGS__)
 bool tal_strreg_(const void *ctx, const char *string TAKES,
-		 const char *label, const char *regex, ...);
+		 const char *label, const char *regex TAKES, ...)
+	NON_NULL_ARGS(2,4);
 #endif /* CCAN_STR_TAL_H */
