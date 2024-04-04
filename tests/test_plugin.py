@@ -1627,6 +1627,17 @@ def test_libplugin(node_factory):
     del l1.daemon.opts["somearg-deprecated"]
     l1.start()
 
+    # Test that check works as expected.
+    assert only_one(l1.rpc.checkthis(["test_libplugin", "name"])['datastore'])['string'] == "foobar"
+    with pytest.raises(RpcError, match="key: should be an array"):
+        assert l1.rpc.checkthis("badkey")
+
+    with pytest.raises(RpcError, match="key: should be an array"):
+        assert l1.rpc.check('checkthis', key="badkey")
+
+    # This works
+    assert l1.rpc.check('checkthis', key=["test_libplugin", "name"]) == {'command_to_check': 'checkthis'}
+
 
 def test_libplugin_deprecated(node_factory):
     """Sanity checks for plugins made with libplugin using deprecated args"""
