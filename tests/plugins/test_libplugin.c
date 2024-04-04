@@ -142,6 +142,41 @@ static struct command_result *json_testrpc(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+static struct command_result *listdatastore_ok(struct command *cmd,
+					       const char *buf,
+					       const jsmntok_t *params,
+					       void *cb_arg UNUSED)
+{
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	return forward_result(cmd, buf, params, NULL);
+}
+
+/* A command which does async, even if it is a check */
+static struct command_result *json_checkthis(struct command *cmd,
+					     const char *buf,
+					     const jsmntok_t *params)
+{
+	struct out_req *req;
+	const jsmntok_t *key;
+
+	/* We are deliberately MORE restrictive than datastore, so we can
+	 * fail here if we want to */
+	if (!param_check(cmd, buf, params,
+			 p_opt("key", param_array, &key),
+			 NULL))
+		return command_param_failed();
+
+	req = jsonrpc_request_start(cmd->plugin, cmd,
+				    "listdatastore",
+				    listdatastore_ok,
+				    forward_error, NULL);
+	if (key)
+		json_add_tok(req->js, "key", key, buf);
+	return send_outreq(cmd->plugin, req);
+}
+
 static const char *init(struct plugin *p,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
@@ -201,7 +236,14 @@ static const struct plugin_command commands[] = { {
 		json_testrpc,
 		"v0.9.1",
 		CLN_NEXT_VERSION,
-	}
+	},
+	{
+		"checkthis",
+		"utils",
+		"Passes arg to listdatastore",
+		"",
+		json_checkthis,
+	},
 };
 
 static const char *before[] = { "dummy", NULL };
