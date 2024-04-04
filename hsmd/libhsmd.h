@@ -93,5 +93,6 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 extern struct privkey *dev_force_privkey;
 /* If they specify --dev-force-bip32-seed it ends up in here. */
 extern struct secret *dev_force_bip32_seed;
-
+/* If they specify --dev-hsmd-fail-preapprove it ends up in here. */
+extern bool dev_fail_preapprove;
 #endif /* LIGHTNING_HSMD_LIBHSMD_H */

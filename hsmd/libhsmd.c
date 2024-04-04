@@ -33,6 +33,9 @@ struct {
 /* Have we initialized the secretstuff? */
 bool initialized = false;
 
+/* Do we fail all preapprove requests? */
+bool dev_fail_preapprove = false;
+
 struct hsmd_client *hsmd_client_new_main(const tal_t *ctx, u64 capabilities,
 					 void *extra)
 {
@@ -117,6 +120,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 		return (client->capabilities & HSM_PERM_LOCK_OUTPOINT) != 0;
 
 	case WIRE_HSMD_INIT:
+	case WIRE_HSMD_DEV_PREINIT:
 	case WIRE_HSMD_NEW_CHANNEL:
  	case WIRE_HSMD_FORGET_CHANNEL:
 	case WIRE_HSMD_CLIENT_HSMFD:
@@ -774,8 +778,8 @@ static u8 *handle_preapprove_invoice(struct hsmd_client *c, const u8 *msg_in)
 	if (!fromwire_hsmd_preapprove_invoice(tmpctx, msg_in, &invstring))
 		return hsmd_status_malformed_request(c, msg_in);
 
-	/* This stub always approves */
-	approved = true;
+	/* This stub always approves unless overridden */
+	approved = !dev_fail_preapprove;
 
 	return towire_hsmd_preapprove_invoice_reply(NULL, approved);
 }
@@ -792,8 +796,8 @@ static u8 *handle_preapprove_keysend(struct hsmd_client *c, const u8 *msg_in)
 	if (!fromwire_hsmd_preapprove_keysend(msg_in, &destination, &payment_hash, &amount_msat))
 		return hsmd_status_malformed_request(c, msg_in);
 
-	/* This stub always approves */
-	approved = true;
+	/* This stub always approves unless overridden */
+	approved = !dev_fail_preapprove;
 
 	return towire_hsmd_preapprove_keysend_reply(NULL, approved);
 }
@@ -2012,6 +2016,7 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 
 	/* Now actually go and do what the client asked for */
 	switch (t) {
+	case WIRE_HSMD_DEV_PREINIT:
 	case WIRE_HSMD_INIT:
 	case WIRE_HSMD_CLIENT_HSMFD:
 		/* Not implemented yet. Should not have been passed here yet. */
