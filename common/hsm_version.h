@@ -23,6 +23,7 @@
  * v5 with hsmd_revoke_commitment_tx: 5742538f87ef5d5bf55b66dc19e52c8683cfeb1b887d3e64ba530ba9a4d8e638
  * v5 with sign_any_cannouncement: 5fdb9068c43a21887dc03f7dce410d2e3eeff6277f0d49b4fc56595a798fd4a4
  * v5 drop init v2: 5024454532fe5a78bb7558000cb344190888b9915360d3d56ddca22eaba9b872
+ * v5 with dev_preinit: b93e18534a468a4aa9f7015db42e9c363c32aeee5f9146b36dc953ebbdc3d33c
 */
 #define HSM_MIN_VERSION 5
 #define HSM_MAX_VERSION 5
