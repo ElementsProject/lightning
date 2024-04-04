@@ -4159,3 +4159,27 @@ def test_preapprove(node_factory, bitcoind, preapprove):
         with pytest.raises(RpcError, match='keysend was declined'):
             l1.rpc.preapprovekeysend(l2.info['id'], '00' * 32, 1000)
     l1.daemon.wait_for_log("preapprove_keysend: check_only=0")
+
+
+def test_preapprove_use(node_factory, bitcoind):
+    """Test preapprove calls implicitly made by pay and keysend"""
+    l1, l2 = node_factory.line_graph(2, opts=[{}, {'dev-hsmd-fail-preapprove': None}])
+
+    # Create some balance, make sure it's entirely settled.
+    l1.pay(l2, 200000000)
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    # This will fail at the preapprove step.
+    inv = l1.rpc.invoice(123000, 'label', 'description', 3700)['bolt11']
+    with pytest.raises(RpcError, match='invoice was declined'):
+        l2.rpc.pay(inv)
+
+    # This will fail the same way
+    with pytest.raises(RpcError, match='invoice was declined'):
+        l2.rpc.check('pay', bolt11=inv)
+
+    # Now keysend.
+    with pytest.raises(RpcError, match='keysend was declined'):
+        l2.rpc.keysend(l1.info['id'], 1000)
+    with pytest.raises(RpcError, match='keysend was declined'):
+        l2.rpc.check('keysend', destination=l1.info['id'], amount_msat=1000)
