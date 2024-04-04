@@ -1451,6 +1451,8 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 		flows[i] = tal_steal(flows,flows[i]);
 		assert(flows[i]);
 	}
+	if (fail)
+		*fail = NULL;
 	tal_free(this_ctx);
 	return flows;
 
