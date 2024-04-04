@@ -558,6 +558,9 @@ static struct command_result *setconfig_success(struct command *cmd,
 	struct json_stream *response;
 	const char **names, *confline;
 
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
 	names = opt_names_arr(tmpctx, ot);
 
 	if (val)
@@ -584,11 +587,13 @@ static struct command_result *json_setconfig(struct command *cmd,
 	const char *val;
 	char *err;
 
-	if (!param(cmd, buffer, params,
-		   p_req("config", param_opt_dynamic_config, &ot),
-		   p_opt("val", param_string, &val),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("config", param_opt_dynamic_config, &ot),
+			 p_opt("val", param_string, &val),
+			 NULL))
 		return command_param_failed();
+
+	log_debug(cmd->ld->log, "setconfig!");
 
 	/* We don't handle DYNAMIC MULTI, at least yet! */
 	assert(!(ot->type & OPT_MULTI));
@@ -601,6 +606,9 @@ static struct command_result *json_setconfig(struct command *cmd,
 		if (is_plugin_opt(ot))
 			return plugin_set_dynamic_opt(cmd, ot, NULL,
 						      setconfig_success);
+		/* FIXME: we don't have a check-only mode! */
+		if (command_check_only(cmd))
+			return command_check_done(cmd);
 		err = ot->cb(ot->u.arg);
 	} else {
 		assert(ot->type & OPT_HASARG);
@@ -611,6 +619,9 @@ static struct command_result *json_setconfig(struct command *cmd,
 		if (is_plugin_opt(ot))
 			return plugin_set_dynamic_opt(cmd, ot, val,
 						      setconfig_success);
+		/* FIXME: we don't have a check-only mode! */
+		if (command_check_only(cmd))
+			return command_check_done(cmd);
 		err = ot->cb_arg(val, ot->u.arg);
 	}
 

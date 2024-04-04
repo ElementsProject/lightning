@@ -3152,6 +3152,14 @@ def test_autoclean(node_factory):
     with pytest.raises(RpcError, match=r'is not a number'):
         l3.rpc.setconfig('autoclean-expiredinvoices-age', 'xxx')
 
+    # check gives the same answer.
+    with pytest.raises(RpcError, match=r'is not a number'):
+        l3.rpc.check('setconfig', config='autoclean-expiredinvoices-age', val='xxx')
+
+    # check does not actually set!
+    l3.rpc.check('setconfig', config='autoclean-expiredinvoices-age', val=2) == {'command_to_check': 'setconfig'}
+    assert l3.rpc.autoclean_status()['autoclean']['expiredinvoices']['enabled'] is False
+
     l3.rpc.setconfig('autoclean-expiredinvoices-age', 2)
     assert l3.rpc.autoclean_status()['autoclean']['expiredinvoices']['enabled'] is True
     assert l3.rpc.autoclean_status()['autoclean']['expiredinvoices']['age'] == 2

@@ -590,10 +590,11 @@ static const char *init(struct plugin *p,
 }
 
 static char *cycle_seconds_option(struct plugin *plugin, const char *arg,
+				  bool check_only,
 				  void *unused)
 {
-	char *problem = u64_option(plugin, arg, &cycle_seconds);
-	if (problem)
+	char *problem = u64_option(plugin, arg, check_only, &cycle_seconds);
+	if (problem || check_only)
 		return problem;
 
 	/* If timer is not running right now, reset it to new cycle_seconds */
