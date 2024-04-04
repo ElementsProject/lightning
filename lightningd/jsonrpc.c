@@ -1660,7 +1660,7 @@ void jsonrpc_request_end(struct jsonrpc_request *r)
 
 static struct command_result *json_check(struct command *cmd,
 					 const char *buffer,
-					 const jsmntok_t *obj UNNEEDED,
+					 const jsmntok_t *obj,
 					 const jsmntok_t *params)
 {
 	jsmntok_t *mod_params;
@@ -1674,22 +1674,29 @@ static struct command_result *json_check(struct command *cmd,
 		mod_params = json_tok_copy(cmd, params);
 	}
 
+	/* Replaces cmd->json_cmd: */
 	if (!param(cmd, buffer, mod_params,
 		   p_req("command_to_check", param_command, &name_tok),
 		   p_opt_any(),
 		   NULL))
 		return command_param_failed();
 
-	/* Point name_tok to the name, not the value */
-	if (params->type == JSMN_OBJECT)
-		name_tok--;
-
-	json_tok_remove(&mod_params, mod_params, name_tok, 1);
-
 	cmd->mode = CMD_CHECK;
 	/* Make *sure* it doesn't try to manip db! */
 	db_set_readonly(ld->wallet->db, true);
-	res = cmd->json_cmd->dispatch(cmd, buffer, mod_params, mod_params);
+
+	/* Raw check hook is needed for plugins */
+	if (cmd->json_cmd->check) {
+		res = cmd->json_cmd->check(cmd, buffer, obj, params);
+	} else {
+		/* Point name_tok to the name, not the value */
+		if (params->type == JSMN_OBJECT)
+			name_tok--;
+
+		json_tok_remove(&mod_params, mod_params, name_tok, 1);
+
+		res = cmd->json_cmd->dispatch(cmd, buffer, mod_params, mod_params);
+	}
 	db_set_readonly(ld->wallet->db, false);
 
 	return res;
