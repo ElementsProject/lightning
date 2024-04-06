@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [24.02.2] - 2024-04-06: "uint needs signature"
+
+This point release addresses a [small incompatibility][#7174] in the gossip protocol.
+
+[#7127]: https://github.com/ElementsProject/lightning/pull/7127
+
+
 ## [24.02.1] - 2024-03-08: "uint needs signature"
 
 This release named by Erik de Smedt (@ErikDeSmedt).
