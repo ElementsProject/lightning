@@ -16,9 +16,15 @@ impl Identity {
         let keystr = String::from_utf8_lossy(&self.key);
         let key = KeyPair::from_pem(&keystr)?;
         let certstr = String::from_utf8_lossy(&self.certificate);
-        let params = rcgen::CertificateParams::from_ca_cert_pem(&certstr, key)?;
-        let cert = Certificate::from_params(params)?;
+        let params = rcgen::CertificateParams::from_ca_cert_pem(&certstr)?;
+        let cert = params.self_signed(&key)?;
         Ok(cert)
+    }
+
+    fn to_keypair(&self) -> Result<KeyPair> {
+        let keystr = String::from_utf8_lossy(&self.key);
+        let key = KeyPair::from_pem(&keystr)?;
+        Ok(key)
     }
 
     pub fn to_tonic_identity(&self) -> tonic::transport::Identity {
@@ -71,7 +77,7 @@ fn generate_or_load_identity(
             "Generating a new keypair in {:?}, it didn't exist",
             &key_path
         );
-        let keypair = KeyPair::generate(&rcgen::PKCS_ECDSA_P256_SHA256)?;
+        let keypair = KeyPair::generate()?;
 
         // Create the file, but make it user-readable only:
         let mut file = std::fs::File::create(&key_path)?;
@@ -79,8 +85,8 @@ fn generate_or_load_identity(
         perms.set_mode(0o600);
         std::fs::set_permissions(&key_path, perms)?;
 
-	// Only after changing the permissions we can write the
-	// private key
+        // Only after changing the permissions we can write the
+        // private key
         file.write_all(keypair.serialize_pem().as_bytes())?;
         drop(file);
 
@@ -91,9 +97,7 @@ fn generate_or_load_identity(
 
         // Configure the certificate we want.
         let subject_alt_names = vec!["cln".to_string(), "localhost".to_string()];
-        let mut params = rcgen::CertificateParams::new(subject_alt_names);
-        params.key_pair = Some(keypair);
-        params.alg = &rcgen::PKCS_ECDSA_P256_SHA256;
+        let mut params = rcgen::CertificateParams::new(subject_alt_names)?;
         if parent.is_none() {
             params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
         } else {
@@ -103,12 +107,13 @@ fn generate_or_load_identity(
             .distinguished_name
             .push(rcgen::DnType::CommonName, name);
 
-        let cert = Certificate::from_params(params)?;
         std::fs::write(
             &cert_path,
             match parent {
-                None => cert.serialize_pem()?,
-                Some(ca) => cert.serialize_pem_with_signer(&ca.to_certificate()?)?,
+                None => params.self_signed(&keypair)?.pem(),
+                Some(ca) => params
+                    .signed_by(&keypair, &ca.to_certificate()?, &ca.to_keypair()?)?
+                    .pem(),
             },
         )
         .context("writing certificate to file")?;
