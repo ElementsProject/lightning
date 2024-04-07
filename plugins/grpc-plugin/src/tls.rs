@@ -75,7 +75,7 @@ fn generate_or_load_identity(
             "Generating a new keypair in {:?}, it didn't exist",
             &key_path
         );
-        let keypair = KeyPair::generate_for(&rcgen::PKCS_ECDSA_P256_SHA256)?;
+        let keypair = KeyPair::generate()?;
 
         // Create the file but make it user-readable only:
         let mut file = std::fs::File::create(&key_path)?;
