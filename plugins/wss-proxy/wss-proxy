@@ -1,0 +1,16 @@
+#! /bin/sh
+# wss-proxy.py neatly exits if we don't have dependencies, but what if we don't
+# have Python itself?
+
+if ! type python3 > /dev/null 2>&1; then
+    # No python3 binary.
+    # Fortunately, CLN gives us JSON in a very standard way, so we can assume:
+    # Eg. {"jsonrpc":"2.0","id":2,"method":"getmanifest","params":{}}\n\n
+    read -r JSON
+    read -r _
+    id=$(echo "$JSON" | sed 's/.*"id" *: *\([^,]*\),.*/\1/')
+    echo '{"jsonrpc":"2.0","id":'"$id"',"result":{"disable":"No python3 binary found"}}'
+    exit 1
+fi
+
+exec "$0".py
