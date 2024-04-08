@@ -271,7 +271,7 @@ static struct command_result *previous_sendpays_done(struct command *cmd,
 		}
 
 		for (size_t j = 0; j < tal_count(pending_routes); j++) {
-			route_pending(pending_routes[j]);
+			route_pending_register(pending_routes[j]);
 		}
 
 	} else {
@@ -453,14 +453,13 @@ static void gossmod_cb(struct gossmap_localmods *mods,
 		       u32 fee_proportional,
 		       u32 cltv_delta,
 		       bool enabled,
-		       bool is_local,
 		       const char *buf,
 		       const jsmntok_t *chantok,
 		       struct payment *payment)
 {
 	struct amount_msat min, max;
 
-	if (is_local) {
+	if (scidd->dir == node_id_idx(self, peer)) {
 		/* local channels can send up to what's spendable */
 		min = AMOUNT_MSAT(0);
 		max = spendable;

@@ -490,8 +490,7 @@ enum renepay_errorcode chan_extra_relax_fraction(struct chan_extra *ce,
 	fraction = fabs(fraction);     // this number is always non-negative
 	fraction = MIN(1.0, fraction); // this number cannot be greater than 1.
 	struct amount_msat delta =
-	    amount_msat(ce->capacity.millisatoshis *
-			fraction); /* Raw: get a fraction of the capacity */
+	    amount_msat(ce->capacity.millisatoshis*fraction); /* Raw: get a fraction of the capacity */
 
 	/* The direction here is not important because the 'down' and the 'up'
 	 * limits are changed by the same amount.

@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_PLUGINS_RENEPAY_UNETWORK_H
-#define LIGHTNING_PLUGINS_RENEPAY_UNETWORK_H
+#ifndef LIGHTNING_PLUGINS_RENEPAY_UNCERTAINTY_H
+#define LIGHTNING_PLUGINS_RENEPAY_UNCERTAINTY_H
 #include "config.h"
 #include <ccan/tal/tal.h>
 #include <common/gossmap.h>
@@ -19,6 +19,7 @@ struct uncertainty {
 	struct chan_extra_map *chan_extra_map;
 };
 
+/* FIXME: add bool return value and WARN_UNUSED_RESULT */
 void uncertainty_route_success(struct uncertainty *uncertainty,
 			       const struct route *route);
 void uncertainty_remove_htlcs(struct uncertainty *uncertainty,
@@ -28,7 +29,7 @@ void uncertainty_commit_htlcs(struct uncertainty *uncertainty,
 			      const struct route *route);
 
 void uncertainty_channel_can_send(struct uncertainty *uncertainty,
-				  struct route *route, u32 erridx);
+				  const struct route *route, u32 erridx);
 
 void uncertainty_channel_cannot_send(struct uncertainty *uncertainty,
 				     struct short_channel_id scid,
@@ -54,4 +55,4 @@ bool uncertainty_set_liquidity(struct uncertainty *uncertainty,
 struct chan_extra *uncertainty_find_channel(struct uncertainty *uncertainty,
 					    const struct short_channel_id scid);
 
-#endif /* LIGHTNING_PLUGINS_RENEPAY_UNETWORK_H */
+#endif /* LIGHTNING_PLUGINS_RENEPAY_UNCERTAINTY_H */

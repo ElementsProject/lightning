@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/json_stream.h>
 #include <plugins/renepay/json.h>
 #include <plugins/renepay/payment.h>
@@ -40,15 +41,15 @@ static void routetracker_add_to_final(struct routetracker *routetracker,
 	tal_arr_expand(&routetracker->finalized_routes, route);
 	tal_steal(routetracker, route);
 }
-static void route_is_success(struct route *route)
+static void route_success_register(struct route *route)
 {
 	routetracker_add_to_final(route->payment->routetracker, route);
 }
-void route_is_failure(struct route *route)
+void route_failure_register(struct route *route)
 {
 	routetracker_add_to_final(route->payment->routetracker, route);
 }
-static void route_sent(struct route *route)
+static void route_sent_register(struct route *route)
 {
 	struct routetracker *routetracker = route->payment->routetracker;
 	route_map_add(routetracker->sent_routes, route);
@@ -71,7 +72,7 @@ static void route_sendpay_fail(struct route *route TAKES)
  *	- after a sendpay is accepted,
  *	- or after listsendpays reveals some pending route that we didn't
  *	previously know about. */
-void route_pending(const struct route *route)
+void route_pending_register(const struct route *route)
 {
 	assert(route);
 	struct payment *payment = route->payment;
@@ -92,8 +93,11 @@ void route_pending(const struct route *route)
 			   fmt_routekey(tmpctx, &route->key));
 
 	uncertainty_commit_htlcs(pay_plugin->uncertainty, route);
-	route_map_add(routetracker->pending_routes, route);
-	tal_steal(routetracker, route);
+
+	if (!route_map_add(routetracker->pending_routes, route) ||
+	    !tal_steal(routetracker, route))
+		plugin_err(pay_plugin->plugin, "%s: failed to register route.",
+			   __PRETTY_FUNCTION__);
 
 	if (!amount_msat_add(&payment->total_sent, payment->total_sent,
 			     route_sends(route)) ||
@@ -110,8 +114,6 @@ static void route_result_collected(struct route *route TAKES)
 {
 	assert(route);
 	assert(route->result);
-	// TODO: also improve knowledge here?
-	uncertainty_remove_htlcs(pay_plugin->uncertainty, route);
 
 	assert(route->payment);
 	struct payment *payment = route->payment;
@@ -140,7 +142,7 @@ static struct command_result *sendpay_done(struct command *cmd,
 					   struct route *route)
 {
 	assert(route);
-	route_pending(route);
+	route_pending_register(route);
 	return command_still_pending(cmd);
 }
 
@@ -247,7 +249,7 @@ struct command_result *route_sendpay_request(struct command *cmd,
 
 	json_add_route(req->js, route);
 
-	route_sent(route);
+	route_sent_register(route);
 	return send_outreq(pay_plugin->plugin, req);
 }
 
@@ -352,6 +354,6 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 
 	// FIXME: what happens when several success notification arrive for the
 	// same payment? Even after the payment has been resolved.
-	route_is_success(route);
+	route_success_register(route);
 	return notification_handled(cmd);
 }

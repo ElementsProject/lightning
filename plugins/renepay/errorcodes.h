@@ -1,6 +1,8 @@
 #ifndef LIGHTNING_PLUGINS_RENEPAY_ERRORCODES_H
 #define LIGHTNING_PLUGINS_RENEPAY_ERRORCODES_H
 
+#include "config.h"
+
 /* Common types of failures for low level functions in renepay. */
 enum renepay_errorcode {
 	RENEPAY_NOERROR = 0,

@@ -347,6 +347,8 @@ static struct command_result *payment_finish(struct payment *p)
 	return my_command_finish(p, cmd);
 }
 
+/* FIXME: disabled_scids should be a set rather than an array, so that we don't
+ * have to worry about disabling the same channel multiple times. */
 void payment_disable_chan(struct payment *p, struct short_channel_id scid,
 			  enum log_level lvl, const char *fmt, ...)
 {
