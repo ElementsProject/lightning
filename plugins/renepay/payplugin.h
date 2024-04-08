@@ -1,11 +1,12 @@
-#ifndef LIGHTNING_PLUGINS_RENEPAY_PAY_H
-#define LIGHTNING_PLUGINS_RENEPAY_PAY_H
+#ifndef LIGHTNING_PLUGINS_RENEPAY_PAYPLUGIN_H
+#define LIGHTNING_PLUGINS_RENEPAY_PAYPLUGIN_H
 #include "config.h"
 #include <ccan/list/list.h>
 #include <common/node_id.h>
 #include <plugins/libplugin.h>
 #include <plugins/renepay/flow.h>
 #include <plugins/renepay/payment.h>
+#include <plugins/renepay/uncertainty.h>
 
 // TODO(eduardo): renepaystatus should be similar to paystatus
 
@@ -65,12 +66,13 @@ struct pay_plugin {
 
 	/* All the struct payment */
 	struct list_head payments;
+	struct payment_map *payment_map;
 
 	/* Per-channel metadata: some persists between payments */
-	struct chan_extra_map *chan_extra_map;
+	struct uncertainty *uncertainty;
 
 	/* Pending sendpays (to match notifications to). */
-	struct payflow_map * payflow_map;
+	struct route_map *route_map;
 
 	bool debug_mcf;
 	bool debug_payflow;
@@ -99,4 +101,5 @@ extern struct pay_plugin *pay_plugin;
 const char *try_paying(const tal_t *ctx,
 		       struct payment *payment,
 		       enum jsonrpc_errcode *ecode);
-#endif /* LIGHTNING_PLUGINS_RENEPAY_PAY_H */
+
+#endif /* LIGHTNING_PLUGINS_RENEPAY_PAYPLUGIN_H */
