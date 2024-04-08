@@ -1,55 +1,57 @@
-#ifndef LIGHTNING_PLUGINS_RENEPAY_UNCERTAINTY_NETWORK_H
-#define LIGHTNING_PLUGINS_RENEPAY_UNCERTAINTY_NETWORK_H
+#ifndef LIGHTNING_PLUGINS_RENEPAY_UNETWORK_H
+#define LIGHTNING_PLUGINS_RENEPAY_UNETWORK_H
 #include "config.h"
+#include <ccan/tal/tal.h>
 #include <common/gossmap.h>
-#include <plugins/renepay/flow.h>
-#include <plugins/renepay/pay_flow.h>
-#include <plugins/renepay/payment.h>
+#include <plugins/renepay/chan_extra.h>
+#include <plugins/renepay/route.h>
 
-struct pay_flow;
-struct route_info;
+/* FIXME a hard coded constant to indicate a limit on any channel
+ capacity. Channels for which the capacity is unknown (because they are not
+ announced) use this value. It makes sense, because if we don't even know the
+ channel capacity the liquidity could be anything but it will never be greater
+ than the global number of msats.
+ It remains to be checked if this value does not lead to overflow somewhere in
+ the code. */
+#define MAX_CAPACITY (AMOUNT_MSAT(21000000 * MSAT_PER_BTC))
 
-/* Checks the entire uncertainty network for invariant violations. */
-bool uncertainty_network_check_invariants(struct chan_extra_map *chan_extra_map);
+struct uncertainty {
+	struct chan_extra_map *chan_extra_map;
+};
 
-/* Add routehints provided by bolt11 */
-void uncertainty_network_add_routehints(
-		struct chan_extra_map *chan_extra_map,
-		const struct route_info **routes,
-		struct payment *p);
+void uncertainty_route_success(struct uncertainty *uncertainty,
+			       const struct route *route);
+void uncertainty_remove_htlcs(struct uncertainty *uncertainty,
+			      const struct route *route);
 
-/* Mirror the gossmap in the public uncertainty network.
- * result: Every channel in gossmap must have associated data in chan_extra_map,
- * while every channel in chan_extra_map is also registered in gossmap.
- * */
-void uncertainty_network_update(
-		const struct gossmap *gossmap,
-		struct chan_extra_map *chan_extra_map);
+void uncertainty_commit_htlcs(struct uncertainty *uncertainty,
+			      const struct route *route);
 
-void uncertainty_network_flow_success(
-		struct chan_extra_map *chan_extra_map,
-		struct pay_flow *flow);
+void uncertainty_channel_can_send(struct uncertainty *uncertainty,
+				  struct route *route, u32 erridx);
 
-/* All parts up to erridx succeeded, so we know something about min
- * capacity! */
-void uncertainty_network_channel_can_send(
-		struct chan_extra_map * chan_extra_map,
-		struct pay_flow *flow,
-		u32 erridx);
+void uncertainty_channel_cannot_send(struct uncertainty *uncertainty,
+				     struct short_channel_id scid,
+				     int direction);
 
-/* listpeerchannels gives us the certainty on local channels' capacity.  Of course,
- * this is racy and transient, but better than nothing! */
-void uncertainty_network_update_from_listpeerchannels(struct payment *p,
-						      const struct short_channel_id_dir *scidd,
-						      struct amount_msat max,
-						      bool enabled,
-						      const char *buf,
-						      const jsmntok_t *chantok,
-						      struct chan_extra_map *chan_extra_map);
+void uncertainty_update(struct uncertainty *uncertainty,
+			struct gossmap *gossmap);
 
-/* Forget ALL channels information by a fraction of the capacity. */
-void uncertainty_network_relax_fraction(
-		struct chan_extra_map* chan_extra_map,
-		double fraction);
+struct uncertainty *uncertainty_new(const tal_t *ctx);
 
-#endif /* LIGHTNING_PLUGINS_RENEPAY_UNCERTAINTY_NETWORK_H */
+struct chan_extra_map *
+uncertainty_get_chan_extra_map(struct uncertainty *uncertainty);
+
+const struct chan_extra *
+uncertainty_add_channel(struct uncertainty *uncertainty,
+			const struct short_channel_id scid,
+			struct amount_msat capacity);
+
+bool uncertainty_set_liquidity(struct uncertainty *uncertainty,
+			       const struct short_channel_id_dir *scidd,
+			       struct amount_msat amount);
+
+struct chan_extra *uncertainty_find_channel(struct uncertainty *uncertainty,
+					    const struct short_channel_id scid);
+
+#endif /* LIGHTNING_PLUGINS_RENEPAY_UNETWORK_H */
