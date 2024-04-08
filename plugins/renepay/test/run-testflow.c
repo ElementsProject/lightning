@@ -1,13 +1,14 @@
 #include "config.h"
-#include <stdio.h>
 #include <assert.h>
-#include <common/wireaddr.h>
+#include <ccan/read_write_all/read_write_all.h>
+#include <ccan/str/hex/hex.h>
 #include <common/bigsize.h>
 #include <common/channel_id.h>
+#include <common/node_id.h>
 #include <common/setup.h>
 #include <common/utils.h>
-#include <common/node_id.h>
-#include <ccan/read_write_all/read_write_all.h>
+#include <common/wireaddr.h>
+#include <stdio.h>
 #include <wire/onion_wiregen.h>
 
 #define MYLOG "/tmp/debug.txt"
@@ -660,6 +661,11 @@ static void test_flow_to_route(void)
 	struct route *route;
 	struct sha256 payment_hash;
 	struct amount_msat deliver;
+
+	if (!hex_decode("0001020304050607080900010203040506070809000102030405060708090102",
+			strlen("0001020304050607080900010203040506070809000102030405060708090102"),
+			&payment_hash, sizeof(payment_hash)))
+		abort();
 
 	// flow 1->2
 	F = tal(this_ctx, struct flow);

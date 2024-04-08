@@ -75,7 +75,7 @@ static struct command_result *routefail_rpc_failure(struct command *cmd,
 		   "routefail state machine has stopped due to a failed RPC "
 		   "call: %.*s",
 		   json_tok_full_len(toks), json_tok_full(buffer, toks));
-	return command_still_pending(r->cmd);
+	return notification_handled(r->cmd);
 }
 
 /*****************************************************************************
@@ -88,7 +88,9 @@ static struct command_result *end_done(struct command *cmd,
 				       const jsmntok_t *result UNUSED,
 				       struct routefail *r)
 {
-	route_is_failure(r->route);
+	/* Notify the tracker that route has failed and routefail have completed
+	 * handling all possible errors cases. */
+	route_failure_register(r->route);
 	tal_free(r);
 	return notification_handled(cmd);
 }
@@ -176,8 +178,6 @@ static struct command_result *update_gossip_failure(struct command *cmd UNUSED,
 	 * waitsendpay says it is present in the case of error. */
 	assert(r->route->result->erring_channel);
 
-	/* TODO disable chan? what if we endup disabling a channel twice? maybe
-	 * use a map instead of an array. */
 	payment_disable_chan(
 	    r->route->payment, *r->route->result->erring_channel, LOG_INFORM,
 	    "addgossip failed (%.*s)", json_tok_full_len(result),
@@ -222,10 +222,10 @@ static struct command_result *update_knowledge_cb(struct routefail *r)
 
 	/* FIXME: If we don't know the hops there isn't much we can infer, but
 	 * a little bit we could. */
-	if (!route->hops)
+	if (!route->hops || !result->erring_index)
 		goto skip_update_network;
 
-	uncertainty_channel_can_send(pay_plugin->uncertainty, r->route,
+	uncertainty_channel_can_send(pay_plugin->uncertainty, route,
 				  *result->erring_index);
 
 	if (result->failcode == WIRE_TEMPORARY_CHANNEL_FAILURE &&
@@ -235,6 +235,8 @@ static struct command_result *update_knowledge_cb(struct routefail *r)
 		    route->hops[*result->erring_index].scid,
 		    route->hops[*result->erring_index].direction);
 	}
+
+	uncertainty_remove_htlcs(pay_plugin->uncertainty, route);
 
 skip_update_network:
 	return routefail_continue(r);
@@ -258,11 +260,20 @@ static void route_final_error(struct route *route, enum jsonrpc_errcode error,
 	route->final_msg = tal_strdup(route, what);
 }
 
-static void handle_unhandleable_error(struct route *route, const char *what)
+static void handle_unhandleable_error(struct route *route, const char *fmt, ...)
 {
 	if (!route->hops)
 		return;
 	size_t n = tal_count(route->hops);
+	if (n == 0)
+		return;
+
+	va_list ap;
+	const char *what;
+
+	va_start(ap, fmt);
+	what = tal_vfmt(tmpctx, fmt, ap);
+	va_end(ap);
 
 	if (n == 1) {
 		/* This is a terminal error. */
@@ -332,9 +343,17 @@ static struct command_result *handle_cases_cb(struct routefail *r)
 	case WIRE_INVALID_ONION_PAYLOAD:
 	case WIRE_INVALID_ONION_BLINDING:
 	case WIRE_EXPIRY_TOO_FAR:
-		payment_disable_chan(route->payment, *result->erring_channel,
-				     LOG_UNUSUAL, "%s",
-				     onion_wire_name(result->failcode));
+		if (result->erring_channel)
+			payment_disable_chan(route->payment,
+					     *result->erring_channel,
+					     LOG_UNUSUAL, "%s",
+					     onion_wire_name(result->failcode));
+		else
+			handle_unhandleable_error(
+			    route,
+			    "received %s error, but don't have an "
+			    "erring_channel",
+			    onion_wire_name(result->failcode));
 		break;
 
 	/* These can be fixed (maybe) by applying the included channel_update */
@@ -353,11 +372,17 @@ static struct command_result *handle_cases_cb(struct routefail *r)
 		break;
 
 	default:
-		/* FIXME: remember you might be disabling the same channel
-		 * multiple times */
-		payment_disable_chan(route->payment, *result->erring_channel,
-				     LOG_UNUSUAL, "Unexpected error code %u",
-				     result->failcode);
+		if (result->erring_channel)
+			payment_disable_chan(
+			    route->payment, *result->erring_channel,
+			    LOG_UNUSUAL, "Unexpected error code %u",
+			    result->failcode);
+		else
+			handle_unhandleable_error(
+			    route,
+			    "received %s error, but don't have an "
+			    "erring_channel",
+			    onion_wire_name(result->failcode));
 	}
 
 finish:

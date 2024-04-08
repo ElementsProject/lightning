@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/json_stream.h>
 #include <plugins/renepay/json.h>
 

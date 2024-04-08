@@ -55,7 +55,7 @@ void uncertainty_commit_htlcs(struct uncertainty *uncertainty,
 }
 
 void uncertainty_channel_can_send(struct uncertainty *uncertainty,
-				  struct route *route, u32 erridx)
+				  const struct route *route, u32 erridx)
 {
 	if (!route->hops)
 		return;

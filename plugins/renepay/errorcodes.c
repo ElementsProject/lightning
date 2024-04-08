@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/tal/str/str.h>
 #include <plugins/renepay/errorcodes.h>
 #include <stdio.h>

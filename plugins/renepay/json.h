@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_PLUGINS_RENEPAY_JSON_H
 #define LIGHTNING_PLUGINS_RENEPAY_JSON_H
 
+#include "config.h"
 #include <plugins/renepay/payment.h>
 #include <plugins/renepay/route.h>
 

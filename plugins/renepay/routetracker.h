@@ -29,7 +29,7 @@ void payment_collect_results(struct payment *payment,
 
 /* Announce that this route is pending and needs to be kept in the waiting list
  * for notifications. */
-void route_pending(const struct route *route);
+void route_pending_register(const struct route *route);
 
 /* Sends a sendpay request for this route. */
 struct command_result *route_sendpay_request(struct command *cmd,
@@ -43,7 +43,8 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 						    const char *buf,
 						    const jsmntok_t *params);
 
-void route_is_failure(struct route *route);
+/* Notify the tracker that this route has failed. */
+void route_failure_register(struct route *route);
 
 // FIXME: double-check that we actually get one notification for each sendpay,
 // ie. that after some time we don't have yet pending sendpays for old failed or

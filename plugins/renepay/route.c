@@ -1,5 +1,4 @@
 #include "config.h"
-#include <assert.h>
 #include <plugins/renepay/route.h>
 
 struct route *new_route(const tal_t *ctx, struct payment *payment, u32 groupid,
