@@ -283,10 +283,14 @@ struct command_result *notification_sendpay_failure(struct command *cmd,
 	assert(payment->routetracker);
 	struct route *route =
 	    route_map_get(payment->routetracker->pending_routes, key);
-	if (!route)
-		plugin_err(pay_plugin->plugin,
+	if (!route) {
+		/* This can happen if payment is first tried with renepay and
+		 * then retried using another payment plugin. */
+		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
 			   "%s: key %s is not found in pending_routes",
 			   __PRETTY_FUNCTION__, fmt_routekey(tmpctx, key));
+		return notification_handled(cmd);
+	}
 
 	assert(route->result == NULL);
 	route->result = tal_sendpay_result_from_json(route, buf, sub);
@@ -338,10 +342,14 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 	assert(payment->routetracker);
 	struct route *route =
 	    route_map_get(payment->routetracker->pending_routes, key);
-	if (!route)
-		plugin_err(pay_plugin->plugin,
+	if (!route) {
+		/* This can happen if payment is first tried with renepay and
+		 * then retried using another payment plugin. */
+		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
 			   "%s: key %s is not found in pending_routes",
 			   __PRETTY_FUNCTION__, fmt_routekey(tmpctx, key));
+		return notification_handled(cmd);
+	}
 
 	assert(route->result == NULL);
 	route->result = tal_sendpay_result_from_json(route, buf, sub);
