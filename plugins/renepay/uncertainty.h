@@ -35,8 +35,8 @@ void uncertainty_channel_cannot_send(struct uncertainty *uncertainty,
 				     struct short_channel_id scid,
 				     int direction);
 
-void uncertainty_update(struct uncertainty *uncertainty,
-			struct gossmap *gossmap);
+WARN_UNUSED_RESULT int uncertainty_update(struct uncertainty *uncertainty,
+					  struct gossmap *gossmap);
 
 struct uncertainty *uncertainty_new(const tal_t *ctx);
 

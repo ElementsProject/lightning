@@ -519,6 +519,8 @@ refreshgossmap_done(struct command *cmd UNUSED, const char *buf UNUSED,
 		    const jsmntok_t *result UNUSED, struct payment *payment)
 {
 	assert(pay_plugin->gossmap); // gossmap must be already initialized
+	assert(payment);
+	assert(payment->local_gossmods);
 
 	size_t num_channel_updates_rejected;
 	bool gossmap_changed =
@@ -529,8 +531,20 @@ refreshgossmap_done(struct command *cmd UNUSED, const char *buf UNUSED,
 			   "gossmap ignored %zu channel updates",
 			   num_channel_updates_rejected);
 
-	if (gossmap_changed)
-		uncertainty_update(pay_plugin->uncertainty, pay_plugin->gossmap);
+	if (gossmap_changed) {
+		gossmap_apply_localmods(pay_plugin->gossmap,
+					payment->local_gossmods);
+		int skipped_count = uncertainty_update(pay_plugin->uncertainty,
+						       pay_plugin->gossmap);
+		gossmap_remove_localmods(pay_plugin->gossmap,
+					 payment->local_gossmods);
+		if (skipped_count)
+			plugin_log(
+			    pay_plugin->plugin, LOG_UNUSUAL,
+			    "%s: uncertainty was updated but %d channels have "
+			    "been ignored.",
+			    __PRETTY_FUNCTION__, skipped_count);
+	}
 	return payment_continue(payment);
 }
 
@@ -560,6 +574,9 @@ static void add_hintchan(struct payment *payment, const struct node_id *src,
 			 const struct short_channel_id scid, u32 fee_base_msat,
 			 u32 fee_proportional_millionths)
 {
+	assert(payment);
+	assert(payment->local_gossmods);
+
 	// TODO test this, simply make a payment through a private channel, this
 	// statement is either right or wrong.
 	int dir = node_id_cmp(src, dst) < 0 ? 0 : 1;
@@ -623,8 +640,11 @@ static struct command_result *routehints_done(struct command *cmd UNUSED,
 					      struct payment *payment)
 {
 	// FIXME are there route hints for B12?
+	assert(payment);
+	assert(payment->local_gossmods);
 	assert(payment->routehints);
 	const size_t nhints = tal_count(payment->routehints);
+	/* Hints are added to the local_gossmods. */
 	for (size_t i = 0; i < nhints; i++) {
 		/* Each one, presumably, leads to the destination */
 		const struct route_info *r = payment->routehints[i];
@@ -638,6 +658,18 @@ static struct command_result *routehints_done(struct command *cmd UNUSED,
 			end = &r[j].pubkey;
 		}
 	}
+
+	/* Add hints to the uncertainty network. */
+	gossmap_apply_localmods(pay_plugin->gossmap, payment->local_gossmods);
+	int skipped_count =
+	    uncertainty_update(pay_plugin->uncertainty, pay_plugin->gossmap);
+	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
+	if (skipped_count)
+		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
+			   "%s: uncertainty was updated but %d channels have "
+			   "been ignored.",
+			   __PRETTY_FUNCTION__, skipped_count);
+
 	return payment_continue(payment);
 }
 
