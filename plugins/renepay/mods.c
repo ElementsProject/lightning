@@ -327,44 +327,38 @@ REGISTER_PAYMENT_MODIFIER(initial_sanity_checks, initial_sanity_checks_cb);
 
 static struct command_result *selfpay_success(struct command *cmd,
 					      const char *buf,
-					      const jsmntok_t *result,
-					      struct payment *payment)
+					      const jsmntok_t *tok,
+					      struct route *route)
 {
+	struct payment *payment = route->payment;
+	assert(payment);
 	struct preimage preimage;
 	const char *err;
-	err = json_scan(tmpctx, buf, result, "{payment_preimage:%}",
+	err = json_scan(tmpctx, buf, tok, "{payment_preimage:%}",
 			JSON_SCAN(json_to_preimage, &preimage));
 	if (err)
 		plugin_err(
 		    cmd->plugin, "selfpay didn't have payment_preimage: %.*s",
-		    json_tok_full_len(result), json_tok_full(buf, result));
+		    json_tok_full_len(tok), json_tok_full(buf, tok));
+
 
 	payment_note(payment, LOG_DBG, "Paid with self-pay.");
-	/* FIXME: shouldn't we process selfpay in the same way a regular payment? */
 	return payment_success(payment, &preimage);
 }
-
-static void route_selfpaypending(const struct route *route)
+static struct command_result *selfpay_failure(struct command *cmd,
+					      const char *buf,
+					      const jsmntok_t *tok,
+					      struct route *route)
 {
-	assert(route);
 	struct payment *payment = route->payment;
 	assert(payment);
-	struct routetracker *routetracker = payment->routetracker;
-	assert(routetracker);
-
-	/* we already keep track of this route */
-	assert(!route_map_get(routetracker->pending_routes, &route->key));
-	route_map_add(routetracker->pending_routes, route);
-	tal_steal(routetracker, route);
-
-	if (!amount_msat_add(&payment->total_sent, payment->total_sent,
-			     payment->amount) ||
-	    !amount_msat_add(&payment->total_delivering,
-			     payment->total_delivering, payment->amount)) {
+	struct payment_result *result = tal_sendpay_result_from_json(tmpctx, buf, tok);
+	if (result == NULL)
 		plugin_err(pay_plugin->plugin,
-			   "%s: amount_msat arithmetic overflow.",
-			   __PRETTY_FUNCTION__);
-	}
+			   "Unable to parse sendpay failure: %.*s",
+			   json_tok_full_len(tok), json_tok_full(buf, tok));
+
+	return payment_fail(payment, result->code, "%s", result->message);
 }
 
 static struct command_result *selfpay_cb(struct payment *payment)
@@ -377,18 +371,15 @@ static struct command_result *selfpay_cb(struct payment *payment)
 	if (!cmd)
 		plugin_err(pay_plugin->plugin,
 			   "Selfpay: cannot get a valid cmd.");
-	struct out_req *req;
-	req =
-	    jsonrpc_request_start(cmd->plugin, cmd, "sendpay", selfpay_success,
-				  payment_rpc_failure, payment);
 
 	struct route *route = new_route(payment, payment, payment->groupid,
 					/*partid=*/0, payment->payment_hash,
 					payment->amount, payment->amount);
+	struct out_req *req;
+	req = jsonrpc_request_start(cmd->plugin, cmd, "sendpay",
+				    selfpay_success, selfpay_failure, route);
 	route->hops = tal_arr(route, struct route_hop, 0);
 	json_add_route(req->js, route);
-
-	route_selfpaypending(route);
 	return send_outreq(cmd->plugin, req);
 }
 
