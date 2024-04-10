@@ -76,7 +76,13 @@ static const char *init(struct plugin *p,
 			   "gossmap ignored %zu channel updates",
 			   num_channel_updates_rejected);
 	pay_plugin->uncertainty = uncertainty_new(pay_plugin);
-	uncertainty_update(pay_plugin->uncertainty, pay_plugin->gossmap);
+	int skipped_count =
+	    uncertainty_update(pay_plugin->uncertainty, pay_plugin->gossmap);
+	if (skipped_count)
+		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
+			   "%s: uncertainty was updated but %d channels have "
+			   "been ignored.",
+			   __PRETTY_FUNCTION__, skipped_count);
 
 	plugin_set_memleak_handler(p, memleak_mark);
 	return NULL;

@@ -361,7 +361,8 @@ int main(int argc, char *argv[])
 	assert(short_channel_id_from_str("103x1x0", 7, &scid23));
 
 	struct uncertainty *uncertainty = uncertainty_new(tmpctx);
-	uncertainty_update(uncertainty, gossmap);
+	int skipped_count = uncertainty_update(uncertainty, gossmap);
+	assert(skipped_count == 0);
 
 	printf("All set, now let's call minflow ...\n");
 

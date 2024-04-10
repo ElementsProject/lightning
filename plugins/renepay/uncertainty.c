@@ -78,33 +78,56 @@ void uncertainty_channel_cannot_send(struct uncertainty *uncertainty,
 	chan_extra_cannot_send(uncertainty->chan_extra_map, &scidd);
 }
 
-void uncertainty_update(struct uncertainty *uncertainty,
-			struct gossmap *gossmap)
+int uncertainty_update(struct uncertainty *uncertainty, struct gossmap *gossmap)
 {
-	// FIXME: after running for some time we might find some channels in
-	// chan_extra_map that are not needed and do not exist in the gossmap
-	// for being private or closed.
+	/* Each channel in chan_extra_map should be either in gossmap or in
+	 * local_gossmods. */
+	assert(uncertainty);
+	struct chan_extra_map *chan_extra_map = uncertainty->chan_extra_map;
+	assert(chan_extra_map);
+	struct chan_extra **del_list = tal_arr(NULL, struct chan_extra*, 0);
+	struct chan_extra_map_iter it;
+	for (struct chan_extra *ch = chan_extra_map_first(chan_extra_map, &it);
+	     ch; ch = chan_extra_map_next(chan_extra_map, &it)) {
+
+		/* If we cannot find that channel in the gossmap, add it to the
+		 * delete list. */
+		if (!gossmap_find_chan(gossmap, &ch->scid))
+			tal_arr_expand(&del_list, ch);
+	}
+	for(size_t i=0;i<tal_count(del_list);i++) {
+		chan_extra_map_del(chan_extra_map, del_list[i]);
+	}
+	del_list = tal_free(del_list);
+
 
 	/* For each channel in the gossmap, create a extra data in
 	 * chan_extra_map */
+	int skipped_count = 0;
 	for (struct gossmap_chan *chan = gossmap_first_chan(gossmap); chan;
 	     chan = gossmap_next_chan(gossmap, chan)) {
 		struct short_channel_id scid = gossmap_chan_scid(gossmap, chan);
 		struct chan_extra *ce =
-		    chan_extra_map_get(uncertainty->chan_extra_map,
+		    chan_extra_map_get(chan_extra_map,
 				       gossmap_chan_scid(gossmap, chan));
 		if (!ce) {
 			struct amount_sat cap;
 			struct amount_msat cap_msat;
 
-			// FIXME: check errors
 			if (!gossmap_chan_get_capacity(gossmap, chan, &cap) ||
 			    !amount_sat_to_msat(&cap_msat, cap) ||
-			    !new_chan_extra(uncertainty->chan_extra_map, scid,
-					    cap_msat))
-				return;
+			    !new_chan_extra(chan_extra_map, scid,
+					    cap_msat)) {
+				/* If the new chan_extra cannot be created we
+				 * skip this channel. */
+				skipped_count++;
+				continue;
+			}
 		}
 	}
+	assert(chan_extra_map_count(chan_extra_map) + skipped_count ==
+	       gossmap_num_chans(gossmap));
+	return skipped_count;
 }
 
 struct uncertainty *uncertainty_new(const tal_t *ctx)
