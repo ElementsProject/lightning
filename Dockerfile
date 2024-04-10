@@ -5,7 +5,22 @@
 # * final: Copy the binaries required at runtime
 # The resulting image uploaded to dockerhub will only contain what is needed for runtime.
 # From the root of the repository, run "docker build -t yourimage:yourtag ."
-FROM debian:bullseye-slim as downloader
+
+FROM --platform=$BUILDPLATFORM debian:bullseye-slim as base-downloader
+RUN set -ex \
+	&& apt-get update \
+	&& apt-get install -qq --no-install-recommends ca-certificates dirmngr wget
+
+FROM --platform=$BUILDPLATFORM base-downloader as base-downloader-linux-amd64
+ENV TARBALL_ARCH_FINAL=x86_64-linux-gnu
+
+FROM --platform=$BUILDPLATFORM base-downloader as base-downloader-linux-arm64
+ENV TARBALL_ARCH_FINAL=aarch64-linux-gnu
+
+FROM --platform=$BUILDPLATFORM base-downloader as base-downloader-linux-arm
+ENV TARBALL_ARCH_FINAL=arm-linux-gnueabihf
+
+FROM base-downloader-${TARGETOS}-${TARGETARCH} as downloader
 
 RUN set -ex \
 	&& apt-get update \
@@ -15,8 +30,6 @@ WORKDIR /opt
 
 
 ARG BITCOIN_VERSION=22.0
-ARG TARBALL_ARCH=x86_64-linux-gnu
-ENV TARBALL_ARCH_FINAL=$TARBALL_ARCH
 ENV BITCOIN_TARBALL bitcoin-${BITCOIN_VERSION}-${TARBALL_ARCH_FINAL}.tar.gz
 ENV BITCOIN_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/$BITCOIN_TARBALL
 ENV BITCOIN_ASC_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/SHA256SUMS
