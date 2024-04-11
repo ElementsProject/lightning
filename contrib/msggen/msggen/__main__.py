@@ -10,6 +10,7 @@ from msggen.utils import load_jsonrpc_service, combine_schemas
 import logging
 from msggen.patch import VersionAnnotationPatch, OptionalPatch, OverridePatch
 from msggen.checks import VersioningCheck
+from msggen.utils.utils import check_missing
 
 
 logging.basicConfig(
@@ -102,6 +103,7 @@ def main():
     bundle.add_argument('schema_dir', action='store')
 
     subcmds.add_parser("generate", help="generate all files")
+    subcmds.add_parser("missing-grpc", help="print all rpc commands missing from grpc")
     args = parser.parse_args()
 
     if args.silent:
@@ -118,6 +120,11 @@ def main():
         print(f"Combining schemas from {src.resolve()} into {dest.resolve()}")
         schema = combine_schemas(src, dest)
         print(f"Created {dest} from {len(schema)} files")
+    elif args.command == 'missing-grpc':
+        print("Missing RPC commands in grpc:")
+        missing = check_missing()
+        for name in missing:
+            print(name)
 
 
 if __name__ == "__main__":
