@@ -718,3 +718,43 @@ def test_concurrency(node_factory):
     assert out1["amount_msat"] == Millisatoshi("1000sat")
     invoice = only_one(l3.rpc.listinvoices("test_renepay")["invoices"])
     assert invoice["amount_received_msat"] >= Millisatoshi("1000sat")
+
+
+def test_privatechan(node_factory, bitcoind):
+    """
+    Topology:
+    1----2----3----4
+    Tests if a payment can get through a private channel.
+    """
+    opts = [
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 100},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
+    ]
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=opts)
+
+    l1.rpc.connect(l2.info["id"], "localhost", l2.port)
+    l2.rpc.connect(l3.info["id"], "localhost", l3.port)
+    l3.rpc.connect(l4.info["id"], "localhost", l4.port)
+
+    c12, _ = l1.fundchannel(l2, 10**6)
+    c23, _ = l2.fundchannel(l3, 10**6)
+    c34, _ = l3.fundchannel(l4, 10**6, announce_channel=False)
+
+    mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
+    l1.wait_channel_active(c12)
+    l2.wait_channel_active(c23)
+    l3.wait_local_channel_active(c34)
+
+    wait_for(lambda: len(l1.rpc.listchannels()["channels"]) == 4)
+    wait_for(lambda: len(l2.rpc.listchannels()["channels"]) == 4)
+    wait_for(lambda: len(l3.rpc.listchannels()["channels"]) == 4)
+    wait_for(lambda: len(l4.rpc.listchannels()["channels"]) == 4)
+
+    inv = l4.rpc.invoice("1000sat", "inv", "description")
+
+    l1.rpc.call("renepay", {"invstring": inv["bolt11"]})
+    l1.wait_for_htlcs()
+    invoice = only_one(l4.rpc.listinvoices("inv")["invoices"])
+    assert invoice["amount_received_msat"] >= Millisatoshi("1000sat")
