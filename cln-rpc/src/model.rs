@@ -3678,6 +3678,16 @@ pub mod responses {
 	    }
 	}
 
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListnodesNodesOption_will_fund {
+	    pub lease_fee_base_msat: Amount,
+	    pub lease_fee_basis: u32,
+	    pub funding_weight: u32,
+	    pub channel_fee_max_base_msat: Amount,
+	    pub channel_fee_max_proportional_thousandths: u32,
+	    pub compact_lease: String,
+	}
+
 	/// ['Type of connection (until 23.08, `websocket` was also allowed).']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListnodesNodesAddressesType {
@@ -3725,8 +3735,7 @@ pub mod responses {
 	    #[serde(rename = "type")]
 	    pub item_type: ListnodesNodesAddressesType,
 	    pub port: u16,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub address: Option<String>,
+	    pub address: String,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3734,6 +3743,8 @@ pub mod responses {
 	    pub nodeid: PublicKey,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub last_timestamp: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub option_will_fund: Option<ListnodesNodesOption_will_fund>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub alias: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

@@ -467,6 +467,17 @@ def pay2py(m):
     })
 
 
+def listnodes_nodes_option_will_fund2py(m):
+    return remove_default({
+        "lease_fee_base_msat": amount2msat(m.lease_fee_base_msat),  # PrimitiveField in generate_composite
+        "lease_fee_basis": m.lease_fee_basis,  # PrimitiveField in generate_composite
+        "funding_weight": m.funding_weight,  # PrimitiveField in generate_composite
+        "channel_fee_max_base_msat": amount2msat(m.channel_fee_max_base_msat),  # PrimitiveField in generate_composite
+        "channel_fee_max_proportional_thousandths": m.channel_fee_max_proportional_thousandths,  # PrimitiveField in generate_composite
+        "compact_lease": hexlify(m.compact_lease),  # PrimitiveField in generate_composite
+    })
+
+
 def listnodes_nodes_addresses2py(m):
     return remove_default({
         "type": str(m.item_type),  # EnumField in generate_composite

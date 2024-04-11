@@ -771,10 +771,20 @@ message ListnodesResponse {
 message ListnodesNodes {
 	bytes nodeid = 1;
 	optional uint32 last_timestamp = 2;
+	optional ListnodesNodesOption_will_fund option_will_fund = 7;
 	optional string alias = 3;
 	optional bytes color = 4;
 	optional bytes features = 5;
 	repeated ListnodesNodesAddresses addresses = 6;
+}
+
+message ListnodesNodesOption_will_fund {
+	Amount lease_fee_base_msat = 1;
+	uint32 lease_fee_basis = 2;
+	uint32 funding_weight = 3;
+	Amount channel_fee_max_base_msat = 4;
+	uint32 channel_fee_max_proportional_thousandths = 5;
+	bytes compact_lease = 6;
 }
 
 message ListnodesNodesAddresses {
@@ -788,7 +798,7 @@ message ListnodesNodesAddresses {
 	}
 	ListnodesNodesAddressesType item_type = 1;
 	uint32 port = 2;
-	optional string address = 3;
+	string address = 3;
 }
 
 message WaitanyinvoiceRequest {

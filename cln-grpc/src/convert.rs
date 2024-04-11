@@ -608,12 +608,26 @@ impl From<responses::PayResponse> for pb::PayResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::ListnodesNodesOption_will_fund> for pb::ListnodesNodesOptionWillFund {
+    fn from(c: responses::ListnodesNodesOption_will_fund) -> Self {
+        Self {
+            lease_fee_base_msat: Some(c.lease_fee_base_msat.into()), // Rule #2 for type msat
+            lease_fee_basis: c.lease_fee_basis, // Rule #2 for type u32
+            funding_weight: c.funding_weight, // Rule #2 for type u32
+            channel_fee_max_base_msat: Some(c.channel_fee_max_base_msat.into()), // Rule #2 for type msat
+            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths, // Rule #2 for type u32
+            compact_lease: hex::decode(&c.compact_lease).unwrap(), // Rule #2 for type hex
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::ListnodesNodesAddresses> for pb::ListnodesNodesAddresses {
     fn from(c: responses::ListnodesNodesAddresses) -> Self {
         Self {
             item_type: c.item_type as i32,
             port: c.port.into(), // Rule #2 for type u16
-            address: c.address, // Rule #2 for type string?
+            address: c.address, // Rule #2 for type string
         }
     }
 }
@@ -624,6 +638,7 @@ impl From<responses::ListnodesNodes> for pb::ListnodesNodes {
         Self {
             nodeid: c.nodeid.serialize().to_vec(), // Rule #2 for type pubkey
             last_timestamp: c.last_timestamp, // Rule #2 for type u32?
+            option_will_fund: c.option_will_fund.map(|v| v.into()),
             alias: c.alias, // Rule #2 for type string?
             color: c.color.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             features: c.features.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?

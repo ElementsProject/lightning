@@ -43,6 +43,56 @@
               "description": [
                 "A node_announcement has been received for this node (UNIX timestamp)."
               ]
+            },
+            "option_will_fund": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "lease_fee_base_msat",
+                "lease_fee_basis",
+                "funding_weight",
+                "channel_fee_max_base_msat",
+                "channel_fee_max_proportional_thousandths",
+                "compact_lease"
+              ],
+              "properties": {
+                "lease_fee_base_msat": {
+                  "type": "msat",
+                  "description": [
+                    "The fixed fee for a lease (whole number of satoshis)."
+                  ]
+                },
+                "lease_fee_basis": {
+                  "type": "u32",
+                  "description": [
+                    "The proportional fee in basis points (parts per 10,000) for a lease."
+                  ]
+                },
+                "funding_weight": {
+                  "type": "u32",
+                  "description": [
+                    "The onchain weight you'll have to pay for a lease."
+                  ]
+                },
+                "channel_fee_max_base_msat": {
+                  "type": "msat",
+                  "description": [
+                    "The maximum base routing fee this node will charge during the lease."
+                  ]
+                },
+                "channel_fee_max_proportional_thousandths": {
+                  "type": "u32",
+                  "description": [
+                    "The maximum proportional routing fee this node will charge during the lease (in thousandths, not millionths like channel_update)."
+                  ]
+                },
+                "compact_lease": {
+                  "type": "hex",
+                  "description": [
+                    "The lease as represented in the node_announcement."
+                  ]
+                }
+              }
             }
           },
           "allOf": [
@@ -96,7 +146,8 @@
                       "type": "object",
                       "required": [
                         "type",
-                        "port"
+                        "port",
+                        "address"
                       ],
                       "additionalProperties": true,
                       "properties": {
@@ -118,49 +169,12 @@
                           "description": [
                             "Port number."
                           ]
-                        }
-                      },
-                      "if": {
-                        "properties": {
-                          "type": {
-                            "type": "string",
-                            "enum": [
-                              "dns",
-                              "ipv4",
-                              "ipv6",
-                              "torv2",
-                              "torv3"
-                            ]
-                          }
-                        }
-                      },
-                      "then": {
-                        "required": [
-                          "type",
-                          "address",
-                          "port"
-                        ],
-                        "additionalProperties": false,
-                        "properties": {
-                          "type": {},
-                          "port": {},
-                          "address": {
-                            "type": "string",
-                            "description": [
-                              "Address in expected format for **type**."
-                            ]
-                          }
-                        }
-                      },
-                      "else": {
-                        "required": [
-                          "type",
-                          "port"
-                        ],
-                        "additionalProperties": false,
-                        "properties": {
-                          "type": {},
-                          "port": {}
+                        },
+                        "address": {
+                          "type": "string",
+                          "description": [
+                            "Address in expected format for **type**."
+                          ]
                         }
                       }
                     }
@@ -170,72 +184,8 @@
               "else": {
                 "additionalProperties": false,
                 "properties": {
-                  "nodeid": {}
-                }
-              }
-            },
-            {
-              "if": {
-                "required": [
-                  "option_will_fund"
-                ]
-              },
-              "then": {
-                "additionalProperties": true,
-                "required": [
-                  "option_will_fund"
-                ],
-                "properties": {
-                  "option_will_fund": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": [
-                      "lease_fee_base_msat",
-                      "lease_fee_basis",
-                      "funding_weight",
-                      "channel_fee_max_base_msat",
-                      "channel_fee_max_proportional_thousandths",
-                      "compact_lease"
-                    ],
-                    "properties": {
-                      "lease_fee_base_msat": {
-                        "type": "msat",
-                        "description": [
-                          "The fixed fee for a lease (whole number of satoshis)."
-                        ]
-                      },
-                      "lease_fee_basis": {
-                        "type": "u32",
-                        "description": [
-                          "The proportional fee in basis points (parts per 10,000) for a lease."
-                        ]
-                      },
-                      "funding_weight": {
-                        "type": "u32",
-                        "description": [
-                          "The onchain weight you'll have to pay for a lease."
-                        ]
-                      },
-                      "channel_fee_max_base_msat": {
-                        "type": "msat",
-                        "description": [
-                          "The maximum base routing fee this node will charge during the lease."
-                        ]
-                      },
-                      "channel_fee_max_proportional_thousandths": {
-                        "type": "u32",
-                        "description": [
-                          "The maximum proportional routing fee this node will charge during the lease (in thousandths, not millionths like channel_update)."
-                        ]
-                      },
-                      "compact_lease": {
-                        "type": "hex",
-                        "description": [
-                          "The lease as represented in the node_announcement."
-                        ]
-                      }
-                    }
-                  }
+                  "nodeid": {},
+                  "option_will_fund": {}
                 }
               }
             }

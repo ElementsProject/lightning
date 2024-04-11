@@ -1119,12 +1119,21 @@
             "ListNodes.nodes[].color": 4,
             "ListNodes.nodes[].features": 5,
             "ListNodes.nodes[].last_timestamp": 2,
-            "ListNodes.nodes[].nodeid": 1
+            "ListNodes.nodes[].nodeid": 1,
+            "ListNodes.nodes[].option_will_fund": 7
         },
         "ListnodesNodesAddresses": {
             "ListNodes.nodes[].addresses[].address": 3,
             "ListNodes.nodes[].addresses[].port": 2,
             "ListNodes.nodes[].addresses[].type": 1
+        },
+        "ListnodesNodesOption_will_fund": {
+            "ListNodes.nodes[].option_will_fund.channel_fee_max_base_msat": 4,
+            "ListNodes.nodes[].option_will_fund.channel_fee_max_proportional_thousandths": 5,
+            "ListNodes.nodes[].option_will_fund.compact_lease": 6,
+            "ListNodes.nodes[].option_will_fund.funding_weight": 3,
+            "ListNodes.nodes[].option_will_fund.lease_fee_base_msat": 1,
+            "ListNodes.nodes[].option_will_fund.lease_fee_basis": 2
         },
         "ListnodesRequest": {
             "ListNodes.id": 1
@@ -4280,6 +4289,34 @@
             "deprecated": false
         },
         "ListNodes.nodes[].nodeid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListNodes.nodes[].option_will_fund": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListNodes.nodes[].option_will_fund.channel_fee_max_base_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListNodes.nodes[].option_will_fund.channel_fee_max_proportional_thousandths": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListNodes.nodes[].option_will_fund.compact_lease": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListNodes.nodes[].option_will_fund.funding_weight": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListNodes.nodes[].option_will_fund.lease_fee_base_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListNodes.nodes[].option_will_fund.lease_fee_basis": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
