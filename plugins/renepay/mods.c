@@ -577,9 +577,7 @@ static void add_hintchan(struct payment *payment, const struct node_id *src,
 	assert(payment);
 	assert(payment->local_gossmods);
 
-	// TODO test this, simply make a payment through a private channel, this
-	// statement is either right or wrong.
-	int dir = node_id_cmp(src, dst) < 0 ? 0 : 1;
+	int dir = node_id_idx(src, dst);
 
 	const char *errmsg;
 	const struct chan_extra *ce =
