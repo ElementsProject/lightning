@@ -3,17 +3,32 @@
 #include <plugins/renepay/mcf.h>
 #include <plugins/renepay/routebuilder.h>
 
-static bitmap *make_disabled_bitmap(const tal_t *ctx,
-				    const struct gossmap *gossmap,
-				    const struct short_channel_id *scids)
+static bitmap *
+make_disabled_bitmap(const tal_t *ctx, const struct gossmap *gossmap,
+		     const struct chan_extra_map *chan_extra_map,
+		     const struct short_channel_id *disabled_scids)
 {
 	bitmap *disabled =
 	    tal_arrz(ctx, bitmap, BITMAP_NWORDS(gossmap_max_chan_idx(gossmap)));
+	if (!disabled)
+		return NULL;
 
-	for (size_t i = 0; i < tal_count(scids); i++) {
-		struct gossmap_chan *c = gossmap_find_chan(gossmap, &scids[i]);
+	/* Disable every channel in the list of disabled scids. */
+	for (size_t i = 0; i < tal_count(disabled_scids); i++) {
+		struct gossmap_chan *c =
+		    gossmap_find_chan(gossmap, &disabled_scids[i]);
 		if (c)
 			bitmap_set_bit(disabled, gossmap_chan_idx(gossmap, c));
+	}
+	/* Also disable every channel that we don't have in the chan_extra_map. */
+	for (struct gossmap_chan *chan = gossmap_first_chan(gossmap); chan;
+	     chan = gossmap_next_chan(gossmap, chan)) {
+		const u32 chan_id = gossmap_chan_idx(gossmap, chan);
+		struct short_channel_id scid = gossmap_chan_scid(gossmap, chan);
+		struct chan_extra *ce =
+		    chan_extra_map_get(chan_extra_map, scid);
+		if (!ce)
+			bitmap_set_bit(disabled, chan_id);
 	}
 	return disabled;
 }
@@ -167,7 +182,16 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 	const unsigned int maxdelay = payment->maxdelay;
 
 	bitmap *disabled_bitmap =
-	    make_disabled_bitmap(this_ctx, gossmap, payment->disabled_scids);
+	    make_disabled_bitmap(this_ctx, gossmap, uncertainty->chan_extra_map,
+				 payment->disabled_scids);
+	if (!disabled_bitmap) {
+		if (ecode)
+			*ecode = PLUGIN_ERROR;
+		if (fail)
+			*fail =
+			    tal_fmt(ctx, "Failed to build disabled_bitmap.");
+		goto function_fail;
+	}
 
 	const struct gossmap_node *src, *dst;
 	src = gossmap_find_node(gossmap, source);
