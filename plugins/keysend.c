@@ -233,7 +233,6 @@ struct payment_modifier *pay_mods[] = {
     &shadowroute_pay_mod,
     &routehints_pay_mod,
     &exemptfee_pay_mod,
-    &waitblockheight_pay_mod,
     &retry_pay_mod,
     NULL,
 };
