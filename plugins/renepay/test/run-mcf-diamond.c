@@ -159,11 +159,15 @@ int main(int argc, char *argv[])
 			    scid34,
 			    AMOUNT_MSAT(5000000));
 
+	bitmap *disabled =
+	    tal_arrz(tmpctx, bitmap, BITMAP_NWORDS(gossmap_max_chan_idx(gossmap)));
+
 	struct flow **flows;
 	flows = minflow(tmpctx, gossmap,
 			gossmap_find_node(gossmap, &l1),
 			gossmap_find_node(gossmap, &l4),
-			chan_extra_map, NULL,
+			chan_extra_map,
+			disabled,
 			/* Half the capacity */
 			AMOUNT_MSAT(1000000), // 1000 sats
 			 /* max_fee = */ AMOUNT_MSAT(10000), // 10 sats

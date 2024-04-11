@@ -108,8 +108,7 @@ int uncertainty_update(struct uncertainty *uncertainty, struct gossmap *gossmap)
 	     chan = gossmap_next_chan(gossmap, chan)) {
 		struct short_channel_id scid = gossmap_chan_scid(gossmap, chan);
 		struct chan_extra *ce =
-		    chan_extra_map_get(chan_extra_map,
-				       gossmap_chan_scid(gossmap, chan));
+		    chan_extra_map_get(chan_extra_map, scid);
 		if (!ce) {
 			struct amount_sat cap;
 			struct amount_msat cap_msat;

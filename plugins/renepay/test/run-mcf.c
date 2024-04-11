@@ -364,12 +364,16 @@ int main(int argc, char *argv[])
 	int skipped_count = uncertainty_update(uncertainty, gossmap);
 	assert(skipped_count == 0);
 
+	bitmap *disabled =
+	    tal_arrz(tmpctx, bitmap, BITMAP_NWORDS(gossmap_max_chan_idx(gossmap)));
+
 	printf("All set, now let's call minflow ...\n");
 
 	flows = minflow(tmpctx, gossmap,
 			gossmap_find_node(gossmap, &l1),
 			gossmap_find_node(gossmap, &l3),
-			uncertainty_get_chan_extra_map(uncertainty), NULL,
+			uncertainty_get_chan_extra_map(uncertainty),
+			disabled,
 			/* Half the capacity */
 			AMOUNT_MSAT(500000000),
 			 /* max_fee = */ AMOUNT_MSAT(1000000), // 1k sats
@@ -533,7 +537,8 @@ int main(int argc, char *argv[])
 	struct flow **flows2 = minflow(tmpctx, gossmap,
 			 gossmap_find_node(gossmap, &l1),
 			 gossmap_find_node(gossmap, &l3),
-			 uncertainty_get_chan_extra_map(uncertainty), NULL,
+			 uncertainty_get_chan_extra_map(uncertainty),
+			 disabled,
 			 /* This will go 400000000 via 1->3, rest via 1-2-3. */
 			 /* amount = */ AMOUNT_MSAT(500000000), //500k sats
 			 /* max_fee = */ AMOUNT_MSAT(1000000), // 1k sats
