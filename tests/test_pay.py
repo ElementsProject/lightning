@@ -4778,6 +4778,48 @@ def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     assert l3.rpc.listpeers(l2.info['id'])['peers'] != []
 
 
+def test_pay_blockheight_mismatch(node_factory, bitcoind):
+    """Test that we can send a payment even if not caught up with the chain.
+
+    We removed the requirement for the node to be fully synced up with
+    th eblockcain in v24.05, allowing us to send a payment while still
+    processing blocks. This test pins the sender at a lower height,
+    but `getnetworkinfo` still reports the correct height. Since CLTV
+    computations are based on headers and not our own sync height, the
+    recipient should still be appy with the parameters we chose.
+
+    """
+
+    send, direct, recv = node_factory.line_graph(3, wait_for_announce=True)
+    sync_blockheight(bitcoind, [send, recv])
+
+    # Pin `send` at the current height. by not returning the next
+    # blockhash. This error is special-cased not to cound as the
+    # backend failing since it is used to poll for the next block.
+    def mock_getblockhash(req):
+        return {
+            "id": req['id'],
+            "error": {
+                "code": -8,
+                "message": "Block height out of range"
+            }
+        }
+
+    send.daemon.rpcproxy.mock_rpc('getblockhash', mock_getblockhash)
+    bitcoind.generate_block(100)
+
+    sync_blockheight(bitcoind, [recv])
+
+    inv = recv.rpc.invoice(42, 'lbl', 'desc')['bolt11']
+    send.rpc.pay(inv)
+
+    # The direct_override payment modifier does some trickery on the
+    # route calculation, so we better ensure direct payments still
+    # work correctly.
+    inv = direct.rpc.invoice(13, 'lbl', 'desc')['bolt11']
+    send.rpc.pay(inv)
+
+
 def test_pay_waitblockheight_timeout(node_factory, bitcoind):
     plugin = os.path.join(os.path.dirname(__file__), 'plugins', 'endlesswaitblockheight.py')
     l1, l2 = node_factory.line_graph(2, opts=[{}, {'plugin': plugin}])
