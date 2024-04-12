@@ -29,8 +29,8 @@ def test_clnrest_no_auto_start(node_factory):
     l1 = node_factory.get_node()
     # This might happen really early!
     l1.daemon.logsearch_start = 0
-    assert [p for p in l1.rpc.plugin('list')['plugins'] if 'clnrest.py' in p['name']] == []
-    assert l1.daemon.is_in_log(r'plugin-clnrest.py: Killing plugin: disabled itself at init: `clnrest-port` option is not configured')
+    assert [p for p in l1.rpc.plugin('list')['plugins'] if 'clnrest' in p['name']] == []
+    assert l1.daemon.is_in_log(r'plugin-clnrest: Killing plugin: disabled itself at init: `clnrest-port` option is not configured')
 
 
 def test_clnrest_self_signed_certificates(node_factory):
@@ -43,7 +43,7 @@ def test_clnrest_self_signed_certificates(node_factory):
                                         'clnrest-host': rest_host})
     # This might happen really early!
     l1.daemon.logsearch_start = 0
-    l1.daemon.wait_for_log(r'plugin-clnrest.py: REST server running at ' + base_url)
+    l1.daemon.wait_for_log(r'plugin-clnrest: REST server running at ' + base_url)
     ca_cert = Path(l1.daemon.lightning_dir) / TEST_NETWORK / 'ca.pem'
 
     http_session = http_session_with_retry()
@@ -65,7 +65,7 @@ def test_clnrest_uses_grpc_plugin_certificates(node_factory):
     # This might happen really early!
     l1.daemon.logsearch_start = 0
     l1.daemon.wait_for_logs([r'serving grpc on 0.0.0.0:',
-                             r'plugin-clnrest.py: REST server running at ' + base_url])
+                             r'plugin-clnrest: REST server running at ' + base_url])
     ca_cert = Path(l1.daemon.lightning_dir) / TEST_NETWORK / 'ca.pem'
     http_session = http_session_with_retry()
     response = http_session.get(base_url + '/v1/list-methods', verify=ca_cert)
@@ -136,7 +136,7 @@ def start_node_with_clnrest(node_factory):
     base_url = 'https://127.0.0.1:' + rest_port
     # This might happen really early!
     l1.daemon.logsearch_start = 0
-    l1.daemon.wait_for_log(r'plugin-clnrest.py: REST server running at ' + base_url)
+    l1.daemon.wait_for_log(r'plugin-clnrest: REST server running at ' + base_url)
     ca_cert = Path(rest_certs) / 'ca.pem'
     return l1, base_url, ca_cert
 
@@ -402,21 +402,21 @@ def test_clnrest_options(node_factory):
     # with invalid port
     rest_port = 1000
     l1 = node_factory.get_node(options={'clnrest-port': rest_port})
-    assert l1.daemon.is_in_log(f'plugin-clnrest.py: Killing plugin: disabled itself at init: `clnrest-port` {rest_port}, should be a valid available port between 1024 and 65535.')
+    assert l1.daemon.is_in_log(f'plugin-clnrest: Killing plugin: disabled itself at init: `clnrest-port` {rest_port}, should be a valid available port between 1024 and 65535.')
 
     # with invalid protocol
     rest_port = str(reserve())
     rest_protocol = 'htttps'
     l1 = node_factory.get_node(options={'clnrest-port': rest_port,
                                         'clnrest-protocol': rest_protocol})
-    assert l1.daemon.is_in_log(r'plugin-clnrest.py: Killing plugin: disabled itself at init: `clnrest-protocol` can either be http or https.')
+    assert l1.daemon.is_in_log(r'plugin-clnrest: Killing plugin: disabled itself at init: `clnrest-protocol` can either be http or https.')
 
     # with invalid host
     rest_port = str(reserve())
     rest_host = '127.0.0.12.15'
     l1 = node_factory.get_node(options={'clnrest-port': rest_port,
                                         'clnrest-host': rest_host})
-    assert l1.daemon.is_in_log(r'plugin-clnrest.py: Killing plugin: disabled itself at init: `clnrest-host` should be a valid IP.')
+    assert l1.daemon.is_in_log(r'plugin-clnrest: Killing plugin: disabled itself at init: `clnrest-host` should be a valid IP.')
 
 
 def test_clnrest_http_headers(node_factory):
@@ -431,7 +431,7 @@ def test_clnrest_http_headers(node_factory):
     assert response.headers['Access-Control-Allow-Origin'] == '*'
     # This might happen really early!
     l1.daemon.logsearch_start = 0
-    l1.daemon.wait_for_log(f'plugin-clnrest.py: REST server running at {base_url}')
+    l1.daemon.wait_for_log(f'plugin-clnrest: REST server running at {base_url}')
 
     # Custom values for `clnrest-csp` and `clnrest-cors-origins` options
     rest_port = str(reserve())
@@ -445,7 +445,7 @@ def test_clnrest_http_headers(node_factory):
     base_url = 'https://127.0.0.1:' + rest_port
     # This might happen really early!
     l2.daemon.logsearch_start = 0
-    l2.daemon.wait_for_log(f'plugin-clnrest.py: REST server running at {base_url}')
+    l2.daemon.wait_for_log(f'plugin-clnrest: REST server running at {base_url}')
     ca_cert = Path(rest_certs) / 'ca.pem'
 
     response = http_session.get(base_url + '/v1/list-methods',
@@ -471,7 +471,7 @@ def test_clnrest_old_params(node_factory):
     l1.daemon.logsearch_start = 0
     l1.daemon.wait_for_logs([r'UNUSUAL lightningd: Option rest-port=.* deprecated in v23\.11, renaming to clnrest-port',
                              r'UNUSUAL lightningd: Option rest-host=.* deprecated in v23\.11, renaming to clnrest-host'])
-    l1.daemon.wait_for_log(r'plugin-clnrest.py: REST server running at ' + base_url)
+    l1.daemon.wait_for_log(r'plugin-clnrest: REST server running at ' + base_url)
 
     # Now try one where a plugin (e.g. clightning-rest) registers the option.
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/clnrest-use-options.py')
@@ -486,6 +486,6 @@ def test_clnrest_old_params(node_factory):
 
     # This one does not get renamed!
     assert not l2.daemon.is_in_log(r'UNUSUAL lightningd: Option rest-port=.* deprecated in v23\.11, renaming to clnrest-host')
-    assert [p for p in l2.rpc.plugin('list')['plugins'] if 'clnrest.py' in p['name']] == []
-    assert l2.daemon.is_in_log(r'plugin-clnrest.py: Killing plugin: disabled itself at init: `clnrest-port` option is not configured')
+    assert [p for p in l2.rpc.plugin('list')['plugins'] if p['name'].endswith('clnrest')] == []
+    assert l2.daemon.is_in_log(r'plugin-clnrest: Killing plugin: disabled itself at init: `clnrest-port` option is not configured')
     assert l2.daemon.is_in_log(rf'clnrest-use-options.py: rest-port is {rest_port}')
