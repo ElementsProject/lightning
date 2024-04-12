@@ -4500,6 +4500,8 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub max_total_htlc_in_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub max_total_htlc_out_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub their_reserve_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub our_reserve_msat: Option<Amount>,

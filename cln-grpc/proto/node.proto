@@ -1112,6 +1112,7 @@ message ListpeerchannelsChannels {
 	optional uint32 fee_proportional_millionths = 28;
 	optional Amount dust_limit_msat = 29;
 	optional Amount max_total_htlc_in_msat = 30;
+	optional Amount max_total_htlc_out_msat = 59;
 	optional Amount their_reserve_msat = 31;
 	optional Amount our_reserve_msat = 32;
 	optional Amount spendable_msat = 33;

@@ -1015,6 +1015,7 @@ impl From<responses::ListpeerchannelsChannels> for pb::ListpeerchannelsChannels 
             fee_proportional_millionths: c.fee_proportional_millionths, // Rule #2 for type u32?
             dust_limit_msat: c.dust_limit_msat.map(|f| f.into()), // Rule #2 for type msat?
             max_total_htlc_in_msat: c.max_total_htlc_in_msat.map(|f| f.into()), // Rule #2 for type msat?
+            max_total_htlc_out_msat: c.max_total_htlc_out_msat.map(|f| f.into()), // Rule #2 for type msat?
             their_reserve_msat: c.their_reserve_msat.map(|f| f.into()), // Rule #2 for type msat?
             our_reserve_msat: c.our_reserve_msat.map(|f| f.into()), // Rule #2 for type msat?
             spendable_msat: c.spendable_msat.map(|f| f.into()), // Rule #2 for type msat?

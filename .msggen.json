@@ -1200,6 +1200,7 @@
             "ListPeerChannels.channels[].max_accepted_htlcs": 40,
             "ListPeerChannels.channels[].max_to_us_msat": 25,
             "ListPeerChannels.channels[].max_total_htlc_in_msat": 30,
+            "ListPeerChannels.channels[].max_total_htlc_out_msat": 59,
             "ListPeerChannels.channels[].maximum_htlc_out_msat": 37,
             "ListPeerChannels.channels[].min_to_us_msat": 24,
             "ListPeerChannels.channels[].minimum_htlc_in_msat": 35,
@@ -4629,6 +4630,10 @@
         },
         "ListPeerChannels.channels[].max_total_htlc_in_msat": {
             "added": "v23.02",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].max_total_htlc_out_msat": {
+            "added": "v24.05",
             "deprecated": false
         },
         "ListPeerChannels.channels[].maximum_htlc_out_msat": {
