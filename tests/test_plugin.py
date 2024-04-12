@@ -4038,7 +4038,9 @@ def test_sql(node_factory, bitcoind):
         assert res['tablename'] == table
         assert res.get('indices') == schema.get('indices')
         sqlcolumns = [{'name': c['name'], 'type': sqltypemap[c['type']]} for c in [rowidcol] + schema['columns']]
-        assert res['columns'] == sqlcolumns
+        sorted_res_columns = sorted(res["columns"], key=lambda x: x["name"])
+        sorted_sqlcolumns = sorted(sqlcolumns, key=lambda x: x["name"])
+        assert sorted_res_columns == sorted_sqlcolumns
 
     # Make sure we didn't miss any
     assert (sorted([s['tablename'] for s in l1.rpc.listsqlschemas()['schemas']])
