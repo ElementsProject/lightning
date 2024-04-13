@@ -67,6 +67,7 @@ pub enum Request {
 	ListOffers(requests::ListoffersRequest),
 	ListPays(requests::ListpaysRequest),
 	ListHtlcs(requests::ListhtlcsRequest),
+	MultiFundChannel(requests::MultifundchannelRequest),
 	Offer(requests::OfferRequest),
 	Ping(requests::PingRequest),
 	SendCustomMsg(requests::SendcustommsgRequest),
@@ -136,6 +137,7 @@ pub enum Response {
 	ListOffers(responses::ListoffersResponse),
 	ListPays(responses::ListpaysResponse),
 	ListHtlcs(responses::ListhtlcsResponse),
+	MultiFundChannel(responses::MultifundchannelResponse),
 	Offer(responses::OfferResponse),
 	Ping(responses::PingResponse),
 	SendCustomMsg(responses::SendcustommsgResponse),
@@ -1955,6 +1957,58 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "listhtlcs"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct MultifundchannelDestinations {
+	    pub id: String,
+	    pub amount: AmountOrAll,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub announce: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub push_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub close_to: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub request_amt: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub compact_lease: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub mindepth: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub reserve: Option<Amount>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct MultifundchannelRequest {
+	    pub destinations: Vec<MultifundchannelDestinations>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub feerate: Option<Feerate>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub minconf: Option<i64>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub utxos: Option<Vec<Outpoint>>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub minchannels: Option<i64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub commitment_feerate: Option<Feerate>,
+	}
+
+	impl From<MultifundchannelRequest> for Request {
+	    fn from(r: MultifundchannelRequest) -> Self {
+	        Request::MultiFundChannel(r)
+	    }
+	}
+
+	impl IntoRequest for MultifundchannelRequest {
+	    type Response = super::responses::MultifundchannelResponse;
+	}
+
+	impl TypedRequest for MultifundchannelRequest {
+	    type Response = super::responses::MultifundchannelResponse;
+
+	    fn method(&self) -> &str {
+	        "multifundchannel"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -5514,6 +5568,96 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::ListHtlcs(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct MultifundchannelChannel_idsChannel_type {
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub bits: Option<Vec<u32>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub names: Option<Vec<ChannelTypeName>>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct MultifundchannelChannel_ids {
+	    pub id: PublicKey,
+	    pub outnum: u32,
+	    pub channel_id: Sha256,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub channel_type: Option<MultifundchannelChannel_idsChannel_type>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub close_to: Option<String>,
+	}
+
+	/// ['What stage we failed at.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum MultifundchannelFailedMethod {
+	    #[serde(rename = "connect")]
+	    CONNECT,
+	    #[serde(rename = "openchannel_init")]
+	    OPENCHANNEL_INIT,
+	    #[serde(rename = "fundchannel_start")]
+	    FUNDCHANNEL_START,
+	    #[serde(rename = "fundchannel_complete")]
+	    FUNDCHANNEL_COMPLETE,
+	}
+
+	impl TryFrom<i32> for MultifundchannelFailedMethod {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<MultifundchannelFailedMethod, anyhow::Error> {
+	        match c {
+	    0 => Ok(MultifundchannelFailedMethod::CONNECT),
+	    1 => Ok(MultifundchannelFailedMethod::OPENCHANNEL_INIT),
+	    2 => Ok(MultifundchannelFailedMethod::FUNDCHANNEL_START),
+	    3 => Ok(MultifundchannelFailedMethod::FUNDCHANNEL_COMPLETE),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum MultifundchannelFailedMethod", o)),
+	        }
+	    }
+	}
+
+	impl ToString for MultifundchannelFailedMethod {
+	    fn to_string(&self) -> String {
+	        match self {
+	            MultifundchannelFailedMethod::CONNECT => "CONNECT",
+	            MultifundchannelFailedMethod::OPENCHANNEL_INIT => "OPENCHANNEL_INIT",
+	            MultifundchannelFailedMethod::FUNDCHANNEL_START => "FUNDCHANNEL_START",
+	            MultifundchannelFailedMethod::FUNDCHANNEL_COMPLETE => "FUNDCHANNEL_COMPLETE",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct MultifundchannelFailedError {
+	    pub code: i64,
+	    pub message: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct MultifundchannelFailed {
+	    pub id: PublicKey,
+	    // Path `MultiFundChannel.failed[].method`
+	    pub method: MultifundchannelFailedMethod,
+	    pub error: MultifundchannelFailedError,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct MultifundchannelResponse {
+	    pub tx: String,
+	    pub txid: String,
+	    pub channel_ids: Vec<MultifundchannelChannel_ids>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub failed: Option<Vec<MultifundchannelFailed>>,
+	}
+
+	impl TryFrom<Response> for MultifundchannelResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::MultiFundChannel(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

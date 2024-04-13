@@ -1626,6 +1626,38 @@ async fn list_htlcs(
 
 }
 
+async fn multi_fund_channel(
+    &self,
+    request: tonic::Request<pb::MultifundchannelRequest>,
+) -> Result<tonic::Response<pb::MultifundchannelResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::MultifundchannelRequest = req.into();
+    debug!("Client asked for multi_fund_channel");
+    trace!("multi_fund_channel request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::MultiFundChannel(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method MultiFundChannel: {:?}", e)))?;
+    match result {
+        Response::MultiFundChannel(r) => {
+           trace!("multi_fund_channel response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call MultiFundChannel",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn offer(
     &self,
     request: tonic::Request<pb::OfferRequest>,

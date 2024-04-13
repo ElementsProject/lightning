@@ -321,6 +321,12 @@
             "theirs": 0,
             "withdraw": 2
         },
+        "MultifundchannelFailedMethod": {
+            "connect": 0,
+            "fundchannel_complete": 3,
+            "fundchannel_start": 2,
+            "openchannel_init": 1
+        },
         "NewaddrAddresstype": {
             "all": 2,
             "bech32": 0,
@@ -1474,6 +1480,82 @@
             "ListTransactions.transactions[].outputs[].msat": 2,
             "ListTransactions.transactions[].outputs[].scriptPubKey": 3,
             "ListTransactions.transactions[].outputs[].type": 4
+        },
+        "MultifundchannelChannel_ids": {
+            "MultiFundChannel.channel_ids[].channel_id": 3,
+            "MultiFundChannel.channel_ids[].channel_type": 4,
+            "MultiFundChannel.channel_ids[].close_to": 5,
+            "MultiFundChannel.channel_ids[].id": 1,
+            "MultiFundChannel.channel_ids[].outnum": 2,
+            "multifundchannel.channel_ids[].channel_id": 3,
+            "multifundchannel.channel_ids[].channel_type": 4,
+            "multifundchannel.channel_ids[].close_to": 5,
+            "multifundchannel.channel_ids[].id": 1,
+            "multifundchannel.channel_ids[].outnum": 2
+        },
+        "MultifundchannelChannel_idsChannel_type": {
+            "MultiFundChannel.channel_ids[].channel_type.bits[]": 1,
+            "MultiFundChannel.channel_ids[].channel_type.names[]": 2,
+            "multifundchannel.channel_ids[].channel_type.bits[]": 1,
+            "multifundchannel.channel_ids[].channel_type.names[]": 2
+        },
+        "MultifundchannelDestinations": {
+            "MultiFundChannel.destinations[].amount": 2,
+            "MultiFundChannel.destinations[].announce": 3,
+            "MultiFundChannel.destinations[].close_to": 5,
+            "MultiFundChannel.destinations[].compact_lease": 7,
+            "MultiFundChannel.destinations[].id": 1,
+            "MultiFundChannel.destinations[].mindepth": 8,
+            "MultiFundChannel.destinations[].push_msat": 4,
+            "MultiFundChannel.destinations[].request_amt": 6,
+            "MultiFundChannel.destinations[].reserve": 9,
+            "multifundchannel.destinations[].amount": 2,
+            "multifundchannel.destinations[].announce": 3,
+            "multifundchannel.destinations[].close_to": 5,
+            "multifundchannel.destinations[].compact_lease": 7,
+            "multifundchannel.destinations[].id": 1,
+            "multifundchannel.destinations[].mindepth": 8,
+            "multifundchannel.destinations[].push_msat": 4,
+            "multifundchannel.destinations[].request_amt": 6,
+            "multifundchannel.destinations[].reserve": 9
+        },
+        "MultifundchannelFailed": {
+            "MultiFundChannel.failed[].error": 3,
+            "MultiFundChannel.failed[].id": 1,
+            "MultiFundChannel.failed[].method": 2,
+            "multifundchannel.failed[].error": 3,
+            "multifundchannel.failed[].id": 1,
+            "multifundchannel.failed[].method": 2
+        },
+        "MultifundchannelFailedError": {
+            "MultiFundChannel.failed[].error.code": 1,
+            "MultiFundChannel.failed[].error.message": 2,
+            "multifundchannel.failed[].error.code": 1,
+            "multifundchannel.failed[].error.message": 2
+        },
+        "MultifundchannelRequest": {
+            "MultiFundChannel.commitment_feerate": 6,
+            "MultiFundChannel.destinations[]": 1,
+            "MultiFundChannel.feerate": 2,
+            "MultiFundChannel.minchannels": 5,
+            "MultiFundChannel.minconf": 3,
+            "MultiFundChannel.utxos[]": 4,
+            "multifundchannel.commitment_feerate": 6,
+            "multifundchannel.destinations[]": 1,
+            "multifundchannel.feerate": 2,
+            "multifundchannel.minchannels": 5,
+            "multifundchannel.minconf": 3,
+            "multifundchannel.utxos[]": 4
+        },
+        "MultifundchannelResponse": {
+            "MultiFundChannel.channel_ids[]": 3,
+            "MultiFundChannel.failed[]": 4,
+            "MultiFundChannel.tx": 1,
+            "MultiFundChannel.txid": 2,
+            "multifundchannel.channel_ids[]": 3,
+            "multifundchannel.failed[]": 4,
+            "multifundchannel.tx": 1,
+            "multifundchannel.txid": 2
         },
         "NewaddrRequest": {
             "NewAddr.addresstype": 1
@@ -5399,6 +5481,134 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "MultiFundChannel": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "MultiFundChannel.channel_ids[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.channel_ids[].channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.channel_ids[].channel_type": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "MultiFundChannel.channel_ids[].channel_type.bits[]": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "MultiFundChannel.channel_ids[].channel_type.names[]": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "MultiFundChannel.channel_ids[].close_to": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.channel_ids[].id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.channel_ids[].outnum": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.commitment_feerate": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.destinations[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.destinations[].amount": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.destinations[].announce": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.destinations[].close_to": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.destinations[].compact_lease": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.destinations[].id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.destinations[].mindepth": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.destinations[].push_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.destinations[].request_amt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.destinations[].reserve": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.failed[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.failed[].error": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.failed[].error.code": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.failed[].error.message": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.failed[].id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.failed[].method": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.feerate": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.minchannels": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.minconf": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.tx": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiFundChannel.utxos[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
         "NewAddr": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -6480,6 +6690,134 @@
             "deprecated": false
         },
         "Withdraw.utxos[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "multifundchannel.channel_ids[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.channel_ids[].channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.channel_ids[].channel_type": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "multifundchannel.channel_ids[].channel_type.bits[]": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "multifundchannel.channel_ids[].channel_type.names[]": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "multifundchannel.channel_ids[].close_to": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.channel_ids[].id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.channel_ids[].outnum": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.commitment_feerate": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.destinations[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.destinations[].amount": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.destinations[].announce": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.destinations[].close_to": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.destinations[].compact_lease": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.destinations[].id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.destinations[].mindepth": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.destinations[].push_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.destinations[].request_amt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.destinations[].reserve": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.failed[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.failed[].error": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.failed[].error.code": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.failed[].error.message": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.failed[].id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.failed[].method": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.feerate": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.minchannels": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.minconf": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.tx": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "multifundchannel.utxos[]": {
             "added": "pre-v0.10.1",
             "deprecated": false
         }

@@ -264,6 +264,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.ListhtlcsRequest.SerializeToString,
                 response_deserializer=node__pb2.ListhtlcsResponse.FromString,
                 )
+        self.MultiFundChannel = channel.unary_unary(
+                '/cln.Node/MultiFundChannel',
+                request_serializer=node__pb2.MultifundchannelRequest.SerializeToString,
+                response_deserializer=node__pb2.MultifundchannelResponse.FromString,
+                )
         self.Offer = channel.unary_unary(
                 '/cln.Node/Offer',
                 request_serializer=node__pb2.OfferRequest.SerializeToString,
@@ -634,6 +639,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def MultiFundChannel(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Offer(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -964,6 +975,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.ListHtlcs,
                     request_deserializer=node__pb2.ListhtlcsRequest.FromString,
                     response_serializer=node__pb2.ListhtlcsResponse.SerializeToString,
+            ),
+            'MultiFundChannel': grpc.unary_unary_rpc_method_handler(
+                    servicer.MultiFundChannel,
+                    request_deserializer=node__pb2.MultifundchannelRequest.FromString,
+                    response_serializer=node__pb2.MultifundchannelResponse.SerializeToString,
             ),
             'Offer': grpc.unary_unary_rpc_method_handler(
                     servicer.Offer,
@@ -1887,6 +1903,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/ListHtlcs',
             node__pb2.ListhtlcsRequest.SerializeToString,
             node__pb2.ListhtlcsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def MultiFundChannel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/MultiFundChannel',
+            node__pb2.MultifundchannelRequest.SerializeToString,
+            node__pb2.MultifundchannelResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
