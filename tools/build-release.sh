@@ -175,61 +175,18 @@ done
 if [ -z "${TARGETS##* docker *}" ]; then
     echo "Building Docker Images"
     DOCKER_USER="elementsproject"
-    PLATFORMS="amd64 arm64v8"
-    for d in $PLATFORMS; do
-        TMPDIR="$(mktemp -d /tmp/lightningd-docker-"$d".XXXXXX)"
-        SRCDIR="$(pwd)"
-        echo "Bundling $d image in ${TMPDIR}"
-        git clone --recursive . "${TMPDIR}"
-        (
-        cd "${TMPDIR}"
-        if ! $FORCE_UNCLEAN; then
-            git checkout "v${BARE_VERSION}"
-        fi
-        cp "${SRCDIR}/Dockerfile" "${TMPDIR}/"
-        case "$d" in
-            "arm32v7")
-                TARBALL_ARCH="arm-linux-gnueabihf"
-                PLATFORM="linux/arm/v7"
-                ;;
-            "arm64v8")
-                TARBALL_ARCH="aarch64-linux-gnu"
-                PLATFORM="linux/arm64"
-                ;;
-            "amd64")
-                TARBALL_ARCH="x86_64-linux-gnu"
-                PLATFORM="linux/amd64"
-                ;;
-        esac
-        if $DOCKER_PUSH; then
-            docker buildx build --push --platform $PLATFORM --build-arg TARBALL_ARCH=$TARBALL_ARCH -t "$DOCKER_USER"/lightningd:"$VERSION"-"$d" -f Dockerfile "${TMPDIR}"
-            echo "Docker Image for $PLATFORM Built and Uploaded on Dockerhub."
-        else
-            docker buildx build --load --platform $PLATFORM --build-arg TARBALL_ARCH=$TARBALL_ARCH -t "$DOCKER_USER"/lightningd:"$VERSION"-"$d" -f Dockerfile "${TMPDIR}"
-            echo "Docker Image for $PLATFORM Built. Ready to Upload on Dockerhub."
-        fi
-        )
-        rm -rf "${TMPDIR}"
-    done
     echo "Creating a multi-platform image tagged as $VERSION"
-    docker manifest create --amend "$DOCKER_USER"/lightningd:"$VERSION" "$DOCKER_USER"/lightningd:"$VERSION"-amd64 "$DOCKER_USER"/lightningd:"$VERSION"-arm64v8
-    docker manifest annotate "$DOCKER_USER"/lightningd:"$VERSION" "$DOCKER_USER"/lightningd:"$VERSION"-amd64 --os linux --arch amd64
-    docker manifest annotate "$DOCKER_USER"/lightningd:"$VERSION" "$DOCKER_USER"/lightningd:"$VERSION"-arm64v8 --os linux --arch arm64 --variant v8
-    # FIXME: Throws ERROR: failed to solve: debian:bullseye-slim: no match for platform in manifest
-    # docker buildx create --use
-    # docker buildx build --push --platform linux/amd64,linux/arm64v8 -t "$DOCKER_USER/lightningd:"$VERSION"-$d" .
-    echo "Creating a multi-platform image tagged as latest"
-    # Remove the old image
-    docker rmi "$DOCKER_USER"/lightningd:latest
-    # Remove the old manifest
-    docker manifest rm "$DOCKER_USER"/lightningd:latest
-    docker manifest create "$DOCKER_USER"/lightningd:latest "$DOCKER_USER"/lightningd:"$VERSION"-amd64 "$DOCKER_USER"/lightningd:"$VERSION"-arm64v8
-    docker manifest annotate "$DOCKER_USER"/lightningd:latest "$DOCKER_USER"/lightningd:"$VERSION"-amd64 --os linux --arch amd64
-    docker manifest annotate "$DOCKER_USER"/lightningd:latest "$DOCKER_USER"/lightningd:"$VERSION"-arm64v8 --os linux --arch arm64 --variant v8
+    DOCKER_OPTS="--platform linux/amd64,linux/arm64,linux/arm/v7"
+    $DOCKER_PUSH && DOCKER_OPTS="$DOCKER_OPTS --push"
+    DOCKER_OPTS="$DOCKER_OPTS -t $DOCKER_USER/lightningd:$VERSION"
+    DOCKER_OPTS="$DOCKER_OPTS -t $DOCKER_USER/lightningd:latest"
+
+    #docker buildx create --use
+
+    # shellcheck disable=SC2086
+    docker buildx build $DOCKER_OPTS .
+
     if $DOCKER_PUSH; then
-        docker manifest push "$DOCKER_USER"/lightningd:"$VERSION"
-        echo "Pushed a multi-platform image tagged as $VERSION"
-        docker manifest push "$DOCKER_USER"/lightningd:latest
         echo "Pushed a multi-platform image tagged as latest"
     else
         echo "Docker Images Built. Ready to Upload on Dockerhub."
