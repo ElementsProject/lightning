@@ -58,6 +58,7 @@ service Node {
 	rpc ListOffers(ListoffersRequest) returns (ListoffersResponse) {}
 	rpc ListPays(ListpaysRequest) returns (ListpaysResponse) {}
 	rpc ListHtlcs(ListhtlcsRequest) returns (ListhtlcsResponse) {}
+	rpc MultiFundChannel(MultifundchannelRequest) returns (MultifundchannelResponse) {}
 	rpc Offer(OfferRequest) returns (OfferResponse) {}
 	rpc Ping(PingRequest) returns (PingResponse) {}
 	rpc SendCustomMsg(SendcustommsgRequest) returns (SendcustommsgResponse) {}
@@ -1710,6 +1711,65 @@ message ListhtlcsHtlcs {
 	ListhtlcsHtlcsDirection direction = 5;
 	bytes payment_hash = 6;
 	HtlcState state = 7;
+}
+
+message MultifundchannelRequest {
+	repeated MultifundchannelDestinations destinations = 1;
+	optional Feerate feerate = 2;
+	optional sint64 minconf = 3;
+	repeated Outpoint utxos = 4;
+	optional sint64 minchannels = 5;
+	optional Feerate commitment_feerate = 6;
+}
+
+message MultifundchannelResponse {
+	bytes tx = 1;
+	bytes txid = 2;
+	repeated MultifundchannelChannel_ids channel_ids = 3;
+	repeated MultifundchannelFailed failed = 4;
+}
+
+message MultifundchannelDestinations {
+	string id = 1;
+	AmountOrAll amount = 2;
+	optional bool announce = 3;
+	optional Amount push_msat = 4;
+	optional string close_to = 5;
+	optional Amount request_amt = 6;
+	optional string compact_lease = 7;
+	optional uint32 mindepth = 8;
+	optional Amount reserve = 9;
+}
+
+message MultifundchannelChannel_ids {
+	bytes id = 1;
+	uint32 outnum = 2;
+	bytes channel_id = 3;
+	optional MultifundchannelChannel_idsChannel_type channel_type = 4;
+	optional bytes close_to = 5;
+}
+
+message MultifundchannelChannel_idsChannel_type {
+	repeated uint32 bits = 1;
+	repeated ChannelTypeName names = 2;
+}
+
+message MultifundchannelFailed {
+	// MultiFundChannel.failed[].method
+	enum MultifundchannelFailedMethod {
+		CONNECT = 0;
+		OPENCHANNEL_INIT = 1;
+		FUNDCHANNEL_START = 2;
+		FUNDCHANNEL_COMPLETE = 3;
+	}
+	bytes id = 1;
+	MultifundchannelFailedMethod method = 2;
+	MultifundchannelFailedError error = 3;
+}
+
+message MultifundchannelFailedError {
+	sint64 code = 1;
+	string message = 2;
 }
 
 message OfferRequest {

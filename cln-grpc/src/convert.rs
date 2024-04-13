@@ -1587,6 +1587,66 @@ impl From<responses::ListhtlcsResponse> for pb::ListhtlcsResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::MultifundchannelChannel_idsChannel_type> for pb::MultifundchannelChannelIdsChannelType {
+    fn from(c: responses::MultifundchannelChannel_idsChannel_type) -> Self {
+        Self {
+            // Field: MultiFundChannel.channel_ids[].channel_type.bits[]
+            bits: c.bits.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            // Field: MultiFundChannel.channel_ids[].channel_type.names[]
+            names: c.names.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::MultifundchannelChannel_ids> for pb::MultifundchannelChannelIds {
+    fn from(c: responses::MultifundchannelChannel_ids) -> Self {
+        Self {
+            id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
+            outnum: c.outnum, // Rule #2 for type u32
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
+            channel_type: c.channel_type.map(|v| v.into()),
+            close_to: c.close_to.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::MultifundchannelFailedError> for pb::MultifundchannelFailedError {
+    fn from(c: responses::MultifundchannelFailedError) -> Self {
+        Self {
+            code: c.code, // Rule #2 for type integer
+            message: c.message, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::MultifundchannelFailed> for pb::MultifundchannelFailed {
+    fn from(c: responses::MultifundchannelFailed) -> Self {
+        Self {
+            id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
+            method: c.method as i32,
+            error: Some(c.error.into()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::MultifundchannelResponse> for pb::MultifundchannelResponse {
+    fn from(c: responses::MultifundchannelResponse) -> Self {
+        Self {
+            tx: hex::decode(&c.tx).unwrap(), // Rule #2 for type hex
+            txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
+            // Field: MultiFundChannel.channel_ids[]
+            channel_ids: c.channel_ids.into_iter().map(|i| i.into()).collect(), // Rule #3 for type MultifundchannelChannel_ids
+            // Field: MultiFundChannel.failed[]
+            failed: c.failed.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::OfferResponse> for pb::OfferResponse {
     fn from(c: responses::OfferResponse) -> Self {
         Self {
@@ -2403,6 +2463,39 @@ impl From<requests::ListhtlcsRequest> for pb::ListhtlcsRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::MultifundchannelDestinations> for pb::MultifundchannelDestinations {
+    fn from(c: requests::MultifundchannelDestinations) -> Self {
+        Self {
+            id: c.id, // Rule #2 for type string
+            amount: Some(c.amount.into()), // Rule #2 for type msat_or_all
+            announce: c.announce, // Rule #2 for type boolean?
+            push_msat: c.push_msat.map(|f| f.into()), // Rule #2 for type msat?
+            close_to: c.close_to, // Rule #2 for type string?
+            request_amt: c.request_amt.map(|f| f.into()), // Rule #2 for type msat?
+            compact_lease: c.compact_lease, // Rule #2 for type string?
+            mindepth: c.mindepth, // Rule #2 for type u32?
+            reserve: c.reserve.map(|f| f.into()), // Rule #2 for type msat?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::MultifundchannelRequest> for pb::MultifundchannelRequest {
+    fn from(c: requests::MultifundchannelRequest) -> Self {
+        Self {
+            // Field: MultiFundChannel.destinations[]
+            destinations: c.destinations.into_iter().map(|i| i.into()).collect(), // Rule #3 for type MultifundchannelDestinations
+            feerate: c.feerate.map(|o|o.into()), // Rule #2 for type feerate?
+            minconf: c.minconf, // Rule #2 for type integer?
+            // Field: MultiFundChannel.utxos[]
+            utxos: c.utxos.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            minchannels: c.minchannels, // Rule #2 for type integer?
+            commitment_feerate: c.commitment_feerate.map(|o|o.into()), // Rule #2 for type feerate?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::OfferRequest> for pb::OfferRequest {
     fn from(c: requests::OfferRequest) -> Self {
         Self {
@@ -3173,6 +3266,37 @@ impl From<pb::ListhtlcsRequest> for requests::ListhtlcsRequest {
     fn from(c: pb::ListhtlcsRequest) -> Self {
         Self {
             id: c.id, // Rule #1 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::MultifundchannelDestinations> for requests::MultifundchannelDestinations {
+    fn from(c: pb::MultifundchannelDestinations) -> Self {
+        Self {
+            id: c.id, // Rule #1 for type string
+            amount: c.amount.unwrap().into(), // Rule #1 for type msat_or_all
+            announce: c.announce, // Rule #1 for type boolean?
+            push_msat: c.push_msat.map(|a| a.into()), // Rule #1 for type msat?
+            close_to: c.close_to, // Rule #1 for type string?
+            request_amt: c.request_amt.map(|a| a.into()), // Rule #1 for type msat?
+            compact_lease: c.compact_lease, // Rule #1 for type string?
+            mindepth: c.mindepth, // Rule #1 for type u32?
+            reserve: c.reserve.map(|a| a.into()), // Rule #1 for type msat?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::MultifundchannelRequest> for requests::MultifundchannelRequest {
+    fn from(c: pb::MultifundchannelRequest) -> Self {
+        Self {
+            destinations: c.destinations.into_iter().map(|s| s.into()).collect(), // Rule #4
+            feerate: c.feerate.map(|a| a.into()), // Rule #1 for type feerate?
+            minconf: c.minconf, // Rule #1 for type integer?
+            utxos: Some(c.utxos.into_iter().map(|s| s.into()).collect()), // Rule #4
+            minchannels: c.minchannels, // Rule #1 for type integer?
+            commitment_feerate: c.commitment_feerate.map(|a| a.into()), // Rule #1 for type feerate?
         }
     }
 }
