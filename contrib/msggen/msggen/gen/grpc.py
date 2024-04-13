@@ -362,8 +362,15 @@ class GrpcConverterGenerator(IGenerator):
     def to_camel_case(self, snake_str):
         components = snake_str.split('_')
         # We capitalize the first letter of each component except the first one
-        # with the 'title' method and join them together.
-        return components[0] + ''.join(x.title() for x in components[1:])
+        # with the 'capitalize' method and join them together, while preserving
+        # existing camel cases.
+        camel_case = components[0]
+        for word in components[1:]:
+            if not word.isupper():
+                camel_case += word[0].upper() + word[1:]
+            else:
+                camel_case += word.capitalize()
+        return camel_case
 
     def generate_requests(self, service):
         for meth in service.methods:
