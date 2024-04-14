@@ -16,11 +16,11 @@ lightning-cli newaddr
 
 `lightningd` will register the funds once the transaction is confirmed.
 
-You may need to generate a p2sh-segwit address if the faucet does not support bech32:
+Alternatively you can generate a taproot address should your source of funds support it:
 
 ```shell
-# Return a p2sh-segwit address
-lightning-cli newaddr p2sh-segwit
+# Return a taproot address
+lightning-cli newaddr p2tr
 ```
 
 

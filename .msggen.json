@@ -330,7 +330,6 @@
         "NewaddrAddresstype": {
             "all": 2,
             "bech32": 0,
-            "p2sh-segwit": 1,
             "p2tr": 3
         },
         "PayStatus": {
@@ -1562,7 +1561,6 @@
         },
         "NewaddrResponse": {
             "NewAddr.bech32": 1,
-            "NewAddr.p2sh-segwit": 2,
             "NewAddr.p2tr": 3
         },
         "OfferRecurrence": {
@@ -5620,10 +5618,6 @@
         "NewAddr.bech32": {
             "added": "pre-v0.10.1",
             "deprecated": false
-        },
-        "NewAddr.p2sh-segwit": {
-            "added": "pre-v0.10.1",
-            "deprecated": "v23.02"
         },
         "NewAddr.p2tr": {
             "added": "v23.08",

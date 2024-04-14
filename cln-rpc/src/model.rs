@@ -1168,7 +1168,7 @@ pub mod requests {
 	    fn try_from(c: i32) -> Result<NewaddrAddresstype, anyhow::Error> {
 	        match c {
 	    0 => Ok(NewaddrAddresstype::BECH32),
-	    1 => Ok(NewaddrAddresstype::P2TR),
+	    3 => Ok(NewaddrAddresstype::P2TR),
 	    2 => Ok(NewaddrAddresstype::ALL),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum NewaddrAddresstype", o)),
 	        }
@@ -2505,11 +2505,11 @@ pub mod responses {
 	    fn try_from(c: i32) -> Result<GetinfoBindingType, anyhow::Error> {
 	        match c {
 	    0 => Ok(GetinfoBindingType::LOCAL_SOCKET),
-	    1 => Ok(GetinfoBindingType::WEBSOCKET),
-	    2 => Ok(GetinfoBindingType::IPV4),
-	    3 => Ok(GetinfoBindingType::IPV6),
-	    4 => Ok(GetinfoBindingType::TORV2),
-	    5 => Ok(GetinfoBindingType::TORV3),
+	    5 => Ok(GetinfoBindingType::WEBSOCKET),
+	    1 => Ok(GetinfoBindingType::IPV4),
+	    2 => Ok(GetinfoBindingType::IPV6),
+	    3 => Ok(GetinfoBindingType::TORV2),
+	    4 => Ok(GetinfoBindingType::TORV3),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum GetinfoBindingType", o)),
 	        }
 	    }
@@ -5596,13 +5596,13 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum MultifundchannelFailedMethod {
 	    #[serde(rename = "connect")]
-	    CONNECT,
+	    CONNECT = 0,
 	    #[serde(rename = "openchannel_init")]
-	    OPENCHANNEL_INIT,
+	    OPENCHANNEL_INIT = 1,
 	    #[serde(rename = "fundchannel_start")]
-	    FUNDCHANNEL_START,
+	    FUNDCHANNEL_START = 2,
 	    #[serde(rename = "fundchannel_complete")]
-	    FUNDCHANNEL_COMPLETE,
+	    FUNDCHANNEL_COMPLETE = 3,
 	}
 
 	impl TryFrom<i32> for MultifundchannelFailedMethod {
