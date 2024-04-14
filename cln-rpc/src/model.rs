@@ -282,34 +282,34 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendpayRoute {
-	    pub id: PublicKey,
+	    pub amount_msat: Amount,
 	    pub channel: ShortChannelId,
 	    pub delay: u32,
-	    pub amount_msat: Amount,
+	    pub id: PublicKey,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendpayRequest {
-	    pub route: Vec<SendpayRoute>,
-	    pub payment_hash: Sha256,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub label: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt11: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub payment_secret: Option<Secret>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub partid: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub localinvreqid: Option<String>,
+	    pub description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub groupid: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub localinvreqid: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub partid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_metadata: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub description: Option<String>,
+	    pub payment_secret: Option<Secret>,
+	    pub payment_hash: Sha256,
+	    pub route: Vec<SendpayRoute>,
 	}
 
 	impl From<SendpayRequest> for Request {
@@ -332,11 +332,11 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListchannelsRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub destination: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub short_channel_id: Option<ShortChannelId>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub source: Option<PublicKey>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub destination: Option<PublicKey>,
 	}
 
 	impl From<ListchannelsRequest> for Request {
@@ -381,9 +381,9 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AutocleaninvoiceRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub expired_by: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub cycle_seconds: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub expired_by: Option<u64>,
 	}
 
 	impl From<AutocleaninvoiceRequest> for Request {
@@ -405,10 +405,10 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct CheckmessageRequest {
-	    pub message: String,
-	    pub zbase: String,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub pubkey: Option<PublicKey>,
+	    pub message: String,
+	    pub zbase: String,
 	}
 
 	impl From<CheckmessageRequest> for Request {
@@ -430,19 +430,19 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct CloseRequest {
-	    pub id: String,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub unilateraltimeout: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub destination: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fee_negotiation_step: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub wrong_funding: Option<Outpoint>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub force_lease_closed: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub unilateraltimeout: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub wrong_funding: Option<Outpoint>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub feerange: Option<Vec<Feerate>>,
+	    pub id: String,
 	}
 
 	impl From<CloseRequest> for Request {
@@ -464,11 +464,11 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ConnectRequest {
-	    pub id: String,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub host: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub port: Option<u16>,
+	    pub id: String,
 	}
 
 	impl From<ConnectRequest> for Request {
@@ -555,15 +555,15 @@ pub mod requests {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DatastoreRequest {
-	    pub key: Vec<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub string: Option<String>,
+	    pub generation: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub hex: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub mode: Option<DatastoreMode>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub generation: Option<u64>,
+	    pub string: Option<String>,
+	    pub key: Vec<String>,
 	}
 
 	impl From<DatastoreRequest> for Request {
@@ -608,18 +608,18 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct CreateonionHops {
-	    pub pubkey: PublicKey,
 	    pub payload: String,
+	    pub pubkey: PublicKey,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct CreateonionRequest {
-	    pub hops: Vec<CreateonionHops>,
-	    pub assocdata: String,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub session_key: Option<Secret>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub onion_size: Option<u16>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub session_key: Option<Secret>,
+	    pub assocdata: String,
+	    pub hops: Vec<CreateonionHops>,
 	}
 
 	impl From<CreateonionRequest> for Request {
@@ -641,9 +641,9 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DeldatastoreRequest {
-	    pub key: Vec<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub generation: Option<u64>,
+	    pub key: Vec<String>,
 	}
 
 	impl From<DeldatastoreRequest> for Request {
@@ -698,11 +698,11 @@ pub mod requests {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DelinvoiceRequest {
-	    pub label: String,
-	    // Path `DelInvoice.status`
-	    pub status: DelinvoiceStatus,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub desconly: Option<bool>,
+	    // Path `DelInvoice.status`
+	    pub status: DelinvoiceStatus,
+	    pub label: String,
 	}
 
 	impl From<DelinvoiceRequest> for Request {
@@ -724,19 +724,19 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct InvoiceRequest {
-	    pub amount_msat: AmountOrAny,
-	    pub label: String,
-	    pub description: String,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub expiry: Option<u64>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub fallbacks: Option<Vec<String>>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub preimage: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub cltv: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub deschashonly: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub expiry: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub preimage: Option<String>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub fallbacks: Option<Vec<String>>,
+	    pub amount_msat: AmountOrAny,
+	    pub description: String,
+	    pub label: String,
 	}
 
 	impl From<InvoiceRequest> for Request {
@@ -811,19 +811,19 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListinvoicesRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub label: Option<String>,
+	    pub index: Option<ListinvoicesIndex>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub invstring: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub payment_hash: Option<String>,
+	    pub label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub limit: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub offer_id: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub index: Option<ListinvoicesIndex>,
+	    pub payment_hash: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub start: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub limit: Option<u32>,
 	}
 
 	impl From<ListinvoicesRequest> for Request {
@@ -845,34 +845,34 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendonionFirst_hop {
-	    pub id: PublicKey,
 	    pub amount_msat: Amount,
 	    pub delay: u16,
+	    pub id: PublicKey,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendonionRequest {
-	    pub onion: String,
-	    pub first_hop: SendonionFirst_hop,
-	    pub payment_hash: Sha256,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub label: Option<String>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub shared_secrets: Option<Vec<Secret>>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub partid: Option<u16>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub bolt11: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub destination: Option<PublicKey>,
+	    pub bolt11: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub localinvreqid: Option<Sha256>,
+	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub destination: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub groupid: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub description: Option<String>,
+	    pub label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub localinvreqid: Option<Sha256>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub partid: Option<u16>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub shared_secrets: Option<Vec<Secret>>,
+	    pub first_hop: SendonionFirst_hop,
+	    pub onion: String,
+	    pub payment_hash: Sha256,
 	}
 
 	impl From<SendonionRequest> for Request {
@@ -892,6 +892,35 @@ pub mod requests {
 	        "sendonion"
 	    }
 	}
+	/// ['If neither bolt11 or payment_hash is specified, `index` controls ordering, by `created` (default) or `updated`.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum ListsendpaysIndex {
+	    #[serde(rename = "created")]
+	    CREATED = 0,
+	    #[serde(rename = "updated")]
+	    UPDATED = 1,
+	}
+
+	impl TryFrom<i32> for ListsendpaysIndex {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<ListsendpaysIndex, anyhow::Error> {
+	        match c {
+	    0 => Ok(ListsendpaysIndex::CREATED),
+	    1 => Ok(ListsendpaysIndex::UPDATED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListsendpaysIndex", o)),
+	        }
+	    }
+	}
+
+	impl ToString for ListsendpaysIndex {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListsendpaysIndex::CREATED => "CREATED",
+	            ListsendpaysIndex::UPDATED => "UPDATED",
+	        }.to_string()
+	    }
+	}
+
 	/// ['Whether the invoice has been paid, pending, or failed.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListsendpaysStatus {
@@ -925,49 +954,20 @@ pub mod requests {
 	    }
 	}
 
-	/// ['If neither bolt11 or payment_hash is specified, `index` controls ordering, by `created` (default) or `updated`.']
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-	pub enum ListsendpaysIndex {
-	    #[serde(rename = "created")]
-	    CREATED = 0,
-	    #[serde(rename = "updated")]
-	    UPDATED = 1,
-	}
-
-	impl TryFrom<i32> for ListsendpaysIndex {
-	    type Error = anyhow::Error;
-	    fn try_from(c: i32) -> Result<ListsendpaysIndex, anyhow::Error> {
-	        match c {
-	    0 => Ok(ListsendpaysIndex::CREATED),
-	    1 => Ok(ListsendpaysIndex::UPDATED),
-	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListsendpaysIndex", o)),
-	        }
-	    }
-	}
-
-	impl ToString for ListsendpaysIndex {
-	    fn to_string(&self) -> String {
-	        match self {
-	            ListsendpaysIndex::CREATED => "CREATED",
-	            ListsendpaysIndex::UPDATED => "UPDATED",
-	        }.to_string()
-	    }
-	}
-
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListsendpaysRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt11: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub payment_hash: Option<Sha256>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub status: Option<ListsendpaysStatus>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub index: Option<ListsendpaysIndex>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub limit: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_hash: Option<Sha256>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub start: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub limit: Option<u32>,
+	    pub status: Option<ListsendpaysStatus>,
 	}
 
 	impl From<ListsendpaysRequest> for Request {
@@ -1010,31 +1010,31 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct PayRequest {
-	    pub bolt11: String,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub label: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub riskfactor: Option<f64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub maxfeepercent: Option<f64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub retry_for: Option<u16>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub maxdelay: Option<u16>,
+	    pub description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub exemptfee: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub localinvreqid: Option<String>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub exclude: Option<Vec<String>>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maxdelay: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub maxfee: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub description: Option<String>,
+	    pub maxfeepercent: Option<f64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub partial_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub retry_for: Option<u16>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub riskfactor: Option<f64>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub exclude: Option<Vec<String>>,
+	    pub bolt11: String,
 	}
 
 	impl From<PayRequest> for Request {
@@ -1126,13 +1126,13 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitsendpayRequest {
-	    pub payment_hash: Sha256,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub timeout: Option<u32>,
+	    pub groupid: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub partid: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub groupid: Option<u64>,
+	    pub timeout: Option<u32>,
+	    pub payment_hash: Sha256,
 	}
 
 	impl From<WaitsendpayRequest> for Request {
@@ -1157,10 +1157,10 @@ pub mod requests {
 	pub enum NewaddrAddresstype {
 	    #[serde(rename = "bech32")]
 	    BECH32 = 0,
-	    #[serde(rename = "p2tr")]
-	    P2TR = 3,
 	    #[serde(rename = "all")]
 	    ALL = 2,
+	    #[serde(rename = "p2tr")]
+	    P2TR = 3,
 	}
 
 	impl TryFrom<i32> for NewaddrAddresstype {
@@ -1168,8 +1168,8 @@ pub mod requests {
 	    fn try_from(c: i32) -> Result<NewaddrAddresstype, anyhow::Error> {
 	        match c {
 	    0 => Ok(NewaddrAddresstype::BECH32),
-	    3 => Ok(NewaddrAddresstype::P2TR),
 	    2 => Ok(NewaddrAddresstype::ALL),
+	    3 => Ok(NewaddrAddresstype::P2TR),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum NewaddrAddresstype", o)),
 	        }
 	    }
@@ -1210,14 +1210,14 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WithdrawRequest {
-	    pub destination: String,
-	    pub satoshi: AmountOrAll,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub feerate: Option<Feerate>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub minconf: Option<u16>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub utxos: Option<Vec<Outpoint>>,
+	    pub destination: String,
+	    pub satoshi: AmountOrAll,
 	}
 
 	impl From<WithdrawRequest> for Request {
@@ -1239,22 +1239,22 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct KeysendRequest {
-	    pub destination: PublicKey,
-	    pub amount_msat: Amount,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub exemptfee: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub extratlvs: Option<TlvStream>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maxdelay: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub maxfeepercent: Option<f64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub retry_for: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub maxdelay: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub exemptfee: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub routehints: Option<RoutehintList>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub extratlvs: Option<TlvStream>,
+	    pub amount_msat: Amount,
+	    pub destination: PublicKey,
 	}
 
 	impl From<KeysendRequest> for Request {
@@ -1276,23 +1276,23 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FundpsbtRequest {
-	    pub satoshi: AmountOrAll,
-	    pub feerate: Feerate,
-	    pub startweight: u32,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub minconf: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub reserve: Option<u32>,
+	    pub excess_as_change: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub locktime: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub min_witness_weight: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub excess_as_change: Option<bool>,
+	    pub minconf: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub nonwrapped: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub opening_anchor_channel: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub reserve: Option<u32>,
+	    pub feerate: Feerate,
+	    pub satoshi: AmountOrAll,
+	    pub startweight: u32,
 	}
 
 	impl From<FundpsbtRequest> for Request {
@@ -1314,9 +1314,9 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendpsbtRequest {
-	    pub psbt: String,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub reserve: Option<u32>,
+	    pub psbt: String,
 	}
 
 	impl From<SendpsbtRequest> for Request {
@@ -1338,9 +1338,9 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SignpsbtRequest {
-	    pub psbt: String,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub signonly: Option<Vec<u32>>,
+	    pub psbt: String,
 	}
 
 	impl From<SignpsbtRequest> for Request {
@@ -1362,22 +1362,22 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct UtxopsbtRequest {
-	    pub satoshi: AmountOrAll,
-	    pub feerate: Feerate,
-	    pub startweight: u32,
-	    pub utxos: Vec<Outpoint>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub reserve: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub reservedok: Option<bool>,
+	    pub excess_as_change: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub locktime: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub min_witness_weight: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub excess_as_change: Option<bool>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub opening_anchor_channel: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub reserve: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub reservedok: Option<bool>,
+	    pub feerate: Feerate,
+	    pub satoshi: AmountOrAll,
+	    pub startweight: u32,
+	    pub utxos: Vec<Outpoint>,
 	}
 
 	impl From<UtxopsbtRequest> for Request {
@@ -1421,13 +1421,13 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct TxprepareRequest {
-	    pub outputs: Vec<OutputDesc>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub feerate: Option<Feerate>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub minconf: Option<u32>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub utxos: Option<Vec<Outpoint>>,
+	    pub outputs: Vec<OutputDesc>,
 	}
 
 	impl From<TxprepareRequest> for Request {
@@ -1517,9 +1517,9 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DecodepayRequest {
-	    pub bolt11: String,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub description: Option<String>,
+	    pub bolt11: String,
 	}
 
 	impl From<DecodepayRequest> for Request {
@@ -1563,9 +1563,9 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DisconnectRequest {
-	    pub id: PublicKey,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub force: Option<bool>,
+	    pub id: PublicKey,
 	}
 
 	impl From<DisconnectRequest> for Request {
@@ -1639,21 +1639,21 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FetchinvoiceRequest {
-	    pub offer: String,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payer_note: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub quantity: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub recurrence_counter: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub recurrence_start: Option<f64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub recurrence_label: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub timeout: Option<f64>,
+	    pub recurrence_start: Option<f64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub payer_note: Option<String>,
+	    pub timeout: Option<f64>,
+	    pub offer: String,
 	}
 
 	impl From<FetchinvoiceRequest> for Request {
@@ -1675,30 +1675,30 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FundchannelRequest {
-	    pub id: PublicKey,
-	    pub amount: AmountOrAll,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub feerate: Option<Feerate>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub announce: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub close_to: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub compact_lease: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub feerate: Option<Feerate>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub minconf: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub mindepth: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub push_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub close_to: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub request_amt: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub compact_lease: Option<String>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub utxos: Option<Vec<Outpoint>>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub mindepth: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub reserve: Option<Amount>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub channel_type: Option<Vec<u32>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub utxos: Option<Vec<Outpoint>>,
+	    pub amount: AmountOrAll,
+	    pub id: PublicKey,
 	}
 
 	impl From<FundchannelRequest> for Request {
@@ -1720,19 +1720,19 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetrouteRequest {
-	    pub id: PublicKey,
-	    pub amount_msat: Amount,
-	    pub riskfactor: u64,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub cltv: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fromid: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fuzzpercent: Option<u32>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub exclude: Option<Vec<String>>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub maxhops: Option<u32>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub exclude: Option<Vec<String>>,
+	    pub amount_msat: Amount,
+	    pub id: PublicKey,
+	    pub riskfactor: u64,
 	}
 
 	impl From<GetrouteRequest> for Request {
@@ -1752,6 +1752,35 @@ pub mod requests {
 	        "getroute"
 	    }
 	}
+	/// ['If neither *in_channel* nor *out_channel* is specified, it controls ordering.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum ListforwardsIndex {
+	    #[serde(rename = "created")]
+	    CREATED = 0,
+	    #[serde(rename = "updated")]
+	    UPDATED = 1,
+	}
+
+	impl TryFrom<i32> for ListforwardsIndex {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<ListforwardsIndex, anyhow::Error> {
+	        match c {
+	    0 => Ok(ListforwardsIndex::CREATED),
+	    1 => Ok(ListforwardsIndex::UPDATED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListforwardsIndex", o)),
+	        }
+	    }
+	}
+
+	impl ToString for ListforwardsIndex {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListforwardsIndex::CREATED => "CREATED",
+	            ListforwardsIndex::UPDATED => "UPDATED",
+	        }.to_string()
+	    }
+	}
+
 	/// ['If specified, then only the forwards with the given status are returned.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListforwardsStatus {
@@ -1789,49 +1818,20 @@ pub mod requests {
 	    }
 	}
 
-	/// ['If neither *in_channel* nor *out_channel* is specified, it controls ordering.']
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-	pub enum ListforwardsIndex {
-	    #[serde(rename = "created")]
-	    CREATED = 0,
-	    #[serde(rename = "updated")]
-	    UPDATED = 1,
-	}
-
-	impl TryFrom<i32> for ListforwardsIndex {
-	    type Error = anyhow::Error;
-	    fn try_from(c: i32) -> Result<ListforwardsIndex, anyhow::Error> {
-	        match c {
-	    0 => Ok(ListforwardsIndex::CREATED),
-	    1 => Ok(ListforwardsIndex::UPDATED),
-	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListforwardsIndex", o)),
-	        }
-	    }
-	}
-
-	impl ToString for ListforwardsIndex {
-	    fn to_string(&self) -> String {
-	        match self {
-	            ListforwardsIndex::CREATED => "CREATED",
-	            ListforwardsIndex::UPDATED => "UPDATED",
-	        }.to_string()
-	    }
-	}
-
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListforwardsRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub status: Option<ListforwardsStatus>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub in_channel: Option<ShortChannelId>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub out_channel: Option<ShortChannelId>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub index: Option<ListforwardsIndex>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub limit: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub out_channel: Option<ShortChannelId>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub start: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub limit: Option<u32>,
+	    pub status: Option<ListforwardsStatus>,
 	}
 
 	impl From<ListforwardsRequest> for Request {
@@ -1854,9 +1854,9 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListoffersRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub offer_id: Option<Sha256>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub active_only: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offer_id: Option<Sha256>,
 	}
 
 	impl From<ListoffersRequest> for Request {
@@ -1961,37 +1961,37 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct MultifundchannelDestinations {
-	    pub id: String,
-	    pub amount: AmountOrAll,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub announce: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub push_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub close_to: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub request_amt: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub compact_lease: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub mindepth: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub push_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub request_amt: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub reserve: Option<Amount>,
+	    pub amount: AmountOrAll,
+	    pub id: String,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct MultifundchannelRequest {
-	    pub destinations: Vec<MultifundchannelDestinations>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub commitment_feerate: Option<Feerate>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub feerate: Option<Feerate>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub minchannels: Option<i64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub minconf: Option<i64>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub utxos: Option<Vec<Outpoint>>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub minchannels: Option<i64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub commitment_feerate: Option<Feerate>,
+	    pub destinations: Vec<MultifundchannelDestinations>,
 	}
 
 	impl From<MultifundchannelRequest> for Request {
@@ -2013,8 +2013,8 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct OfferRequest {
-	    pub amount: String,
-	    pub description: String,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub absolute_expiry: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub issuer: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -2022,17 +2022,17 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub quantity_max: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub absolute_expiry: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub recurrence: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub recurrence_base: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub recurrence_paywindow: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub recurrence_limit: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub recurrence_paywindow: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub single_use: Option<bool>,
+	    pub amount: String,
+	    pub description: String,
 	}
 
 	impl From<OfferRequest> for Request {
@@ -2054,11 +2054,11 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct PingRequest {
-	    pub id: PublicKey,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub len: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub pongbytes: Option<u16>,
+	    pub id: PublicKey,
 	}
 
 	impl From<PingRequest> for Request {
@@ -2080,8 +2080,8 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendcustommsgRequest {
-	    pub node_id: PublicKey,
 	    pub msg: String,
+	    pub node_id: PublicKey,
 	}
 
 	impl From<SendcustommsgRequest> for Request {
@@ -2103,19 +2103,19 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SetchannelRequest {
-	    pub id: String,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub enforcedelay: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub feebase: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub feeppm: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub htlcmin: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub htlcmax: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub enforcedelay: Option<u32>,
+	    pub htlcmin: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub ignorefeelimits: Option<bool>,
+	    pub id: String,
 	}
 
 	impl From<SetchannelRequest> for Request {
@@ -2181,9 +2181,9 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitblockheightRequest {
-	    pub blockheight: u32,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub timeout: Option<u32>,
+	    pub blockheight: u32,
 	}
 
 	impl From<WaitblockheightRequest> for Request {
@@ -2203,39 +2203,6 @@ pub mod requests {
 	        "waitblockheight"
 	    }
 	}
-	/// ['The subsystem to get the next index value from.', '  `invoices`: corresponding to `listinvoices` (added in *v23.08*).', '  `sendpays`: corresponding to `listsendpays` (added in *v23.11*).', '  `forwards`: corresponding to `listforwards` (added in *v23.11*).']
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-	pub enum WaitSubsystem {
-	    #[serde(rename = "invoices")]
-	    INVOICES = 0,
-	    #[serde(rename = "forwards")]
-	    FORWARDS = 1,
-	    #[serde(rename = "sendpays")]
-	    SENDPAYS = 2,
-	}
-
-	impl TryFrom<i32> for WaitSubsystem {
-	    type Error = anyhow::Error;
-	    fn try_from(c: i32) -> Result<WaitSubsystem, anyhow::Error> {
-	        match c {
-	    0 => Ok(WaitSubsystem::INVOICES),
-	    1 => Ok(WaitSubsystem::FORWARDS),
-	    2 => Ok(WaitSubsystem::SENDPAYS),
-	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitSubsystem", o)),
-	        }
-	    }
-	}
-
-	impl ToString for WaitSubsystem {
-	    fn to_string(&self) -> String {
-	        match self {
-	            WaitSubsystem::INVOICES => "INVOICES",
-	            WaitSubsystem::FORWARDS => "FORWARDS",
-	            WaitSubsystem::SENDPAYS => "SENDPAYS",
-	        }.to_string()
-	    }
-	}
-
 	/// ['The name of the index to get the next value for.', '  `created` is incremented by one for every new object.', '  `updated` is incremented by one every time an object is changed.', '  `deleted` is incremented by one every time an object is deleted.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum WaitIndexname {
@@ -2269,12 +2236,45 @@ pub mod requests {
 	    }
 	}
 
+	/// ['The subsystem to get the next index value from.', '  `invoices`: corresponding to `listinvoices` (added in *v23.08*).', '  `sendpays`: corresponding to `listsendpays` (added in *v23.11*).', '  `forwards`: corresponding to `listforwards` (added in *v23.11*).']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum WaitSubsystem {
+	    #[serde(rename = "invoices")]
+	    INVOICES = 0,
+	    #[serde(rename = "forwards")]
+	    FORWARDS = 1,
+	    #[serde(rename = "sendpays")]
+	    SENDPAYS = 2,
+	}
+
+	impl TryFrom<i32> for WaitSubsystem {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<WaitSubsystem, anyhow::Error> {
+	        match c {
+	    0 => Ok(WaitSubsystem::INVOICES),
+	    1 => Ok(WaitSubsystem::FORWARDS),
+	    2 => Ok(WaitSubsystem::SENDPAYS),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitSubsystem", o)),
+	        }
+	    }
+	}
+
+	impl ToString for WaitSubsystem {
+	    fn to_string(&self) -> String {
+	        match self {
+	            WaitSubsystem::INVOICES => "INVOICES",
+	            WaitSubsystem::FORWARDS => "FORWARDS",
+	            WaitSubsystem::SENDPAYS => "SENDPAYS",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitRequest {
-	    // Path `Wait.subsystem`
-	    pub subsystem: WaitSubsystem,
 	    // Path `Wait.indexname`
 	    pub indexname: WaitIndexname,
+	    // Path `Wait.subsystem`
+	    pub subsystem: WaitSubsystem,
 	    pub nextvalue: u64,
 	}
 
@@ -2319,11 +2319,11 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct PreapprovekeysendRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub destination: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_hash: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub amount_msat: Option<Amount>,
 	}
 
 	impl From<PreapprovekeysendRequest> for Request {
@@ -2392,9 +2392,9 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub consolidate_fees: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub start_time: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub end_time: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub start_time: Option<u32>,
 	}
 
 	impl From<BkprlistincomeRequest> for Request {
@@ -2426,10 +2426,10 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetinfoOur_features {
-	    pub init: String,
-	    pub node: String,
 	    pub channel: String,
+	    pub init: String,
 	    pub invoice: String,
+	    pub node: String,
 	}
 
 	/// ['Type of connection (until 23.08, `websocket` was also allowed).']
@@ -2475,12 +2475,12 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetinfoAddress {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub address: Option<String>,
 	    // Path `Getinfo.address[].type`
 	    #[serde(rename = "type")]
 	    pub item_type: GetinfoAddressType,
 	    pub port: u16,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub address: Option<String>,
 	}
 
 	/// ['Type of connection.']
@@ -2488,8 +2488,6 @@ pub mod responses {
 	pub enum GetinfoBindingType {
 	    #[serde(rename = "local socket")]
 	    LOCAL_SOCKET = 0,
-	    #[serde(rename = "websocket")]
-	    WEBSOCKET = 5,
 	    #[serde(rename = "ipv4")]
 	    IPV4 = 1,
 	    #[serde(rename = "ipv6")]
@@ -2498,6 +2496,8 @@ pub mod responses {
 	    TORV2 = 3,
 	    #[serde(rename = "torv3")]
 	    TORV3 = 4,
+	    #[serde(rename = "websocket")]
+	    WEBSOCKET = 5,
 	}
 
 	impl TryFrom<i32> for GetinfoBindingType {
@@ -2505,11 +2505,11 @@ pub mod responses {
 	    fn try_from(c: i32) -> Result<GetinfoBindingType, anyhow::Error> {
 	        match c {
 	    0 => Ok(GetinfoBindingType::LOCAL_SOCKET),
-	    5 => Ok(GetinfoBindingType::WEBSOCKET),
 	    1 => Ok(GetinfoBindingType::IPV4),
 	    2 => Ok(GetinfoBindingType::IPV6),
 	    3 => Ok(GetinfoBindingType::TORV2),
 	    4 => Ok(GetinfoBindingType::TORV3),
+	    5 => Ok(GetinfoBindingType::WEBSOCKET),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum GetinfoBindingType", o)),
 	        }
 	    }
@@ -2530,43 +2530,45 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetinfoBinding {
-	    // Path `Getinfo.binding[].type`
-	    #[serde(rename = "type")]
-	    pub item_type: GetinfoBindingType,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub address: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub port: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub socket: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub subtype: Option<String>,
+	    // Path `Getinfo.binding[].type`
+	    #[serde(rename = "type")]
+	    pub item_type: GetinfoBindingType,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetinfoResponse {
-	    pub id: PublicKey,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub alias: Option<String>,
-	    pub color: String,
-	    pub num_peers: u32,
-	    pub num_pending_channels: u32,
-	    pub num_active_channels: u32,
-	    pub num_inactive_channels: u32,
-	    pub version: String,
 	    #[serde(rename = "lightning-dir")]
 	    pub lightning_dir: String,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub alias: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub our_features: Option<GetinfoOur_features>,
-	    pub blockheight: u32,
-	    pub network: String,
-	    pub fees_collected_msat: Amount,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub address: Option<Vec<GetinfoAddress>>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub binding: Option<Vec<GetinfoBinding>>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_bitcoind_sync: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_lightningd_sync: Option<String>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub address: Option<Vec<GetinfoAddress>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub binding: Option<Vec<GetinfoBinding>>,
+	    pub blockheight: u32,
+	    pub color: String,
+	    pub fees_collected_msat: Amount,
+	    pub id: PublicKey,
+	    pub network: String,
+	    pub num_active_channels: u32,
+	    pub num_inactive_channels: u32,
+	    pub num_peers: u32,
+	    pub num_pending_channels: u32,
+	    pub version: String,
 	}
 
 	impl TryFrom<Response> for GetinfoResponse {
@@ -2630,37 +2632,37 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeersPeersLog {
-	    // Path `ListPeers.peers[].log[].type`
-	    #[serde(rename = "type")]
-	    pub item_type: ListpeersPeersLogType,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub num_skipped: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub time: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub source: Option<String>,
+	    pub data: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub log: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub node_id: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub data: Option<String>,
+	    pub num_skipped: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub source: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub time: Option<String>,
+	    // Path `ListPeers.peers[].log[].type`
+	    #[serde(rename = "type")]
+	    pub item_type: ListpeersPeersLogType,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeersPeers {
-	    pub id: PublicKey,
-	    pub connected: bool,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub features: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub num_channels: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub remote_addr: Option<String>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub log: Option<Vec<ListpeersPeersLog>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub netaddr: Option<Vec<String>>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub remote_addr: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub features: Option<String>,
+	    pub connected: bool,
+	    pub id: PublicKey,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2677,6 +2679,22 @@ pub mod responses {
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListfundsChannels {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub channel_id: Option<Sha256>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub short_channel_id: Option<ShortChannelId>,
+	    // Path `ListFunds.channels[].state`
+	    pub state: ChannelState,
+	    pub amount_msat: Amount,
+	    pub connected: bool,
+	    pub funding_output: u32,
+	    pub funding_txid: String,
+	    pub our_amount_msat: Amount,
+	    pub peer_id: PublicKey,
 	}
 
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -2717,41 +2735,27 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListfundsOutputs {
-	    pub txid: String,
-	    pub output: u32,
-	    pub amount_msat: Amount,
-	    pub scriptpubkey: String,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub address: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub blockheight: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub redeemscript: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub reserved_to_block: Option<u32>,
 	    // Path `ListFunds.outputs[].status`
 	    pub status: ListfundsOutputsStatus,
-	    pub reserved: bool,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub blockheight: Option<u32>,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct ListfundsChannels {
-	    pub peer_id: PublicKey,
-	    pub our_amount_msat: Amount,
 	    pub amount_msat: Amount,
-	    pub funding_txid: String,
-	    pub funding_output: u32,
-	    pub connected: bool,
-	    // Path `ListFunds.channels[].state`
-	    pub state: ChannelState,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub channel_id: Option<Sha256>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub short_channel_id: Option<ShortChannelId>,
+	    pub output: u32,
+	    pub reserved: bool,
+	    pub scriptpubkey: String,
+	    pub txid: String,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListfundsResponse {
-	    pub outputs: Vec<ListfundsOutputs>,
 	    pub channels: Vec<ListfundsChannels>,
+	    pub outputs: Vec<ListfundsOutputs>,
 	}
 
 	impl TryFrom<Response> for ListfundsResponse {
@@ -2797,35 +2801,35 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendpayResponse {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub created_index: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub updated_index: Option<u64>,
-	    pub id: u64,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub groupid: Option<u64>,
-	    pub payment_hash: Sha256,
-	    // Path `SendPay.status`
-	    pub status: SendpayStatus,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub destination: Option<PublicKey>,
-	    pub created_at: u64,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub completed_at: Option<u64>,
-	    pub amount_sent_msat: Amount,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub label: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub partid: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt11: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub payment_preimage: Option<Secret>,
+	    pub completed_at: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub destination: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub groupid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub message: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub partid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_preimage: Option<Secret>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
+	    // Path `SendPay.status`
+	    pub status: SendpayStatus,
+	    pub amount_sent_msat: Amount,
+	    pub created_at: u64,
+	    pub id: u64,
+	    pub payment_hash: Sha256,
 	}
 
 	impl TryFrom<Response> for SendpayResponse {
@@ -2841,23 +2845,23 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListchannelsChannels {
-	    pub source: PublicKey,
-	    pub destination: PublicKey,
-	    pub short_channel_id: ShortChannelId,
-	    pub direction: u32,
-	    pub public: bool,
-	    pub amount_msat: Amount,
-	    pub message_flags: u8,
-	    pub channel_flags: u8,
-	    pub active: bool,
-	    pub last_update: u32,
-	    pub base_fee_millisatoshi: u32,
-	    pub fee_per_millionth: u32,
-	    pub delay: u32,
-	    pub htlc_minimum_msat: Amount,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub htlc_maximum_msat: Option<Amount>,
+	    pub active: bool,
+	    pub amount_msat: Amount,
+	    pub base_fee_millisatoshi: u32,
+	    pub channel_flags: u8,
+	    pub delay: u32,
+	    pub destination: PublicKey,
+	    pub direction: u32,
 	    pub features: String,
+	    pub fee_per_millionth: u32,
+	    pub htlc_minimum_msat: Amount,
+	    pub last_update: u32,
+	    pub message_flags: u8,
+	    pub public: bool,
+	    pub short_channel_id: ShortChannelId,
+	    pub source: PublicKey,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2893,11 +2897,11 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AutocleaninvoiceResponse {
-	    pub enabled: bool,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub expired_by: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub cycle_seconds: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub expired_by: Option<u64>,
+	    pub enabled: bool,
 	}
 
 	impl TryFrom<Response> for AutocleaninvoiceResponse {
@@ -2913,8 +2917,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct CheckmessageResponse {
-	    pub verified: bool,
 	    pub pubkey: PublicKey,
+	    pub verified: bool,
 	}
 
 	impl TryFrom<Response> for CheckmessageResponse {
@@ -2963,13 +2967,13 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct CloseResponse {
-	    // Path `Close.type`
-	    #[serde(rename = "type")]
-	    pub item_type: CloseType,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub tx: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub txid: Option<String>,
+	    // Path `Close.type`
+	    #[serde(rename = "type")]
+	    pub item_type: CloseType,
 	}
 
 	impl TryFrom<Response> for CloseResponse {
@@ -3055,24 +3059,24 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ConnectAddress {
-	    // Path `Connect.address.type`
-	    #[serde(rename = "type")]
-	    pub item_type: ConnectAddressType,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub socket: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub address: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub port: Option<u16>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub socket: Option<String>,
+	    // Path `Connect.address.type`
+	    #[serde(rename = "type")]
+	    pub item_type: ConnectAddressType,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ConnectResponse {
-	    pub id: PublicKey,
-	    pub features: String,
 	    // Path `Connect.direction`
 	    pub direction: ConnectDirection,
 	    pub address: ConnectAddress,
+	    pub features: String,
+	    pub id: PublicKey,
 	}
 
 	impl TryFrom<Response> for ConnectResponse {
@@ -3084,6 +3088,14 @@ pub mod responses {
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CreateinvoicePaid_outpoint {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub outnum: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub txid: Option<String>,
 	}
 
 	/// ['Whether it has been paid, or can no longer be paid.']
@@ -3120,43 +3132,35 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct CreateinvoicePaid_outpoint {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub txid: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub outnum: Option<u32>,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct CreateinvoiceResponse {
-	    pub label: String,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_received_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt11: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
-	    pub payment_hash: Sha256,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub amount_msat: Option<Amount>,
-	    // Path `CreateInvoice.status`
-	    pub status: CreateinvoiceStatus,
-	    pub description: String,
-	    pub expires_at: u64,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub created_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub pay_index: Option<u64>,
+	    pub invreq_payer_note: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub amount_received_msat: Option<Amount>,
+	    pub local_offer_id: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub paid_at: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub paid_outpoint: Option<CreateinvoicePaid_outpoint>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub pay_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_preimage: Option<Secret>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub local_offer_id: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub invreq_payer_note: Option<String>,
+	    // Path `CreateInvoice.status`
+	    pub status: CreateinvoiceStatus,
+	    pub description: String,
+	    pub expires_at: u64,
+	    pub label: String,
+	    pub payment_hash: Sha256,
 	}
 
 	impl TryFrom<Response> for CreateinvoiceResponse {
@@ -3172,13 +3176,13 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DatastoreResponse {
-	    pub key: Vec<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub generation: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub hex: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub string: Option<String>,
+	    pub key: Vec<String>,
 	}
 
 	impl TryFrom<Response> for DatastoreResponse {
@@ -3236,13 +3240,13 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DeldatastoreResponse {
-	    pub key: Vec<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub generation: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub hex: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub string: Option<String>,
+	    pub key: Vec<String>,
 	}
 
 	impl TryFrom<Response> for DeldatastoreResponse {
@@ -3291,27 +3295,35 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DelinvoiceResponse {
-	    pub label: String,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_received_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt11: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub amount_msat: Option<Amount>,
+	    pub created_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub description: Option<String>,
-	    pub payment_hash: Sha256,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub created_index: Option<u64>,
+	    pub invreq_payer_note: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub local_offer_id: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub paid_at: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub pay_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_preimage: Option<Secret>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub updated_index: Option<u64>,
 	    // Path `DelInvoice.status`
 	    pub status: DelinvoiceStatus,
 	    pub expires_at: u64,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub local_offer_id: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub invreq_payer_note: Option<String>,
+	    pub label: String,
+	    pub payment_hash: Sha256,
 	}
 
 	impl TryFrom<Response> for DelinvoiceResponse {
@@ -3327,22 +3339,22 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct InvoiceResponse {
-	    pub bolt11: String,
-	    pub payment_hash: Sha256,
-	    pub payment_secret: Secret,
-	    pub expires_at: u64,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub created_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_capacity: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_offline: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_deadends: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_private_unused: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_mpp: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_offline: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_private_unused: Option<String>,
+	    pub bolt11: String,
+	    pub expires_at: u64,
+	    pub payment_hash: Sha256,
+	    pub payment_secret: Secret,
 	}
 
 	impl TryFrom<Response> for InvoiceResponse {
@@ -3358,13 +3370,13 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListdatastoreDatastore {
-	    pub key: Vec<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub generation: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub hex: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub string: Option<String>,
+	    pub key: Vec<String>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3381,6 +3393,14 @@ pub mod responses {
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListinvoicesInvoicesPaid_outpoint {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub outnum: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub txid: Option<String>,
 	}
 
 	/// ["Whether it's paid, unpaid or unpayable."]
@@ -3417,46 +3437,38 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct ListinvoicesInvoicesPaid_outpoint {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub txid: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub outnum: Option<u32>,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListinvoicesInvoices {
-	    pub label: String,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub description: Option<String>,
-	    pub payment_hash: Sha256,
-	    // Path `ListInvoices.invoices[].status`
-	    pub status: ListinvoicesInvoicesStatus,
-	    pub expires_at: u64,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_received_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt11: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub local_offer_id: Option<Sha256>,
+	    pub created_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub invreq_payer_note: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub created_index: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub updated_index: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub pay_index: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub amount_received_msat: Option<Amount>,
+	    pub local_offer_id: Option<Sha256>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub paid_at: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub paid_outpoint: Option<ListinvoicesInvoicesPaid_outpoint>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub pay_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_preimage: Option<Secret>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
+	    // Path `ListInvoices.invoices[].status`
+	    pub status: ListinvoicesInvoicesStatus,
+	    pub expires_at: u64,
+	    pub label: String,
+	    pub payment_hash: Sha256,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3507,31 +3519,31 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendonionResponse {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub created_index: Option<u64>,
-	    pub id: u64,
-	    pub payment_hash: Sha256,
-	    // Path `SendOnion.status`
-	    pub status: SendonionStatus,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub destination: Option<PublicKey>,
-	    pub created_at: u64,
-	    pub amount_sent_msat: Amount,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub label: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt11: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub partid: Option<u64>,
+	    pub created_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub updated_index: Option<u64>,
+	    pub destination: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub message: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub partid: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_preimage: Option<Secret>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub message: Option<String>,
+	    pub updated_index: Option<u64>,
+	    // Path `SendOnion.status`
+	    pub status: SendonionStatus,
+	    pub amount_sent_msat: Amount,
+	    pub created_at: u64,
+	    pub id: u64,
+	    pub payment_hash: Sha256,
 	}
 
 	impl TryFrom<Response> for SendonionResponse {
@@ -3581,36 +3593,36 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListsendpaysPayments {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub created_index: Option<u64>,
-	    pub id: u64,
-	    pub groupid: u64,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub partid: Option<u64>,
-	    pub payment_hash: Sha256,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub updated_index: Option<u64>,
-	    // Path `ListSendPays.payments[].status`
-	    pub status: ListsendpaysPaymentsStatus,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub destination: Option<PublicKey>,
-	    pub created_at: u64,
-	    pub amount_sent_msat: Amount,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub label: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt11: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub completed_at: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub payment_preimage: Option<Secret>,
+	    pub created_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub destination: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub erroronion: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub partid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_preimage: Option<Secret>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
+	    // Path `ListSendPays.payments[].status`
+	    pub status: ListsendpaysPaymentsStatus,
+	    pub amount_sent_msat: Amount,
+	    pub created_at: u64,
+	    pub groupid: u64,
+	    pub id: u64,
+	    pub payment_hash: Sha256,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3631,29 +3643,29 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListtransactionsTransactionsInputs {
-	    pub txid: String,
 	    pub index: u32,
 	    pub sequence: u32,
+	    pub txid: String,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListtransactionsTransactionsOutputs {
-	    pub index: u32,
-	    pub amount_msat: Amount,
 	    #[serde(rename = "scriptPubKey")]
 	    pub script_pub_key: String,
+	    pub amount_msat: Amount,
+	    pub index: u32,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListtransactionsTransactions {
-	    pub hash: String,
-	    pub rawtx: String,
 	    pub blockheight: u32,
-	    pub txindex: u32,
-	    pub locktime: u32,
-	    pub version: u32,
+	    pub hash: String,
 	    pub inputs: Vec<ListtransactionsTransactionsInputs>,
+	    pub locktime: u32,
 	    pub outputs: Vec<ListtransactionsTransactionsOutputs>,
+	    pub rawtx: String,
+	    pub txindex: u32,
+	    pub version: u32,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3707,18 +3719,18 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct PayResponse {
-	    pub payment_preimage: Secret,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub destination: Option<PublicKey>,
-	    pub payment_hash: Sha256,
-	    pub created_at: f64,
-	    pub parts: u32,
-	    pub amount_msat: Amount,
-	    pub amount_sent_msat: Amount,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_partial_completion: Option<String>,
 	    // Path `Pay.status`
 	    pub status: PayStatus,
+	    pub amount_msat: Amount,
+	    pub amount_sent_msat: Amount,
+	    pub created_at: f64,
+	    pub parts: u32,
+	    pub payment_hash: Sha256,
+	    pub payment_preimage: Secret,
 	}
 
 	impl TryFrom<Response> for PayResponse {
@@ -3730,6 +3742,16 @@ pub mod responses {
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListnodesNodesOption_will_fund {
+	    pub channel_fee_max_base_msat: Amount,
+	    pub channel_fee_max_proportional_thousandths: u32,
+	    pub compact_lease: String,
+	    pub funding_weight: u32,
+	    pub lease_fee_base_msat: Amount,
+	    pub lease_fee_basis: u32,
 	}
 
 	/// ['Type of connection (until 23.08, `websocket` was also allowed).']
@@ -3775,27 +3797,29 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListnodesNodesAddresses {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub address: Option<String>,
 	    // Path `ListNodes.nodes[].addresses[].type`
 	    #[serde(rename = "type")]
 	    pub item_type: ListnodesNodesAddressesType,
 	    pub port: u16,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub address: Option<String>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListnodesNodes {
-	    pub nodeid: PublicKey,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub last_timestamp: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub alias: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub color: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub features: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub last_timestamp: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub option_will_fund: Option<ListnodesNodesOption_will_fund>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub addresses: Option<Vec<ListnodesNodesAddresses>>,
+	    pub nodeid: PublicKey,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3812,6 +3836,14 @@ pub mod responses {
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct WaitanyinvoicePaid_outpoint {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub outnum: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub txid: Option<String>,
 	}
 
 	/// ["Whether it's paid or expired."]
@@ -3844,23 +3876,11 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct WaitanyinvoicePaid_outpoint {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub txid: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub outnum: Option<u32>,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitanyinvoiceResponse {
-	    pub label: String,
-	    pub description: String,
-	    pub payment_hash: Sha256,
-	    // Path `WaitAnyInvoice.status`
-	    pub status: WaitanyinvoiceStatus,
-	    pub expires_at: u64,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_received_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt11: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -3868,17 +3888,21 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub created_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub updated_index: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub pay_index: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub amount_received_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub paid_at: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub paid_outpoint: Option<WaitanyinvoicePaid_outpoint>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub pay_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_preimage: Option<Secret>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
+	    // Path `WaitAnyInvoice.status`
+	    pub status: WaitanyinvoiceStatus,
+	    pub description: String,
+	    pub expires_at: u64,
+	    pub label: String,
+	    pub payment_hash: Sha256,
 	}
 
 	impl TryFrom<Response> for WaitanyinvoiceResponse {
@@ -3890,6 +3914,14 @@ pub mod responses {
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct WaitinvoicePaid_outpoint {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub outnum: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub txid: Option<String>,
 	}
 
 	/// ["Whether it's paid or expired."]
@@ -3922,23 +3954,11 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct WaitinvoicePaid_outpoint {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub txid: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub outnum: Option<u32>,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitinvoiceResponse {
-	    pub label: String,
-	    pub description: String,
-	    pub payment_hash: Sha256,
-	    // Path `WaitInvoice.status`
-	    pub status: WaitinvoiceStatus,
-	    pub expires_at: u64,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_received_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt11: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -3946,17 +3966,21 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub created_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub updated_index: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub pay_index: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub amount_received_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub paid_at: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub paid_outpoint: Option<WaitinvoicePaid_outpoint>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub pay_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_preimage: Option<Secret>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
+	    // Path `WaitInvoice.status`
+	    pub status: WaitinvoiceStatus,
+	    pub description: String,
+	    pub expires_at: u64,
+	    pub label: String,
+	    pub payment_hash: Sha256,
 	}
 
 	impl TryFrom<Response> for WaitinvoiceResponse {
@@ -3998,33 +4022,33 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitsendpayResponse {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub created_index: Option<u64>,
-	    pub id: u64,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub groupid: Option<u64>,
-	    pub payment_hash: Sha256,
-	    // Path `WaitSendPay.status`
-	    pub status: WaitsendpayStatus,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub destination: Option<PublicKey>,
-	    pub created_at: u64,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub updated_index: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub completed_at: Option<f64>,
-	    pub amount_sent_msat: Amount,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub label: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub partid: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt11: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub completed_at: Option<f64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub destination: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub groupid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub partid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_preimage: Option<Secret>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
+	    // Path `WaitSendPay.status`
+	    pub status: WaitsendpayStatus,
+	    pub amount_sent_msat: Amount,
+	    pub created_at: u64,
+	    pub id: u64,
+	    pub payment_hash: Sha256,
 	}
 
 	impl TryFrom<Response> for WaitsendpayResponse {
@@ -4041,9 +4065,9 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct NewaddrResponse {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub p2tr: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bech32: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub p2tr: Option<String>,
 	}
 
 	impl TryFrom<Response> for NewaddrResponse {
@@ -4059,9 +4083,9 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WithdrawResponse {
+	    pub psbt: String,
 	    pub tx: String,
 	    pub txid: String,
-	    pub psbt: String,
 	}
 
 	impl TryFrom<Response> for WithdrawResponse {
@@ -4102,18 +4126,18 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct KeysendResponse {
-	    pub payment_preimage: Secret,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub destination: Option<PublicKey>,
-	    pub payment_hash: Sha256,
-	    pub created_at: f64,
-	    pub parts: u32,
-	    pub amount_msat: Amount,
-	    pub amount_sent_msat: Amount,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_partial_completion: Option<String>,
 	    // Path `KeySend.status`
 	    pub status: KeysendStatus,
+	    pub amount_msat: Amount,
+	    pub amount_sent_msat: Amount,
+	    pub created_at: f64,
+	    pub parts: u32,
+	    pub payment_hash: Sha256,
+	    pub payment_preimage: Secret,
 	}
 
 	impl TryFrom<Response> for KeysendResponse {
@@ -4129,23 +4153,23 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FundpsbtReservations {
+	    pub reserved: bool,
+	    pub reserved_to_block: u32,
 	    pub txid: String,
 	    pub vout: u32,
 	    pub was_reserved: bool,
-	    pub reserved: bool,
-	    pub reserved_to_block: u32,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FundpsbtResponse {
-	    pub psbt: String,
-	    pub feerate_per_kw: u32,
-	    pub estimated_final_weight: u32,
-	    pub excess_msat: Amount,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub change_outnum: Option<u32>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub reservations: Option<Vec<FundpsbtReservations>>,
+	    pub estimated_final_weight: u32,
+	    pub excess_msat: Amount,
+	    pub feerate_per_kw: u32,
+	    pub psbt: String,
 	}
 
 	impl TryFrom<Response> for FundpsbtResponse {
@@ -4194,23 +4218,23 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct UtxopsbtReservations {
+	    pub reserved: bool,
+	    pub reserved_to_block: u32,
 	    pub txid: String,
 	    pub vout: u32,
 	    pub was_reserved: bool,
-	    pub reserved: bool,
-	    pub reserved_to_block: u32,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct UtxopsbtResponse {
-	    pub psbt: String,
-	    pub feerate_per_kw: u32,
-	    pub estimated_final_weight: u32,
-	    pub excess_msat: Amount,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub change_outnum: Option<u32>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub reservations: Option<Vec<UtxopsbtReservations>>,
+	    pub estimated_final_weight: u32,
+	    pub excess_msat: Amount,
+	    pub feerate_per_kw: u32,
+	    pub psbt: String,
 	}
 
 	impl TryFrom<Response> for UtxopsbtResponse {
@@ -4226,8 +4250,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct TxdiscardResponse {
-	    pub unsigned_tx: String,
 	    pub txid: String,
+	    pub unsigned_tx: String,
 	}
 
 	impl TryFrom<Response> for TxdiscardResponse {
@@ -4244,8 +4268,8 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct TxprepareResponse {
 	    pub psbt: String,
-	    pub unsigned_tx: String,
 	    pub txid: String,
+	    pub unsigned_tx: String,
 	}
 
 	impl TryFrom<Response> for TxprepareResponse {
@@ -4275,6 +4299,36 @@ pub mod responses {
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListpeerchannelsChannelsAlias {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub local: Option<ShortChannelId>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub remote: Option<ShortChannelId>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListpeerchannelsChannelsFeerate {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub perkb: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub perkw: Option<u32>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListpeerchannelsChannelsFunding {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fee_paid_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fee_rcvd_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub local_funds_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub pushed_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub remote_funds_msat: Option<Amount>,
 	}
 
 	/// ['The channel state, in particular `CHANNELD_NORMAL` means the channel can be used normally.']
@@ -4357,29 +4411,29 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeerchannelsChannelsUpdatesLocal {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub htlc_minimum_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub htlc_maximum_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub cltv_expiry_delta: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fee_base_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fee_proportional_millionths: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_maximum_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_minimum_msat: Option<Amount>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeerchannelsChannelsUpdatesRemote {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub htlc_minimum_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub htlc_maximum_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub cltv_expiry_delta: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fee_base_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fee_proportional_millionths: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_maximum_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_minimum_msat: Option<Amount>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -4388,54 +4442,6 @@ pub mod responses {
 	    pub local: Option<ListpeerchannelsChannelsUpdatesLocal>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub remote: Option<ListpeerchannelsChannelsUpdatesRemote>,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct ListpeerchannelsChannelsFeerate {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub perkw: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub perkb: Option<u32>,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct ListpeerchannelsChannelsInflight {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub funding_txid: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub funding_outnum: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub feerate: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub total_funding_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub splice_amount: Option<i64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub our_funding_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub scratch_txid: Option<String>,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct ListpeerchannelsChannelsFunding {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub pushed_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub local_funds_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub remote_funds_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub fee_paid_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub fee_rcvd_msat: Option<Amount>,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct ListpeerchannelsChannelsAlias {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub local: Option<ShortChannelId>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub remote: Option<ShortChannelId>,
 	}
 
 	/// ['Whether it came from peer, or is going to peer.']
@@ -4470,135 +4476,157 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeerchannelsChannelsHtlcs {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub direction: Option<ListpeerchannelsChannelsHtlcsDirection>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub id: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub direction: Option<ListpeerchannelsChannelsHtlcsDirection>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub expiry: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub payment_hash: Option<Sha256>,
+	    pub id: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub local_trimmed: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub status: Option<String>,
+	    pub payment_hash: Option<Sha256>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub state: Option<HtlcState>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub status: Option<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListpeerchannelsChannelsInflight {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub feerate: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub funding_outnum: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub funding_txid: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub our_funding_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub scratch_txid: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub splice_amount: Option<i64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub total_funding_msat: Option<Amount>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeerchannelsChannels {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub peer_id: Option<PublicKey>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub peer_connected: Option<bool>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub reestablished: Option<bool>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub state: Option<ListpeerchannelsChannelsState>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub scratch_txid: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub updates: Option<ListpeerchannelsChannelsUpdates>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub ignore_fee_limits: Option<bool>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub lost_state: Option<bool>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub feerate: Option<ListpeerchannelsChannelsFeerate>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub owner: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub short_channel_id: Option<ShortChannelId>,
+	    pub alias: Option<ListpeerchannelsChannelsAlias>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub channel_id: Option<Sha256>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub funding_txid: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub funding_outnum: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub initial_feerate: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub last_feerate: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub next_feerate: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub next_fee_step: Option<u32>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub inflight: Option<Vec<ListpeerchannelsChannelsInflight>>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub close_to: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub private: Option<bool>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub opener: Option<ChannelSide>,
+	    pub close_to_addr: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub closer: Option<ChannelSide>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub funding: Option<ListpeerchannelsChannelsFunding>,
+	    pub direction: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub to_us_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub min_to_us_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub max_to_us_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub total_msat: Option<Amount>,
+	    pub dust_limit_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fee_base_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fee_proportional_millionths: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub dust_limit_msat: Option<Amount>,
+	    pub feerate: Option<ListpeerchannelsChannelsFeerate>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub max_total_htlc_in_msat: Option<Amount>,
+	    pub funding: Option<ListpeerchannelsChannelsFunding>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub their_reserve_msat: Option<Amount>,
+	    pub funding_outnum: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub our_reserve_msat: Option<Amount>,
+	    pub funding_txid: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub spendable_msat: Option<Amount>,
+	    pub ignore_fee_limits: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub receivable_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub minimum_htlc_in_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub minimum_htlc_out_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub maximum_htlc_out_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub their_to_self_delay: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub our_to_self_delay: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub max_accepted_htlcs: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub alias: Option<ListpeerchannelsChannelsAlias>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub status: Option<Vec<String>>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub in_payments_offered: Option<u64>,
+	    pub in_fulfilled_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub in_offered_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub in_payments_fulfilled: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub in_fulfilled_msat: Option<Amount>,
+	    pub in_payments_offered: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub out_payments_offered: Option<u64>,
+	    pub initial_feerate: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub last_feerate: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub last_stable_connection: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub last_tx_fee_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub lost_state: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub max_accepted_htlcs: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub max_to_us_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub max_total_htlc_in_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maximum_htlc_out_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub min_to_us_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub minimum_htlc_in_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub minimum_htlc_out_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub next_fee_step: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub next_feerate: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub opener: Option<ChannelSide>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub our_reserve_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub our_to_self_delay: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub out_fulfilled_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub out_offered_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub out_payments_fulfilled: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub out_fulfilled_msat: Option<Amount>,
+	    pub out_payments_offered: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub last_stable_connection: Option<u64>,
+	    pub owner: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub peer_connected: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub peer_id: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub private: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub receivable_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub reestablished: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub scratch_txid: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub short_channel_id: Option<ShortChannelId>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub spendable_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub state: Option<ListpeerchannelsChannelsState>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub their_reserve_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub their_to_self_delay: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub to_us_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub total_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updates: Option<ListpeerchannelsChannelsUpdates>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub htlcs: Option<Vec<ListpeerchannelsChannelsHtlcs>>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub close_to_addr: Option<String>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub inflight: Option<Vec<ListpeerchannelsChannelsInflight>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub status: Option<Vec<String>>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -4674,41 +4702,41 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListclosedchannelsClosedchannels {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub peer_id: Option<PublicKey>,
-	    pub channel_id: Sha256,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub short_channel_id: Option<ShortChannelId>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub alias: Option<ListclosedchannelsClosedchannelsAlias>,
-	    // Path `ListClosedChannels.closedchannels[].opener`
-	    pub opener: ChannelSide,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub closer: Option<ChannelSide>,
-	    pub private: bool,
-	    pub total_local_commitments: u64,
-	    pub total_remote_commitments: u64,
-	    pub total_htlcs_sent: u64,
-	    pub funding_txid: String,
-	    pub funding_outnum: u32,
-	    pub leased: bool,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub funding_fee_paid_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub funding_fee_rcvd_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub funding_pushed_msat: Option<Amount>,
-	    pub total_msat: Amount,
-	    pub final_to_us_msat: Amount,
-	    pub min_to_us_msat: Amount,
-	    pub max_to_us_msat: Amount,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub last_commitment_fee_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub last_commitment_txid: Option<Sha256>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub last_commitment_fee_msat: Option<Amount>,
+	    pub last_stable_connection: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub peer_id: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub short_channel_id: Option<ShortChannelId>,
 	    // Path `ListClosedChannels.closedchannels[].close_cause`
 	    pub close_cause: ListclosedchannelsClosedchannelsClose_cause,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub last_stable_connection: Option<u64>,
+	    // Path `ListClosedChannels.closedchannels[].opener`
+	    pub opener: ChannelSide,
+	    pub channel_id: Sha256,
+	    pub final_to_us_msat: Amount,
+	    pub funding_outnum: u32,
+	    pub funding_txid: String,
+	    pub leased: bool,
+	    pub max_to_us_msat: Amount,
+	    pub min_to_us_msat: Amount,
+	    pub private: bool,
+	    pub total_htlcs_sent: u64,
+	    pub total_local_commitments: u64,
+	    pub total_msat: Amount,
+	    pub total_remote_commitments: u64,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -4725,6 +4753,12 @@ pub mod responses {
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DecodepayExtra {
+	    pub data: String,
+	    pub tag: String,
 	}
 
 	/// ['The address type (if known).']
@@ -4770,45 +4804,39 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DecodepayFallbacks {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub addr: Option<String>,
 	    // Path `DecodePay.fallbacks[].type`
 	    #[serde(rename = "type")]
 	    pub item_type: DecodepayFallbacksType,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub addr: Option<String>,
 	    pub hex: String,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct DecodepayExtra {
-	    pub tag: String,
-	    pub data: String,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DecodepayResponse {
-	    pub currency: String,
-	    pub created_at: u64,
-	    pub expiry: u64,
-	    pub payee: PublicKey,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
-	    pub payment_hash: Sha256,
-	    pub signature: String,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub description_hash: Option<Sha256>,
-	    pub min_final_cltv_expiry: u32,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub payment_secret: Option<Sha256>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub features: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_metadata: Option<String>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub fallbacks: Option<Vec<DecodepayFallbacks>>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_secret: Option<Sha256>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub extra: Option<Vec<DecodepayExtra>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub fallbacks: Option<Vec<DecodepayFallbacks>>,
+	    pub created_at: u64,
+	    pub currency: String,
+	    pub expiry: u64,
+	    pub min_final_cltv_expiry: u32,
+	    pub payee: PublicKey,
+	    pub payment_hash: Sha256,
+	    pub signature: String,
 	}
 
 	impl TryFrom<Response> for DecodepayResponse {
@@ -4820,6 +4848,85 @@ pub mod responses {
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DecodeExtra {
+	    pub data: String,
+	    pub tag: String,
+	}
+
+	/// ['The address type (if known).']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum DecodeFallbacksType {
+	    #[serde(rename = "P2PKH")]
+	    P2PKH = 0,
+	    #[serde(rename = "P2SH")]
+	    P2SH = 1,
+	    #[serde(rename = "P2WPKH")]
+	    P2WPKH = 2,
+	    #[serde(rename = "P2WSH")]
+	    P2WSH = 3,
+	    #[serde(rename = "P2TR")]
+	    P2TR = 4,
+	}
+
+	impl TryFrom<i32> for DecodeFallbacksType {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<DecodeFallbacksType, anyhow::Error> {
+	        match c {
+	    0 => Ok(DecodeFallbacksType::P2PKH),
+	    1 => Ok(DecodeFallbacksType::P2SH),
+	    2 => Ok(DecodeFallbacksType::P2WPKH),
+	    3 => Ok(DecodeFallbacksType::P2WSH),
+	    4 => Ok(DecodeFallbacksType::P2TR),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum DecodeFallbacksType", o)),
+	        }
+	    }
+	}
+
+	impl ToString for DecodeFallbacksType {
+	    fn to_string(&self) -> String {
+	        match self {
+	            DecodeFallbacksType::P2PKH => "P2PKH",
+	            DecodeFallbacksType::P2SH => "P2SH",
+	            DecodeFallbacksType::P2WPKH => "P2WPKH",
+	            DecodeFallbacksType::P2WSH => "P2WSH",
+	            DecodeFallbacksType::P2TR => "P2TR",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DecodeFallbacks {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub addr: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_invoice_fallbacks_version_invalid: Option<String>,
+	    // Path `Decode.fallbacks[].type`
+	    #[serde(rename = "type")]
+	    pub item_type: DecodeFallbacksType,
+	    pub hex: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DecodeInvoice_fallbacks {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub address: Option<String>,
+	    pub hex: String,
+	    pub version: u8,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DecodeOffer_paths {
+	    pub blinding: PublicKey,
+	    pub first_node_id: PublicKey,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DecodeRestrictions {
+	    pub alternatives: Vec<String>,
+	    pub summary: String,
 	}
 
 	/// ['What kind of object it decoded to.']
@@ -4868,179 +4975,157 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct DecodeOffer_paths {
-	    pub first_node_id: PublicKey,
-	    pub blinding: PublicKey,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct DecodeInvoice_fallbacks {
-	    pub version: u8,
-	    pub hex: String,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub address: Option<String>,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct DecodeFallbacks {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_invoice_fallbacks_version_invalid: Option<String>,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct DecodeExtra {
-	    pub tag: String,
-	    pub data: String,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct DecodeRestrictions {
-	    pub alternatives: Vec<String>,
-	    pub summary: String,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DecodeResponse {
-	    // Path `Decode.type`
-	    #[serde(rename = "type")]
-	    pub item_type: DecodeType,
-	    pub valid: bool,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub offer_id: Option<String>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub offer_chains: Option<Vec<Sha256>>,
+	    pub amount_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub offer_metadata: Option<String>,
+	    pub created_at: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub offer_currency: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_unknown_offer_currency: Option<String>,
+	    pub currency: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub currency_minor_unit: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub offer_amount: Option<u64>,
+	    pub decrypted: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub offer_amount_msat: Option<Amount>,
+	    pub description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub offer_description: Option<String>,
+	    pub description_hash: Option<Sha256>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub offer_issuer: Option<String>,
+	    pub expiry: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub offer_features: Option<String>,
+	    pub features: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub offer_absolute_expiry: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub offer_quantity_max: Option<u64>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub offer_paths: Option<Vec<DecodeOffer_paths>>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub offer_node_id: Option<PublicKey>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_missing_offer_node_id: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_invalid_offer_description: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_missing_offer_description: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_invalid_offer_currency: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_invalid_offer_issuer: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub invreq_metadata: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub invreq_payer_id: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub invreq_chain: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub invreq_amount_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub invreq_features: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub invreq_quantity: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub invreq_payer_note: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub invreq_recurrence_counter: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub invreq_recurrence_start: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_missing_invreq_metadata: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_missing_invreq_payer_id: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_invalid_invreq_payer_note: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_missing_invoice_request_signature: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_invalid_invoice_request_signature: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub invoice_created_at: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub invoice_relative_expiry: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub invoice_payment_hash: Option<String>,
+	    pub hex: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub invoice_amount_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub invoice_fallbacks: Option<Vec<DecodeInvoice_fallbacks>>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub invoice_created_at: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub invoice_features: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub invoice_node_id: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub invoice_payment_hash: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub invoice_recurrence_basetime: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_missing_invoice_paths: Option<String>,
+	    pub invoice_relative_expiry: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_missing_invoice_blindedpay: Option<String>,
+	    pub invreq_amount_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_missing_invoice_created_at: Option<String>,
+	    pub invreq_chain: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_missing_invoice_payment_hash: Option<String>,
+	    pub invreq_features: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_missing_invoice_amount: Option<String>,
+	    pub invreq_metadata: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_missing_invoice_recurrence_basetime: Option<String>,
+	    pub invreq_payer_id: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_missing_invoice_node_id: Option<String>,
+	    pub invreq_payer_note: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_missing_invoice_signature: Option<String>,
+	    pub invreq_quantity: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_invalid_invoice_signature: Option<String>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub fallbacks: Option<Vec<DecodeFallbacks>>,
+	    pub invreq_recurrence_counter: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub created_at: Option<u64>,
+	    pub invreq_recurrence_start: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub expiry: Option<u64>,
+	    pub min_final_cltv_expiry: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offer_absolute_expiry: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offer_amount: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offer_amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offer_currency: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offer_description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offer_features: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offer_id: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offer_issuer: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offer_metadata: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offer_node_id: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offer_quantity_max: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payee: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_hash: Option<Sha256>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub description_hash: Option<Sha256>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub min_final_cltv_expiry: Option<u32>,
+	    pub payment_metadata: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_secret: Option<Secret>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub payment_metadata: Option<String>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub extra: Option<Vec<DecodeExtra>>,
+	    pub signature: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub string: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub unique_id: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub version: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub string: Option<String>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub restrictions: Option<Vec<DecodeRestrictions>>,
+	    pub warning_invalid_invoice_request_signature: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_invalid_invoice_signature: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_invalid_invreq_payer_note: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_invalid_offer_currency: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_invalid_offer_description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_invalid_offer_issuer: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_missing_invoice_amount: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_missing_invoice_blindedpay: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_missing_invoice_created_at: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_missing_invoice_node_id: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_missing_invoice_paths: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_missing_invoice_payment_hash: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_missing_invoice_recurrence_basetime: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_missing_invoice_request_signature: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_missing_invoice_signature: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_missing_invreq_metadata: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_missing_invreq_payer_id: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_missing_offer_description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_missing_offer_node_id: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_rune_invalid_utf8: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub hex: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub decrypted: Option<String>,
+	    pub warning_unknown_offer_currency: Option<String>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub extra: Option<Vec<DecodeExtra>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub fallbacks: Option<Vec<DecodeFallbacks>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub invoice_fallbacks: Option<Vec<DecodeInvoice_fallbacks>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub offer_chains: Option<Vec<Sha256>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub offer_paths: Option<Vec<DecodeOffer_paths>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub restrictions: Option<Vec<DecodeRestrictions>>,
+	    // Path `Decode.type`
+	    #[serde(rename = "type")]
+	    pub item_type: DecodeType,
+	    pub valid: bool,
 	}
 
 	impl TryFrom<Response> for DecodeResponse {
@@ -5070,6 +5155,17 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FeeratesOnchain_fee_estimates {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub unilateral_close_nonanchor_satoshis: Option<u64>,
+	    pub htlc_success_satoshis: u64,
+	    pub htlc_timeout_satoshis: u64,
+	    pub mutual_close_satoshis: u64,
+	    pub opening_channel_satoshis: u64,
+	    pub unilateral_close_satoshis: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FeeratesPerkbEstimates {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub blockcount: Option<u32>,
@@ -5081,20 +5177,6 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FeeratesPerkb {
-	    pub min_acceptable: u32,
-	    pub max_acceptable: u32,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub floor: Option<u32>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub estimates: Option<Vec<FeeratesPerkbEstimates>>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub opening: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub mutual_close: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub unilateral_close: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub unilateral_anchor_close: Option<u32>,
 	    #[deprecated]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub delayed_to_us: Option<u32>,
@@ -5102,7 +5184,21 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub htlc_resolution: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub floor: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub mutual_close: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub opening: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub penalty: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub unilateral_anchor_close: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub unilateral_close: Option<u32>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub estimates: Option<Vec<FeeratesPerkbEstimates>>,
+	    pub max_acceptable: u32,
+	    pub min_acceptable: u32,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -5117,20 +5213,6 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FeeratesPerkw {
-	    pub min_acceptable: u32,
-	    pub max_acceptable: u32,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub floor: Option<u32>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub estimates: Option<Vec<FeeratesPerkwEstimates>>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub opening: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub mutual_close: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub unilateral_close: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub unilateral_anchor_close: Option<u32>,
 	    #[deprecated]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub delayed_to_us: Option<u32>,
@@ -5138,30 +5220,33 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub htlc_resolution: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub penalty: Option<u32>,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct FeeratesOnchain_fee_estimates {
-	    pub opening_channel_satoshis: u64,
-	    pub mutual_close_satoshis: u64,
-	    pub unilateral_close_satoshis: u64,
+	    pub floor: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub unilateral_close_nonanchor_satoshis: Option<u64>,
-	    pub htlc_timeout_satoshis: u64,
-	    pub htlc_success_satoshis: u64,
+	    pub mutual_close: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub opening: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub penalty: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub unilateral_anchor_close: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub unilateral_close: Option<u32>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub estimates: Option<Vec<FeeratesPerkwEstimates>>,
+	    pub max_acceptable: u32,
+	    pub min_acceptable: u32,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FeeratesResponse {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_missing_feerates: Option<String>,
+	    pub onchain_fee_estimates: Option<FeeratesOnchain_fee_estimates>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub perkb: Option<FeeratesPerkb>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub perkw: Option<FeeratesPerkw>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub onchain_fee_estimates: Option<FeeratesOnchain_fee_estimates>,
+	    pub warning_missing_feerates: Option<String>,
 	}
 
 	impl TryFrom<Response> for FeeratesResponse {
@@ -5176,34 +5261,34 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct FetchinvoiceChanges {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub description_appended: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub description: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub vendor_removed: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub vendor: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub amount_msat: Option<Amount>,
+	pub struct FetchinvoiceNext_period {
+	    pub counter: u64,
+	    pub endtime: u64,
+	    pub paywindow_end: u64,
+	    pub paywindow_start: u64,
+	    pub starttime: u64,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct FetchinvoiceNext_period {
-	    pub counter: u64,
-	    pub starttime: u64,
-	    pub endtime: u64,
-	    pub paywindow_start: u64,
-	    pub paywindow_end: u64,
+	pub struct FetchinvoiceChanges {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description_appended: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub vendor: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub vendor_removed: Option<String>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FetchinvoiceResponse {
-	    pub invoice: String,
-	    pub changes: FetchinvoiceChanges,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub next_period: Option<FetchinvoiceNext_period>,
+	    pub changes: FetchinvoiceChanges,
+	    pub invoice: String,
 	}
 
 	impl TryFrom<Response> for FetchinvoiceResponse {
@@ -5227,16 +5312,16 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FundchannelResponse {
-	    pub tx: String,
-	    pub txid: String,
-	    pub outnum: u32,
-	    pub channel_id: Sha256,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub channel_type: Option<FundchannelChannel_type>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub close_to: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub mindepth: Option<u32>,
+	    pub channel_id: Sha256,
+	    pub outnum: u32,
+	    pub tx: String,
+	    pub txid: String,
 	}
 
 	impl TryFrom<Response> for FundchannelResponse {
@@ -5277,13 +5362,13 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetrouteRoute {
-	    pub id: PublicKey,
-	    pub channel: ShortChannelId,
-	    pub direction: u32,
-	    pub amount_msat: Amount,
-	    pub delay: u32,
 	    // Path `GetRoute.route[].style`
 	    pub style: GetrouteRouteStyle,
+	    pub amount_msat: Amount,
+	    pub channel: ShortChannelId,
+	    pub delay: u32,
+	    pub direction: u32,
+	    pub id: PublicKey,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -5299,6 +5384,35 @@ pub mod responses {
 	            Response::GetRoute(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
+	    }
+	}
+
+	/// ['Either a legacy onion format or a modern tlv format.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum ListforwardsForwardsStyle {
+	    #[serde(rename = "legacy")]
+	    LEGACY = 0,
+	    #[serde(rename = "tlv")]
+	    TLV = 1,
+	}
+
+	impl TryFrom<i32> for ListforwardsForwardsStyle {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<ListforwardsForwardsStyle, anyhow::Error> {
+	        match c {
+	    0 => Ok(ListforwardsForwardsStyle::LEGACY),
+	    1 => Ok(ListforwardsForwardsStyle::TLV),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListforwardsForwardsStyle", o)),
+	        }
+	    }
+	}
+
+	impl ToString for ListforwardsForwardsStyle {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListforwardsForwardsStyle::LEGACY => "LEGACY",
+	            ListforwardsForwardsStyle::TLV => "TLV",
+	        }.to_string()
 	    }
 	}
 
@@ -5339,58 +5453,35 @@ pub mod responses {
 	    }
 	}
 
-	/// ['Either a legacy onion format or a modern tlv format.']
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-	pub enum ListforwardsForwardsStyle {
-	    #[serde(rename = "legacy")]
-	    LEGACY = 0,
-	    #[serde(rename = "tlv")]
-	    TLV = 1,
-	}
-
-	impl TryFrom<i32> for ListforwardsForwardsStyle {
-	    type Error = anyhow::Error;
-	    fn try_from(c: i32) -> Result<ListforwardsForwardsStyle, anyhow::Error> {
-	        match c {
-	    0 => Ok(ListforwardsForwardsStyle::LEGACY),
-	    1 => Ok(ListforwardsForwardsStyle::TLV),
-	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListforwardsForwardsStyle", o)),
-	        }
-	    }
-	}
-
-	impl ToString for ListforwardsForwardsStyle {
-	    fn to_string(&self) -> String {
-	        match self {
-	            ListforwardsForwardsStyle::LEGACY => "LEGACY",
-	            ListforwardsForwardsStyle::TLV => "TLV",
-	        }.to_string()
-	    }
-	}
-
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListforwardsForwards {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub created_index: Option<u64>,
-	    pub in_channel: ShortChannelId,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub failcode: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub failreason: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fee_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub in_htlc_id: Option<u64>,
-	    pub in_msat: Amount,
-	    // Path `ListForwards.forwards[].status`
-	    pub status: ListforwardsForwardsStatus,
-	    pub received_time: f64,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub out_channel: Option<ShortChannelId>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub out_htlc_id: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub updated_index: Option<u64>,
+	    pub out_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub resolved_time: Option<f64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub style: Option<ListforwardsForwardsStyle>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub fee_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub out_msat: Option<Amount>,
+	    pub updated_index: Option<u64>,
+	    // Path `ListForwards.forwards[].status`
+	    pub status: ListforwardsForwardsStatus,
+	    pub in_channel: ShortChannelId,
+	    pub in_msat: Amount,
+	    pub received_time: f64,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -5411,13 +5502,13 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListoffersOffers {
-	    pub offer_id: Sha256,
-	    pub active: bool,
-	    pub single_use: bool,
-	    pub bolt12: String,
-	    pub used: bool,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub label: Option<String>,
+	    pub active: bool,
+	    pub bolt12: String,
+	    pub offer_id: Sha256,
+	    pub single_use: bool,
+	    pub used: bool,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -5471,32 +5562,32 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpaysPays {
-	    pub payment_hash: Sha256,
-	    // Path `ListPays.pays[].status`
-	    pub status: ListpaysPaysStatus,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub destination: Option<PublicKey>,
-	    pub created_at: u64,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub completed_at: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub label: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub bolt11: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub description: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_sent_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub preimage: Option<Secret>,
+	    pub bolt11: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bolt12: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub completed_at: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub destination: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub erroronion: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub number_of_parts: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub erroronion: Option<String>,
+	    pub preimage: Option<Secret>,
+	    // Path `ListPays.pays[].status`
+	    pub status: ListpaysPaysStatus,
+	    pub created_at: u64,
+	    pub payment_hash: Sha256,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -5546,15 +5637,15 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListhtlcsHtlcs {
-	    pub short_channel_id: ShortChannelId,
-	    pub id: u64,
-	    pub expiry: u32,
-	    pub amount_msat: Amount,
 	    // Path `ListHtlcs.htlcs[].direction`
 	    pub direction: ListhtlcsHtlcsDirection,
-	    pub payment_hash: Sha256,
 	    // Path `ListHtlcs.htlcs[].state`
 	    pub state: HtlcState,
+	    pub amount_msat: Amount,
+	    pub expiry: u32,
+	    pub id: u64,
+	    pub payment_hash: Sha256,
+	    pub short_channel_id: ShortChannelId,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -5571,25 +5662,6 @@ pub mod responses {
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct MultifundchannelChannel_idsChannel_type {
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub bits: Option<Vec<u32>>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub names: Option<Vec<ChannelTypeName>>,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct MultifundchannelChannel_ids {
-	    pub id: PublicKey,
-	    pub outnum: u32,
-	    pub channel_id: Sha256,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub channel_type: Option<MultifundchannelChannel_idsChannel_type>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub close_to: Option<String>,
 	}
 
 	/// ['What stage we failed at.']
@@ -5637,19 +5709,38 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct MultifundchannelFailed {
-	    pub id: PublicKey,
 	    // Path `MultiFundChannel.failed[].method`
 	    pub method: MultifundchannelFailedMethod,
 	    pub error: MultifundchannelFailedError,
+	    pub id: PublicKey,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct MultifundchannelChannel_idsChannel_type {
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub bits: Option<Vec<u32>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub names: Option<Vec<ChannelTypeName>>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct MultifundchannelChannel_ids {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub channel_type: Option<MultifundchannelChannel_idsChannel_type>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub close_to: Option<String>,
+	    pub channel_id: Sha256,
+	    pub id: PublicKey,
+	    pub outnum: u32,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct MultifundchannelResponse {
-	    pub tx: String,
-	    pub txid: String,
-	    pub channel_ids: Vec<MultifundchannelChannel_ids>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub failed: Option<Vec<MultifundchannelFailed>>,
+	    pub channel_ids: Vec<MultifundchannelChannel_ids>,
+	    pub tx: String,
+	    pub txid: String,
 	}
 
 	impl TryFrom<Response> for MultifundchannelResponse {
@@ -5665,14 +5756,14 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct OfferResponse {
-	    pub offer_id: Sha256,
-	    pub active: bool,
-	    pub single_use: bool,
-	    pub bolt12: String,
-	    pub used: bool,
-	    pub created: bool,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub label: Option<String>,
+	    pub active: bool,
+	    pub bolt12: String,
+	    pub created: bool,
+	    pub offer_id: Sha256,
+	    pub single_use: bool,
+	    pub used: bool,
 	}
 
 	impl TryFrom<Response> for OfferResponse {
@@ -5720,20 +5811,20 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SetchannelChannels {
-	    pub peer_id: PublicKey,
-	    pub channel_id: Sha256,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub short_channel_id: Option<ShortChannelId>,
-	    pub fee_base_msat: Amount,
-	    pub fee_proportional_millionths: u32,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub ignore_fee_limits: Option<bool>,
-	    pub minimum_htlc_out_msat: Amount,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_htlcmin_too_low: Option<String>,
-	    pub maximum_htlc_out_msat: Amount,
+	    pub short_channel_id: Option<ShortChannelId>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_htlcmax_too_high: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_htlcmin_too_low: Option<String>,
+	    pub channel_id: Sha256,
+	    pub fee_base_msat: Amount,
+	    pub fee_proportional_millionths: u32,
+	    pub maximum_htlc_out_msat: Amount,
+	    pub minimum_htlc_out_msat: Amount,
+	    pub peer_id: PublicKey,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -5770,8 +5861,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SignmessageResponse {
-	    pub signature: String,
 	    pub recid: String,
+	    pub signature: String,
 	    pub zbase: String,
 	}
 
@@ -5800,6 +5891,91 @@ pub mod responses {
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
+	}
+
+	/// ['Status of the payment.', 'Still ongoing, completed, failed locally, or failed after forwarding.', "Whether it's paid, unpaid or unpayable."]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum WaitDetailsStatus {
+	    #[serde(rename = "unpaid")]
+	    UNPAID = 0,
+	    #[serde(rename = "paid")]
+	    PAID = 1,
+	    #[serde(rename = "expired")]
+	    EXPIRED = 2,
+	    #[serde(rename = "pending")]
+	    PENDING = 3,
+	    #[serde(rename = "failed")]
+	    FAILED = 4,
+	    #[serde(rename = "complete")]
+	    COMPLETE = 5,
+	    #[serde(rename = "offered")]
+	    OFFERED = 6,
+	    #[serde(rename = "settled")]
+	    SETTLED = 7,
+	    #[serde(rename = "local_failed")]
+	    LOCAL_FAILED = 8,
+	}
+
+	impl TryFrom<i32> for WaitDetailsStatus {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<WaitDetailsStatus, anyhow::Error> {
+	        match c {
+	    0 => Ok(WaitDetailsStatus::UNPAID),
+	    1 => Ok(WaitDetailsStatus::PAID),
+	    2 => Ok(WaitDetailsStatus::EXPIRED),
+	    3 => Ok(WaitDetailsStatus::PENDING),
+	    4 => Ok(WaitDetailsStatus::FAILED),
+	    5 => Ok(WaitDetailsStatus::COMPLETE),
+	    6 => Ok(WaitDetailsStatus::OFFERED),
+	    7 => Ok(WaitDetailsStatus::SETTLED),
+	    8 => Ok(WaitDetailsStatus::LOCAL_FAILED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitDetailsStatus", o)),
+	        }
+	    }
+	}
+
+	impl ToString for WaitDetailsStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            WaitDetailsStatus::COMPLETE => "COMPLETE",
+	            WaitDetailsStatus::EXPIRED => "EXPIRED",
+	            WaitDetailsStatus::FAILED => "FAILED",
+	            WaitDetailsStatus::LOCAL_FAILED => "LOCAL_FAILED",
+	            WaitDetailsStatus::OFFERED => "OFFERED",
+	            WaitDetailsStatus::PAID => "PAID",
+	            WaitDetailsStatus::PENDING => "PENDING",
+	            WaitDetailsStatus::SETTLED => "SETTLED",
+	            WaitDetailsStatus::UNPAID => "UNPAID",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct WaitDetails {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bolt11: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bolt12: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub groupid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub in_channel: Option<ShortChannelId>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub in_htlc_id: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub in_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub out_channel: Option<ShortChannelId>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub partid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_hash: Option<Sha256>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub status: Option<WaitDetailsStatus>,
 	}
 
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -5836,14 +6012,16 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitResponse {
-	    // Path `Wait.subsystem`
-	    pub subsystem: WaitSubsystem,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub created: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub updated: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub deleted: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub details: Option<WaitDetails>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated: Option<u64>,
+	    // Path `Wait.subsystem`
+	    pub subsystem: WaitSubsystem,
 	}
 
 	impl TryFrom<Response> for WaitResponse {
@@ -5946,20 +6124,20 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct BkprlistincomeIncome_events {
-	    pub account: String,
-	    pub tag: String,
-	    pub credit_msat: Amount,
-	    pub debit_msat: Amount,
-	    pub currency: String,
-	    pub timestamp: u32,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub outpoint: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub txid: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_id: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub txid: Option<String>,
+	    pub account: String,
+	    pub credit_msat: Amount,
+	    pub currency: String,
+	    pub debit_msat: Amount,
+	    pub tag: String,
+	    pub timestamp: u32,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]

@@ -97,6 +97,7 @@ class Grpc2PyGenerator(IGenerator):
             self.converters[field.path] = "str(m.{{name}})"
 
     def generate_composite(self, prefix, field: CompositeField):
+        field.sort()
         if override.get(field.path, "") is None:
             return
         name = field.name.normalized()

@@ -35,7 +35,7 @@ typemap = {
     'outputdesc': 'OutputDesc',
     'hash': 'Sha256',
     'secret': 'Secret',
-    'bip340sig': 'Secret',
+    'bip340sig': 'String',
     'integer': 'i64',
 }
 
@@ -110,7 +110,8 @@ def gen_enum(e, meta):
             complete_variants = False
 
     if m != {} and complete_variants:
-        for v in e.variants:
+        sorted_variants = sorted(e.variants, key=lambda x: m[str(x)])
+        for v in sorted_variants:
             if v is None:
                 continue
             norm = v.normalized()
@@ -128,7 +129,7 @@ def gen_enum(e, meta):
     """)
 
     if m != {} and complete_variants:
-        for v in e.variants:
+        for v in sorted_variants:
             norm = v.normalized()
             # decl += f"    #[serde(rename = \"{v}\")]\n"
             decl += f"    {m[str(v)]} => Ok({e.typename}::{norm}),\n"
@@ -241,6 +242,7 @@ def gen_composite(c, meta) -> Tuple[str, str]:
     fields = []
     for f in c.fields:
         fields.append(gen_field(f, meta))
+    fields = sorted(fields)
 
     r = "".join([f[1] for f in fields])
 

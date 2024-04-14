@@ -78,6 +78,15 @@ class Field:
 
         self.type_override: Optional[str] = None
 
+    def __lt__(self, other):
+        return self.path < other.path
+
+    def __eq__(self, other):
+        return self.path == other.path
+
+    def __iter__(self):
+        yield self.path
+
     @property
     def name(self):
         return FieldName(self.path.split(".")[-1])
@@ -199,20 +208,45 @@ class CompositeField(Field):
             'else': {'properties': js.get('else', {}).get('properties', [])},
         }
         # Yes, this is ugly, but walking nested dicts always is.
+
+        def merge_dicts(dict1, dict2):
+            merged_dict = {}
+            for key in set(dict1.keys()) | set(dict2.keys()):
+                if key in dict1 and key in dict2:
+                    if isinstance(dict1[key], dict) and isinstance(dict2[key], dict):
+                        merged_dict[key] = merge_dicts(dict1[key], dict2[key])
+                    else:
+                        if isinstance(dict1[key], list) and isinstance(dict2[key], list):
+                            merged_dict[key] = sorted(list(set(dict1[key]).union(set(dict2[key]))))
+                        elif key in dict1:
+                            merged_dict[key] = dict1[key]
+                        else:
+                            merged_dict[key] = dict2[key]
+                elif key in dict1:
+                    merged_dict[key] = dict1[key]
+                else:
+                    merged_dict[key] = dict2[key]
+            return merged_dict
+
         for a in [top] + js.get('allOf', []):
             var = a.get('then', {})
-            props = var.get('properties', None)
+            props = var.get('properties', {})
             if isinstance(props, dict):
                 for k, v in props.items():
-                    if k not in properties:
-                        properties[k] = v
+                    if properties != {}:
+                        if k in properties:
+                            properties[k] = merge_dicts(properties[k], v)
+                        else:
+                            properties[k] = v
             var = a.get('else', {})
-            props = var.get('properties', None)
+            props = var.get('properties', {})
             if isinstance(props, dict):
                 for k, v in props.items():
-                    if k not in properties:
-                        properties[k] = v
-
+                    if properties != {}:
+                        if k in properties:
+                            properties[k] = merge_dicts(properties[k], v)
+                        else:
+                            properties[k] = v
         # Identify required fields
         required = js.get("required", [])
         fields = []
@@ -262,6 +296,9 @@ class CompositeField(Field):
             typename, fields, path, js["description"] if "description" in js else "", added=js.get('added', None), deprecated=js.get('deprecated', None)
         )
 
+    def sort(self):
+        self.fields = sorted(self.fields)
+
     def __str__(self):
         fieldnames = ",".join([f.path.split(".")[-1] for f in self.fields])
         return f"CompositeField[name={self.path}, fields=[{fieldnames}]]"
@@ -275,6 +312,12 @@ class EnumVariant(Field):
 
     def __str__(self):
         return self.variant
+
+    def __lt__(self, other):
+        return self.variant < other.variant
+
+    def __eq__(self, other):
+        return self.variant == other.variant
 
     def normalized(self):
         return self.variant.replace(' ', '_').replace('-', '_').replace("/", "_").upper()
