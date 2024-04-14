@@ -608,6 +608,16 @@ void wallet_htlcsigs_confirm_inflight(struct wallet *w, struct channel *chan,
 void wallet_channel_save(struct wallet *w, struct channel *chan);
 
 /**
+ * wallet_channels_by_dbid -- Check if an ID is preoccupied inside the `channels` table
+ *
+ * @wallet: the wallet
+ * @dbid: the ID at which we want to check the value.
+ *
+ * Returns `true` if it is occupied, false otherwise.
+*/
+bool channel_exists_by_id(struct wallet *w, u64 dbid);
+
+/**
  * wallet_channel_insert -- Insert the initial channel into the database
  *
  * @wallet: the wallet to save into

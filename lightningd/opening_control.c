@@ -1480,13 +1480,10 @@ static struct channel *stub_chan(struct command *cmd,
 				    144);
 
 	/* If the channel is already stored, return NULL. */
-	peer = peer_by_id(cmd->ld, &nodeid);
-	if (peer) {
-		if (find_channel_by_id(peer, &cid)) {
-			log_debug(cmd->ld->log, "channel %s already exists!",
-				  fmt_channel_id(tmpctx, &cid));
-			return NULL;
-		}
+	if (channel_exists_by_id(cmd->ld->wallet, id)) {
+		log_debug(cmd->ld->log, "channel %s already exists!",
+				fmt_channel_id(tmpctx, &cid));
+		return NULL;
 	} else {
 		struct wireaddr_internal wint;
 

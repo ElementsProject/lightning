@@ -2586,6 +2586,26 @@ static void wallet_peer_save(struct wallet *w, struct peer *peer)
 	}
 }
 
+bool channel_exists_by_id(struct wallet *w, u64 dbid) {
+	struct db_stmt *stmt;
+	stmt = db_prepare_v2(w->db, SQL("SELECT *"
+					" FROM channels"
+					" WHERE id = ?"));
+
+	db_bind_u64(stmt, dbid);
+	db_query_prepared(stmt);
+
+	/* If we found a result it means channel exists at that place. */
+	if (db_step(stmt)) {
+		db_col_ignore(stmt, "*");
+		tal_free(stmt);
+		return true;
+	}
+
+	tal_free(stmt);
+	return false;
+}
+
 void wallet_channel_insert(struct wallet *w, struct channel *chan)
 {
 	struct db_stmt *stmt;
