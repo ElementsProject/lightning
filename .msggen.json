@@ -28,6 +28,13 @@
             "must-create": 0,
             "must-replace": 1
         },
+        "DecodeFallbacksType": {
+            "P2PKH": 0,
+            "P2SH": 1,
+            "P2TR": 4,
+            "P2WPKH": 2,
+            "P2WSH": 3
+        },
         "DecodeType": {
             "bolt11 invoice": 3,
             "bolt12 invoice": 1,
@@ -348,6 +355,17 @@
         "StopResult": {
             "Shutdown complete": 0
         },
+        "WaitDetailsStatus": {
+            "complete": 5,
+            "expired": 2,
+            "failed": 4,
+            "local_failed": 8,
+            "offered": 6,
+            "paid": 1,
+            "pending": 3,
+            "settled": 7,
+            "unpaid": 0
+        },
         "WaitIndexname": {
             "created": 0,
             "deleted": 2,
@@ -515,6 +533,9 @@
             "Decode.extra[].tag": 1
         },
         "DecodeFallbacks": {
+            "Decode.fallbacks[].addr": 3,
+            "Decode.fallbacks[].hex": 4,
+            "Decode.fallbacks[].type": 2,
             "Decode.fallbacks[].warning_invoice_fallbacks_version_invalid": 1
         },
         "DecodeInvoice_fallbacks": {
@@ -540,13 +561,17 @@
             "Decode.string": 1
         },
         "DecodeResponse": {
+            "Decode.amount_msat": 79,
             "Decode.created_at": 60,
+            "Decode.currency": 78,
             "Decode.currency_minor_unit": 8,
             "Decode.decrypted": 76,
+            "Decode.description": 80,
             "Decode.description_hash": 64,
             "Decode.expiry": 61,
             "Decode.extra[]": 69,
             "Decode.fallbacks[]": 59,
+            "Decode.features": 81,
             "Decode.hex": 75,
             "Decode.invoice_amount_msat": 44,
             "Decode.invoice_created_at": 41,
@@ -587,6 +612,7 @@
             "Decode.payment_secret": 66,
             "Decode.restrictions[]": 73,
             "Decode.routes[][]": 68,
+            "Decode.signature": 77,
             "Decode.string": 72,
             "Decode.type": 1,
             "Decode.unique_id": 70,
@@ -674,6 +700,7 @@
         },
         "DelinvoiceResponse": {
             "DelInvoice.amount_msat": 4,
+            "DelInvoice.amount_received_msat": 15,
             "DelInvoice.bolt11": 2,
             "DelInvoice.bolt12": 3,
             "DelInvoice.created_index": 12,
@@ -682,8 +709,11 @@
             "DelInvoice.invreq_payer_note": 11,
             "DelInvoice.label": 1,
             "DelInvoice.local_offer_id": 9,
+            "DelInvoice.paid_at": 16,
+            "DelInvoice.pay_index": 14,
             "DelInvoice.payer_note": 10,
             "DelInvoice.payment_hash": 6,
+            "DelInvoice.payment_preimage": 17,
             "DelInvoice.status": 7,
             "DelInvoice.updated_index": 13
         },
@@ -838,6 +868,7 @@
             "Getinfo.binding[].address": 2,
             "Getinfo.binding[].port": 3,
             "Getinfo.binding[].socket": 4,
+            "Getinfo.binding[].subtype": 5,
             "Getinfo.binding[].type": 1
         },
         "GetinfoOur_features": {
@@ -1014,6 +1045,8 @@
         },
         "ListforwardsForwards": {
             "ListForwards.forwards[].created_index": 12,
+            "ListForwards.forwards[].failcode": 15,
+            "ListForwards.forwards[].failreason": 16,
             "ListForwards.forwards[].fee_msat": 7,
             "ListForwards.forwards[].in_channel": 1,
             "ListForwards.forwards[].in_htlc_id": 10,
@@ -1023,6 +1056,7 @@
             "ListForwards.forwards[].out_msat": 8,
             "ListForwards.forwards[].payment_hash": 6,
             "ListForwards.forwards[].received_time": 4,
+            "ListForwards.forwards[].resolved_time": 14,
             "ListForwards.forwards[].status": 3,
             "ListForwards.forwards[].style": 9,
             "ListForwards.forwards[].updated_index": 13
@@ -1056,6 +1090,7 @@
             "ListFunds.outputs[].output": 2,
             "ListFunds.outputs[].redeemscript": 6,
             "ListFunds.outputs[].reserved": 9,
+            "ListFunds.outputs[].reserved_to_block": 10,
             "ListFunds.outputs[].scriptpubkey": 4,
             "ListFunds.outputs[].status": 7,
             "ListFunds.outputs[].txid": 1
@@ -1124,12 +1159,21 @@
             "ListNodes.nodes[].color": 4,
             "ListNodes.nodes[].features": 5,
             "ListNodes.nodes[].last_timestamp": 2,
-            "ListNodes.nodes[].nodeid": 1
+            "ListNodes.nodes[].nodeid": 1,
+            "ListNodes.nodes[].option_will_fund": 7
         },
         "ListnodesNodesAddresses": {
             "ListNodes.nodes[].addresses[].address": 3,
             "ListNodes.nodes[].addresses[].port": 2,
             "ListNodes.nodes[].addresses[].type": 1
+        },
+        "ListnodesNodesOption_will_fund": {
+            "ListNodes.nodes[].option_will_fund.channel_fee_max_base_msat": 4,
+            "ListNodes.nodes[].option_will_fund.channel_fee_max_proportional_thousandths": 5,
+            "ListNodes.nodes[].option_will_fund.compact_lease": 6,
+            "ListNodes.nodes[].option_will_fund.funding_weight": 3,
+            "ListNodes.nodes[].option_will_fund.lease_fee_base_msat": 1,
+            "ListNodes.nodes[].option_will_fund.lease_fee_basis": 2
         },
         "ListnodesRequest": {
             "ListNodes.id": 1
@@ -1183,6 +1227,7 @@
             "ListPeerChannels.channels[].close_to": 17,
             "ListPeerChannels.channels[].close_to_addr": 53,
             "ListPeerChannels.channels[].closer": 20,
+            "ListPeerChannels.channels[].direction": 60,
             "ListPeerChannels.channels[].dust_limit_msat": 29,
             "ListPeerChannels.channels[].features[]": 21,
             "ListPeerChannels.channels[].fee_base_msat": 27,
@@ -1201,6 +1246,7 @@
             "ListPeerChannels.channels[].initial_feerate": 12,
             "ListPeerChannels.channels[].last_feerate": 13,
             "ListPeerChannels.channels[].last_stable_connection": 56,
+            "ListPeerChannels.channels[].last_tx_fee_msat": 59,
             "ListPeerChannels.channels[].lost_state": 57,
             "ListPeerChannels.channels[].max_accepted_htlcs": 40,
             "ListPeerChannels.channels[].max_to_us_msat": 25,
@@ -1842,6 +1888,20 @@
             "UtxoPsbt.psbt": 1,
             "UtxoPsbt.reservations[]": 6
         },
+        "WaitDetails": {
+            "Wait.details.bolt11": 4,
+            "Wait.details.bolt12": 5,
+            "Wait.details.description": 3,
+            "Wait.details.groupid": 7,
+            "Wait.details.in_channel": 9,
+            "Wait.details.in_htlc_id": 10,
+            "Wait.details.in_msat": 11,
+            "Wait.details.label": 2,
+            "Wait.details.out_channel": 12,
+            "Wait.details.partid": 6,
+            "Wait.details.payment_hash": 8,
+            "Wait.details.status": 1
+        },
         "WaitRequest": {
             "Wait.indexname": 2,
             "Wait.nextvalue": 3,
@@ -1850,6 +1910,7 @@
         "WaitResponse": {
             "Wait.created": 2,
             "Wait.deleted": 4,
+            "Wait.details": 5,
             "Wait.subsystem": 1,
             "Wait.updated": 3
         },
@@ -2307,7 +2368,15 @@
             "added": "v23.05",
             "deprecated": null
         },
+        "Decode.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
         "Decode.created_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Decode.currency": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
@@ -2317,6 +2386,10 @@
         },
         "Decode.decrypted": {
             "added": "v23.11",
+            "deprecated": false
+        },
+        "Decode.description": {
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "Decode.description_hash": {
@@ -2343,7 +2416,23 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "Decode.fallbacks[].addr": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Decode.fallbacks[].hex": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Decode.fallbacks[].type": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
         "Decode.fallbacks[].warning_invoice_fallbacks_version_invalid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Decode.features": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
@@ -2647,6 +2736,10 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "Decode.signature": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
         "Decode.string": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -2947,6 +3040,10 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "DelInvoice.amount_received_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
         "DelInvoice.bolt11": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -2983,7 +3080,19 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "DelInvoice.paid_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelInvoice.pay_index": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
         "DelInvoice.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelInvoice.payment_preimage": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
@@ -3531,6 +3640,10 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "Getinfo.binding[].subtype": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
         "Getinfo.binding[].type": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -4007,6 +4120,14 @@
             "added": "v23.11",
             "deprecated": false
         },
+        "ListForwards.forwards[].failcode": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListForwards.forwards[].failreason": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
         "ListForwards.forwards[].fee_msat": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -4036,6 +4157,10 @@
             "deprecated": false
         },
         "ListForwards.forwards[].received_time": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListForwards.forwards[].resolved_time": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
@@ -4144,6 +4269,10 @@
             "deprecated": false
         },
         "ListFunds.outputs[].reserved": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListFunds.outputs[].reserved_to_block": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
@@ -4363,6 +4492,34 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "ListNodes.nodes[].option_will_fund": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListNodes.nodes[].option_will_fund.channel_fee_max_base_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListNodes.nodes[].option_will_fund.channel_fee_max_proportional_thousandths": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListNodes.nodes[].option_will_fund.compact_lease": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListNodes.nodes[].option_will_fund.funding_weight": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListNodes.nodes[].option_will_fund.lease_fee_base_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListNodes.nodes[].option_will_fund.lease_fee_basis": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
         "ListOffers": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -4535,6 +4692,10 @@
             "added": "v23.02",
             "deprecated": false
         },
+        "ListPeerChannels.channels[].direction": {
+            "added": "v23.02",
+            "deprecated": false
+        },
         "ListPeerChannels.channels[].dust_limit_msat": {
             "added": "v23.02",
             "deprecated": false
@@ -4693,6 +4854,10 @@
         },
         "ListPeerChannels.channels[].last_stable_connection": {
             "added": "v24.02",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].last_tx_fee_msat": {
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "ListPeerChannels.channels[].lost_state": {
@@ -6396,6 +6561,58 @@
             "deprecated": false
         },
         "Wait.deleted": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait.details": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait.details.bolt11": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait.details.bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait.details.description": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait.details.groupid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait.details.in_channel": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait.details.in_htlc_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait.details.in_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait.details.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait.details.out_channel": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait.details.partid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait.details.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait.details.status": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
