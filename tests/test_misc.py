@@ -2019,6 +2019,7 @@ def test_newaddr(node_factory, chainparams):
     both = l1.rpc.newaddr('all')
     assert 'p2sh-segwit' not in both
     assert both['bech32'].startswith(chainparams['bip173_prefix'])
+    assert both['p2tr'].startswith(chainparams['bip173_prefix'])
 
 
 def test_bitcoind_fail_first(node_factory, bitcoind):

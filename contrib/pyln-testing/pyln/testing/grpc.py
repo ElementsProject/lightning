@@ -133,11 +133,6 @@ class LightningGrpc(object):
         payload = clnpb.NewaddrRequest(addresstype=atype)
         res = grpc2py.newaddr2py(self.stub.NewAddr(payload))
 
-        # Need to remap the bloody spelling of p2sh-segwit to match
-        # addresstype.
-        if 'p2sh_segwit' in res:
-            res['p2sh-segwit'] = res['p2sh_segwit']
-            del res['p2sh_segwit']
         return res
 
     def listfunds(self, spent=None):

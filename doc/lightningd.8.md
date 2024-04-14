@@ -103,11 +103,10 @@ elided, specify it if you selected your own *lightning-dir*):
 
     $ lightning-cli newaddr
 
-This will provide a native SegWit bech32 address. In case all your money
-is in services that do not support native SegWit and have to use
-P2SH-wrapped addresses, instead use:
+This will provide a native SegWit bech32 address. Alternatively you can
+generate a taproot address with:
 
-    $ lightning-cli newaddr p2sh-segwit
+    $ lightning-cli newaddr p2tr
 
 Transfer a small amount of onchain funds to the given address. Check the
 status of all your funds (onchain and on-Lightning) via
