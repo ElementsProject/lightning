@@ -282,6 +282,20 @@ def test_cln_plugin_reentrant(node_factory, executor):
     assert f1.result(timeout=TIMEOUT)
     assert f2.result(timeout=TIMEOUT)
 
+    i1 = l1.rpc.invoice(label='lbl3', amount_msat='42sat', description='desc')['bolt11']
+    i2 = l1.rpc.invoice(label='lbl4', amount_msat='31337sat', description='desc')['bolt11']
+
+    f1 = executor.submit(l2.rpc.pay, i1)
+    f2 = executor.submit(l2.rpc.pay, i2)
+
+    l1.daemon.wait_for_logs(["plugin-cln-plugin-reentrant: Holding on to incoming HTLC Object"] * 2)
+
+    print("Failing HTLCs after holding them")
+    l1.rpc.call('fail')
+
+    assert f1.exception(timeout=TIMEOUT)
+    assert f2.exception(timeout=TIMEOUT)
+
 
 def test_grpc_keysend_routehint(bitcoind, node_factory):
     """The routehints are a bit special, test that conversions work.
