@@ -664,6 +664,14 @@ authenticate to the Tor control port.
 
   Creates a whitelist of trusted content sources that can run on a webpage and helps mitigate the risk of attacks. Default CSP is `default-src 'self'; font-src 'self'; img-src 'self' data:; frame-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';`.
 
+* **wss-bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH|HOSTNAME\[:PORT\]* [plugin `wss-proxy.py`]
+
+  Sets the WSS address.
+
+* **wss-certs**=*PATH*  [plugin `wss-proxy.py`]
+
+  Defines the path for WSS cert & key. Default path is same as RPC file path to utilize gRPC/clnrest's client certificate. If it is missing at the configured location, new identity (`client.pem` and `client-key.pem`) will be generated.
+
 ### Lightning Plugins
 
 lightningd(8) supports plugins, which offer additional configuration

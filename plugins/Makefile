@@ -109,7 +109,8 @@ C_PLUGINS :=					\
 	plugins/spenderp
 
 PY_PLUGINS :=					\
-	plugins/clnrest/clnrest
+	plugins/clnrest/clnrest \
+	plugins/wss-proxy/wss-proxy
 
 ifeq ($(HAVE_SQLITE3),1)
 C_PLUGINS += plugins/sql
