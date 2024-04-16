@@ -278,16 +278,53 @@ struct payment_tree_result payment_collect_result(struct payment *p)
 	return res;
 }
 
+static struct command_result *payment_waitblockheight_cb(struct command *cmd,
+							 const char *buffer,
+							 const jsmntok_t *toks,
+							 struct payment *p)
+{
+	u32 syncheight;
+	json_scan(tmpctx, buffer, toks, "{blockheight:%}",
+		  JSON_SCAN(json_to_u32, &syncheight));
+	paymod_log(p, LOG_DBG, "waitblockheight reports syncheight=%d",
+		   syncheight);
+	p->chainlag = p->start_block - syncheight;
+	if (p->chainlag > 0)
+		paymod_log(p, LOG_INFORM,
+			   "Starting the payment with chainlag=%d "
+			   "(syncheight=%d < headercount=%d)",
+			   p->chainlag, syncheight, p->start_block);
+
+	payment_continue(p);
+	return command_still_pending(cmd);
+}
+
 static struct command_result *
 payment_getblockheight_success(struct command *cmd,
 			       const char *buffer,
 			       const jsmntok_t *toks,
 			       struct payment *p)
 {
-	const jsmntok_t *blockheighttok =
-	    json_get_member(buffer, toks, "blockheight");
-	json_to_number(buffer, blockheighttok, &p->start_block);
-	payment_continue(p);
+	struct out_req *req;
+	u32 blockcount, headercount;
+
+	json_scan(tmpctx, buffer, toks, "{blockcount:%,headercount:%}",
+		  JSON_SCAN(json_to_u32, &blockcount),
+		  JSON_SCAN(json_to_u32, &headercount));
+	paymod_log(p, LOG_DBG,
+		   "Received getchaininfo blockcount=%d, headercount=%d",
+		   blockcount, headercount);
+
+	p->start_block = headercount;
+
+	/* Now we just need to ask `lightningd` what height it has
+	 * synced up to, and we remember that as chainlag. */
+	req = jsonrpc_request_start(p->plugin, NULL, "waitblockheight",
+				    &payment_waitblockheight_cb,
+				    &payment_rpc_failure, p);
+	json_add_u32(req->js, "blockheight", 0);
+	send_outreq(p->plugin, req);
+
 	return command_still_pending(cmd);
 }
 
@@ -325,17 +362,15 @@ void payment_start_at_blockheight(struct payment *p, u32 blockheight)
 		return payment_continue(p);
 	}
 
-	/* `waitblockheight 0` can be used as a query for the current
-	 * block height.
-	 * This is slightly better than `getinfo` since `getinfo`
-	 * counts the channels and addresses and pushes more data
-	 * onto the RPC but all we care about is the blockheight.
+	/* Check with the backend what it believes the network's
+	 * height to be. We'll base all of our offsets based on that
+	 * height, allowing us to send while still syncing.
 	 */
 	struct out_req *req;
-	req = jsonrpc_request_start(p->plugin, NULL, "waitblockheight",
+	req = jsonrpc_request_start(p->plugin, NULL, "getchaininfo",
 				    &payment_getblockheight_success,
 				    &payment_rpc_failure, p);
-	json_add_u32(req->js, "blockheight", 0);
+	json_add_u32(req->js, "last_height", 0);
 	send_outreq(p->plugin, req);
 }
 
@@ -950,6 +985,13 @@ static struct command_result *payment_getroute(struct payment *p)
 			   "Could not update constraints.");
 		abort();
 	}
+
+	/* Go through the route, and adjust the CLTV values to take
+	 * the chain lag into consideration. */
+	paymod_log(p, LOG_DBG, "Adjusting route with a chainlag=%d", p->chainlag);
+
+	for (size_t i = 0; i < tal_count(p->route); i++)
+		p->route[i].delay += p->chainlag;
 
 	/* Allow modifiers to modify the route, before
 	 * payment_compute_onion_payloads uses the route to generate the

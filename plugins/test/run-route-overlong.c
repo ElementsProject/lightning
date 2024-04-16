@@ -152,6 +152,13 @@ void json_object_end(struct json_stream *js UNNEEDED)
 /* Generated stub for json_object_start */
 void json_object_start(struct json_stream *ks UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_object_start called!\n"); abort(); }
+/* Generated stub for json_scan */
+const char *json_scan(const tal_t *ctx UNNEEDED,
+		      const char *buffer UNNEEDED,
+		      const jsmntok_t *tok UNNEEDED,
+		      const char *guide UNNEEDED,
+		      ...)
+{ fprintf(stderr, "json_scan called!\n"); abort(); }
 /* Generated stub for json_strdup */
 char *json_strdup(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
 { fprintf(stderr, "json_strdup called!\n"); abort(); }
