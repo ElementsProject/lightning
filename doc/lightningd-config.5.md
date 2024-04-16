@@ -664,6 +664,10 @@ authenticate to the Tor control port.
 
   Creates a whitelist of trusted content sources that can run on a webpage and helps mitigate the risk of attacks. Default CSP is `default-src 'self'; font-src 'self'; img-src 'self' data:; frame-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';`.
 
+* **clnrest-swagger-root**=*URL*  [plugin `clnrest.py`]
+
+  Root url for Swagger UI. Default is `/`.
+
 * **wss-bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH|HOSTNAME\[:PORT\]* [plugin `wss-proxy.py`]
 
   Sets the WSS address.
