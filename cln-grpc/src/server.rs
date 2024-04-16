@@ -1530,6 +1530,70 @@ async fn fetch_invoice(
 
 }
 
+async fn fund_channel_cancel(
+    &self,
+    request: tonic::Request<pb::FundchannelCancelRequest>,
+) -> Result<tonic::Response<pb::FundchannelCancelResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::Fundchannel_cancelRequest = req.into();
+    debug!("Client asked for fund_channel_cancel");
+    trace!("fund_channel_cancel request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::FundChannel_Cancel(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method FundChannel_Cancel: {:?}", e)))?;
+    match result {
+        Response::FundChannel_Cancel(r) => {
+           trace!("fund_channel_cancel response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call FundChannel_Cancel",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn fund_channel_complete(
+    &self,
+    request: tonic::Request<pb::FundchannelCompleteRequest>,
+) -> Result<tonic::Response<pb::FundchannelCompleteResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::Fundchannel_completeRequest = req.into();
+    debug!("Client asked for fund_channel_complete");
+    trace!("fund_channel_complete request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::FundChannel_Complete(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method FundChannel_Complete: {:?}", e)))?;
+    match result {
+        Response::FundChannel_Complete(r) => {
+           trace!("fund_channel_complete response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call FundChannel_Complete",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn fund_channel(
     &self,
     request: tonic::Request<pb::FundchannelRequest>,
@@ -1555,6 +1619,38 @@ async fn fund_channel(
             Code::Internal,
             format!(
                 "Unexpected result {:?} to method call FundChannel",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn fund_channel_start(
+    &self,
+    request: tonic::Request<pb::FundchannelStartRequest>,
+) -> Result<tonic::Response<pb::FundchannelStartResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::Fundchannel_startRequest = req.into();
+    debug!("Client asked for fund_channel_start");
+    trace!("fund_channel_start request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::FundChannel_Start(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method FundChannel_Start: {:?}", e)))?;
+    match result {
+        Response::FundChannel_Start(r) => {
+           trace!("fund_channel_start response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call FundChannel_Start",
                 r
             )
         )),

@@ -66,7 +66,10 @@ pub enum Request {
 	Disconnect(requests::DisconnectRequest),
 	Feerates(requests::FeeratesRequest),
 	FetchInvoice(requests::FetchinvoiceRequest),
+	FundChannel_Cancel(requests::Fundchannel_cancelRequest),
+	FundChannel_Complete(requests::Fundchannel_completeRequest),
 	FundChannel(requests::FundchannelRequest),
+	FundChannel_Start(requests::Fundchannel_startRequest),
 	GetRoute(requests::GetrouteRequest),
 	ListForwards(requests::ListforwardsRequest),
 	ListOffers(requests::ListoffersRequest),
@@ -147,7 +150,10 @@ pub enum Response {
 	Disconnect(responses::DisconnectResponse),
 	Feerates(responses::FeeratesResponse),
 	FetchInvoice(responses::FetchinvoiceResponse),
+	FundChannel_Cancel(responses::Fundchannel_cancelResponse),
+	FundChannel_Complete(responses::Fundchannel_completeResponse),
 	FundChannel(responses::FundchannelResponse),
+	FundChannel_Start(responses::Fundchannel_startResponse),
 	GetRoute(responses::GetrouteResponse),
 	ListForwards(responses::ListforwardsResponse),
 	ListOffers(responses::ListoffersResponse),
@@ -1800,6 +1806,51 @@ pub mod requests {
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Fundchannel_cancelRequest {
+	    pub id: PublicKey,
+	}
+
+	impl From<Fundchannel_cancelRequest> for Request {
+	    fn from(r: Fundchannel_cancelRequest) -> Self {
+	        Request::FundChannel_Cancel(r)
+	    }
+	}
+
+	impl IntoRequest for Fundchannel_cancelRequest {
+	    type Response = super::responses::Fundchannel_cancelResponse;
+	}
+
+	impl TypedRequest for Fundchannel_cancelRequest {
+	    type Response = super::responses::Fundchannel_cancelResponse;
+
+	    fn method(&self) -> &str {
+	        "fundchannel_cancel"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Fundchannel_completeRequest {
+	    pub id: PublicKey,
+	    pub psbt: String,
+	}
+
+	impl From<Fundchannel_completeRequest> for Request {
+	    fn from(r: Fundchannel_completeRequest) -> Self {
+	        Request::FundChannel_Complete(r)
+	    }
+	}
+
+	impl IntoRequest for Fundchannel_completeRequest {
+	    type Response = super::responses::Fundchannel_completeResponse;
+	}
+
+	impl TypedRequest for Fundchannel_completeRequest {
+	    type Response = super::responses::Fundchannel_completeResponse;
+
+	    fn method(&self) -> &str {
+	        "fundchannel_complete"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FundchannelRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub announce: Option<bool>,
@@ -1842,6 +1893,43 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "fundchannel"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Fundchannel_startRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub announce: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub close_to: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub feerate: Option<Feerate>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub mindepth: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub push_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub reserve: Option<Amount>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub channel_type: Option<Vec<u32>>,
+	    pub amount: Amount,
+	    pub id: PublicKey,
+	}
+
+	impl From<Fundchannel_startRequest> for Request {
+	    fn from(r: Fundchannel_startRequest) -> Self {
+	        Request::FundChannel_Start(r)
+	    }
+	}
+
+	impl IntoRequest for Fundchannel_startRequest {
+	    type Response = super::responses::Fundchannel_startResponse;
+	}
+
+	impl TypedRequest for Fundchannel_startRequest {
+	    type Response = super::responses::Fundchannel_startResponse;
+
+	    fn method(&self) -> &str {
+	        "fundchannel_start"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -5792,6 +5880,39 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Fundchannel_cancelResponse {
+	    pub cancelled: String,
+	}
+
+	impl TryFrom<Response> for Fundchannel_cancelResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::FundChannel_Cancel(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Fundchannel_completeResponse {
+	    pub channel_id: Sha256,
+	    pub commitments_secured: bool,
+	}
+
+	impl TryFrom<Response> for Fundchannel_completeResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::FundChannel_Complete(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FundchannelChannel_type {
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub bits: Option<Vec<u32>>,
@@ -5819,6 +5940,38 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::FundChannel(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Fundchannel_startChannel_type {
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub bits: Option<Vec<u32>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub names: Option<Vec<ChannelTypeName>>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Fundchannel_startResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub channel_type: Option<Fundchannel_startChannel_type>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub close_to: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub mindepth: Option<u32>,
+	    pub funding_address: String,
+	    pub scriptpubkey: String,
+	    pub warning_usage: String,
+	}
+
+	impl TryFrom<Response> for Fundchannel_startResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::FundChannel_Start(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

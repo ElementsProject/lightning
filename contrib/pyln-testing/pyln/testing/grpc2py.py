@@ -1382,6 +1382,19 @@ def fetchinvoice2py(m):
     })
 
 
+def fundchannel_cancel2py(m):
+    return remove_default({
+        "cancelled": m.cancelled,  # PrimitiveField in generate_composite
+    })
+
+
+def fundchannel_complete2py(m):
+    return remove_default({
+        "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite
+        "commitments_secured": m.commitments_secured,  # PrimitiveField in generate_composite
+    })
+
+
 def fundchannel_channel_type2py(m):
     return remove_default({
         "bits": [m.bits for i in m.bits], # ArrayField[primitive] in generate_composite
@@ -1397,6 +1410,23 @@ def fundchannel2py(m):
         "outnum": m.outnum,  # PrimitiveField in generate_composite
         "tx": hexlify(m.tx),  # PrimitiveField in generate_composite
         "txid": hexlify(m.txid),  # PrimitiveField in generate_composite
+    })
+
+
+def fundchannel_start_channel_type2py(m):
+    return remove_default({
+        "bits": [m.bits for i in m.bits], # ArrayField[primitive] in generate_composite
+        "names": [str(i) for i in m.names],  # ArrayField[composite] in generate_composite
+    })
+
+
+def fundchannel_start2py(m):
+    return remove_default({
+        "close_to": hexlify(m.close_to),  # PrimitiveField in generate_composite
+        "funding_address": m.funding_address,  # PrimitiveField in generate_composite
+        "mindepth": m.mindepth,  # PrimitiveField in generate_composite
+        "scriptpubkey": hexlify(m.scriptpubkey),  # PrimitiveField in generate_composite
+        "warning_usage": m.warning_usage,  # PrimitiveField in generate_composite
     })
 
 

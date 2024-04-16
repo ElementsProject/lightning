@@ -55,7 +55,10 @@ service Node {
 	rpc Disconnect(DisconnectRequest) returns (DisconnectResponse) {}
 	rpc Feerates(FeeratesRequest) returns (FeeratesResponse) {}
 	rpc FetchInvoice(FetchinvoiceRequest) returns (FetchinvoiceResponse) {}
+	rpc FundChannel_Cancel(Fundchannel_cancelRequest) returns (Fundchannel_cancelResponse) {}
+	rpc FundChannel_Complete(Fundchannel_completeRequest) returns (Fundchannel_completeResponse) {}
 	rpc FundChannel(FundchannelRequest) returns (FundchannelResponse) {}
+	rpc FundChannel_Start(Fundchannel_startRequest) returns (Fundchannel_startResponse) {}
 	rpc GetRoute(GetrouteRequest) returns (GetrouteResponse) {}
 	rpc ListForwards(ListforwardsRequest) returns (ListforwardsResponse) {}
 	rpc ListOffers(ListoffersRequest) returns (ListoffersResponse) {}
@@ -1707,6 +1710,24 @@ message FetchinvoiceNext_period {
 	uint64 paywindow_end = 5;
 }
 
+message Fundchannel_cancelRequest {
+	bytes id = 1;
+}
+
+message Fundchannel_cancelResponse {
+	string cancelled = 1;
+}
+
+message Fundchannel_completeRequest {
+	bytes id = 1;
+	string psbt = 2;
+}
+
+message Fundchannel_completeResponse {
+	bytes channel_id = 1;
+	bool commitments_secured = 2;
+}
+
 message FundchannelRequest {
 	AmountOrAll amount = 1;
 	optional Feerate feerate = 2;
@@ -1734,6 +1755,32 @@ message FundchannelResponse {
 }
 
 message FundchannelChannel_type {
+	repeated uint32 bits = 1;
+	repeated ChannelTypeName names = 2;
+}
+
+message Fundchannel_startRequest {
+	bytes id = 1;
+	Amount amount = 2;
+	optional Feerate feerate = 3;
+	optional bool announce = 4;
+	optional string close_to = 5;
+	optional Amount push_msat = 6;
+	optional uint32 mindepth = 7;
+	optional Amount reserve = 8;
+	repeated uint32 channel_type = 9;
+}
+
+message Fundchannel_startResponse {
+	string funding_address = 1;
+	bytes scriptpubkey = 2;
+	optional Fundchannel_startChannel_type channel_type = 3;
+	optional bytes close_to = 4;
+	string warning_usage = 5;
+	optional uint32 mindepth = 6;
+}
+
+message Fundchannel_startChannel_type {
 	repeated uint32 bits = 1;
 	repeated ChannelTypeName names = 2;
 }
