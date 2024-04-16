@@ -118,6 +118,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->invstring = parent->invstring;
 		p->description = parent->description;
 		p->mods = parent->mods;
+		p->chainlag = parent->chainlag;
 	} else {
 		assert(cmd != NULL);
 		p->partid = 0;
@@ -132,6 +133,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->local_invreq_id = NULL;
 		p->groupid = 0;
 		p->mods = NULL;
+		p->chainlag = 0;
 	}
 
 	/* Initialize all modifier data so we can point to the fields when
