@@ -514,8 +514,7 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams, anchors):
 
     # FIXME: | for dicts was added in Python 3.9 apparently.
     l1, l2 = node_factory.line_graph(2, opts=[{**opts, **{'may_fail': True,
-                                                          'feerates': (7500, 7500, 7500, 7500),
-                                                          'allow_broken_log': True}},
+                                                          'feerates': (7500, 7500, 7500, 7500)}},
                                               opts])
 
     channel_id = first_channel_id(l1, l2)
@@ -647,8 +646,7 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams, anchors)
     # Feerates identical so we don't get gratuitous commit to update them
     l1, l2 = node_factory.line_graph(2,
                                      opts=[{**opts, **{'may_fail': True,
-                                                       'feerates': (7500, 7500, 7500, 7500),
-                                                       'allow_broken_log': True}},
+                                                       'feerates': (7500, 7500, 7500, 7500)}},
                                            opts])
     channel_id = first_channel_id(l1, l2)
 
@@ -1027,7 +1025,8 @@ def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
              'plugin': balance_snaps},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
-             'may_reconnect': True, 'allow_broken_log': True,
+             'may_reconnect': True,
+             'broken_log': 'Unknown spend of OUR_UNILATERAL/DELAYED_OUTPUT_TO_US',
              'plugin': balance_snaps}]
 
     l1, l2, = node_factory.get_nodes(2, opts=opts)
@@ -1097,7 +1096,7 @@ def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
     opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'may_reconnect': True, 'dev-no-reconnect': None,
-             'allow_broken_log': True,
+             'broken_log': 'Unknown spend of OUR_UNILATERAL/DELAYED_OUTPUT_TO_US',
              'experimental-anchors': None},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
@@ -1207,11 +1206,10 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams, anchors):
                                                     **opts},
                                                    {'plugin': [coin_mvt_plugin, balance_snaps],
                                                     'disable-mpp': None,
-                                                    **opts,
-                                                    'allow_broken_log': True},
+                                                    'broken_log': 'onchaind.*: Unknown spend',
+                                                    **opts},
                                                    {'plugin': [coin_mvt_plugin, balance_snaps],
-                                                    **opts,
-                                                    'allow_broken_log': True},
+                                                    **opts},
                                                    opts],
                                              wait_for_announce=True)
 
@@ -1394,19 +1392,17 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams, anchors):
             'plugin': coin_mvt_plugin,
             'dev-no-reconnect': None,
             'may_reconnect': True,
-            'allow_broken_log': True,
+            'broken_log': 'onchaind.*Unknown spend'
         }, {
             'plugin': coin_mvt_plugin,
             'dev-no-reconnect': None,
             'may_reconnect': True,
-            'allow_broken_log': True,
         }, {
             'dev-no-reconnect': None,
         }, {
             'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC'],
             'may_reconnect': True,
             'dev-no-reconnect': None,
-            'allow_broken_log': True,
         }
     ]
     if anchors is False:
@@ -1598,8 +1594,7 @@ def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams, ancho
     # l1 is the thief, which causes our honest upstanding lightningd
     # code to break, so l1 can fail.
     # Initially, disconnect before the HTLC can be resolved.
-    l1 = node_factory.get_node(options=opts,
-                               may_fail=True, allow_broken_log=True)
+    l1 = node_factory.get_node(options=opts, may_fail=True)
     l2 = node_factory.get_node(options={**opts,
                                         **{'watchtime-blocks': to_self_delay,
                                            'plugin': coin_mvt_plugin}})
