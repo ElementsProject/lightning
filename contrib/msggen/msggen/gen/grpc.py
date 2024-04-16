@@ -577,14 +577,16 @@ class GrpcServerGenerator(GrpcConverterGenerator):
         for method in service.methods:
             mname = method_name_overrides.get(method.name, method.name)
             # Tonic will convert to snake-case, so we have to do it here too
-            name = re.sub(r'(?<!^)(?=[A-Z])', '_', mname).lower()
+            name = re.sub(r'(?<!_)(?<!^)(?=[A-Z])', '_', mname).lower()
             name = name.replace("-", "")
             method.name = method.name.replace("-", "")
+            pbname_request = self.to_camel_case(str(method.request.typename))
+            pbname_response = self.to_camel_case(str(method.response.typename))
             self.write(f"""\
             async fn {name}(
                 &self,
-                request: tonic::Request<pb::{method.request.typename}>,
-            ) -> Result<tonic::Response<pb::{method.response.typename}>, tonic::Status> {{
+                request: tonic::Request<pb::{pbname_request}>,
+            ) -> Result<tonic::Response<pb::{pbname_response}>, tonic::Status> {{
                 let req = request.into_inner();
                 let req: requests::{method.request.typename} = req.into();
                 debug!("Client asked for {name}");
