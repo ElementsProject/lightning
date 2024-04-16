@@ -326,6 +326,11 @@ struct payment {
 	 * explanation if a payment is aborted. */
 	char *aborterror;
 
+	/* How many blocks are we lagging behind the rest of the
+	network? This needs to be taken into consideration when
+	sending payments before being fully caught up.*/
+	u32 chainlag;
+
 	/* Callback to be called when the entire payment process
 	 * completes successfully. */
 	void (*on_payment_success)(struct payment *p);
