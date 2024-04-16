@@ -1466,6 +1466,38 @@ async fn del_forward(
 
 }
 
+async fn disable_offer(
+    &self,
+    request: tonic::Request<pb::DisableofferRequest>,
+) -> Result<tonic::Response<pb::DisableofferResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::DisableofferRequest = req.into();
+    debug!("Client asked for disable_offer");
+    trace!("disable_offer request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::DisableOffer(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method DisableOffer: {:?}", e)))?;
+    match result {
+        Response::DisableOffer(r) => {
+           trace!("disable_offer response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call DisableOffer",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn disconnect(
     &self,
     request: tonic::Request<pb::DisconnectRequest>,

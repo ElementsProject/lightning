@@ -64,6 +64,7 @@ pub enum Request {
 	Decode(requests::DecodeRequest),
 	DelPay(requests::DelpayRequest),
 	DelForward(requests::DelforwardRequest),
+	DisableOffer(requests::DisableofferRequest),
 	Disconnect(requests::DisconnectRequest),
 	Feerates(requests::FeeratesRequest),
 	FetchInvoice(requests::FetchinvoiceRequest),
@@ -149,6 +150,7 @@ pub enum Response {
 	Decode(responses::DecodeResponse),
 	DelPay(responses::DelpayResponse),
 	DelForward(responses::DelforwardResponse),
+	DisableOffer(responses::DisableofferResponse),
 	Disconnect(responses::DisconnectResponse),
 	Feerates(responses::FeeratesResponse),
 	FetchInvoice(responses::FetchinvoiceResponse),
@@ -1751,6 +1753,28 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "delforward"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DisableofferRequest {
+	    pub offer_id: Sha256,
+	}
+
+	impl From<DisableofferRequest> for Request {
+	    fn from(r: DisableofferRequest) -> Self {
+	        Request::DisableOffer(r)
+	    }
+	}
+
+	impl IntoRequest for DisableofferRequest {
+	    type Response = super::responses::DisableofferResponse;
+	}
+
+	impl TypedRequest for DisableofferRequest {
+	    type Response = super::responses::DisableofferResponse;
+
+	    fn method(&self) -> &str {
+	        "disableoffer"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -5786,6 +5810,28 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::DelForward(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DisableofferResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    pub active: bool,
+	    pub bolt12: String,
+	    pub offer_id: Sha256,
+	    pub single_use: bool,
+	    pub used: bool,
+	}
+
+	impl TryFrom<Response> for DisableofferResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::DisableOffer(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

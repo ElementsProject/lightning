@@ -847,6 +847,17 @@
         "DelpayResponse": {
             "DelPay.payments[]": 1
         },
+        "DisableofferRequest": {
+            "DisableOffer.offer_id": 1
+        },
+        "DisableofferResponse": {
+            "DisableOffer.active": 2,
+            "DisableOffer.bolt12": 4,
+            "DisableOffer.label": 6,
+            "DisableOffer.offer_id": 1,
+            "DisableOffer.single_use": 3,
+            "DisableOffer.used": 5
+        },
         "DisconnectRequest": {
             "Disconnect.force": 2,
             "Disconnect.id": 1
@@ -3665,6 +3676,34 @@
             "deprecated": false
         },
         "DelPay.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DisableOffer": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "DisableOffer.active": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DisableOffer.bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DisableOffer.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DisableOffer.offer_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DisableOffer.single_use": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DisableOffer.used": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
