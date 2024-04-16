@@ -4523,7 +4523,7 @@ def test_fetchinvoice(node_factory, bitcoind):
                                          opts=[{'experimental-offers': None},
                                                {'experimental-offers': None},
                                                {'experimental-offers': None,
-                                                'allow_broken_log': True}])
+                                                'broken_log': "plugin-offers: Failed invreq.*Unknown command 'currencyconvert'"}])
 
     # Simple offer first.
     offer1 = l3.rpc.call('offer', {'amount': '2msat',

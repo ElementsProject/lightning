@@ -1174,7 +1174,7 @@ def test_gossip_store_load(node_factory):
 
 def test_gossip_store_v10_upgrade(node_factory):
     """We remove a channel_update without an htlc_maximum_msat"""
-    l1 = node_factory.get_node(start=False, allow_broken_log=True)
+    l1 = node_factory.get_node(start=False)
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
         f.write(bytearray.fromhex("0a"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
@@ -1242,7 +1242,7 @@ def test_gossip_store_load_announce_before_update(node_factory):
 
 def test_gossip_store_load_amount_truncated(node_factory):
     """Make sure we can read canned gossip store with truncated amount"""
-    l1 = node_factory.get_node(start=False, allow_broken_log=True)
+    l1 = node_factory.get_node(start=False, broken_log=r'gossip_store: channel_announcement without amount \(offset 1\). Moving to gossip_store.corrupt and truncating|plugin-cln-renepay:.*unable to fetch channel capacity')
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
         f.write(bytearray.fromhex("0c"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
@@ -1590,7 +1590,7 @@ def test_gossip_store_load_complex(node_factory, bitcoind):
 
 def test_gossip_store_load_no_channel_update(node_factory):
     """Make sure we can read truncated gossip store with a channel_announcement and no channel_update"""
-    l1 = node_factory.get_node(start=False, allow_broken_log=True)
+    l1 = node_factory.get_node(start=False)
 
     # A channel announcement with no channel_update.
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:

@@ -1496,7 +1496,7 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
         num = 100
 
     # Allow the other nodes to log unexpected WIRE_FUNDING_CREATED messages
-    nodes = node_factory.get_nodes(num, opts={'allow_broken_log': True})
+    nodes = node_factory.get_nodes(num, opts={})
 
     num_complete = 0
     num_cancel = 0
@@ -3005,7 +3005,8 @@ def test_dataloss_protection(node_factory, bitcoind):
                                allow_warning=True,
                                feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node(may_reconnect=True, options={'log-level': 'io'},
-                               feerates=(7500, 7500, 7500, 7500), allow_broken_log=True)
+                               broken_log='Cannot broadcast our commitment tx: they have a future one|Unknown commitment .*, recovering our funds',
+                               feerates=(7500, 7500, 7500, 7500))
 
     lf = expected_peer_features()
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -3108,7 +3109,8 @@ def test_dataloss_protection_no_broadcast(node_factory, bitcoind):
                                allow_warning=True,
                                options={'dev-no-reconnect': None})
     l2 = node_factory.get_node(may_reconnect=True,
-                               feerates=(7500, 7500, 7500, 7500), allow_broken_log=True,
+                               feerates=(7500, 7500, 7500, 7500),
+                               broken_log='Cannot broadcast our commitment tx: they have a future one',
                                disconnect=['-WIRE_ERROR'],
                                options={'dev-no-reconnect': None})
 
@@ -3763,7 +3765,7 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
                                               # This forces us to allow sending non-static-remotekey!
                                               'dev-any-channel-type': None,
                                               # We try to cheat!
-                                              'allow_broken_log': True},
+                                              'broken_log': r"onchaind-chan#[0-9]*: Could not find resolution for output .*: did \*we\* cheat\?"},
                                              {'may_reconnect': True,
                                               # This forces us to allow non-static-remotekey!
                                               'dev-any-channel-type': None,

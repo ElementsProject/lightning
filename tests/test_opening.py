@@ -878,7 +878,7 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
                                            'dev-no-reconnect': None},
                                           {'may_reconnect': True,
                                            'dev-no-reconnect': None,
-                                           'allow_broken_log': True}])
+                                           'broken_log': 'dualopend daemon died before signed PSBT returned'}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
@@ -1000,7 +1000,7 @@ def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
                                            'may_reconnect': True,
                                            # "dualopend daemon died before signed PSBT returned"
                                            # happens occassionally
-                                           'allow_broken_log': True}])
+                                           'broken_log': 'dualopend daemon died before signed PSBT returned'}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
@@ -1072,8 +1072,7 @@ def test_rbf_to_chain_before_commit(node_factory, bitcoind, chainparams):
                                            'may_reconnect': True,
                                            'dev-no-reconnect': None},
                                           {'may_reconnect': True,
-                                           'dev-no-reconnect': None,
-                                           'allow_broken_log': True}])
+                                           'dev-no-reconnect': None}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24

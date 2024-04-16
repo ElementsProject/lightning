@@ -107,7 +107,7 @@ def test_bitcoin_failure(node_factory, bitcoind):
 
     # Ignore BROKEN log message about blocksonly mode.
     l2 = node_factory.get_node(start=False, expect_fail=True,
-                               allow_broken_log=True)
+                               broken_log="plugin-bcli: The 'blocksonly' mode of bitcoind, or any option deactivating transaction relay is not supported.")
     l2.daemon.start(wait_for_initialized=False, stderr_redir=True)
     # Will exit with failure code.
     assert l2.daemon.wait() == 1
@@ -1262,7 +1262,6 @@ def test_funding_reorg_private(node_factory, bitcoind):
     opts = {'funding-confirms': 2, 'rescan': 10, 'may_reconnect': True,
             'allow_bad_gossip': True,
             # gossipd send lightning update for original channel.
-            'allow_broken_log': True,
             'allow_warning': True,
             'dev-fast-reconnect': None,
             # if it's not zeroconf, we'll terminate on reorg.
@@ -1353,7 +1352,7 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_funding_reorg_get_upset(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, opts=[{}, {'allow_broken_log': True}])
+    l1, l2 = node_factory.line_graph(2, opts=[{}, {'broken_log': 'Funding transaction has been reorged out in state CHANNELD_NORMAL'}])
     bitcoind.simple_reorg(103, 1)
 
     # l1 is ok, as funder.
@@ -1367,7 +1366,7 @@ def test_funding_reorg_get_upset(node_factory, bitcoind):
 def test_decode(node_factory, bitcoind):
     """Test the decode option to decode the contents of emergency recovery.
     """
-    l1 = node_factory.get_node(allow_broken_log=True)
+    l1 = node_factory.get_node()
     cmd_line = ["tools/hsmtool", "getemergencyrecover", os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "emergency.recover")]
     out = subprocess.check_output(cmd_line).decode('utf-8')
     bech32_out = out.strip('\n')
@@ -1494,7 +1493,7 @@ def test_rescan(node_factory, bitcoind):
 
 def test_bitcoind_goes_backwards(node_factory, bitcoind):
     """Check that we refuse to acknowledge bitcoind giving a shorter chain without explicit rescan"""
-    l1 = node_factory.get_node(may_fail=True, allow_broken_log=True)
+    l1 = node_factory.get_node(may_fail=True)
 
     bitcoind.generate_block(10)
     sync_blockheight(bitcoind, [l1])
@@ -1827,7 +1826,7 @@ def test_logging(node_factory):
 @unittest.skipIf(VALGRIND,
                  "Valgrind sometimes fails assert on injected SEGV")
 def test_crashlog(node_factory):
-    l1 = node_factory.get_node(may_fail=True, allow_broken_log=True)
+    l1 = node_factory.get_node(may_fail=True)
 
     def has_crash_log(n):
         files = os.listdir(os.path.join(n.daemon.lightning_dir, TEST_NETWORK))
@@ -2033,7 +2032,7 @@ def test_bitcoind_fail_first(node_factory, bitcoind):
     # first.
     timeout = 5 if 5 < TIMEOUT // 3 else TIMEOUT // 3
     l1 = node_factory.get_node(start=False,
-                               allow_broken_log=True,
+                               broken_log=r'plugin-bcli: .*-stdinrpcpass getblockhash 100 exited 1 \(after [0-9]* other errors\)',
                                may_fail=True,
                                options={'bitcoin-retry-timeout': timeout})
 
@@ -2211,7 +2210,7 @@ def test_dev_force_bip32_seed(node_factory):
 
 
 def test_dev_demux(node_factory):
-    l1 = node_factory.get_node(may_fail=True, allow_broken_log=True)
+    l1 = node_factory.get_node(may_fail=True)
 
     # Check should work.
     l1.rpc.check(command_to_check='dev', subcommand='crash')
@@ -2777,7 +2776,8 @@ def test_emergencyrecover(node_factory, bitcoind):
     """
     Test emergencyrecover
     """
-    l1, l2 = node_factory.get_nodes(2, opts=[{'allow_broken_log': True, 'may_reconnect': True},
+    l1, l2 = node_factory.get_nodes(2, opts=[{'may_reconnect': True,
+                                              'broken_log': 'ERROR: Unknown commitment #.*, recovering our funds'},
                                              {'may_reconnect': True}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -2828,7 +2828,7 @@ def test_recover_plugin(node_factory, bitcoind):
     l2 = node_factory.get_node(
         may_reconnect=True,
         feerates=(7500, 7500, 7500, 7500),
-        allow_broken_log=True,
+        broken_log='.*',
         allow_bad_gossip=True,
         options={
             'log-level': 'info',
@@ -2884,7 +2884,7 @@ def test_restorefrompeer(node_factory, bitcoind):
     """
     Test restorefrompeer
     """
-    l1, l2 = node_factory.get_nodes(2, [{'allow_broken_log': True,
+    l1, l2 = node_factory.get_nodes(2, [{'broken_log': 'ERROR: Unknown commitment #.*, recovering our funds!',
                                          'experimental-peer-storage': None,
                                          'may_reconnect': True,
                                          'allow_bad_gossip': True},
@@ -3206,7 +3206,7 @@ def test_version_reexec(node_factory, bitcoind):
 
     l1, l2 = node_factory.get_nodes(2, opts=[{'subdaemon': 'openingd:' + badopeningd,
                                               'start': False,
-                                              'allow_broken_log': True},
+                                              'broken_log': "openingd.*version 'badversion' not '.*': restarting"},
                                              {}])
     # We use a file to tell our openingd wrapper where the real one is
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "openingd-real"), 'w') as f:

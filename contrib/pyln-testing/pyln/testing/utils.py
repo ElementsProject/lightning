@@ -746,7 +746,7 @@ class PrettyPrintingLightningRpc(LightningRpc):
 class LightningNode(object):
     def __init__(self, node_id, lightning_dir, bitcoind, executor, valgrind, may_fail=False,
                  may_reconnect=False,
-                 allow_broken_log=False,
+                 broken_log=None,
                  allow_warning=False,
                  allow_bad_gossip=False,
                  db=None, port=None, disconnect=None, random_hsm=None, options=None,
@@ -757,7 +757,7 @@ class LightningNode(object):
         self.executor = executor
         self.may_fail = may_fail
         self.may_reconnect = may_reconnect
-        self.allow_broken_log = allow_broken_log
+        self.broken_log = broken_log
         self.allow_bad_gossip = allow_bad_gossip
         self.allow_warning = allow_warning
         self.db = db
@@ -1526,7 +1526,7 @@ class NodeFactory(object):
         node_opt_keys = [
             'disconnect',
             'may_fail',
-            'allow_broken_log',
+            'broken_log',
             'allow_warning',
             'may_reconnect',
             'random_hsm',

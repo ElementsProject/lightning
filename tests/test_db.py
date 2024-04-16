@@ -142,7 +142,7 @@ def test_scid_upgrade(node_factory, bitcoind):
     # Created through the power of sed "s/X'\([0-9]*\)78\([0-9]*\)78\([0-9]*\)'/X'\13A\23A\3'/"
     l1 = node_factory.get_node(dbfile='oldstyle-scids.sqlite3.xz',
                                start=False, expect_fail=True,
-                               allow_broken_log=True)
+                               broken_log='Refusing to irreversibly upgrade db from version 104 to|Refusing to upgrade db from version 104 to')
 
     # Will refuse to upgrade (if not in a release!)
     version = subprocess.check_output(['lightningd/lightningd',
@@ -256,7 +256,7 @@ def test_backfill_scriptpubkeys(node_factory, bitcoind):
     # Test the first time, all entries are with option_static_remotekey
     l1 = node_factory.get_node(node_id=3, dbfile='pubkey_regen.sqlite.xz',
                                # Our db had the old non-DER sig in psbt!
-                               allow_broken_log=True,
+                               broken_log='Forced database repair of psbt',
                                options={'database-upgrade': True})
     results = l1.db_query('SELECT hex(prev_out_tx) AS txid, hex(scriptpubkey) AS script FROM outputs')
     scripts = [{'txid': x['txid'], 'scriptpubkey': x['script']} for x in results]
@@ -293,7 +293,7 @@ def test_backfill_scriptpubkeys(node_factory, bitcoind):
 
     l2 = node_factory.get_node(node_id=3, dbfile='pubkey_regen_commitment_point.sqlite3.xz',
                                # Our db had the old non-DER sig in psbt!
-                               allow_broken_log=True,
+                               broken_log='Forced database repair of psbt',
                                options={'database-upgrade': True})
     results = l2.db_query('SELECT hex(prev_out_tx) AS txid, hex(scriptpubkey) AS script FROM outputs')
     scripts = [{'txid': x['txid'], 'scriptpubkey': x['script']} for x in results]
@@ -319,7 +319,7 @@ def test_optimistic_locking(node_factory, bitcoind):
     We start a node, wait for it to settle its write so we have a window where
     we can interfere, and watch the world burn (safely).
     """
-    l1 = node_factory.get_node(may_fail=True, allow_broken_log=True)
+    l1 = node_factory.get_node(may_fail=True, broken_log='lightningd:')
 
     sync_blockheight(bitcoind, [l1])
     l1.rpc.getinfo()
@@ -373,7 +373,7 @@ def test_local_basepoints_cache(bitcoind, node_factory):
         dbfile='no-local-basepoints.sqlite3.xz',
         start=False,
         # Our db had the old non-DER sig in psbt!
-        allow_broken_log=True,
+        broken_log='Forced database repair of psbt',
         options={'database-upgrade': True}
     )
 
@@ -447,8 +447,7 @@ def test_sqlite3_builtin_backup(bitcoind, node_factory):
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Don't know how to swap dbs in Postgres")
 def test_db_sanity_checks(bitcoind, node_factory):
-    l1, l2 = node_factory.get_nodes(2, opts=[{'allow_broken_log': True,
-                                              'may_fail': True}, {}])
+    l1, l2 = node_factory.get_nodes(2, opts=[{'may_fail': True, 'broken_log': 'Wallet node_id does not match HSM|Wallet blockchain hash does not match network blockchain hash'}, {}])
 
     l1.stop()
     l2.stop()
