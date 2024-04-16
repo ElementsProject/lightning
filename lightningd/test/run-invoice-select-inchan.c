@@ -578,16 +578,14 @@ void json_add_u64(struct json_stream *result UNNEEDED, const char *fieldname UNN
 		  uint64_t value UNNEEDED)
 { fprintf(stderr, "json_add_u64 called!\n"); abort(); }
 /* Generated stub for json_add_uncommitted_channel */
-void json_add_uncommitted_channel(struct json_stream *response UNNEEDED,
-				  const struct uncommitted_channel *uc UNNEEDED,
-				  /* Only set for listpeerchannels */
-				  const struct peer *peer UNNEEDED)
+void  json_add_uncommitted_channel(struct json_stream *response UNNEEDED,
+						      const struct uncommitted_channel *uc UNNEEDED,
+						      const struct peer *peer UNNEEDED)
 { fprintf(stderr, "json_add_uncommitted_channel called!\n"); abort(); }
 /* Generated stub for json_add_unsaved_channel */
-void json_add_unsaved_channel(struct json_stream *response UNNEEDED,
-			      const struct channel *channel UNNEEDED,
-			      /* Only set for listpeerchannels */
-			      const struct peer *peer UNNEEDED)
+void  json_add_unsaved_channel(struct json_stream *response UNNEEDED,
+					   const struct channel *channel UNNEEDED,
+					   const struct peer *peer UNNEEDED)
 { fprintf(stderr, "json_add_unsaved_channel called!\n"); abort(); }
 /* Generated stub for json_array_end */
 void json_array_end(struct json_stream *js UNNEEDED)
@@ -671,14 +669,6 @@ struct jsonrpc_request *jsonrpc_request_start_(
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
 { fprintf(stderr, "kill_uncommitted_channel called!\n"); abort(); }
-/* Generated stub for lightningd_deprecated_out_ok */
-bool lightningd_deprecated_out_ok(struct lightningd *ld UNNEEDED,
-				  bool deprecated_apis UNNEEDED,
-				  const char *subsys UNNEEDED,
-				  const char *api UNNEEDED,
-				  const char *start UNNEEDED,
-				  const char *end UNNEEDED)
-{ fprintf(stderr, "lightningd_deprecated_out_ok called!\n"); abort(); }
 /* Generated stub for lockin_complete */
 void lockin_complete(struct channel *channel UNNEEDED,
 		     enum channel_state expected_state UNNEEDED)

@@ -128,12 +128,6 @@ struct command_result *command_check_done(struct command *cmd)
 /* Generated stub for command_check_only */
 bool command_check_only(const struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_check_only called!\n"); abort(); }
-/* Generated stub for command_deprecated_in_ok */
-bool command_deprecated_in_ok(struct command *cmd UNNEEDED,
-			      const char *param UNNEEDED,
-			      const char *depr_start UNNEEDED,
-			      const char *depr_end UNNEEDED)
-{ fprintf(stderr, "command_deprecated_in_ok called!\n"); abort(); }
 /* Generated stub for command_fail */
 struct command_result *command_fail(struct command *cmd UNNEEDED, enum jsonrpc_errcode code UNNEEDED,
 				    const char *fmt UNNEEDED, ...)
@@ -516,16 +510,14 @@ void json_add_u64(struct json_stream *result UNNEEDED, const char *fieldname UNN
 		  uint64_t value UNNEEDED)
 { fprintf(stderr, "json_add_u64 called!\n"); abort(); }
 /* Generated stub for json_add_uncommitted_channel */
-void json_add_uncommitted_channel(struct json_stream *response UNNEEDED,
-				  const struct uncommitted_channel *uc UNNEEDED,
-				  /* Only set for listpeerchannels */
-				  const struct peer *peer UNNEEDED)
+void  json_add_uncommitted_channel(struct json_stream *response UNNEEDED,
+						      const struct uncommitted_channel *uc UNNEEDED,
+						      const struct peer *peer UNNEEDED)
 { fprintf(stderr, "json_add_uncommitted_channel called!\n"); abort(); }
 /* Generated stub for json_add_unsaved_channel */
-void json_add_unsaved_channel(struct json_stream *response UNNEEDED,
-			      const struct channel *channel UNNEEDED,
-			      /* Only set for listpeerchannels */
-			      const struct peer *peer UNNEEDED)
+void  json_add_unsaved_channel(struct json_stream *response UNNEEDED,
+					   const struct channel *channel UNNEEDED,
+					   const struct peer *peer UNNEEDED)
 { fprintf(stderr, "json_add_unsaved_channel called!\n"); abort(); }
 /* Generated stub for json_array_end */
 void json_array_end(struct json_stream *js UNNEEDED)
@@ -600,14 +592,6 @@ bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, 
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
 { fprintf(stderr, "kill_uncommitted_channel called!\n"); abort(); }
-/* Generated stub for lightningd_deprecated_out_ok */
-bool lightningd_deprecated_out_ok(struct lightningd *ld UNNEEDED,
-				  bool deprecated_apis UNNEEDED,
-				  const char *subsys UNNEEDED,
-				  const char *api UNNEEDED,
-				  const char *start UNNEEDED,
-				  const char *end UNNEEDED)
-{ fprintf(stderr, "lightningd_deprecated_out_ok called!\n"); abort(); }
 /* Generated stub for lockin_complete */
 void lockin_complete(struct channel *channel UNNEEDED,
 		     enum channel_state expected_state UNNEEDED)
