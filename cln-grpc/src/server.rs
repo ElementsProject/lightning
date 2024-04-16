@@ -1690,6 +1690,166 @@ async fn offer(
 
 }
 
+async fn open_channel_abort(
+    &self,
+    request: tonic::Request<pb::OpenchannelAbortRequest>,
+) -> Result<tonic::Response<pb::OpenchannelAbortResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::Openchannel_abortRequest = req.into();
+    debug!("Client asked for open_channel_abort");
+    trace!("open_channel_abort request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::OpenChannel_Abort(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method OpenChannel_Abort: {:?}", e)))?;
+    match result {
+        Response::OpenChannel_Abort(r) => {
+           trace!("open_channel_abort response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call OpenChannel_Abort",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn open_channel_bump(
+    &self,
+    request: tonic::Request<pb::OpenchannelBumpRequest>,
+) -> Result<tonic::Response<pb::OpenchannelBumpResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::Openchannel_bumpRequest = req.into();
+    debug!("Client asked for open_channel_bump");
+    trace!("open_channel_bump request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::OpenChannel_Bump(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method OpenChannel_Bump: {:?}", e)))?;
+    match result {
+        Response::OpenChannel_Bump(r) => {
+           trace!("open_channel_bump response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call OpenChannel_Bump",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn open_channel_init(
+    &self,
+    request: tonic::Request<pb::OpenchannelInitRequest>,
+) -> Result<tonic::Response<pb::OpenchannelInitResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::Openchannel_initRequest = req.into();
+    debug!("Client asked for open_channel_init");
+    trace!("open_channel_init request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::OpenChannel_Init(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method OpenChannel_Init: {:?}", e)))?;
+    match result {
+        Response::OpenChannel_Init(r) => {
+           trace!("open_channel_init response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call OpenChannel_Init",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn open_channel_signed(
+    &self,
+    request: tonic::Request<pb::OpenchannelSignedRequest>,
+) -> Result<tonic::Response<pb::OpenchannelSignedResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::Openchannel_signedRequest = req.into();
+    debug!("Client asked for open_channel_signed");
+    trace!("open_channel_signed request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::OpenChannel_Signed(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method OpenChannel_Signed: {:?}", e)))?;
+    match result {
+        Response::OpenChannel_Signed(r) => {
+           trace!("open_channel_signed response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call OpenChannel_Signed",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn open_channel_update(
+    &self,
+    request: tonic::Request<pb::OpenchannelUpdateRequest>,
+) -> Result<tonic::Response<pb::OpenchannelUpdateResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::Openchannel_updateRequest = req.into();
+    debug!("Client asked for open_channel_update");
+    trace!("open_channel_update request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::OpenChannel_Update(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method OpenChannel_Update: {:?}", e)))?;
+    match result {
+        Response::OpenChannel_Update(r) => {
+           trace!("open_channel_update response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call OpenChannel_Update",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn ping(
     &self,
     request: tonic::Request<pb::PingRequest>,

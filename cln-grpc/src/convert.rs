@@ -1696,6 +1696,107 @@ impl From<responses::OfferResponse> for pb::OfferResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::Openchannel_abortResponse> for pb::OpenchannelAbortResponse {
+    fn from(c: responses::Openchannel_abortResponse) -> Self {
+        Self {
+            channel_canceled: c.channel_canceled, // Rule #2 for type boolean
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
+            reason: c.reason, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::Openchannel_bumpChannel_type> for pb::OpenchannelBumpChannelType {
+    fn from(c: responses::Openchannel_bumpChannel_type) -> Self {
+        Self {
+            // Field: OpenChannel_Bump.channel_type.bits[]
+            bits: c.bits.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            // Field: OpenChannel_Bump.channel_type.names[]
+            names: c.names.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::Openchannel_bumpResponse> for pb::OpenchannelBumpResponse {
+    fn from(c: responses::Openchannel_bumpResponse) -> Self {
+        Self {
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
+            channel_type: c.channel_type.map(|v| v.into()),
+            commitments_secured: c.commitments_secured, // Rule #2 for type boolean
+            funding_serial: c.funding_serial, // Rule #2 for type u64
+            psbt: c.psbt, // Rule #2 for type string
+            requires_confirmed_inputs: c.requires_confirmed_inputs, // Rule #2 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::Openchannel_initChannel_type> for pb::OpenchannelInitChannelType {
+    fn from(c: responses::Openchannel_initChannel_type) -> Self {
+        Self {
+            // Field: OpenChannel_Init.channel_type.bits[]
+            bits: c.bits.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            // Field: OpenChannel_Init.channel_type.names[]
+            names: c.names.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::Openchannel_initResponse> for pb::OpenchannelInitResponse {
+    fn from(c: responses::Openchannel_initResponse) -> Self {
+        Self {
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
+            channel_type: c.channel_type.map(|v| v.into()),
+            commitments_secured: c.commitments_secured, // Rule #2 for type boolean
+            funding_serial: c.funding_serial, // Rule #2 for type u64
+            psbt: c.psbt, // Rule #2 for type string
+            requires_confirmed_inputs: c.requires_confirmed_inputs, // Rule #2 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::Openchannel_signedResponse> for pb::OpenchannelSignedResponse {
+    fn from(c: responses::Openchannel_signedResponse) -> Self {
+        Self {
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
+            tx: hex::decode(&c.tx).unwrap(), // Rule #2 for type hex
+            txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::Openchannel_updateChannel_type> for pb::OpenchannelUpdateChannelType {
+    fn from(c: responses::Openchannel_updateChannel_type) -> Self {
+        Self {
+            // Field: OpenChannel_Update.channel_type.bits[]
+            bits: c.bits.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            // Field: OpenChannel_Update.channel_type.names[]
+            names: c.names.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::Openchannel_updateResponse> for pb::OpenchannelUpdateResponse {
+    fn from(c: responses::Openchannel_updateResponse) -> Self {
+        Self {
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
+            channel_type: c.channel_type.map(|v| v.into()),
+            close_to: c.close_to.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            commitments_secured: c.commitments_secured, // Rule #2 for type boolean
+            funding_outnum: c.funding_outnum, // Rule #2 for type u32
+            psbt: c.psbt, // Rule #2 for type string
+            requires_confirmed_inputs: c.requires_confirmed_inputs, // Rule #2 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::PingResponse> for pb::PingResponse {
     fn from(c: responses::PingResponse) -> Self {
         Self {
@@ -2570,6 +2671,66 @@ impl From<requests::OfferRequest> for pb::OfferRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::Openchannel_abortRequest> for pb::OpenchannelAbortRequest {
+    fn from(c: requests::Openchannel_abortRequest) -> Self {
+        Self {
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::Openchannel_bumpRequest> for pb::OpenchannelBumpRequest {
+    fn from(c: requests::Openchannel_bumpRequest) -> Self {
+        Self {
+            amount: Some(c.amount.into()), // Rule #2 for type msat
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
+            funding_feerate: c.funding_feerate.map(|o|o.into()), // Rule #2 for type feerate?
+            initialpsbt: c.initialpsbt, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::Openchannel_initRequest> for pb::OpenchannelInitRequest {
+    fn from(c: requests::Openchannel_initRequest) -> Self {
+        Self {
+            amount: Some(c.amount.into()), // Rule #2 for type msat
+            announce: c.announce, // Rule #2 for type boolean?
+            // Field: OpenChannel_Init.channel_type[]
+            channel_type: c.channel_type.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            close_to: c.close_to, // Rule #2 for type string?
+            commitment_feerate: c.commitment_feerate.map(|o|o.into()), // Rule #2 for type feerate?
+            compact_lease: c.compact_lease.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            funding_feerate: c.funding_feerate.map(|o|o.into()), // Rule #2 for type feerate?
+            id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
+            initialpsbt: c.initialpsbt, // Rule #2 for type string
+            request_amt: c.request_amt.map(|f| f.into()), // Rule #2 for type msat?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::Openchannel_signedRequest> for pb::OpenchannelSignedRequest {
+    fn from(c: requests::Openchannel_signedRequest) -> Self {
+        Self {
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
+            signed_psbt: c.signed_psbt, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::Openchannel_updateRequest> for pb::OpenchannelUpdateRequest {
+    fn from(c: requests::Openchannel_updateRequest) -> Self {
+        Self {
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
+            psbt: c.psbt, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::PingRequest> for pb::PingRequest {
     fn from(c: requests::PingRequest) -> Self {
         Self {
@@ -3371,6 +3532,65 @@ impl From<pb::OfferRequest> for requests::OfferRequest {
             recurrence_limit: c.recurrence_limit, // Rule #1 for type u32?
             recurrence_paywindow: c.recurrence_paywindow, // Rule #1 for type string?
             single_use: c.single_use, // Rule #1 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::OpenchannelAbortRequest> for requests::Openchannel_abortRequest {
+    fn from(c: pb::OpenchannelAbortRequest) -> Self {
+        Self {
+            channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::OpenchannelBumpRequest> for requests::Openchannel_bumpRequest {
+    fn from(c: pb::OpenchannelBumpRequest) -> Self {
+        Self {
+            amount: c.amount.unwrap().into(), // Rule #1 for type msat
+            channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
+            funding_feerate: c.funding_feerate.map(|a| a.into()), // Rule #1 for type feerate?
+            initialpsbt: c.initialpsbt, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::OpenchannelInitRequest> for requests::Openchannel_initRequest {
+    fn from(c: pb::OpenchannelInitRequest) -> Self {
+        Self {
+            amount: c.amount.unwrap().into(), // Rule #1 for type msat
+            announce: c.announce, // Rule #1 for type boolean?
+            channel_type: Some(c.channel_type.into_iter().map(|s| s).collect()), // Rule #4
+            close_to: c.close_to, // Rule #1 for type string?
+            commitment_feerate: c.commitment_feerate.map(|a| a.into()), // Rule #1 for type feerate?
+            compact_lease: c.compact_lease.map(|v| hex::encode(v)), // Rule #1 for type hex?
+            funding_feerate: c.funding_feerate.map(|a| a.into()), // Rule #1 for type feerate?
+            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
+            initialpsbt: c.initialpsbt, // Rule #1 for type string
+            request_amt: c.request_amt.map(|a| a.into()), // Rule #1 for type msat?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::OpenchannelSignedRequest> for requests::Openchannel_signedRequest {
+    fn from(c: pb::OpenchannelSignedRequest) -> Self {
+        Self {
+            channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
+            signed_psbt: c.signed_psbt, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::OpenchannelUpdateRequest> for requests::Openchannel_updateRequest {
+    fn from(c: pb::OpenchannelUpdateRequest) -> Self {
+        Self {
+            channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
+            psbt: c.psbt, // Rule #1 for type string
         }
     }
 }

@@ -69,6 +69,11 @@ pub enum Request {
 	ListHtlcs(requests::ListhtlcsRequest),
 	MultiFundChannel(requests::MultifundchannelRequest),
 	Offer(requests::OfferRequest),
+	OpenChannel_Abort(requests::Openchannel_abortRequest),
+	OpenChannel_Bump(requests::Openchannel_bumpRequest),
+	OpenChannel_Init(requests::Openchannel_initRequest),
+	OpenChannel_Signed(requests::Openchannel_signedRequest),
+	OpenChannel_Update(requests::Openchannel_updateRequest),
 	Ping(requests::PingRequest),
 	SendCustomMsg(requests::SendcustommsgRequest),
 	SetChannel(requests::SetchannelRequest),
@@ -139,6 +144,11 @@ pub enum Response {
 	ListHtlcs(responses::ListhtlcsResponse),
 	MultiFundChannel(responses::MultifundchannelResponse),
 	Offer(responses::OfferResponse),
+	OpenChannel_Abort(responses::Openchannel_abortResponse),
+	OpenChannel_Bump(responses::Openchannel_bumpResponse),
+	OpenChannel_Init(responses::Openchannel_initResponse),
+	OpenChannel_Signed(responses::Openchannel_signedResponse),
+	OpenChannel_Update(responses::Openchannel_updateResponse),
 	Ping(responses::PingResponse),
 	SendCustomMsg(responses::SendcustommsgResponse),
 	SetChannel(responses::SetchannelResponse),
@@ -2050,6 +2060,138 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "offer"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Openchannel_abortRequest {
+	    pub channel_id: Sha256,
+	}
+
+	impl From<Openchannel_abortRequest> for Request {
+	    fn from(r: Openchannel_abortRequest) -> Self {
+	        Request::OpenChannel_Abort(r)
+	    }
+	}
+
+	impl IntoRequest for Openchannel_abortRequest {
+	    type Response = super::responses::Openchannel_abortResponse;
+	}
+
+	impl TypedRequest for Openchannel_abortRequest {
+	    type Response = super::responses::Openchannel_abortResponse;
+
+	    fn method(&self) -> &str {
+	        "openchannel_abort"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Openchannel_bumpRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub funding_feerate: Option<Feerate>,
+	    pub amount: Amount,
+	    pub channel_id: Sha256,
+	    pub initialpsbt: String,
+	}
+
+	impl From<Openchannel_bumpRequest> for Request {
+	    fn from(r: Openchannel_bumpRequest) -> Self {
+	        Request::OpenChannel_Bump(r)
+	    }
+	}
+
+	impl IntoRequest for Openchannel_bumpRequest {
+	    type Response = super::responses::Openchannel_bumpResponse;
+	}
+
+	impl TypedRequest for Openchannel_bumpRequest {
+	    type Response = super::responses::Openchannel_bumpResponse;
+
+	    fn method(&self) -> &str {
+	        "openchannel_bump"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Openchannel_initRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub announce: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub close_to: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub commitment_feerate: Option<Feerate>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub compact_lease: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub funding_feerate: Option<Feerate>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub request_amt: Option<Amount>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub channel_type: Option<Vec<u32>>,
+	    pub amount: Amount,
+	    pub id: PublicKey,
+	    pub initialpsbt: String,
+	}
+
+	impl From<Openchannel_initRequest> for Request {
+	    fn from(r: Openchannel_initRequest) -> Self {
+	        Request::OpenChannel_Init(r)
+	    }
+	}
+
+	impl IntoRequest for Openchannel_initRequest {
+	    type Response = super::responses::Openchannel_initResponse;
+	}
+
+	impl TypedRequest for Openchannel_initRequest {
+	    type Response = super::responses::Openchannel_initResponse;
+
+	    fn method(&self) -> &str {
+	        "openchannel_init"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Openchannel_signedRequest {
+	    pub channel_id: Sha256,
+	    pub signed_psbt: String,
+	}
+
+	impl From<Openchannel_signedRequest> for Request {
+	    fn from(r: Openchannel_signedRequest) -> Self {
+	        Request::OpenChannel_Signed(r)
+	    }
+	}
+
+	impl IntoRequest for Openchannel_signedRequest {
+	    type Response = super::responses::Openchannel_signedResponse;
+	}
+
+	impl TypedRequest for Openchannel_signedRequest {
+	    type Response = super::responses::Openchannel_signedResponse;
+
+	    fn method(&self) -> &str {
+	        "openchannel_signed"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Openchannel_updateRequest {
+	    pub channel_id: Sha256,
+	    pub psbt: String,
+	}
+
+	impl From<Openchannel_updateRequest> for Request {
+	    fn from(r: Openchannel_updateRequest) -> Self {
+	        Request::OpenChannel_Update(r)
+	    }
+	}
+
+	impl IntoRequest for Openchannel_updateRequest {
+	    type Response = super::responses::Openchannel_updateResponse;
+	}
+
+	impl TypedRequest for Openchannel_updateRequest {
+	    type Response = super::responses::Openchannel_updateResponse;
+
+	    fn method(&self) -> &str {
+	        "openchannel_update"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -5772,6 +5914,137 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::Offer(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Openchannel_abortResponse {
+	    pub channel_canceled: bool,
+	    pub channel_id: Sha256,
+	    pub reason: String,
+	}
+
+	impl TryFrom<Response> for Openchannel_abortResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::OpenChannel_Abort(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Openchannel_bumpChannel_type {
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub bits: Option<Vec<u32>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub names: Option<Vec<ChannelTypeName>>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Openchannel_bumpResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub channel_type: Option<Openchannel_bumpChannel_type>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub requires_confirmed_inputs: Option<bool>,
+	    pub channel_id: Sha256,
+	    pub commitments_secured: bool,
+	    pub funding_serial: u64,
+	    pub psbt: String,
+	}
+
+	impl TryFrom<Response> for Openchannel_bumpResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::OpenChannel_Bump(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Openchannel_initChannel_type {
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub bits: Option<Vec<u32>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub names: Option<Vec<ChannelTypeName>>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Openchannel_initResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub channel_type: Option<Openchannel_initChannel_type>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub requires_confirmed_inputs: Option<bool>,
+	    pub channel_id: Sha256,
+	    pub commitments_secured: bool,
+	    pub funding_serial: u64,
+	    pub psbt: String,
+	}
+
+	impl TryFrom<Response> for Openchannel_initResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::OpenChannel_Init(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Openchannel_signedResponse {
+	    pub channel_id: Sha256,
+	    pub tx: String,
+	    pub txid: String,
+	}
+
+	impl TryFrom<Response> for Openchannel_signedResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::OpenChannel_Signed(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Openchannel_updateChannel_type {
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub bits: Option<Vec<u32>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub names: Option<Vec<ChannelTypeName>>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Openchannel_updateResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub channel_type: Option<Openchannel_updateChannel_type>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub close_to: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub requires_confirmed_inputs: Option<bool>,
+	    pub channel_id: Sha256,
+	    pub commitments_secured: bool,
+	    pub funding_outnum: u32,
+	    pub psbt: String,
+	}
+
+	impl TryFrom<Response> for Openchannel_updateResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::OpenChannel_Update(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

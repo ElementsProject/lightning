@@ -60,6 +60,11 @@ service Node {
 	rpc ListHtlcs(ListhtlcsRequest) returns (ListhtlcsResponse) {}
 	rpc MultiFundChannel(MultifundchannelRequest) returns (MultifundchannelResponse) {}
 	rpc Offer(OfferRequest) returns (OfferResponse) {}
+	rpc OpenChannel_Abort(Openchannel_abortRequest) returns (Openchannel_abortResponse) {}
+	rpc OpenChannel_Bump(Openchannel_bumpRequest) returns (Openchannel_bumpResponse) {}
+	rpc OpenChannel_Init(Openchannel_initRequest) returns (Openchannel_initResponse) {}
+	rpc OpenChannel_Signed(Openchannel_signedRequest) returns (Openchannel_signedResponse) {}
+	rpc OpenChannel_Update(Openchannel_updateRequest) returns (Openchannel_updateResponse) {}
 	rpc Ping(PingRequest) returns (PingResponse) {}
 	rpc SendCustomMsg(SendcustommsgRequest) returns (SendcustommsgResponse) {}
 	rpc SetChannel(SetchannelRequest) returns (SetchannelResponse) {}
@@ -1831,6 +1836,95 @@ message OfferResponse {
 	bool used = 5;
 	bool created = 6;
 	optional string label = 7;
+}
+
+message Openchannel_abortRequest {
+	bytes channel_id = 1;
+}
+
+message Openchannel_abortResponse {
+	bytes channel_id = 1;
+	bool channel_canceled = 2;
+	string reason = 3;
+}
+
+message Openchannel_bumpRequest {
+	bytes channel_id = 1;
+	string initialpsbt = 2;
+	optional Feerate funding_feerate = 3;
+	Amount amount = 4;
+}
+
+message Openchannel_bumpResponse {
+	bytes channel_id = 1;
+	optional Openchannel_bumpChannel_type channel_type = 2;
+	string psbt = 3;
+	bool commitments_secured = 4;
+	uint64 funding_serial = 5;
+	optional bool requires_confirmed_inputs = 6;
+}
+
+message Openchannel_bumpChannel_type {
+	repeated uint32 bits = 1;
+	repeated ChannelTypeName names = 2;
+}
+
+message Openchannel_initRequest {
+	bytes id = 1;
+	string initialpsbt = 2;
+	optional Feerate commitment_feerate = 3;
+	optional Feerate funding_feerate = 4;
+	optional bool announce = 5;
+	optional string close_to = 6;
+	optional Amount request_amt = 7;
+	optional bytes compact_lease = 8;
+	repeated uint32 channel_type = 9;
+	Amount amount = 10;
+}
+
+message Openchannel_initResponse {
+	bytes channel_id = 1;
+	string psbt = 2;
+	optional Openchannel_initChannel_type channel_type = 3;
+	bool commitments_secured = 4;
+	uint64 funding_serial = 5;
+	optional bool requires_confirmed_inputs = 6;
+}
+
+message Openchannel_initChannel_type {
+	repeated uint32 bits = 1;
+	repeated ChannelTypeName names = 2;
+}
+
+message Openchannel_signedRequest {
+	bytes channel_id = 1;
+	string signed_psbt = 2;
+}
+
+message Openchannel_signedResponse {
+	bytes channel_id = 1;
+	bytes tx = 2;
+	bytes txid = 3;
+}
+
+message Openchannel_updateRequest {
+	bytes channel_id = 1;
+	string psbt = 2;
+}
+
+message Openchannel_updateResponse {
+	bytes channel_id = 1;
+	optional Openchannel_updateChannel_type channel_type = 2;
+	string psbt = 3;
+	bool commitments_secured = 4;
+	uint32 funding_outnum = 5;
+	optional bytes close_to = 6;
+	optional bool requires_confirmed_inputs = 7;
+}
+
+message Openchannel_updateChannel_type {
+	repeated uint32 bits = 1;
+	repeated ChannelTypeName names = 2;
 }
 
 message PingRequest {

@@ -23330,7 +23330,7 @@
           ]
         },
         "amount": {
-          "type": "sat",
+          "type": "msat",
           "description": [
             "Satoshi value that we will contribute to the channel. This value will be _added_ to the provided PSBT in the output which is encumbered by the 2-of-2 script for this channel."
           ]
@@ -23500,7 +23500,7 @@
           ]
         },
         "amount": {
-          "type": "sat",
+          "type": "msat",
           "description": [
             "Satoshi value that we will contribute to the channel. This value will be _added_ to the provided PSBT in the output which is encumbered by the 2-of-2 script for this channel."
           ]

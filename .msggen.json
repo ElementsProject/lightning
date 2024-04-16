@@ -1645,6 +1645,82 @@
             "Offer.single_use": 3,
             "Offer.used": 5
         },
+        "Openchannel_abortRequest": {
+            "OpenChannel_Abort.channel_id": 1
+        },
+        "Openchannel_abortResponse": {
+            "OpenChannel_Abort.channel_canceled": 2,
+            "OpenChannel_Abort.channel_id": 1,
+            "OpenChannel_Abort.reason": 3
+        },
+        "Openchannel_bumpChannel_type": {
+            "OpenChannel_Bump.channel_type.bits[]": 1,
+            "OpenChannel_Bump.channel_type.names[]": 2
+        },
+        "Openchannel_bumpRequest": {
+            "OpenChannel_Bump.amount": 4,
+            "OpenChannel_Bump.channel_id": 1,
+            "OpenChannel_Bump.funding_feerate": 3,
+            "OpenChannel_Bump.initialpsbt": 2
+        },
+        "Openchannel_bumpResponse": {
+            "OpenChannel_Bump.channel_id": 1,
+            "OpenChannel_Bump.channel_type": 2,
+            "OpenChannel_Bump.commitments_secured": 4,
+            "OpenChannel_Bump.funding_serial": 5,
+            "OpenChannel_Bump.psbt": 3,
+            "OpenChannel_Bump.requires_confirmed_inputs": 6
+        },
+        "Openchannel_initChannel_type": {
+            "OpenChannel_Init.channel_type.bits[]": 1,
+            "OpenChannel_Init.channel_type.names[]": 2
+        },
+        "Openchannel_initRequest": {
+            "OpenChannel_Init.amount": 10,
+            "OpenChannel_Init.announce": 5,
+            "OpenChannel_Init.channel_type[]": 9,
+            "OpenChannel_Init.close_to": 6,
+            "OpenChannel_Init.commitment_feerate": 3,
+            "OpenChannel_Init.compact_lease": 8,
+            "OpenChannel_Init.funding_feerate": 4,
+            "OpenChannel_Init.id": 1,
+            "OpenChannel_Init.initialpsbt": 2,
+            "OpenChannel_Init.request_amt": 7
+        },
+        "Openchannel_initResponse": {
+            "OpenChannel_Init.channel_id": 1,
+            "OpenChannel_Init.channel_type": 3,
+            "OpenChannel_Init.commitments_secured": 4,
+            "OpenChannel_Init.funding_serial": 5,
+            "OpenChannel_Init.psbt": 2,
+            "OpenChannel_Init.requires_confirmed_inputs": 6
+        },
+        "Openchannel_signedRequest": {
+            "OpenChannel_Signed.channel_id": 1,
+            "OpenChannel_Signed.signed_psbt": 2
+        },
+        "Openchannel_signedResponse": {
+            "OpenChannel_Signed.channel_id": 1,
+            "OpenChannel_Signed.tx": 2,
+            "OpenChannel_Signed.txid": 3
+        },
+        "Openchannel_updateChannel_type": {
+            "OpenChannel_Update.channel_type.bits[]": 1,
+            "OpenChannel_Update.channel_type.names[]": 2
+        },
+        "Openchannel_updateRequest": {
+            "OpenChannel_Update.channel_id": 1,
+            "OpenChannel_Update.psbt": 2
+        },
+        "Openchannel_updateResponse": {
+            "OpenChannel_Update.channel_id": 1,
+            "OpenChannel_Update.channel_type": 2,
+            "OpenChannel_Update.close_to": 6,
+            "OpenChannel_Update.commitments_secured": 4,
+            "OpenChannel_Update.funding_outnum": 5,
+            "OpenChannel_Update.psbt": 3,
+            "OpenChannel_Update.requires_confirmed_inputs": 7
+        },
         "PayRequest": {
             "Pay.amount_msat": 13,
             "Pay.bolt11": 1,
@@ -5885,6 +5961,206 @@
             "deprecated": false
         },
         "Offer.used": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Abort": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "OpenChannel_Abort.channel_canceled": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Abort.channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Abort.reason": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Bump": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "OpenChannel_Bump.amount": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Bump.channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Bump.channel_type": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "OpenChannel_Bump.channel_type.bits[]": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "OpenChannel_Bump.channel_type.names[]": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "OpenChannel_Bump.commitments_secured": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Bump.funding_feerate": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Bump.funding_serial": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Bump.initialpsbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Bump.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Bump.requires_confirmed_inputs": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Init": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "OpenChannel_Init.amount": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Init.announce": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Init.channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Init.channel_type": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "OpenChannel_Init.channel_type.bits[]": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "OpenChannel_Init.channel_type.names[]": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "OpenChannel_Init.channel_type[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Init.close_to": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Init.commitment_feerate": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Init.commitments_secured": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Init.compact_lease": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Init.funding_feerate": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Init.funding_serial": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Init.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Init.initialpsbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Init.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Init.request_amt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Init.requires_confirmed_inputs": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Signed": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "OpenChannel_Signed.channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Signed.signed_psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Signed.tx": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Signed.txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Update": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "OpenChannel_Update.channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Update.channel_type": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "OpenChannel_Update.channel_type.bits[]": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "OpenChannel_Update.channel_type.names[]": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "OpenChannel_Update.close_to": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Update.commitments_secured": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Update.funding_outnum": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Update.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "OpenChannel_Update.requires_confirmed_inputs": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

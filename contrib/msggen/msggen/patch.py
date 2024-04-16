@@ -183,6 +183,9 @@ class OverridePatch(Patch):
         'ListHtlcs.htlcs[].state': "HtlcState",
         'FundChannel.channel_type.names[]': 'ChannelTypeName',
         'MultiFundChannel.channel_ids[].channel_type.names[]': 'ChannelTypeName',
+        'OpenChannel_Init.channel_type.names[]': 'ChannelTypeName',
+        'OpenChannel_Bump.channel_type.names[]': 'ChannelTypeName',
+        'OpenChannel_Update.channel_type.names[]': 'ChannelTypeName',
     }
 
     def visit(self, f: model.Field) -> None:

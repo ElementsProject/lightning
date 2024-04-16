@@ -1416,6 +1416,74 @@ def offer2py(m):
     })
 
 
+def openchannel_abort2py(m):
+    return remove_default({
+        "channel_canceled": m.channel_canceled,  # PrimitiveField in generate_composite
+        "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite
+        "reason": m.reason,  # PrimitiveField in generate_composite
+    })
+
+
+def openchannel_bump_channel_type2py(m):
+    return remove_default({
+        "bits": [m.bits for i in m.bits], # ArrayField[primitive] in generate_composite
+        "names": [str(i) for i in m.names],  # ArrayField[composite] in generate_composite
+    })
+
+
+def openchannel_bump2py(m):
+    return remove_default({
+        "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite
+        "commitments_secured": m.commitments_secured,  # PrimitiveField in generate_composite
+        "funding_serial": m.funding_serial,  # PrimitiveField in generate_composite
+        "psbt": m.psbt,  # PrimitiveField in generate_composite
+        "requires_confirmed_inputs": m.requires_confirmed_inputs,  # PrimitiveField in generate_composite
+    })
+
+
+def openchannel_init_channel_type2py(m):
+    return remove_default({
+        "bits": [m.bits for i in m.bits], # ArrayField[primitive] in generate_composite
+        "names": [str(i) for i in m.names],  # ArrayField[composite] in generate_composite
+    })
+
+
+def openchannel_init2py(m):
+    return remove_default({
+        "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite
+        "commitments_secured": m.commitments_secured,  # PrimitiveField in generate_composite
+        "funding_serial": m.funding_serial,  # PrimitiveField in generate_composite
+        "psbt": m.psbt,  # PrimitiveField in generate_composite
+        "requires_confirmed_inputs": m.requires_confirmed_inputs,  # PrimitiveField in generate_composite
+    })
+
+
+def openchannel_signed2py(m):
+    return remove_default({
+        "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite
+        "tx": hexlify(m.tx),  # PrimitiveField in generate_composite
+        "txid": hexlify(m.txid),  # PrimitiveField in generate_composite
+    })
+
+
+def openchannel_update_channel_type2py(m):
+    return remove_default({
+        "bits": [m.bits for i in m.bits], # ArrayField[primitive] in generate_composite
+        "names": [str(i) for i in m.names],  # ArrayField[composite] in generate_composite
+    })
+
+
+def openchannel_update2py(m):
+    return remove_default({
+        "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite
+        "close_to": hexlify(m.close_to),  # PrimitiveField in generate_composite
+        "commitments_secured": m.commitments_secured,  # PrimitiveField in generate_composite
+        "funding_outnum": m.funding_outnum,  # PrimitiveField in generate_composite
+        "psbt": m.psbt,  # PrimitiveField in generate_composite
+        "requires_confirmed_inputs": m.requires_confirmed_inputs,  # PrimitiveField in generate_composite
+    })
+
+
 def ping2py(m):
     return remove_default({
         "totlen": m.totlen,  # PrimitiveField in generate_composite
