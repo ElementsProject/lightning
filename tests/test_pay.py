@@ -5590,7 +5590,6 @@ def test_pay_partial_msat(node_factory, executor):
     l3pay.result(TIMEOUT)
 
 
-@pytest.mark.xfail(strict=True)
 def test_pay_while_opening_channel(node_factory, bitcoind, executor):
     delay_plugin = {'plugin': os.path.join(os.getcwd(),
                                            'tests/plugins/openchannel_hook_delay.py'),
