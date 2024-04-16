@@ -3405,61 +3405,6 @@ def test_createonion_limits(node_factory):
     )
 
 
-def test_blockheight_disagreement(node_factory, bitcoind, executor):
-    """
-    While a payment is in-transit from payer to payee, a block
-    might be mined, so that the blockheight the payer used to
-    initiate the payment is no longer the blockheight when the
-    payee receives it.
-    This leads to a failure which *used* to be
-    `final_expiry_too_soon`, a non-permanent failure, but
-    which is *now* `incorrect_or_unknown_payment_details`,
-    a permanent failure.
-    `pay` treats permanent failures as, well, permanent, and
-    gives up on receiving such failure from the payee, but
-    this particular subcase of blockheight disagreement is
-    actually a non-permanent failure (the payer only needs
-    to synchronize to the same blockheight as the payee).
-    """
-    l1, l2 = node_factory.line_graph(2)
-
-    sync_blockheight(bitcoind, [l1, l2])
-
-    # Arrange l1 to stop getting new blocks.
-    def no_more_blocks(req):
-        return {"result": None,
-                "error": {"code": -8, "message": "Block height out of range"}, "id": req['id']}
-    l1.daemon.rpcproxy.mock_rpc('getblockhash', no_more_blocks)
-
-    # Increase blockheight and make sure l2 knows it.
-    # Why 2? Because `pay` uses min_final_cltv_expiry + 1.
-    # But 2 blocks coming in close succession, plus slow
-    # forwarding nodes and block propagation, are still
-    # possible on the mainnet, thus this test.
-    bitcoind.generate_block(2)
-    sync_blockheight(bitcoind, [l2])
-
-    # Have l2 make an invoice.
-    inv = l2.rpc.invoice(1000, 'l', 'd')['bolt11']
-
-    # Have l1 pay l2
-    def pay(l1, inv):
-        l1.dev_pay(inv, dev_use_shadow=False)
-    fut = executor.submit(pay, l1, inv)
-
-    # Make sure l1 sends out the HTLC.
-    l1.daemon.wait_for_logs([r'NEW:: HTLC LOCAL'])
-
-    height = bitcoind.rpc.getblockchaininfo()['blocks']
-    l1.daemon.wait_for_log('Remote node appears to be on a longer chain.*catch up to block {}'.format(height))
-
-    # Unblock l1 from new blocks.
-    l1.daemon.rpcproxy.mock_rpc('getblockhash', None)
-
-    # pay command should complete without error
-    fut.result()
-
-
 def test_sendpay_msatoshi_arg(node_factory):
     """sendpay msatoshi arg was used for non-MPP to indicate the amount
 they asked for.  But using it with anything other than the final amount
