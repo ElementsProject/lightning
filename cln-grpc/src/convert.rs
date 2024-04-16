@@ -1663,6 +1663,25 @@ impl From<responses::FetchinvoiceResponse> for pb::FetchinvoiceResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::Fundchannel_cancelResponse> for pb::FundchannelCancelResponse {
+    fn from(c: responses::Fundchannel_cancelResponse) -> Self {
+        Self {
+            cancelled: c.cancelled, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::Fundchannel_completeResponse> for pb::FundchannelCompleteResponse {
+    fn from(c: responses::Fundchannel_completeResponse) -> Self {
+        Self {
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
+            commitments_secured: c.commitments_secured, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::FundchannelChannel_type> for pb::FundchannelChannelType {
     fn from(c: responses::FundchannelChannel_type) -> Self {
         Self {
@@ -1685,6 +1704,32 @@ impl From<responses::FundchannelResponse> for pb::FundchannelResponse {
             outnum: c.outnum, // Rule #2 for type u32
             tx: hex::decode(&c.tx).unwrap(), // Rule #2 for type hex
             txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::Fundchannel_startChannel_type> for pb::FundchannelStartChannelType {
+    fn from(c: responses::Fundchannel_startChannel_type) -> Self {
+        Self {
+            // Field: FundChannel_Start.channel_type.bits[]
+            bits: c.bits.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            // Field: FundChannel_Start.channel_type.names[]
+            names: c.names.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::Fundchannel_startResponse> for pb::FundchannelStartResponse {
+    fn from(c: responses::Fundchannel_startResponse) -> Self {
+        Self {
+            channel_type: c.channel_type.map(|v| v.into()),
+            close_to: c.close_to.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            funding_address: c.funding_address, // Rule #2 for type string
+            mindepth: c.mindepth, // Rule #2 for type u32?
+            scriptpubkey: hex::decode(&c.scriptpubkey).unwrap(), // Rule #2 for type hex
+            warning_usage: c.warning_usage, // Rule #2 for type string
         }
     }
 }
@@ -2773,6 +2818,25 @@ impl From<requests::FetchinvoiceRequest> for pb::FetchinvoiceRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::Fundchannel_cancelRequest> for pb::FundchannelCancelRequest {
+    fn from(c: requests::Fundchannel_cancelRequest) -> Self {
+        Self {
+            id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::Fundchannel_completeRequest> for pb::FundchannelCompleteRequest {
+    fn from(c: requests::Fundchannel_completeRequest) -> Self {
+        Self {
+            id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
+            psbt: c.psbt, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::FundchannelRequest> for pb::FundchannelRequest {
     fn from(c: requests::FundchannelRequest) -> Self {
         Self {
@@ -2791,6 +2855,24 @@ impl From<requests::FundchannelRequest> for pb::FundchannelRequest {
             reserve: c.reserve.map(|f| f.into()), // Rule #2 for type msat?
             // Field: FundChannel.utxos[]
             utxos: c.utxos.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::Fundchannel_startRequest> for pb::FundchannelStartRequest {
+    fn from(c: requests::Fundchannel_startRequest) -> Self {
+        Self {
+            amount: Some(c.amount.into()), // Rule #2 for type msat
+            announce: c.announce, // Rule #2 for type boolean?
+            // Field: FundChannel_Start.channel_type[]
+            channel_type: c.channel_type.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            close_to: c.close_to, // Rule #2 for type string?
+            feerate: c.feerate.map(|o|o.into()), // Rule #2 for type feerate?
+            id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
+            mindepth: c.mindepth, // Rule #2 for type u32?
+            push_msat: c.push_msat.map(|f| f.into()), // Rule #2 for type msat?
+            reserve: c.reserve.map(|f| f.into()), // Rule #2 for type msat?
         }
     }
 }
@@ -3675,6 +3757,25 @@ impl From<pb::FetchinvoiceRequest> for requests::FetchinvoiceRequest {
 }
 
 #[allow(unused_variables)]
+impl From<pb::FundchannelCancelRequest> for requests::Fundchannel_cancelRequest {
+    fn from(c: pb::FundchannelCancelRequest) -> Self {
+        Self {
+            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::FundchannelCompleteRequest> for requests::Fundchannel_completeRequest {
+    fn from(c: pb::FundchannelCompleteRequest) -> Self {
+        Self {
+            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
+            psbt: c.psbt, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<pb::FundchannelRequest> for requests::FundchannelRequest {
     fn from(c: pb::FundchannelRequest) -> Self {
         Self {
@@ -3691,6 +3792,23 @@ impl From<pb::FundchannelRequest> for requests::FundchannelRequest {
             request_amt: c.request_amt.map(|a| a.into()), // Rule #1 for type msat?
             reserve: c.reserve.map(|a| a.into()), // Rule #1 for type msat?
             utxos: Some(c.utxos.into_iter().map(|s| s.into()).collect()), // Rule #4
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::FundchannelStartRequest> for requests::Fundchannel_startRequest {
+    fn from(c: pb::FundchannelStartRequest) -> Self {
+        Self {
+            amount: c.amount.unwrap().into(), // Rule #1 for type msat
+            announce: c.announce, // Rule #1 for type boolean?
+            channel_type: Some(c.channel_type.into_iter().map(|s| s).collect()), // Rule #4
+            close_to: c.close_to, // Rule #1 for type string?
+            feerate: c.feerate.map(|a| a.into()), // Rule #1 for type feerate?
+            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
+            mindepth: c.mindepth, // Rule #1 for type u32?
+            push_msat: c.push_msat.map(|a| a.into()), // Rule #1 for type msat?
+            reserve: c.reserve.map(|a| a.into()), // Rule #1 for type msat?
         }
     }
 }

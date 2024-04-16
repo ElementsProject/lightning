@@ -249,10 +249,25 @@ class NodeStub(object):
                 request_serializer=node__pb2.FetchinvoiceRequest.SerializeToString,
                 response_deserializer=node__pb2.FetchinvoiceResponse.FromString,
                 )
+        self.FundChannel_Cancel = channel.unary_unary(
+                '/cln.Node/FundChannel_Cancel',
+                request_serializer=node__pb2.Fundchannel_cancelRequest.SerializeToString,
+                response_deserializer=node__pb2.Fundchannel_cancelResponse.FromString,
+                )
+        self.FundChannel_Complete = channel.unary_unary(
+                '/cln.Node/FundChannel_Complete',
+                request_serializer=node__pb2.Fundchannel_completeRequest.SerializeToString,
+                response_deserializer=node__pb2.Fundchannel_completeResponse.FromString,
+                )
         self.FundChannel = channel.unary_unary(
                 '/cln.Node/FundChannel',
                 request_serializer=node__pb2.FundchannelRequest.SerializeToString,
                 response_deserializer=node__pb2.FundchannelResponse.FromString,
+                )
+        self.FundChannel_Start = channel.unary_unary(
+                '/cln.Node/FundChannel_Start',
+                request_serializer=node__pb2.Fundchannel_startRequest.SerializeToString,
+                response_deserializer=node__pb2.Fundchannel_startResponse.FromString,
                 )
         self.GetRoute = channel.unary_unary(
                 '/cln.Node/GetRoute',
@@ -661,7 +676,25 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def FundChannel_Cancel(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def FundChannel_Complete(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def FundChannel(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def FundChannel_Start(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1049,10 +1082,25 @@ def add_NodeServicer_to_server(servicer, server):
                     request_deserializer=node__pb2.FetchinvoiceRequest.FromString,
                     response_serializer=node__pb2.FetchinvoiceResponse.SerializeToString,
             ),
+            'FundChannel_Cancel': grpc.unary_unary_rpc_method_handler(
+                    servicer.FundChannel_Cancel,
+                    request_deserializer=node__pb2.Fundchannel_cancelRequest.FromString,
+                    response_serializer=node__pb2.Fundchannel_cancelResponse.SerializeToString,
+            ),
+            'FundChannel_Complete': grpc.unary_unary_rpc_method_handler(
+                    servicer.FundChannel_Complete,
+                    request_deserializer=node__pb2.Fundchannel_completeRequest.FromString,
+                    response_serializer=node__pb2.Fundchannel_completeResponse.SerializeToString,
+            ),
             'FundChannel': grpc.unary_unary_rpc_method_handler(
                     servicer.FundChannel,
                     request_deserializer=node__pb2.FundchannelRequest.FromString,
                     response_serializer=node__pb2.FundchannelResponse.SerializeToString,
+            ),
+            'FundChannel_Start': grpc.unary_unary_rpc_method_handler(
+                    servicer.FundChannel_Start,
+                    request_deserializer=node__pb2.Fundchannel_startRequest.FromString,
+                    response_serializer=node__pb2.Fundchannel_startResponse.SerializeToString,
             ),
             'GetRoute': grpc.unary_unary_rpc_method_handler(
                     servicer.GetRoute,
@@ -1984,6 +2032,40 @@ class Node(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def FundChannel_Cancel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/FundChannel_Cancel',
+            node__pb2.Fundchannel_cancelRequest.SerializeToString,
+            node__pb2.Fundchannel_cancelResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def FundChannel_Complete(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/FundChannel_Complete',
+            node__pb2.Fundchannel_completeRequest.SerializeToString,
+            node__pb2.Fundchannel_completeResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def FundChannel(request,
             target,
             options=(),
@@ -1997,6 +2079,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/FundChannel',
             node__pb2.FundchannelRequest.SerializeToString,
             node__pb2.FundchannelResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def FundChannel_Start(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/FundChannel_Start',
+            node__pb2.Fundchannel_startRequest.SerializeToString,
+            node__pb2.Fundchannel_startResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
