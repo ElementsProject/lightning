@@ -53,6 +53,7 @@ service Node {
 	rpc Decode(DecodeRequest) returns (DecodeResponse) {}
 	rpc DelPay(DelpayRequest) returns (DelpayResponse) {}
 	rpc DelForward(DelforwardRequest) returns (DelforwardResponse) {}
+	rpc DisableOffer(DisableofferRequest) returns (DisableofferResponse) {}
 	rpc Disconnect(DisconnectRequest) returns (DisconnectResponse) {}
 	rpc Feerates(FeeratesRequest) returns (FeeratesResponse) {}
 	rpc FetchInvoice(FetchinvoiceRequest) returns (FetchinvoiceResponse) {}
@@ -1618,6 +1619,19 @@ message DelforwardRequest {
 }
 
 message DelforwardResponse {
+}
+
+message DisableofferRequest {
+	bytes offer_id = 1;
+}
+
+message DisableofferResponse {
+	bytes offer_id = 1;
+	bool active = 2;
+	bool single_use = 3;
+	string bolt12 = 4;
+	bool used = 5;
+	optional string label = 6;
 }
 
 message DisconnectRequest {

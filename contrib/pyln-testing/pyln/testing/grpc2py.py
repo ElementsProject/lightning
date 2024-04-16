@@ -1291,6 +1291,17 @@ def delforward2py(m):
     })
 
 
+def disableoffer2py(m):
+    return remove_default({
+        "active": m.active,  # PrimitiveField in generate_composite
+        "bolt12": m.bolt12,  # PrimitiveField in generate_composite
+        "label": m.label,  # PrimitiveField in generate_composite
+        "offer_id": hexlify(m.offer_id),  # PrimitiveField in generate_composite
+        "single_use": m.single_use,  # PrimitiveField in generate_composite
+        "used": m.used,  # PrimitiveField in generate_composite
+    })
+
+
 def disconnect2py(m):
     return remove_default({
     })

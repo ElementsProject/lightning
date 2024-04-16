@@ -1534,6 +1534,20 @@ impl From<responses::DelforwardResponse> for pb::DelforwardResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::DisableofferResponse> for pb::DisableofferResponse {
+    fn from(c: responses::DisableofferResponse) -> Self {
+        Self {
+            active: c.active, // Rule #2 for type boolean
+            bolt12: c.bolt12, // Rule #2 for type string
+            label: c.label, // Rule #2 for type string?
+            offer_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.offer_id).to_vec(), // Rule #2 for type hash
+            single_use: c.single_use, // Rule #2 for type boolean
+            used: c.used, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::DisconnectResponse> for pb::DisconnectResponse {
     fn from(c: responses::DisconnectResponse) -> Self {
         Self {
@@ -2802,6 +2816,15 @@ impl From<requests::DelforwardRequest> for pb::DelforwardRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::DisableofferRequest> for pb::DisableofferRequest {
+    fn from(c: requests::DisableofferRequest) -> Self {
+        Self {
+            offer_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.offer_id).to_vec(), // Rule #2 for type hash
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::DisconnectRequest> for pb::DisconnectRequest {
     fn from(c: requests::DisconnectRequest) -> Self {
         Self {
@@ -3747,6 +3770,15 @@ impl From<pb::DelforwardRequest> for requests::DelforwardRequest {
             in_channel: cln_rpc::primitives::ShortChannelId::from_str(&c.in_channel).unwrap(), // Rule #1 for type short_channel_id
             in_htlc_id: c.in_htlc_id, // Rule #1 for type u64
             status: c.status.try_into().unwrap(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::DisableofferRequest> for requests::DisableofferRequest {
+    fn from(c: pb::DisableofferRequest) -> Self {
+        Self {
+            offer_id: Sha256::from_slice(&c.offer_id).unwrap(), // Rule #1 for type hash
         }
     }
 }
