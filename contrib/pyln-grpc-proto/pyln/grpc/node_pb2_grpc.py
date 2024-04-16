@@ -274,6 +274,31 @@ class NodeStub(object):
                 request_serializer=node__pb2.OfferRequest.SerializeToString,
                 response_deserializer=node__pb2.OfferResponse.FromString,
                 )
+        self.OpenChannel_Abort = channel.unary_unary(
+                '/cln.Node/OpenChannel_Abort',
+                request_serializer=node__pb2.Openchannel_abortRequest.SerializeToString,
+                response_deserializer=node__pb2.Openchannel_abortResponse.FromString,
+                )
+        self.OpenChannel_Bump = channel.unary_unary(
+                '/cln.Node/OpenChannel_Bump',
+                request_serializer=node__pb2.Openchannel_bumpRequest.SerializeToString,
+                response_deserializer=node__pb2.Openchannel_bumpResponse.FromString,
+                )
+        self.OpenChannel_Init = channel.unary_unary(
+                '/cln.Node/OpenChannel_Init',
+                request_serializer=node__pb2.Openchannel_initRequest.SerializeToString,
+                response_deserializer=node__pb2.Openchannel_initResponse.FromString,
+                )
+        self.OpenChannel_Signed = channel.unary_unary(
+                '/cln.Node/OpenChannel_Signed',
+                request_serializer=node__pb2.Openchannel_signedRequest.SerializeToString,
+                response_deserializer=node__pb2.Openchannel_signedResponse.FromString,
+                )
+        self.OpenChannel_Update = channel.unary_unary(
+                '/cln.Node/OpenChannel_Update',
+                request_serializer=node__pb2.Openchannel_updateRequest.SerializeToString,
+                response_deserializer=node__pb2.Openchannel_updateResponse.FromString,
+                )
         self.Ping = channel.unary_unary(
                 '/cln.Node/Ping',
                 request_serializer=node__pb2.PingRequest.SerializeToString,
@@ -651,6 +676,36 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def OpenChannel_Abort(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def OpenChannel_Bump(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def OpenChannel_Init(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def OpenChannel_Signed(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def OpenChannel_Update(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Ping(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -985,6 +1040,31 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.Offer,
                     request_deserializer=node__pb2.OfferRequest.FromString,
                     response_serializer=node__pb2.OfferResponse.SerializeToString,
+            ),
+            'OpenChannel_Abort': grpc.unary_unary_rpc_method_handler(
+                    servicer.OpenChannel_Abort,
+                    request_deserializer=node__pb2.Openchannel_abortRequest.FromString,
+                    response_serializer=node__pb2.Openchannel_abortResponse.SerializeToString,
+            ),
+            'OpenChannel_Bump': grpc.unary_unary_rpc_method_handler(
+                    servicer.OpenChannel_Bump,
+                    request_deserializer=node__pb2.Openchannel_bumpRequest.FromString,
+                    response_serializer=node__pb2.Openchannel_bumpResponse.SerializeToString,
+            ),
+            'OpenChannel_Init': grpc.unary_unary_rpc_method_handler(
+                    servicer.OpenChannel_Init,
+                    request_deserializer=node__pb2.Openchannel_initRequest.FromString,
+                    response_serializer=node__pb2.Openchannel_initResponse.SerializeToString,
+            ),
+            'OpenChannel_Signed': grpc.unary_unary_rpc_method_handler(
+                    servicer.OpenChannel_Signed,
+                    request_deserializer=node__pb2.Openchannel_signedRequest.FromString,
+                    response_serializer=node__pb2.Openchannel_signedResponse.SerializeToString,
+            ),
+            'OpenChannel_Update': grpc.unary_unary_rpc_method_handler(
+                    servicer.OpenChannel_Update,
+                    request_deserializer=node__pb2.Openchannel_updateRequest.FromString,
+                    response_serializer=node__pb2.Openchannel_updateResponse.SerializeToString,
             ),
             'Ping': grpc.unary_unary_rpc_method_handler(
                     servicer.Ping,
@@ -1937,6 +2017,91 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/Offer',
             node__pb2.OfferRequest.SerializeToString,
             node__pb2.OfferResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def OpenChannel_Abort(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/OpenChannel_Abort',
+            node__pb2.Openchannel_abortRequest.SerializeToString,
+            node__pb2.Openchannel_abortResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def OpenChannel_Bump(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/OpenChannel_Bump',
+            node__pb2.Openchannel_bumpRequest.SerializeToString,
+            node__pb2.Openchannel_bumpResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def OpenChannel_Init(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/OpenChannel_Init',
+            node__pb2.Openchannel_initRequest.SerializeToString,
+            node__pb2.Openchannel_initResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def OpenChannel_Signed(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/OpenChannel_Signed',
+            node__pb2.Openchannel_signedRequest.SerializeToString,
+            node__pb2.Openchannel_signedResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def OpenChannel_Update(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/OpenChannel_Update',
+            node__pb2.Openchannel_updateRequest.SerializeToString,
+            node__pb2.Openchannel_updateResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
