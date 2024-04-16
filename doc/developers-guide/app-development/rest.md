@@ -72,6 +72,8 @@ clnrest-cors-origins=https?://127.0.0.1:([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}
 
 ```
 
+- --clnrest-swagger-root: Root url for Swagger UI. Default is `/`. Example: `clnrest-swagger-root=/doc`
+
 ## Server
 
 With the default configurations, the Swagger user interface will be available at https://127.0.0.1:3010/. 
