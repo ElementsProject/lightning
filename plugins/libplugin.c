@@ -2113,11 +2113,6 @@ static struct listpeers_channel *json_to_listpeers_channel(const tal_t *ctx,
 
 	chan = tal(ctx, struct listpeers_channel);
 
-	json_to_node_id(buffer, idtok, &chan->id);
-	json_to_bool(buffer, conntok, &chan->connected);
-	json_to_bool(buffer, privtok, &chan->private);
-	chan->state = json_strdup(chan, buffer, statetok);
-	json_to_txid(buffer, ftxidtok, &chan->funding_txid);
 	if (scidtok != NULL) {
 		assert(dirtok != NULL);
 		chan->scid = tal(chan, struct short_channel_id);
@@ -2153,6 +2148,12 @@ static struct listpeers_channel *json_to_listpeers_channel(const tal_t *ctx,
 	 * It's not a real channel (yet), so ignore it! */
 	if (!chan->scid && !chan->alias[LOCAL])
 		return tal_free(chan);
+
+	json_to_node_id(buffer, idtok, &chan->id);
+	json_to_bool(buffer, conntok, &chan->connected);
+	json_to_bool(buffer, privtok, &chan->private);
+	chan->state = json_strdup(chan, buffer, statetok);
+	json_to_txid(buffer, ftxidtok, &chan->funding_txid);
 
 	json_to_int(buffer, dirtok, &chan->direction);
 	json_to_msat(buffer, tmsattok, &chan->total_msat);
