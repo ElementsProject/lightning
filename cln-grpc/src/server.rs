@@ -2330,6 +2330,38 @@ async fn stop(
 
 }
 
+async fn help(
+    &self,
+    request: tonic::Request<pb::HelpRequest>,
+) -> Result<tonic::Response<pb::HelpResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::HelpRequest = req.into();
+    debug!("Client asked for help");
+    trace!("help request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::Help(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method Help: {:?}", e)))?;
+    match result {
+        Response::Help(r) => {
+           trace!("help response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call Help",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn pre_approve_keysend(
     &self,
     request: tonic::Request<pb::PreapprovekeysendRequest>,

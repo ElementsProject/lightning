@@ -143,7 +143,7 @@ def load_jsonrpc_service():
         # "check",  # No point in mapping this one
         "Stop",
         # "notifications",  # No point in mapping this
-        # "help",
+        "Help",
         "PreApproveKeysend",
         "PreApproveInvoice",
         "StaticBackup",

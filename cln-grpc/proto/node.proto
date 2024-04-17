@@ -80,6 +80,7 @@ service Node {
 	rpc WaitBlockHeight(WaitblockheightRequest) returns (WaitblockheightResponse) {}
 	rpc Wait(WaitRequest) returns (WaitResponse) {}
 	rpc Stop(StopRequest) returns (StopResponse) {}
+	rpc Help(HelpRequest) returns (HelpResponse) {}
 	rpc PreApproveKeysend(PreapprovekeysendRequest) returns (PreapprovekeysendResponse) {}
 	rpc PreApproveInvoice(PreapproveinvoiceRequest) returns (PreapproveinvoiceResponse) {}
 	rpc StaticBackup(StaticbackupRequest) returns (StaticbackupResponse) {}
@@ -2277,6 +2278,26 @@ message StopResponse {
 		SHUTDOWN_COMPLETE = 0;
 	}
 	optional StopResult result = 1;
+}
+
+message HelpRequest {
+	optional string command = 1;
+}
+
+message HelpResponse {
+	// Help.format-hint
+	enum HelpFormathint {
+		SIMPLE = 0;
+	}
+	repeated HelpHelp help = 1;
+	optional HelpFormathint format_hint = 2;
+}
+
+message HelpHelp {
+	string command = 1;
+	string category = 2;
+	string description = 3;
+	string verbose = 4;
 }
 
 message PreapprovekeysendRequest {
