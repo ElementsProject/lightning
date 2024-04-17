@@ -413,6 +413,11 @@
             "failed": 2,
             "pending": 1
         },
+        "SendinvoiceStatus": {
+            "expired": 2,
+            "paid": 1,
+            "unpaid": 0
+        },
         "SendonionStatus": {
             "complete": 1,
             "pending": 0
@@ -2187,6 +2192,28 @@
         },
         "SendcustommsgResponse": {
             "SendCustomMsg.status": 1
+        },
+        "SendinvoiceRequest": {
+            "SendInvoice.amount_msat": 3,
+            "SendInvoice.invreq": 1,
+            "SendInvoice.label": 2,
+            "SendInvoice.quantity": 5,
+            "SendInvoice.timeout": 4
+        },
+        "SendinvoiceResponse": {
+            "SendInvoice.amount_msat": 6,
+            "SendInvoice.amount_received_msat": 11,
+            "SendInvoice.bolt12": 7,
+            "SendInvoice.created_index": 8,
+            "SendInvoice.description": 2,
+            "SendInvoice.expires_at": 5,
+            "SendInvoice.label": 1,
+            "SendInvoice.paid_at": 12,
+            "SendInvoice.pay_index": 10,
+            "SendInvoice.payment_hash": 3,
+            "SendInvoice.payment_preimage": 13,
+            "SendInvoice.status": 4,
+            "SendInvoice.updated_index": 9
         },
         "SendonionFirst_hop": {
             "SendOnion.first_hop.amount_msat": 2,
@@ -7706,6 +7733,74 @@
         },
         "SendCustomMsg.status": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SendInvoice.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.amount_received_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.created_index": {
+            "added": "v23.08",
+            "deprecated": false
+        },
+        "SendInvoice.description": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.expires_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.invreq": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.paid_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.pay_index": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.payment_preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.quantity": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.timeout": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.updated_index": {
+            "added": "v23.08",
             "deprecated": false
         },
         "SendOnion": {

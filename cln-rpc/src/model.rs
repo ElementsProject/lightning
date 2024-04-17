@@ -90,6 +90,7 @@ pub enum Request {
 	RenePayStatus(requests::RenepaystatusRequest),
 	RenePay(requests::RenepayRequest),
 	SendCustomMsg(requests::SendcustommsgRequest),
+	SendInvoice(requests::SendinvoiceRequest),
 	SetChannel(requests::SetchannelRequest),
 	SignInvoice(requests::SigninvoiceRequest),
 	SignMessage(requests::SignmessageRequest),
@@ -190,6 +191,7 @@ pub enum Response {
 	RenePayStatus(responses::RenepaystatusResponse),
 	RenePay(responses::RenepayResponse),
 	SendCustomMsg(responses::SendcustommsgResponse),
+	SendInvoice(responses::SendinvoiceResponse),
 	SetChannel(responses::SetchannelResponse),
 	SignInvoice(responses::SigninvoiceResponse),
 	SignMessage(responses::SignmessageResponse),
@@ -2717,6 +2719,35 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "sendcustommsg"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SendinvoiceRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub quantity: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub timeout: Option<u32>,
+	    pub invreq: String,
+	    pub label: String,
+	}
+
+	impl From<SendinvoiceRequest> for Request {
+	    fn from(r: SendinvoiceRequest) -> Self {
+	        Request::SendInvoice(r)
+	    }
+	}
+
+	impl IntoRequest for SendinvoiceRequest {
+	    type Response = super::responses::SendinvoiceResponse;
+	}
+
+	impl TypedRequest for SendinvoiceRequest {
+	    type Response = super::responses::SendinvoiceResponse;
+
+	    fn method(&self) -> &str {
+	        "sendinvoice"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -7261,6 +7292,76 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::SendCustomMsg(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	/// ["Whether it's paid, unpaid or unpayable."]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum SendinvoiceStatus {
+	    #[serde(rename = "unpaid")]
+	    UNPAID = 0,
+	    #[serde(rename = "paid")]
+	    PAID = 1,
+	    #[serde(rename = "expired")]
+	    EXPIRED = 2,
+	}
+
+	impl TryFrom<i32> for SendinvoiceStatus {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<SendinvoiceStatus, anyhow::Error> {
+	        match c {
+	    0 => Ok(SendinvoiceStatus::UNPAID),
+	    1 => Ok(SendinvoiceStatus::PAID),
+	    2 => Ok(SendinvoiceStatus::EXPIRED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum SendinvoiceStatus", o)),
+	        }
+	    }
+	}
+
+	impl ToString for SendinvoiceStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            SendinvoiceStatus::UNPAID => "UNPAID",
+	            SendinvoiceStatus::PAID => "PAID",
+	            SendinvoiceStatus::EXPIRED => "EXPIRED",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SendinvoiceResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_received_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bolt12: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub paid_at: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub pay_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_preimage: Option<Secret>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
+	    // Path `SendInvoice.status`
+	    pub status: SendinvoiceStatus,
+	    pub description: String,
+	    pub expires_at: u64,
+	    pub label: String,
+	    pub payment_hash: Sha256,
+	}
+
+	impl TryFrom<Response> for SendinvoiceResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::SendInvoice(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

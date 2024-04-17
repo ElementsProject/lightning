@@ -2188,6 +2188,27 @@ impl From<responses::SendcustommsgResponse> for pb::SendcustommsgResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::SendinvoiceResponse> for pb::SendinvoiceResponse {
+    fn from(c: responses::SendinvoiceResponse) -> Self {
+        Self {
+            amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
+            amount_received_msat: c.amount_received_msat.map(|f| f.into()), // Rule #2 for type msat?
+            bolt12: c.bolt12, // Rule #2 for type string?
+            created_index: c.created_index, // Rule #2 for type u64?
+            description: c.description, // Rule #2 for type string
+            expires_at: c.expires_at, // Rule #2 for type u64
+            label: c.label, // Rule #2 for type string
+            paid_at: c.paid_at, // Rule #2 for type u64?
+            pay_index: c.pay_index, // Rule #2 for type u64?
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
+            payment_preimage: c.payment_preimage.map(|v| v.to_vec()), // Rule #2 for type secret?
+            status: c.status as i32,
+            updated_index: c.updated_index, // Rule #2 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::SetchannelChannels> for pb::SetchannelChannels {
     fn from(c: responses::SetchannelChannels) -> Self {
         Self {
@@ -3422,6 +3443,19 @@ impl From<requests::SendcustommsgRequest> for pb::SendcustommsgRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::SendinvoiceRequest> for pb::SendinvoiceRequest {
+    fn from(c: requests::SendinvoiceRequest) -> Self {
+        Self {
+            amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
+            invreq: c.invreq, // Rule #2 for type string
+            label: c.label, // Rule #2 for type string
+            quantity: c.quantity, // Rule #2 for type u64?
+            timeout: c.timeout, // Rule #2 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::SetchannelRequest> for pb::SetchannelRequest {
     fn from(c: requests::SetchannelRequest) -> Self {
         Self {
@@ -4464,6 +4498,19 @@ impl From<pb::SendcustommsgRequest> for requests::SendcustommsgRequest {
         Self {
             msg: hex::encode(&c.msg), // Rule #1 for type hex
             node_id: PublicKey::from_slice(&c.node_id).unwrap(), // Rule #1 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::SendinvoiceRequest> for requests::SendinvoiceRequest {
+    fn from(c: pb::SendinvoiceRequest) -> Self {
+        Self {
+            amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
+            invreq: c.invreq, // Rule #1 for type string
+            label: c.label, // Rule #1 for type string
+            quantity: c.quantity, // Rule #1 for type u64?
+            timeout: c.timeout, // Rule #1 for type u32?
         }
     }
 }

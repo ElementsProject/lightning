@@ -79,6 +79,7 @@ service Node {
 	rpc RenePayStatus(RenepaystatusRequest) returns (RenepaystatusResponse) {}
 	rpc RenePay(RenepayRequest) returns (RenepayResponse) {}
 	rpc SendCustomMsg(SendcustommsgRequest) returns (SendcustommsgResponse) {}
+	rpc SendInvoice(SendinvoiceRequest) returns (SendinvoiceResponse) {}
 	rpc SetChannel(SetchannelRequest) returns (SetchannelResponse) {}
 	rpc SignInvoice(SigninvoiceRequest) returns (SigninvoiceResponse) {}
 	rpc SignMessage(SignmessageRequest) returns (SignmessageResponse) {}
@@ -2296,6 +2297,36 @@ message SendcustommsgRequest {
 
 message SendcustommsgResponse {
 	string status = 1;
+}
+
+message SendinvoiceRequest {
+	string invreq = 1;
+	string label = 2;
+	optional Amount amount_msat = 3;
+	optional uint32 timeout = 4;
+	optional uint64 quantity = 5;
+}
+
+message SendinvoiceResponse {
+	// SendInvoice.status
+	enum SendinvoiceStatus {
+		UNPAID = 0;
+		PAID = 1;
+		EXPIRED = 2;
+	}
+	string label = 1;
+	string description = 2;
+	bytes payment_hash = 3;
+	SendinvoiceStatus status = 4;
+	uint64 expires_at = 5;
+	optional Amount amount_msat = 6;
+	optional string bolt12 = 7;
+	optional uint64 created_index = 8;
+	optional uint64 updated_index = 9;
+	optional uint64 pay_index = 10;
+	optional Amount amount_received_msat = 11;
+	optional uint64 paid_at = 12;
+	optional bytes payment_preimage = 13;
 }
 
 message SetchannelRequest {
