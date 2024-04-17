@@ -186,7 +186,7 @@ def load_jsonrpc_service():
         "UpgradeWallet",
         "WaitBlockHeight",
         "Wait",
-        # "ListConfigs",
+        "ListConfigs",
         # "check",  # No point in mapping this one
         "Stop",
         # "notifications",  # No point in mapping this
