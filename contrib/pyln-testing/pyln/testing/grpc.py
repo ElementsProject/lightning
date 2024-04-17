@@ -119,8 +119,7 @@ class LightningGrpc(object):
         enum = {
             None: 0,
             "BECH32": 0,
-            "P2SH_SEGWIT": 1,
-            "P2SH-SEGWIT": 1,
+            "P2TR": 3,
             "ALL": 2
         }
         if addresstype is not None:

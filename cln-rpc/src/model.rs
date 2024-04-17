@@ -199,13 +199,13 @@ pub mod requests {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListpeersLevel {
 	    #[serde(rename = "io")]
-	    IO,
+	    IO = 0,
 	    #[serde(rename = "debug")]
-	    DEBUG,
+	    DEBUG = 1,
 	    #[serde(rename = "info")]
-	    INFO,
+	    INFO = 2,
 	    #[serde(rename = "unusual")]
-	    UNUSUAL,
+	    UNUSUAL = 3,
 	}
 
 	impl TryFrom<i32> for ListpeersLevel {
@@ -516,15 +516,15 @@ pub mod requests {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum DatastoreMode {
 	    #[serde(rename = "must-create")]
-	    MUST_CREATE,
+	    MUST_CREATE = 0,
 	    #[serde(rename = "must-replace")]
-	    MUST_REPLACE,
+	    MUST_REPLACE = 1,
 	    #[serde(rename = "create-or-replace")]
-	    CREATE_OR_REPLACE,
+	    CREATE_OR_REPLACE = 2,
 	    #[serde(rename = "must-append")]
-	    MUST_APPEND,
+	    MUST_APPEND = 3,
 	    #[serde(rename = "create-or-append")]
-	    CREATE_OR_APPEND,
+	    CREATE_OR_APPEND = 4,
 	}
 
 	impl TryFrom<i32> for DatastoreMode {
@@ -667,11 +667,11 @@ pub mod requests {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum DelinvoiceStatus {
 	    #[serde(rename = "paid")]
-	    PAID,
+	    PAID = 0,
 	    #[serde(rename = "expired")]
-	    EXPIRED,
+	    EXPIRED = 1,
 	    #[serde(rename = "unpaid")]
-	    UNPAID,
+	    UNPAID = 2,
 	}
 
 	impl TryFrom<i32> for DelinvoiceStatus {
@@ -783,9 +783,9 @@ pub mod requests {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListinvoicesIndex {
 	    #[serde(rename = "created")]
-	    CREATED,
+	    CREATED = 0,
 	    #[serde(rename = "updated")]
-	    UPDATED,
+	    UPDATED = 1,
 	}
 
 	impl TryFrom<i32> for ListinvoicesIndex {
@@ -896,11 +896,11 @@ pub mod requests {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListsendpaysStatus {
 	    #[serde(rename = "pending")]
-	    PENDING,
+	    PENDING = 0,
 	    #[serde(rename = "complete")]
-	    COMPLETE,
+	    COMPLETE = 1,
 	    #[serde(rename = "failed")]
-	    FAILED,
+	    FAILED = 2,
 	}
 
 	impl TryFrom<i32> for ListsendpaysStatus {
@@ -929,9 +929,9 @@ pub mod requests {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListsendpaysIndex {
 	    #[serde(rename = "created")]
-	    CREATED,
+	    CREATED = 0,
 	    #[serde(rename = "updated")]
-	    UPDATED,
+	    UPDATED = 1,
 	}
 
 	impl TryFrom<i32> for ListsendpaysIndex {
@@ -1156,11 +1156,11 @@ pub mod requests {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum NewaddrAddresstype {
 	    #[serde(rename = "bech32")]
-	    BECH32,
+	    BECH32 = 0,
 	    #[serde(rename = "p2tr")]
-	    P2TR,
+	    P2TR = 3,
 	    #[serde(rename = "all")]
-	    ALL,
+	    ALL = 2,
 	}
 
 	impl TryFrom<i32> for NewaddrAddresstype {
@@ -1589,9 +1589,9 @@ pub mod requests {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum FeeratesStyle {
 	    #[serde(rename = "perkb")]
-	    PERKB,
+	    PERKB = 0,
 	    #[serde(rename = "perkw")]
-	    PERKW,
+	    PERKW = 1,
 	}
 
 	impl TryFrom<i32> for FeeratesStyle {
@@ -1756,13 +1756,13 @@ pub mod requests {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListforwardsStatus {
 	    #[serde(rename = "offered")]
-	    OFFERED,
+	    OFFERED = 0,
 	    #[serde(rename = "settled")]
-	    SETTLED,
+	    SETTLED = 1,
 	    #[serde(rename = "local_failed")]
-	    LOCAL_FAILED,
+	    LOCAL_FAILED = 2,
 	    #[serde(rename = "failed")]
-	    FAILED,
+	    FAILED = 3,
 	}
 
 	impl TryFrom<i32> for ListforwardsStatus {
@@ -1793,9 +1793,9 @@ pub mod requests {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListforwardsIndex {
 	    #[serde(rename = "created")]
-	    CREATED,
+	    CREATED = 0,
 	    #[serde(rename = "updated")]
-	    UPDATED,
+	    UPDATED = 1,
 	}
 
 	impl TryFrom<i32> for ListforwardsIndex {
@@ -1880,11 +1880,11 @@ pub mod requests {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListpaysStatus {
 	    #[serde(rename = "pending")]
-	    PENDING,
+	    PENDING = 0,
 	    #[serde(rename = "complete")]
-	    COMPLETE,
+	    COMPLETE = 1,
 	    #[serde(rename = "failed")]
-	    FAILED,
+	    FAILED = 2,
 	}
 
 	impl TryFrom<i32> for ListpaysStatus {
@@ -2207,11 +2207,11 @@ pub mod requests {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum WaitSubsystem {
 	    #[serde(rename = "invoices")]
-	    INVOICES,
+	    INVOICES = 0,
 	    #[serde(rename = "forwards")]
-	    FORWARDS,
+	    FORWARDS = 1,
 	    #[serde(rename = "sendpays")]
-	    SENDPAYS,
+	    SENDPAYS = 2,
 	}
 
 	impl TryFrom<i32> for WaitSubsystem {
@@ -2240,11 +2240,11 @@ pub mod requests {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum WaitIndexname {
 	    #[serde(rename = "created")]
-	    CREATED,
+	    CREATED = 0,
 	    #[serde(rename = "updated")]
-	    UPDATED,
+	    UPDATED = 1,
 	    #[serde(rename = "deleted")]
-	    DELETED,
+	    DELETED = 2,
 	}
 
 	impl TryFrom<i32> for WaitIndexname {
@@ -2436,15 +2436,15 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum GetinfoAddressType {
 	    #[serde(rename = "dns")]
-	    DNS,
+	    DNS = 0,
 	    #[serde(rename = "ipv4")]
-	    IPV4,
+	    IPV4 = 1,
 	    #[serde(rename = "ipv6")]
-	    IPV6,
+	    IPV6 = 2,
 	    #[serde(rename = "torv2")]
-	    TORV2,
+	    TORV2 = 3,
 	    #[serde(rename = "torv3")]
-	    TORV3,
+	    TORV3 = 4,
 	}
 
 	impl TryFrom<i32> for GetinfoAddressType {
@@ -2487,17 +2487,17 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum GetinfoBindingType {
 	    #[serde(rename = "local socket")]
-	    LOCAL_SOCKET,
+	    LOCAL_SOCKET = 0,
 	    #[serde(rename = "websocket")]
-	    WEBSOCKET,
+	    WEBSOCKET = 5,
 	    #[serde(rename = "ipv4")]
-	    IPV4,
+	    IPV4 = 1,
 	    #[serde(rename = "ipv6")]
-	    IPV6,
+	    IPV6 = 2,
 	    #[serde(rename = "torv2")]
-	    TORV2,
+	    TORV2 = 3,
 	    #[serde(rename = "torv3")]
-	    TORV3,
+	    TORV3 = 4,
 	}
 
 	impl TryFrom<i32> for GetinfoBindingType {
@@ -2583,19 +2583,19 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListpeersPeersLogType {
 	    #[serde(rename = "SKIPPED")]
-	    SKIPPED,
+	    SKIPPED = 0,
 	    #[serde(rename = "BROKEN")]
-	    BROKEN,
+	    BROKEN = 1,
 	    #[serde(rename = "UNUSUAL")]
-	    UNUSUAL,
+	    UNUSUAL = 2,
 	    #[serde(rename = "INFO")]
-	    INFO,
+	    INFO = 3,
 	    #[serde(rename = "DEBUG")]
-	    DEBUG,
+	    DEBUG = 4,
 	    #[serde(rename = "IO_IN")]
-	    IO_IN,
+	    IO_IN = 5,
 	    #[serde(rename = "IO_OUT")]
-	    IO_OUT,
+	    IO_OUT = 6,
 	}
 
 	impl TryFrom<i32> for ListpeersPeersLogType {
@@ -2682,13 +2682,13 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListfundsOutputsStatus {
 	    #[serde(rename = "unconfirmed")]
-	    UNCONFIRMED,
+	    UNCONFIRMED = 0,
 	    #[serde(rename = "confirmed")]
-	    CONFIRMED,
+	    CONFIRMED = 1,
 	    #[serde(rename = "spent")]
-	    SPENT,
+	    SPENT = 2,
 	    #[serde(rename = "immature")]
-	    IMMATURE,
+	    IMMATURE = 3,
 	}
 
 	impl TryFrom<i32> for ListfundsOutputsStatus {
@@ -2769,9 +2769,9 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum SendpayStatus {
 	    #[serde(rename = "pending")]
-	    PENDING,
+	    PENDING = 0,
 	    #[serde(rename = "complete")]
-	    COMPLETE,
+	    COMPLETE = 1,
 	}
 
 	impl TryFrom<i32> for SendpayStatus {
@@ -2932,11 +2932,11 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum CloseType {
 	    #[serde(rename = "mutual")]
-	    MUTUAL,
+	    MUTUAL = 0,
 	    #[serde(rename = "unilateral")]
-	    UNILATERAL,
+	    UNILATERAL = 1,
 	    #[serde(rename = "unopened")]
-	    UNOPENED,
+	    UNOPENED = 2,
 	}
 
 	impl TryFrom<i32> for CloseType {
@@ -2987,9 +2987,9 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ConnectDirection {
 	    #[serde(rename = "in")]
-	    IN,
+	    IN = 0,
 	    #[serde(rename = "out")]
-	    OUT,
+	    OUT = 1,
 	}
 
 	impl TryFrom<i32> for ConnectDirection {
@@ -3016,15 +3016,15 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ConnectAddressType {
 	    #[serde(rename = "local socket")]
-	    LOCAL_SOCKET,
+	    LOCAL_SOCKET = 0,
 	    #[serde(rename = "ipv4")]
-	    IPV4,
+	    IPV4 = 1,
 	    #[serde(rename = "ipv6")]
-	    IPV6,
+	    IPV6 = 2,
 	    #[serde(rename = "torv2")]
-	    TORV2,
+	    TORV2 = 3,
 	    #[serde(rename = "torv3")]
-	    TORV3,
+	    TORV3 = 4,
 	}
 
 	impl TryFrom<i32> for ConnectAddressType {
@@ -3090,11 +3090,11 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum CreateinvoiceStatus {
 	    #[serde(rename = "paid")]
-	    PAID,
+	    PAID = 0,
 	    #[serde(rename = "expired")]
-	    EXPIRED,
+	    EXPIRED = 1,
 	    #[serde(rename = "unpaid")]
-	    UNPAID,
+	    UNPAID = 2,
 	}
 
 	impl TryFrom<i32> for CreateinvoiceStatus {
@@ -3260,11 +3260,11 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum DelinvoiceStatus {
 	    #[serde(rename = "paid")]
-	    PAID,
+	    PAID = 0,
 	    #[serde(rename = "expired")]
-	    EXPIRED,
+	    EXPIRED = 1,
 	    #[serde(rename = "unpaid")]
-	    UNPAID,
+	    UNPAID = 2,
 	}
 
 	impl TryFrom<i32> for DelinvoiceStatus {
@@ -3387,11 +3387,11 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListinvoicesInvoicesStatus {
 	    #[serde(rename = "unpaid")]
-	    UNPAID,
+	    UNPAID = 0,
 	    #[serde(rename = "paid")]
-	    PAID,
+	    PAID = 1,
 	    #[serde(rename = "expired")]
-	    EXPIRED,
+	    EXPIRED = 2,
 	}
 
 	impl TryFrom<i32> for ListinvoicesInvoicesStatus {
@@ -3479,9 +3479,9 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum SendonionStatus {
 	    #[serde(rename = "pending")]
-	    PENDING,
+	    PENDING = 0,
 	    #[serde(rename = "complete")]
-	    COMPLETE,
+	    COMPLETE = 1,
 	}
 
 	impl TryFrom<i32> for SendonionStatus {
@@ -3549,11 +3549,11 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListsendpaysPaymentsStatus {
 	    #[serde(rename = "pending")]
-	    PENDING,
+	    PENDING = 0,
 	    #[serde(rename = "failed")]
-	    FAILED,
+	    FAILED = 1,
 	    #[serde(rename = "complete")]
-	    COMPLETE,
+	    COMPLETE = 2,
 	}
 
 	impl TryFrom<i32> for ListsendpaysPaymentsStatus {
@@ -3676,11 +3676,11 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum PayStatus {
 	    #[serde(rename = "complete")]
-	    COMPLETE,
+	    COMPLETE = 0,
 	    #[serde(rename = "pending")]
-	    PENDING,
+	    PENDING = 1,
 	    #[serde(rename = "failed")]
-	    FAILED,
+	    FAILED = 2,
 	}
 
 	impl TryFrom<i32> for PayStatus {
@@ -3736,15 +3736,15 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListnodesNodesAddressesType {
 	    #[serde(rename = "dns")]
-	    DNS,
+	    DNS = 0,
 	    #[serde(rename = "ipv4")]
-	    IPV4,
+	    IPV4 = 1,
 	    #[serde(rename = "ipv6")]
-	    IPV6,
+	    IPV6 = 2,
 	    #[serde(rename = "torv2")]
-	    TORV2,
+	    TORV2 = 3,
 	    #[serde(rename = "torv3")]
-	    TORV3,
+	    TORV3 = 4,
 	}
 
 	impl TryFrom<i32> for ListnodesNodesAddressesType {
@@ -3818,9 +3818,9 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum WaitanyinvoiceStatus {
 	    #[serde(rename = "paid")]
-	    PAID,
+	    PAID = 0,
 	    #[serde(rename = "expired")]
-	    EXPIRED,
+	    EXPIRED = 1,
 	}
 
 	impl TryFrom<i32> for WaitanyinvoiceStatus {
@@ -3896,9 +3896,9 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum WaitinvoiceStatus {
 	    #[serde(rename = "paid")]
-	    PAID,
+	    PAID = 0,
 	    #[serde(rename = "expired")]
-	    EXPIRED,
+	    EXPIRED = 1,
 	}
 
 	impl TryFrom<i32> for WaitinvoiceStatus {
@@ -3974,7 +3974,7 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum WaitsendpayStatus {
 	    #[serde(rename = "complete")]
-	    COMPLETE,
+	    COMPLETE = 0,
 	}
 
 	impl TryFrom<i32> for WaitsendpayStatus {
@@ -4079,7 +4079,7 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum KeysendStatus {
 	    #[serde(rename = "complete")]
-	    COMPLETE,
+	    COMPLETE = 0,
 	}
 
 	impl TryFrom<i32> for KeysendStatus {
@@ -4281,33 +4281,33 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListpeerchannelsChannelsState {
 	    #[serde(rename = "OPENINGD")]
-	    OPENINGD,
+	    OPENINGD = 0,
 	    #[serde(rename = "CHANNELD_AWAITING_LOCKIN")]
-	    CHANNELD_AWAITING_LOCKIN,
+	    CHANNELD_AWAITING_LOCKIN = 1,
 	    #[serde(rename = "CHANNELD_NORMAL")]
-	    CHANNELD_NORMAL,
+	    CHANNELD_NORMAL = 2,
 	    #[serde(rename = "CHANNELD_SHUTTING_DOWN")]
-	    CHANNELD_SHUTTING_DOWN,
+	    CHANNELD_SHUTTING_DOWN = 3,
 	    #[serde(rename = "CLOSINGD_SIGEXCHANGE")]
-	    CLOSINGD_SIGEXCHANGE,
+	    CLOSINGD_SIGEXCHANGE = 4,
 	    #[serde(rename = "CLOSINGD_COMPLETE")]
-	    CLOSINGD_COMPLETE,
+	    CLOSINGD_COMPLETE = 5,
 	    #[serde(rename = "AWAITING_UNILATERAL")]
-	    AWAITING_UNILATERAL,
+	    AWAITING_UNILATERAL = 6,
 	    #[serde(rename = "FUNDING_SPEND_SEEN")]
-	    FUNDING_SPEND_SEEN,
+	    FUNDING_SPEND_SEEN = 7,
 	    #[serde(rename = "ONCHAIN")]
-	    ONCHAIN,
+	    ONCHAIN = 8,
 	    #[serde(rename = "DUALOPEND_OPEN_INIT")]
-	    DUALOPEND_OPEN_INIT,
+	    DUALOPEND_OPEN_INIT = 9,
 	    #[serde(rename = "DUALOPEND_AWAITING_LOCKIN")]
-	    DUALOPEND_AWAITING_LOCKIN,
+	    DUALOPEND_AWAITING_LOCKIN = 10,
 	    #[serde(rename = "CHANNELD_AWAITING_SPLICE")]
-	    CHANNELD_AWAITING_SPLICE,
+	    CHANNELD_AWAITING_SPLICE = 11,
 	    #[serde(rename = "DUALOPEND_OPEN_COMMITTED")]
-	    DUALOPEND_OPEN_COMMITTED,
+	    DUALOPEND_OPEN_COMMITTED = 12,
 	    #[serde(rename = "DUALOPEND_OPEN_COMMIT_READY")]
-	    DUALOPEND_OPEN_COMMIT_READY,
+	    DUALOPEND_OPEN_COMMIT_READY = 13,
 	}
 
 	impl TryFrom<i32> for ListpeerchannelsChannelsState {
@@ -4442,9 +4442,9 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListpeerchannelsChannelsHtlcsDirection {
 	    #[serde(rename = "in")]
-	    IN,
+	    IN = 0,
 	    #[serde(rename = "out")]
-	    OUT,
+	    OUT = 1,
 	}
 
 	impl TryFrom<i32> for ListpeerchannelsChannelsHtlcsDirection {
@@ -4630,17 +4630,17 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListclosedchannelsClosedchannelsClose_cause {
 	    #[serde(rename = "unknown")]
-	    UNKNOWN,
+	    UNKNOWN = 0,
 	    #[serde(rename = "local")]
-	    LOCAL,
+	    LOCAL = 1,
 	    #[serde(rename = "user")]
-	    USER,
+	    USER = 2,
 	    #[serde(rename = "remote")]
-	    REMOTE,
+	    REMOTE = 3,
 	    #[serde(rename = "protocol")]
-	    PROTOCOL,
+	    PROTOCOL = 4,
 	    #[serde(rename = "onchain")]
-	    ONCHAIN,
+	    ONCHAIN = 5,
 	}
 
 	impl TryFrom<i32> for ListclosedchannelsClosedchannelsClose_cause {
@@ -4731,15 +4731,15 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum DecodepayFallbacksType {
 	    #[serde(rename = "P2PKH")]
-	    P2PKH,
+	    P2PKH = 0,
 	    #[serde(rename = "P2SH")]
-	    P2SH,
+	    P2SH = 1,
 	    #[serde(rename = "P2WPKH")]
-	    P2WPKH,
+	    P2WPKH = 2,
 	    #[serde(rename = "P2WSH")]
-	    P2WSH,
+	    P2WSH = 3,
 	    #[serde(rename = "P2TR")]
-	    P2TR,
+	    P2TR = 4,
 	}
 
 	impl TryFrom<i32> for DecodepayFallbacksType {
@@ -4826,17 +4826,17 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum DecodeType {
 	    #[serde(rename = "bolt12 offer")]
-	    BOLT12_OFFER,
+	    BOLT12_OFFER = 0,
 	    #[serde(rename = "bolt12 invoice")]
-	    BOLT12_INVOICE,
+	    BOLT12_INVOICE = 1,
 	    #[serde(rename = "bolt12 invoice_request")]
-	    BOLT12_INVOICE_REQUEST,
+	    BOLT12_INVOICE_REQUEST = 2,
 	    #[serde(rename = "bolt11 invoice")]
-	    BOLT11_INVOICE,
+	    BOLT11_INVOICE = 3,
 	    #[serde(rename = "rune")]
-	    RUNE,
+	    RUNE = 4,
 	    #[serde(rename = "emergency recover")]
-	    EMERGENCY_RECOVER,
+	    EMERGENCY_RECOVER = 5,
 	}
 
 	impl TryFrom<i32> for DecodeType {
@@ -5254,7 +5254,7 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum GetrouteRouteStyle {
 	    #[serde(rename = "tlv")]
-	    TLV,
+	    TLV = 0,
 	}
 
 	impl TryFrom<i32> for GetrouteRouteStyle {
@@ -5306,13 +5306,13 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListforwardsForwardsStatus {
 	    #[serde(rename = "offered")]
-	    OFFERED,
+	    OFFERED = 0,
 	    #[serde(rename = "settled")]
-	    SETTLED,
+	    SETTLED = 1,
 	    #[serde(rename = "local_failed")]
-	    LOCAL_FAILED,
+	    LOCAL_FAILED = 2,
 	    #[serde(rename = "failed")]
-	    FAILED,
+	    FAILED = 3,
 	}
 
 	impl TryFrom<i32> for ListforwardsForwardsStatus {
@@ -5343,9 +5343,9 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListforwardsForwardsStyle {
 	    #[serde(rename = "legacy")]
-	    LEGACY,
+	    LEGACY = 0,
 	    #[serde(rename = "tlv")]
-	    TLV,
+	    TLV = 1,
 	}
 
 	impl TryFrom<i32> for ListforwardsForwardsStyle {
@@ -5440,11 +5440,11 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListpaysPaysStatus {
 	    #[serde(rename = "pending")]
-	    PENDING,
+	    PENDING = 0,
 	    #[serde(rename = "failed")]
-	    FAILED,
+	    FAILED = 1,
 	    #[serde(rename = "complete")]
-	    COMPLETE,
+	    COMPLETE = 2,
 	}
 
 	impl TryFrom<i32> for ListpaysPaysStatus {
@@ -5519,9 +5519,9 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListhtlcsHtlcsDirection {
 	    #[serde(rename = "out")]
-	    OUT,
+	    OUT = 0,
 	    #[serde(rename = "in")]
-	    IN,
+	    IN = 1,
 	}
 
 	impl TryFrom<i32> for ListhtlcsHtlcsDirection {
@@ -5805,11 +5805,11 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum WaitSubsystem {
 	    #[serde(rename = "invoices")]
-	    INVOICES,
+	    INVOICES = 0,
 	    #[serde(rename = "forwards")]
-	    FORWARDS,
+	    FORWARDS = 1,
 	    #[serde(rename = "sendpays")]
-	    SENDPAYS,
+	    SENDPAYS = 2,
 	}
 
 	impl TryFrom<i32> for WaitSubsystem {
@@ -5860,7 +5860,7 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum StopResult {
 	    #[serde(rename = "Shutdown complete")]
-	    SHUTDOWN_COMPLETE,
+	    SHUTDOWN_COMPLETE = 0,
 	}
 
 	impl TryFrom<i32> for StopResult {
