@@ -44,10 +44,10 @@ def add_handler_get_grpc2py(generator_chain: GeneratorChain):
     generator_chain.add_generator(Grpc2PyGenerator(dest))
 
 
-def add_handler_gen_rust_jsonrpc(generator_chain: GeneratorChain):
+def add_handler_gen_rust_jsonrpc(generator_chain: GeneratorChain, meta):
     fname = Path("cln-rpc") / "src" / "model.rs"
     dest = open(fname, "w")
-    generator_chain.add_generator(RustGenerator(dest))
+    generator_chain.add_generator(RustGenerator(dest, meta))
 
 
 def load_msggen_meta():
@@ -81,7 +81,7 @@ def run():
     generator_chain = GeneratorChain()
 
     add_handler_gen_grpc(generator_chain, meta)
-    add_handler_gen_rust_jsonrpc(generator_chain)
+    add_handler_gen_rust_jsonrpc(generator_chain, meta)
     add_handler_get_grpc2py(generator_chain)
 
     generator_chain.generate(service)
