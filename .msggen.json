@@ -55,6 +55,15 @@
             "paid": 0,
             "unpaid": 2
         },
+        "DelpayPaymentsStatus": {
+            "complete": 2,
+            "failed": 1,
+            "pending": 0
+        },
+        "DelpayStatus": {
+            "complete": 0,
+            "failed": 1
+        },
         "FeeratesStyle": {
             "perkb": 0,
             "perkw": 1
@@ -716,6 +725,34 @@
             "DelInvoice.payment_preimage": 17,
             "DelInvoice.status": 7,
             "DelInvoice.updated_index": 13
+        },
+        "DelpayPayments": {
+            "DelPay.payments[].amount_msat": 8,
+            "DelPay.payments[].amount_sent_msat": 5,
+            "DelPay.payments[].bolt11": 15,
+            "DelPay.payments[].bolt12": 16,
+            "DelPay.payments[].completed_at": 11,
+            "DelPay.payments[].created_at": 9,
+            "DelPay.payments[].created_index": 1,
+            "DelPay.payments[].destination": 7,
+            "DelPay.payments[].erroronion": 17,
+            "DelPay.payments[].groupid": 12,
+            "DelPay.payments[].id": 2,
+            "DelPay.payments[].label": 14,
+            "DelPay.payments[].partid": 6,
+            "DelPay.payments[].payment_hash": 3,
+            "DelPay.payments[].payment_preimage": 13,
+            "DelPay.payments[].status": 4,
+            "DelPay.payments[].updated_index": 10
+        },
+        "DelpayRequest": {
+            "DelPay.groupid": 4,
+            "DelPay.partid": 3,
+            "DelPay.payment_hash": 1,
+            "DelPay.status": 2
+        },
+        "DelpayResponse": {
+            "DelPay.payments[]": 1
         },
         "DisconnectRequest": {
             "Disconnect.force": 2,
@@ -3178,6 +3215,98 @@
         },
         "DelInvoice.updated_index": {
             "added": "v23.08",
+            "deprecated": false
+        },
+        "DelPay": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "DelPay.groupid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.partid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.payments[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.payments[].amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.payments[].amount_sent_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.payments[].bolt11": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.payments[].bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.payments[].completed_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.payments[].created_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.payments[].created_index": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "DelPay.payments[].destination": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.payments[].erroronion": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.payments[].groupid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.payments[].id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.payments[].label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.payments[].partid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.payments[].payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.payments[].payment_preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.payments[].status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelPay.payments[].updated_index": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "DelPay.status": {
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "Disconnect": {

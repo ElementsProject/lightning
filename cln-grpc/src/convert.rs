@@ -1319,6 +1319,41 @@ impl From<responses::DecodeResponse> for pb::DecodeResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::DelpayPayments> for pb::DelpayPayments {
+    fn from(c: responses::DelpayPayments) -> Self {
+        Self {
+            amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
+            amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
+            bolt11: c.bolt11, // Rule #2 for type string?
+            bolt12: c.bolt12, // Rule #2 for type string?
+            completed_at: c.completed_at, // Rule #2 for type u64?
+            created_at: c.created_at, // Rule #2 for type u64
+            created_index: c.created_index, // Rule #2 for type u64?
+            destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            erroronion: c.erroronion.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            groupid: c.groupid, // Rule #2 for type u64?
+            id: c.id, // Rule #2 for type u64
+            label: c.label, // Rule #2 for type string?
+            partid: c.partid, // Rule #2 for type u64?
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
+            payment_preimage: c.payment_preimage.map(|v| v.to_vec()), // Rule #2 for type secret?
+            status: c.status as i32,
+            updated_index: c.updated_index, // Rule #2 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::DelpayResponse> for pb::DelpayResponse {
+    fn from(c: responses::DelpayResponse) -> Self {
+        Self {
+            // Field: DelPay.payments[]
+            payments: c.payments.into_iter().map(|i| i.into()).collect(), // Rule #3 for type DelpayPayments
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::DisconnectResponse> for pb::DisconnectResponse {
     fn from(c: responses::DisconnectResponse) -> Self {
         Self {
@@ -2500,6 +2535,18 @@ impl From<requests::DecodeRequest> for pb::DecodeRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::DelpayRequest> for pb::DelpayRequest {
+    fn from(c: requests::DelpayRequest) -> Self {
+        Self {
+            groupid: c.groupid, // Rule #2 for type u64?
+            partid: c.partid, // Rule #2 for type u64?
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
+            status: c.status as i32,
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::DisconnectRequest> for pb::DisconnectRequest {
     fn from(c: requests::DisconnectRequest) -> Self {
         Self {
@@ -3366,6 +3413,18 @@ impl From<pb::DecodeRequest> for requests::DecodeRequest {
     fn from(c: pb::DecodeRequest) -> Self {
         Self {
             string: c.string, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::DelpayRequest> for requests::DelpayRequest {
+    fn from(c: pb::DelpayRequest) -> Self {
+        Self {
+            groupid: c.groupid, // Rule #1 for type u64?
+            partid: c.partid, // Rule #1 for type u64?
+            payment_hash: Sha256::from_slice(&c.payment_hash).unwrap(), // Rule #1 for type hash
+            status: c.status.try_into().unwrap(),
         }
     }
 }
