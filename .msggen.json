@@ -140,6 +140,14 @@
             "unknown": 0,
             "user": 2
         },
+        "ListconfigsConfigsAnnounce-addr-discoveredValue_str": {
+            "auto": 2,
+            "false": 1,
+            "true": 0
+        },
+        "ListconfigsConfigsConfSource": {
+            "cmdline": 0
+        },
         "ListforwardsForwardsStatus": {
             "failed": 3,
             "local_failed": 2,
@@ -1535,6 +1543,446 @@
         },
         "ListclosedchannelsResponse": {
             "ListClosedChannels.closedchannels[]": 1
+        },
+        "ListconfigsConfigs": {
+            "ListConfigs.configs.accept-htlc-tlv-types": 65,
+            "ListConfigs.configs.addr": 47,
+            "ListConfigs.configs.alias": 30,
+            "ListConfigs.configs.allow-deprecated-apis": 14,
+            "ListConfigs.configs.always-use-proxy": 17,
+            "ListConfigs.configs.announce-addr": 48,
+            "ListConfigs.configs.announce-addr-discovered": 54,
+            "ListConfigs.configs.announce-addr-discovered-port": 55,
+            "ListConfigs.configs.announce-addr-dns": 67,
+            "ListConfigs.configs.autolisten": 51,
+            "ListConfigs.configs.bind-addr": 49,
+            "ListConfigs.configs.clear-plugins": 3,
+            "ListConfigs.configs.cltv-delta": 36,
+            "ListConfigs.configs.cltv-final": 37,
+            "ListConfigs.configs.commit-fee": 69,
+            "ListConfigs.configs.commit-feerate-offset": 70,
+            "ListConfigs.configs.commit-time": 38,
+            "ListConfigs.configs.conf": 1,
+            "ListConfigs.configs.daemon": 18,
+            "ListConfigs.configs.database-upgrade": 28,
+            "ListConfigs.configs.developer": 2,
+            "ListConfigs.configs.disable-dns": 53,
+            "ListConfigs.configs.disable-mpp": 4,
+            "ListConfigs.configs.disable-plugin": 16,
+            "ListConfigs.configs.encrypted-hsm": 56,
+            "ListConfigs.configs.experimental-anchors": 27,
+            "ListConfigs.configs.experimental-dual-fund": 21,
+            "ListConfigs.configs.experimental-offers": 24,
+            "ListConfigs.configs.experimental-onion-messages": 23,
+            "ListConfigs.configs.experimental-peer-storage": 26,
+            "ListConfigs.configs.experimental-shutdown-wrong-funding": 25,
+            "ListConfigs.configs.experimental-splicing": 22,
+            "ListConfigs.configs.fee-base": 39,
+            "ListConfigs.configs.fee-per-satoshi": 41,
+            "ListConfigs.configs.fetchinvoice-noconnect": 64,
+            "ListConfigs.configs.force-feerates": 62,
+            "ListConfigs.configs.funding-confirms": 35,
+            "ListConfigs.configs.htlc-maximum-msat": 44,
+            "ListConfigs.configs.htlc-minimum-msat": 43,
+            "ListConfigs.configs.ignore-fee-limits": 32,
+            "ListConfigs.configs.important-plugin": 9,
+            "ListConfigs.configs.large-channels": 20,
+            "ListConfigs.configs.lightning-dir": 12,
+            "ListConfigs.configs.log-file": 60,
+            "ListConfigs.configs.log-level": 58,
+            "ListConfigs.configs.log-prefix": 59,
+            "ListConfigs.configs.log-timestamps": 61,
+            "ListConfigs.configs.mainnet": 5,
+            "ListConfigs.configs.max-concurrent-htlcs": 42,
+            "ListConfigs.configs.max-dust-htlc-exposure-msat": 45,
+            "ListConfigs.configs.max-locktime-blocks": 34,
+            "ListConfigs.configs.min-capacity-sat": 46,
+            "ListConfigs.configs.network": 13,
+            "ListConfigs.configs.offline": 50,
+            "ListConfigs.configs.pid-file": 31,
+            "ListConfigs.configs.plugin": 10,
+            "ListConfigs.configs.plugin-dir": 11,
+            "ListConfigs.configs.proxy": 52,
+            "ListConfigs.configs.regtest": 6,
+            "ListConfigs.configs.require-confirmed-inputs": 68,
+            "ListConfigs.configs.rescan": 40,
+            "ListConfigs.configs.rgb": 29,
+            "ListConfigs.configs.rpc-file": 15,
+            "ListConfigs.configs.rpc-file-mode": 57,
+            "ListConfigs.configs.signet": 7,
+            "ListConfigs.configs.subdaemon": 63,
+            "ListConfigs.configs.testnet": 8,
+            "ListConfigs.configs.tor-service-password": 66,
+            "ListConfigs.configs.wallet": 19,
+            "ListConfigs.configs.watchtime-blocks": 33
+        },
+        "ListconfigsConfigsAccept-htlc-tlv-types": {
+            "ListConfigs.configs.accept-htlc-tlv-types.source": 2,
+            "ListConfigs.configs.accept-htlc-tlv-types.value_str": 1
+        },
+        "ListconfigsConfigsAddr": {
+            "ListConfigs.configs.addr.sources[]": 2,
+            "ListConfigs.configs.addr.values_str[]": 1
+        },
+        "ListconfigsConfigsAlias": {
+            "ListConfigs.configs.alias.source": 2,
+            "ListConfigs.configs.alias.value_str": 1
+        },
+        "ListconfigsConfigsAllow-deprecated-apis": {
+            "ListConfigs.configs.allow-deprecated-apis.source": 2,
+            "ListConfigs.configs.allow-deprecated-apis.value_bool": 1
+        },
+        "ListconfigsConfigsAlways-use-proxy": {
+            "ListConfigs.configs.always-use-proxy.source": 2,
+            "ListConfigs.configs.always-use-proxy.value_bool": 1
+        },
+        "ListconfigsConfigsAnnounce-addr": {
+            "ListConfigs.configs.announce-addr.sources[]": 2,
+            "ListConfigs.configs.announce-addr.values_str[]": 1
+        },
+        "ListconfigsConfigsAnnounce-addr-discovered": {
+            "ListConfigs.configs.announce-addr-discovered.source": 2,
+            "ListConfigs.configs.announce-addr-discovered.value_str": 1
+        },
+        "ListconfigsConfigsAnnounce-addr-discovered-port": {
+            "ListConfigs.configs.announce-addr-discovered-port.source": 2,
+            "ListConfigs.configs.announce-addr-discovered-port.value_int": 1
+        },
+        "ListconfigsConfigsAnnounce-addr-dns": {
+            "ListConfigs.configs.announce-addr-dns.source": 2,
+            "ListConfigs.configs.announce-addr-dns.value_bool": 1
+        },
+        "ListconfigsConfigsAutolisten": {
+            "ListConfigs.configs.autolisten.source": 2,
+            "ListConfigs.configs.autolisten.value_bool": 1
+        },
+        "ListconfigsConfigsBind-addr": {
+            "ListConfigs.configs.bind-addr.sources[]": 2,
+            "ListConfigs.configs.bind-addr.values_str[]": 1
+        },
+        "ListconfigsConfigsClear-plugins": {
+            "ListConfigs.configs.clear-plugins.set": 1,
+            "ListConfigs.configs.clear-plugins.source": 2
+        },
+        "ListconfigsConfigsCltv-delta": {
+            "ListConfigs.configs.cltv-delta.source": 2,
+            "ListConfigs.configs.cltv-delta.value_int": 1
+        },
+        "ListconfigsConfigsCltv-final": {
+            "ListConfigs.configs.cltv-final.source": 2,
+            "ListConfigs.configs.cltv-final.value_int": 1
+        },
+        "ListconfigsConfigsCommit-fee": {
+            "ListConfigs.configs.commit-fee.source": 2,
+            "ListConfigs.configs.commit-fee.value_int": 1
+        },
+        "ListconfigsConfigsCommit-feerate-offset": {
+            "ListConfigs.configs.commit-feerate-offset.source": 2,
+            "ListConfigs.configs.commit-feerate-offset.value_int": 1
+        },
+        "ListconfigsConfigsCommit-time": {
+            "ListConfigs.configs.commit-time.source": 2,
+            "ListConfigs.configs.commit-time.value_int": 1
+        },
+        "ListconfigsConfigsConf": {
+            "ListConfigs.configs.conf.source": 2,
+            "ListConfigs.configs.conf.value_str": 1
+        },
+        "ListconfigsConfigsDaemon": {
+            "ListConfigs.configs.daemon.set": 1,
+            "ListConfigs.configs.daemon.source": 2
+        },
+        "ListconfigsConfigsDatabase-upgrade": {
+            "ListConfigs.configs.database-upgrade.source": 2,
+            "ListConfigs.configs.database-upgrade.value_bool": 1
+        },
+        "ListconfigsConfigsDeveloper": {
+            "ListConfigs.configs.developer.set": 1,
+            "ListConfigs.configs.developer.source": 2
+        },
+        "ListconfigsConfigsDisable-dns": {
+            "ListConfigs.configs.disable-dns.set": 1,
+            "ListConfigs.configs.disable-dns.source": 2
+        },
+        "ListconfigsConfigsDisable-mpp": {
+            "ListConfigs.configs.disable-mpp.plugin": 3,
+            "ListConfigs.configs.disable-mpp.set": 1,
+            "ListConfigs.configs.disable-mpp.source": 2
+        },
+        "ListconfigsConfigsDisable-plugin": {
+            "ListConfigs.configs.disable-plugin.sources[]": 2,
+            "ListConfigs.configs.disable-plugin.values_str[]": 1
+        },
+        "ListconfigsConfigsEncrypted-hsm": {
+            "ListConfigs.configs.encrypted-hsm.set": 1,
+            "ListConfigs.configs.encrypted-hsm.source": 2
+        },
+        "ListconfigsConfigsExperimental-anchors": {
+            "ListConfigs.configs.experimental-anchors.set": 1,
+            "ListConfigs.configs.experimental-anchors.source": 2
+        },
+        "ListconfigsConfigsExperimental-dual-fund": {
+            "ListConfigs.configs.experimental-dual-fund.set": 1,
+            "ListConfigs.configs.experimental-dual-fund.source": 2
+        },
+        "ListconfigsConfigsExperimental-offers": {
+            "ListConfigs.configs.experimental-offers.set": 1,
+            "ListConfigs.configs.experimental-offers.source": 2
+        },
+        "ListconfigsConfigsExperimental-onion-messages": {
+            "ListConfigs.configs.experimental-onion-messages.set": 1,
+            "ListConfigs.configs.experimental-onion-messages.source": 2
+        },
+        "ListconfigsConfigsExperimental-peer-storage": {
+            "ListConfigs.configs.experimental-peer-storage.set": 1,
+            "ListConfigs.configs.experimental-peer-storage.source": 2
+        },
+        "ListconfigsConfigsExperimental-shutdown-wrong-funding": {
+            "ListConfigs.configs.experimental-shutdown-wrong-funding.set": 1,
+            "ListConfigs.configs.experimental-shutdown-wrong-funding.source": 2
+        },
+        "ListconfigsConfigsExperimental-splicing": {
+            "ListConfigs.configs.experimental-splicing.set": 1,
+            "ListConfigs.configs.experimental-splicing.source": 2
+        },
+        "ListconfigsConfigsFee-base": {
+            "ListConfigs.configs.fee-base.source": 2,
+            "ListConfigs.configs.fee-base.value_int": 1
+        },
+        "ListconfigsConfigsFee-per-satoshi": {
+            "ListConfigs.configs.fee-per-satoshi.source": 2,
+            "ListConfigs.configs.fee-per-satoshi.value_int": 1
+        },
+        "ListconfigsConfigsFetchinvoice-noconnect": {
+            "ListConfigs.configs.fetchinvoice-noconnect.set": 1,
+            "ListConfigs.configs.fetchinvoice-noconnect.source": 2
+        },
+        "ListconfigsConfigsForce-feerates": {
+            "ListConfigs.configs.force-feerates.source": 2,
+            "ListConfigs.configs.force-feerates.value_str": 1
+        },
+        "ListconfigsConfigsFunding-confirms": {
+            "ListConfigs.configs.funding-confirms.source": 2,
+            "ListConfigs.configs.funding-confirms.value_int": 1
+        },
+        "ListconfigsConfigsHtlc-maximum-msat": {
+            "ListConfigs.configs.htlc-maximum-msat.source": 2,
+            "ListConfigs.configs.htlc-maximum-msat.value_msat": 1
+        },
+        "ListconfigsConfigsHtlc-minimum-msat": {
+            "ListConfigs.configs.htlc-minimum-msat.source": 2,
+            "ListConfigs.configs.htlc-minimum-msat.value_msat": 1
+        },
+        "ListconfigsConfigsIgnore-fee-limits": {
+            "ListConfigs.configs.ignore-fee-limits.source": 2,
+            "ListConfigs.configs.ignore-fee-limits.value_bool": 1
+        },
+        "ListconfigsConfigsImportant-plugin": {
+            "ListConfigs.configs.important-plugin.sources[]": 2,
+            "ListConfigs.configs.important-plugin.values_str[]": 1
+        },
+        "ListconfigsConfigsLarge-channels": {
+            "ListConfigs.configs.large-channels.set": 1,
+            "ListConfigs.configs.large-channels.source": 2
+        },
+        "ListconfigsConfigsLightning-dir": {
+            "ListConfigs.configs.lightning-dir.source": 2,
+            "ListConfigs.configs.lightning-dir.value_str": 1
+        },
+        "ListconfigsConfigsLog-file": {
+            "ListConfigs.configs.log-file.sources[]": 2,
+            "ListConfigs.configs.log-file.values_str[]": 1
+        },
+        "ListconfigsConfigsLog-level": {
+            "ListConfigs.configs.log-level.source": 2,
+            "ListConfigs.configs.log-level.value_str": 1
+        },
+        "ListconfigsConfigsLog-prefix": {
+            "ListConfigs.configs.log-prefix.source": 2,
+            "ListConfigs.configs.log-prefix.value_str": 1
+        },
+        "ListconfigsConfigsLog-timestamps": {
+            "ListConfigs.configs.log-timestamps.source": 2,
+            "ListConfigs.configs.log-timestamps.value_bool": 1
+        },
+        "ListconfigsConfigsMainnet": {
+            "ListConfigs.configs.mainnet.set": 1,
+            "ListConfigs.configs.mainnet.source": 2
+        },
+        "ListconfigsConfigsMax-concurrent-htlcs": {
+            "ListConfigs.configs.max-concurrent-htlcs.source": 2,
+            "ListConfigs.configs.max-concurrent-htlcs.value_int": 1
+        },
+        "ListconfigsConfigsMax-dust-htlc-exposure-msat": {
+            "ListConfigs.configs.max-dust-htlc-exposure-msat.source": 2,
+            "ListConfigs.configs.max-dust-htlc-exposure-msat.value_msat": 1
+        },
+        "ListconfigsConfigsMax-locktime-blocks": {
+            "ListConfigs.configs.max-locktime-blocks.source": 2,
+            "ListConfigs.configs.max-locktime-blocks.value_int": 1
+        },
+        "ListconfigsConfigsMin-capacity-sat": {
+            "ListConfigs.configs.min-capacity-sat.dynamic": 3,
+            "ListConfigs.configs.min-capacity-sat.source": 2,
+            "ListConfigs.configs.min-capacity-sat.value_int": 1
+        },
+        "ListconfigsConfigsNetwork": {
+            "ListConfigs.configs.network.source": 2,
+            "ListConfigs.configs.network.value_str": 1
+        },
+        "ListconfigsConfigsOffline": {
+            "ListConfigs.configs.offline.set": 1,
+            "ListConfigs.configs.offline.source": 2
+        },
+        "ListconfigsConfigsPid-file": {
+            "ListConfigs.configs.pid-file.source": 2,
+            "ListConfigs.configs.pid-file.value_str": 1
+        },
+        "ListconfigsConfigsPlugin": {
+            "ListConfigs.configs.plugin.sources[]": 2,
+            "ListConfigs.configs.plugin.values_str[]": 1
+        },
+        "ListconfigsConfigsPlugin-dir": {
+            "ListConfigs.configs.plugin-dir.sources[]": 2,
+            "ListConfigs.configs.plugin-dir.values_str[]": 1
+        },
+        "ListconfigsConfigsProxy": {
+            "ListConfigs.configs.proxy.source": 2,
+            "ListConfigs.configs.proxy.value_str": 1
+        },
+        "ListconfigsConfigsRegtest": {
+            "ListConfigs.configs.regtest.set": 1,
+            "ListConfigs.configs.regtest.source": 2
+        },
+        "ListconfigsConfigsRequire-confirmed-inputs": {
+            "ListConfigs.configs.require-confirmed-inputs.source": 2,
+            "ListConfigs.configs.require-confirmed-inputs.value_bool": 1
+        },
+        "ListconfigsConfigsRescan": {
+            "ListConfigs.configs.rescan.source": 2,
+            "ListConfigs.configs.rescan.value_int": 1
+        },
+        "ListconfigsConfigsRgb": {
+            "ListConfigs.configs.rgb.source": 2,
+            "ListConfigs.configs.rgb.value_str": 1
+        },
+        "ListconfigsConfigsRpc-file": {
+            "ListConfigs.configs.rpc-file.source": 2,
+            "ListConfigs.configs.rpc-file.value_str": 1
+        },
+        "ListconfigsConfigsRpc-file-mode": {
+            "ListConfigs.configs.rpc-file-mode.source": 2,
+            "ListConfigs.configs.rpc-file-mode.value_str": 1
+        },
+        "ListconfigsConfigsSignet": {
+            "ListConfigs.configs.signet.set": 1,
+            "ListConfigs.configs.signet.source": 2
+        },
+        "ListconfigsConfigsSubdaemon": {
+            "ListConfigs.configs.subdaemon.sources[]": 2,
+            "ListConfigs.configs.subdaemon.values_str[]": 1
+        },
+        "ListconfigsConfigsTestnet": {
+            "ListConfigs.configs.testnet.set": 1,
+            "ListConfigs.configs.testnet.source": 2
+        },
+        "ListconfigsConfigsTor-service-password": {
+            "ListConfigs.configs.tor-service-password.source": 2,
+            "ListConfigs.configs.tor-service-password.value_str": 1
+        },
+        "ListconfigsConfigsWallet": {
+            "ListConfigs.configs.wallet.source": 2,
+            "ListConfigs.configs.wallet.value_str": 1
+        },
+        "ListconfigsConfigsWatchtime-blocks": {
+            "ListConfigs.configs.watchtime-blocks.source": 2,
+            "ListConfigs.configs.watchtime-blocks.value_int": 1
+        },
+        "ListconfigsImportant-plugins": {
+            "ListConfigs.important-plugins[].name": 2,
+            "ListConfigs.important-plugins[].options": 3,
+            "ListConfigs.important-plugins[].path": 1
+        },
+        "ListconfigsPlugins": {
+            "ListConfigs.plugins[].name": 2,
+            "ListConfigs.plugins[].options": 3,
+            "ListConfigs.plugins[].path": 1
+        },
+        "ListconfigsRequest": {
+            "ListConfigs.config": 1
+        },
+        "ListconfigsResponse": {
+            "ListConfigs.# version": 2,
+            "ListConfigs.accept-htlc-tlv-types": 63,
+            "ListConfigs.addr": 45,
+            "ListConfigs.alias": 28,
+            "ListConfigs.allow-deprecated-apis": 8,
+            "ListConfigs.always-use-proxy": 13,
+            "ListConfigs.announce-addr": 46,
+            "ListConfigs.announce-addr-discovered": 52,
+            "ListConfigs.announce-addr-discovered-port": 53,
+            "ListConfigs.announce-addr-dns": 66,
+            "ListConfigs.autolisten": 49,
+            "ListConfigs.bind-addr": 47,
+            "ListConfigs.bookkeeper-db": 12,
+            "ListConfigs.bookkeeper-dir": 11,
+            "ListConfigs.cltv-delta": 34,
+            "ListConfigs.cltv-final": 35,
+            "ListConfigs.commit-fee": 69,
+            "ListConfigs.commit-feerate-offset": 71,
+            "ListConfigs.commit-time": 36,
+            "ListConfigs.conf": 5,
+            "ListConfigs.configs": 1,
+            "ListConfigs.daemon": 14,
+            "ListConfigs.database-upgrade": 26,
+            "ListConfigs.dev-allowdustreserve": 65,
+            "ListConfigs.developer": 68,
+            "ListConfigs.disable-dns": 51,
+            "ListConfigs.disable-plugin[]": 10,
+            "ListConfigs.encrypted-hsm": 54,
+            "ListConfigs.experimental-dual-fund": 17,
+            "ListConfigs.experimental-offers": 20,
+            "ListConfigs.experimental-onion-messages": 19,
+            "ListConfigs.experimental-peer-storage": 22,
+            "ListConfigs.experimental-quiesce": 23,
+            "ListConfigs.experimental-shutdown-wrong-funding": 21,
+            "ListConfigs.experimental-splicing": 18,
+            "ListConfigs.experimental-upgrade-protocol": 24,
+            "ListConfigs.fee-base": 37,
+            "ListConfigs.fee-per-satoshi": 39,
+            "ListConfigs.fetchinvoice-noconnect": 62,
+            "ListConfigs.force-feerates": 60,
+            "ListConfigs.funding-confirms": 33,
+            "ListConfigs.htlc-maximum-msat": 42,
+            "ListConfigs.htlc-minimum-msat": 41,
+            "ListConfigs.ignore-fee-limits": 30,
+            "ListConfigs.important-plugins[]": 4,
+            "ListConfigs.invoices-onchain-fallback": 25,
+            "ListConfigs.large-channels": 16,
+            "ListConfigs.lightning-dir": 6,
+            "ListConfigs.log-file": 58,
+            "ListConfigs.log-level": 56,
+            "ListConfigs.log-prefix": 57,
+            "ListConfigs.log-timestamps": 59,
+            "ListConfigs.max-concurrent-htlcs": 40,
+            "ListConfigs.max-dust-htlc-exposure-msat": 43,
+            "ListConfigs.max-locktime-blocks": 32,
+            "ListConfigs.min-capacity-sat": 44,
+            "ListConfigs.min-emergency-msat": 70,
+            "ListConfigs.network": 7,
+            "ListConfigs.offline": 48,
+            "ListConfigs.pid-file": 29,
+            "ListConfigs.plugins[]": 3,
+            "ListConfigs.proxy": 50,
+            "ListConfigs.require-confirmed-inputs": 67,
+            "ListConfigs.rescan": 38,
+            "ListConfigs.rgb": 27,
+            "ListConfigs.rpc-file": 9,
+            "ListConfigs.rpc-file-mode": 55,
+            "ListConfigs.subdaemon": 61,
+            "ListConfigs.tor-service-password": 64,
+            "ListConfigs.wallet": 15,
+            "ListConfigs.watchtime-blocks": 31
         },
         "ListdatastoreDatastore": {
             "ListDatastore.datastore[].generation": 2,
@@ -5906,6 +6354,1170 @@
         "ListClosedChannels.id": {
             "added": "pre-v0.10.1",
             "deprecated": false
+        },
+        "ListConfigs": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.# version": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.accept-htlc-tlv-types": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.addr": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.alias": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.allow-deprecated-apis": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.always-use-proxy": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.announce-addr": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.announce-addr-discovered": {
+            "added": "v23.02",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.announce-addr-discovered-port": {
+            "added": "v23.02",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.announce-addr-dns": {
+            "added": "v22.11.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.autolisten": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.bind-addr": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.bookkeeper-db": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.bookkeeper-dir": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.cltv-delta": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.cltv-final": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.commit-fee": {
+            "added": "v23.05",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.commit-feerate-offset": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "ListConfigs.commit-time": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.conf": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.config": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs": {
+            "added": "v23.08",
+            "deprecated": false
+        },
+        "ListConfigs.configs.accept-htlc-tlv-types": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.accept-htlc-tlv-types.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.accept-htlc-tlv-types.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.addr": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.addr.sources[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.addr.values_str[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.alias": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.alias.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.alias.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.allow-deprecated-apis": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.allow-deprecated-apis.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.allow-deprecated-apis.value_bool": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.always-use-proxy": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.always-use-proxy.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.always-use-proxy.value_bool": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.announce-addr": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.announce-addr-discovered": {
+            "added": "v23.02",
+            "deprecated": false
+        },
+        "ListConfigs.configs.announce-addr-discovered-port": {
+            "added": "v23.02",
+            "deprecated": false
+        },
+        "ListConfigs.configs.announce-addr-discovered-port.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.announce-addr-discovered-port.value_int": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.announce-addr-discovered.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.announce-addr-discovered.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.announce-addr-dns": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.announce-addr-dns.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.announce-addr-dns.value_bool": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.announce-addr.sources[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.announce-addr.values_str[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.autolisten": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.autolisten.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.autolisten.value_bool": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.bind-addr": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.bind-addr.sources[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.bind-addr.values_str[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.clear-plugins": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.clear-plugins.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.clear-plugins.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.cltv-delta": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.cltv-delta.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.cltv-delta.value_int": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.cltv-final": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.cltv-final.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.cltv-final.value_int": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.commit-fee": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.commit-fee.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.commit-fee.value_int": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.commit-feerate-offset": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.commit-feerate-offset.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.commit-feerate-offset.value_int": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.commit-time": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.commit-time.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.commit-time.value_int": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.conf": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.conf.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.conf.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.daemon": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.daemon.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.daemon.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.database-upgrade": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.database-upgrade.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.database-upgrade.value_bool": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.developer": {
+            "added": "v23.08",
+            "deprecated": false
+        },
+        "ListConfigs.configs.developer.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.developer.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.disable-dns": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.disable-dns.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.disable-dns.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.disable-mpp": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.disable-mpp.plugin": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.disable-mpp.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.disable-mpp.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.disable-plugin": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.disable-plugin.sources[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.disable-plugin.values_str[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.encrypted-hsm": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.encrypted-hsm.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.encrypted-hsm.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-anchors": {
+            "added": "v23.08",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-anchors.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-anchors.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-dual-fund": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-dual-fund.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-dual-fund.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-offers": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-offers.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-offers.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-onion-messages": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-onion-messages.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-onion-messages.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-peer-storage": {
+            "added": "v23.02",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-peer-storage.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-peer-storage.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-shutdown-wrong-funding": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-shutdown-wrong-funding.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-shutdown-wrong-funding.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-splicing": {
+            "added": "v23.08",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-splicing.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.experimental-splicing.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.fee-base": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.fee-base.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.fee-base.value_int": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.fee-per-satoshi": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.fee-per-satoshi.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.fee-per-satoshi.value_int": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.fetchinvoice-noconnect": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.fetchinvoice-noconnect.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.fetchinvoice-noconnect.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.force-feerates": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.force-feerates.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.force-feerates.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.funding-confirms": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.funding-confirms.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.funding-confirms.value_int": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.htlc-maximum-msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.htlc-maximum-msat.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.htlc-maximum-msat.value_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.htlc-minimum-msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.htlc-minimum-msat.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.htlc-minimum-msat.value_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.ignore-fee-limits": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.ignore-fee-limits.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.ignore-fee-limits.value_bool": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.important-plugin": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.important-plugin.sources[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.important-plugin.values_str[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.large-channels": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.large-channels.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.large-channels.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.lightning-dir": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.lightning-dir.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.lightning-dir.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.log-file": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.log-file.sources[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.log-file.values_str[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.log-level": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.log-level.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.log-level.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.log-prefix": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.log-prefix.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.log-prefix.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.log-timestamps": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.log-timestamps.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.log-timestamps.value_bool": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.mainnet": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.mainnet.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.mainnet.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.max-concurrent-htlcs": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.max-concurrent-htlcs.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.max-concurrent-htlcs.value_int": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.max-dust-htlc-exposure-msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.max-dust-htlc-exposure-msat.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.max-dust-htlc-exposure-msat.value_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.max-locktime-blocks": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v24.05"
+        },
+        "ListConfigs.configs.max-locktime-blocks.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.max-locktime-blocks.value_int": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.min-capacity-sat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.min-capacity-sat.dynamic": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.min-capacity-sat.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.min-capacity-sat.value_int": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.network": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.network.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.network.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.offline": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.offline.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.offline.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.pid-file": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.pid-file.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.pid-file.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.plugin": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.plugin-dir": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.plugin-dir.sources[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.plugin-dir.values_str[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.plugin.sources[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.plugin.values_str[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.proxy": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.proxy.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.proxy.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.regtest": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.regtest.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.regtest.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.require-confirmed-inputs": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.require-confirmed-inputs.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.require-confirmed-inputs.value_bool": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.rescan": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.rescan.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.rescan.value_int": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.rgb": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.rgb.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.rgb.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.rpc-file": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.rpc-file-mode": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.rpc-file-mode.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.rpc-file-mode.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.rpc-file.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.rpc-file.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.signet": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.signet.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.signet.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.subdaemon": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.subdaemon.sources[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.subdaemon.values_str[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.testnet": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.testnet.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.testnet.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.tor-service-password": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.tor-service-password.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.tor-service-password.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.wallet": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.wallet.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.wallet.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.watchtime-blocks": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.watchtime-blocks.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.watchtime-blocks.value_int": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.daemon": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.database-upgrade": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.dev-allowdustreserve": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.developer": {
+            "added": "v23.08",
+            "deprecated": false
+        },
+        "ListConfigs.disable-dns": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.disable-plugin[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.encrypted-hsm": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.experimental-dual-fund": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.experimental-offers": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.experimental-onion-messages": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.experimental-peer-storage": {
+            "added": "v23.02",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.experimental-quiesce": {
+            "added": "v23.08",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.experimental-shutdown-wrong-funding": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.experimental-splicing": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.experimental-upgrade-protocol": {
+            "added": "v23.08",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.fee-base": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.fee-per-satoshi": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.fetchinvoice-noconnect": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.force-feerates": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.funding-confirms": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.htlc-maximum-msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.htlc-minimum-msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.ignore-fee-limits": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.important-plugins[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.important-plugins[].name": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.important-plugins[].options": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.important-plugins[].path": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.invoices-onchain-fallback": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "ListConfigs.large-channels": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.lightning-dir": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.log-file": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.log-level": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.log-prefix": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.log-timestamps": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.max-concurrent-htlcs": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.max-dust-htlc-exposure-msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.max-locktime-blocks": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.min-capacity-sat": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.min-emergency-msat": {
+            "added": "v23.08",
+            "deprecated": false
+        },
+        "ListConfigs.network": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.offline": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.pid-file": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.plugins[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.plugins[].name": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.plugins[].options": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.plugins[].path": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.proxy": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.require-confirmed-inputs": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.rescan": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.rgb": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.rpc-file": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.rpc-file-mode": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.subdaemon": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.tor-service-password": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.wallet": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
+        },
+        "ListConfigs.watchtime-blocks": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.08"
         },
         "ListDatastore": {
             "added": "pre-v0.10.1",

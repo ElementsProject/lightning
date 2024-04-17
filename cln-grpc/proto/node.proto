@@ -102,6 +102,7 @@ service Node {
 	rpc UpgradeWallet(UpgradewalletRequest) returns (UpgradewalletResponse) {}
 	rpc WaitBlockHeight(WaitblockheightRequest) returns (WaitblockheightResponse) {}
 	rpc Wait(WaitRequest) returns (WaitResponse) {}
+	rpc ListConfigs(ListconfigsRequest) returns (ListconfigsResponse) {}
 	rpc Stop(StopRequest) returns (StopResponse) {}
 	rpc Help(HelpRequest) returns (HelpResponse) {}
 	rpc PreApproveKeysend(PreapprovekeysendRequest) returns (PreapprovekeysendResponse) {}
@@ -2731,6 +2732,536 @@ message WaitDetails {
 	optional uint64 in_htlc_id = 10;
 	optional Amount in_msat = 11;
 	optional string out_channel = 12;
+}
+
+message ListconfigsRequest {
+	optional string config = 1;
+}
+
+message ListconfigsResponse {
+	optional ListconfigsConfigs configs = 1;
+	repeated ListconfigsPlugins plugins = 3;
+	repeated ListconfigsImportantplugins important_plugins = 4;
+	optional string conf = 5;
+	optional string lightning_dir = 6;
+	optional string network = 7;
+	optional bool allow_deprecated_apis = 8;
+	optional string rpc_file = 9;
+	repeated string disable_plugin = 10;
+	optional string bookkeeper_dir = 11;
+	optional string bookkeeper_db = 12;
+	optional bool always_use_proxy = 13;
+	optional bool daemon = 14;
+	optional string wallet = 15;
+	optional bool large_channels = 16;
+	optional bool experimental_dual_fund = 17;
+	optional bool experimental_splicing = 18;
+	optional bool experimental_onion_messages = 19;
+	optional bool experimental_offers = 20;
+	optional bool experimental_shutdown_wrong_funding = 21;
+	optional bool experimental_peer_storage = 22;
+	optional bool experimental_quiesce = 23;
+	optional bool experimental_upgrade_protocol = 24;
+	optional bool invoices_onchain_fallback = 25;
+	optional bool database_upgrade = 26;
+	optional bytes rgb = 27;
+	optional string alias = 28;
+	optional string pid_file = 29;
+	optional bool ignore_fee_limits = 30;
+	optional uint32 watchtime_blocks = 31;
+	optional uint32 max_locktime_blocks = 32;
+	optional uint32 funding_confirms = 33;
+	optional uint32 cltv_delta = 34;
+	optional uint32 cltv_final = 35;
+	optional uint32 commit_time = 36;
+	optional uint32 fee_base = 37;
+	optional sint64 rescan = 38;
+	optional uint32 fee_per_satoshi = 39;
+	optional uint32 max_concurrent_htlcs = 40;
+	optional Amount htlc_minimum_msat = 41;
+	optional Amount htlc_maximum_msat = 42;
+	optional Amount max_dust_htlc_exposure_msat = 43;
+	optional uint64 min_capacity_sat = 44;
+	optional string addr = 45;
+	optional string announce_addr = 46;
+	optional string bind_addr = 47;
+	optional bool offline = 48;
+	optional bool autolisten = 49;
+	optional string proxy = 50;
+	optional bool disable_dns = 51;
+	optional string announce_addr_discovered = 52;
+	optional sint64 announce_addr_discovered_port = 53;
+	optional bool encrypted_hsm = 54;
+	optional string rpc_file_mode = 55;
+	optional string log_level = 56;
+	optional string log_prefix = 57;
+	optional string log_file = 58;
+	optional bool log_timestamps = 59;
+	optional string force_feerates = 60;
+	optional string subdaemon = 61;
+	optional bool fetchinvoice_noconnect = 62;
+	optional string accept_htlc_tlv_types = 63;
+	optional string tor_service_password = 64;
+	optional bool dev_allowdustreserve = 65;
+	optional bool announce_addr_dns = 66;
+	optional bool require_confirmed_inputs = 67;
+	optional bool developer = 68;
+	optional uint64 commit_fee = 69;
+	optional Amount min_emergency_msat = 70;
+	optional uint32 commit_feerate_offset = 71;
+}
+
+message ListconfigsConfigs {
+	optional ListconfigsConfigsConf conf = 1;
+	optional ListconfigsConfigsDeveloper developer = 2;
+	optional ListconfigsConfigsClearplugins clear_plugins = 3;
+	optional ListconfigsConfigsDisablempp disable_mpp = 4;
+	optional ListconfigsConfigsMainnet mainnet = 5;
+	optional ListconfigsConfigsRegtest regtest = 6;
+	optional ListconfigsConfigsSignet signet = 7;
+	optional ListconfigsConfigsTestnet testnet = 8;
+	optional ListconfigsConfigsImportantplugin important_plugin = 9;
+	optional ListconfigsConfigsPlugin plugin = 10;
+	optional ListconfigsConfigsPlugindir plugin_dir = 11;
+	optional ListconfigsConfigsLightningdir lightning_dir = 12;
+	optional ListconfigsConfigsNetwork network = 13;
+	optional ListconfigsConfigsAllowdeprecatedapis allow_deprecated_apis = 14;
+	optional ListconfigsConfigsRpcfile rpc_file = 15;
+	optional ListconfigsConfigsDisableplugin disable_plugin = 16;
+	optional ListconfigsConfigsAlwaysuseproxy always_use_proxy = 17;
+	optional ListconfigsConfigsDaemon daemon = 18;
+	optional ListconfigsConfigsWallet wallet = 19;
+	optional ListconfigsConfigsLargechannels large_channels = 20;
+	optional ListconfigsConfigsExperimentaldualfund experimental_dual_fund = 21;
+	optional ListconfigsConfigsExperimentalsplicing experimental_splicing = 22;
+	optional ListconfigsConfigsExperimentalonionmessages experimental_onion_messages = 23;
+	optional ListconfigsConfigsExperimentaloffers experimental_offers = 24;
+	optional ListconfigsConfigsExperimentalshutdownwrongfunding experimental_shutdown_wrong_funding = 25;
+	optional ListconfigsConfigsExperimentalpeerstorage experimental_peer_storage = 26;
+	optional ListconfigsConfigsExperimentalanchors experimental_anchors = 27;
+	optional ListconfigsConfigsDatabaseupgrade database_upgrade = 28;
+	optional ListconfigsConfigsRgb rgb = 29;
+	optional ListconfigsConfigsAlias alias = 30;
+	optional ListconfigsConfigsPidfile pid_file = 31;
+	optional ListconfigsConfigsIgnorefeelimits ignore_fee_limits = 32;
+	optional ListconfigsConfigsWatchtimeblocks watchtime_blocks = 33;
+	optional ListconfigsConfigsMaxlocktimeblocks max_locktime_blocks = 34;
+	optional ListconfigsConfigsFundingconfirms funding_confirms = 35;
+	optional ListconfigsConfigsCltvdelta cltv_delta = 36;
+	optional ListconfigsConfigsCltvfinal cltv_final = 37;
+	optional ListconfigsConfigsCommittime commit_time = 38;
+	optional ListconfigsConfigsFeebase fee_base = 39;
+	optional ListconfigsConfigsRescan rescan = 40;
+	optional ListconfigsConfigsFeepersatoshi fee_per_satoshi = 41;
+	optional ListconfigsConfigsMaxconcurrenthtlcs max_concurrent_htlcs = 42;
+	optional ListconfigsConfigsHtlcminimummsat htlc_minimum_msat = 43;
+	optional ListconfigsConfigsHtlcmaximummsat htlc_maximum_msat = 44;
+	optional ListconfigsConfigsMaxdusthtlcexposuremsat max_dust_htlc_exposure_msat = 45;
+	optional ListconfigsConfigsMincapacitysat min_capacity_sat = 46;
+	optional ListconfigsConfigsAddr addr = 47;
+	optional ListconfigsConfigsAnnounceaddr announce_addr = 48;
+	optional ListconfigsConfigsBindaddr bind_addr = 49;
+	optional ListconfigsConfigsOffline offline = 50;
+	optional ListconfigsConfigsAutolisten autolisten = 51;
+	optional ListconfigsConfigsProxy proxy = 52;
+	optional ListconfigsConfigsDisabledns disable_dns = 53;
+	optional ListconfigsConfigsAnnounceaddrdiscovered announce_addr_discovered = 54;
+	optional ListconfigsConfigsAnnounceaddrdiscoveredport announce_addr_discovered_port = 55;
+	optional ListconfigsConfigsEncryptedhsm encrypted_hsm = 56;
+	optional ListconfigsConfigsRpcfilemode rpc_file_mode = 57;
+	optional ListconfigsConfigsLoglevel log_level = 58;
+	optional ListconfigsConfigsLogprefix log_prefix = 59;
+	optional ListconfigsConfigsLogfile log_file = 60;
+	optional ListconfigsConfigsLogtimestamps log_timestamps = 61;
+	optional ListconfigsConfigsForcefeerates force_feerates = 62;
+	optional ListconfigsConfigsSubdaemon subdaemon = 63;
+	optional ListconfigsConfigsFetchinvoicenoconnect fetchinvoice_noconnect = 64;
+	optional ListconfigsConfigsAccepthtlctlvtypes accept_htlc_tlv_types = 65;
+	optional ListconfigsConfigsTorservicepassword tor_service_password = 66;
+	optional ListconfigsConfigsAnnounceaddrdns announce_addr_dns = 67;
+	optional ListconfigsConfigsRequireconfirmedinputs require_confirmed_inputs = 68;
+	optional ListconfigsConfigsCommitfee commit_fee = 69;
+	optional ListconfigsConfigsCommitfeerateoffset commit_feerate_offset = 70;
+}
+
+message ListconfigsConfigsConf {
+	// ListConfigs.configs.conf.source
+	enum ListconfigsConfigsConfSource {
+		CMDLINE = 0;
+	}
+	string value_str = 1;
+	ListconfigsConfigsConfSource source = 2;
+}
+
+message ListconfigsConfigsDeveloper {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsClearplugins {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsDisablempp {
+	bool set = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsMainnet {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsRegtest {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsSignet {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsTestnet {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsImportantplugin {
+	repeated string values_str = 1;
+	repeated string sources = 2;
+}
+
+message ListconfigsConfigsPlugin {
+	repeated string values_str = 1;
+	repeated string sources = 2;
+}
+
+message ListconfigsConfigsPlugindir {
+	repeated string values_str = 1;
+	repeated string sources = 2;
+}
+
+message ListconfigsConfigsLightningdir {
+	string value_str = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsNetwork {
+	string value_str = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsAllowdeprecatedapis {
+	bool value_bool = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsRpcfile {
+	string value_str = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsDisableplugin {
+	repeated string values_str = 1;
+	repeated string sources = 2;
+}
+
+message ListconfigsConfigsAlwaysuseproxy {
+	bool value_bool = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsDaemon {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsWallet {
+	string value_str = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsLargechannels {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsExperimentaldualfund {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsExperimentalsplicing {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsExperimentalonionmessages {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsExperimentaloffers {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsExperimentalshutdownwrongfunding {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsExperimentalpeerstorage {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsExperimentalanchors {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsDatabaseupgrade {
+	bool value_bool = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsRgb {
+	bytes value_str = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsAlias {
+	string value_str = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsPidfile {
+	string value_str = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsIgnorefeelimits {
+	bool value_bool = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsWatchtimeblocks {
+	uint32 value_int = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsMaxlocktimeblocks {
+	uint32 value_int = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsFundingconfirms {
+	uint32 value_int = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsCltvdelta {
+	uint32 value_int = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsCltvfinal {
+	uint32 value_int = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsCommittime {
+	uint32 value_int = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsFeebase {
+	uint32 value_int = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsRescan {
+	sint64 value_int = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsFeepersatoshi {
+	uint32 value_int = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsMaxconcurrenthtlcs {
+	uint32 value_int = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsHtlcminimummsat {
+	Amount value_msat = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsHtlcmaximummsat {
+	Amount value_msat = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsMaxdusthtlcexposuremsat {
+	Amount value_msat = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsMincapacitysat {
+	uint64 value_int = 1;
+	string source = 2;
+	optional bool dynamic = 3;
+}
+
+message ListconfigsConfigsAddr {
+	repeated string values_str = 1;
+	repeated string sources = 2;
+}
+
+message ListconfigsConfigsAnnounceaddr {
+	repeated string values_str = 1;
+	repeated string sources = 2;
+}
+
+message ListconfigsConfigsBindaddr {
+	repeated string values_str = 1;
+	repeated string sources = 2;
+}
+
+message ListconfigsConfigsOffline {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsAutolisten {
+	bool value_bool = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsProxy {
+	string value_str = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsDisabledns {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsAnnounceaddrdiscovered {
+	// ListConfigs.configs.announce-addr-discovered.value_str
+	enum ListconfigsConfigsAnnounceaddrdiscoveredValue_str {
+		TRUE = 0;
+		FALSE = 1;
+		AUTO = 2;
+	}
+	ListconfigsConfigsAnnounceaddrdiscoveredValue_str value_str = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsAnnounceaddrdiscoveredport {
+	uint32 value_int = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsEncryptedhsm {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsRpcfilemode {
+	string value_str = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsLoglevel {
+	string value_str = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsLogprefix {
+	string value_str = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsLogfile {
+	repeated string values_str = 1;
+	repeated string sources = 2;
+}
+
+message ListconfigsConfigsLogtimestamps {
+	bool value_bool = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsForcefeerates {
+	string value_str = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsSubdaemon {
+	repeated string values_str = 1;
+	repeated string sources = 2;
+}
+
+message ListconfigsConfigsFetchinvoicenoconnect {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsAccepthtlctlvtypes {
+	string value_str = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsTorservicepassword {
+	string value_str = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsAnnounceaddrdns {
+	bool value_bool = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsRequireconfirmedinputs {
+	bool value_bool = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsCommitfee {
+	uint64 value_int = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsCommitfeerateoffset {
+	uint32 value_int = 1;
+	string source = 2;
+}
+
+message ListconfigsPlugins {
+	string path = 1;
+	string name = 2;
+	optional ListconfigsPluginsOptions options = 3;
+}
+
+message ListconfigsPluginsOptions {
+}
+
+message ListconfigsImportantplugins {
+	string path = 1;
+	string name = 2;
+	optional ListconfigsImportantpluginsOptions options = 3;
+}
+
+message ListconfigsImportantpluginsOptions {
 }
 
 message StopRequest {
