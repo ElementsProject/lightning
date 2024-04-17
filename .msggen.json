@@ -2268,6 +2268,15 @@
             "SendOnion.status": 3,
             "SendOnion.updated_index": 15
         },
+        "SendonionmessageHops": {
+            "SendOnionMessage.hops[].node": 1,
+            "SendOnionMessage.hops[].tlv": 2
+        },
+        "SendonionmessageRequest": {
+            "SendOnionMessage.blinding": 2,
+            "SendOnionMessage.first_id": 1,
+            "SendOnionMessage.hops[]": 3
+        },
         "SendpayRequest": {
             "SendPay.amount_msat": 10,
             "SendPay.bolt11": 5,
@@ -7997,6 +8006,30 @@
         },
         "SendOnion.updated_index": {
             "added": "v23.11",
+            "deprecated": false
+        },
+        "SendOnionMessage": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SendOnionMessage.blinding": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnionMessage.first_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnionMessage.hops[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnionMessage.hops[].node": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnionMessage.hops[].tlv": {
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "SendPay": {
