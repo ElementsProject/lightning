@@ -49,6 +49,7 @@ service Node {
 	rpc ListClosedChannels(ListclosedchannelsRequest) returns (ListclosedchannelsResponse) {}
 	rpc DecodePay(DecodepayRequest) returns (DecodepayResponse) {}
 	rpc Decode(DecodeRequest) returns (DecodeResponse) {}
+	rpc DelPay(DelpayRequest) returns (DelpayResponse) {}
 	rpc Disconnect(DisconnectRequest) returns (DisconnectResponse) {}
 	rpc Feerates(FeeratesRequest) returns (FeeratesResponse) {}
 	rpc FetchInvoice(FetchinvoiceRequest) returns (FetchinvoiceResponse) {}
@@ -1453,6 +1454,48 @@ message DecodeExtra {
 message DecodeRestrictions {
 	repeated string alternatives = 1;
 	string summary = 2;
+}
+
+message DelpayRequest {
+	// DelPay.status
+	enum DelpayStatus {
+		COMPLETE = 0;
+		FAILED = 1;
+	}
+	bytes payment_hash = 1;
+	DelpayStatus status = 2;
+	optional uint64 partid = 3;
+	optional uint64 groupid = 4;
+}
+
+message DelpayResponse {
+	repeated DelpayPayments payments = 1;
+}
+
+message DelpayPayments {
+	// DelPay.payments[].status
+	enum DelpayPaymentsStatus {
+		PENDING = 0;
+		FAILED = 1;
+		COMPLETE = 2;
+	}
+	optional uint64 created_index = 1;
+	uint64 id = 2;
+	bytes payment_hash = 3;
+	DelpayPaymentsStatus status = 4;
+	Amount amount_sent_msat = 5;
+	optional uint64 partid = 6;
+	optional bytes destination = 7;
+	optional Amount amount_msat = 8;
+	uint64 created_at = 9;
+	optional uint64 updated_index = 10;
+	optional uint64 completed_at = 11;
+	optional uint64 groupid = 12;
+	optional bytes payment_preimage = 13;
+	optional string label = 14;
+	optional string bolt11 = 15;
+	optional string bolt12 = 16;
+	optional bytes erroronion = 17;
 }
 
 message DisconnectRequest {

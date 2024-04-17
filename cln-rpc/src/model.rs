@@ -58,6 +58,7 @@ pub enum Request {
 	ListClosedChannels(requests::ListclosedchannelsRequest),
 	DecodePay(requests::DecodepayRequest),
 	Decode(requests::DecodeRequest),
+	DelPay(requests::DelpayRequest),
 	Disconnect(requests::DisconnectRequest),
 	Feerates(requests::FeeratesRequest),
 	FetchInvoice(requests::FetchinvoiceRequest),
@@ -133,6 +134,7 @@ pub enum Response {
 	ListClosedChannels(responses::ListclosedchannelsResponse),
 	DecodePay(responses::DecodepayResponse),
 	Decode(responses::DecodeResponse),
+	DelPay(responses::DelpayResponse),
 	Disconnect(responses::DisconnectResponse),
 	Feerates(responses::FeeratesResponse),
 	FetchInvoice(responses::FetchinvoiceResponse),
@@ -1569,6 +1571,63 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "decode"
+	    }
+	}
+	/// ['Expected status of the payment. Only deletes if the payment status matches. Deleting a `pending` payment will return an error.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum DelpayStatus {
+	    #[serde(rename = "complete")]
+	    COMPLETE = 0,
+	    #[serde(rename = "failed")]
+	    FAILED = 1,
+	}
+
+	impl TryFrom<i32> for DelpayStatus {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<DelpayStatus, anyhow::Error> {
+	        match c {
+	    0 => Ok(DelpayStatus::COMPLETE),
+	    1 => Ok(DelpayStatus::FAILED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum DelpayStatus", o)),
+	        }
+	    }
+	}
+
+	impl ToString for DelpayStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            DelpayStatus::COMPLETE => "COMPLETE",
+	            DelpayStatus::FAILED => "FAILED",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DelpayRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub groupid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub partid: Option<u64>,
+	    // Path `DelPay.status`
+	    pub status: DelpayStatus,
+	    pub payment_hash: Sha256,
+	}
+
+	impl From<DelpayRequest> for Request {
+	    fn from(r: DelpayRequest) -> Self {
+	        Request::DelPay(r)
+	    }
+	}
+
+	impl IntoRequest for DelpayRequest {
+	    type Response = super::responses::DelpayResponse;
+	}
+
+	impl TypedRequest for DelpayRequest {
+	    type Response = super::responses::DelpayResponse;
+
+	    fn method(&self) -> &str {
+	        "delpay"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -5276,6 +5335,89 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::Decode(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	/// ['Status of the payment.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum DelpayPaymentsStatus {
+	    #[serde(rename = "pending")]
+	    PENDING = 0,
+	    #[serde(rename = "failed")]
+	    FAILED = 1,
+	    #[serde(rename = "complete")]
+	    COMPLETE = 2,
+	}
+
+	impl TryFrom<i32> for DelpayPaymentsStatus {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<DelpayPaymentsStatus, anyhow::Error> {
+	        match c {
+	    0 => Ok(DelpayPaymentsStatus::PENDING),
+	    1 => Ok(DelpayPaymentsStatus::FAILED),
+	    2 => Ok(DelpayPaymentsStatus::COMPLETE),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum DelpayPaymentsStatus", o)),
+	        }
+	    }
+	}
+
+	impl ToString for DelpayPaymentsStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            DelpayPaymentsStatus::PENDING => "PENDING",
+	            DelpayPaymentsStatus::FAILED => "FAILED",
+	            DelpayPaymentsStatus::COMPLETE => "COMPLETE",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DelpayPayments {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bolt11: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bolt12: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub completed_at: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub destination: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub erroronion: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub groupid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub partid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_preimage: Option<Secret>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
+	    // Path `DelPay.payments[].status`
+	    pub status: DelpayPaymentsStatus,
+	    pub amount_sent_msat: Amount,
+	    pub created_at: u64,
+	    pub id: u64,
+	    pub payment_hash: Sha256,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DelpayResponse {
+	    pub payments: Vec<DelpayPayments>,
+	}
+
+	impl TryFrom<Response> for DelpayResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::DelPay(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

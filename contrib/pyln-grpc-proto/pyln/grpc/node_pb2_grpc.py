@@ -219,6 +219,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.DecodeRequest.SerializeToString,
                 response_deserializer=node__pb2.DecodeResponse.FromString,
                 )
+        self.DelPay = channel.unary_unary(
+                '/cln.Node/DelPay',
+                request_serializer=node__pb2.DelpayRequest.SerializeToString,
+                response_deserializer=node__pb2.DelpayResponse.FromString,
+                )
         self.Disconnect = channel.unary_unary(
                 '/cln.Node/Disconnect',
                 request_serializer=node__pb2.DisconnectRequest.SerializeToString,
@@ -610,6 +615,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def DelPay(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Disconnect(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -985,6 +996,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.Decode,
                     request_deserializer=node__pb2.DecodeRequest.FromString,
                     response_serializer=node__pb2.DecodeResponse.SerializeToString,
+            ),
+            'DelPay': grpc.unary_unary_rpc_method_handler(
+                    servicer.DelPay,
+                    request_deserializer=node__pb2.DelpayRequest.FromString,
+                    response_serializer=node__pb2.DelpayResponse.SerializeToString,
             ),
             'Disconnect': grpc.unary_unary_rpc_method_handler(
                     servicer.Disconnect,
@@ -1830,6 +1846,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/Decode',
             node__pb2.DecodeRequest.SerializeToString,
             node__pb2.DecodeResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DelPay(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/DelPay',
+            node__pb2.DelpayRequest.SerializeToString,
+            node__pb2.DelpayResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

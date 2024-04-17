@@ -99,7 +99,7 @@ def load_jsonrpc_service():
         "ListClosedChannels",
         "DecodePay",
         "Decode",
-        # "delpay",
+        "DelPay",
         # "disableoffer",
         "Disconnect",
         "Feerates",
