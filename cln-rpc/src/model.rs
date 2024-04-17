@@ -72,6 +72,7 @@ pub enum Request {
 	FundChannel_Complete(requests::Fundchannel_completeRequest),
 	FundChannel(requests::FundchannelRequest),
 	FundChannel_Start(requests::Fundchannel_startRequest),
+	GetLog(requests::GetlogRequest),
 	GetRoute(requests::GetrouteRequest),
 	ListForwards(requests::ListforwardsRequest),
 	ListOffers(requests::ListoffersRequest),
@@ -158,6 +159,7 @@ pub enum Response {
 	FundChannel_Complete(responses::Fundchannel_completeResponse),
 	FundChannel(responses::FundchannelResponse),
 	FundChannel_Start(responses::Fundchannel_startResponse),
+	GetLog(responses::GetlogResponse),
 	GetRoute(responses::GetrouteResponse),
 	ListForwards(responses::ListforwardsResponse),
 	ListOffers(responses::ListoffersResponse),
@@ -2014,6 +2016,70 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "fundchannel_start"
+	    }
+	}
+	/// ['A string that represents the log level.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum GetlogLevel {
+	    #[serde(rename = "broken")]
+	    BROKEN = 0,
+	    #[serde(rename = "unusual")]
+	    UNUSUAL = 1,
+	    #[serde(rename = "info")]
+	    INFO = 2,
+	    #[serde(rename = "debug")]
+	    DEBUG = 3,
+	    #[serde(rename = "io")]
+	    IO = 4,
+	}
+
+	impl TryFrom<i32> for GetlogLevel {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<GetlogLevel, anyhow::Error> {
+	        match c {
+	    0 => Ok(GetlogLevel::BROKEN),
+	    1 => Ok(GetlogLevel::UNUSUAL),
+	    2 => Ok(GetlogLevel::INFO),
+	    3 => Ok(GetlogLevel::DEBUG),
+	    4 => Ok(GetlogLevel::IO),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum GetlogLevel", o)),
+	        }
+	    }
+	}
+
+	impl ToString for GetlogLevel {
+	    fn to_string(&self) -> String {
+	        match self {
+	            GetlogLevel::BROKEN => "BROKEN",
+	            GetlogLevel::UNUSUAL => "UNUSUAL",
+	            GetlogLevel::INFO => "INFO",
+	            GetlogLevel::DEBUG => "DEBUG",
+	            GetlogLevel::IO => "IO",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct GetlogRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub level: Option<GetlogLevel>,
+	}
+
+	impl From<GetlogRequest> for Request {
+	    fn from(r: GetlogRequest) -> Self {
+	        Request::GetLog(r)
+	    }
+	}
+
+	impl IntoRequest for GetlogRequest {
+	    type Response = super::responses::GetlogResponse;
+	}
+
+	impl TypedRequest for GetlogRequest {
+	    type Response = super::responses::GetlogResponse;
+
+	    fn method(&self) -> &str {
+	        "getlog"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -6093,6 +6159,92 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::FundChannel_Start(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum GetlogLogType {
+	    #[serde(rename = "SKIPPED")]
+	    SKIPPED = 0,
+	    #[serde(rename = "BROKEN")]
+	    BROKEN = 1,
+	    #[serde(rename = "UNUSUAL")]
+	    UNUSUAL = 2,
+	    #[serde(rename = "INFO")]
+	    INFO = 3,
+	    #[serde(rename = "DEBUG")]
+	    DEBUG = 4,
+	    #[serde(rename = "IO_IN")]
+	    IO_IN = 5,
+	    #[serde(rename = "IO_OUT")]
+	    IO_OUT = 6,
+	}
+
+	impl TryFrom<i32> for GetlogLogType {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<GetlogLogType, anyhow::Error> {
+	        match c {
+	    0 => Ok(GetlogLogType::SKIPPED),
+	    1 => Ok(GetlogLogType::BROKEN),
+	    2 => Ok(GetlogLogType::UNUSUAL),
+	    3 => Ok(GetlogLogType::INFO),
+	    4 => Ok(GetlogLogType::DEBUG),
+	    5 => Ok(GetlogLogType::IO_IN),
+	    6 => Ok(GetlogLogType::IO_OUT),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum GetlogLogType", o)),
+	        }
+	    }
+	}
+
+	impl ToString for GetlogLogType {
+	    fn to_string(&self) -> String {
+	        match self {
+	            GetlogLogType::SKIPPED => "SKIPPED",
+	            GetlogLogType::BROKEN => "BROKEN",
+	            GetlogLogType::UNUSUAL => "UNUSUAL",
+	            GetlogLogType::INFO => "INFO",
+	            GetlogLogType::DEBUG => "DEBUG",
+	            GetlogLogType::IO_IN => "IO_IN",
+	            GetlogLogType::IO_OUT => "IO_OUT",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct GetlogLog {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub data: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub log: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub node_id: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub num_skipped: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub source: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub time: Option<String>,
+	    // Path `GetLog.log[].type`
+	    #[serde(rename = "type")]
+	    pub item_type: GetlogLogType,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct GetlogResponse {
+	    pub bytes_max: u32,
+	    pub bytes_used: u32,
+	    pub created_at: String,
+	    pub log: Vec<GetlogLog>,
+	}
+
+	impl TryFrom<Response> for GetlogResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::GetLog(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

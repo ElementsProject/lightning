@@ -89,6 +89,22 @@
             "torv3": 4,
             "websocket": 5
         },
+        "GetlogLevel": {
+            "broken": 0,
+            "debug": 3,
+            "info": 2,
+            "io": 4,
+            "unusual": 1
+        },
+        "GetlogLogType": {
+            "BROKEN": 1,
+            "DEBUG": 4,
+            "INFO": 3,
+            "IO_IN": 5,
+            "IO_OUT": 6,
+            "SKIPPED": 0,
+            "UNUSUAL": 2
+        },
         "GetrouteRouteStyle": {
             "tlv": 0
         },
@@ -989,9 +1005,7 @@
         },
         "Fundchannel_startChannel_type": {
             "FundChannel_Start.channel_type.bits[]": 1,
-            "FundChannel_Start.channel_type.names[]": 2,
-            "Fundchannel_Start.channel_type.bits[]": 1,
-            "Fundchannel_Start.channel_type.names[]": 2
+            "FundChannel_Start.channel_type.names[]": 2
         },
         "Fundchannel_startRequest": {
             "FundChannel_Start.amount": 2,
@@ -1002,16 +1016,7 @@
             "FundChannel_Start.id": 1,
             "FundChannel_Start.mindepth": 7,
             "FundChannel_Start.push_msat": 6,
-            "FundChannel_Start.reserve": 8,
-            "Fundchannel_Start.amount": 9,
-            "Fundchannel_Start.announce": 3,
-            "Fundchannel_Start.channel_type[]": 8,
-            "Fundchannel_Start.close_to": 4,
-            "Fundchannel_Start.feerate": 2,
-            "Fundchannel_Start.id": 1,
-            "Fundchannel_Start.mindepth": 6,
-            "Fundchannel_Start.push_msat": 5,
-            "Fundchannel_Start.reserve": 7
+            "FundChannel_Start.reserve": 8
         },
         "Fundchannel_startResponse": {
             "FundChannel_Start.channel_type": 3,
@@ -1019,13 +1024,7 @@
             "FundChannel_Start.funding_address": 1,
             "FundChannel_Start.mindepth": 6,
             "FundChannel_Start.scriptpubkey": 2,
-            "FundChannel_Start.warning_usage": 5,
-            "Fundchannel_Start.channel_type": 3,
-            "Fundchannel_Start.close_to": 4,
-            "Fundchannel_Start.funding_address": 1,
-            "Fundchannel_Start.mindepth": 6,
-            "Fundchannel_Start.scriptpubkey": 2,
-            "Fundchannel_Start.warning_usage": 5
+            "FundChannel_Start.warning_usage": 5
         },
         "FundpsbtRequest": {
             "FundPsbt.excess_as_change": 8,
@@ -1091,6 +1090,24 @@
             "Getinfo.version": 8,
             "Getinfo.warning_bitcoind_sync": 16,
             "Getinfo.warning_lightningd_sync": 17
+        },
+        "GetlogLog": {
+            "GetLog.log[].data": 7,
+            "GetLog.log[].log": 5,
+            "GetLog.log[].node_id": 6,
+            "GetLog.log[].num_skipped": 2,
+            "GetLog.log[].source": 4,
+            "GetLog.log[].time": 3,
+            "GetLog.log[].type": 1
+        },
+        "GetlogRequest": {
+            "GetLog.level": 1
+        },
+        "GetlogResponse": {
+            "GetLog.bytes_max": 3,
+            "GetLog.bytes_used": 2,
+            "GetLog.created_at": 1,
+            "GetLog.log[]": 4
         },
         "GetrouteRequest": {
             "GetRoute.amount_msat": 9,
@@ -4235,67 +4252,55 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start": {
+        "GetLog": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
-        "Fundchannel_Start.amount": {
+        "GetLog.bytes_max": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.announce": {
+        "GetLog.bytes_used": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.channel_type": {
-            "added": "v24.02",
-            "deprecated": false
-        },
-        "Fundchannel_Start.channel_type.bits[]": {
-            "added": "v24.02",
-            "deprecated": false
-        },
-        "Fundchannel_Start.channel_type.names[]": {
-            "added": "v24.02",
-            "deprecated": false
-        },
-        "Fundchannel_Start.channel_type[]": {
+        "GetLog.created_at": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.close_to": {
+        "GetLog.level": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.feerate": {
+        "GetLog.log[]": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.funding_address": {
+        "GetLog.log[].data": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.id": {
+        "GetLog.log[].log": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.mindepth": {
+        "GetLog.log[].node_id": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.push_msat": {
+        "GetLog.log[].num_skipped": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.reserve": {
+        "GetLog.log[].source": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.scriptpubkey": {
+        "GetLog.log[].time": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.warning_usage": {
+        "GetLog.log[].type": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

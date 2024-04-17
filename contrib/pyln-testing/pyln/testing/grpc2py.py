@@ -1446,6 +1446,27 @@ def fundchannel_start2py(m):
     })
 
 
+def getlog_log2py(m):
+    return remove_default({
+        "type": str(m.item_type),  # EnumField in generate_composite
+        "data": hexlify(m.data),  # PrimitiveField in generate_composite
+        "log": m.log,  # PrimitiveField in generate_composite
+        "node_id": hexlify(m.node_id),  # PrimitiveField in generate_composite
+        "num_skipped": m.num_skipped,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "time": m.time,  # PrimitiveField in generate_composite
+    })
+
+
+def getlog2py(m):
+    return remove_default({
+        "log": [getlog_log2py(i) for i in m.log],  # ArrayField[composite] in generate_composite
+        "bytes_max": m.bytes_max,  # PrimitiveField in generate_composite
+        "bytes_used": m.bytes_used,  # PrimitiveField in generate_composite
+        "created_at": m.created_at,  # PrimitiveField in generate_composite
+    })
+
+
 def getroute_route2py(m):
     return remove_default({
         "style": str(m.style),  # EnumField in generate_composite

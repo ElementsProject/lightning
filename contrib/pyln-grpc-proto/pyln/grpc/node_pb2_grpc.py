@@ -279,6 +279,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.Fundchannel_startRequest.SerializeToString,
                 response_deserializer=node__pb2.Fundchannel_startResponse.FromString,
                 )
+        self.GetLog = channel.unary_unary(
+                '/cln.Node/GetLog',
+                request_serializer=node__pb2.GetlogRequest.SerializeToString,
+                response_deserializer=node__pb2.GetlogResponse.FromString,
+                )
         self.GetRoute = channel.unary_unary(
                 '/cln.Node/GetRoute',
                 request_serializer=node__pb2.GetrouteRequest.SerializeToString,
@@ -722,6 +727,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetLog(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetRoute(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1133,6 +1144,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.FundChannel_Start,
                     request_deserializer=node__pb2.Fundchannel_startRequest.FromString,
                     response_serializer=node__pb2.Fundchannel_startResponse.SerializeToString,
+            ),
+            'GetLog': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetLog,
+                    request_deserializer=node__pb2.GetlogRequest.FromString,
+                    response_serializer=node__pb2.GetlogResponse.SerializeToString,
             ),
             'GetRoute': grpc.unary_unary_rpc_method_handler(
                     servicer.GetRoute,
@@ -2162,6 +2178,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/FundChannel_Start',
             node__pb2.Fundchannel_startRequest.SerializeToString,
             node__pb2.Fundchannel_startResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetLog(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/GetLog',
+            node__pb2.GetlogRequest.SerializeToString,
+            node__pb2.GetlogResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

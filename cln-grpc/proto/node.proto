@@ -61,6 +61,7 @@ service Node {
 	rpc FundChannel_Complete(Fundchannel_completeRequest) returns (Fundchannel_completeResponse) {}
 	rpc FundChannel(FundchannelRequest) returns (FundchannelResponse) {}
 	rpc FundChannel_Start(Fundchannel_startRequest) returns (Fundchannel_startResponse) {}
+	rpc GetLog(GetlogRequest) returns (GetlogResponse) {}
 	rpc GetRoute(GetrouteRequest) returns (GetrouteResponse) {}
 	rpc ListForwards(ListforwardsRequest) returns (ListforwardsResponse) {}
 	rpc ListOffers(ListoffersRequest) returns (ListoffersResponse) {}
@@ -1813,6 +1814,45 @@ message Fundchannel_startResponse {
 message Fundchannel_startChannel_type {
 	repeated uint32 bits = 1;
 	repeated ChannelTypeName names = 2;
+}
+
+message GetlogRequest {
+	// GetLog.level
+	enum GetlogLevel {
+		BROKEN = 0;
+		UNUSUAL = 1;
+		INFO = 2;
+		DEBUG = 3;
+		IO = 4;
+	}
+	optional GetlogLevel level = 1;
+}
+
+message GetlogResponse {
+	string created_at = 1;
+	uint32 bytes_used = 2;
+	uint32 bytes_max = 3;
+	repeated GetlogLog log = 4;
+}
+
+message GetlogLog {
+	// GetLog.log[].type
+	enum GetlogLogType {
+		SKIPPED = 0;
+		BROKEN = 1;
+		UNUSUAL = 2;
+		INFO = 3;
+		DEBUG = 4;
+		IO_IN = 5;
+		IO_OUT = 6;
+	}
+	GetlogLogType item_type = 1;
+	optional uint32 num_skipped = 2;
+	optional string time = 3;
+	optional string source = 4;
+	optional string log = 5;
+	optional bytes node_id = 6;
+	optional bytes data = 7;
 }
 
 message GetrouteRequest {

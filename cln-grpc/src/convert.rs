@@ -1757,6 +1757,34 @@ impl From<responses::Fundchannel_startResponse> for pb::FundchannelStartResponse
 }
 
 #[allow(unused_variables)]
+impl From<responses::GetlogLog> for pb::GetlogLog {
+    fn from(c: responses::GetlogLog) -> Self {
+        Self {
+            data: c.data.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            log: c.log, // Rule #2 for type string?
+            node_id: c.node_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            num_skipped: c.num_skipped, // Rule #2 for type u32?
+            source: c.source, // Rule #2 for type string?
+            time: c.time, // Rule #2 for type string?
+            item_type: c.item_type as i32,
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::GetlogResponse> for pb::GetlogResponse {
+    fn from(c: responses::GetlogResponse) -> Self {
+        Self {
+            bytes_max: c.bytes_max, // Rule #2 for type u32
+            bytes_used: c.bytes_used, // Rule #2 for type u32
+            created_at: c.created_at, // Rule #2 for type string
+            // Field: GetLog.log[]
+            log: c.log.into_iter().map(|i| i.into()).collect(), // Rule #3 for type GetlogLog
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::GetrouteRoute> for pb::GetrouteRoute {
     fn from(c: responses::GetrouteRoute) -> Self {
         Self {
@@ -2920,6 +2948,15 @@ impl From<requests::Fundchannel_startRequest> for pb::FundchannelStartRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::GetlogRequest> for pb::GetlogRequest {
+    fn from(c: requests::GetlogRequest) -> Self {
+        Self {
+            level: c.level.map(|v| v as i32),
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::GetrouteRequest> for pb::GetrouteRequest {
     fn from(c: requests::GetrouteRequest) -> Self {
         Self {
@@ -3871,6 +3908,15 @@ impl From<pb::FundchannelStartRequest> for requests::Fundchannel_startRequest {
             mindepth: c.mindepth, // Rule #1 for type u32?
             push_msat: c.push_msat.map(|a| a.into()), // Rule #1 for type msat?
             reserve: c.reserve.map(|a| a.into()), // Rule #1 for type msat?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::GetlogRequest> for requests::GetlogRequest {
+    fn from(c: pb::GetlogRequest) -> Self {
+        Self {
+            level: c.level.map(|v| v.try_into().unwrap()),
         }
     }
 }
