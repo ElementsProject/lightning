@@ -1699,6 +1699,22 @@ def ping2py(m):
     })
 
 
+def plugin_plugins2py(m):
+    return remove_default({
+        "active": m.active,  # PrimitiveField in generate_composite
+        "dynamic": m.dynamic,  # PrimitiveField in generate_composite
+        "name": m.name,  # PrimitiveField in generate_composite
+    })
+
+
+def plugin2py(m):
+    return remove_default({
+        "command": str(m.command),  # EnumField in generate_composite
+        "plugins": [plugin_plugins2py(i) for i in m.plugins],  # ArrayField[composite] in generate_composite
+        "result": m.result,  # PrimitiveField in generate_composite
+    })
+
+
 def sendcustommsg2py(m):
     return remove_default({
         "status": m.status,  # PrimitiveField in generate_composite

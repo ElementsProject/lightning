@@ -2170,6 +2170,38 @@ async fn ping(
 
 }
 
+async fn plugin(
+    &self,
+    request: tonic::Request<pb::PluginRequest>,
+) -> Result<tonic::Response<pb::PluginResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::PluginRequest = req.into();
+    debug!("Client asked for plugin");
+    trace!("plugin request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::Plugin(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method Plugin: {:?}", e)))?;
+    match result {
+        Response::Plugin(r) => {
+           trace!("plugin response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call Plugin",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn send_custom_msg(
     &self,
     request: tonic::Request<pb::SendcustommsgRequest>,
