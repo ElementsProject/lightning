@@ -114,6 +114,36 @@ impl TryFrom<i32> for AutocleanSubsystem {
     }
 }
 
+#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
+#[allow(non_camel_case_types)]
+pub enum PluginSubcommand {
+    #[serde(rename = "start")]
+    START = 0,
+    #[serde(rename = "stop")]
+    STOP = 1,
+    #[serde(rename = "rescan")]
+    RESCAN = 2,
+    #[serde(rename = "startdir")]
+    STARTDIR = 3,
+    #[serde(rename = "list")]
+    LIST = 4,
+}
+
+impl TryFrom<i32> for PluginSubcommand {
+    type Error = crate::Error;
+
+    fn try_from(value: i32) -> std::result::Result<Self, Self::Error> {
+        match value {
+            0 => Ok(PluginSubcommand::START),
+            1 => Ok(PluginSubcommand::STOP),
+            2 => Ok(PluginSubcommand::RESCAN),
+            3 => Ok(PluginSubcommand::STARTDIR),
+            4 => Ok(PluginSubcommand::LIST),
+            _ => Err(anyhow!("Invalid PluginSubcommand mapping!")),
+        }
+    }
+}
+
 /// An `Amount` that can also be `any`. Useful for cases in which you
 /// want to delegate the Amount selection so someone else, e.g., an
 /// amountless invoice.

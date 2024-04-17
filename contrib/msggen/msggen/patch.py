@@ -189,6 +189,8 @@ class OverridePatch(Patch):
         'OpenChannel_Update.channel_type.names[]': 'ChannelTypeName',
         'AutoClean-Once.subsystem': "AutocleanSubsystem",
         'AutoClean-Status.subsystem': "AutocleanSubsystem",
+        'Plugin.subcommand': 'PluginSubcommand',
+        'Plugin.command': 'PluginSubcommand',
     }
 
     def visit(self, f: model.Field) -> None:

@@ -86,6 +86,7 @@ pub enum Request {
 	OpenChannel_Signed(requests::Openchannel_signedRequest),
 	OpenChannel_Update(requests::Openchannel_updateRequest),
 	Ping(requests::PingRequest),
+	Plugin(requests::PluginRequest),
 	SendCustomMsg(requests::SendcustommsgRequest),
 	SetChannel(requests::SetchannelRequest),
 	SignInvoice(requests::SigninvoiceRequest),
@@ -183,6 +184,7 @@ pub enum Response {
 	OpenChannel_Signed(responses::Openchannel_signedResponse),
 	OpenChannel_Update(responses::Openchannel_updateResponse),
 	Ping(responses::PingResponse),
+	Plugin(responses::PluginResponse),
 	SendCustomMsg(responses::SendcustommsgResponse),
 	SetChannel(responses::SetchannelResponse),
 	SignInvoice(responses::SigninvoiceResponse),
@@ -2600,6 +2602,35 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "ping"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct PluginRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub directory: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub plugin: Option<String>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub options: Option<Vec<String>>,
+	    // Path `Plugin.subcommand`
+	    pub subcommand: PluginSubcommand,
+	}
+
+	impl From<PluginRequest> for Request {
+	    fn from(r: PluginRequest) -> Self {
+	        Request::Plugin(r)
+	    }
+	}
+
+	impl IntoRequest for PluginRequest {
+	    type Response = super::responses::PluginResponse;
+	}
+
+	impl TypedRequest for PluginRequest {
+	    type Response = super::responses::PluginResponse;
+
+	    fn method(&self) -> &str {
+	        "plugin"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -6996,6 +7027,34 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::Ping(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct PluginPlugins {
+	    pub active: bool,
+	    pub dynamic: bool,
+	    pub name: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct PluginResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub result: Option<String>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub plugins: Option<Vec<PluginPlugins>>,
+	    // Path `Plugin.command`
+	    pub command: PluginSubcommand,
+	}
+
+	impl TryFrom<Response> for PluginResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::Plugin(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

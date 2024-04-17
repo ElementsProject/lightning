@@ -389,6 +389,20 @@
             "failed": 2,
             "pending": 1
         },
+        "PluginCommand": {
+            "list": 4,
+            "rescan": 2,
+            "start": 0,
+            "startdir": 3,
+            "stop": 1
+        },
+        "PluginSubcommand": {
+            "list": 4,
+            "rescan": 2,
+            "start": 0,
+            "startdir": 3,
+            "stop": 1
+        },
         "SendonionStatus": {
             "complete": 1,
             "pending": 0
@@ -2092,6 +2106,23 @@
         },
         "PingResponse": {
             "Ping.totlen": 1
+        },
+        "PluginPlugins": {
+            "Plugin.plugins[].active": 2,
+            "Plugin.plugins[].dynamic": 3,
+            "Plugin.plugins[].name": 1
+        },
+        "PluginRequest": {
+            "Plugin.directory": 3,
+            "Plugin.options[]": 4,
+            "Plugin.plugin": 2,
+            "Plugin.subcommand": 1
+        },
+        "PluginResponse": {
+            "Plugin.command": 1,
+            "Plugin.plugins[]": 2,
+            "Plugin.result": 3,
+            "Plugin.subcommand": 4
         },
         "PreapproveinvoiceRequest": {
             "PreApproveInvoice.bolt11": 1
@@ -7421,6 +7452,50 @@
             "deprecated": false
         },
         "Ping.totlen": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Plugin.command": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin.directory": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin.options[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin.plugin": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin.plugins[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin.plugins[].active": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin.plugins[].dynamic": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin.plugins[].name": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin.result": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin.subcommand": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

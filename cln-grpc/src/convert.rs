@@ -2110,6 +2110,29 @@ impl From<responses::PingResponse> for pb::PingResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::PluginPlugins> for pb::PluginPlugins {
+    fn from(c: responses::PluginPlugins) -> Self {
+        Self {
+            active: c.active, // Rule #2 for type boolean
+            dynamic: c.dynamic, // Rule #2 for type boolean
+            name: c.name, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::PluginResponse> for pb::PluginResponse {
+    fn from(c: responses::PluginResponse) -> Self {
+        Self {
+            command: c.command as i32,
+            // Field: Plugin.plugins[]
+            plugins: c.plugins.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            result: c.result, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::SendcustommsgResponse> for pb::SendcustommsgResponse {
     fn from(c: responses::SendcustommsgResponse) -> Self {
         Self {
@@ -3305,6 +3328,19 @@ impl From<requests::PingRequest> for pb::PingRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::PluginRequest> for pb::PluginRequest {
+    fn from(c: requests::PluginRequest) -> Self {
+        Self {
+            directory: c.directory, // Rule #2 for type string?
+            // Field: Plugin.options[]
+            options: c.options.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            plugin: c.plugin, // Rule #2 for type string?
+            subcommand: c.subcommand as i32,
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::SendcustommsgRequest> for pb::SendcustommsgRequest {
     fn from(c: requests::SendcustommsgRequest) -> Self {
         Self {
@@ -4310,6 +4346,18 @@ impl From<pb::PingRequest> for requests::PingRequest {
             id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
             len: c.len.map(|v| v as u16), // Rule #1 for type u16?
             pongbytes: c.pongbytes.map(|v| v as u16), // Rule #1 for type u16?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::PluginRequest> for requests::PluginRequest {
+    fn from(c: pb::PluginRequest) -> Self {
+        Self {
+            directory: c.directory, // Rule #1 for type string?
+            options: Some(c.options.into_iter().map(|s| s.into()).collect()), // Rule #4
+            plugin: c.plugin, // Rule #1 for type string?
+            subcommand: c.subcommand.try_into().unwrap(),
         }
     }
 }

@@ -75,6 +75,7 @@ service Node {
 	rpc OpenChannel_Signed(Openchannel_signedRequest) returns (Openchannel_signedResponse) {}
 	rpc OpenChannel_Update(Openchannel_updateRequest) returns (Openchannel_updateResponse) {}
 	rpc Ping(PingRequest) returns (PingResponse) {}
+	rpc Plugin(PluginRequest) returns (PluginResponse) {}
 	rpc SendCustomMsg(SendcustommsgRequest) returns (SendcustommsgResponse) {}
 	rpc SetChannel(SetchannelRequest) returns (SetchannelResponse) {}
 	rpc SignInvoice(SigninvoiceRequest) returns (SigninvoiceResponse) {}
@@ -2209,6 +2210,25 @@ message PingRequest {
 
 message PingResponse {
 	uint32 totlen = 1;
+}
+
+message PluginRequest {
+	PluginSubcommand subcommand = 1;
+	optional string plugin = 2;
+	optional string directory = 3;
+	repeated string options = 4;
+}
+
+message PluginResponse {
+	PluginSubcommand command = 1;
+	repeated PluginPlugins plugins = 2;
+	optional string result = 3;
+}
+
+message PluginPlugins {
+	string name = 1;
+	bool active = 2;
+	bool dynamic = 3;
 }
 
 message SendcustommsgRequest {
