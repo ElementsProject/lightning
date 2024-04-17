@@ -986,13 +986,6 @@ static struct command_result *payment_getroute(struct payment *p)
 		abort();
 	}
 
-	/* Go through the route, and adjust the CLTV values to take
-	 * the chain lag into consideration. */
-	paymod_log(p, LOG_DBG, "Adjusting route with a chainlag=%d", p->chainlag);
-
-	for (size_t i = 0; i < tal_count(p->route); i++)
-		p->route[i].delay += p->chainlag;
-
 	/* Allow modifiers to modify the route, before
 	 * payment_compute_onion_payloads uses the route to generate the
 	 * onion_payloads */
@@ -1684,6 +1677,13 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	struct secret *secrets;
 	struct payment *root = payment_root(p);
 
+	/* The delay on the first hop needs to be offset by chainlag,
+	 * as it would otherwise use the current height in
+	 * `lightningd`. All other hops have already been adjusted
+	 * during the payload encoding.
+	 */
+	u32 delay = first->delay + p->chainlag;
+
 	p->createonion_response = json_to_createonion_response(p, buffer, toks);
 
 	req = jsonrpc_request_start(p->plugin, NULL, "sendonion",
@@ -1693,7 +1693,7 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 
 	json_object_start(req->js, "first_hop");
 	json_add_amount_msat(req->js, "amount_msat", first->amount);
-	json_add_num(req->js, "delay", first->delay);
+	json_add_num(req->js, "delay", delay);
 	json_add_node_id(req->js, "id", &first->node_id);
 	json_add_short_channel_id(req->js, "channel", first->scid);
 	json_object_end(req->js);
@@ -1755,6 +1755,9 @@ static void payment_add_hop_onion_payload(struct payment *p,
 					  const u8 *payment_metadata)
 {
 	struct createonion_request *cr = p->createonion_request;
+
+	/* The start_block takes chainlag into consideration, so no
+	 * need to adjust it here. */
 	u32 cltv = p->start_block + next->delay + 1;
 	u64 msat = next->amount.millisatoshis; /* Raw: TLV payload generation*/
 	struct tlv_field **fields;
@@ -1768,6 +1771,7 @@ static void payment_add_hop_onion_payload(struct payment *p,
 	fields = &dst->tlv_payload->fields;
 	tlvstream_set_tu64(fields, TLV_PAYLOAD_AMT_TO_FORWARD,
 			   msat);
+
 	tlvstream_set_tu32(fields, TLV_PAYLOAD_OUTGOING_CLTV_VALUE,
 			   cltv);
 
