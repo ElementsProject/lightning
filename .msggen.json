@@ -2578,6 +2578,16 @@
             "multifundchannel.tx": 1,
             "multifundchannel.txid": 2
         },
+        "MultiwithdrawRequest": {
+            "MultiWithdraw.feerate": 2,
+            "MultiWithdraw.minconf": 3,
+            "MultiWithdraw.outputs[]": 1,
+            "MultiWithdraw.utxos[]": 4
+        },
+        "MultiwithdrawResponse": {
+            "MultiWithdraw.tx": 1,
+            "MultiWithdraw.txid": 2
+        },
         "NewaddrRequest": {
             "NewAddr.addresstype": 1
         },
@@ -9271,6 +9281,34 @@
             "deprecated": false
         },
         "MultiFundChannel.utxos[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiWithdraw": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "MultiWithdraw.feerate": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiWithdraw.minconf": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiWithdraw.outputs[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiWithdraw.tx": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiWithdraw.txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MultiWithdraw.utxos[]": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

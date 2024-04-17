@@ -89,6 +89,7 @@ pub enum Request {
 	ListPays(requests::ListpaysRequest),
 	ListHtlcs(requests::ListhtlcsRequest),
 	MultiFundChannel(requests::MultifundchannelRequest),
+	MultiWithdraw(requests::MultiwithdrawRequest),
 	Offer(requests::OfferRequest),
 	OpenChannel_Abort(requests::Openchannel_abortRequest),
 	OpenChannel_Bump(requests::Openchannel_bumpRequest),
@@ -211,6 +212,7 @@ pub enum Response {
 	ListPays(responses::ListpaysResponse),
 	ListHtlcs(responses::ListhtlcsResponse),
 	MultiFundChannel(responses::MultifundchannelResponse),
+	MultiWithdraw(responses::MultiwithdrawResponse),
 	Offer(responses::OfferResponse),
 	OpenChannel_Abort(responses::Openchannel_abortResponse),
 	OpenChannel_Bump(responses::Openchannel_bumpResponse),
@@ -2735,6 +2737,34 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "multifundchannel"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct MultiwithdrawRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub feerate: Option<Feerate>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub minconf: Option<u32>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub utxos: Option<Vec<Outpoint>>,
+	    pub outputs: Vec<OutputDesc>,
+	}
+
+	impl From<MultiwithdrawRequest> for Request {
+	    fn from(r: MultiwithdrawRequest) -> Self {
+	        Request::MultiWithdraw(r)
+	    }
+	}
+
+	impl IntoRequest for MultiwithdrawRequest {
+	    type Response = super::responses::MultiwithdrawResponse;
+	}
+
+	impl TypedRequest for MultiwithdrawRequest {
+	    type Response = super::responses::MultiwithdrawResponse;
+
+	    fn method(&self) -> &str {
+	        "multiwithdraw"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -7752,6 +7782,23 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::MultiFundChannel(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct MultiwithdrawResponse {
+	    pub tx: String,
+	    pub txid: String,
+	}
+
+	impl TryFrom<Response> for MultiwithdrawResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::MultiWithdraw(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
