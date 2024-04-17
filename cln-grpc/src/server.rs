@@ -1722,6 +1722,38 @@ async fn fund_channel_start(
 
 }
 
+async fn get_log(
+    &self,
+    request: tonic::Request<pb::GetlogRequest>,
+) -> Result<tonic::Response<pb::GetlogResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::GetlogRequest = req.into();
+    debug!("Client asked for get_log");
+    trace!("get_log request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::GetLog(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method GetLog: {:?}", e)))?;
+    match result {
+        Response::GetLog(r) => {
+           trace!("get_log response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call GetLog",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn get_route(
     &self,
     request: tonic::Request<pb::GetrouteRequest>,

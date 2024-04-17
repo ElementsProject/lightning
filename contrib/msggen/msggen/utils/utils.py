@@ -112,7 +112,7 @@ def load_jsonrpc_service():
         "FundChannel",
         "FundChannel_Start",
         # "funderupdate",
-        # "getlog",
+        "GetLog",
         "GetRoute",
         "ListForwards",
         "ListOffers",
