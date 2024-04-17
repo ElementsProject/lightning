@@ -133,7 +133,7 @@ def load_jsonrpc_service():
         "RenePay",
         # "reserveinputs",
         "SendCustomMsg",
-        # "sendinvoice",
+        "SendInvoice",
         # "sendonionmessage",
         "SetChannel",
         "SignInvoice",

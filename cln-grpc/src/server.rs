@@ -2298,6 +2298,38 @@ async fn send_custom_msg(
 
 }
 
+async fn send_invoice(
+    &self,
+    request: tonic::Request<pb::SendinvoiceRequest>,
+) -> Result<tonic::Response<pb::SendinvoiceResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::SendinvoiceRequest = req.into();
+    debug!("Client asked for send_invoice");
+    trace!("send_invoice request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::SendInvoice(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method SendInvoice: {:?}", e)))?;
+    match result {
+        Response::SendInvoice(r) => {
+           trace!("send_invoice response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call SendInvoice",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn set_channel(
     &self,
     request: tonic::Request<pb::SetchannelRequest>,

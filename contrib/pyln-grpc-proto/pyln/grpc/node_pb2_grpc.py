@@ -369,6 +369,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.SendcustommsgRequest.SerializeToString,
                 response_deserializer=node__pb2.SendcustommsgResponse.FromString,
                 )
+        self.SendInvoice = channel.unary_unary(
+                '/cln.Node/SendInvoice',
+                request_serializer=node__pb2.SendinvoiceRequest.SerializeToString,
+                response_deserializer=node__pb2.SendinvoiceResponse.FromString,
+                )
         self.SetChannel = channel.unary_unary(
                 '/cln.Node/SetChannel',
                 request_serializer=node__pb2.SetchannelRequest.SerializeToString,
@@ -875,6 +880,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SendInvoice(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SetChannel(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1322,6 +1333,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.SendCustomMsg,
                     request_deserializer=node__pb2.SendcustommsgRequest.FromString,
                     response_serializer=node__pb2.SendcustommsgResponse.SerializeToString,
+            ),
+            'SendInvoice': grpc.unary_unary_rpc_method_handler(
+                    servicer.SendInvoice,
+                    request_deserializer=node__pb2.SendinvoiceRequest.FromString,
+                    response_serializer=node__pb2.SendinvoiceResponse.SerializeToString,
             ),
             'SetChannel': grpc.unary_unary_rpc_method_handler(
                     servicer.SetChannel,
@@ -2612,6 +2628,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/SendCustomMsg',
             node__pb2.SendcustommsgRequest.SerializeToString,
             node__pb2.SendcustommsgResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SendInvoice(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/SendInvoice',
+            node__pb2.SendinvoiceRequest.SerializeToString,
+            node__pb2.SendinvoiceResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

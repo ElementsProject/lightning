@@ -1756,6 +1756,24 @@ def sendcustommsg2py(m):
     })
 
 
+def sendinvoice2py(m):
+    return remove_default({
+        "status": str(m.status),  # EnumField in generate_composite
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "amount_received_msat": amount2msat(m.amount_received_msat),  # PrimitiveField in generate_composite
+        "bolt12": m.bolt12,  # PrimitiveField in generate_composite
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
+        "description": m.description,  # PrimitiveField in generate_composite
+        "expires_at": m.expires_at,  # PrimitiveField in generate_composite
+        "label": m.label,  # PrimitiveField in generate_composite
+        "paid_at": m.paid_at,  # PrimitiveField in generate_composite
+        "pay_index": m.pay_index,  # PrimitiveField in generate_composite
+        "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
+        "payment_preimage": hexlify(m.payment_preimage),  # PrimitiveField in generate_composite
+        "updated_index": m.updated_index,  # PrimitiveField in generate_composite
+    })
+
+
 def setchannel_channels2py(m):
     return remove_default({
         "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite
