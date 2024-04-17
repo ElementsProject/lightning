@@ -1577,6 +1577,13 @@ def multifundchannel2py(m):
     })
 
 
+def multiwithdraw2py(m):
+    return remove_default({
+        "tx": hexlify(m.tx),  # PrimitiveField in generate_composite
+        "txid": hexlify(m.txid),  # PrimitiveField in generate_composite
+    })
+
+
 def offer2py(m):
     return remove_default({
         "active": m.active,  # PrimitiveField in generate_composite

@@ -304,6 +304,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.MultifundchannelRequest.SerializeToString,
                 response_deserializer=node__pb2.MultifundchannelResponse.FromString,
                 )
+        self.MultiWithdraw = channel.unary_unary(
+                '/cln.Node/MultiWithdraw',
+                request_serializer=node__pb2.MultiwithdrawRequest.SerializeToString,
+                response_deserializer=node__pb2.MultiwithdrawResponse.FromString,
+                )
         self.Offer = channel.unary_unary(
                 '/cln.Node/Offer',
                 request_serializer=node__pb2.OfferRequest.SerializeToString,
@@ -747,6 +752,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def MultiWithdraw(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Offer(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1147,6 +1158,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.MultiFundChannel,
                     request_deserializer=node__pb2.MultifundchannelRequest.FromString,
                     response_serializer=node__pb2.MultifundchannelResponse.SerializeToString,
+            ),
+            'MultiWithdraw': grpc.unary_unary_rpc_method_handler(
+                    servicer.MultiWithdraw,
+                    request_deserializer=node__pb2.MultiwithdrawRequest.FromString,
+                    response_serializer=node__pb2.MultiwithdrawResponse.SerializeToString,
             ),
             'Offer': grpc.unary_unary_rpc_method_handler(
                     servicer.Offer,
@@ -2231,6 +2247,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/MultiFundChannel',
             node__pb2.MultifundchannelRequest.SerializeToString,
             node__pb2.MultifundchannelResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def MultiWithdraw(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/MultiWithdraw',
+            node__pb2.MultiwithdrawRequest.SerializeToString,
+            node__pb2.MultiwithdrawResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

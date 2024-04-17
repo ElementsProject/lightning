@@ -1882,6 +1882,38 @@ async fn multi_fund_channel(
 
 }
 
+async fn multi_withdraw(
+    &self,
+    request: tonic::Request<pb::MultiwithdrawRequest>,
+) -> Result<tonic::Response<pb::MultiwithdrawResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::MultiwithdrawRequest = req.into();
+    debug!("Client asked for multi_withdraw");
+    trace!("multi_withdraw request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::MultiWithdraw(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method MultiWithdraw: {:?}", e)))?;
+    match result {
+        Response::MultiWithdraw(r) => {
+           trace!("multi_withdraw response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call MultiWithdraw",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn offer(
     &self,
     request: tonic::Request<pb::OfferRequest>,

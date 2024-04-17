@@ -1941,6 +1941,16 @@ impl From<responses::MultifundchannelResponse> for pb::MultifundchannelResponse 
 }
 
 #[allow(unused_variables)]
+impl From<responses::MultiwithdrawResponse> for pb::MultiwithdrawResponse {
+    fn from(c: responses::MultiwithdrawResponse) -> Self {
+        Self {
+            tx: hex::decode(&c.tx).unwrap(), // Rule #2 for type hex
+            txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::OfferResponse> for pb::OfferResponse {
     fn from(c: responses::OfferResponse) -> Self {
         Self {
@@ -2991,6 +3001,20 @@ impl From<requests::MultifundchannelRequest> for pb::MultifundchannelRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::MultiwithdrawRequest> for pb::MultiwithdrawRequest {
+    fn from(c: requests::MultiwithdrawRequest) -> Self {
+        Self {
+            feerate: c.feerate.map(|o|o.into()), // Rule #2 for type feerate?
+            minconf: c.minconf, // Rule #2 for type u32?
+            // Field: MultiWithdraw.outputs[]
+            outputs: c.outputs.into_iter().map(|i| i.into()).collect(), // Rule #3 for type outputdesc
+            // Field: MultiWithdraw.utxos[]
+            utxos: c.utxos.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::OfferRequest> for pb::OfferRequest {
     fn from(c: requests::OfferRequest) -> Self {
         Self {
@@ -3929,6 +3953,18 @@ impl From<pb::MultifundchannelRequest> for requests::MultifundchannelRequest {
             feerate: c.feerate.map(|a| a.into()), // Rule #1 for type feerate?
             minchannels: c.minchannels, // Rule #1 for type integer?
             minconf: c.minconf, // Rule #1 for type integer?
+            utxos: Some(c.utxos.into_iter().map(|s| s.into()).collect()), // Rule #4
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::MultiwithdrawRequest> for requests::MultiwithdrawRequest {
+    fn from(c: pb::MultiwithdrawRequest) -> Self {
+        Self {
+            feerate: c.feerate.map(|a| a.into()), // Rule #1 for type feerate?
+            minconf: c.minconf, // Rule #1 for type u32?
+            outputs: c.outputs.into_iter().map(|s| s.into()).collect(), // Rule #4
             utxos: Some(c.utxos.into_iter().map(|s| s.into()).collect()), // Rule #4
         }
     }
