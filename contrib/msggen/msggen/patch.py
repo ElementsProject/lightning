@@ -86,6 +86,9 @@ class VersionAnnotationPatch(Patch):
             if isinstance(f.deprecated, list):
                 assert len(f.deprecated) == 2
                 f.deprecated = f.deprecated[0]
+            # We may have already deprecated some things before backfilling them
+            if f.deprecated is not None and deprecated is None:
+                deprecated = f.deprecated
             if f.deprecated != deprecated:
                 raise ValueError(
                     f"Field {f.path} changed `deprecated` annotation: {f.deprecated} vs {deprecated}"
