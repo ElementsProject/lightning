@@ -81,6 +81,7 @@ service Node {
 	rpc ReserveInputs(ReserveinputsRequest) returns (ReserveinputsResponse) {}
 	rpc SendCustomMsg(SendcustommsgRequest) returns (SendcustommsgResponse) {}
 	rpc SendInvoice(SendinvoiceRequest) returns (SendinvoiceResponse) {}
+	rpc SendOnionMessage(SendonionmessageRequest) returns (SendonionmessageResponse) {}
 	rpc SetChannel(SetchannelRequest) returns (SetchannelResponse) {}
 	rpc SignInvoice(SigninvoiceRequest) returns (SigninvoiceResponse) {}
 	rpc SignMessage(SignmessageRequest) returns (SignmessageResponse) {}
@@ -2350,6 +2351,20 @@ message SendinvoiceResponse {
 	optional Amount amount_received_msat = 11;
 	optional uint64 paid_at = 12;
 	optional bytes payment_preimage = 13;
+}
+
+message SendonionmessageRequest {
+	bytes first_id = 1;
+	bytes blinding = 2;
+	repeated SendonionmessageHops hops = 3;
+}
+
+message SendonionmessageResponse {
+}
+
+message SendonionmessageHops {
+	bytes node = 1;
+	uint32 tlv = 2;
 }
 
 message SetchannelRequest {

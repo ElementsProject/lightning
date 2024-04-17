@@ -2362,6 +2362,38 @@ async fn send_invoice(
 
 }
 
+async fn send_onion_message(
+    &self,
+    request: tonic::Request<pb::SendonionmessageRequest>,
+) -> Result<tonic::Response<pb::SendonionmessageResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::SendonionmessageRequest = req.into();
+    debug!("Client asked for send_onion_message");
+    trace!("send_onion_message request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::SendOnionMessage(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method SendOnionMessage: {:?}", e)))?;
+    match result {
+        Response::SendOnionMessage(r) => {
+           trace!("send_onion_message response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call SendOnionMessage",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn set_channel(
     &self,
     request: tonic::Request<pb::SetchannelRequest>,

@@ -92,6 +92,7 @@ pub enum Request {
 	ReserveInputs(requests::ReserveinputsRequest),
 	SendCustomMsg(requests::SendcustommsgRequest),
 	SendInvoice(requests::SendinvoiceRequest),
+	SendOnionMessage(requests::SendonionmessageRequest),
 	SetChannel(requests::SetchannelRequest),
 	SignInvoice(requests::SigninvoiceRequest),
 	SignMessage(requests::SignmessageRequest),
@@ -198,6 +199,7 @@ pub enum Response {
 	ReserveInputs(responses::ReserveinputsResponse),
 	SendCustomMsg(responses::SendcustommsgResponse),
 	SendInvoice(responses::SendinvoiceResponse),
+	SendOnionMessage(responses::SendonionmessageResponse),
 	SetChannel(responses::SetchannelResponse),
 	SignInvoice(responses::SigninvoiceResponse),
 	SignMessage(responses::SignmessageResponse),
@@ -2784,6 +2786,36 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "sendinvoice"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SendonionmessageHops {
+	    pub node: PublicKey,
+	    pub tlv: u8,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SendonionmessageRequest {
+	    pub blinding: PublicKey,
+	    pub first_id: PublicKey,
+	    pub hops: Vec<SendonionmessageHops>,
+	}
+
+	impl From<SendonionmessageRequest> for Request {
+	    fn from(r: SendonionmessageRequest) -> Self {
+	        Request::SendOnionMessage(r)
+	    }
+	}
+
+	impl IntoRequest for SendonionmessageRequest {
+	    type Response = super::responses::SendonionmessageResponse;
+	}
+
+	impl TypedRequest for SendonionmessageRequest {
+	    type Response = super::responses::SendonionmessageResponse;
+
+	    fn method(&self) -> &str {
+	        "sendonionmessage"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -7524,6 +7556,21 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::SendInvoice(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SendonionmessageResponse {
+	}
+
+	impl TryFrom<Response> for SendonionmessageResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::SendOnionMessage(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
