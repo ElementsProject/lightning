@@ -474,6 +474,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.StopRequest.SerializeToString,
                 response_deserializer=node__pb2.StopResponse.FromString,
                 )
+        self.Help = channel.unary_unary(
+                '/cln.Node/Help',
+                request_serializer=node__pb2.HelpRequest.SerializeToString,
+                response_deserializer=node__pb2.HelpResponse.FromString,
+                )
         self.PreApproveKeysend = channel.unary_unary(
                 '/cln.Node/PreApproveKeysend',
                 request_serializer=node__pb2.PreapprovekeysendRequest.SerializeToString,
@@ -1101,6 +1106,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Help(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def PreApproveKeysend(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1647,6 +1658,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.Stop,
                     request_deserializer=node__pb2.StopRequest.FromString,
                     response_serializer=node__pb2.StopResponse.SerializeToString,
+            ),
+            'Help': grpc.unary_unary_rpc_method_handler(
+                    servicer.Help,
+                    request_deserializer=node__pb2.HelpRequest.FromString,
+                    response_serializer=node__pb2.HelpResponse.SerializeToString,
             ),
             'PreApproveKeysend': grpc.unary_unary_rpc_method_handler(
                     servicer.PreApproveKeysend,
@@ -3289,6 +3305,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/Stop',
             node__pb2.StopRequest.SerializeToString,
             node__pb2.StopResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Help(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/Help',
+            node__pb2.HelpRequest.SerializeToString,
+            node__pb2.HelpResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

@@ -112,6 +112,7 @@ pub enum Request {
 	WaitBlockHeight(requests::WaitblockheightRequest),
 	Wait(requests::WaitRequest),
 	Stop(requests::StopRequest),
+	Help(requests::HelpRequest),
 	PreApproveKeysend(requests::PreapprovekeysendRequest),
 	PreApproveInvoice(requests::PreapproveinvoiceRequest),
 	StaticBackup(requests::StaticbackupRequest),
@@ -228,6 +229,7 @@ pub enum Response {
 	WaitBlockHeight(responses::WaitblockheightResponse),
 	Wait(responses::WaitResponse),
 	Stop(responses::StopResponse),
+	Help(responses::HelpResponse),
 	PreApproveKeysend(responses::PreapprovekeysendResponse),
 	PreApproveInvoice(responses::PreapproveinvoiceResponse),
 	StaticBackup(responses::StaticbackupResponse),
@@ -3401,6 +3403,29 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "stop"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct HelpRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub command: Option<String>,
+	}
+
+	impl From<HelpRequest> for Request {
+	    fn from(r: HelpRequest) -> Self {
+	        Request::Help(r)
+	    }
+	}
+
+	impl IntoRequest for HelpRequest {
+	    type Response = super::responses::HelpResponse;
+	}
+
+	impl TypedRequest for HelpRequest {
+	    type Response = super::responses::HelpResponse;
+
+	    fn method(&self) -> &str {
+	        "help"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -8360,6 +8385,57 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::Stop(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	/// ['Prints the help in human-readable flat form.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum HelpFormathint {
+	    #[serde(rename = "simple")]
+	    SIMPLE = 0,
+	}
+
+	impl TryFrom<i32> for HelpFormathint {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<HelpFormathint, anyhow::Error> {
+	        match c {
+	    0 => Ok(HelpFormathint::SIMPLE),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum HelpFormathint", o)),
+	        }
+	    }
+	}
+
+	impl ToString for HelpFormathint {
+	    fn to_string(&self) -> String {
+	        match self {
+	            HelpFormathint::SIMPLE => "SIMPLE",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct HelpHelp {
+	    pub category: String,
+	    pub command: String,
+	    pub description: String,
+	    pub verbose: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct HelpResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub format_hint: Option<HelpFormathint>,
+	    pub help: Vec<HelpHelp>,
+	}
+
+	impl TryFrom<Response> for HelpResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::Help(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
