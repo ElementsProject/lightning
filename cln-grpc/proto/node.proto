@@ -77,6 +77,7 @@ service Node {
 	rpc ListPays(ListpaysRequest) returns (ListpaysResponse) {}
 	rpc ListHtlcs(ListhtlcsRequest) returns (ListhtlcsResponse) {}
 	rpc MultiFundChannel(MultifundchannelRequest) returns (MultifundchannelResponse) {}
+	rpc MultiWithdraw(MultiwithdrawRequest) returns (MultiwithdrawResponse) {}
 	rpc Offer(OfferRequest) returns (OfferResponse) {}
 	rpc OpenChannel_Abort(Openchannel_abortRequest) returns (Openchannel_abortResponse) {}
 	rpc OpenChannel_Bump(Openchannel_bumpRequest) returns (Openchannel_bumpResponse) {}
@@ -2268,6 +2269,18 @@ message MultifundchannelFailed {
 message MultifundchannelFailedError {
 	sint64 code = 1;
 	string message = 2;
+}
+
+message MultiwithdrawRequest {
+	repeated OutputDesc outputs = 1;
+	optional Feerate feerate = 2;
+	optional uint32 minconf = 3;
+	repeated Outpoint utxos = 4;
+}
+
+message MultiwithdrawResponse {
+	bytes tx = 1;
+	bytes txid = 2;
 }
 
 message OfferRequest {
