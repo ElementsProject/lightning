@@ -199,7 +199,7 @@ def gen_primitive(p):
 
 
 def rename_if_necessary(original, name):
-    if original != name:
+    if str(original) != str(name):
         return f"    #[serde(rename = \"{original}\")]\n"
     else:
         return f""
@@ -255,10 +255,11 @@ def gen_composite(c, meta) -> Tuple[str, str]:
     defi = ""
     if c.deprecated:
         defi += "    #[deprecated]\n"
+    defi += rename_if_necessary(c.name, c.normalized())
     if not c.optional:
-        defi += f"    pub {c.name}: {c.typename},\n"
+        defi += f"    pub {c.normalized()}: {c.typename},\n"
     else:
-        defi += f"    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub {c.name}: Option<{c.typename}>,\n"
+        defi += f"    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub {c.normalized()}: Option<{c.typename}>,\n"
 
     return defi, r
 
