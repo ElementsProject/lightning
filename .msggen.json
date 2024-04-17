@@ -126,6 +126,9 @@
         "GetrouteRouteStyle": {
             "tlv": 0
         },
+        "HelpFormat-hint": {
+            "simple": 0
+        },
         "KeysendStatus": {
             "complete": 0
         },
@@ -1380,6 +1383,19 @@
             "GetRoute.route[].id": 1,
             "GetRoute.route[].msatoshi": 7,
             "GetRoute.route[].style": 6
+        },
+        "HelpHelp": {
+            "Help.help[].category": 2,
+            "Help.help[].command": 1,
+            "Help.help[].description": 3,
+            "Help.help[].verbose": 4
+        },
+        "HelpRequest": {
+            "Help.command": 1
+        },
+        "HelpResponse": {
+            "Help.format-hint": 2,
+            "Help.help[]": 1
         },
         "InvoiceRequest": {
             "Invoice.amount_msat": 10,
@@ -5372,6 +5388,38 @@
             "deprecated": false
         },
         "Getinfo.warning_lightningd_sync": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Help": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Help.command": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Help.format-hint": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Help.help[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Help.help[].category": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Help.help[].command": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Help.help[].description": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Help.help[].verbose": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

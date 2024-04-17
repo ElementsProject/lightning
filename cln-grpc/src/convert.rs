@@ -2504,6 +2504,29 @@ impl From<responses::StopResponse> for pb::StopResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::HelpHelp> for pb::HelpHelp {
+    fn from(c: responses::HelpHelp) -> Self {
+        Self {
+            category: c.category, // Rule #2 for type string
+            command: c.command, // Rule #2 for type string
+            description: c.description, // Rule #2 for type string
+            verbose: c.verbose, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::HelpResponse> for pb::HelpResponse {
+    fn from(c: responses::HelpResponse) -> Self {
+        Self {
+            format_hint: c.format_hint.map(|v| v as i32),
+            // Field: Help.help[]
+            help: c.help.into_iter().map(|i| i.into()).collect(), // Rule #3 for type HelpHelp
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::PreapprovekeysendResponse> for pb::PreapprovekeysendResponse {
     fn from(c: responses::PreapprovekeysendResponse) -> Self {
         Self {
@@ -3948,6 +3971,15 @@ impl From<requests::StopRequest> for pb::StopRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::HelpRequest> for pb::HelpRequest {
+    fn from(c: requests::HelpRequest) -> Self {
+        Self {
+            command: c.command, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::PreapprovekeysendRequest> for pb::PreapprovekeysendRequest {
     fn from(c: requests::PreapprovekeysendRequest) -> Self {
         Self {
@@ -5211,6 +5243,15 @@ impl From<pb::WaitRequest> for requests::WaitRequest {
 impl From<pb::StopRequest> for requests::StopRequest {
     fn from(c: pb::StopRequest) -> Self {
         Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::HelpRequest> for requests::HelpRequest {
+    fn from(c: pb::HelpRequest) -> Self {
+        Self {
+            command: c.command, // Rule #1 for type string?
         }
     }
 }
