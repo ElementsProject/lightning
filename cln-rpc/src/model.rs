@@ -92,6 +92,7 @@ pub enum Request {
 	SignMessage(requests::SignmessageRequest),
 	WaitBlockHeight(requests::WaitblockheightRequest),
 	Wait(requests::WaitRequest),
+	ListConfigs(requests::ListconfigsRequest),
 	Stop(requests::StopRequest),
 	PreApproveKeysend(requests::PreapprovekeysendRequest),
 	PreApproveInvoice(requests::PreapproveinvoiceRequest),
@@ -189,6 +190,7 @@ pub enum Response {
 	SignMessage(responses::SignmessageResponse),
 	WaitBlockHeight(responses::WaitblockheightResponse),
 	Wait(responses::WaitResponse),
+	ListConfigs(responses::ListconfigsResponse),
 	Stop(responses::StopResponse),
 	PreApproveKeysend(responses::PreapprovekeysendResponse),
 	PreApproveInvoice(responses::PreapproveinvoiceResponse),
@@ -2817,6 +2819,29 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "wait"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub config: Option<String>,
+	}
+
+	impl From<ListconfigsRequest> for Request {
+	    fn from(r: ListconfigsRequest) -> Self {
+	        Request::ListConfigs(r)
+	    }
+	}
+
+	impl IntoRequest for ListconfigsRequest {
+	    type Response = super::responses::ListconfigsResponse;
+	}
+
+	impl TypedRequest for ListconfigsRequest {
+	    type Response = super::responses::ListconfigsResponse;
+
+	    fn method(&self) -> &str {
+	        "listconfigs"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -7233,6 +7258,984 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::Wait(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsImportantpluginsOptions {
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsImportantplugins {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub options: Option<ListconfigsImportantpluginsOptions>,
+	    pub name: String,
+	    pub path: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsPluginsOptions {
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsPlugins {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub options: Option<ListconfigsPluginsOptions>,
+	    pub name: String,
+	    pub path: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsMaxlocktimeblocks {
+	    pub source: String,
+	    pub value_int: u32,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsAccepthtlctlvtypes {
+	    pub source: String,
+	    pub value_str: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsAllowdeprecatedapis {
+	    pub source: String,
+	    pub value_bool: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsAlwaysuseproxy {
+	    pub source: String,
+	    pub value_bool: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsAnnounceaddr {
+	    pub sources: Vec<String>,
+	    pub values_str: Vec<String>,
+	}
+
+	/// ['Field from config or cmdline, or default.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum ListconfigsConfigsAnnounceaddrdiscoveredValue_str {
+	    #[serde(rename = "true")]
+	    TRUE = 0,
+	    #[serde(rename = "false")]
+	    FALSE = 1,
+	    #[serde(rename = "auto")]
+	    AUTO = 2,
+	}
+
+	impl TryFrom<i32> for ListconfigsConfigsAnnounceaddrdiscoveredValue_str {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<ListconfigsConfigsAnnounceaddrdiscoveredValue_str, anyhow::Error> {
+	        match c {
+	    0 => Ok(ListconfigsConfigsAnnounceaddrdiscoveredValue_str::TRUE),
+	    1 => Ok(ListconfigsConfigsAnnounceaddrdiscoveredValue_str::FALSE),
+	    2 => Ok(ListconfigsConfigsAnnounceaddrdiscoveredValue_str::AUTO),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListconfigsConfigsAnnounceaddrdiscoveredValue_str", o)),
+	        }
+	    }
+	}
+
+	impl ToString for ListconfigsConfigsAnnounceaddrdiscoveredValue_str {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListconfigsConfigsAnnounceaddrdiscoveredValue_str::TRUE => "TRUE",
+	            ListconfigsConfigsAnnounceaddrdiscoveredValue_str::FALSE => "FALSE",
+	            ListconfigsConfigsAnnounceaddrdiscoveredValue_str::AUTO => "AUTO",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsAnnounceaddrdiscovered {
+	    // Path `ListConfigs.configs.announce-addr-discovered.value_str`
+	    pub value_str: ListconfigsConfigsAnnounceaddrdiscoveredValue_str,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsAnnounceaddrdiscoveredport {
+	    pub source: String,
+	    pub value_int: u32,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsAnnounceaddrdns {
+	    pub source: String,
+	    pub value_bool: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsBindaddr {
+	    pub sources: Vec<String>,
+	    pub values_str: Vec<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsClearplugins {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsCltvdelta {
+	    pub source: String,
+	    pub value_int: u32,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsCltvfinal {
+	    pub source: String,
+	    pub value_int: u32,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsCommitfee {
+	    pub source: String,
+	    pub value_int: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsCommitfeerateoffset {
+	    pub source: String,
+	    pub value_int: u32,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsCommittime {
+	    pub source: String,
+	    pub value_int: u32,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsDatabaseupgrade {
+	    pub source: String,
+	    pub value_bool: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsDisabledns {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsDisablempp {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub plugin: Option<String>,
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsDisableplugin {
+	    pub sources: Vec<String>,
+	    pub values_str: Vec<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsEncryptedhsm {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsExperimentalanchors {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsExperimentaldualfund {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsExperimentaloffers {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsExperimentalonionmessages {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsExperimentalpeerstorage {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsExperimentalshutdownwrongfunding {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsExperimentalsplicing {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsFeebase {
+	    pub source: String,
+	    pub value_int: u32,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsFeepersatoshi {
+	    pub source: String,
+	    pub value_int: u32,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsFetchinvoicenoconnect {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsForcefeerates {
+	    pub source: String,
+	    pub value_str: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsFundingconfirms {
+	    pub source: String,
+	    pub value_int: u32,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsHtlcmaximummsat {
+	    pub source: String,
+	    pub value_msat: Amount,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsHtlcminimummsat {
+	    pub source: String,
+	    pub value_msat: Amount,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsIgnorefeelimits {
+	    pub source: String,
+	    pub value_bool: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsImportantplugin {
+	    pub sources: Vec<String>,
+	    pub values_str: Vec<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsLargechannels {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsLightningdir {
+	    pub source: String,
+	    pub value_str: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsLogfile {
+	    pub sources: Vec<String>,
+	    pub values_str: Vec<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsLoglevel {
+	    pub source: String,
+	    pub value_str: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsLogprefix {
+	    pub source: String,
+	    pub value_str: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsLogtimestamps {
+	    pub source: String,
+	    pub value_bool: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsMaxconcurrenthtlcs {
+	    pub source: String,
+	    pub value_int: u32,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsMaxdusthtlcexposuremsat {
+	    pub source: String,
+	    pub value_msat: Amount,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsMincapacitysat {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub dynamic: Option<bool>,
+	    pub source: String,
+	    pub value_int: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsPidfile {
+	    pub source: String,
+	    pub value_str: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsPlugindir {
+	    pub sources: Vec<String>,
+	    pub values_str: Vec<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsRequireconfirmedinputs {
+	    pub source: String,
+	    pub value_bool: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsRpcfile {
+	    pub source: String,
+	    pub value_str: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsRpcfilemode {
+	    pub source: String,
+	    pub value_str: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsTorservicepassword {
+	    pub source: String,
+	    pub value_str: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsWatchtimeblocks {
+	    pub source: String,
+	    pub value_int: u32,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsAddr {
+	    pub sources: Vec<String>,
+	    pub values_str: Vec<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsAlias {
+	    pub source: String,
+	    pub value_str: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsAutolisten {
+	    pub source: String,
+	    pub value_bool: bool,
+	}
+
+	/// ['Source of configuration setting.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum ListconfigsConfigsConfSource {
+	    #[serde(rename = "cmdline")]
+	    CMDLINE = 0,
+	}
+
+	impl TryFrom<i32> for ListconfigsConfigsConfSource {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<ListconfigsConfigsConfSource, anyhow::Error> {
+	        match c {
+	    0 => Ok(ListconfigsConfigsConfSource::CMDLINE),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListconfigsConfigsConfSource", o)),
+	        }
+	    }
+	}
+
+	impl ToString for ListconfigsConfigsConfSource {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListconfigsConfigsConfSource::CMDLINE => "CMDLINE",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsConf {
+	    // Path `ListConfigs.configs.conf.source`
+	    pub source: ListconfigsConfigsConfSource,
+	    pub value_str: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsDaemon {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsDeveloper {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsMainnet {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsNetwork {
+	    pub source: String,
+	    pub value_str: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsOffline {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsPlugin {
+	    pub sources: Vec<String>,
+	    pub values_str: Vec<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsProxy {
+	    pub source: String,
+	    pub value_str: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsRegtest {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsRescan {
+	    pub source: String,
+	    pub value_int: i64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsRgb {
+	    pub source: String,
+	    pub value_str: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsSignet {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsSubdaemon {
+	    pub sources: Vec<String>,
+	    pub values_str: Vec<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsTestnet {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsWallet {
+	    pub source: String,
+	    pub value_str: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigs {
+	    #[deprecated]
+	    #[serde(rename = "max-locktime-blocks")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub max_locktime_blocks: Option<ListconfigsConfigsMaxlocktimeblocks>,
+	    #[serde(rename = "accept-htlc-tlv-types")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub accept_htlc_tlv_types: Option<ListconfigsConfigsAccepthtlctlvtypes>,
+	    #[serde(rename = "allow-deprecated-apis")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub allow_deprecated_apis: Option<ListconfigsConfigsAllowdeprecatedapis>,
+	    #[serde(rename = "always-use-proxy")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub always_use_proxy: Option<ListconfigsConfigsAlwaysuseproxy>,
+	    #[serde(rename = "announce-addr")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub announce_addr: Option<ListconfigsConfigsAnnounceaddr>,
+	    #[serde(rename = "announce-addr-discovered")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub announce_addr_discovered: Option<ListconfigsConfigsAnnounceaddrdiscovered>,
+	    #[serde(rename = "announce-addr-discovered-port")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub announce_addr_discovered_port: Option<ListconfigsConfigsAnnounceaddrdiscoveredport>,
+	    #[serde(rename = "announce-addr-dns")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub announce_addr_dns: Option<ListconfigsConfigsAnnounceaddrdns>,
+	    #[serde(rename = "bind-addr")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bind_addr: Option<ListconfigsConfigsBindaddr>,
+	    #[serde(rename = "clear-plugins")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub clear_plugins: Option<ListconfigsConfigsClearplugins>,
+	    #[serde(rename = "cltv-delta")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub cltv_delta: Option<ListconfigsConfigsCltvdelta>,
+	    #[serde(rename = "cltv-final")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub cltv_final: Option<ListconfigsConfigsCltvfinal>,
+	    #[serde(rename = "commit-fee")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub commit_fee: Option<ListconfigsConfigsCommitfee>,
+	    #[serde(rename = "commit-feerate-offset")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub commit_feerate_offset: Option<ListconfigsConfigsCommitfeerateoffset>,
+	    #[serde(rename = "commit-time")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub commit_time: Option<ListconfigsConfigsCommittime>,
+	    #[serde(rename = "database-upgrade")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub database_upgrade: Option<ListconfigsConfigsDatabaseupgrade>,
+	    #[serde(rename = "disable-dns")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub disable_dns: Option<ListconfigsConfigsDisabledns>,
+	    #[serde(rename = "disable-mpp")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub disable_mpp: Option<ListconfigsConfigsDisablempp>,
+	    #[serde(rename = "disable-plugin")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub disable_plugin: Option<ListconfigsConfigsDisableplugin>,
+	    #[serde(rename = "encrypted-hsm")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub encrypted_hsm: Option<ListconfigsConfigsEncryptedhsm>,
+	    #[serde(rename = "experimental-anchors")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_anchors: Option<ListconfigsConfigsExperimentalanchors>,
+	    #[serde(rename = "experimental-dual-fund")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_dual_fund: Option<ListconfigsConfigsExperimentaldualfund>,
+	    #[serde(rename = "experimental-offers")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_offers: Option<ListconfigsConfigsExperimentaloffers>,
+	    #[serde(rename = "experimental-onion-messages")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_onion_messages: Option<ListconfigsConfigsExperimentalonionmessages>,
+	    #[serde(rename = "experimental-peer-storage")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_peer_storage: Option<ListconfigsConfigsExperimentalpeerstorage>,
+	    #[serde(rename = "experimental-shutdown-wrong-funding")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_shutdown_wrong_funding: Option<ListconfigsConfigsExperimentalshutdownwrongfunding>,
+	    #[serde(rename = "experimental-splicing")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_splicing: Option<ListconfigsConfigsExperimentalsplicing>,
+	    #[serde(rename = "fee-base")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fee_base: Option<ListconfigsConfigsFeebase>,
+	    #[serde(rename = "fee-per-satoshi")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fee_per_satoshi: Option<ListconfigsConfigsFeepersatoshi>,
+	    #[serde(rename = "fetchinvoice-noconnect")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fetchinvoice_noconnect: Option<ListconfigsConfigsFetchinvoicenoconnect>,
+	    #[serde(rename = "force-feerates")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub force_feerates: Option<ListconfigsConfigsForcefeerates>,
+	    #[serde(rename = "funding-confirms")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub funding_confirms: Option<ListconfigsConfigsFundingconfirms>,
+	    #[serde(rename = "htlc-maximum-msat")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_maximum_msat: Option<ListconfigsConfigsHtlcmaximummsat>,
+	    #[serde(rename = "htlc-minimum-msat")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_minimum_msat: Option<ListconfigsConfigsHtlcminimummsat>,
+	    #[serde(rename = "ignore-fee-limits")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub ignore_fee_limits: Option<ListconfigsConfigsIgnorefeelimits>,
+	    #[serde(rename = "important-plugin")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub important_plugin: Option<ListconfigsConfigsImportantplugin>,
+	    #[serde(rename = "large-channels")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub large_channels: Option<ListconfigsConfigsLargechannels>,
+	    #[serde(rename = "lightning-dir")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub lightning_dir: Option<ListconfigsConfigsLightningdir>,
+	    #[serde(rename = "log-file")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub log_file: Option<ListconfigsConfigsLogfile>,
+	    #[serde(rename = "log-level")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub log_level: Option<ListconfigsConfigsLoglevel>,
+	    #[serde(rename = "log-prefix")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub log_prefix: Option<ListconfigsConfigsLogprefix>,
+	    #[serde(rename = "log-timestamps")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub log_timestamps: Option<ListconfigsConfigsLogtimestamps>,
+	    #[serde(rename = "max-concurrent-htlcs")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub max_concurrent_htlcs: Option<ListconfigsConfigsMaxconcurrenthtlcs>,
+	    #[serde(rename = "max-dust-htlc-exposure-msat")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub max_dust_htlc_exposure_msat: Option<ListconfigsConfigsMaxdusthtlcexposuremsat>,
+	    #[serde(rename = "min-capacity-sat")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub min_capacity_sat: Option<ListconfigsConfigsMincapacitysat>,
+	    #[serde(rename = "pid-file")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub pid_file: Option<ListconfigsConfigsPidfile>,
+	    #[serde(rename = "plugin-dir")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub plugin_dir: Option<ListconfigsConfigsPlugindir>,
+	    #[serde(rename = "require-confirmed-inputs")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub require_confirmed_inputs: Option<ListconfigsConfigsRequireconfirmedinputs>,
+	    #[serde(rename = "rpc-file")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub rpc_file: Option<ListconfigsConfigsRpcfile>,
+	    #[serde(rename = "rpc-file-mode")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub rpc_file_mode: Option<ListconfigsConfigsRpcfilemode>,
+	    #[serde(rename = "tor-service-password")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub tor_service_password: Option<ListconfigsConfigsTorservicepassword>,
+	    #[serde(rename = "watchtime-blocks")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub watchtime_blocks: Option<ListconfigsConfigsWatchtimeblocks>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub addr: Option<ListconfigsConfigsAddr>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub alias: Option<ListconfigsConfigsAlias>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub autolisten: Option<ListconfigsConfigsAutolisten>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub conf: Option<ListconfigsConfigsConf>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub daemon: Option<ListconfigsConfigsDaemon>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub developer: Option<ListconfigsConfigsDeveloper>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub mainnet: Option<ListconfigsConfigsMainnet>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub network: Option<ListconfigsConfigsNetwork>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offline: Option<ListconfigsConfigsOffline>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub plugin: Option<ListconfigsConfigsPlugin>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub proxy: Option<ListconfigsConfigsProxy>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub regtest: Option<ListconfigsConfigsRegtest>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub rescan: Option<ListconfigsConfigsRescan>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub rgb: Option<ListconfigsConfigsRgb>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub signet: Option<ListconfigsConfigsSignet>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub subdaemon: Option<ListconfigsConfigsSubdaemon>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub testnet: Option<ListconfigsConfigsTestnet>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub wallet: Option<ListconfigsConfigsWallet>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsResponse {
+	    #[deprecated]
+	    #[serde(rename = "accept-htlc-tlv-types")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub accept_htlc_tlv_types: Option<String>,
+	    #[deprecated]
+	    #[serde(rename = "allow-deprecated-apis")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub allow_deprecated_apis: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "always-use-proxy")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub always_use_proxy: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "announce-addr")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub announce_addr: Option<String>,
+	    #[deprecated]
+	    #[serde(rename = "announce-addr-discovered")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub announce_addr_discovered: Option<String>,
+	    #[deprecated]
+	    #[serde(rename = "announce-addr-discovered-port")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub announce_addr_discovered_port: Option<i64>,
+	    #[deprecated]
+	    #[serde(rename = "announce-addr-dns")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub announce_addr_dns: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "bind-addr")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bind_addr: Option<String>,
+	    #[deprecated]
+	    #[serde(rename = "bookkeeper-db")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bookkeeper_db: Option<String>,
+	    #[deprecated]
+	    #[serde(rename = "bookkeeper-dir")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bookkeeper_dir: Option<String>,
+	    #[deprecated]
+	    #[serde(rename = "cltv-delta")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub cltv_delta: Option<u32>,
+	    #[deprecated]
+	    #[serde(rename = "cltv-final")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub cltv_final: Option<u32>,
+	    #[deprecated]
+	    #[serde(rename = "commit-fee")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub commit_fee: Option<u64>,
+	    #[deprecated]
+	    #[serde(rename = "commit-time")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub commit_time: Option<u32>,
+	    #[deprecated]
+	    #[serde(rename = "database-upgrade")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub database_upgrade: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "dev-allowdustreserve")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub dev_allowdustreserve: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "disable-dns")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub disable_dns: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "encrypted-hsm")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub encrypted_hsm: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "experimental-dual-fund")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_dual_fund: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "experimental-offers")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_offers: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "experimental-onion-messages")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_onion_messages: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "experimental-peer-storage")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_peer_storage: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "experimental-quiesce")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_quiesce: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "experimental-shutdown-wrong-funding")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_shutdown_wrong_funding: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "experimental-splicing")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_splicing: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "experimental-upgrade-protocol")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_upgrade_protocol: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "fee-base")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fee_base: Option<u32>,
+	    #[deprecated]
+	    #[serde(rename = "fee-per-satoshi")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fee_per_satoshi: Option<u32>,
+	    #[deprecated]
+	    #[serde(rename = "fetchinvoice-noconnect")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fetchinvoice_noconnect: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "force-feerates")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub force_feerates: Option<String>,
+	    #[deprecated]
+	    #[serde(rename = "funding-confirms")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub funding_confirms: Option<u32>,
+	    #[deprecated]
+	    #[serde(rename = "htlc-maximum-msat")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_maximum_msat: Option<Amount>,
+	    #[deprecated]
+	    #[serde(rename = "htlc-minimum-msat")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_minimum_msat: Option<Amount>,
+	    #[deprecated]
+	    #[serde(rename = "ignore-fee-limits")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub ignore_fee_limits: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "large-channels")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub large_channels: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "lightning-dir")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub lightning_dir: Option<String>,
+	    #[deprecated]
+	    #[serde(rename = "log-file")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub log_file: Option<String>,
+	    #[deprecated]
+	    #[serde(rename = "log-level")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub log_level: Option<String>,
+	    #[deprecated]
+	    #[serde(rename = "log-prefix")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub log_prefix: Option<String>,
+	    #[deprecated]
+	    #[serde(rename = "log-timestamps")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub log_timestamps: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "max-concurrent-htlcs")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub max_concurrent_htlcs: Option<u32>,
+	    #[deprecated]
+	    #[serde(rename = "max-dust-htlc-exposure-msat")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub max_dust_htlc_exposure_msat: Option<Amount>,
+	    #[deprecated]
+	    #[serde(rename = "max-locktime-blocks")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub max_locktime_blocks: Option<u32>,
+	    #[deprecated]
+	    #[serde(rename = "min-capacity-sat")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub min_capacity_sat: Option<u64>,
+	    #[deprecated]
+	    #[serde(rename = "pid-file")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub pid_file: Option<String>,
+	    #[deprecated]
+	    #[serde(rename = "require-confirmed-inputs")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub require_confirmed_inputs: Option<bool>,
+	    #[deprecated]
+	    #[serde(rename = "rpc-file")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub rpc_file: Option<String>,
+	    #[deprecated]
+	    #[serde(rename = "rpc-file-mode")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub rpc_file_mode: Option<String>,
+	    #[deprecated]
+	    #[serde(rename = "tor-service-password")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub tor_service_password: Option<String>,
+	    #[deprecated]
+	    #[serde(rename = "watchtime-blocks")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub watchtime_blocks: Option<u32>,
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub addr: Option<String>,
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub alias: Option<String>,
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub autolisten: Option<bool>,
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub conf: Option<String>,
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub daemon: Option<bool>,
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub network: Option<String>,
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offline: Option<bool>,
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub proxy: Option<String>,
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub rescan: Option<i64>,
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub rgb: Option<String>,
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub subdaemon: Option<String>,
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub wallet: Option<String>,
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub disable_plugin: Option<Vec<String>>,
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub important_plugins: Option<Vec<ListconfigsImportantplugins>>,
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub plugins: Option<Vec<ListconfigsPlugins>>,
+	    #[serde(rename = "commit-feerate-offset")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub commit_feerate_offset: Option<u32>,
+	    #[serde(rename = "invoices-onchain-fallback")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub invoices_onchain_fallback: Option<bool>,
+	    #[serde(rename = "min-emergency-msat")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub min_emergency_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub configs: Option<ListconfigsConfigs>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub developer: Option<bool>,
+	}
+
+	impl TryFrom<Response> for ListconfigsResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::ListConfigs(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

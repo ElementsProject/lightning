@@ -165,6 +165,7 @@ class OverridePatch(Patch):
         'ListPeerChannels.channels[].state_changes[]',
         'ListPeers.peers[].channels[].state_changes[]',
         'ListTransactions.transactions[].type[]',
+        'ListConfigs.# version',
     ]
 
     # Handcoded types to use instead of generating the types from the

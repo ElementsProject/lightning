@@ -379,6 +379,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.WaitRequest.SerializeToString,
                 response_deserializer=node__pb2.WaitResponse.FromString,
                 )
+        self.ListConfigs = channel.unary_unary(
+                '/cln.Node/ListConfigs',
+                request_serializer=node__pb2.ListconfigsRequest.SerializeToString,
+                response_deserializer=node__pb2.ListconfigsResponse.FromString,
+                )
         self.Stop = channel.unary_unary(
                 '/cln.Node/Stop',
                 request_serializer=node__pb2.StopRequest.SerializeToString,
@@ -872,6 +877,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListConfigs(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Stop(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1299,6 +1310,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.Wait,
                     request_deserializer=node__pb2.WaitRequest.FromString,
                     response_serializer=node__pb2.WaitResponse.SerializeToString,
+            ),
+            'ListConfigs': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListConfigs,
+                    request_deserializer=node__pb2.ListconfigsRequest.FromString,
+                    response_serializer=node__pb2.ListconfigsResponse.SerializeToString,
             ),
             'Stop': grpc.unary_unary_rpc_method_handler(
                     servicer.Stop,
@@ -2598,6 +2614,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/Wait',
             node__pb2.WaitRequest.SerializeToString,
             node__pb2.WaitResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ListConfigs(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/ListConfigs',
+            node__pb2.ListconfigsRequest.SerializeToString,
+            node__pb2.ListconfigsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

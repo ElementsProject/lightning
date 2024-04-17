@@ -2207,6 +2207,985 @@ impl From<responses::WaitResponse> for pb::WaitResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsAccepthtlctlvtypes> for pb::ListconfigsConfigsAccepthtlctlvtypes {
+    fn from(c: responses::ListconfigsConfigsAccepthtlctlvtypes) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_str: c.value_str, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsAddr> for pb::ListconfigsConfigsAddr {
+    fn from(c: responses::ListconfigsConfigsAddr) -> Self {
+        Self {
+            // Field: ListConfigs.configs.addr.sources[]
+            sources: c.sources.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            // Field: ListConfigs.configs.addr.values_str[]
+            values_str: c.values_str.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsAlias> for pb::ListconfigsConfigsAlias {
+    fn from(c: responses::ListconfigsConfigsAlias) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_str: c.value_str, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsAllowdeprecatedapis> for pb::ListconfigsConfigsAllowdeprecatedapis {
+    fn from(c: responses::ListconfigsConfigsAllowdeprecatedapis) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_bool: c.value_bool, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsAlwaysuseproxy> for pb::ListconfigsConfigsAlwaysuseproxy {
+    fn from(c: responses::ListconfigsConfigsAlwaysuseproxy) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_bool: c.value_bool, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsAnnounceaddr> for pb::ListconfigsConfigsAnnounceaddr {
+    fn from(c: responses::ListconfigsConfigsAnnounceaddr) -> Self {
+        Self {
+            // Field: ListConfigs.configs.announce-addr.sources[]
+            sources: c.sources.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            // Field: ListConfigs.configs.announce-addr.values_str[]
+            values_str: c.values_str.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsAnnounceaddrdiscovered> for pb::ListconfigsConfigsAnnounceaddrdiscovered {
+    fn from(c: responses::ListconfigsConfigsAnnounceaddrdiscovered) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_str: c.value_str as i32,
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsAnnounceaddrdiscoveredport> for pb::ListconfigsConfigsAnnounceaddrdiscoveredport {
+    fn from(c: responses::ListconfigsConfigsAnnounceaddrdiscoveredport) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_int: c.value_int, // Rule #2 for type u32
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsAnnounceaddrdns> for pb::ListconfigsConfigsAnnounceaddrdns {
+    fn from(c: responses::ListconfigsConfigsAnnounceaddrdns) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_bool: c.value_bool, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsAutolisten> for pb::ListconfigsConfigsAutolisten {
+    fn from(c: responses::ListconfigsConfigsAutolisten) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_bool: c.value_bool, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsBindaddr> for pb::ListconfigsConfigsBindaddr {
+    fn from(c: responses::ListconfigsConfigsBindaddr) -> Self {
+        Self {
+            // Field: ListConfigs.configs.bind-addr.sources[]
+            sources: c.sources.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            // Field: ListConfigs.configs.bind-addr.values_str[]
+            values_str: c.values_str.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsClearplugins> for pb::ListconfigsConfigsClearplugins {
+    fn from(c: responses::ListconfigsConfigsClearplugins) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsCltvdelta> for pb::ListconfigsConfigsCltvdelta {
+    fn from(c: responses::ListconfigsConfigsCltvdelta) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_int: c.value_int, // Rule #2 for type u32
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsCltvfinal> for pb::ListconfigsConfigsCltvfinal {
+    fn from(c: responses::ListconfigsConfigsCltvfinal) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_int: c.value_int, // Rule #2 for type u32
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsCommitfee> for pb::ListconfigsConfigsCommitfee {
+    fn from(c: responses::ListconfigsConfigsCommitfee) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_int: c.value_int, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsCommitfeerateoffset> for pb::ListconfigsConfigsCommitfeerateoffset {
+    fn from(c: responses::ListconfigsConfigsCommitfeerateoffset) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_int: c.value_int, // Rule #2 for type u32
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsCommittime> for pb::ListconfigsConfigsCommittime {
+    fn from(c: responses::ListconfigsConfigsCommittime) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_int: c.value_int, // Rule #2 for type u32
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsConf> for pb::ListconfigsConfigsConf {
+    fn from(c: responses::ListconfigsConfigsConf) -> Self {
+        Self {
+            source: c.source as i32,
+            value_str: c.value_str, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsDaemon> for pb::ListconfigsConfigsDaemon {
+    fn from(c: responses::ListconfigsConfigsDaemon) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsDatabaseupgrade> for pb::ListconfigsConfigsDatabaseupgrade {
+    fn from(c: responses::ListconfigsConfigsDatabaseupgrade) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_bool: c.value_bool, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsDeveloper> for pb::ListconfigsConfigsDeveloper {
+    fn from(c: responses::ListconfigsConfigsDeveloper) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsDisabledns> for pb::ListconfigsConfigsDisabledns {
+    fn from(c: responses::ListconfigsConfigsDisabledns) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsDisablempp> for pb::ListconfigsConfigsDisablempp {
+    fn from(c: responses::ListconfigsConfigsDisablempp) -> Self {
+        Self {
+            plugin: c.plugin, // Rule #2 for type string?
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsDisableplugin> for pb::ListconfigsConfigsDisableplugin {
+    fn from(c: responses::ListconfigsConfigsDisableplugin) -> Self {
+        Self {
+            // Field: ListConfigs.configs.disable-plugin.sources[]
+            sources: c.sources.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            // Field: ListConfigs.configs.disable-plugin.values_str[]
+            values_str: c.values_str.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsEncryptedhsm> for pb::ListconfigsConfigsEncryptedhsm {
+    fn from(c: responses::ListconfigsConfigsEncryptedhsm) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsExperimentalanchors> for pb::ListconfigsConfigsExperimentalanchors {
+    fn from(c: responses::ListconfigsConfigsExperimentalanchors) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsExperimentaldualfund> for pb::ListconfigsConfigsExperimentaldualfund {
+    fn from(c: responses::ListconfigsConfigsExperimentaldualfund) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsExperimentaloffers> for pb::ListconfigsConfigsExperimentaloffers {
+    fn from(c: responses::ListconfigsConfigsExperimentaloffers) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsExperimentalonionmessages> for pb::ListconfigsConfigsExperimentalonionmessages {
+    fn from(c: responses::ListconfigsConfigsExperimentalonionmessages) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsExperimentalpeerstorage> for pb::ListconfigsConfigsExperimentalpeerstorage {
+    fn from(c: responses::ListconfigsConfigsExperimentalpeerstorage) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsExperimentalshutdownwrongfunding> for pb::ListconfigsConfigsExperimentalshutdownwrongfunding {
+    fn from(c: responses::ListconfigsConfigsExperimentalshutdownwrongfunding) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsExperimentalsplicing> for pb::ListconfigsConfigsExperimentalsplicing {
+    fn from(c: responses::ListconfigsConfigsExperimentalsplicing) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsFeebase> for pb::ListconfigsConfigsFeebase {
+    fn from(c: responses::ListconfigsConfigsFeebase) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_int: c.value_int, // Rule #2 for type u32
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsFeepersatoshi> for pb::ListconfigsConfigsFeepersatoshi {
+    fn from(c: responses::ListconfigsConfigsFeepersatoshi) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_int: c.value_int, // Rule #2 for type u32
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsFetchinvoicenoconnect> for pb::ListconfigsConfigsFetchinvoicenoconnect {
+    fn from(c: responses::ListconfigsConfigsFetchinvoicenoconnect) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsForcefeerates> for pb::ListconfigsConfigsForcefeerates {
+    fn from(c: responses::ListconfigsConfigsForcefeerates) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_str: c.value_str, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsFundingconfirms> for pb::ListconfigsConfigsFundingconfirms {
+    fn from(c: responses::ListconfigsConfigsFundingconfirms) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_int: c.value_int, // Rule #2 for type u32
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsHtlcmaximummsat> for pb::ListconfigsConfigsHtlcmaximummsat {
+    fn from(c: responses::ListconfigsConfigsHtlcmaximummsat) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_msat: Some(c.value_msat.into()), // Rule #2 for type msat
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsHtlcminimummsat> for pb::ListconfigsConfigsHtlcminimummsat {
+    fn from(c: responses::ListconfigsConfigsHtlcminimummsat) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_msat: Some(c.value_msat.into()), // Rule #2 for type msat
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsIgnorefeelimits> for pb::ListconfigsConfigsIgnorefeelimits {
+    fn from(c: responses::ListconfigsConfigsIgnorefeelimits) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_bool: c.value_bool, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsImportantplugin> for pb::ListconfigsConfigsImportantplugin {
+    fn from(c: responses::ListconfigsConfigsImportantplugin) -> Self {
+        Self {
+            // Field: ListConfigs.configs.important-plugin.sources[]
+            sources: c.sources.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            // Field: ListConfigs.configs.important-plugin.values_str[]
+            values_str: c.values_str.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsLargechannels> for pb::ListconfigsConfigsLargechannels {
+    fn from(c: responses::ListconfigsConfigsLargechannels) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsLightningdir> for pb::ListconfigsConfigsLightningdir {
+    fn from(c: responses::ListconfigsConfigsLightningdir) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_str: c.value_str, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsLogfile> for pb::ListconfigsConfigsLogfile {
+    fn from(c: responses::ListconfigsConfigsLogfile) -> Self {
+        Self {
+            // Field: ListConfigs.configs.log-file.sources[]
+            sources: c.sources.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            // Field: ListConfigs.configs.log-file.values_str[]
+            values_str: c.values_str.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsLoglevel> for pb::ListconfigsConfigsLoglevel {
+    fn from(c: responses::ListconfigsConfigsLoglevel) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_str: c.value_str, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsLogprefix> for pb::ListconfigsConfigsLogprefix {
+    fn from(c: responses::ListconfigsConfigsLogprefix) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_str: c.value_str, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsLogtimestamps> for pb::ListconfigsConfigsLogtimestamps {
+    fn from(c: responses::ListconfigsConfigsLogtimestamps) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_bool: c.value_bool, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsMainnet> for pb::ListconfigsConfigsMainnet {
+    fn from(c: responses::ListconfigsConfigsMainnet) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsMaxconcurrenthtlcs> for pb::ListconfigsConfigsMaxconcurrenthtlcs {
+    fn from(c: responses::ListconfigsConfigsMaxconcurrenthtlcs) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_int: c.value_int, // Rule #2 for type u32
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsMaxdusthtlcexposuremsat> for pb::ListconfigsConfigsMaxdusthtlcexposuremsat {
+    fn from(c: responses::ListconfigsConfigsMaxdusthtlcexposuremsat) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_msat: Some(c.value_msat.into()), // Rule #2 for type msat
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsMaxlocktimeblocks> for pb::ListconfigsConfigsMaxlocktimeblocks {
+    fn from(c: responses::ListconfigsConfigsMaxlocktimeblocks) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_int: c.value_int, // Rule #2 for type u32
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsMincapacitysat> for pb::ListconfigsConfigsMincapacitysat {
+    fn from(c: responses::ListconfigsConfigsMincapacitysat) -> Self {
+        Self {
+            dynamic: c.dynamic, // Rule #2 for type boolean?
+            source: c.source, // Rule #2 for type string
+            value_int: c.value_int, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsNetwork> for pb::ListconfigsConfigsNetwork {
+    fn from(c: responses::ListconfigsConfigsNetwork) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_str: c.value_str, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsOffline> for pb::ListconfigsConfigsOffline {
+    fn from(c: responses::ListconfigsConfigsOffline) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsPidfile> for pb::ListconfigsConfigsPidfile {
+    fn from(c: responses::ListconfigsConfigsPidfile) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_str: c.value_str, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsPlugin> for pb::ListconfigsConfigsPlugin {
+    fn from(c: responses::ListconfigsConfigsPlugin) -> Self {
+        Self {
+            // Field: ListConfigs.configs.plugin.sources[]
+            sources: c.sources.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            // Field: ListConfigs.configs.plugin.values_str[]
+            values_str: c.values_str.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsPlugindir> for pb::ListconfigsConfigsPlugindir {
+    fn from(c: responses::ListconfigsConfigsPlugindir) -> Self {
+        Self {
+            // Field: ListConfigs.configs.plugin-dir.sources[]
+            sources: c.sources.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            // Field: ListConfigs.configs.plugin-dir.values_str[]
+            values_str: c.values_str.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsProxy> for pb::ListconfigsConfigsProxy {
+    fn from(c: responses::ListconfigsConfigsProxy) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_str: c.value_str, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsRegtest> for pb::ListconfigsConfigsRegtest {
+    fn from(c: responses::ListconfigsConfigsRegtest) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsRequireconfirmedinputs> for pb::ListconfigsConfigsRequireconfirmedinputs {
+    fn from(c: responses::ListconfigsConfigsRequireconfirmedinputs) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_bool: c.value_bool, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsRescan> for pb::ListconfigsConfigsRescan {
+    fn from(c: responses::ListconfigsConfigsRescan) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_int: c.value_int, // Rule #2 for type integer
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsRgb> for pb::ListconfigsConfigsRgb {
+    fn from(c: responses::ListconfigsConfigsRgb) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_str: hex::decode(&c.value_str).unwrap(), // Rule #2 for type hex
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsRpcfile> for pb::ListconfigsConfigsRpcfile {
+    fn from(c: responses::ListconfigsConfigsRpcfile) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_str: c.value_str, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsRpcfilemode> for pb::ListconfigsConfigsRpcfilemode {
+    fn from(c: responses::ListconfigsConfigsRpcfilemode) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_str: c.value_str, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsSignet> for pb::ListconfigsConfigsSignet {
+    fn from(c: responses::ListconfigsConfigsSignet) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsSubdaemon> for pb::ListconfigsConfigsSubdaemon {
+    fn from(c: responses::ListconfigsConfigsSubdaemon) -> Self {
+        Self {
+            // Field: ListConfigs.configs.subdaemon.sources[]
+            sources: c.sources.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            // Field: ListConfigs.configs.subdaemon.values_str[]
+            values_str: c.values_str.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsTestnet> for pb::ListconfigsConfigsTestnet {
+    fn from(c: responses::ListconfigsConfigsTestnet) -> Self {
+        Self {
+            set: c.set, // Rule #2 for type boolean
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsTorservicepassword> for pb::ListconfigsConfigsTorservicepassword {
+    fn from(c: responses::ListconfigsConfigsTorservicepassword) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_str: c.value_str, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsWallet> for pb::ListconfigsConfigsWallet {
+    fn from(c: responses::ListconfigsConfigsWallet) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_str: c.value_str, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsWatchtimeblocks> for pb::ListconfigsConfigsWatchtimeblocks {
+    fn from(c: responses::ListconfigsConfigsWatchtimeblocks) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_int: c.value_int, // Rule #2 for type u32
+        }
+    }
+}
+
+#[allow(unused_variables,deprecated)]
+impl From<responses::ListconfigsConfigs> for pb::ListconfigsConfigs {
+    fn from(c: responses::ListconfigsConfigs) -> Self {
+        Self {
+            accept_htlc_tlv_types: c.accept_htlc_tlv_types.map(|v| v.into()),
+            addr: c.addr.map(|v| v.into()),
+            alias: c.alias.map(|v| v.into()),
+            allow_deprecated_apis: c.allow_deprecated_apis.map(|v| v.into()),
+            always_use_proxy: c.always_use_proxy.map(|v| v.into()),
+            announce_addr: c.announce_addr.map(|v| v.into()),
+            announce_addr_discovered: c.announce_addr_discovered.map(|v| v.into()),
+            announce_addr_discovered_port: c.announce_addr_discovered_port.map(|v| v.into()),
+            announce_addr_dns: c.announce_addr_dns.map(|v| v.into()),
+            autolisten: c.autolisten.map(|v| v.into()),
+            bind_addr: c.bind_addr.map(|v| v.into()),
+            clear_plugins: c.clear_plugins.map(|v| v.into()),
+            cltv_delta: c.cltv_delta.map(|v| v.into()),
+            cltv_final: c.cltv_final.map(|v| v.into()),
+            commit_fee: c.commit_fee.map(|v| v.into()),
+            commit_feerate_offset: c.commit_feerate_offset.map(|v| v.into()),
+            commit_time: c.commit_time.map(|v| v.into()),
+            conf: c.conf.map(|v| v.into()),
+            daemon: c.daemon.map(|v| v.into()),
+            database_upgrade: c.database_upgrade.map(|v| v.into()),
+            developer: c.developer.map(|v| v.into()),
+            disable_dns: c.disable_dns.map(|v| v.into()),
+            disable_mpp: c.disable_mpp.map(|v| v.into()),
+            disable_plugin: c.disable_plugin.map(|v| v.into()),
+            encrypted_hsm: c.encrypted_hsm.map(|v| v.into()),
+            experimental_anchors: c.experimental_anchors.map(|v| v.into()),
+            experimental_dual_fund: c.experimental_dual_fund.map(|v| v.into()),
+            experimental_offers: c.experimental_offers.map(|v| v.into()),
+            experimental_onion_messages: c.experimental_onion_messages.map(|v| v.into()),
+            experimental_peer_storage: c.experimental_peer_storage.map(|v| v.into()),
+            experimental_shutdown_wrong_funding: c.experimental_shutdown_wrong_funding.map(|v| v.into()),
+            experimental_splicing: c.experimental_splicing.map(|v| v.into()),
+            fee_base: c.fee_base.map(|v| v.into()),
+            fee_per_satoshi: c.fee_per_satoshi.map(|v| v.into()),
+            fetchinvoice_noconnect: c.fetchinvoice_noconnect.map(|v| v.into()),
+            force_feerates: c.force_feerates.map(|v| v.into()),
+            funding_confirms: c.funding_confirms.map(|v| v.into()),
+            htlc_maximum_msat: c.htlc_maximum_msat.map(|v| v.into()),
+            htlc_minimum_msat: c.htlc_minimum_msat.map(|v| v.into()),
+            ignore_fee_limits: c.ignore_fee_limits.map(|v| v.into()),
+            important_plugin: c.important_plugin.map(|v| v.into()),
+            large_channels: c.large_channels.map(|v| v.into()),
+            lightning_dir: c.lightning_dir.map(|v| v.into()),
+            log_file: c.log_file.map(|v| v.into()),
+            log_level: c.log_level.map(|v| v.into()),
+            log_prefix: c.log_prefix.map(|v| v.into()),
+            log_timestamps: c.log_timestamps.map(|v| v.into()),
+            mainnet: c.mainnet.map(|v| v.into()),
+            max_concurrent_htlcs: c.max_concurrent_htlcs.map(|v| v.into()),
+            max_dust_htlc_exposure_msat: c.max_dust_htlc_exposure_msat.map(|v| v.into()),
+            max_locktime_blocks: c.max_locktime_blocks.map(|v| v.into()),
+            min_capacity_sat: c.min_capacity_sat.map(|v| v.into()),
+            network: c.network.map(|v| v.into()),
+            offline: c.offline.map(|v| v.into()),
+            pid_file: c.pid_file.map(|v| v.into()),
+            plugin: c.plugin.map(|v| v.into()),
+            plugin_dir: c.plugin_dir.map(|v| v.into()),
+            proxy: c.proxy.map(|v| v.into()),
+            regtest: c.regtest.map(|v| v.into()),
+            require_confirmed_inputs: c.require_confirmed_inputs.map(|v| v.into()),
+            rescan: c.rescan.map(|v| v.into()),
+            rgb: c.rgb.map(|v| v.into()),
+            rpc_file: c.rpc_file.map(|v| v.into()),
+            rpc_file_mode: c.rpc_file_mode.map(|v| v.into()),
+            signet: c.signet.map(|v| v.into()),
+            subdaemon: c.subdaemon.map(|v| v.into()),
+            testnet: c.testnet.map(|v| v.into()),
+            tor_service_password: c.tor_service_password.map(|v| v.into()),
+            wallet: c.wallet.map(|v| v.into()),
+            watchtime_blocks: c.watchtime_blocks.map(|v| v.into()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsImportantpluginsOptions> for pb::ListconfigsImportantpluginsOptions {
+    fn from(c: responses::ListconfigsImportantpluginsOptions) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsImportantplugins> for pb::ListconfigsImportantplugins {
+    fn from(c: responses::ListconfigsImportantplugins) -> Self {
+        Self {
+            name: c.name, // Rule #2 for type string
+            options: c.options.map(|v| v.into()),
+            path: c.path, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsPluginsOptions> for pb::ListconfigsPluginsOptions {
+    fn from(c: responses::ListconfigsPluginsOptions) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsPlugins> for pb::ListconfigsPlugins {
+    fn from(c: responses::ListconfigsPlugins) -> Self {
+        Self {
+            name: c.name, // Rule #2 for type string
+            options: c.options.map(|v| v.into()),
+            path: c.path, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables,deprecated)]
+impl From<responses::ListconfigsResponse> for pb::ListconfigsResponse {
+    fn from(c: responses::ListconfigsResponse) -> Self {
+        Self {
+            #[allow(deprecated)]
+            accept_htlc_tlv_types: c.accept_htlc_tlv_types, // Rule #2 for type string?
+            #[allow(deprecated)]
+            addr: c.addr, // Rule #2 for type string?
+            #[allow(deprecated)]
+            alias: c.alias, // Rule #2 for type string?
+            #[allow(deprecated)]
+            allow_deprecated_apis: c.allow_deprecated_apis, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            always_use_proxy: c.always_use_proxy, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            announce_addr: c.announce_addr, // Rule #2 for type string?
+            #[allow(deprecated)]
+            announce_addr_discovered: c.announce_addr_discovered, // Rule #2 for type string?
+            #[allow(deprecated)]
+            announce_addr_discovered_port: c.announce_addr_discovered_port, // Rule #2 for type integer?
+            #[allow(deprecated)]
+            announce_addr_dns: c.announce_addr_dns, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            autolisten: c.autolisten, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            bind_addr: c.bind_addr, // Rule #2 for type string?
+            #[allow(deprecated)]
+            bookkeeper_db: c.bookkeeper_db, // Rule #2 for type string?
+            #[allow(deprecated)]
+            bookkeeper_dir: c.bookkeeper_dir, // Rule #2 for type string?
+            #[allow(deprecated)]
+            cltv_delta: c.cltv_delta, // Rule #2 for type u32?
+            #[allow(deprecated)]
+            cltv_final: c.cltv_final, // Rule #2 for type u32?
+            #[allow(deprecated)]
+            commit_fee: c.commit_fee, // Rule #2 for type u64?
+            commit_feerate_offset: c.commit_feerate_offset, // Rule #2 for type u32?
+            #[allow(deprecated)]
+            commit_time: c.commit_time, // Rule #2 for type u32?
+            #[allow(deprecated)]
+            conf: c.conf, // Rule #2 for type string?
+            configs: c.configs.map(|v| v.into()),
+            #[allow(deprecated)]
+            daemon: c.daemon, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            database_upgrade: c.database_upgrade, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            dev_allowdustreserve: c.dev_allowdustreserve, // Rule #2 for type boolean?
+            developer: c.developer, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            disable_dns: c.disable_dns, // Rule #2 for type boolean?
+            // Field: ListConfigs.disable-plugin[]
+            disable_plugin: c.disable_plugin.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            #[allow(deprecated)]
+            encrypted_hsm: c.encrypted_hsm, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            experimental_dual_fund: c.experimental_dual_fund, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            experimental_offers: c.experimental_offers, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            experimental_onion_messages: c.experimental_onion_messages, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            experimental_peer_storage: c.experimental_peer_storage, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            experimental_quiesce: c.experimental_quiesce, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            experimental_shutdown_wrong_funding: c.experimental_shutdown_wrong_funding, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            experimental_splicing: c.experimental_splicing, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            experimental_upgrade_protocol: c.experimental_upgrade_protocol, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            fee_base: c.fee_base, // Rule #2 for type u32?
+            #[allow(deprecated)]
+            fee_per_satoshi: c.fee_per_satoshi, // Rule #2 for type u32?
+            #[allow(deprecated)]
+            fetchinvoice_noconnect: c.fetchinvoice_noconnect, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            force_feerates: c.force_feerates, // Rule #2 for type string?
+            #[allow(deprecated)]
+            funding_confirms: c.funding_confirms, // Rule #2 for type u32?
+            #[allow(deprecated)]
+            htlc_maximum_msat: c.htlc_maximum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            #[allow(deprecated)]
+            htlc_minimum_msat: c.htlc_minimum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            #[allow(deprecated)]
+            ignore_fee_limits: c.ignore_fee_limits, // Rule #2 for type boolean?
+            // Field: ListConfigs.important-plugins[]
+            important_plugins: c.important_plugins.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            invoices_onchain_fallback: c.invoices_onchain_fallback, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            large_channels: c.large_channels, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            lightning_dir: c.lightning_dir, // Rule #2 for type string?
+            #[allow(deprecated)]
+            log_file: c.log_file, // Rule #2 for type string?
+            #[allow(deprecated)]
+            log_level: c.log_level, // Rule #2 for type string?
+            #[allow(deprecated)]
+            log_prefix: c.log_prefix, // Rule #2 for type string?
+            #[allow(deprecated)]
+            log_timestamps: c.log_timestamps, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            max_concurrent_htlcs: c.max_concurrent_htlcs, // Rule #2 for type u32?
+            #[allow(deprecated)]
+            max_dust_htlc_exposure_msat: c.max_dust_htlc_exposure_msat.map(|f| f.into()), // Rule #2 for type msat?
+            #[allow(deprecated)]
+            max_locktime_blocks: c.max_locktime_blocks, // Rule #2 for type u32?
+            #[allow(deprecated)]
+            min_capacity_sat: c.min_capacity_sat, // Rule #2 for type u64?
+            min_emergency_msat: c.min_emergency_msat.map(|f| f.into()), // Rule #2 for type msat?
+            #[allow(deprecated)]
+            network: c.network, // Rule #2 for type string?
+            #[allow(deprecated)]
+            offline: c.offline, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            pid_file: c.pid_file, // Rule #2 for type string?
+            // Field: ListConfigs.plugins[]
+            plugins: c.plugins.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            #[allow(deprecated)]
+            proxy: c.proxy, // Rule #2 for type string?
+            #[allow(deprecated)]
+            require_confirmed_inputs: c.require_confirmed_inputs, // Rule #2 for type boolean?
+            #[allow(deprecated)]
+            rescan: c.rescan, // Rule #2 for type integer?
+            #[allow(deprecated)]
+            rgb: c.rgb.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            #[allow(deprecated)]
+            rpc_file: c.rpc_file, // Rule #2 for type string?
+            #[allow(deprecated)]
+            rpc_file_mode: c.rpc_file_mode, // Rule #2 for type string?
+            #[allow(deprecated)]
+            subdaemon: c.subdaemon, // Rule #2 for type string?
+            #[allow(deprecated)]
+            tor_service_password: c.tor_service_password, // Rule #2 for type string?
+            #[allow(deprecated)]
+            wallet: c.wallet, // Rule #2 for type string?
+            #[allow(deprecated)]
+            watchtime_blocks: c.watchtime_blocks, // Rule #2 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::StopResponse> for pb::StopResponse {
     fn from(c: responses::StopResponse) -> Self {
         Self {
@@ -3367,6 +4346,15 @@ impl From<requests::WaitRequest> for pb::WaitRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::ListconfigsRequest> for pb::ListconfigsRequest {
+    fn from(c: requests::ListconfigsRequest) -> Self {
+        Self {
+            config: c.config, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::StopRequest> for pb::StopRequest {
     fn from(c: requests::StopRequest) -> Self {
         Self {
@@ -4372,6 +5360,15 @@ impl From<pb::WaitRequest> for requests::WaitRequest {
             indexname: c.indexname.try_into().unwrap(),
             nextvalue: c.nextvalue, // Rule #1 for type u64
             subsystem: c.subsystem.try_into().unwrap(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::ListconfigsRequest> for requests::ListconfigsRequest {
+    fn from(c: pb::ListconfigsRequest) -> Self {
+        Self {
+            config: c.config, // Rule #1 for type string?
         }
     }
 }

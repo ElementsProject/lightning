@@ -2362,6 +2362,38 @@ async fn wait(
 
 }
 
+async fn list_configs(
+    &self,
+    request: tonic::Request<pb::ListconfigsRequest>,
+) -> Result<tonic::Response<pb::ListconfigsResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::ListconfigsRequest = req.into();
+    debug!("Client asked for list_configs");
+    trace!("list_configs request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::ListConfigs(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method ListConfigs: {:?}", e)))?;
+    match result {
+        Response::ListConfigs(r) => {
+           trace!("list_configs response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call ListConfigs",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn stop(
     &self,
     request: tonic::Request<pb::StopRequest>,
