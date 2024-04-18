@@ -115,3 +115,12 @@ enum ChannelTypeName {
   scid_alias_even = 3;
   zeroconf_even = 4;
 }
+
+enum AutocleanSubsystem {
+	SUCCEEDEDFORWARDS = 0;
+	FAILEDFORWARDS = 1;
+	SUCCEEDEDPAYS = 2;
+	FAILEDPAYS = 3;
+	PAIDINVOICES = 4;
+	EXPIREDINVOICES = 5;
+}

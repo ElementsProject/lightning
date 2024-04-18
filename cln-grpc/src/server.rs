@@ -250,6 +250,70 @@ async fn auto_clean_invoice(
 
 }
 
+async fn auto_clean_once(
+    &self,
+    request: tonic::Request<pb::AutocleanonceRequest>,
+) -> Result<tonic::Response<pb::AutocleanonceResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::AutocleanonceRequest = req.into();
+    debug!("Client asked for auto_clean_once");
+    trace!("auto_clean_once request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::AutoCleanOnce(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method AutoCleanOnce: {:?}", e)))?;
+    match result {
+        Response::AutoCleanOnce(r) => {
+           trace!("auto_clean_once response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call AutoCleanOnce",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn auto_clean_status(
+    &self,
+    request: tonic::Request<pb::AutocleanstatusRequest>,
+) -> Result<tonic::Response<pb::AutocleanstatusResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::AutocleanstatusRequest = req.into();
+    debug!("Client asked for auto_clean_status");
+    trace!("auto_clean_status request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::AutoCleanStatus(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method AutoCleanStatus: {:?}", e)))?;
+    match result {
+        Response::AutoCleanStatus(r) => {
+           trace!("auto_clean_status response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call AutoCleanStatus",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn check_message(
     &self,
     request: tonic::Request<pb::CheckmessageRequest>,

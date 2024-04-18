@@ -49,6 +49,16 @@ class NodeStub(object):
                 request_serializer=node__pb2.AutocleaninvoiceRequest.SerializeToString,
                 response_deserializer=node__pb2.AutocleaninvoiceResponse.FromString,
                 )
+        self.AutoCleanOnce = channel.unary_unary(
+                '/cln.Node/AutoCleanOnce',
+                request_serializer=node__pb2.AutocleanonceRequest.SerializeToString,
+                response_deserializer=node__pb2.AutocleanonceResponse.FromString,
+                )
+        self.AutoCleanStatus = channel.unary_unary(
+                '/cln.Node/AutoCleanStatus',
+                request_serializer=node__pb2.AutocleanstatusRequest.SerializeToString,
+                response_deserializer=node__pb2.AutocleanstatusResponse.FromString,
+                )
         self.CheckMessage = channel.unary_unary(
                 '/cln.Node/CheckMessage',
                 request_serializer=node__pb2.CheckmessageRequest.SerializeToString,
@@ -406,6 +416,18 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def AutoCleanInvoice(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AutoCleanOnce(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AutoCleanStatus(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -826,6 +848,16 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.AutoCleanInvoice,
                     request_deserializer=node__pb2.AutocleaninvoiceRequest.FromString,
                     response_serializer=node__pb2.AutocleaninvoiceResponse.SerializeToString,
+            ),
+            'AutoCleanOnce': grpc.unary_unary_rpc_method_handler(
+                    servicer.AutoCleanOnce,
+                    request_deserializer=node__pb2.AutocleanonceRequest.FromString,
+                    response_serializer=node__pb2.AutocleanonceResponse.SerializeToString,
+            ),
+            'AutoCleanStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.AutoCleanStatus,
+                    request_deserializer=node__pb2.AutocleanstatusRequest.FromString,
+                    response_serializer=node__pb2.AutocleanstatusResponse.SerializeToString,
             ),
             'CheckMessage': grpc.unary_unary_rpc_method_handler(
                     servicer.CheckMessage,
@@ -1268,6 +1300,40 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/AutoCleanInvoice',
             node__pb2.AutocleaninvoiceRequest.SerializeToString,
             node__pb2.AutocleaninvoiceResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AutoCleanOnce(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/AutoCleanOnce',
+            node__pb2.AutocleanonceRequest.SerializeToString,
+            node__pb2.AutocleanonceResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AutoCleanStatus(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/AutoCleanStatus',
+            node__pb2.AutocleanstatusRequest.SerializeToString,
+            node__pb2.AutocleanstatusResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

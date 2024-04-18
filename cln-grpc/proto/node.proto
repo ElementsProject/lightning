@@ -15,6 +15,8 @@ service Node {
 	rpc ListChannels(ListchannelsRequest) returns (ListchannelsResponse) {}
 	rpc AddGossip(AddgossipRequest) returns (AddgossipResponse) {}
 	rpc AutoCleanInvoice(AutocleaninvoiceRequest) returns (AutocleaninvoiceResponse) {}
+	rpc AutoCleanOnce(AutocleanonceRequest) returns (AutocleanonceResponse) {}
+	rpc AutoCleanStatus(AutocleanstatusRequest) returns (AutocleanstatusResponse) {}
 	rpc CheckMessage(CheckmessageRequest) returns (CheckmessageResponse) {}
 	rpc Close(CloseRequest) returns (CloseResponse) {}
 	rpc ConnectPeer(ConnectRequest) returns (ConnectResponse) {}
@@ -319,6 +321,107 @@ message AutocleaninvoiceResponse {
 	bool enabled = 1;
 	optional uint64 expired_by = 2;
 	optional uint64 cycle_seconds = 3;
+}
+
+message AutocleanonceRequest {
+	AutocleanSubsystem subsystem = 1;
+	uint64 age = 2;
+}
+
+message AutocleanonceResponse {
+	AutocleanonceAutoclean autoclean = 1;
+}
+
+message AutocleanonceAutoclean {
+	optional AutocleanonceAutocleanSucceededforwards succeededforwards = 1;
+	optional AutocleanonceAutocleanFailedforwards failedforwards = 2;
+	optional AutocleanonceAutocleanSucceededpays succeededpays = 3;
+	optional AutocleanonceAutocleanFailedpays failedpays = 4;
+	optional AutocleanonceAutocleanPaidinvoices paidinvoices = 5;
+	optional AutocleanonceAutocleanExpiredinvoices expiredinvoices = 6;
+}
+
+message AutocleanonceAutocleanSucceededforwards {
+	uint64 cleaned = 1;
+	uint64 uncleaned = 2;
+}
+
+message AutocleanonceAutocleanFailedforwards {
+	uint64 cleaned = 1;
+	uint64 uncleaned = 2;
+}
+
+message AutocleanonceAutocleanSucceededpays {
+	uint64 cleaned = 1;
+	uint64 uncleaned = 2;
+}
+
+message AutocleanonceAutocleanFailedpays {
+	uint64 cleaned = 1;
+	uint64 uncleaned = 2;
+}
+
+message AutocleanonceAutocleanPaidinvoices {
+	uint64 cleaned = 1;
+	uint64 uncleaned = 2;
+}
+
+message AutocleanonceAutocleanExpiredinvoices {
+	uint64 cleaned = 1;
+	uint64 uncleaned = 2;
+}
+
+message AutocleanstatusRequest {
+	optional AutocleanSubsystem subsystem = 1;
+}
+
+message AutocleanstatusResponse {
+	AutocleanstatusAutoclean autoclean = 1;
+}
+
+message AutocleanstatusAutoclean {
+	optional AutocleanstatusAutocleanSucceededforwards succeededforwards = 1;
+	optional AutocleanstatusAutocleanFailedforwards failedforwards = 2;
+	optional AutocleanstatusAutocleanSucceededpays succeededpays = 3;
+	optional AutocleanstatusAutocleanFailedpays failedpays = 4;
+	optional AutocleanstatusAutocleanPaidinvoices paidinvoices = 5;
+	optional AutocleanstatusAutocleanExpiredinvoices expiredinvoices = 6;
+}
+
+message AutocleanstatusAutocleanSucceededforwards {
+	bool enabled = 1;
+	uint64 cleaned = 2;
+	optional uint64 age = 3;
+}
+
+message AutocleanstatusAutocleanFailedforwards {
+	bool enabled = 1;
+	uint64 cleaned = 2;
+	optional uint64 age = 3;
+}
+
+message AutocleanstatusAutocleanSucceededpays {
+	bool enabled = 1;
+	uint64 cleaned = 2;
+	optional uint64 age = 3;
+}
+
+message AutocleanstatusAutocleanFailedpays {
+	bool enabled = 1;
+	uint64 cleaned = 2;
+	optional uint64 age = 3;
+}
+
+message AutocleanstatusAutocleanPaidinvoices {
+	bool enabled = 1;
+	uint64 cleaned = 2;
+	optional uint64 age = 3;
+}
+
+message AutocleanstatusAutocleanExpiredinvoices {
+	bool enabled = 1;
+	uint64 cleaned = 2;
+	optional uint64 age = 3;
 }
 
 message CheckmessageRequest {

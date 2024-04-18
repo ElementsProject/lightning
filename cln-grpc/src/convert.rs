@@ -243,6 +243,178 @@ impl From<responses::AutocleaninvoiceResponse> for pb::AutocleaninvoiceResponse 
 }
 
 #[allow(unused_variables)]
+impl From<responses::AutocleanonceAutocleanExpiredinvoices> for pb::AutocleanonceAutocleanExpiredinvoices {
+    fn from(c: responses::AutocleanonceAutocleanExpiredinvoices) -> Self {
+        Self {
+            cleaned: c.cleaned, // Rule #2 for type u64
+            uncleaned: c.uncleaned, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AutocleanonceAutocleanFailedforwards> for pb::AutocleanonceAutocleanFailedforwards {
+    fn from(c: responses::AutocleanonceAutocleanFailedforwards) -> Self {
+        Self {
+            cleaned: c.cleaned, // Rule #2 for type u64
+            uncleaned: c.uncleaned, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AutocleanonceAutocleanFailedpays> for pb::AutocleanonceAutocleanFailedpays {
+    fn from(c: responses::AutocleanonceAutocleanFailedpays) -> Self {
+        Self {
+            cleaned: c.cleaned, // Rule #2 for type u64
+            uncleaned: c.uncleaned, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AutocleanonceAutocleanPaidinvoices> for pb::AutocleanonceAutocleanPaidinvoices {
+    fn from(c: responses::AutocleanonceAutocleanPaidinvoices) -> Self {
+        Self {
+            cleaned: c.cleaned, // Rule #2 for type u64
+            uncleaned: c.uncleaned, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AutocleanonceAutocleanSucceededforwards> for pb::AutocleanonceAutocleanSucceededforwards {
+    fn from(c: responses::AutocleanonceAutocleanSucceededforwards) -> Self {
+        Self {
+            cleaned: c.cleaned, // Rule #2 for type u64
+            uncleaned: c.uncleaned, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AutocleanonceAutocleanSucceededpays> for pb::AutocleanonceAutocleanSucceededpays {
+    fn from(c: responses::AutocleanonceAutocleanSucceededpays) -> Self {
+        Self {
+            cleaned: c.cleaned, // Rule #2 for type u64
+            uncleaned: c.uncleaned, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AutocleanonceAutoclean> for pb::AutocleanonceAutoclean {
+    fn from(c: responses::AutocleanonceAutoclean) -> Self {
+        Self {
+            expiredinvoices: c.expiredinvoices.map(|v| v.into()),
+            failedforwards: c.failedforwards.map(|v| v.into()),
+            failedpays: c.failedpays.map(|v| v.into()),
+            paidinvoices: c.paidinvoices.map(|v| v.into()),
+            succeededforwards: c.succeededforwards.map(|v| v.into()),
+            succeededpays: c.succeededpays.map(|v| v.into()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AutocleanonceResponse> for pb::AutocleanonceResponse {
+    fn from(c: responses::AutocleanonceResponse) -> Self {
+        Self {
+            autoclean: Some(c.autoclean.into()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AutocleanstatusAutocleanExpiredinvoices> for pb::AutocleanstatusAutocleanExpiredinvoices {
+    fn from(c: responses::AutocleanstatusAutocleanExpiredinvoices) -> Self {
+        Self {
+            age: c.age, // Rule #2 for type u64?
+            cleaned: c.cleaned, // Rule #2 for type u64
+            enabled: c.enabled, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AutocleanstatusAutocleanFailedforwards> for pb::AutocleanstatusAutocleanFailedforwards {
+    fn from(c: responses::AutocleanstatusAutocleanFailedforwards) -> Self {
+        Self {
+            age: c.age, // Rule #2 for type u64?
+            cleaned: c.cleaned, // Rule #2 for type u64
+            enabled: c.enabled, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AutocleanstatusAutocleanFailedpays> for pb::AutocleanstatusAutocleanFailedpays {
+    fn from(c: responses::AutocleanstatusAutocleanFailedpays) -> Self {
+        Self {
+            age: c.age, // Rule #2 for type u64?
+            cleaned: c.cleaned, // Rule #2 for type u64
+            enabled: c.enabled, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AutocleanstatusAutocleanPaidinvoices> for pb::AutocleanstatusAutocleanPaidinvoices {
+    fn from(c: responses::AutocleanstatusAutocleanPaidinvoices) -> Self {
+        Self {
+            age: c.age, // Rule #2 for type u64?
+            cleaned: c.cleaned, // Rule #2 for type u64
+            enabled: c.enabled, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AutocleanstatusAutocleanSucceededforwards> for pb::AutocleanstatusAutocleanSucceededforwards {
+    fn from(c: responses::AutocleanstatusAutocleanSucceededforwards) -> Self {
+        Self {
+            age: c.age, // Rule #2 for type u64?
+            cleaned: c.cleaned, // Rule #2 for type u64
+            enabled: c.enabled, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AutocleanstatusAutocleanSucceededpays> for pb::AutocleanstatusAutocleanSucceededpays {
+    fn from(c: responses::AutocleanstatusAutocleanSucceededpays) -> Self {
+        Self {
+            age: c.age, // Rule #2 for type u64?
+            cleaned: c.cleaned, // Rule #2 for type u64
+            enabled: c.enabled, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AutocleanstatusAutoclean> for pb::AutocleanstatusAutoclean {
+    fn from(c: responses::AutocleanstatusAutoclean) -> Self {
+        Self {
+            expiredinvoices: c.expiredinvoices.map(|v| v.into()),
+            failedforwards: c.failedforwards.map(|v| v.into()),
+            failedpays: c.failedpays.map(|v| v.into()),
+            paidinvoices: c.paidinvoices.map(|v| v.into()),
+            succeededforwards: c.succeededforwards.map(|v| v.into()),
+            succeededpays: c.succeededpays.map(|v| v.into()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AutocleanstatusResponse> for pb::AutocleanstatusResponse {
+    fn from(c: responses::AutocleanstatusResponse) -> Self {
+        Self {
+            autoclean: Some(c.autoclean.into()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::CheckmessageResponse> for pb::CheckmessageResponse {
     fn from(c: responses::CheckmessageResponse) -> Self {
         Self {
@@ -2092,6 +2264,25 @@ impl From<requests::AutocleaninvoiceRequest> for pb::AutocleaninvoiceRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::AutocleanonceRequest> for pb::AutocleanonceRequest {
+    fn from(c: requests::AutocleanonceRequest) -> Self {
+        Self {
+            age: c.age, // Rule #2 for type u64
+            subsystem: c.subsystem as i32,
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AutocleanstatusRequest> for pb::AutocleanstatusRequest {
+    fn from(c: requests::AutocleanstatusRequest) -> Self {
+        Self {
+            subsystem: c.subsystem.map(|v| v as i32),
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::CheckmessageRequest> for pb::CheckmessageRequest {
     fn from(c: requests::CheckmessageRequest) -> Self {
         Self {
@@ -2984,6 +3175,25 @@ impl From<pb::AutocleaninvoiceRequest> for requests::AutocleaninvoiceRequest {
         Self {
             cycle_seconds: c.cycle_seconds, // Rule #1 for type u64?
             expired_by: c.expired_by, // Rule #1 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AutocleanonceRequest> for requests::AutocleanonceRequest {
+    fn from(c: pb::AutocleanonceRequest) -> Self {
+        Self {
+            age: c.age, // Rule #1 for type u64
+            subsystem: c.subsystem.try_into().unwrap(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AutocleanstatusRequest> for requests::AutocleanstatusRequest {
+    fn from(c: pb::AutocleanstatusRequest) -> Self {
+        Self {
+            subsystem: c.subsystem.map(|v| v.try_into().unwrap()),
         }
     }
 }
