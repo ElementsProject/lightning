@@ -86,6 +86,7 @@ pub enum Request {
 	PreApproveKeysend(requests::PreapprovekeysendRequest),
 	PreApproveInvoice(requests::PreapproveinvoiceRequest),
 	StaticBackup(requests::StaticbackupRequest),
+	#[serde(rename = "bkpr-listincome")]
 	BkprListIncome(requests::BkprlistincomeRequest),
 }
 
@@ -162,6 +163,7 @@ pub enum Response {
 	PreApproveKeysend(responses::PreapprovekeysendResponse),
 	PreApproveInvoice(responses::PreapproveinvoiceResponse),
 	StaticBackup(responses::StaticbackupResponse),
+	#[serde(rename = "bkpr-listincome")]
 	BkprListIncome(responses::BkprlistincomeResponse),
 }
 
@@ -2612,7 +2614,7 @@ pub mod requests {
 	    type Response = super::responses::BkprlistincomeResponse;
 
 	    fn method(&self) -> &str {
-	        "bkprlistincome"
+	        "bkpr-listincome"
 	    }
 	}
 }
