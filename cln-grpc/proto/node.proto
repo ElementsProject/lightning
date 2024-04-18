@@ -80,6 +80,7 @@ service Node {
 	rpc PreApproveInvoice(PreapproveinvoiceRequest) returns (PreapproveinvoiceResponse) {}
 	rpc StaticBackup(StaticbackupRequest) returns (StaticbackupResponse) {}
 	rpc BkprListIncome(BkprlistincomeRequest) returns (BkprlistincomeResponse) {}
+	rpc Batching(BatchingRequest) returns (BatchingResponse) {}
 }
 
 message GetinfoRequest {
@@ -2260,4 +2261,11 @@ message BkprlistincomeIncome_events {
 	optional string outpoint = 8;
 	optional bytes txid = 9;
 	optional bytes payment_id = 10;
+}
+
+message BatchingRequest {
+	bool enable = 1;
+}
+
+message BatchingResponse {
 }

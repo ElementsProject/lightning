@@ -493,6 +493,9 @@
             "AutoCleanInvoice.enabled": 1,
             "AutoCleanInvoice.expired_by": 2
         },
+        "BatchingRequest": {
+            "Batching.enable": 1
+        },
         "Bkpr-listincomeIncome_events": {
             "Bkpr-ListIncome.income_events[].account": 1,
             "Bkpr-ListIncome.income_events[].credit_msat": 3,
@@ -2421,6 +2424,14 @@
             "deprecated": false
         },
         "AutoCleanInvoice.expired_by": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Batching": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Batching.enable": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

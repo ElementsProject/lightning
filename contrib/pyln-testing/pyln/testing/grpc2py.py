@@ -1742,3 +1742,8 @@ def bkpr_listincome2py(m):
     return remove_default({
         "income_events": [bkpr_listincome_income_events2py(i) for i in m.income_events],  # ArrayField[composite] in generate_composite
     })
+
+
+def batching2py(m):
+    return remove_default({
+    })

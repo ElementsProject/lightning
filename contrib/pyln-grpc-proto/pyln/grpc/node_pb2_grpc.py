@@ -374,6 +374,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.BkprlistincomeRequest.SerializeToString,
                 response_deserializer=node__pb2.BkprlistincomeResponse.FromString,
                 )
+        self.Batching = channel.unary_unary(
+                '/cln.Node/Batching',
+                request_serializer=node__pb2.BatchingRequest.SerializeToString,
+                response_deserializer=node__pb2.BatchingResponse.FromString,
+                )
 
 
 class NodeServicer(object):
@@ -811,6 +816,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Batching(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_NodeServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -1173,6 +1184,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.BkprListIncome,
                     request_deserializer=node__pb2.BkprlistincomeRequest.FromString,
                     response_serializer=node__pb2.BkprlistincomeResponse.SerializeToString,
+            ),
+            'Batching': grpc.unary_unary_rpc_method_handler(
+                    servicer.Batching,
+                    request_deserializer=node__pb2.BatchingRequest.FromString,
+                    response_serializer=node__pb2.BatchingResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -2405,5 +2421,22 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/BkprListIncome',
             node__pb2.BkprlistincomeRequest.SerializeToString,
             node__pb2.BkprlistincomeResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Batching(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/Batching',
+            node__pb2.BatchingRequest.SerializeToString,
+            node__pb2.BatchingResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

@@ -92,6 +92,7 @@ pub enum Request {
 	StaticBackup(requests::StaticbackupRequest),
 	#[serde(rename = "bkpr-listincome")]
 	BkprListIncome(requests::BkprlistincomeRequest),
+	Batching(requests::BatchingRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -173,6 +174,7 @@ pub enum Response {
 	StaticBackup(responses::StaticbackupResponse),
 	#[serde(rename = "bkpr-listincome")]
 	BkprListIncome(responses::BkprlistincomeResponse),
+	Batching(responses::BatchingResponse),
 }
 
 
@@ -2670,6 +2672,28 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "bkpr-listincome"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BatchingRequest {
+	    pub enable: bool,
+	}
+
+	impl From<BatchingRequest> for Request {
+	    fn from(r: BatchingRequest) -> Self {
+	        Request::Batching(r)
+	    }
+	}
+
+	impl IntoRequest for BatchingRequest {
+	    type Response = super::responses::BatchingResponse;
+	}
+
+	impl TypedRequest for BatchingRequest {
+	    type Response = super::responses::BatchingResponse;
+
+	    fn method(&self) -> &str {
+	        "batching"
 	    }
 	}
 }
@@ -6771,6 +6795,21 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::BkprListIncome(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BatchingResponse {
+	}
+
+	impl TryFrom<Response> for BatchingResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::Batching(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

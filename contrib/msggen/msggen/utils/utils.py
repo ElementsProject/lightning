@@ -147,6 +147,7 @@ def load_jsonrpc_service():
         "PreApproveInvoice",
         "StaticBackup",
         "Bkpr-ListIncome",
+        "Batching",
     ]
     methods = [load_jsonrpc_method(name) for name in method_names]
     service = Service(name="Node", methods=methods)

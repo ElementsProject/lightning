@@ -2330,4 +2330,36 @@ async fn bkpr_list_income(
 
 }
 
+async fn batching(
+    &self,
+    request: tonic::Request<pb::BatchingRequest>,
+) -> Result<tonic::Response<pb::BatchingResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::BatchingRequest = req.into();
+    debug!("Client asked for batching");
+    trace!("batching request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::Batching(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method Batching: {:?}", e)))?;
+    match result {
+        Response::Batching(r) => {
+           trace!("batching response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call Batching",
+                r
+            )
+        )),
+    }
+
+}
+
 }

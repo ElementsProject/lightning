@@ -2175,6 +2175,14 @@ impl From<responses::BkprlistincomeResponse> for pb::BkprlistincomeResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::BatchingResponse> for pb::BatchingResponse {
+    fn from(c: responses::BatchingResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::GetinfoRequest> for pb::GetinfoRequest {
     fn from(c: requests::GetinfoRequest) -> Self {
         Self {
@@ -3090,6 +3098,15 @@ impl From<requests::BkprlistincomeRequest> for pb::BkprlistincomeRequest {
     }
 }
 
+#[allow(unused_variables)]
+impl From<requests::BatchingRequest> for pb::BatchingRequest {
+    fn from(c: requests::BatchingRequest) -> Self {
+        Self {
+            enable: c.enable, // Rule #2 for type boolean
+        }
+    }
+}
+
 
 #[allow(unused_variables)]
 impl From<pb::GetinfoRequest> for requests::GetinfoRequest {
@@ -3982,6 +3999,15 @@ impl From<pb::BkprlistincomeRequest> for requests::BkprlistincomeRequest {
             consolidate_fees: c.consolidate_fees, // Rule #1 for type boolean?
             end_time: c.end_time, // Rule #1 for type u32?
             start_time: c.start_time, // Rule #1 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::BatchingRequest> for requests::BatchingRequest {
+    fn from(c: pb::BatchingRequest) -> Self {
+        Self {
+            enable: c.enable, // Rule #1 for type boolean
         }
     }
 }
