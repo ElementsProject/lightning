@@ -81,6 +81,39 @@ pub enum ChannelStateChangeCause {
     ONCHAIN,
 }
 
+#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
+#[allow(non_camel_case_types)]
+pub enum AutocleanSubsystem {
+    #[serde(rename = "succeededforwards")]
+    SUCCEEDEDFORWARDS = 0,
+    #[serde(rename = "failedforwards")]
+    FAILEDFORWARDS = 1,
+    #[serde(rename = "succeededpays")]
+    SUCCEEDEDPAYS = 2,
+    #[serde(rename = "failedpays")]
+    FAILEDPAYS = 3,
+    #[serde(rename = "paidinvoices")]
+    PAIDINVOICES = 4,
+    #[serde(rename = "expiredinvoices")]
+    EXPIREDINVOICES = 5,
+}
+
+impl TryFrom<i32> for AutocleanSubsystem {
+    type Error = crate::Error;
+
+    fn try_from(value: i32) -> std::result::Result<Self, Self::Error> {
+        match value {
+            0 => Ok(AutocleanSubsystem::SUCCEEDEDFORWARDS),
+            1 => Ok(AutocleanSubsystem::FAILEDFORWARDS),
+            2 => Ok(AutocleanSubsystem::SUCCEEDEDPAYS),
+            3 => Ok(AutocleanSubsystem::FAILEDPAYS),
+            4 => Ok(AutocleanSubsystem::PAIDINVOICES),
+            5 => Ok(AutocleanSubsystem::EXPIREDINVOICES),
+            _ => Err(anyhow!("Invalid AutocleanSubsystem {}", value)),
+        }
+    }
+}
+
 /// An `Amount` that can also be `any`. Useful for cases in which you
 /// want to delegate the Amount selection so someone else, e.g., an
 /// amountless invoice.

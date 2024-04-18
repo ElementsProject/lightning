@@ -24,6 +24,10 @@ pub enum Request {
 	ListChannels(requests::ListchannelsRequest),
 	AddGossip(requests::AddgossipRequest),
 	AutoCleanInvoice(requests::AutocleaninvoiceRequest),
+	#[serde(rename = "autoclean-once")]
+	AutoCleanOnce(requests::AutocleanonceRequest),
+	#[serde(rename = "autoclean-status")]
+	AutoCleanStatus(requests::AutocleanstatusRequest),
 	CheckMessage(requests::CheckmessageRequest),
 	Close(requests::CloseRequest),
 	Connect(requests::ConnectRequest),
@@ -101,6 +105,10 @@ pub enum Response {
 	ListChannels(responses::ListchannelsResponse),
 	AddGossip(responses::AddgossipResponse),
 	AutoCleanInvoice(responses::AutocleaninvoiceResponse),
+	#[serde(rename = "autoclean-once")]
+	AutoCleanOnce(responses::AutocleanonceResponse),
+	#[serde(rename = "autoclean-status")]
+	AutoCleanStatus(responses::AutocleanstatusResponse),
 	CheckMessage(responses::CheckmessageResponse),
 	Close(responses::CloseResponse),
 	Connect(responses::ConnectResponse),
@@ -415,6 +423,53 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "autocleaninvoice"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanonceRequest {
+	    // Path `AutoClean-Once.subsystem`
+	    pub subsystem: AutocleanSubsystem,
+	    pub age: u64,
+	}
+
+	impl From<AutocleanonceRequest> for Request {
+	    fn from(r: AutocleanonceRequest) -> Self {
+	        Request::AutoCleanOnce(r)
+	    }
+	}
+
+	impl IntoRequest for AutocleanonceRequest {
+	    type Response = super::responses::AutocleanonceResponse;
+	}
+
+	impl TypedRequest for AutocleanonceRequest {
+	    type Response = super::responses::AutocleanonceResponse;
+
+	    fn method(&self) -> &str {
+	        "autoclean-once"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanstatusRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub subsystem: Option<AutocleanSubsystem>,
+	}
+
+	impl From<AutocleanstatusRequest> for Request {
+	    fn from(r: AutocleanstatusRequest) -> Self {
+	        Request::AutoCleanStatus(r)
+	    }
+	}
+
+	impl IntoRequest for AutocleanstatusRequest {
+	    type Response = super::responses::AutocleanstatusResponse;
+	}
+
+	impl TypedRequest for AutocleanstatusRequest {
+	    type Response = super::responses::AutocleanstatusResponse;
+
+	    fn method(&self) -> &str {
+	        "autoclean-status"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3113,6 +3168,154 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::AutoCleanInvoice(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanonceAutocleanExpiredinvoices {
+	    pub cleaned: u64,
+	    pub uncleaned: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanonceAutocleanFailedforwards {
+	    pub cleaned: u64,
+	    pub uncleaned: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanonceAutocleanFailedpays {
+	    pub cleaned: u64,
+	    pub uncleaned: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanonceAutocleanPaidinvoices {
+	    pub cleaned: u64,
+	    pub uncleaned: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanonceAutocleanSucceededforwards {
+	    pub cleaned: u64,
+	    pub uncleaned: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanonceAutocleanSucceededpays {
+	    pub cleaned: u64,
+	    pub uncleaned: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanonceAutoclean {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub expiredinvoices: Option<AutocleanonceAutocleanExpiredinvoices>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub failedforwards: Option<AutocleanonceAutocleanFailedforwards>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub failedpays: Option<AutocleanonceAutocleanFailedpays>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub paidinvoices: Option<AutocleanonceAutocleanPaidinvoices>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub succeededforwards: Option<AutocleanonceAutocleanSucceededforwards>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub succeededpays: Option<AutocleanonceAutocleanSucceededpays>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanonceResponse {
+	    pub autoclean: AutocleanonceAutoclean,
+	}
+
+	impl TryFrom<Response> for AutocleanonceResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AutoCleanOnce(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanstatusAutocleanExpiredinvoices {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub age: Option<u64>,
+	    pub cleaned: u64,
+	    pub enabled: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanstatusAutocleanFailedforwards {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub age: Option<u64>,
+	    pub cleaned: u64,
+	    pub enabled: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanstatusAutocleanFailedpays {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub age: Option<u64>,
+	    pub cleaned: u64,
+	    pub enabled: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanstatusAutocleanPaidinvoices {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub age: Option<u64>,
+	    pub cleaned: u64,
+	    pub enabled: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanstatusAutocleanSucceededforwards {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub age: Option<u64>,
+	    pub cleaned: u64,
+	    pub enabled: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanstatusAutocleanSucceededpays {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub age: Option<u64>,
+	    pub cleaned: u64,
+	    pub enabled: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanstatusAutoclean {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub expiredinvoices: Option<AutocleanstatusAutocleanExpiredinvoices>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub failedforwards: Option<AutocleanstatusAutocleanFailedforwards>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub failedpays: Option<AutocleanstatusAutocleanFailedpays>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub paidinvoices: Option<AutocleanstatusAutocleanPaidinvoices>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub succeededforwards: Option<AutocleanstatusAutocleanSucceededforwards>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub succeededpays: Option<AutocleanstatusAutocleanSucceededpays>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanstatusResponse {
+	    pub autoclean: AutocleanstatusAutoclean,
+	}
+
+	impl TryFrom<Response> for AutocleanstatusResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AutoCleanStatus(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

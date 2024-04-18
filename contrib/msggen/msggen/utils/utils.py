@@ -65,6 +65,8 @@ def load_jsonrpc_service():
         "ListChannels",
         "AddGossip",
         "AutoCleanInvoice",
+        "AutoClean-Once",
+        "AutoClean-Status",
         "CheckMessage",
         "Close",
         "Connect",

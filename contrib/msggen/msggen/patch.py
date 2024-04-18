@@ -186,6 +186,8 @@ class OverridePatch(Patch):
         'OpenChannel_Init.channel_type.names[]': 'ChannelTypeName',
         'OpenChannel_Bump.channel_type.names[]': 'ChannelTypeName',
         'OpenChannel_Update.channel_type.names[]': 'ChannelTypeName',
+        'AutoClean-Once.subsystem': "AutocleanSubsystem",
+        'AutoClean-Status.subsystem': "AutocleanSubsystem",
     }
 
     def visit(self, f: model.Field) -> None:
