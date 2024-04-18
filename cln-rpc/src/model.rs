@@ -30,6 +30,13 @@ pub enum Request {
 	AutoCleanStatus(requests::AutocleanstatusRequest),
 	CheckMessage(requests::CheckmessageRequest),
 	Close(requests::CloseRequest),
+	#[serde(rename = "commando-blacklist")]
+	CommandoBlacklist(requests::CommandoblacklistRequest),
+	#[serde(rename = "commando-listrunes")]
+	CommandoListRunes(requests::CommandolistrunesRequest),
+	#[serde(rename = "commando-rune")]
+	CommandoRune(requests::CommandoruneRequest),
+	Commando(requests::CommandoRequest),
 	Connect(requests::ConnectRequest),
 	CreateInvoice(requests::CreateinvoiceRequest),
 	Datastore(requests::DatastoreRequest),
@@ -115,6 +122,13 @@ pub enum Response {
 	AutoCleanStatus(responses::AutocleanstatusResponse),
 	CheckMessage(responses::CheckmessageResponse),
 	Close(responses::CloseResponse),
+	#[serde(rename = "commando-blacklist")]
+	CommandoBlacklist(responses::CommandoblacklistResponse),
+	#[serde(rename = "commando-listrunes")]
+	CommandoListRunes(responses::CommandolistrunesResponse),
+	#[serde(rename = "commando-rune")]
+	CommandoRune(responses::CommandoruneResponse),
+	Commando(responses::CommandoResponse),
 	Connect(responses::ConnectResponse),
 	CreateInvoice(responses::CreateinvoiceResponse),
 	Datastore(responses::DatastoreResponse),
@@ -537,6 +551,108 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "close"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CommandoblacklistRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub end: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub start: Option<u64>,
+	}
+
+	impl From<CommandoblacklistRequest> for Request {
+	    fn from(r: CommandoblacklistRequest) -> Self {
+	        Request::CommandoBlacklist(r)
+	    }
+	}
+
+	impl IntoRequest for CommandoblacklistRequest {
+	    type Response = super::responses::CommandoblacklistResponse;
+	}
+
+	impl TypedRequest for CommandoblacklistRequest {
+	    type Response = super::responses::CommandoblacklistResponse;
+
+	    fn method(&self) -> &str {
+	        "commando-blacklist"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CommandolistrunesRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub rune: Option<String>,
+	}
+
+	impl From<CommandolistrunesRequest> for Request {
+	    fn from(r: CommandolistrunesRequest) -> Self {
+	        Request::CommandoListRunes(r)
+	    }
+	}
+
+	impl IntoRequest for CommandolistrunesRequest {
+	    type Response = super::responses::CommandolistrunesResponse;
+	}
+
+	impl TypedRequest for CommandolistrunesRequest {
+	    type Response = super::responses::CommandolistrunesResponse;
+
+	    fn method(&self) -> &str {
+	        "commando-listrunes"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CommandoruneRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub rune: Option<String>,
+	}
+
+	impl From<CommandoruneRequest> for Request {
+	    fn from(r: CommandoruneRequest) -> Self {
+	        Request::CommandoRune(r)
+	    }
+	}
+
+	impl IntoRequest for CommandoruneRequest {
+	    type Response = super::responses::CommandoruneResponse;
+	}
+
+	impl TypedRequest for CommandoruneRequest {
+	    type Response = super::responses::CommandoruneResponse;
+
+	    fn method(&self) -> &str {
+	        "commando-rune"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CommandoFilter {
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CommandoRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub filter: Option<CommandoFilter>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub rune: Option<String>,
+	    pub method: String,
+	    pub peer_id: PublicKey,
+	}
+
+	impl From<CommandoRequest> for Request {
+	    fn from(r: CommandoRequest) -> Self {
+	        Request::Commando(r)
+	    }
+	}
+
+	impl IntoRequest for CommandoRequest {
+	    type Response = super::responses::CommandoResponse;
+	}
+
+	impl TypedRequest for CommandoRequest {
+	    type Response = super::responses::CommandoResponse;
+
+	    fn method(&self) -> &str {
+	        "commando"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3536,6 +3652,108 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::Close(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CommandoblacklistBlacklist {
+	    pub end: u64,
+	    pub start: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CommandoblacklistResponse {
+	    pub blacklist: Vec<CommandoblacklistBlacklist>,
+	}
+
+	impl TryFrom<Response> for CommandoblacklistResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::CommandoBlacklist(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CommandolistrunesRunesRestrictionsAlternatives {
+	    pub condition: String,
+	    pub english: String,
+	    pub fieldname: String,
+	    pub value: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CommandolistrunesRunesRestrictions {
+	    pub alternatives: Vec<CommandolistrunesRunesRestrictionsAlternatives>,
+	    pub english: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CommandolistrunesRunes {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub blacklisted: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub last_used: Option<f64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub our_rune: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub stored: Option<bool>,
+	    pub restrictions: Vec<CommandolistrunesRunesRestrictions>,
+	    pub restrictions_as_english: String,
+	    pub rune: String,
+	    pub unique_id: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CommandolistrunesResponse {
+	    pub runes: Vec<CommandolistrunesRunes>,
+	}
+
+	impl TryFrom<Response> for CommandolistrunesResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::CommandoListRunes(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CommandoruneResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_unrestricted_rune: Option<String>,
+	    pub rune: String,
+	    pub unique_id: String,
+	}
+
+	impl TryFrom<Response> for CommandoruneResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::CommandoRune(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CommandoResponse {
+	}
+
+	impl TryFrom<Response> for CommandoResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::Commando(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

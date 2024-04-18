@@ -69,6 +69,26 @@ class NodeStub(object):
                 request_serializer=node__pb2.CloseRequest.SerializeToString,
                 response_deserializer=node__pb2.CloseResponse.FromString,
                 )
+        self.CommandoBlacklist = channel.unary_unary(
+                '/cln.Node/CommandoBlacklist',
+                request_serializer=node__pb2.CommandoblacklistRequest.SerializeToString,
+                response_deserializer=node__pb2.CommandoblacklistResponse.FromString,
+                )
+        self.CommandoListRunes = channel.unary_unary(
+                '/cln.Node/CommandoListRunes',
+                request_serializer=node__pb2.CommandolistrunesRequest.SerializeToString,
+                response_deserializer=node__pb2.CommandolistrunesResponse.FromString,
+                )
+        self.CommandoRune = channel.unary_unary(
+                '/cln.Node/CommandoRune',
+                request_serializer=node__pb2.CommandoruneRequest.SerializeToString,
+                response_deserializer=node__pb2.CommandoruneResponse.FromString,
+                )
+        self.Commando = channel.unary_unary(
+                '/cln.Node/Commando',
+                request_serializer=node__pb2.CommandoRequest.SerializeToString,
+                response_deserializer=node__pb2.CommandoResponse.FromString,
+                )
         self.ConnectPeer = channel.unary_unary(
                 '/cln.Node/ConnectPeer',
                 request_serializer=node__pb2.ConnectRequest.SerializeToString,
@@ -460,6 +480,30 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def Close(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CommandoBlacklist(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CommandoListRunes(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CommandoRune(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Commando(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -912,6 +956,26 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.Close,
                     request_deserializer=node__pb2.CloseRequest.FromString,
                     response_serializer=node__pb2.CloseResponse.SerializeToString,
+            ),
+            'CommandoBlacklist': grpc.unary_unary_rpc_method_handler(
+                    servicer.CommandoBlacklist,
+                    request_deserializer=node__pb2.CommandoblacklistRequest.FromString,
+                    response_serializer=node__pb2.CommandoblacklistResponse.SerializeToString,
+            ),
+            'CommandoListRunes': grpc.unary_unary_rpc_method_handler(
+                    servicer.CommandoListRunes,
+                    request_deserializer=node__pb2.CommandolistrunesRequest.FromString,
+                    response_serializer=node__pb2.CommandolistrunesResponse.SerializeToString,
+            ),
+            'CommandoRune': grpc.unary_unary_rpc_method_handler(
+                    servicer.CommandoRune,
+                    request_deserializer=node__pb2.CommandoruneRequest.FromString,
+                    response_serializer=node__pb2.CommandoruneResponse.SerializeToString,
+            ),
+            'Commando': grpc.unary_unary_rpc_method_handler(
+                    servicer.Commando,
+                    request_deserializer=node__pb2.CommandoRequest.FromString,
+                    response_serializer=node__pb2.CommandoResponse.SerializeToString,
             ),
             'ConnectPeer': grpc.unary_unary_rpc_method_handler(
                     servicer.ConnectPeer,
@@ -1432,6 +1496,74 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/Close',
             node__pb2.CloseRequest.SerializeToString,
             node__pb2.CloseResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def CommandoBlacklist(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/CommandoBlacklist',
+            node__pb2.CommandoblacklistRequest.SerializeToString,
+            node__pb2.CommandoblacklistResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def CommandoListRunes(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/CommandoListRunes',
+            node__pb2.CommandolistrunesRequest.SerializeToString,
+            node__pb2.CommandolistrunesResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def CommandoRune(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/CommandoRune',
+            node__pb2.CommandoruneRequest.SerializeToString,
+            node__pb2.CommandoruneResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Commando(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/Commando',
+            node__pb2.CommandoRequest.SerializeToString,
+            node__pb2.CommandoResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

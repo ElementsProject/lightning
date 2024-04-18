@@ -378,6 +378,134 @@ async fn close(
 
 }
 
+async fn commando_blacklist(
+    &self,
+    request: tonic::Request<pb::CommandoblacklistRequest>,
+) -> Result<tonic::Response<pb::CommandoblacklistResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::CommandoblacklistRequest = req.into();
+    debug!("Client asked for commando_blacklist");
+    trace!("commando_blacklist request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::CommandoBlacklist(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method CommandoBlacklist: {:?}", e)))?;
+    match result {
+        Response::CommandoBlacklist(r) => {
+           trace!("commando_blacklist response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call CommandoBlacklist",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn commando_list_runes(
+    &self,
+    request: tonic::Request<pb::CommandolistrunesRequest>,
+) -> Result<tonic::Response<pb::CommandolistrunesResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::CommandolistrunesRequest = req.into();
+    debug!("Client asked for commando_list_runes");
+    trace!("commando_list_runes request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::CommandoListRunes(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method CommandoListRunes: {:?}", e)))?;
+    match result {
+        Response::CommandoListRunes(r) => {
+           trace!("commando_list_runes response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call CommandoListRunes",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn commando_rune(
+    &self,
+    request: tonic::Request<pb::CommandoruneRequest>,
+) -> Result<tonic::Response<pb::CommandoruneResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::CommandoruneRequest = req.into();
+    debug!("Client asked for commando_rune");
+    trace!("commando_rune request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::CommandoRune(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method CommandoRune: {:?}", e)))?;
+    match result {
+        Response::CommandoRune(r) => {
+           trace!("commando_rune response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call CommandoRune",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn commando(
+    &self,
+    request: tonic::Request<pb::CommandoRequest>,
+) -> Result<tonic::Response<pb::CommandoResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::CommandoRequest = req.into();
+    debug!("Client asked for commando");
+    trace!("commando request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::Commando(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method Commando: {:?}", e)))?;
+    match result {
+        Response::Commando(r) => {
+           trace!("commando response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call Commando",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn connect_peer(
     &self,
     request: tonic::Request<pb::ConnectRequest>,

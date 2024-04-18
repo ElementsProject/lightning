@@ -319,6 +319,67 @@ def close2py(m):
     })
 
 
+def commando_blacklist_blacklist2py(m):
+    return remove_default({
+        "end": m.end,  # PrimitiveField in generate_composite
+        "start": m.start,  # PrimitiveField in generate_composite
+    })
+
+
+def commando_blacklist2py(m):
+    return remove_default({
+        "blacklist": [commando_blacklist_blacklist2py(i) for i in m.blacklist],  # ArrayField[composite] in generate_composite
+    })
+
+
+def commando_listrunes_runes_restrictions_alternatives2py(m):
+    return remove_default({
+        "condition": m.condition,  # PrimitiveField in generate_composite
+        "english": m.english,  # PrimitiveField in generate_composite
+        "fieldname": m.fieldname,  # PrimitiveField in generate_composite
+        "value": m.value,  # PrimitiveField in generate_composite
+    })
+
+
+def commando_listrunes_runes_restrictions2py(m):
+    return remove_default({
+        "alternatives": [commando_listrunes_runes_restrictions_alternatives2py(i) for i in m.alternatives],  # ArrayField[composite] in generate_composite
+        "english": m.english,  # PrimitiveField in generate_composite
+    })
+
+
+def commando_listrunes_runes2py(m):
+    return remove_default({
+        "restrictions": [commando_listrunes_runes_restrictions2py(i) for i in m.restrictions],  # ArrayField[composite] in generate_composite
+        "blacklisted": m.blacklisted,  # PrimitiveField in generate_composite
+        "last_used": m.last_used,  # PrimitiveField in generate_composite
+        "our_rune": m.our_rune,  # PrimitiveField in generate_composite
+        "restrictions_as_english": m.restrictions_as_english,  # PrimitiveField in generate_composite
+        "rune": m.rune,  # PrimitiveField in generate_composite
+        "stored": m.stored,  # PrimitiveField in generate_composite
+        "unique_id": m.unique_id,  # PrimitiveField in generate_composite
+    })
+
+
+def commando_listrunes2py(m):
+    return remove_default({
+        "runes": [commando_listrunes_runes2py(i) for i in m.runes],  # ArrayField[composite] in generate_composite
+    })
+
+
+def commando_rune2py(m):
+    return remove_default({
+        "rune": m.rune,  # PrimitiveField in generate_composite
+        "unique_id": m.unique_id,  # PrimitiveField in generate_composite
+        "warning_unrestricted_rune": m.warning_unrestricted_rune,  # PrimitiveField in generate_composite
+    })
+
+
+def commando2py(m):
+    return remove_default({
+    })
+
+
 def connect_address2py(m):
     return remove_default({
         "type": str(m.item_type),  # EnumField in generate_composite

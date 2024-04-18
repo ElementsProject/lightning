@@ -436,6 +436,95 @@ impl From<responses::CloseResponse> for pb::CloseResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::CommandoblacklistBlacklist> for pb::CommandoblacklistBlacklist {
+    fn from(c: responses::CommandoblacklistBlacklist) -> Self {
+        Self {
+            end: c.end, // Rule #2 for type u64
+            start: c.start, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::CommandoblacklistResponse> for pb::CommandoblacklistResponse {
+    fn from(c: responses::CommandoblacklistResponse) -> Self {
+        Self {
+            // Field: Commando-Blacklist.blacklist[]
+            blacklist: c.blacklist.into_iter().map(|i| i.into()).collect(), // Rule #3 for type CommandoblacklistBlacklist
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::CommandolistrunesRunesRestrictionsAlternatives> for pb::CommandolistrunesRunesRestrictionsAlternatives {
+    fn from(c: responses::CommandolistrunesRunesRestrictionsAlternatives) -> Self {
+        Self {
+            condition: c.condition, // Rule #2 for type string
+            english: c.english, // Rule #2 for type string
+            fieldname: c.fieldname, // Rule #2 for type string
+            value: c.value, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::CommandolistrunesRunesRestrictions> for pb::CommandolistrunesRunesRestrictions {
+    fn from(c: responses::CommandolistrunesRunesRestrictions) -> Self {
+        Self {
+            // Field: Commando-ListRunes.runes[].restrictions[].alternatives[]
+            alternatives: c.alternatives.into_iter().map(|i| i.into()).collect(), // Rule #3 for type CommandolistrunesRunesRestrictionsAlternatives
+            english: c.english, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::CommandolistrunesRunes> for pb::CommandolistrunesRunes {
+    fn from(c: responses::CommandolistrunesRunes) -> Self {
+        Self {
+            blacklisted: c.blacklisted, // Rule #2 for type boolean?
+            last_used: c.last_used, // Rule #2 for type number?
+            our_rune: c.our_rune, // Rule #2 for type boolean?
+            // Field: Commando-ListRunes.runes[].restrictions[]
+            restrictions: c.restrictions.into_iter().map(|i| i.into()).collect(), // Rule #3 for type CommandolistrunesRunesRestrictions
+            restrictions_as_english: c.restrictions_as_english, // Rule #2 for type string
+            rune: c.rune, // Rule #2 for type string
+            stored: c.stored, // Rule #2 for type boolean?
+            unique_id: c.unique_id, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::CommandolistrunesResponse> for pb::CommandolistrunesResponse {
+    fn from(c: responses::CommandolistrunesResponse) -> Self {
+        Self {
+            // Field: Commando-ListRunes.runes[]
+            runes: c.runes.into_iter().map(|i| i.into()).collect(), // Rule #3 for type CommandolistrunesRunes
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::CommandoruneResponse> for pb::CommandoruneResponse {
+    fn from(c: responses::CommandoruneResponse) -> Self {
+        Self {
+            rune: c.rune, // Rule #2 for type string
+            unique_id: c.unique_id, // Rule #2 for type string
+            warning_unrestricted_rune: c.warning_unrestricted_rune, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::CommandoResponse> for pb::CommandoResponse {
+    fn from(c: responses::CommandoResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::ConnectAddress> for pb::ConnectAddress {
     fn from(c: responses::ConnectAddress) -> Self {
         Self {
@@ -2363,6 +2452,54 @@ impl From<requests::CloseRequest> for pb::CloseRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::CommandoblacklistRequest> for pb::CommandoblacklistRequest {
+    fn from(c: requests::CommandoblacklistRequest) -> Self {
+        Self {
+            end: c.end, // Rule #2 for type u64?
+            start: c.start, // Rule #2 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::CommandolistrunesRequest> for pb::CommandolistrunesRequest {
+    fn from(c: requests::CommandolistrunesRequest) -> Self {
+        Self {
+            rune: c.rune, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::CommandoruneRequest> for pb::CommandoruneRequest {
+    fn from(c: requests::CommandoruneRequest) -> Self {
+        Self {
+            rune: c.rune, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::CommandoFilter> for pb::CommandoFilter {
+    fn from(c: requests::CommandoFilter) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::CommandoRequest> for pb::CommandoRequest {
+    fn from(c: requests::CommandoRequest) -> Self {
+        Self {
+            filter: c.filter.map(|v| v.into()),
+            method: c.method, // Rule #2 for type string
+            peer_id: c.peer_id.serialize().to_vec(), // Rule #2 for type pubkey
+            rune: c.rune, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::ConnectRequest> for pb::ConnectRequest {
     fn from(c: requests::ConnectRequest) -> Self {
         Self {
@@ -3321,6 +3458,54 @@ impl From<pb::CloseRequest> for requests::CloseRequest {
             id: c.id, // Rule #1 for type string
             unilateraltimeout: c.unilateraltimeout, // Rule #1 for type u32?
             wrong_funding: c.wrong_funding.map(|a| a.into()), // Rule #1 for type outpoint?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::CommandoblacklistRequest> for requests::CommandoblacklistRequest {
+    fn from(c: pb::CommandoblacklistRequest) -> Self {
+        Self {
+            end: c.end, // Rule #1 for type u64?
+            start: c.start, // Rule #1 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::CommandolistrunesRequest> for requests::CommandolistrunesRequest {
+    fn from(c: pb::CommandolistrunesRequest) -> Self {
+        Self {
+            rune: c.rune, // Rule #1 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::CommandoruneRequest> for requests::CommandoruneRequest {
+    fn from(c: pb::CommandoruneRequest) -> Self {
+        Self {
+            rune: c.rune, // Rule #1 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::CommandoFilter> for requests::CommandoFilter {
+    fn from(c: pb::CommandoFilter) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::CommandoRequest> for requests::CommandoRequest {
+    fn from(c: pb::CommandoRequest) -> Self {
+        Self {
+            filter: c.filter.map(|v| v.into()),
+            method: c.method, // Rule #1 for type string
+            peer_id: PublicKey::from_slice(&c.peer_id).unwrap(), // Rule #1 for type pubkey
+            rune: c.rune, // Rule #1 for type string?
         }
     }
 }

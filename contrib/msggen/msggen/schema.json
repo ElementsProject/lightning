@@ -3553,7 +3553,7 @@
                 "description": [
                   "The last time this rune was successfully used."
                 ],
-                "added": "23.11"
+                "added": "v23.11"
               },
               "our_rune": {
                 "type": "boolean",

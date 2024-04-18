@@ -19,6 +19,10 @@ service Node {
 	rpc AutoCleanStatus(AutocleanstatusRequest) returns (AutocleanstatusResponse) {}
 	rpc CheckMessage(CheckmessageRequest) returns (CheckmessageResponse) {}
 	rpc Close(CloseRequest) returns (CloseResponse) {}
+	rpc CommandoBlacklist(CommandoblacklistRequest) returns (CommandoblacklistResponse) {}
+	rpc CommandoListRunes(CommandolistrunesRequest) returns (CommandolistrunesResponse) {}
+	rpc CommandoRune(CommandoruneRequest) returns (CommandoruneResponse) {}
+	rpc Commando(CommandoRequest) returns (CommandoResponse) {}
 	rpc ConnectPeer(ConnectRequest) returns (ConnectResponse) {}
 	rpc CreateInvoice(CreateinvoiceRequest) returns (CreateinvoiceResponse) {}
 	rpc Datastore(DatastoreRequest) returns (DatastoreResponse) {}
@@ -459,6 +463,74 @@ message CloseResponse {
 	CloseType item_type = 1;
 	optional bytes tx = 2;
 	optional bytes txid = 3;
+}
+
+message CommandoblacklistRequest {
+	optional uint64 start = 1;
+	optional uint64 end = 2;
+}
+
+message CommandoblacklistResponse {
+	repeated CommandoblacklistBlacklist blacklist = 1;
+}
+
+message CommandoblacklistBlacklist {
+	uint64 start = 1;
+	uint64 end = 2;
+}
+
+message CommandolistrunesRequest {
+	optional string rune = 1;
+}
+
+message CommandolistrunesResponse {
+	repeated CommandolistrunesRunes runes = 1;
+}
+
+message CommandolistrunesRunes {
+	string rune = 1;
+	string unique_id = 2;
+	repeated CommandolistrunesRunesRestrictions restrictions = 3;
+	string restrictions_as_english = 4;
+	optional bool stored = 5;
+	optional bool blacklisted = 6;
+	optional double last_used = 7;
+	optional bool our_rune = 8;
+}
+
+message CommandolistrunesRunesRestrictions {
+	repeated CommandolistrunesRunesRestrictionsAlternatives alternatives = 1;
+	string english = 2;
+}
+
+message CommandolistrunesRunesRestrictionsAlternatives {
+	string fieldname = 1;
+	string value = 2;
+	string condition = 3;
+	string english = 4;
+}
+
+message CommandoruneRequest {
+	optional string rune = 1;
+}
+
+message CommandoruneResponse {
+	string rune = 1;
+	string unique_id = 2;
+	optional string warning_unrestricted_rune = 3;
+}
+
+message CommandoRequest {
+	bytes peer_id = 1;
+	string method = 2;
+	optional string rune = 3;
+	optional CommandoFilter filter = 4;
+}
+
+message CommandoResponse {
+}
+
+message CommandoFilter {
 }
 
 message ConnectRequest {
