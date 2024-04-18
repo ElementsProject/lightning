@@ -309,7 +309,7 @@ class RustGenerator(IGenerator):
             type Response = super::responses::{method.response.typename};
 
             fn method(&self) -> &str {{
-                "{method.name.lower()}"
+                "{method.name_raw.lower()}"
             }}
         }}
         """), numindent=1)
@@ -361,6 +361,8 @@ class RustGenerator(IGenerator):
         """)
 
         for method in service.methods:
+            if '-' in method.name_raw:
+                self.write(f'#[serde(rename = "{method.name_raw.lower()}")]\n', numindent=1)
             self.write(f"{method.name}(requests::{method.request.typename}),\n", numindent=1)
 
         self.write(f"""\
@@ -373,6 +375,8 @@ class RustGenerator(IGenerator):
         """)
 
         for method in service.methods:
+            if '-' in method.name_raw:
+                self.write(f'#[serde(rename = "{method.name_raw.lower()}")]\n', numindent=1)
             self.write(f"{method.name}(responses::{method.response.typename}),\n", numindent=1)
 
         self.write(f"""\

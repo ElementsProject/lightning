@@ -172,6 +172,7 @@ class Service:
 class Method:
     def __init__(self, name: str, request: Field, response: Field):
         self.name = name
+        self.name_raw = name
         self.request = request
         self.response = response
 
