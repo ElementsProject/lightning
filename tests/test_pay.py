@@ -5588,3 +5588,20 @@ def test_pay_partial_msat(node_factory, executor):
 
     l1pay.result(TIMEOUT)
     l3pay.result(TIMEOUT)
+
+
+@pytest.mark.xfail(strict=True)
+def test_pay_while_opening_channel(node_factory, bitcoind, executor):
+    delay_plugin = {'plugin': os.path.join(os.getcwd(),
+                                           'tests/plugins/openchannel_hook_delay.py'),
+                    'delaytime': '10'}
+    l1, l2 = node_factory.line_graph(2, fundamount=10**6, wait_for_announce=True)
+    l3 = node_factory.get_node(options=delay_plugin)
+    l1.connect(l3)
+    executor.submit(l1.rpc.fundchannel, l3.info['id'], 100000)
+    wait_for(lambda: l1.rpc.listpeerchannels(l3.info['id'])['channels'] != [])
+
+    # the uncommitted channel should now show up in listpeerchannels
+    assert only_one(l1.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'OPENINGD'
+    inv = l2.rpc.invoice(10000, "inv", "inv")
+    l1.rpc.pay(inv['bolt11'])
