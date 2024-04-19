@@ -562,7 +562,7 @@ struct getrawblock_stash {
 	const char *block_hex;
 };
 
-static struct command_result *process_getrawblock(struct bitcoin_cli *bcli)
+static struct command_result *process_rawblock(struct bitcoin_cli *bcli)
 {
 	struct json_stream *response;
 	struct getrawblock_stash *stash = bcli->stash;
@@ -575,6 +575,17 @@ static struct command_result *process_getrawblock(struct bitcoin_cli *bcli)
 	json_add_string(response, "block", stash->block_hex);
 
 	return command_finished(bcli->cmd, response);
+}
+
+static struct command_result *process_getrawblock(struct bitcoin_cli *bcli)
+{
+	/* We failed to get the raw block. */
+	if (bcli->exitstatus && *bcli->exitstatus != 0) {
+		/* retry */
+		return NULL;
+	}
+
+	return process_rawblock(bcli);
 }
 
 static struct command_result *
@@ -607,7 +618,7 @@ static struct command_result *process_getblockhash(struct bitcoin_cli *bcli)
 		return command_err_bcli_badjson(bcli, "bad blockhash");
 	}
 
-	start_bitcoin_cli(NULL, bcli->cmd, process_getrawblock, false,
+	start_bitcoin_cli(NULL, bcli->cmd, process_getrawblock, true,
 			  BITCOIND_HIGH_PRIO, stash,
 			  "getblock",
 			  stash->block_hash,
