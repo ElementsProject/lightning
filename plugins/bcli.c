@@ -600,6 +600,19 @@ getrawblockbyheight_notfound(struct bitcoin_cli *bcli)
 	return command_finished(bcli->cmd, response);
 }
 
+static struct command_result *getrawblock(struct bitcoin_cli *bcli)
+{
+	struct getrawblock_stash *stash = bcli->stash;
+
+	start_bitcoin_cli(NULL, bcli->cmd, process_getrawblock, true,
+			  BITCOIND_HIGH_PRIO, stash, "getblock",
+			  stash->block_hash,
+			  /* Non-verbose: raw block. */
+			  "0", NULL);
+
+	return command_still_pending(bcli->cmd);
+}
+
 static struct command_result *process_getblockhash(struct bitcoin_cli *bcli)
 {
 	struct getrawblock_stash *stash = bcli->stash;
@@ -618,15 +631,7 @@ static struct command_result *process_getblockhash(struct bitcoin_cli *bcli)
 		return command_err_bcli_badjson(bcli, "bad blockhash");
 	}
 
-	start_bitcoin_cli(NULL, bcli->cmd, process_getrawblock, true,
-			  BITCOIND_HIGH_PRIO, stash,
-			  "getblock",
-			  stash->block_hash,
-			  /* Non-verbose: raw block. */
-			  "0",
-			  NULL);
-
-	return command_still_pending(bcli->cmd);
+	return getrawblock(bcli);
 }
 
 /* Get a raw block given its height.
