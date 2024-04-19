@@ -68,6 +68,7 @@ class GrpcConverterGenerator(IGenerator):
                     "hex": f"hex::decode(i).unwrap()",
                     "secret": f"i.to_vec()",
                     "hash": f"<Sha256 as AsRef<[u8]>>::as_ref(&i).to_vec()",
+                    "short_channel_id": f"i.to_string()",
                 }.get(typ, f"i.into()")
 
                 self.write(f"// Field: {f.path}\n", numindent=3)
