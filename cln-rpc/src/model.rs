@@ -94,6 +94,7 @@ pub enum Request {
 	SendInvoice(requests::SendinvoiceRequest),
 	SendOnionMessage(requests::SendonionmessageRequest),
 	SetChannel(requests::SetchannelRequest),
+	SetConfig(requests::SetconfigRequest),
 	SignInvoice(requests::SigninvoiceRequest),
 	SignMessage(requests::SignmessageRequest),
 	Splice_Init(requests::Splice_initRequest),
@@ -201,6 +202,7 @@ pub enum Response {
 	SendInvoice(responses::SendinvoiceResponse),
 	SendOnionMessage(responses::SendonionmessageResponse),
 	SetChannel(responses::SetchannelResponse),
+	SetConfig(responses::SetconfigResponse),
 	SignInvoice(responses::SigninvoiceResponse),
 	SignMessage(responses::SignmessageResponse),
 	Splice_Init(responses::Splice_initResponse),
@@ -2850,6 +2852,30 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "setchannel"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SetconfigRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub val: Option<String>,
+	    pub config: String,
+	}
+
+	impl From<SetconfigRequest> for Request {
+	    fn from(r: SetconfigRequest) -> Self {
+	        Request::SetConfig(r)
+	    }
+	}
+
+	impl IntoRequest for SetconfigRequest {
+	    type Response = super::responses::SetconfigResponse;
+	}
+
+	impl TypedRequest for SetconfigRequest {
+	    type Response = super::responses::SetconfigResponse;
+
+	    fn method(&self) -> &str {
+	        "setconfig"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -7605,6 +7631,41 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::SetChannel(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SetconfigConfig {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub plugin: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub set: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub value_bool: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub value_int: Option<i64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub value_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub value_str: Option<String>,
+	    pub config: String,
+	    pub dynamic: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SetconfigResponse {
+	    pub config: SetconfigConfig,
+	}
+
+	impl TryFrom<Response> for SetconfigResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::SetConfig(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

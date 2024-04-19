@@ -2350,6 +2350,24 @@
         "SetchannelResponse": {
             "SetChannel.channels[]": 1
         },
+        "SetconfigConfig": {
+            "SetConfig.config.config": 1,
+            "SetConfig.config.dynamic": 4,
+            "SetConfig.config.plugin": 3,
+            "SetConfig.config.set": 5,
+            "SetConfig.config.source": 2,
+            "SetConfig.config.value_bool": 9,
+            "SetConfig.config.value_int": 8,
+            "SetConfig.config.value_msat": 7,
+            "SetConfig.config.value_str": 6
+        },
+        "SetconfigRequest": {
+            "SetConfig.config": 1,
+            "SetConfig.val": 2
+        },
+        "SetconfigResponse": {
+            "SetConfig.config": 1
+        },
         "SigninvoiceRequest": {
             "SignInvoice.invstring": 1
         },
@@ -8234,6 +8252,54 @@
         },
         "SetChannel.ignorefeelimits": {
             "added": "v23.08",
+            "deprecated": false
+        },
+        "SetConfig": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SetConfig.config": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetConfig.config.config": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetConfig.config.dynamic": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetConfig.config.plugin": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetConfig.config.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetConfig.config.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetConfig.config.value_bool": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetConfig.config.value_int": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetConfig.config.value_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetConfig.config.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetConfig.val": {
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "SignInvoice": {

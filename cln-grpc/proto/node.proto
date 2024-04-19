@@ -83,6 +83,7 @@ service Node {
 	rpc SendInvoice(SendinvoiceRequest) returns (SendinvoiceResponse) {}
 	rpc SendOnionMessage(SendonionmessageRequest) returns (SendonionmessageResponse) {}
 	rpc SetChannel(SetchannelRequest) returns (SetchannelResponse) {}
+	rpc SetConfig(SetconfigRequest) returns (SetconfigResponse) {}
 	rpc SignInvoice(SigninvoiceRequest) returns (SigninvoiceResponse) {}
 	rpc SignMessage(SignmessageRequest) returns (SignmessageResponse) {}
 	rpc Splice_Init(Splice_initRequest) returns (Splice_initResponse) {}
@@ -2392,6 +2393,27 @@ message SetchannelChannels {
 	Amount maximum_htlc_out_msat = 8;
 	optional string warning_htlcmax_too_high = 9;
 	optional bool ignore_fee_limits = 10;
+}
+
+message SetconfigRequest {
+	string config = 1;
+	optional string val = 2;
+}
+
+message SetconfigResponse {
+	SetconfigConfig config = 1;
+}
+
+message SetconfigConfig {
+	string config = 1;
+	string source = 2;
+	optional string plugin = 3;
+	bool dynamic = 4;
+	optional bool set = 5;
+	optional string value_str = 6;
+	optional Amount value_msat = 7;
+	optional sint64 value_int = 8;
+	optional bool value_bool = 9;
 }
 
 message SigninvoiceRequest {

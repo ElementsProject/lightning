@@ -1816,6 +1816,25 @@ def setchannel2py(m):
     })
 
 
+def setconfig_config2py(m):
+    return remove_default({
+        "config": m.config,  # PrimitiveField in generate_composite
+        "dynamic": m.dynamic,  # PrimitiveField in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "set": m.set,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_bool": m.value_bool,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+        "value_msat": amount2msat(m.value_msat),  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
+    })
+
+
+def setconfig2py(m):
+    return remove_default({
+    })
+
+
 def signinvoice2py(m):
     return remove_default({
         "bolt11": m.bolt11,  # PrimitiveField in generate_composite

@@ -2268,6 +2268,32 @@ impl From<responses::SetchannelResponse> for pb::SetchannelResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::SetconfigConfig> for pb::SetconfigConfig {
+    fn from(c: responses::SetconfigConfig) -> Self {
+        Self {
+            config: c.config, // Rule #2 for type string
+            dynamic: c.dynamic, // Rule #2 for type boolean
+            plugin: c.plugin, // Rule #2 for type string?
+            set: c.set, // Rule #2 for type boolean?
+            source: c.source, // Rule #2 for type string
+            value_bool: c.value_bool, // Rule #2 for type boolean?
+            value_int: c.value_int, // Rule #2 for type integer?
+            value_msat: c.value_msat.map(|f| f.into()), // Rule #2 for type msat?
+            value_str: c.value_str, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::SetconfigResponse> for pb::SetconfigResponse {
+    fn from(c: responses::SetconfigResponse) -> Self {
+        Self {
+            config: Some(c.config.into()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::SigninvoiceResponse> for pb::SigninvoiceResponse {
     fn from(c: responses::SigninvoiceResponse) -> Self {
         Self {
@@ -3587,6 +3613,16 @@ impl From<requests::SetchannelRequest> for pb::SetchannelRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::SetconfigRequest> for pb::SetconfigRequest {
+    fn from(c: requests::SetconfigRequest) -> Self {
+        Self {
+            config: c.config, // Rule #2 for type string
+            val: c.val, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::SigninvoiceRequest> for pb::SigninvoiceRequest {
     fn from(c: requests::SigninvoiceRequest) -> Self {
         Self {
@@ -4718,6 +4754,16 @@ impl From<pb::SetchannelRequest> for requests::SetchannelRequest {
             htlcmin: c.htlcmin.map(|a| a.into()), // Rule #1 for type msat?
             id: c.id, // Rule #1 for type string
             ignorefeelimits: c.ignorefeelimits, // Rule #1 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::SetconfigRequest> for requests::SetconfigRequest {
+    fn from(c: pb::SetconfigRequest) -> Self {
+        Self {
+            config: c.config, // Rule #1 for type string
+            val: c.val, // Rule #1 for type string?
         }
     }
 }
