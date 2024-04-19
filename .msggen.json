@@ -414,6 +414,9 @@
             "startdir": 3,
             "stop": 1
         },
+        "RecoverResult": {
+            "Recovery restart in progress": 0
+        },
         "RenepayStatus": {
             "complete": 0,
             "failed": 2,
@@ -1078,6 +1081,9 @@
         "DisconnectRequest": {
             "Disconnect.force": 2,
             "Disconnect.id": 1
+        },
+        "EmergencyrecoverResponse": {
+            "EmergencyRecover.stubs[]": 1
         },
         "FeeratesOnchain_fee_estimates": {
             "Feerates.onchain_fee_estimates.htlc_success_satoshis": 5,
@@ -2194,6 +2200,18 @@
             "PreApproveKeysend.amount_msat": 3,
             "PreApproveKeysend.destination": 1,
             "PreApproveKeysend.payment_hash": 2
+        },
+        "RecoverRequest": {
+            "Recover.hsmsecret": 1
+        },
+        "RecoverResponse": {
+            "Recover.result": 1
+        },
+        "RecoverchannelRequest": {
+            "RecoverChannel.scb[]": 1
+        },
+        "RecoverchannelResponse": {
+            "RecoverChannel.stubs[]": 1
         },
         "RenepayRequest": {
             "RenePay.amount_msat": 2,
@@ -4480,6 +4498,14 @@
             "deprecated": false
         },
         "Disconnect.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "EmergencyRecover": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "EmergencyRecover.stubs[]": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
@@ -7777,6 +7803,30 @@
         },
         "PreApproveKeysend.payment_hash": {
             "added": "v23.02",
+            "deprecated": false
+        },
+        "Recover": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Recover.hsmsecret": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Recover.result": {
+            "added": "v24.05",
+            "deprecated": false
+        },
+        "RecoverChannel": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "RecoverChannel.scb[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RecoverChannel.stubs[]": {
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "RenePay": {

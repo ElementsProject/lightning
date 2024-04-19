@@ -39,6 +39,9 @@ pub enum Request {
 	DelInvoice(requests::DelinvoiceRequest),
 	#[serde(rename = "dev-forget-channel")]
 	DevForgetChannel(requests::DevforgetchannelRequest),
+	EmergencyRecover(requests::EmergencyrecoverRequest),
+	Recover(requests::RecoverRequest),
+	RecoverChannel(requests::RecoverchannelRequest),
 	Invoice(requests::InvoiceRequest),
 	ListDatastore(requests::ListdatastoreRequest),
 	ListInvoices(requests::ListinvoicesRequest),
@@ -151,6 +154,9 @@ pub enum Response {
 	DelInvoice(responses::DelinvoiceResponse),
 	#[serde(rename = "dev-forget-channel")]
 	DevForgetChannel(responses::DevforgetchannelResponse),
+	EmergencyRecover(responses::EmergencyrecoverResponse),
+	Recover(responses::RecoverResponse),
+	RecoverChannel(responses::RecoverchannelResponse),
 	Invoice(responses::InvoiceResponse),
 	ListDatastore(responses::ListdatastoreResponse),
 	ListInvoices(responses::ListinvoicesResponse),
@@ -883,6 +889,71 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "dev-forget-channel"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct EmergencyrecoverRequest {
+	}
+
+	impl From<EmergencyrecoverRequest> for Request {
+	    fn from(r: EmergencyrecoverRequest) -> Self {
+	        Request::EmergencyRecover(r)
+	    }
+	}
+
+	impl IntoRequest for EmergencyrecoverRequest {
+	    type Response = super::responses::EmergencyrecoverResponse;
+	}
+
+	impl TypedRequest for EmergencyrecoverRequest {
+	    type Response = super::responses::EmergencyrecoverResponse;
+
+	    fn method(&self) -> &str {
+	        "emergencyrecover"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct RecoverRequest {
+	    pub hsmsecret: String,
+	}
+
+	impl From<RecoverRequest> for Request {
+	    fn from(r: RecoverRequest) -> Self {
+	        Request::Recover(r)
+	    }
+	}
+
+	impl IntoRequest for RecoverRequest {
+	    type Response = super::responses::RecoverResponse;
+	}
+
+	impl TypedRequest for RecoverRequest {
+	    type Response = super::responses::RecoverResponse;
+
+	    fn method(&self) -> &str {
+	        "recover"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct RecoverchannelRequest {
+	    pub scb: Vec<String>,
+	}
+
+	impl From<RecoverchannelRequest> for Request {
+	    fn from(r: RecoverchannelRequest) -> Self {
+	        Request::RecoverChannel(r)
+	    }
+	}
+
+	impl IntoRequest for RecoverchannelRequest {
+	    type Response = super::responses::RecoverchannelResponse;
+	}
+
+	impl TypedRequest for RecoverchannelRequest {
+	    type Response = super::responses::RecoverchannelResponse;
+
+	    fn method(&self) -> &str {
+	        "recoverchannel"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -4542,6 +4613,79 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::DevForgetChannel(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct EmergencyrecoverResponse {
+	    pub stubs: Vec<Sha256>,
+	}
+
+	impl TryFrom<Response> for EmergencyrecoverResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::EmergencyRecover(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum RecoverResult {
+	    #[serde(rename = "Recovery restart in progress")]
+	    RECOVERY_RESTART_IN_PROGRESS = 0,
+	}
+
+	impl TryFrom<i32> for RecoverResult {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<RecoverResult, anyhow::Error> {
+	        match c {
+	    0 => Ok(RecoverResult::RECOVERY_RESTART_IN_PROGRESS),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum RecoverResult", o)),
+	        }
+	    }
+	}
+
+	impl ToString for RecoverResult {
+	    fn to_string(&self) -> String {
+	        match self {
+	            RecoverResult::RECOVERY_RESTART_IN_PROGRESS => "RECOVERY_RESTART_IN_PROGRESS",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct RecoverResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub result: Option<RecoverResult>,
+	}
+
+	impl TryFrom<Response> for RecoverResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::Recover(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct RecoverchannelResponse {
+	    pub stubs: Vec<String>,
+	}
+
+	impl TryFrom<Response> for RecoverchannelResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::RecoverChannel(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
