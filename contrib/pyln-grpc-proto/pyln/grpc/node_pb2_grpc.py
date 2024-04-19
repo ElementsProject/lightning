@@ -104,6 +104,21 @@ class NodeStub(object):
                 request_serializer=node__pb2.DelinvoiceRequest.SerializeToString,
                 response_deserializer=node__pb2.DelinvoiceResponse.FromString,
                 )
+        self.EmergencyRecover = channel.unary_unary(
+                '/cln.Node/EmergencyRecover',
+                request_serializer=node__pb2.EmergencyrecoverRequest.SerializeToString,
+                response_deserializer=node__pb2.EmergencyrecoverResponse.FromString,
+                )
+        self.Recover = channel.unary_unary(
+                '/cln.Node/Recover',
+                request_serializer=node__pb2.RecoverRequest.SerializeToString,
+                response_deserializer=node__pb2.RecoverResponse.FromString,
+                )
+        self.RecoverChannel = channel.unary_unary(
+                '/cln.Node/RecoverChannel',
+                request_serializer=node__pb2.RecoverchannelRequest.SerializeToString,
+                response_deserializer=node__pb2.RecoverchannelResponse.FromString,
+                )
         self.Invoice = channel.unary_unary(
                 '/cln.Node/Invoice',
                 request_serializer=node__pb2.InvoiceRequest.SerializeToString,
@@ -502,6 +517,24 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def DelInvoice(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def EmergencyRecover(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Recover(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RecoverChannel(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -947,6 +980,21 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.DelInvoice,
                     request_deserializer=node__pb2.DelinvoiceRequest.FromString,
                     response_serializer=node__pb2.DelinvoiceResponse.SerializeToString,
+            ),
+            'EmergencyRecover': grpc.unary_unary_rpc_method_handler(
+                    servicer.EmergencyRecover,
+                    request_deserializer=node__pb2.EmergencyrecoverRequest.FromString,
+                    response_serializer=node__pb2.EmergencyrecoverResponse.SerializeToString,
+            ),
+            'Recover': grpc.unary_unary_rpc_method_handler(
+                    servicer.Recover,
+                    request_deserializer=node__pb2.RecoverRequest.FromString,
+                    response_serializer=node__pb2.RecoverResponse.SerializeToString,
+            ),
+            'RecoverChannel': grpc.unary_unary_rpc_method_handler(
+                    servicer.RecoverChannel,
+                    request_deserializer=node__pb2.RecoverchannelRequest.FromString,
+                    response_serializer=node__pb2.RecoverchannelResponse.SerializeToString,
             ),
             'Invoice': grpc.unary_unary_rpc_method_handler(
                     servicer.Invoice,
@@ -1551,6 +1599,57 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/DelInvoice',
             node__pb2.DelinvoiceRequest.SerializeToString,
             node__pb2.DelinvoiceResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def EmergencyRecover(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/EmergencyRecover',
+            node__pb2.EmergencyrecoverRequest.SerializeToString,
+            node__pb2.EmergencyrecoverResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Recover(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/Recover',
+            node__pb2.RecoverRequest.SerializeToString,
+            node__pb2.RecoverResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def RecoverChannel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/RecoverChannel',
+            node__pb2.RecoverchannelRequest.SerializeToString,
+            node__pb2.RecoverchannelResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

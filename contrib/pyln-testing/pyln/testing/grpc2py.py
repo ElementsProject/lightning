@@ -421,6 +421,24 @@ def delinvoice2py(m):
     })
 
 
+def emergencyrecover2py(m):
+    return remove_default({
+        "stubs": [hexlify(m.stubs) for i in hexlify(m.stubs)], # ArrayField[primitive] in generate_composite
+    })
+
+
+def recover2py(m):
+    return remove_default({
+        "result": str(m.result),  # EnumField in generate_composite
+    })
+
+
+def recoverchannel2py(m):
+    return remove_default({
+        "stubs": [m.stubs for i in m.stubs], # ArrayField[primitive] in generate_composite
+    })
+
+
 def invoice2py(m):
     return remove_default({
         "bolt11": m.bolt11,  # PrimitiveField in generate_composite

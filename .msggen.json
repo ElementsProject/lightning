@@ -358,6 +358,9 @@
             "failed": 2,
             "pending": 1
         },
+        "RecoverResult": {
+            "Recovery restart in progress": 0
+        },
         "SendonionStatus": {
             "complete": 1,
             "pending": 0
@@ -851,6 +854,9 @@
             "Disconnect.force": 2,
             "Disconnect.id": 1
         },
+        "EmergencyrecoverResponse": {
+            "EmergencyRecover.stubs[]": 1
+        },
         "FeeratesOnchain_fee_estimates": {
             "Feerates.onchain_fee_estimates.htlc_success_satoshis": 5,
             "Feerates.onchain_fee_estimates.htlc_timeout_satoshis": 4,
@@ -991,16 +997,7 @@
             "FundChannel_Start.id": 1,
             "FundChannel_Start.mindepth": 7,
             "FundChannel_Start.push_msat": 6,
-            "FundChannel_Start.reserve": 8,
-            "Fundchannel_Start.amount": 9,
-            "Fundchannel_Start.announce": 3,
-            "Fundchannel_Start.channel_type[]": 8,
-            "Fundchannel_Start.close_to": 4,
-            "Fundchannel_Start.feerate": 2,
-            "Fundchannel_Start.id": 1,
-            "Fundchannel_Start.mindepth": 6,
-            "Fundchannel_Start.push_msat": 5,
-            "Fundchannel_Start.reserve": 7
+            "FundChannel_Start.reserve": 8
         },
         "Fundchannel_startResponse": {
             "FundChannel_Start.channel_type": 3,
@@ -1008,13 +1005,7 @@
             "FundChannel_Start.funding_address": 1,
             "FundChannel_Start.mindepth": 6,
             "FundChannel_Start.scriptpubkey": 2,
-            "FundChannel_Start.warning_usage": 5,
-            "Fundchannel_Start.channel_type": 3,
-            "Fundchannel_Start.close_to": 4,
-            "Fundchannel_Start.funding_address": 1,
-            "Fundchannel_Start.mindepth": 6,
-            "Fundchannel_Start.scriptpubkey": 2,
-            "Fundchannel_Start.warning_usage": 5
+            "FundChannel_Start.warning_usage": 5
         },
         "FundpsbtRequest": {
             "FundPsbt.excess_as_change": 8,
@@ -1948,6 +1939,18 @@
             "PreApproveKeysend.amount_msat": 3,
             "PreApproveKeysend.destination": 1,
             "PreApproveKeysend.payment_hash": 2
+        },
+        "RecoverRequest": {
+            "Recover.hsmsecret": 1
+        },
+        "RecoverResponse": {
+            "Recover.result": 1
+        },
+        "RecoverchannelRequest": {
+            "RecoverChannel.scb[]": 1
+        },
+        "RecoverchannelResponse": {
+            "RecoverChannel.stubs[]": 1
         },
         "SendcustommsgRequest": {
             "SendCustomMsg.msg": 2,
@@ -3680,6 +3683,14 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "EmergencyRecover": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "EmergencyRecover.stubs[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
         "Feerates": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -4193,70 +4204,6 @@
             "deprecated": false
         },
         "FundPsbt.startweight": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start": {
-            "added": "pre-v0.10.1",
-            "deprecated": null
-        },
-        "Fundchannel_Start.amount": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.announce": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.channel_type": {
-            "added": "v24.02",
-            "deprecated": false
-        },
-        "Fundchannel_Start.channel_type.bits[]": {
-            "added": "v24.02",
-            "deprecated": false
-        },
-        "Fundchannel_Start.channel_type.names[]": {
-            "added": "v24.02",
-            "deprecated": false
-        },
-        "Fundchannel_Start.channel_type[]": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.close_to": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.feerate": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.funding_address": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.id": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.mindepth": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.push_msat": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.reserve": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.scriptpubkey": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.warning_usage": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
@@ -6942,6 +6889,30 @@
         },
         "PreApproveKeysend.payment_hash": {
             "added": "v23.02",
+            "deprecated": false
+        },
+        "Recover": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Recover.hsmsecret": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Recover.result": {
+            "added": "v24.05",
+            "deprecated": false
+        },
+        "RecoverChannel": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "RecoverChannel.scb[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RecoverChannel.stubs[]": {
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "SendCustomMsg": {

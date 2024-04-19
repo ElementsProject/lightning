@@ -574,6 +574,35 @@ impl From<responses::DelinvoiceResponse> for pb::DelinvoiceResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::EmergencyrecoverResponse> for pb::EmergencyrecoverResponse {
+    fn from(c: responses::EmergencyrecoverResponse) -> Self {
+        Self {
+            // Field: EmergencyRecover.stubs[]
+            stubs: c.stubs.into_iter().map(|i| <Sha256 as AsRef<[u8]>>::as_ref(&i).to_vec()).collect(), // Rule #3 for type hash
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::RecoverResponse> for pb::RecoverResponse {
+    fn from(c: responses::RecoverResponse) -> Self {
+        Self {
+            result: c.result.map(|v| v as i32),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::RecoverchannelResponse> for pb::RecoverchannelResponse {
+    fn from(c: responses::RecoverchannelResponse) -> Self {
+        Self {
+            // Field: RecoverChannel.stubs[]
+            stubs: c.stubs.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::InvoiceResponse> for pb::InvoiceResponse {
     fn from(c: responses::InvoiceResponse) -> Self {
         Self {
@@ -2454,6 +2483,33 @@ impl From<requests::DelinvoiceRequest> for pb::DelinvoiceRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::EmergencyrecoverRequest> for pb::EmergencyrecoverRequest {
+    fn from(c: requests::EmergencyrecoverRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::RecoverRequest> for pb::RecoverRequest {
+    fn from(c: requests::RecoverRequest) -> Self {
+        Self {
+            hsmsecret: c.hsmsecret, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::RecoverchannelRequest> for pb::RecoverchannelRequest {
+    fn from(c: requests::RecoverchannelRequest) -> Self {
+        Self {
+            // Field: RecoverChannel.scb[]
+            scb: c.scb.into_iter().map(|i| hex::decode(i).unwrap()).collect(), // Rule #3 for type hex
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::InvoiceRequest> for pb::InvoiceRequest {
     fn from(c: requests::InvoiceRequest) -> Self {
         Self {
@@ -3408,6 +3464,32 @@ impl From<pb::DelinvoiceRequest> for requests::DelinvoiceRequest {
             desconly: c.desconly, // Rule #1 for type boolean?
             label: c.label, // Rule #1 for type string
             status: c.status.try_into().unwrap(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::EmergencyrecoverRequest> for requests::EmergencyrecoverRequest {
+    fn from(c: pb::EmergencyrecoverRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::RecoverRequest> for requests::RecoverRequest {
+    fn from(c: pb::RecoverRequest) -> Self {
+        Self {
+            hsmsecret: c.hsmsecret, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::RecoverchannelRequest> for requests::RecoverchannelRequest {
+    fn from(c: pb::RecoverchannelRequest) -> Self {
+        Self {
+            scb: c.scb.into_iter().map(|s| hex::encode(s)).collect(), // Rule #4
         }
     }
 }

@@ -26,6 +26,9 @@ service Node {
 	rpc CreateOnion(CreateonionRequest) returns (CreateonionResponse) {}
 	rpc DelDatastore(DeldatastoreRequest) returns (DeldatastoreResponse) {}
 	rpc DelInvoice(DelinvoiceRequest) returns (DelinvoiceResponse) {}
+	rpc EmergencyRecover(EmergencyrecoverRequest) returns (EmergencyrecoverResponse) {}
+	rpc Recover(RecoverRequest) returns (RecoverResponse) {}
+	rpc RecoverChannel(RecoverchannelRequest) returns (RecoverchannelResponse) {}
 	rpc Invoice(InvoiceRequest) returns (InvoiceResponse) {}
 	rpc ListDatastore(ListdatastoreRequest) returns (ListdatastoreResponse) {}
 	rpc ListInvoices(ListinvoicesRequest) returns (ListinvoicesResponse) {}
@@ -630,6 +633,33 @@ message DelinvoiceResponse {
 	optional Amount amount_received_msat = 15;
 	optional uint64 paid_at = 16;
 	optional bytes payment_preimage = 17;
+}
+
+message EmergencyrecoverRequest {
+}
+
+message EmergencyrecoverResponse {
+	repeated bytes stubs = 1;
+}
+
+message RecoverRequest {
+	string hsmsecret = 1;
+}
+
+message RecoverResponse {
+	// Recover.result
+	enum RecoverResult {
+		RECOVERY_RESTART_IN_PROGRESS = 0;
+	}
+	optional RecoverResult result = 1;
+}
+
+message RecoverchannelRequest {
+	repeated bytes scb = 1;
+}
+
+message RecoverchannelResponse {
+	repeated string stubs = 1;
 }
 
 message InvoiceRequest {
