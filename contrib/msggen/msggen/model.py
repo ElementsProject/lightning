@@ -496,7 +496,7 @@ OfferStringField = PrimitiveField("string", None, None, added=None, deprecated=N
 InvoiceLabelField = PrimitiveField("string", None, None, added=None, deprecated=None)
 DatastoreKeyField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 DatastoreUsageKeyField = ArrayField(itemtype=PrimitiveField("string", None, None, added="v23.11", deprecated=None), dims=1, path=None, description=None, added="v23.11", deprecated=None)
-InvoiceExposeprivatechannelsField = PrimitiveField("boolean", None, None, added=None, deprecated=None)
+InvoiceExposeprivatechannelsField = ArrayField(itemtype=PrimitiveField("short_channel_id", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 PayExclude = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 RoutehintListField = PrimitiveField(
     "RoutehintList",

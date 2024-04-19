@@ -713,6 +713,7 @@ message InvoiceRequest {
 	optional bytes preimage = 5;
 	optional uint32 cltv = 6;
 	optional uint64 expiry = 7;
+	repeated string exposeprivatechannels = 8;
 	optional bool deschashonly = 9;
 	AmountOrAny amount_msat = 10;
 }
