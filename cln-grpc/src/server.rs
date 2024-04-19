@@ -2682,6 +2682,38 @@ async fn unreserve_inputs(
 
 }
 
+async fn upgrade_wallet(
+    &self,
+    request: tonic::Request<pb::UpgradewalletRequest>,
+) -> Result<tonic::Response<pb::UpgradewalletResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::UpgradewalletRequest = req.into();
+    debug!("Client asked for upgrade_wallet");
+    trace!("upgrade_wallet request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::UpgradeWallet(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method UpgradeWallet: {:?}", e)))?;
+    match result {
+        Response::UpgradeWallet(r) => {
+           trace!("upgrade_wallet response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call UpgradeWallet",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn wait_block_height(
     &self,
     request: tonic::Request<pb::WaitblockheightRequest>,

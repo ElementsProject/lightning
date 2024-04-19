@@ -91,6 +91,7 @@ service Node {
 	rpc Splice_Signed(Splice_signedRequest) returns (Splice_signedResponse) {}
 	rpc Splice_Update(Splice_updateRequest) returns (Splice_updateResponse) {}
 	rpc UnreserveInputs(UnreserveinputsRequest) returns (UnreserveinputsResponse) {}
+	rpc UpgradeWallet(UpgradewalletRequest) returns (UpgradewalletResponse) {}
 	rpc WaitBlockHeight(WaitblockheightRequest) returns (WaitblockheightResponse) {}
 	rpc Wait(WaitRequest) returns (WaitResponse) {}
 	rpc Stop(StopRequest) returns (StopResponse) {}
@@ -2492,6 +2493,18 @@ message UnreserveinputsReservations {
 	bool was_reserved = 3;
 	bool reserved = 4;
 	optional uint32 reserved_to_block = 5;
+}
+
+message UpgradewalletRequest {
+	optional Feerate feerate = 1;
+	optional bool reservedok = 2;
+}
+
+message UpgradewalletResponse {
+	optional uint64 upgraded_outs = 1;
+	optional string psbt = 2;
+	optional bytes tx = 3;
+	optional bytes txid = 4;
 }
 
 message WaitblockheightRequest {

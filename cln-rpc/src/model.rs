@@ -102,6 +102,7 @@ pub enum Request {
 	Splice_Signed(requests::Splice_signedRequest),
 	Splice_Update(requests::Splice_updateRequest),
 	UnreserveInputs(requests::UnreserveinputsRequest),
+	UpgradeWallet(requests::UpgradewalletRequest),
 	WaitBlockHeight(requests::WaitblockheightRequest),
 	Wait(requests::WaitRequest),
 	Stop(requests::StopRequest),
@@ -211,6 +212,7 @@ pub enum Response {
 	Splice_Signed(responses::Splice_signedResponse),
 	Splice_Update(responses::Splice_updateResponse),
 	UnreserveInputs(responses::UnreserveinputsResponse),
+	UpgradeWallet(responses::UpgradewalletResponse),
 	WaitBlockHeight(responses::WaitblockheightResponse),
 	Wait(responses::WaitResponse),
 	Stop(responses::StopResponse),
@@ -3046,6 +3048,31 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "unreserveinputs"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct UpgradewalletRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub feerate: Option<Feerate>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub reservedok: Option<bool>,
+	}
+
+	impl From<UpgradewalletRequest> for Request {
+	    fn from(r: UpgradewalletRequest) -> Self {
+	        Request::UpgradeWallet(r)
+	    }
+	}
+
+	impl IntoRequest for UpgradewalletRequest {
+	    type Response = super::responses::UpgradewalletResponse;
+	}
+
+	impl TypedRequest for UpgradewalletRequest {
+	    type Response = super::responses::UpgradewalletResponse;
+
+	    fn method(&self) -> &str {
+	        "upgradewallet"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -7817,6 +7844,29 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::UnreserveInputs(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct UpgradewalletResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub psbt: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub tx: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub txid: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub upgraded_outs: Option<u64>,
+	}
+
+	impl TryFrom<Response> for UpgradewalletResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::UpgradeWallet(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
