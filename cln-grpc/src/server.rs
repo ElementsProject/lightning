@@ -2426,6 +2426,38 @@ async fn set_channel(
 
 }
 
+async fn set_config(
+    &self,
+    request: tonic::Request<pb::SetconfigRequest>,
+) -> Result<tonic::Response<pb::SetconfigResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::SetconfigRequest = req.into();
+    debug!("Client asked for set_config");
+    trace!("set_config request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::SetConfig(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method SetConfig: {:?}", e)))?;
+    match result {
+        Response::SetConfig(r) => {
+           trace!("set_config response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call SetConfig",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn sign_invoice(
     &self,
     request: tonic::Request<pb::SigninvoiceRequest>,
