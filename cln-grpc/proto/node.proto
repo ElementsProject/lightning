@@ -26,6 +26,7 @@ service Node {
 	rpc CreateOnion(CreateonionRequest) returns (CreateonionResponse) {}
 	rpc DelDatastore(DeldatastoreRequest) returns (DeldatastoreResponse) {}
 	rpc DelInvoice(DelinvoiceRequest) returns (DelinvoiceResponse) {}
+	rpc DevForgetChannel(DevforgetchannelRequest) returns (DevforgetchannelResponse) {}
 	rpc Invoice(InvoiceRequest) returns (InvoiceResponse) {}
 	rpc ListDatastore(ListdatastoreRequest) returns (ListdatastoreResponse) {}
 	rpc ListInvoices(ListinvoicesRequest) returns (ListinvoicesResponse) {}
@@ -658,6 +659,19 @@ message DelinvoiceResponse {
 	optional Amount amount_received_msat = 15;
 	optional uint64 paid_at = 16;
 	optional bytes payment_preimage = 17;
+}
+
+message DevforgetchannelRequest {
+	bytes id = 1;
+	optional string short_channel_id = 2;
+	optional bytes channel_id = 3;
+	optional bool force = 4;
+}
+
+message DevforgetchannelResponse {
+	bool forced = 1;
+	bool funding_unspent = 2;
+	bytes funding_txid = 3;
 }
 
 message InvoiceRequest {

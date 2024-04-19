@@ -658,6 +658,38 @@ impl Node for Server
 
     }
 
+    async fn dev_forget_channel(
+        &self,
+        request: tonic::Request<pb::DevforgetchannelRequest>,
+    ) -> Result<tonic::Response<pb::DevforgetchannelResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::DevforgetchannelRequest = req.into();
+        debug!("Client asked for dev_forget_channel");
+        trace!("dev_forget_channel request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::DevForgetChannel(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method DevForgetChannel: {:?}", e)))?;
+        match result {
+            Response::DevForgetChannel(r) => {
+               trace!("dev_forget_channel response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call DevForgetChannel",
+                    r
+                )
+            )),
+        }
+
+    }
+
     async fn invoice(
         &self,
         request: tonic::Request<pb::InvoiceRequest>,

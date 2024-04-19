@@ -104,6 +104,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.DelinvoiceRequest.SerializeToString,
                 response_deserializer=node__pb2.DelinvoiceResponse.FromString,
                 )
+        self.DevForgetChannel = channel.unary_unary(
+                '/cln.Node/DevForgetChannel',
+                request_serializer=node__pb2.DevforgetchannelRequest.SerializeToString,
+                response_deserializer=node__pb2.DevforgetchannelResponse.FromString,
+                )
         self.Invoice = channel.unary_unary(
                 '/cln.Node/Invoice',
                 request_serializer=node__pb2.InvoiceRequest.SerializeToString,
@@ -627,6 +632,12 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def DelInvoice(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DevForgetChannel(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1222,6 +1233,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.DelInvoice,
                     request_deserializer=node__pb2.DelinvoiceRequest.FromString,
                     response_serializer=node__pb2.DelinvoiceResponse.SerializeToString,
+            ),
+            'DevForgetChannel': grpc.unary_unary_rpc_method_handler(
+                    servicer.DevForgetChannel,
+                    request_deserializer=node__pb2.DevforgetchannelRequest.FromString,
+                    response_serializer=node__pb2.DevforgetchannelResponse.SerializeToString,
             ),
             'Invoice': grpc.unary_unary_rpc_method_handler(
                     servicer.Invoice,
@@ -1951,6 +1967,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/DelInvoice',
             node__pb2.DelinvoiceRequest.SerializeToString,
             node__pb2.DelinvoiceResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DevForgetChannel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/DevForgetChannel',
+            node__pb2.DevforgetchannelRequest.SerializeToString,
+            node__pb2.DevforgetchannelResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

@@ -575,6 +575,17 @@ impl From<responses::DelinvoiceResponse> for pb::DelinvoiceResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::DevforgetchannelResponse> for pb::DevforgetchannelResponse {
+    fn from(c: responses::DevforgetchannelResponse) -> Self {
+        Self {
+            forced: c.forced, // Rule #2 for type boolean
+            funding_txid: hex::decode(&c.funding_txid).unwrap(), // Rule #2 for type txid
+            funding_unspent: c.funding_unspent, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::InvoiceResponse> for pb::InvoiceResponse {
     fn from(c: responses::InvoiceResponse) -> Self {
         Self {
@@ -2945,6 +2956,18 @@ impl From<requests::DelinvoiceRequest> for pb::DelinvoiceRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::DevforgetchannelRequest> for pb::DevforgetchannelRequest {
+    fn from(c: requests::DevforgetchannelRequest) -> Self {
+        Self {
+            channel_id: c.channel_id.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
+            force: c.force, // Rule #2 for type boolean?
+            id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
+            short_channel_id: c.short_channel_id.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::InvoiceRequest> for pb::InvoiceRequest {
     fn from(c: requests::InvoiceRequest) -> Self {
         Self {
@@ -4164,6 +4187,18 @@ impl From<pb::DelinvoiceRequest> for requests::DelinvoiceRequest {
             desconly: c.desconly, // Rule #1 for type boolean?
             label: c.label, // Rule #1 for type string
             status: c.status.try_into().unwrap(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::DevforgetchannelRequest> for requests::DevforgetchannelRequest {
+    fn from(c: pb::DevforgetchannelRequest) -> Self {
+        Self {
+            channel_id: c.channel_id.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
+            force: c.force, // Rule #1 for type boolean?
+            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
+            short_channel_id: c.short_channel_id.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
         }
     }
 }
