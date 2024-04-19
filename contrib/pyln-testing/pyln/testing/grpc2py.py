@@ -569,6 +569,12 @@ def listtransactions2py(m):
     })
 
 
+def makesecret2py(m):
+    return remove_default({
+        "secret": hexlify(m.secret),  # PrimitiveField in generate_composite
+    })
+
+
 def pay2py(m):
     return remove_default({
         "status": str(m.status),  # EnumField in generate_composite

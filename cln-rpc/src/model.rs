@@ -43,6 +43,7 @@ pub enum Request {
 	SendOnion(requests::SendonionRequest),
 	ListSendPays(requests::ListsendpaysRequest),
 	ListTransactions(requests::ListtransactionsRequest),
+	MakeSecret(requests::MakesecretRequest),
 	Pay(requests::PayRequest),
 	ListNodes(requests::ListnodesRequest),
 	WaitAnyInvoice(requests::WaitanyinvoiceRequest),
@@ -128,6 +129,7 @@ pub enum Response {
 	SendOnion(responses::SendonionResponse),
 	ListSendPays(responses::ListsendpaysResponse),
 	ListTransactions(responses::ListtransactionsResponse),
+	MakeSecret(responses::MakesecretResponse),
 	Pay(responses::PayResponse),
 	ListNodes(responses::ListnodesResponse),
 	WaitAnyInvoice(responses::WaitanyinvoiceResponse),
@@ -1083,6 +1085,31 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "listtransactions"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct MakesecretRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub hex: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub string: Option<String>,
+	}
+
+	impl From<MakesecretRequest> for Request {
+	    fn from(r: MakesecretRequest) -> Self {
+	        Request::MakeSecret(r)
+	    }
+	}
+
+	impl IntoRequest for MakesecretRequest {
+	    type Response = super::responses::MakesecretResponse;
+	}
+
+	impl TypedRequest for MakesecretRequest {
+	    type Response = super::responses::MakesecretResponse;
+
+	    fn method(&self) -> &str {
+	        "makesecret"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -4233,6 +4260,22 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::ListTransactions(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct MakesecretResponse {
+	    pub secret: Secret,
+	}
+
+	impl TryFrom<Response> for MakesecretResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::MakeSecret(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

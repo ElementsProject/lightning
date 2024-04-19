@@ -769,6 +769,15 @@ impl From<responses::ListtransactionsResponse> for pb::ListtransactionsResponse 
 }
 
 #[allow(unused_variables)]
+impl From<responses::MakesecretResponse> for pb::MakesecretResponse {
+    fn from(c: responses::MakesecretResponse) -> Self {
+        Self {
+            secret: c.secret.to_vec(), // Rule #2 for type secret
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::PayResponse> for pb::PayResponse {
     fn from(c: responses::PayResponse) -> Self {
         Self {
@@ -2550,6 +2559,16 @@ impl From<requests::ListtransactionsRequest> for pb::ListtransactionsRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::MakesecretRequest> for pb::MakesecretRequest {
+    fn from(c: requests::MakesecretRequest) -> Self {
+        Self {
+            hex: c.hex.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            string: c.string, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::PayRequest> for pb::PayRequest {
     fn from(c: requests::PayRequest) -> Self {
         Self {
@@ -3501,6 +3520,16 @@ impl From<pb::ListsendpaysRequest> for requests::ListsendpaysRequest {
 impl From<pb::ListtransactionsRequest> for requests::ListtransactionsRequest {
     fn from(c: pb::ListtransactionsRequest) -> Self {
         Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::MakesecretRequest> for requests::MakesecretRequest {
+    fn from(c: pb::MakesecretRequest) -> Self {
+        Self {
+            hex: c.hex.map(|v| hex::encode(v)), // Rule #1 for type hex?
+            string: c.string, // Rule #1 for type string?
         }
     }
 }

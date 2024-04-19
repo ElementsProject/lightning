@@ -134,6 +134,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.ListtransactionsRequest.SerializeToString,
                 response_deserializer=node__pb2.ListtransactionsResponse.FromString,
                 )
+        self.MakeSecret = channel.unary_unary(
+                '/cln.Node/MakeSecret',
+                request_serializer=node__pb2.MakesecretRequest.SerializeToString,
+                response_deserializer=node__pb2.MakesecretResponse.FromString,
+                )
         self.Pay = channel.unary_unary(
                 '/cln.Node/Pay',
                 request_serializer=node__pb2.PayRequest.SerializeToString,
@@ -538,6 +543,12 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def ListTransactions(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def MakeSecret(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -977,6 +988,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.ListTransactions,
                     request_deserializer=node__pb2.ListtransactionsRequest.FromString,
                     response_serializer=node__pb2.ListtransactionsResponse.SerializeToString,
+            ),
+            'MakeSecret': grpc.unary_unary_rpc_method_handler(
+                    servicer.MakeSecret,
+                    request_deserializer=node__pb2.MakesecretRequest.FromString,
+                    response_serializer=node__pb2.MakesecretResponse.SerializeToString,
             ),
             'Pay': grpc.unary_unary_rpc_method_handler(
                     servicer.Pay,
@@ -1653,6 +1669,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/ListTransactions',
             node__pb2.ListtransactionsRequest.SerializeToString,
             node__pb2.ListtransactionsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def MakeSecret(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/MakeSecret',
+            node__pb2.MakesecretRequest.SerializeToString,
+            node__pb2.MakesecretResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
