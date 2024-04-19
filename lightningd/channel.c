@@ -1014,7 +1014,7 @@ void channel_internal_error(struct channel *channel, const char *fmt, ...)
 	char *why;
 
 	va_start(ap, fmt);
-	why = tal_vfmt(channel, fmt, ap);
+	why = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
 	log_broken(channel->log, "Internal error %s: %s",
@@ -1026,7 +1026,6 @@ void channel_internal_error(struct channel *channel, const char *fmt, ...)
 	if (channel_state_uncommitted(channel->state)) {
 		channel_set_owner(channel, NULL);
 		delete_channel(channel);
-		tal_free(why);
 		return;
 	}
 
@@ -1036,7 +1035,6 @@ void channel_internal_error(struct channel *channel, const char *fmt, ...)
 				       REASON_LOCAL, "Internal error: %s", why);
 	else
 		channel_fail_permanent(channel, REASON_LOCAL, "Internal error");
-	tal_free(why);
 }
 
 void channel_set_billboard(struct channel *channel, bool perm, const char *str)
