@@ -1077,6 +1077,17 @@
             "Dev-Forget-Channel.funding_txid": 3,
             "Dev-Forget-Channel.funding_unspent": 2
         },
+        "DisableinvoicerequestRequest": {
+            "DisableInvoiceRequest.invreq_id": 1
+        },
+        "DisableinvoicerequestResponse": {
+            "DisableInvoiceRequest.active": 2,
+            "DisableInvoiceRequest.bolt12": 4,
+            "DisableInvoiceRequest.invreq_id": 1,
+            "DisableInvoiceRequest.label": 6,
+            "DisableInvoiceRequest.single_use": 3,
+            "DisableInvoiceRequest.used": 5
+        },
         "DisableofferRequest": {
             "DisableOffer.offer_id": 1
         },
@@ -1423,6 +1434,22 @@
             "Invoice.warning_offline": 6,
             "Invoice.warning_private_unused": 8
         },
+        "InvoicerequestRequest": {
+            "InvoiceRequest.absolute_expiry": 5,
+            "InvoiceRequest.amount": 1,
+            "InvoiceRequest.description": 2,
+            "InvoiceRequest.issuer": 3,
+            "InvoiceRequest.label": 4,
+            "InvoiceRequest.single_use": 6
+        },
+        "InvoicerequestResponse": {
+            "InvoiceRequest.active": 2,
+            "InvoiceRequest.bolt12": 4,
+            "InvoiceRequest.invreq_id": 1,
+            "InvoiceRequest.label": 6,
+            "InvoiceRequest.single_use": 3,
+            "InvoiceRequest.used": 5
+        },
         "KeysendRequest": {
             "KeySend.amount_msat": 10,
             "KeySend.destination": 1,
@@ -1595,6 +1622,21 @@
         },
         "ListhtlcsResponse": {
             "ListHtlcs.htlcs[]": 1
+        },
+        "ListinvoicerequestsInvoicerequests": {
+            "ListInvoiceRequests.invoicerequests[].active": 2,
+            "ListInvoiceRequests.invoicerequests[].bolt12": 4,
+            "ListInvoiceRequests.invoicerequests[].invreq_id": 1,
+            "ListInvoiceRequests.invoicerequests[].label": 6,
+            "ListInvoiceRequests.invoicerequests[].single_use": 3,
+            "ListInvoiceRequests.invoicerequests[].used": 5
+        },
+        "ListinvoicerequestsRequest": {
+            "ListInvoiceRequests.active_only": 2,
+            "ListInvoiceRequests.invreq_id": 1
+        },
+        "ListinvoicerequestsResponse": {
+            "ListInvoiceRequests.invoicerequests[]": 1
         },
         "ListinvoicesInvoices": {
             "ListInvoices.invoices[].amount_msat": 6,
@@ -4529,6 +4571,34 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "DisableInvoiceRequest": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "DisableInvoiceRequest.active": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DisableInvoiceRequest.bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DisableInvoiceRequest.invreq_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DisableInvoiceRequest.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DisableInvoiceRequest.single_use": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DisableInvoiceRequest.used": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
         "DisableOffer": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -5513,6 +5583,50 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "InvoiceRequest": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "InvoiceRequest.absolute_expiry": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "InvoiceRequest.active": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "InvoiceRequest.amount": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "InvoiceRequest.bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "InvoiceRequest.description": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "InvoiceRequest.invreq_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "InvoiceRequest.issuer": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "InvoiceRequest.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "InvoiceRequest.single_use": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "InvoiceRequest.used": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
         "KeySend": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -6042,6 +6156,46 @@
             "deprecated": false
         },
         "ListHtlcs.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListInvoiceRequests": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListInvoiceRequests.active_only": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListInvoiceRequests.invoicerequests[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListInvoiceRequests.invoicerequests[].active": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListInvoiceRequests.invoicerequests[].bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListInvoiceRequests.invoicerequests[].invreq_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListInvoiceRequests.invoicerequests[].label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListInvoiceRequests.invoicerequests[].single_use": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListInvoiceRequests.invoicerequests[].used": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListInvoiceRequests.invreq_id": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
