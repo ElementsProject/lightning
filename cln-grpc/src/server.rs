@@ -1938,6 +1938,38 @@ impl Node for Server
 
     }
 
+    async fn funder_update(
+        &self,
+        request: tonic::Request<pb::FunderupdateRequest>,
+    ) -> Result<tonic::Response<pb::FunderupdateResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::FunderupdateRequest = req.into();
+        debug!("Client asked for funder_update");
+        trace!("funder_update request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::FunderUpdate(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method FunderUpdate: {:?}", e)))?;
+        match result {
+            Response::FunderUpdate(r) => {
+               trace!("funder_update response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call FunderUpdate",
+                    r
+                )
+            )),
+        }
+
+    }
+
     async fn get_route(
         &self,
         request: tonic::Request<pb::GetrouteRequest>,
