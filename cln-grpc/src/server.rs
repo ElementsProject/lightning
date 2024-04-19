@@ -1074,6 +1074,38 @@ impl Node for Server
 
     }
 
+    async fn make_secret(
+        &self,
+        request: tonic::Request<pb::MakesecretRequest>,
+    ) -> Result<tonic::Response<pb::MakesecretResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::MakesecretRequest = req.into();
+        debug!("Client asked for make_secret");
+        trace!("make_secret request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::MakeSecret(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method MakeSecret: {:?}", e)))?;
+        match result {
+            Response::MakeSecret(r) => {
+               trace!("make_secret response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call MakeSecret",
+                    r
+                )
+            )),
+        }
+
+    }
+
     async fn pay(
         &self,
         request: tonic::Request<pb::PayRequest>,
