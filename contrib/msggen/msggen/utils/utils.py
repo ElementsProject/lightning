@@ -76,6 +76,7 @@ def load_jsonrpc_service():
         "CreateOnion",
         "DelDatastore",
         "DelInvoice",
+        "Dev-Forget-Channel",
         "Invoice",
         "ListDatastore",
         "ListInvoices",

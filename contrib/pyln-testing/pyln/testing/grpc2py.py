@@ -421,6 +421,14 @@ def delinvoice2py(m):
     })
 
 
+def dev_forget_channel2py(m):
+    return remove_default({
+        "forced": m.forced,  # PrimitiveField in generate_composite
+        "funding_txid": hexlify(m.funding_txid),  # PrimitiveField in generate_composite
+        "funding_unspent": m.funding_unspent,  # PrimitiveField in generate_composite
+    })
+
+
 def invoice2py(m):
     return remove_default({
         "bolt11": m.bolt11,  # PrimitiveField in generate_composite

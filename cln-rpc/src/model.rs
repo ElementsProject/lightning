@@ -37,6 +37,8 @@ pub enum Request {
 	CreateOnion(requests::CreateonionRequest),
 	DelDatastore(requests::DeldatastoreRequest),
 	DelInvoice(requests::DelinvoiceRequest),
+	#[serde(rename = "dev-forget-channel")]
+	DevForgetChannel(requests::DevforgetchannelRequest),
 	Invoice(requests::InvoiceRequest),
 	ListDatastore(requests::ListdatastoreRequest),
 	ListInvoices(requests::ListinvoicesRequest),
@@ -122,6 +124,8 @@ pub enum Response {
 	CreateOnion(responses::CreateonionResponse),
 	DelDatastore(responses::DeldatastoreResponse),
 	DelInvoice(responses::DelinvoiceResponse),
+	#[serde(rename = "dev-forget-channel")]
+	DevForgetChannel(responses::DevforgetchannelResponse),
 	Invoice(responses::InvoiceResponse),
 	ListDatastore(responses::ListdatastoreResponse),
 	ListInvoices(responses::ListinvoicesResponse),
@@ -797,6 +801,34 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "delinvoice"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DevforgetchannelRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub channel_id: Option<Sha256>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub force: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub short_channel_id: Option<ShortChannelId>,
+	    pub id: PublicKey,
+	}
+
+	impl From<DevforgetchannelRequest> for Request {
+	    fn from(r: DevforgetchannelRequest) -> Self {
+	        Request::DevForgetChannel(r)
+	    }
+	}
+
+	impl IntoRequest for DevforgetchannelRequest {
+	    type Response = super::responses::DevforgetchannelResponse;
+	}
+
+	impl TypedRequest for DevforgetchannelRequest {
+	    type Response = super::responses::DevforgetchannelResponse;
+
+	    fn method(&self) -> &str {
+	        "dev-forget-channel"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3886,6 +3918,24 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::DelInvoice(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DevforgetchannelResponse {
+	    pub forced: bool,
+	    pub funding_txid: String,
+	    pub funding_unspent: bool,
+	}
+
+	impl TryFrom<Response> for DevforgetchannelResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::DevForgetChannel(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
