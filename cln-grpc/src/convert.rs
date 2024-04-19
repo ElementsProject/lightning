@@ -1526,6 +1526,14 @@ impl From<responses::DelpayResponse> for pb::DelpayResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::DelforwardResponse> for pb::DelforwardResponse {
+    fn from(c: responses::DelforwardResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::DisconnectResponse> for pb::DisconnectResponse {
     fn from(c: responses::DisconnectResponse) -> Self {
         Self {
@@ -2783,6 +2791,17 @@ impl From<requests::DelpayRequest> for pb::DelpayRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::DelforwardRequest> for pb::DelforwardRequest {
+    fn from(c: requests::DelforwardRequest) -> Self {
+        Self {
+            in_channel: c.in_channel.to_string(), // Rule #2 for type short_channel_id
+            in_htlc_id: c.in_htlc_id, // Rule #2 for type u64
+            status: c.status as i32,
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::DisconnectRequest> for pb::DisconnectRequest {
     fn from(c: requests::DisconnectRequest) -> Self {
         Self {
@@ -3716,6 +3735,17 @@ impl From<pb::DelpayRequest> for requests::DelpayRequest {
             groupid: c.groupid, // Rule #1 for type u64?
             partid: c.partid, // Rule #1 for type u64?
             payment_hash: Sha256::from_slice(&c.payment_hash).unwrap(), // Rule #1 for type hash
+            status: c.status.try_into().unwrap(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::DelforwardRequest> for requests::DelforwardRequest {
+    fn from(c: pb::DelforwardRequest) -> Self {
+        Self {
+            in_channel: cln_rpc::primitives::ShortChannelId::from_str(&c.in_channel).unwrap(), // Rule #1 for type short_channel_id
+            in_htlc_id: c.in_htlc_id, // Rule #1 for type u64
             status: c.status.try_into().unwrap(),
         }
     }
