@@ -73,6 +73,11 @@
             "perkb": 0,
             "perkw": 1
         },
+        "FunderupdatePolicy": {
+            "available": 1,
+            "fixed": 2,
+            "match": 0
+        },
         "GetinfoAddressType": {
             "dns": 0,
             "ipv4": 1,
@@ -1015,6 +1020,43 @@
             "Fundchannel_Start.mindepth": 6,
             "Fundchannel_Start.scriptpubkey": 2,
             "Fundchannel_Start.warning_usage": 5
+        },
+        "FunderupdateRequest": {
+            "FunderUpdate.channel_fee_max_base_msat": 13,
+            "FunderUpdate.channel_fee_max_proportional_thousandths": 14,
+            "FunderUpdate.compact_lease": 15,
+            "FunderUpdate.fund_probability": 9,
+            "FunderUpdate.funding_weight": 12,
+            "FunderUpdate.fuzz_percent": 8,
+            "FunderUpdate.lease_fee_base_msat": 10,
+            "FunderUpdate.lease_fee_basis": 11,
+            "FunderUpdate.leases_only": 2,
+            "FunderUpdate.max_their_funding_msat": 4,
+            "FunderUpdate.min_their_funding_msat": 3,
+            "FunderUpdate.per_channel_max_msat": 6,
+            "FunderUpdate.per_channel_min_msat": 5,
+            "FunderUpdate.policy": 1,
+            "FunderUpdate.policy_mod": 16,
+            "FunderUpdate.reserve_tank_msat": 7
+        },
+        "FunderupdateResponse": {
+            "FunderUpdate.channel_fee_max_base_msat": 15,
+            "FunderUpdate.channel_fee_max_proportional_thousandths": 16,
+            "FunderUpdate.compact_lease": 17,
+            "FunderUpdate.fund_probability": 11,
+            "FunderUpdate.funding_weight": 14,
+            "FunderUpdate.fuzz_percent": 10,
+            "FunderUpdate.lease_fee_base_msat": 12,
+            "FunderUpdate.lease_fee_basis": 13,
+            "FunderUpdate.leases_only": 4,
+            "FunderUpdate.max_their_funding_msat": 6,
+            "FunderUpdate.min_their_funding_msat": 5,
+            "FunderUpdate.per_channel_max_msat": 8,
+            "FunderUpdate.per_channel_min_msat": 7,
+            "FunderUpdate.policy": 2,
+            "FunderUpdate.policy_mod": 3,
+            "FunderUpdate.reserve_tank_msat": 9,
+            "FunderUpdate.summary": 1
         },
         "FundpsbtRequest": {
             "FundPsbt.excess_as_change": 8,
@@ -4196,67 +4238,75 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start": {
+        "FunderUpdate": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
-        "Fundchannel_Start.amount": {
+        "FunderUpdate.channel_fee_max_base_msat": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.announce": {
+        "FunderUpdate.channel_fee_max_proportional_thousandths": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.channel_type": {
-            "added": "v24.02",
-            "deprecated": false
-        },
-        "Fundchannel_Start.channel_type.bits[]": {
-            "added": "v24.02",
-            "deprecated": false
-        },
-        "Fundchannel_Start.channel_type.names[]": {
-            "added": "v24.02",
-            "deprecated": false
-        },
-        "Fundchannel_Start.channel_type[]": {
+        "FunderUpdate.compact_lease": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.close_to": {
+        "FunderUpdate.fund_probability": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.feerate": {
+        "FunderUpdate.funding_weight": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.funding_address": {
+        "FunderUpdate.fuzz_percent": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.id": {
+        "FunderUpdate.lease_fee_base_msat": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.mindepth": {
+        "FunderUpdate.lease_fee_basis": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.push_msat": {
+        "FunderUpdate.leases_only": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.reserve": {
+        "FunderUpdate.max_their_funding_msat": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.scriptpubkey": {
+        "FunderUpdate.min_their_funding_msat": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
-        "Fundchannel_Start.warning_usage": {
+        "FunderUpdate.per_channel_max_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FunderUpdate.per_channel_min_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FunderUpdate.policy": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FunderUpdate.policy_mod": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FunderUpdate.reserve_tank_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FunderUpdate.summary": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

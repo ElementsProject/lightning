@@ -1435,6 +1435,28 @@ def fundchannel_start2py(m):
     })
 
 
+def funderupdate2py(m):
+    return remove_default({
+        "policy": str(m.policy),  # EnumField in generate_composite
+        "channel_fee_max_base_msat": amount2msat(m.channel_fee_max_base_msat),  # PrimitiveField in generate_composite
+        "channel_fee_max_proportional_thousandths": m.channel_fee_max_proportional_thousandths,  # PrimitiveField in generate_composite
+        "compact_lease": hexlify(m.compact_lease),  # PrimitiveField in generate_composite
+        "fund_probability": m.fund_probability,  # PrimitiveField in generate_composite
+        "funding_weight": m.funding_weight,  # PrimitiveField in generate_composite
+        "fuzz_percent": m.fuzz_percent,  # PrimitiveField in generate_composite
+        "lease_fee_base_msat": amount2msat(m.lease_fee_base_msat),  # PrimitiveField in generate_composite
+        "lease_fee_basis": m.lease_fee_basis,  # PrimitiveField in generate_composite
+        "leases_only": m.leases_only,  # PrimitiveField in generate_composite
+        "max_their_funding_msat": amount2msat(m.max_their_funding_msat),  # PrimitiveField in generate_composite
+        "min_their_funding_msat": amount2msat(m.min_their_funding_msat),  # PrimitiveField in generate_composite
+        "per_channel_max_msat": amount2msat(m.per_channel_max_msat),  # PrimitiveField in generate_composite
+        "per_channel_min_msat": amount2msat(m.per_channel_min_msat),  # PrimitiveField in generate_composite
+        "policy_mod": m.policy_mod,  # PrimitiveField in generate_composite
+        "reserve_tank_msat": amount2msat(m.reserve_tank_msat),  # PrimitiveField in generate_composite
+        "summary": m.summary,  # PrimitiveField in generate_composite
+    })
+
+
 def getroute_route2py(m):
     return remove_default({
         "style": str(m.style),  # EnumField in generate_composite

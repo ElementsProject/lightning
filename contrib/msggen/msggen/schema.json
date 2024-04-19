@@ -10776,7 +10776,7 @@
           "default": "fixed"
         },
         "policy_mod": {
-          "type": "sat",
+          "type": "msat",
           "description": [
             "Number or 'modification' to apply to the policy."
           ],

@@ -60,6 +60,7 @@ service Node {
 	rpc FundChannel_Complete(Fundchannel_completeRequest) returns (Fundchannel_completeResponse) {}
 	rpc FundChannel(FundchannelRequest) returns (FundchannelResponse) {}
 	rpc FundChannel_Start(Fundchannel_startRequest) returns (Fundchannel_startResponse) {}
+	rpc FunderUpdate(FunderupdateRequest) returns (FunderupdateResponse) {}
 	rpc GetRoute(GetrouteRequest) returns (GetrouteResponse) {}
 	rpc ListForwards(ListforwardsRequest) returns (ListforwardsResponse) {}
 	rpc ListOffers(ListoffersRequest) returns (ListoffersResponse) {}
@@ -1799,6 +1800,57 @@ message Fundchannel_startResponse {
 message Fundchannel_startChannel_type {
 	repeated uint32 bits = 1;
 	repeated ChannelTypeName names = 2;
+}
+
+message FunderupdateRequest {
+	// FunderUpdate.policy
+	enum FunderupdatePolicy {
+		MATCH = 0;
+		AVAILABLE = 1;
+		FIXED = 2;
+	}
+	optional FunderupdatePolicy policy = 1;
+	optional bool leases_only = 2;
+	optional Amount min_their_funding_msat = 3;
+	optional Amount max_their_funding_msat = 4;
+	optional Amount per_channel_min_msat = 5;
+	optional Amount per_channel_max_msat = 6;
+	optional Amount reserve_tank_msat = 7;
+	optional uint32 fuzz_percent = 8;
+	optional uint32 fund_probability = 9;
+	optional Amount lease_fee_base_msat = 10;
+	optional uint32 lease_fee_basis = 11;
+	optional uint32 funding_weight = 12;
+	optional Amount channel_fee_max_base_msat = 13;
+	optional uint32 channel_fee_max_proportional_thousandths = 14;
+	optional bytes compact_lease = 15;
+	optional Amount policy_mod = 16;
+}
+
+message FunderupdateResponse {
+	// FunderUpdate.policy
+	enum FunderupdatePolicy {
+		MATCH = 0;
+		AVAILABLE = 1;
+		FIXED = 2;
+	}
+	string summary = 1;
+	FunderupdatePolicy policy = 2;
+	uint32 policy_mod = 3;
+	bool leases_only = 4;
+	Amount min_their_funding_msat = 5;
+	Amount max_their_funding_msat = 6;
+	Amount per_channel_min_msat = 7;
+	Amount per_channel_max_msat = 8;
+	Amount reserve_tank_msat = 9;
+	uint32 fuzz_percent = 10;
+	uint32 fund_probability = 11;
+	optional Amount lease_fee_base_msat = 12;
+	optional uint32 lease_fee_basis = 13;
+	optional uint32 funding_weight = 14;
+	optional Amount channel_fee_max_base_msat = 15;
+	optional uint32 channel_fee_max_proportional_thousandths = 16;
+	optional bytes compact_lease = 17;
 }
 
 message GetrouteRequest {
