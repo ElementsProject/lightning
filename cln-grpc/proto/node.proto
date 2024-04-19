@@ -39,6 +39,7 @@ service Node {
 	rpc SendOnion(SendonionRequest) returns (SendonionResponse) {}
 	rpc ListSendPays(ListsendpaysRequest) returns (ListsendpaysResponse) {}
 	rpc ListTransactions(ListtransactionsRequest) returns (ListtransactionsResponse) {}
+	rpc MakeSecret(MakesecretRequest) returns (MakesecretResponse) {}
 	rpc Pay(PayRequest) returns (PayResponse) {}
 	rpc ListNodes(ListnodesRequest) returns (ListnodesResponse) {}
 	rpc WaitAnyInvoice(WaitanyinvoiceRequest) returns (WaitanyinvoiceResponse) {}
@@ -972,6 +973,15 @@ message ListtransactionsTransactionsOutputs {
 	uint32 index = 1;
 	bytes scriptPubKey = 3;
 	Amount amount_msat = 6;
+}
+
+message MakesecretRequest {
+	optional bytes hex = 1;
+	optional string string = 2;
+}
+
+message MakesecretResponse {
+	bytes secret = 1;
 }
 
 message PayRequest {

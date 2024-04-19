@@ -121,6 +121,7 @@ def load_jsonrpc_service():
         "SendOnion",
         "ListSendPays",
         "ListTransactions",
+        "MakeSecret",
         "Pay",
         "ListNodes",
         "WaitAnyInvoice",

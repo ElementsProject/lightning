@@ -2495,6 +2495,13 @@
             "ListTransactions.transactions[].outputs[].scriptPubKey": 3,
             "ListTransactions.transactions[].outputs[].type": 4
         },
+        "MakesecretRequest": {
+            "MakeSecret.hex": 1,
+            "MakeSecret.string": 2
+        },
+        "MakesecretResponse": {
+            "MakeSecret.secret": 1
+        },
         "MultifundchannelChannel_ids": {
             "MultiFundChannel.channel_ids[].channel_id": 3,
             "MultiFundChannel.channel_ids[].channel_type": 4,
@@ -9120,6 +9127,22 @@
             "deprecated": false
         },
         "ListTransactions.transactions[].version": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MakeSecret": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "MakeSecret.hex": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MakeSecret.secret": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "MakeSecret.string": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
