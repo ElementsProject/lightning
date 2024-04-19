@@ -660,32 +660,43 @@ static struct command_result *process_getrawblock(struct bitcoin_cli *bcli)
 		plugin_log(bcli->cmd->plugin, LOG_DBG,
 			   "failed to fetch block %s from the bitcoin backend (maybe pruned).",
 			   stash->block_hash);
-		
-		if (!stash->peers) {
-			/* We don't have peers to fetch blocks from, get some! */
-			start_bitcoin_cli(NULL, bcli->cmd, process_getpeerinfo, true,
-					  BITCOIND_HIGH_PRIO, stash,
-					  "getpeerinfo", NULL);
-			
-			return command_still_pending(bcli->cmd);
+
+		if (bitcoind->version >= 230000) {
+			/* `getblockformpeer` was introduced in v23.0.0 */
+
+			if (!stash->peers) {
+				/* We don't have peers to fetch blocks from, get
+				 * some! */
+				start_bitcoin_cli(NULL, bcli->cmd,
+						  process_getpeerinfo, true,
+						  BITCOIND_HIGH_PRIO, stash,
+						  "getpeerinfo", NULL);
+
+				return command_still_pending(bcli->cmd);
+			}
+
+			if (tal_count(stash->peers) > 0) {
+				/* We have peers left that we can ask for the
+				 * block */
+				start_bitcoin_cli(
+				    NULL, bcli->cmd, process_getblockfrompeer,
+				    true, BITCOIND_HIGH_PRIO, stash,
+				    "getblockfrompeer", stash->block_hash,
+				    take(tal_fmt(NULL, "%i", stash->peers[0])),
+				    NULL);
+
+				return command_still_pending(bcli->cmd);
+			}
+
+			/* We failed to fetch the block from from any peer we
+			 * got. */
+			plugin_log(
+			    bcli->cmd->plugin, LOG_DBG,
+			    "asked all known peers about block %s, retry",
+			    stash->block_hash);
+			stash->peers = tal_free(stash->peers);
 		}
 
-		if (tal_count(stash->peers) > 0) {
-			/* We have peers left that we can ask for the block */
-			start_bitcoin_cli(
-			    NULL, bcli->cmd, process_getblockfrompeer, true,
-			    BITCOIND_HIGH_PRIO, stash, "getblockfrompeer",
-			    stash->block_hash,
-			    take(tal_fmt(NULL, "%i", stash->peers[0])), NULL);
-
-			return command_still_pending(bcli->cmd);
-		}
-
-		/* We failed to fetch the block from from any peer we got. */
-		plugin_log(bcli->cmd->plugin, LOG_DBG,
-			   "asked all known peers about block %s, retry",
-			   stash->block_hash);
-		stash->peers = tal_free(stash->peers);
 		return NULL;
 	}
 
