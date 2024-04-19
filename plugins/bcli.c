@@ -560,7 +560,11 @@ struct getrawblock_stash {
 	const char *block_hash;
 	u32 block_height;
 	const char *block_hex;
+	int *peers;
 };
+
+/* Mutual recursion. */
+static struct command_result *getrawblock(struct bitcoin_cli *bcli);
 
 static struct command_result *process_rawblock(struct bitcoin_cli *bcli)
 {
@@ -577,10 +581,59 @@ static struct command_result *process_rawblock(struct bitcoin_cli *bcli)
 	return command_finished(bcli->cmd, response);
 }
 
+static struct command_result *process_getpeerinfo(struct bitcoin_cli *bcli)
+{
+	const jsmntok_t *t, *toks;
+	struct getrawblock_stash *stash = bcli->stash;
+	size_t i;
+
+	toks =
+	    json_parse_simple(bcli->output, bcli->output, bcli->output_bytes);
+
+	if (!toks) {
+		return command_err_bcli_badjson(bcli, "cannot parse");
+	}
+
+	stash->peers = tal_arr(bcli->stash, int, 0);
+
+	json_for_each_arr(i, t, toks)
+	{
+		int id;
+		if (json_scan(tmpctx, bcli->output, t, "{id:%}",
+			      JSON_SCAN(json_to_int, &id)) == NULL) {
+			tal_arr_expand(&stash->peers, id);
+		}
+	}
+
+	if (tal_count(stash->peers) <= 0) {
+		/* We don't have peers yet, retry from `getrawblock` */
+		plugin_log(bcli->cmd->plugin, LOG_DBG,
+			   "got an empty peer list.");
+		return getrawblock(bcli);
+	}
+
+	return getrawblock(bcli);
+}
+
 static struct command_result *process_getrawblock(struct bitcoin_cli *bcli)
 {
 	/* We failed to get the raw block. */
 	if (bcli->exitstatus && *bcli->exitstatus != 0) {
+		struct getrawblock_stash *stash = bcli->stash;
+
+		plugin_log(bcli->cmd->plugin, LOG_DBG,
+			   "failed to fetch block %s from the bitcoin backend (maybe pruned).",
+			   stash->block_hash);
+		
+		if (!stash->peers) {
+			/* We don't have peers to fetch blocks from, get some! */
+			start_bitcoin_cli(NULL, bcli->cmd, process_getpeerinfo, true,
+					  BITCOIND_HIGH_PRIO, stash,
+					  "getpeerinfo", NULL);
+			
+			return command_still_pending(bcli->cmd);
+		}
+
 		/* retry */
 		return NULL;
 	}
@@ -653,6 +706,7 @@ static struct command_result *getrawblockbyheight(struct command *cmd,
 
 	stash = tal(cmd, struct getrawblock_stash);
 	stash->block_height = *height;
+	stash->peers = NULL;
 	tal_free(height);
 
 	start_bitcoin_cli(NULL, cmd, process_getblockhash, true,
