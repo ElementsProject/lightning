@@ -1534,6 +1534,14 @@ impl From<responses::DelforwardResponse> for pb::DelforwardResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::DeprecationsResponse> for pb::DeprecationsResponse {
+    fn from(c: responses::DeprecationsResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::DisconnectResponse> for pb::DisconnectResponse {
     fn from(c: responses::DisconnectResponse) -> Self {
         Self {
@@ -2802,6 +2810,15 @@ impl From<requests::DelforwardRequest> for pb::DelforwardRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::DeprecationsRequest> for pb::DeprecationsRequest {
+    fn from(c: requests::DeprecationsRequest) -> Self {
+        Self {
+            enable: c.enable, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::DisconnectRequest> for pb::DisconnectRequest {
     fn from(c: requests::DisconnectRequest) -> Self {
         Self {
@@ -3747,6 +3764,15 @@ impl From<pb::DelforwardRequest> for requests::DelforwardRequest {
             in_channel: cln_rpc::primitives::ShortChannelId::from_str(&c.in_channel).unwrap(), // Rule #1 for type short_channel_id
             in_htlc_id: c.in_htlc_id, // Rule #1 for type u64
             status: c.status.try_into().unwrap(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::DeprecationsRequest> for requests::DeprecationsRequest {
+    fn from(c: pb::DeprecationsRequest) -> Self {
+        Self {
+            enable: c.enable, // Rule #1 for type boolean
         }
     }
 }

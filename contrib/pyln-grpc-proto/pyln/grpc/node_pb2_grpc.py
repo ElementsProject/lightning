@@ -239,6 +239,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.DelforwardRequest.SerializeToString,
                 response_deserializer=node__pb2.DelforwardResponse.FromString,
                 )
+        self.Deprecations = channel.unary_unary(
+                '/cln.Node/Deprecations',
+                request_serializer=node__pb2.DeprecationsRequest.SerializeToString,
+                response_deserializer=node__pb2.DeprecationsResponse.FromString,
+                )
         self.Disconnect = channel.unary_unary(
                 '/cln.Node/Disconnect',
                 request_serializer=node__pb2.DisconnectRequest.SerializeToString,
@@ -669,6 +674,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Deprecations(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Disconnect(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1082,6 +1093,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.DelForward,
                     request_deserializer=node__pb2.DelforwardRequest.FromString,
                     response_serializer=node__pb2.DelforwardResponse.SerializeToString,
+            ),
+            'Deprecations': grpc.unary_unary_rpc_method_handler(
+                    servicer.Deprecations,
+                    request_deserializer=node__pb2.DeprecationsRequest.FromString,
+                    response_serializer=node__pb2.DeprecationsResponse.SerializeToString,
             ),
             'Disconnect': grpc.unary_unary_rpc_method_handler(
                     servicer.Disconnect,
@@ -2010,6 +2026,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/DelForward',
             node__pb2.DelforwardRequest.SerializeToString,
             node__pb2.DelforwardResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Deprecations(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/Deprecations',
+            node__pb2.DeprecationsRequest.SerializeToString,
+            node__pb2.DeprecationsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

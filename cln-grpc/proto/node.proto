@@ -53,6 +53,7 @@ service Node {
 	rpc Decode(DecodeRequest) returns (DecodeResponse) {}
 	rpc DelPay(DelpayRequest) returns (DelpayResponse) {}
 	rpc DelForward(DelforwardRequest) returns (DelforwardResponse) {}
+	rpc Deprecations(DeprecationsRequest) returns (DeprecationsResponse) {}
 	rpc Disconnect(DisconnectRequest) returns (DisconnectResponse) {}
 	rpc Feerates(FeeratesRequest) returns (FeeratesResponse) {}
 	rpc FetchInvoice(FetchinvoiceRequest) returns (FetchinvoiceResponse) {}
@@ -1618,6 +1619,13 @@ message DelforwardRequest {
 }
 
 message DelforwardResponse {
+}
+
+message DeprecationsRequest {
+	bool enable = 1;
+}
+
+message DeprecationsResponse {
 }
 
 message DisconnectRequest {

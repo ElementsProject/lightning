@@ -1466,6 +1466,38 @@ async fn del_forward(
 
 }
 
+async fn deprecations(
+    &self,
+    request: tonic::Request<pb::DeprecationsRequest>,
+) -> Result<tonic::Response<pb::DeprecationsResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::DeprecationsRequest = req.into();
+    debug!("Client asked for deprecations");
+    trace!("deprecations request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::Deprecations(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method Deprecations: {:?}", e)))?;
+    match result {
+        Response::Deprecations(r) => {
+           trace!("deprecations response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call Deprecations",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn disconnect(
     &self,
     request: tonic::Request<pb::DisconnectRequest>,

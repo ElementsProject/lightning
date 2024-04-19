@@ -64,6 +64,7 @@ pub enum Request {
 	Decode(requests::DecodeRequest),
 	DelPay(requests::DelpayRequest),
 	DelForward(requests::DelforwardRequest),
+	Deprecations(requests::DeprecationsRequest),
 	Disconnect(requests::DisconnectRequest),
 	Feerates(requests::FeeratesRequest),
 	FetchInvoice(requests::FetchinvoiceRequest),
@@ -149,6 +150,7 @@ pub enum Response {
 	Decode(responses::DecodeResponse),
 	DelPay(responses::DelpayResponse),
 	DelForward(responses::DelforwardResponse),
+	Deprecations(responses::DeprecationsResponse),
 	Disconnect(responses::DisconnectResponse),
 	Feerates(responses::FeeratesResponse),
 	FetchInvoice(responses::FetchinvoiceResponse),
@@ -1751,6 +1753,28 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "delforward"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DeprecationsRequest {
+	    pub enable: bool,
+	}
+
+	impl From<DeprecationsRequest> for Request {
+	    fn from(r: DeprecationsRequest) -> Self {
+	        Request::Deprecations(r)
+	    }
+	}
+
+	impl IntoRequest for DeprecationsRequest {
+	    type Response = super::responses::DeprecationsResponse;
+	}
+
+	impl TypedRequest for DeprecationsRequest {
+	    type Response = super::responses::DeprecationsResponse;
+
+	    fn method(&self) -> &str {
+	        "deprecations"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -5786,6 +5810,21 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::DelForward(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DeprecationsResponse {
+	}
+
+	impl TryFrom<Response> for DeprecationsResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::Deprecations(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

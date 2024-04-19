@@ -847,6 +847,9 @@
         "DelpayResponse": {
             "DelPay.payments[]": 1
         },
+        "DeprecationsRequest": {
+            "Deprecations.enable": 1
+        },
         "DisconnectRequest": {
             "Disconnect.force": 2,
             "Disconnect.id": 1
@@ -978,9 +981,7 @@
         },
         "Fundchannel_startChannel_type": {
             "FundChannel_Start.channel_type.bits[]": 1,
-            "FundChannel_Start.channel_type.names[]": 2,
-            "Fundchannel_Start.channel_type.bits[]": 1,
-            "Fundchannel_Start.channel_type.names[]": 2
+            "FundChannel_Start.channel_type.names[]": 2
         },
         "Fundchannel_startRequest": {
             "FundChannel_Start.amount": 2,
@@ -991,16 +992,7 @@
             "FundChannel_Start.id": 1,
             "FundChannel_Start.mindepth": 7,
             "FundChannel_Start.push_msat": 6,
-            "FundChannel_Start.reserve": 8,
-            "Fundchannel_Start.amount": 9,
-            "Fundchannel_Start.announce": 3,
-            "Fundchannel_Start.channel_type[]": 8,
-            "Fundchannel_Start.close_to": 4,
-            "Fundchannel_Start.feerate": 2,
-            "Fundchannel_Start.id": 1,
-            "Fundchannel_Start.mindepth": 6,
-            "Fundchannel_Start.push_msat": 5,
-            "Fundchannel_Start.reserve": 7
+            "FundChannel_Start.reserve": 8
         },
         "Fundchannel_startResponse": {
             "FundChannel_Start.channel_type": 3,
@@ -1008,13 +1000,7 @@
             "FundChannel_Start.funding_address": 1,
             "FundChannel_Start.mindepth": 6,
             "FundChannel_Start.scriptpubkey": 2,
-            "FundChannel_Start.warning_usage": 5,
-            "Fundchannel_Start.channel_type": 3,
-            "Fundchannel_Start.close_to": 4,
-            "Fundchannel_Start.funding_address": 1,
-            "Fundchannel_Start.mindepth": 6,
-            "Fundchannel_Start.scriptpubkey": 2,
-            "Fundchannel_Start.warning_usage": 5
+            "FundChannel_Start.warning_usage": 5
         },
         "FundpsbtRequest": {
             "FundPsbt.excess_as_change": 8,
@@ -3668,6 +3654,14 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "Deprecations": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Deprecations.enable": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
         "Disconnect": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -4193,70 +4187,6 @@
             "deprecated": false
         },
         "FundPsbt.startweight": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start": {
-            "added": "pre-v0.10.1",
-            "deprecated": null
-        },
-        "Fundchannel_Start.amount": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.announce": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.channel_type": {
-            "added": "v24.02",
-            "deprecated": false
-        },
-        "Fundchannel_Start.channel_type.bits[]": {
-            "added": "v24.02",
-            "deprecated": false
-        },
-        "Fundchannel_Start.channel_type.names[]": {
-            "added": "v24.02",
-            "deprecated": false
-        },
-        "Fundchannel_Start.channel_type[]": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.close_to": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.feerate": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.funding_address": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.id": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.mindepth": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.push_msat": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.reserve": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.scriptpubkey": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.warning_usage": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

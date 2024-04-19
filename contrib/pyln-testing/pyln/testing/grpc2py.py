@@ -1291,6 +1291,11 @@ def delforward2py(m):
     })
 
 
+def deprecations2py(m):
+    return remove_default({
+    })
+
+
 def disconnect2py(m):
     return remove_default({
     })
