@@ -394,6 +394,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.SetconfigRequest.SerializeToString,
                 response_deserializer=node__pb2.SetconfigResponse.FromString,
                 )
+        self.SetPsbtVersion = channel.unary_unary(
+                '/cln.Node/SetPsbtVersion',
+                request_serializer=node__pb2.SetpsbtversionRequest.SerializeToString,
+                response_deserializer=node__pb2.SetpsbtversionResponse.FromString,
+                )
         self.SignInvoice = channel.unary_unary(
                 '/cln.Node/SignInvoice',
                 request_serializer=node__pb2.SigninvoiceRequest.SerializeToString,
@@ -945,6 +950,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetPsbtVersion(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SignInvoice(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1435,6 +1446,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.SetConfig,
                     request_deserializer=node__pb2.SetconfigRequest.FromString,
                     response_serializer=node__pb2.SetconfigResponse.SerializeToString,
+            ),
+            'SetPsbtVersion': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetPsbtVersion,
+                    request_deserializer=node__pb2.SetpsbtversionRequest.FromString,
+                    response_serializer=node__pb2.SetpsbtversionResponse.SerializeToString,
             ),
             'SignInvoice': grpc.unary_unary_rpc_method_handler(
                     servicer.SignInvoice,
@@ -2825,6 +2841,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/SetConfig',
             node__pb2.SetconfigRequest.SerializeToString,
             node__pb2.SetconfigResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SetPsbtVersion(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/SetPsbtVersion',
+            node__pb2.SetpsbtversionRequest.SerializeToString,
+            node__pb2.SetpsbtversionResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

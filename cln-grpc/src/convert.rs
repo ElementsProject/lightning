@@ -2294,6 +2294,15 @@ impl From<responses::SetconfigResponse> for pb::SetconfigResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::SetpsbtversionResponse> for pb::SetpsbtversionResponse {
+    fn from(c: responses::SetpsbtversionResponse) -> Self {
+        Self {
+            psbt: c.psbt, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::SigninvoiceResponse> for pb::SigninvoiceResponse {
     fn from(c: responses::SigninvoiceResponse) -> Self {
         Self {
@@ -3623,6 +3632,16 @@ impl From<requests::SetconfigRequest> for pb::SetconfigRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::SetpsbtversionRequest> for pb::SetpsbtversionRequest {
+    fn from(c: requests::SetpsbtversionRequest) -> Self {
+        Self {
+            psbt: c.psbt, // Rule #2 for type string
+            version: c.version, // Rule #2 for type u32
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::SigninvoiceRequest> for pb::SigninvoiceRequest {
     fn from(c: requests::SigninvoiceRequest) -> Self {
         Self {
@@ -4764,6 +4783,16 @@ impl From<pb::SetconfigRequest> for requests::SetconfigRequest {
         Self {
             config: c.config, // Rule #1 for type string
             val: c.val, // Rule #1 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::SetpsbtversionRequest> for requests::SetpsbtversionRequest {
+    fn from(c: pb::SetpsbtversionRequest) -> Self {
+        Self {
+            psbt: c.psbt, // Rule #1 for type string
+            version: c.version, // Rule #1 for type u32
         }
     }
 }

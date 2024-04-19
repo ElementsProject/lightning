@@ -137,6 +137,7 @@ def load_jsonrpc_service():
         "SendOnionMessage",
         "SetChannel",
         "SetConfig",
+        "SetPsbtVersion",
         "SignInvoice",
         "SignMessage",
         "Splice_Init",

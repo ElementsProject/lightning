@@ -95,6 +95,7 @@ pub enum Request {
 	SendOnionMessage(requests::SendonionmessageRequest),
 	SetChannel(requests::SetchannelRequest),
 	SetConfig(requests::SetconfigRequest),
+	SetPsbtVersion(requests::SetpsbtversionRequest),
 	SignInvoice(requests::SigninvoiceRequest),
 	SignMessage(requests::SignmessageRequest),
 	Splice_Init(requests::Splice_initRequest),
@@ -203,6 +204,7 @@ pub enum Response {
 	SendOnionMessage(responses::SendonionmessageResponse),
 	SetChannel(responses::SetchannelResponse),
 	SetConfig(responses::SetconfigResponse),
+	SetPsbtVersion(responses::SetpsbtversionResponse),
 	SignInvoice(responses::SigninvoiceResponse),
 	SignMessage(responses::SignmessageResponse),
 	Splice_Init(responses::Splice_initResponse),
@@ -2876,6 +2878,29 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "setconfig"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SetpsbtversionRequest {
+	    pub psbt: String,
+	    pub version: u32,
+	}
+
+	impl From<SetpsbtversionRequest> for Request {
+	    fn from(r: SetpsbtversionRequest) -> Self {
+	        Request::SetPsbtVersion(r)
+	    }
+	}
+
+	impl IntoRequest for SetpsbtversionRequest {
+	    type Response = super::responses::SetpsbtversionResponse;
+	}
+
+	impl TypedRequest for SetpsbtversionRequest {
+	    type Response = super::responses::SetpsbtversionResponse;
+
+	    fn method(&self) -> &str {
+	        "setpsbtversion"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -7666,6 +7691,22 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::SetConfig(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SetpsbtversionResponse {
+	    pub psbt: String,
+	}
+
+	impl TryFrom<Response> for SetpsbtversionResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::SetPsbtVersion(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
