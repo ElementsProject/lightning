@@ -138,6 +138,101 @@ def test_bitcoin_ibd(node_factory, bitcoind):
     assert 'warning_bitcoind_sync' not in l1.rpc.getinfo()
 
 
+def test_bitcoin_pruned(node_factory, bitcoind):
+    """Test that we try to fetch blocks from a peer if we can not find
+    them on our local bitcoind.
+    """
+    fetched_peerblock = False
+
+    def mock_getblock(r):
+        # Simulate a pruned node that reutrns an error when asked for a block.
+        nonlocal fetched_peerblock
+        if fetched_peerblock:
+            fetched_peerblock = False
+            conf_file = os.path.join(bitcoind.bitcoin_dir, "bitcoin.conf")
+            brpc = RawProxy(btc_conf_file=conf_file)
+            return {
+                "result": brpc._call(r["method"], *r["params"]),
+                "error": None,
+                "id": r["id"],
+            }
+        return {
+            "id": r["id"],
+            "result": None,
+            "error": {"code": -1, "message": "Block not available (pruned data)"},
+        }
+
+    def mock_getpeerinfo(r, error=False):
+        if error:
+            return {"id": r["id"], "error": {"code": -1, "message": "unknown"}}
+        return {
+            "id": r["id"],
+            "result": [
+                {
+                    "id": 1,
+                },
+                {
+                    "id": 2,
+                },
+                {
+                    "id": 3,
+                },
+            ],
+        }
+
+    def mock_getblockfrompeer(error=False, release_after=0):
+        getblock_counter = 0
+
+        def mock_getblockfrompeer_inner(r):
+            nonlocal getblock_counter
+            getblock_counter += 1
+
+            if error and getblock_counter < release_after:
+                return {
+                    "id": r["id"],
+                    "error": {"code": -1, "message": "peer unknown"},
+                }
+            if getblock_counter >= release_after:
+                nonlocal fetched_peerblock
+                fetched_peerblock = True
+            return {
+                "id": r["id"],
+                "result": {},
+            }
+        return mock_getblockfrompeer_inner
+
+    l1 = node_factory.get_node(start=False)
+
+    l1.daemon.rpcproxy.mock_rpc("getblock", mock_getblock)
+    l1.daemon.rpcproxy.mock_rpc("getpeerinfo", mock_getpeerinfo)
+    l1.daemon.rpcproxy.mock_rpc("getblockfrompeer", mock_getblockfrompeer())
+    l1.start(wait_for_bitcoind_sync=False)
+
+    # check that we fetched a block from a peer (1st peer in this case).
+    pruned_block = bitcoind.rpc.getblockhash(bitcoind.rpc.getblockcount())
+    l1.daemon.wait_for_log(f"failed to fetch block {pruned_block} from the bitcoin backend")
+    l1.daemon.wait_for_log(rf"try to fetch block {pruned_block} from peer 1")
+    l1.daemon.wait_for_log(rf"Adding block (\d+): {pruned_block}")
+
+    # check that we can also fetch from a peer > 1st.
+    l1.daemon.rpcproxy.mock_rpc("getblockfrompeer", mock_getblockfrompeer(error=True, release_after=2))
+    bitcoind.generate_block(1)
+
+    pruned_block = bitcoind.rpc.getblockhash(bitcoind.rpc.getblockcount())
+    l1.daemon.wait_for_log(f"failed to fetch block {pruned_block} from the bitcoin backend")
+    l1.daemon.wait_for_log(rf"failed to fetch block {pruned_block} from peer 1")
+    l1.daemon.wait_for_log(rf"try to fetch block {pruned_block} from peer (\d+)")
+    l1.daemon.wait_for_log(rf"Adding block (\d+): {pruned_block}")
+
+    # check that we retry if we could not fetch any block
+    l1.daemon.rpcproxy.mock_rpc("getblockfrompeer", mock_getblockfrompeer(error=True, release_after=10))
+    bitcoind.generate_block(1)
+
+    pruned_block = bitcoind.rpc.getblockhash(bitcoind.rpc.getblockcount())
+    l1.daemon.wait_for_log(f"asked all known peers about block {pruned_block}, retry")
+    l1.daemon.wait_for_log(rf"Adding block (\d+): {pruned_block}")
+
+
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_lightningd_still_loading(node_factory, bitcoind, executor):
