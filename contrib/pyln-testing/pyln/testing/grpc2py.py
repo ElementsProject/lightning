@@ -436,6 +436,45 @@ def invoice2py(m):
     })
 
 
+def invoicerequest2py(m):
+    return remove_default({
+        "active": m.active,  # PrimitiveField in generate_composite
+        "bolt12": m.bolt12,  # PrimitiveField in generate_composite
+        "invreq_id": hexlify(m.invreq_id),  # PrimitiveField in generate_composite
+        "label": m.label,  # PrimitiveField in generate_composite
+        "single_use": m.single_use,  # PrimitiveField in generate_composite
+        "used": m.used,  # PrimitiveField in generate_composite
+    })
+
+
+def disableinvoicerequest2py(m):
+    return remove_default({
+        "active": m.active,  # PrimitiveField in generate_composite
+        "bolt12": m.bolt12,  # PrimitiveField in generate_composite
+        "invreq_id": hexlify(m.invreq_id),  # PrimitiveField in generate_composite
+        "label": m.label,  # PrimitiveField in generate_composite
+        "single_use": m.single_use,  # PrimitiveField in generate_composite
+        "used": m.used,  # PrimitiveField in generate_composite
+    })
+
+
+def listinvoicerequests_invoicerequests2py(m):
+    return remove_default({
+        "active": m.active,  # PrimitiveField in generate_composite
+        "bolt12": m.bolt12,  # PrimitiveField in generate_composite
+        "invreq_id": hexlify(m.invreq_id),  # PrimitiveField in generate_composite
+        "label": m.label,  # PrimitiveField in generate_composite
+        "single_use": m.single_use,  # PrimitiveField in generate_composite
+        "used": m.used,  # PrimitiveField in generate_composite
+    })
+
+
+def listinvoicerequests2py(m):
+    return remove_default({
+        "invoicerequests": [listinvoicerequests_invoicerequests2py(i) for i in m.invoicerequests],  # ArrayField[composite] in generate_composite
+    })
+
+
 def listdatastore_datastore2py(m):
     return remove_default({
         "key": [m.key for i in m.key], # ArrayField[primitive] in generate_composite

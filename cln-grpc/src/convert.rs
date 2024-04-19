@@ -593,6 +593,58 @@ impl From<responses::InvoiceResponse> for pb::InvoiceResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::InvoicerequestResponse> for pb::InvoicerequestResponse {
+    fn from(c: responses::InvoicerequestResponse) -> Self {
+        Self {
+            active: c.active, // Rule #2 for type boolean
+            bolt12: c.bolt12, // Rule #2 for type string
+            invreq_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.invreq_id).to_vec(), // Rule #2 for type hash
+            label: c.label, // Rule #2 for type string?
+            single_use: c.single_use, // Rule #2 for type boolean
+            used: c.used, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::DisableinvoicerequestResponse> for pb::DisableinvoicerequestResponse {
+    fn from(c: responses::DisableinvoicerequestResponse) -> Self {
+        Self {
+            active: c.active, // Rule #2 for type boolean
+            bolt12: c.bolt12, // Rule #2 for type string
+            invreq_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.invreq_id).to_vec(), // Rule #2 for type hash
+            label: c.label, // Rule #2 for type string?
+            single_use: c.single_use, // Rule #2 for type boolean
+            used: c.used, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListinvoicerequestsInvoicerequests> for pb::ListinvoicerequestsInvoicerequests {
+    fn from(c: responses::ListinvoicerequestsInvoicerequests) -> Self {
+        Self {
+            active: c.active, // Rule #2 for type boolean
+            bolt12: c.bolt12, // Rule #2 for type string
+            invreq_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.invreq_id).to_vec(), // Rule #2 for type hash
+            label: c.label, // Rule #2 for type string?
+            single_use: c.single_use, // Rule #2 for type boolean
+            used: c.used, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListinvoicerequestsResponse> for pb::ListinvoicerequestsResponse {
+    fn from(c: responses::ListinvoicerequestsResponse) -> Self {
+        Self {
+            // Field: ListInvoiceRequests.invoicerequests[]
+            invoicerequests: c.invoicerequests.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ListinvoicerequestsInvoicerequests
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::ListdatastoreDatastore> for pb::ListdatastoreDatastore {
     fn from(c: responses::ListdatastoreDatastore) -> Self {
         Self {
@@ -2962,6 +3014,39 @@ impl From<requests::InvoiceRequest> for pb::InvoiceRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::InvoicerequestRequest> for pb::InvoicerequestRequest {
+    fn from(c: requests::InvoicerequestRequest) -> Self {
+        Self {
+            absolute_expiry: c.absolute_expiry, // Rule #2 for type u64?
+            amount: Some(c.amount.into()), // Rule #2 for type msat
+            description: c.description, // Rule #2 for type string
+            issuer: c.issuer, // Rule #2 for type string?
+            label: c.label, // Rule #2 for type string?
+            single_use: c.single_use, // Rule #2 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::DisableinvoicerequestRequest> for pb::DisableinvoicerequestRequest {
+    fn from(c: requests::DisableinvoicerequestRequest) -> Self {
+        Self {
+            invreq_id: c.invreq_id, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::ListinvoicerequestsRequest> for pb::ListinvoicerequestsRequest {
+    fn from(c: requests::ListinvoicerequestsRequest) -> Self {
+        Self {
+            active_only: c.active_only, // Rule #2 for type boolean?
+            invreq_id: c.invreq_id, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::ListdatastoreRequest> for pb::ListdatastoreRequest {
     fn from(c: requests::ListdatastoreRequest) -> Self {
         Self {
@@ -4180,6 +4265,39 @@ impl From<pb::InvoiceRequest> for requests::InvoiceRequest {
             fallbacks: Some(c.fallbacks.into_iter().map(|s| s.into()).collect()), // Rule #4
             label: c.label, // Rule #1 for type string
             preimage: c.preimage.map(|v| hex::encode(v)), // Rule #1 for type hex?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::InvoicerequestRequest> for requests::InvoicerequestRequest {
+    fn from(c: pb::InvoicerequestRequest) -> Self {
+        Self {
+            absolute_expiry: c.absolute_expiry, // Rule #1 for type u64?
+            amount: c.amount.unwrap().into(), // Rule #1 for type msat
+            description: c.description, // Rule #1 for type string
+            issuer: c.issuer, // Rule #1 for type string?
+            label: c.label, // Rule #1 for type string?
+            single_use: c.single_use, // Rule #1 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::DisableinvoicerequestRequest> for requests::DisableinvoicerequestRequest {
+    fn from(c: pb::DisableinvoicerequestRequest) -> Self {
+        Self {
+            invreq_id: c.invreq_id, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::ListinvoicerequestsRequest> for requests::ListinvoicerequestsRequest {
+    fn from(c: pb::ListinvoicerequestsRequest) -> Self {
+        Self {
+            active_only: c.active_only, // Rule #1 for type boolean?
+            invreq_id: c.invreq_id, // Rule #1 for type string?
         }
     }
 }

@@ -109,6 +109,21 @@ class NodeStub(object):
                 request_serializer=node__pb2.InvoiceRequest.SerializeToString,
                 response_deserializer=node__pb2.InvoiceResponse.FromString,
                 )
+        self.CreateInvoiceRequest = channel.unary_unary(
+                '/cln.Node/CreateInvoiceRequest',
+                request_serializer=node__pb2.InvoicerequestRequest.SerializeToString,
+                response_deserializer=node__pb2.InvoicerequestResponse.FromString,
+                )
+        self.DisableInvoiceRequest = channel.unary_unary(
+                '/cln.Node/DisableInvoiceRequest',
+                request_serializer=node__pb2.DisableinvoicerequestRequest.SerializeToString,
+                response_deserializer=node__pb2.DisableinvoicerequestResponse.FromString,
+                )
+        self.ListInvoiceRequests = channel.unary_unary(
+                '/cln.Node/ListInvoiceRequests',
+                request_serializer=node__pb2.ListinvoicerequestsRequest.SerializeToString,
+                response_deserializer=node__pb2.ListinvoicerequestsResponse.FromString,
+                )
         self.ListDatastore = channel.unary_unary(
                 '/cln.Node/ListDatastore',
                 request_serializer=node__pb2.ListdatastoreRequest.SerializeToString,
@@ -633,6 +648,24 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def Invoice(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CreateInvoiceRequest(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DisableInvoiceRequest(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListInvoiceRequests(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1227,6 +1260,21 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.Invoice,
                     request_deserializer=node__pb2.InvoiceRequest.FromString,
                     response_serializer=node__pb2.InvoiceResponse.SerializeToString,
+            ),
+            'CreateInvoiceRequest': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateInvoiceRequest,
+                    request_deserializer=node__pb2.InvoicerequestRequest.FromString,
+                    response_serializer=node__pb2.InvoicerequestResponse.SerializeToString,
+            ),
+            'DisableInvoiceRequest': grpc.unary_unary_rpc_method_handler(
+                    servicer.DisableInvoiceRequest,
+                    request_deserializer=node__pb2.DisableinvoicerequestRequest.FromString,
+                    response_serializer=node__pb2.DisableinvoicerequestResponse.SerializeToString,
+            ),
+            'ListInvoiceRequests': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListInvoiceRequests,
+                    request_deserializer=node__pb2.ListinvoicerequestsRequest.FromString,
+                    response_serializer=node__pb2.ListinvoicerequestsResponse.SerializeToString,
             ),
             'ListDatastore': grpc.unary_unary_rpc_method_handler(
                     servicer.ListDatastore,
@@ -1968,6 +2016,57 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/Invoice',
             node__pb2.InvoiceRequest.SerializeToString,
             node__pb2.InvoiceResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def CreateInvoiceRequest(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/CreateInvoiceRequest',
+            node__pb2.InvoicerequestRequest.SerializeToString,
+            node__pb2.InvoicerequestResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DisableInvoiceRequest(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/DisableInvoiceRequest',
+            node__pb2.DisableinvoicerequestRequest.SerializeToString,
+            node__pb2.DisableinvoicerequestResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ListInvoiceRequests(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/ListInvoiceRequests',
+            node__pb2.ListinvoicerequestsRequest.SerializeToString,
+            node__pb2.ListinvoicerequestsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

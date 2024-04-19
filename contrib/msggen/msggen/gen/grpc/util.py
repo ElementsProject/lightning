@@ -40,6 +40,7 @@ typemap = {
 # clash with the generated ones. So rename the ones we know clash.
 method_name_overrides = {
     "Connect": "ConnectPeer",
+    "InvoiceRequest": "CreateInvoiceRequest",
 }
 
 

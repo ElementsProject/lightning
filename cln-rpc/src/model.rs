@@ -38,6 +38,9 @@ pub enum Request {
 	DelDatastore(requests::DeldatastoreRequest),
 	DelInvoice(requests::DelinvoiceRequest),
 	Invoice(requests::InvoiceRequest),
+	InvoiceRequest(requests::InvoicerequestRequest),
+	DisableInvoiceRequest(requests::DisableinvoicerequestRequest),
+	ListInvoiceRequests(requests::ListinvoicerequestsRequest),
 	ListDatastore(requests::ListdatastoreRequest),
 	ListInvoices(requests::ListinvoicesRequest),
 	SendOnion(requests::SendonionRequest),
@@ -148,6 +151,9 @@ pub enum Response {
 	DelDatastore(responses::DeldatastoreResponse),
 	DelInvoice(responses::DelinvoiceResponse),
 	Invoice(responses::InvoiceResponse),
+	InvoiceRequest(responses::InvoicerequestResponse),
+	DisableInvoiceRequest(responses::DisableinvoicerequestResponse),
+	ListInvoiceRequests(responses::ListinvoicerequestsResponse),
 	ListDatastore(responses::ListdatastoreResponse),
 	ListInvoices(responses::ListinvoicesResponse),
 	SendOnion(responses::SendonionResponse),
@@ -885,6 +891,84 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "invoice"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct InvoicerequestRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub absolute_expiry: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub issuer: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub single_use: Option<bool>,
+	    pub amount: Amount,
+	    pub description: String,
+	}
+
+	impl From<InvoicerequestRequest> for Request {
+	    fn from(r: InvoicerequestRequest) -> Self {
+	        Request::InvoiceRequest(r)
+	    }
+	}
+
+	impl IntoRequest for InvoicerequestRequest {
+	    type Response = super::responses::InvoicerequestResponse;
+	}
+
+	impl TypedRequest for InvoicerequestRequest {
+	    type Response = super::responses::InvoicerequestResponse;
+
+	    fn method(&self) -> &str {
+	        "invoicerequest"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DisableinvoicerequestRequest {
+	    pub invreq_id: String,
+	}
+
+	impl From<DisableinvoicerequestRequest> for Request {
+	    fn from(r: DisableinvoicerequestRequest) -> Self {
+	        Request::DisableInvoiceRequest(r)
+	    }
+	}
+
+	impl IntoRequest for DisableinvoicerequestRequest {
+	    type Response = super::responses::DisableinvoicerequestResponse;
+	}
+
+	impl TypedRequest for DisableinvoicerequestRequest {
+	    type Response = super::responses::DisableinvoicerequestResponse;
+
+	    fn method(&self) -> &str {
+	        "disableinvoicerequest"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListinvoicerequestsRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub active_only: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub invreq_id: Option<String>,
+	}
+
+	impl From<ListinvoicerequestsRequest> for Request {
+	    fn from(r: ListinvoicerequestsRequest) -> Self {
+	        Request::ListInvoiceRequests(r)
+	    }
+	}
+
+	impl IntoRequest for ListinvoicerequestsRequest {
+	    type Response = super::responses::ListinvoicerequestsResponse;
+	}
+
+	impl TypedRequest for ListinvoicerequestsRequest {
+	    type Response = super::responses::ListinvoicerequestsResponse;
+
+	    fn method(&self) -> &str {
+	        "listinvoicerequests"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -4523,6 +4607,77 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::Invoice(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct InvoicerequestResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    pub active: bool,
+	    pub bolt12: String,
+	    pub invreq_id: Sha256,
+	    pub single_use: bool,
+	    pub used: bool,
+	}
+
+	impl TryFrom<Response> for InvoicerequestResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::InvoiceRequest(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DisableinvoicerequestResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    pub active: bool,
+	    pub bolt12: String,
+	    pub invreq_id: Sha256,
+	    pub single_use: bool,
+	    pub used: bool,
+	}
+
+	impl TryFrom<Response> for DisableinvoicerequestResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::DisableInvoiceRequest(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListinvoicerequestsInvoicerequests {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    pub active: bool,
+	    pub bolt12: String,
+	    pub invreq_id: Sha256,
+	    pub single_use: bool,
+	    pub used: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListinvoicerequestsResponse {
+	    pub invoicerequests: Vec<ListinvoicerequestsInvoicerequests>,
+	}
+
+	impl TryFrom<Response> for ListinvoicerequestsResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::ListInvoiceRequests(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
