@@ -234,6 +234,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.DelpayRequest.SerializeToString,
                 response_deserializer=node__pb2.DelpayResponse.FromString,
                 )
+        self.DelForward = channel.unary_unary(
+                '/cln.Node/DelForward',
+                request_serializer=node__pb2.DelforwardRequest.SerializeToString,
+                response_deserializer=node__pb2.DelforwardResponse.FromString,
+                )
         self.Disconnect = channel.unary_unary(
                 '/cln.Node/Disconnect',
                 request_serializer=node__pb2.DisconnectRequest.SerializeToString,
@@ -658,6 +663,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def DelForward(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Disconnect(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1066,6 +1077,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.DelPay,
                     request_deserializer=node__pb2.DelpayRequest.FromString,
                     response_serializer=node__pb2.DelpayResponse.SerializeToString,
+            ),
+            'DelForward': grpc.unary_unary_rpc_method_handler(
+                    servicer.DelForward,
+                    request_deserializer=node__pb2.DelforwardRequest.FromString,
+                    response_serializer=node__pb2.DelforwardResponse.SerializeToString,
             ),
             'Disconnect': grpc.unary_unary_rpc_method_handler(
                     servicer.Disconnect,
@@ -1977,6 +1993,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/DelPay',
             node__pb2.DelpayRequest.SerializeToString,
             node__pb2.DelpayResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DelForward(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/DelForward',
+            node__pb2.DelforwardRequest.SerializeToString,
+            node__pb2.DelforwardResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

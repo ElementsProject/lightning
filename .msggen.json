@@ -50,6 +50,11 @@
             "P2WPKH": 2,
             "P2WSH": 3
         },
+        "DelforwardStatus": {
+            "failed": 2,
+            "local_failed": 1,
+            "settled": 0
+        },
         "DelinvoiceStatus": {
             "expired": 1,
             "paid": 0,
@@ -784,6 +789,11 @@
         },
         "DelexpiredinvoiceRequest": {
             "DelExpiredInvoice.maxexpirytime": 1
+        },
+        "DelforwardRequest": {
+            "DelForward.in_channel": 1,
+            "DelForward.in_htlc_id": 2,
+            "DelForward.status": 3
         },
         "DelinvoiceRequest": {
             "DelInvoice.desconly": 3,
@@ -3475,6 +3485,22 @@
             "deprecated": null
         },
         "DelExpiredInvoice.maxexpirytime": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelForward": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "DelForward.in_channel": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelForward.in_htlc_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelForward.status": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

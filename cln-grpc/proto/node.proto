@@ -52,6 +52,7 @@ service Node {
 	rpc DecodePay(DecodepayRequest) returns (DecodepayResponse) {}
 	rpc Decode(DecodeRequest) returns (DecodeResponse) {}
 	rpc DelPay(DelpayRequest) returns (DelpayResponse) {}
+	rpc DelForward(DelforwardRequest) returns (DelforwardResponse) {}
 	rpc Disconnect(DisconnectRequest) returns (DisconnectResponse) {}
 	rpc Feerates(FeeratesRequest) returns (FeeratesResponse) {}
 	rpc FetchInvoice(FetchinvoiceRequest) returns (FetchinvoiceResponse) {}
@@ -1602,6 +1603,21 @@ message DelpayPayments {
 	optional string bolt11 = 15;
 	optional string bolt12 = 16;
 	optional bytes erroronion = 17;
+}
+
+message DelforwardRequest {
+	// DelForward.status
+	enum DelforwardStatus {
+		SETTLED = 0;
+		LOCAL_FAILED = 1;
+		FAILED = 2;
+	}
+	string in_channel = 1;
+	uint64 in_htlc_id = 2;
+	DelforwardStatus status = 3;
+}
+
+message DelforwardResponse {
 }
 
 message DisconnectRequest {

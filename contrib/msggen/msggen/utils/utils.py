@@ -102,6 +102,7 @@ def load_jsonrpc_service():
         "DecodePay",
         "Decode",
         "DelPay",
+        "DelForward",
         # "disableoffer",
         "Disconnect",
         "Feerates",

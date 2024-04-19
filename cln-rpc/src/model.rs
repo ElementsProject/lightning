@@ -63,6 +63,7 @@ pub enum Request {
 	DecodePay(requests::DecodepayRequest),
 	Decode(requests::DecodeRequest),
 	DelPay(requests::DelpayRequest),
+	DelForward(requests::DelforwardRequest),
 	Disconnect(requests::DisconnectRequest),
 	Feerates(requests::FeeratesRequest),
 	FetchInvoice(requests::FetchinvoiceRequest),
@@ -147,6 +148,7 @@ pub enum Response {
 	DecodePay(responses::DecodepayResponse),
 	Decode(responses::DecodeResponse),
 	DelPay(responses::DelpayResponse),
+	DelForward(responses::DelforwardResponse),
 	Disconnect(responses::DisconnectResponse),
 	Feerates(responses::FeeratesResponse),
 	FetchInvoice(responses::FetchinvoiceResponse),
@@ -1691,6 +1693,64 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "delpay"
+	    }
+	}
+	/// ['The status of the forward to delete. You cannot delete forwards which have status *offered* (i.e. are currently active).']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum DelforwardStatus {
+	    #[serde(rename = "settled")]
+	    SETTLED = 0,
+	    #[serde(rename = "local_failed")]
+	    LOCAL_FAILED = 1,
+	    #[serde(rename = "failed")]
+	    FAILED = 2,
+	}
+
+	impl TryFrom<i32> for DelforwardStatus {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<DelforwardStatus, anyhow::Error> {
+	        match c {
+	    0 => Ok(DelforwardStatus::SETTLED),
+	    1 => Ok(DelforwardStatus::LOCAL_FAILED),
+	    2 => Ok(DelforwardStatus::FAILED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum DelforwardStatus", o)),
+	        }
+	    }
+	}
+
+	impl ToString for DelforwardStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            DelforwardStatus::SETTLED => "SETTLED",
+	            DelforwardStatus::LOCAL_FAILED => "LOCAL_FAILED",
+	            DelforwardStatus::FAILED => "FAILED",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DelforwardRequest {
+	    // Path `DelForward.status`
+	    pub status: DelforwardStatus,
+	    pub in_channel: ShortChannelId,
+	    pub in_htlc_id: u64,
+	}
+
+	impl From<DelforwardRequest> for Request {
+	    fn from(r: DelforwardRequest) -> Self {
+	        Request::DelForward(r)
+	    }
+	}
+
+	impl IntoRequest for DelforwardRequest {
+	    type Response = super::responses::DelforwardResponse;
+	}
+
+	impl TypedRequest for DelforwardRequest {
+	    type Response = super::responses::DelforwardResponse;
+
+	    fn method(&self) -> &str {
+	        "delforward"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -5711,6 +5771,21 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::DelPay(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DelforwardResponse {
+	}
+
+	impl TryFrom<Response> for DelforwardResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::DelForward(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

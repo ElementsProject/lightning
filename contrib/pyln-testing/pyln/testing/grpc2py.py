@@ -1286,6 +1286,11 @@ def delpay2py(m):
     })
 
 
+def delforward2py(m):
+    return remove_default({
+    })
+
+
 def disconnect2py(m):
     return remove_default({
     })

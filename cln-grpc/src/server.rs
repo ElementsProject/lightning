@@ -1434,6 +1434,38 @@ async fn del_pay(
 
 }
 
+async fn del_forward(
+    &self,
+    request: tonic::Request<pb::DelforwardRequest>,
+) -> Result<tonic::Response<pb::DelforwardResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::DelforwardRequest = req.into();
+    debug!("Client asked for del_forward");
+    trace!("del_forward request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::DelForward(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method DelForward: {:?}", e)))?;
+    match result {
+        Response::DelForward(r) => {
+           trace!("del_forward response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call DelForward",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn disconnect(
     &self,
     request: tonic::Request<pb::DisconnectRequest>,
