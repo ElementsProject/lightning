@@ -453,8 +453,11 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	if (pbase)
 		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
 
+	/* If this fails, it cleans up */
+	if (!peer_start_channeld(channel, peer_fd, NULL, false, NULL))
+		return;
+
 	funding_success(channel);
-	peer_start_channeld(channel, peer_fd, NULL, false, NULL);
 
 cleanup:
 	/* Frees fc too */
@@ -557,10 +560,9 @@ static void opening_fundee_finished(struct subd *openingd,
 	if (pbase)
 		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
 
-	/* On to normal operation! */
-	peer_start_channeld(channel, peer_fd, fwd_msg, false, NULL);
-
-	tal_free(uc);
+	/* On to normal operation (frees if it fails!) */
+	if (peer_start_channeld(channel, peer_fd, fwd_msg, false, NULL))
+		tal_free(uc);
 	return;
 
 failed:
