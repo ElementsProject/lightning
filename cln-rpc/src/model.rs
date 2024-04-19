@@ -78,6 +78,7 @@ pub enum Request {
 	FundChannel(requests::FundchannelRequest),
 	FundChannel_Start(requests::Fundchannel_startRequest),
 	GetLog(requests::GetlogRequest),
+	FunderUpdate(requests::FunderupdateRequest),
 	GetRoute(requests::GetrouteRequest),
 	ListForwards(requests::ListforwardsRequest),
 	ListOffers(requests::ListoffersRequest),
@@ -193,6 +194,7 @@ pub enum Response {
 	FundChannel(responses::FundchannelResponse),
 	FundChannel_Start(responses::Fundchannel_startResponse),
 	GetLog(responses::GetlogResponse),
+	FunderUpdate(responses::FunderupdateResponse),
 	GetRoute(responses::GetrouteResponse),
 	ListForwards(responses::ListforwardsResponse),
 	ListOffers(responses::ListoffersResponse),
@@ -2237,6 +2239,92 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "getlog"
+	    }
+	}
+	/// ['Funder plugin will use to decide how much capital to commit to a v2 open channel request.', 'There are three policy options, detailed below:', '    * `match` -- Contribute *policy_mod* percent of their requested funds. Valid *policy_mod* values are 0 to 200. If this is a channel lease request, we match based on their requested funds. If it is not a channel lease request (and *lease_only* is false), then we match their funding amount. Note: any lease match less than 100 will likely fail, as clients will not accept a lease less than their request.', '    * `available` -- Contribute *policy_mod* percent of our available node wallet funds. Valid *policy_mod* values are 0 to 100.', '    * `fixed` -- Contributes a fixed  *policy_mod* sats to v2 channel open requests.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum FunderupdatePolicy {
+	    #[serde(rename = "match")]
+	    MATCH = 0,
+	    #[serde(rename = "available")]
+	    AVAILABLE = 1,
+	    #[serde(rename = "fixed")]
+	    FIXED = 2,
+	}
+
+	impl TryFrom<i32> for FunderupdatePolicy {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<FunderupdatePolicy, anyhow::Error> {
+	        match c {
+	    0 => Ok(FunderupdatePolicy::MATCH),
+	    1 => Ok(FunderupdatePolicy::AVAILABLE),
+	    2 => Ok(FunderupdatePolicy::FIXED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum FunderupdatePolicy", o)),
+	        }
+	    }
+	}
+
+	impl ToString for FunderupdatePolicy {
+	    fn to_string(&self) -> String {
+	        match self {
+	            FunderupdatePolicy::MATCH => "MATCH",
+	            FunderupdatePolicy::AVAILABLE => "AVAILABLE",
+	            FunderupdatePolicy::FIXED => "FIXED",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FunderupdateRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub channel_fee_max_base_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub channel_fee_max_proportional_thousandths: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub compact_lease: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fund_probability: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub funding_weight: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fuzz_percent: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub lease_fee_base_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub lease_fee_basis: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub leases_only: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub max_their_funding_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub min_their_funding_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub per_channel_max_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub per_channel_min_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub policy: Option<FunderupdatePolicy>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub policy_mod: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub reserve_tank_msat: Option<Amount>,
+	}
+
+	impl From<FunderupdateRequest> for Request {
+	    fn from(r: FunderupdateRequest) -> Self {
+	        Request::FunderUpdate(r)
+	    }
+	}
+
+	impl IntoRequest for FunderupdateRequest {
+	    type Response = super::responses::FunderupdateResponse;
+	}
+
+	impl TypedRequest for FunderupdateRequest {
+	    type Response = super::responses::FunderupdateResponse;
+
+	    fn method(&self) -> &str {
+	        "funderupdate"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -6921,6 +7009,78 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::GetLog(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	/// ['Policy funder plugin will use to decide how much capital to commit to a v2 open channel request.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum FunderupdatePolicy {
+	    #[serde(rename = "match")]
+	    MATCH = 0,
+	    #[serde(rename = "available")]
+	    AVAILABLE = 1,
+	    #[serde(rename = "fixed")]
+	    FIXED = 2,
+	}
+
+	impl TryFrom<i32> for FunderupdatePolicy {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<FunderupdatePolicy, anyhow::Error> {
+	        match c {
+	    0 => Ok(FunderupdatePolicy::MATCH),
+	    1 => Ok(FunderupdatePolicy::AVAILABLE),
+	    2 => Ok(FunderupdatePolicy::FIXED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum FunderupdatePolicy", o)),
+	        }
+	    }
+	}
+
+	impl ToString for FunderupdatePolicy {
+	    fn to_string(&self) -> String {
+	        match self {
+	            FunderupdatePolicy::MATCH => "MATCH",
+	            FunderupdatePolicy::AVAILABLE => "AVAILABLE",
+	            FunderupdatePolicy::FIXED => "FIXED",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FunderupdateResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub channel_fee_max_base_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub channel_fee_max_proportional_thousandths: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub compact_lease: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub funding_weight: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub lease_fee_base_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub lease_fee_basis: Option<u32>,
+	    // Path `FunderUpdate.policy`
+	    pub policy: FunderupdatePolicy,
+	    pub fund_probability: u32,
+	    pub fuzz_percent: u32,
+	    pub leases_only: bool,
+	    pub max_their_funding_msat: Amount,
+	    pub min_their_funding_msat: Amount,
+	    pub per_channel_max_msat: Amount,
+	    pub per_channel_min_msat: Amount,
+	    pub policy_mod: u32,
+	    pub reserve_tank_msat: Amount,
+	    pub summary: String,
+	}
+
+	impl TryFrom<Response> for FunderupdateResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::FunderUpdate(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

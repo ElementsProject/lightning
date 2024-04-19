@@ -1828,6 +1828,31 @@ impl From<responses::GetlogResponse> for pb::GetlogResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::FunderupdateResponse> for pb::FunderupdateResponse {
+    fn from(c: responses::FunderupdateResponse) -> Self {
+        Self {
+            channel_fee_max_base_msat: c.channel_fee_max_base_msat.map(|f| f.into()), // Rule #2 for type msat?
+            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths, // Rule #2 for type u32?
+            compact_lease: c.compact_lease.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            fund_probability: c.fund_probability, // Rule #2 for type u32
+            funding_weight: c.funding_weight, // Rule #2 for type u32?
+            fuzz_percent: c.fuzz_percent, // Rule #2 for type u32
+            lease_fee_base_msat: c.lease_fee_base_msat.map(|f| f.into()), // Rule #2 for type msat?
+            lease_fee_basis: c.lease_fee_basis, // Rule #2 for type u32?
+            leases_only: c.leases_only, // Rule #2 for type boolean
+            max_their_funding_msat: Some(c.max_their_funding_msat.into()), // Rule #2 for type msat
+            min_their_funding_msat: Some(c.min_their_funding_msat.into()), // Rule #2 for type msat
+            per_channel_max_msat: Some(c.per_channel_max_msat.into()), // Rule #2 for type msat
+            per_channel_min_msat: Some(c.per_channel_min_msat.into()), // Rule #2 for type msat
+            policy: c.policy as i32,
+            policy_mod: c.policy_mod, // Rule #2 for type u32
+            reserve_tank_msat: Some(c.reserve_tank_msat.into()), // Rule #2 for type msat
+            summary: c.summary, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::GetrouteRoute> for pb::GetrouteRoute {
     fn from(c: responses::GetrouteRoute) -> Self {
         Self {
@@ -3485,6 +3510,30 @@ impl From<requests::GetlogRequest> for pb::GetlogRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::FunderupdateRequest> for pb::FunderupdateRequest {
+    fn from(c: requests::FunderupdateRequest) -> Self {
+        Self {
+            channel_fee_max_base_msat: c.channel_fee_max_base_msat.map(|f| f.into()), // Rule #2 for type msat?
+            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths, // Rule #2 for type u32?
+            compact_lease: c.compact_lease.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            fund_probability: c.fund_probability, // Rule #2 for type u32?
+            funding_weight: c.funding_weight, // Rule #2 for type u32?
+            fuzz_percent: c.fuzz_percent, // Rule #2 for type u32?
+            lease_fee_base_msat: c.lease_fee_base_msat.map(|f| f.into()), // Rule #2 for type msat?
+            lease_fee_basis: c.lease_fee_basis, // Rule #2 for type u32?
+            leases_only: c.leases_only, // Rule #2 for type boolean?
+            max_their_funding_msat: c.max_their_funding_msat.map(|f| f.into()), // Rule #2 for type msat?
+            min_their_funding_msat: c.min_their_funding_msat.map(|f| f.into()), // Rule #2 for type msat?
+            per_channel_max_msat: c.per_channel_max_msat.map(|f| f.into()), // Rule #2 for type msat?
+            per_channel_min_msat: c.per_channel_min_msat.map(|f| f.into()), // Rule #2 for type msat?
+            policy: c.policy.map(|v| v as i32),
+            policy_mod: c.policy_mod.map(|f| f.into()), // Rule #2 for type msat?
+            reserve_tank_msat: c.reserve_tank_msat.map(|f| f.into()), // Rule #2 for type msat?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::GetrouteRequest> for pb::GetrouteRequest {
     fn from(c: requests::GetrouteRequest) -> Self {
         Self {
@@ -4730,6 +4779,30 @@ impl From<pb::GetlogRequest> for requests::GetlogRequest {
     fn from(c: pb::GetlogRequest) -> Self {
         Self {
             level: c.level.map(|v| v.try_into().unwrap()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::FunderupdateRequest> for requests::FunderupdateRequest {
+    fn from(c: pb::FunderupdateRequest) -> Self {
+        Self {
+            channel_fee_max_base_msat: c.channel_fee_max_base_msat.map(|a| a.into()), // Rule #1 for type msat?
+            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths, // Rule #1 for type u32?
+            compact_lease: c.compact_lease.map(|v| hex::encode(v)), // Rule #1 for type hex?
+            fund_probability: c.fund_probability, // Rule #1 for type u32?
+            funding_weight: c.funding_weight, // Rule #1 for type u32?
+            fuzz_percent: c.fuzz_percent, // Rule #1 for type u32?
+            lease_fee_base_msat: c.lease_fee_base_msat.map(|a| a.into()), // Rule #1 for type msat?
+            lease_fee_basis: c.lease_fee_basis, // Rule #1 for type u32?
+            leases_only: c.leases_only, // Rule #1 for type boolean?
+            max_their_funding_msat: c.max_their_funding_msat.map(|a| a.into()), // Rule #1 for type msat?
+            min_their_funding_msat: c.min_their_funding_msat.map(|a| a.into()), // Rule #1 for type msat?
+            per_channel_max_msat: c.per_channel_max_msat.map(|a| a.into()), // Rule #1 for type msat?
+            per_channel_min_msat: c.per_channel_min_msat.map(|a| a.into()), // Rule #1 for type msat?
+            policy: c.policy.map(|v| v.try_into().unwrap()),
+            policy_mod: c.policy_mod.map(|a| a.into()), // Rule #1 for type msat?
+            reserve_tank_msat: c.reserve_tank_msat.map(|a| a.into()), // Rule #1 for type msat?
         }
     }
 }
