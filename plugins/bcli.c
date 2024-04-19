@@ -581,6 +581,35 @@ static struct command_result *process_rawblock(struct bitcoin_cli *bcli)
 	return command_finished(bcli->cmd, response);
 }
 
+static struct command_result *process_getblockfrompeer(struct bitcoin_cli *bcli)
+{
+	/* Remove the peer that we tried to get the block from and move along,
+	 * we may also check on errors here */
+	struct getrawblock_stash *stash = bcli->stash;
+
+	if (bcli->exitstatus && *bcli->exitstatus != 0) {
+		/* We still continue with the execution if we can not fetch the
+		 * block from peer */
+		plugin_log(bcli->cmd->plugin, LOG_DBG,
+			   "failed to fetch block %s from peer %i, skip.",
+			   stash->block_hash, stash->peers[0]);
+	} else {
+		plugin_log(bcli->cmd->plugin, LOG_DBG,
+			   "try to fetch block %s from peer %i.",
+			   stash->block_hash, stash->peers[0]);
+	}
+
+	stash->peers[0] = stash->peers[tal_count(stash->peers) - 1];
+	tal_resize(&stash->peers, tal_count(stash->peers) - 1);
+
+	/* `getblockfrompeer` is an async call. sleep for a second to allow the
+	 * block to be delivered by the peer. fixme: We could also sleep for
+	 * double the last ping here (with sanity limit)*/
+	sleep(1);
+
+	return getrawblock(bcli);
+}
+
 static struct command_result *process_getpeerinfo(struct bitcoin_cli *bcli)
 {
 	const jsmntok_t *t, *toks;
@@ -601,6 +630,8 @@ static struct command_result *process_getpeerinfo(struct bitcoin_cli *bcli)
 		int id;
 		if (json_scan(tmpctx, bcli->output, t, "{id:%}",
 			      JSON_SCAN(json_to_int, &id)) == NULL) {
+			// fixme: future optimization: a) filter for full nodes,
+			// b) sort by last ping
 			tal_arr_expand(&stash->peers, id);
 		}
 	}
@@ -612,7 +643,12 @@ static struct command_result *process_getpeerinfo(struct bitcoin_cli *bcli)
 		return getrawblock(bcli);
 	}
 
-	return getrawblock(bcli);
+	start_bitcoin_cli(NULL, bcli->cmd, process_getblockfrompeer, true,
+			  BITCOIND_HIGH_PRIO, stash, "getblockfrompeer",
+			  stash->block_hash,
+			  take(tal_fmt(NULL, "%i", stash->peers[0])), NULL);
+
+	return command_still_pending(bcli->cmd);
 }
 
 static struct command_result *process_getrawblock(struct bitcoin_cli *bcli)
@@ -634,7 +670,22 @@ static struct command_result *process_getrawblock(struct bitcoin_cli *bcli)
 			return command_still_pending(bcli->cmd);
 		}
 
-		/* retry */
+		if (tal_count(stash->peers) > 0) {
+			/* We have peers left that we can ask for the block */
+			start_bitcoin_cli(
+			    NULL, bcli->cmd, process_getblockfrompeer, true,
+			    BITCOIND_HIGH_PRIO, stash, "getblockfrompeer",
+			    stash->block_hash,
+			    take(tal_fmt(NULL, "%i", stash->peers[0])), NULL);
+
+			return command_still_pending(bcli->cmd);
+		}
+
+		/* We failed to fetch the block from from any peer we got. */
+		plugin_log(bcli->cmd->plugin, LOG_DBG,
+			   "asked all known peers about block %s, retry",
+			   stash->block_hash);
+		stash->peers = tal_free(stash->peers);
 		return NULL;
 	}
 
