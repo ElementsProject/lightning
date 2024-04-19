@@ -1835,6 +1835,12 @@ def setconfig2py(m):
     })
 
 
+def setpsbtversion2py(m):
+    return remove_default({
+        "psbt": m.psbt,  # PrimitiveField in generate_composite
+    })
+
+
 def signinvoice2py(m):
     return remove_default({
         "bolt11": m.bolt11,  # PrimitiveField in generate_composite

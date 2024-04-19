@@ -2368,6 +2368,13 @@
         "SetconfigResponse": {
             "SetConfig.config": 1
         },
+        "SetpsbtversionRequest": {
+            "SetPsbtVersion.psbt": 1,
+            "SetPsbtVersion.version": 2
+        },
+        "SetpsbtversionResponse": {
+            "SetPsbtVersion.psbt": 1
+        },
         "SigninvoiceRequest": {
             "SignInvoice.invstring": 1
         },
@@ -8299,6 +8306,18 @@
             "deprecated": false
         },
         "SetConfig.val": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetPsbtVersion": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SetPsbtVersion.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetPsbtVersion.version": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

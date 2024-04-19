@@ -2458,6 +2458,38 @@ async fn set_config(
 
 }
 
+async fn set_psbt_version(
+    &self,
+    request: tonic::Request<pb::SetpsbtversionRequest>,
+) -> Result<tonic::Response<pb::SetpsbtversionResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::SetpsbtversionRequest = req.into();
+    debug!("Client asked for set_psbt_version");
+    trace!("set_psbt_version request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::SetPsbtVersion(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method SetPsbtVersion: {:?}", e)))?;
+    match result {
+        Response::SetPsbtVersion(r) => {
+           trace!("set_psbt_version response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call SetPsbtVersion",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn sign_invoice(
     &self,
     request: tonic::Request<pb::SigninvoiceRequest>,

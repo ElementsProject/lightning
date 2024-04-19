@@ -84,6 +84,7 @@ service Node {
 	rpc SendOnionMessage(SendonionmessageRequest) returns (SendonionmessageResponse) {}
 	rpc SetChannel(SetchannelRequest) returns (SetchannelResponse) {}
 	rpc SetConfig(SetconfigRequest) returns (SetconfigResponse) {}
+	rpc SetPsbtVersion(SetpsbtversionRequest) returns (SetpsbtversionResponse) {}
 	rpc SignInvoice(SigninvoiceRequest) returns (SigninvoiceResponse) {}
 	rpc SignMessage(SignmessageRequest) returns (SignmessageResponse) {}
 	rpc Splice_Init(Splice_initRequest) returns (Splice_initResponse) {}
@@ -2414,6 +2415,15 @@ message SetconfigConfig {
 	optional Amount value_msat = 7;
 	optional sint64 value_int = 8;
 	optional bool value_bool = 9;
+}
+
+message SetpsbtversionRequest {
+	string psbt = 1;
+	uint32 version = 2;
+}
+
+message SetpsbtversionResponse {
+	string psbt = 1;
 }
 
 message SigninvoiceRequest {
