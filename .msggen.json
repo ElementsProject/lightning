@@ -1053,6 +1053,17 @@
         "DelpayResponse": {
             "DelPay.payments[]": 1
         },
+        "Dev-forget-channelRequest": {
+            "Dev-Forget-Channel.channel_id": 3,
+            "Dev-Forget-Channel.force": 4,
+            "Dev-Forget-Channel.id": 1,
+            "Dev-Forget-Channel.short_channel_id": 2
+        },
+        "Dev-forget-channelResponse": {
+            "Dev-Forget-Channel.forced": 1,
+            "Dev-Forget-Channel.funding_txid": 3,
+            "Dev-Forget-Channel.funding_unspent": 2
+        },
         "DisableofferRequest": {
             "DisableOffer.offer_id": 1
         },
@@ -4397,6 +4408,38 @@
             "deprecated": false
         },
         "DelPay.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Dev-Forget-Channel": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Dev-Forget-Channel.channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Dev-Forget-Channel.force": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Dev-Forget-Channel.forced": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Dev-Forget-Channel.funding_txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Dev-Forget-Channel.funding_unspent": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Dev-Forget-Channel.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Dev-Forget-Channel.short_channel_id": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
