@@ -31,6 +31,9 @@ service Node {
 	rpc Recover(RecoverRequest) returns (RecoverResponse) {}
 	rpc RecoverChannel(RecoverchannelRequest) returns (RecoverchannelResponse) {}
 	rpc Invoice(InvoiceRequest) returns (InvoiceResponse) {}
+	rpc CreateInvoiceRequest(InvoicerequestRequest) returns (InvoicerequestResponse) {}
+	rpc DisableInvoiceRequest(DisableinvoicerequestRequest) returns (DisableinvoicerequestResponse) {}
+	rpc ListInvoiceRequests(ListinvoicerequestsRequest) returns (ListinvoicerequestsResponse) {}
 	rpc ListDatastore(ListdatastoreRequest) returns (ListdatastoreResponse) {}
 	rpc ListInvoices(ListinvoicesRequest) returns (ListinvoicesResponse) {}
 	rpc SendOnion(SendonionRequest) returns (SendonionResponse) {}
@@ -729,6 +732,55 @@ message InvoiceResponse {
 	optional string warning_private_unused = 8;
 	optional string warning_mpp = 9;
 	optional uint64 created_index = 10;
+}
+
+message InvoicerequestRequest {
+	Amount amount = 1;
+	string description = 2;
+	optional string issuer = 3;
+	optional string label = 4;
+	optional uint64 absolute_expiry = 5;
+	optional bool single_use = 6;
+}
+
+message InvoicerequestResponse {
+	bytes invreq_id = 1;
+	bool active = 2;
+	bool single_use = 3;
+	string bolt12 = 4;
+	bool used = 5;
+	optional string label = 6;
+}
+
+message DisableinvoicerequestRequest {
+	string invreq_id = 1;
+}
+
+message DisableinvoicerequestResponse {
+	bytes invreq_id = 1;
+	bool active = 2;
+	bool single_use = 3;
+	string bolt12 = 4;
+	bool used = 5;
+	optional string label = 6;
+}
+
+message ListinvoicerequestsRequest {
+	optional string invreq_id = 1;
+	optional bool active_only = 2;
+}
+
+message ListinvoicerequestsResponse {
+	repeated ListinvoicerequestsInvoicerequests invoicerequests = 1;
+}
+
+message ListinvoicerequestsInvoicerequests {
+	bytes invreq_id = 1;
+	bool active = 2;
+	bool single_use = 3;
+	string bolt12 = 4;
+	bool used = 5;
+	optional string label = 6;
 }
 
 message ListdatastoreRequest {

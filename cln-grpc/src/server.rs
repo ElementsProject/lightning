@@ -818,6 +818,102 @@ impl Node for Server
 
     }
 
+    async fn create_invoice_request(
+        &self,
+        request: tonic::Request<pb::InvoicerequestRequest>,
+    ) -> Result<tonic::Response<pb::InvoicerequestResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::InvoicerequestRequest = req.into();
+        debug!("Client asked for create_invoice_request");
+        trace!("create_invoice_request request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::InvoiceRequest(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method InvoiceRequest: {:?}", e)))?;
+        match result {
+            Response::InvoiceRequest(r) => {
+               trace!("create_invoice_request response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call InvoiceRequest",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn disable_invoice_request(
+        &self,
+        request: tonic::Request<pb::DisableinvoicerequestRequest>,
+    ) -> Result<tonic::Response<pb::DisableinvoicerequestResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::DisableinvoicerequestRequest = req.into();
+        debug!("Client asked for disable_invoice_request");
+        trace!("disable_invoice_request request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::DisableInvoiceRequest(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method DisableInvoiceRequest: {:?}", e)))?;
+        match result {
+            Response::DisableInvoiceRequest(r) => {
+               trace!("disable_invoice_request response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call DisableInvoiceRequest",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn list_invoice_requests(
+        &self,
+        request: tonic::Request<pb::ListinvoicerequestsRequest>,
+    ) -> Result<tonic::Response<pb::ListinvoicerequestsResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::ListinvoicerequestsRequest = req.into();
+        debug!("Client asked for list_invoice_requests");
+        trace!("list_invoice_requests request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::ListInvoiceRequests(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method ListInvoiceRequests: {:?}", e)))?;
+        match result {
+            Response::ListInvoiceRequests(r) => {
+               trace!("list_invoice_requests response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call ListInvoiceRequests",
+                    r
+                )
+            )),
+        }
+
+    }
+
     async fn list_datastore(
         &self,
         request: tonic::Request<pb::ListdatastoreRequest>,
