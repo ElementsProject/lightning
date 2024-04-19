@@ -690,6 +690,102 @@ impl Node for Server
 
     }
 
+    async fn emergency_recover(
+        &self,
+        request: tonic::Request<pb::EmergencyrecoverRequest>,
+    ) -> Result<tonic::Response<pb::EmergencyrecoverResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::EmergencyrecoverRequest = req.into();
+        debug!("Client asked for emergency_recover");
+        trace!("emergency_recover request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::EmergencyRecover(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method EmergencyRecover: {:?}", e)))?;
+        match result {
+            Response::EmergencyRecover(r) => {
+               trace!("emergency_recover response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call EmergencyRecover",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn recover(
+        &self,
+        request: tonic::Request<pb::RecoverRequest>,
+    ) -> Result<tonic::Response<pb::RecoverResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::RecoverRequest = req.into();
+        debug!("Client asked for recover");
+        trace!("recover request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::Recover(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method Recover: {:?}", e)))?;
+        match result {
+            Response::Recover(r) => {
+               trace!("recover response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call Recover",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn recover_channel(
+        &self,
+        request: tonic::Request<pb::RecoverchannelRequest>,
+    ) -> Result<tonic::Response<pb::RecoverchannelResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::RecoverchannelRequest = req.into();
+        debug!("Client asked for recover_channel");
+        trace!("recover_channel request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::RecoverChannel(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method RecoverChannel: {:?}", e)))?;
+        match result {
+            Response::RecoverChannel(r) => {
+               trace!("recover_channel response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call RecoverChannel",
+                    r
+                )
+            )),
+        }
+
+    }
+
     async fn invoice(
         &self,
         request: tonic::Request<pb::InvoiceRequest>,

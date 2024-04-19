@@ -27,6 +27,9 @@ service Node {
 	rpc DelDatastore(DeldatastoreRequest) returns (DeldatastoreResponse) {}
 	rpc DelInvoice(DelinvoiceRequest) returns (DelinvoiceResponse) {}
 	rpc DevForgetChannel(DevforgetchannelRequest) returns (DevforgetchannelResponse) {}
+	rpc EmergencyRecover(EmergencyrecoverRequest) returns (EmergencyrecoverResponse) {}
+	rpc Recover(RecoverRequest) returns (RecoverResponse) {}
+	rpc RecoverChannel(RecoverchannelRequest) returns (RecoverchannelResponse) {}
 	rpc Invoice(InvoiceRequest) returns (InvoiceResponse) {}
 	rpc ListDatastore(ListdatastoreRequest) returns (ListdatastoreResponse) {}
 	rpc ListInvoices(ListinvoicesRequest) returns (ListinvoicesResponse) {}
@@ -672,6 +675,33 @@ message DevforgetchannelResponse {
 	bool forced = 1;
 	bool funding_unspent = 2;
 	bytes funding_txid = 3;
+}
+
+message EmergencyrecoverRequest {
+}
+
+message EmergencyrecoverResponse {
+	repeated bytes stubs = 1;
+}
+
+message RecoverRequest {
+	string hsmsecret = 1;
+}
+
+message RecoverResponse {
+	// Recover.result
+	enum RecoverResult {
+		RECOVERY_RESTART_IN_PROGRESS = 0;
+	}
+	optional RecoverResult result = 1;
+}
+
+message RecoverchannelRequest {
+	repeated bytes scb = 1;
+}
+
+message RecoverchannelResponse {
+	repeated string stubs = 1;
 }
 
 message InvoiceRequest {
