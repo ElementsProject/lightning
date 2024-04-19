@@ -178,7 +178,6 @@ class OverridePatch(Patch):
         "Decode.unknown_offer_tlvs[]",
         "DecodePay.routes[][]",
         "DecodeRoutes.routes",
-        "Invoice.exposeprivatechannels",
         "ListClosedChannels.closedchannels[].channel_type",
         "ListPeerChannels.channels[].channel_type",
         "ListPeerChannels.channels[].features[]",

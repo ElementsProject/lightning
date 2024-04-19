@@ -2953,6 +2953,8 @@ impl From<requests::InvoiceRequest> for pb::InvoiceRequest {
             deschashonly: c.deschashonly, // Rule #2 for type boolean?
             description: c.description, // Rule #2 for type string
             expiry: c.expiry, // Rule #2 for type u64?
+            // Field: Invoice.exposeprivatechannels
+            exposeprivatechannels: c.exposeprivatechannels.map(|arr| arr.into_iter().map(|i| i.to_string()).collect()).unwrap_or(vec![]), // Rule #3
             // Field: Invoice.fallbacks[]
             fallbacks: c.fallbacks.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             label: c.label, // Rule #2 for type string
@@ -4177,6 +4179,7 @@ impl From<pb::InvoiceRequest> for requests::InvoiceRequest {
             deschashonly: c.deschashonly, // Rule #1 for type boolean?
             description: c.description, // Rule #1 for type string
             expiry: c.expiry, // Rule #1 for type u64?
+            exposeprivatechannels: Some(c.exposeprivatechannels.into_iter().map(|s| cln_rpc::primitives::ShortChannelId::from_str(&s).unwrap()).collect()), // Rule #4
             fallbacks: Some(c.fallbacks.into_iter().map(|s| s.into()).collect()), // Rule #4
             label: c.label, // Rule #1 for type string
             preimage: c.preimage.map(|v| hex::encode(v)), // Rule #1 for type hex?

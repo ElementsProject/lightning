@@ -864,6 +864,8 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub preimage: Option<String>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub exposeprivatechannels: Option<Vec<ShortChannelId>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub fallbacks: Option<Vec<String>>,
 	    pub amount_msat: AmountOrAny,
 	    pub description: String,
