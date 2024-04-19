@@ -144,6 +144,7 @@ def load_jsonrpc_service():
         "Splice_Signed",
         "Splice_Update",
         "UnreserveInputs",
+        "UpgradeWallet",
         "WaitBlockHeight",
         "Wait",
         # "ListConfigs",

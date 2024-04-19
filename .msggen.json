@@ -2470,6 +2470,16 @@
         "UnreserveinputsResponse": {
             "UnreserveInputs.reservations[]": 1
         },
+        "UpgradewalletRequest": {
+            "UpgradeWallet.feerate": 1,
+            "UpgradeWallet.reservedok": 2
+        },
+        "UpgradewalletResponse": {
+            "UpgradeWallet.psbt": 2,
+            "UpgradeWallet.tx": 3,
+            "UpgradeWallet.txid": 4,
+            "UpgradeWallet.upgraded_outs": 1
+        },
         "UtxopsbtRequest": {
             "UtxoPsbt.excess_as_change": 9,
             "UtxoPsbt.feerate": 2,
@@ -8547,6 +8557,34 @@
         },
         "UnreserveInputs.reserve": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UpgradeWallet": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "UpgradeWallet.feerate": {
+            "added": "v23.02",
+            "deprecated": false
+        },
+        "UpgradeWallet.psbt": {
+            "added": "v23.02",
+            "deprecated": false
+        },
+        "UpgradeWallet.reservedok": {
+            "added": "v23.02",
+            "deprecated": false
+        },
+        "UpgradeWallet.tx": {
+            "added": "v23.02",
+            "deprecated": false
+        },
+        "UpgradeWallet.txid": {
+            "added": "v23.02",
+            "deprecated": false
+        },
+        "UpgradeWallet.upgraded_outs": {
+            "added": "v23.02",
             "deprecated": false
         },
         "UtxoPsbt": {

@@ -2375,6 +2375,18 @@ impl From<responses::UnreserveinputsResponse> for pb::UnreserveinputsResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::UpgradewalletResponse> for pb::UpgradewalletResponse {
+    fn from(c: responses::UpgradewalletResponse) -> Self {
+        Self {
+            psbt: c.psbt, // Rule #2 for type string?
+            tx: c.tx.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            txid: c.txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
+            upgraded_outs: c.upgraded_outs, // Rule #2 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::WaitblockheightResponse> for pb::WaitblockheightResponse {
     fn from(c: responses::WaitblockheightResponse) -> Self {
         Self {
@@ -3704,6 +3716,16 @@ impl From<requests::UnreserveinputsRequest> for pb::UnreserveinputsRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::UpgradewalletRequest> for pb::UpgradewalletRequest {
+    fn from(c: requests::UpgradewalletRequest) -> Self {
+        Self {
+            feerate: c.feerate.map(|o|o.into()), // Rule #2 for type feerate?
+            reservedok: c.reservedok, // Rule #2 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::WaitblockheightRequest> for pb::WaitblockheightRequest {
     fn from(c: requests::WaitblockheightRequest) -> Self {
         Self {
@@ -4855,6 +4877,16 @@ impl From<pb::UnreserveinputsRequest> for requests::UnreserveinputsRequest {
         Self {
             psbt: c.psbt, // Rule #1 for type string
             reserve: c.reserve, // Rule #1 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::UpgradewalletRequest> for requests::UpgradewalletRequest {
+    fn from(c: pb::UpgradewalletRequest) -> Self {
+        Self {
+            feerate: c.feerate.map(|a| a.into()), // Rule #1 for type feerate?
+            reservedok: c.reservedok, // Rule #1 for type boolean?
         }
     }
 }

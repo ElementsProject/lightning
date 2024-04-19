@@ -1891,6 +1891,15 @@ def unreserveinputs2py(m):
     })
 
 
+def upgradewallet2py(m):
+    return remove_default({
+        "psbt": m.psbt,  # PrimitiveField in generate_composite
+        "tx": hexlify(m.tx),  # PrimitiveField in generate_composite
+        "txid": hexlify(m.txid),  # PrimitiveField in generate_composite
+        "upgraded_outs": m.upgraded_outs,  # PrimitiveField in generate_composite
+    })
+
+
 def waitblockheight2py(m):
     return remove_default({
         "blockheight": m.blockheight,  # PrimitiveField in generate_composite
