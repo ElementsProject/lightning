@@ -405,7 +405,7 @@
   "see_also": [
     "lightning-listpays(7)",
     "lightning-sendpay(7)",
-    "lightning-listinvoice(7)"
+    "lightning-listinvoices(7)"
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"

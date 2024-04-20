@@ -433,7 +433,7 @@
     "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
   ],
   "see_also": [
-    "lightning-listinvoice(7)",
+    "lightning-listinvoices(7)",
     "lightning-delinvoice(7)",
     "lightning-getroute(7)",
     "lightning-invoice(7)",
