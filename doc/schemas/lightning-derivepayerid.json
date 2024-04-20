@@ -1,0 +1,35 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "derivepayerid",
+  "title": "Derive the Payer Id from a provided invreq_metadata",
+  "description": [
+    "The **derivepayerid** gives the possibility to derive a payer id froma invreq_metadata."
+  ],
+  "request": {
+    "required": [],
+    "properties": {}
+  },
+  "response": {
+    "required": [
+      "payer_id",
+    ],
+  },
+  "errors": [
+    "On failure, one of the following error codes may be returned:",
+    "",
+    "- -32602: Error in given parameters or some error happened during the command process."
+  ],
+  "author": [
+    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+    "but many others did the hard work of actually implementing this rpc command."
+  ],
+  "see_also": [
+    "lightning-decode(7)",
+    "lightning-fetchinvoice(7)",
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}
