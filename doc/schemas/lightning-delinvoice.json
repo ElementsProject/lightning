@@ -266,7 +266,7 @@
       }
     ],
     "pre_return_value_notes": [
-      "Note: The return is the same as an object from lightning-listinvoice(7)."
+      "Note: The return is the same as an object from lightning-listinvoices(7)."
     ]
   },
   "errors": [
@@ -328,7 +328,7 @@
     "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
   ],
   "see_also": [
-    "lightning-listinvoice(7)",
+    "lightning-listinvoices(7)",
     "lightning-waitinvoice(7)",
     "lightning-invoice(7)",
     "lightning-autoclean-status(7)"

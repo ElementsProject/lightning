@@ -1178,8 +1178,8 @@ static char *fetch_out_desc_invstr(const tal_t *ctx, const char *buf,
 }
 
 static struct command_result *
-listinvoice_done(struct command *cmd, const char *buf,
-		 const jsmntok_t *result, struct sha256 *payment_hash)
+listinvoices_done(struct command *cmd, const char *buf,
+		  const jsmntok_t *result, struct sha256 *payment_hash)
 {
 	size_t i;
 	const jsmntok_t *inv_arr_tok, *inv_tok;
@@ -1270,7 +1270,7 @@ static struct command_result *lookup_invoice_desc(struct command *cmd,
 	if (!amount_msat_zero(credit))
 		req = jsonrpc_request_start(cmd->plugin, cmd,
 					    "listinvoices",
-					    listinvoice_done,
+					    listinvoices_done,
 					    log_error,
 					    payment_hash);
 	else

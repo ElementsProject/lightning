@@ -5,7 +5,7 @@
   "rpc": "waitanyinvoice",
   "title": "Command for waiting for payments",
   "description": [
-    "The **waitanyinvoice** RPC command waits until an invoice is paid, then returns a single entry as per **listinvoice**. It will not return for any invoices paid prior to or including the *lastpay_index*.",
+    "The **waitanyinvoice** RPC command waits until an invoice is paid, then returns a single entry as per **listinvoices**. It will not return for any invoices paid prior to or including the *lastpay_index*.",
     "",
     "This is usually called iteratively: once with no arguments, then repeatedly with the returned *pay_index* entry. This ensures that no paid invoice is missed. The *pay_index* is a monotonically-increasing number assigned to an invoice when it gets paid. The first valid *pay_index* is 1."
   ],
@@ -272,7 +272,7 @@
   ],
   "see_also": [
     "lightning-waitinvoice(7)",
-    "lightning-listinvoice(7)",
+    "lightning-listinvoices(7)",
     "lightning-delinvoice(7)",
     "lightning-invoice(7)"
   ],

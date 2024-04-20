@@ -5,7 +5,7 @@
   "rpc": "waitinvoice",
   "title": "Command for waiting for specific payment",
   "description": [
-    "The **waitinvoice** RPC command waits until a specific invoice is paid, then returns that single entry as per **listinvoice**."
+    "The **waitinvoice** RPC command waits until a specific invoice is paid, then returns that single entry as per **listinvoices**."
   ],
   "request": {
     "required": [
@@ -249,7 +249,7 @@
   ],
   "see_also": [
     "lightning-waitanyinvoice(7)",
-    "lightning-listinvoice(7)",
+    "lightning-listinvoices(7)",
     "lightning-delinvoice(7)",
     "lightning-invoice(7)"
   ],

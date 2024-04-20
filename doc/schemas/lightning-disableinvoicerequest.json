@@ -74,7 +74,7 @@
       }
     },
     "pre_return_value_notes": [
-      "Note: the returned object is the same format as **listinvoicerequest**."
+      "Note: the returned object is the same format as **listinvoicerequests**."
     ]
   },
   "author": [
@@ -82,7 +82,7 @@
   ],
   "see_also": [
     "lightning-invoicerequest(7)",
-    "lightning-listinvoicerequest(7)"
+    "lightning-listinvoicerequests(7)"
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"

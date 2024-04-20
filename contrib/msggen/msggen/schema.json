@@ -8364,7 +8364,7 @@
         }
       ],
       "pre_return_value_notes": [
-        "Note: The return is the same as an object from lightning-listinvoice(7)."
+        "Note: The return is the same as an object from lightning-listinvoices(7)."
       ]
     },
     "errors": [
@@ -8426,7 +8426,7 @@
       "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
     ],
     "see_also": [
-      "lightning-listinvoice(7)",
+      "lightning-listinvoices(7)",
       "lightning-waitinvoice(7)",
       "lightning-invoice(7)",
       "lightning-autoclean-status(7)"
@@ -8993,7 +8993,7 @@
         }
       },
       "pre_return_value_notes": [
-        "Note: the returned object is the same format as **listinvoicerequest**."
+        "Note: the returned object is the same format as **listinvoicerequests**."
       ]
     },
     "author": [
@@ -9001,7 +9001,7 @@
     ],
     "see_also": [
       "lightning-invoicerequest(7)",
-      "lightning-listinvoicerequest(7)"
+      "lightning-listinvoicerequests(7)"
     ],
     "resources": [
       "Main web site: <https://github.com/ElementsProject/lightning>"
@@ -13350,7 +13350,7 @@
     "see_also": [
       "lightning-listpays(7)",
       "lightning-decodepay(7)",
-      "lightning-listinvoice(7)",
+      "lightning-listinvoices(7)",
       "lightning-delinvoice(7)",
       "lightning-getroute(7)",
       "lightning-invoice(7)"
@@ -21622,7 +21622,7 @@
     "see_also": [
       "lightning-listpays(7)",
       "lightning-sendpay(7)",
-      "lightning-listinvoice(7)"
+      "lightning-listinvoices(7)"
     ],
     "resources": [
       "Main web site: <https://github.com/ElementsProject/lightning>"
@@ -24473,7 +24473,7 @@
     "see_also": [
       "lightning-listpays(7)",
       "lightning-decodepay(7)",
-      "lightning-listinvoice(7)",
+      "lightning-listinvoices(7)",
       "lightning-delinvoice(7)",
       "lightning-getroute(7)",
       "lightning-invoice(7)"
@@ -26900,7 +26900,7 @@
       "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
     ],
     "see_also": [
-      "lightning-listinvoice(7)",
+      "lightning-listinvoices(7)",
       "lightning-delinvoice(7)",
       "lightning-getroute(7)",
       "lightning-invoice(7)",
@@ -29998,7 +29998,7 @@
       "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
     ],
     "see_also": [
-      "lightning-listinvoice(7)",
+      "lightning-listinvoices(7)",
       "lightning-listforwards(7)",
       "lightning-listsendpays(7)"
     ],
@@ -30013,7 +30013,7 @@
     "rpc": "waitanyinvoice",
     "title": "Command for waiting for payments",
     "description": [
-      "The **waitanyinvoice** RPC command waits until an invoice is paid, then returns a single entry as per **listinvoice**. It will not return for any invoices paid prior to or including the *lastpay_index*.",
+      "The **waitanyinvoice** RPC command waits until an invoice is paid, then returns a single entry as per **listinvoices**. It will not return for any invoices paid prior to or including the *lastpay_index*.",
       "",
       "This is usually called iteratively: once with no arguments, then repeatedly with the returned *pay_index* entry. This ensures that no paid invoice is missed. The *pay_index* is a monotonically-increasing number assigned to an invoice when it gets paid. The first valid *pay_index* is 1."
     ],
@@ -30280,7 +30280,7 @@
     ],
     "see_also": [
       "lightning-waitinvoice(7)",
-      "lightning-listinvoice(7)",
+      "lightning-listinvoices(7)",
       "lightning-delinvoice(7)",
       "lightning-invoice(7)"
     ],
@@ -30380,7 +30380,7 @@
     "rpc": "waitinvoice",
     "title": "Command for waiting for specific payment",
     "description": [
-      "The **waitinvoice** RPC command waits until a specific invoice is paid, then returns that single entry as per **listinvoice**."
+      "The **waitinvoice** RPC command waits until a specific invoice is paid, then returns that single entry as per **listinvoices**."
     ],
     "request": {
       "required": [
@@ -30624,7 +30624,7 @@
     ],
     "see_also": [
       "lightning-waitanyinvoice(7)",
-      "lightning-listinvoice(7)",
+      "lightning-listinvoices(7)",
       "lightning-delinvoice(7)",
       "lightning-invoice(7)"
     ],
