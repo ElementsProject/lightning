@@ -881,20 +881,91 @@ impl Serialize for RoutehintList {
 }
 
 impl<'de> Deserialize<'de> for RoutehintList {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        todo!("Required once we roundtrip, but not necessary for cln-rpc itself")
+        let hints: Vec<Routehint> = Vec::deserialize(deserializer)?;
+
+        Ok(RoutehintList { hints })
     }
 }
 
 impl<'de> Deserialize<'de> for Routehint {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        todo!("Required once we roundtrip, but not necessary for cln-rpc itself")
+        let hops: Vec<Routehop> = Vec::deserialize(deserializer)?;
+
+        Ok(Routehint { hops })
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DecodeRoutehop {
+    pub pubkey: PublicKey,
+    pub short_channel_id: ShortChannelId,
+    pub fee_base_msat: Amount,
+    pub fee_proportional_millionths: u32,
+    pub cltv_expiry_delta: u16,
+}
+
+#[derive(Clone, Debug)]
+pub struct DecodeRoutehint {
+    pub hops: Vec<DecodeRoutehop>,
+}
+
+#[derive(Clone, Debug)]
+pub struct DecodeRoutehintList {
+    pub hints: Vec<DecodeRoutehint>,
+}
+
+impl Serialize for DecodeRoutehint {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(self.hops.len()))?;
+        for e in self.hops.iter() {
+            seq.serialize_element(e)?;
+        }
+        seq.end()
+    }
+}
+
+impl Serialize for DecodeRoutehintList {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(self.hints.len()))?;
+        for e in self.hints.iter() {
+            seq.serialize_element(e)?;
+        }
+        seq.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for DecodeRoutehintList {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let hints: Vec<DecodeRoutehint> = Vec::deserialize(deserializer)?;
+
+        Ok(DecodeRoutehintList { hints })
+    }
+}
+
+impl<'de> Deserialize<'de> for DecodeRoutehint {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let hops: Vec<DecodeRoutehop> = Vec::deserialize(deserializer)?;
+
+        Ok(DecodeRoutehint { hops })
     }
 }
 

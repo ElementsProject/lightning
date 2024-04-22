@@ -1432,6 +1432,7 @@ message DecodepayResponse {
 	optional bytes payment_metadata = 13;
 	repeated DecodepayFallbacks fallbacks = 14;
 	repeated DecodepayExtra extra = 16;
+	optional DecodeRoutehintList routes = 17;
 }
 
 message DecodepayFallbacks {
@@ -1542,6 +1543,7 @@ message DecodeResponse {
 	optional Amount amount_msat = 79;
 	optional string description = 80;
 	optional bytes features = 81;
+	optional DecodeRoutehintList routes = 82;
 }
 
 message DecodeOffer_paths {

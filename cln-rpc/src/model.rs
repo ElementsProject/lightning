@@ -5953,6 +5953,8 @@ pub mod responses {
 	    pub payment_metadata: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_secret: Option<Sha256>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub routes: Option<DecodeRoutehintList>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub extra: Option<Vec<DecodepayExtra>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
@@ -6192,6 +6194,8 @@ pub mod responses {
 	    pub payment_metadata: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_secret: Option<Secret>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub routes: Option<DecodeRoutehintList>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub signature: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

@@ -20,6 +20,10 @@ def decamelcase(c):
 override = {
     "ListPeers.peers[].channels[].state_changes[]": None,
 }
+override_field = {
+    'RoutehintList': '"routes": [[decodekeysend_routes2py(i) for i in routehints] for routehints in m.routes]',
+    'DecodeRoutehintList': '"routes": [[decodepay_routes2py(i) for i in routehints] for routehints in m.routes]',
+}
 
 
 class Grpc2PyGenerator(IGenerator):
@@ -91,6 +95,32 @@ class Grpc2PyGenerator(IGenerator):
 
         self.generate_responses(service)
 
+        self.write("""\
+
+
+        def decodekeysend_routes2py(m): # manual override
+            return remove_default({
+                "expirydelta": m.expirydelta,
+                "feebase": amount2msat(m.feebase),
+                "feeprop": m.feeprop,
+                "id": hexlify(m.id),
+                "scid": m.scid,
+            })
+        """)
+
+        self.write("""\
+
+
+        def decodepay_routes2py(m): # manual override
+            return remove_default({
+                "cltv_expiry_delta": m.cltv_expiry_delta,
+                "fee_base_msat": amount2msat(m.fee_base_msat),
+                "fee_proportional_millionths": m.fee_proportional_millionths,
+                "pubkey": hexlify(m.pubkey),
+                "short_channel_id": m.short_channel_id,
+            })
+        """)
+
     def generate_enum(self, prefix, field: EnumField):
         name = field.name.normalized()
         prefix = f"{prefix}_{str(name).lower()}"
@@ -130,7 +160,9 @@ class Grpc2PyGenerator(IGenerator):
 
         for f in field.fields:
             name = f.normalized()
-            if isinstance(f, PrimitiveField):
+            if isinstance(f, PrimitiveField) and f.typename in override_field:
+                self.write(f'        {override_field[f.typename]},  # OverrideField in {f.typename}\n', cleanup=False)
+            elif isinstance(f, PrimitiveField):
                 typ = f.typename
 
                 rhs = self.converters[typ].format(name=f.name)

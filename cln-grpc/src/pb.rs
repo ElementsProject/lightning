@@ -136,7 +136,7 @@ mod convert {
         fn from(c: RouteHop) -> Self {
             Self {
                 id: cln_rpc::primitives::PublicKey::from_slice(&c.id).unwrap(),
-                scid: cln_rpc::primitives::ShortChannelId::from_str(&c.short_channel_id).unwrap(),
+                scid: cln_rpc::primitives::ShortChannelId::from_str(&c.scid).unwrap(),
                 feebase: c.feebase.unwrap().into(),
                 feeprop: c.feeprop,
                 expirydelta: c.expirydelta as u16,
@@ -167,7 +167,7 @@ mod convert {
                 feebase: Some(c.feebase.into()),
                 feeprop: c.feeprop,
                 expirydelta: c.expirydelta as u32,
-                short_channel_id: c.scid.to_string(),
+                scid: c.scid.to_string(),
             }
         }
     }
@@ -182,6 +182,65 @@ mod convert {
 
     impl From<cln_rpc::primitives::RoutehintList> for RoutehintList {
         fn from(c: cln_rpc::primitives::RoutehintList) -> Self {
+            Self {
+                hints: c.hints.into_iter().map(|e| e.into()).collect(),
+            }
+        }
+    }
+
+    impl From<DecodeRouteHop> for cln_rpc::primitives::DecodeRoutehop {
+        fn from(c: DecodeRouteHop) -> Self {
+            Self {
+                pubkey: cln_rpc::primitives::PublicKey::from_slice(&c.pubkey).unwrap(),
+                short_channel_id: cln_rpc::primitives::ShortChannelId::from_str(
+                    &c.short_channel_id,
+                )
+                .unwrap(),
+                fee_base_msat: c.fee_base_msat.unwrap().into(),
+                fee_proportional_millionths: c.fee_proportional_millionths,
+                cltv_expiry_delta: c.cltv_expiry_delta as u16,
+            }
+        }
+    }
+
+    impl From<DecodeRoutehint> for cln_rpc::primitives::DecodeRoutehint {
+        fn from(c: DecodeRoutehint) -> Self {
+            Self {
+                hops: c.hops.into_iter().map(|h| h.into()).collect(),
+            }
+        }
+    }
+
+    impl From<DecodeRoutehintList> for cln_rpc::primitives::DecodeRoutehintList {
+        fn from(c: DecodeRoutehintList) -> Self {
+            Self {
+                hints: c.hints.into_iter().map(|h| h.into()).collect(),
+            }
+        }
+    }
+
+    impl From<cln_rpc::primitives::DecodeRoutehop> for DecodeRouteHop {
+        fn from(c: cln_rpc::primitives::DecodeRoutehop) -> Self {
+            Self {
+                pubkey: c.pubkey.serialize().to_vec(),
+                fee_base_msat: Some(c.fee_base_msat.into()),
+                fee_proportional_millionths: c.fee_proportional_millionths,
+                cltv_expiry_delta: c.cltv_expiry_delta as u32,
+                short_channel_id: c.short_channel_id.to_string(),
+            }
+        }
+    }
+
+    impl From<cln_rpc::primitives::DecodeRoutehint> for DecodeRoutehint {
+        fn from(c: cln_rpc::primitives::DecodeRoutehint) -> Self {
+            Self {
+                hops: c.hops.into_iter().map(|h| h.into()).collect(),
+            }
+        }
+    }
+
+    impl From<cln_rpc::primitives::DecodeRoutehintList> for DecodeRoutehintList {
+        fn from(c: cln_rpc::primitives::DecodeRoutehintList) -> Self {
             Self {
                 hints: c.hints.into_iter().map(|e| e.into()).collect(),
             }
