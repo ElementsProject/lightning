@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <ccan/str/str.h>
+#include <stdbool.h>
 
 char *tal_strdup_(const tal_t *ctx, const char *p, const char *label)
 {
@@ -33,6 +34,39 @@ char *tal_strndup_(const tal_t *ctx, const char *p, size_t n, const char *label)
 	if (ret)
 		ret[len] = '\0';
 	return ret;
+}
+
+bool trim_resize_str(char **ctxp) {
+	if (ctxp == NULL || *ctxp == NULL) {
+		return false;
+	}
+
+	char *str = *ctxp;
+	size_t len = strlen(str);
+
+	size_t start = 0;
+	while (start < len && isspace((unsigned char)str[start])) {
+		start++;
+	}
+
+	size_t end = len;
+	while (end > start && isspace((unsigned char)str[end - 1])) {
+		end--;
+	}
+
+	if (start > 0 || end < len) {
+		if (start > 0)
+			memmove(str, str + start, end - start);
+
+		str[end - start] = '\0';
+
+		if (!tal_resize(ctxp, end - start + 1)) {
+			fprintf(stderr, "Failed to resize memory for trimmed string\n");
+			return false;
+		}
+	}
+
+	return true;
 }
 
 char *tal_fmt_(const tal_t *ctx, const char *label, const char *fmt, ...)

@@ -3767,6 +3767,29 @@ def test_fast_shutdown(node_factory):
         break
 
 
+def test_config_whitespace(node_factory):
+    l1 = node_factory.get_node()
+    configfile = os.path.join(l1.daemon.opts.get("lightning-dir"), TEST_NETWORK, 'config')
+
+    l1.stop()
+
+    with open(configfile, "a") as f:
+        f.write("\n\n# Test whitespace\n")
+        f.write("log-level=debug\n")
+        f.write("funder-policy-mod=100             \n")
+        f.write("    funder-min-their-funding=10000\n")
+        f.write("  allow-deprecated-apis=false     \n")
+        f.write("    \n")
+        f.write("\n\n")
+
+    l1.start()
+
+    # Verify config file is trimmed
+    with open(configfile, "r") as f:
+        lines = f.readlines()
+        assert all(line == line.strip() + '\n' for line in lines if line), "Config file should not contain leading or trailing whitespaces"
+
+
 def test_setconfig(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundchannel=False)
     configfile = os.path.join(l2.daemon.opts.get("lightning-dir"), TEST_NETWORK, 'config')
