@@ -1045,21 +1045,10 @@ def decodepay_fallbacks2py(m):
     })
 
 
-def decodepay_routes2py(m):
-    return remove_default({
-        "cltv_expiry_delta": m.cltv_expiry_delta,  # PrimitiveField in generate_composite
-        "fee_base_msat": amount2msat(m.fee_base_msat),  # PrimitiveField in generate_composite
-        "fee_proportional_millionths": m.fee_proportional_millionths,  # PrimitiveField in generate_composite
-        "pubkey": hexlify(m.pubkey),  # PrimitiveField in generate_composite
-        "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
-    })
-
-
 def decodepay2py(m):
     return remove_default({
         "extra": [decodepay_extra2py(i) for i in m.extra],  # ArrayField[composite] in generate_composite
         "fallbacks": [decodepay_fallbacks2py(i) for i in m.fallbacks],  # ArrayField[composite] in generate_composite
-        "routes": [decodepay_routes2py(i) for i in m.routes],  # ArrayField[composite] in generate_composite
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
         "created_at": m.created_at,  # PrimitiveField in generate_composite
         "currency": m.currency,  # PrimitiveField in generate_composite
@@ -1072,6 +1061,7 @@ def decodepay2py(m):
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
         "payment_metadata": hexlify(m.payment_metadata),  # PrimitiveField in generate_composite
         "payment_secret": hexlify(m.payment_secret),  # PrimitiveField in generate_composite
+        "routes": [[decodepay_routes2py(i) for i in routehints] for routehints in m.routes],  # OverrideField in DecodeRoutehintList
         "signature": hexlify(m.signature),  # PrimitiveField in generate_composite
     })
 
@@ -1169,16 +1159,6 @@ def decode_restrictions2py(m):
     })
 
 
-def decode_routes2py(m):
-    return remove_default({
-        "cltv_expiry_delta": m.cltv_expiry_delta,  # PrimitiveField in generate_composite
-        "fee_base_msat": amount2msat(m.fee_base_msat),  # PrimitiveField in generate_composite
-        "fee_proportional_millionths": m.fee_proportional_millionths,  # PrimitiveField in generate_composite
-        "pubkey": hexlify(m.pubkey),  # PrimitiveField in generate_composite
-        "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
-    })
-
-
 def decode_unknown_invoice_request_tlvs2py(m):
     return remove_default({
         "length": m.length,  # PrimitiveField in generate_composite
@@ -1212,7 +1192,6 @@ def decode2py(m):
         "offer_chains": [hexlify(m.offer_chains) for i in hexlify(m.offer_chains)], # ArrayField[primitive] in generate_composite
         "offer_paths": [decode_offer_paths2py(i) for i in m.offer_paths],  # ArrayField[composite] in generate_composite
         "restrictions": [decode_restrictions2py(i) for i in m.restrictions],  # ArrayField[composite] in generate_composite
-        "routes": [decode_routes2py(i) for i in m.routes],  # ArrayField[composite] in generate_composite
         "type": str(m.item_type),  # EnumField in generate_composite
         "unknown_invoice_request_tlvs": [decode_unknown_invoice_request_tlvs2py(i) for i in m.unknown_invoice_request_tlvs],  # ArrayField[composite] in generate_composite
         "unknown_invoice_tlvs": [decode_unknown_invoice_tlvs2py(i) for i in m.unknown_invoice_tlvs],  # ArrayField[composite] in generate_composite
@@ -1259,6 +1238,7 @@ def decode2py(m):
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
         "payment_metadata": hexlify(m.payment_metadata),  # PrimitiveField in generate_composite
         "payment_secret": hexlify(m.payment_secret),  # PrimitiveField in generate_composite
+        "routes": [[decodepay_routes2py(i) for i in routehints] for routehints in m.routes],  # OverrideField in DecodeRoutehintList
         "signature": hexlify(m.signature),  # PrimitiveField in generate_composite
         "string": m.string,  # PrimitiveField in generate_composite
         "unique_id": m.unique_id,  # PrimitiveField in generate_composite
@@ -2159,4 +2139,24 @@ def bkpr_listincome_income_events2py(m):
 def bkpr_listincome2py(m):
     return remove_default({
         "income_events": [bkpr_listincome_income_events2py(i) for i in m.income_events],  # ArrayField[composite] in generate_composite
+    })
+
+
+def decodekeysend_routes2py(m): # manual override
+    return remove_default({
+        "expirydelta": m.expirydelta,
+        "feebase": amount2msat(m.feebase),
+        "feeprop": m.feeprop,
+        "id": hexlify(m.id),
+        "scid": m.scid,
+    })
+
+
+def decodepay_routes2py(m): # manual override
+    return remove_default({
+        "cltv_expiry_delta": m.cltv_expiry_delta,
+        "fee_base_msat": amount2msat(m.fee_base_msat),
+        "fee_proportional_millionths": m.fee_proportional_millionths,
+        "pubkey": hexlify(m.pubkey),
+        "short_channel_id": m.short_channel_id,
     })

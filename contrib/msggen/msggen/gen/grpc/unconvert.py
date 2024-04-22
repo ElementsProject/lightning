@@ -114,6 +114,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     "feerate?": f"c.{name}.map(|a| a.into())",
                     "outpoint?": f"c.{name}.map(|a| a.into())",
                     "RoutehintList?": f"c.{name}.map(|rl| rl.into())",
+                    "DecodeRoutehintList?": f"c.{name}.map(|drl| drl.into())",
                     "short_channel_id": f"cln_rpc::primitives::ShortChannelId::from_str(&c.{name}).unwrap()",
                     "short_channel_id?": f"c.{name}.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap())",
                     "secret": f"c.{name}.try_into().unwrap()",

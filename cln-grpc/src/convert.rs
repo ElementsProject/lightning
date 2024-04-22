@@ -1383,6 +1383,7 @@ impl From<responses::DecodepayResponse> for pb::DecodepayResponse {
             payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             payment_metadata: c.payment_metadata.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             payment_secret: c.payment_secret.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
+            routes: c.routes.map(|drl| drl.into()), // Rule #2 for type DecodeRoutehintList?
             signature: c.signature, // Rule #2 for type signature
         }
     }
@@ -1502,6 +1503,7 @@ impl From<responses::DecodeResponse> for pb::DecodeResponse {
             payment_secret: c.payment_secret.map(|v| v.to_vec()), // Rule #2 for type secret?
             // Field: Decode.restrictions[]
             restrictions: c.restrictions.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            routes: c.routes.map(|drl| drl.into()), // Rule #2 for type DecodeRoutehintList?
             signature: c.signature, // Rule #2 for type bip340sig?
             string: c.string, // Rule #2 for type string?
             item_type: c.item_type as i32,

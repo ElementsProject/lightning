@@ -14,25 +14,25 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10primitives.proto\x12\x03\x63ln\"\x16\n\x06\x41mount\x12\x0c\n\x04msat\x18\x01 \x01(\x04\"D\n\x0b\x41mountOrAll\x12\x1d\n\x06\x61mount\x18\x01 \x01(\x0b\x32\x0b.cln.AmountH\x00\x12\r\n\x03\x61ll\x18\x02 \x01(\x08H\x00\x42\x07\n\x05value\"D\n\x0b\x41mountOrAny\x12\x1d\n\x06\x61mount\x18\x01 \x01(\x0b\x32\x0b.cln.AmountH\x00\x12\r\n\x03\x61ny\x18\x02 \x01(\x08H\x00\x42\x07\n\x05value\"\x19\n\x17\x43hannelStateChangeCause\"(\n\x08Outpoint\x12\x0c\n\x04txid\x18\x01 \x01(\x0c\x12\x0e\n\x06outnum\x18\x02 \x01(\r\"h\n\x07\x46\x65\x65rate\x12\x0e\n\x04slow\x18\x01 \x01(\x08H\x00\x12\x10\n\x06normal\x18\x02 \x01(\x08H\x00\x12\x10\n\x06urgent\x18\x03 \x01(\x08H\x00\x12\x0f\n\x05perkb\x18\x04 \x01(\rH\x00\x12\x0f\n\x05perkw\x18\x05 \x01(\rH\x00\x42\x07\n\x05style\":\n\nOutputDesc\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\x12\x1b\n\x06\x61mount\x18\x02 \x01(\x0b\x32\x0b.cln.Amount\"t\n\x08RouteHop\x12\n\n\x02id\x18\x01 \x01(\x0c\x12\x18\n\x10short_channel_id\x18\x02 \x01(\t\x12\x1c\n\x07\x66\x65\x65\x62\x61se\x18\x03 \x01(\x0b\x32\x0b.cln.Amount\x12\x0f\n\x07\x66\x65\x65prop\x18\x04 \x01(\r\x12\x13\n\x0b\x65xpirydelta\x18\x05 \x01(\r\"(\n\tRoutehint\x12\x1b\n\x04hops\x18\x01 \x03(\x0b\x32\r.cln.RouteHop\".\n\rRoutehintList\x12\x1d\n\x05hints\x18\x02 \x03(\x0b\x32\x0e.cln.Routehint\"\'\n\x08TlvEntry\x12\x0c\n\x04type\x18\x01 \x01(\x04\x12\r\n\x05value\x18\x02 \x01(\x0c\"+\n\tTlvStream\x12\x1e\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\r.cln.TlvEntry*$\n\x0b\x43hannelSide\x12\t\n\x05LOCAL\x10\x00\x12\n\n\x06REMOTE\x10\x01*\xa0\x02\n\x0c\x43hannelState\x12\x0c\n\x08Openingd\x10\x00\x12\x1a\n\x16\x43hanneldAwaitingLockin\x10\x01\x12\x12\n\x0e\x43hanneldNormal\x10\x02\x12\x18\n\x14\x43hanneldShuttingDown\x10\x03\x12\x17\n\x13\x43losingdSigexchange\x10\x04\x12\x14\n\x10\x43losingdComplete\x10\x05\x12\x16\n\x12\x41waitingUnilateral\x10\x06\x12\x14\n\x10\x46undingSpendSeen\x10\x07\x12\x0b\n\x07Onchain\x10\x08\x12\x15\n\x11\x44ualopendOpenInit\x10\t\x12\x1b\n\x17\x44ualopendAwaitingLockin\x10\n\x12\x1a\n\x16\x43hanneldAwaitingSplice\x10\x0b*\xd5\x03\n\tHtlcState\x12\x0f\n\x0bSentAddHtlc\x10\x00\x12\x11\n\rSentAddCommit\x10\x01\x12\x15\n\x11RcvdAddRevocation\x10\x02\x12\x14\n\x10RcvdAddAckCommit\x10\x03\x12\x18\n\x14SentAddAckRevocation\x10\x04\x12\x18\n\x14RcvdAddAckRevocation\x10\x05\x12\x12\n\x0eRcvdRemoveHtlc\x10\x06\x12\x14\n\x10RcvdRemoveCommit\x10\x07\x12\x18\n\x14SentRemoveRevocation\x10\x08\x12\x17\n\x13SentRemoveAckCommit\x10\t\x12\x1b\n\x17RcvdRemoveAckRevocation\x10\n\x12\x0f\n\x0bRcvdAddHtlc\x10\x0b\x12\x11\n\rRcvdAddCommit\x10\x0c\x12\x15\n\x11SentAddRevocation\x10\r\x12\x14\n\x10SentAddAckCommit\x10\x0e\x12\x12\n\x0eSentRemoveHtlc\x10\x0f\x12\x14\n\x10SentRemoveCommit\x10\x10\x12\x18\n\x14RcvdRemoveRevocation\x10\x11\x12\x17\n\x13RcvdRemoveAckCommit\x10\x12\x12\x1b\n\x17SentRemoveAckRevocation\x10\x13*\x90\x01\n\x0f\x43hannelTypeName\x12\x19\n\x15static_remotekey_even\x10\x00\x12\x17\n\x13\x61nchor_outputs_even\x10\x01\x12!\n\x1d\x61nchors_zero_fee_htlc_tx_even\x10\x02\x12\x13\n\x0fscid_alias_even\x10\x03\x12\x11\n\rzeroconf_even\x10\x04*\x89\x01\n\x12\x41utocleanSubsystem\x12\x15\n\x11SUCCEEDEDFORWARDS\x10\x00\x12\x12\n\x0e\x46\x41ILEDFORWARDS\x10\x01\x12\x11\n\rSUCCEEDEDPAYS\x10\x02\x12\x0e\n\nFAILEDPAYS\x10\x03\x12\x10\n\x0cPAIDINVOICES\x10\x04\x12\x13\n\x0f\x45XPIREDINVOICES\x10\x05*K\n\x10PluginSubcommand\x12\t\n\x05START\x10\x00\x12\x08\n\x04STOP\x10\x01\x12\n\n\x06RESCAN\x10\x02\x12\x0c\n\x08STARTDIR\x10\x03\x12\x08\n\x04LIST\x10\x04\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10primitives.proto\x12\x03\x63ln\"\x16\n\x06\x41mount\x12\x0c\n\x04msat\x18\x01 \x01(\x04\"D\n\x0b\x41mountOrAll\x12\x1d\n\x06\x61mount\x18\x01 \x01(\x0b\x32\x0b.cln.AmountH\x00\x12\r\n\x03\x61ll\x18\x02 \x01(\x08H\x00\x42\x07\n\x05value\"D\n\x0b\x41mountOrAny\x12\x1d\n\x06\x61mount\x18\x01 \x01(\x0b\x32\x0b.cln.AmountH\x00\x12\r\n\x03\x61ny\x18\x02 \x01(\x08H\x00\x42\x07\n\x05value\"\x19\n\x17\x43hannelStateChangeCause\"(\n\x08Outpoint\x12\x0c\n\x04txid\x18\x01 \x01(\x0c\x12\x0e\n\x06outnum\x18\x02 \x01(\r\"h\n\x07\x46\x65\x65rate\x12\x0e\n\x04slow\x18\x01 \x01(\x08H\x00\x12\x10\n\x06normal\x18\x02 \x01(\x08H\x00\x12\x10\n\x06urgent\x18\x03 \x01(\x08H\x00\x12\x0f\n\x05perkb\x18\x04 \x01(\rH\x00\x12\x0f\n\x05perkw\x18\x05 \x01(\rH\x00\x42\x07\n\x05style\":\n\nOutputDesc\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\x12\x1b\n\x06\x61mount\x18\x02 \x01(\x0b\x32\x0b.cln.Amount\"h\n\x08RouteHop\x12\n\n\x02id\x18\x01 \x01(\x0c\x12\x0c\n\x04scid\x18\x02 \x01(\t\x12\x1c\n\x07\x66\x65\x65\x62\x61se\x18\x03 \x01(\x0b\x32\x0b.cln.Amount\x12\x0f\n\x07\x66\x65\x65prop\x18\x04 \x01(\r\x12\x13\n\x0b\x65xpirydelta\x18\x05 \x01(\r\"(\n\tRoutehint\x12\x1b\n\x04hops\x18\x01 \x03(\x0b\x32\r.cln.RouteHop\".\n\rRoutehintList\x12\x1d\n\x05hints\x18\x02 \x03(\x0b\x32\x0e.cln.Routehint\"\x9e\x01\n\x0e\x44\x65\x63odeRouteHop\x12\x0e\n\x06pubkey\x18\x01 \x01(\x0c\x12\x18\n\x10short_channel_id\x18\x02 \x01(\t\x12\"\n\rfee_base_msat\x18\x03 \x01(\x0b\x32\x0b.cln.Amount\x12#\n\x1b\x66\x65\x65_proportional_millionths\x18\x04 \x01(\r\x12\x19\n\x11\x63ltv_expiry_delta\x18\x05 \x01(\r\"4\n\x0f\x44\x65\x63odeRoutehint\x12!\n\x04hops\x18\x01 \x03(\x0b\x32\x13.cln.DecodeRouteHop\":\n\x13\x44\x65\x63odeRoutehintList\x12#\n\x05hints\x18\x02 \x03(\x0b\x32\x14.cln.DecodeRoutehint\"\'\n\x08TlvEntry\x12\x0c\n\x04type\x18\x01 \x01(\x04\x12\r\n\x05value\x18\x02 \x01(\x0c\"+\n\tTlvStream\x12\x1e\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\r.cln.TlvEntry*$\n\x0b\x43hannelSide\x12\t\n\x05LOCAL\x10\x00\x12\n\n\x06REMOTE\x10\x01*\xa0\x02\n\x0c\x43hannelState\x12\x0c\n\x08Openingd\x10\x00\x12\x1a\n\x16\x43hanneldAwaitingLockin\x10\x01\x12\x12\n\x0e\x43hanneldNormal\x10\x02\x12\x18\n\x14\x43hanneldShuttingDown\x10\x03\x12\x17\n\x13\x43losingdSigexchange\x10\x04\x12\x14\n\x10\x43losingdComplete\x10\x05\x12\x16\n\x12\x41waitingUnilateral\x10\x06\x12\x14\n\x10\x46undingSpendSeen\x10\x07\x12\x0b\n\x07Onchain\x10\x08\x12\x15\n\x11\x44ualopendOpenInit\x10\t\x12\x1b\n\x17\x44ualopendAwaitingLockin\x10\n\x12\x1a\n\x16\x43hanneldAwaitingSplice\x10\x0b*\xd5\x03\n\tHtlcState\x12\x0f\n\x0bSentAddHtlc\x10\x00\x12\x11\n\rSentAddCommit\x10\x01\x12\x15\n\x11RcvdAddRevocation\x10\x02\x12\x14\n\x10RcvdAddAckCommit\x10\x03\x12\x18\n\x14SentAddAckRevocation\x10\x04\x12\x18\n\x14RcvdAddAckRevocation\x10\x05\x12\x12\n\x0eRcvdRemoveHtlc\x10\x06\x12\x14\n\x10RcvdRemoveCommit\x10\x07\x12\x18\n\x14SentRemoveRevocation\x10\x08\x12\x17\n\x13SentRemoveAckCommit\x10\t\x12\x1b\n\x17RcvdRemoveAckRevocation\x10\n\x12\x0f\n\x0bRcvdAddHtlc\x10\x0b\x12\x11\n\rRcvdAddCommit\x10\x0c\x12\x15\n\x11SentAddRevocation\x10\r\x12\x14\n\x10SentAddAckCommit\x10\x0e\x12\x12\n\x0eSentRemoveHtlc\x10\x0f\x12\x14\n\x10SentRemoveCommit\x10\x10\x12\x18\n\x14RcvdRemoveRevocation\x10\x11\x12\x17\n\x13RcvdRemoveAckCommit\x10\x12\x12\x1b\n\x17SentRemoveAckRevocation\x10\x13*\x90\x01\n\x0f\x43hannelTypeName\x12\x19\n\x15static_remotekey_even\x10\x00\x12\x17\n\x13\x61nchor_outputs_even\x10\x01\x12!\n\x1d\x61nchors_zero_fee_htlc_tx_even\x10\x02\x12\x13\n\x0fscid_alias_even\x10\x03\x12\x11\n\rzeroconf_even\x10\x04*\x89\x01\n\x12\x41utocleanSubsystem\x12\x15\n\x11SUCCEEDEDFORWARDS\x10\x00\x12\x12\n\x0e\x46\x41ILEDFORWARDS\x10\x01\x12\x11\n\rSUCCEEDEDPAYS\x10\x02\x12\x0e\n\nFAILEDPAYS\x10\x03\x12\x10\n\x0cPAIDINVOICES\x10\x04\x12\x13\n\x0f\x45XPIREDINVOICES\x10\x05*K\n\x10PluginSubcommand\x12\t\n\x05START\x10\x00\x12\x08\n\x04STOP\x10\x01\x12\n\n\x06RESCAN\x10\x02\x12\x0c\n\x08STARTDIR\x10\x03\x12\x08\n\x04LIST\x10\x04\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'primitives_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
-  _globals['_CHANNELSIDE']._serialized_start=718
-  _globals['_CHANNELSIDE']._serialized_end=754
-  _globals['_CHANNELSTATE']._serialized_start=757
-  _globals['_CHANNELSTATE']._serialized_end=1045
-  _globals['_HTLCSTATE']._serialized_start=1048
-  _globals['_HTLCSTATE']._serialized_end=1517
-  _globals['_CHANNELTYPENAME']._serialized_start=1520
-  _globals['_CHANNELTYPENAME']._serialized_end=1664
-  _globals['_AUTOCLEANSUBSYSTEM']._serialized_start=1667
-  _globals['_AUTOCLEANSUBSYSTEM']._serialized_end=1804
-  _globals['_PLUGINSUBCOMMAND']._serialized_start=1806
-  _globals['_PLUGINSUBCOMMAND']._serialized_end=1881
+  _globals['_CHANNELSIDE']._serialized_start=981
+  _globals['_CHANNELSIDE']._serialized_end=1017
+  _globals['_CHANNELSTATE']._serialized_start=1020
+  _globals['_CHANNELSTATE']._serialized_end=1308
+  _globals['_HTLCSTATE']._serialized_start=1311
+  _globals['_HTLCSTATE']._serialized_end=1780
+  _globals['_CHANNELTYPENAME']._serialized_start=1783
+  _globals['_CHANNELTYPENAME']._serialized_end=1927
+  _globals['_AUTOCLEANSUBSYSTEM']._serialized_start=1930
+  _globals['_AUTOCLEANSUBSYSTEM']._serialized_end=2067
+  _globals['_PLUGINSUBCOMMAND']._serialized_start=2069
+  _globals['_PLUGINSUBCOMMAND']._serialized_end=2144
   _globals['_AMOUNT']._serialized_start=25
   _globals['_AMOUNT']._serialized_end=47
   _globals['_AMOUNTORALL']._serialized_start=49
@@ -48,13 +48,19 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_OUTPUTDESC']._serialized_start=364
   _globals['_OUTPUTDESC']._serialized_end=422
   _globals['_ROUTEHOP']._serialized_start=424
-  _globals['_ROUTEHOP']._serialized_end=540
-  _globals['_ROUTEHINT']._serialized_start=542
-  _globals['_ROUTEHINT']._serialized_end=582
-  _globals['_ROUTEHINTLIST']._serialized_start=584
-  _globals['_ROUTEHINTLIST']._serialized_end=630
-  _globals['_TLVENTRY']._serialized_start=632
-  _globals['_TLVENTRY']._serialized_end=671
-  _globals['_TLVSTREAM']._serialized_start=673
-  _globals['_TLVSTREAM']._serialized_end=716
+  _globals['_ROUTEHOP']._serialized_end=528
+  _globals['_ROUTEHINT']._serialized_start=530
+  _globals['_ROUTEHINT']._serialized_end=570
+  _globals['_ROUTEHINTLIST']._serialized_start=572
+  _globals['_ROUTEHINTLIST']._serialized_end=618
+  _globals['_DECODEROUTEHOP']._serialized_start=621
+  _globals['_DECODEROUTEHOP']._serialized_end=779
+  _globals['_DECODEROUTEHINT']._serialized_start=781
+  _globals['_DECODEROUTEHINT']._serialized_end=833
+  _globals['_DECODEROUTEHINTLIST']._serialized_start=835
+  _globals['_DECODEROUTEHINTLIST']._serialized_end=893
+  _globals['_TLVENTRY']._serialized_start=895
+  _globals['_TLVENTRY']._serialized_end=934
+  _globals['_TLVSTREAM']._serialized_start=936
+  _globals['_TLVSTREAM']._serialized_end=979
 # @@protoc_insertion_point(module_scope)

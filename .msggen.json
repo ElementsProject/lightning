@@ -925,6 +925,7 @@
             "Decode.payment_metadata": 67,
             "Decode.payment_secret": 66,
             "Decode.restrictions[]": 73,
+            "Decode.routes": 82,
             "Decode.routes[][]": 68,
             "Decode.signature": 77,
             "Decode.string": 72,
@@ -989,6 +990,7 @@
             "DecodePay.payment_hash": 6,
             "DecodePay.payment_metadata": 13,
             "DecodePay.payment_secret": 11,
+            "DecodePay.routes": 17,
             "DecodePay.routes[][]": 15,
             "DecodePay.signature": 7
         },
@@ -3987,6 +3989,10 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "Decode.routes": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
         "Decode.routes[][]": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -4248,6 +4254,10 @@
             "deprecated": false
         },
         "DecodePay.payment_secret": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DecodePay.routes": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

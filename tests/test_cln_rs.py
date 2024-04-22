@@ -314,7 +314,7 @@ def test_grpc_keysend_routehint(bitcoind, node_factory):
         clnpb.Routehint(hops=[
             clnpb.RouteHop(
                 id=bytes.fromhex(l2.info['id']),
-                short_channel_id=chan['channels'][0]['short_channel_id'],
+                scid=chan['channels'][0]['short_channel_id'],
                 # Fees are defaults from CLN
                 feebase=clnpb.Amount(msat=1),
                 feeprop=10,
