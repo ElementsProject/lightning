@@ -506,6 +506,13 @@ RoutehintListField = PrimitiveField(
     deprecated=None
 )
 SetConfigValField = PrimitiveField("string", None, None, added=None, deprecated=None)
+DecodeRoutehintListField = PrimitiveField(
+    "DecodeRoutehintList",
+    None,
+    None,
+    added=None,
+    deprecated=None
+)
 
 # TlvStreams are special, they don't have preset dict-keys, rather
 # they can specify `u64` keys pointing to hex payloads. So the schema
@@ -530,6 +537,8 @@ overrides = {
     'Pay.exclude': PayExclude,
     'KeySend.routehints': RoutehintListField,
     'KeySend.extratlvs': TlvStreamField,
+    'Decode.routes': DecodeRoutehintListField,
+    'DecodePay.routes': DecodeRoutehintListField,
     'CreateInvoice.label': InvoiceLabelField,
     'DatastoreUsage.key': DatastoreUsageKeyField,
     'WaitInvoice.label': InvoiceLabelField,

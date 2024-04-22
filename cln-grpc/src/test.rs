@@ -276,7 +276,7 @@ fn test_keysend() {
                         "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
                     )
                     .unwrap(),
-                    short_channel_id: "12345x678x90".to_string(),
+                    scid: "12345x678x90".to_string(),
                     feebase: Some(Amount { msat: 123 }),
                     feeprop: 1234,
                     expirydelta: 9,
@@ -285,7 +285,7 @@ fn test_keysend() {
                         "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
                     )
                     .unwrap(),
-                    short_channel_id: "12345x678x90".to_string(),
+                    scid: "12345x678x90".to_string(),
                     feebase: Some(Amount { msat: 123 }),
                     feeprop: 1234,
                     expirydelta: 9,
