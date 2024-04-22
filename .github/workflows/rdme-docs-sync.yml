@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repo 📚
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Sync doc/getting-started/ 🚀
         uses: readmeio/rdme@v8

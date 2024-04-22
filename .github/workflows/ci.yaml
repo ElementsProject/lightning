@@ -28,7 +28,7 @@ jobs:
       fail-fast: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
@@ -43,7 +43,7 @@ jobs:
           git rebase origin/${{ github.base_ref }}
 
       - name: Set up Python 3.8
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
 
@@ -93,10 +93,10 @@ jobs:
             VALGRIND: 0
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python 3.8
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
 
@@ -125,7 +125,7 @@ jobs:
           mv testpack.tar.bz2 cln-${CFG}.tar.bz2
       - name: Check rust packages
         run: cargo test --all
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: cln-${{ matrix.CFG }}.tar.bz2
           path: cln-${{ matrix.CFG }}.tar.bz2
@@ -150,10 +150,10 @@ jobs:
             VALGRIND: 0
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python 3.8
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
 
@@ -170,7 +170,7 @@ jobs:
           git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
 
       - name: Download build
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: cln-${{ matrix.CFG }}.tar.bz2
 
@@ -186,10 +186,10 @@ jobs:
       - prebuild
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python 3.8
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
 
@@ -261,10 +261,10 @@ jobs:
             EXPERIMENTAL_SPLICING: 1
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python 3.8
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
 
@@ -279,7 +279,7 @@ jobs:
         run: .github/scripts/install-bitcoind.sh
 
       - name: Download build
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: cln-${{ matrix.CFG }}.tar.bz2
 
@@ -352,10 +352,10 @@ jobs:
             PYTEST_OPTS: --test-group=10 --test-group-count=10
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python 3.8
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
 
@@ -370,7 +370,7 @@ jobs:
         run: .github/scripts/install-bitcoind.sh
 
       - name: Download build
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: cln-compile-gcc.tar.bz2
 
@@ -423,10 +423,10 @@ jobs:
             PYTEST_OPTS: --test-group=10 --test-group-count=10
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python 3.8
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
 
@@ -441,7 +441,7 @@ jobs:
         run: .github/scripts/install-bitcoind.sh
 
       - name: Download build
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: cln-compile-clang-sanitizers.tar.bz2
 

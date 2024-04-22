@@ -8,14 +8,14 @@ on:
 
 jobs:
   testfreebsd:
-    runs-on: macos-10.15
+    runs-on: ubuntu-latest
     name: Build and test on FreeBSD
     timeout-minutes: 120
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Test in FreeBSD
       id: test
-      uses: vmactions/freebsd-vm@v0.1.5
+      uses: vmactions/freebsd-vm@v1
       with:
         usesh: true
         prepare: |
