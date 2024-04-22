@@ -1004,17 +1004,7 @@ static struct command_result *sendrawtransaction(struct command *cmd,
 		return command_param_failed();
 
 	if (*allowhighfees) {
-		if (bitcoind->version >= 190001)
-			/* Starting in 19.0.1, second argument is
-			 * maxfeerate, which when set to 0 means
-			 * no max feerate.
-			 */
 			highfeesarg = "0";
-		else
-			/* in older versions, second arg is allowhighfees,
-			 * set to true to allow high fees.
-			 */
-			highfeesarg = "true";
 	} else
 		highfeesarg = NULL;
 

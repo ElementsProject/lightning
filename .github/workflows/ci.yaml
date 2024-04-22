@@ -212,7 +212,7 @@ jobs:
     timeout-minutes: 120
     env:
       BITCOIN_VERSION: "26.1"
-      ELEMENTS_VERSION: 22.0.2
+      ELEMENTS_VERSION: 23.2.1
       RUST_PROFILE: release  # Has to match the one in the compile step
       PYTEST_OPTS: --timeout=1200 --force-flaky
     needs:
@@ -320,7 +320,7 @@ jobs:
     timeout-minutes: 120
     env:
       BITCOIN_VERSION: "26.1"
-      ELEMENTS_VERSION: 22.0.2
+      ELEMENTS_VERSION: 23.2.1
       RUST_PROFILE: release  # Has to match the one in the compile step
       CFG: compile-gcc
       PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800 --force-flaky
@@ -390,7 +390,7 @@ jobs:
     timeout-minutes: 120
     env:
       BITCOIN_VERSION: "26.1"
-      ELEMENTS_VERSION: 22.0.2
+      ELEMENTS_VERSION: 23.2.1
       RUST_PROFILE: release
       SLOW_MACHINE: 1
       TEST_DEBUG: 1
