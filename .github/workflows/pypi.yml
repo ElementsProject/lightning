@@ -2,8 +2,8 @@
 name: Publish Python 🐍 distributions 📦 to PyPI and TestPyPI
 on:
   # Only deploy if we're the result of a PR being merged
+  workflow_dispatch:
   push:
-    workflow_dispatch:
     branches:
       - master
     tags:
@@ -38,7 +38,7 @@ jobs:
           #- PACKAGE: pyn-bolt7
           #  WORKDIR: contrib/pyln-spec/bolt7/
     steps:
-    - uses: actions/checkout@master
+    - uses: actions/checkout@v4
       with:
         # Need to fetch entire history in order to locate the version tag
         fetch-depth: 0
