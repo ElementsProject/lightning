@@ -208,19 +208,19 @@ def test_bitcoin_pruned(node_factory, bitcoind):
     l1.daemon.rpcproxy.mock_rpc("getblockfrompeer", mock_getblockfrompeer())
     l1.start(wait_for_bitcoind_sync=False)
 
-    # check that we fetched a block from a peer (1st peer in this case).
+    # check that we fetched a block from a peer (1st peer (from the back) in this case).
     pruned_block = bitcoind.rpc.getblockhash(bitcoind.rpc.getblockcount())
     l1.daemon.wait_for_log(f"failed to fetch block {pruned_block} from the bitcoin backend")
-    l1.daemon.wait_for_log(rf"try to fetch block {pruned_block} from peer 1")
+    l1.daemon.wait_for_log(rf"try to fetch block {pruned_block} from peer 3")
     l1.daemon.wait_for_log(rf"Adding block (\d+): {pruned_block}")
 
-    # check that we can also fetch from a peer > 1st.
+    # check that we can also fetch from a peer > 1st (from the back).
     l1.daemon.rpcproxy.mock_rpc("getblockfrompeer", mock_getblockfrompeer(error=True, release_after=2))
     bitcoind.generate_block(1)
 
     pruned_block = bitcoind.rpc.getblockhash(bitcoind.rpc.getblockcount())
     l1.daemon.wait_for_log(f"failed to fetch block {pruned_block} from the bitcoin backend")
-    l1.daemon.wait_for_log(rf"failed to fetch block {pruned_block} from peer 1")
+    l1.daemon.wait_for_log(rf"failed to fetch block {pruned_block} from peer 3")
     l1.daemon.wait_for_log(rf"try to fetch block {pruned_block} from peer (\d+)")
     l1.daemon.wait_for_log(rf"Adding block (\d+): {pruned_block}")
 
