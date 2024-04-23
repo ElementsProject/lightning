@@ -96,6 +96,16 @@ pub enum Request {
 	PreApproveKeysend(requests::PreapprovekeysendRequest),
 	PreApproveInvoice(requests::PreapproveinvoiceRequest),
 	StaticBackup(requests::StaticbackupRequest),
+	#[serde(rename = "bkpr-channelsapy")]
+	BkprChannelsApy(requests::BkprchannelsapyRequest),
+	#[serde(rename = "bkpr-dumpincomecsv")]
+	BkprDumpIncomeCsv(requests::BkprdumpincomecsvRequest),
+	#[serde(rename = "bkpr-inspect")]
+	BkprInspect(requests::BkprinspectRequest),
+	#[serde(rename = "bkpr-listaccountevents")]
+	BkprListAccountEvents(requests::BkprlistaccounteventsRequest),
+	#[serde(rename = "bkpr-listbalances")]
+	BkprListBalances(requests::BkprlistbalancesRequest),
 	#[serde(rename = "bkpr-listincome")]
 	BkprListIncome(requests::BkprlistincomeRequest),
 }
@@ -183,6 +193,16 @@ pub enum Response {
 	PreApproveKeysend(responses::PreapprovekeysendResponse),
 	PreApproveInvoice(responses::PreapproveinvoiceResponse),
 	StaticBackup(responses::StaticbackupResponse),
+	#[serde(rename = "bkpr-channelsapy")]
+	BkprChannelsApy(responses::BkprchannelsapyResponse),
+	#[serde(rename = "bkpr-dumpincomecsv")]
+	BkprDumpIncomeCsv(responses::BkprdumpincomecsvResponse),
+	#[serde(rename = "bkpr-inspect")]
+	BkprInspect(responses::BkprinspectResponse),
+	#[serde(rename = "bkpr-listaccountevents")]
+	BkprListAccountEvents(responses::BkprlistaccounteventsResponse),
+	#[serde(rename = "bkpr-listbalances")]
+	BkprListBalances(responses::BkprlistbalancesResponse),
 	#[serde(rename = "bkpr-listincome")]
 	BkprListIncome(responses::BkprlistincomeResponse),
 }
@@ -2881,6 +2901,127 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "staticbackup"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkprchannelsapyRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub end_time: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub start_time: Option<u64>,
+	}
+
+	impl From<BkprchannelsapyRequest> for Request {
+	    fn from(r: BkprchannelsapyRequest) -> Self {
+	        Request::BkprChannelsApy(r)
+	    }
+	}
+
+	impl IntoRequest for BkprchannelsapyRequest {
+	    type Response = super::responses::BkprchannelsapyResponse;
+	}
+
+	impl TypedRequest for BkprchannelsapyRequest {
+	    type Response = super::responses::BkprchannelsapyResponse;
+
+	    fn method(&self) -> &str {
+	        "bkpr-channelsapy"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkprdumpincomecsvRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub consolidate_fees: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub csv_file: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub end_time: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub start_time: Option<u64>,
+	    pub csv_format: String,
+	}
+
+	impl From<BkprdumpincomecsvRequest> for Request {
+	    fn from(r: BkprdumpincomecsvRequest) -> Self {
+	        Request::BkprDumpIncomeCsv(r)
+	    }
+	}
+
+	impl IntoRequest for BkprdumpincomecsvRequest {
+	    type Response = super::responses::BkprdumpincomecsvResponse;
+	}
+
+	impl TypedRequest for BkprdumpincomecsvRequest {
+	    type Response = super::responses::BkprdumpincomecsvResponse;
+
+	    fn method(&self) -> &str {
+	        "bkpr-dumpincomecsv"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkprinspectRequest {
+	    pub account: String,
+	}
+
+	impl From<BkprinspectRequest> for Request {
+	    fn from(r: BkprinspectRequest) -> Self {
+	        Request::BkprInspect(r)
+	    }
+	}
+
+	impl IntoRequest for BkprinspectRequest {
+	    type Response = super::responses::BkprinspectResponse;
+	}
+
+	impl TypedRequest for BkprinspectRequest {
+	    type Response = super::responses::BkprinspectResponse;
+
+	    fn method(&self) -> &str {
+	        "bkpr-inspect"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkprlistaccounteventsRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub account: Option<String>,
+	}
+
+	impl From<BkprlistaccounteventsRequest> for Request {
+	    fn from(r: BkprlistaccounteventsRequest) -> Self {
+	        Request::BkprListAccountEvents(r)
+	    }
+	}
+
+	impl IntoRequest for BkprlistaccounteventsRequest {
+	    type Response = super::responses::BkprlistaccounteventsResponse;
+	}
+
+	impl TypedRequest for BkprlistaccounteventsRequest {
+	    type Response = super::responses::BkprlistaccounteventsResponse;
+
+	    fn method(&self) -> &str {
+	        "bkpr-listaccountevents"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkprlistbalancesRequest {
+	}
+
+	impl From<BkprlistbalancesRequest> for Request {
+	    fn from(r: BkprlistbalancesRequest) -> Self {
+	        Request::BkprListBalances(r)
+	    }
+	}
+
+	impl IntoRequest for BkprlistbalancesRequest {
+	    type Response = super::responses::BkprlistbalancesResponse;
+	}
+
+	impl TypedRequest for BkprlistbalancesRequest {
+	    type Response = super::responses::BkprlistbalancesResponse;
+
+	    fn method(&self) -> &str {
+	        "bkpr-listbalances"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -7163,6 +7304,275 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::StaticBackup(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkprchannelsapyChannels_apy {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub apy_in_initial: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub apy_lease: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub apy_out_initial: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub apy_total_initial: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fees_in_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub utilization_in_initial: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub utilization_out_initial: Option<String>,
+	    pub account: String,
+	    pub apy_in: String,
+	    pub apy_out: String,
+	    pub apy_total: String,
+	    pub channel_start_balance_msat: Amount,
+	    pub fees_out_msat: Amount,
+	    pub lease_fee_earned_msat: Amount,
+	    pub lease_fee_paid_msat: Amount,
+	    pub our_start_balance_msat: Amount,
+	    pub pushed_in_msat: Amount,
+	    pub pushed_out_msat: Amount,
+	    pub routed_in_msat: Amount,
+	    pub routed_out_msat: Amount,
+	    pub utilization_in: String,
+	    pub utilization_out: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkprchannelsapyResponse {
+	    pub channels_apy: Vec<BkprchannelsapyChannels_apy>,
+	}
+
+	impl TryFrom<Response> for BkprchannelsapyResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::BkprChannelsApy(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	/// ['Format to print csv as.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum BkprdumpincomecsvCsv_format {
+	    #[serde(rename = "cointracker")]
+	    COINTRACKER = 0,
+	    #[serde(rename = "koinly")]
+	    KOINLY = 1,
+	    #[serde(rename = "harmony")]
+	    HARMONY = 2,
+	    #[serde(rename = "quickbooks")]
+	    QUICKBOOKS = 3,
+	}
+
+	impl TryFrom<i32> for BkprdumpincomecsvCsv_format {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<BkprdumpincomecsvCsv_format, anyhow::Error> {
+	        match c {
+	    0 => Ok(BkprdumpincomecsvCsv_format::COINTRACKER),
+	    1 => Ok(BkprdumpincomecsvCsv_format::KOINLY),
+	    2 => Ok(BkprdumpincomecsvCsv_format::HARMONY),
+	    3 => Ok(BkprdumpincomecsvCsv_format::QUICKBOOKS),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum BkprdumpincomecsvCsv_format", o)),
+	        }
+	    }
+	}
+
+	impl ToString for BkprdumpincomecsvCsv_format {
+	    fn to_string(&self) -> String {
+	        match self {
+	            BkprdumpincomecsvCsv_format::COINTRACKER => "COINTRACKER",
+	            BkprdumpincomecsvCsv_format::KOINLY => "KOINLY",
+	            BkprdumpincomecsvCsv_format::HARMONY => "HARMONY",
+	            BkprdumpincomecsvCsv_format::QUICKBOOKS => "QUICKBOOKS",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkprdumpincomecsvResponse {
+	    // Path `Bkpr-DumpIncomeCsv.csv_format`
+	    pub csv_format: BkprdumpincomecsvCsv_format,
+	    pub csv_file: String,
+	}
+
+	impl TryFrom<Response> for BkprdumpincomecsvResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::BkprDumpIncomeCsv(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkprinspectTxsOutputs {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub credit_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub debit_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub originating_account: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub output_tag: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_id: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub spend_tag: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub spending_txid: Option<String>,
+	    pub account: String,
+	    pub currency: String,
+	    pub outnum: u32,
+	    pub output_value_msat: Amount,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkprinspectTxs {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub blockheight: Option<u32>,
+	    pub fees_paid_msat: Amount,
+	    pub outputs: Vec<BkprinspectTxsOutputs>,
+	    pub txid: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkprinspectResponse {
+	    pub txs: Vec<BkprinspectTxs>,
+	}
+
+	impl TryFrom<Response> for BkprinspectResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::BkprInspect(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	/// ['Coin movement type.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum BkprlistaccounteventsEventsType {
+	    #[serde(rename = "onchain_fee")]
+	    ONCHAIN_FEE = 0,
+	    #[serde(rename = "chain")]
+	    CHAIN = 1,
+	    #[serde(rename = "channel")]
+	    CHANNEL = 2,
+	}
+
+	impl TryFrom<i32> for BkprlistaccounteventsEventsType {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<BkprlistaccounteventsEventsType, anyhow::Error> {
+	        match c {
+	    0 => Ok(BkprlistaccounteventsEventsType::ONCHAIN_FEE),
+	    1 => Ok(BkprlistaccounteventsEventsType::CHAIN),
+	    2 => Ok(BkprlistaccounteventsEventsType::CHANNEL),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum BkprlistaccounteventsEventsType", o)),
+	        }
+	    }
+	}
+
+	impl ToString for BkprlistaccounteventsEventsType {
+	    fn to_string(&self) -> String {
+	        match self {
+	            BkprlistaccounteventsEventsType::ONCHAIN_FEE => "ONCHAIN_FEE",
+	            BkprlistaccounteventsEventsType::CHAIN => "CHAIN",
+	            BkprlistaccounteventsEventsType::CHANNEL => "CHANNEL",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkprlistaccounteventsEvents {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub blockheight: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fees_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub is_rebalance: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub origin: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub outpoint: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub part_id: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_id: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub txid: Option<String>,
+	    // Path `Bkpr-ListAccountEvents.events[].type`
+	    #[serde(rename = "type")]
+	    pub item_type: BkprlistaccounteventsEventsType,
+	    pub account: String,
+	    pub credit_msat: Amount,
+	    pub currency: String,
+	    pub debit_msat: Amount,
+	    pub tag: String,
+	    pub timestamp: u32,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkprlistaccounteventsResponse {
+	    pub events: Vec<BkprlistaccounteventsEvents>,
+	}
+
+	impl TryFrom<Response> for BkprlistaccounteventsResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::BkprListAccountEvents(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkprlistbalancesAccountsBalances {
+	    pub balance_msat: Amount,
+	    pub coin_type: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkprlistbalancesAccounts {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub account_closed: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub account_resolved: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub peer_id: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub resolved_at_block: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub we_opened: Option<bool>,
+	    pub account: String,
+	    pub balances: Vec<BkprlistbalancesAccountsBalances>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkprlistbalancesResponse {
+	    pub accounts: Vec<BkprlistbalancesAccounts>,
+	}
+
+	impl TryFrom<Response> for BkprlistbalancesResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::BkprListBalances(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

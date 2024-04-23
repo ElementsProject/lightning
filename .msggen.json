@@ -1,5 +1,16 @@
 {
     "grpc-enum-map": {
+        "Bkpr-dumpincomecsvCsv_format": {
+            "cointracker": 0,
+            "harmony": 2,
+            "koinly": 1,
+            "quickbooks": 3
+        },
+        "Bkpr-listaccounteventsEventsType": {
+            "chain": 1,
+            "channel": 2,
+            "onchain_fee": 0
+        },
         "CloseType": {
             "mutual": 0,
             "unilateral": 1,
@@ -513,6 +524,113 @@
             "AutoCleanInvoice.cycle_seconds": 3,
             "AutoCleanInvoice.enabled": 1,
             "AutoCleanInvoice.expired_by": 2
+        },
+        "Bkpr-channelsapyChannels_apy": {
+            "Bkpr-ChannelsApy.channels_apy[].account": 1,
+            "Bkpr-ChannelsApy.channels_apy[].apy_in": 18,
+            "Bkpr-ChannelsApy.channels_apy[].apy_in_initial": 19,
+            "Bkpr-ChannelsApy.channels_apy[].apy_lease": 22,
+            "Bkpr-ChannelsApy.channels_apy[].apy_out": 16,
+            "Bkpr-ChannelsApy.channels_apy[].apy_out_initial": 17,
+            "Bkpr-ChannelsApy.channels_apy[].apy_total": 20,
+            "Bkpr-ChannelsApy.channels_apy[].apy_total_initial": 21,
+            "Bkpr-ChannelsApy.channels_apy[].channel_start_balance_msat": 9,
+            "Bkpr-ChannelsApy.channels_apy[].fees_in_msat": 11,
+            "Bkpr-ChannelsApy.channels_apy[].fees_out_msat": 10,
+            "Bkpr-ChannelsApy.channels_apy[].lease_fee_earned_msat": 5,
+            "Bkpr-ChannelsApy.channels_apy[].lease_fee_paid_msat": 4,
+            "Bkpr-ChannelsApy.channels_apy[].our_start_balance_msat": 8,
+            "Bkpr-ChannelsApy.channels_apy[].pushed_in_msat": 7,
+            "Bkpr-ChannelsApy.channels_apy[].pushed_out_msat": 6,
+            "Bkpr-ChannelsApy.channels_apy[].routed_in_msat": 3,
+            "Bkpr-ChannelsApy.channels_apy[].routed_out_msat": 2,
+            "Bkpr-ChannelsApy.channels_apy[].utilization_in": 14,
+            "Bkpr-ChannelsApy.channels_apy[].utilization_in_initial": 15,
+            "Bkpr-ChannelsApy.channels_apy[].utilization_out": 12,
+            "Bkpr-ChannelsApy.channels_apy[].utilization_out_initial": 13
+        },
+        "Bkpr-channelsapyRequest": {
+            "Bkpr-ChannelsApy.end_time": 2,
+            "Bkpr-ChannelsApy.start_time": 1
+        },
+        "Bkpr-channelsapyResponse": {
+            "Bkpr-ChannelsApy.channels_apy[]": 1
+        },
+        "Bkpr-dumpincomecsvRequest": {
+            "Bkpr-DumpIncomeCsv.consolidate_fees": 3,
+            "Bkpr-DumpIncomeCsv.csv_file": 2,
+            "Bkpr-DumpIncomeCsv.csv_format": 1,
+            "Bkpr-DumpIncomeCsv.end_time": 5,
+            "Bkpr-DumpIncomeCsv.start_time": 4
+        },
+        "Bkpr-dumpincomecsvResponse": {
+            "Bkpr-DumpIncomeCsv.csv_file": 1,
+            "Bkpr-DumpIncomeCsv.csv_format": 2
+        },
+        "Bkpr-inspectRequest": {
+            "Bkpr-Inspect.account": 1
+        },
+        "Bkpr-inspectResponse": {
+            "Bkpr-Inspect.txs[]": 1
+        },
+        "Bkpr-inspectTxs": {
+            "Bkpr-Inspect.txs[].blockheight": 2,
+            "Bkpr-Inspect.txs[].fees_paid_msat": 3,
+            "Bkpr-Inspect.txs[].outputs[]": 4,
+            "Bkpr-Inspect.txs[].txid": 1
+        },
+        "Bkpr-inspectTxsOutputs": {
+            "Bkpr-Inspect.txs[].outputs[].account": 1,
+            "Bkpr-Inspect.txs[].outputs[].credit_msat": 5,
+            "Bkpr-Inspect.txs[].outputs[].currency": 4,
+            "Bkpr-Inspect.txs[].outputs[].debit_msat": 6,
+            "Bkpr-Inspect.txs[].outputs[].originating_account": 7,
+            "Bkpr-Inspect.txs[].outputs[].outnum": 2,
+            "Bkpr-Inspect.txs[].outputs[].output_tag": 8,
+            "Bkpr-Inspect.txs[].outputs[].output_value_msat": 3,
+            "Bkpr-Inspect.txs[].outputs[].payment_id": 11,
+            "Bkpr-Inspect.txs[].outputs[].spend_tag": 9,
+            "Bkpr-Inspect.txs[].outputs[].spending_txid": 10
+        },
+        "Bkpr-listaccounteventsEvents": {
+            "Bkpr-ListAccountEvents.events[].account": 1,
+            "Bkpr-ListAccountEvents.events[].blockheight": 9,
+            "Bkpr-ListAccountEvents.events[].credit_msat": 4,
+            "Bkpr-ListAccountEvents.events[].currency": 6,
+            "Bkpr-ListAccountEvents.events[].debit_msat": 5,
+            "Bkpr-ListAccountEvents.events[].description": 13,
+            "Bkpr-ListAccountEvents.events[].fees_msat": 14,
+            "Bkpr-ListAccountEvents.events[].is_rebalance": 15,
+            "Bkpr-ListAccountEvents.events[].origin": 10,
+            "Bkpr-ListAccountEvents.events[].outpoint": 8,
+            "Bkpr-ListAccountEvents.events[].part_id": 16,
+            "Bkpr-ListAccountEvents.events[].payment_id": 11,
+            "Bkpr-ListAccountEvents.events[].tag": 3,
+            "Bkpr-ListAccountEvents.events[].timestamp": 7,
+            "Bkpr-ListAccountEvents.events[].txid": 12,
+            "Bkpr-ListAccountEvents.events[].type": 2
+        },
+        "Bkpr-listaccounteventsRequest": {
+            "Bkpr-ListAccountEvents.account": 1
+        },
+        "Bkpr-listaccounteventsResponse": {
+            "Bkpr-ListAccountEvents.events[]": 1
+        },
+        "Bkpr-listbalancesAccounts": {
+            "Bkpr-ListBalances.accounts[].account": 1,
+            "Bkpr-ListBalances.accounts[].account_closed": 5,
+            "Bkpr-ListBalances.accounts[].account_resolved": 6,
+            "Bkpr-ListBalances.accounts[].balances[]": 2,
+            "Bkpr-ListBalances.accounts[].peer_id": 3,
+            "Bkpr-ListBalances.accounts[].resolved_at_block": 7,
+            "Bkpr-ListBalances.accounts[].we_opened": 4
+        },
+        "Bkpr-listbalancesAccountsBalances": {
+            "Bkpr-ListBalances.accounts[].balances[].balance_msat": 1,
+            "Bkpr-ListBalances.accounts[].balances[].coin_type": 2
+        },
+        "Bkpr-listbalancesResponse": {
+            "Bkpr-ListBalances.accounts[]": 1
         },
         "Bkpr-listincomeIncome_events": {
             "Bkpr-ListIncome.income_events[].account": 1,
@@ -2513,6 +2631,326 @@
             "deprecated": false
         },
         "AutoCleanInvoice.expired_by": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Bkpr-ChannelsApy.channels_apy[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].account": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].apy_in": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].apy_in_initial": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].apy_lease": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].apy_out": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].apy_out_initial": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].apy_total": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].apy_total_initial": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].channel_start_balance_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].fees_in_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].fees_out_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].lease_fee_earned_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].lease_fee_paid_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].our_start_balance_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].pushed_in_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].pushed_out_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].routed_in_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].routed_out_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].utilization_in": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].utilization_in_initial": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].utilization_out": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.channels_apy[].utilization_out_initial": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.end_time": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ChannelsApy.start_time": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-DumpIncomeCsv": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Bkpr-DumpIncomeCsv.consolidate_fees": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-DumpIncomeCsv.csv_file": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-DumpIncomeCsv.csv_format": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-DumpIncomeCsv.end_time": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-DumpIncomeCsv.start_time": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-Inspect": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Bkpr-Inspect.account": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-Inspect.txs[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-Inspect.txs[].blockheight": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-Inspect.txs[].fees_paid_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-Inspect.txs[].outputs[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-Inspect.txs[].outputs[].account": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-Inspect.txs[].outputs[].credit_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-Inspect.txs[].outputs[].currency": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-Inspect.txs[].outputs[].debit_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-Inspect.txs[].outputs[].originating_account": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-Inspect.txs[].outputs[].outnum": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-Inspect.txs[].outputs[].output_tag": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-Inspect.txs[].outputs[].output_value_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-Inspect.txs[].outputs[].payment_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-Inspect.txs[].outputs[].spend_tag": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-Inspect.txs[].outputs[].spending_txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-Inspect.txs[].txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListAccountEvents": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Bkpr-ListAccountEvents.account": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListAccountEvents.events[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListAccountEvents.events[].account": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListAccountEvents.events[].blockheight": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListAccountEvents.events[].credit_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListAccountEvents.events[].currency": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListAccountEvents.events[].debit_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListAccountEvents.events[].description": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListAccountEvents.events[].fees_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListAccountEvents.events[].is_rebalance": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListAccountEvents.events[].origin": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListAccountEvents.events[].outpoint": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListAccountEvents.events[].part_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListAccountEvents.events[].payment_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListAccountEvents.events[].tag": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListAccountEvents.events[].timestamp": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListAccountEvents.events[].txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListAccountEvents.events[].type": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListBalances": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Bkpr-ListBalances.accounts[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListBalances.accounts[].account": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListBalances.accounts[].account_closed": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListBalances.accounts[].account_resolved": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListBalances.accounts[].balances[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListBalances.accounts[].balances[].balance_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListBalances.accounts[].balances[].coin_type": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListBalances.accounts[].peer_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListBalances.accounts[].resolved_at_block": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListBalances.accounts[].we_opened": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

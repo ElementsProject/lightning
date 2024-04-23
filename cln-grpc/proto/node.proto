@@ -85,6 +85,11 @@ service Node {
 	rpc PreApproveKeysend(PreapprovekeysendRequest) returns (PreapprovekeysendResponse) {}
 	rpc PreApproveInvoice(PreapproveinvoiceRequest) returns (PreapproveinvoiceResponse) {}
 	rpc StaticBackup(StaticbackupRequest) returns (StaticbackupResponse) {}
+	rpc BkprChannelsApy(BkprchannelsapyRequest) returns (BkprchannelsapyResponse) {}
+	rpc BkprDumpIncomeCsv(BkprdumpincomecsvRequest) returns (BkprdumpincomecsvResponse) {}
+	rpc BkprInspect(BkprinspectRequest) returns (BkprinspectResponse) {}
+	rpc BkprListAccountEvents(BkprlistaccounteventsRequest) returns (BkprlistaccounteventsResponse) {}
+	rpc BkprListBalances(BkprlistbalancesRequest) returns (BkprlistbalancesResponse) {}
 	rpc BkprListIncome(BkprlistincomeRequest) returns (BkprlistincomeResponse) {}
 }
 
@@ -2354,6 +2359,144 @@ message StaticbackupRequest {
 
 message StaticbackupResponse {
 	repeated bytes scb = 1;
+}
+
+message BkprchannelsapyRequest {
+	optional uint64 start_time = 1;
+	optional uint64 end_time = 2;
+}
+
+message BkprchannelsapyResponse {
+	repeated BkprchannelsapyChannels_apy channels_apy = 1;
+}
+
+message BkprchannelsapyChannels_apy {
+	string account = 1;
+	Amount routed_out_msat = 2;
+	Amount routed_in_msat = 3;
+	Amount lease_fee_paid_msat = 4;
+	Amount lease_fee_earned_msat = 5;
+	Amount pushed_out_msat = 6;
+	Amount pushed_in_msat = 7;
+	Amount our_start_balance_msat = 8;
+	Amount channel_start_balance_msat = 9;
+	Amount fees_out_msat = 10;
+	optional Amount fees_in_msat = 11;
+	string utilization_out = 12;
+	optional string utilization_out_initial = 13;
+	string utilization_in = 14;
+	optional string utilization_in_initial = 15;
+	string apy_out = 16;
+	optional string apy_out_initial = 17;
+	string apy_in = 18;
+	optional string apy_in_initial = 19;
+	string apy_total = 20;
+	optional string apy_total_initial = 21;
+	optional string apy_lease = 22;
+}
+
+message BkprdumpincomecsvRequest {
+	string csv_format = 1;
+	optional string csv_file = 2;
+	optional bool consolidate_fees = 3;
+	optional uint64 start_time = 4;
+	optional uint64 end_time = 5;
+}
+
+message BkprdumpincomecsvResponse {
+	// Bkpr-DumpIncomeCsv.csv_format
+	enum BkprdumpincomecsvCsv_format {
+		COINTRACKER = 0;
+		KOINLY = 1;
+		HARMONY = 2;
+		QUICKBOOKS = 3;
+	}
+	string csv_file = 1;
+	BkprdumpincomecsvCsv_format csv_format = 2;
+}
+
+message BkprinspectRequest {
+	string account = 1;
+}
+
+message BkprinspectResponse {
+	repeated BkprinspectTxs txs = 1;
+}
+
+message BkprinspectTxs {
+	bytes txid = 1;
+	optional uint32 blockheight = 2;
+	Amount fees_paid_msat = 3;
+	repeated BkprinspectTxsOutputs outputs = 4;
+}
+
+message BkprinspectTxsOutputs {
+	string account = 1;
+	uint32 outnum = 2;
+	Amount output_value_msat = 3;
+	string currency = 4;
+	optional Amount credit_msat = 5;
+	optional Amount debit_msat = 6;
+	optional string originating_account = 7;
+	optional string output_tag = 8;
+	optional string spend_tag = 9;
+	optional bytes spending_txid = 10;
+	optional bytes payment_id = 11;
+}
+
+message BkprlistaccounteventsRequest {
+	optional string account = 1;
+}
+
+message BkprlistaccounteventsResponse {
+	repeated BkprlistaccounteventsEvents events = 1;
+}
+
+message BkprlistaccounteventsEvents {
+	// Bkpr-ListAccountEvents.events[].type
+	enum BkprlistaccounteventsEventsType {
+		ONCHAIN_FEE = 0;
+		CHAIN = 1;
+		CHANNEL = 2;
+	}
+	string account = 1;
+	BkprlistaccounteventsEventsType item_type = 2;
+	string tag = 3;
+	Amount credit_msat = 4;
+	Amount debit_msat = 5;
+	string currency = 6;
+	uint32 timestamp = 7;
+	optional string outpoint = 8;
+	optional uint32 blockheight = 9;
+	optional string origin = 10;
+	optional bytes payment_id = 11;
+	optional bytes txid = 12;
+	optional string description = 13;
+	optional Amount fees_msat = 14;
+	optional bool is_rebalance = 15;
+	optional uint32 part_id = 16;
+}
+
+message BkprlistbalancesRequest {
+}
+
+message BkprlistbalancesResponse {
+	repeated BkprlistbalancesAccounts accounts = 1;
+}
+
+message BkprlistbalancesAccounts {
+	string account = 1;
+	repeated BkprlistbalancesAccountsBalances balances = 2;
+	optional bytes peer_id = 3;
+	optional bool we_opened = 4;
+	optional bool account_closed = 5;
+	optional bool account_resolved = 6;
+	optional uint32 resolved_at_block = 7;
+}
+
+message BkprlistbalancesAccountsBalances {
+	Amount balance_msat = 1;
+	string coin_type = 2;
 }
 
 message BkprlistincomeRequest {

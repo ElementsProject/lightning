@@ -399,6 +399,31 @@ class NodeStub(object):
                 request_serializer=node__pb2.StaticbackupRequest.SerializeToString,
                 response_deserializer=node__pb2.StaticbackupResponse.FromString,
                 )
+        self.BkprChannelsApy = channel.unary_unary(
+                '/cln.Node/BkprChannelsApy',
+                request_serializer=node__pb2.BkprchannelsapyRequest.SerializeToString,
+                response_deserializer=node__pb2.BkprchannelsapyResponse.FromString,
+                )
+        self.BkprDumpIncomeCsv = channel.unary_unary(
+                '/cln.Node/BkprDumpIncomeCsv',
+                request_serializer=node__pb2.BkprdumpincomecsvRequest.SerializeToString,
+                response_deserializer=node__pb2.BkprdumpincomecsvResponse.FromString,
+                )
+        self.BkprInspect = channel.unary_unary(
+                '/cln.Node/BkprInspect',
+                request_serializer=node__pb2.BkprinspectRequest.SerializeToString,
+                response_deserializer=node__pb2.BkprinspectResponse.FromString,
+                )
+        self.BkprListAccountEvents = channel.unary_unary(
+                '/cln.Node/BkprListAccountEvents',
+                request_serializer=node__pb2.BkprlistaccounteventsRequest.SerializeToString,
+                response_deserializer=node__pb2.BkprlistaccounteventsResponse.FromString,
+                )
+        self.BkprListBalances = channel.unary_unary(
+                '/cln.Node/BkprListBalances',
+                request_serializer=node__pb2.BkprlistbalancesRequest.SerializeToString,
+                response_deserializer=node__pb2.BkprlistbalancesResponse.FromString,
+                )
         self.BkprListIncome = channel.unary_unary(
                 '/cln.Node/BkprListIncome',
                 request_serializer=node__pb2.BkprlistincomeRequest.SerializeToString,
@@ -871,6 +896,36 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def BkprChannelsApy(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def BkprDumpIncomeCsv(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def BkprInspect(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def BkprListAccountEvents(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def BkprListBalances(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def BkprListIncome(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1264,6 +1319,31 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.StaticBackup,
                     request_deserializer=node__pb2.StaticbackupRequest.FromString,
                     response_serializer=node__pb2.StaticbackupResponse.SerializeToString,
+            ),
+            'BkprChannelsApy': grpc.unary_unary_rpc_method_handler(
+                    servicer.BkprChannelsApy,
+                    request_deserializer=node__pb2.BkprchannelsapyRequest.FromString,
+                    response_serializer=node__pb2.BkprchannelsapyResponse.SerializeToString,
+            ),
+            'BkprDumpIncomeCsv': grpc.unary_unary_rpc_method_handler(
+                    servicer.BkprDumpIncomeCsv,
+                    request_deserializer=node__pb2.BkprdumpincomecsvRequest.FromString,
+                    response_serializer=node__pb2.BkprdumpincomecsvResponse.SerializeToString,
+            ),
+            'BkprInspect': grpc.unary_unary_rpc_method_handler(
+                    servicer.BkprInspect,
+                    request_deserializer=node__pb2.BkprinspectRequest.FromString,
+                    response_serializer=node__pb2.BkprinspectResponse.SerializeToString,
+            ),
+            'BkprListAccountEvents': grpc.unary_unary_rpc_method_handler(
+                    servicer.BkprListAccountEvents,
+                    request_deserializer=node__pb2.BkprlistaccounteventsRequest.FromString,
+                    response_serializer=node__pb2.BkprlistaccounteventsResponse.SerializeToString,
+            ),
+            'BkprListBalances': grpc.unary_unary_rpc_method_handler(
+                    servicer.BkprListBalances,
+                    request_deserializer=node__pb2.BkprlistbalancesRequest.FromString,
+                    response_serializer=node__pb2.BkprlistbalancesResponse.SerializeToString,
             ),
             'BkprListIncome': grpc.unary_unary_rpc_method_handler(
                     servicer.BkprListIncome,
@@ -2586,6 +2666,91 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/StaticBackup',
             node__pb2.StaticbackupRequest.SerializeToString,
             node__pb2.StaticbackupResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def BkprChannelsApy(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/BkprChannelsApy',
+            node__pb2.BkprchannelsapyRequest.SerializeToString,
+            node__pb2.BkprchannelsapyResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def BkprDumpIncomeCsv(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/BkprDumpIncomeCsv',
+            node__pb2.BkprdumpincomecsvRequest.SerializeToString,
+            node__pb2.BkprdumpincomecsvResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def BkprInspect(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/BkprInspect',
+            node__pb2.BkprinspectRequest.SerializeToString,
+            node__pb2.BkprinspectResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def BkprListAccountEvents(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/BkprListAccountEvents',
+            node__pb2.BkprlistaccounteventsRequest.SerializeToString,
+            node__pb2.BkprlistaccounteventsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def BkprListBalances(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/BkprListBalances',
+            node__pb2.BkprlistbalancesRequest.SerializeToString,
+            node__pb2.BkprlistbalancesResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

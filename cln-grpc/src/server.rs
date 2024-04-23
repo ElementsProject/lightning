@@ -2490,6 +2490,166 @@ async fn static_backup(
 
 }
 
+async fn bkpr_channels_apy(
+    &self,
+    request: tonic::Request<pb::BkprchannelsapyRequest>,
+) -> Result<tonic::Response<pb::BkprchannelsapyResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::BkprchannelsapyRequest = req.into();
+    debug!("Client asked for bkpr_channels_apy");
+    trace!("bkpr_channels_apy request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::BkprChannelsApy(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method BkprChannelsApy: {:?}", e)))?;
+    match result {
+        Response::BkprChannelsApy(r) => {
+           trace!("bkpr_channels_apy response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call BkprChannelsApy",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn bkpr_dump_income_csv(
+    &self,
+    request: tonic::Request<pb::BkprdumpincomecsvRequest>,
+) -> Result<tonic::Response<pb::BkprdumpincomecsvResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::BkprdumpincomecsvRequest = req.into();
+    debug!("Client asked for bkpr_dump_income_csv");
+    trace!("bkpr_dump_income_csv request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::BkprDumpIncomeCsv(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method BkprDumpIncomeCsv: {:?}", e)))?;
+    match result {
+        Response::BkprDumpIncomeCsv(r) => {
+           trace!("bkpr_dump_income_csv response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call BkprDumpIncomeCsv",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn bkpr_inspect(
+    &self,
+    request: tonic::Request<pb::BkprinspectRequest>,
+) -> Result<tonic::Response<pb::BkprinspectResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::BkprinspectRequest = req.into();
+    debug!("Client asked for bkpr_inspect");
+    trace!("bkpr_inspect request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::BkprInspect(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method BkprInspect: {:?}", e)))?;
+    match result {
+        Response::BkprInspect(r) => {
+           trace!("bkpr_inspect response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call BkprInspect",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn bkpr_list_account_events(
+    &self,
+    request: tonic::Request<pb::BkprlistaccounteventsRequest>,
+) -> Result<tonic::Response<pb::BkprlistaccounteventsResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::BkprlistaccounteventsRequest = req.into();
+    debug!("Client asked for bkpr_list_account_events");
+    trace!("bkpr_list_account_events request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::BkprListAccountEvents(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method BkprListAccountEvents: {:?}", e)))?;
+    match result {
+        Response::BkprListAccountEvents(r) => {
+           trace!("bkpr_list_account_events response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call BkprListAccountEvents",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn bkpr_list_balances(
+    &self,
+    request: tonic::Request<pb::BkprlistbalancesRequest>,
+) -> Result<tonic::Response<pb::BkprlistbalancesResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::BkprlistbalancesRequest = req.into();
+    debug!("Client asked for bkpr_list_balances");
+    trace!("bkpr_list_balances request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::BkprListBalances(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method BkprListBalances: {:?}", e)))?;
+    match result {
+        Response::BkprListBalances(r) => {
+           trace!("bkpr_list_balances response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call BkprListBalances",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn bkpr_list_income(
     &self,
     request: tonic::Request<pb::BkprlistincomeRequest>,

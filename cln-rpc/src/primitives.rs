@@ -763,7 +763,7 @@ mod test {
         });
 
         let p: FundchannelResponse = serde_json::from_value(r).unwrap();
-	assert_eq!(p.channel_type.unwrap().bits, Some(vec![1,3,5]));
+        assert_eq!(p.channel_type.unwrap().bits, Some(vec![1, 3, 5]));
     }
 }
 
