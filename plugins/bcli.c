@@ -592,14 +592,12 @@ static struct command_result *process_getblockfrompeer(struct bitcoin_cli *bcli)
 		 * block from peer */
 		plugin_log(bcli->cmd->plugin, LOG_DBG,
 			   "failed to fetch block %s from peer %i, skip.",
-			   stash->block_hash, stash->peers[0]);
+			   stash->block_hash, stash->peers[tal_count(stash->peers) - 1]);
 	} else {
 		plugin_log(bcli->cmd->plugin, LOG_DBG,
 			   "try to fetch block %s from peer %i.",
-			   stash->block_hash, stash->peers[0]);
+			   stash->block_hash, stash->peers[tal_count(stash->peers) - 1]);
 	}
-
-	stash->peers[0] = stash->peers[tal_count(stash->peers) - 1];
 	tal_resize(&stash->peers, tal_count(stash->peers) - 1);
 
 	/* `getblockfrompeer` is an async call. sleep for a second to allow the
