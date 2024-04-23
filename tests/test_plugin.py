@@ -2191,7 +2191,8 @@ def test_important_plugin(node_factory):
 
     n = node_factory.get_node(options={"important-plugin": os.path.join(pluginsdir, "nonexistent")},
                               may_fail=True, expect_fail=True,
-                              broken_log='Plugin marked as important, shutting down lightningd',
+                              # Other plugins can complain as lightningd stops suddenly:
+                              broken_log='Plugin marked as important, shutting down lightningd|Reading JSON input: Connection reset by peer',
                               start=False)
 
     n.daemon.start(wait_for_initialized=False, stderr_redir=True)
