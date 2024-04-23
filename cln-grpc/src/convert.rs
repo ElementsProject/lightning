@@ -2242,6 +2242,168 @@ impl From<responses::StaticbackupResponse> for pb::StaticbackupResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::BkprchannelsapyChannels_apy> for pb::BkprchannelsapyChannelsApy {
+    fn from(c: responses::BkprchannelsapyChannels_apy) -> Self {
+        Self {
+            account: c.account, // Rule #2 for type string
+            apy_in: c.apy_in, // Rule #2 for type string
+            apy_in_initial: c.apy_in_initial, // Rule #2 for type string?
+            apy_lease: c.apy_lease, // Rule #2 for type string?
+            apy_out: c.apy_out, // Rule #2 for type string
+            apy_out_initial: c.apy_out_initial, // Rule #2 for type string?
+            apy_total: c.apy_total, // Rule #2 for type string
+            apy_total_initial: c.apy_total_initial, // Rule #2 for type string?
+            channel_start_balance_msat: Some(c.channel_start_balance_msat.into()), // Rule #2 for type msat
+            fees_in_msat: c.fees_in_msat.map(|f| f.into()), // Rule #2 for type msat?
+            fees_out_msat: Some(c.fees_out_msat.into()), // Rule #2 for type msat
+            lease_fee_earned_msat: Some(c.lease_fee_earned_msat.into()), // Rule #2 for type msat
+            lease_fee_paid_msat: Some(c.lease_fee_paid_msat.into()), // Rule #2 for type msat
+            our_start_balance_msat: Some(c.our_start_balance_msat.into()), // Rule #2 for type msat
+            pushed_in_msat: Some(c.pushed_in_msat.into()), // Rule #2 for type msat
+            pushed_out_msat: Some(c.pushed_out_msat.into()), // Rule #2 for type msat
+            routed_in_msat: Some(c.routed_in_msat.into()), // Rule #2 for type msat
+            routed_out_msat: Some(c.routed_out_msat.into()), // Rule #2 for type msat
+            utilization_in: c.utilization_in, // Rule #2 for type string
+            utilization_in_initial: c.utilization_in_initial, // Rule #2 for type string?
+            utilization_out: c.utilization_out, // Rule #2 for type string
+            utilization_out_initial: c.utilization_out_initial, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::BkprchannelsapyResponse> for pb::BkprchannelsapyResponse {
+    fn from(c: responses::BkprchannelsapyResponse) -> Self {
+        Self {
+            // Field: Bkpr-ChannelsApy.channels_apy[]
+            channels_apy: c.channels_apy.into_iter().map(|i| i.into()).collect(), // Rule #3 for type BkprchannelsapyChannels_apy
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::BkprdumpincomecsvResponse> for pb::BkprdumpincomecsvResponse {
+    fn from(c: responses::BkprdumpincomecsvResponse) -> Self {
+        Self {
+            csv_file: c.csv_file, // Rule #2 for type string
+            csv_format: c.csv_format as i32,
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::BkprinspectTxsOutputs> for pb::BkprinspectTxsOutputs {
+    fn from(c: responses::BkprinspectTxsOutputs) -> Self {
+        Self {
+            account: c.account, // Rule #2 for type string
+            credit_msat: c.credit_msat.map(|f| f.into()), // Rule #2 for type msat?
+            currency: c.currency, // Rule #2 for type string
+            debit_msat: c.debit_msat.map(|f| f.into()), // Rule #2 for type msat?
+            originating_account: c.originating_account, // Rule #2 for type string?
+            outnum: c.outnum, // Rule #2 for type u32
+            output_tag: c.output_tag, // Rule #2 for type string?
+            output_value_msat: Some(c.output_value_msat.into()), // Rule #2 for type msat
+            payment_id: c.payment_id.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            spend_tag: c.spend_tag, // Rule #2 for type string?
+            spending_txid: c.spending_txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::BkprinspectTxs> for pb::BkprinspectTxs {
+    fn from(c: responses::BkprinspectTxs) -> Self {
+        Self {
+            blockheight: c.blockheight, // Rule #2 for type u32?
+            fees_paid_msat: Some(c.fees_paid_msat.into()), // Rule #2 for type msat
+            // Field: Bkpr-Inspect.txs[].outputs[]
+            outputs: c.outputs.into_iter().map(|i| i.into()).collect(), // Rule #3 for type BkprinspectTxsOutputs
+            txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::BkprinspectResponse> for pb::BkprinspectResponse {
+    fn from(c: responses::BkprinspectResponse) -> Self {
+        Self {
+            // Field: Bkpr-Inspect.txs[]
+            txs: c.txs.into_iter().map(|i| i.into()).collect(), // Rule #3 for type BkprinspectTxs
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::BkprlistaccounteventsEvents> for pb::BkprlistaccounteventsEvents {
+    fn from(c: responses::BkprlistaccounteventsEvents) -> Self {
+        Self {
+            account: c.account, // Rule #2 for type string
+            blockheight: c.blockheight, // Rule #2 for type u32?
+            credit_msat: Some(c.credit_msat.into()), // Rule #2 for type msat
+            currency: c.currency, // Rule #2 for type string
+            debit_msat: Some(c.debit_msat.into()), // Rule #2 for type msat
+            description: c.description, // Rule #2 for type string?
+            fees_msat: c.fees_msat.map(|f| f.into()), // Rule #2 for type msat?
+            is_rebalance: c.is_rebalance, // Rule #2 for type boolean?
+            origin: c.origin, // Rule #2 for type string?
+            outpoint: c.outpoint, // Rule #2 for type string?
+            part_id: c.part_id, // Rule #2 for type u32?
+            payment_id: c.payment_id.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            tag: c.tag, // Rule #2 for type string
+            timestamp: c.timestamp, // Rule #2 for type u32
+            txid: c.txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
+            item_type: c.item_type as i32,
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::BkprlistaccounteventsResponse> for pb::BkprlistaccounteventsResponse {
+    fn from(c: responses::BkprlistaccounteventsResponse) -> Self {
+        Self {
+            // Field: Bkpr-ListAccountEvents.events[]
+            events: c.events.into_iter().map(|i| i.into()).collect(), // Rule #3 for type BkprlistaccounteventsEvents
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::BkprlistbalancesAccountsBalances> for pb::BkprlistbalancesAccountsBalances {
+    fn from(c: responses::BkprlistbalancesAccountsBalances) -> Self {
+        Self {
+            balance_msat: Some(c.balance_msat.into()), // Rule #2 for type msat
+            coin_type: c.coin_type, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::BkprlistbalancesAccounts> for pb::BkprlistbalancesAccounts {
+    fn from(c: responses::BkprlistbalancesAccounts) -> Self {
+        Self {
+            account: c.account, // Rule #2 for type string
+            account_closed: c.account_closed, // Rule #2 for type boolean?
+            account_resolved: c.account_resolved, // Rule #2 for type boolean?
+            // Field: Bkpr-ListBalances.accounts[].balances[]
+            balances: c.balances.into_iter().map(|i| i.into()).collect(), // Rule #3 for type BkprlistbalancesAccountsBalances
+            peer_id: c.peer_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            resolved_at_block: c.resolved_at_block, // Rule #2 for type u32?
+            we_opened: c.we_opened, // Rule #2 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::BkprlistbalancesResponse> for pb::BkprlistbalancesResponse {
+    fn from(c: responses::BkprlistbalancesResponse) -> Self {
+        Self {
+            // Field: Bkpr-ListBalances.accounts[]
+            accounts: c.accounts.into_iter().map(|i| i.into()).collect(), // Rule #3 for type BkprlistbalancesAccounts
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::BkprlistincomeIncome_events> for pb::BkprlistincomeIncomeEvents {
     fn from(c: responses::BkprlistincomeIncome_events) -> Self {
         Self {
@@ -3241,6 +3403,55 @@ impl From<requests::StaticbackupRequest> for pb::StaticbackupRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::BkprchannelsapyRequest> for pb::BkprchannelsapyRequest {
+    fn from(c: requests::BkprchannelsapyRequest) -> Self {
+        Self {
+            end_time: c.end_time, // Rule #2 for type u64?
+            start_time: c.start_time, // Rule #2 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::BkprdumpincomecsvRequest> for pb::BkprdumpincomecsvRequest {
+    fn from(c: requests::BkprdumpincomecsvRequest) -> Self {
+        Self {
+            consolidate_fees: c.consolidate_fees, // Rule #2 for type boolean?
+            csv_file: c.csv_file, // Rule #2 for type string?
+            csv_format: c.csv_format, // Rule #2 for type string
+            end_time: c.end_time, // Rule #2 for type u64?
+            start_time: c.start_time, // Rule #2 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::BkprinspectRequest> for pb::BkprinspectRequest {
+    fn from(c: requests::BkprinspectRequest) -> Self {
+        Self {
+            account: c.account, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::BkprlistaccounteventsRequest> for pb::BkprlistaccounteventsRequest {
+    fn from(c: requests::BkprlistaccounteventsRequest) -> Self {
+        Self {
+            account: c.account, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::BkprlistbalancesRequest> for pb::BkprlistbalancesRequest {
+    fn from(c: requests::BkprlistbalancesRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::BkprlistincomeRequest> for pb::BkprlistincomeRequest {
     fn from(c: requests::BkprlistincomeRequest) -> Self {
         Self {
@@ -4196,6 +4407,55 @@ impl From<pb::PreapproveinvoiceRequest> for requests::PreapproveinvoiceRequest {
 #[allow(unused_variables)]
 impl From<pb::StaticbackupRequest> for requests::StaticbackupRequest {
     fn from(c: pb::StaticbackupRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::BkprchannelsapyRequest> for requests::BkprchannelsapyRequest {
+    fn from(c: pb::BkprchannelsapyRequest) -> Self {
+        Self {
+            end_time: c.end_time, // Rule #1 for type u64?
+            start_time: c.start_time, // Rule #1 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::BkprdumpincomecsvRequest> for requests::BkprdumpincomecsvRequest {
+    fn from(c: pb::BkprdumpincomecsvRequest) -> Self {
+        Self {
+            consolidate_fees: c.consolidate_fees, // Rule #1 for type boolean?
+            csv_file: c.csv_file, // Rule #1 for type string?
+            csv_format: c.csv_format, // Rule #1 for type string
+            end_time: c.end_time, // Rule #1 for type u64?
+            start_time: c.start_time, // Rule #1 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::BkprinspectRequest> for requests::BkprinspectRequest {
+    fn from(c: pb::BkprinspectRequest) -> Self {
+        Self {
+            account: c.account, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::BkprlistaccounteventsRequest> for requests::BkprlistaccounteventsRequest {
+    fn from(c: pb::BkprlistaccounteventsRequest) -> Self {
+        Self {
+            account: c.account, // Rule #1 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::BkprlistbalancesRequest> for requests::BkprlistbalancesRequest {
+    fn from(c: pb::BkprlistbalancesRequest) -> Self {
         Self {
         }
     }

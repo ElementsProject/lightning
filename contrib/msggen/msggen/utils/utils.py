@@ -147,6 +147,11 @@ def load_jsonrpc_service():
         "PreApproveKeysend",
         "PreApproveInvoice",
         "StaticBackup",
+        "Bkpr-ChannelsApy",
+        "Bkpr-DumpIncomeCsv",
+        "Bkpr-Inspect",
+        "Bkpr-ListAccountEvents",
+        "Bkpr-ListBalances",
         "Bkpr-ListIncome",
     ]
     methods = [load_jsonrpc_method(name) for name in method_names]
