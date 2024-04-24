@@ -86,6 +86,7 @@ service Node {
 	rpc SignMessage(SignmessageRequest) returns (SignmessageResponse) {}
 	rpc Splice_Init(Splice_initRequest) returns (Splice_initResponse) {}
 	rpc Splice_Signed(Splice_signedRequest) returns (Splice_signedResponse) {}
+	rpc Splice_Update(Splice_updateRequest) returns (Splice_updateResponse) {}
 	rpc UnreserveInputs(UnreserveinputsRequest) returns (UnreserveinputsResponse) {}
 	rpc WaitBlockHeight(WaitblockheightRequest) returns (WaitblockheightResponse) {}
 	rpc Wait(WaitRequest) returns (WaitResponse) {}
@@ -2417,6 +2418,16 @@ message Splice_signedRequest {
 message Splice_signedResponse {
 	bytes tx = 1;
 	bytes txid = 2;
+}
+
+message Splice_updateRequest {
+	bytes channel_id = 1;
+	string psbt = 2;
+}
+
+message Splice_updateResponse {
+	string psbt = 1;
+	bool commitments_secured = 2;
 }
 
 message UnreserveinputsRequest {

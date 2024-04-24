@@ -140,6 +140,7 @@ def load_jsonrpc_service():
         "SignMessage",
         "Splice_Init",
         "Splice_Signed",
+        "Splice_Update",
         "UnreserveInputs",
         "WaitBlockHeight",
         "Wait",
