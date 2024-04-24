@@ -399,6 +399,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.BlacklistruneRequest.SerializeToString,
                 response_deserializer=node__pb2.BlacklistruneResponse.FromString,
                 )
+        self.CheckRune = channel.unary_unary(
+                '/cln.Node/CheckRune',
+                request_serializer=node__pb2.CheckruneRequest.SerializeToString,
+                response_deserializer=node__pb2.CheckruneResponse.FromString,
+                )
         self.CreateRune = channel.unary_unary(
                 '/cln.Node/CreateRune',
                 request_serializer=node__pb2.CreateruneRequest.SerializeToString,
@@ -876,6 +881,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CheckRune(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def CreateRune(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1275,6 +1286,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.BlacklistRune,
                     request_deserializer=node__pb2.BlacklistruneRequest.FromString,
                     response_serializer=node__pb2.BlacklistruneResponse.SerializeToString,
+            ),
+            'CheckRune': grpc.unary_unary_rpc_method_handler(
+                    servicer.CheckRune,
+                    request_deserializer=node__pb2.CheckruneRequest.FromString,
+                    response_serializer=node__pb2.CheckruneResponse.SerializeToString,
             ),
             'CreateRune': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateRune,
@@ -2602,6 +2618,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/BlacklistRune',
             node__pb2.BlacklistruneRequest.SerializeToString,
             node__pb2.BlacklistruneResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def CheckRune(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/CheckRune',
+            node__pb2.CheckruneRequest.SerializeToString,
+            node__pb2.CheckruneResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

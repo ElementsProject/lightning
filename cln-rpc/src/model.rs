@@ -97,6 +97,7 @@ pub enum Request {
 	#[serde(rename = "bkpr-listincome")]
 	BkprListIncome(requests::BkprlistincomeRequest),
 	BlacklistRune(requests::BlacklistruneRequest),
+	CheckRune(requests::CheckruneRequest),
 	CreateRune(requests::CreateruneRequest),
 	ShowRunes(requests::ShowrunesRequest),
 }
@@ -185,6 +186,7 @@ pub enum Response {
 	#[serde(rename = "bkpr-listincome")]
 	BkprListIncome(responses::BkprlistincomeResponse),
 	BlacklistRune(responses::BlacklistruneResponse),
+	CheckRune(responses::CheckruneResponse),
 	CreateRune(responses::CreateruneResponse),
 	ShowRunes(responses::ShowrunesResponse),
 }
@@ -2849,6 +2851,34 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "blacklistrune"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CheckruneRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub method: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub nodeid: Option<String>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub params: Option<Vec<String>>,
+	    pub rune: String,
+	}
+
+	impl From<CheckruneRequest> for Request {
+	    fn from(r: CheckruneRequest) -> Self {
+	        Request::CheckRune(r)
+	    }
+	}
+
+	impl IntoRequest for CheckruneRequest {
+	    type Response = super::responses::CheckruneResponse;
+	}
+
+	impl TypedRequest for CheckruneRequest {
+	    type Response = super::responses::CheckruneResponse;
+
+	    fn method(&self) -> &str {
+	        "checkrune"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -7100,6 +7130,22 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::BlacklistRune(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CheckruneResponse {
+	    pub valid: bool,
+	}
+
+	impl TryFrom<Response> for CheckruneResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::CheckRune(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

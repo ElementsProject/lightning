@@ -1792,6 +1792,12 @@ def blacklistrune2py(m):
     })
 
 
+def checkrune2py(m):
+    return remove_default({
+        "valid": m.valid,  # PrimitiveField in generate_composite
+    })
+
+
 def createrune2py(m):
     return remove_default({
         "rune": m.rune,  # PrimitiveField in generate_composite

@@ -538,6 +538,15 @@
             "CheckMessage.pubkey": 2,
             "CheckMessage.verified": 1
         },
+        "CheckruneRequest": {
+            "CheckRune.method": 3,
+            "CheckRune.nodeid": 2,
+            "CheckRune.params": 4,
+            "CheckRune.rune": 1
+        },
+        "CheckruneResponse": {
+            "CheckRune.valid": 1
+        },
         "CloseRequest": {
             "Close.destination": 3,
             "Close.fee_negotiation_step": 4,
@@ -2618,6 +2627,30 @@
             "deprecated": false
         },
         "CheckMessage.zbase": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CheckRune": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "CheckRune.method": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CheckRune.nodeid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CheckRune.params": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CheckRune.rune": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CheckRune.valid": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

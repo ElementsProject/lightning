@@ -149,6 +149,7 @@ def load_jsonrpc_service():
         "StaticBackup",
         "Bkpr-ListIncome",
         "BlacklistRune",
+        "CheckRune",
         "CreateRune",
         "ShowRunes",
     ]
