@@ -131,7 +131,7 @@ def load_jsonrpc_service():
         "Plugin",
         "RenePayStatus",
         "RenePay",
-        # "reserveinputs",
+        "ReserveInputs",
         "SendCustomMsg",
         "SendInvoice",
         # "sendonionmessage",

@@ -78,6 +78,7 @@ service Node {
 	rpc Plugin(PluginRequest) returns (PluginResponse) {}
 	rpc RenePayStatus(RenepaystatusRequest) returns (RenepaystatusResponse) {}
 	rpc RenePay(RenepayRequest) returns (RenepayResponse) {}
+	rpc ReserveInputs(ReserveinputsRequest) returns (ReserveinputsResponse) {}
 	rpc SendCustomMsg(SendcustommsgRequest) returns (SendcustommsgResponse) {}
 	rpc SendInvoice(SendinvoiceRequest) returns (SendinvoiceResponse) {}
 	rpc SetChannel(SetchannelRequest) returns (SetchannelResponse) {}
@@ -2288,6 +2289,24 @@ message RenepayResponse {
 	Amount amount_sent_msat = 6;
 	RenepayStatus status = 7;
 	optional bytes destination = 8;
+}
+
+message ReserveinputsRequest {
+	string psbt = 1;
+	optional bool exclusive = 2;
+	optional uint32 reserve = 3;
+}
+
+message ReserveinputsResponse {
+	repeated ReserveinputsReservations reservations = 1;
+}
+
+message ReserveinputsReservations {
+	bytes txid = 1;
+	uint32 vout = 2;
+	bool was_reserved = 3;
+	bool reserved = 4;
+	uint32 reserved_to_block = 5;
 }
 
 message SendcustommsgRequest {

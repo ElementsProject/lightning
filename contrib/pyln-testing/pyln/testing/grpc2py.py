@@ -1750,6 +1750,22 @@ def renepay2py(m):
     })
 
 
+def reserveinputs_reservations2py(m):
+    return remove_default({
+        "reserved": m.reserved,  # PrimitiveField in generate_composite
+        "reserved_to_block": m.reserved_to_block,  # PrimitiveField in generate_composite
+        "txid": hexlify(m.txid),  # PrimitiveField in generate_composite
+        "vout": m.vout,  # PrimitiveField in generate_composite
+        "was_reserved": m.was_reserved,  # PrimitiveField in generate_composite
+    })
+
+
+def reserveinputs2py(m):
+    return remove_default({
+        "reservations": [reserveinputs_reservations2py(i) for i in m.reservations],  # ArrayField[composite] in generate_composite
+    })
+
+
 def sendcustommsg2py(m):
     return remove_default({
         "status": m.status,  # PrimitiveField in generate_composite

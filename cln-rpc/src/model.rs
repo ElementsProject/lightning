@@ -89,6 +89,7 @@ pub enum Request {
 	Plugin(requests::PluginRequest),
 	RenePayStatus(requests::RenepaystatusRequest),
 	RenePay(requests::RenepayRequest),
+	ReserveInputs(requests::ReserveinputsRequest),
 	SendCustomMsg(requests::SendcustommsgRequest),
 	SendInvoice(requests::SendinvoiceRequest),
 	SetChannel(requests::SetchannelRequest),
@@ -190,6 +191,7 @@ pub enum Response {
 	Plugin(responses::PluginResponse),
 	RenePayStatus(responses::RenepaystatusResponse),
 	RenePay(responses::RenepayResponse),
+	ReserveInputs(responses::ReserveinputsResponse),
 	SendCustomMsg(responses::SendcustommsgResponse),
 	SendInvoice(responses::SendinvoiceResponse),
 	SetChannel(responses::SetchannelResponse),
@@ -2696,6 +2698,32 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "renepay"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ReserveinputsRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub exclusive: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub reserve: Option<u32>,
+	    pub psbt: String,
+	}
+
+	impl From<ReserveinputsRequest> for Request {
+	    fn from(r: ReserveinputsRequest) -> Self {
+	        Request::ReserveInputs(r)
+	    }
+	}
+
+	impl IntoRequest for ReserveinputsRequest {
+	    type Response = super::responses::ReserveinputsResponse;
+	}
+
+	impl TypedRequest for ReserveinputsRequest {
+	    type Response = super::responses::ReserveinputsResponse;
+
+	    fn method(&self) -> &str {
+	        "reserveinputs"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -7276,6 +7304,31 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::RenePay(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ReserveinputsReservations {
+	    pub reserved: bool,
+	    pub reserved_to_block: u32,
+	    pub txid: String,
+	    pub vout: u32,
+	    pub was_reserved: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ReserveinputsResponse {
+	    pub reservations: Vec<ReserveinputsReservations>,
+	}
+
+	impl TryFrom<Response> for ReserveinputsResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::ReserveInputs(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

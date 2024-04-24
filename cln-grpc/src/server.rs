@@ -2266,6 +2266,38 @@ async fn rene_pay(
 
 }
 
+async fn reserve_inputs(
+    &self,
+    request: tonic::Request<pb::ReserveinputsRequest>,
+) -> Result<tonic::Response<pb::ReserveinputsResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::ReserveinputsRequest = req.into();
+    debug!("Client asked for reserve_inputs");
+    trace!("reserve_inputs request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::ReserveInputs(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method ReserveInputs: {:?}", e)))?;
+    match result {
+        Response::ReserveInputs(r) => {
+           trace!("reserve_inputs response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call ReserveInputs",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn send_custom_msg(
     &self,
     request: tonic::Request<pb::SendcustommsgRequest>,

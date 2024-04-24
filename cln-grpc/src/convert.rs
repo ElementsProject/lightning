@@ -2179,6 +2179,29 @@ impl From<responses::RenepayResponse> for pb::RenepayResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::ReserveinputsReservations> for pb::ReserveinputsReservations {
+    fn from(c: responses::ReserveinputsReservations) -> Self {
+        Self {
+            reserved: c.reserved, // Rule #2 for type boolean
+            reserved_to_block: c.reserved_to_block, // Rule #2 for type u32
+            txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
+            vout: c.vout, // Rule #2 for type u32
+            was_reserved: c.was_reserved, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ReserveinputsResponse> for pb::ReserveinputsResponse {
+    fn from(c: responses::ReserveinputsResponse) -> Self {
+        Self {
+            // Field: ReserveInputs.reservations[]
+            reservations: c.reservations.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ReserveinputsReservations
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::SendcustommsgResponse> for pb::SendcustommsgResponse {
     fn from(c: responses::SendcustommsgResponse) -> Self {
         Self {
@@ -3433,6 +3456,17 @@ impl From<requests::RenepayRequest> for pb::RenepayRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::ReserveinputsRequest> for pb::ReserveinputsRequest {
+    fn from(c: requests::ReserveinputsRequest) -> Self {
+        Self {
+            exclusive: c.exclusive, // Rule #2 for type boolean?
+            psbt: c.psbt, // Rule #2 for type string
+            reserve: c.reserve, // Rule #2 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::SendcustommsgRequest> for pb::SendcustommsgRequest {
     fn from(c: requests::SendcustommsgRequest) -> Self {
         Self {
@@ -4488,6 +4522,17 @@ impl From<pb::RenepayRequest> for requests::RenepayRequest {
             maxdelay: c.maxdelay, // Rule #1 for type u32?
             maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
             retry_for: c.retry_for, // Rule #1 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::ReserveinputsRequest> for requests::ReserveinputsRequest {
+    fn from(c: pb::ReserveinputsRequest) -> Self {
+        Self {
+            exclusive: c.exclusive, // Rule #1 for type boolean?
+            psbt: c.psbt, // Rule #1 for type string
+            reserve: c.reserve, // Rule #1 for type u32?
         }
     }
 }
