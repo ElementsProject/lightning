@@ -2228,6 +2228,17 @@ impl From<responses::BkprlistincomeResponse> for pb::BkprlistincomeResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::CreateruneResponse> for pb::CreateruneResponse {
+    fn from(c: responses::CreateruneResponse) -> Self {
+        Self {
+            rune: c.rune, // Rule #2 for type string
+            unique_id: c.unique_id, // Rule #2 for type string
+            warning_unrestricted_rune: c.warning_unrestricted_rune, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::ShowrunesRunesRestrictionsAlternatives> for pb::ShowrunesRunesRestrictionsAlternatives {
     fn from(c: responses::ShowrunesRunesRestrictionsAlternatives) -> Self {
         Self {
@@ -3242,6 +3253,17 @@ impl From<requests::BkprlistincomeRequest> for pb::BkprlistincomeRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::CreateruneRequest> for pb::CreateruneRequest {
+    fn from(c: requests::CreateruneRequest) -> Self {
+        Self {
+            // Field: CreateRune.restrictions
+            restrictions: c.restrictions.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            rune: c.rune, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::ShowrunesRequest> for pb::ShowrunesRequest {
     fn from(c: requests::ShowrunesRequest) -> Self {
         Self {
@@ -4189,6 +4211,16 @@ impl From<pb::BkprlistincomeRequest> for requests::BkprlistincomeRequest {
             consolidate_fees: c.consolidate_fees, // Rule #1 for type boolean?
             end_time: c.end_time, // Rule #1 for type u32?
             start_time: c.start_time, // Rule #1 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::CreateruneRequest> for requests::CreateruneRequest {
+    fn from(c: pb::CreateruneRequest) -> Self {
+        Self {
+            restrictions: Some(c.restrictions.into_iter().map(|s| s.into()).collect()), // Rule #4
+            rune: c.rune, // Rule #1 for type string?
         }
     }
 }

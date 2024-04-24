@@ -394,6 +394,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.BkprlistincomeRequest.SerializeToString,
                 response_deserializer=node__pb2.BkprlistincomeResponse.FromString,
                 )
+        self.CreateRune = channel.unary_unary(
+                '/cln.Node/CreateRune',
+                request_serializer=node__pb2.CreateruneRequest.SerializeToString,
+                response_deserializer=node__pb2.CreateruneResponse.FromString,
+                )
         self.ShowRunes = channel.unary_unary(
                 '/cln.Node/ShowRunes',
                 request_serializer=node__pb2.ShowrunesRequest.SerializeToString,
@@ -860,6 +865,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CreateRune(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ShowRunes(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1248,6 +1259,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.BkprListIncome,
                     request_deserializer=node__pb2.BkprlistincomeRequest.FromString,
                     response_serializer=node__pb2.BkprlistincomeResponse.SerializeToString,
+            ),
+            'CreateRune': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateRune,
+                    request_deserializer=node__pb2.CreateruneRequest.FromString,
+                    response_serializer=node__pb2.CreateruneResponse.SerializeToString,
             ),
             'ShowRunes': grpc.unary_unary_rpc_method_handler(
                     servicer.ShowRunes,
@@ -2553,6 +2569,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/BkprListIncome',
             node__pb2.BkprlistincomeRequest.SerializeToString,
             node__pb2.BkprlistincomeResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def CreateRune(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/CreateRune',
+            node__pb2.CreateruneRequest.SerializeToString,
+            node__pb2.CreateruneResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

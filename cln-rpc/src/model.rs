@@ -96,6 +96,7 @@ pub enum Request {
 	StaticBackup(requests::StaticbackupRequest),
 	#[serde(rename = "bkpr-listincome")]
 	BkprListIncome(requests::BkprlistincomeRequest),
+	CreateRune(requests::CreateruneRequest),
 	ShowRunes(requests::ShowrunesRequest),
 }
 
@@ -182,6 +183,7 @@ pub enum Response {
 	StaticBackup(responses::StaticbackupResponse),
 	#[serde(rename = "bkpr-listincome")]
 	BkprListIncome(responses::BkprlistincomeResponse),
+	CreateRune(responses::CreateruneResponse),
 	ShowRunes(responses::ShowrunesResponse),
 }
 
@@ -2820,6 +2822,31 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "bkpr-listincome"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CreateruneRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub rune: Option<String>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub restrictions: Option<Vec<String>>,
+	}
+
+	impl From<CreateruneRequest> for Request {
+	    fn from(r: CreateruneRequest) -> Self {
+	        Request::CreateRune(r)
+	    }
+	}
+
+	impl IntoRequest for CreateruneRequest {
+	    type Response = super::responses::CreateruneResponse;
+	}
+
+	impl TypedRequest for CreateruneRequest {
+	    type Response = super::responses::CreateruneResponse;
+
+	    fn method(&self) -> &str {
+	        "createrune"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -7024,6 +7051,25 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::BkprListIncome(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CreateruneResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_unrestricted_rune: Option<String>,
+	    pub rune: String,
+	    pub unique_id: String,
+	}
+
+	impl TryFrom<Response> for CreateruneResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::CreateRune(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

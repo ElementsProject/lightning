@@ -600,6 +600,15 @@
             "CreateOnion.onion": 1,
             "CreateOnion.shared_secrets[]": 2
         },
+        "CreateruneRequest": {
+            "CreateRune.restrictions": 2,
+            "CreateRune.rune": 1
+        },
+        "CreateruneResponse": {
+            "CreateRune.rune": 1,
+            "CreateRune.unique_id": 2,
+            "CreateRune.warning_unrestricted_rune": 3
+        },
         "DatastoreRequest": {
             "Datastore.generation": 4,
             "Datastore.hex": 2,
@@ -2782,6 +2791,26 @@
             "deprecated": false
         },
         "CreateOnion.shared_secrets[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateRune": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "CreateRune.restrictions": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateRune.rune": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateRune.unique_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateRune.warning_unrestricted_rune": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

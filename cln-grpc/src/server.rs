@@ -2458,6 +2458,38 @@ async fn bkpr_list_income(
 
 }
 
+async fn create_rune(
+    &self,
+    request: tonic::Request<pb::CreateruneRequest>,
+) -> Result<tonic::Response<pb::CreateruneResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::CreateruneRequest = req.into();
+    debug!("Client asked for create_rune");
+    trace!("create_rune request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::CreateRune(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method CreateRune: {:?}", e)))?;
+    match result {
+        Response::CreateRune(r) => {
+           trace!("create_rune response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call CreateRune",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn show_runes(
     &self,
     request: tonic::Request<pb::ShowrunesRequest>,

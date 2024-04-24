@@ -84,6 +84,7 @@ service Node {
 	rpc PreApproveInvoice(PreapproveinvoiceRequest) returns (PreapproveinvoiceResponse) {}
 	rpc StaticBackup(StaticbackupRequest) returns (StaticbackupResponse) {}
 	rpc BkprListIncome(BkprlistincomeRequest) returns (BkprlistincomeResponse) {}
+	rpc CreateRune(CreateruneRequest) returns (CreateruneResponse) {}
 	rpc ShowRunes(ShowrunesRequest) returns (ShowrunesResponse) {}
 }
 
@@ -2324,6 +2325,17 @@ message BkprlistincomeIncome_events {
 	optional string outpoint = 8;
 	optional bytes txid = 9;
 	optional bytes payment_id = 10;
+}
+
+message CreateruneRequest {
+	optional string rune = 1;
+	repeated string restrictions = 2;
+}
+
+message CreateruneResponse {
+	string rune = 1;
+	string unique_id = 2;
+	optional string warning_unrestricted_rune = 3;
 }
 
 message ShowrunesRequest {
