@@ -978,9 +978,7 @@
         },
         "Fundchannel_startChannel_type": {
             "FundChannel_Start.channel_type.bits[]": 1,
-            "FundChannel_Start.channel_type.names[]": 2,
-            "Fundchannel_Start.channel_type.bits[]": 1,
-            "Fundchannel_Start.channel_type.names[]": 2
+            "FundChannel_Start.channel_type.names[]": 2
         },
         "Fundchannel_startRequest": {
             "FundChannel_Start.amount": 2,
@@ -991,16 +989,7 @@
             "FundChannel_Start.id": 1,
             "FundChannel_Start.mindepth": 7,
             "FundChannel_Start.push_msat": 6,
-            "FundChannel_Start.reserve": 8,
-            "Fundchannel_Start.amount": 9,
-            "Fundchannel_Start.announce": 3,
-            "Fundchannel_Start.channel_type[]": 8,
-            "Fundchannel_Start.close_to": 4,
-            "Fundchannel_Start.feerate": 2,
-            "Fundchannel_Start.id": 1,
-            "Fundchannel_Start.mindepth": 6,
-            "Fundchannel_Start.push_msat": 5,
-            "Fundchannel_Start.reserve": 7
+            "FundChannel_Start.reserve": 8
         },
         "Fundchannel_startResponse": {
             "FundChannel_Start.channel_type": 3,
@@ -1008,13 +997,7 @@
             "FundChannel_Start.funding_address": 1,
             "FundChannel_Start.mindepth": 6,
             "FundChannel_Start.scriptpubkey": 2,
-            "FundChannel_Start.warning_usage": 5,
-            "Fundchannel_Start.channel_type": 3,
-            "Fundchannel_Start.close_to": 4,
-            "Fundchannel_Start.funding_address": 1,
-            "Fundchannel_Start.mindepth": 6,
-            "Fundchannel_Start.scriptpubkey": 2,
-            "Fundchannel_Start.warning_usage": 5
+            "FundChannel_Start.warning_usage": 5
         },
         "FundpsbtRequest": {
             "FundPsbt.excess_as_change": 8,
@@ -2066,6 +2049,32 @@
         },
         "SetchannelResponse": {
             "SetChannel.channels[]": 1
+        },
+        "ShowrunesRequest": {
+            "ShowRunes.rune": 1
+        },
+        "ShowrunesResponse": {
+            "ShowRunes.runes[]": 1
+        },
+        "ShowrunesRunes": {
+            "ShowRunes.runes[].blacklisted": 6,
+            "ShowRunes.runes[].last_used": 7,
+            "ShowRunes.runes[].our_rune": 8,
+            "ShowRunes.runes[].restrictions[]": 3,
+            "ShowRunes.runes[].restrictions_as_english": 4,
+            "ShowRunes.runes[].rune": 1,
+            "ShowRunes.runes[].stored": 5,
+            "ShowRunes.runes[].unique_id": 2
+        },
+        "ShowrunesRunesRestrictions": {
+            "ShowRunes.runes[].restrictions[].alternatives[]": 1,
+            "ShowRunes.runes[].restrictions[].english": 2
+        },
+        "ShowrunesRunesRestrictionsAlternatives": {
+            "ShowRunes.runes[].restrictions[].alternatives[].condition": 3,
+            "ShowRunes.runes[].restrictions[].alternatives[].english": 4,
+            "ShowRunes.runes[].restrictions[].alternatives[].fieldname": 1,
+            "ShowRunes.runes[].restrictions[].alternatives[].value": 2
         },
         "SigninvoiceRequest": {
             "SignInvoice.invstring": 1
@@ -4193,70 +4202,6 @@
             "deprecated": false
         },
         "FundPsbt.startweight": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start": {
-            "added": "pre-v0.10.1",
-            "deprecated": null
-        },
-        "Fundchannel_Start.amount": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.announce": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.channel_type": {
-            "added": "v24.02",
-            "deprecated": false
-        },
-        "Fundchannel_Start.channel_type.bits[]": {
-            "added": "v24.02",
-            "deprecated": false
-        },
-        "Fundchannel_Start.channel_type.names[]": {
-            "added": "v24.02",
-            "deprecated": false
-        },
-        "Fundchannel_Start.channel_type[]": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.close_to": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.feerate": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.funding_address": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.id": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.mindepth": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.push_msat": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.reserve": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.scriptpubkey": {
-            "added": "pre-v0.10.1",
-            "deprecated": false
-        },
-        "Fundchannel_Start.warning_usage": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
@@ -7262,6 +7207,74 @@
         },
         "SetChannel.ignorefeelimits": {
             "added": "v23.08",
+            "deprecated": false
+        },
+        "ShowRunes": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ShowRunes.rune": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].blacklisted": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].last_used": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].our_rune": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].restrictions[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].restrictions[].alternatives[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].restrictions[].alternatives[].condition": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].restrictions[].alternatives[].english": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].restrictions[].alternatives[].fieldname": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].restrictions[].alternatives[].value": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].restrictions[].english": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].restrictions_as_english": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].rune": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].stored": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].unique_id": {
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "SignInvoice": {
