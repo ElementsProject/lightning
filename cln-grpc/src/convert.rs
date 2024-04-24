@@ -3795,6 +3795,56 @@ impl From<responses::BkprlistincomeResponse> for pb::BkprlistincomeResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::ShowrunesRunesRestrictionsAlternatives> for pb::ShowrunesRunesRestrictionsAlternatives {
+    fn from(c: responses::ShowrunesRunesRestrictionsAlternatives) -> Self {
+        Self {
+            condition: c.condition, // Rule #2 for type string
+            english: c.english, // Rule #2 for type string
+            fieldname: c.fieldname, // Rule #2 for type string
+            value: c.value, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ShowrunesRunesRestrictions> for pb::ShowrunesRunesRestrictions {
+    fn from(c: responses::ShowrunesRunesRestrictions) -> Self {
+        Self {
+            // Field: ShowRunes.runes[].restrictions[].alternatives[]
+            alternatives: c.alternatives.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ShowrunesRunesRestrictionsAlternatives
+            english: c.english, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ShowrunesRunes> for pb::ShowrunesRunes {
+    fn from(c: responses::ShowrunesRunes) -> Self {
+        Self {
+            blacklisted: c.blacklisted, // Rule #2 for type boolean?
+            last_used: c.last_used, // Rule #2 for type number?
+            our_rune: c.our_rune, // Rule #2 for type boolean?
+            // Field: ShowRunes.runes[].restrictions[]
+            restrictions: c.restrictions.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ShowrunesRunesRestrictions
+            restrictions_as_english: c.restrictions_as_english, // Rule #2 for type string
+            rune: c.rune, // Rule #2 for type string
+            stored: c.stored, // Rule #2 for type boolean?
+            unique_id: c.unique_id, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ShowrunesResponse> for pb::ShowrunesResponse {
+    fn from(c: responses::ShowrunesResponse) -> Self {
+        Self {
+            // Field: ShowRunes.runes[]
+            runes: c.runes.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ShowrunesRunes
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::BlockAddedNotification> for pb::BlockAddedNotification {
     fn from(c: notifications::BlockAddedNotification) -> Self {
         Self {
@@ -5188,6 +5238,15 @@ impl From<requests::BkprlistincomeRequest> for pb::BkprlistincomeRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::ShowrunesRequest> for pb::ShowrunesRequest {
+    fn from(c: requests::ShowrunesRequest) -> Self {
+        Self {
+            rune: c.rune, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::requests::StreamBlockAddedRequest> for pb::StreamBlockAddedRequest {
     fn from(c: notifications::requests::StreamBlockAddedRequest) -> Self {
         Self {
@@ -6525,6 +6584,15 @@ impl From<pb::BkprlistincomeRequest> for requests::BkprlistincomeRequest {
             consolidate_fees: c.consolidate_fees, // Rule #1 for type boolean?
             end_time: c.end_time, // Rule #1 for type u32?
             start_time: c.start_time, // Rule #1 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::ShowrunesRequest> for requests::ShowrunesRequest {
+    fn from(c: pb::ShowrunesRequest) -> Self {
+        Self {
+            rune: c.rune, // Rule #1 for type string?
         }
     }
 }

@@ -3008,6 +3008,32 @@
         "SetpsbtversionResponse": {
             "SetPsbtVersion.psbt": 1
         },
+        "ShowrunesRequest": {
+            "ShowRunes.rune": 1
+        },
+        "ShowrunesResponse": {
+            "ShowRunes.runes[]": 1
+        },
+        "ShowrunesRunes": {
+            "ShowRunes.runes[].blacklisted": 6,
+            "ShowRunes.runes[].last_used": 7,
+            "ShowRunes.runes[].our_rune": 8,
+            "ShowRunes.runes[].restrictions[]": 3,
+            "ShowRunes.runes[].restrictions_as_english": 4,
+            "ShowRunes.runes[].rune": 1,
+            "ShowRunes.runes[].stored": 5,
+            "ShowRunes.runes[].unique_id": 2
+        },
+        "ShowrunesRunesRestrictions": {
+            "ShowRunes.runes[].restrictions[].alternatives[]": 1,
+            "ShowRunes.runes[].restrictions[].english": 2
+        },
+        "ShowrunesRunesRestrictionsAlternatives": {
+            "ShowRunes.runes[].restrictions[].alternatives[].condition": 3,
+            "ShowRunes.runes[].restrictions[].alternatives[].english": 4,
+            "ShowRunes.runes[].restrictions[].alternatives[].fieldname": 1,
+            "ShowRunes.runes[].restrictions[].alternatives[].value": 2
+        },
         "SigninvoiceRequest": {
             "SignInvoice.invstring": 1
         },
@@ -10457,6 +10483,74 @@
             "deprecated": false
         },
         "SetPsbtVersion.version": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ShowRunes.rune": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].blacklisted": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].last_used": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].our_rune": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].restrictions[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].restrictions[].alternatives[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].restrictions[].alternatives[].condition": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].restrictions[].alternatives[].english": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].restrictions[].alternatives[].fieldname": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].restrictions[].alternatives[].value": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].restrictions[].english": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].restrictions_as_english": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].rune": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].stored": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ShowRunes.runes[].unique_id": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
