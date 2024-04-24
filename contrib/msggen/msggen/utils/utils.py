@@ -202,6 +202,7 @@ def load_jsonrpc_service():
         "Bkpr-ListBalances",
         "Bkpr-ListIncome",
         "BlacklistRune",
+        "CheckRune",
         "CreateRune",
         "ShowRunes",
     ]

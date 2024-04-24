@@ -3815,6 +3815,15 @@ impl From<responses::BlacklistruneResponse> for pb::BlacklistruneResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::CheckruneResponse> for pb::CheckruneResponse {
+    fn from(c: responses::CheckruneResponse) -> Self {
+        Self {
+            valid: c.valid, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::CreateruneResponse> for pb::CreateruneResponse {
     fn from(c: responses::CreateruneResponse) -> Self {
         Self {
@@ -5279,6 +5288,19 @@ impl From<requests::BlacklistruneRequest> for pb::BlacklistruneRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::CheckruneRequest> for pb::CheckruneRequest {
+    fn from(c: requests::CheckruneRequest) -> Self {
+        Self {
+            method: c.method, // Rule #2 for type string?
+            nodeid: c.nodeid, // Rule #2 for type string?
+            // Field: CheckRune.params
+            params: c.params.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            rune: c.rune, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::CreateruneRequest> for pb::CreateruneRequest {
     fn from(c: requests::CreateruneRequest) -> Self {
         Self {
@@ -6646,6 +6668,18 @@ impl From<pb::BlacklistruneRequest> for requests::BlacklistruneRequest {
         Self {
             end: c.end, // Rule #1 for type u64?
             start: c.start, // Rule #1 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::CheckruneRequest> for requests::CheckruneRequest {
+    fn from(c: pb::CheckruneRequest) -> Self {
+        Self {
+            method: c.method, // Rule #1 for type string?
+            nodeid: c.nodeid, // Rule #1 for type string?
+            params: Some(c.params.into_iter().map(|s| s.into()).collect()), // Rule #4
+            rune: c.rune, // Rule #1 for type string
         }
     }
 }
