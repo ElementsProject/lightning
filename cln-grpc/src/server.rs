@@ -2458,6 +2458,70 @@ async fn sign_message(
 
 }
 
+async fn splice_init(
+    &self,
+    request: tonic::Request<pb::SpliceInitRequest>,
+) -> Result<tonic::Response<pb::SpliceInitResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::Splice_initRequest = req.into();
+    debug!("Client asked for splice_init");
+    trace!("splice_init request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::Splice_Init(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method Splice_Init: {:?}", e)))?;
+    match result {
+        Response::Splice_Init(r) => {
+           trace!("splice_init response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call Splice_Init",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn unreserve_inputs(
+    &self,
+    request: tonic::Request<pb::UnreserveinputsRequest>,
+) -> Result<tonic::Response<pb::UnreserveinputsResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::UnreserveinputsRequest = req.into();
+    debug!("Client asked for unreserve_inputs");
+    trace!("unreserve_inputs request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::UnreserveInputs(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method UnreserveInputs: {:?}", e)))?;
+    match result {
+        Response::UnreserveInputs(r) => {
+           trace!("unreserve_inputs response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call UnreserveInputs",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn wait_block_height(
     &self,
     request: tonic::Request<pb::WaitblockheightRequest>,

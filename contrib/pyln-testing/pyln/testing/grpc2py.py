@@ -1825,6 +1825,28 @@ def signmessage2py(m):
     })
 
 
+def splice_init2py(m):
+    return remove_default({
+        "psbt": m.psbt,  # PrimitiveField in generate_composite
+    })
+
+
+def unreserveinputs_reservations2py(m):
+    return remove_default({
+        "reserved": m.reserved,  # PrimitiveField in generate_composite
+        "reserved_to_block": m.reserved_to_block,  # PrimitiveField in generate_composite
+        "txid": hexlify(m.txid),  # PrimitiveField in generate_composite
+        "vout": m.vout,  # PrimitiveField in generate_composite
+        "was_reserved": m.was_reserved,  # PrimitiveField in generate_composite
+    })
+
+
+def unreserveinputs2py(m):
+    return remove_default({
+        "reservations": [unreserveinputs_reservations2py(i) for i in m.reservations],  # ArrayField[composite] in generate_composite
+    })
+
+
 def waitblockheight2py(m):
     return remove_default({
         "blockheight": m.blockheight,  # PrimitiveField in generate_composite

@@ -95,6 +95,8 @@ pub enum Request {
 	SetChannel(requests::SetchannelRequest),
 	SignInvoice(requests::SigninvoiceRequest),
 	SignMessage(requests::SignmessageRequest),
+	Splice_Init(requests::Splice_initRequest),
+	UnreserveInputs(requests::UnreserveinputsRequest),
 	WaitBlockHeight(requests::WaitblockheightRequest),
 	Wait(requests::WaitRequest),
 	Stop(requests::StopRequest),
@@ -197,6 +199,8 @@ pub enum Response {
 	SetChannel(responses::SetchannelResponse),
 	SignInvoice(responses::SigninvoiceResponse),
 	SignMessage(responses::SignmessageResponse),
+	Splice_Init(responses::Splice_initResponse),
+	UnreserveInputs(responses::UnreserveinputsResponse),
 	WaitBlockHeight(responses::WaitblockheightResponse),
 	Wait(responses::WaitResponse),
 	Stop(responses::StopResponse),
@@ -2854,6 +2858,59 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "signmessage"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Splice_initRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub feerate_per_kw: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub force_feerate: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub initialpsbt: Option<String>,
+	    pub channel_id: Sha256,
+	    pub relative_amount: i64,
+	}
+
+	impl From<Splice_initRequest> for Request {
+	    fn from(r: Splice_initRequest) -> Self {
+	        Request::Splice_Init(r)
+	    }
+	}
+
+	impl IntoRequest for Splice_initRequest {
+	    type Response = super::responses::Splice_initResponse;
+	}
+
+	impl TypedRequest for Splice_initRequest {
+	    type Response = super::responses::Splice_initResponse;
+
+	    fn method(&self) -> &str {
+	        "splice_init"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct UnreserveinputsRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub reserve: Option<u32>,
+	    pub psbt: String,
+	}
+
+	impl From<UnreserveinputsRequest> for Request {
+	    fn from(r: UnreserveinputsRequest) -> Self {
+	        Request::UnreserveInputs(r)
+	    }
+	}
+
+	impl IntoRequest for UnreserveinputsRequest {
+	    type Response = super::responses::UnreserveinputsResponse;
+	}
+
+	impl TypedRequest for UnreserveinputsRequest {
+	    type Response = super::responses::UnreserveinputsResponse;
+
+	    fn method(&self) -> &str {
+	        "unreserveinputs"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -7483,6 +7540,48 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::SignMessage(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Splice_initResponse {
+	    pub psbt: String,
+	}
+
+	impl TryFrom<Response> for Splice_initResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::Splice_Init(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct UnreserveinputsReservations {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub reserved_to_block: Option<u32>,
+	    pub reserved: bool,
+	    pub txid: String,
+	    pub vout: u32,
+	    pub was_reserved: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct UnreserveinputsResponse {
+	    pub reservations: Vec<UnreserveinputsReservations>,
+	}
+
+	impl TryFrom<Response> for UnreserveinputsResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::UnreserveInputs(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
