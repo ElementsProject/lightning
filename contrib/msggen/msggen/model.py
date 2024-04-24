@@ -513,6 +513,7 @@ DecodeRoutehintListField = PrimitiveField(
     added=None,
     deprecated=None
 )
+CreateRuneRestrictionsField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 
 # TlvStreams are special, they don't have preset dict-keys, rather
 # they can specify `u64` keys pointing to hex payloads. So the schema
@@ -544,7 +545,8 @@ overrides = {
     'WaitInvoice.label': InvoiceLabelField,
     'Offer.recurrence_base': OfferStringField,
     'Offer.amount': OfferStringField,
-    'SetConfig.val': SetConfigValField
+    'SetConfig.val': SetConfigValField,
+    'CreateRune.restrictions': CreateRuneRestrictionsField,
 }
 
 

@@ -2790,6 +2790,14 @@ def bkpr_listincome2py(m):
     })
 
 
+def createrune2py(m):
+    return remove_default({
+        "rune": m.rune,  # PrimitiveField in generate_composite
+        "unique_id": m.unique_id,  # PrimitiveField in generate_composite
+        "warning_unrestricted_rune": m.warning_unrestricted_rune,  # PrimitiveField in generate_composite
+    })
+
+
 def showrunes_runes_restrictions_alternatives2py(m):
     return remove_default({
         "condition": m.condition,  # PrimitiveField in generate_composite
