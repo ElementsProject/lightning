@@ -116,6 +116,7 @@ service Node {
 	rpc BkprListAccountEvents(BkprlistaccounteventsRequest) returns (BkprlistaccounteventsResponse) {}
 	rpc BkprListBalances(BkprlistbalancesRequest) returns (BkprlistbalancesResponse) {}
 	rpc BkprListIncome(BkprlistincomeRequest) returns (BkprlistincomeResponse) {}
+	rpc ShowRunes(ShowrunesRequest) returns (ShowrunesResponse) {}
 
 	rpc SubscribeBlockAdded(StreamBlockAddedRequest) returns (stream BlockAddedNotification) {}
 	rpc SubscribeChannelOpenFailed(StreamChannelOpenFailedRequest) returns (stream ChannelOpenFailedNotification) {}
@@ -3500,6 +3501,37 @@ message BkprlistincomeIncome_events {
 	optional string outpoint = 8;
 	optional bytes txid = 9;
 	optional bytes payment_id = 10;
+}
+
+message ShowrunesRequest {
+	optional string rune = 1;
+}
+
+message ShowrunesResponse {
+	repeated ShowrunesRunes runes = 1;
+}
+
+message ShowrunesRunes {
+	string rune = 1;
+	string unique_id = 2;
+	repeated ShowrunesRunesRestrictions restrictions = 3;
+	string restrictions_as_english = 4;
+	optional bool stored = 5;
+	optional bool blacklisted = 6;
+	optional double last_used = 7;
+	optional bool our_rune = 8;
+}
+
+message ShowrunesRunesRestrictions {
+	repeated ShowrunesRunesRestrictionsAlternatives alternatives = 1;
+	string english = 2;
+}
+
+message ShowrunesRunesRestrictionsAlternatives {
+	string fieldname = 1;
+	string value = 2;
+	string condition = 3;
+	string english = 4;
 }
 
 message StreamBlockAddedRequest {

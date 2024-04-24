@@ -134,6 +134,7 @@ pub enum Request {
 	BkprListBalances(requests::BkprlistbalancesRequest),
 	#[serde(rename = "bkpr-listincome")]
 	BkprListIncome(requests::BkprlistincomeRequest),
+	ShowRunes(requests::ShowrunesRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -257,6 +258,7 @@ pub enum Response {
 	BkprListBalances(responses::BkprlistbalancesResponse),
 	#[serde(rename = "bkpr-listincome")]
 	BkprListIncome(responses::BkprlistincomeResponse),
+	ShowRunes(responses::ShowrunesResponse),
 }
 
 
@@ -3809,6 +3811,29 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "bkpr-listincome"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ShowrunesRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub rune: Option<String>,
+	}
+
+	impl From<ShowrunesRequest> for Request {
+	    fn from(r: ShowrunesRequest) -> Self {
+	        Request::ShowRunes(r)
+	    }
+	}
+
+	impl IntoRequest for ShowrunesRequest {
+	    type Response = super::responses::ShowrunesResponse;
+	}
+
+	impl TypedRequest for ShowrunesRequest {
+	    type Response = super::responses::ShowrunesResponse;
+
+	    fn method(&self) -> &str {
+	        "showrunes"
 	    }
 	}
 }
@@ -10039,6 +10064,52 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::BkprListIncome(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ShowrunesRunesRestrictionsAlternatives {
+	    pub condition: String,
+	    pub english: String,
+	    pub fieldname: String,
+	    pub value: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ShowrunesRunesRestrictions {
+	    pub alternatives: Vec<ShowrunesRunesRestrictionsAlternatives>,
+	    pub english: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ShowrunesRunes {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub blacklisted: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub last_used: Option<f64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub our_rune: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub stored: Option<bool>,
+	    pub restrictions: Vec<ShowrunesRunesRestrictions>,
+	    pub restrictions_as_english: String,
+	    pub rune: String,
+	    pub unique_id: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ShowrunesResponse {
+	    pub runes: Vec<ShowrunesRunes>,
+	}
+
+	impl TryFrom<Response> for ShowrunesResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::ShowRunes(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

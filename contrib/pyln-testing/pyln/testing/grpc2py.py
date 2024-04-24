@@ -2790,6 +2790,41 @@ def bkpr_listincome2py(m):
     })
 
 
+def showrunes_runes_restrictions_alternatives2py(m):
+    return remove_default({
+        "condition": m.condition,  # PrimitiveField in generate_composite
+        "english": m.english,  # PrimitiveField in generate_composite
+        "fieldname": m.fieldname,  # PrimitiveField in generate_composite
+        "value": m.value,  # PrimitiveField in generate_composite
+    })
+
+
+def showrunes_runes_restrictions2py(m):
+    return remove_default({
+        "alternatives": [showrunes_runes_restrictions_alternatives2py(i) for i in m.alternatives],  # ArrayField[composite] in generate_composite
+        "english": m.english,  # PrimitiveField in generate_composite
+    })
+
+
+def showrunes_runes2py(m):
+    return remove_default({
+        "restrictions": [showrunes_runes_restrictions2py(i) for i in m.restrictions],  # ArrayField[composite] in generate_composite
+        "blacklisted": m.blacklisted,  # PrimitiveField in generate_composite
+        "last_used": m.last_used,  # PrimitiveField in generate_composite
+        "our_rune": m.our_rune,  # PrimitiveField in generate_composite
+        "restrictions_as_english": m.restrictions_as_english,  # PrimitiveField in generate_composite
+        "rune": m.rune,  # PrimitiveField in generate_composite
+        "stored": m.stored,  # PrimitiveField in generate_composite
+        "unique_id": m.unique_id,  # PrimitiveField in generate_composite
+    })
+
+
+def showrunes2py(m):
+    return remove_default({
+        "runes": [showrunes_runes2py(i) for i in m.runes],  # ArrayField[composite] in generate_composite
+    })
+
+
 def decodekeysend_routes2py(m): # manual override
     return remove_default({
         "expirydelta": m.expirydelta,

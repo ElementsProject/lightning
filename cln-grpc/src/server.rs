@@ -3538,6 +3538,38 @@ impl Node for Server
 
     }
 
+    async fn show_runes(
+        &self,
+        request: tonic::Request<pb::ShowrunesRequest>,
+    ) -> Result<tonic::Response<pb::ShowrunesResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::ShowrunesRequest = req.into();
+        debug!("Client asked for show_runes");
+        trace!("show_runes request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::ShowRunes(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method ShowRunes: {:?}", e)))?;
+        match result {
+            Response::ShowRunes(r) => {
+               trace!("show_runes response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call ShowRunes",
+                    r
+                )
+            )),
+        }
+
+    }
+
 
 
     type SubscribeBlockAddedStream = NotificationStream<pb::BlockAddedNotification>;
