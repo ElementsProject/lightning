@@ -2458,6 +2458,38 @@ async fn bkpr_list_income(
 
 }
 
+async fn blacklist_rune(
+    &self,
+    request: tonic::Request<pb::BlacklistruneRequest>,
+) -> Result<tonic::Response<pb::BlacklistruneResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::BlacklistruneRequest = req.into();
+    debug!("Client asked for blacklist_rune");
+    trace!("blacklist_rune request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::BlacklistRune(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method BlacklistRune: {:?}", e)))?;
+    match result {
+        Response::BlacklistRune(r) => {
+           trace!("blacklist_rune response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call BlacklistRune",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn create_rune(
     &self,
     request: tonic::Request<pb::CreateruneRequest>,

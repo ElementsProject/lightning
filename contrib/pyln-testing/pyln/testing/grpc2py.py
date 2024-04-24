@@ -1779,6 +1779,19 @@ def bkpr_listincome2py(m):
     })
 
 
+def blacklistrune_blacklist2py(m):
+    return remove_default({
+        "end": m.end,  # PrimitiveField in generate_composite
+        "start": m.start,  # PrimitiveField in generate_composite
+    })
+
+
+def blacklistrune2py(m):
+    return remove_default({
+        "blacklist": [blacklistrune_blacklist2py(i) for i in m.blacklist],  # ArrayField[composite] in generate_composite
+    })
+
+
 def createrune2py(m):
     return remove_default({
         "rune": m.rune,  # PrimitiveField in generate_composite

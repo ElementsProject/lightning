@@ -518,6 +518,17 @@
         "Bkpr-listincomeResponse": {
             "Bkpr-ListIncome.income_events[]": 1
         },
+        "BlacklistruneBlacklist": {
+            "BlacklistRune.blacklist[].end": 2,
+            "BlacklistRune.blacklist[].start": 1
+        },
+        "BlacklistruneRequest": {
+            "BlacklistRune.end": 2,
+            "BlacklistRune.start": 1
+        },
+        "BlacklistruneResponse": {
+            "BlacklistRune.blacklist[]": 1
+        },
         "CheckmessageRequest": {
             "CheckMessage.message": 1,
             "CheckMessage.pubkey": 3,
@@ -2563,6 +2574,30 @@
             "deprecated": false
         },
         "Bkpr-ListIncome.start_time": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "BlacklistRune": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "BlacklistRune.blacklist[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "BlacklistRune.blacklist[].end": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "BlacklistRune.blacklist[].start": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "BlacklistRune.end": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "BlacklistRune.start": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
