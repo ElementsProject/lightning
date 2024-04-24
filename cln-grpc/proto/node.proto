@@ -116,6 +116,7 @@ service Node {
 	rpc BkprListAccountEvents(BkprlistaccounteventsRequest) returns (BkprlistaccounteventsResponse) {}
 	rpc BkprListBalances(BkprlistbalancesRequest) returns (BkprlistbalancesResponse) {}
 	rpc BkprListIncome(BkprlistincomeRequest) returns (BkprlistincomeResponse) {}
+	rpc BlacklistRune(BlacklistruneRequest) returns (BlacklistruneResponse) {}
 	rpc CreateRune(CreateruneRequest) returns (CreateruneResponse) {}
 	rpc ShowRunes(ShowrunesRequest) returns (ShowrunesResponse) {}
 
@@ -3502,6 +3503,20 @@ message BkprlistincomeIncome_events {
 	optional string outpoint = 8;
 	optional bytes txid = 9;
 	optional bytes payment_id = 10;
+}
+
+message BlacklistruneRequest {
+	optional uint64 start = 1;
+	optional uint64 end = 2;
+}
+
+message BlacklistruneResponse {
+	repeated BlacklistruneBlacklist blacklist = 1;
+}
+
+message BlacklistruneBlacklist {
+	uint64 start = 1;
+	uint64 end = 2;
 }
 
 message CreateruneRequest {
