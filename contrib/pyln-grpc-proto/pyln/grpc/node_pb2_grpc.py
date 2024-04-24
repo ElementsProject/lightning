@@ -364,6 +364,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.RenepayRequest.SerializeToString,
                 response_deserializer=node__pb2.RenepayResponse.FromString,
                 )
+        self.ReserveInputs = channel.unary_unary(
+                '/cln.Node/ReserveInputs',
+                request_serializer=node__pb2.ReserveinputsRequest.SerializeToString,
+                response_deserializer=node__pb2.ReserveinputsResponse.FromString,
+                )
         self.SendCustomMsg = channel.unary_unary(
                 '/cln.Node/SendCustomMsg',
                 request_serializer=node__pb2.SendcustommsgRequest.SerializeToString,
@@ -874,6 +879,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ReserveInputs(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SendCustomMsg(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1328,6 +1339,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.RenePay,
                     request_deserializer=node__pb2.RenepayRequest.FromString,
                     response_serializer=node__pb2.RenepayResponse.SerializeToString,
+            ),
+            'ReserveInputs': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReserveInputs,
+                    request_deserializer=node__pb2.ReserveinputsRequest.FromString,
+                    response_serializer=node__pb2.ReserveinputsResponse.SerializeToString,
             ),
             'SendCustomMsg': grpc.unary_unary_rpc_method_handler(
                     servicer.SendCustomMsg,
@@ -2611,6 +2627,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/RenePay',
             node__pb2.RenepayRequest.SerializeToString,
             node__pb2.RenepayResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ReserveInputs(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/ReserveInputs',
+            node__pb2.ReserveinputsRequest.SerializeToString,
+            node__pb2.ReserveinputsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

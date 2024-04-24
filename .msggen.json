@@ -2186,6 +2186,21 @@
         "RenepaystatusResponse": {
             "RenePayStatus.paystatus[]": 1
         },
+        "ReserveinputsRequest": {
+            "ReserveInputs.exclusive": 2,
+            "ReserveInputs.psbt": 1,
+            "ReserveInputs.reserve": 3
+        },
+        "ReserveinputsReservations": {
+            "ReserveInputs.reservations[].reserved": 4,
+            "ReserveInputs.reservations[].reserved_to_block": 5,
+            "ReserveInputs.reservations[].txid": 1,
+            "ReserveInputs.reservations[].vout": 2,
+            "ReserveInputs.reservations[].was_reserved": 3
+        },
+        "ReserveinputsResponse": {
+            "ReserveInputs.reservations[]": 1
+        },
         "SendcustommsgRequest": {
             "SendCustomMsg.msg": 2,
             "SendCustomMsg.node_id": 1
@@ -7716,6 +7731,46 @@
             "deprecated": false
         },
         "RenePayStatus.paystatus[].status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ReserveInputs": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ReserveInputs.exclusive": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ReserveInputs.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ReserveInputs.reservations[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ReserveInputs.reservations[].reserved": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ReserveInputs.reservations[].reserved_to_block": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ReserveInputs.reservations[].txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ReserveInputs.reservations[].vout": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ReserveInputs.reservations[].was_reserved": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ReserveInputs.reserve": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
