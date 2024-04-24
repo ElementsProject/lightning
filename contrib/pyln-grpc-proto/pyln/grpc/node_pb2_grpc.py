@@ -354,6 +354,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.PluginRequest.SerializeToString,
                 response_deserializer=node__pb2.PluginResponse.FromString,
                 )
+        self.RenePay = channel.unary_unary(
+                '/cln.Node/RenePay',
+                request_serializer=node__pb2.RenepayRequest.SerializeToString,
+                response_deserializer=node__pb2.RenepayResponse.FromString,
+                )
         self.SendCustomMsg = channel.unary_unary(
                 '/cln.Node/SendCustomMsg',
                 request_serializer=node__pb2.SendcustommsgRequest.SerializeToString,
@@ -847,6 +852,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RenePay(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SendCustomMsg(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1285,6 +1296,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.Plugin,
                     request_deserializer=node__pb2.PluginRequest.FromString,
                     response_serializer=node__pb2.PluginResponse.SerializeToString,
+            ),
+            'RenePay': grpc.unary_unary_rpc_method_handler(
+                    servicer.RenePay,
+                    request_deserializer=node__pb2.RenepayRequest.FromString,
+                    response_serializer=node__pb2.RenepayResponse.SerializeToString,
             ),
             'SendCustomMsg': grpc.unary_unary_rpc_method_handler(
                     servicer.SendCustomMsg,
@@ -2529,6 +2545,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/Plugin',
             node__pb2.PluginRequest.SerializeToString,
             node__pb2.PluginResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def RenePay(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/RenePay',
+            node__pb2.RenepayRequest.SerializeToString,
+            node__pb2.RenepayResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

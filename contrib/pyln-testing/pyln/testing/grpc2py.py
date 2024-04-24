@@ -1715,6 +1715,19 @@ def plugin2py(m):
     })
 
 
+def renepay2py(m):
+    return remove_default({
+        "status": str(m.status),  # EnumField in generate_composite
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "amount_sent_msat": amount2msat(m.amount_sent_msat),  # PrimitiveField in generate_composite
+        "created_at": m.created_at,  # PrimitiveField in generate_composite
+        "destination": hexlify(m.destination),  # PrimitiveField in generate_composite
+        "parts": m.parts,  # PrimitiveField in generate_composite
+        "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
+        "payment_preimage": hexlify(m.payment_preimage),  # PrimitiveField in generate_composite
+    })
+
+
 def sendcustommsg2py(m):
     return remove_default({
         "status": m.status,  # PrimitiveField in generate_composite

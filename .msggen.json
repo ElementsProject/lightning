@@ -403,6 +403,11 @@
             "startdir": 3,
             "stop": 1
         },
+        "RenepayStatus": {
+            "complete": 0,
+            "failed": 2,
+            "pending": 1
+        },
         "SendonionStatus": {
             "complete": 1,
             "pending": 0
@@ -2131,6 +2136,26 @@
             "PreApproveKeysend.amount_msat": 3,
             "PreApproveKeysend.destination": 1,
             "PreApproveKeysend.payment_hash": 2
+        },
+        "RenepayRequest": {
+            "RenePay.amount_msat": 2,
+            "RenePay.description": 6,
+            "RenePay.dev_use_shadow": 8,
+            "RenePay.invstring": 1,
+            "RenePay.label": 7,
+            "RenePay.maxdelay": 4,
+            "RenePay.maxfee": 3,
+            "RenePay.retry_for": 5
+        },
+        "RenepayResponse": {
+            "RenePay.amount_msat": 5,
+            "RenePay.amount_sent_msat": 6,
+            "RenePay.created_at": 3,
+            "RenePay.destination": 8,
+            "RenePay.parts": 4,
+            "RenePay.payment_hash": 2,
+            "RenePay.payment_preimage": 1,
+            "RenePay.status": 7
         },
         "SendcustommsgRequest": {
             "SendCustomMsg.msg": 2,
@@ -7521,6 +7546,70 @@
         },
         "PreApproveKeysend.payment_hash": {
             "added": "v23.02",
+            "deprecated": false
+        },
+        "RenePay": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "RenePay.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.amount_sent_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.created_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.description": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.destination": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.dev_use_shadow": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.invstring": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.maxdelay": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.maxfee": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.parts": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.payment_preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.retry_for": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.status": {
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "SendCustomMsg": {
