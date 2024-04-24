@@ -2362,6 +2362,16 @@
         "SignpsbtResponse": {
             "SignPsbt.signed_psbt": 1
         },
+        "Splice_initRequest": {
+            "Splice_Init.channel_id": 1,
+            "Splice_Init.feerate_per_kw": 4,
+            "Splice_Init.force_feerate": 5,
+            "Splice_Init.initialpsbt": 3,
+            "Splice_Init.relative_amount": 2
+        },
+        "Splice_initResponse": {
+            "Splice_Init.psbt": 1
+        },
         "StaticbackupResponse": {
             "StaticBackup.scb[]": 1
         },
@@ -2394,6 +2404,20 @@
             "TxSend.psbt": 1,
             "TxSend.tx": 2,
             "TxSend.txid": 3
+        },
+        "UnreserveinputsRequest": {
+            "UnreserveInputs.psbt": 1,
+            "UnreserveInputs.reserve": 2
+        },
+        "UnreserveinputsReservations": {
+            "UnreserveInputs.reservations[].reserved": 4,
+            "UnreserveInputs.reservations[].reserved_to_block": 5,
+            "UnreserveInputs.reservations[].txid": 1,
+            "UnreserveInputs.reservations[].vout": 2,
+            "UnreserveInputs.reservations[].was_reserved": 3
+        },
+        "UnreserveinputsResponse": {
+            "UnreserveInputs.reservations[]": 1
         },
         "UtxopsbtRequest": {
             "UtxoPsbt.excess_as_change": 9,
@@ -8210,6 +8234,34 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "Splice_Init": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Splice_Init.channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Splice_Init.feerate_per_kw": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Splice_Init.force_feerate": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Splice_Init.initialpsbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Splice_Init.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Splice_Init.relative_amount": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
         "StaticBackup": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -8283,6 +8335,42 @@
             "deprecated": false
         },
         "TxSend.txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UnreserveInputs": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "UnreserveInputs.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UnreserveInputs.reservations[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UnreserveInputs.reservations[].reserved": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UnreserveInputs.reservations[].reserved_to_block": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UnreserveInputs.reservations[].txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UnreserveInputs.reservations[].vout": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UnreserveInputs.reservations[].was_reserved": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UnreserveInputs.reserve": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

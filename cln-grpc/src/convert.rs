@@ -2280,6 +2280,38 @@ impl From<responses::SignmessageResponse> for pb::SignmessageResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::Splice_initResponse> for pb::SpliceInitResponse {
+    fn from(c: responses::Splice_initResponse) -> Self {
+        Self {
+            psbt: c.psbt, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::UnreserveinputsReservations> for pb::UnreserveinputsReservations {
+    fn from(c: responses::UnreserveinputsReservations) -> Self {
+        Self {
+            reserved: c.reserved, // Rule #2 for type boolean
+            reserved_to_block: c.reserved_to_block, // Rule #2 for type u32?
+            txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
+            vout: c.vout, // Rule #2 for type u32
+            was_reserved: c.was_reserved, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::UnreserveinputsResponse> for pb::UnreserveinputsResponse {
+    fn from(c: responses::UnreserveinputsResponse) -> Self {
+        Self {
+            // Field: UnreserveInputs.reservations[]
+            reservations: c.reservations.into_iter().map(|i| i.into()).collect(), // Rule #3 for type UnreserveinputsReservations
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::WaitblockheightResponse> for pb::WaitblockheightResponse {
     fn from(c: responses::WaitblockheightResponse) -> Self {
         Self {
@@ -3523,6 +3555,29 @@ impl From<requests::SignmessageRequest> for pb::SignmessageRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::Splice_initRequest> for pb::SpliceInitRequest {
+    fn from(c: requests::Splice_initRequest) -> Self {
+        Self {
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
+            feerate_per_kw: c.feerate_per_kw, // Rule #2 for type u32?
+            force_feerate: c.force_feerate, // Rule #2 for type boolean?
+            initialpsbt: c.initialpsbt, // Rule #2 for type string?
+            relative_amount: c.relative_amount, // Rule #2 for type integer
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::UnreserveinputsRequest> for pb::UnreserveinputsRequest {
+    fn from(c: requests::UnreserveinputsRequest) -> Self {
+        Self {
+            psbt: c.psbt, // Rule #2 for type string
+            reserve: c.reserve, // Rule #2 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::WaitblockheightRequest> for pb::WaitblockheightRequest {
     fn from(c: requests::WaitblockheightRequest) -> Self {
         Self {
@@ -4589,6 +4644,29 @@ impl From<pb::SignmessageRequest> for requests::SignmessageRequest {
     fn from(c: pb::SignmessageRequest) -> Self {
         Self {
             message: c.message, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::SpliceInitRequest> for requests::Splice_initRequest {
+    fn from(c: pb::SpliceInitRequest) -> Self {
+        Self {
+            channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
+            feerate_per_kw: c.feerate_per_kw, // Rule #1 for type u32?
+            force_feerate: c.force_feerate, // Rule #1 for type boolean?
+            initialpsbt: c.initialpsbt, // Rule #1 for type string?
+            relative_amount: c.relative_amount, // Rule #1 for type integer
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::UnreserveinputsRequest> for requests::UnreserveinputsRequest {
+    fn from(c: pb::UnreserveinputsRequest) -> Self {
+        Self {
+            psbt: c.psbt, // Rule #1 for type string
+            reserve: c.reserve, // Rule #1 for type u32?
         }
     }
 }

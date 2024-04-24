@@ -394,6 +394,16 @@ class NodeStub(object):
                 request_serializer=node__pb2.SignmessageRequest.SerializeToString,
                 response_deserializer=node__pb2.SignmessageResponse.FromString,
                 )
+        self.Splice_Init = channel.unary_unary(
+                '/cln.Node/Splice_Init',
+                request_serializer=node__pb2.Splice_initRequest.SerializeToString,
+                response_deserializer=node__pb2.Splice_initResponse.FromString,
+                )
+        self.UnreserveInputs = channel.unary_unary(
+                '/cln.Node/UnreserveInputs',
+                request_serializer=node__pb2.UnreserveinputsRequest.SerializeToString,
+                response_deserializer=node__pb2.UnreserveinputsResponse.FromString,
+                )
         self.WaitBlockHeight = channel.unary_unary(
                 '/cln.Node/WaitBlockHeight',
                 request_serializer=node__pb2.WaitblockheightRequest.SerializeToString,
@@ -915,6 +925,18 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Splice_Init(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UnreserveInputs(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def WaitBlockHeight(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1369,6 +1391,16 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.SignMessage,
                     request_deserializer=node__pb2.SignmessageRequest.FromString,
                     response_serializer=node__pb2.SignmessageResponse.SerializeToString,
+            ),
+            'Splice_Init': grpc.unary_unary_rpc_method_handler(
+                    servicer.Splice_Init,
+                    request_deserializer=node__pb2.Splice_initRequest.FromString,
+                    response_serializer=node__pb2.Splice_initResponse.SerializeToString,
+            ),
+            'UnreserveInputs': grpc.unary_unary_rpc_method_handler(
+                    servicer.UnreserveInputs,
+                    request_deserializer=node__pb2.UnreserveinputsRequest.FromString,
+                    response_serializer=node__pb2.UnreserveinputsResponse.SerializeToString,
             ),
             'WaitBlockHeight': grpc.unary_unary_rpc_method_handler(
                     servicer.WaitBlockHeight,
@@ -2729,6 +2761,40 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/SignMessage',
             node__pb2.SignmessageRequest.SerializeToString,
             node__pb2.SignmessageResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Splice_Init(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/Splice_Init',
+            node__pb2.Splice_initRequest.SerializeToString,
+            node__pb2.Splice_initResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def UnreserveInputs(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/UnreserveInputs',
+            node__pb2.UnreserveinputsRequest.SerializeToString,
+            node__pb2.UnreserveinputsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
