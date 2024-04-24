@@ -2490,6 +2490,38 @@ async fn splice_init(
 
 }
 
+async fn splice_signed(
+    &self,
+    request: tonic::Request<pb::SpliceSignedRequest>,
+) -> Result<tonic::Response<pb::SpliceSignedResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::Splice_signedRequest = req.into();
+    debug!("Client asked for splice_signed");
+    trace!("splice_signed request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::Splice_Signed(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method Splice_Signed: {:?}", e)))?;
+    match result {
+        Response::Splice_Signed(r) => {
+           trace!("splice_signed response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call Splice_Signed",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn unreserve_inputs(
     &self,
     request: tonic::Request<pb::UnreserveinputsRequest>,

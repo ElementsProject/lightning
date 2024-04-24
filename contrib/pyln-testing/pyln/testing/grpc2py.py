@@ -1831,6 +1831,13 @@ def splice_init2py(m):
     })
 
 
+def splice_signed2py(m):
+    return remove_default({
+        "tx": hexlify(m.tx),  # PrimitiveField in generate_composite
+        "txid": hexlify(m.txid),  # PrimitiveField in generate_composite
+    })
+
+
 def unreserveinputs_reservations2py(m):
     return remove_default({
         "reserved": m.reserved,  # PrimitiveField in generate_composite

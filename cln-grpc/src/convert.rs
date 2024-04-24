@@ -2289,6 +2289,16 @@ impl From<responses::Splice_initResponse> for pb::SpliceInitResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::Splice_signedResponse> for pb::SpliceSignedResponse {
+    fn from(c: responses::Splice_signedResponse) -> Self {
+        Self {
+            tx: hex::decode(&c.tx).unwrap(), // Rule #2 for type hex
+            txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::UnreserveinputsReservations> for pb::UnreserveinputsReservations {
     fn from(c: responses::UnreserveinputsReservations) -> Self {
         Self {
@@ -3568,6 +3578,17 @@ impl From<requests::Splice_initRequest> for pb::SpliceInitRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::Splice_signedRequest> for pb::SpliceSignedRequest {
+    fn from(c: requests::Splice_signedRequest) -> Self {
+        Self {
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
+            psbt: c.psbt, // Rule #2 for type string
+            sign_first: c.sign_first, // Rule #2 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::UnreserveinputsRequest> for pb::UnreserveinputsRequest {
     fn from(c: requests::UnreserveinputsRequest) -> Self {
         Self {
@@ -4657,6 +4678,17 @@ impl From<pb::SpliceInitRequest> for requests::Splice_initRequest {
             force_feerate: c.force_feerate, // Rule #1 for type boolean?
             initialpsbt: c.initialpsbt, // Rule #1 for type string?
             relative_amount: c.relative_amount, // Rule #1 for type integer
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::SpliceSignedRequest> for requests::Splice_signedRequest {
+    fn from(c: pb::SpliceSignedRequest) -> Self {
+        Self {
+            channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
+            psbt: c.psbt, // Rule #1 for type string
+            sign_first: c.sign_first, // Rule #1 for type boolean?
         }
     }
 }
