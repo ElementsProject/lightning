@@ -193,6 +193,10 @@ def test_last_tx_psbt_upgrade(node_factory, bitcoind):
     upgraded_psbts = ['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']
 
     l1 = node_factory.get_node(dbfile='last_tx_upgrade.sqlite3.xz',
+                               # FIXME: gossipd gets upset, since it seems like the db with remote announcement_sigs was
+                               # actually from l2, not l1.  But if we make this l1, then last_tx changes
+                               broken_log='gossipd rejected our channel announcement',
+                               allow_bad_gossip=True,
                                options={'database-upgrade': True})
 
     b64_last_txs = [base64.b64encode(x['last_tx']).decode('utf-8') for x in l1.db_query('SELECT last_tx FROM channels ORDER BY id;')]
@@ -207,6 +211,8 @@ def test_last_tx_psbt_upgrade(node_factory, bitcoind):
     time.sleep(2)
 
     l2 = node_factory.get_node(dbfile='last_tx_closed.sqlite3.xz',
+                               broken_log='gossipd rejected our channel announcement',
+                               allow_bad_gossip=True,
                                options={'database-upgrade': True})
     last_txs = [x['last_tx'] for x in l2.db_query('SELECT last_tx FROM channels ORDER BY id;')]
 
@@ -214,12 +220,6 @@ def test_last_tx_psbt_upgrade(node_factory, bitcoind):
     assert last_txs[0][:4] == b'psbt'
 
     bitcoind.rpc.decoderawtransaction(last_txs[1].hex())
-
-    # FIXME: gossipd gets upset, since it seems like the db with remote announcement_sigs was
-    # actually from l2, not l1.  But if we make this l1, then last_tx changes, so we just
-    # filter out gossipd messages here (we will still detect other broken msgs!)
-    l1.daemon.logs = [l for l in l1.daemon.logs if 'gossipd' not in l]
-    l2.daemon.logs = [l for l in l2.daemon.logs if 'gossipd' not in l]
 
 
 @pytest.mark.slow_test
