@@ -2133,6 +2133,36 @@ impl From<responses::PluginResponse> for pb::PluginResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::RenepaystatusPaystatus> for pb::RenepaystatusPaystatus {
+    fn from(c: responses::RenepaystatusPaystatus) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            amount_sent_msat: c.amount_sent_msat.map(|f| f.into()), // Rule #2 for type msat?
+            bolt11: c.bolt11, // Rule #2 for type string
+            created_at: c.created_at, // Rule #2 for type number
+            destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            groupid: c.groupid, // Rule #2 for type u32
+            // Field: RenePayStatus.paystatus[].notes[]
+            notes: c.notes.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            parts: c.parts, // Rule #2 for type u32?
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
+            payment_preimage: c.payment_preimage.map(|v| v.to_vec()), // Rule #2 for type secret?
+            status: c.status as i32,
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::RenepaystatusResponse> for pb::RenepaystatusResponse {
+    fn from(c: responses::RenepaystatusResponse) -> Self {
+        Self {
+            // Field: RenePayStatus.paystatus[]
+            paystatus: c.paystatus.into_iter().map(|i| i.into()).collect(), // Rule #3 for type RenepaystatusPaystatus
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::RenepayResponse> for pb::RenepayResponse {
     fn from(c: responses::RenepayResponse) -> Self {
         Self {
@@ -3357,6 +3387,15 @@ impl From<requests::PluginRequest> for pb::PluginRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::RenepaystatusRequest> for pb::RenepaystatusRequest {
+    fn from(c: requests::RenepaystatusRequest) -> Self {
+        Self {
+            invstring: c.invstring, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::RenepayRequest> for pb::RenepayRequest {
     fn from(c: requests::RenepayRequest) -> Self {
         Self {
@@ -4390,6 +4429,15 @@ impl From<pb::PluginRequest> for requests::PluginRequest {
             options: Some(c.options.into_iter().map(|s| s.into()).collect()), // Rule #4
             plugin: c.plugin, // Rule #1 for type string?
             subcommand: c.subcommand.try_into().unwrap(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::RenepaystatusRequest> for requests::RenepaystatusRequest {
+    fn from(c: pb::RenepaystatusRequest) -> Self {
+        Self {
+            invstring: c.invstring, // Rule #1 for type string?
         }
     }
 }

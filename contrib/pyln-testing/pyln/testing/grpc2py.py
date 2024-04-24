@@ -1715,6 +1715,28 @@ def plugin2py(m):
     })
 
 
+def renepaystatus_paystatus2py(m):
+    return remove_default({
+        "notes": [m.notes for i in m.notes], # ArrayField[primitive] in generate_composite
+        "status": str(m.status),  # EnumField in generate_composite
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "amount_sent_msat": amount2msat(m.amount_sent_msat),  # PrimitiveField in generate_composite
+        "bolt11": m.bolt11,  # PrimitiveField in generate_composite
+        "created_at": m.created_at,  # PrimitiveField in generate_composite
+        "destination": hexlify(m.destination),  # PrimitiveField in generate_composite
+        "groupid": m.groupid,  # PrimitiveField in generate_composite
+        "parts": m.parts,  # PrimitiveField in generate_composite
+        "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
+        "payment_preimage": hexlify(m.payment_preimage),  # PrimitiveField in generate_composite
+    })
+
+
+def renepaystatus2py(m):
+    return remove_default({
+        "paystatus": [renepaystatus_paystatus2py(i) for i in m.paystatus],  # ArrayField[composite] in generate_composite
+    })
+
+
 def renepay2py(m):
     return remove_default({
         "status": str(m.status),  # EnumField in generate_composite

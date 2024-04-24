@@ -87,6 +87,7 @@ pub enum Request {
 	OpenChannel_Update(requests::Openchannel_updateRequest),
 	Ping(requests::PingRequest),
 	Plugin(requests::PluginRequest),
+	RenePayStatus(requests::RenepaystatusRequest),
 	RenePay(requests::RenepayRequest),
 	SendCustomMsg(requests::SendcustommsgRequest),
 	SetChannel(requests::SetchannelRequest),
@@ -186,6 +187,7 @@ pub enum Response {
 	OpenChannel_Update(responses::Openchannel_updateResponse),
 	Ping(responses::PingResponse),
 	Plugin(responses::PluginResponse),
+	RenePayStatus(responses::RenepaystatusResponse),
 	RenePay(responses::RenepayResponse),
 	SendCustomMsg(responses::SendcustommsgResponse),
 	SetChannel(responses::SetchannelResponse),
@@ -2633,6 +2635,29 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "plugin"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct RenepaystatusRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub invstring: Option<String>,
+	}
+
+	impl From<RenepaystatusRequest> for Request {
+	    fn from(r: RenepaystatusRequest) -> Self {
+	        Request::RenePayStatus(r)
+	    }
+	}
+
+	impl IntoRequest for RenepaystatusRequest {
+	    type Response = super::responses::RenepaystatusResponse;
+	}
+
+	impl TypedRequest for RenepaystatusRequest {
+	    type Response = super::responses::RenepaystatusResponse;
+
+	    fn method(&self) -> &str {
+	        "renepaystatus"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -7093,6 +7118,75 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::Plugin(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	/// ['Status of payment.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum RenepaystatusPaystatusStatus {
+	    #[serde(rename = "complete")]
+	    COMPLETE = 0,
+	    #[serde(rename = "pending")]
+	    PENDING = 1,
+	    #[serde(rename = "failed")]
+	    FAILED = 2,
+	}
+
+	impl TryFrom<i32> for RenepaystatusPaystatusStatus {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<RenepaystatusPaystatusStatus, anyhow::Error> {
+	        match c {
+	    0 => Ok(RenepaystatusPaystatusStatus::COMPLETE),
+	    1 => Ok(RenepaystatusPaystatusStatus::PENDING),
+	    2 => Ok(RenepaystatusPaystatusStatus::FAILED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum RenepaystatusPaystatusStatus", o)),
+	        }
+	    }
+	}
+
+	impl ToString for RenepaystatusPaystatusStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            RenepaystatusPaystatusStatus::COMPLETE => "COMPLETE",
+	            RenepaystatusPaystatusStatus::PENDING => "PENDING",
+	            RenepaystatusPaystatusStatus::FAILED => "FAILED",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct RenepaystatusPaystatus {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_sent_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub destination: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub parts: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_preimage: Option<Secret>,
+	    // Path `RenePayStatus.paystatus[].status`
+	    pub status: RenepaystatusPaystatusStatus,
+	    pub amount_msat: Amount,
+	    pub bolt11: String,
+	    pub created_at: f64,
+	    pub groupid: u32,
+	    pub notes: Vec<String>,
+	    pub payment_hash: Sha256,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct RenepaystatusResponse {
+	    pub paystatus: Vec<RenepaystatusPaystatus>,
+	}
+
+	impl TryFrom<Response> for RenepaystatusResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::RenePayStatus(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
