@@ -134,6 +134,7 @@ pub enum Request {
 	BkprListBalances(requests::BkprlistbalancesRequest),
 	#[serde(rename = "bkpr-listincome")]
 	BkprListIncome(requests::BkprlistincomeRequest),
+	BlacklistRune(requests::BlacklistruneRequest),
 	CreateRune(requests::CreateruneRequest),
 	ShowRunes(requests::ShowrunesRequest),
 }
@@ -259,6 +260,7 @@ pub enum Response {
 	BkprListBalances(responses::BkprlistbalancesResponse),
 	#[serde(rename = "bkpr-listincome")]
 	BkprListIncome(responses::BkprlistincomeResponse),
+	BlacklistRune(responses::BlacklistruneResponse),
 	CreateRune(responses::CreateruneResponse),
 	ShowRunes(responses::ShowrunesResponse),
 }
@@ -3813,6 +3815,31 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "bkpr-listincome"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BlacklistruneRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub end: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub start: Option<u64>,
+	}
+
+	impl From<BlacklistruneRequest> for Request {
+	    fn from(r: BlacklistruneRequest) -> Self {
+	        Request::BlacklistRune(r)
+	    }
+	}
+
+	impl IntoRequest for BlacklistruneRequest {
+	    type Response = super::responses::BlacklistruneResponse;
+	}
+
+	impl TypedRequest for BlacklistruneRequest {
+	    type Response = super::responses::BlacklistruneResponse;
+
+	    fn method(&self) -> &str {
+	        "blacklistrune"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -10091,6 +10118,28 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::BkprListIncome(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BlacklistruneBlacklist {
+	    pub end: u64,
+	    pub start: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BlacklistruneResponse {
+	    pub blacklist: Vec<BlacklistruneBlacklist>,
+	}
+
+	impl TryFrom<Response> for BlacklistruneResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::BlacklistRune(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

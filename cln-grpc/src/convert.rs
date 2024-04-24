@@ -3795,6 +3795,26 @@ impl From<responses::BkprlistincomeResponse> for pb::BkprlistincomeResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::BlacklistruneBlacklist> for pb::BlacklistruneBlacklist {
+    fn from(c: responses::BlacklistruneBlacklist) -> Self {
+        Self {
+            end: c.end, // Rule #2 for type u64
+            start: c.start, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::BlacklistruneResponse> for pb::BlacklistruneResponse {
+    fn from(c: responses::BlacklistruneResponse) -> Self {
+        Self {
+            // Field: BlacklistRune.blacklist[]
+            blacklist: c.blacklist.into_iter().map(|i| i.into()).collect(), // Rule #3 for type BlacklistruneBlacklist
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::CreateruneResponse> for pb::CreateruneResponse {
     fn from(c: responses::CreateruneResponse) -> Self {
         Self {
@@ -5249,6 +5269,16 @@ impl From<requests::BkprlistincomeRequest> for pb::BkprlistincomeRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::BlacklistruneRequest> for pb::BlacklistruneRequest {
+    fn from(c: requests::BlacklistruneRequest) -> Self {
+        Self {
+            end: c.end, // Rule #2 for type u64?
+            start: c.start, // Rule #2 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::CreateruneRequest> for pb::CreateruneRequest {
     fn from(c: requests::CreateruneRequest) -> Self {
         Self {
@@ -6606,6 +6636,16 @@ impl From<pb::BkprlistincomeRequest> for requests::BkprlistincomeRequest {
             consolidate_fees: c.consolidate_fees, // Rule #1 for type boolean?
             end_time: c.end_time, // Rule #1 for type u32?
             start_time: c.start_time, // Rule #1 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::BlacklistruneRequest> for requests::BlacklistruneRequest {
+    fn from(c: pb::BlacklistruneRequest) -> Self {
+        Self {
+            end: c.end, // Rule #1 for type u64?
+            start: c.start, // Rule #1 for type u64?
         }
     }
 }
