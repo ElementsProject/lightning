@@ -2299,6 +2299,16 @@ impl From<responses::Splice_signedResponse> for pb::SpliceSignedResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::Splice_updateResponse> for pb::SpliceUpdateResponse {
+    fn from(c: responses::Splice_updateResponse) -> Self {
+        Self {
+            commitments_secured: c.commitments_secured, // Rule #2 for type boolean
+            psbt: c.psbt, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::UnreserveinputsReservations> for pb::UnreserveinputsReservations {
     fn from(c: responses::UnreserveinputsReservations) -> Self {
         Self {
@@ -3589,6 +3599,16 @@ impl From<requests::Splice_signedRequest> for pb::SpliceSignedRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::Splice_updateRequest> for pb::SpliceUpdateRequest {
+    fn from(c: requests::Splice_updateRequest) -> Self {
+        Self {
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
+            psbt: c.psbt, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::UnreserveinputsRequest> for pb::UnreserveinputsRequest {
     fn from(c: requests::UnreserveinputsRequest) -> Self {
         Self {
@@ -4689,6 +4709,16 @@ impl From<pb::SpliceSignedRequest> for requests::Splice_signedRequest {
             channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
             psbt: c.psbt, // Rule #1 for type string
             sign_first: c.sign_first, // Rule #1 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::SpliceUpdateRequest> for requests::Splice_updateRequest {
+    fn from(c: pb::SpliceUpdateRequest) -> Self {
+        Self {
+            channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
+            psbt: c.psbt, // Rule #1 for type string
         }
     }
 }

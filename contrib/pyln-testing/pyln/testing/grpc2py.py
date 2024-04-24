@@ -1838,6 +1838,13 @@ def splice_signed2py(m):
     })
 
 
+def splice_update2py(m):
+    return remove_default({
+        "commitments_secured": m.commitments_secured,  # PrimitiveField in generate_composite
+        "psbt": m.psbt,  # PrimitiveField in generate_composite
+    })
+
+
 def unreserveinputs_reservations2py(m):
     return remove_default({
         "reserved": m.reserved,  # PrimitiveField in generate_composite

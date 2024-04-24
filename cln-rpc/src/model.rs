@@ -97,6 +97,7 @@ pub enum Request {
 	SignMessage(requests::SignmessageRequest),
 	Splice_Init(requests::Splice_initRequest),
 	Splice_Signed(requests::Splice_signedRequest),
+	Splice_Update(requests::Splice_updateRequest),
 	UnreserveInputs(requests::UnreserveinputsRequest),
 	WaitBlockHeight(requests::WaitblockheightRequest),
 	Wait(requests::WaitRequest),
@@ -202,6 +203,7 @@ pub enum Response {
 	SignMessage(responses::SignmessageResponse),
 	Splice_Init(responses::Splice_initResponse),
 	Splice_Signed(responses::Splice_signedResponse),
+	Splice_Update(responses::Splice_updateResponse),
 	UnreserveInputs(responses::UnreserveinputsResponse),
 	WaitBlockHeight(responses::WaitblockheightResponse),
 	Wait(responses::WaitResponse),
@@ -2914,6 +2916,29 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "splice_signed"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Splice_updateRequest {
+	    pub channel_id: Sha256,
+	    pub psbt: String,
+	}
+
+	impl From<Splice_updateRequest> for Request {
+	    fn from(r: Splice_updateRequest) -> Self {
+	        Request::Splice_Update(r)
+	    }
+	}
+
+	impl IntoRequest for Splice_updateRequest {
+	    type Response = super::responses::Splice_updateResponse;
+	}
+
+	impl TypedRequest for Splice_updateRequest {
+	    type Response = super::responses::Splice_updateResponse;
+
+	    fn method(&self) -> &str {
+	        "splice_update"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -7600,6 +7625,23 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::Splice_Signed(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Splice_updateResponse {
+	    pub commitments_secured: bool,
+	    pub psbt: String,
+	}
+
+	impl TryFrom<Response> for Splice_updateResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::Splice_Update(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

@@ -2381,6 +2381,14 @@
             "Splice_Signed.tx": 1,
             "Splice_Signed.txid": 2
         },
+        "Splice_updateRequest": {
+            "Splice_Update.channel_id": 1,
+            "Splice_Update.psbt": 2
+        },
+        "Splice_updateResponse": {
+            "Splice_Update.commitments_secured": 2,
+            "Splice_Update.psbt": 1
+        },
         "StaticbackupResponse": {
             "StaticBackup.scb[]": 1
         },
@@ -8292,6 +8300,22 @@
             "deprecated": false
         },
         "Splice_Signed.txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Splice_Update": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Splice_Update.channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Splice_Update.commitments_secured": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Splice_Update.psbt": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
