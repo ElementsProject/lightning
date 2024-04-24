@@ -408,6 +408,11 @@
             "failed": 2,
             "pending": 1
         },
+        "RenepaystatusPaystatusStatus": {
+            "complete": 0,
+            "failed": 2,
+            "pending": 1
+        },
         "SendonionStatus": {
             "complete": 1,
             "pending": 0
@@ -2156,6 +2161,25 @@
             "RenePay.payment_hash": 2,
             "RenePay.payment_preimage": 1,
             "RenePay.status": 7
+        },
+        "RenepaystatusPaystatus": {
+            "RenePayStatus.paystatus[].amount_msat": 7,
+            "RenePayStatus.paystatus[].amount_sent_msat": 8,
+            "RenePayStatus.paystatus[].bolt11": 1,
+            "RenePayStatus.paystatus[].created_at": 4,
+            "RenePayStatus.paystatus[].destination": 10,
+            "RenePayStatus.paystatus[].groupid": 5,
+            "RenePayStatus.paystatus[].notes[]": 11,
+            "RenePayStatus.paystatus[].parts": 6,
+            "RenePayStatus.paystatus[].payment_hash": 3,
+            "RenePayStatus.paystatus[].payment_preimage": 2,
+            "RenePayStatus.paystatus[].status": 9
+        },
+        "RenepaystatusRequest": {
+            "RenePayStatus.invstring": 1
+        },
+        "RenepaystatusResponse": {
+            "RenePayStatus.paystatus[]": 1
         },
         "SendcustommsgRequest": {
             "SendCustomMsg.msg": 2,
@@ -7609,6 +7633,62 @@
             "deprecated": false
         },
         "RenePay.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "RenePayStatus.invstring": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].amount_sent_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].bolt11": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].created_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].destination": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].groupid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].notes[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].parts": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].payment_preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].status": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

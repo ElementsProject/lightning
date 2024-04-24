@@ -76,6 +76,7 @@ service Node {
 	rpc OpenChannel_Update(Openchannel_updateRequest) returns (Openchannel_updateResponse) {}
 	rpc Ping(PingRequest) returns (PingResponse) {}
 	rpc Plugin(PluginRequest) returns (PluginResponse) {}
+	rpc RenePayStatus(RenepaystatusRequest) returns (RenepaystatusResponse) {}
 	rpc RenePay(RenepayRequest) returns (RenepayResponse) {}
 	rpc SendCustomMsg(SendcustommsgRequest) returns (SendcustommsgResponse) {}
 	rpc SetChannel(SetchannelRequest) returns (SetchannelResponse) {}
@@ -2230,6 +2231,34 @@ message PluginPlugins {
 	string name = 1;
 	bool active = 2;
 	bool dynamic = 3;
+}
+
+message RenepaystatusRequest {
+	optional string invstring = 1;
+}
+
+message RenepaystatusResponse {
+	repeated RenepaystatusPaystatus paystatus = 1;
+}
+
+message RenepaystatusPaystatus {
+	// RenePayStatus.paystatus[].status
+	enum RenepaystatusPaystatusStatus {
+		COMPLETE = 0;
+		PENDING = 1;
+		FAILED = 2;
+	}
+	string bolt11 = 1;
+	optional bytes payment_preimage = 2;
+	bytes payment_hash = 3;
+	double created_at = 4;
+	uint32 groupid = 5;
+	optional uint32 parts = 6;
+	Amount amount_msat = 7;
+	optional Amount amount_sent_msat = 8;
+	RenepaystatusPaystatusStatus status = 9;
+	optional bytes destination = 10;
+	repeated string notes = 11;
 }
 
 message RenepayRequest {
