@@ -117,6 +117,7 @@ service Node {
 	rpc BkprListBalances(BkprlistbalancesRequest) returns (BkprlistbalancesResponse) {}
 	rpc BkprListIncome(BkprlistincomeRequest) returns (BkprlistincomeResponse) {}
 	rpc BlacklistRune(BlacklistruneRequest) returns (BlacklistruneResponse) {}
+	rpc CheckRune(CheckruneRequest) returns (CheckruneResponse) {}
 	rpc CreateRune(CreateruneRequest) returns (CreateruneResponse) {}
 	rpc ShowRunes(ShowrunesRequest) returns (ShowrunesResponse) {}
 
@@ -3517,6 +3518,17 @@ message BlacklistruneResponse {
 message BlacklistruneBlacklist {
 	uint64 start = 1;
 	uint64 end = 2;
+}
+
+message CheckruneRequest {
+	string rune = 1;
+	optional string nodeid = 2;
+	optional string method = 3;
+	repeated string params = 4;
+}
+
+message CheckruneResponse {
+	bool valid = 1;
 }
 
 message CreateruneRequest {

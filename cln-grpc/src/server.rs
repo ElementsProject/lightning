@@ -3570,6 +3570,38 @@ impl Node for Server
 
     }
 
+    async fn check_rune(
+        &self,
+        request: tonic::Request<pb::CheckruneRequest>,
+    ) -> Result<tonic::Response<pb::CheckruneResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::CheckruneRequest = req.into();
+        debug!("Client asked for check_rune");
+        trace!("check_rune request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::CheckRune(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method CheckRune: {:?}", e)))?;
+        match result {
+            Response::CheckRune(r) => {
+               trace!("check_rune response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call CheckRune",
+                    r
+                )
+            )),
+        }
+
+    }
+
     async fn create_rune(
         &self,
         request: tonic::Request<pb::CreateruneRequest>,
