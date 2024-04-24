@@ -139,6 +139,7 @@ def load_jsonrpc_service():
         "SignInvoice",
         "SignMessage",
         "Splice_Init",
+        "Splice_Signed",
         "UnreserveInputs",
         "WaitBlockHeight",
         "Wait",

@@ -96,6 +96,7 @@ pub enum Request {
 	SignInvoice(requests::SigninvoiceRequest),
 	SignMessage(requests::SignmessageRequest),
 	Splice_Init(requests::Splice_initRequest),
+	Splice_Signed(requests::Splice_signedRequest),
 	UnreserveInputs(requests::UnreserveinputsRequest),
 	WaitBlockHeight(requests::WaitblockheightRequest),
 	Wait(requests::WaitRequest),
@@ -200,6 +201,7 @@ pub enum Response {
 	SignInvoice(responses::SigninvoiceResponse),
 	SignMessage(responses::SignmessageResponse),
 	Splice_Init(responses::Splice_initResponse),
+	Splice_Signed(responses::Splice_signedResponse),
 	UnreserveInputs(responses::UnreserveinputsResponse),
 	WaitBlockHeight(responses::WaitblockheightResponse),
 	Wait(responses::WaitResponse),
@@ -2887,6 +2889,31 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "splice_init"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Splice_signedRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub sign_first: Option<bool>,
+	    pub channel_id: Sha256,
+	    pub psbt: String,
+	}
+
+	impl From<Splice_signedRequest> for Request {
+	    fn from(r: Splice_signedRequest) -> Self {
+	        Request::Splice_Signed(r)
+	    }
+	}
+
+	impl IntoRequest for Splice_signedRequest {
+	    type Response = super::responses::Splice_signedResponse;
+	}
+
+	impl TypedRequest for Splice_signedRequest {
+	    type Response = super::responses::Splice_signedResponse;
+
+	    fn method(&self) -> &str {
+	        "splice_signed"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -7556,6 +7583,23 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::Splice_Init(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Splice_signedResponse {
+	    pub tx: String,
+	    pub txid: String,
+	}
+
+	impl TryFrom<Response> for Splice_signedResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::Splice_Signed(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
