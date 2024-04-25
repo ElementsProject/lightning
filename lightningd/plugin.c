@@ -2415,7 +2415,7 @@ bool plugin_single_notify(struct plugin *p,
 			  const struct jsonrpc_notification *n TAKES)
 {
 	bool interested;
-	if (plugin_subscriptions_contains(p, n->method)) {
+	if (p->plugin_state == INIT_COMPLETE && plugin_subscriptions_contains(p, n->method)) {
 		plugin_send(p, json_stream_dup(p, n->stream, p->log));
 		interested = true;
 	} else
