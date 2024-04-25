@@ -260,6 +260,8 @@ pub mod requests {
 	    INFO = 2,
 	    #[serde(rename = "unusual")]
 	    UNUSUAL = 3,
+	    #[serde(rename = "trace")]
+	    TRACE = 4,
 	}
 
 	impl TryFrom<i32> for ListpeersLevel {
@@ -270,6 +272,7 @@ pub mod requests {
 	    1 => Ok(ListpeersLevel::DEBUG),
 	    2 => Ok(ListpeersLevel::INFO),
 	    3 => Ok(ListpeersLevel::UNUSUAL),
+	    4 => Ok(ListpeersLevel::TRACE),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListpeersLevel", o)),
 	        }
 	    }
@@ -279,6 +282,7 @@ pub mod requests {
 	    fn to_string(&self) -> String {
 	        match self {
 	            ListpeersLevel::IO => "IO",
+	            ListpeersLevel::TRACE => "TRACE",
 	            ListpeersLevel::DEBUG => "DEBUG",
 	            ListpeersLevel::INFO => "INFO",
 	            ListpeersLevel::UNUSUAL => "UNUSUAL",
@@ -2051,6 +2055,8 @@ pub mod requests {
 	    DEBUG = 3,
 	    #[serde(rename = "io")]
 	    IO = 4,
+	    #[serde(rename = "trace")]
+	    TRACE = 5,
 	}
 
 	impl TryFrom<i32> for GetlogLevel {
@@ -2062,6 +2068,7 @@ pub mod requests {
 	    2 => Ok(GetlogLevel::INFO),
 	    3 => Ok(GetlogLevel::DEBUG),
 	    4 => Ok(GetlogLevel::IO),
+	    5 => Ok(GetlogLevel::TRACE),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum GetlogLevel", o)),
 	        }
 	    }
@@ -2074,6 +2081,7 @@ pub mod requests {
 	            GetlogLevel::UNUSUAL => "UNUSUAL",
 	            GetlogLevel::INFO => "INFO",
 	            GetlogLevel::DEBUG => "DEBUG",
+	            GetlogLevel::TRACE => "TRACE",
 	            GetlogLevel::IO => "IO",
 	        }.to_string()
 	    }
@@ -3235,6 +3243,8 @@ pub mod responses {
 	    IO_IN = 5,
 	    #[serde(rename = "IO_OUT")]
 	    IO_OUT = 6,
+	    #[serde(rename = "TRACE")]
+	    TRACE = 7,
 	}
 
 	impl TryFrom<i32> for ListpeersPeersLogType {
@@ -3248,6 +3258,7 @@ pub mod responses {
 	    4 => Ok(ListpeersPeersLogType::DEBUG),
 	    5 => Ok(ListpeersPeersLogType::IO_IN),
 	    6 => Ok(ListpeersPeersLogType::IO_OUT),
+	    7 => Ok(ListpeersPeersLogType::TRACE),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListpeersPeersLogType", o)),
 	        }
 	    }
@@ -3261,6 +3272,7 @@ pub mod responses {
 	            ListpeersPeersLogType::UNUSUAL => "UNUSUAL",
 	            ListpeersPeersLogType::INFO => "INFO",
 	            ListpeersPeersLogType::DEBUG => "DEBUG",
+	            ListpeersPeersLogType::TRACE => "TRACE",
 	            ListpeersPeersLogType::IO_IN => "IO_IN",
 	            ListpeersPeersLogType::IO_OUT => "IO_OUT",
 	        }.to_string()
@@ -6321,6 +6333,8 @@ pub mod responses {
 	    IO_IN = 5,
 	    #[serde(rename = "IO_OUT")]
 	    IO_OUT = 6,
+	    #[serde(rename = "TRACE")]
+	    TRACE = 7,
 	}
 
 	impl TryFrom<i32> for GetlogLogType {
@@ -6334,6 +6348,7 @@ pub mod responses {
 	    4 => Ok(GetlogLogType::DEBUG),
 	    5 => Ok(GetlogLogType::IO_IN),
 	    6 => Ok(GetlogLogType::IO_OUT),
+	    7 => Ok(GetlogLogType::TRACE),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum GetlogLogType", o)),
 	        }
 	    }
@@ -6347,6 +6362,7 @@ pub mod responses {
 	            GetlogLogType::UNUSUAL => "UNUSUAL",
 	            GetlogLogType::INFO => "INFO",
 	            GetlogLogType::DEBUG => "DEBUG",
+	            GetlogLogType::TRACE => "TRACE",
 	            GetlogLogType::IO_IN => "IO_IN",
 	            GetlogLogType::IO_OUT => "IO_OUT",
 	        }.to_string()

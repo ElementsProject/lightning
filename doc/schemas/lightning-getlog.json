@@ -17,6 +17,7 @@
           "unusual",
           "info",
           "debug",
+          "trace",
           "io"
         ],
         "description": [
@@ -69,6 +70,7 @@
                 "UNUSUAL",
                 "INFO",
                 "DEBUG",
+                "TRACE",
                 "IO_IN",
                 "IO_OUT"
               ]
@@ -111,7 +113,8 @@
                       "BROKEN",
                       "UNUSUAL",
                       "INFO",
-                      "DEBUG"
+                      "DEBUG",
+                      "TRACE"
                     ]
                   }
                 }

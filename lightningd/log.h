@@ -20,11 +20,13 @@ struct logger *new_logger(const tal_t *ctx, struct log_book *record,
 			  const struct node_id *default_node_id,
 			  const char *fmt, ...) PRINTF_FMT(4,5);
 
+#define log_trace(logger, ...) log_((logger), LOG_TRACE, NULL, false, __VA_ARGS__)
 #define log_debug(logger, ...) log_((logger), LOG_DBG, NULL, false, __VA_ARGS__)
 #define log_info(logger, ...) log_((logger), LOG_INFORM, NULL, false, __VA_ARGS__)
 #define log_unusual(logger, ...) log_((logger), LOG_UNUSUAL, NULL, true, __VA_ARGS__)
 #define log_broken(logger, ...) log_((logger), LOG_BROKEN, NULL, true, __VA_ARGS__)
 
+#define log_peer_trace(logger, nodeid, ...) log_((logger), LOG_TRACE, nodeid, false, __VA_ARGS__)
 #define log_peer_debug(logger, nodeid, ...) log_((logger), LOG_DBG, nodeid, false, __VA_ARGS__)
 #define log_peer_info(logger, nodeid, ...) log_((logger), LOG_INFORM, nodeid, false, __VA_ARGS__)
 #define log_peer_unusual(logger, nodeid, ...) log_((logger), LOG_UNUSUAL, nodeid, true, __VA_ARGS__)

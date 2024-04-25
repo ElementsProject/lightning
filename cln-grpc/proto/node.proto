@@ -161,6 +161,7 @@ message ListpeersRequest {
 		DEBUG = 1;
 		INFO = 2;
 		UNUSUAL = 3;
+		TRACE = 4;
 	}
 	optional bytes id = 1;
 	optional ListpeersLevel level = 2;
@@ -190,6 +191,7 @@ message ListpeersPeersLog {
 		DEBUG = 4;
 		IO_IN = 5;
 		IO_OUT = 6;
+		TRACE = 7;
 	}
 	ListpeersPeersLogType item_type = 1;
 	optional uint32 num_skipped = 2;
@@ -1829,6 +1831,7 @@ message GetlogRequest {
 		INFO = 2;
 		DEBUG = 3;
 		IO = 4;
+		TRACE = 5;
 	}
 	optional GetlogLevel level = 1;
 }
@@ -1850,6 +1853,7 @@ message GetlogLog {
 		DEBUG = 4;
 		IO_IN = 5;
 		IO_OUT = 6;
+		TRACE = 7;
 	}
 	GetlogLogType item_type = 1;
 	optional uint32 num_skipped = 2;
