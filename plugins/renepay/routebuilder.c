@@ -4,9 +4,9 @@
 #include <plugins/renepay/routebuilder.h>
 
 static bitmap *
-make_disabled_bitmap(const tal_t *ctx, const struct gossmap *gossmap,
-		     const struct chan_extra_map *chan_extra_map,
-		     const struct short_channel_id *disabled_scids)
+make_disabled_channels_bitmap(const tal_t *ctx, const struct gossmap *gossmap,
+			      const struct chan_extra_map *chan_extra_map,
+			      const struct short_channel_id *disabled_scids)
 {
 	bitmap *disabled =
 	    tal_arrz(ctx, bitmap, BITMAP_NWORDS(gossmap_max_chan_idx(gossmap)));
@@ -20,7 +20,8 @@ make_disabled_bitmap(const tal_t *ctx, const struct gossmap *gossmap,
 		if (c)
 			bitmap_set_bit(disabled, gossmap_chan_idx(gossmap, c));
 	}
-	/* Also disable every channel that we don't have in the chan_extra_map. */
+	/* Also disable every channel that we don't have in the chan_extra_map.
+	 */
 	for (struct gossmap_chan *chan = gossmap_first_chan(gossmap); chan;
 	     chan = gossmap_next_chan(gossmap, chan)) {
 		const u32 chan_id = gossmap_chan_idx(gossmap, chan);
@@ -31,6 +32,26 @@ make_disabled_bitmap(const tal_t *ctx, const struct gossmap *gossmap,
 			bitmap_set_bit(disabled, chan_id);
 	}
 	return disabled;
+}
+
+/* Disable all channels that lead to a disabled node. */
+static bool make_disabled_nodes(const struct gossmap *gossmap,
+				const struct node_id *disabled_nodes,
+				bitmap *disabled)
+{
+	/* Disable every channel in the list of disabled scids. */
+	for (size_t i = 0; i < tal_count(disabled_nodes); i++) {
+		const struct gossmap_node *node =
+		    gossmap_find_node(gossmap, &disabled_nodes[i]);
+
+		for (size_t j = 0; j < node->num_chans; j++) {
+			int half;
+			const struct gossmap_chan *c =
+			    gossmap_nth_chan(gossmap, node, j, &half);
+			bitmap_set_bit(disabled, gossmap_chan_idx(gossmap, c));
+		}
+	}
+	return true;
 }
 
 // static void uncertainty_commit_routes(struct uncertainty *uncertainty,
@@ -181,9 +202,12 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 	const double prob_cost_factor = payment->prob_cost_factor;
 	const unsigned int maxdelay = payment->maxdelay;
 
-	bitmap *disabled_bitmap =
-	    make_disabled_bitmap(this_ctx, gossmap, uncertainty->chan_extra_map,
-				 payment->disabled_scids);
+	bitmap *disabled_bitmap = make_disabled_channels_bitmap(
+	    this_ctx, gossmap, uncertainty->chan_extra_map,
+	    payment->disabled_scids);
+
+	make_disabled_nodes(gossmap, payment->disabled_nodes, disabled_bitmap);
+
 	if (!disabled_bitmap) {
 		if (ecode)
 			*ecode = PLUGIN_ERROR;

@@ -55,19 +55,11 @@ void uncertainty_commit_htlcs(struct uncertainty *uncertainty,
 }
 
 void uncertainty_channel_can_send(struct uncertainty *uncertainty,
-				  const struct route *route, u32 erridx)
+				  struct short_channel_id scid, int direction)
 {
-	if (!route->hops)
-		return;
-
-	const size_t pathlen = tal_count(route->hops);
-	for (size_t i = 0; i < erridx && i < pathlen; i++) {
-		const struct route_hop *hop = &route->hops[i];
-		struct short_channel_id_dir scidd = {hop->scid, hop->direction};
-
-		// FIXME: check error
-		chan_extra_can_send(uncertainty->chan_extra_map, &scidd);
-	}
+	struct short_channel_id_dir scidd = {scid, direction};
+	// FIXME: check error
+	chan_extra_can_send(uncertainty->chan_extra_map, &scidd);
 }
 void uncertainty_channel_cannot_send(struct uncertainty *uncertainty,
 				     struct short_channel_id scid,

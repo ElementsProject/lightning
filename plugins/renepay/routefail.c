@@ -6,104 +6,40 @@
 #include <plugins/renepay/routetracker.h>
 #include <wire/peer_wiregen.h>
 
+enum node_type {
+	FINAL_NODE,
+	INTERMEDIATE_NODE,
+	ORIGIN_NODE,
+	UNKNOWN_NODE
+};
+
 struct routefail {
-	u64 exec_state;
 	struct command *cmd;
 	struct route *route;
 };
 
-struct routefail_modifier {
-	const char *name;
-	struct command_result *(*step_cb)(struct routefail *r);
-};
-
-#define REGISTER_ROUTEFAIL_MODIFIER(name, step_cb)                             \
-	struct routefail_modifier name##_routefail_mod = {                     \
-	    stringify(name),                                                   \
-	    typesafe_cb_cast(struct command_result * (*)(struct routefail *),  \
-			     struct command_result * (*)(struct routefail *),  \
-			     step_cb),                                         \
-	};
-
-static struct command_result *routefail_continue(struct routefail *r);
+static struct command_result *update_gossip(struct routefail *r);
+static struct command_result *handle_failure(struct routefail *r);
 
 struct command_result *routefail_start(const tal_t *ctx, struct route *route,
 				       struct command *cmd)
 {
 	struct routefail *r = tal(ctx, struct routefail);
-	r->exec_state = 0;
 	r->route = route;
 	r->cmd = cmd;
 	assert(route->result);
-	return routefail_continue(r);
+	return update_gossip(r);
 }
 
-void *routefail_virtual_program[];
-static struct command_result *routefail_continue(struct routefail *r)
-{
-
-	assert(r->exec_state != INVALID_STATE);
-	const struct routefail_modifier *mod =
-	    (const struct routefail_modifier *)
-		routefail_virtual_program[r->exec_state++];
-
-	if (mod == NULL)
-		plugin_err(pay_plugin->plugin,
-			   "%s expected routefail_modifier "
-			   "but NULL found",
-			   __PRETTY_FUNCTION__);
-
-	plugin_log(pay_plugin->plugin, LOG_DBG, "Calling routefail_modifier %s",
-		   mod->name);
-	return mod->step_cb(r);
-}
-
-/* Generic handler for RPC failures. */
-static struct command_result *routefail_rpc_failure(struct command *cmd,
-						    const char *buffer,
-						    const jsmntok_t *toks,
-						    struct routefail *r)
-{
-	const jsmntok_t *codetok = json_get_member(buffer, toks, "code");
-	u32 errcode;
-	if (codetok != NULL)
-		json_to_u32(buffer, codetok, &errcode);
-	else
-		errcode = LIGHTNINGD;
-
-	plugin_err(r->cmd->plugin,
-		   "routefail state machine has stopped due to a failed RPC "
-		   "call: %.*s",
-		   json_tok_full_len(toks), json_tok_full(buffer, toks));
-	return notification_handled(r->cmd);
-}
-
-/*****************************************************************************
- * end
- *
- * The default ending of routefail.
- */
-static struct command_result *end_done(struct command *cmd,
-				       const char *buf UNUSED,
-				       const jsmntok_t *result UNUSED,
-				       struct routefail *r)
+static struct command_result *routefail_end(struct routefail *r)
 {
 	/* Notify the tracker that route has failed and routefail have completed
 	 * handling all possible errors cases. */
+	struct command *cmd = r->cmd;
 	route_failure_register(r->route);
 	tal_free(r);
 	return notification_handled(cmd);
 }
-static struct command_result *end_cb(struct routefail *r)
-{
-	struct out_req *req =
-	    jsonrpc_request_start(r->cmd->plugin, r->cmd, "waitblockheight",
-				  end_done, routefail_rpc_failure, r);
-	json_add_num(req->js, "blockheight", 0);
-	return send_outreq(r->cmd->plugin, req);
-}
-
-REGISTER_ROUTEFAIL_MODIFIER(end, end_cb);
 
 /*****************************************************************************
  * update_gossip
@@ -165,7 +101,7 @@ static struct command_result *update_gossip_done(struct command *cmd UNUSED,
 						 const jsmntok_t *result UNUSED,
 						 struct routefail *r)
 {
-	return routefail_continue(r);
+	return handle_failure(r);
 }
 
 static struct command_result *update_gossip_failure(struct command *cmd UNUSED,
@@ -182,10 +118,10 @@ static struct command_result *update_gossip_failure(struct command *cmd UNUSED,
 	    r->route->payment, *r->route->result->erring_channel, LOG_INFORM,
 	    "addgossip failed (%.*s)", json_tok_full_len(result),
 	    json_tok_full(buf, result));
-	return routefail_continue(r);
+	return update_gossip_done(cmd, buf, result, r);
 }
 
-static struct command_result *update_gossip_cb(struct routefail *r)
+static struct command_result *update_gossip(struct routefail *r)
 {
 	/* if there is no raw_message we continue */
 	if (!r->route->result->raw_message)
@@ -204,45 +140,8 @@ static struct command_result *update_gossip_cb(struct routefail *r)
 	return send_outreq(r->cmd->plugin, req);
 
 skip_update_gossip:
-	return routefail_continue(r);
+	return handle_failure(r);
 }
-
-REGISTER_ROUTEFAIL_MODIFIER(update_gossip, update_gossip_cb);
-
-/*****************************************************************************
- * update_knowledge
- *
- * Update the uncertainty network from waitsendpay error message.
- */
-
-static struct command_result *update_knowledge_cb(struct routefail *r)
-{
-	const struct route *route = r->route;
-	const struct payment_result *result = route->result;
-
-	/* FIXME: If we don't know the hops there isn't much we can infer, but
-	 * a little bit we could. */
-	if (!route->hops || !result->erring_index)
-		goto skip_update_network;
-
-	uncertainty_channel_can_send(pay_plugin->uncertainty, route,
-				  *result->erring_index);
-
-	if (result->failcode == WIRE_TEMPORARY_CHANNEL_FAILURE &&
-	    *result->erring_index < tal_count(route->hops)) {
-		uncertainty_channel_cannot_send(
-		    pay_plugin->uncertainty,
-		    route->hops[*result->erring_index].scid,
-		    route->hops[*result->erring_index].direction);
-	}
-
-	uncertainty_remove_htlcs(pay_plugin->uncertainty, route);
-
-skip_update_network:
-	return routefail_continue(r);
-}
-
-REGISTER_ROUTEFAIL_MODIFIER(update_knowledge, update_knowledge_cb);
 
 /*****************************************************************************
  * handle_cases
@@ -254,19 +153,9 @@ REGISTER_ROUTEFAIL_MODIFIER(update_knowledge, update_knowledge_cb);
 /* Mark this as a final error. When read this route result will inmediately end
  * the payment. */
 static void route_final_error(struct route *route, enum jsonrpc_errcode error,
-			      const char *what)
+			      const char *fmt, ...)
 {
-	route->final_error = error;
-	route->final_msg = tal_strdup(route, what);
-}
-
-static void handle_unhandleable_error(struct route *route, const char *fmt, ...)
-{
-	if (!route->hops)
-		return;
-	size_t n = tal_count(route->hops);
-	if (n == 0)
-		return;
+	assert(route);
 
 	va_list ap;
 	const char *what;
@@ -275,132 +164,266 @@ static void handle_unhandleable_error(struct route *route, const char *fmt, ...)
 	what = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
-	if (n == 1) {
-		/* This is a terminal error. */
-		return route_final_error(route, PAY_UNPARSEABLE_ONION, what);
-	}
-
-	/* Prefer a node not directly connected to either end. */
-	if (n > 3) {
-		/* us ->0-> ourpeer ->1-> rando ->2-> theirpeer ->3-> dest */
-		n = 1 + pseudorand(n - 2);
-	} else
-		/* Assume it's not the destination */
-		n = pseudorand(n - 1);
-
-	payment_disable_chan(route->payment, route->hops[n].scid, LOG_INFORM,
-			     "randomly chosen");
+	route->final_error = error;
+	route->final_msg = tal_strdup(route, what);
 }
 
-static struct command_result *handle_cases_cb(struct routefail *r)
+static struct command_result *handle_failure(struct routefail *r)
 {
-	struct route *route = r->route;
-	const struct payment_result *result = route->result;
+	/* BOLT #4:
+	 *
+	 * A _forwarding node_ MAY, but a _final node_ MUST NOT:
+	 *    - return an `invalid_onion_version` error.
+	 *    - return an `invalid_onion_hmac` error.
+	 *    - return an `invalid_onion_key` error.
+	 *    - return a `temporary_channel_failure` error.
+	 *    - return a `permanent_channel_failure` error.
+	 *    - return a `required_channel_feature_missing` error.
+	 *    - return an `unknown_next_peer` error.
+	 *    - return an `amount_below_minimum` error.
+	 *    - return a `fee_insufficient` error.
+	 *    - return an `incorrect_cltv_expiry` error.
+	 *    - return an `expiry_too_soon` error.
+	 *    - return an `expiry_too_far` error.
+	 *    - return a `channel_disabled` error.
+	 *
+	 * An _intermediate hop_ MUST NOT, but the _final node_:
+	 *     - MUST return an `incorrect_or_unknown_payment_details` error.
+	 *     - MUST return `final_incorrect_cltv_expiry` error.
+	 *     - MUST return a `final_incorrect_htlc_amount` error.
+	 */
 
-	// TODO: i am not sure these are compulsory
+	assert(r);
+	struct route *route = r->route;
+	assert(route);
+	struct payment_result *result = route->result;
+	assert(result);
+	struct payment *payment = route->payment;
+	assert(payment);
+
+	u32 path_len = 0;
+	if (route->hops)
+		path_len = tal_count(route->hops);
+
 	assert(result->erring_index);
+	/* index of the last channel before the erring node */
+	const int last_good_channel = *result->erring_index - 1;
+
+	enum node_type node_type = UNKNOWN_NODE;
+	if (route->hops) {
+		if (*result->erring_index == path_len)
+			node_type = FINAL_NODE;
+		else if (*result->erring_index == 0)
+			node_type = ORIGIN_NODE;
+		else
+			node_type = INTERMEDIATE_NODE;
+	}
+
 	assert(result->erring_node);
 
-	switch (result->code) {
-	case PAY_UNPARSEABLE_ONION:
-		handle_unhandleable_error(
-		    route, "received PAY_UNPARSEABLE_ONION error");
-		goto finish;
-		break;
-	case PAY_TRY_OTHER_ROUTE:
-		break;
-	case PAY_DESTINATION_PERM_FAIL:
-	default:
-		route_final_error(route, result->code, result->message);
-		goto finish;
-	}
-
-	/* Final node is usually a hard failure */
-	if (node_id_eq(result->erring_node, &route->payment->destination) &&
-	    result->failcode != WIRE_MPP_TIMEOUT) {
-		route_final_error(route, PAY_DESTINATION_PERM_FAIL,
-				  "final destination permanent failure");
-		goto finish;
-	}
-
 	switch (result->failcode) {
-	/* These definitely mean eliminate channel */
-	case WIRE_PERMANENT_CHANNEL_FAILURE:
-	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
-	/* FIXME: lnd returns this for disconnected peer, so don't disable perm!
-	 */
-	case WIRE_UNKNOWN_NEXT_PEER:
-	case WIRE_CHANNEL_DISABLED:
-	/* These mean node is weird, but we eliminate channel here too */
-	case WIRE_INVALID_REALM:
-	case WIRE_TEMPORARY_NODE_FAILURE:
-	case WIRE_PERMANENT_NODE_FAILURE:
-	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
-	/* These shouldn't happen, but eliminate channel */
+	// intermediate only
 	case WIRE_INVALID_ONION_VERSION:
 	case WIRE_INVALID_ONION_HMAC:
 	case WIRE_INVALID_ONION_KEY:
-	case WIRE_INVALID_ONION_PAYLOAD:
+		if (node_type == FINAL_NODE)
+			payment_note(payment, LOG_UNUSUAL,
+				     "Final node %s reported strange "
+				     "error code %04x (%s)",
+				     fmt_node_id(tmpctx, result->erring_node),
+				     result->failcode,
+				     onion_wire_name(result->failcode));
+
 	case WIRE_INVALID_ONION_BLINDING:
-	case WIRE_EXPIRY_TOO_FAR:
-		if (result->erring_channel)
-			payment_disable_chan(route->payment,
-					     *result->erring_channel,
-					     LOG_UNUSUAL, "%s",
-					     onion_wire_name(result->failcode));
-		else
-			handle_unhandleable_error(
-			    route,
-			    "received %s error, but don't have an "
-			    "erring_channel",
+		if (node_type == FINAL_NODE) {
+			/* these errors from a final node mean a permanent
+			 * failure */
+			route_final_error(
+			    route, PAY_DESTINATION_PERM_FAIL,
+			    "Received error code %04x (%s) at final node.",
+			    result->failcode,
 			    onion_wire_name(result->failcode));
+		} else if (node_type == INTERMEDIATE_NODE ||
+			   node_type == ORIGIN_NODE) {
+			/* we disable the next node in the hop */
+			assert(*result->erring_index < path_len);
+			payment_disable_node(
+			    route->payment,
+			    route->hops[*result->erring_index].node_id, LOG_DBG,
+			    "received %s from previous hop",
+			    onion_wire_name(result->failcode));
+		}
 		break;
 
-	/* These can be fixed (maybe) by applying the included channel_update */
-	case WIRE_AMOUNT_BELOW_MINIMUM:
-	case WIRE_FEE_INSUFFICIENT:
-	case WIRE_INCORRECT_CLTV_EXPIRY:
-	case WIRE_EXPIRY_TOO_SOON:
-	case WIRE_TEMPORARY_CHANNEL_FAILURE:
-		break;
-
-	/* These should only come from the final distination. */
-	case WIRE_MPP_TIMEOUT:
+	// final only
 	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
-	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
 	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
+	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
+		if (node_type == INTERMEDIATE_NODE)
+			payment_note(payment, LOG_UNUSUAL,
+				     "Intermediate node %s reported strange "
+				     "error code %04x (%s)",
+				     fmt_node_id(tmpctx, result->erring_node),
+				     result->failcode,
+				     onion_wire_name(result->failcode));
+
+	case WIRE_PERMANENT_NODE_FAILURE:
+	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
+	case WIRE_TEMPORARY_NODE_FAILURE:
+	case WIRE_INVALID_REALM:
+	case WIRE_INVALID_ONION_PAYLOAD:
+
+		if (node_type == FINAL_NODE) {
+			route_final_error(
+			    route, PAY_DESTINATION_PERM_FAIL,
+			    "Received error code %04x (%s) at final node.",
+			    result->failcode,
+			    onion_wire_name(result->failcode));
+		} else if (node_type == ORIGIN_NODE) {
+			route_final_error(
+			    route, PAY_UNSPECIFIED_ERROR,
+			    "Error code %04x (%s) reported at the origin.",
+			    result->failcode,
+			    onion_wire_name(result->failcode));
+		} else {
+			payment_disable_node(route->payment,
+					     *result->erring_node, LOG_INFORM,
+					     "received error %s",
+					     onion_wire_name(result->failcode));
+		}
 		break;
 
-	default:
-		if (result->erring_channel)
-			payment_disable_chan(
-			    route->payment, *result->erring_channel,
-			    LOG_UNUSUAL, "Unexpected error code %u",
-			    result->failcode);
-		else
-			handle_unhandleable_error(
-			    route,
-			    "received %s error, but don't have an "
-			    "erring_channel",
+	// intermediate only
+	case WIRE_PERMANENT_CHANNEL_FAILURE:
+	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
+	case WIRE_UNKNOWN_NEXT_PEER:
+	case WIRE_EXPIRY_TOO_FAR:
+	case WIRE_CHANNEL_DISABLED:
+		if (node_type == FINAL_NODE) {
+			payment_note(payment, LOG_UNUSUAL,
+				     "Final node %s reported strange "
+				     "error code %04x (%s)",
+				     fmt_node_id(tmpctx, result->erring_node),
+				     result->failcode,
+				     onion_wire_name(result->failcode));
+
+			route_final_error(
+			    route, PAY_DESTINATION_PERM_FAIL,
+			    "Received error code %04x (%s) at final node.",
+			    result->failcode,
 			    onion_wire_name(result->failcode));
+
+		} else {
+			assert(result->erring_channel);
+			payment_disable_chan(
+			    route->payment, *result->erring_channel, LOG_INFORM,
+			    "%s", onion_wire_name(result->failcode));
+		}
+		break;
+	// final only
+	case WIRE_MPP_TIMEOUT:
+
+		if (node_type == INTERMEDIATE_NODE) {
+			/* Normally WIRE_MPP_TIMEOUT is raised by the final
+			 * node. If this is not the final node, then something
+			 * wrong is going on. We report it and disable that
+			 * node. */
+			payment_note(payment, LOG_UNUSUAL,
+				     "Intermediate node %s reported strange "
+				     "error code %04x (%s)",
+				     fmt_node_id(tmpctx, result->erring_node),
+				     result->failcode,
+				     onion_wire_name(result->failcode));
+
+			payment_disable_node(route->payment,
+					     *result->erring_node, LOG_INFORM,
+					     "received error %s",
+					     onion_wire_name(result->failcode));
+		}
+		break;
+
+	// intermediate only
+	case WIRE_EXPIRY_TOO_SOON:
+	case WIRE_INCORRECT_CLTV_EXPIRY:
+	case WIRE_FEE_INSUFFICIENT:
+	case WIRE_AMOUNT_BELOW_MINIMUM:
+
+		if (node_type == FINAL_NODE) {
+			payment_note(payment, LOG_UNUSUAL,
+				     "Final node %s reported strange "
+				     "error code %04x (%s)",
+				     fmt_node_id(tmpctx, result->erring_node),
+				     result->failcode,
+				     onion_wire_name(result->failcode));
+
+			route_final_error(
+			    route, PAY_DESTINATION_PERM_FAIL,
+			    "Received error code %04x (%s) at final node.",
+			    result->failcode,
+			    onion_wire_name(result->failcode));
+
+		} else {
+			/* Usually this means we need to update the channel
+			 * information and try again. To avoid hitting this
+			 * error again with the same channel we flag it. */
+			assert(result->erring_channel);
+			payment_warn_chan(route->payment,
+					  *result->erring_channel, LOG_INFORM,
+					  "received error %s",
+					  onion_wire_name(result->failcode));
+		}
+
+		break;
+	// intermediate only
+	case WIRE_TEMPORARY_CHANNEL_FAILURE:
+
+		if (node_type == FINAL_NODE) {
+			/* WIRE_TEMPORARY_CHANNEL_FAILURE could mean that the
+			 * next channel has not enough outbound liquidity or
+			 * cannot add another HTLC. A final node cannot raise
+			 * this error. */
+			payment_note(payment, LOG_UNUSUAL,
+				     "Final node %s reported strange "
+				     "error code %04x (%s)",
+				     fmt_node_id(tmpctx, result->erring_node),
+				     result->failcode,
+				     onion_wire_name(result->failcode));
+
+			route_final_error(
+			    route, PAY_DESTINATION_PERM_FAIL,
+			    "Received error code %04x (%s) at final node.",
+			    result->failcode,
+			    onion_wire_name(result->failcode));
+		}
+
+		break;
 	}
 
-finish:
-	return routefail_continue(r);
+	/* Update the knowledge in the uncertaity network. */
+	if (route->hops) {
+		assert(last_good_channel < path_len);
+
+		/* All channels before the erring node could forward the
+		 * payment. */
+		for (int i = 0; i <= last_good_channel; i++) {
+			uncertainty_channel_can_send(pay_plugin->uncertainty,
+						     route->hops[i].scid,
+						     route->hops[i].direction);
+		}
+
+		if (result->failcode == WIRE_TEMPORARY_CHANNEL_FAILURE &&
+		    (last_good_channel + 1) < path_len) {
+			/* A WIRE_TEMPORARY_CHANNEL_FAILURE could mean not
+			 * enough liquidity to forward the payment or cannot add
+			 * one more HTLC.
+			 */
+			uncertainty_channel_cannot_send(
+			    pay_plugin->uncertainty,
+			    route->hops[last_good_channel + 1].scid,
+			    route->hops[last_good_channel + 1].direction);
+		}
+		uncertainty_remove_htlcs(pay_plugin->uncertainty, route);
+	}
+
+	return routefail_end(r);
 }
-
-REGISTER_ROUTEFAIL_MODIFIER(handle_cases, handle_cases_cb);
-
-/*****************************************************************************
- * Virtual machine */
-// TODO: maybe I should make a single virtual machine interpreter (with
-// templates and typesafety?) that is able to run on different static programs
-// and types. One instance will execute the payment program and another instance
-// will run the routefail program.
-
-void *routefail_virtual_program[] = {
-    &update_gossip_routefail_mod,
-    &update_knowledge_routefail_mod,
-    &handle_cases_routefail_mod,
-    &end_routefail_mod,
-    NULL};
