@@ -159,7 +159,7 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 
 	/* We really only handle plugins dying: other errors are fatal. */
 	if (h) {
-		log_debug(ph_req->ld->log,
+		log_trace(ph_req->ld->log,
 			  "Plugin %s returned from %s hook call",
 			  h->plugin->shortname, ph_req->hook->name);
 		resulttok = json_get_member(buffer, toks, "result");
@@ -200,7 +200,7 @@ static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
 	} while (ph_req->hooks[ph_req->hook_index] == NULL);
 
 	plugin = ph_req->hooks[ph_req->hook_index]->plugin;
-	log_debug(ph_req->ld->log, "Calling %s hook of plugin %s",
+	log_trace(ph_req->ld->log, "Calling %s hook of plugin %s",
 		  ph_req->hook->name, plugin->shortname);
 	req = jsonrpc_request_start(NULL, hook->name, ph_req->cmd_id,
 				    plugin->non_numeric_ids,
