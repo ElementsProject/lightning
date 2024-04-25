@@ -37,6 +37,8 @@ void status_io(enum log_level iodir,
 	       const void *data, size_t len);
 
 /* Helpers */
+#define status_trace(...)			\
+	status_fmt(LOG_TRACE, NULL, __VA_ARGS__)
 #define status_debug(...)			\
 	status_fmt(LOG_DBG, NULL, __VA_ARGS__)
 #define status_info(...)			\
@@ -47,6 +49,8 @@ void status_io(enum log_level iodir,
 	status_fmt(LOG_BROKEN, NULL, __VA_ARGS__)
 
 /* For daemons which handle multiple peers */
+#define status_peer_trace(peer, ...)			\
+	status_fmt(LOG_TRACE, (peer), __VA_ARGS__)
 #define status_peer_debug(peer, ...)			\
 	status_fmt(LOG_DBG, (peer), __VA_ARGS__)
 #define status_peer_info(peer, ...)			\

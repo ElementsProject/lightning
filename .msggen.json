@@ -105,6 +105,7 @@
             "debug": 3,
             "info": 2,
             "io": 4,
+            "trace": 5,
             "unusual": 1
         },
         "GetlogLogType": {
@@ -114,6 +115,7 @@
             "IO_IN": 5,
             "IO_OUT": 6,
             "SKIPPED": 0,
+            "TRACE": 7,
             "UNUSUAL": 2
         },
         "GetrouteRouteStyle": {
@@ -287,6 +289,7 @@
             "debug": 1,
             "info": 2,
             "io": 0,
+            "trace": 4,
             "unusual": 3
         },
         "ListpeersPeersChannelsHtlcsDirection": {
@@ -327,6 +330,7 @@
             "IO_IN": 5,
             "IO_OUT": 6,
             "SKIPPED": 0,
+            "TRACE": 7,
             "UNUSUAL": 2
         },
         "ListsendpaysIndex": {

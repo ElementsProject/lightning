@@ -128,6 +128,8 @@ static const char *level_prefix(enum log_level level)
 	case LOG_IO_OUT:
 	case LOG_IO_IN:
 		return "IO     ";
+	case LOG_TRACE:
+		return "TRACE  ";
 	case LOG_DBG:
 		return "DEBUG  ";
 	case LOG_INFORM:
@@ -298,6 +300,9 @@ static u32 delete_threshold(enum log_level level)
 	case LOG_IO_OUT:
 	case LOG_IO_IN:
 		return 900;
+	/* 50% of LOG_TRACE */
+	case LOG_TRACE:
+		return 750;
 	/* 50% of LOG_DBG */
 	case LOG_DBG:
 		return 500;
@@ -470,7 +475,7 @@ const char *log_prefix(const struct logger *log)
 
 bool log_has_io_logging(const struct logger *log)
 {
-	return print_level(log->log_book, log->prefix, log->default_node_id, NULL) < LOG_DBG;
+	return print_level(log->log_book, log->prefix, log->default_node_id, NULL) < LOG_TRACE;
 }
 
 /* This may move entry! */
@@ -682,6 +687,7 @@ static void log_one_line(unsigned int skipped,
 		prefix,
 		level == LOG_IO_IN ? "IO_IN"
 		: level == LOG_IO_OUT ? "IO_OUT"
+		: level == LOG_TRACE ? "TRACE"
 		: level == LOG_DBG ? "DEBUG"
 		: level == LOG_INFORM ? "INFO"
 		: level == LOG_UNUSUAL ? "UNUSUAL"
@@ -1084,6 +1090,7 @@ static void log_to_json(unsigned int skipped,
 			: level == LOG_UNUSUAL ? "UNUSUAL"
 			: level == LOG_INFORM ? "INFO"
 			: level == LOG_DBG ? "DEBUG"
+			: level == LOG_TRACE ? "TRACE"
 			: level == LOG_IO_IN ? "IO_IN"
 			: level == LOG_IO_OUT ? "IO_OUT"
 			: "UNKNOWN");

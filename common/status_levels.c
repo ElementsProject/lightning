@@ -5,6 +5,7 @@
 static const char *ll_names[] = {
 	"io",
 	"io",
+	"trace",
 	"debug",
 	"info",
 	"unusual",

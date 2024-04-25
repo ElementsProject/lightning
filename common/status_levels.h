@@ -7,6 +7,8 @@ enum log_level {
 	/* Logging all IO. */
 	LOG_IO_OUT,
 	LOG_IO_IN,
+	/* Extra-gory logging details for deep debugging */
+	LOG_TRACE,
 	/* Gory details which are mainly good for debugging. */
 	LOG_DBG,
 	/* Information about what's going in. */
