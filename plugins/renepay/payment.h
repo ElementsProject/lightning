@@ -129,6 +129,13 @@ struct payment {
 
 	/* Channels we decided to disable for various reasons. */
 	struct short_channel_id *disabled_scids;
+	
+	/* Channels that we flagged for failures. If warned two times we will
+	 * disable it. */
+	struct short_channel_id *warned_scids;
+	
+	/* nodes we disable */
+	struct node_id *disabled_nodes;
 
 
 	/* Flag to indicate wether we have collected enough results to make a
@@ -235,6 +242,12 @@ struct command_result *payment_fail(struct payment *payment,
 void payment_note(struct payment *p, enum log_level lvl, const char *fmt, ...);
 
 void payment_disable_chan(struct payment *p, struct short_channel_id scid,
+			  enum log_level lvl, const char *fmt, ...);
+
+void payment_warn_chan(struct payment *p, struct short_channel_id scid,
+		       enum log_level lvl, const char *fmt, ...);
+
+void payment_disable_node(struct payment *p, struct node_id node,
 			  enum log_level lvl, const char *fmt, ...);
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_PAYMENT_H */

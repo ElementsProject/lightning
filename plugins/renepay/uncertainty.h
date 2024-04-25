@@ -29,7 +29,7 @@ void uncertainty_commit_htlcs(struct uncertainty *uncertainty,
 			      const struct route *route);
 
 void uncertainty_channel_can_send(struct uncertainty *uncertainty,
-				  const struct route *route, u32 erridx);
+				  struct short_channel_id scid, int direction);
 
 void uncertainty_channel_cannot_send(struct uncertainty *uncertainty,
 				     struct short_channel_id scid,
