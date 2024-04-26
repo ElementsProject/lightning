@@ -204,7 +204,7 @@ static void handle_recv_gossip(struct daemon *daemon, const u8 *outermsg)
 		return;
 	}
 
-	status_peer_debug(&source, "handle_recv_gossip: %s", peer_wire_name(fromwire_peektype(msg)));
+	status_peer_trace(&source, "handle_recv_gossip: %s", peer_wire_name(fromwire_peektype(msg)));
 	/* These are messages relayed from peer */
 	switch ((enum peer_wire)fromwire_peektype(msg)) {
 	case WIRE_CHANNEL_ANNOUNCEMENT:
