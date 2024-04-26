@@ -99,7 +99,7 @@ static void trace_inject_traceparent(void)
 static void trace_init(void) {
 	if (active_spans)
 		return;
-	active_spans = malloc(sizeof(struct span) * MAX_ACTIVE_SPANS);
+	active_spans = calloc(MAX_ACTIVE_SPANS, sizeof(struct span));
 
 	current = NULL;
 	trace_inject_traceparent();
