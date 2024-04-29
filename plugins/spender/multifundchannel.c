@@ -1421,15 +1421,6 @@ perform_fundpsbt(struct multifundchannel_command *mfc, u32 feerate)
 				tal_fmt(tmpctx, "%zu", startweight));
 	}
 
-	/* If we've got v2 opens, we need to use a min weight of 110. */
-	/* BOLT-WHERE? #3:
-	 * The minimum witness weight for an input is 110.
-	 */
-	if (dest_count(mfc, OPEN_CHANNEL) > 0) {
-		json_add_string(req->js, "min_witness_weight",
-				tal_fmt(tmpctx, "%u", 110));
-	}
-
 	/* Handle adding a change output if required. */
 	json_add_bool(req->js, "excess_as_change", true);
 
