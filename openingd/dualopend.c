@@ -133,6 +133,7 @@ static struct tx_state *new_tx_state(const tal_t *ctx)
 	struct tx_state *tx_state = tal(ctx, struct tx_state);
 	tx_state->psbt = NULL;
 	tx_state->remote_funding_sigs_rcvd = false;
+	tx_state->has_commitments = false;
 
 	tx_state->lease_expiry = 0;
 	tx_state->lease_fee = AMOUNT_SAT(0);
