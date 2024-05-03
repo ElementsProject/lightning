@@ -4261,8 +4261,10 @@ def test_dynamic_option_python_plugin(node_factory):
 
     assert result["configs"]["test-dynamic-config"]["value_str"] == "initial"
 
+    assert ln.rpc.dynamic_option_report() == {'test-dynamic-config': 'initial'}
     result = ln.rpc.setconfig("test-dynamic-config", "changed")
     assert result["config"]["value_str"] == "changed"
+    assert ln.rpc.dynamic_option_report() == {'test-dynamic-config': 'changed'}
 
 
 def test_renepay_not_important(node_factory):
