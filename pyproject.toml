@@ -1,4 +1,5 @@
 [tool.poetry]
+package-mode=false
 name = "cln-meta-project"
 version = "0.1.0"
 description = "Just a helper to get our python dependencies under control"
