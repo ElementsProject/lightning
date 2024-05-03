@@ -974,11 +974,10 @@ class Plugin(object):
             return self._exec_func(self.child_init, request)
         return None
 
-    def _set_config(self, **_) -> None:
+    def _set_config(self, config: str, val: Optional[Any]) -> None:
         """Called when the value of a dynamic option is changed
-        For now we don't do anything.
         """
-        pass
+        self.options[config]['value'] = val
 
 
 class PluginStream(object):
