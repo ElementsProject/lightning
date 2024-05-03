@@ -392,7 +392,9 @@ class Plugin(object):
                    description: Optional[str],
                    opt_type: str = "string", deprecated: Union[bool, List[str]] = None,
                    multi: bool = False,
-                   dynamic=False) -> None:
+                   dynamic=False,
+                   on_change: Optional[Callable[["Plugin", str, Optional[Any]], None]] = None,
+                   ) -> None:
         """Add an option that we'd like to register with lightningd.
 
         Needs to be called before `Plugin.run`, otherwise we might not
@@ -417,7 +419,8 @@ class Plugin(object):
             'value': None,
             'multi': multi,
             'deprecated': deprecated,
-            "dynamic": dynamic
+            "dynamic": dynamic,
+            'on_change': on_change,
         }
 
     def add_flag_option(self, name: str, description: str,
@@ -977,7 +980,19 @@ class Plugin(object):
     def _set_config(self, config: str, val: Optional[Any]) -> None:
         """Called when the value of a dynamic option is changed
         """
-        self.options[config]['value'] = val
+        opt = self.options[config]
+        opt['value'] = val
+
+        cb = opt['on_change']
+        if cb is None:
+            return
+
+        try:
+            opt['on_change'](self, config, val)
+        except Exception as e:
+            logging.getLogger('pyln.client.plugin').warn(
+                f"setconfig callback raised an exception: {e}"
+            )
 
 
 class PluginStream(object):
