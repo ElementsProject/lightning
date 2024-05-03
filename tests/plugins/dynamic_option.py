@@ -9,4 +9,10 @@ plugin.add_option(
     default="initial",
     dynamic=True)
 
+
+@plugin.method('dynamic-option-report')
+def record_lookup(plugin):
+    return {'test-dynamic-config': plugin.get_option('test-dynamic-config')}
+
+
 plugin.run()
