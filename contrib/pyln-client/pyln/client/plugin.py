@@ -409,7 +409,12 @@ class Plugin(object):
 
         if opt_type not in ["string", "int", "bool", "flag"]:
             raise ValueError(
-                '{} not in supported type set (string, int, bool, flag)'
+                '{} not in supported type set (string, int, bool, flag)'.format(opt_type)
+            )
+
+        if on_change is not None and not dynamic:
+            raise ValueError(
+                'Option {} has on_change callback but is not dynamic'.format(name)
             )
 
         self.options[name] = {
@@ -981,19 +986,13 @@ class Plugin(object):
     def _set_config(self, config: str, val: Optional[Any]) -> None:
         """Called when the value of a dynamic option is changed
         """
+        cb = opt['on_change']
+        if cb is not None:
+            # This may throw an exception: caller will turn into error msg for user.
+            cb(self, config, val)
+
         opt = self.options[config]
         opt['value'] = val
-
-        cb = opt['on_change']
-        if cb is None:
-            return
-
-        try:
-            opt['on_change'](self, config, val)
-        except Exception as e:
-            logging.getLogger('pyln.client.plugin').warn(
-                f"setconfig callback raised an exception: {e}"
-            )
 
 
 class PluginStream(object):
