@@ -4319,6 +4319,10 @@ def test_dynamic_option_python_plugin(node_factory):
     assert result["config"]["value_str"] == "changed"
     assert ln.rpc.dynamic_option_report() == {'test-dynamic-config': 'changed'}
 
+    ln.daemon.wait_for_log(
+        'dynamic_option.py:.*Setting config test-dynamic-config to changed'
+    )
+
 
 def test_renepay_not_important(node_factory):
     # I mean, it's *important*, it's just not "mission-critical" just yet!
