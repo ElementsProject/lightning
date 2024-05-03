@@ -707,7 +707,7 @@ class Plugin(object):
     def notify_message(self, request: Request, message: str,
                        level: str = 'info') -> None:
         """Send a notification message to sender of this request"""
-        request.notify(message=message)
+        request.notify(message=message, level=level)
 
     def notify_progress(self, request: Request,
                         progress: int, progress_total: int,
