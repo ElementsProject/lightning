@@ -330,8 +330,10 @@ class Plugin(object):
         `deprecated` True means that it won't appear unless `allow-deprecated-apis`
         is true (the default), or if list of version string (e.g. "v23.08"), then
         start deprecation cycle at that version (and removal after second entry in list).
+
+        You can override `setconfig` to intercept changes to dynamic options.
         """
-        if name in self.methods:
+        if name in self.methods and self.methods != self._set_config:
             raise ValueError(
                 "Name {} is already bound to a method.".format(name)
             )

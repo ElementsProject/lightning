@@ -15,4 +15,10 @@ def record_lookup(plugin):
     return {'test-dynamic-config': plugin.get_option('test-dynamic-config')}
 
 
+@plugin.method('setconfig')
+def setconfig(plugin, config, val, **kwargs):
+    plugin.log(f"Setting config {config} to {val}")
+    plugin.options[config]['value'] = val
+
+
 plugin.run()
