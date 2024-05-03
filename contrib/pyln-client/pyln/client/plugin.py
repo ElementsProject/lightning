@@ -390,7 +390,8 @@ class Plugin(object):
 
     def add_option(self, name: str, default: Optional[str],
                    description: Optional[str],
-                   opt_type: str = "string", deprecated: Union[bool, List[str]] = None,
+                   opt_type: str = "string",
+                   deprecated: Optional[Union[bool, List[str]]] = None,
                    multi: bool = False,
                    dynamic=False,
                    on_change: Optional[Callable[["Plugin", str, Optional[Any]], None]] = None,
@@ -424,7 +425,7 @@ class Plugin(object):
         }
 
     def add_flag_option(self, name: str, description: str,
-                        deprecated: Union[bool, List[str]] = None,
+                        deprecated: Optional[Union[bool, List[str]]] = None,
                         dynamic: bool = False) -> None:
         """Add a flag option that we'd like to register with lightningd.
 
