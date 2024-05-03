@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from pyln.client import Plugin
+from pyln.client import Plugin, RpcException
 from typing import Any, Optional
 
 plugin = Plugin()
@@ -14,6 +14,8 @@ def on_config_change(plugin, config: str, value: Optional[Any]) -> None:
     """Callback method called when a config value is changed.
     """
     plugin.log(f"Setting config {config} to {value}")
+    if value == 'bad value':
+        raise RpcException("I don't like bad values!")
 
 
 plugin.add_option(

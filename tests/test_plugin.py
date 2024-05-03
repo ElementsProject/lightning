@@ -4323,6 +4323,12 @@ def test_dynamic_option_python_plugin(node_factory):
         'dynamic_option.py:.*Setting config test-dynamic-config to changed'
     )
 
+    with pytest.raises(RpcError, match="I don't like bad values!"):
+        ln.rpc.setconfig("test-dynamic-config", "bad value")
+
+    # Does not alter value!
+    assert ln.rpc.dynamic_option_report() == {'test-dynamic-config': 'changed'}
+
 
 def test_renepay_not_important(node_factory):
     # I mean, it's *important*, it's just not "mission-critical" just yet!
