@@ -6,9 +6,23 @@
 #include <plugins/renepay/routefail.h>
 #include <plugins/renepay/routetracker.h>
 
-struct routetracker *new_routetracker(const tal_t *ctx)
+static struct payment *route_get_payment_verify(struct route *route)
+{
+	struct payment *payment =
+	    payment_map_get(pay_plugin->payment_map, route->key.payment_hash);
+	if (!payment)
+		plugin_err(pay_plugin->plugin,
+			   "%s: no payment associated with routekey %s",
+			   __PRETTY_FUNCTION__,
+			   fmt_routekey(tmpctx, &route->key));
+	return payment;
+}
+
+struct routetracker *new_routetracker(const tal_t *ctx, struct payment *payment)
 {
 	struct routetracker *rt = tal(ctx, struct routetracker);
+	
+	rt->payment = payment;
 
 	rt->sent_routes = tal(rt, struct route_map);
 	route_map_init(rt->sent_routes);
@@ -41,23 +55,25 @@ static void routetracker_add_to_final(struct routetracker *routetracker,
 	tal_arr_expand(&routetracker->finalized_routes, route);
 	tal_steal(routetracker, route);
 }
-static void route_success_register(struct route *route)
+static void route_success_register(struct routetracker *routetracker,
+				   struct route *route)
 {
-	routetracker_add_to_final(route->payment->routetracker, route);
+	routetracker_add_to_final(routetracker, route);
 }
-void route_failure_register(struct route *route)
+void route_failure_register(struct routetracker *routetracker,
+			    struct route *route)
 {
-	routetracker_add_to_final(route->payment->routetracker, route);
+	routetracker_add_to_final(routetracker, route);
 }
-static void route_sent_register(struct route *route)
+static void route_sent_register(struct routetracker *routetracker,
+				struct route *route)
 {
-	struct routetracker *routetracker = route->payment->routetracker;
 	route_map_add(routetracker->sent_routes, route);
 	tal_steal(routetracker, route);
 }
-static void route_sendpay_fail(struct route *route TAKES)
+static void route_sendpay_fail(struct routetracker *routetracker,
+			       struct route *route TAKES)
 {
-	struct routetracker *routetracker = route->payment->routetracker;
 	if (!route_map_del(routetracker->sent_routes, route))
 		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
 			   "%s: route (%s) is not marked as sent",
@@ -72,14 +88,14 @@ static void route_sendpay_fail(struct route *route TAKES)
  *	- after a sendpay is accepted,
  *	- or after listsendpays reveals some pending route that we didn't
  *	previously know about. */
-void route_pending_register(const struct route *route)
+void route_pending_register(struct routetracker *routetracker,
+			    const struct route *route)
 {
 	assert(route);
-	struct payment *payment = route->payment;
+	assert(routetracker);
+	struct payment *payment = routetracker->payment;
 	assert(payment);
 	assert(payment->groupid == route->key.groupid);
-	struct routetracker *routetracker = payment->routetracker;
-	assert(routetracker);
 
 	/* we already keep track of this route */
 	if (route_map_get(routetracker->pending_routes, &route->key))
@@ -110,14 +126,15 @@ void route_pending_register(const struct route *route)
 	}
 }
 
-static void route_result_collected(struct route *route TAKES)
+static void route_result_collected(struct routetracker *routetracker,
+				   struct route *route TAKES)
 {
 	assert(route);
+	assert(routetracker);
 	assert(route->result);
-
-	assert(route->payment);
-	struct payment *payment = route->payment;
-	assert(payment->groupid == route->key.groupid);
+	
+	struct payment *payment = routetracker->payment;
+	assert(payment);
 
 	if (route->result->status == SENDPAY_FAILED) {
 		if (!amount_msat_sub(&payment->total_delivering,
@@ -142,7 +159,8 @@ static struct command_result *sendpay_done(struct command *cmd,
 					   struct route *route)
 {
 	assert(route);
-	route_pending_register(route);
+	struct payment *payment = route_get_payment_verify(route);
+	route_pending_register(payment->routetracker, route);
 	return command_still_pending(cmd);
 }
 
@@ -156,8 +174,7 @@ static struct command_result *sendpay_failed(struct command *cmd,
 					     struct route *route)
 {
 	assert(route);
-	assert(route->payment);
-	struct payment *payment = route->payment;
+	struct payment *payment = route_get_payment_verify(route);
 
 	enum jsonrpc_errcode errcode;
 	const char *msg;
@@ -187,7 +204,7 @@ static struct command_result *sendpay_failed(struct command *cmd,
 	payment_disable_chan(payment, route->hops[0].scid, LOG_INFORM,
 			     "sendpay didn't like first hop: %s", msg);
 
-	route_sendpay_fail(take(route));
+	route_sendpay_fail(payment->routetracker, take(route));
 	return command_still_pending(cmd);
 }
 
@@ -235,21 +252,22 @@ void payment_collect_results(struct payment *payment,
 					    tal_strdup(tmpctx, r->final_msg);
 			}
 		}
-		route_result_collected(take(r));
+		route_result_collected(routetracker, take(r));
 	}
 	tal_resize(&routetracker->finalized_routes, 0);
 }
 
 struct command_result *route_sendpay_request(struct command *cmd,
-					     struct route *route)
+					     struct route *route,
+					     struct payment *payment)
 {
 	struct out_req *req =
 	    jsonrpc_request_start(pay_plugin->plugin, cmd, "sendpay",
 				  sendpay_done, sendpay_failed, route);
 
-	json_add_route(req->js, route);
+	json_add_route(req->js, route, payment);
 
-	route_sent_register(route);
+	route_sent_register(payment->routetracker, route);
 	return send_outreq(pay_plugin->plugin, req);
 }
 
@@ -362,6 +380,6 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 
 	// FIXME: what happens when several success notification arrive for the
 	// same payment? Even after the payment has been resolved.
-	route_success_register(route);
+	route_success_register(payment->routetracker, route);
 	return notification_handled(cmd);
 }

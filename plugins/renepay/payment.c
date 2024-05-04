@@ -35,51 +35,52 @@ struct payment *payment_new(
 	    bool use_shadow)
 {
 	struct payment *p = tal(ctx, struct payment);
+	struct payment_info *pinfo = &p->payment_info;
 
 	/* === Unique properties === */
 	assert(payment_hash);
-	p->payment_hash = *payment_hash;
+	pinfo->payment_hash = *payment_hash;
 
 	assert(invstr);
-	p->invstr = tal_strdup(p, invstr);
+	pinfo->invstr = tal_strdup(p, invstr);
 
-	p->label = tal_strdup_or_null(p, label);
-	p->description = tal_strdup_or_null(p, description);
-	p->payment_secret = tal_dup_or_null(p, struct secret, payment_secret);
-	p->payment_metadata = tal_dup_talarr(p, u8, payment_metadata);
+	pinfo->label = tal_strdup_or_null(p, label);
+	pinfo->description = tal_strdup_or_null(p, description);
+	pinfo->payment_secret = tal_dup_or_null(p, struct secret, payment_secret);
+	pinfo->payment_metadata = tal_dup_talarr(p, u8, payment_metadata);
 
 	if (taken(routehints))
-		p->routehints = tal_steal(p, routehints);
+		pinfo->routehints = tal_steal(p, routehints);
 	else {
 		/* Deep copy */
-		p->routehints =
+		pinfo->routehints =
 		    tal_dup_talarr(p, const struct route_info *, routehints);
-		for (size_t i = 0; i < tal_count(p->routehints); i++)
-			p->routehints[i] =
-			    tal_steal(p->routehints, p->routehints[i]);
+		for (size_t i = 0; i < tal_count(pinfo->routehints); i++)
+			pinfo->routehints[i] =
+			    tal_steal(pinfo->routehints, pinfo->routehints[i]);
 	}
 
 	assert(destination);
-	p->destination = *destination;
-	p->amount = amount;
+	pinfo->destination = *destination;
+	pinfo->amount = amount;
 
 
 	/* === Payment attempt parameters === */
-	if (!amount_msat_add(&p->maxspend, amount, maxfee))
-		p->maxspend = AMOUNT_MSAT(UINT64_MAX);
-	p->maxdelay = maxdelay;
+	if (!amount_msat_add(&pinfo->maxspend, amount, maxfee))
+		pinfo->maxspend = AMOUNT_MSAT(UINT64_MAX);
+	pinfo->maxdelay = maxdelay;
 
-	p->start_time = time_now();
-	p->stop_time = timeabs_add(p->start_time, time_from_sec(retryfor));
+	pinfo->start_time = time_now();
+	pinfo->stop_time = timeabs_add(pinfo->start_time, time_from_sec(retryfor));
 
-	p->final_cltv = final_cltv;
+	pinfo->final_cltv = final_cltv;
 
 	/* === Developer options === */
-	p->base_fee_penalty = base_fee_penalty_millionths / 1e6;
-	p->prob_cost_factor = prob_cost_factor_millionths / 1e6;
-	p->delay_feefactor = riskfactor_millionths / 1e6;
-	p->min_prob_success = min_prob_success_millionths / 1e6;
-	p->use_shadow = use_shadow;
+	pinfo->base_fee_penalty = base_fee_penalty_millionths / 1e6;
+	pinfo->prob_cost_factor = prob_cost_factor_millionths / 1e6;
+	pinfo->delay_feefactor = riskfactor_millionths / 1e6;
+	pinfo->min_prob_success = min_prob_success_millionths / 1e6;
+	pinfo->use_shadow = use_shadow;
 
 
 	/* === Public State === */
@@ -105,7 +106,7 @@ struct payment *payment_new(
 	p->waitresult_timer = NULL;
 
 	p->routes_computed = NULL;
-	p->routetracker = new_routetracker(p);
+	p->routetracker = new_routetracker(p, p);
 	return p;
 }
 
@@ -141,26 +142,27 @@ bool payment_update(
 		bool use_shadow)
 {
 	assert(p);
+	struct payment_info *pinfo = &p->payment_info;
 
 	/* === Unique properties === */
 	// unchanged
 
 	/* === Payment attempt parameters === */
-	if (!amount_msat_add(&p->maxspend, p->amount, maxfee))
-		p->maxspend = AMOUNT_MSAT(UINT64_MAX);
-	p->maxdelay = maxdelay;
+	if (!amount_msat_add(&pinfo->maxspend, pinfo->amount, maxfee))
+		pinfo->maxspend = AMOUNT_MSAT(UINT64_MAX);
+	pinfo->maxdelay = maxdelay;
 
-	p->start_time = time_now();
-	p->stop_time = timeabs_add(p->start_time, time_from_sec(retryfor));
+	pinfo->start_time = time_now();
+	pinfo->stop_time = timeabs_add(pinfo->start_time, time_from_sec(retryfor));
 
-	p->final_cltv = final_cltv;
+	pinfo->final_cltv = final_cltv;
 
 	/* === Developer options === */
-	p->base_fee_penalty = base_fee_penalty_millionths / 1e6;
-	p->prob_cost_factor = prob_cost_factor_millionths / 1e6;
-	p->delay_feefactor = riskfactor_millionths / 1e6;
-	p->min_prob_success = min_prob_success_millionths / 1e6;
-	p->use_shadow = use_shadow;
+	pinfo->base_fee_penalty = base_fee_penalty_millionths / 1e6;
+	pinfo->prob_cost_factor = prob_cost_factor_millionths / 1e6;
+	pinfo->delay_feefactor = riskfactor_millionths / 1e6;
+	pinfo->min_prob_success = min_prob_success_millionths / 1e6;
+	pinfo->use_shadow = use_shadow;
 
 
 	/* === Public State === */
@@ -218,7 +220,7 @@ struct amount_msat payment_delivered(const struct payment *p)
 struct amount_msat payment_amount(const struct payment *p)
 {
 	assert(p);
-	return p->amount;
+	return p->payment_info.amount;
 }
 
 struct amount_msat payment_fees(const struct payment *p)
