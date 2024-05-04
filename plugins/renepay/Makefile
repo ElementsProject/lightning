@@ -3,6 +3,7 @@ PLUGIN_RENEPAY_SRC :=				\
 	plugins/renepay/flow.c			\
 	plugins/renepay/mcf.c			\
 	plugins/renepay/dijkstra.c		\
+	plugins/renepay/disabledmap.c		\
 	plugins/renepay/payment.c		\
 	plugins/renepay/chan_extra.c		\
 	plugins/renepay/route.c			\
@@ -19,6 +20,7 @@ PLUGIN_RENEPAY_HDRS :=				\
 	plugins/renepay/flow.h			\
 	plugins/renepay/mcf.h			\
 	plugins/renepay/dijkstra.h		\
+	plugins/renepay/disabledmap.h		\
 	plugins/renepay/payment.h		\
 	plugins/renepay/chan_extra.h		\
 	plugins/renepay/route.h			\

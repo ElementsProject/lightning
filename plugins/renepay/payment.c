@@ -98,9 +98,7 @@ struct payment *payment_new(
 	p->next_partid = 1;
 	p->cmd_array = tal_arr(p, struct command *, 0);
 	p->local_gossmods = NULL;
-	p->disabled_scids = tal_arr(p, struct short_channel_id, 0);
-	p->warned_scids = tal_arr(p, struct short_channel_id, 0);
-	p->disabled_nodes = tal_arr(p, struct node_id, 0);
+	p->disabledmap = disabledmap_new(p);
 
 	p->have_results = false;
 	p->retry = false;
@@ -117,9 +115,12 @@ static void payment_cleanup(struct payment *p)
 	p->exec_state = INVALID_STATE;
 	tal_resize(&p->cmd_array, 0);
 	p->local_gossmods = tal_free(p->local_gossmods);
-	tal_resize(&p->disabled_scids, 0);
-	tal_resize(&p->warned_scids, 0);
-	tal_resize(&p->disabled_nodes, 0);
+
+	/* FIXME: for optimization, a cleanup should prune all the data that has
+	 * no use after a payent is completed. The entire disablemap structure
+	 * is no longer needed, hence I guess we should free it not just reset
+	 * it. */
+	disabledmap_reset(p->disabledmap);
 	p->waitresult_timer = tal_free(p->waitresult_timer);
 
 	p->routes_computed = tal_free(p->routes_computed);
@@ -188,14 +189,8 @@ bool payment_update(
 
 	p->local_gossmods = tal_free(p->local_gossmods);
 
-	assert(p->disabled_scids);
-	tal_resize(&p->disabled_scids, 0);
-	
-	assert(p->warned_scids);
-	tal_resize(&p->warned_scids, 0);
-	
-	assert(p->disabled_nodes);
-	tal_resize(&p->disabled_nodes, 0);
+	assert(p->disabledmap);
+	disabledmap_reset(p->disabledmap);
 
 	p->have_results = false;
 	p->retry = false;
@@ -357,13 +352,11 @@ static struct command_result *payment_finish(struct payment *p)
 	return my_command_finish(p, cmd);
 }
 
-/* FIXME: disabled_scids should be a set rather than an array, so that we don't
- * have to worry about disabling the same channel multiple times. */
 void payment_disable_chan(struct payment *p, struct short_channel_id scid,
 			  enum log_level lvl, const char *fmt, ...)
 {
 	assert(p);
-	assert(p->disabled_scids);
+	assert(p->disabledmap);
 	va_list ap;
 	const char *str;
 
@@ -373,15 +366,14 @@ void payment_disable_chan(struct payment *p, struct short_channel_id scid,
 	payment_note(p, lvl, "disabling %s: %s",
 		     fmt_short_channel_id(tmpctx, scid),
 		     str);
-	tal_arr_expand(&p->disabled_scids, scid);
+	disabledmap_add_channel(p->disabledmap, scid);
 }
 
-/* FIXME use a map instead of a array here. */
 void payment_warn_chan(struct payment *p, struct short_channel_id scid,
 		       enum log_level lvl, const char *fmt, ...)
 {
 	assert(p);
-	assert(p->warned_scids);
+	assert(p->disabledmap);
 	va_list ap;
 	const char *str;
 
@@ -389,26 +381,23 @@ void payment_warn_chan(struct payment *p, struct short_channel_id scid,
 	str = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
-	for (size_t i = 0; i < tal_count(p->warned_scids); i++) {
-		if (short_channel_id_eq(scid, p->warned_scids[i])) {
-			payment_disable_chan(p, scid, lvl,
-					     "%s, channel warned twice", str);
-			return;
-		}
+	if (disabledmap_channel_is_warned(p->disabledmap, scid)) {
+		payment_disable_chan(p, scid, lvl, "%s, channel warned twice",
+				     str);
+		return;
 	}
 
 	payment_note(
 	    p, lvl, "flagged for warning %s: %s, next time it will be disabled",
 	    fmt_short_channel_id(tmpctx, scid), str);
-	tal_arr_expand(&p->warned_scids, scid);
+	disabledmap_warn_channel(p->disabledmap, scid);
 }
 
-/* FIXME use a map instead of a array here. */
 void payment_disable_node(struct payment *p, struct node_id node,
 			  enum log_level lvl, const char *fmt, ...)
 {
 	assert(p);
-	assert(p->disabled_nodes);
+	assert(p->disabledmap);
 	va_list ap;
 	const char *str;
 
@@ -418,5 +407,5 @@ void payment_disable_node(struct payment *p, struct node_id node,
 	payment_note(p, lvl, "disabling node %s: %s",
 		     fmt_node_id(tmpctx, &node),
 		     str);
-	tal_arr_expand(&p->disabled_nodes, node);
+	disabledmap_add_node(p->disabledmap, node);
 }
