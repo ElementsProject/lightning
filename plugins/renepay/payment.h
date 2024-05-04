@@ -4,6 +4,7 @@
 #include <common/gossmap.h>
 #include <plugins/libplugin.h>
 #include <plugins/renepay/disabledmap.h>
+#include <plugins/renepay/payment_info.h>
 
 enum payment_status { PAYMENT_PENDING, PAYMENT_SUCCESS, PAYMENT_FAIL };
 
@@ -14,80 +15,10 @@ struct payment {
 	// TODO: probably not necessary after we store all payments in a
 	// hashtable instead of a list
 	struct list_node list;
+	
+	struct payment_info payment_info;
 
-
-	/* === Unique properties === */
-
-	/* payment_hash is unique */
-	struct sha256 payment_hash;
-
-	/* invstring (bolt11 or bolt12) */
-	const char *invstr;
-
-	/* Description and labels, if any. */
-	const char *description, *label;
-
-	/* payment_secret, if specified by invoice. */
-	struct secret *payment_secret;
-
-	/* Payment metadata, if specified by invoice. */
-	const u8 *payment_metadata;
-
-	/* Extracted routehints */
-	const struct route_info **routehints;
-
-	/* How much, what, where */
-	struct node_id destination;
-	struct amount_msat amount;
-
-	/* === Payment attempt parameters === */
-
-	/* Limits on what routes we'll accept. */
-	struct amount_msat maxspend;
-
-	/* Max accepted HTLC delay.*/
-	unsigned int maxdelay;
-
-	/* TODO new feature: Maximum number of hops */
-	// see common/gossip_constants.h:8:#define ROUTING_MAX_HOPS 20
-	// int max_num_hops;
-
-	/* We promised this in pay() output */
-	struct timeabs start_time;
-
-	/* We stop trying after this time is reached. */
-	struct timeabs stop_time;
-
-	u32 final_cltv;
-
-
-	/* === Developer options === */
-
-	/* Penalty for base fee */
-	double base_fee_penalty;
-
-	/* Conversion from prob. cost to millionths */
-	double prob_cost_factor;
-	/* prob. cost = - prob_cost_factor * log prob. */
-
-	/* Penalty for CLTV delays */
-	double delay_feefactor;
-
-	/* With these the effective linear fee cost is computed as
-	 *
-	 * linear fee cost =
-	 * 	millionths
-	 * 	+ base_fee* base_fee_penalty
-	 * 	+delay*delay_feefactor;
-	 * */
-
-	/* The minimum acceptable prob. of success */
-	double min_prob_success;
-
-	/* --developer allows disabling shadow route */
-	bool use_shadow;
-
-
+	
 	/* === Public State === */
 	/* TODO: these properties should be private and only changed through
 	 * payment_ methods. */
@@ -146,7 +77,7 @@ struct payment {
 
 static inline const struct sha256 payment_hash(const struct payment *p)
 {
-	return p->payment_hash;
+	return p->payment_info.payment_hash;
 }
 
 static inline size_t payment_hash64(const struct sha256 h)
@@ -157,14 +88,14 @@ static inline size_t payment_hash64(const struct sha256 h)
 static inline bool payment_hash_eq(const struct payment *p,
 				   const struct sha256 h)
 {
-	return p->payment_hash.u.u32[0] == h.u.u32[0] &&
-	       p->payment_hash.u.u32[1] == h.u.u32[1] &&
-	       p->payment_hash.u.u32[2] == h.u.u32[2] &&
-	       p->payment_hash.u.u32[3] == h.u.u32[3] &&
-	       p->payment_hash.u.u32[4] == h.u.u32[4] &&
-	       p->payment_hash.u.u32[5] == h.u.u32[5] &&
-	       p->payment_hash.u.u32[6] == h.u.u32[6] &&
-	       p->payment_hash.u.u32[7] == h.u.u32[7];
+	return p->payment_info.payment_hash.u.u32[0] == h.u.u32[0] &&
+	       p->payment_info.payment_hash.u.u32[1] == h.u.u32[1] &&
+	       p->payment_info.payment_hash.u.u32[2] == h.u.u32[2] &&
+	       p->payment_info.payment_hash.u.u32[3] == h.u.u32[3] &&
+	       p->payment_info.payment_hash.u.u32[4] == h.u.u32[4] &&
+	       p->payment_info.payment_hash.u.u32[5] == h.u.u32[5] &&
+	       p->payment_info.payment_hash.u.u32[6] == h.u.u32[6] &&
+	       p->payment_info.payment_hash.u.u32[7] == h.u.u32[7];
 }
 
 HTABLE_DEFINE_TYPE(struct payment, payment_hash, payment_hash64,

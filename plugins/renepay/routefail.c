@@ -15,6 +15,7 @@ enum node_type {
 
 struct routefail {
 	struct command *cmd;
+	struct payment *payment;
 	struct route *route;
 };
 
@@ -24,7 +25,18 @@ static struct command_result *handle_failure(struct routefail *r);
 struct command_result *routefail_start(const tal_t *ctx, struct route *route,
 				       struct command *cmd)
 {
+	assert(route);
 	struct routefail *r = tal(ctx, struct routefail);
+	struct payment *payment = 
+		    payment_map_get(pay_plugin->payment_map, route->key.payment_hash);
+
+	if (payment == NULL)
+		plugin_err(pay_plugin->plugin,
+			   "%s: payment with hash %s not found.",
+			   __PRETTY_FUNCTION__,
+			   fmt_sha256(tmpctx, &route->key.payment_hash));
+
+	r->payment = payment;
 	r->route = route;
 	r->cmd = cmd;
 	assert(route->result);
@@ -36,7 +48,7 @@ static struct command_result *routefail_end(struct routefail *r)
 	/* Notify the tracker that route has failed and routefail have completed
 	 * handling all possible errors cases. */
 	struct command *cmd = r->cmd;
-	route_failure_register(r->route);
+	route_failure_register(r->payment->routetracker, r->route);
 	tal_free(r);
 	return notification_handled(cmd);
 }
@@ -109,13 +121,16 @@ static struct command_result *update_gossip_failure(struct command *cmd UNUSED,
 						    const jsmntok_t *result,
 						    struct routefail *r)
 {
+	assert(r);
+	assert(r->payment);
+	
 	/* FIXME it might be too strong assumption that erring_channel should
 	 * always be present here, but at least the documentation for
 	 * waitsendpay says it is present in the case of error. */
 	assert(r->route->result->erring_channel);
 
 	payment_disable_chan(
-	    r->route->payment, *r->route->result->erring_channel, LOG_INFORM,
+	    r->payment, *r->route->result->erring_channel, LOG_INFORM,
 	    "addgossip failed (%.*s)", json_tok_full_len(result),
 	    json_tok_full(buf, result));
 	return update_gossip_done(cmd, buf, result, r);
@@ -198,10 +213,10 @@ static struct command_result *handle_failure(struct routefail *r)
 	assert(route);
 	struct payment_result *result = route->result;
 	assert(result);
-	struct payment *payment = route->payment;
+	struct payment *payment = r->payment;
 	assert(payment);
 
-	u32 path_len = 0;
+	int path_len = 0;
 	if (route->hops)
 		path_len = tal_count(route->hops);
 
@@ -248,7 +263,7 @@ static struct command_result *handle_failure(struct routefail *r)
 			/* we disable the next node in the hop */
 			assert(*result->erring_index < path_len);
 			payment_disable_node(
-			    route->payment,
+			    payment,
 			    route->hops[*result->erring_index].node_id, LOG_DBG,
 			    "received %s from previous hop",
 			    onion_wire_name(result->failcode));
@@ -286,7 +301,7 @@ static struct command_result *handle_failure(struct routefail *r)
 			    result->failcode,
 			    onion_wire_name(result->failcode));
 		} else {
-			payment_disable_node(route->payment,
+			payment_disable_node(payment,
 					     *result->erring_node, LOG_INFORM,
 					     "received error %s",
 					     onion_wire_name(result->failcode));
@@ -316,7 +331,7 @@ static struct command_result *handle_failure(struct routefail *r)
 		} else {
 			assert(result->erring_channel);
 			payment_disable_chan(
-			    route->payment, *result->erring_channel, LOG_INFORM,
+			    payment, *result->erring_channel, LOG_INFORM,
 			    "%s", onion_wire_name(result->failcode));
 		}
 		break;
@@ -335,7 +350,7 @@ static struct command_result *handle_failure(struct routefail *r)
 				     result->failcode,
 				     onion_wire_name(result->failcode));
 
-			payment_disable_node(route->payment,
+			payment_disable_node(payment,
 					     *result->erring_node, LOG_INFORM,
 					     "received error %s",
 					     onion_wire_name(result->failcode));
@@ -367,7 +382,7 @@ static struct command_result *handle_failure(struct routefail *r)
 			 * information and try again. To avoid hitting this
 			 * error again with the same channel we flag it. */
 			assert(result->erring_channel);
-			payment_warn_chan(route->payment,
+			payment_warn_chan(payment,
 					  *result->erring_channel, LOG_INFORM,
 					  "received error %s",
 					  onion_wire_name(result->failcode));
@@ -401,7 +416,13 @@ static struct command_result *handle_failure(struct routefail *r)
 
 	/* Update the knowledge in the uncertaity network. */
 	if (route->hops) {
-		assert(last_good_channel < path_len);
+		if(last_good_channel >= path_len)
+		{
+			plugin_err(pay_plugin->plugin, 
+				"last_good_channel (%d) >= path_len (%d)", 
+				last_good_channel,
+				path_len);
+		}
 
 		/* All channels before the erring node could forward the
 		 * payment. */

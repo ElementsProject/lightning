@@ -1,13 +1,12 @@
 #include "config.h"
 #include <plugins/renepay/route.h>
 
-struct route *new_route(const tal_t *ctx, struct payment *payment, u32 groupid,
+struct route *new_route(const tal_t *ctx, u32 groupid,
 			u32 partid, struct sha256 payment_hash,
 			struct amount_msat amount,
 			struct amount_msat amount_sent)
 {
 	struct route *route = tal(ctx, struct route);
-	route->payment = payment;
 	route->key.partid = partid;
 	route->key.groupid = groupid;
 	route->key.payment_hash = payment_hash;
@@ -26,18 +25,17 @@ struct route *new_route(const tal_t *ctx, struct payment *payment, u32 groupid,
 /* Construct a route from a flow.
  *
  * @ctx: allocator
- * @payment: NULL or the payment this route will point to
  * @groupid, @partid, @payment_hash: unique identification keys for this route
  * @final_cltv: final delay required by the payment
  * @gossmap: global gossmap
  * @flow: the flow to convert to route */
-struct route *flow_to_route(const tal_t *ctx, struct payment *payment,
+struct route *flow_to_route(const tal_t *ctx,
 			    u32 groupid, u32 partid, struct sha256 payment_hash,
 			    u32 final_cltv, struct gossmap *gossmap,
 			    struct flow *flow)
 {
 	struct route *route =
-	    new_route(ctx, payment, groupid, partid, payment_hash,
+	    new_route(ctx, groupid, partid, payment_hash,
 		      AMOUNT_MSAT(0), AMOUNT_MSAT(0));
 
 	size_t pathlen = tal_count(flow->path);
@@ -75,7 +73,7 @@ function_fail:
 	return tal_free(route);
 }
 
-struct route **flows_to_routes(const tal_t *ctx, struct payment *payment,
+struct route **flows_to_routes(const tal_t *ctx,
 			       u32 groupid, u32 partid,
 			       struct sha256 payment_hash, u32 final_cltv,
 			       struct gossmap *gossmap, struct flow **flows)
@@ -86,7 +84,7 @@ struct route **flows_to_routes(const tal_t *ctx, struct payment *payment,
 	struct route **routes = tal_arr(ctx, struct route *, N);
 	for (size_t i = 0; i < N; i++) {
 		routes[i] =
-		    flow_to_route(routes, payment, groupid, partid++,
+		    flow_to_route(routes, groupid, partid++,
 				  payment_hash, final_cltv, gossmap, flows[i]);
 		if (!routes[i])
 			goto function_fail;

@@ -222,9 +222,10 @@ static struct command_result *previous_sendpays_done(struct command *cmd,
 			 * succeed the payment, and when they fail we need to
 			 * substract from the total. */
 
-			struct route *r = new_route(
-			    pending_routes, payment, groupid, partid,
-			    payment->payment_hash, this_msat, this_sent);
+			struct route *r =
+			    new_route(pending_routes, groupid, partid,
+				      payment->payment_info.payment_hash,
+				      this_msat, this_sent);
 			assert(r);
 			tal_arr_expand(&pending_routes, r);
 		} else
@@ -234,8 +235,8 @@ static struct command_result *previous_sendpays_done(struct command *cmd,
 	if (complete_groupid != INVALID_ID) {
 		/* There are completed sendpays, we don't need to do anything
 		 * but summarize the result. */
-		payment->start_time.ts.tv_sec = complete_created_at;
-		payment->start_time.ts.tv_nsec = 0;
+		payment->payment_info.start_time.ts.tv_sec = complete_created_at;
+		payment->payment_info.start_time.ts.tv_nsec = 0;
 		payment->total_delivering = complete_msat;
 		payment->total_sent = complete_sent;
 		payment->next_partid = complete_parts + 1;
@@ -261,7 +262,7 @@ static struct command_result *previous_sendpays_done(struct command *cmd,
 			   max_pending_partid);
 
 		if (amount_msat_greater_eq(payment->total_delivering,
-					   payment->amount)) {
+					   payment->payment_info.amount)) {
 			/* Pending payment already pays the full amount, we
 			 * better stop. */
 			return payment_fail(
@@ -271,7 +272,8 @@ static struct command_result *previous_sendpays_done(struct command *cmd,
 		}
 
 		for (size_t j = 0; j < tal_count(pending_routes); j++) {
-			route_pending_register(pending_routes[j]);
+			route_pending_register(payment->routetracker,
+					       pending_routes[j]);
 		}
 
 	} else {
@@ -295,7 +297,8 @@ static struct command_result *previous_sendpays_cb(struct payment *payment)
 	    cmd->plugin, cmd, "listsendpays", previous_sendpays_done,
 	    payment_rpc_failure, payment);
 
-	json_add_sha256(req->js, "payment_hash", &payment->payment_hash);
+	json_add_sha256(req->js, "payment_hash",
+			&payment->payment_info.payment_hash);
 	return send_outreq(cmd->plugin, req);
 }
 
@@ -330,8 +333,10 @@ static struct command_result *selfpay_success(struct command *cmd,
 					      const jsmntok_t *tok,
 					      struct route *route)
 {
-	struct payment *payment = route->payment;
+	struct payment *payment =
+		    payment_map_get(pay_plugin->payment_map, route->key.payment_hash);
 	assert(payment);
+
 	struct preimage preimage;
 	const char *err;
 	err = json_scan(tmpctx, buf, tok, "{payment_preimage:%}",
@@ -350,7 +355,8 @@ static struct command_result *selfpay_failure(struct command *cmd,
 					      const jsmntok_t *tok,
 					      struct route *route)
 {
-	struct payment *payment = route->payment;
+	struct payment *payment =
+		    payment_map_get(pay_plugin->payment_map, route->key.payment_hash);
 	assert(payment);
 	struct payment_result *result = tal_sendpay_result_from_json(tmpctx, buf, tok);
 	if (result == NULL)
@@ -363,7 +369,8 @@ static struct command_result *selfpay_failure(struct command *cmd,
 
 static struct command_result *selfpay_cb(struct payment *payment)
 {
-	if (!node_id_eq(&pay_plugin->my_id, &payment->destination)) {
+	if (!node_id_eq(&pay_plugin->my_id,
+			&payment->payment_info.destination)) {
 		return payment_continue(payment);
 	}
 
@@ -372,14 +379,16 @@ static struct command_result *selfpay_cb(struct payment *payment)
 		plugin_err(pay_plugin->plugin,
 			   "Selfpay: cannot get a valid cmd.");
 
-	struct route *route = new_route(payment, payment, payment->groupid,
-					/*partid=*/0, payment->payment_hash,
-					payment->amount, payment->amount);
+	struct payment_info *pinfo = &payment->payment_info;
+	struct route *route =
+	    new_route(payment, payment->groupid,
+		      /*partid=*/0, pinfo->payment_hash,
+		      pinfo->amount, pinfo->amount);
 	struct out_req *req;
 	req = jsonrpc_request_start(cmd->plugin, cmd, "sendpay",
 				    selfpay_success, selfpay_failure, route);
 	route->hops = tal_arr(route, struct route_hop, 0);
-	json_add_route(req->js, route);
+	json_add_route(req->js, route, payment);
 	return send_outreq(cmd->plugin, req);
 }
 
@@ -640,13 +649,16 @@ static struct command_result *routehints_done(struct command *cmd UNUSED,
 	// FIXME are there route hints for B12?
 	assert(payment);
 	assert(payment->local_gossmods);
-	assert(payment->routehints);
-	const size_t nhints = tal_count(payment->routehints);
+
+	const struct node_id *destination = &payment->payment_info.destination;
+	const struct route_info **routehints = payment->payment_info.routehints;
+	assert(routehints);
+	const size_t nhints = tal_count(routehints);
 	/* Hints are added to the local_gossmods. */
 	for (size_t i = 0; i < nhints; i++) {
 		/* Each one, presumably, leads to the destination */
-		const struct route_info *r = payment->routehints[i];
-		const struct node_id *end = &payment->destination;
+		const struct route_info *r = routehints[i];
+		const struct node_id *end = destination;
 
 		for (int j = tal_count(r) - 1; j >= 0; j--) {
 			add_hintchan(payment, &r[j].pubkey, end,
@@ -697,7 +709,8 @@ compute_routes_done(struct command *cmd UNUSED, const char *buf UNUSED,
 	struct amount_msat feebudget, fees_spent, remaining;
 
 	/* Total feebudget  */
-	if (!amount_msat_sub(&feebudget, payment->maxspend, payment->amount))
+	if (!amount_msat_sub(&feebudget, payment->payment_info.maxspend,
+			     payment->payment_info.amount))
 		plugin_err(pay_plugin->plugin, "%s: fee budget is negative?",
 			   __PRETTY_FUNCTION__);
 
@@ -713,7 +726,7 @@ compute_routes_done(struct command *cmd UNUSED, const char *buf UNUSED,
 		feebudget = AMOUNT_MSAT(0);
 
 	/* How much are we still trying to send? */
-	if (!amount_msat_sub(&remaining, payment->amount,
+	if (!amount_msat_sub(&remaining, payment->payment_info.amount,
 			     payment->total_delivering))
 		plugin_err(pay_plugin->plugin,
 			   "%s: total_delivering is greater than amount?",
@@ -742,14 +755,17 @@ compute_routes_done(struct command *cmd UNUSED, const char *buf UNUSED,
 
 	payment->routes_computed = get_routes(
 		payment,
-		payment,
+		&payment->payment_info,
 		&pay_plugin->my_id,
-		&payment->destination,
+		&payment->payment_info.destination,
 		pay_plugin->gossmap,
 		pay_plugin->uncertainty,
+		payment->disabledmap,
 		remaining,
-		payment->final_cltv,
 		feebudget,
+
+		&payment->next_partid,
+		payment->groupid,
 
 		&errcode,
 		&err_msg);
@@ -793,7 +809,7 @@ static struct command_result *send_routes_done(struct command *cmd,
 	for (size_t i = 0; i < tal_count(payment->routes_computed); i++) {
 		struct route *route = payment->routes_computed[i];
 
-		route_sendpay_request(cmd, route);
+		route_sendpay_request(cmd, route, payment);
 
 		payment_note(payment, LOG_INFORM,
 			     "Sent route request: partid=%" PRIu64
@@ -880,7 +896,7 @@ collect_results_done(struct command *cmd UNUSED, const char *buf UNUSED,
 		/* If we have the preimate that means one succeed, we
 		 * inmediately finish the payment. */
 		if (!amount_msat_greater_eq(payment->total_delivering,
-					    payment->amount)) {
+					    payment->payment_info.amount)) {
 			plugin_err(
 			    pay_plugin->plugin,
 			    "%s: received a success sendpay for this "
@@ -888,7 +904,8 @@ collect_results_done(struct command *cmd UNUSED, const char *buf UNUSED,
 			    "is less than the payment amount %s.",
 			    __PRETTY_FUNCTION__,
 			    fmt_amount_msat(tmpctx, payment->total_delivering),
-			    fmt_amount_msat(tmpctx, payment->amount));
+			    fmt_amount_msat(tmpctx,
+					    payment->payment_info.amount));
 		}
 		return payment_success(payment, take(payment_preimage));
 	}
@@ -899,7 +916,7 @@ collect_results_done(struct command *cmd UNUSED, const char *buf UNUSED,
 	}
 
 	if (amount_msat_greater_eq(payment->total_delivering,
-				   payment->amount)) {
+				   payment->payment_info.amount)) {
 		/* There are no succeeds but we are still pending delivering the
 		 * entire payment. We still need to collect more results. */
 		payment->have_results = false;
@@ -973,7 +990,7 @@ static struct command_result *checktimeout_done(struct command *cmd UNUSED,
 						const jsmntok_t *result UNUSED,
 						struct payment *payment)
 {
-	if (time_after(time_now(), payment->stop_time)) {
+	if (time_after(time_now(), payment->payment_info.stop_time)) {
 		return payment_fail(payment, PAY_STOPPED_RETRYING, "Timed out");
 	}
 	return payment_continue(payment);

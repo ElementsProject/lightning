@@ -22,6 +22,7 @@ PLUGIN_RENEPAY_HDRS :=				\
 	plugins/renepay/dijkstra.h		\
 	plugins/renepay/disabledmap.h		\
 	plugins/renepay/payment.h		\
+	plugins/renepay/payment_info.h		\
 	plugins/renepay/chan_extra.h		\
 	plugins/renepay/route.h			\
 	plugins/renepay/routebuilder.h		\

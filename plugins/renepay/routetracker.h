@@ -7,12 +7,13 @@
 #include <plugins/renepay/route.h>
 
 struct routetracker{
+	struct payment *payment;
 	struct route_map *sent_routes;
 	struct route_map *pending_routes;
 	struct route **finalized_routes;
 };
 
-struct routetracker *new_routetracker(const tal_t *ctx);
+struct routetracker *new_routetracker(const tal_t *ctx, struct payment *payment);
 // bool routetracker_is_ready(const struct routetracker *routetracker);
 void routetracker_cleanup(struct routetracker *routetracker);
 size_t routetracker_count_sent(struct routetracker *routetracker);
@@ -29,11 +30,13 @@ void payment_collect_results(struct payment *payment,
 
 /* Announce that this route is pending and needs to be kept in the waiting list
  * for notifications. */
-void route_pending_register(const struct route *route);
+void route_pending_register(struct routetracker *routetracker,
+			    const struct route *route);
 
 /* Sends a sendpay request for this route. */
 struct command_result *route_sendpay_request(struct command *cmd,
-					     struct route *route);
+					     struct route *route,
+					     struct payment *payment);
 
 struct command_result *notification_sendpay_failure(struct command *cmd,
 						    const char *buf,
@@ -44,7 +47,8 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 						    const jsmntok_t *params);
 
 /* Notify the tracker that this route has failed. */
-void route_failure_register(struct route *route);
+void route_failure_register(struct routetracker *routetracker,
+			    struct route *route);
 
 // FIXME: double-check that we actually get one notification for each sendpay,
 // ie. that after some time we don't have yet pending sendpays for old failed or

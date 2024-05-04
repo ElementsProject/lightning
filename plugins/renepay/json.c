@@ -173,20 +173,21 @@ void json_add_payment(struct json_stream *s, const struct payment *payment)
 {
 	assert(s);
 	assert(payment);
+	const struct payment_info *pinfo = &payment->payment_info;
 
-	if (payment->label != NULL)
-		json_add_string(s, "label", payment->label);
-	if (payment->invstr != NULL)
-		json_add_invstring(s, payment->invstr);
+	if (pinfo->label != NULL)
+		json_add_string(s, "label", pinfo->label);
+	if (pinfo->invstr != NULL)
+		json_add_invstring(s, pinfo->invstr);
 
-	json_add_amount_msat(s, "amount_msat", payment->amount);
-	json_add_sha256(s, "payment_hash", &payment->payment_hash);
-	json_add_node_id(s, "destination", &payment->destination);
+	json_add_amount_msat(s, "amount_msat", pinfo->amount);
+	json_add_sha256(s, "payment_hash", &pinfo->payment_hash);
+	json_add_node_id(s, "destination", &pinfo->destination);
 
-	if (payment->description)
-		json_add_string(s, "description", payment->description);
+	if (pinfo->description)
+		json_add_string(s, "description", pinfo->description);
 
-	json_add_timeabs(s, "created_at", payment->start_time);
+	json_add_timeabs(s, "created_at", pinfo->start_time);
 	json_add_u64(s, "groupid", payment->groupid);
 	json_add_u64(s, "parts", payment->next_partid);
 
@@ -219,13 +220,14 @@ void json_add_payment(struct json_stream *s, const struct payment *payment)
 	// - number of parts?
 }
 
-void json_add_route(struct json_stream *js, const struct route *route)
+void json_add_route(struct json_stream *js, const struct route *route,
+		    const struct payment *payment)
 {
 	assert(js);
 	assert(route);
-
-	struct payment *payment = route->payment;
 	assert(payment);
+	
+	const struct payment_info *pinfo = &payment->payment_info;
 
 	assert(route->hops);
 	const size_t pathlen = tal_count(route->hops);
@@ -245,10 +247,10 @@ void json_add_route(struct json_stream *js, const struct route *route)
 		json_object_end(js);
 	}
 	json_array_end(js);
-	json_add_sha256(js, "payment_hash", &payment->payment_hash);
+	json_add_sha256(js, "payment_hash", &pinfo->payment_hash);
 
-	if (payment->payment_secret)
-		json_add_secret(js, "payment_secret", payment->payment_secret);
+	if (pinfo->payment_secret)
+		json_add_secret(js, "payment_secret", pinfo->payment_secret);
 
 	/* FIXME: sendpay has a check that we don't total more than
 	 * the exact amount, if we're setting partid (i.e. MPP).
@@ -259,24 +261,24 @@ void json_add_route(struct json_stream *js, const struct route *route)
 	 * The spec was loosened so you are actually allowed
 	 * to overpay, so this check is now overzealous. */
 	if (pathlen > 0 &&
-	    amount_msat_greater(route_delivers(route), payment->amount)) {
+	    amount_msat_greater(route_delivers(route), pinfo->amount)) {
 		json_add_amount_msat(js, "amount_msat", route_delivers(route));
 	} else {
-		json_add_amount_msat(js, "amount_msat", payment->amount);
+		json_add_amount_msat(js, "amount_msat", pinfo->amount);
 	}
 	json_add_u64(js, "partid", route->key.partid);
 	json_add_u64(js, "groupid", route->key.groupid);
 
 	/* FIXME: some of these fields might not be required for all
 	 * payment parts. */
-	json_add_string(js, "bolt11", payment->invstr);
+	json_add_string(js, "bolt11", pinfo->invstr);
 
-	if (payment->payment_metadata)
+	if (pinfo->payment_metadata)
 		json_add_hex_talarr(js, "payment_metadata",
-				    payment->payment_metadata);
-	if (payment->label)
-		json_add_string(js, "label", payment->label);
-	if (payment->description)
-		json_add_string(js, "description", payment->description);
+				    pinfo->payment_metadata);
+	if (pinfo->label)
+		json_add_string(js, "label", pinfo->label);
+	if (pinfo->description)
+		json_add_string(js, "description", pinfo->description);
 
 }

@@ -3,56 +3,7 @@
 #include <plugins/renepay/mcf.h>
 #include <plugins/renepay/routebuilder.h>
 
-static bitmap *
-make_disabled_channels_bitmap(const tal_t *ctx, const struct gossmap *gossmap,
-			      const struct chan_extra_map *chan_extra_map,
-			      const struct short_channel_id *disabled_scids)
-{
-	bitmap *disabled =
-	    tal_arrz(ctx, bitmap, BITMAP_NWORDS(gossmap_max_chan_idx(gossmap)));
-	if (!disabled)
-		return NULL;
-
-	/* Disable every channel in the list of disabled scids. */
-	for (size_t i = 0; i < tal_count(disabled_scids); i++) {
-		struct gossmap_chan *c =
-		    gossmap_find_chan(gossmap, &disabled_scids[i]);
-		if (c)
-			bitmap_set_bit(disabled, gossmap_chan_idx(gossmap, c));
-	}
-	/* Also disable every channel that we don't have in the chan_extra_map.
-	 */
-	for (struct gossmap_chan *chan = gossmap_first_chan(gossmap); chan;
-	     chan = gossmap_next_chan(gossmap, chan)) {
-		const u32 chan_id = gossmap_chan_idx(gossmap, chan);
-		struct short_channel_id scid = gossmap_chan_scid(gossmap, chan);
-		struct chan_extra *ce =
-		    chan_extra_map_get(chan_extra_map, scid);
-		if (!ce)
-			bitmap_set_bit(disabled, chan_id);
-	}
-	return disabled;
-}
-
-/* Disable all channels that lead to a disabled node. */
-static bool make_disabled_nodes(const struct gossmap *gossmap,
-				const struct node_id *disabled_nodes,
-				bitmap *disabled)
-{
-	/* Disable every channel in the list of disabled scids. */
-	for (size_t i = 0; i < tal_count(disabled_nodes); i++) {
-		const struct gossmap_node *node =
-		    gossmap_find_node(gossmap, &disabled_nodes[i]);
-
-		for (size_t j = 0; j < node->num_chans; j++) {
-			int half;
-			const struct gossmap_chan *c =
-			    gossmap_nth_chan(gossmap, node, j, &half);
-			bitmap_set_bit(disabled, gossmap_chan_idx(gossmap, c));
-		}
-	}
-	return true;
-}
+#include <stdio.h>
 
 // static void uncertainty_commit_routes(struct uncertainty *uncertainty,
 // 				   struct route **routes)
@@ -69,23 +20,13 @@ static void uncertainty_remove_routes(struct uncertainty *uncertainty,
 		uncertainty_remove_htlcs(uncertainty, routes[i]);
 }
 
-static void mark_chan_disabled(const struct gossmap_chan *chan,
-			       struct short_channel_id **disabled_scids,
-			       bitmap *disabled_bitmap,
-			       struct gossmap *gossmap)
-{
-	struct short_channel_id scid = gossmap_chan_scid(gossmap, chan);
-	tal_arr_expand(disabled_scids, scid);
-	bitmap_set_bit(disabled_bitmap, gossmap_chan_idx(gossmap, chan));
-}
-
 // TODO: check
 /* Shave-off amounts that do not meet the liquidity constraints. Disable
  * channels that produce an htlc_max bottleneck. */
 static struct flow **flows_adjust_htlcmax_constraints(
     const tal_t *ctx, struct flow **flows TAKES, struct gossmap *gossmap,
     struct chan_extra_map *chan_extra_map,
-    struct short_channel_id **disabled_scids, bitmap *disabled_bitmap)
+    bitmap *disabled_bitmap)
 {
 	struct flow **new_flows = tal_arr(ctx, struct flow *, 0);
 	enum renepay_errorcode errorcode;
@@ -106,8 +47,9 @@ static struct flow **flows_adjust_htlcmax_constraints(
 			tal_arr_expand(&new_flows, f);
 		} else if (errorcode == RENEPAY_BAD_CHANNEL) {
 			// this is a channel that we can disable
-			mark_chan_disabled(bad_channel, disabled_scids,
-					   disabled_bitmap, gossmap);
+			// FIXME: log this error?
+			bitmap_set_bit(disabled_bitmap,
+				       gossmap_chan_idx(gossmap, bad_channel));
 			continue;
 		} else {
 			// we had an unexpected error
@@ -134,7 +76,7 @@ function_fail:
 static struct flow **flows_adjust_htlcmin_constraints(
     const tal_t *ctx, struct flow **flows TAKES, struct gossmap *gossmap,
     struct chan_extra_map *chan_extra_map,
-    struct short_channel_id **disabled_scids, bitmap *disabled_bitmap)
+    bitmap *disabled_bitmap)
 {
 	struct flow **new_flows = tal_arr(ctx, struct flow *, 0);
 	enum renepay_errorcode errorcode;
@@ -155,8 +97,9 @@ static struct flow **flows_adjust_htlcmin_constraints(
 			tal_arr_expand(&new_flows, f);
 		} else if (errorcode == RENEPAY_BAD_CHANNEL) {
 			// this is a channel that we can disable
-			mark_chan_disabled(bad_channel, disabled_scids,
-					   disabled_bitmap, gossmap);
+			// FIXME: log this error?
+			bitmap_set_bit(disabled_bitmap,
+				       gossmap_chan_idx(gossmap, bad_channel));
 			continue;
 		} else {
 			// we had an unexpected error
@@ -179,16 +122,23 @@ function_fail:
 }
 
 /* Routes are computed and saved in the payment for later use. */
-struct route **get_routes(const tal_t *ctx, struct payment *payment,
+struct route **get_routes(const tal_t *ctx,
+			  struct payment_info *payment_info,
 
 			  const struct node_id *source,
 			  const struct node_id *destination,
-			  struct gossmap *gossmap, struct uncertainty *uncertainty,
+			  struct gossmap *gossmap,
+			  struct uncertainty *uncertainty,
+			  struct disabledmap *disabledmap,
 
 			  struct amount_msat amount_to_deliver,
-			  const u32 final_cltv, struct amount_msat feebudget,
+			  struct amount_msat feebudget,
 
-			  enum jsonrpc_errcode *ecode, const char **fail)
+			  u64 *next_partid,
+			  u64 groupid,
+
+			  enum jsonrpc_errcode *ecode,
+			  const char **fail)
 {
 	assert(gossmap);
 	assert(uncertainty);
@@ -196,17 +146,14 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 	const tal_t *this_ctx = tal(ctx, tal_t);
 	struct route **routes = tal_arr(ctx, struct route *, 0);
 
-	double probability_budget = payment->min_prob_success;
-	double delay_feefactor = payment->delay_feefactor;
-	const double base_fee_penalty = payment->base_fee_penalty;
-	const double prob_cost_factor = payment->prob_cost_factor;
-	const unsigned int maxdelay = payment->maxdelay;
+	double probability_budget = payment_info->min_prob_success;
+	double delay_feefactor = payment_info->delay_feefactor;
+	const double base_fee_penalty = payment_info->base_fee_penalty;
+	const double prob_cost_factor = payment_info->prob_cost_factor;
+	const unsigned int maxdelay = payment_info->maxdelay;
 
-	bitmap *disabled_bitmap = make_disabled_channels_bitmap(
-	    this_ctx, gossmap, uncertainty->chan_extra_map,
-	    payment->disabled_scids);
-
-	make_disabled_nodes(gossmap, payment->disabled_nodes, disabled_bitmap);
+	bitmap *disabled_bitmap =
+	    tal_disabledmap_get_bitmap(this_ctx, disabledmap, gossmap);
 
 	if (!disabled_bitmap) {
 		if (ecode)
@@ -215,6 +162,18 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 			*fail =
 			    tal_fmt(ctx, "Failed to build disabled_bitmap.");
 		goto function_fail;
+	}
+
+	/* Also disable every channel that we don't have in the chan_extra_map.
+	 */
+	for (struct gossmap_chan *chan = gossmap_first_chan(gossmap); chan;
+	     chan = gossmap_next_chan(gossmap, chan)) {
+		const u32 chan_id = gossmap_chan_idx(gossmap, chan);
+		struct short_channel_id scid = gossmap_chan_scid(gossmap, chan);
+		struct chan_extra *ce =
+		    chan_extra_map_get(uncertainty->chan_extra_map, scid);
+		if (!ce)
+			bitmap_set_bit(disabled_bitmap, chan_id);
 	}
 
 	const struct gossmap_node *src, *dst;
@@ -241,13 +200,14 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 
 	while (!amount_msat_zero(amount_to_deliver)) {
 
+		printf("amount to deliver: %s\n", fmt_amount_msat(this_ctx, amount_to_deliver));
+
 		/* TODO: choose an algorithm, could be something like
 		 * payment->algorithm, that we set up based on command line
 		 * options and that can be changed according to some conditions
 		 * met during the payment process, eg. add "select_solver" pay
 		 * mod. */
 		/* TODO: use uncertainty instead of chan_extra */
-		/* TODO: shall we add to possibility to blacklist nodes? */
 
 		/* Min. Cost Flow algorithm to find optimal flows. */
 		struct flow **flows =
@@ -278,7 +238,7 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 		flows = flows_adjust_htlcmax_constraints(
 		    this_ctx, take(flows), gossmap,
 		    uncertainty_get_chan_extra_map(uncertainty),
-		    &payment->disabled_scids, disabled_bitmap);
+		    disabled_bitmap);
 		if (!flows) {
 			if (ecode)
 				*ecode = PAY_ROUTE_NOT_FOUND;
@@ -294,7 +254,7 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 		flows = flows_adjust_htlcmin_constraints(
 		    this_ctx, take(flows), gossmap,
 		    uncertainty_get_chan_extra_map(uncertainty),
-		    &payment->disabled_scids, disabled_bitmap);
+		    disabled_bitmap);
 		if (!flows) {
 			if (ecode)
 				*ecode = PAY_ROUTE_NOT_FOUND;
@@ -335,7 +295,7 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 
 		/* Check the CLTV delay */
 		/* TODO: review this, only flows with non-zero amounts */
-		const u64 delay = flows_worst_delay(flows) + final_cltv;
+		const u64 delay = flows_worst_delay(flows) + payment_info->final_cltv;
 		if (delay > maxdelay) {
 			/* FIXME: What is a sane limit? */
 			if (delay_feefactor > 1000) {
@@ -386,14 +346,14 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 		// TODO check ownership of these routes
 		for (size_t i = 0; i < tal_count(flows); i++) {
 			struct route *r = flow_to_route(
-			    ctx, payment, payment->groupid,
-			    payment->next_partid, payment->payment_hash,
-			    final_cltv, gossmap, flows[i]);
+			    ctx, groupid,
+			    *next_partid, payment_info->payment_hash,
+			    payment_info->final_cltv, gossmap, flows[i]);
 			if (!r) {
 				/* TODO: what could have gone wrong? */
 				continue;
 			}
-			payment->next_partid++;
+			(*next_partid)++;
 			uncertainty_commit_htlcs(uncertainty, r);
 			tal_arr_expand(&routes, r);
 
