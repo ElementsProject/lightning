@@ -3,6 +3,7 @@
 #include "config.h"
 #include <common/gossmap.h>
 #include <plugins/libplugin.h>
+#include <plugins/renepay/disabledmap.h>
 
 enum payment_status { PAYMENT_PENDING, PAYMENT_SUCCESS, PAYMENT_FAIL };
 
@@ -127,16 +128,7 @@ struct payment {
 	/* Localmods to apply to gossip_map for our own use. */
 	struct gossmap_localmods *local_gossmods;
 
-	/* Channels we decided to disable for various reasons. */
-	struct short_channel_id *disabled_scids;
-	
-	/* Channels that we flagged for failures. If warned two times we will
-	 * disable it. */
-	struct short_channel_id *warned_scids;
-	
-	/* nodes we disable */
-	struct node_id *disabled_nodes;
-
+	struct disabledmap *disabledmap;
 
 	/* Flag to indicate wether we have collected enough results to make a
 	 * decision on the payment progress. */
