@@ -238,7 +238,7 @@ void payment_collect_results(struct payment *payment,
 		if (r->result->status == SENDPAY_COMPLETE && payment_preimage) {
 			assert(r->result->payment_preimage);
 			*payment_preimage =
-			    tal_dup(payment, struct preimage,
+			    tal_dup(tmpctx, struct preimage,
 				    r->result->payment_preimage);
 		}
 

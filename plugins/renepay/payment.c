@@ -280,7 +280,10 @@ struct command_result *payment_success(struct payment *payment,
 	assert(preimage);
 	payment->status = PAYMENT_SUCCESS;
 	payment->preimage = tal_free(payment->preimage);
-	payment->preimage = tal_dup(payment, struct preimage, preimage);
+	if(taken(preimage))
+		payment->preimage = tal_steal(payment, preimage);
+	else
+		payment->preimage = tal_dup(payment, struct preimage, preimage);
 	return payment_finish(payment);
 }
 
