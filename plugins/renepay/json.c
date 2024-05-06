@@ -226,7 +226,7 @@ void json_add_route(struct json_stream *js, const struct route *route,
 	assert(js);
 	assert(route);
 	assert(payment);
-	
+
 	const struct payment_info *pinfo = &payment->payment_info;
 
 	assert(route->hops);
