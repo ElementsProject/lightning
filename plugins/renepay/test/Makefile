@@ -12,7 +12,7 @@ PLUGIN_RENEPAY_TEST_COMMON_OBJS :=		\
 	plugins/renepay/dijkstra.o		\
 	plugins/renepay/chan_extra.o
 
-$(PLUGIN_RENEPAY_TEST_PROGRAMS): $(PLUGIN_RENEPAY_TEST_COMMON_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) bitcoin/chainparams.o common/gossmap.o common/fp16.o common/dijkstra.o
+$(PLUGIN_RENEPAY_TEST_PROGRAMS): $(PLUGIN_RENEPAY_TEST_COMMON_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) bitcoin/chainparams.o common/gossmap.o common/fp16.o common/dijkstra.o gossipd/gossip_store_wiregen.o
 
 check-renepay: $(PLUGIN_RENEPAY_TEST_PROGRAMS:%=unittest/%)
 

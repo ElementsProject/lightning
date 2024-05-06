@@ -48,9 +48,9 @@ static void valgrind_ok1(void)
 		tal_t *local_ctx = tal(this_ctx,tal_t);
 		struct routekey key;
 
-		struct route *r1 = new_route(local_ctx, NULL, 1, 1, hash,
+		struct route *r1 = new_route(local_ctx, 1, 1, hash,
 					     AMOUNT_MSAT(0), AMOUNT_MSAT(0));
-		struct route *r2 = new_route(local_ctx, NULL, 2, 3, hash,
+		struct route *r2 = new_route(local_ctx, 2, 3, hash,
 					     AMOUNT_MSAT(0), AMOUNT_MSAT(0));
 
 		printf("key1 = %s\n", fmt_routekey(local_ctx,&r1->key));
