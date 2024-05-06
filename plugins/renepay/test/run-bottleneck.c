@@ -351,6 +351,8 @@ int main(int argc, char *argv[])
 		&errcode,
 		&err_msg);
 
+	assert(routes);
+
 	if (!routes) {
 		printf("get_route failed with error %d: %s", errcode, err_msg);
 	}
