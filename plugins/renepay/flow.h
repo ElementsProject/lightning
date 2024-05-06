@@ -18,6 +18,10 @@ struct flow {
 	struct amount_msat amount;
 };
 
+const char *fmt_flows(const tal_t *ctx, const struct gossmap *gossmap,
+		      struct chan_extra_map *chan_extra_map,
+		      struct flow **flows);
+
 /* Helper to access the half chan at flow index idx */
 const struct half_chan *flow_edge(const struct flow *flow, size_t idx);
 

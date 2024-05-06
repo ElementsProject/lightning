@@ -24,9 +24,10 @@ const char *fmt_chan_extra_map(const tal_t *ctx,
 		const char *scid_str = fmt_short_channel_id(this_ctx, ch->scid);
 		for (int dir = 0; dir < 2; ++dir) {
 			tal_append_fmt(
-			    &buff, "%s[%d]:(%s,%s)\n", scid_str, dir,
+			    &buff, "%s[%d]:(%s,%s) htlc: %s\n", scid_str, dir,
 			    fmt_amount_msat(this_ctx, ch->half[dir].known_min),
-			    fmt_amount_msat(this_ctx, ch->half[dir].known_max));
+			    fmt_amount_msat(this_ctx, ch->half[dir].known_max),
+			    fmt_amount_msat(this_ctx, ch->half[dir].htlc_total));
 		}
 	}
 	tal_free(this_ctx);

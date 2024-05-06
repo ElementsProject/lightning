@@ -97,13 +97,15 @@ function_fail:
 
 const char *fmt_route_path(const tal_t *ctx, const struct route *route)
 {
+	tal_t *this_ctx = tal(ctx, tal_t);
 	char *s = tal_strdup(ctx, "");
 	const size_t pathlen = tal_count(route->hops);
 	for (size_t i = 0; i < pathlen; i++) {
 		const struct short_channel_id_dir scidd =
 		    hop_to_scidd(&route->hops[i]);
-		tal_append_fmt(&s, "-%s->",
-			       fmt_short_channel_id(tmpctx, scidd.scid));
+		tal_append_fmt(&s, "%s%s", i ? "->" : "",
+			       fmt_short_channel_id(this_ctx, scidd.scid));
 	}
+	tal_free(this_ctx);
 	return s;
 }
