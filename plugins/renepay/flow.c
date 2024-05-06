@@ -34,6 +34,39 @@ function_fail:
 	return tal_free(amounts);
 }
 
+const char *fmt_flows(const tal_t *ctx, const struct gossmap *gossmap,
+		      struct chan_extra_map *chan_extra_map,
+		      struct flow **flows)
+{
+	tal_t *this_ctx = tal(ctx, tal_t);
+	double tot_prob =
+	    flowset_probability(tmpctx, flows, gossmap, chan_extra_map, NULL);
+	assert(tot_prob >= 0);
+	char *buff = tal_fmt(ctx, "%zu subflows, prob %2lf\n", tal_count(flows),
+			     tot_prob);
+	for (size_t i = 0; i < tal_count(flows); i++) {
+		struct amount_msat fee, delivered;
+		tal_append_fmt(&buff, "   ");
+		for (size_t j = 0; j < tal_count(flows[i]->path); j++) {
+			struct short_channel_id scid =
+			    gossmap_chan_scid(gossmap, flows[i]->path[j]);
+			tal_append_fmt(&buff, "%s%s", j ? "->" : "",
+				       fmt_short_channel_id(this_ctx, scid));
+		}
+		delivered = flows[i]->amount;
+		if (!flow_fee(&fee, flows[i])) {
+			abort();
+		}
+		tal_append_fmt(&buff, " prob %.2f, %s delivered with fee %s\n",
+			       flows[i]->success_prob,
+			       fmt_amount_msat(this_ctx, delivered),
+			       fmt_amount_msat(this_ctx, fee));
+	}
+
+	tal_free(this_ctx);
+	return buff;
+}
+
 /* Returns the greatest amount we can deliver to the destination using this
  * route. It takes into account the current knowledge, pending HTLC,
  * htlc_max and fees.
