@@ -20,105 +20,113 @@ static void uncertainty_remove_routes(struct uncertainty *uncertainty,
 		uncertainty_remove_htlcs(uncertainty, routes[i]);
 }
 
-// TODO: check
 /* Shave-off amounts that do not meet the liquidity constraints. Disable
  * channels that produce an htlc_max bottleneck. */
-static struct flow **flows_adjust_htlcmax_constraints(
-    const tal_t *ctx, struct flow **flows TAKES, struct gossmap *gossmap,
-    struct chan_extra_map *chan_extra_map,
-    bitmap *disabled_bitmap)
+static enum renepay_errorcode
+flow_adjust_htlcmax_constraints(struct flow *flow, struct gossmap *gossmap,
+				struct chan_extra_map *chan_extra_map,
+				bitmap *disabled_bitmap)
 {
-	struct flow **new_flows = tal_arr(ctx, struct flow *, 0);
+	assert(flow);
+	assert(gossmap);
+	assert(chan_extra_map);
+	assert(disabled_bitmap);
+	assert(!amount_msat_zero(flow_delivers(flow)));
+
 	enum renepay_errorcode errorcode;
 
-	for (size_t i = 0; i < tal_count(flows); i++) {
-		struct flow *f = flows[i];
-		struct amount_msat max_deliverable;
-		const struct gossmap_chan *bad_channel;
+	struct amount_msat max_deliverable;
+	const struct gossmap_chan *bad_channel;
 
-		errorcode = flow_maximum_deliverable(
-		    &max_deliverable, f, gossmap, chan_extra_map, &bad_channel);
+	errorcode = flow_maximum_deliverable(&max_deliverable, flow, gossmap,
+					     chan_extra_map, &bad_channel);
 
-		if (!errorcode) {
-			// no issues
-			f->amount =
-			    amount_msat_min(flow_delivers(f), max_deliverable);
+	if (!errorcode) {
+		assert(!amount_msat_zero(max_deliverable));
 
-			tal_arr_expand(&new_flows, f);
-		} else if (errorcode == RENEPAY_BAD_CHANNEL) {
-			// this is a channel that we can disable
-			// FIXME: log this error?
-			bitmap_set_bit(disabled_bitmap,
-				       gossmap_chan_idx(gossmap, bad_channel));
-			continue;
-		} else {
-			// we had an unexpected error
-			goto function_fail;
-		}
+		// no issues
+		flow->amount =
+		    amount_msat_min(flow_delivers(flow), max_deliverable);
+
+		return errorcode;
 	}
 
-	for (size_t i = 0; i < tal_count(new_flows); i++) {
-		tal_steal(new_flows, new_flows[i]);
+	if (errorcode == RENEPAY_BAD_CHANNEL) {
+		// this is a channel that we can disable
+		// FIXME: log this error?
+		bitmap_set_bit(disabled_bitmap,
+			       gossmap_chan_idx(gossmap, bad_channel));
 	}
 
-	if (taken(flows))
-		tal_free(flows);
-	return new_flows;
-
-function_fail:
-	if (taken(flows))
-		tal_free(flows);
-	return tal_free(new_flows);
+	// we had an unexpected error
+	return errorcode;
 }
 
-// TODO: check
-/* Disable channels that produce an htlc_min bottleneck. */
-static struct flow **flows_adjust_htlcmin_constraints(
-    const tal_t *ctx, struct flow **flows TAKES, struct gossmap *gossmap,
-    struct chan_extra_map *chan_extra_map,
-    bitmap *disabled_bitmap)
+static enum renepay_errorcode
+route_check_constraints(struct route *route, struct gossmap *gossmap,
+			struct uncertainty *uncertainty,
+			bitmap *disabled_bitmap)
 {
-	struct flow **new_flows = tal_arr(ctx, struct flow *, 0);
-	enum renepay_errorcode errorcode;
-	struct amount_msat max_deliverable;
+	assert(route);
+	assert(route->hops);
+	const size_t pathlen = tal_count(route->hops);
+	if (!amount_msat_eq(route->amount, route->hops[pathlen - 1].amount))
+		return RENEPAY_PRECONDITION_ERROR;
+	if (!amount_msat_eq(route->amount_sent, route->hops[0].amount))
+		return RENEPAY_PRECONDITION_ERROR;
 
-	for (size_t i = 0; i < tal_count(flows); i++) {
-		struct flow *f = flows[i];
-		const struct gossmap_chan *bad_channel;
+	for (size_t i = 0; i < pathlen; i++) {
+		struct route_hop *hop = &route->hops[i];
+		int dir = hop->direction;
+		struct gossmap_chan *chan =
+		    gossmap_find_chan(gossmap, &hop->scid);
+		assert(chan);
+		struct chan_extra *ce =
+		    uncertainty_find_channel(uncertainty, hop->scid);
 
-		errorcode = flow_maximum_deliverable(
-		    &max_deliverable, f, gossmap, chan_extra_map, &bad_channel);
-
-		if (!errorcode) {
-			// no issues
-			f->amount =
-			    amount_msat_min(flow_delivers(f), max_deliverable);
-
-			tal_arr_expand(&new_flows, f);
-		} else if (errorcode == RENEPAY_BAD_CHANNEL) {
-			// this is a channel that we can disable
-			// FIXME: log this error?
+		// check that we stay within the htlc max and min limits
+		if (amount_msat_greater(hop->amount,
+					channel_htlc_max(chan, dir)) ||
+		    amount_msat_less(hop->amount,
+				     channel_htlc_min(chan, dir))) {
 			bitmap_set_bit(disabled_bitmap,
-				       gossmap_chan_idx(gossmap, bad_channel));
-			continue;
-		} else {
-			// we had an unexpected error
-			goto function_fail;
+				       gossmap_chan_idx(gossmap, chan));
+			return RENEPAY_BAD_CHANNEL;
 		}
+
+		// check that the sum of all htlcs and this amount does not
+		// exceed the maximum known by our knowledge
+		struct amount_msat total_htlcs = ce->half[dir].htlc_total;
+		if (!amount_msat_add(&total_htlcs, total_htlcs, hop->amount))
+			return RENEPAY_AMOUNT_OVERFLOW;
+
+		if (amount_msat_greater(total_htlcs, ce->half[dir].known_max))
+			return RENEPAY_UNEXPECTED;
 	}
+	return RENEPAY_NOERROR;
+}
 
-	for (size_t i = 0; i < tal_count(new_flows); i++) {
-		tal_steal(new_flows, new_flows[i]);
-	}
+static void tal_report_error(const tal_t *ctx, enum jsonrpc_errcode *ecode,
+			     const char **fail,
+			     enum jsonrpc_errcode error_value, const char *fmt,
+			     ...)
+{
+	tal_t *this_ctx = tal(ctx, tal_t);
 
-	if (taken(flows))
-		tal_free(flows);
-	return new_flows;
+	va_list ap;
+	const char *str;
 
-function_fail:
-	if (taken(flows))
-		tal_free(flows);
-	return tal_free(new_flows);
+	va_start(ap, fmt);
+	str = tal_vfmt(this_ctx, fmt, ap);
+	va_end(ap);
+
+	if (ecode)
+		*ecode = error_value;
+
+	if (fail)
+		*fail = tal_fmt(ctx, "%s", str);
+
+	this_ctx = tal_free(this_ctx);
 }
 
 /* Routes are computed and saved in the payment for later use. */
@@ -151,16 +159,14 @@ struct route **get_routes(const tal_t *ctx,
 	const double base_fee_penalty = payment_info->base_fee_penalty;
 	const double prob_cost_factor = payment_info->prob_cost_factor;
 	const unsigned int maxdelay = payment_info->maxdelay;
+	bool delay_feefactor_updated = true;
 
 	bitmap *disabled_bitmap =
 	    tal_disabledmap_get_bitmap(this_ctx, disabledmap, gossmap);
 
 	if (!disabled_bitmap) {
-		if (ecode)
-			*ecode = PLUGIN_ERROR;
-		if (fail)
-			*fail =
-			    tal_fmt(ctx, "Failed to build disabled_bitmap.");
+		tal_report_error(ctx, ecode, fail, PLUGIN_ERROR,
+				 "Failed to build disabled_bitmap.");
 		goto function_fail;
 	}
 
@@ -179,28 +185,21 @@ struct route **get_routes(const tal_t *ctx,
 	const struct gossmap_node *src, *dst;
 	src = gossmap_find_node(gossmap, source);
 	if (!src) {
-		if (ecode)
-			*ecode = PAY_ROUTE_NOT_FOUND;
-		if (fail)
-			*fail = tal_fmt(ctx, "We don't have any channels.");
+		tal_report_error(ctx, ecode, fail, PAY_ROUTE_NOT_FOUND,
+				 "We don't have any channels.");
 		goto function_fail;
 	}
 	dst = gossmap_find_node(gossmap, destination);
 	if (!dst) {
-		if (ecode)
-			*ecode = PAY_ROUTE_NOT_FOUND;
-		if (fail)
-			*fail = tal_fmt(
-			    ctx,
-			    "Destination is unknown in the network gossip.");
+		tal_report_error(
+		    ctx, ecode, fail, PAY_ROUTE_NOT_FOUND,
+		    "Destination is unknown in the network gossip.");
 		goto function_fail;
 	}
 
 	char *errmsg;
 
 	while (!amount_msat_zero(amount_to_deliver)) {
-
-		printf("amount to deliver: %s\n", fmt_amount_msat(this_ctx, amount_to_deliver));
 
 		/* TODO: choose an algorithm, could be something like
 		 * payment->algorithm, that we set up based on command line
@@ -216,218 +215,185 @@ struct route **get_routes(const tal_t *ctx,
 			    disabled_bitmap, amount_to_deliver, feebudget,
 			    probability_budget, delay_feefactor,
 			    base_fee_penalty, prob_cost_factor, &errmsg);
+		delay_feefactor_updated = false;
 
 		if (!flows) {
-			if (ecode)
-				*ecode = PAY_ROUTE_NOT_FOUND;
-
-			if (fail)
-				*fail = tal_fmt(
-				    ctx,
-				    "minflow couldn't find a feasible flow: %s",
-				    errmsg);
+			tal_report_error(
+			    ctx, ecode, fail, PAY_ROUTE_NOT_FOUND,
+			    "minflow couldn't find a feasible flow: %s",
+			    errmsg);
 			goto function_fail;
 		}
 
-		/* In previous implementations we would search for
-		 * htlcmax/htlcmin violations and disable those channels and
-		 * then redo the MCF computation. Now we instead remove only
-		 * those flows for which there is a constraint violation and
-		 * mark the involved channels as disabled for the next MCF
-		 * iteration. */
-		flows = flows_adjust_htlcmax_constraints(
-		    this_ctx, take(flows), gossmap,
-		    uncertainty_get_chan_extra_map(uncertainty),
-		    disabled_bitmap);
-		if (!flows) {
-			if (ecode)
-				*ecode = PAY_ROUTE_NOT_FOUND;
+		enum renepay_errorcode errorcode;
+		for (size_t i = 0; i < tal_count(flows); i++) {
 
-			if (fail)
-				*fail = tal_fmt(
-				    ctx,
-				    "failed to adjust htlcmax constraints.");
+			// do we overpay?
+			if (amount_msat_greater(flows[i]->amount,
+						amount_to_deliver)) {
+				// should not happen
+				tal_report_error(
+				    ctx, ecode, fail, PLUGIN_ERROR,
+				    "%s: flow is delivering to destination "
+				    "(%s) more than requested (%s)",
+				    __PRETTY_FUNCTION__,
+				    fmt_amount_msat(this_ctx, flows[i]->amount),
+				    fmt_amount_msat(this_ctx,
+						    amount_to_deliver));
+				goto function_fail;
+			}
 
-			goto function_fail;
-		}
+			// fees considered, remove the least amount as to fit in
+			// with the htlcmax constraints
+			errorcode = flow_adjust_htlcmax_constraints(
+			    flows[i], gossmap,
+			    uncertainty_get_chan_extra_map(uncertainty),
+			    disabled_bitmap);
+			if (errorcode == RENEPAY_BAD_CHANNEL)
+				// we handle a bad channel error by disabling
+				// it, infinite loops are avoided since we have
+				// everytime less and less channels
+				continue;
+			if (errorcode) {
+				// any other error is bad
+				tal_report_error(
+				    ctx, ecode, fail, PLUGIN_ERROR,
+				    "flow_adjust_htlcmax_constraints returned "
+				    "errorcode: %s",
+				    renepay_errorcode_name(errorcode));
+				goto function_fail;
+			}
 
-		flows = flows_adjust_htlcmin_constraints(
-		    this_ctx, take(flows), gossmap,
-		    uncertainty_get_chan_extra_map(uncertainty),
-		    disabled_bitmap);
-		if (!flows) {
-			if (ecode)
-				*ecode = PAY_ROUTE_NOT_FOUND;
+			// a bound check, we shouldn't deliver a zero amount, it
+			// would mean a bug somewhere
+			if (amount_msat_zero(flows[i]->amount)) {
+				tal_report_error(ctx, ecode, fail, PLUGIN_ERROR,
+						 "flow conveys a zero amount");
+				goto function_fail;
+			}
 
-			if (fail)
-				*fail = tal_fmt(
-				    ctx,
-				    "failed to adjust htlcmin constraints.");
+			const double prob = flow_probability(
+			    flows[i], gossmap,
+			    uncertainty_get_chan_extra_map(uncertainty));
+			if (prob < 0) {
+				// should not happen
+				tal_report_error(ctx, ecode, fail, PLUGIN_ERROR,
+						 "flow_probability failed");
+				goto function_fail;
+			}
 
-			goto function_fail;
-		}
-		// TODO: check issue #7136
+			// this flow seems good, build me a route
+			struct route *r = flow_to_route(
+			    this_ctx, groupid, *next_partid,
+			    payment_info->payment_hash,
+			    payment_info->final_cltv, gossmap, flows[i]);
 
-		/* Check the fee limits. */
-		/* TODO: review this, only flows with non-zero amount */
-		struct amount_msat fee;
-		if (!flowset_fee(&fee, flows)) {
-			if (ecode)
-				*ecode = PLUGIN_ERROR;
+			if (!r) {
+				tal_report_error(
+				    ctx, ecode, fail, PLUGIN_ERROR,
+				    "%s failed to build route from flow.",
+				    __PRETTY_FUNCTION__);
+				goto function_fail;
+			}
 
-			if (fail)
-				*fail = tal_fmt(ctx, "flowset_fee failed");
-			goto function_fail;
-		}
-		if (amount_msat_greater(fee, feebudget)) {
-			if (ecode)
-				*ecode = PAY_ROUTE_TOO_EXPENSIVE;
+			const struct amount_msat fee = route_fees(r);
+			const struct amount_msat delivering = route_delivers(r);
 
-			if (fail)
-				*fail = tal_fmt(
-				    ctx,
+			// are we still within the fee budget?
+			if (amount_msat_greater(fee, feebudget)) {
+				tal_report_error(
+				    ctx, ecode, fail, PAY_ROUTE_TOO_EXPENSIVE,
 				    "Fee exceeds our fee budget, fee=%s "
 				    "(feebudget=%s)",
 				    fmt_amount_msat(this_ctx, fee),
 				    fmt_amount_msat(this_ctx, feebudget));
-			goto function_fail;
-		}
-
-		/* Check the CLTV delay */
-		/* TODO: review this, only flows with non-zero amounts */
-		const u64 delay = flows_worst_delay(flows) + payment_info->final_cltv;
-		if (delay > maxdelay) {
-			/* FIXME: What is a sane limit? */
-			if (delay_feefactor > 1000) {
-				if (ecode)
-					*ecode = PAY_ROUTE_TOO_EXPENSIVE;
-				if (fail)
-					*fail = tal_fmt(
-					    ctx,
-					    "CLTV delay exceeds our CLTV "
-					    "budget, delay=%" PRIu64
-					    "(maxdelay=%u)",
-					    delay, maxdelay);
 				goto function_fail;
 			}
 
-			delay_feefactor *= 2;
-			continue; // retry
-		}
+			// check the CLTV delay does not exceed our settings
+			const unsigned int delay = route_delay(r);
+			if (delay > maxdelay) {
+				if (!delay_feefactor_updated) {
+					delay_feefactor *= 2;
+					delay_feefactor_updated = true;
+				}
 
-		/* Compute the flows probability */
-		/* TODO: review this, only flows with non-zero amounts */
-		double prob = flowset_probability(
-		    this_ctx, flows, gossmap,
-		    uncertainty_get_chan_extra_map(uncertainty), NULL);
-		if (prob < 0) {
-			if (ecode)
-				*ecode = PLUGIN_ERROR;
-			if (fail)
-				*fail =
-				    tal_fmt(ctx, "flowset_probability failed");
-			goto function_fail;
-		}
-
-		struct amount_msat delivering;
-		if (!flowset_delivers(&delivering, flows)) {
-			if (ecode)
-				*ecode = PLUGIN_ERROR;
-
-			if (fail)
-				*fail = tal_fmt(ctx, "flowset_delivers failed");
-			goto function_fail;
-		}
-
-		/* OK, we are happy with these flows: convert to
-		 * routes in the current payment. */
-		delivering = AMOUNT_MSAT(0);
-		fee = AMOUNT_MSAT(0);
-		// TODO check ownership of these routes
-		for (size_t i = 0; i < tal_count(flows); i++) {
-			struct route *r = flow_to_route(
-			    ctx, groupid,
-			    *next_partid, payment_info->payment_hash,
-			    payment_info->final_cltv, gossmap, flows[i]);
-			if (!r) {
-				/* TODO: what could have gone wrong? */
+				/* FIXME: What is a sane limit? */
+				if (delay_feefactor > 1000) {
+					tal_report_error(
+					    ctx, ecode, fail,
+					    PAY_ROUTE_TOO_EXPENSIVE,
+					    "CLTV delay exceeds our CLTV "
+					    "budget, delay=%u (maxdelay=%u)",
+					    delay, maxdelay);
+					goto function_fail;
+				}
 				continue;
 			}
-			(*next_partid)++;
-			uncertainty_commit_htlcs(uncertainty, r);
-			tal_arr_expand(&routes, r);
 
-			struct amount_msat route_fee = route_fees(r),
-					   route_deliver = route_delivers(r);
+			// check that the route satisfy all constraints
+			errorcode = route_check_constraints(
+			    r, gossmap, uncertainty, disabled_bitmap);
 
-			if (!amount_msat_add(&fee, fee, route_fee) ||
-			    !amount_msat_add(&delivering, delivering,
-					     route_deliver)) {
-				if (ecode)
-					*ecode = PLUGIN_ERROR;
-
-				if (fail)
-					*fail = tal_fmt(
-					    ctx,
-					    "%s (line %d) amount_msat "
-					    "arithmetic overflow.",
-					    __PRETTY_FUNCTION__, __LINE__);
+			if (errorcode == RENEPAY_BAD_CHANNEL)
+				continue;
+			if (errorcode) {
+				// any other error is bad
+				tal_report_error(
+				    ctx, ecode, fail, PLUGIN_ERROR,
+				    "route_check_constraints returned "
+				    "errorcode: %s",
+				    renepay_errorcode_name(errorcode));
 				goto function_fail;
 			}
-		}
 
-		/* For the next iteration get me the amount_to_deliver */
-		if (!amount_msat_sub(&amount_to_deliver, amount_to_deliver,
-				     delivering)) {
-			/* In the next iteration we search routes that allocate
-			 *amount_to_deliver - delivering If we have delivering >
-			 *amount_to_deliver it means we have made a mistake
-			 *somewhere.
-			 */
-			if (ecode)
-				*ecode = PLUGIN_ERROR;
+			// update the fee budget
+			if (!amount_msat_sub(&feebudget, feebudget, fee)) {
+				// should never happen
+				tal_report_error(
+				    ctx, ecode, fail, PLUGIN_ERROR,
+				    "%s routing fees (%s) exceed fee "
+				    "budget (%s).",
+				    __PRETTY_FUNCTION__,
+				    fmt_amount_msat(this_ctx, fee),
+				    fmt_amount_msat(this_ctx, feebudget));
+				goto function_fail;
+			}
 
-			if (fail)
-				*fail = tal_fmt(
-				    ctx,
-				    "%s (line %d) delivering to destination "
-				    "(%s) is more than requested (%s)",
-				    __PRETTY_FUNCTION__, __LINE__,
+			// update the amount that we deliver
+			if (!amount_msat_sub(&amount_to_deliver,
+					     amount_to_deliver, delivering)) {
+				// should never happen
+				tal_report_error(
+				    ctx, ecode, fail, PLUGIN_ERROR,
+				    "%s: route delivering to destination (%s) "
+				    "is more than requested (%s)",
+				    __PRETTY_FUNCTION__,
 				    fmt_amount_msat(this_ctx, delivering),
 				    fmt_amount_msat(this_ctx,
 						    amount_to_deliver));
-			goto function_fail;
-		}
+				goto function_fail;
+			}
 
-		/* For the next iteration get me the feebudget */
-		if (!amount_msat_sub(&feebudget, feebudget, fee)) {
-			if (ecode)
-				*ecode = PLUGIN_ERROR;
+			// update the probability target
+			if (prob < 1e-10) {
+				// probability is too small for division
+				probability_budget = 1.0;
+			} else {
+				/* prob here is a conditional probability, the
+				 * next flow will have a conditional
+				 * probability prob2 and we would like that
+				 * prob*prob2 >= probability_budget hence
+				 * probability_budget/prob becomes the next
+				 * iteration's target. */
+				probability_budget =
+				    MIN(1.0, probability_budget / prob);
+			}
 
-			if (fail)
-				*fail = tal_fmt(
-				    ctx,
-				    "%s (line %d) routing fees (%s) exceed fee "
-				    "budget (%s).",
-				    __PRETTY_FUNCTION__, __LINE__,
-				    fmt_amount_msat(this_ctx, fee),
-				    fmt_amount_msat(this_ctx, feebudget));
-			goto function_fail;
-		}
-
-		/* For the next iteration get me the probability_budget */
-		if (prob < 1e-10) {
-			/* this last flow probability is too small for division
-			 */
-			probability_budget = 1.0;
-		} else {
-			/* prob here is a conditional probability, the next
-			 * round of flows will have a conditional probability
-			 * prob2 and we would like that prob*prob2 >=
-			 * probability_budget hence probability_budget/prob
-			 * becomes the next iteration's target. */
-			probability_budget =
-			    MIN(1.0, probability_budget / prob);
+			// route added
+			(*next_partid)++;
+			uncertainty_commit_htlcs(uncertainty, r);
+			tal_arr_expand(&routes, r);
 		}
 	}
 
