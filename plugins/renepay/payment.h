@@ -27,7 +27,7 @@ struct payment {
 	enum payment_status status;
 
 	/* Payment preimage, in case of success. */
-	struct preimage *preimage;
+	const struct preimage *preimage;
 
 	/* Final error code and message, in case of failure. */
 	enum jsonrpc_errcode error_code;

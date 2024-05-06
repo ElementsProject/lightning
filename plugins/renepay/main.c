@@ -29,10 +29,10 @@ struct pay_plugin *pay_plugin;
 static void memleak_mark(struct plugin *p, struct htable *memtable)
 {
 	memleak_scan_obj(memtable, pay_plugin);
-
-	// TODO is this necessary?
-	// memleak_scan_htable(memtable, &pay_plugin->chan_extra_map->raw);
-	// memleak_scan_htable(memtable, &pay_plugin->payment_map->raw);
+	memleak_scan_htable(memtable,
+			    &pay_plugin->uncertainty->chan_extra_map->raw);
+	memleak_scan_htable(memtable, &pay_plugin->payment_map->raw);
+	memleak_scan_htable(memtable, &pay_plugin->route_map->raw);
 }
 
 static const char *init(struct plugin *p,

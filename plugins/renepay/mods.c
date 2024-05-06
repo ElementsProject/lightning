@@ -335,6 +335,7 @@ static struct command_result *selfpay_success(struct command *cmd,
 					      const jsmntok_t *tok,
 					      struct route *route)
 {
+	tal_steal(tmpctx, route); // discard this route when tmpctx clears
 	struct payment *payment =
 		    payment_map_get(pay_plugin->payment_map, route->key.payment_hash);
 	assert(payment);
@@ -357,6 +358,7 @@ static struct command_result *selfpay_failure(struct command *cmd,
 					      const jsmntok_t *tok,
 					      struct route *route)
 {
+	tal_steal(tmpctx, route); // discard this route when tmpctx clears
 	struct payment *payment =
 		    payment_map_get(pay_plugin->payment_map, route->key.payment_hash);
 	assert(payment);
@@ -382,6 +384,8 @@ static struct command_result *selfpay_cb(struct payment *payment)
 			   "Selfpay: cannot get a valid cmd.");
 
 	struct payment_info *pinfo = &payment->payment_info;
+	/* Self-payment routes are not part of the routetracker, we build them
+	 * on-the-fly here and release them on success or failure. */
 	struct route *route =
 	    new_route(payment, payment->groupid,
 		      /*partid=*/0, pinfo->payment_hash,
@@ -748,7 +752,7 @@ compute_routes_done(struct command *cmd UNUSED, const char *buf UNUSED,
 	// in the local gossmap.
 
 	enum jsonrpc_errcode errcode;
-	const char *err_msg;
+	const char *err_msg = NULL;
 
 	gossmap_apply_localmods(pay_plugin->gossmap, payment->local_gossmods);
 	// TODO: add an algorithm selector here
@@ -775,13 +779,17 @@ compute_routes_done(struct command *cmd UNUSED, const char *buf UNUSED,
 
 		&errcode,
 		&err_msg);
+	err_msg = tal_steal(tmpctx, err_msg);
 
 	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
 
 	/* Couldn't feasible route, we stop. */
 	if (!payment->routes_computed) {
+		if(err_msg==NULL)
+			err_msg = tal_fmt(tmpctx, "get_routes returned NULL error message");
 		return payment_fail(payment, errcode, "%s", err_msg);
 	}
+
 	return payment_continue(payment);
 }
 

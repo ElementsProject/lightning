@@ -89,6 +89,7 @@ int uncertainty_update(struct uncertainty *uncertainty, struct gossmap *gossmap)
 	}
 	for(size_t i=0;i<tal_count(del_list);i++) {
 		chan_extra_map_del(chan_extra_map, del_list[i]);
+		del_list[i] = tal_free(del_list[i]);
 	}
 	del_list = tal_free(del_list);
 
