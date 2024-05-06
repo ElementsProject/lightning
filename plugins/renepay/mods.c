@@ -19,6 +19,8 @@
 #define OP_CALL (void *)1
 #define OP_IF (void *)2
 
+#define COLLECTOR_TIME_WINDOW_MSEC 50
+
 void *payment_virtual_program[];
 
 /* Advance the payment virtual machine */
@@ -863,11 +865,9 @@ static void sleep_done(struct payment *payment)
 
 static struct command_result *sleep_cb(struct payment *payment)
 {
-	// FIXME time duration is hardcoded, we could have this as a
-	// plugin wide option with default value at 10 millisecons.
 	assert(payment->waitresult_timer == NULL);
 	payment->waitresult_timer = plugin_timer(
-	    pay_plugin->plugin, time_from_msec(10), sleep_done, payment);
+	    pay_plugin->plugin, time_from_msec(COLLECTOR_TIME_WINDOW_MSEC), sleep_done, payment);
 	struct command *cmd = payment_command(payment);
 	assert(cmd);
 	return command_still_pending(cmd);
