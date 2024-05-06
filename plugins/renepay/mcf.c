@@ -1435,15 +1435,8 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 				goto function_fail;
 			}
 			excess = amount_msat(0);
+			fp->amount = delivered;
 
-			if (!flow_assign_delivery(fp, gossmap, chan_extra_map,
-						  delivered)) {
-				if (fail)
-					*fail =
-					    tal_fmt(ctx, "failed to add final "
-							 "amount to flow");
-				goto function_fail;
-			}
 			fp->success_prob =
 			    flow_probability(fp, gossmap, chan_extra_map);
 			if (fp->success_prob < 0) {
