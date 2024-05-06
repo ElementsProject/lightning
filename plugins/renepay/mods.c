@@ -484,9 +484,13 @@ static void gossmod_cb(struct gossmap_localmods *mods,
 		payment_disable_chan(payment, scidd->scid, LOG_DBG,
 				     "listpeerchannels says not enabled");
 
-	/* Also update the uncertainty network */
-	uncertainty_update_from_listpeerchannels(pay_plugin->uncertainty, scidd, max,
-					      enabled, buf, chantok);
+	/* Also update the uncertainty network by fixing the liquidity of the
+	 * outgoing channel. If we try to set the liquidity of the incoming
+	 * channel as well we would have conflicting information because our
+	 * knowledge model does not take into account channel reserves. */
+	if (scidd->dir == node_id_idx(self, peer))
+		uncertainty_update_from_listpeerchannels(
+		    pay_plugin->uncertainty, scidd, max, enabled, buf, chantok);
 }
 
 static struct command_result *getmychannels_done(struct command *cmd,
