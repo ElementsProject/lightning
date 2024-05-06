@@ -2,7 +2,7 @@
 """Plugin that breaks the node if a fail notification is received.
 """
 
-from pyln.client import Plugin, RpcError
+from pyln.client import Plugin
 import os
 
 plugin = Plugin()
@@ -20,8 +20,7 @@ def channel_opened(plugin, sendpay_failure, **kwargs):
 
 @plugin.method("nofail")
 def nofail(plugin):
-    """Checks that the plugin is still running.
-    """
+    """Checks that the plugin is still running."""
     return {"status": "active"}
 
 

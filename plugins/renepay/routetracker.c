@@ -21,7 +21,7 @@ static struct payment *route_get_payment_verify(struct route *route)
 struct routetracker *new_routetracker(const tal_t *ctx, struct payment *payment)
 {
 	struct routetracker *rt = tal(ctx, struct routetracker);
-	
+
 	rt->payment = payment;
 
 	rt->sent_routes = tal(rt, struct route_map);
@@ -132,7 +132,7 @@ static void route_result_collected(struct routetracker *routetracker,
 	assert(route);
 	assert(routetracker);
 	assert(route->result);
-	
+
 	struct payment *payment = routetracker->payment;
 	assert(payment);
 

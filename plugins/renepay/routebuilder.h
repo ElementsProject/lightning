@@ -20,9 +20,9 @@ struct route **get_routes(const tal_t *ctx,
 
 			  struct amount_msat amount_to_deliver,
 			  struct amount_msat feebudget,
-			  
+
 			  u64 *next_partid,
-			  u64 groupid,  
+			  u64 groupid,
 
 			  enum jsonrpc_errcode *ecode,
 			  const char **fail);

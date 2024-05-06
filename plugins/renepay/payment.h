@@ -15,10 +15,10 @@ struct payment {
 	// TODO: probably not necessary after we store all payments in a
 	// hashtable instead of a list
 	struct list_node list;
-	
+
 	struct payment_info payment_info;
 
-	
+
 	/* === Public State === */
 	/* TODO: these properties should be private and only changed through
 	 * payment_ methods. */

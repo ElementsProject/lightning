@@ -27,7 +27,7 @@ struct command_result *routefail_start(const tal_t *ctx, struct route *route,
 {
 	assert(route);
 	struct routefail *r = tal(ctx, struct routefail);
-	struct payment *payment = 
+	struct payment *payment =
 		    payment_map_get(pay_plugin->payment_map, route->key.payment_hash);
 
 	if (payment == NULL)
@@ -123,7 +123,7 @@ static struct command_result *update_gossip_failure(struct command *cmd UNUSED,
 {
 	assert(r);
 	assert(r->payment);
-	
+
 	/* FIXME it might be too strong assumption that erring_channel should
 	 * always be present here, but at least the documentation for
 	 * waitsendpay says it is present in the case of error. */
@@ -188,26 +188,43 @@ static struct command_result *handle_failure(struct routefail *r)
 	/* BOLT #4:
 	 *
 	 * A _forwarding node_ MAY, but a _final node_ MUST NOT:
-	 *    - return an `invalid_onion_version` error.
-	 *    - return an `invalid_onion_hmac` error.
-	 *    - return an `invalid_onion_key` error.
-	 *    - return a `temporary_channel_failure` error.
-	 *    - return a `permanent_channel_failure` error.
-	 *    - return a `required_channel_feature_missing` error.
-	 *    - return an `unknown_next_peer` error.
-	 *    - return an `amount_below_minimum` error.
-	 *    - return a `fee_insufficient` error.
-	 *    - return an `incorrect_cltv_expiry` error.
-	 *    - return an `expiry_too_soon` error.
-	 *    - return an `expiry_too_far` error.
-	 *    - return a `channel_disabled` error.
+	 *...
+	 *     - return an `invalid_onion_version` error.
+	 *...
+	 *     - return an `invalid_onion_hmac` error.
+	 *...
+	 *     - return an `invalid_onion_key` error.
+	 *...
+	 *     - return a `temporary_channel_failure` error.
+	 *...
+	 *     - return a `permanent_channel_failure` error.
+	 *...
+	 *     - return a `required_channel_feature_missing` error.
+	 *...
+	 *     - return an `unknown_next_peer` error.
+	 *...
+	 *     - return an `amount_below_minimum` error.
+	 *...
+	 *     - return a `fee_insufficient` error.
+	 *...
+	 *     - return an `incorrect_cltv_expiry` error.
+	 *...
+	 *     - return an `expiry_too_soon` error.
+	 *...
+	 *     - return an `expiry_too_far` error.
+	 *...
+	 *     - return a `channel_disabled` error.
+	 */
+	/* BOLT #4:
 	 *
 	 * An _intermediate hop_ MUST NOT, but the _final node_:
+	 *...
 	 *     - MUST return an `incorrect_or_unknown_payment_details` error.
+	 *...
 	 *     - MUST return `final_incorrect_cltv_expiry` error.
+	 *...
 	 *     - MUST return a `final_incorrect_htlc_amount` error.
 	 */
-
 	assert(r);
 	struct route *route = r->route;
 	assert(route);
@@ -416,12 +433,10 @@ static struct command_result *handle_failure(struct routefail *r)
 
 	/* Update the knowledge in the uncertaity network. */
 	if (route->hops) {
-		if(last_good_channel >= path_len)
-		{
-			plugin_err(pay_plugin->plugin, 
-				"last_good_channel (%d) >= path_len (%d)", 
-				last_good_channel,
-				path_len);
+		if (last_good_channel >= path_len) {
+			plugin_err(pay_plugin->plugin,
+				   "last_good_channel (%d) >= path_len (%d)",
+				   last_good_channel, path_len);
 		}
 
 		/* All channels before the erring node could forward the

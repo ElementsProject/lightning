@@ -441,8 +441,12 @@ def test_fee_allocation(node_factory):
     # We set high fees at 3% and load a plugin that breaks if a sendpay_failure
     # notification is received.
     opts = [
-        {"disable-mpp": None, "fee-base": 1000, "fee-per-satoshi": 30000,
-          'plugin': os.path.join(os.getcwd(), 'tests/plugins/no_fail.py')},
+        {
+            "disable-mpp": None,
+            "fee-base": 1000,
+            "fee-per-satoshi": 30000,
+            "plugin": os.path.join(os.getcwd(), "tests/plugins/no_fail.py"),
+        },
     ]
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=opts * 4)
     start_channels(
