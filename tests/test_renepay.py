@@ -435,11 +435,14 @@ def test_fee_allocation(node_factory):
     |    |
     3----4
     This a payment that fails if fee is not allocated as part of the flow
-    constraints.
+    constraints. The payment should be straightforward, no failures are
+    expected.
     """
-    # High fees at 3%
+    # We set high fees at 3% and load a plugin that breaks if a sendpay_failure
+    # notification is received.
     opts = [
-        {"disable-mpp": None, "fee-base": 1000, "fee-per-satoshi": 30000},
+        {"disable-mpp": None, "fee-base": 1000, "fee-per-satoshi": 30000,
+          'plugin': os.path.join(os.getcwd(), 'tests/plugins/no_fail.py')},
     ]
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=opts * 4)
     start_channels(
@@ -451,6 +454,9 @@ def test_fee_allocation(node_factory):
     l1.wait_for_htlcs()
     invoice = only_one(l4.rpc.listinvoices("inv")["invoices"])
     assert invoice["amount_received_msat"] >= Millisatoshi("1500000sat")
+
+    # is the no_fail.py plugin still running?
+    l1.rpc.call("nofail")
 
 
 def test_htlc_max(node_factory):
