@@ -908,8 +908,8 @@ static struct command_result *estimatefees_next(struct command *cmd,
 		if (!stash->perkb[i])
 			continue;
 		json_object_start(response, NULL);
-		json_add_u32(response, "blocks", estimatefee_params[i].blocks);
-		json_add_feerate(response, "feerate", cmd, stash, stash->perkb[i]);
+		json_add_feerate(response, tal_fmt(tmpctx, "%d", estimatefee_params[i].blocks),
+				 cmd, stash, stash->perkb[i]);
 		json_object_end(response);
 	}
 	json_array_end(response);

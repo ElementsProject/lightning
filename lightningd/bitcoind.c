@@ -177,6 +177,11 @@ struct estimatefee_call {
 		   const struct feerate_est *rates);
 };
 
+struct estimatefee_params {
+	u32 blocks;
+	const char *style;
+};
+
 /* Note: returns estimates in perkb, caller converts! */
 static struct feerate_est *parse_feerate_ranges(const tal_t *ctx,
 						struct bitcoind *bitcoind,
@@ -185,47 +190,27 @@ static struct feerate_est *parse_feerate_ranges(const tal_t *ctx,
 						const jsmntok_t *feerates,
 						u32 *floor)
 {
-	size_t i;
-	const jsmntok_t *t;
+	u8 targets[] = { 2, 6, 12, 100 };
 	struct feerate_est *rates = tal_arr(ctx, struct feerate_est, 0);
 
 	if (!json_to_u32(buf, floortok, floor))
 		bitcoin_plugin_error(bitcoind, buf, floortok,
 				     "estimatefees.feerate_floor", "Not a u32?");
 
-	json_for_each_arr(i, t, feerates) {
+	for (size_t i = 0; i < sizeof(targets) / sizeof(targets[0]); i++) {
+		u8 target;
+		const jsmntok_t *t;
 		struct feerate_est rate;
-		const char *err;
 
-		err = json_scan(tmpctx, buf, t, "{blocks:%,feerate:%}",
-				JSON_SCAN(json_to_u32, &rate.blockcount),
-				JSON_SCAN(json_to_u32, &rate.rate));
-		if (err)
-			bitcoin_plugin_error(bitcoind, buf, t,
-					     "estimatefees.feerates", err);
-
-		/* Block count must be in order.  If rates go up somehow, we
-		 * reduce to prev. */
-		if (tal_count(rates) != 0) {
-			const struct feerate_est *prev = &rates[tal_count(rates)-1];
-			if (rate.blockcount <= prev->blockcount)
-				bitcoin_plugin_error(bitcoind, buf, feerates,
-						     "estimatefees.feerates",
-						     "Blocks must be ascending"
-						     " order: %u <= %u!",
-						     rate.blockcount,
-						     prev->blockcount);
-			if (rate.rate > prev->rate) {
-				log_unusual(bitcoind->log,
-					    "Feerate for %u blocks (%u) is > rate"
-					    " for %u blocks (%u)!",
-					    rate.blockcount, rate.rate,
-					    prev->blockcount, prev->rate);
-				rate.rate = prev->rate;
-			}
-		}
-
+		target = targets[i];
+		t = json_get_member(buf, feerates, tal_fmt(tmpctx, "%d", target));
+		if (!t)
+			bitcoin_plugin_error(bitcoind, buf, feerates,
+					     "estimatefees.feerates", "missing the estiamtion fee for block: %d", target);
+		rate.blockcount = target;
+		json_to_u32(buf, t, &rate.rate);
 		tal_arr_expand(&rates, rate);
+
 	}
 
 	if (tal_count(rates) == 0) {
