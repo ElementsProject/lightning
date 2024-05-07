@@ -4042,3 +4042,69 @@ def test_closing_no_anysegwit_retry(node_factory, bitcoind):
 
     oldaddr = l1.rpc.newaddr()['bech32']
     l1.rpc.close(l2.info['id'], destination=oldaddr)
+
+
+@pytest.mark.parametrize("anchors", [False, True])
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
+def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
+    """Make sure we can use `to_remote` output of previous close to spend anchor"""
+    # Try with old output from both anchor and non-anchor channel.
+    l4_opts = {}
+    if anchors is False:
+        l4_opts['dev-force-features'] = "-23"
+
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=[{},
+                                                     {},
+                                                     {'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC']},
+                                                     l4_opts])
+
+    # Give l2 some funds, from a to-remote output.  It will have to spend
+    # this to use anchor.
+    node_factory.join_nodes([l4, l2])
+
+    # l4 unilaterally closes, l2 gets to-remote with its output.
+    l4.rpc.pay(l2.rpc.invoice(100000000, 'test', 'test')['bolt11'])
+    wait_for(lambda: only_one(l4.rpc.listpeerchannels()['channels'])['htlcs'] != [])
+
+    l4.rpc.disconnect(l2.info['id'], force=True)
+    close = l4.rpc.close(l2.info['id'], 1)
+    bitcoind.generate_block(1, wait_for_mempool=close['txid'])
+    wait_for(lambda: len(l2.rpc.listfunds()['outputs']) == 1)
+    # Don't need l4 any more
+    l4.stop()
+
+    # Now l1->l2<-l3 but push funds to l2 so it can forward.
+    node_factory.join_nodes([l1, l2], wait_for_announce=True)
+    node_factory.join_nodes([l3, l2], wait_for_announce=True)
+    l3.rpc.pay(l2.rpc.invoice(200000000, 'test2', 'test2')['bolt11'])
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['htlcs'] != [])
+
+    # Get HTLC stuck, so l2 has reason to push commitment tx.
+    amt = 100_000_000
+    sticky_inv = l3.rpc.invoice(amt, 'sticky', 'sticky')
+    route = l1.rpc.getroute(l3.info['id'], amt, 1)['route']
+    l1.rpc.sendpay(route, sticky_inv['payment_hash'], payment_secret=sticky_inv['payment_secret'])
+    l3.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
+
+    # Give l2 a sense of urgency, by ensuring there's an HTLC in-channel
+    # when it needs to go onchain.
+    # Make sure HTLC expiry is what we expect!
+    l2.daemon.wait_for_log('Adding HTLC 0 amount=100000000msat cltv=128 gave CHANNEL_ERR_ADD_OK')
+
+    # Kill l1 and l3, we just care about l2.
+    l3.stop()
+    l1.stop()
+
+    for block in range(117, 128):
+        bitcoind.generate_block(1)
+        sync_blockheight(bitcoind, [l2])
+
+    # Drops to chain
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'AWAITING_UNILATERAL')
+
+    # Spends anchor.
+    # HSMd notes that it has to sign a unilateral close output:
+    l2.daemon.wait_for_logs(['Anchorspend for local commit tx',
+                             'hsmd: Unilateral close output, deriving secrets'])
+
+    bitcoind.generate_block(1, wait_for_mempool=2)
