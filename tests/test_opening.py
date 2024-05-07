@@ -362,13 +362,12 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
     info_1 = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
     assert info_1['initial_feerate'] == info_1['last_feerate']
     rate = int(info_1['last_feerate'][:-5])
-    assert int(info_1['next_feerate'][:-5]) == rate * 65 // 64
+    assert int(info_1['next_feerate'][:-5]) == rate * 25 // 24
 
     # Initiate an RBF
     startweight = 42 + 172  # base weight, funding output
     initpsbt = l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
                                prev_utxos, reservedok=True,
-                               min_witness_weight=110,
                                excess_as_change=True)
 
     # Do the bump
@@ -383,29 +382,26 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
     assert info_1['next_feerate'] == info_2['last_feerate']
 
     rate = int(info_2['last_feerate'][:-5])
-    assert int(info_2['next_feerate'][:-5]) == rate * 65 // 64
+    assert int(info_2['next_feerate'][:-5]) == rate * 25 // 24
 
     # Sign our inputs, and continue
     signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
 
-    # Fails because we didn't put enough feerate in.
-    with pytest.raises(RpcError, match=r'insufficient fee'):
-        l1.rpc.openchannel_signed(chan_id, signed_psbt)
+    l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
     # Do it again, with a higher feerate
     info_2 = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
     assert info_1['initial_feerate'] == info_2['initial_feerate']
     assert info_1['next_feerate'] == info_2['last_feerate']
     rate = int(info_2['last_feerate'][:-5])
-    assert int(info_2['next_feerate'][:-5]) == rate * 65 // 64
+    assert int(info_2['next_feerate'][:-5]) == rate * 25 // 24
 
     # We 4x the feerate to beat the min-relay fee
-    next_rate = '{}perkw'.format(rate * 65 // 64 * 4)
+    next_rate = '{}perkw'.format(rate * 25 // 24 * 4)
     # Gotta unreserve the psbt and re-reserve with higher feerate
     l1.rpc.unreserveinputs(initpsbt['psbt'])
     initpsbt = l1.rpc.utxopsbt(chan_amount, next_rate, startweight,
                                prev_utxos, reservedok=True,
-                               min_witness_weight=110,
                                excess_as_change=True)
     # Do the bump+sign
     bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'],
@@ -472,7 +468,6 @@ def test_v2_rbf_abort_retry(node_factory, bitcoind, chainparams):
     startweight = 42 + 172  # base weight, funding output
     initpsbt = l1.rpc.utxopsbt(chan_amount, next_rate, startweight,
                                prev_utxos, reservedok=True,
-                               min_witness_weight=110,
                                excess_as_change=True)
 
     # Do the bump
@@ -498,7 +493,6 @@ def test_v2_rbf_abort_retry(node_factory, bitcoind, chainparams):
     l1.rpc.unreserveinputs(initpsbt['psbt'])
     initpsbt = l1.rpc.utxopsbt(chan_amount, next_rate, startweight,
                                prev_utxos, reservedok=True,
-                               min_witness_weight=110,
                                excess_as_change=True)
     # Do the bump+sign
     bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'],
@@ -555,7 +549,6 @@ def test_v2_rbf_abort_channel_opens(node_factory, bitcoind, chainparams):
     startweight = 42 + 172  # base weight, funding output
     initpsbt = l1.rpc.utxopsbt(chan_amount, next_rate, startweight,
                                prev_utxos, reservedok=True,
-                               min_witness_weight=110,
                                excess_as_change=True)
 
     # Do the bump
@@ -625,7 +618,6 @@ def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
     startweight = 42 + 172  # base weight, funding output
     initpsbt = l1.rpc.utxopsbt(amount, next_feerate, startweight,
                                prev_utxos, reservedok=True,
-                               min_witness_weight=110,
                                excess_as_change=True)['psbt']
 
     # reconnect after restart
@@ -707,7 +699,6 @@ def test_v2_rbf_multi(node_factory, bitcoind, chainparams):
     startweight = 42 + 172  # base weight, funding output
     initpsbt = l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
                                prev_utxos, reservedok=True,
-                               min_witness_weight=110,
                                excess_as_change=True)
 
     # Do the bump
@@ -741,7 +732,6 @@ def test_v2_rbf_multi(node_factory, bitcoind, chainparams):
     startweight = 42 + 172  # base weight, funding output
     initpsbt = l1.rpc.utxopsbt(chan_amount * 2, next_feerate, startweight,
                                prev_utxos, reservedok=True,
-                               min_witness_weight=110,
                                excess_as_change=True)
 
     # Do the bump
@@ -795,7 +785,6 @@ def test_rbf_reconnect_init(node_factory, bitcoind, chainparams):
     startweight = 42 + 172  # base weight, funding output
     initpsbt = l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
                                prev_utxos, reservedok=True,
-                               min_witness_weight=110,
                                excess_as_change=True)
 
     # Do the bump!?
@@ -844,7 +833,6 @@ def test_rbf_reconnect_ack(node_factory, bitcoind, chainparams):
     startweight = 42 + 172  # base weight, funding output
     initpsbt = l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
                                prev_utxos, reservedok=True,
-                               min_witness_weight=110,
                                excess_as_change=True)
 
     # Do the bump!?
@@ -906,7 +894,6 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     startweight = 42 + 172  # base weight, funding output
     initpsbt = l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
                                prev_utxos, reservedok=True,
-                               min_witness_weight=110,
                                excess_as_change=True)
 
     # Run through TX_ADD wires
@@ -1029,7 +1016,6 @@ def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
     startweight = 42 + 172  # base weight, funding output
     initpsbt = l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
                                prev_utxos, reservedok=True,
-                               min_witness_weight=110,
                                excess_as_change=True)
 
     bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'],
@@ -1100,7 +1086,6 @@ def test_rbf_to_chain_before_commit(node_factory, bitcoind, chainparams):
     startweight = 42 + 172  # base weight, funding output
     initpsbt = l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
                                prev_utxos, reservedok=True,
-                               min_witness_weight=110,
                                excess_as_change=True)
 
     # Peers try RBF, break on initial COMMITMENT_SIGNED
@@ -1151,7 +1136,6 @@ def test_rbf_no_overlap(node_factory, bitcoind, chainparams):
     # one we started with)
     startweight = 42 + 172  # base weight, funding output
     initpsbt = l1.rpc.fundpsbt(chan_amount, next_feerate, startweight,
-                               min_witness_weight=110,
                                excess_as_change=True)
 
     # Do the bump
@@ -1195,7 +1179,6 @@ def test_rbf_fails_to_broadcast(node_factory, bitcoind, chainparams):
         next_feerate = '{}perkw'.format(rate * 2)
         initpsbt = l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
                                    prev_utxos, reservedok=True,
-                                   min_witness_weight=110,
                                    excess_as_change=True)
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -1285,7 +1268,6 @@ def test_rbf_broadcast_close_inflights(node_factory, bitcoind, chainparams):
         next_feerate = find_next_feerate(l1, l2)
         initpsbt = l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
                                    prev_utxos, reservedok=True,
-                                   min_witness_weight=110,
                                    excess_as_change=True)
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -1353,7 +1335,6 @@ def test_rbf_non_last_mined(node_factory, bitcoind, chainparams):
         next_feerate = '{}perkw'.format(rate * 2)
         initpsbt = l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
                                    prev_utxos, reservedok=True,
-                                   min_witness_weight=110,
                                    excess_as_change=True)
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -2405,7 +2386,6 @@ def test_openchannel_no_unconfirmed_inputs_accepter(node_factory, bitcoind):
     startweight = 42 + 172  # base weight, funding output
     next_feerate = find_next_feerate(l1, l2)
     psbt = l1.rpc.fundpsbt(amount, next_feerate, startweight,
-                           min_witness_weight=110,
                            excess_as_change=True)['psbt']
 
     # Attempt bump, fail. L2 should remember required-confirmed-inputs
