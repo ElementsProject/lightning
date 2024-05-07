@@ -21,6 +21,8 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/peer_control.h>
+#include <stdbool.h>
+#include <stdlib.h>
 #include <wallet/txfilter.h>
 #include <wallet/walletrpc.h>
 #include <wally_psbt.h>
@@ -1005,3 +1007,61 @@ static const struct json_command sendpsbt_command = {
 };
 
 AUTODATA(json_command, &sendpsbt_command);
+
+/* This is a dangerus command, but looks like that the dev rescan output is not covering
+ * a use case, where we have the output is marked as confirment but we want to move it to
+ * a spend confition. This usually do not happens but with dev rescan it can (still unclear how).
+ *
+ * So we need to interact with an external plugin in order to inject the corrent spend height
+ * inside the output.
+ *
+ * It can work is I rescan the blockchain? */
+static struct command_result *json_updateutxo(struct command *cmd,
+					      const char *buffer,
+					      const jsmntok_t *obj,
+					      const jsmntok_t *params)
+{
+	bool *iamsure;
+	u32 *vout_status;
+	enum output_status status;
+	u64 *vout, *spentheight;
+	struct bitcoin_txid *txid;
+	if (!param_check(cmd, buffer, params,
+			 p_req("prev-txid", param_txid, &txid),
+			 p_req("prev-vout", param_u64, &vout),
+			 p_req("status", param_u32, &vout_status),
+			 p_req("spentheight", param_u64, &spentheight),
+			 p_opt_def("iamsure", param_bool, &iamsure, false),
+			 NULL))
+		return command_param_failed();
+
+	if (!(*iamsure))
+		return command_fail(cmd, -1, "This command is dangerus and you should not run it, wait but why you are running it?");
+
+	switch (*vout_status) {
+	case 2:
+		status = OUTPUT_STATE_SPENT;
+		break;
+	default:
+		return command_fail(cmd, -1, "Status `%d` not supporter, you may want to use dev-rescan-outputs", *vout_status);
+	}
+
+
+	if (wallet_force_update_output_status(cmd->ld->wallet, txid, vout, status, spentheight))
+		return command_success(cmd, json_stream_success(cmd));
+	else
+		return command_fail(cmd, -1, "No changes added to the output with pre-tx `%s` and prev-vout `%ld`",
+				    fmt_bitcoin_txid(tmpctx, txid), *spentheight);
+
+	return command_still_pending(cmd);
+}
+
+static const struct json_command devupdateutxo_command = {
+	"dev-updateutxo",
+	"bitcoin",
+	json_updateutxo,
+	"DANGERUS! It is DANGERUS, you should not run this command. Wait why you are using this command?",
+	false
+};
+
+AUTODATA(json_command, &devupdateutxo_command);

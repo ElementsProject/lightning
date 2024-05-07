@@ -1783,4 +1783,15 @@ void wallet_remove_local_anchors(struct wallet *w,
 struct local_anchor_info *wallet_get_local_anchors(const tal_t *ctx,
 						   struct wallet *w,
 						   u64 channel_id);
+
+/**
+ * This does not deseave documentation, if you do not know why this exist
+ * you should not use it.
+ *
+ * FYI: git grep is your friend :) */
+bool wallet_force_update_output_status(struct wallet *w,
+				       const struct bitcoin_txid *prev_txid,
+				       const u64 *prev_vout,
+				       enum output_status status,
+				       const u64 *spentheight);
 #endif /* LIGHTNING_WALLET_WALLET_H */
