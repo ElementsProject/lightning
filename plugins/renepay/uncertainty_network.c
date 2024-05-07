@@ -170,15 +170,29 @@ void uncertainty_network_update(
 
 			if(!gossmap_chan_get_capacity(gossmap,chan,&cap))
 			{
-				plugin_err(pay_plugin->plugin,"%s (line %d) unable to fetch channel capacity",
-					__PRETTY_FUNCTION__,
-					__LINE__);
+				/* This can happen transiently if gossipd is
+				 * writing it to the store right now.  Set
+				 * it to larger htlc_max */
+				cap_msat = AMOUNT_MSAT(0);
+				for (int dir = 0; dir < 2; dir++)
+				{
+					struct amount_msat htlc_max;
+					if (!gossmap_chan_set(chan, dir))
+						continue;
+					htlc_max = amount_msat(fp16_to_u64(chan->half[dir].htlc_max));
+					if (amount_msat_greater(htlc_max, cap_msat))
+						cap_msat = htlc_max;
+				}
+				plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
+					   "Cannot fetch capacity for channel %s: using %s",
+					   fmt_short_channel_id(tmpctx, scid),
+					   fmt_amount_msat(tmpctx, cap_msat));
 			}
-			if(!amount_sat_to_msat(&cap_msat,cap))
+			else if(!amount_sat_to_msat(&cap_msat,cap))
 			{
 				plugin_err(pay_plugin->plugin,"%s (line %d) unable convert sat to msat",
-					__PRETTY_FUNCTION__,
-					__LINE__);
+					   __PRETTY_FUNCTION__,
+					   __LINE__);
 			}
 			new_chan_extra(chan_extra_map,scid,cap_msat);
 		}
