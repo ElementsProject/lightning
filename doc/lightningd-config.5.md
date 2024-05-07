@@ -170,7 +170,7 @@ binary.
 
 * **log-level**=*LEVEL*\[:*SUBSYSTEM*\]\[:*PATH*\]
 
-  What log level to print out: options are io, debug, info, unusual,
+  What log level to print out: options are io, trace, debug, info, unusual,
 broken.  If *SUBSYSTEM* is supplied, this sets the logging level
 for any subsystem (or *nodeid*) containing that string. If *PATH* is supplied, it means this log-level filter is only applied to that `log-file`, which is useful for creating logs to capture a specific subsystem.  This option may be specified multiple times.
 Subsystems include:

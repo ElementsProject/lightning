@@ -68,7 +68,7 @@ field without parsing JSON.
 * **--notifications**/**-N**=*LEVEL*
 
   If *LEVEL* is 'none', then never print out notifications.  Otherwise,
-print out notifications of *LEVEL* or above (one of `io`, `debug`,
+print out notifications of *LEVEL* or above (one of `io`, `trace`, `debug`,
 `info` (the default), `unusual` or `broken`: they are prefixed with `#
 `.  (Note: currently not supported with `--commando`).
 
