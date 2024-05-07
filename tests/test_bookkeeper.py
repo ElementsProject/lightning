@@ -404,7 +404,7 @@ def test_bookkeeping_missed_chans_leases(node_factory, bitcoind):
 
     # l1 events
     exp_events = [('channel_open', open_amt * 1000 + lease_fee, 0),
-                  ('onchain_fee', 1320000, 0),
+                  ('onchain_fee', 1314000, 0),
                   ('lease_fee', 0, lease_fee),
                   ('journal_entry', 0, invoice_msat)]
     _check_events(l1, channel_id, exp_events)
