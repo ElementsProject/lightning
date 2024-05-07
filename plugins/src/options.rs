@@ -76,6 +76,7 @@
 //!     default : (), // We provide no default here
 //!     description : "A config option of type string that takes no default",
 //!     deprecated : false,     // Option is not deprecated
+//!     dynamic: false, //Option is not dynamic
 //! };
 //! ```
 //!
@@ -420,6 +421,7 @@ pub struct ConfigOption<'a, V: OptionType<'a>> {
     pub default: V::DefaultValue,
     pub description: &'a str,
     pub deprecated: bool,
+    pub dynamic: bool,
 }
 
 impl<'a, V: OptionType<'a>> ConfigOption<'a, V> {
@@ -430,6 +432,7 @@ impl<'a, V: OptionType<'a>> ConfigOption<'a, V> {
             default: <V as OptionType>::convert_default(&self.default),
             description: self.description.to_string(),
             deprecated: self.deprecated,
+            dynamic: self.dynamic,
         }
     }
 }
@@ -445,7 +448,12 @@ impl<'a> DefaultStringConfigOption<'a> {
             default: default,
             description: description,
             deprecated: false,
+            dynamic: false,
         }
+    }
+    pub fn dynamic(mut self) -> Self {
+        self.dynamic = true;
+        self
     }
 }
 
@@ -456,7 +464,12 @@ impl<'a> StringConfigOption<'a> {
             default: (),
             description: description,
             deprecated: false,
+            dynamic: false,
         }
+    }
+    pub fn dynamic(mut self) -> Self {
+        self.dynamic = true;
+        self
     }
 }
 
@@ -467,7 +480,12 @@ impl<'a> DefaultIntegerConfigOption<'a> {
             default: default,
             description: description,
             deprecated: false,
+            dynamic: false,
         }
+    }
+    pub fn dynamic(mut self) -> Self {
+        self.dynamic = true;
+        self
     }
 }
 
@@ -478,7 +496,12 @@ impl<'a> IntegerConfigOption<'a> {
             default: (),
             description: description,
             deprecated: false,
+            dynamic: false,
         }
+    }
+    pub fn dynamic(mut self) -> Self {
+        self.dynamic = true;
+        self
     }
 }
 
@@ -489,7 +512,12 @@ impl<'a> BooleanConfigOption<'a> {
             description,
             default: (),
             deprecated: false,
+            dynamic: false,
         }
+    }
+    pub fn dynamic(mut self) -> Self {
+        self.dynamic = true;
+        self
     }
 }
 
@@ -500,7 +528,12 @@ impl<'a> DefaultBooleanConfigOption<'a> {
             description,
             default: default,
             deprecated: false,
+            dynamic: false,
         }
+    }
+    pub fn dynamic(mut self) -> Self {
+        self.dynamic = true;
+        self
     }
 }
 
@@ -511,7 +544,12 @@ impl<'a> FlagConfigOption<'a> {
             description,
             default: (),
             deprecated: false,
+            dynamic: false,
         }
+    }
+    pub fn dynamic(mut self) -> Self {
+        self.dynamic = true;
+        self
     }
 }
 
@@ -530,6 +568,7 @@ pub struct UntypedConfigOption {
     description: String,
     #[serde(skip_serializing_if = "is_false")]
     deprecated: bool,
+    dynamic: bool,
 }
 
 impl UntypedConfigOption {
@@ -538,6 +577,10 @@ impl UntypedConfigOption {
     }
     pub fn default(&self) -> &Option<Value> {
         &self.default
+    }
+    pub fn dynamic(mut self) -> Self {
+        self.dynamic = true;
+        self
     }
 }
 
@@ -569,6 +612,7 @@ mod test {
                         "description":"description",
                         "default": "default",
                         "type": "string",
+                        "dynamic": false,
                     }),
             ),
             (
@@ -578,15 +622,21 @@ mod test {
                         "description":"description",
                         "default": 42,
                         "type": "int",
+                        "dynamic": false,
                     }),
             ),
             (
-                ConfigOption::new_bool_with_default("name", true, "description").build(),
+                {
+                    ConfigOption::new_bool_with_default("name", true, "description")
+                        .build()
+                        .dynamic()
+                },
                 json!({
                 "name": "name",
                         "description":"description",
                         "default": true,
                         "type": "bool",
+                        "dynamic": true,
                     }),
             ),
             (
@@ -595,7 +645,8 @@ mod test {
                     "name" : "name",
                     "description": "description",
                     "type" : "flag",
-                    "default" : false
+                    "default" : false,
+                    "dynamic": false,
                 }),
             ),
         ];

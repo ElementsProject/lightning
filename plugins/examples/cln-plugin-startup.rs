@@ -2,7 +2,9 @@
 //! plugins using the Rust API against Core Lightning.
 #[macro_use]
 extern crate serde_json;
-use cln_plugin::options::{DefaultIntegerConfigOption, IntegerConfigOption};
+use cln_plugin::options::{
+    self, BooleanConfigOption, DefaultIntegerConfigOption, IntegerConfigOption,
+};
 use cln_plugin::{messages, Builder, Error, Plugin};
 use tokio;
 
@@ -21,9 +23,17 @@ const TEST_OPTION_NO_DEFAULT: IntegerConfigOption =
 async fn main() -> Result<(), anyhow::Error> {
     let state = ();
 
+    let test_dynamic_option: BooleanConfigOption = BooleanConfigOption::new_bool_no_default(
+        "test-dynamic-option",
+        "A option that can be changed dynamically",
+    )
+    .dynamic();
+
     if let Some(plugin) = Builder::new(tokio::io::stdin(), tokio::io::stdout())
         .option(TEST_OPTION)
         .option(TEST_OPTION_NO_DEFAULT)
+        .option(test_dynamic_option)
+        .setconfig_callback(setconfig_callback)
         .rpcmethod("testmethod", "This is a test", testmethod)
         .rpcmethod(
             "testoptions",
@@ -48,10 +58,27 @@ async fn main() -> Result<(), anyhow::Error> {
     }
 }
 
+async fn setconfig_callback(
+    plugin: Plugin<()>,
+    args: serde_json::Value,
+) -> Result<serde_json::Value, Error> {
+    let name = args.get("config").unwrap().as_str().unwrap();
+    let value = args.get("val").unwrap();
+
+    let opt_value = options::Value::String(value.to_string());
+
+    plugin.set_option_str(name, opt_value)?;
+    log::info!(
+        "cln-plugin-startup: Got dynamic option change: {} {}",
+        name,
+        plugin.option_str(name).unwrap().unwrap().as_str().unwrap()
+    );
+    Ok(json!({}))
+}
+
 async fn testoptions(p: Plugin<()>, _v: serde_json::Value) -> Result<serde_json::Value, Error> {
     let test_option = p.option(&TEST_OPTION)?;
-    let test_option_no_default = p
-        .option(&TEST_OPTION_NO_DEFAULT)?;
+    let test_option_no_default = p.option(&TEST_OPTION_NO_DEFAULT)?;
 
     Ok(json!({
         "test-option": test_option,
