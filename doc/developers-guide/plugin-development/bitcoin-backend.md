@@ -28,12 +28,12 @@ The plugin must return `feerate_floor` (e.g. 1000 if mempool is empty), and an a
 ```
 {
 	"feerate_floor": <sat per kVB>,
-	"feerates": {
+	"feerates": [
 		{ "blocks": 2, "feerate": <sat per kVB> },
 		{ "blocks": 6, "feerate": <sat per kVB> },
 		{ "blocks": 12, "feerate": <sat per kVB> }
 		{ "blocks": 100, "feerate": <sat per kVB> }
-	}
+	]
 }
 ```
 
