@@ -594,81 +594,26 @@ send_modern_message(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
-static struct command_result *param_pubkeys(struct command *cmd,
-					    const char *name,
-					    const char *buffer,
-					    const jsmntok_t *tok,
-					    struct pubkey **pubkeys)
+static struct blinded_path *blinded_path(const tal_t *ctx,
+					 struct command *cmd,
+					 const struct pubkey *ids,
+					 const struct secret *pathsecret)
 {
-	size_t i;
-	const jsmntok_t *t;
-
-	if (tok->type != JSMN_ARRAY || tok->size == 0)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "%s must be an (non-empty) array", name);
-
-	*pubkeys = tal_arr(cmd, struct pubkey, tok->size);
-	json_for_each_arr(i, t, tok) {
-		if (!json_to_pubkey(buffer, t, &(*pubkeys)[i]))
-			return command_fail_badparam(cmd, name, buffer, t,
-						     "should be a compressed pubkey");
-	}
-	return NULL;
-}
-
-static void json_add_blindedpath(struct json_stream *stream,
-				 const char *fieldname,
-				 const struct blinded_path *path)
-{
-	json_object_start(stream, fieldname);
-	json_add_pubkey(stream, "first_node_id", &path->first_node_id);
-	json_add_pubkey(stream, "blinding", &path->blinding);
-	json_array_start(stream, "hops");
-	for (size_t i = 0; i < tal_count(path->path); i++) {
-		json_object_start(stream, NULL);
-		json_add_pubkey(stream, "blinded_node_id",
-				&path->path[i]->blinded_node_id);
-		json_add_hex_talarr(stream, "encrypted_recipient_data",
-				    path->path[i]->encrypted_recipient_data);
-		json_object_end(stream);
-	};
-	json_array_end(stream);
-	json_object_end(stream);
-}
-
-static struct command_result *json_blindedpath(struct command *cmd,
-					       const char *buffer,
-					       const jsmntok_t *params)
-{
-	struct pubkey *ids;
 	struct privkey first_blinding, blinding_iter;
 	struct blinded_path *path;
 	size_t nhops;
-	struct json_stream *js;
 	struct tlv_encrypted_data_tlv *tlv;
-	struct secret *pathsecret;
 
-	if (!param(cmd, buffer, params,
-		   p_req("ids", param_pubkeys, &ids),
-		   p_req("pathsecret", param_secret, &pathsecret),
-		   NULL))
-		return command_param_failed();
-
-	path = tal(cmd, struct blinded_path);
+	path = tal(ctx, struct blinded_path);
 	nhops = tal_count(ids);
 
+	assert(nhops > 0);
 	path->first_node_id = ids[0];
-	if (!pubkey_eq(&ids[nhops-1], &local_id))
-		return command_fail(cmd, LIGHTNINGD,
-				    "Final of ids must be this node (%s), not %s",
-				    fmt_pubkey(tmpctx, &local_id),
-				    fmt_pubkey(tmpctx, &ids[nhops-1]));
+	assert(pubkey_eq(&ids[nhops-1], &local_id));
 
 	randombytes_buf(&first_blinding, sizeof(first_blinding));
 	if (!pubkey_from_privkey(&first_blinding, &path->blinding))
-		/* Should not happen! */
-		return command_fail(cmd, LIGHTNINGD,
-				    "Could not convert blinding to pubkey!");
+		plugin_err(cmd->plugin, "Could not convert blinding to pubkey!");
 
 	/* We convert ids into aliases as we go. */
 	path->path = tal_arr(cmd, struct onionmsg_hop *, nhops);
@@ -678,7 +623,7 @@ static struct command_result *json_blindedpath(struct command *cmd,
 		path->path[i] = tal(path->path, struct onionmsg_hop);
 
 		tlv = tlv_encrypted_data_tlv_new(tmpctx);
-		tlv->next_node_id = &ids[i+1];
+		tlv->next_node_id = cast_const(struct pubkey *, &ids[i+1]);
 		/* FIXME: Pad? */
 
 		path->path[i]->encrypted_recipient_data
@@ -703,37 +648,15 @@ static struct command_result *json_blindedpath(struct command *cmd,
 					     tlv,
 					     NULL,
 					     &path->path[nhops-1]->blinded_node_id);
-
-	js = jsonrpc_stream_success(cmd);
-	json_add_blindedpath(js, "blindedpath", path);
-	return command_finished(cmd, js);
-}
-
-/* Lightningd gives us reply path, since we don't know secret to put
- * in final so it will recognize it. */
-static struct command_result *use_reply_path(struct command *cmd,
-					     const char *buf,
-					     const jsmntok_t *result,
-					     struct sending *sending)
-{
-	struct blinded_path *rpath;
-
-	rpath = json_to_blinded_path(cmd, buf,
-				     json_get_member(buf, result, "blindedpath"));
-	if (!rpath)
-		plugin_err(cmd->plugin,
-			   "could not parse reply path %.*s?",
-			   json_tok_full_len(result),
-			   json_tok_full(buf, result));
-
-	return send_modern_message(cmd, rpath, sending);
+	return path;
 }
 
 static struct command_result *make_reply_path(struct command *cmd,
 					      struct sending *sending)
 {
-	struct out_req *req;
 	size_t nhops = tal_count(sending->sent->path);
+	struct blinded_path *rpath;
+	struct pubkey *ids;
 
 	/* FIXME: Maybe we should allow this? */
 	if (tal_count(sending->sent->path) == 1)
@@ -744,19 +667,14 @@ static struct command_result *make_reply_path(struct command *cmd,
 	sending->sent->reply_secret = tal(sending->sent, struct secret);
 	randombytes_buf(sending->sent->reply_secret, sizeof(struct secret));
 
-	req = jsonrpc_request_start(cmd->plugin, cmd, "blindedpath",
-				    use_reply_path,
-				    forward_error,
-				    sending);
-
 	/* FIXME: Could create an independent reply path, not just
 	 * reverse existing. */
-	json_array_start(req->js, "ids");
+	ids = tal_arr(tmpctx, struct pubkey, nhops - 1);
 	for (int i = nhops - 2; i >= 0; i--)
-		json_add_pubkey(req->js, NULL, &sending->sent->path[i]);
-	json_array_end(req->js);
-	json_add_secret(req->js, "pathsecret", sending->sent->reply_secret);
-	return send_outreq(cmd->plugin, req);
+		ids[nhops - 2 - i] = sending->sent->path[i];
+
+	rpath = blinded_path(cmd, cmd, ids, sending->sent->reply_secret);
+	return send_modern_message(cmd, rpath, sending);
 }
 
 static struct command_result *send_message(struct command *cmd,
@@ -1653,13 +1571,6 @@ static const struct plugin_command commands[] = {
 		NULL,
 		json_dev_rawrequest,
 		.dev_only = true,
-	},
-	{
-		"blindedpath",
-		"utility",
-		"Create blinded path to us along {ids} (pubkey array ending in our id)",
-		NULL,
-		json_blindedpath,
 	},
 };
 
