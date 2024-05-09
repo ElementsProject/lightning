@@ -1288,6 +1288,8 @@ void peer_connect_subd(struct daemon *daemon, const u8 *msg, int fd)
 				      strerror(errno));
 			recvfd_logged = true;
 		}
+		/* Maybe free up some fds by closing something. */
+		close_random_connection(daemon);
 		return;
 	}
 

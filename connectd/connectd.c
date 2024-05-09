@@ -120,46 +120,6 @@ static struct connecting *find_connecting(struct daemon *daemon,
 	return connecting_htable_get(daemon->connecting, id);
 }
 
-/*~ Once we've connected out, we disable the callback which would cause us to
- * to try the next address. */
-static void connected_out_to_peer(struct daemon *daemon,
-				  struct io_conn *conn,
-				  const struct node_id *id)
-{
-	struct connecting *connect = find_connecting(daemon, id);
-
-	/* We allocate 'conn' as a child of 'connect': we don't want to free
-	 * it just yet though.  tal_steal() it onto the permanent 'daemon'
-	 * struct. */
-	tal_steal(daemon, conn);
-
-	/* We only allow one outgoing attempt at a time */
-	assert(connect->conn == conn);
-
-	/* Don't call destroy_io_conn, since we're done. */
-	io_set_finish(conn, NULL, NULL);
-
-	/* Now free the 'connecting' struct. */
-	tal_free(connect);
-}
-
-/*~ Once they've connected in, stop trying to connect out (if we were). */
-static void peer_connected_in(struct daemon *daemon,
-			      struct io_conn *conn,
-			      const struct node_id *id)
-{
-	struct connecting *connect = find_connecting(daemon, id);
-
-	if (!connect)
-		return;
-
-	/* Don't call destroy_io_conn, since we're done. */
-	io_set_finish(connect->conn, NULL, NULL);
-
-	/* Now free the 'connecting' struct since we succeeded. */
-	tal_free(connect);
-}
-
 /*~ When we free a peer, we remove it from the daemon's hashtable.
  * We also call this manually if we want to elegantly drain peer's
  * queues. */
@@ -192,6 +152,7 @@ static struct peer *new_peer(struct daemon *daemon,
 			     const u8 *their_features,
 			     enum is_websocket is_websocket,
 			     struct io_conn *conn STEALS,
+			     bool deliberate_connection,
 			     int *fd_for_subd)
 {
 	struct peer *peer = tal(daemon, struct peer);
@@ -208,6 +169,7 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->peer_outq = msg_queue_new(peer, false);
 	peer->last_recv_time = time_now();
 	peer->is_websocket = is_websocket;
+	peer->deliberate_connection = deliberate_connection;
 	peer->dev_writes_enabled = NULL;
 	peer->dev_read_enabled = true;
 
@@ -239,6 +201,8 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	size_t depender, missing;
 	int subd_fd;
 	bool option_gossip_queries;
+	struct connecting *connect;
+	bool deliberate_connection;
 
 	/* We remove any previous connection immediately, on the assumption it's dead */
 	peer = peer_htable_get(daemon->peers, id);
@@ -278,20 +242,33 @@ struct io_plan *peer_connected(struct io_conn *conn,
 		return io_write_wire(conn, take(msg), io_close_cb, NULL);
 	}
 
-	/* We've successfully connected. */
-	if (incoming)
-		peer_connected_in(daemon, conn, id);
-	else
-		connected_out_to_peer(daemon, conn, id);
+	/* We've successfully connected! */
 
-	if (find_connecting(daemon, id))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "After %s connection on %p, still trying to connect conn %p?",
-			      incoming ? "incoming" : "outgoing",
-			      conn, find_connecting(daemon, id)->conn);
+	/* Were we trying to connect deliberately? (Always true for outbound connections!) */
+	connect = find_connecting(daemon, id);
+	if (!incoming) {
+		/* We allocated 'conn' as a child of 'connect': we don't want
+		 * to free it just yet though.  tal_steal() it onto the
+		 * permanent 'daemon' struct. */
+		tal_steal(daemon, conn);
+
+		/* We only allow one outgoing attempt at a time */
+		assert(connect->conn == conn);
+	}
+
+	if (connect) {
+		deliberate_connection = true;
+		/*~ Now we've connected, disable the callback which would
+		 * cause us to to try the next address on failure. */
+		io_set_finish(connect->conn, NULL, NULL);
+		tal_free(connect);
+	} else {
+		deliberate_connection = false;
+	}
 
 	/* This contains the per-peer state info; gossipd fills in pps->gs */
-	peer = new_peer(daemon, id, cs, their_features, is_websocket, conn, &subd_fd);
+	peer = new_peer(daemon, id, cs, their_features, is_websocket, conn,
+			deliberate_connection, &subd_fd);
 	/* Only takes over conn if it succeeds. */
 	if (!peer)
 		return io_close(conn);
@@ -415,6 +392,51 @@ static struct io_plan *conn_in(struct io_conn *conn,
 				   handshake_in_success, daemon);
 }
 
+/* How much is peer worth (when considering disconnet)? */
+static size_t peer_score(const struct peer *peer)
+{
+#define PEER_SCORE_MAX 2
+
+	/* We deliberately connected to it?  Highest prio */
+	if (peer->deliberate_connection)
+		return 2;
+	/* It has subds now?  Higher prio */
+	if (tal_count(peer->subds))
+		return 1;
+	return 0;
+}
+
+/*~ When file descriptors are exhausted, we might be better to try to
+ * free an existing connection, rather than ignoring new ones. */
+void close_random_connection(struct daemon *daemon)
+{
+	struct peer *peer, *best_peer = NULL;
+	size_t best_peer_score = PEER_SCORE_MAX + 1;
+	struct peer_htable_iter it;
+
+	/* Prefer ones with no subds (just chatting), or failing that,
+	 * ones we didn't deliberately connect to. */
+	peer = peer_htable_pick(daemon->peers, pseudorand_u64(), &it);
+
+	for (size_t i = 0; i < peer_htable_count(daemon->peers); i++) {
+		size_t score = peer_score(peer);
+		if (score < best_peer_score) {
+			best_peer = peer;
+			best_peer_score = score;
+			/* Don't continue if we can't improve! */
+			if (best_peer_score == 0)
+				break;
+		}
+		peer = peer_htable_next(daemon->peers, &it);
+	}
+
+	if (best_peer) {
+		status_debug("due to stress, randomly closing peer %s (score %zu)",
+			     fmt_node_id(tmpctx, &best_peer->id), best_peer_score);
+		io_close(best_peer->to_peer);
+	}
+}
+
 /*~ When we get a direct connection in we set up its network address
  * then call handshake.c to set up the crypto state. */
 static struct io_plan *connection_in(struct io_conn *conn,
@@ -430,6 +452,8 @@ static struct io_plan *connection_in(struct io_conn *conn,
 				      strerror(errno));
 			accept_logged = true;
 		}
+		/* Maybe free up some fds by closing something. */
+		close_random_connection(daemon);
 		return NULL;
 	}
 
@@ -1610,10 +1634,15 @@ static void try_connect_peer(struct daemon *daemon,
 	struct wireaddr_internal *addrs;
 	bool use_proxy = daemon->always_use_proxy;
 	struct connecting *connect;
+	struct peer *peer;
 
 	/* Already existing?  Must have crossed over, it'll know soon. */
-	if (peer_htable_get(daemon->peers, id))
+	peer = peer_htable_get(daemon->peers, id);
+	if (peer) {
+		/* Note now that we explicitly tried to connect */
+		peer->deliberate_connection = true;
 		return;
+	}
 
 	/* If we're trying to connect it right now, that's OK. */
 	if ((connect = find_connecting(daemon, id))) {
