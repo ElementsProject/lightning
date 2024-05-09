@@ -939,6 +939,10 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_hsmd_fail_preapprove,
 		     "Tell hsmd to always deny preapprove_invoice / preapprove_keysend");
+	clnopt_witharg("--dev-fd-limit-multiplier", OPT_DEV|OPT_SHOWINT,
+		       opt_set_u32, opt_show_u32,
+		       &ld->fd_limit_multiplier,
+		       "Try to set fd limit to this many times by number of channels (default: 2)");
 	/* This is handled directly in daemon_developer_mode(), so we ignore it here */
 	clnopt_noarg("--dev-debug-self", OPT_DEV,
 		     opt_ignore,

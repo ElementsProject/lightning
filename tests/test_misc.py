@@ -17,6 +17,7 @@ import json
 import os
 import pytest
 import re
+import resource
 import shutil
 import signal
 import socket
@@ -4094,6 +4095,28 @@ def test_set_feerate_offset(node_factory, bitcoind):
 
     l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
     l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+
+
+def test_low_fd_limit(node_factory, bitcoind):
+    limits = resource.getrlimit(resource.RLIMIT_NOFILE)
+
+    # We assume this, otherwise l2 cannot increase limits!
+    if limits[0] == limits[1]:
+        limits = (limits[1] // 2, limits[1])
+        resource.setrlimit(resource.RLIMIT_NOFILE, limits)
+
+    # l1 asks for too much, l2 asks for more than it has, but enough.
+    l1, l2 = node_factory.line_graph(2, opts=[{'dev-fd-limit-multiplier': limits[1] + 1, 'allow_warning': True}, {'dev-fd-limit-multiplier': limits[1]}])
+
+    # fd check is done at start, so restart.
+    l1.restart()
+
+    # It should warn that FD limit is "low".
+    assert l1.daemon.is_in_log('UNUSUAL.*WARNING: we have 1 channels but file descriptors limited to {}'.format(limits[1]))
+
+    l2.restart()
+
+    assert l2.daemon.is_in_log(r'Increasing file descriptor limit to {} \(1 channels, max is {}'.format(limits[1], limits[1]))
 
 
 @pytest.mark.parametrize("preapprove", [False, True])

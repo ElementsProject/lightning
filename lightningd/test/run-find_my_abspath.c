@@ -154,7 +154,8 @@ void jsonrpc_stop_all(struct lightningd *ld UNNEEDED)
 void jsonrpc_stop_listening(struct jsonrpc *jsonrpc UNNEEDED)
 { fprintf(stderr, "jsonrpc_stop_listening called!\n"); abort(); }
 /* Generated stub for load_channels_from_wallet */
-struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld UNNEEDED)
+struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld UNNEEDED,
+					      size_t *num_channels UNNEEDED)
 { fprintf(stderr, "load_channels_from_wallet called!\n"); abort(); }
 /* Generated stub for log_ */
 void log_(struct logger *logger UNNEEDED, enum log_level level UNNEEDED,

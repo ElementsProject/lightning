@@ -127,8 +127,13 @@ struct amount_msat channel_amount_spendable(const struct channel *channel);
 struct amount_msat channel_amount_receivable(const struct channel *channel);
 
 /* Pull peers, channels and HTLCs from db, and wire them up.
- * Returns any HTLCs we have to resubmit via htlcs_resubmit. */
-struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld);
+ * Returns any HTLCs we have to resubmit via htlcs_resubmit.
+ *
+ * As a side-effect, count total channels loaded into *num_channels.
+ */
+struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld,
+					      size_t *num_channels);
+
 
 struct leak_detect;
 void peer_dev_memleak(struct lightningd *ld, struct leak_detect *leaks);

@@ -2509,7 +2509,8 @@ void setup_peers(struct lightningd *ld)
 }
 
 /* Pull peers, channels and HTLCs from db, and wire them up. */
-struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld)
+struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld,
+					      size_t *num_channels)
 {
 	struct peer *peer;
 	struct htlc_in_map *unconnected_htlcs_in = tal(ld, struct htlc_in_map);
@@ -2519,6 +2520,7 @@ struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld)
 	if (!wallet_init_channels(ld->wallet))
 		fatal("Could not load channels from the database");
 
+	*num_channels = 0;
 	/* First we load the incoming htlcs */
 	for (peer = peer_node_id_map_first(ld->peers, &it);
 	     peer;
@@ -2531,6 +2533,7 @@ struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld)
 							      ld->htlcs_in)) {
 				fatal("could not load htlcs for channel");
 			}
+			(*num_channels)++;
 		}
 	}
 
