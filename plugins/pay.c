@@ -1183,10 +1183,15 @@ static struct command_result *json_pay(struct command *cmd,
 		/* FIXME: do MPP across these!  We choose first one. */
 		p->blindedpath = tal_steal(p, b12->invoice_paths[0]);
 		p->blindedpay = tal_steal(p, b12->invoice_blindedpay[0]);
+		/* FIXME: support this! */
+		if (!p->blindedpath->first_node_id.is_pubkey) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "First hop of blinding is an scid: not supported!");
+		}
 		p->min_final_cltv_expiry = p->blindedpay->cltv_expiry_delta;
 
 		/* Set destination to introduction point */
-		node_id_from_pubkey(p->destination, &p->blindedpath->first_node_id);
+		node_id_from_pubkey(p->destination, &p->blindedpath->first_node_id.pubkey);
 		p->payment_metadata = NULL;
 		p->routes = NULL;
 		/* BOLT-offers #12:

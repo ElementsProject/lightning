@@ -63,7 +63,8 @@ send_onion_reply(struct command *cmd,
 	req = jsonrpc_request_start(cmd->plugin, cmd, "sendonionmessage",
 				    finished, sendonionmessage_error, NULL);
 
-	json_add_pubkey(req->js, "first_id", &reply_path->first_node_id);
+	assert(reply_path->first_node_id.is_pubkey);
+	json_add_pubkey(req->js, "first_id", &reply_path->first_node_id.pubkey);
 	json_add_pubkey(req->js, "blinding", &reply_path->blinding);
 	json_array_start(req->js, "hops");
 
@@ -110,6 +111,13 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 			plugin_err(cmd->plugin, "Invalid reply path %.*s?",
 				   json_tok_full_len(replytok),
 				   json_tok_full(buf, replytok));
+
+		/* FIXME: support this! */
+		if (!reply_path->first_node_id.is_pubkey) {
+			plugin_log(cmd->plugin, LOG_DBG,
+				   "reply_blindedpath uses scid");
+			return command_hook_success(cmd);
+		}
 	}
 
 	invreqtok = json_get_member(buf, om, "invoice_request");
@@ -316,7 +324,15 @@ static bool json_add_blinded_paths(struct json_stream *js,
 	json_array_start(js, fieldname);
 	for (size_t i = 0; i < tal_count(paths); i++) {
 		json_object_start(js, NULL);
-		json_add_pubkey(js, "first_node_id", &paths[i]->first_node_id);
+		if (paths[i]->first_node_id.is_pubkey) {
+			json_add_pubkey(js, "first_node_id",
+					&paths[i]->first_node_id.pubkey);
+		} else {
+			json_add_short_channel_id(js, "first_scid",
+						  paths[i]->first_node_id.scidd.scid);
+			json_add_u32(js, "first_scid_dir",
+				     paths[i]->first_node_id.scidd.dir);
+		}
 		json_add_pubkey(js, "blinding", &paths[i]->blinding);
 
 		/* Don't crash if we're short a payinfo! */

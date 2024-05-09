@@ -610,15 +610,18 @@ The payload for a call follows this format:
 {
   "onion_message": {
     "pathsecret": "0000000000000000000000000000000000000000000000000000000000000000",
-    "reply_first_node": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
-    "reply_blinding": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
-    "reply_path": [
-      {
-        "id": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
-        "encrypted_recipient_data": "0a020d0d",
-        "blinding": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f"
-      }
-    ],
+    "reply_blindedpath": {
+      "first_node_id": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
+      "first_scid": "100x200x300",
+      "first_scid_dir": 1,
+      "blinding": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
+      "hops": [
+        {
+          "blinded_node_id": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
+          "encrypted_recipient_data": "0a020d0d"
+        }
+      ]
+	},
     "invoice_request": "0a020d0d",
     "invoice": "0a020d0d",
     "invoice_error": "0a020d0d",
@@ -632,6 +635,6 @@ The payload for a call follows this format:
 }
 ```
 
-All fields shown here are optional.
+All fields shown here are optional: in particular, only one of "first_node_id" or the pair "first_scid" and "first_scid_dir" is present.
 
 We suggest just returning `{"result": "continue"}`; any other result will cause the message not to be handed to any other hooks.

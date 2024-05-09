@@ -70,6 +70,10 @@ void ecdh(const struct pubkey *point UNNEEDED, struct secret *ss UNNEEDED)
 /* Generated stub for fromwire_amount_msat */
 struct amount_msat fromwire_amount_msat(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_amount_msat called!\n"); abort(); }
+/* Generated stub for fromwire_sciddir_or_pubkey */
+void fromwire_sciddir_or_pubkey(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+				struct sciddir_or_pubkey *sciddpk UNNEEDED)
+{ fprintf(stderr, "fromwire_sciddir_or_pubkey called!\n"); abort(); }
 /* Generated stub for fromwire_tlv */
 bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 		  const struct tlv_record_type *types UNNEEDED, size_t num_types UNNEEDED,
@@ -100,6 +104,10 @@ size_t tlv_field_offset(const u8 *tlvstream UNNEEDED, size_t tlvlen UNNEEDED, u6
 /* Generated stub for towire_amount_msat */
 void towire_amount_msat(u8 **pptr UNNEEDED, const struct amount_msat msat UNNEEDED)
 { fprintf(stderr, "towire_amount_msat called!\n"); abort(); }
+/* Generated stub for towire_sciddir_or_pubkey */
+void towire_sciddir_or_pubkey(u8 **pptr UNNEEDED,
+			      const struct sciddir_or_pubkey *sciddpk UNNEEDED)
+{ fprintf(stderr, "towire_sciddir_or_pubkey called!\n"); abort(); }
 /* Generated stub for towire_tlv */
 void towire_tlv(u8 **pptr UNNEEDED,
 		const struct tlv_record_type *types UNNEEDED, size_t num_types UNNEEDED,

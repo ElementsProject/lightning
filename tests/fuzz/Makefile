@@ -51,6 +51,7 @@ FUZZ_COMMON_OBJS := \
 	common/node_id.o				\
 	common/psbt_keypath.o				\
 	common/wireaddr.o				\
+	common/sciddir_or_pubkey.o			\
 	common/setup.o					\
 	common/status.o					\
 	common/status_wire.o				\

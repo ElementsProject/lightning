@@ -24,7 +24,12 @@ static void json_add_blindedpath(struct json_stream *stream,
 				 const struct blinded_path *path)
 {
 	json_object_start(stream, fieldname);
-	json_add_pubkey(stream, "first_node_id", &path->first_node_id);
+	if (path->first_node_id.is_pubkey) {
+		json_add_pubkey(stream, "first_node_id", &path->first_node_id.pubkey);
+	} else {
+		json_add_short_channel_id(stream, "first_scid", path->first_node_id.scidd.scid);
+		json_add_u32(stream, "first_scid_dir", path->first_node_id.scidd.dir);
+	}
 	json_add_pubkey(stream, "blinding", &path->blinding);
 	json_array_start(stream, "hops");
 	for (size_t i = 0; i < tal_count(path->path); i++) {
@@ -190,6 +195,7 @@ static struct command_result *json_sendonionmessage(struct command *cmd,
 	struct secret *path_secrets;
 	size_t onion_size;
 
+	/* FIXME: Support using scid for first hop! */
 	if (!param_check(cmd, buffer, params,
 			 p_req("first_id", param_node_id, &first_id),
 			 p_req("blinding", param_pubkey, &blinding),

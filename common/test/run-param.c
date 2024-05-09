@@ -67,6 +67,10 @@ bool command_dev_apis(const struct command *cmd UNNEEDED)
 /* Generated stub for command_filter_ptr */
 struct json_filter **command_filter_ptr(struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_filter_ptr called!\n"); abort(); }
+/* Generated stub for fromwire_sciddir_or_pubkey */
+void fromwire_sciddir_or_pubkey(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+				struct sciddir_or_pubkey *sciddpk UNNEEDED)
+{ fprintf(stderr, "fromwire_sciddir_or_pubkey called!\n"); abort(); }
 /* Generated stub for fromwire_tlv */
 bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 		  const struct tlv_record_type *types UNNEEDED, size_t num_types UNNEEDED,
@@ -76,6 +80,10 @@ bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 /* Generated stub for to_canonical_invstr */
 const char *to_canonical_invstr(const tal_t *ctx UNNEEDED, const char *invstring UNNEEDED)
 { fprintf(stderr, "to_canonical_invstr called!\n"); abort(); }
+/* Generated stub for towire_sciddir_or_pubkey */
+void towire_sciddir_or_pubkey(u8 **pptr UNNEEDED,
+			      const struct sciddir_or_pubkey *sciddpk UNNEEDED)
+{ fprintf(stderr, "towire_sciddir_or_pubkey called!\n"); abort(); }
 /* Generated stub for towire_tlv */
 void towire_tlv(u8 **pptr UNNEEDED,
 		const struct tlv_record_type *types UNNEEDED, size_t num_types UNNEEDED,

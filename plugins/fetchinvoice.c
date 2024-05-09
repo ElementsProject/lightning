@@ -608,7 +608,7 @@ static struct blinded_path *blinded_path(const tal_t *ctx,
 	nhops = tal_count(ids);
 
 	assert(nhops > 0);
-	path->first_node_id = ids[0];
+	sciddir_or_pubkey_from_pubkey(&path->first_node_id, &ids[0]);
 	assert(pubkey_eq(&ids[nhops-1], &local_id));
 
 	randombytes_buf(&first_blinding, sizeof(first_blinding));
