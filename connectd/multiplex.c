@@ -1278,6 +1278,19 @@ void peer_connect_subd(struct daemon *daemon, const u8 *msg, int fd)
 	if (!fromwire_connectd_peer_connect_subd(msg, &id, &counter, &channel_id))
 		master_badmsg(WIRE_CONNECTD_PEER_CONNECT_SUBD, msg);
 
+	/* If receiving fd failed, fd will be -1.  Log and ignore
+	 * (subd will see immediate hangup). */
+	if (fd == -1) {
+		static bool recvfd_logged = false;
+		if (!recvfd_logged) {
+			status_broken("receiving lightningd fd failed for %s: %s",
+				      fmt_node_id(tmpctx, &id),
+				      strerror(errno));
+			recvfd_logged = true;
+		}
+		return;
+	}
+
 	/* Races can happen: this might be gone by now (or reconnected!). */
 	peer = peer_htable_get(daemon->peers, &id);
 	if (!peer || peer->counter != counter) {
