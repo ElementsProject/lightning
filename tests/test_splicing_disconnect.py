@@ -34,6 +34,7 @@ def test_splice_disconnect_sig(node_factory, bitcoind):
     result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
 
     l1.daemon.wait_for_log(r'dev_disconnect: \-WIRE_TX_SIGNATURES')
+    time.sleep(.2)
 
     print("Killing l1 without sending WIRE_TX_SIGNATURES")
     l1.daemon.kill()
