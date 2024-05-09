@@ -689,6 +689,9 @@ void log_(struct logger *logger UNNEEDED, enum log_level level UNNEEDED,
 	  const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "log_ called!\n"); abort(); }
+/* Generated stub for marginal_feerate */
+u32 marginal_feerate(u32 current_feerate UNNEEDED)
+{ fprintf(stderr, "marginal_feerate called!\n"); abort(); }
 /* Generated stub for merkle_tlv */
 void merkle_tlv(const struct tlv_field *fields UNNEEDED, struct sha256 *merkle UNNEEDED)
 { fprintf(stderr, "merkle_tlv called!\n"); abort(); }

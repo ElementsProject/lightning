@@ -672,8 +672,8 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 	 *   reserve. It is recommended that this "fee spike buffer" can
 	 *   handle twice the current `feerate_per_kw` to ensure
 	 *   predictability between implementations.
-	*/
-	fee = commit_tx_base_fee(2 * feerate, num_untrimmed_htlcs + 1,
+	 */
+	fee = commit_tx_base_fee(marginal_feerate(feerate), num_untrimmed_htlcs + 1,
 				 option_anchor_outputs, option_anchors_zero_fee_htlc_tx);
 
 	if (option_anchor_outputs || option_anchors_zero_fee_htlc_tx) {

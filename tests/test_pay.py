@@ -754,7 +754,8 @@ def test_wait_sendpay(node_factory, executor):
 @pytest.mark.parametrize("anchors", [False, True])
 def test_sendpay_cant_afford(node_factory, anchors):
     # Set feerates the same so we don't have to wait for update.
-    opts = {'feerates': (15000, 15000, 15000, 15000)}
+    opts = {'feerates': (15000, 15000, 15000, 15000),
+            'commit-feerate-offset': 0}
     if anchors is False:
         opts['dev-force-features'] = "-23"
 
@@ -767,26 +768,29 @@ def test_sendpay_cant_afford(node_factory, anchors):
     # Reserve is 1%.
     reserve = 10**7
 
-    # # This is how we recalc constants (v. v. slow!)
+    # This is how we recalc constants (v. v. slow!)
     # minimum = 1
     # maximum = 10**9
     # while maximum - minimum > 1:
-    #     l1, l2 = node_factory.line_graph(2, fundamount=10**6,
-    #                                      opts={'feerates': (15000, 15000, 15000, 15000)})
+    #     l1, l2 = node_factory.line_graph(2, fundamount=10**6, opts=opts)
     #     try:
     #         l1.pay(l2, (minimum + maximum) // 2)
+    #         print("XXX Pay {} WORKED!".format((minimum + maximum) // 2))
     #         minimum = (minimum + maximum) // 2
     #     except RpcError:
+    #         print("XXX Pay {} FAILED!".format((minimum + maximum) // 2))
     #         maximum = (minimum + maximum) // 2
     #     print("{} - {}".format(minimum, maximum))
-    # assert False
+
+    # assert False, "Max we can pay == {}".format(minimum)
+    # # Currently this gives: 962713000 for non-anchors, 951833000 for anchors
+    # # Add reserve to this result to derive `available`
 
     # This is the fee, which needs to be taken into account for l1.
     if anchors:
-        # option_anchor_outputs
-        available = 10**9 - 44700000
+        available = 951833000 + reserve
     else:
-        available = 10**9 - 32040000
+        available = 962713000 + reserve
 
     # Can't pay past reserve.
     with pytest.raises(RpcError):
@@ -2575,11 +2579,15 @@ def test_setchannel_startup_opts(node_factory, bitcoind):
     assert result[1]['htlc_maximum_msat'] == Millisatoshi(5)
 
 
-def test_channel_spendable(node_factory, bitcoind):
+@pytest.mark.parametrize("anchors", [False, True])
+def test_channel_spendable(node_factory, bitcoind, anchors):
     """Test that spendable_msat is accurate"""
     sats = 10**6
+    opts = {'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'), 'holdtime': '30'}
+    if anchors is False:
+        opts['dev-force-features'] = "-23"
     l1, l2 = node_factory.line_graph(2, fundamount=sats, wait_for_announce=True,
-                                     opts={'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'), 'holdtime': '30'})
+                                     opts=opts)
 
     inv = l2.rpc.invoice('any', 'inv', 'for testing')
     payment_hash = inv['payment_hash']
