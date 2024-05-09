@@ -38,6 +38,9 @@ struct sent {
 	/* Path to use (including self) */
 	struct pubkey *path;
 
+	/* When creating blinded return path, use scid not pubkey for intro node. */
+	struct short_channel_id_dir *dev_path_use_scidd;
+
 	/* The invreq we sent, OR the invoice we sent */
 	struct tlv_invoice_request *invreq;
 
@@ -597,6 +600,7 @@ send_modern_message(struct command *cmd,
 static struct blinded_path *blinded_path(const tal_t *ctx,
 					 struct command *cmd,
 					 const struct pubkey *ids,
+					 const struct short_channel_id_dir *first_scidd,
 					 const struct secret *pathsecret)
 {
 	struct privkey first_blinding, blinding_iter;
@@ -608,7 +612,10 @@ static struct blinded_path *blinded_path(const tal_t *ctx,
 	nhops = tal_count(ids);
 
 	assert(nhops > 0);
-	sciddir_or_pubkey_from_pubkey(&path->first_node_id, &ids[0]);
+	if (first_scidd)
+		sciddir_or_pubkey_from_scidd(&path->first_node_id, first_scidd);
+	else
+		sciddir_or_pubkey_from_pubkey(&path->first_node_id, &ids[0]);
 	assert(pubkey_eq(&ids[nhops-1], &local_id));
 
 	randombytes_buf(&first_blinding, sizeof(first_blinding));
@@ -673,7 +680,8 @@ static struct command_result *make_reply_path(struct command *cmd,
 	for (int i = nhops - 2; i >= 0; i--)
 		ids[nhops - 2 - i] = sending->sent->path[i];
 
-	rpath = blinded_path(cmd, cmd, ids, sending->sent->reply_secret);
+	rpath = blinded_path(cmd, cmd, ids, sending->sent->dev_path_use_scidd,
+			     sending->sent->reply_secret);
 	return send_modern_message(cmd, rpath, sending);
 }
 
@@ -927,6 +935,22 @@ static struct command_result *invreq_done(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+static struct command_result *param_dev_scidd(struct command *cmd, const char *name,
+					      const char *buffer, const jsmntok_t *tok,
+					      struct short_channel_id_dir **scidd)
+{
+	if (!plugin_developer_mode(cmd->plugin))
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "not available outside --developer mode");
+
+	*scidd = tal(cmd, struct short_channel_id_dir);
+	if (short_channel_id_dir_from_str(buffer + tok->start, tok->end - tok->start, *scidd))
+		return NULL;
+
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a short_channel_id of form NxNxN/dir");
+}
+
 /* Fetches an invoice for this offer, and makes sure it corresponds. */
 static struct command_result *json_fetchinvoice(struct command *cmd,
 						const char *buffer,
@@ -950,6 +974,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 		   p_opt("recurrence_label", param_string, &rec_label),
 		   p_opt_def("timeout", param_number, &timeout, 60),
 		   p_opt("payer_note", param_string, &payer_note),
+		   p_opt("dev_path_use_scidd", param_dev_scidd, &sent->dev_path_use_scidd),
 		   NULL))
 		return command_param_failed();
 
@@ -1405,6 +1430,8 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
+	sent->dev_path_use_scidd = NULL;
+
 	/* BOLT-offers #12:
 	 *   - if the invoice is in response to an `invoice_request`:
 	 *     - MUST copy all non-signature fields from the `invoice_request`
@@ -1539,6 +1566,7 @@ static struct command_result *json_dev_rawrequest(struct command *cmd,
 	sent->wait_timeout = *timeout;
 	sent->cmd = cmd;
 	sent->offer = NULL;
+	sent->dev_path_use_scidd = NULL;
 
 	/* We temporarily abuse ->path to store nodeid! */
 	sent->path = node_id;

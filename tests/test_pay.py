@@ -5577,6 +5577,19 @@ def test_pay_partial_msat(node_factory, executor):
     l3pay.result(TIMEOUT)
 
 
+def test_blinded_reply_path_scid(node_factory):
+    """Check that we handle a blinded path which begins with a scid instead of a nodeid"""
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts={'experimental-offers': None})
+    offer = l2.rpc.offer(amount='2msat', description='test_blinded_reply_path_scid')
+
+    chan = only_one(l1.rpc.listpeerchannels()['channels'])
+    scidd = "{}/{}".format(chan['short_channel_id'], chan['direction'])
+    inv = l1.rpc.fetchinvoice(offer=offer['bolt12'], dev_path_use_scidd=scidd)['invoice']
+
+    l1.rpc.pay(inv)
+
+
 def test_pay_while_opening_channel(node_factory, bitcoind, executor):
     delay_plugin = {'plugin': os.path.join(os.getcwd(),
                                            'tests/plugins/openchannel_hook_delay.py'),
