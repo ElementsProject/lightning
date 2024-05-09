@@ -12,6 +12,7 @@
 #include <common/bolt12_merkle.h>
 #include <common/invoice_path_id.h>
 #include <common/iso4217.h>
+#include <common/json_blinded_path.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <plugins/offers.h>
