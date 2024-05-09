@@ -113,6 +113,8 @@ void io_set_finish_(struct io_conn *conn,
  * (tal'ocated off @ctx) and pass that to init().  Note that if there is
  * an error on this file descriptor, it will be freed.
  *
+ * Note: if the accept fails (usually due to EMFILE), init() will be called
+ * wth
  * Returns NULL on error (and sets errno).
  *
  * Example:
@@ -822,5 +824,14 @@ int (*io_poll_override(int (*poll)(struct pollfd *fds, nfds_t nfds, int timeout)
  * Returns NULL if we don't own it, otherwise a struct io_conn * or struct io_listener *.
  */
 const void *io_have_fd(int fd, bool *listener);
+
+/**
+ * io_set_extended_errors - enable callbacks for errors.
+ * @state: true or false.
+ *
+ * Defaults false for compatibility.  See io_new_conn for what this changes.
+ */
+void io_set_extended_errors(bool state);
+bool io_get_extended_errors(void);
 
 #endif /* CCAN_IO_H */

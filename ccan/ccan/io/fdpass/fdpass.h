@@ -45,8 +45,9 @@ struct io_plan *io_send_fd_(struct io_conn *conn,
  * @arg: @next argument
  *
  * This creates a plan to receive a file descriptor, as sent by
- * io_send_fd.  Once it's all read, the @next function will be called:
- * on an error, the finish function is called instead.
+ * io_send_fd.  Once it's all read, the @next function will be called.
+ * On an error, if io_get_extended_errors() is true, then @next is called
+ * and @fd will be -1, otherwise the finish function is called.
  *
  * Note that the I/O may actually be done immediately.
  *

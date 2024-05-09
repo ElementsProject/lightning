@@ -15,6 +15,7 @@
 void *io_loop_return;
 
 struct io_plan io_conn_freed;
+static bool io_extended_errors;
 
 struct io_listener *io_new_listener_(const tal_t *ctx, int fd,
 				     struct io_plan *(*init)(struct io_conn *,
@@ -540,7 +541,7 @@ struct io_plan *io_sock_shutdown(struct io_conn *conn)
 	/* And leave unset .*/
 	return &conn->plan[IO_IN];
 }
-	
+
 bool io_flush_sync(struct io_conn *conn)
 {
 	struct io_plan *plan = &conn->plan[IO_OUT];
@@ -575,4 +576,14 @@ again:
 
 	io_fd_block(io_conn_fd(conn), false);
 	return ok;
+}
+
+void io_set_extended_errors(bool state)
+{
+	io_extended_errors = state;
+}
+
+bool io_get_extended_errors(void)
+{
+	return io_extended_errors;
 }
