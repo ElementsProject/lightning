@@ -4727,11 +4727,11 @@ def test_pay_blockheight_mismatch(node_factory, bitcoind):
     """Test that we can send a payment even if not caught up with the chain.
 
     We removed the requirement for the node to be fully synced up with
-    th eblockcain in v24.05, allowing us to send a payment while still
+    the blockchain in v24.05, allowing us to send a payment while still
     processing blocks. This test pins the sender at a lower height,
     but `getnetworkinfo` still reports the correct height. Since CLTV
     computations are based on headers and not our own sync height, the
-    recipient should still be appy with the parameters we chose.
+    recipient should still be happy with the parameters we chose.
 
     """
 
@@ -4739,7 +4739,7 @@ def test_pay_blockheight_mismatch(node_factory, bitcoind):
     sync_blockheight(bitcoind, [send, recv])
 
     # Pin `send` at the current height. by not returning the next
-    # blockhash. This error is special-cased not to cound as the
+    # blockhash. This error is special-cased not to count as the
     # backend failing since it is used to poll for the next block.
     def mock_getblockhash(req):
         return {
