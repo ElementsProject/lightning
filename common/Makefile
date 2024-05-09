@@ -84,6 +84,7 @@ COMMON_SRC_NOGEN :=				\
 	common/random_select.c			\
 	common/read_peer_msg.c			\
 	common/route.c				\
+	common/sciddir_or_pubkey.c		\
 	common/setup.c				\
 	common/shutdown_scriptpubkey.c		\
 	common/sphinx.c				\

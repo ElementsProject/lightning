@@ -2,6 +2,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/utf8/utf8.h>
 #include <common/decode_array.h>
+#include <common/sciddir_or_pubkey.h>
 #include <devtools/print_wire.h>
 #include <errno.h>
 #include <stdio.h>
@@ -366,6 +367,7 @@ PRINTWIRE_STRUCT_TYPE_TO_STRING(channel_id)
 PRINTWIRE_STRUCT_TYPE_TO_STRING(node_id)
 PRINTWIRE_STRUCT_TYPE_TO_STRING(preimage)
 PRINTWIRE_STRUCT_TYPE_TO_STRING(pubkey)
+PRINTWIRE_STRUCT_TYPE_TO_STRING(sciddir_or_pubkey)
 PRINTWIRE_STRUCT_TYPE_TO_STRING(sha256)
 PRINTWIRE_STRUCT_TYPE_TO_STRING(secret)
 PRINTWIRE_ASSIGNABLE_STRUCT_TO_STRING(short_channel_id)

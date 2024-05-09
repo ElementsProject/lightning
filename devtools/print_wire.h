@@ -41,6 +41,7 @@ bool printwire_amount_sat(const char *fieldname, const u8 **cursor, size_t *plen
 bool printwire_amount_msat(const char *fieldname, const u8 **cursor, size_t *plen);
 bool printwire_preimage(const char *fieldname, const u8 **cursor, size_t *plen);
 bool printwire_pubkey(const char *fieldname, const u8 **cursor, size_t *plen);
+bool printwire_sciddir_or_pubkey(const char *fieldname, const u8 **cursor, size_t *plen);
 bool printwire_node_id(const char *fieldname, const u8 **cursor, size_t *plen);
 bool printwire_secp256k1_ecdsa_signature(const char *fieldname, const u8 **cursor, size_t *plen);
 bool printwire_sha256(const char *fieldname, const u8 **cursor, size_t *plen);

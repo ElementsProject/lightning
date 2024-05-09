@@ -89,6 +89,9 @@ const char *log_level_name(enum log_level level UNNEEDED)
 bool log_level_parse(const char *levelstr UNNEEDED, size_t len UNNEEDED,
 		     enum log_level *level UNNEEDED)
 { fprintf(stderr, "log_level_parse called!\n"); abort(); }
+/* Generated stub for pubkey_from_node_id */
+bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
 /* Generated stub for towire_amount_msat */
 void towire_amount_msat(u8 **pptr UNNEEDED, const struct amount_msat msat UNNEEDED)
 { fprintf(stderr, "towire_amount_msat called!\n"); abort(); }
