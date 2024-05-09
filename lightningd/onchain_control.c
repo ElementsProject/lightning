@@ -1540,6 +1540,11 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  channel->dbid,
 				  HSM_PERM_SIGN_ONCHAIN_TX
 				  | HSM_PERM_COMMITMENT_POINT);
+	if (hsmfd < 0) {
+		log_broken(channel->log, "Could not get hsm fd for onchaind: %s",
+			   strerror(errno));
+		return KEEP_WATCHING;
+	}
 
 	channel_set_owner(channel, new_channel_subd(channel, ld,
 						    "lightning_onchaind",

@@ -4065,6 +4065,12 @@ bool peer_start_dualopend(struct peer *peer,
 				  | HSM_PERM_SIGN_REMOTE_TX
 				  | HSM_PERM_SIGN_WILL_FUND_OFFER
 				  | HSM_PERM_LOCK_OUTPOINT);
+	if (hsmfd < 0) {
+		channel_internal_error(channel,
+				       "Getting hsm fd for dualopend: %s",
+				       strerror(errno));
+		return false;
+	}
 
 	channel->owner = new_channel_subd(channel,
 					  peer->ld,
@@ -4140,6 +4146,15 @@ bool peer_restart_dualopend(struct peer *peer,
 				  | HSM_PERM_SIGN_REMOTE_TX
 				  | HSM_PERM_SIGN_WILL_FUND_OFFER
 				  | HSM_PERM_LOCK_OUTPOINT);
+
+	if (hsmfd < 0) {
+		log_broken(channel->log, "Could not get hsmfd: %s",
+			   strerror(errno));
+		/* Disconnect it. */
+		force_peer_disconnect(peer->ld, peer,
+				      "Failed to get hsm fd for dualopend");
+		return false;
+	}
 
 	channel_set_owner(channel,
 			  new_channel_subd(channel, peer->ld,

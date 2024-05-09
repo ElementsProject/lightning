@@ -936,6 +936,15 @@ bool peer_start_openingd(struct peer *peer, struct peer_fd *peer_fd)
 				  HSM_PERM_COMMITMENT_POINT
 				  | HSM_PERM_SIGN_REMOTE_TX);
 
+	if (hsmfd < 0) {
+		uncommitted_channel_disconnect(uc, LOG_BROKEN,
+					       tal_fmt(tmpctx,
+						       "Getting hsmfd for lightning_openingd: %s",
+						       strerror(errno)));
+		tal_free(uc);
+		return false;
+	}
+
 	uc->open_daemon = new_channel_subd(peer, peer->ld,
 					"lightning_openingd",
 					uc, &peer->id, uc->log,

@@ -26,7 +26,6 @@ static int hsm_get_fd(struct lightningd *ld,
 		      u64 dbid,
 		      u64 permissions)
 {
-	int hsm_fd;
 	const u8 *msg;
 
 	msg = towire_hsmd_client_hsmfd(NULL, id, dbid, permissions);
@@ -34,10 +33,7 @@ static int hsm_get_fd(struct lightningd *ld,
 	if (!fromwire_hsmd_client_hsmfd_reply(msg))
 		fatal("Bad reply from HSM: %s", tal_hex(tmpctx, msg));
 
-	hsm_fd = fdpass_recv(ld->hsm_fd);
-	if (hsm_fd < 0)
-		fatal("Could not read fd from HSM: %s", strerror(errno));
-	return hsm_fd;
+	return fdpass_recv(ld->hsm_fd);
 }
 
 int hsm_get_client_fd(struct lightningd *ld,
@@ -52,7 +48,11 @@ int hsm_get_client_fd(struct lightningd *ld,
 
 int hsm_get_global_fd(struct lightningd *ld, u64 permissions)
 {
-	return hsm_get_fd(ld, &ld->id, 0, permissions);
+	int fd = hsm_get_fd(ld, &ld->id, 0, permissions);
+
+	if (fd < 0)
+		fatal("Could not read fd from HSM: %s", strerror(errno));
+	return fd;
 }
 
 static unsigned int hsm_msg(struct subd *hsmd,
