@@ -4106,17 +4106,23 @@ def test_low_fd_limit(node_factory, bitcoind):
         resource.setrlimit(resource.RLIMIT_NOFILE, limits)
 
     # l1 asks for too much, l2 asks for more than it has, but enough.
-    l1, l2 = node_factory.line_graph(2, opts=[{'dev-fd-limit-multiplier': limits[1] + 1, 'allow_warning': True}, {'dev-fd-limit-multiplier': limits[1]}])
+    l1, l2 = node_factory.line_graph(2, opts=[{'dev-fd-limit-multiplier': limits[1] + 1,
+                                               'allow_warning': True},
+                                              {'dev-fd-limit-multiplier': limits[1],
+                                               'allow_warning': True}])
 
     # fd check is done at start, so restart.
     l1.restart()
 
+    # Github CI seems to give children a lower fd hard limit that we have (32768 vs 65536?)
+    # so we don't check the actual numbers here.
+
     # It should warn that FD limit is "low".
-    assert l1.daemon.is_in_log('UNUSUAL.*WARNING: we have 1 channels but file descriptors limited to {}'.format(limits[1]))
+    assert l1.daemon.is_in_log('UNUSUAL.*WARNING: we have 1 channels but file descriptors limited')
 
     l2.restart()
 
-    assert l2.daemon.is_in_log(r'Increasing file descriptor limit to {} \(1 channels, max is {}'.format(limits[1], limits[1]))
+    assert l2.daemon.is_in_log(r'Increasing file descriptor limit')
 
 
 @pytest.mark.parametrize("preapprove", [False, True])
