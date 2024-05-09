@@ -465,6 +465,17 @@ static struct io_plan *connection_in(struct io_conn *conn,
 {
 	struct conn_in conn_in_arg;
 
+	/* Did we fail to accept? */
+	if (!conn) {
+		static bool accept_logged = false;
+		if (!accept_logged) {
+			status_broken("accepting incoming fd failed: %s",
+				      strerror(errno));
+			accept_logged = true;
+		}
+		return NULL;
+	}
+
 	conn_in_arg.addr.u.wireaddr.is_websocket = false;
 	if (!get_remote_address(conn, &conn_in_arg.addr))
 		return io_close(conn);
@@ -2183,6 +2194,9 @@ int main(int argc, char *argv[])
 	/* Set up ecdh() function so it uses our HSM fd, and calls
 	 * status_failed on error. */
 	ecdh_hsmd_setup(HSM_FD, status_failed);
+
+	/* We want to know about accept() and recvmsg failures */
+	io_set_extended_errors(true);
 
 	for (;;) {
 		struct timer *expired;
