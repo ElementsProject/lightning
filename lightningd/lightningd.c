@@ -149,6 +149,11 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_hsmd_no_preapprove_check = false;
 	ld->dev_hsmd_fail_preapprove = false;
 
+	/*~ We try to ensure enough fds for twice the number of channels
+	 * we start with.  We have a developer option to change that factor
+	 * for testing. */
+	ld->fd_limit_multiplier = 2;
+
 	/*~ This is a CCAN list: an embedded double-linked list.  It's not
 	 * really typesafe, but relies on convention to access the contents.
 	 * It's inspired by the closely-related Linux kernel list.h.
@@ -1051,6 +1056,90 @@ bool lightningd_deprecated_in_ok(struct lightningd *ld,
 			     complain_deprecated, &depr_in);
 }
 
+/*~ We fork out new processes very very often; every channel gets its own
+ * process, for example, and we have `hsmd` and `gossipd` and the plugins as
+ * well.  Now, we also keep around several file descriptors (`fd`s), including
+ * file descriptors to communicate with `hsmd` which is a privileged process
+ * with access to private keys and is therefore very sensitive.  Thus, we need
+ * to close all file descriptors other than what the forked-out new process
+ * should have ASAP.
+ *
+ * We do this by using the `ccan/closefrom` module, which implements an
+ * emulation for the `closefrom` syscall on BSD and Solaris.  This emulation
+ * tries to use the fastest facility available on the system (`close_range`
+ * syscall on Linux 5.9+, snooping through `/proc/$PID/fd` on many OSs (but
+ * requires procps to be mounted), the actual `closefrom` call if available,
+ * etc.).  As a fallback if none of those are available on the system,
+ * however, it just iterates over the theoretical range of possible file
+ * descriptors.
+ *
+ * On some systems, that theoretical range can be very high, up to `INT_MAX`
+ * in the worst case.  If the `closefrom` emulation has to fall back to this
+ * loop, it can be very slow; fortunately, the emulation will also inform us
+ * of that via the `closefrom_may_be_slow` function, and also has
+ * `closefrom_limit` to limit the number of allowed file descriptors *IF AND
+ * ONLY IF* `closefrom_may_be_slow()` is true.
+ *
+ * On systems with a fast `closefrom` then `closefrom_limit` does nothing.
+ *
+ * Previously we always imposed a limit of 1024 file descriptors (because we
+ * used to always iterate up to limit instead of using some OS facility,
+ * because those were non-portable and needed code for each OS), until
+ * @whitslack went and made >1000 channels and hit the 1024 limit.
+ */
+static void setup_fd_limit(struct lightningd *ld, size_t num_channels)
+{
+	struct rlimit nofile;
+
+	if (getrlimit(RLIMIT_NOFILE, &nofile) != 0) {
+		log_broken(ld->log,
+			   "Could not get file descriptor limit: %s",
+			   strerror(errno));
+		return;
+	}
+
+	/* Aim for twice as many fds as current channels, for growth. */
+	if (nofile.rlim_cur < num_channels * ld->fd_limit_multiplier) {
+		if (num_channels * ld->fd_limit_multiplier > nofile.rlim_max) {
+			log_unusual(ld->log,
+				    "WARNING: we have %zu channels but file descriptors limited to %zu!",
+				    num_channels, (size_t)nofile.rlim_max);
+			nofile.rlim_cur = nofile.rlim_max;
+		} else {
+			log_debug(ld->log,
+				  "Increasing file descriptor limit to %zu (%zu channels, max is %zu)",
+				  num_channels * ld->fd_limit_multiplier,
+				  num_channels,
+				  (size_t)nofile.rlim_max);
+			nofile.rlim_cur = num_channels * ld->fd_limit_multiplier;
+		}
+		if (setrlimit(RLIMIT_NOFILE, &nofile) != 0) {
+			log_broken(ld->log,
+				   "Could not increase file limit to %zu: %s",
+				   (size_t)nofile.rlim_cur,
+				   strerror(errno));
+		}
+	}
+
+	/*~ If `closefrom_may_be_slow`, we limit ourselves to 4096 file
+	 * descriptors; tell the user about it as that limits the number
+	 * of channels they can have.
+	 * We do not really expect most users to ever reach that many,
+	 * but: https://github.com/ElementsProject/lightning/issues/4868
+	 */
+	if (closefrom_may_be_slow()) {
+		log_info(ld->log,
+			 "We have self-limited number of open file "
+			 "descriptors to 4096, but that will result in a "
+			 "'Too many open files' error if you ever reach "
+			 ">4000 channels.  Please upgrade your OS kernel "
+			 "(Linux 5.9+, FreeBSD 8.0+), or mount proc or "
+			 "/dev/fd (if running in chroot) if you are "
+			 "approaching that many channels.");
+		closefrom_limit(4096);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
@@ -1065,6 +1154,7 @@ int main(int argc, char *argv[])
 	int exit_code = 0;
 	char **orig_argv;
 	bool try_reexec;
+	size_t num_channels;
 
 	trace_span_start("lightningd/startup", argv);
 
@@ -1073,44 +1163,6 @@ int main(int argc, char *argv[])
 
 	/*~ This handles --dev-debug-self really early, which we otherwise ignore */
 	daemon_developer_mode(argv);
-
-	/*~ We fork out new processes very very often; every channel gets its
-	 * own process, for example, and we have `hsmd` and `gossipd` and
-	 * the plugins as well.
-	 * Now, we also keep around several file descriptors (`fd`s), including
-	 * file descriptors to communicate with `hsmd` which is a privileged
-	 * process with access to private keys and is therefore very sensitive.
-	 * Thus, we need to close all file descriptors other than what the
-	 * forked-out new process should have ASAP.
-	 *
-	 * We do this by using the `ccan/closefrom` module, which implements
-	 * an emulation for the `closefrom` syscall on BSD and Solaris.
-	 * This emulation tries to use the fastest facility available on the
-	 * system (`close_range` syscall on Linux 5.9+, snooping through
-	 * `/proc/$PID/fd` on many OSs (but requires procps to be mounted),
-	 * the actual `closefrom` call if available, etc.).
-	 * As a fallback if none of those are available on the system, however,
-	 * it just iterates over the theoretical range of possible file
-	 * descriptors.
-	 *
-	 * On some systems, that theoretical range can be very high, up to
-	 * `INT_MAX` in the worst case.
-	 * If the `closefrom` emulation has to fall back to this loop, it
-	 * can be very slow; fortunately, the emulation will also inform
-	 * us of that via the `closefrom_may_be_slow` function, and also has
-	 * `closefrom_limit` to limit the number of allowed file descriptors
-	 * *IF AND ONLY IF* `closefrom_may_be_slow()` is true.
-	 *
-	 * On systems with a fast `closefrom` then `closefrom_limit` does
-	 * nothing.
-	 *
-	 * Previously we always imposed a limit of 1024 file descriptors
-	 * (because we used to always iterate up to limit instead of using
-	 * some OS facility, because those were non-portable and needed
-	 * code for each OS), until @whitslack went and made >1000 channels
-	 * and hit the 1024 limit.
-	 */
-	closefrom_limit(4096);
 
 	/*~ This sets up SIGCHLD to make sigchld_rfd readable. */
 	sigchld_rfd = setup_sig_handlers();
@@ -1307,10 +1359,15 @@ int main(int argc, char *argv[])
 	/*~ Pull peers, channels and HTLCs from db. Needs to happen after the
 	 *  topology is initialized since some decisions rely on being able to
 	 *  know the blockheight. */
-	unconnected_htlcs_in = notleak(load_channels_from_wallet(ld));
+	unconnected_htlcs_in = notleak(load_channels_from_wallet(ld,
+								 &num_channels));
 	db_commit_transaction(ld->wallet->db);
 
- 	/*~ The gossip daemon looks after the routing gossip;
+	/*~ Now we have channels, try to ensure we have enough file descriptors
+	 * to cover 2x that many. */
+	setup_fd_limit(ld, num_channels);
+
+	/*~ The gossip daemon looks after the routing gossip;
 	 *  channel_announcement, channel_update, node_announcement and gossip
 	 *  queries.   It also hands us the latest channel_updates for our
 	 *  channels. */
@@ -1375,21 +1432,6 @@ int main(int argc, char *argv[])
 						    ld->recover);
 		plugin_hook_call_recover(ld, NULL, payload);
 	}
-	/*~ If `closefrom_may_be_slow`, we limit ourselves to 4096 file
-	 * descriptors; tell the user about it as that limits the number
-	 * of channels they can have.
-	 * We do not really expect most users to ever reach that many,
-	 * but: https://github.com/ElementsProject/lightning/issues/4868
-	 */
-	if (closefrom_may_be_slow())
-		log_info(ld->log,
-			 "We have self-limited number of open file "
-			 "descriptors to 4096, but that will result in a "
-			 "'Too many open files' error if you ever reach "
-			 ">4000 channels.  Please upgrade your OS kernel "
-			 "(Linux 5.9+, FreeBSD 8.0+), or mount proc or "
-			 "/dev/fd (if running in chroot) if you are "
-			 "approaching that many channels.");
 
 	/*~ If we have channels closing, make sure we re-xmit the last
 	 * transaction, in case bitcoind lost it. */

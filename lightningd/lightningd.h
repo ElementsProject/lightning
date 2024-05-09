@@ -287,6 +287,9 @@ struct lightningd {
 	/* Contains the codex32 string used with --recover flag */
 	char *recover;
 
+	/* 2, unless overridden by --dev-fd-limit-multiplier */
+	u32 fd_limit_multiplier;
+
 	/* If we want to debug a subdaemon/plugin. */
 	char *dev_debug_subprocess;
 
