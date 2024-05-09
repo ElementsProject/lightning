@@ -373,7 +373,8 @@ static struct command_result *listincoming_done(struct command *cmd,
 
 		ir->inv->invoice_paths = tal_arr(ir->inv, struct blinded_path *, 1);
 		ir->inv->invoice_paths[0] = tal(ir->inv->invoice_paths, struct blinded_path);
-		ir->inv->invoice_paths[0]->first_node_id = best->id;
+		sciddir_or_pubkey_from_pubkey(&ir->inv->invoice_paths[0]->first_node_id,
+					      &best->id);
 		if (!pubkey_from_privkey(&blinding,
 					 &ir->inv->invoice_paths[0]->blinding))
 			abort();

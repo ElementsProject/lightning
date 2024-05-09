@@ -785,6 +785,8 @@
         "DecodeOffer_paths": {
             "Decode.offer_paths[].blinding": 2,
             "Decode.offer_paths[].first_node_id": 1,
+            "Decode.offer_paths[].first_scid": 5,
+            "Decode.offer_paths[].first_scid_dir": 4,
             "Decode.offer_paths[].path[]": 3
         },
         "DecodeOffer_recurrencePaywindow": {
@@ -3410,6 +3412,14 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "Decode.invoice_paths[].first_scid": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_paths[].first_scid_dir": {
+            "added": "v23.05",
+            "deprecated": false
+        },
         "Decode.invoice_paths[].path[]": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -3548,6 +3558,14 @@
         },
         "Decode.offer_paths[].first_node_id": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Decode.offer_paths[].first_scid": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_paths[].first_scid_dir": {
+            "added": "v23.05",
             "deprecated": false
         },
         "Decode.offer_paths[].path[]": {

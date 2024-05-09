@@ -1809,12 +1809,14 @@ static void payment_add_blindedpath(const tal_t *ctx,
 		const u8 *cursor = tlvs[i];
 		size_t max = tal_bytelen(tlvs[i]);
 		/* First one has to use real node_id */
-		if (i == 0)
+		if (i == 0) {
+			assert(bpath->first_node_id.is_pubkey);
 			node_id_from_pubkey(&hops[i].pubkey,
-					    &bpath->first_node_id);
-		else
+					    &bpath->first_node_id.pubkey);
+		} else {
 			node_id_from_pubkey(&hops[i].pubkey,
 					    &bpath->path[i]->blinded_node_id);
+		}
 
 		/* Length is prepended, discard that first! */
 		fromwire_bigsize(&cursor, &max);
