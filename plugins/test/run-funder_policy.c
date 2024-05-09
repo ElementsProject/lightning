@@ -15,6 +15,9 @@ bool fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 /* Generated stub for fromwire_node_id */
 void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct node_id *id UNNEEDED)
 { fprintf(stderr, "fromwire_node_id called!\n"); abort(); }
+/* Generated stub for pubkey_from_node_id */
+bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
 /* Generated stub for towire_bigsize */
 void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)
 { fprintf(stderr, "towire_bigsize called!\n"); abort(); }

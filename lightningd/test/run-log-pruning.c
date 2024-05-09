@@ -91,6 +91,9 @@ void notify_warning(struct lightningd *ld UNNEEDED, struct log_entry *l UNNEEDED
 bool param(struct command *cmd UNNEEDED, const char *buffer UNNEEDED,
 	   const jsmntok_t params[] UNNEEDED, ...)
 { fprintf(stderr, "param called!\n"); abort(); }
+/* Generated stub for pubkey_from_node_id */
+bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
 /* Generated stub for towire_bigsize */
 void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)
 { fprintf(stderr, "towire_bigsize called!\n"); abort(); }

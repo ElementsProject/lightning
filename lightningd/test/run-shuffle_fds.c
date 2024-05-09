@@ -101,6 +101,9 @@ struct logger *new_logger(const tal_t *ctx UNNEEDED, struct log_book *record UNN
 /* Generated stub for new_peer_fd_arr */
 struct peer_fd *new_peer_fd_arr(const tal_t *ctx UNNEEDED, const int *fd UNNEEDED)
 { fprintf(stderr, "new_peer_fd_arr called!\n"); abort(); }
+/* Generated stub for pubkey_from_node_id */
+bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
 /* Generated stub for subdaemon_path */
 const char *subdaemon_path(const tal_t *ctx UNNEEDED, const struct lightningd *ld UNNEEDED, const char *name UNNEEDED)
 { fprintf(stderr, "subdaemon_path called!\n"); abort(); }
