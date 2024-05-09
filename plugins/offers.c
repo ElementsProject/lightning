@@ -10,11 +10,14 @@
 #include <common/bolt11.h>
 #include <common/bolt11_json.h>
 #include <common/bolt12_merkle.h>
+#include <common/gossmap.h>
 #include <common/invoice_path_id.h>
 #include <common/iso4217.h>
 #include <common/json_blinded_path.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
+#include <errno.h>
 #include <plugins/offers.h>
 #include <plugins/offers_inv_hook.h>
 #include <plugins/offers_invreq_hook.h>
@@ -29,6 +32,32 @@ u32 blockheight;
 u16 cltv_final;
 bool offers_enabled;
 struct secret invoicesecret_base;
+static struct gossmap *global_gossmap;
+
+static void init_gossmap(struct plugin *plugin)
+{
+	size_t num_cupdates_rejected;
+	global_gossmap
+		= notleak_with_children(gossmap_load(plugin,
+						     GOSSIP_STORE_FILENAME,
+						     &num_cupdates_rejected));
+	if (!global_gossmap)
+		plugin_err(plugin, "Could not load gossmap %s: %s",
+			   GOSSIP_STORE_FILENAME, strerror(errno));
+	if (num_cupdates_rejected)
+		plugin_log(plugin, LOG_DBG,
+			   "gossmap ignored %zu channel updates",
+			   num_cupdates_rejected);
+}
+
+static struct gossmap *get_gossmap(struct plugin *plugin)
+{
+	if (!global_gossmap)
+		init_gossmap(plugin);
+	else
+		gossmap_refresh(global_gossmap, NULL);
+	return global_gossmap;
+}
 
 static struct command_result *finished(struct command *cmd,
 				       const char *buf,
@@ -52,6 +81,32 @@ static struct command_result *sendonionmessage_error(struct command *cmd,
 	return command_hook_success(cmd);
 }
 
+/* So, you gave us a reply scid?  Let's do the lookup then!  And no,
+ * we won't accept private channels, just public ones.
+ */
+static bool convert_to_scidd(struct command *cmd,
+			     struct sciddir_or_pubkey *sciddpk)
+{
+	struct gossmap *gossmap = get_gossmap(cmd->plugin);
+	struct gossmap_chan *chan;
+	struct gossmap_node *node;
+	struct node_id id;
+
+	chan = gossmap_find_chan(gossmap, &sciddpk->scidd.scid);
+	if (!chan)
+		return false;
+
+	node = gossmap_nth_node(gossmap, chan, sciddpk->scidd.dir);
+	gossmap_node_get_id(gossmap, node, &id);
+	if (!sciddir_or_pubkey_from_node_id(sciddpk, &id)) {
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "Could not convert node %s to pubkey?",
+			   fmt_node_id(tmpctx, &id));
+		return false;
+	}
+	return true;
+}
+
 struct command_result *
 send_onion_reply(struct command *cmd,
 		 struct blinded_path *reply_path,
@@ -59,6 +114,13 @@ send_onion_reply(struct command *cmd,
 {
 	struct out_req *req;
 	size_t nhops;
+
+	if (!reply_path->first_node_id.is_pubkey
+	    && !convert_to_scidd(cmd, &reply_path->first_node_id)) {
+		plugin_log(cmd->plugin, LOG_INFORM, "Unknown reply scid %s: cannot send reply",
+			   fmt_short_channel_id_dir(tmpctx, &reply_path->first_node_id.scidd));
+		return command_hook_success(cmd);
+	}
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "sendonionmessage",
 				    finished, sendonionmessage_error, NULL);
@@ -111,13 +173,6 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 			plugin_err(cmd->plugin, "Invalid reply path %.*s?",
 				   json_tok_full_len(replytok),
 				   json_tok_full(buf, replytok));
-
-		/* FIXME: support this! */
-		if (!reply_path->first_node_id.is_pubkey) {
-			plugin_log(cmd->plugin, LOG_DBG,
-				   "reply_blindedpath uses scid");
-			return command_hook_success(cmd);
-		}
 	}
 
 	invreqtok = json_get_member(buf, om, "invoice_request");
