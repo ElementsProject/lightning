@@ -594,6 +594,121 @@ send_modern_message(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+static struct command_result *param_pubkeys(struct command *cmd,
+					    const char *name,
+					    const char *buffer,
+					    const jsmntok_t *tok,
+					    struct pubkey **pubkeys)
+{
+	size_t i;
+	const jsmntok_t *t;
+
+	if (tok->type != JSMN_ARRAY || tok->size == 0)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "%s must be an (non-empty) array", name);
+
+	*pubkeys = tal_arr(cmd, struct pubkey, tok->size);
+	json_for_each_arr(i, t, tok) {
+		if (!json_to_pubkey(buffer, t, &(*pubkeys)[i]))
+			return command_fail_badparam(cmd, name, buffer, t,
+						     "should be a compressed pubkey");
+	}
+	return NULL;
+}
+
+static void json_add_blindedpath(struct json_stream *stream,
+				 const char *fieldname,
+				 const struct blinded_path *path)
+{
+	json_object_start(stream, fieldname);
+	json_add_pubkey(stream, "first_node_id", &path->first_node_id);
+	json_add_pubkey(stream, "blinding", &path->blinding);
+	json_array_start(stream, "hops");
+	for (size_t i = 0; i < tal_count(path->path); i++) {
+		json_object_start(stream, NULL);
+		json_add_pubkey(stream, "blinded_node_id",
+				&path->path[i]->blinded_node_id);
+		json_add_hex_talarr(stream, "encrypted_recipient_data",
+				    path->path[i]->encrypted_recipient_data);
+		json_object_end(stream);
+	};
+	json_array_end(stream);
+	json_object_end(stream);
+}
+
+static struct command_result *json_blindedpath(struct command *cmd,
+					       const char *buffer,
+					       const jsmntok_t *params)
+{
+	struct pubkey *ids;
+	struct privkey first_blinding, blinding_iter;
+	struct blinded_path *path;
+	size_t nhops;
+	struct json_stream *js;
+	struct tlv_encrypted_data_tlv *tlv;
+	struct secret *pathsecret;
+
+	if (!param(cmd, buffer, params,
+		   p_req("ids", param_pubkeys, &ids),
+		   p_req("pathsecret", param_secret, &pathsecret),
+		   NULL))
+		return command_param_failed();
+
+	path = tal(cmd, struct blinded_path);
+	nhops = tal_count(ids);
+
+	path->first_node_id = ids[0];
+	if (!pubkey_eq(&ids[nhops-1], &local_id))
+		return command_fail(cmd, LIGHTNINGD,
+				    "Final of ids must be this node (%s), not %s",
+				    fmt_pubkey(tmpctx, &local_id),
+				    fmt_pubkey(tmpctx, &ids[nhops-1]));
+
+	randombytes_buf(&first_blinding, sizeof(first_blinding));
+	if (!pubkey_from_privkey(&first_blinding, &path->blinding))
+		/* Should not happen! */
+		return command_fail(cmd, LIGHTNINGD,
+				    "Could not convert blinding to pubkey!");
+
+	/* We convert ids into aliases as we go. */
+	path->path = tal_arr(cmd, struct onionmsg_hop *, nhops);
+
+	blinding_iter = first_blinding;
+	for (size_t i = 0; i < nhops - 1; i++) {
+		path->path[i] = tal(path->path, struct onionmsg_hop);
+
+		tlv = tlv_encrypted_data_tlv_new(tmpctx);
+		tlv->next_node_id = &ids[i+1];
+		/* FIXME: Pad? */
+
+		path->path[i]->encrypted_recipient_data
+			= encrypt_tlv_encrypted_data(path->path[i],
+						     &blinding_iter,
+						     &ids[i],
+						     tlv,
+						     &blinding_iter,
+						     &path->path[i]->blinded_node_id);
+	}
+
+	/* FIXME: Add padding! */
+	path->path[nhops-1] = tal(path->path, struct onionmsg_hop);
+
+	tlv = tlv_encrypted_data_tlv_new(tmpctx);
+
+	tlv->path_id = (u8 *)tal_dup(tlv, struct secret, pathsecret);
+	path->path[nhops-1]->encrypted_recipient_data
+		= encrypt_tlv_encrypted_data(path->path[nhops-1],
+					     &blinding_iter,
+					     &ids[nhops-1],
+					     tlv,
+					     NULL,
+					     &path->path[nhops-1]->blinded_node_id);
+
+	js = jsonrpc_stream_success(cmd);
+	json_add_blindedpath(js, "blindedpath", path);
+	return command_finished(cmd, js);
+}
+
 /* Lightningd gives us reply path, since we don't know secret to put
  * in final so it will recognize it. */
 static struct command_result *use_reply_path(struct command *cmd,
@@ -1538,6 +1653,13 @@ static const struct plugin_command commands[] = {
 		NULL,
 		json_dev_rawrequest,
 		.dev_only = true,
+	},
+	{
+		"blindedpath",
+		"utility",
+		"Create blinded path to us along {ids} (pubkey array ending in our id)",
+		NULL,
+		json_blindedpath,
 	},
 };
 
