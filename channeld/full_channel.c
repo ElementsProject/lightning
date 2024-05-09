@@ -522,7 +522,7 @@ static bool htlc_dust(const struct channel *channel,
  *
  * To mostly avoid this situation, at least from our side, we apply an
  * additional constraint when we're opener trying to add an HTLC: make
- * sure we can afford one more HTLC, even if fees increase by 100%.
+ * sure we can afford one more HTLC, even if fees increase.
  *
  * We could do this for the peer, as well, by rejecting their HTLC
  * immediately in this case.  But rejecting a remote HTLC here causes
@@ -559,17 +559,17 @@ static bool local_opener_has_fee_headroom(const struct channel *channel,
 
 	/* Now, how much would it cost us if feerate increases 100% and we added
 	 * another HTLC? */
-	fee = commit_tx_base_fee(2 * feerate, untrimmed + 1,
+	fee = commit_tx_base_fee(marginal_feerate(feerate), untrimmed + 1,
 				 option_anchor_outputs,
 				 option_anchors_zero_fee_htlc_tx);
 	if (amount_msat_greater_eq_sat(remainder, fee))
 		return true;
 
 	status_debug("Adding HTLC would leave us only %s: we need %s for"
-		     " another HTLC if fees increase by 100%% to %uperkw",
+		     " another HTLC if fees increase from %uperkw to %uperkw",
 		     fmt_amount_msat(tmpctx, remainder),
 		     fmt_amount_sat(tmpctx, fee),
-		     feerate + feerate);
+		     feerate, marginal_feerate(feerate));
 	return false;
 }
 

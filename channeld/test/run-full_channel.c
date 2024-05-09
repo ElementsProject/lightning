@@ -1,6 +1,8 @@
 #include "config.h"
 #include "../../common/blockheight_states.c"
 #include "../../common/channel_id.c"
+/* Normally fee_states does not allow feerate < 253 */
+#define TEST_ALLOW_ZERO_FEERATE 1
 #include "../../common/fee_states.c"
 #include "../../common/initial_channel.c"
 #include "../../common/keyset.c"

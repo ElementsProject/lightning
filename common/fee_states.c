@@ -156,6 +156,32 @@ bool fee_states_valid(const struct fee_states *fee_states, enum side opener)
 	return fee_states->feerate[last_fee_state(opener)] != NULL;
 }
 
+/* The calculation starts with a 100% margin at very low fees, since
+ * they are likely to rise, and can do so quickly, whereas on the
+ * higher fee side, asking for a 100% margin is excessive, so ask for
+ * a 10% margin. In-between these two regions we interpolate
+ * linearly. Notice that minfeerate and maxfeerate are just the
+ * markers of the linear interpolation, they don't have to correspond
+ * to actual feerates seen in the network. */
+u32 marginal_feerate(u32 current_feerate)
+{
+	const u32 minfeerate = 253, maxfeerate = 45000;
+
+#ifdef TEST_ALLOW_ZERO_FEERATE
+	/* The BOLT test for commitment transactions does this. */
+	if (current_feerate == 0)
+		return 0;
+#endif
+	assert(current_feerate >= minfeerate);
+	if (current_feerate > maxfeerate)
+		return current_feerate * 1.1;
+
+	/* min gives 1, max gives 0.1 */
+	double proportion = 1.0 - ((double)current_feerate - minfeerate) / (maxfeerate - minfeerate) * 0.9;
+
+	return current_feerate + proportion * current_feerate;
+}
+
 char *fmt_fee_states(const tal_t *ctx,
 		     const struct fee_states *fee_states)
 {
