@@ -58,33 +58,6 @@
 #define HSM_FD 3
 #define GOSSIPCTL_FD 4
 
-/* Peers we're trying to reach: we iterate through addrs until we succeed
- * or fail. */
-struct connecting {
-	/* daemon->connecting */
-	struct list_node list;
-
-	struct daemon *daemon;
-
-	struct io_conn *conn;
-
-	/* The ID of the peer (not necessarily unique, in transit!) */
-	struct node_id id;
-
-	/* We iterate through the tal_count(addrs) */
-	size_t addrnum;
-	struct wireaddr_internal *addrs;
-
-	/* NULL if there wasn't a hint. */
-	struct wireaddr_internal *addrhint;
-
-	/* How far did we get? */
-	const char *connstate;
-
-	/* Accumulated errors */
-	char *errors;
-};
-
 /*~ C programs should generally be written bottom-to-top, with the root
  * function at the bottom, and functions it calls above it.  That avoids
  * us having to pre-declare functions; but in the case of mutual recursion
@@ -132,17 +105,11 @@ static bool broken_resolver(struct daemon *daemon)
 }
 
 /*~ Here we see our first tal destructor: in this case the 'struct connect'
- * simply removes itself from the list of all 'connect' structs. */
+ * simply removes itself from the table of all 'connecting' structs. */
 static void destroy_connecting(struct connecting *connect)
 {
-	/*~ We don't *need* the list_head here; `list_del(&connect->list)`
-	 * would work.  But we have access to it, and `list_del_from()` is
-	 * clearer for readers, and also does a very brief sanity check that
-	 * the list isn't already empty which catches a surprising number of
-	 * bugs!  (If CCAN_LIST_DEBUG were defined, it would perform a
-	 * complete list traverse to check it was in the list before
-	 * deletion). */
-	list_del_from(&connect->daemon->connecting, &connect->list);
+	if (!connecting_htable_del(connect->daemon->connecting, connect))
+		abort();
 }
 
 /*~ Most simple search functions start with find_; in this case, search
@@ -150,17 +117,7 @@ static void destroy_connecting(struct connecting *connect)
 static struct connecting *find_connecting(struct daemon *daemon,
 					  const struct node_id *id)
 {
-	struct connecting *i;
-
-	/*~ Note the node_id_eq function: this is generally preferred over
-	 * doing a memcmp() manually, as it is both typesafe and can handle
-	 * any padding which the C compiler is allowed to insert between
-	 * members (unnecessary here, as there's no padding in a `struct
-	 * node_id`). */
-	list_for_each(&daemon->connecting, i, list)
-		if (node_id_eq(id, &i->id))
-			return i;
-	return NULL;
+	return connecting_htable_get(daemon->connecting, id);
 }
 
 /*~ Once we've connected out, we disable the callback which would cause us to
@@ -1728,7 +1685,7 @@ static void try_connect_peer(struct daemon *daemon,
 	connect->addrhint = tal_steal(connect, addrhint);
 	connect->errors = tal_strdup(connect, "");
 	connect->conn = NULL;
-	list_add_tail(&daemon->connecting, &connect->list);
+	connecting_htable_add(daemon->connecting, connect);
 	tal_add_destructor(connect, destroy_connecting);
 
 	/* Now we kick it off by recursively trying connect->addrs[connect->addrnum] */
@@ -2140,6 +2097,7 @@ static struct io_plan *recv_gossip(struct io_conn *conn,
 static void memleak_daemon_cb(struct htable *memtable, struct daemon *daemon)
 {
 	memleak_scan_htable(memtable, &daemon->peers->raw);
+	memleak_scan_htable(memtable, &daemon->connecting->raw);
 }
 
 static void gossipd_failed(struct daemon_conn *gossipd)
@@ -2165,7 +2123,8 @@ int main(int argc, char *argv[])
 	daemon->listeners = tal_arr(daemon, struct io_listener *, 0);
 	peer_htable_init(daemon->peers);
 	memleak_add_helper(daemon, memleak_daemon_cb);
-	list_head_init(&daemon->connecting);
+	daemon->connecting = tal(daemon, struct connecting_htable);
+	connecting_htable_init(daemon->connecting);
 	timers_init(&daemon->timers, time_mono());
 	daemon->gossip_store_fd = -1;
 	daemon->shutting_down = false;
