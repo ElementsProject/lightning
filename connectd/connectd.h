@@ -90,6 +90,9 @@ struct peer {
 	/* Last time we received traffic */
 	struct timeabs last_recv_time;
 
+	/* Were we explicitly told to connect to this peer? */
+	bool deliberate_connection;
+
 	bool dev_read_enabled;
 	/* If non-NULL, this counts down; 0 means disable */
 	u32 *dev_writes_enabled;
@@ -270,4 +273,6 @@ struct io_plan *peer_connected(struct io_conn *conn,
 /* Removes peer from hash table, tells gossipd and lightningd. */
 void destroy_peer(struct peer *peer);
 
+/* Remove a random connection, when under stress. */
+void close_random_connection(struct daemon *daemon);
 #endif /* LIGHTNING_CONNECTD_CONNECTD_H */
