@@ -1090,6 +1090,8 @@ bool lightningd_deprecated_in_ok(struct lightningd *ld,
 static void setup_fd_limit(struct lightningd *ld, size_t num_channels)
 {
 	struct rlimit nofile;
+	/* This is more than you could have on a single IP anyway. */
+	size_t desired_fds = 65536;
 
 	if (getrlimit(RLIMIT_NOFILE, &nofile) != 0) {
 		log_broken(ld->log,
@@ -1099,20 +1101,27 @@ static void setup_fd_limit(struct lightningd *ld, size_t num_channels)
 	}
 
 	/* Aim for twice as many fds as current channels, for growth. */
-	if (nofile.rlim_cur < num_channels * ld->fd_limit_multiplier) {
-		if (num_channels * ld->fd_limit_multiplier > nofile.rlim_max) {
-			log_unusual(ld->log,
-				    "WARNING: we have %zu channels but file descriptors limited to %zu!",
-				    num_channels, (size_t)nofile.rlim_max);
+	if (num_channels * ld->fd_limit_multiplier > desired_fds)
+		desired_fds = num_channels * ld->fd_limit_multiplier;
+
+	if (nofile.rlim_cur < desired_fds) {
+		if (desired_fds > nofile.rlim_max) {
+			/* Sure, we would *like* 65536, but we're happy with 2x channels. */
+			if (num_channels * ld->fd_limit_multiplier > nofile.rlim_max) {
+				log_unusual(ld->log,
+					    "WARNING: we have %zu channels but file descriptors limited to %zu!",
+					    num_channels, (size_t)nofile.rlim_max);
+			}
 			nofile.rlim_cur = nofile.rlim_max;
 		} else {
-			log_debug(ld->log,
-				  "Increasing file descriptor limit to %zu (%zu channels, max is %zu)",
-				  num_channels * ld->fd_limit_multiplier,
-				  num_channels,
-				  (size_t)nofile.rlim_max);
-			nofile.rlim_cur = num_channels * ld->fd_limit_multiplier;
+			nofile.rlim_cur = desired_fds;
 		}
+		log_debug(ld->log,
+			  "Increasing file descriptor limit to %zu (%zu channels, max is %zu)",
+			  (size_t)nofile.rlim_cur,
+			  num_channels,
+			  (size_t)nofile.rlim_max);
+
 		if (setrlimit(RLIMIT_NOFILE, &nofile) != 0) {
 			log_broken(ld->log,
 				   "Could not increase file limit to %zu: %s",
