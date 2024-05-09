@@ -270,10 +270,12 @@ static void accept_conn(struct io_listener *l)
 {
 	int fd = accept(l->fd.fd, NULL, NULL);
 
-	/* FIXME: What to do here? */
-	if (fd < 0)
+	if (fd < 0) {
+		/* If they've enabled it, this is how we tell them */
+		if (io_get_extended_errors())
+			l->init(NULL, l->arg);
 		return;
-
+	}
 	io_new_conn(l->ctx, fd, l->init, l->arg);
 }
 

@@ -39,7 +39,9 @@ static int do_fd_recv(int fd, struct io_plan_arg *arg)
 		/* In case ccan/io ever gets smart with non-blocking. */
 		if (errno == EAGAIN || errno == EWOULDBLOCK)
 			return 0;
-		return -1;
+		/* If they can't handle the error, this will close conn! */
+		if (!io_get_extended_errors())
+			return -1;
 	}
 	*(int *)arg->u1.vp = fdin;
 	return 1;

@@ -80,7 +80,7 @@ void siphash24_init(struct siphash24_ctx *ctx, const struct siphash_seed *seed);
  * SIPHASH24_INIT - initializer for an SIPHASH24 context.
  * @seed1, @seed2: two 64-bit words for seed.
  *
- * This can be used to statically initialize an SIPHASH24 context (instead
+ * This can be used to staticly initialize an SIPHASH24 context (instead
  * of siphash24_init()).
  *
  * Example:
