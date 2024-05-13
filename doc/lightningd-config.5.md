@@ -747,8 +747,8 @@ corresponding functionality, which are in draft status ([bolt][bolt] #798) as [b
 
 * **fetchinvoice-noconnect**
 
-  Specifying this prevents `fetchinvoice` and `sendinvoice` from
-trying to connect directly to the offering node as a last resort.
+  Specifying this prevents `fetchinvoice`, `sendinvoice` and replying
+to invoice request from trying to connect directly to the offering node as a last resort.
 
 * **experimental-shutdown-wrong-funding**
 
