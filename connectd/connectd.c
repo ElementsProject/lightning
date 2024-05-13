@@ -428,6 +428,8 @@ void close_random_connection(struct daemon *daemon)
 				break;
 		}
 		peer = peer_htable_next(daemon->peers, &it);
+		if (!peer)
+			peer = peer_htable_first(daemon->peers, &it);
 	}
 
 	if (best_peer) {
