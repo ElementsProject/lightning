@@ -789,7 +789,7 @@ connect_direct(struct command *cmd,
 	node_id_from_pubkey(&ca->node_id, dst);
 
 	/* Make a direct path -> dst. */
-	sent->path = tal_arr(sent, struct pubkey, 2);
+ 	sent->path = tal_arr(sent, struct pubkey, 2);
 	sent->path[0] = local_id;
 	if (!pubkey_from_node_id(&sent->path[1], &ca->node_id)) {
 		/* Should not happen! */
