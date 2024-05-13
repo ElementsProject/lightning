@@ -31,6 +31,7 @@ struct pubkey id;
 u32 blockheight;
 u16 cltv_final;
 bool offers_enabled;
+bool disable_connect;
 struct secret invoicesecret_base;
 static struct gossmap *global_gossmap;
 
@@ -84,8 +85,8 @@ static struct command_result *sendonionmessage_error(struct command *cmd,
 /* So, you gave us a reply scid?  Let's do the lookup then!  And no,
  * we won't accept private channels, just public ones.
  */
-static bool convert_to_scidd(struct command *cmd,
-			     struct sciddir_or_pubkey *sciddpk)
+bool convert_to_scidd(struct command *cmd,
+		      struct sciddir_or_pubkey *sciddpk)
 {
 	struct gossmap *gossmap = get_gossmap(cmd->plugin);
 	struct gossmap_chan *chan;
@@ -1233,9 +1234,11 @@ static const char *init(struct plugin *p,
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{configs:"
 		 "{cltv-final:{value_int:%},"
-		 "experimental-offers:{set:%}}}",
+		 "experimental-offers:{set:%}},"
+		 "fetchinvoice-noconnect?:{set:%}}",
 		 JSON_SCAN(json_to_u16, &cltv_final),
-		 JSON_SCAN(json_to_bool, &offers_enabled));
+		 JSON_SCAN(json_to_bool, &offers_enabled),
+		 JSON_SCAN(json_to_bool, &disable_connect));
 
 	rpc_scan(p, "makesecret",
 		 take(json_out_obj(NULL, "string", INVOICE_PATH_BASE_STRING)),

@@ -4,6 +4,8 @@
 #include <ccan/typesafe_cb/typesafe_cb.h>
 #include <plugins/libplugin.h>
 
+struct gossmap;
+
 /**
  * establish_onion_path: derive (or connect) a path to this peer.
  * @cmd: the command context

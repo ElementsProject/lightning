@@ -5,14 +5,20 @@
 #include <common/bech32_util.h>
 #include <common/blindedpath.h>
 #include <common/bolt12_merkle.h>
+#include <common/gossmap.h>
 #include <common/invoice_path_id.h>
 #include <common/iso4217.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <common/overflows.h>
+#include <errno.h>
+#include <plugins/establish_onion_path.h>
 #include <plugins/offers.h>
 #include <plugins/offers_invreq_hook.h>
 #include <secp256k1_schnorrsig.h>
 #include <sodium.h>
+
+static struct gossmap *global_gossmap;
 
 /* We need to keep the reply path around so we can reply with invoice */
 struct invreq {
@@ -92,6 +98,31 @@ fail_internalerr(struct command *cmd,
 	va_end(ap);
 
 	return ret;
+}
+
+static void init_gossmap(struct plugin *plugin)
+{
+	size_t num_cupdates_rejected;
+	global_gossmap
+		= notleak_with_children(gossmap_load(NULL,
+						     GOSSIP_STORE_FILENAME,
+						     &num_cupdates_rejected));
+	if (!global_gossmap)
+		plugin_err(plugin, "Could not load gossmap %s: %s",
+			   GOSSIP_STORE_FILENAME, strerror(errno));
+	if (num_cupdates_rejected)
+		plugin_log(plugin, LOG_DBG,
+			   "gossmap ignored %zu channel updates",
+			   num_cupdates_rejected);
+}
+
+static struct gossmap *get_gossmap(struct plugin *plugin)
+{
+	if (!global_gossmap)
+		init_gossmap(plugin);
+	else
+		gossmap_refresh(global_gossmap, NULL);
+	return global_gossmap;
 }
 
 #define invreq_must_have(cmd_, ir_, fld_)				\
@@ -995,23 +1026,16 @@ static struct command_result *listoffers_done(struct command *cmd,
 	return handle_amount_and_recurrence(cmd, ir, amt);
 }
 
-struct command_result *handle_invoice_request(struct command *cmd,
-					      const u8 *invreqbin,
-					      struct blinded_path *reply_path)
+static struct command_result *invoice_request_path_done(struct command *cmd,
+							const struct pubkey *path,
+							struct invreq *ir)
 {
-	size_t len = tal_count(invreqbin);
-	const u8 *cursor = invreqbin;
-	struct invreq *ir = tal(cmd, struct invreq);
 	struct out_req *req;
 	int bad_feature;
 
-	ir->reply_path = tal_steal(ir, reply_path);
-
-	ir->invreq = fromwire_tlv_invoice_request(cmd, &cursor, &len);
+	/* Now we can send error replies, because we will have connected. */
 	if (!ir->invreq) {
-		return fail_invreq(cmd, ir,
-				   "Invalid invreq %s",
-				   tal_hex(tmpctx, invreqbin));
+		return fail_invreq(cmd, ir, "Invalid invreq");
 	}
 
 	/* BOLT-offers #12:
@@ -1024,20 +1048,6 @@ struct command_result *handle_invoice_request(struct command *cmd,
 		return fail_invreq(cmd, ir, "Missing invreq_payer_id");
 	if (!ir->invreq->invreq_metadata)
 		return fail_invreq(cmd, ir, "Missing invreq_metadata");
-
-	/* BOLT-offers #12:
-	 * The reader:
-	 * ...
-	 *  - MUST fail the request if any non-signature TLV fields greater or
-	 *    equal to 160.
-	 */
-	/* BOLT-offers #12:
-	 * Each form is signed using one or more *signature TLV elements*:
-	 * TLV types 240 through 1000 (inclusive)
-	 */
-	if (tlv_span(invreqbin, 0, 159, NULL)
-	    + tlv_span(invreqbin, 240, 1000, NULL) != tal_bytelen(invreqbin))
-		return fail_invreq(cmd, ir, "Fields beyond 160");
 
 	/* BOLT-offers #12:
 	 *
@@ -1095,3 +1105,56 @@ struct command_result *handle_invoice_request(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+static struct command_result *invoice_request_path_fail(struct command *cmd,
+							const char *why,
+							struct invreq *ir)
+{
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "invoice_request path to %s failed: %s",
+		   fmt_sciddir_or_pubkey(tmpctx, &ir->reply_path->first_node_id),
+		   why);
+
+	return command_hook_success(cmd);
+}
+
+struct command_result *handle_invoice_request(struct command *cmd,
+					      const u8 *invreqbin,
+					      struct blinded_path *reply_path)
+{
+	size_t len = tal_count(invreqbin);
+	const u8 *cursor = invreqbin;
+	struct invreq *ir = tal(cmd, struct invreq);
+
+	ir->reply_path = tal_steal(ir, reply_path);
+
+	ir->invreq = fromwire_tlv_invoice_request(cmd, &cursor, &len);
+
+	/* BOLT-offers #12:
+	 * The reader:
+	 * ...
+	 *  - MUST fail the request if any non-signature TLV fields greater or
+	 *    equal to 160.
+	 */
+	/* BOLT-offers #12:
+	 * Each form is signed using one or more *signature TLV elements*:
+	 * TLV types 240 through 1000 (inclusive)
+	 */
+	if (tlv_span(invreqbin, 0, 159, NULL)
+	    + tlv_span(invreqbin, 240, 1000, NULL) != tal_bytelen(invreqbin))
+		return fail_invreq(cmd, ir, "Fields beyond 160");
+
+	/* If they give us an sciddir, we need to convert now, to connect */
+	if (!reply_path->first_node_id.is_pubkey
+	    && !convert_to_scidd(cmd, &reply_path->first_node_id)) {
+		return fail_invreq(cmd, ir, "first_node_id %s not found",
+				   fmt_sciddir_or_pubkey(tmpctx, &reply_path->first_node_id));
+	}
+
+	/* Before any failure, make sure we can reach first node! */
+	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &id,
+				    &reply_path->first_node_id.pubkey,
+				    disable_connect ? "offers-noconnect" : NULL,
+				    invoice_request_path_done,
+				    invoice_request_path_fail,
+				    ir);
+}
