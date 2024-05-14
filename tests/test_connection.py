@@ -4596,3 +4596,24 @@ def test_wss_proxy(node_factory):
         msg = lconn.read_message()
         if int.from_bytes(msg[0:2], 'big') == 19:
             break
+
+
+def test_connect_transient(node_factory):
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts={'may_reconnect': True})
+
+    # This is not transient, because they have a channel
+    node_factory.join_nodes([l1, l2])
+
+    # Make sure it reconnects once it has a channel.
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # This has no channel, and thus is a transient.
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+
+    l1.rpc.dev_connectd_exhaust_fds()
+
+    # Connecting to l4 will discard connection to l3!
+    l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    assert l1.rpc.listpeers(l3.info['id'])['peers'] == []
+    assert l1.daemon.is_in_log(fr"due to stress, randomly closing peer {l3.info['id']} \(score 0\)")
