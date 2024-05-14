@@ -439,7 +439,7 @@ static struct command_result *listincoming_done(struct command *cmd,
 		ir->inv->invoice_blindedpay[0] = tal(ir->inv->invoice_blindedpay, struct blinded_payinfo);
 		ir->inv->invoice_blindedpay[0]->fee_base_msat = best->feebase;
 		ir->inv->invoice_blindedpay[0]->fee_proportional_millionths = best->feeppm;
-		ir->inv->invoice_blindedpay[0]->cltv_expiry_delta = best->cltv;
+		ir->inv->invoice_blindedpay[0]->cltv_expiry_delta = best->cltv + cltv_final;
 		ir->inv->invoice_blindedpay[0]->htlc_minimum_msat = best->htlc_min;
 		ir->inv->invoice_blindedpay[0]->htlc_maximum_msat = best->htlc_max;
 		ir->inv->invoice_blindedpay[0]->features = NULL;
