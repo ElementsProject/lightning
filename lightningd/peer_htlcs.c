@@ -1102,7 +1102,8 @@ htlc_accepted_hook_final(struct htlc_accepted_hook_payload *request STEALS)
 	/* *Now* we barf if it failed to decode */
 	if (!request->payload) {
 		log_debug(channel->log,
-			  "Failing HTLC because of an invalid payload");
+			  "Failing HTLC because of an invalid payload (TLV %"PRIu64" pos %zu)",
+			  request->failtlvtype, request->failtlvpos);
 		local_fail_in_htlc(hin,
 				   take(towire_invalid_onion_payload(
 						NULL, request->failtlvtype,
