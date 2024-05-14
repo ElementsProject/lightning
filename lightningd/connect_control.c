@@ -292,16 +292,23 @@ static void gossipd_got_addrs(struct subd *subd,
 {
 	struct wireaddr *addrs;
 	u8 *connectmsg;
+	struct peer *peer;
+	bool transient;
 
 	if (!fromwire_gossipd_get_addrs_reply(tmpctx, msg, &addrs))
 		fatal("Gossipd gave bad GOSSIPD_GET_ADDRS_REPLY %s",
 		      tal_hex(msg, msg));
 
+	/* We consider this transient unless we have a channel */
+	peer = peer_by_id(d->ld, &d->id);
+	transient = !peer || !peer_any_channel(peer, channel_state_wants_peercomms, NULL);
+
 	connectmsg = towire_connectd_connect_to_peer(NULL,
 						     &d->id,
 						     addrs,
 						     d->addrhint,
-						     d->dns_fallback);
+						     d->dns_fallback,
+						     transient);
 	subd_send_msg(d->ld->connectd, take(connectmsg));
 	tal_free(d);
 }
