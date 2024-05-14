@@ -9,6 +9,7 @@
 static char *somearg;
 static bool self_disable = false;
 static bool dont_shutdown = false;
+static int dynamic_opt = 7;
 
 static struct command_result *get_ds_done(struct command *cmd,
 					  const char *val,
@@ -177,6 +178,24 @@ static struct command_result *json_checkthis(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+static char *set_dynamic(struct plugin *plugin,
+			 const char *arg,
+			 bool check_only,
+			 int *dynamic_opt)
+{
+	int val = atol(arg);
+
+	/* Whee, let's allow odd */
+	if (val % 2 == 0)
+		return "I don't like \"even\" numbers (valid JSON? Try {})!";
+
+	if (check_only)
+		return NULL;
+
+	*dynamic_opt = val;
+	return NULL;
+}
+
 static const char *init(struct plugin *p,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
@@ -293,5 +312,9 @@ int main(int argc, char *argv[])
 				  "flag",
 				  "Whether to timeout when asked to shutdown.",
 				  flag_option, &dont_shutdown),
+		    plugin_option_dynamic("dynamicopt",
+					  "int",
+					  "Set me!",
+					  set_dynamic, &dynamic_opt),
 		    NULL);
 }
