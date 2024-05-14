@@ -764,7 +764,8 @@ int connectd_init(struct lightningd *ld)
 	    !ld->deprecated_ok,
 	    ld->dev_fast_gossip,
 	    ld->dev_disconnect_fd >= 0,
-	    ld->dev_no_ping_timer);
+	    ld->dev_no_ping_timer,
+	    ld->dev_handshake_no_reply);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);

@@ -952,6 +952,10 @@ static void dev_register_opts(struct lightningd *ld)
 		       opt_set_u32, opt_show_u32,
 		       &ld->fd_limit_multiplier,
 		       "Try to set fd limit to this many times by number of channels (default: 2)");
+	clnopt_noarg("--dev-handshake-no-reply", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_handshake_no_reply,
+		     "Don't send or read init message after connection");
 	/* This is handled directly in daemon_developer_mode(), so we ignore it here */
 	clnopt_noarg("--dev-debug-self", OPT_DEV,
 		     opt_ignore,

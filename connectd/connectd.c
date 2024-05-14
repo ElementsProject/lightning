@@ -1412,7 +1412,8 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 		&daemon->announce_websocket,
 		&daemon->dev_fast_gossip,
 		&dev_disconnect,
-		&daemon->dev_no_ping_timer)) {
+		&daemon->dev_no_ping_timer,
+		&daemon->dev_handshake_no_reply)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTD_INIT, msg);

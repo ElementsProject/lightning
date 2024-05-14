@@ -356,6 +356,9 @@ struct lightningd {
 	bool dev_hsmd_no_preapprove_check;
 	bool dev_hsmd_fail_preapprove;
 
+	/* Tell connectd not to talk after handshake */
+	bool dev_handshake_no_reply;
+
 	/* tor support */
 	struct wireaddr *proxyaddr;
 	bool always_use_proxy;

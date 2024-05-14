@@ -148,6 +148,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_allow_shutdown_destination_change = false;
 	ld->dev_hsmd_no_preapprove_check = false;
 	ld->dev_hsmd_fail_preapprove = false;
+	ld->dev_handshake_no_reply = false;
 
 	/*~ We try to ensure enough fds for twice the number of channels
 	 * we start with.  We have a developer option to change that factor
