@@ -5608,8 +5608,10 @@ def test_pay_partial_msat(node_factory, executor):
 
 
 def test_blindedpath_privchan(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True, opts={'experimental-offers': None})
-    l3 = node_factory.get_node(options={'experimental-offers': None})
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts={'experimental-offers': None})
+    l3 = node_factory.get_node(options={'experimental-offers': None,
+                                        'cltv-final': 120})
 
     # Private channel.
     node_factory.join_nodes([l2, l3], announce_channels=False)
@@ -5623,6 +5625,10 @@ def test_blindedpath_privchan(node_factory, bitcoind):
     decode = l1.rpc.decode(inv['invoice'])
     assert len(decode['invoice_paths']) == 1
     assert decode['invoice_paths'][0]['first_node_id'] == l2.info['id']
+
+    # Carla points out that the path's cltv_expiry_delta *includes*
+    # the final node's final value.
+    assert decode['invoice_paths'][0]['payinfo']['cltv_expiry_delta'] == l3.config('cltv-final') + l2.config('cltv-delta')
 
     l1.rpc.pay(inv['invoice'])
 
