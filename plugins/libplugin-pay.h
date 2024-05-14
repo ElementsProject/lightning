@@ -197,7 +197,6 @@ struct payment {
 	struct blinded_payinfo *blindedpay;
 	struct amount_msat blindedouramount;
 	struct amount_msat blindedfinalamount;
-	u32 blindedfinalcltv;
 
 	u64 groupid;
 	u32 partid;
