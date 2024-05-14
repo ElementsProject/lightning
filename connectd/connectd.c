@@ -436,6 +436,10 @@ void close_random_connection(struct daemon *daemon)
 		if (!c->transient)
 			continue;
 
+		/* This could be the one caller is trying right now */
+		if (!c->conn)
+			continue;
+
 		status_debug("due to stress, closing transient connect attempt to %s",
 			     fmt_node_id(tmpctx, &c->id));
 		/* This tells destructor why it was closed */
@@ -1979,6 +1983,12 @@ static char *fd_mode_str(int fd)
 static void dev_report_fds(struct daemon *daemon, const u8 *msg)
 {
 	bool found_chr_fd = false;
+
+	/* Not only would this get upset with all the /dev/null,
+	 * our symbol code fails if it can't open files */
+	if (daemon->dev_exhausted_fds)
+		return;
+
 	for (int fd = 3; fd < 4096; fd++) {
 		bool listener;
 		const struct io_conn *c;
@@ -2033,6 +2043,19 @@ static void dev_report_fds(struct daemon *daemon, const u8 *msg)
 		}
 		describe_fd(fd);
 	}
+}
+
+static void dev_exhaust_fds(struct daemon *daemon, const u8 *msg)
+{
+	int fd;
+
+	while ((fd = open("/dev/null", O_RDONLY)) >= 0);
+	if (errno != EMFILE)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR, "dev_exhaust_fds got %s",
+			      strerror(errno));
+
+	status_unusual("dev_exhaust_fds: expect failures");
+	daemon->dev_exhausted_fds = true;
 }
 
 static struct io_plan *recv_peer_connect_subd(struct io_conn *conn,
@@ -2113,6 +2136,12 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_DEV_REPORT_FDS:
 		if (daemon->developer) {
 			dev_report_fds(daemon, msg);
+			goto out;
+		}
+		/* Fall thru */
+	case WIRE_CONNECTD_DEV_EXHAUST_FDS:
+		if (daemon->developer) {
+			dev_exhaust_fds(daemon, msg);
 			goto out;
 		}
 		/* Fall thru */
@@ -2210,6 +2239,7 @@ int main(int argc, char *argv[])
 	daemon->shutting_down = false;
 	daemon->dev_suppress_gossip = false;
 	daemon->custom_msgs = NULL;
+	daemon->dev_exhausted_fds = false;
 
 	/* stdin == control */
 	daemon->master = daemon_conn_new(daemon, STDIN_FILENO, recv_req, NULL,

@@ -264,6 +264,8 @@ struct daemon {
 	bool dev_suppress_gossip;
 	/* dev_disconnect file */
 	int dev_disconnect_fd;
+	/* Did we exhaust fds?  If so, skip dev_report_fds */
+	bool dev_exhausted_fds;
 };
 
 /* Called by io_tor_connect once it has a connection out. */

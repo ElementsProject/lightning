@@ -163,3 +163,5 @@ msgtype,connectd_start_shutdown_reply,2131
 # master -> connect: stop sending gossip.
 msgtype,connectd_dev_suppress_gossip,2032
 
+# master -> connect: waste all your fds.
+msgtype,connectd_dev_exhaust_fds,2036
