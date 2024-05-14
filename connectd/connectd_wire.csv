@@ -55,6 +55,7 @@ msgdata,connectd_connect_to_peer,len,u32,
 msgdata,connectd_connect_to_peer,addrs,wireaddr,len
 msgdata,connectd_connect_to_peer,addrhint,?wireaddr_internal,
 msgdata,connectd_connect_to_peer,dns_fallback,bool,
+msgdata,connectd_connect_to_peer,transient,bool,
 
 # Connectd->master: connect failed.
 msgtype,connectd_connect_failed,2020
