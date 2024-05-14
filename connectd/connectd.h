@@ -266,7 +266,9 @@ struct daemon {
 	int dev_disconnect_fd;
 	/* Did we exhaust fds?  If so, skip dev_report_fds */
 	bool dev_exhausted_fds;
-};
+	/* Allow connections in, but don't send anything */
+	bool dev_handshake_no_reply;
+ };
 
 /* Called by io_tor_connect once it has a connection out. */
 struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect);

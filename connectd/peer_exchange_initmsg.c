@@ -295,5 +295,9 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 		break;
 	}
 
+	/* Don't converse if we said "no reply" */
+	if (daemon->dev_handshake_no_reply)
+		return io_wait(conn, peer->msg, io_never, NULL);
+
 	return io_write(conn, peer->msg, tal_bytelen(peer->msg), next, peer);
 }
