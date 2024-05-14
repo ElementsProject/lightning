@@ -1560,6 +1560,25 @@ def test_libplugin(node_factory):
     assert l1.rpc.call("helloworld") == {"hello": "NOT FOUND"}
     l1.daemon.wait_for_log("get_ds_bin_done: NOT FOUND")
 
+    # Check dynamic!
+    with pytest.raises(RpcError) as err:
+        l1.rpc.setconfig('dynamicopt', 4)
+    assert err.value.error['message'] == 'I don\'t like \\"even\\" numbers (valid JSON? Try {})!'
+
+    with pytest.raises(RpcError) as err:
+        l1.rpc.check(command_to_check='setconfig', config='dynamicopt', val=4)
+    assert err.value.error['message'] == 'I don\'t like \\"even\\" numbers (valid JSON? Try {})!'
+
+    l1.rpc.check(command_to_check='setconfig', config='dynamicopt', val=9)
+    # FIXME: libplugin doesn't populate defaults!
+    assert 'dynamicopt' not in l1.rpc.listconfigs()['configs']
+
+    l1.rpc.setconfig('dynamicopt', 9)
+    conf = l1.rpc.listconfigs('dynamicopt')['configs']['dynamicopt']
+    assert conf['value_int'] == 9
+    assert conf['plugin'] == plugin
+    assert conf['dynamic'] is True
+
     # Test dynamic startup
     l1.rpc.plugin_stop(plugin)
     # Non-string datastore value:
