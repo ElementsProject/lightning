@@ -1255,11 +1255,9 @@ static struct command_result *json_pay(struct command *cmd,
 
 	/* We replace real final values if we're using a blinded path */
 	if (p->blindedpath) {
-		p->blindedfinalcltv = p->min_final_cltv_expiry;
 		p->blindedouramount = p->our_amount;
 		p->blindedfinalamount = p->final_amount;
 
-		p->min_final_cltv_expiry += p->blindedpay->cltv_expiry_delta;
 		if (!amount_msat_add_fee(&p->final_amount,
 					 p->blindedpay->fee_base_msat,
 					 p->blindedpay->fee_proportional_millionths)
