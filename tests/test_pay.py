@@ -4731,6 +4731,28 @@ def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     assert l3.rpc.listpeers(l2.info['id'])['peers'] != []
 
 
+def test_fetchinvoice_disconnected_reply(node_factory, bitcoind):
+    """We ask for invoice, but reply path doesn't lead directly from recipient"""
+    l1, l2, l3 = node_factory.get_nodes(3,
+                                        opts={'experimental-offers': None,
+                                              'may_reconnect': True,
+                                              'dev-no-reconnect': None,
+                                              'dev-allow-localhost': None})
+    l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Make l1, l2 public (so l3 can auto connect).
+    node_factory.join_nodes([l1, l2], wait_for_announce=True)
+    wait_for(lambda: l3.rpc.listnodes(l1.info['id'])['nodes'] != [])
+
+    offer = l3.rpc.offer(amount='5msat', description='test_fetchinvoice_disconnected_reply')
+
+    # l2 sets reply_path to be l1->l2, l3 will connect to l1 to send reply.
+    # FIXME: if code were smarter, it would simply send via l2, and this test
+    # would have to get more sophisticated!
+    l2.rpc.fetchinvoice(offer=offer['bolt12'], dev_reply_path=[l1.info['id'], l2.info['id']])
+    assert only_one(l1.rpc.listpeers(l3.info['id'])['peers'])
+
+
 def test_pay_blockheight_mismatch(node_factory, bitcoind):
     """Test that we can send a payment even if not caught up with the chain.
 

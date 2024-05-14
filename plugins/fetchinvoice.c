@@ -42,6 +42,9 @@ struct sent {
 	/* When creating blinded return path, use scid not pubkey for intro node. */
 	struct short_channel_id_dir *dev_path_use_scidd;
 
+	/* Force reply path, for testing. */
+	struct pubkey *dev_reply_path;
+
 	/* The invreq we sent, OR the invoice we sent */
 	struct tlv_invoice_request *invreq;
 
@@ -603,11 +606,15 @@ static struct command_result *make_reply_path(struct command *cmd,
 	sending->sent->reply_secret = tal(sending->sent, struct secret);
 	randombytes_buf(sending->sent->reply_secret, sizeof(struct secret));
 
-	/* FIXME: Could create an independent reply path, not just
-	 * reverse existing. */
-	ids = tal_arr(tmpctx, struct pubkey, nhops - 1);
-	for (int i = nhops - 2; i >= 0; i--)
-		ids[nhops - 2 - i] = sending->sent->path[i];
+	if (sending->sent->dev_reply_path) {
+		ids = sending->sent->dev_reply_path;
+	} else {
+		/* FIXME: Could create an independent reply path, not just
+		 * reverse existing. */
+		ids = tal_arr(tmpctx, struct pubkey, nhops - 1);
+		for (int i = nhops - 2; i >= 0; i--)
+			ids[nhops - 2 - i] = sending->sent->path[i];
+	}
 
 	rpath = blinded_path(cmd, cmd, ids, sending->sent->dev_path_use_scidd,
 			     sending->sent->reply_secret);
@@ -802,6 +809,29 @@ static struct command_result *param_dev_scidd(struct command *cmd, const char *n
 				     "should be a short_channel_id of form NxNxN/dir");
 }
 
+static struct command_result *param_dev_reply_path(struct command *cmd, const char *name,
+						   const char *buffer, const jsmntok_t *tok,
+						   struct pubkey **path)
+{
+	size_t i;
+	const jsmntok_t *t;
+
+	if (!plugin_developer_mode(cmd->plugin))
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "not available outside --developer mode");
+
+	if (tok->type != JSMN_ARRAY)
+		return command_fail_badparam(cmd, name, buffer, tok, "Must be array");
+
+	*path = tal_arr(cmd, struct pubkey, tok->size);
+
+	json_for_each_arr(i, t, tok) {
+		if (!json_to_pubkey(buffer, t, &(*path)[i]))
+			return command_fail_badparam(cmd, name, buffer, t, "invalid pubkey");
+	}
+	return NULL;
+}
+
 /* Fetches an invoice for this offer, and makes sure it corresponds. */
 static struct command_result *json_fetchinvoice(struct command *cmd,
 						const char *buffer,
@@ -826,6 +856,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 		   p_opt_def("timeout", param_number, &timeout, 60),
 		   p_opt("payer_note", param_string, &payer_note),
 		   p_opt("dev_path_use_scidd", param_dev_scidd, &sent->dev_path_use_scidd),
+		   p_opt("dev_reply_path", param_dev_reply_path, &sent->dev_reply_path),
 		   NULL))
 		return command_param_failed();
 
@@ -1274,6 +1305,7 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 		return command_param_failed();
 
 	sent->dev_path_use_scidd = NULL;
+	sent->dev_reply_path = NULL;
 
 	/* BOLT-offers #12:
 	 *   - if the invoice is in response to an `invoice_request`:
@@ -1392,6 +1424,7 @@ static struct command_result *json_dev_rawrequest(struct command *cmd,
 	sent->cmd = cmd;
 	sent->offer = NULL;
 	sent->dev_path_use_scidd = NULL;
+	sent->dev_reply_path = NULL;
 
 	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &local_id,
 				    node_id,
