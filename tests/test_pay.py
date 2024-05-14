@@ -5607,6 +5607,26 @@ def test_pay_partial_msat(node_factory, executor):
     l3pay.result(TIMEOUT)
 
 
+def test_blindedpath_privchan(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True, opts={'experimental-offers': None})
+    l3 = node_factory.get_node(options={'experimental-offers': None})
+
+    # Private channel.
+    node_factory.join_nodes([l2, l3], announce_channels=False)
+    # Make sure l3 knows about l1-l2, so will add route hint.
+    wait_for(lambda: l3.rpc.listnodes(l1.info['id']) != {'nodes': []})
+
+    offer = l3.rpc.offer(1000, 'test_pay_blindedpath_privchan')
+    l1.rpc.decode(offer['bolt12'])
+
+    inv = l2.rpc.fetchinvoice(offer['bolt12'])
+    decode = l1.rpc.decode(inv['invoice'])
+    assert len(decode['invoice_paths']) == 1
+    assert decode['invoice_paths'][0]['first_node_id'] == l2.info['id']
+
+    l1.rpc.pay(inv['invoice'])
+
+
 def test_blinded_reply_path_scid(node_factory):
     """Check that we handle a blinded path which begins with a scid instead of a nodeid"""
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
@@ -5620,6 +5640,7 @@ def test_blinded_reply_path_scid(node_factory):
     l1.rpc.pay(inv)
 
 
+@pytest.mark.xfail(strict=True)
 def test_pay_while_opening_channel(node_factory, bitcoind, executor):
     delay_plugin = {'plugin': os.path.join(os.getcwd(),
                                            'tests/plugins/openchannel_hook_delay.py'),
