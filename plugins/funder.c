@@ -1593,6 +1593,17 @@ static char *amount_option(struct plugin *plugin, const char *arg, bool check_on
 	return NULL;
 }
 
+static bool jsonfmt_amount_sat(struct plugin *plugin,
+			       struct json_stream *js,
+			       const char *fieldname,
+			       struct amount_sat *sats)
+{
+	/* We do not expose raw numbers for sats fields: raw numbers
+	 * in our interface means MSAT! */
+	json_add_str_fmt(js, fieldname, "%"PRIu64"sat", sats->satoshis /* Raw: fmt */);
+	return true;
+}
+
 static char *option_lease_fee_base(struct plugin *plugin, const char *arg,
 				   bool check_only,
 				   struct funder_policy *policy)
@@ -1673,6 +1684,15 @@ static char *amount_sat_or_u64_option(struct plugin *plugin,
 	return NULL;
 }
 
+static bool jsonfmt_policy_mod(struct plugin *plugin,
+			       struct json_stream *js,
+			       const char *fieldname,
+			       u64 *amt)
+{
+	json_add_u64(js, fieldname, *amt);
+	return true;
+}
+
 int main(int argc, char **argv)
 {
 	setup_locale();
@@ -1690,93 +1710,111 @@ int main(int argc, char **argv)
 				  "string",
 				  "Policy to use for dual-funding requests."
 				  " [match, available, fixed]",
-				  funding_option, &current_policy->opt),
+				  funding_option,
+				  jsonfmt_funding_option,
+				  &current_policy->opt),
 		    plugin_option("funder-policy-mod",
 				  "string",
 				  "Percent to apply policy at"
 				  " (match/available); or amount to fund"
 				  " (fixed)",
 				  amount_sat_or_u64_option,
+				  jsonfmt_policy_mod,
 				  &current_policy->mod),
 		    plugin_option("funder-min-their-funding",
 				  "string",
 				  "Minimum funding peer must open with"
 				  " to activate our policy",
 				  amount_option,
+				  jsonfmt_amount_sat,
 				  &current_policy->min_their_funding),
 		    plugin_option("funder-max-their-funding",
 				  "string",
 				  "Maximum funding peer may open with"
 				  " to activate our policy",
 				  amount_option,
+				  jsonfmt_amount_sat,
 				  &current_policy->max_their_funding),
 		    plugin_option("funder-per-channel-min",
 				  "string",
 				  "Minimum funding we'll add to a channel."
 				  " If we can't meet this, we don't fund",
 				  amount_option,
+				  jsonfmt_amount_sat,
 				  &current_policy->per_channel_min),
 		    plugin_option("funder-per-channel-max",
 				  "string",
 				  "Maximum funding we'll add to a channel."
 				  " We cap all contributions to this",
 				  amount_option,
+				  jsonfmt_amount_sat,
 				  &current_policy->per_channel_max),
 		    plugin_option("funder-reserve-tank",
 				  "string",
 				  "Amount of funds we'll always leave"
 				  " available.",
 				  amount_option,
+				  jsonfmt_amount_sat,
 				  &current_policy->reserve_tank),
 		    plugin_option("funder-fuzz-percent",
 				  "int",
 				  "Percent to fuzz the policy contribution by."
 				  " Defaults to 0%. Max is 100%",
-				  u32_option,
+				  u32_option, u32_jsonfmt,
 				  &current_policy->fuzz_factor),
 		    plugin_option("funder-fund-probability",
 				  "int",
 				  "Percent of requests to consider."
 				  " Defaults to 100%. Setting to 0% will"
 				  " disable dual-funding",
-				  u32_option,
+				  u32_option, u32_jsonfmt,
 				  &current_policy->fund_probability),
 		    plugin_option("funder-lease-requests-only",
 				  "bool",
 				  "Only fund lease requests. Defaults to"
 				  " true if channel lease rates are"
 				  " being advertised",
-				  bool_option,
+				  bool_option, bool_jsonfmt,
 				  &current_policy->leases_only),
 		    plugin_option("lease-fee-base-sat",
 				  "string",
 				  "Channel lease rates, base fee for leased"
 				  " funds, in satoshi.",
-				  option_lease_fee_base, current_policy),
+				  option_lease_fee_base,
+				  NULL,
+				  current_policy),
 		    plugin_option("lease-fee-basis",
 				  "int",
 				  "Channel lease rates, basis charged"
 				  " for leased funds (per 10,000 satoshi.)",
-				  option_lease_fee_basis, current_policy),
+				  option_lease_fee_basis,
+				  NULL,
+				  current_policy),
 		    plugin_option("lease-funding-weight",
 				  "int",
 				  "Channel lease rates, weight"
 				  " we'll ask opening peer to pay for in"
 				  " funding transaction",
-				  option_lease_weight_max, current_policy),
+				  option_lease_weight_max,
+				  NULL,
+				  current_policy),
 		    plugin_option("channel-fee-max-base-msat",
 				  "string",
 				  "Channel lease rates, maximum channel"
 				  " fee base we'll charge for funds"
 				  " routed through a leased channel.",
-				  option_channel_base, current_policy),
+				  option_channel_base,
+				  NULL,
+				  current_policy),
 		    plugin_option("channel-fee-max-proportional-thousandths",
 				  "int",
 				  "Channel lease rates, maximum"
 				  " proportional fee (in thousandths, or ppt)"
 				  " we'll charge for funds routed through a"
 				  " leased channel. Note: 1ppt = 1,000ppm",
-				  option_channel_fee_proportional_thousandths_max, current_policy),
+				  option_channel_fee_proportional_thousandths_max,
+				  NULL,
+				  current_policy),
 		    NULL);
 
 	tal_free(current_policy);

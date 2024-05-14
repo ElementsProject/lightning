@@ -581,19 +581,27 @@ static const char *init(struct plugin *p,
 
 static char *cycle_seconds_option(struct plugin *plugin, const char *arg,
 				  bool check_only,
-				  void *unused)
+				  u64 *cycle_seconds)
 {
-	char *problem = u64_option(plugin, arg, check_only, &cycle_seconds);
+	char *problem = u64_option(plugin, arg, check_only, cycle_seconds);
 	if (problem || check_only)
 		return problem;
 
 	/* If timer is not running right now, reset it to new cycle_seconds */
 	if (cleantimer) {
 		tal_free(cleantimer);
-		cleantimer = plugin_timer(plugin, time_from_sec(cycle_seconds),
+		cleantimer = plugin_timer(plugin, time_from_sec(*cycle_seconds),
 					  do_clean_timer, NULL);
 	}
 	return NULL;
+}
+
+static bool u64_jsonfmt_unless_zero(struct plugin *plugin,
+				    struct json_stream *js, const char *fieldname, u64 *i)
+{
+	if (!*i)
+		return false;
+	return u64_jsonfmt(plugin, js, fieldname, i);
 }
 
 static const struct plugin_command commands[] = { {
@@ -628,30 +636,37 @@ int main(int argc, char *argv[])
 					  "int",
 					  "Perform cleanup every"
 					  " given seconds",
-					  cycle_seconds_option, NULL),
+					  cycle_seconds_option, u64_jsonfmt,
+					  &cycle_seconds),
 		    plugin_option_dynamic("autoclean-succeededforwards-age",
 					  "int",
 					  "How old do successful forwards have to be before deletion (0 = never)",
-					  u64_option, &timer_cinfo.subsystem_age[SUCCEEDEDFORWARDS]),
+					  u64_option, u64_jsonfmt_unless_zero,
+					  &timer_cinfo.subsystem_age[SUCCEEDEDFORWARDS]),
 		    plugin_option_dynamic("autoclean-failedforwards-age",
 					  "int",
 					  "How old do failed forwards have to be before deletion (0 = never)",
-					  u64_option, &timer_cinfo.subsystem_age[FAILEDFORWARDS]),
+					  u64_option, u64_jsonfmt_unless_zero,
+					  &timer_cinfo.subsystem_age[FAILEDFORWARDS]),
 		    plugin_option_dynamic("autoclean-succeededpays-age",
 					  "int",
 					  "How old do successful pays have to be before deletion (0 = never)",
-					  u64_option, &timer_cinfo.subsystem_age[SUCCEEDEDPAYS]),
+					  u64_option, u64_jsonfmt_unless_zero,
+					  &timer_cinfo.subsystem_age[SUCCEEDEDPAYS]),
 		    plugin_option_dynamic("autoclean-failedpays-age",
 					  "int",
 					  "How old do failed pays have to be before deletion (0 = never)",
-					  u64_option, &timer_cinfo.subsystem_age[FAILEDPAYS]),
+					  u64_option, u64_jsonfmt_unless_zero,
+					  &timer_cinfo.subsystem_age[FAILEDPAYS]),
 		    plugin_option_dynamic("autoclean-paidinvoices-age",
 					  "int",
 					  "How old do paid invoices have to be before deletion (0 = never)",
-					  u64_option, &timer_cinfo.subsystem_age[PAIDINVOICES]),
+					  u64_option, u64_jsonfmt_unless_zero,
+					  &timer_cinfo.subsystem_age[PAIDINVOICES]),
 		    plugin_option_dynamic("autoclean-expiredinvoices-age",
 					  "int",
 					  "How old do expired invoices have to be before deletion (0 = never)",
-					  u64_option, &timer_cinfo.subsystem_age[EXPIREDINVOICES]),
+					  u64_option, u64_jsonfmt_unless_zero,
+					  &timer_cinfo.subsystem_age[EXPIREDINVOICES]),
 		    NULL);
 }

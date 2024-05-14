@@ -1367,7 +1367,7 @@ int main(int argc, char *argv[])
 		    notification_topics, ARRAY_SIZE(notification_topics),
 		    plugin_option("disable-mpp", "flag",
 				  "Disable multi-part payments.",
-				  flag_option, &disablempp),
+				  flag_option, flag_jsonfmt, &disablempp),
 		    NULL);
 	io_poll_override(libplugin_pay_poll);
 }

@@ -427,10 +427,10 @@ int main(int argc, char *argv[])
 		/* notification topics */ NULL, 0,
 		plugin_option("renepay-debug-mcf", "flag",
 			"Enable renepay MCF debug info.",
-			flag_option, &pay_plugin->debug_mcf),
+			flag_option, NULL, &pay_plugin->debug_mcf),
 		plugin_option("renepay-debug-payflow", "flag",
 			"Enable renepay payment flows debug info.",
-			flag_option, &pay_plugin->debug_payflow),
+			flag_option, NULL, &pay_plugin->debug_payflow),
 		NULL);
 
 	return 0;

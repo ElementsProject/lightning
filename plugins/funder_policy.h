@@ -97,6 +97,12 @@ const char *funder_policy_desc(const tal_t *ctx,
 char *funding_option(struct plugin *plugin, const char *arg, bool check_only,
 		     enum funder_opt *opt);
 
+/* Convert to JSON field */
+bool jsonfmt_funding_option(struct plugin *plugin,
+			    struct json_stream *js,
+			    const char *fieldname,
+			    enum funder_opt *opt);
+
 /* Check policy settings, return error if fails */
 char *funder_check_policy(const struct funder_policy *policy);
 #endif /* LIGHTNING_PLUGINS_FUNDER_POLICY_H */
