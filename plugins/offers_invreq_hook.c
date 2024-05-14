@@ -1,6 +1,7 @@
 #include "config.h"
 #include <bitcoin/chainparams.h>
 #include <bitcoin/preimage.h>
+#include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32_util.h>
 #include <common/blindedpath.h>
@@ -258,7 +259,7 @@ static u8 *create_enctlv(const tal_t *ctx,
 			 /* in and out */
 			 struct privkey *blinding,
 			 const struct pubkey *node_id,
-			 struct short_channel_id *next_scid,
+			 const struct pubkey *next_node_id,
 			 struct tlv_encrypted_data_tlv_payment_relay *payment_relay,
 			 struct tlv_encrypted_data_tlv_payment_constraints *payment_constraints,
 			 u8 *path_secret,
@@ -266,7 +267,7 @@ static u8 *create_enctlv(const tal_t *ctx,
 {
 	struct tlv_encrypted_data_tlv *tlv = tlv_encrypted_data_tlv_new(tmpctx);
 
-	tlv->short_channel_id = next_scid;
+	tlv->next_node_id = cast_const(struct pubkey *, next_node_id);
 	tlv->path_id = path_secret;
 	tlv->payment_relay = payment_relay;
 	tlv->payment_constraints = payment_constraints;
@@ -418,7 +419,7 @@ static struct command_result *listincoming_done(struct command *cmd,
 			= create_enctlv(hops[0],
 					&blinding,
 					&best->id,
-					&best->scid,
+					&id,
 					&relay, &constraints,
 					NULL,
 					&hops[0]->blinded_node_id);
