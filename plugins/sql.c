@@ -1644,9 +1644,9 @@ int main(int argc, char *argv[])
 	}
 	plugin_main(argv, init, PLUGIN_RESTARTABLE, true, NULL, commands, ARRAY_SIZE(commands),
 	            NULL, 0, NULL, 0, NULL, 0,
-		    plugin_option("dev-sqlfilename",
-				  "string",
-				  "Use on-disk sqlite3 file instead of in memory (e.g. debugging)",
-				  charp_option, &dbfilename),
+		    plugin_option_dev("dev-sqlfilename",
+				      "string",
+				      "Use on-disk sqlite3 file instead of in memory (e.g. debugging)",
+				      charp_option, NULL, &dbfilename),
 		    NULL);
 }

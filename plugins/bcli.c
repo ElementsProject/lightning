@@ -1283,7 +1283,7 @@ int main(int argc, char *argv[])
 				  "bitcoind RPC timeout in seconds during HTTP requests",
 				  u64_option, &bitcoind->rpcclienttimeout),
 		    plugin_option("bitcoin-retry-timeout",
-				  "string",
+				  "int",
 				  "how long to keep retrying to contact bitcoind"
 				  " before fatally exiting",
 				  u64_option, &bitcoind->retry_timeout),
