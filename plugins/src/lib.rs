@@ -778,7 +778,7 @@ where
                                     .send(json!({
                                     "jsonrpc": "2.0",
                                     "id": id,
-                                    "error": e.to_string(),
+                                    "error": parse_error(e.to_string()),
                                     }))
                                     .await
                                     .context("returning custom error"),
@@ -893,6 +893,23 @@ pub enum FeatureBitsKind {
     Channel,
     Invoice,
     Init,
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize, Debug)]
+struct RpcError {
+    pub code: Option<i32>,
+    pub message: String,
+    pub data: Option<serde_json::Value>,
+}
+fn parse_error(error: String) -> RpcError {
+    match serde_json::from_str::<RpcError>(&error) {
+        Ok(o) => o,
+        Err(_) => RpcError {
+            code: Some(-32700),
+            message: error,
+            data: None,
+        },
+    }
 }
 
 #[cfg(test)]
