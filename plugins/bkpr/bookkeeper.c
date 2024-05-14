@@ -1839,11 +1839,11 @@ int main(int argc, char *argv[])
 		    plugin_option("bookkeeper-dir",
 				  "string",
 				  "Location for bookkeeper records.",
-				  charp_option, &datadir),
+				  charp_option, NULL, &datadir),
 		    plugin_option("bookkeeper-db",
 				  "string",
 				  "Location of the bookkeeper database",
-				  charp_option, &db_dsn),
+				  charp_option, NULL, &db_dsn),
 		    NULL);
 
 	return 0;

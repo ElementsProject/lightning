@@ -48,6 +48,10 @@ struct plugin_option {
 	 * for validity (but must not make any changes!) */
 	char *(*handle)(struct plugin *plugin, const char *str, bool check_only,
 			void *arg);
+	/* Print an option (used to show the default value, if returns true) */
+	bool (*jsonfmt)(struct plugin *plugin, struct json_stream *js, const char *fieldname,
+			void *arg);
+	/* Arg for handle and jsonfmt */
 	void *arg;
 	/* If true, this option requires --developer to be enabled */
 	bool dev_only;
@@ -1049,6 +1053,8 @@ handle_getmanifest(struct command *getmanifest_cmd,
 		json_add_string(params, "description", p->opts[i].description);
 		json_add_deprecated(params, "deprecated", p->opts[i].depr_start, p->opts[i].depr_end);
 		json_add_bool(params, "dynamic", p->opts[i].dynamic);
+		if (p->opts[i].jsonfmt)
+			p->opts[i].jsonfmt(p, params, "default", p->opts[i].arg);
 		json_object_end(params);
 	}
 	json_array_end(params);
@@ -1461,6 +1467,46 @@ char *charp_option(struct plugin *plugin, const char *arg, bool check_only, char
 	if (!check_only)
 		*p = tal_strdup(NULL, arg);
 	return NULL;
+}
+
+bool u64_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname, u64 *i)
+{
+	json_add_u64(js, fieldname, *i);
+	return true;
+}
+
+bool u32_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname, u32 *i)
+{
+	json_add_u32(js, fieldname, *i);
+	return true;
+}
+
+bool u16_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname, u16 *i)
+{
+	json_add_u32(js, fieldname, *i);
+	return true;
+}
+
+bool bool_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname, bool *i)
+{
+	json_add_bool(js, fieldname, *i);
+	return true;
+}
+
+bool charp_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname, char **p)
+{
+	if (!*p)
+		return false;
+	json_add_string(js, fieldname, *p);
+	return true;
+}
+
+bool flag_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname, bool *i)
+{
+	/* Don't print if the default (false) */
+	if (!*i)
+		return false;
+	return bool_jsonfmt(plugin, js, fieldname, i);
 }
 
 static void setup_command_usage(struct plugin *p)
@@ -2099,6 +2145,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 		o.type = va_arg(ap, const char *);
 		o.description = va_arg(ap, const char *);
 		o.handle = va_arg(ap, char *(*)(struct plugin *, const char *str, bool check_only, void *arg));
+		o.jsonfmt = va_arg(ap, bool (*)(struct plugin *, struct json_stream *, const char *, void *arg));
 		o.arg = va_arg(ap, void *);
 		o.dev_only = va_arg(ap, int); /* bool gets promoted! */
 		o.depr_start = va_arg(ap, const char *);

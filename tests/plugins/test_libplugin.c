@@ -9,7 +9,7 @@
 static char *somearg;
 static bool self_disable = false;
 static bool dont_shutdown = false;
-static int dynamic_opt = 7;
+static u32 dynamic_opt = 7;
 
 static struct command_result *get_ds_done(struct command *cmd,
 					  const char *val,
@@ -181,7 +181,7 @@ static struct command_result *json_checkthis(struct command *cmd,
 static char *set_dynamic(struct plugin *plugin,
 			 const char *arg,
 			 bool check_only,
-			 int *dynamic_opt)
+			 u32 *dynamic_opt)
 {
 	int val = atol(arg);
 
@@ -298,23 +298,23 @@ int main(int argc, char *argv[])
 		    plugin_option("somearg",
 				  "string",
 				  "Argument to print at init.",
-				  charp_option, &somearg),
+				  charp_option, charp_jsonfmt, &somearg),
 		    plugin_option_deprecated("somearg-deprecated",
 					     "string",
 					     "Deprecated arg for init.",
 					     CLN_NEXT_VERSION, NULL,
-					     charp_option, &somearg),
+					     charp_option, charp_jsonfmt, &somearg),
 		    plugin_option("selfdisable",
 				  "flag",
 				  "Whether to disable.",
-				  flag_option, &self_disable),
+				  flag_option, flag_jsonfmt, &self_disable),
 		    plugin_option("dont_shutdown",
 				  "flag",
 				  "Whether to timeout when asked to shutdown.",
-				  flag_option, &dont_shutdown),
+				  flag_option, flag_jsonfmt, &dont_shutdown),
 		    plugin_option_dynamic("dynamicopt",
 					  "int",
 					  "Set me!",
-					  set_dynamic, &dynamic_opt),
+					  set_dynamic, u32_jsonfmt, &dynamic_opt),
 		    NULL);
 }

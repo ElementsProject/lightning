@@ -1561,6 +1561,8 @@ def test_libplugin(node_factory):
     l1.daemon.wait_for_log("get_ds_bin_done: NOT FOUND")
 
     # Check dynamic!
+    assert l1.rpc.listconfigs('dynamicopt')['configs']['dynamicopt']['value_int'] == 7
+
     with pytest.raises(RpcError) as err:
         l1.rpc.setconfig('dynamicopt', 4)
     assert err.value.error['message'] == 'I don\'t like \\"even\\" numbers (valid JSON? Try {})!'
@@ -1570,8 +1572,9 @@ def test_libplugin(node_factory):
     assert err.value.error['message'] == 'I don\'t like \\"even\\" numbers (valid JSON? Try {})!'
 
     l1.rpc.check(command_to_check='setconfig', config='dynamicopt', val=9)
-    # FIXME: libplugin doesn't populate defaults!
-    assert 'dynamicopt' not in l1.rpc.listconfigs()['configs']
+
+    # Unchanged!
+    assert l1.rpc.listconfigs('dynamicopt')['configs']['dynamicopt']['value_int'] == 7
 
     l1.rpc.setconfig('dynamicopt', 9)
     conf = l1.rpc.listconfigs('dynamicopt')['configs']['dynamicopt']

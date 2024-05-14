@@ -1643,6 +1643,6 @@ int main(int argc, char *argv[])
 		    NULL, 0,
 		    plugin_option("fetchinvoice-noconnect", "flag",
 				  "Don't try to connect directly to fetch an invoice.",
-				  flag_option, &disable_connect),
+				  flag_option, flag_jsonfmt, &disable_connect),
 		    NULL);
 }

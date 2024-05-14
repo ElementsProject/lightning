@@ -416,11 +416,20 @@ static inline void *plugin_option_cb_check(char *(*set)(struct plugin *plugin,
 	return set;
 }
 
+/* Simply exists to check that `jsonfmt` to plugin_option* is correct type */
+static inline void *plugin_option_jsonfmt_check(bool (*jsonfmt)(struct plugin *,
+								struct json_stream *,
+								const char *,
+								void *))
+{
+	return jsonfmt;
+}
+
 /* Is --developer enabled? */
 bool plugin_developer_mode(const struct plugin *plugin);
 
 /* Macro to define arguments */
-#define plugin_option_(name, type, description, set, arg, dev_only, depr_start, depr_end, dynamic) \
+#define plugin_option_(name, type, description, set, jsonfmt, arg, dev_only, depr_start, depr_end, dynamic) \
 	(name),								\
 	(type),								\
 	(description),							\
@@ -428,23 +437,29 @@ bool plugin_developer_mode(const struct plugin *plugin);
 						   (set), (arg),	\
 						   struct plugin *,	\
 						   const char *, bool)),\
+	plugin_option_jsonfmt_check(typesafe_cb_preargs(bool, void *,	\
+							(jsonfmt), (arg), \
+							struct plugin *, \
+							struct json_stream *, \
+							const char *)),	\
 	(arg),								\
 	(dev_only),							\
 	(depr_start),							\
 	(depr_end),							\
 	(dynamic)
 
-#define plugin_option(name, type, description, set, arg) \
-	plugin_option_((name), (type), (description), (set), (arg), false, NULL, NULL, false)
+/* jsonfmt can be NULL, but then default won't be printed */
+#define plugin_option(name, type, description, set, jsonfmt, arg)	\
+	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, NULL, NULL, false)
 
-#define plugin_option_dev(name, type, description, set, arg) \
-	plugin_option_((name), (type), (description), (set), (arg), true, NULL, NULL, false)
+#define plugin_option_dev(name, type, description, set, jsonfmt, arg)	\
+	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), true, NULL, NULL, false)
 
-#define plugin_option_dynamic(name, type, description, set, arg) \
-	plugin_option_((name), (type), (description), (set), (arg), false, NULL, NULL, true)
+#define plugin_option_dynamic(name, type, description, set, jsonfmt, arg) \
+	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, NULL, NULL, true)
 
-#define plugin_option_deprecated(name, type, description, depr_start, depr_end, set, arg) \
-	plugin_option_((name), (type), (description), (set), (arg), false, (depr_start), (depr_end), false)
+#define plugin_option_deprecated(name, type, description, depr_start, depr_end, set, jsonfmt, arg) \
+	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, (depr_start), (depr_end), false)
 
 /* Standard helpers */
 char *u64_option(struct plugin *plugin, const char *arg, bool check_only, u64 *i);
@@ -453,6 +468,21 @@ char *u16_option(struct plugin *plugin, const char *arg, bool check_only, u16 *i
 char *bool_option(struct plugin *plugin, const char *arg, bool check_only, bool *i);
 char *charp_option(struct plugin *plugin, const char *arg, bool check_only, char **p);
 char *flag_option(struct plugin *plugin, const char *arg, bool check_only, bool *i);
+
+bool u64_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname,
+		 u64 *i);
+bool u32_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname,
+		 u32 *i);
+bool u16_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname,
+		 u16 *i);
+bool bool_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname,
+		  bool *i);
+bool charp_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname,
+		   char **p);
+
+/* Usually equivalent to NULL, since flag must default to false be useful! */
+bool flag_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname,
+		  bool *i);
 
 /* The main plugin runner: append with 0 or more plugin_option(), then NULL. */
 void NORETURN LAST_ARG_NULL plugin_main(char *argv[],
