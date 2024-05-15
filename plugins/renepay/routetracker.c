@@ -65,6 +65,12 @@ void route_failure_register(struct routetracker *routetracker,
 {
 	routetracker_add_to_final(routetracker, route);
 }
+
+static void remove_route(struct route *route, struct route_map *map)
+{
+	route_map_del(map, route);
+}
+
 static void route_sent_register(struct routetracker *routetracker,
 				struct route *route)
 {
@@ -89,7 +95,7 @@ static void route_sendpay_fail(struct routetracker *routetracker,
  *	- or after listsendpays reveals some pending route that we didn't
  *	previously know about. */
 void route_pending_register(struct routetracker *routetracker,
-			    const struct route *route)
+			    struct route *route)
 {
 	assert(route);
 	assert(routetracker);
@@ -111,7 +117,9 @@ void route_pending_register(struct routetracker *routetracker,
 	uncertainty_commit_htlcs(pay_plugin->uncertainty, route);
 
 	if (!route_map_add(routetracker->pending_routes, route) ||
-	    !tal_steal(routetracker, route))
+	    !tal_steal(routetracker, route) ||
+	    !route_map_add(pay_plugin->route_map, route) ||
+	    !tal_add_destructor2(route, remove_route, pay_plugin->route_map))
 		plugin_err(pay_plugin->plugin, "%s: failed to register route.",
 			   __PRETTY_FUNCTION__);
 
