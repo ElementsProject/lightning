@@ -1,5 +1,4 @@
 from collections import Counter
-from ephemeral_port_reserve import reserve
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
@@ -1731,7 +1730,6 @@ def test_static_tor_onions(node_factory):
     torips = '127.0.0.1:9051'
     torport = 9050
     torserviceport = 9051
-    portA, portB = reserve(), reserve()
 
     if not check_socket(format(torip), torserviceport):
         return
@@ -1739,10 +1737,12 @@ def test_static_tor_onions(node_factory):
     if not check_socket(format(torip), torport):
         return
 
+    portA = node_factory.get_unused_port()
     l1 = node_factory.get_node(may_fail=True, options={
         'bind-addr': '127.0.0.1:{}'.format(portA),
         'addr': ['statictor:{}'.format(torips)]
     })
+    portB = node_factory.get_unused_port()
     l2 = node_factory.get_node(may_fail=True, options={
         'bind-addr': '127.0.0.1:{}'.format(portB),
         'addr': ['statictor:{}/torblob=11234567890123456789012345678901/torport={}'.format(torips, 9736)]
@@ -1772,9 +1772,9 @@ def test_tor_port_onions(node_factory):
     if not check_socket(torip, torport):
         return
 
-    portA, portB = reserve(), reserve()
-
+    portA = node_factory.get_unused_port()
     l1 = node_factory.get_node(may_fail=True, options={'bind-addr': '127.0.0.1:{}'.format(portA), 'addr': ['statictor:{}/torport=45321'.format(torips)]})
+    portB = node_factory.get_unused_port()
     l2 = node_factory.get_node(may_fail=True, options={'bind-addr': '127.0.0.1:{}'.format(portB), 'addr': ['statictor:{}/torport=45321/torblob=11234567890123456789012345678901'.format(torips)]})
 
     assert l1.daemon.is_in_log('45321,127.0.0.1:{}'.format(l1.port))

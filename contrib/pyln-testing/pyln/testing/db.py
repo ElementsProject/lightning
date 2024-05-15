@@ -1,4 +1,4 @@
-from ephemeral_port_reserve import reserve  # type: ignore
+from .utils import reserve_unused_port, drop_unused_port
 
 import itertools
 import logging
@@ -192,7 +192,7 @@ class PostgresDbProvider(object):
         with open(conffile, 'a') as f:
             f.write('max_connections = 1000\nshared_buffers = 240MB\n')
 
-        self.port = reserve()
+        self.port = reserve_unused_port()
         self.proc = subprocess.Popen([
             postgres,
             '-k', '/tmp/',  # So we don't use /var/lib/...
@@ -240,3 +240,4 @@ class PostgresDbProvider(object):
         self.proc.send_signal(signal.SIGINT)
         self.proc.wait()
         shutil.rmtree(self.pgdir)
+        drop_unused_port(self.port)

@@ -1,7 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from decimal import Decimal
-from ephemeral_port_reserve import reserve  # type: ignore
 from pyln.client import RpcError, Millisatoshi
 import pyln.proto.wire as wire
 from utils import (
@@ -4099,8 +4098,8 @@ def test_old_feerate(node_factory):
 
 
 def test_websocket(node_factory):
-    ws_port = reserve()
-    port = reserve()
+    ws_port = node_factory.get_unused_port()
+    port = node_factory.get_unused_port()
     l1, l2 = node_factory.line_graph(2,
                                      opts=[{'addr': ':' + str(port),
                                             'bind-addr': 'ws:127.0.0.1: ' + str(ws_port),
@@ -4524,9 +4523,9 @@ def test_last_stable_connection(node_factory):
 
 
 def test_wss_proxy(node_factory):
-    wss_port = reserve()
-    ws_port = reserve()
-    port = reserve()
+    wss_port = node_factory.get_unused_port()
+    ws_port = node_factory.get_unused_port()
+    port = node_factory.get_unused_port()
     wss_proxy_certs = node_factory.directory + '/wss-proxy-certs'
     l1 = node_factory.get_node(options={'addr': ':' + str(port),
                                         'bind-addr': 'ws:127.0.0.1:' + str(ws_port),

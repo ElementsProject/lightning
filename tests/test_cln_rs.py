@@ -1,4 +1,3 @@
-from ephemeral_port_reserve import reserve
 from fixtures import *  # noqa: F401,F403
 from pathlib import Path
 from pyln import grpc as clnpb
@@ -94,7 +93,7 @@ def test_grpc_connect(node_factory):
     """Attempts to connect to the grpc interface and call getinfo"""
     # These only exist if we have rust!
 
-    grpc_port = reserve()
+    grpc_port = node_factory.get_unused_port()
     l1 = node_factory.get_node(options={"grpc-port": str(grpc_port)})
 
     p = Path(l1.daemon.lightning_dir) / TEST_NETWORK
@@ -150,7 +149,7 @@ def test_grpc_generate_certificate(node_factory):
      - If we have certs, we they should just get loaded
      - If we delete one cert or its key it should get regenerated.
     """
-    grpc_port = reserve()
+    grpc_port = node_factory.get_unused_port()
     l1 = node_factory.get_node(options={
         "grpc-port": str(grpc_port),
     }, start=False)
@@ -210,7 +209,7 @@ def test_grpc_wrong_auth(node_factory):
     """
     # These only exist if we have rust!
 
-    grpc_port = reserve()
+    grpc_port = node_factory.get_unused_port()
     l1, l2 = node_factory.get_nodes(2, opts={
         "start": False,
         "grpc-port": str(grpc_port),
@@ -297,7 +296,7 @@ def test_grpc_keysend_routehint(bitcoind, node_factory):
     recipient.
 
     """
-    grpc_port = reserve()
+    grpc_port = node_factory.get_unused_port()
     l1, l2, l3 = node_factory.line_graph(
         3,
         opts=[
@@ -341,7 +340,7 @@ def test_grpc_keysend_routehint(bitcoind, node_factory):
 def test_grpc_listpeerchannels(bitcoind, node_factory):
     """ Check that conversions of this rather complex type work.
     """
-    grpc_port = reserve()
+    grpc_port = node_factory.get_unused_port()
     l1, l2 = node_factory.line_graph(
         2,
         opts=[
@@ -371,7 +370,7 @@ def test_grpc_listpeerchannels(bitcoind, node_factory):
 
 
 def test_grpc_decode(node_factory):
-    grpc_port = reserve()
+    grpc_port = node_factory.get_unused_port()
     l1 = node_factory.get_node(options={'grpc-port': str(grpc_port)})
     inv = l1.grpc.Invoice(clnpb.InvoiceRequest(
         amount_msat=clnpb.AmountOrAny(any=True),
