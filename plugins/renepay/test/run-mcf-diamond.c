@@ -93,6 +93,8 @@ static const char* print_flows(
 	return buff;
 }
 
+static void remove_file(char *fname) { assert(!remove(fname)); }
+
 int main(int argc, char *argv[])
 {
 	int fd;
@@ -108,6 +110,7 @@ int main(int argc, char *argv[])
 	common_setup(argv[0]);
 
 	fd = tmpdir_mkstemp(tmpctx, "run-not_mcf-diamond.XXXXXX", &gossfile);
+	tal_add_destructor(gossfile, remove_file);
 	assert(write_all(fd, empty_map, sizeof(empty_map)));
 
 	gossmap = gossmap_load(tmpctx, gossfile, NULL);

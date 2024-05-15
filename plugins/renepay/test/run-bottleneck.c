@@ -56,6 +56,8 @@ static const char *print_flows(const tal_t *ctx, const char *desc,
 
 #define NUM_NODES 8
 
+static void remove_file(char *fname) { assert(!remove(fname)); }
+
 int main(int argc, char *argv[])
 {
 	int fd;
@@ -67,6 +69,7 @@ int main(int argc, char *argv[])
 	chainparams = chainparams_for_network("regtest");
 
 	fd = tmpdir_mkstemp(tmpctx, "run-bottleneck.XXXXXX", &gossfile);
+	tal_add_destructor(gossfile, remove_file);
 	assert(write(fd, empty_map, sizeof(empty_map)) == sizeof(empty_map));
 
 	gossmap = gossmap_load(tmpctx, gossfile, NULL);

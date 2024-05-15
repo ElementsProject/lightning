@@ -341,6 +341,8 @@ static const char *print_flows(
 	return buff;
 }
 
+static void remove_file(char *fname) { assert(!remove(fname)); }
+
 int main(int argc, char *argv[])
 {
 	int fd;
@@ -362,11 +364,11 @@ int main(int argc, char *argv[])
 	common_setup(argv[0]);
 
 	fd = tmpdir_mkstemp(tmpctx, "run-not_mcf.XXXXXX", &gossfile);
+	tal_add_destructor(gossfile, remove_file);
 	assert(write_all(fd, canned_map, sizeof(canned_map)));
 
 	gossmap = gossmap_load(tmpctx, gossfile, NULL);
 	assert(gossmap);
-	remove(gossfile);
 
 	/* There is a public channel 2<->3 (103x1x0), and 1<->2 (110x1x1). */
 	assert(node_id_from_hexstr("0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518", 66, &l1));

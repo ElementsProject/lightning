@@ -517,10 +517,7 @@ static void test_edge_probability(void)
 	assert(fabs(edge_probability(min,max,X,f)-0.0)< eps);
 }
 
-static void remove_file(char *fname)
-{
-	assert(!remove(fname));
-}
+static void remove_file(char *fname) { assert(!remove(fname)); }
 
 static void test_flow_to_route(void)
 {
@@ -530,7 +527,7 @@ static void test_flow_to_route(void)
 
 	char *gossfile;
 	int fd = tmpdir_mkstemp(this_ctx,"run-testflow.XXXXXX",&gossfile);
-	tal_add_destructor(gossfile,remove_file);
+	tal_add_destructor(gossfile, remove_file);
 
 	assert(write_all(fd,canned_map,sizeof(canned_map)));
 	struct gossmap *gossmap = gossmap_load(this_ctx,gossfile,NULL);
