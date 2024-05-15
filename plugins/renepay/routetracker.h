@@ -31,7 +31,7 @@ void payment_collect_results(struct payment *payment,
 /* Announce that this route is pending and needs to be kept in the waiting list
  * for notifications. */
 void route_pending_register(struct routetracker *routetracker,
-			    const struct route *route);
+			    struct route *route);
 
 /* Sends a sendpay request for this route. */
 struct command_result *route_sendpay_request(struct command *cmd,
