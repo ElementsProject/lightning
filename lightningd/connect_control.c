@@ -292,16 +292,23 @@ static void gossipd_got_addrs(struct subd *subd,
 {
 	struct wireaddr *addrs;
 	u8 *connectmsg;
+	struct peer *peer;
+	bool transient;
 
 	if (!fromwire_gossipd_get_addrs_reply(tmpctx, msg, &addrs))
 		fatal("Gossipd gave bad GOSSIPD_GET_ADDRS_REPLY %s",
 		      tal_hex(msg, msg));
 
+	/* We consider this transient unless we have a channel */
+	peer = peer_by_id(d->ld, &d->id);
+	transient = !peer || !peer_any_channel(peer, channel_state_wants_peercomms, NULL);
+
 	connectmsg = towire_connectd_connect_to_peer(NULL,
 						     &d->id,
 						     addrs,
 						     d->addrhint,
-						     d->dns_fallback);
+						     d->dns_fallback,
+						     transient);
 	subd_send_msg(d->ld->connectd, take(connectmsg));
 	tal_free(d);
 }
@@ -604,6 +611,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_CUSTOMMSG_OUT:
 	case WIRE_CONNECTD_START_SHUTDOWN:
 	case WIRE_CONNECTD_SET_CUSTOMMSGS:
+	case WIRE_CONNECTD_DEV_EXHAUST_FDS:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_CONNECTD_INIT_REPLY:
 	case WIRE_CONNECTD_ACTIVATE_REPLY:
@@ -756,7 +764,8 @@ int connectd_init(struct lightningd *ld)
 	    !ld->deprecated_ok,
 	    ld->dev_fast_gossip,
 	    ld->dev_disconnect_fd >= 0,
-	    ld->dev_no_ping_timer);
+	    ld->dev_no_ping_timer,
+	    ld->dev_handshake_no_reply);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);
@@ -925,3 +934,26 @@ static const struct json_command dev_report_fds = {
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_report_fds);
+
+static struct command_result *json_dev_connectd_exhaust_fds(struct command *cmd,
+							    const char *buffer,
+							    const jsmntok_t *obj UNNEEDED,
+							    const jsmntok_t *params)
+{
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	subd_send_msg(cmd->ld->connectd,
+		      take(towire_connectd_dev_exhaust_fds(NULL)));
+
+	return command_success(cmd, json_stream_success(cmd));
+}
+
+static const struct json_command dev_connectd_exhaust_fds = {
+	"dev-connectd-exhaust-fds",
+	"developer",
+	json_dev_connectd_exhaust_fds,
+	"Make connectd run out of file descriptors",
+	.dev_only = true,
+};
+AUTODATA(json_command, &dev_connectd_exhaust_fds);

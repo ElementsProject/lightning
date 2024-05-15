@@ -93,4 +93,14 @@ bool feerate_changes_done(const struct fee_states *fee_states,
 char *fmt_fee_states(const tal_t *ctx,
 		     const struct fee_states *fee_states);
 
+/**
+ * https://github.com/lightningnetwork/lightning-rfc/issues/740 indicates
+ * we should not allow an HTLC if a fee increase of 100% would cause us to
+ * get stuck.
+ *
+ * This proved overzealous: if fees are already high there is less chance
+ * they increase by another 100%, so we scale the factor.
+ */
+u32 marginal_feerate(u32 current_feerate);
+
 #endif /* LIGHTNING_COMMON_FEE_STATES_H */

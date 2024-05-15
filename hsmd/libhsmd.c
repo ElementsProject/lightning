@@ -15,6 +15,9 @@
 #include <sodium/utils.h>
 #include <wally_psbt.h>
 
+/* The negotiated protocol version ends up in here. */
+u64 hsmd_mutual_version;
+
 /* If they specify --dev-force-privkey it ends up in here. */
 struct privkey *dev_force_privkey;
 /* If they specify --dev-force-bip32-seed it ends up in here. */
@@ -1203,7 +1206,7 @@ static u8 *handle_get_per_commitment_point(struct hsmd_client *c, const u8 *msg_
 		return hsmd_status_bad_request_fmt(
 		    c, msg_in, "bad per_commit_point %" PRIu64, n);
 
-	if (n >= 2) {
+	if (hsmd_mutual_version < 6 && n >= 2) {
 		old_secret = tal(tmpctx, struct secret);
 		if (!per_commit_secret(&shaseed, old_secret, n - 2)) {
 			return hsmd_status_bad_request_fmt(

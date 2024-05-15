@@ -25,7 +25,8 @@
  * v5 drop init v2: 5024454532fe5a78bb7558000cb344190888b9915360d3d56ddca22eaba9b872
  * v5 with dev_preinit: b93e18534a468a4aa9f7015db42e9c363c32aeee5f9146b36dc953ebbdc3d33c
  * v5 with preapprove_check: 0ed6dd4ea2c02b67c51b1420b3d07ab2227a4c06ce7e2942d946967687e9baf7
+ * v6 no secret from get_per_commitment_point: 0cad1790beb3473d64355f4cb4f64daa80c28c8a241998b7ef0223385d7ffff9
 */
 #define HSM_MIN_VERSION 5
-#define HSM_MAX_VERSION 5
+#define HSM_MAX_VERSION 6
 #endif /* LIGHTNING_COMMON_HSM_VERSION_H */

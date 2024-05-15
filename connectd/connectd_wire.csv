@@ -25,6 +25,8 @@ msgdata,connectd_init,dev_fast_gossip,bool,
 # If this is set, then fd 5 is dev_disconnect_fd.
 msgdata,connectd_init,dev_disconnect,bool,
 msgdata,connectd_init,dev_no_ping_timer,bool,
+# Allow incoming connections, but don't talk.
+msgdata,connectd_init,dev_noreply,bool,
 
 # Connectd->master, here are the addresses I bound, can announce.
 msgtype,connectd_init_reply,2100
@@ -55,6 +57,7 @@ msgdata,connectd_connect_to_peer,len,u32,
 msgdata,connectd_connect_to_peer,addrs,wireaddr,len
 msgdata,connectd_connect_to_peer,addrhint,?wireaddr_internal,
 msgdata,connectd_connect_to_peer,dns_fallback,bool,
+msgdata,connectd_connect_to_peer,transient,bool,
 
 # Connectd->master: connect failed.
 msgtype,connectd_connect_failed,2020
@@ -162,3 +165,5 @@ msgtype,connectd_start_shutdown_reply,2131
 # master -> connect: stop sending gossip.
 msgtype,connectd_dev_suppress_gossip,2032
 
+# master -> connect: waste all your fds.
+msgtype,connectd_dev_exhaust_fds,2036

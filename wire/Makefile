@@ -36,7 +36,7 @@ WIRE_PRINT_SRC :=				\
 
 WIRE_PRINT_HEADERS := $(WIRE_PRINT_SRC:.c=.h)
 
-WIRE_OBJS := $(WIRE_SRC:.c=.o)
+WIRE_OBJS := $(WIRE_SRC:.c=.o) common/sciddir_or_pubkey.o
 WIRE_PRINT_OBJS := $(WIRE_PRINT_SRC:.c=.o)
 WIRE_BOLT12_OBJS := $(WIRE_BOLT12_SRC:.c=.o)
 $(WIRE_OBJS) $(WIRE_PRINT_OBJS) $(WIRE_BOLT12_OBJS): $(WIRE_HEADERS) $(WIRE_PRINT_HEADERS)
@@ -95,7 +95,7 @@ wire/peer_wiregen.h_args := --include='common/channel_id.h' --include='bitcoin/t
 wire/peer_wiregen.c_args := -s --expose-tlv-type=tlv_n1 --expose-tlv-type=tlv_n2
 
 # The payload isn't parsed in a fromwire, so we need to expose it.
-wire/onion_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='bitcoin/privkey.h' --include='common/bigsize.h' --include='common/amount.h' --include='common/node_id.h' --include='bitcoin/block.h' -s --expose-tlv-type=tlv_payload
+wire/onion_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='bitcoin/privkey.h' --include='common/bigsize.h' --include='common/amount.h' --include='common/node_id.h' --include='bitcoin/block.h' --include='common/sciddir_or_pubkey.h' -s --expose-tlv-type=tlv_payload
 
 wire/onion_wiregen.c_args := -s --expose-tlv-type=tlv_payload
 

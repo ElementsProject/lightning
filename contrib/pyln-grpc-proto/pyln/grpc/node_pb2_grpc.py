@@ -349,10 +349,30 @@ class NodeStub(object):
                 request_serializer=node__pb2.PingRequest.SerializeToString,
                 response_deserializer=node__pb2.PingResponse.FromString,
                 )
+        self.Plugin = channel.unary_unary(
+                '/cln.Node/Plugin',
+                request_serializer=node__pb2.PluginRequest.SerializeToString,
+                response_deserializer=node__pb2.PluginResponse.FromString,
+                )
+        self.RenePayStatus = channel.unary_unary(
+                '/cln.Node/RenePayStatus',
+                request_serializer=node__pb2.RenepaystatusRequest.SerializeToString,
+                response_deserializer=node__pb2.RenepaystatusResponse.FromString,
+                )
+        self.RenePay = channel.unary_unary(
+                '/cln.Node/RenePay',
+                request_serializer=node__pb2.RenepayRequest.SerializeToString,
+                response_deserializer=node__pb2.RenepayResponse.FromString,
+                )
         self.SendCustomMsg = channel.unary_unary(
                 '/cln.Node/SendCustomMsg',
                 request_serializer=node__pb2.SendcustommsgRequest.SerializeToString,
                 response_deserializer=node__pb2.SendcustommsgResponse.FromString,
+                )
+        self.SendInvoice = channel.unary_unary(
+                '/cln.Node/SendInvoice',
+                request_serializer=node__pb2.SendinvoiceRequest.SerializeToString,
+                response_deserializer=node__pb2.SendinvoiceResponse.FromString,
                 )
         self.SetChannel = channel.unary_unary(
                 '/cln.Node/SetChannel',
@@ -836,7 +856,31 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Plugin(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RenePayStatus(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RenePay(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SendCustomMsg(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SendInvoice(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1270,10 +1314,30 @@ def add_NodeServicer_to_server(servicer, server):
                     request_deserializer=node__pb2.PingRequest.FromString,
                     response_serializer=node__pb2.PingResponse.SerializeToString,
             ),
+            'Plugin': grpc.unary_unary_rpc_method_handler(
+                    servicer.Plugin,
+                    request_deserializer=node__pb2.PluginRequest.FromString,
+                    response_serializer=node__pb2.PluginResponse.SerializeToString,
+            ),
+            'RenePayStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.RenePayStatus,
+                    request_deserializer=node__pb2.RenepaystatusRequest.FromString,
+                    response_serializer=node__pb2.RenepaystatusResponse.SerializeToString,
+            ),
+            'RenePay': grpc.unary_unary_rpc_method_handler(
+                    servicer.RenePay,
+                    request_deserializer=node__pb2.RenepayRequest.FromString,
+                    response_serializer=node__pb2.RenepayResponse.SerializeToString,
+            ),
             'SendCustomMsg': grpc.unary_unary_rpc_method_handler(
                     servicer.SendCustomMsg,
                     request_deserializer=node__pb2.SendcustommsgRequest.FromString,
                     response_serializer=node__pb2.SendcustommsgResponse.SerializeToString,
+            ),
+            'SendInvoice': grpc.unary_unary_rpc_method_handler(
+                    servicer.SendInvoice,
+                    request_deserializer=node__pb2.SendinvoiceRequest.FromString,
+                    response_serializer=node__pb2.SendinvoiceResponse.SerializeToString,
             ),
             'SetChannel': grpc.unary_unary_rpc_method_handler(
                     servicer.SetChannel,
@@ -2500,6 +2564,57 @@ class Node(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def Plugin(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/Plugin',
+            node__pb2.PluginRequest.SerializeToString,
+            node__pb2.PluginResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def RenePayStatus(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/RenePayStatus',
+            node__pb2.RenepaystatusRequest.SerializeToString,
+            node__pb2.RenepaystatusResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def RenePay(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/RenePay',
+            node__pb2.RenepayRequest.SerializeToString,
+            node__pb2.RenepayResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def SendCustomMsg(request,
             target,
             options=(),
@@ -2513,6 +2628,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/SendCustomMsg',
             node__pb2.SendcustommsgRequest.SerializeToString,
             node__pb2.SendcustommsgResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SendInvoice(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/SendInvoice',
+            node__pb2.SendinvoiceRequest.SerializeToString,
+            node__pb2.SendinvoiceResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

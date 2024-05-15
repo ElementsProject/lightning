@@ -389,6 +389,35 @@
             "failed": 2,
             "pending": 1
         },
+        "PluginCommand": {
+            "list": 4,
+            "rescan": 2,
+            "start": 0,
+            "startdir": 3,
+            "stop": 1
+        },
+        "PluginSubcommand": {
+            "list": 4,
+            "rescan": 2,
+            "start": 0,
+            "startdir": 3,
+            "stop": 1
+        },
+        "RenepayStatus": {
+            "complete": 0,
+            "failed": 2,
+            "pending": 1
+        },
+        "RenepaystatusPaystatusStatus": {
+            "complete": 0,
+            "failed": 2,
+            "pending": 1
+        },
+        "SendinvoiceStatus": {
+            "expired": 2,
+            "paid": 1,
+            "unpaid": 0
+        },
         "SendonionStatus": {
             "complete": 1,
             "pending": 0
@@ -785,6 +814,8 @@
         "DecodeOffer_paths": {
             "Decode.offer_paths[].blinding": 2,
             "Decode.offer_paths[].first_node_id": 1,
+            "Decode.offer_paths[].first_scid": 5,
+            "Decode.offer_paths[].first_scid_dir": 4,
             "Decode.offer_paths[].path[]": 3
         },
         "DecodeOffer_recurrencePaywindow": {
@@ -2091,6 +2122,23 @@
         "PingResponse": {
             "Ping.totlen": 1
         },
+        "PluginPlugins": {
+            "Plugin.plugins[].active": 2,
+            "Plugin.plugins[].dynamic": 3,
+            "Plugin.plugins[].name": 1
+        },
+        "PluginRequest": {
+            "Plugin.directory": 3,
+            "Plugin.options[]": 4,
+            "Plugin.plugin": 2,
+            "Plugin.subcommand": 1
+        },
+        "PluginResponse": {
+            "Plugin.command": 1,
+            "Plugin.plugins[]": 2,
+            "Plugin.result": 3,
+            "Plugin.subcommand": 4
+        },
         "PreapproveinvoiceRequest": {
             "PreApproveInvoice.bolt11": 1
         },
@@ -2099,12 +2147,73 @@
             "PreApproveKeysend.destination": 1,
             "PreApproveKeysend.payment_hash": 2
         },
+        "RenepayRequest": {
+            "RenePay.amount_msat": 2,
+            "RenePay.description": 6,
+            "RenePay.dev_use_shadow": 8,
+            "RenePay.invstring": 1,
+            "RenePay.label": 7,
+            "RenePay.maxdelay": 4,
+            "RenePay.maxfee": 3,
+            "RenePay.retry_for": 5
+        },
+        "RenepayResponse": {
+            "RenePay.amount_msat": 5,
+            "RenePay.amount_sent_msat": 6,
+            "RenePay.created_at": 3,
+            "RenePay.destination": 8,
+            "RenePay.parts": 4,
+            "RenePay.payment_hash": 2,
+            "RenePay.payment_preimage": 1,
+            "RenePay.status": 7
+        },
+        "RenepaystatusPaystatus": {
+            "RenePayStatus.paystatus[].amount_msat": 7,
+            "RenePayStatus.paystatus[].amount_sent_msat": 8,
+            "RenePayStatus.paystatus[].bolt11": 1,
+            "RenePayStatus.paystatus[].created_at": 4,
+            "RenePayStatus.paystatus[].destination": 10,
+            "RenePayStatus.paystatus[].groupid": 5,
+            "RenePayStatus.paystatus[].notes[]": 11,
+            "RenePayStatus.paystatus[].parts": 6,
+            "RenePayStatus.paystatus[].payment_hash": 3,
+            "RenePayStatus.paystatus[].payment_preimage": 2,
+            "RenePayStatus.paystatus[].status": 9
+        },
+        "RenepaystatusRequest": {
+            "RenePayStatus.invstring": 1
+        },
+        "RenepaystatusResponse": {
+            "RenePayStatus.paystatus[]": 1
+        },
         "SendcustommsgRequest": {
             "SendCustomMsg.msg": 2,
             "SendCustomMsg.node_id": 1
         },
         "SendcustommsgResponse": {
             "SendCustomMsg.status": 1
+        },
+        "SendinvoiceRequest": {
+            "SendInvoice.amount_msat": 3,
+            "SendInvoice.invreq": 1,
+            "SendInvoice.label": 2,
+            "SendInvoice.quantity": 5,
+            "SendInvoice.timeout": 4
+        },
+        "SendinvoiceResponse": {
+            "SendInvoice.amount_msat": 6,
+            "SendInvoice.amount_received_msat": 11,
+            "SendInvoice.bolt12": 7,
+            "SendInvoice.created_index": 8,
+            "SendInvoice.description": 2,
+            "SendInvoice.expires_at": 5,
+            "SendInvoice.label": 1,
+            "SendInvoice.paid_at": 12,
+            "SendInvoice.pay_index": 10,
+            "SendInvoice.payment_hash": 3,
+            "SendInvoice.payment_preimage": 13,
+            "SendInvoice.status": 4,
+            "SendInvoice.updated_index": 9
         },
         "SendonionFirst_hop": {
             "SendOnion.first_hop.amount_msat": 2,
@@ -3410,6 +3519,14 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "Decode.invoice_paths[].first_scid": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_paths[].first_scid_dir": {
+            "added": "v23.05",
+            "deprecated": false
+        },
         "Decode.invoice_paths[].path[]": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -3548,6 +3665,14 @@
         },
         "Decode.offer_paths[].first_node_id": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Decode.offer_paths[].first_scid": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_paths[].first_scid_dir": {
+            "added": "v23.05",
             "deprecated": false
         },
         "Decode.offer_paths[].path[]": {
@@ -7406,6 +7531,50 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "Plugin": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Plugin.command": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin.directory": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin.options[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin.plugin": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin.plugins[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin.plugins[].active": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin.plugins[].dynamic": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin.plugins[].name": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin.result": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Plugin.subcommand": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
         "PreApproveInvoice": {
             "added": "v23.02",
             "deprecated": null
@@ -7430,6 +7599,126 @@
             "added": "v23.02",
             "deprecated": false
         },
+        "RenePay": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "RenePay.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.amount_sent_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.created_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.description": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.destination": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.dev_use_shadow": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.invstring": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.maxdelay": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.maxfee": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.parts": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.payment_preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.retry_for": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "RenePayStatus.invstring": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].amount_sent_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].bolt11": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].created_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].destination": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].groupid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].notes[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].parts": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].payment_preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePayStatus.paystatus[].status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
         "SendCustomMsg": {
             "added": "v0.10.1",
             "deprecated": null
@@ -7444,6 +7733,74 @@
         },
         "SendCustomMsg.status": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SendInvoice.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.amount_received_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.created_index": {
+            "added": "v23.08",
+            "deprecated": false
+        },
+        "SendInvoice.description": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.expires_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.invreq": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.paid_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.pay_index": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.payment_preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.quantity": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.timeout": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendInvoice.updated_index": {
+            "added": "v23.08",
             "deprecated": false
         },
         "SendOnion": {

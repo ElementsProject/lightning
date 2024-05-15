@@ -132,6 +132,12 @@ This is not valid within the per-network configuration file.
 
   The bitcoind(1) RPC port to connect to.
 
+* **bitcoin-rpcclienttimeout**=*SECONDS* [plugin `bcli`]
+
+  The bitcoind(1) RPC client timeout in seconds. Default is set to 60
+instead of 900 to match bitcoin-retry-timeout default. When set
+explicitly, the higher value of it and bitcoin-retry-timeout is used.
+
 * **bitcoin-retry-timeout**=*SECONDS* [plugin `bcli`]
 
   Number of seconds to keep trying a bitcoin-cli(1) command. If the
@@ -747,8 +753,8 @@ corresponding functionality, which are in draft status ([bolt][bolt] #798) as [b
 
 * **fetchinvoice-noconnect**
 
-  Specifying this prevents `fetchinvoice` and `sendinvoice` from
-trying to connect directly to the offering node as a last resort.
+  Specifying this prevents `fetchinvoice`, `sendinvoice` and replying
+to invoice request from trying to connect directly to the offering node as a last resort.
 
 * **experimental-shutdown-wrong-funding**
 

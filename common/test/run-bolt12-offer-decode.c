@@ -10,6 +10,7 @@
 #include "../features.c"
 #include "../json_parse.c"
 #include "../json_parse_simple.c"
+#include "../sciddir_or_pubkey.c"
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
@@ -68,6 +69,9 @@ bool parse_amount_msat(struct amount_msat *msat UNNEEDED, const char *s UNNEEDED
 /* Generated stub for parse_amount_sat */
 bool parse_amount_sat(struct amount_sat *sat UNNEEDED, const char *s UNNEEDED, size_t slen UNNEEDED)
 { fprintf(stderr, "parse_amount_sat called!\n"); abort(); }
+/* Generated stub for pubkey_from_node_id */
+bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
 /* Generated stub for sighash_from_merkle */
 void sighash_from_merkle(const char *messagename UNNEEDED,
 			 const char *fieldname UNNEEDED,

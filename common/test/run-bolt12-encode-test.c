@@ -12,6 +12,7 @@
 #include <common/bolt12.c>
 #include <common/bolt12_merkle.h>
 #include <common/features.c>
+#include <common/sciddir_or_pubkey.c>
 #include <common/setup.h>
 #include <inttypes.h>
 #include <wire/bolt12_wiregen.c>
@@ -61,6 +62,9 @@ struct amount_msat fromwire_amount_msat(const u8 **cursor UNNEEDED, size_t *max 
 /* Generated stub for merkle_tlv */
 void merkle_tlv(const struct tlv_field *fields UNNEEDED, struct sha256 *merkle UNNEEDED)
 { fprintf(stderr, "merkle_tlv called!\n"); abort(); }
+/* Generated stub for pubkey_from_node_id */
+bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
 /* Generated stub for sighash_from_merkle */
 void sighash_from_merkle(const char *messagename UNNEEDED,
 			 const char *fieldname UNNEEDED,
@@ -221,7 +225,8 @@ int main(int argc, char *argv[])
 
 	offer->offer_paths = tal_arr(offer, struct blinded_path *, 1);
 	offer->offer_paths[0] = tal(offer->offer_paths, struct blinded_path);
-	assert(pubkey_from_secret(&bob, &offer->offer_paths[0]->first_node_id));
+	offer->offer_paths[0]->first_node_id.is_pubkey = true;
+	assert(pubkey_from_secret(&bob, &offer->offer_paths[0]->first_node_id.pubkey));
 	/* Random blinding secret. */
 	assert(pubkey_from_hexstr("020202020202020202020202020202020202020202020202020202020202020202", 66, &offer->offer_paths[0]->blinding));
 	offer->offer_paths[0]->path = tal_arr(offer->offer_paths[0],
@@ -240,7 +245,8 @@ int main(int argc, char *argv[])
 
 	tal_resize(&offer->offer_paths, 2);
 	offer->offer_paths[1] = tal(offer->offer_paths, struct blinded_path);
-	assert(pubkey_from_secret(&carol, &offer->offer_paths[1]->first_node_id));
+	offer->offer_paths[1]->first_node_id.is_pubkey = true;
+	assert(pubkey_from_secret(&carol, &offer->offer_paths[1]->first_node_id.pubkey));
 	/* Random blinding secret. */
 	assert(pubkey_from_hexstr("020202020202020202020202020202020202020202020202020202020202020202", 66, &offer->offer_paths[1]->blinding));
 	offer->offer_paths[1]->path = tal_arr(offer->offer_paths[1],

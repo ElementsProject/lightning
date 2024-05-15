@@ -52,6 +52,10 @@ struct peer *first_random_peer(struct daemon *daemon UNNEEDED,
 /* Generated stub for fromwire_gossipd_dev_set_max_scids_encode_size */
 bool fromwire_gossipd_dev_set_max_scids_encode_size(const void *p UNNEEDED, u32 *max UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_dev_set_max_scids_encode_size called!\n"); abort(); }
+/* Generated stub for fromwire_sciddir_or_pubkey */
+void fromwire_sciddir_or_pubkey(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+				struct sciddir_or_pubkey *sciddpk UNNEEDED)
+{ fprintf(stderr, "fromwire_sciddir_or_pubkey called!\n"); abort(); }
 /* Generated stub for gossmap_chan_byidx */
 struct gossmap_chan *gossmap_chan_byidx(const struct gossmap *map UNNEEDED, u32 idx UNNEEDED)
 { fprintf(stderr, "gossmap_chan_byidx called!\n"); abort(); }
@@ -129,6 +133,10 @@ void queue_peer_msg(struct daemon *daemon UNNEEDED,
 		    const struct node_id *peer UNNEEDED,
 		    const u8 *msg TAKES UNNEEDED)
 { fprintf(stderr, "queue_peer_msg called!\n"); abort(); }
+/* Generated stub for towire_sciddir_or_pubkey */
+void towire_sciddir_or_pubkey(u8 **pptr UNNEEDED,
+			      const struct sciddir_or_pubkey *sciddpk UNNEEDED)
+{ fprintf(stderr, "towire_sciddir_or_pubkey called!\n"); abort(); }
 /* Generated stub for towire_warningfmt */
 u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
 		      const struct channel_id *channel UNNEEDED,

@@ -1636,10 +1636,12 @@ static void add_stub_blindedpath(const tal_t *ctx,
 	struct blinded_path *path;
 	struct privkey blinding;
 	struct tlv_encrypted_data_tlv *tlv;
+	struct pubkey me;
 
 	path = tal(NULL, struct blinded_path);
-	if (!pubkey_from_node_id(&path->first_node_id, &ld->id))
+	if (!pubkey_from_node_id(&me, &ld->id))
 		abort();
+	sciddir_or_pubkey_from_pubkey(&path->first_node_id, &me);
 	randombytes_buf(&blinding, sizeof(blinding));
 	if (!pubkey_from_privkey(&blinding, &path->blinding))
 		abort();
@@ -1656,7 +1658,7 @@ static void add_stub_blindedpath(const tal_t *ctx,
 	path->path[0]->encrypted_recipient_data
 		= encrypt_tlv_encrypted_data(path->path[0],
 					     &blinding,
-					     &path->first_node_id,
+					     &path->first_node_id.pubkey,
 					     tlv,
 					     NULL,
 					     &path->path[0]->blinded_node_id);

@@ -75,7 +75,11 @@ service Node {
 	rpc OpenChannel_Signed(Openchannel_signedRequest) returns (Openchannel_signedResponse) {}
 	rpc OpenChannel_Update(Openchannel_updateRequest) returns (Openchannel_updateResponse) {}
 	rpc Ping(PingRequest) returns (PingResponse) {}
+	rpc Plugin(PluginRequest) returns (PluginResponse) {}
+	rpc RenePayStatus(RenepaystatusRequest) returns (RenepaystatusResponse) {}
+	rpc RenePay(RenepayRequest) returns (RenepayResponse) {}
 	rpc SendCustomMsg(SendcustommsgRequest) returns (SendcustommsgResponse) {}
+	rpc SendInvoice(SendinvoiceRequest) returns (SendinvoiceResponse) {}
 	rpc SetChannel(SetchannelRequest) returns (SetchannelResponse) {}
 	rpc SignInvoice(SigninvoiceRequest) returns (SigninvoiceResponse) {}
 	rpc SignMessage(SignmessageRequest) returns (SignmessageResponse) {}
@@ -1526,8 +1530,10 @@ message DecodeResponse {
 }
 
 message DecodeOffer_paths {
-	bytes first_node_id = 1;
+	optional bytes first_node_id = 1;
 	bytes blinding = 2;
+	optional uint32 first_scid_dir = 4;
+	optional string first_scid = 5;
 }
 
 message DecodeOffer_recurrencePaywindow {
@@ -2209,6 +2215,81 @@ message PingResponse {
 	uint32 totlen = 1;
 }
 
+message PluginRequest {
+	PluginSubcommand subcommand = 1;
+	optional string plugin = 2;
+	optional string directory = 3;
+	repeated string options = 4;
+}
+
+message PluginResponse {
+	PluginSubcommand command = 1;
+	repeated PluginPlugins plugins = 2;
+	optional string result = 3;
+}
+
+message PluginPlugins {
+	string name = 1;
+	bool active = 2;
+	bool dynamic = 3;
+}
+
+message RenepaystatusRequest {
+	optional string invstring = 1;
+}
+
+message RenepaystatusResponse {
+	repeated RenepaystatusPaystatus paystatus = 1;
+}
+
+message RenepaystatusPaystatus {
+	// RenePayStatus.paystatus[].status
+	enum RenepaystatusPaystatusStatus {
+		COMPLETE = 0;
+		PENDING = 1;
+		FAILED = 2;
+	}
+	string bolt11 = 1;
+	optional bytes payment_preimage = 2;
+	bytes payment_hash = 3;
+	double created_at = 4;
+	uint32 groupid = 5;
+	optional uint32 parts = 6;
+	Amount amount_msat = 7;
+	optional Amount amount_sent_msat = 8;
+	RenepaystatusPaystatusStatus status = 9;
+	optional bytes destination = 10;
+	repeated string notes = 11;
+}
+
+message RenepayRequest {
+	string invstring = 1;
+	optional Amount amount_msat = 2;
+	optional Amount maxfee = 3;
+	optional uint32 maxdelay = 4;
+	optional uint32 retry_for = 5;
+	optional string description = 6;
+	optional string label = 7;
+	optional bool dev_use_shadow = 8;
+}
+
+message RenepayResponse {
+	// RenePay.status
+	enum RenepayStatus {
+		COMPLETE = 0;
+		PENDING = 1;
+		FAILED = 2;
+	}
+	bytes payment_preimage = 1;
+	bytes payment_hash = 2;
+	double created_at = 3;
+	uint32 parts = 4;
+	Amount amount_msat = 5;
+	Amount amount_sent_msat = 6;
+	RenepayStatus status = 7;
+	optional bytes destination = 8;
+}
+
 message SendcustommsgRequest {
 	bytes node_id = 1;
 	bytes msg = 2;
@@ -2216,6 +2297,36 @@ message SendcustommsgRequest {
 
 message SendcustommsgResponse {
 	string status = 1;
+}
+
+message SendinvoiceRequest {
+	string invreq = 1;
+	string label = 2;
+	optional Amount amount_msat = 3;
+	optional uint32 timeout = 4;
+	optional uint64 quantity = 5;
+}
+
+message SendinvoiceResponse {
+	// SendInvoice.status
+	enum SendinvoiceStatus {
+		UNPAID = 0;
+		PAID = 1;
+		EXPIRED = 2;
+	}
+	string label = 1;
+	string description = 2;
+	bytes payment_hash = 3;
+	SendinvoiceStatus status = 4;
+	uint64 expires_at = 5;
+	optional Amount amount_msat = 6;
+	optional string bolt12 = 7;
+	optional uint64 created_index = 8;
+	optional uint64 updated_index = 9;
+	optional uint64 pay_index = 10;
+	optional Amount amount_received_msat = 11;
+	optional uint64 paid_at = 12;
+	optional bytes payment_preimage = 13;
 }
 
 message SetchannelRequest {

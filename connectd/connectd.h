@@ -40,6 +40,16 @@ enum pong_expect_type {
 	PONG_EXPECTED_PROBING = 2,
 };
 
+/*~ We classify connections by loose priority */
+enum connection_prio {
+	/* We deliberately connected to them. */
+	PRIO_DELIBERATE,
+	/* They connected to us, unsolicited. */
+	PRIO_UNSOLICITED,
+	/* We connected, but transiently. */
+	PRIO_TRANSIENT,
+};
+
 /*~ We keep a hash table (ccan/htable) of peers, which tells us what peers are
  * already connected (by peer->id). */
 struct peer {
@@ -90,8 +100,8 @@ struct peer {
 	/* Last time we received traffic */
 	struct timeabs last_recv_time;
 
-	/* Were we explicitly told to connect to this peer? */
-	bool deliberate_connection;
+	/* How important does this peer seem to be? */
+	enum connection_prio prio;
 
 	bool dev_read_enabled;
 	/* If non-NULL, this counts down; 0 means disable */
@@ -144,6 +154,9 @@ struct connecting {
 
 	/* Accumulated errors */
 	char *errors;
+
+	/* Is this a transient connection? */
+	bool transient;
 };
 
 static const struct node_id *connecting_keyof(const struct connecting *connecting)
@@ -251,7 +264,11 @@ struct daemon {
 	bool dev_suppress_gossip;
 	/* dev_disconnect file */
 	int dev_disconnect_fd;
-};
+	/* Did we exhaust fds?  If so, skip dev_report_fds */
+	bool dev_exhausted_fds;
+	/* Allow connections in, but don't send anything */
+	bool dev_handshake_no_reply;
+ };
 
 /* Called by io_tor_connect once it has a connection out. */
 struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect);

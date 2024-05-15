@@ -54,6 +54,7 @@ COMMON_SRC_NOGEN :=				\
 	common/initial_commit_tx.c		\
 	common/invoice_path_id.c		\
 	common/iso4217.c			\
+	common/json_blinded_path.c		\
 	common/json_channel_type.c		\
 	common/json_filter.c			\
 	common/json_param.c			\
@@ -84,6 +85,7 @@ COMMON_SRC_NOGEN :=				\
 	common/random_select.c			\
 	common/read_peer_msg.c			\
 	common/route.c				\
+	common/sciddir_or_pubkey.c		\
 	common/setup.c				\
 	common/shutdown_scriptpubkey.c		\
 	common/sphinx.c				\

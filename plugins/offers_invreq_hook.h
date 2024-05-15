@@ -7,6 +7,7 @@ extern u16 cltv_final;
 extern u32 blockheight;
 extern struct secret invoicesecret_base;
 extern struct pubkey id;
+extern bool disable_connect;
 
 /* We got an onionmessage with an invreq! */
 struct command_result *handle_invoice_request(struct command *cmd,

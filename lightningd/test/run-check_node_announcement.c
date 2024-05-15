@@ -32,6 +32,9 @@ u8 *get_agreed_channelfeatures(const tal_t *ctx UNNEEDED,
 /* Generated stub for node_id_cmp */
 int node_id_cmp(const struct node_id *a UNNEEDED, const struct node_id *b UNNEEDED)
 { fprintf(stderr, "node_id_cmp called!\n"); abort(); }
+/* Generated stub for pubkey_from_node_id */
+bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
 /* Generated stub for towire_bigsize */
 void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)
 { fprintf(stderr, "towire_bigsize called!\n"); abort(); }

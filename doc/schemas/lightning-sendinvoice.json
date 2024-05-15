@@ -23,14 +23,7 @@
         ]
       },
       "label": {
-        "oneOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "integer"
-          }
-        ],
+        "type": "string",
         "description": [
           "The unique label to use for this invoice."
         ]
