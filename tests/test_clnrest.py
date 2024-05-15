@@ -1,4 +1,3 @@
-from ephemeral_port_reserve import reserve
 from fixtures import *  # noqa: F401,F403
 from pyln.testing.utils import env, TEST_NETWORK
 from pyln.client import Millisatoshi
@@ -35,7 +34,7 @@ def test_clnrest_no_auto_start(node_factory):
 
 def test_clnrest_self_signed_certificates(node_factory):
     """Test that self-signed certificates have `clnrest-host` IP in Subject Alternative Name."""
-    rest_port = str(reserve())
+    rest_port = str(node_factory.get_unused_port())
     rest_host = '127.0.0.1'
     base_url = f'https://{rest_host}:{rest_port}'
     l1 = node_factory.get_node(options={'disable-plugin': 'cln-grpc',
@@ -58,8 +57,8 @@ def test_clnrest_uses_grpc_plugin_certificates(node_factory):
     - clnrest-protocol: https
     """
     rest_host = 'localhost'
-    grpc_port = str(reserve())
-    rest_port = str(reserve())
+    grpc_port = str(node_factory.get_unused_port())
+    rest_port = str(node_factory.get_unused_port())
     l1 = node_factory.get_node(options={'grpc-port': grpc_port, 'clnrest-host': rest_host, 'clnrest-port': rest_port})
     base_url = f'https://{rest_host}:{rest_port}'
     # This might happen really early!
@@ -75,7 +74,7 @@ def test_clnrest_uses_grpc_plugin_certificates(node_factory):
 def test_clnrest_generate_certificate(node_factory):
     """Test whether we correctly generate the certificates."""
     # when `clnrest-protocol` is `http`, certs are not generated at `clnrest-certs` path
-    rest_port = str(reserve())
+    rest_port = str(node_factory.get_unused_port())
     rest_protocol = 'http'
     rest_certs = node_factory.directory + '/clnrest-certs'
     l1 = node_factory.get_node(options={'clnrest-port': rest_port,
@@ -85,7 +84,7 @@ def test_clnrest_generate_certificate(node_factory):
     assert not Path(rest_certs).exists()
 
     # node l1 not started
-    rest_port = str(reserve())
+    rest_port = str(node_factory.get_unused_port())
     rest_certs = node_factory.directory + '/clnrest-certs'
     l1 = node_factory.get_node(options={'clnrest-port': rest_port,
                                         'clnrest-certs': rest_certs}, start=False)
@@ -130,7 +129,7 @@ def start_node_with_clnrest(node_factory):
     - the node,
     - the base url and
     - the certificate authority path used for the self-signed certificates."""
-    rest_port = str(reserve())
+    rest_port = str(node_factory.get_unused_port())
     rest_certs = node_factory.directory + '/clnrest-certs'
     l1 = node_factory.get_node(options={'clnrest-port': rest_port, 'clnrest-certs': rest_certs})
     base_url = 'https://127.0.0.1:' + rest_port
@@ -378,7 +377,7 @@ def test_clnrest_websocket_rune_no_listnotifications(node_factory):
 def test_clnrest_numeric_msat_notification(node_factory):
     """Test that msat fields are integers in notifications also."""
     # start a node with clnrest
-    rest_port = str(reserve())
+    rest_port = str(node_factory.get_unused_port())
     base_url = 'http://127.0.0.1:' + rest_port
     l1, l2 = node_factory.get_nodes(2, opts=[{}, {'clnrest-port': rest_port, 'clnrest-protocol': 'http'}])
     node_factory.join_nodes([l1, l2], wait_for_announce=True)
@@ -405,14 +404,14 @@ def test_clnrest_options(node_factory):
     assert l1.daemon.is_in_log(f'plugin-clnrest: Killing plugin: disabled itself at init: `clnrest-port` {rest_port}, should be a valid available port between 1024 and 65535.')
 
     # with invalid protocol
-    rest_port = str(reserve())
+    rest_port = str(node_factory.get_unused_port())
     rest_protocol = 'htttps'
     l1 = node_factory.get_node(options={'clnrest-port': rest_port,
                                         'clnrest-protocol': rest_protocol})
     assert l1.daemon.is_in_log(r'plugin-clnrest: Killing plugin: disabled itself at init: `clnrest-protocol` can either be http or https.')
 
     # with invalid host
-    rest_port = str(reserve())
+    rest_port = str(node_factory.get_unused_port())
     rest_host = '127.0.0.12.15'
     l1 = node_factory.get_node(options={'clnrest-port': rest_port,
                                         'clnrest-host': rest_host})
@@ -434,7 +433,7 @@ def test_clnrest_http_headers(node_factory):
     l1.daemon.wait_for_log(f'plugin-clnrest: REST server running at {base_url}')
 
     # Custom values for `clnrest-csp` and `clnrest-cors-origins` options
-    rest_port = str(reserve())
+    rest_port = str(node_factory.get_unused_port())
     rest_certs = node_factory.directory + '/clnrest-certs'
     l2 = node_factory.get_node(options={
         'clnrest-port': rest_port,
@@ -461,7 +460,7 @@ def test_clnrest_http_headers(node_factory):
 
 def test_clnrest_old_params(node_factory):
     """Test that we handle the v23.08-style parameters"""
-    rest_port = str(reserve())
+    rest_port = str(node_factory.get_unused_port())
     rest_host = '127.0.0.1'
     base_url = f'https://{rest_host}:{rest_port}'
     l1 = node_factory.get_node(options={'rest-port': rest_port,

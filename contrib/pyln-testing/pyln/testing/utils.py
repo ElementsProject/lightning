@@ -1693,6 +1693,11 @@ class NodeFactory(object):
         self.join_nodes(nodes, fundchannel, fundamount, wait_for_announce, announce_channels)
         return nodes
 
+    def get_unused_port(self):
+        port = reserve_unused_port()
+        self.reserved_ports.append(port)
+        return port
+
     def killall(self, expected_successes):
         """Returns true if every node we expected to succeed actually succeeded"""
         unexpected_fail = False

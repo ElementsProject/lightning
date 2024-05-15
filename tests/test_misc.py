@@ -11,7 +11,6 @@ from pyln.testing.utils import (
 from utils import (
     account_balance, scriptpubkey_addr, check_coin_moves, first_scid
 )
-from ephemeral_port_reserve import reserve
 
 import json
 import os
@@ -1680,7 +1679,7 @@ def test_reserve_enforcement(node_factory, executor):
 
 def test_ipv4_and_ipv6(node_factory):
     """Test we can bind to both IPv4 and IPv6 addresses (if supported)"""
-    port = reserve()
+    port = node_factory.get_unused_port()
     l1 = node_factory.get_node(options={'addr': ':{}'.format(port)})
     bind = l1.rpc.getinfo()['binding']
 
@@ -2673,7 +2672,7 @@ def test_unix_socket_path_length(node_factory, bitcoind, directory, executor, db
     db = db_provider.get_db(lightning_dir, "test_unix_socket_path_length", 1)
     db.provider = db_provider
 
-    l1 = LightningNode(1, lightning_dir, bitcoind, executor, VALGRIND, db=db, port=reserve())
+    l1 = LightningNode(1, lightning_dir, bitcoind, executor, VALGRIND, db=db, port=node_factory.get_unused_port())
 
     # `LightningNode.start()` internally calls `LightningRpc.getinfo()` which
     # exercises the socket logic, and raises an issue if it fails.
