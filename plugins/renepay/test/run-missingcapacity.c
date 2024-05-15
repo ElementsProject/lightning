@@ -24,6 +24,8 @@ static u8 empty_map[] = {10};
 
 #define NUM_NODES 4
 
+static void remove_file(char *fname) { assert(!remove(fname)); }
+
 int main(int argc, char *argv[])
 {
 	int fd;
@@ -35,6 +37,7 @@ int main(int argc, char *argv[])
 	chainparams = chainparams_for_network("regtest");
 
 	fd = tmpdir_mkstemp(tmpctx, "run-missingcapacity.XXXXXX", &gossfile);
+	tal_add_destructor(gossfile, remove_file);
 	assert(write(fd, empty_map, sizeof(empty_map)) == sizeof(empty_map));
 
 	gossmap = gossmap_load(tmpctx, gossfile, NULL);
@@ -162,6 +165,7 @@ int main(int argc, char *argv[])
 		assert(node_id_eq(&routes[0]->hops[0].node_id, &nodes[1]));
 		assert(node_id_eq(&routes[0]->hops[1].node_id, &nodes[3]));
 	}
+
 	common_shutdown();
 }
 
