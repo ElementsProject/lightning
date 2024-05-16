@@ -22,6 +22,20 @@ jobs:
     - name: Install requests module
       run: python -m pip install requests
 
+    - name: Install dependencies
+      run: bash -x .github/scripts/setup.sh
+
+    - name: Build
+      run: |
+        ./configure --enable-debugbuild
+        make -j $(nproc)
+        make -j $(nproc) check-gen-updated
+
+    - name: Make docs
+      run: |
+        make doc-all
+        make check-doc
+
     - name: Set environment variable and run
       env:
         README_API_KEY: ${{ secrets.README_API_KEY }}  
