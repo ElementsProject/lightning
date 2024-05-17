@@ -804,7 +804,7 @@ static struct command_result *getchaininfo(struct command *cmd,
          * However, I currently don't have a better idea on how to handle this situation. */
 	u32 *height UNUSED;
 	if (!param(cmd, buf, toks,
-		   p_req("last_height", param_number, &height),
+		   p_opt("last_height", param_number, &height),
 		   NULL))
 		return command_param_failed();
 
