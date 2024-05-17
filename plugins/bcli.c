@@ -113,7 +113,7 @@ static const char **gather_argsv(const tal_t *ctx, const char *cmd, va_list ap)
 			bitcoind->rpcclienttimeout = bitcoind->retry_timeout;
 
 		add_arg(&args,
-			tal_fmt(args, "-rpcclienttimeout=%ld", bitcoind->rpcclienttimeout));
+			tal_fmt(args, "-rpcclienttimeout=%"PRIu64, bitcoind->rpcclienttimeout));
 	}
 	if (bitcoind->rpcconnect)
 		add_arg(&args,
