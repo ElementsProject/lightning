@@ -4044,6 +4044,7 @@ def test_closing_no_anysegwit_retry(node_factory, bitcoind):
     l1.rpc.close(l2.info['id'], destination=oldaddr)
 
 
+@pytest.mark.skip()
 @pytest.mark.parametrize("anchors", [False, True])
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
 def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):

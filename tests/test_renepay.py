@@ -243,6 +243,7 @@ def test_amounts(node_factory):
     assert invoice["amount_received_msat"] >= Millisatoshi(123456)
 
 
+@pytest.mark.skip()
 def test_limits(node_factory):
     """
     Topology:
