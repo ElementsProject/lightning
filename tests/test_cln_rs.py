@@ -403,7 +403,7 @@ def test_rust_plugin_subscribe_wildcard(node_factory):
 
 
 def test_grpc_block_added_notifications(node_factory, bitcoind):
-    grpc_port = reserve()
+    grpc_port = node_factory.get_unused_port()
 
     l1 = node_factory.get_node(options={"grpc-port": str(grpc_port)})
 
@@ -421,7 +421,7 @@ def test_grpc_block_added_notifications(node_factory, bitcoind):
 
 
 def test_grpc_connect_notification(node_factory):
-    grpc_port = reserve()
+    grpc_port = node_factory.get_unused_port()
 
     l1 = node_factory.get_node(options={"grpc-port": str(grpc_port)})
     l2 = node_factory.get_node()
@@ -436,7 +436,7 @@ def test_grpc_connect_notification(node_factory):
 
 
 def test_grpc_custommsg_notification(node_factory):
-    grpc_port = reserve()
+    grpc_port = node_factory.get_unused_port()
 
     l1 = node_factory.get_node(options={"grpc-port": str(grpc_port)})
     l2 = node_factory.get_node()
