@@ -32,12 +32,12 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      locales \
      net-tools \
      postgresql \
-     python-pkg-resources \
+     python3-pkg-resources \
      python3 \
      python3-dev \
      python3-pip \
      python3-setuptools \
-     qemu \
+     qemu-system \
      qemu-system-arm \
      qemu-user-static \
      shellcheck \
