@@ -60,7 +60,7 @@ struct command_result *payment_continue(struct payment *payment)
 			   "Calling payment condition %s", cond->name);
 
 		const u64 position_iftrue =
-		    (u64)payment_virtual_program[payment->exec_state++];
+			(intptr_t)payment_virtual_program[payment->exec_state++];
 
 		if (cond->condition_cb(payment))
 			payment->exec_state = position_iftrue;
