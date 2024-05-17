@@ -82,9 +82,9 @@ bool from_bech32_charset(const tal_t *ctx,
 	u5data = tal_arr(NULL, u5, datalen);
 	for (size_t i = 0; i < datalen; i++) {
 		int c = sep[1+i];
-		if (c < 0 || c > 128)
-			goto fail;
 		c = fixup_char(c, &upper, &lower);
+		if (c < 0 || c >= 128)
+			goto fail;
 		if (bech32_charset_rev[c] == -1)
 			goto fail;
 		u5data[i] = bech32_charset_rev[c];
