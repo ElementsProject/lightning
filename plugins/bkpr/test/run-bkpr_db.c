@@ -96,7 +96,7 @@ const char *htlc_state_name(enum htlc_state s UNNEEDED)
 { fprintf(stderr, "htlc_state_name called!\n"); abort(); }
 /* Generated stub for is_asterix_notification */
 bool is_asterix_notification(const char *notification_name UNNEEDED,
-			   const char *subscriptions UNNEEDED)
+			     const char *subscriptions UNNEEDED)
 { fprintf(stderr, "is_asterix_notification called!\n"); abort(); }
 /* Generated stub for json_get_id */
 const char *json_get_id(const tal_t *ctx UNNEEDED,
