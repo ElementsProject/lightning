@@ -4044,6 +4044,23 @@ def test_closing_no_anysegwit_retry(node_factory, bitcoind):
     l1.rpc.close(l2.info['id'], destination=oldaddr)
 
 
+@pytest.mark.xfail(strict=True)
+def test_closing_ignore_fee_limits(node_factory, bitcoind, executor):
+    """Don't use ignore-fee-limits on mutual close: LDK takes us to the cleaners if we do!"""
+    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
+                                               'ignore-fee-limits': True},
+                                              {'may_reconnect': True}])
+
+    # l2's feerates go up.  A lot!
+    l2.set_feerates((100000, 100000, 100000, 100000))
+    l2.restart()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # This fails to negotiate.
+    executor.submit(l1.rpc.close, l2.info['id'])
+    l1.daemon.wait_for_log("Unable to agree on a feerate.")
+
+
 @pytest.mark.parametrize("anchors", [False, True])
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
 def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
