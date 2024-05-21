@@ -6,7 +6,7 @@
   "rpc": "listpeerchannels",
   "title": "Command returning data on channels of connected lightning nodes",
   "description": [
-    "The **listpeerchannels** RPC command returns data on channels of the network, with the possibility to filter the channels by node id.",
+    "The **listpeerchannels** RPC command returns list of this node's channels, with the possibility to filter them by peer's node id.",
     "",
     "If no *id* is supplied, then channel data on all lightning nodes that are connected, or not connected but have open channels with this node, are returned."
   ],
@@ -386,7 +386,7 @@
                     "type": "integer",
                     "added": "v23.08",
                     "description": [
-                      "The amouont of sats we're splicing in or out."
+                      "The amount of sats we're splicing in or out."
                     ]
                   },
                   "our_funding_msat": {
