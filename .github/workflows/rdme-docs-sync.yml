@@ -6,6 +6,7 @@ on:
       - 'master'
     paths:
       - 'doc/**'
+  workflow_dispatch:
 
 jobs:
   rdme-docs-sync:  
