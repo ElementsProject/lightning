@@ -2491,12 +2491,13 @@ def test_fee_limits(node_factory, bitcoind):
     wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['feerate']['perkw'] == fee)
     assert only_one(l2.rpc.listpeerchannels()['channels'])['peer_connected'] is True
 
-    l1.rpc.close(l2.info['id'])
+    # This will fail to mutual close, since l2 won't ignore insane *close* fees!
+    assert l1.rpc.close(l2.info['id'], unilateraltimeout=5)['type'] == 'unilateral'
 
     # Make sure the resolution of this one doesn't interfere with the next!
     # Note: may succeed, may fail with insufficient fee, depending on how
     # bitcoind feels!
-    l2.daemon.wait_for_log('sendrawtx exit')
+    l1.daemon.wait_for_log('sendrawtx exit')
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1, l2])
 
@@ -2530,7 +2531,6 @@ def test_fee_limits(node_factory, bitcoind):
     # 15sat/byte fee
     l1.daemon.wait_for_log('peer_out WIRE_REVOKE_AND_ACK')
 
-    # This should wait for close to complete
     l1.rpc.close(chan)
 
 
