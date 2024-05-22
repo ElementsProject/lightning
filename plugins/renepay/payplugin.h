@@ -6,6 +6,7 @@
 #include <plugins/libplugin.h>
 #include <plugins/renepay/flow.h>
 #include <plugins/renepay/payment.h>
+#include <plugins/renepay/renepayconfig.h>
 #include <plugins/renepay/uncertainty.h>
 
 // TODO(eduardo): renepaystatus should be similar to paystatus
@@ -19,15 +20,6 @@
 // TODO(eduardo): write a man entry for renepay
 // TODO(eduardo): check if paynotes are meaningful
 // TODO(eduardo): remove assertions, introduce LOG_BROKEN messages
-
-#define MAX_NUM_ATTEMPTS 10
-
-/* Time lapse used to wait for failed sendpays before try_paying. */
-#define TIMER_COLLECT_FAILURES_MSEC 250
-
-/* Knowledge is proportionally decreased with time up to TIMER_FORGET_SEC when
- * we forget everything. */
-#define TIMER_FORGET_SEC 3600
 
 // TODO(eduardo): Test ideas
 // - make a payment to a node that is hidden behind private channels, check that
