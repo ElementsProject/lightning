@@ -4044,7 +4044,6 @@ def test_closing_no_anysegwit_retry(node_factory, bitcoind):
     l1.rpc.close(l2.info['id'], destination=oldaddr)
 
 
-@pytest.mark.xfail(strict=True)
 def test_closing_ignore_fee_limits(node_factory, bitcoind, executor):
     """Don't use ignore-fee-limits on mutual close: LDK takes us to the cleaners if we do!"""
     l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
