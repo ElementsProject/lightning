@@ -24,6 +24,7 @@ PLUGIN_RENEPAY_HDRS :=				\
 	plugins/renepay/payment.h		\
 	plugins/renepay/payment_info.h		\
 	plugins/renepay/chan_extra.h		\
+	plugins/renepay/renepayconfig.h		\
 	plugins/renepay/route.h			\
 	plugins/renepay/routebuilder.h		\
 	plugins/renepay/routetracker.h		\

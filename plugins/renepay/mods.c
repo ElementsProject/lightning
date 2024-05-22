@@ -8,6 +8,7 @@
 #include <plugins/renepay/mcf.h>
 #include <plugins/renepay/mods.h>
 #include <plugins/renepay/payplugin.h>
+#include <plugins/renepay/renepayconfig.h>
 #include <plugins/renepay/route.h>
 #include <plugins/renepay/routebuilder.h>
 #include <plugins/renepay/routetracker.h>
@@ -18,8 +19,6 @@
 #define OP_NULL NULL
 #define OP_CALL (void *)1
 #define OP_IF (void *)2
-
-#define COLLECTOR_TIME_WINDOW_MSEC 50
 
 void *payment_virtual_program[];
 
