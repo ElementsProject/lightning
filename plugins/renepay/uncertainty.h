@@ -55,4 +55,14 @@ bool uncertainty_set_liquidity(struct uncertainty *uncertainty,
 struct chan_extra *uncertainty_find_channel(struct uncertainty *uncertainty,
 					    const struct short_channel_id scid);
 
+/* Adds randomness to the current state simulating the natural evolution of the
+ * liquidity in the network. It should be a markovian process with the minimum
+ * requirement that the transition operator T satisfies:
+ *	T(t1) T(t2) = T(t1+t2)
+ * i.e. the transition operator is a one parameter semigroup.
+ * For the moment we omit the continuous and linear aspects of the problem for a
+ * lack for formulation. */
+enum renepay_errorcode uncertainty_relax(struct uncertainty *uncertainty,
+					 double seconds);
+
 #endif /* LIGHTNING_PLUGINS_RENEPAY_UNCERTAINTY_H */

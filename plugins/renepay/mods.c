@@ -1021,6 +1021,27 @@ static struct command_result *checktimeout_cb(struct payment *payment)
 REGISTER_PAYMENT_MODIFIER(checktimeout, checktimeout_cb);
 
 /*****************************************************************************
+ * knowledgerelax
+ *
+ * Reduce the knowledge of the network as time goes by.
+ */
+
+static struct command_result *knowledgerelax_cb(struct payment *payment)
+{
+	const u64 now_sec = time_now().ts.tv_sec;
+	enum renepay_errorcode err = uncertainty_relax(
+	    pay_plugin->uncertainty, now_sec - pay_plugin->last_time);
+	if (err)
+		plugin_err(pay_plugin->plugin,
+			   "uncertainty_relax failed with error %s",
+			   renepay_errorcode_name(err));
+	pay_plugin->last_time = now_sec;
+	return payment_continue(payment);
+}
+
+REGISTER_PAYMENT_MODIFIER(knowledgerelax, knowledgerelax_cb);
+
+/*****************************************************************************
  * alwaystrue
  *
  * A funny payment condition that always returns true.
@@ -1068,29 +1089,29 @@ REGISTER_PAYMENT_CONDITION(retry, retry_cb);
  */
 // TODO
 // add shadow route
-// add knowledge decay
 // add check pre-approved invoice
 void *payment_virtual_program[] = {
     /*0*/ OP_CALL, &previous_sendpays_pay_mod,
     /*2*/ OP_CALL, &selfpay_pay_mod,
-    /*4*/ OP_CALL, &getmychannels_pay_mod,
-    /*6*/ OP_CALL, &routehints_pay_mod,
+    /*4*/ OP_CALL, &knowledgerelax_pay_mod,
+    /*6*/ OP_CALL, &getmychannels_pay_mod,
+    /*8*/ OP_CALL, &routehints_pay_mod,
     // TODO: add a channel filter, for example disable channels that have
     // htlcmax < 0.1% of payment amount, or base fee > 100msat, or
     // proportional_fee > 10%, or capacity < 10% payment amount
     // TODO shadow_additions
     /* do */
-	    /*8*/ OP_CALL, &refreshgossmap_pay_mod,
-	    /*10*/ OP_CALL, &checktimeout_pay_mod,
-	    /*12*/ OP_CALL, &compute_routes_pay_mod,
-	    /*14*/ OP_CALL, &send_routes_pay_mod,
+	    /*10*/ OP_CALL, &refreshgossmap_pay_mod,
+	    /*12*/ OP_CALL, &checktimeout_pay_mod,
+	    /*14*/ OP_CALL, &compute_routes_pay_mod,
+	    /*16*/ OP_CALL, &send_routes_pay_mod,
 	    /*do*/
-		    /*16*/ OP_CALL, &checktimeout_pay_mod,
-		    /*18*/ OP_CALL, &sleep_pay_mod,
-		    /*20*/ OP_CALL, &collect_results_pay_mod,
+		    /*18*/ OP_CALL, &checktimeout_pay_mod,
+		    /*20*/ OP_CALL, &sleep_pay_mod,
+		    /*22*/ OP_CALL, &collect_results_pay_mod,
 	    /*while*/
-	    /*22*/ OP_IF, &nothaveresults_pay_cond, (void *)16,
+	    /*24*/ OP_IF, &nothaveresults_pay_cond, (void *)18,
     /* while */
-    /*25*/ OP_IF, &retry_pay_cond, (void *)8,
-    /*28*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
-    /*20*/ NULL};
+    /*27*/ OP_IF, &retry_pay_cond, (void *)10,
+    /*30*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
+    /*32*/ NULL};
