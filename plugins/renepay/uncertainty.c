@@ -1,4 +1,5 @@
 #include "config.h"
+#include <plugins/renepay/renepayconfig.h>
 #include <plugins/renepay/uncertainty.h>
 
 void uncertainty_route_success(struct uncertainty *uncertainty,
@@ -176,4 +177,23 @@ struct chan_extra *uncertainty_find_channel(struct uncertainty *uncertainty,
 					    const struct short_channel_id scid)
 {
 	return chan_extra_map_get(uncertainty->chan_extra_map, scid);
+}
+
+enum renepay_errorcode uncertainty_relax(struct uncertainty *uncertainty,
+					 double seconds)
+{
+	assert(seconds >= 0);
+	const double fraction = MIN(seconds / TIMER_FORGET_SEC, 1.0);
+	struct chan_extra_map *chan_extra_map =
+	    uncertainty_get_chan_extra_map(uncertainty);
+	struct chan_extra_map_iter it;
+	for (struct chan_extra *ce = chan_extra_map_first(chan_extra_map, &it);
+	     ce; ce = chan_extra_map_next(chan_extra_map, &it)) {
+		enum renepay_errorcode err =
+		    chan_extra_relax_fraction(ce, fraction);
+
+		if (err)
+			return err;
+	}
+	return RENEPAY_NOERROR;
 }
