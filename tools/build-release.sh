@@ -20,7 +20,6 @@ fi
 
 FORCE_UNCLEAN=false
 VERIFY_RELEASE=false
-DOCKER_PUSH=false
 
 ALL_TARGETS="bin-Fedora-28-amd64 bin-Ubuntu docker sign"
 # ALL_TARGETS="bin-Fedora-28-amd64 bin-Ubuntu tarball deb docker sign"
@@ -39,9 +38,6 @@ for arg; do
     --verify)
         VERIFY_RELEASE=true
         ;;
-    --push)
-        DOCKER_PUSH=true
-        ;;
     --help)
         echo "Usage: [--force-version=<ver>] [--force-unclean] [--force-mtime=YYYY-MM-DD] [--verify] [TARGETS]"
         echo Known targets: "$ALL_TARGETS"
@@ -49,8 +45,8 @@ for arg; do
 	    echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 bin-Fedora-28-amd64 bin-Ubuntu sign"
 	    echo "Example: tools/build-release.sh --verify"
 	    echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 --verify"
-        echo "Example: tools/build-release.sh --push docker"
-        echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 --push docker"
+        echo "Example: tools/build-release.sh docker"
+        echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 docker"
         exit 0
         ;;
     -*)
@@ -176,21 +172,18 @@ if [ -z "${TARGETS##* docker *}" ]; then
     echo "Building Docker Images"
     DOCKER_USER="elementsproject"
     echo "Creating a multi-platform image tagged as $VERSION"
-    DOCKER_OPTS="--platform linux/amd64,linux/arm64,linux/arm/v7"
-    $DOCKER_PUSH && DOCKER_OPTS="$DOCKER_OPTS --push"
+    DOCKER_OPTS="--platform linux/amd64,linux/arm64,linux/arm/v7 --push"
     DOCKER_OPTS="$DOCKER_OPTS -t $DOCKER_USER/lightningd:$VERSION"
     DOCKER_OPTS="$DOCKER_OPTS -t $DOCKER_USER/lightningd:latest"
-
-    #docker buildx create --use
-
-    # shellcheck disable=SC2086
-    docker buildx build $DOCKER_OPTS .
-
-    if $DOCKER_PUSH; then
-        echo "Pushed a multi-platform image tagged as latest"
+    echo "Docker Options: $DOCKER_OPTS"
+    if sudo docker buildx ls | grep -q 'cln-builder'; then
+        sudo docker buildx use cln-builder
     else
-        echo "Docker Images Built. Ready to Upload on Dockerhub."
+        sudo docker buildx create --name=cln-builder --use
     fi
+    # shellcheck disable=SC2086
+    sudo docker buildx build $DOCKER_OPTS .
+    echo "Pushed a multi-platform image tagged as latest"
 fi
 
 if [ -z "${TARGETS##* sign *}" ]; then

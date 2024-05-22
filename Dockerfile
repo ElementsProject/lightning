@@ -66,6 +66,7 @@ RUN apt-get update -qq && \
         gettext \
         git \
         gnupg \
+        jq \
         libpq-dev \
         libtool \
         libffi-dev \
@@ -98,8 +99,8 @@ COPY . /tmp/lightning
 RUN git clone --recursive /tmp/lightning . && \
     git checkout $(git --work-tree=/tmp/lightning --git-dir=/tmp/lightning/.git rev-parse HEAD)
 
-# Do not build clnrest here, since it's python, we can't cross compile it.
-RUN sed -i '/^clnrest/d' pyproject.toml && \
+# Do not build python plugins (clnrest & wss-proxy) here, python doesn't support cross compilation.
+RUN sed -i '/^clnrest\|^wss-proxy/d' pyproject.toml && \
     /root/.local/bin/poetry export -o requirements.txt --without-hashes
 RUN pip3 install -r requirements.txt && pip3 cache purge
 WORKDIR /
@@ -197,7 +198,7 @@ RUN ./configure --prefix=/tmp/lightning_install --enable-static && \
     make && \
     /root/.local/bin/poetry run make install
 
-# We need to build cln-rest on the target's arch because python doesn't support cross build
+# We need to build python plugins on the target's arch because python doesn't support cross build
 FROM ${BASE_DISTRO} as builder-python
 RUN apt-get update -qq && \
     apt-get install -qq -y --no-install-recommends \
@@ -223,8 +224,11 @@ RUN rustup toolchain install stable --component rustfmt --allow-downgrade
 
 WORKDIR /opt/lightningd
 COPY plugins/clnrest/requirements.txt plugins/clnrest/requirements.txt
+COPY plugins/wss-proxy/requirements.txt plugins/wss-proxy/requirements.txt
 ENV PYTHON_VERSION=3
-RUN pip3 install -r plugins/clnrest/requirements.txt && pip3 cache purge
+RUN pip3 install -r plugins/clnrest/requirements.txt && \
+    pip3 install -r plugins/wss-proxy/requirements.txt && \
+    pip3 cache purge
 
 FROM ${BASE_DISTRO} as final
 
