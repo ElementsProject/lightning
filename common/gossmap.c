@@ -458,9 +458,16 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
 	map_nodeid(map, cannounce_off + plus_scid_off + 8, &node_id[0]);
 	map_nodeid(map, cannounce_off + plus_scid_off + 8 + PUBKEY_CMPR_LEN, &node_id[1]);
 
-	/* We 1should not get duplicates. */
+	/* We should not get duplicates. */
 	scid.u64 = map_be64(map, cannounce_off + plus_scid_off);
-	assert(!gossmap_find_chan(map, &scid));
+	chan = gossmap_find_chan(map, &scid);
+	if (chan) {
+		/* FIXME: Report this better! */
+		warnx("gossmap: redundant channel_announce for %s, offsets %u and %zu!",
+		      fmt_short_channel_id(tmpctx, scid),
+		      chan->cann_off, cannounce_off);
+		return NULL;
+	}
 
 	/* We carefully map pointers to indexes, since new_node can move them! */
 	n[0] = gossmap_find_node(map, &node_id[0]);
