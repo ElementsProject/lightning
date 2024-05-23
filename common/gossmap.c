@@ -1444,3 +1444,9 @@ u8 *gossmap_node_get_features(const tal_t *ctx,
 	map_copy(map, n->nann_off + feature_len_off + 2, ret, feature_len);
 	return ret;
 }
+
+size_t gossmap_lengths(const struct gossmap *map, size_t *total)
+{
+	*total = map->map_size;
+	return map->map_end;
+}

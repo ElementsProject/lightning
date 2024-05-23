@@ -257,4 +257,7 @@ size_t gossmap_num_chans(const struct gossmap *map);
 struct gossmap_chan *gossmap_first_chan(const struct gossmap *map);
 struct gossmap_chan *gossmap_next_chan(const struct gossmap *map,
 				       struct gossmap_chan *prev);
+
+/* For debugging: returns length read, and total known length of file */
+size_t gossmap_lengths(const struct gossmap *map, size_t *total);
 #endif /* LIGHTNING_COMMON_GOSSMAP_H */
