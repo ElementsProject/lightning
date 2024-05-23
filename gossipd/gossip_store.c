@@ -600,3 +600,8 @@ void gossip_store_set_timestamp(struct gossip_store *gs, u64 offset, u32 timesta
 			      "Failed writing header to re-timestamp @%"PRIu64": %s",
 			      offset, strerror(errno));
 }
+
+u64 gossip_store_len_written(const struct gossip_store *gs)
+{
+	return gs->len;
+}

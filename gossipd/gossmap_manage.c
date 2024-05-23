@@ -652,6 +652,34 @@ void gossmap_manage_handle_get_txout_reply(struct gossmap_manage *gm, const u8 *
 		goto bad;
 	}
 
+	/* We have reports of doubled-up channel_announcements, hence this check! */
+	struct gossmap_chan *chan;
+	size_t before_length_processed, before_total_length;
+
+	before_length_processed = gossmap_lengths(gm->raw_gossmap, &before_total_length);
+	chan = gossmap_find_chan(gm->raw_gossmap, &scid);
+	if (chan) {
+		status_broken("Redundant channel_announce for scid %s at off %u (gossmap %zu/%zu, store %"PRIu64")",
+			      fmt_short_channel_id(tmpctx, scid), chan->cann_off,
+			      before_length_processed, before_total_length,
+			      gossip_store_len_written(gm->daemon->gs));
+		goto out;
+	} else {
+		size_t after_length_processed, after_total_length;
+		/* Good, now try refreshing in case it somehow slipped in! */
+		gossmap = gossmap_manage_get_gossmap(gm);
+		after_length_processed = gossmap_lengths(gm->raw_gossmap, &after_total_length);
+		chan = gossmap_find_chan(gm->raw_gossmap, &scid);
+		if (chan) {
+			status_broken("Redundant channel_announce *AFTER REFRESH* for scid %s at off %u (gossmap was %zu/%zu, now %zu/%zu, store %"PRIu64")",
+				      fmt_short_channel_id(tmpctx, scid), chan->cann_off,
+				      before_length_processed, before_total_length,
+				      after_length_processed, after_total_length,
+				      gossip_store_len_written(gm->daemon->gs));
+			goto out;
+		}
+	}
+
 	/* Set with timestamp 0 (we will update once we have a channel_update) */
 	gossip_store_add(gm->daemon->gs, pca->channel_announcement, 0);
 	gossip_store_add(gm->daemon->gs,
@@ -672,8 +700,9 @@ void gossmap_manage_handle_get_txout_reply(struct gossmap_manage *gm, const u8 *
 	return;
 
 bad:
-	tal_free(pca);
 	txout_failures_add(gm->txf, scid);
+out:
+	tal_free(pca);
 	/* If we looking specifically for this, we no longer are. */
 	remove_unknown_scid(gm->daemon->seeker, &scid, false);
 }
