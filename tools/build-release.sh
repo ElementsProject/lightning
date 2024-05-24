@@ -148,7 +148,7 @@ for target in $TARGETS; do
         echo "Building Fedora Image"
         DOCKERFILE=contrib/docker/Dockerfile.builder.fedora
         TAG=fedora
-        docker build -f $DOCKERFILE -t $TAG .
+        docker build -f $DOCKERFILE -t $TAG --load .
         docker run --rm=true -v "$(pwd)":/src:ro -v "$RELEASEDIR":/release $TAG /src/tools/build-release.sh --inside-docker "$VERSION" "$platform"
         docker run --rm=true -w /build $TAG rm -rf /"$VERSION-$platform" /build
         echo "Fedora Image Built"

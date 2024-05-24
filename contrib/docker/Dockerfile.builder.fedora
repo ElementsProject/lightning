@@ -19,6 +19,7 @@ RUN dnf update -y && \
 		net-tools \
 		valgrind \
 		wget \
+		git \
 		jq \
 		xz \
 		zlib-devel && \
