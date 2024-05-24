@@ -61,7 +61,7 @@
               ]
             },
             "request_amt": {
-              "type": "msat",
+              "type": "sat",
               "description": [
                 "Amount of liquidity you'd like to lease from peer. If peer supports `option_will_fund`, indicates to them to include this much liquidity into the channel. Must also pass in *compact_lease*."
               ]
