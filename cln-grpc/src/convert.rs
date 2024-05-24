@@ -4707,7 +4707,7 @@ impl From<requests::FundchannelRequest> for pb::FundchannelRequest {
             minconf: c.minconf, // Rule #2 for type u32?
             mindepth: c.mindepth, // Rule #2 for type u32?
             push_msat: c.push_msat.map(|f| f.into()), // Rule #2 for type msat?
-            request_amt: c.request_amt.map(|f| f.into()), // Rule #2 for type msat?
+            request_amt: c.request_amt.map(|f| f.into()), // Rule #2 for type sat?
             reserve: c.reserve.map(|f| f.into()), // Rule #2 for type sat?
             // Field: FundChannel.utxos[]
             utxos: c.utxos.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
@@ -4838,7 +4838,7 @@ impl From<requests::MultifundchannelDestinations> for pb::MultifundchannelDestin
             id: c.id, // Rule #2 for type string
             mindepth: c.mindepth, // Rule #2 for type u32?
             push_msat: c.push_msat.map(|f| f.into()), // Rule #2 for type msat?
-            request_amt: c.request_amt.map(|f| f.into()), // Rule #2 for type msat?
+            request_amt: c.request_amt.map(|f| f.into()), // Rule #2 for type sat?
             reserve: c.reserve.map(|f| f.into()), // Rule #2 for type sat?
         }
     }
@@ -4928,7 +4928,7 @@ impl From<requests::Openchannel_initRequest> for pb::OpenchannelInitRequest {
             funding_feerate: c.funding_feerate.map(|o|o.into()), // Rule #2 for type feerate?
             id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
             initialpsbt: c.initialpsbt, // Rule #2 for type string
-            request_amt: c.request_amt.map(|f| f.into()), // Rule #2 for type msat?
+            request_amt: c.request_amt.map(|f| f.into()), // Rule #2 for type sat?
         }
     }
 }
@@ -6114,7 +6114,7 @@ impl From<pb::FundchannelRequest> for requests::FundchannelRequest {
             minconf: c.minconf, // Rule #1 for type u32?
             mindepth: c.mindepth, // Rule #1 for type u32?
             push_msat: c.push_msat.map(|a| a.into()), // Rule #1 for type msat?
-            request_amt: c.request_amt.map(|a| a.into()), // Rule #1 for type msat?
+            request_amt: c.request_amt.map(|a| a.into()), // Rule #1 for type sat?
             reserve: c.reserve.map(|a| a.into()), // Rule #1 for type sat?
             utxos: Some(c.utxos.into_iter().map(|s| s.into()).collect()), // Rule #4
         }
@@ -6242,7 +6242,7 @@ impl From<pb::MultifundchannelDestinations> for requests::MultifundchannelDestin
             id: c.id, // Rule #1 for type string
             mindepth: c.mindepth, // Rule #1 for type u32?
             push_msat: c.push_msat.map(|a| a.into()), // Rule #1 for type msat?
-            request_amt: c.request_amt.map(|a| a.into()), // Rule #1 for type msat?
+            request_amt: c.request_amt.map(|a| a.into()), // Rule #1 for type sat?
             reserve: c.reserve.map(|a| a.into()), // Rule #1 for type sat?
         }
     }
@@ -6327,7 +6327,7 @@ impl From<pb::OpenchannelInitRequest> for requests::Openchannel_initRequest {
             funding_feerate: c.funding_feerate.map(|a| a.into()), // Rule #1 for type feerate?
             id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
             initialpsbt: c.initialpsbt, // Rule #1 for type string
-            request_amt: c.request_amt.map(|a| a.into()), // Rule #1 for type msat?
+            request_amt: c.request_amt.map(|a| a.into()), // Rule #1 for type sat?
         }
     }
 }
