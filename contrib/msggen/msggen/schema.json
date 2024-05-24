@@ -79,7 +79,7 @@
         ],
         "properties": {
           "satoshi": {
-            "type": "msat",
+            "type": "sat",
             "description": [
               "The satoshi value of the output. It can be a whole number, a whole number ending in *sat*, or a number with 1 to 8 decimal places ending in *btc*."
             ]
@@ -10047,7 +10047,7 @@
             ]
           },
           "amount": {
-            "type": "msat_or_all",
+            "type": "sat_or_all",
             "description": [
               "The amount in satoshis taken from the internal wallet to fund the channel (but if we have any anchor channels, this will always leave at least `min-emergency- msat` as change). The string *all* can be used to specify all available funds (or 16777215 satoshi if more is available and large channels were not negotiated with the peer). Otherwise, it is in satoshi precision; it can be a whole number, a whole number ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8 decimal places ending in *btc*. The value cannot be less than the dust limit, currently set to 546, nor more than 16777215 satoshi (unless large channels were negotiated with the peer)."
             ]
@@ -10113,7 +10113,7 @@
             "type": "u32"
           },
           "reserve": {
-            "type": "msat",
+            "type": "sat",
             "description": [
               "The amount we want the peer to maintain on its side of the channel. It can be a whole number, a whole number ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8 decimal places ending in *btc*."
             ],
@@ -10544,7 +10544,7 @@
             ]
           },
           "amount": {
-            "type": "msat",
+            "type": "sat",
             "description": [
               "Satoshi value that the channel will be funded at. This value MUST be accurate, otherwise the negotiated commitment transactions will not encompass the correct channel value."
             ]
@@ -10580,7 +10580,7 @@
             ]
           },
           "reserve": {
-            "type": "msat",
+            "type": "sat",
             "description": [
               "The amount we want the peer to maintain on its side."
             ]
@@ -11132,7 +11132,7 @@
         ],
         "properties": {
           "satoshi": {
-            "type": "msat_or_all",
+            "type": "sat_or_all",
             "description": [
               "The minimum satoshi value of the output(s) needed (or the string `all` meaning use all unreserved inputs). If a value, it can be a whole number, a whole number ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8 decimal places ending in *btc*."
             ]
@@ -22271,7 +22271,7 @@
                   ]
                 },
                 "amount": {
-                  "type": "msat_or_all",
+                  "type": "sat_or_all",
                   "description": [
                     "Amount in satoshis taken from the internal wallet to fund the channel (but if we have any anchor channels, this will always leave at least `min-emergency-msat` as change). The string *all* can be used to specify all available funds (or 16,777,215 satoshi if more is available and large channels were not negotiated with the peer). Otherwise it is in satoshi precision; it can be a whole number, a whole number ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8 decimal places ending in *btc*. The value cannot be less than the dust limit, currently 546 satoshi as of this writing, nor more than 16,777,215 satoshi (unless large channels were negotiated with the peer)."
                   ]
@@ -22314,7 +22314,7 @@
                   ]
                 },
                 "reserve": {
-                  "type": "msat",
+                  "type": "sat",
                   "description": [
                     "Amount we want the peer to maintain on its side of the channel. It can be a whole number, a whole number ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8 decimal places ending in *btc*."
                   ],
@@ -23376,7 +23376,7 @@
             ]
           },
           "amount": {
-            "type": "msat",
+            "type": "sat",
             "description": [
               "Satoshi value that we will contribute to the channel. This value will be _added_ to the provided PSBT in the output which is encumbered by the 2-of-2 script for this channel."
             ]
@@ -23546,7 +23546,7 @@
             ]
           },
           "amount": {
-            "type": "msat",
+            "type": "sat",
             "description": [
               "Satoshi value that we will contribute to the channel. This value will be _added_ to the provided PSBT in the output which is encumbered by the 2-of-2 script for this channel."
             ]
@@ -29426,7 +29426,7 @@
         ],
         "properties": {
           "satoshi": {
-            "type": "msat_or_all",
+            "type": "sat_or_all",
             "description": [
               "The minimum satoshi value of the output(s) needed (or the string `all` meaning use all unreserved inputs). If a value, it can be a whole number, a whole number ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8 decimal places ending in *btc*."
             ]
@@ -30953,7 +30953,7 @@
             ]
           },
           "satoshi": {
-            "type": "msat_or_all",
+            "type": "sat_or_all",
             "description": [
               "The amount to be withdrawn from the internal wallet (expressed, as name suggests, in satoshi). The string *all* can be used to specify withdrawal of all available funds (but if we have any anchor channels, this will always leave at least `min-emergency-msat` as change). Otherwise, it is in satoshi precision; it can be a whole number, a whole number ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8 decimal places ending in *btc*."
             ]

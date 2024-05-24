@@ -15,7 +15,7 @@
     ],
     "properties": {
       "satoshi": {
-        "type": "msat_or_all",
+        "type": "sat_or_all",
         "description": [
           "The minimum satoshi value of the output(s) needed (or the string `all` meaning use all unreserved inputs). If a value, it can be a whole number, a whole number ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8 decimal places ending in *btc*."
         ]

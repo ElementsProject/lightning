@@ -22,7 +22,7 @@
         ]
       },
       "amount": {
-        "type": "msat",
+        "type": "sat",
         "description": [
           "Satoshi value that the channel will be funded at. This value MUST be accurate, otherwise the negotiated commitment transactions will not encompass the correct channel value."
         ]
@@ -58,7 +58,7 @@
         ]
       },
       "reserve": {
-        "type": "msat",
+        "type": "sat",
         "description": [
           "The amount we want the peer to maintain on its side."
         ]

@@ -26,7 +26,7 @@
         ]
       },
       "amount": {
-        "type": "msat_or_all",
+        "type": "sat_or_all",
         "description": [
           "The amount in satoshis taken from the internal wallet to fund the channel (but if we have any anchor channels, this will always leave at least `min-emergency- msat` as change). The string *all* can be used to specify all available funds (or 16777215 satoshi if more is available and large channels were not negotiated with the peer). Otherwise, it is in satoshi precision; it can be a whole number, a whole number ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8 decimal places ending in *btc*. The value cannot be less than the dust limit, currently set to 546, nor more than 16777215 satoshi (unless large channels were negotiated with the peer)."
         ]
@@ -92,7 +92,7 @@
         "type": "u32"
       },
       "reserve": {
-        "type": "msat",
+        "type": "sat",
         "description": [
           "The amount we want the peer to maintain on its side of the channel. It can be a whole number, a whole number ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8 decimal places ending in *btc*."
         ],

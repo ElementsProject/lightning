@@ -13,6 +13,10 @@ def amount2msat(a):
     return a.msat
 
 
+def amount2sat(a):
+    return a.msat / 1000
+
+
 def remove_default(d):
     # grpc is really not good at empty values, they get replaced with the type's default value...
     return {k: v for k, v in d.items() if v is not None and v != ""}

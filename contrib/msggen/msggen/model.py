@@ -415,6 +415,8 @@ class PrimitiveField(Field):
         "msat",
         "msat_or_any",
         "msat_or_all",
+        "sat",
+        "sat_or_all",
         "currency",
         "hex",
         "short_channel_id",
