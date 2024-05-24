@@ -392,6 +392,12 @@ def _extra_validator(is_request: bool):
             return True
         return is_msat_request(checker, instance)
 
+    def is_sat_or_all(checker, instance):
+        """sat field, or 'all'"""
+        if instance == "all":
+            return True
+        return is_sat(checker, instance)
+
     def is_currency(checker, instance):
         """currency including currency code"""
         pattern = re.compile(r'^\d+(\.\d+)?[A-Z][A-Z][A-Z]$')
@@ -414,6 +420,7 @@ def _extra_validator(is_request: bool):
         "u8": is_u8,
         "pubkey": is_pubkey,
         "sat": is_sat,
+        "sat_or_all": is_sat_or_all,
         "msat": is_msat,
         "msat_or_all": is_msat_or_all,
         "msat_or_any": is_msat_or_any,

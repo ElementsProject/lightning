@@ -9,6 +9,8 @@ typemap = {
     "msat": "Amount",
     "msat_or_all": "AmountOrAll",
     "msat_or_any": "AmountOrAny",
+    "sat": "Amount",
+    "sat_or_all": "AmountOrAll",
     "currency": "string",
     "number": "double",
     "pubkey": "bytes",

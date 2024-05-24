@@ -4045,7 +4045,7 @@ impl From<requests::AddpsbtoutputRequest> for pb::AddpsbtoutputRequest {
             destination: c.destination, // Rule #2 for type string?
             initialpsbt: c.initialpsbt, // Rule #2 for type string?
             locktime: c.locktime, // Rule #2 for type u32?
-            satoshi: Some(c.satoshi.into()), // Rule #2 for type msat
+            satoshi: Some(c.satoshi.into()), // Rule #2 for type sat
         }
     }
 }
@@ -4455,7 +4455,7 @@ impl From<requests::WithdrawRequest> for pb::WithdrawRequest {
             destination: c.destination, // Rule #2 for type string
             feerate: c.feerate.map(|o|o.into()), // Rule #2 for type feerate?
             minconf: c.minconf.map(|v| v.into()), // Rule #2 for type u16?
-            satoshi: Some(c.satoshi.into()), // Rule #2 for type msat_or_all
+            satoshi: Some(c.satoshi.into()), // Rule #2 for type sat_or_all
             // Field: Withdraw.utxos[]
             utxos: c.utxos.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
         }
@@ -4491,7 +4491,7 @@ impl From<requests::FundpsbtRequest> for pb::FundpsbtRequest {
             nonwrapped: c.nonwrapped, // Rule #2 for type boolean?
             opening_anchor_channel: c.opening_anchor_channel, // Rule #2 for type boolean?
             reserve: c.reserve, // Rule #2 for type u32?
-            satoshi: Some(c.satoshi.into()), // Rule #2 for type msat_or_all
+            satoshi: Some(c.satoshi.into()), // Rule #2 for type sat_or_all
             startweight: c.startweight, // Rule #2 for type u32
         }
     }
@@ -4529,7 +4529,7 @@ impl From<requests::UtxopsbtRequest> for pb::UtxopsbtRequest {
             opening_anchor_channel: c.opening_anchor_channel, // Rule #2 for type boolean?
             reserve: c.reserve, // Rule #2 for type u32?
             reservedok: c.reservedok, // Rule #2 for type boolean?
-            satoshi: Some(c.satoshi.into()), // Rule #2 for type msat_or_all
+            satoshi: Some(c.satoshi.into()), // Rule #2 for type sat_or_all
             startweight: c.startweight, // Rule #2 for type u32
             // Field: UtxoPsbt.utxos[]
             utxos: c.utxos.into_iter().map(|i| i.into()).collect(), // Rule #3 for type outpoint
@@ -4696,7 +4696,7 @@ impl From<requests::Fundchannel_completeRequest> for pb::FundchannelCompleteRequ
 impl From<requests::FundchannelRequest> for pb::FundchannelRequest {
     fn from(c: requests::FundchannelRequest) -> Self {
         Self {
-            amount: Some(c.amount.into()), // Rule #2 for type msat_or_all
+            amount: Some(c.amount.into()), // Rule #2 for type sat_or_all
             announce: c.announce, // Rule #2 for type boolean?
             // Field: FundChannel.channel_type[]
             channel_type: c.channel_type.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
@@ -4708,7 +4708,7 @@ impl From<requests::FundchannelRequest> for pb::FundchannelRequest {
             mindepth: c.mindepth, // Rule #2 for type u32?
             push_msat: c.push_msat.map(|f| f.into()), // Rule #2 for type msat?
             request_amt: c.request_amt.map(|f| f.into()), // Rule #2 for type msat?
-            reserve: c.reserve.map(|f| f.into()), // Rule #2 for type msat?
+            reserve: c.reserve.map(|f| f.into()), // Rule #2 for type sat?
             // Field: FundChannel.utxos[]
             utxos: c.utxos.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
         }
@@ -4719,7 +4719,7 @@ impl From<requests::FundchannelRequest> for pb::FundchannelRequest {
 impl From<requests::Fundchannel_startRequest> for pb::FundchannelStartRequest {
     fn from(c: requests::Fundchannel_startRequest) -> Self {
         Self {
-            amount: Some(c.amount.into()), // Rule #2 for type msat
+            amount: Some(c.amount.into()), // Rule #2 for type sat
             announce: c.announce, // Rule #2 for type boolean?
             // Field: FundChannel_Start.channel_type[]
             channel_type: c.channel_type.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
@@ -4728,7 +4728,7 @@ impl From<requests::Fundchannel_startRequest> for pb::FundchannelStartRequest {
             id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
             mindepth: c.mindepth, // Rule #2 for type u32?
             push_msat: c.push_msat.map(|f| f.into()), // Rule #2 for type msat?
-            reserve: c.reserve.map(|f| f.into()), // Rule #2 for type msat?
+            reserve: c.reserve.map(|f| f.into()), // Rule #2 for type sat?
         }
     }
 }
@@ -4831,7 +4831,7 @@ impl From<requests::ListhtlcsRequest> for pb::ListhtlcsRequest {
 impl From<requests::MultifundchannelDestinations> for pb::MultifundchannelDestinations {
     fn from(c: requests::MultifundchannelDestinations) -> Self {
         Self {
-            amount: Some(c.amount.into()), // Rule #2 for type msat_or_all
+            amount: Some(c.amount.into()), // Rule #2 for type sat_or_all
             announce: c.announce, // Rule #2 for type boolean?
             close_to: c.close_to, // Rule #2 for type string?
             compact_lease: c.compact_lease, // Rule #2 for type string?
@@ -4839,7 +4839,7 @@ impl From<requests::MultifundchannelDestinations> for pb::MultifundchannelDestin
             mindepth: c.mindepth, // Rule #2 for type u32?
             push_msat: c.push_msat.map(|f| f.into()), // Rule #2 for type msat?
             request_amt: c.request_amt.map(|f| f.into()), // Rule #2 for type msat?
-            reserve: c.reserve.map(|f| f.into()), // Rule #2 for type msat?
+            reserve: c.reserve.map(|f| f.into()), // Rule #2 for type sat?
         }
     }
 }
@@ -4906,7 +4906,7 @@ impl From<requests::Openchannel_abortRequest> for pb::OpenchannelAbortRequest {
 impl From<requests::Openchannel_bumpRequest> for pb::OpenchannelBumpRequest {
     fn from(c: requests::Openchannel_bumpRequest) -> Self {
         Self {
-            amount: Some(c.amount.into()), // Rule #2 for type msat
+            amount: Some(c.amount.into()), // Rule #2 for type sat
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
             funding_feerate: c.funding_feerate.map(|o|o.into()), // Rule #2 for type feerate?
             initialpsbt: c.initialpsbt, // Rule #2 for type string
@@ -4918,7 +4918,7 @@ impl From<requests::Openchannel_bumpRequest> for pb::OpenchannelBumpRequest {
 impl From<requests::Openchannel_initRequest> for pb::OpenchannelInitRequest {
     fn from(c: requests::Openchannel_initRequest) -> Self {
         Self {
-            amount: Some(c.amount.into()), // Rule #2 for type msat
+            amount: Some(c.amount.into()), // Rule #2 for type sat
             announce: c.announce, // Rule #2 for type boolean?
             // Field: OpenChannel_Init.channel_type[]
             channel_type: c.channel_type.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
@@ -5469,7 +5469,7 @@ impl From<pb::AddpsbtoutputRequest> for requests::AddpsbtoutputRequest {
             destination: c.destination, // Rule #1 for type string?
             initialpsbt: c.initialpsbt, // Rule #1 for type string?
             locktime: c.locktime, // Rule #1 for type u32?
-            satoshi: c.satoshi.unwrap().into(), // Rule #1 for type msat
+            satoshi: c.satoshi.unwrap().into(), // Rule #1 for type sat
         }
     }
 }
@@ -5868,7 +5868,7 @@ impl From<pb::WithdrawRequest> for requests::WithdrawRequest {
             destination: c.destination, // Rule #1 for type string
             feerate: c.feerate.map(|a| a.into()), // Rule #1 for type feerate?
             minconf: c.minconf.map(|v| v as u16), // Rule #1 for type u16?
-            satoshi: c.satoshi.unwrap().into(), // Rule #1 for type msat_or_all
+            satoshi: c.satoshi.unwrap().into(), // Rule #1 for type sat_or_all
             utxos: Some(c.utxos.into_iter().map(|s| s.into()).collect()), // Rule #4
         }
     }
@@ -5903,7 +5903,7 @@ impl From<pb::FundpsbtRequest> for requests::FundpsbtRequest {
             nonwrapped: c.nonwrapped, // Rule #1 for type boolean?
             opening_anchor_channel: c.opening_anchor_channel, // Rule #1 for type boolean?
             reserve: c.reserve, // Rule #1 for type u32?
-            satoshi: c.satoshi.unwrap().into(), // Rule #1 for type msat_or_all
+            satoshi: c.satoshi.unwrap().into(), // Rule #1 for type sat_or_all
             startweight: c.startweight, // Rule #1 for type u32
         }
     }
@@ -5940,7 +5940,7 @@ impl From<pb::UtxopsbtRequest> for requests::UtxopsbtRequest {
             opening_anchor_channel: c.opening_anchor_channel, // Rule #1 for type boolean?
             reserve: c.reserve, // Rule #1 for type u32?
             reservedok: c.reservedok, // Rule #1 for type boolean?
-            satoshi: c.satoshi.unwrap().into(), // Rule #1 for type msat_or_all
+            satoshi: c.satoshi.unwrap().into(), // Rule #1 for type sat_or_all
             startweight: c.startweight, // Rule #1 for type u32
             utxos: c.utxos.into_iter().map(|s| s.into()).collect(), // Rule #4
         }
@@ -6104,7 +6104,7 @@ impl From<pb::FundchannelCompleteRequest> for requests::Fundchannel_completeRequ
 impl From<pb::FundchannelRequest> for requests::FundchannelRequest {
     fn from(c: pb::FundchannelRequest) -> Self {
         Self {
-            amount: c.amount.unwrap().into(), // Rule #1 for type msat_or_all
+            amount: c.amount.unwrap().into(), // Rule #1 for type sat_or_all
             announce: c.announce, // Rule #1 for type boolean?
             channel_type: Some(c.channel_type.into_iter().map(|s| s).collect()), // Rule #4
             close_to: c.close_to, // Rule #1 for type string?
@@ -6115,7 +6115,7 @@ impl From<pb::FundchannelRequest> for requests::FundchannelRequest {
             mindepth: c.mindepth, // Rule #1 for type u32?
             push_msat: c.push_msat.map(|a| a.into()), // Rule #1 for type msat?
             request_amt: c.request_amt.map(|a| a.into()), // Rule #1 for type msat?
-            reserve: c.reserve.map(|a| a.into()), // Rule #1 for type msat?
+            reserve: c.reserve.map(|a| a.into()), // Rule #1 for type sat?
             utxos: Some(c.utxos.into_iter().map(|s| s.into()).collect()), // Rule #4
         }
     }
@@ -6125,7 +6125,7 @@ impl From<pb::FundchannelRequest> for requests::FundchannelRequest {
 impl From<pb::FundchannelStartRequest> for requests::Fundchannel_startRequest {
     fn from(c: pb::FundchannelStartRequest) -> Self {
         Self {
-            amount: c.amount.unwrap().into(), // Rule #1 for type msat
+            amount: c.amount.unwrap().into(), // Rule #1 for type sat
             announce: c.announce, // Rule #1 for type boolean?
             channel_type: Some(c.channel_type.into_iter().map(|s| s).collect()), // Rule #4
             close_to: c.close_to, // Rule #1 for type string?
@@ -6133,7 +6133,7 @@ impl From<pb::FundchannelStartRequest> for requests::Fundchannel_startRequest {
             id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
             mindepth: c.mindepth, // Rule #1 for type u32?
             push_msat: c.push_msat.map(|a| a.into()), // Rule #1 for type msat?
-            reserve: c.reserve.map(|a| a.into()), // Rule #1 for type msat?
+            reserve: c.reserve.map(|a| a.into()), // Rule #1 for type sat?
         }
     }
 }
@@ -6235,7 +6235,7 @@ impl From<pb::ListhtlcsRequest> for requests::ListhtlcsRequest {
 impl From<pb::MultifundchannelDestinations> for requests::MultifundchannelDestinations {
     fn from(c: pb::MultifundchannelDestinations) -> Self {
         Self {
-            amount: c.amount.unwrap().into(), // Rule #1 for type msat_or_all
+            amount: c.amount.unwrap().into(), // Rule #1 for type sat_or_all
             announce: c.announce, // Rule #1 for type boolean?
             close_to: c.close_to, // Rule #1 for type string?
             compact_lease: c.compact_lease, // Rule #1 for type string?
@@ -6243,7 +6243,7 @@ impl From<pb::MultifundchannelDestinations> for requests::MultifundchannelDestin
             mindepth: c.mindepth, // Rule #1 for type u32?
             push_msat: c.push_msat.map(|a| a.into()), // Rule #1 for type msat?
             request_amt: c.request_amt.map(|a| a.into()), // Rule #1 for type msat?
-            reserve: c.reserve.map(|a| a.into()), // Rule #1 for type msat?
+            reserve: c.reserve.map(|a| a.into()), // Rule #1 for type sat?
         }
     }
 }
@@ -6306,7 +6306,7 @@ impl From<pb::OpenchannelAbortRequest> for requests::Openchannel_abortRequest {
 impl From<pb::OpenchannelBumpRequest> for requests::Openchannel_bumpRequest {
     fn from(c: pb::OpenchannelBumpRequest) -> Self {
         Self {
-            amount: c.amount.unwrap().into(), // Rule #1 for type msat
+            amount: c.amount.unwrap().into(), // Rule #1 for type sat
             channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
             funding_feerate: c.funding_feerate.map(|a| a.into()), // Rule #1 for type feerate?
             initialpsbt: c.initialpsbt, // Rule #1 for type string
@@ -6318,7 +6318,7 @@ impl From<pb::OpenchannelBumpRequest> for requests::Openchannel_bumpRequest {
 impl From<pb::OpenchannelInitRequest> for requests::Openchannel_initRequest {
     fn from(c: pb::OpenchannelInitRequest) -> Self {
         Self {
-            amount: c.amount.unwrap().into(), // Rule #1 for type msat
+            amount: c.amount.unwrap().into(), // Rule #1 for type sat
             announce: c.announce, // Rule #1 for type boolean?
             channel_type: Some(c.channel_type.into_iter().map(|s| s).collect()), // Rule #4
             close_to: c.close_to, // Rule #1 for type string?

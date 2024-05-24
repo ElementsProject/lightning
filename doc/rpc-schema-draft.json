@@ -34,6 +34,7 @@
                 "u8",
                 "pubkey",
                 "sat",
+                "sat_or_all",
                 "msat",
                 "msat_or_all",
                 "msat_or_any",

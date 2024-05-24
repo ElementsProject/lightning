@@ -54,6 +54,7 @@ class Grpc2PyGenerator(IGenerator):
             "boolean": "m.{name}",
             "short_channel_id": "m.{name}",
             "msat": "amount2msat(m.{name})",
+            "sat": "amount2sat(m.{name})",
             "currency": "m.{name}",
             "number": "m.{name}",
         }
@@ -85,6 +86,10 @@ class Grpc2PyGenerator(IGenerator):
 
         def amount2msat(a):
             return a.msat
+
+
+        def amount2sat(a):
+            return a.msat / 1000
 
 
         def remove_default(d):
