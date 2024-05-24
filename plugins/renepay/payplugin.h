@@ -89,9 +89,4 @@ struct pay_plugin {
 /* Set in init */
 extern struct pay_plugin *pay_plugin;
 
-/* Returns NULL if OK, otherwise an error msg and sets *ecode */
-const char *try_paying(const tal_t *ctx,
-		       struct payment *payment,
-		       enum jsonrpc_errcode *ecode);
-
 #endif /* LIGHTNING_PLUGINS_RENEPAY_PAYPLUGIN_H */
