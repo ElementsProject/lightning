@@ -50,6 +50,11 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 void route_failure_register(struct routetracker *routetracker,
 			    struct route *route);
 
+/* How much is the amount being tracked. */
+bool routetracker_get_amount(struct routetracker *routetracker,
+			     struct amount_msat *amount,
+			     struct amount_msat *amount_sent);
+
 // FIXME: double-check that we actually get one notification for each sendpay,
 // ie. that after some time we don't have yet pending sendpays for old failed or
 // successful payments that we havent processed because we haven't received the

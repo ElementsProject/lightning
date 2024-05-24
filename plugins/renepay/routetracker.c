@@ -134,6 +134,28 @@ void route_pending_register(struct routetracker *routetracker,
 	}
 }
 
+bool routetracker_get_amount(struct routetracker *routetracker,
+			     struct amount_msat *amount,
+			     struct amount_msat *amount_sent)
+{
+	assert(routetracker);
+	assert(amount);
+	assert(amount_sent);
+
+	*amount = AMOUNT_MSAT(0);
+	*amount_sent = AMOUNT_MSAT(0);
+
+	struct route_map *rmap = routetracker->pending_routes;
+	struct route_map_iter it;
+	for (struct route *r = route_map_first(rmap, &it); r;
+	     r = route_map_next(rmap, &it)) {
+		if (!amount_msat_add(amount, *amount, route_delivers(r)) ||
+		    !amount_msat_add(amount_sent, *amount_sent, route_sends(r)))
+			return false;
+	}
+	return true;
+}
+
 static void route_result_collected(struct routetracker *routetracker,
 				   struct route *route TAKES)
 {
