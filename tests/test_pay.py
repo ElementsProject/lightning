@@ -5646,7 +5646,6 @@ def test_blinded_reply_path_scid(node_factory):
     l1.rpc.pay(inv)
 
 
-@pytest.mark.xfail(strict=True)
 def test_pay_while_opening_channel(node_factory, bitcoind, executor):
     delay_plugin = {'plugin': os.path.join(os.getcwd(),
                                            'tests/plugins/openchannel_hook_delay.py'),
