@@ -53,6 +53,15 @@ and is usually no greater than the number of channels that the node has
 ever had.
 Specify *password* if the `hsm_secret` is encrypted.
 
+**derivetoremote** *node\_id* *channel\_dbid* \[*commitment\_point*\] *hsm\_secret*
+  Derive the private key to our funds from a remote unilateral close of a channel.
+The peer must be the one to close the channel (and the funds will remain
+unrecoverable until the channel is closed).
+*channel\_dbid* is the identifier of the channel in the CLN database.
+If *commitment\_point* is omitted, then the channel is assumed to have been
+negotiated with `option_static_remotekey`;
+otherwise, *commitment\_point* is the remote per-commitment point.
+
 **generatehsm** *hsm\_secret\_path*
   Generates a new hsm\_secret using BIP39.
 
