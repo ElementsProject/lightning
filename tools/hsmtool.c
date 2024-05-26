@@ -17,8 +17,10 @@
 #include <common/descriptor_checksum.h>
 #include <common/errcode.h>
 #include <common/hsm_encryption.h>
+#include <common/key_derive.h>
 #include <common/node_id.h>
 #include <common/utils.h>
+#include <common/utxo.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -42,6 +44,8 @@ static void show_usage(const char *progname)
 	printf("	- dumpcommitments <node id> <channel dbid> <depth> "
 	       "<path/to/hsm_secret>\n");
 	printf("	- guesstoremote <P2WPKH address> <node id> <tries> "
+	       "<path/to/hsm_secret>\n");
+	printf("	- derivetoremote <node id> <channel dbid> [<cmt pt>] "
 	       "<path/to/hsm_secret>\n");
 	printf("	- generatehsm <path/to/new/hsm_secret> [<language_id> <word list> [<password>]]\n");
 	printf("	- checkhsm <path/to/new/hsm_secret>\n");
@@ -119,7 +123,7 @@ static void get_encrypted_hsm_secret(struct secret *hsm_secret,
 }
 
 /* Taken from hsmd. */
-static void get_channel_seed(struct secret *channel_seed, struct node_id *peer_id,
+static void get_channel_seed(struct secret *channel_seed, const struct node_id *peer_id,
                              u64 dbid, struct secret *hsm_secret)
 {
 	struct secret channel_base;
@@ -448,6 +452,32 @@ static int guess_to_remote(const char *address, struct node_id *node_id,
 	printf("Could not find any basepoint matching the provided witness programm.\n"
 	       "Are you sure that the channel used `option_static_remotekey` ?\n");
 	return 1;
+}
+
+static int derive_to_remote(const struct unilateral_close_info *info, const char *hsm_secret_path)
+{
+	struct secret hsm_secret, channel_seed, basepoint_secret;
+	struct pubkey basepoint;
+	struct privkey privkey;
+
+	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+	                                         | SECP256K1_CONTEXT_SIGN);
+
+	get_hsm_secret(&hsm_secret, hsm_secret_path);
+	get_channel_seed(&channel_seed, &info->peer_id, info->channel_id, &hsm_secret);
+	if (!derive_payment_basepoint(&channel_seed, &basepoint, &basepoint_secret))
+		errx(ERROR_KEYDERIV, "Could not derive basepoints for dbid %"PRIu64
+		                     " and channel seed %s.", info->channel_id,
+		                     fmt_secret(tmpctx, &channel_seed));
+	if (!info->commitment_point)
+		privkey.secret = basepoint_secret;
+	else if (!derive_simple_privkey(&basepoint_secret, &basepoint, info->commitment_point, &privkey))
+		errx(ERROR_KEYDERIV, "Could not derive simple privkey for dbid %"PRIu64
+		                     ", channel seed %s, and commitment point %s.", info->channel_id,
+		                     fmt_secret(tmpctx, &channel_seed),
+		                     fmt_pubkey(tmpctx, info->commitment_point));
+	printf("privkey : %s\n", fmt_secret(tmpctx, &privkey.secret));
+	return 0;
 }
 
 struct wordlist_lang {
@@ -792,6 +822,23 @@ int main(int argc, char *argv[])
 			errx(ERROR_USAGE, "Bad node id");
 		return guess_to_remote(argv[2], &node_id, atol(argv[4]),
 		                       argv[5]);
+	}
+
+	if (streq(method, "derivetoremote")) {
+		/*  node_id    channel_id    [commitment_point]    hsm_secret  */
+		if (argc < 5 || argc > 6)
+			show_usage(argv[0]);
+		struct unilateral_close_info info = { };
+		struct pubkey commitment_point;
+		if (!node_id_from_hexstr(argv[2], strlen(argv[2]), &info.peer_id))
+			errx(ERROR_USAGE, "Bad node id");
+		info.channel_id = atoll(argv[3]);
+		if (argc == 6) {
+			if (!pubkey_from_hexstr(argv[4], strlen(argv[4]), &commitment_point))
+				errx(ERROR_USAGE, "Bad commitment point");
+			info.commitment_point = &commitment_point;
+		}
+		return derive_to_remote(&info, argv[argc - 1]);
 	}
 
 	if (streq(method, "generatehsm")) {
