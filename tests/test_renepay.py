@@ -703,6 +703,7 @@ def test_htlcmax0(node_factory):
 
     inv = l6.rpc.invoice("600000sat", "inv", "description")
 
+    l1.rpc.preapproveinvoice(bolt11=inv['bolt11']) # let the signer know this payment is coming
     l1.rpc.call("renepay", {"invstring": inv["bolt11"]})
     l1.wait_for_htlcs()
     invoice = only_one(l6.rpc.listinvoices("inv")["invoices"])
@@ -712,6 +713,7 @@ def test_htlcmax0(node_factory):
 def test_concurrency(node_factory):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts=[{}, {}, {}])
     inv = l3.rpc.invoice("1000sat", "test_renepay", "description")["bolt11"]
+    l1.rpc.preapproveinvoice(bolt11=inv) # let the signer know this payment is coming
     p1 = subprocess.Popen(
         [
             "cli/lightning-cli",
@@ -779,6 +781,7 @@ def test_privatechan(node_factory, bitcoind):
 
     inv = l4.rpc.invoice("1000sat", "inv", "description")
 
+    l1.rpc.preapproveinvoice(bolt11=inv["bolt11"]) # let the signer know this payment is coming
     l1.rpc.call("renepay", {"invstring": inv["bolt11"]})
     l1.wait_for_htlcs()
     invoice = only_one(l4.rpc.listinvoices("inv")["invoices"])

@@ -1949,6 +1949,7 @@ def test_pay_avoid_low_fee_chan(node_factory, bitcoind, executor, chainparams):
     fut = executor.submit(listpays_nofail, inv['bolt11'])
 
     # Pay sender->dest should succeed via non-depleted channel
+    sender.rpc.preapproveinvoice(bolt11=inv['bolt11']) # let the signer know this payment is coming
     sender.dev_pay(inv['bolt11'], dev_use_shadow=False)
 
     fut.result()

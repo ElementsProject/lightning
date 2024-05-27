@@ -4146,6 +4146,7 @@ def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
     amt = 100_000_000
     sticky_inv = l3.rpc.invoice(amt, 'sticky', 'sticky')
     route = l1.rpc.getroute(l3.info['id'], amt, 1)['route']
+    l1.rpc.preapproveinvoice(bolt11=sticky_inv['bolt11']) # let the signer know this payment is coming
     l1.rpc.sendpay(route, sticky_inv['payment_hash'], payment_secret=sticky_inv['payment_secret'])
     l3.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
@@ -4167,8 +4168,9 @@ def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
 
     # Spends anchor.
     # HSMd notes that it has to sign a unilateral close output:
-    l2.daemon.wait_for_logs(['Anchorspend for local commit tx',
-                             'hsmd: Unilateral close output, deriving secrets'])
+    l2.daemon.wait_for_logs(['Anchorspend for local commit tx'])
+    ## VLS doesn't emit this log line:
+    ##                       'hsmd: Unilateral close output, deriving secrets'])
 
     bitcoind.generate_block(1, wait_for_mempool=2)
 
