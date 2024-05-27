@@ -4213,6 +4213,7 @@ def test_low_fd_limit(node_factory, bitcoind):
     assert l2.daemon.is_in_log(r'Increasing file descriptor limit')
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "needs VLS support VLS#497")
 @pytest.mark.parametrize("preapprove", [False, True])
 def test_preapprove(node_factory, bitcoind, preapprove):
     # l1 uses old routine which doesn't support check.
@@ -4278,6 +4279,7 @@ def test_preapprove(node_factory, bitcoind, preapprove):
     l1.daemon.wait_for_log("preapprove_keysend: check_only=0")
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "needs VLS support VLS#497")
 def test_preapprove_use(node_factory, bitcoind):
     """Test preapprove calls implicitly made by pay and keysend"""
     l1, l2 = node_factory.line_graph(2, opts=[{}, {'dev-hsmd-fail-preapprove': None}])
