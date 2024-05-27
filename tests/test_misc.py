@@ -1476,6 +1476,7 @@ def test_decode(node_factory, bitcoind):
     assert x["decrypted"].startswith('17')
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "hsm_secret recovery not supported")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
 def test_recover(node_factory, bitcoind):
     """Test the recover option

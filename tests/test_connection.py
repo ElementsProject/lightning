@@ -4569,6 +4569,7 @@ def test_last_stable_connection(node_factory):
     assert only_one(l2.rpc.listpeerchannels()['channels'])['last_stable_connection'] > recon_time + STABLE_TIME
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "No module named 'websockets'")
 def test_wss_proxy(node_factory):
     wss_port = node_factory.get_unused_port()
     ws_port = node_factory.get_unused_port()
