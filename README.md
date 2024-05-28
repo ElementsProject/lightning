@@ -19,16 +19,19 @@ Core Lightning (previously c-lightning) is a lightweight, highly customizable an
 
 ## Project Status
 
-[![Continuous Integration](https://github.com/ElementsProject/lightning/workflows/Continuous%20Integration/badge.svg)][actions]
-[![Pull Requests Welcome][prs]][prs-link]
-[![Irc][IRC]][IRC-link]
-[![Documentation Status](https://readthedocs.org/projects/lightning/badge/?version=docs)][docs]
+[![Continuous Integration][actions-badge]][actions]
+[![Pull Requests Welcome][prs-badge]][prs]
+[![Documentation Status][docs-badge]][docs]
+[![BoL2][bol2-badge]][bol2]
+[![Telegram][telegram-badge]][telegram]
+[![Discord][discord-badge]][discord]
+[![Irc][IRC-badge]][IRC]
 
 This implementation has been in production use on the Bitcoin mainnet since early 2018, with the launch of the [Blockstream Store][blockstream-store-blog].
 We recommend getting started by experimenting on `testnet` (or `regtest`), but the implementation is considered stable and can be safely used on mainnet.
 
 Any help testing the implementation, reporting bugs, or helping with outstanding issues is very welcome.
-Don't hesitate to reach out to us on IRC at [#lightning-dev @ libera.chat][irc1], [#c-lightning @ libera.chat][irc2], or on the implementation-specific mailing list [c-lightning@lists.ozlabs.org][ml1], or on the Lightning Network-wide mailing list [lightning-dev@lists.linuxfoundation.org][ml2], or on Discord [core-lightning][discord], or on Telegram [Core Lightning][telegram].
+Don't hesitate to reach out to us on [Build-on-L2][bol2], or on the implementation-specific [mailing list][ml1], or on the Lightning Network-wide [mailing list][ml2], or on [CLN Discord][discord], or on [CLN Telegram][telegram], or on IRC at [dev][irc1]/[gen][irc2] channel.
 
 ## Getting Started
 
@@ -107,7 +110,7 @@ your first channels and customizing your node.
 For a less reckless experience, you can encrypt the HD wallet seed:
  see [HD wallet encryption](#hd-wallet-encryption).
 
-You can also chat to other users at [#c-lightning @ libera.chat][irc2];
+You can also chat to other users at Discord [core-lightning][discord];
 we are always happy to help you get started!
 
 
@@ -207,19 +210,25 @@ Developers wishing to contribute should start with the developer guide [here](do
 
 [blockstream-store-blog]: https://blockstream.com/2018/01/16/en-lightning-charge/
 [std]: https://github.com/lightning/bolts
-[prs]: https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat
-[prs-link]: http://makeapullrequest.com
-[IRC]: https://img.shields.io/badge/chat-on%20libera-brightgreen.svg
-[IRC-link]: https://web.libera.chat/#c-lightning
-[irc1]: https://web.libera.chat/#lightning-dev
-[irc2]: https://web.libera.chat/#c-lightning
+[prs-badge]: https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat
+[prs]: http://makeapullrequest.com
+[bol2-badge]: https://badgen.net/badge/BoL2/chat/blue
+[bol2]: https://community.corelightning.org
 [ml1]: https://lists.ozlabs.org/listinfo/c-lightning
 [ml2]: https://lists.linuxfoundation.org/mailman/listinfo/lightning-dev
+[discord-badge]: https://badgen.net/badge/Discord/chat/blue
 [discord]: https://discord.gg/mE9s4rc5un
+[telegram-badge]: https://badgen.net/badge/Telegram/chat/blue
 [telegram]: https://t.me/lightningd
+[IRC-badge]: https://img.shields.io/badge/IRC-chat-blue.svg
+[IRC]: https://web.libera.chat/#c-lightning
+[irc1]: https://web.libera.chat/#lightning-dev
+[irc2]: https://web.libera.chat/#c-lightning
+[docs-badge]: https://readthedocs.org/projects/lightning/badge/?version=docs
 [docs]: https://docs.corelightning.org/docs
 [releases]: https://github.com/ElementsProject/lightning/releases
 [dockerhub]: https://hub.docker.com/r/elementsproject/lightningd/
 [jsonrpcspec]: https://www.jsonrpc.org/specification
 [helpme-github]: https://github.com/lightningd/plugins/tree/master/helpme
+[actions-badge]: https://github.com/ElementsProject/lightning/workflows/Continuous%20Integration/badge.svg
 [actions]: https://github.com/ElementsProject/lightning/actions
