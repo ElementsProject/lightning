@@ -202,11 +202,11 @@ static struct command_result *param_rune(struct command *cmd, const char *name,
 	(*rune_and_string)->runestr = json_strdup(*rune_and_string, buffer, tok);
 	(*rune_and_string)->rune = rune_from_base64(cmd, (*rune_and_string)->runestr);
 	if (!(*rune_and_string)->rune)
-		return command_fail_badparam(cmd, name, buffer, tok,
+		return command_fail_badparam_novalue(cmd, name,
 					     "should be base64 string");
 	/* We always create runes with integer unique ids: accept no less! */
 	if (!unique_id_num((*rune_and_string)->rune, &uid))
-		return command_fail_badparam(cmd, name, buffer, tok,
+		return command_fail_badparam_novalue(cmd, name,
 					     "should have valid numeric unique_id");
 
 	return NULL;

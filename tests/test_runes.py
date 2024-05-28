@@ -426,6 +426,18 @@ def test_badrune(node_factory):
                 except RpcError:
                     pass
 
+    # Invalid rune should be caught and error message should not include rune value
+    with pytest.raises(RpcError, match='invalid token') as exc_info:
+        l1.rpc.checkrune(rune=rune['rune'] + '"')
+    assert exc_info.value.error['code'] == -32602
+    assert exc_info.value.error['message'] == 'rune: should be base64 string: invalid token'
+
+    # Also test that other method (with non-secret param) returns the value in the error message
+    with pytest.raises(RpcError, match='invalid token') as exc_info:
+        l1.rpc.blacklistrune([3])
+    assert exc_info.value.error['code'] == -32602
+    assert exc_info.value.error['message'] == "start: should be an unsigned 64 bit integer: invalid token '[3]'"
+
 
 def test_checkrune(node_factory):
     l1 = node_factory.get_node()

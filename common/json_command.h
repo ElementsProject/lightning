@@ -33,6 +33,18 @@ command_fail_badparam(struct command *cmd,
 			    json_tok_full(buffer, tok));
 }
 
+/* Convenient wrapper for "paramname: msg: invalid token".
+ * It is useful for secrets/runes errors. */
+static inline struct command_result *
+command_fail_badparam_novalue(struct command *cmd,
+		      const char *paramname,
+		      const char *msg)
+{
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			    "%s: %s: invalid token",
+			    paramname, msg);
+}
+
 /* Also caller supplied: is this invoked simply to get usage? */
 bool command_usage_only(const struct command *cmd);
 
