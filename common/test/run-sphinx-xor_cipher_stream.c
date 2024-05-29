@@ -111,6 +111,9 @@ void subkey_from_hmac(const char *prefix UNNEEDED,
 /* Generated stub for towire */
 void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "towire called!\n"); abort(); }
+/* Generated stub for towire_amount_msat */
+void towire_amount_msat(u8 **pptr UNNEEDED, const struct amount_msat msat UNNEEDED)
+{ fprintf(stderr, "towire_amount_msat called!\n"); abort(); }
 /* Generated stub for towire_bigsize */
 void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)
 { fprintf(stderr, "towire_bigsize called!\n"); abort(); }

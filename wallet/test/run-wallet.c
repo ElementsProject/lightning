@@ -932,6 +932,11 @@ u8 *serialize_onionpacket(
 bool sphinx_add_hop_has_length(struct sphinx_path *path UNNEEDED, const struct pubkey *pubkey UNNEEDED,
 			       const u8 *payload TAKES UNNEEDED)
 { fprintf(stderr, "sphinx_add_hop_has_length called!\n"); abort(); }
+/* Generated stub for sphinx_add_v0_hop */
+void sphinx_add_v0_hop(struct sphinx_path *path UNNEEDED, const struct pubkey *pubkey UNNEEDED,
+		       const struct short_channel_id *scid UNNEEDED,
+		       struct amount_msat forward UNNEEDED, u32 outgoing_cltv UNNEEDED)
+{ fprintf(stderr, "sphinx_add_v0_hop called!\n"); abort(); }
 /* Generated stub for sphinx_path_new */
 struct sphinx_path *sphinx_path_new(const tal_t *ctx UNNEEDED,
 				    const u8 *associated_data UNNEEDED)

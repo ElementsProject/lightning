@@ -217,6 +217,13 @@ void sphinx_add_hop(struct sphinx_path *path, const struct pubkey *pubkey,
 		    const u8 *payload TAKES);
 
 /**
+ * Do not use, function is cursed.
+ */
+void sphinx_add_v0_hop(struct sphinx_path *path, const struct pubkey *pubkey,
+		       const struct short_channel_id *scid,
+		       struct amount_msat forward, u32 outgoing_cltv);
+
+/**
  * Compute the size of the serialized payloads.
  */
 size_t sphinx_path_payloads_size(const struct sphinx_path *path);
