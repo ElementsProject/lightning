@@ -7,7 +7,8 @@
 #include <plugins/renepay/route.h>
 
 struct routetracker{
-	struct payment *payment;
+	/* Routes that we sendpay and are still waiting for rpc returning
+	 * success. */
 	struct route_map *sent_routes;
 	struct route_map *pending_routes;
 	struct route **finalized_routes;
@@ -16,7 +17,8 @@ struct routetracker{
 struct routetracker *new_routetracker(const tal_t *ctx, struct payment *payment);
 // bool routetracker_is_ready(const struct routetracker *routetracker);
 void routetracker_cleanup(struct routetracker *routetracker);
-size_t routetracker_count_sent(struct routetracker *routetracker);
+
+bool routetracker_have_results(struct routetracker *routetracker);
 
 /* The payment has a list of route that have "returned". Calling this function
  * payment will look through that list and process those routes' results:

@@ -899,7 +899,7 @@ collect_results_done(struct command *cmd UNUSED, const char *buf UNUSED,
 	payment->retry = false;
 
 	/* pending sendpay callbacks should be zero */
-	if (routetracker_count_sent(payment->routetracker)>0)
+	if (!routetracker_have_results(payment->routetracker))
 		return payment_continue(payment);
 
 	/* all sendpays have been sent, look for success */
