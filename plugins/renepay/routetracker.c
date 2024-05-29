@@ -25,9 +25,6 @@ struct routetracker *new_routetracker(const tal_t *ctx, struct payment *payment)
 	rt->sent_routes = tal(rt, struct route_map);
 	route_map_init(rt->sent_routes);
 
-	rt->pending_routes = tal(rt, struct route_map);
-	route_map_init(rt->pending_routes);
-
 	rt->finalized_routes = tal_arr(rt, struct route *, 0);
 	return rt;
 }
@@ -46,11 +43,6 @@ void routetracker_cleanup(struct routetracker *routetracker)
 static void routetracker_add_to_final(struct routetracker *routetracker,
 				      struct route *route)
 {
-	if (!route_map_del(routetracker->pending_routes, route))
-		plugin_err(pay_plugin->plugin,
-			   "%s: route with key %s is not in pending_routes",
-			   __PRETTY_FUNCTION__,
-			   fmt_routekey(tmpctx, &route->key));
 	tal_arr_expand(&routetracker->finalized_routes, route);
 	tal_steal(routetracker, route);
 }
@@ -71,7 +63,7 @@ static void remove_route(struct route *route, struct route_map *map)
 }
 
 static void route_sent_register(struct routetracker *routetracker,
-				struct route *route)
+				struct route *route STEALS)
 {
 	route_map_add(routetracker->sent_routes, route);
 	tal_steal(routetracker, route);
@@ -80,7 +72,7 @@ static void route_sendpay_fail(struct routetracker *routetracker,
 			       struct route *route TAKES)
 {
 	if (!route_map_del(routetracker->sent_routes, route))
-		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
+		plugin_err(pay_plugin->plugin,
 			   "%s: route (%s) is not marked as sent",
 			   __PRETTY_FUNCTION__,
 			   fmt_routekey(tmpctx, &route->key));
@@ -103,11 +95,14 @@ void route_pending_register(struct routetracker *routetracker,
 	assert(payment->groupid == route->key.groupid);
 
 	/* we already keep track of this route */
-	if (route_map_get(routetracker->pending_routes, &route->key))
-		return;
-
+	if (route_map_get(pay_plugin->pending_routes, &route->key))
+		plugin_err(pay_plugin->plugin,
+			   "%s: tracking a route (%s) duplicate?",
+			   __PRETTY_FUNCTION__,
+			   fmt_routekey(tmpctx, &route->key));
+	
 	if (!route_map_del(routetracker->sent_routes, route))
-		plugin_log(pay_plugin->plugin, LOG_DBG,
+		plugin_err(pay_plugin->plugin,
 			   "%s: tracking a route (%s) not computed by this "
 			   "payment call",
 			   __PRETTY_FUNCTION__,
@@ -115,10 +110,10 @@ void route_pending_register(struct routetracker *routetracker,
 
 	uncertainty_commit_htlcs(pay_plugin->uncertainty, route);
 
-	if (!route_map_add(routetracker->pending_routes, route) ||
-	    !tal_steal(routetracker, route) ||
-	    !route_map_add(pay_plugin->route_map, route) ||
-	    !tal_add_destructor2(route, remove_route, pay_plugin->route_map))
+	if (!tal_steal(pay_plugin, route) ||
+	    !route_map_add(pay_plugin->pending_routes, route) ||
+	    !tal_add_destructor2(route, remove_route,
+				 pay_plugin->pending_routes))
 		plugin_err(pay_plugin->plugin, "%s: failed to register route.",
 			   __PRETTY_FUNCTION__);
 
@@ -131,28 +126,6 @@ void route_pending_register(struct routetracker *routetracker,
 			   "%s: amount_msat arithmetic overflow.",
 			   __PRETTY_FUNCTION__);
 	}
-}
-
-bool routetracker_get_amount(struct routetracker *routetracker,
-			     struct amount_msat *amount,
-			     struct amount_msat *amount_sent)
-{
-	assert(routetracker);
-	assert(amount);
-	assert(amount_sent);
-
-	*amount = AMOUNT_MSAT(0);
-	*amount_sent = AMOUNT_MSAT(0);
-
-	struct route_map *rmap = routetracker->pending_routes;
-	struct route_map_iter it;
-	for (struct route *r = route_map_first(rmap, &it); r;
-	     r = route_map_next(rmap, &it)) {
-		if (!amount_msat_add(amount, *amount, route_delivers(r)) ||
-		    !amount_msat_add(amount_sent, *amount_sent, route_sends(r)))
-			return false;
-	}
-	return true;
 }
 
 static void route_result_collected(struct routetracker *routetracker,
@@ -329,7 +302,7 @@ struct command_result *notification_sendpay_failure(struct command *cmd,
 
 	assert(payment->routetracker);
 	struct route *route =
-	    route_map_get(payment->routetracker->pending_routes, key);
+	    route_map_get(pay_plugin->pending_routes, key);
 	if (!route) {
 		/* This can happen if payment is first tried with renepay and
 		 * then retried using another payment plugin. */
@@ -388,7 +361,7 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 
 	assert(payment->routetracker);
 	struct route *route =
-	    route_map_get(payment->routetracker->pending_routes, key);
+	    route_map_get(pay_plugin->pending_routes, key);
 	if (!route) {
 		/* This can happen if payment is first tried with renepay and
 		 * then retried using another payment plugin. */

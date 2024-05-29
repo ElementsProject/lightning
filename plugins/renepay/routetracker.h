@@ -10,12 +10,13 @@ struct routetracker{
 	/* Routes that we sendpay and are still waiting for rpc returning
 	 * success. */
 	struct route_map *sent_routes;
-	struct route_map *pending_routes;
+
+	/* Routes that have concluded (either SENDPAY_FAILED or
+	 * SENDPAY_COMPLETE). */
 	struct route **finalized_routes;
 };
 
 struct routetracker *new_routetracker(const tal_t *ctx, struct payment *payment);
-// bool routetracker_is_ready(const struct routetracker *routetracker);
 void routetracker_cleanup(struct routetracker *routetracker);
 
 bool routetracker_have_results(struct routetracker *routetracker);
@@ -51,11 +52,6 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 /* Notify the tracker that this route has failed. */
 void route_failure_register(struct routetracker *routetracker,
 			    struct route *route);
-
-/* How much is the amount being tracked. */
-bool routetracker_get_amount(struct routetracker *routetracker,
-			     struct amount_msat *amount,
-			     struct amount_msat *amount_sent);
 
 // FIXME: double-check that we actually get one notification for each sendpay,
 // ie. that after some time we don't have yet pending sendpays for old failed or
