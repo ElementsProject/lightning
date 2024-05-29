@@ -1150,7 +1150,8 @@ send_payment(struct lightningd *ld,
 	     const char *description TAKES,
 	     const struct sha256 *local_invreq_id,
 	     const struct secret *payment_secret,
-	     const u8 *payment_metadata)
+	     const u8 *payment_metadata,
+	     bool dev_legacy_hop)
 {
 	unsigned int base_expiry;
 	struct onionpacket *packet;
@@ -1176,6 +1177,14 @@ send_payment(struct lightningd *ld,
 	for (i = 0; i < n_hops - 1; i++) {
 		ret = pubkey_from_node_id(&pubkey, &ids[i]);
 		assert(ret);
+
+		if (dev_legacy_hop && i == n_hops - 2) {
+			sphinx_add_v0_hop(path, &pubkey,
+					  &route[i + 1].scid,
+					  route[i + 1].amount,
+					  base_expiry + route[i + 1].delay);
+			continue;
+		}
 
 		sphinx_add_hop_has_length(path, &pubkey,
 			       take(onion_nonfinal_hop(NULL,
@@ -1506,6 +1515,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 	struct secret *payment_secret;
 	struct sha256 *local_invreq_id;
 	u8 *payment_metadata;
+	bool *dev_legacy_hop;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("route", param_route_hops, &route),
@@ -1520,6 +1530,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 			 p_opt("groupid", param_u64, &group),
 			 p_opt("payment_metadata", param_bin_from_hex, &payment_metadata),
 			 p_opt("description", param_string, &description),
+			 p_opt_dev("dev_legacy_hop", param_bool, &dev_legacy_hop, false),
 		   NULL))
 		return command_param_failed();
 
@@ -1582,7 +1593,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 			    final_amount,
 			    msat ? *msat : final_amount,
 			    label, invstring, description, local_invreq_id,
-			    payment_secret, payment_metadata);
+			    payment_secret, payment_metadata, *dev_legacy_hop);
 }
 
 static const struct json_command sendpay_command = {
