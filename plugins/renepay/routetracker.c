@@ -22,8 +22,6 @@ struct routetracker *new_routetracker(const tal_t *ctx, struct payment *payment)
 {
 	struct routetracker *rt = tal(ctx, struct routetracker);
 
-	rt->payment = payment;
-
 	rt->sent_routes = tal(rt, struct route_map);
 	route_map_init(rt->sent_routes);
 
@@ -34,9 +32,10 @@ struct routetracker *new_routetracker(const tal_t *ctx, struct payment *payment)
 	return rt;
 }
 
-size_t routetracker_count_sent(struct routetracker *routetracker)
+bool routetracker_have_results(struct routetracker *routetracker)
 {
-	return route_map_count(routetracker->sent_routes);
+	return route_map_count(routetracker->sent_routes) == 0 &&
+	       tal_count(routetracker->finalized_routes) > 0;
 }
 
 void routetracker_cleanup(struct routetracker *routetracker)
@@ -99,7 +98,7 @@ void route_pending_register(struct routetracker *routetracker,
 {
 	assert(route);
 	assert(routetracker);
-	struct payment *payment = routetracker->payment;
+	struct payment *payment = route_get_payment_verify(route);
 	assert(payment);
 	assert(payment->groupid == route->key.groupid);
 
@@ -163,7 +162,7 @@ static void route_result_collected(struct routetracker *routetracker,
 	assert(routetracker);
 	assert(route->result);
 
-	struct payment *payment = routetracker->payment;
+	struct payment *payment = route_get_payment_verify(route);
 	assert(payment);
 
 	if (route->result->status == SENDPAY_FAILED) {
