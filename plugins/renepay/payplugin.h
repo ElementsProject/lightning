@@ -64,7 +64,7 @@ struct pay_plugin {
 	struct uncertainty *uncertainty;
 
 	/* Pending sendpays (to match notifications to). */
-	struct route_map *route_map;
+	struct route_map *pending_routes;
 
 	bool debug_mcf;
 	bool debug_payflow;
