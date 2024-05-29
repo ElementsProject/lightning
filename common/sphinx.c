@@ -1,6 +1,7 @@
 #include "config.h"
 #include <assert.h>
 
+#include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
 #include <common/onion_decode.h>
 #include <common/onionreply.h>
@@ -120,6 +121,33 @@ bool sphinx_add_hop_has_length(struct sphinx_path *path, const struct pubkey *pu
 	sp.pubkey = *pubkey;
 	tal_arr_expand(&path->hops, sp);
 	return true;
+}
+
+static u8 *make_v0_hop(const tal_t *ctx,
+		       const struct short_channel_id *scid,
+		       struct amount_msat forward, u32 outgoing_cltv)
+{
+	const u8 padding[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			      0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+	/* Prepend 0 byte for realm */
+	u8 *buf = tal_arrz(ctx, u8, 1);
+	towire_short_channel_id(&buf, *scid);
+	towire_amount_msat(&buf, forward);
+	towire_u32(&buf, outgoing_cltv);
+	towire(&buf, padding, ARRAY_SIZE(padding));
+	assert(tal_bytelen(buf) == 1 + 32);
+	return buf;
+}
+
+void sphinx_add_v0_hop(struct sphinx_path *path, const struct pubkey *pubkey,
+		       const struct short_channel_id *scid,
+		       struct amount_msat forward, u32 outgoing_cltv)
+{
+	struct sphinx_hop sp;
+
+	sp.raw_payload = make_v0_hop(path, scid, forward, outgoing_cltv);
+	sp.pubkey = *pubkey;
+	tal_arr_expand(&path->hops, sp);
 }
 
 void sphinx_add_hop(struct sphinx_path *path, const struct pubkey *pubkey,
