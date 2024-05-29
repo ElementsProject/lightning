@@ -518,7 +518,7 @@ static struct command_result *json_state_changed(struct command *cmd,
 
 	if (json_tok_streq(buf, statetok, "CLOSED") ||
 	    json_tok_streq(buf, statetok, "CHANNELD_AWAITING_LOCKIN") ||
-	    json_tok_streq(buf, statetok, "DUALOPENED_AWAITING_LOCKIN")) {
+	    json_tok_streq(buf, statetok, "DUALOPEND_AWAITING_LOCKIN")) {
 		struct out_req *req;
 		req = jsonrpc_request_start(cmd->plugin,
                                             cmd,
