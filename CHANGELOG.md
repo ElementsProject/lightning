@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [24.05rc1] - 2024-05-23: "CODENAME"
+## [24.05rc2] - 2024-05-29: "CODENAME"
 
 This release named by @USERNAME.
 
@@ -20,6 +20,18 @@ This release named by @USERNAME.
  - Add WSS Proxy server with `wss-bind-addr` and `wss-certs` configurations. ([#7225])
  - cln-grpc: Add methods for dev-forget-channel, emergencyrecover, recover, recoverchannel, funderupdate, help, invoicerequest, listinvoicerequests, disableinvoicerequest, listconfigs, makesecret, multiwithdraw, showrunes, createrune, blacklistrune, and checkrune. ([#7317])
  - cln-grpc: Adds addpsbtoutput method. ([#7108])
+ - cln-grpc: Add `openchannel_init`, `openchannel_abort`, `openchannel_bump`, `openchannel_signed`, `openchannel_update` methods. ([#7230])
+ - cln-grpc: Add `delpay` method. ([#7232])
+ - cln-grpc: Add `delforward` method. ([#7260])
+ - cln-grpc: Add `autoclean-once`, `autoclean-status` methods. ([#7238])
+ - cln-grpc: Add `fundchannel_start`, `fundchannel_complete`, `fundchannel_cancel` methods. ([#7231])
+ - cln-grpc: Add `bkpr-channelsapy`, `bkpr-dumpincomecsv`, `bkpr-inspect`, `bkpr-listaccountevents`, `bkpr-listbalances` methods. ([#7256])
+ - cln-grpc: Add `disableoffer` method. ([#7233])
+ - cln-grpc: Add `parsefeerate`, `plugin`, `renepay`, `renepaystatus`, `sendinvoice` methods. ([#7272])
+ - cln-grpc: Add `reserveinputs`, `unreserveinputs`, `splice_init`, `splice_signed`, `splice_update` methods. ([#7273])
+ - cln-grpc: Add `sendonionmessage`, `setconfig`, `setpsbtversion`, `upgradewallet` methods. ([#7274])
+ - cln_plugin: Add rust plugin support for wildcard `*` subscriptions.  ([#7106])
+ - config: Add `bitcoin-rpcclienttimeout` config parameter. ([#7095])
  - core: notify plugins when a log line is emitted. ([#6990])
  - Config: new log level `trace` where we moved the very noisiest `debug` logs. ([#7280])
  - Added a new configuration for clnrest plugin to change the default Swagger UI path from `/` to custom url. ([#7256])
@@ -40,6 +52,7 @@ This release named by @USERNAME.
  - Documentation: Merged `example_json_request` and `example_json_response` in a single `json_examples` array to maintain the request and its corresponding response together. ([#7181])
  - Documentation: great documentation rewrite, all reference pages now generated from the fully-tested JSON schemas and include examples. ([#6995])
  - JSON-RPC: `stop` and `recover` now return a JSON object (not a raw string!) like every other command does. ([#6995])
+ - pay: Payments are more robust for nodes that are currently syncing. ([#7190])
 
 
 ### Deprecated
@@ -74,6 +87,11 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - Fixed crash in pay plugin caused by parsing uncommitted dual open channels ([#7235])
  - Plugins: `clnrest` now correctly self-disables if Python not present at all. ([#7211])
  - lightningd: slow memory leak when using plugin hooks fixed (introduced in v23.11) ([#7192])
+ - Plugins:  the recovery plugin is less noisy. ([#7116])
+ - Plugins: RenePay: Handles htlc_max correctly for local channels. ([#7159])
+ - offers: Fix blinded paths in invoices - use node_id and set final node's CLTV delta. ([#7311])
+ - Plugins: The recover plugin now avoids trying to recover closed channels. ([#7216])
+ - Gossmap: Avoid adding redundant channel announcements to the gossip_store. ([#7330])
 
 
 ### EXPERIMENTAL
@@ -83,6 +101,22 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 
 
+[#7159]: https://github.com/ElementsProject/lightning/pull/7159
+[#7116]: https://github.com/ElementsProject/lightning/pull/7116
+[#7230]: https://github.com/ElementsProject/lightning/pull/7230
+[#7232]: https://github.com/ElementsProject/lightning/pull/7232
+[#7260]: https://github.com/ElementsProject/lightning/pull/7260
+[#7238]: https://github.com/ElementsProject/lightning/pull/7238
+[#7231]: https://github.com/ElementsProject/lightning/pull/7231
+[#7256]: https://github.com/ElementsProject/lightning/pull/7256
+[#7233]: https://github.com/ElementsProject/lightning/pull/7233
+[#7190]: https://github.com/ElementsProject/lightning/pull/7190
+[#7095]: https://github.com/ElementsProject/lightning/pull/7095
+[#7272]: https://github.com/ElementsProject/lightning/pull/7272
+[#7273]: https://github.com/ElementsProject/lightning/pull/7273
+[#7311]: https://github.com/ElementsProject/lightning/pull/7311
+[#7274]: https://github.com/ElementsProject/lightning/pull/7274
+[#7330]: https://github.com/ElementsProject/lightning/pull/7330
 [#7181]: https://github.com/ElementsProject/lightning/pull/7181
 [#7124]: https://github.com/ElementsProject/lightning/pull/7124
 [#7287]: https://github.com/ElementsProject/lightning/pull/7287
