@@ -4124,3 +4124,57 @@ def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
                              'hsmd: Unilateral close output, deriving secrets'])
 
     bitcoind.generate_block(1, wait_for_mempool=2)
+
+
+@pytest.mark.xfail(strict=True)
+def test_onchain_reestablish_reply(node_factory, bitcoind, executor):
+    l1, l2, l3 = node_factory.line_graph(3, opts={'may_reconnect': True,
+                                                  'dev-no-reconnect': None})
+
+    # Make l1 close unilaterally.
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    l1.rpc.close(l2.info['id'], unilateraltimeout=1)
+
+    # l2 doesn't know, reconnection should get REESTABLISH *then* error.
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+
+    # We should exchange messages
+    l2.daemon.wait_for_logs(["peer_out WIRE_CHANNEL_REESTABLISH",
+                             "peer_in WIRE_CHANNEL_REESTABLISH"])
+    # It should be OK
+    l2.daemon.wait_for_log("Reconnected, and reestablished.")
+
+    # Then we get the error, close.
+    l2.daemon.wait_for_log("peer_in WIRE_ERROR")
+    assert only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['state'] == 'AWAITING_UNILATERAL'
+    # Mine it now so we don't confuse the code below.
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    # For l2->l2, try:
+    # 1. are not in the initial state, and
+    # 2. actually onchain.
+    l2.rpc.pay(l3.rpc.invoice(200000000, 'test', 'test')['bolt11'])
+
+    # We block l3 from seeing close, so it will try to reestablish.
+    def no_new_blocks(req):
+        return {"error": "go away"}
+    l3.daemon.rpcproxy.mock_rpc('getblockhash', no_new_blocks)
+
+    l2.rpc.disconnect(l3.info['id'], force=True)
+    l2.rpc.close(l3.info['id'], unilateraltimeout=1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'ONCHAIN')
+
+    # l3 doesn't know, reconnection should get REESTABLISH *then* error.
+    l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # We should exchange messages
+    l3.daemon.wait_for_logs(["peer_out WIRE_CHANNEL_REESTABLISH",
+                             "peer_in WIRE_CHANNEL_REESTABLISH"])
+    # It should be OK
+    l3.daemon.wait_for_log("Reconnected, and reestablished.")
+
+    # Then we get the error, close.
+    l3.daemon.wait_for_log("peer_in WIRE_ERROR")
+    assert only_one(l3.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'AWAITING_UNILATERAL'
