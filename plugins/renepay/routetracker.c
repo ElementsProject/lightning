@@ -85,8 +85,8 @@ static void route_sendpay_fail(struct routetracker *routetracker,
  *	- after a sendpay is accepted,
  *	- or after listsendpays reveals some pending route that we didn't
  *	previously know about. */
-void route_pending_register(struct routetracker *routetracker,
-			    struct route *route)
+static void route_pending_register(struct routetracker *routetracker,
+				   struct route *route)
 {
 	assert(route);
 	assert(routetracker);
@@ -100,7 +100,7 @@ void route_pending_register(struct routetracker *routetracker,
 			   "%s: tracking a route (%s) duplicate?",
 			   __PRETTY_FUNCTION__,
 			   fmt_routekey(tmpctx, &route->key));
-	
+
 	if (!route_map_del(routetracker->sent_routes, route))
 		plugin_err(pay_plugin->plugin,
 			   "%s: tracking a route (%s) not computed by this "
