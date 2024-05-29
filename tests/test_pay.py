@@ -5663,7 +5663,6 @@ def test_pay_while_opening_channel(node_factory, bitcoind, executor):
     l1.rpc.pay(inv['bolt11'])
 
 
-@pytest.mark.xfail(strict=True)
 def test_pay_legacy_forward(node_factory, bitcoind, executor):
     """We removed legacy in 22.11, and LND will still send them for
     route hints!  See
