@@ -4126,7 +4126,6 @@ def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
     bitcoind.generate_block(1, wait_for_mempool=2)
 
 
-@pytest.mark.xfail(strict=True)
 def test_onchain_reestablish_reply(node_factory, bitcoind, executor):
     l1, l2, l3 = node_factory.line_graph(3, opts={'may_reconnect': True,
                                                   'dev-no-reconnect': None})
