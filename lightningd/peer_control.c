@@ -1721,6 +1721,46 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	plugin_hook_call_peer_connected(ld, cmd_id, hook_payload);
 }
 
+static void send_reestablish(struct lightningd *ld, struct channel *channel)
+{
+	u8 *msg;
+	struct secret last_remote_per_commit_secret;
+	u64 num_revocations;
+
+	/* BOLT #2:
+	 *     - if `next_revocation_number` equals 0:
+	 *       - MUST set `your_last_per_commitment_secret` to all zeroes
+	 *     - otherwise:
+	 *       - MUST set `your_last_per_commitment_secret` to the last
+	 *         `per_commitment_secret` it received
+	 */
+	num_revocations = revocations_received(&channel->their_shachain.chain);
+	if (num_revocations == 0)
+		memset(&last_remote_per_commit_secret, 0,
+		       sizeof(last_remote_per_commit_secret));
+	else if (!shachain_get_secret(&channel->their_shachain.chain,
+				      num_revocations-1,
+				      &last_remote_per_commit_secret)) {
+		channel_fail_permanent(channel,
+				       REASON_LOCAL,
+				       "Could not get revocation secret %"PRIu64,
+				       num_revocations-1);
+		return;
+	}
+
+	msg = towire_channel_reestablish(tmpctx, &channel->cid,
+					 channel->next_index[LOCAL],
+					 num_revocations,
+					 &last_remote_per_commit_secret,
+					 &channel->channel_info.remote_per_commit,
+					 /* No upgrade for you, since we're closed! */
+					 NULL);
+	subd_send_msg(ld->connectd,
+		      take(towire_connectd_peer_send_msg(NULL, &channel->peer->id,
+							 channel->peer->connectd_counter,
+							 msg)));
+}
+
 /* connectd tells us a peer has a message and we've not already attached
  * a subd.  Normally this is a race, but it happens for real when opening
  * a new channel, or referring to a channel we no longer want to talk to
@@ -1749,6 +1789,11 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 	/* Do we know what channel they're talking about? */
 	channel = find_channel_by_id(peer, &channel_id);
 	if (channel) {
+		/* In this case, we'll send an error below, but send reestablish reply first
+		 * in case they lost their state and need it */
+		if (msgtype == WIRE_CHANNEL_REESTABLISH && channel_state_closed(channel->state))
+			send_reestablish(ld, channel);
+
 		/* If we have a canned error for this channel, send it now */
 		if (channel->error) {
 			error = channel->error;
@@ -1787,26 +1832,6 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 				/* FIXME: Send informative error? */
 				close(fds[1]);
 			}
-			return;
-		}
-
-		if (msgtype == WIRE_CHANNEL_REESTABLISH) {
-			log_debug(channel->log,
-				  "Reestablish on %s channel: using channeld to reply",
-				  channel_state_name(channel));
-			if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
-				log_broken(channel->log,
-					   "Failed to create socketpair: %s",
-					   strerror(errno));
-				error = towire_warningfmt(tmpctx, &channel->cid,
-							  "Trouble in paradise?");
-				goto send_error;
-			}
-			if (peer_start_channeld(channel, new_peer_fd(tmpctx, fds[0]), NULL, true, true)) {
-				goto tell_connectd;
-			}
-			/* FIXME: Send informative error? */
-			close(fds[1]);
 			return;
 		}
 
