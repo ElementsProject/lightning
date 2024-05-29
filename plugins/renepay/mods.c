@@ -91,39 +91,100 @@ static struct command_result *payment_rpc_failure(struct command *cmd,
 }
 
 /*****************************************************************************
- * previous_sendpays
+ * previoussuccess
  *
  * Obtain a list of previous sendpay requests and check if
- * the current payment hash has already being used in previous failed, pending
- * or completed attempts.
+ * the current payment hash has already succeed.
  */
 
-static struct command_result *previous_sendpays_done(struct command *cmd,
-						     const char *buf,
-						     const jsmntok_t *result,
-						     struct payment *payment)
+struct success_data {
+	u32 parts, created_at, groupid;
+	struct amount_msat deliver_msat, sent_msat;
+	struct preimage preimage;
+};
+
+/* Extracts success data from listsendpays. */
+static bool success_data_from_listsendpays(const char *buf,
+					   const jsmntok_t *arr,
+					   struct success_data *success)
 {
+	assert(success);
+
 	size_t i;
 	const char *err;
-	const jsmntok_t *t, *arr;
-	u32 max_group_id = 0;
+	const jsmntok_t *t;
+	assert(arr && arr->type == JSMN_ARRAY && arr->size);
 
-	/* Data for pending payments, this will be the one
-	 * who's result gets replayed if we end up suspending. */
-	u32 pending_group_id = INVALID_ID;
-	u32 max_pending_partid = 0;
-	struct route **pending_routes = tal_arr(tmpctx, struct route*, 0);
-	assert(pending_routes);
+	success->parts = 0;
+	success->deliver_msat = AMOUNT_MSAT(0);
+	success->sent_msat = AMOUNT_MSAT(0);
 
-	/* Data for a complete payment, if one exists. */
-	u32 complete_parts = 0;
-	struct preimage complete_preimage;
-	u32 complete_created_at;
-	u32 complete_groupid = INVALID_ID;
-	struct amount_msat complete_sent = AMOUNT_MSAT(0),
-			   complete_msat = AMOUNT_MSAT(0);
+	json_for_each_arr(i, t, arr)
+	{
+		u32 groupid;
+		struct amount_msat this_msat, this_sent;
 
-	arr = json_get_member(buf, result, "payments");
+		const jsmntok_t *status_tok = json_get_member(buf, t, "status");
+		if (!status_tok)
+			plugin_err(
+			    pay_plugin->plugin,
+			    "%s (line %d) missing status token from json.",
+			    __PRETTY_FUNCTION__, __LINE__);
+		const char *status = json_strdup(tmpctx, buf, status_tok);
+		if (!status)
+			plugin_err(
+			    pay_plugin->plugin,
+			    "%s (line %d) failed to allocate status string.",
+			    __PRETTY_FUNCTION__, __LINE__);
+
+		if (streq(status, "complete")) {
+			/* FIXME we assume amount_msat is always present, but
+			 * according to the documentation this field is
+			 * optional. How do I interpret if amount_msat is
+			 * missing? */
+			err = json_scan(
+			    tmpctx, buf, t,
+			    "{groupid:%"
+			    ",amount_msat:%"
+			    ",amount_sent_msat:%"
+			    ",created_at:%"
+			    ",payment_preimage:%}",
+			    JSON_SCAN(json_to_u32, &groupid),
+			    JSON_SCAN(json_to_msat, &this_msat),
+			    JSON_SCAN(json_to_msat, &this_sent),
+			    JSON_SCAN(json_to_u32, &success->created_at),
+			    JSON_SCAN(json_to_preimage, &success->preimage));
+
+			if (err)
+				plugin_err(pay_plugin->plugin,
+					   "%s (line %d) json_scan of "
+					   "listsendpay returns the "
+					   "following error: %s",
+					   __PRETTY_FUNCTION__, __LINE__, err);
+			success->groupid = groupid;
+			/* Now we know the payment completed. */
+			if (!amount_msat_add(&success->deliver_msat,
+					     success->deliver_msat,
+					     this_msat) ||
+			    !amount_msat_add(&success->sent_msat,
+					     success->sent_msat, this_sent))
+				plugin_err(pay_plugin->plugin,
+					   "%s (line %d) amount_msat overflow.",
+					   __PRETTY_FUNCTION__, __LINE__);
+
+			success->parts++;
+		}
+	}
+
+	return success->parts > 0;
+}
+
+static struct command_result *previoussuccess_done(struct command *cmd,
+						   const char *buf,
+						   const jsmntok_t *result,
+						   struct payment *payment)
+{
+	const jsmntok_t *arr = json_get_member(buf, result, "payments");
 	if (!arr || arr->type != JSMN_ARRAY) {
 		return payment_fail(
 		    payment, LIGHTNINGD,
@@ -131,185 +192,47 @@ static struct command_result *previous_sendpays_done(struct command *cmd,
 		    json_tok_full_len(result), json_tok_full(buf, result));
 	}
 
-	/* TODO: I think this has a bug. If there is a pending sendpay with some
-	 * groupid we want to know the highest partid for all sendpays with that
-	 * same groupid. Doing a single scan we might fail. Eg. suppose the
-	 * groupid=1 has a partid=1 which is pending, but also partid=2 which
-	 * failed, since there is no guaranteed order in this list we might
-	 * first scan {groupid=1, partid=2, status=failed} and then {groupid=1,
-	 * partid=1, status=pending}. */
-	json_for_each_arr(i, t, arr)
-	{
-		u32 partid = 0, groupid;
-		struct amount_msat this_msat, this_sent;
-		const char *status;
+	/* There are no success sendpays. */
+	if (!arr->size)
+		return payment_continue(payment);
 
-		// FIXME we assume amount_msat is always present, but according
-		// to the documentation this field is optional. How do I
-		// interpret if amount_msat is missing?
-		err = json_scan(tmpctx, buf, t,
-				"{status:%"
-				",partid?:%"
-				",groupid:%"
-				",amount_msat:%"
-				",amount_sent_msat:%}",
-				JSON_SCAN_TAL(tmpctx, json_strdup, &status),
-				JSON_SCAN(json_to_u32, &partid),
-				JSON_SCAN(json_to_u32, &groupid),
-				JSON_SCAN(json_to_msat, &this_msat),
-				JSON_SCAN(json_to_msat, &this_sent));
-
-		if (err)
-			plugin_err(pay_plugin->plugin,
-				   "%s json_scan of listsendpay returns the "
-				   "following error: %s",
-				   __PRETTY_FUNCTION__, err);
-
-		/* If we decide to create a new group, we base it on
-		 * max_group_id */
-		if (groupid > max_group_id)
-			max_group_id = groupid;
-
-		/* status could be completed, pending or failed */
-		if (streq(status, "complete")) {
-			if (complete_groupid != INVALID_ID &&
-			    groupid != complete_groupid) {
-				return payment_fail(
-				    payment, PAY_STATUS_UNEXPECTED,
-				    "Multiple complete groupids for "
-				    "this payment.");
-			}
-			complete_groupid = groupid;
-			/* Now we know the payment completed. */
-			if (!amount_msat_add(&complete_msat, complete_msat,
-					     this_msat) ||
-			    !amount_msat_add(&complete_sent, complete_sent,
-					     this_sent))
-				plugin_err(pay_plugin->plugin,
-					   "%s (line %d) amount_msat overflow.",
-					   __PRETTY_FUNCTION__, __LINE__);
-			err = json_scan(
-			    tmpctx, buf, t,
-			    "{created_at:%"
-			    ",payment_preimage:%}",
-			    JSON_SCAN(json_to_u32, &complete_created_at),
-			    JSON_SCAN(json_to_preimage, &complete_preimage));
-
-			if (err)
-				plugin_err(pay_plugin->plugin,
-					   "%s trying to parse created_at and "
-					   "payment_preimage returns the "
-					   "following error: %s",
-					   __PRETTY_FUNCTION__, err);
-			// FIXME there is json_add_timeabs, but there isn't
-			// json_to_timeabs
-			complete_parts++;
-		} else if (streq(status, "pending")) {
-			/* If we have more than one pending group, something
-			 * went wrong! */
-			if (pending_group_id != INVALID_ID &&
-			    groupid != pending_group_id) {
-				return payment_fail(
-				    payment, PAY_STATUS_UNEXPECTED,
-				    "Multiple pending groups for this "
-				    "payment.");
-			}
-			pending_group_id = groupid;
-			if (partid > max_pending_partid)
-				max_pending_partid = partid;
-
-			/* FIXME: pending sendpays should be considered just as
-			 * the routes that we send. Because when they succeed we
-			 * succeed the payment, and when they fail we need to
-			 * substract from the total. */
-
-			struct route *r =
-			    new_route(pending_routes, groupid, partid,
-				      payment->payment_info.payment_hash,
-				      this_msat, this_sent);
-			assert(r);
-			tal_arr_expand(&pending_routes, r);
-		} else
-			assert(streq(status, "failed"));
+	struct success_data success;
+	if (!success_data_from_listsendpays(buf, arr, &success)) {
+		plugin_err(
+		    pay_plugin->plugin,
+		    "%s (line %d) Expected at least one success sendpay but "
+		    "function success_data_from_listsendpays returns error.",
+		    __PRETTY_FUNCTION__, __LINE__);
 	}
 
-	if (complete_groupid != INVALID_ID) {
-		/* There are completed sendpays, we don't need to do anything
-		 * but summarize the result. */
-		payment->payment_info.start_time.ts.tv_sec = complete_created_at;
-		payment->payment_info.start_time.ts.tv_nsec = 0;
-		payment->total_delivering = complete_msat;
-		payment->total_sent = complete_sent;
-		payment->next_partid = complete_parts + 1;
-		payment->groupid = complete_groupid;
+	payment->payment_info.start_time.ts.tv_sec = success.created_at;
+	payment->payment_info.start_time.ts.tv_nsec = 0;
+	payment->total_delivering = success.deliver_msat;
+	payment->total_sent = success.sent_msat;
+	payment->next_partid = success.parts + 1;
+	payment->groupid = success.groupid;
 
-		payment_note(payment, LOG_DBG,
-			     "Payment completed by a previous sendpay.");
-		return payment_success(payment, &complete_preimage);
-	} else if (pending_group_id != INVALID_ID) {
-		/* Continue where we left off? */
-		payment->groupid = pending_group_id;
-		// TODO: there is a bug here, max_pending_partid is not the
-		// max_partid for the pending_group_id
-		payment->next_partid = max_pending_partid + 1;
-
-		for (size_t j = 0; j < tal_count(pending_routes); j++) {
-			route_pending_register(payment->routetracker,
-					       pending_routes[j]);
-		}
-		if (!routetracker_get_amount(payment->routetracker,
-					     &payment->total_delivering,
-					     &payment->total_sent))
-			plugin_err(pay_plugin->plugin,
-				   "(%s:%d) routetracker_get_amount failed "
-				   "probably due to an amount_msat overflow.",
-				   __PRETTY_FUNCTION__, __LINE__);
-
-		plugin_log(pay_plugin->plugin, LOG_DBG,
-			   "There are pending sendpays to this invoice. "
-			   "groupid = %" PRIu32 " "
-			   "delivering = %s, "
-			   "last_partid = %" PRIu32,
-			   pending_group_id,
-			   fmt_amount_msat(tmpctx, payment->total_delivering),
-			   max_pending_partid);
-
-		if (amount_msat_greater_eq(payment->total_delivering,
-					   payment->payment_info.amount)) {
-			/* Pending payment already pays the full amount, we
-			 * better stop. */
-			return payment_fail(
-			    payment, PAY_IN_PROGRESS,
-			    "Payment is pending with full amount "
-			    "already commited");
-		}
-	} else {
-		/* There are no pending nor completed sendpays, get me the last
-		 * sendpay group. */
-		payment->groupid = max_group_id + 1;
-		payment->next_partid = 1;
-		payment->total_sent = AMOUNT_MSAT(0);
-		payment->total_delivering = AMOUNT_MSAT(0);
-	}
-
-	return payment_continue(payment);
+	payment_note(payment, LOG_DBG,
+		     "Payment completed by a previous sendpay.");
+	return payment_success(payment, &success.preimage);
 }
 
-static struct command_result *previous_sendpays_cb(struct payment *payment)
+static struct command_result *previoussuccess_cb(struct payment *payment)
 {
 	struct command *cmd = payment_command(payment);
 	assert(cmd);
 
 	struct out_req *req = jsonrpc_request_start(
-	    cmd->plugin, cmd, "listsendpays", previous_sendpays_done,
+	    cmd->plugin, cmd, "listsendpays", previoussuccess_done,
 	    payment_rpc_failure, payment);
 
 	json_add_sha256(req->js, "payment_hash",
 			&payment->payment_info.payment_hash);
+	json_add_string(req->js, "status", "complete");
 	return send_outreq(cmd->plugin, req);
 }
 
-REGISTER_PAYMENT_MODIFIER(previous_sendpays, previous_sendpays_cb);
+REGISTER_PAYMENT_MODIFIER(previoussuccess, previoussuccess_cb);
 
 /*****************************************************************************
  * initial_sanity_checks
@@ -1027,6 +950,181 @@ static struct command_result *checktimeout_cb(struct payment *payment)
 REGISTER_PAYMENT_MODIFIER(checktimeout, checktimeout_cb);
 
 /*****************************************************************************
+ * pendingsendpays
+ *
+ * Obtain a list of sendpays, add up the amount of those pending and decide
+ * which groupid and partid we should use next. If there is a "complete" sendpay
+ * we should return payment_success inmediately.
+ */
+
+static struct command_result *pendingsendpays_done(struct command *cmd,
+						   const char *buf,
+						   const jsmntok_t *result,
+						   struct payment *payment)
+{
+	size_t i;
+	const char *err;
+	const jsmntok_t *t, *arr;
+	u32 max_group_id = 0;
+
+	/* Data for pending payments, this will be the one
+	 * who's result gets replayed if we end up suspending. */
+	u32 pending_group_id = INVALID_ID;
+	u32 max_pending_partid = 0;
+	struct amount_msat pending_sent = AMOUNT_MSAT(0),
+			   pending_msat = AMOUNT_MSAT(0);
+
+	arr = json_get_member(buf, result, "payments");
+	if (!arr || arr->type != JSMN_ARRAY) {
+		return payment_fail(
+		    payment, LIGHTNINGD,
+		    "Unexpected non-array result from listsendpays: %.*s",
+		    json_tok_full_len(result), json_tok_full(buf, result));
+	}
+
+	struct success_data success;
+	if (success_data_from_listsendpays(buf, arr, &success)) {
+		/* Have success data, hence the payment is complete, we stop. */
+		payment->payment_info.start_time.ts.tv_sec = success.created_at;
+		payment->payment_info.start_time.ts.tv_nsec = 0;
+		payment->total_delivering = success.deliver_msat;
+		payment->total_sent = success.sent_msat;
+		payment->next_partid = success.parts + 1;
+		payment->groupid = success.groupid;
+
+		payment_note(payment, LOG_DBG,
+			     "%s: Payment completed before computing the next "
+			     "round of routes.",
+			     __PRETTY_FUNCTION__);
+		return payment_success(payment, &success.preimage);
+	}
+
+	// find if there is one pending group
+	json_for_each_arr(i, t, arr)
+	{
+		u32 groupid;
+		const char *status;
+
+		err = json_scan(tmpctx, buf, t,
+				"{status:%"
+				",groupid:%}",
+				JSON_SCAN_TAL(tmpctx, json_strdup, &status),
+				JSON_SCAN(json_to_u32, &groupid));
+
+		if (err)
+			plugin_err(pay_plugin->plugin,
+				   "%s json_scan of listsendpay returns the "
+				   "following error: %s",
+				   __PRETTY_FUNCTION__, err);
+
+		if (streq(status, "pending")) {
+			pending_group_id = groupid;
+			break;
+		}
+	}
+
+	/* We need two loops to get the highest partid for a groupid that has
+	 * pending sendpays. */
+	json_for_each_arr(i, t, arr)
+	{
+		u32 partid = 0, groupid;
+		struct amount_msat this_msat, this_sent;
+		const char *status;
+
+		// FIXME we assume amount_msat is always present, but according
+		// to the documentation this field is optional. How do I
+		// interpret if amount_msat is missing?
+		err = json_scan(tmpctx, buf, t,
+				"{status:%"
+				",partid?:%"
+				",groupid:%"
+				",amount_msat:%"
+				",amount_sent_msat:%}",
+				JSON_SCAN_TAL(tmpctx, json_strdup, &status),
+				JSON_SCAN(json_to_u32, &partid),
+				JSON_SCAN(json_to_u32, &groupid),
+				JSON_SCAN(json_to_msat, &this_msat),
+				JSON_SCAN(json_to_msat, &this_sent));
+
+		if (err)
+			plugin_err(pay_plugin->plugin,
+				   "%s json_scan of listsendpay returns the "
+				   "following error: %s",
+				   __PRETTY_FUNCTION__, err);
+
+		/* If we decide to create a new group, we base it on
+		 * max_group_id */
+		if (groupid > max_group_id)
+			max_group_id = groupid;
+
+		if (groupid == pending_group_id && partid > max_pending_partid)
+			max_pending_partid = partid;
+
+		/* status could be completed, pending or failed */
+		if (streq(status, "pending")) {
+			/* If we have more than one pending group, something
+			 * went wrong! */
+			if (groupid != pending_group_id)
+				return payment_fail(
+				    payment, PAY_STATUS_UNEXPECTED,
+				    "Multiple pending groups for this "
+				    "payment.");
+
+			if (!amount_msat_add(&pending_msat, pending_msat,
+					     this_msat) ||
+			    !amount_msat_add(&pending_sent, pending_sent,
+					     this_sent))
+				plugin_err(pay_plugin->plugin,
+					   "%s (line %d) amount_msat overflow.",
+					   __PRETTY_FUNCTION__, __LINE__);
+		}
+		assert(!streq(status, "complete"));
+	}
+
+	if (pending_group_id != INVALID_ID) {
+		/* Continue where we left off? */
+		payment->groupid = pending_group_id;
+		payment->next_partid = max_pending_partid + 1;
+		payment->total_sent = pending_sent;
+		payment->total_delivering = pending_msat;
+
+		plugin_log(pay_plugin->plugin, LOG_DBG,
+			   "There are pending sendpays to this invoice. "
+			   "groupid = %" PRIu32 " "
+			   "delivering = %s, "
+			   "last_partid = %" PRIu32,
+			   pending_group_id,
+			   fmt_amount_msat(tmpctx, payment->total_delivering),
+			   max_pending_partid);
+	} else {
+		/* There are no pending nor completed sendpays, get me the last
+		 * sendpay group. */
+		payment->groupid = max_group_id + 1;
+		payment->next_partid = 1;
+		payment->total_sent = AMOUNT_MSAT(0);
+		payment->total_delivering = AMOUNT_MSAT(0);
+	}
+
+	return payment_continue(payment);
+}
+
+static struct command_result *pendingsendpays_cb(struct payment *payment)
+{
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
+
+	struct out_req *req = jsonrpc_request_start(
+	    cmd->plugin, cmd, "listsendpays", pendingsendpays_done,
+	    payment_rpc_failure, payment);
+
+	json_add_sha256(req->js, "payment_hash",
+			&payment->payment_info.payment_hash);
+	return send_outreq(cmd->plugin, req);
+}
+
+REGISTER_PAYMENT_MODIFIER(pendingsendpays, pendingsendpays_cb);
+
+/*****************************************************************************
  * knowledgerelax
  *
  * Reduce the knowledge of the network as time goes by.
@@ -1097,7 +1195,7 @@ REGISTER_PAYMENT_CONDITION(retry, retry_cb);
 // add shadow route
 // add check pre-approved invoice
 void *payment_virtual_program[] = {
-    /*0*/ OP_CALL, &previous_sendpays_pay_mod,
+    /*0*/ OP_CALL, &previoussuccess_pay_mod,
     /*2*/ OP_CALL, &selfpay_pay_mod,
     /*4*/ OP_CALL, &knowledgerelax_pay_mod,
     /*6*/ OP_CALL, &getmychannels_pay_mod,
