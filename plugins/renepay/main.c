@@ -32,7 +32,7 @@ static void memleak_mark(struct plugin *p, struct htable *memtable)
 	memleak_scan_htable(memtable,
 			    &pay_plugin->uncertainty->chan_extra_map->raw);
 	memleak_scan_htable(memtable, &pay_plugin->payment_map->raw);
-	memleak_scan_htable(memtable, &pay_plugin->route_map->raw);
+	memleak_scan_htable(memtable, &pay_plugin->pending_routes->raw);
 }
 
 static const char *init(struct plugin *p,
@@ -70,8 +70,8 @@ static const char *init(struct plugin *p,
 	pay_plugin->payment_map = tal(pay_plugin, struct payment_map);
 	payment_map_init(pay_plugin->payment_map);
 
-	pay_plugin->route_map = tal(pay_plugin,struct route_map);
-	route_map_init(pay_plugin->route_map);
+	pay_plugin->pending_routes = tal(pay_plugin, struct route_map);
+	route_map_init(pay_plugin->pending_routes);
 
 	pay_plugin->gossmap = gossmap_load(pay_plugin,
 					   GOSSIP_STORE_FILENAME,
