@@ -108,6 +108,9 @@ void subkey_from_hmac(const char *prefix UNNEEDED,
 		      const struct secret *base UNNEEDED,
 		      struct secret *key UNNEEDED)
 { fprintf(stderr, "subkey_from_hmac called!\n"); abort(); }
+/* Generated stub for tlv_payload_new */
+struct tlv_payload *tlv_payload_new(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "tlv_payload_new called!\n"); abort(); }
 /* Generated stub for towire */
 void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "towire called!\n"); abort(); }
@@ -133,6 +136,9 @@ void towire_secp256k1_ecdsa_signature(u8 **pptr UNNEEDED,
 /* Generated stub for towire_sha256 */
 void towire_sha256(u8 **pptr UNNEEDED, const struct sha256 *sha256 UNNEEDED)
 { fprintf(stderr, "towire_sha256 called!\n"); abort(); }
+/* Generated stub for towire_tlv_payload */
+void towire_tlv_payload(u8 **pptr UNNEEDED, const struct tlv_payload *record UNNEEDED)
+{ fprintf(stderr, "towire_tlv_payload called!\n"); abort(); }
 /* Generated stub for towire_u16 */
 void towire_u16(u8 **pptr UNNEEDED, u16 v UNNEEDED)
 { fprintf(stderr, "towire_u16 called!\n"); abort(); }

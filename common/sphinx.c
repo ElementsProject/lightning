@@ -667,12 +667,55 @@ struct route_step *process_onionpacket(
 
 	/* Any of these could fail, falling thru with cursor == NULL */
 	payload_size = fromwire_bigsize(&cursor, &max);
-	/* FIXME: raw_payload *includes* the length, which is redundant and
-	 * means we can't just ust fromwire_tal_arrn. */
-	fromwire_pad(&cursor, &max, payload_size);
-	if (cursor != NULL)
-		step->raw_payload = tal_dup_arr(step, u8, paddedheader,
-						cursor - paddedheader, 0);
+
+	/* Legacy!  0 length payload means fixed 32 byte structure */
+	if (payload_size == 0 && max >= 32) {
+		struct tlv_payload *legacy = tlv_payload_new(tmpctx);
+		const u8 *legacy_cursor = cursor;
+		size_t legacy_max = 32;
+		u8 *onwire_tlv;
+
+		legacy->amt_to_forward = tal(legacy, u64);
+		legacy->outgoing_cltv_value = tal(legacy, u32);
+		legacy->short_channel_id = tal(legacy, struct short_channel_id);
+
+		/* BOLT-obsolete #4:
+		 * ## Legacy `hop_data` payload format
+		 *
+		 * The `hop_data` format is identified by a single `0x00`-byte
+		 * length, for backward compatibility.  Its payload is defined
+		 * as:
+		 *
+		 * 1. type: `hop_data` (for `realm` 0)
+		 * 2. data:
+		 *    * [`short_channel_id`:`short_channel_id`]
+		 *    * [`u64`:`amt_to_forward`]
+		 *    * [`u32`:`outgoing_cltv_value`]
+		 *    * [`12*byte`:`padding`]
+		 */
+		*legacy->short_channel_id = fromwire_short_channel_id(&legacy_cursor, &legacy_max);
+		*legacy->amt_to_forward = fromwire_u64(&legacy_cursor, &legacy_max);
+		*legacy->outgoing_cltv_value = fromwire_u32(&legacy_cursor, &legacy_max);
+
+		/* Re-linearize it as a modern TLV! */
+		onwire_tlv = tal_arr(tmpctx, u8, 0);
+		towire_tlv_payload(&onwire_tlv, legacy);
+
+		/* Length, then tlv */
+		step->raw_payload = tal_arr(step, u8, 0);
+		towire_bigsize(&step->raw_payload, tal_bytelen(onwire_tlv));
+		towire_u8_array(&step->raw_payload, onwire_tlv, tal_bytelen(onwire_tlv));
+
+		payload_size = 32;
+		fromwire_pad(&cursor, &max, payload_size);
+	} else {
+		/* FIXME: raw_payload *includes* the length, which is redundant and
+		 * means we can't just ust fromwire_tal_arrn. */
+		fromwire_pad(&cursor, &max, payload_size);
+		if (cursor != NULL)
+			step->raw_payload = tal_dup_arr(step, u8, paddedheader,
+							cursor - paddedheader, 0);
+	}
 	fromwire_hmac(&cursor, &max, &step->next->hmac);
 
 	/* BOLT #4:
