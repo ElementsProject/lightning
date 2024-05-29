@@ -3194,7 +3194,9 @@ bool wallet_htlcs_load_in_for_channel(struct wallet *wallet,
 	bool ok = true;
 	int incount = 0;
 
-	log_debug(wallet->log, "Loading in HTLCs for channel %"PRIu64, chan->dbid);
+	log_debug(wallet->log,
+		  "Loading in HTLCs for channel %"PRIu64" (state=%s)",
+		  chan->dbid, channel_state_name(chan));
 	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
 					     "  id"
 					     ", channel_htlc_id"

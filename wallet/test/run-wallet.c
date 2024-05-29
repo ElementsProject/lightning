@@ -2117,6 +2117,7 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	db_commit_transaction(w->db);
 
 	chan->dbid = 1;
+	chan->state = CHANNELD_NORMAL;
 	chan->peer = peer;
 	chan->next_index[LOCAL] = chan->next_index[REMOTE] = 1;
 
