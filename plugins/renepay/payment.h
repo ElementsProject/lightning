@@ -71,7 +71,6 @@ struct payment {
 	/* Timer we use to wait for results. */
 	struct plugin_timer *waitresult_timer;
 
-	struct route **routes_computed;
 	struct routetracker *routetracker;
 };
 
