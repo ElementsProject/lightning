@@ -105,7 +105,6 @@ struct payment *payment_new(
 	p->retry = false;
 	p->waitresult_timer = NULL;
 
-	p->routes_computed = NULL;
 	p->routetracker = new_routetracker(p, p);
 	return p;
 }
@@ -124,7 +123,6 @@ static void payment_cleanup(struct payment *p)
 	disabledmap_reset(p->disabledmap);
 	p->waitresult_timer = tal_free(p->waitresult_timer);
 
-	p->routes_computed = tal_free(p->routes_computed);
 	routetracker_cleanup(p->routetracker);
 }
 
@@ -198,12 +196,6 @@ bool payment_update(
 	p->retry = false;
 	p->waitresult_timer = tal_free(p->waitresult_timer);
 
-	/* It is weird to have routes here stuck. */
-	if (p->routes_computed)
-		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
-			   "We have %zu unsent routes in this payment.",
-			   tal_count(p->routes_computed));
-	p->routes_computed = tal_free(p->routes_computed);
 	return true;
 }
 

@@ -631,8 +631,11 @@ REGISTER_PAYMENT_MODIFIER(routehints, routehints_cb);
 static struct command_result *compute_routes_cb(struct payment *payment)
 {
 	assert(payment->status == PAYMENT_PENDING);
+	struct routetracker *routetracker = payment->routetracker;
+	assert(routetracker);
 
-	if (payment->routes_computed)
+	if (routetracker->computed_routes &&
+	    tal_count(routetracker->computed_routes))
 		plugin_err(pay_plugin->plugin,
 			   "%s: no previously computed routes expected.",
 			   __PRETTY_FUNCTION__);
@@ -670,24 +673,37 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 	const char *err_msg = NULL;
 
 	gossmap_apply_localmods(pay_plugin->gossmap, payment->local_gossmods);
+
+	/* get_routes returns the answer, we assign it to the computed_routes,
+	 * that's why we need to tal_free the older array. Maybe it would be
+	 * better to pass computed_routes as a reference? */
+	routetracker->computed_routes = tal_free(routetracker->computed_routes);
+
 	// TODO: add an algorithm selector here
 	/* We let this return an unlikely path, as it's better to try  once than
 	 * simply refuse.  Plus, models are not truth! */
-	// TODO routes_computed should be in the routetracker instead
-	payment->routes_computed = get_routes(
-	    payment, &payment->payment_info, &pay_plugin->my_id,
-	    &payment->payment_info.destination, pay_plugin->gossmap,
-	    pay_plugin->uncertainty, payment->disabledmap, remaining, feebudget,
-
-	    &payment->next_partid, payment->groupid,
-
-	    &errcode, &err_msg);
+	routetracker->computed_routes = get_routes(
+					    routetracker,
+					    &payment->payment_info,
+					    &pay_plugin->my_id,
+					    &payment->payment_info.destination,
+					    pay_plugin->gossmap,
+					    pay_plugin->uncertainty,
+					    payment->disabledmap,
+					    remaining,
+					    feebudget,
+					    &payment->next_partid,
+					    payment->groupid,
+					    &errcode,
+					    &err_msg);
+	/* Otherwise the error message remains a child of the routetracker. */
 	err_msg = tal_steal(tmpctx, err_msg);
 
 	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
 
 	/* Couldn't feasible route, we stop. */
-	if (!payment->routes_computed) {
+	if (!routetracker->computed_routes ||
+	    tal_count(routetracker->computed_routes) == 0) {
 		if (err_msg == NULL)
 			err_msg = tal_fmt(
 			    tmpctx, "get_routes returned NULL error message");
@@ -709,7 +725,10 @@ REGISTER_PAYMENT_MODIFIER(compute_routes, compute_routes_cb);
 static struct command_result *send_routes_cb(struct payment *payment)
 {
 	assert(payment);
-	if (!payment->routes_computed) {
+	struct routetracker *routetracker = payment->routetracker;
+	assert(routetracker);
+	if (!routetracker->computed_routes ||
+	    tal_count(routetracker->computed_routes) == 0) {
 		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
 			   "%s: there are no routes to send, skipping.",
 			   __PRETTY_FUNCTION__);
@@ -717,10 +736,10 @@ static struct command_result *send_routes_cb(struct payment *payment)
 	}
 	struct command *cmd = payment_command(payment);
 	assert(cmd);
-	for (size_t i = 0; i < tal_count(payment->routes_computed); i++) {
-		struct route *route = payment->routes_computed[i];
+	for (size_t i = 0; i < tal_count(routetracker->computed_routes); i++) {
+		struct route *route = routetracker->computed_routes[i];
 
-		route_sendpay_request(cmd, route, payment);
+		route_sendpay_request(cmd, take(route), payment);
 
 		payment_note(payment, LOG_INFORM,
 			     "Sent route request: partid=%" PRIu64
@@ -731,8 +750,7 @@ static struct command_result *send_routes_cb(struct payment *payment)
 			     fmt_amount_msat(tmpctx, route_fees(route)),
 			     route_delay(route), fmt_route_path(tmpctx, route));
 	}
-	payment->routes_computed = tal_free(payment->routes_computed);
-
+	tal_resize(&routetracker->computed_routes, 0);
 	return payment_continue(payment);
 }
 
@@ -825,9 +843,6 @@ static struct command_result *collect_results_cb(struct payment *payment)
 		// retries, like a maximum number of retries.
 		payment->retry = true;
 	}
-
-	// FIXME: do we need to check for timeout? We might endup in an
-	// infinite loop of collect results.
 
 	return payment_continue(payment);
 }
