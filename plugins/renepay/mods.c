@@ -461,9 +461,8 @@ REGISTER_PAYMENT_MODIFIER(getmychannels, getmychannels_cb);
  *
  * Update the gossmap.
  */
-static struct command_result *
-refreshgossmap_done(struct command *cmd UNUSED, const char *buf UNUSED,
-		    const jsmntok_t *result UNUSED, struct payment *payment)
+
+static struct command_result *refreshgossmap_cb(struct payment *payment)
 {
 	assert(pay_plugin->gossmap); // gossmap must be already initialized
 	assert(payment);
@@ -493,17 +492,6 @@ refreshgossmap_done(struct command *cmd UNUSED, const char *buf UNUSED,
 			    __PRETTY_FUNCTION__, skipped_count);
 	}
 	return payment_continue(payment);
-}
-
-static struct command_result *refreshgossmap_cb(struct payment *payment)
-{
-	struct command *cmd = payment_command(payment);
-	assert(cmd);
-	struct out_req *req = jsonrpc_request_start(
-	    cmd->plugin, cmd, "waitblockheight", refreshgossmap_done,
-	    payment_rpc_failure, payment);
-	json_add_num(req->js, "blockheight", 0);
-	return send_outreq(cmd->plugin, req);
 }
 
 REGISTER_PAYMENT_MODIFIER(refreshgossmap, refreshgossmap_cb);
@@ -640,10 +628,15 @@ REGISTER_PAYMENT_MODIFIER(routehints, routehints_cb);
  * Compute the payment routes.
  */
 
-static struct command_result *
-compute_routes_done(struct command *cmd UNUSED, const char *buf UNUSED,
-		    const jsmntok_t *result UNUSED, struct payment *payment)
+static struct command_result *compute_routes_cb(struct payment *payment)
 {
+	assert(payment->status == PAYMENT_PENDING);
+
+	if (payment->routes_computed)
+		plugin_err(pay_plugin->plugin,
+			   "%s: no previously computed routes expected.",
+			   __PRETTY_FUNCTION__);
+
 	struct amount_msat feebudget, fees_spent, remaining;
 
 	/* Total feebudget  */
@@ -665,19 +658,13 @@ compute_routes_done(struct command *cmd UNUSED, const char *buf UNUSED,
 
 	/* How much are we still trying to send? */
 	if (!amount_msat_sub(&remaining, payment->payment_info.amount,
-			     payment->total_delivering))
-		plugin_err(pay_plugin->plugin,
-			   "%s: total_delivering is greater than amount?",
+			     payment->total_delivering)) {
+		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
+			   "%s: Payment is pending with full amount already "
+			   "committed. We skip the computation of new routes.",
 			   __PRETTY_FUNCTION__);
-
-	// FIXME think about the uncertainty network, we cannot afford to have a
-	// local uncertainty network for each payment because when a route
-	// thread returns some knowledge we need to update the uncertainty
-	// network and that information might be split among the local and the
-	// global.
-	// FIXME check that routes and the uncertainty network can talk to each
-	// other without the need of the gossmap, because some channels might be
-	// in the local gossmap.
+		return payment_continue(payment);
+	}
 
 	enum jsonrpc_errcode errcode;
 	const char *err_msg = NULL;
@@ -686,52 +673,28 @@ compute_routes_done(struct command *cmd UNUSED, const char *buf UNUSED,
 	// TODO: add an algorithm selector here
 	/* We let this return an unlikely path, as it's better to try  once than
 	 * simply refuse.  Plus, models are not truth! */
-	if (payment->routes_computed)
-		plugin_err(pay_plugin->plugin,
-			   "%s: no previously computed routes expected.",
-			   __PRETTY_FUNCTION__);
-
+	// TODO routes_computed should be in the routetracker instead
 	payment->routes_computed = get_routes(
-		payment,
-		&payment->payment_info,
-		&pay_plugin->my_id,
-		&payment->payment_info.destination,
-		pay_plugin->gossmap,
-		pay_plugin->uncertainty,
-		payment->disabledmap,
-		remaining,
-		feebudget,
+	    payment, &payment->payment_info, &pay_plugin->my_id,
+	    &payment->payment_info.destination, pay_plugin->gossmap,
+	    pay_plugin->uncertainty, payment->disabledmap, remaining, feebudget,
 
-		&payment->next_partid,
-		payment->groupid,
+	    &payment->next_partid, payment->groupid,
 
-		&errcode,
-		&err_msg);
+	    &errcode, &err_msg);
 	err_msg = tal_steal(tmpctx, err_msg);
 
 	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
 
 	/* Couldn't feasible route, we stop. */
 	if (!payment->routes_computed) {
-		if(err_msg==NULL)
-			err_msg = tal_fmt(tmpctx, "get_routes returned NULL error message");
+		if (err_msg == NULL)
+			err_msg = tal_fmt(
+			    tmpctx, "get_routes returned NULL error message");
 		return payment_fail(payment, errcode, "%s", err_msg);
 	}
 
 	return payment_continue(payment);
-}
-
-static struct command_result *compute_routes_cb(struct payment *payment)
-{
-	assert(payment->status == PAYMENT_PENDING);
-
-	struct command *cmd = payment_command(payment);
-	assert(cmd);
-	struct out_req *req = jsonrpc_request_start(
-	    cmd->plugin, cmd, "waitblockheight", compute_routes_done,
-	    payment_rpc_failure, payment);
-	json_add_num(req->js, "blockheight", 0);
-	return send_outreq(cmd->plugin, req);
 }
 
 REGISTER_PAYMENT_MODIFIER(compute_routes, compute_routes_cb);
@@ -743,11 +706,17 @@ REGISTER_PAYMENT_MODIFIER(compute_routes, compute_routes_cb);
  * request calling sendpay.
  */
 
-static struct command_result *send_routes_done(struct command *cmd,
-					       const char *buf UNUSED,
-					       const jsmntok_t *result UNUSED,
-					       struct payment *payment)
+static struct command_result *send_routes_cb(struct payment *payment)
 {
+	assert(payment);
+	if (!payment->routes_computed) {
+		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
+			   "%s: there are no routes to send, skipping.",
+			   __PRETTY_FUNCTION__);
+		return payment_continue(payment);
+	}
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
 	for (size_t i = 0; i < tal_count(payment->routes_computed); i++) {
 		struct route *route = payment->routes_computed[i];
 
@@ -761,26 +730,10 @@ static struct command_result *send_routes_done(struct command *cmd,
 			     route->success_prob,
 			     fmt_amount_msat(tmpctx, route_fees(route)),
 			     route_delay(route), fmt_route_path(tmpctx, route));
-
 	}
 	payment->routes_computed = tal_free(payment->routes_computed);
 
 	return payment_continue(payment);
-}
-
-static struct command_result *send_routes_cb(struct payment *payment)
-{
-	struct command *cmd = payment_command(payment);
-	assert(cmd);
-
-	payment->have_results = false;
-	payment->retry = false;
-
-	struct out_req *req = jsonrpc_request_start(
-	    cmd->plugin, cmd, "waitblockheight", send_routes_done,
-	    payment_rpc_failure, payment);
-	json_add_num(req->js, "blockheight", 0);
-	return send_outreq(cmd->plugin, req);
 }
 
 REGISTER_PAYMENT_MODIFIER(send_routes, send_routes_cb);
@@ -814,10 +767,10 @@ REGISTER_PAYMENT_MODIFIER(sleep, sleep_cb);
 /*****************************************************************************
  * collect_results
  */
-static struct command_result *
-collect_results_done(struct command *cmd UNUSED, const char *buf UNUSED,
-		     const jsmntok_t *result UNUSED, struct payment *payment)
+
+static struct command_result *collect_results_cb(struct payment *payment)
 {
+	assert(payment);
 	payment->have_results = false;
 	payment->retry = false;
 
@@ -878,18 +831,6 @@ collect_results_done(struct command *cmd UNUSED, const char *buf UNUSED,
 
 	return payment_continue(payment);
 }
-static struct command_result *collect_results_cb(struct payment *payment)
-{
-	// make a dummy call to waitblockheight to move the state
-	// machine by one step keeping the stack clean
-	struct command *cmd = payment_command(payment);
-	assert(cmd);
-	struct out_req *req = jsonrpc_request_start(
-	    cmd->plugin, cmd, "waitblockheight", collect_results_done,
-	    payment_rpc_failure, payment);
-	json_add_num(req->js, "blockheight", 0);
-	return send_outreq(cmd->plugin, req);
-}
 
 REGISTER_PAYMENT_MODIFIER(collect_results, collect_results_cb);
 
@@ -925,26 +866,12 @@ REGISTER_PAYMENT_MODIFIER(end, end_cb);
  * Fail the payment if we have exceeded the timeout.
  */
 
-static struct command_result *checktimeout_done(struct command *cmd UNUSED,
-						const char *buf UNUSED,
-						const jsmntok_t *result UNUSED,
-						struct payment *payment)
+static struct command_result *checktimeout_cb(struct payment *payment)
 {
 	if (time_after(time_now(), payment->payment_info.stop_time)) {
 		return payment_fail(payment, PAY_STOPPED_RETRYING, "Timed out");
 	}
 	return payment_continue(payment);
-}
-
-static struct command_result *checktimeout_cb(struct payment *payment)
-{
-	struct command *cmd = payment_command(payment);
-	assert(cmd);
-	struct out_req *req = jsonrpc_request_start(
-	    cmd->plugin, cmd, "waitblockheight", checktimeout_done,
-	    payment_rpc_failure, payment);
-	json_add_num(req->js, "blockheight", 0);
-	return send_outreq(cmd->plugin, req);
 }
 
 REGISTER_PAYMENT_MODIFIER(checktimeout, checktimeout_cb);
@@ -1205,16 +1132,16 @@ void *payment_virtual_program[] = {
     // proportional_fee > 10%, or capacity < 10% payment amount
     // TODO shadow_additions
     /* do */
-	    /*10*/ OP_CALL, &refreshgossmap_pay_mod,
+	    /*10*/ OP_CALL, &pendingsendpays_pay_mod,
 	    /*12*/ OP_CALL, &checktimeout_pay_mod,
-	    /*14*/ OP_CALL, &compute_routes_pay_mod,
-	    /*16*/ OP_CALL, &send_routes_pay_mod,
+	    /*14*/ OP_CALL, &refreshgossmap_pay_mod,
+	    /*16*/ OP_CALL, &compute_routes_pay_mod,
+	    /*18*/ OP_CALL, &send_routes_pay_mod,
 	    /*do*/
-		    /*18*/ OP_CALL, &checktimeout_pay_mod,
 		    /*20*/ OP_CALL, &sleep_pay_mod,
 		    /*22*/ OP_CALL, &collect_results_pay_mod,
 	    /*while*/
-	    /*24*/ OP_IF, &nothaveresults_pay_cond, (void *)18,
+	    /*24*/ OP_IF, &nothaveresults_pay_cond, (void *)20,
     /* while */
     /*27*/ OP_IF, &retry_pay_cond, (void *)10,
     /*30*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
