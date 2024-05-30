@@ -113,7 +113,7 @@ static bool success_data_from_listsendpays(const char *buf,
 	size_t i;
 	const char *err;
 	const jsmntok_t *t;
-	assert(arr && arr->type == JSMN_ARRAY && arr->size);
+	assert(arr && arr->type == JSMN_ARRAY);
 
 	success->parts = 0;
 	success->deliver_msat = AMOUNT_MSAT(0);
@@ -192,17 +192,10 @@ static struct command_result *previoussuccess_done(struct command *cmd,
 		    json_tok_full_len(result), json_tok_full(buf, result));
 	}
 
-	/* There are no success sendpays. */
-	if (!arr->size)
-		return payment_continue(payment);
-
 	struct success_data success;
 	if (!success_data_from_listsendpays(buf, arr, &success)) {
-		plugin_err(
-		    pay_plugin->plugin,
-		    "%s (line %d) Expected at least one success sendpay but "
-		    "function success_data_from_listsendpays returns error.",
-		    __PRETTY_FUNCTION__, __LINE__);
+		/* There are no success sendpays. */
+		return payment_continue(payment);
 	}
 
 	payment->payment_info.start_time.ts.tv_sec = success.created_at;
