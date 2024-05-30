@@ -22,10 +22,15 @@ struct routetracker *new_routetracker(const tal_t *ctx, struct payment *payment)
 {
 	struct routetracker *rt = tal(ctx, struct routetracker);
 
+	rt->computed_routes = tal_arr(rt, struct route *, 0);
 	rt->sent_routes = tal(rt, struct route_map);
-	route_map_init(rt->sent_routes);
-
 	rt->finalized_routes = tal_arr(rt, struct route *, 0);
+
+	if (!rt->computed_routes || !rt->sent_routes || !rt->finalized_routes)
+		/* bad allocation */
+		return tal_free(rt);
+
+	route_map_init(rt->sent_routes);
 	return rt;
 }
 
@@ -63,10 +68,22 @@ static void remove_route(struct route *route, struct route_map *map)
 }
 
 static void route_sent_register(struct routetracker *routetracker,
-				struct route *route STEALS)
+				struct route *route TAKES)
 {
-	route_map_add(routetracker->sent_routes, route);
-	tal_steal(routetracker, route);
+	if(taken(route))
+	{
+		route_map_add(routetracker->sent_routes, route);
+		tal_steal(routetracker->sent_routes, route);
+	}else{
+		struct route *cp_route = tal_dup(routetracker->sent_routes, struct route, route);
+		cp_route->hops = tal_dup_talarr(cp_route, struct route_hop, route->hops);
+
+		/* A full deepcopy of the struct route would require to
+		 * duplicate the final_msg and result as well, however
+		 * sent_register is called when those are supposed to be absent. */
+		assert(cp_route->final_msg==0 && cp_route->result==NULL);
+		route_map_add(routetracker->sent_routes, cp_route);
+	}
 }
 static void route_sendpay_fail(struct routetracker *routetracker,
 			       struct route *route TAKES)
@@ -260,7 +277,7 @@ void payment_collect_results(struct payment *payment,
 }
 
 struct command_result *route_sendpay_request(struct command *cmd,
-					     struct route *route,
+					     struct route *route TAKES,
 					     struct payment *payment)
 {
 	struct out_req *req =

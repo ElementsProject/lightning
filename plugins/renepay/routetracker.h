@@ -7,6 +7,9 @@
 #include <plugins/renepay/route.h>
 
 struct routetracker{
+	/* Routes that we compute and are kept here before sending them. */
+	struct route **computed_routes;
+
 	/* Routes that we sendpay and are still waiting for rpc returning
 	 * success. */
 	struct route_map *sent_routes;
@@ -33,7 +36,7 @@ void payment_collect_results(struct payment *payment,
 
 /* Sends a sendpay request for this route. */
 struct command_result *route_sendpay_request(struct command *cmd,
-					     struct route *route,
+					     struct route *route TAKES,
 					     struct payment *payment);
 
 struct command_result *notification_sendpay_failure(struct command *cmd,
