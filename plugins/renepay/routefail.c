@@ -238,8 +238,6 @@ static struct command_result *handle_failure(struct routefail *r)
 		path_len = tal_count(route->hops);
 
 	assert(result->erring_index);
-	/* index of the last channel before the erring node */
-	const int last_good_channel = *result->erring_index - 1;
 
 	enum node_type node_type = UNKNOWN_NODE;
 	if (route->hops) {
@@ -430,36 +428,5 @@ static struct command_result *handle_failure(struct routefail *r)
 
 		break;
 	}
-
-	/* Update the knowledge in the uncertaity network. */
-	if (route->hops) {
-		if (last_good_channel >= path_len) {
-			plugin_err(pay_plugin->plugin,
-				   "last_good_channel (%d) >= path_len (%d)",
-				   last_good_channel, path_len);
-		}
-
-		/* All channels before the erring node could forward the
-		 * payment. */
-		for (int i = 0; i <= last_good_channel; i++) {
-			uncertainty_channel_can_send(pay_plugin->uncertainty,
-						     route->hops[i].scid,
-						     route->hops[i].direction);
-		}
-
-		if (result->failcode == WIRE_TEMPORARY_CHANNEL_FAILURE &&
-		    (last_good_channel + 1) < path_len) {
-			/* A WIRE_TEMPORARY_CHANNEL_FAILURE could mean not
-			 * enough liquidity to forward the payment or cannot add
-			 * one more HTLC.
-			 */
-			uncertainty_channel_cannot_send(
-			    pay_plugin->uncertainty,
-			    route->hops[last_good_channel + 1].scid,
-			    route->hops[last_good_channel + 1].direction);
-		}
-		uncertainty_remove_htlcs(pay_plugin->uncertainty, route);
-	}
-
 	return routefail_end(r);
 }

@@ -797,12 +797,12 @@ static struct command_result *collect_results_cb(struct payment *payment)
 	payment_collect_results(payment, &payment_preimage, &final_error, &final_msg);
 
 	if (payment_preimage) {
-		/* If we have the preimate that means one succeed, we
+		/* If we have the preimage that means one succeed, we
 		 * inmediately finish the payment. */
 		if (!amount_msat_greater_eq(payment->total_delivering,
 					    payment->payment_info.amount)) {
-			plugin_err(
-			    pay_plugin->plugin,
+			plugin_log(
+			    pay_plugin->plugin, LOG_UNUSUAL,
 			    "%s: received a success sendpay for this "
 			    "payment but the total delivering amount %s "
 			    "is less than the payment amount %s.",
