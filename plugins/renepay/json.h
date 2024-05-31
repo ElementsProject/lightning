@@ -8,6 +8,9 @@
 struct routekey *tal_routekey_from_json(const tal_t *ctx, const char *buf,
 					const jsmntok_t *obj);
 
+struct route *tal_route_from_json(const tal_t *ctx, const char *buf,
+				  const jsmntok_t *obj);
+
 struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 						    const char *buffer,
 						    const jsmntok_t *toks);
