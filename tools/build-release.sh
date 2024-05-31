@@ -154,7 +154,7 @@ for target in $TARGETS; do
         echo "Fedora Image Built"
         ;;
     Ubuntu)
-		for d in focal jammy; do
+		for d in focal jammy noble; do
             # Capitalize the first letter of distro
             D=$(echo "$d" | awk '{print toupper(substr($0,1,1))substr($0,2)}')
 			echo "Building Ubuntu $D Image"

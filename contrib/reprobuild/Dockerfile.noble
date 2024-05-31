@@ -1,4 +1,4 @@
-FROM jammy
+FROM ubuntu:noble
 
 ENV TZ=UTC
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -17,7 +17,8 @@ RUN apt-get update \
 	file \
 	gettext \
 	git \
-	libsqlite3-dev \
+    curl \
+    libsqlite3-dev \
 	libpq-dev \
 	libsodium23 \
 	libtool \
@@ -25,13 +26,11 @@ RUN apt-get update \
 	sudo \
 	unzip \
 	wget \
-	jq \
+    jq \
 	zip
 
-# Ensure correct ownership
-RUN chown root:root /etc/sudoers
-RUN chown root:root /etc/sudo.conf
-RUN chown root:root /usr/libexec/sudo/sudoers.so
+# Configure /repo/.git as 'safe.directory'
+RUN git config --global --add safe.directory /repo/.git
 
 # Install Python3.10 (more reproducible than relying on python3-setuptools)
 RUN git clone https://github.com/pyenv/pyenv.git /root/.pyenv && \
@@ -39,7 +38,6 @@ RUN git clone https://github.com/pyenv/pyenv.git /root/.pyenv && \
     libbz2-dev \
     libffi-dev \
     libreadline-dev \
-    libsqlite3-dev \
     libssl-dev \
     zlib1g-dev && \
     pyenv install 3.10.0 && \
