@@ -78,35 +78,6 @@ PKGS='autoconf automake libtool make gcc libsqlite3-dev zlib1g-dev libsodium-dev
 INST='sudo dpkg -i'
 
 case "$PLATFORM" in
-    Ubuntu-18.04)
-	cat > /tmp/SHASUMS <<EOF
-a909ad8b2e97f45960a05458140cff737df30bf7c616778a5a0ca74b9d012d93  /var/cache/apt/archives/autoconf_2.69-11_all.deb
-d25ff344a7b808ef3ef8a3717cdad8f589ad20b57ea954054e9cc016fe7dff01  /var/cache/apt/archives/automake_1%3a1.15.1-3ubuntu2_all.deb
-716a1922077df772dcd8d4e462e1c5a9570c48871cbee062c23ae348b3a08fa1  /var/cache/apt/archives/autotools-dev_20180224.1_all.deb
-abe8f767884414dde79c4c5c4b6b7447ce057a07277a6de24f1b96e7e2b5da5a  /var/cache/apt/archives/gcc_4%3a7.3.0-3ubuntu2_amd64.deb
-e8d83c288e08da39c5ccd289b550e2097f562bf848480f71f94cebbd187e60da  /var/cache/apt/archives/gcc-7_7.3.0-16ubuntu3_amd64.deb
-92f5f15faca8cee48608b58a0300c469c076dd1dd8946b93b8428abd404d54f9  /var/cache/apt/archives/libasan4_7.3.0-16ubuntu3_amd64.deb
-fc386b12f324c34e405502767216daef22bf7d2f0e597b1c7ccea5cef1821bd3  /var/cache/apt/archives/libatomic1_8-20180414-1ubuntu2_amd64.deb
-e426c70a940a7d0c5c95823a5fd01f26bd8bcb08d109df2f8c96c439da8dc440  /var/cache/apt/archives/libc6-dev_2.27-3ubuntu1_amd64.deb
-69ea1317b37cbd467eb7d216f5d23aa8831d926908e9e12477aa28bdc1d5e62b  /var/cache/apt/archives/libc-dev-bin_2.27-3ubuntu1_amd64.deb
-357185ad09d689b61efda9576888feea2a0f178ae1422cddc6cd0d48f7c22d50  /var/cache/apt/archives/libcilkrts5_7.3.0-16ubuntu3_amd64.deb
-becbeba33d3824aa3c0d1b1e62653fcee776eb7cad631df0748fa77032e293c6  /var/cache/apt/archives/libgcc-7-dev_7.3.0-16ubuntu3_amd64.deb
-445b4569e2d3b72403ce3f79a58021f7d2832ee1e5e1a8e9fea7ab9aadaa0f1c  /var/cache/apt/archives/libitm1_8-20180414-1ubuntu2_amd64.deb
-4aa713aae73c15f3cc968b45cac3b0ae4e5d8c0b39ec35a6a535672fd833eb75  /var/cache/apt/archives/liblsan0_8-20180414-1ubuntu2_amd64.deb
-1bded2761c1213cc3b6bab27f515abff895af51d4b2272d6bddeadbf067a30dc  /var/cache/apt/archives/libmpx2_8-20180414-1ubuntu2_amd64.deb
-e06e02b5f1c7bb418ba2f3c6d1ec9f64368178f8f6e5e937d7bbc8017fc8923e  /var/cache/apt/archives/libquadmath0_8-20180414-1ubuntu2_amd64.deb
-233ba112b0c15cc602c6d5537ae427531228d78a0586dc8d39d5b6aac47921c1  /var/cache/apt/archives/libsigsegv2_2.12-1_amd64.deb
-bcd2b6427252cd9c0eff68662f4ceb81f21ff74239ed01f56694b1e3f0a75649  /var/cache/apt/archives/libsodium-dev_1.0.16-2_amd64.deb
-48a8767f36cb96d8c9dbb1f6f898a51943119dc8d6eb720c1285a5939cb43fb1  /var/cache/apt/archives/libsqlite3-dev_3.22.0-1_amd64.deb
-961648481e22bbc5004c36537761327e6d3ee8daacc78df75054771b1296dd5e  /var/cache/apt/archives/libtool_2.4.6-2_all.deb
-a3aeef76c96263e041a9c2c93616717072ff702d328c7987791ba4580c863698  /var/cache/apt/archives/libtsan0_8-20180414-1ubuntu2_amd64.deb
-87c1fa125edff484a04267fd6dd21098e3fd9de74a669b804d44853c925a4893  /var/cache/apt/archives/libubsan0_7.3.0-16ubuntu3_amd64.deb
-4a73fc5ea2d0284e9c9c84cba68cbe5880505afbae0a3201c65c336daf8f8239  /var/cache/apt/archives/linux-libc-dev_4.15.0-20.21_amd64.deb
-eb49ad0a92f46080ab23974ee5db69dc08709a74e4275a0906afc220c75ce7a8  /var/cache/apt/archives/m4_1.4.18-1_amd64.deb
-6a7f7b7ad1f6ff6332099ed9ceaa4889a6ce56a7a48817ddccc0952126059d07  /var/cache/apt/archives/make_4.1-9.1ubuntu1_amd64.deb
-1bd6bfc66d1de113f14a9afdd61d7f4b911c11c570403dd9785aa937b88f9ea9  /var/cache/apt/archives/zlib1g-dev_1%3a1.2.11.dfsg-0ubuntu2_amd64.deb
-EOF
-	;;
     Ubuntu-20.04)
 	cat > /tmp/SHASUMS <<EOF
 f554697f01a6267127ef20e6eae4e8ed983507c816475ac72dbb8be26d94c796  /var/cache/apt/archives/autoconf_2.69-11.1_all.deb
@@ -153,6 +124,18 @@ d8b8653388e676a3ae2fcf565c2b1a42a01a1104062317f641e8d24f0eaff9c3  /var/cache/apt
 5722d6ef8435a9dc3736e474040b4c7e6512b889ad9f74b6d52cdf11eec7e219  /var/cache/apt/archives/libsqlite3-dev_3.37.2-2_amd64.deb
 ddbadadcbfe2669de79eabac36a990f0f1666bb86a87d1a9cd56fd72620ca2db  /var/cache/apt/archives/zlib1g-dev_1%3a1.2.11.dfsg-2ubuntu9_amd64.deb
 59e3890fc8407bcf8ccc9f709d6513156346d5c942e8c624dc90435e58f6f978  /var/cache/apt/archives/automake_1%3a1.16.5-1.3_all.deb
+EOF
+	;;
+    Ubuntu-24.04)
+	cat > /tmp/SHASUMS <<EOF
+cc3f9f7a1e576173fb59c36652c0a67c6426feae752b352404ba92dfcb1b26c9  /var/cache/apt/archives/autoconf_2.71-3_all.deb
+5ae9a98e73545002cd891f028859941af2a3c760cb6190e635c7ef36953912de  /var/cache/apt/archives/automake_1%3a1.16.5-1.3ubuntu1_all.deb
+0e0bb8b25153ed1c44ab92bc219eed469fcb5820c5c0bc6454b2fd366a33d3ee  /var/cache/apt/archives/gcc_4%3a13.2.0-7ubuntu1_amd64.deb
+f11b4d687a305dd7ee47a384d82a9bf04de913362df9efa67d2a029ae65051a9  /var/cache/apt/archives/libsodium-dev_1.0.18-1build3_amd64.deb
+d23577c43936fedd8c4fa1337a6e960a6e71e94ac164d7a15c46ea96bf21265d  /var/cache/apt/archives/libsqlite3-dev_3.45.1-1ubuntu2_amd64.deb
+9d1d707179675d38e024bb13613b1d99e0d33fa6c45e5f3bcba19340781781d3  /var/cache/apt/archives/libtool_2.4.7-7build1_all.deb
+1fe6a815b56c7b6e9ce4086a363f09444bbd0a0d30e230c453d0b78e44b57a99  /var/cache/apt/archives/make_4.3-4.1build2_amd64.deb
+7360405fbf49e35dca2f7a4ebeac7d4fe5fe3b2db99adac70e11e104f53b2642  /var/cache/apt/archives/zlib1g-dev_1%3a1.3.dfsg-3.1ubuntu2_amd64.deb
 EOF
 	;;
     *)

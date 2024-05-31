@@ -24,7 +24,12 @@ RUN apt-get update \
 	sudo \
 	unzip \
 	wget \
+	git \
 	zip
+
+# Ensure correct ownership
+RUN chown root:root /etc/sudoers
+RUN chown root:root /usr/lib/sudo/sudoers.so
 
 # Download and install jq from official repository
 RUN wget -O /usr/local/bin/jq https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 \

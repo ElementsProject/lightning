@@ -44,13 +44,16 @@ The following table lists the codenames of distributions that we currently suppo
 - Ubuntu 22.04:
   - Distribution Version: 22.04
   - Codename: jammy
+- Ubuntu 24.04:
+  - Distribution Version: 24.04
+  - Codename: noble
 
 Depending on your host OS release you might not have `debootstrap` manifests for versions newer than your host OS. Due to this we run the `debootstrap` commands in a container of the latest version itself:
 
 ```shell
-for v in focal jammy; do
+for v in focal jammy noble; do
   echo "Building base image for $v"
-  sudo docker run --rm -v $(pwd):/build ubuntu:22.04 \
+  sudo docker run --rm -v $(pwd):/build ubuntu:$v \
 	bash -c "apt-get update && apt-get install -y debootstrap && debootstrap $v /build/$v"
   sudo tar -C $v -c . | sudo docker import - $v
 done
@@ -59,16 +62,16 @@ done
 Verify that the image corresponds to our expectation and is runnable:
 
 ```shell
-sudo docker run jammy cat /etc/lsb-release
+sudo docker run ubuntu:noble cat /etc/lsb-release
 ```
 
-Which should result in the following output for `jammy`:
+Which should result in the following output for `noble`:
 
 ```shell
 DISTRIB_ID=Ubuntu
-DISTRIB_RELEASE=22.04
-DISTRIB_CODENAME=jammy
-DISTRIB_DESCRIPTION="Ubuntu 22.04 LTS"
+DISTRIB_RELEASE=24.04
+DISTRIB_CODENAME=noble
+DISTRIB_DESCRIPTION="Ubuntu 24.04 LTS"
 ```
 
 ## Builder image setup
@@ -82,6 +85,7 @@ We can then build the builder image by calling `docker build` and passing it the
 ```shell
 sudo docker build -t cl-repro-focal - < contrib/reprobuild/Dockerfile.focal
 sudo docker build -t cl-repro-jammy - < contrib/reprobuild/Dockerfile.jammy
+sudo docker build -t cl-repro-noble - < contrib/reprobuild/Dockerfile.noble
 ```
 
 Since we pass the `Dockerfile` through `stdin` the build command will not create a context, i.e., the current directory is not passed to `docker` and it'll be independent of the currently checked out version. This also means that you will be able to reuse the docker image for future builds, and don't have to repeat this dance every time. Verifying the `Dockerfile` therefore is  
@@ -97,6 +101,7 @@ We'll need the release directory available for this, so create it now if it does
 ```bash
 sudo docker run --rm -v $(pwd):/repo -ti cl-repro-focal
 sudo docker run --rm -v $(pwd):/repo -ti cl-repro-jammy
+sudo docker run --rm -v $(pwd):/repo -ti cl-repro-noble
 ```
 
 The last few lines of output also contain the `sha256sum` hashes of all artifacts, so if you're just verifying the build those are the lines that are of interest to you:
@@ -115,7 +120,7 @@ The release captain is in charge of creating the manifest, whereas contributors 
 ## Script build-release
 1: Pull latest code from master
 
-2: Run `tools/build-release.sh bin-Fedora-28-amd64 bin-Ubuntu sign` script. It will create release directory, build bineries for Fedora, build bineries for Ubuntu (Focal & Jammy), sign zip, fedora & ubuntu builds.
+2: Run `tools/build-release.sh bin-Fedora-28-amd64 bin-Ubuntu sign` script. It will create release directory, build bineries for Fedora, build bineries for Ubuntu (Focal, Jammy & Noble), sign zip, fedora & ubuntu builds.
 
 ## Manual
 The release captain creates the manifest as follows:
@@ -135,7 +140,7 @@ gpg -sb --armor SHA256SUMS
 
 2: Copy above files in the lightning directory.
 
-3: Run `tools/build-release.sh --verify` script. It will build bineries for Ubuntu (Focal & Jammy), verify zip & ubuntu builds while copying Fedora checksums from the release captain's file.
+3: Run `tools/build-release.sh --verify` script. It will build bineries for Ubuntu (Focal, Jammy & Noble), verify zip & ubuntu builds while copying Fedora checksums from the release captain's file.
 
 4. Then send the resulting `release/SHA256SUMS.asc` file to the release captain so it can be merged with the other signatures into `SHASUMS.asc`.
 
