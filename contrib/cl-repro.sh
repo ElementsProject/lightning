@@ -1,6 +1,6 @@
 #!/bin/sh
-# This script creates base images for focal and jammy, and then builds the
-# cl-repro-focal and cl-repro-jammy builder images. The base images are created using
+# This script creates base images for focal, jammy, and noble. Then it builds the
+# cl-repro-focal, cl-repro-jammy, and cl-repro-noble builder images. The base images are created using
 # debootstrap, and the cl-repro images are created using the Dockerfiles in
 # contrib/reprobuild. These builder images will finally be used to build the
 # reproducible binaries.
@@ -14,13 +14,13 @@ LIGHTNING_DIR=$PWD
 LIGHTNING_DIR=$(echo "$LIGHTNING_DIR" | sed 's|/contrib$||')
 echo "Lightning Directory: $LIGHTNING_DIR"
 
-for v in focal jammy; do
+for v in focal jammy noble; do
   echo "Building base image for $v"
-  sudo docker run -v "$LIGHTNING_DIR":/build ubuntu:22.04 \
-	bash -c "apt-get update && apt-get install -y debootstrap && debootstrap $v $LIGHTNING_DIR/build/$v"
+  sudo docker run -v "$LIGHTNING_DIR":/build ubuntu:$v \
+	bash -c "apt-get update && apt-get install -y debootstrap && debootstrap $v /build/$v"
   sudo tar -C $v -c . | sudo docker import - $v
   echo "$v release:"
-  sudo docker run $v cat /etc/lsb-release
+  sudo docker run ubuntu:$v cat /etc/lsb-release
   echo "Building CL repro $v:"
   # shellcheck disable=SC2024
   sudo docker build -t cl-repro-$v - < "$LIGHTNING_DIR"/contrib/reprobuild/Dockerfile.$v
