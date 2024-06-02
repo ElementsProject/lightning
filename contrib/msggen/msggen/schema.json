@@ -10757,6 +10757,7 @@
         "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
       ],
       "see_also": [
+        "lightning-enableoffer(7)",
         "lightning-offer(7)",
         "lightning-listoffers(7)"
       ],
@@ -10917,6 +10918,112 @@
               "f8fc83a432cbfb2fffe222cc06727fdd977b5dd10ebd6707158e799e6f522d9f",
               "1267da6521b372d7c6407a74066f7a3a5bc3489bbda5eb9f0e990e1e913e2eb9"
             ]
+          }
+        }
+      ]
+    },
+    "lightning-enableoffer.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "rpc": "disableoffer",
+      "title": "Command for re-enabling an offer",
+      "warning": "experimental-offers only",
+      "description": [
+        "The **enableoffer** RPC command enables an offer, after it has been disabled."
+      ],
+      "request": {
+        "required": [
+          "offer_id"
+        ],
+        "properties": {
+          "offer_id": {
+            "type": "hash",
+            "description": [
+              "The id we use to identify this offer."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "offer_id",
+          "active",
+          "single_use",
+          "bolt12",
+          "used"
+        ],
+        "properties": {
+          "offer_id": {
+            "type": "hash",
+            "description": [
+              "The merkle hash of the offer."
+            ]
+          },
+          "active": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "description": [
+              "Whether the offer can produce invoices/payments."
+            ]
+          },
+          "single_use": {
+            "type": "boolean",
+            "description": [
+              "Whether the offer is disabled after first successful use."
+            ]
+          },
+          "bolt12": {
+            "type": "string",
+            "description": [
+              "The bolt12 string representing this offer."
+            ]
+          },
+          "used": {
+            "type": "boolean",
+            "description": [
+              "Whether the offer has had an invoice paid / payment made."
+            ]
+          },
+          "label": {
+            "type": "string",
+            "description": [
+              "The label provided when offer was created."
+            ]
+          }
+        },
+        "pre_return_value_notes": [
+          "Note: the returned object is the same format as **listoffers**."
+        ]
+      },
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-offer(7)",
+        "lightning-disableoffer(7)",
+        "lightning-listoffers(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:enableoffer#1",
+            "method": "enableoffer",
+            "params": {
+              "offer_id": "713a16ccd4eb10438bdcfbc2c8276be301020dd9d489c530773ba64f3b33307d"
+            }
+          },
+          "response": {
+            "offer_id": "053a5c566fbea2681a5ff9c05a913da23e45b95d09ef5bd25d7d408f23da7084",
+            "active": true,
+            "single_use": false,
+            "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqvqcdgq2z9pk7enxv4jjqen0wgs8yatnw3ujz83qkc6rvp4j28rt3dtrn32zkvdy7efhnlrpr5rp5geqxs783wtlj550qs8czzku4nk3pqp6m593qxgunzuqcwkmgqkmp6ty0wyvjcqdguv3pnpukedwn6cr87m89t74h3auyaeg89xkvgzpac70z3m9rn5xzu28c",
+            "used": false
           }
         }
       ]
