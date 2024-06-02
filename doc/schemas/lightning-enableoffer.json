@@ -3,12 +3,10 @@
   "type": "object",
   "additionalProperties": false,
   "rpc": "disableoffer",
-  "title": "Command for removing an offer",
+  "title": "Command for re-enabling an offer",
   "warning": "experimental-offers only",
   "description": [
-    "The **disableoffer** RPC command disables an offer, so that no further invoices will be given out.",
-    "",
-    "We currently don't support deletion of offers, so offers are not forgotten entirely (there may be invoices which refer to this offer)."
+    "The **enableoffer** RPC command enables an offer, after it has been disabled."
   ],
   "request": {
     "required": [
@@ -41,7 +39,7 @@
       "active": {
         "type": "boolean",
         "enum": [
-          false
+          true
         ],
         "description": [
           "Whether the offer can produce invoices/payments."
@@ -80,8 +78,8 @@
     "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
   ],
   "see_also": [
-    "lightning-enableoffer(7)",
     "lightning-offer(7)",
+    "lightning-disableoffer(7)",
     "lightning-listoffers(7)"
   ],
   "resources": [
@@ -90,17 +88,17 @@
   "examples": [
     {
       "request": {
-        "id": "example:disableoffer#1",
-        "method": "disableoffer",
+        "id": "example:enableoffer#1",
+        "method": "enableoffer",
         "params": {
-          "offer_id": "b791f88cebf775853112c30828e116487f4d6c252d669372532b468bc7de8a24"
+          "offer_id": "713a16ccd4eb10438bdcfbc2c8276be301020dd9d489c530773ba64f3b33307d"
         }
       },
       "response": {
-        "offer_id": "b791f88cebf775853112c30828e116487f4d6c252d669372532b468bc7de8a24",
-        "active": false,
+        "offer_id": "053a5c566fbea2681a5ff9c05a913da23e45b95d09ef5bd25d7d408f23da7084",
+        "active": true,
         "single_use": false,
-        "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqv0gfqq2zp8kven9wgs8gmeqg35hxctzd3j3vggz953rvg9rtxj8lalh43z8epwydjfrmffn3y3p5qz5cywpu09rr4vs",
+        "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqvqcdgq2z9pk7enxv4jjqen0wgs8yatnw3ujz83qkc6rvp4j28rt3dtrn32zkvdy7efhnlrpr5rp5geqxs783wtlj550qs8czzku4nk3pqp6m593qxgunzuqcwkmgqkmp6ty0wyvjcqdguv3pnpukedwn6cr87m89t74h3auyaeg89xkvgzpac70z3m9rn5xzu28c",
         "used": false
       }
     }

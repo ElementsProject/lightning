@@ -1467,6 +1467,18 @@ enum offer_status wallet_offer_disable(struct wallet *w,
 	NO_NULL_ARGS;
 
 /**
+ * Enable an offer in the database.
+ * @w: the wallet
+ * @offer_id: the merkle root, as used for signing (must be unique)
+ * @s: the current status (must be active).
+ *
+ * Must exist.  Returns new status. */
+enum offer_status wallet_offer_enable(struct wallet *w,
+				       const struct sha256 *offer_id,
+				       enum offer_status s)
+	NO_NULL_ARGS;
+
+/**
  * Mark an offer in the database used.
  * @w: the wallet
  * @offer_id: the merkle root, as used for signing (must be unique)
