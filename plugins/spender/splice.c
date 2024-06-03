@@ -5,12 +5,12 @@
 #include <ccan/err/err.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
+#include <common/addr.h>
 #include <common/json_param.h>
 #include <common/json_parse.h>
 #include <common/json_stream.h>
 #include <common/psbt_open.h>
 #include <common/splice_script.h>
-#include <common/type_to_string.h>
 #include <plugins/spender/splice.h>
 
 struct abort_pkg {
@@ -222,6 +222,7 @@ static struct command_result *calc_in_ppm_and_fee(struct command *cmd,
 		if (action->in_ppm) {
 			/* ppm percentage calculation:
 			 * action->in_sat = out_sats * in_ppm / 1000000 */
+			assert(amount_sat_zero(action->in_sat));
 			if (!amount_sat_mul(&action->in_sat, out_sats, action->in_ppm))
 				return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
 						    "Unable to mul sats & in_ppm");
@@ -230,7 +231,7 @@ static struct command_result *calc_in_ppm_and_fee(struct command *cmd,
 		}
 
 		/* If this item pays the fee, subtract it from either their
-		 * in_sats or out_sats. */
+		 * in_sats or add it to out_sats. */
 		if (action->pays_fee && !amount_sat_zero(action->in_sat)) {
 			if (!amount_sat_sub(&action->in_sat, action->in_sat,
 					    onchain_fee))
@@ -244,7 +245,7 @@ static struct command_result *calc_in_ppm_and_fee(struct command *cmd,
 					    onchain_fee))
 				return do_fail(cmd, splice_cmd,
 						    JSONRPC2_INVALID_PARAMS,
-						    "Unable to sub fee from"
+						    "Unable to add fee to"
 						    " item out_sat");
 		}
 	}
@@ -370,13 +371,14 @@ static struct command_result *onchain_wallet_fund(struct command *cmd,
 	struct out_req *req;
 	struct splice_index_pkg *pkg;
 	const char *command;
+	bool addinginputs = !amount_sat_zero(action->out_sat);
 
 	pkg = tal(cmd->plugin, struct splice_index_pkg);
 	pkg->splice_cmd = splice_cmd;
 	pkg->index = index;
 
 	command = "addpsbtoutput";
-	if (!amount_sat_zero(action->out_sat)) {
+	if (addinginputs) {
 		command = "addpsbtinput";
 		splice_cmd->wallet_inputs_to_signed++;
 		/* DTODO track which specific inputs are added and only sign
@@ -398,6 +400,8 @@ static struct command_result *onchain_wallet_fund(struct command *cmd,
 
 	json_add_psbt(req->js, "initialpsbt", splice_cmd->psbt);
 	json_add_bool(req->js, "add_initiator_serial_ids", true);
+	if (addinginputs)
+		json_add_bool(req->js, "mark_our_inputs", true);
 
 	state->state = SPLICE_CMD_DONE;
 
@@ -450,9 +454,10 @@ static size_t calc_weight(struct splice_cmd *splice_cmd,
 	size_t extra_inputs = 0;
 	size_t extra_outputs = 0;
 
-	/* BOLT-0d8b701614b09c6ee4172b04da2203e73deec7e2 #2:
-	 * Each node:
-	 * - MUST pay for their own added inputs and outputs.
+	/* BOLT #2:
+	 * The rest of the transaction bytes' fees are the responsibility of
+	 * the peer who contributed that input or output via `tx_add_input` or
+	 * `tx_add_output`, at the agreed upon `feerate`.
 	 */
 	for (size_t i = 0; i < psbt->num_inputs; i++)
 		weight += psbt_input_get_weight(psbt, i);
@@ -477,12 +482,18 @@ static size_t calc_weight(struct splice_cmd *splice_cmd,
 			extra_outputs++;
 		}
 	}
+
 	/* DTODO make a test to confirm weight calculation is correct */
 
-	/* BOLT-0d8b701614b09c6ee4172b04da2203e73deec7e2 #2:
-	 * The initiator:
-	 *   ...
-	 * - MUST pay for the common fields.
+	/* BOLT #2:
+	 * The *initiator* is responsible for paying the fees for the following fields,
+	 * to be referred to as the `common fields`.
+	 *
+  	 * - version
+  	 * - segwit marker + flag
+  	 * - input count
+  	 * - output count
+  	 * - locktime
 	 */
 	weight += bitcoin_tx_core_weight(psbt->num_inputs + extra_inputs,
 					 psbt->num_outputs + extra_outputs);
@@ -572,7 +583,7 @@ static struct command_result *splice_update_get_result(struct command *cmd,
 	if (old_state != SPLICE_CMD_UPDATE)
 		state->state = SPLICE_CMD_UPDATE;
 	else
-		state->state = got_sigs ? SPLICE_CMD_UPDATE_DONE : SPLICE_CMD_RECVED_SIGS;
+		state->state = got_sigs ? SPLICE_CMD_RECVED_SIGS : SPLICE_CMD_UPDATE_DONE;
 
 	return continue_splice(splice_cmd->cmd, splice_cmd);
 }
@@ -590,8 +601,7 @@ static struct command_result *splice_update(struct command *cmd,
 
 	plugin_log(cmd->plugin, LOG_DBG,
 		   "splice_update(channel_id:%s)",
-		   type_to_string(tmpctx, struct channel_id,
-		   		  action->channel_id));
+		   fmt_channel_id(tmpctx, action->channel_id));
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "splice_update",
 				    splice_update_get_result, splice_error_pkg,
@@ -633,28 +643,49 @@ static struct command_result *signpsbt(struct command *cmd,
 				       struct splice_cmd *splice_cmd)
 {
 	struct out_req *req;
+	size_t num_to_be_signed;
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "signpsbt",
 				    signpsbt_get_result, splice_error,
 				    splice_cmd);
 
-	/* TODO: add the inputs indices we should sign */
+	/* Use input markers to identify which inputs
+	 * are ours, only sign those */
+	json_array_start(req->js, "signonly");
+	num_to_be_signed = 0;
+	for (size_t i = 0; i < splice_cmd->psbt->num_inputs; i++) {
+		if (psbt_input_is_ours(&splice_cmd->psbt->inputs[i])) {
+			json_add_num(req->js, NULL, i);
+			num_to_be_signed++;
+		}
+	}
+	json_array_end(req->js);
+
 	json_add_psbt(req->js, "psbt", splice_cmd->psbt);
 
-	splice_cmd->wallet_inputs_to_signed = 0;
+	/* If we have no inputs to be signed, skip ahead */
+	if (!num_to_be_signed) {
+		splice_cmd->wallet_inputs_to_signed = 0;
+		return continue_splice(splice_cmd->cmd, splice_cmd);
+	}
 
 	return send_outreq(cmd->plugin, req);
 }
 
 static struct splice_script_result *requires_our_sigs(struct splice_cmd *splice_cmd,
-						      size_t *index)
+						      size_t *index,
+						      bool *multiple_require_sigs)
 {
 	struct splice_script_result *action = NULL;
 	*index = UINT32_MAX;
+	*multiple_require_sigs = false;
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
 		if (splice_cmd->states[i]->state == SPLICE_CMD_UPDATE_DONE) {
 			/* There can only be one node that requires our sigs */
-			assert(!action);
+			if (action) {
+				*multiple_require_sigs = true;
+				return NULL;
+			}
 			action = splice_cmd->actions[i];
 			*index = i;
 		}
@@ -775,7 +806,7 @@ static void add_to_debug_log(struct splice_cmd *scmd, const char *phase)
 
 		tal_append_fmt(log, "[%s] %s\n",
 			       cmd_state_string(state->state),
-			       splice_to_string(tmpctx, &action, 1));
+			       splice_to_string(tmpctx, action));
 	}
 }
 
@@ -819,6 +850,7 @@ static struct command_result *continue_splice(struct command *cmd,
 	size_t index;
 	size_t weight;
 	struct amount_sat onchain_fee;
+	bool multiple_require_sigs;
 
 	add_to_debug_log(splice_cmd, "continue_splice");
 
@@ -847,7 +879,7 @@ static struct command_result *continue_splice(struct command *cmd,
 
 		plugin_log(cmd->plugin, LOG_INFORM,
 			   "Splice fee is %s at %"PRIu32" perkw (%.02f sat/vB) "
-			   "on tx where our personal bytes are %.02f",
+			   "on tx where our personal vbytes are %.02f",
 			   fmt_amount_sat(tmpctx, onchain_fee),
 			   splice_cmd->feerate_per_kw,
 			   4 * splice_cmd->feerate_per_kw / 1000.0f,
@@ -891,17 +923,14 @@ static struct command_result *continue_splice(struct command *cmd,
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
 		action = splice_cmd->actions[i];
 		state = splice_cmd->states[i];
-		if (state->state == SPLICE_CMD_INIT)
+		if (state->state == SPLICE_CMD_INIT
+			|| state->state == SPLICE_CMD_UPDATE_NEEDS_CHANGES)
 			return splice_update(cmd, splice_cmd, i);
 	}
 
-	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
-		action = splice_cmd->actions[i];
-		state = splice_cmd->states[i];
-		if (state->state == SPLICE_CMD_UPDATE_NEEDS_CHANGES)
-			return splice_update(cmd, splice_cmd, i);
-	}
-
+	/* It is possible to receive a signature when we do splice_update with
+	 * no changes. Therefore wetrun must abort here to prevent any of our
+	 * peers locking up funds */
 	if (splice_cmd->wetrun)
 		return handle_wetrun(cmd, splice_cmd);
 
@@ -916,8 +945,14 @@ static struct command_result *continue_splice(struct command *cmd,
 	if (splice_cmd->wallet_inputs_to_signed)
 		return signpsbt(cmd, splice_cmd);
 
-	if (requires_our_sigs(splice_cmd, &index))
+	if (requires_our_sigs(splice_cmd, &index, &multiple_require_sigs))
 		return splice_signed(cmd, splice_cmd, index);
+
+	if (multiple_require_sigs)
+		return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
+			       "Requested splice is impossible because multiple"
+			       " peers demand they do not sign first. Someone"
+			       " must sign first.");
 
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
 		action = splice_cmd->actions[i];
@@ -950,8 +985,7 @@ static struct command_result *execute_splice(struct command *cmd,
 	struct wally_psbt_output *output;
 	u64 serial_id;
 	int pays_fee;
-	jsmntok_t tok;
-	const u8 *scriptpubkey;
+	u8 *scriptpubkey;
 
 	/* Basic validation */
 	pays_fee = 0;
@@ -963,9 +997,13 @@ static struct command_result *execute_splice(struct command *cmd,
 		if (splice_cmd->actions[i]->out_ppm)
 			return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
 					    "Should be no out_ppm on final");
-		if (splice_cmd->actions[i]->pays_fee && pays_fee++)
-			return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
-					    "Only one item may pay fee");
+		if (splice_cmd->actions[i]->pays_fee) {
+			if (pays_fee)
+				return do_fail(cmd, splice_cmd,
+					       JSONRPC2_INVALID_PARAMS,
+					       "Only one item may pay fee");
+			pays_fee++;
+		}
 		if (splice_cmd->actions[i]->channel_id)
 			dest_count++;
 		if (splice_cmd->actions[i]->bitcoin_address)
@@ -1005,6 +1043,7 @@ static struct command_result *execute_splice(struct command *cmd,
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
 		action = splice_cmd->actions[i];
 		state = splice_cmd->states[i];
+		char *bitcoin_address;
 
 		/* Load (only one) feerate if user provided one */
 		if (action->feerate_per_kw) {
@@ -1023,33 +1062,35 @@ static struct command_result *execute_splice(struct command *cmd,
 						    JSONRPC2_INVALID_PARAMS,
 						    "Cannot fund from bitcoin"
 						    " address");
-			tok.type = JSMN_STRING;
-			tok.start = 0;
-			tok.end = strlen(action->bitcoin_address);
-			tok.size = tok.end;
-			switch(json_to_address_scriptpubkey(cmd,
-							    chainparams,
-							    action->bitcoin_address,
-							    &tok,
-							    &scriptpubkey)) {
-				case ADDRESS_PARSE_UNRECOGNIZED:
-					return do_fail(cmd, splice_cmd,
-							    JSONRPC2_INVALID_PARAMS,
-							    "Bitcoin address"
-							    " unrecognized");
-				case ADDRESS_PARSE_WRONG_NETWORK:
-					return do_fail(cmd, splice_cmd,
-							    JSONRPC2_INVALID_PARAMS,
-							    "Bitcoin address not on"
-							    " correct network");
-				case ADDRESS_PARSE_SUCCESS:
-					break;
-			}
+			if (!decode_scriptpubkey_from_addr(cmd, chainparams,
+							   action->bitcoin_address,
+							   &scriptpubkey))
+				return do_fail(cmd, splice_cmd,
+					       JSONRPC2_INVALID_PARAMS,
+					       "Bitcoin address"
+					       " unrecognized");
+
+			/* Reencode scriptpubkey to addr for verification */
+			bitcoin_address = encode_scriptpubkey_to_addr(tmpctx,
+								      chainparams,
+								      scriptpubkey);
+			if (!bitcoin_address)
+				return do_fail(cmd, splice_cmd,
+					       JSONRPC2_INVALID_PARAMS,
+					       "Bitcoin scriptpubkey failed"
+					       " reencoding for address");
+
+			if (!strcmp(bitcoin_address, action->bitcoin_address))
+				return do_fail(cmd, splice_cmd,
+					       JSONRPC2_INVALID_PARAMS,
+					       "Bitcoin scriptpubkey failed"
+					       " validation for address");
+
 			output = psbt_append_output(splice_cmd->psbt,
 						    scriptpubkey,
 						    action->in_sat);
 
-			/* DTODO: should be action->in_sat but we haven't calculated those yet... */
+			/* DTODO: support dynamic address payouts (percent) */
 
 			serial_id = psbt_new_output_serial(splice_cmd->psbt,
 					       		   TX_INITIATOR);
@@ -1090,7 +1131,12 @@ static struct command_result *adjust_pending_out_ppm(struct splice_script_result
 		if (!amount_sat_mul(&actions[i]->out_sat, available_funds,
 				    actions[i]->out_ppm))
 			return command_fail(splice_cmd->cmd, JSONRPC2_INVALID_PARAMS,
-					    "Unable to mul sats & out_ppm");
+					    "Unable to mul sats(%s) &"
+					    " out_ppm(%"PRIu32") for channel id"
+					    " %s",
+					    fmt_amount_sat(tmpctx, available_funds),
+					    actions[i]->out_ppm,
+					    fmt_channel_id(tmpctx, &channel_id));
 		actions[i]->out_sat = amount_sat_div(actions[i]->out_sat,
 						     1000000);
 		actions[i]->out_ppm = 0;
@@ -1114,8 +1160,8 @@ static struct command_result *stfu_channels_get_result(struct command *cmd,
 		struct channel_id channel_id;
 		struct amount_sat sat;
 
-		memset(&channel_id, 0x77, sizeof(channel_id));
-		memset(&sat, 0x77, sizeof(sat));
+		memset(&channel_id, 0, sizeof(channel_id));
+		memset(&sat, 0, sizeof(sat));
 
 		err = json_scan(tmpctx, buf, jchannel,
 				"{channel_id?:%,available_msat?:%}",
@@ -1145,8 +1191,7 @@ static struct command_result *splice_dryrun(struct command *cmd,
 	response = jsonrpc_stream_success(cmd);
 	json_array_start(response, "dryrun");
 
-	str = splice_to_string(response, splice_cmd->actions,
-			       tal_count(splice_cmd->actions));
+	str = splicearr_to_string(response, splice_cmd->actions);
  	lines = tal_strsplit(response, take(str), "\n", STR_NO_EMPTY);
  	for (i = 0; lines[i] != NULL; i++)
  		json_add_string(response, NULL, lines[i]);
@@ -1205,25 +1250,32 @@ validate_splice_cmd(struct splice_cmd *splice_cmd)
 					    JSONRPC2_INVALID_PARAMS,
 					    "Don't support wallet funding"
 					    " being used for fee");
-		if (action->pays_fee && paying_fee_count++)
-			return command_fail(splice_cmd->cmd,
-					    JSONRPC2_INVALID_PARAMS,
-					    "Only one item may pay the fee");
+		if (action->pays_fee) {
+			if (paying_fee_count)
+				return command_fail(splice_cmd->cmd,
+						    JSONRPC2_INVALID_PARAMS,
+						    "Only one item may pay the"
+						    " fee");
+			paying_fee_count++;
+		}
 		if (action->bitcoin_address && action->in_ppm)
 			return command_fail(splice_cmd->cmd,
 					    JSONRPC2_INVALID_PARAMS,
 					    "Dynamic bitcoin address amounts"
 					    " not supported for now");
-		if (action->bitcoin_address && action->in_ppm)
+		if (action->channel_id) {
+			if (channels)
+				return command_fail(splice_cmd->cmd,
+						    JSONRPC2_INVALID_PARAMS,
+						    "Multi-channel splice not"
+						    "supported for now");
+			channels++;
+		}
+		if (action->bitcoin_address)
 			return command_fail(splice_cmd->cmd,
 					    JSONRPC2_INVALID_PARAMS,
-					    "Dynamic bitcoin address amounts"
-					    " not supported for now");
-		if (action->channel_id && channels++)
-			return command_fail(splice_cmd->cmd,
-					    JSONRPC2_INVALID_PARAMS,
-					    "Multi-channel splice not supported"
-					    " for now");
+					    "Paying out to bitcoin addresses"
+					    " not supported for now.");
 	}
 
 	return NULL;
@@ -1235,7 +1287,7 @@ static struct command_result *listpeerchannels_get_result(struct command *cmd,
 				 struct splice_cmd *splice_cmd)
 {
 	struct splice_script_error *error;
-	struct splice_script_chan *channels;
+	struct splice_script_chan **channels;
 	struct command_result *result;
 	const jsmntok_t *jchannels, *jchannel;
 	char **lines;
@@ -1244,17 +1296,18 @@ static struct command_result *listpeerchannels_get_result(struct command *cmd,
 	size_t i;
 	const char *err;
 
-	channels = tal_arr(tmpctx, struct splice_script_chan, 0);
+	channels = tal_arr(tmpctx, struct splice_script_chan*, 0);
 	jchannels = json_get_member(buf, toks, "channels");
 	json_for_each_arr(i, jchannel, jchannels) {
-		tal_arr_expand(&channels, (struct splice_script_chan){});
+		tal_arr_expand(&channels, tal(channels,
+					      struct splice_script_chan));
 
 		err = json_scan(tmpctx, buf, jchannel,
 				"{peer_id?:%,channel_id?:%}",
 				JSON_SCAN(json_to_node_id,
-					  &channels[i].node_id),
+					  &channels[i]->node_id),
 				JSON_SCAN(json_to_channel_id,
-					  &channels[i].chan_id));
+					  &channels[i]->chan_id));
 		if (err)
 			errx(1, "Bad listpeerchannels.channels %zu: %s",
 			     i, err);
@@ -1262,8 +1315,7 @@ static struct command_result *listpeerchannels_get_result(struct command *cmd,
 
 	if (splice_cmd->script) {
 		error = parse_splice_script(splice_cmd, splice_cmd->script,
-					    channels, tal_count(channels),
-					    &splice_cmd->actions);
+					    channels,  &splice_cmd->actions);
 		if (error) {
 			response = jsonrpc_stream_fail(cmd,
 						       JSONRPC2_INVALID_PARAMS,
@@ -1272,9 +1324,9 @@ static struct command_result *listpeerchannels_get_result(struct command *cmd,
 
 			json_array_start(response, "compiler_error");
 
-			str = splice_script_compiler_error(response,
-							   splice_cmd->script,
-							   error);
+			str = fmt_splice_script_compiler_error(response,
+							       splice_cmd->script,
+							       error);
 		 	lines = tal_strsplit(response, take(str), "\n",
 		 			     STR_NO_EMPTY);
 		 	for (i = 0; lines[i] != NULL; i++)
@@ -1310,36 +1362,27 @@ json_splice(struct command *cmd, const char *buf, const jsmntok_t *params)
 	const char *script;
 	const jsmntok_t *json;
 	struct wally_psbt *psbt;
-	struct amount_sat *user_provided_funds;
 	bool *dryrun, *force_feerate, *debug_log, *wetrun;
+	struct str_or_arr *str_or_arr;
 
 	if (!param(cmd, buf, params,
-		   p_opt("script", param_string, &script),
+		   p_opt("script_or_json", param_string_or_array, &str_or_arr),
 		   p_opt_def("dryrun", param_bool, &dryrun, false),
-		   p_opt("psbt", param_psbt, &psbt),
-		   p_opt_def("user_provided_sats", param_sat,
-		   	     &user_provided_funds,
-		   	     AMOUNT_SAT(0)),
 		   p_opt_def("force_feerate", param_bool, &force_feerate,
 		   	     false),
-		   p_opt("json", param_array, &json),
 		   p_opt_def("debug_log", param_bool, &debug_log, false),
-		   p_opt_def("wetrun", param_bool, &wetrun, false),
+		   p_opt_dev("dev-wetrun", param_bool, &wetrun, false),
 		   NULL))
 		return command_param_failed();
 
-	if (!script && !json)
+	if (!str_or_arr)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Must pass 'script' or 'json'");
-	if (psbt)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Passing an initial psbt is not supported"
-				    " yet");
-	if (!psbt)
-		psbt = create_psbt(cmd, 0, 0, 0);
-	if (!validate_psbt(psbt))
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "PSBT failed to validate.");
+				    "Must pass 'script_or_json'");
+
+	script = str_or_arr->str;
+	json = str_or_arr->arr;
+
+	psbt = create_psbt(cmd, 0, 0, 0);
 
 	struct splice_cmd *splice_cmd = tal(cmd, struct splice_cmd);
 
@@ -1352,12 +1395,13 @@ json_splice(struct command *cmd, const char *buf, const jsmntok_t *params)
 	splice_cmd->force_feerate = *force_feerate;
 	splice_cmd->wallet_inputs_to_signed = 0;
 	splice_cmd->fee_calculated = false;
-	splice_cmd->initial_funds = *user_provided_funds;
+	splice_cmd->initial_funds = AMOUNT_SAT(0);
 	splice_cmd->emergency_sat = AMOUNT_SAT(0);
 	splice_cmd->debug_log = *debug_log ? tal_strdup(splice_cmd, "") : NULL;
 	splice_cmd->debug_counter = 0;
-	memset(&splice_cmd->final_txid, 0x77, sizeof(splice_cmd->final_txid));
+	memset(&splice_cmd->final_txid, 0, sizeof(splice_cmd->final_txid));
 
+	/* If script validates as json, parse it as json instead */
 	if (json) {
 		if (!json_to_splice(splice_cmd, buf, json,
 				    &splice_cmd->actions))
@@ -1386,16 +1430,11 @@ const struct plugin_command splice_commands[] = {
 	{
 		"splice",
 		"channels",
-		"Execute a splice specified by {script} or {json}, optionally"
-		" beginning with {psbt}. Specify {dryrun} true to output what"
-		" the command would have done",
-		"A given {script} or {json} is used to specify a splice of any"
+		"Execute a splice specified by {script_or_json}. Specify"
+		" {dryrun} true to output what the command would have done",
+		"A given {script_or_json} is used to specify a splice of any"
 		" complexity. All actions in the splice are merged into a"
-		" single transaction. If no signatures are required from the"
-		" user this will complete the action(s), otherwise a psbt will"
-		" be returned for you to sign and pass to `splice_signed`."
-		" If you are providing funds in {psbt} include the amount you"
-		" are adding in {user_provided_funds}.",
+		" single transaction.",
 		json_splice
 	},
 };

@@ -148,6 +148,7 @@ PLUGIN_COMMON_OBJS :=				\
 	bitcoin/signature.o			\
 	bitcoin/tx.o				\
 	bitcoin/varint.o			\
+	common/addr.o				\
 	common/amount.o				\
 	common/autodata.o			\
 	common/coin_mvt.o			\
