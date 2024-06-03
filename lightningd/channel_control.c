@@ -1437,8 +1437,8 @@ static void handle_confirmed_stfu(struct lightningd *ld,
 			stfu_result = tal(cc->results, struct stfu_result);
 			stfu_result->channel_id = channel->cid;
 			stfu_result->available_funds = available_funds;
-			tal_arr_expand(&cc->results, stfu_result);
 
+			tal_arr_expand(&cc->results, stfu_result);
 			tal_arr_remove(&cc->channel_ids, i);
 
 			log_info(channel->log, "lightningd found channel_id in command and removed it");
@@ -1449,9 +1449,9 @@ static void handle_confirmed_stfu(struct lightningd *ld,
 	log_info(channel->log, "Finished processing confirmed stfu,"
 		 " channel_id count: %zu", tal_count(cc->channel_ids));
 
+	/* Once we run out of pending stfu requests we return to user */
 	if (tal_count(cc->channel_ids))
 		return;
-	tal_free(cc->channel_ids);
 
 	struct json_stream *response = json_stream_success(cc->cmd);
 
@@ -1465,6 +1465,9 @@ static void handle_confirmed_stfu(struct lightningd *ld,
 		json_object_end(response);
 	}
 	json_array_end(response);
+
+	cc->channel_ids = tal_free(cc->channel_ids);
+	cc->results = tal_free(cc->results);
 
 	was_pending(command_success(cc->cmd, response));
 }
@@ -2307,13 +2310,13 @@ static struct command_result *json_splice_signed(struct command *cmd,
 		return command_fail(cmd, SPLICE_INPUT_ERROR,
 				    "PSBT failed to validate.");
 
-	if (command_check_only(cmd))
-		return command_check_done(cmd);
-
 	/* If a single channel is specified, we do that and finish. */
-	if (channel)
+	if (channel) {
+		if (command_check_only(cmd))
+			return command_check_done(cmd);
 		return single_splice_signed(cmd, channel, psbt, *sign_first,
 					    NULL);
+	}
 
 	if (!psbt_get_channel_ids(tmpctx, psbt, &channel_ids))
 		return command_fail(cmd, SPLICE_INPUT_ERROR,
@@ -2327,6 +2330,9 @@ static struct command_result *json_splice_signed(struct command *cmd,
 		if (result)
 			return result;
 	}
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	/* Now execute the splice event for each channel */
 	/* TODO: We need to intelligently choose the order of channel to splice,
@@ -2352,9 +2358,10 @@ static struct command_result *json_stfu_channels(struct command *cmd,
 {
 	struct channel *channel, **channels;
 	struct channel_id **channel_ids;
-	const jsmntok_t *channel_ids_tok, *channel_id;
+	const jsmntok_t *channel_ids_tok, *channel_id_tok;
 	struct command_result *result;
 	struct splice_command *cc;
+	struct stfu_result **stfu_result;
 	size_t i;
 
 	if (!param_check(cmd, buffer, params,
@@ -2363,8 +2370,8 @@ static struct command_result *json_stfu_channels(struct command *cmd,
 		return command_param_failed();
 
 	channels = tal_arr(cmd, struct channel*, 0);
-	json_for_each_arr(i, channel_id, channel_ids_tok) {
-		result = param_channel_for_splice(cmd, NULL, buffer, channel_id,
+	json_for_each_arr(i, channel_id_tok, channel_ids_tok) {
+		result = param_channel_for_splice(cmd, NULL, buffer, channel_id_tok,
 						  &channel);
 		if (result)
 			return result;
@@ -2382,6 +2389,10 @@ static struct command_result *json_stfu_channels(struct command *cmd,
 					     channel_ids_tok,
 					     "Must specify a channel");
 
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	stfu_result = tal_arr(cmd->ld, struct stfu_result*, 0);
 	channel_ids = tal_arr(cmd->ld, struct channel_id*, tal_count(channels));
 	for (i = 0; i < tal_count(channels); i++) {
 		channel = channels[i];
@@ -2397,7 +2408,7 @@ static struct command_result *json_stfu_channels(struct command *cmd,
 		cc->cmd = cmd;
 		cc->channel = channel;
 		cc->channel_ids = channel_ids;
-		cc->results = tal_arr(cc, struct stfu_result*, 0);
+		cc->results = stfu_result;
 
 		subd_send_msg(channel->owner, take(towire_channeld_stfu(NULL)));
 	}
@@ -2412,7 +2423,7 @@ static struct command_result *json_abort_channels(struct command *cmd,
 {
 	struct channel **channels;
 	struct channel *channel;
-	const jsmntok_t *channel_ids_tok, *channel_id;
+	const jsmntok_t *channel_ids_tok, *channel_id_tok;
 	struct command_result *result;
 	size_t i;
 
@@ -2422,8 +2433,8 @@ static struct command_result *json_abort_channels(struct command *cmd,
 		return command_param_failed();
 
 	channels = tal_arr(cmd, struct channel*, 0);
-	json_for_each_arr(i, channel_id, channel_ids_tok) {
-		result = param_channel_for_splice(cmd, NULL, buffer, channel_id,
+	json_for_each_arr(i, channel_id_tok, channel_ids_tok) {
+		result = param_channel_for_splice(cmd, NULL, buffer, channel_id_tok,
 						  &channel);
 		if (result)
 			return result;
@@ -2434,6 +2445,9 @@ static struct command_result *json_abort_channels(struct command *cmd,
 		return command_fail_badparam(cmd, "channel_ids", buffer,
 					     channel_ids_tok,
 					     "Must specify a channel");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	for (i = 0; i < tal_count(channels); i++)
 		subd_send_msg(channels[i]->owner,
