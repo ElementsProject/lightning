@@ -9,6 +9,8 @@
 #include <common/pseudorand.h>
 #include <common/utils.h>
 
+#define MAX_CHANNEL_IDS 4096
+
 bool psbt_get_serial_id(const struct wally_map *map, u64 *serial_id)
 {
 	size_t value_len;
@@ -208,6 +210,11 @@ bool psbt_get_channel_ids(const tal_t *ctx,
 	if (!res)
 		return false;
 
+	/* Max channel id limit */
+	if (value_len > MAX_CHANNEL_IDS * 32)
+		return false;
+
+	/* Must be a multiple of 32 */
 	if (value_len % 32)
 		return false;
 
