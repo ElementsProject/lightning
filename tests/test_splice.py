@@ -2,7 +2,7 @@ from fixtures import *  # noqa: F401,F403
 import pytest
 import unittest
 from utils import (
-    TEST_NETWORK, only_one
+    TEST_NETWORK, only_one, wait_for
 )
 
 
@@ -11,6 +11,7 @@ from utils import (
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_script_splice_out(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+    # Splice out 100k from first channel, explicitly putting result less fees into onchain wallet
     l1.rpc.splice("*:? -> 100000; 100%-fee -> wallet", force_feerate=True, debug_log=True)
     p1 = only_one(l1.rpc.listpeerchannels(peer_id=l2.info['id'])['channels'])
     p2 = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])
@@ -32,12 +33,17 @@ def test_script_splice_out(node_factory, bitcoind):
     assert 'inflight' not in p1
     assert 'inflight' not in p2
 
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
+    wait_for(lambda: len(l1.rpc.listfunds()['channels']) == 1)
+
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_script_splice_in(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+    # Splice in 100k sats into first channel, explicitly taking out 200k sats from wallet
+    # and letting change go automatically back to wallet (100k less onchain fees)
     l1.rpc.splice("wallet -> 200000; 100000 -> *:?", force_feerate=True, debug_log=True)
     p1 = only_one(l1.rpc.listpeerchannels(peer_id=l2.info['id'])['channels'])
     p2 = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])
@@ -58,3 +64,6 @@ def test_script_splice_in(node_factory, bitcoind):
     assert p2['total_msat'] == 1100000000
     assert 'inflight' not in p1
     assert 'inflight' not in p2
+
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+    wait_for(lambda: len(l1.rpc.listfunds()['channels']) == 1)
