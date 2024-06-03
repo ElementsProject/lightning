@@ -1,28 +1,497 @@
-lightning-splice -- Command to execute a splice script
-=====================================================================
+lightning-splice -- Command to initiate a channel to a peer
+===========================================================
 
 SYNOPSIS
 --------
+
 **(WARNING: experimental-splicing only)**
 
-**splice** [*script*] [*dryrun*] [*psbt*] [*user\_provided\_sats*] [*force\_feerate*] [*json*] [*debug\_log*] [*wetrun*]
+**splice** *script\_or\_json* [*dryrun*] [*force\_feerate*] [*debug\_log*] [*wetrun*] 
 
 DESCRIPTION
 -----------
 
-`splice` is the command to move funds into or out of a channel. Multiple actions
-can be combined together resulting in a single onchain transaction. Funds may be
-moved out of a channel and into another in a single batch enabling cross-channel
-movement.
+Command *added* in v23.08.
+
+`splice` is the command to move funds into or out of a channel. Multiple actions can be combined together resulting in a single onchain transaction. Funds may be moved out of a channel and into another in a single batch enabling cross-channel movement.
+
+- **script\_or\_json** (string): T
+ h
+ e
+  
+ s
+ p
+ l
+ i
+ c
+ e
+  
+ s
+ c
+ r
+ i
+ p
+ t
+  
+ t
+ o
+  
+ e
+ x
+ e
+ c
+ u
+ t
+ e
+  
+ o
+ r
+  
+ j
+ s
+ o
+ n
+  
+ e
+ q
+ u
+ i
+ v
+ i
+ l
+ e
+ n
+ t
+- **dryrun** (boolean, optional): D
+ o
+ n
+ '
+ t
+  
+ e
+ x
+ e
+ c
+ u
+ t
+ e
+  
+ a
+ n
+ y
+  
+ a
+ c
+ t
+ i
+ o
+ n
+ s
+  
+ a
+ n
+ d
+  
+ o
+ u
+ t
+ p
+ u
+ t
+  
+ a
+  
+ t
+ r
+ a
+ n
+ s
+ c
+ r
+ i
+ p
+ t
+  
+ o
+ f
+  
+ w
+ h
+ a
+ t
+  
+ w
+ o
+ u
+ l
+ d
+  
+ h
+ a
+ v
+ e
+  
+ b
+ e
+ e
+ n
+  
+ d
+ o
+ n
+ e
+- **force\_feerate** (boolean, optional): B
+ y
+  
+ d
+ e
+ f
+ a
+ u
+ l
+ t
+  
+ s
+ p
+ l
+ i
+ c
+ e
+ s
+  
+ w
+ i
+ l
+ l
+  
+ f
+ a
+ i
+ l
+  
+ i
+ f
+  
+ t
+ h
+ e
+  
+ f
+ e
+ e
+  
+ p
+ r
+ o
+ v
+ i
+ d
+ e
+ d
+  
+ l
+ o
+ o
+ k
+ s
+  
+ t
+ o
+ o
+  
+ h
+ i
+ g
+ h
+ .
+  
+ T
+ h
+ i
+ s
+  
+ i
+ s
+  
+ t
+ o
+  
+ p
+ r
+ o
+ t
+ e
+ c
+ t
+  
+ a
+ g
+ a
+ i
+ n
+ s
+ t
+  
+ a
+ c
+ c
+ i
+ d
+ e
+ n
+ t
+ a
+ l
+ l
+ y
+  
+ s
+ e
+ t
+ t
+ i
+ n
+ g
+  
+ y
+ o
+ u
+ r
+  
+ f
+ e
+ e
+  
+ h
+ i
+ g
+ h
+ e
+ r
+  
+ t
+ h
+ a
+ n
+  
+ i
+ n
+ t
+ e
+ n
+ d
+ e
+ d
+ .
+  
+ S
+ e
+ t
+  
+ 
+ f
+ o
+ r
+ c
+ e
+ \_
+ f
+ e
+ e
+ r
+ a
+ t
+ e
+ 
+  
+ t
+ o
+  
+ t
+ r
+ u
+ e
+  
+ t
+ o
+  
+ s
+ k
+ i
+ p
+  
+ t
+ h
+ i
+ s
+  
+ s
+ a
+ f
+ t
+ e
+ y
+  
+ c
+ h
+ e
+ c
+ k
+- **debug\_log** (boolean, optional): A
+ d
+ d
+ s
+  
+ a
+  
+ v
+ e
+ r
+ b
+ o
+ s
+ e
+  
+ l
+ o
+ g
+  
+ o
+ f
+  
+ e
+ a
+ c
+ h
+  
+ s
+ p
+ l
+ i
+ c
+ e
+  
+ c
+ a
+ l
+ c
+ u
+ l
+ a
+ t
+ i
+ o
+ n
+  
+ s
+ t
+ e
+ p
+  
+ t
+ o
+  
+ t
+ h
+ e
+  
+ r
+ e
+ s
+ u
+ l
+ t
+- **wetrun** (boolean, optional): E
+ x
+ e
+ c
+ u
+ t
+ e
+ s
+  
+ t
+ h
+ e
+  
+ s
+ p
+ l
+ i
+ c
+ e
+  
+ u
+ p
+  
+ u
+ n
+ t
+ i
+ l
+  
+ t
+ h
+ e
+  
+ p
+ o
+ i
+ n
+ t
+  
+ s
+ i
+ g
+ n
+ a
+ t
+ u
+ r
+ e
+ s
+  
+ w
+ o
+ u
+ l
+ d
+  
+ b
+ e
+  
+ s
+ e
+ n
+ t
+  
+ a
+ n
+ d
+  
+ t
+ h
+ e
+ n
+  
+ a
+ b
+ o
+ r
+ t
+ s
+
+USAGE
+-----
 
 The primary method is to make a `script` containing one or more splice actions
 that will be merged into a single transaction. If possible the entire operation
-will be completed and published on chain.
+will be completed and broadcast to the mempool.
 
 However if you specified your own inputs using `psbt`, then the command will
 return a psbt that you must sign and then pass to `splice_signed`.
 
-It is required to pass one of `script` or `json`.
+It is required to pass `script_or_json`.
 
 It is recommended you first do a `dryrun` to confirm your script does what you
 expect it to do.
@@ -48,8 +517,11 @@ Set to true to skip this saftey check
 
 The primary purpose of splice script is to execute all types of splices using
 a single command. You can perform all these actions manually using the lower
-level api (see `splice_init`) however this interface is much simpler to use and
-it provides some security against signing maliciously inserted inputs.
+level api (see `splice_init`) however this splice command interface is much simpler to use
+and it provides some security against signing maliciously inserted inputs.
+
+SCRIPT
+-----
 
 A splice script is a series of 'segments' that are separated by newlines or 
 semicolons. Each segment represents one splice action which is typically adding
@@ -222,7 +694,7 @@ among three achannels.
 
 Sats can be specified with multiple suffixes including sat, msat, btc, M, or K.
 The M suffix is shorthand for a million satoshis and the K suffix is shorthand
-for a thousand satoshis. These can combined with a decimal point like so:
+for a thousand satoshis. These can be combined with a decimal point like so:
 ```shell
 07bfddea -> 1.23M
 09ad6278 -> 900K
@@ -243,7 +715,7 @@ number after the colon to get a different index like so:
 ```
 
 This example takes 10,000 sats out of the first three channels with peer
-034645dc and puts the total into the onchain wallet.
+034645dc and puts the total minus fees into the onchain wallet.
 
 In addition to index numbers, the symbol after the colon can be a question mark
 "?" or an asterisk "\*" which mean match the first unused channel or all the
@@ -280,10 +752,10 @@ wallet -> 10M+fee
 ```
 
 This example splices 10,000,000 sats into channel and requests your peer also
-add 10,000,000 sats to the channel. If they fee they demand is over 1% the
-operation will be aborted. Whatever lease fee they do charge will come out of
-the 10,000,000 sats going into the channel balance. The onchain fee will be paid
-by taking extra funds out of the onchain wallet.
+add 10,000,000 sats to the channel. If they fee they demand is over 1% or the lease
+amount is too small the operation will be aborted. Whatever lease fee they do
+charge will come out of the 10,000,000 sats going into the channel balance. The
+onchain fee will be paid by taking extra funds out of the onchain wallet.
 
 Lease requests do not need to combined with splicing in funds but you must pay
 the onchain fee from somewhere. One simple location to take the fees from is
@@ -323,7 +795,7 @@ lightning-cli splice "8338aef0 -> 1btc; 100% -> 07bfddea"
 
 Splice in 100 thousand sats to the first channel with peer id 034645dc
 ```shell
-lightning-cli splice "wallet -> 0.1M; 1008 -> 034645dc:?"
+lightning-cli splice "wallet -> 0.1M; 100% -> 034645dc:?"
 ```
 
 Splice in 100 thousand sats split across *all* channels with peer id 034645dc
@@ -340,32 +812,276 @@ lightning-cli splice "8338aef0 -> 100%; * -> 034645dc:*; * -> 07bfddea"
 RETURN VALUE
 ------------
 
-[comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **dryrun** (array of strings, optional): The transcript of what the script would have done:
-  - One action line of the splice script result
-- **psbt** (string, optional): The final psbt
-- **tx** (string, optional): The final transaction in hex
-- **txid** (string, optional): The txid of the final transaction
-- **log** (array of strings, optional): A verbose log of each step of splice calcuations:
-  - A line of detail about splice calcuations
-
-[comment]: # (GENERATE-FROM-SCHEMA-END)
-
-SEE ALSO
---------
-
-lightning-splice\_signed(7)
+- **dryrun** (array of strings, optional): T
+ h
+ e
+  
+ t
+ r
+ a
+ n
+ s
+ c
+ r
+ i
+ p
+ t
+  
+ o
+ f
+  
+ w
+ h
+ a
+ t
+  
+ t
+ h
+ e
+  
+ s
+ c
+ r
+ i
+ p
+ t
+  
+ w
+ o
+ u
+ l
+ d
+  
+ h
+ a
+ v
+ e
+  
+ d
+ o
+ n
+ e:
+  - (string, optional): O
+ n
+ e
+  
+ a
+ c
+ t
+ i
+ o
+ n
+  
+ l
+ i
+ n
+ e
+  
+ o
+ f
+  
+ t
+ h
+ e
+  
+ s
+ p
+ l
+ i
+ c
+ e
+  
+ s
+ c
+ r
+ i
+ p
+ t
+  
+ r
+ e
+ s
+ u
+ l
+ t
+- **psbt** (string, optional): T
+ h
+ e
+  
+ f
+ i
+ n
+ a
+ l
+  
+ p
+ s
+ b
+ t
+- **tx** (string, optional): T
+ h
+ e
+  
+ f
+ i
+ n
+ a
+ l
+  
+ t
+ r
+ a
+ n
+ s
+ a
+ c
+ t
+ i
+ o
+ n
+  
+ i
+ n
+  
+ h
+ e
+ x
+- **txid** (string, optional): T
+ h
+ e
+  
+ t
+ x
+ i
+ d
+  
+ o
+ f
+  
+ t
+ h
+ e
+  
+ f
+ i
+ n
+ a
+ l
+  
+ t
+ r
+ a
+ n
+ s
+ a
+ c
+ t
+ i
+ o
+ n
+- **log** (array of strings, optional): A
+  
+ v
+ e
+ r
+ b
+ o
+ s
+ e
+  
+ l
+ o
+ g
+  
+ o
+ f
+  
+ e
+ a
+ c
+ h
+  
+ s
+ t
+ e
+ p
+  
+ o
+ f
+  
+ s
+ p
+ l
+ i
+ c
+ e
+  
+ c
+ a
+ l
+ c
+ u
+ a
+ t
+ i
+ o
+ n
+ s:
+  - (string, optional): A
+  
+ l
+ i
+ n
+ e
+  
+ o
+ f
+  
+ d
+ e
+ t
+ a
+ i
+ l
+  
+ a
+ b
+ o
+ u
+ t
+  
+ s
+ p
+ l
+ i
+ c
+ e
+  
+ c
+ a
+ l
+ c
+ u
+ a
+ t
+ i
+ o
+ n
+ s
 
 AUTHOR
 ------
 
-@dusty\_daemon
+Dusty <<@dusty\_daemon>> is mainly responsible.
+
+SEE ALSO
+--------
+
+lightning-splice\_signed(7), lightning-splice\_update(7)
 
 RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-[comment]: # ( SHA256STAMP:42193d9e41e96d2b8feb9db610feb1c6fecd7476bd6d0ddd373e23a790c16353)
