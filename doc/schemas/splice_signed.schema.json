@@ -10,16 +10,16 @@
   "properties": {
     "tx": {
       "type": "hex",
-      "description": "The hex representation of the final transaction that is published"
+      "description": "The hex representation of the resulting transaction after splice negotiation(s)"
     },
     "txid": {
       "type": "txid",
-      "description": "The txid is of the final transaction"
+      "description": "The txid is of the resulting transaction after splice negotiation(s)"
     },
     "psbt": {
       "added": "v24.02",
       "type": "string",
-      "description": "The psbt of the final transaction"
+      "description": "The psbt of the resulting transaction after splice negotiation(s)"
     }
   }
 }

@@ -18,7 +18,7 @@ Command *added* in v23.08.
 The *psbt* must have all signatures attached to all inputs that you have added to it or it will fail.
 
 - **channel\_id** (hash): The channel id of the channel to be spliced.
-- **psbt** (string): The final version of the psbt to complete the splice with.
+- **psbt** (string): The psbt of the resulting transaction after splice negotiation(s)
 - **sign\_first** (boolean, optional): A flag that makes our node offer the final splice signature first (defaults to false). When false, the node will calculate who should sign first based off who is adding inputting the least sats to the splice as per spec.
 
 EXAMPLE USAGE
@@ -64,9 +64,20 @@ echo $RESULT
 lightning-cli splice_signed $CHANNEL_ID $PSBT
 ```
 
-EXAMPLE JSON REQUEST
---------------------
+RETURN VALUE
+------------
 
+On success, an object is returned, containing:
+
+- **tx** (hex): The hex representation of the final transaction that is published.
+- **txid** (txid): The txid is of the final transaction.
+
+JSON EXAMPLE
+------------
+
+**Example 1**: 
+
+Request:
 ```json
 {
   "id": "example:splice_signed#1",
@@ -77,18 +88,7 @@ EXAMPLE JSON REQUEST
   }
 }
 ```
-
-RETURN VALUE
-------------
-
-On success, an object is returned, containing:
-
-- **tx** (hex): The hex representation of the final transaction that is published.
-- **txid** (txid): The txid is of the final transaction.
-
-EXAMPLE JSON RESPONSE
----------------------
-
+Response:
 ```json
 {
   "tx": "020000000001025677721c35a424a23d6dcc7c909036e505ae68650e09d59733b4b7e73003a4dc0000000000000000005677721c35a424a23d6dcc7c909036e505ae68650e09d59733b4b7e73003a4dc0100000000fdffffff024e7c0d00000000002251207836355fdc8a82dc4cb00a772c5554151d06384a4dd65e8d3f68ac08566b84bee0c81000000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd0400473044022053269f3951a1fc942174ac0dde8462405a86c89b31b444890664ee9735872cff02204cd822c4456c15e90ad342b23e9bb252d383d4e17a8a04818c4919e4fd61efd80147304402205ac0787c79e74ebfa0eaf18964625c53eb672cc4bed2c65303bd9cc192dad6f902206c6c0cded47201dae0020f50a8998555e654d3420c64e801fc668238e3c1cdfa0147522102324266de8403b3ab157a09f1f784d587af61831c998c151bcc21bb74c2b2314b2102e3bd38009866c9da8ec4aa99cc4ea9c6c0dd46df15c61ef0ce1f271291714e5752ae0140088f537161beeae0bd125045377aa1343eda9aca2bfddb41849e6e8c44004fff34e78f1abebb7b77b20988e01a08dcf360b49721374bdb18f1ea685b062f614e6c000000",
