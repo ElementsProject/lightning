@@ -768,7 +768,7 @@ static struct command_result *json_addpsbtinput(struct command *cmd,
 	u32 current_height, *locktime, *reserve, weight, *min_feerate;
 	struct json_stream *response;
 	struct wally_psbt *psbt;
-	bool *add_initiator_serial_ids;
+	bool *add_initiator_serial_ids, *mark_our_inputs;
 	size_t inputs_count, psbt_locktime;
 	u64 serial_id;
 
@@ -779,6 +779,8 @@ static struct command_result *json_addpsbtinput(struct command *cmd,
 			 p_opt("min_feerate", param_feerate, &min_feerate),
 			 p_opt_def("add_initiator_serial_ids", param_bool,
 			 	   &add_initiator_serial_ids, false),
+			 p_opt_def("mark_our_inputs", param_bool,
+			 	   &mark_our_inputs, false),
 			 p_opt_def("reserve", param_number, &reserve,
 				   RESERVATION_DEFAULT),
 			 NULL))
@@ -812,7 +814,6 @@ static struct command_result *json_addpsbtinput(struct command *cmd,
 
 	all = amount_sat_eq(*req_amount, AMOUNT_SAT(-1ULL));
 
-	input = AMOUNT_SAT(0);
 	current_height = get_block_height(cmd->ld->topology);
 
 	/* We keep adding until we meet their output requirements. */
@@ -841,14 +842,14 @@ static struct command_result *json_addpsbtinput(struct command *cmd,
 			/* Uneconomic to add this utxo, skip it */
 			if (!all && amount_sat_greater_eq(fee, utxo->amount))
 				continue;
-			if (!all && utxo_is_csv_locked(utxo, current_height))
+			if (utxo_is_csv_locked(utxo, current_height))
 				continue;
 
 			tal_arr_expand(&utxos, utxo);
 
 			/* It supplies more input. */
 			if (!amount_sat_add(&input, input, utxo->amount))
-				return command_fail(cmd, LIGHTNINGD,
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						    "impossible UTXO value");
 
 			/* But also adds weight */
@@ -872,19 +873,15 @@ static struct command_result *json_addpsbtinput(struct command *cmd,
 				    "Could not afford %s using all %zu"
 				    " available UTXOs: %s short",
 				    all ? "all"
-				    : type_to_string(tmpctx,
-						     struct amount_sat,
-						     req_amount),
+				    : fmt_amount_sat(tmpctx, *req_amount),
 				    tal_count(utxos),
 				    all ? "all"
-				    : type_to_string(tmpctx,
-						     struct amount_sat,
-						     &diff));
+				    : fmt_amount_sat(tmpctx, diff));
 	}
 
 	tal_free(excluded);
 
-	/* Fine if rest of wallet has funds. */
+	/* If rest of wallet has enough funds, than no emergency sats required. */
 	if (wallet_has_funds(cmd->ld->wallet,
 			     cast_const2(const struct utxo **, utxos),
 			     get_block_height(cmd->ld->topology),
@@ -908,6 +905,10 @@ static struct command_result *json_addpsbtinput(struct command *cmd,
 						 serial_id);
 		}
 	}
+
+	if (*mark_our_inputs)
+		for (size_t i = inputs_count; i < psbt->num_inputs; i++)
+			psbt_input_mark_ours(psbt, &psbt->inputs[i]);
 
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
