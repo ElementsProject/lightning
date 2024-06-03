@@ -9,6 +9,7 @@
 #include <ccan/json_out/json_out.h>
 /* Include the C files directly. */
 #include <ccan/json_out/json_out.c>
+#include <ccan/str/hex/hex.h>
 
 struct command_result *command_fail(struct command *cmd, enum jsonrpc_errcode code, const char *fmt, ...)
 { fprintf(stderr, "command_fail called!\n"); abort(); }
@@ -19,69 +20,98 @@ struct json_filter **command_filter_ptr(struct command *cmd)
 const char *mvt_tag_str(enum mvt_tag tag UNNEEDED)
 { fprintf(stderr, "mvt_tag_str called!\n"); abort(); }
 
+static void set_node_id(struct splice_script_chan *chan, const char *hexstr)
+{
+	int result = hex_decode(hexstr, strlen(hexstr), &chan->node_id,
+				sizeof(chan->node_id));
+	assert(result);
+}
+
+static void set_chan_id(struct splice_script_chan *chan, const char *hexstr)
+{
+	int result = hex_decode(hexstr, strlen(hexstr), &chan->chan_id,
+				sizeof(chan->chan_id));
+	assert(result);
+}
+
+
 int main(int argc, char *argv[])
 {
-	size_t len;
+	size_t i, len;
 	const char *str;
 	struct splice_script_error *error;
 	struct splice_script_result **result, **final;
 	jsmntok_t *toks;
+	struct splice_script_chan **channels;
+	const char *script;
+	struct splice_script_result *expect;
 
 	common_setup(argv[0]);
 
-	struct splice_script_chan channels[] =
-	{
-		{ /* A */
-			.node_id = { .k = { 0x03, 0x99, 0x06, 0x9f, 0x16, 0x93, 0xfd, 0x89, 0xa4, 0x53, 0xf0, 0xca, 0xf0, 0x3e, 0xe3, 0x6b, 0x6f, 0x6c, 0x8a, 0xba, 0xa7, 0xef, 0x77, 0x8d, 0x3e, 0x2b, 0xcc, 0x7c, 0x2b, 0x44, 0x12, 0x01, 0x00 } },
-			.chan_id = { .id = { 0xf5, 0x69, 0x9c, 0x3d, 0x53, 0x02, 0xe4, 0x48, 0x6c, 0x83, 0xef, 0x9d, 0x0f, 0x2d, 0x12, 0xa9, 0x69, 0xab, 0x41, 0xcc, 0xc9, 0x30, 0x1b, 0xd0, 0x42, 0xc5, 0x07, 0x60, 0xa8, 0x7b, 0x27, 0x00 } },
-		},
-		{ /* B */
-			.node_id = { .k = { 0x03, 0x93, 0x06, 0x9f, 0x16, 0x93, 0xfd, 0x89, 0xa4, 0x53, 0xf0, 0xca, 0xf0, 0x3e, 0xe3, 0x6b, 0x6f, 0x6c, 0x8a, 0xba, 0xa7, 0xef, 0x77, 0x8d, 0x3e, 0x2b, 0xcc, 0x7c, 0x2b, 0x44, 0x12, 0x01, 0x01 } },
-			.chan_id = { .id = { 0xf5, 0x69, 0x9c, 0x3d, 0x53, 0x02, 0xe4, 0x48, 0x6c, 0x83, 0xef, 0x9d, 0x0f, 0x2d, 0x12, 0xa9, 0x69, 0xab, 0x41, 0xcc, 0xc9, 0x30, 0x1b, 0xd0, 0x42, 0xc5, 0x07, 0x60, 0xa8, 0x7b, 0x27, 0x01 } },
-		},
-		{ /* C */
-			.node_id = { .k = { 0x03, 0x93, 0x06, 0x9f, 0x16, 0x93, 0xfd, 0x89, 0xa4, 0x53, 0xf0, 0xca, 0xf0, 0x3e, 0xe3, 0x6b, 0x6f, 0x6c, 0x8a, 0xba, 0xa7, 0xef, 0x77, 0x8d, 0x3e, 0x2b, 0xcc, 0x7c, 0x2b, 0x44, 0x12, 0x01, 0x01 } },
-			.chan_id = { .id = { 0xf5, 0x69, 0x9c, 0x3d, 0x53, 0x02, 0xe4, 0x48, 0x6c, 0x83, 0xef, 0x9d, 0x0f, 0x2d, 0x12, 0xa9, 0x69, 0xab, 0x41, 0xcc, 0xc9, 0x30, 0x1b, 0xd0, 0x42, 0xc5, 0x07, 0x60, 0xa8, 0x7b, 0x27, 0x02 } },
-		},
-		{ /* D */
-			.node_id = { .k = { 0x03, 0x93, 0x06, 0x9f, 0x16, 0x93, 0xfd, 0x89, 0xa4, 0x53, 0xf0, 0xca, 0xf0, 0x3e, 0xe3, 0x6b, 0x6f, 0x6c, 0x8a, 0xba, 0xa7, 0xef, 0x77, 0x8d, 0x3e, 0x2b, 0xcc, 0x7c, 0x2b, 0x44, 0x12, 0x01, 0x01 } },
-			.chan_id = { .id = { 0xf5, 0x69, 0x9c, 0x3d, 0x53, 0x02, 0xe4, 0x48, 0x6c, 0x83, 0xef, 0x9d, 0x0f, 0x2d, 0x12, 0xa9, 0x69, 0xab, 0x41, 0xcc, 0xc9, 0x30, 0x1b, 0xd0, 0x42, 0xc5, 0x07, 0x60, 0xa8, 0x7b, 0x27, 0x03 } },
-		},
-		{ /* E */
-			.node_id = { .k = { 0x03, 0x93, 0x06, 0x9f, 0x16, 0x93, 0xfd, 0x89, 0xa4, 0x53, 0xf0, 0xca, 0xf0, 0x3e, 0xe3, 0x6b, 0x6f, 0x6c, 0x8a, 0xba, 0xa7, 0xef, 0x77, 0x8d, 0x3e, 0x2b, 0xcc, 0x7c, 0x2b, 0x44, 0x12, 0x01, 0x01 } },
-			.chan_id = { .id = { 0xf5, 0x69, 0x9c, 0x3d, 0x53, 0x02, 0xe4, 0x48, 0x6c, 0x83, 0xef, 0x9d, 0x0f, 0x2d, 0x12, 0xa9, 0x69, 0xab, 0x41, 0xcc, 0xc9, 0x30, 0x1b, 0xd0, 0x42, 0xc5, 0x07, 0x60, 0xa8, 0x7b, 0x27, 0x04 } },
-		},
-		{ /* F */
-			.node_id = { .k = { 0x03, 0x93, 0x06, 0x9f, 0x16, 0x93, 0xfd, 0x89, 0xa4, 0x53, 0xf0, 0xca, 0xf0, 0x3e, 0xe3, 0x6b, 0x6f, 0x6c, 0x8a, 0xba, 0xa7, 0xef, 0x77, 0x8d, 0x3e, 0x2b, 0xcc, 0x7c, 0x2b, 0x44, 0x12, 0x01, 0x01 } },
-			.chan_id = { .id = { 0xf5, 0x69, 0x9c, 0x3d, 0x53, 0x02, 0xe4, 0x48, 0x6c, 0x83, 0xef, 0x9d, 0x0f, 0x2d, 0x12, 0xa9, 0x69, 0xab, 0x41, 0xcc, 0xc9, 0x30, 0x1b, 0xd0, 0x42, 0xc5, 0x07, 0x60, 0xa8, 0x7b, 0x27, 0x05 } },
-		},
-		{ /* G */
-			.node_id = { .k = { 0x03, 0x94, 0x06, 0x9f, 0x16, 0x93, 0xfd, 0x89, 0xa4, 0x53, 0xf0, 0xca, 0xf0, 0x3e, 0xe3, 0x6b, 0x6f, 0x6c, 0x8a, 0xba, 0xa7, 0xef, 0x77, 0x8d, 0x3e, 0x2b, 0xcc, 0x7c, 0x2b, 0x44, 0x12, 0x01, 0x01 } },
-			.chan_id = { .id = { 0xf5, 0x69, 0x9c, 0x3d, 0x53, 0x02, 0xe4, 0x48, 0x6c, 0x83, 0xef, 0x9d, 0x0f, 0x2d, 0x12, 0xa9, 0x69, 0xab, 0x41, 0xcc, 0xc9, 0x30, 0x1b, 0xd0, 0x42, 0xc5, 0x07, 0x60, 0xa8, 0x7b, 0x27, 0x06 } },
-		},
-		{ /* H */
-			.node_id = { .k = { 0x03, 0x94, 0x06, 0x9f, 0x16, 0x93, 0xfd, 0x89, 0xa4, 0x53, 0xf0, 0xca, 0xf0, 0x3e, 0xe3, 0x6b, 0x6f, 0x6c, 0x8a, 0xba, 0xa7, 0xef, 0x77, 0x8d, 0x3e, 0x2b, 0xcc, 0x7c, 0x2b, 0x44, 0x12, 0x01, 0x01 } },
-			.chan_id = { .id = { 0xf4, 0x69, 0x9c, 0x3d, 0x53, 0x02, 0xe4, 0x48, 0x6c, 0x83, 0xef, 0x9d, 0x0f, 0x2d, 0x12, 0xa9, 0x69, 0xab, 0x41, 0xcc, 0xc9, 0x30, 0x1b, 0xd0, 0x42, 0xc5, 0x07, 0x60, 0xa8, 0x7b, 0x27, 0x00 } },
-		},
-		{ /* I */
-			.node_id = { .k = { 0x03, 0x94, 0x06, 0x9f, 0x16, 0x93, 0xfd, 0x89, 0xa4, 0x53, 0xf0, 0xca, 0xf0, 0x3e, 0xe3, 0x6b, 0x6f, 0x6c, 0x8a, 0xba, 0xa7, 0xef, 0x77, 0x8d, 0x3e, 0x2b, 0xcc, 0x7c, 0x2b, 0x44, 0x12, 0x01, 0x02 } },
-			.chan_id = { .id = { 0xff, 0xff, 0xff, 0xff, 0x53, 0x02, 0xe4, 0x48, 0x6c, 0x83, 0xef, 0x9d, 0x0f, 0x2d, 0x12, 0xa9, 0x69, 0xab, 0x41, 0xcc, 0xc9, 0x30, 0x1b, 0xd0, 0x42, 0xc5, 0x07, 0x60, 0xa8, 0x7b, 0x27, 0x00 } },
-		},
-		{ /* J */
-			.node_id = { .k = { 0x03, 0x94, 0x06, 0x9f, 0x16, 0x93, 0xfd, 0x89, 0xa4, 0x53, 0xf0, 0xca, 0xf0, 0x3e, 0xe3, 0x6b, 0x6f, 0x6c, 0x8a, 0xba, 0xa7, 0xef, 0x77, 0x8d, 0x3e, 0x2b, 0xcc, 0x7c, 0x2b, 0x44, 0x12, 0x01, 0x03 } },
-			.chan_id = { .id = { 0xee, 0xee, 0xee, 0xee, 0x53, 0x02, 0xe4, 0x48, 0x6c, 0x83, 0xef, 0x9d, 0x0f, 0x2d, 0x12, 0xa9, 0x69, 0xab, 0x41, 0xcc, 0xc9, 0x30, 0x1b, 0xd0, 0x42, 0xc5, 0x07, 0x60, 0xa8, 0x7b, 0x27, 0x00 } },
-		},
-		{ /* K */
-			.node_id = { .k = { 0x03, 0x94, 0x06, 0x9f, 0x16, 0x93, 0xfd, 0x89, 0xa4, 0x53, 0xf0, 0xca, 0xf0, 0x3e, 0xe3, 0x6b, 0x6f, 0x6c, 0x8a, 0xba, 0xa7, 0xef, 0x77, 0x8d, 0x3e, 0x2b, 0xcc, 0x7c, 0x2b, 0x44, 0x12, 0x01, 0x03 } },
-			.chan_id = { .id = { 0xee, 0xee, 0xee, 0xee, 0x53, 0x02, 0xe4, 0x48, 0x6c, 0x83, 0xef, 0x9d, 0x0f, 0x2d, 0x12, 0xa9, 0x69, 0xab, 0x41, 0xcc, 0xc9, 0x30, 0x1b, 0xd0, 0x42, 0xc5, 0x07, 0x60, 0xa8, 0x7b, 0x27, 0x01 } },
-		},
-		{ /* L */
-			.node_id = { .k = { 0x03, 0x94, 0x06, 0x9f, 0x16, 0x93, 0xfd, 0x89, 0xa4, 0x53, 0xf0, 0xca, 0xf0, 0x3e, 0xe3, 0x6b, 0x6f, 0x6c, 0x8a, 0xba, 0xa7, 0xef, 0x77, 0x8d, 0x3e, 0x2b, 0xcc, 0x7c, 0x2b, 0x44, 0x12, 0x01, 0x04 } },
-			.chan_id = { .id = { 0xee, 0xee, 0xee, 0xee, 0x53, 0x02, 0xe4, 0x48, 0x6c, 0x83, 0xef, 0x9d, 0x0f, 0x2d, 0x12, 0xa9, 0x69, 0xab, 0x41, 0xcc, 0xc9, 0x30, 0x1b, 0xd0, 0x42, 0xc5, 0x07, 0x60, 0xa8, 0x7b, 0x27, 0x02 } },
-		},
-	};
+	i = 0;
+	channels = tal_arr(tmpctx, struct splice_script_chan*, 0);
+	/* A */
+	tal_arr_expand(&channels, tal(channels, struct splice_script_chan));
+	set_node_id(channels[i], "0399069f1693fd89a453f0caf03ee36b6f6c8abaa7ef778d3e2bcc7c2b44120100");
+	set_chan_id(channels[i], "f5699c3d5302e4486c83ef9d0f2d12a969ab41ccc9301bd042c50760a87b2700");
+	i++;
+	/* B */
+	tal_arr_expand(&channels, tal(channels, struct splice_script_chan));
+	set_node_id(channels[i], "0393069f1693fd89a453f0caf03ee36b6f6c8abaa7ef778d3e2bcc7c2b44120101");
+	set_chan_id(channels[i], "f5699c3d5302e4486c83ef9d0f2d12a969ab41ccc9301bd042c50760a87b2701");
+	i++;
+	/* C */
+	tal_arr_expand(&channels, tal(channels, struct splice_script_chan));
+	set_node_id(channels[i], "0393069f1693fd89a453f0caf03ee36b6f6c8abaa7ef778d3e2bcc7c2b44120101");
+	set_chan_id(channels[i], "f5699c3d5302e4486c83ef9d0f2d12a969ab41ccc9301bd042c50760a87b2702");
+	i++;
+	/* D */
+	tal_arr_expand(&channels, tal(channels, struct splice_script_chan));
+	set_node_id(channels[i], "0393069f1693fd89a453f0caf03ee36b6f6c8abaa7ef778d3e2bcc7c2b44120101");
+	set_chan_id(channels[i], "f5699c3d5302e4486c83ef9d0f2d12a969ab41ccc9301bd042c50760a87b2703");
+	i++;
+	/* E */
+	tal_arr_expand(&channels, tal(channels, struct splice_script_chan));
+	set_node_id(channels[i], "0393069f1693fd89a453f0caf03ee36b6f6c8abaa7ef778d3e2bcc7c2b44120101");
+	set_chan_id(channels[i], "f5699c3d5302e4486c83ef9d0f2d12a969ab41ccc9301bd042c50760a87b2704");
+	i++;
+	/* F */
+	tal_arr_expand(&channels, tal(channels, struct splice_script_chan));
+	set_node_id(channels[i], "0393069f1693fd89a453f0caf03ee36b6f6c8abaa7ef778d3e2bcc7c2b44120101");
+	set_chan_id(channels[i], "f5699c3d5302e4486c83ef9d0f2d12a969ab41ccc9301bd042c50760a87b2705");
+	i++;
+	/* G */
+	tal_arr_expand(&channels, tal(channels, struct splice_script_chan));
+	set_node_id(channels[i], "0394069f1693fd89a453f0caf03ee36b6f6c8abaa7ef778d3e2bcc7c2b44120101");
+	set_chan_id(channels[i], "f5699c3d5302e4486c83ef9d0f2d12a969ab41ccc9301bd042c50760a87b2706");
+	i++;
+	/* H */
+	tal_arr_expand(&channels, tal(channels, struct splice_script_chan));
+	set_node_id(channels[i], "0394069f1693fd89a453f0caf03ee36b6f6c8abaa7ef778d3e2bcc7c2b44120101");
+	set_chan_id(channels[i], "f4699c3d5302e4486c83ef9d0f2d12a969ab41ccc9301bd042c50760a87b2700");
+	i++;
+	/* I */
+	tal_arr_expand(&channels, tal(channels, struct splice_script_chan));
+	set_node_id(channels[i], "0394069f1693fd89a453f0caf03ee36b6f6c8abaa7ef778d3e2bcc7c2b44120102");
+	set_chan_id(channels[i], "ffffffff5302e4486c83ef9d0f2d12a969ab41ccc9301bd042c50760a87b2700");
+	i++;
+	/* J */
+	tal_arr_expand(&channels, tal(channels, struct splice_script_chan));
+	set_node_id(channels[i], "0394069f1693fd89a453f0caf03ee36b6f6c8abaa7ef778d3e2bcc7c2b44120103");
+	set_chan_id(channels[i], "eeeeeeee5302e4486c83ef9d0f2d12a969ab41ccc9301bd042c50760a87b2700");
+	i++;
+	/* K */
+	tal_arr_expand(&channels, tal(channels, struct splice_script_chan));
+	set_node_id(channels[i], "0394069f1693fd89a453f0caf03ee36b6f6c8abaa7ef778d3e2bcc7c2b44120103");
+	set_chan_id(channels[i], "eeeeeeee5302e4486c83ef9d0f2d12a969ab41ccc9301bd042c50760a87b2701");
+	i++;
+	/* L */
+	tal_arr_expand(&channels, tal(channels, struct splice_script_chan));
+	set_node_id(channels[i], "0394069f1693fd89a453f0caf03ee36b6f6c8abaa7ef778d3e2bcc7c2b44120104");
+	set_chan_id(channels[i], "eeeeeeee5302e4486c83ef9d0f2d12a969ab41ccc9301bd042c50760a87b2702");
+	i++;
 
-	const char *script = ""
+	script = ""
 		"0->0399:0->3M;\n" /* A */
 		"3.000001M->bcrt1pp5ygqjg0q3mmv8ng8ceu59kl5a3etlf2vvryvnnyumvdyr8a77tqx507vk;\n"
 		"wallet->1M;\n"
@@ -91,18 +121,201 @@ int main(int argc, char *argv[])
 		"0->03930:*->*\n" /* D, E, F */
 		"|4.91M@2%->*:?;\n" /* G */
 		"25.010%|100K->*:?;\n" /* I */
-		"*:?->+fee@40k;\n" /* J */
+		"*:?->+fee@40000;\n" /* J */
 		"10.0003%->*:*;\n"; /* K, L */
+
+	expect = tal_arr(tmpctx, struct splice_script_result, 15);
+	i = 0;
+	expect[i].lease_sat = AMOUNT_SAT(0);
+	expect[i].lease_max_ppm = 0;
+	expect[i].in_sat = AMOUNT_SAT(0);
+	expect[i].in_ppm = 0;
+	expect[i].channel_id = &channels[0]->chan_id;
+	expect[i].bitcoin_address = 0;
+	expect[i].onchain_wallet = 0;
+	expect[i].out_sat = AMOUNT_SAT(3000000);
+	expect[i].out_ppm = 0;
+	expect[i].pays_fee = 0;
+	expect[i].feerate_per_kw = 0;
+	i++;
+	expect[i].lease_sat = AMOUNT_SAT(0);
+	expect[i].lease_max_ppm = 0;
+	expect[i].in_sat = AMOUNT_SAT(3000001);
+	expect[i].in_ppm = 0;
+	expect[i].channel_id = 0;
+	expect[i].bitcoin_address = "bcrt1pp5ygqjg0q3mmv8ng8ceu59kl5a3etlf2vvryvnnyumvdyr8a77tqx507vk";
+	expect[i].onchain_wallet = 0;
+	expect[i].out_sat = AMOUNT_SAT(0);
+	expect[i].out_ppm = 0;
+	expect[i].pays_fee = 0;
+	expect[i].feerate_per_kw = 0;
+	i++;
+	expect[i].lease_sat = AMOUNT_SAT(0);
+	expect[i].lease_max_ppm = 0;
+	expect[i].in_sat = AMOUNT_SAT(0);
+	expect[i].in_ppm = 0;
+	expect[i].channel_id = 0;
+	expect[i].bitcoin_address = 0;
+	expect[i].onchain_wallet = 1;
+	expect[i].out_sat = AMOUNT_SAT(1000000);
+	expect[i].out_ppm = 0;
+	expect[i].pays_fee = 0;
+	expect[i].feerate_per_kw = 0;
+	i++;
+	expect[i].lease_sat = AMOUNT_SAT(0);
+	expect[i].lease_max_ppm = 0;
+	expect[i].in_sat = AMOUNT_SAT(0);
+	expect[i].in_ppm = 0;
+	expect[i].channel_id = &channels[7]->chan_id;
+	expect[i].bitcoin_address = 0;
+	expect[i].onchain_wallet = 0;
+	expect[i].out_sat = AMOUNT_SAT(3000000);
+	expect[i].out_ppm = 0;
+	expect[i].pays_fee = 0;
+	expect[i].feerate_per_kw = 0;
+	i++;
+	expect[i].lease_sat = AMOUNT_SAT(0);
+	expect[i].lease_max_ppm = 0;
+	expect[i].in_sat = AMOUNT_SAT(0);
+	expect[i].in_ppm = 0;
+	expect[i].channel_id = &channels[1]->chan_id;
+	expect[i].bitcoin_address = 0;
+	expect[i].onchain_wallet = 0;
+	expect[i].out_sat = AMOUNT_SAT(0);
+	expect[i].out_ppm = UINT32_MAX;
+	expect[i].pays_fee = 0;
+	expect[i].feerate_per_kw = 0;
+	i++;
+	expect[i].lease_sat = AMOUNT_SAT(0);
+	expect[i].lease_max_ppm = 0;
+	expect[i].in_sat = AMOUNT_SAT(0);
+	expect[i].in_ppm = 0;
+	expect[i].channel_id = &channels[2]->chan_id;
+	expect[i].bitcoin_address = 0;
+	expect[i].onchain_wallet = 0;
+	expect[i].out_sat = AMOUNT_SAT(12000000);
+	expect[i].out_ppm = 0;
+	expect[i].pays_fee = 0;
+	expect[i].feerate_per_kw = 0;
+	i++;
+	expect[i].lease_sat = AMOUNT_SAT(0);
+	expect[i].lease_max_ppm = 0;
+	expect[i].in_sat = AMOUNT_SAT(0);
+	expect[i].in_ppm = 0;
+	expect[i].channel_id = &channels[3]->chan_id;
+	expect[i].bitcoin_address = 0;
+	expect[i].onchain_wallet = 0;
+	expect[i].out_sat = AMOUNT_SAT(0);
+	expect[i].out_ppm = UINT32_MAX;
+	expect[i].pays_fee = 0;
+	expect[i].feerate_per_kw = 0;
+	i++;
+	expect[i].lease_sat = AMOUNT_SAT(0);
+	expect[i].lease_max_ppm = 0;
+	expect[i].in_sat = AMOUNT_SAT(0);
+	expect[i].in_ppm = 0;
+	expect[i].channel_id = &channels[4]->chan_id;
+	expect[i].bitcoin_address = 0;
+	expect[i].onchain_wallet = 0;
+	expect[i].out_sat = AMOUNT_SAT(0);
+	expect[i].out_ppm = UINT32_MAX;
+	expect[i].pays_fee = 0;
+	expect[i].feerate_per_kw = 0;
+	i++;
+	expect[i].lease_sat = AMOUNT_SAT(0);
+	expect[i].lease_max_ppm = 0;
+	expect[i].in_sat = AMOUNT_SAT(0);
+	expect[i].in_ppm = 0;
+	expect[i].channel_id = &channels[5]->chan_id;
+	expect[i].bitcoin_address = 0;
+	expect[i].onchain_wallet = 0;
+	expect[i].out_sat = AMOUNT_SAT(0);
+	expect[i].out_ppm = UINT32_MAX;
+	expect[i].pays_fee = 0;
+	expect[i].feerate_per_kw = 0;
+	i++;
+	expect[i].lease_sat = AMOUNT_SAT(4910000);
+	expect[i].lease_max_ppm = 20000;
+	expect[i].in_sat = AMOUNT_SAT(0);
+	expect[i].in_ppm = 0;
+	expect[i].channel_id = &channels[6]->chan_id;
+	expect[i].bitcoin_address = 0;
+	expect[i].onchain_wallet = 0;
+	expect[i].out_sat = AMOUNT_SAT(0);
+	expect[i].out_ppm = 0;
+	expect[i].pays_fee = 0;
+	expect[i].feerate_per_kw = 0;
+	i++;
+	expect[i].lease_sat = AMOUNT_SAT(100000);
+	expect[i].lease_max_ppm = 0;
+	expect[i].in_sat = AMOUNT_SAT(0);
+	expect[i].in_ppm = 250100;
+	expect[i].channel_id = &channels[8]->chan_id;
+	expect[i].bitcoin_address = 0;
+	expect[i].onchain_wallet = 0;
+	expect[i].out_sat = AMOUNT_SAT(0);
+	expect[i].out_ppm = 0;
+	expect[i].pays_fee = 0;
+	expect[i].feerate_per_kw = 0;
+	i++;
+	expect[i].lease_sat = AMOUNT_SAT(0);
+	expect[i].lease_max_ppm = 0;
+	expect[i].in_sat = AMOUNT_SAT(0);
+	expect[i].in_ppm = 0;
+	expect[i].channel_id = &channels[9]->chan_id;
+	expect[i].bitcoin_address = 0;
+	expect[i].onchain_wallet = 0;
+	expect[i].out_sat = AMOUNT_SAT(0);
+	expect[i].out_ppm = 0;
+	expect[i].pays_fee = 1;
+	expect[i].feerate_per_kw = 40000;
+	i++;
+	expect[i].lease_sat = AMOUNT_SAT(0);
+	expect[i].lease_max_ppm = 0;
+	expect[i].in_sat = AMOUNT_SAT(0);
+	expect[i].in_ppm = 50001;
+	expect[i].channel_id = &channels[10]->chan_id;
+	expect[i].bitcoin_address = 0;
+	expect[i].onchain_wallet = 0;
+	expect[i].out_sat = AMOUNT_SAT(0);
+	expect[i].out_ppm = 0;
+	expect[i].pays_fee = 0;
+	expect[i].feerate_per_kw = 0;
+	i++;
+	expect[i].lease_sat = AMOUNT_SAT(0);
+	expect[i].lease_max_ppm = 0;
+	expect[i].in_sat = AMOUNT_SAT(0);
+	expect[i].in_ppm = 50002;
+	expect[i].channel_id = &channels[11]->chan_id;
+	expect[i].bitcoin_address = 0;
+	expect[i].onchain_wallet = 0;
+	expect[i].out_sat = AMOUNT_SAT(0);
+	expect[i].out_ppm = 0;
+	expect[i].pays_fee = 0;
+	expect[i].feerate_per_kw = 0;
+	i++;
+	expect[i].lease_sat = AMOUNT_SAT(0);
+	expect[i].lease_max_ppm = 0;
+	expect[i].in_sat = AMOUNT_SAT(0);
+	expect[i].in_ppm = 649897;
+	expect[i].channel_id = 0;
+	expect[i].bitcoin_address = 0;
+	expect[i].onchain_wallet = 1;
+	expect[i].out_sat = AMOUNT_SAT(0);
+	expect[i].out_ppm = 0;
+	expect[i].pays_fee = 0;
+	expect[i].feerate_per_kw = 0;
+	i++;
+
+	assert(i == tal_count(expect));
 
 	chainparams = chainparams_for_network("regtest");
 
-	error = parse_splice_script(tmpctx, script, channels,
-				    sizeof(channels) / sizeof(channels[0]),
-				    &result);
+	error = parse_splice_script(tmpctx, script, channels, &result);
 
 	if (error) {
-		printf("%s\n", splice_script_compiler_error(tmpctx, script,
-							    error));
+		printf("%s\n", fmt_splice_script_compiler_error(tmpctx, script,
+								error));
 		common_shutdown();
 		abort();
 	}
@@ -123,186 +336,28 @@ int main(int argc, char *argv[])
 
 	assert(json_to_splice(tmpctx, str, toks, &final));
 
-	assert(tal_count(final) == 15);
-	int i = 0;
+	assert(tal_count(final) == tal_count(expect));
 
-	assert(amount_sat_eq(final[i]->lease_sat, AMOUNT_SAT(0)));
-	assert(final[i]->lease_max_ppm == 0);
-	assert(amount_sat_eq(final[i]->in_sat, AMOUNT_SAT(0)));
-	assert(final[i]->in_ppm == 0);
-	assert(channel_id_eq(final[i]->channel_id, &channels[0].chan_id));
-	assert(final[i]->bitcoin_address == 0);
-	assert(final[i]->onchain_wallet == 0);
-	assert(amount_sat_eq(final[i]->out_sat, AMOUNT_SAT(3000000)));
-	assert(final[i]->out_ppm == 0);
-	assert(final[i]->pays_fee == 0);
-	assert(final[i]->feerate_per_kw == 0);
-	i++;
-	assert(amount_sat_eq(final[i]->lease_sat, AMOUNT_SAT(0)));
-	assert(final[i]->lease_max_ppm == 0);
-	assert(amount_sat_eq(final[i]->in_sat, AMOUNT_SAT(3000001)));
-	assert(final[i]->in_ppm == 0);
-	assert(final[i]->channel_id == 0);
-	assert(strcmp(final[i]->bitcoin_address, "bcrt1pp5ygqjg0q3mmv8ng8ceu59kl5a3etlf2vvryvnnyumvdyr8a77tqx507vk") == 0);
-	assert(final[i]->onchain_wallet == 0);
-	assert(amount_sat_eq(final[i]->out_sat, AMOUNT_SAT(0)));
-	assert(final[i]->out_ppm == 0);
-	assert(final[i]->pays_fee == 0);
-	assert(final[i]->feerate_per_kw == 0);
-	i++;
-	assert(amount_sat_eq(final[i]->lease_sat, AMOUNT_SAT(0)));
-	assert(final[i]->lease_max_ppm == 0);
-	assert(amount_sat_eq(final[i]->in_sat, AMOUNT_SAT(0)));
-	assert(final[i]->in_ppm == 0);
-	assert(final[i]->channel_id == 0);
-	assert(final[i]->bitcoin_address == 0);
-	assert(final[i]->onchain_wallet == 1);
-	assert(amount_sat_eq(final[i]->out_sat, AMOUNT_SAT(1000000)));
-	assert(final[i]->out_ppm == 0);
-	assert(final[i]->pays_fee == 0);
-	assert(final[i]->feerate_per_kw == 0);
-	i++;
-	assert(amount_sat_eq(final[i]->lease_sat, AMOUNT_SAT(0)));
-	assert(final[i]->lease_max_ppm == 0);
-	assert(amount_sat_eq(final[i]->in_sat, AMOUNT_SAT(0)));
-	assert(final[i]->in_ppm == 0);
-	assert(channel_id_eq(final[i]->channel_id, &channels[7].chan_id));
-	assert(final[i]->bitcoin_address == 0);
-	assert(final[i]->onchain_wallet == 0);
-	assert(amount_sat_eq(final[i]->out_sat, AMOUNT_SAT(3000000)));
-	assert(final[i]->out_ppm == 0);
-	assert(final[i]->pays_fee == 0);
-	assert(final[i]->feerate_per_kw == 0);
-	i++;
-	assert(amount_sat_eq(final[i]->lease_sat, AMOUNT_SAT(0)));
-	assert(final[i]->lease_max_ppm == 0);
-	assert(amount_sat_eq(final[i]->in_sat, AMOUNT_SAT(0)));
-	assert(final[i]->in_ppm == 0);
-	assert(channel_id_eq(final[i]->channel_id, &channels[1].chan_id));
-	assert(final[i]->bitcoin_address == 0);
-	assert(final[i]->onchain_wallet == 0);
-	assert(amount_sat_eq(final[i]->out_sat, AMOUNT_SAT(0)));
-	assert(final[i]->out_ppm == UINT32_MAX);
-	i++;
-	assert(amount_sat_eq(final[i]->lease_sat, AMOUNT_SAT(0)));
-	assert(final[i]->lease_max_ppm == 0);
-	assert(amount_sat_eq(final[i]->in_sat, AMOUNT_SAT(0)));
-	assert(final[i]->in_ppm == 0);
-	assert(channel_id_eq(final[i]->channel_id, &channels[2].chan_id));
-	assert(final[i]->bitcoin_address == 0);
-	assert(final[i]->onchain_wallet == 0);
-	assert(amount_sat_eq(final[i]->out_sat, AMOUNT_SAT(12000000)));
-	assert(final[i]->out_ppm == 0);
-	assert(final[i]->pays_fee == 0);
-	assert(final[i]->feerate_per_kw == 0);
-	i++;
-	assert(amount_sat_eq(final[i]->lease_sat, AMOUNT_SAT(0)));
-	assert(final[i]->lease_max_ppm == 0);
-	assert(amount_sat_eq(final[i]->in_sat, AMOUNT_SAT(0)));
-	assert(final[i]->in_ppm == 0);
-	assert(channel_id_eq(final[i]->channel_id, &channels[3].chan_id));
-	assert(final[i]->bitcoin_address == 0);
-	assert(final[i]->onchain_wallet == 0);
-	assert(amount_sat_eq(final[i]->out_sat, AMOUNT_SAT(0)));
-	assert(final[i]->out_ppm == UINT32_MAX);
-	i++;
-	assert(amount_sat_eq(final[i]->lease_sat, AMOUNT_SAT(0)));
-	assert(final[i]->lease_max_ppm == 0);
-	assert(amount_sat_eq(final[i]->in_sat, AMOUNT_SAT(0)));
-	assert(final[i]->in_ppm == 0);
-	assert(channel_id_eq(final[i]->channel_id, &channels[4].chan_id));
-	assert(final[i]->bitcoin_address == 0);
-	assert(final[i]->onchain_wallet == 0);
-	assert(amount_sat_eq(final[i]->out_sat, AMOUNT_SAT(0)));
-	assert(final[i]->out_ppm == UINT32_MAX);
-	i++;
-	assert(amount_sat_eq(final[i]->lease_sat, AMOUNT_SAT(0)));
-	assert(final[i]->lease_max_ppm == 0);
-	assert(amount_sat_eq(final[i]->in_sat, AMOUNT_SAT(0)));
-	assert(final[i]->in_ppm == 0);
-	assert(channel_id_eq(final[i]->channel_id, &channels[5].chan_id));
-	assert(final[i]->bitcoin_address == 0);
-	assert(final[i]->onchain_wallet == 0);
-	assert(amount_sat_eq(final[i]->out_sat, AMOUNT_SAT(0)));
-	assert(final[i]->out_ppm == UINT32_MAX);
-	i++;
-	assert(amount_sat_eq(final[i]->lease_sat, AMOUNT_SAT(4910000)));
-	assert(final[i]->lease_max_ppm == 20000);
-	assert(amount_sat_eq(final[i]->in_sat, AMOUNT_SAT(0)));
-	assert(final[i]->in_ppm == 0);
-	assert(channel_id_eq(final[i]->channel_id, &channels[6].chan_id));
-	assert(final[i]->bitcoin_address == 0);
-	assert(final[i]->onchain_wallet == 0);
-	assert(amount_sat_eq(final[i]->out_sat, AMOUNT_SAT(0)));
-	assert(final[i]->out_ppm == 0);
-	assert(final[i]->pays_fee == 0);
-	assert(final[i]->feerate_per_kw == 0);
-	i++;
-	assert(amount_sat_eq(final[i]->lease_sat, AMOUNT_SAT(100000)));
-	assert(final[i]->lease_max_ppm == 0);
-	assert(amount_sat_eq(final[i]->in_sat, AMOUNT_SAT(0)));
-	assert(final[i]->in_ppm == 250100);
-	assert(channel_id_eq(final[i]->channel_id, &channels[8].chan_id));
-	assert(final[i]->bitcoin_address == 0);
-	assert(final[i]->onchain_wallet == 0);
-	assert(amount_sat_eq(final[i]->out_sat, AMOUNT_SAT(0)));
-	assert(final[i]->out_ppm == 0);
-	assert(final[i]->pays_fee == 0);
-	assert(final[i]->feerate_per_kw == 0);
-	i++;
-	assert(amount_sat_eq(final[i]->lease_sat, AMOUNT_SAT(0)));
-	assert(final[i]->lease_max_ppm == 0);
-	assert(amount_sat_eq(final[i]->in_sat, AMOUNT_SAT(0)));
-	assert(final[i]->in_ppm == 0);
-	assert(channel_id_eq(final[i]->channel_id, &channels[9].chan_id));
-	assert(final[i]->bitcoin_address == 0);
-	assert(final[i]->onchain_wallet == 0);
-	assert(amount_sat_eq(final[i]->out_sat, AMOUNT_SAT(0)));
-	assert(final[i]->out_ppm == 0);
-	assert(final[i]->pays_fee == 1);
-	assert(final[i]->feerate_per_kw == 40000);
-	i++;
-	assert(amount_sat_eq(final[i]->lease_sat, AMOUNT_SAT(0)));
-	assert(final[i]->lease_max_ppm == 0);
-	assert(amount_sat_eq(final[i]->in_sat, AMOUNT_SAT(0)));
-	assert(final[i]->in_ppm == 50001);
-	assert(channel_id_eq(final[i]->channel_id, &channels[10].chan_id));
-	assert(final[i]->bitcoin_address == 0);
-	assert(final[i]->onchain_wallet == 0);
-	assert(amount_sat_eq(final[i]->out_sat, AMOUNT_SAT(0)));
-	assert(final[i]->out_ppm == 0);
-	assert(final[i]->pays_fee == 0);
-	assert(final[i]->feerate_per_kw == 0);
-	i++;
-	assert(amount_sat_eq(final[i]->lease_sat, AMOUNT_SAT(0)));
-	assert(final[i]->lease_max_ppm == 0);
-	assert(amount_sat_eq(final[i]->in_sat, AMOUNT_SAT(0)));
-	assert(final[i]->in_ppm == 50001);
-	assert(channel_id_eq(final[i]->channel_id, &channels[11].chan_id));
-	assert(final[i]->bitcoin_address == 0);
-	assert(final[i]->onchain_wallet == 0);
-	assert(amount_sat_eq(final[i]->out_sat, AMOUNT_SAT(0)));
-	assert(final[i]->out_ppm == 0);
-	assert(final[i]->pays_fee == 0);
-	assert(final[i]->feerate_per_kw == 0);
-	i++;
-	assert(amount_sat_eq(final[i]->lease_sat, AMOUNT_SAT(0)));
-	assert(final[i]->lease_max_ppm == 0);
-	assert(amount_sat_eq(final[i]->in_sat, AMOUNT_SAT(0)));
-	assert(final[i]->in_ppm == 649898);
-	assert(final[i]->channel_id == 0);
-	assert(final[i]->bitcoin_address == 0);
-	assert(final[i]->onchain_wallet == 1);
-	assert(amount_sat_eq(final[i]->out_sat, AMOUNT_SAT(0)));
-	assert(final[i]->out_ppm == 0);
-	assert(final[i]->pays_fee == 0);
-	assert(final[i]->feerate_per_kw == 0);
-	i++;
+	for (i = 0; i < tal_count(expect); i++) {
+		assert(amount_sat_eq(final[i]->lease_sat, expect[i].lease_sat));
+		assert(final[i]->lease_max_ppm == expect[i].lease_max_ppm);
+		assert(amount_sat_eq(final[i]->in_sat, expect[i].in_sat));
+		assert(final[i]->in_ppm == expect[i].in_ppm);
+		if (final[i]->channel_id != expect[i].channel_id)
+			assert(channel_id_eq(final[i]->channel_id, expect[i].channel_id));
+		if (final[i]->bitcoin_address != expect[i].bitcoin_address)
+			assert(!strcmp(final[i]->bitcoin_address, expect[i].bitcoin_address));
+		assert(final[i]->onchain_wallet == expect[i].onchain_wallet);
+		assert(amount_sat_eq(final[i]->out_sat, expect[i].out_sat));
+		assert(final[i]->out_ppm == expect[i].out_ppm);
+		if (expect[i].pays_fee)
+			assert(final[i]->pays_fee);
+		else
+			assert(!final[i]->pays_fee);
+		assert(final[i]->feerate_per_kw == expect[i].feerate_per_kw);
+	}
 
-	assert(i == tal_count(final));
-
-	printf("DRY RUN:\n%s",
-	       splice_to_string(tmpctx, final, tal_count(final)));
+	printf("DRY RUN:\n%s", splicearr_to_string(tmpctx, final));
 
 	common_shutdown();
 

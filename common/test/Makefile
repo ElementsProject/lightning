@@ -108,7 +108,6 @@ common/test/run-splice_script:				\
 	common/node_id.o				\
 	common/bech32.o					\
 	common/splice_script.o				\
-	common/type_to_string.o				\
 	common/json_stream.o				\
 	common/json_filter.o				\
 	common/json_parse.o				\
