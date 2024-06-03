@@ -21,6 +21,7 @@ enum splice_script_error_type {
 	WRONG_NUM_SEGMENT_CHUNKS,
 	MISSING_ARROW,
 	NO_MATCHING_NODES,
+	INVALID_INDEX,
 	CHAN_INDEX_ON_WILDCARD_NODE,
 	CHAN_INDEX_NOT_FOUND,
 	CHANQUERY_TYPEERROR,
@@ -33,6 +34,7 @@ enum splice_script_error_type {
 	MISSING_MIDDLE_OP,
 	MISSING_AMOUNT_OP,
 	MISSING_AMOUNT_OR_WILD_OP,
+	CANNOT_PARSE_SAT_AMNT,
 	ZERO_AMOUNTS,
 	IN_AND_OUT_AMOUNTS,
 	MISSING_PERCENT,
@@ -41,6 +43,7 @@ enum splice_script_error_type {
 	DUPLICATE_CHANID,
 	INVALID_MIDDLE_OP,
 	INSUFFICENT_FUNDS,
+	PERCENT_IS_ZERO,
 	WILDCARD_IS_ZERO,
 	INVALID_PERCENT,
 	LEFT_PERCENT_OVER_100,
@@ -49,6 +52,7 @@ enum splice_script_error_type {
 	MISSING_FEESTR,
 	DUPLICATE_FEESTR,
 	TOO_MUCH_DECIMAL,
+	INVALID_FEERATE,
 };
 
 struct splice_script_error {
@@ -59,9 +63,9 @@ struct splice_script_error {
 };
 
 /* Outputs a multiline helpful compiler error for the user. */
-char *splice_script_compiler_error(const tal_t *ctx,
-				   const char *script,
-				   struct splice_script_error *error);
+char *fmt_splice_script_compiler_error(const tal_t *ctx,
+				       const char *script,
+				       struct splice_script_error *error);
 
 struct splice_script_chan {
 	struct node_id node_id;
@@ -86,7 +90,7 @@ struct splice_script_result {
 	struct amount_sat out_sat;
 	u32 out_ppm; /* UINT32_MAX means "max available from channel" */
 
-	/* If true, this 'destination' pays the fee. Only one destiantion may
+	/* If true, this 'destination' pays the fee. Only one destination may
 	 * do so. If feerate_per_kw is non-zero, it will be used for feerate. */
 	bool pays_fee;
 	u32 feerate_per_kw;
@@ -94,8 +98,7 @@ struct splice_script_result {
 
 struct splice_script_error *parse_splice_script(const tal_t *ctx,
 						const char *script,
-						struct splice_script_chan *channels,
-						size_t channels_count,
+						struct splice_script_chan **channels,
 						struct splice_script_result ***result);
 
 void splice_to_json(const tal_t *ctx,
@@ -105,7 +108,7 @@ void splice_to_json(const tal_t *ctx,
 bool json_to_splice(const tal_t *ctx, const char *buffer, const jsmntok_t *tok,
 		    struct splice_script_result ***result);
 
-char *splice_to_string(const tal_t *ctx, struct splice_script_result **splice,
-		       size_t count);
+char *splice_to_string(const tal_t *ctx, struct splice_script_result *splice);
+char *splicearr_to_string(const tal_t *ctx, struct splice_script_result **splice);
 
 #endif /* LIGHTNING_COMMON_SPLICE_SCRIPT_H */

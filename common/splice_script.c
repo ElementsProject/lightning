@@ -12,6 +12,10 @@
 #include <common/splice_script.h>
 #include <ctype.h>
 #include <inttypes.h>
+#include <sys/errno.h>
+
+#define SCRIPT_DUMP_TOKENS 0
+#define SCRIPT_DUMP_SEGMENTS 0
 
 #define ARROW_SYMBOL "->"
 #define PIPE_SYMBOL '|'
@@ -26,8 +30,8 @@
 #define PERCENT_REGEX "^([0-9]*)[.]?([0-9]*)%$"
 #define Q_REGEX "^\\?$"
 #define WILD_REGEX "^\\*$"
-#define CHANID_REGEX "^[0-9A-Za-z]{64}$"
-#define NODEID_REGEX "^0[23][0-9A-Za-z]{64}$"
+#define CHANID_REGEX "^[0-9A-Fa-f]{64}$"
+#define NODEID_REGEX "^0[23][0-9A-Fa-f]{62}$"
 #define WALLET_REGEX "^wallet$"
 #define FEE_REGEX "^" FEE_SYMBOL "$"
 #define SATM_REGEX "^([0-9]*)[.]?([0-9]*)[Mm]$"
@@ -73,7 +77,7 @@ struct token {
 	enum token_type type;
 	size_t script_index; /* For error messages */
 	char c;
-	char *str, *rstr;
+	char *str;
 	u32 ppm;
 	struct amount_sat amount_sat;
 	struct node_id *node_id;
@@ -85,14 +89,25 @@ struct token {
 static struct token *new_token(const tal_t *ctx, enum token_type token_type,
 			       size_t script_index)
 {
-	struct token *token = talz(ctx, struct token);
+	struct token *token = tal(ctx, struct token);
 
 	token->type = token_type;
 	token->script_index = script_index;
+	token->c = 0;
+	token->str = NULL;
+	token->ppm = 0;
+	token->amount_sat = AMOUNT_SAT(0);
+	token->node_id = NULL;
+	token->chan_id = NULL;
+	token->left = NULL;
+	token->middle = NULL;
+	token->right = NULL;
+	token->flags = 0;
 
 	return token;
 }
 
+#if SCRIPT_DUMP_TOKENS || SCRIPT_DUMP_SEGMENTS
 static const char *token_type_str(enum token_type type)
 {
 	switch (type) {
@@ -125,16 +140,6 @@ static const char *token_type_str(enum token_type type)
 	return NULL;
 }
 
-static char *chan_id_to_hexstr(const tal_t *ctx, struct channel_id channel_id)
-{
-	char *str = (char*)tal_arr(ctx, u8, hex_str_size(32));
-
-	if (!hex_encode(channel_id.id, 32, str, hex_str_size(32)))
-		return NULL;
-
-	return str;
-}
-
 static void dump_token_shallow(char **str, struct token *token, char *prefix)
 {
 	const char *tmp;
@@ -161,11 +166,11 @@ static void dump_token_shallow(char **str, struct token *token, char *prefix)
 
 	if (token->node_id)
 		tal_append_fmt(str, " node_id:%s",
-			       node_id_to_hexstr(tmpctx, token->node_id));
+			       fmt_node_id(tmpctx, token->node_id));
 
 	if (token->chan_id)
 		tal_append_fmt(str, " chan_id:%s",
-			       chan_id_to_hexstr(tmpctx, *token->chan_id));
+			       tal_hexstr(tmpctx, token->chan_id, sizeof(struct channel_id)));
 
 	if (token->ppm)
 		tal_append_fmt(str, " ppm:%u", token->ppm);
@@ -179,7 +184,9 @@ static void dump_token_shallow(char **str, struct token *token, char *prefix)
 	if (token->flags)
 		tal_append_fmt(str, " flags:%u", token->flags);
 }
+#endif /* SCRIPT_DUMP_TOKENS || SCRIPT_DUMP_SEGMENTS */
 
+#if SCRIPT_DUMP_TOKENS
 /* Returns the indent used */
 static int dump_token(char **str, struct token *token, int indent, char *prefix)
 {
@@ -217,7 +224,9 @@ static struct splice_script_error *debug_dump(const tal_t *ctx,
 
 	return error;
 }
+#endif /* SCRIPT_DUMP_TOKENS */
 
+#if SCRIPT_DUMP_SEGMENTS
 static struct splice_script_error *dump_segments(const tal_t *ctx,
 						 struct token **tokens)
 {
@@ -247,6 +256,7 @@ static struct splice_script_error *dump_segments(const tal_t *ctx,
 
 	return error;
 }
+#endif /* SCRIPT_DUMP_SEGMENTS */
 
 static struct splice_script_error *new_error_offset(const tal_t *ctx,
 						    enum splice_script_error_type type,
@@ -305,9 +315,9 @@ static char *context_snippet(const tal_t *ctx,
 	return str;
 }
 
-char *splice_script_compiler_error(const tal_t *ctx,
-				   const char *script,
-				   struct splice_script_error *error)
+char *fmt_splice_script_compiler_error(const tal_t *ctx,
+				       const char *script,
+				       struct splice_script_error *error)
 {
 	switch (error->type) {
 	case INTERNAL_ERROR:
@@ -354,6 +364,10 @@ char *splice_script_compiler_error(const tal_t *ctx,
 			       context_snippet(ctx, script, error));
 	case NO_MATCHING_NODES:
 		return tal_fmt(ctx, "No matching nodes for node query\n%s",
+			       context_snippet(ctx, script, error));
+	case INVALID_INDEX:
+		return tal_fmt(ctx, "Valid index must be only number digits"
+			       " and no other characters\n%s",
 			       context_snippet(ctx, script, error));
 	case CHAN_INDEX_ON_WILDCARD_NODE:
 		return tal_fmt(ctx, "Node wildcard matches must use an index,"
@@ -404,6 +418,9 @@ char *splice_script_compiler_error(const tal_t *ctx,
 		return tal_fmt(ctx, "Missing sat amount. A sat amount or '%c'"
 			       " is required here\n%s", WILD_SYMBOL,
 			       context_snippet(ctx, script, error));
+	case CANNOT_PARSE_SAT_AMNT:
+		return tal_fmt(ctx, "Failed to parse sat amount\n%s",
+			       context_snippet(ctx, script, error));
 	case ZERO_AMOUNTS:
 		return tal_fmt(ctx, "Each line must specify a non-zero amount,"
 			       "lease request, or pay the onchain fee. This"
@@ -436,6 +453,10 @@ char *splice_script_compiler_error(const tal_t *ctx,
 	case INSUFFICENT_FUNDS:
 		return tal_fmt(ctx, "Script as written has insufficent funds to"
 			       " be completed\n%s",
+			       context_snippet(ctx, script, error));
+	case PERCENT_IS_ZERO:
+		return tal_fmt(ctx, "Percentage channel input will result in"
+			       " zero\n%s",
 			       context_snippet(ctx, script, error));
 	case WILDCARD_IS_ZERO:
 		return tal_fmt(ctx, "Wildcard channel input will result in zero"
@@ -470,6 +491,10 @@ char *splice_script_compiler_error(const tal_t *ctx,
 	case TOO_MUCH_DECIMAL:
 		return tal_fmt(ctx, "Too many digits after the decimal. This"
 			       " type does not support this many\n%s",
+			       context_snippet(ctx, script, error));
+	case INVALID_FEERATE:
+		return tal_fmt(ctx, "Valid feerate must be only number digits"
+			       " and no other characters\n%s",
 			       context_snippet(ctx, script, error));
 	}
 
@@ -539,6 +564,8 @@ static struct splice_script_error *find_arrows_and_strs(const tal_t *ctx,
 			tal_append_fmt(&token->str, "%c", input[i]->c);
 
 			if (find_suffix(token->str, ARROW_SYMBOL)) {
+
+				/* Terminmate the string at the arrow */
 				*find_suffix(token->str, ARROW_SYMBOL) = 0;
 
 				if (*token->str)
@@ -578,6 +605,9 @@ static struct splice_script_error *find_arrows_and_strs(const tal_t *ctx,
 					 "arrows");
 		}
 	}
+
+	/* Script should always end in a delimiter which NULLS token */
+	assert(!token);
 
 	tal_free(input);
 	tal_resize(&tokens, n);
@@ -919,13 +949,13 @@ static bool is_bitcoin_address(const char *address)
 		if (witness_version == 0) {
 			witness_ok = (witness_program_len == 20 ||
 				       witness_program_len == 32);
-		} else
+		} else if (witness_version == 1) {
+			witness_ok = (witness_program_len == 32);
+		} else {
 			witness_ok = true;
+		}
 
 		if (!witness_ok)
-			return false;
-
-		if (!streq(bech32, chainparams->onchain_hrp))
 			return false;
 
 		return true;
@@ -936,8 +966,7 @@ static bool is_bitcoin_address(const char *address)
 
 /* Checks token->str for a short node id and auto completes it. */
 static bool autocomplete_node_id(struct token *token,
-				 struct splice_script_chan *channels,
-				 size_t channels_count,
+				 struct splice_script_chan **channels,
 				 bool *multiple_nodes,
 				 bool *chan_id_overmatch)
 {
@@ -957,17 +986,19 @@ static bool autocomplete_node_id(struct token *token,
 		return false;
 
 	match = NULL;
-	for (size_t i = 0; i < channels_count; i++) {
-		if (memeq(candidate.k, len, channels[i].node_id.k, len)) {
+	for (size_t i = 0; i < tal_count(channels); i++) {
+		if (len <= sizeof(channels[i]->node_id.k)
+		    && memeq(candidate.k, len, channels[i]->node_id.k, len)) {
 			/* must not match multiple node ids */
-			if (match && !node_id_eq(match, &channels[i].node_id)) {
+			if (match && !node_id_eq(match, &channels[i]->node_id)) {
 				*multiple_nodes = true;
 				return true;
 			}
-			match = &channels[i].node_id;
+			match = &channels[i]->node_id;
 		}
 		/* nodeid query must *not* match any channel ids */
-		if (memeq(candidate.k, len, channels[i].chan_id.id, len))
+		if (len <= sizeof(channels[i]->chan_id.id)
+		    && memeq(candidate.k, len, channels[i]->chan_id.id, len))
 			*chan_id_overmatch = true;
 	}
 
@@ -981,8 +1012,7 @@ static bool autocomplete_node_id(struct token *token,
 }
 
 static bool autocomplete_chan_id(struct token *token,
-				 struct splice_script_chan *channels,
-				 size_t channels_count,
+				 struct splice_script_chan **channels,
 				 bool *multiple_chans,
 				 bool *node_id_overmatch)
 {
@@ -1002,17 +1032,19 @@ static bool autocomplete_chan_id(struct token *token,
 		return false;
 
 	match = NULL;
-	for (size_t i = 0; i < channels_count; i++) {
-		if (memeq(candidate.id, len, channels[i].chan_id.id, len)) {
-			/* must not match multiple node ids */
-			if (match && !channel_id_eq(match, &channels[i].chan_id)) {
+	for (size_t i = 0; i < tal_count(channels); i++) {
+		if (len <= sizeof(channels[i]->chan_id.id)
+		    && memeq(candidate.id, len, channels[i]->chan_id.id, len)) {
+			/* must not match multiple channel ids */
+			if (match && !channel_id_eq(match, &channels[i]->chan_id)) {
 				*multiple_chans = true;
 				return true;
 			}
-			match = &channels[i].chan_id;
+			match = &channels[i]->chan_id;
 		}
-		/* nodeid query must *not* match any channel ids */
-		if (memeq(candidate.id, len, channels[i].node_id.k, len))
+		/* nodeid query must *not* match any node ids */
+		if (len <= sizeof(channels[i]->node_id.k)
+		    && memeq(candidate.id, len, channels[i]->node_id.k, len))
 			*node_id_overmatch = true;
 	}
 
@@ -1025,9 +1057,8 @@ static bool autocomplete_chan_id(struct token *token,
 	return true;
 }
 
-static struct splice_script_error *data_types(const tal_t *ctx,
-					      struct splice_script_chan *channels,
-					      size_t channels_count,
+static struct splice_script_error *type_data(const tal_t *ctx,
+					      struct splice_script_chan **channels,
 					      struct token ***tokens_inout)
 {
 	struct token **input = *tokens_inout;
@@ -1043,7 +1074,7 @@ static struct splice_script_error *data_types(const tal_t *ctx,
 		switch(input[i]->type) {
 		case TOK_CHAR:
 			return new_error(ctx, INVALID_TOKEN, input[i],
-					 "data_types");
+					 "type_data");
 		case TOK_DELIMITER:
 		case TOK_ARROW:
 		case TOK_PIPE:
@@ -1059,13 +1090,13 @@ static struct splice_script_error *data_types(const tal_t *ctx,
 				if (atoll(whole) < 0 || atoll(decimal) < 0)
 					return new_error(ctx, INVALID_PERCENT,
 							 input[i],
-							 "data_types");
+							 "type_data");
 				while (strlen(decimal) < 4)
-					decimal = tal_fmt(ctx, "%s0", decimal);
+					tal_append_fmt(&decimal, "0");
 				if (decimal[4])
 					return new_error(ctx, TOO_MUCH_DECIMAL,
 							 input[i],
-							 "data_types");
+							 "type_data");
 
 				input[i]->ppm = (u32)(10000 * atoll(whole)
 						      + atoll(decimal));
@@ -1073,7 +1104,7 @@ static struct splice_script_error *data_types(const tal_t *ctx,
 				if (input[i]->ppm > 1000000)
 					return new_error(ctx, INVALID_PERCENT,
 							 input[i],
-							 "data_types");
+							 "type_data");
 			} else if (tal_strreg(ctx, input[i]->str, Q_REGEX)) {
 				input[i]->type = TOK_QUESTION;
 			} else if (tal_strreg(ctx, input[i]->str, WILD_REGEX)) {
@@ -1088,7 +1119,25 @@ static struct splice_script_error *data_types(const tal_t *ctx,
 							 input[i]->node_id))
 					return new_error(ctx, INVALID_NODEID,
 							 input[i],
-							 "data_types");
+							 "type_data");
+				/* Rare corner case where channel begins with
+				 * prefix of 02 or 03 */
+				if (autocomplete_chan_id(input[i], channels,
+							 &multiple,
+							 &overmatch)) {
+					if (multiple)
+						return new_error(ctx,
+								 CHAN_ID_MULTIMATCH,
+								 input[i],
+								 "type_data");
+					if (overmatch)
+						return new_error(ctx,
+								 CHAN_ID_NODE_OVERMATCH,
+								 input[i],
+								 "type_data");
+					input[i]->type = TOK_CHANID;
+					input[i]->node_id = tal_free(input[i]->node_id);
+				}
 			} else if (is_bitcoin_address(input[i]->str)) {
 				input[i]->type = TOK_BTCADDR;
 			} else if (tal_strreg(ctx, input[i]->str,
@@ -1102,43 +1151,41 @@ static struct splice_script_error *data_types(const tal_t *ctx,
 						32))
 					return new_error(ctx, INVALID_CHANID,
 							 input[i],
-							 "data_types");
+							 "type_data");
 			} else if (tal_strreg(ctx, input[i]->str,
 					      WALLET_REGEX)) {
 				input[i]->type = TOK_WALLET;
 			} else if (tal_strreg(ctx, input[i]->str, FEE_REGEX)) {
 				input[i]->type = TOK_FEE;
 			} else if (autocomplete_node_id(input[i], channels,
-							channels_count,
 							&multiple,
 							&overmatch)) {
 				if (multiple)
 					return new_error(ctx,
 							 NODE_ID_MULTIMATCH,
 							 input[i],
-							 "data_types");
+							 "type_data");
 
 				if (overmatch)
 					return new_error(ctx,
 							 NODE_ID_CHAN_OVERMATCH,
 							 input[i],
-							 "data_types");
+							 "type_data");
 				input[i]->type = TOK_NODEID;
 			} else if (autocomplete_chan_id(input[i], channels,
-							channels_count,
 							&multiple,
 							&overmatch)) {
 				if (multiple)
 					return new_error(ctx,
 							 CHAN_ID_MULTIMATCH,
 							 input[i],
-							 "data_types");
+							 "type_data");
 
 				if (overmatch)
 					return new_error(ctx,
 							 CHAN_ID_NODE_OVERMATCH,
 							 input[i],
-							 "data_types");
+							 "type_data");
 				input[i]->type = TOK_CHANID;
 			} else {
 
@@ -1148,12 +1195,12 @@ static struct splice_script_error *data_types(const tal_t *ctx,
 				if (tal_strreg(ctx, sat_candidate, SATM_REGEX,
 					       &whole, &decimal)) {
 					while (strlen(decimal) < 6)
-						decimal = tal_fmt(ctx, "%s0", decimal);
+						tal_append_fmt(&decimal, "0");
 					if (decimal[6])
 						return new_error(ctx,
 								 TOO_MUCH_DECIMAL,
 								 input[i],
-								 "data_types");
+								 "type_data");
 
 					sat_candidate = tal_fmt(input[i],
 								"%"PRIu64,
@@ -1162,12 +1209,12 @@ static struct splice_script_error *data_types(const tal_t *ctx,
 				} else if (tal_strreg(ctx, sat_candidate, SATK_REGEX,
 					       &whole, &decimal)) {
 					while (strlen(decimal) < 3)
-						decimal = tal_fmt(ctx, "%s0", decimal);
+						tal_append_fmt(&decimal, "0");
 					if (decimal[3])
 						return new_error(ctx,
 								 TOO_MUCH_DECIMAL,
 								 input[i],
-								 "data_types");
+								 "type_data");
 
 					sat_candidate = tal_fmt(input[i],
 								"%"PRIu64,
@@ -1179,6 +1226,14 @@ static struct splice_script_error *data_types(const tal_t *ctx,
 						    strlen(sat_candidate))) {
 					input[i]->type = TOK_SATS;
 					input[i]->amount_sat = amount_sat;
+				} else if(!sat_candidate || !strlen(sat_candidate)) {
+					input[i]->type = TOK_SATS;
+					input[i]->amount_sat = AMOUNT_SAT(0);
+				} else {
+					return new_error(ctx,
+							 CANNOT_PARSE_SAT_AMNT,
+							 input[i],
+							 "type_data");
 				}
 
 				if (sat_candidate != input[i]->str)
@@ -1203,7 +1258,7 @@ static struct splice_script_error *data_types(const tal_t *ctx,
 		case TOK_LEASEREQ:
 		case TOK_SEGMENT:
 			return new_error(ctx, INVALID_TOKEN, input[i],
-					 "data_types");
+					 "type_data");
 		}
 	}
 
@@ -1374,46 +1429,43 @@ static bool matches_chan_id(struct token *token, struct channel_id chan_id)
 
 /* Searches through both tokensA and tokensB. */
 static struct node_id *first_node_with_unused_chan(const tal_t *ctx,
-						   struct splice_script_chan *channels,
-						   size_t channels_count,
+						   struct splice_script_chan **channels,
 						   struct token **tokensA,
 						   size_t a_size,
 						   struct token **tokensB,
 						   size_t b_size)
 {
-	for (size_t i = 0; i < channels_count; i++) {
+	for (size_t i = 0; i < tal_count(channels); i++) {
 		bool used = false;
 		for (size_t j = 0; j < a_size; j++)
-			if (matches_chan_id(tokensA[j], channels[i].chan_id))
+			if (matches_chan_id(tokensA[j], channels[i]->chan_id))
 				used = true;
 		for (size_t k = 0; k < b_size; k++)
-			if (matches_chan_id(tokensB[k], channels[i].chan_id))
+			if (matches_chan_id(tokensB[k], channels[i]->chan_id))
 				used = true;
 		if (!used)
 			return tal_dup(ctx, struct node_id,
-				       &channels[i].node_id);
+				       &channels[i]->node_id);
 	}
 
 	return NULL;
 }
 
 static struct channel_id *chan_for_node_index(const tal_t *ctx,
-					      struct splice_script_chan *channels,
-					      size_t channels_count,
+					      struct splice_script_chan **channels,
 					      struct node_id node_id,
 					      size_t channel_index)
 {
-	for (size_t i = 0; i < channels_count; i++)
-		if (node_id_eq(&node_id, &channels[i].node_id))
-			if (!channel_index--)
+	for (size_t i = 0; i < tal_count(channels); i++)
+		if (node_id_eq(&node_id, &channels[i]->node_id))
+			if (channel_index-- == 0)
 				return tal_dup(ctx, struct channel_id,
-					       &channels[i].chan_id);
+					       &channels[i]->chan_id);
 	return NULL;
 }
 
 static struct channel_id **unused_chans(const tal_t *ctx,
-					struct splice_script_chan *channels,
-					size_t channels_count,
+					struct splice_script_chan **channels,
 					struct token **tokensA,
 					size_t a_size,
 					struct token **tokensB,
@@ -1421,18 +1473,18 @@ static struct channel_id **unused_chans(const tal_t *ctx,
 {
 	struct channel_id **result = tal_arr(ctx, struct channel_id*, 0);
 
-	for (size_t i = 0; i < channels_count; i++) {
+	for (size_t i = 0; i < tal_count(channels); i++) {
 		bool used = false;
 		for (size_t j = 0; j < a_size; j++)
-			if (matches_chan_id(tokensA[j], channels[i].chan_id))
+			if (matches_chan_id(tokensA[j], channels[i]->chan_id))
 				used = true;
 		for (size_t k = 0; k < b_size; k++)
-			if (matches_chan_id(tokensB[k], channels[i].chan_id))
+			if (matches_chan_id(tokensB[k], channels[i]->chan_id))
 				used = true;
 		if (!used)
 			tal_arr_expand(&result, tal_dup(result,
 							struct channel_id,
-							&channels[i].chan_id));
+							&channels[i]->chan_id));
 	}
 
 	if (!tal_count(result))
@@ -1442,8 +1494,7 @@ static struct channel_id **unused_chans(const tal_t *ctx,
 }
 
 static struct channel_id **unused_chans_for_node(const tal_t *ctx,
-						 struct splice_script_chan *channels,
-						 size_t channels_count,
+						 struct splice_script_chan **channels,
 						 struct token **tokensA,
 						 size_t a_size,
 						 struct token **tokensB,
@@ -1452,20 +1503,20 @@ static struct channel_id **unused_chans_for_node(const tal_t *ctx,
 {
 	struct channel_id **result = tal_arr(ctx, struct channel_id*, 0);
 
-	for (size_t i = 0; i < channels_count; i++) {
+	for (size_t i = 0; i < tal_count(channels); i++) {
 		bool used = false;
-		if (!node_id_eq(&node_id, &channels[i].node_id))
+		if (!node_id_eq(&node_id, &channels[i]->node_id))
 			continue;
 		for (size_t j = 0; j < a_size; j++)
-			if (matches_chan_id(tokensA[j], channels[i].chan_id))
+			if (matches_chan_id(tokensA[j], channels[i]->chan_id))
 				used = true;
 		for (size_t k = 0; k < b_size; k++)
-			if (matches_chan_id(tokensB[k], channels[i].chan_id))
+			if (matches_chan_id(tokensB[k], channels[i]->chan_id))
 				used = true;
 		if (!used)
 			tal_arr_expand(&result, tal_dup(result,
 							struct channel_id,
-							&channels[i].chan_id));
+							&channels[i]->chan_id));
 	}
 
 	if (!tal_count(result))
@@ -1474,9 +1525,52 @@ static struct channel_id **unused_chans_for_node(const tal_t *ctx,
 	return result;
 }
 
+static bool parse_channel_index(struct token *token, size_t *channel_index)
+{
+	long long result;
+	char *endptr;
+	if (!token->str || !strlen(token->str))
+		return false;
+
+	errno = 0;
+	result = strtoll(token->str, &endptr, 10);
+	if (errno || *endptr)
+		return false;
+
+	*channel_index = result;
+	return true;
+}
+
+static bool parse_feerate(struct token *token, u32 *feerate)
+{
+	long long result;
+	char *endptr;
+	if (!token->str)
+		return false;
+
+	/* zero length feerate is valid and implies 0 */
+	if (0 == strlen(token->str)) {
+		*feerate = 0;
+		return true;
+	}
+
+	/* If no feerate was found, str wont contain feerate */
+	if (0 == strcmp(token->str, FEE_SYMBOL)) {
+		*feerate = 0;
+		return true;
+	}
+
+	errno = 0;
+	result = strtoll(token->str, &endptr, 10);
+	if (errno || *endptr)
+		return false;
+
+	*feerate = result;
+	return true;
+}
+
 static struct splice_script_error *resolve_channel_ids(const tal_t *ctx,
-						       struct splice_script_chan *channels,
-						       size_t channels_count,
+						       struct splice_script_chan **channels,
 						       struct token ***tokens_inout)
 {
 	struct token **input = *tokens_inout;
@@ -1485,6 +1579,7 @@ static struct splice_script_error *resolve_channel_ids(const tal_t *ctx,
 	struct channel_id *chan_id;
 	struct channel_id **chan_ids;
 	struct token *token_itr;
+	size_t channel_index;
 	size_t n = 0;
 
 	for (size_t i = 0; i < tal_count(input); i++) {
@@ -1495,16 +1590,16 @@ static struct splice_script_error *resolve_channel_ids(const tal_t *ctx,
 		case TOK_MINUS:
 		case TOK_COLON:
 		case TOK_PIPE:
+		case TOK_STR:
+		case TOK_FEE:
 			return new_error(ctx, INVALID_TOKEN, input[i],
 					 "resolve_channel_ids");
 		case TOK_LEASERATE:
 		case TOK_ARROW:
-		case TOK_STR:
 		case TOK_SATS:
 		case TOK_PERCENT:
 		case TOK_QUESTION:
 		case TOK_WILDCARD:
-		case TOK_FEE:
 		case TOK_CHANID:
 		case TOK_WALLET:
 		case TOK_FEERATE:
@@ -1532,7 +1627,6 @@ static struct splice_script_error *resolve_channel_ids(const tal_t *ctx,
 			if (input[i]->left->type == TOK_QUESTION) {
 				node_id = first_node_with_unused_chan(ctx,
 								      channels,
-								      channels_count,
 								      input,
 								      tal_count(input),
 								      tokens,
@@ -1548,10 +1642,14 @@ static struct splice_script_error *resolve_channel_ids(const tal_t *ctx,
 
 			if (input[i]->left->type == TOK_NODEID
 				&& input[i]->right->type == TOK_SATS) {
+				if (!parse_channel_index(input[i]->right,
+							 &channel_index))
+					return new_error(ctx, INVALID_INDEX,
+							 input[i],
+							 "resolve_channel_ids");
 				chan_id = chan_for_node_index(ctx, channels,
-							      channels_count,
 							      *input[i]->left->node_id,
-							      input[i]->right->amount_sat.satoshis); /* Raw: We use satoshis as index values in splice script */
+							      channel_index);
 				if (!chan_id)
 					return new_error(ctx,
 							 CHAN_INDEX_NOT_FOUND,
@@ -1566,7 +1664,6 @@ static struct splice_script_error *resolve_channel_ids(const tal_t *ctx,
 
 			} else if (input[i]->left->type == TOK_NODEID) {
 				chan_ids = unused_chans_for_node(ctx, channels,
-								 channels_count,
 								 input,
 								 tal_count(input),
 								 tokens, n,
@@ -1610,7 +1707,6 @@ static struct splice_script_error *resolve_channel_ids(const tal_t *ctx,
 							 input[i],
 							 "resolve_channel_ids");
 				chan_ids = unused_chans(ctx, channels,
-							channels_count,
 							input,
 							tal_count(input),
 							tokens, n);
@@ -1702,11 +1798,12 @@ static struct splice_script_error *make_segments(const tal_t *ctx,
 		case TOK_FEE:
 		case TOK_COLON:
 		case TOK_LEASERATE:
+		case TOK_STR:
+		case TOK_CHANQUERY:
 			return new_error(ctx, INVALID_TOKEN, input[i],
 					 "segments");
 		case TOK_ARROW:
 		case TOK_PIPE:
-		case TOK_STR:
 		case TOK_SATS:
 		case TOK_PERCENT:
 		case TOK_QUESTION:
@@ -1716,7 +1813,6 @@ static struct splice_script_error *make_segments(const tal_t *ctx,
 		case TOK_FEERATE:
 		case TOK_NODEID:
 		case TOK_BTCADDR:
-		case TOK_CHANQUERY:
 		case TOK_MULTI_CHANID:
 		case TOK_LEASEREQ:
 			break;
@@ -1888,13 +1984,19 @@ static struct splice_script_error *expand_multichans(const tal_t *ctx,
 							 token->right);
 
 					/* Divide percentage between chans */
-					if (input[i]->left->type == TOK_PERCENT)
+					if (input[i]->left->type == TOK_PERCENT) {
 						token->left->ppm = input[i]->left->ppm / chan_count;
+					}
 
 					/* Add modified copy to token array */
 					tal_arr_expand(&tokens, token);
 
 					token_itr = token_itr->right;
+
+					/* Any remainder points to go the last
+					 * destination in script */
+					if (!token_itr)
+						token->left->ppm += input[i]->left->ppm % chan_count;
 				}
 			} else {
 				tal_arr_expand(&tokens,
@@ -1952,19 +2054,17 @@ static bool is_valid_nonzero_amount(struct token *token)
 }
 
 static bool valid_channel_id(struct channel_id *chan_id,
-			     struct splice_script_chan *channels,
-			     size_t channels_count)
+			     struct splice_script_chan **channels)
 {
-	for (size_t i = 0; i < channels_count; i++)
-		if (channel_id_eq(chan_id, &channels[i].chan_id))
+	for (size_t i = 0; i < tal_count(channels); i++)
+		if (channel_id_eq(chan_id, &channels[i]->chan_id))
 			return true;
 
 	return false;
 }
 
 static struct splice_script_error *validate_and_clean(const tal_t *ctx,
-						      struct splice_script_chan *channels,
-						      size_t channels_count,
+						      struct splice_script_chan **channels,
 						      struct token ***tokens_inout)
 {
 	struct token **input = *tokens_inout;
@@ -2011,7 +2111,8 @@ static struct splice_script_error *validate_and_clean(const tal_t *ctx,
 						 input[i]->right,
 						 "validate_and_clean");
 
-			/* Process lease & lease rate */
+			/* Process lease & lease rate.
+			 * ex: "0|10M@1% -> chan_id" (lease 10M at 1% fee) */
 			lease = input[i]->left->right;
 			leaserate = NULL;
 			if (lease) {
@@ -2042,7 +2143,8 @@ static struct splice_script_error *validate_and_clean(const tal_t *ctx,
 				lease->ppm = leaserate->right->ppm;
 			}
 
-			/* Process left fee & fee rate */
+			/* Process left fee & fee rate.
+			 * ex: "10M-fee@4k -> chan_id" (splice in 10M less fee) */
 			fee = input[i]->left->middle;
 			feerate = NULL;
 			if (fee) {
@@ -2072,9 +2174,11 @@ static struct splice_script_error *validate_and_clean(const tal_t *ctx,
 							 feerate,
 							 "validate_and_clean");
 				fee->amount_sat = feerate->right->amount_sat;
+				fee->str = feerate->right->str;
 			}
 
-			/* Process right fee & fee rate */
+			/* Process right fee & fee rate.
+			 * ex: "chan_id -> 10M+fee@4k" (splice out 10M + fee) */
 			fee = input[i]->right->middle;
 			feerate = NULL;
 			if (fee) {
@@ -2104,6 +2208,7 @@ static struct splice_script_error *validate_and_clean(const tal_t *ctx,
 							 feerate,
 							 "validate_and_clean");
 				fee->amount_sat = feerate->right->amount_sat;
+				fee->str = feerate->right->str;
 			}
 
 			if (!is_valid_nonzero_amount(input[i]->left)
@@ -2113,6 +2218,9 @@ static struct splice_script_error *validate_and_clean(const tal_t *ctx,
 				return new_error(ctx, ZERO_AMOUNTS,
 						 input[i]->left,
 						 "validate_and_clean");
+			/* Can't specify funds going into and out of into the
+			 * same segment. User should simply subtract one amount
+			 * from the other. */
 			if (is_valid_nonzero_amount(input[i]->left)
 				&& is_valid_nonzero_amount(input[i]->right))
 				return new_error(ctx, IN_AND_OUT_AMOUNTS,
@@ -2121,7 +2229,7 @@ static struct splice_script_error *validate_and_clean(const tal_t *ctx,
 			/* Check the channel id is one of our channels */
 			if (input[i]->middle->type == TOK_CHANID
 				&& !valid_channel_id(input[i]->middle->chan_id,
-						     channels, channels_count))
+						     channels))
 				return new_error(ctx, CHANNEL_ID_UNRECOGNIZED,
 						 input[i]->middle,
 						 "validate_and_clean");
@@ -2159,18 +2267,20 @@ static struct splice_script_error *calculate_amounts(const tal_t *ctx,
 {
 	struct token **input = *tokens_inout;
 	struct token **tokens;
-	size_t n, left_wilds, right_wilds;
-	u32 left_used_ppm, right_used_ppm;
-	struct amount_sat left_total, right_total, usable_left;
-	struct token *left_wildcard_token, *wallet_token;
+	size_t n, left_wild_index, left_wilds, right_wilds;
+	u32 left_used_ppm;
+	bool right_used_ppm;
+	struct amount_sat left_total, right_total;
+	struct token *left_wildcard_token, *left_percent_token, *wallet_token;
 
 	left_wilds = 0;
 	right_wilds = 0;
 	left_used_ppm = 0;
-	right_used_ppm = 0;
+	right_used_ppm = false;
 	left_total = AMOUNT_SAT(0);
 	right_total = AMOUNT_SAT(0);
 	left_wildcard_token = NULL;
+	left_percent_token = NULL;
 	for (size_t i = 0; i < tal_count(input); i++) {
 		switch(input[i]->type) {
 		case TOK_CHAR:
@@ -2218,6 +2328,7 @@ static struct splice_script_error *calculate_amounts(const tal_t *ctx,
 							 input[i]->right,
 							 "calculate_amounts");
 			if (input[i]->left->type == TOK_PERCENT) {
+				left_percent_token = input[i]->left;
 				left_used_ppm += input[i]->left->ppm;
 				if (left_used_ppm > 1000000)
 					return new_error(ctx,
@@ -2226,25 +2337,23 @@ static struct splice_script_error *calculate_amounts(const tal_t *ctx,
 							 "calculate_amounts");
 			}
 			if (input[i]->right->type == TOK_PERCENT)
-				right_used_ppm += input[i]->right->ppm;
+				right_used_ppm = true;
 			break;
 		}
 	}
 
-	/* usable_left = (1000000 - last_used_ppm) * left_total / 1000000 */
-	if (!amount_sat_mul(&usable_left, left_total, 1000000 - left_used_ppm))
-		return new_error(ctx, INTERNAL_ERROR, input[0],
-				 "calculate_amounts");
-	usable_left = amount_sat_div(usable_left, 1000000);
-
 	/* Do we know precisely how much we're getting? */
 	if (!right_wilds && !right_used_ppm) {
 		/* Then we can give sat amount errors */
-		if (amount_sat_greater(usable_left, right_total))
+		if (amount_sat_greater(left_total, right_total))
 			return new_error(ctx, INSUFFICENT_FUNDS,
 					 left_wildcard_token ?: input[0],
 					 "calculate_amounts");
-		if (left_wilds && amount_sat_eq(usable_left, right_total))
+		if (left_used_ppm && amount_sat_eq(left_total, right_total))
+			return new_error(ctx, PERCENT_IS_ZERO,
+					 left_percent_token ?: input[0],
+					 "calculate_amounts");
+		if (left_wilds && amount_sat_eq(left_total, right_total))
 			return new_error(ctx, WILDCARD_IS_ZERO,
 					 left_wildcard_token ?: input[0],
 					 "calculate_amounts");
@@ -2253,6 +2362,7 @@ static struct splice_script_error *calculate_amounts(const tal_t *ctx,
 	tokens = tal_arr(ctx, struct token *, tal_count(input));
 	n = 0;
 
+	left_wild_index = 0;
 	for (size_t i = 0; i < tal_count(input); i++) {
 		switch(input[i]->type) {
 		case TOK_CHAR:
@@ -2281,8 +2391,15 @@ static struct splice_script_error *calculate_amounts(const tal_t *ctx,
 			return new_error(ctx, INVALID_TOKEN, input[i],
 					 "calculate_amounts");
 		case TOK_SEGMENT:
-			if (input[i]->left->type == TOK_WILDCARD)
+			if (input[i]->left->type == TOK_WILDCARD) {
 				input[i]->left->ppm = (1000000 - left_used_ppm) / left_wilds;
+
+				/* Place remainder points into the last wildcard
+				 * spot */
+				if (++left_wild_index == left_wilds)
+					input[i]->left->ppm += (1000000 - left_used_ppm) % left_wilds;
+
+			}
 			if (input[i]->right->type == TOK_WILDCARD)
 				input[i]->right->ppm = 1000000;
 			tokens[n++] = tal_steal(tokens, input[i]);
@@ -2293,7 +2410,10 @@ static struct splice_script_error *calculate_amounts(const tal_t *ctx,
 	tal_free(input);
 	tal_resize(&tokens, n);
 
-	/* Are there potential unclaimed funds? */
+	/* Are there potential unclaimed funds? Typically we will have right
+	 * side funds but in some channel lease situations and / or user
+	 * provided funds (via user provided PSBT) we may have 0 funds coming
+	 * in aka 'on the right side'. */
 	if (!amount_sat_zero(right_total) || right_wilds || right_used_ppm) {
 		/* Are they not already claimed by a % or wildcard? */
 		if (!left_wilds && left_used_ppm < 1000000) {
@@ -2320,8 +2440,7 @@ static bool is_delimiter(char c)
 
 struct splice_script_error *parse_splice_script(const tal_t *ctx,
 						const char *script,
-						struct splice_script_chan *channels,
-						size_t channels_count,
+						struct splice_script_chan **channels,
 						struct splice_script_result ***result)
 {
 	struct splice_script_error *error;
@@ -2354,7 +2473,7 @@ struct splice_script_error *parse_splice_script(const tal_t *ctx,
 	if ((error = process_3rd_separators(ctx, &tokens)))
 		return error;
 
-	if ((error = data_types(ctx, channels, channels_count, &tokens)))
+	if ((error = type_data(ctx, channels, &tokens)))
 		return error;
 
 	if ((error = compress_top_operands(ctx, &tokens)))
@@ -2363,8 +2482,7 @@ struct splice_script_error *parse_splice_script(const tal_t *ctx,
 	if ((error = compress_2nd_operands(ctx, &tokens)))
 		return error;
 
-	if ((error = resolve_channel_ids(ctx, channels, channels_count,
-					 &tokens)))
+	if ((error = resolve_channel_ids(ctx, channels, &tokens)))
 		return error;
 
 	if ((error = make_segments(ctx, &tokens)))
@@ -2373,20 +2491,18 @@ struct splice_script_error *parse_splice_script(const tal_t *ctx,
 	if ((error = expand_multichans(ctx, &tokens)))
 		return error;
 
-	if ((error = validate_and_clean(ctx, channels, channels_count,
-					&tokens)))
+	if ((error = validate_and_clean(ctx, channels, &tokens)))
 		return error;
 
 	if ((error = calculate_amounts(ctx, &tokens)))
 		return error;
 
-	/* Internal token diagnostics:
+#if SCRIPT_DUMP_TOKENS
 	return debug_dump(ctx, tokens);
+#endif
+#if SCRIPT_DUMP_SEGMENTS
 	return dump_segments(ctx, tokens);
-	*/
-
-	(void)debug_dump;
-	(void)dump_segments;
+#endif
 
 	*result = tal_arr(ctx, struct splice_script_result*, tal_count(tokens));
 
@@ -2395,7 +2511,8 @@ struct splice_script_error *parse_splice_script(const tal_t *ctx,
 		struct splice_script_result *itr = (*result)[i];
 		struct token *lease = tokens[i]->left->right;
 		struct token *fee = tokens[i]->left->middle
-					?: tokens[i]->right->middle;
+					? tokens[i]->left->middle
+					: tokens[i]->right->middle;
 
 		if (lease) {
 			itr->lease_sat = lease->amount_sat;
@@ -2406,10 +2523,10 @@ struct splice_script_error *parse_splice_script(const tal_t *ctx,
 		itr->in_ppm = tokens[i]->left->ppm;
 
 		if (tokens[i]->middle->type == TOK_CHANID)
-			itr->channel_id = tal_dup(*result, struct channel_id,
+			itr->channel_id = tal_dup(itr, struct channel_id,
 						  tokens[i]->middle->chan_id);
 		else if (tokens[i]->middle->type == TOK_BTCADDR)
-			itr->bitcoin_address = tal_strdup(*result,
+			itr->bitcoin_address = tal_strdup(itr,
 							 tokens[i]->middle->str);
 		else if (tokens[i]->middle->type == TOK_WALLET)
 			itr->onchain_wallet = true;
@@ -2425,7 +2542,11 @@ struct splice_script_error *parse_splice_script(const tal_t *ctx,
 
 		if (fee) {
 			itr->pays_fee = true;
-			itr->feerate_per_kw = fee->amount_sat.satoshis; /* Raw: We use satoshis as our base number unit */
+			if (!parse_feerate(fee, &itr->feerate_per_kw))
+				return new_error(ctx, INVALID_FEERATE,
+						 fee->right ? fee->right->right
+						 ?: fee->right : fee,
+						 "splice_script_result");
 		}
 	}
 
@@ -2618,79 +2739,86 @@ static char *ppm_to_str(const tal_t *ctx, u32 ppm)
 }
 
 char *splice_to_string(const tal_t *ctx,
-		       struct splice_script_result **result,
-		       size_t count)
+		       struct splice_script_result *result)
 {
 	const char *into_prefix, *fee_str;
 	char *str = tal_strdup(ctx, "");
 
-	for (size_t i = 0; i < count; i++) {
-		into_prefix = "";
-		fee_str = "";
-		if (!amount_sat_zero(result[i]->lease_sat)) {
-			into_prefix = "and ";
-			tal_append_fmt(&str, "lease %s ",
-				       fmt_amount_sat(ctx,
-				       result[i]->lease_sat));
-			if (result[i]->lease_max_ppm)
-				tal_append_fmt(&str, "(max fee %s) ",
-					       ppm_to_str(ctx, result[i]->lease_max_ppm));
-		}
-
-		if (result[i]->pays_fee)
-			fee_str = " less fee";
-		if (result[i]->feerate_per_kw)
-			fee_str = tal_fmt(tmpctx, " less fee (%u/kw)",
-					  result[i]->feerate_per_kw);
-
-		if (!amount_sat_zero(result[i]->in_sat))
-			tal_append_fmt(&str, "%sput %s%s into ", into_prefix,
-				       fmt_amount_sat(ctx, result[i]->in_sat),
-				       fee_str);
-		if (result[i]->in_ppm)
-			tal_append_fmt(&str, "%sput %s%s of rest into ", into_prefix,
-				       ppm_to_str(ctx, result[i]->in_ppm),
-				       fee_str);
-
-		if (result[i]->channel_id)
-			tal_append_fmt(&str, "%s",
-				       chan_id_to_hexstr(ctx, *result[i]->channel_id));
-		if (result[i]->bitcoin_address)
-			tal_append_fmt(&str, "%s", result[i]->bitcoin_address);
-		if (result[i]->onchain_wallet)
-			tal_append_fmt(&str, "wallet");
-
-		if (result[i]->pays_fee)
-			fee_str = " plus fee";
-		if (result[i]->feerate_per_kw)
-			fee_str = tal_fmt(tmpctx, " plus fee (%u/kw, %.02f"
-					  " sat/vB) ",
-					  result[i]->feerate_per_kw,
-					  4 * result[i]->feerate_per_kw / 1000.0f);
-
-		if (!amount_sat_zero(result[i]->out_sat))
-			tal_append_fmt(&str, " withdraw %s%s",
-				       fmt_amount_sat(ctx, result[i]->out_sat),
-				       fee_str);
-		if (result[i]->out_ppm)
-			tal_append_fmt(&str, " withdraw %s%s",
-				       ppm_to_str(ctx, result[i]->out_ppm),
-				       fee_str);
-
-		if (amount_sat_zero(result[i]->in_sat) && !result[i]->in_ppm
-			&& amount_sat_zero(result[i]->out_sat)
-			&& !result[i]->out_ppm
-			&& result[i]->pays_fee) {
-
-			tal_append_fmt(&str, " withdraw fee");
-			if (result[i]->feerate_per_kw)
-				tal_append_fmt(&str, " (%u/kw, %.02f sat/vB)",
-					       result[i]->feerate_per_kw,
-					       4 * result[i]->feerate_per_kw / 1000.0f);
-		}
-
-		tal_append_fmt(&str, "\n");
+	into_prefix = "";
+	fee_str = "";
+	if (!amount_sat_zero(result->lease_sat)) {
+		into_prefix = "and ";
+		tal_append_fmt(&str, "lease %s ",
+			       fmt_amount_sat(ctx,
+			       result->lease_sat));
+		if (result->lease_max_ppm)
+			tal_append_fmt(&str, "(max fee %s) ",
+				       ppm_to_str(ctx, result->lease_max_ppm));
 	}
+
+	if (result->pays_fee)
+		fee_str = " less fee";
+	if (result->feerate_per_kw)
+		fee_str = tal_fmt(tmpctx, " less fee (%u/kw)",
+				  result->feerate_per_kw);
+
+	if (!amount_sat_zero(result->in_sat))
+		tal_append_fmt(&str, "%sput %s%s into ", into_prefix,
+			       fmt_amount_sat(ctx, result->in_sat),
+			       fee_str);
+	if (result->in_ppm)
+		tal_append_fmt(&str, "%sput %s%s of rest into ", into_prefix,
+			       ppm_to_str(ctx, result->in_ppm),
+			       fee_str);
+
+	if (result->channel_id)
+		tal_append_fmt(&str, "%s",
+			       tal_hexstr(tmpctx, result->channel_id, sizeof(struct channel_id)));
+	if (result->bitcoin_address)
+		tal_append_fmt(&str, "%s", result->bitcoin_address);
+	if (result->onchain_wallet)
+		tal_append_fmt(&str, "wallet");
+
+	fee_str = "";
+	if (result->pays_fee)
+		fee_str = " plus fee";
+	if (result->feerate_per_kw)
+		fee_str = tal_fmt(tmpctx, " plus fee (%u/kw, %.02f"
+				  " sat/vB) ",
+				  result->feerate_per_kw,
+				  4 * result->feerate_per_kw / 1000.0f);
+
+	if (!amount_sat_zero(result->out_sat))
+		tal_append_fmt(&str, " withdraw %s%s",
+			       fmt_amount_sat(ctx, result->out_sat),
+			       fee_str);
+	if (result->out_ppm)
+		tal_append_fmt(&str, " withdraw %s%s",
+			       ppm_to_str(ctx, result->out_ppm),
+			       fee_str);
+
+	if (amount_sat_zero(result->in_sat) && !result->in_ppm
+		&& amount_sat_zero(result->out_sat)
+		&& !result->out_ppm
+		&& result->pays_fee) {
+
+		tal_append_fmt(&str, " withdraw fee");
+		if (result->feerate_per_kw)
+			tal_append_fmt(&str, " (%u/kw, %.02f sat/vB)",
+				       result->feerate_per_kw,
+				       4 * result->feerate_per_kw / 1000.0f);
+	}
+
+	return str;
+}
+
+char *splicearr_to_string(const tal_t *ctx,
+			  struct splice_script_result **result)
+{
+	char *str = tal_strdup(ctx, "");
+
+	for (size_t i = 0; i < tal_count(result); i++)
+		tal_append_fmt(&str, "%s\n", splice_to_string(str, result[i]));
 
 	return str;
 }
