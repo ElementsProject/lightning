@@ -57,7 +57,6 @@ struct pay_plugin {
 	bool exp_offers;
 
 	/* All the struct payment */
-	struct list_head payments;
 	struct payment_map *payment_map;
 
 	/* Per-channel metadata: some persists between payments */

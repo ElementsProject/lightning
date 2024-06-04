@@ -65,8 +65,6 @@ static const char *init(struct plugin *p,
 		 JSON_SCAN(json_to_bool, &pay_plugin->exp_offers)
 		 );
 
-	list_head_init(&pay_plugin->payments);
-
 	pay_plugin->payment_map = tal(pay_plugin, struct payment_map);
 	payment_map_init(pay_plugin->payment_map);
 
@@ -103,7 +101,6 @@ static struct command_result *json_paystatus(struct command *cmd,
 {
 	const char *invstring;
 	struct json_stream *ret;
-	struct payment *p;
 
 	if (!param(cmd, buf, params,
 		   p_opt("invstring", param_invstring, &invstring),
@@ -140,10 +137,10 @@ static struct command_result *json_paystatus(struct command *cmd,
 	}else
 	{
 		/* show all payments */
-		// TODO: loop over the payment_map, remove pay_plugin->payments
-		// list
-		// seeconst char *fmt_chan_extra_map(const tal_t *ctx, struct chan_extra_map *chan_extra_map)
-		list_for_each(&pay_plugin->payments, p, list) {
+		struct payment_map_iter it;
+		for (struct payment *p =
+			 payment_map_first(pay_plugin->payment_map, &it);
+		     p; p = payment_map_next(pay_plugin->payment_map, &it)) {
 			json_object_start(ret, NULL);
 			json_add_payment(ret, p);
 			json_object_end(ret);
@@ -327,11 +324,7 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 
 		// good to go
 		payment = tal_steal(pay_plugin, payment);
-
-		// FIXME do we really need a list here?
-		list_add_tail(&pay_plugin->payments, &payment->list);
 		payment_map_add(pay_plugin->payment_map, payment);
-
 		return payment_start(payment);
 	}
 
