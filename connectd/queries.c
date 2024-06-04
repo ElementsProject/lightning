@@ -108,13 +108,14 @@ static void uniquify_node_ids(struct node_id **ids)
 }
 
 /* We are fairly careful to avoid the peer DoSing us with channel queries:
- * this routine sends information about a single short_channel_id, unless
+ * this routine creates messages about a single short_channel_id, unless
  * it's finished all of them. */
-bool maybe_send_query_responses(struct peer *peer, struct gossmap *gossmap)
+const u8 **maybe_create_query_responses(const tal_t *ctx,
+					struct peer *peer,
+					struct gossmap *gossmap)
 {
 	size_t i, num;
-	bool sent = false;
-	const u8 *msg;
+	const u8 **msgs = tal_arr(ctx, const u8 *, 0);
 
 	/* BOLT #7:
 	 *
@@ -122,7 +123,7 @@ bool maybe_send_query_responses(struct peer *peer, struct gossmap *gossmap)
 	 */
 	/* Search for next short_channel_id we know about. */
 	num = tal_count(peer->scid_queries);
-	for (i = peer->scid_query_idx; !sent && i < num; i++) {
+	for (i = peer->scid_query_idx; tal_count(msgs) == 0 && i < num; i++) {
 		struct gossmap_chan *chan;
 		struct gossmap_node *node;
 		struct node_id node_id;
@@ -136,9 +137,8 @@ bool maybe_send_query_responses(struct peer *peer, struct gossmap *gossmap)
 		 *   - MUST reply with a `channel_announcement`
 		 */
 		if (peer->scid_query_flags[i] & SCID_QF_ANNOUNCE) {
-			msg = gossmap_chan_get_announce(NULL, gossmap, chan);
-			inject_peer_msg(peer, take(msg));
-			sent = true;
+			tal_arr_expand(&msgs,
+				       gossmap_chan_get_announce(msgs, gossmap, chan));
 		}
 
 		/* BOLT #7:
@@ -152,15 +152,13 @@ bool maybe_send_query_responses(struct peer *peer, struct gossmap *gossmap)
 		 *   `node_id_2` */
 		if ((peer->scid_query_flags[i] & SCID_QF_UPDATE1)
 		    && gossmap_chan_set(chan, 0)) {
-			msg = gossmap_chan_get_update(NULL, gossmap, chan, 0);
-			inject_peer_msg(peer, take(msg));
-			sent = true;
+			tal_arr_expand(&msgs,
+				       gossmap_chan_get_update(msgs, gossmap, chan, 0));
 		}
 		if ((peer->scid_query_flags[i] & SCID_QF_UPDATE2)
 		    && gossmap_chan_set(chan, 1)) {
-			msg = gossmap_chan_get_update(NULL, gossmap, chan, 1);
-			inject_peer_msg(peer, take(msg));
-			sent = true;
+			tal_arr_expand(&msgs,
+				       gossmap_chan_get_update(msgs, gossmap, chan, 1));
 		}
 
 		/* BOLT #7:
@@ -212,7 +210,7 @@ bool maybe_send_query_responses(struct peer *peer, struct gossmap *gossmap)
 	/* If we haven't sent anything above, we look for the next
 	 * node_announcement to send. */
 	num = tal_count(peer->scid_query_nodes);
-	for (i = peer->scid_query_nodes_idx; !sent && i < num; i++) {
+	for (i = peer->scid_query_nodes_idx; tal_count(msgs) == 0 && i < num; i++) {
 		const struct gossmap_node *n;
 
 		/* Not every node announces itself (we know it exists because
@@ -221,9 +219,8 @@ bool maybe_send_query_responses(struct peer *peer, struct gossmap *gossmap)
 		if (!n || !gossmap_node_announced(n))
 			continue;
 
-		msg = gossmap_node_get_announce(NULL, gossmap, n);
-		inject_peer_msg(peer, take(msg));
-		sent = true;
+		tal_arr_expand(&msgs,
+			       gossmap_node_get_announce(msgs, gossmap, n));
 	}
 	peer->scid_query_nodes_idx = i;
 
@@ -245,7 +242,7 @@ bool maybe_send_query_responses(struct peer *peer, struct gossmap *gossmap)
 		u8 *end = towire_reply_short_channel_ids_end(peer,
 							     &chainparams->genesis_blockhash,
 							     true);
-		inject_peer_msg(peer, take(end));
+		tal_arr_expand(&msgs, end);
 
 		/* We're done!  Clean up so we simply pass-through next time. */
 		peer->scid_queries = tal_free(peer->scid_queries);
@@ -254,7 +251,8 @@ bool maybe_send_query_responses(struct peer *peer, struct gossmap *gossmap)
 		peer->scid_query_nodes = tal_free(peer->scid_query_nodes);
 		peer->scid_query_nodes_idx = 0;
 	}
-	return sent;
+
+	return msgs;
 }
 
 /* The peer can ask about an array of short channel ids: we don't assemble the
