@@ -2700,6 +2700,10 @@ static void consider_failing_incoming(struct lightningd *ld,
 	if (height + 3 < hout->in->cltv_expiry)
 		return;
 
+	/* Unless incoming is already onchain, then it can't get worse! */
+	if (!channel_state_can_remove_htlc(hout->in->key.channel->state))
+		return;
+
 	log_unusual(hout->key.channel->log,
 		    "Abandoning unresolved onchain HTLC at block %u"
 		    " (expired at %u) to avoid peer closing incoming HTLC at block %u",
