@@ -27,7 +27,7 @@ struct gossip_state {
 	/* I think this is called "echo cancellation" */
 	struct gossip_rcvd_filter *grf;
 	/* Offset within the gossip_store file */
-	size_t off;
+	struct gossmap_iter *iter;
 	/* Bytes sent in the last second. */
 	size_t bytes_this_second;
 	/* When that second starts */
@@ -248,11 +248,11 @@ struct daemon {
 	/* If non-zero, port to listen for websocket connections. */
 	u16 websocket_port;
 
-	/* The gossip_store */
-	int gossip_store_fd;
-	size_t gossip_store_end;
+	/* The gossip store (access via get_gossmap!) */
+	struct gossmap *gossmap_raw;
+	/* Iterator which we keep at "recent" time */
 	u32 gossip_recent_time;
-	size_t gossip_store_recent_off;
+	struct gossmap_iter *gossmap_iter_recent;
 
 	/* We only announce websocket addresses if !deprecated_apis */
 	bool announce_websocket;
@@ -279,6 +279,12 @@ struct daemon {
 
 /* Called by io_tor_connect once it has a connection out. */
 struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect);
+
+/* Get and refresh gossmap */
+struct gossmap *get_gossmap(struct daemon *daemon);
+
+/* Catch up with recent changes */
+void update_recent_timestamp(struct daemon *daemon, struct gossmap *gossmap);
 
 /* add erros to error list */
 void add_errors_to_error_list(struct connecting *connect, const char *error);

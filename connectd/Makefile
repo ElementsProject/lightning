@@ -54,9 +54,11 @@ CONNECTD_COMMON_OBJS :=				\
 	common/dev_disconnect.o			\
 	common/ecdh_hsmd.o			\
 	common/features.o			\
+	common/fp16.o				\
 	common/hmac.o				\
 	common/status_wiregen.o			\
 	common/gossip_store.o			\
+	common/gossmap.o			\
 	common/key_derive.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
