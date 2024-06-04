@@ -14,7 +14,6 @@
 #include <gossipd/gossipd_wiregen.h>
 #include <gossipd/gossmap_manage.h>
 #include <gossipd/queries.h>
-#include <zlib.h>
 
 static u32 dev_max_encoding_bytes = -1U;
 
