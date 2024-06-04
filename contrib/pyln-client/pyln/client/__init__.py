@@ -3,7 +3,7 @@ from .plugin import Plugin, monkey_patch, RpcException
 from .gossmap import Gossmap, GossmapNode, GossmapChannel, GossmapHalfchannel, GossmapNodeId, LnFeatureBits
 from .gossmapstats import GossmapStats
 
-__version__ = "24.05rc2"
+__version__ = "24.05"
 
 __all__ = [
     "LightningRpc",

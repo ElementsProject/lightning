@@ -3,9 +3,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [24.05rc2] - 2024-05-29: "CODENAME"
+## [24.05] - 2024-06-04: "The Infinitely Divisible Satoshi"
 
-This release named by @USERNAME.
+This release named by @daywalker90.
 
 ### Added
 
@@ -92,6 +92,9 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - offers: Fix blinded paths in invoices - use node_id and set final node's CLTV delta. ([#7311])
  - Plugins: The recover plugin now avoids trying to recover closed channels. ([#7216])
  - Gossmap: Avoid adding redundant channel announcements to the gossip_store. ([#7330])
+ - Protocol: forward legacy non-TLV onions which we removed in 22.11 and spec itself in Feb 2022.  Still sent by LND nodes who haven't seen our node_announcement. ([#7352])
+ - Protocol: we once again send CHANNEL_REESTABLISH responses on closing channels. ([#7353])
+ - Fixed a crash when processing pending node announcements. ([#7368])
 
 
 ### EXPERIMENTAL
@@ -101,6 +104,9 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 
 
+[#7368]: https://github.com/ElementsProject/lightning/pull/7368
+[#7353]: https://github.com/ElementsProject/lightning/pull/7353
+[#7352]: https://github.com/ElementsProject/lightning/pull/7352
 [#7159]: https://github.com/ElementsProject/lightning/pull/7159
 [#7116]: https://github.com/ElementsProject/lightning/pull/7116
 [#7230]: https://github.com/ElementsProject/lightning/pull/7230
@@ -148,7 +154,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#7211]: https://github.com/ElementsProject/lightning/pull/7211
 [#7237]: https://github.com/ElementsProject/lightning/pull/7237
 [#7256]: https://github.com/ElementsProject/lightning/pull/7256
-[24.05rc1]: https://github.com/ElementsProject/lightning/releases/tag/v24.05rc1
+[24.05]: https://github.com/ElementsProject/lightning/releases/tag/v24.05
 
 
 
