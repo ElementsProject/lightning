@@ -12,10 +12,6 @@ enum payment_status { PAYMENT_PENDING, PAYMENT_SUCCESS, PAYMENT_FAIL };
 
 struct payment {
 	/* Inside pay_plugin->payments list */
-	// TODO: probably not necessary after we store all payments in a
-	// hashtable instead of a list
-	struct list_node list;
-
 	struct payment_info payment_info;
 
 
