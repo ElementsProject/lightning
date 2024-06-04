@@ -1095,7 +1095,6 @@ static void reprocess_early_cupdates(struct gossmap_manage *gm)
 static void reprocess_queued_msgs(struct gossmap_manage *gm)
 {
 	bool pending_ann_empty, early_ann_empty;
-	struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
 
 	pending_ann_empty = map_empty(&gm->pending_ann_map);
 	early_ann_empty = map_empty(&gm->early_ann_map);
@@ -1122,6 +1121,7 @@ static void reprocess_queued_msgs(struct gossmap_manage *gm)
 
 		for (size_t i = 0; i < tal_count(pnas); i++) {
 			struct gossmap_node *node;
+			struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
 
 			node = gossmap_find_node(gossmap, &pnas[i]->node_id);
 			if (!node) {
