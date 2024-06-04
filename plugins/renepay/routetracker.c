@@ -56,7 +56,6 @@ static void route_success_register(struct routetracker *routetracker,
 {
 	if(route->hops){
 		uncertainty_route_success(pay_plugin->uncertainty, route);
-		uncertainty_remove_htlcs(pay_plugin->uncertainty, route);
 	}
 	routetracker_add_to_final(routetracker, route);
 }
@@ -99,7 +98,6 @@ void route_failure_register(struct routetracker *routetracker,
 			    route->hops[last_good_channel + 1].scid,
 			    route->hops[last_good_channel + 1].direction);
 		}
-		uncertainty_remove_htlcs(pay_plugin->uncertainty, route);
 	}
 	routetracker_add_to_final(routetracker, route);
 }
@@ -107,6 +105,7 @@ void route_failure_register(struct routetracker *routetracker,
 static void remove_route(struct route *route, struct route_map *map)
 {
 	route_map_del(map, route);
+	uncertainty_remove_htlcs(pay_plugin->uncertainty, route);
 }
 
 /* This route is pending, ie. locked in HTLCs.
@@ -139,7 +138,7 @@ static void route_pending_register(struct routetracker *routetracker,
 
 	uncertainty_commit_htlcs(pay_plugin->uncertainty, route);
 
-	if (!tal_steal(pay_plugin, route) ||
+	if (!tal_steal(pay_plugin->pending_routes, route) ||
 	    !route_map_add(pay_plugin->pending_routes, route) ||
 	    !tal_add_destructor2(route, remove_route,
 				 pay_plugin->pending_routes))
@@ -243,8 +242,7 @@ void payment_collect_results(struct payment *payment,
 			*payment_preimage =
 			    tal_dup(tmpctx, struct preimage,
 				    r->result->payment_preimage);
-			tal_free(r);
-			continue;
+			break;
 		}
 
 		/* We should never start a new groupid while there are pending
@@ -258,7 +256,6 @@ void payment_collect_results(struct payment *payment,
 				   "groupid=%" PRIu64,
 				   __PRETTY_FUNCTION__, payment->groupid,
 				   r->key.groupid);
-			tal_free(r);
 			continue;
 		}
 
@@ -283,8 +280,9 @@ void payment_collect_results(struct payment *payment,
 				   "payment total amount.",
 				   __PRETTY_FUNCTION__);
 		}
-		tal_free(r);
 	}
+	for (size_t i = 0; i < ncompleted; i++)
+		tal_free(routetracker->finalized_routes[i]);
 	tal_resize(&routetracker->finalized_routes, 0);
 }
 
@@ -401,6 +399,8 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 	struct route *route =
 	    route_map_get(pay_plugin->pending_routes, key);
 	if (!route) {
+		/* This route was not created by us, make a basic route
+		 * information dummy without hop details to pass onward. */
 		route = tal_route_from_json(tmpctx, buf, sub);
 		if(!route)
 		plugin_err(pay_plugin->plugin,
@@ -416,7 +416,6 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 			   json_tok_full_len(sub), json_tok_full(buf, sub));
 
 	assert(route->result->status == SENDPAY_COMPLETE);
-	// TODO: knowledge update here
 	route_success_register(payment->routetracker, route);
 	return notification_handled(cmd);
 }
