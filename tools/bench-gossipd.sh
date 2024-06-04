@@ -139,7 +139,7 @@ fi
 if [ -z "${TARGETS##* peer_write_all_sec *}" ]; then
     ENTRIES=$(grep 'Read .* cannounce/cupdate/nannounce/cdelete' "$DIR"/log | cut -d\  -f5 | tr / + | bc)
     if [ "$ENTRIES" = 0 ]; then echo "Bad store?"; exit 1; fi
-    /usr/bin/time --quiet --append -f %e devtools/gossipwith --initial-sync --max-messages=$((ENTRIES - 5)) "$ID"@"$DIR"/peer 2>&1 > /dev/null | print_stat peer_write_all_sec
+    /usr/bin/time --quiet --append -f %e devtools/gossipwith --all-gossip --max-messages=$((ENTRIES - 5)) "$ID"@"$DIR"/peer 2>&1 > /dev/null | print_stat peer_write_all_sec
 fi
 
 if [ -z "${TARGETS##* peer_read_all_sec *}" ]; then
