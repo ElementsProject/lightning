@@ -63,7 +63,9 @@ struct pay_plugin {
 	/* Per-channel metadata: some persists between payments */
 	struct uncertainty *uncertainty;
 
-	/* Pending sendpays (to match notifications to). */
+	/* Pending sendpays. Each pending route has an associated HTLC data in
+	 * the uncertainty network. Pending routes are matched against sendpay
+	 * notifications. */
 	struct route_map *pending_routes;
 
 	bool debug_mcf;

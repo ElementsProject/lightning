@@ -5,13 +5,6 @@
 
 #include <stdio.h>
 
-// static void uncertainty_commit_routes(struct uncertainty *uncertainty,
-// 				   struct route **routes)
-// {
-// 	const size_t N = tal_count(routes);
-// 	for (size_t i = 0; i < N; i++)
-// 		uncertainty_commit_htlcs(uncertainty, routes[i]);
-// }
 static void uncertainty_remove_routes(struct uncertainty *uncertainty,
 				   struct route **routes)
 {
