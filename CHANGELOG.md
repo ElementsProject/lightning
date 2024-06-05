@@ -10,49 +10,38 @@ This release named by @daywalker90.
 ### Added
 
  - JSON-RPC: `createrune` new restriction `pinv` to examine bolt11/bolt12 invoice fields (e.g. amount of invoice). ([#7165])
- - cln-plugin: Add dynamic configs and a callback for changes ([#7293])
+ - Plugins: `cln-plugin` adds dynamic configs and a callback for changes ([#7293])
  - JSON-RPC: `pay` has a new parameter `partial_msat` to only pay part of an invoice (someone else presumably will pay the rest at the same time!) ([#7145])
  - JSON-RPC: `check` `keysend` now checks with HSM that it will approve it. ([#7111])
  - Plugins: Can now opt in to handle `check` command on their commands, for more thorough checking. ([#7111])
  - JSON-RPC: `check` `setconfig` now checks that the new config setting would be valid. ([#7111])
  - JSON-RPC: `check` `setconfig` on plugin options can now check the config value would be accepted. ([#7111])
- - cln-grpc: Adds notifications over the grpc interface. Configurable with config parameter `grpc-msg-buffer-size`. ([#7084])
- - Add WSS Proxy server with `wss-bind-addr` and `wss-certs` configurations. ([#7225])
- - cln-grpc: Add methods for dev-forget-channel, emergencyrecover, recover, recoverchannel, funderupdate, help, invoicerequest, listinvoicerequests, disableinvoicerequest, listconfigs, makesecret, multiwithdraw, showrunes, createrune, blacklistrune, and checkrune. ([#7317])
- - cln-grpc: Adds addpsbtoutput method. ([#7108])
- - cln-grpc: Add `openchannel_init`, `openchannel_abort`, `openchannel_bump`, `openchannel_signed`, `openchannel_update` methods. ([#7230])
- - cln-grpc: Add `delpay` method. ([#7232])
- - cln-grpc: Add `delforward` method. ([#7260])
- - cln-grpc: Add `autoclean-once`, `autoclean-status` methods. ([#7238])
- - cln-grpc: Add `fundchannel_start`, `fundchannel_complete`, `fundchannel_cancel` methods. ([#7231])
- - cln-grpc: Add `bkpr-channelsapy`, `bkpr-dumpincomecsv`, `bkpr-inspect`, `bkpr-listaccountevents`, `bkpr-listbalances` methods. ([#7256])
- - cln-grpc: Add `disableoffer` method. ([#7233])
- - cln-grpc: Add `parsefeerate`, `plugin`, `renepay`, `renepaystatus`, `sendinvoice` methods. ([#7272])
- - cln-grpc: Add `reserveinputs`, `unreserveinputs`, `splice_init`, `splice_signed`, `splice_update` methods. ([#7273])
- - cln-grpc: Add `sendonionmessage`, `setconfig`, `setpsbtversion`, `upgradewallet` methods. ([#7274])
- - cln_plugin: Add rust plugin support for wildcard `*` subscriptions.  ([#7106])
- - config: Add `bitcoin-rpcclienttimeout` config parameter. ([#7095])
- - core: notify plugins when a log line is emitted. ([#6990])
+ - Plugins: `cln-grpc` adds notifications over the grpc interface. Configurable with config parameter `grpc-msg-buffer-size`. ([#7084])
+ - Plugins: Added `wss-proxy`, a WSS Proxy server with `wss-bind-addr` and `wss-certs` configurations. ([#7225])
+ - Plugins: `cln-grpc` added GRPC support for remaining methods: `dev-forget-channel`, `emergencyrecover`, `recover`, `recoverchannel`, `funderupdate`, `help`, `invoicerequest`, `listinvoicerequests`, `disableinvoicerequest`, `listconfigs`, `makesecret`, `multiwithdraw`, `showrunes`, `createrune`, `blacklistrune`, `checkrune` ([#7317]), addpsbtoutput ([#7108]), `openchannel_init`, `openchannel_abort`, `openchannel_bump`, `openchannel_signed`, `openchannel_update` ([#7230]), `delpay` ([#7232]), `delforward` ([#7260]), `autoclean-once`, `autoclean-status` ([#7238]), `fundchannel_start`, `fundchannel_complete`, `fundchannel_cancel` ([#7231]), `bkpr-channelsapy`, `bkpr-dumpincomecsv`, `bkpr-inspect`, `bkpr-listaccountevents`, `bkpr-listbalances` ([#7256]), `disableoffer` ([#7233]), `parsefeerate`, `plugin`, `renepay`, `renepaystatus`, `sendinvoice` ([#7272]), `reserveinputs`, `unreserveinputs`, `splice_init`, `splice_signed`, `splice_update` ([#7273]), `sendonionmessage`, `setconfig`, `setpsbtversion`, `upgradewallet` ([#7274]).
+ - Plugins: `cln_plugin` adds rust plugin support for wildcard `*` subscriptions.  ([#7106])
+ - Config: Add `bitcoin-rpcclienttimeout` config parameter. ([#7095])
+ - Plugins: new `log` notification when a log line is emitted. ([#6990])
  - Config: new log level `trace` where we moved the very noisiest `debug` logs. ([#7280])
- - Added a new configuration for clnrest plugin to change the default Swagger UI path from `/` to custom url. ([#7256])
+ - Plugins: `clnrest` added a new configuration `clnrest-swagger-root` to change the default Swagger UI path from `/` to custom url. ([#7256])
 
 
 ### Changed
 
- - config/JSON: --ignore-fee-limits / setchannel ignorefeelimits no longer applies to mutual close. ([#7252])
- - Plugins: bcli: Add a path that tries to fetch blocks ([#7240])
- - plugins: libplugin now shows plugin option default values (where they're non-trivial) ([#7306])
- - runes: named parameters (e.g. `pnameamountmsat`) no longer need to remove underscores (i.e. `pnameamount_msat` now works as expected). ([#7124])
+ - Documentation: great documentation rewrite, all reference pages now generated from the fully-tested JSON schemas and include examples. ([#6995])
+ - Protocol: `--ignore-fee-limits` / `setchannel ignorefeelimits` no longer applies to mutual close. ([#7252])
+ - Plugins: `bcli`: Add a path that tries to fetch blocks ([#7240])
+ - Plugins: libplugin now shows plugin option default values (where they're non-trivial) ([#7306])
+ - Runes: named parameters (e.g. `pnameamountmsat`) no longer need to remove underscores (i.e. `pnameamount_msat` now works as expected). ([#7124])
  - lightningd: we now try to increase the number of file descriptors, if it's less than twice the number of channels at startup (and log if we cannot!). ([#7237])
  - connectd: prioritize peers with channels (and log!) if we run low on file descriptors. ([#7237])
- - core: Processing blocks should now be faster ([#7101])
- - cln-grpc: Add routes to decode and decodepay ([#7317])
+ - lightningd: Processing blocks should now be faster ([#7101])
+ - Plugins: `cln-grpc` adds routes to `decode` and `decodepay` results ([#7317])
  - hsmd: the hsmd now supports `HSM_VERSION 6` ([#7178])
  - hsmd: `HSM_VERSION 6`: `get_per_commitment_point` does not imply index - 2 is revoked, makes it safe to call on any index. ([#7178])
  - Documentation: Merged `example_json_request` and `example_json_response` in a single `json_examples` array to maintain the request and its corresponding response together. ([#7181])
- - Documentation: great documentation rewrite, all reference pages now generated from the fully-tested JSON schemas and include examples. ([#6995])
  - JSON-RPC: `stop` and `recover` now return a JSON object (not a raw string!) like every other command does. ([#6995])
- - pay: Payments are more robust for nodes that are currently syncing. ([#7190])
+ - Plugins: `pay` payments are more robust for nodes that are currently syncing. ([#7190])
 
 
 ### Deprecated
@@ -67,8 +56,8 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - JSON-RPC: `createrune` restrictions as raw strings (use arrays) (deprecated v23.05, EOL 24.02). ([#7094])
  - JSON-RPC: `listpeers` `channels` (deprecated v23.02, EOL v24.02) ([#7094])
  - JSON-RPC: `sendpay` ignoring first channel (deprecated v0.12, EOL v24.02) ([#7094])
- - Config `experimental-websocket-port` (deprecated 23.08, EOL 24.02) ([#7094])
- - Plugins: `funding_locked` from channel_opened notification (deprecated v22.11, EOL v24.02) ([#7094])
+ - Config: `experimental-websocket-port` (deprecated 23.08, EOL 24.02) ([#7094])
+ - Plugins: `funding_locked` from `channel_opened` notification (deprecated v22.11, EOL v24.02) ([#7094])
  - JSON-RPC: `feerates` output fields `delayed_to_us` and `htlc_resolution`. ([#7094])
  - Config: `autocleaninvoice-cycle` and `autocleaninvoice-expired-by` (deprecated v22.11, EOL v24.02) ([#7094])
  - JSON-RPC: `delexpiredinvoice` (deprecated v22.11, EOL v24.02) ([#7094])
@@ -78,29 +67,29 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 ### Fixed
 
- - Plugins: pay now correctly estimates channel capacity ([#7188])
+ - Plugins: `pay` now correctly estimates channel capacity ([#7188])
  - lightningd: avoid crash on signing failure when trying to spend anchor outputs. ([#7291])
- - RenePay: Fixed a race condition leading to a crash. ([#7125])
+ - Plugins: `renepay` fixed a race condition leading to a crash. ([#7125])
  - JSON-RPC: `fundchannel_start` now disallows a non-zero `mindepth` parameter if you ask for a zeroconf `channel_type`. ([#7175])
  - pyln-client: Fix Plugin.notify_message() not to ignore `level` parameter. ([#7287])
  - JSON-RPC: `multifundchannel` with `all` as an amount works as expected. ([#7037])
- - Fixed crash in pay plugin caused by parsing uncommitted dual open channels ([#7235])
+ - Plugins: `pay` crash fixed, caused by parsing uncommitted dual open channels ([#7235])
  - Plugins: `clnrest` now correctly self-disables if Python not present at all. ([#7211])
  - lightningd: slow memory leak when using plugin hooks fixed (introduced in v23.11) ([#7192])
- - Plugins:  the recovery plugin is less noisy. ([#7116])
- - Plugins: RenePay: Handles htlc_max correctly for local channels. ([#7159])
- - offers: Fix blinded paths in invoices - use node_id and set final node's CLTV delta. ([#7311])
+ - Plugins: `recovery` is less noisy. ([#7116])
+ - Plugins: `renepay` handles htlc_max correctly for local channels. ([#7159])
  - Plugins: The recover plugin now avoids trying to recover closed channels. ([#7216])
  - Gossmap: Avoid adding redundant channel announcements to the gossip_store. ([#7330])
  - Protocol: forward legacy non-TLV onions which we removed in 22.11 and spec itself in Feb 2022.  Still sent by LND nodes who haven't seen our node_announcement. ([#7352])
  - Protocol: we once again send CHANNEL_REESTABLISH responses on closing channels. ([#7353])
- - Fixed a crash when processing pending node announcements. ([#7368])
+ - gossipd: Fixed a crash when processing pending node announcements. ([#7368])
 
 
 ### EXPERIMENTAL
 
- - We will now reply to invoice_request messages even if reply path requires us to make an outgoing connection (LDK does this) ([#7304])
+ - offers: We will now reply to invoice_request messages even if reply path requires us to make an outgoing connection (LDK does this) ([#7304])
  - offers: we now understand blinded paths which use a short-channel-id(+direction) as entry point. ([#7212])
+ - offers: Fix blinded paths in invoices - use node_id and set final node's CLTV delta. ([#7311])
 
 
 
