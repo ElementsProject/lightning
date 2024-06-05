@@ -39,7 +39,7 @@ Here's a checklist for the release process.
 8. Upgrade your personal nodes to the rc1, to help testing.
 9. Follow [reproducible build](https://docs.corelightning.org/docs/repro) for [Builder image setup](https://docs.corelightning.org/docs/repro#builder-image-setup). It will create builder images `cl-repro-<codename>` which are required for the next step.
 10. Run `tools/build-release.sh bin-Fedora-28-amd64 bin-Ubuntu sign` script to prepare required builds for the release. With `bin-Fedora-28-amd64 bin-Ubuntu sign`, it will build a zipfile, a non-reproducible Fedora, reproducible Ubuntu images. Once it is done, the script will sign the release contents and create SHA256SUMS and SHA256SUMS.asc in the release folder.
-11. RC images are not uploaded on Docker. Hence they can be removed from the target list for RC versions. Each docker image takes approx. 90 minutes to bundle but it is highly recommended to test docker setup once, if you haven't done that before. Prior to building docker images, ensure that `multiarch/qemu-user-static` setup is working on your system as described [here](https://docs.corelightning.org/docs/repro#setting-up-multiarchqemu-user-static).
+11. RC images are not uploaded on Docker. Hence they can be removed from the target list for RC versions. Each docker image takes approx. 90 minutes to bundle but it is highly recommended to test docker setup once, if you haven't done that before. Prior to building docker images, ensure that `multiarch/qemu-user-static` setup is working on your system as described [here](https://docs.corelightning.org/docs/docker-images#setting-up-multiarchqemu-user-static).
 
 ## Releasing -rc2, ..., -rcN
 
