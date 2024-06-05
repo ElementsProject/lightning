@@ -45,8 +45,6 @@
 #include <common/wire_error.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <gossipd/gossip_store_wiregen.h>
-#include <gossipd/gossipd_peerd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <stdio.h>
 #include <wally_bip32.h>

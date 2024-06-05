@@ -645,7 +645,8 @@ def test_gossip_no_empty_announcements(node_factory, bitcoind, chainparams):
     l1.daemon.wait_for_log(r'\[IN\] 0100')
     wait_for(lambda: l1.rpc.listchannels()['channels'] == [])
 
-    # l1 won't relay it (make sure it has time to digest though)
+    # l1 won't mention it in reply (make sure it has time to digest though)
+    # but it may actually relay it
     time.sleep(2)
     encoded = subprocess.run(['devtools/mkencoded', '--scids', '00'],
                              check=True,
@@ -654,7 +655,7 @@ def test_gossip_no_empty_announcements(node_factory, bitcoind, chainparams):
     assert l1.query_gossip('query_channel_range',
                            chainparams['chain_hash'],
                            0, 1000000,
-                           filters=['0109', '0107', '0012']) == ['0108'
+                           filters=['0109', '0107', '0012', '0100']) == ['0108'
                                                                  # blockhash
                                                                  + chainparams['chain_hash']
                                                                  # first_blocknum, number_of_blocks, complete
@@ -1266,6 +1267,8 @@ def test_node_reannounce(node_factory, bitcoind, chainparams):
     bitcoind.generate_block(5)
     genesis_blockhash = chainparams['chain_hash']
 
+    
+
     # Wait for node_announcement for l1.
     l2.daemon.wait_for_log(r'\[IN\] 0101.*{}'.format(l1.info['id']))
     # Wait for it to process it.
@@ -1344,7 +1347,8 @@ def test_gossipwith(node_factory):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
 
     out = subprocess.run(['devtools/gossipwith',
-                          '--initial-sync',
+                          '--all-gossip',
+                          '--network={}'.format(TEST_NETWORK),
                           '--timeout-after={}'.format(int(math.sqrt(TIMEOUT) + 1)),
                           '{}@localhost:{}'.format(l1.info['id'], l1.port)],
                          check=True,
@@ -1398,6 +1402,7 @@ def test_gossip_notices_close(node_factory, bitcoind):
     wait_for(lambda: l1.rpc.listnodes()['nodes'] == [])
 
     subprocess.run(['devtools/gossipwith',
+                    '--network={}'.format(TEST_NETWORK),
                     '--max-messages=0',
                     '{}@localhost:{}'.format(l1.info['id'], l1.port),
                     channel_announcement,
@@ -1645,6 +1650,7 @@ def test_gossip_announce_invalid_block(node_factory, bitcoind):
 
     # Test gossip for an unknown block.
     subprocess.run(['devtools/gossipwith',
+                    '--network={}'.format(TEST_NETWORK),
                     '--max-messages=0',
                     '{}@localhost:{}'.format(l1.info['id'], l1.port),
                     # short_channel_id=103x1x1
@@ -1675,6 +1681,7 @@ def test_gossip_announce_unknown_block(node_factory, bitcoind):
 
     # Test gossip for unknown block.
     subprocess.run(['devtools/gossipwith',
+                    '--network={}'.format(TEST_NETWORK),
                     '--max-messages=0',
                     '{}@localhost:{}'.format(l1.info['id'], l1.port),
                     # short_channel_id=103x1x1
@@ -1931,7 +1938,8 @@ def test_gossip_not_dying(node_factory, bitcoind):
 
     def get_gossip(node):
         out = subprocess.run(['devtools/gossipwith',
-                              '--initial-sync',
+                              '--network={}'.format(TEST_NETWORK),
+                              '--all-gossip',
                               '--timeout-after=2',
                               '{}@localhost:{}'.format(node.info['id'], node.port)],
                              check=True,
@@ -1976,7 +1984,9 @@ def test_dump_own_gossip(node_factory):
     # We should get channel_announcement, channel_update, node_announcement.
     # (Plus random pings, timestamp_filter)
     out = subprocess.run(['devtools/gossipwith',
+                          '--no-gossip',
                           '--timeout-after={}'.format(int(math.sqrt(TIMEOUT) + 1)),
+                          '--network={}'.format(TEST_NETWORK),
                           '{}@localhost:{}'.format(l1.info['id'], l1.port)],
                          check=True,
                          timeout=TIMEOUT, stdout=subprocess.PIPE).stdout
@@ -1991,8 +2001,8 @@ def test_dump_own_gossip(node_factory):
         l, t = struct.unpack('>HH', out[0:4])
         out = out[2 + l:]
 
-        # Ignore pings, timestamp_filter
-        if t == 265 or t == 18:
+        # Ignore pings, timestamp_filter, query_channel_range
+        if t in (18, 265, 263):
             continue
 
         assert t == expect[0]
@@ -2033,3 +2043,99 @@ def test_listchannels_deprecated_local(node_factory, bitcoind):
     # Either order
     vals = [(c['active'], c['public'], c['short_channel_id']) for c in l2.rpc.listchannels()['channels']]
     assert vals == [(True, True, l1l2)] * 2 + [(True, False, l2l3)] * 2 or vals == [(True, False, l2l3)] * 2 + [(True, True, l1l2)] * 2
+
+
+def test_gossip_throttle(node_factory, bitcoind, chainparams):
+    """Make some gossip, test it gets throttled"""
+    l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
+                                             opts=[{}, {}, {}, {'dev-throttle-gossip': None}])
+
+    # We expect: self-advertizement (3 messages for l1 and l4) plus
+    # 4 node announcements, 3 channel announcements and 6 channel updates.
+    # We also expect it to send a timestamp filter message.
+    # (We won't take long enough to get a ping!)
+    expected = 4 + 4 + 3 + 6 + 1
+    
+    # l1 is unlimited
+    start_fast = time.time()
+    out1 = subprocess.run(['devtools/gossipwith',
+                           '--all-gossip',
+                           '--hex',
+                           '--network={}'.format(TEST_NETWORK),
+                           '--max-messages={}'.format(expected),
+                           '{}@localhost:{}'.format(l1.info['id'], l1.port)],
+                          check=True,
+                          timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
+    time_fast = time.time() - start_fast
+    assert time_fast < 2
+    # Remove timestamp filter, since timestamp will change!
+    out1 = [m for m in out1 if not m.startswith(b'0109')]
+
+    # l4 is throttled
+    start_slow = time.time()
+    out2 = subprocess.run(['devtools/gossipwith',
+                           '--all-gossip',
+                           '--hex',
+                           '--network={}'.format(TEST_NETWORK),
+                           '--max-messages={}'.format(expected),
+                           '{}@localhost:{}'.format(l4.info['id'], l4.port)],
+                          check=True,
+                          timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
+    time_slow = time.time() - start_slow
+    assert time_slow > 3
+
+    # Remove timestamp filter, since timestamp will change!
+    out2 = [m for m in out2 if not m.startswith(b'0109')]
+    
+    # Contents should be identical (once uniquified, since each
+    # doubles-up on its own gossip)
+    assert set(out1) == set(out2)
+
+    encoded = subprocess.run(['devtools/mkencoded', '--scids', '00',
+                              first_scid(l1, l2),
+                              first_scid(l2, l3),
+                              first_scid(l3, l4)],
+                             check=True,
+                             timeout=TIMEOUT,
+                             stdout=subprocess.PIPE).stdout.strip().decode()
+
+    query = subprocess.run(['devtools/mkquery',
+                            'query_short_channel_ids',
+                            chainparams['chain_hash'],
+                            encoded,
+                            # We want channel announce, updates and node ann.
+                            '00', '1F1F1F'],
+                           check=True,
+                           timeout=TIMEOUT,
+                           stdout=subprocess.PIPE).stdout.strip()
+
+    # Queries should also be ratelimited, so compare l1 vs l4.
+    start_fast = time.time()
+    out3 = subprocess.run(['devtools/gossipwith',
+                           '--no-gossip',
+                           '--hex',
+                           '--network={}'.format(TEST_NETWORK),
+                           '--max-messages={}'.format(expected),
+                           '{}@localhost:{}'.format(l1.info['id'], l1.port),
+                           query],
+                          check=True,
+                          timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
+    time_fast = time.time() - start_fast
+    assert time_fast < 2
+    out3 = [m for m in out3 if not m.startswith(b'0109')]
+    assert set(out1) == set(out3)
+
+    start_slow = time.time()
+    out4 = subprocess.run(['devtools/gossipwith',
+                           '--no-gossip',
+                           '--hex',
+                           '--network={}'.format(TEST_NETWORK),
+                           '--max-messages={}'.format(expected),
+                           '{}@localhost:{}'.format(l4.info['id'], l4.port),
+                           query],
+                          check=True,
+                          timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
+    time_slow = time.time() - start_slow
+    assert time_slow > 3
+    out4 = [m for m in out4 if not m.startswith(b'0109')]
+    assert set(out2) == set(out4)

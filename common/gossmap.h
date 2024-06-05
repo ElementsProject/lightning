@@ -258,6 +258,28 @@ struct gossmap_chan *gossmap_first_chan(const struct gossmap *map);
 struct gossmap_chan *gossmap_next_chan(const struct gossmap *map,
 				       struct gossmap_chan *prev);
 
+/* For iterating the gossmap: returns iterator at start. */
+struct gossmap_iter *gossmap_iter_new(const tal_t *ctx,
+				      const struct gossmap *map);
+/* Copy an existing iterator (same offset) */
+struct gossmap_iter *gossmap_iter_dup(const tal_t *ctx,
+				      const struct gossmap_iter *iter);
+
+/* Get next message, and optional timestamp */
+const void *gossmap_stream_next(const tal_t *ctx,
+				const struct gossmap *map,
+				struct gossmap_iter *iter,
+				u32 *timestamp);
+/* For fast-forwarding to the given timestamp */
+void gossmap_iter_fast_forward(const struct gossmap *map,
+			       struct gossmap_iter *iter,
+			       u64 timestamp);
+/* Moves iterator to the end. */
+void gossmap_iter_end(const struct gossmap *map, struct gossmap_iter *iter);
+
 /* For debugging: returns length read, and total known length of file */
 size_t gossmap_lengths(const struct gossmap *map, size_t *total);
+
+/* Debugging: connectd wants to enumerate fds */
+int gossmap_fd(const struct gossmap *map);
 #endif /* LIGHTNING_COMMON_GOSSMAP_H */

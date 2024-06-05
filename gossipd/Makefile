@@ -1,7 +1,6 @@
 #! /usr/bin/make
 
 GOSSIPD_HEADERS_WSRC := gossipd/gossipd_wiregen.h \
-	gossipd/gossipd_peerd_wiregen.h			\
 	gossipd/gossip_store_wiregen.h			\
 	gossipd/gossipd.h				\
 	gossipd/gossip_store.h				\
@@ -71,5 +70,11 @@ GOSSIPD_COMMON_OBJS :=				\
 	connectd/connectd_gossipd_wiregen.o
 
 lightningd/lightning_gossipd: $(GOSSIPD_OBJS) $(GOSSIPD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(HSMD_CLIENT_OBJS)
+
+# The CSV was removed, but the generated files may live on!
+clean: clean-old-gossip-gen
+
+clean-old-gossip-gen:
+	$(RM) gossipd_peerd_wiregen.*
 
 include gossipd/test/Makefile

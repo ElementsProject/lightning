@@ -14,15 +14,12 @@
 # define IF_SQLITE3(...)
 #endif
 #include <unistd.h>
-#include <zlib.h>
 
 static const char template[] =
 	"/* Generated file by tools/headerversions, do not edit! */\n"
 	IF_SQLITE3("/* SQLITE3 version: %u */\n")
-	"/* ZLIB version: %s */\n"
 	"#include <ccan/err/err.h>\n"
 	IF_SQLITE3("#include <sqlite3.h>\n")
-	"#include <zlib.h>\n"
 	"\n"
 	"static inline void check_linked_library_versions(void)\n"
 	"{\n"
@@ -36,10 +33,6 @@ static const char template[] =
 	"		errx(1, \"SQLITE major version mismatch: compiled %%u, now %%u\",\n"
 	"		     SQLITE_VERSION_NUMBER, sqlite3_libversion_number());\n"
 	)
-	"	/* zlib documents that first char alters ABI. Kudos! */\n"
-	"	if (zlibVersion()[0] != ZLIB_VERSION[0])\n"
-	"		errx(1, \"zlib version mismatch: compiled %%s, now %%s\",\n"
-	"		     ZLIB_VERSION, zlibVersion());\n"
 	"}\n";
 
 int main(int argc, char *argv[])
@@ -57,8 +50,7 @@ int main(int argc, char *argv[])
 		err(1, "Reading %s", argv[1]);
 
 	new = tal_fmt(NULL, template,
-		      IF_SQLITE3(sqlite3_libversion_number(),)
-		      zlibVersion());
+		      IF_SQLITE3(sqlite3_libversion_number()));
 	if (!file || !streq(new, file)) {
 		int fd = open(argv[1], O_TRUNC|O_WRONLY|O_CREAT, 0666);
 		if (fd < 0)

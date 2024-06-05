@@ -27,6 +27,7 @@ msgdata,connectd_init,dev_disconnect,bool,
 msgdata,connectd_init,dev_no_ping_timer,bool,
 # Allow incoming connections, but don't talk.
 msgdata,connectd_init,dev_noreply,bool,
+msgdata,connectd_init,dev_throttle_gossip,bool,
 
 # Connectd->master, here are the addresses I bound, can announce.
 msgtype,connectd_init_reply,2100
@@ -167,3 +168,7 @@ msgtype,connectd_dev_suppress_gossip,2032
 
 # master -> connect: waste all your fds.
 msgtype,connectd_dev_exhaust_fds,2036
+
+# master -> connect: set artificial maximum reply_channel_range size.
+msgtype,connectd_dev_set_max_scids_encode_size,2035
+msgdata,connectd_dev_set_max_scids_encode_size,max,u32,

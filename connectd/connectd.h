@@ -5,6 +5,7 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/timer/timer.h>
+#include <common/bigsize.h>
 #include <common/channel_id.h>
 #include <common/crypto_state.h>
 #include <common/node_id.h>
@@ -27,7 +28,11 @@ struct gossip_state {
 	/* I think this is called "echo cancellation" */
 	struct gossip_rcvd_filter *grf;
 	/* Offset within the gossip_store file */
-	size_t off;
+	struct gossmap_iter *iter;
+	/* Bytes sent in the last second. */
+	size_t bytes_this_second;
+	/* When that second starts */
+	struct timemono bytes_start_time;
 };
 
 /*~ We need to know if we were expecting a pong, and why */
@@ -106,6 +111,15 @@ struct peer {
 	bool dev_read_enabled;
 	/* If non-NULL, this counts down; 0 means disable */
 	u32 *dev_writes_enabled;
+
+	/* Are there outstanding responses for queries on short_channel_ids? */
+	const struct short_channel_id *scid_queries;
+	const bigsize_t *scid_query_flags;
+	size_t scid_query_idx;
+
+	/* Are there outstanding node_announcements from scid_queries? */
+	struct node_id *scid_query_nodes;
+	size_t scid_query_nodes_idx;
 };
 
 /*~ The HTABLE_DEFINE_TYPE() macro needs a keyof() function to extract the key:
@@ -215,6 +229,9 @@ struct daemon {
 	/* Allow localhost to be considered "public", only with --developer */
 	bool dev_allow_localhost;
 
+	/* How much to gossip allow a peer every 60 seconds (bytes) */
+	size_t gossip_stream_limit;
+
 	/* We support use of a SOCKS5 proxy (e.g. Tor) */
 	struct addrinfo *proxyaddr;
 
@@ -241,11 +258,11 @@ struct daemon {
 	/* If non-zero, port to listen for websocket connections. */
 	u16 websocket_port;
 
-	/* The gossip_store */
-	int gossip_store_fd;
-	size_t gossip_store_end;
+	/* The gossip store (access via get_gossmap!) */
+	struct gossmap *gossmap_raw;
+	/* Iterator which we keep at "recent" time */
 	u32 gossip_recent_time;
-	size_t gossip_store_recent_off;
+	struct gossmap_iter *gossmap_iter_recent;
 
 	/* We only announce websocket addresses if !deprecated_apis */
 	bool announce_websocket;
@@ -272,6 +289,12 @@ struct daemon {
 
 /* Called by io_tor_connect once it has a connection out. */
 struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect);
+
+/* Get and refresh gossmap */
+struct gossmap *get_gossmap(struct daemon *daemon);
+
+/* Catch up with recent changes */
+void update_recent_timestamp(struct daemon *daemon, struct gossmap *gossmap);
 
 /* add erros to error list */
 void add_errors_to_error_list(struct connecting *connect, const char *error);
