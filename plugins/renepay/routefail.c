@@ -33,7 +33,7 @@ struct command_result *routefail_start(const tal_t *ctx, struct route *route,
 	if (payment == NULL)
 		plugin_err(pay_plugin->plugin,
 			   "%s: payment with hash %s not found.",
-			   __PRETTY_FUNCTION__,
+			   __func__,
 			   fmt_sha256(tmpctx, &route->key.payment_hash));
 
 	r->payment = payment;
