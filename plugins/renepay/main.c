@@ -89,7 +89,7 @@ static const char *init(struct plugin *p,
 		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
 			   "%s: uncertainty was updated but %d channels have "
 			   "been ignored.",
-			   __PRETTY_FUNCTION__, skipped_count);
+			   __func__, skipped_count);
 
 	plugin_set_memleak_handler(p, memleak_mark);
 	return NULL;
