@@ -50,7 +50,43 @@ static void routetracker_add_to_final(struct routetracker *routetracker,
 {
 	tal_arr_expand(&routetracker->finalized_routes, route);
 	tal_steal(routetracker->finalized_routes, route);
+
+	struct payment *payment =
+	    payment_map_get(pay_plugin->payment_map, route->key.payment_hash);
+	assert(payment);
+	if (payment->exec_state == INVALID_STATE) {
+		/* payment is offline, collect results now and set the payment
+		 * state accordingly. */
+		assert(payment_commands_empty(payment));
+		assert(payment->status == PAYMENT_FAIL ||
+		       payment->status == PAYMENT_SUCCESS);
+
+		struct preimage *payment_preimage = NULL;
+		enum jsonrpc_errcode final_error = LIGHTNINGD;
+		const char *final_msg = NULL;
+
+		/* Finalized routes must be processed and removed in order to
+		 * free the uncertainty network's HTLCs. */
+		payment_collect_results(payment, &payment_preimage,
+					&final_error, &final_msg);
+
+		if (payment_preimage) {
+			/* If we have the preimage that means one succeed, we
+			 * inmediately finish the payment. */
+			register_payment_success(payment,
+						 take(payment_preimage));
+			return;
+		}
+		if (final_msg) {
+			/* We received a sendpay result with a final error
+			 * message, we inmediately finish the payment. */
+			register_payment_fail(payment, final_error, "%s",
+					      final_msg);
+			return;
+		}
+	}
 }
+
 static void route_success_register(struct routetracker *routetracker,
 				   struct route *route)
 {

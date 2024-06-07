@@ -265,23 +265,28 @@ struct command *payment_command(struct payment *p)
 	return p->cmd_array[0];
 }
 
-struct command_result *payment_success(struct payment *payment,
-				       const struct preimage *preimage TAKES)
+void register_payment_success(struct payment *payment,
+			      const struct preimage *preimage TAKES)
 {
 	assert(payment);
 	assert(preimage);
 	payment->status = PAYMENT_SUCCESS;
 	payment->preimage = tal_free(payment->preimage);
-	if(taken(preimage))
+	if (taken(preimage))
 		payment->preimage = tal_steal(payment, preimage);
 	else
 		payment->preimage = tal_dup(payment, struct preimage, preimage);
+}
+
+struct command_result *payment_success(struct payment *payment,
+				       const struct preimage *preimage TAKES)
+{
+	register_payment_success(payment, preimage);
 	return payment_finish(payment);
 }
 
-struct command_result *payment_fail(struct payment *payment,
-				    enum jsonrpc_errcode code, const char *fmt,
-				    ...)
+void register_payment_fail(struct payment *payment, enum jsonrpc_errcode code,
+			   const char *fmt, ...)
 {
 	payment->status = PAYMENT_FAIL;
 	payment->error_code = code;
@@ -291,6 +296,18 @@ struct command_result *payment_fail(struct payment *payment,
 	va_start(args, fmt);
 	payment->error_msg = tal_vfmt(payment, fmt, args);
 	va_end(args);
+}
+
+struct command_result *payment_fail(struct payment *payment,
+				    enum jsonrpc_errcode code, const char *fmt,
+				    ...)
+{
+	/* can't pass variadic arguments forward, so let's expand them. */
+	va_list args;
+	va_start(args, fmt);
+	const char *error_msg = tal_vfmt(tmpctx, fmt, args);
+	va_end(args);
+	register_payment_fail(payment, code, "%s", error_msg);
 
 	payment_note(payment, LOG_DBG, "Payment failed: %s",
 		     payment->error_msg);
