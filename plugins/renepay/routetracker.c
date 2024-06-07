@@ -13,7 +13,7 @@ static struct payment *route_get_payment_verify(struct route *route)
 	if (!payment)
 		plugin_err(pay_plugin->plugin,
 			   "%s: no payment associated with routekey %s",
-			   __PRETTY_FUNCTION__,
+			   __func__,
 			   fmt_routekey(tmpctx, &route->key));
 	return payment;
 }
@@ -162,14 +162,14 @@ static void route_pending_register(struct routetracker *routetracker,
 	if (route_map_get(pay_plugin->pending_routes, &route->key))
 		plugin_err(pay_plugin->plugin,
 			   "%s: tracking a route (%s) duplicate?",
-			   __PRETTY_FUNCTION__,
+			   __func__,
 			   fmt_routekey(tmpctx, &route->key));
 
 	if (!route_map_del(routetracker->sent_routes, route))
 		plugin_err(pay_plugin->plugin,
 			   "%s: tracking a route (%s) not computed by this "
 			   "payment call",
-			   __PRETTY_FUNCTION__,
+			   __func__,
 			   fmt_routekey(tmpctx, &route->key));
 
 	uncertainty_commit_htlcs(pay_plugin->uncertainty, route);
@@ -179,7 +179,7 @@ static void route_pending_register(struct routetracker *routetracker,
 	    !tal_add_destructor2(route, remove_route,
 				 pay_plugin->pending_routes))
 		plugin_err(pay_plugin->plugin, "%s: failed to register route.",
-			   __PRETTY_FUNCTION__);
+			   __func__);
 
 	if (!amount_msat_add(&payment->total_sent, payment->total_sent,
 			     route_sends(route)) ||
@@ -188,7 +188,7 @@ static void route_pending_register(struct routetracker *routetracker,
 			     route_delivers(route))) {
 		plugin_err(pay_plugin->plugin,
 			   "%s: amount_msat arithmetic overflow.",
-			   __PRETTY_FUNCTION__);
+			   __func__);
 	}
 }
 
@@ -249,7 +249,7 @@ static struct command_result *sendpay_failed(struct command *cmd,
 	if (!route_map_del(routetracker->sent_routes, route))
 		plugin_err(pay_plugin->plugin,
 			   "%s: route (%s) is not marked as sent",
-			   __PRETTY_FUNCTION__,
+			   __func__,
 			   fmt_routekey(tmpctx, &route->key));
 	tal_free(route);
 	return command_still_pending(cmd);
@@ -290,7 +290,7 @@ void payment_collect_results(struct payment *payment,
 				   "%s: current groupid=%" PRIu64
 				   ", but recieved a sendpay result with "
 				   "groupid=%" PRIu64,
-				   __PRETTY_FUNCTION__, payment->groupid,
+				   __func__, payment->groupid,
 				   r->key.groupid);
 			continue;
 		}
@@ -314,7 +314,7 @@ void payment_collect_results(struct payment *payment,
 			plugin_err(pay_plugin->plugin,
 				   "%s: routes do not add up to "
 				   "payment total amount.",
-				   __PRETTY_FUNCTION__);
+				   __func__);
 		}
 	}
 	for (size_t i = 0; i < ncompleted; i++)

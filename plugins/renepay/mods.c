@@ -129,13 +129,13 @@ static bool success_data_from_listsendpays(const char *buf,
 			plugin_err(
 			    pay_plugin->plugin,
 			    "%s (line %d) missing status token from json.",
-			    __PRETTY_FUNCTION__, __LINE__);
+			    __func__, __LINE__);
 		const char *status = json_strdup(tmpctx, buf, status_tok);
 		if (!status)
 			plugin_err(
 			    pay_plugin->plugin,
 			    "%s (line %d) failed to allocate status string.",
-			    __PRETTY_FUNCTION__, __LINE__);
+			    __func__, __LINE__);
 
 		if (streq(status, "complete")) {
 			/* FIXME we assume amount_msat is always present, but
@@ -160,7 +160,7 @@ static bool success_data_from_listsendpays(const char *buf,
 					   "%s (line %d) json_scan of "
 					   "listsendpay returns the "
 					   "following error: %s",
-					   __PRETTY_FUNCTION__, __LINE__, err);
+					   __func__, __LINE__, err);
 			success->groupid = groupid;
 			/* Now we know the payment completed. */
 			if (!amount_msat_add(&success->deliver_msat,
@@ -170,7 +170,7 @@ static bool success_data_from_listsendpays(const char *buf,
 					     success->sent_msat, this_sent))
 				plugin_err(pay_plugin->plugin,
 					   "%s (line %d) amount_msat overflow.",
-					   __PRETTY_FUNCTION__, __LINE__);
+					   __func__, __LINE__);
 
 			success->parts++;
 		}
@@ -482,7 +482,7 @@ static struct command_result *refreshgossmap_cb(struct payment *payment)
 			    pay_plugin->plugin, LOG_UNUSUAL,
 			    "%s: uncertainty was updated but %d channels have "
 			    "been ignored.",
-			    __PRETTY_FUNCTION__, skipped_count);
+			    __func__, skipped_count);
 	}
 	return payment_continue(payment);
 }
@@ -597,7 +597,7 @@ static struct command_result *routehints_done(struct command *cmd UNUSED,
 		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
 			   "%s: uncertainty was updated but %d channels have "
 			   "been ignored.",
-			   __PRETTY_FUNCTION__, skipped_count);
+			   __func__, skipped_count);
 
 	return payment_continue(payment);
 }
@@ -631,7 +631,7 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 	    tal_count(routetracker->computed_routes))
 		plugin_err(pay_plugin->plugin,
 			   "%s: no previously computed routes expected.",
-			   __PRETTY_FUNCTION__);
+			   __func__);
 
 	struct amount_msat feebudget, fees_spent, remaining;
 
@@ -639,14 +639,14 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 	if (!amount_msat_sub(&feebudget, payment->payment_info.maxspend,
 			     payment->payment_info.amount))
 		plugin_err(pay_plugin->plugin, "%s: fee budget is negative?",
-			   __PRETTY_FUNCTION__);
+			   __func__);
 
 	/* Fees spent so far */
 	if (!amount_msat_sub(&fees_spent, payment->total_sent,
 			     payment->total_delivering))
 		plugin_err(pay_plugin->plugin,
 			   "%s: total_delivering is greater than total_sent?",
-			   __PRETTY_FUNCTION__);
+			   __func__);
 
 	/* Remaining fee budget. */
 	if (!amount_msat_sub(&feebudget, feebudget, fees_spent))
@@ -658,7 +658,7 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
 			   "%s: Payment is pending with full amount already "
 			   "committed. We skip the computation of new routes.",
-			   __PRETTY_FUNCTION__);
+			   __func__);
 		return payment_continue(payment);
 	}
 
@@ -724,7 +724,7 @@ static struct command_result *send_routes_cb(struct payment *payment)
 	    tal_count(routetracker->computed_routes) == 0) {
 		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
 			   "%s: there are no routes to send, skipping.",
-			   __PRETTY_FUNCTION__);
+			   __func__);
 		return payment_continue(payment);
 	}
 	struct command *cmd = payment_command(payment);
@@ -806,7 +806,7 @@ static struct command_result *collect_results_cb(struct payment *payment)
 			    "%s: received a success sendpay for this "
 			    "payment but the total delivering amount %s "
 			    "is less than the payment amount %s.",
-			    __PRETTY_FUNCTION__,
+			    __func__,
 			    fmt_amount_msat(tmpctx, payment->total_delivering),
 			    fmt_amount_msat(tmpctx,
 					    payment->payment_info.amount));
@@ -930,7 +930,7 @@ static struct command_result *pendingsendpays_done(struct command *cmd,
 		payment_note(payment, LOG_DBG,
 			     "%s: Payment completed before computing the next "
 			     "round of routes.",
-			     __PRETTY_FUNCTION__);
+			     __func__);
 		return payment_success(payment, &success.preimage);
 	}
 
@@ -950,7 +950,7 @@ static struct command_result *pendingsendpays_done(struct command *cmd,
 			plugin_err(pay_plugin->plugin,
 				   "%s json_scan of listsendpay returns the "
 				   "following error: %s",
-				   __PRETTY_FUNCTION__, err);
+				   __func__, err);
 
 		if (streq(status, "pending")) {
 			pending_group_id = groupid;
@@ -985,7 +985,7 @@ static struct command_result *pendingsendpays_done(struct command *cmd,
 			plugin_err(pay_plugin->plugin,
 				   "%s json_scan of listsendpay returns the "
 				   "following error: %s",
-				   __PRETTY_FUNCTION__, err);
+				   __func__, err);
 
 		/* If we decide to create a new group, we base it on
 		 * max_group_id */
@@ -1011,7 +1011,7 @@ static struct command_result *pendingsendpays_done(struct command *cmd,
 					     this_sent))
 				plugin_err(pay_plugin->plugin,
 					   "%s (line %d) amount_msat overflow.",
-					   __PRETTY_FUNCTION__, __LINE__);
+					   __func__, __LINE__);
 		}
 		assert(!streq(status, "complete"));
 	}

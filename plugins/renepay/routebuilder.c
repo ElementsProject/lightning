@@ -229,7 +229,7 @@ struct route **get_routes(const tal_t *ctx,
 				    ctx, ecode, fail, PLUGIN_ERROR,
 				    "%s: flow is delivering to destination "
 				    "(%s) more than requested (%s)",
-				    __PRETTY_FUNCTION__,
+				    __func__,
 				    fmt_amount_msat(this_ctx, flows[i]->amount),
 				    fmt_amount_msat(this_ctx,
 						    amount_to_deliver));
@@ -285,7 +285,7 @@ struct route **get_routes(const tal_t *ctx,
 				tal_report_error(
 				    ctx, ecode, fail, PLUGIN_ERROR,
 				    "%s failed to build route from flow.",
-				    __PRETTY_FUNCTION__);
+				    __func__);
 				goto function_fail;
 			}
 
@@ -347,7 +347,7 @@ struct route **get_routes(const tal_t *ctx,
 				    ctx, ecode, fail, PLUGIN_ERROR,
 				    "%s routing fees (%s) exceed fee "
 				    "budget (%s).",
-				    __PRETTY_FUNCTION__,
+				    __func__,
 				    fmt_amount_msat(this_ctx, fee),
 				    fmt_amount_msat(this_ctx, feebudget));
 				goto function_fail;
@@ -361,7 +361,7 @@ struct route **get_routes(const tal_t *ctx,
 				    ctx, ecode, fail, PLUGIN_ERROR,
 				    "%s: route delivering to destination (%s) "
 				    "is more than requested (%s)",
-				    __PRETTY_FUNCTION__,
+				    __func__,
 				    fmt_amount_msat(this_ctx, delivering),
 				    fmt_amount_msat(this_ctx,
 						    amount_to_deliver));
