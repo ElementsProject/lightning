@@ -25,7 +25,7 @@ static void destroy_route(
 		struct route_map * map)
 {
 	printf("calling %s with  %s\n",
-		__PRETTY_FUNCTION__,
+		__func__,
 		fmt_routekey(tmpctx,&route->key));
 	route_map_del(map, route);
 }

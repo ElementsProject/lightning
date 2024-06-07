@@ -1193,7 +1193,7 @@ static u32 find_positive_balance(
 	 * algorithm does not come up with spurious flow cycles. */
 	while(balance[final_idx]<=0)
 	{
-		// printf("%s: node = %d\n",__PRETTY_FUNCTION__,final_idx);
+		// printf("%s: node = %d\n",__func__,final_idx);
 		u32 updated_idx=INVALID_INDEX;
 		struct gossmap_node *cur
 			= gossmap_node_byidx(gossmap,final_idx);
