@@ -1232,7 +1232,6 @@ static const char *init(struct plugin *p,
 	rpc_scan(p, "getchaininfo",
 		 take(json_out_obj(NULL, "last_height", NULL)),
 		 "{headercount:%}", JSON_SCAN(json_to_u32, &blockheight));
-	assert(blockheight);
 
 	rpc_scan(p, "listconfigs",
 		 take(json_out_obj(NULL, NULL, NULL)),
