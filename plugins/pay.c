@@ -300,6 +300,12 @@ struct pay_mpp {
 	/* Which sendpay group is this? Necessary for invoices that have been
 	 * attempted multiple times. */
 	struct pay_sort_key sortkey;
+
+	/* 1-based index indicating order this payment was created in. */
+	u64 created_index;
+	/* 1-based index indicating order this payment was changed
+	 * (only present if it has changed since creation). */
+	u64 updated_index;
 };
 
 static const struct pay_sort_key *pay_mpp_key(const struct pay_mpp *pm)
@@ -412,6 +418,11 @@ static void add_new_entry(struct json_stream *ret,
 	if (pm->num_nonfailed_parts > 1)
 		json_add_u64(ret, "number_of_parts",
 			     pm->num_nonfailed_parts);
+
+	json_add_u64(ret, "created_index", pm->created_index);
+
+	if(pm->updated_index)
+		json_add_u64(ret, "updated_index", pm->updated_index);
 	json_object_end(ret);
 }
 
@@ -438,13 +449,15 @@ static struct command_result *listsendpays_done(struct command *cmd,
 
 	json_for_each_arr(i, t, arr) {
 		const jsmntok_t *status, *invstrtok, *hashtok, *createdtok,
-		    *completedtok, *grouptok;
+		    *completedtok, *grouptok, *created_indextok, *updated_indextok;
 		const char *invstr = invstring;
 		struct sha256 payment_hash;
 		u32 created_at;
 		u64 completed_at;
 		u64 groupid;
 		struct pay_sort_key key;
+		u64 created_index;
+		u64 updated_index;
 
 		invstrtok = json_get_member(buf, t, "bolt11");
 		if (!invstrtok)
@@ -474,6 +487,15 @@ static struct command_result *listsendpays_done(struct command *cmd,
 		key.payment_hash = &payment_hash;
 		key.groupid = groupid;
 
+		created_indextok = json_get_member(buf, t, "created_index");
+		updated_indextok = json_get_member(buf, t, "updated_index");
+		assert(created_indextok != NULL);
+		json_to_u64(buf, created_indextok, &created_index);
+		if (updated_indextok != NULL)
+			json_to_u64(buf, updated_indextok, &updated_index);
+		else
+			updated_index = 0;
+
 		pm = pay_map_get(pay_map, &key);
 		if (!pm) {
 			pm = tal(cmd, struct pay_mpp);
@@ -491,6 +513,8 @@ static struct command_result *listsendpays_done(struct command *cmd,
 			pm->sortkey.payment_hash = pm->payment_hash;
 			pm->sortkey.groupid = groupid;
 			pm->success_at = UINT64_MAX;
+			pm->created_index = created_index;
+			pm->updated_index = updated_index;
 			pay_map_add(pay_map, pm);
 			// First time we see the groupid we add it to the order
 			// array, so we can retrieve them in the correct order.
@@ -502,6 +526,15 @@ static struct command_result *listsendpays_done(struct command *cmd,
 				pm->invstring = tal_steal(pm, invstr);
 			if (!pm->description)
 				pm->description = json_get_member(buf, t, "description");
+			/* What's the "created_index" of the merged record?
+			 * We take the *lowest*, since that will never change
+			 * (unless they delete payments!). */
+			if (created_index < pm->created_index)
+				pm->created_index = created_index;
+			/* On the other hand, we take the *highest*
+			 * updated_index, so we see any changes. */
+			if (updated_index > pm->updated_index)
+				pm->updated_index = updated_index;
 		}
 
 		status = json_get_member(buf, t, "status");
@@ -543,6 +576,9 @@ static struct command_result *json_listpays(struct command *cmd,
 	const char *invstring, *status_str;
 	struct sha256 *payment_hash;
 	struct out_req *req;
+	const char *listindex;
+	u64 *liststart;
+	u32 *listlimit;
 
 	/* FIXME: would be nice to parse as a bolt11 so check worked in future */
 	if (!param(cmd, buf, params,
@@ -550,8 +586,20 @@ static struct command_result *json_listpays(struct command *cmd,
 		   p_opt("bolt11", param_invstring, &invstring),
 		   p_opt("payment_hash", param_sha256, &payment_hash),
 		   p_opt("status", param_string, &status_str),
+		   p_opt("index", param_string, &listindex),
+		   p_opt_def("start", param_u64, &liststart, 0),
+		   p_opt("limit", param_u32, &listlimit),
 		   NULL))
 		return command_param_failed();
+
+	if (*liststart != 0 && !listindex) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only specify {start} with {index}");
+	}
+	if (listlimit && !listindex) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only specify {limit} with {index}");
+	}
 
 	req = jsonrpc_request_start(cmd, "listsendpays",
 				    listsendpays_done, forward_error,
@@ -564,6 +612,14 @@ static struct command_result *json_listpays(struct command *cmd,
 
 	if (status_str)
 		json_add_string(req->js, "status", status_str);
+
+	if (listindex){
+		json_add_string(req->js, "index", listindex);
+		if (liststart)
+			json_add_u64(req->js, "start", *liststart);
+		if (listlimit)
+			json_add_u32(req->js, "limit", *listlimit);
+	}
 	return send_outreq(req);
 }
 

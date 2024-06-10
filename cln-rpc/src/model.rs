@@ -2615,6 +2615,35 @@ pub mod requests {
 	        "listoffers"
 	    }
 	}
+	/// ['If neither *in_channel* nor *out_channel* is specified, it controls ordering.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum ListpaysIndex {
+	    #[serde(rename = "created")]
+	    CREATED = 0,
+	    #[serde(rename = "updated")]
+	    UPDATED = 1,
+	}
+
+	impl TryFrom<i32> for ListpaysIndex {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<ListpaysIndex, anyhow::Error> {
+	        match c {
+	    0 => Ok(ListpaysIndex::CREATED),
+	    1 => Ok(ListpaysIndex::UPDATED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListpaysIndex", o)),
+	        }
+	    }
+	}
+
+	impl ToString for ListpaysIndex {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListpaysIndex::CREATED => "CREATED",
+	            ListpaysIndex::UPDATED => "UPDATED",
+	        }.to_string()
+	    }
+	}
+
 	/// ['To filter the payment by status.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListpaysStatus {
@@ -2653,7 +2682,13 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt11: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub index: Option<ListpaysIndex>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub limit: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_hash: Option<Sha256>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub start: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub status: Option<ListpaysStatus>,
 	}
@@ -7733,6 +7768,8 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub completed_at: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub destination: Option<PublicKey>,
@@ -7744,6 +7781,8 @@ pub mod responses {
 	    pub number_of_parts: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub preimage: Option<Secret>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
 	    // Path `ListPays.pays[].status`
 	    pub status: ListpaysPaysStatus,
 	    pub created_at: u64,

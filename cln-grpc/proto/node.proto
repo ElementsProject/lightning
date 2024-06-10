@@ -2182,9 +2182,17 @@ message ListpaysRequest {
 		COMPLETE = 1;
 		FAILED = 2;
 	}
+	// ListPays.index
+	enum ListpaysIndex {
+		CREATED = 0;
+		UPDATED = 1;
+	}
 	optional string bolt11 = 1;
 	optional bytes payment_hash = 2;
 	optional ListpaysStatus status = 3;
+	optional ListpaysIndex index = 4;
+	optional uint64 start = 5;
+	optional uint32 limit = 6;
 }
 
 message ListpaysResponse {
@@ -2212,6 +2220,8 @@ message ListpaysPays {
 	optional uint64 completed_at = 12;
 	optional bytes preimage = 13;
 	optional uint64 number_of_parts = 14;
+	optional uint64 created_index = 15;
+	optional uint64 updated_index = 16;
 }
 
 message ListhtlcsRequest {

@@ -2041,6 +2041,7 @@ impl From<responses::ListpaysPays> for pb::ListpaysPays {
             bolt12: c.bolt12, // Rule #2 for type string?
             completed_at: c.completed_at, // Rule #2 for type u64?
             created_at: c.created_at, // Rule #2 for type u64
+            created_index: c.created_index, // Rule #2 for type u64?
             description: c.description, // Rule #2 for type string?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             erroronion: c.erroronion.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
@@ -2049,6 +2050,7 @@ impl From<responses::ListpaysPays> for pb::ListpaysPays {
             payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             preimage: c.preimage.map(|v| v.to_vec()), // Rule #2 for type secret?
             status: c.status as i32,
+            updated_index: c.updated_index, // Rule #2 for type u64?
         }
     }
 }
@@ -4823,7 +4825,10 @@ impl From<requests::ListpaysRequest> for pb::ListpaysRequest {
     fn from(c: requests::ListpaysRequest) -> Self {
         Self {
             bolt11: c.bolt11, // Rule #2 for type string?
+            index: c.index.map(|v| v as i32),
+            limit: c.limit, // Rule #2 for type u32?
             payment_hash: c.payment_hash.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
+            start: c.start, // Rule #2 for type u64?
             status: c.status.map(|v| v as i32),
         }
     }
@@ -6200,7 +6205,10 @@ impl From<pb::ListpaysRequest> for requests::ListpaysRequest {
     fn from(c: pb::ListpaysRequest) -> Self {
         Self {
             bolt11: c.bolt11, // Rule #1 for type string?
+            index: c.index.map(|v| v.try_into().unwrap()),
+            limit: c.limit, // Rule #1 for type u32?
             payment_hash: c.payment_hash.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
+            start: c.start, // Rule #1 for type u64?
             status: c.status.map(|v| v.try_into().unwrap()),
         }
     }
