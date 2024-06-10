@@ -6265,7 +6265,9 @@ def test_injectpaymentonion_selfpay(node_factory, executor):
                     'payment_hash': inv5['payment_hash'],
                     'status': "complete",
                     'amount_sent_msat': 1000,
-                    'number_of_parts': 2}
+                    'number_of_parts': 2,
+                    'created_index': 2,
+                    'updated_index': 3}
 
     # Test self-pay with MPP from non-selfpay.
     inv6 = l2.rpc.invoice(3000, "test_injectpaymentonion6", "test_injectpaymentonion6")

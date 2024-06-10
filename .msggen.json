@@ -217,6 +217,10 @@
             "torv3": 4,
             "websocket": 5
         },
+        "ListpaysIndex": {
+            "created": 0,
+            "updated": 1
+        },
         "ListpaysPaysStatus": {
             "complete": 2,
             "failed": 1,
@@ -2232,6 +2236,7 @@
             "ListPays.pays[].bolt12": 7,
             "ListPays.pays[].completed_at": 12,
             "ListPays.pays[].created_at": 4,
+            "ListPays.pays[].created_index": 15,
             "ListPays.pays[].description": 11,
             "ListPays.pays[].destination": 3,
             "ListPays.pays[].erroronion": 10,
@@ -2239,11 +2244,15 @@
             "ListPays.pays[].number_of_parts": 14,
             "ListPays.pays[].payment_hash": 1,
             "ListPays.pays[].preimage": 13,
-            "ListPays.pays[].status": 2
+            "ListPays.pays[].status": 2,
+            "ListPays.pays[].updated_index": 16
         },
         "ListpaysRequest": {
             "ListPays.bolt11": 1,
+            "ListPays.index": 4,
+            "ListPays.limit": 6,
             "ListPays.payment_hash": 2,
+            "ListPays.start": 5,
             "ListPays.status": 3
         },
         "ListpaysResponse": {
@@ -8334,6 +8343,14 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListPays.index": {
+            "added": "v24.11",
+            "deprecated": false
+        },
+        "ListPays.limit": {
+            "added": "v24.11",
+            "deprecated": false
+        },
         "ListPays.payment_hash": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -8366,6 +8383,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListPays.pays[].created_index": {
+            "added": "v24.11",
+            "deprecated": false
+        },
         "ListPays.pays[].description": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -8397,6 +8418,14 @@
         "ListPays.pays[].status": {
             "added": "pre-v0.10.1",
             "deprecated": null
+        },
+        "ListPays.pays[].updated_index": {
+            "added": "v24.11",
+            "deprecated": false
+        },
+        "ListPays.start": {
+            "added": "v24.11",
+            "deprecated": false
         },
         "ListPays.status": {
             "added": "pre-v0.10.1",

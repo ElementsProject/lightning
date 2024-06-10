@@ -23615,6 +23615,32 @@
               "complete",
               "failed"
             ]
+          },
+          "index": {
+            "type": "string",
+            "added": "v24.11",
+            "enum": [
+              "created",
+              "updated"
+            ],
+            "description": [
+              "If neither *in_channel* nor *out_channel* is specified, it controls ordering."
+            ],
+            "default": "`created`"
+          },
+          "start": {
+            "type": "u64",
+            "added": "v24.11",
+            "description": [
+              "If `index` is specified, `start` may be specified to start from that value, which is generally returned from lightning-wait(7)."
+            ]
+          },
+          "limit": {
+            "type": "u32",
+            "added": "v24.11",
+            "description": [
+              "If `index` is specified, `limit` can be used to specify the maximum number of entries to return."
+            ]
           }
         }
       },
@@ -23632,7 +23658,8 @@
               "required": [
                 "payment_hash",
                 "status",
-                "created_at"
+                "created_at",
+                "created_index"
               ],
               "properties": {
                 "payment_hash": {
@@ -23693,6 +23720,20 @@
                   "description": [
                     "The bolt12 string (if supplied for pay: **experimental-offers** only)."
                   ]
+                },
+                "created_index": {
+                  "type": "u64",
+                  "added": "v24.11",
+                  "description": [
+                    "1-based index indicating order this payment was created in."
+                  ]
+                },
+                "updated_index": {
+                  "type": "u64",
+                  "added": "v24.11",
+                  "description": [
+                    "1-based index indicating order this payment was changed (only present if it has changed since creation)."
+                  ]
                 }
               },
               "allOf": [
@@ -23715,6 +23756,8 @@
                       "preimage"
                     ],
                     "properties": {
+                      "created_index": {},
+                      "updated_index": {},
                       "payment_hash": {},
                       "status": {},
                       "destination": {},
@@ -23769,6 +23812,8 @@
                       "amount_sent_msat"
                     ],
                     "properties": {
+                      "created_index": {},
+                      "updated_index": {},
                       "payment_hash": {},
                       "status": {},
                       "destination": {},
