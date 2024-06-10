@@ -1221,22 +1221,21 @@ struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
 						   const u32 blockheight);
 
 /**
- * Store transactions of interest in the database to replay on restart
+ * Store funding txid spend to start replay on restart
+ * Note that tx should already be saved by wallet_transaction_add!
  */
-void wallet_channeltxs_add(struct wallet *w, struct channel *chan,
-			    const int type, const struct bitcoin_txid *txid,
-			   const u32 input_num, const u32 blockheight);
+void wallet_insert_funding_spend(struct wallet *w,
+				 const struct channel *chan,
+				 const struct bitcoin_txid *txid,
+				 const u32 input_num, const u32 blockheight);
 
 /**
- * List channels for which we had an onchaind running
+ * Get the transaction which spend funding for this channel, if any.
  */
-u32 *wallet_onchaind_channels(const tal_t *ctx, struct wallet *w);
-
-/**
- * Get transactions that we'd like to replay for a channel.
- */
-struct channeltx *wallet_channeltxs_get(const tal_t *ctx, struct wallet *w,
-					u32 channel_id);
+struct bitcoin_tx *wallet_get_funding_spend(const tal_t *ctx,
+					    struct wallet *w,
+					    u64 channel_id,
+					    u32 *blockheight);
 
 /**
  * Add of update a forwarded_payment

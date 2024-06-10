@@ -1021,6 +1021,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channels ADD remote_htlc_minimum_msat BIGINT DEFAULT NULL;"), NULL},
     {SQL("ALTER TABLE channels ADD last_stable_connection BIGINT DEFAULT 0;"), NULL},
     {NULL, migrate_initialize_alias_local},
+    /* FIXME: Remove now-unused type column from channeltxs */
 };
 
 /**

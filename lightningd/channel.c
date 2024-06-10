@@ -310,6 +310,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->ignore_fee_limits = ld->config.ignore_fee_limits;
 	channel->last_stable_connection = 0;
 	channel->stable_conn_timer = NULL;
+	channel->onchaind_replay_watches = NULL;
 
 	/* No shachain yet */
 	channel->their_shachain.id = 0;
@@ -598,6 +599,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->ignore_fee_limits = ignore_fee_limits;
 	channel->last_stable_connection = last_stable_connection;
 	channel->stable_conn_timer = NULL;
+	channel->onchaind_replay_watches = NULL;
  	/* Populate channel->channel_gossip */
 	channel_gossip_init(channel, take(peer_update));
 

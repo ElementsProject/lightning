@@ -455,7 +455,9 @@ void bitcoind_sendrawtx_(const tal_t *ctx,
 
 struct getrawblockbyheight_call {
 	struct bitcoind *bitcoind;
+	u32 height;
 	void (*cb)(struct bitcoind *bitcoind,
+		   u32 height,
 		   struct bitcoin_blkid *blkid,
 		   struct bitcoin_block *block,
 		   void *);
@@ -477,7 +479,7 @@ getrawblockbyheight_callback(const char *buf, const jsmntok_t *toks,
 	 * with NULL values. */
 	err = json_scan(tmpctx, buf, toks, "{result:{blockhash:null}}");
 	if (!err) {
-		call->cb(call->bitcoind, NULL, NULL, call->cb_arg);
+		call->cb(call->bitcoind, call->height, NULL, NULL, call->cb_arg);
 		goto clean;
 	}
 
@@ -496,7 +498,7 @@ getrawblockbyheight_callback(const char *buf, const jsmntok_t *toks,
 				     "getrawblockbyheight",
 				     "bad block");
 
-	call->cb(call->bitcoind, &blkid, blk, call->cb_arg);
+	call->cb(call->bitcoind, call->height, &blkid, blk, call->cb_arg);
 
 clean:
 	tal_free(call);
@@ -505,6 +507,7 @@ clean:
 void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
 				   u32 height,
 				   void (*cb)(struct bitcoind *bitcoind,
+					      u32 blockheight,
 					      struct bitcoin_blkid *blkid,
 					      struct bitcoin_block *blk,
 					      void *arg),
@@ -517,6 +520,7 @@ void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
 	call->bitcoind = bitcoind;
 	call->cb = cb;
 	call->cb_arg = cb_arg;
+	call->height = height;
 
 	trace_span_start("plugin/bitcoind", call);
 	trace_span_tag(call, "method", "getrawblockbyheight");
@@ -724,6 +728,7 @@ process_getfilteredblock_step2(struct bitcoind *bitcoind,
 }
 
 static void process_getfilteredblock_step1(struct bitcoind *bitcoind,
+					   u32 height,
 					   struct bitcoin_blkid *blkid,
 					   struct bitcoin_block *block,
 					   struct filteredblock_call *call)

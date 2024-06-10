@@ -1005,11 +1005,6 @@ void wallet_channel_save(struct wallet *w UNNEEDED, struct channel *chan UNNEEDE
 /* Generated stub for wallet_channel_stats_load */
 void wallet_channel_stats_load(struct wallet *w UNNEEDED, u64 cdbid UNNEEDED, struct channel_stats *stats UNNEEDED)
 { fprintf(stderr, "wallet_channel_stats_load called!\n"); abort(); }
-/* Generated stub for wallet_channeltxs_add */
-void wallet_channeltxs_add(struct wallet *w UNNEEDED, struct channel *chan UNNEEDED,
-			    const int type UNNEEDED, const struct bitcoin_txid *txid UNNEEDED,
-			   const u32 input_num UNNEEDED, const u32 blockheight UNNEEDED)
-{ fprintf(stderr, "wallet_channeltxs_add called!\n"); abort(); }
 /* Generated stub for wallet_delete_peer_if_unused */
 void wallet_delete_peer_if_unused(struct wallet *w UNNEEDED, u64 peer_dbid UNNEEDED)
 { fprintf(stderr, "wallet_delete_peer_if_unused called!\n"); abort(); }
@@ -1033,6 +1028,12 @@ bool wallet_htlcs_load_out_for_channel(struct wallet *wallet UNNEEDED,
 /* Generated stub for wallet_init_channels */
 bool wallet_init_channels(struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_init_channels called!\n"); abort(); }
+/* Generated stub for wallet_insert_funding_spend */
+void wallet_insert_funding_spend(struct wallet *w UNNEEDED,
+				 const struct channel *chan UNNEEDED,
+				 const struct bitcoin_txid *txid UNNEEDED,
+				 const u32 input_num UNNEEDED, const u32 blockheight UNNEEDED)
+{ fprintf(stderr, "wallet_insert_funding_spend called!\n"); abort(); }
 /* Generated stub for wallet_offer_find */
 char *wallet_offer_find(const tal_t *ctx UNNEEDED,
 			struct wallet *w UNNEEDED,
