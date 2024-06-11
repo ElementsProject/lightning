@@ -43,13 +43,14 @@ struct command_result *routefail_start(const tal_t *ctx, struct route *route,
 	return update_gossip(r);
 }
 
-static struct command_result *routefail_end(struct routefail *r)
+static struct command_result *routefail_end(struct routefail *r TAKES)
 {
 	/* Notify the tracker that route has failed and routefail have completed
 	 * handling all possible errors cases. */
 	struct command *cmd = r->cmd;
 	route_failure_register(r->payment->routetracker, r->route);
-	tal_free(r);
+	if (taken(r))
+		r = tal_steal(tmpctx, r);
 	return notification_handled(cmd);
 }
 
@@ -428,5 +429,5 @@ static struct command_result *handle_failure(struct routefail *r)
 
 		break;
 	}
-	return routefail_end(r);
+	return routefail_end(take(r));
 }
