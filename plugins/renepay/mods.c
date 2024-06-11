@@ -461,7 +461,7 @@ static struct command_result *refreshgossmap_cb(struct payment *payment)
 	assert(payment);
 	assert(payment->local_gossmods);
 
-	size_t num_channel_updates_rejected;
+	size_t num_channel_updates_rejected = 0;
 	bool gossmap_changed =
 	    gossmap_refresh(pay_plugin->gossmap, &num_channel_updates_rejected);
 
