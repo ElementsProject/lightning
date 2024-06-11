@@ -38,7 +38,7 @@ static void memleak_mark(struct plugin *p, struct htable *memtable)
 static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
-	size_t num_channel_updates_rejected;
+	size_t num_channel_updates_rejected = 0;
 
 	tal_steal(p, pay_plugin);
 	pay_plugin->plugin = p;
