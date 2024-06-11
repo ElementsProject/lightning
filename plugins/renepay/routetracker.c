@@ -402,7 +402,7 @@ struct command_result *notification_sendpay_failure(struct command *cmd,
 
 	/* we do some error processing steps before calling
 	 * route_failure_register. */
-	return routefail_start(route, route, cmd);
+	return routefail_start(payment, route, cmd);
 }
 
 struct command_result *notification_sendpay_success(struct command *cmd,
