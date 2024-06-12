@@ -194,6 +194,11 @@ RUN ( ! [ -n "${target_host}" ] ) || \
 RUN ( ! [ "${target_host}" = "arm-linux-gnueabihf" ] ) || \
     (sed -i '/documentation = "https:\/\/docs.rs\/cln-grpc"/a include = ["**\/*.*"]' cln-grpc/Cargo.toml)
 
+# Ensure that the desired grpcio-tools & protobuf versions are installed
+# https://github.com/ElementsProject/lightning/pull/7376#issuecomment-2161102381
+RUN /root/.local/bin/poetry lock --no-update && \
+    /root/.local/bin/poetry install
+
 RUN ./configure --prefix=/tmp/lightning_install --enable-static && \
     make && \
     /root/.local/bin/poetry run make install
