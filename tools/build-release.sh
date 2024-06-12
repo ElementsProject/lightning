@@ -7,7 +7,7 @@ if [ "$1" = "--inside-docker" ]; then
     VER="$2"
     PLTFM="$3"
     git clone /src /build
-    cd /build
+    cd /build || exit
     poetry export --without-hashes > /tmp/requirements.txt
     python3 -m pip install -r /tmp/requirements.txt
     ./configure
@@ -171,10 +171,13 @@ done
 if [ -z "${TARGETS##* docker *}" ]; then
     echo "Building Docker Images"
     DOCKER_USER="elementsproject"
-    echo "Creating a multi-platform image tagged as $VERSION"
-    DOCKER_OPTS="--platform linux/amd64,linux/arm64,linux/arm/v7 --push"
+    echo "Creating multi-platform images tagged as $VERSION and latest"
+    # --load does not work with multiarch. Only --push works.
+    # ERROR: docker exporter does not currently support exporting manifest lists
+    DOCKER_OPTS="--push --platform linux/amd64,linux/arm64,linux/arm/v7"
     DOCKER_OPTS="$DOCKER_OPTS -t $DOCKER_USER/lightningd:$VERSION"
     DOCKER_OPTS="$DOCKER_OPTS -t $DOCKER_USER/lightningd:latest"
+    DOCKER_OPTS="$DOCKER_OPTS --cache-to=type=local,dest=/tmp/docker-cache --cache-from=type=local,src=/tmp/docker-cache"    
     echo "Docker Options: $DOCKER_OPTS"
     if sudo docker buildx ls | grep -q 'cln-builder'; then
         sudo docker buildx use cln-builder
@@ -183,12 +186,12 @@ if [ -z "${TARGETS##* docker *}" ]; then
     fi
     # shellcheck disable=SC2086
     sudo docker buildx build $DOCKER_OPTS .
-    echo "Pushed a multi-platform image tagged as latest"
+    echo "Pushed multi-platform images tagged as $VERSION and latest"
 fi
 
 if [ -z "${TARGETS##* sign *}" ]; then
     echo "Signing Release"
-    cd release/
+    cd release/ || exit
     sha256sum clightning-"$VERSION"* > SHA256SUMS
     gpg -sb --armor -o SHA256SUMS.asc"$(gpgconf --list-options gpg | awk -F: '$1 == "default-key" {print $10}' | tr -d '"')" SHA256SUMS
     cd ..
@@ -207,7 +210,7 @@ if [ "$VERIFY_RELEASE" = "true" ]; then
         exit 1
     fi
     sumfile="$(pwd)/${sumfile}"
-    cd release/
+    cd release/ || exit
     # Check that the release captains sum matches. Ignore missing entries as we
     # do not have a repro build for Fedora. Strictly this is not necessary here
     # as we compare our checksums with the release captains checksums later, but
