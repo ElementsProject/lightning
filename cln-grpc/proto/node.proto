@@ -2313,6 +2313,7 @@ message OfferRequest {
 	optional string recurrence_paywindow = 9;
 	optional uint32 recurrence_limit = 10;
 	optional bool single_use = 11;
+	optional bool recurrence_start_any_period = 12;
 }
 
 message OfferResponse {

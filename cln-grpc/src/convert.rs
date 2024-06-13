@@ -4888,6 +4888,7 @@ impl From<requests::OfferRequest> for pb::OfferRequest {
             recurrence_base: c.recurrence_base, // Rule #2 for type string?
             recurrence_limit: c.recurrence_limit, // Rule #2 for type u32?
             recurrence_paywindow: c.recurrence_paywindow, // Rule #2 for type string?
+            recurrence_start_any_period: c.recurrence_start_any_period, // Rule #2 for type boolean?
             single_use: c.single_use, // Rule #2 for type boolean?
         }
     }
@@ -6288,6 +6289,7 @@ impl From<pb::OfferRequest> for requests::OfferRequest {
             recurrence_base: c.recurrence_base, // Rule #1 for type string?
             recurrence_limit: c.recurrence_limit, // Rule #1 for type u32?
             recurrence_paywindow: c.recurrence_paywindow, // Rule #1 for type string?
+            recurrence_start_any_period: c.recurrence_start_any_period, // Rule #1 for type boolean?
             single_use: c.single_use, // Rule #1 for type boolean?
         }
     }

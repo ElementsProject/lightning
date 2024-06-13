@@ -162,18 +162,10 @@ static struct command_result *param_recurrence_base(struct command *cmd,
 						    const jsmntok_t *tok,
 						    struct recurrence_base **base)
 {
-	/* Make copy so we can manipulate it */
-	jsmntok_t t = *tok;
-
 	*base = tal(cmd, struct recurrence_base);
-	if (command_deprecated_in_ok(cmd, "recurrence_base.at_prefix", "v24.02", "v24.05")
-	    && json_tok_startswith(buffer, &t, "@")) {
-		t.start++;
-		(*base)->start_any_period = false;
-	} else
-		(*base)->start_any_period = true;
+	(*base)->start_any_period = true;
 
-	if (!json_to_u64(buffer, &t, &(*base)->basetime))
+	if (!json_to_u64(buffer, tok, &(*base)->basetime))
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "not a valid basetime");
 	return NULL;

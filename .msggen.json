@@ -2660,6 +2660,7 @@
             "Offer.recurrence_base": 8,
             "Offer.recurrence_limit": 10,
             "Offer.recurrence_paywindow": 9,
+            "Offer.recurrence_start_any_period": 12,
             "Offer.single_use": 11
         },
         "OfferResponse": {
@@ -9584,6 +9585,10 @@
         },
         "Offer.recurrence_paywindow.seconds_before": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.recurrence_start_any_period": {
+            "added": "v24.02",
             "deprecated": false
         },
         "Offer.single_use": {
