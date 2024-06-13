@@ -2824,6 +2824,8 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub recurrence_paywindow: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub recurrence_start_any_period: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub single_use: Option<bool>,
 	    pub amount: String,
 	    pub description: String,

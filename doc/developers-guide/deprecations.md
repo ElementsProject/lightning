@@ -24,7 +24,6 @@ hidden: false
 | options.flag.default-not-false       | Getmanifest Reply  | v23.08           | v24.08         | `flag` options with a default which is not `false` (would be meaningless, since user can only set it to `true`                                                                  |
 | plugin.nonumericids                  | Getmanifest Reply  | v23.08           | v24.08         | Plugins must specify that they can accept non-numeric command ids (numeric ids are deprecated)                                                                                  |
 | listchannels.include_private         | Field(s)           | v24.02           | v24.08         | `listchannels` including private channels (now use listpeerchannels which gives far more detail)                                                                                |
-| offer.recurrence_base.at_prefix      | Parameter          | v24.02           | v24.05         | `recurrence_base` with `@` prefix (use `recurrence_start_any_period`)                                                                                                           |
 | max-locktime-blocks                  | Config             | v24.05           | v24.11         | --max-locktime-blocks is now set to 2016 in the BOLT 4 spec                                                                                                                     |
 
 
