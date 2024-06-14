@@ -408,7 +408,7 @@ static void gossmod_cb(struct gossmap_localmods *mods,
 
 	/* Is it disabled? */
 	if (!enabled)
-		payment_disable_chan(payment, scidd->scid, LOG_DBG,
+		payment_disable_chan(payment, *scidd, LOG_DBG,
 				     "listpeerchannels says not enabled");
 
 	/* Also update the uncertainty network by fixing the liquidity of the
