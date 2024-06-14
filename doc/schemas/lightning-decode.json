@@ -189,12 +189,16 @@
                   "first_scid": {
                     "added": "v23.05",
                     "type": "short_channel_id",
-                    "description": "the short channel id of the start of the path (alternative to first_n  ode_id)"
+                    "description": [
+                      "the short channel id of the start of the path (alternative to first_node_id)"
+                    ]
                   },
                   "first_scid_dir": {
                     "added": "v23.05",
                     "type": "u32",
-                    "description": "which end of the first_scid is the start of the path"
+                    "description": [
+                      "which end of the first_scid is the start of the path"
+                    ]
                   },
                   "blinding": {
                     "type": "pubkey",
@@ -576,12 +580,16 @@
                   "first_scid": {
                     "added": "v23.05",
                     "type": "short_channel_id",
-                    "description": "the short channel id of the start of the path (alternative to first_n  ode_id)"
+                    "description": [
+                      "the short channel id of the start of the path (alternative to first_node_id)"
+                    ]
                   },
                   "first_scid_dir": {
                     "added": "v23.05",
                     "type": "u32",
-                    "description": "which end of the first_scid is the start of the path"
+                    "description": [
+                      "which end of the first_scid is the start of the path"
+                    ]
                   },
                   "blinding": {
                     "type": "pubkey",
@@ -1060,12 +1068,16 @@
                   "first_scid": {
                     "added": "v23.05",
                     "type": "short_channel_id",
-                    "description": "the short channel id of the start of the path (alternative to first_n  ode_id)"
+                    "description": [
+                      "the short channel id of the start of the path (alternative to first_node_id)"
+                    ]
                   },
                   "first_scid_dir": {
                     "added": "v23.05",
                     "type": "u32",
-                    "description": "which end of the first_scid is the start of the path"
+                    "description": [
+                      "which end of the first_scid is the start of the path"
+                    ]
                   },
                   "blinding": {
                     "type": "pubkey",
@@ -1273,12 +1285,16 @@
                   "first_scid": {
                     "added": "v23.05",
                     "type": "short_channel_id",
-                    "description": "the short channel id of the start of the path (alternative to first_n  ode_id)"
+                    "description": [
+                      "the short channel id of the start of the path (alternative to first_node_id)"
+                    ]
                   },
                   "first_scid_dir": {
                     "added": "v23.05",
                     "type": "u32",
-                    "description": "which end of the first_scid is the start of the path"
+                    "description": [
+                      "which end of the first_scid is the start of the path"
+                    ]
                   },
                   "blinding": {
                     "type": "pubkey",
