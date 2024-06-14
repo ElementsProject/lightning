@@ -89,8 +89,8 @@ bool disabledmap_channel_is_warned(struct disabledmap *p,
 bitmap *tal_disabledmap_get_bitmap(const tal_t *ctx, struct disabledmap *p,
 				   const struct gossmap *gossmap)
 {
-	bitmap *disabled =
-	    tal_arrz(ctx, bitmap, BITMAP_NWORDS(gossmap_max_chan_idx(gossmap)));
+	bitmap *disabled = tal_arrz(
+	    ctx, bitmap, 2 * BITMAP_NWORDS(gossmap_max_chan_idx(gossmap)));
 	if (!disabled)
 		return NULL;
 
@@ -99,11 +99,13 @@ bitmap *tal_disabledmap_get_bitmap(const tal_t *ctx, struct disabledmap *p,
 	for(struct short_channel_id_dir *scidd = scidd_map_first(p->disabled_map,&it);
 		scidd;
 		scidd = scidd_map_next(p->disabled_map, &it)){
-		
+
 		struct gossmap_chan *c =
 		    gossmap_find_chan(gossmap, &scidd->scid);
 		if (c)
-			bitmap_set_bit(disabled, gossmap_chan_idx(gossmap, c));
+			bitmap_set_bit(disabled,
+				       gossmap_chan_idx(gossmap, c) * 2 +
+					   scidd->dir);
 	}
 
 	/* Disable all channels that lead to a disabled node. */
@@ -115,7 +117,8 @@ bitmap *tal_disabledmap_get_bitmap(const tal_t *ctx, struct disabledmap *p,
 			int half;
 			const struct gossmap_chan *c =
 			    gossmap_nth_chan(gossmap, node, j, &half);
-			bitmap_set_bit(disabled, gossmap_chan_idx(gossmap, c));
+			bitmap_set_bit(disabled,
+				       gossmap_chan_idx(gossmap, c) * 2 + half);
 		}
 	}
 	return disabled;

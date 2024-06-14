@@ -46,9 +46,11 @@ flow_adjust_htlcmax_constraints(struct flow *flow, struct gossmap *gossmap,
 
 	if (errorcode == RENEPAY_BAD_CHANNEL) {
 		// this is a channel that we can disable
-		// FIXME: log this error?
+		// FIXME: log this error? disabling both directions?
 		bitmap_set_bit(disabled_bitmap,
-			       gossmap_chan_idx(gossmap, bad_channel));
+			       gossmap_chan_idx(gossmap, bad_channel) * 2 + 0);
+		bitmap_set_bit(disabled_bitmap,
+			       gossmap_chan_idx(gossmap, bad_channel) * 2 + 1);
 	}
 
 	// we had an unexpected error
@@ -83,7 +85,8 @@ route_check_constraints(struct route *route, struct gossmap *gossmap,
 		    amount_msat_less(hop->amount,
 				     gossmap_chan_htlc_min(chan, dir))) {
 			bitmap_set_bit(disabled_bitmap,
-				       gossmap_chan_idx(gossmap, chan));
+				       gossmap_chan_idx(gossmap, chan) * 2 +
+					   dir);
 			return RENEPAY_BAD_CHANNEL;
 		}
 
@@ -164,6 +167,10 @@ struct route **get_routes(const tal_t *ctx,
 	}
 
 	/* Also disable every channel that we don't have in the chan_extra_map.
+	 * We might have channels in the gossmap that are not usable for
+	 * probability computations for example if we don't know their capacity.
+	 * We can tell the solver to ignore those channels by disabling them
+	 * here.
 	 */
 	for (struct gossmap_chan *chan = gossmap_first_chan(gossmap); chan;
 	     chan = gossmap_next_chan(gossmap, chan)) {
@@ -171,8 +178,10 @@ struct route **get_routes(const tal_t *ctx,
 		struct short_channel_id scid = gossmap_chan_scid(gossmap, chan);
 		struct chan_extra *ce =
 		    chan_extra_map_get(uncertainty->chan_extra_map, scid);
-		if (!ce)
-			bitmap_set_bit(disabled_bitmap, chan_id);
+		if (!ce) {
+			bitmap_set_bit(disabled_bitmap, chan_id * 2 + 0);
+			bitmap_set_bit(disabled_bitmap, chan_id * 2 + 1);
+		}
 	}
 
 	const struct gossmap_node *src, *dst;

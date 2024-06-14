@@ -129,9 +129,11 @@ static struct command_result *update_gossip_failure(struct command *cmd UNUSED,
 	 * always be present here, but at least the documentation for
 	 * waitsendpay says it is present in the case of error. */
 	assert(r->route->result->erring_channel);
-
+	struct short_channel_id_dir scidd = {
+	    .scid = *r->route->result->erring_channel,
+	    .dir = *r->route->result->erring_direction};
 	payment_disable_chan(
-	    r->payment, *r->route->result->erring_channel, LOG_INFORM,
+	    r->payment, scidd, LOG_INFORM,
 	    "addgossip failed (%.*s)", json_tok_full_len(result),
 	    json_tok_full(buf, result));
 	return update_gossip_done(cmd, buf, result, r);
@@ -346,8 +348,11 @@ static struct command_result *handle_failure(struct routefail *r)
 
 		} else {
 			assert(result->erring_channel);
+			struct short_channel_id_dir scidd = {
+			    .scid = *result->erring_channel,
+			    .dir = *result->erring_direction};
 			payment_disable_chan(
-			    payment, *result->erring_channel, LOG_INFORM,
+			    payment, scidd, LOG_INFORM,
 			    "%s", onion_wire_name(result->failcode));
 		}
 		break;
@@ -398,8 +403,11 @@ static struct command_result *handle_failure(struct routefail *r)
 			 * information and try again. To avoid hitting this
 			 * error again with the same channel we flag it. */
 			assert(result->erring_channel);
+			struct short_channel_id_dir scidd = {
+			    .scid = *result->erring_channel,
+			    .dir = *result->erring_direction};
 			payment_warn_chan(payment,
-					  *result->erring_channel, LOG_INFORM,
+					  scidd, LOG_INFORM,
 					  "received error %s",
 					  onion_wire_name(result->failcode));
 		}

@@ -449,8 +449,8 @@ static bool channel_is_available(const struct gossmap_chan *c, int dir,
 	if (!gossmap_chan_set(c, dir))
 		return false;
 
-	const u32 chan_id = gossmap_chan_idx(gossmap, c);
-	return !bitmap_test_bit(disabled, chan_id);
+	const u32 chan_idx = gossmap_chan_idx(gossmap, c);
+	return !bitmap_test_bit(disabled, chan_idx * 2 + dir);
 }
 
 // TODO(eduardo): unit test this
@@ -1563,13 +1563,17 @@ static bool check_disabled(const bitmap *disabled,
 	assert(gossmap);
 	assert(chan_extra_map);
 
-	if(tal_bytelen(disabled) != bitmap_sizeof(gossmap_max_chan_idx(gossmap)))
+	if (tal_bytelen(disabled) !=
+	    2 * bitmap_sizeof(gossmap_max_chan_idx(gossmap)))
 		return false;
 
 	for (struct gossmap_chan *chan = gossmap_first_chan(gossmap); chan;
 	     chan = gossmap_next_chan(gossmap, chan)) {
-		const u32 chan_id = gossmap_chan_idx(gossmap, chan);
-		if (bitmap_test_bit(disabled, chan_id))
+		const u32 chan_idx = gossmap_chan_idx(gossmap, chan);
+		/* If both directions are disabled anyways, there is no need to
+		 * fetch their information in chan_extra. */
+		if (bitmap_test_bit(disabled, chan_idx * 2 + 0) &&
+		    bitmap_test_bit(disabled, chan_idx * 2 + 1))
 			continue;
 
 		struct short_channel_id scid = gossmap_chan_scid(gossmap, chan);
