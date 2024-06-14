@@ -25,6 +25,9 @@ hidden: false
 | plugin.nonumericids                  | Getmanifest Reply  | v23.08           | v24.08         | Plugins must specify that they can accept non-numeric command ids (numeric ids are deprecated)                                                                                  |
 | listchannels.include_private         | Field(s)           | v24.02           | v24.08         | `listchannels` including private channels (now use listpeerchannels which gives far more detail)                                                                                |
 | max-locktime-blocks                  | Config             | v24.05           | v24.11         | --max-locktime-blocks is now set to 2016 in the BOLT 4 spec                                                                                                                     |
+| commando-rune                        | Command            | v23.08           | v25.02         | replaced with `lightning-createrune`                                                                                                   |
+| commando-listrunes                   | Command            | v23.08           | v25.02         | replaced with `lightning-showrunes`                                                                                                    |
+| commando-blacklist                   | Command            | v23.08           | v25.02         | replaced with `lightning-blacklistrune`                                                                                                |
 
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.

@@ -811,6 +811,8 @@ static const struct plugin_command commands[] = { {
 	"Create or restrict a rune",
 	"Takes an optional {rune} with optional {restrictions} and returns {rune}",
 	json_commando_rune,
+	"v23.08",
+	"v25.02",
 	},
 	{
 	"commando-listrunes",
@@ -818,6 +820,8 @@ static const struct plugin_command commands[] = { {
 	"List runes we have created earlier",
 	"Takes an optional {rune} and returns list of {rune}",
 	json_commando_listrunes,
+	"v23.08",
+	"v25.02",
 	},
 	{
 	"commando-blacklist",
@@ -825,6 +829,8 @@ static const struct plugin_command commands[] = { {
 	"Blacklist a rune or range of runes by unique id",
 	"Takes an optional {start} and an optional {end} and returns {blacklist} array containing {start}, {end}",
 	json_commando_blacklist,
+	"v23.08",
+	"v25.02",
 	},
 };
 

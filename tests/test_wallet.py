@@ -1679,7 +1679,9 @@ def test_upgradewallet(node_factory, bitcoind):
 
 def test_hsmtool_makerune(node_factory):
     """Test we can make a valid rune before the node really exists"""
-    l1 = node_factory.get_node(start=False)
+    l1 = node_factory.get_node(start=False, options={
+        'allow-deprecated-apis': True,
+    })
 
     # get_node() creates a secret, but in usual case we generate one.
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
