@@ -1,0 +1,34 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "block_added",
+  "title": "Notification that a block has been added to the blockchain",
+  "description": [
+    "The **block_added** notification is sent whenever the node receives a new block from the blockchain."
+  ],
+  "added": "v24.05",
+  "request": {},
+  "response": {
+    "required": [
+      "hash",
+      "height"
+    ],
+    "properties": {
+      "hash": {
+        "type": "hash",
+        "description": [
+          "The hash of the block."
+        ],
+        "added" : "v24.05"
+      },
+      "height": {
+        "type": "u32",
+        "description": [
+          "The total block height."
+        ],
+        "added" : "v24.05"
+      }
+    }
+  }
+}

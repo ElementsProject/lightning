@@ -3910,7 +3910,7 @@ impl From<notifications::ChannelOpenedNotification> for pb::ChannelOpenedNotific
             channel_ready: c.channel_ready, // Rule #2 for type boolean
             funding_msat: Some(c.funding_msat.into()), // Rule #2 for type msat
             funding_txid: hex::decode(&c.funding_txid).unwrap(), // Rule #2 for type txid
-            id: c.id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
         }
     }
 }

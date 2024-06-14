@@ -75,12 +75,10 @@ def load_notification(name, typename: TypeName):
     """
     typename = str(typename)
 
-    schema = get_schema_bundle()
-    notifications = schema["notifications"]
-    req_file = f"{name.lower()}.request.json"
-    resp_file = f"{name.lower()}.schema.json"
-    request = CompositeField.from_js(notifications[req_file], path=name)
-    response = CompositeField.from_js(notifications[resp_file], path=name)
+    notifications = get_schema_bundle()["notifications"]
+    notif_name = f"{name.lower()}.json"
+    request = CompositeField.from_js(notifications[notif_name]['request'], path=name)
+    response = CompositeField.from_js(notifications[notif_name]['response'], path=name)
 
     request.typename = TypeName(f"Stream{typename}Request")
     response.typename = TypeName(f"{typename}Notification")

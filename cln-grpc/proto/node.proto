@@ -3595,7 +3595,7 @@ message StreamChannelOpenedRequest {
 }
 
 message ChannelOpenedNotification {
-	optional bytes id = 1;
+	bytes id = 1;
 	Amount funding_msat = 2;
 	bytes funding_txid = 3;
 	bool channel_ready = 4;

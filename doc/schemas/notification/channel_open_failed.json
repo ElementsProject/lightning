@@ -1,0 +1,26 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "channel_open_failed",
+  "title": "Notification that the channel open request failed",
+  "description": [
+    "The **channel_open_failed** notification is sent whenever the channel opening request is failed."
+  ],
+  "added": "v24.05",
+  "request": {},
+  "response": {
+    "required": [
+      "channel_id"
+    ],
+    "properties": {
+      "channel_id": {
+        "type": "hash",
+        "description": [
+          "The channel id of the channel."
+        ],
+        "added" : "v24.05"
+      }
+    }
+  }
+}

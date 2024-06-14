@@ -1,0 +1,50 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "channel_opened",
+  "title": "Notification for channel opening",
+  "description": [
+    "The **channel_opened** notification is sent whenever the channel opened successfully."
+  ],
+  "added": "v24.05",
+  "request": {},
+  "response": {
+    "required": [
+      "id",
+      "funding_msat",
+      "funding_txid",
+      "channel_ready"
+    ],
+    "properties": {
+      "id": {
+        "type": "pubkey",
+        "description": [
+          "The id of the peer which opened the channel"
+        ],
+        "added" : "v24.05"
+      },
+      "funding_msat": {
+        "type": "msat",
+        "description": [
+          "The amount of the funding transaction"
+        ],
+        "added" : "v24.05"
+      },
+      "funding_txid": {
+        "type": "txid",
+        "description": [
+          "The transaction id of the funding transaction"
+        ],
+        "added" : "v24.05"
+      },
+      "channel_ready": {
+        "type": "boolean",
+        "description": [
+          "true if the channel is ready"
+        ],
+        "added" : "v24.05"
+      }
+    }
+  }
+}

@@ -30988,345 +30988,400 @@
     }
   },
   "notifications": {
-    "block_added.request.json": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
+    "block_added.json": {
+      "$schema": "../../rpc-schema-draft.json",
       "type": "object",
       "additionalProperties": false,
-      "added": "v24.05",
-      "properties": {}
-    },
-    "block_added.schema.json": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "type": "object",
-      "additionalProperties": false,
-      "added": "v24.05",
-      "required": [
-        "hash",
-        "height"
+      "notification": "block_added",
+      "title": "Notification that a block has been added to the blockchain",
+      "description": [
+        "The **block_added** notification is sent whenever the node receives a new block from the blockchain."
       ],
-      "properties": {
-        "hash": {
-          "type": "hash",
-          "added": "v24.05"
-        },
-        "height": {
-          "type": "u32",
-          "added": "v24.05"
-        }
-      }
-    },
-    "channel_open_failed.request.json": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "type": "object",
-      "additionalProperties": false,
       "added": "v24.05",
-      "properties": {}
-    },
-    "channel_open_failed.schema.json": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "type": "object",
-      "additionalProperties": false,
-      "added": "v24.05",
-      "required": [
-        "channel_id"
-      ],
-      "properties": {
-        "channel_id": {
-          "type": "hash",
-          "added": "v24.05"
-        }
-      }
-    },
-    "channel_opened.request.json": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "type": "object",
-      "additionalProperties": false,
-      "added": "v24.05",
-      "properties": {}
-    },
-    "channel_opened.schema.json": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "type": "object",
-      "additionalProperties": false,
-      "added": "v24.05",
-      "required": [
-        "pubkey",
-        "funding_msat",
-        "funding_txid",
-        "channel_ready"
-      ],
-      "properties": {
-        "id": {
-          "type": "pubkey",
-          "added": "v24.05",
-          "description": "The id of the peer which opened the channel"
-        },
-        "funding_msat": {
-          "type": "msat",
-          "added": "v24.05",
-          "description": "The amount of the funding transaction"
-        },
-        "funding_txid": {
-          "type": "txid",
-          "added": "v24.05",
-          "description": "The transaction id of the funding transaction"
-        },
-        "channel_ready": {
-          "type": "boolean",
-          "added": "v24.05",
-          "description": "true if the channel is ready"
-        }
-      }
-    },
-    "channel_state_changed.request.json": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "type": "object",
-      "required": [],
-      "additionalProperties": false,
-      "added": "v24.05",
-      "properties": {}
-    },
-    "channel_state_changed.schema.json": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "type": "object",
-      "additionalProperties": false,
-      "added": "v24.05",
-      "required": [
-        "peer_id",
-        "channel_id",
-        "short_channel_id",
-        "timestamp",
-        "old_state",
-        "new_state",
-        "cause",
-        "message"
-      ],
-      "properties": {
-        "peer_id": {
-          "type": "pubkey",
-          "added": "v24.05"
-        },
-        "channel_id": {
-          "type": "hash",
-          "added": "v24.05"
-        },
-        "short_channel_id": {
-          "type": "short_channel_id",
-          "added": "v24.05"
-        },
-        "timestamp": {
-          "type": "string",
-          "added": "v24.05"
-        },
-        "old_state": {
-          "type": "string",
-          "enum": [
-            "OPENINGD",
-            "CHANNELD_AWAITING_LOCKIN",
-            "CHANNELD_NORMAL",
-            "CHANNELD_SHUTTING_DOWN",
-            "CLOSINGD_SIGEXCHANGE",
-            "CLOSINGD_COMPLETE",
-            "AWAITING_UNILATERAL",
-            "FUNDING_SPEND_SEEN",
-            "ONCHAIN",
-            "DUALOPEND_OPEN_INIT",
-            "DUALOPEND_AWAITING_LOCKIN",
-            "CHANNELD_AWAITING_SPLICE",
-            "DUALOPEND_OPEN_COMMITTED",
-            "DUALOPEND_OPEN_COMMIT_READY"
-          ],
-          "description": "the channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally",
-          "added": "v24.05"
-        },
-        "new_state": {
-          "type": "string",
-          "enum": [
-            "OPENINGD",
-            "CHANNELD_AWAITING_LOCKIN",
-            "CHANNELD_NORMAL",
-            "CHANNELD_SHUTTING_DOWN",
-            "CLOSINGD_SIGEXCHANGE",
-            "CLOSINGD_COMPLETE",
-            "AWAITING_UNILATERAL",
-            "FUNDING_SPEND_SEEN",
-            "ONCHAIN",
-            "DUALOPEND_OPEN_INIT",
-            "DUALOPEND_AWAITING_LOCKIN",
-            "CHANNELD_AWAITING_SPLICE",
-            "DUALOPEND_OPEN_COMMITTED",
-            "DUALOPEND_OPEN_COMMIT_READY"
-          ],
-          "description": "the channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally",
-          "added": "v24.05"
-        },
-        "cause": {
-          "type": "string",
-          "enum": [
-            "unknown",
-            "local",
-            "user",
-            "remote",
-            "protocol",
-            "onchain"
-          ],
-          "added": "v24.05"
-        },
-        "message": {
-          "type": "string",
-          "added": "v24.05"
-        }
-      }
-    },
-    "connect.request.json": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "type": "object",
-      "required": [],
-      "additionalProperties": false,
-      "added": "v24.05",
-      "properties": {}
-    },
-    "connect.schema.json": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "type": "object",
-      "additionalProperties": false,
-      "added": "v24.05",
-      "required": [
-        "id",
-        "direction",
-        "address"
-      ],
-      "properties": {
-        "id": {
-          "type": "pubkey",
-          "description": "The id of the peer which sent the custom message",
-          "added": "v24.05"
-        },
-        "direction": {
-          "type": "string",
-          "enum": [
-            "in",
-            "out"
-          ],
-          "added": "v24.05"
-        },
-        "address": {
-          "type": "object",
-          "description": "Address information (mainly useful if **direction** is *out*)",
-          "additionalProperties": true,
-          "added": "v24.05",
-          "required": [
-            "type"
-          ],
-          "properties": {
-            "type": {
-              "type": "string",
-              "added": "v24.05",
-              "enum": [
-                "local socket",
-                "ipv4",
-                "ipv6",
-                "torv2",
-                "torv3"
-              ],
-              "description": "Type of connection (*torv2*/*torv3* only if **direction** is *out*)"
-            }
+      "request": {},
+      "response": {
+        "required": [
+          "hash",
+          "height"
+        ],
+        "properties": {
+          "hash": {
+            "type": "hash",
+            "description": [
+              "The hash of the block."
+            ],
+            "added": "v24.05"
           },
-          "allOf": [
-            {
-              "if": {
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "added": "v24.05",
-                    "enum": [
-                      "local socket"
-                    ]
-                  }
-                }
-              },
-              "then": {
-                "additionalProperties": false,
-                "required": [
-                  "socket"
+          "height": {
+            "type": "u32",
+            "description": [
+              "The total block height."
+            ],
+            "added": "v24.05"
+          }
+        }
+      }
+    },
+    "channel_open_failed.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "channel_open_failed",
+      "title": "Notification that the channel open request failed",
+      "description": [
+        "The **channel_open_failed** notification is sent whenever the channel opening request is failed."
+      ],
+      "added": "v24.05",
+      "request": {},
+      "response": {
+        "required": [
+          "channel_id"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "hash",
+            "description": [
+              "The channel id of the channel."
+            ],
+            "added": "v24.05"
+          }
+        }
+      }
+    },
+    "channel_opened.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "channel_opened",
+      "title": "Notification for channel opening",
+      "description": [
+        "The **channel_opened** notification is sent whenever the channel opened successfully."
+      ],
+      "added": "v24.05",
+      "request": {},
+      "response": {
+        "required": [
+          "id",
+          "funding_msat",
+          "funding_txid",
+          "channel_ready"
+        ],
+        "properties": {
+          "id": {
+            "type": "pubkey",
+            "description": [
+              "The id of the peer which opened the channel"
+            ],
+            "added": "v24.05"
+          },
+          "funding_msat": {
+            "type": "msat",
+            "description": [
+              "The amount of the funding transaction"
+            ],
+            "added": "v24.05"
+          },
+          "funding_txid": {
+            "type": "txid",
+            "description": [
+              "The transaction id of the funding transaction"
+            ],
+            "added": "v24.05"
+          },
+          "channel_ready": {
+            "type": "boolean",
+            "description": [
+              "true if the channel is ready"
+            ],
+            "added": "v24.05"
+          }
+        }
+      }
+    },
+    "channel_state_changed.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "channel_state_changed",
+      "title": "Notification for channel state change",
+      "description": [
+        "The **channel_state_changed** informs whenever the state of the channel has been updated."
+      ],
+      "added": "v24.05",
+      "request": {},
+      "response": {
+        "required": [
+          "peer_id",
+          "channel_id",
+          "short_channel_id",
+          "timestamp",
+          "old_state",
+          "new_state",
+          "cause",
+          "message"
+        ],
+        "properties": {
+          "peer_id": {
+            "type": "pubkey",
+            "description": [
+              "The peer id of the channel."
+            ],
+            "added": "v24.05"
+          },
+          "channel_id": {
+            "type": "hash",
+            "description": [
+              "The channel id of the channel."
+            ],
+            "added": "v24.05"
+          },
+          "short_channel_id": {
+            "type": "short_channel_id",
+            "description": [
+              "The short channel id of the channel. If the channel is not yet confirmed, this field will be null."
+            ],
+            "added": "v24.05"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": [
+              "The timestamp of the state change."
+            ],
+            "added": "v24.05"
+          },
+          "old_state": {
+            "type": "string",
+            "enum": [
+              "OPENINGD",
+              "CHANNELD_AWAITING_LOCKIN",
+              "CHANNELD_NORMAL",
+              "CHANNELD_SHUTTING_DOWN",
+              "CLOSINGD_SIGEXCHANGE",
+              "CLOSINGD_COMPLETE",
+              "AWAITING_UNILATERAL",
+              "FUNDING_SPEND_SEEN",
+              "ONCHAIN",
+              "DUALOPEND_OPEN_INIT",
+              "DUALOPEND_AWAITING_LOCKIN",
+              "CHANNELD_AWAITING_SPLICE",
+              "DUALOPEND_OPEN_COMMITTED",
+              "DUALOPEND_OPEN_COMMIT_READY"
+            ],
+            "description": [
+              "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
+            ],
+            "added": "v24.05"
+          },
+          "new_state": {
+            "type": "string",
+            "enum": [
+              "OPENINGD",
+              "CHANNELD_AWAITING_LOCKIN",
+              "CHANNELD_NORMAL",
+              "CHANNELD_SHUTTING_DOWN",
+              "CLOSINGD_SIGEXCHANGE",
+              "CLOSINGD_COMPLETE",
+              "AWAITING_UNILATERAL",
+              "FUNDING_SPEND_SEEN",
+              "ONCHAIN",
+              "DUALOPEND_OPEN_INIT",
+              "DUALOPEND_AWAITING_LOCKIN",
+              "CHANNELD_AWAITING_SPLICE",
+              "DUALOPEND_OPEN_COMMITTED",
+              "DUALOPEND_OPEN_COMMIT_READY"
+            ],
+            "description": [
+              "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
+            ],
+            "added": "v24.05"
+          },
+          "cause": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "local",
+              "user",
+              "remote",
+              "protocol",
+              "onchain"
+            ],
+            "description": [
+              "The cause of the state change."
+            ],
+            "added": "v24.05"
+          },
+          "message": {
+            "type": "string",
+            "description": [
+              "The state change message."
+            ],
+            "added": "v24.05"
+          }
+        }
+      }
+    },
+    "connect.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "notification": "connect",
+      "title": "Notification for connection with a peer",
+      "description": [
+        "The **connect** informs whenever the node is connected to a peer."
+      ],
+      "additionalProperties": false,
+      "added": "v24.05",
+      "request": {},
+      "response": {
+        "required": [
+          "id",
+          "direction",
+          "address"
+        ],
+        "properties": {
+          "id": {
+            "type": "pubkey",
+            "description": [
+              "The id of the peer which sent the custom message"
+            ],
+            "added": "v24.05"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "in",
+              "out"
+            ],
+            "description": [
+              "Direction of the connection"
+            ],
+            "added": "v24.05"
+          },
+          "address": {
+            "type": "object",
+            "description": [
+              "Address information (mainly useful if **direction** is *out*)"
+            ],
+            "added": "v24.05",
+            "additionalProperties": true,
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "local socket",
+                  "ipv4",
+                  "ipv6",
+                  "torv2",
+                  "torv3"
                 ],
-                "properties": {
-                  "type": {},
-                  "socket": {
-                    "type": "string",
-                    "added": "v24.05",
-                    "description": "socket filename"
-                  }
-                }
+                "description": [
+                  "Type of connection (*torv2*/*torv3* only if **direction** is *out*)"
+                ]
               }
             },
-            {
-              "if": {
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "added": "v24.05",
-                    "enum": [
-                      "ipv4",
-                      "ipv6",
-                      "torv2",
-                      "torv3"
-                    ]
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "local socket"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "additionalProperties": false,
+                  "required": [
+                    "socket"
+                  ],
+                  "properties": {
+                    "type": {},
+                    "socket": {
+                      "type": "string",
+                      "description": [
+                        "Socket filename"
+                      ]
+                    }
                   }
                 }
               },
-              "then": {
-                "additionalProperties": false,
-                "required": [
-                  "address",
-                  "port"
-                ],
-                "properties": {
-                  "type": {},
-                  "address": {
-                    "type": "string",
-                    "added": "v24.05",
-                    "description": "address in expected format for **type**"
-                  },
-                  "port": {
-                    "type": "u16",
-                    "added": "v24.05",
-                    "description": "port number"
+              {
+                "if": {
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "ipv4",
+                        "ipv6",
+                        "torv2",
+                        "torv3"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "additionalProperties": false,
+                  "required": [
+                    "address",
+                    "port"
+                  ],
+                  "properties": {
+                    "type": {},
+                    "address": {
+                      "type": "string",
+                      "description": [
+                        "Address in expected format for **type**"
+                      ]
+                    },
+                    "port": {
+                      "type": "u16",
+                      "description": [
+                        "Port number"
+                      ]
+                    }
                   }
                 }
               }
-            }
-          ]
+            ]
+          }
         }
       }
     },
-    "custommsg.request.json": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "type": "object",
-      "required": [],
-      "additionalProperties": false,
-      "added": "v24.05",
-      "properties": {}
-    },
-    "custommsg.schema.json": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
+    "custommsg.json": {
+      "$schema": "../../rpc-schema-draft.json",
       "type": "object",
       "additionalProperties": false,
-      "added": "v24.05",
-      "required": [
-        "peer_id",
-        "payload"
+      "notification": "custommsg",
+      "title": "Notification for custom messages",
+      "description": [
+        "The **custommsg** notifies whenever the node receives a custom message from a peer."
       ],
-      "properties": {
-        "peer_id": {
-          "type": "pubkey",
-          "description": "The id of the peer which sent the custom message",
-          "added": "v24.05"
-        },
-        "payload": {
-          "type": "hex",
-          "description": "The hex-encoded payload. The first 2 bytes represent the BOLT-8 message type followed by the message content",
-          "added": "v24.05"
+      "added": "v24.05",
+      "request": {},
+      "response": {
+        "required": [
+          "peer_id",
+          "payload"
+        ],
+        "properties": {
+          "peer_id": {
+            "type": "pubkey",
+            "description": [
+              "The id of the peer which sent the custom message"
+            ],
+            "added": "v24.05"
+          },
+          "payload": {
+            "type": "hex",
+            "description": [
+              "The hex-encoded payload. The first 2 bytes represent the BOLT-8 message type followed by the message content"
+            ],
+            "added": "v24.05"
+          }
         }
       }
     }
