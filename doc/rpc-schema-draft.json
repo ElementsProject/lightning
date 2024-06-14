@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft-07/schema#",
-    "title": "Core lightning rpc meta-schema",
+    "title": "Core lightning rpc or notification meta-schema",
     "definitions": {
         "nonNegativeInteger": {
             "type": "integer",
@@ -354,6 +354,9 @@
         "rpc": {
             "type": "string"
         },
+        "notification": {
+            "type": "string"
+        },
         "title": {
             "type": "string"
         },
@@ -539,13 +542,28 @@
             }
         }
     },
-    "required": [
-        "$schema",
-        "type",
-        "rpc",
-        "title",
-        "description",
-        "request",
-        "response"
+    "oneOf": [
+        {
+            "required": [
+                "$schema",
+                "type",
+                "rpc",
+                "title",
+                "description",
+                "request",
+                "response"
+            ]
+        },
+        {
+            "required": [
+                "$schema",
+                "type",
+                "notification",
+                "title",
+                "description",
+                "request",
+                "response"
+            ]
+        }
     ]
 }

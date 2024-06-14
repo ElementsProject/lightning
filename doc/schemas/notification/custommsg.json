@@ -1,0 +1,34 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "custommsg",
+  "title": "Notification for custom messages",
+  "description": [
+    "The **custommsg** notifies whenever the node receives a custom message from a peer."
+  ],
+  "added": "v24.05",
+  "request": {},
+  "response": {
+    "required": [
+      "peer_id",
+      "payload"
+    ],
+    "properties": {
+      "peer_id": {
+        "type": "pubkey",
+        "description": [
+          "The id of the peer which sent the custom message"
+        ],
+        "added" : "v24.05"
+      },
+      "payload": {
+        "type": "hex",
+        "description": [
+          "The hex-encoded payload. The first 2 bytes represent the BOLT-8 message type followed by the message content"
+        ],
+        "added" : "v24.05"
+      }
+    }
+  }
+}

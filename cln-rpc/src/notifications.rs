@@ -34,13 +34,13 @@ pub struct ChannelOpenFailedNotification {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ChannelOpenedNotification {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub id: Option<PublicKey>,
     pub channel_ready: bool,
     pub funding_msat: Amount,
     pub funding_txid: String,
+    pub id: PublicKey,
 }
 
+/// ['Direction of the connection']
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub enum ConnectDirection {
     #[serde(rename = "in")]
@@ -69,7 +69,7 @@ impl ToString for ConnectDirection {
     }
 }
 
-/// Type of connection (*torv2*/*torv3* only if **direction** is *out*)
+/// ['Type of connection (*torv2*/*torv3* only if **direction** is *out*)']
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub enum ConnectAddressType {
     #[serde(rename = "local socket")]
