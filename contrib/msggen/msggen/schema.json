@@ -3273,7 +3273,7 @@
       "added": "v23.05",
       "deprecated": [
         "v23.08",
-        "v24.08"
+        "v25.02"
       ],
       "rpc": "commando-blacklist",
       "title": "Command to prevent a rune from working",
@@ -3415,7 +3415,7 @@
       "added": "v23.05",
       "deprecated": [
         "v23.08",
-        "v24.05"
+        "v25.02"
       ],
       "rpc": "commando-listrunes",
       "title": "Command to list previously generated runes",
@@ -3712,7 +3712,7 @@
       "additionalProperties": false,
       "deprecated": [
         "v23.08",
-        "v23.05"
+        "v25.02"
       ],
       "rpc": "commando-rune",
       "title": "Command to Authorize Remote Peer Access",

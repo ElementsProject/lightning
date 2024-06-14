@@ -5,7 +5,7 @@
   "added": "v23.05",
   "deprecated": [
     "v23.08",
-    "v24.08"
+    "v25.02"
   ],
   "rpc": "commando-blacklist",
   "title": "Command to prevent a rune from working",

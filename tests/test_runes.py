@@ -10,7 +10,9 @@ import unittest
 
 
 def test_createrune(node_factory):
-    l1 = node_factory.get_node()
+    l1 = node_factory.get_node(options={
+        'allow-deprecated-apis': True,
+    })
 
     # l1's master rune secret is edb8893c04fdeef8f5f06ed70edef309a5c83f20624594e136e392504a270c40
     rune1 = l1.rpc.createrune()
