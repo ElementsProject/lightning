@@ -130,6 +130,7 @@ For development or running tests, get additional dependencies:
 ```shell
 sudo apt-get install -y valgrind libpq-dev shellcheck cppcheck \
   libsecp256k1-dev lowdown
+pip3 install pytest
 ```
 
 If you can't install `lowdown`, a version will be built in-tree.
