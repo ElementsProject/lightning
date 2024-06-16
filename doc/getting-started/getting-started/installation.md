@@ -34,10 +34,10 @@ To install the Docker image for the latest stable release:
 docker pull elementsproject/lightningd:latest
 ```
 
-To install for a specific version, for example, 23.11.2:
+To install for a specific version, for example, 24.05:
 
 ```shell
-docker pull elementsproject/lightningd:v23.11.2
+docker pull elementsproject/lightningd:v24.05
 ```
 
 See all of the docker images for Core Lightning on [Docker Hub](https://hub.docker.com/r/elementsproject/lightningd/tags).
@@ -122,7 +122,7 @@ cd lightning
 Checkout a release tag:
 
 ```shell
-git checkout v23.11.2
+git checkout v24.05
 ```
 
 For development or running tests, get additional dependencies:
@@ -225,7 +225,7 @@ cd lightning
 Checkout a release tag:
 
 ```shell
-git checkout v23.11.2
+git checkout v24.05
 ```
 
 Build and install lightning:
@@ -399,7 +399,7 @@ cd lightning
 Checkout a release tag:
 
 ```shell
-git checkout v23.11.2
+git checkout v24.05
 ```
 
 Build lightning:
