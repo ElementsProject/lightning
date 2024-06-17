@@ -60,6 +60,24 @@
           "Used to attach a label to payments, and is returned in lightning-listpays(7) and lightning-listsendpays(7)."
         ]
       },
+      "exclude": {
+        "added": "v24.08",
+        "type": "array",
+        "description": [
+          "*exclude* is a JSON array of short-channel-id/direction (e.g. [ '564334x877x1/0', '564195x1292x0/1' ]) or pubkey which should be excluded from consideration for routing."
+        ],
+        "default": "not to exclude any channels or nodes",
+        "items": {
+          "oneOf": [
+            {
+              "type": "short_channel_id_dir"
+            },
+            {
+              "type": "pubkey"
+            }
+          ]
+        }
+      },
       "dev_use_shadow": {
         "hidden": true,
         "type": "boolean"

@@ -2,6 +2,7 @@
 #define LIGHTNING_PLUGINS_RENEPAY_PAYMENT_H
 #include "config.h"
 #include <common/gossmap.h>
+#include <common/route.h>
 #include <plugins/libplugin.h>
 #include <plugins/renepay/disabledmap.h>
 #include <plugins/renepay/payment_info.h>
@@ -116,7 +117,8 @@ struct payment *payment_new(
 	u64 prob_cost_factor_millionths,
 	u64 riskfactor_millionths,
 	u64 min_prob_success_millionths,
-	bool use_shadow);
+	bool use_shadow,
+	const struct route_exclusion **exclusions);
 
 bool payment_update(
 	struct payment *p,
@@ -129,7 +131,8 @@ bool payment_update(
 	u64 prob_cost_factor_millionths,
 	u64 riskfactor_millionths,
 	u64 min_prob_success_millionths,
-	bool use_shadow);
+	bool use_shadow,
+	const struct route_exclusion **exclusions);
 
 struct amount_msat payment_sent(const struct payment *p);
 struct amount_msat payment_delivered(const struct payment *p);
