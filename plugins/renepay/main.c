@@ -173,6 +173,7 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 	u32 *retryfor;
 	const char *description;
 	const char *label;
+	struct route_exclusion **exclusions;
 
 	// dev options
 	bool *use_shadow;
@@ -198,6 +199,7 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 			     60), // 60 seconds
 		   p_opt("description", param_string, &description),
 		   p_opt("label", param_string, &label),
+		   p_opt("exclude", param_route_exclusion_array, &exclusions),
 
 		   // FIXME add support for offers
 		   // p_opt("localofferid", param_sha256, &local_offer_id),
@@ -313,7 +315,8 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 			*prob_cost_factor_millionths,
 			*riskfactor_millionths,
 			*min_prob_success_millionths,
-			use_shadow);
+			use_shadow,
+			cast_const2(const struct route_exclusion**, exclusions));
 
 		if (!payment)
 			return command_fail(cmd, PLUGIN_ERROR,
@@ -349,7 +352,8 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 				    *prob_cost_factor_millionths,
 				    *riskfactor_millionths,
 				    *min_prob_success_millionths,
-				    use_shadow))
+				    use_shadow,
+				    cast_const2(const struct route_exclusion**, exclusions)))
 			return command_fail(
 			    cmd, PLUGIN_ERROR,
 			    "failed to update the payment parameters");
