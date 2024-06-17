@@ -52,13 +52,12 @@ class Installer:
     The identification of a plugin language, compiler or interpreter
     availability, and the install procedures.
     '''
-    def __init__(self, name: str, mimetype: str,
+    def __init__(self, name: str,
                  exe: Union[str, None] = None,
                  compiler: Union[str, None] = None,
                  manager: Union[str, None] = None,
                  entry: Union[str, None] = None):
         self.name = name
-        self.mimetype = mimetype
         self.entries = []
         if entry:
             self.entries.append(entry)
@@ -69,7 +68,7 @@ class Installer:
         self.dependency_call = None
 
     def __repr__(self):
-        return (f'<Installer {self.name}: mimetype: {self.mimetype}, '
+        return (f'<Installer {self.name}: '
                 f'exe: {self.exe}, manager: {self.manager}>')
 
     def executable(self) -> bool:
@@ -840,21 +839,21 @@ def install_to_python_virtual_environment(cloned_plugin: InstInfo):
     return cloned_plugin
 
 
-python3venv = Installer('python3venv', 'text/x-python', exe='python3',
+python3venv = Installer('python3venv', exe='python3',
                         manager='pip', entry='{name}.py')
 python3venv.add_entrypoint('{name}')
 python3venv.add_entrypoint('__init__.py')
 python3venv.add_dependency_file('requirements.txt')
 python3venv.dependency_call = install_to_python_virtual_environment
 
-poetryvenv = Installer('poetryvenv', 'text/x-python', exe='python3',
+poetryvenv = Installer('poetryvenv', exe='python3',
                        manager='poetry', entry='{name}.py')
 poetryvenv.add_entrypoint('{name}')
 poetryvenv.add_entrypoint('__init__.py')
 poetryvenv.add_dependency_file('pyproject.toml')
 poetryvenv.dependency_call = install_to_python_virtual_environment
 
-pyprojectViaPip = Installer('pyprojectViaPip', 'text/x-python', exe='python3',
+pyprojectViaPip = Installer('pyprojectViaPip', exe='python3',
                             manager='pip', entry='{name}.py')
 pyprojectViaPip.add_entrypoint('{name}')
 pyprojectViaPip.add_entrypoint('__init__.py')
@@ -863,7 +862,7 @@ pyprojectViaPip.dependency_call = install_to_python_virtual_environment
 
 
 # Nodejs plugin installer
-nodejs = Installer('nodejs', 'application/javascript', exe='node',
+nodejs = Installer('nodejs', exe='node',
                    manager='npm', entry='{name}.js')
 nodejs.add_entrypoint('{name}')
 nodejs.add_dependency_call(['npm', 'install', '--omit=dev'])
