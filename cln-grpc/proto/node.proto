@@ -2480,6 +2480,7 @@ message RenepayRequest {
 	optional string description = 6;
 	optional string label = 7;
 	optional bool dev_use_shadow = 8;
+	repeated string exclude = 9;
 }
 
 message RenepayResponse {

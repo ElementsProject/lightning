@@ -2824,6 +2824,7 @@
             "RenePay.amount_msat": 2,
             "RenePay.description": 6,
             "RenePay.dev_use_shadow": 8,
+            "RenePay.exclude": 9,
             "RenePay.invstring": 1,
             "RenePay.label": 7,
             "RenePay.maxdelay": 4,
@@ -10020,6 +10021,10 @@
         },
         "RenePay.dev_use_shadow": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.exclude": {
+            "added": "v24.08",
             "deprecated": false
         },
         "RenePay.invstring": {
