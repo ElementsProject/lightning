@@ -498,6 +498,7 @@ DatastoreKeyField = ArrayField(itemtype=PrimitiveField("string", None, None, add
 DatastoreUsageKeyField = ArrayField(itemtype=PrimitiveField("string", None, None, added="v23.11", deprecated=None), dims=1, path=None, description=None, added="v23.11", deprecated=None)
 InvoiceExposeprivatechannelsField = ArrayField(itemtype=PrimitiveField("short_channel_id", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 PayExclude = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
+RenePayExclude = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added="v24.08", deprecated=None)
 RoutehintListField = PrimitiveField(
     "RoutehintList",
     None,
@@ -537,6 +538,7 @@ overrides = {
     'ListDatastore.key': DatastoreKeyField,
     'Invoice.exposeprivatechannels': InvoiceExposeprivatechannelsField,
     'Pay.exclude': PayExclude,
+    'RenePay.exclude': RenePayExclude,
     'KeySend.routehints': RoutehintListField,
     'KeySend.extratlvs': TlvStreamField,
     'Decode.routes': DecodeRoutehintListField,
