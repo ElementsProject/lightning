@@ -12,10 +12,6 @@ enum payment_status { PAYMENT_PENDING, PAYMENT_SUCCESS, PAYMENT_FAIL };
 
 struct payment {
 	/* Inside pay_plugin->payments list */
-	// TODO: probably not necessary after we store all payments in a
-	// hashtable instead of a list
-	struct list_node list;
-
 	struct payment_info payment_info;
 
 
@@ -71,7 +67,6 @@ struct payment {
 	/* Timer we use to wait for results. */
 	struct plugin_timer *waitresult_timer;
 
-	struct route **routes_computed;
 	struct routetracker *routetracker;
 };
 
@@ -152,11 +147,19 @@ struct command *payment_command(struct payment *p);
 /* get me the result of this payment, not necessarily a completed payment */
 struct json_stream *payment_result(struct payment *p, struct command *cmd);
 
-/* flag the payment as success and write the preimage as proof */
+/* Flag the payment as success and write the preimage as proof. */
+void register_payment_success(struct payment *payment,
+			      const struct preimage *preimage TAKES);
+/* Flag the payment as success and write the preimage as proof and end the
+ * payment execution. */
 struct command_result *payment_success(struct payment *payment,
 				       const struct preimage *preimage TAKES);
 
-/* flag the payment as failed and write the reason */
+/* Flag the payment as failed and write the reason. */
+void register_payment_fail(struct payment *payment, enum jsonrpc_errcode code,
+			   const char *fmt, ...);
+/* Flag the payment as failed and write the reason and end the payment
+ * execution. */
 struct command_result *payment_fail(struct payment *payment,
 				    enum jsonrpc_errcode code, const char *fmt,
 				    ...);
@@ -164,10 +167,10 @@ struct command_result *payment_fail(struct payment *payment,
 /* These log at LOG_DBG, append to notes, and send command notification */
 void payment_note(struct payment *p, enum log_level lvl, const char *fmt, ...);
 
-void payment_disable_chan(struct payment *p, struct short_channel_id scid,
+void payment_disable_chan(struct payment *p, struct short_channel_id_dir scidd,
 			  enum log_level lvl, const char *fmt, ...);
 
-void payment_warn_chan(struct payment *p, struct short_channel_id scid,
+void payment_warn_chan(struct payment *p, struct short_channel_id_dir scidd,
 		       enum log_level lvl, const char *fmt, ...);
 
 void payment_disable_node(struct payment *p, struct node_id node,

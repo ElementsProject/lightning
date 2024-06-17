@@ -33,7 +33,7 @@ struct command_result *routefail_start(const tal_t *ctx, struct route *route,
 	if (payment == NULL)
 		plugin_err(pay_plugin->plugin,
 			   "%s: payment with hash %s not found.",
-			   __PRETTY_FUNCTION__,
+			   __func__,
 			   fmt_sha256(tmpctx, &route->key.payment_hash));
 
 	r->payment = payment;
@@ -43,13 +43,14 @@ struct command_result *routefail_start(const tal_t *ctx, struct route *route,
 	return update_gossip(r);
 }
 
-static struct command_result *routefail_end(struct routefail *r)
+static struct command_result *routefail_end(struct routefail *r TAKES)
 {
 	/* Notify the tracker that route has failed and routefail have completed
 	 * handling all possible errors cases. */
 	struct command *cmd = r->cmd;
 	route_failure_register(r->payment->routetracker, r->route);
-	tal_free(r);
+	if (taken(r))
+		r = tal_steal(tmpctx, r);
 	return notification_handled(cmd);
 }
 
@@ -128,9 +129,11 @@ static struct command_result *update_gossip_failure(struct command *cmd UNUSED,
 	 * always be present here, but at least the documentation for
 	 * waitsendpay says it is present in the case of error. */
 	assert(r->route->result->erring_channel);
-
+	struct short_channel_id_dir scidd = {
+	    .scid = *r->route->result->erring_channel,
+	    .dir = *r->route->result->erring_direction};
 	payment_disable_chan(
-	    r->payment, *r->route->result->erring_channel, LOG_INFORM,
+	    r->payment, scidd, LOG_INFORM,
 	    "addgossip failed (%.*s)", json_tok_full_len(result),
 	    json_tok_full(buf, result));
 	return update_gossip_done(cmd, buf, result, r);
@@ -238,8 +241,6 @@ static struct command_result *handle_failure(struct routefail *r)
 		path_len = tal_count(route->hops);
 
 	assert(result->erring_index);
-	/* index of the last channel before the erring node */
-	const int last_good_channel = *result->erring_index - 1;
 
 	enum node_type node_type = UNKNOWN_NODE;
 	if (route->hops) {
@@ -347,8 +348,11 @@ static struct command_result *handle_failure(struct routefail *r)
 
 		} else {
 			assert(result->erring_channel);
+			struct short_channel_id_dir scidd = {
+			    .scid = *result->erring_channel,
+			    .dir = *result->erring_direction};
 			payment_disable_chan(
-			    payment, *result->erring_channel, LOG_INFORM,
+			    payment, scidd, LOG_INFORM,
 			    "%s", onion_wire_name(result->failcode));
 		}
 		break;
@@ -399,8 +403,11 @@ static struct command_result *handle_failure(struct routefail *r)
 			 * information and try again. To avoid hitting this
 			 * error again with the same channel we flag it. */
 			assert(result->erring_channel);
+			struct short_channel_id_dir scidd = {
+			    .scid = *result->erring_channel,
+			    .dir = *result->erring_direction};
 			payment_warn_chan(payment,
-					  *result->erring_channel, LOG_INFORM,
+					  scidd, LOG_INFORM,
 					  "received error %s",
 					  onion_wire_name(result->failcode));
 		}
@@ -430,36 +437,5 @@ static struct command_result *handle_failure(struct routefail *r)
 
 		break;
 	}
-
-	/* Update the knowledge in the uncertaity network. */
-	if (route->hops) {
-		if (last_good_channel >= path_len) {
-			plugin_err(pay_plugin->plugin,
-				   "last_good_channel (%d) >= path_len (%d)",
-				   last_good_channel, path_len);
-		}
-
-		/* All channels before the erring node could forward the
-		 * payment. */
-		for (int i = 0; i <= last_good_channel; i++) {
-			uncertainty_channel_can_send(pay_plugin->uncertainty,
-						     route->hops[i].scid,
-						     route->hops[i].direction);
-		}
-
-		if (result->failcode == WIRE_TEMPORARY_CHANNEL_FAILURE &&
-		    (last_good_channel + 1) < path_len) {
-			/* A WIRE_TEMPORARY_CHANNEL_FAILURE could mean not
-			 * enough liquidity to forward the payment or cannot add
-			 * one more HTLC.
-			 */
-			uncertainty_channel_cannot_send(
-			    pay_plugin->uncertainty,
-			    route->hops[last_good_channel + 1].scid,
-			    route->hops[last_good_channel + 1].direction);
-		}
-		uncertainty_remove_htlcs(pay_plugin->uncertainty, route);
-	}
-
-	return routefail_end(r);
+	return routefail_end(take(r));
 }
