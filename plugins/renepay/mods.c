@@ -1081,6 +1081,71 @@ static struct command_result *knowledgerelax_cb(struct payment *payment)
 REGISTER_PAYMENT_MODIFIER(knowledgerelax, knowledgerelax_cb);
 
 /*****************************************************************************
+ * channelfilter
+ *
+ * Disable some channels. The possible motivations are:
+ * - avoid the overhead of unproductive routes that go through channels with
+ * very low max_htlc that would lead us to a payment partition with too
+ * many HTCLs,
+ * - avoid channels with very small capacity as well, for which the probability
+ * of success is always small anyways,
+ * - discard channels with very high base fee that would break our cost
+ * estimation,
+ * - avoid high latency tor nodes.
+ * All combined should reduce the size of the network we explore hopefully
+ * reducing the runtime of the MCF solver (FIXME: I should measure this
+ * eventually).
+ * FIXME: shall we set these threshold parameters as plugin options?
+ */
+
+static struct command_result *channelfilter_cb(struct payment *payment)
+{
+	assert(payment);
+	assert(pay_plugin->gossmap);
+	const double HTLC_MAX_FRACTION = 0.01; // 1%
+	const u64 HTLC_MAX_STOP_MSAT = 1000000000; // 1M sats
+
+	u64 disabled_count = 0;
+
+
+	u64 htlc_max_threshold = HTLC_MAX_FRACTION * payment->payment_info
+		.amount.millisatoshis; /* Raw: a fraction of this amount. */
+	/* Don't exclude channels with htlc_max above HTLC_MAX_STOP_MSAT even if
+	 * that represents a fraction of the payment smaller than
+	 * HTLC_MAX_FRACTION. */
+	htlc_max_threshold = MIN(htlc_max_threshold, HTLC_MAX_STOP_MSAT);
+
+	for (const struct gossmap_node *node =
+		 gossmap_first_node(pay_plugin->gossmap);
+	     node; node = gossmap_next_node(pay_plugin->gossmap, node)) {
+		for (size_t i = 0; i < node->num_chans; i++) {
+			int dir;
+			const struct gossmap_chan *chan = gossmap_nth_chan(
+			    pay_plugin->gossmap, node, i, &dir);
+			const u64 htlc_max =
+			    fp16_to_u64(chan->half[dir].htlc_max);
+			if (htlc_max < htlc_max_threshold) {
+				struct short_channel_id_dir scidd = {
+				    .scid = gossmap_chan_scid(
+					pay_plugin->gossmap, chan),
+				    .dir = dir};
+				disabledmap_add_channel(payment->disabledmap,
+							scidd);
+				disabled_count++;
+			}
+		}
+	}
+	// FIXME: prune the network over other parameters, eg. capacity,
+	// fees, ...
+	plugin_log(pay_plugin->plugin, LOG_DBG,
+		   "channelfilter: disabling %" PRIu64 " channels.",
+		   disabled_count);
+	return payment_continue(payment);
+}
+
+REGISTER_PAYMENT_MODIFIER(channelfilter, channelfilter_cb);
+
+/*****************************************************************************
  * alwaystrue
  *
  * A funny payment condition that always returns true.
@@ -1135,22 +1200,20 @@ void *payment_virtual_program[] = {
     /*4*/ OP_CALL, &knowledgerelax_pay_mod,
     /*6*/ OP_CALL, &getmychannels_pay_mod,
     /*8*/ OP_CALL, &routehints_pay_mod,
-    // TODO: add a channel filter, for example disable channels that have
-    // htlcmax < 0.1% of payment amount, or base fee > 100msat, or
-    // proportional_fee > 10%, or capacity < 10% payment amount
+    /*10*/OP_CALL, &channelfilter_pay_mod,
     // TODO shadow_additions
     /* do */
-	    /*10*/ OP_CALL, &pendingsendpays_pay_mod,
-	    /*12*/ OP_CALL, &checktimeout_pay_mod,
-	    /*14*/ OP_CALL, &refreshgossmap_pay_mod,
-	    /*16*/ OP_CALL, &compute_routes_pay_mod,
-	    /*18*/ OP_CALL, &send_routes_pay_mod,
+	    /*12*/ OP_CALL, &pendingsendpays_pay_mod,
+	    /*14*/ OP_CALL, &checktimeout_pay_mod,
+	    /*16*/ OP_CALL, &refreshgossmap_pay_mod,
+	    /*18*/ OP_CALL, &compute_routes_pay_mod,
+	    /*20*/ OP_CALL, &send_routes_pay_mod,
 	    /*do*/
-		    /*20*/ OP_CALL, &sleep_pay_mod,
-		    /*22*/ OP_CALL, &collect_results_pay_mod,
+		    /*22*/ OP_CALL, &sleep_pay_mod,
+		    /*24*/ OP_CALL, &collect_results_pay_mod,
 	    /*while*/
-	    /*24*/ OP_IF, &nothaveresults_pay_cond, (void *)20,
+	    /*26*/ OP_IF, &nothaveresults_pay_cond, (void *)22,
     /* while */
-    /*27*/ OP_IF, &retry_pay_cond, (void *)10,
-    /*30*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
-    /*32*/ NULL};
+    /*29*/ OP_IF, &retry_pay_cond, (void *)12,
+    /*32*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
+    /*34*/ NULL};
