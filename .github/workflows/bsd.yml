@@ -39,12 +39,12 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2021-08-3z1
 
           cd /tmp/ || exit 1
-          wget https://bitcoincore.org/bin/bitcoin-core-26.1/bitcoin-26.1-x86_64-linux-gnu.tar.gz
-          tar -xf bitcoin-26.1-x86_64-linux-gnu.tar.bz2
-          sudo mv bitcoin-26.1/bin/* /usr/local/bin
+          wget https://bitcoincore.org/bin/bitcoin-core-27.1/bitcoin-27.1-x86_64-linux-gnu.tar.gz
+          tar -xf bitcoin-27.1-x86_64-linux-gnu.tar.bz2
+          sudo mv bitcoin-27.1/bin/* /usr/local/bin
           rm -rf \
-            bitcoin-26.1-x86_64-linux-gnu.tar.gz \
-            bitcoin-26.1
+            bitcoin-27.1-x86_64-linux-gnu.tar.gz \
+            bitcoin-27.1
           
         run: |
           PATH=/root/.local/bin:$PATH
