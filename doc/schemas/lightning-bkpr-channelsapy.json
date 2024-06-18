@@ -196,7 +196,7 @@
       "request": {
         "id": "example:bkpr-channelsapy#1",
         "method": "bkpr-channelsapy",
-        "params": "{}"
+        "params": {}
       },
       "response": {
         "channels_apy": [

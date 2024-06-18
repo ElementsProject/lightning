@@ -127,7 +127,7 @@
       "request": {
         "id": "example:bkpr-listbalances#1",
         "method": "bkpr-listbalances",
-        "params": "{}"
+        "params": {}
       },
       "response": {
         "accounts": [

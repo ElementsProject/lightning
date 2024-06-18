@@ -72,7 +72,7 @@
       "request": {
         "id": "example:upgradewallet#1",
         "method": "upgradewallet",
-        "params": "{}"
+        "params": {}
       },
       "response": {
         "upgraded_outs": 0

@@ -159,7 +159,7 @@
       "request": {
         "id": "example:showrunes#1",
         "method": "showrunes",
-        "params": "{}"
+        "params": {}
       },
       "response": {
         "runes": [

@@ -1295,7 +1295,7 @@
           "request": {
             "id": "example:bkpr-channelsapy#1",
             "method": "bkpr-channelsapy",
-            "params": "{}"
+            "params": {}
           },
           "response": {
             "channels_apy": [
@@ -1952,7 +1952,7 @@
           "request": {
             "id": "example:bkpr-listaccountevents#1",
             "method": "bkpr-listaccountevents",
-            "params": "{}"
+            "params": {}
           },
           "response": {
             "events": [
@@ -2314,7 +2314,7 @@
           "request": {
             "id": "example:bkpr-listbalances#1",
             "method": "bkpr-listbalances",
-            "params": "{}"
+            "params": {}
           },
           "response": {
             "accounts": [
@@ -2470,7 +2470,7 @@
           "request": {
             "id": "example:bkpr-listincome#1",
             "method": "bkpr-listincome",
-            "params": "{}"
+            "params": {}
           },
           "response": {
             "income_events": [
@@ -3575,7 +3575,7 @@
           "request": {
             "id": "example:commando-listrunes#1",
             "method": "commando-listrunes",
-            "params": "{}"
+            "params": {}
           },
           "response": {
             "runes": [
@@ -3933,7 +3933,7 @@
           "request": {
             "id": "example:commando-rune#1",
             "method": "commando-rune",
-            "params": "{}"
+            "params": {}
           },
           "response": {
             "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",
@@ -9285,7 +9285,7 @@
           "request": {
             "id": "example:emergencyrecover#1",
             "method": "emergencyrecover",
-            "params": "{}"
+            "params": {}
           },
           "response": {
             "stubs": []
@@ -9295,7 +9295,7 @@
           "request": {
             "id": "example:emergencyrecover#2",
             "method": "emergencyrecover",
-            "params": "{}"
+            "params": {}
           },
           "response": {
             "stubs": [
@@ -11068,7 +11068,7 @@
           "request": {
             "id": "example:funderupdate#1",
             "method": "funderupdate",
-            "params": "{}"
+            "params": {}
           },
           "response": {
             "summary": "match (100%)",
@@ -17950,7 +17950,7 @@
           "request": {
             "id": "example:listhtlcs#1",
             "method": "listhtlcs",
-            "params": "{}"
+            "params": {}
           },
           "response": {
             "htlcs": [
@@ -27745,7 +27745,7 @@
           "request": {
             "id": "example:showrunes#1",
             "method": "showrunes",
-            "params": "{}"
+            "params": {}
           },
           "response": {
             "runes": [
@@ -28799,7 +28799,7 @@
           "request": {
             "id": "example:staticbackup#1",
             "method": "staticbackup",
-            "params": "{}"
+            "params": {}
           },
           "response": {
             "scb": [
@@ -29395,7 +29395,7 @@
           "request": {
             "id": "example:upgradewallet#1",
             "method": "upgradewallet",
-            "params": "{}"
+            "params": {}
           },
           "response": {
             "upgraded_outs": 0

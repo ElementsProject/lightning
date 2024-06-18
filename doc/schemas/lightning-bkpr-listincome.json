@@ -123,7 +123,7 @@
       "request": {
         "id": "example:bkpr-listincome#1",
         "method": "bkpr-listincome",
-        "params": "{}"
+        "params": {}
       },
       "response": {
         "income_events": [

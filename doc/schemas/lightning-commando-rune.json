@@ -225,7 +225,7 @@
       "request": {
         "id": "example:commando-rune#1",
         "method": "commando-rune",
-        "params": "{}"
+        "params": {}
       },
       "response": {
         "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",

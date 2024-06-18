@@ -32,7 +32,7 @@
       "request": {
         "id": "example:staticbackup#1",
         "method": "staticbackup",
-        "params": "{}"
+        "params": {}
       },
       "response": {
         "scb": [
