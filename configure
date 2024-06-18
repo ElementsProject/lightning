@@ -165,7 +165,7 @@ set_defaults()
 	fi
     fi
     if [ "$UBSAN" != 0 ]; then
-	CSANFLAGS="$CSANFLAGS -fsanitize=undefined -fno-sanitize-recover=undefined"
+	CSANFLAGS="$CSANFLAGS -fsanitize=undefined -fno-sanitize=function -fno-sanitize-recover=undefined"
     fi
     if [ "$FUZZING" != 0 ]; then
 	FUZZFLAGS="-fsanitize=fuzzer-no-link -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION"
