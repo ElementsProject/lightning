@@ -29,8 +29,8 @@ static bool blind_node(const struct privkey *blinding,
 		     fmt_pubkey(tmpctx, node_alias));
 
 	/* BOLT #4:
-	 *  - `E(i+1) = SHA256(E(i) || ss(i)) * E(i)`
-	 *     (NB: `N(i)` MUST NOT learn `e(i)`)
+	 *  - $`E_{i+1} = SHA256(E_i || ss_i) * E_i`$
+	 *     (NB: $`N_i`$ MUST NOT learn $`e_i`$)
 	 */
 	if (!pubkey_from_privkey(blinding, &blinding_pubkey))
 		return false;
@@ -38,8 +38,8 @@ static bool blind_node(const struct privkey *blinding,
 		     fmt_pubkey(tmpctx, &blinding_pubkey));
 
 	/* BOLT #4:
-	 *  - `e(i+1) = SHA256(E(i) || ss(i)) * e(i)`
-	 *     (blinding ephemeral private key, only known by `N(r)`)
+	 *  - $`e_{i+1} = SHA256(E_i || ss_i) * e_i`$
+	 *     (blinding ephemeral private key, only known by $`N_r`$)
 	 */
 	blinding_hash_e_and_ss(&blinding_pubkey, ss, &h);
 	SUPERVERBOSE("\t\"H(E || ss)\": \"%s\",\n",
@@ -65,8 +65,8 @@ static u8 *enctlv_from_encmsg_raw(const tal_t *ctx,
 	static const unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
 
 	/* BOLT #4:
-	 *     - `ss(i) = SHA256(e(i) * N(i)) = SHA256(k(i) * E(i))`
-	 *        (ECDH shared secret known only by `N(r)` and `N(i)`)
+	 *     - $`ss_i = SHA256(e_i * N_i) = SHA256(k_i * E_i)$`
+	 *        (ECDH shared secret known only by $`N_r`$ and $`N_i`$)
 	 */
 	if (secp256k1_ecdh(secp256k1_ctx, ss.data,
 			   &node->pubkey, blinding->secret.data,
@@ -82,17 +82,17 @@ static u8 *enctlv_from_encmsg_raw(const tal_t *ctx,
 	ret = tal_dup_talarr(ctx, u8, raw_encmsg);
 
 	/* BOLT #4:
-	 * - `rho(i) = HMAC256("rho", ss(i))`
-	 *    (key used to encrypt the payload for `N(i)` by `N(r)`)
+	 * - $`rho_i = HMAC256(\text{"rho"}, ss_i)`$
+	 *    (key used to encrypt the payload for $`N_i`$ by $`N_r`$)
 	 */
 	subkey_from_hmac("rho", &ss, &rho);
 	SUPERVERBOSE("\t\"rho\": \"%s\",\n",
 		     fmt_secret(tmpctx, &rho));
 
 	/* BOLT #4:
-	 * - MUST encrypt each `encrypted_data_tlv(i)` with ChaCha20-Poly1305 using
-	 *   the corresponding `rho(i)` key and an all-zero nonce to produce
-	 *   `encrypted_recipient_data(i)`
+	 * - MUST encrypt each `encrypted_data_tlv[i]` with ChaCha20-Poly1305 using
+	 *   the corresponding `rho_i` key and an all-zero nonce to produce
+	 *   `encrypted_recipient_data[i]`
 	 */
 	/* Encrypt in place */
 	towire_pad(&ret, crypto_aead_chacha20poly1305_ietf_ABYTES);
@@ -137,8 +137,8 @@ bool unblind_onion(const struct pubkey *blinding,
 	 * A reader:
 	 *...
 	 * - MUST compute:
-	 *   - `ss(i) = SHA256(k(i) * E(i))` (standard ECDH)
-	 *   - `b(i) = HMAC256("blinded_node_id", ss(i)) * k(i)`
+	 *   - $`ss_i = SHA256(k_i * E_i)`$ (standard ECDH)
+	 *   - $`b_i = HMAC256(\text{"blinded\_node\_id"}, ss_i) * k_i`$
 	 */
 	ecdh(blinding, ss);
 	subkey_from_hmac("blinded_node_id", ss, &hmac);
@@ -147,9 +147,9 @@ bool unblind_onion(const struct pubkey *blinding,
 	 * our normal privkey: since hsmd knows only how to ECDH with
 	 * our real key.  IOW: */
 	/* BOLT #4:
-	 * - MUST use `b(i)` instead of its private key `k(i)` to decrypt the onion. Note
+	 * - MUST use $`b_i`$ instead of its private key $`k_i`$ to decrypt the onion. Note
 	 *   that the node may instead tweak the onion ephemeral key with
-	 *   `HMAC256("blinded_node_id", ss(i))` which achieves the same result.
+	 *   $`HMAC256(\text{"blinded\_node\_id}", ss_i)`$ which achieves the same result.
 	 */
 	return secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx,
 					     &onion_key->pubkey,
@@ -169,7 +169,7 @@ static u8 *decrypt_encmsg_raw(const tal_t *ctx,
 	/* BOLT #4:
 	 * A reader:
 	 *...
-	 *- MUST decrypt the `encrypted_data` field using `rho(i)` and use
+	 *- MUST decrypt the `encrypted_data` field using $`rho_i`$ and use
 	 *  the decrypted fields to locate the next node
 	 */
 	subkey_from_hmac("rho", ss, &rho);
@@ -224,8 +224,8 @@ bool blindedpath_get_alias(const struct secret *ss,
 	struct secret node_id_blinding;
 
 	/* BOLT #4:
-	 * - `B(i) = HMAC256("blinded_node_id", ss(i)) * N(i)`
-	 *   (blinded `node_id` for `N(i)`, private key known only by `N(i)`)
+	 * - $`B_i = HMAC256(\text{"blinded\_node\_id"}, ss_i) * N_i`$
+	 *   (blinded `node_id` for $`N_i`$, private key known only by $`N_i`$)
 	 */
 	subkey_from_hmac("blinded_node_id", ss, &node_id_blinding);
 	SUPERVERBOSE("\t\"HMAC256('blinded_node_id', ss)\": \"%s\",\n",
@@ -243,17 +243,17 @@ void blindedpath_next_blinding(const struct tlv_encrypted_data_tlv *enc,
 			       struct pubkey *next_blinding)
 {
 	/* BOLT #4:
-	 *   - `E(i+1) = SHA256(E(i) || ss(i)) * E(i)`
+	 *   - $`E_{i+1} = SHA256(E_i || ss_i) * E_i`$
 	 * ...
 	 * - If `encrypted_data` contains a `next_blinding_override`:
-	 *   - MUST use it as the next blinding point instead of `E(i+1)`
+	 *   - MUST use it as the next blinding point instead of $`E_{i+1}`$
 	 *   - Otherwise:
-	 *     - MUST use `E(i+1)` as the next blinding point
+	 *     - MUST use $`E_{i+1}`$ as the next blinding point
 	 */
 	if (enc->next_blinding_override)
 		*next_blinding = *enc->next_blinding_override;
 	else {
-		/* E(i-1) = H(E(i) || ss(i)) * E(i) */
+		/* E_{i-1} = H(E_i || ss_i) * E_i */
 		struct sha256 h;
 		blinding_hash_e_and_ss(blinding, ss, &h);
 		blinding_next_pubkey(blinding, &h, next_blinding);
