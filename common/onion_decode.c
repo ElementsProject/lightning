@@ -298,12 +298,19 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		 *   - MUST return an error if:
 		 *     - `encrypted_recipient_data.allowed_features.features`
 		 *        contains an unknown feature bit (even if it is odd).
+		 *     - `encrypted_recipient_data` contains both
+		 *       `short_channel_id` and `next_node_id`.
 		 *     - the payment uses a feature not included in
 		 *       `encrypted_recipient_data.allowed_features.features`.
 		 */
 		/* No features, this is easy */
 		if (!memeqzero(enc->allowed_features,
 			       tal_bytelen(enc->allowed_features))) {
+			*failtlvtype = TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
+			goto field_bad;
+		}
+
+		if (enc->short_channel_id && enc->next_node_id) {
 			*failtlvtype = TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
 			goto field_bad;
 		}
