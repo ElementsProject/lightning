@@ -116,7 +116,7 @@
       "request": {
         "id": "example:listhtlcs#1",
         "method": "listhtlcs",
-        "params": "{}"
+        "params": {}
       },
       "response": {
         "htlcs": [

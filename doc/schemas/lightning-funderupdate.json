@@ -272,7 +272,7 @@
       "request": {
         "id": "example:funderupdate#1",
         "method": "funderupdate",
-        "params": "{}"
+        "params": {}
       },
       "response": {
         "summary": "match (100%)",

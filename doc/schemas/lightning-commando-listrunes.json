@@ -165,7 +165,7 @@
       "request": {
         "id": "example:commando-listrunes#1",
         "method": "commando-listrunes",
-        "params": "{}"
+        "params": {}
       },
       "response": {
         "runes": [

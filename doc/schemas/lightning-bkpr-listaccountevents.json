@@ -248,7 +248,7 @@
       "request": {
         "id": "example:bkpr-listaccountevents#1",
         "method": "bkpr-listaccountevents",
-        "params": "{}"
+        "params": {}
       },
       "response": {
         "events": [

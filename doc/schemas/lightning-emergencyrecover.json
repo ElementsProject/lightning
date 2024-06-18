@@ -34,7 +34,7 @@
       "request": {
         "id": "example:emergencyrecover#1",
         "method": "emergencyrecover",
-        "params": "{}"
+        "params": {}
       },
       "response": {
         "stubs": []
@@ -44,7 +44,7 @@
       "request": {
         "id": "example:emergencyrecover#2",
         "method": "emergencyrecover",
-        "params": "{}"
+        "params": {}
       },
       "response": {
         "stubs": [
