@@ -13,4 +13,6 @@ TITLE="$(basename "$(basename "$SOURCE" .md)" ."$SECTION" | tr '[:lower:]' '[:up
 # format.  mrkd used to do this for us, lowdown(1) doesn't.
 TITLELINE="$(head -n1 "$SOURCE")"
 
-(echo "NAME"; echo "----"; echo "$TITLELINE"; tail -n +3 "$SOURCE") | $LOWDOWN -s --out-no-smarty -Tman -m "title:$TITLE" -m "section:$SECTION" -m "source:Core Lightning $VERSION" -m "shiftheadinglevelby:-1"
+SOURCE=$(tail -n +3 "$SOURCE" | sed -E ':a;N;$!ba;s#\s*<details>\s*<summary>\s*<span style="font-size: 1\.5em; font-weight: bold;">EXAMPLE</span><br><hr>\s*</summary>#\n\nEXAMPLE\n------------\n#g; s#Request:#Request:\n#g; s#Response:#Response:\n#g; s#lightning-cli#\nOR\n\nlightning-cli#g;')
+
+(echo "NAME"; echo "----"; echo "$TITLELINE"; echo "$SOURCE") | $LOWDOWN -s --out-no-smarty -Tman -m "title:$TITLE" -m "section:$SECTION" -m "source:Core Lightning $VERSION" -m "shiftheadinglevelby:-1"
