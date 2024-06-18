@@ -75,6 +75,9 @@ struct payment_info {
 	/* The minimum acceptable prob. of success */
 	double min_prob_success;
 
+	/* Maximum number of hops allowed. */
+	u32 max_hops;
+
 	/* --developer allows disabling shadow route */
 	bool use_shadow;
 };

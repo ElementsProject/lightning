@@ -398,6 +398,7 @@ int main(int argc, char *argv[])
 			 /* delay fee factor = */ 1,
 			 /* base fee penalty */ 1,
 			 /* prob cost factor = */ 10,
+			 /* max_hops */ 10,
 			 &errmsg);
 	printf("minflow completed.\n");
 
@@ -563,6 +564,7 @@ int main(int argc, char *argv[])
 			 /* delay fee factor = */ 1,
 			 /* base fee penalty */ 1,
 			 /* prob cost factor = */ 10,
+			 /* max_hops */ 10,
 			 &errmsg);
 
 	printf("minflow completed execution.\n");

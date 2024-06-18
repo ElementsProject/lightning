@@ -183,6 +183,7 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 	u64 *prob_cost_factor_millionths; // prob. cost to proportional fee
 	u64 *riskfactor_millionths; // delay to proportional proportional fee
 	u64 *min_prob_success_millionths; // target probability
+	u32 *max_hops; // maximum number of hops allowed
 
 	if (!param(cmd, buf, params,
 		   p_req("invstring", param_invstring, &invstr),
@@ -207,6 +208,7 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 		   p_opt_dev("dev_use_shadow", param_bool, &use_shadow, true),
 
 		   // MCF options
+		   p_opt_def("maxhops", param_number, &max_hops, 10),
 		   p_opt_dev("dev_base_fee_penalty", param_millionths,
 			     &base_fee_penalty_millionths,
 			     10000000), // default is 10.0
@@ -315,6 +317,7 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 			*prob_cost_factor_millionths,
 			*riskfactor_millionths,
 			*min_prob_success_millionths,
+			*max_hops,
 			use_shadow,
 			cast_const2(const struct route_exclusion**, exclusions));
 
@@ -352,6 +355,7 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 				    *prob_cost_factor_millionths,
 				    *riskfactor_millionths,
 				    *min_prob_success_millionths,
+				    *max_hops,
 				    use_shadow,
 				    cast_const2(const struct route_exclusion**, exclusions)))
 			return command_fail(

@@ -193,6 +193,7 @@ int main(int argc, char *argv[])
 			 /* delay fee factor = */ 0,
 			 /* base fee penalty */ 0,
 			 /* prob cost factor = */ 1,
+			 /* max_hops */ 10,
 			 &errmsg);
 	if (!flows) {
 		printf("Minflow has failed with: %s", errmsg);

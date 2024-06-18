@@ -155,6 +155,7 @@ struct route **get_routes(const tal_t *ctx,
 	const double base_fee_penalty = payment_info->base_fee_penalty;
 	const double prob_cost_factor = payment_info->prob_cost_factor;
 	const unsigned int maxdelay = payment_info->maxdelay;
+	const u32 max_hops = payment_info->max_hops;
 	bool delay_feefactor_updated = true;
 
 	bitmap *disabled_bitmap =
@@ -216,7 +217,8 @@ struct route **get_routes(const tal_t *ctx,
 			    uncertainty_get_chan_extra_map(uncertainty),
 			    disabled_bitmap, amount_to_deliver, feebudget,
 			    probability_budget, delay_feefactor,
-			    base_fee_penalty, prob_cost_factor, &errmsg);
+			    base_fee_penalty, prob_cost_factor, max_hops,
+			    &errmsg);
 		delay_feefactor_updated = false;
 
 		if (!flows) {

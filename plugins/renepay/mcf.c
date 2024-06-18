@@ -6,6 +6,7 @@
 #include <ccan/tal/tal.h>
 #include <common/pseudorand.h>
 #include <common/utils.h>
+#include <inttypes.h>
 #include <math.h>
 #include <plugins/renepay/dijkstra.h>
 #include <plugins/renepay/flow.h>
@@ -334,6 +335,7 @@ struct pay_parameters {
 	double delay_feefactor;
 	double base_fee_penalty;
 	u32 prob_cost_factor;
+	u32 max_hops;
 };
 
 /* Representation of the linear MCF network.
@@ -353,7 +355,7 @@ struct linear_network
 	// probability and fee cost associated to an arc
 	s64 *arc_prob_cost, *arc_fee_cost;
 	s64 *capacity;
-
+	u32 *hops_to_destination;
 	size_t max_num_arcs,max_num_nodes;
 };
 
@@ -368,6 +370,13 @@ struct residual_network {
 
 	/* potential function on nodes */
 	s64 *potential;
+};
+
+/* Simple queue to traverse the network. */
+struct queue_data
+{
+	u32 idx;
+	struct lqueue_link ql;
 };
 
 /* Helper function.
@@ -631,6 +640,56 @@ static s64 linear_fee_cost(
 	return pfee + bfee* base_fee_penalty+ delay*delay_feefactor;
 }
 
+/* We walk backwards starting from the destination and compute the minimum
+ * distance (in hops) to the destination for all nodes in BFS order. This should
+ * be equivalent to Dijkstra where all arcs have the same weight = 1. */
+static void compute_hop_distance(const tal_t *tmp_ctx,
+				 struct linear_network *net,
+				 const u32 destination)
+{
+	for (size_t i = 0; i < tal_count(net->hops_to_destination); i++)
+		net->hops_to_destination[i] = UINT32_MAX;
+	net->hops_to_destination[destination] = 0;
+
+	LQUEUE(struct queue_data, ql) myqueue = LQUEUE_INIT;
+	struct queue_data *qdata;
+
+	qdata = tal(tmp_ctx, struct queue_data);
+	qdata->idx = destination;
+	lqueue_enqueue(&myqueue, qdata);
+
+	while (!lqueue_empty(&myqueue)) {
+		qdata = lqueue_dequeue(&myqueue);
+		u32 cur = qdata->idx;
+		tal_free(qdata);
+
+		assert(net->hops_to_destination[cur] < UINT32_MAX);
+
+		/* In principle we would have to query all arcs that converge
+		 * into this node (instead of all the arcs that diverge from
+		 * here) and for each arc, the next node would
+		 * correspond to the tail (not the head) of the arc. However we
+		 * for each arc we also keep record of the dual which goes in
+		 * the opposite direction. */
+		for (struct arc arc = node_adjacency_begin(net, cur);
+		     !node_adjacency_end(arc);
+		     arc = node_adjacency_next(net, arc)) {
+			u32 next = arc_head(net, arc);
+
+			if (net->hops_to_destination[next] <=
+			    net->hops_to_destination[cur] + 1)
+				continue;
+
+			net->hops_to_destination[next] =
+			    net->hops_to_destination[cur] + 1;
+
+			qdata = tal(tmp_ctx, struct queue_data);
+			qdata->idx = next;
+			lqueue_enqueue(&myqueue, qdata);
+		}
+	}
+}
+
 static struct linear_network *
 init_linear_network(const tal_t *ctx, const struct pay_parameters *params,
 		    char **fail)
@@ -709,6 +768,16 @@ init_linear_network(const tal_t *ctx, const struct pay_parameters *params,
 		goto function_fail;
 	}
 
+	linear_network->hops_to_destination =
+	    tal_arrz(linear_network, u32, max_num_nodes);
+	if (!linear_network->hops_to_destination) {
+		if (fail)
+			*fail = tal_fmt(
+			    ctx, "bad allocation of hops_to_destination");
+		goto function_fail;
+	}
+
+	/* Build the network, enabled channels are split into arcs. */
 	for(struct gossmap_node *node = gossmap_first_node(params->gossmap);
 	    node;
 	    node=gossmap_next_node(params->gossmap,node))
@@ -782,6 +851,9 @@ init_linear_network(const tal_t *ctx, const struct pay_parameters *params,
 		}
 	}
 
+	compute_hop_distance(this_ctx, linear_network,
+			     gossmap_node_idx(params->gossmap, params->target));
+
 	tal_free(this_ctx);
 	return linear_network;
 
@@ -789,13 +861,6 @@ init_linear_network(const tal_t *ctx, const struct pay_parameters *params,
 	tal_free(this_ctx);
 	return tal_free(linear_network);
 }
-
-/* Simple queue to traverse the network. */
-struct queue_data
-{
-	u32 idx;
-	struct lqueue_link ql;
-};
 
 // TODO(eduardo): unit test this
 /* Finds an admissible path from source to target, traversing arcs in the
@@ -988,7 +1053,9 @@ static bool find_feasible_flow(const tal_t *ctx,
 // TODO(eduardo): unit test this
 /* Similar to `find_admissible_path` but use Dijkstra to optimize the distance
  * label. Stops when the target is hit. */
-static bool find_optimal_path(const tal_t *ctx, struct dijkstra *dijkstra,
+static bool find_optimal_path(const tal_t *ctx,
+			      const struct pay_parameters *params,
+			      struct dijkstra *dijkstra,
 			      const struct linear_network *linear_network,
 			      const struct residual_network *residual_network,
 			      const u32 source, const u32 target,
@@ -996,17 +1063,32 @@ static bool find_optimal_path(const tal_t *ctx, struct dijkstra *dijkstra,
 {
 	tal_t *this_ctx = tal(ctx,tal_t);
 	bool target_found = false;
-
+	u32 *hops_to_source =
+	    tal_arr(this_ctx, u32, linear_network->max_num_nodes);
 	bitmap *visited = tal_arrz(this_ctx, bitmap,
 					BITMAP_NWORDS(linear_network->max_num_nodes));
 
-	if(!visited)
+	if(!visited || !hops_to_source)
 	{
 		if(fail)
 		*fail = tal_fmt(ctx, "bad allocation of visited");
 		goto finish;
 	}
 
+	if (linear_network->hops_to_destination[source] > params->max_hops) {
+		if (fail)
+			*fail = tal_fmt(
+			    ctx,
+			    "Source is %" PRIu32 " hops away from destination, "
+			    "but max_hops is %" PRIu32 "",
+			    linear_network->hops_to_destination[source],
+			    params->max_hops);
+		goto finish;
+	}
+
+	for (size_t i = 0; i < tal_count(hops_to_source); i++)
+		hops_to_source[i] = UINT32_MAX;
+	hops_to_source[source] = 0;
 
 	for(size_t i=0;i<tal_count(prev);++i)
 		prev[i].idx=INVALID_INDEX;
@@ -1052,8 +1134,18 @@ static bool find_optimal_path(const tal_t *ctx, struct dijkstra *dijkstra,
 			if(distance[next]<=distance[cur]+cij)
 				continue;
 
+			assert(linear_network->hops_to_destination[next] <
+			       UINT32_MAX);
+			assert(hops_to_source[cur] < UINT32_MAX);
+			if (linear_network->hops_to_destination[next] +
+				hops_to_source[cur] + 1 >
+			    params->max_hops)
+				/* Too many hops. */
+				continue;
+
 			dijkstra_update(dijkstra,next,distance[cur]+cij);
 			prev[next]=arc;
+			hops_to_source[next] = 1 + hops_to_source[cur];
 		}
 	}
 
@@ -1096,7 +1188,9 @@ static void zero_flow(
  * each step, we might use the previous flow result, which is not optimal in the
  * current iteration but I might be not too far from the truth.
  * It comes to mind to use cycle cancelling. */
-static bool optimize_mcf(const tal_t *ctx, struct dijkstra *dijkstra,
+static bool optimize_mcf(const tal_t *ctx,
+			 const struct pay_parameters *params,
+			 struct dijkstra *dijkstra,
 			 const struct linear_network *linear_network,
 			 struct residual_network *residual_network,
 			 const u32 source, const u32 target, const s64 amount,
@@ -1115,7 +1209,7 @@ static bool optimize_mcf(const tal_t *ctx, struct dijkstra *dijkstra,
 
 	while(remaining_amount>0)
 	{
-		if (!find_optimal_path(this_ctx, dijkstra, linear_network,
+		if (!find_optimal_path(this_ctx, params, dijkstra, linear_network,
 				       residual_network, source, target, prev,
 				       &errmsg)) {
 			if (fail)
@@ -1604,7 +1698,7 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 		      const bitmap *disabled, struct amount_msat amount,
 		      struct amount_msat max_fee, double min_probability,
 		      double delay_feefactor, double base_fee_penalty,
-		      u32 prob_cost_factor, char **fail)
+		      u32 prob_cost_factor, u32 max_hops, char **fail)
 {
 	tal_t *this_ctx = tal(ctx,tal_t);
 	char *errmsg;
@@ -1647,6 +1741,7 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 	params->delay_feefactor = delay_feefactor;
 	params->base_fee_penalty = base_fee_penalty;
 	params->prob_cost_factor = prob_cost_factor;
+	params->max_hops = max_hops;
 
 	// build the uncertainty network with linearization and residual arcs
 	struct linear_network *linear_network= init_linear_network(this_ctx, params, &errmsg);
@@ -1747,7 +1842,7 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 		combine_cost_function(linear_network,residual_network,mu);
 
 		/* We solve a linear MCF problem. */
-		if(!optimize_mcf(this_ctx, dijkstra,linear_network,residual_network,
+		if(!optimize_mcf(this_ctx, params, dijkstra,linear_network,residual_network,
 				source_idx,target_idx,pay_amount_sats, &errmsg))
 		{
 			// optimize_mcf doesn't fail unless there is a bug.

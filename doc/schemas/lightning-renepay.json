@@ -78,6 +78,14 @@
           ]
         }
       },
+      "maxhops": {
+        "added": "v24.08",
+        "type": "u32",
+        "description": [
+          "Maximum number of hops allowed by computed routes. Longer routes will not be considered regardless of optimality."
+        ],
+	"default": "10 hops"
+      },
       "dev_use_shadow": {
         "hidden": true,
         "type": "boolean"

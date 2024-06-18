@@ -62,5 +62,5 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 		      const bitmap *disabled, struct amount_msat amount,
 		      struct amount_msat max_fee, double min_probability,
 		      double delay_feefactor, double base_fee_penalty,
-		      u32 prob_cost_factor, char **fail);
+		      u32 prob_cost_factor, u32 max_hops, char **fail);
 #endif /* LIGHTNING_PLUGINS_RENEPAY_MCF_H */
