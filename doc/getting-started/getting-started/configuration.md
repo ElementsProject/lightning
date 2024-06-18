@@ -422,7 +422,7 @@ If a 'DNS' hostname was given that resolves to a local interface, the daemon wil
 
 - **announce-addr-dns**=_BOOL_
 
-  Set to _true_ (default is \_false), this so that names given as arguments to **addr** and \_announce-addr\*\* are published in node announcement messages as names, rather than IP addresses.  Please note that most mainnet nodes do not yet use, read or propagate this information correctly.
+  Set to _true_ (default is _false_), this so that names given as arguments to **addr** and **announce-addr** are published in node announcement messages as names, rather than IP addresses.  Please note that most mainnet nodes do not yet use, read or propagate this information correctly.
 
 - **announce-addr-discovered**=_true/false/auto_
 
