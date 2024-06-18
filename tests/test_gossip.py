@@ -645,7 +645,8 @@ def test_gossip_no_empty_announcements(node_factory, bitcoind, chainparams):
     l1.daemon.wait_for_log(r'\[IN\] 0100')
     wait_for(lambda: l1.rpc.listchannels()['channels'] == [])
 
-    # l1 won't relay it (make sure it has time to digest though)
+    # l1 won't mention it in reply (make sure it has time to digest though)
+    # but it may actually relay it
     time.sleep(2)
     encoded = subprocess.run(['devtools/mkencoded', '--scids', '00'],
                              check=True,
@@ -654,14 +655,14 @@ def test_gossip_no_empty_announcements(node_factory, bitcoind, chainparams):
     assert l1.query_gossip('query_channel_range',
                            chainparams['chain_hash'],
                            0, 1000000,
-                           filters=['0109', '0107', '0012']) == ['0108'
-                                                                 # blockhash
-                                                                 + chainparams['chain_hash']
-                                                                 # first_blocknum, number_of_blocks, complete
-                                                                 + format(0, '08x') + format(1000000, '08x') + '01'
-                                                                 # encoded_short_ids
-                                                                 + format(len(encoded) // 2, '04x')
-                                                                 + encoded]
+                           filters=['0109', '0107', '0012', '0100']) == ['0108'
+                                                                         # blockhash
+                                                                         + chainparams['chain_hash']
+                                                                         # first_blocknum, number_of_blocks, complete
+                                                                         + format(0, '08x') + format(1000000, '08x') + '01'
+                                                                         # encoded_short_ids
+                                                                         + format(len(encoded) // 2, '04x')
+                                                                         + encoded]
 
     # If we reconnect, gossip will now flow.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -1344,7 +1345,8 @@ def test_gossipwith(node_factory):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
 
     out = subprocess.run(['devtools/gossipwith',
-                          '--initial-sync',
+                          '--all-gossip',
+                          '--network={}'.format(TEST_NETWORK),
                           '--timeout-after={}'.format(int(math.sqrt(TIMEOUT) + 1)),
                           '{}@localhost:{}'.format(l1.info['id'], l1.port)],
                          check=True,
@@ -1356,8 +1358,8 @@ def test_gossipwith(node_factory):
         msg = out[2:2 + l]
         out = out[2 + l:]
 
-        # Ignore pings, timestamp_filter
-        if t == 265 or t == 18:
+        # Ignore pings, gossip_timestamp_filter, query_channel_range
+        if t in (18, 263, 265):
             continue
         # channel_announcement node_announcement or channel_update
         assert t == 256 or t == 257 or t == 258
@@ -1398,6 +1400,7 @@ def test_gossip_notices_close(node_factory, bitcoind):
     wait_for(lambda: l1.rpc.listnodes()['nodes'] == [])
 
     subprocess.run(['devtools/gossipwith',
+                    '--network={}'.format(TEST_NETWORK),
                     '--max-messages=0',
                     '{}@localhost:{}'.format(l1.info['id'], l1.port),
                     channel_announcement,
@@ -1645,6 +1648,7 @@ def test_gossip_announce_invalid_block(node_factory, bitcoind):
 
     # Test gossip for an unknown block.
     subprocess.run(['devtools/gossipwith',
+                    '--network={}'.format(TEST_NETWORK),
                     '--max-messages=0',
                     '{}@localhost:{}'.format(l1.info['id'], l1.port),
                     # short_channel_id=103x1x1
@@ -1675,6 +1679,7 @@ def test_gossip_announce_unknown_block(node_factory, bitcoind):
 
     # Test gossip for unknown block.
     subprocess.run(['devtools/gossipwith',
+                    '--network={}'.format(TEST_NETWORK),
                     '--max-messages=0',
                     '{}@localhost:{}'.format(l1.info['id'], l1.port),
                     # short_channel_id=103x1x1
@@ -1931,7 +1936,8 @@ def test_gossip_not_dying(node_factory, bitcoind):
 
     def get_gossip(node):
         out = subprocess.run(['devtools/gossipwith',
-                              '--initial-sync',
+                              '--network={}'.format(TEST_NETWORK),
+                              '--all-gossip',
                               '--timeout-after=2',
                               '{}@localhost:{}'.format(node.info['id'], node.port)],
                              check=True,
@@ -1943,8 +1949,8 @@ def test_gossip_not_dying(node_factory, bitcoind):
             msg = out[2:2 + l]
             out = out[2 + l:]
 
-            # Ignore pings, timestamp_filter
-            if t == 265 or t == 18:
+            # Ignore pings, gossip_timestamp_filter, query_channel_range
+            if t in (18, 263, 265):
                 continue
             # channel_announcement node_announcement or channel_update
             assert t == 256 or t == 257 or t == 258
@@ -1976,7 +1982,9 @@ def test_dump_own_gossip(node_factory):
     # We should get channel_announcement, channel_update, node_announcement.
     # (Plus random pings, timestamp_filter)
     out = subprocess.run(['devtools/gossipwith',
+                          '--no-gossip',
                           '--timeout-after={}'.format(int(math.sqrt(TIMEOUT) + 1)),
+                          '--network={}'.format(TEST_NETWORK),
                           '{}@localhost:{}'.format(l1.info['id'], l1.port)],
                          check=True,
                          timeout=TIMEOUT, stdout=subprocess.PIPE).stdout
@@ -1991,8 +1999,8 @@ def test_dump_own_gossip(node_factory):
         l, t = struct.unpack('>HH', out[0:4])
         out = out[2 + l:]
 
-        # Ignore pings, timestamp_filter
-        if t == 265 or t == 18:
+        # Ignore pings, timestamp_filter, query_channel_range
+        if t in (18, 263, 265):
             continue
 
         assert t == expect[0]

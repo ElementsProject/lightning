@@ -54,7 +54,7 @@ struct io_conn {
 };
 
 static struct secret notsosecret;
-static bool initial_sync = false;
+static bool no_gossip = false, all_gossip = false;
 static unsigned long max_messages = -1UL;
 
 /* Empty stubs to make us compile */
@@ -175,9 +175,8 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 	int peer_fd = io_conn_fd(conn);
 	struct pollfd pollfd[2];
 
-	if (initial_sync)
-		set_feature_bit(&features,
-				OPTIONAL_FEATURE(OPT_INITIAL_ROUTING_SYNC));
+	set_feature_bit(&features,
+			OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES));
 
 	if (!no_init) {
 		u8 *msg;
@@ -193,6 +192,13 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 		/* Ignore their init message. */
 		tal_free(sync_crypto_read(NULL, peer_fd, cs));
 		tal_free(tlvs);
+
+		msg = towire_gossip_timestamp_filter(NULL,
+						     &chainparams->genesis_blockhash,
+						     all_gossip ? 0
+						     : no_gossip ? 0xFFFFFFFF : time_now().ts.tv_sec,
+						     0xFFFFFFFF);
+		sync_crypto_write(peer_fd, cs, take(msg));
 	}
 
 	if (stream_stdin)
@@ -296,8 +302,10 @@ int main(int argc, char *argv[])
 	features = tal_arr(conn, u8, 0);
 	chainparams = chainparams_for_network("bitcoin");
 
-	opt_register_noarg("--initial-sync", opt_set_bool, &initial_sync,
+	opt_register_noarg("--all-gossip", opt_set_bool, &all_gossip,
 			   "Stream complete gossip history at start");
+	opt_register_noarg("--no-gossip", opt_set_bool, &no_gossip,
+			   "Suppress all gossip at start");
 	opt_register_arg("--max-messages", opt_set_ulongval, opt_show_ulongval,
 			 &max_messages,
 			 "Terminate after reading this many messages");
