@@ -135,55 +135,46 @@ static char *find_bolt_ref(const char *prefix, char **p, size_t *len)
 	}
 }
 
-static char *code_to_regex(const char *code, size_t len, bool escape)
+/* Replace '*' at start of line with whitespace, canonicalize */
+static char *de_prefix(char *str)
 {
-	char *pattern = tal_arr(NULL, char, len*2 + 1), *p;
+	bool start_of_line = true;
 	size_t i;
-	bool after_nl = true;
 
-	/* We swallow '*' if first in line: block comments */
-	p = pattern;
-	for (i = 0; i < len; i++) {
-		/* ... matches anything. */
-		if (strstarts(code + i, "...")) {
-			*(p++) = '.';
-			*(p++) = '*';
-			i += 2;
-			continue;
+	for (i = 0; str[i]; i++) {
+		if (start_of_line && str[i] == '*') {
+			str[i] = ' ';
+			start_of_line = false;
 		}
 
-		switch (code[i]) {
-		case '\n':
-			after_nl = true;
-			*(p++) = code[i];
-			break;
-
-		case '*':
-			if (after_nl) {
-				after_nl = false;
-				continue;
-			}
-			/* Fall through. */
-		case '.':
-		case '$':
-		case '^':
-		case '[':
-		case ']':
-		case '{':
-		case '}':
-		case '(':
-		case ')':
-		case '+':
-		case '|':
-			if (escape)
-				*(p++) = '\\';
-			/* Fall through */
-		default:
-			*(p++) = code[i];
-		}
+		/* Stay start of line until whitespace ends */
+		if (start_of_line)
+			start_of_line = cisspace(str[i]);
+		else
+			start_of_line = (str[i] == '\n');
 	}
-	*p = '\0';
-	return canonicalize(pattern);
+
+	return canonicalize(str);
+}
+
+/* Take a quote, split it on '...' (trim line prefixes) */
+static char **split_pattern(const char *code, size_t len)
+{
+	char **strings = tal_arr(NULL, char *, 0);
+	const char *sep;
+
+	while ((sep = strstr(code, "...")) != NULL) {
+		size_t matchlen = sep - code;
+		if (sep > code + len)
+			break;
+		tal_arr_expand(&strings,
+			       de_prefix(tal_strndup(strings, code, matchlen)));
+		code += matchlen + strlen("...");
+		len -= matchlen + strlen("...");
+	}
+
+	tal_arr_expand(&strings, de_prefix(tal_strndup(strings, code, len)));
+	return strings;
 }
 
 /* Moves *pos to start of line. */
@@ -204,26 +195,58 @@ static unsigned linenum(const char *raw, const char **pos)
 }
 
 static void fail_mismatch(const char *filename,
-			  const char *raw, const char *pos,
-			  size_t len, struct bolt_file *bolt)
+			  const char *raw,
+			  const char *pos,
+			  size_t len,
+			  char **strings,
+			  struct bolt_file *bolt)
 {
 	unsigned line = linenum(raw, &pos);
-	char *try;
+	/* If they all match, order must be wrong. */
+	const char *match = NULL;
+	int matchlen;
 
-	fprintf(stderr, "%s:%u:mismatch:%.*s\n",
-		filename, line, (int)strcspn(pos, "\n"), pos);
-	/* Try to find longest match, as a hint. */
-	try = code_to_regex(pos + strcspn(pos, "\n"), len, false);
-	while (strlen(try)) {
-		const char *p = strstr(bolt->contents, try);
-		if (p) {
-			fprintf(stderr, "Closest match: %s...[%.20s]\n",
-				try, p + strlen(try));
-			break;
+	/* Figure out which substring didn't match, and how much to cut it */
+	for (size_t i = 0; i < tal_count(strings); i++) {
+		if (strstr(bolt->contents, strings[i]))
+			continue;
+
+		/* OK, it doesn't match, truncate it until it does */
+		matchlen = strlen(strings[i]);
+		while (matchlen) {
+			match = memmem(bolt->contents, strlen(bolt->contents),
+				       strings[i], matchlen);
+			if (match)
+				break;
+			matchlen--;
 		}
-		try[strlen(try)-1] = '\0';
+		break;
+	}
+
+	fprintf(stderr, "%s:%u:", filename, line);
+	if (match) {
+		fprintf(stderr, "Closest match: %.*s...[%.20s]\n",
+			matchlen, match, match + matchlen);
+	} else {
+		fprintf(stderr, "Parts match, but not in this order\n");
 	}
 	exit(1);
+}
+
+static bool find_strings(const char *bolttext, char **strings, size_t nstrings)
+{
+	const char *p = bolttext;
+	char *find;
+
+	if (nstrings == 0)
+		return true;
+
+	while ((find = strstr(p, strings[0])) != NULL) {
+		if (find_strings(find + strlen(strings[0]), strings+1, nstrings-1))
+			return true;
+		p = find + 1;
+	}
+	return false;
 }
 
 static void fail_nobolt(const char *filename,
@@ -295,12 +318,13 @@ int main(int argc, char *argv[])
 
 		p = f;
 		while ((bolt = find_bolt_ref(prefix, &p, &len)) != NULL) {
-			char *pattern = code_to_regex(p, len, true);
+			char **strings = split_pattern(p, len);
 			struct bolt_file *b = find_bolt(bolt, bolts);
 			if (!b)
 				fail_nobolt(argv[i], f, p, bolt);
-			if (!tal_strreg(f, b->contents, pattern, NULL))
-				fail_mismatch(argv[i], f, p, len, b);
+
+			if (!find_strings(b->contents, strings, tal_count(strings)))
+				fail_mismatch(argv[i], f, p, len, strings, b);
 
 			if (verbose)
 				printf("  Found %.10s... in %s\n",
