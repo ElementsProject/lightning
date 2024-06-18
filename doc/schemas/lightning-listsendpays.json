@@ -327,14 +327,7 @@
       "request": {
         "id": "example:listsendpays#1",
         "method": "listsendpays",
-        "params": {
-          "bolt11": null,
-          "payment_hash": null,
-          "status": null,
-          "index": null,
-          "start": null,
-          "limit": null
-        }
+        "params": {}
       },
       "response": {
         "payments": [
@@ -370,12 +363,7 @@
         "id": "example:listsendpays#2",
         "method": "listsendpays",
         "params": {
-          "bolt11": "lnbcrt1230n1pja03q9sp5xu9aypccf3n6vld2waxcysy47ct2wl5x5adtm7k8u30knqes22lspp5duw2v8csh0zh4xg9ql3amem98avlkc2ecre99tgmr2340amf9kmsdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qxpqysgqwh78s8wqg0kepspw0epcxmxteh5wu8n6ddlwdnyj758fqxpqk8ejf597x8ju3r32xqgae3yzjjz9e5s6l2vs5zxvkayhmemmx74wvyqqyqf8c9",
-          "payment_hash": null,
-          "status": null,
-          "index": null,
-          "start": null,
-          "limit": null
+          "bolt11": "lnbcrt1230n1pja03q9sp5xu9aypccf3n6vld2waxcysy47ct2wl5x5adtm7k8u30knqes22lspp5duw2v8csh0zh4xg9ql3amem98avlkc2ecre99tgmr2340amf9kmsdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qxpqysgqwh78s8wqg0kepspw0epcxmxteh5wu8n6ddlwdnyj758fqxpqk8ejf597x8ju3r32xqgae3yzjjz9e5s6l2vs5zxvkayhmemmx74wvyqqyqf8c9"
         }
       },
       "response": {

@@ -218,10 +218,7 @@
       "request": {
         "id": "example:waitanyinvoice#1",
         "method": "waitanyinvoice",
-        "params": {
-          "lastpay_index": null,
-          "timeout": null
-        }
+        "params": {}
       },
       "response": {
         "label": "inv1",

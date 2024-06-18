@@ -125,9 +125,7 @@
             "name"
           ],
           "string": "foobar",
-          "hex": null,
-          "mode": "must-replace",
-          "generation": null
+          "mode": "must-replace"
         }
       },
       "response": {
@@ -146,10 +144,8 @@
         "method": "datastore",
         "params": {
           "key": "somekey",
-          "string": null,
           "hex": "61",
-          "mode": "create-or-append",
-          "generation": null
+          "mode": "create-or-append"
         }
       },
       "response": {
@@ -173,10 +169,7 @@
             "f",
             "g"
           ],
-          "string": "somedatatostoreinthedatastore",
-          "hex": null,
-          "mode": null,
-          "generation": null
+          "string": "somedatatostoreinthedatastore"
         }
       },
       "response": {

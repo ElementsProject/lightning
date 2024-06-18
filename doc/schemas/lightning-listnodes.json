@@ -276,9 +276,7 @@
       "request": {
         "id": "example:listnodes#2",
         "method": "listnodes",
-        "params": {
-          "id": null
-        }
+        "params": {}
       },
       "response": {
         "nodes": [

@@ -304,8 +304,7 @@
         "method": "delinvoice",
         "params": {
           "label": "keysend-1708640419.666098582",
-          "status": "paid",
-          "desconly": null
+          "status": "paid"
         }
       },
       "response": {

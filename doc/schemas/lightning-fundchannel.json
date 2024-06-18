@@ -230,16 +230,7 @@
         "params": {
           "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
           "amount": 1000000,
-          "feerate": null,
-          "announce": true,
-          "minconf": null,
-          "utxos": null,
-          "push_msat": null,
-          "close_to": null,
-          "request_amt": null,
-          "compact_lease": null,
-          "mindepth": null,
-          "reserve": null
+          "announce": true
         }
       },
       "response": {
@@ -256,17 +247,8 @@
         "params": {
           "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
           "amount": 10000000,
-          "feerate": null,
           "announce": true,
-          "minconf": null,
-          "utxos": null,
-          "push_msat": 1000000000,
-          "close_to": null,
-          "request_amt": null,
-          "compact_lease": null,
-          "mindepth": null,
-          "reserve": null,
-          "channel_type": null
+          "push_msat": 1000000000
         }
       },
       "response": {

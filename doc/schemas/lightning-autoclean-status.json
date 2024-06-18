@@ -436,9 +436,7 @@
       "request": {
         "id": "example:autoclean-status#2",
         "method": "autoclean-status",
-        "params": {
-          "subsystem": null
-        }
+        "params": {}
       },
       "response": {
         "autoclean": {

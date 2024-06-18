@@ -92,10 +92,7 @@
             {
               "bcrt1qtwxd8wg5eanumk86vfeujvp48hfkgannf77evggzct048wggsrxsum2pmm": 16777215
             }
-          ],
-          "feerate": null,
-          "minconf": null,
-          "utxos": null
+          ]
         }
       },
       "response": {
@@ -113,10 +110,7 @@
             {
               "bcrt1qyhu7rxj3rrlcj84jtzp2mk9d89xm9v2rx4d4h8au830axugx6mmqsuplng": "100000sat"
             }
-          ],
-          "feerate": null,
-          "minconf": null,
-          "utxos": null
+          ]
         }
       },
       "response": {

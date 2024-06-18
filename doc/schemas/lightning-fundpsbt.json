@@ -204,10 +204,7 @@
           "satoshi": 16777216,
           "feerate": "253perkw",
           "startweight": 250,
-          "minconf": null,
           "reserve": 0,
-          "locktime": null,
-          "min_witness_weight": null,
           "excess_as_change": false
         }
       },
@@ -226,10 +223,6 @@
           "satoshi": "all",
           "feerate": "1000perkw",
           "startweight": 1000,
-          "minconf": null,
-          "reserve": null,
-          "locktime": null,
-          "min_witness_weight": null,
           "excess_as_change": false
         }
       },
@@ -258,10 +251,6 @@
           "satoshi": "109000sat",
           "feerate": "slow",
           "startweight": 166,
-          "minconf": null,
-          "reserve": null,
-          "locktime": null,
-          "min_witness_weight": null,
           "excess_as_change": true
         }
       },

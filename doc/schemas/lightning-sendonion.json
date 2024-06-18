@@ -327,13 +327,7 @@
             "delay": 21,
             "style": "tlv"
           },
-          "payment_hash": "f584c14bb23506acdd94cf3cea377f3cc5805f3cba5430bc3756ef83ede1a0dc",
-          "label": null,
-          "shared_secrets": null,
-          "partid": null,
-          "bolt11": null,
-          "amount_msat": null,
-          "destination": null
+          "payment_hash": "f584c14bb23506acdd94cf3cea377f3cc5805f3cba5430bc3756ef83ede1a0dc"
         }
       },
       "response": {

@@ -79,10 +79,7 @@
             {
               "bcrt1q6r4vvt7uack33qf9n05umfxy8h5s2rdcmq7ra3": "3333000msat"
             }
-          ],
-          "feerate": null,
-          "minconf": null,
-          "utxos": null
+          ]
         }
       },
       "response": {
@@ -120,10 +117,7 @@
             {
               "bcrt1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqc8gma6": 1000
             }
-          ],
-          "feerate": null,
-          "minconf": null,
-          "utxos": null
+          ]
         }
       },
       "response": {

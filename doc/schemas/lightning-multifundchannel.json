@@ -359,9 +359,6 @@
             }
           ],
           "feerate": "10000perkw",
-          "minconf": null,
-          "utxos": null,
-          "minchannels": null,
           "commitment_feerate": "2000perkw"
         }
       },
@@ -405,9 +402,6 @@
               "amount": 50000
             }
           ],
-          "feerate": null,
-          "minconf": null,
-          "utxos": null,
           "minchannels": 1
         }
       },

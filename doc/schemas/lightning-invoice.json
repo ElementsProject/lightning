@@ -198,13 +198,7 @@
           "label": "xEoCR94SIz6UIRUEkxum",
           "description": [
             "XEoCR94SIz6UIRUEkxum."
-          ],
-          "expiry": null,
-          "fallbacks": null,
-          "preimage": null,
-          "exposeprivatechannels": null,
-          "cltv": null,
-          "deschashonly": null
+          ]
         }
       },
       "response": {
@@ -223,13 +217,7 @@
         "params": {
           "amount_msat": 100,
           "label": "8",
-          "description": "inv",
-          "expiry": null,
-          "fallbacks": null,
-          "preimage": null,
-          "exposeprivatechannels": null,
-          "cltv": null,
-          "deschashonly": null
+          "description": "inv"
         }
       },
       "response": {

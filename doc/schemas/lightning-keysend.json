@@ -216,13 +216,7 @@
         "method": "keysend",
         "params": {
           "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-          "amount_msat": 10000,
-          "label": null,
-          "maxfeepercent": null,
-          "retry_for": null,
-          "maxdelay": null,
-          "exemptfee": null,
-          "extratlvs": null
+          "amount_msat": 10000
         }
       },
       "response": {
@@ -243,11 +237,6 @@
         "params": {
           "destination": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
           "amount_msat": 10000000,
-          "label": null,
-          "maxfeepercent": null,
-          "retry_for": null,
-          "maxdelay": null,
-          "exemptfee": null,
           "extratlvs": {
             "133773310": "68656c6c6f776f726c64",
             "133773312": "66696c7465726d65"

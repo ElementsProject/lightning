@@ -2536,9 +2536,7 @@
       "request": {
         "id": "example:listconfigs#2",
         "method": "listconfigs",
-        "params": {
-          "config": null
-        }
+        "params": {}
       },
       "response": {
         "configs": {

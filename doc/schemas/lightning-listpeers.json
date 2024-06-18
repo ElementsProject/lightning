@@ -310,8 +310,7 @@
         "id": "example:listpeers#1",
         "method": "listpeers",
         "params": {
-          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-          "level": null
+          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
         }
       },
       "response": {
@@ -332,10 +331,7 @@
       "request": {
         "id": "example:listpeers#2",
         "method": "listpeers",
-        "params": {
-          "id": null,
-          "level": null
-        }
+        "params": {}
       },
       "response": {
         "peers": [
