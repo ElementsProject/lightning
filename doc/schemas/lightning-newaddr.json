@@ -54,9 +54,7 @@
       "request": {
         "id": "example:newaddr#1",
         "method": "newaddr",
-        "params": {
-          "addresstype": null
-        }
+        "params": {}
       },
       "response": {
         "bech32": "bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf"

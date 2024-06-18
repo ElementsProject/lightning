@@ -92,10 +92,7 @@
         "method": "withdraw",
         "params": {
           "destination": "bcrt1qjc7j2l5es4haw35c9jzm8dfm763ng5djp8f0s0",
-          "satoshi": 555555,
-          "feerate": null,
-          "minconf": null,
-          "utxos": null
+          "satoshi": 555555
         }
       },
       "response": {

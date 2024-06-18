@@ -229,18 +229,7 @@
         "id": "example:pay#1",
         "method": "pay",
         "params": {
-          "bolt11": "lni1qqgxr7gha7gusyg83lsr8qcqg4axgq3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy8ssqtypg3hgetnwsszycn0d36rzv3zypjx2umrwf5hqarfdahzcg8sn7jmpuyl423pvggzvmj9nrga83q474e2sjygxzmq7ln5fmvjxh4skxafx2pmx9wqx5v9qgqxyfhyvyg6pdvu4tcjvpp7kkal9rp57wj7xv4pl3ajku70rzy3pavzzqjz06c8s2vvmrpjlkcse0txx0gmc6jalqqxmeyjm75qcnfnqxwyt2sfsqnxu3vc68fug904w25y3zpskc8huazwmy34av93h2fjswe3tsp4rqpe8qlx9xssexfc0aguke3q6u0jgw2qmn008mzu04mkmqmjmhes3gcpqdqdnzl270s48vsp635rd4jm04snvgkcp65qlkgp8qztu2mdp7c5uqpj2rll3pzu56st537rct3v62gfqeamzthjuwkr0pkvsdnnffpn4sq9sz0lryaufktx0nfxlffum3yesqev5gwqqqqqqqqqqqqqqqzsqqqqqqqqqqqqr5jt9hav2gqqqqqq5szxtvwkyz5zq2000hlwvadejz366lqjt9sd2j4rf5tfd9rgmmyegt4dqd34cf6v4gqkfvppqfnwgkvdr57yzh6h92zg3qctvrm7w38djg67kzcm4yeg8vc4cq633uzqn3n74ccym4wcvq20vsx7lmk450kprpvlrh4cukk8xy9ptjcef4rnhytnkyn4vnxxtd57yeaksze2s30y26cs6u3rjd9322eg9puk24q",
-          "amount_msat": null,
-          "label": null,
-          "riskfactor": null,
-          "maxfeepercent": null,
-          "retry_for": null,
-          "maxdelay": null,
-          "exemptfee": null,
-          "localinvreqid": null,
-          "exclude": null,
-          "maxfee": null,
-          "description": null
+          "bolt11": "lni1qqgxr7gha7gusyg83lsr8qcqg4axgq3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy8ssqtypg3hgetnwsszycn0d36rzv3zypjx2umrwf5hqarfdahzcg8sn7jmpuyl423pvggzvmj9nrga83q474e2sjygxzmq7ln5fmvjxh4skxafx2pmx9wqx5v9qgqxyfhyvyg6pdvu4tcjvpp7kkal9rp57wj7xv4pl3ajku70rzy3pavzzqjz06c8s2vvmrpjlkcse0txx0gmc6jalqqxmeyjm75qcnfnqxwyt2sfsqnxu3vc68fug904w25y3zpskc8huazwmy34av93h2fjswe3tsp4rqpe8qlx9xssexfc0aguke3q6u0jgw2qmn008mzu04mkmqmjmhes3gcpqdqdnzl270s48vsp635rd4jm04snvgkcp65qlkgp8qztu2mdp7c5uqpj2rll3pzu56st537rct3v62gfqeamzthjuwkr0pkvsdnnffpn4sq9sz0lryaufktx0nfxlffum3yesqev5gwqqqqqqqqqqqqqqqzsqqqqqqqqqqqqr5jt9hav2gqqqqqq5szxtvwkyz5zq2000hlwvadejz366lqjt9sd2j4rf5tfd9rgmmyegt4dqd34cf6v4gqkfvppqfnwgkvdr57yzh6h92zg3qctvrm7w38djg67kzcm4yeg8vc4cq633uzqn3n74ccym4wcvq20vsx7lmk450kprpvlrh4cukk8xy9ptjcef4rnhytnkyn4vnxxtd57yeaksze2s30y26cs6u3rjd9322eg9puk24q"
         }
       },
       "response": {

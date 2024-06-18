@@ -367,14 +367,7 @@
       "request": {
         "id": "example:listforwards#1",
         "method": "listforwards",
-        "params": {
-          "status": null,
-          "in_channel": null,
-          "out_channel": null,
-          "index": null,
-          "start": null,
-          "limit": null
-        }
+        "params": {}
       },
       "response": {
         "forwards": [

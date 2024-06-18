@@ -375,10 +375,7 @@
         "id": "example:feerates#1",
         "method": "feerates",
         "params": {
-          "style": "perkw",
-          "urgent": null,
-          "normal": null,
-          "slow": null
+          "style": "perkw"
         }
       },
       "response": {
@@ -429,10 +426,7 @@
         "id": "example:feerates#2",
         "method": "feerates",
         "params": {
-          "style": "perkb",
-          "urgent": null,
-          "normal": null,
-          "slow": null
+          "style": "perkb"
         }
       },
       "response": {

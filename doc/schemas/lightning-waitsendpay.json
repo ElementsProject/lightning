@@ -224,10 +224,7 @@
         "id": "example:waitsendpay#1",
         "method": "waitsendpay",
         "params": {
-          "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a",
-          "timeout": null,
-          "partid": null,
-          "groupid": null
+          "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a"
         }
       },
       "response": {

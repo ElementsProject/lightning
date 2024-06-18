@@ -175,9 +175,7 @@
         "id": "example:listchannels#1",
         "method": "listchannels",
         "params": {
-          "short_channel_id": "103x1x0",
-          "source": null,
-          "destination": null
+          "short_channel_id": "103x1x0"
         }
       },
       "response": {
@@ -188,11 +186,7 @@
       "request": {
         "id": "example:listchannels#2",
         "method": "listchannels",
-        "params": {
-          "short_channel_id": null,
-          "source": null,
-          "destination": null
-        }
+        "params": {}
       },
       "response": {
         "channels": [

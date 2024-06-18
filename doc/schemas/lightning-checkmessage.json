@@ -80,8 +80,7 @@
         "method": "checkmessage",
         "params": {
           "message": "this is a test!",
-          "zbase": "d6tqaeuonjhi98mmont9m4wag7gg4krg1f4txonug3h31e9h6p6k6nbwjondnj46dkyausobstnk7fhyy998bhgc1yr98dfmhb4k54d7",
-          "pubkey": null
+          "zbase": "d6tqaeuonjhi98mmont9m4wag7gg4krg1f4txonug3h31e9h6p6k6nbwjondnj46dkyausobstnk7fhyy998bhgc1yr98dfmhb4k54d7"
         }
       },
       "response": {

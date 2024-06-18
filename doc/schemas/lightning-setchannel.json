@@ -164,11 +164,6 @@
         "method": "setchannel",
         "params": {
           "id": "103x1x0",
-          "feebase": null,
-          "feeppm": null,
-          "htlcmin": null,
-          "htlcmax": null,
-          "enforcedelay": null,
           "ignorefeelimits": true
         }
       },
@@ -195,10 +190,7 @@
           "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
           "feebase": 4000,
           "feeppm": 300,
-          "htlcmin": null,
-          "htlcmax": null,
-          "enforcedelay": 0,
-          "ignorefeelimits": null
+          "enforcedelay": 0
         }
       },
       "response": {

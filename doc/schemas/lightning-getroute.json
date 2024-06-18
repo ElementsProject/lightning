@@ -361,11 +361,7 @@
           "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
           "amount_msat": 50000000,
           "riskfactor": 1,
-          "cltv": 9,
-          "fromid": null,
-          "fuzzpercent": null,
-          "exclude": null,
-          "maxhops": null
+          "cltv": 9
         }
       },
       "response": {

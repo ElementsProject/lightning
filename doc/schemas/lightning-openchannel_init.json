@@ -189,11 +189,6 @@
           "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
           "amount": 999000,
           "initialpsbt": "cHNidP8BADMCAAAAAYbThUhSzYr7ph6Z434bdcW7eoirYOFMmUt2GXZ79sF/AQAAAAD9////AGYAAAAAAQDeAgAAAAABARVD4QKlmwy8SNcNypf1o9TzbIFZjj4dqVzHAL0SLDoTAAAAAAD9////AjOv9ikBAAAAFgAUXJGglH7At5HOVY4ZHp0+19kv655AQg8AAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFlAkcwRAIgVIxRXqIykOOxm/6YPaFFx2Qh1618qlXPUhDiliVQ2KUCIHQcHniUTcm1XT8SyRE8ev52jm0uiIYum15XcR/tPh+NASEC3Pby7xL4+Ig/Z8TchQ0QT1upLGet3da8qjSjgHO9LOJlAAAAAQEfQEIPAAAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQA=",
-          "commitment_feerate": null,
-          "funding_feerate": null,
-          "announce": true,
-          "close_to": null,
-          "request_amt": null,
           "channel_type": [
             12,
             22
@@ -225,13 +220,7 @@
         "params": {
           "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
           "amount": 16777216,
-          "initialpsbt": "cHNidP8BADMCAAAAAQVmgyf8sA3N9J6XaH5z7W+GUPDFOM/2L/PuD7iE0RaqAAAAAAD9////AGYAAAAAAQDeAgAAAAABAdWZZguGlQJ1eA+d7WAT500jdCzHJWT9J/TGQIkbS1KfAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFE8Xxp4GJggW2lJcsHg0VLolc/Z/AkcwRAIgEQLtA2JvAk7S1R9QD5o4SVNXCjMwTUIyHtu65taC/d4CIEnpq2PdrqKqitdmZj09U8cFuwV+Ba9kmZSUsctSWx8CASECUKP6EBufpaBXT910uYhCcKdw9z8iqHgyKa3uuX2QgmVlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQA=",
-          "commitment_feerate": null,
-          "funding_feerate": null,
-          "announce": true,
-          "close_to": null,
-          "request_amt": null,
-          "channel_type": null
+          "initialpsbt": "cHNidP8BADMCAAAAAQVmgyf8sA3N9J6XaH5z7W+GUPDFOM/2L/PuD7iE0RaqAAAAAAD9////AGYAAAAAAQDeAgAAAAABAdWZZguGlQJ1eA+d7WAT500jdCzHJWT9J/TGQIkbS1KfAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFE8Xxp4GJggW2lJcsHg0VLolc/Z/AkcwRAIgEQLtA2JvAk7S1R9QD5o4SVNXCjMwTUIyHtu65taC/d4CIEnpq2PdrqKqitdmZj09U8cFuwV+Ba9kmZSUsctSWx8CASECUKP6EBufpaBXT910uYhCcKdw9z8iqHgyKa3uuX2QgmVlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQA="
         }
       },
       "response": {

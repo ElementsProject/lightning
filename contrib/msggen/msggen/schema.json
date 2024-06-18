@@ -144,10 +144,7 @@
             "id": "example:addpsbtoutput#1",
             "method": "addpsbtoutput",
             "params": {
-              "satoshi": 100000,
-              "initialpsbt": null,
-              "locktime": null,
-              "destination": null
+              "satoshi": 100000
             }
           },
           "response": {
@@ -162,9 +159,7 @@
             "method": "addpsbtoutput",
             "params": {
               "satoshi": 1000000,
-              "initialpsbt": null,
-              "locktime": 111,
-              "destination": null
+              "locktime": 111
             }
           },
           "response": {
@@ -180,7 +175,6 @@
             "params": {
               "satoshi": 974343,
               "initialpsbt": "cHNidP8BAF4CAAAAAfwbEpvpi6D14YV4VLnuVB47Y0uF41kXEyJRL4IusySSAQAAAAD9////ASICAAAAAAAAIlEgeDY1X9yKgtxMsAp3LFVUFR0GOEpN1l6NP2isCFZrhL5nAAAAAAEA9gIAAAAAAQFEkxvLatohY6mw5gr5qG1aiArSrziFPR2YoqD21Hv+RAAAAAAA/f///wJAQg8AAAAAACIAIFuM07kUz2fN2Ppic8kwNT3TZHZzT72WIQLC31O5CIDNrz8PAAAAAAAiUSBj/+5Op9UebK35CG4oaiUnkiqqJbjFOuvzL6MqCmJ/WgJHMEQCIEu1nfVRt9i+rFM219mwhMqdwJsqygWSWTFUS+cemdh6AiBG3Qo8g9J/aAMO2RHDsIBScscj6pTTIwZp7Gw8G3EOKAEhA9dFRFyTYmZfIuDZbp52byc/MmDeo5yKdr+gXdJoTdzPZgAAAAEBK68/DwAAAAAAIlEgY//uTqfVHmyt+QhuKGolJ5IqqiW4xTrr8y+jKgpif1oAAA==",
-              "locktime": null,
               "destination": "bcrt1q9tc6q49l6wrrtp8ul45rj92hsleehwwxty32zu"
             }
           },
@@ -877,9 +871,7 @@
           "request": {
             "id": "example:autoclean-status#2",
             "method": "autoclean-status",
-            "params": {
-              "subsystem": null
-            }
+            "params": {}
           },
           "response": {
             "autoclean": {
@@ -2747,14 +2739,12 @@
               "route": [
                 {
                   "amount_msat": 1011,
-                  "msatoshi": 1011,
                   "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
                   "delay": 20,
                   "channel": "1x1x1"
                 },
                 {
                   "amount_msat": 1000,
-                  "msatoshi": 1000,
                   "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
                   "delay": 10,
                   "channel": "2x2x2"
@@ -2884,8 +2874,7 @@
             "method": "checkmessage",
             "params": {
               "message": "this is a test!",
-              "zbase": "d6tqaeuonjhi98mmont9m4wag7gg4krg1f4txonug3h31e9h6p6k6nbwjondnj46dkyausobstnk7fhyy998bhgc1yr98dfmhb4k54d7",
-              "pubkey": null
+              "zbase": "d6tqaeuonjhi98mmont9m4wag7gg4krg1f4txonug3h31e9h6p6k6nbwjondnj46dkyausobstnk7fhyy998bhgc1yr98dfmhb4k54d7"
             }
           },
           "response": {
@@ -3205,11 +3194,7 @@
             "method": "close",
             "params": {
               "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-              "unilateraltimeout": 1,
-              "destination": null,
-              "fee_negotiation_step": null,
-              "force_lease_closed": null,
-              "feerange": null
+              "unilateraltimeout": 1
             }
           },
           "response": {
@@ -3224,11 +3209,7 @@
             "method": "close",
             "params": {
               "id": "103x1x0",
-              "unilateraltimeout": null,
-              "destination": "bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg",
-              "fee_negotiation_step": null,
-              "force_lease_closed": null,
-              "feerange": null
+              "destination": "bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg"
             }
           },
           "response": {
@@ -5282,9 +5263,7 @@
                 "name"
               ],
               "string": "foobar",
-              "hex": null,
-              "mode": "must-replace",
-              "generation": null
+              "mode": "must-replace"
             }
           },
           "response": {
@@ -5303,10 +5282,8 @@
             "method": "datastore",
             "params": {
               "key": "somekey",
-              "string": null,
               "hex": "61",
-              "mode": "create-or-append",
-              "generation": null
+              "mode": "create-or-append"
             }
           },
           "response": {
@@ -5330,10 +5307,7 @@
                 "f",
                 "g"
               ],
-              "string": "somedatatostoreinthedatastore",
-              "hex": null,
-              "mode": null,
-              "generation": null
+              "string": "somedatatostoreinthedatastore"
             }
           },
           "response": {
@@ -5431,9 +5405,7 @@
           "request": {
             "id": "example:datastoreusage#1",
             "method": "datastoreusage",
-            "params": {
-              "key": null
-            }
+            "params": {}
           },
           "response": {
             "datastoreusage": {
@@ -7893,8 +7865,7 @@
             "id": "example:decodepay#1",
             "method": "decodepay",
             "params": {
-              "bolt11": "lnbcrt110u1pjmr5lzsp5sfjyj3xn7ux592k36hmmt4ax98n6lgct22wvj54yck0upcmep63qpp5qu436g855lr40ftdt7csatk5pdvtdzzfmfqluwtvm0fds95jsadqdpq0pzk7s6j8y69xjt6xe25j5j4g44hsatdxqyjw5qcqp99qxpqysgquwma3zrw4cd8e8j4u9uh4gxukaacckse64kx2l9dqv8rvrysdq5r5dt38t9snqj9u5ar07h2exr4fg56wpudkhkk7gtxlyt72ku5fpqqd4fnlk",
-              "description": null
+              "bolt11": "lnbcrt110u1pjmr5lzsp5sfjyj3xn7ux592k36hmmt4ax98n6lgct22wvj54yck0upcmep63qpp5qu436g855lr40ftdt7csatk5pdvtdzzfmfqluwtvm0fds95jsadqdpq0pzk7s6j8y69xjt6xe25j5j4g44hsatdxqyjw5qcqp99qxpqysgquwma3zrw4cd8e8j4u9uh4gxukaacckse64kx2l9dqv8rvrysdq5r5dt38t9snqj9u5ar07h2exr4fg56wpudkhkk7gtxlyt72ku5fpqqd4fnlk"
             }
           },
           "response": {
@@ -8035,8 +8006,7 @@
             "params": {
               "key": [
                 "a"
-              ],
-              "generation": null
+              ]
             }
           },
           "response": {
@@ -8455,8 +8425,7 @@
             "method": "delinvoice",
             "params": {
               "label": "keysend-1708640419.666098582",
-              "status": "paid",
-              "desconly": null
+              "status": "paid"
             }
           },
           "response": {
@@ -9691,10 +9660,7 @@
             "id": "example:feerates#1",
             "method": "feerates",
             "params": {
-              "style": "perkw",
-              "urgent": null,
-              "normal": null,
-              "slow": null
+              "style": "perkw"
             }
           },
           "response": {
@@ -9745,10 +9711,7 @@
             "id": "example:feerates#2",
             "method": "feerates",
             "params": {
-              "style": "perkb",
-              "urgent": null,
-              "normal": null,
-              "slow": null
+              "style": "perkb"
             }
           },
           "response": {
@@ -10266,16 +10229,7 @@
             "params": {
               "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
               "amount": 1000000,
-              "feerate": null,
-              "announce": true,
-              "minconf": null,
-              "utxos": null,
-              "push_msat": null,
-              "close_to": null,
-              "request_amt": null,
-              "compact_lease": null,
-              "mindepth": null,
-              "reserve": null
+              "announce": true
             }
           },
           "response": {
@@ -10292,17 +10246,8 @@
             "params": {
               "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
               "amount": 10000000,
-              "feerate": null,
               "announce": true,
-              "minconf": null,
-              "utxos": null,
-              "push_msat": 1000000000,
-              "close_to": null,
-              "request_amt": null,
-              "compact_lease": null,
-              "mindepth": null,
-              "reserve": null,
-              "channel_type": null
+              "push_msat": 1000000000
             }
           },
           "response": {
@@ -10732,10 +10677,7 @@
             "params": {
               "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
               "amount": 16777216,
-              "feerate": null,
-              "announce": true,
-              "close_to": null,
-              "mindepth": null
+              "announce": true
             }
           },
           "response": {
@@ -10751,11 +10693,7 @@
             "params": {
               "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
               "amount": "100000sat",
-              "feerate": null,
-              "announce": true,
-              "close_to": null,
-              "mindepth": null,
-              "channel_type": null
+              "announce": true
             }
           },
           "response": {
@@ -11337,10 +11275,7 @@
               "satoshi": 16777216,
               "feerate": "253perkw",
               "startweight": 250,
-              "minconf": null,
               "reserve": 0,
-              "locktime": null,
-              "min_witness_weight": null,
               "excess_as_change": false
             }
           },
@@ -11359,10 +11294,6 @@
               "satoshi": "all",
               "feerate": "1000perkw",
               "startweight": 1000,
-              "minconf": null,
-              "reserve": null,
-              "locktime": null,
-              "min_witness_weight": null,
               "excess_as_change": false
             }
           },
@@ -11391,10 +11322,6 @@
               "satoshi": "109000sat",
               "feerate": "slow",
               "startweight": 166,
-              "minconf": null,
-              "reserve": null,
-              "locktime": null,
-              "min_witness_weight": null,
               "excess_as_change": true
             }
           },
@@ -12480,11 +12407,7 @@
               "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
               "amount_msat": 50000000,
               "riskfactor": 1,
-              "cltv": 9,
-              "fromid": null,
-              "fuzzpercent": null,
-              "exclude": null,
-              "maxhops": null
+              "cltv": 9
             }
           },
           "response": {
@@ -12891,13 +12814,7 @@
               "label": "xEoCR94SIz6UIRUEkxum",
               "description": [
                 "XEoCR94SIz6UIRUEkxum."
-              ],
-              "expiry": null,
-              "fallbacks": null,
-              "preimage": null,
-              "exposeprivatechannels": null,
-              "cltv": null,
-              "deschashonly": null
+              ]
             }
           },
           "response": {
@@ -12916,13 +12833,7 @@
             "params": {
               "amount_msat": 100,
               "label": "8",
-              "description": "inv",
-              "expiry": null,
-              "fallbacks": null,
-              "preimage": null,
-              "exposeprivatechannels": null,
-              "cltv": null,
-              "deschashonly": null
+              "description": "inv"
             }
           },
           "response": {
@@ -13310,13 +13221,7 @@
             "method": "keysend",
             "params": {
               "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-              "amount_msat": 10000,
-              "label": null,
-              "maxfeepercent": null,
-              "retry_for": null,
-              "maxdelay": null,
-              "exemptfee": null,
-              "extratlvs": null
+              "amount_msat": 10000
             }
           },
           "response": {
@@ -13337,11 +13242,6 @@
             "params": {
               "destination": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
               "amount_msat": 10000000,
-              "label": null,
-              "maxfeepercent": null,
-              "retry_for": null,
-              "maxdelay": null,
-              "exemptfee": null,
               "extratlvs": {
                 "133773310": "68656c6c6f776f726c64",
                 "133773312": "66696c7465726d65"
@@ -13592,9 +13492,7 @@
             "id": "example:listchannels#1",
             "method": "listchannels",
             "params": {
-              "short_channel_id": "103x1x0",
-              "source": null,
-              "destination": null
+              "short_channel_id": "103x1x0"
             }
           },
           "response": {
@@ -13605,11 +13503,7 @@
           "request": {
             "id": "example:listchannels#2",
             "method": "listchannels",
-            "params": {
-              "short_channel_id": null,
-              "source": null,
-              "destination": null
-            }
+            "params": {}
           },
           "response": {
             "channels": [
@@ -16490,9 +16384,7 @@
           "request": {
             "id": "example:listconfigs#2",
             "method": "listconfigs",
-            "params": {
-              "config": null
-            }
+            "params": {}
           },
           "response": {
             "configs": {
@@ -17366,14 +17258,7 @@
           "request": {
             "id": "example:listforwards#1",
             "method": "listforwards",
-            "params": {
-              "status": null,
-              "in_channel": null,
-              "out_channel": null,
-              "index": null,
-              "start": null,
-              "limit": null
-            }
+            "params": {}
           },
           "response": {
             "forwards": [
@@ -17788,9 +17673,7 @@
           "request": {
             "id": "example:listfunds#1",
             "method": "listfunds",
-            "params": {
-              "spent": null
-            }
+            "params": {}
           },
           "response": {
             "outputs": [
@@ -18508,13 +18391,7 @@
             "id": "example:listinvoices#1",
             "method": "listinvoices",
             "params": {
-              "label": "xEoCR94SIz6UIRUEkxum",
-              "payment_hash": null,
-              "invstring": null,
-              "offer_id": null,
-              "index": null,
-              "start": null,
-              "limit": null
+              "label": "xEoCR94SIz6UIRUEkxum"
             }
           },
           "response": {
@@ -18825,9 +18702,7 @@
           "request": {
             "id": "example:listnodes#2",
             "method": "listnodes",
-            "params": {
-              "id": null
-            }
+            "params": {}
           },
           "response": {
             "nodes": [
@@ -19246,9 +19121,7 @@
             "id": "example:listpays#1",
             "method": "listpays",
             "params": {
-              "bolt11": "lnbcrt123n1pjmxp7qsp5hxu7u28y0nx4v689u3hwzdzse2w9yaylhheavf9dxvwtdup7pvespp5ha66gxse68j4n6755v7299dnmq4w34gp0znxu0xzahdc43zrg40qdq5v3jhxcmjd9c8g6t0dc6sxqrp7scqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqvuqqqqsqqqqqqqqpqqqqqzsqqc9qxpqysgqk74dvqlvr92ayy5s7x0r0u9xywez6wu4h8pfta386cw6x7cdrvn8pz87kyg5c930aent423gm9ylpaw5p35k72f02hg0s9dulg4d8fqpgj7gpm",
-              "payment_hash": null,
-              "status": null
+              "bolt11": "lnbcrt123n1pjmxp7qsp5hxu7u28y0nx4v689u3hwzdzse2w9yaylhheavf9dxvwtdup7pvespp5ha66gxse68j4n6755v7299dnmq4w34gp0znxu0xzahdc43zrg40qdq5v3jhxcmjd9c8g6t0dc6sxqrp7scqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqvuqqqqsqqqqqqqqpqqqqqzsqqc9qxpqysgqk74dvqlvr92ayy5s7x0r0u9xywez6wu4h8pfta386cw6x7cdrvn8pz87kyg5c930aent423gm9ylpaw5p35k72f02hg0s9dulg4d8fqpgj7gpm"
             }
           },
           "response": {
@@ -19269,9 +19142,7 @@
             "id": "example:listpays#2",
             "method": "listpays",
             "params": {
-              "bolt11": "lnbcrt123n1pjmxp7qsp5u84368dz7yhzcqm955h96wdqch7uarasun45cr0vs5d8t0cv5avqpp5r9p0dp92guaatrmhf302m0dyj4n79gk93qu2l5tagfxq3dedgfqsdq5v3jhxcmjd9c8g6t0dc6qxqrp7scqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqvuqqqqsqqqqqqqqpqqqqqzsqqc9qxpqysgq46wu0fznfx27rcnyzhcttf8yqx3lwqs482yxlead0fyt8mefrrrj5m379fa5qukgquf9tnwsuj3nnfmwkzkfg6pyhzq6w8gauuh6m5cqgur64n",
-              "payment_hash": null,
-              "status": null
+              "bolt11": "lnbcrt123n1pjmxp7qsp5u84368dz7yhzcqm955h96wdqch7uarasun45cr0vs5d8t0cv5avqpp5r9p0dp92guaatrmhf302m0dyj4n79gk93qu2l5tagfxq3dedgfqsdq5v3jhxcmjd9c8g6t0dc6qxqrp7scqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqvuqqqqsqqqqqqqqpqqqqqzsqqc9qxpqysgq46wu0fznfx27rcnyzhcttf8yqx3lwqs482yxlead0fyt8mefrrrj5m379fa5qukgquf9tnwsuj3nnfmwkzkfg6pyhzq6w8gauuh6m5cqgur64n"
             }
           },
           "response": {
@@ -20788,9 +20659,7 @@
           "request": {
             "id": "example:listpeerchannels#2",
             "method": "listpeerchannels",
-            "params": {
-              "id": null
-            }
+            "params": {}
           },
           "response": {
             "channels": [
@@ -21224,8 +21093,7 @@
             "id": "example:listpeers#1",
             "method": "listpeers",
             "params": {
-              "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-              "level": null
+              "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
             }
           },
           "response": {
@@ -21246,10 +21114,7 @@
           "request": {
             "id": "example:listpeers#2",
             "method": "listpeers",
-            "params": {
-              "id": null,
-              "level": null
-            }
+            "params": {}
           },
           "response": {
             "peers": [
@@ -21609,14 +21474,7 @@
           "request": {
             "id": "example:listsendpays#1",
             "method": "listsendpays",
-            "params": {
-              "bolt11": null,
-              "payment_hash": null,
-              "status": null,
-              "index": null,
-              "start": null,
-              "limit": null
-            }
+            "params": {}
           },
           "response": {
             "payments": [
@@ -21652,12 +21510,7 @@
             "id": "example:listsendpays#2",
             "method": "listsendpays",
             "params": {
-              "bolt11": "lnbcrt1230n1pja03q9sp5xu9aypccf3n6vld2waxcysy47ct2wl5x5adtm7k8u30knqes22lspp5duw2v8csh0zh4xg9ql3amem98avlkc2ecre99tgmr2340amf9kmsdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qxpqysgqwh78s8wqg0kepspw0epcxmxteh5wu8n6ddlwdnyj758fqxpqk8ejf597x8ju3r32xqgae3yzjjz9e5s6l2vs5zxvkayhmemmx74wvyqqyqf8c9",
-              "payment_hash": null,
-              "status": null,
-              "index": null,
-              "start": null,
-              "limit": null
+              "bolt11": "lnbcrt1230n1pja03q9sp5xu9aypccf3n6vld2waxcysy47ct2wl5x5adtm7k8u30knqes22lspp5duw2v8csh0zh4xg9ql3amem98avlkc2ecre99tgmr2340amf9kmsdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qxpqysgqwh78s8wqg0kepspw0epcxmxteh5wu8n6ddlwdnyj758fqxpqk8ejf597x8ju3r32xqgae3yzjjz9e5s6l2vs5zxvkayhmemmx74wvyqqyqf8c9"
             }
           },
           "response": {
@@ -22614,9 +22467,6 @@
                 }
               ],
               "feerate": "10000perkw",
-              "minconf": null,
-              "utxos": null,
-              "minchannels": null,
               "commitment_feerate": "2000perkw"
             }
           },
@@ -22660,9 +22510,6 @@
                   "amount": 50000
                 }
               ],
-              "feerate": null,
-              "minconf": null,
-              "utxos": null,
               "minchannels": 1
             }
           },
@@ -22801,10 +22648,7 @@
                 {
                   "bcrt1q6r4vvt7uack33qf9n05umfxy8h5s2rdcmq7ra3": "3333000msat"
                 }
-              ],
-              "feerate": null,
-              "minconf": null,
-              "utxos": null
+              ]
             }
           },
           "response": {
@@ -22842,10 +22686,7 @@
                 {
                   "bcrt1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqc8gma6": 1000
                 }
-              ],
-              "feerate": null,
-              "minconf": null,
-              "utxos": null
+              ]
             }
           },
           "response": {
@@ -22931,9 +22772,7 @@
           "request": {
             "id": "example:newaddr#1",
             "method": "newaddr",
-            "params": {
-              "addresstype": null
-            }
+            "params": {}
           },
           "response": {
             "bech32": "bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf"
@@ -23736,11 +23575,6 @@
               "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
               "amount": 999000,
               "initialpsbt": "cHNidP8BADMCAAAAAYbThUhSzYr7ph6Z434bdcW7eoirYOFMmUt2GXZ79sF/AQAAAAD9////AGYAAAAAAQDeAgAAAAABARVD4QKlmwy8SNcNypf1o9TzbIFZjj4dqVzHAL0SLDoTAAAAAAD9////AjOv9ikBAAAAFgAUXJGglH7At5HOVY4ZHp0+19kv655AQg8AAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFlAkcwRAIgVIxRXqIykOOxm/6YPaFFx2Qh1618qlXPUhDiliVQ2KUCIHQcHniUTcm1XT8SyRE8ev52jm0uiIYum15XcR/tPh+NASEC3Pby7xL4+Ig/Z8TchQ0QT1upLGet3da8qjSjgHO9LOJlAAAAAQEfQEIPAAAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQA=",
-              "commitment_feerate": null,
-              "funding_feerate": null,
-              "announce": true,
-              "close_to": null,
-              "request_amt": null,
               "channel_type": [
                 12,
                 22
@@ -23772,13 +23606,7 @@
             "params": {
               "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
               "amount": 16777216,
-              "initialpsbt": "cHNidP8BADMCAAAAAQVmgyf8sA3N9J6XaH5z7W+GUPDFOM/2L/PuD7iE0RaqAAAAAAD9////AGYAAAAAAQDeAgAAAAABAdWZZguGlQJ1eA+d7WAT500jdCzHJWT9J/TGQIkbS1KfAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFE8Xxp4GJggW2lJcsHg0VLolc/Z/AkcwRAIgEQLtA2JvAk7S1R9QD5o4SVNXCjMwTUIyHtu65taC/d4CIEnpq2PdrqKqitdmZj09U8cFuwV+Ba9kmZSUsctSWx8CASECUKP6EBufpaBXT910uYhCcKdw9z8iqHgyKa3uuX2QgmVlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQA=",
-              "commitment_feerate": null,
-              "funding_feerate": null,
-              "announce": true,
-              "close_to": null,
-              "request_amt": null,
-              "channel_type": null
+              "initialpsbt": "cHNidP8BADMCAAAAAQVmgyf8sA3N9J6XaH5z7W+GUPDFOM/2L/PuD7iE0RaqAAAAAAD9////AGYAAAAAAQDeAgAAAAABAdWZZguGlQJ1eA+d7WAT500jdCzHJWT9J/TGQIkbS1KfAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFE8Xxp4GJggW2lJcsHg0VLolc/Z/AkcwRAIgEQLtA2JvAk7S1R9QD5o4SVNXCjMwTUIyHtu65taC/d4CIEnpq2PdrqKqitdmZj09U8cFuwV+Ba9kmZSUsctSWx8CASECUKP6EBufpaBXT910uYhCcKdw9z8iqHgyKa3uuX2QgmVlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQA="
             }
           },
           "response": {
@@ -24511,18 +24339,7 @@
             "id": "example:pay#1",
             "method": "pay",
             "params": {
-              "bolt11": "lni1qqgxr7gha7gusyg83lsr8qcqg4axgq3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy8ssqtypg3hgetnwsszycn0d36rzv3zypjx2umrwf5hqarfdahzcg8sn7jmpuyl423pvggzvmj9nrga83q474e2sjygxzmq7ln5fmvjxh4skxafx2pmx9wqx5v9qgqxyfhyvyg6pdvu4tcjvpp7kkal9rp57wj7xv4pl3ajku70rzy3pavzzqjz06c8s2vvmrpjlkcse0txx0gmc6jalqqxmeyjm75qcnfnqxwyt2sfsqnxu3vc68fug904w25y3zpskc8huazwmy34av93h2fjswe3tsp4rqpe8qlx9xssexfc0aguke3q6u0jgw2qmn008mzu04mkmqmjmhes3gcpqdqdnzl270s48vsp635rd4jm04snvgkcp65qlkgp8qztu2mdp7c5uqpj2rll3pzu56st537rct3v62gfqeamzthjuwkr0pkvsdnnffpn4sq9sz0lryaufktx0nfxlffum3yesqev5gwqqqqqqqqqqqqqqqzsqqqqqqqqqqqqr5jt9hav2gqqqqqq5szxtvwkyz5zq2000hlwvadejz366lqjt9sd2j4rf5tfd9rgmmyegt4dqd34cf6v4gqkfvppqfnwgkvdr57yzh6h92zg3qctvrm7w38djg67kzcm4yeg8vc4cq633uzqn3n74ccym4wcvq20vsx7lmk450kprpvlrh4cukk8xy9ptjcef4rnhytnkyn4vnxxtd57yeaksze2s30y26cs6u3rjd9322eg9puk24q",
-              "amount_msat": null,
-              "label": null,
-              "riskfactor": null,
-              "maxfeepercent": null,
-              "retry_for": null,
-              "maxdelay": null,
-              "exemptfee": null,
-              "localinvreqid": null,
-              "exclude": null,
-              "maxfee": null,
-              "description": null
+              "bolt11": "lni1qqgxr7gha7gusyg83lsr8qcqg4axgq3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy8ssqtypg3hgetnwsszycn0d36rzv3zypjx2umrwf5hqarfdahzcg8sn7jmpuyl423pvggzvmj9nrga83q474e2sjygxzmq7ln5fmvjxh4skxafx2pmx9wqx5v9qgqxyfhyvyg6pdvu4tcjvpp7kkal9rp57wj7xv4pl3ajku70rzy3pavzzqjz06c8s2vvmrpjlkcse0txx0gmc6jalqqxmeyjm75qcnfnqxwyt2sfsqnxu3vc68fug904w25y3zpskc8huazwmy34av93h2fjswe3tsp4rqpe8qlx9xssexfc0aguke3q6u0jgw2qmn008mzu04mkmqmjmhes3gcpqdqdnzl270s48vsp635rd4jm04snvgkcp65qlkgp8qztu2mdp7c5uqpj2rll3pzu56st537rct3v62gfqeamzthjuwkr0pkvsdnnffpn4sq9sz0lryaufktx0nfxlffum3yesqev5gwqqqqqqqqqqqqqqqzsqqqqqqqqqqqqr5jt9hav2gqqqqqq5szxtvwkyz5zq2000hlwvadejz366lqjt9sd2j4rf5tfd9rgmmyegt4dqd34cf6v4gqkfvppqfnwgkvdr57yzh6h92zg3qctvrm7w38djg67kzcm4yeg8vc4cq633uzqn3n74ccym4wcvq20vsx7lmk450kprpvlrh4cukk8xy9ptjcef4rnhytnkyn4vnxxtd57yeaksze2s30y26cs6u3rjd9322eg9puk24q"
             }
           },
           "response": {
@@ -25652,9 +25469,7 @@
             "id": "example:reserveinputs#1",
             "method": "reserveinputs",
             "params": {
-              "psbt": "cHNidP8BAFwCAAAAAkwJVUqB0xXTO7JZ3PnPdGnxoYfQxhU+xqXGFYXsyX0RAAAAAAD9////TAlVSoHTFdM7slnc+c90afGhh9DGFT7GpcYVhezJfREBAAAAAP3///8AAAAAAAAAAA==",
-              "exclusive": true,
-              "reserve": null
+              "psbt": "cHNidP8BAFwCAAAAAkwJVUqB0xXTO7JZ3PnPdGnxoYfQxhU+xqXGFYXsyX0RAAAAAAD9////TAlVSoHTFdM7slnc+c90afGhh9DGFT7GpcYVhezJfREBAAAAAP3///8AAAAAAAAAAA=="
             }
           },
           "response": {
@@ -25675,8 +25490,7 @@
             "method": "reserveinputs",
             "params": {
               "psbt": "cHNidP8BAP32AQIAAAAMgnW099dbh1uD153ih5eU5WhluynLxekXjAOjkEdNBg8BAAAAAP3///9FWKQt8C+1y4741+beFSqWAaj9DuvzHNpxvpxS+GB8lwEAAAAA/f///6E5TAGqktI29Oso6b9kZZoAFFGGvpJQUM8VO+3LMTlmAAAAAAD9////nSDT7hrkuoQtAV1yNnbpkJsB5ifKoM2zP+CcLPfis1gBAAAAAP3///+P1rW90UXfD0gIk58h3sXxxy3ZfJJLP0H1I4Jpzy/87QEAAAAA/f///w0UKZ/s9DnPpV+FJ8h2BEI7tl+qVxSGRFRv9FYw4girAQAAAAD9////EPNsUFrEOZyfjbqbh8rfHQ4C9RQECw12n3c1yhFqkzoAAAAAAP3///8QW9LEsSmuvSnvVzy+FDktM7ewQmZnIJI/TJMahLmSzwEAAAAA/f///+4edbWRHDdRJcMeHHElgSmb+nENPsz/g/0AmAEU6hXeAAAAAAD9////T15YLGmk7HBsrL+awdcxi3db3esp8AcCTS9XGrEnfoAAAAAAAP3///8q7xInvEk7J0Ir9cpKXqU2lArUskkYLrimIE0+Yb6a2QEAAAAA/f///8hBLKyMa2zRJqwNOk7DmsDIfG7IvJtQiJ+QnkkHl6atAAAAAAD9////AAAAAAAAAAAAAAAAAAAAAAAA",
-              "exclusive": false,
-              "reserve": null
+              "exclusive": false
             }
           },
           "response": {
@@ -26416,13 +26230,7 @@
                 "delay": 21,
                 "style": "tlv"
               },
-              "payment_hash": "f584c14bb23506acdd94cf3cea377f3cc5805f3cba5430bc3756ef83ede1a0dc",
-              "label": null,
-              "shared_secrets": null,
-              "partid": null,
-              "bolt11": null,
-              "amount_msat": null,
-              "destination": null
+              "payment_hash": "f584c14bb23506acdd94cf3cea377f3cc5805f3cba5430bc3756ef83ede1a0dc"
             }
           },
           "response": {
@@ -26881,13 +26689,8 @@
                 }
               ],
               "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a",
-              "label": null,
-              "amount_msat": null,
               "bolt11": "lnbcrt110u1pjmr5lzsp5sfjyj3xn7ux592k36hmmt4ax98n6lgct22wvj54yck0upcmep63qpp5qu436g855lr40ftdt7csatk5pdvtdzzfmfqluwtvm0fds95jsadqdpq0pzk7s6j8y69xjt6xe25j5j4g44hsatdxqyjw5qcqp99qxpqysgquwma3zrw4cd8e8j4u9uh4gxukaacckse64kx2l9dqv8rvrysdq5r5dt38t9snqj9u5ar07h2exr4fg56wpudkhkk7gtxlyt72ku5fpqqd4fnlk",
-              "payment_secret": "82644944d3f70d42aad1d5f7b5d7a629e7afa30b529cc952a4c59fc0e3790ea2",
-              "partid": null,
-              "groupid": null,
-              "payment_metadata": null
+              "payment_secret": "82644944d3f70d42aad1d5f7b5d7a629e7afa30b529cc952a4c59fc0e3790ea2"
             }
           },
           "response": {
@@ -26936,13 +26739,7 @@
                 }
               ],
               "payment_hash": "bc747053329402620a26bdc187cd134cdb699130d85be499ecd24160aff04c5c",
-              "label": null,
-              "amount_msat": null,
-              "bolt11": null,
-              "payment_secret": "c36a2fe9aced78c06960e2f21b369ed03f0492c97e53ba3b662163bcdaf1d7fa",
-              "partid": null,
-              "groupid": null,
-              "payment_metadata": null
+              "payment_secret": "c36a2fe9aced78c06960e2f21b369ed03f0492c97e53ba3b662163bcdaf1d7fa"
             }
           },
           "response": {
@@ -27042,8 +26839,7 @@
             "id": "example:sendpsbt#2",
             "method": "sendpsbt",
             "params": {
-              "psbt": "cHNidP8BAM0CAAAABEV+dnFRINmyeHxi4Id0OrcuzI5au5/BlPtTfu7E2m3EAAAAAAD9////cv8oioDx+0NCEnjBSYtnwF0H4VR13j+bkyb5gOOQLUUBAAAAAP3///8ehOrKm7JEq6zflkp9+zmSwE1iPe1yh3KTXvk+om/legEAAAAA/f///2s31wNrI1UavMgjC1GyrOHNbxOm68KYa13WX/mGfmjcAQAAAAD9////AcEAPQAAAAAAFgAUyQltQ/QI6lJgICYsza18hRa5KoEAAAAAAAEAcQIAAAABTzfqjIqV1wPpqc/3/Cb+tMX5EDrLmnhb5BMNx3aB/hYAAAAAAP3///8CQEIPAAAAAAAWABR9CNmX36nN45+GhjqvD4LjLMMMg/+juSkBAAAAFgAUJB0adsMdjkacZWrLwyteqfOaTrRlAAAAAQEfQEIPAAAAAAAWABR9CNmX36nN45+GhjqvD4LjLMMMgyICA1p5u7tAbUvCjfBfpqhzKM+wKn4TdDvs3NHfz+BxwuAQRzBEAiBwFb9rA0nUVlIPGd2aaiRbJ+KH4MLM3Bu+f0JuXB/hwAIgT2rrIUG9gXBZoH9fcPjCnbbM1SR4GiLYGLeALB8yENoBIgYDWnm7u0BtS8KN8F+mqHMoz7AqfhN0O+zc0d/P4HHC4BAIfQjZlwAAAAAAAQBxAgAAAAGANpEFI+CgfALTim/MWsAa62g+EmFWrFrzBDBCmCB3MgAAAAAA/f///wKZKdgpAQAAABYAFB+xhfU1pgl9WIvDKzAHZp8UeNkzQEIPAAAAAAAWABQHHEnK0vQg88gF+fa5ilcmnLFBUGUAAAABAR9AQg8AAAAAABYAFAccScrS9CDzyAX59rmKVyacsUFQIgICXTcoCCnxhsuZXNzL8jirRWQBOTlzUTljJKNldd803f9HMEQCIDtx/kEoc4PHDDm4eX5SEOmuRGu7ShpEG7xKBbuD/NjiAiBYkIKod39dcBarCT7Dbchkuwx70tJhOxQSJi2EMioGrwEiBgJdNygIKfGGy5lc3MvyOKtFZAE5OXNROWMko2V13zTd/wgHHEnKAAAAAAABAHECAAAAAVHU7RCZylzRMdlMBJ2ba4XKxv0l7LdWVnPYS6mhkf60AAAAAAD9////Av5VbSkBAAAAFgAU0BhRKzRbIC6H+s6j86d6cMpTNNhAQg8AAAAAABYAFD1D0ia8wnAZreUtej3FKnrBvii4ZQAAAAEBH0BCDwAAAAAAFgAUPUPSJrzCcBmt5S16PcUqesG+KLgiAgKKWZFo08l968cbxm5icOzwVPMA2Igwm6BUcaSCF13ZMEcwRAIgNAeIVGvUj9MWM18am0dx3JtEf79iQMX7Rqz1tttes3ICIAtNCglUlvpSidAxc/xoiy9cA13bgimJx25G+eZXfYJeASIGAopZkWjTyX3rxxvGbmJw7PBU8wDYiDCboFRxpIIXXdkwCD1D0iYAAAAAAAEAcQIAAAABRX52cVEg2bJ4fGLgh3Q6ty7Mjlq7n8GU+1N+7sTabcQBAAAAAP3///8CMmGqKQEAAAAWABSxLq0p9YAKl+hX7pFc0K/X+PIWmUBCDwAAAAAAFgAUZhwjt5DdNJE3OvCx2L7Qh31c3iJlAAAAAQEfQEIPAAAAAAAWABRmHCO3kN00kTc68LHYvtCHfVzeIiICA/qclQheQrHlADzR9BgXjDDJbkrneVTKD8SMWIJv9OsORzBEAiBKABqNV7cF5DKhtd+m+ZEmWF21vBt2uBKnzeDuUFqvDwIgJc6+/6GQqIfz869kJpUFTAMYTeL2qWR6d28EQEOJgkMBIgYD+pyVCF5CseUAPNH0GBeMMMluSud5VMoPxIxYgm/06w4IZhwjtwAAAAAAAA==",
-              "reserve": null
+              "psbt": "cHNidP8BAM0CAAAABEV+dnFRINmyeHxi4Id0OrcuzI5au5/BlPtTfu7E2m3EAAAAAAD9////cv8oioDx+0NCEnjBSYtnwF0H4VR13j+bkyb5gOOQLUUBAAAAAP3///8ehOrKm7JEq6zflkp9+zmSwE1iPe1yh3KTXvk+om/legEAAAAA/f///2s31wNrI1UavMgjC1GyrOHNbxOm68KYa13WX/mGfmjcAQAAAAD9////AcEAPQAAAAAAFgAUyQltQ/QI6lJgICYsza18hRa5KoEAAAAAAAEAcQIAAAABTzfqjIqV1wPpqc/3/Cb+tMX5EDrLmnhb5BMNx3aB/hYAAAAAAP3///8CQEIPAAAAAAAWABR9CNmX36nN45+GhjqvD4LjLMMMg/+juSkBAAAAFgAUJB0adsMdjkacZWrLwyteqfOaTrRlAAAAAQEfQEIPAAAAAAAWABR9CNmX36nN45+GhjqvD4LjLMMMgyICA1p5u7tAbUvCjfBfpqhzKM+wKn4TdDvs3NHfz+BxwuAQRzBEAiBwFb9rA0nUVlIPGd2aaiRbJ+KH4MLM3Bu+f0JuXB/hwAIgT2rrIUG9gXBZoH9fcPjCnbbM1SR4GiLYGLeALB8yENoBIgYDWnm7u0BtS8KN8F+mqHMoz7AqfhN0O+zc0d/P4HHC4BAIfQjZlwAAAAAAAQBxAgAAAAGANpEFI+CgfALTim/MWsAa62g+EmFWrFrzBDBCmCB3MgAAAAAA/f///wKZKdgpAQAAABYAFB+xhfU1pgl9WIvDKzAHZp8UeNkzQEIPAAAAAAAWABQHHEnK0vQg88gF+fa5ilcmnLFBUGUAAAABAR9AQg8AAAAAABYAFAccScrS9CDzyAX59rmKVyacsUFQIgICXTcoCCnxhsuZXNzL8jirRWQBOTlzUTljJKNldd803f9HMEQCIDtx/kEoc4PHDDm4eX5SEOmuRGu7ShpEG7xKBbuD/NjiAiBYkIKod39dcBarCT7Dbchkuwx70tJhOxQSJi2EMioGrwEiBgJdNygIKfGGy5lc3MvyOKtFZAE5OXNROWMko2V13zTd/wgHHEnKAAAAAAABAHECAAAAAVHU7RCZylzRMdlMBJ2ba4XKxv0l7LdWVnPYS6mhkf60AAAAAAD9////Av5VbSkBAAAAFgAU0BhRKzRbIC6H+s6j86d6cMpTNNhAQg8AAAAAABYAFD1D0ia8wnAZreUtej3FKnrBvii4ZQAAAAEBH0BCDwAAAAAAFgAUPUPSJrzCcBmt5S16PcUqesG+KLgiAgKKWZFo08l968cbxm5icOzwVPMA2Igwm6BUcaSCF13ZMEcwRAIgNAeIVGvUj9MWM18am0dx3JtEf79iQMX7Rqz1tttes3ICIAtNCglUlvpSidAxc/xoiy9cA13bgimJx25G+eZXfYJeASIGAopZkWjTyX3rxxvGbmJw7PBU8wDYiDCboFRxpIIXXdkwCD1D0iYAAAAAAAEAcQIAAAABRX52cVEg2bJ4fGLgh3Q6ty7Mjlq7n8GU+1N+7sTabcQBAAAAAP3///8CMmGqKQEAAAAWABSxLq0p9YAKl+hX7pFc0K/X+PIWmUBCDwAAAAAAFgAUZhwjt5DdNJE3OvCx2L7Qh31c3iJlAAAAAQEfQEIPAAAAAAAWABRmHCO3kN00kTc68LHYvtCHfVzeIiICA/qclQheQrHlADzR9BgXjDDJbkrneVTKD8SMWIJv9OsORzBEAiBKABqNV7cF5DKhtd+m+ZEmWF21vBt2uBKnzeDuUFqvDwIgJc6+/6GQqIfz869kJpUFTAMYTeL2qWR6d28EQEOJgkMBIgYD+pyVCF5CseUAPNH0GBeMMMluSud5VMoPxIxYgm/06w4IZhwjtwAAAAAAAA=="
             }
           },
           "response": {
@@ -27236,11 +27032,6 @@
             "method": "setchannel",
             "params": {
               "id": "103x1x0",
-              "feebase": null,
-              "feeppm": null,
-              "htlcmin": null,
-              "htlcmax": null,
-              "enforcedelay": null,
               "ignorefeelimits": true
             }
           },
@@ -27267,10 +27058,7 @@
               "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
               "feebase": 4000,
               "feeppm": 300,
-              "htlcmin": null,
-              "htlcmax": null,
-              "enforcedelay": 0,
-              "ignorefeelimits": null
+              "enforcedelay": 0
             }
           },
           "response": {
@@ -28045,8 +27833,7 @@
             "id": "example:signpsbt#1",
             "method": "signpsbt",
             "params": {
-              "psbt": "cHNidP8BAgQCAAAAAQMEbAAAAAEEAQIBBQECAQYBAwH7BAIAAAAAAQD2AgAAAAABAYulMzSBYSogKOBxk3Kg+HN0Hl81kGsQVuw2mwoetN33AQAAAAD9////AkBCDwAAAAAAIgAgW4zTuRTPZ83Y+mJzyTA1PdNkdnNPvZYhAsLfU7kIgM0BLw8AAAAAACJRIGP/7k6n1R5srfkIbihqJSeSKqoluMU66/MvoyoKYn9aAkcwRAIgFlrmLyNU919XilsjNJ5sxvlE36XmUmRAoDD36K8BZ+cCIE2F6HPv3XjcNsU6hOOY9hUSuVjQUuVWqiNf3Bq3RopeASED10VEXJNiZl8i4NlunnZvJz8yYN6jnIp2v6Bd0mhN3M8YAAAAAQErQEIPAAAAAAAiACBbjNO5FM9nzdj6YnPJMDU902R2c0+9liECwt9TuQiAzQEOIFZ3chw1pCSiPW3MfJCQNuUFrmhlDgnVlzO0t+cwA6TcAQ8EAAAAAAEQBAAAAAAM/AlsaWdodG5pbmcBCCvyYqqdIt0mAAEA9gIAAAAAAQGLpTM0gWEqICjgcZNyoPhzdB5fNZBrEFbsNpsKHrTd9wEAAAAA/f///wJAQg8AAAAAACIAIFuM07kUz2fN2Ppic8kwNT3TZHZzT72WIQLC31O5CIDNAS8PAAAAAAAiUSBj/+5Op9UebK35CG4oaiUnkiqqJbjFOuvzL6MqCmJ/WgJHMEQCIBZa5i8jVPdfV4pbIzSebMb5RN+l5lJkQKAw9+ivAWfnAiBNhehz79143DbFOoTjmPYVErlY0FLlVqojX9wat0aKXgEhA9dFRFyTYmZfIuDZbp52byc/MmDeo5yKdr+gXdJoTdzPGAAAAAEBKwEvDwAAAAAAIlEgY//uTqfVHmyt+QhuKGolJ5IqqiW4xTrr8y+jKgpif1oBDiBWd3IcNaQkoj1tzHyQkDblBa5oZQ4J1ZcztLfnMAOk3AEPBAEAAAABEAT9////DPwJbGlnaHRuaW5nAQg5j4QWOQoUFAABAwhOfA0AAAAAAAEEIlEgeDY1X9yKgtxMsAp3LFVUFR0GOEpN1l6NP2isCFZrhL4M/AlsaWdodG5pbmcBCMbeD+3qn9/kAAEDCODIEAAAAAAAAQQiACBbjNO5FM9nzdj6YnPJMDU902R2c0+9liECwt9TuQiAzQz8CWxpZ2h0bmluZwEI4upB+mjl6AIA",
-              "signonly": null
+              "psbt": "cHNidP8BAgQCAAAAAQMEbAAAAAEEAQIBBQECAQYBAwH7BAIAAAAAAQD2AgAAAAABAYulMzSBYSogKOBxk3Kg+HN0Hl81kGsQVuw2mwoetN33AQAAAAD9////AkBCDwAAAAAAIgAgW4zTuRTPZ83Y+mJzyTA1PdNkdnNPvZYhAsLfU7kIgM0BLw8AAAAAACJRIGP/7k6n1R5srfkIbihqJSeSKqoluMU66/MvoyoKYn9aAkcwRAIgFlrmLyNU919XilsjNJ5sxvlE36XmUmRAoDD36K8BZ+cCIE2F6HPv3XjcNsU6hOOY9hUSuVjQUuVWqiNf3Bq3RopeASED10VEXJNiZl8i4NlunnZvJz8yYN6jnIp2v6Bd0mhN3M8YAAAAAQErQEIPAAAAAAAiACBbjNO5FM9nzdj6YnPJMDU902R2c0+9liECwt9TuQiAzQEOIFZ3chw1pCSiPW3MfJCQNuUFrmhlDgnVlzO0t+cwA6TcAQ8EAAAAAAEQBAAAAAAM/AlsaWdodG5pbmcBCCvyYqqdIt0mAAEA9gIAAAAAAQGLpTM0gWEqICjgcZNyoPhzdB5fNZBrEFbsNpsKHrTd9wEAAAAA/f///wJAQg8AAAAAACIAIFuM07kUz2fN2Ppic8kwNT3TZHZzT72WIQLC31O5CIDNAS8PAAAAAAAiUSBj/+5Op9UebK35CG4oaiUnkiqqJbjFOuvzL6MqCmJ/WgJHMEQCIBZa5i8jVPdfV4pbIzSebMb5RN+l5lJkQKAw9+ivAWfnAiBNhehz79143DbFOoTjmPYVErlY0FLlVqojX9wat0aKXgEhA9dFRFyTYmZfIuDZbp52byc/MmDeo5yKdr+gXdJoTdzPGAAAAAEBKwEvDwAAAAAAIlEgY//uTqfVHmyt+QhuKGolJ5IqqiW4xTrr8y+jKgpif1oBDiBWd3IcNaQkoj1tzHyQkDblBa5oZQ4J1ZcztLfnMAOk3AEPBAEAAAABEAT9////DPwJbGlnaHRuaW5nAQg5j4QWOQoUFAABAwhOfA0AAAAAAAEEIlEgeDY1X9yKgtxMsAp3LFVUFR0GOEpN1l6NP2isCFZrhL4M/AlsaWdodG5pbmcBCMbeD+3qn9/kAAEDCODIEAAAAAAAAQQiACBbjNO5FM9nzdj6YnPJMDU902R2c0+9liECwt9TuQiAzQz8CWxpZ2h0bmluZwEI4upB+mjl6AIA"
             }
           },
           "response": {
@@ -28205,8 +27992,7 @@
             "params": {
               "channel_id": "5677721c35a424a23d6dcc7c909036e505ae68650e09d59733b4b7e73003a4dc",
               "relative_amount": 100000,
-              "initialpsbt": "cHNidP8BAF4CAAAAAVZ3chw1pCSiPW3MfJCQNuUFrmhlDgnVlzO0t+cwA6TcAQAAAAD9////AU58DQAAAAAAIlEgeDY1X9yKgtxMsAp3LFVUFR0GOEpN1l6NP2isCFZrhL5sAAAAAAEA9gIAAAAAAQGLpTM0gWEqICjgcZNyoPhzdB5fNZBrEFbsNpsKHrTd9wEAAAAA/f///wJAQg8AAAAAACIAIFuM07kUz2fN2Ppic8kwNT3TZHZzT72WIQLC31O5CIDNAS8PAAAAAAAiUSBj/+5Op9UebK35CG4oaiUnkiqqJbjFOuvzL6MqCmJ/WgJHMEQCIBZa5i8jVPdfV4pbIzSebMb5RN+l5lJkQKAw9+ivAWfnAiBNhehz79143DbFOoTjmPYVErlY0FLlVqojX9wat0aKXgEhA9dFRFyTYmZfIuDZbp52byc/MmDeo5yKdr+gXdJoTdzPGAAAAAEBKwEvDwAAAAAAIlEgY//uTqfVHmyt+QhuKGolJ5IqqiW4xTrr8y+jKgpif1oAAA==",
-              "feerate_per_kw": null
+              "initialpsbt": "cHNidP8BAF4CAAAAAVZ3chw1pCSiPW3MfJCQNuUFrmhlDgnVlzO0t+cwA6TcAQAAAAD9////AU58DQAAAAAAIlEgeDY1X9yKgtxMsAp3LFVUFR0GOEpN1l6NP2isCFZrhL5sAAAAAAEA9gIAAAAAAQGLpTM0gWEqICjgcZNyoPhzdB5fNZBrEFbsNpsKHrTd9wEAAAAA/f///wJAQg8AAAAAACIAIFuM07kUz2fN2Ppic8kwNT3TZHZzT72WIQLC31O5CIDNAS8PAAAAAAAiUSBj/+5Op9UebK35CG4oaiUnkiqqJbjFOuvzL6MqCmJ/WgJHMEQCIBZa5i8jVPdfV4pbIzSebMb5RN+l5lJkQKAw9+ivAWfnAiBNhehz79143DbFOoTjmPYVErlY0FLlVqojX9wat0aKXgEhA9dFRFyTYmZfIuDZbp52byc/MmDeo5yKdr+gXdJoTdzPGAAAAAEBKwEvDwAAAAAAIlEgY//uTqfVHmyt+QhuKGolJ5IqqiW4xTrr8y+jKgpif1oAAA=="
             }
           },
           "response": {
@@ -28220,8 +28006,7 @@
             "params": {
               "channel_id": "a40bb442dab0231b51d8f842d95aad548aa35e1d13c4cfcf2997344f805453a1",
               "relative_amount": -105000,
-              "initialpsbt": "cHNidP8BAgQCAAAAAQMEbAAAAAEEAQABBQEBAQYBAwH7BAIAAAAAAQMIoIYBAAAAAAABBCJRIHg2NV/cioLcTLAKdyxVVBUdBjhKTdZejT9orAhWa4S+AA==",
-              "feerate_per_kw": null
+              "initialpsbt": "cHNidP8BAgQCAAAAAQMEbAAAAAEEAQABBQEBAQYBAwH7BAIAAAAAAQMIoIYBAAAAAAABBCJRIHg2NV/cioLcTLAKdyxVVBUdBjhKTdZejT9orAhWa4S+AA=="
             }
           },
           "response": {
@@ -29035,10 +28820,7 @@
                 {
                   "bcrt1qtwxd8wg5eanumk86vfeujvp48hfkgannf77evggzct048wggsrxsum2pmm": 16777215
                 }
-              ],
-              "feerate": null,
-              "minconf": null,
-              "utxos": null
+              ]
             }
           },
           "response": {
@@ -29056,10 +28838,7 @@
                 {
                   "bcrt1qyhu7rxj3rrlcj84jtzp2mk9d89xm9v2rx4d4h8au830axugx6mmqsuplng": "100000sat"
                 }
-              ],
-              "feerate": null,
-              "minconf": null,
-              "utxos": null
+              ]
             }
           },
           "response": {
@@ -29300,8 +29079,7 @@
             "id": "example:unreserveinputs#2",
             "method": "unreserveinputs",
             "params": {
-              "psbt": "cHNidP8BAF4CAAAAAVa79WPJoiYrzo/RgzIAn5HanoBFZo0vZvEjxPAVwLv4AAAAAAD9////AXzpHAAAAAAAIlEgBRjpLNlOD2LAbxJt/5i5q+ebfthFoVbVJFZ44mVUR11mAAAAAAEA3gIAAAAAAQENwcSElLyC0jcwUHiODBhtapHyzIdiwytOGiu/Raf4BwAAAAAA/f///wKAhB4AAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFl82znKQEAAAAWABQyIWyAI6LDf6dJ58BDPdkh+PWUZwJHMEQCIGiJFhVi/d/Hz19Cz48uHTjhgBJ6WAlgl/bLVS7A6VtxAiAwlb7xYzIM4uopFvMnpOmGIOp3+upOPPF2F8VaB8U/HQEhA6BAjey7RADP4ifoh2VXhX7QXkh+sZqozv1EPuU5TxZmZQAAAAEBH4CEHgAAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WUAAA==",
-              "reserve": null
+              "psbt": "cHNidP8BAF4CAAAAAVa79WPJoiYrzo/RgzIAn5HanoBFZo0vZvEjxPAVwLv4AAAAAAD9////AXzpHAAAAAAAIlEgBRjpLNlOD2LAbxJt/5i5q+ebfthFoVbVJFZ44mVUR11mAAAAAAEA3gIAAAAAAQENwcSElLyC0jcwUHiODBhtapHyzIdiwytOGiu/Raf4BwAAAAAA/f///wKAhB4AAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFl82znKQEAAAAWABQyIWyAI6LDf6dJ58BDPdkh+PWUZwJHMEQCIGiJFhVi/d/Hz19Cz48uHTjhgBJ6WAlgl/bLVS7A6VtxAiAwlb7xYzIM4uopFvMnpOmGIOp3+upOPPF2F8VaB8U/HQEhA6BAjey7RADP4ifoh2VXhX7QXkh+sZqozv1EPuU5TxZmZQAAAAEBH4CEHgAAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WUAAA=="
             }
           },
           "response": {
@@ -29638,8 +29416,6 @@
               ],
               "reserve": 0,
               "reservedok": true,
-              "locktime": null,
-              "min_witness_weight": null,
               "excess_as_change": false
             }
           },
@@ -29662,10 +29438,7 @@
                 "2fc3b9f8d4aed120f6d9a6f206f07c35ef4d518ec0305d1d974873d256e38ca7:1",
                 "2f669f6a605ee5c7ddd2abb753bc64b1a90bd1b7448264f5d78a7ca823c00a1b:1"
               ],
-              "reserve": null,
               "reservedok": true,
-              "locktime": null,
-              "min_witness_weight": null,
               "excess_as_change": false
             }
           },
@@ -30289,10 +30062,7 @@
           "request": {
             "id": "example:waitanyinvoice#1",
             "method": "waitanyinvoice",
-            "params": {
-              "lastpay_index": null,
-              "timeout": null
-            }
+            "params": {}
           },
           "response": {
             "label": "inv1",
@@ -30407,8 +30177,7 @@
             "id": "example:waitblockheight#1",
             "method": "waitblockheight",
             "params": {
-              "blockheight": 99,
-              "timeout": null
+              "blockheight": 99
             }
           },
           "response": {
@@ -30921,10 +30690,7 @@
             "id": "example:waitsendpay#1",
             "method": "waitsendpay",
             "params": {
-              "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a",
-              "timeout": null,
-              "partid": null,
-              "groupid": null
+              "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a"
             }
           },
           "response": {
@@ -31049,10 +30815,7 @@
             "method": "withdraw",
             "params": {
               "destination": "bcrt1qjc7j2l5es4haw35c9jzm8dfm763ng5djp8f0s0",
-              "satoshi": 555555,
-              "feerate": null,
-              "minconf": null,
-              "utxos": null
+              "satoshi": 555555
             }
           },
           "response": {

@@ -351,13 +351,8 @@
             }
           ],
           "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a",
-          "label": null,
-          "amount_msat": null,
           "bolt11": "lnbcrt110u1pjmr5lzsp5sfjyj3xn7ux592k36hmmt4ax98n6lgct22wvj54yck0upcmep63qpp5qu436g855lr40ftdt7csatk5pdvtdzzfmfqluwtvm0fds95jsadqdpq0pzk7s6j8y69xjt6xe25j5j4g44hsatdxqyjw5qcqp99qxpqysgquwma3zrw4cd8e8j4u9uh4gxukaacckse64kx2l9dqv8rvrysdq5r5dt38t9snqj9u5ar07h2exr4fg56wpudkhkk7gtxlyt72ku5fpqqd4fnlk",
-          "payment_secret": "82644944d3f70d42aad1d5f7b5d7a629e7afa30b529cc952a4c59fc0e3790ea2",
-          "partid": null,
-          "groupid": null,
-          "payment_metadata": null
+          "payment_secret": "82644944d3f70d42aad1d5f7b5d7a629e7afa30b529cc952a4c59fc0e3790ea2"
         }
       },
       "response": {
@@ -406,13 +401,7 @@
             }
           ],
           "payment_hash": "bc747053329402620a26bdc187cd134cdb699130d85be499ecd24160aff04c5c",
-          "label": null,
-          "amount_msat": null,
-          "bolt11": null,
-          "payment_secret": "c36a2fe9aced78c06960e2f21b369ed03f0492c97e53ba3b662163bcdaf1d7fa",
-          "partid": null,
-          "groupid": null,
-          "payment_metadata": null
+          "payment_secret": "c36a2fe9aced78c06960e2f21b369ed03f0492c97e53ba3b662163bcdaf1d7fa"
         }
       },
       "response": {

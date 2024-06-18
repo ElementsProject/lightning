@@ -67,9 +67,7 @@
       "request": {
         "id": "example:datastoreusage#1",
         "method": "datastoreusage",
-        "params": {
-          "key": null
-        }
+        "params": {}
       },
       "response": {
         "datastoreusage": {

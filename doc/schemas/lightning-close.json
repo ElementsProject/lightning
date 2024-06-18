@@ -150,11 +150,7 @@
         "method": "close",
         "params": {
           "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-          "unilateraltimeout": 1,
-          "destination": null,
-          "fee_negotiation_step": null,
-          "force_lease_closed": null,
-          "feerange": null
+          "unilateraltimeout": 1
         }
       },
       "response": {
@@ -169,11 +165,7 @@
         "method": "close",
         "params": {
           "id": "103x1x0",
-          "unilateraltimeout": null,
-          "destination": "bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg",
-          "fee_negotiation_step": null,
-          "force_lease_closed": null,
-          "feerange": null
+          "destination": "bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg"
         }
       },
       "response": {

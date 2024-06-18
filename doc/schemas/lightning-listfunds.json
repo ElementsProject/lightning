@@ -334,9 +334,7 @@
       "request": {
         "id": "example:listfunds#1",
         "method": "listfunds",
-        "params": {
-          "spent": null
-        }
+        "params": {}
       },
       "response": {
         "outputs": [

@@ -54,8 +54,7 @@
         "id": "example:waitblockheight#1",
         "method": "waitblockheight",
         "params": {
-          "blockheight": 99,
-          "timeout": null
+          "blockheight": 99
         }
       },
       "response": {

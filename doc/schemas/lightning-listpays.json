@@ -215,9 +215,7 @@
         "id": "example:listpays#1",
         "method": "listpays",
         "params": {
-          "bolt11": "lnbcrt123n1pjmxp7qsp5hxu7u28y0nx4v689u3hwzdzse2w9yaylhheavf9dxvwtdup7pvespp5ha66gxse68j4n6755v7299dnmq4w34gp0znxu0xzahdc43zrg40qdq5v3jhxcmjd9c8g6t0dc6sxqrp7scqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqvuqqqqsqqqqqqqqpqqqqqzsqqc9qxpqysgqk74dvqlvr92ayy5s7x0r0u9xywez6wu4h8pfta386cw6x7cdrvn8pz87kyg5c930aent423gm9ylpaw5p35k72f02hg0s9dulg4d8fqpgj7gpm",
-          "payment_hash": null,
-          "status": null
+          "bolt11": "lnbcrt123n1pjmxp7qsp5hxu7u28y0nx4v689u3hwzdzse2w9yaylhheavf9dxvwtdup7pvespp5ha66gxse68j4n6755v7299dnmq4w34gp0znxu0xzahdc43zrg40qdq5v3jhxcmjd9c8g6t0dc6sxqrp7scqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqvuqqqqsqqqqqqqqpqqqqqzsqqc9qxpqysgqk74dvqlvr92ayy5s7x0r0u9xywez6wu4h8pfta386cw6x7cdrvn8pz87kyg5c930aent423gm9ylpaw5p35k72f02hg0s9dulg4d8fqpgj7gpm"
         }
       },
       "response": {
@@ -238,9 +236,7 @@
         "id": "example:listpays#2",
         "method": "listpays",
         "params": {
-          "bolt11": "lnbcrt123n1pjmxp7qsp5u84368dz7yhzcqm955h96wdqch7uarasun45cr0vs5d8t0cv5avqpp5r9p0dp92guaatrmhf302m0dyj4n79gk93qu2l5tagfxq3dedgfqsdq5v3jhxcmjd9c8g6t0dc6qxqrp7scqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqvuqqqqsqqqqqqqqpqqqqqzsqqc9qxpqysgq46wu0fznfx27rcnyzhcttf8yqx3lwqs482yxlead0fyt8mefrrrj5m379fa5qukgquf9tnwsuj3nnfmwkzkfg6pyhzq6w8gauuh6m5cqgur64n",
-          "payment_hash": null,
-          "status": null
+          "bolt11": "lnbcrt123n1pjmxp7qsp5u84368dz7yhzcqm955h96wdqch7uarasun45cr0vs5d8t0cv5avqpp5r9p0dp92guaatrmhf302m0dyj4n79gk93qu2l5tagfxq3dedgfqsdq5v3jhxcmjd9c8g6t0dc6qxqrp7scqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqvuqqqqsqqqqqqqqpqqqqqzsqqc9qxpqysgq46wu0fznfx27rcnyzhcttf8yqx3lwqs482yxlead0fyt8mefrrrj5m379fa5qukgquf9tnwsuj3nnfmwkzkfg6pyhzq6w8gauuh6m5cqgur64n"
         }
       },
       "response": {

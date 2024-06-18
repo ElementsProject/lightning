@@ -1483,9 +1483,7 @@
       "request": {
         "id": "example:listpeerchannels#2",
         "method": "listpeerchannels",
-        "params": {
-          "id": null
-        }
+        "params": {}
       },
       "response": {
         "channels": [

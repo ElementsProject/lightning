@@ -293,13 +293,7 @@
         "id": "example:listinvoices#1",
         "method": "listinvoices",
         "params": {
-          "label": "xEoCR94SIz6UIRUEkxum",
-          "payment_hash": null,
-          "invstring": null,
-          "offer_id": null,
-          "index": null,
-          "start": null,
-          "limit": null
+          "label": "xEoCR94SIz6UIRUEkxum"
         }
       },
       "response": {
