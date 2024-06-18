@@ -4999,6 +4999,7 @@ impl From<requests::RenepayRequest> for pb::RenepayRequest {
             label: c.label, // Rule #2 for type string?
             maxdelay: c.maxdelay, // Rule #2 for type u32?
             maxfee: c.maxfee.map(|f| f.into()), // Rule #2 for type msat?
+            maxhops: c.maxhops, // Rule #2 for type u32?
             retry_for: c.retry_for, // Rule #2 for type u32?
         }
     }
@@ -6398,6 +6399,7 @@ impl From<pb::RenepayRequest> for requests::RenepayRequest {
             label: c.label, // Rule #1 for type string?
             maxdelay: c.maxdelay, // Rule #1 for type u32?
             maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
+            maxhops: c.maxhops, // Rule #1 for type u32?
             retry_for: c.retry_for, // Rule #1 for type u32?
         }
     }

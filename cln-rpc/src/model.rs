@@ -3071,6 +3071,8 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub maxfee: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maxhops: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub retry_for: Option<u32>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub exclude: Option<Vec<String>>,

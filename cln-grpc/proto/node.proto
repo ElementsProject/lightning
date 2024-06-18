@@ -2481,6 +2481,7 @@ message RenepayRequest {
 	optional string label = 7;
 	optional bool dev_use_shadow = 8;
 	repeated string exclude = 9;
+	optional uint32 maxhops = 10;
 }
 
 message RenepayResponse {

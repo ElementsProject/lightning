@@ -2829,6 +2829,7 @@
             "RenePay.label": 7,
             "RenePay.maxdelay": 4,
             "RenePay.maxfee": 3,
+            "RenePay.maxhops": 10,
             "RenePay.retry_for": 5
         },
         "RenepayResponse": {
@@ -10041,6 +10042,10 @@
         },
         "RenePay.maxfee": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "RenePay.maxhops": {
+            "added": "v24.08",
             "deprecated": false
         },
         "RenePay.parts": {
