@@ -7,16 +7,22 @@
 #include <plugins/renepay/route.h>
 
 struct routetracker{
-	struct payment *payment;
+	/* Routes that we compute and are kept here before sending them. */
+	struct route **computed_routes;
+
+	/* Routes that we sendpay and are still waiting for rpc returning
+	 * success. */
 	struct route_map *sent_routes;
-	struct route_map *pending_routes;
+
+	/* Routes that have concluded (either SENDPAY_FAILED or
+	 * SENDPAY_COMPLETE). */
 	struct route **finalized_routes;
 };
 
 struct routetracker *new_routetracker(const tal_t *ctx, struct payment *payment);
-// bool routetracker_is_ready(const struct routetracker *routetracker);
 void routetracker_cleanup(struct routetracker *routetracker);
-size_t routetracker_count_sent(struct routetracker *routetracker);
+
+bool routetracker_have_results(struct routetracker *routetracker);
 
 /* The payment has a list of route that have "returned". Calling this function
  * payment will look through that list and process those routes' results:
@@ -28,14 +34,9 @@ void payment_collect_results(struct payment *payment,
 			     enum jsonrpc_errcode *final_error,
 			     const char **final_msg);
 
-/* Announce that this route is pending and needs to be kept in the waiting list
- * for notifications. */
-void route_pending_register(struct routetracker *routetracker,
-			    struct route *route);
-
 /* Sends a sendpay request for this route. */
 struct command_result *route_sendpay_request(struct command *cmd,
-					     struct route *route,
+					     struct route *route TAKES,
 					     struct payment *payment);
 
 struct command_result *notification_sendpay_failure(struct command *cmd,
