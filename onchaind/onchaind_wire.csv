@@ -42,7 +42,6 @@ msgdata,onchaind_init,num_htlc_sigs,u16,
 msgdata,onchaind_init,htlc_signature,bitcoin_signature,num_htlc_sigs
 msgdata,onchaind_init,min_possible_feerate,u32,
 msgdata,onchaind_init,max_possible_feerate,u32,
-msgdata,onchaind_init,possible_remote_per_commit_point,?pubkey,
 msgdata,onchaind_init,local_funding_pubkey,pubkey,
 msgdata,onchaind_init,remote_funding_pubkey,pubkey,
 msgdata,onchaind_init,local_static_remotekey_start,u64,
