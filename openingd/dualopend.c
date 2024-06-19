@@ -3922,15 +3922,13 @@ static u8 *handle_funding_depth(struct state *state, u8 *msg)
 /* BOLT #2:
  *
  * A receiving node:
- *  - if `option_static_remotekey` applies to the commitment transaction:
+ *    - MUST ignore `my_current_per_commitment_point`, but MAY require it to be
+ *      a valid point.
  *    - if `next_revocation_number` is greater than expected above, AND
  *    `your_last_per_commitment_secret` is correct for that
  *    `next_revocation_number` minus 1:
- *...
- *  - otherwise, if it supports `option_data_loss_protect`:
- *    - if `next_revocation_number` is greater than expected above,
- *      AND `your_last_per_commitment_secret` is correct for that
- *     `next_revocation_number` minus 1:
+ *      - MUST NOT broadcast its commitment transaction.
+ *      - SHOULD send an `error` to request the peer to fail the channel.
  */
 static void
 check_future_dataloss_fields(struct state *state,

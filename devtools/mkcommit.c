@@ -395,7 +395,7 @@ int main(int argc, char *argv[])
 	else if (option_static_remotekey)
 		channel_type = channel_type_static_remotekey(NULL);
 	else
-		channel_type = channel_type_none(NULL);
+		channel_type = channel_type_none_obsolete(NULL);
 
 	channel = new_full_channel(NULL,
 				   &cid,

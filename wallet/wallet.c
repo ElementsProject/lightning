@@ -1527,7 +1527,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	s64 final_key_idx, channel_config_id;
 	struct basepoints local_basepoints;
 	struct pubkey local_funding_pubkey;
-	struct pubkey *future_per_commitment_point;
+	bool has_future_per_commitment_point;
 	struct amount_sat funding_sat, our_funding_sat;
 	struct amount_msat push_msat, our_msat, msat_to_us_min, msat_to_us_max, htlc_minimum_msat, htlc_maximum_msat;
 	struct channel_type *type;
@@ -1582,9 +1582,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	db_col_ignore(stmt, "last_sent_commit_state");
 	db_col_ignore(stmt, "last_sent_commit_id");
 
-	future_per_commitment_point = db_col_optional(tmpctx, stmt,
-						      "future_per_commitment_point",
-						      pubkey);
+	has_future_per_commitment_point = !db_col_is_null(stmt,
+							  "future_per_commitment_point");
 
 	db_col_channel_id(stmt, "full_channel_id", &cid);
 	channel_config_id = db_col_u64(stmt, "channel_config_local");
@@ -1760,7 +1759,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   db_col_int(stmt, "min_possible_feerate"),
 			   db_col_int(stmt, "max_possible_feerate"),
 			   &local_basepoints, &local_funding_pubkey,
-			   future_per_commitment_point,
+			   has_future_per_commitment_point,
 			   db_col_int(stmt, "feerate_base"),
 			   db_col_int(stmt, "feerate_ppm"),
 			   db_col_arr(tmpctx, stmt, "remote_upfront_shutdown_script", u8),
@@ -2417,8 +2416,9 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_bind_pubkey(stmt,  &chan->channel_info.remote_per_commit);
 	db_bind_pubkey(stmt,  &chan->channel_info.old_remote_per_commit);
 	db_bind_u64(stmt, chan->channel_info.their_config.id);
-	if (chan->future_per_commitment_point)
-		db_bind_pubkey(stmt, chan->future_per_commitment_point);
+	/* Any pubkey works here: use our own node id */
+	if (chan->has_future_per_commitment_point)
+		db_bind_node_id(stmt, &chan->peer->ld->id);
 	else
 		db_bind_null(stmt);
 	db_bind_u64(stmt, chan->dbid);

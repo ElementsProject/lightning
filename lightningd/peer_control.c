@@ -373,7 +373,7 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 	 *   `next_revocation_number` minus 1:
 	 *      - MUST NOT broadcast its commitment transaction.
 	 */
-	if (channel->future_per_commitment_point && !cooperative) {
+	if (channel->has_future_per_commitment_point && !cooperative) {
 		log_broken(channel->log,
 			   "Cannot broadcast our commitment tx:"
 			   " they have a future one");
@@ -879,7 +879,7 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct lightningd *ld,
 					 bitcoin_tx_compute_fee(channel->last_tx));
 	}
 
-	json_add_bool(response, "lost_state", channel->future_per_commitment_point ? true : false);
+	json_add_bool(response, "lost_state", channel->has_future_per_commitment_point);
 	json_object_start(response, "feerate");
 	feerate = get_feerate(channel->fee_states, channel->opener, LOCAL);
 	json_add_u32(response, feerate_style_name(FEERATE_PER_KSIPA), feerate);

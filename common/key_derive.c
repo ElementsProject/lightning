@@ -20,6 +20,12 @@
  * the `local_delayedpubkey` uses the local node's `delayed_payment_basepoint`;
  * and the `remote_delayedpubkey` uses the remote node's `delayed_payment_basepoint`.
  *...
+ * The `remotepubkey` is simply the remote node's `payment_basepoint`.
+ */
+
+/* The old BOLT defined what happened prior to option_static_remotekey,
+ * which we still support for existing channels:
+ *
  * If `option_static_remotekey` or `option_anchors` is negotiated, the
  * `remotepubkey` is simply the remote node's `payment_basepoint`, otherwise
  * it is calculated as above using the remote node's `payment_basepoint`.

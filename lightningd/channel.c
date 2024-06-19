@@ -304,7 +304,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->static_remotekey_start[LOCAL]
 		= channel->static_remotekey_start[REMOTE] = 0;
 
-	channel->future_per_commitment_point = NULL;
+	channel->has_future_per_commitment_point = false;
 
 	channel->lease_commit_sig = NULL;
 	channel->ignore_fee_limits = ld->config.ignore_fee_limits;
@@ -424,7 +424,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u32 max_possible_feerate,
 			    const struct basepoints *local_basepoints,
 			    const struct pubkey *local_funding_pubkey,
-			    const struct pubkey *future_per_commitment_point,
+			    bool has_future_per_commitment_point,
 			    u32 feerate_base,
 			    u32 feerate_ppm,
 			    const u8 *remote_upfront_shutdown_script,
@@ -555,8 +555,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->max_possible_feerate = max_possible_feerate;
 	channel->local_basepoints = *local_basepoints;
 	channel->local_funding_pubkey = *local_funding_pubkey;
-	channel->future_per_commitment_point
-		= tal_steal(channel, future_per_commitment_point);
+	channel->has_future_per_commitment_point = has_future_per_commitment_point;
 	channel->feerate_base = feerate_base;
 	channel->feerate_ppm = feerate_ppm;
 	channel->old_feerate_timeout.ts.tv_sec = 0;

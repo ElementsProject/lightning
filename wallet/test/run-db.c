@@ -166,7 +166,7 @@ struct channel *new_channel(struct peer *peer UNNEEDED, u64 dbid UNNEEDED,
 			    u32 max_possible_feerate UNNEEDED,
 			    const struct basepoints *local_basepoints UNNEEDED,
 			    const struct pubkey *local_funding_pubkey UNNEEDED,
-			    const struct pubkey *future_per_commitment_point UNNEEDED,
+			    bool has_future_per_commitment_point UNNEEDED,
 			    u32 feerate_base UNNEEDED,
 			    u32 feerate_ppm UNNEEDED,
 			    /* NULL or stolen */

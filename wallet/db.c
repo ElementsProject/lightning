@@ -1686,7 +1686,7 @@ static void migrate_fill_in_channel_type(struct lightningd *ld,
 		} else if (db_col_u64(stmt, "local_static_remotekey_start") != 0x7FFFFFFFFFFFFFFFULL)
 			type = channel_type_static_remotekey(tmpctx);
 		else
-			type = channel_type_none(tmpctx);
+			type = channel_type_none_obsolete(tmpctx);
 
 		/* We didn't keep type in db, so assume all private
 		 * channels which support aliases don't want us to fwd
