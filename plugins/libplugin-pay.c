@@ -97,6 +97,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->aborterror = NULL;
 	p->on_payment_success = NULL;
 	p->on_payment_failure = NULL;
+	p->errorcode = 0;
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
@@ -2158,7 +2159,7 @@ static void payment_finished(struct payment *p)
 		} else if (p->aborterror != NULL) {
 			/* We set an explicit toplevel error message,
 			 * so let's report that. */
-			ret = jsonrpc_stream_fail(cmd, PAY_STOPPED_RETRYING,
+			ret = jsonrpc_stream_fail(cmd, p->errorcode,
 						  p->aborterror);
 			payment_json_add_attempts(ret, "attempts", p);
 
@@ -2318,7 +2319,7 @@ void payment_continue(struct payment *p)
 	abort();
 }
 
-void payment_abort(struct payment *p, const char *fmt, ...) {
+void payment_abort(struct payment *p, enum jsonrpc_errcode code, const char *fmt, ...) {
 	va_list ap;
 	struct payment *root = payment_root(p);
 	payment_set_step(p, PAYMENT_STEP_FAILED);
@@ -2945,6 +2946,7 @@ static void routehint_check_reachable(struct payment *p)
 
 		payment_abort(
 		    p,
+		    PAY_UNREACHABLE,
 		    "Destination %s is not reachable directly and "
 		    "all routehints were unusable.",
 		    fmt_node_id(tmpctx, p->route_destination));
@@ -3812,10 +3814,10 @@ static void route_exclusions_step_cb(struct route_exclusions_data *d,
 				false, false, NULL, NULL);
 		} else {
 			if (node_id_eq(&e->u.node_id, p->route_destination)) {
-				payment_abort(p, "Payee is manually excluded");
+				payment_abort(p, PAY_USER_ERROR, "Payee is manually excluded");
 				return;
 			} else if (node_id_eq(&e->u.node_id, p->local_id)) {
-				payment_abort(p, "Payer is manually excluded");
+				payment_abort(p, PAY_USER_ERROR, "Payer is manually excluded");
 				return;
 			}
 
