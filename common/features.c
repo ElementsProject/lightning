@@ -439,7 +439,7 @@ const char *feature_name(const tal_t *ctx, size_t f)
 		"option_basic_mpp",
 		"option_support_large_channel",
 		"option_anchor_outputs", 	/* 20/21 */
-		"option_anchors_zero_fee_htlc_tx",
+		"option_anchors",
 		"option_route_blinding", /* https://github.com/lightning/bolts/pull/765 */
 		"option_shutdown_anysegwit",
 		"option_dual_fund",

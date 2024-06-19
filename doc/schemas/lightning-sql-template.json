@@ -233,7 +233,7 @@
             7,
             1,
             1,
-            "option_anchors_zero_fee_htlc_tx"
+            "option_anchors"
           ],
           [
             16,
@@ -245,7 +245,7 @@
             17,
             11,
             1,
-            "option_anchors_zero_fee_htlc_tx"
+            "option_anchors"
           ]
         ]
       }

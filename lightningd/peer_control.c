@@ -807,12 +807,13 @@ struct amount_msat channel_amount_receivable(const struct channel *channel)
 	return receivable;
 }
 
-static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct lightningd *ld,
+static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 						       struct json_stream *response,
 						       const char *key,
 						       const struct channel *channel,
 						       const struct peer *peer)
 {
+	struct lightningd *ld = cmd->ld;
 	struct channel_stats channel_stats;
 	struct amount_msat funding_msat;
 	struct amount_sat peer_funded_sats;
@@ -1007,8 +1008,11 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct lightningd *ld,
 		json_add_string(response, NULL, "option_static_remotekey");
 	if (channel_has(channel, OPT_ANCHOR_OUTPUTS_DEPRECATED))
 		json_add_string(response, NULL, "option_anchor_outputs");
-	if (channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX))
-		json_add_string(response, NULL, "option_anchors_zero_fee_htlc_tx");
+	if (channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX)) {
+		if (command_deprecated_out_ok(cmd, "features", "v24.08", "v25.08"))
+			json_add_string(response, NULL, "option_anchors_zero_fee_htlc_tx");
+		json_add_string(response, NULL, "option_anchors");
+	}
 	if (channel_has(channel, OPT_ZEROCONF))
 		json_add_string(response, NULL, "option_zeroconf");
 	if (channel_has(channel, OPT_SCID_ALIAS))
@@ -2357,18 +2361,18 @@ static const struct json_command staticbackup_command = {
 /* Comment added to satisfice AUTODATA */
 AUTODATA(json_command, &staticbackup_command);
 
-static void json_add_peerchannels(struct lightningd *ld,
+static void json_add_peerchannels(struct command *cmd,
 				  struct json_stream *response,
 				  const struct peer *peer)
 {
 	struct channel *channel;
 
-	json_add_uncommitted_channel(response, peer->uncommitted_channel, peer);
+	json_add_uncommitted_channel(cmd, response, peer->uncommitted_channel, peer);
 	list_for_each(&peer->channels, channel, list) {
 		if (channel_state_uncommitted(channel->state))
-			json_add_unsaved_channel(response, channel, peer);
+			json_add_unsaved_channel(cmd, response, channel, peer);
 		else
-			json_add_channel(ld, response, NULL, channel, peer);
+			json_add_channel(cmd, response, NULL, channel, peer);
 	}
 }
 
@@ -2393,14 +2397,14 @@ static struct command_result *json_listpeerchannels(struct command *cmd,
 	if (peer_id) {
 		peer = peer_by_id(cmd->ld, peer_id);
 		if (peer)
-			json_add_peerchannels(cmd->ld, response, peer);
+			json_add_peerchannels(cmd, response, peer);
 	} else {
 		struct peer_node_id_map_iter it;
 
 		for (peer = peer_node_id_map_first(cmd->ld->peers, &it);
 		     peer;
 		     peer = peer_node_id_map_next(cmd->ld->peers, &it)) {
-			json_add_peerchannels(cmd->ld, response, peer);
+			json_add_peerchannels(cmd, response, peer);
 		}
 	}
 

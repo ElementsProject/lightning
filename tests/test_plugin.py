@@ -668,7 +668,7 @@ def test_openchannel_hook(node_factory, bitcoind):
         'to_self_delay': '5',
     }
 
-    if 'anchors_zero_fee_htlc_tx/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
+    if 'anchors/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
         feerate = 3750
     else:
         feerate = 7500

@@ -2661,7 +2661,7 @@ def test_onchain_different_fees(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log(' to ONCHAIN')
 
     # Elements still uses non-anchor version.
-    if 'anchors_zero_fee_htlc_tx/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
+    if 'anchors/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
         expected = {'min_possible_feerate': 3750,
                     'max_possible_feerate': 5005}
     else:
@@ -3743,7 +3743,7 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
                                                'min-emergency-msat': 546000},
                                               {'feerates': (1000,) * 4,
                                                'disconnect': ['-WIRE_UPDATE_FAIL_HTLC']}])
-    assert 'anchors_zero_fee_htlc_tx/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']
+    assert 'anchors/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']
 
     # We reduce l1's UTXOs so it's forced to use more than one UTXO to push.
     fundsats = int(Millisatoshi(only_one(l1.rpc.listfunds()['outputs'])['amount_msat']).to_satoshi())
@@ -4023,7 +4023,7 @@ def test_closing_cpfp(node_factory, bitcoind):
     sync_blockheight(bitcoind, [l1, l2])
     assert len(l1.rpc.listfunds()['outputs']) == 2
     # This one will also have emergency change if anchors
-    if 'anchors_zero_fee_htlc_tx/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
+    if 'anchors/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
         assert len(l2.rpc.listfunds()['outputs']) == 2
     else:
         assert len(l2.rpc.listfunds()['outputs']) == 1

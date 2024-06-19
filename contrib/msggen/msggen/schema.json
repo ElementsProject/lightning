@@ -10071,7 +10071,7 @@
           "feerate": {
             "type": "feerate",
             "description": [
-              "Used for the opening transaction and (unless *option_anchors_zero_fee_htlc_tx* is negotiated), as initial feerate for commitment and HTLC transactions (see NOTES in lightning-feerates(7))."
+              "Used for the opening transaction and (unless *option_anchors* is negotiated), as initial feerate for commitment and HTLC transactions (see NOTES in lightning-feerates(7))."
             ],
             "default": "*normal*"
           },
@@ -10144,10 +10144,8 @@
                 "Represents the explicit channel type to request. There is currently no sanity checking on this value so if you use strange values and your channel breaks, you get to keep both pieces. BOLT 2 defines the following value types:",
                 "```",
                 "The currently defined basic types are:",
-                "  - no features (no bits set).",
                 "  - `option_static_remotekey` (bit 12).",
-                "  - `option_anchor_outputs` and `option_static_remotekey` (bits 20 and 12).",
-                "  - `option_anchors_zero_fee_htlc_tx` and `option_static_remotekey` (bits 22 and 12).",
+                "  - `option_anchors` and `option_static_remotekey` (bits 22 and 12).",
                 "",
                 "Each basic type has the following variations allowed:",
                 "  - `option_scid_alias` (bit 46).",
@@ -10219,7 +10217,7 @@
               "names": {
                 "type": "array",
                 "description": [
-                  "Feature name for each bit set in this channel_type."
+                  "Feature name for each bit set in this channel_type. Note that *anchors_zero_fee_htlc_tx* is a deprecated synonym for *anchors*."
                 ],
                 "added": "v24.02",
                 "items": {
@@ -10228,6 +10226,7 @@
                     "static_remotekey/even",
                     "anchor_outputs/even",
                     "anchors_zero_fee_htlc_tx/even",
+                    "anchors/even",
                     "scid_alias/even",
                     "zeroconf/even"
                   ],
@@ -10317,7 +10316,7 @@
               ],
               "names": [
                 "static_remotekey/even",
-                "anchors_zero_fee_htlc_tx/even"
+                "anchors/even"
               ]
             },
             "outnum": 0
@@ -10568,7 +10567,7 @@
           "feerate": {
             "type": "feerate",
             "description": [
-              "Feerate for subsequent commitment transactions: see **fundchannel**. Note that this is ignored for channels with *option_anchors_zero_fee_htlc_tx* (we always use a low commitment fee for these)."
+              "Feerate for subsequent commitment transactions: see **fundchannel**. Note that this is ignored for channels with *option_anchors* (we always use a low commitment fee for these)."
             ]
           },
           "announce": {
@@ -10673,7 +10672,7 @@
               "names": {
                 "type": "array",
                 "description": [
-                  "Feature name for each bit set in this channel_type."
+                  "Feature name for each bit set in this channel_type. Note that *anchors_zero_fee_htlc_tx* is a deprecated synonym for *anchors*."
                 ],
                 "added": "v24.02",
                 "items": {
@@ -10682,6 +10681,7 @@
                     "static_remotekey/even",
                     "anchor_outputs/even",
                     "anchors_zero_fee_htlc_tx/even",
+                    "anchors/even",
                     "scid_alias/even",
                     "zeroconf/even"
                   ],
@@ -10768,7 +10768,7 @@
               ],
               "names": [
                 "static_remotekey/even",
-                "anchors_zero_fee_htlc_tx/even"
+                "anchors/even"
               ]
             },
             "warning_usage": "The funding transaction MUST NOT be broadcast until after channel establishment has been successfully completed by running `fundchannel_complete`"
@@ -13802,13 +13802,14 @@
                     "names": {
                       "type": "array",
                       "description": [
-                        "Feature name for each bit set in this channel_type."
+                        "Feature name for each bit set in this channel_type. Note that *anchors_zero_fee_htlc_tx* is a deprecated synonym for *anchors*."
                       ],
                       "items": {
                         "type": "string",
                         "enum": [
                           "static_remotekey/even",
                           "anchor_outputs/even",
+                          "anchors/even",
                           "anchors_zero_fee_htlc_tx/even",
                           "scid_alias/even",
                           "zeroconf/even"
@@ -19417,13 +19418,14 @@
                     "names": {
                       "type": "array",
                       "description": [
-                        "Feature name for each bit set in this channel_type."
+                        "Feature name for each bit set in this channel_type. Note that *anchors_zero_fee_htlc_tx* is a deprecated synonym for *anchors*."
                       ],
                       "items": {
                         "type": "string",
                         "enum": [
                           "static_remotekey/even",
                           "anchor_outputs/even",
+                          "anchors/even",
                           "anchors_zero_fee_htlc_tx/even",
                           "scid_alias/even",
                           "zeroconf/even"
@@ -19747,12 +19749,13 @@
                     "enum": [
                       "option_static_remotekey",
                       "option_anchor_outputs",
+                      "option_anchors",
                       "option_anchors_zero_fee_htlc_tx",
                       "option_scid_alias",
                       "option_zeroconf"
                     ],
                     "description": [
-                      "BOLT #9 features which apply to this channel."
+                      "BOLT #9 features which apply to this channel. Note that *anchors_zero_fee_htlc_tx* is a deprecated synonym for *anchors*."
                     ]
                   }
                 },
@@ -20802,7 +20805,7 @@
                   ],
                   "names": [
                     "static_remotekey/even",
-                    "anchors_zero_fee_htlc_tx/even"
+                    "anchors/even"
                   ]
                 },
                 "updates": {
@@ -20845,7 +20848,7 @@
                 },
                 "features": [
                   "option_static_remotekey",
-                  "option_anchors_zero_fee_htlc_tx"
+                  "option_anchors"
                 ],
                 "funding": {
                   "local_funds_msat": 1000000000,
@@ -22453,7 +22456,7 @@
                     "names": {
                       "type": "array",
                       "description": [
-                        "Feature name for each bit set in this channel_type."
+                        "Feature name for each bit set in this channel_type. Note that *anchors_zero_fee_htlc_tx* is a deprecated synonym for *anchors*."
                       ],
                       "added": "v24.02",
                       "items": {
@@ -22462,6 +22465,7 @@
                           "static_remotekey/even",
                           "anchor_outputs/even",
                           "anchors_zero_fee_htlc_tx/even",
+                          "anchors/even",
                           "scid_alias/even",
                           "zeroconf/even"
                         ],
@@ -22676,7 +22680,7 @@
                   ],
                   "names": [
                     "static_remotekey/even",
-                    "anchors_zero_fee_htlc_tx/even"
+                    "anchors/even"
                   ]
                 },
                 "outnum": 0
@@ -23456,7 +23460,7 @@
               "names": {
                 "type": "array",
                 "description": [
-                  "Feature name for each bit set in this channel_type."
+                  "Feature name for each bit set in this channel_type. Note that *anchors_zero_fee_htlc_tx* is a deprecated synonym for *anchors*."
                 ],
                 "added": "v24.02",
                 "items": {
@@ -23465,6 +23469,7 @@
                     "static_remotekey/even",
                     "anchor_outputs/even",
                     "anchors_zero_fee_htlc_tx/even",
+                    "anchors/even",
                     "scid_alias/even",
                     "zeroconf/even"
                   ],
@@ -23674,7 +23679,7 @@
               "names": {
                 "type": "array",
                 "description": [
-                  "Feature name for each bit set in this channel_type."
+                  "Feature name for each bit set in this channel_type. Note that *anchors_zero_fee_htlc_tx* is a deprecated synonym for *anchors*."
                 ],
                 "added": "v24.02",
                 "items": {
@@ -23683,6 +23688,7 @@
                     "static_remotekey/even",
                     "anchor_outputs/even",
                     "anchors_zero_fee_htlc_tx/even",
+                    "anchors/even",
                     "scid_alias/even",
                     "zeroconf/even"
                   ],
@@ -23751,7 +23757,7 @@
               ],
               "names": [
                 "static_remotekey/even",
-                "anchors_zero_fee_htlc_tx/even"
+                "anchors/even"
               ]
             },
             "commitments_secured": false,
@@ -23785,7 +23791,7 @@
               ],
               "names": [
                 "static_remotekey/even",
-                "anchors_zero_fee_htlc_tx/even"
+                "anchors/even"
               ]
             },
             "commitments_secured": false,
@@ -23993,7 +23999,7 @@
               "names": {
                 "type": "array",
                 "description": [
-                  "Feature name for each bit set in this channel_type."
+                  "Feature name for each bit set in this channel_type. Note that *anchors_zero_fee_htlc_tx* is a deprecated synonym for *anchors*."
                 ],
                 "added": "v24.02",
                 "items": {
@@ -24002,6 +24008,7 @@
                     "static_remotekey/even",
                     "anchor_outputs/even",
                     "anchors_zero_fee_htlc_tx/even",
+                    "anchors/even",
                     "scid_alias/even",
                     "zeroconf/even"
                   ],
@@ -24123,7 +24130,7 @@
               ],
               "names": [
                 "static_remotekey/even",
-                "anchors_zero_fee_htlc_tx/even"
+                "anchors/even"
               ]
             },
             "commitments_secured": true,
@@ -24149,7 +24156,7 @@
               ],
               "names": [
                 "static_remotekey/even",
-                "anchors_zero_fee_htlc_tx/even"
+                "anchors/even"
               ]
             },
             "commitments_secured": true,
@@ -28726,7 +28733,7 @@
                 7,
                 1,
                 1,
-                "option_anchors_zero_fee_htlc_tx"
+                "option_anchors"
               ],
               [
                 16,
@@ -28738,7 +28745,7 @@
                 17,
                 11,
                 1,
-                "option_anchors_zero_fee_htlc_tx"
+                "option_anchors"
               ]
             ]
           }

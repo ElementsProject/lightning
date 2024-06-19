@@ -2368,7 +2368,7 @@ def test_list_features_only(node_factory):
                 'option_payment_secret/even',
                 'option_basic_mpp/odd',
                 'option_support_large_channel/odd',
-                'option_anchors_zero_fee_htlc_tx/odd',
+                'option_anchors/odd',
                 'option_route_blinding/odd',
                 'option_shutdown_anysegwit/odd',
                 'option_channel_type/odd',
@@ -4078,7 +4078,7 @@ def test_set_feerate_offset(node_factory, bitcoind):
 
     l1.pay(l2, 200000000)
     # First payment causes fee update, which should reflect the feerate offset.
-    if 'anchors_zero_fee_htlc_tx/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
+    if 'anchors/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
         feerate = 3850
         min_feerate = 253
     else:

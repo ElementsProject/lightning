@@ -104,7 +104,8 @@ static void channel_err_broken(struct channel *channel,
 		channel_disconnect(channel, LOG_BROKEN, false, errmsg);
 }
 
-void json_add_unsaved_channel(struct json_stream *response,
+void json_add_unsaved_channel(struct command *cmd,
+			      struct json_stream *response,
 			      const struct channel *channel,
 			      const struct peer *peer)
 {
@@ -162,8 +163,11 @@ void json_add_unsaved_channel(struct json_stream *response,
 
 	if (feature_negotiated(channel->peer->ld->our_features,
 			       channel->peer->their_features,
-			       OPT_ANCHORS_ZERO_FEE_HTLC_TX))
-		json_add_string(response, NULL, "option_anchors_zero_fee_htlc_tx");
+			       OPT_ANCHORS_ZERO_FEE_HTLC_TX)) {
+		if (command_deprecated_out_ok(cmd, "features", "v24.08", "v25.08"))
+			json_add_string(response, NULL, "option_anchors_zero_fee_htlc_tx");
+		json_add_string(response, NULL, "option_anchors");
+	}
 
 	json_array_end(response);
 	json_object_end(response);

@@ -1639,7 +1639,7 @@ def test_zeroconf_open(bitcoind, node_factory):
     # plugin
     ret = l2.rpc.fundchannel(l3.info['id'], 'all', mindepth=0)
     if TEST_NETWORK == 'regtest':
-        channel_type = {'bits': [12, 22, 50], 'names': ['static_remotekey/even', 'anchors_zero_fee_htlc_tx/even', 'zeroconf/even']}
+        channel_type = {'bits': [12, 22, 50], 'names': ['static_remotekey/even', 'anchors/even', 'zeroconf/even']}
     else:
         channel_type = {'bits': [12, 50], 'names': ['static_remotekey/even', 'zeroconf/even']}
     assert ret['channel_type'] == channel_type
