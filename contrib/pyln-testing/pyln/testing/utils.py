@@ -1055,7 +1055,7 @@ class LightningNode(object):
             return addr in addrs
 
         # We should not have funds on that address yet, we just generated it.
-        assert(not has_funds_on_addr(addr))
+        assert not has_funds_on_addr(addr)
 
         self.bitcoin.rpc.sendtoaddress(addr, (amount + 1000000) / 10**8)
         self.bitcoin.generate_block(1)
@@ -1196,7 +1196,7 @@ class LightningNode(object):
             route = self.rpc.getroute(dst.info["id"], amt, riskfactor=0, fuzzpercent=0)
             self.rpc.sendpay(route["route"], invoice["payment_hash"], payment_secret=invoice.get('payment_secret'))
             result = self.rpc.waitsendpay(invoice["payment_hash"])
-            assert(result.get('status') == 'complete')
+            assert result.get('status') == 'complete'
             self.wait_for_htlcs()
             return
 
@@ -1227,7 +1227,7 @@ class LightningNode(object):
         self.rpc.sendpay([routestep], rhash, payment_secret=psecret, bolt11=inv['bolt11'])
         # wait for sendpay to comply
         result = self.rpc.waitsendpay(rhash)
-        assert(result.get('status') == 'complete')
+        assert result.get('status') == 'complete'
 
         # Make sure they're all settled, in case we quickly mine blocks!
         dst.wait_for_htlcs()
@@ -1304,11 +1304,11 @@ class LightningNode(object):
     # force new feerates by restarting and thus skipping slow smoothed process
     # Note: testnode must be created with: opts={'may_reconnect': True}
     def force_feerates(self, rate):
-        assert(self.may_reconnect)
+        assert self.may_reconnect
         self.set_feerates([rate] * 4, False)
         self.restart()
         self.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE')
-        assert(self.rpc.feerates('perkw')['perkw']['opening'] == rate)
+        assert self.rpc.feerates('perkw')['perkw']['opening'] == rate
 
     def wait_for_onchaind_txs(self, *args):
         """Wait for onchaind to ask lightningd to create one or more txs.  Each arg is a pair of typename, resolvename.  Returns tuples of the rawtx, txid and number of blocks delay for each pair.

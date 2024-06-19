@@ -96,7 +96,7 @@ class Request(dict):
 
     def set_result(self, result: Any) -> None:
         if self.state != RequestState.PENDING:
-            assert(self.termination_tb is not None)
+            assert self.termination_tb is not None
             raise ValueError(
                 "Cannot set the result of a request that is not pending, "
                 "current state is {state}. Request previously terminated at\n"
@@ -112,7 +112,7 @@ class Request(dict):
 
     def set_exception(self, exc: Union[Exception, RpcException]) -> None:
         if self.state != RequestState.PENDING:
-            assert(self.termination_tb is not None)
+            assert self.termination_tb is not None
             raise ValueError(
                 "Cannot set the exception of a request that is not pending, "
                 "current state is {state}. Request previously terminated at\n"
@@ -569,7 +569,7 @@ class Plugin(object):
                   request: Request) -> inspect.BoundArguments:
         """Positional binding of parameters
         """
-        assert(isinstance(params, list))
+        assert isinstance(params, list)
         sig = inspect.signature(func)
 
         # Collect injections so we can sort them and insert them in the right
@@ -595,7 +595,7 @@ class Plugin(object):
                      request: Request) -> inspect.BoundArguments:
         """Keyword based binding of parameters
         """
-        assert(isinstance(params, dict))
+        assert isinstance(params, dict)
         sig = inspect.signature(func)
 
         # Inject additional parameters if they are in the signature.

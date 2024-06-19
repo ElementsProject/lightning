@@ -58,7 +58,7 @@ def test_gossmap_halfchannel(tmp_path):
     l2id = "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
 
     # check structure parsed correctly
-    assert(len(g.nodes) == 2)
+    assert len(g.nodes) == 2
     n1 = g.get_node(l1id)
     n2 = g.get_node(l2id)
     assert n1

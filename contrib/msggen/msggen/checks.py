@@ -31,6 +31,6 @@ class VersioningCheck(Check):
     """
     def visit(self, f: model.Field) -> None:
         if not hasattr(f, "added"):
-            raise ValueError(f"Field {f.path} is missing the `added` annotation")
+            raise ValueError(f"Field {f.path} is missing the 'added' annotation")
         if not hasattr(f, "deprecated"):
-            raise ValueError(f"Field {f.path} is missing the `deprecated` annotation")
+            raise ValueError(f"Field {f.path} is missing the 'deprecated' annotation")
