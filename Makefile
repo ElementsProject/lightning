@@ -370,8 +370,12 @@ ifneq ($(RUST),0)
 endif
 include cln-grpc/Makefile
 
+ifneq ($V,1)
+MSGGEN_ARGS := -s
+endif
+
 $(MSGGEN_GENALL)&: contrib/msggen/msggen/schema.json
-	PYTHONPATH=contrib/msggen $(PYTHON) contrib/msggen/msggen/__main__.py generate
+	@$(call VERBOSE, "msggen $@", PYTHONPATH=contrib/msggen $(PYTHON) contrib/msggen/msggen/__main__.py $(MSGGEN_ARGS) generate)
 
 # The compiler assumes that the proto files are in the same
 # directory structure as the generated files will be. Since we

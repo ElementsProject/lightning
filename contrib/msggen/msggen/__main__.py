@@ -13,7 +13,7 @@ from msggen.checks import VersioningCheck
 
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.StreamHandler()
@@ -95,12 +95,19 @@ def run():
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('-v', '--verbose', action='store_true', help="Debug level logging")
+    parser.add_argument('-s', '--silent', action='store_true', help="Don't print anything")
     subcmds = parser.add_subparsers(required=True, dest='command')
     bundle = subcmds.add_parser("bundle", help="bundle schemas into package")
     bundle.add_argument('schema_dir', action='store')
 
     subcmds.add_parser("generate", help="generate all files")
     args = parser.parse_args()
+
+    if args.silent:
+        logging.getLogger().setLevel(logging.ERROR)
+    elif args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
 
     if args.command == 'generate':
         run()
