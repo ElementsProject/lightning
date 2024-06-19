@@ -20,7 +20,7 @@ static inline struct amount_sat htlc_timeout_fee(u32 feerate_per_kw,
 	/* BOLT #3:
 	 *
 	 * The fee for an HTLC-timeout transaction:
-	 * - If `option_anchors_zero_fee_htlc_tx` applies:
+	 * - If `option_anchors` applies:
 	 *   1. MUST be 0.
 	 * - Otherwise, MUST be calculated to match:
 	 *   1. Multiply `feerate_per_kw` by 663 and divide by 1000 (rounding down).
@@ -46,7 +46,7 @@ static inline struct amount_sat htlc_success_fee(u32 feerate_per_kw,
 	/* BOLT #3:
 	 *
 	 * The fee for an HTLC-success transaction:
-	 * - If `option_anchors_zero_fee_htlc_tx` applies:
+	 * - If `option_anchors` applies:
 	 *   1. MUST be 0.
 	 * - Otherwise, MUST be calculated to match:
 	 *   1. Multiply `feerate_per_kw` by 703 and divide by 1000 (rounding down).
