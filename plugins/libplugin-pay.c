@@ -2151,7 +2151,7 @@ static void payment_finished(struct payment *p)
 		} else if (p->aborterror != NULL) {
 			/* We set an explicit toplevel error message,
 			 * so let's report that. */
-			ret = jsonrpc_stream_fail(cmd, PAY_STOPPED_RETRYING,
+			ret = jsonrpc_stream_fail(cmd, p->errorcode,
 						  p->aborterror);
 			payment_json_add_attempts(ret, "attempts", p);
 
@@ -2311,7 +2311,7 @@ void payment_continue(struct payment *p)
 	abort();
 }
 
-void payment_abort(struct payment *p, const char *fmt, ...) {
+void payment_abort(struct payment *p, enum jsonrpc_errcode code, const char *fmt, ...) {
 	va_list ap;
 	struct payment *root = payment_root(p);
 	payment_set_step(p, PAYMENT_STEP_FAILED);
