@@ -2,19 +2,21 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/err/err.h>
 
-static bool dump_map(const char *name, struct cdump_type *t, void *unused)
+static bool dump_map(const char *name, void *t, void *unused)
 {
 	size_t i;
+	struct cdump_type *tt;
 
 	printf("struct {\n"
 	       "	enum %s v;\n"
 	       "	const char *name;\n"
 	       "} enum_%s_names[] = {\n", name, name);
 
-	for (i = 0; i < tal_count(t->u.enum_vals); i++)
+	tt = (struct cdump_type *)t;
+	for (i = 0; i < tal_count(tt->u.enum_vals); i++)
 		printf("	{ %s, \"%s\" },\n",
-		       t->u.enum_vals[i].name,
-		       t->u.enum_vals[i].name);
+		       tt->u.enum_vals[i].name,
+		       tt->u.enum_vals[i].name);
 	printf("	{ 0, NULL } };\n");
 	return true;
 }

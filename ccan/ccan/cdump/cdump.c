@@ -608,19 +608,19 @@ static bool tok_take_enum(struct parse_state *ps)
 }
 
 static bool gather_undefines(const char *name,
-			     struct cdump_type *t,
-			     cdump_map_t *undefs)
+			     void *t,
+			     void *undefs)
 {
 	if (!type_defined(t))
-		strmap_add(undefs, name, t);
+		strmap_add((cdump_map_t *)undefs, name, (struct cdump_type *)t);
 	return true;
 }
 
 static bool remove_from_map(const char *name,
-			    struct cdump_type *t,
-			    cdump_map_t *map)
+			    void *t,
+			    void *map)
 {
-	strmap_del(map, name, NULL);
+	strmap_del((cdump_map_t *)map, name, NULL);
 	return true;
 }
 
