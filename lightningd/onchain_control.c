@@ -1624,8 +1624,6 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  channel->last_htlc_sigs,
 				  channel->min_possible_feerate,
 				  channel->max_possible_feerate,
-				   /* FIXME: remove support from onchaind */
-				  NULL,
 				  &channel->local_funding_pubkey,
 				  &channel->channel_info.remote_fundingkey,
 				  channel->static_remotekey_start[LOCAL],
