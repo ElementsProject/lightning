@@ -91,6 +91,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->aborterror = NULL;
 	p->on_payment_success = NULL;
 	p->on_payment_failure = NULL;
+	p->errorcode = 0;
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {

@@ -324,6 +324,10 @@ struct payment {
 	/* A human readable error message that is used as a top-level
 	 * explanation if a payment is aborted. */
 	char *aborterror;
+	/* A numeric error code to return to JSON-RPC callers. Allows
+	 * programmatically differentiate various errors, without
+	 * having to parse the `p->aborterror` string. */
+	u32 errorcode;
 
 	/* How many blocks are we lagging behind the rest of the
 	network? This needs to be taken into consideration when
