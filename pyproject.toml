@@ -7,7 +7,7 @@ authors = ["Christian Decker <cdecker@blockstream.com>"]
 
 [tool.poetry.dependencies]
 # Build dependencies belong here
-python = "^3.8"
+python = ">=3.8.1,<4.0"
 pyln-client = { path = "contrib/pyln-client", develop = true }
 pyln-proto = { path = "contrib/pyln-proto", develop = true }
 pyln-grpc-proto = { path = "contrib/pyln-grpc-proto", develop = true }
@@ -27,7 +27,7 @@ crc32c = "^2.2.post0"  # Belongs to lnprototest
 pytest-xdist = "^2.5.0"
 pytest-test-groups = "^1.0.3"
 pytest-timeout = "^2.1.0"
-flake8 = "^4.0.1"
+flake8 = "^6.0"
 mypy = "^0.931"
 pytest-custom-exit-code = "0.3.0"
 pyln-testing = { path = "./contrib/pyln-testing", develop = true, extras = [ "grpc" ] }

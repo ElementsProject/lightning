@@ -244,10 +244,12 @@ def gen_array(a, meta):
     if a.deprecated:
         defi += "    #[deprecated]\n"
     defi += rename_if_necessary(alias, name)
+    # Note: flake8 gets confused on these strings in f strings, hence suppression:
+    # contrib/msggen/msggen/gen/rpc/rust.py:250:42: E226 missing whitespace around arithmetic operator
     if not a.optional:
-        defi += f"    pub {name}: {'Vec<'*a.dims}{itemtype}{'>'*a.dims},\n"
+        defi += f"    pub {name}: {'Vec<'*a.dims}{itemtype}{'>'*a.dims},\n"  # noqa: E226
     else:
-        defi += f"    #[serde(skip_serializing_if = \"crate::is_none_or_empty\")]\n    pub {name}: Option<{'Vec<'*a.dims}{itemtype}{'>'*a.dims}>,\n"
+        defi += f"    #[serde(skip_serializing_if = \"crate::is_none_or_empty\")]\n    pub {name}: Option<{'Vec<'*a.dims}{itemtype}{'>'*a.dims}>,\n"  # noqa: E226
 
     return (defi, decl)
 
