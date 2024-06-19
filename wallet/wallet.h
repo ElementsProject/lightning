@@ -1254,16 +1254,22 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 struct amount_msat wallet_total_forward_fees(struct wallet *w);
 
 /**
- * Retrieve a list of all forwarded_payments
+ * Retrieve forwarded_payments
  */
-const struct forwarding *wallet_forwarded_payments_get(const tal_t *ctx,
-						       struct wallet *w,
-						       enum forward_status state,
-						       const struct short_channel_id *chan_in,
-						       const struct short_channel_id *chan_out,
-						       const enum wait_index *listindex,
-						       u64 liststart,
-						       const u32 *listlimit);
+struct db_stmt *forwarding_first(struct wallet *w,
+				 enum forward_status status,
+				 const struct short_channel_id *chan_in,
+				 const struct short_channel_id *chan_out,
+				 const enum wait_index *listindex,
+				 u64 liststart,
+				 const u32 *listlimit);
+
+struct db_stmt *forwarding_next(struct wallet *w,
+				struct db_stmt *stmt);
+
+const struct forwarding *forwarding_details(const tal_t *ctx,
+					    struct wallet *w,
+					    struct db_stmt *stmt);
 
 /**
  * Delete a particular forward entry
