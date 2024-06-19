@@ -157,11 +157,8 @@ static const struct dependency feature_deps[] = {
 	/* BOLT #9:
 	 * Name                | Description  | Context  | Dependencies  |
 	 *...
-	 * `gossip_queries_ex` | ...          | ...      | `gossip_queries` |
-	 *...
 	 * `basic_mpp`         | ...          | ...      | `payment_secret` |
 	 */
-	{ OPT_GOSSIP_QUERIES_EX, OPT_GOSSIP_QUERIES },
 	{ OPT_BASIC_MPP, OPT_PAYMENT_SECRET },
 };
 

@@ -1303,7 +1303,7 @@ struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm)
 }
 
 /* BOLT #7:
- *   - if the `gossip_queries` feature is negotiated:
+ * A node:
  *     - MUST NOT relay any gossip messages it did not generate itself,
  *       unless explicitly requested.
  */

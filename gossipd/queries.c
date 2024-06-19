@@ -73,7 +73,7 @@ bool query_short_channel_ids(struct daemon *daemon,
 	struct tlv_query_short_channel_ids_tlvs *tlvs;
 	/* BOLT #7:
 	 *
-	 * 1. type: 261 (`query_short_channel_ids`) (`gossip_queries`)
+	 * 1. type: 261 (`query_short_channel_ids`)
 	 * 2. data:
 	 *     * [`chain_hash`:`chain_hash`]
 	 *     * [`u16`:`len`]
@@ -81,10 +81,6 @@ bool query_short_channel_ids(struct daemon *daemon,
 	 */
 	const size_t reply_overhead = 32 + 2;
 	size_t max_encoded_bytes = 65535 - 2 - reply_overhead;
-
-	/* Can't query if they don't have gossip_queries_feature */
-	if (!peer->gossip_queries_feature)
-		return false;
 
 	/* BOLT #7:
 	 *   - MAY include an optional `query_flags`. If so:
@@ -98,10 +94,15 @@ bool query_short_channel_ids(struct daemon *daemon,
 	/* BOLT #7:
 	 *
 	 * The sender:
+	 *  - SHOULD NOT send this to a peer which does not offer `gossip_queries`.
 	 *  - MUST NOT send `query_short_channel_ids` if it has sent a previous
 	 *   `query_short_channel_ids` to this peer and not received
 	 *   `reply_short_channel_ids_end`.
 	 */
+	/* Don't query if they have no useful gossip */
+	if (!peer->gossip_queries_feature)
+		return false;
+
 	if (peer->scid_query_outstanding)
 		return false;
 
@@ -419,7 +420,7 @@ static size_t max_entries(enum query_option_flags query_option_flags)
 {
 	/* BOLT #7:
 	 *
-	 * 1. type: 264 (`reply_channel_range`) (`gossip_queries`)
+	 * 1. type: 264 (`reply_channel_range`)
 	 * 2. data:
 	 *   * [`chain_hash`:`chain_hash`]
 	 *   * [`u32`:`first_blocknum`]

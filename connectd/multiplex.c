@@ -262,7 +262,6 @@ void setup_peer_gossip_store(struct peer *peer,
 	/* BOLT #7:
 	 *
 	 * A node:
-	 *   - if the `gossip_queries` feature is negotiated:
 	 * 	- MUST NOT relay any gossip messages it did not generate itself,
 	 *        unless explicitly requested.
 	 */
@@ -278,17 +277,7 @@ void setup_peer_gossip_store(struct peer *peer,
 	peer->gs.timestamp_min = 0;
 	peer->gs.timestamp_max = UINT32_MAX;
 
-	/* BOLT #7:
-	 *
-	 * - upon receiving an `init` message with the
-	 *   `initial_routing_sync` flag set to 1:
-	 *   - SHOULD send gossip messages for all known channels and
-	 *    nodes, as if they were just received.
-	 * - if the `initial_routing_sync` flag is set to 0, OR if the
-	 *   initial sync was completed:
-	 *   - SHOULD resume normal operation, as specified in the
-	 *     following [Rebroadcasting](#rebroadcasting) section.
-	 */
+	/* We still respect this old bit, though spec part was removed. */
 	if (feature_offered(their_features, OPT_INITIAL_ROUTING_SYNC))
 		peer->gs.off = 1;
 	else {
