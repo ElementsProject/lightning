@@ -322,8 +322,6 @@ msgdata,channeld_dev_memleak_reply,leak,bool,
 
 # Peer presented proof it was from the future.
 msgtype,channeld_fail_fallen_behind,1028
-# This is NULL if option_static_remotekey.
-msgdata,channeld_fail_fallen_behind,remote_per_commitment_point,?pubkey,
 
 # When we receive announcement_signatures for channel announce
 msgtype,channeld_got_announcement,1017

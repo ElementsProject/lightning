@@ -130,7 +130,7 @@ void json_add_unsaved_channel(struct json_stream *response,
 	json_add_string(response, "owner", channel->owner->name);
 	json_add_string(response, "opener", channel->opener == LOCAL ?
 					    "local" : "remote");
-	json_add_bool(response, "lost_state", channel->future_per_commitment_point ? true : false);
+	json_add_bool(response, "lost_state", channel->has_future_per_commitment_point);
 	json_array_start(response, "status");
 	for (size_t i = 0; i < ARRAY_SIZE(channel->billboard.permanent); i++) {
 		if (!channel->billboard.permanent[i])
@@ -3371,7 +3371,7 @@ channel_fail_fallen_behind(struct subd* dualopend, const u8 *msg)
 		return;
 	}
 
-        channel_fallen_behind(channel, msg);
+        channel_fallen_behind(channel);
 }
 
 static void handle_psbt_changed(struct subd *dualopend,

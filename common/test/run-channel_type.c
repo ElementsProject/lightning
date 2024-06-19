@@ -120,7 +120,6 @@ int main(int argc, char *argv[])
 
 	common_setup(argv[0]);
 
-	assert_names_eq(channel_type_name(tmpctx, channel_type_none(tmpctx)), "");
 	assert_names_eq(channel_type_name(tmpctx, channel_type_static_remotekey(tmpctx)),
 			"static_remotekey/even");
 	assert_names_eq(channel_type_name(tmpctx, channel_type_anchor_outputs(tmpctx)),

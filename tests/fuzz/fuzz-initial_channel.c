@@ -40,7 +40,7 @@ void run(const uint8_t *data, size_t size)
 	struct channel_config local, remote;
 	struct basepoints local_basepoints, remote_basepoints;
 	struct pubkey local_funding_pubkey, remote_funding_pubkey;
-	bool option_static_remotekey, option_anchor_outputs, wumbo;
+	bool option_anchor_outputs, wumbo;
 	struct channel_type *channel_type;
 	struct channel *channel;
 
@@ -63,14 +63,11 @@ void run(const uint8_t *data, size_t size)
 	fromwire_pubkey(&data, &size, &remote_funding_pubkey);
 	wumbo = fromwire_bool(&data, &size);
 	option_anchor_outputs = fromwire_bool(&data, &size);
-	option_static_remotekey = option_anchor_outputs || fromwire_bool(&data, &size);
 
 	if (option_anchor_outputs)
 		channel_type = channel_type_anchor_outputs(tmpctx);
-	else if (option_static_remotekey)
-		channel_type = channel_type_static_remotekey(tmpctx);
 	else
-		channel_type = channel_type_none(tmpctx);
+		channel_type = channel_type_static_remotekey(tmpctx);
 
 	/* TODO: determine if it makes sense to check at each step for libfuzzer
 	 * to deduce pertinent inputs */

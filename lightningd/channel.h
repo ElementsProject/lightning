@@ -249,7 +249,7 @@ struct channel {
 
 	/* Do we have an "impossible" future per_commitment_point from
 	 * peer via option_data_loss_protect? */
-	const struct pubkey *future_per_commitment_point;
+	bool has_future_per_commitment_point;
 
 	/* Min/max htlc amount allowed in channel. */
 	struct amount_msat htlc_minimum_msat, htlc_maximum_msat;
@@ -373,7 +373,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u32 max_possible_feerate,
 			    const struct basepoints *local_basepoints,
 			    const struct pubkey *local_funding_pubkey,
-			    const struct pubkey *future_per_commitment_point,
+			    bool has_future_per_commitment_point,
 			    u32 feerate_base,
 			    u32 feerate_ppm,
 			    /* NULL or stolen */

@@ -157,10 +157,8 @@ wallet_commit_channel(struct lightningd *ld,
 	 *   - otherwise, if `option_anchor_outputs` was negotiated:
 	 *     - the `channel_type` is `option_anchor_outputs` and
 	 *       `option_static_remotekey` (bits 20 and 12)
-	 *   - otherwise, if `option_static_remotekey` was negotiated:
-	 *     - the `channel_type` is `option_static_remotekey` (bit 12)
 	 *   - otherwise:
-	 *     - the `channel_type` is empty
+	 *     - the `channel_type` is `option_static_remotekey` (bit 12)
 	 * - MUST use that `channel_type` for all commitment transactions.
 	 */
 	/* i.e. We set it now for the channel permanently. */
@@ -215,7 +213,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      feerate, feerate,
 			      &uc->local_basepoints,
 			      &uc->local_funding_pubkey,
-			      NULL,
+			      false, /* !has_future_per_commitment_point */
 			      ld->config.fee_base,
 			      ld->config.fee_per_satoshi,
 			      remote_upfront_shutdown_script,
@@ -1586,7 +1584,7 @@ static struct channel *stub_chan(struct command *cmd,
                               funding_sats.satoshis / MINIMUM_TX_WEIGHT * 1000 /* Raw: convert to feerate */,
 			      &basepoints,
 			      &localFundingPubkey,
-			      NULL,
+			      false,
 			      ld->config.fee_base,
 			      ld->config.fee_per_satoshi,
 			      NULL,

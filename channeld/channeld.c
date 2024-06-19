@@ -4494,21 +4494,17 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 /* BOLT #2:
  *
  * A receiving node:
- *  - if `option_static_remotekey` applies to the commitment transaction:
+ *    - MUST ignore `my_current_per_commitment_point`, but MAY require it to be
+ *      a valid point.
  *    - if `next_revocation_number` is greater than expected above, AND
  *    `your_last_per_commitment_secret` is correct for that
  *    `next_revocation_number` minus 1:
- *...
- *  - otherwise, if it supports `option_data_loss_protect`:
- *    - if `next_revocation_number` is greater than expected above,
- *      AND `your_last_per_commitment_secret` is correct for that
- *     `next_revocation_number` minus 1:
+ *      - MUST NOT broadcast its commitment transaction.
+ *      - SHOULD send an `error` to request the peer to fail the channel.
  */
 static void check_future_dataloss_fields(struct peer *peer,
 			u64 next_revocation_number,
-			const struct secret *last_local_per_commit_secret,
-			/* This is NULL if option_static_remotekey */
-			const struct pubkey *remote_current_per_commitment_point)
+			const struct secret *last_local_per_commit_secret)
 {
 	const u8 *msg;
 	bool correct;
@@ -4541,13 +4537,9 @@ static void check_future_dataloss_fields(struct peer *peer,
 	/* BOLT #2:
 	 * - MUST NOT broadcast its commitment transaction.
 	 * - SHOULD send an `error` to request the peer to fail the channel.
-	 * - SHOULD store `my_current_per_commitment_point` to
-	 *   retrieve funds should the sending node broadcast its
-	 *   commitment transaction on-chain.
 	 */
 	wire_sync_write(MASTER_FD,
-			take(towire_channeld_fail_fallen_behind(NULL,
-				       remote_current_per_commitment_point)));
+			take(towire_channeld_fail_fallen_behind(NULL)));
 
 	sleep(1);
 	/* We have to send them an error to trigger dropping to chain. */
@@ -4558,15 +4550,9 @@ static void check_future_dataloss_fields(struct peer *peer,
 /* BOLT #2:
  *
  * A receiving node:
- *  - if `option_static_remotekey` applies to the commitment transaction:
  * ...
  *  - if `your_last_per_commitment_secret` does not match the expected values:
  *     - SHOULD send an `error` and fail the channel.
- *  - otherwise, if it supports `option_data_loss_protect`:
- *...
- *    - otherwise (`your_last_per_commitment_secret` or
- *     `my_current_per_commitment_point` do not match the expected values):
- *      - SHOULD send an `error` and fail the channel.
  */
 static void check_current_dataloss_fields(struct peer *peer,
 			u64 next_revocation_number,
@@ -4815,14 +4801,7 @@ static void peer_reconnect(struct peer *peer,
 	 *     of the next `commitment_signed` it expects to receive.
 	 *   - MUST set `next_revocation_number` to the commitment number
 	 *     of the next `revoke_and_ack` message it expects to receive.
-	 *   - if `option_static_remotekey` applies to the commitment transaction:
-	 *     - MUST set `my_current_per_commitment_point` to a valid point.
-	 *   - otherwise:
-	 *     - MUST set `my_current_per_commitment_point` to its commitment
-	 *       point for the last signed commitment it received from its
-	 *       channel peer (i.e. the commitment_point corresponding to the
-	 *       commitment transaction the sender would use to unilaterally
-	 *       close).
+	 *   - MUST set `my_current_per_commitment_point` to a valid point.
 	 *   - if `next_revocation_number` equals 0:
 	 *     - MUST set `your_last_per_commitment_secret` to all zeroes
 	 *   - otherwise:
@@ -4838,6 +4817,14 @@ static void peer_reconnect(struct peer *peer,
 			 /* Can send any (valid) point here */
 			 &peer->remote_per_commit, send_tlvs);
 	} else {
+		/* Older BOLT spec said for non-static-remotekey:
+		 *
+		 * - MUST set `my_current_per_commitment_point` to its
+		 *   commitment point for the last signed commitment it
+		 *   received from its channel peer (i.e. the commitment_point
+		 *   corresponding to the commitment transaction the sender
+		 *   would use to unilaterally close).
+		 */
 		msg = towire_channel_reestablish
 			(NULL, &peer->channel_id,
 			 peer->next_index[LOCAL],
@@ -5057,11 +5044,7 @@ static void peer_reconnect(struct peer *peer,
 		 * Does not return. */
 		check_future_dataloss_fields(peer,
 					     next_revocation_number,
-					     &last_local_per_commitment_secret,
-					     channel_has(peer->channel,
-							 OPT_STATIC_REMOTEKEY)
-					     ? NULL :
-					     &remote_current_per_commitment_point);
+					     &last_local_per_commitment_secret);
  	} else
  		retransmit_revoke_and_ack = false;
 
