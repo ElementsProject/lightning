@@ -78,6 +78,7 @@ static void keysend_cb(struct keysend_data *d, struct payment *p) {
 		    p->result->failcode == WIRE_INVALID_ONION_PAYLOAD) {
 			return payment_abort(
 			    p,
+			    PAY_DESTINATION_PERM_FAIL,
 			    "Recipient %s reported an invalid payload, this "
 			    "usually means they don't support keysend.",
 			    fmt_node_id(tmpctx, p->route_destination));

@@ -327,6 +327,10 @@ struct payment {
 	/* A human readable error message that is used as a top-level
 	 * explanation if a payment is aborted. */
 	char *aborterror;
+	/* A numeric error code to return to JSON-RPC callers. Allows
+	 * programmatically differentiate various errors, without
+	 * having to parse the `p->aborterror` string. */
+	u32 errorcode;
 
 	/* How many blocks are we lagging behind the rest of the
 	network? This needs to be taken into consideration when
@@ -489,7 +493,7 @@ void payment_fail(struct payment *p, const char *fmt, ...) PRINTF_FMT(2,3);
  * they can, and sets the root failreason so we have a sensible error
  * message. The failreason is overwritten if it is already set, since
  * we probably know better what happened in the modifier.. */
-void payment_abort(struct payment *p, const char *fmt, ...) PRINTF_FMT(2,3);
+void payment_abort(struct payment *p, enum jsonrpc_errcode code, const char *fmt, ...) PRINTF_FMT(3,4);
 
 struct payment *payment_root(struct payment *p);
 struct payment_tree_result payment_collect_result(struct payment *p);
