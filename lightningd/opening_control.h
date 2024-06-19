@@ -11,7 +11,8 @@ struct lightningd;
 struct peer_fd;
 struct uncommitted_channel;
 
-void NON_NULL_ARGS(1, 3) json_add_uncommitted_channel(struct json_stream *response,
+void NON_NULL_ARGS(2, 4) json_add_uncommitted_channel(struct command *cmd,
+						      struct json_stream *response,
 						      const struct uncommitted_channel *uc,
 						      const struct peer *peer);
 

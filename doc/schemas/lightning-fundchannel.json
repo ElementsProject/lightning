@@ -34,7 +34,7 @@
       "feerate": {
         "type": "feerate",
         "description": [
-          "Used for the opening transaction and (unless *option_anchors_zero_fee_htlc_tx* is negotiated), as initial feerate for commitment and HTLC transactions (see NOTES in lightning-feerates(7))."
+          "Used for the opening transaction and (unless *option_anchors* is negotiated), as initial feerate for commitment and HTLC transactions (see NOTES in lightning-feerates(7))."
         ],
         "default": "*normal*"
       },
@@ -107,10 +107,8 @@
             "Represents the explicit channel type to request. There is currently no sanity checking on this value so if you use strange values and your channel breaks, you get to keep both pieces. BOLT 2 defines the following value types:",
             "```",
             "The currently defined basic types are:",
-            "  - no features (no bits set).",
             "  - `option_static_remotekey` (bit 12).",
-            "  - `option_anchor_outputs` and `option_static_remotekey` (bits 20 and 12).",
-            "  - `option_anchors_zero_fee_htlc_tx` and `option_static_remotekey` (bits 22 and 12).",
+            "  - `option_anchors` and `option_static_remotekey` (bits 22 and 12).",
             "",
             "Each basic type has the following variations allowed:",
             "  - `option_scid_alias` (bit 46).",
@@ -182,7 +180,7 @@
           "names": {
             "type": "array",
             "description": [
-              "Feature name for each bit set in this channel_type."
+              "Feature name for each bit set in this channel_type. Note that *anchors_zero_fee_htlc_tx* is a deprecated synonym for *anchors*."
             ],
             "added": "v24.02",
             "items": {
@@ -191,6 +189,7 @@
                 "static_remotekey/even",
                 "anchor_outputs/even",
                 "anchors_zero_fee_htlc_tx/even",
+                "anchors/even",
                 "scid_alias/even",
                 "zeroconf/even"
               ],
@@ -280,7 +279,7 @@
           ],
           "names": [
             "static_remotekey/even",
-            "anchors_zero_fee_htlc_tx/even"
+            "anchors/even"
           ]
         },
         "outnum": 0

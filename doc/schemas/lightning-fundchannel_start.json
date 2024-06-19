@@ -30,7 +30,7 @@
       "feerate": {
         "type": "feerate",
         "description": [
-          "Feerate for subsequent commitment transactions: see **fundchannel**. Note that this is ignored for channels with *option_anchors_zero_fee_htlc_tx* (we always use a low commitment fee for these)."
+          "Feerate for subsequent commitment transactions: see **fundchannel**. Note that this is ignored for channels with *option_anchors* (we always use a low commitment fee for these)."
         ]
       },
       "announce": {
@@ -135,7 +135,7 @@
           "names": {
             "type": "array",
             "description": [
-              "Feature name for each bit set in this channel_type."
+              "Feature name for each bit set in this channel_type. Note that *anchors_zero_fee_htlc_tx* is a deprecated synonym for *anchors*."
             ],
             "added": "v24.02",
             "items": {
@@ -144,6 +144,7 @@
                 "static_remotekey/even",
                 "anchor_outputs/even",
                 "anchors_zero_fee_htlc_tx/even",
+                "anchors/even",
                 "scid_alias/even",
                 "zeroconf/even"
               ],
@@ -230,7 +231,7 @@
           ],
           "names": [
             "static_remotekey/even",
-            "anchors_zero_fee_htlc_tx/even"
+            "anchors/even"
           ]
         },
         "warning_usage": "The funding transaction MUST NOT be broadcast until after channel establishment has been successfully completed by running `fundchannel_complete`"

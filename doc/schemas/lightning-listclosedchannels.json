@@ -134,13 +134,14 @@
                 "names": {
                   "type": "array",
                   "description": [
-                    "Feature name for each bit set in this channel_type."
+                    "Feature name for each bit set in this channel_type. Note that *anchors_zero_fee_htlc_tx* is a deprecated synonym for *anchors*."
                   ],
                   "items": {
                     "type": "string",
                     "enum": [
                       "static_remotekey/even",
                       "anchor_outputs/even",
+                      "anchors/even",
                       "anchors_zero_fee_htlc_tx/even",
                       "scid_alias/even",
                       "zeroconf/even"

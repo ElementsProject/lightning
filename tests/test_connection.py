@@ -1079,7 +1079,7 @@ def test_funding_all(node_factory, bitcoind):
 
     # Keeps emergency reserve!
     outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
-    if 'anchors_zero_fee_htlc_tx/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
+    if 'anchors/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
         assert outputs == [{'value': 25000}]
     else:
         assert outputs == []
@@ -2422,7 +2422,7 @@ def test_update_fee(node_factory, bitcoind):
     # Make payments.
     l1.pay(l2, 200000000)
     # First payment causes fee update.
-    if 'anchors_zero_fee_htlc_tx/even' in only_one(l2.rpc.listpeerchannels()['channels'])['channel_type']['names']:
+    if 'anchors/even' in only_one(l2.rpc.listpeerchannels()['channels'])['channel_type']['names']:
         l2.daemon.wait_for_log('peer updated fee to 3755')
     else:
         l2.daemon.wait_for_log('peer updated fee to 11005')
@@ -2469,7 +2469,7 @@ def test_fee_limits(node_factory, bitcoind):
     l2.set_feerates((15000, 11000, 7500, 3750, 2000))
     l1.start()
 
-    if 'anchors_zero_fee_htlc_tx/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
+    if 'anchors/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
         fee = 1255
     else:
         fee = 258
@@ -3368,7 +3368,7 @@ def test_feerate_spam(node_factory, chainparams):
     l1.pay(l2, 10**9 - slack)
 
     # It will send this once (may have happened before line_graph's wait)
-    if 'anchors_zero_fee_htlc_tx/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
+    if 'anchors/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
         wait_for(lambda: l1.daemon.is_in_log('Setting REMOTE feerate to 3755'))
     else:
         wait_for(lambda: l1.daemon.is_in_log('Setting REMOTE feerate to 11005'))
@@ -3378,7 +3378,7 @@ def test_feerate_spam(node_factory, chainparams):
     l1.set_feerates((200000, 200000, 200000, 200000))
 
     # It will raise as far as it can (30551)
-    if 'anchors_zero_fee_htlc_tx/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
+    if 'anchors/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
         maxfeerate = 30551
     else:
         maxfeerate = 48000
@@ -3581,7 +3581,7 @@ def test_channel_features(node_factory, bitcoind, anchors):
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     assert 'option_static_remotekey' in chan['features']
     if anchors:
-        assert 'option_anchors_zero_fee_htlc_tx' in chan['features']
+        assert 'option_anchors' in chan['features']
 
     # l2 should agree.
     assert only_one(l2.rpc.listpeerchannels()['channels'])['features'] == chan['features']
@@ -3594,7 +3594,7 @@ def test_channel_features(node_factory, bitcoind, anchors):
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     assert 'option_static_remotekey' in chan['features']
     if anchors:
-        assert 'option_anchors_zero_fee_htlc_tx' in chan['features']
+        assert 'option_anchors' in chan['features']
 
     # l2 should agree.
     assert only_one(l2.rpc.listpeerchannels()['channels'])['features'] == chan['features']

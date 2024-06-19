@@ -132,7 +132,7 @@
           "names": {
             "type": "array",
             "description": [
-              "Feature name for each bit set in this channel_type."
+              "Feature name for each bit set in this channel_type. Note that *anchors_zero_fee_htlc_tx* is a deprecated synonym for *anchors*."
             ],
             "added": "v24.02",
             "items": {
@@ -141,6 +141,7 @@
                 "static_remotekey/even",
                 "anchor_outputs/even",
                 "anchors_zero_fee_htlc_tx/even",
+                "anchors/even",
                 "scid_alias/even",
                 "zeroconf/even"
               ],
@@ -209,7 +210,7 @@
           ],
           "names": [
             "static_remotekey/even",
-            "anchors_zero_fee_htlc_tx/even"
+            "anchors/even"
           ]
         },
         "commitments_secured": false,
@@ -243,7 +244,7 @@
           ],
           "names": [
             "static_remotekey/even",
-            "anchors_zero_fee_htlc_tx/even"
+            "anchors/even"
           ]
         },
         "commitments_secured": false,

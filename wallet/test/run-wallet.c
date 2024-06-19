@@ -128,6 +128,12 @@ struct command_result *command_check_done(struct command *cmd)
 /* Generated stub for command_check_only */
 bool command_check_only(const struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_check_only called!\n"); abort(); }
+/* Generated stub for command_deprecated_out_ok */
+bool command_deprecated_out_ok(struct command *cmd UNNEEDED,
+			       const char *fieldname UNNEEDED,
+			       const char *depr_start UNNEEDED,
+			       const char *depr_end UNNEEDED)
+{ fprintf(stderr, "command_deprecated_out_ok called!\n"); abort(); }
 /* Generated stub for command_fail */
 struct command_result *command_fail(struct command *cmd UNNEEDED, enum jsonrpc_errcode code UNNEEDED,
 				    const char *fmt UNNEEDED, ...)
@@ -510,12 +516,14 @@ void json_add_u64(struct json_stream *result UNNEEDED, const char *fieldname UNN
 		  uint64_t value UNNEEDED)
 { fprintf(stderr, "json_add_u64 called!\n"); abort(); }
 /* Generated stub for json_add_uncommitted_channel */
-void  json_add_uncommitted_channel(struct json_stream *response UNNEEDED,
+void  json_add_uncommitted_channel(struct command *cmd UNNEEDED,
+						      struct json_stream *response UNNEEDED,
 						      const struct uncommitted_channel *uc UNNEEDED,
 						      const struct peer *peer UNNEEDED)
 { fprintf(stderr, "json_add_uncommitted_channel called!\n"); abort(); }
 /* Generated stub for json_add_unsaved_channel */
-void  json_add_unsaved_channel(struct json_stream *response UNNEEDED,
+void  json_add_unsaved_channel(struct command *cmd UNNEEDED,
+					   struct json_stream *response UNNEEDED,
 					   const struct channel *channel UNNEEDED,
 					   const struct peer *peer UNNEEDED)
 { fprintf(stderr, "json_add_unsaved_channel called!\n"); abort(); }
