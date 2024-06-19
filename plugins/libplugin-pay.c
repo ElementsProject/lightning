@@ -1002,16 +1002,105 @@ static struct command_result *payment_getroute(struct payment *p)
 	return command_still_pending(p->cmd);
 }
 
-static struct command_result *
-payment_listpeerchannels_success(struct command *cmd,
-				 const char *buffer,
-				 const jsmntok_t *toks,
-				 struct payment *p)
+/**
+ * Compute the total sum of balances. Limits the maximum size we can
+ * pay as a preflight test.  Returns `false` on errors, otherwise
+ * `sum` contains the sum of all channel balances.*/
+static bool payment_listpeerchannels_balance_sum(struct payment *p,
+						 const char *buf,
+						 const jsmntok_t *toks,
+						 struct amount_msat *sum)
 {
-	p->mods = gossmods_from_listpeerchannels(p, p->local_id,
-						 buffer, toks, true,
-						 gossmod_add_localchan,
-						 NULL);
+	*sum = AMOUNT_MSAT(0);
+	const jsmntok_t *channels, *channel;
+	struct amount_msat spendable;
+	bool connected;
+	size_t i;
+	const char *err;
+
+	channels = json_get_member(buf, toks, "channels");
+
+	json_for_each_arr(i, channel, channels)
+	{
+		err = json_scan(tmpctx, buf, channel,
+				"{spendable_msat?:%,peer_connected:%}",
+				JSON_SCAN(json_to_msat, &spendable),
+				JSON_SCAN(json_to_bool, &connected));
+		if (err) {
+			paymod_log(p, LOG_UNUSUAL,
+				   "Bad listpeerchannels.channels %zu: %s", i,
+				   err);
+			return false;
+		}
+
+		if (!amount_msat_add(sum, *sum, spendable)) {
+			paymod_log(
+			    p, LOG_BROKEN,
+			    "Integer sum overflow summing spendable amounts.");
+			return false;
+		}
+	}
+	return true;
+}
+
+static struct command_result *
+payment_listpeerchannels_success(struct command *cmd, const char *buffer,
+				 const jsmntok_t *toks, struct payment *p)
+{
+	/* The maximum amount we may end up trying to send. This
+	 * includes the value and the full fee budget. If the
+	 * available funds are below this, we emit a warning. */
+	struct amount_msat maxrequired, spendable;
+
+	if (!amount_msat_add(&maxrequired, p->getroute->amount,
+			     p->constraints.fee_budget)) {
+		paymod_log(p, LOG_BROKEN,
+			   "amount_msat overflow computing the fee budget");
+		return payment_getroute(p);
+	}
+
+	p->mods = gossmods_from_listpeerchannels(
+	    p, p->local_id, buffer, toks, true, gossmod_add_localchan, NULL);
+	if (!payment_listpeerchannels_balance_sum(p, buffer, toks,
+						  &spendable)) {
+		paymod_log(p, LOG_UNUSUAL,
+			   "Unable to get total spendable amount from "
+			   "listpeerchannels. Skipping affordability check.");
+
+		/* Keep your fingers crossed, we may still succeed. */
+		return payment_getroute(p);
+	}
+
+	/* Pre-flight check: can we even afford the full amount of the
+	 * payment? And if yes, can we afford the full amount with the
+	 * full fee budget? If the former fails, we fail immediately,
+	 * for the latter we log a warning, so we can root-cause this
+	 * a bit better if we then run into routing issues. */
+	if (amount_msat_greater(p->getroute->amount, spendable)) {
+		paymod_log(p, LOG_UNUSUAL,
+			   "Insufficient funds to perform the payment: "
+			   "spendable=%s < payment=%s",
+			   fmt_amount_msat(tmpctx, spendable),
+			   fmt_amount_msat(tmpctx, p->getroute->amount));
+		payment_abort(p, PAY_INSUFFICIENT_FUNDS,
+			      "Insufficient funds to perform the payment: "
+			      "spendable=%s < payment=%s",
+			      fmt_amount_msat(tmpctx, spendable),
+			      fmt_amount_msat(tmpctx, p->getroute->amount));
+		return command_still_pending(p->cmd);
+	} else if (amount_msat_greater(maxrequired, spendable)) {
+		char *msg = tal_fmt(
+		    tmpctx,
+		    "We do not have sufficient funds to pay for the specified "
+		    "fee budget: spendable=%s < payment=%s + budget=%s. This "
+		    "may cause a failed payment, but we'll try anyway.",
+		    fmt_amount_msat(tmpctx, spendable),
+		    fmt_amount_msat(tmpctx, p->getroute->amount),
+		    fmt_amount_msat(tmpctx, p->constraints.fee_budget));
+
+		plugin_notify_message(p->cmd, LOG_INFORM, "%s", msg);
+	}
+
 	return payment_getroute(p);
 }
 

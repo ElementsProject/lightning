@@ -162,6 +162,9 @@ const char *json_scan(const tal_t *ctx UNNEEDED,
 /* Generated stub for json_strdup */
 char *json_strdup(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
 { fprintf(stderr, "json_strdup called!\n"); abort(); }
+/* Generated stub for json_to_bool */
+bool json_to_bool(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, bool *b UNNEEDED)
+{ fprintf(stderr, "json_to_bool called!\n"); abort(); }
 /* Generated stub for json_to_createonion_response */
 struct createonion_response *json_to_createonion_response(const tal_t *ctx UNNEEDED,
 							  const char *buffer UNNEEDED,
@@ -261,6 +264,12 @@ void plugin_notification_end(struct plugin *plugin UNNEEDED,
 struct json_stream *plugin_notification_start(struct plugin *plugins UNNEEDED,
 					      const char *method UNNEEDED)
 { fprintf(stderr, "plugin_notification_start called!\n"); abort(); }
+/* Generated stub for plugin_notify_message */
+void plugin_notify_message(struct command *cmd UNNEEDED,
+			   enum log_level level UNNEEDED,
+			   const char *fmt UNNEEDED, ...)
+
+{ fprintf(stderr, "plugin_notify_message called!\n"); abort(); }
 /* Generated stub for random_select */
 bool random_select(double weight UNNEEDED, double *tot_weight UNNEEDED)
 { fprintf(stderr, "random_select called!\n"); abort(); }
