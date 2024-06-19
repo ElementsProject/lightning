@@ -265,28 +265,10 @@ void setup_peer_gossip_store(struct peer *peer,
 	 * 	- MUST NOT relay any gossip messages it did not generate itself,
 	 *        unless explicitly requested.
 	 */
-	if (feature_negotiated(our_features, their_features, OPT_GOSSIP_QUERIES)) {
-		peer->gs.gossip_timer = NULL;
-		peer->gs.active = false;
-		peer->gs.off = 1;
-		return;
-	}
-
-	peer->gs.gossip_timer = gossip_stream_timer(peer);
-	peer->gs.active = !peer->daemon->dev_suppress_gossip;
-	peer->gs.timestamp_min = 0;
-	peer->gs.timestamp_max = UINT32_MAX;
-
-	/* We still respect this old bit, though spec part was removed. */
-	if (feature_offered(their_features, OPT_INITIAL_ROUTING_SYNC))
-		peer->gs.off = 1;
-	else {
-		/* During tests, particularly, we find that the gossip_store
-		 * moves fast, so make sure it really does start at the end. */
-		peer->gs.off
-			= find_gossip_store_end(peer->daemon->gossip_store_fd,
-						peer->daemon->gossip_store_end);
-	}
+	peer->gs.gossip_timer = NULL;
+	peer->gs.active = false;
+	peer->gs.off = 1;
+	return;
 }
 
 /* We're happy for the kernel to batch update and gossip messages, but a

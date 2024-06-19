@@ -31,9 +31,6 @@ static const struct feature_style feature_styles[] = {
 	{ OPT_DATA_LOSS_PROTECT,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT } },
-	{ OPT_INITIAL_ROUTING_SYNC,
-	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT_AS_OPTIONAL,
-			  [NODE_ANNOUNCE_FEATURE] = FEATURE_DONT_REPRESENT } },
 	{ OPT_UPFRONT_SHUTDOWN_SCRIPT,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT } },
@@ -404,12 +401,6 @@ int features_unsupported(const struct feature_set *our_features,
 			 const u8 *their_features,
 			 enum feature_place p)
 {
-	/* BIT 2 would logically be "compulsory initial_routing_sync", but
-	 * that does not exist, so we special case it. */
-	if (feature_is_set(their_features,
-			   COMPULSORY_FEATURE(OPT_INITIAL_ROUTING_SYNC)))
-		return COMPULSORY_FEATURE(OPT_INITIAL_ROUTING_SYNC);
-
 	return all_supported_features(our_features, their_features, p);
 }
 
