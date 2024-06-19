@@ -581,7 +581,7 @@ static void json_add_htlcs(struct lightningd *ld,
 				htlc_state_name(hin->hstate));
 		if (htlc_is_trimmed(REMOTE, hin->msat, local_feerate,
 				    channel->our_config.dust_limit, LOCAL,
-				    channel_has(channel, OPT_ANCHOR_OUTPUTS),
+				    channel_has(channel, OPT_ANCHOR_OUTPUTS_DEPRECATED),
 				    channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX)))
 			json_add_bool(response, "local_trimmed", true);
 		if (hin->status != NULL)
@@ -605,7 +605,7 @@ static void json_add_htlcs(struct lightningd *ld,
 				htlc_state_name(hout->hstate));
 		if (htlc_is_trimmed(LOCAL, hout->msat, local_feerate,
 				    channel->our_config.dust_limit, LOCAL,
-				    channel_has(channel, OPT_ANCHOR_OUTPUTS),
+				    channel_has(channel, OPT_ANCHOR_OUTPUTS_DEPRECATED),
 				    channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX)))
 			json_add_bool(response, "local_trimmed", true);
 		json_object_end(response);
@@ -629,7 +629,7 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 				  channel->opener, side);
 	struct amount_sat dust_limit;
 	struct amount_sat fee;
-	bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS_DEPRECATED);
 	bool option_anchors_zero_fee_htlc_tx = channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX);
 
 	if (side == LOCAL)
@@ -1005,7 +1005,7 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct lightningd *ld,
 	json_array_start(response, "features");
 	if (channel_has(channel, OPT_STATIC_REMOTEKEY))
 		json_add_string(response, NULL, "option_static_remotekey");
-	if (channel_has(channel, OPT_ANCHOR_OUTPUTS))
+	if (channel_has(channel, OPT_ANCHOR_OUTPUTS_DEPRECATED))
 		json_add_string(response, NULL, "option_anchor_outputs");
 	if (channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX))
 		json_add_string(response, NULL, "option_anchors_zero_fee_htlc_tx");

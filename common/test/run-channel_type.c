@@ -122,8 +122,8 @@ int main(int argc, char *argv[])
 
 	assert_names_eq(channel_type_name(tmpctx, channel_type_static_remotekey(tmpctx)),
 			"static_remotekey/even");
-	assert_names_eq(channel_type_name(tmpctx, channel_type_anchor_outputs(tmpctx)),
-			"static_remotekey/even anchor_outputs/even");
+	assert_names_eq(channel_type_name(tmpctx, channel_type_anchors_zero_fee_htlc(tmpctx)),
+			"static_remotekey/even anchors_zero_fee_htlc_tx/even");
 
 	t.features = tal_arr(tmpctx, u8, 0);
 	set_feature_bit(&t.features, 1000);

@@ -112,7 +112,6 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
  * | 14/15 | `payment_secret`                  |... IN9 ...
  * | 16/17 | `basic_mpp`                       |... IN9 ...
  * | 18/19 | `option_support_large_channel`    |... IN ...
- * | 20/21 | `option_anchor_outputs`           |... IN ...
  * | 22/23 | `option_anchors_zero_fee_htlc_tx` |... IN ...
  * | 24/25 | `option_route_blinding`           |...IN9 ...
  * | 26/27 | `option_shutdown_anysegwit`       |... IN ...
@@ -133,7 +132,6 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
 #define OPT_PAYMENT_SECRET			14
 #define OPT_BASIC_MPP				16
 #define OPT_LARGE_CHANNELS			18
-#define OPT_ANCHOR_OUTPUTS			20
 #define OPT_ANCHORS_ZERO_FEE_HTLC_TX		22
 #define OPT_ROUTE_BLINDING 			24
 #define OPT_SHUTDOWN_ANYSEGWIT			26
@@ -143,6 +141,10 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
 #define OPT_SCID_ALIAS				46
 #define OPT_PAYMENT_METADATA			48
 #define OPT_ZEROCONF				50
+
+/* The old pre-zero-fee-anchors were deprecated, and we never supported them
+ * outside experimental options */
+#define OPT_ANCHOR_OUTPUTS_DEPRECATED		20
 
 /* BOLT-splice #9:
  * | 62/63 | `option_splice` |  ... IN ...

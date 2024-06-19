@@ -73,11 +73,6 @@ void json_add_uncommitted_channel(struct json_stream *response,
 
 	if (feature_negotiated(uc->peer->ld->our_features,
 			       uc->peer->their_features,
-			       OPT_ANCHOR_OUTPUTS))
-		json_add_string(response, NULL, "option_anchor_outputs");
-
-	if (feature_negotiated(uc->peer->ld->our_features,
-			       uc->peer->their_features,
 			       OPT_ANCHORS_ZERO_FEE_HTLC_TX))
 		json_add_string(response, NULL, "option_anchors_zero_fee_htlc_tx");
 
@@ -151,14 +146,6 @@ wallet_commit_channel(struct lightningd *ld,
 	 *
 	 * Both peers:
 	 * ...
-	 *   - if `option_anchors_zero_fee_htlc_tx` was negotiated:
-	 *     - the `channel_type` is `option_anchors_zero_fee_htlc_tx` and
-	 *       `option_static_remotekey` (bits 22 and 12)
-	 *   - otherwise, if `option_anchor_outputs` was negotiated:
-	 *     - the `channel_type` is `option_anchor_outputs` and
-	 *       `option_static_remotekey` (bits 20 and 12)
-	 *   - otherwise:
-	 *     - the `channel_type` is `option_static_remotekey` (bit 12)
 	 * - MUST use that `channel_type` for all commitment transactions.
 	 */
 	/* i.e. We set it now for the channel permanently. */

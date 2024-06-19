@@ -732,7 +732,7 @@ static struct command_result *json_feerates(struct command *cmd,
 		/* It actually is negotiated per-channel... */
 		bool anchor_outputs
 			= feature_offered(cmd->ld->our_features->bits[INIT_FEATURE],
-					  OPT_ANCHOR_OUTPUTS)
+					  OPT_ANCHOR_OUTPUTS_DEPRECATED)
 			|| feature_offered(cmd->ld->our_features->bits[INIT_FEATURE],
 					   OPT_ANCHORS_ZERO_FEE_HTLC_TX);
 

@@ -5864,7 +5864,7 @@ static void init_channel(struct peer *peer)
 		     " option_anchor_outputs = %u"
 		     " option_anchors_zero_fee_htlc_tx = %u",
 		     channel_type_has(channel_type, OPT_STATIC_REMOTEKEY),
-		     channel_type_has(channel_type, OPT_ANCHOR_OUTPUTS),
+		     channel_type_has(channel_type, OPT_ANCHOR_OUTPUTS_DEPRECATED),
 		     channel_type_has(channel_type, OPT_ANCHORS_ZERO_FEE_HTLC_TX));
 
 	/* Keeping an array of pointers is better since it allows us to avoid

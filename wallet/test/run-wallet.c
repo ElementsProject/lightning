@@ -1423,7 +1423,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	assert(parse_wireaddr_internal(tmpctx, "localhost:1234", 0, false, &addr) == NULL);
 	channel.peer = new_peer(ld, 0, &id, &addr, NULL, false);
 	channel.dbid = 1;
-	channel.type = channel_type_anchor_outputs(tmpctx);
+	channel.type = channel_type_anchors_zero_fee_htlc(tmpctx);
 	memset(&u.outpoint, 3, sizeof(u.outpoint));
 	CHECK_MSG(wallet_add_onchaind_utxo(w, &u.outpoint,
 					   u.scriptPubkey,
