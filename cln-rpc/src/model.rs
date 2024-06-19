@@ -24,7 +24,6 @@ pub enum Request {
 	ListChannels(requests::ListchannelsRequest),
 	AddGossip(requests::AddgossipRequest),
 	AddPsbtOutput(requests::AddpsbtoutputRequest),
-	AutoCleanInvoice(requests::AutocleaninvoiceRequest),
 	#[serde(rename = "autoclean-once")]
 	AutoCleanOnce(requests::AutocleanonceRequest),
 	#[serde(rename = "autoclean-status")]
@@ -152,7 +151,6 @@ pub enum Response {
 	ListChannels(responses::ListchannelsResponse),
 	AddGossip(responses::AddgossipResponse),
 	AddPsbtOutput(responses::AddpsbtoutputResponse),
-	AutoCleanInvoice(responses::AutocleaninvoiceResponse),
 	#[serde(rename = "autoclean-once")]
 	AutoCleanOnce(responses::AutocleanonceResponse),
 	#[serde(rename = "autoclean-status")]
@@ -524,31 +522,6 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "addpsbtoutput"
-	    }
-	}
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct AutocleaninvoiceRequest {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub cycle_seconds: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub expired_by: Option<u64>,
-	}
-
-	impl From<AutocleaninvoiceRequest> for Request {
-	    fn from(r: AutocleaninvoiceRequest) -> Self {
-	        Request::AutoCleanInvoice(r)
-	    }
-	}
-
-	impl IntoRequest for AutocleaninvoiceRequest {
-	    type Response = super::responses::AutocleaninvoiceResponse;
-	}
-
-	impl TypedRequest for AutocleaninvoiceRequest {
-	    type Response = super::responses::AutocleaninvoiceResponse;
-
-	    fn method(&self) -> &str {
-	        "autocleaninvoice"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -4450,26 +4423,6 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::AddPsbtOutput(response) => Ok(response),
-	            _ => Err(TryFromResponseError)
-	        }
-	    }
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct AutocleaninvoiceResponse {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub cycle_seconds: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub expired_by: Option<u64>,
-	    pub enabled: bool,
-	}
-
-	impl TryFrom<Response> for AutocleaninvoiceResponse {
-	    type Error = super::TryFromResponseError;
-
-	    fn try_from(response: Response) -> Result<Self, Self::Error> {
-	        match response {
-	            Response::AutoCleanInvoice(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

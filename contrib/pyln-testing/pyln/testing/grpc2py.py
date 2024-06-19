@@ -198,14 +198,6 @@ def addpsbtoutput2py(m):
     })
 
 
-def autocleaninvoice2py(m):
-    return remove_default({
-        "cycle_seconds": m.cycle_seconds,  # PrimitiveField in generate_composite
-        "enabled": m.enabled,  # PrimitiveField in generate_composite
-        "expired_by": m.expired_by,  # PrimitiveField in generate_composite
-    })
-
-
 def autoclean_once_autoclean_expiredinvoices2py(m):
     return remove_default({
         "cleaned": m.cleaned,  # PrimitiveField in generate_composite
