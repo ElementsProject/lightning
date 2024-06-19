@@ -352,8 +352,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 	}
 
 	/* Which feerate do we use?  (We can lowball fees if using anchors!) */
-	if (channel_type_has(state->channel_type, OPT_ANCHOR_OUTPUTS)
-	    || channel_type_has(state->channel_type, OPT_ANCHORS_ZERO_FEE_HTLC_TX)) {
+	if (channel_type_has_anchors(state->channel_type)) {
 		state->feerate_per_kw = anchor_feerate;
 	} else {
 		state->feerate_per_kw = nonanchor_feerate;
@@ -552,12 +551,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 				 state->min_effective_htlc_capacity,
 				 &state->remoteconf,
 				 &state->localconf,
-				 feature_negotiated(state->our_features,
-						    state->their_features,
-						    OPT_ANCHOR_OUTPUTS),
-				 feature_negotiated(state->our_features,
-						    state->their_features,
-						    OPT_ANCHORS_ZERO_FEE_HTLC_TX),
+				 channel_type_has(state->channel_type, OPT_ANCHORS_ZERO_FEE_HTLC_TX),
 				 &err_reason)) {
 		negotiation_failed(state, "%s", err_reason);
 		return NULL;
@@ -1071,12 +1065,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				 state->min_effective_htlc_capacity,
 				 &state->remoteconf,
 				 &state->localconf,
-				 feature_negotiated(state->our_features,
-						    state->their_features,
-						    OPT_ANCHOR_OUTPUTS),
-				 feature_negotiated(state->our_features,
-						    state->their_features,
-						    OPT_ANCHORS_ZERO_FEE_HTLC_TX),
+				 channel_type_has(state->channel_type,
+						  OPT_ANCHORS_ZERO_FEE_HTLC_TX),
 				 &err_reason)) {
 		negotiation_failed(state, "%s", err_reason);
 		return NULL;

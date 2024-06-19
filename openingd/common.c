@@ -19,7 +19,6 @@ bool check_config_bounds(const tal_t *ctx,
 			 struct amount_msat min_effective_htlc_capacity,
 			 const struct channel_config *remoteconf,
 			 const struct channel_config *localconf,
-			 bool option_anchor_outputs,
 			 bool option_anchors_zero_fee_htlc_tx,
 			 char **err_reason)
 {
@@ -71,7 +70,7 @@ bool check_config_bounds(const tal_t *ctx,
 	 *    `to_remote_anchor` above its reserve.
 	 */
 	/* (We simply include in "reserve" here if they opened). */
-	if ((option_anchor_outputs || option_anchors_zero_fee_htlc_tx)
+	if (option_anchors_zero_fee_htlc_tx
 	    && !amount_sat_add(&reserve, reserve, AMOUNT_SAT(660))) {
 		*err_reason = tal_fmt(ctx,
 				      "cannot add anchors to reserve %s",
@@ -92,7 +91,7 @@ bool check_config_bounds(const tal_t *ctx,
 	/* They have to pay for fees, too.  Assuming HTLC is dust, though,
 	 * we don't account for an HTLC output. */
 	fee = commit_tx_base_fee(feerate_per_kw, 0,
-				 option_anchor_outputs,
+				 false,
 				 option_anchors_zero_fee_htlc_tx);
 	if (!amount_sat_sub(&capacity, capacity, fee)) {
 		*err_reason = tal_fmt(ctx, "channel_reserve_satoshis %s"
@@ -200,7 +199,7 @@ bool anchors_negotiated(struct feature_set *our_features,
 			const u8 *their_features)
 {
 	return feature_negotiated(our_features, their_features,
-				  OPT_ANCHOR_OUTPUTS)
+				  OPT_ANCHOR_OUTPUTS_DEPRECATED)
 		|| feature_negotiated(our_features,
 				      their_features,
 				      OPT_ANCHORS_ZERO_FEE_HTLC_TX);

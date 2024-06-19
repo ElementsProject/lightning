@@ -77,10 +77,6 @@ static const struct feature_style feature_styles[] = {
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
-	{ OPT_ANCHOR_OUTPUTS,
-	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
-			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
-			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
 	{ OPT_ANCHORS_ZERO_FEE_HTLC_TX,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
@@ -170,18 +166,6 @@ static const struct dependency feature_deps[] = {
 	{ OPT_GOSSIP_QUERIES_EX, OPT_GOSSIP_QUERIES },
 	{ OPT_PAYMENT_SECRET, OPT_VAR_ONION },
 	{ OPT_BASIC_MPP, OPT_PAYMENT_SECRET },
-	/* BOLT #9:
-	 * Name                | Description  | Context  | Dependencies  |
-	 *...
-	 * `option_anchor_outputs` | ...      | ...      | `option_static_remotekey`
-	 */
-	{ OPT_ANCHOR_OUTPUTS, OPT_STATIC_REMOTEKEY },
-	/* BOLT #9:
-	 * Name                | Description  | Context  | Dependencies  |
-	 *...
-	 * `option_anchors_zero_fee_htlc_tx` | ...      | ...      | `option_static_remotekey`
-	 */
-	{ OPT_ANCHORS_ZERO_FEE_HTLC_TX, OPT_STATIC_REMOTEKEY },
 	/* BOLT #9:
 	 * Name                | Description  | Context  | Dependencies  |
 	 * ...

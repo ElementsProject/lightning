@@ -65,7 +65,7 @@ void run(const uint8_t *data, size_t size)
 	option_anchor_outputs = fromwire_bool(&data, &size);
 
 	if (option_anchor_outputs)
-		channel_type = channel_type_anchor_outputs(tmpctx);
+		channel_type = channel_type_anchors_zero_fee_htlc(tmpctx);
 	else
 		channel_type = channel_type_static_remotekey(tmpctx);
 

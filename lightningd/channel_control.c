@@ -1156,7 +1156,7 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 					    OPT_SHUTDOWN_ANYSEGWIT);
 	bool anchors = feature_negotiated(ld->our_features,
 					  channel->peer->their_features,
-					  OPT_ANCHOR_OUTPUTS)
+					  OPT_ANCHOR_OUTPUTS_DEPRECATED)
 		|| feature_negotiated(ld->our_features,
 				      channel->peer->their_features,
 				      OPT_ANCHORS_ZERO_FEE_HTLC_TX);

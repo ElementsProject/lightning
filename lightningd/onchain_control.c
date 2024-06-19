@@ -1196,7 +1196,7 @@ static void handle_onchaind_spend_htlc_success(struct channel *channel,
 	u8 **witness;
 	struct bitcoin_signature sig;
 	const struct onchain_witness_element **welements;
-	const bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	const bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS_DEPRECATED);
 	const bool option_anchors_zero_fee_htlc_tx = channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX);
 
 	info = new_signing_info(msg, channel, WIRE_ONCHAIND_SPEND_HTLC_SUCCESS);
@@ -1277,7 +1277,7 @@ static void handle_onchaind_spend_htlc_timeout(struct channel *channel,
 	u8 **witness;
 	struct bitcoin_signature sig;
 	const struct onchain_witness_element **welements;
-	const bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	const bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS_DEPRECATED);
 	const bool option_anchors_zero_fee_htlc_tx = channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX);
 
 	info = new_signing_info(msg, channel, WIRE_ONCHAIND_SPEND_HTLC_TIMEOUT);
@@ -1630,7 +1630,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  &channel->channel_info.remote_fundingkey,
 				  channel->static_remotekey_start[LOCAL],
 				  channel->static_remotekey_start[REMOTE],
-				   channel_has(channel, OPT_ANCHOR_OUTPUTS),
+				   channel_has(channel, OPT_ANCHOR_OUTPUTS_DEPRECATED),
 				   channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX),
 				  feerate_min(ld, NULL));
 	subd_send_msg(channel->owner, take(msg));

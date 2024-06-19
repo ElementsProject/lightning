@@ -364,7 +364,7 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 	int hsmfd;
 	struct lightningd *ld = channel->peer->ld;
 	u32 final_commit_feerate;
-	bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS_DEPRECATED);
 	bool option_anchors_zero_fee_htlc_tx = channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX);
 
 	if (!channel->shutdown_scriptpubkey[REMOTE]) {

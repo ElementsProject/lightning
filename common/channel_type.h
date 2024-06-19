@@ -7,7 +7,6 @@
 
 /* Explicit channel types */
 struct channel_type *channel_type_static_remotekey(const tal_t *ctx);
-struct channel_type *channel_type_anchor_outputs(const tal_t *ctx);
 struct channel_type *channel_type_anchors_zero_fee_htlc(const tal_t *ctx);
 
 /* channel_type variants */
@@ -47,4 +46,5 @@ const char **channel_type_name(const tal_t *ctx, const struct channel_type *t);
 
 /* Obsolete channels can exist in db still */
 struct channel_type *channel_type_none_obsolete(const tal_t *ctx);
+struct channel_type *channel_type_anchor_outputs_obsolete(const tal_t *ctx);
 #endif /* LIGHTNING_COMMON_CHANNEL_TYPE_H */

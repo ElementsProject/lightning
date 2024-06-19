@@ -133,7 +133,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				    0 ^ channel->commitment_number_obscurer,
 				    direct_outputs,
 				    side, csv_lock,
-				    channel_has(channel, OPT_ANCHOR_OUTPUTS),
+				    channel_has(channel, OPT_ANCHOR_OUTPUTS_DEPRECATED),
 				    channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX),
 				    err_reason);
 
@@ -209,8 +209,8 @@ struct channel_type *channel_desired_type(const tal_t *ctx,
 		return channel_type_anchors_zero_fee_htlc(ctx);
 
 	/* We don't actually want to downgrade anchors! */
-	if (channel_has(channel, OPT_ANCHOR_OUTPUTS))
-		return channel_type_anchor_outputs(ctx);
+	if (channel_has(channel, OPT_ANCHOR_OUTPUTS_DEPRECATED))
+		return channel_type_anchor_outputs_obsolete(ctx);
 
 	/* For now, we just want option_static_remotekey */
 	return channel_type_static_remotekey(ctx);

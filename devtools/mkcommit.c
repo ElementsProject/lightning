@@ -303,7 +303,7 @@ int main(int argc, char *argv[])
 			   "Use option_static_remotekey generation rules");
 	opt_register_noarg("--option-anchor-outputs", opt_set_bool,
 			   &option_anchor_outputs,
-			   "Use option_anchor_outputs generation rules");
+			   "Use option_anchors_zero_fee_htlc_tx generation rules");
 	opt_register_version();
 
 	opt_parse(&argc, argv, opt_log_stderr_exit);
@@ -391,7 +391,7 @@ int main(int argc, char *argv[])
 	derive_channel_id(&cid, &funding);
 
 	if (option_anchor_outputs)
-		channel_type = channel_type_anchor_outputs(NULL);
+		channel_type = channel_type_anchors_zero_fee_htlc(NULL);
 	else if (option_static_remotekey)
 		channel_type = channel_type_static_remotekey(NULL);
 	else
