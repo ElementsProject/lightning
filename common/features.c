@@ -159,19 +159,10 @@ static const struct dependency feature_deps[] = {
 	 *...
 	 * `gossip_queries_ex` | ...          | ...      | `gossip_queries` |
 	 *...
-	 * `payment_secret`    | ...          | ...      | `var_onion_optin` |
-	 *...
 	 * `basic_mpp`         | ...          | ...      | `payment_secret` |
 	 */
 	{ OPT_GOSSIP_QUERIES_EX, OPT_GOSSIP_QUERIES },
-	{ OPT_PAYMENT_SECRET, OPT_VAR_ONION },
 	{ OPT_BASIC_MPP, OPT_PAYMENT_SECRET },
-	/* BOLT #9:
-	 * Name                | Description  | Context  | Dependencies  |
-	 * ...
-	 * `option_route_blinding` | ...      | ...      | `var_onion_optin`
-	 */
-	{ OPT_ROUTE_BLINDING, OPT_VAR_ONION },
 };
 
 static void trim_features(u8 **features)
