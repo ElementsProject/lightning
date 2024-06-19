@@ -5,6 +5,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <plugins/libplugin.h>
 
 enum subsystem {
@@ -56,13 +57,28 @@ struct clean_info {
 };
 
 static u64 cycle_seconds = 3600;
-static struct clean_info timer_cinfo;
+static struct clean_info *timer_cinfo;
 static u64 total_cleaned[NUM_SUBSYSTEM];
 static struct plugin *plugin;
 /* This is NULL if it's running now. */
 static struct plugin_timer *cleantimer;
 
 static void do_clean_timer(void *unused);
+
+static struct clean_info *new_clean_info(const tal_t *ctx,
+					 struct command *cmd)
+{
+	struct clean_info *cinfo = tal(ctx, struct clean_info);
+	cinfo->cmd = cmd;
+	cinfo->cleanup_reqs_remaining = 0;
+	cinfo->num_uncleaned = 0;
+
+	for (enum subsystem i = 0; i < NUM_SUBSYSTEM; i++) {
+		cinfo->subsystem_age[i] = 0;
+		cinfo->num_cleaned[i] = 0;
+	}
+	return cinfo;
+}
 
 /* Fatal failures */
 static struct command_result *cmd_failed(struct command *cmd,
@@ -437,9 +453,9 @@ static struct command_result *do_clean(struct clean_info *cinfo)
 /* Needs a different signature than do_clean */
 static void do_clean_timer(void *unused)
 {
-	assert(timer_cinfo.cleanup_reqs_remaining == 0);
+	assert(timer_cinfo->cleanup_reqs_remaining == 0);
 	cleantimer = NULL;
-	do_clean(&timer_cinfo);
+	do_clean(timer_cinfo);
 }
 
 static struct command_result *param_subsystem(struct command *cmd,
@@ -466,9 +482,9 @@ static struct command_result *json_success_subsystems(struct command *cmd,
 		if (subsystem && i != *subsystem)
 			continue;
 		json_object_start(response, subsystem_to_str(i));
-		json_add_bool(response, "enabled", timer_cinfo.subsystem_age[i] != 0);
-		if (timer_cinfo.subsystem_age[i] != 0)
-			json_add_u64(response, "age", timer_cinfo.subsystem_age[i]);
+		json_add_bool(response, "enabled", timer_cinfo->subsystem_age[i] != 0);
+		if (timer_cinfo->subsystem_age[i] != 0)
+			json_add_u64(response, "age", timer_cinfo->subsystem_age[i]);
 		json_add_u64(response, "cleaned", total_cleaned[i]);
 		json_object_end(response);
 	}
@@ -517,18 +533,27 @@ static struct command_result *json_autoclean_once(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	cinfo = tal(cmd, struct clean_info);
-	cinfo->cmd = cmd;
-	memset(cinfo->subsystem_age, 0, sizeof(cinfo->subsystem_age));
+	cinfo = new_clean_info(cmd, cmd);
 	cinfo->subsystem_age[*subsystem] = *age;
 
 	return do_clean(cinfo);
+}
+
+static void memleak_mark_timer_cinfo(struct plugin *plugin,
+				     struct htable *memtable)
+{
+	memleak_scan_obj(memtable, timer_cinfo);
 }
 
 static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
 	plugin = p;
+
+	/* Plugin owns global */
+	tal_steal(plugin, timer_cinfo);
+	plugin_set_memleak_handler(plugin, memleak_mark_timer_cinfo);
+
 	cleantimer = plugin_timer(p, time_from_sec(cycle_seconds), do_clean_timer, NULL);
 
 	/* We don't care if this fails (it usually does, since entries
@@ -587,6 +612,8 @@ static const struct plugin_command commands[] = { {
 int main(int argc, char *argv[])
 {
 	setup_locale();
+
+	timer_cinfo = new_clean_info(NULL, NULL);
 	plugin_main(argv, init, PLUGIN_STATIC, true, NULL, commands, ARRAY_SIZE(commands),
 	            NULL, 0, NULL, 0, NULL, 0,
 		    plugin_option_dynamic("autoclean-cycle",
@@ -599,31 +626,31 @@ int main(int argc, char *argv[])
 					  "int",
 					  "How old do successful forwards have to be before deletion (0 = never)",
 					  u64_option, u64_jsonfmt_unless_zero,
-					  &timer_cinfo.subsystem_age[SUCCEEDEDFORWARDS]),
+					  &timer_cinfo->subsystem_age[SUCCEEDEDFORWARDS]),
 		    plugin_option_dynamic("autoclean-failedforwards-age",
 					  "int",
 					  "How old do failed forwards have to be before deletion (0 = never)",
 					  u64_option, u64_jsonfmt_unless_zero,
-					  &timer_cinfo.subsystem_age[FAILEDFORWARDS]),
+					  &timer_cinfo->subsystem_age[FAILEDFORWARDS]),
 		    plugin_option_dynamic("autoclean-succeededpays-age",
 					  "int",
 					  "How old do successful pays have to be before deletion (0 = never)",
 					  u64_option, u64_jsonfmt_unless_zero,
-					  &timer_cinfo.subsystem_age[SUCCEEDEDPAYS]),
+					  &timer_cinfo->subsystem_age[SUCCEEDEDPAYS]),
 		    plugin_option_dynamic("autoclean-failedpays-age",
 					  "int",
 					  "How old do failed pays have to be before deletion (0 = never)",
 					  u64_option, u64_jsonfmt_unless_zero,
-					  &timer_cinfo.subsystem_age[FAILEDPAYS]),
+					  &timer_cinfo->subsystem_age[FAILEDPAYS]),
 		    plugin_option_dynamic("autoclean-paidinvoices-age",
 					  "int",
 					  "How old do paid invoices have to be before deletion (0 = never)",
 					  u64_option, u64_jsonfmt_unless_zero,
-					  &timer_cinfo.subsystem_age[PAIDINVOICES]),
+					  &timer_cinfo->subsystem_age[PAIDINVOICES]),
 		    plugin_option_dynamic("autoclean-expiredinvoices-age",
 					  "int",
 					  "How old do expired invoices have to be before deletion (0 = never)",
 					  u64_option, u64_jsonfmt_unless_zero,
-					  &timer_cinfo.subsystem_age[EXPIREDINVOICES]),
+					  &timer_cinfo->subsystem_age[EXPIREDINVOICES]),
 		    NULL);
 }
