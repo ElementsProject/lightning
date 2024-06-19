@@ -442,41 +442,6 @@ static void do_clean_timer(void *unused)
 	do_clean(&timer_cinfo);
 }
 
-static struct command_result *json_autocleaninvoice(struct command *cmd,
-						    const char *buffer,
-						    const jsmntok_t *params)
-{
-	u64 *cycle;
-	u64 *exby;
-	struct json_stream *response;
-
-	if (!param(cmd, buffer, params,
-		   p_opt_def("cycle_seconds", param_u64, &cycle, 3600),
-		   p_opt_def("expired_by", param_u64, &exby, 86400),
-		   NULL))
-		return command_param_failed();
-
-	cleantimer = tal_free(cleantimer);
-
-	if (*cycle == 0) {
-		timer_cinfo.subsystem_age[EXPIREDINVOICES] = 0;
-		response = jsonrpc_stream_success(cmd);
-		json_add_bool(response, "enabled", false);
-		return command_finished(cmd, response);
-	}
-
-	cycle_seconds = *cycle;
-	timer_cinfo.subsystem_age[EXPIREDINVOICES] = *exby;
-	cleantimer = plugin_timer(cmd->plugin, time_from_sec(cycle_seconds),
-				  do_clean_timer, NULL);
-
-	response = jsonrpc_stream_success(cmd);
-	json_add_bool(response, "enabled", true);
-	json_add_u64(response, "cycle_seconds", cycle_seconds);
-	json_add_u64(response, "expired_by", timer_cinfo.subsystem_age[EXPIREDINVOICES]);
-	return command_finished(cmd, response);
-}
-
 static struct command_result *param_subsystem(struct command *cmd,
 					      const char *name,
 					      const char *buffer,
@@ -605,14 +570,6 @@ static bool u64_jsonfmt_unless_zero(struct plugin *plugin,
 }
 
 static const struct plugin_command commands[] = { {
-	"autocleaninvoice",
-	"payment",
-	"Set up autoclean of expired invoices. ",
-	"Perform cleanup every {cycle_seconds} (default 3600), or disable autoclean if 0. "
-	"Clean up expired invoices that have expired for {expired_by} seconds (default 86400). ",
-	json_autocleaninvoice,
-	"v22.11", "v24.02",
-	}, {
 	"autoclean-status",
 	"utility",
 	"Show status of autocleaning",

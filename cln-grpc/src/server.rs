@@ -306,38 +306,6 @@ impl Node for Server
 
     }
 
-    async fn auto_clean_invoice(
-        &self,
-        request: tonic::Request<pb::AutocleaninvoiceRequest>,
-    ) -> Result<tonic::Response<pb::AutocleaninvoiceResponse>, tonic::Status> {
-        let req = request.into_inner();
-        let req: requests::AutocleaninvoiceRequest = req.into();
-        debug!("Client asked for auto_clean_invoice");
-        trace!("auto_clean_invoice request: {:?}", req);
-        let mut rpc = ClnRpc::new(&self.rpc_path)
-            .await
-            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
-        let result = rpc.call(Request::AutoCleanInvoice(req))
-            .await
-            .map_err(|e| Status::new(
-               Code::Unknown,
-               format!("Error calling method AutoCleanInvoice: {:?}", e)))?;
-        match result {
-            Response::AutoCleanInvoice(r) => {
-               trace!("auto_clean_invoice response: {:?}", r);
-               Ok(tonic::Response::new(r.into()))
-            },
-            r => Err(Status::new(
-                Code::Internal,
-                format!(
-                    "Unexpected result {:?} to method call AutoCleanInvoice",
-                    r
-                )
-            )),
-        }
-
-    }
-
     async fn auto_clean_once(
         &self,
         request: tonic::Request<pb::AutocleanonceRequest>,

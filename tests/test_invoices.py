@@ -567,56 +567,6 @@ def test_waitanyinvoice_reversed(node_factory, executor):
     assert r['label'] == 'inv1'
 
 
-def test_autocleaninvoice_deprecated(node_factory):
-    # This is so deprecated we have to re-enable it by name!
-    l1 = node_factory.get_node(options={'i-promise-to-fix-broken-api-user': 'autocleaninvoice'})
-
-    l1.rpc.invoice(amount_msat=12300, label='inv1', description='description1', expiry=4)
-    l1.rpc.invoice(amount_msat=12300, label='inv2', description='description2', expiry=12)
-    l1.rpc.autocleaninvoice(cycle_seconds=8, expired_by=2)
-
-    start_time = time.time()
-
-    # time 0
-    # Both should still be there.
-    assert len(l1.rpc.listinvoices('inv1')['invoices']) == 1
-    assert len(l1.rpc.listinvoices('inv2')['invoices']) == 1
-
-    assert l1.rpc.listinvoices('inv1')['invoices'][0]['description'] == 'description1'
-
-    time.sleep(start_time - time.time() + 6)   # total 6
-    # Both should still be there - auto clean cycle not started.
-    # inv1 should be expired
-    assert len(l1.rpc.listinvoices('inv1')['invoices']) == 1
-    assert only_one(l1.rpc.listinvoices('inv1')['invoices'])['status'] == 'expired'
-    assert len(l1.rpc.listinvoices('inv2')['invoices']) == 1
-    assert only_one(l1.rpc.listinvoices('inv2')['invoices'])['status'] != 'expired'
-
-    time.sleep(start_time - time.time() + 10)   # total 10
-    # inv1 should have deleted, inv2 still there and unexpired.
-    assert len(l1.rpc.listinvoices('inv1')['invoices']) == 0
-    assert len(l1.rpc.listinvoices('inv2')['invoices']) == 1
-    assert only_one(l1.rpc.listinvoices('inv2')['invoices'])['status'] != 'expired'
-
-    time.sleep(start_time - time.time() + 14)   # total 14
-    # inv2 should still be there, but expired
-    assert len(l1.rpc.listinvoices('inv1')['invoices']) == 0
-    assert len(l1.rpc.listinvoices('inv2')['invoices']) == 1
-    assert only_one(l1.rpc.listinvoices('inv2')['invoices'])['status'] == 'expired'
-
-    time.sleep(start_time - time.time() + 18)   # total 18
-    # Everything deleted
-    assert len(l1.rpc.listinvoices('inv1')['invoices']) == 0
-    assert len(l1.rpc.listinvoices('inv2')['invoices']) == 0
-
-    # stress test
-    l1.rpc.autocleaninvoice(cycle_seconds=0)
-    l1.rpc.autocleaninvoice(cycle_seconds=1)
-    l1.rpc.autocleaninvoice(cycle_seconds=0)
-    time.sleep(1)
-    l1.rpc.autocleaninvoice(cycle_seconds=1, expired_by=1)
-
-
 def test_decode_unknown(node_factory):
     l1 = node_factory.get_node()
 

@@ -244,17 +244,6 @@ impl From<responses::AddpsbtoutputResponse> for pb::AddpsbtoutputResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::AutocleaninvoiceResponse> for pb::AutocleaninvoiceResponse {
-    fn from(c: responses::AutocleaninvoiceResponse) -> Self {
-        Self {
-            cycle_seconds: c.cycle_seconds, // Rule #2 for type u64?
-            enabled: c.enabled, // Rule #2 for type boolean
-            expired_by: c.expired_by, // Rule #2 for type u64?
-        }
-    }
-}
-
-#[allow(unused_variables)]
 impl From<responses::AutocleanonceAutocleanExpiredinvoices> for pb::AutocleanonceAutocleanExpiredinvoices {
     fn from(c: responses::AutocleanonceAutocleanExpiredinvoices) -> Self {
         Self {
@@ -4051,16 +4040,6 @@ impl From<requests::AddpsbtoutputRequest> for pb::AddpsbtoutputRequest {
 }
 
 #[allow(unused_variables)]
-impl From<requests::AutocleaninvoiceRequest> for pb::AutocleaninvoiceRequest {
-    fn from(c: requests::AutocleaninvoiceRequest) -> Self {
-        Self {
-            cycle_seconds: c.cycle_seconds, // Rule #2 for type u64?
-            expired_by: c.expired_by, // Rule #2 for type u64?
-        }
-    }
-}
-
-#[allow(unused_variables)]
 impl From<requests::AutocleanonceRequest> for pb::AutocleanonceRequest {
     fn from(c: requests::AutocleanonceRequest) -> Self {
         Self {
@@ -5471,16 +5450,6 @@ impl From<pb::AddpsbtoutputRequest> for requests::AddpsbtoutputRequest {
             initialpsbt: c.initialpsbt, // Rule #1 for type string?
             locktime: c.locktime, // Rule #1 for type u32?
             satoshi: c.satoshi.unwrap().into(), // Rule #1 for type sat
-        }
-    }
-}
-
-#[allow(unused_variables)]
-impl From<pb::AutocleaninvoiceRequest> for requests::AutocleaninvoiceRequest {
-    fn from(c: pb::AutocleaninvoiceRequest) -> Self {
-        Self {
-            cycle_seconds: c.cycle_seconds, // Rule #1 for type u64?
-            expired_by: c.expired_by, // Rule #1 for type u64?
         }
     }
 }

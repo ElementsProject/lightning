@@ -490,19 +490,6 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("addgossip", payload)
 
-    def autocleaninvoice(self, cycle_seconds=None, expired_by=None):
-        """
-        Sets up automatic cleaning of expired invoices. {cycle_seconds} sets
-        the cleaning frequency in seconds (defaults to 3600) and {expired_by}
-        sets the minimum time an invoice should have been expired for to be
-        cleaned in seconds (defaults to 86400).
-        """
-        payload = {
-            "cycle_seconds": cycle_seconds,
-            "expired_by": expired_by
-        }
-        return self.call("autocleaninvoice", payload)
-
     def autoclean_status(self, subsystem=None):
         """
         Print status of autocleaning (optionally, just for {subsystem}).

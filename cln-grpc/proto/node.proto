@@ -15,7 +15,6 @@ service Node {
 	rpc ListChannels(ListchannelsRequest) returns (ListchannelsResponse) {}
 	rpc AddGossip(AddgossipRequest) returns (AddgossipResponse) {}
 	rpc AddPsbtOutput(AddpsbtoutputRequest) returns (AddpsbtoutputResponse) {}
-	rpc AutoCleanInvoice(AutocleaninvoiceRequest) returns (AutocleaninvoiceResponse) {}
 	rpc AutoCleanOnce(AutocleanonceRequest) returns (AutocleanonceResponse) {}
 	rpc AutoCleanStatus(AutocleanstatusRequest) returns (AutocleanstatusResponse) {}
 	rpc CheckMessage(CheckmessageRequest) returns (CheckmessageResponse) {}
@@ -372,17 +371,6 @@ message AddpsbtoutputResponse {
 	string psbt = 1;
 	uint32 estimated_added_weight = 2;
 	uint32 outnum = 3;
-}
-
-message AutocleaninvoiceRequest {
-	optional uint64 expired_by = 1;
-	optional uint64 cycle_seconds = 2;
-}
-
-message AutocleaninvoiceResponse {
-	bool enabled = 1;
-	optional uint64 expired_by = 2;
-	optional uint64 cycle_seconds = 3;
 }
 
 message AutocleanonceRequest {

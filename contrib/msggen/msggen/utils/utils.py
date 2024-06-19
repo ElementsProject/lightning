@@ -99,7 +99,6 @@ def load_jsonrpc_service():
         "ListChannels",
         "AddGossip",
         "AddPsbtOutput",
-        "AutoCleanInvoice",
         "AutoClean-Once",
         "AutoClean-Status",
         "CheckMessage",

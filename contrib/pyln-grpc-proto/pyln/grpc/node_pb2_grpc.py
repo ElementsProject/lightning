@@ -49,11 +49,6 @@ class NodeStub(object):
                 request_serializer=node__pb2.AddpsbtoutputRequest.SerializeToString,
                 response_deserializer=node__pb2.AddpsbtoutputResponse.FromString,
                 )
-        self.AutoCleanInvoice = channel.unary_unary(
-                '/cln.Node/AutoCleanInvoice',
-                request_serializer=node__pb2.AutocleaninvoiceRequest.SerializeToString,
-                response_deserializer=node__pb2.AutocleaninvoiceResponse.FromString,
-                )
         self.AutoCleanOnce = channel.unary_unary(
                 '/cln.Node/AutoCleanOnce',
                 request_serializer=node__pb2.AutocleanonceRequest.SerializeToString,
@@ -646,12 +641,6 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def AddPsbtOutput(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def AutoCleanInvoice(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1355,11 +1344,6 @@ def add_NodeServicer_to_server(servicer, server):
                     request_deserializer=node__pb2.AddpsbtoutputRequest.FromString,
                     response_serializer=node__pb2.AddpsbtoutputResponse.SerializeToString,
             ),
-            'AutoCleanInvoice': grpc.unary_unary_rpc_method_handler(
-                    servicer.AutoCleanInvoice,
-                    request_deserializer=node__pb2.AutocleaninvoiceRequest.FromString,
-                    response_serializer=node__pb2.AutocleaninvoiceResponse.SerializeToString,
-            ),
             'AutoCleanOnce': grpc.unary_unary_rpc_method_handler(
                     servicer.AutoCleanOnce,
                     request_deserializer=node__pb2.AutocleanonceRequest.FromString,
@@ -2036,23 +2020,6 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/AddPsbtOutput',
             node__pb2.AddpsbtoutputRequest.SerializeToString,
             node__pb2.AddpsbtoutputResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def AutoCleanInvoice(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/cln.Node/AutoCleanInvoice',
-            node__pb2.AutocleaninvoiceRequest.SerializeToString,
-            node__pb2.AutocleaninvoiceResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
