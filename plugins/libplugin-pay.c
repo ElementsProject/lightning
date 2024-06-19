@@ -2938,6 +2938,7 @@ static void routehint_check_reachable(struct payment *p)
 
 		payment_abort(
 		    p,
+		    PAY_UNREACHABLE,
 		    "Destination %s is not reachable directly and "
 		    "all routehints were unusable.",
 		    fmt_node_id(tmpctx, p->destination));
@@ -3805,10 +3806,10 @@ static void route_exclusions_step_cb(struct route_exclusions_data *d,
 				false, false, NULL, NULL);
 		} else {
 			if (node_id_eq(&e->u.node_id, p->destination)) {
-				payment_abort(p, "Payee is manually excluded");
+				payment_abort(p, PAY_USER_ERROR, "Payee is manually excluded");
 				return;
 			} else if (node_id_eq(&e->u.node_id, p->local_id)) {
-				payment_abort(p, "Payer is manually excluded");
+				payment_abort(p, PAY_USER_ERROR, "Payer is manually excluded");
 				return;
 			}
 
