@@ -103,6 +103,7 @@ struct out_req *jsonrpc_request_start_(struct plugin *plugin,
 				       struct command *cmd,
 				       const char *method,
 				       const char *id_prefix,
+				       const char *filter,
 				       struct command_result *(*cb)(struct command *command,
 								    const char *buf,
 								    const jsmntok_t *result,
@@ -117,7 +118,7 @@ struct out_req *jsonrpc_request_start_(struct plugin *plugin,
  * "error" members. */
 #define jsonrpc_request_start(plugin, cmd, method, cb, errcb, arg)	\
 	jsonrpc_request_start_((plugin), (cmd), (method),		\
-		     json_id_prefix(tmpctx, (cmd)),			\
+		     json_id_prefix(tmpctx, (cmd)), NULL,		\
 		     typesafe_cb_preargs(struct command_result *, void *, \
 					 (cb), (arg),			\
 					 struct command *command,	\
@@ -130,11 +131,25 @@ struct out_req *jsonrpc_request_start_(struct plugin *plugin,
 					 const jsmntok_t *result),	\
 		     (arg))
 
+#define jsonrpc_request_with_filter_start(plugin, cmd, method, filter, cb, errcb, arg) \
+	jsonrpc_request_start_((plugin), (cmd), (method),		\
+		     json_id_prefix(tmpctx, (cmd)), (filter),		\
+		     typesafe_cb_preargs(struct command_result *, void *, \
+					 (cb), (arg),			\
+					 struct command *command,	\
+					 const char *buf,		\
+					 const jsmntok_t *result),	\
+		     typesafe_cb_preargs(struct command_result *, void *, \
+					 (errcb), (arg),		\
+					 struct command *command,	\
+					 const char *buf,		\
+					 const jsmntok_t *result),	\
+		     (arg))
 
 /* This variant has callbacks received whole obj, not "result" or
  * "error" members.  It also doesn't start params{}. */
 #define jsonrpc_request_whole_object_start(plugin, cmd, method, id_prefix, cb, arg) \
-	jsonrpc_request_start_((plugin), (cmd), (method), (id_prefix),	\
+	jsonrpc_request_start_((plugin), (cmd), (method), (id_prefix), NULL, \
 			       typesafe_cb_preargs(struct command_result *, void *, \
 						   (cb), (arg),		\
 						   struct command *command, \
