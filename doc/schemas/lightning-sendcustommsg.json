@@ -48,7 +48,17 @@
       "If any of the above limitations is not respected the method returns an explicit error message stating the issue."
     ]
   },
-  "json_example": [
+  "author": [
+    "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-createonion(7)",
+    "lightning-sendonion(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:sendcustommsg#5",
@@ -62,15 +72,5 @@
         "status": "Message sent to connectd for delivery"
       }
     }
-  ],
-  "author": [
-    "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-createonion(7)",
-    "lightning-sendonion(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

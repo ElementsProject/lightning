@@ -216,7 +216,19 @@
     "- -1: If the invoice is deleted while unpaid, or the invoice does not exist.",
     "- 903: If the invoice expires before being paid, or is already expired."
   ],
-  "json_example": [
+  "author": [
+    "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-waitanyinvoice(7)",
+    "lightning-listinvoices(7)",
+    "lightning-delinvoice(7)",
+    "lightning-invoice(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:waitinvoice#1",
@@ -243,17 +255,5 @@
         "updated_index": 1
       }
     }
-  ],
-  "author": [
-    "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-waitanyinvoice(7)",
-    "lightning-listinvoices(7)",
-    "lightning-delinvoice(7)",
-    "lightning-invoice(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

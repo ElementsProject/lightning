@@ -38,7 +38,16 @@
       }
     }
   },
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@blockstream.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-hsmtool(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:recover#1",
@@ -61,14 +70,5 @@
         "result": "Recovery restart in progress"
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@blockstream.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-hsmtool(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

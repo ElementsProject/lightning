@@ -47,7 +47,24 @@
       }
     }
   },
-  "json_example": [
+  "errors": [
+    "On failure, one of the following error codes may be returned:",
+    "",
+    "- -32602: Error in given parameters or some error happened during the command process."
+  ],
+  "author": [
+    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+    "but many others did the hard work of actually implementing this rpc command."
+  ],
+  "see_also": [
+    "lightning-fundpsbt(7)",
+    "lightning-signpsbt(7)",
+    "lightning-listtransactions(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:sendpsbt#1",
@@ -74,22 +91,5 @@
         "txid": "43bb1c1bce6763ffe4d5df6b49f152f907f36f7849e55bb56075e2b256d17502"
       }
     }
-  ],
-  "errors": [
-    "On failure, one of the following error codes may be returned:",
-    "",
-    "- -32602: Error in given parameters or some error happened during the command process."
-  ],
-  "author": [
-    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
-    "but many others did the hard work of actually implementing this rpc command."
-  ],
-  "see_also": [
-    "lightning-fundpsbt(7)",
-    "lightning-signpsbt(7)",
-    "lightning-listtransactions(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

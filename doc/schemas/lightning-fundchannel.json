@@ -221,7 +221,29 @@
     "lightning-cli -k fundchannel id=03f...fc1 amount=all feerate=normal utxos='[\"bcc1...39c:0\"]'",
     "```"
   ],
-  "json_example": [
+  "errors": [
+    "The following error codes may occur:",
+    "",
+    "- -1: Catchall nonspecific error.",
+    "- 300: The maximum allowed funding amount is exceeded.",
+    "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
+    "- 302: The output amount is too small, and would be considered dust.",
+    "- 303: Broadcasting of the funding transaction failed, the internal call to bitcoin-cli returned with an error.",
+    "- 313: The `min-emergency-msat` reserve not be preserved (and we have or are opening anchor channels).",
+    "",
+    "Failure may also occur if **lightningd** and the peer cannot agree on channel parameters (funding limits, channel reserves, fees, etc.)."
+  ],
+  "see_also": [
+    "lightning-connect(7)",
+    "lightning-listfunds()",
+    "lightning-listpeers(7)",
+    "lightning-feerates(7)",
+    "lightning-multifundchannel(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:fundchannel#1",
@@ -267,27 +289,5 @@
         "outnum": 0
       }
     }
-  ],
-  "errors": [
-    "The following error codes may occur:",
-    "",
-    "- -1: Catchall nonspecific error.",
-    "- 300: The maximum allowed funding amount is exceeded.",
-    "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
-    "- 302: The output amount is too small, and would be considered dust.",
-    "- 303: Broadcasting of the funding transaction failed, the internal call to bitcoin-cli returned with an error.",
-    "- 313: The `min-emergency-msat` reserve not be preserved (and we have or are opening anchor channels).",
-    "",
-    "Failure may also occur if **lightningd** and the peer cannot agree on channel parameters (funding limits, channel reserves, fees, etc.)."
-  ],
-  "see_also": [
-    "lightning-connect(7)",
-    "lightning-listfunds()",
-    "lightning-listpeers(7)",
-    "lightning-feerates(7)",
-    "lightning-multifundchannel(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

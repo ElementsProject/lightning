@@ -312,7 +312,20 @@
     "",
     "the error details are decrypted and presented here, if *shared_secrets* was provided and an error was returned by one of the intermediate nodes"
   ],
-  "json_example": [
+  "author": [
+    "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-createonion(7)",
+    "lightning-sendpay(7)",
+    "lightning-listsendpays(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>",
+    "",
+    "[bolt04]: https://github.com/lightning/bolts/blob/master/04-onion-routing.md"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:sendonion#1",
@@ -341,18 +354,5 @@
         "status": "pending"
       }
     }
-  ],
-  "author": [
-    "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-createonion(7)",
-    "lightning-sendpay(7)",
-    "lightning-listsendpays(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>",
-    "",
-    "[bolt04]: https://github.com/lightning/bolts/blob/master/04-onion-routing.md"
   ]
 }

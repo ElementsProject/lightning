@@ -41,7 +41,16 @@
       }
     }
   },
-  "json_example": [
+  "author": [
+    "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-getsharedsecret(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:recoverchannel#1",
@@ -58,14 +67,5 @@
         ]
       }
     }
-  ],
-  "author": [
-    "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-getsharedsecret(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

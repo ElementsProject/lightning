@@ -25,7 +25,14 @@
       }
     }
   },
-  "json_example": [
+  "author": [
+    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+    "but many others did the hard work of actually implementing this rpc command."
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:stop#1",
@@ -36,12 +43,5 @@
         "result": "Shutdown complete"
       }
     }
-  ],
-  "author": [
-    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
-    "but many others did the hard work of actually implementing this rpc command."
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

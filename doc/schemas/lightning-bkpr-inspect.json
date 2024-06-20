@@ -195,7 +195,18 @@
       }
     }
   },
-  "json_example": [
+  "author": [
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-listbalances(7)",
+    "lightning-listfunds(7)",
+    "lightning-listpeers(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:bkpr-inspect#1",
@@ -223,16 +234,5 @@
         ]
       }
     }
-  ],
-  "author": [
-    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-listbalances(7)",
-    "lightning-listfunds(7)",
-    "lightning-listpeers(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

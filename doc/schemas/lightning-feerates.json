@@ -369,7 +369,20 @@
   "trivia": [
     "In C-lightning we like to call the weight unit \"sipa\" in honor of Pieter Wuille, who uses the name \"sipa\" on IRC and elsewhere. Internally we call the *perkw* style as \"feerate per kilosipa\"."
   ],
-  "json_example": [
+  "author": [
+    "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> wrote the initial version of this manpage."
+  ],
+  "see_also": [
+    "lightning-parsefeerate(7)",
+    "lightning-fundchannel(7)",
+    "lightning-withdraw(7)",
+    "lightning-txprepare(7)",
+    "lightning-fundchannel_start(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:feerates#1",
@@ -467,18 +480,5 @@
         }
       }
     }
-  ],
-  "author": [
-    "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> wrote the initial version of this manpage."
-  ],
-  "see_also": [
-    "lightning-parsefeerate(7)",
-    "lightning-fundchannel(7)",
-    "lightning-withdraw(7)",
-    "lightning-txprepare(7)",
-    "lightning-fundchannel_start(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

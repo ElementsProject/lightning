@@ -114,7 +114,18 @@
     "- 1206: One of the parents already exists with a value.",
     "- -32602: invalid parameters"
   ],
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-listdatastore(7)",
+    "lightning-deldatastore(7)",
+    "lightning-datastoreusage(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:datastore#1",
@@ -185,16 +196,5 @@
         "string": "somedatatostoreinthedatastore"
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-listdatastore(7)",
-    "lightning-deldatastore(7)",
-    "lightning-datastoreusage(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

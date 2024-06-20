@@ -48,7 +48,13 @@
     "",
     "- 2000: Timed out."
   ],
-  "json_example": [
+  "author": [
+    "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:waitblockheight#1",
@@ -74,11 +80,5 @@
         "blockheight": 103
       }
     }
-  ],
-  "author": [
-    "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

@@ -267,7 +267,17 @@
     "",
     "- -32602: If the given parameters are invalid."
   ],
-  "json_example": [
+  "author": [
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-fundchannel(7)",
+    "lightning-listfunds(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:funderupdate#1",
@@ -323,15 +333,5 @@
         "fund_probability": 100
       }
     }
-  ],
-  "author": [
-    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-fundchannel(7)",
-    "lightning-listfunds(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

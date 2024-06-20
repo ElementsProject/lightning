@@ -95,7 +95,18 @@
     "",
     "- -32602: Invalid parameter, such as specifying a spent/reserved input in *psbt*."
   ],
-  "json_example": [
+  "author": [
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-unreserveinputs(7)",
+    "lightning-signpsbt(7)",
+    "lightning-sendpsbt(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:reserveinputs#1",
@@ -214,16 +225,5 @@
         ]
       }
     }
-  ],
-  "author": [
-    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-unreserveinputs(7)",
-    "lightning-signpsbt(7)",
-    "lightning-sendpsbt(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

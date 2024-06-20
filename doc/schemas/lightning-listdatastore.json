@@ -81,7 +81,18 @@
     "",
     "- -32602: invalid parameters."
   ],
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-datastore(7)",
+    "lightning-deldatastore(7)",
+    "lightning-datastoreusage(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:listdatastore#1",
@@ -117,16 +128,5 @@
         ]
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-datastore(7)",
-    "lightning-deldatastore(7)",
-    "lightning-datastoreusage(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

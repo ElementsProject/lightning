@@ -172,7 +172,20 @@
   "errors": [
     "On error, the reason why the action could not be taken upon the plugin is returned."
   ],
-  "json_example": [
+  "author": [
+    "Antoine Poinsot <<darosior@protonmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-cli(1)",
+    "lightning-listconfigs(1)",
+    "[writing plugins][writing plugins]"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>",
+    "",
+    "[writing plugins]: PLUGINS.md"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:plugin#1",
@@ -276,18 +289,5 @@
         "result": "Successfully stopped fail_htlcs.py."
       }
     }
-  ],
-  "author": [
-    "Antoine Poinsot <<darosior@protonmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-cli(1)",
-    "lightning-listconfigs(1)",
-    "[writing plugins][writing plugins]"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>",
-    "",
-    "[writing plugins]: PLUGINS.md"
   ]
 }

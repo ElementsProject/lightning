@@ -109,7 +109,17 @@
     "lightning-cli splice_signed $CHANNEL_ID $PSBT",
     "```"
   ],
-  "json_example": [
+  "author": [
+    "Dusty <<@dusty_daemon>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-splice_signed(7)",
+    "lightning-splice_update(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:splice_init#1",
@@ -138,15 +148,5 @@
         "psbt": "cHNidP8BAgQCAAAAAQMEbAAAAAEEAQEBBQECAQYBAwH7BAIAAAAAAQD2AgAAAAABARzi7RBt64yrfqRL2p+KiUw8cYtiKICRFHmp/4eCSemSAQAAAAD9////AkBCDwAAAAAAIgAgW4zTuRTPZ83Y+mJzyTA1PdNkdnNPvZYhAsLfU7kIgM0BLw8AAAAAACJRIGP/7k6n1R5srfkIbihqJSeSKqoluMU66/MvoyoKYn9aAkcwRAIgTCjR9L+TfzP7pLJVVto5egTRbRNj/RaBhyrA3UW0aEcCIAJO5FZjXvdpRcGR949C4DnfHs3soklTjn/1upkia+TgASED10VEXJNiZl8i4NlunnZvJz8yYN6jnIp2v6Bd0mhN3M9mAAAAAQErQEIPAAAAAAAiACBbjNO5FM9nzdj6YnPJMDU902R2c0+9liECwt9TuQiAzQEFR1IhAjJCZt6EA7OrFXoJ8feE1YevYYMcmYwVG8whu3TCsjFLIQLjvTgAmGbJ2o7EqpnMTqnGwN1G3xXGHvDOHycSkXFOV1KuAQ4gpAu0QtqwIxtR2PhC2VqtVIqjXh0TxM/PKZc0T4BUU6EBDwQAAAAAARAEAAAAAAz8CWxpZ2h0bmluZwEIn2Ac8fyFEJwAAQMIAAAAAAAAAAABBCIAIFuM07kUz2fN2Ppic8kwNT3TZHZzT72WIQLC31O5CIDNDPwJbGlnaHRuaW5nAQgu7JK9IpBWOAABAwighgEAAAAAAAEEIlEgeDY1X9yKgtxMsAp3LFVUFR0GOEpN1l6NP2isCFZrhL4M/AlsaWdodG5pbmcBCOZ1GpRwbKfuAA=="
       }
     }
-  ],
-  "author": [
-    "Dusty <<@dusty_daemon>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-splice_signed(7)",
-    "lightning-splice_update(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

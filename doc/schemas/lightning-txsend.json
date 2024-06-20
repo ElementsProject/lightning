@@ -52,7 +52,17 @@
     "",
     "- -1: Catchall nonspecific error."
   ],
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-txprepare(7)",
+    "lightning-txdiscard(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:txsend#1",
@@ -67,15 +77,5 @@
         "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQECAQYBAwH7BAIAAAAAAQDeAgAAAAABATRHoQ9tEMHRHpf06v5uTEdjdMk1rccIaA6MNGMipNQWAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFLnqitWTi465LGxeucwoSAj16NGbAkcwRAIgVtOsUaQaPgH86aW6e6qmJa1xVb8KWvc+HALGosqVVmQCIFi4JU8Gy+vl2a2/frY+71hitYIBB/tjsRP7fpgb8b9TASECHUIV5q1r2ownjOlAFPQASTlZxxNgBvi5O3hCRvajwdJlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZSICA9dFRFyTYmZfIuDZbp52byc/MmDeo5yKdr+gXdJoTdzPRzBEAiBp/HPhg1ObOXqTr5rIjUYLMspGLz+sk1pjD9pjRFzf3wIgWycOB/dQPzwZAK3OXYs269h8o85ucDpdVhH4AyX69a0BIgYD10VEXJNiZl8i4NlunnZvJz8yYN6jnIp2v6Bd0mhN3M8IAfrZCgAAAAABDiBC3ADYE1nDpVHhcOO/UmL6nKzC6y4oOhDleUkc2G3OSwEPBAAAAAABEAT9////AAEDCAAAAAEAAAAAAQQiACC2NvBwJupklS7OW3YgqTN9msIyHHlqSZJgmU0bNzZnUAABAwhBg5gAAAAAAAEEIlEgdUp3tQP8ug/YDwoagibtZ2T/mp2bthtIXUDUyfS+JFkhBycqmiXx/+1S+rBKLMiK6rE1tTcjhWqPFIHCZBf4ipIuCQDVXEk5CwAAAAA="
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-txprepare(7)",
-    "lightning-txdiscard(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

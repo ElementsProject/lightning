@@ -46,7 +46,23 @@
       }
     }
   },
-  "json_example": [
+  "errors": [
+    "On failure, one of the following error codes may be returned:",
+    "",
+    "- -32602: Error in given parameters, or there aren't wallet's inputs to sign, or we couldn't sign all of *signonly*, or inputs are not reserved."
+  ],
+  "author": [
+    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+    "but many others did the hard work of actually implementing this rpc command."
+  ],
+  "see_also": [
+    "lightning-fundpsbt(7)",
+    "lightning-sendpsbt(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:signpsbt#1",
@@ -74,21 +90,5 @@
         "signed_psbt": "cHNidP8BAP1xAQIAAAAIFTef27H2GAJBzP4UZMeDePsDVkglO47/q4jqK18ibCYAAAAAAP3///+axwap6WKnEHvLjIJZX0ZeJ87cs7PKkXBfwvbGVmjpTQEAAAAA/f///wQ1cVzb9NR7nXadyRuhQBv+2iqhZkhvUA+sPo5z/SsSAQAAAAD9////lXQ788meUtSxhBX13mx2XhyM3Ddo30QtmNW0YuE2TDABAAAAAP3///8Kr4BwElAScx3bA5ZdavrHwh4Zh+rFNvkE/+7gu1WbngEAAAAA/f///3Uei7j3k/b5tnjFGvNZhe2iWz8O6FQjTEpM5XIoduNsAQAAAAD9////fm5Om4MojcnfZiTmrwb4b5Byw9emrjITi/nkEqTK9MsBAAAAAP3///8lwdpZqt3ILPRwhINY4PGvkg2CSw7agcMPSuFoHDDkIQAAAAAA/f///wGCAXoAAAAAABYAFMkJbUP0COpSYCAmLM2tfIUWuSqBAAAAAAABAHECAAAAAZVxzFxyEg7tiQTgRHwGleR8Srxw6taAGOoEpJK/Xj5sAAAAAAD9////AkBCDwAAAAAAFgAUKvGgVL/ThjWE/P1oORVXh/ObucYzr/YpAQAAABYAFKmkod5S53U4m5tKFApyeC35UbnbZwAAAAEBH0BCDwAAAAAAFgAUKvGgVL/ThjWE/P1oORVXh/ObucYAAQBxAgAAAAEVN5/bsfYYAkHM/hRkx4N4+wNWSCU7jv+riOorXyJsJgEAAAAA/f///wJmbOcpAQAAABYAFCCSJBD9wY/VwxnBcnFiu1tA6CGTQEIPAAAAAAAWABSjI8KCqaGX/BGOwJza8hyiuxuIcmcAAAABAR9AQg8AAAAAABYAFKMjwoKpoZf8EY7AnNryHKK7G4hyAAEAcQIAAAAB98EwKZMOHiyRYWyToae6Kce3gCwqUvnVXXHlB/ps9ocBAAAAAP3///8CmNuLKQEAAAAWABQ4roxw+phYHelaRr71DYB3FEy/30BCDwAAAAAAFgAUwSDtQiY7PVvBc7ww56Y72YIQdjllAAAAAQEfQEIPAAAAAAAWABTBIO1CJjs9W8FzvDDnpjvZghB2OQABAHECAAAAAZH/SvCXvDW7b8qb55CDC4M+jgZ61H/e8rZnAGaXp+Z+AAAAAAD9////Apkp2CkBAAAAFgAUc/Y+sIq3oYyEe40GkKJsXawkzwFAQg8AAAAAABYAFLdt1h5Bte8FKvIc2jJgiIwHC7mvZwAAAAEBH0BCDwAAAAAAFgAUt23WHkG17wUq8hzaMmCIjAcLua8AAQBxAgAAAAETC3wMCv9qK3lvVkVJu9b/v2VgMepZtnfngMp2xMXRnwAAAAAA/f///wJk0E4pAQAAABYAFEIsc4cBl+BTN33Kn80+YYfkMt+cQEIPAAAAAAAWABT2/7RIxKohhGbacpBz0BZNYcnfsGUAAAABAR9AQg8AAAAAABYAFPb/tEjEqiGEZtpykHPQFk1hyd+wAAEAcQIAAAABA8J/OnC+cuH79Z6wZmzwdAjhBDaPHavh3yvhr4odDXQBAAAAAP3///8CykowKQEAAAAWABTVHuO8cKOOX/JlmMU66on6Uc54mkBCDwAAAAAAFgAUunZMZryWMqCTiMuVWNF/cleg6dVnAAAAAQEfQEIPAAAAAAAWABS6dkxmvJYyoJOIy5VY0X9yV6Dp1QABAHECAAAAAfRxBaZZ3FfDGwxhZQLYCurN+7kJj0x6nzChg434dnjRAAAAAAD9////AszmyCkBAAAAFgAULSqRp54barF/7R9XOmsLDCVWdAFAQg8AAAAAABYAFNa5adNt/9rZhpGT9mPuSA39xzSIZQAAAAEBH0BCDwAAAAAAFgAU1rlp023/2tmGkZP2Y+5IDf3HNIgAAQBxAgAAAAEgk1JYyP4oIoPoYYcTPPDvZynVfXWINJnBEFBsLv0MtAAAAAAA/f///wJAQg8AAAAAABYAFGYcI7eQ3TSRNzrwsdi+0Id9XN4iMmGqKQEAAAAWABT5XKNwVIFsUKh26sqHFSlOLq5TFGUAAAABAR9AQg8AAAAAABYAFGYcI7eQ3TSRNzrwsdi+0Id9XN4iIgID+pyVCF5CseUAPNH0GBeMMMluSud5VMoPxIxYgm/06w5HMEQCIG90DSr+fGNoWhCrgLbJG3Wt8PJNMWYqaa5MLWRwA0oTAiA9rsLEqqVhjV6wENfzzpudaE949uLlVqWgDjE/FSgKNAEiBgP6nJUIXkKx5QA80fQYF4wwyW5K53lUyg/EjFiCb/TrDghmHCO3AAAAAAAA"
       }
     }
-  ],
-  "errors": [
-    "On failure, one of the following error codes may be returned:",
-    "",
-    "- -32602: Error in given parameters, or there aren't wallet's inputs to sign, or we couldn't sign all of *signonly*, or inputs are not reserved."
-  ],
-  "author": [
-    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
-    "but many others did the hard work of actually implementing this rpc command."
-  ],
-  "see_also": [
-    "lightning-fundpsbt(7)",
-    "lightning-sendpsbt(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

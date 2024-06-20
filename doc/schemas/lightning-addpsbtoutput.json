@@ -75,7 +75,17 @@
     "lightning-cli addpsbtoutput 100000sat",
     "```"
   ],
-  "json_example": [
+  "author": [
+    "Dusty <<@dusty_daemon>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-fundpsbt(7)",
+    "lightning-utxopsbt(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:addpsbtoutput#1",
@@ -121,15 +131,5 @@
         "outnum": 1
       }
     }
-  ],
-  "author": [
-    "Dusty <<@dusty_daemon>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-fundpsbt(7)",
-    "lightning-utxopsbt(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

@@ -49,7 +49,19 @@
   "errors": [
     "If an unrecognized address type is requested an error message will be returned."
   ],
-  "json_example": [
+  "author": [
+    "Felix <<fixone@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-listfunds(7)",
+    "lightning-fundchannel(7)",
+    "lightning-withdraw(7)",
+    "lightning-listtransactions(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:newaddr#1",
@@ -72,17 +84,5 @@
         "bech32": "bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf"
       }
     }
-  ],
-  "author": [
-    "Felix <<fixone@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-listfunds(7)",
-    "lightning-fundchannel(7)",
-    "lightning-withdraw(7)",
-    "lightning-listtransactions(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

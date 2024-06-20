@@ -27,7 +27,16 @@
   "response": {
     "properties": {}
   },
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-pay(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:addgossip#1",
@@ -48,14 +57,5 @@
       },
       "response": {}
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-pay(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

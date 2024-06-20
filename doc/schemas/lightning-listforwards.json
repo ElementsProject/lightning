@@ -362,7 +362,17 @@
       }
     }
   },
-  "json_example": [
+  "author": [
+    "Rene Pickhardt <<r.pickhardt@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-autoclean-status(7)",
+    "lightning-getinfo(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:listforwards#1",
@@ -434,15 +444,5 @@
         "forwards": []
       }
     }
-  ],
-  "author": [
-    "Rene Pickhardt <<r.pickhardt@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-autoclean-status(7)",
-    "lightning-getinfo(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

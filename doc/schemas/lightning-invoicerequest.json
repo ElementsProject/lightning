@@ -107,7 +107,22 @@
       }
     }
   },
-  "json_example": [
+  "errors": [
+    "On failure, an error is returned and no `invoice_request` is created. If the lightning process fails before responding, the caller should use lightning-listinvoicerequests(7) to query whether it was created or not.",
+    "",
+    "- -1: Catchall nonspecific error."
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-listinvoicerequests(7)",
+    "lightning-disableinvoicerequest(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:invoicerequest#1",
@@ -126,20 +141,5 @@
         "used": false
       }
     }
-  ],
-  "errors": [
-    "On failure, an error is returned and no `invoice_request` is created. If the lightning process fails before responding, the caller should use lightning-listinvoicerequests(7) to query whether it was created or not.",
-    "",
-    "- -1: Catchall nonspecific error."
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-listinvoicerequests(7)",
-    "lightning-disableinvoicerequest(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

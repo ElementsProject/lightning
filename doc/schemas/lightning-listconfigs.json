@@ -2440,7 +2440,23 @@
       "- **value_bool** (boolean, optional): for boolean options"
     ]
   },
-  "json_example": [
+  "errors": [
+    "On failure, one of the following error codes may be returned:",
+    "",
+    "- -32602: Error in given parameters or field with *config* name doesn't exist."
+  ],
+  "author": [
+    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+    "but many others did the hard work of actually implementing this rpc command."
+  ],
+  "see_also": [
+    "lightning-getinfo(7)",
+    "lightningd-config(5)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:listconfigs#1",
@@ -2891,21 +2907,5 @@
         }
       }
     }
-  ],
-  "errors": [
-    "On failure, one of the following error codes may be returned:",
-    "",
-    "- -32602: Error in given parameters or field with *config* name doesn't exist."
-  ],
-  "author": [
-    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
-    "but many others did the hard work of actually implementing this rpc command."
-  ],
-  "see_also": [
-    "lightning-getinfo(7)",
-    "lightningd-config(5)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

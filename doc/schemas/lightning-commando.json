@@ -72,7 +72,18 @@
     "",
     "It can also fail if the peer does not respond, in which case it will simply hang awaiting a response."
   ],
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> wrote the original Python commando.py plugin, the in-tree commando plugin, and this manual page.",
+    "",
+    "Christian Decker came up with the name \"commando\", which almost excuses his previous adoption of the name \"Eltoo\"."
+  ],
+  "see_also": [
+    "lightning-commando-rune(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:commando#1",
@@ -172,16 +183,5 @@
         "status": "complete"
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> wrote the original Python commando.py plugin, the in-tree commando plugin, and this manual page.",
-    "",
-    "Christian Decker came up with the name \"commando\", which almost excuses his previous adoption of the name \"Eltoo\"."
-  ],
-  "see_also": [
-    "lightning-commando-rune(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

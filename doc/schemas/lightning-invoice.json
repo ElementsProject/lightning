@@ -188,7 +188,18 @@
     "- 901: An invoice with the given *preimage* already exists.",
     "- 902: None of the specified *exposeprivatechannels* were usable."
   ],
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-listinvoices(7)",
+    "lightning-delinvoice(7)",
+    "lightning-pay(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:invoice#1",
@@ -229,16 +240,5 @@
         "warning_capacity": "Insufficient incoming channel capacity to pay invoice"
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-listinvoices(7)",
-    "lightning-delinvoice(7)",
-    "lightning-pay(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

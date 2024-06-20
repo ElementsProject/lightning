@@ -8,7 +8,7 @@ import re
 
 # To maintain the sequence of the before return value (body) and after return value (footer) sections in the markdown file
 BODY_KEY_SEQUENCE = ['reliability', 'usage', 'restriction_format', 'permitted_sqlite3_functions', 'treatment_of_types', 'tables', 'example_usage', 'notes', 'notifications', 'sharing_runes', 'riskfactor_effect_on_routing', 'recommended_riskfactor_values', 'optimality', 'randomization']
-FOOTER_KEY_SEQUENCE = ['errors', 'json_example', 'trivia', 'author', 'see_also', 'resources']
+FOOTER_KEY_SEQUENCE = ['errors', 'trivia', 'author', 'see_also', 'resources', 'examples']
 
 
 def output_title(title, underline='-', num_leading_newlines=1, num_trailing_newlines=2):
@@ -322,15 +322,15 @@ def create_expandable(title, rpc, examples):
     """Output example/s with request and response in collapsible header"""
     output('\n<details>\n')
     output('<summary>\n')
-    output(f'<span style="font-size: 1.5em; font-weight: bold;">{title}</span><br><hr>\n')
+    output(f'<span style="font-size: 1.5em; font-weight: bold;">{title}</span><br>\n')
     output('</summary>\n\n')
     for i, example in enumerate(examples):
         output('{}**Example {}**: {}\n'.format('' if i == 0 else '\n', i + 1, '\n'.join(example.get('description', ''))))
         output('\nRequest:\n')
+        create_shell_command(rpc, example)
         output('```json\n')
         output(json.dumps(example['request'], indent=2).strip() + '\n')
         output('```\n')
-        create_shell_command(rpc, example)
         output('\nResponse:\n')
         output('```json\n')
         output(json.dumps(example['response'], indent=2).strip() + '\n')
@@ -487,8 +487,8 @@ def generate_footer(schema):
             output_title(key.replace('_', ' ').upper(), '-', 1)
             # Wrap see_also list with comma separated values
             output(esc_underscores(', '.join(schema[key])))
-        elif key == 'json_example' and len(schema[key]) > 0:
-            create_expandable('EXAMPLE', schema['rpc'], schema.get('json_example', []))
+        elif key == 'examples' and len(schema[key]) > 0:
+            create_expandable('EXAMPLES', schema['rpc'], schema.get('examples', []))
         else:
             output_title(key.replace('_', ' ').upper(), '-', 1)
             outputs(schema[key], '\n')

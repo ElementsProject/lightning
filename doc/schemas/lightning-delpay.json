@@ -185,7 +185,28 @@
       "The returned format is the same as lightning-listsendpays(7). If the payment is a multi-part payment (MPP) the command return a list of payments will be returned -- one payment object for each partid."
     ]
   },
-  "json_example": [
+  "errors": [
+    "On failure, an error is returned. If the lightning process fails before responding, the",
+    "caller should use lightning-listsentpays(7) or lightning-listpays(7) to query whether this payment was deleted or not.",
+    "",
+    "The following error codes may occur:",
+    "",
+    "- -32602: Parameter missed or malformed;",
+    "- 211: Payment status mismatch. Check the correct status via **paystatus**;",
+    "- 208: Payment with payment_hash not found."
+  ],
+  "author": [
+    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-listpays(7)",
+    "lightning-listsendpays(7)",
+    "lightning-paystatus(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:delpay#1",
@@ -272,26 +293,5 @@
         ]
       }
     }
-  ],
-  "errors": [
-    "On failure, an error is returned. If the lightning process fails before responding, the",
-    "caller should use lightning-listsentpays(7) or lightning-listpays(7) to query whether this payment was deleted or not.",
-    "",
-    "The following error codes may occur:",
-    "",
-    "- -32602: Parameter missed or malformed;",
-    "- 211: Payment status mismatch. Check the correct status via **paystatus**;",
-    "- 208: Payment with payment_hash not found."
-  ],
-  "author": [
-    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-listpays(7)",
-    "lightning-listsendpays(7)",
-    "lightning-paystatus(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

@@ -29,7 +29,16 @@
       "response": {
         "properties": {}
       },
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-pay(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:addgossip#1",
@@ -50,15 +59,6 @@
           },
           "response": {}
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-pay(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-addpsbtoutput.json": {
@@ -138,7 +138,17 @@
         "lightning-cli addpsbtoutput 100000sat",
         "```"
       ],
-      "json_example": [
+      "author": [
+        "Dusty <<@dusty_daemon>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-fundpsbt(7)",
+        "lightning-utxopsbt(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:addpsbtoutput#1",
@@ -184,16 +194,6 @@
             "outnum": 1
           }
         }
-      ],
-      "author": [
-        "Dusty <<@dusty_daemon>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-fundpsbt(7)",
-        "lightning-utxopsbt(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-autoclean-once.json": {
@@ -384,7 +384,17 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightningd-config(5)",
+        "lightning-autoclean-status(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:autoclean-once#1",
@@ -421,16 +431,6 @@
             }
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightningd-config(5)",
-        "lightning-autoclean-status(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-autoclean-status.json": {
@@ -849,7 +849,19 @@
           "Note that the ages parameters are set by various `autoclean-...-age` parameters in your configuration: see lightningd-config(5)."
         ]
       },
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightningd-config(5)",
+        "lightning-listinvoices(7)",
+        "lightning-listpays(7)",
+        "lightning-listforwards(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:autoclean-status#1",
@@ -903,18 +915,6 @@
             }
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightningd-config(5)",
-        "lightning-listinvoices(7)",
-        "lightning-listpays(7)",
-        "lightning-listforwards(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-batching.json": {
@@ -943,18 +943,6 @@
       "response": {
         "properties": {}
       },
-      "json_example": [
-        {
-          "request": {
-            "id": "example:batching#1",
-            "method": "batching",
-            "params": {
-              "enable": true
-            }
-          },
-          "response": {}
-        }
-      ],
       "errors": [
         "On failure, one of the following error codes may be returned:",
         "",
@@ -965,6 +953,18 @@
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:batching#1",
+            "method": "batching",
+            "params": {
+              "enable": true
+            }
+          },
+          "response": {}
+        }
       ]
     },
     "lightning-bkpr-channelsapy.json": {
@@ -1160,7 +1160,20 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-bkpr-listincome(7)",
+        "lightning-bkpr-listfunds(7)",
+        "lightning-bkpr-listaccountevents(7)",
+        "lightning-bkpr-dumpincomecsv(7)",
+        "lightning-listpeers(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:bkpr-channelsapy#1",
@@ -1214,19 +1227,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-bkpr-listincome(7)",
-        "lightning-bkpr-listfunds(7)",
-        "lightning-bkpr-listaccountevents(7)",
-        "lightning-bkpr-dumpincomecsv(7)",
-        "lightning-listpeers(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-bkpr-dumpincomecsv.json": {
@@ -1304,7 +1304,20 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-bkpr-listincome(7)",
+        "lightning-bkpr-listfunds(7)",
+        "lightning-bkpr-listaccountevents(7)",
+        "lightning-bkpr-channelsapy(7)",
+        "lightning-listpeers(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:bkpr-dumpincomecsv#1",
@@ -1319,19 +1332,6 @@
             "csv_format": "koinly"
           }
         }
-      ],
-      "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-bkpr-listincome(7)",
-        "lightning-bkpr-listfunds(7)",
-        "lightning-bkpr-listaccountevents(7)",
-        "lightning-bkpr-channelsapy(7)",
-        "lightning-listpeers(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-bkpr-inspect.json": {
@@ -1531,7 +1531,18 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listbalances(7)",
+        "lightning-listfunds(7)",
+        "lightning-listpeers(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:bkpr-inspect#1",
@@ -1559,17 +1570,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-listbalances(7)",
-        "lightning-listfunds(7)",
-        "lightning-listpeers(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-bkpr-listaccountevents.json": {
@@ -1817,7 +1817,19 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-bkpr-listincome(7)",
+        "lightning-listfunds(7)",
+        "lightning-bkpr-listbalances(7)",
+        "lightning-bkpr-channelsapy(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:bkpr-listaccountevents#1",
@@ -2041,18 +2053,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-bkpr-listincome(7)",
-        "lightning-listfunds(7)",
-        "lightning-bkpr-listbalances(7)",
-        "lightning-bkpr-channelsapy(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-bkpr-listbalances.json": {
@@ -2179,7 +2179,20 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-bkpr-listincome(7)",
+        "lightning-listfunds(7)",
+        "lightning-bkpr-listaccountevents(7)",
+        "lightning-bkpr-channelsapy(7)",
+        "lightning-listpeers(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:bkpr-listbalances#1",
@@ -2200,19 +2213,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-bkpr-listincome(7)",
-        "lightning-listfunds(7)",
-        "lightning-bkpr-listaccountevents(7)",
-        "lightning-bkpr-channelsapy(7)",
-        "lightning-listpeers(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-bkpr-listincome.json": {
@@ -2335,7 +2335,18 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-bkpr-listaccountevents(7)",
+        "lightning-listfunds(7)",
+        "lightning-bkpr-listbalances(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:bkpr-listincome#1",
@@ -2414,17 +2425,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-bkpr-listaccountevents(7)",
-        "lightning-listfunds(7)",
-        "lightning-bkpr-listbalances(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-blacklistrune.json": {
@@ -2498,7 +2498,17 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-commando-blacklist(7)",
+        "lightning-showrunes(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:blacklistrune#1",
@@ -2556,16 +2566,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-commando-blacklist(7)",
-        "lightning-showrunes(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-check.json": {
@@ -2607,7 +2607,13 @@
           "command_to_check"
         ]
       },
-      "json_example": [
+      "author": [
+        "Mark Beckwith <<wythe@intrig.com>> and Rusty Russell <<rusty@rustcorp.com.au>> are mainly responsible."
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:check#1",
@@ -2662,12 +2668,6 @@
             "command_to_check": "recover"
           }
         }
-      ],
-      "author": [
-        "Mark Beckwith <<wythe@intrig.com>> and Rusty Russell <<rusty@rustcorp.com.au>> are mainly responsible."
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-checkmessage.json": {
@@ -2730,7 +2730,22 @@
           }
         }
       },
-      "json_example": [
+      "errors": [
+        "On failure, an error is returned and core lightning exit with the following error code:",
+        "",
+        "- -32602: Parameter missed or malformed;",
+        "- 1301: *pubkey* not found in the graph."
+      ],
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-signmessage(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:checkmessage#1",
@@ -2760,21 +2775,6 @@
             "verified": true
           }
         }
-      ],
-      "errors": [
-        "On failure, an error is returned and core lightning exit with the following error code:",
-        "",
-        "- -32602: Parameter missed or malformed;",
-        "- 1301: *pubkey* not found in the graph."
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-signmessage(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-checkrune.json": {
@@ -2852,7 +2852,17 @@
         "- 1502 (RUNE_NOT_PERMITTED): rune does not allow this usage (includes a detailed reason why)",
         "- 1503 (RUNE_BLACKLISTED): rune has been explicitly blacklisted."
       ],
-      "json_example": [
+      "author": [
+        "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible for consolidating logic from commando."
+      ],
+      "see_also": [
+        "lightning-createrune(7)",
+        "lightning-blacklistrune(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:checkrune#1",
@@ -2908,16 +2918,6 @@
             "valid": true
           }
         }
-      ],
-      "author": [
-        "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible for consolidating logic from commando."
-      ],
-      "see_also": [
-        "lightning-createrune(7)",
-        "lightning-blacklistrune(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-close.json": {
@@ -3065,7 +3065,18 @@
       "notifications": [
         "Notifications may be returned indicating what is going on, especially if the peer is offline and we are waiting."
       ],
-      "json_example": [
+      "author": [
+        "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-disconnect(7)",
+        "lightning-fundchannel(7)",
+        "lightningd-config(5)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:close#1",
@@ -3112,17 +3123,6 @@
             "type": "mutual"
           }
         }
-      ],
-      "author": [
-        "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-disconnect(7)",
-        "lightning-fundchannel(7)",
-        "lightningd-config(5)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-commando-blacklist.json": {
@@ -3198,7 +3198,16 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-commando-listrunes(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:commando-blacklist#1",
@@ -3256,15 +3265,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-commando-listrunes(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-commando-listrunes.json": {
@@ -3429,7 +3429,17 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-commando-rune(7)",
+        "lightning-commando-blacklist(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:commando-listrunes#1",
@@ -3553,16 +3563,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-commando-rune(7)",
-        "lightning-commando-blacklist(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-commando-rune.json": {
@@ -3787,7 +3787,19 @@
         "",
         "If a rune has a ratelimit, any derived rune will have the same id, and thus will compete for that ratelimit. You might want to consider adding a tighter ratelimit to a rune before sharing it, so you will keep the remainder. For example, if you rune has a limit of 60 times per minute, adding a limit of 5 times per minute and handing that rune out means you can still use your original rune 55 times per minute."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> wrote the original Python commando.py plugin, the in-tree commando plugin, and this manual page.",
+        "",
+        "Christian Decker came up with the name \"commando\", which almost excuses his previous adoption of the name \"Eltoo\"."
+      ],
+      "see_also": [
+        "lightning-commando(7)",
+        "lightning-decode(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:commando-rune#1",
@@ -3853,18 +3865,6 @@
             "unique_id": "3"
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> wrote the original Python commando.py plugin, the in-tree commando plugin, and this manual page.",
-        "",
-        "Christian Decker came up with the name \"commando\", which almost excuses his previous adoption of the name \"Eltoo\"."
-      ],
-      "see_also": [
-        "lightning-commando(7)",
-        "lightning-decode(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-commando.json": {
@@ -3941,7 +3941,18 @@
         "",
         "It can also fail if the peer does not respond, in which case it will simply hang awaiting a response."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> wrote the original Python commando.py plugin, the in-tree commando plugin, and this manual page.",
+        "",
+        "Christian Decker came up with the name \"commando\", which almost excuses his previous adoption of the name \"Eltoo\"."
+      ],
+      "see_also": [
+        "lightning-commando-rune(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:commando#1",
@@ -4041,17 +4052,6 @@
             "status": "complete"
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> wrote the original Python commando.py plugin, the in-tree commando plugin, and this manual page.",
-        "",
-        "Christian Decker came up with the name \"commando\", which almost excuses his previous adoption of the name \"Eltoo\"."
-      ],
-      "see_also": [
-        "lightning-commando-rune(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-connect.json": {
@@ -4227,7 +4227,19 @@
         "- 402: If the peer disconnected while we were connecting",
         "- -32602: If the given parameters are wrong"
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible. Felix <<fixone@gmail.com>> is the original author of this manpage."
+      ],
+      "see_also": [
+        "lightning-fundchannel(7)",
+        "lightning-listpeers(7)",
+        "lightning-listchannels(7)",
+        "lightning-disconnect(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:connect#1",
@@ -4270,18 +4282,6 @@
             }
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible. Felix <<fixone@gmail.com>> is the original author of this manpage."
-      ],
-      "see_also": [
-        "lightning-fundchannel(7)",
-        "lightning-listpeers(7)",
-        "lightning-listchannels(7)",
-        "lightning-disconnect(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-createinvoice.json": {
@@ -4648,7 +4648,19 @@
         "",
         "The `onion` corresponds to 1366 hex-encoded bytes. Each shared secret consists of 32 hex-encoded bytes. Both arguments can be passed on to **sendonion**."
       ],
-      "json_example": [
+      "author": [
+        "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-sendonion(7)",
+        "lightning-getroute(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "",
+        "[BOLT 04](https://github.com/lightning/bolts/blob/master/04-onion-routing.md)"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:createonion#1",
@@ -4712,18 +4724,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-sendonion(7)",
-        "lightning-getroute(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>",
-        "",
-        "[BOLT 04](https://github.com/lightning/bolts/blob/master/04-onion-routing.md)"
       ]
     },
     "lightning-createrune.json": {
@@ -4951,7 +4951,19 @@
         "",
         "If a rune has a ratelimit, any derived rune will have the same id, and thus will compete for that ratelimit. You might want to consider adding a tighter ratelimit to a rune before sharing it, so you will keep the remainder. For example, if you rune has a limit of 60 times per minute, adding a limit of 5 times per minute and handing that rune out means you can still use your original rune 55 times per minute."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> wrote the original Python commando.py plugin, the in-tree commando plugin, and this manual page.",
+        "",
+        "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible for migrating commando-rune to createrune."
+      ],
+      "see_also": [
+        "lightning-commando-rune(7)",
+        "lightning-checkrune(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:createrune#1",
@@ -5000,18 +5012,6 @@
             "unique_id": "2"
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> wrote the original Python commando.py plugin, the in-tree commando plugin, and this manual page.",
-        "",
-        "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible for migrating commando-rune to createrune."
-      ],
-      "see_also": [
-        "lightning-commando-rune(7)",
-        "lightning-checkrune(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-datastore.json": {
@@ -5130,7 +5130,18 @@
         "- 1206: One of the parents already exists with a value.",
         "- -32602: invalid parameters"
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listdatastore(7)",
+        "lightning-deldatastore(7)",
+        "lightning-datastoreusage(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:datastore#1",
@@ -5201,17 +5212,6 @@
             "string": "somedatatostoreinthedatastore"
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-listdatastore(7)",
-        "lightning-deldatastore(7)",
-        "lightning-datastoreusage(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-datastoreusage.json": {
@@ -5278,7 +5278,18 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Peter Neuroth <<pet.v.ne@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-datastore(7)",
+        "lightning-deldatastore(7)",
+        "lightning-listdatastore(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:datastoreusage#1",
@@ -5325,17 +5336,6 @@
             }
           }
         }
-      ],
-      "author": [
-        "Peter Neuroth <<pet.v.ne@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-datastore(7)",
-        "lightning-deldatastore(7)",
-        "lightning-listdatastore(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-decode.json": {
@@ -7401,7 +7401,25 @@
           }
         ]
       },
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-pay(7)",
+        "lightning-offer(7)",
+        "lightning-fetchinvoice(7)",
+        "lightning-sendinvoice(7)",
+        "lightning-commando-rune(7)"
+      ],
+      "resources": [
+        "[BOLT #11](https://github.com/lightning/bolts/blob/master/11-payment-encoding.md)",
+        "",
+        "[BOLT #12](https://github.com/rustyrussell/lightning-rfc/blob/guilt/offers/12-offer-encoding.md)",
+        "(experimental, [bolt](https://github.com/lightning/bolts) #798)",
+        "",
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:decode#1",
@@ -7468,24 +7486,6 @@
             "valid": true
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-pay(7)",
-        "lightning-offer(7)",
-        "lightning-fetchinvoice(7)",
-        "lightning-sendinvoice(7)",
-        "lightning-commando-rune(7)"
-      ],
-      "resources": [
-        "[BOLT #11](https://github.com/lightning/bolts/blob/master/11-payment-encoding.md)",
-        "",
-        "[BOLT #12](https://github.com/rustyrussell/lightning-rfc/blob/guilt/offers/12-offer-encoding.md)",
-        "(experimental, [bolt](https://github.com/lightning/bolts) #798)",
-        "",
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-decodepay.json": {
@@ -7737,7 +7737,20 @@
           "Technically, the *description* field is optional if a *description_hash* field is given, but in this case **decodepay** will only succeed if the optional *description* field is passed and matches the *description_hash*. In practice, these are currently unused."
         ]
       },
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-pay(7)",
+        "lightning-getroute(7)",
+        "lightning-sendpay(7)"
+      ],
+      "resources": [
+        "[BOLT #11](https://github.com/lightning/bolts/blob/master/11-payment-encoding.md)",
+        "",
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:decodepay#1",
@@ -7762,19 +7775,6 @@
             "signature": "3045022100e3b7d8886eae1a7c9e55e1797aa0dcb77b8c5a19d56c657cad030e360c90682802203a35713acb098245e53a37faeac98754a29a7078db5ed6f2166f917e55b94484"
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-pay(7)",
-        "lightning-getroute(7)",
-        "lightning-sendpay(7)"
-      ],
-      "resources": [
-        "[BOLT #11](https://github.com/lightning/bolts/blob/master/11-payment-encoding.md)",
-        "",
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-deldatastore.json": {
@@ -7858,7 +7858,18 @@
         "- 1201: the key does exist, but the generation is wrong",
         "- -32602: invalid parameters"
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listdatastore(7)",
+        "lightning-datastore(7)",
+        "lightning-datastoreusage(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:deldatastore#1",
@@ -7896,17 +7907,6 @@
             "string": "aval"
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-listdatastore(7)",
-        "lightning-datastore(7)",
-        "lightning-datastoreusage(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-delforward.json": {
@@ -7961,7 +7961,16 @@
         "",
         "- 1401: The forward specified does not exist."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-autoclean(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:delforward#1",
@@ -7986,15 +7995,6 @@
           },
           "response": {}
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-autoclean(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-delinvoice.json": {
@@ -8276,7 +8276,19 @@
         "- 906: The invoice *status* does not match the parameter. An error object will be returned as error *data*, containing *current_status* and *expected_status* fields. This is most likely due to the *status* of the invoice changing just before this command is invoked.",
         "- 908: The invoice already has no description, and *desconly* was set."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listinvoices(7)",
+        "lightning-waitinvoice(7)",
+        "lightning-invoice(7)",
+        "lightning-autoclean-status(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:delinvoice#1",
@@ -8321,18 +8333,6 @@
             "updated_index": 1
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-listinvoices(7)",
-        "lightning-waitinvoice(7)",
-        "lightning-invoice(7)",
-        "lightning-autoclean-status(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-delpay.json": {
@@ -8522,7 +8522,28 @@
           "The returned format is the same as lightning-listsendpays(7). If the payment is a multi-part payment (MPP) the command return a list of payments will be returned -- one payment object for each partid."
         ]
       },
-      "json_example": [
+      "errors": [
+        "On failure, an error is returned. If the lightning process fails before responding, the",
+        "caller should use lightning-listsentpays(7) or lightning-listpays(7) to query whether this payment was deleted or not.",
+        "",
+        "The following error codes may occur:",
+        "",
+        "- -32602: Parameter missed or malformed;",
+        "- 211: Payment status mismatch. Check the correct status via **paystatus**;",
+        "- 208: Payment with payment_hash not found."
+      ],
+      "author": [
+        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listpays(7)",
+        "lightning-listsendpays(7)",
+        "lightning-paystatus(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:delpay#1",
@@ -8609,27 +8630,6 @@
             ]
           }
         }
-      ],
-      "errors": [
-        "On failure, an error is returned. If the lightning process fails before responding, the",
-        "caller should use lightning-listsentpays(7) or lightning-listpays(7) to query whether this payment was deleted or not.",
-        "",
-        "The following error codes may occur:",
-        "",
-        "- -32602: Parameter missed or malformed;",
-        "- 211: Payment status mismatch. Check the correct status via **paystatus**;",
-        "- 208: Payment with payment_hash not found."
-      ],
-      "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-listpays(7)",
-        "lightning-listsendpays(7)",
-        "lightning-paystatus(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-deprecations.json": {
@@ -8658,18 +8658,6 @@
       "response": {
         "properties": {}
       },
-      "json_example": [
-        {
-          "request": {
-            "id": "example:deprecations#1",
-            "method": "deprecations",
-            "params": {
-              "enable": false
-            }
-          },
-          "response": {}
-        }
-      ],
       "errors": [
         "On failure, one of the following error codes may be returned:",
         "",
@@ -8684,6 +8672,18 @@
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:deprecations#1",
+            "method": "deprecations",
+            "params": {
+              "enable": false
+            }
+          },
+          "response": {}
+        }
       ]
     },
     "lightning-dev-forget-channel.json": {
@@ -8765,7 +8765,19 @@
         "- -32602: If the given parameters are missing or wrong.",
         "- -1: Catch all nonspecific errors, eg. `Multiple channels: please specify short_channel_id.` OR `No channels matching that peer_id and that short_channel_id.`, etc."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-close(7)",
+        "lightning-listchannels(7)",
+        "lightning-listpeerchannels(7)",
+        "lightning-listfunds(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "description": [
             "Forget a channel by peer pubkey when only one channel exists with the peer."
@@ -8803,18 +8815,6 @@
             "funding_txid": "b254f30a58adde9326b7e8a701f9d5b3c4db2160b58c5378afbe04448018ec8a"
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-close(7)",
-        "lightning-listchannels(7)",
-        "lightning-listpeerchannels(7)",
-        "lightning-listfunds(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-disableinvoicerequest.json": {
@@ -8985,7 +8985,17 @@
           "Note: the returned object is the same format as **listoffers**."
         ]
       },
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-offer(7)",
+        "lightning-listoffers(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:disableoffer#1",
@@ -9002,16 +9012,6 @@
             "used": false
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-offer(7)",
-        "lightning-listoffers(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-disconnect.json": {
@@ -9061,7 +9061,17 @@
         "- -32602: If the given parameters are wrong.",
         "- -1: Catchall nonspecific error."
       ],
-      "json_example": [
+      "author": [
+        "Michael Hawkins <<michael.hawkins@protonmail.com>>."
+      ],
+      "see_also": [
+        "lightning-connect(1)",
+        "lightning-listpeers(1)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:disconnect#1",
@@ -9084,16 +9094,6 @@
           },
           "response": {}
         }
-      ],
-      "author": [
-        "Michael Hawkins <<michael.hawkins@protonmail.com>>."
-      ],
-      "see_also": [
-        "lightning-connect(1)",
-        "lightning-listpeers(1)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-emergencyrecover.json": {
@@ -9127,7 +9127,16 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-getsharedsecret(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:emergencyrecover#1",
@@ -9150,15 +9159,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-getsharedsecret(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-feerates.json": {
@@ -9532,7 +9532,20 @@
       "trivia": [
         "In C-lightning we like to call the weight unit \"sipa\" in honor of Pieter Wuille, who uses the name \"sipa\" on IRC and elsewhere. Internally we call the *perkw* style as \"feerate per kilosipa\"."
       ],
-      "json_example": [
+      "author": [
+        "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> wrote the initial version of this manpage."
+      ],
+      "see_also": [
+        "lightning-parsefeerate(7)",
+        "lightning-fundchannel(7)",
+        "lightning-withdraw(7)",
+        "lightning-txprepare(7)",
+        "lightning-fundchannel_start(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:feerates#1",
@@ -9630,19 +9643,6 @@
             }
           }
         }
-      ],
-      "author": [
-        "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> wrote the initial version of this manpage."
-      ],
-      "see_also": [
-        "lightning-parsefeerate(7)",
-        "lightning-fundchannel(7)",
-        "lightning-withdraw(7)",
-        "lightning-txprepare(7)",
-        "lightning-fundchannel_start(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-fetchinvoice.json": {
@@ -9821,7 +9821,17 @@
         "- 1004: The node making the offer returned an error message.",
         "- 1005: We timed out trying to fetch an invoice."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-sendinvoice(7)",
+        "lightning-pay(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:fetchinvoice#1",
@@ -9864,16 +9874,6 @@
             "changes": {}
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-sendinvoice(7)",
-        "lightning-pay(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-fundchannel.json": {
@@ -10099,7 +10099,29 @@
         "lightning-cli -k fundchannel id=03f...fc1 amount=all feerate=normal utxos='[\"bcc1...39c:0\"]'",
         "```"
       ],
-      "json_example": [
+      "errors": [
+        "The following error codes may occur:",
+        "",
+        "- -1: Catchall nonspecific error.",
+        "- 300: The maximum allowed funding amount is exceeded.",
+        "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
+        "- 302: The output amount is too small, and would be considered dust.",
+        "- 303: Broadcasting of the funding transaction failed, the internal call to bitcoin-cli returned with an error.",
+        "- 313: The `min-emergency-msat` reserve not be preserved (and we have or are opening anchor channels).",
+        "",
+        "Failure may also occur if **lightningd** and the peer cannot agree on channel parameters (funding limits, channel reserves, fees, etc.)."
+      ],
+      "see_also": [
+        "lightning-connect(7)",
+        "lightning-listfunds()",
+        "lightning-listpeers(7)",
+        "lightning-feerates(7)",
+        "lightning-multifundchannel(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:fundchannel#1",
@@ -10145,28 +10167,6 @@
             "outnum": 0
           }
         }
-      ],
-      "errors": [
-        "The following error codes may occur:",
-        "",
-        "- -1: Catchall nonspecific error.",
-        "- 300: The maximum allowed funding amount is exceeded.",
-        "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
-        "- 302: The output amount is too small, and would be considered dust.",
-        "- 303: Broadcasting of the funding transaction failed, the internal call to bitcoin-cli returned with an error.",
-        "- 313: The `min-emergency-msat` reserve not be preserved (and we have or are opening anchor channels).",
-        "",
-        "Failure may also occur if **lightningd** and the peer cannot agree on channel parameters (funding limits, channel reserves, fees, etc.)."
-      ],
-      "see_also": [
-        "lightning-connect(7)",
-        "lightning-listfunds()",
-        "lightning-listpeers(7)",
-        "lightning-feerates(7)",
-        "lightning-multifundchannel(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-fundchannel_cancel.json": {
@@ -10208,32 +10208,6 @@
           }
         }
       },
-      "json_example": [
-        {
-          "request": {
-            "id": "example:fundchannel_cancel#1",
-            "method": "fundchannel_cancel",
-            "params": {
-              "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
-            }
-          },
-          "response": {
-            "cancelled": "Channel open canceled by RPC"
-          }
-        },
-        {
-          "request": {
-            "id": "example:fundchannel_cancel#2",
-            "method": "fundchannel_cancel",
-            "params": {
-              "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
-            }
-          },
-          "response": {
-            "cancelled": "Channel open canceled by RPC(after fundchannel_complete)"
-          }
-        }
-      ],
       "errors": [
         "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
         "",
@@ -10258,6 +10232,32 @@
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:fundchannel_cancel#1",
+            "method": "fundchannel_cancel",
+            "params": {
+              "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+            }
+          },
+          "response": {
+            "cancelled": "Channel open canceled by RPC"
+          }
+        },
+        {
+          "request": {
+            "id": "example:fundchannel_cancel#2",
+            "method": "fundchannel_cancel",
+            "params": {
+              "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+            }
+          },
+          "response": {
+            "cancelled": "Channel open canceled by RPC(after fundchannel_complete)"
+          }
+        }
       ]
     },
     "lightning-fundchannel_complete.json": {
@@ -10323,22 +10323,6 @@
         "- 306: Unknown peer id.",
         "- 309: PSBT does not have a unique, correct output to fund the channel."
       ],
-      "json_example": [
-        {
-          "request": {
-            "id": "example:fundchannel_complete#1",
-            "method": "fundchannel_complete",
-            "params": {
-              "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-              "psbt": "cHNidP8BAIkCAAAAASYd4TeOHEIzrUbbELM2DK0IX09WaXqWsJFlLD455MPPAAAAAAD9////Av///wAAAAAAIgAgW4zTuRTPZ83Y+mJzyTA1PdNkdnNPvZYhAsLfU7kIgM1c8QUpAQAAACJRIH8AZYBKMKON4/oVmJVsVt6zy/+PkBPzziE+LtkuFvWXAAAAAAABAIMCAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////wJRAP////8CAPIFKgEAAAAWABQ5FIjuMd8ar9WFRV9eGNLF+3RMcAAAAAAAAAAAJmokqiGp7eL2HD9x0d79P6mZ36NpU3VcaQaJeZlitIvr2DaXToz5AAAAAAEBHwDyBSoBAAAAFgAUORSI7jHfGq/VhUVfXhjSxft0THAiBgMegIxEPDa2OseVTaV6ANtSwQuoj/j2an7X/Is2EekvWBhhFDNgVAAAgAEAAIAAAACAAAAAAAAAAAAAAAEFIEm9AFgqUlJwbPFtyt3a9dzvb+nAGZiQ3CT1CImhjBFpIQdJvQBYKlJScGzxbcrd2vXc72/pwBmYkNwk9QiJoYwRaRkAYRQzYFYAAIABAACAAAAAgAEAAAAAAAAAAA=="
-            }
-          },
-          "response": {
-            "channel_id": "049217e5035a4a60449c6382c445b5c105bd63588d66137ad0511c57a16db6d9",
-            "commitments_secured": true
-          }
-        }
-      ],
       "author": [
         "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
       ],
@@ -10356,6 +10340,22 @@
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:fundchannel_complete#1",
+            "method": "fundchannel_complete",
+            "params": {
+              "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+              "psbt": "cHNidP8BAIkCAAAAASYd4TeOHEIzrUbbELM2DK0IX09WaXqWsJFlLD455MPPAAAAAAD9////Av///wAAAAAAIgAgW4zTuRTPZ83Y+mJzyTA1PdNkdnNPvZYhAsLfU7kIgM1c8QUpAQAAACJRIH8AZYBKMKON4/oVmJVsVt6zy/+PkBPzziE+LtkuFvWXAAAAAAABAIMCAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////wJRAP////8CAPIFKgEAAAAWABQ5FIjuMd8ar9WFRV9eGNLF+3RMcAAAAAAAAAAAJmokqiGp7eL2HD9x0d79P6mZ36NpU3VcaQaJeZlitIvr2DaXToz5AAAAAAEBHwDyBSoBAAAAFgAUORSI7jHfGq/VhUVfXhjSxft0THAiBgMegIxEPDa2OseVTaV6ANtSwQuoj/j2an7X/Is2EekvWBhhFDNgVAAAgAEAAIAAAACAAAAAAAAAAAAAAAEFIEm9AFgqUlJwbPFtyt3a9dzvb+nAGZiQ3CT1CImhjBFpIQdJvQBYKlJScGzxbcrd2vXc72/pwBmYkNwk9QiJoYwRaRkAYRQzYFYAAIABAACAAAAAgAEAAAAAAAAAAA=="
+            }
+          },
+          "response": {
+            "channel_id": "049217e5035a4a60449c6382c445b5c105bd63588d66137ad0511c57a16db6d9",
+            "commitments_secured": true
+          }
+        }
       ]
     },
     "lightning-fundchannel_start.json": {
@@ -10547,7 +10547,25 @@
         "- 306: Unknown peer id.",
         "- 312: Peer negotiated `option_dual_fund`, must use `openchannel_init` not `fundchannel_start`. (Only if ``experimental-dual-fund` is enabled)"
       ],
-      "json_example": [
+      "author": [
+        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-connect(7)",
+        "lightning-fundchannel(7)",
+        "lightning-multifundchannel(7)",
+        "lightning-fundchannel_complete(7)",
+        "lightning-fundchannel_cancel(7)",
+        "lightning-openchannel_init(7)",
+        "lightning-openchannel_update(7)",
+        "lightning-openchannel_signed(7)",
+        "lightning-openchannel_bump(7)",
+        "lightning-openchannel_abort(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:fundchannel_start#1",
@@ -10590,24 +10608,6 @@
             "warning_usage": "The funding transaction MUST NOT be broadcast until after channel establishment has been successfully completed by running `fundchannel_complete`"
           }
         }
-      ],
-      "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-connect(7)",
-        "lightning-fundchannel(7)",
-        "lightning-multifundchannel(7)",
-        "lightning-fundchannel_complete(7)",
-        "lightning-fundchannel_cancel(7)",
-        "lightning-openchannel_init(7)",
-        "lightning-openchannel_update(7)",
-        "lightning-openchannel_signed(7)",
-        "lightning-openchannel_bump(7)",
-        "lightning-openchannel_abort(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-funderupdate.json": {
@@ -10879,7 +10879,17 @@
         "",
         "- -32602: If the given parameters are invalid."
       ],
-      "json_example": [
+      "author": [
+        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-fundchannel(7)",
+        "lightning-listfunds(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:funderupdate#1",
@@ -10935,16 +10945,6 @@
             "fund_probability": 100
           }
         }
-      ],
-      "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-fundchannel(7)",
-        "lightning-listfunds(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-fundpsbt.json": {
@@ -11144,7 +11144,18 @@
         "- -1: Catchall nonspecific error.",
         "- 301: Insufficient UTXOs to meet *satoshi* value."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-utxopsbt(7)",
+        "lightning-reserveinputs(7)",
+        "lightning-unreserveinputs(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:fundpsbt#1",
@@ -11220,17 +11231,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-utxopsbt(7)",
-        "lightning-reserveinputs(7)",
-        "lightning-unreserveinputs(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-getinfo.json": {
@@ -11597,7 +11597,24 @@
           }
         }
       },
-      "json_example": [
+      "errors": [
+        "On failure, one of the following error codes may be returned:",
+        "",
+        "- -32602: Error in given parameters or some error happened during the command process."
+      ],
+      "author": [
+        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "but many others did the hard work of actually implementing this rpc command."
+      ],
+      "see_also": [
+        "lightning-connect(7)",
+        "lightning-fundchannel(7)",
+        "lightning-listconfigs(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:getinfo#1",
@@ -11645,23 +11662,6 @@
             }
           }
         }
-      ],
-      "errors": [
-        "On failure, one of the following error codes may be returned:",
-        "",
-        "- -32602: Error in given parameters or some error happened during the command process."
-      ],
-      "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
-        "but many others did the hard work of actually implementing this rpc command."
-      ],
-      "see_also": [
-        "lightning-connect(7)",
-        "lightning-fundchannel(7)",
-        "lightning-listconfigs(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-getlog.json": {
@@ -11881,7 +11881,19 @@
           }
         }
       },
-      "json_example": [
+      "errors": [
+        "On failure, one of the following error codes may be returned:",
+        "",
+        "- -32602: Error in given parameters."
+      ],
+      "author": [
+        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "but many others did the hard work of actually implementing this rpc command."
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:getlog#1",
@@ -11908,18 +11920,6 @@
             ]
           }
         }
-      ],
-      "errors": [
-        "On failure, one of the following error codes may be returned:",
-        "",
-        "- -32602: Error in given parameters."
-      ],
-      "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
-        "but many others did the hard work of actually implementing this rpc command."
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-getroute.json": {
@@ -12276,7 +12276,17 @@
         "",
         "The default for lightning-pay(7) is 10, which starts to become a major factor for larger amounts, and is basically ignored for tiny ones."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-pay(7)",
+        "lightning-sendpay(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:getroute#1",
@@ -12348,16 +12358,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-pay(7)",
-        "lightning-sendpay(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-help.json": {
@@ -12437,7 +12437,19 @@
           }
         }
       },
-      "json_example": [
+      "errors": [
+        "On failure, one of the following error codes may be returned:",
+        "",
+        "- -32602: Error in given parameters."
+      ],
+      "author": [
+        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "but many others did the hard work of actually implementing this rpc command."
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:help#1",
@@ -12478,18 +12490,6 @@
             "format-hint": "simple"
           }
         }
-      ],
-      "errors": [
-        "On failure, one of the following error codes may be returned:",
-        "",
-        "- -32602: Error in given parameters."
-      ],
-      "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
-        "but many others did the hard work of actually implementing this rpc command."
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-invoice.json": {
@@ -12682,7 +12682,18 @@
         "- 901: An invoice with the given *preimage* already exists.",
         "- 902: None of the specified *exposeprivatechannels* were usable."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listinvoices(7)",
+        "lightning-delinvoice(7)",
+        "lightning-pay(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:invoice#1",
@@ -12723,17 +12734,6 @@
             "warning_capacity": "Insufficient incoming channel capacity to pay invoice"
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-listinvoices(7)",
-        "lightning-delinvoice(7)",
-        "lightning-pay(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-invoicerequest.json": {
@@ -12845,7 +12845,22 @@
           }
         }
       },
-      "json_example": [
+      "errors": [
+        "On failure, an error is returned and no `invoice_request` is created. If the lightning process fails before responding, the caller should use lightning-listinvoicerequests(7) to query whether it was created or not.",
+        "",
+        "- -1: Catchall nonspecific error."
+      ],
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listinvoicerequests(7)",
+        "lightning-disableinvoicerequest(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:invoicerequest#1",
@@ -12864,21 +12879,6 @@
             "used": false
           }
         }
-      ],
-      "errors": [
-        "On failure, an error is returned and no `invoice_request` is created. If the lightning process fails before responding, the caller should use lightning-listinvoicerequests(7) to query whether it was created or not.",
-        "",
-        "- -1: Catchall nonspecific error."
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-listinvoicerequests(7)",
-        "lightning-disableinvoicerequest(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-keysend.json": {
@@ -13092,7 +13092,21 @@
         "*failcode*: The failure code, as per BOLT #4.",
         "*channel_update*: The hex string of the *channel_update* message received from the remote node. Only present if error is from the remote node and the *failcode* has the `UPDATE` bit set, as per BOLT #4."
       ],
-      "json_example": [
+      "author": [
+        "Christian Decker <<decker@blockstream.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listpays(7)",
+        "lightning-decodepay(7)",
+        "lightning-listinvoices(7)",
+        "lightning-delinvoice(7)",
+        "lightning-getroute(7)",
+        "lightning-invoice(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:keysend#1",
@@ -13177,20 +13191,6 @@
             "status": "complete"
           }
         }
-      ],
-      "author": [
-        "Christian Decker <<decker@blockstream.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-listpays(7)",
-        "lightning-decodepay(7)",
-        "lightning-listinvoices(7)",
-        "lightning-delinvoice(7)",
-        "lightning-getroute(7)",
-        "lightning-invoice(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-listchannels.json": {
@@ -13364,7 +13364,19 @@
         "",
         "- -32602: If the given parameters are wrong."
       ],
-      "json_example": [
+      "author": [
+        "Michael Hawkins <<michael.hawkins@protonmail.com>>."
+      ],
+      "see_also": [
+        "lightning-fundchannel(7)",
+        "lightning-listnodes(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "",
+        "BOLT #7: <https://github.com/lightning/bolts/blob/master/07-routing-gossip.md>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:listchannels#1",
@@ -13424,18 +13436,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Michael Hawkins <<michael.hawkins@protonmail.com>>."
-      ],
-      "see_also": [
-        "lightning-fundchannel(7)",
-        "lightning-listnodes(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>",
-        "",
-        "BOLT #7: <https://github.com/lightning/bolts/blob/master/07-routing-gossip.md>"
       ]
     },
     "lightning-listclosedchannels.json": {
@@ -16166,7 +16166,23 @@
           "- **value_bool** (boolean, optional): for boolean options"
         ]
       },
-      "json_example": [
+      "errors": [
+        "On failure, one of the following error codes may be returned:",
+        "",
+        "- -32602: Error in given parameters or field with *config* name doesn't exist."
+      ],
+      "author": [
+        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "but many others did the hard work of actually implementing this rpc command."
+      ],
+      "see_also": [
+        "lightning-getinfo(7)",
+        "lightningd-config(5)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:listconfigs#1",
@@ -16617,22 +16633,6 @@
             }
           }
         }
-      ],
-      "errors": [
-        "On failure, one of the following error codes may be returned:",
-        "",
-        "- -32602: Error in given parameters or field with *config* name doesn't exist."
-      ],
-      "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
-        "but many others did the hard work of actually implementing this rpc command."
-      ],
-      "see_also": [
-        "lightning-getinfo(7)",
-        "lightningd-config(5)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-listdatastore.json": {
@@ -16718,7 +16718,18 @@
         "",
         "- -32602: invalid parameters."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-datastore(7)",
+        "lightning-deldatastore(7)",
+        "lightning-datastoreusage(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:listdatastore#1",
@@ -16754,17 +16765,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-datastore(7)",
-        "lightning-deldatastore(7)",
-        "lightning-datastoreusage(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-listforwards.json": {
@@ -17131,7 +17131,17 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Rene Pickhardt <<r.pickhardt@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-autoclean-status(7)",
+        "lightning-getinfo(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:listforwards#1",
@@ -17203,16 +17213,6 @@
             "forwards": []
           }
         }
-      ],
-      "author": [
-        "Rene Pickhardt <<r.pickhardt@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-autoclean-status(7)",
-        "lightning-getinfo(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-listfunds.json": {
@@ -17546,7 +17546,19 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Felix <<fixone@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-newaddr(7)",
+        "lightning-fundchannel(7)",
+        "lightning-withdraw(7)",
+        "lightning-listtransactions(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:listfunds#1",
@@ -17579,18 +17591,6 @@
             "channels": []
           }
         }
-      ],
-      "author": [
-        "Felix <<fixone@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-newaddr(7)",
-        "lightning-fundchannel(7)",
-        "lightning-withdraw(7)",
-        "lightning-listtransactions(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-listhtlcs.json": {
@@ -17706,7 +17706,16 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listforwards(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:listhtlcs#1",
@@ -17843,15 +17852,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-listforwards(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-listinvoicerequests.json": {
@@ -17941,7 +17941,17 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-invoicerequests(7)",
+        "lightning-disableinvoicerequest(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:listinvoicerequests#1",
@@ -17962,16 +17972,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-invoicerequests(7)",
-        "lightning-disableinvoicerequest(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-listinvoices.json": {
@@ -18263,7 +18263,18 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-waitinvoice(7)",
+        "lightning-delinvoice(7)",
+        "lightning-invoice(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:listinvoices#1",
@@ -18289,17 +18300,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-waitinvoice(7)",
-        "lightning-delinvoice(7)",
-        "lightning-invoice(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-listnodes.json": {
@@ -18548,7 +18548,22 @@
           }
         }
       },
-      "json_example": [
+      "errors": [
+        "On failure, one of the following error codes may be returned:",
+        "",
+        "- -32602: Error in given parameters."
+      ],
+      "author": [
+        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "but many others did the hard work of actually implementing this rpc command."
+      ],
+      "see_also": [
+        "lightning-listchannels(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:listnodes#1",
@@ -18619,21 +18634,6 @@
             ]
           }
         }
-      ],
-      "errors": [
-        "On failure, one of the following error codes may be returned:",
-        "",
-        "- -32602: Error in given parameters."
-      ],
-      "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
-        "but many others did the hard work of actually implementing this rpc command."
-      ],
-      "see_also": [
-        "lightning-listchannels(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-listoffers.json": {
@@ -18722,7 +18722,17 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-offer(7)",
+        "lightning-listoffers(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:listoffers#1",
@@ -18770,16 +18780,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-offer(7)",
-        "lightning-listoffers(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-listpays.json": {
@@ -18993,7 +18993,18 @@
           "The returned array is ordered by increasing **created_at** fields."
         ]
       },
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-pay(7)",
+        "lightning-paystatus(7)",
+        "lightning-listsendpays(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:listpays#1",
@@ -19039,17 +19050,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-pay(7)",
-        "lightning-paystatus(7)",
-        "lightning-listsendpays(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-listpeerchannels.json": {
@@ -20442,7 +20442,19 @@
         "",
         "- -32602: If the given parameters are wrong."
       ],
-      "json_example": [
+      "author": [
+        "Michael Hawkins <<michael.hawkins@protonmail.com>>."
+      ],
+      "see_also": [
+        "lightning-connect(7)",
+        "lightning-fundchannel_start(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "Lightning RFC site (BOLT #9): ",
+        "<https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:listpeerchannels#1",
@@ -20645,18 +20657,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Michael Hawkins <<michael.hawkins@protonmail.com>>."
-      ],
-      "see_also": [
-        "lightning-connect(7)",
-        "lightning-fundchannel_start(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>",
-        "Lightning RFC site (BOLT #9): ",
-        "<https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>"
       ]
     },
     "lightning-listpeers.json": {
@@ -20965,7 +20965,20 @@
         "",
         "- -32602: If the given parameters are wrong."
       ],
-      "json_example": [
+      "author": [
+        "Michael Hawkins <<michael.hawkins@protonmail.com>>."
+      ],
+      "see_also": [
+        "lightning-connect(7)",
+        "lightning-fundchannel_start(7)",
+        "lightning-setchannel(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "Lightning RFC site (BOLT #9):",
+        "<https://github.com/lightning/bolts/blob/master/09-features.md>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:listpeers#1",
@@ -21008,19 +21021,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Michael Hawkins <<michael.hawkins@protonmail.com>>."
-      ],
-      "see_also": [
-        "lightning-connect(7)",
-        "lightning-fundchannel_start(7)",
-        "lightning-setchannel(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>",
-        "Lightning RFC site (BOLT #9):",
-        "<https://github.com/lightning/bolts/blob/master/09-features.md>"
       ]
     },
     "lightning-listsendpays.json": {
@@ -21347,7 +21347,18 @@
           "Note that the returned array is ordered by increasing *id*."
         ]
       },
-      "json_example": [
+      "author": [
+        "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listpays(7)",
+        "lightning-sendpay(7)",
+        "lightning-listinvoices(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:listsendpays#1",
@@ -21411,17 +21422,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-listpays(7)",
-        "lightning-sendpay(7)",
-        "lightning-listinvoices(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-listsqlschemas.json": {
@@ -21522,7 +21522,16 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-sql(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:listsqlschemas#1",
@@ -21692,15 +21701,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-sql(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-listtransactions.json": {
@@ -21848,7 +21848,23 @@
           }
         }
       },
-      "json_example": [
+      "errors": [
+        "On failure, one of the following error codes may be returned:",
+        "",
+        "- -32602: Error in given parameters."
+      ],
+      "author": [
+        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "but many others did the hard work of actually implementing this rpc command."
+      ],
+      "see_also": [
+        "lightning-newaddr(7)",
+        "lightning-listfunds(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:listtransactions#1",
@@ -21887,22 +21903,6 @@
             ]
           }
         }
-      ],
-      "errors": [
-        "On failure, one of the following error codes may be returned:",
-        "",
-        "- -32602: Error in given parameters."
-      ],
-      "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
-        "but many others did the hard work of actually implementing this rpc command."
-      ],
-      "see_also": [
-        "lightning-newaddr(7)",
-        "lightning-listfunds(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-makesecret.json": {
@@ -21949,7 +21949,13 @@
         "",
         "- -1: Catchall nonspecific error."
       ],
-      "json_example": [
+      "author": [
+        "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:makesecret#1",
@@ -21975,12 +21981,6 @@
             "secret": "a9a2e742405c28f059349132923a99337ae7f71168b7485496e3365f5bc664ed"
           }
         }
-      ],
-      "author": [
-        "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-multifundchannel.json": {
@@ -22332,7 +22332,19 @@
         "}",
         "```"
       ],
-      "json_example": [
+      "author": [
+        "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-connect(7)",
+        "lightning-listfunds()",
+        "lightning-listpeers(7)",
+        "lightning-fundchannel(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:multifundchannel#1",
@@ -22431,18 +22443,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-connect(7)",
-        "lightning-listfunds()",
-        "lightning-listpeers(7)",
-        "lightning-fundchannel(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-multiwithdraw.json": {
@@ -22513,7 +22513,27 @@
           }
         }
       },
-      "json_example": [
+      "errors": [
+        "On failure, an error is reported and the withdrawal transaction is not created.",
+        "",
+        "- -1: Catchall nonspecific error.",
+        "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
+        "- 302: The dust limit is not met."
+      ],
+      "author": [
+        "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listfunds(7)",
+        "lightning-fundchannel(7)",
+        "lightning-newaddr(7)",
+        "lightning-txprepare(7)",
+        "lightning-withdraw(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:multiwithdraw#1",
@@ -22572,26 +22592,6 @@
             "txid": "062383a7c9a19a2768939087a5c89826a4ea3531080f20cc06aa1cbf431be505"
           }
         }
-      ],
-      "errors": [
-        "On failure, an error is reported and the withdrawal transaction is not created.",
-        "",
-        "- -1: Catchall nonspecific error.",
-        "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
-        "- 302: The dust limit is not met."
-      ],
-      "author": [
-        "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-listfunds(7)",
-        "lightning-fundchannel(7)",
-        "lightning-newaddr(7)",
-        "lightning-txprepare(7)",
-        "lightning-withdraw(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-newaddr.json": {
@@ -22645,7 +22645,19 @@
       "errors": [
         "If an unrecognized address type is requested an error message will be returned."
       ],
-      "json_example": [
+      "author": [
+        "Felix <<fixone@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listfunds(7)",
+        "lightning-fundchannel(7)",
+        "lightning-withdraw(7)",
+        "lightning-listtransactions(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:newaddr#1",
@@ -22668,18 +22680,6 @@
             "bech32": "bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf"
           }
         }
-      ],
-      "author": [
-        "Felix <<fixone@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-listfunds(7)",
-        "lightning-fundchannel(7)",
-        "lightning-withdraw(7)",
-        "lightning-listtransactions(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-notifications.json": {
@@ -22748,7 +22748,13 @@
           }
         }
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@blockstream.com>> wrote the initial version of this man page."
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:notifications#1",
@@ -22769,12 +22775,6 @@
           },
           "response": {}
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@blockstream.com>> wrote the initial version of this man page."
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-offer.json": {
@@ -22945,7 +22945,18 @@
         "- -1: Catchall nonspecific error.",
         "- 1000: Offer with this offer_id already exists (but is not active)."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listoffers(7)",
+        "lightning-disableoffer(7)",
+        "lightning-invoicerequest(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:offer#1",
@@ -22983,17 +22994,6 @@
             "created": true
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-listoffers(7)",
-        "lightning-disableoffer(7)",
-        "lightning-invoicerequest(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-openchannel_abort.json": {
@@ -23054,22 +23054,6 @@
         "- 311: Unknown channel id.",
         "- 312: Channel in an invalid state"
       ],
-      "json_example": [
-        {
-          "request": {
-            "id": "example:openchannel_abort#1",
-            "method": "openchannel_abort",
-            "params": {
-              "channel_id": "aec3dfd0c7643a23b679cd2e493c053f8fdf621ff2624949f9582c4118b818c6"
-            }
-          },
-          "response": {
-            "channel_id": "aec3dfd0c7643a23b679cd2e493c053f8fdf621ff2624949f9582c4118b818c6",
-            "channel_canceled": true,
-            "reason": "Abort requested"
-          }
-        }
-      ],
       "author": [
         "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
       ],
@@ -23087,6 +23071,22 @@
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:openchannel_abort#1",
+            "method": "openchannel_abort",
+            "params": {
+              "channel_id": "aec3dfd0c7643a23b679cd2e493c053f8fdf621ff2624949f9582c4118b818c6"
+            }
+          },
+          "response": {
+            "channel_id": "aec3dfd0c7643a23b679cd2e493c053f8fdf621ff2624949f9582c4118b818c6",
+            "channel_canceled": true,
+            "reason": "Abort requested"
+          }
+        }
       ]
     },
     "lightning-openchannel_bump.json": {
@@ -23444,7 +23444,39 @@
           "If you sent a *request_amt* and the peer supports `option_will_fund` and is interested in leasing you liquidity in this channel, returns their updated channel fee max (*channel_fee_proportional_basis*, *channel_fee_base_msat*), updated rate card for the lease fee (*lease_fee_proportional_basis*, *lease_fee_base_sat*) and their on-chain weight *weight_charge*, which will be added to the lease fee at a rate of *funding_feerate* * *weight_charge* / 1000."
         ]
       },
-      "json_example": [
+      "errors": [
+        "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
+        "",
+        "- -32602: If the given parameters are wrong.",
+        "- -1: Catchall nonspecific error.",
+        "- 300: The amount exceeded the maximum configured funding amount.",
+        "- 301: The provided PSBT cannot afford the funding amount.",
+        "- 304: Still syncing with bitcoin network",
+        "- 305: Peer is not connected.",
+        "- 306: Unknown peer id.",
+        "- 309: PSBT missing required fields",
+        "- 310: v2 channel open protocol not supported by peer",
+        "- 312: Channel in an invalid state"
+      ],
+      "author": [
+        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-openchannel_update(7)",
+        "lightning-openchannel_signed(7)",
+        "lightning-openchannel_abort(7)",
+        "lightning-openchannel_bump(7)",
+        "lightning-fundchannel_start(7)",
+        "lightning-fundchannel_complete(7)",
+        "lightning-fundchannel(7)",
+        "lightning-fundpsbt(7)",
+        "lightning-utxopsbt(7)",
+        "lightning-multifundchannel(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:openchannel_init#1",
@@ -23505,38 +23537,6 @@
             "requires_confirmed_inputs": false
           }
         }
-      ],
-      "errors": [
-        "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
-        "",
-        "- -32602: If the given parameters are wrong.",
-        "- -1: Catchall nonspecific error.",
-        "- 300: The amount exceeded the maximum configured funding amount.",
-        "- 301: The provided PSBT cannot afford the funding amount.",
-        "- 304: Still syncing with bitcoin network",
-        "- 305: Peer is not connected.",
-        "- 306: Unknown peer id.",
-        "- 309: PSBT missing required fields",
-        "- 310: v2 channel open protocol not supported by peer",
-        "- 312: Channel in an invalid state"
-      ],
-      "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-openchannel_update(7)",
-        "lightning-openchannel_signed(7)",
-        "lightning-openchannel_abort(7)",
-        "lightning-openchannel_bump(7)",
-        "lightning-fundchannel_start(7)",
-        "lightning-fundchannel_complete(7)",
-        "lightning-fundchannel(7)",
-        "lightning-fundpsbt(7)",
-        "lightning-utxopsbt(7)",
-        "lightning-multifundchannel(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-openchannel_signed.json": {
@@ -23816,7 +23816,25 @@
         "- 311: Unknown channel id.",
         "- 312: Channel in an invalid state"
       ],
-      "json_example": [
+      "author": [
+        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-openchannel_init(7)",
+        "lightning-openchannel_signed(7)",
+        "lightning-openchannel_bump(7)",
+        "lightning-openchannel_abort(7)",
+        "lightning-fundchannel_start(7)",
+        "lightning-fundchannel_complete(7)",
+        "lightning-fundchannel(7)",
+        "lightning-fundpsbt(7)",
+        "lightning-utxopsbt(7)",
+        "lightning-multifundchannel(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:openchannel_update#1",
@@ -23870,24 +23888,6 @@
             "close_to": "5120eed745804da9784cc203f563efa99ffa54fdf01b137bc964e63c3124070ffbe6"
           }
         }
-      ],
-      "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-openchannel_init(7)",
-        "lightning-openchannel_signed(7)",
-        "lightning-openchannel_bump(7)",
-        "lightning-openchannel_abort(7)",
-        "lightning-fundchannel_start(7)",
-        "lightning-fundchannel_complete(7)",
-        "lightning-fundchannel(7)",
-        "lightning-fundpsbt(7)",
-        "lightning-utxopsbt(7)",
-        "lightning-multifundchannel(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-parsefeerate.json": {
@@ -23924,7 +23924,18 @@
           }
         }
       },
-      "json_example": [
+      "errors": [
+        "The **parsefeerate** command will error if the *feerate_str* format is not recognized.",
+        "",
+        "- -32602: If the given parameters are wrong."
+      ],
+      "trivia": [
+        "In CLN we like to call the weight unit \"sipa\" in honor of Pieter Wuille, who uses the name \"sipa\" on IRC and elsewhere. Internally we call the *perkw* style as \"feerate per kilosipa\"."
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:parsefeerate#1",
@@ -23973,17 +23984,6 @@
             "perkw": 11000
           }
         }
-      ],
-      "errors": [
-        "The **parsefeerate** command will error if the *feerate_str* format is not recognized.",
-        "",
-        "- -32602: If the given parameters are wrong."
-      ],
-      "trivia": [
-        "In CLN we like to call the weight unit \"sipa\" in honor of Pieter Wuille, who uses the name \"sipa\" on IRC and elsewhere. Internally we call the *perkw* style as \"feerate per kilosipa\"."
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-pay.json": {
@@ -24211,7 +24211,21 @@
         "",
         "The *data* field of errors will include statistics *getroute_tries* and *sendpay_tries*. It will also contain a *failures* field with detailed data about routing errors."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listpays(7)",
+        "lightning-decodepay(7)",
+        "lightning-listinvoices(7)",
+        "lightning-delinvoice(7)",
+        "lightning-getroute(7)",
+        "lightning-invoice(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:pay#1",
@@ -24231,20 +24245,6 @@
             "status": "complete"
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-listpays(7)",
-        "lightning-decodepay(7)",
-        "lightning-listinvoices(7)",
-        "lightning-delinvoice(7)",
-        "lightning-getroute(7)",
-        "lightning-invoice(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-ping.json": {
@@ -24296,7 +24296,22 @@
           }
         }
       },
-      "json_example": [
+      "errors": [
+        "On failure, one of the following error codes may be returned:",
+        "",
+        "- -32602: Error in given parameters or we're already waiting for a ping response from peer."
+      ],
+      "author": [
+        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "but many others did the hard work of actually implementing this rpc command."
+      ],
+      "see_also": [
+        "lightning-connect(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:ping#1",
@@ -24324,21 +24339,6 @@
             "totlen": 0
           }
         }
-      ],
-      "errors": [
-        "On failure, one of the following error codes may be returned:",
-        "",
-        "- -32602: Error in given parameters or we're already waiting for a ping response from peer."
-      ],
-      "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
-        "but many others did the hard work of actually implementing this rpc command."
-      ],
-      "see_also": [
-        "lightning-connect(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-plugin.json": {
@@ -24515,7 +24515,20 @@
       "errors": [
         "On error, the reason why the action could not be taken upon the plugin is returned."
       ],
-      "json_example": [
+      "author": [
+        "Antoine Poinsot <<darosior@protonmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-cli(1)",
+        "lightning-listconfigs(1)",
+        "[writing plugins][writing plugins]"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "",
+        "[writing plugins]: PLUGINS.md"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:plugin#1",
@@ -24619,19 +24632,6 @@
             "result": "Successfully stopped fail_htlcs.py."
           }
         }
-      ],
-      "author": [
-        "Antoine Poinsot <<darosior@protonmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-cli(1)",
-        "lightning-listconfigs(1)",
-        "[writing plugins][writing plugins]"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>",
-        "",
-        "[writing plugins]: PLUGINS.md"
       ]
     },
     "lightning-preapproveinvoice.json": {
@@ -24782,7 +24782,16 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@blockstream.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-hsmtool(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:recover#1",
@@ -24805,15 +24814,6 @@
             "result": "Recovery restart in progress"
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@blockstream.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-hsmtool(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-recoverchannel.json": {
@@ -24859,7 +24859,16 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-getsharedsecret(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:recoverchannel#1",
@@ -24876,15 +24885,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-getsharedsecret(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-renepay.json": {
@@ -25050,7 +25050,20 @@
         "- 210: Payment timed out without a payment in progress.",
         "- 212: Invoice is invalid."
       ],
-      "json_example": [
+      "author": [
+        "Eduardo Quintana-Miranda <<eduardo.quintana@pm.me>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-renepaystatus(7)",
+        "lightning-listpays(7)",
+        "lightning-invoice(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "",
+        "Pickhardt R. and Richter S., *Optimally Reliable & Cheap Payment Flows on the Lightning Network* <https://arxiv.org/abs/2107.05322>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:renepay#1",
@@ -25090,19 +25103,6 @@
             "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
           }
         }
-      ],
-      "author": [
-        "Eduardo Quintana-Miranda <<eduardo.quintana@pm.me>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-renepaystatus(7)",
-        "lightning-listpays(7)",
-        "lightning-invoice(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>",
-        "",
-        "Pickhardt R. and Richter S., *Optimally Reliable & Cheap Payment Flows on the Lightning Network* <https://arxiv.org/abs/2107.05322>"
       ]
     },
     "lightning-renepaystatus.json": {
@@ -25341,7 +25341,18 @@
         "",
         "- -32602: Invalid parameter, such as specifying a spent/reserved input in *psbt*."
       ],
-      "json_example": [
+      "author": [
+        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-unreserveinputs(7)",
+        "lightning-signpsbt(7)",
+        "lightning-sendpsbt(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:reserveinputs#1",
@@ -25460,17 +25471,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-unreserveinputs(7)",
-        "lightning-signpsbt(7)",
-        "lightning-sendpsbt(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-sendcustommsg.json": {
@@ -25523,7 +25523,17 @@
           "If any of the above limitations is not respected the method returns an explicit error message stating the issue."
         ]
       },
-      "json_example": [
+      "author": [
+        "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-createonion(7)",
+        "lightning-sendonion(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:sendcustommsg#5",
@@ -25537,16 +25547,6 @@
             "status": "Message sent to connectd for delivery"
           }
         }
-      ],
-      "author": [
-        "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-createonion(7)",
-        "lightning-sendonion(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-sendinvoice.json": {
@@ -25742,7 +25742,16 @@
         "- 1004: The node making the offer returned an error message.",
         "- 1005: We timed out waiting for the invoice to be paid"
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-fetchinvoice(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:sendinvoice#1",
@@ -25768,15 +25777,6 @@
             "updated_index": 1
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-fetchinvoice(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-sendonion.json": {
@@ -26093,7 +26093,20 @@
         "",
         "the error details are decrypted and presented here, if *shared_secrets* was provided and an error was returned by one of the intermediate nodes"
       ],
-      "json_example": [
+      "author": [
+        "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-createonion(7)",
+        "lightning-sendpay(7)",
+        "lightning-listsendpays(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "",
+        "[bolt04]: https://github.com/lightning/bolts/blob/master/04-onion-routing.md"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:sendonion#1",
@@ -26122,19 +26135,6 @@
             "status": "pending"
           }
         }
-      ],
-      "author": [
-        "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-createonion(7)",
-        "lightning-sendpay(7)",
-        "lightning-listsendpays(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>",
-        "",
-        "[bolt04]: https://github.com/lightning/bolts/blob/master/04-onion-routing.md"
       ]
     },
     "lightning-sendonionmessage.json": {
@@ -26552,7 +26552,21 @@
         "*failcode*: The failure code, as per BOLT #4.",
         "*channel_update*: The hex string of the *channel_update* message received from the remote node. Only present if error is from the remote node and the *failcode* has the UPDATE bit set, as per BOLT #4."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listinvoices(7)",
+        "lightning-delinvoice(7)",
+        "lightning-getroute(7)",
+        "lightning-invoice(7)",
+        "lightning-pay(7)",
+        "lightning-waitsendpay(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:sendpay#1",
@@ -26633,20 +26647,6 @@
             "status": "pending"
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-listinvoices(7)",
-        "lightning-delinvoice(7)",
-        "lightning-getroute(7)",
-        "lightning-invoice(7)",
-        "lightning-pay(7)",
-        "lightning-waitsendpay(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-sendpsbt.json": {
@@ -26698,7 +26698,24 @@
           }
         }
       },
-      "json_example": [
+      "errors": [
+        "On failure, one of the following error codes may be returned:",
+        "",
+        "- -32602: Error in given parameters or some error happened during the command process."
+      ],
+      "author": [
+        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "but many others did the hard work of actually implementing this rpc command."
+      ],
+      "see_also": [
+        "lightning-fundpsbt(7)",
+        "lightning-signpsbt(7)",
+        "lightning-listtransactions(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:sendpsbt#1",
@@ -26725,23 +26742,6 @@
             "txid": "43bb1c1bce6763ffe4d5df6b49f152f907f36f7849e55bb56075e2b256d17502"
           }
         }
-      ],
-      "errors": [
-        "On failure, one of the following error codes may be returned:",
-        "",
-        "- -32602: Error in given parameters or some error happened during the command process."
-      ],
-      "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
-        "but many others did the hard work of actually implementing this rpc command."
-      ],
-      "see_also": [
-        "lightning-fundpsbt(7)",
-        "lightning-signpsbt(7)",
-        "lightning-listtransactions(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-setchannel.json": {
@@ -26903,7 +26903,19 @@
         "- -1: Channel is in incorrect state, i.e. Catchall nonspecific error.",
         "- -32602: JSONRPC2_INVALID_PARAMS, i.e. Given id is not a channel ID or short channel ID."
       ],
-      "json_example": [
+      "author": [
+        "Michael Schmoock <<michael@schmoock.net>> is the author of this feature."
+      ],
+      "see_also": [
+        "lightningd-config(5)",
+        "lightning-fundchannel(7)",
+        "lightning-listchannels(7)",
+        "lightning-listpeers(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:setchannel#1",
@@ -26954,18 +26966,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Michael Schmoock <<michael@schmoock.net>> is the author of this feature."
-      ],
-      "see_also": [
-        "lightningd-config(5)",
-        "lightning-fundchannel(7)",
-        "lightning-listchannels(7)",
-        "lightning-listpeers(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-setconfig.json": {
@@ -27094,7 +27094,17 @@
         "",
         "- -32602: JSONRPC2_INVALID_PARAMS, i.e. the parameter is not dynamic, or the val was invalid."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible for this feature."
+      ],
+      "see_also": [
+        "lightningd-config(5)",
+        "lightning-listconfigs(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:setconfig#1",
@@ -27151,16 +27161,6 @@
             }
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible for this feature."
-      ],
-      "see_also": [
-        "lightningd-config(5)",
-        "lightning-listconfigs(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-setpsbtversion.json": {
@@ -27205,7 +27205,23 @@
           }
         }
       },
-      "json_example": [
+      "errors": [
+        "The following error codes may occur:",
+        "",
+        "- -32602: Parameter missed or malformed."
+      ],
+      "author": [
+        "Gregory Sanders <<gsanders87@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-fundpsbt(7)",
+        "lightning-utxopsbt(7)",
+        "lightning-signpsbt(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:setpsbtversion#1",
@@ -27232,22 +27248,6 @@
             "psbt": "cHNidP8BADUCAAAAAAFAQg8AAAAAACJRIJd6ICNAQALFOMhoUHuSVSuzcaUdkDKlk4K+A+DR9+4ubwAAAAAA"
           }
         }
-      ],
-      "errors": [
-        "The following error codes may occur:",
-        "",
-        "- -32602: Parameter missed or malformed."
-      ],
-      "author": [
-        "Gregory Sanders <<gsanders87@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-fundpsbt(7)",
-        "lightning-utxopsbt(7)",
-        "lightning-signpsbt(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-showrunes.json": {
@@ -27406,7 +27406,17 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-commando-showrunes(7)",
+        "lightning-blacklistrune(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:showrunes#1",
@@ -27479,16 +27489,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-commando-showrunes(7)",
-        "lightning-blacklistrune(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-signinvoice.json": {
@@ -27532,20 +27532,6 @@
         "",
         "- -1: Catchall nonspecific error."
       ],
-      "json_example": [
-        {
-          "request": {
-            "id": "example:signinvoice#1",
-            "method": "signinvoice",
-            "params": [
-              "lnbcrt10n1pjmxt3lsp5jumuz2sv3ca68kzd92hp3wdtpx8ghnxur65fs6maw6dyxsleqd0spp5nadvvh7uzk2qzh8d9d7tsxr08l9uaz2vjeuuahqtufjv52d0eassdq8d9h8vvgxqyjw5qcqp99qxpqysgq4rrn702eum6c9ld9khlz39vdyd8zcwrav5ygqvu6w54aep6yarkyfrnk990yf5prpasgzmj52stektf6mzwdl5hc6qlsglt2a0pwp0spwww44w"
-            ]
-          },
-          "response": {
-            "bolt11": "lnbcrt10n1pjmxt3lsp5jumuz2sv3ca68kzd92hp3wdtpx8ghnxur65fs6maw6dyxsleqd0spp5nadvvh7uzk2qzh8d9d7tsxr08l9uaz2vjeuuahqtufjv52d0eassdq8d9h8vvgxqyjw5qcqp99qxpqysgq3nhrd72qe7wmc2hvwhaqnx05y6dzxh2tal02kw055er7uutkkrcreccm37ce6wv7ee8q70ktlr9fy3fd635hc2k98a4svd9c8v4cpjsppm2eee"
-          }
-        }
-      ],
       "author": [
         "Carl Dong <<contact@carldong.me>> is mainly responsible."
       ],
@@ -27560,6 +27546,20 @@
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:signinvoice#1",
+            "method": "signinvoice",
+            "params": [
+              "lnbcrt10n1pjmxt3lsp5jumuz2sv3ca68kzd92hp3wdtpx8ghnxur65fs6maw6dyxsleqd0spp5nadvvh7uzk2qzh8d9d7tsxr08l9uaz2vjeuuahqtufjv52d0eassdq8d9h8vvgxqyjw5qcqp99qxpqysgq4rrn702eum6c9ld9khlz39vdyd8zcwrav5ygqvu6w54aep6yarkyfrnk990yf5prpasgzmj52stektf6mzwdl5hc6qlsglt2a0pwp0spwww44w"
+            ]
+          },
+          "response": {
+            "bolt11": "lnbcrt10n1pjmxt3lsp5jumuz2sv3ca68kzd92hp3wdtpx8ghnxur65fs6maw6dyxsleqd0spp5nadvvh7uzk2qzh8d9d7tsxr08l9uaz2vjeuuahqtufjv52d0eassdq8d9h8vvgxqyjw5qcqp99qxpqysgq3nhrd72qe7wmc2hvwhaqnx05y6dzxh2tal02kw055er7uutkkrcreccm37ce6wv7ee8q70ktlr9fy3fd635hc2k98a4svd9c8v4cpjsppm2eee"
+          }
+        }
       ]
     },
     "lightning-signmessage.json": {
@@ -27615,7 +27615,18 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-checkmessage(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "",
+        "[SignMessageRequest](https://api.lightning.community/#grpc-request-signmessagerequest)"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:signmessage#1",
@@ -27644,17 +27655,6 @@
             "zbase": "d6naeqabbxntxc3qim98ye3qftnmsstijt4prebd1nztsj3qjticrqsd9f9kca6as1etpmmcfwrykfpw8xg9d41x8dg5dnzo7zhnb8ga"
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-checkmessage(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>",
-        "",
-        "[SignMessageRequest](https://api.lightning.community/#grpc-request-signmessagerequest)"
       ]
     },
     "lightning-signpsbt.json": {
@@ -27705,7 +27705,23 @@
           }
         }
       },
-      "json_example": [
+      "errors": [
+        "On failure, one of the following error codes may be returned:",
+        "",
+        "- -32602: Error in given parameters, or there aren't wallet's inputs to sign, or we couldn't sign all of *signonly*, or inputs are not reserved."
+      ],
+      "author": [
+        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "but many others did the hard work of actually implementing this rpc command."
+      ],
+      "see_also": [
+        "lightning-fundpsbt(7)",
+        "lightning-sendpsbt(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:signpsbt#1",
@@ -27733,22 +27749,6 @@
             "signed_psbt": "cHNidP8BAP1xAQIAAAAIFTef27H2GAJBzP4UZMeDePsDVkglO47/q4jqK18ibCYAAAAAAP3///+axwap6WKnEHvLjIJZX0ZeJ87cs7PKkXBfwvbGVmjpTQEAAAAA/f///wQ1cVzb9NR7nXadyRuhQBv+2iqhZkhvUA+sPo5z/SsSAQAAAAD9////lXQ788meUtSxhBX13mx2XhyM3Ddo30QtmNW0YuE2TDABAAAAAP3///8Kr4BwElAScx3bA5ZdavrHwh4Zh+rFNvkE/+7gu1WbngEAAAAA/f///3Uei7j3k/b5tnjFGvNZhe2iWz8O6FQjTEpM5XIoduNsAQAAAAD9////fm5Om4MojcnfZiTmrwb4b5Byw9emrjITi/nkEqTK9MsBAAAAAP3///8lwdpZqt3ILPRwhINY4PGvkg2CSw7agcMPSuFoHDDkIQAAAAAA/f///wGCAXoAAAAAABYAFMkJbUP0COpSYCAmLM2tfIUWuSqBAAAAAAABAHECAAAAAZVxzFxyEg7tiQTgRHwGleR8Srxw6taAGOoEpJK/Xj5sAAAAAAD9////AkBCDwAAAAAAFgAUKvGgVL/ThjWE/P1oORVXh/ObucYzr/YpAQAAABYAFKmkod5S53U4m5tKFApyeC35UbnbZwAAAAEBH0BCDwAAAAAAFgAUKvGgVL/ThjWE/P1oORVXh/ObucYAAQBxAgAAAAEVN5/bsfYYAkHM/hRkx4N4+wNWSCU7jv+riOorXyJsJgEAAAAA/f///wJmbOcpAQAAABYAFCCSJBD9wY/VwxnBcnFiu1tA6CGTQEIPAAAAAAAWABSjI8KCqaGX/BGOwJza8hyiuxuIcmcAAAABAR9AQg8AAAAAABYAFKMjwoKpoZf8EY7AnNryHKK7G4hyAAEAcQIAAAAB98EwKZMOHiyRYWyToae6Kce3gCwqUvnVXXHlB/ps9ocBAAAAAP3///8CmNuLKQEAAAAWABQ4roxw+phYHelaRr71DYB3FEy/30BCDwAAAAAAFgAUwSDtQiY7PVvBc7ww56Y72YIQdjllAAAAAQEfQEIPAAAAAAAWABTBIO1CJjs9W8FzvDDnpjvZghB2OQABAHECAAAAAZH/SvCXvDW7b8qb55CDC4M+jgZ61H/e8rZnAGaXp+Z+AAAAAAD9////Apkp2CkBAAAAFgAUc/Y+sIq3oYyEe40GkKJsXawkzwFAQg8AAAAAABYAFLdt1h5Bte8FKvIc2jJgiIwHC7mvZwAAAAEBH0BCDwAAAAAAFgAUt23WHkG17wUq8hzaMmCIjAcLua8AAQBxAgAAAAETC3wMCv9qK3lvVkVJu9b/v2VgMepZtnfngMp2xMXRnwAAAAAA/f///wJk0E4pAQAAABYAFEIsc4cBl+BTN33Kn80+YYfkMt+cQEIPAAAAAAAWABT2/7RIxKohhGbacpBz0BZNYcnfsGUAAAABAR9AQg8AAAAAABYAFPb/tEjEqiGEZtpykHPQFk1hyd+wAAEAcQIAAAABA8J/OnC+cuH79Z6wZmzwdAjhBDaPHavh3yvhr4odDXQBAAAAAP3///8CykowKQEAAAAWABTVHuO8cKOOX/JlmMU66on6Uc54mkBCDwAAAAAAFgAUunZMZryWMqCTiMuVWNF/cleg6dVnAAAAAQEfQEIPAAAAAAAWABS6dkxmvJYyoJOIy5VY0X9yV6Dp1QABAHECAAAAAfRxBaZZ3FfDGwxhZQLYCurN+7kJj0x6nzChg434dnjRAAAAAAD9////AszmyCkBAAAAFgAULSqRp54barF/7R9XOmsLDCVWdAFAQg8AAAAAABYAFNa5adNt/9rZhpGT9mPuSA39xzSIZQAAAAEBH0BCDwAAAAAAFgAU1rlp023/2tmGkZP2Y+5IDf3HNIgAAQBxAgAAAAEgk1JYyP4oIoPoYYcTPPDvZynVfXWINJnBEFBsLv0MtAAAAAAA/f///wJAQg8AAAAAABYAFGYcI7eQ3TSRNzrwsdi+0Id9XN4iMmGqKQEAAAAWABT5XKNwVIFsUKh26sqHFSlOLq5TFGUAAAABAR9AQg8AAAAAABYAFGYcI7eQ3TSRNzrwsdi+0Id9XN4iIgID+pyVCF5CseUAPNH0GBeMMMluSud5VMoPxIxYgm/06w5HMEQCIG90DSr+fGNoWhCrgLbJG3Wt8PJNMWYqaa5MLWRwA0oTAiA9rsLEqqVhjV6wENfzzpudaE949uLlVqWgDjE/FSgKNAEiBgP6nJUIXkKx5QA80fQYF4wwyW5K53lUyg/EjFiCb/TrDghmHCO3AAAAAAAA"
           }
         }
-      ],
-      "errors": [
-        "On failure, one of the following error codes may be returned:",
-        "",
-        "- -32602: Error in given parameters, or there aren't wallet's inputs to sign, or we couldn't sign all of *signonly*, or inputs are not reserved."
-      ],
-      "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
-        "but many others did the hard work of actually implementing this rpc command."
-      ],
-      "see_also": [
-        "lightning-fundpsbt(7)",
-        "lightning-sendpsbt(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-splice_init.json": {
@@ -27862,7 +27862,17 @@
         "lightning-cli splice_signed $CHANNEL_ID $PSBT",
         "```"
       ],
-      "json_example": [
+      "author": [
+        "Dusty <<@dusty_daemon>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-splice_signed(7)",
+        "lightning-splice_update(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:splice_init#1",
@@ -27891,16 +27901,6 @@
             "psbt": "cHNidP8BAgQCAAAAAQMEbAAAAAEEAQEBBQECAQYBAwH7BAIAAAAAAQD2AgAAAAABARzi7RBt64yrfqRL2p+KiUw8cYtiKICRFHmp/4eCSemSAQAAAAD9////AkBCDwAAAAAAIgAgW4zTuRTPZ83Y+mJzyTA1PdNkdnNPvZYhAsLfU7kIgM0BLw8AAAAAACJRIGP/7k6n1R5srfkIbihqJSeSKqoluMU66/MvoyoKYn9aAkcwRAIgTCjR9L+TfzP7pLJVVto5egTRbRNj/RaBhyrA3UW0aEcCIAJO5FZjXvdpRcGR949C4DnfHs3soklTjn/1upkia+TgASED10VEXJNiZl8i4NlunnZvJz8yYN6jnIp2v6Bd0mhN3M9mAAAAAQErQEIPAAAAAAAiACBbjNO5FM9nzdj6YnPJMDU902R2c0+9liECwt9TuQiAzQEFR1IhAjJCZt6EA7OrFXoJ8feE1YevYYMcmYwVG8whu3TCsjFLIQLjvTgAmGbJ2o7EqpnMTqnGwN1G3xXGHvDOHycSkXFOV1KuAQ4gpAu0QtqwIxtR2PhC2VqtVIqjXh0TxM/PKZc0T4BUU6EBDwQAAAAAARAEAAAAAAz8CWxpZ2h0bmluZwEIn2Ac8fyFEJwAAQMIAAAAAAAAAAABBCIAIFuM07kUz2fN2Ppic8kwNT3TZHZzT72WIQLC31O5CIDNDPwJbGlnaHRuaW5nAQgu7JK9IpBWOAABAwighgEAAAAAAAEEIlEgeDY1X9yKgtxMsAp3LFVUFR0GOEpN1l6NP2isCFZrhL4M/AlsaWdodG5pbmcBCOZ1GpRwbKfuAA=="
           }
         }
-      ],
-      "author": [
-        "Dusty <<@dusty_daemon>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-splice_signed(7)",
-        "lightning-splice_update(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-splice_signed.json": {
@@ -28003,7 +28003,17 @@
         "lightning-cli splice_signed $CHANNEL_ID $PSBT",
         "```"
       ],
-      "json_example": [
+      "author": [
+        "Dusty <<@dusty_daemon>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-splice_init(7)",
+        "lightning-splice_update(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:splice_signed#1",
@@ -28018,16 +28028,6 @@
             "txid": "f00d5e230b401274c88d3e6205e2c6117028cb9878b7d2bc52b1441f0b589427"
           }
         }
-      ],
-      "author": [
-        "Dusty <<@dusty_daemon>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-splice_init(7)",
-        "lightning-splice_update(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-splice_update.json": {
@@ -28134,7 +28134,17 @@
         "lightning-cli splice_signed $CHANNEL_ID $PSBT",
         "```"
       ],
-      "json_example": [
+      "author": [
+        "Dusty <<@dusty_daemon>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-splice_init(7)",
+        "lightning-splice_signed(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:splice_update#1",
@@ -28149,16 +28159,6 @@
             "commitments_secured": true
           }
         }
-      ],
-      "author": [
-        "Dusty <<@dusty_daemon>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-splice_init(7)",
-        "lightning-splice_signed(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-sql-template.json": {
@@ -28363,7 +28363,20 @@
         "}",
         "```"
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listtransactions(7)",
+        "lightning-listchannels(7)",
+        "lightning-listpeers(7)",
+        "lightning-listnodes(7)",
+        "lightning-listforwards(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:sql#1",
@@ -28413,19 +28426,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-listtransactions(7)",
-        "lightning-listchannels(7)",
-        "lightning-listpeers(7)",
-        "lightning-listnodes(7)",
-        "lightning-listforwards(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-staticbackup.json": {
@@ -28457,7 +28457,16 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-getsharedsecret(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:staticbackup#1",
@@ -28470,15 +28479,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-getsharedsecret(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-stop.json": {
@@ -28508,7 +28508,14 @@
           }
         }
       },
-      "json_example": [
+      "author": [
+        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "but many others did the hard work of actually implementing this rpc command."
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:stop#1",
@@ -28519,13 +28526,6 @@
             "result": "Shutdown complete"
           }
         }
-      ],
-      "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
-        "but many others did the hard work of actually implementing this rpc command."
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-txdiscard.json": {
@@ -28578,7 +28578,17 @@
         "",
         "- -1: An unknown *txid*."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-txprepare(7)",
+        "lightning-txsend(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:txdiscard#1",
@@ -28592,16 +28602,6 @@
             "txid": "6e680cb76077f11c838cc7aee0c0aa360f9857f00856bb1614025a1af53739fc"
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-txprepare(7)",
-        "lightning-txsend(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-txprepare.json": {
@@ -28688,7 +28688,19 @@
         "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
         "- 302: The dust limit is not met."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-withdraw(7)",
+        "lightning-txsend(7)",
+        "lightning-txdiscard(7)",
+        "lightning-feerates(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:txprepare#1",
@@ -28725,18 +28737,6 @@
             "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQECAQYBAwH7BAIAAAAAAQDeAgAAAAABAYZ4QwAgPq6Os8kk073f5Yx4T9LXYfbOjAdkzMXfuBQdAAAAAAD9////AjPkAioBAAAAFgAUeOeqzyifepeJAMCl4vnnJ/TRptRADQMAAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFlAkcwRAIgYBFwmqWCrVkxxZ0/tte3z4lIem0L7MkhXzGAOvBWa6YCIFx7H4zOzxjixlZMi0DYYbIEflDjYHJXLfN1wVcXYuekASEDgztw/3Rks6vKGYMXJ83VEvQcNIjg3rJW6KdxEh26uwplAAAAAQEfQA0DAAAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQEOIKkQd6E0+5/kqNE6SCtxg2i/2c4+/2H/fZZUlICh+X3KAQ8EAQAAAAEQBP3///8AAQMIoIYBAAAAAAABBCIAICX54ZpRGP+JHrJYgq3YrTlNsrFDNVtbn7w8X9NxBtb2AAEDCGFzAQAAAAAAAQQiUSCioBx5ZSie7la1z83bmFbHD6R2wmTSH3Ecammvd2rkAwA="
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-withdraw(7)",
-        "lightning-txsend(7)",
-        "lightning-txdiscard(7)",
-        "lightning-feerates(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-txsend.json": {
@@ -28793,7 +28793,17 @@
         "",
         "- -1: Catchall nonspecific error."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-txprepare(7)",
+        "lightning-txdiscard(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:txsend#1",
@@ -28808,16 +28818,6 @@
             "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQECAQYBAwH7BAIAAAAAAQDeAgAAAAABATRHoQ9tEMHRHpf06v5uTEdjdMk1rccIaA6MNGMipNQWAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFLnqitWTi465LGxeucwoSAj16NGbAkcwRAIgVtOsUaQaPgH86aW6e6qmJa1xVb8KWvc+HALGosqVVmQCIFi4JU8Gy+vl2a2/frY+71hitYIBB/tjsRP7fpgb8b9TASECHUIV5q1r2ownjOlAFPQASTlZxxNgBvi5O3hCRvajwdJlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZSICA9dFRFyTYmZfIuDZbp52byc/MmDeo5yKdr+gXdJoTdzPRzBEAiBp/HPhg1ObOXqTr5rIjUYLMspGLz+sk1pjD9pjRFzf3wIgWycOB/dQPzwZAK3OXYs269h8o85ucDpdVhH4AyX69a0BIgYD10VEXJNiZl8i4NlunnZvJz8yYN6jnIp2v6Bd0mhN3M8IAfrZCgAAAAABDiBC3ADYE1nDpVHhcOO/UmL6nKzC6y4oOhDleUkc2G3OSwEPBAAAAAABEAT9////AAEDCAAAAAEAAAAAAQQiACC2NvBwJupklS7OW3YgqTN9msIyHHlqSZJgmU0bNzZnUAABAwhBg5gAAAAAAAEEIlEgdUp3tQP8ug/YDwoagibtZ2T/mp2bthtIXUDUyfS+JFkhBycqmiXx/+1S+rBKLMiK6rE1tTcjhWqPFIHCZBf4ipIuCQDVXEk5CwAAAAA="
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-txprepare(7)",
-        "lightning-txdiscard(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-unreserveinputs.json": {
@@ -28931,7 +28931,18 @@
         "",
         "- -32602: Invalid parameter, i.e. an unparseable PSBT."
       ],
-      "json_example": [
+      "author": [
+        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-unreserveinputs(7)",
+        "lightning-signpsbt(7)",
+        "lightning-sendpsbt(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:unreserveinputs#1",
@@ -28964,17 +28975,6 @@
             "reservations": []
           }
         }
-      ],
-      "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-unreserveinputs(7)",
-        "lightning-signpsbt(7)",
-        "lightning-sendpsbt(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-upgradewallet.json": {
@@ -29046,7 +29046,18 @@
         "",
         "The caller can call `upgradewallet` to convert their funds to native segwit outputs, which are valid for liquidity ad buys."
       ],
-      "json_example": [
+      "author": [
+        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-utxopsbt(7)",
+        "lightning-reserveinputs(7)",
+        "lightning-unreserveinputs(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:upgradewallet#1",
@@ -29073,17 +29084,6 @@
             "upgraded_outs": 1
           }
         }
-      ],
-      "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-utxopsbt(7)",
-        "lightning-reserveinputs(7)",
-        "lightning-unreserveinputs(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-utxopsbt.json": {
@@ -29280,7 +29280,16 @@
         "- -1: Catchall nonspecific error.",
         "- 301: Insufficient UTXOs to meet *satoshi* value."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-fundpsbt(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:utxopsbt#1",
@@ -29343,15 +29352,6 @@
             ]
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-fundpsbt(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-wait.json": {
@@ -29647,7 +29647,18 @@
         "",
         "- -32602: If the given parameters are wrong."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listinvoices(7)",
+        "lightning-listforwards(7)",
+        "lightning-listsendpays(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:wait#1",
@@ -29707,17 +29718,6 @@
             }
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-listinvoices(7)",
-        "lightning-listforwards(7)",
-        "lightning-listsendpays(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-waitanyinvoice.json": {
@@ -29935,7 +29935,19 @@
         "",
         "- 904: The *timeout* was reached without an invoice being paid."
       ],
-      "json_example": [
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-waitinvoice(7)",
+        "lightning-listinvoices(7)",
+        "lightning-delinvoice(7)",
+        "lightning-invoice(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:waitanyinvoice#1",
@@ -29985,18 +29997,6 @@
             "updated_index": 4
           }
         }
-      ],
-      "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-waitinvoice(7)",
-        "lightning-listinvoices(7)",
-        "lightning-delinvoice(7)",
-        "lightning-invoice(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-waitblockheight.json": {
@@ -30049,7 +30049,13 @@
         "",
         "- 2000: Timed out."
       ],
-      "json_example": [
+      "author": [
+        "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:waitblockheight#1",
@@ -30075,12 +30081,6 @@
             "blockheight": 103
           }
         }
-      ],
-      "author": [
-        "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-waitinvoice.json": {
@@ -30301,7 +30301,19 @@
         "- -1: If the invoice is deleted while unpaid, or the invoice does not exist.",
         "- 903: If the invoice expires before being paid, or is already expired."
       ],
-      "json_example": [
+      "author": [
+        "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-waitanyinvoice(7)",
+        "lightning-listinvoices(7)",
+        "lightning-delinvoice(7)",
+        "lightning-invoice(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:waitinvoice#1",
@@ -30328,18 +30340,6 @@
             "updated_index": 1
           }
         }
-      ],
-      "author": [
-        "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-waitanyinvoice(7)",
-        "lightning-listinvoices(7)",
-        "lightning-delinvoice(7)",
-        "lightning-invoice(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-waitsendpay.json": {
@@ -30562,7 +30562,17 @@
         "*failcode*: The failure code, as per BOLT #4.",
         "*failcodename*: The human-readable name corresponding to *failcode*, if known."
       ],
-      "json_example": [
+      "author": [
+        "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-sendpay(7)",
+        "lightning-pay(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:waitsendpay#1",
@@ -30587,16 +30597,6 @@
             "bolt11": "lnbcrt110u1pjmr5lzsp5sfjyj3xn7ux592k36hmmt4ax98n6lgct22wvj54yck0upcmep63qpp5qu436g855lr40ftdt7csatk5pdvtdzzfmfqluwtvm0fds95jsadqdpq0pzk7s6j8y69xjt6xe25j5j4g44hsatdxqyjw5qcqp99qxpqysgquwma3zrw4cd8e8j4u9uh4gxukaacckse64kx2l9dqv8rvrysdq5r5dt38t9snqj9u5ar07h2exr4fg56wpudkhkk7gtxlyt72ku5fpqqd4fnlk"
           }
         }
-      ],
-      "author": [
-        "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-sendpay(7)",
-        "lightning-pay(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "lightning-withdraw.json": {
@@ -30686,7 +30686,20 @@
         "- 302: The dust limit is not met.",
         "- 313: The `min-emergency-msat` reserve not be preserved (and we have anchor channels)."
       ],
-      "json_example": [
+      "author": [
+        "Felix <<fixone@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listfunds(7)",
+        "lightning-fundchannel(7)",
+        "lightning-newaddr(7)",
+        "lightning-txprepare(7)",
+        "lightning-feerates(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
         {
           "request": {
             "id": "example:withdraw#1",
@@ -30722,19 +30735,6 @@
             "psbt": "cHNidP8BAgQCAAAAAQMEZwAAAAEEAQEBBQEBAQYBAwH7BAIAAAAAAQD9ZQECAAAAAAEBVa+m1d1amChv4Dwq1rVoS4KSm0BUUnVa3fUYcB3dH9oAAAAAAP////8CECcAAAAAAAAiUSBXeaBg8gDUDo+HGkDrkWFMxb+m0KX4UuBTQAp/7/hhUOEPDwAAAAAAIlEg7tdFgE2peEzCA/Vj76mf+lT98BsTe8lk5jwxJAcP++YEAEcwRAIgPsWO/4IxeW6OclDdXVnwL99X7B18sRlxgFqyvUAzN7gCIGOQOq0wZ6bV+wdYQP+9sH8IkfmqWZbQRRDkZEgfcprMAUcwRAIgb5/dI4+uVhluQjSA2q/3oAGxZd4vYzQWexfmcRQML7ECIFfgRwCaHYdyu5/H5moOPlfQlLc2gPgB6bgtfNSfRA6jAUdSIQIyQmbehAOzqxV6CfH3hNWHr2GDHJmMFRvMIbt0wrIxSyEC4704AJhmydqOxKqZzE6pxsDdRt8Vxh7wzh8nEpFxTldSrgAAAAABASvhDw8AAAAAACJRIO7XRYBNqXhMwgP1Y++pn/pU/fAbE3vJZOY8MSQHD/vmAQ4gH6aQnliPUhEIwmjor5H2mHoY9GGR9jOehk35nIWQgyEBDwQBAAAAARAE/f///wETQL0MqyYsx9Z9q14BhByMgWLW4oJHOqED5qcZ3wyJ4eDuLYfNGq6Ck30dAqFzJL4VhZLSuv87zN/1AEDNMl2DmTohFl03KAgp8YbLmVzcy/I4q0VkATk5c1E5YySjZXXfNN3/CQAHHEnKAAAAAAAiAgK5wMaEThKlMclo5VxVB47BbZv3a+kpD9h9HMpytIOaFwjWuWnTBAAAAAEDCFgHDwAAAAAAAQQWABTWuWnTbf/a2YaRk/Zj7kgN/cc0iAz8CWxpZ2h0bmluZwQCAAEA"
           }
         }
-      ],
-      "author": [
-        "Felix <<fixone@gmail.com>> is mainly responsible."
-      ],
-      "see_also": [
-        "lightning-listfunds(7)",
-        "lightning-fundchannel(7)",
-        "lightning-newaddr(7)",
-        "lightning-txprepare(7)",
-        "lightning-feerates(7)"
-      ],
-      "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     }
   },

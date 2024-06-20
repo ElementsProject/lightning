@@ -58,7 +58,22 @@
       }
     }
   },
-  "json_example": [
+  "errors": [
+    "On failure, an error is returned and core lightning exit with the following error code:",
+    "",
+    "- -32602: Parameter missed or malformed;",
+    "- 1301: *pubkey* not found in the graph."
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-signmessage(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:checkmessage#1",
@@ -88,20 +103,5 @@
         "verified": true
       }
     }
-  ],
-  "errors": [
-    "On failure, an error is returned and core lightning exit with the following error code:",
-    "",
-    "- -32602: Parameter missed or malformed;",
-    "- 1301: *pubkey* not found in the graph."
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-signmessage(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

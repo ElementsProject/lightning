@@ -85,7 +85,20 @@
     "- 302: The dust limit is not met.",
     "- 313: The `min-emergency-msat` reserve not be preserved (and we have anchor channels)."
   ],
-  "json_example": [
+  "author": [
+    "Felix <<fixone@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-listfunds(7)",
+    "lightning-fundchannel(7)",
+    "lightning-newaddr(7)",
+    "lightning-txprepare(7)",
+    "lightning-feerates(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:withdraw#1",
@@ -121,18 +134,5 @@
         "psbt": "cHNidP8BAgQCAAAAAQMEZwAAAAEEAQEBBQEBAQYBAwH7BAIAAAAAAQD9ZQECAAAAAAEBVa+m1d1amChv4Dwq1rVoS4KSm0BUUnVa3fUYcB3dH9oAAAAAAP////8CECcAAAAAAAAiUSBXeaBg8gDUDo+HGkDrkWFMxb+m0KX4UuBTQAp/7/hhUOEPDwAAAAAAIlEg7tdFgE2peEzCA/Vj76mf+lT98BsTe8lk5jwxJAcP++YEAEcwRAIgPsWO/4IxeW6OclDdXVnwL99X7B18sRlxgFqyvUAzN7gCIGOQOq0wZ6bV+wdYQP+9sH8IkfmqWZbQRRDkZEgfcprMAUcwRAIgb5/dI4+uVhluQjSA2q/3oAGxZd4vYzQWexfmcRQML7ECIFfgRwCaHYdyu5/H5moOPlfQlLc2gPgB6bgtfNSfRA6jAUdSIQIyQmbehAOzqxV6CfH3hNWHr2GDHJmMFRvMIbt0wrIxSyEC4704AJhmydqOxKqZzE6pxsDdRt8Vxh7wzh8nEpFxTldSrgAAAAABASvhDw8AAAAAACJRIO7XRYBNqXhMwgP1Y++pn/pU/fAbE3vJZOY8MSQHD/vmAQ4gH6aQnliPUhEIwmjor5H2mHoY9GGR9jOehk35nIWQgyEBDwQBAAAAARAE/f///wETQL0MqyYsx9Z9q14BhByMgWLW4oJHOqED5qcZ3wyJ4eDuLYfNGq6Ck30dAqFzJL4VhZLSuv87zN/1AEDNMl2DmTohFl03KAgp8YbLmVzcy/I4q0VkATk5c1E5YySjZXXfNN3/CQAHHEnKAAAAAAAiAgK5wMaEThKlMclo5VxVB47BbZv3a+kpD9h9HMpytIOaFwjWuWnTBAAAAAEDCFgHDwAAAAAAAQQWABTWuWnTbf/a2YaRk/Zj7kgN/cc0iAz8CWxpZ2h0bmluZwQCAAEA"
       }
     }
-  ],
-  "author": [
-    "Felix <<fixone@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-listfunds(7)",
-    "lightning-fundchannel(7)",
-    "lightning-newaddr(7)",
-    "lightning-txprepare(7)",
-    "lightning-feerates(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

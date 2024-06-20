@@ -171,7 +171,19 @@
     "- 402: If the peer disconnected while we were connecting",
     "- -32602: If the given parameters are wrong"
   ],
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible. Felix <<fixone@gmail.com>> is the original author of this manpage."
+  ],
+  "see_also": [
+    "lightning-fundchannel(7)",
+    "lightning-listpeers(7)",
+    "lightning-listchannels(7)",
+    "lightning-disconnect(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:connect#1",
@@ -214,17 +226,5 @@
         }
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible. Felix <<fixone@gmail.com>> is the original author of this manpage."
-  ],
-  "see_also": [
-    "lightning-fundchannel(7)",
-    "lightning-listpeers(7)",
-    "lightning-listchannels(7)",
-    "lightning-disconnect(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

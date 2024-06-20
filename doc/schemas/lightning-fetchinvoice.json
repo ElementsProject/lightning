@@ -174,7 +174,17 @@
     "- 1004: The node making the offer returned an error message.",
     "- 1005: We timed out trying to fetch an invoice."
   ],
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-sendinvoice(7)",
+    "lightning-pay(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:fetchinvoice#1",
@@ -217,15 +227,5 @@
         "changes": {}
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-sendinvoice(7)",
-    "lightning-pay(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

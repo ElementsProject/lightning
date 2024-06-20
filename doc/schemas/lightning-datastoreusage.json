@@ -62,7 +62,18 @@
       }
     }
   },
-  "json_example": [
+  "author": [
+    "Peter Neuroth <<pet.v.ne@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-datastore(7)",
+    "lightning-deldatastore(7)",
+    "lightning-listdatastore(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:datastoreusage#1",
@@ -109,16 +120,5 @@
         }
       }
     }
-  ],
-  "author": [
-    "Peter Neuroth <<pet.v.ne@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-datastore(7)",
-    "lightning-deldatastore(7)",
-    "lightning-listdatastore(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

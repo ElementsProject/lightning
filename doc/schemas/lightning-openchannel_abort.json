@@ -56,22 +56,6 @@
     "- 311: Unknown channel id.",
     "- 312: Channel in an invalid state"
   ],
-  "json_example": [
-    {
-      "request": {
-        "id": "example:openchannel_abort#1",
-        "method": "openchannel_abort",
-        "params": {
-          "channel_id": "aec3dfd0c7643a23b679cd2e493c053f8fdf621ff2624949f9582c4118b818c6"
-        }
-      },
-      "response": {
-        "channel_id": "aec3dfd0c7643a23b679cd2e493c053f8fdf621ff2624949f9582c4118b818c6",
-        "channel_canceled": true,
-        "reason": "Abort requested"
-      }
-    }
-  ],
   "author": [
     "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
   ],
@@ -89,5 +73,21 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:openchannel_abort#1",
+        "method": "openchannel_abort",
+        "params": {
+          "channel_id": "aec3dfd0c7643a23b679cd2e493c053f8fdf621ff2624949f9582c4118b818c6"
+        }
+      },
+      "response": {
+        "channel_id": "aec3dfd0c7643a23b679cd2e493c053f8fdf621ff2624949f9582c4118b818c6",
+        "channel_canceled": true,
+        "reason": "Abort requested"
+      }
+    }
   ]
 }

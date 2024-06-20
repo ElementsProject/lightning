@@ -218,7 +218,17 @@
     "*failcode*: The failure code, as per BOLT #4.",
     "*failcodename*: The human-readable name corresponding to *failcode*, if known."
   ],
-  "json_example": [
+  "author": [
+    "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-sendpay(7)",
+    "lightning-pay(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:waitsendpay#1",
@@ -243,15 +253,5 @@
         "bolt11": "lnbcrt110u1pjmr5lzsp5sfjyj3xn7ux592k36hmmt4ax98n6lgct22wvj54yck0upcmep63qpp5qu436g855lr40ftdt7csatk5pdvtdzzfmfqluwtvm0fds95jsadqdpq0pzk7s6j8y69xjt6xe25j5j4g44hsatdxqyjw5qcqp99qxpqysgquwma3zrw4cd8e8j4u9uh4gxukaacckse64kx2l9dqv8rvrysdq5r5dt38t9snqj9u5ar07h2exr4fg56wpudkhkk7gtxlyt72ku5fpqqd4fnlk"
       }
     }
-  ],
-  "author": [
-    "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-sendpay(7)",
-    "lightning-pay(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }
