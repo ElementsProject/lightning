@@ -62,7 +62,7 @@
       }
     }
   },
-  "example_usage": [
+  "usage": [
     "The caller is trying to buy a liquidity ad but the command keeps failing. They have funds in their wallet, but they're all P2SH-wrapped outputs.",
     "",
     "The caller can call `upgradewallet` to convert their funds to native segwit outputs, which are valid for liquidity ad buys."

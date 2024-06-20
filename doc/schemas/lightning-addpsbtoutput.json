@@ -68,13 +68,6 @@
       }
     }
   },
-  "example_usage": [
-    "Here is a command to make a PSBT with a 100,000 sat output that leads to the on-chain wallet.",
-    "",
-    "```shell",
-    "lightning-cli addpsbtoutput 100000sat",
-    "```"
-  ],
   "author": [
     "Dusty <<@dusty_daemon>> is mainly responsible."
   ],
@@ -87,6 +80,9 @@
   ],
   "examples": [
     {
+      "description": [
+        "Here is a command to make a PSBT with a 100,000 sat output that leads to the on-chain wallet."
+      ],
       "request": {
         "id": "example:addpsbtoutput#1",
         "method": "addpsbtoutput",

@@ -104,70 +104,11 @@
     "* `!`: only passes if the *name* does *not* exist. e.g. `pnamedestination!`.",
     "Every other operator except `#` fails if *name* does not exist!"
   ],
-  "example_usage": [
-    "This creates a fresh rune which can do anything:",
+  "usage": [
+    "You can use lightning-decode(7) to examine runes you have been given:",
     "",
     "```shell",
-    "$ lightning-cli commando-rune",
-    "{",
-    "   \"rune\": \"KUhZzNlECC7pYsz3QVbF1TqjIUYi3oyESTI7n60hLMs9MA==\",",
-    "   \"unique_id\": \"0\"",
-    "}",
-    "```",
-    "We can add restrictions to that rune, like so:",
-    "",
-    "```shell",
-    "$ lightning-cli commando-rune rune=KUhZzNlECC7pYsz3QVbF1TqjIUYi3oyESTI7n60hLMs9MA== restrictions=readonly",
-    "{",
-    "   \"rune\": \"NbL7KkXcPQsVseJ9TdJNjJK2KsPjnt_q4cE_wvc873I9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl\",",
-    "   \"unique_id\": \"0\"",
-    "}",
-    "```",
-    "The \"readonly\" restriction is a short-cut for two restrictions:",
-    "",
-    "1. `[\"method^list\", \"method^get\", \"method=summary\"]`: You may call list, get or summary.",
-    "2. `[\"method/listdatastore\"]`: But not listdatastore: that contains sensitive stuff!",
-    "",
-    "We can do the same manually, like so:",
-    "",
-    "```shell",
-    "$ lightning-cli commando-rune rune=KUhZzNlECC7pYsz3QVbF1TqjIUYi3oyESTI7n60hLMs9MA== restrictions='[[\"method^list\", \"method^get\", \"method=summary\"],[\"method/listdatastore\"]]'",
-    "{",
-    "   \"rune\": \"NbL7KkXcPQsVseJ9TdJNjJK2KsPjnt_q4cE_wvc873I9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl\",",
-    "   \"unique_id\": \"0\"",
-    "}",
-    "```",
-    "Let's create a rune which lets a specific peer (024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605) run \"listpeers\" on themselves:",
-    "",
-    "```shell",
-    "$ lightning-cli commando-rune restrictions='[[\"id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\"],[\"method=listpeers\"],[\"pnum=1\"],[\"pnameid=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\",\"parr0=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\"]]'",
-    "{",
-    "   \"rune\": \"FE8GHiGVvxcFqCQcClVRRiNE_XEeLYQzyG2jmqto4jM9MiZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDV8cGFycjA9MDI0YjlhMWZhOGUwMDZmMWUzOTM3ZjY1ZjY2YzQwOGU2ZGE4ZTFjYTcyOGVhNDMyMjJhNzM4MWRmMWNjNDQ5NjA1\",",
-    "   \"unique_id\": \"2\"",
-    "}",
-    "```",
-    "This allows `listpeers` with 1 argument (`pnum=1`), which is either by name (`pnameid`), or position (`parr0`). We could shorten this in several ways: either allowing only positional or named parameters, or by testing the start of the parameters only. Here's an example which only checks the first 9 bytes of the `listpeers` parameter:",
-    "",
-    "```shell",
-    "$ lightning-cli commando-rune restrictions='[[\"id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\"],[\"method=listpeers\"],[\"pnum=1\"],[\"pnameid^024b9a1fa8e006f1e393\", \"parr0^024b9a1fa8e006f1e393\"]'",
-    " {",
-    "   \"rune\": \"fTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw==\",",
-    "   \"unique_id\": \"3\"",
-    "}",
-    "```",
-    "Before we give this to our peer, let's add two more restrictions: that it only be usable for 24 hours from now (`time<`), and that it can only be used twice a minute (`rate=2`). `date +%s` can give us the current time in seconds:",
-    "",
-    "```shell",
-    "$ lightning-cli commando-rune rune=fTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw== restrictions='[[\"time<'$(($(date +%s) + 24*60*60))'\",\"rate=2\"]]'",
-    "{",
-    "   \"rune\": \"tU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y\",",
-    "   \"unique_id\": \"3\"",
-    "}",
-    "```",
-    "You can also use lightning-decode(7) to examine runes you have been given:",
-    "",
-    "```shell",
-    "$ lightning-cli decode tU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y",
+    "lightning-cli decode tU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y",
     "{",
     "   \"type\": \"rune\",",
     "   \"unique_id\": \"3\",",
@@ -234,6 +175,9 @@
   ],
   "examples": [
     {
+      "description": [
+        "This creates a fresh rune which can do anything:"
+      ],
       "request": {
         "id": "example:commando-rune#1",
         "method": "commando-rune",
@@ -246,10 +190,20 @@
       }
     },
     {
+      "description": [
+        "We can add restrictions to that rune, like so:",
+        "",
+        "The `readonly` restriction is a short-cut for two restrictions:",
+        "",
+        "1: `[\"method^list\", \"method^get\", \"method=summary\"]`: You may call list, get or summary.",
+        "",
+        "2: `[\"method/listdatastore\"]`: But not listdatastore: that contains sensitive stuff!"
+      ],
       "request": {
         "id": "example:commando-rune#2",
         "method": "commando-rune",
         "params": {
+          "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",
           "restrictions": "readonly"
         }
       },
@@ -259,8 +213,119 @@
       }
     },
     {
+      "description": [
+        "We can do the same manually (readonly), like so:"
+      ],
       "request": {
         "id": "example:commando-rune#3",
+        "method": "commando-rune",
+        "params": {
+          "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",
+          "restrictions": [
+            [
+              "method^list",
+              "method^get",
+              "method=summary"
+            ],
+            [
+              "method/listdatastore"
+            ]
+          ]
+        }
+      },
+      "response": {
+        "rune": "oVkzoiQ67VCU1h_aRjPqCeWktGX54ARDsqqQgDL-uMs9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl",
+        "unique_id": "2"
+      }
+    },
+    {
+      "description": [
+        "Let's create a rune which lets a specific peer (024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605) run listpeers on themselves:"
+      ],
+      "request": {
+        "id": "example:commando-rune#4",
+        "method": "commando-rune",
+        "params": {
+          "restrictions": [
+            [
+              "id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605"
+            ],
+            [
+              "method=listpeers"
+            ],
+            [
+              "pnum=1"
+            ],
+            [
+              "pnameid=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605",
+              "parr0=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605"
+            ]
+          ]
+        }
+      },
+      "response": {
+        "rune": "FE8GHiGVvxcFqCQcClVRRiNE_XEeLYQzyG2jmqto4jM9MiZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDV8cGFycjA9MDI0YjlhMWZhOGUwMDZmMWUzOTM3ZjY1ZjY2YzQwOGU2ZGE4ZTFjYTcyOGVhNDMyMjJhNzM4MWRmMWNjNDQ5NjA1",
+        "unique_id": "3"
+      }
+    },
+    {
+      "description": [
+        "This allows `listpeers` with 1 argument (`pnum=1`), which is either by name (`pnameid`), or position (`parr0`). We could shorten this in several ways: either allowing only positional or named parameters, or by testing the start of the parameters only. Here's an example which only checks the first 9 bytes of the `listpeers` parameter:"
+      ],
+      "request": {
+        "id": "example:commando-rune#5",
+        "method": "commando-rune",
+        "params": {
+          "restrictions": [
+            [
+              "id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605"
+            ],
+            [
+              "method=listpeers"
+            ],
+            [
+              "pnum=1"
+            ],
+            [
+              "pnameid^024b9a1fa8e006f1e393",
+              "parr0^024b9a1fa8e006f1e393"
+            ]
+          ]
+        }
+      },
+      "response": {
+        "rune": "fTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw==",
+        "unique_id": "4"
+      }
+    },
+    {
+      "description": [
+        "Before we give this to our peer, let's add two more restrictions: that it only be usable for 24 hours from now (`time<`), and that it can only be used twice a minute (`rate=2`). `date +%s` can give us the current time in seconds:"
+      ],
+      "request": {
+        "id": "example:commando-rune#6",
+        "method": "commando-rune",
+        "params": {
+          "rune": "fTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw==",
+          "restrictions": [
+            [
+              "time<'$(($(date +%s) + 24*60*60))'",
+              "rate=2"
+            ]
+          ]
+        }
+      },
+      "response": {
+        "rune": "tU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y",
+        "unique_id": "5"
+      }
+    },
+    {
+      "description": [
+        "This will allow the rune to be used for id starting with 022d223620a359a47ff7, and for the method listpeers:"
+      ],
+      "request": {
+        "id": "example:commando-rune#7",
         "method": "commando-rune",
         "params": {
           "restrictions": [
@@ -275,12 +340,15 @@
       },
       "response": {
         "rune": "YPojv9qgHPa3im0eiqRb-g8aRq76OasyfltGGqdFUOU9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz",
-        "unique_id": "2"
+        "unique_id": "6"
       }
     },
     {
+      "description": [
+        "This will allow the rune to be used for the method pay, and for the parameter amount\\_msat to be less than 10000:"
+      ],
       "request": {
-        "id": "example:commando-rune#4",
+        "id": "example:commando-rune#8",
         "method": "commando-rune",
         "params": {
           "restrictions": [
@@ -295,7 +363,7 @@
       },
       "response": {
         "rune": "b3hXuEM7Pqzk-C7HUw83xzvHOV7fmuGaWjdo-wHdfg89MCZtZXRob2Q9cGF5JnBuYW1lYW1vdW50bXNhdDwxMDAwMA==",
-        "unique_id": "3"
+        "unique_id": "7"
       }
     }
   ]

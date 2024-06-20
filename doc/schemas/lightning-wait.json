@@ -277,14 +277,21 @@
     "Indices only monotoncally increase."
   ],
   "usage": [
-    "The **wait** RPC is used to track changes in the system. Consider tracking invoices being paid or expiring. The simplest (and inefficient method) would be:",
-    "1. Call `listinvoices` to get the current state of all invoices, and remember the highest `updated_index`. Say it was 5.",
-    "2. Call `wait invoices updated 6`.",
-    "3. When it returns, call `listinvoices` again to see what changed.",
+    "The **wait** RPC is used to track changes in the system. Consider tracking invoices being paid or expiring.",
+    "",
+    "The simplest (and inefficient method) would be:",
+    "",
+    "1: Call `listinvoices` to get the current state of all invoices, and remember the highest `updated_index`. Say it was 5.",
+    "",
+    "2: Call `wait invoices updated 6`.",
+    "",
+    "3: When it returns, call `listinvoices` again to see what changed.",
     "",
     "This is obviously inefficient, so there are two optimizations:",
-    "1. Call `listinvoices` with `index=updated` and `start=6` to only see invoices with `updated_index` greater than or equal to 6.",
-    "2. `wait` itself may also return some limited subset of fields from the list command (it can't do this in all cases); for `invoices` this is `label` and `status`, allowing many callers to avoid the `listinvoices` call."
+    "",
+    "1: Call `listinvoices` with `index=updated` and `start=6` to only see invoices with `updated_index` greater than or equal to 6.",
+    "",
+    "2: `wait` itself may also return some limited subset of fields from the list command (it can't do this in all cases); for `invoices` this is `label` and `status`, allowing many callers to avoid the `listinvoices` call."
   ],
   "errors": [
     "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
