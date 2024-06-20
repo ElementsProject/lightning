@@ -155,7 +155,19 @@
     "",
     "The `onion` corresponds to 1366 hex-encoded bytes. Each shared secret consists of 32 hex-encoded bytes. Both arguments can be passed on to **sendonion**."
   ],
-  "json_example": [
+  "author": [
+    "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-sendonion(7)",
+    "lightning-getroute(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>",
+    "",
+    "[BOLT 04](https://github.com/lightning/bolts/blob/master/04-onion-routing.md)"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:createonion#1",
@@ -219,17 +231,5 @@
         ]
       }
     }
-  ],
-  "author": [
-    "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-sendonion(7)",
-    "lightning-getroute(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>",
-    "",
-    "[BOLT 04](https://github.com/lightning/bolts/blob/master/04-onion-routing.md)"
   ]
 }

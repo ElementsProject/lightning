@@ -287,7 +287,18 @@
       }
     }
   },
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-waitinvoice(7)",
+    "lightning-delinvoice(7)",
+    "lightning-invoice(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:listinvoices#1",
@@ -313,16 +324,5 @@
         ]
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-waitinvoice(7)",
-    "lightning-delinvoice(7)",
-    "lightning-invoice(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

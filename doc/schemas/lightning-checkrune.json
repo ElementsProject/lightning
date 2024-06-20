@@ -73,7 +73,17 @@
     "- 1502 (RUNE_NOT_PERMITTED): rune does not allow this usage (includes a detailed reason why)",
     "- 1503 (RUNE_BLACKLISTED): rune has been explicitly blacklisted."
   ],
-  "json_example": [
+  "author": [
+    "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible for consolidating logic from commando."
+  ],
+  "see_also": [
+    "lightning-createrune(7)",
+    "lightning-blacklistrune(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:checkrune#1",
@@ -129,15 +139,5 @@
         "valid": true
       }
     }
-  ],
-  "author": [
-    "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible for consolidating logic from commando."
-  ],
-  "see_also": [
-    "lightning-createrune(7)",
-    "lightning-blacklistrune(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

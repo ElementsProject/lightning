@@ -220,7 +220,19 @@
     "",
     "If a rune has a ratelimit, any derived rune will have the same id, and thus will compete for that ratelimit. You might want to consider adding a tighter ratelimit to a rune before sharing it, so you will keep the remainder. For example, if you rune has a limit of 60 times per minute, adding a limit of 5 times per minute and handing that rune out means you can still use your original rune 55 times per minute."
   ],
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> wrote the original Python commando.py plugin, the in-tree commando plugin, and this manual page.",
+    "",
+    "Christian Decker came up with the name \"commando\", which almost excuses his previous adoption of the name \"Eltoo\"."
+  ],
+  "see_also": [
+    "lightning-commando(7)",
+    "lightning-decode(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:commando-rune#1",
@@ -286,17 +298,5 @@
         "unique_id": "3"
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> wrote the original Python commando.py plugin, the in-tree commando plugin, and this manual page.",
-    "",
-    "Christian Decker came up with the name \"commando\", which almost excuses his previous adoption of the name \"Eltoo\"."
-  ],
-  "see_also": [
-    "lightning-commando(7)",
-    "lightning-decode(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

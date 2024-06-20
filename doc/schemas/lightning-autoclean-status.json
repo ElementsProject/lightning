@@ -414,7 +414,19 @@
       "Note that the ages parameters are set by various `autoclean-...-age` parameters in your configuration: see lightningd-config(5)."
     ]
   },
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightningd-config(5)",
+    "lightning-listinvoices(7)",
+    "lightning-listpays(7)",
+    "lightning-listforwards(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:autoclean-status#1",
@@ -468,17 +480,5 @@
         }
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightningd-config(5)",
-    "lightning-listinvoices(7)",
-    "lightning-listpays(7)",
-    "lightning-listforwards(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

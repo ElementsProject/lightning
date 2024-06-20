@@ -77,7 +77,19 @@
     "- -32602: If the given parameters are missing or wrong.",
     "- -1: Catch all nonspecific errors, eg. `Multiple channels: please specify short_channel_id.` OR `No channels matching that peer_id and that short_channel_id.`, etc."
   ],
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-close(7)",
+    "lightning-listchannels(7)",
+    "lightning-listpeerchannels(7)",
+    "lightning-listfunds(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "description": [
         "Forget a channel by peer pubkey when only one channel exists with the peer."
@@ -115,17 +127,5 @@
         "funding_txid": "b254f30a58adde9326b7e8a701f9d5b3c4db2160b58c5378afbe04448018ec8a"
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-close(7)",
-    "lightning-listchannels(7)",
-    "lightning-listpeerchannels(7)",
-    "lightning-listfunds(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

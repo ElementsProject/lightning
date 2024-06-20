@@ -157,7 +157,19 @@
     "- -1: Channel is in incorrect state, i.e. Catchall nonspecific error.",
     "- -32602: JSONRPC2_INVALID_PARAMS, i.e. Given id is not a channel ID or short channel ID."
   ],
-  "json_example": [
+  "author": [
+    "Michael Schmoock <<michael@schmoock.net>> is the author of this feature."
+  ],
+  "see_also": [
+    "lightningd-config(5)",
+    "lightning-fundchannel(7)",
+    "lightning-listchannels(7)",
+    "lightning-listpeers(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:setchannel#1",
@@ -208,17 +220,5 @@
         ]
       }
     }
-  ],
-  "author": [
-    "Michael Schmoock <<michael@schmoock.net>> is the author of this feature."
-  ],
-  "see_also": [
-    "lightningd-config(5)",
-    "lightning-fundchannel(7)",
-    "lightning-listchannels(7)",
-    "lightning-listpeers(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

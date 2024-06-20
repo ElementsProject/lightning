@@ -390,7 +390,7 @@
                 "type": "string"
             }
         },
-        "json_example": {
+        "examples": {
             "type": "array",
             "items": {
                 "type": "object",

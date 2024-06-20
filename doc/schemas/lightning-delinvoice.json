@@ -277,7 +277,19 @@
     "- 906: The invoice *status* does not match the parameter. An error object will be returned as error *data*, containing *current_status* and *expected_status* fields. This is most likely due to the *status* of the invoice changing just before this command is invoked.",
     "- 908: The invoice already has no description, and *desconly* was set."
   ],
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-listinvoices(7)",
+    "lightning-waitinvoice(7)",
+    "lightning-invoice(7)",
+    "lightning-autoclean-status(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:delinvoice#1",
@@ -322,17 +334,5 @@
         "updated_index": 1
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-listinvoices(7)",
-    "lightning-waitinvoice(7)",
-    "lightning-invoice(7)",
-    "lightning-autoclean-status(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

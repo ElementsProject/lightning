@@ -40,7 +40,23 @@
       }
     }
   },
-  "json_example": [
+  "errors": [
+    "The following error codes may occur:",
+    "",
+    "- -32602: Parameter missed or malformed."
+  ],
+  "author": [
+    "Gregory Sanders <<gsanders87@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-fundpsbt(7)",
+    "lightning-utxopsbt(7)",
+    "lightning-signpsbt(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:setpsbtversion#1",
@@ -67,21 +83,5 @@
         "psbt": "cHNidP8BADUCAAAAAAFAQg8AAAAAACJRIJd6ICNAQALFOMhoUHuSVSuzcaUdkDKlk4K+A+DR9+4ubwAAAAAA"
       }
     }
-  ],
-  "errors": [
-    "The following error codes may occur:",
-    "",
-    "- -32602: Parameter missed or malformed."
-  ],
-  "author": [
-    "Gregory Sanders <<gsanders87@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-fundpsbt(7)",
-    "lightning-utxopsbt(7)",
-    "lightning-signpsbt(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

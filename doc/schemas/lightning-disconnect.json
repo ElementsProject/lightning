@@ -45,7 +45,17 @@
     "- -32602: If the given parameters are wrong.",
     "- -1: Catchall nonspecific error."
   ],
-  "json_example": [
+  "author": [
+    "Michael Hawkins <<michael.hawkins@protonmail.com>>."
+  ],
+  "see_also": [
+    "lightning-connect(1)",
+    "lightning-listpeers(1)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:disconnect#1",
@@ -68,15 +78,5 @@
       },
       "response": {}
     }
-  ],
-  "author": [
-    "Michael Hawkins <<michael.hawkins@protonmail.com>>."
-  ],
-  "see_also": [
-    "lightning-connect(1)",
-    "lightning-listpeers(1)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

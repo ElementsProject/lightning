@@ -209,7 +209,18 @@
       "The returned array is ordered by increasing **created_at** fields."
     ]
   },
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-pay(7)",
+    "lightning-paystatus(7)",
+    "lightning-listsendpays(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:listpays#1",
@@ -255,16 +266,5 @@
         ]
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-pay(7)",
-    "lightning-paystatus(7)",
-    "lightning-listsendpays(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

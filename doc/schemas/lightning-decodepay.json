@@ -247,7 +247,20 @@
       "Technically, the *description* field is optional if a *description_hash* field is given, but in this case **decodepay** will only succeed if the optional *description* field is passed and matches the *description_hash*. In practice, these are currently unused."
     ]
   },
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-pay(7)",
+    "lightning-getroute(7)",
+    "lightning-sendpay(7)"
+  ],
+  "resources": [
+    "[BOLT #11](https://github.com/lightning/bolts/blob/master/11-payment-encoding.md)",
+    "",
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:decodepay#1",
@@ -272,18 +285,5 @@
         "signature": "3045022100e3b7d8886eae1a7c9e55e1797aa0dcb77b8c5a19d56c657cad030e360c90682802203a35713acb098245e53a37faeac98754a29a7078db5ed6f2166f917e55b94484"
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-pay(7)",
-    "lightning-getroute(7)",
-    "lightning-sendpay(7)"
-  ],
-  "resources": [
-    "[BOLT #11](https://github.com/lightning/bolts/blob/master/11-payment-encoding.md)",
-    "",
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

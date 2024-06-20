@@ -185,7 +185,25 @@
     "- 311: Unknown channel id.",
     "- 312: Channel in an invalid state"
   ],
-  "json_example": [
+  "author": [
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-openchannel_init(7)",
+    "lightning-openchannel_signed(7)",
+    "lightning-openchannel_bump(7)",
+    "lightning-openchannel_abort(7)",
+    "lightning-fundchannel_start(7)",
+    "lightning-fundchannel_complete(7)",
+    "lightning-fundchannel(7)",
+    "lightning-fundpsbt(7)",
+    "lightning-utxopsbt(7)",
+    "lightning-multifundchannel(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:openchannel_update#1",
@@ -239,23 +257,5 @@
         "close_to": "5120eed745804da9784cc203f563efa99ffa54fdf01b137bc964e63c3124070ffbe6"
       }
     }
-  ],
-  "author": [
-    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-openchannel_init(7)",
-    "lightning-openchannel_signed(7)",
-    "lightning-openchannel_bump(7)",
-    "lightning-openchannel_abort(7)",
-    "lightning-fundchannel_start(7)",
-    "lightning-fundchannel_complete(7)",
-    "lightning-fundchannel(7)",
-    "lightning-fundpsbt(7)",
-    "lightning-utxopsbt(7)",
-    "lightning-multifundchannel(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

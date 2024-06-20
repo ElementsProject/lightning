@@ -37,32 +37,6 @@
       }
     }
   },
-  "json_example": [
-    {
-      "request": {
-        "id": "example:fundchannel_cancel#1",
-        "method": "fundchannel_cancel",
-        "params": {
-          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
-        }
-      },
-      "response": {
-        "cancelled": "Channel open canceled by RPC"
-      }
-    },
-    {
-      "request": {
-        "id": "example:fundchannel_cancel#2",
-        "method": "fundchannel_cancel",
-        "params": {
-          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
-        }
-      },
-      "response": {
-        "cancelled": "Channel open canceled by RPC(after fundchannel_complete)"
-      }
-    }
-  ],
   "errors": [
     "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
     "",
@@ -87,5 +61,31 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:fundchannel_cancel#1",
+        "method": "fundchannel_cancel",
+        "params": {
+          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+        }
+      },
+      "response": {
+        "cancelled": "Channel open canceled by RPC"
+      }
+    },
+    {
+      "request": {
+        "id": "example:fundchannel_cancel#2",
+        "method": "fundchannel_cancel",
+        "params": {
+          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+        }
+      },
+      "response": {
+        "cancelled": "Channel open canceled by RPC(after fundchannel_complete)"
+      }
+    }
   ]
 }

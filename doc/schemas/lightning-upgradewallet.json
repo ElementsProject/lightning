@@ -67,7 +67,18 @@
     "",
     "The caller can call `upgradewallet` to convert their funds to native segwit outputs, which are valid for liquidity ad buys."
   ],
-  "json_example": [
+  "author": [
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-utxopsbt(7)",
+    "lightning-reserveinputs(7)",
+    "lightning-unreserveinputs(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:upgradewallet#1",
@@ -94,16 +105,5 @@
         "upgraded_outs": 1
       }
     }
-  ],
-  "author": [
-    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-utxopsbt(7)",
-    "lightning-reserveinputs(7)",
-    "lightning-unreserveinputs(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

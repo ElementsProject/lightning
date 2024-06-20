@@ -102,7 +102,17 @@
     "lightning-cli splice_signed $CHANNEL_ID $PSBT",
     "```"
   ],
-  "json_example": [
+  "author": [
+    "Dusty <<@dusty_daemon>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-splice_init(7)",
+    "lightning-splice_signed(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:splice_update#1",
@@ -117,15 +127,5 @@
         "commitments_secured": true
       }
     }
-  ],
-  "author": [
-    "Dusty <<@dusty_daemon>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-splice_init(7)",
-    "lightning-splice_signed(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

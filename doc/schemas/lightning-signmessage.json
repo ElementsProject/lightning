@@ -51,7 +51,18 @@
       }
     }
   },
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-checkmessage(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>",
+    "",
+    "[SignMessageRequest](https://api.lightning.community/#grpc-request-signmessagerequest)"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:signmessage#1",
@@ -80,16 +91,5 @@
         "zbase": "d6naeqabbxntxc3qim98ye3qftnmsstijt4prebd1nztsj3qjticrqsd9f9kca6as1etpmmcfwrykfpw8xg9d41x8dg5dnzo7zhnb8ga"
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-checkmessage(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>",
-    "",
-    "[SignMessageRequest](https://api.lightning.community/#grpc-request-signmessagerequest)"
   ]
 }

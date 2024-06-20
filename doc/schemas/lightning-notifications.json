@@ -64,7 +64,13 @@
       }
     }
   ],
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@blockstream.com>> wrote the initial version of this man page."
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:notifications#1",
@@ -85,11 +91,5 @@
       },
       "response": {}
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@blockstream.com>> wrote the initial version of this man page."
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

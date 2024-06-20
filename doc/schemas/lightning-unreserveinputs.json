@@ -109,7 +109,18 @@
     "",
     "- -32602: Invalid parameter, i.e. an unparseable PSBT."
   ],
-  "json_example": [
+  "author": [
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-unreserveinputs(7)",
+    "lightning-signpsbt(7)",
+    "lightning-sendpsbt(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:unreserveinputs#1",
@@ -142,16 +153,5 @@
         "reservations": []
       }
     }
-  ],
-  "author": [
-    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-unreserveinputs(7)",
-    "lightning-signpsbt(7)",
-    "lightning-sendpsbt(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

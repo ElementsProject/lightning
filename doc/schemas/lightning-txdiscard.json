@@ -48,7 +48,17 @@
     "",
     "- -1: An unknown *txid*."
   ],
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-txprepare(7)",
+    "lightning-txsend(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:txdiscard#1",
@@ -62,15 +72,5 @@
         "txid": "6e680cb76077f11c838cc7aee0c0aa360f9857f00856bb1614025a1af53739fc"
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-txprepare(7)",
-    "lightning-txsend(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

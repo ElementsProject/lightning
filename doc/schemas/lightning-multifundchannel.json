@@ -347,7 +347,19 @@
     "}",
     "```"
   ],
-  "json_example": [
+  "author": [
+    "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-connect(7)",
+    "lightning-listfunds()",
+    "lightning-listpeers(7)",
+    "lightning-fundchannel(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:multifundchannel#1",
@@ -446,17 +458,5 @@
         ]
       }
     }
-  ],
-  "author": [
-    "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-connect(7)",
-    "lightning-listfunds()",
-    "lightning-listpeers(7)",
-    "lightning-fundchannel(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

@@ -124,7 +124,17 @@
     "",
     "- -32602: JSONRPC2_INVALID_PARAMS, i.e. the parameter is not dynamic, or the val was invalid."
   ],
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible for this feature."
+  ],
+  "see_also": [
+    "lightningd-config(5)",
+    "lightning-listconfigs(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:setconfig#1",
@@ -181,15 +191,5 @@
         }
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible for this feature."
-  ],
-  "see_also": [
-    "lightningd-config(5)",
-    "lightning-listconfigs(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

@@ -362,7 +362,24 @@
       }
     }
   },
-  "json_example": [
+  "errors": [
+    "On failure, one of the following error codes may be returned:",
+    "",
+    "- -32602: Error in given parameters or some error happened during the command process."
+  ],
+  "author": [
+    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+    "but many others did the hard work of actually implementing this rpc command."
+  ],
+  "see_also": [
+    "lightning-connect(7)",
+    "lightning-fundchannel(7)",
+    "lightning-listconfigs(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:getinfo#1",
@@ -410,22 +427,5 @@
         }
       }
     }
-  ],
-  "errors": [
-    "On failure, one of the following error codes may be returned:",
-    "",
-    "- -32602: Error in given parameters or some error happened during the command process."
-  ],
-  "author": [
-    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
-    "but many others did the hard work of actually implementing this rpc command."
-  ],
-  "see_also": [
-    "lightning-connect(7)",
-    "lightning-fundchannel(7)",
-    "lightning-listconfigs(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

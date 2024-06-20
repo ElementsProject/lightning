@@ -329,7 +329,19 @@
       }
     }
   },
-  "json_example": [
+  "author": [
+    "Felix <<fixone@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-newaddr(7)",
+    "lightning-fundchannel(7)",
+    "lightning-withdraw(7)",
+    "lightning-listtransactions(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:listfunds#1",
@@ -362,17 +374,5 @@
         "channels": []
       }
     }
-  ],
-  "author": [
-    "Felix <<fixone@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-newaddr(7)",
-    "lightning-fundchannel(7)",
-    "lightning-withdraw(7)",
-    "lightning-listtransactions(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

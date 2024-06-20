@@ -82,7 +82,19 @@
     "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
     "- 302: The dust limit is not met."
   ],
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-withdraw(7)",
+    "lightning-txsend(7)",
+    "lightning-txdiscard(7)",
+    "lightning-feerates(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:txprepare#1",
@@ -119,17 +131,5 @@
         "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQECAQYBAwH7BAIAAAAAAQDeAgAAAAABAYZ4QwAgPq6Os8kk073f5Yx4T9LXYfbOjAdkzMXfuBQdAAAAAAD9////AjPkAioBAAAAFgAUeOeqzyifepeJAMCl4vnnJ/TRptRADQMAAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFlAkcwRAIgYBFwmqWCrVkxxZ0/tte3z4lIem0L7MkhXzGAOvBWa6YCIFx7H4zOzxjixlZMi0DYYbIEflDjYHJXLfN1wVcXYuekASEDgztw/3Rks6vKGYMXJ83VEvQcNIjg3rJW6KdxEh26uwplAAAAAQEfQA0DAAAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQEOIKkQd6E0+5/kqNE6SCtxg2i/2c4+/2H/fZZUlICh+X3KAQ8EAQAAAAEQBP3///8AAQMIoIYBAAAAAAABBCIAICX54ZpRGP+JHrJYgq3YrTlNsrFDNVtbn7w8X9NxBtb2AAEDCGFzAQAAAAAAAQQiUSCioBx5ZSie7la1z83bmFbHD6R2wmTSH3Ecammvd2rkAwA="
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-withdraw(7)",
-    "lightning-txsend(7)",
-    "lightning-txdiscard(7)",
-    "lightning-feerates(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

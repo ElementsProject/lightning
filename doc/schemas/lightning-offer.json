@@ -166,7 +166,18 @@
     "- -1: Catchall nonspecific error.",
     "- 1000: Offer with this offer_id already exists (but is not active)."
   ],
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-listoffers(7)",
+    "lightning-disableoffer(7)",
+    "lightning-invoicerequest(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:offer#1",
@@ -204,16 +215,5 @@
         "created": true
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-listoffers(7)",
-    "lightning-disableoffer(7)",
-    "lightning-invoicerequest(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

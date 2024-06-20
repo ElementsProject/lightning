@@ -322,7 +322,18 @@
       "Note that the returned array is ordered by increasing *id*."
     ]
   },
-  "json_example": [
+  "author": [
+    "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-listpays(7)",
+    "lightning-sendpay(7)",
+    "lightning-listinvoices(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:listsendpays#1",
@@ -386,16 +397,5 @@
         ]
       }
     }
-  ],
-  "author": [
-    "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-listpays(7)",
-    "lightning-sendpay(7)",
-    "lightning-listinvoices(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

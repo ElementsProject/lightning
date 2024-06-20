@@ -160,7 +160,17 @@
       }
     }
   },
-  "json_example": [
+  "author": [
+    "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-commando-rune(7)",
+    "lightning-commando-blacklist(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:commando-listrunes#1",
@@ -284,15 +294,5 @@
         ]
       }
     }
-  ],
-  "author": [
-    "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-commando-rune(7)",
-    "lightning-commando-blacklist(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

@@ -180,7 +180,39 @@
       "If you sent a *request_amt* and the peer supports `option_will_fund` and is interested in leasing you liquidity in this channel, returns their updated channel fee max (*channel_fee_proportional_basis*, *channel_fee_base_msat*), updated rate card for the lease fee (*lease_fee_proportional_basis*, *lease_fee_base_sat*) and their on-chain weight *weight_charge*, which will be added to the lease fee at a rate of *funding_feerate* * *weight_charge* / 1000."
     ]
   },
-  "json_example": [
+  "errors": [
+    "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
+    "",
+    "- -32602: If the given parameters are wrong.",
+    "- -1: Catchall nonspecific error.",
+    "- 300: The amount exceeded the maximum configured funding amount.",
+    "- 301: The provided PSBT cannot afford the funding amount.",
+    "- 304: Still syncing with bitcoin network",
+    "- 305: Peer is not connected.",
+    "- 306: Unknown peer id.",
+    "- 309: PSBT missing required fields",
+    "- 310: v2 channel open protocol not supported by peer",
+    "- 312: Channel in an invalid state"
+  ],
+  "author": [
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-openchannel_update(7)",
+    "lightning-openchannel_signed(7)",
+    "lightning-openchannel_abort(7)",
+    "lightning-openchannel_bump(7)",
+    "lightning-fundchannel_start(7)",
+    "lightning-fundchannel_complete(7)",
+    "lightning-fundchannel(7)",
+    "lightning-fundpsbt(7)",
+    "lightning-utxopsbt(7)",
+    "lightning-multifundchannel(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:openchannel_init#1",
@@ -241,37 +273,5 @@
         "requires_confirmed_inputs": false
       }
     }
-  ],
-  "errors": [
-    "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
-    "",
-    "- -32602: If the given parameters are wrong.",
-    "- -1: Catchall nonspecific error.",
-    "- 300: The amount exceeded the maximum configured funding amount.",
-    "- 301: The provided PSBT cannot afford the funding amount.",
-    "- 304: Still syncing with bitcoin network",
-    "- 305: Peer is not connected.",
-    "- 306: Unknown peer id.",
-    "- 309: PSBT missing required fields",
-    "- 310: v2 channel open protocol not supported by peer",
-    "- 312: Channel in an invalid state"
-  ],
-  "author": [
-    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-openchannel_update(7)",
-    "lightning-openchannel_signed(7)",
-    "lightning-openchannel_abort(7)",
-    "lightning-openchannel_bump(7)",
-    "lightning-fundchannel_start(7)",
-    "lightning-fundchannel_complete(7)",
-    "lightning-fundchannel(7)",
-    "lightning-fundpsbt(7)",
-    "lightning-utxopsbt(7)",
-    "lightning-multifundchannel(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

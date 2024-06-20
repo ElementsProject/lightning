@@ -24,18 +24,6 @@
   "response": {
     "properties": {}
   },
-  "json_example": [
-    {
-      "request": {
-        "id": "example:deprecations#1",
-        "method": "deprecations",
-        "params": {
-          "enable": false
-        }
-      },
-      "response": {}
-    }
-  ],
   "errors": [
     "On failure, one of the following error codes may be returned:",
     "",
@@ -50,5 +38,17 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:deprecations#1",
+        "method": "deprecations",
+        "params": {
+          "enable": false
+        }
+      },
+      "response": {}
+    }
   ]
 }

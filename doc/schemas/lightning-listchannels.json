@@ -169,7 +169,19 @@
     "",
     "- -32602: If the given parameters are wrong."
   ],
-  "json_example": [
+  "author": [
+    "Michael Hawkins <<michael.hawkins@protonmail.com>>."
+  ],
+  "see_also": [
+    "lightning-fundchannel(7)",
+    "lightning-listnodes(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>",
+    "",
+    "BOLT #7: <https://github.com/lightning/bolts/blob/master/07-routing-gossip.md>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:listchannels#1",
@@ -229,17 +241,5 @@
         ]
       }
     }
-  ],
-  "author": [
-    "Michael Hawkins <<michael.hawkins@protonmail.com>>."
-  ],
-  "see_also": [
-    "lightning-fundchannel(7)",
-    "lightning-listnodes(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>",
-    "",
-    "BOLT #7: <https://github.com/lightning/bolts/blob/master/07-routing-gossip.md>"
   ]
 }

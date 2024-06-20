@@ -200,7 +200,20 @@
     "}",
     "```"
   ],
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-listtransactions(7)",
+    "lightning-listchannels(7)",
+    "lightning-listpeers(7)",
+    "lightning-listnodes(7)",
+    "lightning-listforwards(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:sql#1",
@@ -250,18 +263,5 @@
         ]
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-listtransactions(7)",
-    "lightning-listchannels(7)",
-    "lightning-listpeers(7)",
-    "lightning-listnodes(7)",
-    "lightning-listforwards(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }

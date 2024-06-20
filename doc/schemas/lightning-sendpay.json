@@ -336,7 +336,21 @@
     "*failcode*: The failure code, as per BOLT #4.",
     "*channel_update*: The hex string of the *channel_update* message received from the remote node. Only present if error is from the remote node and the *failcode* has the UPDATE bit set, as per BOLT #4."
   ],
-  "json_example": [
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-listinvoices(7)",
+    "lightning-delinvoice(7)",
+    "lightning-getroute(7)",
+    "lightning-invoice(7)",
+    "lightning-pay(7)",
+    "lightning-waitsendpay(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
     {
       "request": {
         "id": "example:sendpay#1",
@@ -417,19 +431,5 @@
         "status": "pending"
       }
     }
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
-  ],
-  "see_also": [
-    "lightning-listinvoices(7)",
-    "lightning-delinvoice(7)",
-    "lightning-getroute(7)",
-    "lightning-invoice(7)",
-    "lightning-pay(7)",
-    "lightning-waitsendpay(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ]
 }
