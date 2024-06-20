@@ -470,6 +470,9 @@ bool plugin_developer_mode(const struct plugin *plugin);
 #define plugin_option_dev(name, type, description, set, jsonfmt, arg)	\
 	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), true, NULL, NULL, false)
 
+#define plugin_option_dev_dynamic(name, type, description, set, jsonfmt, arg) \
+	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), true, NULL, NULL, true)
+
 #define plugin_option_dynamic(name, type, description, set, jsonfmt, arg) \
 	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, NULL, NULL, true)
 
