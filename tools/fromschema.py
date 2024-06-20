@@ -7,7 +7,7 @@ import json
 import re
 
 # To maintain the sequence of the before return value (body) and after return value (footer) sections in the markdown file
-BODY_KEY_SEQUENCE = ['reliability', 'usage', 'restriction_format', 'permitted_sqlite3_functions', 'treatment_of_types', 'tables', 'example_usage', 'notes', 'notifications', 'sharing_runes', 'riskfactor_effect_on_routing', 'recommended_riskfactor_values', 'optimality', 'randomization']
+BODY_KEY_SEQUENCE = ['reliability', 'usage', 'restriction_format', 'permitted_sqlite3_functions', 'treatment_of_types', 'tables', 'notes', 'notifications', 'sharing_runes', 'riskfactor_effect_on_routing', 'recommended_riskfactor_values', 'optimality', 'randomization']
 FOOTER_KEY_SEQUENCE = ['errors', 'trivia', 'author', 'see_also', 'resources', 'example_notifications', 'examples']
 
 

@@ -179,7 +179,7 @@
       "If *excess_as_change* is true and the excess is enough to cover an additional output above the `dust_limit`, then an output is added to the PSBT for the excess amount. The *excess_msat* will be zero. A *change_outnum* will be returned with the index of the change output."
     ]
   },
-  "example_usage": [
+  "usage": [
     "Let's assume the caller is trying to produce a 100,000 satoshi output.",
     "",
     "First, the caller estimates the weight of the core (typically 42) and known outputs of the transaction (typically (9 + scriptlen) * 4). For a simple P2WPKH it's a 22 byte scriptpubkey, so that's 124 weight.",

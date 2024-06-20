@@ -131,13 +131,6 @@
           }
         }
       },
-      "example_usage": [
-        "Here is a command to make a PSBT with a 100,000 sat output that leads to the on-chain wallet.",
-        "",
-        "```shell",
-        "lightning-cli addpsbtoutput 100000sat",
-        "```"
-      ],
       "author": [
         "Dusty <<@dusty_daemon>> is mainly responsible."
       ],
@@ -150,6 +143,9 @@
       ],
       "examples": [
         {
+          "description": [
+            "Here is a command to make a PSBT with a 100,000 sat output that leads to the on-chain wallet."
+          ],
           "request": {
             "id": "example:addpsbtoutput#1",
             "method": "addpsbtoutput",
@@ -3671,70 +3667,11 @@
         "* `!`: only passes if the *name* does *not* exist. e.g. `pnamedestination!`.",
         "Every other operator except `#` fails if *name* does not exist!"
       ],
-      "example_usage": [
-        "This creates a fresh rune which can do anything:",
+      "usage": [
+        "You can use lightning-decode(7) to examine runes you have been given:",
         "",
         "```shell",
-        "$ lightning-cli commando-rune",
-        "{",
-        "   \"rune\": \"KUhZzNlECC7pYsz3QVbF1TqjIUYi3oyESTI7n60hLMs9MA==\",",
-        "   \"unique_id\": \"0\"",
-        "}",
-        "```",
-        "We can add restrictions to that rune, like so:",
-        "",
-        "```shell",
-        "$ lightning-cli commando-rune rune=KUhZzNlECC7pYsz3QVbF1TqjIUYi3oyESTI7n60hLMs9MA== restrictions=readonly",
-        "{",
-        "   \"rune\": \"NbL7KkXcPQsVseJ9TdJNjJK2KsPjnt_q4cE_wvc873I9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl\",",
-        "   \"unique_id\": \"0\"",
-        "}",
-        "```",
-        "The \"readonly\" restriction is a short-cut for two restrictions:",
-        "",
-        "1. `[\"method^list\", \"method^get\", \"method=summary\"]`: You may call list, get or summary.",
-        "2. `[\"method/listdatastore\"]`: But not listdatastore: that contains sensitive stuff!",
-        "",
-        "We can do the same manually, like so:",
-        "",
-        "```shell",
-        "$ lightning-cli commando-rune rune=KUhZzNlECC7pYsz3QVbF1TqjIUYi3oyESTI7n60hLMs9MA== restrictions='[[\"method^list\", \"method^get\", \"method=summary\"],[\"method/listdatastore\"]]'",
-        "{",
-        "   \"rune\": \"NbL7KkXcPQsVseJ9TdJNjJK2KsPjnt_q4cE_wvc873I9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl\",",
-        "   \"unique_id\": \"0\"",
-        "}",
-        "```",
-        "Let's create a rune which lets a specific peer (024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605) run \"listpeers\" on themselves:",
-        "",
-        "```shell",
-        "$ lightning-cli commando-rune restrictions='[[\"id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\"],[\"method=listpeers\"],[\"pnum=1\"],[\"pnameid=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\",\"parr0=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\"]]'",
-        "{",
-        "   \"rune\": \"FE8GHiGVvxcFqCQcClVRRiNE_XEeLYQzyG2jmqto4jM9MiZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDV8cGFycjA9MDI0YjlhMWZhOGUwMDZmMWUzOTM3ZjY1ZjY2YzQwOGU2ZGE4ZTFjYTcyOGVhNDMyMjJhNzM4MWRmMWNjNDQ5NjA1\",",
-        "   \"unique_id\": \"2\"",
-        "}",
-        "```",
-        "This allows `listpeers` with 1 argument (`pnum=1`), which is either by name (`pnameid`), or position (`parr0`). We could shorten this in several ways: either allowing only positional or named parameters, or by testing the start of the parameters only. Here's an example which only checks the first 9 bytes of the `listpeers` parameter:",
-        "",
-        "```shell",
-        "$ lightning-cli commando-rune restrictions='[[\"id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\"],[\"method=listpeers\"],[\"pnum=1\"],[\"pnameid^024b9a1fa8e006f1e393\", \"parr0^024b9a1fa8e006f1e393\"]'",
-        " {",
-        "   \"rune\": \"fTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw==\",",
-        "   \"unique_id\": \"3\"",
-        "}",
-        "```",
-        "Before we give this to our peer, let's add two more restrictions: that it only be usable for 24 hours from now (`time<`), and that it can only be used twice a minute (`rate=2`). `date +%s` can give us the current time in seconds:",
-        "",
-        "```shell",
-        "$ lightning-cli commando-rune rune=fTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw== restrictions='[[\"time<'$(($(date +%s) + 24*60*60))'\",\"rate=2\"]]'",
-        "{",
-        "   \"rune\": \"tU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y\",",
-        "   \"unique_id\": \"3\"",
-        "}",
-        "```",
-        "You can also use lightning-decode(7) to examine runes you have been given:",
-        "",
-        "```shell",
-        "$ lightning-cli decode tU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y",
+        "lightning-cli decode tU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y",
         "{",
         "   \"type\": \"rune\",",
         "   \"unique_id\": \"3\",",
@@ -3801,6 +3738,9 @@
       ],
       "examples": [
         {
+          "description": [
+            "This creates a fresh rune which can do anything:"
+          ],
           "request": {
             "id": "example:commando-rune#1",
             "method": "commando-rune",
@@ -3813,10 +3753,20 @@
           }
         },
         {
+          "description": [
+            "We can add restrictions to that rune, like so:",
+            "",
+            "The `readonly` restriction is a short-cut for two restrictions:",
+            "",
+            "1: `[\"method^list\", \"method^get\", \"method=summary\"]`: You may call list, get or summary.",
+            "",
+            "2: `[\"method/listdatastore\"]`: But not listdatastore: that contains sensitive stuff!"
+          ],
           "request": {
             "id": "example:commando-rune#2",
             "method": "commando-rune",
             "params": {
+              "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",
               "restrictions": "readonly"
             }
           },
@@ -3826,8 +3776,119 @@
           }
         },
         {
+          "description": [
+            "We can do the same manually (readonly), like so:"
+          ],
           "request": {
             "id": "example:commando-rune#3",
+            "method": "commando-rune",
+            "params": {
+              "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",
+              "restrictions": [
+                [
+                  "method^list",
+                  "method^get",
+                  "method=summary"
+                ],
+                [
+                  "method/listdatastore"
+                ]
+              ]
+            }
+          },
+          "response": {
+            "rune": "oVkzoiQ67VCU1h_aRjPqCeWktGX54ARDsqqQgDL-uMs9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl",
+            "unique_id": "2"
+          }
+        },
+        {
+          "description": [
+            "Let's create a rune which lets a specific peer (024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605) run listpeers on themselves:"
+          ],
+          "request": {
+            "id": "example:commando-rune#4",
+            "method": "commando-rune",
+            "params": {
+              "restrictions": [
+                [
+                  "id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605"
+                ],
+                [
+                  "method=listpeers"
+                ],
+                [
+                  "pnum=1"
+                ],
+                [
+                  "pnameid=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605",
+                  "parr0=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605"
+                ]
+              ]
+            }
+          },
+          "response": {
+            "rune": "FE8GHiGVvxcFqCQcClVRRiNE_XEeLYQzyG2jmqto4jM9MiZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDV8cGFycjA9MDI0YjlhMWZhOGUwMDZmMWUzOTM3ZjY1ZjY2YzQwOGU2ZGE4ZTFjYTcyOGVhNDMyMjJhNzM4MWRmMWNjNDQ5NjA1",
+            "unique_id": "3"
+          }
+        },
+        {
+          "description": [
+            "This allows `listpeers` with 1 argument (`pnum=1`), which is either by name (`pnameid`), or position (`parr0`). We could shorten this in several ways: either allowing only positional or named parameters, or by testing the start of the parameters only. Here's an example which only checks the first 9 bytes of the `listpeers` parameter:"
+          ],
+          "request": {
+            "id": "example:commando-rune#5",
+            "method": "commando-rune",
+            "params": {
+              "restrictions": [
+                [
+                  "id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605"
+                ],
+                [
+                  "method=listpeers"
+                ],
+                [
+                  "pnum=1"
+                ],
+                [
+                  "pnameid^024b9a1fa8e006f1e393",
+                  "parr0^024b9a1fa8e006f1e393"
+                ]
+              ]
+            }
+          },
+          "response": {
+            "rune": "fTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw==",
+            "unique_id": "4"
+          }
+        },
+        {
+          "description": [
+            "Before we give this to our peer, let's add two more restrictions: that it only be usable for 24 hours from now (`time<`), and that it can only be used twice a minute (`rate=2`). `date +%s` can give us the current time in seconds:"
+          ],
+          "request": {
+            "id": "example:commando-rune#6",
+            "method": "commando-rune",
+            "params": {
+              "rune": "fTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw==",
+              "restrictions": [
+                [
+                  "time<'$(($(date +%s) + 24*60*60))'",
+                  "rate=2"
+                ]
+              ]
+            }
+          },
+          "response": {
+            "rune": "tU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y",
+            "unique_id": "5"
+          }
+        },
+        {
+          "description": [
+            "This will allow the rune to be used for id starting with 022d223620a359a47ff7, and for the method listpeers:"
+          ],
+          "request": {
+            "id": "example:commando-rune#7",
             "method": "commando-rune",
             "params": {
               "restrictions": [
@@ -3842,12 +3903,15 @@
           },
           "response": {
             "rune": "YPojv9qgHPa3im0eiqRb-g8aRq76OasyfltGGqdFUOU9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz",
-            "unique_id": "2"
+            "unique_id": "6"
           }
         },
         {
+          "description": [
+            "This will allow the rune to be used for the method pay, and for the parameter amount\\_msat to be less than 10000:"
+          ],
           "request": {
-            "id": "example:commando-rune#4",
+            "id": "example:commando-rune#8",
             "method": "commando-rune",
             "params": {
               "restrictions": [
@@ -3862,7 +3926,7 @@
           },
           "response": {
             "rune": "b3hXuEM7Pqzk-C7HUw83xzvHOV7fmuGaWjdo-wHdfg89MCZtZXRob2Q9cGF5JnBuYW1lYW1vdW50bXNhdDwxMDAwMA==",
-            "unique_id": "3"
+            "unique_id": "7"
           }
         }
       ]
@@ -4580,74 +4644,6 @@
           }
         }
       },
-      "example_usage": [
-        "The following is an example of a 3 hop onion:",
-        "",
-        "```json",
-        "[",
-        "  {",
-        "    \"pubkey\": \"022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59\",",
-        "    \"payload\": \"11020203e904017b06080000670000010001\"",
-        "  }, {",
-        "    \"pubkey\": \"035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d\",",
-        "    \"payload\": \"11020203e804017506080000670000030001\"",
-        "  }, {",
-        "    \"pubkey\": \"0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199\",",
-        "    \"payload\": \"07020203e8040175\"",
-        "  }",
-        "]",
-        "```",
-        "",
-        "The *hops* parameter is very similar to the result from `getroute` however it needs to be modified slightly. The following is the `getroute` response from which the above *hops* parameter was generated:",
-        "",
-        "```json",
-        "[",
-        "  {",
-        "    \"id\": \"022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59\",",
-        "    \"channel\": \"103x2x1\",",
-        "    \"direction\": 1,",
-        "    \"msatoshi\": 1002,",
-        "    \"amount_msat\": \"1002msat\",",
-        "    \"delay\": 21,",
-        "  }, {",
-        "    \"id\": \"035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d\",",
-        "    \"channel\": \"103x1x1\",",
-        "    \"direction\": 0,",
-        "    \"msatoshi\": 1001,",
-        "    \"amount_msat\": \"1001msat\",",
-        "    \"delay\": 15,",
-        "  }, {",
-        "    \"id\": \"0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199\",",
-        "    \"channel\": \"103x3x1\",",
-        "    \"direction\": 0,",
-        "    \"msatoshi\": 1000,",
-        "    \"amount_msat\": \"1000msat\",",
-        "    \"delay\": 9,",
-        "  }",
-        "]",
-        "```",
-        "",
-        " - Notice that the payload in the *hops* parameter is the hex-encoded TLV of the parameters in the `getroute` response, with length prepended as a `bigsize_t`.",
-        " - Except for the pubkey, the values are shifted left by one, i.e., the 1st payload in `createonion` corresponds to the 2nd set of values from `getroute`.",
-        " - The final payload is a copy of the last payload sans `channel`",
-        "",
-        "These rules are directly derived from the onion construction. Please refer BOLT 04 for details and rationale.",
-        "",
-        "The following example is the result of calling *createonion* with the above hops parameter:",
-        "",
-        "  ```json",
-        "  {",
-        "    \"onion\": \"0003f3f80d2142b953319336d2fe4097[...]6af33fcf4fb113bce01f56dd62248a9e5fcbbfba35c\",",
-        "    \"shared_secrets\": [",
-        "      \"88ce98c73e4d9293ab1797b0a913fe9bca0213a566252047d01b8af6da871f3e\",",
-        "      \"4474d296810e57bd460ef8b83d2e7d288321f8a99ff7686f87384699747bcfc4\",",
-        "      \"2a862e4123e01799a732be487fbce297f7dc7cc1467e410f18369cfee476adc2\"",
-        "    ]",
-        "  }",
-        "```",
-        "",
-        "The `onion` corresponds to 1366 hex-encoded bytes. Each shared secret consists of 32 hex-encoded bytes. Both arguments can be passed on to **sendonion**."
-      ],
       "author": [
         "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
       ],
@@ -4662,8 +4658,78 @@
       ],
       "examples": [
         {
+          "description": [
+            "The *hops* parameter is very similar to the result from `getroute` however it needs to be modified slightly.",
+            "",
+            "The following is the `getroute` response from which the above *hops* parameter was generated:",
+            "",
+            "```json",
+            "[",
+            "  {",
+            "    \"id\": \"022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59\",",
+            "    \"channel\": \"103x2x1\",",
+            "    \"direction\": 1,",
+            "    \"msatoshi\": 1002,",
+            "    \"amount_msat\": \"1002msat\",",
+            "    \"delay\": 21,",
+            "  }, {",
+            "    \"id\": \"035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d\",",
+            "    \"channel\": \"103x1x1\",",
+            "    \"direction\": 0,",
+            "    \"msatoshi\": 1001,",
+            "    \"amount_msat\": \"1001msat\",",
+            "    \"delay\": 15,",
+            "  }, {",
+            "    \"id\": \"0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199\",",
+            "    \"channel\": \"103x3x1\",",
+            "    \"direction\": 0,",
+            "    \"msatoshi\": 1000,",
+            "    \"amount_msat\": \"1000msat\",",
+            "    \"delay\": 9,",
+            "  }",
+            "]",
+            "```",
+            "",
+            " - Notice that the payload in the *hops* parameter is the hex-encoded TLV of the parameters in the `getroute` response, with length prepended as a `bigsize_t`.",
+            " - Except for the pubkey, the values are shifted left by one, i.e., the 1st payload in `createonion` corresponds to the 2nd set of values from `getroute`.",
+            " - The final payload is a copy of the last payload sans `channel`",
+            "",
+            "These rules are directly derived from the onion construction. Please refer BOLT 04 for details and rationale.",
+            "",
+            "The `onion` corresponds to 1366 hex-encoded bytes. Each shared secret consists of 32 hex-encoded bytes. Both arguments can be passed on to **sendonion**."
+          ],
           "request": {
             "id": "example:createonion#1",
+            "method": "createonion",
+            "params": {
+              "hops": [
+                {
+                  "pubkey": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+                  "payload": "11020203e904017b06080000670000010001"
+                },
+                {
+                  "pubkey": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+                  "payload": "11020203e804017506080000670000030001"
+                },
+                {
+                  "pubkey": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
+                  "payload": "07020203e8040175"
+                }
+              ]
+            }
+          },
+          "response": {
+            "onion": "0003f3f80d2142b953319336d2fe4097[...]6af33fcf4fb113bce01f56dd62248a9e5fcbbfba35c",
+            "shared_secrets": [
+              "88ce98c73e4d9293ab1797b0a913fe9bca0213a566252047d01b8af6da871f3e",
+              "4474d296810e57bd460ef8b83d2e7d288321f8a99ff7686f87384699747bcfc4",
+              "2a862e4123e01799a732be487fbce297f7dc7cc1467e410f18369cfee476adc2"
+            ]
+          }
+        },
+        {
+          "request": {
+            "id": "example:createonion#2",
             "method": "createonion",
             "params": {
               "hops": [
@@ -4705,7 +4771,7 @@
         },
         {
           "request": {
-            "id": "example:createonion#2",
+            "id": "example:createonion#3",
             "method": "createonion",
             "params": {
               "hops": [
@@ -4835,70 +4901,11 @@
         "* `!`: only passes if the *name* does *not* exist. e.g. `pnamedestination!`.",
         "Every other operator except `#` fails if *name* does not exist!"
       ],
-      "example_usage": [
-        "This creates a fresh rune which can do anything:",
+      "usage": [
+        "You can use lightning-decode(7) to examine runes you have been given:",
         "",
         "```shell",
-        "$ lightning-cli commando-rune",
-        "{",
-        "   \"rune\": \"KUhZzNlECC7pYsz3QVbF1TqjIUYi3oyESTI7n60hLMs9MA==\",",
-        "   \"unique_id\": \"0\"",
-        "}",
-        "```",
-        "We can add restrictions to that rune, like so:",
-        "",
-        "```shell",
-        "$ lightning-cli commando-rune rune=KUhZzNlECC7pYsz3QVbF1TqjIUYi3oyESTI7n60hLMs9MA== restrictions=readonly",
-        "{",
-        "   \"rune\": \"NbL7KkXcPQsVseJ9TdJNjJK2KsPjnt_q4cE_wvc873I9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl\",",
-        "   \"unique_id\": \"0\"",
-        "}",
-        "```",
-        "The \"readonly\" restriction is a short-cut for two restrictions:",
-        "",
-        "1. `[\"method^list\", \"method^get\", \"method=summary\"]`: You may call list, get or summary.",
-        "2. `[\"method/listdatastore\"]`: But not listdatastore: that contains sensitive stuff!",
-        "",
-        "We can do the same manually, like so:",
-        "",
-        "```shell",
-        "$ lightning-cli commando-rune rune=KUhZzNlECC7pYsz3QVbF1TqjIUYi3oyESTI7n60hLMs9MA== restrictions='[[\"method^list\", \"method^get\", \"method=summary\"],[\"method/listdatastore\"]]'",
-        "{",
-        "   \"rune\": \"NbL7KkXcPQsVseJ9TdJNjJK2KsPjnt_q4cE_wvc873I9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl\",",
-        "   \"unique_id\": \"0\"",
-        "}",
-        "```",
-        "Let's create a rune which lets a specific peer (024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605) run \"listpeers\" on themselves:",
-        "",
-        "```shell",
-        "$ lightning-cli commando-rune restrictions='[[\"id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\"],[\"method=listpeers\"],[\"pnum=1\"],[\"pnameid=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\",\"parr0=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\"]]'",
-        "{",
-        "   \"rune\": \"FE8GHiGVvxcFqCQcClVRRiNE_XEeLYQzyG2jmqto4jM9MiZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDV8cGFycjA9MDI0YjlhMWZhOGUwMDZmMWUzOTM3ZjY1ZjY2YzQwOGU2ZGE4ZTFjYTcyOGVhNDMyMjJhNzM4MWRmMWNjNDQ5NjA1\",",
-        "   \"unique_id\": \"2\"",
-        "}",
-        "```",
-        "This allows `listpeers` with 1 argument (`pnum=1`), which is either by name (`pnameid`), or position (`parr0`). We could shorten this in several ways: either allowing only positional or named parameters, or by testing the start of the parameters only. Here's an example which only checks the first 9 bytes of the `listpeers` parameter:",
-        "",
-        "```shell",
-        "$ lightning-cli commando-rune restrictions='[[\"id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\"],[\"method=listpeers\"],[\"pnum=1\"],[\"pnameid^024b9a1fa8e006f1e393\", \"parr0^024b9a1fa8e006f1e393\"]'",
-        " {",
-        "   \"rune\": \"fTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw==\",",
-        "   \"unique_id\": \"3\"",
-        "}",
-        "```",
-        "Before we give this to our peer, let's add two more restrictions: that it only be usable for 24 hours from now (`time<`), and that it can only be used twice a minute (`rate=2`). `date +%s` can give us the current time in seconds:",
-        "",
-        "```shell",
-        "$ lightning-cli commando-rune rune=fTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw== restrictions='[[\"time<'$(($(date +%s) + 24*60*60))'\",\"rate=2\"]]'",
-        "{",
-        "   \"rune\": \"tU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y\",",
-        "   \"unique_id\": \"3\"",
-        "}",
-        "```",
-        "You can also use lightning-decode(7) to examine runes you have been given:",
-        "",
-        "```shell",
-        "$ lightning-cli decode tU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y",
+        "lightning-cli decode tU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y",
         "{",
         "   \"type\": \"rune\",",
         "   \"unique_id\": \"3\",",
@@ -4965,51 +4972,195 @@
       ],
       "examples": [
         {
+          "description": [
+            "This creates a fresh rune which can do anything:"
+          ],
           "request": {
             "id": "example:createrune#1",
             "method": "createrune",
-            "params": {
-              "restrictions": [
-                [
-                  "method/getinfo"
-                ]
-              ]
-            }
+            "params": {}
           },
           "response": {
-            "rune": "S5f-BKt3rR-cvJmujdpDCUQm_XLahfB4iQuDlwqMJiQ9MCZtZXRob2QvZ2V0aW5mbw==",
-            "unique_id": "0"
+            "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",
+            "unique_id": "0",
+            "warning_unrestricted_rune": "WARNING: This rune has no restrictions! Anyone who has access to this rune could drain funds from your node. Be careful when giving this to apps that you don't trust. Consider using the restrictions parameter to only allow access to specific rpc methods."
           }
         },
         {
+          "description": [
+            "We can add restrictions to that rune, like so:",
+            "",
+            "The `readonly` restriction is a short-cut for two restrictions:",
+            "",
+            "1: `[\"method^list\", \"method^get\", \"method=summary\"]`: You may call list, get or summary.",
+            "",
+            "2: `[\"method/listdatastore\"]`: But not listdatastore: that contains sensitive stuff!"
+          ],
           "request": {
             "id": "example:createrune#2",
             "method": "createrune",
             "params": {
+              "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",
               "restrictions": "readonly"
             }
           },
           "response": {
-            "rune": "oVkzoiQ67VCU1h_aRjPqCeWktGX54ARDsqqQgDL-uMs9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl",
+            "rune": "zm0x_eLgHexaTvZn3Cz7gb_YlvrlYGDo_w4BYlR9SS09MSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl",
             "unique_id": "1"
           }
         },
         {
+          "description": [
+            "We can do the same manually (readonly), like so:"
+          ],
           "request": {
             "id": "example:createrune#3",
             "method": "createrune",
-            "params": [
-              "enX0sTpHB8y1ktyTAF80CnEvGetG340Ne3AGItudBS49NCZwbnVtPTA=",
-              [
+            "params": {
+              "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",
+              "restrictions": [
                 [
-                  "rate=3"
+                  "method^list",
+                  "method^get",
+                  "method=summary"
+                ],
+                [
+                  "method/listdatastore"
                 ]
               ]
-            ]
+            }
           },
           "response": {
-            "rune": "_h2eKjoK7ITAF-JQ1S5oum9oMQesrz-t1FR9kDChRB49NCZwbnVtPTAmcmF0ZT0z",
+            "rune": "oVkzoiQ67VCU1h_aRjPqCeWktGX54ARDsqqQgDL-uMs9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl",
             "unique_id": "2"
+          }
+        },
+        {
+          "description": [
+            "Let's create a rune which lets a specific peer (024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605) run listpeers on themselves:"
+          ],
+          "request": {
+            "id": "example:createrune#4",
+            "method": "createrune",
+            "params": {
+              "restrictions": [
+                [
+                  "id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605"
+                ],
+                [
+                  "method=listpeers"
+                ],
+                [
+                  "pnum=1"
+                ],
+                [
+                  "pnameid=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605",
+                  "parr0=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605"
+                ]
+              ]
+            }
+          },
+          "response": {
+            "rune": "FE8GHiGVvxcFqCQcClVRRiNE_XEeLYQzyG2jmqto4jM9MiZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDV8cGFycjA9MDI0YjlhMWZhOGUwMDZmMWUzOTM3ZjY1ZjY2YzQwOGU2ZGE4ZTFjYTcyOGVhNDMyMjJhNzM4MWRmMWNjNDQ5NjA1",
+            "unique_id": "3"
+          }
+        },
+        {
+          "description": [
+            "This allows `listpeers` with 1 argument (`pnum=1`), which is either by name (`pnameid`), or position (`parr0`). We could shorten this in several ways: either allowing only positional or named parameters, or by testing the start of the parameters only. Here's an example which only checks the first 9 bytes of the `listpeers` parameter:"
+          ],
+          "request": {
+            "id": "example:createrune#5",
+            "method": "createrune",
+            "params": {
+              "restrictions": [
+                [
+                  "id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605"
+                ],
+                [
+                  "method=listpeers"
+                ],
+                [
+                  "pnum=1"
+                ],
+                [
+                  "pnameid^024b9a1fa8e006f1e393",
+                  "parr0^024b9a1fa8e006f1e393"
+                ]
+              ]
+            }
+          },
+          "response": {
+            "rune": "fTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw==",
+            "unique_id": "4"
+          }
+        },
+        {
+          "description": [
+            "Before we give this to our peer, let's add two more restrictions: that it only be usable for 24 hours from now (`time<`), and that it can only be used twice a minute (`rate=2`). `date +%s` can give us the current time in seconds:"
+          ],
+          "request": {
+            "id": "example:createrune#6",
+            "method": "createrune",
+            "params": {
+              "rune": "fTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw==",
+              "restrictions": [
+                [
+                  "time<'$(($(date +%s) + 24*60*60))'",
+                  "rate=2"
+                ]
+              ]
+            }
+          },
+          "response": {
+            "rune": "tU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y",
+            "unique_id": "5"
+          }
+        },
+        {
+          "description": [
+            "This will allow the rune to be used for id starting with 022d223620a359a47ff7, and for the method listpeers:"
+          ],
+          "request": {
+            "id": "example:createrune#7",
+            "method": "createrune",
+            "params": {
+              "restrictions": [
+                [
+                  "id^022d223620a359a47ff7"
+                ],
+                [
+                  "method=listpeers"
+                ]
+              ]
+            }
+          },
+          "response": {
+            "rune": "YPojv9qgHPa3im0eiqRb-g8aRq76OasyfltGGqdFUOU9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz",
+            "unique_id": "6"
+          }
+        },
+        {
+          "description": [
+            "This will allow the rune to be used for the method pay, and for the parameter amount\\_msat to be less than 10000:"
+          ],
+          "request": {
+            "id": "example:createrune#8",
+            "method": "createrune",
+            "params": {
+              "restrictions": [
+                [
+                  "method=pay"
+                ],
+                [
+                  "pnameamountmsat<10000"
+                ]
+              ]
+            }
+          },
+          "response": {
+            "rune": "b3hXuEM7Pqzk-C7HUw83xzvHOV7fmuGaWjdo-wHdfg89MCZtZXRob2Q9cGF5JnBuYW1lYW1vdW50bXNhdDwxMDAwMA==",
+            "unique_id": "7"
           }
         }
       ]
@@ -10092,13 +10243,6 @@
           }
         }
       },
-      "example_usage": [
-        "This example shows how to use lightning-cli to open new channel with peer 03f...fc1 from one whole utxo bcc1...39c:0 (you can use **listfunds** command to get txid and vout):",
-        "",
-        "```shell",
-        "lightning-cli -k fundchannel id=03f...fc1 amount=all feerate=normal utxos='[\"bcc1...39c:0\"]'",
-        "```"
-      ],
       "errors": [
         "The following error codes may occur:",
         "",
@@ -10165,6 +10309,40 @@
               ]
             },
             "outnum": 0
+          }
+        },
+        {
+          "description": [
+            "This example shows how to to open new channel with peer 034...4d5 from one whole utxo 961...aeb:1 (you can use **listfunds** command to get txid and vout):"
+          ],
+          "request": {
+            "id": "example:fundchannel#3",
+            "method": "fundchannel",
+            "params": {
+              "id": "0348e58210bbc128b1cc3cc1a520a654aaa01e5fe65c65341e21b61a1f09da94d5",
+              "amount": "all",
+              "feerate": "normal",
+              "push_msat": 1000000000,
+              "utxos": [
+                "9619a4ccc08512f9520363c7163c95c54723ee8d40802e763a1598fec7bdaaeb:1"
+              ]
+            }
+          },
+          "response": {
+            "tx": "02000000000101ebaabdc7fe98153a762e80408dee2347c5953c16c7630352f91285c0cca419960100000000fdffffff02a861000000000000225120b348ab8875cbcfad71e5f3f96e8b3cb25b3495701fb1e06e7f01c70c6e3d7776ec00510200000000220020b71d4d6b2224c9a6b234fde9ca8922ca83be1bc440c08da2156fc3b154c476ff014035ccc897ca0097be7088e397bab0215c967257a25d3efb2d96259d5a7051078b1caaddacc702fced9289d556be70c55bf10fae0bb761526f3d165ff106da140c2f030000",
+            "txid": "dbeeb2320ddf3ae0bb7887df8226ecdbcec3583ea027a2c1d86bfb167b0f93ea",
+            "channel_id": "c4e607b4743fa4ee516fd247dbdaf4cb17b8462b2468bd84f15d6f78ac82bf1a",
+            "channel_type": {
+              "bits": [
+                12,
+                22
+              ],
+              "names": [
+                "static_remotekey/even",
+                "anchors/even"
+              ]
+            },
+            "outnum": 1
           }
         }
       ]
@@ -11128,7 +11306,7 @@
           "If *excess_as_change* is true and the excess is enough to cover an additional output above the `dust_limit`, then an output is added to the PSBT for the excess amount. The *excess_msat* will be zero. A *change_outnum* will be returned with the index of the change output."
         ]
       },
-      "example_usage": [
+      "usage": [
         "Let's assume the caller is trying to produce a 100,000 satoshi output.",
         "",
         "First, the caller estimates the weight of the core (typically 42) and known outputs of the transaction (typically (9 + scriptlen) * 4). For a simple P2WPKH it's a 22 byte scriptpubkey, so that's 124 weight.",
@@ -22303,35 +22481,6 @@
         "",
         "There may be rare edge cases where a communications failure later in the channel funding process will cancel the funding locally, but the peer thinks the channel is already waiting for funding lockin. In that case, the next time we connect to the peer, our node will tell the peer to forget the channel, but some nodes (in particular, Core Lightning nodes) will disconnect when our node tells them to forget the channel. If you immediately **multifundchannel** with that peer, it could trigger this connect-forget-disconnect behavior, causing the second **multifundchannel** to fail as well due to disconnection. Doing a **connect** with the peers separately, and waiting for a few seconds, should help clear this hurdle; running **multifundchannel** a third time would also clear this."
       ],
-      "example_usage": [
-        "This example opens three channels at once, with amounts 200,000 sats, 3,000,000 sats and the final channel using all remaining funds (actually, capped at 16,777,215 sats because large-channels is not enabled):",
-        "",
-        "```shell",
-        "$ lightning-cli multifundchannel '[{\"id\":\"0201f42e167959c74d396ac57652fcea63c63940f78e8239cce5720df4d85ef857@127.0.0.1:7272\", \"amount\":\"200000sat\"}, {\"id\":\"0304a2468065535f9459567686e0f02b40f06e341d3eb2a62ec6763bcf2ccfd207@127.0.0.1:7373\", \"amount\":\"0.03btc\"}, {\"id\":\"0391f4c475050bb15871da5a72b1f3a1798de3d2e5fb4ffa262899b8d8e1f0b764@127.0.0.1:7474\", \"amount\":\"all\"}]'",
-        "{",
-        "   \"tx\": \"02000000000101fbe3c68db87b72f82c3f5447b0bc032469c78e71f229ac99c230807ff378a9d80000000000fdffffff04400d0300000000002200202e9897ed5f9b237aa27fd5d02d24157cd452b0d3f0a5bb03d38ff73f9f8f384bffffff0000000000220020439d797ada249e1e12f8d27cabb7330de3c8de0456fb54892deb7b9c72b0ff7c1dc9b50400000000225120046e3966a2d5e43c1f1e0676161905782e1e7c00811485c618f5144f328f4e2bc0c62d0000000000220020e36fd5c03c3586c3763d8b4c9d8650f396ff1c8a460137fb09b60ee82536a3b20140ea4d564e91c919b50a2d32886f1d414de773491119beb1364b92f15d6d03e1810e5ddea89c265e42f2e96bb028dfb3aa0b5b30072ddcc78daad727503c53e37fa9010000\",",
-        "   \"txid\": \"90dc53922b70628fc9e7804ad0b8cd0fb41f050d94ffa2db3b16e918c96c022a\",",
-        "   \"channel_ids\": [",
-        "      {",
-        "         \"id\": \"0201f42e167959c74d396ac57652fcea63c63940f78e8239cce5720df4d85ef857\",",
-        "         \"channel_id\": \"25c8253e66a860d17916cc0c21386e310eba9900030a68ec6ff6f59a8401a872\",",
-        "         \"outnum\": 0",
-        "      },",
-        "      {",
-        "         \"id\": \"0304a2468065535f9459567686e0f02b40f06e341d3eb2a62ec6763bcf2ccfd207\",",
-        "         \"channel_id\": \"51749d724892a406896f6bf2e2f8c0b03399d0436691f294839897fa167e6521\",",
-        "         \"outnum\": 3",
-        "      },",
-        "      {",
-        "         \"id\": \"0391f4c475050bb15871da5a72b1f3a1798de3d2e5fb4ffa262899b8d8e1f0b764\",",
-        "         \"channel_id\": \"7e1414e72c081f0754fa18c1657cedabe696aa9ffeaf0b936bfbe3a28f2829d1\",",
-        "         \"outnum\": 1",
-        "      }",
-        "   ],",
-        "   \"failed\": []",
-        "}",
-        "```"
-      ],
       "author": [
         "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
       ],
@@ -22346,8 +22495,57 @@
       ],
       "examples": [
         {
+          "description": [
+            "This example opens three channels at once, with amounts 200,000 sats, 3,000,000 sats",
+            "and the final channel using all remaining funds (actually, capped at 16,777,215 sats",
+            "because large-channels is not enabled):"
+          ],
           "request": {
             "id": "example:multifundchannel#1",
+            "method": "multifundchannel",
+            "params": {
+              "destinations": [
+                {
+                  "id": "0201f42e167959c74d396ac57652fcea63c63940f78e8239cce5720df4d85ef857@127.0.0.1:7272",
+                  "amount": "200000sat"
+                },
+                {
+                  "id": "0304a2468065535f9459567686e0f02b40f06e341d3eb2a62ec6763bcf2ccfd207@127.0.0.1:7373",
+                  "amount": "0.03btc"
+                },
+                {
+                  "id": "0391f4c475050bb15871da5a72b1f3a1798de3d2e5fb4ffa262899b8d8e1f0b764@127.0.0.1:7474",
+                  "amount": "all"
+                }
+              ]
+            }
+          },
+          "response": {
+            "tx": "02000000000101fbe3c68db87b72f82c3f5447b0bc032469c78e71f229ac99c230807ff378a9d80000000000fdffffff04400d0300000000002200202e9897ed5f9b237aa27fd5d02d24157cd452b0d3f0a5bb03d38ff73f9f8f384bffffff0000000000220020439d797ada249e1e12f8d27cabb7330de3c8de0456fb54892deb7b9c72b0ff7c1dc9b50400000000225120046e3966a2d5e43c1f1e0676161905782e1e7c00811485c618f5144f328f4e2bc0c62d0000000000220020e36fd5c03c3586c3763d8b4c9d8650f396ff1c8a460137fb09b60ee82536a3b20140ea4d564e91c919b50a2d32886f1d414de773491119beb1364b92f15d6d03e1810e5ddea89c265e42f2e96bb028dfb3aa0b5b30072ddcc78daad727503c53e37fa9010000",
+            "txid": "90dc53922b70628fc9e7804ad0b8cd0fb41f050d94ffa2db3b16e918c96c022a",
+            "channel_ids": [
+              {
+                "id": "0201f42e167959c74d396ac57652fcea63c63940f78e8239cce5720df4d85ef857",
+                "channel_id": "25c8253e66a860d17916cc0c21386e310eba9900030a68ec6ff6f59a8401a872",
+                "outnum": "0"
+              },
+              {
+                "id": "0304a2468065535f9459567686e0f02b40f06e341d3eb2a62ec6763bcf2ccfd207",
+                "channel_id": "51749d724892a406896f6bf2e2f8c0b03399d0436691f294839897fa167e6521",
+                "outnum": "3"
+              },
+              {
+                "id": "0391f4c475050bb15871da5a72b1f3a1798de3d2e5fb4ffa262899b8d8e1f0b764",
+                "channel_id": "7e1414e72c081f0754fa18c1657cedabe696aa9ffeaf0b936bfbe3a28f2829d1",
+                "outnum": "1"
+              }
+            ],
+            "failed": []
+          }
+        },
+        {
+          "request": {
+            "id": "example:multifundchannel#2",
             "method": "multifundchannel",
             "params": {
               "destinations": [
@@ -22383,7 +22581,7 @@
         },
         {
           "request": {
-            "id": "example:multifundchannel#2",
+            "id": "example:multifundchannel#3",
             "method": "multifundchannel",
             "params": {
               "destinations": [
@@ -27813,53 +28011,40 @@
           }
         }
       },
-      "example_usage": [
-        "Here is an example set of splice commands that will splice in 100,000 sats to the first channel that comes out of `listpeerchannels`. The example assumes you already have at least one confirmed channel.",
+      "usage": [
+        "Here is an example set of splice commands that will splice in 100,000 sats to the first channel that comes out of `listpeerchannels`.",
+        "",
+        "The example assumes you already have at least one confirmed channel.",
+        "",
+        "1: Get the channel id of the first channel.",
         "",
         "```shell",
-        "RESULT=$(lightning-cli listpeerchannels)",
-        "CHANNEL_ID=$(echo $RESULT| jq -r \".channels[0].channel_id\")",
-        "echo $RESULT",
-        "",
-        "RESULT=$(lightning-cli fundpsbt -k satoshi=100000sat feerate=urgent startweight=800 excess_as_change=true)",
-        "INITIALPSBT=$(echo $RESULT | jq -r \".psbt\")",
-        "echo $RESULT",
-        "",
-        "RESULT=$(lightning-cli splice_init $CHANNEL_ID 100000 $INITIALPSBT)",
-        "PSBT=$(echo $RESULT | jq -r \".psbt\")",
-        "echo $RESULT",
-        "",
-        "RESULT=$(lightning-cli splice_update $CHANNEL_ID $PSBT)",
-        "PSBT=$(echo $RESULT | jq -r \".psbt\")",
-        "echo $RESULT",
-        "",
-        "RESULT=$(lightning-cli signpsbt -k psbt=\"$PSBT\")",
-        "PSBT=$(echo $RESULT | jq -r \".signed_psbt\")",
-        "echo $RESULT",
-        "",
-        "lightning-cli splice_signed $CHANNEL_ID $PSBT",
+        "CHANNEL_ID=$(echo $(lightning-cli listpeerchannels) | jq -r \".channels[0].channel_id\")",
         "```",
-        "",
-        "Here is an example set of splice commands that will splice out 100,000 sats from first channel that comes out of `listpeerchannels`. The example assumes you already have at least one confirmed channel.",
+        "2: Get the PSBT from fundpsbt.",
         "",
         "```shell",
-        "RESULT=$(lightning-cli listpeerchannels)",
-        "CHANNEL_ID=$(echo $RESULT| jq -r \".channels[0].channel_id\")",
-        "echo $RESULT",
+        "INITIALPSBT=$(echo $(lightning-cli fundpsbt -k satoshi=100000sat feerate=urgent startweight=800 excess_as_change=true) | jq -r \".psbt\")",
+        "```",
+        "3: Initiate the splice by passing channel id and initialpsbt received from above steps.",
         "",
-        "RESULT=$(lightning-cli addpsbtoutput 100000)",
-        "INITIALPSBT=$(echo $RESULT | jq -r \".psbt\")",
-        "echo $RESULT",
+        "```shell",
+        "PSBT_SPLICE_INIT=$(echo $(lightning-cli splice_init $CHANNEL_ID 100000 $INITIALPSBT) | jq -r \".psbt\")",
+        "```",
+        "4: Update the PSBT with the splice_update command.",
         "",
-        "RESULT=$(lightning-cli splice_init -- $CHANNEL_ID -100500 $INITIALPSBT)",
-        "PSBT=$(echo $RESULT | jq -r \".psbt\")",
-        "echo $RESULT",
+        "```shell",
+        "PSBT_SPLICE_UPDATE=$(echo $(lightning-cli splice_update $CHANNEL_ID $PSBT_SPLICE_INIT) | jq -r \".psbt\")",
+        "```",
+        "5: Sign the updated PSBT.",
         "",
-        "RESULT=$(lightning-cli splice_update $CHANNEL_ID $PSBT)",
-        "PSBT=$(echo $RESULT | jq -r \".psbt\")",
-        "echo $RESULT",
+        "```shell",
+        "SIGNPSBT=$(echo $(lightning-cli signpsbt -k psbt=\"$PSBT_SPLICE_UPDATE\") | jq -r \".signed_psbt\")",
+        "```",
+        "6: Finally, call splice_signed with channel id and signed PSBT parameters.",
         "",
-        "lightning-cli splice_signed $CHANNEL_ID $PSBT",
+        "```shell",
+        "lightning-cli splice_signed $CHANNEL_ID $SIGNPSBT",
         "```"
       ],
       "author": [
@@ -27962,45 +28147,53 @@
           }
         }
       },
-      "example_usage": [
+      "usage": [
         "In this example we funded the psbt from our lightning node, so we can use the lightning node to sign for its funds.",
         "",
         "```shell",
-        "RESULT=$(lightning-cli signpsbt $PSBT)",
-        "PSBT=$(echo $RESULT | jq -r \".signed_psbt\")",
-        "echo $RESULT",
+        "SIGNPSBT=$(echo $(lightning-cli signpsbt $PSBT_SPLICE_UPDATE) | jq -r \".signed_psbt\")",
         "",
-        "lightning-cli splice_signed $CHANNEL_ID $PSBT",
+        "lightning-cli splice_signed $CHANNEL_ID $SIGNPSBT",
         "```",
         "",
-        "Here is a full example set of splice commands that will splice in 100,000 sats to the first channel that comes out of `listpeerchannels`. The example assumes you already have at least one confirmed channel.",
+        "Here is an example set of splice commands that will splice in 100,000 sats to the first channel that comes out of `listpeerchannels`.",
+        "",
+        "The example assumes you already have at least one confirmed channel.",
+        "",
+        "1: Get the channel id of the first channel.",
         "",
         "```shell",
-        "RESULT=$(lightning-cli listpeerchannels)",
-        "CHANNEL_ID=$(echo $RESULT| jq -r \".channels[0].channel_id\")",
-        "echo $RESULT",
+        "CHANNEL_ID=$(echo $(lightning-cli listpeerchannels) | jq -r \".channels[0].channel_id\")",
+        "```",
+        "2: Get the PSBT from fundpsbt.",
         "",
-        "RESULT=$(lightning-cli fundpsbt -k satoshi=100000sat feerate=urgent startweight=800 excess_as_change=true)",
-        "INITIALPSBT=$(echo $RESULT | jq -r \".psbt\")",
-        "echo $RESULT",
+        "```shell",
+        "INITIALPSBT=$(echo $(lightning-cli fundpsbt -k satoshi=100000sat feerate=urgent startweight=800 excess_as_change=true) | jq -r \".psbt\")",
+        "```",
+        "3: Initiate the splice by passing channel id and initialpsbt received from above steps.",
         "",
-        "RESULT=$(lightning-cli splice_init $CHANNEL_ID 100000 $INITIALPSBT)",
-        "PSBT=$(echo $RESULT | jq -r \".psbt\")",
-        "echo $RESULT",
+        "```shell",
+        "PSBT_SPLICE_INIT=$(echo $(lightning-cli splice_init $CHANNEL_ID 100000 $INITIALPSBT) | jq -r \".psbt\")",
+        "```",
+        "4: Update PSBTs with the splice_update command.",
         "",
+        "```shell",
         "RESULT={\"commitments_secured\":false}",
         "while [[ $(echo $RESULT | jq -r \".commitments_secured\") == \"false\" ]]",
         "do",
-        "  RESULT=$(lightning-cli splice_update $CHANNEL_ID $PSBT)",
-        "  PSBT=$(echo $RESULT | jq -r \".psbt\")",
-        "  echo $RESULT",
+        "  PSBT_SPLICE_UPDATE=$(echo $(lightning-cli splice_update $CHANNEL_ID $PSBT_SPLICE_INIT) | jq -r \".psbt\")",
+        "  echo $PSBT_SPLICE_UPDATE",
         "done",
+        "```",
+        "5: Sign the updated PSBT.",
         "",
-        "RESULT=$(lightning-cli signpsbt -k psbt=\"$PSBT\")",
-        "PSBT=$(echo $RESULT | jq -r \".signed_psbt\")",
-        "echo $RESULT",
+        "```shell",
+        "SIGNPSBT=$(echo $(lightning-cli signpsbt -k psbt=\"$PSBT_SPLICE_UPDATE\") | jq -r \".signed_psbt\")",
+        "```",
+        "6: Finally, call splice_signed with channel id and signed PSBT parameters.",
         "",
-        "lightning-cli splice_signed $CHANNEL_ID $PSBT",
+        "```shell",
+        "lightning-cli splice_signed $CHANNEL_ID $SIGNPSBT",
         "```"
       ],
       "author": [
@@ -28089,7 +28282,7 @@
           }
         }
       },
-      "example_usage": [
+      "usage": [
         "Here is an example way to call `splice_update`",
         "",
         "```shell",
@@ -28104,34 +28297,44 @@
         "",
         "Before each call to `splice_update` you have the opportunity to make additional changes.",
         "",
-        "Here is a full example set of splice commands that will splice in 100,000 sats to the first channel that comes out of `listpeerchannels`. The example assumes you already have at least one confirmed channel.",
+        "Here is an example set of splice commands that will splice in 100,000 sats to the first channel that comes out of `listpeerchannels`.",
+        "",
+        "The example assumes you already have at least one confirmed channel.",
+        "",
+        "1: Get the channel id of the first channel.",
         "",
         "```shell",
-        "RESULT=$(lightning-cli listpeerchannels)",
-        "CHANNEL_ID=$(echo $RESULT| jq -r \".channels[0].channel_id\")",
-        "echo $RESULT",
+        "CHANNEL_ID=$(echo $(lightning-cli listpeerchannels) | jq -r \".channels[0].channel_id\")",
+        "```",
+        "2: Get the PSBT from fundpsbt.",
         "",
-        "RESULT=$(lightning-cli fundpsbt -k satoshi=100000sat feerate=urgent startweight=800 excess_as_change=true)",
-        "INITIALPSBT=$(echo $RESULT | jq -r \".psbt\")",
-        "echo $RESULT",
+        "```shell",
+        "INITIALPSBT=$(echo $(lightning-cli fundpsbt -k satoshi=100000sat feerate=urgent startweight=800 excess_as_change=true) | jq -r \".psbt\")",
+        "```",
+        "3: Initiate the splice by passing channel id and initialpsbt received from above steps.",
         "",
-        "RESULT=$(lightning-cli splice_init $CHANNEL_ID 100000 $INITIALPSBT)",
-        "PSBT=$(echo $RESULT | jq -r \".psbt\")",
-        "echo $RESULT",
+        "```shell",
+        "PSBT_SPLICE_INIT=$(echo $(lightning-cli splice_init $CHANNEL_ID 100000 $INITIALPSBT) | jq -r \".psbt\")",
+        "```",
+        "4: Update PSBTs with the splice_update command.",
         "",
+        "```shell",
         "RESULT={\"commitments_secured\":false}",
         "while [[ $(echo $RESULT | jq -r \".commitments_secured\") == \"false\" ]]",
         "do",
-        "  RESULT=$(lightning-cli splice_update $CHANNEL_ID $PSBT)",
-        "  PSBT=$(echo $RESULT | jq -r \".psbt\")",
-        "  echo $RESULT",
+        "  PSBT_SPLICE_UPDATE=$(echo $(lightning-cli splice_update $CHANNEL_ID $PSBT_SPLICE_INIT) | jq -r \".psbt\")",
+        "  echo $PSBT_SPLICE_UPDATE",
         "done",
+        "```",
+        "5: Sign the updated PSBT.",
         "",
-        "RESULT=$(lightning-cli signpsbt -k psbt=\"$PSBT\")",
-        "PSBT=$(echo $RESULT | jq -r \".signed_psbt\")",
-        "echo $RESULT",
+        "```shell",
+        "SIGNPSBT=$(echo $(lightning-cli signpsbt -k psbt=\"$PSBT_SPLICE_UPDATE\") | jq -r \".signed_psbt\")",
+        "```",
+        "6: Finally, call splice_signed with channel id and signed PSBT parameters.",
         "",
-        "lightning-cli splice_signed $CHANNEL_ID $PSBT",
+        "```shell",
+        "lightning-cli splice_signed $CHANNEL_ID $SIGNPSBT",
         "```"
       ],
       "author": [
@@ -28173,7 +28376,9 @@
         "",
         "When tables are accessed, it calls the below commands, so it's no faster than any other local access (though it goes to great length to cache `listnodes` and `listchannels`) which then processes the results.",
         "",
-        "It is, however faster for remote access if the result of the query is much smaller than the list commands would be."
+        "It is, however faster for remote access if the result of the query is much smaller than the list commands would be.",
+        "",
+        "Note that you may need to use `-o` if you use queries which contain `=` (which make lightning-cli(1) default to keyword style)"
       ],
       "request": {
         "required": [
@@ -28269,100 +28474,6 @@
       "errors": [
         "On failure, an error is returned."
       ],
-      "example_usage": [
-        "Here are some example using lightning-cli. Note that you may need to use `-o` if you use queries which contain `=` (which make lightning-cli(1) default to keyword style):",
-        "",
-        "A simple peer selection query:",
-        "",
-        "```shell",
-        "$ lightning-cli sql \"SELECT id FROM peers\"",
-        "{",
-        "   \"rows\": [",
-        "      [",
-        "         \"02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00\"",
-        "      ]",
-        "   ]",
-        "}",
-        "```",
-        "",
-        "A statement containing using `=` needs `-o`:",
-        "",
-        "```shell",
-        "$ lightning-cli sql -o \"SELECT node_id,last_timestamp FROM nodes WHERE last_timestamp>=1669578892\"",
-        "{",
-        "   \"rows\": [",
-        "      [",
-        "         \"02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00\",",
-        "         1669601603",
-        "      ]",
-        "   ]",
-        "}",
-        "```",
-        "",
-        "If you want to compare a BLOB column, `x'hex'` or `X'hex'` are needed:",
-        "",
-        "```shell",
-        "$ lightning-cli sql -o \"SELECT nodeid FROM nodes WHERE nodeid != x'03c9d25b6c0ce4bde5ad97d7ab83f00ae8bd3800a98ccbee36f3c3205315147de1';\"",
-        "{",
-        "   \"rows\": [",
-        "      [",
-        "         \"0214739d625944f8fdc0da9d2ef44dbd7af58443685e494117b51410c5c3ff973a\"",
-        "      ],",
-        "      [",
-        "         \"02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00\"",
-        "      ]",
-        "   ]",
-        "}",
-        "$ lightning-cli sql -o \"SELECT nodeid FROM nodes WHERE nodeid IN (x'03c9d25b6c0ce4bde5ad97d7ab83f00ae8bd3800a98ccbee36f3c3205315147de1', x'02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00')\"",
-        "{",
-        "   \"rows\": [",
-        "      [",
-        "         \"02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00\"",
-        "      ],",
-        "      [",
-        "         \"03c9d25b6c0ce4bde5ad97d7ab83f00ae8bd3800a98ccbee36f3c3205315147de1\"",
-        "      ]",
-        "   ]",
-        "}",
-        "```",
-        "",
-        "Related tables are usually referenced by JOIN:",
-        "",
-        "```shell",
-        "$ lightning-cli sql -o \"SELECT nodeid, alias, nodes_addresses.type, nodes_addresses.port, nodes_addresses.address FROM nodes INNER JOIN nodes_addresses ON nodes_addresses.row = nodes.rowid\"",
-        "{",
-        "   \"rows\": [",
-        "      [",
-        "         \"02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00\",",
-        "         \"YELLOWWATCH-22.11rc2-31-gcd7593b\",",
-        "         \"dns\",",
-        "         7272,",
-        "         \"localhost\"",
-        "      ],",
-        "      [",
-        "         \"0214739d625944f8fdc0da9d2ef44dbd7af58443685e494117b51410c5c3ff973a\",",
-        "         \"HOPPINGSQUIRREL-1rc2-31-gcd7593b\",",
-        "         \"dns\",",
-        "         7171,",
-        "         \"localhost\"",
-        "      ]",
-        "   ]",
-        "}",
-        "```",
-        "",
-        "Simple function usage, in this case COUNT. Strings inside arrays need \", and ' to protect them from the shell:",
-        "",
-        "```shell",
-        "$ lightning-cli sql 'SELECT COUNT(*) FROM nodes\"",
-        "{",
-        "   \"rows\": [",
-        "      [",
-        "         3",
-        "      ]",
-        "   ]",
-        "}",
-        "```"
-      ],
       "author": [
         "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
       ],
@@ -28378,8 +28489,139 @@
       ],
       "examples": [
         {
+          "description": [
+            "A simple peer selection query:"
+          ],
           "request": {
             "id": "example:sql#1",
+            "method": "sql",
+            "params": [
+              "SELECT id FROM peers"
+            ]
+          },
+          "response": {
+            "rows": [
+              [
+                "02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00"
+              ]
+            ]
+          }
+        },
+        {
+          "description": [
+            "A statement containing using `=` needs `-o`:"
+          ],
+          "request": {
+            "id": "example:sql#2",
+            "method": "sql",
+            "params": [
+              " -o 'SELECT node_id,last_timestamp FROM nodes WHERE last_timestamp>=1669578892'"
+            ]
+          },
+          "response": {
+            "rows": [
+              [
+                "02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da001669601603"
+              ]
+            ]
+          }
+        },
+        {
+          "description": [
+            "If you want to get specific nodeid values from the nodes table:"
+          ],
+          "request": {
+            "id": "example:sql#3",
+            "method": "sql",
+            "params": [
+              " -o 'SELECT nodeid FROM nodes WHERE nodeid != x'03c9d25b6c0ce4bde5ad97d7ab83f00ae8bd3800a98ccbee36f3c3205315147de1''"
+            ]
+          },
+          "response": {
+            "rows": [
+              [
+                "0214739d625944f8fdc0da9d2ef44dbd7af58443685e494117b51410c5c3ff973a"
+              ],
+              [
+                "02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00"
+              ]
+            ]
+          }
+        },
+        {
+          "description": [
+            "If you want to compare a BLOB column, `x'hex'` or `X'hex'` are needed:"
+          ],
+          "request": {
+            "id": "example:sql#4",
+            "method": "sql",
+            "params": [
+              " -o 'SELECT nodeid FROM nodes WHERE nodeid IN (x'03c9d25b6c0ce4bde5ad97d7ab83f00ae8bd3800a98ccbee36f3c3205315147de1', x'02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00')'"
+            ]
+          },
+          "response": {
+            "rows": [
+              [
+                "02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00"
+              ],
+              [
+                "03c9d25b6c0ce4bde5ad97d7ab83f00ae8bd3800a98ccbee36f3c3205315147de1"
+              ]
+            ]
+          }
+        },
+        {
+          "description": [
+            "Related tables are usually referenced by JOIN:"
+          ],
+          "request": {
+            "id": "example:sql#5",
+            "method": "sql",
+            "params": [
+              " -o 'SELECT nodeid, alias, nodes_addresses.type, nodes_addresses.port, nodes_addresses.address FROM nodes INNER JOIN nodes_addresses ON nodes_addresses.row = nodes.rowid'"
+            ]
+          },
+          "response": {
+            "rows": [
+              [
+                "02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00",
+                "YELLOWWATCH-22.11rc2-31-gcd7593b",
+                "dns",
+                "7272",
+                "localhost"
+              ],
+              [
+                "0214739d625944f8fdc0da9d2ef44dbd7af58443685e494117b51410c5c3ff973a",
+                "HOPPINGSQUIRREL-1rc2-31-gcd7593b",
+                "dns",
+                "7171",
+                "localhost"
+              ]
+            ]
+          }
+        },
+        {
+          "description": [
+            "Simple function usage, in this case COUNT. Strings inside arrays need \", and ' to protect them from the shell:"
+          ],
+          "request": {
+            "id": "example:sql#6",
+            "method": "sql",
+            "params": [
+              "SELECT COUNT(*) FROM nodes"
+            ]
+          },
+          "response": {
+            "rows": [
+              [
+                "3"
+              ]
+            ]
+          }
+        },
+        {
+          "request": {
+            "id": "example:sql#7",
             "method": "sql",
             "params": [
               "SELECT * FROM forwards;"
@@ -28391,7 +28633,7 @@
         },
         {
           "request": {
-            "id": "example:sql#2",
+            "id": "example:sql#8",
             "method": "sql",
             "params": [
               "SELECT * from peerchannels_features"
@@ -29041,7 +29283,7 @@
           }
         }
       },
-      "example_usage": [
+      "usage": [
         "The caller is trying to buy a liquidity ad but the command keeps failing. They have funds in their wallet, but they're all P2SH-wrapped outputs.",
         "",
         "The caller can call `upgradewallet` to convert their funds to native segwit outputs, which are valid for liquidity ad buys."
@@ -29633,14 +29875,21 @@
         "Indices only monotoncally increase."
       ],
       "usage": [
-        "The **wait** RPC is used to track changes in the system. Consider tracking invoices being paid or expiring. The simplest (and inefficient method) would be:",
-        "1. Call `listinvoices` to get the current state of all invoices, and remember the highest `updated_index`. Say it was 5.",
-        "2. Call `wait invoices updated 6`.",
-        "3. When it returns, call `listinvoices` again to see what changed.",
+        "The **wait** RPC is used to track changes in the system. Consider tracking invoices being paid or expiring.",
+        "",
+        "The simplest (and inefficient method) would be:",
+        "",
+        "1: Call `listinvoices` to get the current state of all invoices, and remember the highest `updated_index`. Say it was 5.",
+        "",
+        "2: Call `wait invoices updated 6`.",
+        "",
+        "3: When it returns, call `listinvoices` again to see what changed.",
         "",
         "This is obviously inefficient, so there are two optimizations:",
-        "1. Call `listinvoices` with `index=updated` and `start=6` to only see invoices with `updated_index` greater than or equal to 6.",
-        "2. `wait` itself may also return some limited subset of fields from the list command (it can't do this in all cases); for `invoices` this is `label` and `status`, allowing many callers to avoid the `listinvoices` call."
+        "",
+        "1: Call `listinvoices` with `index=updated` and `start=6` to only see invoices with `updated_index` greater than or equal to 6.",
+        "",
+        "2: `wait` itself may also return some limited subset of fields from the list command (it can't do this in all cases); for `invoices` this is `label` and `status`, allowing many callers to avoid the `listinvoices` call."
       ],
       "errors": [
         "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
