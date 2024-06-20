@@ -40,6 +40,9 @@ struct subsystem_ops {
 	/* Name of array inside "list" command return */
 	const char *arr_name;
 
+	/* Filter to use to restrict list to only necessary fields. */
+	const char *list_filter;
+
 	/* name of "del" command */
 	const char *del_command;
 
@@ -88,6 +91,7 @@ static const struct subsystem_ops subsystem_ops[NUM_SUBSYSTEM_TYPES] = {
 	{ {"succeededforwards", "failedforwards"},
 	  "listforwards",
 	  "forwards",
+	  "\"in_channel\":true,\"in_htlc_id\":true,\"resolved_time\":true,\"received_time\":true,\"status\":true",
 	  "delforward",
 	  get_listforwards_variant,
 	  add_forward_del_fields,
@@ -95,6 +99,7 @@ static const struct subsystem_ops subsystem_ops[NUM_SUBSYSTEM_TYPES] = {
 	{ {"succeededpays", "failedpays"},
 	  "listsendpays",
 	  "payments",
+	  "\"created_at\":true,\"status\":true,\"payment_hash\":true,\"groupid\":true,\"partid\":true",
 	  "delpay",
 	  get_listsendpays_variant,
 	  add_sendpays_del_fields,
@@ -102,6 +107,7 @@ static const struct subsystem_ops subsystem_ops[NUM_SUBSYSTEM_TYPES] = {
 	{ {"paidinvoices", "expiredinvoices"},
 	  "listinvoices",
 	  "invoices",
+	  "\"label\":true,\"status\":true,\"expires_at\":true,\"paid_at\":true",
 	  "delinvoice",
 	  get_listinvoices_variant,
 	  add_invoice_del_fields,
@@ -523,6 +529,8 @@ static struct command_result *do_clean(struct clean_info *cinfo)
 		struct per_subsystem *ps = &cinfo->per_subsystem[i];
 		struct out_req *req;
 		bool have_variant = false;
+		const char *filter;
+		const struct subsystem_ops *ops = get_subsystem_ops(ps);
 
 		ps->num_uncleaned = 0;
 		for (size_t j = 0; j < NUM_SUBSYSTEM_VARIANTS; j++) {
@@ -535,10 +543,13 @@ static struct command_result *do_clean(struct clean_info *cinfo)
 		if (!have_variant)
 			continue;
 
-		req = jsonrpc_request_start(plugin, NULL,
-					    get_subsystem_ops(ps)->list_command,
-					    list_done, list_failed,
-					    ps);
+		filter = tal_fmt(tmpctx, "{\"%s\":[{%s}]}",
+				 ops->arr_name, ops->list_filter);
+		req = jsonrpc_request_with_filter_start(plugin, NULL,
+							ops->list_command,
+							filter,
+							list_done, list_failed,
+							ps);
 		send_outreq(plugin, req);
 		cinfo->cleanup_reqs_remaining++;
 	}
