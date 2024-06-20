@@ -8,7 +8,7 @@ import re
 
 # To maintain the sequence of the before return value (body) and after return value (footer) sections in the markdown file
 BODY_KEY_SEQUENCE = ['reliability', 'usage', 'restriction_format', 'permitted_sqlite3_functions', 'treatment_of_types', 'tables', 'example_usage', 'notes', 'notifications', 'sharing_runes', 'riskfactor_effect_on_routing', 'recommended_riskfactor_values', 'optimality', 'randomization']
-FOOTER_KEY_SEQUENCE = ['errors', 'trivia', 'author', 'see_also', 'resources', 'examples']
+FOOTER_KEY_SEQUENCE = ['errors', 'trivia', 'author', 'see_also', 'resources', 'example_notifications', 'examples']
 
 
 def output_title(title, underline='-', num_leading_newlines=1, num_trailing_newlines=2):
@@ -487,6 +487,13 @@ def generate_footer(schema):
             output_title(key.replace('_', ' ').upper(), '-', 1)
             # Wrap see_also list with comma separated values
             output(esc_underscores(', '.join(schema[key])))
+        elif key == 'example_notifications' and len(schema[key]) > 0:
+            output_title(key.replace('_', ' ').upper(), '-', 1)
+            for i, notification in enumerate(schema.get(key, [])):
+                output('{}**Notification {}**: {}\n'.format('' if i == 0 else '\n\n', i + 1, '\n'.join(notification.get('description', ''))))
+                output('```json\n')
+                output(json.dumps(notification, indent=2).strip() + '\n')
+                output('```')
         elif key == 'examples' and len(schema[key]) > 0:
             create_expandable('EXAMPLES', schema['rpc'], schema.get('examples', []))
         else:

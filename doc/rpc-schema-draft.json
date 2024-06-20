@@ -499,7 +499,7 @@
                 "type": "string"
             }
         },
-        "example_json_notifications": {
+        "example_notifications": {
             "type": "array",
             "items": {
                 "method": {
