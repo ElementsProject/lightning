@@ -8,61 +8,193 @@
 #include <common/memleak.h>
 #include <plugins/libplugin.h>
 
-enum subsystem {
-	SUCCEEDEDFORWARDS,
-	FAILEDFORWARDS,
-	SUCCEEDEDPAYS,
-	FAILEDPAYS,
-	PAIDINVOICES,
-	EXPIREDINVOICES,
-#define NUM_SUBSYSTEM (EXPIREDINVOICES + 1)
+static u64 cycle_seconds = 3600;
+static struct clean_info *timer_cinfo;
+static struct plugin *plugin;
+/* This is NULL if it's running now. */
+static struct plugin_timer *cleantimer;
+
+enum subsystem_type {
+	FORWARDS,
+	PAYS,
+	INVOICES,
+#define NUM_SUBSYSTEM_TYPES (INVOICES + 1)
 };
 
-static const char *subsystem_str[] = {
-	"succeededforwards",
-	"failedforwards",
-	"succeededpays",
-	"failedpays",
-	"paidinvoices",
-	"expiredinvoices",
+enum subsystem_variant {
+	SUCCESS,
+	FAILURE
+#define NUM_SUBSYSTEM_VARIANTS (FAILURE + 1)
 };
 
-static const char *subsystem_to_str(enum subsystem subsystem)
+struct per_subsystem;
+
+/* About each subsystem.  Each one has two variants. */
+struct subsystem_ops {
+	/* "success" and "failure" names for JSON formatting. */
+	const char *names[NUM_SUBSYSTEM_VARIANTS];
+
+	/* name of "list" command */
+	const char *list_command;
+
+	/* Name of array inside "list" command return */
+	const char *arr_name;
+
+	/* name of "del" command */
+	const char *del_command;
+
+	/* Figure out if this is a "success" or "failure" JSON entry,
+	 * or neither.  Also grab timestamp */
+	struct per_variant *(*get_variant)(const char *buf,
+					   const jsmntok_t *t,
+					   struct per_subsystem *subsystem,
+					   u64 *timestamp);
+
+	/* Add fields to delete this record */
+	void (*add_del_fields)(struct out_req *req,
+			       const char *buf,
+			       const jsmntok_t *t);
+};
+
+struct subsystem_and_variant {
+	enum subsystem_type type;
+	enum subsystem_variant variant;
+};
+
+/* Forward declarations so we can put them in the table */
+static struct per_variant *get_listinvoices_variant(const char *buf,
+						    const jsmntok_t *t,
+						    struct per_subsystem *subsystem,
+						    u64 *timestamp);
+static struct per_variant *get_listsendpays_variant(const char *buf,
+						    const jsmntok_t *t,
+						    struct per_subsystem *subsystem,
+						    u64 *timestamp);
+static struct per_variant *get_listforwards_variant(const char *buf,
+						    const jsmntok_t *t,
+						    struct per_subsystem *subsystem,
+						    u64 *timestamp);
+static void add_invoice_del_fields(struct out_req *req,
+				   const char *buf,
+				   const jsmntok_t *t);
+static void add_sendpays_del_fields(struct out_req *req,
+				    const char *buf,
+				    const jsmntok_t *t);
+static void add_forward_del_fields(struct out_req *req,
+				   const char *buf,
+				   const jsmntok_t *t);
+
+static const struct subsystem_ops subsystem_ops[NUM_SUBSYSTEM_TYPES] = {
+	{ {"succeededforwards", "failedforwards"},
+	  "listforwards",
+	  "forwards",
+	  "delforward",
+	  get_listforwards_variant,
+	  add_forward_del_fields,
+	},
+	{ {"succeededpays", "failedpays"},
+	  "listsendpays",
+	  "payments",
+	  "delpay",
+	  get_listsendpays_variant,
+	  add_sendpays_del_fields,
+	},
+	{ {"paidinvoices", "expiredinvoices"},
+	  "listinvoices",
+	  "invoices",
+	  "delinvoice",
+	  get_listinvoices_variant,
+	  add_invoice_del_fields,
+	},
+};
+
+static const char *subsystem_to_str(const struct subsystem_and_variant *sv)
 {
-	assert(subsystem >= 0 && subsystem < NUM_SUBSYSTEM);
-	return subsystem_str[subsystem];
+	assert(sv->type >= 0 && sv->type < NUM_SUBSYSTEM_TYPES);
+	assert(sv->variant >= 0 && sv->variant < NUM_SUBSYSTEM_VARIANTS);
+	return subsystem_ops[sv->type].names[sv->variant];
+}
+
+/* Iterator helpers */
+static struct subsystem_and_variant first_sv(void)
+{
+	struct subsystem_and_variant sv;
+	sv.type = 0;
+	sv.variant = 0;
+	return sv;
+}
+
+static bool next_sv(struct subsystem_and_variant *sv)
+{
+	if (sv->variant == NUM_SUBSYSTEM_VARIANTS - 1) {
+		sv->variant = 0;
+		if (sv->type == NUM_SUBSYSTEM_TYPES - 1)
+			return false;
+		sv->type++;
+		return true;
+	}
+	sv->variant++;
+	return true;
 }
 
 static bool json_to_subsystem(const char *buffer, const jsmntok_t *tok,
-			      enum subsystem *subsystem)
+			      struct subsystem_and_variant *sv)
 {
-	for (size_t i = 0; i < NUM_SUBSYSTEM; i++) {
+	*sv = first_sv();
+	do {
 		if (memeqstr(buffer + tok->start, tok->end - tok->start,
-			     subsystem_str[i])) {
-			*subsystem = i;
+			     subsystem_to_str(sv))) {
 			return true;
 		}
-	}
+	} while (next_sv(sv));
 	return false;
 }
+
+struct per_variant {
+	/* Who are we?  Back pointer, so we can just pass this around */
+	struct per_subsystem *per_subsystem;
+	enum subsystem_variant variant;
+
+	u64 age;
+	u64 num_cleaned;
+};
+
+struct per_subsystem {
+	/* Who are we?  Back pointer, so we can just pass this around */
+	struct clean_info *cinfo;
+	enum subsystem_type type;
+
+	u64 num_uncleaned;
+	struct per_variant variants[NUM_SUBSYSTEM_VARIANTS];
+};
 
 /* Usually this refers to the global one, but for autoclean-once
  * it's a temporary. */
 struct clean_info {
 	struct command *cmd;
 	size_t cleanup_reqs_remaining;
-	u64 subsystem_age[NUM_SUBSYSTEM];
-	u64 num_cleaned[NUM_SUBSYSTEM];
-	u64 num_uncleaned;
+
+	struct per_subsystem per_subsystem[NUM_SUBSYSTEM_TYPES];
 };
 
-static u64 cycle_seconds = 3600;
-static struct clean_info *timer_cinfo;
-static u64 total_cleaned[NUM_SUBSYSTEM];
-static struct plugin *plugin;
-/* This is NULL if it's running now. */
-static struct plugin_timer *cleantimer;
+static struct per_subsystem *get_per_subsystem(struct clean_info *cinfo,
+					       const struct subsystem_and_variant *sv)
+{
+	return &cinfo->per_subsystem[sv->type];
+}
 
+static struct per_variant *get_per_variant(struct clean_info *cinfo,
+					   const struct subsystem_and_variant *sv)
+{
+	return &get_per_subsystem(cinfo, sv)->variants[sv->variant];
+}
+
+static const struct subsystem_ops *get_subsystem_ops(const struct per_subsystem *ps)
+{
+	return &subsystem_ops[ps->type];
+}
+
+/* Mutual recursion */
 static void do_clean_timer(void *unused);
 
 static struct clean_info *new_clean_info(const tal_t *ctx,
@@ -71,63 +203,75 @@ static struct clean_info *new_clean_info(const tal_t *ctx,
 	struct clean_info *cinfo = tal(ctx, struct clean_info);
 	cinfo->cmd = cmd;
 	cinfo->cleanup_reqs_remaining = 0;
-	cinfo->num_uncleaned = 0;
 
-	for (enum subsystem i = 0; i < NUM_SUBSYSTEM; i++) {
-		cinfo->subsystem_age[i] = 0;
-		cinfo->num_cleaned[i] = 0;
+	for (enum subsystem_type i = 0; i < NUM_SUBSYSTEM_TYPES; i++) {
+		struct per_subsystem *ps = &cinfo->per_subsystem[i];
+		ps->cinfo = cinfo;
+		ps->type = i;
+		ps->num_uncleaned = 0;
+
+		for (enum subsystem_variant j = 0; j < NUM_SUBSYSTEM_VARIANTS; j++) {
+			struct per_variant *pv = &ps->variants[j];
+			pv->per_subsystem = ps;
+			pv->variant = j;
+
+			pv->age = 0;
+		}
 	}
 	return cinfo;
 }
 
-/* Fatal failures */
-static struct command_result *cmd_failed(struct command *cmd,
-					 const char *buf,
-					 const jsmntok_t *result,
-					 const char *cmdname)
+static u64 *total_cleaned(const struct subsystem_and_variant *sv)
 {
-	plugin_err(plugin, "Failed '%s': '%.*s'", cmdname,
-		   json_tok_full_len(result),
-		   json_tok_full(buf, result));
+	static u64 totals[NUM_SUBSYSTEM_TYPES][NUM_SUBSYSTEM_VARIANTS];
+
+	return &totals[sv->type][sv->variant];
 }
 
 static const char *datastore_path(const tal_t *ctx,
-				  enum subsystem subsystem,
+				  const struct subsystem_and_variant *sv,
 				  const char *field)
 {
 	return tal_fmt(ctx, "autoclean/%s/%s",
-		       subsystem_to_str(subsystem), field);
+		       subsystem_to_str(sv), field);
 }
 
 static struct command_result *clean_finished(struct clean_info *cinfo)
 {
-	for (enum subsystem i = 0; i < NUM_SUBSYSTEM; i++) {
-		if (!cinfo->num_cleaned[i])
+	struct subsystem_and_variant sv = first_sv();
+	do {
+		size_t num_cleaned = get_per_variant(cinfo, &sv)->num_cleaned;
+
+		if (!num_cleaned)
 			continue;
 
 		plugin_log(plugin, LOG_DBG, "cleaned %"PRIu64" from %s",
-			   cinfo->num_cleaned[i], subsystem_to_str(i));
-		total_cleaned[i] += cinfo->num_cleaned[i];
+			   num_cleaned, subsystem_to_str(&sv));
+		*total_cleaned(&sv) += num_cleaned;
 		jsonrpc_set_datastore_string(plugin, cinfo->cmd,
-					     datastore_path(tmpctx, i, "num"),
-					     tal_fmt(tmpctx, "%"PRIu64, total_cleaned[i]),
+					     datastore_path(tmpctx, &sv, "num"),
+					     tal_fmt(tmpctx, "%"PRIu64,
+						     *total_cleaned(&sv)),
 					     "create-or-replace", NULL, NULL, NULL);
-
-	}
+	} while (next_sv(&sv));
 
 	/* autoclean-once? */
 	if (cinfo->cmd) {
 		struct json_stream *response = jsonrpc_stream_success(cinfo->cmd);
 
 		json_object_start(response, "autoclean");
-		for (enum subsystem i = 0; i < NUM_SUBSYSTEM; i++) {
-			if (cinfo->subsystem_age[i] == 0)
+
+		sv = first_sv();
+		do {
+			const struct per_variant *pv = get_per_variant(cinfo, &sv);
+			if (pv->age == 0)
 				continue;
-			json_object_start(response, subsystem_to_str(i));
-			json_add_u64(response, "cleaned", cinfo->num_cleaned[i]);
-			json_add_u64(response, "uncleaned", cinfo->num_uncleaned);
+			json_object_start(response, subsystem_to_str(&sv));
+			json_add_u64(response, "cleaned", pv->num_cleaned);
+			json_add_u64(response, "uncleaned",
+				     get_per_subsystem(cinfo, &sv)->num_uncleaned);
 			json_object_end(response);
-		}
+		} while (next_sv(&sv));
 		json_object_end(response);
 		return command_finished(cinfo->cmd, response);
 	} else { /* timer */
@@ -147,300 +291,254 @@ static struct command_result *clean_finished_one(struct clean_info *cinfo)
 	return clean_finished(cinfo);
 }
 
-struct del_data {
-	enum subsystem subsystem;
-	struct clean_info *cinfo;
-};
-
 static struct command_result *del_done(struct command *cmd,
 				       const char *buf,
 				       const jsmntok_t *result,
-				       struct del_data *del_data)
+				       struct per_variant *variant)
 {
-	struct clean_info *cinfo = del_data->cinfo;
-
-	cinfo->num_cleaned[del_data->subsystem]++;
-	tal_free(del_data);
-	return clean_finished_one(cinfo);
+	variant->num_cleaned++;
+	return clean_finished_one(variant->per_subsystem->cinfo);
 }
 
 static struct command_result *del_failed(struct command *cmd,
 					 const char *buf,
 					 const jsmntok_t *result,
-					 struct del_data *del_data)
+					 struct per_variant *variant)
 {
-	struct clean_info *cinfo = del_data->cinfo;
+	struct subsystem_and_variant sv;
+	sv.variant = variant->variant;
+	sv.type = variant->per_subsystem->type;
 
 	plugin_log(plugin, LOG_UNUSUAL, "%s del failed: %.*s",
-		   subsystem_to_str(del_data->subsystem),
+		   subsystem_to_str(&sv),
 		   json_tok_full_len(result),
 		   json_tok_full(buf, result));
-	tal_free(del_data);
-	return clean_finished_one(cinfo);
+	return clean_finished_one(variant->per_subsystem->cinfo);
 }
 
-static struct out_req *del_request_start(const char *method,
-					 struct clean_info *cinfo,
-					 enum subsystem subsystem)
+static struct per_variant *get_listinvoices_variant(const char *buf,
+						    const jsmntok_t *t,
+						    struct per_subsystem *subsystem,
+						    u64 *timestamp)
 {
-	struct del_data *del_data = tal(plugin, struct del_data);
+	struct per_variant *variant;
+	const jsmntok_t *time, *status = json_get_member(buf, t, "status");
 
-	del_data->cinfo = cinfo;
-	del_data->subsystem = subsystem;
-	cinfo->cleanup_reqs_remaining++;
-	return jsonrpc_request_start(plugin, NULL, method,
-				     del_done, del_failed, del_data);
+	if (json_tok_streq(buf, status, "expired")) {
+		variant = &subsystem->variants[FAILURE];
+		time = json_get_member(buf, t, "expires_at");
+	} else if (json_tok_streq(buf, status, "paid")) {
+		variant = &subsystem->variants[SUCCESS];
+		time = json_get_member(buf, t, "paid_at");
+	} else {
+		return NULL;
+	}
+
+	if (!json_to_u64(buf, time, timestamp)) {
+		plugin_err(plugin, "Bad invoice time '%.*s'",
+			   json_tok_full_len(time),
+			   json_tok_full(buf, time));
+	}
+	return variant;
 }
 
-static struct command_result *listinvoices_done(struct command *cmd,
-						const char *buf,
-						const jsmntok_t *result,
-						struct clean_info *cinfo)
+static struct per_variant *get_listsendpays_variant(const char *buf,
+						    const jsmntok_t *t,
+						    struct per_subsystem *subsystem,
+						    u64 *timestamp)
 {
-	const jsmntok_t *t, *inv = json_get_member(buf, result, "invoices");
+	struct per_variant *variant;
+	const jsmntok_t *time, *status = json_get_member(buf, t, "status");
+
+	if (json_tok_streq(buf, status, "failed")) {
+		variant = &subsystem->variants[FAILURE];
+	} else if (json_tok_streq(buf, status, "complete")) {
+		variant = &subsystem->variants[SUCCESS];
+	} else {
+		return NULL;
+	}
+
+	time = json_get_member(buf, t, "created_at");
+	if (!json_to_u64(buf, time, timestamp)) {
+		plugin_err(plugin, "Bad created_at '%.*s'",
+			   json_tok_full_len(time),
+			   json_tok_full(buf, time));
+	}
+	return variant;
+}
+
+static struct per_variant *get_listforwards_variant(const char *buf,
+						    const jsmntok_t *t,
+						    struct per_subsystem *subsystem,
+						    u64 *timestamp)
+{
+	struct per_variant *variant;
+	const jsmntok_t *status = json_get_member(buf, t, "status");
+	const char *timefield;
+	jsmntok_t time;
+
+	if (json_tok_streq(buf, status, "settled")) {
+		timefield = "resolved_time";
+		variant = &subsystem->variants[SUCCESS];
+	} else if (json_tok_streq(buf, status, "failed")
+		   || json_tok_streq(buf, status, "local_failed")) {
+		variant = &subsystem->variants[FAILURE];
+		/* There's no resolved_time for these, so use received */
+		timefield = "received_time";
+	} else {
+		return NULL;
+	}
+
+	/* Check if we have a resolved_time, before making a decision
+	 * on it. This is possible in older nodes that predate our
+	 * annotations for forwards.*/
+	if (json_get_member(buf, t, timefield) == NULL)
+		return NULL;
+
+	time = *json_get_member(buf, t, timefield);
+	/* This is a float, so truncate at '.' */
+	for (int off = time.start; off < time.end; off++) {
+		if (buf[off] == '.')
+			time.end = off;
+	}
+
+	if (!json_to_u64(buf, &time, timestamp)) {
+		plugin_err(plugin, "Bad listforwards time '%.*s'",
+			   json_tok_full_len(&time),
+			   json_tok_full(buf, &time));
+	}
+	return variant;
+}
+
+static void add_invoice_del_fields(struct out_req *req,
+				   const char *buf,
+				   const jsmntok_t *t)
+{
+	const jsmntok_t *label = json_get_member(buf, t, "label");
+	const jsmntok_t *status = json_get_member(buf, t, "status");
+
+	json_add_tok(req->js, "label", label, buf);
+	json_add_tok(req->js, "status", status, buf);
+}
+
+static void add_sendpays_del_fields(struct out_req *req,
+				    const char *buf,
+				    const jsmntok_t *t)
+{
+	const jsmntok_t *phash = json_get_member(buf, t, "payment_hash");
+	const jsmntok_t *groupid = json_get_member(buf, t, "groupid");
+	const jsmntok_t *partidtok = json_get_member(buf, t, "partid");
+	const jsmntok_t *status = json_get_member(buf, t, "status");
+	u64 partid;
+
+	if (partidtok)
+		json_to_u64(buf, partidtok, &partid);
+	else
+		partid = 0;
+
+	json_add_tok(req->js, "payment_hash", phash, buf);
+	json_add_tok(req->js, "status", status, buf);
+	json_add_tok(req->js, "groupid", groupid, buf);
+	json_add_u64(req->js, "partid", partid);
+}
+
+static void add_forward_del_fields(struct out_req *req,
+				   const char *buf,
+				   const jsmntok_t *t)
+{
+	const jsmntok_t *status = json_get_member(buf, t, "status");
+	const jsmntok_t *inchan = json_get_member(buf, t, "in_channel");
+	const jsmntok_t *inid = json_get_member(buf, t, "in_htlc_id");
+
+	json_add_tok(req->js, "in_channel", inchan, buf);
+	/* This can be missing if it was a forwards record from an old
+	 * closed channel in version <= 0.12.1.  This is a special value
+	 * but we will delete them *all*, resulting in some failures! */
+#ifdef COMPAT_V0121
+	if (!inid)
+		json_add_u64(req->js, "in_htlc_id", -1ULL);
+	else
+#endif
+		json_add_tok(req->js, "in_htlc_id", inid, buf);
+	json_add_tok(req->js, "status", status, buf);
+}
+
+static struct command_result *list_done(struct command *cmd,
+					const char *buf,
+					const jsmntok_t *result,
+					struct per_subsystem *subsystem)
+{
+	const struct subsystem_ops *ops = get_subsystem_ops(subsystem);
+	const jsmntok_t *t, *inv = json_get_member(buf, result, ops->arr_name);
 	size_t i;
 	u64 now = time_now().ts.tv_sec;
 
 	json_for_each_arr(i, t, inv) {
-		const jsmntok_t *status = json_get_member(buf, t, "status");
-		const jsmntok_t *time;
-		enum subsystem subsys;
-		u64 invtime;
+		struct per_variant *variant;
+		u64 timestamp;
+		struct out_req *req;
 
-		if (json_tok_streq(buf, status, "expired")) {
-			subsys = EXPIREDINVOICES;
-			time = json_get_member(buf, t, "expires_at");
-		} else if (json_tok_streq(buf, status, "paid")) {
-			subsys = PAIDINVOICES;
-			time = json_get_member(buf, t, "paid_at");
-		} else {
-			cinfo->num_uncleaned++;
+		variant = ops->get_variant(buf, t, subsystem, &timestamp);
+		if (!variant) {
+			subsystem->num_uncleaned++;
 			continue;
 		}
 
 		/* Continue if we don't care. */
-		if (cinfo->subsystem_age[subsys] == 0) {
-			cinfo->num_uncleaned++;
+		if (variant->age == 0) {
+			subsystem->num_uncleaned++;
 			continue;
 		}
 
-		if (!json_to_u64(buf, time, &invtime)) {
-			plugin_err(plugin, "Bad time '%.*s'",
-				   json_tok_full_len(time),
-				   json_tok_full(buf, time));
+		if (timestamp > now - variant->age) {
+			subsystem->num_uncleaned++;
+			continue;
 		}
 
-		if (invtime <= now - cinfo->subsystem_age[subsys]) {
-			struct out_req *req;
-			const jsmntok_t *label = json_get_member(buf, t, "label");
-
-			req = del_request_start("delinvoice", cinfo, subsys);
-			json_add_tok(req->js, "label", label, buf);
-			json_add_tok(req->js, "status", status, buf);
-			send_outreq(plugin, req);
-		} else
-			cinfo->num_uncleaned++;
+		subsystem->cinfo->cleanup_reqs_remaining++;
+		req = jsonrpc_request_start(plugin, NULL, ops->del_command,
+					    del_done, del_failed, variant);
+		ops->add_del_fields(req, buf, t);
+		send_outreq(plugin, req);
 	}
 
-	return clean_finished_one(cinfo);
+	return clean_finished_one(subsystem->cinfo);
 }
 
-static struct command_result *listsendpays_done(struct command *cmd,
-						const char *buf,
-						const jsmntok_t *result,
-						struct clean_info *cinfo)
+static struct command_result *list_failed(struct command *cmd,
+					  const char *buf,
+					  const jsmntok_t *result,
+					  struct per_subsystem *subsystem)
 {
-	const jsmntok_t *t, *pays = json_get_member(buf, result, "payments");
-	size_t i;
-	u64 now = time_now().ts.tv_sec;
-
-	json_for_each_arr(i, t, pays) {
-		const jsmntok_t *status = json_get_member(buf, t, "status");
-		const jsmntok_t *time;
-		enum subsystem subsys;
-		u64 paytime;
-
-		if (json_tok_streq(buf, status, "failed")) {
-			subsys = FAILEDPAYS;
-		} else if (json_tok_streq(buf, status, "complete")) {
-			subsys = SUCCEEDEDPAYS;
-		} else {
-			cinfo->num_uncleaned++;
-			continue;
-		}
-
-		/* Continue if we don't care. */
-		if (cinfo->subsystem_age[subsys] == 0) {
-			cinfo->num_uncleaned++;
-			continue;
-		}
-
-		time = json_get_member(buf, t, "created_at");
-		if (!json_to_u64(buf, time, &paytime)) {
-			plugin_err(plugin, "Bad created_at '%.*s'",
-				   json_tok_full_len(time),
-				   json_tok_full(buf, time));
-		}
-
-		if (paytime <= now - cinfo->subsystem_age[subsys]) {
-			struct out_req *req;
-			const jsmntok_t *phash = json_get_member(buf, t, "payment_hash");
-			const jsmntok_t *groupid = json_get_member(buf, t, "groupid");
-			const jsmntok_t *partidtok = json_get_member(buf, t, "partid");
-			u64 partid;
-			if (partidtok)
-				json_to_u64(buf, partidtok, &partid);
-			else
-				partid = 0;
-
-			req = del_request_start("delpay", cinfo, subsys);
-			json_add_tok(req->js, "payment_hash", phash, buf);
-			json_add_tok(req->js, "status", status, buf);
-			json_add_tok(req->js, "groupid", groupid, buf);
-			json_add_u64(req->js, "partid", partid);
-			send_outreq(plugin, req);
-		}
-	}
-
-	return clean_finished_one(cinfo);
-}
-
-static struct command_result *listforwards_done(struct command *cmd,
-						const char *buf,
-						const jsmntok_t *result,
-						struct clean_info *cinfo)
-{
-	const jsmntok_t *t, *fwds = json_get_member(buf, result, "forwards");
-	size_t i;
-	u64 now = time_now().ts.tv_sec;
-
-	json_for_each_arr(i, t, fwds) {
-		const jsmntok_t *status = json_get_member(buf, t, "status");
-		const char *timefield = "resolved_time";
-		jsmntok_t time;
-		enum subsystem subsys;
-		u64 restime;
-
-		if (json_tok_streq(buf, status, "settled")) {
-			subsys = SUCCEEDEDFORWARDS;
-		} else if (json_tok_streq(buf, status, "failed")
-			   || json_tok_streq(buf, status, "local_failed")) {
-			subsys = FAILEDFORWARDS;
-			/* There's no resolved_time for these, so use received */
-			timefield = "received_time";
-		} else {
-			cinfo->num_uncleaned++;
-			continue;
-		}
-
-		/* Continue if we don't care. */
-		if (cinfo->subsystem_age[subsys] == 0) {
-			cinfo->num_uncleaned++;
-			continue;
-		}
-
-		/* Check if we have a resolved_time, before making a
-		 * decision on it. This is possible in older nodes
-		 * that predate our annotations for forwards.*/
-		if (json_get_member(buf, t, timefield) == NULL) {
-			cinfo->num_uncleaned++;
-			continue;
-		}
-
-
-		time = *json_get_member(buf, t, timefield);
-		/* This is a float, so truncate at '.' */
-		for (int off = time.start; off < time.end; off++) {
-			if (buf[off] == '.')
-				time.end = off;
-		}
-		if (!json_to_u64(buf, &time, &restime)) {
-			plugin_err(plugin, "Bad time '%.*s'",
-				   json_tok_full_len(&time),
-				   json_tok_full(buf, &time));
-		}
-
-		if (restime <= now - cinfo->subsystem_age[subsys]) {
-			struct out_req *req;
-			const jsmntok_t *inchan, *inid;
-
-			inchan = json_get_member(buf, t, "in_channel");
-			inid = json_get_member(buf, t, "in_htlc_id");
-
-			req = del_request_start("delforward", cinfo, subsys);
-			json_add_tok(req->js, "in_channel", inchan, buf);
-			/* This can be missing if it was a forwards record from an old
-			 * closed channel in version <= 0.12.1.  This is a special value
-			 * but we will delete them *all*, resulting in some failures! */
-#ifdef COMPAT_V0121
-			if (!inid)
-				json_add_u64(req->js, "in_htlc_id", -1ULL);
-			else
-#endif
-				json_add_tok(req->js, "in_htlc_id", inid, buf);
-			json_add_tok(req->js, "status", status, buf);
-			send_outreq(plugin, req);
-		}
-	}
-
-	return clean_finished_one(cinfo);
-}
-
-static struct command_result *listsendpays_failed(struct command *cmd,
-						  const char *buf,
-						  const jsmntok_t *result,
-						  void *unused)
-{
-	return cmd_failed(cmd, buf, result, "listsendpays");
-}
-
-static struct command_result *listinvoices_failed(struct command *cmd,
-						  const char *buf,
-						  const jsmntok_t *result,
-						  void *unused)
-{
-	return cmd_failed(cmd, buf, result, "listinvoices");
-}
-
-static struct command_result *listforwards_failed(struct command *cmd,
-						  const char *buf,
-						  const jsmntok_t *result,
-						  void *unused)
-{
-	return cmd_failed(cmd, buf, result, "listforwards");
+	plugin_err(plugin, "Failed '%s': '%.*s'",
+		   get_subsystem_ops(subsystem)->list_command,
+		   json_tok_full_len(result),
+		   json_tok_full(buf, result));
 }
 
 static struct command_result *do_clean(struct clean_info *cinfo)
 {
-	struct out_req *req;
-
 	cinfo->cleanup_reqs_remaining = 0;
-	cinfo->num_uncleaned = 0;
-	memset(cinfo->num_cleaned, 0, sizeof(cinfo->num_cleaned));
+	for (size_t i = 0; i < NUM_SUBSYSTEM_TYPES; i++) {
+		struct per_subsystem *ps = &cinfo->per_subsystem[i];
+		struct out_req *req;
+		bool have_variant = false;
 
-	if (cinfo->subsystem_age[SUCCEEDEDPAYS] != 0
-	    || cinfo->subsystem_age[FAILEDPAYS] != 0) {
-		req = jsonrpc_request_start(plugin, NULL, "listsendpays",
-					    listsendpays_done, listsendpays_failed,
-					    cinfo);
-		send_outreq(plugin, req);
-		cinfo->cleanup_reqs_remaining++;
-	}
+		ps->num_uncleaned = 0;
+		for (size_t j = 0; j < NUM_SUBSYSTEM_VARIANTS; j++) {
+			ps->variants[j].num_cleaned = 0;
+			if (ps->variants[j].age)
+				have_variant = true;
+		}
 
-	if (cinfo->subsystem_age[EXPIREDINVOICES] != 0
-	    || cinfo->subsystem_age[PAIDINVOICES] != 0) {
-		req = jsonrpc_request_start(plugin, NULL, "listinvoices",
-					    listinvoices_done, listinvoices_failed,
-					    cinfo);
-		send_outreq(plugin, req);
-		cinfo->cleanup_reqs_remaining++;
-	}
+		/* Don't bother listing if we don't care. */
+		if (!have_variant)
+			continue;
 
-	if (cinfo->subsystem_age[SUCCEEDEDFORWARDS] != 0
-	    || cinfo->subsystem_age[FAILEDFORWARDS] != 0) {
-		req = jsonrpc_request_start(plugin, NULL, "listforwards",
-					    listforwards_done, listforwards_failed,
-					    cinfo);
+		req = jsonrpc_request_start(plugin, NULL,
+					    get_subsystem_ops(ps)->list_command,
+					    list_done, list_failed,
+					    ps);
 		send_outreq(plugin, req);
 		cinfo->cleanup_reqs_remaining++;
 	}
@@ -462,10 +560,10 @@ static struct command_result *param_subsystem(struct command *cmd,
 					      const char *name,
 					      const char *buffer,
 					      const jsmntok_t *tok,
-					      enum subsystem **subsystem)
+					      struct subsystem_and_variant **sv)
 {
-	*subsystem = tal(cmd, enum subsystem);
-	if (json_to_subsystem(buffer, tok, *subsystem))
+	*sv = tal(cmd, struct subsystem_and_variant);
+	if (json_to_subsystem(buffer, tok, *sv))
 		return NULL;
 
 	return command_fail_badparam(cmd, name, buffer, tok,
@@ -473,21 +571,26 @@ static struct command_result *param_subsystem(struct command *cmd,
 }
 
 static struct command_result *json_success_subsystems(struct command *cmd,
-						      const enum subsystem *subsystem)
+						      const struct subsystem_and_variant *single)
 {
 	struct json_stream *response = jsonrpc_stream_success(cmd);
+	struct subsystem_and_variant sv = first_sv();
 
 	json_object_start(response, "autoclean");
-	for (enum subsystem i = 0; i < NUM_SUBSYSTEM; i++) {
-		if (subsystem && i != *subsystem)
+	do {
+		struct per_variant *pv;
+		if (single &&
+		    (sv.type != single->type || sv.variant != single->variant))
 			continue;
-		json_object_start(response, subsystem_to_str(i));
-		json_add_bool(response, "enabled", timer_cinfo->subsystem_age[i] != 0);
-		if (timer_cinfo->subsystem_age[i] != 0)
-			json_add_u64(response, "age", timer_cinfo->subsystem_age[i]);
-		json_add_u64(response, "cleaned", total_cleaned[i]);
+
+		pv = &timer_cinfo->per_subsystem[sv.type].variants[sv.variant];
+		json_object_start(response, subsystem_to_str(&sv));
+		json_add_bool(response, "enabled", pv->age != 0);
+		if (pv->age != 0)
+			json_add_u64(response, "age", pv->age);
+		json_add_u64(response, "cleaned", *total_cleaned(&sv));
 		json_object_end(response);
-	}
+	} while (next_sv(&sv));
 	json_object_end(response);
 	return command_finished(cmd, response);
 }
@@ -496,14 +599,14 @@ static struct command_result *json_autoclean_status(struct command *cmd,
 						    const char *buffer,
 						    const jsmntok_t *params)
 {
-	enum subsystem *subsystem;
+	struct subsystem_and_variant *sv;
 
 	if (!param(cmd, buffer, params,
-		   p_opt("subsystem", param_subsystem, &subsystem),
+		   p_opt("subsystem", param_subsystem, &sv),
 		   NULL))
 		return command_param_failed();
 
-	return json_success_subsystems(cmd, subsystem);
+	return json_success_subsystems(cmd, sv);
 }
 
 static struct command_result *param_u64_nonzero(struct command *cmd,
@@ -523,18 +626,18 @@ static struct command_result *json_autoclean_once(struct command *cmd,
 						  const char *buffer,
 						  const jsmntok_t *params)
 {
-	enum subsystem *subsystem;
+	struct subsystem_and_variant *sv;
 	u64 *age;
 	struct clean_info *cinfo;
 
 	if (!param(cmd, buffer, params,
-		   p_req("subsystem", param_subsystem, &subsystem),
+		   p_req("subsystem", param_subsystem, &sv),
 		   p_req("age", param_u64_nonzero, &age),
 		   NULL))
 		return command_param_failed();
 
 	cinfo = new_clean_info(cmd, cmd);
-	cinfo->subsystem_age[*subsystem] = *age;
+	get_per_variant(cinfo, sv)->age = *age;
 
 	return do_clean(cinfo);
 }
@@ -548,6 +651,7 @@ static void memleak_mark_timer_cinfo(struct plugin *plugin,
 static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
+	struct subsystem_and_variant sv;
 	plugin = p;
 
 	/* Plugin owns global */
@@ -558,11 +662,12 @@ static const char *init(struct plugin *p,
 
 	/* We don't care if this fails (it usually does, since entries
 	 * don't exist! */
-	for (enum subsystem i = 0; i < NUM_SUBSYSTEM; i++) {
+	sv = first_sv();
+	do {
 		rpc_scan_datastore_str(tmpctx, plugin,
-				       datastore_path(tmpctx, i, "num"),
-				       JSON_SCAN(json_to_u64, &total_cleaned[i]));
-	}
+				       datastore_path(tmpctx, &sv, "num"),
+				       JSON_SCAN(json_to_u64, total_cleaned(&sv)));
+	} while (next_sv(&sv));
 
 	/* Optimization FTW! */
 	rpc_enable_batching(p);
@@ -626,31 +731,31 @@ int main(int argc, char *argv[])
 					  "int",
 					  "How old do successful forwards have to be before deletion (0 = never)",
 					  u64_option, u64_jsonfmt_unless_zero,
-					  &timer_cinfo->subsystem_age[SUCCEEDEDFORWARDS]),
+					  &timer_cinfo->per_subsystem[FORWARDS].variants[SUCCESS].age),
 		    plugin_option_dynamic("autoclean-failedforwards-age",
 					  "int",
 					  "How old do failed forwards have to be before deletion (0 = never)",
 					  u64_option, u64_jsonfmt_unless_zero,
-					  &timer_cinfo->subsystem_age[FAILEDFORWARDS]),
+					  &timer_cinfo->per_subsystem[FORWARDS].variants[FAILURE].age),
 		    plugin_option_dynamic("autoclean-succeededpays-age",
 					  "int",
 					  "How old do successful pays have to be before deletion (0 = never)",
 					  u64_option, u64_jsonfmt_unless_zero,
-					  &timer_cinfo->subsystem_age[SUCCEEDEDPAYS]),
+					  &timer_cinfo->per_subsystem[PAYS].variants[SUCCESS].age),
 		    plugin_option_dynamic("autoclean-failedpays-age",
 					  "int",
 					  "How old do failed pays have to be before deletion (0 = never)",
 					  u64_option, u64_jsonfmt_unless_zero,
-					  &timer_cinfo->subsystem_age[FAILEDPAYS]),
+					  &timer_cinfo->per_subsystem[PAYS].variants[FAILURE].age),
 		    plugin_option_dynamic("autoclean-paidinvoices-age",
 					  "int",
 					  "How old do paid invoices have to be before deletion (0 = never)",
 					  u64_option, u64_jsonfmt_unless_zero,
-					  &timer_cinfo->subsystem_age[PAIDINVOICES]),
+					  &timer_cinfo->per_subsystem[INVOICES].variants[SUCCESS].age),
 		    plugin_option_dynamic("autoclean-expiredinvoices-age",
 					  "int",
 					  "How old do expired invoices have to be before deletion (0 = never)",
 					  u64_option, u64_jsonfmt_unless_zero,
-					  &timer_cinfo->subsystem_age[EXPIREDINVOICES]),
+					  &timer_cinfo->per_subsystem[INVOICES].variants[FAILURE].age),
 		    NULL);
 }
