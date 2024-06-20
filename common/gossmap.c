@@ -918,6 +918,74 @@ bool gossmap_local_updatechan(struct gossmap_localmods *localmods,
 	return true;
 }
 
+/* Update only indicated fields of the local-only channel_update. */
+bool gossmap_local_updatechan_selected(struct gossmap_localmods *localmods,
+				       struct short_channel_id scid,
+				       const struct amount_msat *htlc_min,
+				       const struct amount_msat *htlc_max,
+				       const u32 *base_fee,
+				       const u32 *proportional_fee,
+				       const u16 *delay,
+				       const bool *enabled,
+				       int dir,
+				       struct gossmap *gossmap)
+{
+	struct localmod *mod;
+	struct gossmap_chan *chan = gossmap_find_chan(gossmap, &scid);
+
+	mod = find_localmod(localmods, scid);
+	/* Either the hint corresponds to public channel or to a hidden but
+	 * already added channel. */
+	if (!mod && !chan)
+		return false;
+
+	if (!mod) {
+		/* Create new reference to (presumably) existing channel. */
+		size_t nmods = tal_count(localmods->mods);
+
+		tal_resize(&localmods->mods, nmods + 1);
+		mod = &localmods->mods[nmods];
+		mod->scid = scid;
+		mod->updates_set[0] = mod->updates_set[1] = false;
+		mod->local_off = 0xFFFFFFFF;
+
+		/* First time we have this localmod, use the original values. */
+		assert(chan);
+		mod->hc[dir].enabled = chan->half[dir].enabled;
+		mod->hc[dir].htlc_min = chan->half[dir].htlc_min;
+		mod->hc[dir].htlc_max = chan->half[dir].htlc_max;
+		mod->hc[dir].base_fee = chan->half[dir].base_fee;
+		mod->hc[dir].proportional_fee =
+		    chan->half[dir].proportional_fee;
+		mod->hc[dir].delay = chan->half[dir].delay;
+	}
+
+	assert(dir == 0 || dir == 1);
+	mod->updates_set[dir] = true;
+
+	if (enabled)
+		mod->hc[dir].enabled = *enabled;
+
+	if (htlc_min)
+		mod->hc[dir].htlc_min =
+		    u64_to_fp16(htlc_min->millisatoshis, /* Raw: to fp16 */
+				false);
+	if (htlc_max)
+		mod->hc[dir].htlc_max =
+		    u64_to_fp16(htlc_max->millisatoshis, /* Raw: to fp16 */
+				true);
+
+	if (base_fee)
+		mod->hc[dir].base_fee = *base_fee;
+
+	if (proportional_fee)
+		mod->hc[dir].proportional_fee = *proportional_fee;
+
+	if (delay)
+		mod->hc[dir].delay = *delay;
+	return true;
+}
+
 /* Apply localmods to this map */
 void gossmap_apply_localmods(struct gossmap *map,
 			     struct gossmap_localmods *localmods)
