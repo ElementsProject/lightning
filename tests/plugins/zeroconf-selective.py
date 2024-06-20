@@ -21,8 +21,8 @@ def on_openchannel(openchannel, plugin, **kwargs):
 
 plugin.add_option(
     'zeroconf-allow',
+    '03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f',
     'A node_id to allow zeroconf channels from',
-    '03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f'
 )
 
 plugin.add_option(
