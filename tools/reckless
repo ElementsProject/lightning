@@ -833,6 +833,44 @@ def install_to_python_virtual_environment(cloned_plugin: InstInfo):
     return cloned_plugin
 
 
+def cargo_installation(cloned_plugin: InstInfo):
+    call = ['cargo', 'build', '--release', '-vv']
+    # FIXME: the symlinked Cargo.toml allows the installer to identify a valid
+    # plugin directory, but is unneeded, and actually confuses cargo if not
+    # removed prior to installing.
+    cargo_toml_path = Path(cloned_plugin.source_loc) / 'Cargo.toml'
+    if cargo_toml_path.exists():
+        cargo_toml_path.unlink()
+
+    # source_loc now contains a symlink to the entrypoint and 'source/plugin/'
+    source = Path(cloned_plugin.source_loc) / 'source' / cloned_plugin.name
+    logging.debug(f'cargo installing from {source}')
+    if logging.root.level < logging.INFO and not log.capture:
+        cargo = run(call, cwd=str(source), text=True)
+    else:
+        cargo = Popen(call, cwd=str(source), stdout=PIPE,
+                      stderr=PIPE, text=True)
+    cargo.wait()
+
+    if cargo.returncode == 0:
+        logging.debug('rust project compiled successfully')
+    else:
+        logging.error(cargo.stderr if cargo.stderr else
+                      'error encountered during build, cargo exited with return '
+                      f'code {cargo.returncode}')
+
+        logging.debug(f'removing {cloned_plugin.source_loc}')
+        remove_dir(cloned_plugin.source_loc)
+        raise InstallationFailure
+
+    # We do need to symlink to the executable binary though.
+    (Path(cloned_plugin.source_loc) / cloned_plugin.name).\
+        symlink_to(source / f'target/release/{cloned_plugin.name}')
+    cloned_plugin.entry = cloned_plugin.name
+
+    return cloned_plugin
+
+
 python3venv = Installer('python3venv', exe='python3',
                         manager='pip', entry='{name}.py')
 python3venv.add_entrypoint('{name}')
@@ -862,7 +900,12 @@ nodejs.add_entrypoint('{name}')
 nodejs.add_dependency_call(['npm', 'install', '--omit=dev'])
 nodejs.add_dependency_file('package.json')
 
-INSTALLERS = [python3venv, poetryvenv, pyprojectViaPip, nodejs]
+# This entrypoint is used to identify a candidate directory, don't call it.
+rust_cargo = Installer('rust', manager='cargo', entry='Cargo.toml')
+rust_cargo.add_dependency_file('Cargo.toml')
+rust_cargo.dependency_call = cargo_installation
+
+INSTALLERS = [python3venv, poetryvenv, pyprojectViaPip, nodejs, rust_cargo]
 
 
 def help_alias(targets: list):
@@ -911,7 +954,7 @@ def _git_clone(src: InstInfo, dest: Union[PosixPath, str]) -> bool:
     else:
         return False
     git = run(['git', 'clone', '--recurse-submodules', source, str(dest)],
-              stdout=PIPE, stderr=PIPE, text=True, check=False, timeout=60)
+              stdout=PIPE, stderr=PIPE, text=True, check=False, timeout=180)
     if git.returncode != 0:
         for line in git.stderr.splitlines():
             logging.debug(line)
