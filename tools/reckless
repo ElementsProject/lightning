@@ -745,12 +745,8 @@ def create_python3_venv(staged_plugin: InstInfo) -> InstInfo:
     "Create a virtual environment, install dependencies and test plugin."
     env_path = Path('.venv')
     env_path_full = Path(staged_plugin.source_loc) / env_path
-    plugin_path = Path(staged_plugin.source_loc) / 'source'
-
-    # subdir should always be None at this point
-    if staged_plugin.subdir:
-        logging.warning("cloned plugin contains subdirectory")
-        plugin_path = plugin_path / staged_plugin.subdir
+    assert staged_plugin.subdir     # relative dir of original source
+    plugin_path = Path(staged_plugin.source_loc) / staged_plugin.subdir
 
     if shutil.which('poetry') and staged_plugin.deps == 'pyproject.toml':
         logging.debug('configuring a python virtual environment (poetry) in '
@@ -812,8 +808,10 @@ def create_wrapper(plugin: InstInfo):
         wrapper.write((f"#!{venv_full_path}/bin/python\n"
                        "import sys\n"
                        "import runpy\n\n"
-                       f"if '{plugin.source_loc}/source' not in sys.path:\n"
-                       f"    sys.path.append('{plugin.source_loc}/source')\n"
+                       f"if '{plugin.source_loc}/{plugin.subdir}' not in "
+                       "sys.path:\n"
+                       f"    sys.path.append('{plugin.source_loc}/"
+                       f"{plugin.subdir}')\n"
                        f"if '{plugin.source_loc}' in sys.path:\n"
                        f"    sys.path.remove('{plugin.source_loc}')\n"
                        f"runpy.run_module(\"{plugin.name}\", "
@@ -826,10 +824,6 @@ def install_to_python_virtual_environment(cloned_plugin: InstInfo):
     '''Called during install in place of a subprocess.run list'''
     # Delete symlink so that a venv wrapper can take it's place
     (Path(cloned_plugin.source_loc) / cloned_plugin.entry).unlink()
-    # The original entrypoint is imported as a python module - ensure
-    # it has a .py extension. The wrapper can keep the original naming.
-    entry = Path(cloned_plugin.source_loc) / 'source' / cloned_plugin.entry
-    entry.rename(entry.with_suffix('.py'))
     create_python3_venv(cloned_plugin)
     if not hasattr(cloned_plugin, 'venv'):
         raise InstallationFailure
@@ -1099,17 +1093,28 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
         cloned_src.source_loc = plugin_path
 
     # Relocate plugin to a staging directory prior to testing
-    staging_path = inst_path / 'source'
+    if not Path(inst_path).exists():
+        logging.debug(f'creating {inst_path}')
+        create_dir(inst_path)
+    if not Path(inst_path / 'source').exists():
+        logging.debug(f'creating {inst_path / "source"}')
+        create_dir(inst_path / 'source')
+    staging_path = inst_path / 'source' / src.name
+    logging.debug(f'copying {plugin_path} tree to {staging_path}')
     shutil.copytree(str(plugin_path), staging_path)
     staged_src = cloned_src
     # Because the source files are copied to a 'source' directory, the
     # get_inst_details function no longer works. (dir must match plugin name)
     # Set these manually instead.
-    staged_src.source_loc = str(staging_path.parent)
+    staged_src.source_loc = str(inst_path)
     staged_src.srctype = Source.DIRECTORY
-    staged_src.subdir = None
+    # Use subdir to redirect the symlink to the actual executable location
+    staged_src.subdir = f'source/{src.name}'
     # Create symlink in staging tree to redirect to the plugins entrypoint
-    Path(staging_path.parent / cloned_src.entry).\
+    logging.debug(f"linking source {staging_path / cloned_src.entry} to "
+                  f"{Path(staged_src.source_loc) / cloned_src.entry}")
+    logging.debug(staged_src)
+    (Path(staged_src.source_loc) / cloned_src.entry).\
         symlink_to(staging_path / cloned_src.entry)
 
     # try it out
@@ -1139,6 +1144,7 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
                 remove_dir(clone_path)
                 remove_dir(inst_path)
                 return None
+        staged_src.subdir = None
     test_log = []
     try:
         test = run([Path(staged_src.source_loc).joinpath(staged_src.entry)],
