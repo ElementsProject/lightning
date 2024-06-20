@@ -325,6 +325,7 @@ struct out_req *
 jsonrpc_request_start_(struct plugin *plugin, struct command *cmd,
 		       const char *method,
 		       const char *id_prefix,
+		       const char *filter,
 		       struct command_result *(*cb)(struct command *command,
 						    const char *buf,
 						    const jsmntok_t *result,
@@ -355,6 +356,12 @@ jsonrpc_request_start_(struct plugin *plugin, struct command *cmd,
 	json_add_string(out->js, "jsonrpc", "2.0");
 	json_add_id(out->js, out->id);
 	json_add_string(out->js, "method", method);
+	if (filter) {
+		/* This is raw JSON, so paste, don't escape! */
+		size_t len = strlen(filter);
+		char *p = json_out_member_direct(out->js->jout, "filter", len);
+		memcpy(p, filter, len);
+	}
 	if (out->errcb)
 		json_object_start(out->js, "params");
 
