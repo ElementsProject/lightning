@@ -4352,3 +4352,35 @@ def test_plugin_startdir_lol(node_factory):
     """Though we fail to start many of them, we don't crash!"""
     l1 = node_factory.get_node(broken_log='.*')
     l1.rpc.plugin_startdir(os.path.join(os.getcwd(), 'tests/plugins'))
+
+
+def test_autoclean_batch(node_factory):
+    l1 = node_factory.get_node(1)
+
+    # Many expired invoices
+    for i in range(100):
+        l1.rpc.invoice(amount_msat=12300, label=f'inv1{i}', description='description', expiry=1)
+
+    time.sleep(3)
+    l1.rpc.setconfig('dev-autoclean-max-batch', 2)
+
+    # Test manual clean
+    ret = l1.rpc.autoclean_once('expiredinvoices', 1)
+    assert ret == {'autoclean': {'expiredinvoices': {'cleaned': 100, 'uncleaned': 0}}}
+
+    for i in range(100):
+        l1.rpc.invoice(amount_msat=12300, label=f'inv2{i}', description='description', expiry=1)
+
+    time.sleep(3)
+
+    # Test cycle clean
+    assert (l1.rpc.autoclean_status('expiredinvoices')
+            == {'autoclean': {'expiredinvoices': {'enabled': False, 'cleaned': 100}}})
+
+    l1.rpc.setconfig('autoclean-expiredinvoices-age', 2)
+    assert (l1.rpc.autoclean_status('expiredinvoices')
+            == {'autoclean': {'expiredinvoices': {'enabled': True, 'cleaned': 100, 'age': 2}}})
+
+    l1.rpc.setconfig('autoclean-cycle', 5)
+    wait_for(lambda: l1.rpc.autoclean_status('expiredinvoices')
+             == {'autoclean': {'expiredinvoices': {'enabled': True, 'cleaned': 200, 'age': 2}}})
