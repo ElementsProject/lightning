@@ -743,7 +743,11 @@ update-wss-proxy-version:
 	cd plugins/wss-proxy && $(MAKE) upgrade-version
 
 update-poetry-lock:
-	poetry update clnrest wss-proxy pyln-client pyln-proto pyln-testing
+	poetry update clnrest wss-proxy pyln-client pyln-proto pyln-testing update-reckless-version
+
+update-reckless-version:
+	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
+	@sed -i "s/__VERSION__ = '\([.-z]*\)'/__VERSION__ = '$(NEW_VERSION)'/" tools/reckless
 
 update-mocks: $(ALL_TEST_PROGRAMS:%=update-mocks/%.c)
 
