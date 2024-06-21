@@ -510,4 +510,7 @@ void json_add_payment_success(struct json_stream *js,
 /* Overriding io_poll for extra checks. */
 int libplugin_pay_poll(struct pollfd *fds, nfds_t nfds, int timeout);
 
+void
+paymod_log(struct payment *p, enum log_level l, const char *fmt, ...);
+
 #endif /* LIGHTNING_PLUGINS_LIBPLUGIN_PAY_H */

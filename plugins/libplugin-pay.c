@@ -188,7 +188,7 @@ paymod_log_header(struct payment *p, const char **type, u64 *id)
 	}
 }
 
-static void
+void
 paymod_log(struct payment *p, enum log_level l, const char *fmt, ...)
 {
 	const char *type;

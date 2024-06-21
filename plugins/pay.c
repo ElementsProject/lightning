@@ -1261,6 +1261,8 @@ static struct command_result *json_pay(struct command *cmd,
 	p->blindedpath = NULL;
 	p->blindedpay = NULL;
 
+	paymod_log(p, LOG_INFORM, "Paying invoice bolt11=%s", b11str);
+
 	if (!bolt12_has_prefix(b11str)) {
 		b11 =
 		    bolt11_decode(tmpctx, b11str, plugin_feature_set(cmd->plugin),
