@@ -21,6 +21,8 @@ from urllib.error import HTTPError
 import venv
 
 
+__VERSION__ = '24.08'
+
 logging.basicConfig(
     level=logging.DEBUG,
     format='[%(asctime)s] %(levelname)s: %(message)s',
@@ -1517,8 +1519,10 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--verbose', action="store_const",
                         dest="loglevel", const=logging.DEBUG,
                         default=logging.WARNING)
+    parser.add_argument('-V', '--version', action='store_true',
+                        help='return reckless version and exit')
     cmd1 = parser.add_subparsers(dest='cmd1', help='command',
-                                 required=True)
+                                 required=False)
 
     install_cmd = cmd1.add_parser('install', help='search for and install a '
                                   'plugin, then test and activate')
@@ -1568,6 +1572,12 @@ if __name__ == '__main__':
     NETWORK = 'regtest' if args.regtest else 'bitcoin'
     SUPPORTED_NETWORKS = ['bitcoin', 'regtest', 'liquid', 'liquid-regtest',
                           'litecoin', 'signet', 'testnet']
+    if args.version:
+        print(__VERSION__)
+        sys.exit(0)
+    elif args.cmd1 is None:
+        parser.print_help(sys.stdout)
+        sys.exit(1)
     if args.network:
         if args.network in SUPPORTED_NETWORKS:
             NETWORK = args.network
