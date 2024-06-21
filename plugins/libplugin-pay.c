@@ -2698,6 +2698,8 @@ static struct route_info **filter_routehints(struct gossmap *map,
 	char *mods = tal_strdup(tmpctx, "");
 	struct gossmap_node *src = gossmap_find_node(map, p->local_id);
 
+	paymod_log(p, LOG_INFORM, "Filtering out %zu routehints", tal_count(hints));
+
 	if (src == NULL) {
 		tal_append_fmt(&mods,
 			       "Could not locate ourselves in the gossip map, "
@@ -2744,12 +2746,10 @@ static struct route_info **filter_routehints(struct gossmap *map,
 				       i,
 				       fmt_node_id(tmpctx,
 						   &hints[i][0].pubkey));
-			plugin_log(p->plugin, LOG_DBG,
+			paymod_log(p, LOG_DBG,
 				   "Removed routehint %zu because "
 				   "entrypoint %s is unknown. ",
-				   i,
-				   fmt_node_id(tmpctx,
-					       &hints[i][0].pubkey));
+				   i, fmt_node_id(tmpctx, &hints[i][0].pubkey));
 			tal_arr_remove(&hints, i);
 			i--;
 			continue;
@@ -2768,12 +2768,10 @@ static struct route_info **filter_routehints(struct gossmap *map,
 				       i,
 				       fmt_node_id(tmpctx,
 						   &hints[i][0].pubkey));
-			plugin_log(p->plugin, LOG_DBG,
-				       "Removed routehint %zu because "
-				       "entrypoint %s is unreachable. ",
-				       i,
-				       fmt_node_id(tmpctx,
-						   &hints[i][0].pubkey));
+			paymod_log(p, LOG_DBG,
+				   "Removed routehint %zu because "
+				   "entrypoint %s is unreachable. ",
+				   i, fmt_node_id(tmpctx, &hints[i][0].pubkey));
 			tal_arr_remove(&hints, i);
 			i--;
 		}
