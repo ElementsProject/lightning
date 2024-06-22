@@ -6,6 +6,7 @@
 #include <ccan/compiler/compiler.h>
 #include <common/json_parse.h>
 #include <common/jsonrpc_errors.h>
+#include <common/status_levels.h>
 
 struct command;
 struct command_result;
@@ -32,6 +33,11 @@ command_fail_badparam(struct command *cmd,
 			    json_tok_full_len(tok),
 			    json_tok_full(buffer, tok));
 }
+
+/* Do some logging (complaining!) about this command misuse */
+void command_log(struct command *cmd, enum log_level level,
+		 const char *fmt, ...)
+	PRINTF_FMT(3, 4);
 
 /* Also caller supplied: is this invoked simply to get usage? */
 bool command_usage_only(const struct command *cmd);

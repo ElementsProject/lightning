@@ -631,6 +631,19 @@ bool command_check_only(const struct command *cmd)
 	return cmd->check;
 }
 
+void command_log(struct command *cmd, enum log_level level,
+		 const char *fmt, ...)
+{
+	const char *msg;
+	va_list ap;
+
+	va_start(ap, fmt);
+	msg = tal_vfmt(cmd, fmt, ap);
+	plugin_log(cmd->plugin, level, "JSON COMMAND %s: %s",
+		   cmd->methodname, msg);
+	va_end(ap);
+}
+
 struct command_result *command_check_done(struct command *cmd)
 {
 	assert(command_check_only(cmd));

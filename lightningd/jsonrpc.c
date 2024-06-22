@@ -1483,6 +1483,20 @@ bool command_dev_apis(const struct command *cmd)
 	return cmd->ld->developer;
 }
 
+void command_log(struct command *cmd, enum log_level level,
+		 const char *fmt, ...)
+{
+	const char *msg;
+	va_list ap;
+
+	va_start(ap, fmt);
+	msg = tal_vfmt(cmd, fmt, ap);
+	log_(cmd->ld->log, level, NULL, level >= LOG_UNUSUAL,
+	     "JSON COMMAND %s: %s",
+	     cmd->json_cmd->name, msg);
+	va_end(ap);
+}
+
 void command_set_usage(struct command *cmd, const char *usage TAKES)
 {
 	usage = tal_strdup(cmd->ld, usage);
