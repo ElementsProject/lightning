@@ -1153,7 +1153,7 @@ static void setup_fd_limit(struct lightningd *ld, size_t num_channels)
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
-	u32 min_blockheight, max_blockheight;
+	u32 max_blockheight;
 	int connectd_gossipd_fd;
 	int stop_fd;
 	struct timers *timers;
@@ -1336,8 +1336,7 @@ int main(int argc, char *argv[])
 	/*~ Get the blockheight we are currently at, UINT32_MAX is used to signal
 	 * an uninitialized wallet and that we should start off of bitcoind's
 	 * current height */
-	wallet_blocks_heights(ld->wallet, UINT32_MAX,
-			      &min_blockheight, &max_blockheight);
+	max_blockheight = wallet_blocks_maxheight(ld->wallet, UINT32_MAX);
 
 	/*~ If we were asked to rescan from an absolute height (--rescan < 0)
 	 * then just go there. Otherwise compute the diff to our current height,
@@ -1361,7 +1360,7 @@ int main(int argc, char *argv[])
 	/*~ Initialize block topology.  This does its own io_loop to
 	 * talk to bitcoind, so does its own db transactions. */
 	trace_span_start("setup_topology", ld->topology);
-	setup_topology(ld->topology, min_blockheight, max_blockheight);
+	setup_topology(ld->topology, max_blockheight);
 	trace_span_end(ld->topology);
 
 	db_begin_transaction(ld->wallet->db);

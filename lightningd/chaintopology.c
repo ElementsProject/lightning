@@ -1362,8 +1362,7 @@ static void retry_height_reached(struct wait_for_height *wh)
 			      wait_until_height_reached, wh);
 }
 
-void setup_topology(struct chain_topology *topo,
-		    u32 min_blockheight, u32 max_blockheight)
+void setup_topology(struct chain_topology *topo, u32 max_blockheight)
 {
 	void *ret;
 	/* Since we loop below, we free tmpctx, so we need a local */
