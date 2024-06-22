@@ -1055,6 +1055,7 @@ static void remove_tip(struct chain_topology *topo)
 }
 
 static void get_new_block(struct bitcoind *bitcoind,
+			  u32 height,
 			  struct bitcoin_blkid *blkid,
 			  struct bitcoin_block *blk,
 			  struct chain_topology *topo)
@@ -1075,7 +1076,7 @@ static void get_new_block(struct bitcoind *bitcoind,
 	if (!bitcoin_blkid_eq(&topo->tip->blkid, &blk->hdr.prev_hash))
 		remove_tip(topo);
 	else {
-		add_tip(topo, new_block(topo, blk, topo->tip->height + 1));
+		add_tip(topo, new_block(topo, blk, height));
 
 		/* tell plugins a new block was processed */
 		notify_block_added(topo->ld, topo->tip);
@@ -1097,6 +1098,7 @@ static void try_extend_tip(struct chain_topology *topo)
 }
 
 static void init_topo(struct bitcoind *bitcoind UNUSED,
+		      u32 height UNUSED,
 		      struct bitcoin_blkid *blkid UNUSED,
 		      struct bitcoin_block *blk,
 		      struct chain_topology *topo)
