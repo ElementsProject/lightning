@@ -55,8 +55,8 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 			      struct lightningd *ld,
 			      struct logger *log);
 
-#define bitcoind_estimate_fees(bitcoind_, cb, arg)			\
-	bitcoind_estimate_fees_((bitcoind_),				\
+#define bitcoind_estimate_fees(ctx, bitcoind_, cb, arg)			\
+	bitcoind_estimate_fees_((ctx), (bitcoind_),			\
 				typesafe_cb_preargs(void, void *,	\
 						    (cb), (arg),	\
 						    struct lightningd *, \
@@ -64,7 +64,8 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 						    const struct feerate_est *), \
 				(arg))
 
-void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
+void bitcoind_estimate_fees_(const tal_t *ctx,
+			     struct bitcoind *bitcoind,
 			     void (*cb)(struct lightningd *ld,
 					u32 feerate_floor,
 					const struct feerate_est *feerates,
@@ -89,13 +90,14 @@ void bitcoind_sendrawtx_(const tal_t *ctx,
 						bool, const char *),	\
 			    (arg))
 
-void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
+void bitcoind_getfilteredblock_(const tal_t *ctx,
+				struct bitcoind *bitcoind, u32 height,
 				void (*cb)(struct bitcoind *bitcoind,
 					   const struct filteredblock *fb,
 					   void *arg),
 				void *arg);
-#define bitcoind_getfilteredblock(bitcoind_, height, cb, arg)		\
-	bitcoind_getfilteredblock_((bitcoind_),				\
+#define bitcoind_getfilteredblock(ctx, bitcoind_, height, cb, arg)	\
+	bitcoind_getfilteredblock_((ctx), (bitcoind_),			\
 				   (height),				\
 				   typesafe_cb_preargs(void, void *,	\
 						       (cb), (arg),	\
@@ -103,7 +105,8 @@ void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
 						       const struct filteredblock *), \
 				   (arg))
 
-void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
+void bitcoind_getchaininfo_(const tal_t *ctx,
+			    struct bitcoind *bitcoind,
 			    const u32 height,
 			    void (*cb)(struct bitcoind *bitcoind,
 				       const char *chain,
@@ -112,8 +115,8 @@ void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
 				       bool ibd,
 				       void *),
 			    void *cb_arg);
-#define bitcoind_getchaininfo(bitcoind_, height_, cb, arg)		   \
-	bitcoind_getchaininfo_((bitcoind_), (height_),			   \
+#define bitcoind_getchaininfo(ctx, bitcoind_, height_, cb, arg)		\
+	bitcoind_getchaininfo_((ctx), (bitcoind_), (height_),		\
 			      typesafe_cb_preargs(void, void *,		   \
 						  (cb), (arg),		   \
 						  struct bitcoind *,	   \
@@ -121,7 +124,8 @@ void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
 						  bool),		   \
 			      (arg))
 
-void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
+void bitcoind_getrawblockbyheight_(const tal_t *ctx,
+				   struct bitcoind *bitcoind,
 				   u32 height,
 				   void (*cb)(struct bitcoind *bitcoind,
 					      u32 height,
@@ -129,8 +133,8 @@ void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
 					      struct bitcoin_block *blk,
 					      void *arg),
 				   void *arg);
-#define bitcoind_getrawblockbyheight(bitcoind_, height_, cb, arg)		\
-	bitcoind_getrawblockbyheight_((bitcoind_), (height_),			\
+#define bitcoind_getrawblockbyheight(ctx, bitcoind_, height_, cb, arg)	\
+	bitcoind_getrawblockbyheight_((ctx), (bitcoind_), (height_),	\
 				      typesafe_cb_preargs(void, void *,		\
 							  (cb), (arg),		\
 							  struct bitcoind *,	\
@@ -139,21 +143,20 @@ void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
 							  struct bitcoin_block *),\
 				      (arg))
 
-void bitcoind_getutxout_(struct bitcoind *bitcoind,
+void bitcoind_getutxout_(const tal_t *ctx,
+			 struct bitcoind *bitcoind,
 			 const struct bitcoin_outpoint *outpoint,
 			 void (*cb)(struct bitcoind *,
 				    const struct bitcoin_tx_output *,
 				    void *),
 			 void *arg);
-#define bitcoind_getutxout(bitcoind_, outpoint_, cb, arg)		\
-	bitcoind_getutxout_((bitcoind_), (outpoint_),			\
+#define bitcoind_getutxout(ctx, bitcoind_, outpoint_, cb, arg)		\
+	bitcoind_getutxout_((ctx), (bitcoind_), (outpoint_),		\
 			    typesafe_cb_preargs(void, void *,		\
 					        (cb), (arg),		\
 					        struct bitcoind *,	\
-					        struct bitcoin_tx_output *),\
+					        const struct bitcoin_tx_output *),\
 			    (arg))
-
-void bitcoind_getclientversion(struct bitcoind *bitcoind);
 
 void bitcoind_check_commands(struct bitcoind *bitcoind);
 

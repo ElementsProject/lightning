@@ -3431,7 +3431,7 @@ static struct command_result *json_dev_forget_channel(struct command *cmd,
 		return command_check_done(cmd);
 
 	if (!channel_state_uncommitted(forget->channel->state))
-		bitcoind_getutxout(cmd->ld->topology->bitcoind,
+		bitcoind_getutxout(cmd, cmd->ld->topology->bitcoind,
 				   &forget->channel->funding,
 				   process_dev_forget_channel, forget);
 	return command_still_pending(cmd);

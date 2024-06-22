@@ -346,7 +346,8 @@ static void estimatefees_callback(const char *buf, const jsmntok_t *toks,
 	tal_free(call);
 }
 
-void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
+void bitcoind_estimate_fees_(const tal_t *ctx,
+			     struct bitcoind *bitcoind,
 			     void (*cb)(struct lightningd *ld,
 					u32 feerate_floor,
 					const struct feerate_est *feerates,
@@ -354,13 +355,13 @@ void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
 			     void *cb_arg)
 {
 	struct jsonrpc_request *req;
-	struct estimatefee_call *call = tal(bitcoind, struct estimatefee_call);
+	struct estimatefee_call *call = tal(ctx, struct estimatefee_call);
 
 	call->bitcoind = bitcoind;
 	call->cb = cb;
 	call->cb_arg = cb_arg;
 
-	req = jsonrpc_request_start(bitcoind, "estimatefees", NULL, true,
+	req = jsonrpc_request_start(call, "estimatefees", NULL, true,
 				    bitcoind->log,
 				    NULL, estimatefees_callback, call);
 	jsonrpc_request_end(req);
@@ -508,7 +509,8 @@ clean:
 	tal_free(call);
 }
 
-void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
+void bitcoind_getrawblockbyheight_(const tal_t *ctx,
+				   struct bitcoind *bitcoind,
 				   u32 height,
 				   void (*cb)(struct bitcoind *bitcoind,
 					      u32 blockheight,
@@ -518,7 +520,7 @@ void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
 				   void *cb_arg)
 {
 	struct jsonrpc_request *req;
-	struct getrawblockbyheight_call *call = tal(NULL,
+	struct getrawblockbyheight_call *call = tal(ctx,
 						    struct getrawblockbyheight_call);
 
 	call->bitcoind = bitcoind;
@@ -529,7 +531,7 @@ void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
 	trace_span_start("plugin/bitcoind", call);
 	trace_span_tag(call, "method", "getrawblockbyheight");
 	trace_span_suspend(call);
-	req = jsonrpc_request_start(bitcoind, "getrawblockbyheight", NULL, true,
+	req = jsonrpc_request_start(call, "getrawblockbyheight", NULL, true,
 				    bitcoind->log,
 				    NULL,  getrawblockbyheight_callback,
 				    call);
@@ -586,7 +588,8 @@ static void getchaininfo_callback(const char *buf, const jsmntok_t *toks,
 	tal_free(call);
 }
 
-void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
+void bitcoind_getchaininfo_(const tal_t *ctx,
+			    struct bitcoind *bitcoind,
 			    const u32 height,
 			    void (*cb)(struct bitcoind *bitcoind,
 				       const char *chain,
@@ -597,13 +600,13 @@ void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
 			    void *cb_arg)
 {
 	struct jsonrpc_request *req;
-	struct getchaininfo_call *call = tal(bitcoind, struct getchaininfo_call);
+	struct getchaininfo_call *call = tal(ctx, struct getchaininfo_call);
 
 	call->bitcoind = bitcoind;
 	call->cb = cb;
 	call->cb_arg = cb_arg;
 
-	req = jsonrpc_request_start(bitcoind, "getchaininfo", NULL, true,
+	req = jsonrpc_request_start(call, "getchaininfo", NULL, true,
 				    bitcoind->log,
 				    NULL, getchaininfo_callback, call);
 	json_add_u32(req->stream, "last_height", height);
@@ -639,10 +642,13 @@ static void getutxout_callback(const char *buf, const jsmntok_t *toks,
 	const char *err;
 	struct bitcoin_tx_output txout;
 
+	/* Whatever happens, we want to free this. */
+	tal_steal(tmpctx, call);
+
 	err = json_scan(tmpctx, buf, toks, "{result:{script:null}}");
 	if (!err) {
 		call->cb(call->bitcoind, NULL, call->cb_arg);
-		goto clean;
+		return;
 	}
 
 	err = json_scan(tmpctx, buf, toks, "{result:{script:%,amount:%}}",
@@ -654,12 +660,10 @@ static void getutxout_callback(const char *buf, const jsmntok_t *toks,
 				     "bad 'result' field: %s", err);
 
 	call->cb(call->bitcoind, &txout, call->cb_arg);
-
-clean:
-	tal_free(call);
 }
 
-void bitcoind_getutxout_(struct bitcoind *bitcoind,
+void bitcoind_getutxout_(const tal_t *ctx,
+			 struct bitcoind *bitcoind,
 			 const struct bitcoin_outpoint *outpoint,
 			 void (*cb)(struct bitcoind *,
 				    const struct bitcoin_tx_output *,
@@ -667,13 +671,13 @@ void bitcoind_getutxout_(struct bitcoind *bitcoind,
 			 void *cb_arg)
 {
 	struct jsonrpc_request *req;
-	struct getutxout_call *call = tal(bitcoind, struct getutxout_call);
+	struct getutxout_call *call = tal(ctx, struct getutxout_call);
 
 	call->bitcoind = bitcoind;
 	call->cb = cb;
 	call->cb_arg = cb_arg;
 
-	req = jsonrpc_request_start(bitcoind, "getutxout", NULL, true,
+	req = jsonrpc_request_start(call, "getutxout", NULL, true,
 				    bitcoind->log,
 				    NULL, getutxout_callback, call);
 	json_add_txid(req->stream, "txid", &outpoint->txid);
@@ -717,8 +721,8 @@ process_getfilteredblock_step2(struct bitcoind *bitcoind,
 	call->current_outpoint++;
 	if (call->current_outpoint < tal_count(call->outpoints)) {
 		o = call->outpoints[call->current_outpoint];
-		bitcoind_getutxout(bitcoind, &o->outpoint,
-				  process_getfilteredblock_step2, call);
+		bitcoind_getutxout(call, bitcoind, &o->outpoint,
+				   process_getfilteredblock_step2, call);
 	} else {
 		/* If there were no more outpoints to check, we call the callback. */
 		process_getfiltered_block_final(bitcoind, call);
@@ -789,8 +793,8 @@ static void process_getfilteredblock_step1(struct bitcoind *bitcoind,
 		 * store the one's that are unspent in
 		 * call->result->outpoints. */
 		o = call->outpoints[call->current_outpoint];
-		bitcoind_getutxout(bitcoind, &o->outpoint,
-				  process_getfilteredblock_step2, call);
+		bitcoind_getutxout(call, bitcoind, &o->outpoint,
+				   process_getfilteredblock_step2, call);
 	}
 }
 
@@ -811,7 +815,6 @@ process_getfiltered_block_final(struct bitcoind *bitcoind,
 	list_for_each_safe(&bitcoind->pending_getfilteredblock, c, next, list) {
 		if (c->height == height) {
 			c->cb(bitcoind, fb, c->arg);
-			list_del(&c->list);
 			tal_free(c);
 		}
 	}
@@ -823,12 +826,18 @@ next:
 	 * pop here. */
 	if (!list_empty(&bitcoind->pending_getfilteredblock)) {
 		c = list_top(&bitcoind->pending_getfilteredblock, struct filteredblock_call, list);
-		bitcoind_getrawblockbyheight(bitcoind, c->height,
+		bitcoind_getrawblockbyheight(bitcoind, bitcoind, c->height,
 					     process_getfilteredblock_step1, c);
 	}
 }
 
-void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
+static void destroy_filteredblock_call(struct filteredblock_call *call)
+{
+	list_del(&call->list);
+}
+
+void bitcoind_getfilteredblock_(const tal_t *ctx,
+				struct bitcoind *bitcoind, u32 height,
 				void (*cb)(struct bitcoind *bitcoind,
 					   const struct filteredblock *fb,
 					   void *arg),
@@ -836,7 +845,7 @@ void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
 {
 	/* Stash the call context for when we need to call the callback after
 	 * all the bitcoind calls we need to perform. */
-	struct filteredblock_call *call = tal(bitcoind, struct filteredblock_call);
+	struct filteredblock_call *call = tal(ctx, struct filteredblock_call);
 	/* If this is the first request, we should start processing it. */
 	bool start = list_empty(&bitcoind->pending_getfilteredblock);
 	call->cb = cb;
@@ -848,8 +857,9 @@ void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
 	call->current_outpoint = 0;
 
 	list_add_tail(&bitcoind->pending_getfilteredblock, &call->list);
+	tal_add_destructor(call, destroy_filteredblock_call);
 	if (start)
-		bitcoind_getrawblockbyheight(bitcoind, height,
+		bitcoind_getrawblockbyheight(call, bitcoind, height,
 					     process_getfilteredblock_step1, call);
 }
 

@@ -17,7 +17,8 @@ struct channel *any_channel_by_scid(struct lightningd *ld UNNEEDED,
 void bip32_pubkey(struct lightningd *ld UNNEEDED, struct pubkey *pubkey UNNEEDED, u32 index UNNEEDED)
 { fprintf(stderr, "bip32_pubkey called!\n"); abort(); }
 /* Generated stub for bitcoind_getutxout_ */
-void bitcoind_getutxout_(struct bitcoind *bitcoind UNNEEDED,
+void bitcoind_getutxout_(const tal_t *ctx UNNEEDED,
+			 struct bitcoind *bitcoind UNNEEDED,
 			 const struct bitcoin_outpoint *outpoint UNNEEDED,
 			 void (*cb)(struct bitcoind * UNNEEDED,
 				    const struct bitcoin_tx_output * UNNEEDED,
