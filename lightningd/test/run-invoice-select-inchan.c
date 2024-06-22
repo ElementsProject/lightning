@@ -155,6 +155,9 @@ bool command_deprecated_out_ok(struct command *cmd UNNEEDED,
 			       const char *depr_start UNNEEDED,
 			       const char *depr_end UNNEEDED)
 { fprintf(stderr, "command_deprecated_out_ok called!\n"); abort(); }
+/* Generated stub for command_dev_apis */
+bool command_dev_apis(const struct command *cmd UNNEEDED)
+{ fprintf(stderr, "command_dev_apis called!\n"); abort(); }
 /* Generated stub for command_fail */
 struct command_result *command_fail(struct command *cmd UNNEEDED, enum jsonrpc_errcode code UNNEEDED,
 				    const char *fmt UNNEEDED, ...)
@@ -168,6 +171,11 @@ struct command_result *command_failed(struct command *cmd UNNEEDED,
 /* Generated stub for command_its_complicated */
 struct command_result *command_its_complicated(const char *why UNNEEDED)
 { fprintf(stderr, "command_its_complicated called!\n"); abort(); }
+/* Generated stub for command_log */
+void command_log(struct command *cmd UNNEEDED, enum log_level level UNNEEDED,
+		 const char *fmt UNNEEDED, ...)
+
+{ fprintf(stderr, "command_log called!\n"); abort(); }
 /* Generated stub for command_logger */
 struct logger *command_logger(struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_logger called!\n"); abort(); }

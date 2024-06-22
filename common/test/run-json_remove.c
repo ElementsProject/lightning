@@ -62,6 +62,11 @@ struct command_result *command_fail(struct command *cmd UNNEEDED, enum jsonrpc_e
 				    const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "command_fail called!\n"); abort(); }
+/* Generated stub for command_log */
+void command_log(struct command *cmd UNNEEDED, enum log_level level UNNEEDED,
+		 const char *fmt UNNEEDED, ...)
+
+{ fprintf(stderr, "command_log called!\n"); abort(); }
 /* Generated stub for command_set_usage */
 void command_set_usage(struct command *cmd UNNEEDED, const char *usage UNNEEDED)
 { fprintf(stderr, "command_set_usage called!\n"); abort(); }

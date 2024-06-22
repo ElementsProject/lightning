@@ -67,6 +67,11 @@ bool command_dev_apis(const struct command *cmd UNNEEDED)
 /* Generated stub for command_filter_ptr */
 struct json_filter **command_filter_ptr(struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_filter_ptr called!\n"); abort(); }
+/* Generated stub for command_log */
+void command_log(struct command *cmd UNNEEDED, enum log_level level UNNEEDED,
+		 const char *fmt UNNEEDED, ...)
+
+{ fprintf(stderr, "command_log called!\n"); abort(); }
 /* Generated stub for fromwire_sciddir_or_pubkey */
 void fromwire_sciddir_or_pubkey(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 				struct sciddir_or_pubkey *sciddpk UNNEEDED)
