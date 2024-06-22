@@ -28,9 +28,6 @@ struct bitcoind {
 	/* Ignore results, we're shutting down. */
 	bool shutdown;
 
-	/* Timer if we're waiting for it to warm up. */
-	struct oneshot *checkchain_timer;
-
 	struct list_head pending_getfilteredblock;
 
 	/* Map each method to a plugin, so we can have multiple plugins

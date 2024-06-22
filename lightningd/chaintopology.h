@@ -128,7 +128,7 @@ struct chain_topology {
 	struct bitcoind *bitcoind;
 
 	/* Timers we're running. */
-	struct oneshot *extend_timer, *updatefee_timer, *rebroadcast_timer;
+	struct oneshot *checkchain_timer, *extend_timer, *updatefee_timer, *rebroadcast_timer;
 
 	/* Bitcoin transactions we're broadcasting */
 	struct outgoing_tx_map *outgoing_txs;
@@ -140,9 +140,6 @@ struct chain_topology {
 	/* The number of headers known to the bitcoin backend at startup. Not
 	 * updated after the initial check. */
 	u32 headercount;
-
-	/* Are we stopped? */
-	bool stopping;
 };
 
 /* Information relevant to locating a TX in a blockchain. */
