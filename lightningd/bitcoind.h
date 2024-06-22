@@ -58,10 +58,21 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 			      struct lightningd *ld,
 			      struct logger *log);
 
-void bitcoind_estimate_fees(struct bitcoind *bitcoind,
-			    void (*cb)(struct lightningd *ld,
-				       u32 feerate_floor,
-				       const struct feerate_est *feerates));
+#define bitcoind_estimate_fees(bitcoind_, cb, arg)			\
+	bitcoind_estimate_fees_((bitcoind_),				\
+				typesafe_cb_preargs(void, void *,	\
+						    (cb), (arg),	\
+						    struct lightningd *, \
+						    u32,		\
+						    const struct feerate_est *), \
+				(arg))
+
+void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
+			     void (*cb)(struct lightningd *ld,
+					u32 feerate_floor,
+					const struct feerate_est *feerates,
+					void *arg),
+			     void *cb_arg);
 
 /* If ctx is freed, cb won't be called! */
 void bitcoind_sendrawtx_(const tal_t *ctx,
