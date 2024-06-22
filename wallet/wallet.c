@@ -2120,9 +2120,9 @@ void wallet_channel_stats_load(struct wallet *w,
 	tal_free(stmt);
 }
 
-u32 wallet_blocks_maxheight(struct wallet *w, u32 def)
+u32 wallet_blocks_maxheight(struct wallet *w)
 {
-	u32 max;
+	u32 max = 0;
 	struct db_stmt *stmt = db_prepare_v2(w->db, SQL("SELECT MAX(height) FROM blocks;"));
 	db_query_prepared(stmt);
 
@@ -2132,7 +2132,6 @@ u32 wallet_blocks_maxheight(struct wallet *w, u32 def)
 			max = db_col_int(stmt, "MAX(height)");
 		} else {
 			db_col_ignore(stmt, "MAX(height)");
-			max = def;
 		}
 	}
 	tal_free(stmt);

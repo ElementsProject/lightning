@@ -727,12 +727,11 @@ void wallet_channel_stats_load(struct wallet *w, u64 cdbid, struct channel_stats
 /**
  * Retrieve the blockheight of the last block processed by lightningd.
  *
- * Will return the default value if the wallet was never used before.
+ * Will return the 0 if the wallet was never used before.
  *
  * @w: wallet to load from.
- * @def: the default value to return if we've never used the wallet before
  */
-u32 wallet_blocks_maxheight(struct wallet *w, u32 def);
+u32 wallet_blocks_maxheight(struct wallet *w);
 
 /**
  * wallet_extract_owned_outputs - given a tx, extract all of our outputs

@@ -1362,7 +1362,15 @@ static void retry_height_reached(struct wait_for_height *wh)
 			      wait_until_height_reached, wh);
 }
 
-void setup_topology(struct chain_topology *topo, u32 max_blockheight)
+/* Subtract, but floored at 0 */
+static u32 blocknum_reduce(u32 blockheight, s32 sub)
+{
+	if ((u32)sub > blockheight)
+		return 0;
+	return blockheight - sub;
+}
+
+void setup_topology(struct chain_topology *topo)
 {
 	void *ret;
 	/* Since we loop below, we free tmpctx, so we need a local */
@@ -1370,6 +1378,8 @@ void setup_topology(struct chain_topology *topo, u32 max_blockheight)
 	struct chaininfo_once *chaininfo = tal(local_ctx, struct chaininfo_once);
 	struct feerates_once *feerates = tal(local_ctx, struct feerates_once);
 	struct bitcoin_block *blk;
+	bool blockscan_start_set;
+	u32 blockscan_start;
 
 	/* This waits for bitcoind. */
 	bitcoind_check_commands(topo->bitcoind);
@@ -1377,8 +1387,28 @@ void setup_topology(struct chain_topology *topo, u32 max_blockheight)
 	/* For testing.. */
 	log_debug(topo->ld->log, "All Bitcoin plugin commands registered");
 
+	db_begin_transaction(topo->ld->wallet->db);
+
+	/*~ If we were asked to rescan from an absolute height (--rescan < 0)
+	 * then just go there. Otherwise compute the diff to our current height,
+	 * lowerbounded by 0. */
+	if (topo->ld->config.rescan < 0) {
+		blockscan_start = -topo->ld->config.rescan;
+		blockscan_start_set = true;
+	} else {
+		/* Get the blockheight we are currently at, or 0 */
+		blockscan_start = wallet_blocks_maxheight(topo->ld->wallet);
+		blockscan_start_set = (blockscan_start != 0);
+
+		/* If we don't know blockscan_start, can't do this yet */
+		if (blockscan_start_set)
+			blockscan_start = blocknum_reduce(blockscan_start, topo->ld->config.rescan);
+	}
+
+	db_commit_transaction(topo->ld->wallet->db);
+
 	/* Sanity checks, then topology initialization. */
-	bitcoind_getchaininfo(topo->bitcoind, max_blockheight,
+	bitcoind_getchaininfo(topo->bitcoind, blockscan_start,
 			      get_chaininfo_once, chaininfo);
 	bitcoind_estimate_fees(topo->bitcoind, get_feerates_once, feerates);
 
@@ -1393,32 +1423,26 @@ void setup_topology(struct chain_topology *topo, u32 max_blockheight)
 		fatal("Wrong network! Our Bitcoin backend is running on '%s',"
 		      " but we expect '%s'.", chaininfo->chain, chainparams->bip70_name);
 
-	/* If bitcoind's current blockheight is below the requested
-	 * height, refuse.  You can always explicitly request a reindex from
-	 * that block number using --rescan=. */
-	if (chaininfo->blockcount < max_blockheight) {
-		/* UINT32_MAX == no blocks in database */
-		if (max_blockheight == UINT32_MAX) {
-			/* Relative rescan, but we didn't know the blockheight */
-			/* Protect against underflow in subtraction.
-			 * Possible in regtest mode. */
-			if (chaininfo->blockcount < topo->bitcoind->ld->config.rescan)
-				max_blockheight = 0;
-			else
-				max_blockheight = chaininfo->blockcount - topo->bitcoind->ld->config.rescan;
-		} else if (chaininfo->headercount < max_blockheight) {
+	if (!blockscan_start_set) {
+		blockscan_start = blocknum_reduce(chaininfo->blockcount, topo->ld->config.rescan);
+	} else {
+		/* If bitcoind's current blockheight is below the requested
+		 * height, wait, as long as header count is greater.  You can
+		 * always explicitly request a reindex from that block number
+		 * using --rescan=. */
+		if (chaininfo->headercount < blockscan_start) {
 			fatal("bitcoind has gone backwards from %u to %u blocks!",
-			      max_blockheight, chaininfo->blockcount);
-		} else {
+			      blockscan_start, chaininfo->blockcount);
+		} else if (chaininfo->blockcount < blockscan_start) {
 			struct wait_for_height *wh = tal(local_ctx, struct wait_for_height);
 			wh->bitcoind = topo->bitcoind;
-			wh->minheight = max_blockheight;
+			wh->minheight = blockscan_start;
 
 			/* We're not happy, but we'll wait... */
 			log_broken(topo->ld->log,
 				   "bitcoind has gone backwards from %u to %u blocks, waiting...",
-				   max_blockheight, chaininfo->blockcount);
-			bitcoind_getchaininfo(topo->bitcoind, max_blockheight,
+				   blockscan_start, chaininfo->blockcount);
+			bitcoind_getchaininfo(topo->bitcoind, blockscan_start,
 					      wait_until_height_reached, wh);
 			ret = io_loop_with_timers(topo->ld);
 			assert(ret == wh);
@@ -1438,13 +1462,13 @@ void setup_topology(struct chain_topology *topo, u32 max_blockheight)
 	update_feerates(topo->ld, feerates->feerate_floor, feerates->rates, NULL);
 
 	/* Get the first block, so we can initialize topography. */
-	bitcoind_getrawblockbyheight(topo->bitcoind, max_blockheight,
+	bitcoind_getrawblockbyheight(topo->bitcoind, blockscan_start,
 				     get_block_once, &blk);
 	ret = io_loop_with_timers(topo->ld);
 	assert(ret == topo);
 
 	tal_steal(local_ctx, blk);
-	topo->root = new_block(topo, blk, max_blockheight);
+	topo->root = new_block(topo, blk, blockscan_start);
 	block_map_add(topo->block_map, topo->root);
 	topo->tip = topo->root;
 	topo->prev_tip = topo->tip->blkid;
@@ -1457,7 +1481,7 @@ void setup_topology(struct chain_topology *topo, u32 max_blockheight)
 
 	/* Rollback to the given blockheight, so we start track
 	 * correctly again */
-	wallet_blocks_rollback(topo->ld->wallet, max_blockheight);
+	wallet_blocks_rollback(topo->ld->wallet, blockscan_start);
 
 	/* May have unconfirmed txs: reconfirm as we add blocks. */
 	watch_for_utxo_reconfirmation(topo, topo->ld->wallet);

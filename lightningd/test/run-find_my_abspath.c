@@ -237,7 +237,7 @@ void setup_color_and_alias(struct lightningd *ld UNNEEDED)
 void setup_peers(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "setup_peers called!\n"); abort(); }
 /* Generated stub for setup_topology */
-void setup_topology(struct chain_topology *topology UNNEEDED, u32 max_blockheight UNNEEDED)
+void setup_topology(struct chain_topology *topology UNNEEDED)
 { fprintf(stderr, "setup_topology called!\n"); abort(); }
 /* Generated stub for shutdown_plugins */
 void shutdown_plugins(struct lightningd *ld UNNEEDED)
@@ -277,9 +277,6 @@ const char *version(void)
 void waitblockheight_notify_new_block(struct lightningd *ld UNNEEDED,
 				      u32 block_height UNNEEDED)
 { fprintf(stderr, "waitblockheight_notify_new_block called!\n"); abort(); }
-/* Generated stub for wallet_blocks_maxheight */
-u32 wallet_blocks_maxheight(struct wallet *w UNNEEDED, u32 def UNNEEDED)
-{ fprintf(stderr, "wallet_blocks_maxheight called!\n"); abort(); }
 /* Generated stub for wallet_new */
 struct wallet *wallet_new(struct lightningd *ld UNNEEDED, struct timers *timers UNNEEDED)
 { fprintf(stderr, "wallet_new called!\n"); abort(); }
