@@ -553,14 +553,11 @@ void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
 
 struct getchaininfo_call {
 	struct bitcoind *bitcoind;
-	/* Should we log verbosely? */
-	bool first_call;
 	void (*cb)(struct bitcoind *bitcoind,
 		   const char *chain,
 		   u32 headercount,
 		   u32 blockcount,
 		   const bool ibd,
-		   const bool first_call,
 		   void *);
 	void *cb_arg;
 };
@@ -584,20 +581,18 @@ static void getchaininfo_callback(const char *buf, const jsmntok_t *toks,
 				     "bad 'result' field: %s", err);
 
 	call->cb(call->bitcoind, chain, headers, blocks, ibd,
-		 call->first_call, call->cb_arg);
+		 call->cb_arg);
 
 	tal_free(call);
 }
 
 void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
-			    const bool first_call,
 			    const u32 height,
 			    void (*cb)(struct bitcoind *bitcoind,
 				       const char *chain,
 				       u32 headercount,
 				       u32 blockcount,
 				       const bool ibd,
-				       const bool first_call,
 				       void *),
 			    void *cb_arg)
 {
@@ -607,7 +602,6 @@ void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
 	call->bitcoind = bitcoind;
 	call->cb = cb;
 	call->cb_arg = cb_arg;
-	call->first_call = first_call;
 
 	req = jsonrpc_request_start(bitcoind, "getchaininfo", NULL, true,
 				    bitcoind->log,

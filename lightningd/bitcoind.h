@@ -107,22 +107,21 @@ void bitcoind_getfilteredblock_(struct bitcoind *bitcoind, u32 height,
 				   (arg))
 
 void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
-			    const bool first_call,
 			    const u32 height,
 			    void (*cb)(struct bitcoind *bitcoind,
 				       const char *chain,
 				       u32 headercount,
 				       u32 blockcount,
-				       const bool ibd,
-				       const bool first_call, void *),
+				       bool ibd,
+				       void *),
 			    void *cb_arg);
-#define bitcoind_getchaininfo(bitcoind_, first_call_, height_, cb, arg)		   \
-	bitcoind_getchaininfo_((bitcoind_), (first_call_), (height_),      \
+#define bitcoind_getchaininfo(bitcoind_, height_, cb, arg)		   \
+	bitcoind_getchaininfo_((bitcoind_), (height_),			   \
 			      typesafe_cb_preargs(void, void *,		   \
 						  (cb), (arg),		   \
 						  struct bitcoind *,	   \
 						  const char *, u32, u32,  \
-						  const bool, const bool), \
+						  bool),		   \
 			      (arg))
 
 void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
