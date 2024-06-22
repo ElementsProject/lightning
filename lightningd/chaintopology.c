@@ -1332,6 +1332,36 @@ static void get_block_once(struct bitcoind *bitcoind,
 	io_break(bitcoind->ld->topology);
 }
 
+/* We want to loop and poll until bitcoind has this height */
+struct wait_for_height {
+	struct bitcoind *bitcoind;
+	u32 minheight;
+};
+
+/* Timer recursion */
+static void retry_height_reached(struct wait_for_height *wh);
+
+static void wait_until_height_reached(struct bitcoind *bitcoind, const char *chain,
+				      const u32 headercount, const u32 blockcount, const bool ibd,
+				      struct wait_for_height *wh)
+{
+	if (blockcount >= wh->minheight) {
+		io_break(wh);
+		return;
+	}
+
+	log_debug(bitcoind->ld->log, "bitcoind now at %u of %u blocks, waiting...",
+		  blockcount, wh->minheight);
+	new_reltimer(bitcoind->ld->timers, bitcoind, time_from_sec(5),
+		     retry_height_reached, wh);
+}
+
+static void retry_height_reached(struct wait_for_height *wh)
+{
+	bitcoind_getchaininfo(wh->bitcoind, wh->minheight,
+			      wait_until_height_reached, wh);
+}
+
 void setup_topology(struct chain_topology *topo,
 		    u32 min_blockheight, u32 max_blockheight)
 {
@@ -1377,9 +1407,28 @@ void setup_topology(struct chain_topology *topo,
 				max_blockheight = 0;
 			else
 				max_blockheight = chaininfo->blockcount - topo->bitcoind->ld->config.rescan;
-		} else
+		} else if (chaininfo->headercount < max_blockheight) {
 			fatal("bitcoind has gone backwards from %u to %u blocks!",
 			      max_blockheight, chaininfo->blockcount);
+		} else {
+			struct wait_for_height *wh = tal(local_ctx, struct wait_for_height);
+			wh->bitcoind = topo->bitcoind;
+			wh->minheight = max_blockheight;
+
+			/* We're not happy, but we'll wait... */
+			log_broken(topo->ld->log,
+				   "bitcoind has gone backwards from %u to %u blocks, waiting...",
+				   max_blockheight, chaininfo->blockcount);
+			bitcoind_getchaininfo(topo->bitcoind, max_blockheight,
+					      wait_until_height_reached, wh);
+			ret = io_loop_with_timers(topo->ld);
+			assert(ret == wh);
+
+			/* Might have been a while, so re-ask for fee estimates */
+			bitcoind_estimate_fees(topo->bitcoind, get_feerates_once, feerates);
+			ret = io_loop_with_timers(topo->ld);
+			assert(ret == topo);
+		}
 	}
 
 	/* Sets bitcoin->synced or logs warnings */
