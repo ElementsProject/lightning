@@ -1400,15 +1400,19 @@ void setup_topology(struct chain_topology *topo)
 	db_commit_transaction(topo->ld->wallet->db);
 
 	/* Sanity checks, then topology initialization. */
+	chaininfo->chain = NULL;
+	feerates->rates = NULL;
 	bitcoind_getchaininfo(chaininfo, topo->bitcoind, blockscan_start,
 			      get_chaininfo_once, chaininfo);
 	bitcoind_estimate_fees(feerates, topo->bitcoind, get_feerates_once, feerates);
 
-	/* Each one will break, order doesn't matter */
+	/* Each one will break, but they might only exit once! */
 	ret = io_loop_with_timers(topo->ld);
 	assert(ret == topo);
-	ret = io_loop_with_timers(topo->ld);
-	assert(ret == topo);
+	if (chaininfo->chain == NULL || feerates->rates == NULL) {
+		ret = io_loop_with_timers(topo->ld);
+		assert(ret == topo);
+	}
 
 	topo->headercount = chaininfo->headercount;
 	if (!streq(chaininfo->chain, chainparams->bip70_name))
