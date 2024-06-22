@@ -103,9 +103,6 @@ struct chain_topology {
 	struct bitcoin_blkid prev_tip;
 	struct block_map *block_map;
 
-	/* Set during startup */
-	bool feerate_uninitialized;
-
 	/* This is the lowest feerate that bitcoind is saying will broadcast. */
 	u32 feerate_floor;
 
@@ -118,9 +115,6 @@ struct chain_topology {
 
 	/* Where to log things. */
 	struct logger *log;
-
-	/* What range of blocks do we have in our database? */
-	u32 min_blockheight, max_blockheight;
 
 	/* How often to poll. */
 	u32 poll_seconds;

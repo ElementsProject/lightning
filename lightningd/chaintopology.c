@@ -32,18 +32,6 @@ static void try_extend_tip(struct chain_topology *topo);
 
 static bool first_update_complete = false;
 
-/* init_topo sets topo->root, start_fee_estimate clears
- * feerate_uninitialized (even if unsuccessful) */
-static void maybe_completed_init(struct chain_topology *topo)
-{
-	if (topo->feerate_uninitialized)
-		return;
-	if (!topo->root)
-		return;
-	log_debug(topo->ld->log, "io_break: %s", __func__);
-	io_break(topo);
-}
-
 static void next_topology_timer(struct chain_topology *topo)
 {
 	assert(!topo->extend_timer);
@@ -531,7 +519,7 @@ static void update_feerates(struct lightningd *ld,
 	/* Don't bother updating if we got no feerates; we'd rather have
 	 * historical ones, if any. */
 	if (tal_count(rates) == 0)
-		goto rearm;
+		return;
 
 	/* If the feerate blockcounts differ, don't average, just override */
 	if (topo->feerates[0] && different_blockcounts(topo, topo->feerates[0], rates)) {
@@ -562,16 +550,15 @@ static void update_feerates(struct lightningd *ld,
 
 	if (changed)
 		notify_feerate_change(topo->ld);
+}
 
-rearm:
-	if (topo->feerate_uninitialized) {
-		/* This doesn't mean we *have* a fee estimate, but it does
-		 * mean we tried. */
-		topo->feerate_uninitialized = false;
-		maybe_completed_init(topo);
-	}
-
-	next_updatefee_timer(topo);
+static void update_feerates_repeat(struct lightningd *ld,
+				   u32 feerate_floor,
+				   const struct feerate_est *rates TAKES,
+				   void *unused)
+{
+	update_feerates(ld, feerate_floor, rates, unused);
+	next_updatefee_timer(ld->topology);
 }
 
 static void start_fee_estimate(struct chain_topology *topo)
@@ -579,8 +566,8 @@ static void start_fee_estimate(struct chain_topology *topo)
 	topo->updatefee_timer = NULL;
 	if (topo->stopping)
 		return;
-	/* Once per new block head, update fee estimates. */
-	bitcoind_estimate_fees(topo->bitcoind, update_feerates, NULL);
+	/* Based on timer, update fee estimates. */
+	bitcoind_estimate_fees(topo->bitcoind, update_feerates_repeat, NULL);
 }
 
 struct rate_conversion {
@@ -987,7 +974,6 @@ static void add_tip(struct chain_topology *topo, struct block *b)
 	trace_span_end(b);
 
 	block_map_add(topo->block_map, b);
-	topo->max_blockheight = b->height;
 }
 
 static struct block *new_block(struct chain_topology *topo,
@@ -1096,24 +1082,6 @@ static void try_extend_tip(struct chain_topology *topo)
 	trace_span_start("extend_tip", topo);
 	bitcoind_getrawblockbyheight(topo->bitcoind, topo->tip->height + 1,
 				     get_new_block, topo);
-}
-
-static void init_topo(struct bitcoind *bitcoind UNUSED,
-		      u32 height UNUSED,
-		      struct bitcoin_blkid *blkid UNUSED,
-		      struct bitcoin_block *blk,
-		      struct chain_topology *topo)
-{
-	topo->root = new_block(topo, blk, topo->max_blockheight);
-	block_map_add(topo->block_map, topo->root);
-	topo->tip = topo->root;
-	topo->prev_tip = topo->tip->blkid;
-
-	/* In case we don't get all the way to updates_complete */
-	db_set_intvar(topo->bitcoind->ld->wallet->db,
-		      "last_processed_block", topo->tip->height);
-
-	maybe_completed_init(topo);
 }
 
 u32 get_block_height(const struct chain_topology *topo)
@@ -1246,67 +1214,26 @@ struct chain_topology *new_topology(struct lightningd *ld, struct logger *log)
 	txowatch_hash_init(topo->txowatches);
 	topo->log = log;
 	topo->bitcoind = new_bitcoind(topo, ld, log);
+	topo->bitcoind->checkchain_timer = NULL;
 	topo->poll_seconds = 30;
-	topo->feerate_uninitialized = true;
 	memset(topo->feerates, 0, sizeof(topo->feerates));
 	topo->smoothed_feerates = NULL;
 	topo->root = NULL;
 	topo->sync_waiters = tal(topo, struct list_head);
 	topo->extend_timer = NULL;
 	topo->rebroadcast_timer = NULL;
+	topo->updatefee_timer = NULL;
 	topo->stopping = false;
 	list_head_init(topo->sync_waiters);
 
 	return topo;
 }
 
-static void check_blockcount(struct chain_topology *topo, u32 blockcount)
+static bool check_sync(struct bitcoind *bitcoind,
+		       const u32 headercount, const u32 blockcount, const bool ibd,
+		       struct chain_topology *topo, bool first_call)
 {
-	/* If bitcoind's current blockheight is below the requested
-	 * height, refuse.  You can always explicitly request a reindex from
-	 * that block number using --rescan=. */
-	if (blockcount < topo->max_blockheight) {
-		/* UINT32_MAX == no blocks in database */
-		if (topo->max_blockheight == UINT32_MAX) {
-			/* Relative rescan, but we didn't know the blockheight */
-			/* Protect against underflow in subtraction.
-			 * Possible in regtest mode. */
-			if (blockcount < topo->bitcoind->ld->config.rescan)
-				topo->max_blockheight = 0;
-			else
-				topo->max_blockheight = blockcount - topo->bitcoind->ld->config.rescan;
-		} else
-			fatal("bitcoind has gone backwards from %u to %u blocks!",
-			      topo->max_blockheight, blockcount);
-	}
-
-	/* Rollback to the given blockheight, so we start track
-	 * correctly again */
-	wallet_blocks_rollback(topo->ld->wallet, topo->max_blockheight);
-	/* This may have unconfirmed txs: reconfirm as we add blocks. */
-	watch_for_utxo_reconfirmation(topo, topo->ld->wallet);
-}
-
-static void retry_check_chain(struct chain_topology *topo);
-
-static void
-check_chain(struct bitcoind *bitcoind, const char *chain,
-	    const u32 headercount, const u32 blockcount, const bool ibd,
-	    const bool first_call, struct chain_topology *topo)
-{
-	if (!streq(chain, chainparams->bip70_name))
-		fatal("Wrong network! Our Bitcoin backend is running on '%s',"
-		      " but we expect '%s'.", chain, chainparams->bip70_name);
-
 	topo->headercount = headercount;
-
-	if (first_call) {
-		/* Has the Bitcoin backend gone backward ? */
-		check_blockcount(topo, blockcount);
-		/* Get up to speed with topology. */
-		bitcoind_getrawblockbyheight(topo->bitcoind, topo->max_blockheight,
-					     init_topo, topo);
-	}
 
 	if (ibd) {
 		if (first_call)
@@ -1328,37 +1255,92 @@ check_chain(struct bitcoind *bitcoind, const char *chain,
 				  " (%u blocks of %u)",
 				  blockcount, headercount);
 	} else {
-		if (!first_call)
-			log_unusual(bitcoind->log,
-				    "Bitcoin backend now synced.");
 		bitcoind->synced = true;
+		return true;
+	}
+	return false;
+}
+
+/* Loop to see if bitcoind is synced */
+static void retry_sync(struct chain_topology *topo);
+static void retry_sync_getchaininfo_done(struct bitcoind *bitcoind, const char *chain,
+					 const u32 headercount, const u32 blockcount, const bool ibd,
+					 const bool first_call, struct chain_topology *topo)
+{
+	if (check_sync(bitcoind, headercount, blockcount, ibd, topo, false)) {
+		log_unusual(bitcoind->log, "Bitcoin backend now synced.");
 		return;
 	}
 
-	assert(!bitcoind->checkchain_timer);
 	bitcoind->checkchain_timer
 		= new_reltimer(bitcoind->ld->timers, bitcoind,
 			       /* Be 4x more aggressive in this case. */
 			       time_divide(time_from_sec(bitcoind->ld->topology
 							 ->poll_seconds), 4),
-			       retry_check_chain, bitcoind->ld->topology);
+			       retry_sync, bitcoind->ld->topology);
 }
 
-static void retry_check_chain(struct chain_topology *topo)
+static void retry_sync(struct chain_topology *topo)
 {
 	topo->bitcoind->checkchain_timer = NULL;
 	if (topo->stopping)
 		return;
-	bitcoind_getchaininfo(topo->bitcoind, false, topo->max_blockheight, check_chain, topo);
+
+	bitcoind_getchaininfo(topo->bitcoind, false, get_block_height(topo),
+			      retry_sync_getchaininfo_done, topo);
+}
+
+struct chaininfo_once {
+	const char *chain;
+	u32 headercount, blockcount;
+	bool ibd;
+};
+
+static void get_chaininfo_once(struct bitcoind *bitcoind, const char *chain,
+			       const u32 headercount, const u32 blockcount, const bool ibd,
+			       const bool first_call, struct chaininfo_once *once)
+{
+	once->chain = tal_strdup(once, chain);
+	once->headercount = headercount;
+	once->blockcount = blockcount;
+	once->ibd = ibd;
+	io_break(bitcoind->ld->topology);
+}
+
+struct feerates_once {
+	u32 feerate_floor;
+	struct feerate_est *rates;
+};
+
+static void get_feerates_once(struct lightningd *ld,
+			      u32 feerate_floor,
+			      const struct feerate_est *rates TAKES,
+			      struct feerates_once *once)
+{
+	once->feerate_floor = feerate_floor;
+	once->rates = tal_dup_talarr(once, struct feerate_est, rates);
+	io_break(ld->topology);
+}
+
+static void get_block_once(struct bitcoind *bitcoind,
+			   u32 height,
+			   struct bitcoin_blkid *blkid UNUSED,
+			   struct bitcoin_block *blk,
+			   struct bitcoin_block **blkp)
+{
+	*blkp = tal_steal(NULL, blk);
+	io_break(bitcoind->ld->topology);
 }
 
 void setup_topology(struct chain_topology *topo,
 		    u32 min_blockheight, u32 max_blockheight)
 {
 	void *ret;
-
-	topo->min_blockheight = min_blockheight;
-	topo->max_blockheight = max_blockheight;
+	/* Since we loop below, we free tmpctx, so we need a local */
+	const tal_t *local_ctx = tal(NULL, char);
+	struct chaininfo_once *chaininfo = tal(local_ctx, struct chaininfo_once);
+	struct feerates_once *feerates = tal(local_ctx, struct feerates_once);
+	struct bitcoin_block *blk;
 
 	/* This waits for bitcoind. */
 	bitcoind_check_commands(topo->bitcoind);
@@ -1367,21 +1349,85 @@ void setup_topology(struct chain_topology *topo,
 	log_debug(topo->ld->log, "All Bitcoin plugin commands registered");
 
 	/* Sanity checks, then topology initialization. */
-	topo->bitcoind->checkchain_timer = NULL;
-	bitcoind_getchaininfo(topo->bitcoind, true, topo->max_blockheight, check_chain, topo);
+	bitcoind_getchaininfo(topo->bitcoind, true, max_blockheight,
+			      get_chaininfo_once, chaininfo);
+	bitcoind_estimate_fees(topo->bitcoind, get_feerates_once, feerates);
 
-	tal_add_destructor(topo, destroy_chain_topology);
-
-	start_fee_estimate(topo);
-
-	/* Once it gets initial block, it calls io_break() and we return. */
+	/* Each one will break, order doesn't matter */
 	ret = io_loop_with_timers(topo->ld);
 	assert(ret == topo);
-	log_debug(topo->ld->log, "io_loop_with_timers: %s", __func__);
+	ret = io_loop_with_timers(topo->ld);
+	assert(ret == topo);
+
+	topo->headercount = chaininfo->headercount;
+	if (!streq(chaininfo->chain, chainparams->bip70_name))
+		fatal("Wrong network! Our Bitcoin backend is running on '%s',"
+		      " but we expect '%s'.", chaininfo->chain, chainparams->bip70_name);
+
+	/* If bitcoind's current blockheight is below the requested
+	 * height, refuse.  You can always explicitly request a reindex from
+	 * that block number using --rescan=. */
+	if (chaininfo->blockcount < max_blockheight) {
+		/* UINT32_MAX == no blocks in database */
+		if (max_blockheight == UINT32_MAX) {
+			/* Relative rescan, but we didn't know the blockheight */
+			/* Protect against underflow in subtraction.
+			 * Possible in regtest mode. */
+			if (chaininfo->blockcount < topo->bitcoind->ld->config.rescan)
+				max_blockheight = 0;
+			else
+				max_blockheight = chaininfo->blockcount - topo->bitcoind->ld->config.rescan;
+		} else
+			fatal("bitcoind has gone backwards from %u to %u blocks!",
+			      max_blockheight, chaininfo->blockcount);
+	}
+
+	/* Sets bitcoin->synced or logs warnings */
+	check_sync(topo->bitcoind, chaininfo->headercount, chaininfo->blockcount,
+		   chaininfo->ibd, topo, true);
+
+	/* It's very useful to have feerates early */
+	update_feerates(topo->ld, feerates->feerate_floor, feerates->rates, NULL);
+
+	/* Get the first block, so we can initialize topography. */
+	bitcoind_getrawblockbyheight(topo->bitcoind, max_blockheight,
+				     get_block_once, &blk);
+	ret = io_loop_with_timers(topo->ld);
+	assert(ret == topo);
+
+	tal_steal(local_ctx, blk);
+	topo->root = new_block(topo, blk, max_blockheight);
+	block_map_add(topo->block_map, topo->root);
+	topo->tip = topo->root;
+	topo->prev_tip = topo->tip->blkid;
+
+	db_begin_transaction(topo->ld->wallet->db);
+
+	/* In case we don't get all the way to updates_complete */
+	db_set_intvar(topo->ld->wallet->db,
+		      "last_processed_block", topo->tip->height);
+
+	/* Rollback to the given blockheight, so we start track
+	 * correctly again */
+	wallet_blocks_rollback(topo->ld->wallet, max_blockheight);
+
+	/* May have unconfirmed txs: reconfirm as we add blocks. */
+	watch_for_utxo_reconfirmation(topo, topo->ld->wallet);
+	db_commit_transaction(topo->ld->wallet->db);
+
+	tal_free(local_ctx);
+
+	tal_add_destructor(topo, destroy_chain_topology);
 }
 
 void begin_topology(struct chain_topology *topo)
 {
+	/* If we were not synced, start looping to check */
+	if (!topo->bitcoind->synced)
+		retry_sync(topo);
+	/* Regular feerate updates */
+	start_fee_estimate(topo);
+	/* Regular block updates */
 	try_extend_tip(topo);
 }
 
