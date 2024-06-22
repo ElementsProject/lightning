@@ -1,6 +1,6 @@
 # Core Lightning (CLN): A specification compliant Lightning Network implementation in C
 
-Core Lightning (previously c-lightning) is a lightweight, highly customizable and [standard compliant][std] implementation of the Lightning Network protocol.
+Core Lightning (previously c-lightning) is a lightweight, highly customizable and [standard compliant][std] implementation of the Lightning Network protocol for sending payments to directly connected peers.
 
 * [Getting Started](#getting-started)
     * [Installation](#installation)
@@ -8,7 +8,7 @@ Core Lightning (previously c-lightning) is a lightweight, highly customizable an
     * [Using the JSON-RPC Interface](#using-the-json-rpc-interface)
     * [Care And Feeding Of Your New Lightning Node](#care-and-feeding-of-your-new-lightning-node)
     * [Opening A Channel](#opening-a-channel)
-	* [Sending and Receiving Payments](#sending-and-receiving-payments)
+	* [Sending and Receiving Payments to directly connected peers](#sending-and-receiving-payments)
 	* [Configuration File](#configuration-file)
 * [Further Information](#further-information)
     * [FAQ](doc/FAQ.md)
@@ -92,7 +92,7 @@ Useful commands:
 * [connect](doc/lightning-connect.7.md): connect to another lightning node.
 * [fundchannel](doc/lightning-fundchannel.7.md): create a channel to another connected node.
 * [invoice](doc/lightning-invoice.7.md): create an invoice to get paid by another node.
-* [pay](doc/lightning-pay.7.md): pay someone else's invoice.
+* [pay](doc/lightning-pay.7.md): pay someone else's invoice (the payment will only work if it is a directly connected peer).
 * [plugin](doc/lightning-plugin.7.md): commands to control extensions.
 
 ### Care And Feeding Of Your New Lightning Node
@@ -153,7 +153,7 @@ This opens a connection and, on top of that connection, then opens a channel.
 The funding transaction needs 3 confirmation in order for the channel to be usable, and 6 to be announced for others to use.
 You can check the status of the channel using `lightning-cli listpeers`, which after 3 confirmations (1 on testnet) should say that `state` is `CHANNELD_NORMAL`; after 6 confirmations you can use `lightning-cli listchannels` to verify that the `public` field is now `true`.
 
-### Sending and Receiving Payments
+### Sending (to directly connected peers) and Receiving Payments
 
 Payments in Lightning are invoice based.
 The recipient creates an invoice with the expected `<amount>` in
@@ -176,6 +176,9 @@ lightning-cli pay <bolt11>
 
 Note that there are lower-level interfaces (and more options to these
 interfaces) for more sophisticated use.
+
+Note that the recipient of the payment MUST be a directly connected peer.
+
 
 ## Configuration File
 
