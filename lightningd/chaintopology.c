@@ -565,7 +565,7 @@ static void start_fee_estimate(struct chain_topology *topo)
 {
 	topo->updatefee_timer = NULL;
 	/* Based on timer, update fee estimates. */
-	bitcoind_estimate_fees(topo, topo->bitcoind, update_feerates_repeat, NULL);
+	bitcoind_estimate_fees(topo->request_ctx, topo->bitcoind, update_feerates_repeat, NULL);
 }
 
 struct rate_conversion {
@@ -1076,7 +1076,7 @@ static void try_extend_tip(struct chain_topology *topo)
 {
 	topo->extend_timer = NULL;
 	trace_span_start("extend_tip", topo);
-	bitcoind_getrawblockbyheight(topo, topo->bitcoind, topo->tip->height + 1,
+	bitcoind_getrawblockbyheight(topo->request_ctx, topo->bitcoind, topo->tip->height + 1,
 				     get_new_block, topo);
 }
 
@@ -1219,6 +1219,7 @@ struct chain_topology *new_topology(struct lightningd *ld, struct logger *log)
 	topo->rebroadcast_timer = NULL;
 	topo->updatefee_timer = NULL;
 	topo->checkchain_timer = NULL;
+	topo->request_ctx = tal(topo, char);
 	list_head_init(topo->sync_waiters);
 
 	return topo;
@@ -1277,7 +1278,7 @@ static void retry_sync_getchaininfo_done(struct bitcoind *bitcoind, const char *
 static void retry_sync(struct chain_topology *topo)
 {
 	topo->checkchain_timer = NULL;
-	bitcoind_getchaininfo(topo, topo->bitcoind, get_block_height(topo),
+	bitcoind_getchaininfo(topo->request_ctx, topo->bitcoind, get_block_height(topo),
 			      retry_sync_getchaininfo_done, topo);
 }
 
@@ -1500,4 +1501,7 @@ void stop_topology(struct chain_topology *topo)
 	tal_free(topo->checkchain_timer);
 	tal_free(topo->extend_timer);
 	tal_free(topo->updatefee_timer);
+
+	/* Don't handle responses to any existing requests. */
+	tal_free(topo->request_ctx);
 }
