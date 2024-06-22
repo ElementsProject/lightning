@@ -240,7 +240,7 @@ void broadcast_tx_(const tal_t *ctx,
 		   void *cbarg TAKES);
 
 struct chain_topology *new_topology(struct lightningd *ld, struct logger *log);
-void setup_topology(struct chain_topology *topology, u32 max_blockheight);
+void setup_topology(struct chain_topology *topology);
 
 void begin_topology(struct chain_topology *topo);
 
