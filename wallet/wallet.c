@@ -2120,24 +2120,23 @@ void wallet_channel_stats_load(struct wallet *w,
 	tal_free(stmt);
 }
 
-void wallet_blocks_heights(struct wallet *w, u32 def, u32 *min, u32 *max)
+u32 wallet_blocks_maxheight(struct wallet *w, u32 def)
 {
-	assert(min != NULL && max != NULL);
-	struct db_stmt *stmt = db_prepare_v2(w->db, SQL("SELECT MIN(height), MAX(height) FROM blocks;"));
+	u32 max;
+	struct db_stmt *stmt = db_prepare_v2(w->db, SQL("SELECT MAX(height) FROM blocks;"));
 	db_query_prepared(stmt);
-	*min = def;
-	*max = def;
 
 	/* If we ever processed a block we'll get the latest block in the chain */
 	if (db_step(stmt)) {
-		if (!db_col_is_null(stmt, "MIN(height)")) {
-			*min = db_col_int(stmt, "MIN(height)");
-			*max = db_col_int(stmt, "MAX(height)");
+		if (!db_col_is_null(stmt, "MAX(height)")) {
+			max = db_col_int(stmt, "MAX(height)");
 		} else {
 			db_col_ignore(stmt, "MAX(height)");
+			max = def;
 		}
 	}
 	tal_free(stmt);
+	return max;
 }
 
 static void wallet_channel_config_insert(struct wallet *w,
