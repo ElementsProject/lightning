@@ -117,6 +117,7 @@ void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
 void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
 				   u32 height,
 				   void (*cb)(struct bitcoind *bitcoind,
+					      u32 height,
 					      struct bitcoin_blkid *blkid,
 					      struct bitcoin_block *blk,
 					      void *arg),
@@ -126,6 +127,7 @@ void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
 				      typesafe_cb_preargs(void, void *,		\
 							  (cb), (arg),		\
 							  struct bitcoind *,	\
+							  u32,			\
 							  struct bitcoin_blkid *, \
 							  struct bitcoin_block *),\
 				      (arg))
