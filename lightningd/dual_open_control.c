@@ -1724,7 +1724,7 @@ static void sendfunding_done(struct bitcoind *bitcoind UNUSED,
 		 * that the broadcast would fail. Verify that's not
 		 * the case here. */
 		cs->err_msg = tal_strdup(cs, msg);
-		bitcoind_getutxout(ld->topology->bitcoind,
+		bitcoind_getutxout(cs, ld->topology->bitcoind,
 				   &channel->funding,
 				   check_utxo_block,
 				   cs);
@@ -2832,7 +2832,7 @@ static void validate_input_unspent(struct bitcoind *bitcoind,
 		pv->next_index = i + 1;
 
 		/* Confirm input is in a block */
-		bitcoind_getutxout(pv->channel->owner->ld->topology->bitcoind,
+		bitcoind_getutxout(pv, pv->channel->owner->ld->topology->bitcoind,
 				   &outpoint,
 				   validate_input_unspent,
 				   pv);

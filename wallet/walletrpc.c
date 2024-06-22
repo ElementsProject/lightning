@@ -410,9 +410,8 @@ struct txo_rescan {
 
 static void process_utxo_result(struct bitcoind *bitcoind,
 				const struct bitcoin_tx_output *txout,
-				void *arg)
+				struct txo_rescan *rescan)
 {
-	struct txo_rescan *rescan = arg;
 	struct json_stream *response = rescan->response;
 	struct utxo *u = rescan->utxos[0];
 	enum output_status newstate =
@@ -436,7 +435,7 @@ static void process_utxo_result(struct bitcoind *bitcoind,
 		json_array_end(rescan->response);
 		was_pending(command_success(rescan->cmd, rescan->response));
 	} else {
-		bitcoind_getutxout(bitcoind->ld->topology->bitcoind,
+		bitcoind_getutxout(bitcoind, bitcoind,
 				   &rescan->utxos[0]->outpoint,
 				   process_utxo_result, rescan);
 	}
@@ -462,7 +461,7 @@ static struct command_result *json_dev_rescan_outputs(struct command *cmd,
 		json_array_end(rescan->response);
 		return command_success(cmd, rescan->response);
 	}
-	bitcoind_getutxout(cmd->ld->topology->bitcoind,
+	bitcoind_getutxout(rescan, cmd->ld->topology->bitcoind,
 			   &rescan->utxos[0]->outpoint,
 			   process_utxo_result,
 			   rescan);

@@ -554,7 +554,7 @@ static void send_splice_tx_done(struct bitcoind *bitcoind UNUSED,
 
 	if (!success) {
 		info->err_msg = tal_strdup(info, msg);
-		bitcoind_getutxout(ld->topology->bitcoind, &outpoint,
+		bitcoind_getutxout(info, ld->topology->bitcoind, &outpoint,
 				   check_utxo_block, info);
 	} else {
 		handle_tx_broadcast(info);
@@ -1980,7 +1980,7 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 	 * the funding transaction isn't broadcast. We can't know if the funding
 	 * is broadcast by external wallet and the transaction hasn't
 	 * been onchain. */
-	bitcoind_getutxout(cmd->ld->topology->bitcoind,
+	bitcoind_getutxout(cc, cmd->ld->topology->bitcoind,
 			   &cancel_channel->funding,
 			   process_check_funding_broadcast,
 			   /* Freed by callback */

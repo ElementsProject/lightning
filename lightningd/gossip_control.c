@@ -114,7 +114,7 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 						   NULL, scid, AMOUNT_SAT(0), NULL)));
 	} else {
 		/* Make a pointer of a copy of scid here, for got_filteredblock */
-		bitcoind_getfilteredblock(topo->bitcoind,
+		bitcoind_getfilteredblock(topo->bitcoind, topo->bitcoind,
 					  short_channel_id_blocknum(scid),
 					  got_filteredblock,
 					  tal_dup(gossip, struct short_channel_id, &scid));

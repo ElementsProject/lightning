@@ -565,7 +565,7 @@ static void start_fee_estimate(struct chain_topology *topo)
 {
 	topo->updatefee_timer = NULL;
 	/* Based on timer, update fee estimates. */
-	bitcoind_estimate_fees(topo->bitcoind, update_feerates_repeat, NULL);
+	bitcoind_estimate_fees(topo, topo->bitcoind, update_feerates_repeat, NULL);
 }
 
 struct rate_conversion {
@@ -1076,7 +1076,7 @@ static void try_extend_tip(struct chain_topology *topo)
 {
 	topo->extend_timer = NULL;
 	trace_span_start("extend_tip", topo);
-	bitcoind_getrawblockbyheight(topo->bitcoind, topo->tip->height + 1,
+	bitcoind_getrawblockbyheight(topo, topo->bitcoind, topo->tip->height + 1,
 				     get_new_block, topo);
 }
 
@@ -1277,7 +1277,7 @@ static void retry_sync_getchaininfo_done(struct bitcoind *bitcoind, const char *
 static void retry_sync(struct chain_topology *topo)
 {
 	topo->checkchain_timer = NULL;
-	bitcoind_getchaininfo(topo->bitcoind, get_block_height(topo),
+	bitcoind_getchaininfo(topo, topo->bitcoind, get_block_height(topo),
 			      retry_sync_getchaininfo_done, topo);
 }
 
@@ -1349,7 +1349,7 @@ static void wait_until_height_reached(struct bitcoind *bitcoind, const char *cha
 
 static void retry_height_reached(struct wait_for_height *wh)
 {
-	bitcoind_getchaininfo(wh->bitcoind, wh->minheight,
+	bitcoind_getchaininfo(wh, wh->bitcoind, wh->minheight,
 			      wait_until_height_reached, wh);
 }
 
@@ -1399,9 +1399,9 @@ void setup_topology(struct chain_topology *topo)
 	db_commit_transaction(topo->ld->wallet->db);
 
 	/* Sanity checks, then topology initialization. */
-	bitcoind_getchaininfo(topo->bitcoind, blockscan_start,
+	bitcoind_getchaininfo(chaininfo, topo->bitcoind, blockscan_start,
 			      get_chaininfo_once, chaininfo);
-	bitcoind_estimate_fees(topo->bitcoind, get_feerates_once, feerates);
+	bitcoind_estimate_fees(feerates, topo->bitcoind, get_feerates_once, feerates);
 
 	/* Each one will break, order doesn't matter */
 	ret = io_loop_with_timers(topo->ld);
@@ -1433,13 +1433,13 @@ void setup_topology(struct chain_topology *topo)
 			log_broken(topo->ld->log,
 				   "bitcoind has gone backwards from %u to %u blocks, waiting...",
 				   blockscan_start, chaininfo->blockcount);
-			bitcoind_getchaininfo(topo->bitcoind, blockscan_start,
+			bitcoind_getchaininfo(wh, topo->bitcoind, blockscan_start,
 					      wait_until_height_reached, wh);
 			ret = io_loop_with_timers(topo->ld);
 			assert(ret == wh);
 
 			/* Might have been a while, so re-ask for fee estimates */
-			bitcoind_estimate_fees(topo->bitcoind, get_feerates_once, feerates);
+			bitcoind_estimate_fees(feerates, topo->bitcoind, get_feerates_once, feerates);
 			ret = io_loop_with_timers(topo->ld);
 			assert(ret == topo);
 		}
@@ -1453,7 +1453,7 @@ void setup_topology(struct chain_topology *topo)
 	update_feerates(topo->ld, feerates->feerate_floor, feerates->rates, NULL);
 
 	/* Get the first block, so we can initialize topography. */
-	bitcoind_getrawblockbyheight(topo->bitcoind, blockscan_start,
+	bitcoind_getrawblockbyheight(topo, topo->bitcoind, blockscan_start,
 				     get_block_once, &blk);
 	ret = io_loop_with_timers(topo->ld);
 	assert(ret == topo);
