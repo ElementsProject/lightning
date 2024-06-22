@@ -564,8 +564,6 @@ static void update_feerates_repeat(struct lightningd *ld,
 static void start_fee_estimate(struct chain_topology *topo)
 {
 	topo->updatefee_timer = NULL;
-	if (topo->stopping)
-		return;
 	/* Based on timer, update fee estimates. */
 	bitcoind_estimate_fees(topo->bitcoind, update_feerates_repeat, NULL);
 }
@@ -1077,8 +1075,6 @@ static void get_new_block(struct bitcoind *bitcoind,
 static void try_extend_tip(struct chain_topology *topo)
 {
 	topo->extend_timer = NULL;
-	if (topo->stopping)
-		return;
 	trace_span_start("extend_tip", topo);
 	bitcoind_getrawblockbyheight(topo->bitcoind, topo->tip->height + 1,
 				     get_new_block, topo);
@@ -1214,7 +1210,6 @@ struct chain_topology *new_topology(struct lightningd *ld, struct logger *log)
 	txowatch_hash_init(topo->txowatches);
 	topo->log = log;
 	topo->bitcoind = new_bitcoind(topo, ld, log);
-	topo->bitcoind->checkchain_timer = NULL;
 	topo->poll_seconds = 30;
 	memset(topo->feerates, 0, sizeof(topo->feerates));
 	topo->smoothed_feerates = NULL;
@@ -1223,7 +1218,7 @@ struct chain_topology *new_topology(struct lightningd *ld, struct logger *log)
 	topo->extend_timer = NULL;
 	topo->rebroadcast_timer = NULL;
 	topo->updatefee_timer = NULL;
-	topo->stopping = false;
+	topo->checkchain_timer = NULL;
 	list_head_init(topo->sync_waiters);
 
 	return topo;
@@ -1272,20 +1267,16 @@ static void retry_sync_getchaininfo_done(struct bitcoind *bitcoind, const char *
 		return;
 	}
 
-	bitcoind->checkchain_timer
-		= new_reltimer(bitcoind->ld->timers, bitcoind,
-			       /* Be 4x more aggressive in this case. */
-			       time_divide(time_from_sec(bitcoind->ld->topology
-							 ->poll_seconds), 4),
-			       retry_sync, bitcoind->ld->topology);
+	topo->checkchain_timer = new_reltimer(bitcoind->ld->timers, topo,
+					      /* Be 4x more aggressive in this case. */
+					      time_divide(time_from_sec(bitcoind->ld->topology
+									->poll_seconds), 4),
+					      retry_sync, topo);
 }
 
 static void retry_sync(struct chain_topology *topo)
 {
-	topo->bitcoind->checkchain_timer = NULL;
-	if (topo->stopping)
-		return;
-
+	topo->checkchain_timer = NULL;
 	bitcoind_getchaininfo(topo->bitcoind, get_block_height(topo),
 			      retry_sync_getchaininfo_done, topo);
 }
@@ -1505,11 +1496,8 @@ void begin_topology(struct chain_topology *topo)
 
 void stop_topology(struct chain_topology *topo)
 {
-	/* Stop timers from re-arming. */
-	topo->stopping = true;
-
 	/* Remove timers while we're cleaning up plugins. */
-	tal_free(topo->bitcoind->checkchain_timer);
+	tal_free(topo->checkchain_timer);
 	tal_free(topo->extend_timer);
 	tal_free(topo->updatefee_timer);
 }
