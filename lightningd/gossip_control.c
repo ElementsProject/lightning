@@ -62,8 +62,10 @@ static void got_filteredblock(struct bitcoind *bitcoind,
 	if (fb == NULL)
 		return got_txout(bitcoind, NULL, scid);
 
-	/* Only fill in blocks that we are not going to scan later. */
-	if (bitcoind->ld->topology->max_blockheight > fb->height)
+	/* This routine is mainly for past blocks.  As a corner case,
+	 * we will grab (but not save) future blocks if we're
+	 * syncing */
+	if (fb->height < bitcoind->ld->topology->root->height)
 		wallet_filteredblock_add(bitcoind->ld->wallet, fb);
 
 	u32 outnum = short_channel_id_outnum(scid);
