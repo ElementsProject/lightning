@@ -1265,7 +1265,7 @@ static bool check_sync(struct bitcoind *bitcoind,
 static void retry_sync(struct chain_topology *topo);
 static void retry_sync_getchaininfo_done(struct bitcoind *bitcoind, const char *chain,
 					 const u32 headercount, const u32 blockcount, const bool ibd,
-					 const bool first_call, struct chain_topology *topo)
+					 struct chain_topology *topo)
 {
 	if (check_sync(bitcoind, headercount, blockcount, ibd, topo, false)) {
 		log_unusual(bitcoind->log, "Bitcoin backend now synced.");
@@ -1286,7 +1286,7 @@ static void retry_sync(struct chain_topology *topo)
 	if (topo->stopping)
 		return;
 
-	bitcoind_getchaininfo(topo->bitcoind, false, get_block_height(topo),
+	bitcoind_getchaininfo(topo->bitcoind, get_block_height(topo),
 			      retry_sync_getchaininfo_done, topo);
 }
 
@@ -1298,7 +1298,7 @@ struct chaininfo_once {
 
 static void get_chaininfo_once(struct bitcoind *bitcoind, const char *chain,
 			       const u32 headercount, const u32 blockcount, const bool ibd,
-			       const bool first_call, struct chaininfo_once *once)
+			       struct chaininfo_once *once)
 {
 	once->chain = tal_strdup(once, chain);
 	once->headercount = headercount;
@@ -1349,7 +1349,7 @@ void setup_topology(struct chain_topology *topo,
 	log_debug(topo->ld->log, "All Bitcoin plugin commands registered");
 
 	/* Sanity checks, then topology initialization. */
-	bitcoind_getchaininfo(topo->bitcoind, true, max_blockheight,
+	bitcoind_getchaininfo(topo->bitcoind, max_blockheight,
 			      get_chaininfo_once, chaininfo);
 	bitcoind_estimate_fees(topo->bitcoind, get_feerates_once, feerates);
 
