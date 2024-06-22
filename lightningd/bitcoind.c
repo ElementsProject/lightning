@@ -174,7 +174,8 @@ static void bitcoin_plugin_send(struct bitcoind *bitcoind,
 struct estimatefee_call {
 	struct bitcoind *bitcoind;
 	void (*cb)(struct lightningd *ld, u32 feerate_floor,
-		   const struct feerate_est *rates);
+		   const struct feerate_est *rates, void *);
+	void *cb_arg;
 };
 
 /* Note: returns estimates in perkb, caller converts! */
@@ -341,20 +342,23 @@ static void estimatefees_callback(const char *buf, const jsmntok_t *toks,
 			feerates[i].rate = floor;
 	}
 
-	call->cb(call->bitcoind->ld, floor, feerates);
+	call->cb(call->bitcoind->ld, floor, feerates, call->cb_arg);
 	tal_free(call);
 }
 
-void bitcoind_estimate_fees(struct bitcoind *bitcoind,
-			    void (*cb)(struct lightningd *ld,
-				       u32 feerate_floor,
-				       const struct feerate_est *feerates))
+void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
+			     void (*cb)(struct lightningd *ld,
+					u32 feerate_floor,
+					const struct feerate_est *feerates,
+					void *arg),
+			     void *cb_arg)
 {
 	struct jsonrpc_request *req;
 	struct estimatefee_call *call = tal(bitcoind, struct estimatefee_call);
 
 	call->bitcoind = bitcoind;
 	call->cb = cb;
+	call->cb_arg = cb_arg;
 
 	req = jsonrpc_request_start(bitcoind, "estimatefees", NULL, true,
 				    bitcoind->log,

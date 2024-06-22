@@ -519,7 +519,8 @@ static bool different_blockcounts(struct chain_topology *topo,
 
 static void update_feerates(struct lightningd *ld,
 			    u32 feerate_floor,
-			    const struct feerate_est *rates TAKES)
+			    const struct feerate_est *rates TAKES,
+			    void *arg UNUSED)
 {
 	struct feerate_est *new_smoothed;
 	bool changed;
@@ -579,7 +580,7 @@ static void start_fee_estimate(struct chain_topology *topo)
 	if (topo->stopping)
 		return;
 	/* Once per new block head, update fee estimates. */
-	bitcoind_estimate_fees(topo->bitcoind, update_feerates);
+	bitcoind_estimate_fees(topo->bitcoind, update_feerates, NULL);
 }
 
 struct rate_conversion {
