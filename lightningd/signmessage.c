@@ -223,7 +223,7 @@ static struct command_result *json_checkmessage(struct command *cmd,
 			req = jsonrpc_request_start(cmd, "listnodes",
 						    cmd->id,
 						    plugin->non_numeric_ids,
-						    command_log(cmd),
+						    command_logger(cmd),
 						    NULL, listnodes_done,
 						    can);
 			json_add_node_id(req->stream, "id", &can->id);

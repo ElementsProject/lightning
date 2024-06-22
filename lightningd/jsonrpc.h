@@ -150,7 +150,7 @@ struct command_result *command_raw_complete(struct command *cmd,
 					    struct json_stream *result);
 
 /* Logging point to use for this command (usually, the JSON connection). */
-struct logger *command_log(struct command *cmd);
+struct logger *command_logger(struct command *cmd);
 
 /* To return if param() fails. */
 extern struct command_result *command_param_failed(void)

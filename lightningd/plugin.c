@@ -2331,7 +2331,7 @@ static void plugin_setconfig_done(const char *buffer,
 	 * while we were in callback, and moved opt_table! */
 	ot = opt_find_long(psr->optname, NULL);
 	if (!ot) {
-		log_broken(command_log(psr->cmd),
+		log_broken(command_logger(psr->cmd),
 			   "Missing opt %s on plugin return?", psr->optname);
 		was_pending(command_fail(psr->cmd, LIGHTNINGD,
 					 "Missing opt %s on plugin return?", psr->optname));
@@ -2345,7 +2345,7 @@ static void plugin_setconfig_done(const char *buffer,
 	return;
 
 bad_response:
-	log_broken(command_log(psr->cmd),
+	log_broken(command_logger(psr->cmd),
 		   "Invalid setconfig %s response from plugin: %.*s",
 		   psr->optname,
 		   json_tok_full_len(toks), json_tok_full(buffer, toks));
@@ -2385,7 +2385,7 @@ struct command_result *plugin_set_dynamic_opt(struct command *cmd,
 		req = jsonrpc_request_start(cmd, "check",
 					    cmd->id,
 					    plugin->non_numeric_ids,
-					    command_log(cmd),
+					    command_logger(cmd),
 					    NULL, plugin_setconfig_done,
 					    psr);
 		json_add_string(req->stream, "command_to_check", "setconfig");
@@ -2393,7 +2393,7 @@ struct command_result *plugin_set_dynamic_opt(struct command *cmd,
 		req = jsonrpc_request_start(cmd, "setconfig",
 					    cmd->id,
 					    plugin->non_numeric_ids,
-					    command_log(cmd),
+					    command_logger(cmd),
 					    NULL, plugin_setconfig_done,
 					    psr);
 	}

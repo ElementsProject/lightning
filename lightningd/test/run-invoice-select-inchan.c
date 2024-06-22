@@ -168,9 +168,9 @@ struct command_result *command_failed(struct command *cmd UNNEEDED,
 /* Generated stub for command_its_complicated */
 struct command_result *command_its_complicated(const char *why UNNEEDED)
 { fprintf(stderr, "command_its_complicated called!\n"); abort(); }
-/* Generated stub for command_log */
-struct logger *command_log(struct command *cmd UNNEEDED)
-{ fprintf(stderr, "command_log called!\n"); abort(); }
+/* Generated stub for command_logger */
+struct logger *command_logger(struct command *cmd UNNEEDED)
+{ fprintf(stderr, "command_logger called!\n"); abort(); }
 /* Generated stub for command_param_failed */
 struct command_result *command_param_failed(void)
 

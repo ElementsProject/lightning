@@ -172,7 +172,7 @@ static void destroy_jcon(struct json_connection *jcon)
 	tal_free(jcon->log);
 }
 
-struct logger *command_log(struct command *cmd)
+struct logger *command_logger(struct command *cmd)
 {
 	if (cmd->jcon)
 		return cmd->jcon->log;
@@ -673,7 +673,7 @@ bool command_deprecated_in_ok(struct command *cmd,
 				 const char *depr_end)
 {
 	return lightningd_deprecated_in_ok(cmd->ld,
-					   command_log(cmd),
+					   command_logger(cmd),
 					   command_deprecated_ok_flag(cmd),
 					   cmd->json_cmd->name, param,
 					   depr_start, depr_end,
