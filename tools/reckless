@@ -971,7 +971,7 @@ def _git_update(github_source: InstInfo, local_copy: PosixPath):
 
 def get_temp_reckless_dir() -> PosixPath:
     random_dir = 'reckless-{}'.format(str(hash(os.times()))[-9:])
-    new_path = Path(tempfile.gettempdir()) / random_dir
+    new_path = Path(tempfile.mkdtemp(prefix=random_dir))
     return new_path
 
 
