@@ -2876,7 +2876,7 @@ def test_emergencyrecover(node_factory, bitcoind):
                                              {'may_reconnect': True}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    c12, _ = l1.fundchannel(l2, 10**5)
+    c12, _ = l1.fundchannel(l2)
     stubs = l1.rpc.emergencyrecover()["stubs"]
     assert l1.daemon.is_in_log('channel {} already exists!'.format(_['channel_id']))
 
@@ -2901,10 +2901,14 @@ def test_emergencyrecover(node_factory, bitcoind):
     sync_blockheight(bitcoind, [l1, l2])
 
     l1.daemon.wait_for_log(r'All outputs resolved.*')
+    # Make sure l1 can spend its recovered funds.
     wait_for(lambda: l1.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN")
-    # Check if funds are recovered.
-    assert l1.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN"
-    assert l2.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN"
+    wait_for(lambda: l2.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN")
+
+    withdraw = l1.rpc.withdraw(l2.rpc.newaddr('bech32')['bech32'], 'all')
+    # Should have two inputs
+    assert len(bitcoind.rpc.decoderawtransaction(withdraw['tx'])['vin']) == 2
+    bitcoind.generate_block(1, wait_for_mempool=withdraw['txid'])
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB rollback")
