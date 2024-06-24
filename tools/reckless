@@ -1498,29 +1498,43 @@ def list_source():
         print(src)
 
 
+class StoreIdempotent(argparse.Action):
+    """Make the option idempotent. This adds a secondary argument that doesn't
+    get reinitialized. The downside is it"""
+    def __init__(self, option_strings, dest, nargs=None, **kwargs):
+        super().__init__(option_strings, dest, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if option_string:
+            setattr(namespace, self.dest, values)
+            setattr(namespace, f'{self.dest}_idempotent', values)
+
+
+class StoreTrueIdempotent(argparse._StoreConstAction):
+    """Make the option idempotent"""
+    def __init__(self, option_strings, dest, default=False,
+                 required=False, nargs=None, const=None, help=None):
+        super().__init__(option_strings=option_strings, dest=dest,
+                         const=const, help=help)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if option_string:
+            setattr(namespace, self.dest, True)
+            setattr(namespace, f'{self.dest}_idempotent', True)
+
+
+def process_idempotent_args(args):
+    """Swap idempotently set arguments back in for the default arg names."""
+    original_args = dict(vars(args))
+    for arg, value in original_args.items():
+        if f"{arg}_idempotent" in vars(args):
+            setattr(args, f"{arg}", vars(args)[f"{arg}_idempotent"])
+            delattr(args, f"{arg}_idempotent")
+    return args
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    # This default depends on the .lightning directory
-    parser.add_argument('-d', '--reckless-dir',
-                        help='specify a data directory for reckless to use',
-                        type=str, default=None)
-    parser.add_argument('-l', '--lightning',
-                        help='lightning data directory (default:~/.lightning)',
-                        type=str,
-                        default=Path.home().joinpath('.lightning'))
-    parser.add_argument('-c', '--conf',
-                        help=' config file used by lightningd',
-                        type=str,
-                        default=None)
-    parser.add_argument('-r', '--regtest', action='store_true')
-    parser.add_argument('--network',
-                        help="specify a network to use (default: bitcoin)",
-                        type=str)
-    parser.add_argument('-v', '--verbose', action="store_const",
-                        dest="loglevel", const=logging.DEBUG,
-                        default=logging.WARNING)
-    parser.add_argument('-V', '--version', action='store_true',
-                        help='return reckless version and exit')
     cmd1 = parser.add_subparsers(dest='cmd1', help='command',
                                  required=False)
 
@@ -1567,7 +1581,38 @@ if __name__ == '__main__':
     help_cmd.add_argument('targets', type=str, nargs='*')
     help_cmd.set_defaults(func=help_alias)
 
+    all_parsers = [parser, install_cmd, uninstall_cmd, search_cmd, enable_cmd,
+                   disable_cmd, list_parse, source_add, source_rem, help_cmd]
+    for p in all_parsers:
+        # This default depends on the .lightning directory
+        p.add_argument('-d', '--reckless-dir', action=StoreIdempotent,
+                       help='specify a data directory for reckless to use',
+                       type=str, default=None)
+        p.add_argument('-l', '--lightning', type=str, action=StoreIdempotent,
+                       help='lightning data directory '
+                       '(default:~/.lightning)',
+                       default=Path.home().joinpath('.lightning'))
+        p.add_argument('-c', '--conf', action=StoreIdempotent,
+                       help=' config file used by lightningd',
+                       type=str,
+                       default=None)
+        p.add_argument('-r', '--regtest', action=StoreTrueIdempotent)
+        p.add_argument('--network', action=StoreIdempotent,
+                       help="specify a network to use (default: bitcoin)",
+                       type=str)
+        p.add_argument('-v', '--verbose', action=StoreTrueIdempotent,
+                       const=None)
+        p.add_argument('-V', '--version', action='store_true',
+                       help='return reckless version and exit')
+        p.add_argument('-m', '--machine', action='store_true')
+
     args = parser.parse_args()
+    args = process_idempotent_args(args)
+
+    if args.verbose:
+        logging.root.setLevel(logging.DEBUG)
+    else:
+        logging.root.setLevel(logging.WARNING)
 
     NETWORK = 'regtest' if args.regtest else 'bitcoin'
     SUPPORTED_NETWORKS = ['bitcoin', 'regtest', 'liquid', 'liquid-regtest',
@@ -1607,7 +1652,6 @@ if __name__ == '__main__':
         API_GITHUB_COM = os.environ['REDIR_GITHUB_API']
     if 'REDIR_GITHUB' in os.environ:
         GITHUB_COM = os.environ['REDIR_GITHUB']
-    logging.root.setLevel(args.loglevel)
 
     GITHUB_API_FALLBACK = False
     if 'GITHUB_API_FALLBACK' in os.environ:
