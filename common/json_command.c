@@ -8,7 +8,7 @@ command_fail_badparam(struct command *cmd,
 		      const jsmntok_t *tok,
 		      const char *msg)
 {
-	if (command_dev_apis(cmd)) {
+	if (command_dev_apis(cmd) || command_check_only(cmd)) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "%s: %s: invalid token '%.*s'",
 				    paramname, msg,
