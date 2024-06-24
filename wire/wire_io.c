@@ -52,8 +52,12 @@ static int do_read_wire(int fd, struct io_plan_arg *arg)
 	ssize_t ret;
 
 	/* Still reading header? */
-	if (arg->u2.s & INSIDE_HEADER_BIT)
-		return do_read_wire_header(fd, arg);
+	if (arg->u2.s & INSIDE_HEADER_BIT) {
+		ret = do_read_wire_header(fd, arg);
+		/* If this is OK, and finished header, we continue below. */
+		if (ret != 0 || (arg->u2.s & INSIDE_HEADER_BIT))
+			return ret;
+	}
 
 	/* Normal read */
 	ret = read(fd, arg->u1.cp, arg->u2.s);
@@ -107,8 +111,12 @@ static int do_write_wire(int fd, struct io_plan_arg *arg)
 	size_t totlen = tal_bytelen(arg->u1.cp);
 
 	/* Still writing header? */
-	if (arg->u2.s & INSIDE_HEADER_BIT)
-		return do_write_wire_header(fd, arg);
+	if (arg->u2.s & INSIDE_HEADER_BIT) {
+		ret = do_write_wire_header(fd, arg);
+		/* If this is OK, and finished header, we continue below. */
+		if (ret != 0 || (arg->u2.s & INSIDE_HEADER_BIT))
+			return ret;
+	}
 
 	/* Normal write */
 	ret = write(fd, arg->u1.cp + arg->u2.s, totlen - arg->u2.s);
