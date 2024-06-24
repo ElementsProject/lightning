@@ -56,6 +56,7 @@ COMMON_SRC_NOGEN :=				\
 	common/iso4217.c			\
 	common/json_blinded_path.c		\
 	common/json_channel_type.c		\
+	common/json_command.c			\
 	common/json_filter.c			\
 	common/json_param.c			\
 	common/json_parse.c			\
@@ -115,7 +116,6 @@ COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h)	\
 	common/gossip_constants.h			\
 	common/hsm_version.h				\
 	common/htlc.h					\
-	common/json_command.h				\
 	common/jsonrpc_errors.h				\
 	common/overflows.h
 

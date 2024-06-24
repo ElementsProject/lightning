@@ -30,6 +30,13 @@
 /* Generated stub for account_entry_tag_str */
 const char *account_entry_tag_str(enum account_entry_tag tag UNNEEDED)
 { fprintf(stderr, "account_entry_tag_str called!\n"); abort(); }
+/* Generated stub for command_fail_badparam */
+struct command_result *command_fail_badparam(struct command *cmd UNNEEDED,
+					     const char *paramname UNNEEDED,
+					     const char *buffer UNNEEDED,
+					     const jsmntok_t *tok UNNEEDED,
+					     const char *msg UNNEEDED)
+{ fprintf(stderr, "command_fail_badparam called!\n"); abort(); }
 /* Generated stub for daemon_developer_mode */
 bool daemon_developer_mode(char *argv[])
 { fprintf(stderr, "daemon_developer_mode called!\n"); abort(); }

@@ -116,6 +116,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/key_derive.o			\
 	common/keyset.o				\
 	common/json_channel_type.o		\
+	common/json_command.o			\
 	common/json_filter.o			\
 	common/json_param.o			\
 	common/json_parse.o			\
