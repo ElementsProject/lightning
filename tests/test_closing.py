@@ -1397,6 +1397,8 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams, anchors):
             'plugin': coin_mvt_plugin,
             'dev-no-reconnect': None,
             'may_reconnect': True,
+            # This can happen, if l2 collects htlc before we penalize.
+            'broken_log': 'HTLC already resolved by THEIR_HTLC_TIMEOUT_TO_THEM when we found preimage'
         }, {
             'dev-no-reconnect': None,
         }, {
