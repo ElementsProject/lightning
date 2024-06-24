@@ -4240,3 +4240,9 @@ def test_badparam_discretion(node_factory):
         l1.rpc.checkrune(rune='THIS IS NOT ACTUALLY A RUNE')
 
     l1.daemon.wait_for_log(r"checkrune: Invalid parameter rune \(should be base64 string\): token '\"THIS IS NOT ACTUALLY A RUNE\"'")
+
+    # But: check command *SHOULD* give as much info as we can.
+    with pytest.raises(RpcError, match='rune: should be base64 string: invalid token') as err:
+        l1.rpc.check('checkrune', rune='THIS IS NOT ACTUALLY A RUNE')
+
+    assert err.value.error['message'] == "rune: should be base64 string: invalid token '\"THIS IS NOT ACTUALLY A RUNE\"'"
