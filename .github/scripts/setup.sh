@@ -1,8 +1,6 @@
 #!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
-export BITCOIN_VERSION=27.1
-export ELEMENTS_VERSION=22.0.2
 export RUST_VERSION=stable
 
 sudo useradd -ms /bin/bash tester
@@ -53,20 +51,7 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
 echo "tester ALL=(root) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/tester
 sudo chmod 0440 /etc/sudoers.d/tester
 
-(
-    cd /tmp/ || exit 1
-    wget https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz
-    wget https://github.com/ElementsProject/elements/releases/download/elements-${ELEMENTS_VERSION}/elements-${ELEMENTS_VERSION}-x86_64-linux-gnu.tar.gz
-    tar -xf bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz
-    tar -xf elements-${ELEMENTS_VERSION}-x86_64-linux-gnu.tar.gz
-    sudo mv bitcoin-${BITCOIN_VERSION}/bin/* /usr/local/bin
-    sudo mv elements-${ELEMENTS_VERSION}/bin/* /usr/local/bin
-    rm -rf \
-       bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz \
-       bitcoin-${BITCOIN_VERSION} \
-       elements-${ELEMENTS_VERSION}-x86_64-linux-gnu.tar.gz \
-       elements-${ELEMENTS_VERSION}
-)
+"$(dirname "$0")"/install-bitcoind.sh
 
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
      -y --default-toolchain ${RUST_VERSION}
