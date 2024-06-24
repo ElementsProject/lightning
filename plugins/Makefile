@@ -159,6 +159,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/deprecation.o			\
 	common/features.o			\
 	common/hash_u5.o			\
+	common/json_command.o			\
 	common/json_param.o			\
 	common/json_parse.o			\
 	common/json_parse_simple.o		\
