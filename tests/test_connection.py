@@ -3432,10 +3432,12 @@ def test_feerate_stress(node_factory, executor):
     # Make sure it's reconnected, and wait for last payment.
     wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'])
     # We can get TEMPORARY_CHANNEL_FAILURE due to disconnect, too.
-    with pytest.raises(RpcError, match='WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS|WIRE_TEMPORARY_CHANNEL_FAILURE'):
-        l1.rpc.waitsendpay("{:064x}".format(l1done - 1), timeout=TIMEOUT)
-    with pytest.raises(RpcError, match='WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS|WIRE_TEMPORARY_CHANNEL_FAILURE'):
-        l2.rpc.waitsendpay("{:064x}".format(l2done - 1), timeout=TIMEOUT)
+    if l1done != 0:
+        with pytest.raises(RpcError, match='WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS|WIRE_TEMPORARY_CHANNEL_FAILURE'):
+            l1.rpc.waitsendpay("{:064x}".format(l1done - 1), timeout=TIMEOUT)
+    if l2done != 0:
+        with pytest.raises(RpcError, match='WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS|WIRE_TEMPORARY_CHANNEL_FAILURE'):
+            l2.rpc.waitsendpay("{:064x}".format(l2done - 1), timeout=TIMEOUT)
     l1.rpc.call('dev-feerate', [l2.info['id'], rate - 5])
     assert not l1.daemon.is_in_log('Bad.*signature')
     assert not l2.daemon.is_in_log('Bad.*signature')
