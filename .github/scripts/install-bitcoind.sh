@@ -2,6 +2,9 @@
 
 set -e
 
+export BITCOIN_VERSION=27.1
+export ELEMENTS_VERSION=23.2.1
+
 DIRNAME="bitcoin-${BITCOIN_VERSION}"
 EDIRNAME="elements-${ELEMENTS_VERSION}"
 FILENAME="${DIRNAME}-x86_64-linux-gnu.tar.gz"
