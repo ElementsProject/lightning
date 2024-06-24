@@ -59,7 +59,7 @@ struct io_conn;
 	io_new_conn_((ctx), (fd),					\
 		     typesafe_cb_preargs(struct io_plan *, void *,	\
 					 (init), (arg),			\
-					 struct io_conn *conn),		\
+					 struct io_conn *),		\
 		     (void *)(arg))
 
 struct io_conn *io_new_conn_(const tal_t *ctx, int fd,

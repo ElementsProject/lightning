@@ -384,9 +384,19 @@ void io_wake(const void *wait)
 	backend_wake(wait);
 }
 
-/* Returns false if this should not be touched (eg. freed). */
-static bool do_plan(struct io_conn *conn, struct io_plan *plan,
-		    bool idle_on_epipe)
+enum plan_result {
+	/* Destroyed, do not touch */
+	FREED,
+	/* Worked, call again. */
+	KEEP_GOING,
+	/* Failed with EAGAIN or did partial. */
+	EXHAUSTED,
+	/* No longer interested in read (or write) */
+	UNINTERESTED
+};
+
+static enum plan_result do_plan(struct io_conn *conn, struct io_plan *plan,
+				bool idle_on_epipe)
 {
 	/* We shouldn't have polled for this event if this wasn't true! */
 	assert(plan->status == IO_POLLING_NOTSTARTED
@@ -394,18 +404,26 @@ static bool do_plan(struct io_conn *conn, struct io_plan *plan,
 
 	switch (plan->io(conn->fd.fd, &plan->arg)) {
 	case -1:
+		/* This is expected, as we call optimistically! */
+		if (errno == EAGAIN)
+			return EXHAUSTED;
 		if (errno == EPIPE && idle_on_epipe) {
 			plan->status = IO_UNSET;
 			backend_new_plan(conn);
-			return false;
+			return UNINTERESTED;
 		}
 		io_close(conn);
-		return false;
+		return FREED;
 	case 0:
 		plan->status = IO_POLLING_STARTED;
-		return true;
+		/* If it started but didn't finish, don't call again. */
+		return EXHAUSTED;
 	case 1:
-		return next_plan(conn, plan);
+		if (!next_plan(conn, plan))
+			return FREED;
+		if (plan->status == IO_POLLING_NOTSTARTED)
+			return KEEP_GOING;
+		return UNINTERESTED;
 	default:
 		/* IO should only return -1, 0 or 1 */
 		abort();
@@ -414,16 +432,43 @@ static bool do_plan(struct io_conn *conn, struct io_plan *plan,
 
 void io_ready(struct io_conn *conn, int pollflags)
 {
-	if (pollflags & POLLIN)
-		if (!do_plan(conn, &conn->plan[IO_IN], false))
-			return;
+	enum plan_result res;
 
-	if (pollflags & POLLOUT)
-		/* If we're writing to a closed pipe, we need to wait for
-		 * read to fail if we're duplex: we want to drain it! */
-		do_plan(conn, &conn->plan[IO_OUT],
-			conn->plan[IO_IN].status == IO_POLLING_NOTSTARTED
-			|| conn->plan[IO_IN].status == IO_POLLING_STARTED);
+	if (pollflags & POLLIN) {
+		for (;;) {
+			res = do_plan(conn, &conn->plan[IO_IN], false);
+			switch (res) {
+			case FREED:
+				return;
+			case EXHAUSTED:
+			case UNINTERESTED:
+				goto try_write;
+			case KEEP_GOING:
+				continue;
+			}
+			abort();
+		}
+	}
+
+try_write:
+	if (pollflags & POLLOUT) {
+		for (;;) {
+			/* If we're writing to a closed pipe, we need to wait for
+			 * read to fail if we're duplex: we want to drain it! */
+			res = do_plan(conn, &conn->plan[IO_OUT],
+				      conn->plan[IO_IN].status == IO_POLLING_NOTSTARTED
+				      || conn->plan[IO_IN].status == IO_POLLING_STARTED);
+			switch (res) {
+			case FREED:
+			case EXHAUSTED:
+			case UNINTERESTED:
+				return;
+			case KEEP_GOING:
+				continue;
+			}
+			abort();
+		}
+	}
 }
 
 void io_do_always(struct io_plan *plan)
