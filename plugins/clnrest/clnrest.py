@@ -157,7 +157,8 @@ def set_application_options(plugin):
             "loglevel": "warning",
             "certfile": f"{CERTS_PATH}/client.pem",
             "keyfile": f"{CERTS_PATH}/client-key.pem",
-            "ssl_version": ssl.PROTOCOL_TLSv1_2
+            "cafile": f"{CERTS_PATH}/ca.pem",
+            "ssl": ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_SERVER),
         }
     return options
 
