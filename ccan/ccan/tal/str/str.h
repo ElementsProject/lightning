@@ -35,6 +35,16 @@ char *tal_strndup_(const tal_t *ctx, const char *p TAKES, size_t n,
 	TAL_RETURN_PTR NON_NULL_ARGS(2);
 
 /**
+ * trim_resize_str - Trim leading and trailing whitespace from a string and resize using tal.
+ * @ctxp: Pointer to a pointer of a tal allocated string.
+ *
+ * Returns:
+ *   - true if the string was modified and resized successfully or if no modification was needed.
+ *   - false if the input was NULL or if an error occurred during the resizing process.
+ */
+bool trim_resize_str(char **ctxp);
+
+/**
  * tal_fmt - allocate a formatted string
  * @ctx: NULL, or tal allocated object to be parent.
  * @fmt: the printf-style format (can be take(), must not be NULL).

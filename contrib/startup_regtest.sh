@@ -196,7 +196,7 @@ start_nodes() {
 		funder-min-their-funding=10000
 		funder-per-channel-max=100000
 		funder-fuzz-percent=0
-funder-lease-requests-only=false
+		funder-lease-requests-only=false
 		lease-fee-base-sat=2sat
 		lease-fee-basis=50
 		invoices-onchain-fallback

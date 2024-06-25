@@ -75,6 +75,11 @@ static struct configvar **gather_file_configvars(const tal_t *ctx,
 	/* Break into lines. */
 	lines = tal_strsplit(contents, contents, "\r\n", STR_EMPTY_OK);
 	for (size_t i = 0; i < tal_count(lines) - 1; i++) {
+		/* Trim and resize whitespace from the start and end of each line */
+		if (!trim_resize_str(&lines[i])) {
+			err(1, "Failed to trim and resize line %zu: \"%s\" in file %s", i, lines[i], filename);
+		}
+
 		/* Comments & blank lines*/
 		if (strstarts(lines[i], "#") || streq(lines[i], ""))
 			continue;
