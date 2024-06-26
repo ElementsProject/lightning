@@ -66,27 +66,6 @@ For actually doing development and running the tests, you will also need:
 
 You will also need a version of bitcoind with segregated witness and `estimatesmartfee` with `ECONOMICAL` mode support, such as the 0.16 or above.
 
-## Python plugins
-
-You will need some Python packages if you want to use python plugins. Unfortunately there are some Python packages which are not packaged in Ubuntu, and so you will need to force installation of these (I recommend --user which will install them in your own .local directory, so at least you won't run the risk of breaking Python globally!).
-
-### clnrest
-
-Installation steps for clnrest are:
-
-```
-sudo apt-get install python3-pip python3-json5 python3-flask python3-gunicorn libsecp256k1-dev
-pip3 install --user flask-cors flask_restx pyln-client flask-socketio gevent gevent-websocket
-```
-
-### wss-proxy
-
-For wss-proxy, you need to install below libraries:
-
-```
-pip3 install --user pyln-client websockets
-```
-
 ## To Build on Ubuntu
 
 OS version: Ubuntu 15.10 or above
@@ -605,4 +584,25 @@ Install runtime dependencies:
 
 ```shell
 apk add libgcc libsodium sqlite-libs zlib
+```
+
+## Python plugins
+
+You will need some Python packages if you want to use python plugins. Unfortunately there are some Python packages which are not packaged in Ubuntu, and so you will need to force installation of these (I recommend --user which will install them in your own .local directory, so at least you won't run the risk of breaking Python globally!).
+
+### clnrest
+
+Installation steps for clnrest are:
+
+```
+sudo apt-get install python3-json5 python3-flask python3-gunicorn
+pip3 install --user flask-cors flask_restx pyln-client flask-socketio gevent gevent-websocket
+```
+
+### wss-proxy
+
+For wss-proxy, you need to install below libraries:
+
+```
+pip3 install --user pyln-client websockets
 ```
