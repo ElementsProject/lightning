@@ -19,6 +19,14 @@ Install required packages with `pip install -r plugins/wss-proxy/requirements.tx
 
 ## Configuration
 
+> 🚧 
+> 
+> Note: The wss-proxy plugin expects CLN to be listening on a websocket.
+>
+> In other words, CLN config option `bind-addr` starting with `ws` (`bind-addr=ws:...`)
+>
+> is required for wss-proxy to connect.
+
 If `wss-bind-addr` is not specified, the plugin will disable itself.
 
 - --wss-bind-addr: WSS proxy address to connect with WS. Format <wss-host>:<wss-port>.
