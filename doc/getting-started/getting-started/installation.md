@@ -596,7 +596,7 @@ Installation steps for clnrest are:
 
 ```
 sudo apt-get install python3-json5 python3-flask python3-gunicorn
-pip3 install --user flask-cors flask_restx pyln-client flask-socketio gevent gevent-websocket
+pip3 install --user flask-cors flask-restx pyln-client flask-socketio gevent gevent-websocket
 ```
 
 ### wss-proxy
