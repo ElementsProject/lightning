@@ -253,6 +253,18 @@ static struct command_result *previous_sendpays_done(struct command *cmd,
 		// max_partid for the pending_group_id
 		payment->next_partid = max_pending_partid + 1;
 
+		for (size_t j = 0; j < tal_count(pending_routes); j++) {
+			route_pending_register(payment->routetracker,
+					       pending_routes[j]);
+		}
+		if (!routetracker_get_amount(payment->routetracker,
+					     &payment->total_delivering,
+					     &payment->total_sent))
+			plugin_err(pay_plugin->plugin,
+				   "(%s:%d) routetracker_get_amount failed "
+				   "probably due to an amount_msat overflow.",
+				   __PRETTY_FUNCTION__, __LINE__);
+
 		plugin_log(pay_plugin->plugin, LOG_DBG,
 			   "There are pending sendpays to this invoice. "
 			   "groupid = %" PRIu32 " "
@@ -271,12 +283,6 @@ static struct command_result *previous_sendpays_done(struct command *cmd,
 			    "Payment is pending with full amount "
 			    "already commited");
 		}
-
-		for (size_t j = 0; j < tal_count(pending_routes); j++) {
-			route_pending_register(payment->routetracker,
-					       pending_routes[j]);
-		}
-
 	} else {
 		/* There are no pending nor completed sendpays, get me the last
 		 * sendpay group. */
