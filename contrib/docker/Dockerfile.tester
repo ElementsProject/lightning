@@ -2,8 +2,8 @@ FROM ubuntu:22.04
 LABEL mantainer="Christian Decker <decker.christian@gmail.com>"
 
 ENV DEBIAN_FRONTEND noninteractive
-ENV BITCOIN_VERSION 22.0
-ENV ELEMENTS_VERSION 22.0.2
+ENV BITCOIN_VERSION 27.1
+ENV ELEMENTS_VERSION 23.2.1
 
 RUN useradd -ms /bin/bash tester
 RUN mkdir /build /bolts && chown tester -R /build /bolts
