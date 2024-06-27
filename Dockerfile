@@ -222,17 +222,24 @@ RUN apt-get update -qq && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+RUN curl -sSL https://install.python-poetry.org | python3 -
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1
-ENV PATH=$PATH:/root/.cargo/bin/
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-RUN rustup toolchain install stable --component rustfmt --allow-downgrade
 
-WORKDIR /opt/lightningd
-COPY plugins/clnrest/requirements.txt plugins/clnrest/requirements.txt
-COPY plugins/wss-proxy/requirements.txt plugins/wss-proxy/requirements.txt
 ENV PYTHON_VERSION=3
-RUN pip3 install -r plugins/clnrest/requirements.txt && \
-    pip3 install -r plugins/wss-proxy/requirements.txt && \
+WORKDIR /opt/lightningd
+
+COPY plugins/clnrest/pyproject.toml plugins/clnrest/pyproject.toml
+COPY plugins/wss-proxy/pyproject.toml plugins/wss-proxy/pyproject.toml
+
+RUN cd plugins/clnrest && \
+    /root/.local/bin/poetry export -o requirements.txt --without-hashes && \
+    pip3 install -r requirements.txt && \
+    cd /opt/lightningd
+
+RUN cd plugins/wss-proxy && \
+    /root/.local/bin/poetry export -o requirements.txt --without-hashes && \
+    pip3 install -r requirements.txt && \
+    cd /opt/lightningd && \
     pip3 cache purge
 
 FROM ${BASE_DISTRO} as final
