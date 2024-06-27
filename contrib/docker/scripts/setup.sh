@@ -1,8 +1,8 @@
 #!/bin/bash
 
 export DEBIAN_FRONTEND=noninteractive
-export BITCOIN_VERSION=22.0
-export ELEMENTS_VERSION=22.0.2
+export BITCOIN_VERSION=27.1
+export ELEMENTS_VERSION=23.2.1
 export RUST_VERSION=nightly
 export TZ="Europe/London"
 

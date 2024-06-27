@@ -1,6 +1,6 @@
 FROM fedora:35
 
-ENV BITCOIN_VERSION 22.0
+ENV BITCOIN_VERSION 27.1
 WORKDIR /tmp
 
 RUN dnf update -y && \

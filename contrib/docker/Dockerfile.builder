@@ -2,7 +2,7 @@ FROM ubuntu:16.04
 MAINTAINER Christian Decker <decker.christian@gmail.com>
 
 ENV DEBIAN_FRONTEND noninteractive
-ENV BITCOIN_VERSION 0.18.1
+ENV BITCOIN_VERSION 27.1
 
 WORKDIR /build
 
