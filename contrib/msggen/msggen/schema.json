@@ -31003,7 +31003,7 @@
       "description": [
         "The **block_added** notification is sent whenever the node receives a new block from the blockchain."
       ],
-      "added": "v24.05",
+      "added": "v22.11",
       "request": {},
       "response": {
         "required": [
@@ -31016,14 +31016,14 @@
             "description": [
               "The hash of the block."
             ],
-            "added": "v24.05"
+            "added": "v22.11"
           },
           "height": {
             "type": "u32",
             "description": [
               "The total block height."
             ],
-            "added": "v24.05"
+            "added": "v22.11"
           }
         }
       }
@@ -31037,7 +31037,7 @@
       "description": [
         "The **channel_open_failed** notification is sent whenever the channel opening request is failed."
       ],
-      "added": "v24.05",
+      "added": "pre-v0.10.1",
       "request": {},
       "response": {
         "required": [
@@ -31049,7 +31049,7 @@
             "description": [
               "The channel id of the channel."
             ],
-            "added": "v24.05"
+            "added": "pre-v0.10.1"
           }
         }
       }
@@ -31063,7 +31063,7 @@
       "description": [
         "The **channel_opened** notification is sent whenever the channel opened successfully."
       ],
-      "added": "v24.05",
+      "added": "pre-v0.10.1",
       "request": {},
       "response": {
         "required": [
@@ -31078,28 +31078,28 @@
             "description": [
               "The id of the peer which opened the channel"
             ],
-            "added": "v24.05"
+            "added": "pre-v0.10.1"
           },
           "funding_msat": {
             "type": "msat",
             "description": [
               "The amount of the funding transaction"
             ],
-            "added": "v24.05"
+            "added": "pre-v0.10.1"
           },
           "funding_txid": {
             "type": "txid",
             "description": [
               "The transaction id of the funding transaction"
             ],
-            "added": "v24.05"
+            "added": "pre-v0.10.1"
           },
           "channel_ready": {
             "type": "boolean",
             "description": [
               "true if the channel is ready"
             ],
-            "added": "v24.05"
+            "added": "pre-v0.10.1"
           }
         }
       }
@@ -31113,7 +31113,7 @@
       "description": [
         "The **channel_state_changed** informs whenever the state of the channel has been updated."
       ],
-      "added": "v24.05",
+      "added": "pre-v0.10.1",
       "request": {},
       "response": {
         "required": [
@@ -31132,28 +31132,28 @@
             "description": [
               "The peer id of the channel."
             ],
-            "added": "v24.05"
+            "added": "pre-v0.10.1"
           },
           "channel_id": {
             "type": "hash",
             "description": [
               "The channel id of the channel."
             ],
-            "added": "v24.05"
+            "added": "pre-v0.10.1"
           },
           "short_channel_id": {
             "type": "short_channel_id",
             "description": [
               "The short channel id of the channel. If the channel is not yet confirmed, this field will be null."
             ],
-            "added": "v24.05"
+            "added": "pre-v0.10.1"
           },
           "timestamp": {
             "type": "string",
             "description": [
               "The timestamp of the state change."
             ],
-            "added": "v24.05"
+            "added": "pre-v0.10.1"
           },
           "old_state": {
             "type": "string",
@@ -31176,7 +31176,7 @@
             "description": [
               "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
             ],
-            "added": "v24.05"
+            "added": "pre-v0.10.1"
           },
           "new_state": {
             "type": "string",
@@ -31199,7 +31199,7 @@
             "description": [
               "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
             ],
-            "added": "v24.05"
+            "added": "pre-v0.10.1"
           },
           "cause": {
             "type": "string",
@@ -31214,14 +31214,14 @@
             "description": [
               "The cause of the state change."
             ],
-            "added": "v24.05"
+            "added": "pre-v0.10.1"
           },
           "message": {
             "type": "string",
             "description": [
               "The state change message."
             ],
-            "added": "v24.05"
+            "added": "pre-v0.10.1"
           }
         }
       }
@@ -31235,7 +31235,7 @@
         "The **connect** informs whenever the node is connected to a peer."
       ],
       "additionalProperties": false,
-      "added": "v24.05",
+      "added": "pre-v0.10.1",
       "request": {},
       "response": {
         "required": [
@@ -31249,7 +31249,7 @@
             "description": [
               "The id of the peer which sent the custom message"
             ],
-            "added": "v24.05"
+            "added": "pre-v0.10.1"
           },
           "direction": {
             "type": "string",
@@ -31260,14 +31260,14 @@
             "description": [
               "Direction of the connection"
             ],
-            "added": "v24.05"
+            "added": "pre-v0.10.1"
           },
           "address": {
             "type": "object",
             "description": [
               "Address information (mainly useful if **direction** is *out*)"
             ],
-            "added": "v24.05",
+            "added": "pre-v0.10.1",
             "additionalProperties": true,
             "required": [
               "type"
@@ -31275,6 +31275,7 @@
             "properties": {
               "type": {
                 "type": "string",
+                "added": "pre-v0.10.1",
                 "enum": [
                   "local socket",
                   "ipv4",
@@ -31308,6 +31309,7 @@
                     "type": {},
                     "socket": {
                       "type": "string",
+                      "added": "pre-v0.10.1",
                       "description": [
                         "Socket filename"
                       ]
@@ -31339,12 +31341,14 @@
                     "type": {},
                     "address": {
                       "type": "string",
+                      "added": "pre-v0.10.1",
                       "description": [
                         "Address in expected format for **type**"
                       ]
                     },
                     "port": {
                       "type": "u16",
+                      "added": "pre-v0.10.1",
                       "description": [
                         "Port number"
                       ]
@@ -31366,7 +31370,7 @@
       "description": [
         "The **custommsg** notifies whenever the node receives a custom message from a peer."
       ],
-      "added": "v24.05",
+      "added": "v24.02",
       "request": {},
       "response": {
         "required": [
@@ -31379,14 +31383,14 @@
             "description": [
               "The id of the peer which sent the custom message"
             ],
-            "added": "v24.05"
+            "added": "v24.02"
           },
           "payload": {
             "type": "hex",
             "description": [
               "The hex-encoded payload. The first 2 bytes represent the BOLT-8 message type followed by the message content"
             ],
-            "added": "v24.05"
+            "added": "v24.02"
           }
         }
       }

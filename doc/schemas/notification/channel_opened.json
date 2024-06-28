@@ -7,7 +7,7 @@
   "description": [
     "The **channel_opened** notification is sent whenever the channel opened successfully."
   ],
-  "added": "v24.05",
+  "added": "pre-v0.10.1",
   "request": {},
   "response": {
     "required": [
@@ -22,28 +22,28 @@
         "description": [
           "The id of the peer which opened the channel"
         ],
-        "added" : "v24.05"
+        "added": "pre-v0.10.1"
       },
       "funding_msat": {
         "type": "msat",
         "description": [
           "The amount of the funding transaction"
         ],
-        "added" : "v24.05"
+        "added": "pre-v0.10.1"
       },
       "funding_txid": {
         "type": "txid",
         "description": [
           "The transaction id of the funding transaction"
         ],
-        "added" : "v24.05"
+        "added": "pre-v0.10.1"
       },
       "channel_ready": {
         "type": "boolean",
         "description": [
           "true if the channel is ready"
         ],
-        "added" : "v24.05"
+        "added": "pre-v0.10.1"
       }
     }
   }

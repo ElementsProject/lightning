@@ -7,7 +7,7 @@
   "description": [
     "The **custommsg** notifies whenever the node receives a custom message from a peer."
   ],
-  "added": "v24.05",
+  "added": "v24.02",
   "request": {},
   "response": {
     "required": [
@@ -20,14 +20,14 @@
         "description": [
           "The id of the peer which sent the custom message"
         ],
-        "added" : "v24.05"
+        "added": "v24.02"
       },
       "payload": {
         "type": "hex",
         "description": [
           "The hex-encoded payload. The first 2 bytes represent the BOLT-8 message type followed by the message content"
         ],
-        "added" : "v24.05"
+        "added": "v24.02"
       }
     }
   }
