@@ -7,7 +7,7 @@
   "description": [
     "The **channel_state_changed** informs whenever the state of the channel has been updated."
   ],
-  "added": "v24.05",
+  "added": "pre-v0.10.1",
   "request": {},
   "response": {
     "required": [
@@ -26,28 +26,28 @@
         "description": [
           "The peer id of the channel."
         ],
-        "added" : "v24.05"
+        "added": "pre-v0.10.1"
       },
       "channel_id": {
         "type": "hash",
         "description": [
           "The channel id of the channel."
         ],
-        "added" : "v24.05"
+        "added": "pre-v0.10.1"
       },
       "short_channel_id": {
         "type": "short_channel_id",
         "description": [
           "The short channel id of the channel. If the channel is not yet confirmed, this field will be null."
         ],
-        "added" : "v24.05"
+        "added": "pre-v0.10.1"
       },
       "timestamp": {
         "type": "string",
         "description": [
           "The timestamp of the state change."
         ],
-        "added" : "v24.05"
+        "added": "pre-v0.10.1"
       },
       "old_state": {
         "type": "string",
@@ -70,7 +70,7 @@
         "description": [
           "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
         ],
-        "added" : "v24.05"
+        "added": "pre-v0.10.1"
       },
       "new_state": {
         "type": "string",
@@ -93,7 +93,7 @@
         "description": [
           "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
         ],
-        "added" : "v24.05"
+        "added": "pre-v0.10.1"
       },
       "cause": {
         "type": "string",
@@ -108,14 +108,14 @@
         "description": [
           "The cause of the state change."
         ],
-        "added" : "v24.05"
+        "added": "pre-v0.10.1"
       },
       "message": {
         "type": "string",
         "description": [
           "The state change message."
         ],
-        "added" : "v24.05"
+        "added": "pre-v0.10.1"
       }
     }
   }

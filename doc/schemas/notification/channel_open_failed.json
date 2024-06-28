@@ -7,7 +7,7 @@
   "description": [
     "The **channel_open_failed** notification is sent whenever the channel opening request is failed."
   ],
-  "added": "v24.05",
+  "added": "pre-v0.10.1",
   "request": {},
   "response": {
     "required": [
@@ -19,7 +19,7 @@
         "description": [
           "The channel id of the channel."
         ],
-        "added" : "v24.05"
+        "added": "pre-v0.10.1"
       }
     }
   }

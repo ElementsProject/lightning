@@ -7,7 +7,7 @@
     "The **connect** informs whenever the node is connected to a peer."
   ],
   "additionalProperties": false,
-  "added": "v24.05",
+  "added": "pre-v0.10.1",
   "request": {},
   "response": {
     "required": [
@@ -21,7 +21,7 @@
         "description": [
           "The id of the peer which sent the custom message"
         ],
-        "added" : "v24.05"
+        "added": "pre-v0.10.1"
       },
       "direction": {
         "type": "string",
@@ -32,14 +32,14 @@
         "description": [
           "Direction of the connection"
         ],
-        "added" : "v24.05"
+        "added": "pre-v0.10.1"
       },
       "address": {
         "type": "object",
         "description": [
           "Address information (mainly useful if **direction** is *out*)"
         ],
-        "added" : "v24.05",
+        "added": "pre-v0.10.1",
         "additionalProperties": true,
         "required": [
           "type"
@@ -47,6 +47,7 @@
         "properties": {
           "type": {
             "type": "string",
+            "added": "pre-v0.10.1",
             "enum": [
               "local socket",
               "ipv4",
@@ -80,6 +81,7 @@
                 "type": {},
                 "socket": {
                   "type": "string",
+                  "added": "pre-v0.10.1",
                   "description": [
                     "Socket filename"
                   ]
@@ -111,12 +113,14 @@
                 "type": {},
                 "address": {
                   "type": "string",
+                  "added": "pre-v0.10.1",
                   "description": [
                     "Address in expected format for **type**"
                   ]
                 },
                 "port": {
                   "type": "u16",
+                  "added": "pre-v0.10.1",
                   "description": [
                     "Port number"
                   ]
