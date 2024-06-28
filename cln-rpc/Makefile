@@ -2,7 +2,7 @@ cln-rpc-wrongdir:
 	$(MAKE) -C .. cln-rpc-all
 
 CLN_RPC_EXAMPLES := target/${RUST_PROFILE}/examples/cln-rpc-getinfo
-CLN_RPC_GENALL = cln-rpc/src/model.rs
+CLN_RPC_GENALL = cln-rpc/src/model.rs cln-rpc/src/notifications.rs
 CLN_RPC_SOURCES = $(shell find cln-rpc -name *.rs) ${CLN_RPC_GENALL}
 DEFAULT_TARGETS += $(CLN_RPC_EXAMPLES) $(CLN_RPC_GENALL)
 
