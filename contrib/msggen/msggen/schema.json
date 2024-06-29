@@ -22996,8 +22996,7 @@
       ],
       "request": {
         "required": [
-          "amount",
-          "description"
+          "amount"
         ],
         "properties": {
           "amount": {

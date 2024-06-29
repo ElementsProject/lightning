@@ -5721,3 +5721,35 @@ def test_onionmessage_ratelimit(node_factory):
     # It will recover though!
     time.sleep(0.250)
     l1.rpc.fetchinvoice(offer['bolt12'])
+
+
+def test_fetch_no_description_offer(node_factory):
+    """Reproducing the issue: https://github.com/ElementsProject/lightning/issues/7405"""
+    l1, l2 = node_factory.line_graph(2, opts={'experimental-offers': None,
+                                              'allow-deprecated-apis': True})
+
+    # Deprecated fields make schema checker upset.
+    offer = l2.rpc.call('offer', {'amount': 'any'})
+    inv = l1.rpc.call('fetchinvoice', {'offer': offer['bolt12'], 'amount_msat': '2sat'})
+
+    # Deprecated fields make schema checker upset.
+    l1.rpc.jsonschemas = {}
+    offer_decode = l1.rpc.decode(offer['bolt12'])
+    assert offer_decode['type'] == 'bolt12 offer', f'No possible to decode the offer `{offer}`'
+
+    l1.rpc.pay(inv['invoice'])
+
+
+def test_fetch_no_description_with_amount(node_factory):
+    """Reproducing the issue: https://github.com/ElementsProject/lightning/issues/7405"""
+    l1, l2 = node_factory.line_graph(2, opts={'experimental-offers': None,
+                                              'allow-deprecated-apis': True})
+
+    # Deprecated fields make schema checker upset.
+    # BOLT-offers #12:
+    #
+    # - if offer_amount is set and offer_description is not set:
+    #   - MUST NOT respond to the offer.
+    err = r'description is required for the user to know what it was they paid for'
+    with pytest.raises(RpcError, match=err) as err:
+        _ = l2.rpc.call('offer', {'amount': '2msat'})

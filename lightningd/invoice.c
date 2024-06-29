@@ -1827,16 +1827,15 @@ static struct command_result *json_createinvoice(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Incorrect preimage");
 
-		if (!inv->offer_description)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Missing description in invoice");
-
 		if (command_check_only(cmd))
 			return command_check_done(cmd);
 
-		desc = tal_strndup(cmd,
-				   inv->offer_description,
-				   tal_bytelen(inv->offer_description));
+		if (inv->offer_description)
+			desc = tal_strndup(cmd,
+					   inv->offer_description,
+					   tal_bytelen(inv->offer_description));
+		else
+			desc = NULL;
 
 		if (!invoices_create(cmd->ld->wallet->invoices,
 				     &inv_dbid,
