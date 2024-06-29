@@ -1,3 +1,4 @@
+![Screenshot_2024-06-27-20-11-02-559_com android chrome](https://github.com/ElementsProject/lightning/assets/113647323/027cc18f-1a56-44bd-b5ef-6212de5435cb)
 ---
 title: "Coding Style Guidelines"
 slug: "coding-style-guidelines"
