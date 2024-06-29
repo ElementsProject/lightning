@@ -2783,6 +2783,8 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub absolute_expiry: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub issuer: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub label: Option<String>,
@@ -2801,7 +2803,6 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub single_use: Option<bool>,
 	    pub amount: String,
-	    pub description: String,
 	}
 
 	impl From<OfferRequest> for Request {

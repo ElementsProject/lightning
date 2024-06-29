@@ -297,7 +297,7 @@ struct command_result *json_offer(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req("amount", param_amount, offer),
-		   p_req("description", param_escaped_string, &desc),
+		   p_opt("description", param_escaped_string, &desc),
 		   p_opt("issuer", param_escaped_string, &issuer),
 		   p_opt("label", param_escaped_string, &offinfo->label),
 		   p_opt("quantity_max", param_u64, &offer->offer_quantity_max),
@@ -357,12 +357,18 @@ struct command_result *json_offer(struct command *cmd,
 						     "needs recurrence");
 	}
 
+	if (desc)
+		offer->offer_description
+			= tal_dup_arr(offer, char, desc, strlen(desc), 0);
+
 	/* BOLT-offers #12:
-	 * - MUST set `offer_description` to a complete description of the
-	 *   purpose of the payment.
+	 *
+	 * - if offer_amount is set and offer_description is not set:
+	 *    - MUST NOT respond to the offer.
 	 */
-	offer->offer_description
-		= tal_dup_arr(offer, char, desc, strlen(desc), 0);
+	if (!offer->offer_description && offer->offer_amount)
+		return command_fail_badparam(cmd, "description", buffer, params,
+					     "description is required for the user to know what it was they paid for");
 
 	/* BOLT-offers #12:
 	 * - if it sets `offer_issuer`:
@@ -414,7 +420,7 @@ struct command_result *json_invoicerequest(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req("amount", param_msat, &msat),
-		   p_req("description", param_escaped_string, &desc),
+		   p_opt("description", param_escaped_string, &desc),
 		   p_opt("issuer", param_escaped_string, &issuer),
 		   p_opt("label", param_escaped_string, &label),
 		   p_opt("absolute_expiry", param_u64,
@@ -429,15 +435,20 @@ struct command_result *json_invoicerequest(struct command *cmd,
 
 	/* BOLT-offers #12:
 	 * - otherwise (not responding to an offer):
-	 *   - MUST set (or not set) `offer_description`, `offer_absolute_expiry`, `offer_paths` and `offer_issuer` as it would for an offer.
-	 *   - MUST set `invreq_payer_id` as it would set `offer_node_id` for an offer.
-	 *   - MUST NOT include `signature`, `offer_metadata`, `offer_chains`, `offer_amount`, `offer_currency`, `offer_features`, `offer_quantity_max` or `offer_node_id`
+	 *   - MUST set offer_description to a complete description of the purpose of the payment.
+	 *   - MUST set (or not set) offer_absolute_expiry and offer_issuer as it would for an offer.
+	 *   - MUST set invreq_payer_id (as it would set offer_node_id for an offer).
+	 *   - MUST set invreq_paths as it would set (or not set) offer_paths for an offer.
+	 *   - MUST NOT include signature, offer_metadata, offer_chains, offer_amount, offer_currency, offer_features, offer_quantity_max, offer_paths or offer_node_id
 	 *   - if the chain for the invoice is not solely bitcoin:
-	 *     - MUST specify `invreq_chain` the offer is valid for.
-	 *   - MUST set `invreq_amount`.
+	 *     - MUST pecify invreq_chain the offer is valid for.
+	 *     - MUST set invreq_amount.
 	 */
-	invreq->offer_description
-		= tal_dup_arr(invreq, char, desc, strlen(desc), 0);
+	if (desc)
+		invreq->offer_description = tal_dup_arr(invreq, char, desc, strlen(desc), 0);
+	else
+		invreq->offer_description = NULL;
+
 	if (issuer) {
 		invreq->offer_issuer
 			= tal_dup_arr(invreq, char, issuer, strlen(issuer), 0);

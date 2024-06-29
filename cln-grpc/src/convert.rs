@@ -4859,7 +4859,7 @@ impl From<requests::OfferRequest> for pb::OfferRequest {
         Self {
             absolute_expiry: c.absolute_expiry, // Rule #2 for type u64?
             amount: c.amount, // Rule #2 for type string
-            description: c.description, // Rule #2 for type string
+            description: c.description, // Rule #2 for type string?
             issuer: c.issuer, // Rule #2 for type string?
             label: c.label, // Rule #2 for type string?
             quantity_max: c.quantity_max, // Rule #2 for type u64?
@@ -6250,7 +6250,7 @@ impl From<pb::OfferRequest> for requests::OfferRequest {
         Self {
             absolute_expiry: c.absolute_expiry, // Rule #1 for type u64?
             amount: c.amount, // Rule #1 for type string
-            description: c.description, // Rule #1 for type string
+            description: c.description, // Rule #1 for type string?
             issuer: c.issuer, // Rule #1 for type string?
             label: c.label, // Rule #1 for type string?
             quantity_max: c.quantity_max, // Rule #1 for type u64?

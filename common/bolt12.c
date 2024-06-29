@@ -211,16 +211,16 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	}
 
 	/* BOLT-offers #12:
-	 * - if `offer_description` is not set:
-	 *   - MUST NOT respond to the offer.
-	 * - if `offer_node_id` is not set:
-	 *   - MUST NOT respond to the offer.
+	 *
+	 * - if offer_amount is set and offer_description is not set:
+	 *    - MUST NOT respond to the offer.
 	 */
-	if (!offer->offer_description) {
-		*fail = tal_strdup(ctx, "Offer does not contain a description");
+	if (!offer->offer_description && offer->offer_amount) {
+		*fail = tal_strdup(ctx, "Offer does not contain a description, but contains an amount");
 		return tal_free(offer);
 	}
 
+	/* FIXME(vincenzopalazzo): node id can be null when we use blinded path. */
 	if (!offer->offer_node_id) {
 		*fail = tal_strdup(ctx, "Offer does not contain a node_id");
 		return tal_free(offer);
