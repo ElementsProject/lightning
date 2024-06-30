@@ -188,9 +188,6 @@ endif
 $(MANPAGES): doc/%: doc/%.md tools/md2man.sh version_gen.h
 	@VERSION=$(VERSION) tools/md2man.sh $(LOWDOWN) $< > $@
 
-$(MANPAGES): $(FORCE)
-$(MARKDOWN_WITH_SCHEMA): $(FORCE)
-
 doc/protocol-%.svg: test/test_protocol
 	test/test_protocol --svg < test/commits/$*.script > $@
 
