@@ -122,12 +122,12 @@ class InstInfo:
     def __init__(self, name: str, location: str, git_url: str):
         self.name = name
         self.source_loc = str(location)     # Used for 'git clone'
-        self.git_url = git_url              # API access for github repos
-        self.srctype = Source.get_type(location)
-        self.entry = None                   # relative to source_loc or subdir
-        self.deps = None
-        self.subdir = None
-        self.commit = None
+        self.git_url: str = git_url         # API access for github repos
+        self.srctype: Source = Source.get_type(location)
+        self.entry: SourceFile = None       # relative to source_loc or subdir
+        self.deps: str = None
+        self.subdir: str = None
+        self.commit: str = None
 
     def __repr__(self):
         return (f'InstInfo({self.name}, {self.source_loc}, {self.git_url}, '
