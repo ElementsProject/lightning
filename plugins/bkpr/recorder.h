@@ -208,7 +208,9 @@ void add_payment_hash_desc(struct db *db,
  *
  * This method updates the blockheight on these events to the
  * height an input was spent into */
-void maybe_closeout_external_deposits(struct db *db, struct chain_event *ev);
+void maybe_closeout_external_deposits(struct db *db,
+				      const struct bitcoin_txid *txid,
+				      u32 blockheight);
 
 /* Keep track of rebalancing payments (payments paid to/from ourselves.
  * Returns true if was rebalance */
@@ -224,9 +226,10 @@ void log_channel_event(struct db *db,
 		       struct channel_event *e);
 
 /* Log a chain event.
- * Returns true if inserted, false if already exists */
+ * Returns true if inserted, false if already exists;
+ * ctx is for allocating objects onto chain_event `e` */
 bool log_chain_event(struct db *db,
-		     const struct account *acct,
-		     struct chain_event *e);
+                     const struct account *acct,
+                     struct chain_event *e);
 
 #endif /* LIGHTNING_PLUGINS_BKPR_RECORDER_H */
