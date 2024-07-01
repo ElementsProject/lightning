@@ -30,6 +30,34 @@ logging.basicConfig(
 )
 
 
+class Logger:
+    """Redirect logging output to a json object or stdout as appropriate."""
+    def __init__(self, capture: bool = False):
+        self.json_output = {"result": None,
+                            "log": []}
+        self.capture = capture
+
+    def debug(self, to_log: str):
+        assert isinstance(to_log, str) or hasattr(to_log, "__repr__")
+        if logging.root.level > logging.DEBUG:
+            return
+        if self.capture:
+            self.json_output['log'].append(to_log)
+        else:
+            logging.debug(to_log)
+
+    def warning(self, to_log: str):
+        assert isinstance(to_log, str) or hasattr(to_log, "__repr__")
+        if logging.root.level > logging.WARNING:
+            return
+        if self.capture:
+            self.json_output['log'].append(to_log)
+        else:
+            logging.warning(to_log)
+
+
+log = Logger()
+
 repos = ['https://github.com/lightningd/plugins']
 
 
@@ -186,7 +214,7 @@ class InstInfo:
                             self.entry = found_entry.name
                             self.deps = found_dep.name
                             return sub
-                        logging.debug(f"missing dependency for {self}")
+                        log.debug(f"missing dependency for {self}")
                         found_entry = None
             for file in sub.contents:
                 if isinstance(file, SourceDir):
@@ -207,9 +235,9 @@ class InstInfo:
                 # clone source to reckless dir
                 target = copy_remote_git_source(self)
                 if not target:
-                    logging.warning(f"could not clone github source {self}")
+                    log.warning(f"could not clone github source {self}")
                     return False
-                logging.debug(f"falling back to cloning remote repo {self}")
+                log.debug(f"falling back to cloning remote repo {self}")
                 # Update to reflect use of a local clone
                 self.source_loc = target.location
                 self.srctype = target.srctype
@@ -247,9 +275,10 @@ def remove_dir(directory: str) -> bool:
         shutil.rmtree(directory)
         return True
     except NotADirectoryError:
-        print(f"Tried to remove directory {directory} that does not exist.")
+        log.warning(f"Tried to remove directory {directory} that "
+                    "does not exist.")
     except PermissionError:
-        print(f"Permission denied removing dir: {directory}")
+        log.warning(f"Permission denied removing dir: {directory}")
     return False
 
 
@@ -310,7 +339,6 @@ class SourceDir():
             return
         if not self.srctype:
             self.srctype = Source.get_type(self.location)
-        # logging.debug(f"populating {self.srctype} {self.location}")
         if self.srctype == Source.DIRECTORY:
             self.contents = populate_local_dir(self.location)
         elif self.srctype in [Source.LOCAL_REPO, Source.GIT_LOCAL_CLONE]:
@@ -395,7 +423,7 @@ def populate_local_repo(path: str, parent=None) -> list:
         This populates all intermediate directories and the file."""
         parentdir = parent
         if mypath == '.':
-            logging.debug(' asked to populate root dir')
+            log.debug(' asked to populate root dir')
             return
         # reverse the parents
         pdirs = mypath
@@ -432,7 +460,7 @@ def populate_local_repo(path: str, parent=None) -> list:
     proc = run(['git', '-C', path, 'submodule', 'status'],
                stdout=PIPE, stderr=PIPE, text=True, timeout=5)
     if proc.returncode != 0:
-        logging.debug(f"'git submodule status' of repo {path} failed")
+        log.debug(f"'git submodule status' of repo {path} failed")
         return None
     submodules = []
     for sub in proc.stdout.splitlines():
@@ -444,7 +472,7 @@ def populate_local_repo(path: str, parent=None) -> list:
                 '--name-only', ver]
     proc = run(git_call, stdout=PIPE, stderr=PIPE, text=True, timeout=5)
     if proc.returncode != 0:
-        logging.debug(f'ls-tree of repo {path} failed')
+        log.debug(f'ls-tree of repo {path} failed')
         return None
 
     for filepath in proc.stdout.splitlines():
@@ -483,7 +511,7 @@ def source_element_from_repo_api(member: dict):
     # git_url with <repo>/tree/ presents results a little differently
     elif 'type' in member and 'path' in member and 'url' in member:
         if member['type'] not in ['tree', 'blob']:
-            logging.debug(f'  skipping {member["path"]} type={member["type"]}')
+            log.debug(f'  skipping {member["path"]} type={member["type"]}')
         if member['type'] == 'tree':
             return SourceDir(member['url'], srctype=Source.GITHUB_REPO,
                              name=member['path'])
@@ -532,7 +560,7 @@ def populate_github_repo(url: str) -> list:
     git_url = api_url
     if "api.github.com" in git_url:
         # This lets us redirect to handle blackbox testing
-        logging.debug(f'fetching from gh API: {git_url}')
+        log.debug(f'fetching from gh API: {git_url}')
         git_url = (API_GITHUB_COM + git_url.split("api.github.com")[-1])
     # Ratelimiting occurs for non-authenticated GH API calls at 60 in 1 hour.
     r = urlopen(git_url, timeout=5)
@@ -553,14 +581,14 @@ def copy_remote_git_source(github_source: InstInfo):
     """clone or fetch & checkout a local copy of a remote git repo"""
     user, repo = Source.get_github_user_repo(github_source.source_loc)
     if not user or not repo:
-        logging.warning('could not extract github user and repo '
-                        f'name for {github_source.source_loc}')
+        log.warning('could not extract github user and repo '
+                    f'name for {github_source.source_loc}')
         return None
     local_path = RECKLESS_DIR / '.remote_sources' / user
     create_dir(RECKLESS_DIR / '.remote_sources')
     if not create_dir(local_path):
-        logging.warning(f'could not provision dir {local_path} to '
-                        f'clone remote source {github_source.source_loc}')
+        log.warning(f'could not provision dir {local_path} to '
+                    f'clone remote source {github_source.source_loc}')
         return None
     local_path = local_path / repo
     if local_path.exists():
@@ -602,8 +630,8 @@ class Config():
                 # FIXME: Handle write failure
                 return default_text
         else:
-            logging.debug('could not create the parent directory ' +
-                          parent_path)
+            log.debug('could not create the parent directory ' +
+                      parent_path)
             raise FileNotFoundError('invalid parent directory')
 
     def editConfigFile(self, addline: Union[str, None],
@@ -751,8 +779,8 @@ def create_python3_venv(staged_plugin: InstInfo) -> InstInfo:
     plugin_path = Path(staged_plugin.source_loc) / staged_plugin.subdir
 
     if shutil.which('poetry') and staged_plugin.deps == 'pyproject.toml':
-        logging.debug('configuring a python virtual environment (poetry) in '
-                      f'{env_path_full}')
+        log.debug('configuring a python virtual environment (poetry) in '
+                  f'{env_path_full}')
         # The virtual environment should be located with the plugin.
         # This installs it to .venv instead of in the global location.
         mod_poetry_env = os.environ
@@ -779,9 +807,9 @@ def create_python3_venv(staged_plugin: InstInfo) -> InstInfo:
     else:
         builder = venv.EnvBuilder(with_pip=True)
         builder.create(env_path_full)
-        logging.debug('configuring a python virtual environment (pip) in '
-                      f'{env_path_full}')
-        logging.debug(f'virtual environment created in {env_path_full}.')
+        log.debug('configuring a python virtual environment (pip) in '
+                  f'{env_path_full}')
+        log.debug(f'virtual environment created in {env_path_full}.')
         if staged_plugin.deps == 'pyproject.toml':
             pip = run(['bin/pip', 'install', str(plugin_path)],
                       check=False, cwd=plugin_path)
@@ -790,9 +818,9 @@ def create_python3_venv(staged_plugin: InstInfo) -> InstInfo:
                        str(plugin_path / 'requirements.txt')],
                       check=False, cwd=plugin_path)
         else:
-            logging.debug("no python dependency file")
+            log.debug("no python dependency file")
     if pip and pip.returncode != 0:
-        logging.debug("install to virtual environment failed")
+        log.debug("install to virtual environment failed")
         print('error encountered installing dependencies')
         raise InstallationFailure
 
@@ -829,8 +857,8 @@ def install_to_python_virtual_environment(cloned_plugin: InstInfo):
     create_python3_venv(cloned_plugin)
     if not hasattr(cloned_plugin, 'venv'):
         raise InstallationFailure
-    logging.debug('virtual environment for cloned plugin: '
-                  f'{cloned_plugin.venv}')
+    log.debug('virtual environment for cloned plugin: '
+              f'{cloned_plugin.venv}')
     create_wrapper(cloned_plugin)
     return cloned_plugin
 
@@ -846,22 +874,23 @@ def cargo_installation(cloned_plugin: InstInfo):
 
     # source_loc now contains a symlink to the entrypoint and 'source/plugin/'
     source = Path(cloned_plugin.source_loc) / 'source' / cloned_plugin.name
-    logging.debug(f'cargo installing from {source}')
-    if logging.root.level < logging.INFO and not log.capture:
-        cargo = run(call, cwd=str(source), text=True)
+    log.debug(f'cargo installing from {source}')
+    run(['ls'], cwd=str(source), text=True, check=True)
+    if logging.root.level < logging.WARNING:
+        cargo = Popen(call, cwd=str(source), text=True)
     else:
         cargo = Popen(call, cwd=str(source), stdout=PIPE,
                       stderr=PIPE, text=True)
     cargo.wait()
 
     if cargo.returncode == 0:
-        logging.debug('rust project compiled successfully')
+        log.debug('rust project compiled successfully')
     else:
-        logging.error(cargo.stderr if cargo.stderr else
-                      'error encountered during build, cargo exited with return '
-                      f'code {cargo.returncode}')
+        log.error(cargo.stderr if cargo.stderr else
+                  'error encountered during build, cargo exited with return '
+                  f'code {cargo.returncode}')
 
-        logging.debug(f'removing {cloned_plugin.source_loc}')
+        log.debug(f'removing {cloned_plugin.source_loc}')
         remove_dir(cloned_plugin.source_loc)
         raise InstallationFailure
 
@@ -935,8 +964,8 @@ def _source_search(name: str, src: str) -> Union[InstInfo, None]:
         if local_clone_location.exists():
             # Make sure it's the correct remote source and fetch any updates.
             if _git_update(source, local_clone_location):
-                logging.debug(f"Using local clone of {src}: "
-                              f"{local_clone_location}")
+                log.debug(f"Using local clone of {src}: "
+                          f"{local_clone_location}")
                 source.source_loc = local_clone_location
                 source.srctype = Source.GIT_LOCAL_CLONE
 
@@ -959,7 +988,7 @@ def _git_clone(src: InstInfo, dest: Union[PosixPath, str]) -> bool:
               stdout=PIPE, stderr=PIPE, text=True, check=False, timeout=180)
     if git.returncode != 0:
         for line in git.stderr.splitlines():
-            logging.debug(line)
+            log.debug(line)
         if Path(dest).exists():
             remove_dir(str(dest))
         print('Error: Failed to clone repo')
@@ -993,8 +1022,8 @@ def _git_update(github_source: InstInfo, local_copy: PosixPath):
         return False
     default_branch = git.stdout.splitlines()[0]
     if default_branch != 'origin/master':
-        logging.debug(f'UNUSUAL: fetched default branch {default_branch} for '
-                      f'{github_source.source_loc}')
+        log.debug(f'UNUSUAL: fetched default branch {default_branch} for '
+                  f'{github_source.source_loc}')
 
     # Checkout default branch
     git = run(['git', 'checkout', default_branch],
@@ -1040,7 +1069,7 @@ def _checkout_commit(orig_src: InstInfo,
     if orig_src.srctype in [Source.LOCAL_REPO, Source.GITHUB_REPO,
                             Source.OTHER_URL, Source.GIT_LOCAL_CLONE]:
         if orig_src.commit:
-            logging.debug(f"Checking out {orig_src.commit}")
+            log.debug(f"Checking out {orig_src.commit}")
             checkout = Popen(['git', 'checkout', orig_src.commit],
                              cwd=str(cloned_path),
                              stdout=PIPE, stderr=PIPE)
@@ -1050,21 +1079,21 @@ def _checkout_commit(orig_src: InstInfo,
                       f'commit {orig_src.commit}')
                 return None
         else:
-            logging.debug("using latest commit of default branch")
+            log.debug("using latest commit of default branch")
 
         # Log the commit we actually used (for installation metadata)
         git = run(['git', 'rev-parse', 'HEAD'], cwd=str(cloned_path),
                   stdout=PIPE, stderr=PIPE, text=True, check=False, timeout=60)
         if git.returncode == 0:
             head_commit = git.stdout.splitlines()[0]
-            logging.debug(f'checked out HEAD: {head_commit}')
+            log.debug(f'checked out HEAD: {head_commit}')
             cloned_src.commit = head_commit
         else:
-            logging.debug(f'unable to collect commit: {git.stderr}')
+            log.debug(f'unable to collect commit: {git.stderr}')
     else:
         if orig_src.commit:
-            logging.warning("unable to checkout commit/tag on non-repository "
-                            "source")
+            log.warning("unable to checkout commit/tag on non-repository "
+                        "source")
         return cloned_path
 
     if cloned_src.subdir is not None:
@@ -1074,7 +1103,7 @@ def _checkout_commit(orig_src: InstInfo,
 
 def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     """make sure the repo exists and clone it."""
-    logging.debug(f'Install requested from {src}.')
+    log.debug(f'Install requested from {src}.')
     if RECKLESS_CONFIG is None:
         print('error: reckless install directory unavailable')
         sys.exit(2)
@@ -1082,21 +1111,21 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     # Use a unique directory for each cloned repo.
     tmp_path = get_temp_reckless_dir()
     if not create_dir(tmp_path):
-        logging.debug(f'failed to create {tmp_path}')
+        log.debug(f'failed to create {tmp_path}')
         return None
     clone_path = tmp_path / 'clone'
     if not create_dir(tmp_path):
-        logging.debug(f'failed to create {clone_path}')
+        log.debug(f'failed to create {clone_path}')
         return None
     # we rename the original repo here.
     plugin_path = clone_path / src.name
     inst_path = Path(RECKLESS_CONFIG.reckless_dir) / src.name
     if Path(clone_path).exists():
-        logging.debug(f'{clone_path} already exists - deleting')
+        log.debug(f'{clone_path} already exists - deleting')
         shutil.rmtree(clone_path)
     if src.srctype == Source.DIRECTORY:
-        logging.debug(("copying local directory contents from"
-                       f" {src.source_loc}"))
+        log.debug(("copying local directory contents from"
+                   f" {src.source_loc}"))
         create_dir(clone_path)
         shutil.copytree(src.source_loc, plugin_path)
     elif src.srctype in [Source.LOCAL_REPO, Source.GITHUB_REPO,
@@ -1108,9 +1137,9 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     # Depending on how we accessed the original source, there may be install
     # details missing. Searching the cloned repo makes sure we have it.
     cloned_src = _source_search(src.name, str(clone_path))
-    logging.debug(f'cloned_src: {cloned_src}')
+    log.debug(f'cloned_src: {cloned_src}')
     if not cloned_src:
-        logging.debug('failed to find plugin after cloning repo.')
+        log.debug('failed to find plugin after cloning repo.')
         return None
 
     # If a specific commit or tag was requested, check it out now.
@@ -1126,11 +1155,11 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
         if inst_method.dependency_file is not None:
             if inst_method.dependency_file not in os.listdir(plugin_path):
                 continue
-        logging.debug(f"using installer {inst_method.name}")
+        log.debug(f"using installer {inst_method.name}")
         INSTALLER = inst_method
         break
     if not INSTALLER:
-        logging.debug('Could not find a suitable installer method.')
+        log.debug('Could not find a suitable installer method.')
         return None
     if not cloned_src.entry:
         # The plugin entrypoint may not be discernable prior to cloning.
@@ -1139,13 +1168,13 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
 
     # Relocate plugin to a staging directory prior to testing
     if not Path(inst_path).exists():
-        logging.debug(f'creating {inst_path}')
+        log.debug(f'creating {inst_path}')
         create_dir(inst_path)
     if not Path(inst_path / 'source').exists():
-        logging.debug(f'creating {inst_path / "source"}')
+        log.debug(f'creating {inst_path / "source"}')
         create_dir(inst_path / 'source')
     staging_path = inst_path / 'source' / src.name
-    logging.debug(f'copying {plugin_path} tree to {staging_path}')
+    log.debug(f'copying {plugin_path} tree to {staging_path}')
     shutil.copytree(str(plugin_path), staging_path)
     staged_src = cloned_src
     # Because the source files are copied to a 'source' directory, the
@@ -1156,9 +1185,9 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     # Use subdir to redirect the symlink to the actual executable location
     staged_src.subdir = f'source/{src.name}'
     # Create symlink in staging tree to redirect to the plugins entrypoint
-    logging.debug(f"linking source {staging_path / cloned_src.entry} to "
-                  f"{Path(staged_src.source_loc) / cloned_src.entry}")
-    logging.debug(staged_src)
+    log.debug(f"linking source {staging_path / cloned_src.entry} to "
+              f"{Path(staged_src.source_loc) / cloned_src.entry}")
+    log.debug(staged_src)
     (Path(staged_src.source_loc) / cloned_src.entry).\
         symlink_to(staging_path / cloned_src.entry)
 
@@ -1171,7 +1200,7 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
                 return None
         else:
             for call in INSTALLER.dependency_call:
-                logging.debug(f"Install: invoking '{' '.join(call)}'")
+                log.debug(f"Install: invoking '{' '.join(call)}'")
                 if logging.root.level < logging.WARNING:
                     pip = Popen(call, cwd=staging_path, text=True)
                 else:
@@ -1185,7 +1214,7 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
             else:
                 print('error encountered installing dependencies')
                 if pip.stdout:
-                    logging.debug(pip.stdout.read())
+                    log.debug(pip.stdout.read())
                 remove_dir(clone_path)
                 remove_dir(inst_path)
                 return None
@@ -1202,9 +1231,9 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
         # If the plugin is still running, it's assumed to be okay.
         returncode = 0
     if returncode != 0:
-        logging.debug("plugin testing error:")
+        log.debug("plugin testing error:")
         for line in test_log:
-            logging.debug(f'  {line}')
+            log.debug(f'  {line}')
         print('plugin testing failed')
         remove_dir(clone_path)
         remove_dir(inst_path)
@@ -1221,16 +1250,16 @@ def install(plugin_name: str):
     assert isinstance(plugin_name, str)
     # Specify a tag or commit to checkout by adding @<tag> to plugin name
     if '@' in plugin_name:
-        logging.debug("testing for a commit/tag in plugin name")
+        log.debug("testing for a commit/tag in plugin name")
         name, commit = plugin_name.split('@', 1)
     else:
         name = plugin_name
         commit = None
-    logging.debug(f"Searching for {name}")
+    log.debug(f"Searching for {name}")
     src = search(name)
     if src:
         src.commit = commit
-        logging.debug(f'Retrieving {src.name} from {src.source_loc}')
+        log.debug(f'Retrieving {src.name} from {src.source_loc}')
         installed = _install_plugin(src)
         if not installed:
             print('installation aborted')
@@ -1252,13 +1281,13 @@ def install(plugin_name: str):
 def uninstall(plugin_name: str):
     """disables plugin and deletes the plugin's reckless dir"""
     assert isinstance(plugin_name, str)
-    logging.debug(f'Uninstalling plugin {plugin_name}')
+    log.debug(f'Uninstalling plugin {plugin_name}')
     disable(plugin_name)
     inst = InferInstall(plugin_name)
     if not Path(inst.entry).exists():
         print(f'cannot find installed plugin at expected path {inst.entry}')
         sys.exit(1)
-    logging.debug(f'looking for {str(Path(inst.entry).parent)}')
+    log.debug(f'looking for {str(Path(inst.entry).parent)}')
     if remove_dir(str(Path(inst.entry).parent)):
         print(f"{inst.name} uninstalled successfully.")
 
@@ -1281,7 +1310,7 @@ def search(plugin_name: str) -> Union[InstInfo, None]:
     for source in ordered_sources:
         srctype = Source.get_type(source)
         if srctype == Source.UNKNOWN:
-            logging.debug(f'cannot search {srctype} {source}')
+            log.debug(f'cannot search {srctype} {source}')
             continue
         if srctype in [Source.DIRECTORY, Source.LOCAL_REPO,
                        Source.GITHUB_REPO, Source.OTHER_URL]:
@@ -1289,11 +1318,11 @@ def search(plugin_name: str) -> Union[InstInfo, None]:
         if not found:
             continue
         print(f"found {found.name} in source: {found.source_loc}")
-        logging.debug(f"entry: {found.entry}")
+        log.debug(f"entry: {found.entry}")
         if found.subdir:
-            logging.debug(f'sub-directory: {found.subdir}')
+            log.debug(f'sub-directory: {found.subdir}')
         return found
-    logging.debug("Search exhausted all sources")
+    log.debug("Search exhausted all sources")
     return None
 
 
@@ -1348,18 +1377,18 @@ def enable(plugin_name: str):
     if not Path(path).exists():
         print(f'cannot find installed plugin at expected path {path}')
         sys.exit(1)
-    logging.debug(f'activating {plugin_name}')
+    log.debug(f'activating {plugin_name}')
     try:
         lightning_cli('plugin', 'start', path)
     except CLIError as err:
         if 'already registered' in err.message:
-            logging.debug(f'{inst.name} is already running')
+            log.debug(f'{inst.name} is already running')
         else:
             print(f'reckless: {inst.name} failed to start!')
             raise err
     except RPCError:
-        logging.debug(('lightningd rpc unavailable. '
-                       'Skipping dynamic activation.'))
+        log.debug(('lightningd rpc unavailable. '
+                   'Skipping dynamic activation.'))
     RECKLESS_CONFIG.enable_plugin(path)
     print(f'{inst.name} enabled')
 
@@ -1373,18 +1402,18 @@ def disable(plugin_name: str):
     if not Path(path).exists():
         sys.stderr.write(f'Could not find plugin at {path}\n')
         sys.exit(1)
-    logging.debug(f'deactivating {plugin_name}')
+    log.debug(f'deactivating {plugin_name}')
     try:
         lightning_cli('plugin', 'stop', path)
     except CLIError as err:
         if err.code == -32602:
-            logging.debug('plugin not currently running')
+            log.debug('plugin not currently running')
         else:
             print('lightning-cli plugin stop failed')
             raise err
     except RPCError:
-        logging.debug(('lightningd rpc unavailable. '
-                       'Skipping dynamic deactivation.'))
+        log.debug(('lightningd rpc unavailable. '
+                   'Skipping dynamic deactivation.'))
     RECKLESS_CONFIG.disable_plugin(path)
     print(f'{inst.name} disabled')
 
@@ -1454,7 +1483,7 @@ def load_sources() -> list:
     sources_file = get_sources_file()
     # This would have been created if possible
     if not Path(sources_file).exists():
-        logging.debug('Warning: Reckless requires write access')
+        log.debug('Warning: Reckless requires write access')
         Config(path=str(sources_file),
                default_text='https://github.com/lightningd/plugins')
         return ['https://github.com/lightningd/plugins']
