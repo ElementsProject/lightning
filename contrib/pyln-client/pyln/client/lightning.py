@@ -1135,6 +1135,18 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("openchannel_abort", payload)
 
+    def splice(self, script_or_json, dryrun=None, force_feerate=None, json=None, debug_log=None, wetrun=None):
+        """ Execute a splice """
+        payload = {
+            "script_or_json": script_or_json,
+            "dryrun": dryrun,
+            "force_feerate": force_feerate,
+            "json": json,
+            "debug_log": debug_log,
+            "wetrun": wetrun,
+        }
+        return self.call("splice", payload)
+
     def splice_init(self, chan_id, amount, initialpsbt=None, feerate_per_kw=None):
         """ Initiate a splice """
         payload = {

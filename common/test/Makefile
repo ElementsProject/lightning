@@ -103,6 +103,21 @@ common/test/run-version:				\
 	wire/towire.o
 
 
+common/test/run-splice_script:				\
+	common/amount.o					\
+	common/node_id.o				\
+	common/bech32.o					\
+	common/splice_script.o				\
+	common/json_stream.o				\
+	common/json_filter.o				\
+	common/json_parse.o				\
+	common/json_parse_simple.o			\
+	common/wireaddr.o				\
+	common/base32.o					\
+	wire/fromwire.o					\
+	wire/towire.o
+
+
 common/test/run-trace:					\
 	common/amount.o                                 \
 	common/memleak.o				\

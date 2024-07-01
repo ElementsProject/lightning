@@ -119,6 +119,7 @@ Core Lightning Documentation
    lightning-signinvoice <lightning-signinvoice.7.md>
    lightning-signmessage <lightning-signmessage.7.md>
    lightning-signpsbt <lightning-signpsbt.7.md>
+   lightning-splice <lightning-splice.7.md>
    lightning-splice_init <lightning-splice_init.7.md>
    lightning-splice_signed <lightning-splice_signed.7.md>
    lightning-splice_update <lightning-splice_update.7.md>

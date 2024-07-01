@@ -1,5 +1,6 @@
 COMMON_SRC_NOGEN :=				\
 	common/addr.c				\
+	common/addr.c				\
 	common/amount.c				\
 	common/autodata.c			\
 	common/base32.c				\
@@ -91,6 +92,7 @@ COMMON_SRC_NOGEN :=				\
 	common/setup.c				\
 	common/shutdown_scriptpubkey.c		\
 	common/sphinx.c				\
+	common/splice_script.c			\
 	common/status.c				\
 	common/status_levels.c			\
 	common/status_wire.c			\
