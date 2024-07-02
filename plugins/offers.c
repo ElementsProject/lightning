@@ -496,19 +496,17 @@ static bool json_add_offer_fields(struct json_stream *js,
 	} else if (offer_amount)
 		json_add_amount_msat(js, "offer_amount_msat",
 				     amount_msat(*offer_amount));
-
 	/* BOLT-offers #12:
-	 * A reader of an offer:
-	 *...
-	 * - if `offer_description` is not set:
-	 *   - MUST NOT respond to the offer.
+	 *
+	 * - if offer_amount is set and offer_description is not set:
+	 *    - MUST NOT respond to the offer.
 	 */
 	if (offer_description)
 		valid &= json_add_utf8(js, "offer_description",
 				       offer_description);
-	else {
+	else if (!offer_description && offer_amount) {
 		json_add_string(js, "warning_missing_offer_description",
-				"offers without a description are invalid");
+				"description is required for the user to know what it was they paid for");
 		valid = false;
 	}
 

@@ -2291,7 +2291,7 @@ message MultiwithdrawResponse {
 
 message OfferRequest {
 	string amount = 1;
-	string description = 2;
+	optional string description = 2;
 	optional string issuer = 3;
 	optional string label = 4;
 	optional uint64 quantity_max = 5;
