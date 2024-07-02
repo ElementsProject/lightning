@@ -412,6 +412,17 @@
             "torv2": 3,
             "torv3": 4
         },
+        "PeerConnectConnectAddressType": {
+            "ipv4": 1,
+            "ipv6": 2,
+            "local socket": 0,
+            "torv2": 3,
+            "torv3": 4
+        },
+        "PeerConnectConnectDirection": {
+            "in": 0,
+            "out": 1
+        },
         "PeerConnectDirection": {
             "in": 0,
             "out": 1
@@ -738,17 +749,33 @@
             "BlacklistRune.blacklist[]": 1
         },
         "BlockAddedNotification": {
+            "block_added.block_added": 3,
             "block_added.hash": 1,
             "block_added.height": 2
         },
+        "Block_addedBlock_added": {
+            "block_added.block_added.hash": 1,
+            "block_added.block_added.height": 2
+        },
         "ChannelOpenFailedNotification": {
-            "channel_open_failed.channel_id": 1
+            "channel_open_failed.channel_id": 1,
+            "channel_open_failed.channel_open_failed": 2
         },
         "ChannelOpenedNotification": {
+            "channel_opened.channel_opened": 5,
             "channel_opened.channel_ready": 4,
             "channel_opened.funding_msat": 2,
             "channel_opened.funding_txid": 3,
             "channel_opened.id": 1
+        },
+        "Channel_open_failedChannel_open_failed": {
+            "channel_open_failed.channel_open_failed.channel_id": 1
+        },
+        "Channel_openedChannel_opened": {
+            "channel_opened.channel_opened.channel_ready": 4,
+            "channel_opened.channel_opened.funding_msat": 2,
+            "channel_opened.channel_opened.funding_txid": 3,
+            "channel_opened.channel_opened.id": 1
         },
         "CheckmessageRequest": {
             "CheckMessage.message": 1,
@@ -792,8 +819,20 @@
             "connect.address.socket": 2,
             "connect.address.type": 1
         },
+        "ConnectConnect": {
+            "connect.connect.address": 3,
+            "connect.connect.direction": 2,
+            "connect.connect.id": 1
+        },
+        "ConnectConnectAddress": {
+            "connect.connect.address.address": 3,
+            "connect.connect.address.port": 4,
+            "connect.connect.address.socket": 2,
+            "connect.connect.address.type": 1
+        },
         "ConnectNotification": {
             "connect.address": 3,
+            "connect.connect": 4,
             "connect.direction": 2,
             "connect.id": 1
         },
@@ -860,8 +899,13 @@
             "CreateRune.warning_unrestricted_rune": 3
         },
         "CustomMsgNotification": {
+            "custommsg.custommsg": 3,
             "custommsg.payload": 2,
             "custommsg.peer_id": 1
+        },
+        "CustommsgCustommsg": {
+            "custommsg.custommsg.payload": 2,
+            "custommsg.custommsg.peer_id": 1
         },
         "DatastoreRequest": {
             "Datastore.generation": 4,
@@ -11396,87 +11440,171 @@
             "deprecated": false
         },
         "block_added": {
-            "added": "v24.05",
+            "added": "v22.11",
             "deprecated": null
         },
+        "block_added.block_added": {
+            "added": "v22.11",
+            "deprecated": false
+        },
+        "block_added.block_added.hash": {
+            "added": "v22.11",
+            "deprecated": false
+        },
+        "block_added.block_added.height": {
+            "added": "v22.11",
+            "deprecated": false
+        },
         "block_added.hash": {
-            "added": "v24.05",
+            "added": "v22.11",
             "deprecated": false
         },
         "block_added.height": {
-            "added": "v24.05",
+            "added": "v22.11",
             "deprecated": false
         },
         "channel_open_failed": {
-            "added": "v24.05",
+            "added": "pre-v0.10.1",
             "deprecated": null
         },
         "channel_open_failed.channel_id": {
-            "added": "v24.05",
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "channel_open_failed.channel_open_failed": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "channel_open_failed.channel_open_failed.channel_id": {
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "channel_opened": {
-            "added": "v24.05",
+            "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "channel_opened.channel_opened": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "channel_opened.channel_opened.channel_ready": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "channel_opened.channel_opened.funding_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "channel_opened.channel_opened.funding_txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "channel_opened.channel_opened.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
         "channel_opened.channel_ready": {
-            "added": "v24.05",
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "channel_opened.funding_msat": {
-            "added": "v24.05",
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "channel_opened.funding_txid": {
-            "added": "v24.05",
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "channel_opened.id": {
-            "added": "v24.05",
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "connect": {
-            "added": "v24.05",
+            "added": "pre-v0.10.1",
             "deprecated": null
         },
         "connect.address": {
-            "added": "v24.05",
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "connect.address.address": {
-            "added": "v24.05",
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "connect.address.port": {
-            "added": "v24.05",
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "connect.address.socket": {
-            "added": "v24.05",
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "connect.address.type": {
-            "added": "v24.05",
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "connect.connect": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "connect.connect.address": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "connect.connect.address.address": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "connect.connect.address.port": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "connect.connect.address.socket": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "connect.connect.address.type": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "connect.connect.direction": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "connect.connect.id": {
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "connect.direction": {
-            "added": "v24.05",
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "connect.id": {
-            "added": "v24.05",
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "custommsg": {
-            "added": "v24.05",
+            "added": "v24.02",
             "deprecated": null
         },
+        "custommsg.custommsg": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "custommsg.custommsg.payload": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "custommsg.custommsg.peer_id": {
+            "added": "v24.02",
+            "deprecated": false
+        },
         "custommsg.payload": {
-            "added": "v24.05",
+            "added": "v24.02",
             "deprecated": false
         },
         "custommsg.peer_id": {
-            "added": "v24.05",
+            "added": "v24.02",
             "deprecated": false
         },
         "multifundchannel": {

@@ -7,115 +7,124 @@
   "description": [
     "The **channel_state_changed** informs whenever the state of the channel has been updated."
   ],
-  "added": "v24.05",
+  "added": "pre-v0.10.1",
   "request": {},
   "response": {
     "required": [
-      "peer_id",
-      "channel_id",
-      "short_channel_id",
-      "timestamp",
-      "old_state",
-      "new_state",
-      "cause",
-      "message"
+      "channel_state_changed"
     ],
     "properties": {
-      "peer_id": {
-        "type": "pubkey",
-        "description": [
-          "The peer id of the channel."
+      "channel_state_changed": {
+        "type": "object",
+        "added": "pre-v0.10.1",
+        "required": [
+          "peer_id",
+          "channel_id",
+          "short_channel_id",
+          "timestamp",
+          "old_state",
+          "new_state",
+          "cause",
+          "message"
         ],
-        "added" : "v24.05"
-      },
-      "channel_id": {
-        "type": "hash",
-        "description": [
-          "The channel id of the channel."
-        ],
-        "added" : "v24.05"
-      },
-      "short_channel_id": {
-        "type": "short_channel_id",
-        "description": [
-          "The short channel id of the channel. If the channel is not yet confirmed, this field will be null."
-        ],
-        "added" : "v24.05"
-      },
-      "timestamp": {
-        "type": "string",
-        "description": [
-          "The timestamp of the state change."
-        ],
-        "added" : "v24.05"
-      },
-      "old_state": {
-        "type": "string",
-        "enum": [
-          "OPENINGD",
-          "CHANNELD_AWAITING_LOCKIN",
-          "CHANNELD_NORMAL",
-          "CHANNELD_SHUTTING_DOWN",
-          "CLOSINGD_SIGEXCHANGE",
-          "CLOSINGD_COMPLETE",
-          "AWAITING_UNILATERAL",
-          "FUNDING_SPEND_SEEN",
-          "ONCHAIN",
-          "DUALOPEND_OPEN_INIT",
-          "DUALOPEND_AWAITING_LOCKIN",
-          "CHANNELD_AWAITING_SPLICE",
-          "DUALOPEND_OPEN_COMMITTED",
-          "DUALOPEND_OPEN_COMMIT_READY"
-        ],
-        "description": [
-          "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
-        ],
-        "added" : "v24.05"
-      },
-      "new_state": {
-        "type": "string",
-        "enum": [
-          "OPENINGD",
-          "CHANNELD_AWAITING_LOCKIN",
-          "CHANNELD_NORMAL",
-          "CHANNELD_SHUTTING_DOWN",
-          "CLOSINGD_SIGEXCHANGE",
-          "CLOSINGD_COMPLETE",
-          "AWAITING_UNILATERAL",
-          "FUNDING_SPEND_SEEN",
-          "ONCHAIN",
-          "DUALOPEND_OPEN_INIT",
-          "DUALOPEND_AWAITING_LOCKIN",
-          "CHANNELD_AWAITING_SPLICE",
-          "DUALOPEND_OPEN_COMMITTED",
-          "DUALOPEND_OPEN_COMMIT_READY"
-        ],
-        "description": [
-          "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
-        ],
-        "added" : "v24.05"
-      },
-      "cause": {
-        "type": "string",
-        "enum": [
-          "unknown",
-          "local",
-          "user",
-          "remote",
-          "protocol",
-          "onchain"
-        ],
-        "description": [
-          "The cause of the state change."
-        ],
-        "added" : "v24.05"
-      },
-      "message": {
-        "type": "string",
-        "description": [
-          "The state change message."
-        ],
-        "added" : "v24.05"
+        "properties": {
+          "peer_id": {
+            "type": "pubkey",
+            "description": [
+              "The peer id of the channel."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "channel_id": {
+            "type": "hash",
+            "description": [
+              "The channel id of the channel."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "short_channel_id": {
+            "type": "short_channel_id",
+            "description": [
+              "The short channel id of the channel. If the channel is not yet confirmed, this field will be null."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": [
+              "The timestamp of the state change."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "old_state": {
+            "type": "string",
+            "enum": [
+              "OPENINGD",
+              "CHANNELD_AWAITING_LOCKIN",
+              "CHANNELD_NORMAL",
+              "CHANNELD_SHUTTING_DOWN",
+              "CLOSINGD_SIGEXCHANGE",
+              "CLOSINGD_COMPLETE",
+              "AWAITING_UNILATERAL",
+              "FUNDING_SPEND_SEEN",
+              "ONCHAIN",
+              "DUALOPEND_OPEN_INIT",
+              "DUALOPEND_AWAITING_LOCKIN",
+              "CHANNELD_AWAITING_SPLICE",
+              "DUALOPEND_OPEN_COMMITTED",
+              "DUALOPEND_OPEN_COMMIT_READY"
+            ],
+            "description": [
+              "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "new_state": {
+            "type": "string",
+            "enum": [
+              "OPENINGD",
+              "CHANNELD_AWAITING_LOCKIN",
+              "CHANNELD_NORMAL",
+              "CHANNELD_SHUTTING_DOWN",
+              "CLOSINGD_SIGEXCHANGE",
+              "CLOSINGD_COMPLETE",
+              "AWAITING_UNILATERAL",
+              "FUNDING_SPEND_SEEN",
+              "ONCHAIN",
+              "DUALOPEND_OPEN_INIT",
+              "DUALOPEND_AWAITING_LOCKIN",
+              "CHANNELD_AWAITING_SPLICE",
+              "DUALOPEND_OPEN_COMMITTED",
+              "DUALOPEND_OPEN_COMMIT_READY"
+            ],
+            "description": [
+              "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "cause": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "local",
+              "user",
+              "remote",
+              "protocol",
+              "onchain"
+            ],
+            "description": [
+              "The cause of the state change."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "message": {
+            "type": "string",
+            "description": [
+              "The state change message."
+            ],
+            "added": "pre-v0.10.1"
+          }
+        }
       }
     }
   }

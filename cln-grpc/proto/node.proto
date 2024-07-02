@@ -3580,6 +3580,10 @@ message StreamBlockAddedRequest {
 }
 
 message BlockAddedNotification {
+	Block_addedBlock_added block_added = 3;
+}
+
+message Block_addedBlock_added {
 	bytes hash = 1;
 	uint32 height = 2;
 }
@@ -3588,6 +3592,10 @@ message StreamChannelOpenFailedRequest {
 }
 
 message ChannelOpenFailedNotification {
+	Channel_open_failedChannel_open_failed channel_open_failed = 2;
+}
+
+message Channel_open_failedChannel_open_failed {
 	bytes channel_id = 1;
 }
 
@@ -3595,6 +3603,10 @@ message StreamChannelOpenedRequest {
 }
 
 message ChannelOpenedNotification {
+	Channel_openedChannel_opened channel_opened = 5;
+}
+
+message Channel_openedChannel_opened {
 	bytes id = 1;
 	Amount funding_msat = 2;
 	bytes funding_txid = 3;
@@ -3605,26 +3617,30 @@ message StreamConnectRequest {
 }
 
 message PeerConnectNotification {
-	// connect.direction
-	enum PeerConnectDirection {
+	PeerConnectConnect connect = 4;
+}
+
+message PeerConnectConnect {
+	// connect.connect.direction
+	enum PeerConnectConnectDirection {
 		IN = 0;
 		OUT = 1;
 	}
 	bytes id = 1;
-	PeerConnectDirection direction = 2;
-	PeerConnectAddress address = 3;
+	PeerConnectConnectDirection direction = 2;
+	PeerConnectConnectAddress address = 3;
 }
 
-message PeerConnectAddress {
-	// connect.address.type
-	enum PeerConnectAddressType {
+message PeerConnectConnectAddress {
+	// connect.connect.address.type
+	enum PeerConnectConnectAddressType {
 		LOCAL_SOCKET = 0;
 		IPV4 = 1;
 		IPV6 = 2;
 		TORV2 = 3;
 		TORV3 = 4;
 	}
-	PeerConnectAddressType item_type = 1;
+	PeerConnectConnectAddressType item_type = 1;
 	optional string socket = 2;
 	optional string address = 3;
 	optional uint32 port = 4;
@@ -3634,6 +3650,10 @@ message StreamCustomMsgRequest {
 }
 
 message CustomMsgNotification {
+	CustommsgCustommsg custommsg = 3;
+}
+
+message CustommsgCustommsg {
 	bytes peer_id = 1;
 	bytes payload = 2;
 }

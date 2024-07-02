@@ -7,27 +7,36 @@
   "description": [
     "The **block_added** notification is sent whenever the node receives a new block from the blockchain."
   ],
-  "added": "v24.05",
+  "added": "v22.11",
   "request": {},
   "response": {
     "required": [
-      "hash",
-      "height"
+      "block_added"
     ],
     "properties": {
-      "hash": {
-        "type": "hash",
-        "description": [
-          "The hash of the block."
+      "block_added": {
+        "type": "object",
+        "added": "v22.11",
+        "required": [
+          "hash",
+          "height"
         ],
-        "added" : "v24.05"
-      },
-      "height": {
-        "type": "u32",
-        "description": [
-          "The total block height."
-        ],
-        "added" : "v24.05"
+        "properties": {
+          "hash": {
+            "type": "hash",
+            "description": [
+              "The hash of the block."
+            ],
+            "added": "v22.11"
+          },
+          "height": {
+            "type": "u32",
+            "description": [
+              "The total block height."
+            ],
+            "added": "v22.11"
+          }
+        }
       }
     }
   }

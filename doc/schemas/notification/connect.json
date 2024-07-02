@@ -7,124 +7,137 @@
     "The **connect** informs whenever the node is connected to a peer."
   ],
   "additionalProperties": false,
-  "added": "v24.05",
+  "added": "pre-v0.10.1",
   "request": {},
   "response": {
     "required": [
-      "id",
-      "direction",
-      "address"
+      "connect"
     ],
     "properties": {
-      "id": {
-        "type": "pubkey",
-        "description": [
-          "The id of the peer which sent the custom message"
-        ],
-        "added" : "v24.05"
-      },
-      "direction": {
-        "type": "string",
-        "enum": [
-          "in",
-          "out"
-        ],
-        "description": [
-          "Direction of the connection"
-        ],
-        "added" : "v24.05"
-      },
-      "address": {
+      "connect": {
         "type": "object",
-        "description": [
-          "Address information (mainly useful if **direction** is *out*)"
-        ],
-        "added" : "v24.05",
-        "additionalProperties": true,
+        "added": "pre-v0.10.1",
         "required": [
-          "type"
+          "id",
+          "direction",
+          "address"
         ],
         "properties": {
-          "type": {
+          "id": {
+            "type": "pubkey",
+            "description": [
+              "The id of the peer which sent the custom message"
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "direction": {
             "type": "string",
             "enum": [
-              "local socket",
-              "ipv4",
-              "ipv6",
-              "torv2",
-              "torv3"
+              "in",
+              "out"
             ],
             "description": [
-              "Type of connection (*torv2*/*torv3* only if **direction** is *out*)"
+              "Direction of the connection"
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "address": {
+            "type": "object",
+            "description": [
+              "Address information (mainly useful if **direction** is *out*)"
+            ],
+            "added": "pre-v0.10.1",
+            "additionalProperties": true,
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "added": "pre-v0.10.1",
+                "enum": [
+                  "local socket",
+                  "ipv4",
+                  "ipv6",
+                  "torv2",
+                  "torv3"
+                ],
+                "description": [
+                  "Type of connection (*torv2*/*torv3* only if **direction** is *out*)"
+                ]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "local socket"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "additionalProperties": false,
+                  "required": [
+                    "socket"
+                  ],
+                  "properties": {
+                    "type": {},
+                    "socket": {
+                      "type": "string",
+                      "added": "pre-v0.10.1",
+                      "description": [
+                        "Socket filename"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "ipv4",
+                        "ipv6",
+                        "torv2",
+                        "torv3"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "additionalProperties": false,
+                  "required": [
+                    "address",
+                    "port"
+                  ],
+                  "properties": {
+                    "type": {},
+                    "address": {
+                      "type": "string",
+                      "added": "pre-v0.10.1",
+                      "description": [
+                        "Address in expected format for **type**"
+                      ]
+                    },
+                    "port": {
+                      "type": "u16",
+                      "added": "pre-v0.10.1",
+                      "description": [
+                        "Port number"
+                      ]
+                    }
+                  }
+                }
+              }
             ]
           }
-        },
-        "allOf": [
-          {
-            "if": {
-              "properties": {
-                "type": {
-                  "type": "string",
-                  "enum": [
-                    "local socket"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "additionalProperties": false,
-              "required": [
-                "socket"
-              ],
-              "properties": {
-                "type": {},
-                "socket": {
-                  "type": "string",
-                  "description": [
-                    "Socket filename"
-                  ]
-                }
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "type": {
-                  "type": "string",
-                  "enum": [
-                    "ipv4",
-                    "ipv6",
-                    "torv2",
-                    "torv3"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "additionalProperties": false,
-              "required": [
-                "address",
-                "port"
-              ],
-              "properties": {
-                "type": {},
-                "address": {
-                  "type": "string",
-                  "description": [
-                    "Address in expected format for **type**"
-                  ]
-                },
-                "port": {
-                  "type": "u16",
-                  "description": [
-                    "Port number"
-                  ]
-                }
-              }
-            }
-          }
-        ]
+        }
       }
     }
   }

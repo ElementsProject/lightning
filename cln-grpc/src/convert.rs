@@ -3885,8 +3885,8 @@ impl From<responses::ShowrunesResponse> for pb::ShowrunesResponse {
 }
 
 #[allow(unused_variables)]
-impl From<notifications::BlockAddedNotification> for pb::BlockAddedNotification {
-    fn from(c: notifications::BlockAddedNotification) -> Self {
+impl From<notifications::Block_addedBlock_added> for pb::BlockAddedBlockAdded {
+    fn from(c: notifications::Block_addedBlock_added) -> Self {
         Self {
             hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.hash).to_vec(), // Rule #2 for type hash
             height: c.height, // Rule #2 for type u32
@@ -3895,8 +3895,17 @@ impl From<notifications::BlockAddedNotification> for pb::BlockAddedNotification 
 }
 
 #[allow(unused_variables)]
-impl From<notifications::ChannelOpenFailedNotification> for pb::ChannelOpenFailedNotification {
-    fn from(c: notifications::ChannelOpenFailedNotification) -> Self {
+impl From<notifications::BlockAddedNotification> for pb::BlockAddedNotification {
+    fn from(c: notifications::BlockAddedNotification) -> Self {
+        Self {
+            block_added: Some(c.block_added.into()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::Channel_open_failedChannel_open_failed> for pb::ChannelOpenFailedChannelOpenFailed {
+    fn from(c: notifications::Channel_open_failedChannel_open_failed) -> Self {
         Self {
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
         }
@@ -3904,8 +3913,17 @@ impl From<notifications::ChannelOpenFailedNotification> for pb::ChannelOpenFaile
 }
 
 #[allow(unused_variables)]
-impl From<notifications::ChannelOpenedNotification> for pb::ChannelOpenedNotification {
-    fn from(c: notifications::ChannelOpenedNotification) -> Self {
+impl From<notifications::ChannelOpenFailedNotification> for pb::ChannelOpenFailedNotification {
+    fn from(c: notifications::ChannelOpenFailedNotification) -> Self {
+        Self {
+            channel_open_failed: Some(c.channel_open_failed.into()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::Channel_openedChannel_opened> for pb::ChannelOpenedChannelOpened {
+    fn from(c: notifications::Channel_openedChannel_opened) -> Self {
         Self {
             channel_ready: c.channel_ready, // Rule #2 for type boolean
             funding_msat: Some(c.funding_msat.into()), // Rule #2 for type msat
@@ -3916,8 +3934,17 @@ impl From<notifications::ChannelOpenedNotification> for pb::ChannelOpenedNotific
 }
 
 #[allow(unused_variables)]
-impl From<notifications::ConnectAddress> for pb::PeerConnectAddress {
-    fn from(c: notifications::ConnectAddress) -> Self {
+impl From<notifications::ChannelOpenedNotification> for pb::ChannelOpenedNotification {
+    fn from(c: notifications::ChannelOpenedNotification) -> Self {
+        Self {
+            channel_opened: Some(c.channel_opened.into()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::ConnectConnectAddress> for pb::PeerConnectConnectAddress {
+    fn from(c: notifications::ConnectConnectAddress) -> Self {
         Self {
             address: c.address, // Rule #2 for type string?
             port: c.port.map(|v| v.into()), // Rule #2 for type u16?
@@ -3928,8 +3955,8 @@ impl From<notifications::ConnectAddress> for pb::PeerConnectAddress {
 }
 
 #[allow(unused_variables)]
-impl From<notifications::ConnectNotification> for pb::PeerConnectNotification {
-    fn from(c: notifications::ConnectNotification) -> Self {
+impl From<notifications::ConnectConnect> for pb::PeerConnectConnect {
+    fn from(c: notifications::ConnectConnect) -> Self {
         Self {
             address: Some(c.address.into()),
             direction: c.direction as i32,
@@ -3939,11 +3966,29 @@ impl From<notifications::ConnectNotification> for pb::PeerConnectNotification {
 }
 
 #[allow(unused_variables)]
-impl From<notifications::CustomMsgNotification> for pb::CustomMsgNotification {
-    fn from(c: notifications::CustomMsgNotification) -> Self {
+impl From<notifications::ConnectNotification> for pb::PeerConnectNotification {
+    fn from(c: notifications::ConnectNotification) -> Self {
+        Self {
+            connect: Some(c.connect.into()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::CustommsgCustommsg> for pb::CustommsgCustommsg {
+    fn from(c: notifications::CustommsgCustommsg) -> Self {
         Self {
             payload: hex::decode(&c.payload).unwrap(), // Rule #2 for type hex
             peer_id: c.peer_id.serialize().to_vec(), // Rule #2 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::CustomMsgNotification> for pb::CustomMsgNotification {
+    fn from(c: notifications::CustomMsgNotification) -> Self {
+        Self {
+            custommsg: Some(c.custommsg.into()),
         }
     }
 }

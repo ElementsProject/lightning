@@ -7,43 +7,52 @@
   "description": [
     "The **channel_opened** notification is sent whenever the channel opened successfully."
   ],
-  "added": "v24.05",
+  "added": "pre-v0.10.1",
   "request": {},
   "response": {
     "required": [
-      "id",
-      "funding_msat",
-      "funding_txid",
-      "channel_ready"
+      "channel_opened"
     ],
     "properties": {
-      "id": {
-        "type": "pubkey",
-        "description": [
-          "The id of the peer which opened the channel"
+      "channel_opened": {
+        "type": "object",
+        "added": "pre-v0.10.1",
+        "required": [
+          "id",
+          "funding_msat",
+          "funding_txid",
+          "channel_ready"
         ],
-        "added" : "v24.05"
-      },
-      "funding_msat": {
-        "type": "msat",
-        "description": [
-          "The amount of the funding transaction"
-        ],
-        "added" : "v24.05"
-      },
-      "funding_txid": {
-        "type": "txid",
-        "description": [
-          "The transaction id of the funding transaction"
-        ],
-        "added" : "v24.05"
-      },
-      "channel_ready": {
-        "type": "boolean",
-        "description": [
-          "true if the channel is ready"
-        ],
-        "added" : "v24.05"
+        "properties": {
+          "id": {
+            "type": "pubkey",
+            "description": [
+              "The id of the peer which opened the channel"
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "funding_msat": {
+            "type": "msat",
+            "description": [
+              "The amount of the funding transaction"
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "funding_txid": {
+            "type": "txid",
+            "description": [
+              "The transaction id of the funding transaction"
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "channel_ready": {
+            "type": "boolean",
+            "description": [
+              "true if the channel is ready"
+            ],
+            "added": "pre-v0.10.1"
+          }
+        }
       }
     }
   }

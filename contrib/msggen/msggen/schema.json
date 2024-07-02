@@ -30997,27 +30997,36 @@
       "description": [
         "The **block_added** notification is sent whenever the node receives a new block from the blockchain."
       ],
-      "added": "v24.05",
+      "added": "v22.11",
       "request": {},
       "response": {
         "required": [
-          "hash",
-          "height"
+          "block_added"
         ],
         "properties": {
-          "hash": {
-            "type": "hash",
-            "description": [
-              "The hash of the block."
+          "block_added": {
+            "type": "object",
+            "added": "v22.11",
+            "required": [
+              "hash",
+              "height"
             ],
-            "added": "v24.05"
-          },
-          "height": {
-            "type": "u32",
-            "description": [
-              "The total block height."
-            ],
-            "added": "v24.05"
+            "properties": {
+              "hash": {
+                "type": "hash",
+                "description": [
+                  "The hash of the block."
+                ],
+                "added": "v22.11"
+              },
+              "height": {
+                "type": "u32",
+                "description": [
+                  "The total block height."
+                ],
+                "added": "v22.11"
+              }
+            }
           }
         }
       }
@@ -31031,19 +31040,28 @@
       "description": [
         "The **channel_open_failed** notification is sent whenever the channel opening request is failed."
       ],
-      "added": "v24.05",
+      "added": "pre-v0.10.1",
       "request": {},
       "response": {
         "required": [
-          "channel_id"
+          "channel_open_failed"
         ],
         "properties": {
-          "channel_id": {
-            "type": "hash",
-            "description": [
-              "The channel id of the channel."
+          "channel_open_failed": {
+            "type": "object",
+            "added": "pre-v0.10.1",
+            "required": [
+              "channel_id"
             ],
-            "added": "v24.05"
+            "properties": {
+              "channel_id": {
+                "type": "hash",
+                "description": [
+                  "The channel id of the channel."
+                ],
+                "added": "pre-v0.10.1"
+              }
+            }
           }
         }
       }
@@ -31057,43 +31075,52 @@
       "description": [
         "The **channel_opened** notification is sent whenever the channel opened successfully."
       ],
-      "added": "v24.05",
+      "added": "pre-v0.10.1",
       "request": {},
       "response": {
         "required": [
-          "id",
-          "funding_msat",
-          "funding_txid",
-          "channel_ready"
+          "channel_opened"
         ],
         "properties": {
-          "id": {
-            "type": "pubkey",
-            "description": [
-              "The id of the peer which opened the channel"
+          "channel_opened": {
+            "type": "object",
+            "added": "pre-v0.10.1",
+            "required": [
+              "id",
+              "funding_msat",
+              "funding_txid",
+              "channel_ready"
             ],
-            "added": "v24.05"
-          },
-          "funding_msat": {
-            "type": "msat",
-            "description": [
-              "The amount of the funding transaction"
-            ],
-            "added": "v24.05"
-          },
-          "funding_txid": {
-            "type": "txid",
-            "description": [
-              "The transaction id of the funding transaction"
-            ],
-            "added": "v24.05"
-          },
-          "channel_ready": {
-            "type": "boolean",
-            "description": [
-              "true if the channel is ready"
-            ],
-            "added": "v24.05"
+            "properties": {
+              "id": {
+                "type": "pubkey",
+                "description": [
+                  "The id of the peer which opened the channel"
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "funding_msat": {
+                "type": "msat",
+                "description": [
+                  "The amount of the funding transaction"
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "funding_txid": {
+                "type": "txid",
+                "description": [
+                  "The transaction id of the funding transaction"
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "channel_ready": {
+                "type": "boolean",
+                "description": [
+                  "true if the channel is ready"
+                ],
+                "added": "pre-v0.10.1"
+              }
+            }
           }
         }
       }
@@ -31107,115 +31134,124 @@
       "description": [
         "The **channel_state_changed** informs whenever the state of the channel has been updated."
       ],
-      "added": "v24.05",
+      "added": "pre-v0.10.1",
       "request": {},
       "response": {
         "required": [
-          "peer_id",
-          "channel_id",
-          "short_channel_id",
-          "timestamp",
-          "old_state",
-          "new_state",
-          "cause",
-          "message"
+          "channel_state_changed"
         ],
         "properties": {
-          "peer_id": {
-            "type": "pubkey",
-            "description": [
-              "The peer id of the channel."
+          "channel_state_changed": {
+            "type": "object",
+            "added": "pre-v0.10.1",
+            "required": [
+              "peer_id",
+              "channel_id",
+              "short_channel_id",
+              "timestamp",
+              "old_state",
+              "new_state",
+              "cause",
+              "message"
             ],
-            "added": "v24.05"
-          },
-          "channel_id": {
-            "type": "hash",
-            "description": [
-              "The channel id of the channel."
-            ],
-            "added": "v24.05"
-          },
-          "short_channel_id": {
-            "type": "short_channel_id",
-            "description": [
-              "The short channel id of the channel. If the channel is not yet confirmed, this field will be null."
-            ],
-            "added": "v24.05"
-          },
-          "timestamp": {
-            "type": "string",
-            "description": [
-              "The timestamp of the state change."
-            ],
-            "added": "v24.05"
-          },
-          "old_state": {
-            "type": "string",
-            "enum": [
-              "OPENINGD",
-              "CHANNELD_AWAITING_LOCKIN",
-              "CHANNELD_NORMAL",
-              "CHANNELD_SHUTTING_DOWN",
-              "CLOSINGD_SIGEXCHANGE",
-              "CLOSINGD_COMPLETE",
-              "AWAITING_UNILATERAL",
-              "FUNDING_SPEND_SEEN",
-              "ONCHAIN",
-              "DUALOPEND_OPEN_INIT",
-              "DUALOPEND_AWAITING_LOCKIN",
-              "CHANNELD_AWAITING_SPLICE",
-              "DUALOPEND_OPEN_COMMITTED",
-              "DUALOPEND_OPEN_COMMIT_READY"
-            ],
-            "description": [
-              "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
-            ],
-            "added": "v24.05"
-          },
-          "new_state": {
-            "type": "string",
-            "enum": [
-              "OPENINGD",
-              "CHANNELD_AWAITING_LOCKIN",
-              "CHANNELD_NORMAL",
-              "CHANNELD_SHUTTING_DOWN",
-              "CLOSINGD_SIGEXCHANGE",
-              "CLOSINGD_COMPLETE",
-              "AWAITING_UNILATERAL",
-              "FUNDING_SPEND_SEEN",
-              "ONCHAIN",
-              "DUALOPEND_OPEN_INIT",
-              "DUALOPEND_AWAITING_LOCKIN",
-              "CHANNELD_AWAITING_SPLICE",
-              "DUALOPEND_OPEN_COMMITTED",
-              "DUALOPEND_OPEN_COMMIT_READY"
-            ],
-            "description": [
-              "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
-            ],
-            "added": "v24.05"
-          },
-          "cause": {
-            "type": "string",
-            "enum": [
-              "unknown",
-              "local",
-              "user",
-              "remote",
-              "protocol",
-              "onchain"
-            ],
-            "description": [
-              "The cause of the state change."
-            ],
-            "added": "v24.05"
-          },
-          "message": {
-            "type": "string",
-            "description": [
-              "The state change message."
-            ],
-            "added": "v24.05"
+            "properties": {
+              "peer_id": {
+                "type": "pubkey",
+                "description": [
+                  "The peer id of the channel."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "channel_id": {
+                "type": "hash",
+                "description": [
+                  "The channel id of the channel."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "short_channel_id": {
+                "type": "short_channel_id",
+                "description": [
+                  "The short channel id of the channel. If the channel is not yet confirmed, this field will be null."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "timestamp": {
+                "type": "string",
+                "description": [
+                  "The timestamp of the state change."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "old_state": {
+                "type": "string",
+                "enum": [
+                  "OPENINGD",
+                  "CHANNELD_AWAITING_LOCKIN",
+                  "CHANNELD_NORMAL",
+                  "CHANNELD_SHUTTING_DOWN",
+                  "CLOSINGD_SIGEXCHANGE",
+                  "CLOSINGD_COMPLETE",
+                  "AWAITING_UNILATERAL",
+                  "FUNDING_SPEND_SEEN",
+                  "ONCHAIN",
+                  "DUALOPEND_OPEN_INIT",
+                  "DUALOPEND_AWAITING_LOCKIN",
+                  "CHANNELD_AWAITING_SPLICE",
+                  "DUALOPEND_OPEN_COMMITTED",
+                  "DUALOPEND_OPEN_COMMIT_READY"
+                ],
+                "description": [
+                  "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "new_state": {
+                "type": "string",
+                "enum": [
+                  "OPENINGD",
+                  "CHANNELD_AWAITING_LOCKIN",
+                  "CHANNELD_NORMAL",
+                  "CHANNELD_SHUTTING_DOWN",
+                  "CLOSINGD_SIGEXCHANGE",
+                  "CLOSINGD_COMPLETE",
+                  "AWAITING_UNILATERAL",
+                  "FUNDING_SPEND_SEEN",
+                  "ONCHAIN",
+                  "DUALOPEND_OPEN_INIT",
+                  "DUALOPEND_AWAITING_LOCKIN",
+                  "CHANNELD_AWAITING_SPLICE",
+                  "DUALOPEND_OPEN_COMMITTED",
+                  "DUALOPEND_OPEN_COMMIT_READY"
+                ],
+                "description": [
+                  "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "cause": {
+                "type": "string",
+                "enum": [
+                  "unknown",
+                  "local",
+                  "user",
+                  "remote",
+                  "protocol",
+                  "onchain"
+                ],
+                "description": [
+                  "The cause of the state change."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "message": {
+                "type": "string",
+                "description": [
+                  "The state change message."
+                ],
+                "added": "pre-v0.10.1"
+              }
+            }
           }
         }
       }
@@ -31229,124 +31265,137 @@
         "The **connect** informs whenever the node is connected to a peer."
       ],
       "additionalProperties": false,
-      "added": "v24.05",
+      "added": "pre-v0.10.1",
       "request": {},
       "response": {
         "required": [
-          "id",
-          "direction",
-          "address"
+          "connect"
         ],
         "properties": {
-          "id": {
-            "type": "pubkey",
-            "description": [
-              "The id of the peer which sent the custom message"
-            ],
-            "added": "v24.05"
-          },
-          "direction": {
-            "type": "string",
-            "enum": [
-              "in",
-              "out"
-            ],
-            "description": [
-              "Direction of the connection"
-            ],
-            "added": "v24.05"
-          },
-          "address": {
+          "connect": {
             "type": "object",
-            "description": [
-              "Address information (mainly useful if **direction** is *out*)"
-            ],
-            "added": "v24.05",
-            "additionalProperties": true,
+            "added": "pre-v0.10.1",
             "required": [
-              "type"
+              "id",
+              "direction",
+              "address"
             ],
             "properties": {
-              "type": {
+              "id": {
+                "type": "pubkey",
+                "description": [
+                  "The id of the peer which sent the custom message"
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "direction": {
                 "type": "string",
                 "enum": [
-                  "local socket",
-                  "ipv4",
-                  "ipv6",
-                  "torv2",
-                  "torv3"
+                  "in",
+                  "out"
                 ],
                 "description": [
-                  "Type of connection (*torv2*/*torv3* only if **direction** is *out*)"
+                  "Direction of the connection"
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "address": {
+                "type": "object",
+                "description": [
+                  "Address information (mainly useful if **direction** is *out*)"
+                ],
+                "added": "pre-v0.10.1",
+                "additionalProperties": true,
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "added": "pre-v0.10.1",
+                    "enum": [
+                      "local socket",
+                      "ipv4",
+                      "ipv6",
+                      "torv2",
+                      "torv3"
+                    ],
+                    "description": [
+                      "Type of connection (*torv2*/*torv3* only if **direction** is *out*)"
+                    ]
+                  }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "local socket"
+                          ]
+                        }
+                      }
+                    },
+                    "then": {
+                      "additionalProperties": false,
+                      "required": [
+                        "socket"
+                      ],
+                      "properties": {
+                        "type": {},
+                        "socket": {
+                          "type": "string",
+                          "added": "pre-v0.10.1",
+                          "description": [
+                            "Socket filename"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "ipv4",
+                            "ipv6",
+                            "torv2",
+                            "torv3"
+                          ]
+                        }
+                      }
+                    },
+                    "then": {
+                      "additionalProperties": false,
+                      "required": [
+                        "address",
+                        "port"
+                      ],
+                      "properties": {
+                        "type": {},
+                        "address": {
+                          "type": "string",
+                          "added": "pre-v0.10.1",
+                          "description": [
+                            "Address in expected format for **type**"
+                          ]
+                        },
+                        "port": {
+                          "type": "u16",
+                          "added": "pre-v0.10.1",
+                          "description": [
+                            "Port number"
+                          ]
+                        }
+                      }
+                    }
+                  }
                 ]
               }
-            },
-            "allOf": [
-              {
-                "if": {
-                  "properties": {
-                    "type": {
-                      "type": "string",
-                      "enum": [
-                        "local socket"
-                      ]
-                    }
-                  }
-                },
-                "then": {
-                  "additionalProperties": false,
-                  "required": [
-                    "socket"
-                  ],
-                  "properties": {
-                    "type": {},
-                    "socket": {
-                      "type": "string",
-                      "description": [
-                        "Socket filename"
-                      ]
-                    }
-                  }
-                }
-              },
-              {
-                "if": {
-                  "properties": {
-                    "type": {
-                      "type": "string",
-                      "enum": [
-                        "ipv4",
-                        "ipv6",
-                        "torv2",
-                        "torv3"
-                      ]
-                    }
-                  }
-                },
-                "then": {
-                  "additionalProperties": false,
-                  "required": [
-                    "address",
-                    "port"
-                  ],
-                  "properties": {
-                    "type": {},
-                    "address": {
-                      "type": "string",
-                      "description": [
-                        "Address in expected format for **type**"
-                      ]
-                    },
-                    "port": {
-                      "type": "u16",
-                      "description": [
-                        "Port number"
-                      ]
-                    }
-                  }
-                }
-              }
-            ]
+            }
           }
         }
       }
@@ -31360,27 +31409,36 @@
       "description": [
         "The **custommsg** notifies whenever the node receives a custom message from a peer."
       ],
-      "added": "v24.05",
+      "added": "v24.02",
       "request": {},
       "response": {
         "required": [
-          "peer_id",
-          "payload"
+          "custommsg"
         ],
         "properties": {
-          "peer_id": {
-            "type": "pubkey",
-            "description": [
-              "The id of the peer which sent the custom message"
+          "custommsg": {
+            "type": "object",
+            "added": "v24.02",
+            "required": [
+              "peer_id",
+              "payload"
             ],
-            "added": "v24.05"
-          },
-          "payload": {
-            "type": "hex",
-            "description": [
-              "The hex-encoded payload. The first 2 bytes represent the BOLT-8 message type followed by the message content"
-            ],
-            "added": "v24.05"
+            "properties": {
+              "peer_id": {
+                "type": "pubkey",
+                "description": [
+                  "The id of the peer which sent the custom message"
+                ],
+                "added": "v24.02"
+              },
+              "payload": {
+                "type": "hex",
+                "description": [
+                  "The hex-encoded payload. The first 2 bytes represent the BOLT-8 message type followed by the message content"
+                ],
+                "added": "v24.02"
+              }
+            }
           }
         }
       }

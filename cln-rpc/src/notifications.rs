@@ -22,119 +22,130 @@ pub enum Notification {
 
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct BlockAddedNotification {
+pub struct Block_addedBlock_added {
     pub hash: Sha256,
     pub height: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct ChannelOpenFailedNotification {
+pub struct BlockAddedNotification {
+    pub block_added: Block_addedBlock_added,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Channel_open_failedChannel_open_failed {
     pub channel_id: Sha256,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct ChannelOpenedNotification {
+pub struct ChannelOpenFailedNotification {
+    pub channel_open_failed: Channel_open_failedChannel_open_failed,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Channel_openedChannel_opened {
     pub channel_ready: bool,
     pub funding_msat: Amount,
     pub funding_txid: String,
     pub id: PublicKey,
 }
 
-/// ['Direction of the connection']
-#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub enum ConnectDirection {
-    #[serde(rename = "in")]
-    IN = 0,
-    #[serde(rename = "out")]
-    OUT = 1,
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ChannelOpenedNotification {
+    pub channel_opened: Channel_openedChannel_opened,
 }
 
-impl TryFrom<i32> for ConnectDirection {
+/// ['Direction of the connection']
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub enum ConnectConnectDirection {
+}
+
+impl TryFrom<i32> for ConnectConnectDirection {
     type Error = anyhow::Error;
-    fn try_from(c: i32) -> Result<ConnectDirection, anyhow::Error> {
+    fn try_from(c: i32) -> Result<ConnectConnectDirection, anyhow::Error> {
         match c {
-    0 => Ok(ConnectDirection::IN),
-    1 => Ok(ConnectDirection::OUT),
-            o => Err(anyhow::anyhow!("Unknown variant {} for enum ConnectDirection", o)),
+    0 => Ok(ConnectConnectDirection::IN),
+    1 => Ok(ConnectConnectDirection::OUT),
+            o => Err(anyhow::anyhow!("Unknown variant {} for enum ConnectConnectDirection", o)),
         }
     }
 }
 
-impl ToString for ConnectDirection {
+impl ToString for ConnectConnectDirection {
     fn to_string(&self) -> String {
         match self {
-            ConnectDirection::IN => "IN",
-            ConnectDirection::OUT => "OUT",
+            ConnectConnectDirection::IN => "IN",
+            ConnectConnectDirection::OUT => "OUT",
         }.to_string()
     }
 }
 
 /// ['Type of connection (*torv2*/*torv3* only if **direction** is *out*)']
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub enum ConnectAddressType {
-    #[serde(rename = "local socket")]
-    LOCAL_SOCKET = 0,
-    #[serde(rename = "ipv4")]
-    IPV4 = 1,
-    #[serde(rename = "ipv6")]
-    IPV6 = 2,
-    #[serde(rename = "torv2")]
-    TORV2 = 3,
-    #[serde(rename = "torv3")]
-    TORV3 = 4,
+pub enum ConnectConnectAddressType {
 }
 
-impl TryFrom<i32> for ConnectAddressType {
+impl TryFrom<i32> for ConnectConnectAddressType {
     type Error = anyhow::Error;
-    fn try_from(c: i32) -> Result<ConnectAddressType, anyhow::Error> {
+    fn try_from(c: i32) -> Result<ConnectConnectAddressType, anyhow::Error> {
         match c {
-    0 => Ok(ConnectAddressType::LOCAL_SOCKET),
-    1 => Ok(ConnectAddressType::IPV4),
-    2 => Ok(ConnectAddressType::IPV6),
-    3 => Ok(ConnectAddressType::TORV2),
-    4 => Ok(ConnectAddressType::TORV3),
-            o => Err(anyhow::anyhow!("Unknown variant {} for enum ConnectAddressType", o)),
+    0 => Ok(ConnectConnectAddressType::LOCAL_SOCKET),
+    1 => Ok(ConnectConnectAddressType::IPV4),
+    2 => Ok(ConnectConnectAddressType::IPV6),
+    3 => Ok(ConnectConnectAddressType::TORV2),
+    4 => Ok(ConnectConnectAddressType::TORV3),
+            o => Err(anyhow::anyhow!("Unknown variant {} for enum ConnectConnectAddressType", o)),
         }
     }
 }
 
-impl ToString for ConnectAddressType {
+impl ToString for ConnectConnectAddressType {
     fn to_string(&self) -> String {
         match self {
-            ConnectAddressType::LOCAL_SOCKET => "LOCAL_SOCKET",
-            ConnectAddressType::IPV4 => "IPV4",
-            ConnectAddressType::IPV6 => "IPV6",
-            ConnectAddressType::TORV2 => "TORV2",
-            ConnectAddressType::TORV3 => "TORV3",
+            ConnectConnectAddressType::LOCAL_SOCKET => "LOCAL_SOCKET",
+            ConnectConnectAddressType::IPV4 => "IPV4",
+            ConnectConnectAddressType::IPV6 => "IPV6",
+            ConnectConnectAddressType::TORV2 => "TORV2",
+            ConnectConnectAddressType::TORV3 => "TORV3",
         }.to_string()
     }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct ConnectAddress {
+pub struct ConnectConnectAddress {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub port: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub socket: Option<String>,
-    // Path `connect.address.type`
+    // Path `connect.connect.address.type`
     #[serde(rename = "type")]
-    pub item_type: ConnectAddressType,
+    pub item_type: ConnectConnectAddressType,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct ConnectNotification {
-    // Path `connect.direction`
-    pub direction: ConnectDirection,
-    pub address: ConnectAddress,
+pub struct ConnectConnect {
+    // Path `connect.connect.direction`
+    pub direction: ConnectConnectDirection,
+    pub address: ConnectConnectAddress,
     pub id: PublicKey,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct CustomMsgNotification {
+pub struct ConnectNotification {
+    pub connect: ConnectConnect,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct CustommsgCustommsg {
     pub payload: String,
     pub peer_id: PublicKey,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct CustomMsgNotification {
+    pub custommsg: CustommsgCustommsg,
 }
 
 pub mod requests{
