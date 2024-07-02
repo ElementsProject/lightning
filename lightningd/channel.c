@@ -902,13 +902,19 @@ void channel_fail_permanent(struct channel *channel,
 	struct lightningd *ld = channel->peer->ld;
 	va_list ap;
 	char *why;
+	/* Do we want to rebroadcast close transactions? If we're
+	 * witnessing the close on-chain there is no point in doing
+	 * this. */
+	bool rebroadcast;
 
 	va_start(ap, fmt);
 	why = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
-	log_unusual(channel->log, "Peer permanent failure in %s: %s",
-		    channel_state_name(channel), why);
+	log_unusual(channel->log,
+		    "Peer permanent failure in %s: %s (reason=%s)",
+		    channel_state_name(channel), why,
+		    channel_change_state_reason_str(reason));
 
 	/* We can have multiple errors, eg. onchaind failures. */
 	if (!channel->error)
@@ -916,8 +922,15 @@ void channel_fail_permanent(struct channel *channel,
 						 &channel->cid, "%s", why);
 
 	channel_set_owner(channel, NULL);
-	/* Drop non-cooperatively (unilateral) to chain. */
-	drop_to_chain(ld, channel, false);
+
+	/* Drop non-cooperatively (unilateral) to chain. If we detect
+	 * the close from the blockchain (i.e., reason is
+	 * REASON_ONCHAIN, or FUNDING_SPEND_SEEN) then we can observe
+	 * passively, and not broadcast our own unilateral close, as
+	 * it doesn't stand a chance anyway. */
+	rebroadcast = !(channel->state == ONCHAIN ||
+			channel->state == FUNDING_SPEND_SEEN);
+	drop_to_chain(ld, channel, false, rebroadcast);
 
 	if (channel_state_wants_onchain_fail(channel->state))
 		channel_set_state(channel,

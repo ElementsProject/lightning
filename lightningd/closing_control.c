@@ -303,7 +303,7 @@ static void peer_closing_complete(struct channel *channel, const u8 *msg)
 		return;
 
 	/* Channel gets dropped to chain cooperatively. */
-	drop_to_chain(channel->peer->ld, channel, true);
+	drop_to_chain(channel->peer->ld, channel, true, true /* rebroadcast */);
 	channel_set_state(channel,
 			  CLOSINGD_SIGEXCHANGE,
 			  CLOSINGD_COMPLETE,

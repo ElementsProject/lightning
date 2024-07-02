@@ -348,7 +348,7 @@ static enum watch_result closed_inflight_depth_cb(struct lightningd *ld,
 }
 
 void drop_to_chain(struct lightningd *ld, struct channel *channel,
-		   bool cooperative)
+		   bool cooperative, bool rebroadcast)
 {
 	struct channel_inflight *inflight;
 	const char *cmd_id;
@@ -387,6 +387,10 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		log_broken(channel->log,
 			   "Cannot broadcast our commitment tx:"
 			   " it's invalid! (ancient channel?)");
+	} else if (!rebroadcast && !cooperative) {
+		log_unusual(channel->log,
+			    "Not dropping our unilateral close onchain since "
+			    "we already saw theirs confirm.");
 	} else {
 		struct bitcoin_tx *tx COMPILER_WANTS_INIT("gcc 12.3.0");
 
@@ -448,10 +452,10 @@ void resend_closing_transactions(struct lightningd *ld)
 			case CLOSED:
 				continue;
 			case CLOSINGD_COMPLETE:
-				drop_to_chain(ld, channel, true);
+				drop_to_chain(ld, channel, true, true);
 				continue;
 			case AWAITING_UNILATERAL:
-				drop_to_chain(ld, channel, false);
+				drop_to_chain(ld, channel, false, true);
 				continue;
 			}
 			abort();
