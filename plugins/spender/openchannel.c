@@ -591,17 +591,9 @@ static struct command_result *json_peer_sigs(struct command *cmd,
 	 * "UPDATED" still. We check that SIGNED is hit before
 	 * we mark ourselves as ready to send the sigs, so it's ok
 	 * to relax this check */
-	if (dest->state == MULTIFUNDCHANNEL_UPDATED)
+	if (dest->state != MULTIFUNDCHANNEL_SECURED)
 		dest->state = MULTIFUNDCHANNEL_SIGNED_NOT_SECURED;
 	else {
-		if (dest->state != MULTIFUNDCHANNEL_SECURED) {
-			plugin_log(cmd->plugin, LOG_BROKEN,
-				   "mfc %"PRIu64":`openchannel_peer_sigs` "
-				   " expected state MULTIFUNDCHANNEL_SECURED (%d),"
-				   " state is %d", dest->mfc->id,
-				   MULTIFUNDCHANNEL_SECURED,
-				   dest->state);
-		}
 		dest->state = MULTIFUNDCHANNEL_SIGNED;
 	}
 
@@ -826,12 +818,13 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 						     dest->error_message);
 
 		if (dest->state == MULTIFUNDCHANNEL_SECURED ||
-			dest->state == MULTIFUNDCHANNEL_SIGNED) {
+		    dest->state == MULTIFUNDCHANNEL_SIGNED) {
 			ready_count++;
 			continue;
 		}
 
 		assert(dest->state == MULTIFUNDCHANNEL_UPDATED ||
+		       dest->state == MULTIFUNDCHANNEL_SIGNED_NOT_SECURED ||
 			dest->state == MULTIFUNDCHANNEL_STARTED);
 	}
 
