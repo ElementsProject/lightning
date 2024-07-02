@@ -58,37 +58,37 @@ static inline bitmap_word bitmap_bswap(bitmap_word w)
 #define BITMAP_TAIL(_bm, _nbits) \
 	(BITMAP_TAILWORD(_bm, _nbits) & BITMAP_TAILBITS(_nbits))
 
-static inline void bitmap_set_bit(bitmap *bitmap, unsigned long n)
+static inline void bitmap_set_bit(bitmap *b, unsigned long n)
 {
-	BITMAP_WORD(bitmap, n) |= BITMAP_WORDBIT(n);
+	BITMAP_WORD(b, n) |= BITMAP_WORDBIT(n);
 }
 
-static inline void bitmap_clear_bit(bitmap *bitmap, unsigned long n)
+static inline void bitmap_clear_bit(bitmap *b, unsigned long n)
 {
-	BITMAP_WORD(bitmap, n) &= ~BITMAP_WORDBIT(n);
+	BITMAP_WORD(b, n) &= ~BITMAP_WORDBIT(n);
 }
 
-static inline void bitmap_change_bit(bitmap *bitmap, unsigned long n)
+static inline void bitmap_change_bit(bitmap *b, unsigned long n)
 {
-	BITMAP_WORD(bitmap, n) ^= BITMAP_WORDBIT(n);
+	BITMAP_WORD(b, n) ^= BITMAP_WORDBIT(n);
 }
 
-static inline bool bitmap_test_bit(const bitmap *bitmap, unsigned long n)
+static inline bool bitmap_test_bit(const bitmap *b, unsigned long n)
 {
-	return !!(BITMAP_WORD(bitmap, n) & BITMAP_WORDBIT(n));
+	return !!(BITMAP_WORD(b, n) & BITMAP_WORDBIT(n));
 }
 
-void bitmap_zero_range(bitmap *bitmap, unsigned long n, unsigned long m);
-void bitmap_fill_range(bitmap *bitmap, unsigned long n, unsigned long m);
+void bitmap_zero_range(bitmap *b, unsigned long n, unsigned long m);
+void bitmap_fill_range(bitmap *b, unsigned long n, unsigned long m);
 
-static inline void bitmap_zero(bitmap *bitmap, unsigned long nbits)
+static inline void bitmap_zero(bitmap *b, unsigned long nbits)
 {
-	memset(bitmap, 0, bitmap_sizeof(nbits));
+	memset(b, 0, bitmap_sizeof(nbits));
 }
 
-static inline void bitmap_fill(bitmap *bitmap, unsigned long nbits)
+static inline void bitmap_fill(bitmap *b, unsigned long nbits)
 {
-	memset(bitmap, 0xff, bitmap_sizeof(nbits));
+	memset(b, 0xff, bitmap_sizeof(nbits));
 }
 
 static inline void bitmap_copy(bitmap *dst, const bitmap *src,
@@ -161,37 +161,36 @@ static inline bool bitmap_subset(const bitmap *src1, const bitmap *src2,
 	return true;
 }
 
-static inline bool bitmap_full(const bitmap *bitmap, unsigned long nbits)
+static inline bool bitmap_full(const bitmap *b, unsigned long nbits)
 {
 	unsigned long i;
 
 	for (i = 0; i < BITMAP_HEADWORDS(nbits); i++) {
-		if (bitmap[i].w != -1UL)
+		if (b[i].w != -1UL)
 			return false;
 	}
 	if (BITMAP_HASTAIL(nbits) &&
-	    (BITMAP_TAIL(bitmap, nbits) != BITMAP_TAILBITS(nbits)))
+	    (BITMAP_TAIL(b, nbits) != BITMAP_TAILBITS(nbits)))
 		return false;
 
 	return true;
 }
 
-static inline bool bitmap_empty(const bitmap *bitmap, unsigned long nbits)
+static inline bool bitmap_empty(const bitmap *b, unsigned long nbits)
 {
 	unsigned long i;
 
 	for (i = 0; i < BITMAP_HEADWORDS(nbits); i++) {
-		if (bitmap[i].w != 0)
+		if (b[i].w != 0)
 			return false;
 	}
-	if (BITMAP_HASTAIL(nbits) && (BITMAP_TAIL(bitmap, nbits) != 0))
+	if (BITMAP_HASTAIL(nbits) && (BITMAP_TAIL(b, nbits) != 0))
 		return false;
 
 	return true;
 }
 
-unsigned long bitmap_ffs(const bitmap *bitmap,
-			 unsigned long n, unsigned long m);
+unsigned long bitmap_ffs(const bitmap *b, unsigned long n, unsigned long m);
 
 /*
  * Allocation functions
@@ -221,26 +220,26 @@ static inline bitmap *bitmap_alloc1(unsigned long nbits)
 	return bitmap;
 }
 
-static inline bitmap *bitmap_realloc0(bitmap *bitmap,
+static inline bitmap *bitmap_realloc0(bitmap *b,
 				      unsigned long obits, unsigned long nbits)
 {
-	bitmap = realloc(bitmap, bitmap_sizeof(nbits));
+	b = realloc(b, bitmap_sizeof(nbits));
 
-	if ((nbits > obits) && bitmap)
-		bitmap_zero_range(bitmap, obits, nbits);
+	if ((nbits > obits) && b)
+		bitmap_zero_range(b, obits, nbits);
 
-	return bitmap;
+	return b;
 }
 
-static inline bitmap *bitmap_realloc1(bitmap *bitmap,
+static inline bitmap *bitmap_realloc1(bitmap *b,
 				      unsigned long obits, unsigned long nbits)
 {
-	bitmap = realloc(bitmap, bitmap_sizeof(nbits));
+	b = realloc(b, bitmap_sizeof(nbits));
 
-	if ((nbits > obits) && bitmap)
-		bitmap_fill_range(bitmap, obits, nbits);
+	if ((nbits > obits) && b)
+		bitmap_fill_range(b, obits, nbits);
 
-	return bitmap;
+	return b;
 }
 
 #endif /* CCAN_BITMAP_H_ */

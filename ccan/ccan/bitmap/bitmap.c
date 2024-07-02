@@ -9,7 +9,7 @@
 #define BIT_ALIGN_DOWN(n)	((n) & ~(BITMAP_WORD_BITS - 1))
 #define BIT_ALIGN_UP(n)		BIT_ALIGN_DOWN((n) + BITMAP_WORD_BITS - 1)
 
-void bitmap_zero_range(bitmap *bitmap, unsigned long n, unsigned long m)
+void bitmap_zero_range(bitmap *b, unsigned long n, unsigned long m)
 {
 	unsigned long an = BIT_ALIGN_UP(n);
 	unsigned long am = BIT_ALIGN_DOWN(m);
@@ -19,22 +19,22 @@ void bitmap_zero_range(bitmap *bitmap, unsigned long n, unsigned long m)
 	assert(m >= n);
 
 	if (am < an) {
-		BITMAP_WORD(bitmap, n) &= ~bitmap_bswap(headmask & tailmask);
+		BITMAP_WORD(b, n) &= ~bitmap_bswap(headmask & tailmask);
 		return;
 	}
 
 	if (an > n)
-		BITMAP_WORD(bitmap, n) &= ~bitmap_bswap(headmask);
+		BITMAP_WORD(b, n) &= ~bitmap_bswap(headmask);
 
 	if (am > an)
-		memset(&BITMAP_WORD(bitmap, an), 0,
+		memset(&BITMAP_WORD(b, an), 0,
 		       (am - an) / BITMAP_WORD_BITS * sizeof(bitmap_word));
 
 	if (m > am)
-		BITMAP_WORD(bitmap, m) &= ~bitmap_bswap(tailmask);
+		BITMAP_WORD(b, m) &= ~bitmap_bswap(tailmask);
 }
 
-void bitmap_fill_range(bitmap *bitmap, unsigned long n, unsigned long m)
+void bitmap_fill_range(bitmap *b, unsigned long n, unsigned long m)
 {
 	unsigned long an = BIT_ALIGN_UP(n);
 	unsigned long am = BIT_ALIGN_DOWN(m);
@@ -44,19 +44,19 @@ void bitmap_fill_range(bitmap *bitmap, unsigned long n, unsigned long m)
 	assert(m >= n);
 
 	if (am < an) {
-		BITMAP_WORD(bitmap, n) |= bitmap_bswap(headmask & tailmask);
+		BITMAP_WORD(b, n) |= bitmap_bswap(headmask & tailmask);
 		return;
 	}
 
 	if (an > n)
-		BITMAP_WORD(bitmap, n) |= bitmap_bswap(headmask);
+		BITMAP_WORD(b, n) |= bitmap_bswap(headmask);
 
 	if (am > an)
-		memset(&BITMAP_WORD(bitmap, an), 0xff,
+		memset(&BITMAP_WORD(b, an), 0xff,
 		       (am - an) / BITMAP_WORD_BITS * sizeof(bitmap_word));
 
 	if (m > am)
-		BITMAP_WORD(bitmap, m) |= bitmap_bswap(tailmask);
+		BITMAP_WORD(b, m) |= bitmap_bswap(tailmask);
 }
 
 static int bitmap_clz(bitmap_word w)
@@ -76,7 +76,7 @@ static int bitmap_clz(bitmap_word w)
 #endif
 }
 
-unsigned long bitmap_ffs(const bitmap *bitmap,
+unsigned long bitmap_ffs(const bitmap *b,
 			 unsigned long n, unsigned long m)
 {
 	unsigned long an = BIT_ALIGN_UP(n);
@@ -87,7 +87,7 @@ unsigned long bitmap_ffs(const bitmap *bitmap,
 	assert(m >= n);
 
 	if (am < an) {
-		bitmap_word w = bitmap_bswap(BITMAP_WORD(bitmap, n));
+		bitmap_word w = bitmap_bswap(BITMAP_WORD(b, n));
 
 		w &= (headmask & tailmask);
 
@@ -95,7 +95,7 @@ unsigned long bitmap_ffs(const bitmap *bitmap,
 	}
 
 	if (an > n) {
-		bitmap_word w = bitmap_bswap(BITMAP_WORD(bitmap, n));
+		bitmap_word w = bitmap_bswap(BITMAP_WORD(b, n));
 
 		w &= headmask;
 
@@ -104,7 +104,7 @@ unsigned long bitmap_ffs(const bitmap *bitmap,
 	}
 
 	while (an < am) {
-		bitmap_word w = bitmap_bswap(BITMAP_WORD(bitmap, an));
+		bitmap_word w = bitmap_bswap(BITMAP_WORD(b, an));
 
 		if (w)
 			return an + bitmap_clz(w);
@@ -113,7 +113,7 @@ unsigned long bitmap_ffs(const bitmap *bitmap,
 	}
 
 	if (m > am) {
-		bitmap_word w = bitmap_bswap(BITMAP_WORD(bitmap, m));
+		bitmap_word w = bitmap_bswap(BITMAP_WORD(b, m));
 
 		w &= tailmask;
 

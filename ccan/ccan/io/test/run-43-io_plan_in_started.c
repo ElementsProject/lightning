@@ -18,9 +18,17 @@ static struct io_plan *init_in_conn(struct io_conn *conn, char *buf)
 	return io_read(conn, buf, 2, in_conn_done, NULL);
 }
 
+/* Every second time we say we're exhausted */
 static int do_nothing(int fd, struct io_plan_arg *arg)
 {
-	return 1;
+	static bool read_once;
+
+	read_once = !read_once;
+	if (read_once)
+		return 1;
+
+	errno = EAGAIN;
+	return -1;
 }
 
 static struct io_plan *dummy_write(struct io_conn *conn,
