@@ -916,8 +916,12 @@ void channel_fail_permanent(struct channel *channel,
 						 &channel->cid, "%s", why);
 
 	channel_set_owner(channel, NULL);
-	/* Drop non-cooperatively (unilateral) to chain. */
-	drop_to_chain(ld, channel, false);
+
+	/* Drop non-cooperatively (unilateral) to chain. If we detect
+	 * the close from the blockchain (i.e., reason is ONCHAIN)
+	 * then we can observe passively, and not broadcast our own
+	 * unilateral close, as it doesn't stand a chance anyway. */
+	drop_to_chain(ld, channel, false, reason == ONCHAIN);
 
 	if (channel_state_wants_onchain_fail(channel->state))
 		channel_set_state(channel,

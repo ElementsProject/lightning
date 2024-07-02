@@ -348,7 +348,7 @@ static enum watch_result closed_inflight_depth_cb(struct lightningd *ld,
 }
 
 void drop_to_chain(struct lightningd *ld, struct channel *channel,
-		   bool cooperative)
+		   bool cooperative, bool passive)
 {
 	struct channel_inflight *inflight;
 	const char *cmd_id;
@@ -448,10 +448,10 @@ void resend_closing_transactions(struct lightningd *ld)
 			case CLOSED:
 				continue;
 			case CLOSINGD_COMPLETE:
-				drop_to_chain(ld, channel, true);
+				drop_to_chain(ld, channel, true, false);
 				continue;
 			case AWAITING_UNILATERAL:
-				drop_to_chain(ld, channel, false);
+				drop_to_chain(ld, channel, false, false);
 				continue;
 			}
 			abort();

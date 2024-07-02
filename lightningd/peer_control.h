@@ -109,7 +109,16 @@ void peer_set_dbid(struct peer *peer, u64 dbid);
 /* At startup, re-send any transactions we want bitcoind to have */
 void resend_closing_transactions(struct lightningd *ld);
 
-void drop_to_chain(struct lightningd *ld, struct channel *channel, bool cooperative);
+/**
+ * Initiate the close of a channel.
+ *
+ * @param passive: Just start watching the close, don't try to publish
+ *        the commitment transaction.
+ */
+void drop_to_chain(struct lightningd *ld,
+		   struct channel *channel,
+		   bool cooperative,
+		   bool passive);
 
 void update_channel_from_inflight(struct lightningd *ld,
 				  struct channel *channel,
