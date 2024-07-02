@@ -892,3 +892,58 @@ def test_bookkeeper_lease_fee_dupe_migration(node_factory):
     accts_db = Sqlite3Db(accts_db_path)
 
     assert accts_db.query('SELECT tag from channel_events where tag = \'lease_fee\';') == [{'tag': 'lease_fee'}]
+
+
+def test_bookkeeper_custom_notifs(node_factory):
+    # FIXME: what happens if we send internal funds to 'external' wallet?
+    plugin = os.path.join(
+        os.path.dirname(__file__), "plugins", "bookkeeper_custom_coins.py"
+    )
+    l1, l2 = node_factory.line_graph(2, opts=[{'plugin': plugin}, {}])
+
+    outpoint_in = 'aa' * 32 + ':0'
+    spend_txid = 'bb' * 32
+    amount = 180000000
+    withdraw_amt = 55555000
+    fee = 2000
+
+    change_deposit = 'bb' * 32 + ':0'
+    external_deposit = 'bb' * 32 + ':1'
+    acct = "nifty's secret stash"
+
+    l1.rpc.senddeposit(acct, False, outpoint_in, amount)
+    l1.rpc.sendspend(acct, outpoint_in, spend_txid, amount)
+    l1.daemon.wait_for_log(r"utxo_deposit \(deposit|nifty's secret stash\) .* -0msat 1679955976 111 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:0")
+    l1.daemon.wait_for_log(r"utxo_spend \(withdrawal|nifty's secret stash\) 0msat -12345678000msat 1679955976 111 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:0 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+
+    # balance should be zero
+    bals = l1.rpc.bkpr_listbalances()['accounts']
+    for bal in bals:
+        if bal['account'] == acct:
+            # FIXME: how to account for withdraw to external
+            assert only_one(bal['balances'])['balance_msat'] == Millisatoshi(0)
+
+    l1.rpc.senddeposit(acct, False, change_deposit, amount - withdraw_amt - fee)
+    l1.daemon.wait_for_log(r"utxo_deposit \(deposit|nifty's secret stash\) .* -0msat 1679955976 111 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:0")
+
+    # balance should be equal to amount
+    events = l1.rpc.bkpr_listaccountevents(acct)['events']
+    for bal in l1.rpc.bkpr_listbalances()['accounts']:
+        if bal['account'] == acct:
+            assert only_one(bal['balances'])['balance_msat'] == Millisatoshi(amount - fee - withdraw_amt)
+
+    onchain_fee_one = only_one([x['credit_msat'] for x in events if x['type'] == 'onchain_fee'])
+    assert onchain_fee_one == fee + withdraw_amt
+
+    l1.rpc.senddeposit(acct, True, external_deposit, withdraw_amt)
+    l1.daemon.wait_for_log(r"utxo_deposit \(deposit|external\) .* -0msat 1679955976 111 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:1")
+    events = l1.rpc.bkpr_listaccountevents(acct)['events']
+    onchain_fees = [x for x in events if x['type'] == 'onchain_fee']
+    assert len(onchain_fees) == 2
+    assert onchain_fees[0]['credit_msat'] == onchain_fee_one
+    assert onchain_fees[1]['debit_msat'] == withdraw_amt
+
+    # This should not blow up
+    incomes = l1.rpc.bkpr_listincome()['income_events']
+    acct_fee = only_one([inc['debit_msat'] for inc in incomes if inc['account'] == acct and inc['tag'] == 'onchain_fee'])
+    assert acct_fee == Millisatoshi(fee)
