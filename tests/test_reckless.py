@@ -111,7 +111,8 @@ def get_reckless_node(node_factory):
 def check_stderr(stderr):
     def output_okay(out):
         for warning in ['[notice]', 'WARNING:', 'npm WARN',
-                        'npm notice', 'DEPRECATION:', 'Creating virtualenv']:
+                        'npm notice', 'DEPRECATION:', 'Creating virtualenv',
+                        'config file not found:', 'press [Y]']:
             if out.startswith(warning):
                 return True
         return False
