@@ -2059,11 +2059,8 @@ def test_watchtower(node_factory, bitcoind, directory, chainparams):
     # Restart l2, and it should continue where the watchtower left off:
     l2.start()
 
-    # l2 will still try to broadcast its latest commitment tx, but it'll fail
-    # since l1 has cheated. All commitments share the same prefix, so look for
-    # that.
-    penalty_prefix = tx[:(4 + 1 + 36) * 2]  # version, txin_count, first txin in hex
-    l2.daemon.wait_for_log(r'Expected error broadcasting tx {}'.format(penalty_prefix))
+    # l2 notices that there has been a unilateral close from l1.
+    l2.daemon.wait_for_log(r'Peer permanent failure in')
 
     # Now make sure the penalty output ends up in our wallet
     fund_txids = [o['txid'] for o in l2.rpc.listfunds()['outputs']]
