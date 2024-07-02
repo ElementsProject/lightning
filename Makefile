@@ -232,7 +232,7 @@ ALL_TEST_PROGRAMS :=
 ALL_TEST_GEN :=
 ALL_FUZZ_TARGETS :=
 ALL_C_SOURCES :=
-ALL_C_HEADERS := header_versions_gen.h version_gen.h
+ALL_C_HEADERS :=
 # Extra (non C) targets that should be built by default.
 DEFAULT_TARGETS :=
 
@@ -640,7 +640,7 @@ version_gen.h: $(FORCE)
 endif
 
 # That forces this rule to be run every time, too.
-header_versions_gen.h: tools/headerversions
+header_versions_gen.h: tools/headerversions $(FORCE)
 	@tools/headerversions $@
 
 # We make a static library, this way linker can discard unused parts.

@@ -69,6 +69,9 @@ ALL_C_SOURCES += $(LIGHTNINGD_SRC) $(LIGHTNINGD_SRC_NOHDR)
 ALL_C_HEADERS += $(LIGHTNINGD_HDRS)
 ALL_PROGRAMS += lightningd/lightningd
 
+# We explicitly check header versions in lightningd.c
+lightningd/lightningd.o: header_versions_gen.h
+
 # Common source we use.
 LIGHTNINGD_COMMON_OBJS :=			\
 	common/addr.o				\
