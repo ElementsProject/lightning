@@ -5,6 +5,147 @@ from msggen.model import Method, CompositeField, Service, Notification, TypeName
 import functools
 from collections import OrderedDict
 
+grpc_method_names = [
+    "Getinfo",
+    "ListPeers",
+    "ListFunds",
+    "SendPay",
+    "ListChannels",
+    "AddGossip",
+    "AddPsbtOutput",
+    "AutoClean-Once",
+    "AutoClean-Status",
+    "CheckMessage",
+    "Close",
+    "Connect",
+    "CreateInvoice",
+    "Datastore",
+    "DatastoreUsage",
+    "CreateOnion",
+    "DelDatastore",
+    "DelInvoice",
+    "Dev-Forget-Channel",
+    "EmergencyRecover",
+    "Recover",
+    "RecoverChannel",
+    "Invoice",
+    "InvoiceRequest",
+    "DisableInvoiceRequest",
+    "ListInvoiceRequests",
+    "ListDatastore",
+    "ListInvoices",
+    "SendOnion",
+    "ListSendPays",
+    "ListTransactions",
+    "MakeSecret",
+    "Pay",
+    "ListNodes",
+    "WaitAnyInvoice",
+    "WaitInvoice",
+    "WaitSendPay",
+    "NewAddr",
+    "Withdraw",
+    "KeySend",
+    "FundPsbt",
+    "SendPsbt",
+    "SignPsbt",
+    "UtxoPsbt",
+    "TxDiscard",
+    "TxPrepare",
+    "TxSend",
+    "ListPeerChannels",
+    "ListClosedChannels",
+    "DecodePay",
+    "Decode",
+    "DelPay",
+    "DelForward",
+    "DisableOffer",
+    "Disconnect",
+    "Feerates",
+    "FetchInvoice",
+    "FundChannel_Cancel",
+    "FundChannel_Complete",
+    "FundChannel",
+    "FundChannel_Start",
+    "GetLog",
+    "FunderUpdate",
+    "GetRoute",
+    "ListForwards",
+    "ListOffers",
+    "ListPays",
+    "ListHtlcs",
+    "MultiFundChannel",
+    "MultiWithdraw",
+    "Offer",
+    "OpenChannel_Abort",
+    "OpenChannel_Bump",
+    "OpenChannel_Init",
+    "OpenChannel_Signed",
+    "OpenChannel_Update",
+    # "parsefeerate",
+    "Ping",
+    "Plugin",
+    "RenePayStatus",
+    "RenePay",
+    "ReserveInputs",
+    "SendCustomMsg",
+    "SendInvoice",
+    "SendOnionMessage",
+    "SetChannel",
+    "SetConfig",
+    "SetPsbtVersion",
+    "SignInvoice",
+    "SignMessage",
+    "Splice_Init",
+    "Splice_Signed",
+    "Splice_Update",
+    "UnreserveInputs",
+    "UpgradeWallet",
+    "WaitBlockHeight",
+    "Wait",
+    "ListConfigs",
+    # "check",  # No point in mapping this one
+    "Stop",
+    # "notifications",  # No point in mapping this
+    "Help",
+    "PreApproveKeysend",
+    "PreApproveInvoice",
+    "StaticBackup",
+    "Bkpr-ChannelsApy",
+    "Bkpr-DumpIncomeCsv",
+    "Bkpr-Inspect",
+    "Bkpr-ListAccountEvents",
+    "Bkpr-ListBalances",
+    "Bkpr-ListIncome",
+    "BlacklistRune",
+    "CheckRune",
+    "CreateRune",
+    "ShowRunes",
+]
+
+grpc_notification_names = [
+    {
+        "name": "block_added",
+        "typename": "BlockAdded"
+    },
+    {
+        "name": "channel_open_failed",
+        "typename": "ChannelOpenFailed"
+    },
+    {
+        "name": "channel_opened",
+        "typename": "ChannelOpened"
+    },
+    {
+        "name": "connect",
+        "typename": "Connect"
+    },
+    {
+        "name": "custommsg",
+        "typename": "CustomMsg"
+    },
+]
+
 
 def combine_schemas(schema_dir: Path, dest: Path):
     """Enumerate all schema files, and combine it into a single JSON file."""
@@ -50,6 +191,17 @@ def get_schema_bundle():
     return json.load(p)
 
 
+def check_missing():
+    """Check for missing gRPC commands in the schema.
+    """
+    schema = get_schema_bundle()
+    command_names = set(
+        full_name.replace("lightning-", "").replace(".json", "") for full_name in schema["methods"].keys()
+    )
+    lower_method_names = set(name.lower() for name in grpc_method_names)
+    return command_names - lower_method_names
+
+
 def load_jsonrpc_method(name):
     """Load a method based on the file naming conventions for the JSON-RPC.
     """
@@ -87,151 +239,8 @@ def load_notification(name, typename: TypeName):
 
 
 def load_jsonrpc_service():
-    # FIXME: Maybe this list should be located somewhere other than utils so
-    #  it's more intuitive to remember to update when new RPC calls are added?
-    method_names = [
-        "Getinfo",
-        "ListPeers",
-        "ListFunds",
-        "SendPay",
-        "ListChannels",
-        "AddGossip",
-        "AddPsbtOutput",
-        "AutoClean-Once",
-        "AutoClean-Status",
-        "CheckMessage",
-        "Close",
-        "Connect",
-        "CreateInvoice",
-        "Datastore",
-        "DatastoreUsage",
-        "CreateOnion",
-        "DelDatastore",
-        "DelInvoice",
-        "Dev-Forget-Channel",
-        "EmergencyRecover",
-        "Recover",
-        "RecoverChannel",
-        "Invoice",
-        "InvoiceRequest",
-        "DisableInvoiceRequest",
-        "ListInvoiceRequests",
-        "ListDatastore",
-        "ListInvoices",
-        "SendOnion",
-        "ListSendPays",
-        "ListTransactions",
-        "MakeSecret",
-        "Pay",
-        "ListNodes",
-        "WaitAnyInvoice",
-        "WaitInvoice",
-        "WaitSendPay",
-        "NewAddr",
-        "Withdraw",
-        "KeySend",
-        "FundPsbt",
-        "SendPsbt",
-        "SignPsbt",
-        "UtxoPsbt",
-        "TxDiscard",
-        "TxPrepare",
-        "TxSend",
-        "ListPeerChannels",
-        "ListClosedChannels",
-        "DecodePay",
-        "Decode",
-        "DelPay",
-        "DelForward",
-        "DisableOffer",
-        "Disconnect",
-        "Feerates",
-        "FetchInvoice",
-        "FundChannel_Cancel",
-        "FundChannel_Complete",
-        "FundChannel",
-        "FundChannel_Start",
-        "GetLog",
-        "FunderUpdate",
-        "GetRoute",
-        "ListForwards",
-        "ListOffers",
-        "ListPays",
-        "ListHtlcs",
-        "MultiFundChannel",
-        "MultiWithdraw",
-        "Offer",
-        "OpenChannel_Abort",
-        "OpenChannel_Bump",
-        "OpenChannel_Init",
-        "OpenChannel_Signed",
-        "OpenChannel_Update",
-        # "parsefeerate",
-        "Ping",
-        "Plugin",
-        "RenePayStatus",
-        "RenePay",
-        "ReserveInputs",
-        "SendCustomMsg",
-        "SendInvoice",
-        "SendOnionMessage",
-        "SetChannel",
-        "SetConfig",
-        "SetPsbtVersion",
-        "SignInvoice",
-        "SignMessage",
-        "Splice_Init",
-        "Splice_Signed",
-        "Splice_Update",
-        "UnreserveInputs",
-        "UpgradeWallet",
-        "WaitBlockHeight",
-        "Wait",
-        "ListConfigs",
-        # "check",  # No point in mapping this one
-        "Stop",
-        # "notifications",  # No point in mapping this
-        "Help",
-        "PreApproveKeysend",
-        "PreApproveInvoice",
-        "StaticBackup",
-        "Bkpr-ChannelsApy",
-        "Bkpr-DumpIncomeCsv",
-        "Bkpr-Inspect",
-        "Bkpr-ListAccountEvents",
-        "Bkpr-ListBalances",
-        "Bkpr-ListIncome",
-        "BlacklistRune",
-        "CheckRune",
-        "CreateRune",
-        "ShowRunes",
-    ]
-
-    notification_names = [
-        {
-            "name": "block_added",
-            "typename": "BlockAdded"
-        },
-        {
-            "name": "channel_open_failed",
-            "typename": "ChannelOpenFailed"
-        },
-        {
-            "name": "channel_opened",
-            "typename": "ChannelOpened"
-        },
-        {
-            "name": "connect",
-            "typename": "Connect"
-        },
-        {
-            "name": "custommsg",
-            "typename": "CustomMsg"
-        },
-    ]
-
-    methods = [load_jsonrpc_method(name) for name in method_names]
-    notifications = [load_notification(name=names["name"], typename=names["typename"]) for names in notification_names]
+    methods = [load_jsonrpc_method(name) for name in grpc_method_names]
+    notifications = [load_notification(name=names["name"], typename=names["typename"]) for names in grpc_notification_names]
     service = Service(name="Node", methods=methods, notifications=notifications)
     service.includes = ['primitives.proto']  # Make sure we have the primitives included.
     return service
