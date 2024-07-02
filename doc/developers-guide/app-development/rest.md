@@ -36,7 +36,7 @@ An online demo for the REST interface is available at [REST API REFERENCE](ref:g
 ## Installation
 
 The plugin is built-in with Core Lightning but its python dependencies are not, and must be installed separately.
-Install required packages with `pip install -r plugins/clnrest/requirements.txt`.
+Detailed installation instructions can be found [here](https://docs.corelightning.org/docs/installation#clnrest).
 
 Note: if you have the older c-lightning-REST plugin, you can configure Core Lightning with `disable-plugin=clnrest.py`
 option to avoid confusion with this one. You can also run both plugins simultaneously till all your applications

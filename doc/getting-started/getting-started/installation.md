@@ -127,7 +127,6 @@ To build cln to just install a tagged or master version you can use the followin
 ```shell
 pip3 install --upgrade pip
 pip3 install mako
-pip3 install -r plugins/clnrest/requirements.txt
 pip3 install grpcio-tools
 ./configure
 make
@@ -588,7 +587,9 @@ apk add libgcc libsodium sqlite-libs zlib
 
 ## Python plugins
 
-You will need some Python packages if you want to use python plugins. Unfortunately there are some Python packages which are not packaged in Ubuntu, and so you will need to force installation of these (I recommend --user which will install them in your own .local directory, so at least you won't run the risk of breaking Python globally!).
+Python plugins will be installed with the `poetry install` step mentioned above fron development setup. 
+
+Other users will need some Python packages if python plugins are used. Unfortunately there are some Python packages which are not packaged in Ubuntu, and so force installation will be needed (Flag `--user` is recommended which will install them in user's own .local directory, so at least the risk of breaking Python globally can be avoided!).
 
 ### clnrest
 
@@ -601,7 +602,7 @@ pip3 install --user flask-cors flask-restx pyln-client flask-socketio gevent gev
 
 ### wss-proxy
 
-For wss-proxy, you need to install below libraries:
+Below libraries are required for wss-proxy:
 
 ```
 pip3 install --user pyln-client websockets
