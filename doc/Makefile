@@ -185,8 +185,14 @@ else
 LOWDOWN := lowdown
 endif
 
-$(MANPAGES): doc/%: doc/%.md tools/md2man.sh version_gen.h
-	@VERSION=$(VERSION) tools/md2man.sh $(LOWDOWN) $< > $@
+# For versions in documentation, we don't change with every git version, to
+# save build time.  We simply to pre-XXX and XXX.
+doc/.doc_version: version_gen.h
+	@if [ "$(VERSION)" = "$(CLN_NEXT_VERSION)" ]; then DOC_VERSION="$(VERSION)"; else DOC_VERSION="pre-$(CLN_NEXT_VERSION)"; fi; echo $$DOC_VERSION > $@.new
+	@if cmp $@.new $@ >/dev/null 2>&1; then rm -f $@.new; else mv $@.new $@; $(ECHO) Documentation version updated to `cat doc/.doc_version`; fi
+
+$(MANPAGES): doc/%: doc/%.md tools/md2man.sh doc/.doc_version
+	@VERSION=`cat doc/.doc_version` tools/md2man.sh $(LOWDOWN) $< > $@
 
 doc/protocol-%.svg: test/test_protocol
 	test/test_protocol --svg < test/commits/$*.script > $@
@@ -231,7 +237,7 @@ check-config-docs:
 	@for c in `grep -v '\[plugin ' doc/lightningd-config.5.md | sed -n 's/^ \*\*\([^*]*\)\*\*.*/\1/p' | grep -v '^\(help\|version\|mainnet\|testnet\|signet\|plugin\|important-plugin\|plugin-dir\|clear-plugins\)$$'`; do if ! grep -q '"'"$$c"'"' doc/schemas/lightning-listconfigs.json; then echo "$$c documented but not in schema!"; exit 1; fi; done
 
 doc-clean:
-	$(RM) $(MANPAGES) $(MARKDOWN_WITH_SCHEMA)
+	$(RM) $(MANPAGES) $(MARKDOWN_WITH_SCHEMA) doc/.doc_version
 	$(RM) doc/deployable-lightning.{aux,bbl,blg,dvi,log,out,tex}
 
 doc/index.rst: $(MANPAGES:=.md)
