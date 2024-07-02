@@ -24,7 +24,7 @@ import venv
 __VERSION__ = '24.08'
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='[%(asctime)s] %(levelname)s: %(message)s',
     handlers=[logging.StreamHandler(stream=sys.stdout)],
 )
@@ -33,7 +33,7 @@ logging.basicConfig(
 class Logger:
     """Redirect logging output to a json object or stdout as appropriate."""
     def __init__(self, capture: bool = False):
-        self.json_output = {"result": None,
+        self.json_output = {"result": [],
                             "log": []}
         self.capture = capture
 
@@ -42,18 +42,37 @@ class Logger:
         if logging.root.level > logging.DEBUG:
             return
         if self.capture:
-            self.json_output['log'].append(to_log)
+            self.json_output['log'].append(f"DEBUG: {to_log}")
         else:
             logging.debug(to_log)
+
+    def info(self, to_log: str):
+        assert isinstance(to_log, str) or hasattr(to_log, "__repr__")
+        if logging.root.level > logging.INFO:
+            return
+        if self.capture:
+            self.json_output['log'].append(f"INFO: {to_log}")
+            self.json_output['result'].append(to_log)
+        else:
+            print(to_log)
 
     def warning(self, to_log: str):
         assert isinstance(to_log, str) or hasattr(to_log, "__repr__")
         if logging.root.level > logging.WARNING:
             return
         if self.capture:
-            self.json_output['log'].append(to_log)
+            self.json_output['log'].append(f"WARNING: {to_log}")
         else:
             logging.warning(to_log)
+
+    def error(self, to_log: str):
+        assert isinstance(to_log, str) or hasattr(to_log, "__repr__")
+        if logging.root.level > logging.ERROR:
+            return
+        if self.capture:
+            self.json_output['log'].append(f"ERROR: {to_log}")
+        else:
+            logging.error(to_log)
 
 
 log = Logger()
@@ -615,11 +634,15 @@ class Config():
             with open(config_path, 'r+') as f:
                 config_content = f.readlines()
             return config_content
+        # redirecting the prompts to stderr is kinder for json consumers
+        tmp = sys.stdout
+        sys.stdout = sys.stderr
         print(f'config file not found: {config_path}')
         if warn:
             confirm = input('press [Y] to create one now.\n').upper() == 'Y'
         else:
             confirm = True
+        sys.stdout = tmp
         if not confirm:
             sys.exit(1)
         parent_path = Path(config_path).parent
@@ -821,11 +844,11 @@ def create_python3_venv(staged_plugin: InstInfo) -> InstInfo:
             log.debug("no python dependency file")
     if pip and pip.returncode != 0:
         log.debug("install to virtual environment failed")
-        print('error encountered installing dependencies')
+        log.error('error encountered installing dependencies')
         raise InstallationFailure
 
     staged_plugin.venv = env_path
-    print('dependencies installed successfully')
+    log.info('dependencies installed successfully')
     return staged_plugin
 
 
@@ -876,7 +899,7 @@ def cargo_installation(cloned_plugin: InstInfo):
     source = Path(cloned_plugin.source_loc) / 'source' / cloned_plugin.name
     log.debug(f'cargo installing from {source}')
     run(['ls'], cwd=str(source), text=True, check=True)
-    if logging.root.level < logging.WARNING:
+    if logging.root.level < logging.INFO:
         cargo = Popen(call, cwd=str(source), text=True)
     else:
         cargo = Popen(call, cwd=str(source), stdout=PIPE,
@@ -943,7 +966,7 @@ def help_alias(targets: list):
     if len(targets) == 0:
         parser.print_help(sys.stdout)
     else:
-        print('try "reckless {} -h"'.format(' '.join(targets)))
+        log.info('try "reckless {} -h"'.format(' '.join(targets)))
         sys.exit(1)
 
 
@@ -975,7 +998,7 @@ def _source_search(name: str, src: str) -> Union[InstInfo, None]:
 
 
 def _git_clone(src: InstInfo, dest: Union[PosixPath, str]) -> bool:
-    print(f'cloning {src.srctype} {src}')
+    log.info(f'cloning {src.srctype} {src}')
     if src.srctype == Source.GITHUB_REPO:
         assert 'github.com' in src.source_loc
         source = f"{GITHUB_COM}" + src.source_loc.split("github.com")[-1]
@@ -991,7 +1014,7 @@ def _git_clone(src: InstInfo, dest: Union[PosixPath, str]) -> bool:
             log.debug(line)
         if Path(dest).exists():
             remove_dir(str(dest))
-        print('Error: Failed to clone repo')
+        log.error('Failed to clone repo')
         return False
     return True
 
@@ -1075,8 +1098,8 @@ def _checkout_commit(orig_src: InstInfo,
                              stdout=PIPE, stderr=PIPE)
             checkout.wait()
             if checkout.returncode != 0:
-                print('failed to checkout referenced '
-                      f'commit {orig_src.commit}')
+                log.warning('failed to checkout referenced '
+                            f'commit {orig_src.commit}')
                 return None
         else:
             log.debug("using latest commit of default branch")
@@ -1105,7 +1128,7 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     """make sure the repo exists and clone it."""
     log.debug(f'Install requested from {src}.')
     if RECKLESS_CONFIG is None:
-        print('error: reckless install directory unavailable')
+        log.error('reckless install directory unavailable')
         sys.exit(2)
 
     # Use a unique directory for each cloned repo.
@@ -1201,7 +1224,7 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
         else:
             for call in INSTALLER.dependency_call:
                 log.debug(f"Install: invoking '{' '.join(call)}'")
-                if logging.root.level < logging.WARNING:
+                if logging.root.level < logging.INFO:
                     pip = Popen(call, cwd=staging_path, text=True)
                 else:
                     pip = Popen(call, cwd=staging_path, stdout=PIPE,
@@ -1210,9 +1233,9 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
                 # FIXME: handle output of multiple calls
 
             if pip.returncode == 0:
-                print('dependencies installed successfully')
+                log.info('dependencies installed successfully')
             else:
-                print('error encountered installing dependencies')
+                log.error('error encountered installing dependencies')
                 if pip.stdout:
                     log.debug(pip.stdout.read())
                 remove_dir(clone_path)
@@ -1234,13 +1257,13 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
         log.debug("plugin testing error:")
         for line in test_log:
             log.debug(f'  {line}')
-        print('plugin testing failed')
+        log.error('plugin testing failed')
         remove_dir(clone_path)
         remove_dir(inst_path)
         return None
 
     add_installation_metadata(staged_src, src)
-    print(f'plugin installed: {inst_path}')
+    log.info(f'plugin installed: {inst_path}')
     remove_dir(clone_path)
     return staged_src
 
@@ -1262,7 +1285,7 @@ def install(plugin_name: str):
         log.debug(f'Retrieving {src.name} from {src.source_loc}')
         installed = _install_plugin(src)
         if not installed:
-            print('installation aborted')
+            log.warning('installation aborted')
             sys.exit(1)
 
         # Match case of the containing directory
@@ -1273,8 +1296,8 @@ def install(plugin_name: str):
                 RECKLESS_CONFIG.enable_plugin(inst_path)
                 enable(installed.name)
                 return
-        print(('dynamic activation failed: '
-               f'{installed.name} not found in reckless directory'))
+        log.error(('dynamic activation failed: '
+                  f'{installed.name} not found in reckless directory'))
         sys.exit(1)
 
 
@@ -1285,11 +1308,12 @@ def uninstall(plugin_name: str):
     disable(plugin_name)
     inst = InferInstall(plugin_name)
     if not Path(inst.entry).exists():
-        print(f'cannot find installed plugin at expected path {inst.entry}')
+        log.error("cannot find installed plugin at expected path"
+                  f"{inst.entry}")
         sys.exit(1)
     log.debug(f'looking for {str(Path(inst.entry).parent)}')
     if remove_dir(str(Path(inst.entry).parent)):
-        print(f"{inst.name} uninstalled successfully.")
+        log.info(f"{inst.name} uninstalled successfully.")
 
 
 def search(plugin_name: str) -> Union[InstInfo, None]:
@@ -1317,7 +1341,7 @@ def search(plugin_name: str) -> Union[InstInfo, None]:
             found = _source_search(plugin_name, source)
         if not found:
             continue
-        print(f"found {found.name} in source: {found.source_loc}")
+        log.info(f"found {found.name} in source: {found.source_loc}")
         log.debug(f"entry: {found.entry}")
         if found.subdir:
             log.debug(f'sub-directory: {found.subdir}')
@@ -1375,7 +1399,7 @@ def enable(plugin_name: str):
     inst = InferInstall(plugin_name)
     path = inst.entry
     if not Path(path).exists():
-        print(f'cannot find installed plugin at expected path {path}')
+        log.error(f'cannot find installed plugin at expected path {path}')
         sys.exit(1)
     log.debug(f'activating {plugin_name}')
     try:
@@ -1384,13 +1408,13 @@ def enable(plugin_name: str):
         if 'already registered' in err.message:
             log.debug(f'{inst.name} is already running')
         else:
-            print(f'reckless: {inst.name} failed to start!')
+            log.error(f'reckless: {inst.name} failed to start!')
             raise err
     except RPCError:
         log.debug(('lightningd rpc unavailable. '
                    'Skipping dynamic activation.'))
     RECKLESS_CONFIG.enable_plugin(path)
-    print(f'{inst.name} enabled')
+    log.info(f'{inst.name} enabled')
 
 
 def disable(plugin_name: str):
@@ -1409,13 +1433,13 @@ def disable(plugin_name: str):
         if err.code == -32602:
             log.debug('plugin not currently running')
         else:
-            print('lightning-cli plugin stop failed')
+            log.error('lightning-cli plugin stop failed')
             raise err
     except RPCError:
         log.debug(('lightningd rpc unavailable. '
                    'Skipping dynamic deactivation.'))
     RECKLESS_CONFIG.disable_plugin(path)
-    print(f'{inst.name} disabled')
+    log.info(f'{inst.name} disabled')
 
 
 def load_config(reckless_dir: Union[str, None] = None,
@@ -1442,9 +1466,9 @@ def load_config(reckless_dir: Union[str, None] = None,
     reck_conf_path = Path(reckless_dir) / f'{network}-reckless.conf'
     if net_conf:
         if str(network_path) != net_conf.conf_fp:
-            print('error: reckless configuration does not match lightningd:\n'
-                  f'reckless network config path: {network_path}\n'
-                  f'lightningd active config: {net_conf.conf_fp}')
+            log.error('reckless configuration does not match lightningd:\n'
+                      f'reckless network config path: {network_path}\n'
+                      f'lightningd active config: {net_conf.conf_fp}')
             sys.exit(1)
     else:
         # The network-specific config file (bitcoin by default)
@@ -1453,8 +1477,8 @@ def load_config(reckless_dir: Union[str, None] = None,
     try:
         reckless_conf = RecklessConfig(path=reck_conf_path)
     except FileNotFoundError:
-        print('Error: reckless config file could not be written: ',
-              str(reck_conf_path))
+        log.error('reckless config file could not be written: '
+                  + str(reck_conf_path))
         sys.exit(1)
     if not net_conf:
         print('Error: could not load or create the network specific lightningd'
@@ -1506,7 +1530,7 @@ def add_source(src: str):
                          default_text='https://github.com/lightningd/plugins')
         my_file.editConfigFile(src, None)
     else:
-        print(f'failed to add source {src}')
+        log.warning(f'failed to add source {src}')
 
 
 def remove_source(src: str):
@@ -1516,15 +1540,15 @@ def remove_source(src: str):
         my_file = Config(path=get_sources_file(),
                          default_text='https://github.com/lightningd/plugins')
         my_file.editConfigFile(None, src)
-        print('plugin source removed')
+        log.info('plugin source removed')
     else:
-        print(f'source not found: {src}')
+        log.warning(f'source not found: {src}')
 
 
 def list_source():
     """Provide the user with all stored source repositories."""
     for src in sources_from_file():
-        print(src)
+        log.info(src)
 
 
 class StoreIdempotent(argparse.Action):
@@ -1633,22 +1657,25 @@ if __name__ == '__main__':
                        const=None)
         p.add_argument('-V', '--version', action='store_true',
                        help='return reckless version and exit')
-        p.add_argument('-m', '--machine', action='store_true')
+        p.add_argument('-j', '--json', action=StoreTrueIdempotent,
+                       help='output in json format')
 
     args = parser.parse_args()
     args = process_idempotent_args(args)
 
+    if args.json:
+        log.capture = True
+
     if args.verbose:
         logging.root.setLevel(logging.DEBUG)
     else:
-        logging.root.setLevel(logging.WARNING)
+        logging.root.setLevel(logging.INFO)
 
     NETWORK = 'regtest' if args.regtest else 'bitcoin'
     SUPPORTED_NETWORKS = ['bitcoin', 'regtest', 'liquid', 'liquid-regtest',
                           'litecoin', 'signet', 'testnet']
     if args.version:
-        print(__VERSION__)
-        sys.exit(0)
+        log.info(__VERSION__)
     elif args.cmd1 is None:
         parser.print_help(sys.stdout)
         sys.exit(1)
@@ -1656,7 +1683,7 @@ if __name__ == '__main__':
         if args.network in SUPPORTED_NETWORKS:
             NETWORK = args.network
         else:
-            print(f"Error: {args.network} network not supported")
+            log.error(f"{args.network} network not supported")
     LIGHTNING_DIR = Path(args.lightning)
     # This env variable is set under CI testing
     LIGHTNING_CLI_CALL = [os.environ.get('LIGHTNING_CLI')]
@@ -1693,5 +1720,9 @@ if __name__ == '__main__':
             sys.exit(0)
         for target in args.targets:
             args.func(target)
-    else:
+    elif 'func' in args:
         args.func()
+
+    # reply with json if requested
+    if log.capture:
+        print(json.dumps(log.json_output, indent=4))
