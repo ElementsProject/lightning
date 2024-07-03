@@ -446,6 +446,78 @@ jobs:
         run: |
           poetry run pytest tests/ -vvv -n 2 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
 
+  min-btc-support:
+    name: Test minimum supported BTC v${{ matrix.MIN_BTC_VERSION }} with ${{ matrix.NAME }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    env:
+      RUST_PROFILE: release  # Has to match the one in the compile step
+      PYTEST_OPTS: --timeout=1200 --force-flaky
+    needs:
+      - compile
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - NAME: clang
+            CFG: compile-clang
+            TEST_DB_PROVIDER: sqlite3
+            COMPILER: clang
+            TEST_NETWORK: regtest
+            MIN_BTC_VERSION: '25.0'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          pip3 install --user pip wheel poetry
+          poetry install
+
+      - name: Download Bitcoin Core
+        run: wget "https://bitcoincore.org/bin/bitcoin-core-${{ matrix.MIN_BTC_VERSION }}/bitcoin-${{ matrix.MIN_BTC_VERSION }}-x86_64-linux-gnu.tar.gz"
+
+      - name: Extract Bitcoin Core
+        run: tar -xf "bitcoin-${{ matrix.MIN_BTC_VERSION }}-x86_64-linux-gnu.tar.gz"
+
+      - name: Move Bitcoin Core Binaries
+        run: sudo mv bitcoin-${{ matrix.MIN_BTC_VERSION }}/bin/* /usr/local/bin/
+
+      - name: Clean Up Downloaded Bitcoin
+        run: rm -rf "bitcoin-${{ matrix.MIN_BTC_VERSION }}-x86_64-linux-gnu.tar.gz" "bitcoin-${{ matrix.MIN_BTC_VERSION }}"
+
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: cln-${{ matrix.CFG }}.tar.bz2
+
+      - name: Unpack pre-built CLN
+        env:
+          CFG: ${{ matrix.CFG }}
+        run: |
+          tar -xaf cln-${CFG}.tar.bz2
+
+      - name: Test
+        env:
+          COMPILER: ${{ matrix.COMPILER }}
+          COMPAT: 1
+          CFG: ${{ matrix.CFG }}
+          SLOW_MACHINE: 1
+          PYTEST_PAR: 10
+          TEST_DEBUG: 1
+          TEST_DB_PROVIDER: ${{ matrix.TEST_DB_PROVIDER }}
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
+          LIGHTNINGD_POSTGRES_NO_VACUUM: 1
+        run: |
+          env
+          cat config.vars
+          VALGRIND=0 poetry run pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
+
   gather:
     # A dummy task that depends on the full matrix of tests, and
     # signals successful completion. Used for the PR status to pass
@@ -457,6 +529,7 @@ jobs:
       - check-units
       - integration-valgrind
       - integration-sanitizers
+      - min-btc-support
     steps:
       - name: Complete
         run: |
