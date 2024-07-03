@@ -9182,17 +9182,7 @@
           "id": {
             "type": "pubkey",
             "description": [
-              "The public key of the peer to terminate the connection. It can be discovered in the output of the listpeers command, which returns a set of peers:",
-              "{",
-              "  'peers':",
-              "  [",
-              "    {",
-              "      'id': '0563aea81...',",
-              "      'connected': true,",
-              "      ...",
-              "    }",
-              "  ]",
-              "}"
+              "The public key of the peer to terminate the connection. It can be discovered as peer_id in the output of the listpeerchannels command."
             ]
           },
           "force": {
@@ -9216,8 +9206,8 @@
         "Michael Hawkins <<michael.hawkins@protonmail.com>>."
       ],
       "see_also": [
-        "lightning-connect(1)",
-        "lightning-listpeers(1)"
+        "lightning-connect(7)",
+        "lightning-listpeerchannels(7)"
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
@@ -24724,13 +24714,13 @@
       ],
       "see_also": [
         "lightning-cli(1)",
-        "lightning-listconfigs(1)",
+        "lightning-listconfigs(7)",
         "[writing plugins][writing plugins]"
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>",
         "",
-        "[writing plugins]: PLUGINS.md"
+        "[writing plugins]: https://docs.corelightning.org/docs/plugin-development"
       ],
       "examples": [
         {
