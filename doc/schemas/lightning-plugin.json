@@ -177,13 +177,13 @@
   ],
   "see_also": [
     "lightning-cli(1)",
-    "lightning-listconfigs(1)",
+    "lightning-listconfigs(7)",
     "[writing plugins][writing plugins]"
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>",
     "",
-    "[writing plugins]: PLUGINS.md"
+    "[writing plugins]: https://docs.corelightning.org/docs/plugin-development"
   ],
   "examples": [
     {
