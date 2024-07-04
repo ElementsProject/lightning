@@ -260,6 +260,9 @@ impl ShortChannelId {
     pub fn outnum(&self) -> u16 {
         self.0 as u16 & 0xFFFF
     }
+    pub fn to_u64(&self) -> u64 {
+        self.0
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -793,7 +796,7 @@ mod test {
         });
 
         let p: FundchannelResponse = serde_json::from_value(r).unwrap();
-	    assert_eq!(p.channel_type.unwrap().bits, vec![1,3,5]);
+        assert_eq!(p.channel_type.unwrap().bits, vec![1, 3, 5]);
     }
 }
 
