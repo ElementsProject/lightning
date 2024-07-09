@@ -1217,6 +1217,9 @@ static struct command_result *json_pay(struct command *cmd,
 		else
 			invexpiry = *b12->invoice_created_at + BOLT12_DEFAULT_REL_EXPIRY;
 		p->local_invreq_id = tal_steal(p, local_invreq_id);
+
+		/* No payment secrets in bolt 12 (we use path_secret) */
+		p->payment_secret = NULL;
 	}
 
 	if (time_now().ts.tv_sec > invexpiry)
