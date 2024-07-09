@@ -167,7 +167,6 @@ static bool handle_blinded_terminal(struct onion_payload *p,
 }
 
 struct onion_payload *onion_decode(const tal_t *ctx,
-				   bool blinding_support,
 				   const struct route_step *rs,
 				   const struct pubkey *blinding,
 				   const u64 *accepted_extra_tlvs,
@@ -213,12 +212,6 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	 */
 	if (p->tlv->encrypted_recipient_data) {
 		struct tlv_encrypted_data_tlv *enc;
-
-		/* Only supported with --experimental-onion-messages! */
-		if (!blinding_support) {
-			*failtlvtype = TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
-			goto field_bad;
-		}
 
 		/* BOLT #4:
 		 *

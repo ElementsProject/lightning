@@ -728,7 +728,6 @@ enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,
 { fprintf(stderr, "onchaind_funding_spent called!\n"); abort(); }
 /* Generated stub for onion_decode */
 struct onion_payload *onion_decode(const tal_t *ctx UNNEEDED,
-				   bool blinding_support UNNEEDED,
 				   const struct route_step *rs UNNEEDED,
 				   const struct pubkey *blinding UNNEEDED,
 				   const u64 *accepted_extra_tlvs UNNEEDED,
