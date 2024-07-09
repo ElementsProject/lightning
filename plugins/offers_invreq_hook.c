@@ -1154,7 +1154,7 @@ struct command_result *handle_invoice_request(struct command *cmd,
 	/* Before any failure, make sure we can reach first node! */
 	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &id,
 				    &reply_path->first_node_id.pubkey,
-				    disable_connect ? "offers-noconnect" : NULL,
+				    disable_connect,
 				    invoice_request_path_done,
 				    invoice_request_path_fail,
 				    ir);

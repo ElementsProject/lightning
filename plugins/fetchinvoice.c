@@ -787,7 +787,7 @@ static struct command_result *invreq_done(struct command *cmd,
 
 	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &local_id,
 				    sent->invreq->offer_node_id,
-				    disable_connect ? "fetchinvoice-noconnect" : NULL,
+				    disable_connect,
 				    fetchinvoice_path_done,
 				    fetchinvoice_path_fail,
 				    sent);
@@ -1136,7 +1136,7 @@ static struct command_result *createinvoice_done(struct command *cmd,
 
 	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &local_id,
 				    sent->invreq->invreq_payer_id,
-				    disable_connect ? "fetchinvoice-noconnect" : NULL,
+				    disable_connect,
 				    sendinvoice_path_done,
 				    sendinvoice_path_fail,
 				    sent);
@@ -1428,7 +1428,7 @@ static struct command_result *json_dev_rawrequest(struct command *cmd,
 
 	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &local_id,
 				    node_id,
-				    disable_connect ? "fetchinvoice-noconnect" : NULL,
+				    disable_connect,
 				    fetchinvoice_path_done,
 				    fetchinvoice_path_fail,
 				    sent);

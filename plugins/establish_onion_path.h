@@ -12,7 +12,7 @@ struct gossmap;
  * @gossmap: a gossip map to do lookup in
  * @local_id: our own id
  * @dst: the destination node
- * @connect_disable: if non-null, the arg name which is disabling direct connection
+ * @connect_disable: true if we cannot reach out to connect to nodes.
  * @success: the success callback
  * @fail: the failure callback
  * @arg: callback argument
@@ -24,7 +24,7 @@ struct command_result *establish_onion_path_(struct command *cmd,
 					     struct gossmap *gossmap,
 					     const struct pubkey *local_id,
 					     const struct pubkey *dst,
-					     const char *connect_disable,
+					     bool connect_disable,
 					     struct command_result *(*success)(struct command *,
 									   const struct pubkey *,
 									   void *arg),
