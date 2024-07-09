@@ -545,11 +545,11 @@ check-includes: check-src-includes check-hdr-includes
 	@tools/check-includes.sh
 
 # cppcheck gets confused by list_for_each(head, i, list): thinks i is uninit.
-.cppcheck-suppress:
-	@git ls-files -z -- "*.c" "*.h" | grep -vzE '^(ccan|contrib)/' | xargs -0 grep -n '_for_each' | sed 's/\([^:]*:.*\):.*/uninitvar:\1/' > $@
+.cppcheck-suppress: $(ALL_NONGEN_SRCFILES)
+	@ls $(ALL_NONGEN_SRCFILES) | grep -vzE '^(ccan|contrib)/' | xargs grep -n '_for_each' | sed 's/\([^:]*:.*\):.*/uninitvar:\1/' > $@
 
 check-cppcheck: .cppcheck-suppress
-	@trap 'rm -f .cppcheck-suppress' 0; git ls-files -z -- "*.c" "*.h" | grep -vzE '^ccan/' | xargs -0 cppcheck  ${CPPCHECK_OPTS}
+	@trap 'rm -f .cppcheck-suppress' 0; ls $(ALL_NONGEN_SRCFILES) | grep -vzE '^(ccan|contrib)/' | xargs cppcheck  ${CPPCHECK_OPTS}
 
 check-shellcheck:
 	@git ls-files -z -- "*.sh" | xargs -0 shellcheck -f gcc
