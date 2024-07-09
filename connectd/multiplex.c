@@ -1032,6 +1032,11 @@ static void destroy_subd(struct subd *subd)
 	 * have been waiting for write_to_subd) */
 	io_wake(&peer->peer_in);
 
+	/* If this is the last subd, and we're draining, wake outgoing
+	 * now (it will start shutdown). */
+ 	if (tal_count(peer->subds) == 0 && peer->to_peer && peer->draining)
+		msg_wake(peer->peer_outq);
+
 	/* Maybe we were last subd out? */
 	maybe_free_peer(peer);
 }
