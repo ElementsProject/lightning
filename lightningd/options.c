@@ -1303,7 +1303,9 @@ static char *opt_set_quiesce(struct lightningd *ld)
 
 static char *opt_set_anchor_zero_fee_htlc_tx(struct lightningd *ld)
 {
-	/* FIXME: deprecated_apis! */
+	if (!opt_deprecated_ok(ld, "experimental-anchors", NULL,
+			       "v24.02", "v25.02"))
+		return "--experimental-anchors is now enabled by default";
 	return NULL;
 }
 
