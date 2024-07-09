@@ -559,9 +559,6 @@ static void handle_ping_in(struct peer *peer, const u8 *msg)
 {
 	u8 *pong;
 
-	/* gossipd doesn't log IO, so we log it here. */
-	status_peer_io(LOG_IO_IN, &peer->id, msg);
-
 	if (!check_ping_make_pong(NULL, msg, &pong)) {
 		send_warning(peer, "Invalid ping %s", tal_hex(msg, msg));
 		return;
@@ -596,9 +593,6 @@ static void handle_ping_reply(struct peer *peer, const u8 *msg)
 
 static void handle_pong_in(struct peer *peer, const u8 *msg)
 {
-	/* gossipd doesn't log IO, so we log it here. */
-	status_peer_io(LOG_IO_IN, &peer->id, msg);
-
 	switch (peer->expecting_pong) {
 	case PONG_EXPECTED_COMMAND:
 		handle_ping_reply(peer, msg);
@@ -635,9 +629,6 @@ static void handle_gossip_timestamp_filter_in(struct peer *peer, const u8 *msg)
 			     tal_hex(tmpctx, msg));
 		return;
 	}
-
-	/* gossipd doesn't log IO, so we log it here. */
-	status_peer_io(LOG_IO_IN, &peer->id, msg);
 
 	if (!bitcoin_blkid_eq(&chainparams->genesis_blockhash, &chain_hash)) {
 		send_warning(peer, "gossip_timestamp_filter for bad chain: %s",
@@ -731,15 +722,19 @@ static bool handle_message_locally(struct peer *peer, const u8 *msg)
 	gossip_rcvd_filter_add(peer->gs.grf, msg);
 
 	if (type == WIRE_GOSSIP_TIMESTAMP_FILTER) {
+		status_peer_io(LOG_IO_IN, &peer->id, msg);
 		handle_gossip_timestamp_filter_in(peer, msg);
 		return true;
 	} else if (type == WIRE_PING) {
+		status_peer_io(LOG_IO_IN, &peer->id, msg);
 		handle_ping_in(peer, msg);
 		return true;
 	} else if (type == WIRE_PONG) {
+		status_peer_io(LOG_IO_IN, &peer->id, msg);
 		handle_pong_in(peer, msg);
 		return true;
 	} else if (type == WIRE_ONION_MESSAGE) {
+		status_peer_io(LOG_IO_IN, &peer->id, msg);
 		handle_onion_message(peer->daemon, peer, msg);
 		return true;
 	} else if (handle_custommsg(peer->daemon, peer, msg)) {
