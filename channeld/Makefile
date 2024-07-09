@@ -95,8 +95,6 @@ CHANNELD_COMMON_OBJS :=				\
 	common/version.o			\
 	common/wire_error.o			\
 	common/wireaddr.o			\
-	gossipd/gossipd_peerd_wiregen.o		\
-	gossipd/gossip_store_wiregen.o		\
 	wire/fromwire.o				\
 	wire/towire.o
 
