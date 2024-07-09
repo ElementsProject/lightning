@@ -915,9 +915,7 @@ struct route_step *process_onionpacket(
 	const struct onionpacket *packet UNNEEDED,
 	const struct secret *shared_secret UNNEEDED,
 	const u8 *assocdata UNNEEDED,
-	const size_t assocdatalen UNNEEDED,
-	bool has_realm
-	)
+	const size_t assocdatalen UNNEEDED)
 { fprintf(stderr, "process_onionpacket called!\n"); abort(); }
 /* Generated stub for psbt_fixup */
 const u8 *psbt_fixup(const tal_t *ctx UNNEEDED, const u8 *psbtblob UNNEEDED)

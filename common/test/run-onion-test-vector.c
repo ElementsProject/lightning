@@ -193,7 +193,7 @@ int main(int argc, char *argv[])
 
 		json_to_secret(json, t, &mykey);
 		test_ecdh(&op->ephemeralkey, &ss);
-		rs = process_onionpacket(tmpctx, op, &ss, assoc_data, tal_bytelen(assoc_data), true);
+		rs = process_onionpacket(tmpctx, op, &ss, assoc_data, tal_bytelen(assoc_data));
 		assert(tal_arr_eq(rs->raw_payload, payloads[i]));
 		if (rs->nextcase == ONION_FORWARD)
 			op = rs->next;

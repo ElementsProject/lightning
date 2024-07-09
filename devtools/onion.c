@@ -125,7 +125,7 @@ static struct route_step *decode_with_privkey(const tal_t *ctx, const u8 *onion,
 		errx(1, "Error creating shared secret.");
 
 	step = process_onionpacket(ctx, packet, &shared_secret, assocdata,
-				   tal_bytelen(assocdata), true);
+				   tal_bytelen(assocdata));
 	return step;
 
 }

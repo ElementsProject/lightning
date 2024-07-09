@@ -627,8 +627,7 @@ struct route_step *process_onionpacket(
 	const struct onionpacket *msg,
 	const struct secret *shared_secret,
 	const u8 *assocdata,
-	const size_t assocdatalen,
-	bool has_realm
+	const size_t assocdatalen
 	)
 {
 	struct route_step *step = talz(ctx, struct route_step);

@@ -109,7 +109,7 @@ bool onion_message_parse(const tal_t *ctx,
 
 	/* Now get onion shared secret and parse it. */
 	ecdh(&ephemeral, &onion_ss);
-	rs = process_onionpacket(tmpctx, op, &onion_ss, NULL, 0, false);
+	rs = process_onionpacket(tmpctx, op, &onion_ss, NULL, 0);
 	if (!rs) {
 		status_peer_debug(peer,
 				  "onion_message_parse: can't process onionpacket ss=%s",

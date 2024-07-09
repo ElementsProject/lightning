@@ -107,16 +107,13 @@ bool onion_shared_secret(
  * @hoppayload: the per-hop payload destined for the processing node.
  * @assocdata: associated data to commit to in HMACs
  * @assocdatalen: length of the assocdata
- * @has_realm: used for HTLCs, where first byte 0 is magical.
  */
 struct route_step *process_onionpacket(
 	const tal_t * ctx,
 	const struct onionpacket *packet,
 	const struct secret *shared_secret,
 	const u8 *assocdata,
-	const size_t assocdatalen,
-	bool has_realm
-	);
+	const size_t assocdatalen);
 
 /**
  * serialize_onionpacket - Serialize an onionpacket to a buffer.
