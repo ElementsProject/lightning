@@ -258,6 +258,8 @@ void setup_peer_gossip_store(struct peer *peer,
 		setup_gossip_store(peer->daemon);
 
 	peer->gs.grf = new_gossip_rcvd_filter(peer);
+	peer->gs.bytes_this_second = 0;
+	peer->gs.bytes_start_time = time_mono();
 
 	/* BOLT #7:
 	 *
@@ -463,6 +465,7 @@ static void wake_gossip(struct peer *peer)
 static u8 *maybe_from_gossip_store(const tal_t *ctx, struct peer *peer)
 {
 	u8 *msg;
+	struct timemono now;
 
 	/* dev-mode can suppress all gossip */
 	if (peer->daemon->dev_suppress_gossip)
@@ -474,6 +477,27 @@ static u8 *maybe_from_gossip_store(const tal_t *ctx, struct peer *peer)
 
 	/* This should be around to kick us every 60 seconds */
 	assert(peer->gs.gossip_timer);
+
+	/* If it's been over a second, make a fresh start. */
+	now = time_mono();
+	if (time_to_sec(timemono_between(now, peer->gs.bytes_start_time)) > 0) {
+		peer->gs.bytes_start_time = now;
+		peer->gs.bytes_this_second = 0;
+	}
+
+	/* Sent too much this second? */
+	if (peer->gs.bytes_this_second > peer->daemon->gossip_stream_limit) {
+		/* Replace normal timer with a timer after throttle. */
+		peer->gs.active = false;
+		tal_free(peer->gs.gossip_timer);
+		peer->gs.gossip_timer
+			= new_abstimer(&peer->daemon->timers,
+				       peer,
+				       timemono_add(peer->gs.bytes_start_time,
+						    time_from_sec(1)),
+				       wake_gossip, peer);
+		return NULL;
+	}
 
 again:
 	msg = gossip_store_next(ctx, &peer->daemon->gossip_store_fd,
@@ -487,6 +511,7 @@ again:
 			msg = tal_free(msg);
 			goto again;
 		}
+		peer->gs.bytes_this_second += tal_bytelen(msg);
 		status_peer_io(LOG_IO_OUT, &peer->id, msg);
 		return msg;
 	}

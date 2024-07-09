@@ -2041,3 +2041,45 @@ def test_listchannels_deprecated_local(node_factory, bitcoind):
     # Either order
     vals = [(c['active'], c['public'], c['short_channel_id']) for c in l2.rpc.listchannels()['channels']]
     assert vals == [(True, True, l1l2)] * 2 + [(True, False, l2l3)] * 2 or vals == [(True, False, l2l3)] * 2 + [(True, True, l1l2)] * 2
+
+
+def test_gossip_throttle(node_factory, bitcoind):
+    """Make some gossip, test it gets throttled"""
+    l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
+                                             opts=[{}, {}, {}, {'dev-throttle-gossip': None}])
+
+    # We expect: self-advertizement (3 messages for l1 and l4) plus
+    # 4 node announcements, 3 channel announcements and 6 channel updates.
+    # We also expect it to send a timestamp filter message.
+    # (We won't take long enough to get a ping!)
+    expected = 4 + 4 + 3 + 6 + 1
+
+    # l1 is unlimited
+    start_fast = time.time()
+    out1 = subprocess.run(['devtools/gossipwith',
+                           '--all-gossip',
+                           '--hex',
+                           '--network={}'.format(TEST_NETWORK),
+                           '--max-messages={}'.format(expected),
+                           '{}@localhost:{}'.format(l1.info['id'], l1.port)],
+                          check=True,
+                          timeout=TIMEOUT, stdout=subprocess.PIPE).stdout
+    time_fast = time.time() - start_fast
+    assert time_fast < 2
+
+    # l4 is throttled
+    start_slow = time.time()
+    out2 = subprocess.run(['devtools/gossipwith',
+                           '--all-gossip',
+                           '--hex',
+                           '--network={}'.format(TEST_NETWORK),
+                           '--max-messages={}'.format(expected),
+                           '{}@localhost:{}'.format(l4.info['id'], l4.port)],
+                          check=True,
+                          timeout=TIMEOUT, stdout=subprocess.PIPE).stdout
+    time_slow = time.time() - start_slow
+    assert time_slow > 3
+
+    # Contents should be identical (once uniquified, since each
+    # doubles-up on its own gossip)
+    assert set(out1.split()) == set(out2.split())
