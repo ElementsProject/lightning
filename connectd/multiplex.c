@@ -420,24 +420,14 @@ static void wake_gossip(struct peer *peer)
 	peer->gs.gossip_timer = gossip_stream_timer(peer);
 }
 
-/* If we are streaming gossip, get something from gossip store */
-static const u8 *maybe_from_gossip_store(const tal_t *ctx, struct peer *peer)
+/* Gossip response or something from gossip store */
+static const u8 *maybe_gossip_msg(const tal_t *ctx, struct peer *peer)
 {
 	const u8 *msg;
 	struct timemono now;
 	struct gossmap *gossmap;
 	u32 timestamp;
-
-	/* dev-mode can suppress all gossip */
-	if (peer->daemon->dev_suppress_gossip)
-		return NULL;
-
-	/* Not streaming right now? */
-	if (!peer->gs.active)
-		return NULL;
-
-	/* This should be around to kick us every 60 seconds */
-	assert(peer->gs.gossip_timer);
+	const u8 **msgs;
 
 	/* If it's been over a second, make a fresh start. */
 	now = time_mono();
@@ -462,6 +452,31 @@ static const u8 *maybe_from_gossip_store(const tal_t *ctx, struct peer *peer)
 
 	gossmap = get_gossmap(peer->daemon);
 
+	/* This can return more than one. */
+	msgs = maybe_create_query_responses(tmpctx, peer, gossmap);
+	if (tal_count(msgs) > 0) {
+		/* We return the first one for immediate sending, and queue
+		 * others for future.  We add all the lengths now though! */
+		for (size_t i = 0; i < tal_count(msgs); i++) {
+			peer->gs.bytes_this_second += tal_bytelen(msgs[i]);
+			status_peer_io(LOG_IO_OUT, &peer->id, msgs[i]);
+			if (i > 0)
+				msg_enqueue(peer->peer_outq, take(msgs[i]));
+		}
+		return msgs[0];
+	}
+
+	/* dev-mode can suppress all gossip */
+	if (peer->daemon->dev_suppress_gossip)
+		return NULL;
+
+	/* Not streaming right now? */
+	if (!peer->gs.active)
+		return NULL;
+
+	/* This should be around to kick us every 60 seconds */
+	assert(peer->gs.gossip_timer);
+
 again:
 	msg = gossmap_stream_next(ctx, gossmap, peer->gs.iter, &timestamp);
 	if (msg) {
@@ -482,6 +497,7 @@ again:
 		return msg;
 	}
 
+	/* No gossip left to send */
 	peer->gs.active = false;
 	return NULL;
 }
@@ -940,14 +956,9 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 			return io_sock_shutdown(peer_conn);
 
 		/* If they want us to send gossip, do so now. */
-		if (!peer->draining) {
-			/* FIXME: make it return the message? */
-			if (maybe_send_query_responses(peer, get_gossmap(peer->daemon))) {
-				msg = msg_dequeue(peer->peer_outq);
-			} else {
-				msg = maybe_from_gossip_store(NULL, peer);
-			}
-		}
+		if (!peer->draining)
+			msg = maybe_gossip_msg(NULL, peer);
+
 		if (!msg) {
 			/* Tell them to read again, */
 			io_wake(&peer->subds);

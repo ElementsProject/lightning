@@ -2,8 +2,10 @@
 #define LIGHTNING_CONNECTD_QUERIES_H
 #include "config.h"
 
-/* See if there's a query to respond to, if so, do it and return true */
-bool maybe_send_query_responses(struct peer *peer, struct gossmap *gossmap);
+/* See if there's a query to respond to: if so, return some msgs */
+const u8 **maybe_create_query_responses(const tal_t *ctx,
+					struct peer *peer,
+					struct gossmap *gossmap);
 
 void handle_query_short_channel_ids(struct peer *peer, const u8 *msg);
 void handle_query_channel_range(struct peer *peer, const u8 *msg);

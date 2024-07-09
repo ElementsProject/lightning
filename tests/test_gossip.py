@@ -2043,7 +2043,7 @@ def test_listchannels_deprecated_local(node_factory, bitcoind):
     assert vals == [(True, True, l1l2)] * 2 + [(True, False, l2l3)] * 2 or vals == [(True, False, l2l3)] * 2 + [(True, True, l1l2)] * 2
 
 
-def test_gossip_throttle(node_factory, bitcoind):
+def test_gossip_throttle(node_factory, bitcoind, chainparams):
     """Make some gossip, test it gets throttled"""
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
                                              opts=[{}, {}, {}, {'dev-throttle-gossip': None}])
@@ -2063,9 +2063,11 @@ def test_gossip_throttle(node_factory, bitcoind):
                            '--max-messages={}'.format(expected),
                            '{}@localhost:{}'.format(l1.info['id'], l1.port)],
                           check=True,
-                          timeout=TIMEOUT, stdout=subprocess.PIPE).stdout
+                          timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
     time_fast = time.time() - start_fast
     assert time_fast < 2
+    # Remove timestamp filter, since timestamp will change!
+    out1 = [m for m in out1 if not m.startswith(b'0109')]
 
     # l4 is throttled
     start_slow = time.time()
@@ -2076,10 +2078,62 @@ def test_gossip_throttle(node_factory, bitcoind):
                            '--max-messages={}'.format(expected),
                            '{}@localhost:{}'.format(l4.info['id'], l4.port)],
                           check=True,
-                          timeout=TIMEOUT, stdout=subprocess.PIPE).stdout
+                          timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
     time_slow = time.time() - start_slow
     assert time_slow > 3
 
+    # Remove timestamp filter, since timestamp will change!
+    out2 = [m for m in out2 if not m.startswith(b'0109')]
+
     # Contents should be identical (once uniquified, since each
     # doubles-up on its own gossip)
-    assert set(out1.split()) == set(out2.split())
+    assert set(out1) == set(out2)
+
+    encoded = subprocess.run(['devtools/mkencoded', '--scids', '00',
+                              first_scid(l1, l2),
+                              first_scid(l2, l3),
+                              first_scid(l3, l4)],
+                             check=True,
+                             timeout=TIMEOUT,
+                             stdout=subprocess.PIPE).stdout.strip().decode()
+
+    query = subprocess.run(['devtools/mkquery',
+                            'query_short_channel_ids',
+                            chainparams['chain_hash'],
+                            encoded,
+                            # We want channel announce, updates and node ann.
+                            '00', '1F1F1F'],
+                           check=True,
+                           timeout=TIMEOUT,
+                           stdout=subprocess.PIPE).stdout.strip()
+
+    # Queries should also be ratelimited, so compare l1 vs l4.
+    start_fast = time.time()
+    out3 = subprocess.run(['devtools/gossipwith',
+                           '--no-gossip',
+                           '--hex',
+                           '--network={}'.format(TEST_NETWORK),
+                           '--max-messages={}'.format(expected),
+                           '{}@localhost:{}'.format(l1.info['id'], l1.port),
+                           query],
+                          check=True,
+                          timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
+    time_fast = time.time() - start_fast
+    assert time_fast < 2
+    out3 = [m for m in out3 if not m.startswith(b'0109')]
+    assert set(out1) == set(out3)
+
+    start_slow = time.time()
+    out4 = subprocess.run(['devtools/gossipwith',
+                           '--no-gossip',
+                           '--hex',
+                           '--network={}'.format(TEST_NETWORK),
+                           '--max-messages={}'.format(expected),
+                           '{}@localhost:{}'.format(l4.info['id'], l4.port),
+                           query],
+                          check=True,
+                          timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
+    time_slow = time.time() - start_slow
+    assert time_slow > 3
+    out4 = [m for m in out4 if not m.startswith(b'0109')]
+    assert set(out2) == set(out4)
