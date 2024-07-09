@@ -954,6 +954,7 @@ static struct command_result *payment_getroute(struct payment *p)
 		payment_root(p)->abort = true;
 		payment_fail(p, "Empty route returned by getroute, are you "
 				"trying to pay yourself?");
+		return command_still_pending(p->cmd);
 	}
 
 	fee = payment_route_fee(p);
