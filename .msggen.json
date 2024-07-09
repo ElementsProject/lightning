@@ -1794,6 +1794,7 @@
             "ListConfigs.configs.fee-per-satoshi.value_int": 1
         },
         "ListconfigsConfigsFetchinvoice-noconnect": {
+            "ListConfigs.configs.fetchinvoice-noconnect.plugin": 3,
             "ListConfigs.configs.fetchinvoice-noconnect.set": 1,
             "ListConfigs.configs.fetchinvoice-noconnect.source": 2
         },
@@ -7045,6 +7046,10 @@
         },
         "ListConfigs.configs.fetchinvoice-noconnect": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListConfigs.configs.fetchinvoice-noconnect.plugin": {
+            "added": "v23.08",
             "deprecated": false
         },
         "ListConfigs.configs.fetchinvoice-noconnect.set": {

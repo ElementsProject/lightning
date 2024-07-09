@@ -2257,6 +2257,7 @@ def listconfigs_configs_fee_per_satoshi2py(m):
 
 def listconfigs_configs_fetchinvoice_noconnect2py(m):
     return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
         "set": m.set,  # PrimitiveField in generate_composite
         "source": m.source,  # PrimitiveField in generate_composite
     })

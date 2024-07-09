@@ -3244,6 +3244,7 @@ message ListconfigsConfigsSubdaemon {
 message ListconfigsConfigsFetchinvoicenoconnect {
 	bool set = 1;
 	string source = 2;
+	optional string plugin = 3;
 }
 
 message ListconfigsConfigsAccepthtlctlvtypes {

@@ -8973,6 +8973,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsFetchinvoicenoconnect {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub plugin: Option<String>,
 	    pub set: bool,
 	    pub source: String,
 	}
