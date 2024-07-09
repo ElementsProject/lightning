@@ -8,7 +8,6 @@
 /**
  * onion_decode: decode payload from a decrypted onion.
  * @ctx: context to allocate onion_contents off.
- * @blinding_support: --experimental-route-blinding?
  * @rs: the route_step, whose raw_payload is of at least length
  *       onion_payload_length().
  * @blinding: the optional incoming blinding point.
@@ -21,7 +20,6 @@
  * If the payload is not valid, returns NULL.
  */
 struct onion_payload *onion_decode(const tal_t *ctx,
-				   bool blinding_support,
 				   const struct route_step *rs,
 				   const struct pubkey *blinding,
 				   const u64 *accepted_extra_tlvs,

@@ -935,8 +935,6 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 
 		rs->raw_payload = prepend_length(rs, take(payload));
 		request->payload = onion_decode(request,
-						feature_offered(ld->our_features->bits[INIT_FEATURE],
-								OPT_ROUTE_BLINDING),
 						rs,
 						hin->blinding,
 						ld->accept_extra_tlv_types,
@@ -1267,9 +1265,6 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	struct onionpacket *op;
 	struct lightningd *ld = channel->peer->ld;
 	struct htlc_accepted_hook_payload *hook_payload;
-	const bool opt_blinding
-		= feature_offered(ld->our_features->bits[INIT_FEATURE],
-				  OPT_ROUTE_BLINDING);
 
 
 	*failmsg = NULL;
@@ -1357,8 +1352,6 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 
 	hook_payload->route_step = tal_steal(hook_payload, rs);
 	hook_payload->payload = onion_decode(hook_payload,
-					     feature_offered(ld->our_features->bits[INIT_FEATURE],
-							     OPT_ROUTE_BLINDING),
 					     rs,
 					     hin->blinding,
 					     ld->accept_extra_tlv_types,
@@ -1372,8 +1365,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	hook_payload->next_onion = serialize_onionpacket(hook_payload, rs->next);
 
 	/* We could have blinding from hin or from inside onion. */
-	if (opt_blinding
-	    && hook_payload->payload && hook_payload->payload->blinding) {
+	if (hook_payload->payload && hook_payload->payload->blinding) {
 		struct sha256 sha;
 		blinding_hash_e_and_ss(hook_payload->payload->blinding,
 				       &hook_payload->payload->blinding_ss,
