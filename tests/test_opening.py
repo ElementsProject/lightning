@@ -2567,14 +2567,11 @@ def test_fundchannel_utxo_too_small(bitcoind, node_factory):
 def test_opening_explicit_channel_type(node_factory, bitcoind):
     plugin_path = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
     l1, l2, l3, l4 = node_factory.get_nodes(4,
-                                            opts=[{'experimental-dual-fund': None,
-                                                   'experimental-anchors': None},
-                                                  {'experimental-anchors': None,
-                                                   'plugin': str(plugin_path),
+                                            opts=[{'experimental-dual-fund': None},
+                                                  {'plugin': str(plugin_path),
                                                    'zeroconf-allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518'},
-                                                  {'experimental-dual-fund': None,
-                                                   'experimental-anchors': None},
-                                                  {'experimental-anchors': None}])
+                                                  {'experimental-dual-fund': None},
+                                                  {}])
 
     l1.fundwallet(FUNDAMOUNT)
     l1.connect(l2)

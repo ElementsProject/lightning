@@ -1096,12 +1096,10 @@ def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
     opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'may_reconnect': True, 'dev-no-reconnect': None,
-             'broken_log': 'Unknown spend of OUR_UNILATERAL/DELAYED_OUTPUT_TO_US',
-             'experimental-anchors': None},
+             'broken_log': 'Unknown spend of OUR_UNILATERAL/DELAYED_OUTPUT_TO_US'},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
-             'may_reconnect': True, 'dev-no-reconnect': None,
-             'experimental-anchors': None}]
+             'may_reconnect': True, 'dev-no-reconnect': None}]
 
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000

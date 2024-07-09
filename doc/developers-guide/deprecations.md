@@ -29,6 +29,7 @@ hidden: false
 | commando-listrunes                   | Command            | v23.08           | v25.02         | replaced with `lightning-showrunes`                                                                                                    |
 | commando-blacklist                   | Command            | v23.08           | v25.02         | replaced with `lightning-blacklistrune`                                                                                                |
 | listpeers.features.option_anchors_zero_fee_htlc_tx | Field | v24.08          | v25.08         | Renamed to `option_anchors` in the spec: check for that in `features` instead                                                          |
+| experimental-anchors                 | Config             | v24.02           | v25.02         | Now the default                                                                                                                        |
 
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
