@@ -30,10 +30,6 @@ msgtype,gossipd_init_reply,3100
 msgtype,gossipd_dev_set_time,3001
 msgdata,gossipd_dev_set_time,dev_gossip_time,u32,
 
-# Set artificial maximum reply_channel_range size.  Master->gossipd
-msgtype,gossipd_dev_set_max_scids_encode_size,3030
-msgdata,gossipd_dev_set_max_scids_encode_size,max,u32,
-
 # Gossipd->master get this tx output please.
 msgtype,gossipd_get_txout,3018
 msgdata,gossipd_get_txout,short_channel_id,short_channel_id,

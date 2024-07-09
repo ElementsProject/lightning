@@ -221,20 +221,16 @@ static void handle_recv_gossip(struct daemon *daemon, const u8 *outermsg)
 							  daemon->gm,
 							  msg, &source);
 		goto handled_msg_errmsg;
-	case WIRE_QUERY_CHANNEL_RANGE:
-		err = handle_query_channel_range(peer, msg);
-		goto handled_msg;
 	case WIRE_REPLY_CHANNEL_RANGE:
 		err = handle_reply_channel_range(peer, msg);
-		goto handled_msg;
-	case WIRE_QUERY_SHORT_CHANNEL_IDS:
-		err = handle_query_short_channel_ids(peer, msg);
 		goto handled_msg;
 	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
 		err = handle_reply_short_channel_ids_end(peer, msg);
 		goto handled_msg;
 
 	/* These are non-gossip messages (!is_msg_for_gossipd()) */
+	case WIRE_QUERY_SHORT_CHANNEL_IDS:
+	case WIRE_QUERY_CHANNEL_RANGE:
 	case WIRE_WARNING:
 	case WIRE_INIT:
 	case WIRE_ERROR:
@@ -444,7 +440,7 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 	/* connectd is already started, and uses this fd to feed/recv gossip. */
 	daemon->connectd = daemon_conn_new(daemon, CONNECTD_FD,
 					   connectd_req,
-					   maybe_send_query_responses, daemon);
+					   NULL, daemon);
 	tal_add_destructor(daemon->connectd, master_or_connectd_gone);
 
 	/* Tell it about all our local (public) channel_update messages,
@@ -599,12 +595,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_GET_ADDRS:
 		return handle_get_address(conn, daemon, msg);
 
-	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
-		if (daemon->developer) {
-			dev_set_max_scids_encode_size(daemon, msg);
-			goto done;
-		}
-		/* fall thru */
 	case WIRE_GOSSIPD_DEV_MEMLEAK:
 		if (daemon->developer) {
 			dev_gossip_memleak(daemon, msg);

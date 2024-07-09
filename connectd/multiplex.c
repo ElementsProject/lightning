@@ -25,6 +25,7 @@
 #include <connectd/gossip_store.h>
 #include <connectd/multiplex.h>
 #include <connectd/onion_message.h>
+#include <connectd/queries.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -731,6 +732,12 @@ static bool handle_message_locally(struct peer *peer, const u8 *msg)
 		status_peer_io(LOG_IO_IN, &peer->id, msg);
 		handle_onion_message(peer->daemon, peer, msg);
 		return true;
+ 	} else if (type == WIRE_QUERY_CHANNEL_RANGE) {
+		handle_query_channel_range(peer, msg);
+		return true;
+ 	} else if (type == WIRE_QUERY_SHORT_CHANNEL_IDS) {
+		handle_query_short_channel_ids(peer, msg);
+		return true;
 	} else if (handle_custommsg(peer->daemon, peer, msg)) {
 		return true;
 	}
@@ -933,8 +940,14 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 			return io_sock_shutdown(peer_conn);
 
 		/* If they want us to send gossip, do so now. */
-		if (!peer->draining)
-			msg = maybe_from_gossip_store(NULL, peer);
+		if (!peer->draining) {
+			/* FIXME: make it return the message? */
+			if (maybe_send_query_responses(peer, get_gossmap(peer->daemon))) {
+				msg = msg_dequeue(peer->peer_outq);
+			} else {
+				msg = maybe_from_gossip_store(NULL, peer);
+			}
+		}
 		if (!msg) {
 			/* Tell them to read again, */
 			io_wake(&peer->subds);

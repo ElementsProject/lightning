@@ -37,6 +37,21 @@
  */
 #define ANNOUNCE_MIN_DEPTH 6
 
+/* BOLT #7:
+ *
+ * `query_option_flags` is a bitfield represented as a minimally-encoded bigsize.
+ * Bits have the following meaning:
+ *
+ * | Bit Position  | Meaning                 |
+ * | ------------- | ----------------------- |
+ * | 0             | Sender wants timestamps |
+ * | 1             | Sender wants checksums  |
+ */
+enum query_option_flags {
+	QUERY_ADD_TIMESTAMPS = 0x1,
+	QUERY_ADD_CHECKSUMS = 0x2,
+};
+
 /* Gossip timing constants.  These can be overridden using --developer
  * with --dev-fast-gossip */
 #define DEV_FAST_GOSSIP(dev_fast_gossip_flag, fast, normal)	\

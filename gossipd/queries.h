@@ -10,30 +10,10 @@ struct peer;
 struct range_query_reply;
 struct short_channel_id;
 
-/* Various handlers when peer fwds a gossip query msg: return is NULL or
+/* Various handlers when peer fwds a gossip query reply msg: return is NULL or
  * error packet. */
-const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg);
 const u8 *handle_reply_short_channel_ids_end(struct peer *peer, const u8 *msg);
-const u8 *handle_query_channel_range(struct peer *peer, const u8 *msg);
 const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg);
-
-/* This called when the connectd is idle. */
-void maybe_send_query_responses(struct daemon *daemon);
-
-/* BOLT #7:
- *
- * `query_option_flags` is a bitfield represented as a minimally-encoded bigsize.
- * Bits have the following meaning:
- *
- * | Bit Position  | Meaning                 |
- * | ------------- | ----------------------- |
- * | 0             | Sender wants timestamps |
- * | 1             | Sender wants checksums  |
- */
-enum query_option_flags {
-	QUERY_ADD_TIMESTAMPS = 0x1,
-	QUERY_ADD_CHECKSUMS = 0x2,
-};
 
 /* Ask this peer for a range of scids.  Must support it, and not already
  * have a query pending. */
@@ -52,13 +32,5 @@ bool query_short_channel_ids(struct daemon *daemon,
 			     const struct short_channel_id *scids,
 			     const u8 *query_flags,
 			     void (*cb)(struct peer *peer_, bool complete));
-
-/* This is a testing hack to allow us to artificially lower the maximum bytes
- * of short_channel_ids we'll encode, using dev_set_max_scids_encode_size. */
-void dev_set_max_scids_encode_size(struct daemon *daemon, const u8 *msg);
-
-void get_cupdate_parts(const u8 *channel_update,
-		       const u8 *parts[2],
-		       size_t sizes[2]);
 
 #endif /* LIGHTNING_GOSSIPD_QUERIES_H */

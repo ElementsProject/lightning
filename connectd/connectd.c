@@ -37,6 +37,7 @@
 #include <connectd/netaddress.h>
 #include <connectd/onion_message.h>
 #include <connectd/peer_exchange_initmsg.h>
+#include <connectd/queries.h>
 #include <connectd/tor.h>
 #include <connectd/tor_autoservice.h>
 #include <errno.h>
@@ -173,6 +174,11 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->prio = prio;
 	peer->dev_writes_enabled = NULL;
 	peer->dev_read_enabled = true;
+	peer->scid_queries = NULL;
+	peer->scid_query_flags = NULL;
+	peer->scid_query_idx = 0;
+	peer->scid_query_nodes = NULL;
+	peer->scid_query_nodes_idx = 0;
 
 	peer->to_peer = conn;
 
@@ -2189,6 +2195,12 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_DEV_EXHAUST_FDS:
 		if (daemon->developer) {
 			dev_exhaust_fds(daemon, msg);
+			goto out;
+		}
+		/* Fall thru */
+	case WIRE_CONNECTD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
+		if (daemon->developer) {
+			dev_set_max_scids_encode_size(daemon, msg);
 			goto out;
 		}
 		/* Fall thru */
