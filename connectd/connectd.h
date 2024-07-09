@@ -28,6 +28,10 @@ struct gossip_state {
 	struct gossip_rcvd_filter *grf;
 	/* Offset within the gossip_store file */
 	size_t off;
+	/* Bytes sent in the last second. */
+	size_t bytes_this_second;
+	/* When that second starts */
+	struct timemono bytes_start_time;
 };
 
 /*~ We need to know if we were expecting a pong, and why */
@@ -214,6 +218,9 @@ struct daemon {
 
 	/* Allow localhost to be considered "public", only with --developer */
 	bool dev_allow_localhost;
+
+	/* How much to gossip allow a peer every 60 seconds (bytes) */
+	size_t gossip_stream_limit;
 
 	/* We support use of a SOCKS5 proxy (e.g. Tor) */
 	struct addrinfo *proxyaddr;

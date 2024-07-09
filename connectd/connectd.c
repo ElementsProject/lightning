@@ -1393,27 +1393,29 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	enum addr_listen_announce *proposed_listen_announce;
 	struct wireaddr *announceable;
 	char *tor_password;
-	bool dev_disconnect;
+	bool dev_disconnect, dev_throttle_gossip;
 	char *errstr;
 
 	/* Fields which require allocation are allocated off daemon */
-	if (!fromwire_connectd_init(
-		daemon, msg,
-		&chainparams,
-		&daemon->our_features,
-		&daemon->id,
-		&proposed_wireaddr,
-		&proposed_listen_announce,
-		&proxyaddr, &daemon->always_use_proxy,
-		&daemon->dev_allow_localhost, &daemon->use_dns,
-		&tor_password,
-		&daemon->timeout_secs,
-		&daemon->websocket_helper,
-		&daemon->announce_websocket,
-		&daemon->dev_fast_gossip,
-		&dev_disconnect,
-		&daemon->dev_no_ping_timer,
-		&daemon->dev_handshake_no_reply)) {
+	if (!fromwire_connectd_init(daemon, msg,
+				    &chainparams,
+				    &daemon->our_features,
+				    &daemon->id,
+				    &proposed_wireaddr,
+				    &proposed_listen_announce,
+				    &proxyaddr,
+				    &daemon->always_use_proxy,
+				    &daemon->dev_allow_localhost,
+				    &daemon->use_dns,
+				    &tor_password,
+				    &daemon->timeout_secs,
+				    &daemon->websocket_helper,
+				    &daemon->announce_websocket,
+				    &daemon->dev_fast_gossip,
+				    &dev_disconnect,
+				    &daemon->dev_no_ping_timer,
+				    &daemon->dev_handshake_no_reply,
+				    &dev_throttle_gossip)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTD_INIT, msg);
@@ -1479,6 +1481,10 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	} else {
 		daemon->dev_disconnect_fd = -1;
 	}
+
+	/* 500 bytes per second, not 1M per second */
+	if (dev_throttle_gossip)
+		daemon->gossip_stream_limit = 500;
 }
 
 /* Returning functions in C is ugly! */
@@ -2237,6 +2243,8 @@ int main(int argc, char *argv[])
 	daemon->dev_suppress_gossip = false;
 	daemon->custom_msgs = NULL;
 	daemon->dev_exhausted_fds = false;
+	/* We generally allow 1MB per second per peer, except for dev testing */
+	daemon->gossip_stream_limit = 1000000;
 
 	/* stdin == control */
 	daemon->master = daemon_conn_new(daemon, STDIN_FILENO, recv_req, NULL,

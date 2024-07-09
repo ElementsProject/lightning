@@ -750,22 +750,24 @@ int connectd_init(struct lightningd *ld)
 		/* Make it clear that autolisten is not active! */
 		ld->autolisten = false;
 
-	msg = towire_connectd_init(
-	    tmpctx, chainparams,
-	    ld->our_features,
-	    &ld->id,
-	    wireaddrs,
-	    listen_announce,
-	    ld->proxyaddr, ld->always_use_proxy || ld->pure_tor_setup,
-	    ld->dev_allow_localhost, ld->config.use_dns,
-	    ld->tor_service_password ? ld->tor_service_password : "",
-	    ld->config.connection_timeout_secs,
-	    websocket_helper_path,
-	    !ld->deprecated_ok,
-	    ld->dev_fast_gossip,
-	    ld->dev_disconnect_fd >= 0,
-	    ld->dev_no_ping_timer,
-	    ld->dev_handshake_no_reply);
+	msg = towire_connectd_init(tmpctx, chainparams,
+				   ld->our_features,
+				   &ld->id,
+				   wireaddrs,
+				   listen_announce,
+				   ld->proxyaddr,
+				   ld->always_use_proxy || ld->pure_tor_setup,
+				   ld->dev_allow_localhost,
+				   ld->config.use_dns,
+				   ld->tor_service_password ? ld->tor_service_password : "",
+				   ld->config.connection_timeout_secs,
+				   websocket_helper_path,
+				   !ld->deprecated_ok,
+				   ld->dev_fast_gossip,
+				   ld->dev_disconnect_fd >= 0,
+				   ld->dev_no_ping_timer,
+				   ld->dev_handshake_no_reply,
+				   ld->dev_throttle_gossip);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);

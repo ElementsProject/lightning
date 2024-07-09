@@ -311,6 +311,7 @@ struct lightningd {
 	/* Speedup gossip propagation, for testing. */
 	bool dev_fast_gossip;
 	bool dev_fast_gossip_prune;
+	bool dev_throttle_gossip;
 
 	/* Speedup reconnect delay, for testing. */
 	bool dev_fast_reconnect;

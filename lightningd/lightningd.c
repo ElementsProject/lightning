@@ -132,6 +132,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_gossip_time = 0;
 	ld->dev_fast_gossip = false;
 	ld->dev_fast_gossip_prune = false;
+	ld->dev_throttle_gossip = false;
 	ld->dev_fast_reconnect = false;
 	ld->dev_force_privkey = NULL;
 	ld->dev_force_bip32_seed = NULL;

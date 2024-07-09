@@ -956,6 +956,10 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_handshake_no_reply,
 		     "Don't send or read init message after connection");
+	clnopt_noarg("--dev-throttle-gossip", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_throttle_gossip,
+		     "Throttle gossip right down, for testing");
 	/* This is handled directly in daemon_developer_mode(), so we ignore it here */
 	clnopt_noarg("--dev-debug-self", OPT_DEV,
 		     opt_ignore,
