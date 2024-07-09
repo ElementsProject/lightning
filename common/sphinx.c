@@ -46,7 +46,7 @@ struct sphinx_path {
 	 * the way. */
 	u8 *associated_data;
 
-	/* The individual hops on this route. */
+	/* The individual hops on this route, and their hmacs */
 	struct sphinx_hop *hops;
 
 	/* If this is a rendez-vous onion, then the following node_id tells us
@@ -486,11 +486,14 @@ static struct hop_params *generate_hop_params(
 	return params;
 }
 
-static void sphinx_write_frame(u8 *dest, const struct sphinx_hop *hop)
+static void sphinx_write_frame(u8 *dest,
+			       const struct sphinx_hop *hop,
+			       const struct hmac *hmac)
 {
+	BUILD_ASSERT(sizeof(hmac->bytes) == HMAC_SIZE);
 	memcpy(dest, hop->raw_payload, tal_bytelen(hop->raw_payload));
 	memcpy(dest + tal_bytelen(hop->raw_payload),
-	       hop->hmac.bytes, sizeof(hop->hmac.bytes));
+	       hmac->bytes, HMAC_SIZE);
 }
 
 static void sphinx_prefill_stream_xor(u8 *dst, size_t dstlen,
@@ -587,14 +590,13 @@ struct onionpacket *create_onionpacket(
 			       fixed_size);
 
 	for (i = num_hops - 1; i >= 0; i--) {
-		sp->hops[i].hmac = nexthmac;
 		generate_key_set(&params[i].secret, &keys);
 
 		/* Rightshift mix-header by FRAME_SIZE */
 		size_t shiftSize = sphinx_hop_size(&sp->hops[i]);
 		memmove(packet->routinginfo + shiftSize, packet->routinginfo,
 			fixed_size - shiftSize);
-		sphinx_write_frame(packet->routinginfo, &sp->hops[i]);
+		sphinx_write_frame(packet->routinginfo, &sp->hops[i], &nexthmac);
 		xor_cipher_stream(packet->routinginfo, &keys.rho,
 				  fixed_size);
 

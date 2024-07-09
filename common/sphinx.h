@@ -53,14 +53,10 @@ enum route_next_case {
  */
 struct sphinx_path;
 
-/*
- * All the necessary information to generate a valid onion for this hop on a
- * sphinx path. The payload is preserialized in order since the onion
- * generation is payload agnostic. */
+/* A single hop, to be encrypted into an onion */
 struct sphinx_hop {
 	struct pubkey pubkey;
 	const u8 *raw_payload;
-	struct hmac hmac;
 };
 
 struct route_step {
