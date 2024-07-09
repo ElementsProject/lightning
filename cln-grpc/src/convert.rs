@@ -2920,6 +2920,7 @@ impl From<responses::ListconfigsConfigsFeepersatoshi> for pb::ListconfigsConfigs
 impl From<responses::ListconfigsConfigsFetchinvoicenoconnect> for pb::ListconfigsConfigsFetchinvoicenoconnect {
     fn from(c: responses::ListconfigsConfigsFetchinvoicenoconnect) -> Self {
         Self {
+            plugin: c.plugin, // Rule #2 for type string?
             set: c.set, // Rule #2 for type boolean
             source: c.source, // Rule #2 for type string
         }
