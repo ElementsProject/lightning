@@ -44,19 +44,13 @@ chan_extra_scid(const struct chan_extra *cd)
 	return cd->scid;
 }
 
-static inline size_t hash_scid(const struct short_channel_id scid)
-{
-	/* scids cost money to generate, so simple hash works here */
-	return (scid.u64 >> 32) ^ (scid.u64 >> 16) ^ scid.u64;
-}
-
 static inline bool chan_extra_eq_scid(const struct chan_extra *cd,
 				      const struct short_channel_id scid)
 {
 	return short_channel_id_eq(scid, cd->scid);
 }
 
-HTABLE_DEFINE_TYPE(struct chan_extra, chan_extra_scid, hash_scid,
+HTABLE_DEFINE_TYPE(struct chan_extra, chan_extra_scid, short_channel_id_hash,
 		   chan_extra_eq_scid, chan_extra_map);
 
 /* Helpers for chan_extra_map */
