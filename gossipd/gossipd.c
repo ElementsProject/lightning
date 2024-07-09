@@ -28,7 +28,6 @@
 #include <gossipd/gossip_store.h>
 #include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
-#include <gossipd/gossipd_peerd_wiregen.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <gossipd/gossmap_manage.h>
 #include <gossipd/queries.h>

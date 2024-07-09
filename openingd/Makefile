@@ -82,9 +82,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/utxo.o				\
 	common/version.o			\
 	common/wire_error.o			\
-	common/wireaddr.o			\
-	gossipd/gossip_store_wiregen.o		\
-	gossipd/gossipd_peerd_wiregen.o
+	common/wireaddr.o
 
 lightningd/lightning_openingd: $(OPENINGD_OBJS) $(OPENINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(HSMD_CLIENT_OBJS)
 

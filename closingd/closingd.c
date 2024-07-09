@@ -20,7 +20,6 @@
 #include <common/version.h>
 #include <common/wire_error.h>
 #include <errno.h>
-#include <gossipd/gossipd_peerd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <stdio.h>

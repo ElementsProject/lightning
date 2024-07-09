@@ -1,4 +1,0 @@
-# These must be distinct from WIRE_CHANNEL_ANNOUNCEMENT etc. gossip msgs!
-#include <bitcoin/short_channel_id.h>
-#include <common/amount.h>
-
