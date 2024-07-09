@@ -9,7 +9,7 @@
 
 struct connect_info {
 	struct pubkey local_id, dst;
-	const char *connect_disable;
+	bool connect_disable;
 	struct gossmap *gossmap;
 	struct command_result *(*cb)(struct command *,
 				     const struct pubkey *,
@@ -47,9 +47,7 @@ static struct command_result *connect_direct(struct command *cmd,
 	struct out_req *req;
 
 	if (ci->connect_disable) {
-		return ci->fail(cmd,
-				tal_fmt(tmpctx, "%s set: not initiating a new connection",
-					ci->connect_disable),
+		return ci->fail(cmd, "fetchinvoice-noconnect set: not initiating a new connection",
 				ci->arg);
 	}
 
@@ -149,7 +147,7 @@ struct command_result *establish_onion_path_(struct command *cmd,
 					     struct gossmap *gossmap,
 					     const struct pubkey *local_id,
 					     const struct pubkey *dst,
-					     const char *connect_disable,
+					     bool connect_disable,
 					     struct command_result *(*success)(struct command *,
 									       const struct pubkey *,
 									       void *arg),
