@@ -357,6 +357,7 @@ invoice_check_payment(const tal_t *ctx,
 {
 	u64 inv_dbid;
 	const struct invoice_details *details;
+	bool bolt12_payment;
 
 	/* BOLT #4:
 	 *  - if the payment hash has already been paid:
@@ -379,6 +380,7 @@ invoice_check_payment(const tal_t *ctx,
 	}
 
 	details = invoices_get_details(ctx, ld->wallet->invoices, inv_dbid);
+	bolt12_payment = details->invstring && strstarts(details->invstring, "lni1");
 
 	/* BOLT #4:
 	 *  - if the `payment_secret` doesn't match the expected value for that
@@ -386,7 +388,10 @@ invoice_check_payment(const tal_t *ctx,
 	 *     present:
 	 *    - MUST fail the HTLC.
 	 */
-	if (feature_is_set(details->features, COMPULSORY_FEATURE(OPT_VAR_ONION))
+	/* For BOLT12: we stash path_secret in this field if it's of
+	 * correct length, so it must be present */
+	if ((feature_is_set(details->features, COMPULSORY_FEATURE(OPT_VAR_ONION))
+	     || bolt12_payment)
 	    && !payment_secret) {
 		*err = tal_fmt(ctx, "Attempt to pay %s without secret",
 			       fmt_sha256(tmpctx, &details->rhash));
@@ -396,13 +401,14 @@ invoice_check_payment(const tal_t *ctx,
 	if (payment_secret) {
 		struct secret expected;
 
-		if (details->invstring && strstarts(details->invstring, "lni1"))
+		if (bolt12_payment)
 			invoice_secret_bolt12(ld, payment_hash, &expected);
 		else
 			invoice_secret(&details->r, &expected);
 		if (!secret_eq_consttime(payment_secret, &expected)) {
-			*err = tal_fmt(ctx, "Attempt to pay %s with wrong secret",
-				       fmt_sha256(tmpctx, &details->rhash));
+			*err = tal_fmt(ctx, "Attempt to pay %s with wrong %ssecret",
+				       fmt_sha256(tmpctx, &details->rhash),
+				       bolt12_payment ? "path_" : "payment_");
 			return tal_free(details);
 		}
 	}

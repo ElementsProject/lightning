@@ -5372,7 +5372,7 @@ def test_self_sendpay(node_factory):
         l1.rpc.sendpay([], inv['payment_hash'], label='selfpay-badimage', bolt11=inv['bolt11'], amount_msat='100000sat')
 
     # Bad payment_secret
-    with pytest.raises(RpcError, match="Attempt to pay .* with wrong secret"):
+    with pytest.raises(RpcError, match="Attempt to pay .* with wrong payment_secret"):
         l1.rpc.sendpay([], inv['payment_hash'], label='selfpay-badimage', bolt11=inv['bolt11'], payment_secret='00' * 32, amount_msat='100000sat')
 
     # Expired
