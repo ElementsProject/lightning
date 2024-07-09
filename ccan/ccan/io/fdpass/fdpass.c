@@ -4,6 +4,12 @@
 #include <ccan/io/io_plan.h>
 #include <errno.h>
 
+static void destroy_conn_close_send_fd(struct io_conn *conn,
+				       struct io_plan_arg *arg)
+{
+	close(arg->u1.s);
+}
+
 static int do_fd_send(int fd, struct io_plan_arg *arg)
 {
 	if (!fdpass_send(fd, arg->u1.s)) {
@@ -12,8 +18,11 @@ static int do_fd_send(int fd, struct io_plan_arg *arg)
 			return 0;
 		return -1;
 	}
-	if (arg->u2.s)
+	if (arg->u2.vp) {
+		struct io_conn *conn = arg->u2.vp;
 		close(arg->u1.s);
+		tal_del_destructor2(conn, destroy_conn_close_send_fd, arg);
+	}
 	return 1;
 }
 
@@ -26,7 +35,11 @@ struct io_plan *io_send_fd_(struct io_conn *conn,
 	struct io_plan_arg *arg = io_plan_arg(conn, IO_OUT);
 
 	arg->u1.s = fd;
-	arg->u2.s = fdclose;
+	/* We need conn ptr for destructor */
+	arg->u2.vp = fdclose ? conn : NULL;
+	/* If conn closes before sending, we still need to close fd */
+	if (fdclose)
+		tal_add_destructor2(conn, destroy_conn_close_send_fd, arg);
 
 	return io_set_plan(conn, IO_OUT, do_fd_send, next, next_arg);
 }
