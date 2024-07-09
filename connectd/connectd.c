@@ -23,6 +23,7 @@
 #include <common/dev_disconnect.h>
 #include <common/ecdh_hsmd.h>
 #include <common/gossip_store.h>
+#include <common/gossmap.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
 #include <common/status.h>
@@ -2011,7 +2012,7 @@ static void dev_report_fds(struct daemon *daemon, const u8 *msg)
 			status_info("dev_report_fds: %i -> dev_disconnect_fd", fd);
 			continue;
 		}
-		if (fd == daemon->gossip_store_fd) {
+		if (daemon->gossmap_raw && fd == gossmap_fd(daemon->gossmap_raw)) {
 			status_info("dev_report_fds: %i -> gossip_store", fd);
 			continue;
 		}
@@ -2046,6 +2047,49 @@ static void dev_report_fds(struct daemon *daemon, const u8 *msg)
 		}
 		describe_fd(fd);
 	}
+}
+
+/* It's so common to ask for "recent" gossip (we ask for 10 minutes
+ * ago, LND and Eclair ask for now, LDK asks for 1 hour ago) that it's
+ * worth keeping track of where that starts, so we can skip most of
+ * the store. */
+void update_recent_timestamp(struct daemon *daemon, struct gossmap *gossmap)
+{
+	/* 2 hours allows for some clock drift, not too much gossip */
+	u32 recent = time_now().ts.tv_sec - 7200;
+
+	/* Only update every minute */
+	if (daemon->gossip_recent_time + 60 > recent)
+		return;
+
+	daemon->gossip_recent_time = recent;
+	gossmap_iter_fast_forward(gossmap,
+				  daemon->gossmap_iter_recent,
+				  recent);
+}
+
+/* This is called once we need it: otherwise, the gossip_store may not exist,
+ * since we start at the same time as gossipd itself. */
+static void setup_gossip_store(struct daemon *daemon)
+{
+	daemon->gossmap_raw = gossmap_load(daemon, GOSSIP_STORE_FILENAME, NULL);
+	if (!daemon->gossmap_raw)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Loading gossip_store %s: %s",
+			      GOSSIP_STORE_FILENAME, strerror(errno));
+
+	daemon->gossip_recent_time = 0;
+	daemon->gossmap_iter_recent = gossmap_iter_new(daemon, daemon->gossmap_raw);
+	update_recent_timestamp(daemon, daemon->gossmap_raw);
+}
+
+struct gossmap *get_gossmap(struct daemon *daemon)
+{
+	if (!daemon->gossmap_raw)
+		setup_gossip_store(daemon);
+	else
+		gossmap_refresh(daemon->gossmap_raw, NULL);
+	return daemon->gossmap_raw;
 }
 
 static void dev_exhaust_fds(struct daemon *daemon, const u8 *msg)
@@ -2238,7 +2282,7 @@ int main(int argc, char *argv[])
 	daemon->connecting = tal(daemon, struct connecting_htable);
 	connecting_htable_init(daemon->connecting);
 	timers_init(&daemon->timers, time_mono());
-	daemon->gossip_store_fd = -1;
+	daemon->gossmap_raw = NULL;
 	daemon->shutting_down = false;
 	daemon->dev_suppress_gossip = false;
 	daemon->custom_msgs = NULL;
