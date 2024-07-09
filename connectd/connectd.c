@@ -1918,10 +1918,6 @@ static void describe_fd(int fd)
 		return;
 	}
 	status_info("dev_report_fds: %i name %s", fd, addr2name(tmpctx, &sa, addrlen));
-
-	if (getpeername(fd, (void *)&sa, &addrlen) != 0)
-		return;
-	status_info("dev_report_fds: %i peer %s", fd, addr2name(tmpctx, &sa, addrlen));
 }
 
 static const char *io_plan_status_str(enum io_plan_status status)
