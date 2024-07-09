@@ -31,98 +31,17 @@ bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
 			  const struct sha256 *h UNNEEDED,
 			  struct pubkey *next UNNEEDED)
 { fprintf(stderr, "blinding_next_pubkey called!\n"); abort(); }
-/* Generated stub for daemon_conn_wake */
-void daemon_conn_wake(struct daemon_conn *dc UNNEEDED)
-{ fprintf(stderr, "daemon_conn_wake called!\n"); abort(); }
 /* Generated stub for decode_channel_update_timestamps */
 struct channel_update_timestamps *decode_channel_update_timestamps(const tal_t *ctx UNNEEDED,
 				 const struct tlv_reply_channel_range_tlvs_timestamps_tlv *timestamps_tlv UNNEEDED)
 { fprintf(stderr, "decode_channel_update_timestamps called!\n"); abort(); }
-/* Generated stub for decode_scid_query_flags */
-bigsize_t *decode_scid_query_flags(const tal_t *ctx UNNEEDED,
-				   const struct tlv_query_short_channel_ids_tlvs_query_flags *qf UNNEEDED)
-{ fprintf(stderr, "decode_scid_query_flags called!\n"); abort(); }
 /* Generated stub for decode_short_ids */
 struct short_channel_id *decode_short_ids(const tal_t *ctx UNNEEDED, const u8 *encoded UNNEEDED)
 { fprintf(stderr, "decode_short_ids called!\n"); abort(); }
-/* Generated stub for first_random_peer */
-struct peer *first_random_peer(struct daemon *daemon UNNEEDED,
-			       struct peer_node_id_map_iter *it UNNEEDED)
-{ fprintf(stderr, "first_random_peer called!\n"); abort(); }
-/* Generated stub for fromwire_gossipd_dev_set_max_scids_encode_size */
-bool fromwire_gossipd_dev_set_max_scids_encode_size(const void *p UNNEEDED, u32 *max UNNEEDED)
-{ fprintf(stderr, "fromwire_gossipd_dev_set_max_scids_encode_size called!\n"); abort(); }
 /* Generated stub for fromwire_sciddir_or_pubkey */
 void fromwire_sciddir_or_pubkey(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 				struct sciddir_or_pubkey *sciddpk UNNEEDED)
 { fprintf(stderr, "fromwire_sciddir_or_pubkey called!\n"); abort(); }
-/* Generated stub for gossmap_chan_byidx */
-struct gossmap_chan *gossmap_chan_byidx(const struct gossmap *map UNNEEDED, u32 idx UNNEEDED)
-{ fprintf(stderr, "gossmap_chan_byidx called!\n"); abort(); }
-/* Generated stub for gossmap_chan_get_announce */
-u8 *gossmap_chan_get_announce(const tal_t *ctx UNNEEDED,
-			      const struct gossmap *map UNNEEDED,
-			      const struct gossmap_chan *c UNNEEDED)
-{ fprintf(stderr, "gossmap_chan_get_announce called!\n"); abort(); }
-/* Generated stub for gossmap_chan_get_update */
-u8 *gossmap_chan_get_update(const tal_t *ctx UNNEEDED,
-			    const struct gossmap *map UNNEEDED,
-			    const struct gossmap_chan *chan UNNEEDED,
-			    int dir UNNEEDED)
-{ fprintf(stderr, "gossmap_chan_get_update called!\n"); abort(); }
-/* Generated stub for gossmap_chan_get_update_details */
-void gossmap_chan_get_update_details(const struct gossmap *map UNNEEDED,
-				     const struct gossmap_chan *chan UNNEEDED,
-				     int dir UNNEEDED,
-				     u32 *timestamp UNNEEDED,
-				     u8 *message_flags UNNEEDED,
-				     u8 *channel_flags UNNEEDED,
-				     u32 *fee_base_msat UNNEEDED,
-				     u32 *fee_proportional_millionths UNNEEDED,
-				     struct amount_msat *htlc_minimum_msat UNNEEDED,
-				     struct amount_msat *htlc_maximum_msat UNNEEDED)
-{ fprintf(stderr, "gossmap_chan_get_update_details called!\n"); abort(); }
-/* Generated stub for gossmap_chan_scid */
-struct short_channel_id gossmap_chan_scid(const struct gossmap *map UNNEEDED,
-					  const struct gossmap_chan *c UNNEEDED)
-{ fprintf(stderr, "gossmap_chan_scid called!\n"); abort(); }
-/* Generated stub for gossmap_find_chan */
-struct gossmap_chan *gossmap_find_chan(const struct gossmap *map UNNEEDED,
-				       const struct short_channel_id *scid UNNEEDED)
-{ fprintf(stderr, "gossmap_find_chan called!\n"); abort(); }
-/* Generated stub for gossmap_find_node */
-struct gossmap_node *gossmap_find_node(const struct gossmap *map UNNEEDED,
-				       const struct node_id *id UNNEEDED)
-{ fprintf(stderr, "gossmap_find_node called!\n"); abort(); }
-/* Generated stub for gossmap_manage_get_gossmap */
-struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm UNNEEDED)
-{ fprintf(stderr, "gossmap_manage_get_gossmap called!\n"); abort(); }
-/* Generated stub for gossmap_max_chan_idx */
-u32 gossmap_max_chan_idx(const struct gossmap *map UNNEEDED)
-{ fprintf(stderr, "gossmap_max_chan_idx called!\n"); abort(); }
-/* Generated stub for gossmap_node_get_announce */
-u8 *gossmap_node_get_announce(const tal_t *ctx UNNEEDED,
-			      const struct gossmap *map UNNEEDED,
-			      const struct gossmap_node *n UNNEEDED)
-{ fprintf(stderr, "gossmap_node_get_announce called!\n"); abort(); }
-/* Generated stub for gossmap_node_get_id */
-void gossmap_node_get_id(const struct gossmap *map UNNEEDED,
-			 const struct gossmap_node *node UNNEEDED,
-			 struct node_id *id UNNEEDED)
-{ fprintf(stderr, "gossmap_node_get_id called!\n"); abort(); }
-/* Generated stub for gossmap_nth_node */
-struct gossmap_node *gossmap_nth_node(const struct gossmap *map UNNEEDED,
-				      const struct gossmap_chan *chan UNNEEDED,
-				      int n UNNEEDED)
-{ fprintf(stderr, "gossmap_nth_node called!\n"); abort(); }
-/* Generated stub for master_badmsg */
-void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
-{ fprintf(stderr, "master_badmsg called!\n"); abort(); }
-/* Generated stub for next_random_peer */
-struct peer *next_random_peer(struct daemon *daemon UNNEEDED,
-			      const struct peer *first UNNEEDED,
-			      struct peer_node_id_map_iter *it UNNEEDED)
-{ fprintf(stderr, "next_random_peer called!\n"); abort(); }
 /* Generated stub for peer_supplied_good_gossip */
 void peer_supplied_good_gossip(struct daemon *daemon UNNEEDED,
 			       const struct node_id *source_peer UNNEEDED,
@@ -325,7 +244,7 @@ static u8 *test_reply_channel_range(const char *test_vector, const jsmntok_t *ob
 					      json_get_member(test_vector, t,
 							      "timestamp2"),
 					      &ts.timestamp_node_id_2));
-			encoding_add_timestamps(&tlvs->timestamps_tlv->encoded_timestamps, &ts);
+			towire_channel_update_timestamps(&tlvs->timestamps_tlv->encoded_timestamps, &ts);
 		}
 		assert(json_tok_streq(test_vector, encodingtok, "UNCOMPRESSED"));
 		tlvs->timestamps_tlv->encoding_type = ARR_UNCOMPRESSED;

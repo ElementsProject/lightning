@@ -176,7 +176,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_INIT:
 	case WIRE_GOSSIPD_GET_TXOUT_REPLY:
 	case WIRE_GOSSIPD_OUTPOINTS_SPENT:
-	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 	case WIRE_GOSSIPD_DEV_MEMLEAK:
 	case WIRE_GOSSIPD_DEV_SET_TIME:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT:
@@ -429,6 +428,7 @@ static const struct json_command addgossip_command = {
 };
 AUTODATA(json_command, &addgossip_command);
 
+/* FIXME: move to connect_control.c! */
 static struct command_result *
 json_dev_set_max_scids_encode_size(struct command *cmd,
 				   const char *buffer,
@@ -443,8 +443,8 @@ json_dev_set_max_scids_encode_size(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	msg = towire_gossipd_dev_set_max_scids_encode_size(NULL, *max);
-	subd_send_msg(cmd->ld->gossip, take(msg));
+	msg = towire_connectd_dev_set_max_scids_encode_size(NULL, *max);
+	subd_send_msg(cmd->ld->connectd, take(msg));
 
 	return command_success(cmd, json_stream_success(cmd));
 }

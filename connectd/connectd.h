@@ -5,6 +5,7 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/timer/timer.h>
+#include <common/bigsize.h>
 #include <common/channel_id.h>
 #include <common/crypto_state.h>
 #include <common/node_id.h>
@@ -110,6 +111,15 @@ struct peer {
 	bool dev_read_enabled;
 	/* If non-NULL, this counts down; 0 means disable */
 	u32 *dev_writes_enabled;
+
+	/* Are there outstanding responses for queries on short_channel_ids? */
+	const struct short_channel_id *scid_queries;
+	const bigsize_t *scid_query_flags;
+	size_t scid_query_idx;
+
+	/* Are there outstanding node_announcements from scid_queries? */
+	struct node_id *scid_query_nodes;
+	size_t scid_query_nodes_idx;
 };
 
 /*~ The HTABLE_DEFINE_TYPE() macro needs a keyof() function to extract the key:

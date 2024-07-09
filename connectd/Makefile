@@ -7,6 +7,7 @@ CONNECTD_HEADERS := connectd/connectd_wiregen.h		\
 	connectd/handshake.h				\
 	connectd/gossip_store.h				\
 	connectd/gossip_rcvd_filter.h			\
+	connectd/queries.h				\
 	connectd/multiplex.h				\
 	connectd/netaddress.h				\
 	connectd/onion_message.h			\
@@ -50,6 +51,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/cryptomsg.o			\
 	common/daemon.o				\
 	common/daemon_conn.o			\
+	common/decode_array.o			\
 	common/derive_basepoints.o		\
 	common/dev_disconnect.o			\
 	common/ecdh_hsmd.o			\
