@@ -28,8 +28,6 @@ msgdata,onchaind_init,local_scriptpubkey,u8,local_scriptpubkey_len
 msgdata,onchaind_init,remote_scriptpubkey_len,u16,
 msgdata,onchaind_init,remote_scriptpubkey,u8,remote_scriptpubkey_len
 msgdata,onchaind_init,ourwallet_index,u32,
-msgdata,onchaind_init,ourwallet_ext_key,ext_key,
-msgdata,onchaind_init,ourwallet_pubkey,pubkey,
 # We need these two for commit number obscurer
 msgdata,onchaind_init,opener,enum side,
 msgdata,onchaind_init,local_basepoints,basepoints,
