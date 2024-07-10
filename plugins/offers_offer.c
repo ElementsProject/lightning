@@ -7,6 +7,7 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/overflows.h>
+#include <plugins/offers.h>
 #include <plugins/offers_offer.h>
 #include <sodium/randombytes.h>
 
