@@ -14,7 +14,6 @@
 #include <common/onion_message.h>
 #include <common/overflows.h>
 #include <errno.h>
-#include <plugins/establish_onion_path.h>
 #include <plugins/offers.h>
 #include <plugins/offers_invreq_hook.h>
 #include <secp256k1_schnorrsig.h>
@@ -22,7 +21,10 @@
 
 /* We need to keep the reply path around so we can reply with invoice */
 struct invreq {
+	/* The invoice request we're replying to */
 	struct tlv_invoice_request *invreq;
+
+	/* They reply path they told us to use */
 	struct blinded_path *reply_path;
 
 	/* The offer id */
@@ -968,14 +970,34 @@ static struct command_result *listoffers_done(struct command *cmd,
 	return handle_amount_and_recurrence(cmd, ir, amt);
 }
 
-static struct command_result *invoice_request_path_done(struct command *cmd,
-							const struct pubkey *path,
-							struct invreq *ir)
+struct command_result *handle_invoice_request(struct command *cmd,
+					      const u8 *invreqbin,
+					      struct blinded_path *reply_path)
 {
 	struct out_req *req;
 	int bad_feature;
+	size_t len = tal_count(invreqbin);
+	const u8 *cursor = invreqbin;
+	struct invreq *ir = tal(cmd, struct invreq);
 
-	/* Now we can send error replies, because we will have connected. */
+	ir->reply_path = tal_steal(ir, reply_path);
+
+	ir->invreq = fromwire_tlv_invoice_request(cmd, &cursor, &len);
+
+	/* BOLT-offers #12:
+	 * The reader:
+	 * ...
+	 *  - MUST fail the request if any non-signature TLV fields greater or
+	 *    equal to 160.
+	 */
+	/* BOLT-offers #12:
+	 * Each form is signed using one or more *signature TLV elements*:
+	 * TLV types 240 through 1000 (inclusive)
+	 */
+	if (tlv_span(invreqbin, 0, 159, NULL)
+	    + tlv_span(invreqbin, 240, 1000, NULL) != tal_bytelen(invreqbin))
+		return fail_invreq(cmd, ir, "Fields beyond 160");
+
 	if (!ir->invreq) {
 		return fail_invreq(cmd, ir, "Invalid invreq");
 	}
@@ -1045,58 +1067,4 @@ static struct command_result *invoice_request_path_done(struct command *cmd,
 				    listoffers_done, error, ir);
 	json_add_sha256(req->js, "offer_id", &ir->offer_id);
 	return send_outreq(cmd->plugin, req);
-}
-
-static struct command_result *invoice_request_path_fail(struct command *cmd,
-							const char *why,
-							struct invreq *ir)
-{
-	plugin_log(cmd->plugin, LOG_DBG,
-		   "invoice_request path to %s failed: %s",
-		   fmt_sciddir_or_pubkey(tmpctx, &ir->reply_path->first_node_id),
-		   why);
-
-	return command_hook_success(cmd);
-}
-
-struct command_result *handle_invoice_request(struct command *cmd,
-					      const u8 *invreqbin,
-					      struct blinded_path *reply_path)
-{
-	size_t len = tal_count(invreqbin);
-	const u8 *cursor = invreqbin;
-	struct invreq *ir = tal(cmd, struct invreq);
-
-	ir->reply_path = tal_steal(ir, reply_path);
-
-	ir->invreq = fromwire_tlv_invoice_request(cmd, &cursor, &len);
-
-	/* BOLT-offers #12:
-	 * The reader:
-	 * ...
-	 *  - MUST fail the request if any non-signature TLV fields greater or
-	 *    equal to 160.
-	 */
-	/* BOLT-offers #12:
-	 * Each form is signed using one or more *signature TLV elements*:
-	 * TLV types 240 through 1000 (inclusive)
-	 */
-	if (tlv_span(invreqbin, 0, 159, NULL)
-	    + tlv_span(invreqbin, 240, 1000, NULL) != tal_bytelen(invreqbin))
-		return fail_invreq(cmd, ir, "Fields beyond 160");
-
-	/* If they give us an sciddir, we need to convert now, to connect */
-	if (!reply_path->first_node_id.is_pubkey
-	    && !convert_to_scidd(cmd, &reply_path->first_node_id)) {
-		return fail_invreq(cmd, ir, "first_node_id %s not found",
-				   fmt_sciddir_or_pubkey(tmpctx, &reply_path->first_node_id));
-	}
-
-	/* Before any failure, make sure we can reach first node! */
-	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &id,
-				    &reply_path->first_node_id.pubkey,
-				    disable_connect,
-				    invoice_request_path_done,
-				    invoice_request_path_fail,
-				    ir);
 }
