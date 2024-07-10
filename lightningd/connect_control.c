@@ -806,11 +806,39 @@ static void connect_activate_done(struct subd *connectd,
 	io_break(connectd);
 }
 
+void tell_connectd_scid(struct lightningd *ld,
+			struct short_channel_id scid,
+			const struct node_id *peer_id)
+{
+	subd_send_msg(ld->connectd,
+		      take(towire_connectd_scid_map(NULL,
+						    scid,
+						    peer_id)));
+}
+
 void connectd_activate(struct lightningd *ld)
 {
 	void *ret;
-	const u8 *msg = towire_connectd_activate(NULL, ld->listen);
+	const u8 *msg;
+	struct peer *peer;
+	struct channel *channel;
+	struct peer_node_id_map_iter it;
 
+	/* Tell connectd about all aliases/scids for known peers */
+	for (peer = peer_node_id_map_first(ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(ld->peers, &it)) {
+		list_for_each(&peer->channels, channel, list) {
+			if (channel->alias[LOCAL])
+				tell_connectd_scid(ld, *channel->alias[LOCAL], &peer->id);
+			if (channel->scid &&
+			    (channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)) {
+				tell_connectd_scid(ld, *channel->scid, &peer->id);
+			}
+		}
+	}
+
+	msg = towire_connectd_activate(NULL, ld->listen);
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_activate_done, NULL);
 

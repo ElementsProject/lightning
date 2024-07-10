@@ -1049,6 +1049,11 @@ static enum watch_result opening_depth_cb(struct lightningd *ld,
 		wallet_channel_save(ld->wallet, inflight->channel);
 	}
 
+	/* Tell connectd it can forward onion messages via this scid (ok if redundant!) */
+	if (inflight->channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
+		tell_connectd_scid(ld, *inflight->channel->scid,
+				   &inflight->channel->peer->id);
+
 	if (depth >= inflight->channel->minimum_depth)
 		update_channel_from_inflight(ld, inflight->channel, inflight);
 
