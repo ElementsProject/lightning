@@ -4703,7 +4703,8 @@ def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     """We should autoconnect if we need to, to route."""
 
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
-                                     opts=[{},
+                                     # No onion_message support in l1
+                                     opts=[{'dev-force-features': -39},
                                            {'experimental-offers': None,
                                             'dev-allow-localhost': None}])
 

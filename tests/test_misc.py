@@ -2372,6 +2372,7 @@ def test_list_features_only(node_factory):
                 'option_anchors/odd',
                 'option_route_blinding/odd',
                 'option_shutdown_anysegwit/odd',
+                'option_onion_messages/odd',
                 'option_channel_type/odd',
                 'option_scid_alias/odd',
                 'option_zeroconf/odd']
