@@ -50,6 +50,8 @@ static struct command_result *connect_direct(struct command *cmd,
 		return ci->fail(cmd, "fetchinvoice-noconnect set: not initiating a new connection",
 				ci->arg);
 	}
+	plugin_log(cmd->plugin, LOG_DBG, "connecting directly to %s",
+		   fmt_pubkey(tmpctx, &ci->dst));
 
 	req = jsonrpc_request_start(cmd->plugin, cmd,
 				    "connect", connect_ok, command_failed, ci);
@@ -64,20 +66,69 @@ static bool can_carry_onionmsg(const struct gossmap *map,
 			       void *arg UNUSED)
 {
 	const struct gossmap_node *n;
-	/* Don't use it if either side says it's disabled */
-	if (!c->half[dir].enabled || !c->half[!dir].enabled)
-		return false;
+
+	/* Our local additions are always fine, since we checked features then */
+	if (gossmap_chan_is_localmod(map, c))
+		return true;
 
 	/* Check features of recipient */
 	n = gossmap_nth_node(map, c, !dir);
 	return gossmap_node_get_feature(map, n, OPT_ONION_MESSAGES) != -1;
 }
 
+/* We add fake channels to gossmap to represent current outgoing connections.
+ * This allows dijkstra to find transient connections as well. */
+static struct gossmap_localmods *
+gossmods_from_listpeers(const tal_t *ctx,
+			struct command *cmd,
+			const struct node_id *self,
+			const char *buf,
+			const jsmntok_t *toks)
+{
+	struct gossmap_localmods *mods = gossmap_localmods_new(ctx);
+	const jsmntok_t *peers, *peer;
+	size_t i;
+
+	peers = json_get_member(buf, toks, "peers");
+	json_for_each_arr(i, peer, peers) {
+		bool connected;
+		struct node_id peer_id;
+		const char *err;
+		u8 *features = NULL;
+		struct short_channel_id fake_scid;
+
+		err = json_scan(tmpctx, buf, peer,
+				"{connected:%,"
+				"id:%,"
+				"features?:%}",
+				JSON_SCAN(json_to_bool, &connected),
+				JSON_SCAN(json_to_node_id, &peer_id),
+				JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &features));
+		if (err) {
+			plugin_err(cmd->plugin, "Bad listpeers.peers %zu: %s", i, err);
+		}
+
+		if (!connected || !feature_offered(features, OPT_ONION_MESSAGES))
+			continue;
+
+		/* Add a fake channel */
+		fake_scid.u64 = i;
+
+		gossmap_local_addchan(mods, self, &peer_id, fake_scid, NULL);
+		gossmap_local_updatechan(mods, fake_scid,
+					 AMOUNT_MSAT(0),
+					 AMOUNT_MSAT(0),
+					 0, 0, 0, true, node_id_idx(self, &peer_id));
+	}
+	return mods;
+}
+
 static const struct pubkey *path_to_node(const tal_t *ctx,
+					 struct command *cmd,
 					 struct gossmap *gossmap,
 					 struct plugin *plugin,
 					 const char *buf,
-					 const jsmntok_t *listpeerchannels,
+					 const jsmntok_t *listpeers,
 					 const struct pubkey *local_id,
 					 const struct pubkey *dst_key)
 {
@@ -91,8 +142,7 @@ static const struct pubkey *path_to_node(const tal_t *ctx,
 
 	node_id_from_pubkey(&local_nodeid, local_id);
 	node_id_from_pubkey(&dst_nodeid, dst_key);
-	mods = gossmods_from_listpeerchannels(tmpctx, &local_nodeid, buf, listpeerchannels,
-					      false, gossmod_add_localchan, NULL);
+	mods = gossmods_from_listpeers(tmpctx, cmd, &local_nodeid, buf, listpeers);
 
 	gossmap_apply_localmods(gossmap, mods);
 	dst = gossmap_find_node(gossmap, &dst_nodeid);
@@ -113,11 +163,16 @@ static const struct pubkey *path_to_node(const tal_t *ctx,
 
 	nodes = tal_arr(ctx, struct pubkey, tal_count(r) + 1);
 	nodes[0] = *local_id;
+	plugin_log(plugin, LOG_DBG, "Found path to %s: %s(us)",
+		   fmt_node_id(tmpctx, &dst_nodeid),
+		   fmt_pubkey(tmpctx, local_id));
 	for (size_t i = 0; i < tal_count(r); i++) {
 		if (!pubkey_from_node_id(&nodes[i+1], &r[i].node_id)) {
 			plugin_err(plugin, "Could not convert nodeid %s",
 				   fmt_node_id(tmpctx, &r[i].node_id));
 		}
+		plugin_log(plugin, LOG_DBG, "-> %s",
+			   fmt_node_id(tmpctx, &r[i].node_id));
 	}
 
 	gossmap_remove_localmods(gossmap, mods);
@@ -128,14 +183,15 @@ fail:
 	return NULL;
 }
 
-static struct command_result *listpeerchannels_done(struct command *cmd,
-						    const char *buf,
-						    const jsmntok_t *result,
-						    struct connect_info *ci)
+static struct command_result *listpeers_done(struct command *cmd,
+					     const char *buf,
+					     const jsmntok_t *result,
+					     struct connect_info *ci)
 {
 	const struct pubkey *path;
 
-	path = path_to_node(tmpctx, ci->gossmap, cmd->plugin, buf, result,
+	path = path_to_node(tmpctx, cmd,
+			    ci->gossmap, cmd->plugin, buf, result,
 			    &ci->local_id, &ci->dst);
 	if (!path)
 		return connect_direct(cmd, ci);
@@ -167,8 +223,9 @@ struct command_result *establish_onion_path_(struct command *cmd,
 	ci->connect_disable = connect_disable;
 	ci->gossmap = gossmap;
 
-	req = jsonrpc_request_start(cmd->plugin, cmd, "listpeerchannels",
-				    listpeerchannels_done,
+	/* We use listpeers here: we don't actually care about channels, just connections! */
+	req = jsonrpc_request_start(cmd->plugin, cmd, "listpeers",
+				    listpeers_done,
 				    command_failed,
 				    ci);
 	return send_outreq(cmd->plugin, req);
