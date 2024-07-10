@@ -1864,6 +1864,26 @@ static void peer_send_msg(struct io_conn *conn,
 		inject_peer_msg(peer, take(sendmsg));
 }
 
+/* lightningd tells us about a new short_channel_id for a peer. */
+static void add_scid_map(struct daemon *daemon, const u8 *msg)
+{
+	struct scid_to_node_id *scid_to_node_id, *old;
+
+	scid_to_node_id = tal(daemon->scid_htable, struct scid_to_node_id);
+	if (!fromwire_connectd_scid_map(msg,
+					&scid_to_node_id->scid,
+					&scid_to_node_id->node_id))
+		master_badmsg(WIRE_CONNECTD_SCID_MAP, msg);
+
+	/* Make sure we clean up any old entries */
+	old = scid_htable_get(daemon->scid_htable, scid_to_node_id->scid);
+	if (old) {
+		scid_htable_del(daemon->scid_htable, old);
+		tal_free(old);
+	}
+	scid_htable_add(daemon->scid_htable, scid_to_node_id);
+}
+
 static void dev_connect_memleak(struct daemon *daemon, const u8 *msg)
 {
 	struct htable *memtable;
@@ -1875,6 +1895,7 @@ static void dev_connect_memleak(struct daemon *daemon, const u8 *msg)
 	/* Now delete daemon and those which it has pointers to. */
 	memleak_scan_obj(memtable, daemon);
 	memleak_scan_htable(memtable, &daemon->peers->raw);
+	memleak_scan_htable(memtable, &daemon->scid_htable->raw);
 
 	found_leak = dump_memleak(memtable, memleak_status_broken, NULL);
 	daemon_conn_send(daemon->master,
@@ -2178,6 +2199,10 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		inject_onionmsg_req(daemon, msg);
 		goto out;
 
+	case WIRE_CONNECTD_SCID_MAP:
+		add_scid_map(daemon, msg);
+		goto out;
+
 	case WIRE_CONNECTD_DEV_MEMLEAK:
 		if (daemon->developer) {
 			dev_connect_memleak(daemon, msg);
@@ -2306,6 +2331,8 @@ int main(int argc, char *argv[])
 	daemon->dev_exhausted_fds = false;
 	/* We generally allow 1MB per second per peer, except for dev testing */
 	daemon->gossip_stream_limit = 1000000;
+	daemon->scid_htable = tal(daemon, struct scid_htable);
+	scid_htable_init(daemon->scid_htable);
 
 	/* stdin == control */
 	daemon->master = daemon_conn_new(daemon, STDIN_FILENO, recv_req, NULL,
