@@ -14,6 +14,7 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/onion_message.h>
 #include <common/overflows.h>
 #include <common/route.h>
 #include <errno.h>
@@ -405,201 +406,62 @@ static struct command_result *param_offer(struct command *cmd,
 	return NULL;
 }
 
-/* Marshal arguments for sending onion messages */
-struct sending {
-	struct sent *sent;
-	struct tlv_onionmsg_tlv *payload;
-	struct command_result *(*done)(struct command *cmd,
-				       const char *buf UNUSED,
-				       const jsmntok_t *result UNUSED,
-				       struct sent *sent);
-};
-
-static struct command_result *
-send_modern_message(struct command *cmd,
-		    struct blinded_path *reply_path,
-		    struct sending *sending)
+static struct blinded_path *make_reply_path(const tal_t *ctx,
+					    const struct sent *sent,
+					    struct secret *reply_secret)
 {
-	struct sent *sent = sending->sent;
-	struct privkey blinding_iter;
-	struct pubkey fwd_blinding, *node_alias;
-	size_t nhops = tal_count(sent->path);
-	struct tlv_onionmsg_tlv **payloads;
-	struct out_req *req;
-	struct tlv_encrypted_data_tlv *tlv;
-
-	/* Now create enctlvs for *forward* path. */
-	randombytes_buf(&blinding_iter, sizeof(blinding_iter));
-	if (!pubkey_from_privkey(&blinding_iter, &fwd_blinding))
-		return command_fail(cmd, LIGHTNINGD,
-				    "Could not convert blinding %s to pubkey!",
-				    fmt_privkey(tmpctx, &blinding_iter));
-
-	/* We overallocate: this node (0) doesn't have payload or alias */
-	payloads = tal_arr(cmd, struct tlv_onionmsg_tlv *, nhops);
-	node_alias = tal_arr(cmd, struct pubkey, nhops);
-
-	for (size_t i = 1; i < nhops - 1; i++) {
-		payloads[i] = tlv_onionmsg_tlv_new(payloads);
-
-		tlv = tlv_encrypted_data_tlv_new(tmpctx);
-		tlv->next_node_id = cast_const(struct pubkey *,
-					       &sent->path[i+1]);
-		/* FIXME: Pad? */
-
-		payloads[i]->encrypted_recipient_data
-			= encrypt_tlv_encrypted_data(payloads[i],
-						     &blinding_iter,
-						     &sent->path[i],
-						     tlv,
-						     &blinding_iter,
-						     &node_alias[i]);
-	}
-	/* Final payload contains the actual data. */
-	payloads[nhops-1] = sending->payload;
-
-	/* We don't include enctlv in final, but it gives us final alias */
-	tlv = tlv_encrypted_data_tlv_new(tmpctx);
-	if (!encrypt_tlv_encrypted_data(tmpctx,
-					&blinding_iter,
-					&sent->path[nhops-1],
-					tlv,
-					NULL,
-					&node_alias[nhops-1])) {
-		/* Should not happen! */
-		return command_fail(cmd, LIGHTNINGD,
-				    "Could create final enctlv");
-	}
-
-	payloads[nhops-1]->reply_path = reply_path;
-
-	req = jsonrpc_request_start(cmd->plugin, cmd, "sendonionmessage",
-				    sending->done,
-				    forward_error,
-				    sending->sent);
-	json_add_pubkey(req->js, "first_id", &sent->path[1]);
-	json_add_pubkey(req->js, "blinding", &fwd_blinding);
-	json_array_start(req->js, "hops");
-	for (size_t i = 1; i < nhops; i++) {
-		u8 *tlvbin;
-		json_object_start(req->js, NULL);
-		json_add_pubkey(req->js, "id", &node_alias[i]);
-		tlvbin = tal_arr(tmpctx, u8, 0);
-		towire_tlv_onionmsg_tlv(&tlvbin, payloads[i]);
-		json_add_hex_talarr(req->js, "tlv", tlvbin);
-		json_object_end(req->js);
-	}
-	json_array_end(req->js);
-	return send_outreq(cmd->plugin, req);
-}
-
-static struct blinded_path *blinded_path(const tal_t *ctx,
-					 struct command *cmd,
-					 const struct pubkey *ids,
-					 const struct short_channel_id_dir *first_scidd,
-					 const struct secret *pathsecret)
-{
-	struct privkey first_blinding, blinding_iter;
-	struct blinded_path *path;
-	size_t nhops;
-	struct tlv_encrypted_data_tlv *tlv;
-
-	path = tal(ctx, struct blinded_path);
-	nhops = tal_count(ids);
-
-	assert(nhops > 0);
-	if (first_scidd)
-		sciddir_or_pubkey_from_scidd(&path->first_node_id, first_scidd);
-	else
-		sciddir_or_pubkey_from_pubkey(&path->first_node_id, &ids[0]);
-	assert(pubkey_eq(&ids[nhops-1], &id));
-
-	randombytes_buf(&first_blinding, sizeof(first_blinding));
-	if (!pubkey_from_privkey(&first_blinding, &path->blinding))
-		plugin_err(cmd->plugin, "Could not convert blinding to pubkey!");
-
-	/* We convert ids into aliases as we go. */
-	path->path = tal_arr(cmd, struct onionmsg_hop *, nhops);
-
-	blinding_iter = first_blinding;
-	for (size_t i = 0; i < nhops - 1; i++) {
-		path->path[i] = tal(path->path, struct onionmsg_hop);
-
-		tlv = tlv_encrypted_data_tlv_new(tmpctx);
-		tlv->next_node_id = cast_const(struct pubkey *, &ids[i+1]);
-		/* FIXME: Pad? */
-
-		path->path[i]->encrypted_recipient_data
-			= encrypt_tlv_encrypted_data(path->path[i],
-						     &blinding_iter,
-						     &ids[i],
-						     tlv,
-						     &blinding_iter,
-						     &path->path[i]->blinded_node_id);
-	}
-
-	/* FIXME: Add padding! */
-	path->path[nhops-1] = tal(path->path, struct onionmsg_hop);
-
-	tlv = tlv_encrypted_data_tlv_new(tmpctx);
-
-	tlv->path_id = (u8 *)tal_dup(tlv, struct secret, pathsecret);
-	path->path[nhops-1]->encrypted_recipient_data
-		= encrypt_tlv_encrypted_data(path->path[nhops-1],
-					     &blinding_iter,
-					     &ids[nhops-1],
-					     tlv,
-					     NULL,
-					     &path->path[nhops-1]->blinded_node_id);
-	return path;
-}
-
-static struct command_result *make_reply_path(struct command *cmd,
-					      struct sending *sending)
-{
-	size_t nhops = tal_count(sending->sent->path);
-	struct blinded_path *rpath;
 	struct pubkey *ids;
 
 	/* FIXME: Maybe we should allow this? */
-	if (tal_count(sending->sent->path) == 1)
-		return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
-				    "Refusing to talk to ourselves");
+	if (tal_count(sent->path) == 1)
+		return NULL;
 
-	/* Create transient secret so we can validate reply! */
-	sending->sent->reply_secret = tal(sending->sent, struct secret);
-	randombytes_buf(sending->sent->reply_secret, sizeof(struct secret));
+	randombytes_buf(reply_secret, sizeof(struct secret));
 
-	if (sending->sent->dev_reply_path) {
-		ids = sending->sent->dev_reply_path;
+	if (sent->dev_reply_path) {
+		ids = sent->dev_reply_path;
 	} else {
+		size_t nhops = tal_count(sent->path);
 		/* FIXME: Could create an independent reply path, not just
 		 * reverse existing. */
 		ids = tal_arr(tmpctx, struct pubkey, nhops - 1);
 		for (int i = nhops - 2; i >= 0; i--)
-			ids[nhops - 2 - i] = sending->sent->path[i];
+			ids[nhops - 2 - i] = sent->path[i];
 	}
 
-	rpath = blinded_path(cmd, cmd, ids, sending->sent->dev_path_use_scidd,
-			     sending->sent->reply_secret);
-	return send_modern_message(cmd, rpath, sending);
+
+	/* Reply path */
+	return incoming_message_blinded_path(ctx, ids, NULL, reply_secret);
 }
 
 static struct command_result *send_message(struct command *cmd,
 					   struct sent *sent,
-					   struct tlv_onionmsg_tlv *payload STEALS,
+					   struct tlv_onionmsg_tlv *final_tlv,
 					   struct command_result *(*done)
 					   (struct command *cmd,
 					    const char *buf UNUSED,
 					    const jsmntok_t *result UNUSED,
 					    struct sent *sent))
 {
-	struct sending *sending = tal(cmd, struct sending);
-	sending->sent = sent;
-	sending->payload = tal_steal(sending, payload);
-	sending->done = done;
+	struct onion_message *omsg;
 
-	return make_reply_path(cmd, sending);
+	/* Create transient secret so we can validate reply! */
+	sent->reply_secret = tal(sent, struct secret);
+
+	/* Add reply path to final_tlv (it already contains invoice_request/invoice) */
+	final_tlv->reply_path = make_reply_path(final_tlv, sent, sent->reply_secret);
+	if (!final_tlv->reply_path)
+		return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
+				    "Refusing to talk to ourselves");
+
+	/* Replace first hop with scidd if they said to */
+	if (sent->dev_path_use_scidd)
+		sciddir_or_pubkey_from_scidd(&final_tlv->reply_path->first_node_id,
+					     sent->dev_path_use_scidd);
+
+	/* FIXME: use their blinded path if they supplied one! */
+	omsg = outgoing_onion_message(tmpctx, sent->path, NULL, NULL, final_tlv);
+	return inject_onionmessage(cmd, omsg, done, forward_error, sent);
 }
 
 /* We've received neither a reply nor a payment; return failure. */
