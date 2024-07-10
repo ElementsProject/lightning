@@ -608,6 +608,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_PEER_CONNECT_SUBD:
 	case WIRE_CONNECTD_PING:
 	case WIRE_CONNECTD_SEND_ONIONMSG:
+	case WIRE_CONNECTD_INJECT_ONIONMSG:
 	case WIRE_CONNECTD_CUSTOMMSG_OUT:
 	case WIRE_CONNECTD_START_SHUTDOWN:
 	case WIRE_CONNECTD_SET_CUSTOMMSGS:
@@ -619,6 +620,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_DEV_MEMLEAK_REPLY:
 	case WIRE_CONNECTD_PING_REPLY:
 	case WIRE_CONNECTD_START_SHUTDOWN_REPLY:
+	case WIRE_CONNECTD_INJECT_ONIONMSG_REPLY:
 		break;
 
 	case WIRE_CONNECTD_PEER_CONNECTED:

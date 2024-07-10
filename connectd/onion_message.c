@@ -1,6 +1,7 @@
 /*~ This contains all the code to handle onion messages. */
 #include "config.h"
 #include <ccan/cast/cast.h>
+#include <ccan/tal/str/str.h>
 #include <common/blindedpath.h>
 #include <common/blinding.h>
 #include <common/daemon_conn.h>
@@ -35,12 +36,11 @@ void onionmsg_req(struct daemon *daemon, const u8 *msg)
 	}
 }
 
-/* Peer sends an onion msg. */
-void handle_onion_message(struct daemon *daemon,
-			  struct peer *peer, const u8 *msg)
+static const char *handle_onion(const tal_t *ctx,
+				struct daemon *daemon,
+				const struct pubkey *blinding,
+				const u8 *onion)
 {
-	struct pubkey blinding;
-	u8 *onion;
 	u8 *next_onion_msg;
 	struct pubkey next_node;
 	struct tlv_onionmsg_tlv *final_om;
@@ -48,26 +48,12 @@ void handle_onion_message(struct daemon *daemon,
 	struct secret *final_path_id;
 	const char *err;
 
-	/* Ignore unless explicitly turned on. */
-	if (!feature_offered(daemon->our_features->bits[NODE_ANNOUNCE_FEATURE],
-			     OPT_ONION_MESSAGES))
-		return;
-
-	/* FIXME: ratelimit! */
-	if (!fromwire_onion_message(msg, msg, &blinding, &onion)) {
-		inject_peer_msg(peer,
-				towire_warningfmt(NULL, NULL,
-						  "Bad onion_message"));
-		return;
-	}
-
-	err = onion_message_parse(tmpctx, onion, &blinding,
+	err = onion_message_parse(tmpctx, onion, blinding,
 				  &daemon->mykey,
 				  &next_onion_msg, &next_node,
 				  &final_om, &final_alias, &final_path_id);
 	if (err) {
-		status_peer_debug(&peer->id, "%s", err);
-		return;
+		return tal_steal(ctx, err);
 	}
 
 	if (final_om) {
@@ -91,12 +77,50 @@ void handle_onion_message(struct daemon *daemon,
 		node_id_from_pubkey(&next_node_id, &next_node);
 		next_peer = peer_htable_get(daemon->peers, &next_node_id);
 		if (!next_peer) {
-			status_peer_debug(&peer->id,
-					  "onion msg: unknown next peer %s",
-					  fmt_pubkey(tmpctx, &next_node));
-			return;
+			return tal_fmt(ctx, "onion msg: unknown next peer %s",
+				       fmt_pubkey(tmpctx, &next_node));
 		}
 		inject_peer_msg(next_peer, take(next_onion_msg));
 	}
+	return NULL;
 }
+
+
+/* Peer sends an onion msg, or (if peer NULL) lightningd injects one. */
+void handle_onion_message(struct daemon *daemon,
+			  struct peer *peer, const u8 *msg)
+{
+	struct pubkey blinding;
+	u8 *onion;
+
+	/* Ignore unless explicitly turned on. */
+	if (!feature_offered(daemon->our_features->bits[NODE_ANNOUNCE_FEATURE],
+			     OPT_ONION_MESSAGES))
+		return;
+
+	/* FIXME: ratelimit! */
+	if (!fromwire_onion_message(msg, msg, &blinding, &onion)) {
+		inject_peer_msg(peer,
+				towire_warningfmt(NULL, NULL,
+						  "Bad onion_message"));
+		return;
+	}
+
+	handle_onion(tmpctx, daemon, &blinding, onion);
+}
+
+void inject_onionmsg_req(struct daemon *daemon, const u8 *msg)
+{
+	u8 *onionmsg;
+	struct pubkey blinding;
+	const char *err;
+
+	if (!fromwire_connectd_inject_onionmsg(msg, msg, &blinding, &onionmsg))
+		master_badmsg(WIRE_CONNECTD_INJECT_ONIONMSG, msg);
+
+	err = handle_onion(tmpctx, daemon, &blinding, onionmsg);
+	daemon_conn_send(daemon->master,
+			 take(towire_connectd_inject_onionmsg_reply(NULL, err ? err : "")));
+}
+
 
