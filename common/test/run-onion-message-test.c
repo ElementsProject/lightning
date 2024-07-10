@@ -371,12 +371,12 @@ int main(int argc, char *argv[])
 
 		/* For test_ecdh */
 		mykey = &privkey[i];
-		assert(onion_message_parse(tmpctx, onion_message_packet, &blinding_pub, NULL,
+		assert(onion_message_parse(tmpctx, onion_message_packet, &blinding_pub,
 					   &id[i],
 					   &onion_message, &next_node_id,
 					   &final_om,
 					   &final_alias,
-					   &final_path_id));
+					   &final_path_id) == NULL);
 		if (onion_message) {
 			json_pubkey("next_node_id", &next_node_id);
 		} else {
