@@ -40,7 +40,7 @@ static bool decrypt_final_onionmsg(const tal_t *ctx,
 static bool decrypt_forwarding_onionmsg(const struct pubkey *blinding,
 					const struct secret *ss,
 					const u8 *enctlv,
-					struct pubkey *next_node,
+					struct sciddir_or_pubkey *next_node,
 					struct pubkey *next_blinding)
 {
 	struct tlv_encrypted_data_tlv *encmsg;
@@ -58,14 +58,27 @@ static bool decrypt_forwarding_onionmsg(const struct pubkey *blinding,
 	if (encmsg->path_id)
 		return false;
 
-	/* BOLT #4:
-	 * - SHOULD forward the message using `onion_message` to the next peer
-	 *   indicated by `next_node_id`.
+	/* BOLT-offers #4:
+	 * - if it is not the final node according to the onion encryption:
+	 *...
+	 *    - if `next_node_id` is present:
+	 *      - the *next peer* is the peer with that node id.
+	 *    - otherwise, if `short_channel_id` is present and corresponds to an announced short_channel_id or a local alias for a channel:
+	 *      - the *next peer* is the peer at the other end of that channel.
+	 *    - otherwise:
+	 *      - MUST ignore the message.
 	 */
-	if (!encmsg->next_node_id)
+	if (encmsg->next_node_id)
+		sciddir_or_pubkey_from_pubkey(next_node, encmsg->next_node_id);
+	else if (encmsg->short_channel_id) {
+		/* This is actually scid, not sciddir, but the type is convenient! */
+		struct short_channel_id_dir scidd;
+		scidd.scid = *encmsg->short_channel_id;
+		scidd.dir = 0;
+		sciddir_or_pubkey_from_scidd(next_node, &scidd);
+	} else
 		return false;
 
-	*next_node = *encmsg->next_node_id;
 	blindedpath_next_blinding(encmsg, blinding, ss, next_blinding);
 	return true;
 }
@@ -76,7 +89,7 @@ const char *onion_message_parse(const tal_t *ctx,
 				const struct pubkey *blinding,
 				const struct pubkey *me,
 				u8 **next_onion_msg,
-				struct pubkey *next_node_id,
+				struct sciddir_or_pubkey *next_node,
 				struct tlv_onionmsg_tlv **final_om,
 				struct pubkey *final_alias,
 				struct secret **final_path_id)
@@ -161,7 +174,7 @@ const char *onion_message_parse(const tal_t *ctx,
 		}
 
 		/* This fails as expected if no enctlv. */
-		if (!decrypt_forwarding_onionmsg(blinding, &ss, om->encrypted_recipient_data, next_node_id,
+		if (!decrypt_forwarding_onionmsg(blinding, &ss, om->encrypted_recipient_data, next_node,
 						 &next_blinding)) {
 			return tal_fmt(ctx,
 				       "onion_message_parse: invalid encrypted_recipient_data %s",

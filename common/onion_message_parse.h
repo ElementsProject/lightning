@@ -5,7 +5,7 @@
 #include <common/amount.h>
 
 struct tlv_onionmsg_tlv;
-struct node_id;
+struct sciddir_or_pubkey;
 struct pubkey;
 
 /**
@@ -15,7 +15,7 @@ struct pubkey;
  * @blinding: Blinding we were given for @onion_message_packet
  * @me: my pubkey
  * @next_onion_msg (out): set if we should forward, otherwise NULL.
- * @next_node_id (out): set to node id to fwd to, iff *@next_onion_msg.
+ * @next_node (out): set to node id or scid to fwd to, iff *@next_onion_msg.
  * @final_om (out): set if we're the final hop, otherwise NULL.
  * @final_alias (out): our alias (if *@final_om), or our own ID
  * @final_path_id (out): secret enclosed, if any (iff *@final_om).
@@ -27,7 +27,7 @@ const char *onion_message_parse(const tal_t *ctx,
 				const struct pubkey *blinding,
 				const struct pubkey *me,
 				u8 **next_onion_msg,
-				struct pubkey *next_node_id,
+				struct sciddir_or_pubkey *next_node,
 				struct tlv_onionmsg_tlv **final_om,
 				struct pubkey *final_alias,
 				struct secret **final_path_id);
