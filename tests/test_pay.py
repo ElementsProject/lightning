@@ -5673,6 +5673,24 @@ def test_pay_while_opening_channel(node_factory, bitcoind, executor):
     l1.rpc.pay(inv['bolt11'])
 
 
+def test_offer_paths(node_factory):
+    # Need to announce channels to use their scid in offers anyway!
+    l1, l2, l3 = node_factory.line_graph(3,
+                                         opts={'experimental-offers': None},
+                                         wait_for_announce=True)
+
+    chan = only_one(l1.rpc.listpeerchannels()['channels'])
+    scidd = "{}/{}".format(chan['short_channel_id'], chan['direction'])
+    offer = l2.rpc.offer(amount='100sat', description='test_offer_paths',
+                         dev_paths=[[scidd, l2.info['id']], [l3.info['id'], l2.info['id']]])
+
+    paths = l1.rpc.decode(offer['bolt12'])['offer_paths']
+    assert len(paths) == 2
+    assert paths[0]['first_scid'] == chan['short_channel_id']
+    assert paths[0]['first_scid_dir'] == chan['direction']
+    assert paths[1]['first_node_id'] == l3.info['id']
+
+
 def test_pay_legacy_forward(node_factory, bitcoind, executor):
     """We removed legacy in 22.11, and LND will still send them for
     route hints!  See
