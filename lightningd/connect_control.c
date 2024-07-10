@@ -614,6 +614,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_SET_CUSTOMMSGS:
 	case WIRE_CONNECTD_DEV_EXHAUST_FDS:
 	case WIRE_CONNECTD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
+	case WIRE_CONNECTD_SCID_MAP:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_CONNECTD_INIT_REPLY:
 	case WIRE_CONNECTD_ACTIVATE_REPLY:

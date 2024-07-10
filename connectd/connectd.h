@@ -2,6 +2,7 @@
 #define LIGHTNING_CONNECTD_CONNECTD_H
 #include "config.h"
 #include <bitcoin/pubkey.h>
+#include <bitcoin/short_channel_id.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/timer/timer.h>
@@ -192,6 +193,30 @@ HTABLE_DEFINE_TYPE(struct connecting,
 		   connecting_eq_node_id,
 		   connecting_htable);
 
+struct scid_to_node_id {
+	struct short_channel_id scid;
+	struct node_id node_id;
+};
+
+static struct short_channel_id scid_to_node_id_keyof(const struct scid_to_node_id *scid_to_node_id)
+{
+	return scid_to_node_id->scid;
+}
+
+static bool scid_to_node_id_eq_scid(const struct scid_to_node_id *scid_to_node_id,
+				    const struct short_channel_id scid)
+{
+	return short_channel_id_eq(scid_to_node_id->scid, scid);
+}
+
+/*~ This defines 'struct scid_htable' which maps short_channel_ids to peers:
+ * we use this to forward onion messages which specify the next hop by scid/dir. */
+HTABLE_DEFINE_TYPE(struct scid_to_node_id,
+		   scid_to_node_id_keyof,
+		   short_channel_id_hash,
+		   scid_to_node_id_eq_scid,
+		   scid_htable);
+
 /*~ This is the global state, like `struct lightningd *ld` in lightningd. */
 struct daemon {
 	/* Who am I? */
@@ -222,6 +247,9 @@ struct daemon {
 
 	/* Connection to gossip daemon. */
 	struct daemon_conn *gossipd;
+
+	/* Map of short_channel_ids to peers */
+	struct scid_htable *scid_htable;
 
 	/* Any listening sockets we have. */
 	struct io_listener **listeners;

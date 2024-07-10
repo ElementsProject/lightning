@@ -51,6 +51,11 @@ msgdata,connectd_set_custommsgs,msgnums,u16,len
 msgtype,connectd_activate_reply,2125
 msgdata,connectd_activate_reply,failmsg,?wirestring,
 
+# lightningd -> connectd: here's an SCID->peer mapping for onion messages
+msgtype,connectd_scid_map,2024
+msgdata,connectd_scid_map,scid,short_channel_id,
+msgdata,connectd_scid_map,node_id,node_id,
+
 # Master -> connectd: connect to a peer.
 msgtype,connectd_connect_to_peer,2001
 msgdata,connectd_connect_to_peer,id,node_id,
