@@ -209,7 +209,8 @@ static struct command_result *listinvreqs_error(struct command *cmd,
 
 struct command_result *handle_invoice(struct command *cmd,
 				      const u8 *invbin,
-				      struct blinded_path *reply_path STEALS)
+				      struct blinded_path *reply_path STEALS,
+				      const struct secret *secret)
 {
 	size_t len = tal_count(invbin);
 	struct inv *inv = tal(cmd, struct inv);
@@ -226,6 +227,16 @@ struct command_result *handle_invoice(struct command *cmd,
 				tal_hex(tmpctx, invbin));
 	}
 	invoice_invreq_id(inv->inv, &inv->invreq_id);
+
+	/* We never publish invoice_requests with a reply path, so replies via
+	 * a path are invalid */
+	if (secret) {
+		if (command_dev_apis(cmd))
+			return fail_inv(cmd, inv, "Unexpected blinded path");
+		/* Normally, "I don't know what you're talking about!" */
+		return fail_inv(cmd, inv, "Unknown invoice_request %s",
+				fmt_sha256(tmpctx, &inv->invreq_id));
+	}
 
 	/* BOLT-offers #12:
 	 * A reader of an invoice:

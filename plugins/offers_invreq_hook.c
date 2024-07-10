@@ -2,6 +2,7 @@
 #include <bitcoin/chainparams.h>
 #include <bitcoin/preimage.h>
 #include <ccan/cast/cast.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32_util.h>
 #include <common/blindedpath.h>
@@ -35,6 +36,9 @@ struct invreq {
 
 	/* The preimage for the invoice. */
 	struct preimage preimage;
+
+	/* Optional secret. */
+	const struct secret *secret;
 };
 
 static struct command_result *WARN_UNUSED_RESULT
@@ -820,7 +824,50 @@ static struct command_result *listoffers_done(struct command *cmd,
 	if (arr->size == 0)
 		return fail_invreq(cmd, ir, "Unknown offer");
 
+	/* Now, since we looked up by hash, we know that the entire offer
+	 * is faithfully mirrored in this invreq. */
+
+	/* BOLT-offers #4:
+	 *
+	 * The final recipient:
+	 *...
+	 * - MUST ignore the message if the `path_id` does not match
+	 * the blinded route it created
+	 */
 	offertok = arr + 1;
+	if (ir->secret) {
+		struct sha256 offer_id;
+		const u8 *blinding_path_secret;
+		struct blinded_path **offer_paths;
+
+		if (!ir->invreq->offer_paths) {
+			/* You should not have used a blinded path for invreq */
+			if (command_dev_apis(cmd))
+				return fail_invreq(cmd, ir, "Unexpected blinded path");
+			return fail_invreq(cmd, ir, "Unknown offer");
+		}
+		/* We generated this without the paths, so temporarily remove them */
+		offer_paths = ir->invreq->offer_paths;
+		ir->invreq->offer_paths = NULL;
+		invreq_offer_id(ir->invreq, &offer_id);
+		ir->invreq->offer_paths = offer_paths;
+		blinding_path_secret = invoice_path_id(tmpctx,
+						       &offerblinding_base, &offer_id);
+		if (!memeq(ir->secret, tal_bytelen(ir->secret),
+			   blinding_path_secret, tal_bytelen(blinding_path_secret))) {
+			/* You used the wrong blinded path for invreq */
+			if (command_dev_apis(cmd))
+				return fail_invreq(cmd, ir, "Wrong blinded path");
+			return fail_invreq(cmd, ir, "Unknown offer");
+		}
+	} else {
+		if (ir->invreq->offer_paths) {
+			/* You should have used a blinded path for invreq */
+			if (command_dev_apis(cmd))
+				return fail_invreq(cmd, ir, "Expected blinded path");
+			return fail_invreq(cmd, ir, "Unknown offer");
+		}
+	}
 
 	activetok = json_get_member(buf, offertok, "active");
 	if (!activetok) {
@@ -833,8 +880,6 @@ static struct command_result *listoffers_done(struct command *cmd,
 	if (!active)
 		return fail_invreq(cmd, ir, "Offer no longer available");
 
-	/* Now, since we looked up by hash, we know that the entire offer
-	 * is faithfully mirrored in this invreq. */
 	b12tok = json_get_member(buf, offertok, "bolt12");
 	if (!b12tok) {
 		return fail_internalerr(cmd, ir,
@@ -972,7 +1017,8 @@ static struct command_result *listoffers_done(struct command *cmd,
 
 struct command_result *handle_invoice_request(struct command *cmd,
 					      const u8 *invreqbin,
-					      struct blinded_path *reply_path)
+					      struct blinded_path *reply_path,
+					      const struct secret *secret)
 {
 	struct out_req *req;
 	int bad_feature;
@@ -981,7 +1027,7 @@ struct command_result *handle_invoice_request(struct command *cmd,
 	struct invreq *ir = tal(cmd, struct invreq);
 
 	ir->reply_path = tal_steal(ir, reply_path);
-
+	ir->secret = tal_dup_or_null(ir, struct secret, secret);
 	ir->invreq = fromwire_tlv_invoice_request(cmd, &cursor, &len);
 
 	/* BOLT-offers #12:
