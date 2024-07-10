@@ -42,7 +42,7 @@ static const char *handle_onion(const tal_t *ctx,
 				const u8 *onion)
 {
 	u8 *next_onion_msg;
-	struct pubkey next_node;
+	struct sciddir_or_pubkey next_node;
 	struct tlv_onionmsg_tlv *final_om;
 	struct pubkey final_alias;
 	struct secret *final_path_id;
@@ -73,12 +73,35 @@ static const char *handle_onion(const tal_t *ctx,
 
 		assert(next_onion_msg);
 
-		/* FIXME: Handle short_channel_id! */
-		node_id_from_pubkey(&next_node_id, &next_node);
+		/* BOLT-offers #4:
+		 * - if it is not the final node according to the onion encryption:
+		 *...
+		 *    - if `next_node_id` is present:
+		 *      - the *next peer* is the peer with that node id.
+		 *   - otherwise, if `short_channel_id` is present and corresponds to an announced short_channel_id or a local alias for a channel:
+		 *      - the *next peer* is the peer at the other end of that channel.
+		 *   - otherwise:
+		 *      - MUST ignore the message.
+		 *   - SHOULD forward the message using `onion_message` to the *next peer*.
+		 */
+		/* Since an alias is legal here, we can't simply lookup in gossmap. */
+		if (!next_node.is_pubkey) {
+			struct scid_to_node_id *scid_to_node_id;
+
+			scid_to_node_id = scid_htable_get(daemon->scid_htable, next_node.scidd.scid);
+			if (!scid_to_node_id) {
+				return tal_fmt(ctx, "onion msg: unknown next scid %s",
+					       fmt_short_channel_id(tmpctx, next_node.scidd.scid));
+			}
+			next_node_id = scid_to_node_id->node_id;
+		} else {
+			node_id_from_pubkey(&next_node_id, &next_node.pubkey);
+		}
+
 		next_peer = peer_htable_get(daemon->peers, &next_node_id);
 		if (!next_peer) {
 			return tal_fmt(ctx, "onion msg: unknown next peer %s",
-				       fmt_pubkey(tmpctx, &next_node));
+				       fmt_sciddir_or_pubkey(tmpctx, &next_node));
 		}
 		inject_peer_msg(next_peer, take(next_onion_msg));
 	}
