@@ -46,6 +46,7 @@ void handle_onion_message(struct daemon *daemon,
 	struct tlv_onionmsg_tlv *final_om;
 	struct pubkey final_alias;
 	struct secret *final_path_id;
+	const char *err;
 
 	/* Ignore unless explicitly turned on. */
 	if (!feature_offered(daemon->our_features->bits[NODE_ANNOUNCE_FEATURE],
@@ -60,11 +61,14 @@ void handle_onion_message(struct daemon *daemon,
 		return;
 	}
 
-	if (!onion_message_parse(tmpctx, onion, &blinding, &peer->id,
-				 &daemon->mykey,
-				 &next_onion_msg, &next_node,
-				 &final_om, &final_alias, &final_path_id))
+	err = onion_message_parse(tmpctx, onion, &blinding,
+				  &daemon->mykey,
+				  &next_onion_msg, &next_node,
+				  &final_om, &final_alias, &final_path_id);
+	if (err) {
+		status_peer_debug(&peer->id, "%s", err);
 		return;
+	}
 
 	if (final_om) {
 		u8 *omsg;
