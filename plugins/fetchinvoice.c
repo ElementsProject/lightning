@@ -36,8 +36,6 @@ struct sent {
 	struct command *cmd;
 	/* The offer we are trying to get an invoice/payment for. */
 	struct tlv_offer *offer;
-	/* Path to use (including self) */
-	const struct pubkey *path;
 
 	/* When creating blinded return path, use scid not pubkey for intro node. */
 	struct short_channel_id_dir *dev_path_use_scidd;
@@ -408,25 +406,24 @@ static struct command_result *param_offer(struct command *cmd,
 
 static struct blinded_path *make_reply_path(const tal_t *ctx,
 					    const struct sent *sent,
+					    const struct pubkey *path,
 					    struct secret *reply_secret)
 {
 	struct pubkey *ids;
 
-	/* FIXME: Maybe we should allow this? */
-	if (tal_count(sent->path) == 1)
-		return NULL;
+	assert(tal_count(path) > 0);
 
 	randombytes_buf(reply_secret, sizeof(struct secret));
 
 	if (sent->dev_reply_path) {
 		ids = sent->dev_reply_path;
 	} else {
-		size_t nhops = tal_count(sent->path);
+		size_t nhops = tal_count(path);
 		/* FIXME: Could create an independent reply path, not just
 		 * reverse existing. */
 		ids = tal_arr(tmpctx, struct pubkey, nhops - 1);
 		for (int i = nhops - 2; i >= 0; i--)
-			ids[nhops - 2 - i] = sent->path[i];
+			ids[nhops - 2 - i] = path[i];
 	}
 
 
@@ -436,6 +433,7 @@ static struct blinded_path *make_reply_path(const tal_t *ctx,
 
 static struct command_result *send_message(struct command *cmd,
 					   struct sent *sent,
+					   const struct pubkey *path,
 					   struct tlv_onionmsg_tlv *final_tlv,
 					   struct command_result *(*done)
 					   (struct command *cmd,
@@ -448,11 +446,13 @@ static struct command_result *send_message(struct command *cmd,
 	/* Create transient secret so we can validate reply! */
 	sent->reply_secret = tal(sent, struct secret);
 
-	/* Add reply path to final_tlv (it already contains invoice_request/invoice) */
-	final_tlv->reply_path = make_reply_path(final_tlv, sent, sent->reply_secret);
-	if (!final_tlv->reply_path)
+	/* FIXME: Maybe we should allow this? */
+	if (tal_count(path) == 1)
 		return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
 				    "Refusing to talk to ourselves");
+
+	/* Add reply path to final_tlv (it already contains invoice_request/invoice) */
+	final_tlv->reply_path = make_reply_path(final_tlv, sent, path, sent->reply_secret);
 
 	/* Replace first hop with scidd if they said to */
 	if (sent->dev_path_use_scidd)
@@ -460,7 +460,7 @@ static struct command_result *send_message(struct command *cmd,
 					     sent->dev_path_use_scidd);
 
 	/* FIXME: use their blinded path if they supplied one! */
-	omsg = outgoing_onion_message(tmpctx, sent->path, NULL, NULL, final_tlv);
+	omsg = outgoing_onion_message(tmpctx, path, NULL, NULL, final_tlv);
 	return inject_onionmessage(cmd, omsg, done, forward_error, sent);
 }
 
@@ -498,9 +498,8 @@ static struct command_result *fetchinvoice_path_done(struct command *cmd,
 
 	payload->invoice_request = tal_arr(payload, u8, 0);
 	towire_tlv_invoice_request(&payload->invoice_request, sent->invreq);
-	sent->path = tal_steal(sent, path);
 
-	return send_message(cmd, sent, payload, sendonionmsg_done);
+	return send_message(cmd, sent, path, payload, sendonionmsg_done);
 }
 
 static struct command_result *fetchinvoice_path_fail(struct command *cmd,
@@ -913,9 +912,8 @@ static struct command_result *sendinvoice_path_done(struct command *cmd,
 
 	payload->invoice = tal_arr(payload, u8, 0);
 	towire_tlv_invoice(&payload->invoice, sent->inv);
-	sent->path = tal_steal(sent, path);
 
-	return send_message(cmd, sent, payload, prepare_inv_timeout);
+	return send_message(cmd, sent, path, payload, prepare_inv_timeout);
 }
 
 static struct command_result *sendinvoice_path_fail(struct command *cmd,
