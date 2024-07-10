@@ -48,8 +48,6 @@ static u32 to_self_delay[NUM_SIDES];
 
 /* Where we send money to (our wallet) */
 static u32 our_wallet_index;
-static struct ext_key our_wallet_ext_key;
-static struct pubkey our_wallet_pubkey;
 
 /* Their revocation secret (only if they cheated). */
 static const struct secret *remote_per_commitment_secret;
@@ -3432,8 +3430,6 @@ int main(int argc, char *argv[])
 				   &scriptpubkey[LOCAL],
 				   &scriptpubkey[REMOTE],
 				   &our_wallet_index,
-				   &our_wallet_ext_key,
-				   &our_wallet_pubkey,
 				   &opener,
 				   &basepoints[LOCAL],
 				   &basepoints[REMOTE],

@@ -1504,7 +1504,6 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	u8 *msg;
 	struct bitcoin_txid our_last_txid;
 	struct lightningd *ld = channel->peer->ld;
-	struct pubkey final_key;
 	int hsmfd;
 	enum state_change reason;
 
@@ -1564,8 +1563,6 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 		return KEEP_WATCHING;
 	}
 
-	bip32_pubkey(ld, &final_key, channel->final_key_idx);
-
 	struct ext_key final_wallet_ext_key;
 	if (bip32_key_from_parent(
 		    ld->bip32_base,
@@ -1611,8 +1608,6 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  channel->shutdown_scriptpubkey[LOCAL],
 				  channel->shutdown_scriptpubkey[REMOTE],
 				  channel->final_key_idx,
-				  &final_wallet_ext_key,
-				  &final_key,
 				  channel->opener,
 				  &channel->local_basepoints,
 				  &channel->channel_info.theirbase,
