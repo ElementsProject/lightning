@@ -747,16 +747,9 @@ Experimental options are subject to breakage between releases: they
 are made available for advanced users who want to test proposed
 features.
 
-* **experimental-onion-messages**
-
-  Specifying this enables sending, forwarding and receiving onion messages,
-which are in draft status in the [bolt][bolt] specifications (PR #759).
-This is automatically enabled by `experimental-offers`.
-
 * **experimental-offers**
 
-  Specifying this enables the `offers` and `fetchinvoice` plugins and
-corresponding functionality, which are in draft status ([bolt][bolt] #798) as [bolt12][bolt12], as well as `experimental-onion-messages`.
+  Specifying this enables `offers` functionality, which is in draft status ([bolt][bolt] #798) as [bolt12][bolt12].
 
 * **fetchinvoice-noconnect**
 

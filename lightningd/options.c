@@ -1272,9 +1272,9 @@ static char *opt_set_splicing(struct lightningd *ld)
 
 static char *opt_set_onion_messages(struct lightningd *ld)
 {
-	feature_set_or(ld->our_features,
-		       take(feature_set_for_feature(NULL,
-						    OPTIONAL_FEATURE(OPT_ONION_MESSAGES))));
+	if (!opt_deprecated_ok(ld, "experimental-onion-messages", NULL,
+			       "v24.08", "v25.02"))
+		return "--experimental-onion-message is now enabled by default";
 	return NULL;
 }
 
@@ -1316,7 +1316,7 @@ static char *opt_set_anchor_zero_fee_htlc_tx(struct lightningd *ld)
 static char *opt_set_offers(struct lightningd *ld)
 {
 	ld->config.exp_offers = true;
-	return opt_set_onion_messages(ld);
+	return NULL;
 }
 
 static char *opt_set_db_upgrade(const char *arg, struct lightningd *ld)
@@ -1499,12 +1499,10 @@ static void register_opts(struct lightningd *ld)
 	/* This affects our features, so set early. */
 	opt_register_early_noarg("--experimental-onion-messages",
 				 opt_set_onion_messages, ld,
-				 "EXPERIMENTAL: enable send, receive and relay"
-				 " of onion messages and blinded payments");
+				 opt_hidden);
 	opt_register_early_noarg("--experimental-offers",
 				 opt_set_offers, ld,
-				 "EXPERIMENTAL: enable send and receive of offers"
-				 " (also sets experimental-onion-messages)");
+				 "EXPERIMENTAL: enable send and receive of offers");
 	opt_register_early_noarg("--experimental-shutdown-wrong-funding",
 				 opt_set_shutdown_wrong_funding, ld,
 				 "EXPERIMENTAL: allow shutdown with alternate txids");
