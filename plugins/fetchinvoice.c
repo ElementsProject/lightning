@@ -333,34 +333,21 @@ badinv:
 	return command_hook_success(cmd);
 }
 
-struct command_result *recv_modern_onion_message(struct command *cmd,
-						 const char *buf,
-						 const jsmntok_t *params)
+struct command_result *handle_invoice_onion_message(struct command *cmd,
+						    const char *buf,
+						    const jsmntok_t *om,
+						    const struct secret *pathsecret)
 {
-	const jsmntok_t *om, *secrettok;
 	struct sent *sent;
-	struct secret pathsecret;
 	struct command_result *err;
 
-	om = json_get_member(buf, params, "onion_message");
-
-	secrettok = json_get_member(buf, om, "pathsecret");
-	if (!secrettok)
+	sent = find_sent_by_secret(pathsecret);
+	if (!sent)
 		return NULL;
 
-	json_to_secret(buf, secrettok, &pathsecret);
-	sent = find_sent_by_secret(&pathsecret);
-	if (!sent) {
-		plugin_log(cmd->plugin, LOG_DBG,
-			   "No match for modern onion %.*s",
-			   json_tok_full_len(om),
-			   json_tok_full(buf, om));
-		return NULL;
-	}
-
-	plugin_log(cmd->plugin, LOG_DBG, "Received modern onion message: %.*s",
-		   json_tok_full_len(params),
-		   json_tok_full(buf, params));
+	plugin_log(cmd->plugin, LOG_DBG, "Received onion message reply for invoice_request: %.*s",
+		   json_tok_full_len(om),
+		   json_tok_full(buf, om));
 
 	err = handle_error(cmd, sent, buf, om);
 	if (err)
