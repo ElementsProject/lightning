@@ -34,4 +34,10 @@ void connect_failed_disconnect(struct lightningd *ld,
 const char *connect_any_cmd_id(const tal_t *ctx,
 			       struct lightningd *ld, const struct peer *peer);
 
+/* Tell connectd about an scid->peer mapping, so it can fwd onion
+* messages.  Redundant sends are OK. */
+void tell_connectd_scid(struct lightningd *ld,
+			struct short_channel_id scid,
+			const struct node_id *peer_id);
+
 #endif /* LIGHTNING_LIGHTNINGD_CONNECT_CONTROL_H */

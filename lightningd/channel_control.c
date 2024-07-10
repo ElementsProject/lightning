@@ -794,6 +794,9 @@ bool depthcb_update_scid(struct channel *channel,
 		channel_gossip_scid_changed(channel);
 	}
 
+	if (channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
+		tell_connectd_scid(ld, *channel->scid, &channel->peer->id);
+
 	wallet_channel_save(ld->wallet, channel);
 	return true;
 }
@@ -1526,6 +1529,9 @@ bool peer_start_channeld(struct channel *channel,
 				      "Failed to get hsm fd");
 		return false;
 	}
+
+	/* At this point, we can forward via alias scid, at least. */
+	tell_connectd_scid(ld, *channel->alias[LOCAL], &channel->peer->id);
 
 	channel_set_owner(channel,
 			  new_channel_subd(channel, ld,
