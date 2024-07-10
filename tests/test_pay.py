@@ -5673,22 +5673,59 @@ def test_pay_while_opening_channel(node_factory, bitcoind, executor):
     l1.rpc.pay(inv['bolt11'])
 
 
-def test_offer_paths(node_factory):
+def test_offer_paths(node_factory, bitcoind):
+    opts = {'experimental-offers': None,
+            'dev-allow-localhost': None}
+
     # Need to announce channels to use their scid in offers anyway!
-    l1, l2, l3 = node_factory.line_graph(3,
-                                         opts={'experimental-offers': None},
-                                         wait_for_announce=True)
+    l1, l2, l3, l4 = node_factory.line_graph(4,
+                                             opts=opts,
+                                             wait_for_announce=True)
 
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     scidd = "{}/{}".format(chan['short_channel_id'], chan['direction'])
     offer = l2.rpc.offer(amount='100sat', description='test_offer_paths',
-                         dev_paths=[[scidd, l2.info['id']], [l3.info['id'], l2.info['id']]])
+                         dev_paths=[[scidd, l2.info['id']],
+                                    [l3.info['id'], l2.info['id']]])
 
     paths = l1.rpc.decode(offer['bolt12'])['offer_paths']
     assert len(paths) == 2
     assert paths[0]['first_scid'] == chan['short_channel_id']
     assert paths[0]['first_scid_dir'] == chan['direction']
     assert paths[1]['first_node_id'] == l3.info['id']
+
+    l5 = node_factory.get_node(options=opts)
+
+    # Get all the gossip, so we have addresses
+    l5.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    wait_for(lambda: len(l5.rpc.listnodes()['nodes']) == 4 and all(['addresses' in n for n in l5.rpc.listnodes()['nodes']]))
+
+    # We have a path ->l1 (head of blinded path), so we can use that without connecting.
+    l5.rpc.fetchinvoice(offer=offer['bolt12'])
+    assert not l5.daemon.is_in_log('connecting directly to')
+
+    # Make scid path invalid by closing it
+    close = l1.rpc.close(paths[0]['first_scid'])
+    bitcoind.generate_block(13, wait_for_mempool=close['txid'])
+    wait_for(lambda: l5.rpc.listchannels(paths[0]['first_scid']) == {'channels': []})
+
+    # Now connect l5->l4, and it will be able to reach l3 via that, and join blinded path.
+    l5.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    l5.rpc.fetchinvoice(offer=offer['bolt12'])
+    assert not l5.daemon.is_in_log('connecting')
+
+    # This will make us connect straight to l3 to use blinded path from there.
+    l5.rpc.disconnect(l4.info['id'])
+    l5.rpc.fetchinvoice(offer=offer['bolt12'])
+    assert l5.daemon.is_in_log('connecting')
+
+    # Restart l5 with fetchinvoice-noconnect and it will fail.
+    l5.stop()
+    l5.daemon.opts['fetchinvoice-noconnect'] = None
+    l5.start()
+
+    with pytest.raises(RpcError, match=f"Failed: could not route or connect directly to blinded path at {l3.info['id']}: fetchinvoice-noconnect set: not initiating a new connection"):
+        l5.rpc.fetchinvoice(offer=offer['bolt12'])
 
 
 def test_pay_legacy_forward(node_factory, bitcoind, executor):
