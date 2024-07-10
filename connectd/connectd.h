@@ -109,6 +109,11 @@ struct peer {
 	/* How important does this peer seem to be? */
 	enum connection_prio prio;
 
+	/* Ratelimits for onion messages.  One token per msec. */
+	size_t onionmsg_incoming_tokens;
+	struct timemono onionmsg_last_incoming;
+	bool onionmsg_limit_warned;
+
 	bool dev_read_enabled;
 	/* If non-NULL, this counts down; 0 means disable */
 	u32 *dev_writes_enabled;
@@ -122,6 +127,10 @@ struct peer {
 	struct node_id *scid_query_nodes;
 	size_t scid_query_nodes_idx;
 };
+
+/* We gain one token per msec, and each msg uses 250 tokens. */
+#define ONION_MSG_MSEC		250
+#define ONION_MSG_TOKENS_MAX	(4*ONION_MSG_MSEC)
 
 /*~ The HTABLE_DEFINE_TYPE() macro needs a keyof() function to extract the key:
  */

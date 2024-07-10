@@ -4515,6 +4515,9 @@ def test_fetchinvoice(node_factory, bitcoind):
     with pytest.raises(RpcError, match="Remote node sent failure message.*Amount vastly exceeds 2msat"):
         l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'amount_msat': 15})
 
+    # We've done 4 onion calls: sleep now to avoid hitting ratelimit!
+    time.sleep(1)
+
     # Underpay is rejected.
     with pytest.raises(RpcError, match="Remote node sent failure message.*Amount must be at least 2msat"):
         l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'amount_msat': 1})
@@ -4538,6 +4541,9 @@ def test_fetchinvoice(node_factory, bitcoind):
     assert inv1 != inv2
     assert 'next_period' not in inv1
     assert 'next_period' not in inv2
+
+    # We've done 4 onion calls: sleep now to avoid hitting ratelimit!
+    time.sleep(1)
 
     l1.rpc.pay(inv1['invoice'])
 
@@ -4571,6 +4577,9 @@ def test_fetchinvoice(node_factory, bitcoind):
     wait_for(lambda: l4.rpc.listnodes(l3.info['id'])['nodes'] != [])
     l4.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l4.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
+
+    # We've done 4 onion calls: sleep now to avoid hitting ratelimit!
+    time.sleep(1)
 
     # If we remove plugin, it can no longer give us an invoice.
     l3.rpc.plugin_stop(plugin)
@@ -5689,3 +5698,25 @@ def test_pay_legacy_forward(node_factory, bitcoind, executor):
                                     'payment_secret': inv['payment_secret'],
                                     'dev_legacy_hop': True})
     l1.rpc.waitsendpay(inv['payment_hash'])
+
+
+# CI is so slow under valgrind that this does not reach the ratelimit!
+@pytest.mark.slow_test
+def test_onionmessage_ratelimit(node_factory):
+    l1, l2 = node_factory.line_graph(2, fundchannel=False,
+                                     opts={'experimental-offers': None,
+                                           'allow_warning': True})
+
+    offer = l2.rpc.call('offer', {'amount': '2msat',
+                                  'description': 'simple test'})
+
+    # Hopefully we can do this fast enough to reach ratelimit!
+    with pytest.raises(RpcError, match="Timeout waiting for response"):
+        for _ in range(8):
+            l1.rpc.fetchinvoice(offer['bolt12'])
+
+    assert l1.daemon.is_in_log('WARNING: Ratelimited onion_message: exceeded one per 250msec')
+
+    # It will recover though!
+    time.sleep(0.250)
+    l1.rpc.fetchinvoice(offer['bolt12'])

@@ -115,17 +115,39 @@ void handle_onion_message(struct daemon *daemon,
 {
 	struct pubkey blinding;
 	u8 *onion;
+	u64 msec;
+	struct timemono now = time_mono();
 
 	/* Ignore unless explicitly turned on. */
 	if (!feature_offered(daemon->our_features->bits[NODE_ANNOUNCE_FEATURE],
 			     OPT_ONION_MESSAGES))
 		return;
 
-	/* FIXME: ratelimit! */
+	/* Adjust tokens if they're entitled to more */
+	msec = time_to_msec(timemono_between(now, peer->onionmsg_last_incoming));
+	peer->onionmsg_incoming_tokens += msec;
+	if (peer->onionmsg_incoming_tokens > ONION_MSG_TOKENS_MAX)
+		peer->onionmsg_incoming_tokens = ONION_MSG_TOKENS_MAX;
+	peer->onionmsg_last_incoming = now;
+
+	/* No tokens left?  Limit it */
+	if (peer->onionmsg_incoming_tokens < ONION_MSG_MSEC) {
+		/* Warn once, for debugging */
+		if (!peer->onionmsg_limit_warned) {
+			inject_peer_msg(peer,
+					take(towire_warningfmt(NULL, NULL,
+							       "Ratelimited onion_message: exceeded one per %umsec",
+							       ONION_MSG_MSEC)));
+			peer->onionmsg_limit_warned = true;
+		}
+		return;
+	}
+	peer->onionmsg_incoming_tokens -= ONION_MSG_MSEC;
+
 	if (!fromwire_onion_message(msg, msg, &blinding, &onion)) {
 		inject_peer_msg(peer,
-				towire_warningfmt(NULL, NULL,
-						  "Bad onion_message"));
+				take(towire_warningfmt(NULL, NULL,
+						       "Bad onion_message")));
 		return;
 	}
 

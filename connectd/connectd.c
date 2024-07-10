@@ -179,6 +179,9 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->scid_query_idx = 0;
 	peer->scid_query_nodes = NULL;
 	peer->scid_query_nodes_idx = 0;
+	peer->onionmsg_incoming_tokens = ONION_MSG_TOKENS_MAX;
+	peer->onionmsg_last_incoming = time_mono();
+	peer->onionmsg_limit_warned = false;
 
 	peer->to_peer = conn;
 
