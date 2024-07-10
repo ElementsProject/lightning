@@ -11,6 +11,7 @@
 #include <common/iso4217.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/onion_message.h>
 #include <common/overflows.h>
 #include <errno.h>
 #include <plugins/establish_onion_path.h>
@@ -227,29 +228,6 @@ static struct command_result *create_invoicereq(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
-/* Create and encode an enctlv */
-static u8 *create_enctlv(const tal_t *ctx,
-			 /* in and out */
-			 struct privkey *blinding,
-			 const struct pubkey *node_id,
-			 const struct pubkey *next_node_id,
-			 struct tlv_encrypted_data_tlv_payment_relay *payment_relay,
-			 struct tlv_encrypted_data_tlv_payment_constraints *payment_constraints,
-			 u8 *path_secret,
-			 struct pubkey *node_alias)
-{
-	struct tlv_encrypted_data_tlv *tlv = tlv_encrypted_data_tlv_new(tmpctx);
-
-	tlv->next_node_id = cast_const(struct pubkey *, next_node_id);
-	tlv->path_id = path_secret;
-	tlv->payment_relay = payment_relay;
-	tlv->payment_constraints = payment_constraints;
-	/* FIXME: Add padding! */
-
-	return encrypt_tlv_encrypted_data(ctx, blinding, node_id, tlv,
-					  blinding, node_alias);
-}
-
 /* If we only have private channels, we need to add a blinded path to the
  * invoice.  We need to choose a peer who supports blinded payments, too. */
 struct chaninfo {
@@ -351,15 +329,24 @@ static struct command_result *listincoming_done(struct command *cmd,
 			   fmt_amount_msat(tmpctx,
 					   amount_msat(*ir->inv->invoice_amount)));
 	} else {
-		struct privkey blinding;
-		struct tlv_encrypted_data_tlv_payment_relay relay;
-		struct tlv_encrypted_data_tlv_payment_constraints constraints;
-		struct onionmsg_hop **hops;
+		struct tlv_encrypted_data_tlv **etlvs;
+		struct pubkey *ids;
 		u32 base;
 
-		relay.cltv_expiry_delta = best->cltv;
-		relay.fee_base_msat = best->feebase;
-		relay.fee_proportional_millionths = best->feeppm;
+		/* Make a small 1-hop path to us */
+		ids = tal_arr(tmpctx, struct pubkey, 2);
+		ids[0] = best->id;
+		ids[1] = id;
+
+		/* Make basic tlvs, add payment restrictions */
+		etlvs = new_encdata_tlvs(tmpctx, ids, NULL);
+
+		/* Tell the first node what restrictions we have on relaying */
+		etlvs[0]->payment_relay = tal(etlvs[0],
+					      struct tlv_encrypted_data_tlv_payment_relay);
+		etlvs[0]->payment_relay->cltv_expiry_delta = best->cltv;
+		etlvs[0]->payment_relay->fee_base_msat = best->feebase;
+		etlvs[0]->payment_relay->fee_proportional_millionths = best->feeppm;
 
 		/* BOLT-offers #12:
 		 * - if the expiry for accepting payment is not 7200 seconds
@@ -371,41 +358,22 @@ static struct command_result *listincoming_done(struct command *cmd,
 			base = blockheight + 6 + *ir->inv->invoice_relative_expiry / 600;
 		else
 			base = blockheight + 6 + 7200 / 600;
-		constraints.max_cltv_expiry = base + best->cltv + cltv_final;
-		constraints.htlc_minimum_msat = best->htlc_min.millisatoshis; /* Raw: tlv */
 
-		randombytes_buf(&blinding, sizeof(blinding));
+		etlvs[0]->payment_constraints = tal(etlvs[0],
+						    struct tlv_encrypted_data_tlv_payment_constraints);
+		etlvs[0]->payment_constraints->max_cltv_expiry = base + best->cltv + cltv_final;
+		etlvs[0]->payment_constraints->htlc_minimum_msat = best->htlc_min.millisatoshis; /* Raw: tlv */
+
+		/* So we recognize this payment */
+		etlvs[1]->path_id = invoice_path_id(etlvs[1],
+						    &invoicesecret_base,
+						    ir->inv->invoice_payment_hash);
 
 		ir->inv->invoice_paths = tal_arr(ir->inv, struct blinded_path *, 1);
-		ir->inv->invoice_paths[0] = tal(ir->inv->invoice_paths, struct blinded_path);
-		sciddir_or_pubkey_from_pubkey(&ir->inv->invoice_paths[0]->first_node_id,
-					      &best->id);
-		if (!pubkey_from_privkey(&blinding,
-					 &ir->inv->invoice_paths[0]->blinding))
-			abort();
-		hops = tal_arr(ir->inv->invoice_paths[0], struct onionmsg_hop *, 2);
-		ir->inv->invoice_paths[0]->path = hops;
-
-		/* First hop is the peer */
-		hops[0] = tal(hops, struct onionmsg_hop);
-		hops[0]->encrypted_recipient_data
-			= create_enctlv(hops[0],
-					&blinding,
-					&best->id,
-					&id,
-					&relay, &constraints,
-					NULL,
-					&hops[0]->blinded_node_id);
-		/* Second hops is us (so we can identify correct use of path) */
-		hops[1] = tal(hops, struct onionmsg_hop);
-		hops[1]->encrypted_recipient_data
-			= create_enctlv(hops[1],
-					&blinding,
-					&id,
-					NULL, NULL, NULL,
-					invoice_path_id(tmpctx, &invoicesecret_base,
-							ir->inv->invoice_payment_hash),
-					&hops[1]->blinded_node_id);
+		ir->inv->invoice_paths[0]
+			= blinded_path_from_encdata_tlvs(ir->inv->invoice_paths,
+							 cast_const2(const struct tlv_encrypted_data_tlv **, etlvs),
+							 ids);
 
 		/* FIXME: This should be a "normal" feerate and range. */
 		ir->inv->invoice_blindedpay = tal_arr(ir->inv, struct blinded_payinfo *, 1);
