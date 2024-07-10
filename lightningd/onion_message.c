@@ -249,3 +249,82 @@ static const struct json_command sendonionmessage_command = {
 	"Send message to {first_id}, using {blinding}, encoded over {hops} (id, tlv)"
 };
 AUTODATA(json_command, &sendonionmessage_command);
+
+static void inject_onionmsg_reply(struct subd *connectd,
+				  const u8 *reply,
+				  const int *fds UNUSED,
+				  struct command *cmd)
+{
+	char *err;
+
+	if (!fromwire_connectd_inject_onionmsg_reply(cmd, reply, &err)) {
+		log_broken(connectd->ld->log, "bad onionmsg_reply: %s",
+			   tal_hex(tmpctx, reply));
+		return;
+	}
+
+	if (strlen(err) == 0)
+		was_pending(command_success(cmd, json_stream_success(cmd)));
+	else
+		was_pending(command_fail(cmd, LIGHTNINGD, "%s", err));
+}
+
+static struct command_result *json_injectonionmessage(struct command *cmd,
+						      const char *buffer,
+						      const jsmntok_t *obj UNNEEDED,
+						      const jsmntok_t *params)
+{
+	struct onion_hop *hops;
+	struct pubkey *blinding;
+	struct sphinx_path *sphinx_path;
+	struct onionpacket *op;
+	struct secret *path_secrets;
+	size_t onion_size;
+
+	if (!param_check(cmd, buffer, params,
+			 p_req("blinding", param_pubkey, &blinding),
+			 p_req("hops", param_onion_hops, &hops),
+			 NULL))
+		return command_param_failed();
+
+	if (!feature_offered(cmd->ld->our_features->bits[NODE_ANNOUNCE_FEATURE],
+			     OPT_ONION_MESSAGES))
+		return command_fail(cmd, LIGHTNINGD,
+				    "experimental-onion-messages not enabled");
+
+	/* Create an onion which encodes this. */
+	sphinx_path = sphinx_path_new(cmd, NULL);
+	for (size_t i = 0; i < tal_count(hops); i++)
+		sphinx_add_hop(sphinx_path, &hops[i].node, hops[i].tlv);
+
+	/* BOLT-onion-message #4:
+	 * - SHOULD set `onion_message_packet` `len` to 1366 or 32834.
+	 */
+	if (sphinx_path_payloads_size(sphinx_path) <= ROUTING_INFO_SIZE)
+		onion_size = ROUTING_INFO_SIZE;
+	else
+		onion_size = 32768; /* VERSION_SIZE + HMAC_SIZE + PUBKEY_SIZE == 66 */
+
+	op = create_onionpacket(tmpctx, sphinx_path, onion_size, &path_secrets);
+	if (!op)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Creating onion failed (tlvs too long?)");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	subd_req(cmd, cmd->ld->connectd,
+		 take(towire_connectd_inject_onionmsg(NULL,
+						      blinding,
+						      serialize_onionpacket(tmpctx, op))),
+		 -1, 0, inject_onionmsg_reply, cmd);
+	return command_still_pending(cmd);
+}
+
+static const struct json_command injectonionmessage_command = {
+	"injectonionmessage",
+	"utility",
+	json_injectonionmessage,
+	"Unwrap using {blinding}, encoded over {hops} (id, tlv)"
+};
+AUTODATA(json_command, &injectonionmessage_command);

@@ -144,6 +144,16 @@ msgdata,connectd_send_onionmsg,onion_len,u16,
 msgdata,connectd_send_onionmsg,onion,u8,onion_len
 msgdata,connectd_send_onionmsg,blinding,pubkey,
 
+# Lightningd tells us to digest an onion message.
+msgtype,connectd_inject_onionmsg,2042
+msgdata,connectd_inject_onionmsg,blinding,pubkey,
+msgdata,connectd_inject_onionmsg,onion_len,u16,
+msgdata,connectd_inject_onionmsg,onion,u8,onion_len
+
+# Reply.  If error isn't empty, something went wrong.
+msgtype,connectd_inject_onionmsg_reply,2142
+msgdata,connectd_inject_onionmsg_reply,err,wirestring,
+
 # A custom message that we got from a peer and don't know how to handle, so we
 # forward it to the master for further handling.
 msgtype,connectd_custommsg_in,2110

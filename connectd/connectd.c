@@ -2174,6 +2174,10 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		set_custommsgs(daemon, msg);
 		goto out;
 
+	case WIRE_CONNECTD_INJECT_ONIONMSG:
+		inject_onionmsg_req(daemon, msg);
+		goto out;
+
 	case WIRE_CONNECTD_DEV_MEMLEAK:
 		if (daemon->developer) {
 			dev_connect_memleak(daemon, msg);
@@ -2216,6 +2220,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_CUSTOMMSG_IN:
 	case WIRE_CONNECTD_PEER_DISCONNECT_DONE:
 	case WIRE_CONNECTD_START_SHUTDOWN_REPLY:
+	case WIRE_CONNECTD_INJECT_ONIONMSG_REPLY:
 		break;
 	}
 
