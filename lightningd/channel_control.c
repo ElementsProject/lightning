@@ -501,6 +501,7 @@ static void handle_tx_broadcast(struct send_splice_info *info)
 
 		json_add_hex(response, "tx", tx_bytes, tal_bytelen(tx_bytes));
 		json_add_txid(response, "txid", &txid);
+		json_add_u32(response, "outnum", info->output_index);
 
 		was_pending(command_success(info->cc->cmd, response));
 	}

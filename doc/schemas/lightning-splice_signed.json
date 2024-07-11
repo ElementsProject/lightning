@@ -54,6 +54,13 @@
         "description": [
           "The txid is of the final transaction."
         ]
+      },
+      "outnum": {
+        "added": "v24.08",
+        "type": "u32",
+        "description": [
+          "The index of the new funding output."
+        ]
       }
     }
   },

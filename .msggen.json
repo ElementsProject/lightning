@@ -3113,6 +3113,7 @@
             "Splice_Signed.sign_first": 3
         },
         "Splice_signedResponse": {
+            "Splice_Signed.outnum": 3,
             "Splice_Signed.tx": 1,
             "Splice_Signed.txid": 2
         },
@@ -10786,6 +10787,10 @@
         },
         "Splice_Signed.channel_id": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Splice_Signed.outnum": {
+            "added": "v24.08",
             "deprecated": false
         },
         "Splice_Signed.psbt": {
