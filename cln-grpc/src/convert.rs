@@ -2313,7 +2313,7 @@ impl From<responses::RenepaystatusPaystatus> for pb::RenepaystatusPaystatus {
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             groupid: c.groupid, // Rule #2 for type u32
             // Field: RenePayStatus.paystatus[].notes[]
-            notes: c.notes.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            notes: c.notes.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             parts: c.parts, // Rule #2 for type u32?
             payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             payment_preimage: c.payment_preimage.map(|v| v.to_vec()), // Rule #2 for type secret?
