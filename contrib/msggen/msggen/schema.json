@@ -26400,8 +26400,7 @@
                 "created_at",
                 "groupid",
                 "amount_msat",
-                "status",
-                "notes"
+                "status"
               ],
               "properties": {
                 "bolt11": {
