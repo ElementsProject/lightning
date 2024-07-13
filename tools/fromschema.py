@@ -297,7 +297,12 @@ def create_shell_command(rpc, example):
     shell_command = f'lightning-cli {rpc} '
     if 'params' in example['request']:
         if isinstance(example['request']['params'], list):
-            shell_command += ' '.join(f'"{item}"' for item in example['request']['params'])
+            if rpc == 'sql' and example['request']['params'] and '=' in example['request']['params'][0]:
+                # For SQL queries in shell, prepend '-o' flag to the query
+                query = example['request']['params'][0]
+                shell_command += f"-o '{query}'" if "'" not in query else f'-o "{query}"'
+            else:
+                shell_command += ' '.join(f'"{item}"' for item in example['request']['params'])
         elif example['request']['params'].items():
             shell_command += '-k '
             for k, v in example['request']['params'].items():
