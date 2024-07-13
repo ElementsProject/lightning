@@ -92,3 +92,4 @@ release/
 # Ignore release verification Sha256Sums
 SHA256SUMS-*
 doc/.doc_version
+autogenerate-examples-status.log
