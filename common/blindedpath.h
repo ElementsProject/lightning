@@ -76,6 +76,12 @@ struct tlv_encrypted_data_tlv *decrypt_encrypted_data(const tal_t *ctx,
 						      const u8 *enctlv)
 	NON_NULL_ARGS(2, 3);
 
+/* Low-level accessor */
+u8 *decrypt_encmsg_raw(const tal_t *ctx,
+		       const struct pubkey *blinding,
+		       const struct secret *ss,
+		       const u8 *enctlv);
+
 /**
  * blindedpath_next_blinding - Calculate or extract next blinding pubkey
  */
