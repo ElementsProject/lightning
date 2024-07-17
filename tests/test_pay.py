@@ -4511,13 +4511,13 @@ def test_fetchinvoice(node_factory, bitcoind):
     assert l1.rpc.call('decode', [inv1['invoice']])['invoice_amount_msat'] == 3
     l1.rpc.pay(inv1['invoice'])
 
+    # We've done 4 onion calls: sleep now to avoid hitting ratelimit!
+    time.sleep(1)
+
     # More than ~5x expected is rejected as absurd (it's actually a divide test,
     # which means we need 15 here, not 11).
     with pytest.raises(RpcError, match="Remote node sent failure message.*Amount vastly exceeds 2msat"):
         l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'amount_msat': 15})
-
-    # We've done 4 onion calls: sleep now to avoid hitting ratelimit!
-    time.sleep(1)
 
     # Underpay is rejected.
     with pytest.raises(RpcError, match="Remote node sent failure message.*Amount must be at least 2msat"):
@@ -4537,14 +4537,14 @@ def test_fetchinvoice(node_factory, bitcoind):
                                    'description': 'single-use test',
                                    'single_use': True})['bolt12']
 
+    # We've done 3 onion calls: sleep now to avoid hitting ratelimit!
+    time.sleep(1)
+
     inv1 = l1.rpc.call('fetchinvoice', {'offer': offer2})
     inv2 = l1.rpc.call('fetchinvoice', {'offer': offer2})
     assert inv1 != inv2
     assert 'next_period' not in inv1
     assert 'next_period' not in inv2
-
-    # We've done 4 onion calls: sleep now to avoid hitting ratelimit!
-    time.sleep(1)
 
     l1.rpc.pay(inv1['invoice'])
 
@@ -4564,6 +4564,9 @@ def test_fetchinvoice(node_factory, bitcoind):
     offerusd = l3.rpc.call('offer', {'amount': '10.05USD',
                                      'description': 'USD test'})['bolt12']
 
+    # We've done 3 onion calls: sleep now to avoid hitting ratelimit!
+    time.sleep(1)
+
     inv = l1.rpc.call('fetchinvoice', {'offer': offerusd})
     assert inv['changes']['amount_msat'] == Millisatoshi(int(10.05 * 5000))
 
@@ -4579,7 +4582,7 @@ def test_fetchinvoice(node_factory, bitcoind):
     l4.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l4.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
 
-    # We've done 4 onion calls: sleep now to avoid hitting ratelimit!
+    # We've done 3 onion calls: sleep now to avoid hitting ratelimit!
     time.sleep(1)
 
     # If we remove plugin, it can no longer give us an invoice.
