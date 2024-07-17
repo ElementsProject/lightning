@@ -215,6 +215,12 @@ struct command_result *establish_onion_path_(struct command *cmd,
 	struct connect_info *ci = tal(cmd, struct connect_info);
 	struct out_req *req;
 
+	/* Talking to ourselves is trivial. */
+	if (pubkey_eq(local_id, dst)) {
+		struct pubkey *path = tal_dup_arr(tmpctx, struct pubkey, local_id, 1, 0);
+		return success(cmd, path, arg);
+	}
+
 	ci->local_id = *local_id;
 	ci->dst = *dst;
 	ci->cb = success;

@@ -1070,8 +1070,18 @@ decrypt_done(struct command *cmd,
 				    tal_hex(tmpctx, encdata));
 	}
 
-	if (tal_count(p->blindedpath->path) == 1)
-		return command_fail(cmd, LIGHTNINGD, "FIXME: self-pay!");
+	/* Was this a self-pay?  Simply remove blinded path. */
+	if (tal_count(p->blindedpath->path) == 1) {
+		p->blindedpath = tal_free(p->blindedpath);
+		tal_free(p->pay_destination);
+		p->pay_destination = tal_dup(p, struct node_id, p->route_destination);
+		/* self-pay will want secret from inside TLV */
+		if (tal_bytelen(enctlv->path_id) == sizeof(*p->payment_secret)) {
+			p->payment_secret = tal(p, struct secret);
+			memcpy(p->payment_secret, enctlv->path_id, sizeof(struct secret));
+		}
+		return start_payment(cmd, p);
+	}
 
 	if (!enctlv->short_channel_id && !enctlv->next_node_id) {
 		return command_fail(cmd, PAY_UNPARSEABLE_ONION,

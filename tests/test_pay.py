@@ -5808,6 +5808,15 @@ def test_offer_path_self(node_factory):
     l2.rpc.pay(inv)
 
 
+def test_offer_selfpay(node_factory):
+    """We can fetch an pay our own offer"""
+    l1 = node_factory.get_node(options={'experimental-offers': None})
+
+    offer = l1.rpc.offer(amount='2msat', description='test_offer_path_self')['bolt12']
+    inv = l1.rpc.fetchinvoice(offer)['invoice']
+    l1.rpc.pay(inv)
+
+
 def test_decryptencrypteddata(node_factory):
     l1, l2, l3 = node_factory.line_graph(3, fundchannel=False,
                                          opts={'experimental-offers': None})
