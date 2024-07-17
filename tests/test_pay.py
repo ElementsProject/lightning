@@ -4754,15 +4754,15 @@ def test_fetchinvoice_disconnected_reply(node_factory, bitcoind):
 
     # Make l1, l2 public (so l3 can auto connect).
     node_factory.join_nodes([l1, l2], wait_for_announce=True)
-    wait_for(lambda: l3.rpc.listnodes(l1.info['id'])['nodes'] != [])
+    # Make sure l3 knows about l1's public address
+    wait_for(lambda: all(['addresses' in n for n in l3.rpc.listnodes()['nodes']]))
 
     offer = l3.rpc.offer(amount='5msat', description='test_fetchinvoice_disconnected_reply')
 
-    # l2 sets reply_path to be l1->l2, l3 will connect to l1 to send reply.
-    # FIXME: if code were smarter, it would simply send via l2, and this test
-    # would have to get more sophisticated!
+    # l2 is already connected to l3, so it can fetch.  It specifies a reply
+    # path of l1->l2.  l3 knows it can simply route reply to l1 via l2.
     l2.rpc.fetchinvoice(offer=offer['bolt12'], dev_reply_path=[l1.info['id'], l2.info['id']])
-    assert only_one(l1.rpc.listpeers(l3.info['id'])['peers'])
+    assert l3.rpc.listpeers(l1.info['id']) == {'peers': []}
 
 
 def test_pay_blockheight_mismatch(node_factory, bitcoind):
