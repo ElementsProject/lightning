@@ -187,7 +187,7 @@ static struct command_result *createinvoice_done(struct command *cmd,
 	}
 
 	payload = tlv_onionmsg_tlv_new(tmpctx);
-	payload->invoice = rawinv;
+	payload->invoice = tal_steal(payload, rawinv);
 	return send_onion_reply(cmd, ir->reply_path, payload);
 }
 

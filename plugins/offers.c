@@ -19,6 +19,7 @@
 #include <common/memleak.h>
 #include <common/onion_message.h>
 #include <errno.h>
+#include <plugins/establish_onion_path.h>
 #include <plugins/fetchinvoice.h>
 #include <plugins/offers.h>
 #include <plugins/offers_inv_hook.h>
@@ -70,15 +71,15 @@ static struct command_result *finished(struct command *cmd,
 	return command_hook_success(cmd);
 }
 
-static struct command_result *sendonionmessage_error(struct command *cmd,
-						     const char *buf,
-						     const jsmntok_t *err,
-						     void *unused)
+static struct command_result *injectonionmessage_error(struct command *cmd,
+						       const char *buf,
+						       const jsmntok_t *err,
+						       void *unused)
 {
 	/* This can happen if the peer goes offline or wasn't directly
 	 * connected: "Unknown first peer" */
 	plugin_log(cmd->plugin, LOG_DBG,
-		   "sendonionmessage gave JSON error: %.*s",
+		   "injectonionmessage gave JSON error: %.*s",
 		   json_tok_full_len(err),
 		   json_tok_full(buf, err));
 	return command_hook_success(cmd);
@@ -139,52 +140,75 @@ inject_onionmessage_(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+/* Holds the details while we wait for establish_onion_path to connect */
+struct onion_reply {
+	struct blinded_path *reply_path;
+	struct tlv_onionmsg_tlv *payload;
+};
+
+static struct command_result *send_onion_reply_after_established(struct command *cmd,
+								 const struct pubkey *path,
+								 struct onion_reply *onion_reply)
+{
+	struct onion_message *omsg;
+
+	omsg = outgoing_onion_message(tmpctx, path, NULL, onion_reply->reply_path, onion_reply->payload);
+	return inject_onionmessage(cmd, omsg, finished, injectonionmessage_error, onion_reply);
+}
+
+static struct command_result *send_onion_reply_not_established(struct command *cmd,
+							       const char *why,
+							       struct onion_reply *onion_reply)
+{
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "Failed to connect for reply via %s: %s",
+		   fmt_sciddir_or_pubkey(tmpctx, &onion_reply->reply_path->first_node_id),
+		   why);
+	return command_hook_success(cmd);
+}
+
+static struct blinded_path *blinded_path_dup(const tal_t *ctx,
+					     const struct blinded_path *old)
+{
+	struct blinded_path *bp = tal(ctx, struct blinded_path);
+	*bp = *old;
+	bp->path = tal_arr(bp, struct onionmsg_hop *, tal_count(old->path));
+	for (size_t i = 0; i < tal_count(bp->path); i++) {
+		bp->path[i] = tal(bp->path, struct onionmsg_hop);
+		bp->path[i]->blinded_node_id = old->path[i]->blinded_node_id;
+		bp->path[i]->encrypted_recipient_data = tal_dup_talarr(bp->path[i], u8,
+								       old->path[i]->encrypted_recipient_data);
+	}
+	return bp;
+}
+
 struct command_result *
 send_onion_reply(struct command *cmd,
 		 struct blinded_path *reply_path,
 		 struct tlv_onionmsg_tlv *payload)
 {
-	struct out_req *req;
-	size_t nhops;
+	struct onion_reply *onion_reply;
 
-	if (!reply_path->first_node_id.is_pubkey
-	    && !convert_to_scidd(cmd, &reply_path->first_node_id)) {
-		plugin_log(cmd->plugin, LOG_INFORM, "Unknown reply scid %s: cannot send reply",
-			   fmt_short_channel_id_dir(tmpctx, &reply_path->first_node_id.scidd));
-		return command_hook_success(cmd);
+	onion_reply = tal(cmd, struct onion_reply);
+	onion_reply->reply_path = blinded_path_dup(onion_reply, reply_path);
+	onion_reply->payload = tal_steal(onion_reply, payload);
+
+	if (!onion_reply->reply_path->first_node_id.is_pubkey) {
+		if (!convert_to_scidd(cmd, &onion_reply->reply_path->first_node_id)) {
+			plugin_log(cmd->plugin, LOG_DBG,
+					    "Cannot resolve initial reply scidd %s",
+					    fmt_short_channel_id_dir(tmpctx,
+								     &onion_reply->reply_path->first_node_id.scidd));
+			return command_hook_success(cmd);
+		}
 	}
 
-	req = jsonrpc_request_start(cmd->plugin, cmd, "sendonionmessage",
-				    finished, sendonionmessage_error, NULL);
-
-	assert(reply_path->first_node_id.is_pubkey);
-	json_add_pubkey(req->js, "first_id", &reply_path->first_node_id.pubkey);
-	json_add_pubkey(req->js, "blinding", &reply_path->blinding);
-	json_array_start(req->js, "hops");
-
-	nhops = tal_count(reply_path->path);
-	for (size_t i = 0; i < nhops; i++) {
-		struct tlv_onionmsg_tlv *omp;
-		u8 *tlv;
-
-		json_object_start(req->js, NULL);
-		json_add_pubkey(req->js, "id", &reply_path->path[i]->blinded_node_id);
-
-		/* Put payload in last hop. */
-		if (i == nhops - 1)
-			omp = payload;
-		else
-			omp = tlv_onionmsg_tlv_new(tmpctx);
-
-		omp->encrypted_recipient_data = reply_path->path[i]->encrypted_recipient_data;
-
-		tlv = tal_arr(tmpctx, u8, 0);
-		towire_tlv_onionmsg_tlv(&tlv, omp);
-		json_add_hex_talarr(req->js, "tlv", tlv);
-		json_object_end(req->js);
-	}
-	json_array_end(req->js);
-	return send_outreq(cmd->plugin, req);
+	return establish_onion_path(cmd, get_gossmap(cmd->plugin),
+				    &id, &onion_reply->reply_path->first_node_id.pubkey,
+				    disable_connect,
+				    send_onion_reply_after_established,
+				    send_onion_reply_not_established,
+				    onion_reply);
 }
 
 static struct command_result *onion_message_recv(struct command *cmd,
