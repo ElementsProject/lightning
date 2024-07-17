@@ -3,9 +3,6 @@
 #include "config.h"
 #include <plugins/libplugin.h>
 
-extern struct pubkey id;
-extern bool offers_enabled;
-
 struct command_result *json_offer(struct command *cmd,
 				  const char *buffer,
 				  const jsmntok_t *params);
