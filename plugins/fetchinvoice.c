@@ -18,13 +18,12 @@
 #include <common/route.h>
 #include <errno.h>
 #include <plugins/establish_onion_path.h>
+#include <plugins/fetchinvoice.h>
 #include <plugins/libplugin.h>
+#include <plugins/offers.h>
 #include <secp256k1_schnorrsig.h>
 #include <sodium.h>
 
-static struct gossmap *global_gossmap;
-static struct pubkey local_id;
-static bool disable_connect = false;
 static LIST_HEAD(sent_list);
 
 struct sent {
@@ -334,9 +333,9 @@ badinv:
 	return command_hook_success(cmd);
 }
 
-static struct command_result *recv_modern_onion_message(struct command *cmd,
-							const char *buf,
-							const jsmntok_t *params)
+struct command_result *recv_modern_onion_message(struct command *cmd,
+						 const char *buf,
+						 const jsmntok_t *params)
 {
 	const jsmntok_t *om, *secrettok;
 	struct sent *sent;
@@ -346,6 +345,9 @@ static struct command_result *recv_modern_onion_message(struct command *cmd,
 	om = json_get_member(buf, params, "onion_message");
 
 	secrettok = json_get_member(buf, om, "pathsecret");
+	if (!secrettok)
+		return NULL;
+
 	json_to_secret(buf, secrettok, &pathsecret);
 	sent = find_sent_by_secret(&pathsecret);
 	if (!sent) {
@@ -353,7 +355,7 @@ static struct command_result *recv_modern_onion_message(struct command *cmd,
 			   "No match for modern onion %.*s",
 			   json_tok_full_len(om),
 			   json_tok_full(buf, om));
-		return command_hook_success(cmd);
+		return NULL;
 	}
 
 	plugin_log(cmd->plugin, LOG_DBG, "Received modern onion message: %.*s",
@@ -367,7 +369,7 @@ static struct command_result *recv_modern_onion_message(struct command *cmd,
 	if (sent->invreq)
 		return handle_invreq_response(cmd, sent, buf, om);
 
-	return command_hook_success(cmd);
+	return NULL;
 }
 
 static void destroy_sent(struct sent *sent)
@@ -395,31 +397,6 @@ static struct command_result *sendonionmsg_done(struct command *cmd,
 	list_add_tail(&sent_list, &sent->list);
 	tal_add_destructor(sent, destroy_sent);
 	return command_still_pending(cmd);
-}
-
-static void init_gossmap(struct plugin *plugin)
-{
-	size_t num_cupdates_rejected;
-	global_gossmap
-		= notleak_with_children(gossmap_load(NULL,
-						     GOSSIP_STORE_FILENAME,
-						     &num_cupdates_rejected));
-	if (!global_gossmap)
-		plugin_err(plugin, "Could not load gossmap %s: %s",
-			   GOSSIP_STORE_FILENAME, strerror(errno));
-	if (num_cupdates_rejected)
-		plugin_log(plugin, LOG_DBG,
-			   "gossmap ignored %zu channel updates",
-			   num_cupdates_rejected);
-}
-
-static struct gossmap *get_gossmap(struct plugin *plugin)
-{
-	if (!global_gossmap)
-		init_gossmap(plugin);
-	else
-		gossmap_refresh(global_gossmap, NULL);
-	return global_gossmap;
 }
 
 static struct command_result *param_offer(struct command *cmd,
@@ -548,7 +525,7 @@ static struct blinded_path *blinded_path(const tal_t *ctx,
 		sciddir_or_pubkey_from_scidd(&path->first_node_id, first_scidd);
 	else
 		sciddir_or_pubkey_from_pubkey(&path->first_node_id, &ids[0]);
-	assert(pubkey_eq(&ids[nhops-1], &local_id));
+	assert(pubkey_eq(&ids[nhops-1], &id));
 
 	randombytes_buf(&first_blinding, sizeof(first_blinding));
 	if (!pubkey_from_privkey(&first_blinding, &path->blinding))
@@ -785,7 +762,7 @@ static struct command_result *invreq_done(struct command *cmd,
 		}
 	}
 
-	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &local_id,
+	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &id,
 				    sent->invreq->offer_node_id,
 				    disable_connect,
 				    fetchinvoice_path_done,
@@ -833,9 +810,9 @@ static struct command_result *param_dev_reply_path(struct command *cmd, const ch
 }
 
 /* Fetches an invoice for this offer, and makes sure it corresponds. */
-static struct command_result *json_fetchinvoice(struct command *cmd,
-						const char *buffer,
-						const jsmntok_t *params)
+struct command_result *json_fetchinvoice(struct command *cmd,
+					 const char *buffer,
+					 const jsmntok_t *params)
 {
 	struct amount_msat *msat;
 	const char *rec_label, *payer_note;
@@ -859,6 +836,10 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 		   p_opt("dev_reply_path", param_dev_reply_path, &sent->dev_reply_path),
 		   NULL))
 		return command_param_failed();
+
+	if (!offers_enabled)
+		return command_fail(cmd, LIGHTNINGD,
+				    "experimental-offers not enabled");
 
 	sent->wait_timeout = *timeout;
 
@@ -1032,9 +1013,9 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
  * it's actually hit the db!  But using waitinvoice is also suboptimal
  * because we don't have libplugin infra to cancel a pending req (and I
  * want to rewrite our wait* API anyway) */
-static struct command_result *invoice_payment(struct command *cmd,
-					      const char *buf,
-					      const jsmntok_t *params)
+struct command_result *invoice_payment(struct command *cmd,
+				       const char *buf,
+				       const jsmntok_t *params)
 {
 	struct sent *i;
 	const jsmntok_t *ptok, *preimagetok, *msattok;
@@ -1134,7 +1115,7 @@ static struct command_result *createinvoice_done(struct command *cmd,
 				    "FIXME: support blinded paths!");
 	}
 
-	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &local_id,
+	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &id,
 				    sent->invreq->invreq_payer_id,
 				    disable_connect,
 				    sendinvoice_path_done,
@@ -1284,9 +1265,9 @@ static struct command_result *param_invreq(struct command *cmd,
 	return NULL;
 }
 
-static struct command_result *json_sendinvoice(struct command *cmd,
-					       const char *buffer,
-					       const jsmntok_t *params)
+struct command_result *json_sendinvoice(struct command *cmd,
+					const char *buffer,
+					const jsmntok_t *params)
 {
 	struct amount_msat *msat;
 	u32 *timeout;
@@ -1303,6 +1284,10 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 		   p_opt_def("timeout", param_number, &timeout, 90),
 		   NULL))
 		return command_param_failed();
+
+	if (!offers_enabled)
+		return command_fail(cmd, LIGHTNINGD,
+				    "experimental-offers not enabled");
 
 	sent->dev_path_use_scidd = NULL;
 	sent->dev_reply_path = NULL;
@@ -1359,7 +1344,7 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 	 */
 	/* FIXME: Use transitory id! */
 	sent->inv->invoice_node_id = tal(sent->inv, struct pubkey);
-	sent->inv->invoice_node_id->pubkey = local_id.pubkey;
+	sent->inv->invoice_node_id->pubkey = id.pubkey;
 
 	/* BOLT-offers #12:
 	 * - if the expiry for accepting payment is not 7200 seconds
@@ -1404,9 +1389,9 @@ static struct command_result *param_raw_invreq(struct command *cmd,
 	return NULL;
 }
 
-static struct command_result *json_dev_rawrequest(struct command *cmd,
-						  const char *buffer,
-						  const jsmntok_t *params)
+struct command_result *json_dev_rawrequest(struct command *cmd,
+					   const char *buffer,
+					   const jsmntok_t *params)
 {
 	struct sent *sent = tal(cmd, struct sent);
 	u32 *timeout;
@@ -1426,80 +1411,10 @@ static struct command_result *json_dev_rawrequest(struct command *cmd,
 	sent->dev_path_use_scidd = NULL;
 	sent->dev_reply_path = NULL;
 
-	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &local_id,
+	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &id,
 				    node_id,
 				    disable_connect,
 				    fetchinvoice_path_done,
 				    fetchinvoice_path_fail,
 				    sent);
-}
-
-static const struct plugin_command commands[] = {
-	{
-		"fetchinvoice",
-		"payment",
-		"Request remote node for an invoice for this {offer}, with {amount}, {quanitity}, {recurrence_counter}, {recurrence_start} and {recurrence_label} iff required.",
-		NULL,
-		json_fetchinvoice,
-	},
-	{
-		"sendinvoice",
-		"payment",
-		"Request remote node for to pay this {invreq}, with {label}, optional {amount_msat}, and {timeout} (default 90 seconds).",
-		NULL,
-		json_sendinvoice,
-	},
-	{
-		"dev-rawrequest",
-		"util",
-		"Send {invreq} to {nodeid}, wait {timeout} (60 seconds by default)",
-		NULL,
-		json_dev_rawrequest,
-		.dev_only = true,
-	},
-};
-
-static const char *init(struct plugin *p, const char *buf UNUSED,
-			const jsmntok_t *config UNUSED)
-{
-	bool exp_offers;
-
-	rpc_scan(p, "getinfo",
-		 take(json_out_obj(NULL, NULL, NULL)),
-		 "{id:%}", JSON_SCAN(json_to_pubkey, &local_id));
-
-	rpc_scan(p, "listconfigs",
-		 take(json_out_obj(NULL, "config", "experimental-offers")),
-		 "{configs:{experimental-offers:{set:%}}}",
-		 JSON_SCAN(json_to_bool, &exp_offers));
-
-	if (!exp_offers)
-		return "offers not enabled in config";
-	return NULL;
-}
-
-static const struct plugin_hook hooks[] = {
-	{
-		"onion_message_recv_secret",
-		recv_modern_onion_message
-	},
-	{
-		"invoice_payment",
-		invoice_payment,
-	},
-};
-
-int main(int argc, char *argv[])
-{
-	setup_locale();
-	plugin_main(argv, init, PLUGIN_RESTARTABLE, true, NULL,
-		    commands, ARRAY_SIZE(commands),
-		    /* No notifications */
-	            NULL, 0,
-		    hooks, ARRAY_SIZE(hooks),
-		    NULL, 0,
-		    plugin_option("fetchinvoice-noconnect", "flag",
-				  "Don't try to connect directly to fetch an invoice.",
-				  flag_option, flag_jsonfmt, &disable_connect),
-		    NULL);
 }

@@ -18,6 +18,7 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <errno.h>
+#include <plugins/fetchinvoice.h>
 #include <plugins/offers.h>
 #include <plugins/offers_inv_hook.h>
 #include <plugins/offers_invreq_hook.h>
@@ -51,7 +52,7 @@ static void init_gossmap(struct plugin *plugin)
 			   num_cupdates_rejected);
 }
 
-static struct gossmap *get_gossmap(struct plugin *plugin)
+struct gossmap *get_gossmap(struct plugin *plugin)
 {
 	if (!global_gossmap)
 		init_gossmap(plugin);
@@ -162,9 +163,15 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 {
 	const jsmntok_t *om, *replytok, *invreqtok, *invtok;
 	struct blinded_path *reply_path = NULL;
+	struct command_result *res;
 
 	if (!offers_enabled)
 		return command_hook_success(cmd);
+
+	/* FIXME: unify parsing! */
+	res = recv_modern_onion_message(cmd, buf, params);
+	if (res)
+		return res;
 
 	om = json_get_member(buf, params, "onion_message");
 	replytok = json_get_member(buf, om, "reply_blindedpath");
@@ -202,6 +209,14 @@ static const struct plugin_hook hooks[] = {
 	{
 		"onion_message_recv",
 		onion_message_modern_call
+	},
+	{
+		"onion_message_recv_secret",
+		onion_message_modern_call
+	},
+	{
+		"invoice_payment",
+		invoice_payment,
 	},
 };
 
@@ -1235,11 +1250,9 @@ static const char *init(struct plugin *p,
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{configs:"
 		 "{cltv-final:{value_int:%},"
-		 "experimental-offers:{set:%}},"
-		 "fetchinvoice-noconnect?:{set:%}}",
+		 "experimental-offers:{set:%}}}",
 		 JSON_SCAN(json_to_u16, &cltv_final),
-		 JSON_SCAN(json_to_bool, &offers_enabled),
-		 JSON_SCAN(json_to_bool, &disable_connect));
+		 JSON_SCAN(json_to_bool, &offers_enabled));
 
 	rpc_scan(p, "makesecret",
 		 take(json_out_obj(NULL, "string", INVOICE_PATH_BASE_STRING)),
@@ -1271,7 +1284,30 @@ static const struct plugin_command commands[] = {
 	    NULL,
 	    json_decode,
     },
+    {
+	    "fetchinvoice",
+	    "payment",
+	    "Request remote node for an invoice for this {offer}, with {amount}, {quanitity}, {recurrence_counter}, {recurrence_start} and {recurrence_label} iff required.",
+	    NULL,
+	    json_fetchinvoice,
+    },
+    {
+	    "sendinvoice",
+	    "payment",
+	    "Request remote node for to pay this {invreq}, with {label}, optional {amount_msat}, and {timeout} (default 90 seconds).",
+	    NULL,
+	    json_sendinvoice,
+    },
+    {
+	    "dev-rawrequest",
+	    "util",
+	    "Send {invreq} to {nodeid}, wait {timeout} (60 seconds by default)",
+	    NULL,
+	    json_dev_rawrequest,
+	    .dev_only = true,
+    },
 };
+
 
 int main(int argc, char *argv[])
 {
@@ -1283,5 +1319,9 @@ int main(int argc, char *argv[])
 		    commands, ARRAY_SIZE(commands),
 		    notifications, ARRAY_SIZE(notifications),
 		    hooks, ARRAY_SIZE(hooks),
-		    NULL, 0, NULL);
+		    NULL, 0,
+		    plugin_option("fetchinvoice-noconnect", "flag",
+				  "Don't try to connect directly to fetch/pay an invoice.",
+				  flag_option, flag_jsonfmt, &disable_connect),
+		    NULL);
 }
