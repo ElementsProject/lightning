@@ -35,13 +35,19 @@ static void init_gossmap(struct plugin *plugin)
 			   num_channel_updates_rejected);
 }
 
-static struct gossmap *get_gossmap(struct payment *payment)
+struct gossmap *get_raw_gossmap(struct payment *payment)
 {
 	assert(!got_gossmap);
 	if (!global_gossmap)
 		init_gossmap(payment->plugin);
 	else
 		gossmap_refresh(global_gossmap, NULL);
+	return global_gossmap;
+}
+
+static struct gossmap *get_gossmap(struct payment *payment)
+{
+	get_raw_gossmap(payment);
 	got_gossmap = true;
 	assert(payment->mods);
 	gossmap_apply_localmods(global_gossmap, payment->mods);

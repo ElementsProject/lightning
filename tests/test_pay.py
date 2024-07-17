@@ -5624,9 +5624,11 @@ def test_pay_partial_msat(node_factory, executor):
 
 def test_blindedpath_privchan(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
-                                     opts={'experimental-offers': None})
+                                     opts={'experimental-offers': None,
+                                           'may_reconnect': True})
     l3 = node_factory.get_node(options={'experimental-offers': None,
-                                        'cltv-final': 120})
+                                        'cltv-final': 120},
+                               may_reconnect=True)
 
     # Private channel.
     node_factory.join_nodes([l2, l3], announce_channels=False)
@@ -5644,6 +5646,23 @@ def test_blindedpath_privchan(node_factory, bitcoind):
     # Carla points out that the path's cltv_expiry_delta *includes*
     # the final node's final value.
     assert decode['invoice_paths'][0]['payinfo']['cltv_expiry_delta'] == l3.config('cltv-final') + l2.config('cltv-delta')
+
+    l1.rpc.pay(inv['invoice'])
+
+    # Now try when l3 uses scid for entry point of blinded path.
+    l3.stop()
+    l3.daemon.opts['dev-invoice-bpath-scid'] = None
+    l3.start()
+    l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    chan = only_one(l1.rpc.listchannels(source=l2.info['id'])['channels'])
+
+    inv = l2.rpc.fetchinvoice(offer['bolt12'])
+    decode = l1.rpc.decode(inv['invoice'])
+    assert len(decode['invoice_paths']) == 1
+    assert 'first_node_id' not in decode['invoice_paths'][0]
+    assert decode['invoice_paths'][0]['first_scid'] == chan['short_channel_id']
+    assert decode['invoice_paths'][0]['first_scid_dir'] == chan['direction']
 
     l1.rpc.pay(inv['invoice'])
 

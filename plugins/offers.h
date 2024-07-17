@@ -21,7 +21,8 @@ extern u32 blockheight;
 extern struct secret invoicesecret_base;
 /* Base for offers path_secrets */
 extern struct secret offerblinding_base;
-
+/* --dev-invoice-bpath-scid */
+extern bool dev_invoice_bpath_scid;
 /* This is me. */
 extern struct pubkey id;
 

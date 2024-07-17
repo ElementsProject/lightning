@@ -1289,10 +1289,12 @@ static struct command_result *json_pay(struct command *cmd,
 		/* FIXME: do MPP across these!  We choose first one. */
 		p->blindedpath = tal_steal(p, b12->invoice_paths[0]);
 		p->blindedpay = tal_steal(p, b12->invoice_blindedpay[0]);
-		/* FIXME: support this! */
-		if (!p->blindedpath->first_node_id.is_pubkey) {
+
+		if (!gossmap_scidd_pubkey(get_raw_gossmap(p), &p->blindedpath->first_node_id)) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "First hop of blinding is an scid: not supported!");
+					    "First hop of blinding scid %s unknown",
+					    fmt_short_channel_id_dir(tmpctx,
+								     &p->blindedpath->first_node_id.scidd));
 		}
 		p->min_final_cltv_expiry = p->blindedpay->cltv_expiry_delta;
 
