@@ -36,6 +36,7 @@ u16 cltv_final;
 bool offers_enabled;
 bool disable_connect;
 bool dev_invoice_bpath_scid;
+struct short_channel_id *dev_invoice_internal_scid;
 struct secret invoicesecret_base;
 struct secret offerblinding_base;
 static struct gossmap *global_gossmap;
@@ -1437,6 +1438,26 @@ static const struct plugin_command commands[] = {
     },
 };
 
+static char *scid_option(struct plugin *plugin, const char *arg, bool check_only,
+			 struct short_channel_id **scidp)
+{
+	struct short_channel_id scid;
+
+	if (!short_channel_id_from_str(arg, strlen(arg), &scid))
+		return tal_fmt(tmpctx, "'%s' is not an scid", arg);
+
+	*scidp = notleak(tal_dup(plugin, struct short_channel_id, &scid));
+	return NULL;
+}
+
+static bool scid_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname,
+			 struct short_channel_id **scid)
+{
+	if (!*scid)
+		return false;
+	json_add_short_channel_id(js, fieldname, **scid);
+	return true;
+}
 
 int main(int argc, char *argv[])
 {
@@ -1453,7 +1474,10 @@ int main(int argc, char *argv[])
 				  "Don't try to connect directly to fetch/pay an invoice.",
 				  flag_option, flag_jsonfmt, &disable_connect),
 		    plugin_option_dev("dev-invoice-bpath-scid", "flag",
-				  "Use short_channel_id instead of pubkey when creating a blinded payment path",
+				      "Use short_channel_id instead of pubkey when creating a blinded payment path",
 				      flag_option, flag_jsonfmt, &dev_invoice_bpath_scid),
+		    plugin_option_dev("dev-invoice-internal-scid", "string",
+				      "Use short_channel_id instead of pubkey when creating a blinded payment path",
+				      scid_option, scid_jsonfmt, &dev_invoice_internal_scid),
 		    NULL);
 }

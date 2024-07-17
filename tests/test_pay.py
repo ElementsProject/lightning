@@ -5804,7 +5804,8 @@ def test_onionmessage_ratelimit(node_factory):
 def test_offer_path_self(node_factory):
     """We can fetch an offer, and pay an invoice which uses a blinded path starting at us"""
     l1, l2, l3 = node_factory.line_graph(3, fundchannel=False,
-                                         opts={'experimental-offers': None})
+                                         opts={'experimental-offers': None,
+                                               'may_reconnect': True})
 
     # Private channel from l2->l3, makes l3 add a hint.
     node_factory.join_nodes([l1, l2], wait_for_announce=True)
@@ -5825,6 +5826,22 @@ def test_offer_path_self(node_factory):
 
     # And can pay it!
     l2.rpc.pay(inv)
+
+    # We can also handle it if invoice has next hop specified by real scid, or alias.
+    scid = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['alias']['local']
+
+    l3.stop()
+    l3.daemon.opts['dev-invoice-internal-scid'] = scid
+    l3.start()
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+
+    inv = l2.rpc.fetchinvoice(offer['bolt12'])['invoice']
+
+    # And can pay it!
+    l2.rpc.pay(inv)
+
+    # It should have mapped the hop.
+    l2.daemon.wait_for_log(f"Mapped decrypted next hop from {scid} -> {l3.info['id']}")
 
 
 def test_offer_selfpay(node_factory):
