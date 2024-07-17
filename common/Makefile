@@ -71,6 +71,7 @@ COMMON_SRC_NOGEN :=				\
 	common/onion_decode.c			\
 	common/onion_encode.c			\
 	common/onionreply.c			\
+	common/onion_message.c			\
 	common/onion_message_parse.c		\
 	common/peer_billboard.c			\
 	common/peer_failed.c			\
