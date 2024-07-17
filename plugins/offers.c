@@ -36,6 +36,7 @@ u16 cltv_final;
 bool offers_enabled;
 bool disable_connect;
 struct secret invoicesecret_base;
+struct secret offerblinding_base;
 static struct gossmap *global_gossmap;
 
 static void init_gossmap(struct plugin *plugin)
@@ -1323,6 +1324,11 @@ static const char *init(struct plugin *p,
 		 take(json_out_obj(NULL, "string", INVOICE_PATH_BASE_STRING)),
 		 "{secret:%}",
 		 JSON_SCAN(json_to_secret, &invoicesecret_base));
+
+	rpc_scan(p, "makesecret",
+		 take(json_out_obj(NULL, "string", "offer-blinded-path")),
+		 "{secret:%}",
+		 JSON_SCAN(json_to_secret, &offerblinding_base));
 
 	return NULL;
 }

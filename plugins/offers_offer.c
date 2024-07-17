@@ -3,9 +3,11 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt12.h>
+#include <common/invoice_path_id.h>
 #include <common/iso4217.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
+#include <common/onion_message.h>
 #include <common/overflows.h>
 #include <plugins/offers.h>
 #include <plugins/offers_offer.h>
@@ -286,6 +288,105 @@ static struct command_result *currency_done(struct command *cmd,
 	return create_offer(cmd, offinfo);
 }
 
+static bool json_to_short_channel_id_dir(const char *buffer, const jsmntok_t *tok,
+					 struct short_channel_id_dir *scidd)
+{
+	jsmntok_t scidtok, numtok;
+	u32 dir;
+
+	if (!split_tok(buffer, tok, '/', &scidtok, &numtok))
+		return false;
+
+	if (!json_to_short_channel_id(buffer, &scidtok, &scidd->scid))
+		return false;
+
+	if (!json_to_u32(buffer, &numtok, &dir) || (dir > 1))
+		return false;
+
+	scidd->dir = dir;
+	return true;
+}
+
+static bool json_to_sciddir_or_pubkey(const char *buffer, const jsmntok_t *tok,
+				      struct sciddir_or_pubkey *sciddir_or_pubkey)
+{
+	struct pubkey pk;
+	struct short_channel_id_dir scidd;
+
+	if (json_to_pubkey(buffer, tok, &pk)) {
+		sciddir_or_pubkey_from_pubkey(sciddir_or_pubkey, &pk);
+		return true;
+	} else if (json_to_short_channel_id_dir(buffer, tok, &scidd)) {
+		sciddir_or_pubkey_from_scidd(sciddir_or_pubkey, &scidd);
+		return true;
+	}
+
+	return false;
+}
+
+struct path {
+	/* Optional: a scid as the entry point */
+	struct short_channel_id_dir *first_scidd;
+	/* A node id for every element on the path */
+	struct pubkey *path;
+};
+
+static struct command_result *param_paths(struct command *cmd, const char *name,
+					  const char *buffer, const jsmntok_t *tok,
+					  struct path ***paths)
+{
+	size_t i;
+	const jsmntok_t *t;
+
+	if (tok->type != JSMN_ARRAY)
+		return command_fail_badparam(cmd, name, buffer, tok, "Must be array");
+
+	*paths = tal_arr(cmd, struct path *, tok->size);
+	json_for_each_arr(i, t, tok) {
+		size_t j;
+		const jsmntok_t *p;
+
+		if (t->type != JSMN_ARRAY || t->size == 0) {
+			return command_fail_badparam(cmd, name, buffer, t,
+						     "Must be array of non-empty arrays");
+		}
+
+		(*paths)[i] = tal(*paths, struct path);
+		(*paths)[i]->path = tal_arr((*paths)[i], struct pubkey, t->size);
+		json_for_each_arr(j, p, t) {
+			struct pubkey pk;
+			if (j == 0) {
+				struct sciddir_or_pubkey init;
+				if (!json_to_sciddir_or_pubkey(buffer, p, &init)) {
+					return command_fail_badparam(cmd, name, buffer, p,
+								     "invalid pubkey/sciddir");
+				}
+				if (!init.is_pubkey) {
+					(*paths)[i]->first_scidd = tal_dup((*paths)[i],
+									  struct short_channel_id_dir,
+									  &init.scidd);
+					if (!convert_to_scidd(cmd, &init))
+						return command_fail_badparam(cmd, name, buffer, p,
+									     "unknown sciddir");
+				} else {
+					(*paths)[i]->first_scidd = NULL;
+				}
+				pk = init.pubkey;
+			} else {
+				if (!json_to_pubkey(buffer, p, &pk)) {
+					return command_fail_badparam(cmd, name, buffer, p,
+								     "invalid pubkey");
+				}
+			}
+			if (j == t->size - 1 && !pubkey_eq(&pk, &id))
+				return command_fail_badparam(cmd, name, buffer, p,
+							     "final pubkey must be this node");
+			(*paths)[i]->path[j] = pk;
+		}
+	}
+	return NULL;
+}
+
 struct command_result *json_offer(struct command *cmd,
 				  const char *buffer,
 				  const jsmntok_t *params)
@@ -293,6 +394,7 @@ struct command_result *json_offer(struct command *cmd,
 	const char *desc, *issuer;
 	struct tlv_offer *offer;
 	struct offer_info *offinfo = tal(cmd, struct offer_info);
+	struct path **paths;
 
 	offinfo->offer = offer = tlv_offer_new(offinfo);
 
@@ -318,7 +420,7 @@ struct command_result *json_offer(struct command *cmd,
 		   p_opt("recurrence_start_any_period",
 			 param_recurrence_start_any_period,
 			 &offer->offer_recurrence_base),
-		   /* FIXME: hints support! */
+		   p_opt("dev_paths", param_paths, &paths),
 		   NULL))
 		return command_param_failed();
 
@@ -388,6 +490,32 @@ struct command_result *json_offer(struct command *cmd,
 	 *   invoice from.
 	 */
 	offer->offer_node_id = tal_dup(offer, struct pubkey, &id);
+
+	/* Now rest of offer will not change: we use pathless offer to create secret. */
+	if (paths) {
+		const u8 *path_secret;
+		struct secret blinding_path_secret;
+		struct sha256 offer_id;
+		/* Note: "id" of offer minus paths */
+		offer_offer_id(offer, &offer_id);
+
+		/* We can check this when they try to take up offer. */
+		path_secret = invoice_path_id(tmpctx, &offerblinding_base, &offer_id);
+		assert(tal_count(path_secret) == sizeof(blinding_path_secret));
+		memcpy(&blinding_path_secret, path_secret, sizeof(blinding_path_secret));
+
+		offer->offer_paths = tal_arr(offer, struct blinded_path *, tal_count(paths));
+		for (size_t i = 0; i < tal_count(paths); i++) {
+			offer->offer_paths[i] = incoming_message_blinded_path(offer->offer_paths,
+									      paths[i]->path,
+									      NULL,
+									      &blinding_path_secret);
+			/* Override entry point if they said to */
+			if (paths[i]->first_scidd)
+				sciddir_or_pubkey_from_scidd(&offer->offer_paths[i]->first_node_id,
+							     paths[i]->first_scidd);
+		}
+	}
 
 	/* If they specify a different currency, warn if we can't
 	 * convert it! */
