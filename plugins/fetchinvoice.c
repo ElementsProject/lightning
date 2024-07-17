@@ -37,6 +37,11 @@ struct sent {
 	/* The offer we are trying to get an invoice/payment for. */
 	struct tlv_offer *offer;
 
+	/* Blinded paths they told us to use (if any) */
+	struct blinded_path **their_paths;
+	/* Direct destination (used iff no their_paths) */
+	struct pubkey *direct_dest;
+
 	/* When creating blinded return path, use scid not pubkey for intro node. */
 	struct short_channel_id_dir *dev_path_use_scidd;
 
@@ -431,17 +436,33 @@ static struct blinded_path *make_reply_path(const tal_t *ctx,
 	return incoming_message_blinded_path(ctx, ids, NULL, reply_secret);
 }
 
-static struct command_result *send_message(struct command *cmd,
-					   struct sent *sent,
-					   const struct pubkey *path,
-					   struct tlv_onionmsg_tlv *final_tlv,
-					   struct command_result *(*done)
-					   (struct command *cmd,
-					    const char *buf UNUSED,
-					    const jsmntok_t *result UNUSED,
-					    struct sent *sent))
+/* Container while we're establishing paths */
+struct establishing_paths {
+	/* Index into sent->their_paths, if that's not NULL */
+	int which_blinded_path;
+	struct sent *sent;
+	struct tlv_onionmsg_tlv *final_tlv;
+	struct command_result *(*done)(struct command *cmd,
+				       const char *buf UNUSED,
+				       const jsmntok_t *result UNUSED,
+				       struct sent *sent);
+};
+
+static const struct blinded_path *current_their_path(const struct establishing_paths *epaths)
+{
+	if (tal_count(epaths->sent->their_paths) == 0)
+		return NULL;
+	assert(epaths->which_blinded_path < tal_count(epaths->sent->their_paths));
+	return epaths->sent->their_paths[epaths->which_blinded_path];
+}
+
+static struct command_result *establish_path_done(struct command *cmd,
+						  const struct pubkey *path,
+						  struct establishing_paths *epaths)
 {
 	struct onion_message *omsg;
+	struct sent *sent = epaths->sent;
+	struct tlv_onionmsg_tlv *final_tlv = epaths->final_tlv;
 
 	/* Create transient secret so we can validate reply! */
 	sent->reply_secret = tal(sent, struct secret);
@@ -459,9 +480,80 @@ static struct command_result *send_message(struct command *cmd,
 		sciddir_or_pubkey_from_scidd(&final_tlv->reply_path->first_node_id,
 					     sent->dev_path_use_scidd);
 
-	/* FIXME: use their blinded path if they supplied one! */
-	omsg = outgoing_onion_message(tmpctx, path, NULL, NULL, final_tlv);
-	return inject_onionmessage(cmd, omsg, done, forward_error, sent);
+	omsg = outgoing_onion_message(tmpctx, path, NULL, current_their_path(epaths), final_tlv);
+	return inject_onionmessage(cmd, omsg, epaths->done, forward_error, sent);
+}
+
+/* Mutual recursion */
+static struct command_result *try_establish(struct command *cmd,
+					    struct establishing_paths *epaths);
+
+static struct command_result *establish_path_fail(struct command *cmd,
+						  const char *why,
+						  struct establishing_paths *epaths)
+{
+	const struct blinded_path *bpath = current_their_path(epaths);
+
+	/* No blinded paths?  We fail to establish connection directly */
+	if (!bpath) {
+		return command_fail(cmd, OFFER_ROUTE_NOT_FOUND,
+				    "Failed: could not route or connect directly to %s: %s",
+				    fmt_pubkey(tmpctx, epaths->sent->direct_dest), why);
+	}
+
+	plugin_log(cmd->plugin, LOG_DBG, "establish path to %s failed: %s",
+		   fmt_sciddir_or_pubkey(tmpctx, &bpath->first_node_id), why);
+	if (epaths->which_blinded_path == tal_count(epaths->sent->their_paths) - 1) {
+		return command_fail(cmd, OFFER_ROUTE_NOT_FOUND,
+				    "Failed: could not route or connect directly to blinded path at %s: %s",
+				    fmt_sciddir_or_pubkey(tmpctx, &bpath->first_node_id),
+				    why);
+	}
+
+	/* Try the next one */
+	epaths->which_blinded_path++;
+	return try_establish(cmd, epaths);
+}
+
+static struct command_result *try_establish(struct command *cmd,
+					    struct establishing_paths *epaths)
+{
+	struct pubkey target;
+	const struct blinded_path *bpath = current_their_path(epaths);
+
+	if (!bpath) {
+		target = *epaths->sent->direct_dest;
+	} else {
+		struct sciddir_or_pubkey first = bpath->first_node_id;
+		if (!first.is_pubkey && !convert_to_scidd(cmd, &first))
+			return establish_path_fail(cmd, "Cannot resolve scidd", epaths);
+		target = first.pubkey;
+	}
+
+	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &id, &target,
+				    disable_connect,
+				    establish_path_done,
+				    establish_path_fail,
+				    epaths);
+}
+
+static struct command_result *send_message(struct command *cmd,
+					   struct sent *sent,
+					   struct tlv_onionmsg_tlv *final_tlv STEALS,
+					   struct command_result *(*done)
+					   (struct command *cmd,
+					    const char *buf UNUSED,
+					    const jsmntok_t *result UNUSED,
+					    struct sent *sent))
+{
+	struct establishing_paths *epaths = tal(sent, struct establishing_paths);
+
+	epaths->which_blinded_path = 0;
+	epaths->sent = sent;
+	epaths->final_tlv = tal_steal(epaths, final_tlv);
+	epaths->done = done;
+
+	return try_establish(cmd, epaths);
 }
 
 /* We've received neither a reply nor a payment; return failure. */
@@ -499,7 +591,7 @@ static struct command_result *fetchinvoice_path_done(struct command *cmd,
 	payload->invoice_request = tal_arr(payload, u8, 0);
 	towire_tlv_invoice_request(&payload->invoice_request, sent->invreq);
 
-	return send_message(cmd, sent, path, payload, sendonionmsg_done);
+	return send_message(cmd, sent, payload, sendonionmsg_done);
 }
 
 static struct command_result *fetchinvoice_path_fail(struct command *cmd,
@@ -690,6 +782,8 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 				    "experimental-offers not enabled");
 
 	sent->wait_timeout = *timeout;
+	sent->their_paths = sent->offer->offer_paths;
+	sent->direct_dest = sent->offer->offer_node_id;
 
 	/* BOLT-offers #12:
 	 * - SHOULD not respond to an offer if the current time is after
@@ -913,7 +1007,7 @@ static struct command_result *sendinvoice_path_done(struct command *cmd,
 	payload->invoice = tal_arr(payload, u8, 0);
 	towire_tlv_invoice(&payload->invoice, sent->inv);
 
-	return send_message(cmd, sent, path, payload, prepare_inv_timeout);
+	return send_message(cmd, sent, payload, prepare_inv_timeout);
 }
 
 static struct command_result *sendinvoice_path_fail(struct command *cmd,
@@ -956,11 +1050,8 @@ static struct command_result *createinvoice_done(struct command *cmd,
 	 *       - MUST use `offer_paths` if present, otherwise MUST use
 	 *         `invreq_payer_id` as the node id to send to.
 	 */
-	/* FIXME! */
-	if (sent->invreq->offer_paths) {
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "FIXME: support blinded paths!");
-	}
+	sent->their_paths = sent->invreq->offer_paths;
+	sent->direct_dest = sent->invreq->invreq_payer_id;
 
 	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &id,
 				    sent->invreq->invreq_payer_id,
@@ -1138,6 +1229,8 @@ struct command_result *json_sendinvoice(struct command *cmd,
 
 	sent->dev_path_use_scidd = NULL;
 	sent->dev_reply_path = NULL;
+	sent->their_paths = sent->invreq->offer_paths;
+	sent->direct_dest = sent->invreq->invreq_payer_id;
 
 	/* BOLT-offers #12:
 	 *   - if the invoice is in response to an `invoice_request`:
@@ -1257,6 +1350,8 @@ struct command_result *json_dev_rawrequest(struct command *cmd,
 	sent->offer = NULL;
 	sent->dev_path_use_scidd = NULL;
 	sent->dev_reply_path = NULL;
+	sent->their_paths = NULL;
+	sent->direct_dest = node_id;
 
 	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &id,
 				    node_id,
