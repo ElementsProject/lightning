@@ -74,13 +74,13 @@ static void keysend_cb(struct keysend_data *d, struct payment *p) {
 		   featurebit method.*/
 
 		if (p->result != NULL &&
-		    node_id_eq(p->destination, p->result->erring_node) &&
+		    node_id_eq(p->route_destination, p->result->erring_node) &&
 		    p->result->failcode == WIRE_INVALID_ONION_PAYLOAD) {
 			return payment_abort(
 			    p,
 			    "Recipient %s reported an invalid payload, this "
 			    "usually means they don't support keysend.",
-			    fmt_node_id(tmpctx, p->destination));
+			    fmt_node_id(tmpctx, p->route_destination));
 		}
 	}
 
@@ -244,7 +244,8 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	p->local_id = &my_id;
 	p->json_buffer = tal_dup_talarr(p, const char, buf);
 	p->json_toks = params;
-	p->destination = tal_steal(p, destination);
+	p->route_destination = tal_steal(p, destination);
+	p->pay_destination = p->route_destination;
 	p->payment_secret = NULL;
 	p->payment_metadata = NULL;
 	p->blindedpath = NULL;
@@ -264,7 +265,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	p->deadline = timeabs_add(time_now(), time_from_sec(*retryfor));
 	p->getroute->riskfactorppm = 10000000;
 
-	if (node_id_eq(&my_id, p->destination)) {
+	if (node_id_eq(&my_id, p->route_destination)) {
 		return command_fail(
 		    cmd, JSONRPC2_INVALID_PARAMS,
 		    "We are the destination. Keysend cannot be used to send funds to yourself");
@@ -297,7 +298,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 					    preapprovekeysend_succeed,
 					    forward_error, p);
 	}
-	json_add_node_id(req->js, "destination", p->destination);
+	json_add_node_id(req->js, "destination", p->route_destination);
 	json_add_sha256(req->js, "payment_hash", p->payment_hash);
 	json_add_amount_msat(req->js, "amount_msat", p->our_amount);
 	return send_outreq(cmd->plugin, req);

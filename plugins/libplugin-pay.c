@@ -96,7 +96,8 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	if (parent != NULL) {
 		assert(cmd == NULL);
 		tal_arr_expand(&parent->children, p);
-		p->destination = parent->destination;
+		p->route_destination = parent->route_destination;
+		p->pay_destination = parent->pay_destination;
 		p->final_amount = parent->final_amount;
 		p->our_amount = parent->our_amount;
 		p->label = parent->label;
@@ -344,7 +345,7 @@ void payment_start_at_blockheight(struct payment *p, u32 blockheight)
 
 	/* Pre-generate the getroute request, so modifiers can have their say,
 	 * before we actually call `getroute` */
-	p->getroute->destination = p->destination;
+	p->getroute->destination = p->route_destination;
 	p->getroute->max_hops = ROUTING_MAX_HOPS;
 	p->getroute->cltv = root->min_final_cltv_expiry;
 	p->getroute->amount = p->our_amount;
@@ -1724,8 +1725,8 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 		root->invstring_used = true;
 	}
 
-	if (p->destination)
-		json_add_node_id(req->js, "destination", p->destination);
+	if (p->pay_destination)
+		json_add_node_id(req->js, "destination", p->pay_destination);
 
 	if (p->local_invreq_id)
 		json_add_sha256(req->js, "localinvreqid", p->local_invreq_id);
@@ -2079,7 +2080,7 @@ void json_add_payment_success(struct json_stream *js,
 	struct json_stream *n;
 	struct payment *root = payment_root(p);
 
-	json_add_node_id(js, "destination", p->destination);
+	json_add_node_id(js, "destination", p->pay_destination);
 	json_add_sha256(js, "payment_hash", p->payment_hash);
 	json_add_timeabs(js, "created_at", p->start_time);
 	if (result)
@@ -2200,7 +2201,7 @@ static void payment_finished(struct payment *p)
 			json_add_hex_talarr(ret, "raw_message",
 					    result.failure->raw_message);
 			json_add_num(ret, "created_at", p->start_time.ts.tv_sec);
-			json_add_node_id(ret, "destination", p->destination);
+			json_add_node_id(ret, "destination", p->pay_destination);
 			json_add_sha256(ret, "payment_hash", p->payment_hash);
 
 			if (result.leafstates & PAYMENT_STEP_SUCCESS) {
@@ -2796,7 +2797,7 @@ static const struct node_id *route_pubkey(const struct payment *p,
 					  size_t n)
 {
 	if (n == tal_count(routehint))
-		return p->destination;
+		return p->route_destination;
 	return &routehint[n].pubkey;
 }
 
@@ -2840,7 +2841,7 @@ struct node_id *routehint_generate_exclusion_list(const tal_t *ctx,
 
 	/* Also exclude the destination, because it would be foolish to
 	 * pass through it and *then* go to the routehint entry point.  */
-	exc[tal_count(routehint)-1] = *payment->destination;
+	exc[tal_count(routehint)-1] = *payment->route_destination;
 	return exc;
 }
 
@@ -2896,7 +2897,7 @@ static void routehint_check_reachable(struct payment *p)
 	 * without routehints. This will later be used to mix in
 	 * attempts without routehints. */
 	src = gossmap_find_node(gossmap, p->local_id);
-	dst = gossmap_find_node(gossmap, p->destination);
+	dst = gossmap_find_node(gossmap, p->route_destination);
 	if (dst == NULL)
 		d->destination_reachable = false;
 	else if (src != NULL) {
@@ -2940,7 +2941,7 @@ static void routehint_check_reachable(struct payment *p)
 		    p,
 		    "Destination %s is not reachable directly and "
 		    "all routehints were unusable.",
-		    fmt_node_id(tmpctx, p->destination));
+		    fmt_node_id(tmpctx, p->route_destination));
 		put_gossmap(p);
 		return;
 	}
@@ -3344,7 +3345,7 @@ static void shadow_route_cb(struct shadow_route_data *d,
 	if (p->step != PAYMENT_STEP_INITIALIZED)
 		return payment_continue(p);
 
-	d->destination = *p->destination;
+	d->destination = *p->route_destination;
 
 	/* Allow shadowroutes to consume up to 1/4th of our budget. */
 	d->constraints.cltv_budget = p->constraints.cltv_budget / 4;
@@ -3394,7 +3395,7 @@ static void direct_pay_override(struct payment *p) {
 		p->route[0].delay = p->getroute->cltv;
 		p->route[0].scid = hint->scid.scid;
 		p->route[0].direction = hint->scid.dir;
-		p->route[0].node_id = *p->destination;
+		p->route[0].node_id = *p->route_destination;
 		paymod_log(p, LOG_DBG,
 			   "Found a direct channel (%s) with sufficient "
 			   "capacity, skipping route computation.",
@@ -3421,7 +3422,7 @@ static struct command_result *direct_pay_listpeerchannels(struct command *cmd,
 	for (size_t i=0; i<tal_count(channels); i++) {
 		struct listpeers_channel *chan = channels[i];
 
-		if (!node_id_eq(&chan->id, p->destination))
+		if (!node_id_eq(&chan->id, p->route_destination))
 			continue;
 
 		if (!chan->connected)
@@ -3747,7 +3748,7 @@ payee_incoming_limit_count(struct command *cmd,
 			      "Destination %s has %zd channels, "
 			      "assuming %d HTLCs per channel",
 			      fmt_node_id(tmpctx,
-					     p->destination),
+					     p->route_destination),
 			      num_channels,
 			      ASSUMED_MAX_HTLCS_PER_CHANNEL);
 		lim = num_channels * ASSUMED_MAX_HTLCS_PER_CHANNEL;
@@ -3772,7 +3773,7 @@ static void payee_incoming_limit_step_cb(void *d UNUSED, struct payment *p)
 	req = jsonrpc_request_start(p->plugin, NULL, "listchannels",
 				    &payee_incoming_limit_count,
 				    &payment_rpc_failure, p);
-	json_add_node_id(req->js, "source", p->destination);
+	json_add_node_id(req->js, "source", p->route_destination);
 	(void) send_outreq(p->plugin, req);
 }
 
@@ -3804,7 +3805,7 @@ static void route_exclusions_step_cb(struct route_exclusions_data *d,
 			channel_hints_update(p, e->u.chan_id.scid, e->u.chan_id.dir,
 				false, false, NULL, NULL);
 		} else {
-			if (node_id_eq(&e->u.node_id, p->destination)) {
+			if (node_id_eq(&e->u.node_id, p->route_destination)) {
 				payment_abort(p, "Payee is manually excluded");
 				return;
 			} else if (node_id_eq(&e->u.node_id, p->local_id)) {

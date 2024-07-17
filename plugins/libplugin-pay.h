@@ -180,8 +180,11 @@ struct payment {
 	/* The current phase we are in. */
 	enum payment_step step;
 
-	/* Real destination we want to route to */
-	struct node_id *destination;
+	/* Destination we want to route to */
+	struct node_id *route_destination;
+
+	/* Destination we want to pay to (can be different for blinded paths!) */
+	struct node_id *pay_destination;
 
 	/* Payment hash extracted from the invoice if any. */
 	struct sha256 *payment_hash;

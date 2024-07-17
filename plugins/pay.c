@@ -215,7 +215,7 @@ static struct command_result *json_paystatus(struct command *cmd,
 			json_add_invstring(ret, p->invstring);
 		json_add_amount_msat(ret, "amount_msat", p->our_amount);
 
-		json_add_node_id(ret, "destination", p->destination);
+		json_add_node_id(ret, "destination", p->pay_destination);
 
 		/* TODO(cdecker) Add label in once we track labels. */
 		/* TODO(cdecker) Add routehint_modifications in once we track
@@ -628,7 +628,7 @@ static void on_payment_success(struct payment *payment)
 		p->cmd = NULL;
 
 		ret = jsonrpc_stream_success(cmd);
-		json_add_node_id(ret, "destination", p->destination);
+		json_add_node_id(ret, "destination", p->pay_destination);
 		json_add_sha256(ret, "payment_hash", p->payment_hash);
 		json_add_timeabs(ret, "created_at", p->start_time);
 		json_add_num(ret, "parts", result.attempts);
@@ -754,7 +754,7 @@ static void on_payment_failure(struct payment *payment)
 			json_add_hex_talarr(ret, "raw_message",
 					    result.failure->raw_message);
 			json_add_num(ret, "created_at", p->start_time.ts.tv_sec);
-			json_add_node_id(ret, "destination", p->destination);
+			json_add_node_id(ret, "destination", p->pay_destination);
 			json_add_sha256(ret, "payment_hash", p->payment_hash);
 			// OK
 			if (result.leafstates & PAYMENT_STEP_SUCCESS) {
@@ -952,7 +952,7 @@ payment_listsendpays_previous(struct command *cmd, const char *buf,
 		json_add_string(ret, "status", "complete");
 		json_add_amount_msat(ret, "amount_msat", msat);
 		json_add_amount_msat(ret, "amount_sent_msat", sent);
-		json_add_node_id(ret, "destination", p->destination);
+		json_add_node_id(ret, "destination", p->pay_destination);
 		json_add_sha256(ret, "payment_hash", p->payment_hash);
 		json_add_u32(ret, "created_at", created_at);
 		json_add_num(ret, "parts", parts);
@@ -971,7 +971,7 @@ payment_listsendpays_previous(struct command *cmd, const char *buf,
 	p->on_payment_failure = on_payment_failure;
 
 	/* Bypass everything if we're doing (synchronous) self-pay */
-	if (node_id_eq(&my_id, p->destination))
+	if (node_id_eq(&my_id, p->pay_destination))
 		return selfpay(cmd, p);
 
 	payment_start(p);
@@ -1109,7 +1109,8 @@ static struct command_result *json_pay(struct command *cmd,
 		invmsat = b11->msat;
 		invexpiry = b11->timestamp + b11->expiry;
 
-		p->destination = tal_dup(p, struct node_id, &b11->receiver_id);
+		p->pay_destination = tal_dup(p, struct node_id, &b11->receiver_id);
+		p->route_destination = p->pay_destination;
 		p->payment_hash = tal_dup(p, struct sha256, &b11->payment_hash);
 		p->payment_secret =
 			tal_dup_or_null(p, struct secret, b11->payment_secret);
@@ -1159,8 +1160,8 @@ static struct command_result *json_pay(struct command *cmd,
 		invmsat = tal(cmd, struct amount_msat);
 		*invmsat = amount_msat(*b12->invoice_amount);
 
-		p->destination = tal(p, struct node_id);
-		node_id_from_pubkey(p->destination, b12->invoice_node_id);
+		p->pay_destination = tal(p, struct node_id);
+		node_id_from_pubkey(p->pay_destination, b12->invoice_node_id);
 		p->payment_hash = tal_dup(p, struct sha256,
 					  b12->invoice_payment_hash);
 		if (b12->invreq_recurrence_counter && !label)
@@ -1198,8 +1199,9 @@ static struct command_result *json_pay(struct command *cmd,
 		}
 		p->min_final_cltv_expiry = p->blindedpay->cltv_expiry_delta;
 
-		/* Set destination to introduction point */
-		node_id_from_pubkey(p->destination, &p->blindedpath->first_node_id.pubkey);
+		/* Set route destination to introduction point */
+		p->route_destination = tal(p, struct node_id);
+		node_id_from_pubkey(p->route_destination, &p->blindedpath->first_node_id.pubkey);
 		p->payment_metadata = NULL;
 		p->routes = NULL;
 		/* BOLT-offers #12:
@@ -1246,7 +1248,7 @@ static struct command_result *json_pay(struct command *cmd,
 					    "partial_msat must be less or equal to total amount %s",
 					    fmt_amount_msat(tmpctx, p->final_amount));
 		}
-		if (node_id_eq(&my_id, p->destination)) {
+		if (node_id_eq(&my_id, p->pay_destination)) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "partial_msat not supported (yet?) for self-pay");
 		}
