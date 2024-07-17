@@ -417,12 +417,15 @@ static struct blinded_path *make_reply_path(const tal_t *ctx,
 {
 	struct pubkey *ids;
 
-	assert(tal_count(path) > 1);
+	assert(tal_count(path) > 0);
 
 	randombytes_buf(reply_secret, sizeof(struct secret));
 
 	if (sent->dev_reply_path) {
 		ids = sent->dev_reply_path;
+	} else if (tal_count(path) == 1) {
+		/* Talking to ourselves?  Reverse is the same */
+		ids = tal_dup_talarr(tmpctx, struct pubkey, path);
 	} else {
 		size_t nhops = tal_count(path), start;
 		struct node_id second_last;
@@ -487,10 +490,7 @@ static struct command_result *establish_path_done(struct command *cmd,
 	/* Create transient secret so we can validate reply! */
 	sent->reply_secret = tal(sent, struct secret);
 
-	/* FIXME: Maybe we should allow this? */
-	if (tal_count(path) == 1)
-		return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
-				    "Refusing to talk to ourselves");
+	assert(tal_count(path) > 0);
 
 	/* Add reply path to final_tlv (it already contains invoice_request/invoice) */
 	final_tlv->reply_path = make_reply_path(final_tlv, cmd->plugin, sent, path, sent->reply_secret);
