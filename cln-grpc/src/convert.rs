@@ -2371,14 +2371,6 @@ impl From<responses::SendinvoiceResponse> for pb::SendinvoiceResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::SendonionmessageResponse> for pb::SendonionmessageResponse {
-    fn from(c: responses::SendonionmessageResponse) -> Self {
-        Self {
-        }
-    }
-}
-
-#[allow(unused_variables)]
 impl From<responses::SetchannelChannels> for pb::SetchannelChannels {
     fn from(c: responses::SetchannelChannels) -> Self {
         Self {
@@ -5019,28 +5011,6 @@ impl From<requests::SendinvoiceRequest> for pb::SendinvoiceRequest {
 }
 
 #[allow(unused_variables)]
-impl From<requests::SendonionmessageHops> for pb::SendonionmessageHops {
-    fn from(c: requests::SendonionmessageHops) -> Self {
-        Self {
-            node: c.node.serialize().to_vec(), // Rule #2 for type pubkey
-            tlv: c.tlv.into(), // Rule #2 for type u8
-        }
-    }
-}
-
-#[allow(unused_variables)]
-impl From<requests::SendonionmessageRequest> for pb::SendonionmessageRequest {
-    fn from(c: requests::SendonionmessageRequest) -> Self {
-        Self {
-            blinding: c.blinding.serialize().to_vec(), // Rule #2 for type pubkey
-            first_id: c.first_id.serialize().to_vec(), // Rule #2 for type pubkey
-            // Field: SendOnionMessage.hops[]
-            hops: c.hops.into_iter().map(|i| i.into()).collect(), // Rule #3 for type SendonionmessageHops
-        }
-    }
-}
-
-#[allow(unused_variables)]
 impl From<requests::SetchannelRequest> for pb::SetchannelRequest {
     fn from(c: requests::SetchannelRequest) -> Self {
         Self {
@@ -6403,27 +6373,6 @@ impl From<pb::SendinvoiceRequest> for requests::SendinvoiceRequest {
             label: c.label, // Rule #1 for type string
             quantity: c.quantity, // Rule #1 for type u64?
             timeout: c.timeout, // Rule #1 for type u32?
-        }
-    }
-}
-
-#[allow(unused_variables)]
-impl From<pb::SendonionmessageHops> for requests::SendonionmessageHops {
-    fn from(c: pb::SendonionmessageHops) -> Self {
-        Self {
-            node: PublicKey::from_slice(&c.node).unwrap(), // Rule #1 for type pubkey
-            tlv: c.tlv as u8, // Rule #1 for type u8
-        }
-    }
-}
-
-#[allow(unused_variables)]
-impl From<pb::SendonionmessageRequest> for requests::SendonionmessageRequest {
-    fn from(c: pb::SendonionmessageRequest) -> Self {
-        Self {
-            blinding: PublicKey::from_slice(&c.blinding).unwrap(), // Rule #1 for type pubkey
-            first_id: PublicKey::from_slice(&c.first_id).unwrap(), // Rule #1 for type pubkey
-            hops: c.hops.into_iter().map(|s| s.into()).collect(), // Rule #4
         }
     }
 }

@@ -429,11 +429,6 @@ class NodeStub(object):
                 request_serializer=node__pb2.SendinvoiceRequest.SerializeToString,
                 response_deserializer=node__pb2.SendinvoiceResponse.FromString,
                 )
-        self.SendOnionMessage = channel.unary_unary(
-                '/cln.Node/SendOnionMessage',
-                request_serializer=node__pb2.SendonionmessageRequest.SerializeToString,
-                response_deserializer=node__pb2.SendonionmessageResponse.FromString,
-                )
         self.SetChannel = channel.unary_unary(
                 '/cln.Node/SetChannel',
                 request_serializer=node__pb2.SetchannelRequest.SerializeToString,
@@ -1102,12 +1097,6 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def SendOnionMessage(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
     def SetChannel(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1723,11 +1712,6 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.SendInvoice,
                     request_deserializer=node__pb2.SendinvoiceRequest.FromString,
                     response_serializer=node__pb2.SendinvoiceResponse.SerializeToString,
-            ),
-            'SendOnionMessage': grpc.unary_unary_rpc_method_handler(
-                    servicer.SendOnionMessage,
-                    request_deserializer=node__pb2.SendonionmessageRequest.FromString,
-                    response_serializer=node__pb2.SendonionmessageResponse.SerializeToString,
             ),
             'SetChannel': grpc.unary_unary_rpc_method_handler(
                     servicer.SetChannel,
@@ -3312,23 +3296,6 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/SendInvoice',
             node__pb2.SendinvoiceRequest.SerializeToString,
             node__pb2.SendinvoiceResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def SendOnionMessage(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/cln.Node/SendOnionMessage',
-            node__pb2.SendonionmessageRequest.SerializeToString,
-            node__pb2.SendonionmessageResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

@@ -1874,11 +1874,6 @@ def sendinvoice2py(m):
     })
 
 
-def sendonionmessage2py(m):
-    return remove_default({
-    })
-
-
 def setchannel_channels2py(m):
     return remove_default({
         "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite

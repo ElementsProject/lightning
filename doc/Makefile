@@ -98,7 +98,6 @@ GENERATE_MARKDOWN := doc/lightning-addgossip.7 \
 	doc/lightning-sendcustommsg.7 \
 	doc/lightning-sendinvoice.7 \
 	doc/lightning-sendonion.7 \
-	doc/lightning-sendonionmessage.7 \
 	doc/lightning-sendpay.7 \
 	doc/lightning-sendpsbt.7 \
 	doc/lightning-setchannel.7 \
