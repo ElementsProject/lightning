@@ -1018,17 +1018,9 @@ static void destroy_payment(struct payment *p)
 }
 
 static struct command_result *
-preapproveinvoice_succeed(struct command *cmd,
-			  const char *buf,
-			  const jsmntok_t *result,
-			  struct payment *p)
+start_payment(struct command *cmd, struct payment *p)
 {
 	struct out_req *req;
-
-	/* Now we can conclude `check` command */
-	if (command_check_only(cmd)) {
-		return command_check_done(cmd);
-	}
 
 	list_add_tail(&payments, &p->list);
 	tal_add_destructor(p, destroy_payment);
@@ -1043,6 +1035,97 @@ preapproveinvoice_succeed(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+static struct command_result *
+decrypt_done(struct command *cmd,
+	     const char *buf,
+	     const jsmntok_t *result,
+	     struct payment *p)
+{
+	const char *err;
+	u8 *encdata;
+	struct pubkey next_blinding;
+	struct tlv_encrypted_data_tlv *enctlv;
+	const u8 *cursor;
+	size_t maxlen;
+
+	err = json_scan(tmpctx, buf, result,
+			"{decryptencrypteddata:{decrypted:%"
+			",next_blinding:%}}",
+			JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &encdata),
+			JSON_SCAN(json_to_pubkey, &next_blinding));
+	if (err) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Bad decryptencrypteddata response? %.*s: %s",
+				    json_tok_full_len(result),
+				    json_tok_full(buf, result),
+				    err);
+	}
+
+	cursor = encdata;
+	maxlen = tal_bytelen(encdata);
+	enctlv = fromwire_tlv_encrypted_data_tlv(tmpctx, &cursor, &maxlen);
+	if (!enctlv) {
+		return command_fail(cmd, PAY_UNPARSEABLE_ONION,
+				    "Invalid TLV for blinded path: %s",
+				    tal_hex(tmpctx, encdata));
+	}
+
+	if (tal_count(p->blindedpath->path) == 1)
+		return command_fail(cmd, LIGHTNINGD, "FIXME: self-pay!");
+
+	if (!enctlv->short_channel_id && !enctlv->next_node_id) {
+		return command_fail(cmd, PAY_UNPARSEABLE_ONION,
+				    "Invalid TLV for blinded path (no next!): %s",
+				    tal_hex(tmpctx, encdata));
+	}
+
+	if (!enctlv->next_node_id)
+		return command_fail(cmd, LIGHTNINGD, "FIXME: blinded path start by scidd!");
+
+	/* Promote second hop to first hop */
+	if (enctlv->next_blinding_override)
+		p->blindedpath->blinding = *enctlv->next_blinding_override;
+	else
+		p->blindedpath->blinding = next_blinding;
+
+	/* Remove now-decrypted part of path */
+	tal_free(p->blindedpath->path[0]);
+	tal_arr_remove(&p->blindedpath->path, 0);
+
+	sciddir_or_pubkey_from_pubkey(&p->blindedpath->first_node_id,
+				      enctlv->next_node_id);
+
+	/* Fix up our destination */
+	node_id_from_pubkey(p->route_destination, &p->blindedpath->first_node_id.pubkey);
+	return start_payment(cmd, p);
+}
+
+static struct command_result *
+preapproveinvoice_succeed(struct command *cmd,
+			  const char *buf,
+			  const jsmntok_t *result,
+			  struct payment *p)
+{
+	/* Now we can conclude `check` command */
+	if (command_check_only(cmd)) {
+		return command_check_done(cmd);
+	}
+
+	/* Blinded path which starts at us needs decryption. */
+	if (p->blindedpath && node_id_eq(p->route_destination, &my_id)) {
+		struct out_req *req;
+
+		req = jsonrpc_request_start(cmd->plugin, cmd, "decryptencrypteddata",
+					    decrypt_done, forward_error, p);
+
+		json_add_hex_talarr(req->js, "encrypted_data",
+				    p->blindedpath->path[0]->encrypted_recipient_data);
+		json_add_pubkey(req->js, "blinding", &p->blindedpath->blinding);
+		return send_outreq(cmd->plugin, req);
+	}
+
+	return start_payment(cmd, p);
+}
 static struct command_result *json_pay(struct command *cmd,
 				       const char *buf,
 				       const jsmntok_t *params)
@@ -1176,6 +1259,10 @@ static struct command_result *json_pay(struct command *cmd,
 		if (tal_count(b12->invoice_paths) == 0)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "invoice missing invoice_paths");
+
+		if (tal_count(b12->invoice_paths[0]->path) < 1)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "empty invoice_path[0]");
 
 		/* BOLT-offers #12:
 		 * - MUST reject the invoice if `invoice_blindedpay` does not
