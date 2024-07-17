@@ -90,7 +90,6 @@ grpc_method_names = [
     "ReserveInputs",
     "SendCustomMsg",
     "SendInvoice",
-    "SendOnionMessage",
     "SetChannel",
     "SetConfig",
     "SetPsbtVersion",
