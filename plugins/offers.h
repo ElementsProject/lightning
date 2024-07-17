@@ -17,8 +17,13 @@ extern bool disable_connect;
 extern u16 cltv_final;
 /* Current header_count */
 extern u32 blockheight;
-/* Basis for invoice secrets */
+/* Basis for invoice path_secrets */
 extern struct secret invoicesecret_base;
+/* Base for offers path_secrets */
+extern struct secret offerblinding_base;
+
+/* This is me. */
+extern struct pubkey id;
 
 /* If they give us an scid, do a lookup */
 bool convert_to_scidd(struct command *cmd,
