@@ -157,23 +157,34 @@ send_onion_reply(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
-static struct command_result *onion_message_modern_call(struct command *cmd,
-							const char *buf,
-							const jsmntok_t *params)
+static struct command_result *onion_message_recv(struct command *cmd,
+						 const char *buf,
+						 const jsmntok_t *params)
 {
-	const jsmntok_t *om, *replytok, *invreqtok, *invtok;
+	const jsmntok_t *om, *secrettok, *replytok, *invreqtok, *invtok;
 	struct blinded_path *reply_path = NULL;
-	struct command_result *res;
+ 	struct secret *secret;
 
 	if (!offers_enabled)
 		return command_hook_success(cmd);
 
-	/* FIXME: unify parsing! */
-	res = recv_modern_onion_message(cmd, buf, params);
-	if (res)
-		return res;
-
 	om = json_get_member(buf, params, "onion_message");
+	secrettok = json_get_member(buf, om, "pathsecret");
+	if (secrettok) {
+		secret = tal(tmpctx, struct secret);
+		json_to_secret(buf, secrettok, secret);
+	} else
+		secret = NULL;
+
+	/* Might be reply for fetchinvoice (which always has a secret,
+	 * so we can tell it's a response). */
+	if (secret) {
+		struct command_result *res;
+		res = handle_invoice_onion_message(cmd, buf, om, secret);
+		if (res)
+			return res;
+	}
+
 	replytok = json_get_member(buf, om, "reply_blindedpath");
 	if (replytok) {
 		reply_path = json_to_blinded_path(cmd, buf, replytok);
@@ -208,11 +219,11 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 static const struct plugin_hook hooks[] = {
 	{
 		"onion_message_recv",
-		onion_message_modern_call
+		onion_message_recv
 	},
 	{
 		"onion_message_recv_secret",
-		onion_message_modern_call
+		onion_message_recv
 	},
 	{
 		"invoice_payment",
