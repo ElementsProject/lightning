@@ -304,6 +304,27 @@ static struct command_result *found_best_peer(struct command *cmd,
 							 cast_const2(const struct tlv_encrypted_data_tlv **, etlvs),
 							 ids);
 
+		/* If they tell us to use scidd for first point, grab
+		 * a channel from node (must exist, it's public) */
+		if (dev_invoice_bpath_scid) {
+			struct gossmap *gossmap = get_gossmap(cmd->plugin);
+			struct node_id best_nodeid;
+			const struct gossmap_node *n;
+			const struct gossmap_chan *c;
+			struct short_channel_id_dir scidd;
+
+			node_id_from_pubkey(&best_nodeid, &best->id);
+			n = gossmap_find_node(gossmap, &best_nodeid);
+			c = gossmap_nth_chan(gossmap, n, 0, &scidd.dir);
+
+			scidd.scid = gossmap_chan_scid(gossmap, c);
+			sciddir_or_pubkey_from_scidd(&ir->inv->invoice_paths[0]->first_node_id,
+						     &scidd);
+			plugin_log(cmd->plugin, LOG_DBG, "dev_invoice_bpath_scid: start is %s",
+				   fmt_sciddir_or_pubkey(tmpctx,
+							 &ir->inv->invoice_paths[0]->first_node_id));
+		}
+
 		/* FIXME: This should be a "normal" feerate and range. */
 		ir->inv->invoice_blindedpay = tal_arr(ir->inv, struct blinded_payinfo *, 1);
 		ir->inv->invoice_blindedpay[0] = tal(ir->inv->invoice_blindedpay, struct blinded_payinfo);

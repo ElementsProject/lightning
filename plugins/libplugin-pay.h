@@ -494,6 +494,9 @@ void payment_abort(struct payment *p, const char *fmt, ...) PRINTF_FMT(2,3);
 struct payment *payment_root(struct payment *p);
 struct payment_tree_result payment_collect_result(struct payment *p);
 
+/* If you need an unmodified gossmap */
+struct gossmap *get_raw_gossmap(struct payment *payment);
+
 /* Add fields for successful payment: result can be NULL for selfpay */
 void json_add_payment_success(struct json_stream *js,
 			      struct payment *p,

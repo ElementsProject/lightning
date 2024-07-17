@@ -35,6 +35,7 @@ u32 blockheight;
 u16 cltv_final;
 bool offers_enabled;
 bool disable_connect;
+bool dev_invoice_bpath_scid;
 struct secret invoicesecret_base;
 struct secret offerblinding_base;
 static struct gossmap *global_gossmap;
@@ -1451,5 +1452,8 @@ int main(int argc, char *argv[])
 		    plugin_option("fetchinvoice-noconnect", "flag",
 				  "Don't try to connect directly to fetch/pay an invoice.",
 				  flag_option, flag_jsonfmt, &disable_connect),
+		    plugin_option_dev("dev-invoice-bpath-scid", "flag",
+				  "Use short_channel_id instead of pubkey when creating a blinded payment path",
+				      flag_option, flag_jsonfmt, &dev_invoice_bpath_scid),
 		    NULL);
 }
