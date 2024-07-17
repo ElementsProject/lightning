@@ -410,27 +410,47 @@ static struct command_result *param_offer(struct command *cmd,
 }
 
 static struct blinded_path *make_reply_path(const tal_t *ctx,
+					    struct plugin *plugin,
 					    const struct sent *sent,
 					    const struct pubkey *path,
 					    struct secret *reply_secret)
 {
 	struct pubkey *ids;
 
-	assert(tal_count(path) > 0);
+	assert(tal_count(path) > 1);
 
 	randombytes_buf(reply_secret, sizeof(struct secret));
 
 	if (sent->dev_reply_path) {
 		ids = sent->dev_reply_path;
 	} else {
-		size_t nhops = tal_count(path);
+		size_t nhops = tal_count(path), start;
+		struct node_id second_last;
+
+		/* Usually we have path A->B->C and we make
+		 * reply B->A.  But if B is not public,
+		 * we need to use the full thing.
+		 *
+		 * This happens when we connect directly to the
+		 * head of a blinded path, but we're not a public
+		 * node.
+		 */
+		node_id_from_pubkey(&second_last, &path[nhops-2]);
+		if (!gossmap_find_node(get_gossmap(plugin), &second_last))
+			start = nhops - 1;
+		else
+			start = nhops - 2;
+
 		/* FIXME: Could create an independent reply path, not just
 		 * reverse existing. */
-		ids = tal_arr(tmpctx, struct pubkey, nhops - 1);
-		for (int i = nhops - 2; i >= 0; i--)
-			ids[nhops - 2 - i] = path[i];
+		ids = tal_arr(tmpctx, struct pubkey, start + 1);
+		for (int i = start; i >= 0; i--)
+			ids[start - i] = path[i];
 	}
 
+	plugin_log(plugin, LOG_DBG, "Reply path:");
+	for (size_t i = 0; i < tal_count(ids); i++)
+		plugin_log(plugin, LOG_DBG, "...%s", fmt_pubkey(tmpctx, &ids[i]));
 
 	/* Reply path */
 	return incoming_message_blinded_path(ctx, ids, NULL, reply_secret);
@@ -473,7 +493,7 @@ static struct command_result *establish_path_done(struct command *cmd,
 				    "Refusing to talk to ourselves");
 
 	/* Add reply path to final_tlv (it already contains invoice_request/invoice) */
-	final_tlv->reply_path = make_reply_path(final_tlv, sent, path, sent->reply_secret);
+	final_tlv->reply_path = make_reply_path(final_tlv, cmd->plugin, sent, path, sent->reply_secret);
 
 	/* Replace first hop with scidd if they said to */
 	if (sent->dev_path_use_scidd)
