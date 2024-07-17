@@ -18,7 +18,7 @@ struct gossmap;
  * @arg: callback argument
  *
  * If it cannot find an onion-message-carrying path, will connect directly,
- * unless connect_disable is non-NULL.
+ * unless connect_disable is non-NULL.  First pubkey is always us.
  */
 struct command_result *establish_onion_path_(struct command *cmd,
 					     struct gossmap *gossmap,
