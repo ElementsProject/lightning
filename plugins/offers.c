@@ -86,32 +86,6 @@ static struct command_result *injectonionmessage_error(struct command *cmd,
 	return command_hook_success(cmd);
 }
 
-/* So, you gave us a reply scid?  Let's do the lookup then!  And no,
- * we won't accept private channels, just public ones.
- */
-bool convert_to_scidd(struct command *cmd,
-		      struct sciddir_or_pubkey *sciddpk)
-{
-	struct gossmap *gossmap = get_gossmap(cmd->plugin);
-	struct gossmap_chan *chan;
-	struct gossmap_node *node;
-	struct node_id id;
-
-	chan = gossmap_find_chan(gossmap, &sciddpk->scidd.scid);
-	if (!chan)
-		return false;
-
-	node = gossmap_nth_node(gossmap, chan, sciddpk->scidd.dir);
-	gossmap_node_get_id(gossmap, node, &id);
-	if (!sciddir_or_pubkey_from_node_id(sciddpk, &id)) {
-		plugin_log(cmd->plugin, LOG_BROKEN,
-			   "Could not convert node %s to pubkey?",
-			   fmt_node_id(tmpctx, &id));
-		return false;
-	}
-	return true;
-}
-
 struct command_result *
 inject_onionmessage_(struct command *cmd,
 		     const struct onion_message *omsg,
@@ -194,14 +168,13 @@ send_onion_reply(struct command *cmd,
 	onion_reply->reply_path = blinded_path_dup(onion_reply, reply_path);
 	onion_reply->payload = tal_steal(onion_reply, payload);
 
-	if (!onion_reply->reply_path->first_node_id.is_pubkey) {
-		if (!convert_to_scidd(cmd, &onion_reply->reply_path->first_node_id)) {
-			plugin_log(cmd->plugin, LOG_DBG,
-					    "Cannot resolve initial reply scidd %s",
-					    fmt_short_channel_id_dir(tmpctx,
-								     &onion_reply->reply_path->first_node_id.scidd));
-			return command_hook_success(cmd);
-		}
+	if (!gossmap_scidd_pubkey(get_gossmap(cmd->plugin),
+				  &onion_reply->reply_path->first_node_id)) {
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "Cannot resolve initial reply scidd %s",
+			   fmt_short_channel_id_dir(tmpctx,
+						    &onion_reply->reply_path->first_node_id.scidd));
+		return command_hook_success(cmd);
 	}
 
 	return establish_onion_path(cmd, get_gossmap(cmd->plugin),

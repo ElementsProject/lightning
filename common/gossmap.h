@@ -8,6 +8,7 @@
 #include <common/fp16.h>
 
 struct node_id;
+struct sciddir_or_pubkey;
 
 struct gossmap_node {
 	/* Offset in memory map for node_announce, or 0. */
@@ -206,6 +207,10 @@ u8 *gossmap_chan_get_update(const tal_t *ctx,
 			    const struct gossmap *map,
 			    const struct gossmap_chan *chan,
 			    int dir);
+
+/* Return true if we can map this sciddir_or_pubkey to a pubkey. */
+bool gossmap_scidd_pubkey(struct gossmap *gossmap,
+			  struct sciddir_or_pubkey *sciddpk);
 
 /* Returns details from channel_update (must be gossmap_chan_set, and
  * does not work for local_updatechan)! */

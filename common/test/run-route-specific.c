@@ -12,6 +12,7 @@
 #include <common/gossmap.h>
 #include <common/gossip_store.h>
 #include <common/route.h>
+#include <common/sciddir_or_pubkey.h>
 #include <common/setup.h>
 #include <common/utils.h>
 #include <bitcoin/chainparams.h>
@@ -33,6 +34,10 @@ bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 		  void *record UNNEEDED, struct tlv_field **fields UNNEEDED,
 		  const u64 *extra_types UNNEEDED, size_t *err_off UNNEEDED, u64 *err_type UNNEEDED)
 { fprintf(stderr, "fromwire_tlv called!\n"); abort(); }
+/* Generated stub for sciddir_or_pubkey_from_node_id */
+bool sciddir_or_pubkey_from_node_id(struct sciddir_or_pubkey *sciddpk UNNEEDED,
+				    const struct node_id *node_id UNNEEDED)
+{ fprintf(stderr, "sciddir_or_pubkey_from_node_id called!\n"); abort(); }
 /* Generated stub for towire_bigsize */
 void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)
 { fprintf(stderr, "towire_bigsize called!\n"); abort(); }

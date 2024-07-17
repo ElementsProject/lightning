@@ -429,9 +429,10 @@ static struct command_result *param_paths(struct command *cmd, const char *name,
 					(*paths)[i]->first_scidd = tal_dup((*paths)[i],
 									  struct short_channel_id_dir,
 									  &init.scidd);
-					if (!convert_to_scidd(cmd, &init))
+					if (!gossmap_scidd_pubkey(get_gossmap(cmd->plugin), &init)) {
 						return command_fail_badparam(cmd, name, buffer, p,
 									     "unknown sciddir");
+					}
 				} else {
 					(*paths)[i]->first_scidd = NULL;
 				}
