@@ -5782,6 +5782,32 @@ def test_onionmessage_ratelimit(node_factory):
     l1.rpc.fetchinvoice(offer['bolt12'])
 
 
+def test_offer_path_self(node_factory):
+    """We can fetch an offer, and pay an invoice which uses a blinded path starting at us"""
+    l1, l2, l3 = node_factory.line_graph(3, fundchannel=False,
+                                         opts={'experimental-offers': None})
+
+    # Private channel from l2->l3, makes l3 add a hint.
+    node_factory.join_nodes([l1, l2], wait_for_announce=True)
+    node_factory.join_nodes([l2, l3], announce_channels=False)
+    wait_for(lambda: ['alias' in n for n in l3.rpc.listnodes()['nodes']] == [True, True])
+
+    # l3 uses l2 as entry point for offer.
+    offer = l3.rpc.offer(amount='2msat', description='test_offer_path_self')
+    paths = l1.rpc.decode(offer['bolt12'])['offer_paths']
+    assert len(paths) == 1
+    assert paths[0]['first_node_id'] == l2.info['id']
+
+    # l1 can fetch invoice.
+    l1.rpc.fetchinvoice(offer['bolt12'])['invoice']
+
+    # l2 can fetch invoice
+    inv = l2.rpc.fetchinvoice(offer['bolt12'])['invoice']
+
+    # And can pay it!
+    l2.rpc.pay(inv)
+
+
 def test_decryptencrypteddata(node_factory):
     l1, l2, l3 = node_factory.line_graph(3, fundchannel=False,
                                          opts={'experimental-offers': None})

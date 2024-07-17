@@ -3,6 +3,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt12.h>
+#include <common/gossmap.h>
 #include <common/invoice_path_id.h>
 #include <common/iso4217.h>
 #include <common/json_param.h>
@@ -228,7 +229,7 @@ static struct command_result *param_recurrence_paywindow(struct command *cmd,
 }
 
 struct offer_info {
-	const struct tlv_offer *offer;
+	struct tlv_offer *offer;
 	const char *label;
 	bool *single_use;
 };
@@ -276,6 +277,69 @@ static struct command_result *create_offer(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+static struct command_result *found_best_peer(struct command *cmd,
+					      const struct chaninfo *best,
+					      struct offer_info *offinfo)
+{
+	/* BOLT-offers #12:
+	 *   - if it is connected only by private channels:
+	 *     - MUST include `offer_paths` containing one or more paths to the node from
+	 *       publicly reachable nodes.
+	 */
+	if (!best) {
+		/* FIXME: Make this a warning in the result! */
+		plugin_log(cmd->plugin, LOG_UNUSUAL,
+			   "No incoming channel to public peer, so no blinded path");
+	} else {
+		struct pubkey *ids;
+		const u8 *path_secret;
+		struct secret blinding_path_secret;
+		struct sha256 offer_id;
+
+		/* Note: "id" of offer minus paths */
+		offer_offer_id(offinfo->offer, &offer_id);
+
+		/* Make a small 1-hop path to us */
+		ids = tal_arr(tmpctx, struct pubkey, 2);
+		ids[0] = best->id;
+		ids[1] = id;
+
+		/* So we recognize this */
+		/* We can check this when they try to take up offer. */
+		path_secret = invoice_path_id(tmpctx, &offerblinding_base, &offer_id);
+		assert(tal_count(path_secret) == sizeof(blinding_path_secret));
+		memcpy(&blinding_path_secret, path_secret, sizeof(blinding_path_secret));
+
+		offinfo->offer->offer_paths = tal_arr(offinfo->offer, struct blinded_path *, 1);
+		offinfo->offer->offer_paths[0]
+			= incoming_message_blinded_path(offinfo->offer->offer_paths,
+							ids,
+							NULL,
+							&blinding_path_secret);
+	}
+
+	return create_offer(cmd, offinfo);
+}
+
+static struct command_result *maybe_add_path(struct command *cmd,
+					     struct offer_info *offinfo)
+{
+	/* BOLT-offers #12:
+	 *   - if it is connected only by private channels:
+	 *     - MUST include `offer_paths` containing one or more paths to the node from
+	 *       publicly reachable nodes.
+	 */
+	if (!offinfo->offer->offer_paths) {
+		struct node_id local_nodeid;
+
+		node_id_from_pubkey(&local_nodeid, &id);
+		if (!gossmap_find_node(get_gossmap(cmd->plugin), &local_nodeid))
+			return find_best_peer(cmd, OPT_ONION_MESSAGES,
+					      found_best_peer, offinfo);
+	}
+	return create_offer(cmd, offinfo);
+}
+
 static struct command_result *currency_done(struct command *cmd,
 					    const char *buf,
 					    const jsmntok_t *result,
@@ -285,7 +349,7 @@ static struct command_result *currency_done(struct command *cmd,
 	if (!json_get_member(buf, result, "msat"))
 		return forward_error(cmd, buf, result, offinfo);
 
-	return create_offer(cmd, offinfo);
+	return maybe_add_path(cmd, offinfo);
 }
 
 static bool json_to_short_channel_id_dir(const char *buffer, const jsmntok_t *tok,
@@ -532,7 +596,7 @@ struct command_result *json_offer(struct command *cmd,
 		return send_outreq(cmd->plugin, req);
 	}
 
-	return create_offer(cmd, offinfo);
+	return maybe_add_path(cmd, offinfo);
 }
 
 struct command_result *json_invoicerequest(struct command *cmd,
