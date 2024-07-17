@@ -260,6 +260,7 @@ static struct command_result *found_best_peer(struct command *cmd,
 	} else {
 		struct tlv_encrypted_data_tlv **etlvs;
 		struct pubkey *ids;
+		struct short_channel_id **scids;
 		u32 base;
 
 		/* Make a small 1-hop path to us */
@@ -267,8 +268,14 @@ static struct command_result *found_best_peer(struct command *cmd,
 		ids[0] = best->id;
 		ids[1] = id;
 
+		/* This does nothing unless dev_invoice_internal_scid is set */
+		scids = tal_arrz(tmpctx, struct short_channel_id *, 2);
+		scids[1] = dev_invoice_internal_scid;
+
 		/* Make basic tlvs, add payment restrictions */
-		etlvs = new_encdata_tlvs(tmpctx, ids, NULL);
+		etlvs = new_encdata_tlvs(tmpctx, ids,
+					 cast_const2(const struct short_channel_id **,
+						     scids));
 
 		/* Tell the first node what restrictions we have on relaying */
 		etlvs[0]->payment_relay = tal(etlvs[0],

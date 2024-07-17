@@ -23,6 +23,8 @@ extern struct secret invoicesecret_base;
 extern struct secret offerblinding_base;
 /* --dev-invoice-bpath-scid */
 extern bool dev_invoice_bpath_scid;
+/* --dev-invoice-internal-scid */
+extern struct short_channel_id *dev_invoice_internal_scid;
 /* This is me. */
 extern struct pubkey id;
 

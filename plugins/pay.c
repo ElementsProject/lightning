@@ -1035,6 +1035,69 @@ start_payment(struct command *cmd, struct payment *p)
 	return send_outreq(cmd->plugin, req);
 }
 
+static bool scidtok_eq(const char *buf,
+		       const jsmntok_t *scidtok,
+		       struct short_channel_id scid)
+{
+	struct short_channel_id scid_from_tok;
+	if (!scidtok)
+		return false;
+
+	if (!json_to_short_channel_id(buf, scidtok, &scid_from_tok))
+		return false;
+
+	return short_channel_id_eq(scid, scid_from_tok);
+}
+
+/* We are the entry point, so the next hop could actually be an scid alias,
+ * so we can't just use gossmap. */
+static struct command_result *listpeerchannels_done(struct command *cmd,
+						    const char *buf,
+						    const jsmntok_t *result,
+						    struct payment *p)
+{
+	const jsmntok_t *arr, *t;
+	size_t i;
+
+	assert(!p->blindedpath->first_node_id.is_pubkey);
+	arr = json_get_member(buf, result, "channels");
+	json_for_each_arr(i, t, arr) {
+		const jsmntok_t *alias, *local_alias, *scid;
+		struct pubkey id;
+
+		alias = json_get_member(buf, t, "alias");
+		if (alias)
+			local_alias = json_get_member(buf, alias, "local");
+		else
+			local_alias = NULL;
+
+		scid = json_get_member(buf, t, "short_channel_id");
+		if (!scidtok_eq(buf, scid, p->blindedpath->first_node_id.scidd.scid)
+		    && !scidtok_eq(buf, local_alias, p->blindedpath->first_node_id.scidd.scid)) {
+			continue;
+		}
+
+		if (!json_to_pubkey(buf, json_get_member(buf, t, "peer_id"), &id))
+			plugin_err(cmd->plugin, "listpeerchannels no peer_id: %.*s",
+				   json_tok_full_len(result),
+				   json_tok_full(buf, result));
+
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "Mapped decrypted next hop from %s -> %s",
+			   fmt_short_channel_id(tmpctx, p->blindedpath->first_node_id.scidd.scid),
+			   fmt_pubkey(tmpctx, &id));
+		sciddir_or_pubkey_from_pubkey(&p->blindedpath->first_node_id, &id);
+		/* Fix up our destination */
+		node_id_from_pubkey(p->route_destination, &p->blindedpath->first_node_id.pubkey);
+		return start_payment(cmd, p);
+	}
+
+	return command_fail(cmd, PAY_UNPARSEABLE_ONION,
+			    "Invalid next short_channel_id %s for second hop of onion",
+			    fmt_short_channel_id(tmpctx,
+						 p->blindedpath->first_node_id.scidd.scid));
+}
+
 static struct command_result *
 decrypt_done(struct command *cmd,
 	     const char *buf,
@@ -1083,15 +1146,6 @@ decrypt_done(struct command *cmd,
 		return start_payment(cmd, p);
 	}
 
-	if (!enctlv->short_channel_id && !enctlv->next_node_id) {
-		return command_fail(cmd, PAY_UNPARSEABLE_ONION,
-				    "Invalid TLV for blinded path (no next!): %s",
-				    tal_hex(tmpctx, encdata));
-	}
-
-	if (!enctlv->next_node_id)
-		return command_fail(cmd, LIGHTNINGD, "FIXME: blinded path start by scidd!");
-
 	/* Promote second hop to first hop */
 	if (enctlv->next_blinding_override)
 		p->blindedpath->blinding = *enctlv->next_blinding_override;
@@ -1102,12 +1156,29 @@ decrypt_done(struct command *cmd,
 	tal_free(p->blindedpath->path[0]);
 	tal_arr_remove(&p->blindedpath->path, 0);
 
-	sciddir_or_pubkey_from_pubkey(&p->blindedpath->first_node_id,
-				      enctlv->next_node_id);
+	if (enctlv->next_node_id) {
+		sciddir_or_pubkey_from_pubkey(&p->blindedpath->first_node_id,
+					      enctlv->next_node_id);
 
-	/* Fix up our destination */
-	node_id_from_pubkey(p->route_destination, &p->blindedpath->first_node_id.pubkey);
-	return start_payment(cmd, p);
+		/* Fix up our destination */
+		node_id_from_pubkey(p->route_destination, &p->blindedpath->first_node_id.pubkey);
+		return start_payment(cmd, p);
+	} else if (enctlv->short_channel_id) {
+		/* We need to resolve this: stash in first_node_id for now. */
+		struct out_req *req;
+
+		p->blindedpath->first_node_id.is_pubkey = false;
+		p->blindedpath->first_node_id.scidd.scid = *enctlv->short_channel_id;
+
+		req = jsonrpc_request_with_filter_start(cmd->plugin, cmd, "listpeerchannels",
+							"{\"channels\":[{\"peer_id\":true,\"short_channel_id\":true,\"alias\":{\"local\":true}}]}",
+							listpeerchannels_done, forward_error, p);
+		return send_outreq(cmd->plugin, req);
+	} else {
+		return command_fail(cmd, PAY_UNPARSEABLE_ONION,
+				    "Invalid TLV for blinded path (no next!): %s",
+				    tal_hex(tmpctx, encdata));
+	}
 }
 
 static struct command_result *
