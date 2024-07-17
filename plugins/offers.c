@@ -255,7 +255,7 @@ static struct command_result *onion_message_recv(struct command *cmd,
 		if (reply_path)
 			return handle_invoice_request(cmd,
 						      invreqbin,
-						      reply_path);
+						      reply_path, secret);
 		else
 			plugin_log(cmd->plugin, LOG_DBG,
 				   "invoice_request without reply_path");
@@ -265,7 +265,7 @@ static struct command_result *onion_message_recv(struct command *cmd,
 	if (invtok) {
 		const u8 *invbin = json_tok_bin_from_hex(tmpctx, buf, invtok);
 		if (invbin)
-			return handle_invoice(cmd, invbin, reply_path);
+			return handle_invoice(cmd, invbin, reply_path, secret);
 	}
 
 	return command_hook_success(cmd);
