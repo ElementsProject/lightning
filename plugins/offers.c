@@ -17,6 +17,7 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/onion_message.h>
 #include <errno.h>
 #include <plugins/fetchinvoice.h>
 #include <plugins/offers.h>
@@ -107,6 +108,35 @@ bool convert_to_scidd(struct command *cmd,
 		return false;
 	}
 	return true;
+}
+
+struct command_result *
+inject_onionmessage_(struct command *cmd,
+		     const struct onion_message *omsg,
+		     struct command_result *(*cb)(struct command *command,
+						  const char *buf,
+						  const jsmntok_t *result,
+						  void *arg),
+		     struct command_result *(*errcb)(struct command *command,
+						     const char *buf,
+						     const jsmntok_t *result,
+						     void *arg),
+		     void *arg)
+{
+	struct out_req *req;
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "injectonionmessage",
+				    cb, errcb, arg);
+	json_add_pubkey(req->js, "blinding", &omsg->first_blinding);
+	json_array_start(req->js, "hops");
+	for (size_t i = 0; i < tal_count(omsg->hops); i++) {
+		json_object_start(req->js, NULL);
+		json_add_pubkey(req->js, "id", &omsg->hops[i]->pubkey);
+		json_add_hex_talarr(req->js, "tlv", omsg->hops[i]->raw_payload);
+		json_object_end(req->js);
+	}
+	json_array_end(req->js);
+	return send_outreq(cmd->plugin, req);
 }
 
 struct command_result *

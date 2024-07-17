@@ -4,6 +4,7 @@
 
 struct command_result;
 struct command;
+struct onion_message;
 struct plugin;
 
 /* This is me. */
@@ -28,6 +29,34 @@ struct command_result *WARN_UNUSED_RESULT
 send_onion_reply(struct command *cmd,
 		 struct blinded_path *reply_path,
 		 struct tlv_onionmsg_tlv *payload);
+
+/* Helper to send an onion message */
+#define inject_onionmessage(cmd, omsg, success, fail, arg)		\
+	inject_onionmessage_((cmd), (omsg),				\
+			     typesafe_cb_preargs(struct command_result *, void *, \
+						 (success), (arg),	\
+						 struct command *,	\
+						 const char *,		\
+						 const jsmntok_t *),	\
+			     typesafe_cb_preargs(struct command_result *, void *, \
+						 (fail), (arg),		\
+						 struct command *,	\
+						 const char *,		\
+						 const jsmntok_t *),	\
+			     (arg))
+
+struct command_result *
+inject_onionmessage_(struct command *cmd,
+		     const struct onion_message *omsg,
+		     struct command_result *(*cb)(struct command *command,
+						  const char *buf,
+						  const jsmntok_t *result,
+						  void *arg),
+		     struct command_result *(*errcb)(struct command *command,
+						     const char *buf,
+						     const jsmntok_t *result,
+						     void *arg),
+		     void *arg);
 
 /* Get the (latest) gossmap */
 struct gossmap *get_gossmap(struct plugin *plugin);
