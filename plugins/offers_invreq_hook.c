@@ -234,93 +234,16 @@ static struct command_result *create_invoicereq(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
-/* If we only have private channels, we need to add a blinded path to the
- * invoice.  We need to choose a peer who supports blinded payments, too. */
-struct chaninfo {
-	struct pubkey id;
-	struct short_channel_id scid;
-	struct amount_msat capacity, htlc_min, htlc_max;
-	u32 feebase, feeppm, cltv;
-	bool public;
-};
-
 /* FIXME: This is naive:
  * - Only creates if we have no public channels.
  * - Always creates a path from direct neighbor.
  * - Doesn't append dummy hops.
  * - Doesn't pad to length.
  */
-/* (We only create if we have to, because our code doesn't handle
- * making a payment if the blinded path starts with ourselves!) */
-static struct command_result *listincoming_done(struct command *cmd,
-						const char *buf,
-						const jsmntok_t *result,
-						struct invreq *ir)
+static struct command_result *found_best_peer(struct command *cmd,
+					      const struct chaninfo *best,
+					      struct invreq *ir)
 {
-	const jsmntok_t *arr, *t;
-	size_t i;
-	struct chaninfo *best = NULL;
-	bool any_public = false;
-
-	arr = json_get_member(buf, result, "incoming");
-	json_for_each_arr(i, t, arr) {
-		struct chaninfo ci;
-		const jsmntok_t *pftok;
-		u8 *features;
-		const char *err;
-		struct amount_msat feebase;
-
-		err = json_scan(tmpctx, buf, t,
-				"{id:%,"
-				"incoming_capacity_msat:%,"
-				"htlc_min_msat:%,"
-				"htlc_max_msat:%,"
-				"fee_base_msat:%,"
-				"fee_proportional_millionths:%,"
-				"cltv_expiry_delta:%,"
-				"short_channel_id:%,"
-				"public:%}",
-				JSON_SCAN(json_to_pubkey, &ci.id),
-				JSON_SCAN(json_to_msat, &ci.capacity),
-				JSON_SCAN(json_to_msat, &ci.htlc_min),
-				JSON_SCAN(json_to_msat, &ci.htlc_max),
-				JSON_SCAN(json_to_msat, &feebase),
-				JSON_SCAN(json_to_u32, &ci.feeppm),
-				JSON_SCAN(json_to_u32, &ci.cltv),
-				JSON_SCAN(json_to_short_channel_id, &ci.scid),
-				JSON_SCAN(json_to_bool, &ci.public));
-		if (err) {
-			plugin_log(cmd->plugin, LOG_BROKEN,
-				   "Could not parse listincoming: %s",
-				   err);
-			continue;
-		}
-		ci.feebase = feebase.millisatoshis; /* Raw: feebase */
-		any_public |= ci.public;
-
-		/* Not presented if there's no channel_announcement for peer:
-		 * we could use listpeers, but if it's private we probably
-		 * don't want to blinded route through it! */
-		pftok = json_get_member(buf, t, "peer_features");
-		if (!pftok)
-			continue;
-		features = json_tok_bin_from_hex(tmpctx, buf, pftok);
-		if (!feature_offered(features, OPT_ROUTE_BLINDING))
-			continue;
-
-		if (amount_msat_less(ci.htlc_max,
-				     amount_msat(*ir->inv->invoice_amount)))
-			continue;
-
-		/* Only pick a private one if no public candidates. */
-		if (!best || (!best->public && ci.public))
-			best = tal_dup(tmpctx, struct chaninfo, &ci);
-	}
-
-	/* If there are any public channels, don't add. */
-	if (any_public)
-		goto done;
-
 	/* BOLT-offers #12:
 	 * - MUST include `invoice_paths` containing one or more paths to the node.
 	 * - MUST specify `invoice_paths` in order of most-preferred to
@@ -392,18 +315,21 @@ static struct command_result *listincoming_done(struct command *cmd,
 		ir->inv->invoice_blindedpay[0]->features = NULL;
 	}
 
-done:
 	return create_invoicereq(cmd, ir);
 }
 
 static struct command_result *add_blindedpaths(struct command *cmd,
 					       struct invreq *ir)
 {
-	struct out_req *req;
+	struct node_id local_nodeid;
 
-	req = jsonrpc_request_start(cmd->plugin, cmd, "listincoming",
-				    listincoming_done, listincoming_done, ir);
-	return send_outreq(cmd->plugin, req);
+	/* Don't bother if we're public */
+	node_id_from_pubkey(&local_nodeid, &id);
+	if (gossmap_find_node(get_gossmap(cmd->plugin), &local_nodeid))
+		create_invoicereq(cmd, ir);
+
+	return find_best_peer(cmd, OPT_ROUTE_BLINDING,
+			      found_best_peer, ir);
 }
 
 static struct command_result *check_period(struct command *cmd,

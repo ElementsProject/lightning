@@ -271,6 +271,90 @@ static struct command_result *onion_message_recv(struct command *cmd,
 	return command_hook_success(cmd);
 }
 
+struct find_best_peer_data {
+	struct command_result *(*cb)(struct command *,
+				     const struct chaninfo *,
+				     void *);
+	int needed_feature;
+	void *arg;
+};
+
+static struct command_result *listincoming_done(struct command *cmd,
+						const char *buf,
+						const jsmntok_t *result,
+						struct find_best_peer_data *data)
+{
+	const jsmntok_t *arr, *t;
+	size_t i;
+	struct chaninfo *best = NULL;
+
+  	arr = json_get_member(buf, result, "incoming");
+	json_for_each_arr(i, t, arr) {
+		struct chaninfo ci;
+		const jsmntok_t *pftok;
+		u8 *features;
+		const char *err;
+		struct amount_msat feebase;
+
+		err = json_scan(tmpctx, buf, t,
+				"{id:%,"
+				"incoming_capacity_msat:%,"
+				"htlc_min_msat:%,"
+				"htlc_max_msat:%,"
+				"fee_base_msat:%,"
+				"fee_proportional_millionths:%,"
+				"cltv_expiry_delta:%}",
+				JSON_SCAN(json_to_pubkey, &ci.id),
+				JSON_SCAN(json_to_msat, &ci.capacity),
+				JSON_SCAN(json_to_msat, &ci.htlc_min),
+				JSON_SCAN(json_to_msat, &ci.htlc_max),
+				JSON_SCAN(json_to_msat, &feebase),
+				JSON_SCAN(json_to_u32, &ci.feeppm),
+				JSON_SCAN(json_to_u32, &ci.cltv));
+		if (err) {
+			plugin_log(cmd->plugin, LOG_BROKEN,
+				   "Could not parse listincoming: %s",
+				   err);
+			continue;
+		}
+		ci.feebase = feebase.millisatoshis; /* Raw: feebase */
+
+		/* Not presented if there's no channel_announcement for peer:
+		 * we could use listpeers, but if it's private we probably
+		 * don't want to blinded route through it! */
+		pftok = json_get_member(buf, t, "peer_features");
+		if (!pftok)
+			continue;
+		features = json_tok_bin_from_hex(tmpctx, buf, pftok);
+		if (!feature_offered(features, data->needed_feature))
+			continue;
+
+		if (!best || amount_msat_greater(ci.capacity, best->capacity))
+			best = tal_dup(tmpctx, struct chaninfo, &ci);
+	}
+
+	/* Free data if they don't */
+	tal_steal(tmpctx, data);
+	return data->cb(cmd, best, data->arg);
+}
+
+struct command_result *find_best_peer_(struct command *cmd,
+				       int needed_feature,
+				       struct command_result *(*cb)(struct command *,
+								    const struct chaninfo *,
+								    void *),
+				       void *arg)
+{
+	struct out_req *req;
+	struct find_best_peer_data *data = tal(cmd, struct find_best_peer_data);
+	data->cb = cb;
+	data->arg = arg;
+	data->needed_feature = needed_feature;
+	req = jsonrpc_request_start(cmd->plugin, cmd, "listincoming",
+				    listincoming_done, forward_error, data);
+	return send_outreq(cmd->plugin, req);
+}
+
 static const struct plugin_hook hooks[] = {
 	{
 		"onion_message_recv",

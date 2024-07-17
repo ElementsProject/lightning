@@ -65,4 +65,28 @@ inject_onionmessage_(struct command *cmd,
 
 /* Get the (latest) gossmap */
 struct gossmap *get_gossmap(struct plugin *plugin);
+
+/* Get the best (private) channel */
+struct chaninfo {
+	struct pubkey id;
+	struct amount_msat capacity, htlc_min, htlc_max;
+	u32 feebase, feeppm, cltv;
+};
+
+/* Calls listpeerchannels, then cb with best peer (if any!) which has needed_feature */
+struct command_result *find_best_peer_(struct command *cmd,
+				       int needed_feature,
+				       struct command_result *(*cb)(struct command *,
+								    const struct chaninfo *,
+								    void *),
+				       void *arg);
+
+#define find_best_peer(cmd, needed_feature, cb, arg)			\
+	find_best_peer_((cmd), (needed_feature),			\
+			typesafe_cb_preargs(struct command_result *, void *, \
+					    (cb), (arg),		\
+					    struct command *,		\
+					    const struct chaninfo *),	\
+			(arg))
+
 #endif /* LIGHTNING_PLUGINS_OFFERS_H */
