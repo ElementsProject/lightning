@@ -582,32 +582,12 @@ static struct command_result *prepare_inv_timeout(struct command *cmd,
 	return sendonionmsg_done(cmd, buf, result, sent);
 }
 
-static struct command_result *fetchinvoice_path_done(struct command *cmd,
-						     const struct pubkey *path,
-						     struct sent *sent)
-{
-	struct tlv_onionmsg_tlv *payload = tlv_onionmsg_tlv_new(sent);
-
-	payload->invoice_request = tal_arr(payload, u8, 0);
-	towire_tlv_invoice_request(&payload->invoice_request, sent->invreq);
-
-	return send_message(cmd, sent, payload, sendonionmsg_done);
-}
-
-static struct command_result *fetchinvoice_path_fail(struct command *cmd,
-						     const char *why,
-						     struct sent *sent)
-{
-	return command_fail(cmd, OFFER_ROUTE_NOT_FOUND,
-			    "Failed: could not route, could not connect: %s",
-			    why);
-}
-
 static struct command_result *invreq_done(struct command *cmd,
 					  const char *buf,
 					  const jsmntok_t *result,
 					  struct sent *sent)
 {
+	struct tlv_onionmsg_tlv *payload;
 	const jsmntok_t *t;
 	char *fail;
 
@@ -702,12 +682,11 @@ static struct command_result *invreq_done(struct command *cmd,
 		}
 	}
 
-	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &id,
-				    sent->invreq->offer_node_id,
-				    disable_connect,
-				    fetchinvoice_path_done,
-				    fetchinvoice_path_fail,
-				    sent);
+	payload = tlv_onionmsg_tlv_new(sent);
+	payload->invoice_request = tal_arr(payload, u8, 0);
+	towire_tlv_invoice_request(&payload->invoice_request, sent->invreq);
+
+	return send_message(cmd, sent, payload, sendonionmsg_done);
 }
 
 static struct command_result *param_dev_scidd(struct command *cmd, const char *name,
@@ -998,32 +977,12 @@ struct command_result *invoice_payment(struct command *cmd,
 	return command_hook_success(cmd);
 }
 
-static struct command_result *sendinvoice_path_done(struct command *cmd,
-						    const struct pubkey *path,
-						    struct sent *sent)
-{
-	struct tlv_onionmsg_tlv *payload = tlv_onionmsg_tlv_new(sent);
-
-	payload->invoice = tal_arr(payload, u8, 0);
-	towire_tlv_invoice(&payload->invoice, sent->inv);
-
-	return send_message(cmd, sent, payload, prepare_inv_timeout);
-}
-
-static struct command_result *sendinvoice_path_fail(struct command *cmd,
-						    const char *why,
-						    struct sent *sent)
-{
-	return command_fail(cmd, OFFER_ROUTE_NOT_FOUND,
-			    "Failed: could not route, could not connect: %s",
-			    why);
-}
-
 static struct command_result *createinvoice_done(struct command *cmd,
 						 const char *buf,
 						 const jsmntok_t *result,
 						 struct sent *sent)
 {
+	struct tlv_onionmsg_tlv *payload;
 	const jsmntok_t *invtok = json_get_member(buf, result, "bolt12");
 	char *fail;
 
@@ -1053,12 +1012,12 @@ static struct command_result *createinvoice_done(struct command *cmd,
 	sent->their_paths = sent->invreq->offer_paths;
 	sent->direct_dest = sent->invreq->invreq_payer_id;
 
-	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &id,
-				    sent->invreq->invreq_payer_id,
-				    disable_connect,
-				    sendinvoice_path_done,
-				    sendinvoice_path_fail,
-				    sent);
+	payload = tlv_onionmsg_tlv_new(sent);
+
+	payload->invoice = tal_arr(payload, u8, 0);
+	towire_tlv_invoice(&payload->invoice, sent->inv);
+
+	return send_message(cmd, sent, payload, prepare_inv_timeout);
 }
 
 static struct command_result *sign_invoice(struct command *cmd,
@@ -1336,6 +1295,7 @@ struct command_result *json_dev_rawrequest(struct command *cmd,
 	struct sent *sent = tal(cmd, struct sent);
 	u32 *timeout;
 	struct pubkey *node_id;
+	struct tlv_onionmsg_tlv *payload;
 
 	if (!param(cmd, buffer, params,
 		   p_req("invreq", param_raw_invreq, &sent->invreq),
@@ -1353,10 +1313,9 @@ struct command_result *json_dev_rawrequest(struct command *cmd,
 	sent->their_paths = NULL;
 	sent->direct_dest = node_id;
 
-	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &id,
-				    node_id,
-				    disable_connect,
-				    fetchinvoice_path_done,
-				    fetchinvoice_path_fail,
-				    sent);
+	payload = tlv_onionmsg_tlv_new(sent);
+	payload->invoice_request = tal_arr(payload, u8, 0);
+	towire_tlv_invoice_request(&payload->invoice_request, sent->invreq);
+
+	return send_message(cmd, sent, payload, sendonionmsg_done);
 }
