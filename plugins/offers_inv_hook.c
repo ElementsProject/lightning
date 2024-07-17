@@ -47,12 +47,13 @@ fail_inv_level(struct command *cmd,
 	if (l == LOG_BROKEN)
 		msg = "Internal error";
 
+	/* Get path (maybe connect) to send reply */
 	err = tlv_invoice_error_new(cmd);
 	/* Remove NUL terminator */
 	err->error = tal_dup_arr(err, char, msg, strlen(msg), 0);
 	/* FIXME: Add suggested_value / erroneous_field! */
 
-	payload = tlv_onionmsg_tlv_new(tmpctx);
+	payload = tlv_onionmsg_tlv_new(NULL);
 	payload->invoice_error = tal_arr(payload, u8, 0);
 	towire_tlv_invoice_error(&payload->invoice_error, err);
 	return send_onion_reply(cmd, inv->reply_path, payload);

@@ -24,7 +24,7 @@ extern struct secret invoicesecret_base;
 bool convert_to_scidd(struct command *cmd,
 		      struct sciddir_or_pubkey *sciddpk);
 
-/* Helper to send a reply */
+/* Helper to send a reply (connecting if required), and discard result */
 struct command_result *WARN_UNUSED_RESULT
 send_onion_reply(struct command *cmd,
 		 struct blinded_path *reply_path,
