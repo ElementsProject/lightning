@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
 		char *dir = getenv("BOLTDIR");
 		json = grab_file(tmpctx,
 				 path_join(tmpctx,
-					   dir ? dir : "../bolts",
+					   dir ? dir : ".tmp.lightningrfc",
 					   "bolt12/offers-test.json"));
 		if (!json) {
 			printf("test file not found, skipping\n");
