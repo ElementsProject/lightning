@@ -197,7 +197,7 @@ plugins/commando: $(PLUGIN_COMMANDO_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJ
 
 # Topology wants to decode node_announcement, and peer_wiregen which
 # pulls in some of bitcoin/.
-plugins/topology: common/route.o common/dijkstra.o common/gossmap.o common/fp16.o wire/peer_wiregen.o wire/channel_type_wiregen.o bitcoin/block.o bitcoin/preimage.o common/gossmods_listpeerchannels.o  $(PLUGIN_TOPOLOGY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+plugins/topology: common/route.o common/dijkstra.o common/gossmap.o common/sciddir_or_pubkey.o common/fp16.o wire/peer_wiregen.o wire/channel_type_wiregen.o bitcoin/block.o bitcoin/preimage.o common/gossmods_listpeerchannels.o  $(PLUGIN_TOPOLOGY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 
 plugins/txprepare: $(PLUGIN_TXPREPARE_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 
@@ -212,7 +212,7 @@ plugins/offers: $(PLUGIN_OFFERS_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) c
 
 plugins/funder: bitcoin/psbt.o common/psbt_open.o $(PLUGIN_FUNDER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 
-plugins/recover:  common/gossmap.o common/fp16.o $(PLUGIN_RECOVER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+plugins/recover:  common/gossmap.o common/sciddir_or_pubkey.o common/fp16.o $(PLUGIN_RECOVER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 
 # This covers all the low-level list RPCs which return simple arrays
 SQL_LISTRPCS := listchannels listforwards listhtlcs listinvoices listnodes listoffers listpeers listpeerchannels listclosedchannels listtransactions listsendpays bkpr-listaccountevents bkpr-listincome

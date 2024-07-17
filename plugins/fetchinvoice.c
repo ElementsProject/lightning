@@ -545,7 +545,7 @@ static struct command_result *try_establish(struct command *cmd,
 		target = *epaths->sent->direct_dest;
 	} else {
 		struct sciddir_or_pubkey first = bpath->first_node_id;
-		if (!first.is_pubkey && !convert_to_scidd(cmd, &first))
+		if (!gossmap_scidd_pubkey(get_gossmap(cmd->plugin), &first))
 			return establish_path_fail(cmd, "Cannot resolve scidd", epaths);
 		target = first.pubkey;
 	}
