@@ -752,8 +752,8 @@ $(ALL_TEST_PROGRAMS:%=update-mocks/%.c): $(ALL_GEN_HEADERS) $(EXTERNAL_LIBS) lib
 update-mocks/%: % $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
 	@MAKE=$(MAKE) tools/update-mocks.sh "$*" $(SUPPRESS_OUTPUT)
 
-unittest/%: %
-	$(VG) $(VG_TEST_ARGS) $* > /dev/null
+unittest/%: % bolt-precheck
+	BOLTDIR=$(LOCAL_BOLTDIR) $(VG) $(VG_TEST_ARGS) $* > /dev/null
 
 # Installation directories
 exec_prefix = $(PREFIX)
