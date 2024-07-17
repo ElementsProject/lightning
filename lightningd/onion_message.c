@@ -1,7 +1,9 @@
 #include "config.h"
 #include <ccan/mem/mem.h>
 #include <common/blindedpath.h>
+#include <common/blinding.h>
 #include <common/configdir.h>
+#include <common/ecdh.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <connectd/connectd_wiregen.h>
@@ -328,3 +330,60 @@ static const struct json_command injectonionmessage_command = {
 	"Unwrap using {blinding}, encoded over {hops} (id, tlv)"
 };
 AUTODATA(json_command, &injectonionmessage_command);
+
+static struct command_result *json_decryptencrypteddata(struct command *cmd,
+							const char *buffer,
+							const jsmntok_t *obj UNNEEDED,
+							const jsmntok_t *params)
+{
+	u8 *encdata, *decrypted;
+	struct pubkey *blinding, next_blinding;
+	struct secret ss;
+	struct sha256 h;
+	struct json_stream *response;
+
+	if (!param_check(cmd, buffer, params,
+			 p_req("encrypted_data", param_bin_from_hex, &encdata),
+			 p_req("blinding", param_pubkey, &blinding),
+			 NULL))
+		return command_param_failed();
+
+	/* BOLT #4:
+	 *
+	 * - MUST compute:
+	 *   - $`ss_i = SHA256(k_i * E_i)`$ (standard ECDH)
+	 *...
+	 * - MUST decrypt the `encrypted_data` field using $`rho_i`$
+	 */
+	ecdh(blinding, &ss);
+
+	decrypted = decrypt_encmsg_raw(cmd, blinding, &ss, encdata);
+	if (!decrypted)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Decryption failed!");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	/* BOLT #4:
+	 *
+	 *   - $`E_{i+1} = SHA256(E_i || ss_i) * E_i`$
+	 */
+	blinding_hash_e_and_ss(blinding, &ss, &h);
+	blinding_next_pubkey(blinding, &h, &next_blinding);
+
+	response = json_stream_success(cmd);
+	json_object_start(response, "decryptencrypteddata");
+	json_add_hex_talarr(response, "decrypted", decrypted);
+	json_add_pubkey(response, "next_blinding", &next_blinding);
+	json_object_end(response);
+	return command_success(cmd, response);
+}
+
+static const struct json_command decryptencrypteddata_command = {
+	"decryptencrypteddata",
+	"utility",
+	json_decryptencrypteddata,
+	"Decrypt {encrypted_data} using {blinding}, return decryption and next blinding"
+};
+AUTODATA(json_command, &decryptencrypteddata_command);

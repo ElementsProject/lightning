@@ -156,10 +156,10 @@ bool unblind_onion(const struct pubkey *blinding,
 					     hmac.data) == 1;
 }
 
-static u8 *decrypt_encmsg_raw(const tal_t *ctx,
-			      const struct pubkey *blinding,
-			      const struct secret *ss,
-			      const u8 *enctlv)
+u8 *decrypt_encmsg_raw(const tal_t *ctx,
+		       const struct pubkey *blinding,
+		       const struct secret *ss,
+		       const u8 *enctlv)
 {
 	struct secret rho;
 	u8 *dec;
@@ -253,7 +253,9 @@ void blindedpath_next_blinding(const struct tlv_encrypted_data_tlv *enc,
 	if (enc->next_blinding_override)
 		*next_blinding = *enc->next_blinding_override;
 	else {
-		/* E_{i-1} = H(E_i || ss_i) * E_i */
+		/* BOLT #4:
+		 * $`E_{i+1} = SHA256(E_i || ss_i) * E_i`$
+		 */
 		struct sha256 h;
 		blinding_hash_e_and_ss(blinding, ss, &h);
 		blinding_next_pubkey(blinding, &h, next_blinding);

@@ -5782,6 +5782,36 @@ def test_onionmessage_ratelimit(node_factory):
     l1.rpc.fetchinvoice(offer['bolt12'])
 
 
+def test_decryptencrypteddata(node_factory):
+    l1, l2, l3 = node_factory.line_graph(3, fundchannel=False,
+                                         opts={'experimental-offers': None})
+
+    # Private channel from l2->l3, makes l3 add a blinded path to invoice
+    # (l1's existence makes sure l3 doesn't see l2 as a dead end!)
+    node_factory.join_nodes([l1, l2], wait_for_announce=True)
+    node_factory.join_nodes([l2, l3], announce_channels=False)
+    wait_for(lambda: ['alias' in n for n in l3.rpc.listnodes()['nodes']] == [True, True])
+
+    offer = l3.rpc.offer(amount='2msat', description='test_offer_path_self')
+    inv = l2.rpc.fetchinvoice(offer['bolt12'])['invoice']
+
+    decode = l2.rpc.decode(inv)
+    path = decode['invoice_paths'][0]
+    assert path['first_node_id'] == l2.info['id']
+    blinding = path['blinding']
+
+    encdata1 = path['path'][0]['encrypted_recipient_data']
+    # BOLT #4:
+    # 1. `tlv_stream`: `encrypted_data_tlv`
+    # 2. types:
+    # ...
+    #     1. type: 4 (`next_node_id`)
+    #     2. data:
+    #         * [`point`:`node_id`]
+    dec = l2.rpc.decryptencrypteddata(encrypted_data=encdata1, blinding=blinding)['decryptencrypteddata']
+    assert dec['decrypted'].startswith('0421' + l3.info['id'])
+
+
 def test_fetch_no_description_offer(node_factory):
     """Reproducing the issue: https://github.com/ElementsProject/lightning/issues/7405"""
     l1, l2 = node_factory.line_graph(2, opts={'experimental-offers': None,
