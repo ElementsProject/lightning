@@ -175,23 +175,40 @@
       "request": {
         "id": "example:commando-listrunes#1",
         "method": "commando-listrunes",
-        "params": {}
+        "params": {
+          "rune": "RXgu0DD_i0wSPEZkIDyZIWL0bSAGdhvJ_GHOQdTg04A9MSZpZF4wMjY2ZTQ1OThkMWQzYzQxNWY1NyZtZXRob2Q9bGlzdHBlZXJz"
+        }
       },
       "response": {
         "runes": [
           {
-            "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",
-            "unique_id": "0",
-            "restrictions": [],
-            "restrictions_as_english": ""
-          },
-          {
-            "rune": "Am3W_wI0PRn4qVNEsJ2iInHyFPQK8wfdqEXztm8-icQ9MA==",
-            "stored": false,
-            "our_rune": false,
+            "rune": "RXgu0DD_i0wSPEZkIDyZIWL0bSAGdhvJ_GHOQdTg04A9MSZpZF4wMjY2ZTQ1OThkMWQzYzQxNWY1NyZtZXRob2Q9bGlzdHBlZXJz",
             "unique_id": "1",
-            "restrictions": [],
-            "restrictions_as_english": ""
+            "restrictions": [
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "id",
+                    "value": "0266e4598d1d3c415f57",
+                    "condition": "^",
+                    "english": "id starts with 0266e4598d1d3c415f57"
+                  }
+                ],
+                "english": "id starts with 0266e4598d1d3c415f57"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "method",
+                    "value": "listpeers",
+                    "condition": "=",
+                    "english": "method equal to listpeers"
+                  }
+                ],
+                "english": "method equal to listpeers"
+              }
+            ],
+            "restrictions_as_english": "id starts with 0266e4598d1d3c415f57 AND method equal to listpeers"
           }
         ]
       }
@@ -200,48 +217,88 @@
       "request": {
         "id": "example:commando-listrunes#2",
         "method": "commando-listrunes",
-        "params": {
-          "rune": "Am3W_wI0PRn4qVNEsJ2iInHyFPQK8wfdqEXztm8-icQ9MA=="
-        }
+        "params": {}
       },
       "response": {
         "runes": [
           {
-            "rune": "Am3W_wI0PRn4qVNEsJ2iInHyFPQK8wfdqEXztm8-icQ9MA==",
-            "stored": false,
-            "our_rune": false,
-            "unique_id": "1",
+            "rune": "zFMd1fjhrAYxUeFA54TjloZqOt8JrA_i_nYwIgXkag49MA==",
+            "unique_id": "0",
             "restrictions": [],
             "restrictions_as_english": ""
-          }
-        ]
-      }
-    },
-    {
-      "request": {
-        "id": "example:commando-listrunes#3",
-        "method": "commando-listrunes",
-        "params": {
-          "rune": "m_tyR0qqHUuLEbFJW6AhmBg-9npxVX2yKocQBFi9cvY9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8mcGFycjEhfHBhcnIxL2lv"
-        }
-      },
-      "response": {
-        "runes": [
+          },
           {
-            "rune": "m_tyR0qqHUuLEbFJW6AhmBg-9npxVX2yKocQBFi9cvY9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8mcGFycjEhfHBhcnIxL2lv",
-            "stored": false,
+            "rune": "RXgu0DD_i0wSPEZkIDyZIWL0bSAGdhvJ_GHOQdTg04A9MSZpZF4wMjY2ZTQ1OThkMWQzYzQxNWY1NyZtZXRob2Q9bGlzdHBlZXJz",
+            "unique_id": "1",
+            "restrictions": [
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "id",
+                    "value": "0266e4598d1d3c415f57",
+                    "condition": "^",
+                    "english": "id starts with 0266e4598d1d3c415f57"
+                  }
+                ],
+                "english": "id starts with 0266e4598d1d3c415f57"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "method",
+                    "value": "listpeers",
+                    "condition": "=",
+                    "english": "method equal to listpeers"
+                  }
+                ],
+                "english": "method equal to listpeers"
+              }
+            ],
+            "restrictions_as_english": "id starts with 0266e4598d1d3c415f57 AND method equal to listpeers"
+          },
+          {
+            "rune": "QUJEYMLGgiaJvMDv_MhR2hiMKIBTbq-PrL-KxcIlirQ9MiZtZXRob2Q9cGF5JnBuYW1lYW1vdW50bXNhdDwxMDAwMA==",
+            "unique_id": "2",
+            "restrictions": [
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "method",
+                    "value": "pay",
+                    "condition": "=",
+                    "english": "method equal to pay"
+                  }
+                ],
+                "english": "method equal to pay"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "pnameamountmsat",
+                    "value": "10000",
+                    "condition": "<",
+                    "english": "pnameamountmsat < 10000"
+                  }
+                ],
+                "english": "pnameamountmsat < 10000"
+              }
+            ],
+            "restrictions_as_english": "method equal to pay AND pnameamountmsat < 10000"
+          },
+          {
+            "rune": "jEx3l0c7NMZPSDYT7xnXXvNA83z5PDNBHRQTIk1BwNw9MyZpZD0wMjY2ZTQ1OThkMWQzYzQxNWY1NzJhODQ4ODgzMGI2MGY3ZTc0NGVkOTIzNWViMGIxYmE5MzI4M2IzMTVjMDM1MTgmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZD0wMjY2ZTQ1OThkMWQzYzQxNWY1NzJhODQ4ODgzMGI2MGY3ZTc0NGVkOTIzNWViMGIxYmE5MzI4M2IzMTVjMDM1MTh8cGFycjA9MDI2NmU0NTk4ZDFkM2M0MTVmNTcyYTg0ODg4MzBiNjBmN2U3NDRlZDkyMzVlYjBiMWJhOTMyODNiMzE1YzAzNTE4",
             "unique_id": "3",
             "restrictions": [
               {
                 "alternatives": [
                   {
                     "fieldname": "id",
-                    "value": "022d223620a359a47ff7",
-                    "condition": "^",
-                    "english": "id starts with 022d223620a359a47ff7"
+                    "value": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+                    "condition": "=",
+                    "english": "id equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
                   }
                 ],
-                "english": "id starts with 022d223620a359a47ff7"
+                "english": "id equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
               },
               {
                 "alternatives": [
@@ -257,39 +314,90 @@
               {
                 "alternatives": [
                   {
-                    "fieldname": "pnamelevel",
-                    "value": "",
-                    "condition": "!",
-                    "english": "pnamelevel is missing"
-                  },
-                  {
-                    "fieldname": "pnamelevel",
-                    "value": "io",
-                    "condition": "/",
-                    "english": "pnamelevel unequal to io"
+                    "fieldname": "pnum",
+                    "value": "1",
+                    "condition": "=",
+                    "english": "pnum equal to 1"
                   }
                 ],
-                "english": "pnamelevel is missing OR pnamelevel unequal to io"
+                "english": "pnum equal to 1"
               },
               {
                 "alternatives": [
                   {
-                    "fieldname": "parr1",
-                    "value": "",
-                    "condition": "!",
-                    "english": "parr1 is missing"
+                    "fieldname": "pnameid",
+                    "value": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+                    "condition": "=",
+                    "english": "pnameid equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
                   },
                   {
-                    "fieldname": "parr1",
-                    "value": "io",
-                    "condition": "/",
-                    "english": "parr1 unequal to io"
+                    "fieldname": "parr0",
+                    "value": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+                    "condition": "=",
+                    "english": "parr0 equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
                   }
                 ],
-                "english": "parr1 is missing OR parr1 unequal to io"
+                "english": "pnameid equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518 OR parr0 equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
               }
             ],
-            "restrictions_as_english": "id starts with 022d223620a359a47ff7 AND method equal to listpeers AND pnamelevel is missing OR pnamelevel unequal to io AND parr1 is missing OR parr1 unequal to io"
+            "restrictions_as_english": "id equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518 AND method equal to listpeers AND pnum equal to 1 AND pnameid equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518 OR parr0 equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
+          },
+          {
+            "rune": "8_CRIJ4arWAz72A4ILOZ46MESSJtQQQ9iQZjU28qulA9NCZpZD0wMjY2ZTQ1OThkMWQzYzQxNWY1NzJhODQ4ODgzMGI2MGY3ZTc0NGVkOTIzNWViMGIxYmE5MzI4M2IzMTVjMDM1MTgmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjY2ZTQ1OThkMWQzYzQxNWY1N3xwYXJyMF4wMjY2ZTQ1OThkMWQzYzQxNWY1Nw==",
+            "unique_id": "4",
+            "restrictions": [
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "id",
+                    "value": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+                    "condition": "=",
+                    "english": "id equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
+                  }
+                ],
+                "english": "id equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "method",
+                    "value": "listpeers",
+                    "condition": "=",
+                    "english": "method equal to listpeers"
+                  }
+                ],
+                "english": "method equal to listpeers"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "pnum",
+                    "value": "1",
+                    "condition": "=",
+                    "english": "pnum equal to 1"
+                  }
+                ],
+                "english": "pnum equal to 1"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "pnameid",
+                    "value": "0266e4598d1d3c415f57",
+                    "condition": "^",
+                    "english": "pnameid starts with 0266e4598d1d3c415f57"
+                  },
+                  {
+                    "fieldname": "parr0",
+                    "value": "0266e4598d1d3c415f57",
+                    "condition": "^",
+                    "english": "parr0 starts with 0266e4598d1d3c415f57"
+                  }
+                ],
+                "english": "pnameid starts with 0266e4598d1d3c415f57 OR parr0 starts with 0266e4598d1d3c415f57"
+              }
+            ],
+            "restrictions_as_english": "id equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518 AND method equal to listpeers AND pnum equal to 1 AND pnameid starts with 0266e4598d1d3c415f57 OR parr0 starts with 0266e4598d1d3c415f57"
           }
         ]
       }

@@ -51,7 +51,7 @@
         "id": "example:disconnect#1",
         "method": "disconnect",
         "params": {
-          "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+          "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
           "force": false
         }
       },
@@ -62,7 +62,7 @@
         "id": "example:disconnect#2",
         "method": "disconnect",
         "params": {
-          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "id": "032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e",
           "force": true
         }
       },

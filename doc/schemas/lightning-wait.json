@@ -317,17 +317,12 @@
         "params": {
           "subsystem": "invoices",
           "indexname": "created",
-          "nextvalue": 1
+          "nextvalue": 0
         }
       },
       "response": {
         "subsystem": "invoices",
-        "created": 1,
-        "details": {
-          "status": "unpaid",
-          "label": "invlabel",
-          "bolt11": "lnbcrt420p1pjmxtevsp5d8c6gnaj8lyjy2qly783vklda9dfaqeyzyc37agxxp8h3uguv8pqpp5w6lhwxhqnuew4hle5h7qwjm27zz784mvsrzhmayhscy5t2hy5c4qdqvd9h8ver9wd3sxqyjw5qcqp99qxpqysgq09gxhjhwu9u3z6dlt5ln5f4g8zl78wz4pgh0am3kz54m9lllhqckf4gmhmt2ftrclq5x62zkqmggc7y0ju0ghdfwjz8hyd8l5cqvemgpyyhm6w"
-        }
+        "created": 15
       }
     },
     {
@@ -335,16 +330,19 @@
         "id": "example:wait#2",
         "method": "wait",
         "params": {
-          "subsystem": "invoices",
-          "indexname": "updated",
-          "nextvalue": 2
+          "subsystem": "sendpays",
+          "indexname": "created",
+          "nextvalue": 15
         }
       },
       "response": {
-        "subsystem": "invoices",
-        "updated": 2,
+        "subsystem": "sendpays",
+        "created": 15,
         "details": {
-          "status": "expired"
+          "status": "pending",
+          "partid": 0,
+          "groupid": 1,
+          "payment_hash": "4c6f04eaf19dd956b616f1ba8718df40e387c4a56be36cf4e881a009cbf66899"
         }
       }
     },
@@ -352,20 +350,20 @@
       "request": {
         "id": "example:wait#3",
         "method": "wait",
-        "params": {
-          "subsystem": "sendpays",
-          "indexname": "updated",
-          "nextvalue": 2
-        }
+        "params": [
+          "sendpays",
+          "updated",
+          15
+        ]
       },
       "response": {
         "subsystem": "sendpays",
-        "updated": 2,
+        "updated": 15,
         "details": {
           "status": "complete",
           "partid": 0,
           "groupid": 1,
-          "payment_hash": "220dcfcf43e1fab3ce30f70eb943c3ce962393f5a65ced52d749e324b443d19e"
+          "payment_hash": "4c6f04eaf19dd956b616f1ba8718df40e387c4a56be36cf4e881a009cbf66899"
         }
       }
     }

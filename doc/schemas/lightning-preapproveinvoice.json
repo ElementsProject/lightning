@@ -41,5 +41,27 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:preapproveinvoice#1",
+        "method": "preapproveinvoice",
+        "params": {
+          "bolt11": "lnbcrt1230n1pn2s38psp5jf2zk7py4wmutyq4pdr6783egft24nkyhfrxegrzzqnef2matw2qpp5rf5zgqyexdt7q5ean83cvcjuc3jafn8etm3c0za6xldwcyllvffqdqlv3jhxcmjd9c8g6t0dcsxjmnktakrydqcqp9rzjqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky96qqq0vqqqqgqqyqqqqqpqqqqqzsqqc9qxpqysgq8nn5qkcp9xl5u7dlqamdys6e6yc0ngyqe676cqajnwax6657verj7at5gvdqu6nk3l0wcagq4muyhqqms4t0t9sfvyazpga5eywj6uqpyc409e"
+        }
+      },
+      "response": {}
+    },
+    {
+      "request": {
+        "id": "example:preapproveinvoice#2",
+        "method": "preapproveinvoice",
+        "params": [
+          "lnbcrt1240n1pn2s38psp5ufjqj6kuxlvl65xue9p06ulyvwf9sm0utxlch59d0ynl05778vwspp5qlacxkrdmc2p50yl8lsl75pwmlhve2ret2yd2f34z7jfs7yffwvqdqlv3jhxcmjd9c8g6t0dcsxjmnktakrydgcqp9rzjqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky96qqq0vqqqqgqqyqqqqqpqqqqqzsqqc9qxpqysgqkml60qaytvnd08p57w7enuna95s7cqej8cfuvsgjzpeq9u83s0hqh60667nrp40qkqxkdu36z8wqtmac5z3208rwyn0q2pv56sgz5dcp9mn5hc"
+        ]
+      },
+      "response": {}
+    }
   ]
 }

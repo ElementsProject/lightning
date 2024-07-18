@@ -59,5 +59,31 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:preapprovekeysend#1",
+        "method": "preapprovekeysend",
+        "params": {
+          "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "payment_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "amount_msat": 1000
+        }
+      },
+      "response": {}
+    },
+    {
+      "request": {
+        "id": "example:preapprovekeysend#2",
+        "method": "preapprovekeysend",
+        "params": [
+          "032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e",
+          "0101010101010101010101010101010101010101010101010101010101010101",
+          2000
+        ]
+      },
+      "response": {}
+    }
   ]
 }

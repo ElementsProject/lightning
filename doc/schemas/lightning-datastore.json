@@ -131,29 +131,6 @@
         "id": "example:datastore#1",
         "method": "datastore",
         "params": {
-          "key": [
-            "test_libplugin",
-            "name"
-          ],
-          "string": "foobar",
-          "mode": "must-replace"
-        }
-      },
-      "response": {
-        "key": [
-          "test_libplugin",
-          "name"
-        ],
-        "generation": 1,
-        "hex": "666f6f626172",
-        "string": "foobar"
-      }
-    },
-    {
-      "request": {
-        "id": "example:datastore#2",
-        "method": "datastore",
-        "params": {
           "key": "somekey",
           "hex": "61",
           "mode": "create-or-append"
@@ -163,9 +140,32 @@
         "key": [
           "somekey"
         ],
-        "generation": 3,
-        "hex": "736f6d6564617461",
-        "string": "somedata"
+        "generation": 0,
+        "hex": "61",
+        "string": "a"
+      }
+    },
+    {
+      "request": {
+        "id": "example:datastore#2",
+        "method": "datastore",
+        "params": {
+          "key": [
+            "test",
+            "name"
+          ],
+          "string": "saving data to the store",
+          "mode": "must-create"
+        }
+      },
+      "response": {
+        "key": [
+          "test",
+          "name"
+        ],
+        "generation": 0,
+        "hex": "736176696e67206461746120746f207468652073746f7265",
+        "string": "saving data to the store"
       }
     },
     {
@@ -173,27 +173,38 @@
         "id": "example:datastore#3",
         "method": "datastore",
         "params": {
-          "key": [
-            "a",
-            "d",
-            "e",
-            "f",
-            "g"
-          ],
-          "string": "somedatatostoreinthedatastore"
+          "key": "otherkey",
+          "string": "foo",
+          "mode": "must-create"
         }
       },
       "response": {
         "key": [
-          "a",
-          "d",
-          "e",
-          "f",
-          "g"
+          "otherkey"
         ],
         "generation": 0,
-        "hex": "736f6d6564617461746f73746f7265696e7468656461746173746f7265",
-        "string": "somedatatostoreinthedatastore"
+        "hex": "666f6f",
+        "string": "foo"
+      }
+    },
+    {
+      "request": {
+        "id": "example:datastore#4",
+        "method": "datastore",
+        "params": {
+          "key": "otherkey",
+          "string": "bar",
+          "mode": "must-append",
+          "generation": 0
+        }
+      },
+      "response": {
+        "key": [
+          "otherkey"
+        ],
+        "generation": 1,
+        "hex": "666f6f626172",
+        "string": "foobar"
       }
     }
   ]

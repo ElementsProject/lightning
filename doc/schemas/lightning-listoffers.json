@@ -109,18 +109,18 @@
       "response": {
         "offers": [
           {
-            "offer_id": "053a5c566fbea2681a5ff9c05a913da23e45b95d09ef5bd25d7d408f23da7084",
+            "offer_id": "dca9774ba2925b48c42eb12e599c09389d9d80d44445c4d0c944556c7228746e",
             "active": true,
             "single_use": false,
-            "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqvqcdgq2z9pk7enxv4jjqen0wgs8yatnw3ujz83qkc6rvp4j28rt3dtrn32zkvdy7efhnlrpr5rp5geqxs783wtlj550qs8czzku4nk3pqp6m593qxgunzuqcwkmgqkmp6ty0wyvjcqdguv3pnpukedwn6cr87m89t74h3auyaeg89xkvgzpac70z3m9rn5xzu28c",
+            "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqgn3qzs2ge5hx6pqwdskcefpzcssytfzxcs2xkdy0lml0tzy0jzugmyj8kjn8zfzrgq9fsgurc72x82e",
             "used": false
           },
           {
-            "offer_id": "3247d3597fec19e362ca683416a48a0f76a44c1600725a7ee1936548feadacca",
+            "offer_id": "f901018768e13ea2da95f437749e24d22d47b2a6ea3030ef66ae0281df49d94b",
             "active": true,
             "single_use": false,
-            "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcxqd24x3qgqgqlgzs3gdhkven9v5sxvmmjype82um50ys3ug9kxsmqdvj3c6ut2cuu2s4nrf8k2dulccgaqcdzxgp583utjlu49rcyqt8hc3s797umxn3r9367rdqc577rma7key58fywkajxnuzyapge86hj2pg80rjrma40xdqrxnsnva5l3ce7hz4ua8wf755dees4y9vnq",
-            "used": true
+            "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqv85ysq2qepk7enxv4j3gqg2zcssytfzxcs2xkdy0lml0tzy0jzugmyj8kjn8zfzrgq9fsgurc72x82e",
+            "used": false
           }
         ]
       }
@@ -130,16 +130,16 @@
         "id": "example:listoffers#2",
         "method": "listoffers",
         "params": [
-          "f61cca153d1948dade19349792d9bcdc9cef687fd27db0b553a67979f55aae48"
+          "b791f88cebf775853112c30828e116487f4d6c252d669372532b468bc7de8a24"
         ]
       },
       "response": {
         "offers": [
           {
-            "offer_id": "f61cca153d1948dade19349792d9bcdc9cef687fd27db0b553a67979f55aae48",
-            "active": true,
+            "offer_id": "b791f88cebf775853112c30828e116487f4d6c252d669372532b468bc7de8a24",
+            "active": false,
             "single_use": false,
-            "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqyqs5rn5v4ehggrxdaezqvtdwdshg93pqfnwgkvdr57yzh6h92zg3qctvrm7w38djg67kzcm4yeg8vc4cq63s",
+            "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqv0gfqq2zp8kven9wgs8gmeqg35hxctzd3j3vggz953rvg9rtxj8lalh43z8epwydjfrmffn3y3p5qz5cywpu09rr4vs",
             "used": false
           }
         ]

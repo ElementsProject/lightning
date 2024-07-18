@@ -81,17 +81,18 @@
   "examples": [
     {
       "description": [
-        "Here is a command to make a PSBT with a 100,000 sat output that leads to the on-chain wallet."
+        "Here is a command to make a PSBT with a 1,000,000 sat output that leads to the on-chain wallet:"
       ],
       "request": {
         "id": "example:addpsbtoutput#1",
         "method": "addpsbtoutput",
         "params": {
-          "satoshi": 100000
+          "satoshi": 1000000,
+          "locktime": 111
         }
       },
       "response": {
-        "psbt": "cHNidP8BAgQCAAAAAQMEbAAAAAEEAQABBQEBAQYBAwH7BAIAAAAAAQMIoIYBAAAAAAABBCJRIHg2NV/cioLcTLAKdyxVVBUdBjhKTdZejT9orAhWa4S+AA==",
+        "psbt": "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQABBQEBAQYBAwH7BAIAAAAAAQMIQEIPAAAAAAABBCJRIO7yw3zIUblRUcdhCLSjdFxJsYHu2s0Y29bT0bGAGdcbAA==",
         "estimated_added_weight": 172,
         "outnum": 0
       }
@@ -100,15 +101,15 @@
       "request": {
         "id": "example:addpsbtoutput#2",
         "method": "addpsbtoutput",
-        "params": {
-          "satoshi": 1000000,
-          "locktime": 111
-        }
+        "params": [
+          3333333,
+          "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQABBQECAQYBAwH7BAIAAAAAAQMIQEIPAAAAAAABBCJRIO7yw3zIUblRUcdhCLSjdFxJsYHu2s0Y29bT0bGAGdcbAAEDCNXcMgAAAAAAAQQiUSA2cYCeVGcxdSZII2urHpalr5osmF2lPbYRaw1nKyPcmQA="
+        ]
       },
       "response": {
-        "psbt": "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQABBQEBAQYBAwH7BAIAAAAAAQMIQEIPAAAAAAABBCJRIJd6ICNAQALFOMhoUHuSVSuzcaUdkDKlk4K+A+DR9+4uAA==",
+        "psbt": "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQABBQECAQYBAwH7BAIAAAAAAQMIQEIPAAAAAAABBCJRIO7yw3zIUblRUcdhCLSjdFxJsYHu2s0Y29bT0bGAGdcbAAEDCNXcMgAAAAAAAQQiUSA2cYCeVGcxdSZII2urHpalr5osmF2lPbYRaw1nKyPcmQA=",
         "estimated_added_weight": 172,
-        "outnum": 0
+        "outnum": 1
       }
     },
     {
@@ -116,15 +117,15 @@
         "id": "example:addpsbtoutput#3",
         "method": "addpsbtoutput",
         "params": {
-          "satoshi": 974343,
-          "initialpsbt": "cHNidP8BAF4CAAAAAfwbEpvpi6D14YV4VLnuVB47Y0uF41kXEyJRL4IusySSAQAAAAD9////ASICAAAAAAAAIlEgeDY1X9yKgtxMsAp3LFVUFR0GOEpN1l6NP2isCFZrhL5nAAAAAAEA9gIAAAAAAQFEkxvLatohY6mw5gr5qG1aiArSrziFPR2YoqD21Hv+RAAAAAAA/f///wJAQg8AAAAAACIAIFuM07kUz2fN2Ppic8kwNT3TZHZzT72WIQLC31O5CIDNrz8PAAAAAAAiUSBj/+5Op9UebK35CG4oaiUnkiqqJbjFOuvzL6MqCmJ/WgJHMEQCIEu1nfVRt9i+rFM219mwhMqdwJsqygWSWTFUS+cemdh6AiBG3Qo8g9J/aAMO2RHDsIBScscj6pTTIwZp7Gw8G3EOKAEhA9dFRFyTYmZfIuDZbp52byc/MmDeo5yKdr+gXdJoTdzPZgAAAAEBK68/DwAAAAAAIlEgY//uTqfVHmyt+QhuKGolJ5IqqiW4xTrr8y+jKgpif1oAAA==",
-          "destination": "bcrt1q9tc6q49l6wrrtp8ul45rj92hsleehwwxty32zu"
+          "satoshi": 3333333,
+          "initialpsbt": "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQABBQECAQYBAwH7BAIAAAAAAQMIQEIPAAAAAAABBCJRIO7yw3zIUblRUcdhCLSjdFxJsYHu2s0Y29bT0bGAGdcbAAEDCNXcMgAAAAAAAQQiUSA2cYCeVGcxdSZII2urHpalr5osmF2lPbYRaw1nKyPcmQA=",
+          "destination": "bcrt1p52spc7t99z0wu444elxahxzkcu86gakzvnfp7ugudf567am2uspsuneuq9"
         }
       },
       "response": {
-        "psbt": "cHNidP8BAH0CAAAAAfwbEpvpi6D14YV4VLnuVB47Y0uF41kXEyJRL4IusySSAQAAAAD9////AiICAAAAAAAAIlEgeDY1X9yKgtxMsAp3LFVUFR0GOEpN1l6NP2isCFZrhL4H3g4AAAAAABYAFCrxoFS/04Y1hPz9aDkVV4fzm7nGZwAAAAABAPYCAAAAAAEBRJMby2raIWOpsOYK+ahtWogK0q84hT0dmKKg9tR7/kQAAAAAAP3///8CQEIPAAAAAAAiACBbjNO5FM9nzdj6YnPJMDU902R2c0+9liECwt9TuQiAza8/DwAAAAAAIlEgY//uTqfVHmyt+QhuKGolJ5IqqiW4xTrr8y+jKgpif1oCRzBEAiBLtZ31UbfYvqxTNtfZsITKncCbKsoFklkxVEvnHpnYegIgRt0KPIPSf2gDDtkRw7CAUnLHI+qU0yMGaexsPBtxDigBIQPXRURck2JmXyLg2W6edm8nPzJg3qOcina/oF3SaE3cz2YAAAABASuvPw8AAAAAACJRIGP/7k6n1R5srfkIbihqJSeSKqoluMU66/MvoyoKYn9aAAAA",
+        "psbt": "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQABBQEDAQYBAwH7BAIAAAAAAQMIQEIPAAAAAAABBCJRIO7yw3zIUblRUcdhCLSjdFxJsYHu2s0Y29bT0bGAGdcbAAEDCNXcMgAAAAAAAQQiUSA2cYCeVGcxdSZII2urHpalr5osmF2lPbYRaw1nKyPcmQABAwjV3DIAAAAAAAEEIlEgoqAceWUonu5Wtc/N25hWxw+kdsJk0h9xHGppr3dq5AMA",
         "estimated_added_weight": 172,
-        "outnum": 1
+        "outnum": 2
       }
     }
   ]

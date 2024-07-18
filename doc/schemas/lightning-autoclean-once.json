@@ -209,8 +209,8 @@
       "response": {
         "autoclean": {
           "failedpays": {
-            "cleaned": 1,
-            "uncleaned": 1
+            "cleaned": 0,
+            "uncleaned": 7
           }
         }
       }
@@ -227,7 +227,7 @@
       "response": {
         "autoclean": {
           "succeededpays": {
-            "cleaned": 1,
+            "cleaned": 7,
             "uncleaned": 0
           }
         }

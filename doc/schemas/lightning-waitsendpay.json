@@ -234,23 +234,22 @@
         "id": "example:waitsendpay#1",
         "method": "waitsendpay",
         "params": {
-          "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a"
+          "payment_hash": "d598cfc62da16b381b8fb8af9833a24005f730e54cc32c317fecc511ffc6d2a2"
         }
       },
       "response": {
-        "created_index": 1,
-        "id": 1,
-        "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a",
+        "created_index": 2,
+        "id": 2,
+        "payment_hash": "d598cfc62da16b381b8fb8af9833a24005f730e54cc32c317fecc511ffc6d2a2",
         "groupid": 1,
-        "updated_index": 1,
-        "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-        "amount_msat": 11000000,
-        "amount_sent_msat": 11000000,
-        "created_at": 1706152930,
-        "completed_at": 1706152933,
+        "updated_index": 2,
+        "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+        "amount_msat": 10000,
+        "amount_sent_msat": 10001,
+        "created_at": 1722303675,
+        "completed_at": 1722303677,
         "status": "complete",
-        "payment_preimage": "af7ba559629f719c04c43a82767fe3622790a539164d6270db07f765203e574b",
-        "bolt11": "lnbcrt110u1pjmr5lzsp5sfjyj3xn7ux592k36hmmt4ax98n6lgct22wvj54yck0upcmep63qpp5qu436g855lr40ftdt7csatk5pdvtdzzfmfqluwtvm0fds95jsadqdpq0pzk7s6j8y69xjt6xe25j5j4g44hsatdxqyjw5qcqp99qxpqysgquwma3zrw4cd8e8j4u9uh4gxukaacckse64kx2l9dqv8rvrysdq5r5dt38t9snqj9u5ar07h2exr4fg56wpudkhkk7gtxlyt72ku5fpqqd4fnlk"
+        "payment_preimage": "984a10782218478cd39e1f9a16795d756c337662067023a3b690bffdb1593f76"
       }
     }
   ]

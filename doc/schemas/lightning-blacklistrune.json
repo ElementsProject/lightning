@@ -85,14 +85,14 @@
         "id": "example:blacklistrune#1",
         "method": "blacklistrune",
         "params": {
-          "start": 2
+          "start": 1
         }
       },
       "response": {
         "blacklist": [
           {
-            "start": 2,
-            "end": 2
+            "start": 1,
+            "end": 3
           }
         ]
       }
@@ -102,19 +102,15 @@
         "id": "example:blacklistrune#2",
         "method": "blacklistrune",
         "params": {
-          "start": 5,
-          "end": 7
+          "start": 0,
+          "end": 2
         }
       },
       "response": {
         "blacklist": [
           {
-            "start": 2,
-            "end": 2
-          },
-          {
-            "start": 5,
-            "end": 7
+            "start": 0,
+            "end": 3
           }
         ]
       }
@@ -131,8 +127,8 @@
       "response": {
         "blacklist": [
           {
-            "start": 2,
-            "end": 7
+            "start": 0,
+            "end": 4
           }
         ]
       }

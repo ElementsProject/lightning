@@ -236,23 +236,59 @@
         "id": "example:getlog#1",
         "method": "getlog",
         "params": {
-          "level": "debug"
+          "level": "unusual"
         }
       },
       "response": {
-        "created_at": "1598192543.820753463",
-        "bytes_used": 89285843,
-        "bytes_max": 104857600,
+        "created_at": "1722303623.956237697",
+        "bytes_used": 1723719,
+        "bytes_max": 10485760,
         "log": [
           {
             "type": "SKIPPED",
-            "num_skipped": 45
+            "num_skipped": 2927
           },
           {
-            "type": "INFO",
-            "time": "0.453627568",
-            "source": "plugin-autopilot.py",
-            "log": "RPCmethod'autopilot-run-once'doesnothaveadocstring."
+            "type": "UNUSUAL",
+            "time": "59.598510878",
+            "node_id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+            "source": "chan#1",
+            "log": "No peer channel with scid=6250403x3681116x19863"
+          },
+          {
+            "type": "SKIPPED",
+            "num_skipped": 1183
+          },
+          {
+            "type": "UNUSUAL",
+            "time": "71.923794351",
+            "node_id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            "source": "chan#2",
+            "log": "Peer permanent failure in CLOSINGD_COMPLETE: Funding transaction spent (reason=unknown)"
+          },
+          {
+            "type": "SKIPPED",
+            "num_skipped": 557
+          },
+          {
+            "type": "BROKEN",
+            "time": "89.108598990",
+            "source": "plugin-topology",
+            "log": "DEPRECATED API USED: listchannels.include_private by \\\"-c:listchannels#114/cln:listchannels#175\\\""
+          },
+          {
+            "type": "SKIPPED",
+            "num_skipped": 1246
+          },
+          {
+            "type": "UNUSUAL",
+            "time": "95.217065000",
+            "source": "plugin-cln-renepay",
+            "log": "Failed to update hint channel 111x1x0: Failed to update scid=111x1x0 in the local_gossmods."
+          },
+          {
+            "type": "SKIPPED",
+            "num_skipped": 1696
           }
         ]
       }

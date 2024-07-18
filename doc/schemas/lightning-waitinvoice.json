@@ -239,20 +239,42 @@
       },
       "response": {
         "label": "inv2",
-        "bolt11": "lnbcrt10n1pjmxtwjsp5mzvdu6v8hqsf2tlj0nlyks23afqp7ejs444syjxf74p60ztmld8qpp5q4ayz5pys3t0yj0dmkmh7ctarkv9z434paz4u9rdwnj4f43thhaqdq8d9h8vvsxqyjw5qcqp99qxpqysgqn0055ttns6pafsxh6xuqce6e4vz8gtxlzqx0l9d9f5crmqx4jymh4zy9jdaszm0dj89sq39fvhpwcs626dt0n3gw8kassfdehp5sy3sq7fzy3w",
-        "payment_hash": "057a4150248456f249edddb77f617d1d985156350f455e146d74e554d62bbdfa",
-        "amount_msat": 1000,
+        "bolt11": "lnbcrt20n1pn2s38fsp55xnux6tuzuutlqhekzytnexpqj6w3q00h6e7wu08ex43rdr4xqdqpp5znq67nu5secgcf79ncjtqfdpjfqh7acaxvngcqwqsvvxwnkyl35qdq8d9h8vvsxqyjw5qcqp9rzjqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky96qqq0vqqqqgqqyqqqqqpqqqqqzsqqc9qxpqysgq9ptnru6v58v8qd58xdqypr86utn6fhssx8rwegsspfp9d975h0t47xn0hea6qrmy2ucxt4l02nkxu7va7d5lqgy8nrqmhxqpm5qauegqjjqr02",
+        "payment_hash": "14c1af4f9486708c27c59e24b025a192417f771d33268c01c08318674ec4fc68",
+        "amount_msat": 2000,
         "status": "paid",
-        "pay_index": 1,
-        "amount_received_msat": 1000,
-        "paid_at": 1706241494,
-        "payment_preimage": "34ccd37cc85e067cb376f9ea8c70d70469f58bf296f2566ed9ad4dfb70971a26",
-        "description": [
-          "Inv2."
-        ],
-        "expires_at": 1706846290,
-        "created_index": 2,
-        "updated_index": 1
+        "pay_index": 4,
+        "amount_received_msat": 2000,
+        "paid_at": 1722303723,
+        "payment_preimage": "1bda6e78384905bc476c6f50b447cf7fbba13a2644d49d85d797a826e8b9a6a0",
+        "description": "inv2",
+        "expires_at": 1722908521,
+        "created_index": 12,
+        "updated_index": 4
+      }
+    },
+    {
+      "request": {
+        "id": "example:waitinvoice#2",
+        "method": "waitinvoice",
+        "params": [
+          "inv3"
+        ]
+      },
+      "response": {
+        "label": "inv3",
+        "bolt11": "lnbcrt30n1pn2s38fsp5syqds2z0hgqgf3dcxt9kp5m2rtywxm4u4hr4xe90r885rr609vgqpp52y0xdhlzrua5clpuyw4wcfk9duxwwauzcjxrs9nj00258njmdjnsdq8d9h8vvcxqyjw5qcqp9rzjqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky96qqq0vqqqqgqqyqqqqqpqqqqqzsqqc9qxpqysgqkkeex45p62vc7nfjywwfle8yhk9wemyktw2m7924cfmlthk37q6ptjd8vxyaevtejfj44yp55xllqlljxv5vz6wc3gc9jlfkwrkngscqtl0xs8",
+        "payment_hash": "511e66dfe21f3b4c7c3c23aaec26c56f0ce77782c48c3816727bd543ce5b6ca7",
+        "amount_msat": 3000,
+        "status": "paid",
+        "pay_index": 5,
+        "amount_received_msat": 3000,
+        "paid_at": 1722303725,
+        "payment_preimage": "86e637cb70631a0db88cc8f6ef9a21457b1b85be30236efb769a611b356225cd",
+        "description": "inv3",
+        "expires_at": 1722908521,
+        "created_index": 13,
+        "updated_index": 5
       }
     }
   ]
