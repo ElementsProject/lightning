@@ -334,6 +334,20 @@ static int sqlite_authorize(void *dbq_, int code,
 			return SQLITE_OK;
 		if (streq(b, "total"))
 			return SQLITE_OK;
+		if (streq(b, "date"))
+			return SQLITE_OK;
+		if (streq(b, "datetime"))
+			return SQLITE_OK;
+		if (streq(b, "julianday"))
+			return SQLITE_OK;
+		if (streq(b, "strftime"))
+			return SQLITE_OK;
+		if (streq(b, "time"))
+			return SQLITE_OK;
+		if (streq(b, "timediff"))
+			return SQLITE_OK;
+		if (streq(b, "unixepoch"))
+			return SQLITE_OK;
 	}
 
 	/* See https://www.sqlite.org/c3ref/c_alter_table.html to decode these! */
