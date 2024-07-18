@@ -326,7 +326,7 @@ int main(int argc, char *argv[])
 	invreq->invreq_metadata = tal_arrz(invreq, u8, 8);
 
 	/* Populate ->fields array, for merkle routine */
-	invreq->fields = tlv_make_fields(invreq, tlv_invoice_request);
+	tlv_update_fields(invreq, tlv_invoice_request, &invreq->fields);
 	merkle_tlv(invreq->fields, &test_m);
 
 	/* BOLT-offers #12:
