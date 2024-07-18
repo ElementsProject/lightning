@@ -72,8 +72,7 @@
         "then": {
           "required": [
             "offer_id",
-            "offer_node_id",
-            "offer_description"
+            "offer_node_id"
           ],
           "additionalProperties": false,
           "properties": {
@@ -459,7 +458,6 @@
         "then": {
           "required": [
             "offer_node_id",
-            "offer_description",
             "invreq_metadata",
             "invreq_payer_id",
             "signature"
@@ -943,7 +941,6 @@
         "then": {
           "required": [
             "offer_node_id",
-            "offer_description",
             "invreq_metadata",
             "invreq_payer_id",
             "invoice_paths",
