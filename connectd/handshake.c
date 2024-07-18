@@ -422,8 +422,7 @@ static struct handshake *new_handshake(const tal_t *ctx,
 	 *
 	 * 2. `ck = h`
 	 */
-	BUILD_ASSERT(sizeof(handshake->h) == sizeof(handshake->ck));
-	memcpy(&handshake->ck, &handshake->h, sizeof(handshake->ck));
+	CROSS_TYPE_ASSIGNMENT(&handshake->ck, &handshake->h);
 	SUPERVERBOSE("# ck=%s",
 		     tal_hexstr(tmpctx, &handshake->ck, sizeof(handshake->ck)));
 

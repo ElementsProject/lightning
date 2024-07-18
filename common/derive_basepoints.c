@@ -100,8 +100,7 @@ bool per_commit_secret(const struct sha256 *shaseed,
 
 	shachain_from_seed(shaseed, shachain_index(per_commit_index), &s);
 
-	BUILD_ASSERT(sizeof(s) == sizeof(*commit_secret));
-	memcpy(commit_secret, &s, sizeof(s));
+	CROSS_TYPE_ASSIGNMENT(commit_secret, &s);
 	return true;
 }
 
@@ -262,7 +261,6 @@ bool shachain_get_secret(const struct shachain *shachain,
 
 	if (!shachain_get_hash(shachain, shachain_index(commit_num), &sha))
 		return false;
-	BUILD_ASSERT(sizeof(*preimage) == sizeof(sha));
-	memcpy(preimage, &sha, sizeof(*preimage));
+	CROSS_TYPE_ASSIGNMENT(preimage, &sha);
 	return true;
 }

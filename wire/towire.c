@@ -67,8 +67,7 @@ static void towire_tlv_uint(u8 **pptr, u64 v)
 	be64 val;
 
 	val = cpu_to_be64(v);
-	BUILD_ASSERT(sizeof(val) == sizeof(bytes));
-	memcpy(bytes, &val, sizeof(bytes));
+	CROSS_TYPE_ASSIGNMENT(&bytes, &val);
 
 	for (num_zeroes = 0; num_zeroes < sizeof(bytes); num_zeroes++)
 		if (bytes[num_zeroes] != 0)

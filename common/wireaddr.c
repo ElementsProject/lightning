@@ -773,8 +773,7 @@ bool wireaddr_to_sockname(const struct wireaddr_internal *addr,
 	if (addr->itype != ADDR_INTERNAL_SOCKNAME)
 		return false;
 	sun->sun_family = AF_LOCAL;
-	BUILD_ASSERT(sizeof(sun->sun_path) == sizeof(addr->u.sockname));
-	memcpy(sun->sun_path, addr->u.sockname, sizeof(addr->u.sockname));
+	CROSS_TYPE_ASSIGNMENT(&sun->sun_path, &addr->u.sockname);
 	return true;
 }
 
