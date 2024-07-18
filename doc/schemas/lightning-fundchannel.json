@@ -242,33 +242,15 @@
         "id": "example:fundchannel#1",
         "method": "fundchannel",
         "params": {
-          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "id": "032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e",
           "amount": 1000000,
           "announce": true
         }
       },
       "response": {
-        "tx": "020000000001014ca47b75e6982fce6b5ebb6e7ec163dc5b6bed1562934e6febe816103b2b207e0000000000fdffffff0240420f00000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd012f0f000000000022512063ffee4ea7d51e6cadf9086e286a2527922aaa25b8c53aebf32fa32a0a627f5a02473044022058fc4d51c8254d37b266d3db3f8fda7420882b6ec9226d66b8c0139f2707c09602205798d8ce23d4c692a7384362a2e0afd9703f062239a786d7a1840a28d3a1152e012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf66000000",
-        "txid": "6c0a3d8f32f556f3bd8b8c85413c4636a9513c6195abb925ea73c47183d40b7b",
-        "channel_id": "7b0bd48371c473ea25b9ab95613c51a936463c41858c8bbdf356f5328f3d0a6c",
-        "outnum": 0
-      }
-    },
-    {
-      "request": {
-        "id": "example:fundchannel#2",
-        "method": "fundchannel",
-        "params": {
-          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-          "amount": 10000000,
-          "announce": true,
-          "push_msat": 1000000000
-        }
-      },
-      "response": {
-        "tx": "0200000000010141cfa0e9957c7c6d0bb5069d92937f9545e6e6ee9b4650f47f509d5ea65df4690100000000fdffffff0280969800000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd4118530b0000000022512063ffee4ea7d51e6cadf9086e286a2527922aaa25b8c53aebf32fa32a0a627f5a0247304402206488c7dfbc4180781ed0d5ca7ff2c8ce134480c349d03978765053a393229d9a022066c75dee1f19b410ea1c7756d0cb2c097e52b13f4d9bbd033efa4ed95d817e14012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf66000000",
-        "txid": "6aa1231b6356777468a55aea1f49dad6415592aef6c1e652f8a64357c7235301",
-        "channel_id": "015323c75743a6f852e6c1f6ae925541d6da491fea5aa568747756631b23a16a",
+        "tx": "02000000000101a4f6a433b1c2625323c18bc25f880c3e7960722d9ca353d7ff5c2a2132d56a380000000000fdffffff0240420f0000000000220020b41521751a8eb257315f73a531763071cc39b7cece470f630fd5149fe7b7057a816cdc0b00000000225120a5410daebf4fc3cba618a840af497fbec4c3a084534f2b7b6a7d30bf35f8f566024730440220700ee63053ba1fea998685e721016c15cf7809fd77698560230457e122566f220220181aaa01f472ec575edc532bc612c749e7a3829f5616fc3289fd4dc7d96e98d8012102c8a8f25ed135cd671c88bd4e407bb3746678cfacbcf65ce89f8efc2aa0abe53596000000",
+        "txid": "8326851788c6da23bc883c960affc6126f766348c131eda53d73bc06f0bd90ff",
+        "channel_id": "1267da6521b372d7c6407a74066f7a3a5bc3489bbda5eb9f0e990e1e913e2eb9",
         "channel_type": {
           "bits": [
             12,
@@ -284,25 +266,25 @@
     },
     {
       "description": [
-        "This example shows how to to open new channel with peer 034...4d5 from one whole utxo 961...aeb:1 (you can use **listfunds** command to get txid and vout):"
+        "This example shows how to to open new channel with peer 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518 from one whole utxo c8afe317789f3ecbd52893d2ac08be7499486df5a03c95ad063e395e931eb50a:1 (you can use **listfunds** command to get txid and vout):"
       ],
       "request": {
-        "id": "example:fundchannel#3",
+        "id": "example:fundchannel#2",
         "method": "fundchannel",
         "params": {
-          "id": "0348e58210bbc128b1cc3cc1a520a654aaa01e5fe65c65341e21b61a1f09da94d5",
+          "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
           "amount": "all",
           "feerate": "normal",
-          "push_msat": 1000000000,
+          "push_msat": 100000,
           "utxos": [
-            "9619a4ccc08512f9520363c7163c95c54723ee8d40802e763a1598fec7bdaaeb:1"
+            "c8afe317789f3ecbd52893d2ac08be7499486df5a03c95ad063e395e931eb50a:1"
           ]
         }
       },
       "response": {
-        "tx": "02000000000101ebaabdc7fe98153a762e80408dee2347c5953c16c7630352f91285c0cca419960100000000fdffffff02a861000000000000225120b348ab8875cbcfad71e5f3f96e8b3cb25b3495701fb1e06e7f01c70c6e3d7776ec00510200000000220020b71d4d6b2224c9a6b234fde9ca8922ca83be1bc440c08da2156fc3b154c476ff014035ccc897ca0097be7088e397bab0215c967257a25d3efb2d96259d5a7051078b1caaddacc702fced9289d556be70c55bf10fae0bb761526f3d165ff106da140c2f030000",
-        "txid": "dbeeb2320ddf3ae0bb7887df8226ecdbcec3583ea027a2c1d86bfb167b0f93ea",
-        "channel_id": "c4e607b4743fa4ee516fd247dbdaf4cb17b8462b2468bd84f15d6f78ac82bf1a",
+        "tx": "020000000001010ab51e935e393e06ad953ca0f56d489974be08acd29328d5cb3e9f7817e3afc80100000000fdffffff01cbb3eb0b00000000220020752dd5af63b98ff64fedf94683b0306c43f6eec74fbfe917639735b305e1b6d9024730440220431a00efd961f417160bd7180970a61b57c01b7c1e082d41429bb0c4e220d4180220542d0c9a1a59048751364b0ede571117fd8abdbf63d83d67a181c17ea3d3ef9e0121024740cce0e548f4ffe80c9914e43444d8e66ee8991dc9d93ec56dff4c56b933159a000000",
+        "txid": "20bbe695f309285479e6b63b8ab4346ce66b2db7018485e09d59175cec6156b1",
+        "channel_id": "222d999f537e32e9458c5db17a63e012dcced61340de06fda5bc30566270b0aa",
         "channel_type": {
           "bits": [
             12,
@@ -313,7 +295,7 @@
             "anchors/even"
           ]
         },
-        "outnum": 1
+        "outnum": 0
       }
     }
   ]

@@ -205,20 +205,17 @@
         "id": "example:invoice#1",
         "method": "invoice",
         "params": {
-          "amount_msat": 11000000,
-          "label": "xEoCR94SIz6UIRUEkxum",
-          "description": [
-            "XEoCR94SIz6UIRUEkxum."
-          ]
+          "amount_msat": 10000,
+          "label": "lbl_l31",
+          "description": "Invoice description l31"
         }
       },
       "response": {
-        "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a",
-        "expires_at": 1706757730,
-        "bolt11": "lnbcrt110u1pjmr5lzsp5sfjyj3xn7ux592k36hmmt4ax98n6lgct22wvj54yck0upcmep63qpp5qu436g855lr40ftdt7csatk5pdvtdzzfmfqluwtvm0fds95jsadqdpq0pzk7s6j8y69xjt6xe25j5j4g44hsatdxqyjw5qcqp99qxpqysgquwma3zrw4cd8e8j4u9uh4gxukaacckse64kx2l9dqv8rvrysdq5r5dt38t9snqj9u5ar07h2exr4fg56wpudkhkk7gtxlyt72ku5fpqqd4fnlk",
-        "payment_secret": "82644944d3f70d42aad1d5f7b5d7a629e7afa30b529cc952a4c59fc0e3790ea2",
-        "created_index": 1,
-        "warning_deadends": "Insufficient incoming capacity, once dead-end peers were excluded"
+        "payment_hash": "d598cfc62da16b381b8fb8af9833a24005f730e54cc32c317fecc511ffc6d2a2",
+        "expires_at": 1722908474,
+        "bolt11": "lnbcrt100n1pn2s396sp5v3en0qa3rrljw4m0wtz88sx99q20rarufhjpfysefhwhs42gvqjqpp56kvvl33d594nsxu0hzhesvazgqzlwv89fnpjcvtlanz3rl7x623qdp9f9h8vmmfvdjjqer9wd3hy6tsw35k7m3qdsenzxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqduqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgq7za6z8kx2k5nul45zwttfz2njx3836v69mxqsl4ty9228pyjrkfnkymysy8ygsrrje9qf6j4tpalt5qkqusfp2esrsqc5ak7t4yzajgpezef54",
+        "payment_secret": "64733783b118ff27576f72c473c0c52814f1f47c4de41492194ddd7855486024",
+        "created_index": 2
       }
     },
     {
@@ -226,18 +223,17 @@
         "id": "example:invoice#2",
         "method": "invoice",
         "params": {
-          "amount_msat": 100,
-          "label": "8",
-          "description": "inv"
+          "amount_msat": "50000msat",
+          "label": "lbl_l32",
+          "description": "l32 description"
         }
       },
       "response": {
-        "payment_hash": "f59ae0204dfe8e913207ea36646255b9d2c7c8229e8693d30547fc622eddb6b4",
-        "expires_at": 1709229182,
-        "bolt11": "lnbcrt1n1pja0z07sp5n8fk890nrq7zlcue0lgu7cduaaz765u5rg0kcud4amphuppu8wxspp57kdwqgzdl68fzvs8agmxgcj4h8fv0jpzn6rf85c9gl7xytkak66qdq9d9h8vxqyjw5qcqp99qxpqysgqrneaxh0plvjft457yv3q92rak57a6xw33m6phr0mrsy69sudzgez3adkzdsgwzy32z5usjpxm4rjgcg70h047wf0pgc4l9gyaj2h9ssqcrtv32",
-        "payment_secret": "99d36395f3183c2fe3997fd1cf61bcef45ed53941a1f6c71b5eec37e043c3b8d",
-        "created_index": 9,
-        "warning_capacity": "Insufficient incoming channel capacity to pay invoice"
+        "payment_hash": "788aea729ede48d315a199ce5ded76169601a61dd52e9734e707eb7c52e4e79e",
+        "expires_at": 1722908474,
+        "bolt11": "lnbcrt500n1pn2s396sp5h5tz6fpm3dxvrlwcnwmfq85v45wfj43mdmplpce6ku2vmfdhrx5qpp50z9w5u57meydx9dpn889mmtkz6tqrfsa65hfwd88ql4hc5hyu70qdqcdsenygryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqduqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqt5m8qx0t25a0gygya7u4sxulyyp2dec87pwsxuuwtg0u66c07703g9j6vlwgmlhqk7qgn95qw7allhnuj2m9hf0xkcr2zkaxltv3t6gqjcdpll",
+        "payment_secret": "bd162d243b8b4cc1fdd89bb6901e8cad1c99563b6ec3f0e33ab714cda5b719a8",
+        "created_index": 3
       }
     }
   ]

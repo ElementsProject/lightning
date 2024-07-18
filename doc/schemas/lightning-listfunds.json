@@ -354,27 +354,49 @@
       "response": {
         "outputs": [
           {
-            "txid": "0f184b101569bf777af3449fa266948a9d55768f97867e48416a2c92858dd1bc",
-            "output": 1,
-            "amount_msat": 1111111000,
-            "scriptpubkey": "001401fad90abcd66697e2592164722de4a95ebee165",
-            "address": "bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf",
+            "txid": "9454852bb62e304ee8933662284e10bd22a7f3710c262da4c94bdcc8b05ae407",
+            "output": 0,
+            "amount_msat": 19993653000,
+            "scriptpubkey": "51206c27e1956acfa61e68292c80908880e813450f754132e8a2ac471a86bf1326b5",
+            "address": "bcrt1pdsn7r9t2e7npu6pf9jqfpzyqaqf52rm4gyew3g4vgudgd0cny66srft45s",
             "status": "confirmed",
-            "blockheight": 102,
+            "blockheight": 103,
             "reserved": false
           },
           {
-            "txid": "4bee7dc3a28f2434e9bb3e9aaab418dd276485a8705b0f787bf741d3f979ec3b",
-            "output": 1,
-            "amount_msat": 1111111000,
-            "scriptpubkey": "001401fad90abcd66697e2592164722de4a95ebee165",
-            "address": "bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf",
+            "txid": "7547ffc11396c62852104f7100d5ca27a2b9c0d5d43d08122147b2b03eb157a5",
+            "output": 0,
+            "amount_msat": 2000000000,
+            "scriptpubkey": "00149fb67bfcefee6cb7db4c7e55d9c6bfd749e31d1e",
+            "address": "bcrt1qn7m8hl80aekt0k6v0e2an34l6ay7x8g703x07y",
             "status": "confirmed",
-            "blockheight": 102,
+            "blockheight": 108,
+            "reserved": false
+          },
+          {
+            "txid": "737d6835ddafd515ba9e9def733bb4e4211f6053a32b1422bf1c8cc240850f96",
+            "output": 0,
+            "amount_msat": 198995073000,
+            "scriptpubkey": "512035f1184f6b470c9df347da62c4b28e7ec9ee10b220bac3accd22209def0036ea",
+            "address": "bcrt1pxhc3snmtguxfmu68mf3vfv5w0my7uy9jyzav8txdygsfmmcqxm4q0mms62",
+            "status": "confirmed",
+            "blockheight": 109,
             "reserved": false
           }
         ],
-        "channels": []
+        "channels": [
+          {
+            "peer_id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "connected": true,
+            "state": "CHANNELD_NORMAL",
+            "channel_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+            "short_channel_id": "109x1x1",
+            "our_amount_msat": 490518792,
+            "amount_msat": 1000000000,
+            "funding_txid": "737d6835ddafd515ba9e9def733bb4e4211f6053a32b1422bf1c8cc240850f96",
+            "funding_output": 1
+          }
+        ]
       }
     }
   ]

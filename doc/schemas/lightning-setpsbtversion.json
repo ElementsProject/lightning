@@ -62,12 +62,12 @@
         "id": "example:setpsbtversion#1",
         "method": "setpsbtversion",
         "params": {
-          "psbt": "cHNidP8BAAoCAAAAAAAAAAAAAA==",
-          "version": "2"
+          "psbt": "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQABBQEBAQYBAwH7BAIAAAAAAQMIQEIPAAAAAAABBCJRIO7yw3zIUblRUcdhCLSjdFxJsYHu2s0Y29bT0bGAGdcbAA==",
+          "version": 0
         }
       },
       "response": {
-        "psbt": "cHNidP8BAgQCAAAAAQQBAAEFAQABBgEDAfsEAgAAAAA="
+        "psbt": "cHNidP8BADUCAAAAAAFAQg8AAAAAACJRIO7yw3zIUblRUcdhCLSjdFxJsYHu2s0Y29bT0bGAGdcbbwAAAAAA"
       }
     },
     {
@@ -75,12 +75,12 @@
         "id": "example:setpsbtversion#2",
         "method": "setpsbtversion",
         "params": [
-          "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQABBQEBAQYBAwH7BAIAAAAAAQMIQEIPAAAAAAABBCJRIJd6ICNAQALFOMhoUHuSVSuzcaUdkDKlk4K+A+DR9+4uAA==",
-          0
+          "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQABBQEDAQYBAwH7BAIAAAAAAQMIQEIPAAAAAAABBCJRIO7yw3zIUblRUcdhCLSjdFxJsYHu2s0Y29bT0bGAGdcbAAEDCNXcMgAAAAAAAQQiUSA2cYCeVGcxdSZII2urHpalr5osmF2lPbYRaw1nKyPcmQABAwjV3DIAAAAAAAEEIlEgoqAceWUonu5Wtc/N25hWxw+kdsJk0h9xHGppr3dq5AMA",
+          2
         ]
       },
       "response": {
-        "psbt": "cHNidP8BADUCAAAAAAFAQg8AAAAAACJRIJd6ICNAQALFOMhoUHuSVSuzcaUdkDKlk4K+A+DR9+4ubwAAAAAA"
+        "psbt": "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQABBQEDAQYBAwH7BAIAAAAAAQMIQEIPAAAAAAABBCJRIO7yw3zIUblRUcdhCLSjdFxJsYHu2s0Y29bT0bGAGdcbAAEDCNXcMgAAAAAAAQQiUSA2cYCeVGcxdSZII2urHpalr5osmF2lPbYRaw1nKyPcmQABAwjV3DIAAAAAAAEEIlEgoqAceWUonu5Wtc/N25hWxw+kdsJk0h9xHGppr3dq5AMA"
       }
     }
   ]

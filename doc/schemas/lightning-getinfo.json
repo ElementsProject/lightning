@@ -397,18 +397,7 @@
         "num_pending_channels": 0,
         "num_active_channels": 0,
         "num_inactive_channels": 0,
-        "address": [
-          {
-            "type": "torv3",
-            "address": "fp463inc4w3lamhhduytrwdwq6q6uzugtaeapylqfc43agrdnnqsheyd.onion",
-            "port": 9736
-          },
-          {
-            "type": "torv3",
-            "address": "ifnntp5ak4homxrti2fp6ckyllaqcike447ilqfrgdw64ayrmkyashid.onion",
-            "port": 9736
-          }
-        ],
+        "address": [],
         "binding": [
           {
             "type": "ipv4",
@@ -423,10 +412,10 @@
         "fees_collected_msat": "0msat",
         "lightning-dir": "/media/vincent/Maxtor/C-lightning/node/bitcoin",
         "our_features": {
-          "init": "8828226aa2",
-          "node": "80008828226aa2",
+          "init": "08a0802a8a59a1",
+          "node": "88a0802a8a59a1",
           "channel": "",
-          "invoice": "20024200"
+          "invoice": "02000002024100"
         }
       }
     }

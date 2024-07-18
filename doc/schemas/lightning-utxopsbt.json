@@ -206,23 +206,35 @@
       "request": {
         "id": "example:utxopsbt#1",
         "method": "utxopsbt",
-        "params": {
-          "satoshi": 0,
-          "feerate": "253perkw",
-          "startweight": 0,
-          "utxos": [
-            "d82a99192fb333106ea8d08f5231ed45f2ed5b1ef9eb81b0fef8f9ea354d2637:1"
+        "params": [
+          1000000,
+          "15000perkw",
+          214,
+          [
+            "bffbd4f5f789765823b7c1c12151797898702c7fe52f1d08ea644308d33c05b3:1"
           ],
-          "reserve": 0,
-          "reservedok": true,
-          "excess_as_change": false
-        }
+          null,
+          true,
+          null,
+          null,
+          true
+        ]
       },
       "response": {
-        "psbt": "cHNidP8BADMCAAAAATcmTTXq+fj+sIHr+R5b7fJF7TFSj9CobhAzsy8ZmSrYAQAAAAD9////AGYAAAAAAQDeAgAAAAABAWQACJva49ga8OCYXvPRWQRhoXndrJykwjgXbwT251dEAAAAAAD9////AiOI9ikBAAAAFgAU3gClv/YpAKRpfDuiFu6mIL2E4+5QaQ8AAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFlAkcwRAIgUXIQFs7oRkorVThUn3sLj7WI7g8c8RHai4ChoCvIkWsCICp1CqHl4BlMJCKFHRWHXhhekaj0r1EFSNrh8UnvysQPASEDqHIAEdaH3H6pb3VJzbJNDG4lL8PTfsheL+h2p6baK3JlAAAAAQEfUGkPAAAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQA=",
-        "feerate_per_kw": 253,
-        "estimated_final_weight": 271,
-        "excess_msat": 1009932000
+        "psbt": "cHNidP8BAF4CAAAAAbMFPNMIQ2TqCB0v5X8scJh4eVEhwcG3I1h2iff11Pu/AQAAAAD9////AUFZ3AsAAAAAIlEgO+E35aPNS3YQRaiMByjTJDUYNvBO1Z39o3m42EZGUreYAAAAAAEAcQIAAAABl0vCMXO3vKmwYNrBKr0bsVjo7Wmj501PavWRmxX1dywAAAAAAP3///8Ceh/00gAAAAAWABSauB3UBW2CVXly9l1sU6aMmVAq+ADC6wsAAAAAFgAUA8/shxXh9ASjbsAR5COPhjKfkJyXAAAAAQEfAMLrCwAAAAAWABQDz+yHFeH0BKNuwBHkI4+GMp+QnAAA",
+        "feerate_per_kw": 15000,
+        "estimated_final_weight": 657,
+        "excess_msat": 0,
+        "change_outnum": 0,
+        "reservations": [
+          {
+            "txid": "bffbd4f5f789765823b7c1c12151797898702c7fe52f1d08ea644308d33c05b3",
+            "vout": 1,
+            "was_reserved": true,
+            "reserved": true,
+            "reserved_to_block": 2240
+          }
+        ]
       }
     },
     {
@@ -230,36 +242,29 @@
         "id": "example:utxopsbt#2",
         "method": "utxopsbt",
         "params": {
-          "satoshi": 1000000,
-          "feerate": "7500perkw",
-          "startweight": 0,
+          "satoshi": 2000000,
+          "feerate": "18750perkw",
+          "startweight": 214,
           "utxos": [
-            "2fc3b9f8d4aed120f6d9a6f206f07c35ef4d518ec0305d1d974873d256e38ca7:1",
-            "2f669f6a605ee5c7ddd2abb753bc64b1a90bd1b7448264f5d78a7ca823c00a1b:1"
+            "bffbd4f5f789765823b7c1c12151797898702c7fe52f1d08ea644308d33c05b3:1"
           ],
           "reservedok": true,
-          "excess_as_change": false
+          "excess_as_change": true
         }
       },
       "response": {
-        "psbt": "cHNidP8BAFwCAAAAAqeM41bSc0iXHV0wwI5RTe81fPAG8qbZ9iDRrtT4ucMvAQAAAAD9////GwrAI6h8itf1ZIJEt9ELqbFkvFO3q9Ldx+VeYGqfZi8BAAAAAP3///8AZgAAAAABAN4CAAAAAAEBEaK0TQ97IsrzuO1gLt+vYbvLBG90NrCOZp7SCgrRknYAAAAAAP3///8CM6/2KQEAAAAWABQ1B/KkIVbg7yFRcCEN/VOptfOX/EBCDwAAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WUCRzBEAiA1oI1us81XEa/DRlvcP2qnbWLsV5pZcRfvj9MLyT202gIgb7noMqHYWMmm7H7VNEfWa29jjtuV9yrrSc9ui11ECQ0BIQKhZOHR4gFKMu2EKKgZ/7qnhzq9PvhtnAW2sxPZ4c9RIWUAAAABAR9AQg8AAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFlAAEA3gIAAAAAAQGnjONW0nNIlx1dMMCOUU3vNXzwBvKm2fYg0a7U+LnDLwAAAAAA/f///wJmbOcpAQAAABYAFOwPo5eUrDF7UgZBFQLRHOeX6PiGQEIPAAAAAAAWABTCzKsXHCpb6dq1LsQbglhjAkxUZgJHMEQCICgjGlauGj2eiMS4MWUK6zAWqMe1OuidQR+Hy9ZgSTuzAiA8JTb9OrLqS3hiWtT+TQ/NBsKJ2hhHLDaKUUNdgi4OkAEhA9g3oH5ejmGIqUY2ZWxc8YWF2+T+XpE/6oC40Cx3+e97ZQAAAAEBH0BCDwAAAAAAFgAUwsyrFxwqW+natS7EG4JYYwJMVGYA",
-        "feerate_per_kw": 7500,
-        "estimated_final_weight": 542,
-        "excess_msat": 995935000,
+        "psbt": "cHNidP8BAF4CAAAAAbMFPNMIQ2TqCB0v5X8scJh4eVEhwcG3I1h2iff11Pu/AQAAAAD9////AWINzQsAAAAAIlEgyRg+3pEh88b9FJiCLEenYCcyJ2ackJUIhDusW72BP2iYAAAAAAEAcQIAAAABl0vCMXO3vKmwYNrBKr0bsVjo7Wmj501PavWRmxX1dywAAAAAAP3///8Ceh/00gAAAAAWABSauB3UBW2CVXly9l1sU6aMmVAq+ADC6wsAAAAAFgAUA8/shxXh9ASjbsAR5COPhjKfkJyXAAAAAQEfAMLrCwAAAAAWABQDz+yHFeH0BKNuwBHkI4+GMp+QnAAA",
+        "feerate_per_kw": 18750,
+        "estimated_final_weight": 657,
+        "excess_msat": 0,
+        "change_outnum": 0,
         "reservations": [
           {
-            "txid": "2fc3b9f8d4aed120f6d9a6f206f07c35ef4d518ec0305d1d974873d256e38ca7",
+            "txid": "bffbd4f5f789765823b7c1c12151797898702c7fe52f1d08ea644308d33c05b3",
             "vout": 1,
             "was_reserved": true,
             "reserved": true,
-            "reserved_to_block": 246
-          },
-          {
-            "txid": "2f669f6a605ee5c7ddd2abb753bc64b1a90bd1b7448264f5d78a7ca823c00a1b",
-            "vout": 1,
-            "was_reserved": true,
-            "reserved": true,
-            "reserved_to_block": 246
+            "reserved_to_block": 2312
           }
         ]
       }

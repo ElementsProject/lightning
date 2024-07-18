@@ -169,39 +169,18 @@
       "request": {
         "id": "example:showrunes#1",
         "method": "showrunes",
-        "params": {}
+        "params": {
+          "rune": "zFMd1fjhrAYxUeFA54TjloZqOt8JrA_i_nYwIgXkag49MA=="
+        }
       },
       "response": {
         "runes": [
           {
-            "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",
+            "rune": "zFMd1fjhrAYxUeFA54TjloZqOt8JrA_i_nYwIgXkag49MA==",
+            "last_used": 1722303715.068215,
             "unique_id": "0",
             "restrictions": [],
             "restrictions_as_english": ""
-          },
-          {
-            "rune": "geZmO6U7yqpHn-moaX93FVMVWrDRfSNY4AXx9ypLcqg9MQ==",
-            "unique_id": "1",
-            "restrictions": [],
-            "restrictions_as_english": ""
-          },
-          {
-            "rune": "Bl0V_vkVkGr4h356JbCMCcoDyyKE8djkoQ2156iPB509MCZwZXI9MTAwMDAwMDAwMG5zZWM=",
-            "unique_id": "2",
-            "restrictions": [
-              {
-                "alternatives": [
-                  {
-                    "fieldname": "per",
-                    "value": "1000000000nsec",
-                    "condition": "=",
-                    "english": "per equal to 1000000000nsec"
-                  }
-                ],
-                "english": "per equal to 1000000000nsec"
-              }
-            ],
-            "restrictions_as_english": "per equal to 1000000000nsec"
           }
         ]
       }
@@ -210,29 +189,190 @@
       "request": {
         "id": "example:showrunes#2",
         "method": "showrunes",
-        "params": {
-          "rune": "Bl0V_vkVkGr4h356JbCMCcoDyyKE8djkoQ2156iPB509MCZwZXI9MTAwMDAwMDAwMG5zZWM="
-        }
+        "params": {}
       },
       "response": {
         "runes": [
           {
-            "rune": "Bl0V_vkVkGr4h356JbCMCcoDyyKE8djkoQ2156iPB509MCZwZXI9MTAwMDAwMDAwMG5zZWM=",
+            "rune": "zFMd1fjhrAYxUeFA54TjloZqOt8JrA_i_nYwIgXkag49MA==",
+            "last_used": 1722303715.068215,
+            "unique_id": "0",
+            "restrictions": [],
+            "restrictions_as_english": ""
+          },
+          {
+            "rune": "RXgu0DD_i0wSPEZkIDyZIWL0bSAGdhvJ_GHOQdTg04A9MSZpZF4wMjY2ZTQ1OThkMWQzYzQxNWY1NyZtZXRob2Q9bGlzdHBlZXJz",
+            "last_used": 1722303714.9302285,
+            "unique_id": "1",
+            "restrictions": [
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "id",
+                    "value": "0266e4598d1d3c415f57",
+                    "condition": "^",
+                    "english": "id starts with 0266e4598d1d3c415f57"
+                  }
+                ],
+                "english": "id starts with 0266e4598d1d3c415f57"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "method",
+                    "value": "listpeers",
+                    "condition": "=",
+                    "english": "method equal to listpeers"
+                  }
+                ],
+                "english": "method equal to listpeers"
+              }
+            ],
+            "restrictions_as_english": "id starts with 0266e4598d1d3c415f57 AND method equal to listpeers"
+          },
+          {
+            "rune": "QUJEYMLGgiaJvMDv_MhR2hiMKIBTbq-PrL-KxcIlirQ9MiZtZXRob2Q9cGF5JnBuYW1lYW1vdW50bXNhdDwxMDAwMA==",
+            "last_used": 1722303715.1267006,
             "unique_id": "2",
             "restrictions": [
               {
                 "alternatives": [
                   {
-                    "fieldname": "per",
-                    "value": "1000000000nsec",
+                    "fieldname": "method",
+                    "value": "pay",
                     "condition": "=",
-                    "english": "per equal to 1000000000nsec"
+                    "english": "method equal to pay"
                   }
                 ],
-                "english": "per equal to 1000000000nsec"
+                "english": "method equal to pay"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "pnameamountmsat",
+                    "value": "10000",
+                    "condition": "<",
+                    "english": "pnameamountmsat < 10000"
+                  }
+                ],
+                "english": "pnameamountmsat < 10000"
               }
             ],
-            "restrictions_as_english": "per equal to 1000000000nsec"
+            "restrictions_as_english": "method equal to pay AND pnameamountmsat < 10000"
+          },
+          {
+            "rune": "jEx3l0c7NMZPSDYT7xnXXvNA83z5PDNBHRQTIk1BwNw9MyZpZD0wMjY2ZTQ1OThkMWQzYzQxNWY1NzJhODQ4ODgzMGI2MGY3ZTc0NGVkOTIzNWViMGIxYmE5MzI4M2IzMTVjMDM1MTgmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZD0wMjY2ZTQ1OThkMWQzYzQxNWY1NzJhODQ4ODgzMGI2MGY3ZTc0NGVkOTIzNWViMGIxYmE5MzI4M2IzMTVjMDM1MTh8cGFycjA9MDI2NmU0NTk4ZDFkM2M0MTVmNTcyYTg0ODg4MzBiNjBmN2U3NDRlZDkyMzVlYjBiMWJhOTMyODNiMzE1YzAzNTE4",
+            "unique_id": "3",
+            "restrictions": [
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "id",
+                    "value": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+                    "condition": "=",
+                    "english": "id equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
+                  }
+                ],
+                "english": "id equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "method",
+                    "value": "listpeers",
+                    "condition": "=",
+                    "english": "method equal to listpeers"
+                  }
+                ],
+                "english": "method equal to listpeers"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "pnum",
+                    "value": "1",
+                    "condition": "=",
+                    "english": "pnum equal to 1"
+                  }
+                ],
+                "english": "pnum equal to 1"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "pnameid",
+                    "value": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+                    "condition": "=",
+                    "english": "pnameid equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
+                  },
+                  {
+                    "fieldname": "parr0",
+                    "value": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+                    "condition": "=",
+                    "english": "parr0 equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
+                  }
+                ],
+                "english": "pnameid equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518 OR parr0 equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
+              }
+            ],
+            "restrictions_as_english": "id equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518 AND method equal to listpeers AND pnum equal to 1 AND pnameid equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518 OR parr0 equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
+          },
+          {
+            "rune": "8_CRIJ4arWAz72A4ILOZ46MESSJtQQQ9iQZjU28qulA9NCZpZD0wMjY2ZTQ1OThkMWQzYzQxNWY1NzJhODQ4ODgzMGI2MGY3ZTc0NGVkOTIzNWViMGIxYmE5MzI4M2IzMTVjMDM1MTgmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjY2ZTQ1OThkMWQzYzQxNWY1N3xwYXJyMF4wMjY2ZTQ1OThkMWQzYzQxNWY1Nw==",
+            "unique_id": "4",
+            "restrictions": [
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "id",
+                    "value": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+                    "condition": "=",
+                    "english": "id equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
+                  }
+                ],
+                "english": "id equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "method",
+                    "value": "listpeers",
+                    "condition": "=",
+                    "english": "method equal to listpeers"
+                  }
+                ],
+                "english": "method equal to listpeers"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "pnum",
+                    "value": "1",
+                    "condition": "=",
+                    "english": "pnum equal to 1"
+                  }
+                ],
+                "english": "pnum equal to 1"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "pnameid",
+                    "value": "0266e4598d1d3c415f57",
+                    "condition": "^",
+                    "english": "pnameid starts with 0266e4598d1d3c415f57"
+                  },
+                  {
+                    "fieldname": "parr0",
+                    "value": "0266e4598d1d3c415f57",
+                    "condition": "^",
+                    "english": "parr0 starts with 0266e4598d1d3c415f57"
+                  }
+                ],
+                "english": "pnameid starts with 0266e4598d1d3c415f57 OR parr0 starts with 0266e4598d1d3c415f57"
+              }
+            ],
+            "restrictions_as_english": "id equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518 AND method equal to listpeers AND pnum equal to 1 AND pnameid starts with 0266e4598d1d3c415f57 OR parr0 starts with 0266e4598d1d3c415f57"
           }
         ]
       }

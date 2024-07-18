@@ -123,6 +123,10 @@
             "tablename": "offers",
             "columns": [
               {
+                "name": "rowid",
+                "type": "INTEGER"
+              },
+              {
                 "name": "offer_id",
                 "type": "BLOB"
               },
@@ -136,10 +140,6 @@
               },
               {
                 "name": "bolt12",
-                "type": "TEXT"
-              },
-              {
-                "name": "bolt12_unsigned",
                 "type": "TEXT"
               },
               {
@@ -272,6 +272,10 @@
               {
                 "name": "close_cause",
                 "type": "TEXT"
+              },
+              {
+                "name": "last_stable_connection",
+                "type": "INTEGER"
               }
             ]
           }

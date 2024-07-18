@@ -180,18 +180,21 @@
         "id": "example:renepay#1",
         "method": "renepay",
         "params": {
-          "invstring": "lnbcrt1230n1pjmxj9jsp5suc4cag0lv3wemllkvms56e6ll0w867cczqfttuu8cpfl089f9kspp56wvxtdh8fxg5r5y3kg3klxceakqaydskwzatga25v95da8nzkmwqdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qxpqysgqkmyhymt0j7hy38vzqxx465s4ys0fg78flnjqfx4clvdq9mrmgglpcnjrrnhtk7maa87pfvjez88hke8w97zvuecwswaf9gzyqlsthegpza67eu"
+          "invstring": "lnbcrt1pn2s3xxsp5xvccgadvepzypat5v8u8tstwdvn9ez4908h7ntl4s0ggx76ug4cqpp50qwurth9swdlzphjvjc2qm8sws8jcu0u28y4vt5s7nhr3js0c3vsdqcdserzgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky96qqqduqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqw4qfxj30wqn2m2qmcfz2gs6ttszdhkc0kjqk0mgg59tj2cy90wcke4tjzmzakrkvcgqgf3367j47q5g2ruuw67cxaqxm2t4m42yecsqp92jzs7",
+          "amount_msat": 400000
         }
       },
       "response": {
-        "payment_preimage": "0a3fd704b34f47d6e306dbac78141753be83848d3a19725c972abfc367dcc591",
-        "payment_hash": "d39865b6e7499141d091b2236f9b19ed81d2361670bab475546168de9e62b6dc",
-        "created_at": 1706248370.6267352,
-        "parts": 1,
-        "amount_msat": 123000,
-        "amount_sent_msat": 123000,
+        "bolt11": "lnbcrt1pn2s3xxsp5xvccgadvepzypat5v8u8tstwdvn9ez4908h7ntl4s0ggx76ug4cqpp50qwurth9swdlzphjvjc2qm8sws8jcu0u28y4vt5s7nhr3js0c3vsdqcdserzgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky96qqqduqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqw4qfxj30wqn2m2qmcfz2gs6ttszdhkc0kjqk0mgg59tj2cy90wcke4tjzmzakrkvcgqgf3367j47q5g2ruuw67cxaqxm2t4m42yecsqp92jzs7",
+        "amount_msat": 400000,
+        "payment_hash": "781dc1aee5839bf106f264b0a06cf0740f2c71fc51c9562e90f4ee38ca0fc459",
+        "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+        "created_at": 1722303718.0730329,
+        "groupid": 1,
+        "parts": 2,
         "status": "complete",
-        "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+        "payment_preimage": "af67b48518e78e157db404d13cb42987c31e034634203d10b224302b05fc6c90",
+        "amount_sent_msat": 400000
       }
     },
     {
@@ -199,19 +202,20 @@
         "id": "example:renepay#2",
         "method": "renepay",
         "params": {
-          "invstring": "lnbcrt1pja0f9asp50kzadmeyy78eymjvhnlk5dznl3g5k5x8agh52ewjtg0jclas4ylspp5crsutd9hg05lxyhzphdcuyng6z3knrsdae83mxwawa842gz3vj3sdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qxpqysgqr5yzhxmup4muyaz6x8u2dy4qyu9t5qzuf5k9xayvj5kg7tve60gjk4jrv2l76exnj2xkuzhtwky23pkkxedzy6p9yrsgyqdwj7dv5gsp4zcw6v",
-          "amount_msat": 548925
+          "invstring": "lnbcrt40n1pn2s3xxsp5j329vez86jvxw6543zlcla2fusm7v6h74pf7ftmmyfv6zm9uedlspp5j6xpxmq8cwd305vj2dvd6dh4mkr0s6guvehvyleymedgf4vsm3ysdqaveskjmr9vssxgetnvdexjur5d9hkuxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqduqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqk6uwy8pkv42jzhdna3z4vxpwkapdzzpn2tcpjnqj738nlpkjc583l9v72vlskt8y33rr4z3jma32xx7ve0jfy7anvn6r98cr5flhcuqqhr4shx"
         }
       },
       "response": {
-        "payment_preimage": "a635e92d024beebfc58519e6544888aa560ba3bcaba7e74924e4b8432eaa56f5",
-        "payment_hash": "c0e1c5b4b743e9f312e20ddb8e1268d0a3698e0dee4f1d99dd774f55205164a3",
-        "created_at": 1708631229.7841823,
-        "parts": 1,
-        "amount_msat": 548925,
-        "amount_sent_msat": 548925,
+        "bolt11": "lnbcrt40n1pn2s3xxsp5j329vez86jvxw6543zlcla2fusm7v6h74pf7ftmmyfv6zm9uedlspp5j6xpxmq8cwd305vj2dvd6dh4mkr0s6guvehvyleymedgf4vsm3ysdqaveskjmr9vssxgetnvdexjur5d9hkuxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqduqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqk6uwy8pkv42jzhdna3z4vxpwkapdzzpn2tcpjnqj738nlpkjc583l9v72vlskt8y33rr4z3jma32xx7ve0jfy7anvn6r98cr5flhcuqqhr4shx",
+        "amount_msat": 4000,
+        "payment_hash": "968c136c07c39b17d1925358dd36f5dd86f8691c666ec27f24de5a84d590dc49",
+        "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+        "created_at": 1722303719.1643083,
+        "groupid": 1,
+        "parts": 2,
         "status": "complete",
-        "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+        "payment_preimage": "8815ee921dba644c076f9f879abb520d8539a6913856a439752eaaadff1e21ac",
+        "amount_sent_msat": 4000
       }
     }
   ]

@@ -266,23 +266,32 @@
         "id": "example:decodepay#1",
         "method": "decodepay",
         "params": {
-          "bolt11": "lnbcrt110u1pjmr5lzsp5sfjyj3xn7ux592k36hmmt4ax98n6lgct22wvj54yck0upcmep63qpp5qu436g855lr40ftdt7csatk5pdvtdzzfmfqluwtvm0fds95jsadqdpq0pzk7s6j8y69xjt6xe25j5j4g44hsatdxqyjw5qcqp99qxpqysgquwma3zrw4cd8e8j4u9uh4gxukaacckse64kx2l9dqv8rvrysdq5r5dt38t9snqj9u5ar07h2exr4fg56wpudkhkk7gtxlyt72ku5fpqqd4fnlk"
+          "bolt11": "lnbcrt100n1pn2s3xxsp5s4wvy67lduz0tpxzmw0x0m8z5krfn6ppeu3a9t559tcdxquqwjfqpp5r0zx30ded4lpxp7vrdxqenmwr9rqftn93dcymvmuaxpu8y5zxunqdqcdscnzgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqd5qqqqgqqyqqqqqpqqqqqzsqqc9qxpqysgqyk0lnqhsl07405jsqzyyaheu3dhxdv6s498ex97yvacs04gf6carplepnh5drlse8spy8nluz4uwj78h47ez6hak9md2s8mtg6yy5tcqt8yfsj"
         }
       },
       "response": {
         "currency": "bcrt",
-        "created_at": 1706152930,
+        "created_at": 1722303686,
         "expiry": 604800,
-        "payee": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-        "amount_msat": 11000000,
-        "description": [
-          "XEoCR94SIz6UIRUEkxum."
-        ],
+        "payee": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+        "amount_msat": 10000,
+        "description": "l11 description",
         "min_final_cltv_expiry": 5,
-        "payment_secret": "82644944d3f70d42aad1d5f7b5d7a629e7afa30b529cc952a4c59fc0e3790ea2",
+        "payment_secret": "855cc26bdf6f04f584c2db9e67ece2a58699e821cf23d2ae942af0d303807492",
         "features": "02024100",
-        "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a",
-        "signature": "3045022100e3b7d8886eae1a7c9e55e1797aa0dcb77b8c5a19d56c657cad030e360c90682802203a35713acb098245e53a37faeac98754a29a7078db5ed6f2166f917e55b94484"
+        "routes": [
+          [
+            {
+              "pubkey": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+              "short_channel_id": "109x1x1",
+              "fee_base_msat": 1,
+              "fee_proportional_millionths": 10,
+              "cltv_expiry_delta": 6
+            }
+          ]
+        ],
+        "payment_hash": "1bc468bdb96d7e1307cc1b4c0ccf6e194604ae658b704db37ce983c392823726",
+        "signature": "30440220259ff982f0fbfd57d25000884edf3c8b6e66b350a94f9317c4677107d509d63a022030ff219de8d1fe193c0243cffc1578e978f7afb22d5fb62edaa81f6b46884a2f"
       }
     }
   ]

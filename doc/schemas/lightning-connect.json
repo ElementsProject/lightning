@@ -191,17 +191,17 @@
         "params": {
           "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
           "host": "localhost",
-          "port": 44619
+          "port": 41219
         }
       },
       "response": {
         "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-        "features": "08a0000a0a69a2",
+        "features": "08a0802a8a59a1",
         "direction": "out",
         "address": {
           "type": "ipv4",
           "address": "127.0.0.1",
-          "port": 44619
+          "port": 41219
         }
       }
     },
@@ -210,19 +210,19 @@
         "id": "example:connect#2",
         "method": "connect",
         "params": {
-          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-          "host": "127.0.0.1",
-          "port": 42839
+          "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+          "host": "localhost",
+          "port": 34785
         }
       },
       "response": {
-        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-        "features": "08a0000a8a5961",
+        "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+        "features": "08a0802a8a59a1",
         "direction": "out",
         "address": {
           "type": "ipv4",
           "address": "127.0.0.1",
-          "port": 42839
+          "port": 34785
         }
       }
     }

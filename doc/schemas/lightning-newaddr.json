@@ -69,7 +69,7 @@
         "params": {}
       },
       "response": {
-        "bech32": "bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf"
+        "bech32": "bcrt1qcqqvkswps3e6ck3jmqf86f9tcaeke5z04d3tv4"
       }
     },
     {
@@ -77,11 +77,11 @@
         "id": "example:newaddr#2",
         "method": "newaddr",
         "params": {
-          "addresstype": "bech32"
+          "addresstype": "p2tr"
         }
       },
       "response": {
-        "bech32": "bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf"
+        "p2tr": "bcrt1phtprcvhz842sxe8qw0yryvc0g6n6dw2puweklcpnfye273kjpfhs0d6d2e"
       }
     }
   ]

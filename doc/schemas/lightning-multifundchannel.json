@@ -333,7 +333,7 @@
   "examples": [
     {
       "description": [
-        "This example opens three channels at once, with amounts 200,000 sats, 3,000,000 sats",
+        "This example opens three channels at once, with amounts 20,000 sats, 30,000 sats",
         "and the final channel using all remaining funds (actually, capped at 16,777,215 sats",
         "because large-channels is not enabled):"
       ],
@@ -343,52 +343,16 @@
         "params": {
           "destinations": [
             {
-              "id": "0201f42e167959c74d396ac57652fcea63c63940f78e8239cce5720df4d85ef857@127.0.0.1:7272",
-              "amount": "200000sat"
+              "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d@127.0.0.1:34785",
+              "amount": "20000sat"
             },
             {
-              "id": "0304a2468065535f9459567686e0f02b40f06e341d3eb2a62ec6763bcf2ccfd207@127.0.0.1:7373",
-              "amount": "0.03btc"
+              "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199@127.0.0.1:46213",
+              "amount": "0.0003btc"
             },
             {
-              "id": "0391f4c475050bb15871da5a72b1f3a1798de3d2e5fb4ffa262899b8d8e1f0b764@127.0.0.1:7474",
+              "id": "032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e@127.0.0.1:38251",
               "amount": "all"
-            }
-          ]
-        }
-      },
-      "response": {
-        "tx": "02000000000101fbe3c68db87b72f82c3f5447b0bc032469c78e71f229ac99c230807ff378a9d80000000000fdffffff04400d0300000000002200202e9897ed5f9b237aa27fd5d02d24157cd452b0d3f0a5bb03d38ff73f9f8f384bffffff0000000000220020439d797ada249e1e12f8d27cabb7330de3c8de0456fb54892deb7b9c72b0ff7c1dc9b50400000000225120046e3966a2d5e43c1f1e0676161905782e1e7c00811485c618f5144f328f4e2bc0c62d0000000000220020e36fd5c03c3586c3763d8b4c9d8650f396ff1c8a460137fb09b60ee82536a3b20140ea4d564e91c919b50a2d32886f1d414de773491119beb1364b92f15d6d03e1810e5ddea89c265e42f2e96bb028dfb3aa0b5b30072ddcc78daad727503c53e37fa9010000",
-        "txid": "90dc53922b70628fc9e7804ad0b8cd0fb41f050d94ffa2db3b16e918c96c022a",
-        "channel_ids": [
-          {
-            "id": "0201f42e167959c74d396ac57652fcea63c63940f78e8239cce5720df4d85ef857",
-            "channel_id": "25c8253e66a860d17916cc0c21386e310eba9900030a68ec6ff6f59a8401a872",
-            "outnum": "0"
-          },
-          {
-            "id": "0304a2468065535f9459567686e0f02b40f06e341d3eb2a62ec6763bcf2ccfd207",
-            "channel_id": "51749d724892a406896f6bf2e2f8c0b03399d0436691f294839897fa167e6521",
-            "outnum": "3"
-          },
-          {
-            "id": "0391f4c475050bb15871da5a72b1f3a1798de3d2e5fb4ffa262899b8d8e1f0b764",
-            "channel_id": "7e1414e72c081f0754fa18c1657cedabe696aa9ffeaf0b936bfbe3a28f2829d1",
-            "outnum": "1"
-          }
-        ],
-        "failed": []
-      }
-    },
-    {
-      "request": {
-        "id": "example:multifundchannel#2",
-        "method": "multifundchannel",
-        "params": {
-          "destinations": [
-            {
-              "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59@localhost:41939",
-              "amount": 50000
             }
           ],
           "feerate": "10000perkw",
@@ -396,55 +360,42 @@
         }
       },
       "response": {
-        "tx": "0200000000010100a8ceb6f76c49c8c0c809ca359461540708a9a5ac56e56e6a7aaafb35f4d3850000000000fdffffff0250c30000000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd0623ff030000000022512063ffee4ea7d51e6cadf9086e286a2527922aaa25b8c53aebf32fa32a0a627f5a02473044022064763837f2cc84507eb1fc28c9e95d51174e1da4b8755da8e67fe21e37d0a8b402206295d0f19625f014819361a20572b936d81f6c5ba419e56997e882f3a7be094a012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf66000000",
-        "txid": "ecba36e93bcf40542d43a05ef550bb0e4be51d766aa2ec8c5640a0d431ab0d06",
+        "tx": "02000000000107feed56fc07fe7a3094f5f7c104f4ac8f3c96f6bf7c44df90619307d6f75c06850200000000fdffffff72819eb0ce9892c1025fd83e5e1a39fd30f79f843b489a32c20f45e67f37c5f30100000000fdffffff187f8d1b7292d57a46e23ae746c530741b8493dff74a7f62ca7e200204f6ec800000000000fdfffffffeed56fc07fe7a3094f5f7c104f4ac8f3c96f6bf7c44df90619307d6f75c06850100000000fdffffff07e45ab0c8dc4bc9a42d260c71f3a722bd104e28623693e84e302eb62b8554940000000000fdffffff187f8d1b7292d57a46e23ae746c530741b8493dff74a7f62ca7e200204f6ec800700000000fdffffff187f8d1b7292d57a46e23ae746c530741b8493dff74a7f62ca7e200204f6ec800400000000fdffffff040a8b250700000000220020f7bbe8f915381b4b9b1ca14cccbfd156eea19888550d01a5014f977e98c7fc8c204e000000000000220020369444aad3ac8c5452be625479f761587c42fbf66fecf644447daabc73c498223075000000000000220020d90c23ede7b77f89f4cae93da9326ba176d158a0b65faeaede5684c3c0f7c839a86100000000000022512018ece00b736f9ed77ed3a87426643c242223e3d6116a4cd6d90946f73de2ce71024730440220296f0d677ae2151a2fceb00c717483488f46aff309e28f36934ec3bcf914443f02204a7a20186d9b936e029c6b55df302386ad306f6738176945cf5d8607c18d16c7012102272a9a25f1ffed52fab04a2cc88aeab135b53723856a8f1481c26417f88a922e02473044022063c77ad73bd1993abc48b04b2f7b66ab7aa34f56f55c69b1c3e1868a4580554c0220466333d7e6e9163ec6ad6ef755be6e61a79a6a50ac8ad32d071b2819f2a113a60121029da47016812598be384212ce15793496c0ec2176a87e81c6432dae964f87c9870247304402205dfb4fcf67b12cf0fc3a1f3527bc37964c1604fb7ac11df2fd80b2bde605689d02203bbd1bcf5f92a6cd31c9459c9252d84fcd102fdfc8e367360e71ef047c704015012103d034f788f410c2ec2d89d161df3c3715f965248aa53eace463d10eca443eb1f20247304402203b12894f094c85c94bf7a898ddfe8d82359486aedb56b0891e5db83fee628dff0220478b954fd0514de5ff0d3273ed93d54f87e7d90e63f2d4b478a9a7669af2e1110121028a599168d3c97debc71bc66e6270ecf054f300d888309ba05471a482175dd9300140508f9706e9d6353d0a19a9128353fc8090948de09ee79afc35ae10c17ab0f894ec04eabf9187082bd31d3b63e9e52d99cbaef4c1f79dd6121024a7d3b4d994ec014054bdc1bab81661fd3ad8c0a65402abf2c2228da8f2150b6ce0cb8fddafd4c25a0318cc16cdbf72c5142dd6bbccb606cc7c2c39f91a218309dc5dadb7a74fe56b024730440220203ba0cc960cb70555e2096ecba5a5992b6b35ff621f736625360f836d208ce202207fa53d5ac33847fc166e03d888ef27c709dc65bfb79ece85d9d93bdda62c0ca501210267f4468ffafe6f919ae871f57f09690467f494e83e0358dc64d10472f9072f4c9b000000",
+        "txid": "9c3d4a6491eaa04c378101a7a7836f07409d04db8295b14930f89f7562744e18",
         "channel_ids": [
           {
-            "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-            "channel_id": "060dab31d4a040568ceca26a761de54b0ebb50f55ea0432d5440cf3be936baec",
+            "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            "channel_id": "a9c39915cfa357205e3597ec62d92c541a2be7f44b9c6292e126aeddb11bf97e",
             "channel_type": {
               "bits": [
-                12
+                12,
+                22
               ],
               "names": [
-                "static_remotekey/even"
+                "static_remotekey/even",
+                "anchors/even"
               ]
             },
-            "outnum": 0
-          }
-        ],
-        "failed": []
-      }
-    },
-    {
-      "request": {
-        "id": "example:multifundchannel#3",
-        "method": "multifundchannel",
-        "params": {
-          "destinations": [
-            {
-              "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59@localhost:44663",
-              "amount": 50000
-            },
-            {
-              "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d@localhost:34631",
-              "amount": 50000
-            },
-            {
-              "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199@localhost:34617",
-              "amount": 50000
-            }
-          ],
-          "minchannels": 1
-        }
-      },
-      "response": {
-        "tx": "020000000001023041611dac05004825ab64781b4a33bf622380bf90196fae689196b1850a1f8f0000000000fdffffff5646519c565466c9588a88400ec71a39a2c0b6988beadb32491a13d9b89f85360100000000fdffffff0250c3000000000000220020181492c29a989f099fd2cf412c74b192dd095e81f4e4f6bec45bd1fbfdd2cfd983720000000000002251203e8a03f678bb7ca048baecc39788530560ea049816d604f72925e425288446c80140caa3b93c6667e4fe0026417cc87ae9dfd16d80018e7c6dcd6dfcee4d6cab7c7e84181baeb95ba25934ad1aa6b57f83c8287bf1b727123350b35549a3abe15b060140b3c6626b9b57081cc7eb5e4f518669764d265fb84316d8fb610e19ede13c5a370c1072861b909ec923acec980adb4a3e488ee3c6f9c49164bd4596945b52f62678000000",
-        "txid": "1fcc6d46200443ad21e3a1a1628b862bafd0d75c0b4454f5494957097bc7930d",
-        "channel_ids": [
+            "outnum": 1
+          },
           {
             "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
-            "channel_id": "0d93c77b09574949f554440b5cd7d0af2b868b62a1a1e321ad430420466dcc1f",
+            "channel_id": "a4a379248e49d207cc984646e632e1a31105a85708b9d6d961a5018fdd489f5a",
+            "channel_type": {
+              "bits": [
+                12,
+                22
+              ],
+              "names": [
+                "static_remotekey/even",
+                "anchors/even"
+              ]
+            },
+            "outnum": 2
+          },
+          {
+            "id": "032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e",
+            "channel_id": "e13472d6512413eb1bf03b9a0bb391d0e4152fd337fa6d1014e3de5e131918d9",
             "channel_type": {
               "bits": [
                 12,
@@ -458,21 +409,66 @@
             "outnum": 0
           }
         ],
+        "failed": []
+      }
+    },
+    {
+      "request": {
+        "id": "example:multifundchannel#2",
+        "method": "multifundchannel",
+        "params": {
+          "destinations": [
+            {
+              "id": "03a389b3a2f7aa6f9f4ccc19f2bd7a2eba83596699e86b715caaaa147fc37f3144@127.0.0.1:34785",
+              "amount": 50000
+            },
+            {
+              "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199@127.0.0.1:46213",
+              "amount": 50000
+            },
+            {
+              "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518@127.0.0.1:39877",
+              "amount": 50000
+            }
+          ],
+          "minchannels": 1
+        }
+      },
+      "response": {
+        "tx": "0200000000010289da71f14f2e28c351f3f2cea6c9008fbf316cd353f6a084a17851afd37e5be70000000000fdffffffdcb684b96d9a2a37ef441c5eca75d15ef35ca8e16a6df21dca5fb6558400ca840000000000fdffffff022610250700000000225120def24e878a66b695c4d5b414b42b7ce94471dac985bb0afb0367e8bbb92c5a5250c30000000000002200209bd3269fda069b7ee0584622d458bb437635b3a179265dee3843ef18f42f35c601404a5e8638f6961d1c42609a5497346af9ba4cffb7f44cc8869c7e158627a8bb35884652fe1927d0b1917e9c22328339c33adedf93a7c86d90edba49eef4d949f301400373733215aeb64ca95e21b16be5772d3ad2ba7fa92faf842eeffab2c5741a66076cd1fb8af1c6c65456eeaf05f9ac80ce5502ae3ff88c40b632d8785bcd63799c000000",
+        "txid": "313dc9366eeab30a094fb85297673187cfb93aec0ec8610215f75d129d7c06e9",
+        "channel_ids": [
+          {
+            "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
+            "channel_id": "09eb55872cd9039ecd08281af756e23b15aad4129fd6a9bcd71b472114ebf43a",
+            "channel_type": {
+              "bits": [
+                12,
+                22
+              ],
+              "names": [
+                "static_remotekey/even",
+                "anchors/even"
+              ]
+            },
+            "outnum": 1
+          }
+        ],
         "failed": [
           {
-            "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "id": "03a389b3a2f7aa6f9f4ccc19f2bd7a2eba83596699e86b715caaaa147fc37f3144",
             "method": "connect",
             "error": {
               "code": 401,
-              "message": "All addresses failed: 127.0.0.1:44663: Connection establishment: Connection refused. "
+              "message": "All addresses failed: 127.0.0.1:34785: Cryptographic handshake: peer closed connection (wrong key?). "
             }
           },
           {
-            "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
             "method": "connect",
             "error": {
-              "code": 401,
-              "message": "All addresses failed: 127.0.0.1:34631: Connection establishment: Connection refused. "
+              "code": 402,
+              "message": "disconnected during connection"
             }
           }
         ]

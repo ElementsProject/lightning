@@ -268,24 +268,18 @@
         "id": "example:listnodes#1",
         "method": "listnodes",
         "params": {
-          "id": "02e29856dab8ddd9044c18486e4cab79ec717b490447af2d4831e290e48d57638a"
+          "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d"
         }
       },
       "response": {
         "nodes": [
           {
-            "nodeid": "02e29856dab8ddd9044c14586e4cab79ec717b490447af2d4831e290e48d58638a",
-            "alias": "some_alias",
-            "color": "68f442",
-            "last_timestamp": 1597213741,
-            "features": "02a2a1",
-            "addresses": [
-              {
-                "type": "ipv4",
-                "address": "zzz.yy.xx.xx",
-                "port": 9735
-              }
-            ]
+            "nodeid": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            "alias": "HOPPINGFIRE--190-g5fd2f9c-modded",
+            "color": "035d2b",
+            "last_timestamp": 1722303669,
+            "features": "88a0802a8a59a1",
+            "addresses": []
           }
         ]
       }
@@ -300,34 +294,34 @@
         "nodes": [
           {
             "nodeid": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-            "alias": "SILENTARTIST-v23.11-415-gd120eba",
+            "alias": "SILENTARTIST-190-g5fd2f9c-modded",
             "color": "022d22",
-            "last_timestamp": 1708624765,
-            "features": "88a0000a8a5961",
+            "last_timestamp": 1722303662,
+            "features": "88a0802a8a59a1",
             "addresses": []
           },
           {
             "nodeid": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-            "alias": "JUNIORBEAM-v23.11-415-gd120eba",
+            "alias": "JUNIORBEAM-5-190-g5fd2f9c-modded",
             "color": "0266e4",
-            "last_timestamp": 1708624765,
-            "features": "88a0000a8a5961",
+            "last_timestamp": 1722303662,
+            "features": "88a0802a8a59a1",
             "addresses": []
           },
           {
             "nodeid": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-            "alias": "HOPPINGFIRE-v23.11-415-gd120eba",
+            "alias": "HOPPINGFIRE--190-g5fd2f9c-modded",
             "color": "035d2b",
-            "last_timestamp": 1708624765,
-            "features": "88a0000a8a5961",
+            "last_timestamp": 1722303669,
+            "features": "88a0802a8a59a1",
             "addresses": []
           },
           {
             "nodeid": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
-            "alias": "JUNIORFELONY-v23.11-415-gd120eba",
+            "alias": "JUNIORFELONY-190-g5fd2f9c-modded",
             "color": "0382ce",
-            "last_timestamp": 1708624766,
-            "features": "88a0000a8a5961",
+            "last_timestamp": 1722303669,
+            "features": "88a0802a8a59a1",
             "addresses": []
           }
         ]

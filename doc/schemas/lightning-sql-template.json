@@ -131,38 +131,51 @@
   "examples": [
     {
       "description": [
-        "A simple peer selection query:"
+        "A simple peers selection query:"
       ],
       "request": {
         "id": "example:sql#1",
         "method": "sql",
-        "params": [
-          "SELECT id FROM peers"
-        ]
+        "params": {
+          "query": "SELECT id FROM peers"
+        }
       },
       "response": {
         "rows": [
           [
-            "02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00"
+            "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
           ]
         ]
       }
     },
     {
       "description": [
-        "A statement containing using `=` needs `-o`:"
+        "A statement containing `=` needs `-o` in shell:"
       ],
       "request": {
         "id": "example:sql#2",
         "method": "sql",
         "params": [
-          " -o 'SELECT node_id,last_timestamp FROM nodes WHERE last_timestamp>=1669578892'"
+          "SELECT nodeid,last_timestamp FROM nodes WHERE last_timestamp>=1669578892"
         ]
       },
       "response": {
         "rows": [
           [
-            "02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da001669601603"
+            "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            1722303662
+          ],
+          [
+            "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+            1722303662
+          ],
+          [
+            "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            1722303669
+          ],
+          [
+            "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
+            1722303669
           ]
         ]
       }
@@ -175,16 +188,19 @@
         "id": "example:sql#3",
         "method": "sql",
         "params": [
-          " -o 'SELECT nodeid FROM nodes WHERE nodeid != x'03c9d25b6c0ce4bde5ad97d7ab83f00ae8bd3800a98ccbee36f3c3205315147de1''"
+          "SELECT nodeid FROM nodes WHERE nodeid != x'035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d'"
         ]
       },
       "response": {
         "rows": [
           [
-            "0214739d625944f8fdc0da9d2ef44dbd7af58443685e494117b51410c5c3ff973a"
+            "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
           ],
           [
-            "02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00"
+            "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
+          ],
+          [
+            "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199"
           ]
         ]
       }
@@ -197,16 +213,16 @@
         "id": "example:sql#4",
         "method": "sql",
         "params": [
-          " -o 'SELECT nodeid FROM nodes WHERE nodeid IN (x'03c9d25b6c0ce4bde5ad97d7ab83f00ae8bd3800a98ccbee36f3c3205315147de1', x'02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00')'"
+          "SELECT nodeid FROM nodes WHERE nodeid IN (x'0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518', x'035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d')"
         ]
       },
       "response": {
         "rows": [
           [
-            "02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00"
+            "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
           ],
           [
-            "03c9d25b6c0ce4bde5ad97d7ab83f00ae8bd3800a98ccbee36f3c3205315147de1"
+            "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d"
           ]
         ]
       }
@@ -219,24 +235,17 @@
         "id": "example:sql#5",
         "method": "sql",
         "params": [
-          " -o 'SELECT nodeid, alias, nodes_addresses.type, nodes_addresses.port, nodes_addresses.address FROM nodes INNER JOIN nodes_addresses ON nodes_addresses.row = nodes.rowid'"
+          "SELECT peer_id, short_channel_id, to_us_msat, total_msat, peerchannels_status.status FROM peerchannels INNER JOIN peerchannels_status ON peerchannels_status.row = peerchannels.rowid"
         ]
       },
       "response": {
         "rows": [
           [
-            "02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00",
-            "YELLOWWATCH-22.11rc2-31-gcd7593b",
-            "dns",
-            "7272",
-            "localhost"
-          ],
-          [
-            "0214739d625944f8fdc0da9d2ef44dbd7af58443685e494117b51410c5c3ff973a",
-            "HOPPINGSQUIRREL-1rc2-31-gcd7593b",
-            "dns",
-            "7171",
-            "localhost"
+            "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "109x1x1",
+            490503792,
+            1000000000,
+            "CHANNELD_NORMAL:Channel ready for use."
           ]
         ]
       }
@@ -249,13 +258,13 @@
         "id": "example:sql#6",
         "method": "sql",
         "params": [
-          "SELECT COUNT(*) FROM nodes"
+          "SELECT COUNT(*) FROM forwards"
         ]
       },
       "response": {
         "rows": [
           [
-            "3"
+            8
           ]
         ]
       }
@@ -265,45 +274,27 @@
         "id": "example:sql#7",
         "method": "sql",
         "params": [
-          "SELECT * FROM forwards;"
-        ]
-      },
-      "response": {
-        "rows": []
-      }
-    },
-    {
-      "request": {
-        "id": "example:sql#8",
-        "method": "sql",
-        "params": [
           "SELECT * from peerchannels_features"
         ]
       },
       "response": {
         "rows": [
           [
-            6,
-            1,
+            23,
+            18,
             0,
             "option_static_remotekey"
           ],
           [
-            7,
+            24,
+            18,
             1,
-            1,
-            "option_anchors"
+            "option_anchors_zero_fee_htlc_tx"
           ],
           [
-            16,
-            11,
-            0,
-            "option_static_remotekey"
-          ],
-          [
-            17,
-            11,
-            1,
+            25,
+            18,
+            2,
             "option_anchors"
           ]
         ]

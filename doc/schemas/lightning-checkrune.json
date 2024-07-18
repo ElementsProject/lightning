@@ -89,16 +89,10 @@
         "id": "example:checkrune#1",
         "method": "checkrune",
         "params": {
-          "nodeid": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-          "rune": "617Obfct0oRBj_uqGFQxDk3XZ1sDFiC2Q5ltm5z1i_k9NSZtZXRob2Q9aW52b2ljZSZwbmFtZWRlc2NyaXB0aW9uPUB0aXBqYXJcfGpiNTVAc2VuZHNhdHMubG9s",
-          "method": "invoice",
-          "params": {
-            "amount_msat": "any",
-            "label": "lbl",
-            "description": [
-              "@tipjar|jb55@sendsats.lol."
-            ]
-          }
+          "nodeid": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "rune": "_RWaZZRI7wAYU2hqlFBmYgC_dFczcpAdI_9O87YbDpg9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl",
+          "method": "listpeers",
+          "params": {}
         }
       },
       "response": {
@@ -110,28 +104,11 @@
         "id": "example:checkrune#2",
         "method": "checkrune",
         "params": {
-          "nodeid": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-          "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",
-          "method": "listpeers",
-          "params": {}
-        }
-      },
-      "response": {
-        "valid": true
-      }
-    },
-    {
-      "request": {
-        "id": "example:checkrune#3",
-        "method": "checkrune",
-        "params": {
-          "nodeid": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-          "rune": "617Obfct0oRBj_uqGFQxDk3XZ1sDFiC2Q5ltm5z1i_k9NSZtZXRob2Q9aW52b2ljZSZwbmFtZWRlc2NyaXB0aW9uPUB0aXBqYXJcfGpiNTVAc2VuZHNhdHMubG9s",
-          "method": "invoice",
+          "nodeid": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "rune": "QUJEYMLGgiaJvMDv_MhR2hiMKIBTbq-PrL-KxcIlirQ9MiZtZXRob2Q9cGF5JnBuYW1lYW1vdW50bXNhdDwxMDAwMA==",
+          "method": "pay",
           "params": {
-            "amount_msat": "any",
-            "label": "lbl",
-            "description": "@tipjar|jb55@sendsats.lol"
+            "amount_msat": 9999
           }
         }
       },
