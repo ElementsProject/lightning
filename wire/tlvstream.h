@@ -30,13 +30,14 @@ struct tlv_field {
 /* Given any tlvstream serialize the raw fields (untyped ones). */
 void towire_tlvstream_raw(u8 **pptr, struct tlv_field *fields);
 
-/* Given a tlv record with manually-set fields, populate ->fields */
-#define tlv_make_fields(tlv, type)					\
-	tlv_make_fields_(tlvs_##type, TLVS_ARRAY_SIZE_##type, (tlv))
+/* Given a tlv record with manually-set fields, repopulate ->fields (maintaining any unknowns)*/
+#define tlv_update_fields(tlv, type, tlv_fields)			\
+	tlv_update_fields_(tlvs_##type, TLVS_ARRAY_SIZE_##type, (tlv), (tlv_fields))
 
-struct tlv_field *tlv_make_fields_(const struct tlv_record_type *types,
-				   size_t num_types,
-				   const void *record);
+void tlv_update_fields_(const struct tlv_record_type *types,
+			size_t num_types,
+			const void *record,
+			struct tlv_field **tlv_fields);
 
 /**
  * fromwire_tlv: generic TLV decode engine

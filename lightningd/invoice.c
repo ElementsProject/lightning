@@ -1684,8 +1684,7 @@ static void add_stub_blindedpath(const tal_t *ctx,
 	inv->invoice_blindedpay[0]->features = NULL;
 
 	/* Recalc ->fields */
-	tal_free(inv->fields);
-	inv->fields = tlv_make_fields(inv, tlv_invoice);
+	tlv_update_fields(inv, tlv_invoice, &inv->fields);
 }
 
 static struct command_result *json_createinvoice(struct command *cmd,
