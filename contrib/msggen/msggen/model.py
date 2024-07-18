@@ -305,7 +305,7 @@ class CompositeField(Field):
                 )
 
             if field is not None:
-                field.deprecated = ftype.get("deprecated", False)
+                field.deprecated = ftype.get("deprecated", None)
                 field.required = fname in required
                 fields.append(field)
                 logger.debug(field)
