@@ -399,7 +399,7 @@ static bool print_extra_fields(const struct tlv_field *fields)
 	for (size_t i = 0; i < tal_count(fields); i++) {
 		if (fields[i].meta)
 			continue;
-		if (fields[i].numtype % 2) {
+		if (fields[i].numtype % 2 == 0) {
 			printf("UNKNOWN EVEN field %"PRIu64": %s\n",
 			       fields[i].numtype,
 			       tal_hexstr(tmpctx, fields[i].value, fields[i].length));
