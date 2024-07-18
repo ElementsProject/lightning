@@ -136,23 +136,28 @@ static struct command_result *handle_error(struct command *cmd,
 
 /* BOLT-offers #12:
  * - if the invoice is a response to an `invoice_request`:
- *   - MUST reject the invoice if all fields less than type 160 do not
- *     exactly match the `invoice_request`.
+ *    - MUST reject the invoice if all fields in ranges 0 to 159 and 1000000000 to 2999999999 (inclusive) do not exactly match the `invoice_request`.
  */
 static bool invoice_matches_request(struct command *cmd,
 				    const u8 *invbin,
 				    const struct tlv_invoice_request *invreq)
 {
-	size_t len1, len2;
+	size_t ir_len1, ir_len2, ir_start1, ir_start2;
+	size_t inv_len1, inv_len2, inv_start1, inv_start2;
 	u8 *wire;
 
 	/* We linearize then strip signature.  This is dumb! */
 	wire = tal_arr(tmpctx, u8, 0);
 	towire_tlv_invoice_request(&wire, invreq);
-	len1 = tlv_span(wire, 0, 159, NULL);
+	ir_len1 = tlv_span(wire, 0, 159, &ir_start1);
+	ir_len2 = tlv_span(wire, 1000000000, 2999999999, &ir_start2);
 
-	len2 = tlv_span(invbin, 0, 159, NULL);
-	return memeq(wire, len1, invbin, len2);
+	inv_len1 = tlv_span(invbin, 0, 159, &inv_start1);
+	inv_len2 = tlv_span(invbin, 1000000000, 2999999999, &inv_start2);
+	return memeq(wire + ir_start1, ir_len1,
+		     invbin + ir_start1, inv_len1)
+		&& memeq(wire + ir_start2, ir_len2,
+			 invbin + ir_start2, inv_len2);
 }
 
 static struct command_result *handle_invreq_response(struct command *cmd,
@@ -202,8 +207,9 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 
 	/* BOLT-offers #12:
 	 * - if the invoice is a response to an `invoice_request`:
-	 *   - MUST reject the invoice if all fields less than type 160 do not
-	 *     exactly match the `invoice_request`.
+	 * - MUST reject the invoice if all fields in ranges 0 to 159 and
+         *   1000000000 to 2999999999 (inclusive) do not exactly match the
+         *   `invoice_request`.
 	 */
 	if (!invoice_matches_request(cmd, invbin, sent->invreq)) {
 		badfield = "invoice_request match";
@@ -1064,7 +1070,6 @@ static struct command_result *param_invreq(struct command *cmd,
 {
 	char *fail;
 	int badf;
-	u8 *wire;
 	struct sha256 merkle, sighash;
 
 	/* BOLT-offers #12:
@@ -1088,8 +1093,7 @@ static struct command_result *param_invreq(struct command *cmd,
 	 * The reader:
 	 *   - MUST fail the request if `invreq_payer_id` or `invreq_metadata`
 	 *     are not present.
-	 *   - MUST fail the request if any non-signature TLV fields greater or
-	 *     equal to 160.
+	 *   - MUST fail the request if any non-signature TLV fields are outside the inclusive ranges: 0 to 159 and 1000000000 to 2999999999.
 	 *   - if `invreq_features` contains unknown _odd_ bits that are
 	 *     non-zero:
 	 *     - MUST ignore the bit.
@@ -1105,10 +1109,9 @@ static struct command_result *param_invreq(struct command *cmd,
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "Missing invreq_metadata");
 
-	wire = tal_arr(tmpctx, u8, 0);
-	towire_tlv_invoice_request(&wire, *invreq);
-	if (tlv_span(wire, 160, 239, NULL) != 0
-	    || tlv_span(wire, 1001, UINT64_MAX, NULL) != 0) {
+	if (any_field_outside_range((*invreq)->fields, true,
+				    0, 159,
+				    1000000000, 2999999999)) {
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "Invalid high-numbered fields");
 	}

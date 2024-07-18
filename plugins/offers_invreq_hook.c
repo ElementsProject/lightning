@@ -984,22 +984,23 @@ struct command_result *handle_invoice_request(struct command *cmd,
 	ir->secret = tal_dup_or_null(ir, struct secret, secret);
 	ir->invreq = fromwire_tlv_invoice_request(cmd, &cursor, &len);
 
+	if (!ir->invreq) {
+		return fail_invreq(cmd, ir, "Invalid invreq");
+	}
+
 	/* BOLT-offers #12:
 	 * The reader:
 	 * ...
-	 *  - MUST fail the request if any non-signature TLV fields greater or
-	 *    equal to 160.
+	 *  - MUST fail the request if any non-signature TLV fields are outside the inclusive ranges: 0 to 159 and 1000000000 to 2999999999
 	 */
 	/* BOLT-offers #12:
 	 * Each form is signed using one or more *signature TLV elements*:
 	 * TLV types 240 through 1000 (inclusive)
 	 */
-	if (tlv_span(invreqbin, 0, 159, NULL)
-	    + tlv_span(invreqbin, 240, 1000, NULL) != tal_bytelen(invreqbin))
-		return fail_invreq(cmd, ir, "Fields beyond 160");
-
-	if (!ir->invreq) {
-		return fail_invreq(cmd, ir, "Invalid invreq");
+	if (any_field_outside_range(ir->invreq->fields, true,
+				    0, 159,
+				    1000000000, 2999999999)) {
+		return fail_invreq(cmd, ir, "Invalid high fields");
 	}
 
 	/* BOLT-offers #12:

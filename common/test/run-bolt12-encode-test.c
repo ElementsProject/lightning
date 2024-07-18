@@ -365,7 +365,7 @@ int main(int argc, char *argv[])
 	/* Now these are simply invalid, not bad encodings */
 	/* BOLT-offers #12:
 	 * A reader of an offer:
-	 *   - if the offer contains any TLV fields greater or equal to 80:
+	 *   - if the offer contains any TLV fields outside the inclusive ranges: 1 to 79 and 1000000000 to 1999999999:
 	 *     - MUST NOT respond to the offer.
 	 */
 	print_malformed_tlv("lno",

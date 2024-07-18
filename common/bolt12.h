@@ -154,4 +154,18 @@ struct tlv_invoice_request *invoice_request_for_offer(const tal_t *ctx,
 struct tlv_invoice *invoice_for_invreq(const tal_t *ctx,
 				       const struct tlv_invoice_request *invreq);
 
+/* BOLT-offers #12:
+ * Each form is signed using one or more *signature TLV elements*: TLV
+ * types 240 through 1000 (inclusive). */
+bool is_bolt12_signature_field(u64 typenum);
+
+/**
+ * Return the first field (if any) outside the inclusive ranges.
+ */
+const struct tlv_field *any_field_outside_range(const struct tlv_field *fields,
+						bool ignore_signature_fields,
+						size_t r1_start, size_t r1_end,
+						size_t r2_start, size_t r2_end);
+
+
 #endif /* LIGHTNING_COMMON_BOLT12_H */

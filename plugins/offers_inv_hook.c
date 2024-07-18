@@ -133,7 +133,7 @@ static struct command_result *listinvreqs_done(struct command *cmd,
 	 * A reader of an invoice:
 	 *...
 	 *   - if the invoice is a response to an `invoice_request`:
-	 *     - MUST reject the invoice if all fields less than type 160 do not exactly match the `invoice_request`.
+	 *     - MUST reject the invoice if all fields in ranges 0 to 159 and 1000000000 to 2999999999 (inclusive) do not exactly match the `invoice_request`.
 	 *     - if `offer_node_id` is present (invoice_request for an offer):
 	 *       - MUST reject the invoice if `invoice_node_id` is not equal to `offer_node_id`.
 	 *     - otherwise (invoice_request without an offer):
@@ -142,7 +142,7 @@ static struct command_result *listinvreqs_done(struct command *cmd,
 	 *   - otherwise: (a invoice presented without being requested, eg. scanned by user):
 	 */
 
-	/* Since the invreq_id hashes all fields < 160, we know it matches */
+	/* Since the invreq_id hashes all fields in those ranges, we know it matches */
 	if (arr->size == 0)
 		return fail_inv(cmd, inv, "Unknown invoice_request %s",
 				fmt_sha256(tmpctx, &inv->invreq_id));
