@@ -5883,6 +5883,27 @@ def test_decryptencrypteddata(node_factory):
     assert dec['decrypted'].startswith('0421' + l3.info['id'])
 
 
+def test_offer_experimental_fields(node_factory):
+    l1, l2 = node_factory.line_graph(2, opts={'experimental-offers': None})
+
+    # Append experimental type 1000000001, length 1
+    offer = l1.rpc.offer(amount='2msat', description='test_offer_path_self')['bolt12']
+    bolt12tool = os.path.join(os.path.dirname(__file__), "..", "devtools", "bolt12-cli")
+    # Returns HRP and hex
+    as_hex = subprocess.check_output([bolt12tool, 'decodehex', offer]).decode('UTF-8').split()
+    mangled = subprocess.check_output([bolt12tool, 'encodehex', as_hex[0], as_hex[1] + 'FE3B9ACA01' '01' '00']).decode('UTF-8').strip()
+
+    assert l1.rpc.decode(mangled)['unknown_offer_tlvs'] == [{'type': 1000000001, 'length': 1, 'value': '00'}]
+
+    # This will fail (offer has added field!)
+    with pytest.raises(RpcError, match="Unknown offer"):
+        l2.rpc.fetchinvoice(mangled)
+
+    # invice request contains the unknown field
+    m = re.search(r'invoice_request: \\"([a-z0-9]*)\\"', l2.daemon.is_in_log('invoice_request:'))
+    assert l1.rpc.decode(m.group(1))['unknown_invoice_request_tlvs'] == [{'type': 1000000001, 'length': 1, 'value': '00'}]
+
+
 def test_fetch_no_description_offer(node_factory):
     """Reproducing the issue: https://github.com/ElementsProject/lightning/issues/7405"""
     l1, l2 = node_factory.line_graph(2, opts={'experimental-offers': None,
