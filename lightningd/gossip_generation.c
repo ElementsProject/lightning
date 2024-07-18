@@ -70,7 +70,7 @@ u8 *create_channel_announcement(const tal_t *ctx,
 	copysig_or_zero(&bitcoin_signature[REMOTE], remote_bitcoin_signature);
 	copysig_or_zero(&node_signature[LOCAL], local_node_signature);
 	copysig_or_zero(&node_signature[REMOTE], remote_node_signature);
-	node_id[LOCAL] = channel->peer->ld->id;
+	node_id[LOCAL] = channel->peer->ld->our_nodeid;
 	node_id[REMOTE] = channel->peer->id;
 	funding_pubkey[LOCAL] = channel->local_funding_pubkey;
 	funding_pubkey[REMOTE] = channel->channel_info.remote_fundingkey;
@@ -104,7 +104,7 @@ u8 *unsigned_channel_update(const tal_t *ctx,
 	 * | 0             | `direction` | Direction this update refers to. |
 	 * | 1             | `disable`   | Disable the channel.             |
 	 */
-	channel_flags = node_id_idx(&channel->peer->ld->id,
+	channel_flags = node_id_idx(&channel->peer->ld->our_nodeid,
 				    &channel->peer->id);
 	if (!enabled)
 		channel_flags |= ROUTING_FLAGS_DISABLED;
@@ -372,7 +372,7 @@ static u8 *create_nannounce(const tal_t *ctx,
 	    towire_node_announcement(ctx, sig,
 				     ld->our_features->bits[NODE_ANNOUNCE_FEATURE],
 				     timestamp,
-				     &ld->id, ld->rgb, ld->alias,
+				     &ld->our_nodeid, ld->rgb, ld->alias,
 				     addresses,
 				     na_tlv);
 	return announcement;

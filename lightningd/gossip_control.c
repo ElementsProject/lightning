@@ -280,7 +280,7 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	    NULL,
 	    chainparams,
 	    ld->our_features,
-	    &ld->id,
+	    &ld->our_nodeid,
 	    ld->dev_gossip_time ? &ld->dev_gossip_time: NULL,
 	    ld->dev_fast_gossip,
 	    ld->dev_fast_gossip_prune);

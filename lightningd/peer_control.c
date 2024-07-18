@@ -105,7 +105,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->connected_incoming = connected_incoming;
 	peer->remote_addr = NULL;
 	list_head_init(&peer->channels);
-	peer->direction = node_id_idx(&peer->ld->id, &peer->id);
+	peer->direction = node_id_idx(&peer->ld->our_nodeid, &peer->id);
 	peer->connected = PEER_DISCONNECTED;
 	peer->last_connect_attempt.ts.tv_sec
 		= peer->last_connect_attempt.ts.tv_nsec = 0;
@@ -901,7 +901,7 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 	 * why bother if we can't use it? */
 	if (channel->scid || channel->alias[LOCAL] || channel->alias[REMOTE])
 		json_add_num(response, "direction",
-			     node_id_idx(&ld->id, &channel->peer->id));
+			     node_id_idx(&ld->our_nodeid, &channel->peer->id));
 
 	json_add_string(response, "channel_id",
 			fmt_channel_id(tmpctx, &channel->cid));
@@ -2679,7 +2679,7 @@ static struct command_result *json_getinfo(struct command *cmd,
 		return command_param_failed();
 
 	response = json_stream_success(cmd);
-	json_add_node_id(response, "id", &cmd->ld->id);
+	json_add_node_id(response, "id", &cmd->ld->our_nodeid);
 	json_add_string(response, "alias", (const char *)cmd->ld->alias);
 	json_add_hex_talarr(response, "color", cmd->ld->rgb);
 

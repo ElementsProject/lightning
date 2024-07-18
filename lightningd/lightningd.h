@@ -147,8 +147,9 @@ struct lightningd {
 	struct logger *log;
 	const char **logfiles;
 
-	/* This is us. */
-	struct node_id id;
+	/* This is us, in both node_id and pubkey form */
+	struct node_id our_nodeid;
+	struct pubkey our_pubkey;
 
 	/* The public base for our payer_id keys */
 	struct pubkey bolt12_base;

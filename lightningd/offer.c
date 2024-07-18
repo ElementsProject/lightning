@@ -450,9 +450,7 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 
 	invreq->invreq_payer_id = tal(invreq, struct pubkey);
 	if (*exposeid) {
-		if (!pubkey_from_node_id(invreq->invreq_payer_id,
-					 &cmd->ld->id))
-			fatal("Our ID is invalid?");
+		*invreq->invreq_payer_id = cmd->ld->our_pubkey;
 	} else if (!payer_key(cmd->ld,
 			      invreq->invreq_metadata,
 			      tal_bytelen(invreq->invreq_metadata),
