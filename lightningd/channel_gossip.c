@@ -420,7 +420,6 @@ static void send_channel_announce_sigs(struct channel *channel)
 	struct lightningd *ld = channel->peer->ld;
 	struct sha256_double hash;
 	secp256k1_ecdsa_signature local_node_sig, local_bitcoin_sig;
-	struct pubkey mykey;
 	const u8 *ca, *msg;
 
 	/* If it's already closing, don't bother. */
@@ -446,10 +445,7 @@ static void send_channel_announce_sigs(struct channel *channel)
 
 	/* Double-check that HSM gave valid signatures. */
 	sha256_double(&hash, ca + offset, tal_count(ca) - offset);
-	if (!pubkey_from_node_id(&mykey, &ld->id))
-		fatal("Could not convert own public key");
-
-	if (!check_signed_hash(&hash, &local_node_sig, &mykey)) {
+	if (!check_signed_hash(&hash, &local_node_sig, &ld->our_pubkey)) {
 		channel_internal_error(channel,
 				       "HSM returned an invalid node signature");
 		return;

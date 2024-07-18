@@ -2295,7 +2295,7 @@ int main(int argc, const char *argv[])
 	ld->peers_by_dbid = tal(ld, struct peer_dbid_map);
 	peer_dbid_map_init(ld->peers_by_dbid);
 	ld->rr_counter = 0;
-	node_id_from_hexstr("02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66, &ld->id);
+	node_id_from_hexstr("02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66, &ld->our_nodeid);
 	/* Accessed in peer destructor sanity check */
 	ld->htlcs_in = tal(ld, struct htlc_in_map);
 	htlc_in_map_init(ld->htlcs_in);

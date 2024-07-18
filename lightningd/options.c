@@ -1768,14 +1768,14 @@ void setup_color_and_alias(struct lightningd *ld)
 {
 	if (!ld->rgb)
 		/* You can't get much red by default */
-		ld->rgb = tal_dup_arr(ld, u8, ld->id.k, 3, 0);
+		ld->rgb = tal_dup_arr(ld, u8, ld->our_nodeid.k, 3, 0);
 
 	if (!ld->alias) {
 		u64 adjective, noun;
 		char *name;
 
-		memcpy(&adjective, ld->id.k+3, sizeof(adjective));
-		memcpy(&noun, ld->id.k+3+sizeof(adjective), sizeof(noun));
+		memcpy(&adjective, ld->our_nodeid.k+3, sizeof(adjective));
+		memcpy(&noun, ld->our_nodeid.k+3+sizeof(adjective), sizeof(noun));
 		noun %= ARRAY_SIZE(codename_noun);
 		adjective %= ARRAY_SIZE(codename_adjective);
 

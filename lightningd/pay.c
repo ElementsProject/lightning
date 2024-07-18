@@ -353,10 +353,10 @@ immediate_routing_failure(const tal_t *ctx,
 	routing_failure->erring_index = 0;
 	routing_failure->failcode = failcode;
 	routing_failure->erring_node =
-	    tal_dup(routing_failure, struct node_id, &ld->id);
+	    tal_dup(routing_failure, struct node_id, &ld->our_nodeid);
 	routing_failure->erring_channel =
 	    tal_dup(routing_failure, struct short_channel_id, &channel0);
-	routing_failure->channel_dir = node_id_idx(&ld->id, dstid);
+	routing_failure->channel_dir = node_id_idx(&ld->our_nodeid, dstid);
 	routing_failure->msg = NULL;
 
 	return routing_failure;
@@ -378,14 +378,14 @@ local_routing_failure(const tal_t *ctx,
 	routing_failure->failcode = failcode;
 
 	routing_failure->erring_node =
-	    tal_dup(routing_failure, struct node_id, &ld->id);
+	    tal_dup(routing_failure, struct node_id, &ld->our_nodeid);
 
 	if (payment->route_nodes != NULL && payment->route_channels != NULL) {
 		routing_failure->erring_channel =
 		    tal_dup(routing_failure, struct short_channel_id,
 			    &payment->route_channels[0]);
 		routing_failure->channel_dir =
-		    node_id_idx(&ld->id, &payment->route_nodes[0]);
+		    node_id_idx(&ld->our_nodeid, &payment->route_nodes[0]);
 	} else {
 		routing_failure->erring_channel = NULL;
 	}
@@ -444,7 +444,7 @@ remote_routing_failure(const tal_t *ctx,
 		erring_channel = &route_channels[origin_index];
 		/* Single hop? */
 		if (origin_index == 0)
-			dir = node_id_idx(&ld->id,
+			dir = node_id_idx(&ld->our_nodeid,
 					  &route_nodes[origin_index]);
 		else
 			dir = node_id_idx(&route_nodes[origin_index - 1],
@@ -1067,8 +1067,8 @@ send_payment_core(struct lightningd *ld,
 					   "peer found");
 
 		json_add_routefail_info(data, 0, WIRE_UNKNOWN_NEXT_PEER,
-					&ld->id, NULL,
-					node_id_idx(&ld->id,
+					&ld->our_nodeid, NULL,
+					node_id_idx(&ld->our_nodeid,
 						    &first_hop->node_id),
 					NULL);
 		json_object_end(data);
@@ -1434,7 +1434,7 @@ static struct command_result *self_payment(struct lightningd *ld,
 				     partid,
 				     groupid,
 				     PAYMENT_PENDING,
-				     &ld->id,
+				     &ld->our_nodeid,
 				     msat,
 				     msat,
 				     msat,
@@ -1458,7 +1458,7 @@ static struct command_result *self_payment(struct lightningd *ld,
 		/* tell_waiters_failed expects one of these! */
 		fail = tal(payment, struct routing_failure);
 		fail->failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
-		fail->erring_node = &ld->id;
+		fail->erring_node = &ld->our_nodeid;
 		fail->erring_index = 0;
 		fail->erring_channel = NULL;
 		fail->msg = NULL;

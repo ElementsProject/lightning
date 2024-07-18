@@ -756,7 +756,7 @@ int connectd_init(struct lightningd *ld)
 
 	msg = towire_connectd_init(tmpctx, chainparams,
 				   ld->our_features,
-				   &ld->id,
+				   &ld->our_nodeid,
 				   wireaddrs,
 				   listen_announce,
 				   ld->proxyaddr,

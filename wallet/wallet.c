@@ -2416,7 +2416,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_bind_u64(stmt, chan->channel_info.their_config.id);
 	/* Any pubkey works here: use our own node id */
 	if (chan->has_future_per_commitment_point)
-		db_bind_node_id(stmt, &chan->peer->ld->id);
+		db_bind_node_id(stmt, &chan->peer->ld->our_nodeid);
 	else
 		db_bind_null(stmt);
 	db_bind_u64(stmt, chan->dbid);
@@ -4237,14 +4237,14 @@ bool wallet_sanity_check(struct wallet *w)
 		db_col_node_id(stmt, "blobval", &id);
 		tal_free(stmt);
 
-		if (!node_id_eq(&id, &w->ld->id)) {
+		if (!node_id_eq(&id, &w->ld->our_nodeid)) {
 			log_broken(w->log, "Wallet node_id does not "
 					   "match HSM: %s "
 					   "!= %s. "
 					   "Did your hsm_secret change?",
 				   fmt_node_id(tmpctx, &id),
 				   fmt_node_id(tmpctx,
-						  &w->ld->id));
+						  &w->ld->our_nodeid));
 			return false;
 		}
 	} else {
@@ -4252,7 +4252,7 @@ bool wallet_sanity_check(struct wallet *w)
 		/* Still a pristine wallet, claim it for the node_id we are now */
 		stmt = db_prepare_v2(w->db, SQL("INSERT INTO vars (name, blobval) "
 						"VALUES ('node_id', ?);"));
-		db_bind_node_id(stmt, &w->ld->id);
+		db_bind_node_id(stmt, &w->ld->our_nodeid);
 		db_exec_prepared_v2(take(stmt));
 	}
 	return true;

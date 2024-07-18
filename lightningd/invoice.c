@@ -1200,7 +1200,7 @@ static struct command_result *json_invoice(struct command *cmd,
 	info->b11->chain = chainparams;
 	info->b11->timestamp = time_now().ts.tv_sec;
 	info->b11->payment_hash = rhash;
-	info->b11->receiver_id = cmd->ld->id;
+	info->b11->receiver_id = cmd->ld->our_nodeid;
 	info->b11->min_final_cltv_expiry = *cltv;
 	info->b11->expiry = *expiry;
 	info->b11->description = tal_steal(info->b11, desc_val);
@@ -1641,12 +1641,9 @@ static void add_stub_blindedpath(const tal_t *ctx,
 	struct blinded_path *path;
 	struct privkey blinding;
 	struct tlv_encrypted_data_tlv *tlv;
-	struct pubkey me;
 
 	path = tal(NULL, struct blinded_path);
-	if (!pubkey_from_node_id(&me, &ld->id))
-		abort();
-	sciddir_or_pubkey_from_pubkey(&path->first_node_id, &me);
+	sciddir_or_pubkey_from_pubkey(&path->first_node_id, &ld->our_pubkey);
 	randombytes_buf(&blinding, sizeof(blinding));
 	if (!pubkey_from_privkey(&blinding, &path->blinding))
 		abort();

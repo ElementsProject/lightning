@@ -48,7 +48,7 @@ int hsm_get_client_fd(struct lightningd *ld,
 
 int hsm_get_global_fd(struct lightningd *ld, u64 permissions)
 {
-	int fd = hsm_get_fd(ld, &ld->id, 0, permissions);
+	int fd = hsm_get_fd(ld, &ld->our_nodeid, 0, permissions);
 
 	if (fd < 0)
 		fatal("Could not read fd from HSM: %s", strerror(errno));
@@ -141,7 +141,7 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	if (fromwire_hsmd_init_reply_v4(ld, msg,
 					&hsm_version,
 					&ld->hsm_capabilities,
-					&ld->id, bip32_base,
+					&ld->our_nodeid, bip32_base,
 					&ld->bolt12_base)) {
 		/* nothing to do. */
 	} else {
@@ -149,6 +149,10 @@ struct ext_key *hsm_init(struct lightningd *ld)
 			errx(EXITCODE_HSM_BAD_PASSWORD, "Wrong password for encrypted hsm_secret.");
 		errx(EXITCODE_HSM_GENERIC_ERROR, "HSM did not give init reply");
 	}
+
+	if (!pubkey_from_node_id(&ld->our_pubkey, &ld->our_nodeid))
+		errx(EXITCODE_HSM_GENERIC_ERROR, "HSM gave invalid node id %s",
+		     fmt_node_id(tmpctx, &ld->our_nodeid));
 
 	if (hsm_version < HSM_MIN_VERSION)
 		errx(EXITCODE_HSM_GENERIC_ERROR,

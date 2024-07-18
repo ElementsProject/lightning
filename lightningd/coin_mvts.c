@@ -13,7 +13,7 @@ void notify_channel_mvt(struct lightningd *ld, const struct channel_coin_mvt *mv
 
 	timestamp = time_now().ts.tv_sec;
 	cm = finalize_channel_mvt(mvt, mvt, chainparams->lightning_hrp,
-				  timestamp, &ld->id);
+				  timestamp, &ld->our_nodeid);
 
 	notify_coin_mvt(ld, cm);
 }
@@ -25,7 +25,7 @@ void notify_chain_mvt(struct lightningd *ld, const struct chain_coin_mvt *mvt)
 
 	timestamp = time_now().ts.tv_sec;
 	cm = finalize_chain_mvt(mvt, mvt, chainparams->lightning_hrp,
-				timestamp, &ld->id);
+				timestamp, &ld->our_nodeid);
 	notify_coin_mvt(ld, cm);
 }
 
@@ -114,7 +114,7 @@ void send_account_balance_snapshot(struct lightningd *ld, u32 blockheight)
 
 	snap->blockheight = blockheight;
 	snap->timestamp = time_now().ts.tv_sec;
-	snap->node_id = &ld->id;
+	snap->node_id = &ld->our_nodeid;
 
 	/* Add the 'wallet' account balance */
 	snap->accts = tal_arr(snap, struct account_balance *, 1);
