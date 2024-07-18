@@ -718,6 +718,7 @@ static void json_add_extra_fields(struct json_stream *js,
 		json_add_u64(js, "length", fields[i].length);
 		json_add_hex(js, "value",
 			     fields[i].value, fields[i].length);
+		json_object_end(js);
 	}
 	if (have_extra)
 		json_array_end(js);
