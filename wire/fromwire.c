@@ -142,8 +142,7 @@ static u64 fromwire_tlv_uint(const u8 **cursor, size_t *max, size_t maxlen)
 		fromwire_fail(cursor, max);
 		return 0;
 	}
-	BUILD_ASSERT(sizeof(val) == sizeof(bytes));
-	memcpy(&val, bytes, sizeof(bytes));
+	CROSS_TYPE_ASSIGNMENT(&val, &bytes);
 	return be64_to_cpu(val);
 }
 

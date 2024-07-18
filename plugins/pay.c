@@ -315,9 +315,8 @@ static size_t pay_mpp_hash(const struct pay_sort_key *key)
 
 static bool pay_mpp_eq(const struct pay_mpp *pm, const struct pay_sort_key *key)
 {
-	return memcmp(pm->sortkey.payment_hash, key->payment_hash,
-		      sizeof(struct sha256)) == 0 &&
-		      pm->sortkey.groupid == key->groupid;
+	return sha256_eq(pm->sortkey.payment_hash, key->payment_hash)
+		&& pm->sortkey.groupid == key->groupid;
 }
 
 HTABLE_DEFINE_TYPE(struct pay_mpp, pay_mpp_key, pay_mpp_hash, pay_mpp_eq,

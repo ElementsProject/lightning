@@ -153,4 +153,20 @@ int tmpdir_mkstemp(const tal_t *ctx, const char *template TAKES, char **created)
  */
 char *str_lowering(const void *ctx, const char *string TAKES);
 
+/**
+ * Assign two different structs which are the same size.
+ * We use this for assigning secrets <-> sha256 for example.
+ */
+#define CROSS_TYPE_ASSIGNMENT(dst, src)					\
+	memcpy((dst), (src),						\
+	       sizeof(*(dst)) + BUILD_ASSERT_OR_ZERO(sizeof(*(dst)) == sizeof(*(src))))
+
+/**
+ * Compare two different structs which are the same size.
+ * We use this for comparing bitcoin_txid <-> sha256 for example.
+ */
+#define CROSS_TYPE_EQ(a, b)						\
+	(memcmp((a), (b),						\
+		sizeof(*(a)) + BUILD_ASSERT_OR_ZERO(sizeof(*(a)) == sizeof(*(b)))) == 0)
+
 #endif /* LIGHTNING_COMMON_UTILS_H */

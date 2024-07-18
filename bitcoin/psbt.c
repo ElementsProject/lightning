@@ -449,10 +449,9 @@ void psbt_elements_normalize_fees(struct wally_psbt *psbt)
 }
 
 void wally_psbt_input_get_txid(const struct wally_psbt_input *in,
-                 struct bitcoin_txid *txid)
+			       struct bitcoin_txid *txid)
 {
-    BUILD_ASSERT(sizeof(struct bitcoin_txid) == sizeof(in->txhash));
-    memcpy(txid, in->txhash, sizeof(struct bitcoin_txid));
+	CROSS_TYPE_ASSIGNMENT(txid, &in->txhash);
 }
 
 bool psbt_has_input(const struct wally_psbt *psbt,
@@ -886,25 +885,21 @@ struct amount_sat psbt_compute_fee(const struct wally_psbt *psbt)
 }
 
 bool wally_psbt_input_spends(const struct wally_psbt_input *input,
-               const struct bitcoin_outpoint *outpoint)
+			     const struct bitcoin_outpoint *outpoint)
 {
-    /* Useful, as tx_part can have some NULL inputs */
-    if (!input)
-        return false;
-    BUILD_ASSERT(sizeof(outpoint->txid) == sizeof(input->txhash));
+	/* Useful, as tx_part can have some NULL inputs */
+	if (!input)
+		return false;
 	if (input->index != outpoint->n)
 		return false;
-    if (memcmp(&outpoint->txid, input->txhash, sizeof(outpoint->txid)) != 0)
-        return false;
-    return true;
+	return CROSS_TYPE_EQ(&outpoint->txid, &input->txhash);
 }
 
 void wally_psbt_input_get_outpoint(const struct wally_psbt_input *in,
-                 struct bitcoin_outpoint *outpoint)
+				   struct bitcoin_outpoint *outpoint)
 {
-    BUILD_ASSERT(sizeof(struct bitcoin_txid) == sizeof(in->txhash));
-    memcpy(&outpoint->txid, in->txhash, sizeof(struct bitcoin_txid));
-    outpoint->n = in->index;
+	CROSS_TYPE_ASSIGNMENT(&outpoint->txid, &in->txhash);
+	outpoint->n = in->index;
 }
 
 const u8 *wally_psbt_output_get_script(const tal_t *ctx,

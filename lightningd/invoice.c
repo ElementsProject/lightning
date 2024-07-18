@@ -153,8 +153,7 @@ static void invoice_secret(const struct preimage *payment_preimage,
 
 	sha256(&secret, modified.r,
 	       ARRAY_SIZE(modified.r) * sizeof(*modified.r));
-	BUILD_ASSERT(sizeof(secret.u.u8) == sizeof(payment_secret->data));
-	memcpy(payment_secret->data, secret.u.u8, sizeof(secret.u.u8));
+	CROSS_TYPE_ASSIGNMENT(&payment_secret->data, &secret.u.u8);
 }
 
 /* FIXME: The spec should require a *real* secret: a signature of the

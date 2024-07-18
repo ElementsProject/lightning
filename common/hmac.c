@@ -3,6 +3,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
 #include <common/hmac.h>
+#include <common/utils.h>
 #include <wire/wire.h>
 
 void hmac_start(crypto_auth_hmacsha256_state *state,
@@ -40,8 +41,7 @@ void subkey_from_hmac(const char *prefix,
 {
 	struct hmac h;
 	hmac(base->data, sizeof(base->data), prefix, strlen(prefix), &h);
-	BUILD_ASSERT(sizeof(h.bytes) == sizeof(key->data));
-	memcpy(key->data, h.bytes, sizeof(key->data));
+	CROSS_TYPE_ASSIGNMENT(&key->data, &h.bytes);
 }
 
 void towire_hmac(u8 **pptr, const struct hmac *hmac)

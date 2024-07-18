@@ -9,8 +9,7 @@
 void derive_channel_id(struct channel_id *channel_id,
 		       const struct bitcoin_outpoint *outpoint)
 {
-	BUILD_ASSERT(sizeof(*channel_id) == sizeof(outpoint->txid));
-	memcpy(channel_id, &outpoint->txid, sizeof(*channel_id));
+	CROSS_TYPE_ASSIGNMENT(channel_id, &outpoint->txid);
 	channel_id->id[sizeof(*channel_id)-2] ^= outpoint->n >> 8;
 	channel_id->id[sizeof(*channel_id)-1] ^= outpoint->n;
 }
@@ -43,8 +42,7 @@ void derive_channel_id_v2(struct channel_id *channel_id,
 	pubkey_to_der(der_keys + offset_1, basepoint_1);
 	pubkey_to_der(der_keys + offset_2, basepoint_2);
 	sha256(&sha, der_keys, sizeof(der_keys));
-	BUILD_ASSERT(sizeof(*channel_id) == sizeof(sha));
-	memcpy(channel_id, &sha, sizeof(*channel_id));
+	CROSS_TYPE_ASSIGNMENT(channel_id, &sha);
 }
 
 void derive_tmp_channel_id(struct channel_id *channel_id,
@@ -61,8 +59,7 @@ void derive_tmp_channel_id(struct channel_id *channel_id,
 	memset(der_keys, 0, PUBKEY_CMPR_LEN);
 	pubkey_to_der(der_keys + PUBKEY_CMPR_LEN, opener_basepoint);
 	sha256(&sha, der_keys, sizeof(der_keys));
-	BUILD_ASSERT(sizeof(*channel_id) == sizeof(sha));
-	memcpy(channel_id, &sha, sizeof(*channel_id));
+	CROSS_TYPE_ASSIGNMENT(channel_id, &sha);
 }
 
 /* BOLT #2:
