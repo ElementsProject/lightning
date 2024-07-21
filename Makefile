@@ -367,8 +367,10 @@ ifneq ($(FUZZING),0)
 endif
 ifneq ($(RUST),0)
 	include cln-rpc/Makefile
+ifneq ($(GRPC),0)
+	include cln-grpc/Makefile
 endif
-include cln-grpc/Makefile
+endif
 
 ifneq ($V,1)
 MSGGEN_ARGS := -s
@@ -377,6 +379,7 @@ endif
 $(MSGGEN_GENALL)&: contrib/msggen/msggen/schema.json
 	@$(call VERBOSE, "msggen $@", PYTHONPATH=contrib/msggen $(PYTHON) contrib/msggen/msggen/__main__.py $(MSGGEN_ARGS) generate)
 
+ifneq ($(GRPC),0)
 # The compiler assumes that the proto files are in the same
 # directory structure as the generated files will be. Since we
 # don't do that we need to path the files up.
@@ -395,6 +398,7 @@ $(GRPC_GEN) &: cln-grpc/proto/node.proto cln-grpc/proto/primitives.proto
 	$(PYTHON) -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/primitives.proto --python_out=$(GRPC_PATH)/ --experimental_allow_proto3_optional
 	find $(GRPC_DIR)/ -type f -name "*.py" -print0 | xargs -0 sed -i'.bak' -e 's/^import \(.*\)_pb2 as .*__pb2/from pyln.grpc import \1_pb2 as \1__pb2/g'
 	find $(GRPC_DIR)/ -type f -name "*.py.bak" -print0 | xargs -0 rm -f
+endif
 
 # We make pretty much everything depend on these.
 ALL_GEN_HEADERS := $(filter %gen.h,$(ALL_C_HEADERS))

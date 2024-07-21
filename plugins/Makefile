@@ -117,12 +117,14 @@ PLUGINS := $(C_PLUGINS)
 PLUGIN_ALL_OBJS := $(PLUGIN_ALL_SRC:.c=.o)
 
 ifneq ($(RUST),0)
+ifneq ($(GRPC),0)
 # Builtin plugins must be in this plugins dir to work when we're executed
 # *without* make install.
 plugins/cln-grpc: target/${RUST_PROFILE}/cln-grpc
 	@cp $< $@
 
 PLUGINS += plugins/cln-grpc
+endif
 endif
 
 PLUGIN_COMMON_OBJS :=				\
@@ -264,7 +266,10 @@ target/${RUST_PROFILE}/cln-grpc: ${CLN_PLUGIN_SRC} ${CLN_GRPC_PLUGIN_SRC}
 	cargo build ${CARGO_OPTS} --bin cln-grpc
 
 ifneq ($(RUST),0)
-DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc
+DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES)
+ifneq ($(GRPC),0)
+DEFAULT_TARGETS += plugins/cln-grpc
+endif
 endif
 
 clean: plugins-clean

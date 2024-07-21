@@ -179,6 +179,7 @@ set_defaults()
     VALGRIND=${VALGRIND:-$(default_valgrind_setting)}
     TEST_NETWORK=${TEST_NETWORK:-regtest}
     RUST=${RUST:-$(default_rust_setting)}
+    GRPC=1
 }
 
 usage()
@@ -220,6 +221,8 @@ usage()
     echo "    Compile with fuzzing"
     usage_with_default "--enable/disable-rust" "$RUST" "enable" "disable"
     echo "    Compile with Rust support"
+    usage_with_default "--enable/disable-grpc" "$GRPC" "enable" "disable"
+    echo "    Compile with cln-grpc plugin"
     exit 1
 }
 
@@ -283,6 +286,8 @@ for opt in "$@"; do
 	--disable-fuzzing) FUZZING=0;;
 	--enable-rust) RUST=1;;
 	--disable-rust) RUST=0;;
+	--enable-grpc) GRPC=1;;
+	--disable-grpc) GRPC=0;;
 	--help|-h) usage;;
 	*)
 	    echo "Unknown option '$opt'" >&2
@@ -543,6 +548,7 @@ add_var HAVE_LOWDOWN "$HAVE_LOWDOWN"
 add_var SHA256SUM "$SHA256SUM"
 add_var FUZZING "$FUZZING"
 add_var RUST "$RUST"
+add_var GRPC "$GRPC"
 add_var PYTHON "$PYTHON"
 
 # Hack to avoid sha256 name clash with libwally: will be fixed when that
