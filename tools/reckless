@@ -29,6 +29,8 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(stream=sys.stdout)],
 )
 
+LAST_FOUND = None
+
 
 class Logger:
     """Redirect logging output to a json object or stdout as appropriate."""
@@ -52,7 +54,6 @@ class Logger:
             return
         if self.capture:
             self.json_output['log'].append(f"INFO: {to_log}")
-            self.json_output['result'].append(to_log)
         else:
             print(to_log)
 
@@ -73,6 +74,18 @@ class Logger:
             self.json_output['log'].append(f"ERROR: {to_log}")
         else:
             logging.error(to_log)
+
+    def add_result(self, result: Union[str, None]):
+        assert json.dumps(result), "result must be json serializable"
+        self.json_output["result"].append(result)
+
+    def reply_json(self):
+        """json output to stdout with accumulated result."""
+        if len(log.json_output["result"]) == 1 and \
+           isinstance(log.json_output["result"][0], list):
+            # unpack sources output
+            log.json_output["result"] = log.json_output["result"][0]
+        print(json.dumps(log.json_output, indent=3))
 
 
 log = Logger()
@@ -1268,8 +1281,10 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     return staged_src
 
 
-def install(plugin_name: str):
-    """downloads plugin from source repos, installs and activates plugin"""
+def install(plugin_name: str) -> Union[str, None]:
+    """Downloads plugin from source repos, installs and activates plugin.
+    Returns the location of the installed plugin or "None" in the case of
+    failure."""
     assert isinstance(plugin_name, str)
     # Specify a tag or commit to checkout by adding @<tag> to plugin name
     if '@' in plugin_name:
@@ -1279,14 +1294,16 @@ def install(plugin_name: str):
         name = plugin_name
         commit = None
     log.debug(f"Searching for {name}")
-    src = search(name)
-    if src:
+    if search(name):
+        global LAST_FOUND
+        src = LAST_FOUND
         src.commit = commit
         log.debug(f'Retrieving {src.name} from {src.source_loc}')
         installed = _install_plugin(src)
+        LAST_FOUND = None
         if not installed:
-            log.warning('installation aborted')
-            sys.exit(1)
+            log.warning(f'{plugin_name}: installation aborted')
+            return None
 
         # Match case of the containing directory
         for dirname in os.listdir(RECKLESS_CONFIG.reckless_dir):
@@ -1295,14 +1312,16 @@ def install(plugin_name: str):
                 inst_path = inst_path / dirname / installed.entry
                 RECKLESS_CONFIG.enable_plugin(inst_path)
                 enable(installed.name)
-                return
+                return f"{installed.source_loc}"
         log.error(('dynamic activation failed: '
                   f'{installed.name} not found in reckless directory'))
-        sys.exit(1)
+        return None
+    return None
 
 
-def uninstall(plugin_name: str):
-    """disables plugin and deletes the plugin's reckless dir"""
+def uninstall(plugin_name: str) -> str:
+    """dDisables plugin and deletes the plugin's reckless dir. Returns the
+    status of the uninstall attempt."""
     assert isinstance(plugin_name, str)
     log.debug(f'Uninstalling plugin {plugin_name}')
     disable(plugin_name)
@@ -1310,10 +1329,13 @@ def uninstall(plugin_name: str):
     if not Path(inst.entry).exists():
         log.error("cannot find installed plugin at expected path"
                   f"{inst.entry}")
-        sys.exit(1)
+        return "uninstall failed"
     log.debug(f'looking for {str(Path(inst.entry).parent)}')
     if remove_dir(str(Path(inst.entry).parent)):
         log.info(f"{inst.name} uninstalled successfully.")
+    else:
+        return "uninstall failed"
+    return "uninstalled"
 
 
 def search(plugin_name: str) -> Union[InstInfo, None]:
@@ -1345,7 +1367,10 @@ def search(plugin_name: str) -> Union[InstInfo, None]:
         log.debug(f"entry: {found.entry}")
         if found.subdir:
             log.debug(f'sub-directory: {found.subdir}')
-        return found
+        global LAST_FOUND
+        # Stashing the search result saves install() a call to _source_search.
+        LAST_FOUND = found
+        return str(found.source_loc)
     log.debug("Search exhausted all sources")
     return None
 
@@ -1409,12 +1434,14 @@ def enable(plugin_name: str):
             log.debug(f'{inst.name} is already running')
         else:
             log.error(f'reckless: {inst.name} failed to start!')
-            raise err
+            log.error(err)
+            return None
     except RPCError:
         log.debug(('lightningd rpc unavailable. '
                    'Skipping dynamic activation.'))
     RECKLESS_CONFIG.enable_plugin(path)
     log.info(f'{inst.name} enabled')
+    return 'enabled'
 
 
 def disable(plugin_name: str):
@@ -1425,7 +1452,7 @@ def disable(plugin_name: str):
     path = inst.entry
     if not Path(path).exists():
         sys.stderr.write(f'Could not find plugin at {path}\n')
-        sys.exit(1)
+        return None
     log.debug(f'deactivating {plugin_name}')
     try:
         lightning_cli('plugin', 'stop', path)
@@ -1434,12 +1461,14 @@ def disable(plugin_name: str):
             log.debug('plugin not currently running')
         else:
             log.error('lightning-cli plugin stop failed')
-            raise err
+            logging.error(err)
+            return None
     except RPCError:
         log.debug(('lightningd rpc unavailable. '
                    'Skipping dynamic deactivation.'))
     RECKLESS_CONFIG.disable_plugin(path)
     log.info(f'{inst.name} disabled')
+    return 'disabled'
 
 
 def load_config(reckless_dir: Union[str, None] = None,
@@ -1519,18 +1548,17 @@ def add_source(src: str):
     assert isinstance(src, str)
     # Is it a file?
     maybe_path = os.path.realpath(src)
+    sources = Config(path=str(get_sources_file()),
+                     default_text='https://github.com/lightningd/plugins')
     if Path(maybe_path).exists():
         if os.path.isdir(maybe_path):
-            default_repo = 'https://github.com/lightningd/plugins'
-            my_file = Config(path=str(get_sources_file()),
-                             default_text=default_repo)
-            my_file.editConfigFile(src, None)
+            sources.editConfigFile(src, None)
     elif 'github.com' in src or 'http://' in src or 'https://' in src:
-        my_file = Config(path=str(get_sources_file()),
-                         default_text='https://github.com/lightningd/plugins')
-        my_file.editConfigFile(src, None)
+        sources.editConfigFile(src, None)
     else:
         log.warning(f'failed to add source {src}')
+        return None
+    return sources_from_file()
 
 
 def remove_source(src: str):
@@ -1543,12 +1571,20 @@ def remove_source(src: str):
         log.info('plugin source removed')
     else:
         log.warning(f'source not found: {src}')
+    return sources_from_file()
 
 
 def list_source():
     """Provide the user with all stored source repositories."""
     for src in sources_from_file():
         log.info(src)
+    return sources_from_file()
+
+
+def report_version() -> str:
+    """return reckless version"""
+    log.info(__VERSION__)
+    log.add_result(__VERSION__)
 
 
 class StoreIdempotent(argparse.Action):
@@ -1633,6 +1669,9 @@ if __name__ == '__main__':
                                '"reckless <cmd> -h"')
     help_cmd.add_argument('targets', type=str, nargs='*')
     help_cmd.set_defaults(func=help_alias)
+    parser.add_argument('-V', '--version',
+                        action=StoreTrueIdempotent, const=None,
+                        help='print version and exit')
 
     all_parsers = [parser, install_cmd, uninstall_cmd, search_cmd, enable_cmd,
                    disable_cmd, list_parse, source_add, source_rem, help_cmd]
@@ -1655,8 +1694,6 @@ if __name__ == '__main__':
                        type=str)
         p.add_argument('-v', '--verbose', action=StoreTrueIdempotent,
                        const=None)
-        p.add_argument('-V', '--version', action='store_true',
-                       help='return reckless version and exit')
         p.add_argument('-j', '--json', action=StoreTrueIdempotent,
                        help='output in json format')
 
@@ -1675,7 +1712,7 @@ if __name__ == '__main__':
     SUPPORTED_NETWORKS = ['bitcoin', 'regtest', 'liquid', 'liquid-regtest',
                           'litecoin', 'signet', 'testnet']
     if args.version:
-        log.info(__VERSION__)
+        report_version()
     elif args.cmd1 is None:
         parser.print_help(sys.stdout)
         sys.exit(1)
@@ -1719,10 +1756,9 @@ if __name__ == '__main__':
             args.func(args.targets)
             sys.exit(0)
         for target in args.targets:
-            args.func(target)
+            log.add_result(args.func(target))
     elif 'func' in args:
-        args.func()
+        log.add_result(args.func())
 
-    # reply with json if requested
     if log.capture:
-        print(json.dumps(log.json_output, indent=4))
+        log.reply_json()
