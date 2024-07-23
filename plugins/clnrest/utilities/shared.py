@@ -104,10 +104,8 @@ def verify_rune(plugin, rune, rpc_method, rpc_params):
 def process_help_response(help_response):
     # Use json5.loads due to single quotes in response
     processed_res = json5.loads(str(help_response))["help"]
-    line = "\n---------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n\n"
-    processed_html_res = ""
+    line = "\n\n---------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n\n"
+    processed_html_res = "\n"
     for row in processed_res:
-        processed_html_res += f"Command: {row['command']}\n"
-        processed_html_res += f"Description: {row['description']}\n"
-        processed_html_res += line
+        processed_html_res += row['command'] + line
     return processed_html_res

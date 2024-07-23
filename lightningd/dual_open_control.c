@@ -3893,8 +3893,6 @@ static struct command_result *json_queryrates(struct command *cmd,
 static const struct json_command queryrates_command = {
 	"dev-queryrates",
 	json_queryrates,
-	"Ask a peer what their contribution and liquidity rates are"
-	" for the given {amount} and {requested_amt}",
 	.dev_only = true,
 };
 
@@ -3903,34 +3901,26 @@ AUTODATA(json_command, &queryrates_command);
 static const struct json_command openchannel_init_command = {
 	"openchannel_init",
 	json_openchannel_init,
-	"Init an open channel to {id} with {initialpsbt} for {amount} satoshis. "
-	"Returns updated {psbt} with (partial) contributions from peer"
 };
 
 static const struct json_command openchannel_update_command = {
 	"openchannel_update",
 	json_openchannel_update,
-	"Update {channel_id} with {psbt}. "
-	"Returns updated {psbt} with (partial) contributions from peer. "
-	"If {commitments_secured} is true, next call should be to openchannel_signed"
 };
 
 static const struct json_command openchannel_signed_command = {
 	"openchannel_signed",
 	json_openchannel_signed,
-	"Send our {signed_psbt}'s tx sigs for {channel_id}."
 };
 
 static const struct json_command openchannel_bump_command = {
 	"openchannel_bump",
 	json_openchannel_bump,
-	"Attempt to bump the fee on {channel_id}'s funding transaction."
 };
 
 static const struct json_command openchannel_abort_command = {
 	"openchannel_abort",
 	json_openchannel_abort,
-	"Abort {channel_id}'s open. Usable while `commitment_signed=false`."
 };
 
 AUTODATA(json_command, &openchannel_init_command);

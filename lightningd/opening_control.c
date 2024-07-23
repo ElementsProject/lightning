@@ -1665,31 +1665,23 @@ static struct command_result *json_recoverchannel(struct command *cmd,
 static const struct json_command fundchannel_start_command = {
     "fundchannel_start",
     json_fundchannel_start,
-    "Start fund channel with {id} using {amount} satoshis. "
-    "Returns a bech32 address to use as an output for a funding transaction."
 };
 AUTODATA(json_command, &fundchannel_start_command);
 
 static const struct json_command fundchannel_cancel_command = {
     "fundchannel_cancel",
     json_fundchannel_cancel,
-    "Cancel inflight channel establishment with peer {id}."
 };
 AUTODATA(json_command, &fundchannel_cancel_command);
 
 static const struct json_command fundchannel_complete_command = {
     "fundchannel_complete",
     json_fundchannel_complete,
-    "Complete channel establishment with peer {id} for funding transaction"
-    "with {psbt}. Returns true on success, false otherwise."
 };
 AUTODATA(json_command, &fundchannel_complete_command);
 
 static const struct json_command json_commitchan_command = {
         "recoverchannel",
         json_recoverchannel,
-        "Populate the DB with a channel and peer"
-        "Used for recovering the channel using DLP."
-        "This needs param in the form of an array [scb1,scb2,...]"
 };
 AUTODATA(json_command, &json_commitchan_command);

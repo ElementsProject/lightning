@@ -254,8 +254,6 @@ static struct command_result *json_connect(struct command *cmd,
 static const struct json_command connect_command = {
 	"connect",
 	json_connect,
-	"Connect to {id} at {host} (which can end in ':port' if not default). "
-	"{id} can also be of the form id@host"
 };
 AUTODATA(json_command, &connect_command);
 
@@ -915,7 +913,6 @@ static struct command_result *json_sendcustommsg(struct command *cmd,
 static const struct json_command sendcustommsg_command = {
     "sendcustommsg",
     json_sendcustommsg,
-    "Send a custom message to the peer with the given {node_id}",
 };
 
 AUTODATA(json_command, &sendcustommsg_command);
@@ -937,7 +934,6 @@ static struct command_result *json_dev_suppress_gossip(struct command *cmd,
 static const struct json_command dev_suppress_gossip = {
 	"dev-suppress-gossip",
 	json_dev_suppress_gossip,
-	"Stop this node from sending any more gossip.",
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_suppress_gossip);
@@ -959,7 +955,6 @@ static struct command_result *json_dev_report_fds(struct command *cmd,
 static const struct json_command dev_report_fds = {
 	"dev-report-fds",
 	json_dev_report_fds,
-	"Ask connectd to report status of all its open files.",
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_report_fds);
@@ -981,7 +976,6 @@ static struct command_result *json_dev_connectd_exhaust_fds(struct command *cmd,
 static const struct json_command dev_connectd_exhaust_fds = {
 	"dev-connectd-exhaust-fds",
 	json_dev_connectd_exhaust_fds,
-	"Make connectd run out of file descriptors",
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_connectd_exhaust_fds);

@@ -2199,27 +2199,18 @@ static struct command_result *json_splice_signed(struct command *cmd,
 static const struct json_command splice_init_command = {
 	"splice_init",
 	json_splice_init,
-	"Init a channel splice to {channel_id} for {relative_amount} satoshis with {initialpsbt}. "
-	"Returns updated {psbt} with (partial) contributions from peer"
 };
 AUTODATA(json_command, &splice_init_command);
 
 static const struct json_command splice_update_command = {
 	"splice_update",
 	json_splice_update,
-	"Update {channel_id} currently active negotiated splice with {psbt}. "
-	""
-	"Returns updated {psbt} with (partial) contributions from peer. "
-	"If {commitments_secured} is true, next call may be to splicechannel_finalize, "
-	"otherwise keep calling splice_update passing back in the returned PSBT until "
-	"{commitments_secured} is true."
 };
 AUTODATA(json_command, &splice_update_command);
 
 static const struct json_command splice_signed_command = {
 	"splice_signed",
 	json_splice_signed,
-	"Send our {signed_psbt}'s tx sigs for {channel_id}."
 };
 AUTODATA(json_command, &splice_signed_command);
 
@@ -2272,7 +2263,6 @@ static struct command_result *json_dev_feerate(struct command *cmd,
 static const struct json_command dev_feerate_command = {
 	"dev-feerate",
 	json_dev_feerate,
-	"Set feerate for {id} to {feerate}",
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_feerate_command);
@@ -2328,7 +2318,6 @@ static struct command_result *json_dev_quiesce(struct command *cmd,
 static const struct json_command dev_quiesce_command = {
 	"dev-quiesce",
 	json_dev_quiesce,
-	"Initiate quiscence protocol with peer",
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_quiesce_command);

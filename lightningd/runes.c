@@ -408,7 +408,6 @@ static struct command_result *json_showrunes(struct command *cmd,
 static const struct json_command showrunes_command = {
 	"showrunes",
 	json_showrunes,
-	"Show the list of runes or decode an optional {rune}."
 };
 AUTODATA(json_command, &showrunes_command);
 
@@ -587,14 +586,12 @@ static struct command_result *json_createrune(struct command *cmd,
 static const struct json_command creatrune_command = {
 	"createrune",
 	json_createrune,
-	"Create or restrict an optional {rune} with optional {restrictions} and returns {rune}"
 };
 AUTODATA(json_command, &creatrune_command);
 
 static const struct json_command invokerune_command = {
 	"invokerune",
 	json_createrune,
-	"Invoke or restrict an optional {rune} with optional {restrictions} and returns {rune}"
 };
 AUTODATA(json_command, &invokerune_command);
 
@@ -698,14 +695,12 @@ static struct command_result *json_blacklistrune(struct command *cmd,
 static const struct json_command blacklistrune_command = {
 	"blacklistrune",
 	json_blacklistrune,
-	"Blacklist a rune or range of runes by taking an optional {start} and an optional {end} and returns {blacklist} array containing {start}, {end}"
 };
 AUTODATA(json_command, &blacklistrune_command);
 
 static const struct json_command destroyrune_command = {
 	"destroyrune",
 	json_blacklistrune,
-	"Destroy a rune or range of runes by taking an optional {start} and an optional {end} and returns {blacklist} array containing {start}, {end}"
 };
 AUTODATA(json_command, &destroyrune_command);
 
@@ -994,6 +989,5 @@ static struct command_result *json_checkrune(struct command *cmd,
 static const struct json_command checkrune_command = {
 	"checkrune",
 	json_checkrune,
-	"Checks rune for validity with required {rune} and optional {nodeid}, {method}, {params} and returns {valid: true} or error message"
 };
 AUTODATA(json_command, &checkrune_command);

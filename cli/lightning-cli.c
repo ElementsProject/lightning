@@ -179,11 +179,9 @@ static void human_help(char *buffer, const jsmntok_t *result)
 	unsigned int i;
 	/* `curr` is used as a temporary token */
 	const jsmntok_t *curr;
-	const char *prev_cat;
 	/* Contains all commands objects, which have the following structure :
 	 * {
-	 *     "command": "The command name and usage",
-	 *     "description": "The command's description"
+	 *     "command": "The command name and usage"
 	 * }
 	 */
 	const jsmntok_t * help_array = json_get_member(buffer, result, "help");
@@ -196,22 +194,11 @@ static void human_help(char *buffer, const jsmntok_t *result)
 
 	asort(help, tal_count(help), compare_help, buffer);
 
-	prev_cat = "";
 	for (i = 0; i < tal_count(help); i++) {
-		const jsmntok_t *category, *command, *desc;
-
-		category = json_get_member(buffer, help[i], "category");
-		if (category && !json_tok_streq(buffer, category, prev_cat)) {
-			prev_cat = json_strdup(help, buffer, category);
-			printf("=== %s ===\n\n", prev_cat);
-		}
-
+		const jsmntok_t *command;
 		command = json_get_member(buffer, help[i], "command");
-		desc = json_get_member(buffer, help[i], "description");
-		printf("%.*s\n",
+		printf("%.*s\n\n",
 		       command->end - command->start, buffer + command->start);
-		printf("    %.*s\n\n",
-		       desc->end - desc->start, buffer + desc->start);
 	}
 	tal_free(help);
 

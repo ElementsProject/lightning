@@ -118,6 +118,5 @@ static struct command_result *json_listclosedchannels(struct command *cmd,
 static const struct json_command listclosedchannels_command = {
 	"listclosedchannels",
 	json_listclosedchannels,
-	"Show historical (dead) channels."
 };
 AUTODATA(json_command, &listclosedchannels_command);

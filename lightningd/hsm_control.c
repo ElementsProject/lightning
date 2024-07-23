@@ -288,6 +288,5 @@ static struct command_result *json_makesecret(struct command *cmd,
 static const struct json_command makesecret_command = {
 	"makesecret",
 	&json_makesecret,
-	"Get a pseudorandom secret key, using some {hex} data."
 };
 AUTODATA(json_command, &makesecret_command);

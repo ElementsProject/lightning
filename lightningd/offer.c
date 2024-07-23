@@ -123,7 +123,6 @@ static struct command_result *json_createoffer(struct command *cmd,
 static const struct json_command createoffer_command = {
 	"createoffer",
 	json_createoffer,
-	"Create and sign an offer {bolt12} with and optional {label}."
 };
 AUTODATA(json_command, &createoffer_command);
 
@@ -183,8 +182,6 @@ static struct command_result *json_listoffers(struct command *cmd,
 static const struct json_command listoffers_command = {
 	"listoffers",
 	json_listoffers,
-	"If {offer_id} is set, show that."
-	" Otherwise, if {showdisabled} is true, list all, otherwise just non-disabled ones."
 };
 AUTODATA(json_command, &listoffers_command);
 
@@ -226,7 +223,6 @@ static struct command_result *json_disableoffer(struct command *cmd,
 static const struct json_command disableoffer_command = {
 	"disableoffer",
 	json_disableoffer,
-	"Disable offer {offer_id}",
 };
 AUTODATA(json_command, &disableoffer_command);
 
@@ -493,7 +489,6 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 static const struct json_command createinvreq_command = {
 	"createinvoicerequest",
 	json_createinvoicerequest,
-	"Create and sign an invoice_request {bolt12}, with {recurrence_label} if recurring, filling in payer_info and payer_key."
 };
 AUTODATA(json_command, &createinvreq_command);
 
@@ -529,7 +524,6 @@ static struct command_result *json_payersign(struct command *cmd,
 static const struct json_command payersign_command = {
 	"payersign",
 	json_payersign,
-	"Sign {messagename} {fieldname} {merkle} (a 32-byte hex string) using public {tweak}",
 };
 AUTODATA(json_command, &payersign_command);
 
@@ -590,8 +584,6 @@ static struct command_result *json_listinvoicerequests(struct command *cmd,
 static const struct json_command listinvoicerequests_command = {
 	"listinvoicerequests",
 	json_listinvoicerequests,
-	"If {invreq_id} is set, show that."
-	" Otherwise, if {showdisabled} is true, list all, otherwise just non-disabled ones."
 };
 AUTODATA(json_command, &listinvoicerequests_command);
 
@@ -634,7 +626,6 @@ static struct command_result *json_disableinvoicerequest(struct command *cmd,
 static const struct json_command disableinvoicerequest_command = {
 	"disableinvoicerequest",
 	json_disableinvoicerequest,
-	"Disable invoice_request {invreq_id}",
 };
 AUTODATA(json_command, &disableinvoicerequest_command);
 

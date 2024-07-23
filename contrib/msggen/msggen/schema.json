@@ -12567,20 +12567,13 @@
               "type": "object",
               "additionalProperties": true,
               "required": [
-                "command",
-                "description"
+                "command"
               ],
               "properties": {
                 "command": {
                   "type": "string",
                   "description": [
                     "The command."
-                  ]
-                },
-                "description": {
-                  "type": "string",
-                  "description": [
-                    "A one-line description of the purpose of this command."
                   ]
                 }
               }
@@ -12621,8 +12614,7 @@
           "response": {
             "help": [
               {
-                "command": "pay bolt11 [amount_msat] [label] [riskfactor] [maxfeepercent] [retry_for] [maxdelay] [exemptfee] [localinvreqid] [exclude] [maxfee] [description] [dev_use_shadow]",
-                "description": "Send payment specified by {bolt11}"
+                "command": "pay bolt11 [amount_msat] [label] [riskfactor] [maxfeepercent] [retry_for] [maxdelay] [exemptfee] [localinvreqid] [exclude] [maxfee] [description] [dev_use_shadow]"
               }
             ],
             "format-hint": "simple"
@@ -12639,8 +12631,7 @@
           "response": {
             "help": [
               {
-                "command": "dev subcommand=crash|rhash|slowcmd",
-                "description": "Developer command test multiplexer"
+                "command": "dev subcommand=crash|rhash|slowcmd"
               }
             ],
             "format-hint": "simple"

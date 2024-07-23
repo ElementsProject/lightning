@@ -174,7 +174,6 @@ static struct command_result *json_newaddr(struct command *cmd,
 static const struct json_command newaddr_command = {
 	"newaddr",
 	json_newaddr,
-	"Get a new {bech32} (or all) address to fund a channel",
 };
 AUTODATA(json_command, &newaddr_command);
 
@@ -244,7 +243,6 @@ static struct command_result *json_listaddrs(struct command *cmd,
 static const struct json_command listaddrs_command = {
 	"dev-listaddrs",
 	json_listaddrs,
-	"Show addresses list up to derivation {index} (default is the last bip32 index)",
 	.dev_only = true,
 };
 AUTODATA(json_command, &listaddrs_command);
@@ -389,7 +387,6 @@ static struct command_result *json_listfunds(struct command *cmd,
 static const struct json_command listfunds_command = {
 	"listfunds",
 	json_listfunds,
-	"Show available funds from the internal wallet",
 };
 AUTODATA(json_command, &listfunds_command);
 
@@ -462,7 +459,6 @@ static struct command_result *json_dev_rescan_outputs(struct command *cmd,
 static const struct json_command dev_rescan_output_command = {
 	"dev-rescan-outputs",
 	json_dev_rescan_outputs,
-	"Synchronize the state of our funds with bitcoind",
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_rescan_output_command);
@@ -562,7 +558,6 @@ static struct command_result *json_listtransactions(struct command *cmd,
 static const struct json_command listtransactions_command = {
     "listtransactions",
     json_listtransactions,
-    "List transactions that we stored in the wallet",
 };
 AUTODATA(json_command, &listtransactions_command);
 
@@ -782,7 +777,6 @@ static struct command_result *json_signpsbt(struct command *cmd,
 static const struct json_command signpsbt_command = {
 	"signpsbt",
 	json_signpsbt,
-	"Sign this wallet's inputs on a provided PSBT.",
 	false
 };
 
@@ -819,7 +813,6 @@ static struct command_result *json_setpsbtversion(struct command *cmd,
 static const struct json_command setpsbtversion_command = {
 	"setpsbtversion",
 	json_setpsbtversion,
-	"Convert a given PSBT to the {version} requested (v0 or v2)",
 	false
 };
 
@@ -980,7 +973,6 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 static const struct json_command sendpsbt_command = {
 	"sendpsbt",
 	json_sendpsbt,
-	"Finalize, extract and send a PSBT.",
 	false
 };
 

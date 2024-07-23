@@ -187,7 +187,6 @@ static struct command_result *json_help(struct command *cmd,
 static const struct json_command help_command = {
 	"help",
 	json_help,
-	"List available commands, or give verbose help on one {command}.",
 };
 AUTODATA(json_command, &help_command);
 
@@ -248,7 +247,6 @@ static struct command_result *json_stop(struct command *cmd,
 static const struct json_command stop_command = {
 	"stop",
 	json_stop,
-	"Shut down the lightningd process"
 };
 AUTODATA(json_command, &stop_command);
 
@@ -354,7 +352,6 @@ static struct command_result *json_recover(struct command *cmd,
 static const struct json_command recover_command = {
 	"recover",
 	json_recover,
-	"Restart an unused lightning node with --recover"
 };
 AUTODATA(json_command, &recover_command);
 
@@ -430,7 +427,6 @@ static struct command_result *json_dev(struct command *cmd UNUSED,
 static const struct json_command dev_command = {
 	"dev",
 	json_dev,
-	"Developer command test multiplexer",
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_command);
@@ -466,7 +462,6 @@ static void json_add_help_command(struct command *cmd,
 				   json_command->name));
 	json_object_start(response, NULL);
 	json_add_string(response, "command", usage);
-	json_add_string(response, "description", json_command->description);
 	json_object_end(response);
 }
 
@@ -1693,7 +1688,6 @@ static struct command_result *json_check(struct command *cmd,
 static const struct json_command check_command = {
 	"check",
 	json_check,
-	"Don't run {command_to_check}, just verify parameters.",
 };
 AUTODATA(json_command, &check_command);
 
@@ -1718,7 +1712,6 @@ static struct command_result *json_notifications(struct command *cmd,
 static const struct json_command notifications_command = {
 	"notifications",
 	json_notifications,
-	"{enable} notifications",
 };
 AUTODATA(json_command, &notifications_command);
 
@@ -1743,7 +1736,6 @@ static struct command_result *json_batching(struct command *cmd,
 static const struct json_command batching_command = {
 	"batching",
 	json_batching,
-	"Database transaction batching {enable}",
 };
 AUTODATA(json_command, &batching_command);
 
@@ -1768,6 +1760,5 @@ static struct command_result *json_deprecations(struct command *cmd,
 static const struct json_command deprecations_command = {
 	"deprecations",
 	json_deprecations,
-	"Set/unset deprecated APIs on this JSON connection (for developer testing)",
 };
 AUTODATA(json_command, &deprecations_command);

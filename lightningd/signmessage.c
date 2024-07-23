@@ -112,7 +112,6 @@ static struct command_result *json_signmessage(struct command *cmd,
 static const struct json_command json_signmessage_cmd = {
 	"signmessage",
 	json_signmessage,
-	"Create a digital signature of {message}",
 };
 AUTODATA(json_command, &json_signmessage_cmd);
 
@@ -242,6 +241,5 @@ static struct command_result *json_checkmessage(struct command *cmd,
 static const struct json_command json_checkmessage_cmd = {
 	"checkmessage",
 	json_checkmessage,
-	"Verify a digital signature {zbase} of {message} signed with {pubkey}",
 };
 AUTODATA(json_command, &json_checkmessage_cmd);

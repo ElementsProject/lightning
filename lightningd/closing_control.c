@@ -897,9 +897,5 @@ discard_unopened: {
 static const struct json_command close_command = {
 	"close",
 	json_close,
-	"Close the channel with {id} "
-	"(either peer ID, channel ID, or short channel ID). "
-	"Force a unilateral close after {unilateraltimeout} seconds (default 48h). "
-	"If {destination} address is provided, will be used as output address."
 };
 AUTODATA(json_command, &close_command);

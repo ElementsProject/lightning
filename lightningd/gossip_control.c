@@ -371,9 +371,6 @@ static struct command_result *json_setleaserates(struct command *cmd,
 static const struct json_command setleaserates_command = {
 	"setleaserates",
 	json_setleaserates,
-	"Called by plugin to set the node's present channel lease rates."
-	" Not to be set without having a plugin which can handle"
-	" `openchannel2` hooks.",
 };
 
 AUTODATA(json_command, &setleaserates_command);
@@ -422,7 +419,6 @@ static struct command_result *json_addgossip(struct command *cmd,
 static const struct json_command addgossip_command = {
 	"addgossip",
 	json_addgossip,
-	"Inject gossip {message} into gossipd"
 };
 AUTODATA(json_command, &addgossip_command);
 
@@ -450,7 +446,6 @@ json_dev_set_max_scids_encode_size(struct command *cmd,
 static const struct json_command dev_set_max_scids_encode_size = {
 	"dev-set-max-scids-encode-size",
 	json_dev_set_max_scids_encode_size,
-	"Set {max} bytes of short_channel_ids per reply_channel_range",
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_set_max_scids_encode_size);
@@ -477,7 +472,6 @@ static struct command_result *json_dev_gossip_set_time(struct command *cmd,
 static const struct json_command dev_gossip_set_time = {
 	"dev-gossip-set-time",
 	json_dev_gossip_set_time,
-	"Ask gossipd to update the current time.",
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_gossip_set_time);
