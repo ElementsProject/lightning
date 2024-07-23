@@ -3307,7 +3307,6 @@ message HelpResponse {
 
 message HelpHelp {
 	string command = 1;
-	string description = 3;
 }
 
 message PreapprovekeysendRequest {

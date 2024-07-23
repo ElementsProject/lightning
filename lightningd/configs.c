@@ -328,7 +328,6 @@ modern:
 static const struct json_command listconfigs_command = {
 	"listconfigs",
 	json_listconfigs,
-	"List all configuration options, or with [config], just that one.",
 };
 AUTODATA(json_command, &listconfigs_command);
 
@@ -635,6 +634,5 @@ static struct command_result *json_setconfig(struct command *cmd,
 static const struct json_command setconfig_command = {
 	"setconfig",
 	json_setconfig,
-	"Set a dynamically-adjustable config."
 };
 AUTODATA(json_command, &setconfig_command);

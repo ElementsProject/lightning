@@ -974,7 +974,7 @@ def test_cli(node_factory):
                                    .format(l1.daemon.lightning_dir),
                                    'help']).decode('utf-8')
     # Test some known output.
-    assert 'help [command]\n    List available commands, or give verbose help on one {command}' in out
+    assert 'addgossip message\n\naddpsbtoutput' in out
 
     # Check JSON id is as expected
     l1.daemon.wait_for_log(r'jsonrpc#[0-9]*: "cli:help#[0-9]*"\[IN\]')
@@ -988,7 +988,6 @@ def test_cli(node_factory):
                                    'help']).decode('utf-8')
     j, _ = json.JSONDecoder().raw_decode(out)
     assert j['help'][0]['command'] is not None
-    assert j['help'][0]['description'] is not None
 
     # Test keyword input (autodetect)
     out = subprocess.check_output(['cli/lightning-cli',
@@ -1179,7 +1178,7 @@ def test_cli_commando(node_factory):
                                    .format(l1.daemon.lightning_dir),
                                    'help']).decode('utf-8')
     # Test some known output.
-    assert 'help [command]\n    List available commands, or give verbose help on one {command}' in out
+    assert 'addgossip message\n\naddpsbtoutput' in out
 
     # Check JSON id is as expected
     l1.daemon.wait_for_log(r'jsonrpc#[0-9]*: "cli:help#[0-9]*"\[IN\]')
@@ -1286,7 +1285,7 @@ def test_daemon_option(node_factory):
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    'help']).decode('utf-8')
-    assert 'help [command]\n    List available commands, or give verbose help on one {command}' in out
+    assert 'addgossip message\n\naddpsbtoutput' in out
 
     subprocess.run(['cli/lightning-cli',
                     '--network={}'.format(TEST_NETWORK),

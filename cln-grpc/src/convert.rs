@@ -3554,7 +3554,6 @@ impl From<responses::HelpHelp> for pb::HelpHelp {
     fn from(c: responses::HelpHelp) -> Self {
         Self {
             command: c.command, // Rule #2 for type string
-            description: c.description, // Rule #2 for type string
         }
     }
 }

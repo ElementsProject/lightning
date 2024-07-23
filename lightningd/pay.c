@@ -1342,7 +1342,6 @@ static struct command_result *json_sendonion(struct command *cmd,
 static const struct json_command sendonion_command = {
 	"sendonion",
 	json_sendonion,
-	"Send a payment with a pre-computed onion."
 };
 AUTODATA(json_command, &sendonion_command);
 
@@ -1598,7 +1597,6 @@ static struct command_result *json_sendpay(struct command *cmd,
 static const struct json_command sendpay_command = {
 	"sendpay",
 	json_sendpay,
-	"Send along {route} in return for preimage of {payment_hash}"
 };
 AUTODATA(json_command, &sendpay_command);
 
@@ -1643,8 +1641,6 @@ static struct command_result *json_waitsendpay(struct command *cmd,
 static const struct json_command waitsendpay_command = {
 	"waitsendpay",
 	json_waitsendpay,
-	"Wait for payment attempt on {payment_hash} to succeed or fail, "
-	"but only up to {timeout} seconds."
 };
 AUTODATA(json_command, &waitsendpay_command);
 
@@ -1805,7 +1801,6 @@ static struct command_result *json_listsendpays(struct command *cmd,
 static const struct json_command listsendpays_command = {
 	"listsendpays",
 	json_listsendpays,
-	"Show sendpay, old and current, optionally limiting to {bolt11} or {payment_hash}."
 };
 AUTODATA(json_command, &listsendpays_command);
 
@@ -1908,7 +1903,6 @@ static struct command_result *json_delpay(struct command *cmd,
 static const struct json_command delpay_command = {
 	"delpay",
 	json_delpay,
-	"Delete payment with {payment_hash} and {status}",
 };
 AUTODATA(json_command, &delpay_command);
 
@@ -1974,6 +1968,5 @@ static struct command_result *json_createonion(struct command *cmd,
 static const struct json_command createonion_command = {
 	"createonion",
 	json_createonion,
-	"Create an onion going through the provided nodes, each with its own payload"
 };
 AUTODATA(json_command, &createonion_command);

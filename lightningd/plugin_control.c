@@ -309,6 +309,5 @@ static struct command_result *json_plugin_control(struct command *cmd,
 static const struct json_command plugin_control_command = {
 	"plugin",
 	json_plugin_control,
-	"Control plugins (start, stop, startdir, rescan, list)",
 };
 AUTODATA(json_command, &plugin_control_command);

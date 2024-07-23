@@ -237,7 +237,6 @@ static struct command_result *json_listforwards(struct command *cmd,
 static const struct json_command listforwards_command = {
 	"listforwards",
 	json_listforwards,
-	"List all forwarded payments and their information optionally filtering by [status], [in_channel] and [out_channel]"
 };
 AUTODATA(json_command, &listforwards_command);
 
@@ -301,6 +300,5 @@ static struct command_result *json_delforward(struct command *cmd,
 static const struct json_command delforward_command = {
 	"delforward",
 	json_delforward,
-	"Delete a forwarded payment by [in_channel], [in_htlc_id] and [status]"
 };
 AUTODATA(json_command, &delforward_command);

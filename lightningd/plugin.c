@@ -1389,25 +1389,17 @@ static const char *plugin_rpcmethod_add(struct plugin *plugin,
 					const char *buffer,
 					const jsmntok_t *meth)
 {
-	const jsmntok_t *nametok, *desctok, *usagetok, *deprtok;
+	const jsmntok_t *nametok, *usagetok, *deprtok;
 	struct json_command *cmd;
 	const char *usage, *err;
 
 	nametok = json_get_member(buffer, meth, "name");
-	desctok = json_get_member(buffer, meth, "description");
 	usagetok = json_get_member(buffer, meth, "usage");
 	deprtok = json_get_member(buffer, meth, "deprecated");
 
 	if (!nametok || nametok->type != JSMN_STRING) {
 		return tal_fmt(plugin,
 			    "rpcmethod does not have a string \"name\": %.*s",
-			    meth->end - meth->start, buffer + meth->start);
-	}
-
-	if (!desctok || desctok->type != JSMN_STRING) {
-		return tal_fmt(plugin,
-			    "rpcmethod does not have a string "
-			    "\"description\": %.*s",
 			    meth->end - meth->start, buffer + meth->start);
 	}
 
@@ -1419,7 +1411,6 @@ static const char *plugin_rpcmethod_add(struct plugin *plugin,
 
 	cmd = notleak(tal(plugin, struct json_command));
 	cmd->name = json_strdup(cmd, buffer, nametok);
-	cmd->description = json_strdup(cmd, buffer, desctok);
 	if (usagetok)
 		usage = json_strdup(tmpctx, buffer, usagetok);
 	else

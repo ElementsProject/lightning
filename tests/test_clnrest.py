@@ -149,7 +149,7 @@ def test_clnrest_list_methods(node_factory):
     http_session = http_session_with_retry()
     response = http_session.get(base_url + '/v1/list-methods', verify=ca_cert)
     assert response.status_code == 200
-    assert response.text.find('Command: getinfo') > 0
+    assert response.text.find('getinfo') > 0
 
 
 def test_clnrest_unknown_method(node_factory):
