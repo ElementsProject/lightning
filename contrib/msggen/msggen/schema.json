@@ -11407,6 +11407,9 @@
       "description": [
         "The **getinfo** gives a summary of the current running node."
       ],
+      "categories": [
+        "readonly"
+      ],
       "request": {
         "required": [],
         "properties": {}
@@ -11838,6 +11841,9 @@
       "description": [
         "The **getlog** the RPC command to show logs, with optional log *level*."
       ],
+      "categories": [
+        "readonly"
+      ],
       "request": {
         "required": [],
         "properties": {
@@ -12097,6 +12103,9 @@
         "The **getroute** RPC command attempts to find the best route for the payment of *amount_msat* to lightning node *id*, such that the payment will arrive at *id* with *cltv*.",
         "",
         "There are two considerations for how good a route is: how low the fees are, and how long your payment will get stuck in a delayed output if a node goes down during the process. ."
+      ],
+      "categories": [
+        "readonly"
       ],
       "request": {
         "required": [
@@ -13369,6 +13378,9 @@
         "",
         "Only one of *short_channel_id*, *source* or *destination* can be supplied. If nothing is supplied, data on all lightning channels known to this node, are returned. These can be local channels or public channels broadcast on the gossip network."
       ],
+      "categories": [
+        "readonly"
+      ],
       "request": {
         "required": [],
         "properties": {
@@ -13612,6 +13624,9 @@
       "title": "Get data on our closed historical channels",
       "description": [
         "The **listclosedchannels** RPC command returns data on channels which are otherwise forgotten (more than 100 blocks after they're completely resolved onchain)."
+      ],
+      "categories": [
+        "readonly"
       ],
       "request": {
         "required": [],
@@ -13897,6 +13912,9 @@
       "title": "Command to list all configuration options.",
       "description": [
         "The **listconfigs** RPC command to list all configuration options, or with *config* only one."
+      ],
+      "categories": [
+        "readonly"
       ],
       "request": {
         "required": [],
@@ -16948,6 +16966,9 @@
       "description": [
         "The **listforwards** RPC command displays all htlcs that have been attempted to be forwarded by the Core Lightning node."
       ],
+      "categories": [
+        "readonly"
+      ],
       "request": {
         "required": [],
         "properties": {
@@ -17396,6 +17417,9 @@
       "description": [
         "The **listfunds** RPC command displays all funds available, either in unspent outputs (UTXOs) in the internal wallet or funds locked in currently open channels."
       ],
+      "categories": [
+        "readonly"
+      ],
       "request": {
         "required": [],
         "properties": {
@@ -17774,6 +17798,9 @@
       "description": [
         "The **listhtlcs** RPC command gets all HTLCs (which, generally, we remember for as long as a channel is open, even if they've completed long ago)."
       ],
+      "categories": [
+        "readonly"
+      ],
       "request": {
         "required": [],
         "properties": {
@@ -18036,6 +18063,9 @@
       "description": [
         "The **listinvoicerequests** RPC command gets the status of a specific `invoice_request`, if it exists, or the status of all `invoice_requests` if given no argument."
       ],
+      "categories": [
+        "readonly"
+      ],
       "request": {
         "required": [],
         "properties": {
@@ -18156,6 +18186,9 @@
         "The **listinvoices** RPC command gets the status of a specific invoice, if it exists, or the status of all invoices if given no argument.",
         "",
         "Only one of the query parameters can be used from *label*, *invstring*, *payment_hash*, or *offer_id*."
+      ],
+      "categories": [
+        "readonly"
       ],
       "request": {
         "required": [],
@@ -18482,6 +18515,9 @@
       "title": "Command to get the list of nodes in the known network.",
       "description": [
         "The **listnodes** command returns nodes the node has learned about via gossip messages, or a single one if the node *id* was specified."
+      ],
+      "categories": [
+        "readonly"
       ],
       "request": {
         "required": [],
@@ -18818,6 +18854,9 @@
       "description": [
         "The **listoffers** RPC command list all offers, or with `offer_id`, only the offer with that offer_id (if it exists)."
       ],
+      "categories": [
+        "readonly"
+      ],
       "request": {
         "required": [],
         "properties": {
@@ -18962,6 +19001,9 @@
       "title": "Command for querying payment status",
       "description": [
         "The **listpay** RPC command gets the status of all *pay* commands, or a single one if either *bolt11* or *payment_hash* was specified."
+      ],
+      "categories": [
+        "readonly"
       ],
       "request": {
         "required": [],
@@ -19235,6 +19277,9 @@
         "The **listpeerchannels** RPC command returns list of this node's channels, with the possibility to filter them by peer's node id.",
         "",
         "If no *id* is supplied, then channel data on all lightning nodes that are connected, or not connected but have open channels with this node, are returned."
+      ],
+      "categories": [
+        "readonly"
       ],
       "request": {
         "required": [],
@@ -20848,6 +20893,9 @@
         "",
         "The channel will remain open for a set blocktime, after which if the connection has not been re-established, the channel will close and the node will no longer appear in the command output."
       ],
+      "categories": [
+        "readonly"
+      ],
       "request": {
         "required": [],
         "properties": {
@@ -21205,6 +21253,9 @@
         "The **listsendpays** RPC command gets the status of all *sendpay* commands (which is also used by the *pay* command), or with *bolt11* or *payment_hash* limits results to that specific payment. You cannot specify both. It is possible to filter the payments also by *status*.",
         "",
         "Note that there may be more than one concurrent *sendpay* command per *pay*, so this command should be used with caution."
+      ],
+      "categories": [
+        "readonly"
       ],
       "request": {
         "required": [],
@@ -21608,6 +21659,9 @@
         "",
         "If *table* is given, only that table is in the resulting list, otherwise all tables are listed."
       ],
+      "categories": [
+        "readonly"
+      ],
       "request": {
         "required": [],
         "properties": {
@@ -21883,6 +21937,9 @@
       "title": "Command to get the list of transactions that was stored in the wallet.",
       "description": [
         "The **listtransactions** command returns transactions tracked in the wallet. This includes deposits, withdrawals and transactions related to channels. A transaction may have multiple types, e.g., a transaction may both be a close and a deposit if it closes the channel and returns funds to the wallet."
+      ],
+      "categories": [
+        "readonly"
       ],
       "request": {
         "required": [],

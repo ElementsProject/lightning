@@ -10,6 +10,9 @@
     "",
     "If *table* is given, only that table is in the resulting list, otherwise all tables are listed."
   ],
+  "categories": [
+    "readonly"
+  ],
   "request": {
     "required": [],
     "properties": {

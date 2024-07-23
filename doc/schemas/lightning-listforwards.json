@@ -7,6 +7,9 @@
   "description": [
     "The **listforwards** RPC command displays all htlcs that have been attempted to be forwarded by the Core Lightning node."
   ],
+  "categories": [
+    "readonly"
+  ],
   "request": {
     "required": [],
     "properties": {

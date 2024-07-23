@@ -9,6 +9,9 @@
     "",
     "There are two considerations for how good a route is: how low the fees are, and how long your payment will get stuck in a delayed output if a node goes down during the process. ."
   ],
+  "categories": [
+    "readonly"
+  ],
   "request": {
     "required": [
       "id",

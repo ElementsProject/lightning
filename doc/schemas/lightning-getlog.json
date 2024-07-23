@@ -7,6 +7,9 @@
   "description": [
     "The **getlog** the RPC command to show logs, with optional log *level*."
   ],
+  "categories": [
+    "readonly"
+  ],
   "request": {
     "required": [],
     "properties": {
