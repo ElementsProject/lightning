@@ -1522,6 +1522,7 @@ static const struct plugin_command commands[] = {
 static const char *notification_topics[] = {
 	"pay_success",
 	"pay_failure",
+	"channel_hint_update",
 };
 
 int main(int argc, char *argv[])

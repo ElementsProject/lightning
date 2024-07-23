@@ -386,6 +386,29 @@ void payment_start(struct payment *p)
 	payment_start_at_blockheight(p, INVALID_BLOCKHEIGHT);
 }
 
+/**
+ * Notify subscribers of the `channel_hint` topic about a changed hint
+ *
+ * We share the channel_hints across payments, and across plugins, in order to
+ * maximize the context they have when performing payments.
+ */
+    /**
+     * Notify subscribers of the `channel_hint` topic about a changed hint
+     *
+     * We share the channel_hints across payments, and across plugins, in order
+     * to maximize the context they have when performing payments.
+     */
+static void channel_hint_notify(struct plugin *plugin,
+				const struct channel_hint *hint)
+{
+	struct json_stream *js =
+	    plugin_notification_start(plugin, "channel_hint_update");
+
+	/* The timestamp used to decay the observation over time. */
+	json_add_u32(js, "timestamp", hint->timestamp);
+	plugin_notification_end(plugin, js);
+}
+
 static void channel_hints_update(struct payment *p,
 				 const struct short_channel_id scid,
 				 int direction, bool enabled, bool local,
@@ -394,6 +417,7 @@ static void channel_hints_update(struct payment *p,
 {
 	struct payment *root = payment_root(p);
 	struct channel_hint newhint;
+	u32 timestamp = time_now().ts.tv_sec;
 
 	/* If the channel is marked as enabled it must have an estimate. */
 	assert(!enabled || estimated_capacity != NULL);
@@ -423,7 +447,8 @@ static void channel_hints_update(struct payment *p,
 				modified = true;
 			}
 
-			if (modified)
+			if (modified) {
+				hint->timestamp = timestamp;
 				paymod_log(p, LOG_DBG,
 					   "Updated a channel hint for %s: "
 					   "enabled %s, "
@@ -433,12 +458,15 @@ static void channel_hints_update(struct payment *p,
 					   hint->enabled ? "true" : "false",
 					   fmt_amount_msat(tmpctx,
 						hint->estimated_capacity));
+				channel_hint_notify(p->plugin, hint);
+			}
 			return;
 		}
 	}
 
 	/* No hint found, create one. */
 	newhint.enabled = enabled;
+	newhint.timestamp = timestamp;
 	newhint.scid.scid = scid;
 	newhint.scid.dir = direction;
 	if (local) {
@@ -458,6 +486,7 @@ static void channel_hints_update(struct payment *p,
 	    fmt_short_channel_id_dir(tmpctx, &newhint.scid),
 	    newhint.enabled ? "true" : "false",
 	    fmt_amount_msat(tmpctx, newhint.estimated_capacity));
+	channel_hint_notify(p->plugin, &newhint);
 }
 
 static void payment_exclude_most_expensive(struct payment *p)

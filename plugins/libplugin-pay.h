@@ -68,6 +68,13 @@ struct local_hint {
  * get remove on failure. Success keeps the capacities, since the capacities
  * changed due to the successful HTLCs. */
 struct channel_hint {
+	/* The timestamp this observation was made. Used to let the
+	 * constraint expressed by this hint decay over time, until it
+	 * is fully relaxed, at which point we can forget about it
+	 * (the structural information is the best we can do in that
+	 * case).
+	 */
+	u32 timestamp;
 	/* The short_channel_id we're going to use when referring to
 	 * this channel. This can either be the real scid, or the
 	 * local alias. The `pay` algorithm doesn't really care which
