@@ -81,7 +81,6 @@ static struct command_result *json_memdump(struct command *cmd,
 
 static const struct json_command dev_memdump_command = {
 	"dev-memdump",
-	"developer",
 	json_memdump,
 	"Show memory objects currently in use",
 	.dev_only = true,
@@ -267,7 +266,6 @@ static struct command_result *json_memleak(struct command *cmd,
 
 static const struct json_command dev_memleak_command = {
 	"dev-memleak",
-	"developer",
 	json_memleak,
 	"Show unreferenced memory objects",
 	.dev_only = true,

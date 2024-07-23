@@ -308,20 +308,7 @@ static struct command_result *json_plugin_control(struct command *cmd,
 
 static const struct json_command plugin_control_command = {
 	"plugin",
-	"plugin",
 	json_plugin_control,
 	"Control plugins (start, stop, startdir, rescan, list)",
-	.verbose = "Usage :\n"
-	"plugin start /path/to/a/plugin\n"
-	"	adds a new plugin to Core Lightning\n"
-	"plugin stop plugin_name\n"
-	"	stops an already registered plugin\n"
-	"plugin startdir /path/to/a/plugin_dir/\n"
-	"	adds a new plugin directory\n"
-	"plugin rescan\n"
-	"	loads not-already-loaded plugins from the default plugins dir\n"
-	"plugin list\n"
-	"	lists all active plugins\n"
-	"\n"
 };
 AUTODATA(json_command, &plugin_control_command);

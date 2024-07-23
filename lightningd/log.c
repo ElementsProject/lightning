@@ -1172,7 +1172,6 @@ static struct command_result *json_getlog(struct command *cmd,
 
 static const struct json_command getlog_command = {
 	"getlog",
-	"utility",
 	json_getlog,
 	"Show logs, with optional log {level} (info|unusual|debug|io)"
 };

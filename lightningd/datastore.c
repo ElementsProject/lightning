@@ -345,7 +345,6 @@ static struct command_result *json_datastoreusage(struct command *cmd,
 
 static const struct json_command datastore_command = {
 	"datastore",
-	"utility",
 	json_datastore,
 	"Add a {key} and {hex}/{string} data to the data store",
 };
@@ -353,7 +352,6 @@ AUTODATA(json_command, &datastore_command);
 
 static const struct json_command deldatastore_command = {
 	"deldatastore",
-	"utility",
 	json_deldatastore,
 	"Remove a {key} from the data store",
 };
@@ -361,7 +359,6 @@ AUTODATA(json_command, &deldatastore_command);
 
 static const struct json_command listdatastore_command = {
 	"listdatastore",
-	"utility",
 	json_listdatastore,
 	"List the datastore, optionally only {key}",
 };
@@ -369,7 +366,6 @@ AUTODATA(json_command, &listdatastore_command);
 
 static const struct json_command datastoreusage_command = {
 	"datastoreusage",
-	"utility",
 	json_datastoreusage,
 	"List the datastore usage, starting from an optional {key}",
 };

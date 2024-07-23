@@ -173,10 +173,8 @@ static struct command_result *json_newaddr(struct command *cmd,
 
 static const struct json_command newaddr_command = {
 	"newaddr",
-	"bitcoin",
 	json_newaddr,
 	"Get a new {bech32} (or all) address to fund a channel",
-	.verbose = "Generates a new address that belongs to the internal wallet. Funds sent to these addresses will be managed by lightningd. Use `withdraw` to withdraw funds to an external wallet."
 };
 AUTODATA(json_command, &newaddr_command);
 
@@ -245,10 +243,8 @@ static struct command_result *json_listaddrs(struct command *cmd,
 
 static const struct json_command listaddrs_command = {
 	"dev-listaddrs",
-	"developer",
 	json_listaddrs,
 	"Show addresses list up to derivation {index} (default is the last bip32 index)",
-	.verbose = "Show addresses of your internal wallet. Use `newaddr` to generate a new address.",
 	.dev_only = true,
 };
 AUTODATA(json_command, &listaddrs_command);
@@ -392,13 +388,8 @@ static struct command_result *json_listfunds(struct command *cmd,
 
 static const struct json_command listfunds_command = {
 	"listfunds",
-	"utility",
 	json_listfunds,
 	"Show available funds from the internal wallet",
-	.verbose = "Returns a list of funds (outputs) that can be used "
-	"by the internal wallet to open new channels "
-	"or can be withdrawn, using the `withdraw` command, to another wallet. "
-	"Includes spent outputs if {spent} is set to true."
 };
 AUTODATA(json_command, &listfunds_command);
 
@@ -470,10 +461,8 @@ static struct command_result *json_dev_rescan_outputs(struct command *cmd,
 
 static const struct json_command dev_rescan_output_command = {
 	"dev-rescan-outputs",
-	"developer",
 	json_dev_rescan_outputs,
 	"Synchronize the state of our funds with bitcoind",
-	.verbose = "For each output stored in the internal wallet ask `bitcoind` whether we are in sync with its state (spent vs. unspent)",
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_rescan_output_command);
@@ -572,13 +561,8 @@ static struct command_result *json_listtransactions(struct command *cmd,
 
 static const struct json_command listtransactions_command = {
     "listtransactions",
-    "payment",
     json_listtransactions,
     "List transactions that we stored in the wallet",
-    .verbose = "Returns transactions tracked in the wallet. This includes deposits, "
-    "withdrawals and transactions related to channels. A transaction may have "
-    "multiple types, e.g., a transaction may both be a close and a deposit if "
-    "it closes the channel and returns funds to the wallet."
 };
 AUTODATA(json_command, &listtransactions_command);
 
@@ -797,7 +781,6 @@ static struct command_result *json_signpsbt(struct command *cmd,
 
 static const struct json_command signpsbt_command = {
 	"signpsbt",
-	"bitcoin",
 	json_signpsbt,
 	"Sign this wallet's inputs on a provided PSBT.",
 	false
@@ -835,7 +818,6 @@ static struct command_result *json_setpsbtversion(struct command *cmd,
 
 static const struct json_command setpsbtversion_command = {
 	"setpsbtversion",
-	"bitcoin",
 	json_setpsbtversion,
 	"Convert a given PSBT to the {version} requested (v0 or v2)",
 	false
@@ -997,7 +979,6 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 
 static const struct json_command sendpsbt_command = {
 	"sendpsbt",
-	"bitcoin",
 	json_sendpsbt,
 	"Finalize, extract and send a PSBT.",
 	false

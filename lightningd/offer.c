@@ -122,7 +122,6 @@ static struct command_result *json_createoffer(struct command *cmd,
 
 static const struct json_command createoffer_command = {
 	"createoffer",
-	"payment",
 	json_createoffer,
 	"Create and sign an offer {bolt12} with and optional {label}."
 };
@@ -183,7 +182,6 @@ static struct command_result *json_listoffers(struct command *cmd,
 
 static const struct json_command listoffers_command = {
 	"listoffers",
-	"payment",
 	json_listoffers,
 	"If {offer_id} is set, show that."
 	" Otherwise, if {showdisabled} is true, list all, otherwise just non-disabled ones."
@@ -227,7 +225,6 @@ static struct command_result *json_disableoffer(struct command *cmd,
 
 static const struct json_command disableoffer_command = {
 	"disableoffer",
-	"payment",
 	json_disableoffer,
 	"Disable offer {offer_id}",
 };
@@ -495,7 +492,6 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 
 static const struct json_command createinvreq_command = {
 	"createinvoicerequest",
-	"payment",
 	json_createinvoicerequest,
 	"Create and sign an invoice_request {bolt12}, with {recurrence_label} if recurring, filling in payer_info and payer_key."
 };
@@ -532,7 +528,6 @@ static struct command_result *json_payersign(struct command *cmd,
 
 static const struct json_command payersign_command = {
 	"payersign",
-	"payment",
 	json_payersign,
 	"Sign {messagename} {fieldname} {merkle} (a 32-byte hex string) using public {tweak}",
 };
@@ -594,7 +589,6 @@ static struct command_result *json_listinvoicerequests(struct command *cmd,
 
 static const struct json_command listinvoicerequests_command = {
 	"listinvoicerequests",
-	"payment",
 	json_listinvoicerequests,
 	"If {invreq_id} is set, show that."
 	" Otherwise, if {showdisabled} is true, list all, otherwise just non-disabled ones."
@@ -639,7 +633,6 @@ static struct command_result *json_disableinvoicerequest(struct command *cmd,
 
 static const struct json_command disableinvoicerequest_command = {
 	"disableinvoicerequest",
-	"payment",
 	json_disableinvoicerequest,
 	"Disable invoice_request {invreq_id}",
 };
