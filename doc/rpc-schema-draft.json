@@ -366,6 +366,12 @@
                 "type": "string"
             }
         },
+        "categories": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
         "request": {
             "$ref": "#/definitions/schemaRequest"
         },

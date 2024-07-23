@@ -7,6 +7,9 @@
   "description": [
     "The **listconfigs** RPC command to list all configuration options, or with *config* only one."
   ],
+  "categories": [
+    "readonly"
+  ],
   "request": {
     "required": [],
     "properties": {

@@ -8,6 +8,9 @@
   "description": [
     "The **listinvoicerequests** RPC command gets the status of a specific `invoice_request`, if it exists, or the status of all `invoice_requests` if given no argument."
   ],
+  "categories": [
+    "readonly"
+  ],
   "request": {
     "required": [],
     "properties": {

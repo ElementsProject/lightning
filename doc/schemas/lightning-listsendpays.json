@@ -9,6 +9,9 @@
     "",
     "Note that there may be more than one concurrent *sendpay* command per *pay*, so this command should be used with caution."
   ],
+  "categories": [
+    "readonly"
+  ],
   "request": {
     "required": [],
     "properties": {

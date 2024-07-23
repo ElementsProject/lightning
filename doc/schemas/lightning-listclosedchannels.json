@@ -8,6 +8,9 @@
   "description": [
     "The **listclosedchannels** RPC command returns data on channels which are otherwise forgotten (more than 100 blocks after they're completely resolved onchain)."
   ],
+  "categories": [
+    "readonly"
+  ],
   "request": {
     "required": [],
     "properties": {

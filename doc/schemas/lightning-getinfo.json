@@ -7,6 +7,9 @@
   "description": [
     "The **getinfo** gives a summary of the current running node."
   ],
+  "categories": [
+    "readonly"
+  ],
   "request": {
     "required": [],
     "properties": {}

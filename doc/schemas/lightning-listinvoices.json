@@ -9,6 +9,9 @@
     "",
     "Only one of the query parameters can be used from *label*, *invstring*, *payment_hash*, or *offer_id*."
   ],
+  "categories": [
+    "readonly"
+  ],
   "request": {
     "required": [],
     "properties": {

@@ -10,6 +10,9 @@
     "",
     "If no *id* is supplied, then channel data on all lightning nodes that are connected, or not connected but have open channels with this node, are returned."
   ],
+  "categories": [
+    "readonly"
+  ],
   "request": {
     "required": [],
     "properties": {

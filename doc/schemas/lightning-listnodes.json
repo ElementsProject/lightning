@@ -7,6 +7,9 @@
   "description": [
     "The **listnodes** command returns nodes the node has learned about via gossip messages, or a single one if the node *id* was specified."
   ],
+  "categories": [
+    "readonly"
+  ],
   "request": {
     "required": [],
     "properties": {

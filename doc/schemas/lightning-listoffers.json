@@ -8,6 +8,9 @@
   "description": [
     "The **listoffers** RPC command list all offers, or with `offer_id`, only the offer with that offer_id (if it exists)."
   ],
+  "categories": [
+    "readonly"
+  ],
   "request": {
     "required": [],
     "properties": {
