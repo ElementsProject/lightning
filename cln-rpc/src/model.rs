@@ -9741,10 +9741,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct HelpHelp {
-	    pub category: String,
 	    pub command: String,
 	    pub description: String,
-	    pub verbose: String,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]

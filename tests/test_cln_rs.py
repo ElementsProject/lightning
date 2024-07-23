@@ -49,9 +49,7 @@ def test_plugin_start(node_factory):
         'help': [
             {
                 'command': 'testmethod ',
-                'category': 'plugin',
-                'description': 'This is a test',
-                'verbose': 'This is a test'
+                'description': 'This is a test'
             }
         ],
         'format-hint': 'simple'

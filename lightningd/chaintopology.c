@@ -755,7 +755,6 @@ static struct command_result *json_feerates(struct command *cmd,
 
 static const struct json_command feerates_command = {
 	"feerates",
-	"bitcoin",
 	json_feerates,
 	"Return feerate estimates, either satoshi-per-kw ({style} perkw) or satoshi-per-kb ({style} perkb)."
 };
@@ -782,7 +781,6 @@ static struct command_result *json_parse_feerate(struct command *cmd,
 
 static const struct json_command parse_feerate_command = {
 	"parsefeerate",
-	"bitcoin",
 	json_parse_feerate,
 	"Return current feerate in perkw + perkb for given feerate string."
 };

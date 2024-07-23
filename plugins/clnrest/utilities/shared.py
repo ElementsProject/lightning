@@ -108,8 +108,6 @@ def process_help_response(help_response):
     processed_html_res = ""
     for row in processed_res:
         processed_html_res += f"Command: {row['command']}\n"
-        processed_html_res += f"Category: {row['category']}\n"
         processed_html_res += f"Description: {row['description']}\n"
-        processed_html_res += f"Verbose: {row['verbose']}\n"
         processed_html_res += line
     return processed_html_res

@@ -3553,10 +3553,8 @@ impl From<responses::StopResponse> for pb::StopResponse {
 impl From<responses::HelpHelp> for pb::HelpHelp {
     fn from(c: responses::HelpHelp) -> Self {
         Self {
-            category: c.category, // Rule #2 for type string
             command: c.command, // Rule #2 for type string
             description: c.description, // Rule #2 for type string
-            verbose: c.verbose, // Rule #2 for type string
         }
     }
 }

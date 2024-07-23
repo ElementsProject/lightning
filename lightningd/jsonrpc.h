@@ -55,13 +55,11 @@ struct command_result;
 
 struct json_command {
 	const char *name;
-	const char *category;
 	struct command_result *(*dispatch)(struct command *,
 					   const char *buffer,
 					   const jsmntok_t *obj,
 					   const jsmntok_t *params);
 	const char *description;
-	const char *verbose;
 	bool dev_only;
 	const char *depr_start, *depr_end;
 	/* Special hook if we want raw access for check command */

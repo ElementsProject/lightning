@@ -896,7 +896,6 @@ discard_unopened: {
 
 static const struct json_command close_command = {
 	"close",
-	"channels",
 	json_close,
 	"Close the channel with {id} "
 	"(either peer ID, channel ID, or short channel ID). "

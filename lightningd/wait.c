@@ -213,7 +213,6 @@ static struct command_result *json_wait(struct command *cmd,
 
 static const struct json_command wait_command = {
 	"wait",
-	"utility",
 	json_wait,
 	"Wait for {subsystem} {indexname} to reach or exceed {value})"
 };

@@ -257,7 +257,6 @@ static struct command_result *json_injectonionmessage(struct command *cmd,
 
 static const struct json_command injectonionmessage_command = {
 	"injectonionmessage",
-	"utility",
 	json_injectonionmessage,
 	"Unwrap using {blinding}, encoded over {hops} (id, tlv)"
 };
@@ -314,7 +313,6 @@ static struct command_result *json_decryptencrypteddata(struct command *cmd,
 
 static const struct json_command decryptencrypteddata_command = {
 	"decryptencrypteddata",
-	"utility",
 	json_decryptencrypteddata,
 	"Decrypt {encrypted_data} using {blinding}, return decryption and next blinding"
 };

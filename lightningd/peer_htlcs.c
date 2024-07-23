@@ -2923,7 +2923,6 @@ static struct command_result *json_dev_ignore_htlcs(struct command *cmd,
 
 static const struct json_command dev_ignore_htlcs = {
 	"dev-ignore-htlcs",
-	"developer",
 	json_dev_ignore_htlcs,
 	"Set ignoring incoming HTLCs for peer {id} to {ignore}",
 	.dev_only = true,
@@ -3005,7 +3004,6 @@ static struct command_result *json_listhtlcs(struct command *cmd,
 
 static const struct json_command listhtlcs_command = {
 	"listhtlcs",
-	"channels",
 	json_listhtlcs,
 	"List all known HTLCS (optionally, just for [id] (scid or channel id))"
 };

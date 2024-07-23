@@ -2304,7 +2304,6 @@ static struct command_result *json_listpeers(struct command *cmd,
 
 static const struct json_command listpeers_command = {
 	"listpeers",
-	"network",
 	json_listpeers,
 	"Show current peers, if {level} is set, include logs for {id}"
 };
@@ -2358,7 +2357,6 @@ static struct command_result *json_staticbackup(struct command *cmd,
 
 static const struct json_command staticbackup_command = {
 	"staticbackup",
-	"backup",
 	json_staticbackup,
 	"Returns SCB of all the channels currently present in the DB"
 };
@@ -2419,7 +2417,6 @@ static struct command_result *json_listpeerchannels(struct command *cmd,
 
 static const struct json_command listpeerchannels_command = {
 	"listpeerchannels",
-	"network",
 	json_listpeerchannels,
 	"Show channels with direct peers."
 };
@@ -2660,7 +2657,6 @@ static struct command_result *json_disconnect(struct command *cmd,
 
 static const struct json_command disconnect_command = {
 	"disconnect",
-	"network",
 	json_disconnect,
 	"Disconnect from {id} that has previously been connected to using connect; with {force} set, even if it has a current channel"
 };
@@ -2799,7 +2795,6 @@ static struct command_result *json_getinfo(struct command *cmd,
 
 static const struct json_command getinfo_command = {
     "getinfo",
-	"utility",
     json_getinfo,
     "Show information about this node"
 };
@@ -2904,7 +2899,6 @@ static struct command_result *json_waitblockheight(struct command *cmd,
 
 static const struct json_command waitblockheight_command = {
 	"waitblockheight",
-	"utility",
 	&json_waitblockheight,
 	"Wait for the blockchain to reach {blockheight}, up to "
 	"{timeout} seconds."
@@ -3172,7 +3166,6 @@ static struct command_result *json_setchannel(struct command *cmd,
 
 static const struct json_command setchannel_command = {
 	"setchannel",
-	"channels",
 	json_setchannel,
 	"Sets fees and/or htlc_max for channel with {id} "
 	"(either peer ID, channel ID, short channel ID or 'all'). "
@@ -3252,7 +3245,6 @@ static struct command_result *json_sign_last_tx(struct command *cmd,
 
 static const struct json_command dev_sign_last_tx = {
 	"dev-sign-last-tx",
-	"developer",
 	json_sign_last_tx,
 	"Sign and show the last commitment transaction with peer {id}",
 	.dev_only = true,
@@ -3279,7 +3271,6 @@ static struct command_result *json_dev_fail(struct command *cmd,
 
 static const struct json_command dev_fail_command = {
 	"dev-fail",
-	"developer",
 	json_dev_fail,
 	"Fail with peer {id}",
 	.dev_only = true,
@@ -3328,7 +3319,6 @@ static struct command_result *json_dev_reenable_commit(struct command *cmd,
 
 static const struct json_command dev_reenable_commit = {
 	"dev-reenable-commit",
-	"developer",
 	json_dev_reenable_commit,
 	"Re-enable the commit timer on peer {id}",
 	.dev_only = true,
@@ -3443,10 +3433,8 @@ static struct command_result *json_dev_forget_channel(struct command *cmd,
 
 static const struct json_command dev_forget_channel_command = {
 	"dev-forget-channel",
-	"developer",
 	json_dev_forget_channel,
 	"Forget the channel with peer {id}, ignore UTXO check with {force}='true'.",
-	.verbose = "Forget the channel with peer {id}. Checks if the channel is still active by checking its funding transaction. Check can be ignored by setting {force} to 'true'",
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_forget_channel_command);

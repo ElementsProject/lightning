@@ -2617,10 +2617,8 @@ def stop2py(m):
 
 def help_help2py(m):
     return remove_default({
-        "category": m.category,  # PrimitiveField in generate_composite
         "command": m.command,  # PrimitiveField in generate_composite
         "description": m.description,  # PrimitiveField in generate_composite
-        "verbose": m.verbose,  # PrimitiveField in generate_composite
     })
 
 

@@ -183,9 +183,7 @@ static void human_help(char *buffer, const jsmntok_t *result)
 	/* Contains all commands objects, which have the following structure :
 	 * {
 	 *     "command": "The command name and usage",
-	 *     "category": "The command category",
-	 *     "description": "The command's description",
-	 *     "verbose": "The command's detailed description"
+	 *     "description": "The command's description"
 	 * }
 	 */
 	const jsmntok_t * help_array = json_get_member(buffer, result, "help");

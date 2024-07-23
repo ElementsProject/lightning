@@ -998,7 +998,7 @@ def test_cli(node_factory):
                                    '-J',
                                    'help', 'command=help']).decode('utf-8')
     j, _ = json.JSONDecoder().raw_decode(out)
-    assert 'help [command]' in j['help'][0]['verbose']
+    assert 'help [command]' in j['help'][0]['command']
 
     # Test keyword input (forced)
     out = subprocess.check_output(['cli/lightning-cli',
@@ -1008,7 +1008,7 @@ def test_cli(node_factory):
                                    '-J', '-k',
                                    'help', 'command=help']).decode('utf-8')
     j, _ = json.JSONDecoder().raw_decode(out)
-    assert 'help [command]' in j['help'][0]['verbose']
+    assert 'help [command]' in j['help'][0]['command']
 
     # Test ordered input (autodetect)
     out = subprocess.check_output(['cli/lightning-cli',
@@ -1018,7 +1018,7 @@ def test_cli(node_factory):
                                    '-J',
                                    'help', 'help']).decode('utf-8')
     j, _ = json.JSONDecoder().raw_decode(out)
-    assert 'help [command]' in j['help'][0]['verbose']
+    assert 'help [command]' in j['help'][0]['command']
 
     # Test ordered input (forced)
     out = subprocess.check_output(['cli/lightning-cli',
@@ -1028,7 +1028,7 @@ def test_cli(node_factory):
                                    '-J', '-o',
                                    'help', 'help']).decode('utf-8')
     j, _ = json.JSONDecoder().raw_decode(out)
-    assert 'help [command]' in j['help'][0]['verbose']
+    assert 'help [command]' in j['help'][0]['command']
 
     # Test filtering
     out = subprocess.check_output(['cli/lightning-cli',
@@ -1196,7 +1196,7 @@ def test_cli_commando(node_factory):
                                    '-J', '-k',
                                    'help', 'command=help']).decode('utf-8')
     j, _ = json.JSONDecoder().raw_decode(out)
-    assert 'help [command]' in j['help'][0]['verbose']
+    assert 'help [command]' in j['help'][0]['command']
 
     # Test ordered input (forced)
     out = subprocess.check_output(['cli/lightning-cli',
@@ -1207,7 +1207,7 @@ def test_cli_commando(node_factory):
                                    '-J', '-o',
                                    'help', 'help']).decode('utf-8')
     j, _ = json.JSONDecoder().raw_decode(out)
-    assert 'help [command]' in j['help'][0]['verbose']
+    assert 'help [command]' in j['help'][0]['command']
 
     # Test filtering
     out = subprocess.check_output(['cli/lightning-cli',
