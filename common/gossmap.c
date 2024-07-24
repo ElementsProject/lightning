@@ -1634,6 +1634,8 @@ void gossmap_iter_fast_forward(const struct gossmap *map,
 
 		if (be32_to_cpu(ghdr.timestamp) >= timestamp)
 			break;
+
+		iter->offset += be16_to_cpu(ghdr.len) + sizeof(ghdr);
 	}
 }
 
