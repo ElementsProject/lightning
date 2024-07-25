@@ -3,7 +3,6 @@
 #include <bitcoin/preimage.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/psbt.h>
-#include <bitcoin/short_channel_id.h>
 #include <bitcoin/signature.h>
 #include <bitcoin/tx.h>
 #include <ccan/io/io.h>
@@ -483,6 +482,16 @@ void json_add_short_channel_id(struct json_stream *response,
 			 short_channel_id_blocknum(scid),
 			 short_channel_id_txnum(scid),
 			 short_channel_id_outnum(scid));
+}
+
+void json_add_short_channel_id_dir(struct json_stream *response,
+			       const char *fieldname,
+			       struct short_channel_id_dir scidd)
+{
+	json_add_str_fmt(response, fieldname, "%dx%dx%d/%d",
+			 short_channel_id_blocknum(scidd.scid),
+			 short_channel_id_txnum(scidd.scid),
+			 short_channel_id_outnum(scidd.scid), scidd.dir);
 }
 
 static void json_add_address_fields(struct json_stream *response,

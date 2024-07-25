@@ -5,6 +5,7 @@
 #define LIGHTNING_COMMON_JSON_STREAM_H
 #include "config.h"
 
+#include <bitcoin/short_channel_id.h>
 #define JSMN_STRICT 1
 # include <external/jsmn/jsmn.h>
 
@@ -312,6 +313,11 @@ void json_add_outpoint(struct json_stream *result, const char *fieldname,
 void json_add_short_channel_id(struct json_stream *response,
 			       const char *fieldname,
 			       struct short_channel_id id);
+
+/* '"fieldname" : "1234:5:6/1"' */
+void json_add_short_channel_id_dir(struct json_stream *response,
+				   const char *fieldname,
+				   struct short_channel_id_dir idd);
 
 /* JSON serialize a network address for a node */
 void json_add_address(struct json_stream *response, const char *fieldname,
