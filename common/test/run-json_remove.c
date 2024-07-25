@@ -114,6 +114,10 @@ const char *json_scan(const tal_t *ctx UNNEEDED,
 		      const char *guide UNNEEDED,
 		      ...)
 { fprintf(stderr, "json_scan called!\n"); abort(); }
+/* Generated stub for json_to_blinded_path */
+struct blinded_path *json_to_blinded_path(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED,
+					  const jsmntok_t *tok UNNEEDED)
+{ fprintf(stderr, "json_to_blinded_path called!\n"); abort(); }
 /* Generated stub for json_to_channel_id */
 bool json_to_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			struct channel_id *cid UNNEEDED)
