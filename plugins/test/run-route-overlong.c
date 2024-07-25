@@ -4,6 +4,7 @@
 #include <common/gossip_store.h>
 #include <common/setup.h>
 #include <common/utils.h>
+#include <gossipd/gossip_store_wiregen.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -381,10 +382,16 @@ static void add_connection(int store_fd,
 					  ids[0], ids[1],
 					  &dummy_key, &dummy_key);
 	write_to_store(store_fd, msg);
+	tal_free(msg);
 
-	update_connection(store_fd, from, to, scid, min, max,
-			  base_fee, proportional_fee,
-			  delay, false);
+	/* Also needs a hint as to the funding size. */
+	struct amount_sat capacity = AMOUNT_SAT(100000000);
+	msg = towire_gossip_store_channel_amount(tmpctx, capacity);
+	write_to_store(store_fd, msg);
+	tal_free(msg);
+
+	update_connection(store_fd, from, to, scid, min, max, base_fee,
+			  proportional_fee, delay, false);
 }
 
 static void node_id_from_privkey(const struct privkey *p, struct node_id *id)
