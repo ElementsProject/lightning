@@ -3215,7 +3215,15 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 		routehint_pre_getroute(d, p);
 	} else if (p->step == PAYMENT_STEP_GOT_ROUTE && d->current_routehint != NULL) {
 		/* Now it's time to stitch the two partial routes together. */
-		struct amount_msat dest_amount;
+		struct amount_msat dest_amount, estimate;
+		/* We do not have the exact final amount, however we
+		 * know that we should be able to use the channel in
+		 * the routehint, so let's fake it as being 2x the
+		 * amount we want to route. */
+
+		if(!amount_msat_mul(&estimate, p->final_amount, 2))
+			abort();
+
 		struct route_info *routehint = d->current_routehint;
 		struct route_hop *prev_hop;
 		for (ssize_t i = 0; i < tal_count(routehint); i++) {
@@ -3233,6 +3241,7 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 			hop.amount = dest_amount;
 			hop.delay = route_cltv(d->final_cltv, routehint + i + 1,
 					       tal_count(routehint) - i - 1);
+			hop.total_amount = estimate;
 
 			/* Should we get a failure inside the routehint we'll
 			 * need the direction so we can exclude it. Luckily
@@ -3601,6 +3610,7 @@ static void direct_pay_override(struct payment *p) {
 		p->route[0].scid = hint->scid.scid;
 		p->route[0].direction = hint->scid.dir;
 		p->route[0].node_id = *p->route_destination;
+		p->route[0].total_amount = hint->overall_capacity;
 		paymod_log(p, LOG_DBG,
 			   "Found a direct channel (%s) with sufficient "
 			   "capacity, skipping route computation.",
