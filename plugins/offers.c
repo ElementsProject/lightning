@@ -501,16 +501,6 @@ static void json_add_chains(struct json_stream *js,
 	json_array_end(js);
 }
 
-static void json_add_onionmsg_path(struct json_stream *js,
-				   const char *fieldname,
-				   const struct onionmsg_hop *hop)
-{
-	json_object_start(js, fieldname);
-	json_add_pubkey(js, "blinded_node_id", &hop->blinded_node_id);
-	json_add_hex_talarr(js, "encrypted_recipient_data", hop->encrypted_recipient_data);
-	json_object_end(js);
-}
-
 /* Returns true if valid */
 static bool json_add_blinded_paths(struct json_stream *js,
 				   const char *fieldname,
