@@ -9,6 +9,7 @@
 #include <common/setup.h>
 #include <common/utils.h>
 #include <bitcoin/chainparams.h>
+#include <gossipd/gossip_store_wiregen.h>
 #include <stdio.h>
 #include <wire/peer_wiregen.h>
 #include <unistd.h>
@@ -129,8 +130,13 @@ static void add_connection(int store_fd,
 					  &dummy_key, &dummy_key);
 	write_to_store(store_fd, msg);
 
-	update_connection(store_fd, from, to, base_fee, proportional_fee,
-			  delay, false);
+		/* Also needs a hint as to the funding size. */
+	struct amount_sat capacity = AMOUNT_SAT(100000000);
+	msg = towire_gossip_store_channel_amount(tmpctx, capacity);
+	write_to_store(store_fd, msg);
+	tal_free(msg);
+	update_connection(store_fd, from, to, base_fee, proportional_fee, delay,
+			  false);
 }
 
 static bool channel_is_between(const struct gossmap *gossmap,

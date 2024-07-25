@@ -91,6 +91,10 @@ struct channel_hint {
 	/* Non-null if we are one endpoint of this channel */
 	struct local_hint *local;
 
+	/* The total `amount_msat` that were used to fund the
+	 * channel. This is always smaller gte the
+	 * estimated_capacity */
+	struct amount_msat overall_capacity;
 };
 
 /* Each payment goes through a number of steps that are always processed in
