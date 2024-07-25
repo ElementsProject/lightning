@@ -387,6 +387,16 @@ void payment_start(struct payment *p)
 	payment_start_at_blockheight(p, INVALID_BLOCKHEIGHT);
 }
 
+static void channel_hint_to_json(const char *name, const struct channel_hint *hint, struct json_stream *dest)
+{
+	json_object_start(dest, name);
+	json_add_u32(dest, "timestamp", hint->timestamp);
+	json_add_short_channel_id_dir(dest, "scid", hint->scid);
+	json_add_amount_msat(dest, "capacity_msat", hint->estimated_capacity);
+	json_add_bool(dest, "enabled", hint->enabled);
+	json_object_end(dest);
+}
+
 /**
  * Notify subscribers of the `channel_hint` topic about a changed hint
  *
@@ -406,7 +416,7 @@ static void channel_hint_notify(struct plugin *plugin,
 	    plugin_notification_start(plugin, "channel_hint_update");
 
 	/* The timestamp used to decay the observation over time. */
-	json_add_u32(js, "timestamp", hint->timestamp);
+	channel_hint_to_json("channel_hint", hint, js);
 	plugin_notification_end(plugin, js);
 }
 
