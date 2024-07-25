@@ -421,6 +421,10 @@ void json_add_amount_sat_msat(struct json_stream *result UNNEEDED,
 			      struct amount_sat sat)
 
 { fprintf(stderr, "json_add_amount_sat_msat called!\n"); abort(); }
+/* Generated stub for json_add_blinded_path */
+void json_add_blinded_path(struct json_stream *js UNNEEDED, const char *fieldname UNNEEDED,
+			   const struct blinded_path *blinded_path UNNEEDED)
+{ fprintf(stderr, "json_add_blinded_path called!\n"); abort(); }
 /* Generated stub for json_add_bool */
 void json_add_bool(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		   bool value UNNEEDED)
@@ -777,6 +781,12 @@ struct command_result *param_bin_from_hex(struct command *cmd UNNEEDED, const ch
 					  const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 					  u8 **bin UNNEEDED)
 { fprintf(stderr, "param_bin_from_hex called!\n"); abort(); }
+/* Generated stub for param_blindedpath */
+struct command_result *param_blindedpath(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+					 const char *buffer UNNEEDED,
+					 const jsmntok_t *tok UNNEEDED,
+					 struct blinded_path **blindedpath UNNEEDED)
+{ fprintf(stderr, "param_blindedpath called!\n"); abort(); }
 /* Generated stub for param_bool */
 struct command_result *param_bool(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				  const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
