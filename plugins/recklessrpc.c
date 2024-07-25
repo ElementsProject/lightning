@@ -5,10 +5,12 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
 #include <ccan/pipecmd/pipecmd.h>
+#include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_param.h>
 #include <common/json_parse_simple.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <errno.h>
 #include <plugins/libplugin.h>
 #include <signal.h>
@@ -26,6 +28,12 @@ struct reckless {
 	size_t stdout_new;	/* new since last read */
 	pid_t pid;
 };
+
+struct lconfig {
+	char *lightningdir;
+	char *config;
+	char *network;
+} lconfig;
 
 static struct io_plan *read_more(struct io_conn *conn, struct reckless *rkls)
 {
@@ -116,6 +124,14 @@ static struct command_result *reckless_call(struct command *cmd,
 	tal_arr_expand(&my_call, "reckless");
 	tal_arr_expand(&my_call, "-v");
 	tal_arr_expand(&my_call, "--json");
+	tal_arr_expand(&my_call, "-l");
+	tal_arr_expand(&my_call, lconfig.lightningdir);
+	tal_arr_expand(&my_call, "--network");
+	tal_arr_expand(&my_call, lconfig.network);
+	if (lconfig.config) {
+		tal_arr_expand(&my_call, "--conf");
+		tal_arr_expand(&my_call, lconfig.config);
+	}
 	tal_arr_expand(&my_call, "search");
 	tal_arr_expand(&my_call, (char *) call);
 	tal_arr_expand(&my_call, NULL);
@@ -160,9 +176,24 @@ static const char *init(struct plugin *p,
 			const jsmntok_t *config UNUSED)
 {
 	plugin = p;
+	rpc_scan(p, "listconfigs",
+		 take(json_out_obj(NULL, NULL, NULL)),
+		 "{configs:{"
+		 "conf?:{value_str:%},"
+		 "lightning-dir:{value_str:%},"
+		 "network:{value_str:%}"
+		 "}}",
+		 JSON_SCAN_TAL(p, json_strdup, &lconfig.config),
+		 JSON_SCAN_TAL(p, json_strdup, &lconfig.lightningdir),
+		 JSON_SCAN_TAL(p, json_strdup, &lconfig.network));
+	/* These lightning config parameters need to stick around for each
+	 * reckless call. */
+	if (lconfig.config)
+		notleak(lconfig.config);
+	notleak(lconfig.lightningdir);
+	notleak(lconfig.network);
 	plugin_log(p, LOG_DBG, "plugin initialized!");
-	/* FIXME: TODO: scan for reckless config info */
-	/* FIXME: TODO: assume default reckless config using ld config dets */
+	plugin_log(p, LOG_DBG, "lightning-dir: %s", lconfig.lightningdir);
 	return NULL;
 }
 
