@@ -26,6 +26,8 @@ struct reckless {
 	char *stderrbuf;
 	size_t stdout_read;	/* running total */
 	size_t stdout_new;	/* new since last read */
+	size_t stderr_read;
+	size_t stderr_new;
 	pid_t pid;
 };
 
@@ -34,6 +36,17 @@ struct lconfig {
 	char *config;
 	char *network;
 } lconfig;
+
+static struct io_plan *reckless_in_init(struct io_conn *conn,
+					struct reckless *reckless)
+{
+	return io_write(conn, "Y", 1, io_close_cb, NULL);
+}
+
+static void reckless_send_yes(struct reckless *reckless)
+{
+	io_new_conn(reckless, reckless->stdinfd, reckless_in_init, reckless);
+}
 
 static struct io_plan *read_more(struct io_conn *conn, struct reckless *rkls)
 {
@@ -114,6 +127,33 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reckless *rkls)
 	return read_more(conn, rkls);
 }
 
+static void stderr_conn_finish(struct io_conn *conn, void *reckless UNUSED)
+{
+       io_close(conn);
+}
+
+static struct io_plan *stderr_read_more(struct io_conn *conn,
+                                       struct reckless *rkls)
+{
+	rkls->stderr_read += rkls->stderr_new;
+	if (rkls->stderr_read == tal_count(rkls->stderrbuf))
+		tal_resize(&rkls->stderrbuf, rkls->stderr_read * 2);
+	if (strends(rkls->stderrbuf, "[Y] to create one now.\n")) {
+		plugin_log(plugin, LOG_DBG, "confirming config creation");
+		reckless_send_yes(rkls);
+	}
+	return io_read_partial(conn, rkls->stderrbuf + rkls->stderr_read,
+			       tal_count(rkls->stderrbuf) - rkls->stderr_read,
+			       &rkls->stderr_new, stderr_read_more, rkls);
+}
+
+static struct io_plan *stderr_conn_init(struct io_conn *conn,
+					struct reckless *reckless)
+{
+	io_set_finish(conn, stderr_conn_finish, NULL);
+	return stderr_read_more(conn, reckless);
+}
+
 static struct command_result *reckless_call(struct command *cmd,
 					    const char *call)
 {
@@ -142,6 +182,8 @@ static struct command_result *reckless_call(struct command *cmd,
 	reckless->stderrbuf = tal_arrz(reckless, char, 1024);
 	reckless->stdout_read = 0;
 	reckless->stdout_new = 0;
+	reckless->stderr_read = 0;
+	reckless->stderr_new = 0;
 	char * full_cmd;
 	full_cmd = tal_fmt(tmpctx, "calling:");
 	for (int i=0; i<tal_count(my_call); i++)
@@ -154,6 +196,7 @@ static struct command_result *reckless_call(struct command *cmd,
 
 	/* FIXME: fail if invalid pid*/
 	io_new_conn(reckless, reckless->stdoutfd, conn_init, reckless);
+	io_new_conn(reckless, reckless->stderrfd, stderr_conn_init, reckless);
 	tal_free(my_call);
 	return command_still_pending(cmd);
 }
