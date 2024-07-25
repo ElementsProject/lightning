@@ -397,11 +397,30 @@ static void channel_hint_to_json(const char *name, const struct channel_hint *hi
 }
 
 /**
- * Notify subscribers of the `channel_hint` topic about a changed hint
+ * Load a channel_hint from its JSON representation.
  *
- * We share the channel_hints across payments, and across plugins, in order to
- * maximize the context they have when performing payments.
+ * @return The initialized `channel_hint` or `NULL` if we encountered a parsing
+ *         error.
  */
+/*
+static struct channel_hint *channel_hint_from_json(const tal_t *ctx,
+						   const char *buffer,
+						   const jsmntok_t *toks)
+{
+	const char *ret;
+	struct channel_hint *hint = tal(ctx, struct channel_hint);
+	ret = json_scan(ctx, buffer, toks,
+			"{timestamp:%,scid:%,capacity_msat:%,enabled:%}",
+			JSON_SCAN(json_to_u32, &hint->timestamp),
+			JSON_SCAN(json_to_short_channel_id_dir, &hint->scid),
+			JSON_SCAN(json_to_msat, &hint->estimated_capacity),
+			JSON_SCAN(json_to_bool, &hint->enabled));
+
+	if (ret != NULL)
+		hint = tal_free(hint);
+	return hint;
+}
+*/
     /**
      * Notify subscribers of the `channel_hint` topic about a changed hint
      *
