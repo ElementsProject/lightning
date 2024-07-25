@@ -5,7 +5,6 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/pubkey.h>
-#include <bitcoin/short_channel_id.h>
 #include <bitcoin/tx.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/mem/mem.h>
@@ -572,6 +571,25 @@ bool json_to_short_channel_id(const char *buffer, const jsmntok_t *tok,
 {
 	return (short_channel_id_from_str(buffer + tok->start,
 					  tok->end - tok->start, scid));
+}
+
+bool json_to_short_channel_id_dir(const char *buffer, const jsmntok_t *tok,
+				  struct short_channel_id_dir *scidd)
+{
+	jsmntok_t scidtok, numtok;
+	u32 dir;
+
+	if (!split_tok(buffer, tok, '/', &scidtok, &numtok))
+		return false;
+
+	if (!json_to_short_channel_id(buffer, &scidtok, &scidd->scid))
+		return false;
+
+	if (!json_to_u32(buffer, &numtok, &dir) || (dir > 1))
+		return false;
+
+	scidd->dir = dir;
+	return true;
 }
 
 bool json_to_txid(const char *buffer, const jsmntok_t *tok,

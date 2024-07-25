@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_COMMON_JSON_PARSE_H
 #define LIGHTNING_COMMON_JSON_PARSE_H
 #include "config.h"
+#include <bitcoin/short_channel_id.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <common/coin_mvt.h>
 #include <common/errcode.h>
@@ -109,6 +110,10 @@ bool json_to_outpoint(const char *buffer, const jsmntok_t *tok,
 /* Extract a channel id from this */
 bool json_to_channel_id(const char *buffer, const jsmntok_t *tok,
 			struct channel_id *cid);
+
+/* Extract a channel id + dir from this */
+bool json_to_short_channel_id_dir(const char *buffer, const jsmntok_t *tok,
+				  struct short_channel_id_dir *scidd);
 
 /* Extract a coin movement 'tag' from this */
 bool json_to_coin_mvt_tag(const char *buffer, const jsmntok_t *tok,

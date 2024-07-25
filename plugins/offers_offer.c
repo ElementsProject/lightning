@@ -350,25 +350,6 @@ static struct command_result *currency_done(struct command *cmd,
 	return maybe_add_path(cmd, offinfo);
 }
 
-static bool json_to_short_channel_id_dir(const char *buffer, const jsmntok_t *tok,
-					 struct short_channel_id_dir *scidd)
-{
-	jsmntok_t scidtok, numtok;
-	u32 dir;
-
-	if (!split_tok(buffer, tok, '/', &scidtok, &numtok))
-		return false;
-
-	if (!json_to_short_channel_id(buffer, &scidtok, &scidd->scid))
-		return false;
-
-	if (!json_to_u32(buffer, &numtok, &dir) || (dir > 1))
-		return false;
-
-	scidd->dir = dir;
-	return true;
-}
-
 static bool json_to_sciddir_or_pubkey(const char *buffer, const jsmntok_t *tok,
 				      struct sciddir_or_pubkey *sciddir_or_pubkey)
 {
