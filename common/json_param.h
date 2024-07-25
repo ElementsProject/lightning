@@ -369,4 +369,9 @@ struct command_result *param_pubkey(struct command *cmd, const char *name,
 				    const char *buffer, const jsmntok_t *tok,
 				    struct pubkey **pubkey);
 
+struct command_result *param_blindedpath(struct command *cmd, const char *name,
+					 const char *buffer,
+					 const jsmntok_t *tok,
+					 struct blinded_path **blindedpath);
+
 #endif /* LIGHTNING_COMMON_JSON_PARAM_H */

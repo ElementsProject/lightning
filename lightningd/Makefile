@@ -118,6 +118,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/invoice_path_id.o		\
 	common/key_derive.o			\
 	common/keyset.o				\
+	common/json_blinded_path.o		\
 	common/json_channel_type.o		\
 	common/json_command.o			\
 	common/json_filter.o			\
@@ -140,6 +141,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/pseudorand.o			\
 	common/plugin.o				\
 	common/random_select.o			\
+	common/sciddir_or_pubkey.o		\
 	common/setup.o				\
 	common/shutdown_scriptpubkey.o		\
 	common/sphinx.o				\

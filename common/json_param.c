@@ -11,6 +11,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/configdir.h>
+#include <common/json_blinded_path.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/route.h>
@@ -1114,3 +1115,14 @@ struct command_result *param_pubkey(struct command *cmd, const char *name,
 				     "should be a compressed pubkey");
 }
 
+struct command_result *param_blindedpath(struct command *cmd, const char *name,
+					 const char *buffer,
+					 const jsmntok_t *tok,
+					 struct blinded_path **blindedpath)
+{
+	if ((*blindedpath = json_to_blinded_path(cmd, buffer, tok)))
+		return NULL;
+
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a blinded_path");
+}
