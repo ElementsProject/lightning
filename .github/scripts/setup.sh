@@ -1,7 +1,10 @@
 #!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
-export RUST_VERSION=stable
+
+# Fix the RUST_VERSION as 1.80 appears to have a regression (the
+# `time` crate about a missing type annotation.)
+export RUST_VERSION=1.78
 
 sudo useradd -ms /bin/bash tester
 sudo apt-get update -qq
@@ -55,6 +58,9 @@ sudo chmod 0440 /etc/sudoers.d/tester
 
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
      -y --default-toolchain ${RUST_VERSION}
+
+echo "rustc version = $(rustc --version)"
+echo "cargo version = $(cargo --version)"
 
 # We also need a relatively recent protobuf-compiler, at least 3.12.0,
 # in order to support the experimental `optional` flag.
