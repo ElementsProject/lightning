@@ -1618,6 +1618,7 @@ handle_intermediate_failure(struct command *cmd,
 		break;
 
 	case WIRE_TEMPORARY_CHANNEL_FAILURE: {
+		memcheck(&errchan->amount, sizeof(struct amount_msat));
 		estimated = errchan->amount;
 
 		/* Subtract one msat more, since we know that the amount did not
