@@ -12,12 +12,16 @@ pub(crate) struct Identity {
 }
 
 impl Identity {
-    fn to_certificate(&self) -> Result<Certificate> {
+    fn to_key(&self) -> Result<KeyPair> {
         let keystr = String::from_utf8_lossy(&self.key);
         let key = KeyPair::from_pem(&keystr)?;
+        Ok(key)
+    }
+
+    fn to_certificate(&self) -> Result<Certificate> {
         let certstr = String::from_utf8_lossy(&self.certificate);
-        let params = rcgen::CertificateParams::from_ca_cert_pem(&certstr, key)?;
-        let cert = Certificate::from_params(params)?;
+        let params = rcgen::CertificateParams::from_ca_cert_pem(&certstr)?;
+        let cert = params.self_signed(&self.to_key()?)?;
         Ok(cert)
     }
 
@@ -41,7 +45,7 @@ impl Identity {
 /// The `grpc-plugin` will use the `server.pem` certificate, while a
 /// client is supposed to use the `client.pem` and associated
 /// keys. Notice that this isn't strictly necessary since the server
-/// will accept any client that is signed by the CA. In future we
+/// will accept any client that is signed by the CA. In the future, we
 /// might add runes, making the distinction more important.
 ///
 /// Returns the server identity and the root CA certificate.
@@ -71,16 +75,16 @@ fn generate_or_load_identity(
             "Generating a new keypair in {:?}, it didn't exist",
             &key_path
         );
-        let keypair = KeyPair::generate(&rcgen::PKCS_ECDSA_P256_SHA256)?;
+        let keypair = KeyPair::generate_for(&rcgen::PKCS_ECDSA_P256_SHA256)?;
 
-        // Create the file, but make it user-readable only:
+        // Create the file but make it user-readable only:
         let mut file = std::fs::File::create(&key_path)?;
         let mut perms = std::fs::metadata(&key_path)?.permissions();
         perms.set_mode(0o600);
         std::fs::set_permissions(&key_path, perms)?;
 
-	// Only after changing the permissions we can write the
-	// private key
+        // Only after changing the permissions we can write the
+        // private key
         file.write_all(keypair.serialize_pem().as_bytes())?;
         drop(file);
 
@@ -91,27 +95,23 @@ fn generate_or_load_identity(
 
         // Configure the certificate we want.
         let subject_alt_names = vec!["cln".to_string(), "localhost".to_string()];
-        let mut params = rcgen::CertificateParams::new(subject_alt_names);
-        params.key_pair = Some(keypair);
-        params.alg = &rcgen::PKCS_ECDSA_P256_SHA256;
-        if parent.is_none() {
-            params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
+        let mut params = rcgen::CertificateParams::new(subject_alt_names)?;
+        params.is_ca = if parent.is_none() {
+            rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained)
         } else {
-            params.is_ca = rcgen::IsCa::NoCa;
-        }
+            rcgen::IsCa::NoCa
+        };
         params
             .distinguished_name
             .push(rcgen::DnType::CommonName, name);
 
-        let cert = Certificate::from_params(params)?;
-        std::fs::write(
-            &cert_path,
-            match parent {
-                None => cert.serialize_pem()?,
-                Some(ca) => cert.serialize_pem_with_signer(&ca.to_certificate()?)?,
-            },
-        )
-        .context("writing certificate to file")?;
+        let cert = match parent {
+            None => params.self_signed(&keypair),
+            Some(parent) => {
+                params.signed_by(&keypair, &parent.to_certificate()?, &parent.to_key()?)
+            }
+        }?;
+        std::fs::write(&cert_path, cert.pem().as_bytes()).context("writing certificate to file")?;
     }
 
     let key = std::fs::read(&key_path)?;
