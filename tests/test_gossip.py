@@ -2144,18 +2144,17 @@ def test_generate_gossip_store(node_factory):
     l1 = node_factory.get_node(start=False)
     chans = [GenChannel(0, 1),
              GenChannel(0, 2, capacity_sats=5000),
-             GenChannel(0, 3),
+             GenChannel(0, 3,
+                        forward=GenChannel.Half(enabled=False,
+                                                htlc_min=10,
+                                                htlc_max=5000000 - 10,
+                                                basefee=10,
+                                                propfee=10),
+                        reverse=GenChannel.Half(htlc_min=11,
+                                                htlc_max=5000000 - 11,
+                                                basefee=11,
+                                                propfee=11)),
              GenChannel(0, 4)]
-    chans[2].half[0] = GenChannel.Half(enabled=False,
-                                       htlc_min=10,
-                                       htlc_max=5000000 - 10,
-                                       basefee=10,
-                                       propfee=10)
-
-    chans[2].half[1] = GenChannel.Half(htlc_min=11,
-                                       htlc_max=5000000 - 11,
-                                       basefee=11,
-                                       propfee=11)
     gsfile, nodemap = generate_gossip_store(chans)
 
     # Set up l1 with this as the gossip_store
