@@ -22,6 +22,7 @@ static struct node_id my_id;
 static unsigned int maxdelay_default;
 static bool exp_offers;
 static bool disablempp = false;
+static struct channel_hint *global_hints;
 
 static LIST_HEAD(payments);
 
@@ -582,6 +583,10 @@ static const char *init(struct plugin *p,
 	 */
 	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
 	maxdelay_default = 2016;
+
+	global_hints =
+	    notleak_with_children(tal_arr(p, struct channel_hint, 0));
+
 	/* max-locktime-blocks deprecated in v24.05, but still grab it! */
 	rpc_scan(p, "listconfigs",
 		 take(json_out_obj(NULL, NULL, NULL)),
