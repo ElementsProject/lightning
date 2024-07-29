@@ -1,15 +1,21 @@
-DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/mkquery devtools/lightning-checkmessage devtools/topology devtools/route devtools/bolt12-cli devtools/encodeaddr devtools/features devtools/fp16 devtools/rune devtools/gossmap-compress
+DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/mkquery devtools/lightning-checkmessage devtools/topology devtools/route devtools/bolt12-cli devtools/encodeaddr devtools/features devtools/fp16 devtools/rune 
 ifeq ($(HAVE_SQLITE3),1)
 DEVTOOLS += devtools/checkchannels
 endif
 
-DEVTOOLS_TOOL_SRC := $(DEVTOOLS:=.c) devtools/print_wire.c devtools/clean_topo.c
+DEVTOOLS_TOOL_SRC := $(DEVTOOLS:=.c) devtools/gossmap-compress.c devtools/print_wire.c devtools/clean_topo.c
 DEVTOOLS_TOOL_OBJS := $(DEVTOOLS_TOOL_SRC:.c=.o)
 
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(DEVTOOLS_TOOL_SRC)
 ALL_C_HEADERS +=
 ALL_PROGRAMS += $(DEVTOOLS)
+
+# Don't include this in ALL_PROGRAMS as we need a special link line for -lz
+all-programs: devtools/gossmap-compress
+clean: gossmap-compress-clean
+gossmap-compress-clean:
+	$(RM) devtools/gossmap-compress
 
 DEVTOOLS_COMMON_OBJS :=				\
 	common/amount.o				\
@@ -58,6 +64,14 @@ devtools/bolt11-cli: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) wire/f
 devtools/encodeaddr: common/utils.o common/bech32.o devtools/encodeaddr.o
 
 devtools/gossmap-compress: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/tlvstream.o common/gossmap.o common/fp16.o devtools/gossmap-compress.o gossipd/gossip_store_wiregen.o
+
+ifeq ($(HAVE_ZLIB),1)
+devtools/gossmap-compress:
+	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) libccan.a -lz -o $@)
+else
+devtools/gossmap-compress:
+	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) libccan.a -o $@)
+endif # ZLIB
 
 devtools/bolt12-cli: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/bolt12_wiregen.o wire/fromwire.o wire/towire.o common/bolt12.o common/bolt12_merkle.o devtools/bolt12-cli.o common/setup.o common/iso4217.o
 

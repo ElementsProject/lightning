@@ -7,7 +7,6 @@
 #include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
-#include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
 #include <common/bigsize.h>
 #include <common/gossip_store.h>
@@ -16,8 +15,29 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store_wiregen.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <wire/peer_wiregen.h>
+#if HAVE_ZLIB
+#include <zlib.h>
+#else
+/* Worst... zlib... ever! */
+#define gzFile int
+#define gzdopen(fd, mode) (fd)
+#define gzclose(outf) close(outf)
+static int gzread(int fd, void *buf, size_t len)
+{
+	if (read_all(fd, buf, len))
+		return len;
+	return 0;
+}
+static int gzwrite(int fd, const void *buf, size_t len)
+{
+	if (write_all(fd, buf, len))
+		return len;
+	return 0;
+}
+#endif
 
 static unsigned int verbose = 0;
 
@@ -70,35 +90,35 @@ static int cmp_node_num_chans(struct gossmap_node *const *a,
 	return (int)(*a)->num_chans - (int)(*b)->num_chans;
 }
 
-static void write_bigsize(int outfd, u64 val)
+static void write_bigsize(gzFile outf, u64 val)
 {
 	u8 buf[BIGSIZE_MAX_LEN];
 	size_t len;
 
 	len = bigsize_put(buf, val);
-	if (!write_all(outfd, buf, len))
-		errx(1, "Writing bigsize");
+	if (gzwrite(outf, buf, len) == 0)
+		err(1, "Writing bigsize");
 }
 
-static u64 read_bigsize(int infd)
+static u64 read_bigsize(gzFile inf)
 {
 	u64 val;
 	u8 buf[BIGSIZE_MAX_LEN];
 
-	if (!read_all(infd, buf, 1))
+	if (gzread(inf, buf, 1) != 1)
 		errx(1, "Reading bigsize");
 
 	switch (buf[0]) {
 	case 0xfd:
-		if (!read_all(infd, buf+1, 2))
+		if (gzread(inf, buf+1, 2) != 2)
 			errx(1, "Reading bigsize");
 		break;
 	case 0xfe:
-		if (!read_all(infd, buf+1, 4))
+		if (gzread(inf, buf+1, 4) != 4)
 			errx(1, "Reading bigsize");
 		break;
 	case 0xff:
-		if (!read_all(infd, buf+1, 8))
+		if (gzread(inf, buf+1, 8) != 8)
 			errx(1, "Reading bigsize");
 		break;
 	}
@@ -153,7 +173,7 @@ static size_t find_index(const u64 *template, u64 val)
 
 /* All templates are of the same form.  Output all the distinct values, then
  * write out which one is used by each channel */
-static void write_template_and_values(int outfd, const u64 *vals, const char *what)
+static void write_template_and_values(gzFile outf, const u64 *vals, const char *what)
 {
 	/* Sort and remove dups */
 	const u64 *template = deduplicate(tmpctx, vals);
@@ -164,18 +184,18 @@ static void write_template_and_values(int outfd, const u64 *vals, const char *wh
 	assert(tal_count(vals) >= tal_count(template));
 
 	/* Write template. */
-	write_bigsize(outfd, tal_count(template));
+	write_bigsize(outf, tal_count(template));
 	for (size_t i = 0; i < tal_count(template); i++)
-		write_bigsize(outfd, template[i]);
+		write_bigsize(outf, template[i]);
 
 	/* Tie every channel into the template.  O(N^2) but who
 	 * cares? */
 	for (size_t i = 0; i < tal_count(vals); i++) {
-		write_bigsize(outfd, find_index(template, vals[i]));
+		write_bigsize(outf, find_index(template, vals[i]));
 	}
 }
 
-static void write_bidir_perchan(int outfd,
+static void write_bidir_perchan(gzFile outf,
 				struct gossmap *gossmap,
 				struct gossmap_chan **chans,
 				u64 (*get_value)(struct gossmap *,
@@ -194,7 +214,7 @@ static void write_bidir_perchan(int outfd,
 		}
 	}
 
-	write_template_and_values(outfd, vals, what);
+	write_template_and_values(outf, vals, what);
 }
 
 static u64 get_htlc_min(struct gossmap *gossmap,
@@ -420,13 +440,13 @@ static void write_update(int outfd,
 	write_msg_to_gstore(outfd, take(msg));
 }
 
-static const u64 *read_template(const tal_t *ctx, int infd, const char *what)
+static const u64 *read_template(const tal_t *ctx, gzFile inf, const char *what)
 {
-	size_t count = read_bigsize(infd);
+	size_t count = read_bigsize(inf);
 	u64 *template = tal_arr(ctx, u64, count);
 
 	for (size_t i = 0; i < count; i++)
-		template[i] = read_bigsize(infd);
+		template[i] = read_bigsize(inf);
 
 	if (verbose)
 		printf("%zu unique %s\n", count, what);
@@ -434,9 +454,9 @@ static const u64 *read_template(const tal_t *ctx, int infd, const char *what)
 	return template;
 }
 
-static u64 read_val(int infd, const u64 *template)
+static u64 read_val(gzFile inf, const u64 *template)
 {
-	size_t idx = read_bigsize(infd);
+	size_t idx = read_bigsize(inf);
 	assert(idx < tal_count(template));
 	return template[idx];
 }
@@ -478,6 +498,7 @@ int main(int argc, char *argv[])
 		size_t *node_to_compr_idx;
 		size_t node_count, channel_count;
 		struct gossmap_chan **chans, *c;
+		gzFile outf = gzdopen(outfd, "wb9");
 
 		struct gossmap *gossmap = gossmap_load_fd(tmpctx, infd, NULL, NULL, NULL);
 		if (!gossmap)
@@ -501,7 +522,7 @@ int main(int argc, char *argv[])
 		for (size_t i = 0; i < tal_count(nodes); i++)
 			node_to_compr_idx[gossmap_node_idx(gossmap, nodes[i])] = i;
 
-		if (!write_all(outfd, GC_HEADER, GC_HEADERLEN))
+		if (gzwrite(outf, GC_HEADER, GC_HEADERLEN) == 0)
 			err(1, "Writing header");
 
 		/* Now, output channels.  First get exact count. */
@@ -516,7 +537,7 @@ int main(int argc, char *argv[])
 		chans = tal_arr(gossmap, struct gossmap_chan *, channel_count);
 
 		/*  * <CHANNEL_ENDS> := {channel_count} {start_nodeidx}*{channel_count} {end_nodeidx}*{channel_count} */
-		write_bigsize(outfd, channel_count);
+		write_bigsize(outf, channel_count);
 		size_t chanidx = 0;
 		/* We iterate nodes to get to channels.  This gives us nicer ordering for compression */
 		for (size_t wanted_dir = 0; wanted_dir < 2; wanted_dir++) {
@@ -527,7 +548,7 @@ int main(int argc, char *argv[])
 					if (dir != wanted_dir)
 						continue;
 
-					write_bigsize(outfd,
+					write_bigsize(outf,
 						      node_to_compr_idx[gossmap_node_idx(gossmap, n)]);
 					/* First time reflects channel index for reader */
 					if (wanted_dir == 0)
@@ -545,12 +566,12 @@ int main(int argc, char *argv[])
 				if (chans[i]->cupdate_off[dir] == 0)
 					num_unknown++;
 				if (!chans[i]->half[dir].enabled) {
-					write_bigsize(outfd, i * 2 + dir);
+					write_bigsize(outf, i * 2 + dir);
 					num_disabled++;
 				}
 			}
 		}
-		write_bigsize(outfd, channel_count * 2);
+		write_bigsize(outf, channel_count * 2);
 		if (verbose)
 			printf("%zu disabled channels (%zu no update)\n", num_disabled, num_unknown);
 
@@ -562,7 +583,7 @@ int main(int argc, char *argv[])
 			gossmap_chan_get_capacity(gossmap, chans[i], &sats);
 			vals[i] = sats.satoshis; /* Raw: compression format */
 		}
-		write_template_and_values(outfd, vals, "capacities");
+		write_template_and_values(outf, vals, "capacities");
 
 		/* These are all of same form: one entry per direction per channel */
 		/* <HTLC_MINS> := <HTLC_MIN_TEMPLATES> {channel_count}*{htlc_min_idx} */
@@ -575,11 +596,12 @@ int main(int argc, char *argv[])
 		/* <PROPFEE_TEMPLATES> := {propfee_count} {propfee_count}*{propfee} */
 		/* <DELAYS> := <DELAY_TEMPLATES> {channel_count}*{delay_idx} */
 		/* <DELAY_TEMPLATES> := {delay_count} {delay_count}*{delay} */
-		write_bidir_perchan(outfd, gossmap, chans, get_htlc_min, "htlc_min");
-		write_bidir_perchan(outfd, gossmap, chans, get_htlc_max, "htlc_max");
-		write_bidir_perchan(outfd, gossmap, chans, get_basefee, "basefee");
-		write_bidir_perchan(outfd, gossmap, chans, get_propfee, "propfee");
-		write_bidir_perchan(outfd, gossmap, chans, get_delay, "delay");
+		write_bidir_perchan(outf, gossmap, chans, get_htlc_min, "htlc_min");
+		write_bidir_perchan(outf, gossmap, chans, get_htlc_max, "htlc_max");
+		write_bidir_perchan(outf, gossmap, chans, get_basefee, "basefee");
+		write_bidir_perchan(outf, gossmap, chans, get_propfee, "propfee");
+		write_bidir_perchan(outf, gossmap, chans, get_delay, "delay");
+		gzclose(outf);
 	} else if (streq(argv[1], "decompress")) {
 		char hdr[GC_HEADERLEN];
 		size_t channel_count, chanidx;
@@ -596,19 +618,20 @@ int main(int argc, char *argv[])
 		} *chans;
 		const u8 version = GOSSIP_STORE_VER;
 		size_t disabled_count;
+		gzFile inf = gzdopen(infd, "rb");
 
-		if (!read_all(infd, hdr, sizeof(hdr))
+		if (gzread(inf, hdr, sizeof(hdr)) != sizeof(hdr)
 		    || !memeq(hdr, sizeof(hdr), GC_HEADER, GC_HEADERLEN))
 			errx(1, "Not a valid compressed gossmap header");
-		channel_count = read_bigsize(infd);
+		channel_count = read_bigsize(inf);
 		if (verbose)
 			printf("%zu channels\n", channel_count);
 		chans = tal_arrz(tmpctx, struct fakechan, channel_count);
 
 		for (size_t i = 0; i < channel_count; i++)
-			chans[i].node1 = read_bigsize(infd);
+			chans[i].node1 = read_bigsize(inf);
 		for (size_t i = 0; i < channel_count; i++)
-			chans[i].node2 = read_bigsize(infd);
+			chans[i].node2 = read_bigsize(inf);
 
 		if (verbose >= 2) {
 			for (size_t i = 0; i < channel_count; i++) {
@@ -623,27 +646,27 @@ int main(int argc, char *argv[])
 		}
 
 		disabled_count = 0;
-		while ((chanidx = read_bigsize(infd)) < channel_count*2) {
+		while ((chanidx = read_bigsize(inf)) < channel_count*2) {
 			disabled_count++;
 			chans[chanidx/2].half[chanidx%2].disabled = true;
 		}
 		if (verbose)
 			printf("%zu disabled\n", disabled_count);
 
-		template = read_template(tmpctx, infd, "capacities");
+		template = read_template(tmpctx, inf, "capacities");
 		for (size_t i = 0; i < channel_count; i++)
-			chans[i].capacity = read_val(infd, template);
+			chans[i].capacity = read_val(inf, template);
 
-		template = read_template(tmpctx, infd, "htlc_min");
+		template = read_template(tmpctx, inf, "htlc_min");
 		for (size_t i = 0; i < channel_count; i++) {
 			for (size_t dir = 0; dir < 2; dir++) {
-				chans[i].half[dir].htlc_min = read_val(infd, template);
+				chans[i].half[dir].htlc_min = read_val(inf, template);
 			}
 		}
-		template = read_template(tmpctx, infd, "htlc_max");
+		template = read_template(tmpctx, inf, "htlc_max");
 		for (size_t i = 0; i < channel_count; i++) {
 			for (size_t dir = 0; dir < 2; dir++) {
-				u64 v = read_val(infd, template);
+				u64 v = read_val(inf, template);
 				if (v == 0)
 					v = chans[i].capacity;
 				else if (v == 1)
@@ -651,27 +674,28 @@ int main(int argc, char *argv[])
 				chans[i].half[dir].htlc_max = v;
 			}
 		}
-		template = read_template(tmpctx, infd, "basefee");
+		template = read_template(tmpctx, inf, "basefee");
 		for (size_t i = 0; i < channel_count; i++) {
 			for (size_t dir = 0; dir < 2; dir++) {
-				chans[i].half[dir].basefee = read_val(infd, template);
+				chans[i].half[dir].basefee = read_val(inf, template);
 			}
 		}
-		template = read_template(tmpctx, infd, "propfee");
+		template = read_template(tmpctx, inf, "propfee");
 		for (size_t i = 0; i < channel_count; i++) {
 			for (size_t dir = 0; dir < 2; dir++) {
-				chans[i].half[dir].propfee = read_val(infd, template);
+				chans[i].half[dir].propfee = read_val(inf, template);
 			}
 		}
-		template = read_template(tmpctx, infd, "delay");
+		template = read_template(tmpctx, inf, "delay");
 		for (size_t i = 0; i < channel_count; i++) {
 			for (size_t dir = 0; dir < 2; dir++) {
-				chans[i].half[dir].delay = read_val(infd, template);
+				chans[i].half[dir].delay = read_val(inf, template);
 			}
 		}
 
 		/* Now write out gossmap */
-		write(outfd, &version, 1);
+		if (write(outfd, &version, 1) != 1)
+			err(1, "Failed to write output");
 		for (size_t i = 0; i < channel_count; i++) {
 			write_announce(outfd,
 				       chans[i].node1,
