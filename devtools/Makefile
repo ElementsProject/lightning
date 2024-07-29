@@ -57,7 +57,7 @@ devtools/bolt11-cli: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) wire/f
 
 devtools/encodeaddr: common/utils.o common/bech32.o devtools/encodeaddr.o
 
-devtools/gossmap-compress: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/tlvstream.o common/gossmap.o common/fp16.o devtools/gossmap-compress.o
+devtools/gossmap-compress: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/tlvstream.o common/gossmap.o common/fp16.o devtools/gossmap-compress.o gossipd/gossip_store_wiregen.o
 
 devtools/bolt12-cli: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/bolt12_wiregen.o wire/fromwire.o wire/towire.o common/bolt12.o common/bolt12_merkle.o devtools/bolt12-cli.o common/setup.o common/iso4217.o
 

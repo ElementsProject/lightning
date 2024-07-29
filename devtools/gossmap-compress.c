@@ -1,18 +1,25 @@
 #include "config.h"
+#include <bitcoin/privkey.h>
+#include <bitcoin/pubkey.h>
 #include <ccan/asort/asort.h>
+#include <ccan/crc32c/crc32c.h>
 #include <ccan/err/err.h>
+#include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
 #include <common/bigsize.h>
+#include <common/gossip_store.h>
 #include <common/gossmap.h>
 #include <common/setup.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <gossipd/gossip_store_wiregen.h>
 #include <unistd.h>
+#include <wire/peer_wiregen.h>
 
-static bool verbose = false;
+static unsigned int verbose = 0;
 
 /* All {numbers} are bigsize.
  *
@@ -54,6 +61,7 @@ static bool verbose = false;
 
 #define GC_HEADER "GOSSMAP_COMPRESSv1"
 #define GC_HEADERLEN (sizeof(GC_HEADER))
+#define GOSSIP_STORE_VER ((0 << 5) | 14)
 
 static int cmp_node_num_chans(struct gossmap_node *const *a,
 			      struct gossmap_node *const *b,
@@ -70,6 +78,34 @@ static void write_bigsize(int outfd, u64 val)
 	len = bigsize_put(buf, val);
 	if (!write_all(outfd, buf, len))
 		errx(1, "Writing bigsize");
+}
+
+static u64 read_bigsize(int infd)
+{
+	u64 val;
+	u8 buf[BIGSIZE_MAX_LEN];
+
+	if (!read_all(infd, buf, 1))
+		errx(1, "Reading bigsize");
+
+	switch (buf[0]) {
+	case 0xfd:
+		if (!read_all(infd, buf+1, 2))
+			errx(1, "Reading bigsize");
+		break;
+	case 0xfe:
+		if (!read_all(infd, buf+1, 4))
+			errx(1, "Reading bigsize");
+		break;
+	case 0xff:
+		if (!read_all(infd, buf+1, 8))
+			errx(1, "Reading bigsize");
+		break;
+	}
+
+	if (bigsize_get(buf, sizeof(buf), &val) == 0)
+		errx(1, "Bad bigsize");
+	return val;
 }
 
 static int cmp_u64(const u64 *a,
@@ -221,14 +257,204 @@ static u64 get_delay(struct gossmap *gossmap,
 	return chan->half[dir].delay;
 }
 
+static void pubkey_for_node(size_t nodeidx, struct pubkey *key)
+{
+	struct secret seckey;
+
+	memset(&seckey, 1, sizeof(seckey));
+	memcpy(&seckey, &nodeidx, sizeof(nodeidx));
+	if (!pubkey_from_secret(&seckey, key))
+		abort();
+}
+
+static void write_msg_to_gstore(int outfd, const u8 *msg TAKES)
+{
+	struct gossip_hdr hdr;
+
+	hdr.flags = 0;
+	hdr.len = cpu_to_be16(tal_bytelen(msg));
+	hdr.timestamp = 0;
+	hdr.crc = cpu_to_be32(crc32c(0, msg, tal_bytelen(msg)));
+
+	if (!write_all(outfd, &hdr, sizeof(hdr))
+	    || !write_all(outfd, msg, tal_bytelen(msg))) {
+		err(1, "Writing gossip_store");
+	}
+	if (taken(msg))
+		tal_free(msg);
+}
+
+/* BOLT #7:
+ * 1. type: 256 (`channel_announcement`)
+ * 2. data:
+ *     * [`signature`:`node_signature_1`]
+ *     * [`signature`:`node_signature_2`]
+ *     * [`signature`:`bitcoin_signature_1`]
+ *     * [`signature`:`bitcoin_signature_2`]
+ *     * [`u16`:`len`]
+ *     * [`len*byte`:`features`]
+ *     * [`chain_hash`:`chain_hash`]
+ *     * [`short_channel_id`:`short_channel_id`]
+ *     * [`point`:`node_id_1`]
+ *     * [`point`:`node_id_2`]
+ *     * [`point`:`bitcoin_key_1`]
+ *     * [`point`:`bitcoin_key_2`]
+ */
+static void write_announce(int outfd,
+			   size_t node1,
+			   size_t node2,
+			   u64 capacity,
+			   size_t i)
+{
+	struct {
+		secp256k1_ecdsa_signature sig;
+		struct bitcoin_blkid chain_hash;
+	} vals;
+	u8 *msg;
+	struct short_channel_id scid;
+	struct pubkey id1, id2;
+	struct node_id nodeid1, nodeid2;
+
+	memset(&vals, 0, sizeof(vals));
+	pubkey_for_node(node1, &id1);
+	pubkey_for_node(node2, &id2);
+
+	/* Nodes in pubkey order */
+	if (pubkey_cmp(&id1, &id2) < 0) {
+		node_id_from_pubkey(&nodeid1, &id1);
+		node_id_from_pubkey(&nodeid2, &id2);
+	} else {
+		node_id_from_pubkey(&nodeid1, &id2);
+		node_id_from_pubkey(&nodeid2, &id1);
+	}
+	/* Use i to avoid clashing scids even if two nodes have > 1 channel */
+	if (!mk_short_channel_id(&scid, node1, node2, i & 0xFFFF))
+		abort();
+
+	msg = towire_channel_announcement(NULL, &vals.sig, &vals.sig, &vals.sig, &vals.sig,
+					  NULL, &vals.chain_hash, scid,
+					  &nodeid1, &nodeid2,
+					  &id1, &id1);
+	write_msg_to_gstore(outfd, take(msg));
+
+	msg = towire_gossip_store_channel_amount(NULL, amount_sat(capacity));
+	write_msg_to_gstore(outfd, take(msg));
+}
+
+/* BOLT #7:
+ * 1. type: 258 (`channel_update`)
+ * 2. data:
+ *     * [`signature`:`signature`]
+ *     * [`chain_hash`:`chain_hash`]
+ *     * [`short_channel_id`:`short_channel_id`]
+ *     * [`u32`:`timestamp`]
+ *     * [`byte`:`message_flags`]
+ *     * [`byte`:`channel_flags`]
+ *     * [`u16`:`cltv_expiry_delta`]
+ *     * [`u64`:`htlc_minimum_msat`]
+ *     * [`u32`:`fee_base_msat`]
+ *     * [`u32`:`fee_proportional_millionths`]
+ *     * [`u64`:`htlc_maximum_msat`]
+ */
+static void write_update(int outfd,
+			 size_t node1,
+			 size_t node2,
+			 size_t i,
+			 int dir,
+			 bool disabled,
+			 u64 htlc_min, u64 htlc_max,
+			 u64 basefee,
+			 u32 propfee,
+			 u16 delay)
+{
+	struct vals {
+		secp256k1_ecdsa_signature sig;
+		struct bitcoin_blkid chain_hash;
+		u32 timestamp;
+	} vals;
+	u8 *msg;
+	u8 message_flags, channel_flags;
+	struct pubkey id1, id2;
+	struct short_channel_id scid;
+
+	memset(&vals, 0, sizeof(vals));
+
+	/* Use i to avoid clashing scids even if two nodes have > 1 channel */
+	if (!mk_short_channel_id(&scid, node1, node2, i & 0xFFFF))
+		abort();
+
+	/* If node ids are backward, dir is reversed */
+	pubkey_for_node(node1, &id1);
+	pubkey_for_node(node2, &id2);
+	if (pubkey_cmp(&id1, &id2) > 0)
+		dir = !dir;
+
+	/* BOLT #7:
+	 * The `channel_flags` bitfield is used to indicate the direction of
+	 * the channel: it identifies the node that this update originated
+	 * from and signals various options concerning the channel. The
+	 * following table specifies the meaning of its individual bits:
+	 *
+	 * | Bit Position  | Name        | Meaning                          |
+	 * | ------------- | ----------- | -------------------------------- |
+	 * | 0             | `direction` | Direction this update refers to. |
+	 * | 1             | `disable`   | Disable the channel.             |
+	 *
+	 * The `message_flags` bitfield is used to provide additional details about the message:
+	 *
+	 * | Bit Position  | Name           |
+	 * | ------------- | ---------------|
+	 * | 0             | `must_be_one`  |
+	 * | 1             | `dont_forward` |
+	 */
+	channel_flags = dir ? 1 : 0;
+	if (disabled)
+		channel_flags |= 2;
+	message_flags = 1;
+	msg = towire_channel_update(NULL, &vals.sig, &vals.chain_hash, scid,
+				    0, message_flags, channel_flags,
+				    delay,
+				    amount_msat(htlc_min),
+				    basefee, propfee,
+				    amount_msat(htlc_max));
+	write_msg_to_gstore(outfd, take(msg));
+}
+
+static const u64 *read_template(const tal_t *ctx, int infd, const char *what)
+{
+	size_t count = read_bigsize(infd);
+	u64 *template = tal_arr(ctx, u64, count);
+
+	for (size_t i = 0; i < count; i++)
+		template[i] = read_bigsize(infd);
+
+	if (verbose)
+		printf("%zu unique %s\n", count, what);
+
+	return template;
+}
+
+static u64 read_val(int infd, const u64 *template)
+{
+	size_t idx = read_bigsize(infd);
+	assert(idx < tal_count(template));
+	return template[idx];
+}
+
+static char *opt_add_one(unsigned int *val)
+{
+	(*val)++;
+	return NULL;
+}
+
 int main(int argc, char *argv[])
 {
 	int infd, outfd;
 	common_setup(argv[0]);
 	setup_locale();
 
-	opt_register_noarg("--verbose|-v", opt_set_bool, &verbose,
-			   "Print details.");
+	opt_register_noarg("--verbose|-v", opt_add_one, &verbose,
+			   "Print details (each additional gives more!).");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "[decompress|compress] infile outfile"
 			   "Compress or decompress a gossmap file",
@@ -355,9 +581,117 @@ int main(int argc, char *argv[])
 		write_bidir_perchan(outfd, gossmap, chans, get_propfee, "propfee");
 		write_bidir_perchan(outfd, gossmap, chans, get_delay, "delay");
 	} else if (streq(argv[1], "decompress")) {
-		errx(1, "NYI");
+		char hdr[GC_HEADERLEN];
+		size_t channel_count, chanidx;
+		const u64 *template;
+		struct fakechan {
+			size_t node1, node2;
+			u64 capacity;
+			struct halffake {
+				u64 htlc_min, htlc_max;
+				u32 basefee, propfee;
+				u32 delay;
+				bool disabled;
+			} half[2];
+		} *chans;
+		const u8 version = GOSSIP_STORE_VER;
+		size_t disabled_count;
+
+		if (!read_all(infd, hdr, sizeof(hdr))
+		    || !memeq(hdr, sizeof(hdr), GC_HEADER, GC_HEADERLEN))
+			errx(1, "Not a valid compressed gossmap header");
+		channel_count = read_bigsize(infd);
+		if (verbose)
+			printf("%zu channels\n", channel_count);
+		chans = tal_arrz(tmpctx, struct fakechan, channel_count);
+
+		for (size_t i = 0; i < channel_count; i++)
+			chans[i].node1 = read_bigsize(infd);
+		for (size_t i = 0; i < channel_count; i++)
+			chans[i].node2 = read_bigsize(infd);
+
+		if (verbose >= 2) {
+			for (size_t i = 0; i < channel_count; i++) {
+				struct pubkey id1, id2;
+				pubkey_for_node(chans[i].node1, &id1);
+				pubkey_for_node(chans[i].node2, &id2);
+				printf("Channel %zu: %s -> %s\n",
+				       i,
+				       fmt_pubkey(tmpctx, &id1),
+				       fmt_pubkey(tmpctx, &id2));
+			}
+		}
+
+		disabled_count = 0;
+		while ((chanidx = read_bigsize(infd)) < channel_count*2) {
+			disabled_count++;
+			chans[chanidx/2].half[chanidx%2].disabled = true;
+		}
+		if (verbose)
+			printf("%zu disabled\n", disabled_count);
+
+		template = read_template(tmpctx, infd, "capacities");
+		for (size_t i = 0; i < channel_count; i++)
+			chans[i].capacity = read_val(infd, template);
+
+		template = read_template(tmpctx, infd, "htlc_min");
+		for (size_t i = 0; i < channel_count; i++) {
+			for (size_t dir = 0; dir < 2; dir++) {
+				chans[i].half[dir].htlc_min = read_val(infd, template);
+			}
+		}
+		template = read_template(tmpctx, infd, "htlc_max");
+		for (size_t i = 0; i < channel_count; i++) {
+			for (size_t dir = 0; dir < 2; dir++) {
+				u64 v = read_val(infd, template);
+				if (v == 0)
+					v = chans[i].capacity;
+				else if (v == 1)
+					v = chans[i].capacity * 0.99;
+				chans[i].half[dir].htlc_max = v;
+			}
+		}
+		template = read_template(tmpctx, infd, "basefee");
+		for (size_t i = 0; i < channel_count; i++) {
+			for (size_t dir = 0; dir < 2; dir++) {
+				chans[i].half[dir].basefee = read_val(infd, template);
+			}
+		}
+		template = read_template(tmpctx, infd, "propfee");
+		for (size_t i = 0; i < channel_count; i++) {
+			for (size_t dir = 0; dir < 2; dir++) {
+				chans[i].half[dir].propfee = read_val(infd, template);
+			}
+		}
+		template = read_template(tmpctx, infd, "delay");
+		for (size_t i = 0; i < channel_count; i++) {
+			for (size_t dir = 0; dir < 2; dir++) {
+				chans[i].half[dir].delay = read_val(infd, template);
+			}
+		}
+
+		/* Now write out gossmap */
+		write(outfd, &version, 1);
+		for (size_t i = 0; i < channel_count; i++) {
+			write_announce(outfd,
+				       chans[i].node1,
+				       chans[i].node2,
+				       chans[i].capacity,
+				       i);
+			for (size_t dir = 0; dir < 2; dir++) {
+				write_update(outfd,
+					     chans[i].node1, chans[i].node2, i, dir,
+					     chans[i].half[dir].disabled,
+					     chans[i].half[dir].htlc_min,
+					     chans[i].half[dir].htlc_max,
+					     chans[i].half[dir].basefee,
+					     chans[i].half[dir].propfee,
+					     chans[i].half[dir].delay);
+			}
+		}
 	} else
 		opt_usage_and_exit("Unknown command");
 
+	close(outfd);
 	common_shutdown();
 }
