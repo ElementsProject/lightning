@@ -35,7 +35,7 @@ json_to_blinded_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
 	else
 		sciddir_or_pubkey_from_pubkey(&rpath->first_node_id, &first_node_id);
 
-	hops = json_get_member(buffer, tok, "hops");
+	hops = json_get_member(buffer, tok, "path");
 	if (!hops || hops->size < 1)
 		return tal_free(rpath);
 

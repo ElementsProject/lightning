@@ -6,6 +6,7 @@
 #include <common/ecdh.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
+#include <common/json_stream.h>
 #include <connectd/connectd_wiregen.h>
 #include <lightningd/channel.h>
 #include <lightningd/onion_message.h>
@@ -21,31 +22,6 @@ struct onion_message_hook_payload {
 	struct tlv_onionmsg_tlv *om;
 };
 
-static void json_add_blindedpath(struct json_stream *stream,
-				 const char *fieldname,
-				 const struct blinded_path *path)
-{
-	json_object_start(stream, fieldname);
-	if (path->first_node_id.is_pubkey) {
-		json_add_pubkey(stream, "first_node_id", &path->first_node_id.pubkey);
-	} else {
-		json_add_short_channel_id(stream, "first_scid", path->first_node_id.scidd.scid);
-		json_add_u32(stream, "first_scid_dir", path->first_node_id.scidd.dir);
-	}
-	json_add_pubkey(stream, "blinding", &path->blinding);
-	json_array_start(stream, "hops");
-	for (size_t i = 0; i < tal_count(path->path); i++) {
-		json_object_start(stream, NULL);
-		json_add_pubkey(stream, "blinded_node_id",
-				&path->path[i]->blinded_node_id);
-		json_add_hex_talarr(stream, "encrypted_recipient_data",
-				    path->path[i]->encrypted_recipient_data);
-		json_object_end(stream);
-	};
-	json_array_end(stream);
-	json_object_end(stream);
-}
-
 static void onion_message_serialize(struct onion_message_hook_payload *payload,
 				    struct json_stream *stream,
 				    struct plugin *plugin)
@@ -55,8 +31,8 @@ static void onion_message_serialize(struct onion_message_hook_payload *payload,
 		json_add_secret(stream, "pathsecret", payload->pathsecret);
 
 	if (payload->reply_path)
-		json_add_blindedpath(stream, "reply_blindedpath",
-				     payload->reply_path);
+		json_add_blinded_path(stream, "reply_blindedpath",
+				      payload->reply_path);
 
 	if (payload->om->invoice_request)
 		json_add_hex_talarr(stream, "invoice_request",
