@@ -16,7 +16,7 @@ path = "src/main.rs"
 anyhow = "1.0"
 log = "0.4"
 prost = "0.11"
-rcgen = { version = "0.10", features = ["pem", "x509-parser"] }
+rcgen = { version = "0.13.1", features = ["pem", "x509-parser"] }
 cln-grpc = { version = "0.1", features = ["server"], path = "../../cln-grpc"}
 cln-plugin = { version = "0.1", path = "../../plugins" }
 cln-rpc = { version = "0.1", path = "../../cln-rpc" }
