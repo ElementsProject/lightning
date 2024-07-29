@@ -128,7 +128,7 @@ async fn run_interface(bind_addr: SocketAddr, state: PluginState) -> Result<()> 
 async fn handle_notification(plugin : Plugin<PluginState>, value : serde_json::Value) -> Result<()> {
     let notification : Result<Notification, _> = serde_json::from_value(value);
     match notification {
-        Err(err) => { 
+        Err(err) => {
             log::debug!("Failed to parse notification from lightningd {:?}", err);
         },
         Ok(notification) => {
