@@ -48,6 +48,16 @@ struct command {
 };
 
 /**
+ * Provides data about REST calls to be mapped to plugin calls
+*/
+struct clnrest {
+	const char *path;
+	const char *method;
+	const char *content_type;
+	const bool *rune;
+};
+
+/**
  * Dummy structure to make sure you call one of
  * command_success / command_failed / command_still_pending.
  */
@@ -66,6 +76,7 @@ struct json_command {
 					const char *buffer,
 					const jsmntok_t *obj,
 					const jsmntok_t *params);
+	struct clnrest *clnrest;
 };
 
 struct jsonrpc_notification {
@@ -210,13 +221,15 @@ void jsonrpc_stop_all(struct lightningd *ld);
 /**
  * Add a new command/method to the JSON-RPC interface.
  *
- * Returns true if the command was added correctly, false if adding
- * this would clobber a command name.
+ * Returns true if the command was added correctly. Returns false if adding
+ * this would clobber a command name, or if there is a command with matching
+ * clnrest method and path. If collision_name is non-NULL and a collision
+ * occurs, it will be set to the name of the command that would be clobbered.
  *
  * Free @command to remove it.
  */
 bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command,
-			 const char *usage TAKES);
+			 const char *usage TAKES, char **collision_name);
 
 /**
  * Begin a JSON-RPC notification with the specified topic.

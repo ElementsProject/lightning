@@ -462,6 +462,23 @@ static void json_add_help_command(struct command *cmd,
 				   json_command->name));
 	json_object_start(response, NULL);
 	json_add_string(response, "command", usage);
+
+	if (json_command->clnrest) {
+			json_object_start(response, "clnrest");
+			if (json_command->clnrest->method) {
+					json_add_string(response, "method", json_command->clnrest->method);
+			}
+			if (json_command->clnrest->path) {
+					json_add_string(response, "path", json_command->clnrest->path);
+			}
+			if (json_command->clnrest->content_type) {
+					json_add_string(response, "content_type", json_command->clnrest->content_type);
+			}
+			if (json_command->clnrest->rune) {
+					json_add_bool(response, "rune", *json_command->clnrest->rune);
+			}
+			json_object_end(response);
+	}
 	json_object_end(response);
 }
 
@@ -1357,14 +1374,39 @@ static void destroy_json_command(struct json_command *command, struct jsonrpc *r
 	abort();
 }
 
-static bool command_add(struct jsonrpc *rpc, struct json_command *command)
+static bool command_add(struct jsonrpc *rpc, struct json_command *command,
+			char **collision_name)
 {
 	size_t count = tal_count(rpc->commands);
 
 	/* Check that we don't clobber a method */
-	for (size_t i = 0; i < count; i++)
-		if (streq(rpc->commands[i]->name, command->name))
+	for (size_t i = 0; i < count; i++) {
+
+		if (streq(rpc->commands[i]->name, command->name)) {
+			if (collision_name) {
+				*collision_name =
+				    tal_strdup(tmpctx, rpc->commands[i]->name);
+			}
 			return false;
+		}
+
+		/* Check for clnrest conflict */
+		if (command->clnrest && rpc->commands[i]->clnrest) {
+			bool method_match =
+			    streq(command->clnrest->method,
+				  rpc->commands[i]->clnrest->method);
+			bool path_match =
+			    streq(command->clnrest->path,
+				  rpc->commands[i]->clnrest->path);
+			if (method_match && path_match) {
+				if (collision_name) {
+					*collision_name = tal_strdup(
+					    tmpctx, rpc->commands[i]->name);
+				}
+				return false;
+			}
+		}
+	}
 
 	tal_arr_expand(&rpc->commands, command);
 	return true;
@@ -1388,9 +1430,9 @@ static void setup_command_usage(struct lightningd *ld,
 }
 
 bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command,
-			 const char *usage TAKES)
+			 const char *usage TAKES, char **collision_name)
 {
-	if (!command_add(rpc, command))
+	if (!command_add(rpc, command, collision_name))
 		return false;
 	usage = tal_strdup(command, usage);
 	strmap_add(&rpc->usagemap, command->name, usage);
@@ -1402,7 +1444,7 @@ static bool jsonrpc_command_add_perm(struct lightningd *ld,
 				     struct jsonrpc *rpc,
 				     struct json_command *command)
 {
-	if (!command_add(rpc, command))
+	if (!command_add(rpc, command, NULL))
 		return false;
 	setup_command_usage(ld, command);
 	return true;
