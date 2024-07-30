@@ -301,6 +301,8 @@ static void destroy_plugin(struct plugin *p)
 
 	if (tal_count(p->custom_msgs))
 		tell_connectd_custommsgs(p->plugins);
+
+	notify_plugin_stopped(p->plugins->ld, p);
 }
 
 static u32 file_checksum(struct lightningd *ld, const char *path)
@@ -2136,6 +2138,7 @@ static void plugin_config_cb(const char *buffer,
 	}
 	if (tal_count(plugin->custom_msgs))
 		tell_connectd_custommsgs(plugin->plugins);
+	notify_plugin_started(plugin->plugins->ld, plugin);
 	check_plugins_initted(plugin->plugins);
 }
 

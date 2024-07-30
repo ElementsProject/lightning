@@ -519,3 +519,51 @@ In the shutdown case, plugins should not interact with lightnind except via (id-
     }
 }
 ```
+
+### `plugin_started` (v25.02 onward) 
+
+Emitted when a plugin has completed startup.
+
+```json
+{
+  "plugin_started": {
+    "plugin_name": "example_plugin",
+    "plugin_path": "/path/to/example_plugin.py",
+    "methods": [
+      "example_method1",
+      "example_method2",
+      "example_method3"
+    ]
+  }
+}
+```
+
+Where:
+
+- `plugin_name`: The short name of the plugin.
+- `plugin_path`: The full file path to the plugin executable.
+- `methods`: An array of RPC method names that the plugin registered.
+
+### `plugin_stopped` (v25.02 onward) 
+
+Emitted when a plugin has been stopped or has exited.
+
+```json
+{
+  "plugin_stopped": {
+    "plugin_name": "example_plugin",
+    "plugin_path": "/path/to/example_plugin.py",
+    "methods": [
+      "example_method1",
+      "example_method2",
+      "example_method3"
+    ]
+  }
+}
+```
+
+Where:
+
+- `plugin_name`: The short name of the plugin.
+- `plugin_path`: The full file path to the plugin executable.
+- `methods`: An array of RPC method names that the plugin registered.
