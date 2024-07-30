@@ -1588,6 +1588,18 @@ def report_version() -> str:
     log.add_result(__VERSION__)
 
 
+def unpack_json_arg(json_target: str) -> list:
+    """validate json for any command line targets passes as a json array"""
+    try:
+        targets = json.loads(json_target)
+    except json.decoder.JSONDecodeError:
+        return None
+    if isinstance(targets, list):
+        return targets
+    log.warning(f'input {target_list} is not a json array')
+    return None
+
+
 class StoreIdempotent(argparse.Action):
     """Make the option idempotent. This adds a secondary argument that doesn't
     get reinitialized. The downside is it"""
@@ -1762,7 +1774,13 @@ if __name__ == '__main__':
             args.func(args.targets)
             sys.exit(0)
         for target in args.targets:
-            log.add_result(args.func(target))
+            # Accept single item arguments, or a json array
+            target_list = unpack_json_arg(target)
+            if target_list:
+                for tar in target_list:
+                    log.add_result(args.func(tar))
+            else:
+                log.add_result(args.func(target))
     elif 'func' in args:
         log.add_result(args.func())
 
