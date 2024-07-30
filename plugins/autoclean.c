@@ -793,15 +793,9 @@ static bool u64_jsonfmt_unless_zero(struct plugin *plugin,
 
 static const struct plugin_command commands[] = { {
 	"autoclean-status",
-	"utility",
-	"Show status of autocleaning",
-	"Takes optional {subsystem}",
 	json_autoclean_status,
 	}, {
 	"autoclean-once",
-	"utility",
-	"Perform a single run of autocleaning on one subsystem",
-	"Requires {subsystem} and {age}",
 	json_autoclean_once,
 	},
 };

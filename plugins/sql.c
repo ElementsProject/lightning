@@ -1545,17 +1545,11 @@ static const char *init(struct plugin *plugin,
 }
 
 static const struct plugin_command commands[] = { {
-	"sql",
-	"misc",
-	"Run {query} and return result",
-	"This is the greatest plugin command ever!",
-	json_sql,
+		"sql",
+		json_sql,
 	},
 	{
 		"listsqlschemas",
-		"misc",
-		"Display schemas for internal sql tables, or just {table}",
-		"This is the greatest plugin command ever!",
 		json_listsqlschemas,
 	},
 };

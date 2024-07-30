@@ -1396,44 +1396,26 @@ static const char *init(struct plugin *p,
 static const struct plugin_command commands[] = {
     {
 	    "offer",
-	    "payment",
-	    "Create an offer to accept money",
-            "Create an offer for invoices of {amount} with {description}, optional {issuer}, internal {label}, {quantity_min}, {quantity_max}, {absolute_expiry}, {recurrence}, {recurrence_base}, {recurrence_paywindow}, {recurrence_limit} and {single_use}",
-            json_offer
+		json_offer
     },
     {
 	    "invoicerequest",
-	    "payment",
-	    "Create an invoice_request to send money",
-            "Create an invoice_request to pay invoices of {amount} with {description}, optional {issuer}, internal {label}, and {absolute_expiry}",
-            json_invoicerequest
+		json_invoicerequest
     },
     {
 	    "decode",
-	    "utility",
-	    "Decode {string} message, returning {type} and information.",
-	    NULL,
 	    json_decode,
     },
     {
 	    "fetchinvoice",
-	    "payment",
-	    "Request remote node for an invoice for this {offer}, with {amount}, {quanitity}, {recurrence_counter}, {recurrence_start} and {recurrence_label} iff required.",
-	    NULL,
 	    json_fetchinvoice,
     },
     {
 	    "sendinvoice",
-	    "payment",
-	    "Request remote node for to pay this {invreq}, with {label}, optional {amount_msat}, and {timeout} (default 90 seconds).",
-	    NULL,
 	    json_sendinvoice,
     },
     {
 	    "dev-rawrequest",
-	    "util",
-	    "Send {invreq} to {nodeid}, wait {timeout} (60 seconds by default)",
-	    NULL,
 	    json_dev_rawrequest,
 	    .dev_only = true,
     },

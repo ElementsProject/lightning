@@ -2018,15 +2018,6 @@ json_multifundchannel(struct command *cmd,
 const struct plugin_command multifundchannel_commands[] = {
 	{
 		"multifundchannel",
-		"channels",
-		"Fund channels to {destinations}, which is an array of "
-		"objects containing peer {id}, {amount}, and optional "
-		"{announce} and {push_msat}.  "
-		"A single transaction will be used to fund all the "
-		"channels.  "
-		"Use {feerate} for the transaction, select outputs that are "
-		"buried {minconf} blocks deep, or specify a set of {utxos}.",
-		"Fund multiple channels at once.",
 		json_multifundchannel
 	}
 };

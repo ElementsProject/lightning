@@ -633,37 +633,22 @@ static struct command_result *json_upgradewallet(struct command *cmd,
 static const struct plugin_command commands[] = {
 	{
 		"txprepare",
-		"bitcoin",
-		"Create a transaction, with option to spend in future (either txsend and txdiscard)",
-		"Create an unsigned transaction paying {outputs} with optional {feerate}, {minconf} and {utxos}",
 		json_txprepare
 	},
 	{
 		"txdiscard",
-		"bitcoin",
-		"Discard a transaction created by txprepare",
-		"Discard a transcation by {txid}",
 		json_txdiscard
 	},
 	{
 		"txsend",
-		"bitcoin",
-		"Send a transaction created by txprepare",
-		"Send a transacation by {txid}",
 		json_txsend
 	},
 	{
 		"withdraw",
-		"bitcoin",
-		"Send funds to {destination} address",
-		"Send to {destination} {satoshi} (or 'all') at optional {feerate} using utxos from {minconf} or {utxos}.",
 		json_withdraw
 	},
 	{
 		"upgradewallet",
-		"bitcoin",
-		"Spend p2sh wrapped outputs into a native segwit output",
-		"Send all p2sh-wrapped outputs to a bech32 native segwit address",
 		json_upgradewallet
 	},
 };

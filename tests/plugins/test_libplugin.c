@@ -233,34 +233,20 @@ static const char *init(struct plugin *p,
 
 static const struct plugin_command commands[] = { {
 		"helloworld",
-		"utils",
-		"Say hello to the world.",
-		"Returns 'hello world' by default, 'hello {name}' if the name"
-		" option was set, and 'hello {name}' if the name parameter "
-		"was passed (takes over the option)",
 		json_helloworld,
 	},
 	{
 		"testrpc",
-		"utils",
-		"Makes a simple getinfo call, to test rpc socket.",
-		"",
 		json_testrpc,
 	},
 	{
 		"testrpc-deprecated",
-		"utils",
-		"Makes a simple getinfo call, to test rpc socket.",
-		"",
 		json_testrpc,
 		"v0.9.1",
 		CLN_NEXT_VERSION,
 	},
 	{
 		"checkthis",
-		"utils",
-		"Passes arg to listdatastore",
-		"",
 		json_checkthis,
 	},
 };
