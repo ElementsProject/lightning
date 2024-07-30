@@ -116,4 +116,7 @@ bool notify_deprecated_oneshot(struct lightningd *ld,
 bool notify_plugin_shutdown(struct lightningd *ld, struct plugin *p);
 /* Inform the plugin when a log line is emitted */
 void notify_log(struct lightningd *ld, const struct log_entry *l);
+
+void notify_plugin_started(struct lightningd *ld, struct plugin *plugin);
+void notify_plugin_stopped(struct lightningd *ld, struct plugin *plugin);
 #endif /* LIGHTNING_LIGHTNINGD_NOTIFICATION_H */
