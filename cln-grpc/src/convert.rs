@@ -3581,9 +3581,22 @@ impl From<responses::StopResponse> for pb::StopResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::HelpHelpClnrest> for pb::HelpHelpClnrest {
+    fn from(c: responses::HelpHelpClnrest) -> Self {
+        Self {
+            content_type: c.content_type, // Rule #2 for type string?
+            method: c.method, // Rule #2 for type string?
+            path: c.path, // Rule #2 for type string?
+            rune: c.rune, // Rule #2 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::HelpHelp> for pb::HelpHelp {
     fn from(c: responses::HelpHelp) -> Self {
         Self {
+            clnrest: c.clnrest.map(|v| v.into()),
             command: c.command, // Rule #2 for type string
         }
     }

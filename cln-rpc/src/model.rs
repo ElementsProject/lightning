@@ -9768,7 +9768,21 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct HelpHelpClnrest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub content_type: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub method: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub path: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub rune: Option<bool>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct HelpHelp {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub clnrest: Option<HelpHelpClnrest>,
 	    pub command: String,
 	}
 
