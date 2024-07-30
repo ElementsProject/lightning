@@ -2,6 +2,7 @@
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <common/blindedpay.h>
 #include <common/bolt12_merkle.h>
 #include <common/configdir.h>
 #include <common/json_command.h>
@@ -1150,6 +1151,7 @@ send_payment(struct lightningd *ld,
 	     const char *description TAKES,
 	     const struct sha256 *local_invreq_id,
 	     const struct secret *payment_secret,
+	     const struct blinded_path *blinded_path,
 	     const u8 *payment_metadata,
 	     bool dev_legacy_hop)
 {
@@ -1193,29 +1195,71 @@ send_payment(struct lightningd *ld,
 					base_expiry + route[i + 1].delay)));
 	}
 
-	/* And finally set the final hop to the special values in
-	 * BOLT04 */
-	ret = pubkey_from_node_id(&pubkey, &ids[i]);
-	assert(ret);
+	if (blinded_path) {
+		u8 **payload = blinded_onion_hops(tmpctx, msat, base_expiry,
+						  total_msat, blinded_path);
+		/* FIXME: check this step
+		if(!payload)
+			return command_fail(cmd, pay_destination_perm_fail,
+					    "destination does not support"
+					    " payment_secret");
+		*/
+		assert(tal_count(payload) == tal_count(blinded_path->path));
+		for (i = 0; i < tal_count(payload); i++) {
+			bool success;
+			if (i == 0) {
+				/* FIXME: do we need to support a first_node_id
+				 * to be a sciddir? */
+				assert(blinded_path->first_node_id.is_pubkey);
+				success = sphinx_add_hop_has_length(
+				    path, &blinded_path->first_node_id.pubkey,
+				    take(payload[i]));
+			} else {
+				success = sphinx_add_hop_has_length(
+				    path, &blinded_path->path[i]->blinded_node_id,
+				    take(payload[i]));
+			}
+			/* FIXME: when does sphinx_add_hop_has_length fails? */
+			assert(success);
+		}
+	} else {
+		/* And finally set the final hop to the special values in
+		 * BOLT04 */
+		ret = pubkey_from_node_id(&pubkey, &ids[i]);
+		assert(ret);
 
-	onion = onion_final_hop(cmd,
-				route[i].amount,
-				base_expiry + route[i].delay,
-				total_msat,
-				payment_secret, payment_metadata);
-	if (!onion) {
-		return command_fail(cmd, PAY_DESTINATION_PERM_FAIL,
-				    "Destination does not support"
-				    " payment_secret");
+		onion = onion_final_hop(
+		    cmd, route[i].amount, base_expiry + route[i].delay,
+		    total_msat, payment_secret, payment_metadata);
+		if (!onion) {
+			return command_fail(cmd, PAY_DESTINATION_PERM_FAIL,
+					    "Destination does not support"
+					    " payment_secret");
+		}
+		sphinx_add_hop_has_length(path, &pubkey, onion);
 	}
-	sphinx_add_hop_has_length(path, &pubkey, onion);
+
+	/* FIXME: check size, eg.
+	if (sphinx_path_payloads_size(sp) > *packet_size)
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "Payloads exceed maximum onion packet size.");
+	 * */
 
 	/* Copy channels used along the route. */
 	channels = tal_arr(tmpctx, struct short_channel_id, n_hops);
 	for (i = 0; i < n_hops; ++i)
 		channels[i] = route[i].scid;
 
-	packet = create_onionpacket(tmpctx, path, ROUTING_INFO_SIZE, &path_secrets);
+	/* FIXME: ROUTING_INFO_SIZE or *packet_size? */
+	packet =
+	    create_onionpacket(tmpctx, path, ROUTING_INFO_SIZE, &path_secrets);
+
+	/* FIXME: check packet creation
+	if (!packet)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Could not create onion packet");
+	*/
 	return send_payment_core(ld, cmd, rhash, partid, group, &route[0],
 				 msat, total_msat,
 				 label, invstring, description,
@@ -1516,6 +1560,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 	struct sha256 *local_invreq_id;
 	u8 *payment_metadata;
 	bool *dev_legacy_hop;
+	struct blinded_path *blinded_path;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("route", param_route_hops, &route),
@@ -1525,6 +1570,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 			 /* FIXME: parameter should be invstring now */
 			 p_opt("bolt11", param_invstring, &invstring),
 			 p_opt("payment_secret", param_secret, &payment_secret),
+			 p_opt("blinded_path", param_blindedpath, &blinded_path),
 			 p_opt_def("partid", param_u64, &partid, 0),
 			 p_opt("localinvreqid", param_sha256, &local_invreq_id),
 			 p_opt("groupid", param_u64, &group),
@@ -1554,6 +1600,13 @@ static struct command_result *json_sendpay(struct command *cmd,
 		if (command_check_only(cmd))
 			return command_check_done(cmd);
 
+		/* FIXME: how do we handle self payments combined with blinded
+		 * paths? */
+		if (blinded_path)
+			return command_fail(
+			    cmd, JSONRPC2_INVALID_PARAMS,
+			    "Self-payment does not allow blinded_path");
+
 		return self_payment(cmd->ld, cmd, rhash, *partid, *group, *msat,
 				    label, invstring, description, local_invreq_id,
 				    payment_secret, payment_metadata);
@@ -1581,19 +1634,25 @@ static struct command_result *json_sendpay(struct command *cmd,
 					    fmt_amount_msat(tmpctx, *msat));
 	}
 
-	if (*partid && !payment_secret)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "partid requires payment_secret");
+	if (*partid && !payment_secret && !blinded_path)
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "partid requires payment_secret (or blinded_path)");
+
+	if (payment_secret && blinded_path)
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "Do not specify simultaneously a payment_secret(BOLT11) "
+		    "and a blinded_path(BOLT12)");
 
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
-	return send_payment(cmd->ld, cmd, rhash, *partid, *group,
-			    route,
-			    final_amount,
-			    msat ? *msat : final_amount,
-			    label, invstring, description, local_invreq_id,
-			    payment_secret, payment_metadata, *dev_legacy_hop);
+	return send_payment(cmd->ld, cmd, rhash, *partid, *group, route,
+			    final_amount, msat ? *msat : final_amount, label,
+			    invstring, description, local_invreq_id,
+			    payment_secret, blinded_path, payment_metadata,
+			    *dev_legacy_hop);
 }
 
 static const struct json_command sendpay_command = {
