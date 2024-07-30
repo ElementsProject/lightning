@@ -1752,48 +1752,26 @@ const struct plugin_notification notifs[] = {
 static const struct plugin_command commands[] = {
 	{
 		"bkpr-listbalances",
-		"bookkeeping",
-		"List current account balances",
-		"List of current accounts and their balances",
 		json_list_balances
 	},
 	{
 		"bkpr-listaccountevents",
-		"bookkeeping",
-		"List all events for an {account}",
-		"List all events for an {account} (or all accounts, if"
-		" no account specified) in {format}. Sorted by timestamp",
 		json_list_account_events
 	},
 	{
 		"bkpr-inspect",
-		"utilities",
-		"See the current on-chain graph of an {account}",
-		"Prints out the on-chain footprint of a given {account}.",
 		json_inspect
 	},
 	{
 		"bkpr-listincome",
-		"bookkeeping",
-		"List all income impacting events",
-		"List all events for this node that impacted income",
 		json_list_income
 	},
 	{
 		"bkpr-dumpincomecsv",
-		"bookkeeping",
-		"Print out all the income events to a csv file in "
-		" {csv_format",
-		"Dump income statment data to {csv_file} in {csv_format}."
-		" Optionally, {consolidate_fee}s into single entries"
-		" (default: true)",
 		json_dump_income
 	},
 	{
 		"bkpr-channelsapy",
-		"bookkeeping",
-		"Stats on channel fund usage",
-		"Print out stats on chanenl fund usage",
 		json_channel_apy
 	},
 };

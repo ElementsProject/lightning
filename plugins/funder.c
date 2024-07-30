@@ -1432,11 +1432,6 @@ json_funderupdate(struct command *cmd,
 static const struct plugin_command commands[] = {
 	{
 		"funderupdate",
-		"liquidity",
-		"Configuration for dual-funding settings.",
-		"Update current settings. Modifies how node reacts to"
-		" incoming channel open requests. Responds with list"
-		" of current configs.",
 		json_funderupdate
 	},
 };

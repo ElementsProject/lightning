@@ -307,10 +307,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 static const struct plugin_command commands[] = {
     {
 	    "keysend",
-	    "payment",
-	    "Send a payment without an invoice to a node",
-            "Send an unsolicited payment of {amount} to {destination}, by providing the recipient the necessary information to claim the payment",
-            json_keysend
+		json_keysend
     },
 };
 

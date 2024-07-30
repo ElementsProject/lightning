@@ -728,36 +728,18 @@ static const char *init(struct plugin *p,
 static const struct plugin_command commands[] = {
 	{
 		"getroute",
-		"channels",
-		"Primitive route command",
-		"Show route to {id} for {msatoshi}, using {riskfactor} and optional {cltv} (default 9). "
-		"If specified search from {fromid} otherwise use this node as source. "
-		"Randomize the route with up to {fuzzpercent} (ignored)). "
-		"{exclude} an array of short-channel-id/direction (e.g. [ '564334x877x1/0', '564195x1292x0/1' ]) "
-		"or node-id from consideration. "
-		"Set the {maxhops} the route can take (default 20).",
 		json_getroute,
 	},
 	{
 		"listchannels",
-		"channels",
-		"List all known channels in the network",
-		"Show channels for {short_channel_id}, {source} or {destination} "
-		"(or all known channels, if not specified)",
 		json_listchannels,
 	},
 	{
 		"listnodes",
-		"network",
-		"List all known nodes in the network",
-		"Show node {id} (or all known nods, if not specified)",
 		json_listnodes,
 	},
 	{
 		"listincoming",
-		"network",
-		"List the channels incoming from our direct peers",
-		"Used by invoice code to select peers for routehints",
 		json_listincoming,
 	},
 };

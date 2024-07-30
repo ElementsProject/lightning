@@ -1508,22 +1508,13 @@ static struct command_result *json_pay(struct command *cmd,
 static const struct plugin_command commands[] = {
 	{
 		"paystatus",
-		"payment",
-		"Detail status of attempts to pay {bolt11}, or all",
-		"Covers both old payments and current ones.",
 		json_paystatus
 	}, {
 		"listpays",
-		"payment",
-		"List result of payment {bolt11} or {payment_hash}, or all",
-		"Covers old payments (failed and succeeded) and current ones.",
 		json_listpays
 	},
 	{
 		"pay",
-		"payment",
-		"Send payment specified by {bolt11}",
-		"Attempt to pay the {bolt11} invoice.",
 		json_pay
 	},
 };

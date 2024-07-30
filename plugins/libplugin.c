@@ -1088,10 +1088,6 @@ handle_getmanifest(struct command *getmanifest_cmd,
 		json_add_string(params, "name", p->commands[i].name);
 		json_add_string(params, "usage",
 				strmap_get(&p->usagemap, p->commands[i].name));
-		json_add_string(params, "description", p->commands[i].description);
-		if (p->commands[i].long_description)
-			json_add_string(params, "long_description",
-					p->commands[i].long_description);
 		json_add_deprecated(params, "deprecated",
 				    p->commands[i].depr_start, p->commands[i].depr_end);
 		json_object_end(params);

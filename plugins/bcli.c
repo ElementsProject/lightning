@@ -1119,39 +1119,22 @@ static const char *init(struct plugin *p, const char *buffer UNUSED,
 static const struct plugin_command commands[] = {
 	{
 		"getrawblockbyheight",
-		"bitcoin",
-		"Get the bitcoin block at a given height",
-		"",
 		getrawblockbyheight
 	},
 	{
 		"getchaininfo",
-		"bitcoin",
-		"Get the chain id, the header count, the block count,"
-		" and whether this is IBD.",
-		"",
 		getchaininfo
 	},
 	{
 		"estimatefees",
-		"bitcoin",
-		"Get the urgent, normal and slow Bitcoin feerates as"
-		" sat/kVB.",
-		"",
 		estimatefees
 	},
 	{
 		"sendrawtransaction",
-		"bitcoin",
-		"Send a raw transaction to the Bitcoin network.",
-		"",
 		sendrawtransaction
 	},
 	{
 		"getutxout",
-		"bitcoin",
-		"Get information about an output, identified by a {txid} an a {vout}",
-		"",
 		getutxout
 	},
 };

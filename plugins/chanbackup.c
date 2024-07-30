@@ -815,18 +815,10 @@ static const struct plugin_hook hooks[] = {
 static const struct plugin_command commands[] = {
 	{
 		"emergencyrecover",
-		"recovery",
-		"Populates the DB with stub channels",
-		"returns stub channel-id's on completion",
 		json_emergencyrecover,
 	},
 	{
 		"restorefrompeer",
-		"recovery",
-		"Checks if i have got a backup from a peer, and if so, will stub "
-		"those channels in the database and if is successful, will return "
-		"list of channels that have been successfully stubbed",
-		"return channel-id's on completion",
 		json_restorefrompeer,
 	},
 };
