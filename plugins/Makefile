@@ -103,7 +103,6 @@ C_PLUGINS :=					\
 	plugins/spenderp
 
 PY_PLUGINS :=					\
-	plugins/clnrest/clnrest \
 	plugins/wss-proxy/wss-proxy
 
 ifeq ($(HAVE_SQLITE3),1)
@@ -121,8 +120,11 @@ ifneq ($(RUST),0)
 # *without* make install.
 plugins/cln-grpc: target/${RUST_PROFILE}/cln-grpc
 	@cp $< $@
+plugins/clnrest: target/${RUST_PROFILE}/clnrest
+	@cp $< $@
 
 PLUGINS += plugins/cln-grpc
+PLUGINS += plugins/clnrest
 endif
 
 PLUGIN_COMMON_OBJS :=				\
@@ -259,12 +261,15 @@ CLN_PLUGIN_EXAMPLES := \
 
 CLN_PLUGIN_SRC = $(shell find plugins/src -name "*.rs")
 CLN_GRPC_PLUGIN_SRC = $(shell find plugins/grpc-plugin/src -name "*.rs")
+CLNREST_PLUGIN_SRC = $(shell find plugins/clnrest-plugin/src -name "*.rs")
 
 target/${RUST_PROFILE}/cln-grpc: ${CLN_PLUGIN_SRC} ${CLN_GRPC_PLUGIN_SRC}
 	cargo build ${CARGO_OPTS} --bin cln-grpc
+target/${RUST_PROFILE}/clnrest: ${CLNREST_PLUGIN_SRC}
+	cargo build ${CARGO_OPTS} --bin clnrest
 
 ifneq ($(RUST),0)
-DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc
+DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc plugins/clnrest
 endif
 
 clean: plugins-clean
