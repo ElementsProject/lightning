@@ -256,7 +256,7 @@ static struct command_result *clean_finished(struct clean_info *cinfo)
 		if (!num_cleaned)
 			continue;
 
-		plugin_log(plugin, LOG_DBG, "cleaned %"PRIu64" from %s",
+		plugin_log(plugin, LOG_DBG, "cleaned %zu from %s",
 			   num_cleaned, subsystem_to_str(&sv));
 		*total_cleaned(&sv) += num_cleaned;
 		jsonrpc_set_datastore_string(plugin, cinfo->cmd,
