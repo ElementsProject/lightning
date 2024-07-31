@@ -105,6 +105,7 @@ impl Decoder for JsonCodec {
 /// A codec that reads fully formed [crate::messages::JsonRpc]
 /// messages. Internally it uses the [JsonCodec] which itself is built
 /// on the [MultiLineCodec].
+#[allow(dead_code)]
 #[derive(Default)]
 pub(crate) struct JsonRpcCodec {
     inner: JsonCodec,

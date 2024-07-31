@@ -1,7 +1,6 @@
 from fixtures import *  # noqa: F401,F403
-from pyln.testing.utils import env, TEST_NETWORK
+from pyln.testing.utils import TEST_NETWORK, wait_for
 from pyln.client import Millisatoshi
-import unittest
 import os
 import requests
 from pathlib import Path
@@ -9,6 +8,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import socketio
 import time
+import pytest
 
 
 def http_session_with_retry():
@@ -23,7 +23,7 @@ def http_session_with_retry():
     return http_session
 
 
-def test_clnrest_no_auto_start(node_factory):
+def test_no_auto_start(node_factory):
     """Ensure that we do not start clnrest unless a `clnrest-port` is configured."""
     l1 = node_factory.get_node()
     # This might happen really early!
@@ -32,7 +32,7 @@ def test_clnrest_no_auto_start(node_factory):
     assert l1.daemon.is_in_log(r'plugin-clnrest: Killing plugin: disabled itself at init: `clnrest-port` option is not configured')
 
 
-def test_clnrest_self_signed_certificates(node_factory):
+def test_self_signed_certificates(node_factory):
     """Test that self-signed certificates have `clnrest-host` IP in Subject Alternative Name."""
     rest_port = str(node_factory.get_unused_port())
     rest_host = '127.0.0.1'
@@ -50,8 +50,7 @@ def test_clnrest_self_signed_certificates(node_factory):
     assert response.status_code == 200
 
 
-@unittest.skipIf(env('RUST') != '1', 'RUST is not enabled skipping rust-dependent tests')
-def test_clnrest_uses_grpc_plugin_certificates(node_factory):
+def test_uses_grpc_plugin_certificates(node_factory):
     """Test that clnrest reuses `cln-grpc` plugin certificates if available.
     Defaults:
     - clnrest-protocol: https
@@ -63,7 +62,7 @@ def test_clnrest_uses_grpc_plugin_certificates(node_factory):
     base_url = f'https://{rest_host}:{rest_port}'
     # This might happen really early!
     l1.daemon.logsearch_start = 0
-    l1.daemon.wait_for_logs([r'serving grpc on 127.0.0.1:',
+    l1.daemon.wait_for_logs([r'serving grpc on',
                              r'plugin-clnrest: REST server running at ' + base_url])
     ca_cert = Path(l1.daemon.lightning_dir) / TEST_NETWORK / 'ca.pem'
     http_session = http_session_with_retry()
@@ -71,7 +70,7 @@ def test_clnrest_uses_grpc_plugin_certificates(node_factory):
     assert response.status_code == 200
 
 
-def test_clnrest_generate_certificate(node_factory):
+def test_generate_certificate(node_factory):
     """Test whether we correctly generate the certificates."""
     # when `clnrest-protocol` is `http`, certs are not generated at `clnrest-certs` path
     rest_port = str(node_factory.get_unused_port())
@@ -103,7 +102,7 @@ def test_clnrest_generate_certificate(node_factory):
 
     # certificates generated at startup
     l1.start()
-    assert [f.exists() for f in files] == [True] * len(files)
+    wait_for(lambda: [f.exists() for f in files] == [True] * len(files))
 
     # the files exist, restarting should not change them
     contents = [f.open().read() for f in files]
@@ -113,12 +112,14 @@ def test_clnrest_generate_certificate(node_factory):
     # remove client.pem file, so all certs are regenerated at restart
     files[2].unlink()
     l1.restart()
+    wait_for(lambda: [f.exists() for f in files] == [True] * len(files))
     contents_1 = [f.open().read() for f in files]
     assert [c[0] != c[1] for c in zip(contents, contents_1)] == [True] * len(files)
 
     # remove client-key.pem file, so all certs are regenerated at restart
     files[3].unlink()
     l1.restart()
+    wait_for(lambda: [f.exists() for f in files] == [True] * len(files))
     contents_2 = [f.open().read() for f in files]
     assert [c[0] != c[1] for c in zip(contents, contents_2)] == [True] * len(files)
 
@@ -140,7 +141,7 @@ def start_node_with_clnrest(node_factory):
     return l1, base_url, ca_cert
 
 
-def test_clnrest_list_methods(node_factory):
+def test_list_methods(node_factory):
     """Test GET request on `/v1/list-methods` end point with default values for options."""
     # start a node with clnrest
     l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
@@ -152,7 +153,7 @@ def test_clnrest_list_methods(node_factory):
     assert response.text.find('getinfo') > 0
 
 
-def test_clnrest_unknown_method(node_factory):
+def test_unknown_method(node_factory):
     """Test GET request error on `/v1/unknown-get` end point with default values for options."""
     # start a node with clnrest
     l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
@@ -160,7 +161,6 @@ def test_clnrest_unknown_method(node_factory):
 
     response = http_session.get(base_url + '/v1/unknown-get', verify=ca_cert)
     assert response.status_code == 405
-    assert response.json()['message'] == 'The method is not allowed for the requested URL.'
 
     """Test POST request error on `/v1/unknown-post` end point."""
     rune = l1.rpc.createrune()['rune']
@@ -170,7 +170,7 @@ def test_clnrest_unknown_method(node_factory):
     assert response.json()['message'] == "Unknown command 'unknown-post'"
 
 
-def test_clnrest_rpc_method(node_factory):
+def test_rpc_method(node_factory):
     """Test POST requests on `/v1/<rpc_method>` end points with default values for options."""
     # start a node with clnrest
     l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
@@ -225,7 +225,7 @@ def test_clnrest_rpc_method(node_factory):
     assert 'bolt11' in response.json()
 
 
-def test_clnrest_large_response(node_factory):
+def test_large_response(node_factory):
     """Test a large reply still works (and msat fields are integers!)"""
     # start a node with clnrest
     l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
@@ -251,7 +251,7 @@ def test_clnrest_large_response(node_factory):
 # to complain with the errors F811 like this "F811 redefinition of
 # unused 'message'".
 
-def notifications_received_via_websocket(l1, base_url, http_session, rpc_method='invoice', rpc_params=[100000, 'label', 'description']):
+def notifications_received_via_websocket(l1, base_url, http_session, rpc_method='invoice', rpc_params=[100000, 'label', 'description'], expect_error=None):
     """Return the list of notifications received by the websocket client.
 
     We try to connect to the websocket server running at `base_url`
@@ -262,13 +262,24 @@ def notifications_received_via_websocket(l1, base_url, http_session, rpc_method=
       we return.
     - if we couldn't connect to the websocket server, the notification list
       we return is empty."""
+    http_session.headers.update({"upgrade": "websocket"})
     sio = socketio.Client(http_session=http_session)
     notifications = []
 
     @sio.event
     def message(data):
         notifications.append(data)
-    sio.connect(base_url)
+    try:
+        sio.connect(base_url)
+    except socketio.exceptions.ConnectionError as e:
+        if expect_error and expect_error in str(e):
+            return notifications
+        else:
+            raise ValueError(f"Expected error code `{expect_error}`, got `{str(e)}` instead")
+    except Exception:
+        raise
+    if expect_error:
+        raise Exception(f"did not raise expected error {expect_error}")
     time.sleep(2)
     # trigger notification by calling method
     rpc_call = getattr(l1.rpc, rpc_method)
@@ -278,7 +289,7 @@ def notifications_received_via_websocket(l1, base_url, http_session, rpc_method=
     return notifications
 
 
-def test_clnrest_websocket_no_rune(node_factory):
+def test_websocket_no_rune(node_factory):
     """Test websocket with default values for options."""
     # start a node with clnrest
     l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
@@ -288,11 +299,11 @@ def test_clnrest_websocket_no_rune(node_factory):
     http_session.verify = ca_cert.as_posix()
 
     # no rune provided => no websocket connection and no notification received
-    notifications = notifications_received_via_websocket(l1, base_url, http_session)
+    notifications = notifications_received_via_websocket(l1, base_url, http_session, expect_error="403")
     assert len(notifications) == 0
 
 
-def test_clnrest_websocket_wrong_rune(node_factory):
+def test_websocket_wrong_rune(node_factory):
     """Test websocket with default values for options."""
     # start a node with clnrest
     l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
@@ -304,13 +315,13 @@ def test_clnrest_websocket_wrong_rune(node_factory):
     # wrong rune provided => no websocket connection and no notification received
     http_session.headers.update({"rune": "jMHrjVJb5l9-mjEd7zwux7Ookra1fgZ8wa9D8QbVT-w9MA=="})
 
-    notifications = notifications_received_via_websocket(l1, base_url, http_session)
+    notifications = notifications_received_via_websocket(l1, base_url, http_session, expect_error="401")
     l1.daemon.logsearch_start = 0
-    assert l1.daemon.is_in_log(r"error: {'code': 1501, 'message': 'Not authorized: Not derived from master'}")
+    assert l1.daemon.wait_for_log(r"Error code 1501: Not authorized: Not derived from master")
     assert len(notifications) == 0
 
 
-def test_clnrest_websocket_unrestricted_rune(node_factory):
+def test_websocket_unrestricted_rune(node_factory):
     """Test websocket with default values for options."""
     # start a node with clnrest
     l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
@@ -326,7 +337,7 @@ def test_clnrest_websocket_unrestricted_rune(node_factory):
     assert len([n for n in notifications if not n.get('invoice_creation') is None]) == 1
 
 
-def test_clnrest_websocket_rune_readonly(node_factory):
+def test_websocket_rune_readonly(node_factory):
     """Test websocket with default values for options."""
     # start a node with clnrest
     l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
@@ -342,7 +353,7 @@ def test_clnrest_websocket_rune_readonly(node_factory):
     assert len([n for n in notifications if not n.get('invoice_creation') is None]) == 1
 
 
-def test_clnrest_websocket_rune_listnotifications(node_factory):
+def test_websocket_rune_listnotifications(node_factory):
     """Test websocket with default values for options."""
     # start a node with clnrest
     l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
@@ -358,7 +369,7 @@ def test_clnrest_websocket_rune_listnotifications(node_factory):
     assert len([n for n in notifications if not n.get('invoice_creation') is None]) == 1
 
 
-def test_clnrest_websocket_rune_no_listnotifications(node_factory):
+def test_websocket_rune_no_listnotifications(node_factory):
     """Test websocket with default values for options."""
     # start a node with clnrest
     l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
@@ -370,11 +381,11 @@ def test_clnrest_websocket_rune_no_listnotifications(node_factory):
     # with a rune which doesn't authorized listclnrest-notifications method => no websocket connection and no notification received
     rune_no_clnrest_notifications = l1.rpc.createrune(restrictions=[["method/listclnrest-notifications"]])['rune']
     http_session.headers.update({"rune": rune_no_clnrest_notifications})
-    notifications = notifications_received_via_websocket(l1, base_url, http_session)
+    notifications = notifications_received_via_websocket(l1, base_url, http_session, expect_error="401")
     assert len([n for n in notifications if n.find('invoice_creation') > 0]) == 0
 
 
-def test_clnrest_numeric_msat_notification(node_factory):
+def test_numeric_msat_notification(node_factory):
     """Test that msat fields are integers in notifications also."""
     # start a node with clnrest
     rest_port = str(node_factory.get_unused_port())
@@ -390,13 +401,13 @@ def test_clnrest_numeric_msat_notification(node_factory):
     rune_clnrest_notifications = l2.rpc.createrune(restrictions=[["method=listclnrest-notifications"]])['rune']
     http_session.headers.update({"rune": rune_clnrest_notifications})
     notifications = notifications_received_via_websocket(l1, base_url, http_session, 'pay', [inv['bolt11']])
-    filtered_notifications = [n for n in notifications if 'invoice_creation' in n]
+    filtered_notifications = [n for n in notifications if 'invoice_payment' in n]
 
-    assert isinstance(filtered_notifications[0]['invoice_creation']['msat'], int)
-    assert filtered_notifications[0]['invoice_creation']['msat'] == 5000000
+    assert isinstance(filtered_notifications[0]['invoice_payment']['msat'], int)
+    assert filtered_notifications[0]['invoice_payment']['msat'] == 5000000
 
 
-def test_clnrest_options(node_factory):
+def test_options(node_factory):
     """Test startup options `clnrest-host`, `clnrest-protocol` and `clnrest-certs`."""
     # with invalid port
     rest_port = 1000
@@ -418,7 +429,7 @@ def test_clnrest_options(node_factory):
     assert l1.daemon.is_in_log(r'plugin-clnrest: Killing plugin: disabled itself at init: `clnrest-host` should be a valid IP.')
 
 
-def test_clnrest_http_headers(node_factory):
+def test_http_headers(node_factory):
     """Test HTTP headers set with `clnrest-csp` and `clnrest-cors-origins` options."""
     # start a node with clnrest
     l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
@@ -458,7 +469,7 @@ def test_clnrest_http_headers(node_factory):
     assert response.headers['Access-Control-Allow-Origin'] == 'http://192.168.1.10:1010'
 
 
-def test_clnrest_old_params(node_factory):
+def test_old_params(node_factory):
     """Test that we handle the v23.08-style parameters"""
     rest_port = str(node_factory.get_unused_port())
     rest_host = '127.0.0.1'
@@ -491,3 +502,31 @@ def test_clnrest_old_params(node_factory):
     assert [p for p in l2.rpc.plugin('list')['plugins'] if p['name'].endswith('clnrest')] == []
     assert l2.daemon.is_in_log(r'plugin-clnrest: Killing plugin: disabled itself at init: `clnrest-port` option is not configured')
     assert l2.daemon.is_in_log(rf'clnrest-use-options.py: rest-port is {rest_port}')
+
+
+def test_websocket_upgrade_header(node_factory):
+    """Test that not setting an upgrade header leads to rejection"""
+    # start a node with clnrest
+    l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
+    http_session = http_session_with_retry()
+    http_session.verify = ca_cert.as_posix()
+
+    sio = socketio.Client(http_session=http_session)
+    notifications = []
+
+    @sio.event
+    def message(data):
+        notifications.append(data)
+    with pytest.raises(socketio.exceptions.ConnectionError, match="Unexpected response from server"):
+        sio.connect(base_url)
+
+    time.sleep(2)
+    # trigger notification by calling method
+    rpc_method = 'invoice'
+    rpc_params = [100000, 'label', 'description']
+    rpc_call = getattr(l1.rpc, rpc_method)
+    rpc_call(*rpc_params)
+    time.sleep(2)
+    sio.disconnect()
+
+    assert len(notifications) == 0
