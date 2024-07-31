@@ -5934,3 +5934,93 @@ def test_fetch_no_description_with_amount(node_factory):
     err = r'description is required for the user to know what it was they paid for'
     with pytest.raises(RpcError, match=err) as err:
         _ = l2.rpc.call('offer', {'amount': '2msat'})
+
+
+def test_sendpay_blindedpath(node_factory):
+    """Test blinded paths added as argument to sendpay, simple case."""
+    l1, l2, l3 = node_factory.line_graph(
+        3,
+        fundamount=10**6,
+        wait_for_announce=True,
+        opts={"experimental-offers": None},
+    )
+
+    offer = l3.rpc.offer(amount="100sat", description="test_sendpay_blindedpath")[
+        "bolt12"
+    ]
+    invoice_str = l1.rpc.fetchinvoice(offer)["invoice"]
+    invoice = l1.rpc.decode(invoice_str)
+    blinded_path = invoice["invoice_paths"][0]
+
+    route = l1.rpc.getroute(
+        blinded_path["first_node_id"],
+        amount_msat=invoice["invoice_amount_msat"],
+        riskfactor=10,
+    )["route"]
+    l1.rpc.call(
+        "sendpay",
+        payload={
+            "route": route,
+            "payment_hash": invoice["invoice_payment_hash"],
+            "blinded_path": blinded_path,
+        },
+    )
+    status = l1.rpc.waitsendpay(invoice["invoice_payment_hash"])["status"]
+    assert status == "complete"
+
+
+def test_sendpay_blindedpath2(node_factory):
+    """Test blinded paths added as argument to sendpay. Single blinded path, but
+    multiple routes."""
+    l1, l2, l3 = node_factory.line_graph(
+        3,
+        fundamount=10**6,
+        wait_for_announce=True,
+        opts={"experimental-offers": None},
+    )
+
+    offer = l3.rpc.offer(amount="100sat", description="test_sendpay_blindedpath")[
+        "bolt12"
+    ]
+    invoice_str = l1.rpc.fetchinvoice(offer)["invoice"]
+    invoice = l1.rpc.decode(invoice_str)
+    blinded_path = invoice["invoice_paths"][0]
+
+    # one route to deliver 75 sats
+    r1 = l1.rpc.getroute(
+        l3.rpc.getinfo()["id"],
+        amount_msat="75sat",
+        riskfactor=10,
+    )["route"]
+    l1.rpc.call(
+        "sendpay",
+        payload={
+            "groupid": 1,
+            "partid": 1,
+            "amount_msat": "100sat",
+            "route": r1,
+            "payment_hash": invoice["invoice_payment_hash"],
+            "blinded_path": blinded_path,
+        },
+    )
+    # another route to deliver 25 sats
+    r2 = l1.rpc.getroute(
+        l3.rpc.getinfo()["id"],
+        amount_msat="25sat",
+        riskfactor=10,
+    )["route"]
+    l1.rpc.call(
+        "sendpay",
+        payload={
+            "groupid": 1,
+            "partid": 2,
+            "amount_msat": "100sat",
+            "route": r2,
+            "payment_hash": invoice["invoice_payment_hash"],
+            "blinded_path": blinded_path,
+        },
+    )
+    status = l1.rpc.waitsendpay(invoice["invoice_payment_hash"], groupid=1, partid=1)[
+        "status"
+    ]
+    assert status == "complete"

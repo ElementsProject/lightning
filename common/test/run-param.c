@@ -86,6 +86,10 @@ bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 		  void *record UNNEEDED, struct tlv_field **fields UNNEEDED,
 		  const u64 *extra_types UNNEEDED, size_t *err_off UNNEEDED, u64 *err_type UNNEEDED)
 { fprintf(stderr, "fromwire_tlv called!\n"); abort(); }
+/* Generated stub for json_to_blinded_path */
+struct blinded_path *json_to_blinded_path(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED,
+					  const jsmntok_t *tok UNNEEDED)
+{ fprintf(stderr, "json_to_blinded_path called!\n"); abort(); }
 /* Generated stub for to_canonical_invstr */
 const char *to_canonical_invstr(const tal_t *ctx UNNEEDED, const char *invstring UNNEEDED)
 { fprintf(stderr, "to_canonical_invstr called!\n"); abort(); }

@@ -35,6 +35,8 @@ struct wally_psbt;
 struct lease_rates;
 struct wireaddr;
 struct wireaddr_internal;
+struct onionmsg_hop;
+struct blinded_path;
 
 struct json_stream {
 	struct json_out *jout;
@@ -364,4 +366,13 @@ void json_add_lease_rates(struct json_stream *result,
 
 /* Add an id field literally (i.e. it's already a JSON primitive or string!) */
 void json_add_id(struct json_stream *result, const char *id);
+
+/* Add a blinded_path hop serialization. */
+void json_add_onionmsg_path(struct json_stream *js, const char *fieldname,
+			    const struct onionmsg_hop *hop);
+
+/* Add a blinded_path structure serialization. */
+void json_add_blinded_path(struct json_stream *js, const char *fieldname,
+			   const struct blinded_path *blinded_path);
+
 #endif /* LIGHTNING_COMMON_JSON_STREAM_H */

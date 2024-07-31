@@ -153,6 +153,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/deprecation.o			\
 	common/features.o			\
 	common/hash_u5.o			\
+	common/json_blinded_path.o		\
 	common/json_command.o			\
 	common/json_param.o			\
 	common/json_parse.o			\
@@ -166,6 +167,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/random_select.o			\
+	common/sciddir_or_pubkey.o		\
 	common/setup.o				\
 	common/status_levels.o			\
 	common/utils.o				\

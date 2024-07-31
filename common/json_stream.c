@@ -23,6 +23,7 @@
 #include <common/wireaddr.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <wire/onion_wiregen.h>
 #include <wire/peer_wire.h>
 
 static void adjust_io_write(struct json_out *jout,
@@ -673,4 +674,37 @@ void json_add_id(struct json_stream *result, const char *id)
 	/* Bypass escape-required assertion in json_out_add */
 	p = json_member_direct(result, "id", strlen(id));
 	memcpy(p, id, strlen(id));
+}
+
+void json_add_onionmsg_path(struct json_stream *js, const char *fieldname,
+			    const struct onionmsg_hop *hop)
+{
+	json_object_start(js, fieldname);
+	json_add_pubkey(js, "blinded_node_id", &hop->blinded_node_id);
+	json_add_hex_talarr(js, "encrypted_recipient_data",
+			    hop->encrypted_recipient_data);
+	json_object_end(js);
+}
+
+void json_add_blinded_path(struct json_stream *js, const char *fieldname,
+			   const struct blinded_path *blinded_path)
+{
+	json_object_start(js, fieldname);
+	if (blinded_path->first_node_id.is_pubkey) {
+		json_add_pubkey(js, "first_node_id",
+				&blinded_path->first_node_id.pubkey);
+	} else {
+		json_add_short_channel_id(
+		    js, "first_scid", blinded_path->first_node_id.scidd.scid);
+		json_add_u32(js, "first_scid_dir",
+			     blinded_path->first_node_id.scidd.dir);
+	}
+	json_add_pubkey(js, "blinding", &blinded_path->blinding);
+
+	json_array_start(js, "path");
+	for (size_t j = 0; j < tal_count(blinded_path->path); j++) {
+		json_add_onionmsg_path(js, NULL, blinded_path->path[j]);
+	}
+	json_array_end(js);
+	json_object_end(js);
 }
