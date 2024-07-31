@@ -590,15 +590,6 @@ Python plugins will be installed with the `poetry install` step mentioned above 
 
 Other users will need some Python packages if python plugins are used. Unfortunately there are some Python packages which are not packaged in Ubuntu, and so force installation will be needed (Flag `--user` is recommended which will install them in user's own .local directory, so at least the risk of breaking Python globally can be avoided!).
 
-### clnrest
-
-Installation steps for clnrest are:
-
-```
-sudo apt-get install python3-json5 python3-flask python3-gunicorn
-pip3 install --user flask-cors flask-restx pyln-client flask-socketio gevent gevent-websocket
-```
-
 ### wss-proxy
 
 Below libraries are required for wss-proxy:
