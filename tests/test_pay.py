@@ -5996,3 +5996,20 @@ def test_enableoffer(node_factory):
     # Can't enable unknown.
     with pytest.raises(RpcError, match="Unknown offer"):
         l1.rpc.enableoffer(offer_id=offer1['offer_id'])
+
+
+def test_pay_remember_hint(node_factory):
+    """Build a diamond, with a cheap route, that is exhausted. The
+    first payment should try that route first, learn it's exhausted,
+    and then succeed over the other leg. The second, unrelated,
+    payment should immediately skip the exhausted leg and go for the
+    more expensive one.
+
+    ```mermaid
+    graph LR
+      Sender -- "propfee=1\nexhausted" --> Forwarder1
+      Forwarder1 -- "propfee=1" --> Recipient
+      Sender -- "propfee=50" --> Forwarder2
+      Forwarder2 -- "propfee=1" --> Recipient
+    ```
+    """
