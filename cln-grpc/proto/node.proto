@@ -289,6 +289,7 @@ message SendpayRequest {
 	optional bytes localinvreqid = 11;
 	optional bytes payment_metadata = 12;
 	optional string description = 13;
+	optional SendpayBlinded_path blinded_path = 14;
 }
 
 message SendpayResponse {
@@ -321,6 +322,19 @@ message SendpayRoute {
 	uint32 delay = 3;
 	string channel = 4;
 	Amount amount_msat = 5;
+}
+
+message SendpayBlinded_path {
+	optional bytes first_node_id = 1;
+	optional string first_scid = 2;
+	optional uint32 first_scid_dir = 3;
+	bytes blinding = 4;
+	repeated SendpayBlinded_pathPath path = 5;
+}
+
+message SendpayBlinded_pathPath {
+	bytes blinded_node_id = 1;
+	bytes encrypted_recipient_data = 2;
 }
 
 message ListchannelsRequest {

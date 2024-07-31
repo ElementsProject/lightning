@@ -3970,6 +3970,30 @@ impl From<requests::ListfundsRequest> for pb::ListfundsRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::SendpayBlinded_pathPath> for pb::SendpayBlindedPathPath {
+    fn from(c: requests::SendpayBlinded_pathPath) -> Self {
+        Self {
+            blinded_node_id: c.blinded_node_id.serialize().to_vec(), // Rule #2 for type pubkey
+            encrypted_recipient_data: hex::decode(&c.encrypted_recipient_data).unwrap(), // Rule #2 for type hex
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::SendpayBlinded_path> for pb::SendpayBlindedPath {
+    fn from(c: requests::SendpayBlinded_path) -> Self {
+        Self {
+            blinding: c.blinding.serialize().to_vec(), // Rule #2 for type pubkey
+            first_node_id: c.first_node_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            first_scid: c.first_scid.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+            first_scid_dir: c.first_scid_dir, // Rule #2 for type u32?
+            // Field: SendPay.blinded_path.path[]
+            path: c.path.into_iter().map(|i| i.into()).collect(), // Rule #3 for type SendpayBlinded_pathPath
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::SendpayRoute> for pb::SendpayRoute {
     fn from(c: requests::SendpayRoute) -> Self {
         Self {
@@ -3986,6 +4010,7 @@ impl From<requests::SendpayRequest> for pb::SendpayRequest {
     fn from(c: requests::SendpayRequest) -> Self {
         Self {
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
+            blinded_path: c.blinded_path.map(|v| v.into()),
             bolt11: c.bolt11, // Rule #2 for type string?
             description: c.description, // Rule #2 for type string?
             groupid: c.groupid, // Rule #2 for type u64?
@@ -5364,6 +5389,29 @@ impl From<pb::ListfundsRequest> for requests::ListfundsRequest {
 }
 
 #[allow(unused_variables)]
+impl From<pb::SendpayBlindedPathPath> for requests::SendpayBlinded_pathPath {
+    fn from(c: pb::SendpayBlindedPathPath) -> Self {
+        Self {
+            blinded_node_id: PublicKey::from_slice(&c.blinded_node_id).unwrap(), // Rule #1 for type pubkey
+            encrypted_recipient_data: hex::encode(&c.encrypted_recipient_data), // Rule #1 for type hex
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::SendpayBlindedPath> for requests::SendpayBlinded_path {
+    fn from(c: pb::SendpayBlindedPath) -> Self {
+        Self {
+            blinding: PublicKey::from_slice(&c.blinding).unwrap(), // Rule #1 for type pubkey
+            first_node_id: c.first_node_id.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
+            first_scid: c.first_scid.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
+            first_scid_dir: c.first_scid_dir, // Rule #1 for type u32?
+            path: c.path.into_iter().map(|s| s.into()).collect(), // Rule #4
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<pb::SendpayRoute> for requests::SendpayRoute {
     fn from(c: pb::SendpayRoute) -> Self {
         Self {
@@ -5380,6 +5428,7 @@ impl From<pb::SendpayRequest> for requests::SendpayRequest {
     fn from(c: pb::SendpayRequest) -> Self {
         Self {
             amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
+            blinded_path: c.blinded_path.map(|v| v.into()),
             bolt11: c.bolt11, // Rule #1 for type string?
             description: c.description, // Rule #1 for type string?
             groupid: c.groupid, // Rule #1 for type u64?

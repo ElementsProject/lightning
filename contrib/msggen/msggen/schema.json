@@ -26449,6 +26449,76 @@
             "description": [
               "Description used in the invoice."
             ]
+          },
+          "blinded_path": {
+            "added": "v24.08",
+            "type": "object",
+            "required": [
+              "blinding",
+              "path"
+            ],
+            "additionalProperties": true,
+            "properties": {
+              "first_node_id": {
+                "added": "v24.08",
+                "type": "pubkey",
+                "description": [
+                  "The (presumably well-known) public key of the start of the path."
+                ]
+              },
+              "first_scid": {
+                "added": "v24.08",
+                "type": "short_channel_id",
+                "description": [
+                  "the short channel id of the start of the path (alternative to first_node_id)"
+                ]
+              },
+              "first_scid_dir": {
+                "added": "v24.08",
+                "type": "u32",
+                "description": [
+                  "which end of the first_scid is the start of the path"
+                ]
+              },
+              "blinding": {
+                "added": "v24.08",
+                "type": "pubkey",
+                "description": [
+                  "Blinding factor for this path."
+                ]
+              },
+              "path": {
+                "added": "v24.08",
+                "type": "array",
+                "description": [
+                  "An individual path."
+                ],
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "blinded_node_id",
+                    "encrypted_recipient_data"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "blinded_node_id": {
+                      "added": "v24.08",
+                      "type": "pubkey",
+                      "description": [
+                        "Node_id of the hop."
+                      ]
+                    },
+                    "encrypted_recipient_data": {
+                      "added": "v24.08",
+                      "type": "hex",
+                      "description": [
+                        "Encrypted TLV entry for this hop."
+                      ]
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       },

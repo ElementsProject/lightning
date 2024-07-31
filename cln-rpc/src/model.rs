@@ -397,6 +397,24 @@ pub mod requests {
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SendpayBlinded_pathPath {
+	    pub blinded_node_id: PublicKey,
+	    pub encrypted_recipient_data: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SendpayBlinded_path {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub first_node_id: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub first_scid: Option<ShortChannelId>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub first_scid_dir: Option<u32>,
+	    pub blinding: PublicKey,
+	    pub path: Vec<SendpayBlinded_pathPath>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendpayRoute {
 	    pub amount_msat: Amount,
 	    pub channel: ShortChannelId,
@@ -408,6 +426,8 @@ pub mod requests {
 	pub struct SendpayRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub blinded_path: Option<SendpayBlinded_path>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt11: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

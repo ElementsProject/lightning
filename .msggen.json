@@ -2952,8 +2952,20 @@
             "SendOnionMessage.first_id": 1,
             "SendOnionMessage.hops[]": 3
         },
+        "SendpayBlinded_path": {
+            "SendPay.blinded_path.blinding": 4,
+            "SendPay.blinded_path.first_node_id": 1,
+            "SendPay.blinded_path.first_scid": 2,
+            "SendPay.blinded_path.first_scid_dir": 3,
+            "SendPay.blinded_path.path[]": 5
+        },
+        "SendpayBlinded_pathPath": {
+            "SendPay.blinded_path.path[].blinded_node_id": 1,
+            "SendPay.blinded_path.path[].encrypted_recipient_data": 2
+        },
         "SendpayRequest": {
             "SendPay.amount_msat": 10,
+            "SendPay.blinded_path": 14,
             "SendPay.bolt11": 5,
             "SendPay.description": 13,
             "SendPay.groupid": 9,
@@ -10383,6 +10395,38 @@
         },
         "SendPay.amount_sent_msat": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SendPay.blinded_path": {
+            "added": "v24.08",
+            "deprecated": null
+        },
+        "SendPay.blinded_path.blinding": {
+            "added": "v24.08",
+            "deprecated": null
+        },
+        "SendPay.blinded_path.first_node_id": {
+            "added": "v24.08",
+            "deprecated": null
+        },
+        "SendPay.blinded_path.first_scid": {
+            "added": "v24.08",
+            "deprecated": null
+        },
+        "SendPay.blinded_path.first_scid_dir": {
+            "added": "v24.08",
+            "deprecated": null
+        },
+        "SendPay.blinded_path.path[]": {
+            "added": "v24.08",
+            "deprecated": null
+        },
+        "SendPay.blinded_path.path[].blinded_node_id": {
+            "added": "v24.08",
+            "deprecated": null
+        },
+        "SendPay.blinded_path.path[].encrypted_recipient_data": {
+            "added": "v24.08",
             "deprecated": null
         },
         "SendPay.bolt11": {
