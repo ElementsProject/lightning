@@ -82,6 +82,7 @@ compile_commands.json
 # Rust targets
 target
 plugins/cln-grpc
+plugins/clnrest
 
 # Build directories
 bionic/

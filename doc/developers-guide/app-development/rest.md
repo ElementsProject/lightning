@@ -38,7 +38,7 @@ An online demo for the REST interface is available at [REST API REFERENCE](ref:g
 The plugin is built-in with Core Lightning but its python dependencies are not, and must be installed separately.
 Detailed installation instructions can be found [here](https://docs.corelightning.org/docs/installation#clnrest).
 
-Note: if you have the older c-lightning-REST plugin, you can configure Core Lightning with `disable-plugin=clnrest.py`
+Note: if you have the older c-lightning-REST plugin, you can configure Core Lightning with `disable-plugin=clnrest`
 option to avoid confusion with this one. You can also run both plugins simultaneously till all your applications
 are not migrated to `clnrest`.
 
@@ -94,8 +94,7 @@ With `-k` or `--insecure` option curl proceeds with the connection even if the S
 This option should be used only when testing with self signed certificate.
 
 ## Websocket Server
-Websocket server is available at `https://127.0.0.1:3010`. clnrest queues up notifications received for a second 
-then broadcasts them to all listeners. 
+Websocket server is available at `https://127.0.0.1:3010`. clnrest broadcasts notifications to all listeners. 
 
 This websocket server requires a `rune` with at least `readonly` access for authorization. The default method used
 for current validation is `listclnrest-notifications`. User can either provided a rune with minimum `readonly`

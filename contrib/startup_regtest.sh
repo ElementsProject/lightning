@@ -270,7 +270,7 @@ start_ln() {
 		nodes="$1"
 	fi
 	# Are the clnrest dependencies installed?
-	if timeout 2 python3 plugins/clnrest/clnrest.py > /dev/null 2>&1; then
+	if timeout 2 python3 plugins/clnrest/clnrest > /dev/null 2>&1; then
 		ACTIVATE_CLNREST=1
 	fi
 	start_nodes "$nodes" regtest
@@ -281,8 +281,7 @@ start_ln() {
 	if [ -n "$ACTIVATE_CLNREST" ] && [ "$active_status" = "active" ] ; then
 		node_info regtest
 	elif [ "$active_status" = "disabled" ]; then
-		echo "clnrest is disabled. Try installing python developer dependencies"
-		echo "with 'poetry install'"
+		echo "clnrest is disabled."
 	else
 		echo "timed out parsing log $LIGHTNING_DIR/l1/log"
 	fi

@@ -377,6 +377,7 @@ ifneq ($(FUZZING),0)
 endif
 ifneq ($(RUST),0)
 	include cln-rpc/Makefile
+	include plugins/cln-rest/Makefile
 endif
 include cln-grpc/Makefile
 
@@ -747,7 +748,7 @@ clean: obsclean
 
 PYLNS=client proto testing
 # See doc/contribute-to-core-lightning/contributor-workflow.md
-update-versions: update-pyln-versions update-clnrest-version update-wss-proxy-version update-poetry-lock update-dot-version update-doc-examples
+update-versions: update-pyln-versions update-wss-proxy-version update-poetry-lock update-dot-version update-doc-examples
 
 update-pyln-versions: $(PYLNS:%=update-pyln-version-%)
 
@@ -760,16 +761,12 @@ pyln-release:  $(PYLNS:%=pyln-release-%)
 pyln-release-%:
 	cd contrib/pyln-$* && $(MAKE) prod-release
 
-update-clnrest-version:
-	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
-	cd plugins/clnrest && $(MAKE) upgrade-version
-
 update-wss-proxy-version:
 	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
 	cd plugins/wss-proxy && $(MAKE) upgrade-version
 
 update-poetry-lock:
-	poetry update clnrest wss-proxy pyln-client pyln-proto pyln-testing update-reckless-version
+	poetry update wss-proxy pyln-client pyln-proto pyln-testing update-reckless-version
 
 update-reckless-version:
 	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi

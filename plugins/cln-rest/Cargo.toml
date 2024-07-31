@@ -1,0 +1,33 @@
+[package]
+name = "clnrest"
+version = "0.1.1"
+edition = "2021"
+license = "MIT"
+description = "Transforms RPC calls into REST APIs"
+homepage = "https://github.com/ElementsProject/lightning/tree/master/plugins"
+repository = "https://github.com/ElementsProject/lightning"
+
+[dependencies]
+anyhow = "1"
+bytes = "1"
+log = { version = "0.4", features = ['std'] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio-util = { version = "0.7", features = ["codec"] }
+tokio = { version="1", features = ['io-std', 'rt-multi-thread', 'sync', 'macros', 'io-util'] }
+axum = "0.8"
+axum-server = { version = "0.6", features = ["tls-rustls"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+rcgen = "0.13"
+hyper = "1"
+tower= "0.5"
+tower-http = { version = "0.6", features = ["cors", "set-header"] }
+utoipa = { version = "5", features = ['axum_extras'] }
+
+log-panics = "2"
+socketioxide = "0.15"
+
+cln-plugin = { version = "0.3", path = "../../plugins" }
+cln-rpc = { version = "0.3", path = "../../cln-rpc" }
+utoipa-swagger-ui = { version = "9.0.0", features = ["vendored", "axum"] }
+

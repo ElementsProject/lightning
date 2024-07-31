@@ -12,7 +12,7 @@ def init(configuration, options, plugin):
     print(f"rest-port is {plugin.get_option('rest-port')}")
 
 
-plugin.add_option('rest-port', None, "Parameter to clash with clnrest.py deprecated one")
+plugin.add_option('rest-port', None, "Parameter to clash with clnrest deprecated one")
 
 
 plugin.run()

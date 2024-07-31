@@ -86,6 +86,7 @@ stdenv.mkDerivation {
 
   postInstall = ''
     cp ${config.packages.rust}/bin/cln-grpc $out/libexec/c-lightning/plugins
+    cp ${config.packages.rust}/bin/clnrest $out/libexec/c-lightning/plugins
   '';
 
   meta = with lib; {

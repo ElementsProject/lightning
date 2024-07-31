@@ -11,7 +11,6 @@ python = ">=3.8.1,<4.0"
 pyln-client = { path = "contrib/pyln-client", develop = true }
 pyln-proto = { path = "contrib/pyln-proto", develop = true }
 pyln-grpc-proto = { path = "contrib/pyln-grpc-proto", develop = true }
-clnrest = { path = "plugins/clnrest", develop = true }
 wss-proxy = { path = "plugins/wss-proxy", develop = true }
 Mako = "^1.1.6"
 websocket-client = "^1.2.3"
@@ -33,6 +32,7 @@ pytest-custom-exit-code = "0.3.0"
 pyln-testing = { path = "./contrib/pyln-testing", develop = true, extras = [ "grpc" ] }
 flaky = "^3.7.0"
 requests = "^2.31.0"
+flask-socketio = "^5"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
