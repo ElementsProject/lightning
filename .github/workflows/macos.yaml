@@ -9,51 +9,60 @@ jobs:
     timeout-minutes: 120
     strategy:
       fail-fast: true
+      matrix:
+        bitcoind-version: ["27.1"]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Download Bitcoin ${{ matrix.bitcoind-version }} & install binaries
+        run: |
+          export BITCOIND_VERSION=${{ matrix.bitcoind-version }}
+          export TARGET_ARCH="arm64-apple-darwin"
+
+          wget https://bitcoincore.org/bin/bitcoin-core-${BITCOIND_VERSION}/bitcoin-${BITCOIND_VERSION}-${TARGET_ARCH}.tar.gz
+          tar -xzf bitcoin-${BITCOIND_VERSION}-${TARGET_ARCH}.tar.gz
+          sudo mv bitcoin-${BITCOIND_VERSION}/bin/* /usr/local/bin
+          rm -rf bitcoin-${BITCOIND_VERSION}-${TARGET_ARCH}.tar.gz bitcoin-${BITCOIND_VERSION}
 
       - name: Install dependencies
         run: |
           export PATH="/usr/local/opt:/Users/runner/.local/bin:/Users/runner/Library/Python/3.10/bin:$PATH"
 
-          export BITCOIN_VERSION=27.1
-          brew install wget autoconf automake libtool python@3.10 gnu-sed gettext libsodium
-
-          (
-            cd /tmp/
-            wget https://storage.googleapis.com/c-lightning-tests/bitcoin-$BITCOIN_VERSION-osx64.tar.gz -O bitcoin.tar.gz
-            tar -xvzf bitcoin.tar.gz
-            sudo mv bitcoin-$BITCOIN_VERSION/bin/* /usr/local/bin
-          )
+          brew install wget autoconf automake libtool python@3.10 gnu-sed gettext libsodium protobuf
 
           python3.10 -m pip install -U --user poetry wheel pip
           python3.10 -m poetry install
           python3.10 -m pip install -U --user mako
-          
-          ln -s /usr/local/Cellar/gettext/0.20.1/bin/xgettext /usr/local/opt
 
-      - name: Build
-        env:
-          PYTEST_PAR: ${{ matrix.PYTEST_PAR }}
-          PYTEST_OPTS: ${{ matrix.PYTEST_OPTS }}
-          NO_PYTHON: ${{ matrix.NO_PYTHON }}
-          COPTFLAGS: ${{ matrix.COPTFLAGS }}
-          NETWORK: ${{ matrix.NETWORK }}
-          TEST_CMD: ${{ matrix.TEST_CMD }}
-          TEST_GROUP_COUNT: ${{ matrix.TEST_GROUP_COUNT }}
-          TEST_GROUP: ${{ matrix.TEST_GROUP }}
+          sudo ln -s /usr/local/Cellar/gettext/0.20.1/bin/xgettext /usr/local/opt
+
+      - name: Build and install
         run: |
-          export PATH="/usr/local/opt:/Users/runner/.local/bin:/Users/runner/Library/Python/3.10/bin:/usr/local/opt:$PATH"
-          export LDFLAGS="-L/usr/local/opt/sqlite/lib"
-          export CPPFLAGS="-I/usr/local/opt/sqlite/include"
-
-          cat << EOF > pytest.ini
-          [pytest]
-          addopts=-p no:logging --color=yes --timeout=600 --timeout-method=thread --test-group-random-seed=42 --junitxml=report.xml --json-report --json-report-file=report.json --json-report-indent=2
-          markers =
-              slow_test: marks tests as slow (deselect with '-m "not slow_test"')
-          EOF
+          export CPATH=/opt/homebrew/include
+          export LIBRARY_PATH=/opt/homebrew/lib
 
           python3.10 -m poetry run ./configure --disable-valgrind --disable-compat
           python3.10 -m poetry run make
+
+          # sudo PATH="/usr/local/opt:$PATH" LIBRARY_PATH=/opt/homebrew/lib CPATH=/opt/homebrew/include make install
+
+      - name: Start bitcoind in regtest mode
+        run: |
+          bitcoind -regtest -daemon
+          sleep 5
+
+      - name: Generate initial block
+        run: |
+          bitcoin-cli -regtest createwallet default_wallet
+          bitcoin-cli -regtest generatetoaddress 1 $(bitcoin-cli -regtest getnewaddress)
+          sleep 2
+
+      - name: Start lightningd in regtest mode
+        run: |
+          lightningd/lightningd --network=regtest --log-file=/tmp/l1.log --daemon
+          sleep 5
+
+      - name: Verify lightningd is running
+        run: |
+          cli/lightning-cli --regtest getinfo
