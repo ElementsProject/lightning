@@ -5934,3 +5934,36 @@ def test_fetch_no_description_with_amount(node_factory):
     err = r'description is required for the user to know what it was they paid for'
     with pytest.raises(RpcError, match=err) as err:
         _ = l2.rpc.call('offer', {'amount': '2msat'})
+
+
+def test_sendpay_blindedpath(node_factory):
+    """Test blinded paths added as argument to sendpay, simple case."""
+    l1, l2, l3 = node_factory.line_graph(
+        3,
+        fundamount=10**6,
+        wait_for_announce=True,
+        opts={"experimental-offers": None},
+    )
+
+    offer = l3.rpc.offer(amount="100sat", description="test_sendpay_blindedpath")[
+        "bolt12"
+    ]
+    invoice_str = l1.rpc.fetchinvoice(offer)["invoice"]
+    invoice = l1.rpc.decode(invoice_str)
+    blinded_path = invoice["invoice_paths"][0]
+
+    route = l1.rpc.getroute(
+        blinded_path["first_node_id"],
+        amount_msat=invoice["invoice_amount_msat"],
+        riskfactor=10,
+    )["route"]
+    sendpay_response = l1.rpc.call(
+        "sendpay",
+        payload={
+            "route": route,
+            "payment_hash": invoice["invoice_payment_hash"],
+            "blinded_path": blinded_path,
+        },
+    )
+    status = l1.rpc.waitsendpay(invoice["invoice_payment_hash"])["status"]
+    assert status == "complete"
