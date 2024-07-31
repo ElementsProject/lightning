@@ -155,9 +155,11 @@ static struct io_plan *stderr_conn_init(struct io_conn *conn,
 }
 
 static struct command_result *reckless_call(struct command *cmd,
-					    const char *call)
+					    const char *subcommand,
+					    const char *target,
+					    const char *target2)
 {
-	if (!call)
+	if (!subcommand || !target)
 		return command_fail(cmd, PLUGIN_ERROR, "invalid reckless call");
 	char **my_call;
 	my_call = tal_arrz(tmpctx, char *, 0);
@@ -172,8 +174,10 @@ static struct command_result *reckless_call(struct command *cmd,
 		tal_arr_expand(&my_call, "--conf");
 		tal_arr_expand(&my_call, lconfig.config);
 	}
-	tal_arr_expand(&my_call, "search");
-	tal_arr_expand(&my_call, (char *) call);
+	tal_arr_expand(&my_call, (char *) subcommand);
+	tal_arr_expand(&my_call, (char *) target);
+	if (target2)
+		tal_arr_expand(&my_call, (char *) target2);
 	tal_arr_expand(&my_call, NULL);
 	struct reckless *reckless;
 	reckless = tal(NULL, struct reckless);
@@ -201,17 +205,21 @@ static struct command_result *reckless_call(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-static struct command_result *json_search(struct command *cmd,
-					  const char *buf,
-					  const jsmntok_t *params)
+static struct command_result *json_reckless(struct command *cmd,
+					    const char *buf,
+					    const jsmntok_t *params)
 {
-	const char *search_target;
+	const char *command;
+	const char *target;
+	const char *target2;
 	/* Allow check command to evaluate. */
 	if (!param(cmd, buf, params,
-		   p_req("plugin", param_string, &search_target),
+		   p_req("command", param_string, &command),
+		   p_req("target/subcommand", param_string, &target),
+		   p_opt("target", param_string, &target2),
 		   NULL))
 		return command_param_failed();
-	return reckless_call(cmd, search_target);
+	return reckless_call(cmd, command, target, target2);
 }
 
 static const char *init(struct plugin *p,
@@ -242,8 +250,8 @@ static const char *init(struct plugin *p,
 
 static const struct plugin_command commands[] = {
 	{
-		"reckless-search",
-		json_search,
+		"reckless",
+		json_reckless,
 	},
 };
 
