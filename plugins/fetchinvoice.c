@@ -155,9 +155,9 @@ static bool invoice_matches_request(struct command *cmd,
 	inv_len1 = tlv_span(invbin, 0, 159, &inv_start1);
 	inv_len2 = tlv_span(invbin, 1000000000, 2999999999, &inv_start2);
 	return memeq(wire + ir_start1, ir_len1,
-		     invbin + ir_start1, inv_len1)
+		     invbin + inv_start1, inv_len1)
 		&& memeq(wire + ir_start2, ir_len2,
-			 invbin + ir_start2, inv_len2);
+			 invbin + inv_start2, inv_len2);
 }
 
 static struct command_result *handle_invreq_response(struct command *cmd,
