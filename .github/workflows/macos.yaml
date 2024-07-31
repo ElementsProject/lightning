@@ -9,23 +9,35 @@ jobs:
     timeout-minutes: 120
     strategy:
       fail-fast: true
+      matrix:
+        bitcoind-version: ["27.1"]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Cache bitcoind
+        id: cache-bitcoind
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/bin/bitcoin*
+          key: cache-bitcoind-${{ matrix.bitcoind-version }}
+
+      - name: Download Bitcoin ${{ matrix.bitcoind-version }} & install binaries
+        if: ${{ steps.cache-bitcoind.outputs.cache-hit != 'true' }}
+        run: |
+          export BITCOIND_VERSION=${{ matrix.bitcoind-version }}
+          export TARGET_ARCH="arm64-apple-darwin"
+
+          wget https://bitcoincore.org/bin/bitcoin-core-${BITCOIND_VERSION}/bitcoin-${BITCOIND_VERSION}-${TARGET_ARCH}.tar.gz
+          tar -xzf bitcoin-${BITCOIND_VERSION}-${TARGET_ARCH}.tar.gz
+          sudo mv bitcoin-${BITCOIND_VERSION}/bin/* /usr/local/bin
+          rm -rf bitcoin-${BITCOIND_VERSION}-${TARGET_ARCH}.tar.gz bitcoin-${BITCOIND_VERSION}
 
       - name: Install dependencies
         run: |
           export PATH="/usr/local/opt:/Users/runner/.local/bin:/Users/runner/Library/Python/3.10/bin:$PATH"
 
-          export BITCOIN_VERSION=27.1
           brew install wget autoconf automake libtool python@3.10 gnu-sed gettext libsodium
-
-          (
-            cd /tmp/
-            wget https://storage.googleapis.com/c-lightning-tests/bitcoin-$BITCOIN_VERSION-osx64.tar.gz -O bitcoin.tar.gz
-            tar -xvzf bitcoin.tar.gz
-            sudo mv bitcoin-$BITCOIN_VERSION/bin/* /usr/local/bin
-          )
 
           python3.10 -m pip install -U --user poetry wheel pip
           python3.10 -m poetry install
