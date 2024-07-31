@@ -5957,7 +5957,7 @@ def test_sendpay_blindedpath(node_factory):
         amount_msat=invoice["invoice_amount_msat"],
         riskfactor=10,
     )["route"]
-    sendpay_response = l1.rpc.call(
+    l1.rpc.call(
         "sendpay",
         payload={
             "route": route,
