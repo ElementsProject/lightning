@@ -151,10 +151,7 @@ struct lightningd {
 	struct node_id our_nodeid;
 	struct pubkey our_pubkey;
 
-	/* The public base for our payer_id keys */
-	struct pubkey bolt12_base;
-
-	/* Secret base for our invoices */
+	/* Secret base for our invoices. */
 	struct secret invoicesecret_base;
 
 	/* Secret base for node aliases  */

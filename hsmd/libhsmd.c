@@ -730,6 +730,21 @@ static u8 *handle_sign_option_will_fund_offer(struct hsmd_client *c,
 	return towire_hsmd_sign_option_will_fund_offer_reply(NULL, &sig);
 }
 
+static void payer_key_tweak(const struct pubkey *bolt12,
+			    const u8 *publictweak, size_t publictweaklen,
+			    struct sha256 *tweak)
+{
+	u8 rawkey[PUBKEY_CMPR_LEN];
+	struct sha256_ctx sha;
+
+	pubkey_to_der(rawkey, bolt12);
+
+	sha256_init(&sha);
+	sha256_update(&sha, rawkey, sizeof(rawkey));
+	sha256_update(&sha, publictweak, publictweaklen);
+	sha256_done(&sha, tweak);
+}
+
 /*~ lightningd asks us to sign a bolt12 (e.g. offer). */
 static u8 *handle_sign_bolt12(struct hsmd_client *c, const u8 *msg_in)
 {

@@ -87,6 +87,7 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	int fds[2];
 	struct ext_key *bip32_base;
 	u32 hsm_version;
+	struct pubkey unused;
 
 	/* We actually send requests synchronously: only status is async. */
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0)
@@ -142,7 +143,7 @@ struct ext_key *hsm_init(struct lightningd *ld)
 					&hsm_version,
 					&ld->hsm_capabilities,
 					&ld->our_nodeid, bip32_base,
-					&ld->bolt12_base)) {
+					&unused)) {
 		/* nothing to do. */
 	} else {
 		if (ld->config.keypass)
