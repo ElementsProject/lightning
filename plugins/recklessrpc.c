@@ -29,6 +29,7 @@ struct reckless {
 	size_t stderr_read;
 	size_t stderr_new;
 	pid_t pid;
+	char *process_failed;
 };
 
 struct lconfig {
@@ -62,6 +63,12 @@ static struct command_result *reckless_result(struct io_conn *conn,
 					      struct reckless *reckless)
 {
 	struct json_stream *response;
+	if (reckless->process_failed) {
+		response = jsonrpc_stream_fail(reckless->cmd,
+					       PLUGIN_ERROR,
+					       reckless->process_failed);
+		return command_finished(reckless->cmd, response);
+	}
 	response = jsonrpc_stream_success(reckless->cmd);
 	json_array_start(response, "result");
 	const jsmntok_t *results, *result, *logs, *log;
@@ -142,6 +149,15 @@ static struct io_plan *stderr_read_more(struct io_conn *conn,
 		plugin_log(plugin, LOG_DBG, "confirming config creation");
 		reckless_send_yes(rkls);
 	}
+	/* Old version of reckless installed? */
+	if (strstr(rkls->stderrbuf, "error: unrecognized arguments: --json")) {
+		plugin_log(plugin, LOG_DBG, "Reckless call failed due to old "
+			   "installed version.");
+		rkls->process_failed = tal_strdup(plugin, "The installed "
+						  "reckless utility is out of "
+						  "date. Please update to use "
+						  "the RPC plugin.");
+	}
 	return io_read_partial(conn, rkls->stderrbuf + rkls->stderr_read,
 			       tal_count(rkls->stderrbuf) - rkls->stderr_read,
 			       &rkls->stderr_new, stderr_read_more, rkls);
@@ -188,6 +204,7 @@ static struct command_result *reckless_call(struct command *cmd,
 	reckless->stdout_new = 0;
 	reckless->stderr_read = 0;
 	reckless->stderr_new = 0;
+	reckless->process_failed = NULL;
 	char * full_cmd;
 	full_cmd = tal_fmt(tmpctx, "calling:");
 	for (int i=0; i<tal_count(my_call); i++)
