@@ -228,6 +228,17 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 		return tal_free(offer);
 	}
 
+	/* BOLT-offers #12:
+	 *   - if `num_hops` is 0 in any `blinded_path` in `offer_paths`:
+	 *     - MUST NOT respond to the offer.
+	 */
+	for (size_t i = 0; i < tal_count(offer->offer_paths); i++) {
+		if (tal_count(offer->offer_paths[i]->path) == 0) {
+			*fail = tal_strdup(ctx, "Offer contains an empty offer_path");
+			return tal_free(offer);
+		}
+	}
+
 	return offer;
 }
 
@@ -283,6 +294,17 @@ struct tlv_invoice_request *invrequest_decode(const tal_t *ctx,
 				"Invoice request %"PRIu64" field outside invoice request range",
 				badf->numtype);
 		return tal_free(invrequest);
+	}
+
+	/* BOLT-offers #12:
+	 *   - if `num_hops` is 0 in any `blinded_path` in `invreq_paths`:
+	 *     - MUST fail the request.
+	 */
+	for (size_t i = 0; i < tal_count(invrequest->invreq_paths); i++) {
+		if (tal_count(invrequest->invreq_paths[i]->path) == 0) {
+			*fail = tal_strdup(ctx, "Invoice request contains an empty invreq_path");
+			return tal_free(invrequest);
+		}
 	}
 
 	return invrequest;
