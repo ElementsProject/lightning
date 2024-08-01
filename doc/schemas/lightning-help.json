@@ -43,7 +43,7 @@
             "clnrest": {
               "type": "object",
               "additionalProperties": false,
-              "required": [],
+              "required": ["path", "method", "content_type", "rune"],
               "added": "v24.08",
               "properties": {
                 "path": {

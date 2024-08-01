@@ -9769,14 +9769,10 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct HelpHelpClnrest {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub content_type: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub method: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub path: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub rune: Option<bool>,
+	    pub content_type: String,
+	    pub method: String,
+	    pub path: String,
+	    pub rune: bool,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
