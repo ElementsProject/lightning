@@ -146,21 +146,23 @@ static void print_invalid_offer(const struct tlv_offer *offer, const char *why)
 int main(int argc, char *argv[])
 {
 	struct tlv_offer *offer;
-	struct secret alice, bob, carol;
+	struct secret alice, bob;
+	struct blinded_path **paths;
 
 	common_setup(argv[0]);
 
 	memset(&alice, 'A', sizeof(alice));
 	memset(&bob, 'B', sizeof(bob));
-	memset(&carol, 'C', sizeof(carol));
 
 	offer = tlv_offer_new(tmpctx);
 	offer->offer_issuer_id = tal(offer, struct pubkey);
 	assert(pubkey_from_secret(&alice, offer->offer_issuer_id));
-	offer->offer_description = tal_utf8(tmpctx, "Test vectors");
 
 	printf("[\n");
 	print_valid_offer(offer, "Minimal bolt12 offer", NULL, NULL);
+	offer->offer_description = tal_utf8(tmpctx, "Test vectors");
+	print_valid_offer(offer, "with description (but no amount)",
+			  "description is 'Test vectors'", NULL);
 
 	offer->offer_chains = tal_arr(offer, struct bitcoin_blkid, 1);
 	offer->offer_chains[0] = chainparams_for_network("testnet")->genesis_blockhash;
@@ -243,10 +245,24 @@ int main(int argc, char *argv[])
 	print_valid_offer(offer, "with blinded path via Bob (0x424242...), blinding 020202...",
 			  "path is [id=02020202..., enc=0x00*16], [id=02020202..., enc=0x11*8]", NULL);
 
+	/* BOLT-offers #12:
+	 *   - if it includes `offer_paths`:
+	 *     - SHOULD ignore any invoice_request which does not use the path.
+	 *     - MAY set `offer_issuer_id` to the node's public key to request the invoice from.
+	 *   - otherwise:
+	 *      - MUST set `offer_issuer_id` to the node's public key to request the invoice from.
+	 */
+	offer->offer_issuer_id = tal_free(offer->offer_issuer_id);
+	print_valid_offer(offer, "with no issuer_id and blinded path via Bob (0x424242...), blinding 020202...",
+			  "path is [id=02020202..., enc=0x00*16], [id=02020202..., enc=0x11*8]", NULL);
+	offer->offer_issuer_id = tal(offer, struct pubkey);
+	assert(pubkey_from_secret(&alice, offer->offer_issuer_id));
+
 	tal_resize(&offer->offer_paths, 2);
 	offer->offer_paths[1] = tal(offer->offer_paths, struct blinded_path);
-	offer->offer_paths[1]->first_node_id.is_pubkey = true;
-	assert(pubkey_from_secret(&carol, &offer->offer_paths[1]->first_node_id.pubkey));
+	offer->offer_paths[1]->first_node_id.is_pubkey = false;
+	assert(short_channel_id_dir_from_str("1x2x3/1", strlen("1x2x3/1"),
+					     &offer->offer_paths[1]->first_node_id.scidd));
 	/* Random blinding secret. */
 	assert(pubkey_from_hexstr("020202020202020202020202020202020202020202020202020202020202020202", 66, &offer->offer_paths[1]->blinding));
 	offer->offer_paths[1]->path = tal_arr(offer->offer_paths[1],
@@ -260,8 +276,9 @@ int main(int argc, char *argv[])
 					     struct onionmsg_hop);
 	assert(pubkey_from_hexstr("020202020202020202020202020202020202020202020202020202020202020202", 66, &offer->offer_paths[1]->path[1]->blinded_node_id));
 	offer->offer_paths[1]->path[1]->encrypted_recipient_data = tal_hexdata(offer->offer_paths[1]->path[1], "2222222222222222", 16);
-	print_valid_offer(offer, "... and with second blinded path via Carol (0x434343...), blinding 020202...",
+	print_valid_offer(offer, "... and with second blinded path via 1x2x3 (direction 1), blinding 020202...",
 			  "path is [id=02020202..., enc=0x00*16], [id=02020202..., enc=0x22*8]", NULL);
+	paths = offer->offer_paths;
 	offer->offer_paths = NULL;
 
 	/* Unknown odd fields are fine */
@@ -271,6 +288,12 @@ int main(int argc, char *argv[])
 	extra.value = (u8 *)"helloworld";
 	print_valid_offer(offer, "unknown odd field",
 			  "type 33 is 'helloworld'", &extra);
+
+	extra.numtype = 1000000033;
+	extra.length = 10;
+	extra.value = (u8 *)"helloworld";
+	print_valid_offer(offer, "unknown odd experimental field",
+			  "type 1000000033 is 'helloworld'", &extra);
 
 	/* Now let's do the invalid ones! */
 
@@ -374,6 +397,18 @@ int main(int argc, char *argv[])
 			    "50206fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000",
 			    "Contains type >= 80");
 
+	print_malformed_tlv("lno",
+			    "0A05414C494345" /* offer_description */
+			    "1621020202020202020202020202020202020202020202020202020202020202020202" /* offer_issuer_id */
+			    "FD7735940050206fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000",
+			    "Contains type > 1999999999");
+
+	print_malformed_tlv("lno",
+			    "0A05414C494345" /* offer_description */
+			    "1621020202020202020202020202020202020202020202020202020202020202020202" /* offer_issuer_id */
+			    "FD3B9ACA0250206fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000",
+			    "Contains unknown even type (1000000002)");
+
 	offer = tlv_offer_new(tmpctx);
 	offer->offer_issuer_id = tal(offer, struct pubkey);
 	assert(pubkey_from_secret(&alice, offer->offer_issuer_id));
@@ -390,19 +425,21 @@ int main(int argc, char *argv[])
 	offer->offer_features = NULL;
 
 	/* BOLT-offers #12:
-	 *   - if `offer_description` is not set:
+	 *   - if `offer_amount` is set and `offer_description` is not set:
 	 *     - MUST NOT respond to the offer.
-	 *   - if `offer_issuer_id` is not set:
+	 *   - if neither `offer_issuer_id` nor `offer_paths` are set:
 	 *     - MUST NOT respond to the offer.
 	 */
 	offer->offer_description = NULL;
-	print_invalid_offer(offer, "Missing offer_description");
+	print_invalid_offer(offer, "Missing offer_description and offer_amount");
 	offer->offer_description = tal_utf8(tmpctx, "Test vectors");
 
 	offer->offer_issuer_id = NULL;
-	print_invalid_offer(offer, "Missing offer_issuer_id");
-	offer->offer_issuer_id = tal(offer, struct pubkey);
-	assert(pubkey_from_secret(&alice, offer->offer_issuer_id));
+	print_invalid_offer(offer, "Missing offer_issuer_id and no offer_path");
+
+	offer->offer_paths = paths;
+	offer->offer_paths[1]->path = NULL;
+	print_invalid_offer(offer, "Second offer_path is empty");
 
 	printf("]\n");
 	common_shutdown();
