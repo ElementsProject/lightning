@@ -237,6 +237,10 @@
             },
             "offer_node_id": {
               "type": "pubkey",
+              "deprecated": [
+                "v24.08",
+                "v24.11"
+              ],
               "description": [
                 "Obsolete name for offer_issuer_id."
               ]
@@ -413,6 +417,10 @@
             "recurrence": {},
             "warning_missing_offer_node_id": {
               "type": "string",
+              "deprecated": [
+                "v24.08",
+                "v24.11"
+              ],
               "description": [
                 "`offer_node_id` is not present."
               ]
@@ -640,6 +648,10 @@
             },
             "offer_node_id": {
               "type": "pubkey",
+              "deprecated": [
+                "v24.08",
+                "v24.11"
+              ],
               "description": [
                 "Public key of the offering node."
               ]
@@ -1134,6 +1146,10 @@
             },
             "offer_node_id": {
               "type": "pubkey",
+              "deprecated": [
+                "v24.08",
+                "v24.11"
+              ],
               "description": [
                 "Public key of the offering node."
               ]

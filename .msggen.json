@@ -4561,7 +4561,7 @@
         },
         "Decode.offer_node_id": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v24.08"
         },
         "Decode.offer_paths[]": {
             "added": "pre-v0.10.1",
@@ -4849,7 +4849,7 @@
         },
         "Decode.warning_missing_offer_node_id": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v24.08"
         },
         "Decode.warning_rune_invalid_utf8": {
             "added": "pre-v0.10.1",

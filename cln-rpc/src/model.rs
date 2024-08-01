@@ -6753,6 +6753,12 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DecodeResponse {
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offer_node_id: Option<PublicKey>,
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_missing_offer_node_id: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -6828,8 +6834,6 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub offer_metadata: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub offer_node_id: Option<PublicKey>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub offer_quantity_max: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payee: Option<PublicKey>,
@@ -6887,8 +6891,6 @@ pub mod responses {
 	    pub warning_missing_offer_description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_missing_offer_issuer_id: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_missing_offer_node_id: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_rune_invalid_utf8: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
