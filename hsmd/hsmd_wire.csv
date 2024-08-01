@@ -378,6 +378,21 @@ msgdata,hsmd_sign_bolt12,publictweak,u8,publictweaklen
 msgtype,hsmd_sign_bolt12_reply,125
 msgdata,hsmd_sign_bolt12_reply,sig,bip340sig,
 
+# Sign a bolt12-style merkle hash (modern)
+msgtype,hsmd_sign_bolt12_2,41
+msgdata,hsmd_sign_bolt12_2,messagename,wirestring,
+msgdata,hsmd_sign_bolt12_2,fieldname,wirestring,
+msgdata,hsmd_sign_bolt12_2,merkleroot,sha256,
+# This is for signing with an alias (temporary key), used if *publictweak* not empty.
+# derive_secret with info, then tweak privkey with SHA256(derived_secret || publictweak).
+msgdata,hsmd_sign_bolt12_2,infolen,u16,
+msgdata,hsmd_sign_bolt12_2,info,u8,infolen
+msgdata,hsmd_sign_bolt12_2,publictweaklen,u16,
+msgdata,hsmd_sign_bolt12_2,publictweak,u8,publictweaklen
+
+msgtype,hsmd_sign_bolt12_2_reply,141
+msgdata,hsmd_sign_bolt12_2_reply,sig,bip340sig,
+
 # Sign an option_will_fund offer hash
 msgtype,hsmd_sign_option_will_fund_offer,26
 msgdata,hsmd_sign_option_will_fund_offer,funding_pubkey,pubkey,
