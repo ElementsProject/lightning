@@ -37,3 +37,11 @@ u8 *bolt12_path_id(const tal_t *ctx,
 
 	return (u8 *)tal_dup(ctx, struct secret, &path_secret);
 }
+
+void bolt12_alias_tweak(const struct secret *base_secret,
+			const void *input,
+			size_t input_len,
+			struct sha256 *tweak)
+{
+	hash_from_base(base_secret, input, input_len, tweak);
+}

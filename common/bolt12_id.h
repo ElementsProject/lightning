@@ -10,6 +10,9 @@ struct sha256;
 /* String to use with makesecret to get the bolt12 base secret */
 #define BOLT12_ID_BASE_STRING "bolt12-invoice-base"
 
+/* String to use with makesecret to get node aliases */
+#define NODE_ALIAS_BASE_STRING "node-alias-base"
+
 /**
  * bolt12_path_secret: generate the "path_" field for the tlv_encrypted_data_tlv
  * @base_secret: the node-specific secret makesecret(BOLT12_ID_BASE_STRING)
@@ -31,5 +34,21 @@ void bolt12_path_secret(const struct secret *base_secret,
 u8 *bolt12_path_id(const tal_t *ctx,
 		   const struct secret *base_secret,
 		   const struct sha256 *payment_hash);
+
+/**
+ * bolt12_alias_tweak: generate a tweak to disguise our node id for this offer/invoice_request
+ * @base_secret: the node-specific secret makesecret(NODE_ALIAS_BASE_STRING)
+ * @input: the byte array to use to generate the tweak.
+ * @input_len: the length of @input.
+ * @tweak: the resulting tweak.
+ *
+ * We use this tweak to disguise our node_id when we want a temporary id for a specific
+ * purpose.  The "input" can be shared publicly, as the base_secret prevents
+ * others from linking the tweak (or the resulting pubkey) to us.
+ */
+void bolt12_alias_tweak(const struct secret *base_secret,
+			const void *input,
+			size_t input_len,
+			struct sha256 *tweak);
 
 #endif /* LIGHTNING_COMMON_BOLT12_ID_H */
