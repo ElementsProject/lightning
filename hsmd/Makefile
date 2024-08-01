@@ -26,6 +26,7 @@ HSMD_COMMON_OBJS :=				\
 	common/base32.o				\
 	common/bigsize.o			\
 	common/bip32.o				\
+	common/bolt12_id.o			\
 	common/bolt12_merkle.o			\
 	common/channel_id.o			\
 	common/daemon.o				\

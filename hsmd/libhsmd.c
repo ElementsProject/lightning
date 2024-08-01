@@ -3,6 +3,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/tal/str/str.h>
+#include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
 #include <common/hash_u5.h>
 #include <common/key_derive.h>
@@ -136,6 +137,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_MESSAGE:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
 	case WIRE_HSMD_SIGN_BOLT12:
+	case WIRE_HSMD_SIGN_BOLT12_2:
 	case WIRE_HSMD_PREAPPROVE_INVOICE:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK:
@@ -181,6 +183,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_MESSAGE_REPLY:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_BOLT12_REPLY:
+	case WIRE_HSMD_SIGN_BOLT12_2_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK_REPLY:
@@ -781,6 +784,64 @@ static u8 *handle_sign_bolt12(struct hsmd_client *c, const u8 *msg_in)
 	}
 
 	return towire_hsmd_sign_bolt12_reply(NULL, &sig);
+}
+
+/*~ lightningd asks us to sign a bolt12 (e.g. offer): modern version */
+static u8 *handle_sign_bolt12_2(struct hsmd_client *c, const u8 *msg_in)
+{
+	char *messagename, *fieldname;
+	struct sha256 merkle, sha;
+	struct bip340sig sig;
+	secp256k1_keypair kp;
+	u8 *info;
+	u8 *tweakmessage;
+
+	if (!fromwire_hsmd_sign_bolt12_2(tmpctx, msg_in,
+					 &messagename, &fieldname, &merkle,
+					 &info, &tweakmessage))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	sighash_from_merkle(messagename, fieldname, &merkle, &sha);
+
+	if (tweakmessage) {
+		struct secret base_secret;
+		struct sha256 tweak;
+		struct privkey tweakedkey;
+
+		/* See handle_derive_secret: this gives a base secret. */
+		hkdf_sha256(&base_secret, sizeof(base_secret), NULL, 0,
+			    &secretstuff.derived_secret,
+			    sizeof(secretstuff.derived_secret),
+			    info, tal_bytelen(info));
+
+		/* This is simply SHA256(secret || tweakmessage) */
+		bolt12_alias_tweak(&base_secret,
+				   tweakmessage, tal_bytelen(tweakmessage),
+				   &tweak);
+
+		node_key(&tweakedkey, NULL);
+		if (secp256k1_ec_seckey_tweak_add(secp256k1_ctx,
+						  tweakedkey.secret.data,
+						  tweak.u.u8) != 1)
+			hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
+					   "Couldn't tweak key.");
+		if (secp256k1_keypair_create(secp256k1_ctx, &kp,
+					     tweakedkey.secret.data) != 1)
+			hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
+					   "Failed to derive tweaked keypair");
+	} else {
+		node_schnorrkey(&kp);
+	}
+
+	if (!secp256k1_schnorrsig_sign32(secp256k1_ctx, sig.u8,
+				       sha.u.u8,
+				       &kp,
+				       NULL)) {
+		return hsmd_status_bad_request_fmt(c, msg_in,
+						   "Failed to sign bolt12");
+	}
+
+	return towire_hsmd_sign_bolt12_2_reply(NULL, &sig);
 }
 
 /*~ lightningd asks us to approve an invoice. This stub implementation
@@ -2075,6 +2136,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_sign_option_will_fund_offer(client, msg);
 	case WIRE_HSMD_SIGN_BOLT12:
 		return handle_sign_bolt12(client, msg);
+	case WIRE_HSMD_SIGN_BOLT12_2:
+		return handle_sign_bolt12_2(client, msg);
 	case WIRE_HSMD_PREAPPROVE_INVOICE:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK:
 		return handle_preapprove_invoice(client, msg);
@@ -2167,6 +2230,7 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_MESSAGE_REPLY:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_BOLT12_REPLY:
+	case WIRE_HSMD_SIGN_BOLT12_2_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK_REPLY:
@@ -2197,6 +2261,7 @@ u8 *hsmd_init(struct secret hsm_secret, const u64 hsmd_version,
 		WIRE_HSMD_CHECK_OUTPOINT,
 		WIRE_HSMD_FORGET_CHANNEL,
 		WIRE_HSMD_REVOKE_COMMITMENT_TX,
+		WIRE_HSMD_SIGN_BOLT12_2,
 		WIRE_HSMD_PREAPPROVE_INVOICE_CHECK,
 		WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK,
 	};
