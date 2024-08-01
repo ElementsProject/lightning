@@ -1385,25 +1385,27 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-static const char *plugin_rpcmethod_clnrest_add(struct plugin *plugin, 
-                                                const char *buffer, 
-                                                const jsmntok_t *tok, 
-                                                struct json_command *cmd) 
+static const char *plugin_rpcmethod_clnrest_add(struct plugin *plugin,
+						const char *buffer,
+						const jsmntok_t *tok,
+						struct json_command *cmd)
 {
 	const jsmntok_t *clnresttok = json_get_member(buffer, tok, "clnrest");
 
 	if (!clnresttok) {
-			cmd->clnrest = NULL;
-			return NULL;
+		cmd->clnrest = NULL;
+		return NULL;
 	}
 
 	struct clnrest *clnrest = tal(cmd, struct clnrest);
 
-	// TODO: check each field for validity
+	/* TODO: check each field for validity */
 
 	const jsmntok_t *pathtok = json_get_member(buffer, clnresttok, "path");
-	const jsmntok_t *methodtok = json_get_member(buffer, clnresttok, "method");
-	const jsmntok_t *contenttypetok = json_get_member(buffer, clnresttok, "content_type");
+	const jsmntok_t *methodtok =
+	    json_get_member(buffer, clnresttok, "method");
+	const jsmntok_t *contenttypetok =
+	    json_get_member(buffer, clnresttok, "content_type");
 	const jsmntok_t *runetok = json_get_member(buffer, clnresttok, "rune");
 	const jsmntok_t *pluginnametok = json_get_member(buffer, tok, "name");
 
@@ -1420,7 +1422,8 @@ static const char *plugin_rpcmethod_clnrest_add(struct plugin *plugin,
 	}
 
 	if (contenttypetok) {
-		clnrest->content_type = json_strdup(clnrest, buffer, contenttypetok);
+		clnrest->content_type =
+		    json_strdup(clnrest, buffer, contenttypetok);
 	} else {
 		clnrest->content_type = "application/json";
 	}
