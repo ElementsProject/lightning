@@ -348,14 +348,13 @@ static struct command_result *param_b12_invreq(struct command *cmd,
 	if (!*invreq)
 		return command_fail_badparam(cmd, name, buffer, tok, fail);
 
-	/* We use this for testing with known payer_info */
-	if ((*invreq)->invreq_metadata && !cmd->ld->developer)
+	if (!(*invreq)->invreq_metadata)
 		return command_fail_badparam(cmd, name, buffer, tok,
-					     "must not have invreq_metadata");
+					     "must have invreq_metadata");
 
-	if ((*invreq)->invreq_payer_id)
+	if (!(*invreq)->invreq_payer_id)
 		return command_fail_badparam(cmd, name, buffer, tok,
-					     "must not have invreq_payer_id");
+					     "must have invreq_payer_id");
 	return NULL;
 }
 
@@ -400,15 +399,15 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	struct json_stream *response;
 	u64 *prev_basetime = NULL;
 	struct sha256 merkle;
-	bool *save, *single_use, *exposeid;
+	bool *save, *single_use;
 	enum offer_status status;
 	struct sha256 invreq_id;
 	const char *b12str;
+	const u8 *tweak;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("bolt12", param_b12_invreq, &invreq),
 			 p_req("savetodb", param_bool, &save),
-			 p_opt_def("exposeid", param_bool, &exposeid, false),
 			 p_opt("recurrence_label", param_label, &label),
 			 p_opt_def("single_use", param_bool, &single_use, true),
 			 NULL))
@@ -418,14 +417,6 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 		status = OFFER_SINGLE_USE_UNUSED;
 	else
 		status = OFFER_MULTIPLE_USE_UNUSED;
-
-	if (!invreq->invreq_metadata)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "invoice_request has no invreq_metadata");
-
-	if (invreq->invreq_payer_id)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "invoice_request already has invreq_payer_id");
 
 	/* If it's a recurring payment, we look for previous to copy basetime */
 	if (invreq->invreq_recurrence_counter) {
@@ -442,27 +433,25 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 		}
 	}
 
-	/* BOLT-offers #12:
-	 *
-	 * `invreq_metadata` might typically contain information about
-	 * the derivation of the `invreq_payer_id`.  This should not
-	 * leak any information (such as using a simple BIP-32
-	 * derivation path); a valid system might be for a node to
-	 * maintain a base payer key and encode a 128-bit tweak here.
-	 * The payer_id would be derived by tweaking the base key with
-	 * SHA256(payer_base_pubkey || tweak).  It's also the first
-	 * entry (if present), ensuring an unpredictable nonce for
-	 * hashing.
-	 */
-	invreq->invreq_payer_id = tal(invreq, struct pubkey);
-	if (*exposeid) {
-		*invreq->invreq_payer_id = cmd->ld->our_pubkey;
-	} else if (!payer_key(cmd->ld,
-			      invreq->invreq_metadata,
-			      tal_bytelen(invreq->invreq_metadata),
-			      invreq->invreq_payer_id)) {
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Invalid tweak");
+	/* If the payer_id is not our node id, we sanity check that it
+	 * correctly maps from invreq_metadata */
+	if (!pubkey_eq(invreq->invreq_payer_id, &cmd->ld->our_pubkey)) {
+		struct pubkey expected;
+		if (!payer_key(cmd->ld,
+			       invreq->invreq_metadata,
+			       tal_bytelen(invreq->invreq_metadata),
+			       &expected)) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Invalid tweak");
+		}
+		if (!pubkey_eq(invreq->invreq_payer_id, &expected)) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "payer_id did not match invreq_metadata derivation %s",
+					    fmt_pubkey(tmpctx, &expected));
+		}
+		tweak = invreq->invreq_metadata;
+	} else {
+		tweak = NULL;
 	}
 
 	if (command_check_only(cmd))
@@ -477,7 +466,7 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	merkle_tlv(invreq->fields, &merkle);
 	invreq->signature = tal(invreq, struct bip340sig);
 	hsm_sign_b12(cmd->ld, "invoice_request", "signature",
-		     &merkle, *exposeid ? NULL : invreq->invreq_metadata,
+		     &merkle, tweak,
 		     invreq->invreq_payer_id, invreq->signature);
 
 	b12str = invrequest_encode(cmd, invreq);

@@ -5254,9 +5254,21 @@ def test_payerkey(node_factory):
                      "030b68257230f7057e694222bbd54d9d108decced6b647a90da6f578360af53f7d",
                      "02f402bd7374a1304b07c7236d9c683b83f81072517195ddede8ab328026d53157"]
 
+    bolt12tool = os.path.join(os.path.dirname(__file__), "..", "devtools", "bolt12-cli")
+
+    # Returns "lnr <hexstring>" on first line
+    hexprefix = subprocess.check_output([bolt12tool, 'decodehex',
+                                         'lnr1qqgz2d7u2smys9dc5q2447e8thjlgq3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy8ssqvepgz5zsjrg3z3vggzvkm2khkgvrxj27r96c00pwl4kveecdktm29jdd6w0uwu5jgtv5v9qgqxyfhyvyg6pdvu4tcjvpp7kkal9rp57wj7xv4pl3ajku70rzy3pu']).decode('UTF-8').split('\n')[0].split()
+
+    # Now we are supposed to put invreq_payer_id inside invreq, and lightningd
+    # checks the derivation as a courtesy.  Fortunately, invreq_payer_id is last
     for n, k in zip(nodes, expected_keys):
-        b12 = n.rpc.createinvoicerequest('lnr1qqgz2d7u2smys9dc5q2447e8thjlgq3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy8ssqvepgz5zsjrg3z3vggzvkm2khkgvrxj27r96c00pwl4kveecdktm29jdd6w0uwu5jgtv5v9qgqxyfhyvyg6pdvu4tcjvpp7kkal9rp57wj7xv4pl3ajku70rzy3pu', False)['bolt12']
-        assert n.rpc.decode(b12)['invreq_payer_id'] == k
+        # BOLT-offers #12:
+        #     1. type: 88 (`invreq_payer_id`)
+        #     2. data:
+        #        * [`point`:`key`]
+        encoded = subprocess.check_output([bolt12tool, 'encodehex'] + hexprefix + ['5821', k]).decode('UTF-8').strip()
+        n.rpc.createinvoicerequest(encoded, False)['bolt12']
 
 
 def test_pay_multichannel_use_zeroconf(bitcoind, node_factory):
