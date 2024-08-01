@@ -526,6 +526,9 @@ static u64 get_offer_type(const char *name)
 		 *     1. type: 89 (`invreq_payer_note`)
 		 *     2. data:
 		 *         * [`...*utf8`:`note`]
+		 *     1. type: 90 (`invreq_paths`)
+		 *     2. data:
+		 *         * [`...*blinded_path`:`paths`]
 		 *     1. type: 240 (`signature`)
 		 *     2. data:
 		 *         * [`bip340sig`:`sig`]
@@ -537,6 +540,7 @@ static u64 get_offer_type(const char *name)
 		 { "invreq_quantity", 86 },
 		 { "invreq_payer_id", 88 },
 		 { "invreq_payer_note", 89 },
+		 { "invreq_paths", 90 },
 		 { "signature", 240 },
 		/* BOLT-offers #12:
 		 * 1. `tlv_stream`: `invoice`

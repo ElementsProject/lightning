@@ -72,6 +72,8 @@ tlvtype,invoice_request,invreq_payer_id,88
 tlvdata,invoice_request,invreq_payer_id,key,point,
 tlvtype,invoice_request,invreq_payer_note,89
 tlvdata,invoice_request,invreq_payer_note,note,utf8,...
+tlvtype,invoice_request,invreq_paths,90
+tlvdata,invoice_request,invreq_paths,paths,blinded_path,...
 tlvtype,invoice_request,invreq_recurrence_counter,2212121212
 tlvdata,invoice_request,invreq_recurrence_counter,counter,tu32,
 tlvtype,invoice_request,invreq_recurrence_start,2212121214
@@ -122,6 +124,8 @@ tlvtype,invoice,invreq_payer_id,88
 tlvdata,invoice,invreq_payer_id,key,point,
 tlvtype,invoice,invreq_payer_note,89
 tlvdata,invoice,invreq_payer_note,note,utf8,...
+tlvtype,invoice,invreq_paths,90
+tlvdata,invoice,invreq_paths,paths,blinded_path,...
 tlvtype,invoice,invreq_recurrence_counter,2212121212
 tlvdata,invoice,invreq_recurrence_counter,counter,tu32,
 tlvtype,invoice,invreq_recurrence_start,2212121214
