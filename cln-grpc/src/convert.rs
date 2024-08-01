@@ -3584,10 +3584,10 @@ impl From<responses::StopResponse> for pb::StopResponse {
 impl From<responses::HelpHelpClnrest> for pb::HelpHelpClnrest {
     fn from(c: responses::HelpHelpClnrest) -> Self {
         Self {
-            content_type: c.content_type, // Rule #2 for type string?
-            method: c.method, // Rule #2 for type string?
-            path: c.path, // Rule #2 for type string?
-            rune: c.rune, // Rule #2 for type boolean?
+            content_type: c.content_type, // Rule #2 for type string
+            method: c.method, // Rule #2 for type string
+            path: c.path, // Rule #2 for type string
+            rune: c.rune, // Rule #2 for type boolean
         }
     }
 }

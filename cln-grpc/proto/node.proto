@@ -3328,10 +3328,10 @@ message HelpHelp {
 }
 
 message HelpHelpClnrest {
-	optional string path = 1;
-	optional string method = 2;
-	optional string content_type = 3;
-	optional bool rune = 4;
+	string path = 1;
+	string method = 2;
+	string content_type = 3;
+	bool rune = 4;
 }
 
 message PreapprovekeysendRequest {
