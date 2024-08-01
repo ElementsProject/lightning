@@ -529,7 +529,7 @@ struct command_result *json_offer(struct command *cmd,
 
 	/* BOLT-offers #12:
 	 *
-	 * - if offer_amount is set and offer_description is not set:
+	 * - if `offer_amount` is set and `offer_description` is not set:
 	 *    - MUST NOT respond to the offer.
 	 */
 	if (!offer->offer_description && offer->offer_amount)
