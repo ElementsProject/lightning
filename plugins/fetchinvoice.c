@@ -766,6 +766,20 @@ static struct command_result *param_dev_reply_path(struct command *cmd, const ch
 	return NULL;
 }
 
+static bool payer_key(const u8 *public_tweak, size_t public_tweak_len,
+		      struct pubkey *key)
+{
+	struct sha256 tweakhash;
+
+	bolt12_alias_tweak(&nodealias_base, public_tweak, public_tweak_len,
+			   &tweakhash);
+
+	*key = id;
+	return secp256k1_ec_pubkey_tweak_add(secp256k1_ctx,
+					     &key->pubkey,
+					     tweakhash.u.u8) == 1;
+}
+
 /* Fetches an invoice for this offer, and makes sure it corresponds. */
 struct command_result *json_fetchinvoice(struct command *cmd,
 					 const char *buffer,
@@ -963,6 +977,16 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 		invreq->invreq_metadata = tal_arr(invreq, u8, 16);
 		randombytes_buf(invreq->invreq_metadata,
 				tal_bytelen(invreq->invreq_metadata));
+	}
+
+	/* We derive transient payer_id from invreq_metadata */
+	invreq->invreq_payer_id = tal(invreq, struct pubkey);
+	if (!payer_key(invreq->invreq_metadata,
+		       tal_bytelen(invreq->invreq_metadata),
+		       invreq->invreq_payer_id)) {
+		/* Doesn't happen! */
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Invalid tweak for payer_id");
 	}
 
 	/* BOLT-offers #12:

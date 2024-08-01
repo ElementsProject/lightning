@@ -674,7 +674,8 @@ struct command_result *json_invoicerequest(struct command *cmd,
 	 *...
 	 *   - MUST set `invreq_payer_id` as it would set `offer_issuer_id` for an offer.
 	 */
-	/* createinvoicerequest sets this! */
+	/* FIXME: Allow invoicerequests using aliases! */
+	invreq->invreq_payer_id = tal_dup(invreq, struct pubkey, &id);
 
 	/* BOLT-offers #12:
 	 * - if it supports bolt12 invoice request features:
@@ -685,8 +686,6 @@ struct command_result *json_invoicerequest(struct command *cmd,
 				    invreq);
 	json_add_string(req->js, "bolt12", invrequest_encode(tmpctx, invreq));
 	json_add_bool(req->js, "savetodb", true);
-	/* FIXME: Allow invoicerequests using aliases! */
-	json_add_bool(req->js, "exposeid", true);
 	json_add_bool(req->js, "single_use", *single_use);
 	if (label)
 		json_add_string(req->js, "recurrence_label", label);
