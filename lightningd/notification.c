@@ -678,8 +678,8 @@ void notify_log(struct lightningd *ld, const struct log_entry *l)
 	notify_send(ld, n);
 }
 
-static void plugin_started_notification_serialize(struct json_stream *stream,
-						  struct plugin *plugin)
+static void plugin_notification_serialize(struct json_stream *stream,
+					  struct plugin *plugin)
 {
 	json_add_string(stream, "plugin_name", plugin->shortname);
 	json_add_string(stream, "plugin_path", plugin->cmd);
@@ -695,20 +695,8 @@ REGISTER_NOTIFICATION(plugin_started);
 void notify_plugin_started(struct lightningd *ld, struct plugin *plugin)
 {
 	struct jsonrpc_notification *n = notify_start("plugin_started");
-	plugin_started_notification_serialize(n->stream, plugin);
+	plugin_notification_serialize(n->stream, plugin);
 	notify_send(ld, n);
-}
-
-static void plugin_stopped_notification_serialize(struct json_stream *stream,
-						  struct plugin *plugin)
-{
-	json_add_string(stream, "plugin_name", plugin->shortname);
-	json_add_string(stream, "plugin_path", plugin->cmd);
-	json_array_start(stream, "methods");
-	for (size_t i = 0; i < tal_count(plugin->methods); i++) {
-		json_add_string(stream, NULL, plugin->methods[i]);
-	}
-	json_array_end(stream);
 }
 
 REGISTER_NOTIFICATION(plugin_stopped);
@@ -716,6 +704,6 @@ REGISTER_NOTIFICATION(plugin_stopped);
 void notify_plugin_stopped(struct lightningd *ld, struct plugin *plugin)
 {
 	struct jsonrpc_notification *n = notify_start("plugin_stopped");
-	plugin_stopped_notification_serialize(n->stream, plugin);
+	plugin_notification_serialize(n->stream, plugin);
 	notify_send(ld, n);
 }
