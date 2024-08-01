@@ -551,8 +551,11 @@ struct command_result *json_offer(struct command *cmd,
 	}
 
 	/* BOLT-offers #12:
-	 * - MUST set `offer_issuer_id` to the node's public key to request the
-	 *   invoice from.
+	 * - if it includes `offer_paths`:
+	 *...
+	 * - otherwise:
+	 *   - MUST set `offer_issuer_id` to the node's public key to request the
+	 *     invoice from.
 	 */
 	offer->offer_issuer_id = tal_dup(offer, struct pubkey, &id);
 

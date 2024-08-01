@@ -789,8 +789,16 @@ int main(int argc, char *argv[])
 			well_formed &= print_offer_amount(offer->offer_chains,
 							  offer->offer_currency,
 							  *offer->offer_amount);
-		if (must_have(offer, offer_description))
+		if (offer->offer_description)
 			well_formed &= print_utf8("offer_description", offer->offer_description);
+		/* BOLT-offers #12:
+		 *   - if `offer_amount` is set and `offer_description` is not set:
+		 *     - MUST NOT respond to the offer.
+		 */
+		if (offer->offer_amount && !offer->offer_description) {
+			fprintf(stderr, "Missing offer_description (with offer_amount)\n");
+			well_formed = false;
+		}
 		if (offer->offer_features)
 			print_features("offer_features", offer->offer_features);
 		if (offer->offer_absolute_expiry)
@@ -801,9 +809,17 @@ int main(int argc, char *argv[])
 			well_formed &= print_utf8("offer_issuer", offer->offer_issuer);
 		if (offer->offer_quantity_max)
 			print_u64("offer_quantity_max", *offer->offer_quantity_max);
-		/* FIXME: can have path instead! */
-		if (must_have(offer, offer_issuer_id))
+		if (offer->offer_issuer_id)
 			print_node_id("offer_issuer_id", offer->offer_issuer_id);
+		/* BOLT-offers #12:
+		 *
+		 *   - if neither `offer_issuer_id` nor `offer_paths` are set:
+		 *     - MUST NOT respond to the offer.
+		 */
+		if (!offer->offer_issuer_id && !offer->offer_paths) {
+			fprintf(stderr, "Missing offer_issuer_id and offer_paths\n");
+			well_formed = false;
+		}
 		if (offer->offer_recurrence)
 			well_formed &= print_recurrance(offer->offer_recurrence,
 							offer->offer_recurrence_paywindow,
