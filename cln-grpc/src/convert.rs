@@ -1506,7 +1506,7 @@ impl From<responses::DecodeRestrictions> for pb::DecodeRestrictions {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<responses::DecodeResponse> for pb::DecodeResponse {
     fn from(c: responses::DecodeResponse) -> Self {
         Self {
@@ -1555,6 +1555,7 @@ impl From<responses::DecodeResponse> for pb::DecodeResponse {
             offer_issuer: c.offer_issuer, // Rule #2 for type string?
             offer_issuer_id: c.offer_issuer_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             offer_metadata: c.offer_metadata.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            #[allow(deprecated)]
             offer_node_id: c.offer_node_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             // Field: Decode.offer_paths[]
             offer_paths: c.offer_paths.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
@@ -1591,6 +1592,7 @@ impl From<responses::DecodeResponse> for pb::DecodeResponse {
             warning_missing_invreq_payer_id: c.warning_missing_invreq_payer_id, // Rule #2 for type string?
             warning_missing_offer_description: c.warning_missing_offer_description, // Rule #2 for type string?
             warning_missing_offer_issuer_id: c.warning_missing_offer_issuer_id, // Rule #2 for type string?
+            #[allow(deprecated)]
             warning_missing_offer_node_id: c.warning_missing_offer_node_id, // Rule #2 for type string?
             warning_rune_invalid_utf8: c.warning_rune_invalid_utf8, // Rule #2 for type string?
             warning_unknown_offer_currency: c.warning_unknown_offer_currency, // Rule #2 for type string?
