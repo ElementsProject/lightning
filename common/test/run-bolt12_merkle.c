@@ -317,7 +317,7 @@ int main(int argc, char *argv[])
 	memset(&bob_secret, 'B', sizeof(bob_secret));
 	pubkey_from_secret(&bob_secret, &bob);
 
-	invreq->offer_node_id = tal_dup(invreq, struct pubkey, &alice);
+	invreq->offer_issuer_id = tal_dup(invreq, struct pubkey, &alice);
 	invreq->offer_description = tal_dup_arr(invreq, char, "A Mathematical Treatise", strlen("A Mathematical Treatise"), 0);
 	invreq->offer_amount = tal(invreq, u64);
 	*invreq->offer_amount = 100;
@@ -343,7 +343,7 @@ int main(int argc, char *argv[])
 	char *invreqtext = invrequest_encode(tmpctx, invreq);
 	invreq = invrequest_decode(tmpctx, invreqtext, strlen(invreqtext), NULL, NULL, &fail);
 
-	json_out("{\"comment\": \"invoice_request test: offer_node_id = Alice (privkey 0x414141...), offer_description = 'A Mathematical Treatise', offer_amount = 100, offer_currency = 'USD', invreq_payer_id = Bob (privkey 0x424242...), invreq_metadata = 0x0000000000000000\",");
+	json_out("{\"comment\": \"invoice_request test: offer_issuer_id = Alice (privkey 0x414141...), offer_description = 'A Mathematical Treatise', offer_amount = 100, offer_currency = 'USD', invreq_payer_id = Bob (privkey 0x424242...), invreq_metadata = 0x0000000000000000\",");
 	json_out("\"bolt12\": \"%s\",", invreqtext);
 	json_out("\"tlv\": \"invoice_request\",");
 
@@ -358,7 +358,7 @@ int main(int argc, char *argv[])
 	fieldwires[2] = tlv(8, "\x64", 1);
 	/* offer_description: A Mathematical Treatise */
 	fieldwires[3] = tlv(10, "A Mathematical Treatise", strlen("A Mathematical Treatise"));
-	/* offer_node_id: Alice */
+	/* offer_issuer_id: Alice */
 	pubkey_to_der(node_id, &alice);
 	fieldwires[4] = tlv(22, node_id, PUBKEY_CMPR_LEN);
 	/* invreq_payer_id: Bob */

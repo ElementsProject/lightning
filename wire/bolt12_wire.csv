@@ -18,8 +18,8 @@ tlvtype,offer,offer_issuer,18
 tlvdata,offer,offer_issuer,issuer,utf8,...
 tlvtype,offer,offer_quantity_max,20
 tlvdata,offer,offer_quantity_max,max,tu64,
-tlvtype,offer,offer_node_id,22
-tlvdata,offer,offer_node_id,node_id,point,
+tlvtype,offer,offer_issuer_id,22
+tlvdata,offer,offer_issuer_id,id,point,
 tlvtype,offer,offer_recurrence,1212121212
 tlvdata,offer,offer_recurrence,recurrence,recurrence,
 tlvtype,offer,offer_recurrence_paywindow,1212121214
@@ -50,8 +50,8 @@ tlvtype,invoice_request,offer_issuer,18
 tlvdata,invoice_request,offer_issuer,issuer,utf8,...
 tlvtype,invoice_request,offer_quantity_max,20
 tlvdata,invoice_request,offer_quantity_max,max,tu64,
-tlvtype,invoice_request,offer_node_id,22
-tlvdata,invoice_request,offer_node_id,node_id,point,
+tlvtype,invoice_request,offer_issuer_id,22
+tlvdata,invoice_request,offer_issuer_id,id,point,
 tlvtype,invoice_request,offer_recurrence,1212121212
 tlvdata,invoice_request,offer_recurrence,recurrence,recurrence,
 tlvtype,invoice_request,offer_recurrence_paywindow,1212121214
@@ -100,8 +100,8 @@ tlvtype,invoice,offer_issuer,18
 tlvdata,invoice,offer_issuer,issuer,utf8,...
 tlvtype,invoice,offer_quantity_max,20
 tlvdata,invoice,offer_quantity_max,max,tu64,
-tlvtype,invoice,offer_node_id,22
-tlvdata,invoice,offer_node_id,node_id,point,
+tlvtype,invoice,offer_issuer_id,22
+tlvdata,invoice,offer_issuer_id,id,point,
 tlvtype,invoice,offer_recurrence,1212121212
 tlvdata,invoice,offer_recurrence,recurrence,recurrence,
 tlvtype,invoice,offer_recurrence_paywindow,1212121214

@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
 	/* BOLT-offers #12:
 	 * A writer of an offer:
 	 *   - MUST NOT set any tlv fields greater or equal to 80, or tlv field 0.
-	 *   - MUST set `offer_node_id` to the node's public key to request the invoice from.
+	 *   - MUST set `offer_issuer_id` to the node's public key to request the invoice from.
 	 *   - MUST set `offer_description` to a complete description of the purpose
 	 *     of the payment.
 	 *   - if the chain for the invoice is not solely bitcoin:
@@ -166,8 +166,8 @@ int main(int argc, char *argv[])
 	 *     - MUST NOT set `offer_quantity_max`.
 	 */
 	memset(&alice, 'A', sizeof(alice));
-	offer->offer_node_id = tal(offer, struct pubkey);
-	assert(pubkey_from_secret(&alice, offer->offer_node_id));
+	offer->offer_issuer_id = tal(offer, struct pubkey);
+	assert(pubkey_from_secret(&alice, offer->offer_issuer_id));
 	offer->offer_description = tal_utf8(offer, "An example description");
 	offer->offer_issuer = tal_utf8(offer, "BOLT 12 industries");
 	offer->offer_amount = tal(offer, u64);

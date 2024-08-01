@@ -1280,6 +1280,7 @@ def decode2py(m):
         "offer_features": hexlify(m.offer_features),  # PrimitiveField in generate_composite
         "offer_id": hexlify(m.offer_id),  # PrimitiveField in generate_composite
         "offer_issuer": m.offer_issuer,  # PrimitiveField in generate_composite
+        "offer_issuer_id": hexlify(m.offer_issuer_id),  # PrimitiveField in generate_composite
         "offer_metadata": hexlify(m.offer_metadata),  # PrimitiveField in generate_composite
         "offer_node_id": hexlify(m.offer_node_id),  # PrimitiveField in generate_composite
         "offer_quantity_max": m.offer_quantity_max,  # PrimitiveField in generate_composite
@@ -1311,6 +1312,7 @@ def decode2py(m):
         "warning_missing_invreq_metadata": m.warning_missing_invreq_metadata,  # PrimitiveField in generate_composite
         "warning_missing_invreq_payer_id": m.warning_missing_invreq_payer_id,  # PrimitiveField in generate_composite
         "warning_missing_offer_description": m.warning_missing_offer_description,  # PrimitiveField in generate_composite
+        "warning_missing_offer_issuer_id": m.warning_missing_offer_issuer_id,  # PrimitiveField in generate_composite
         "warning_missing_offer_node_id": m.warning_missing_offer_node_id,  # PrimitiveField in generate_composite
         "warning_rune_invalid_utf8": m.warning_rune_invalid_utf8,  # PrimitiveField in generate_composite
         "warning_unknown_offer_currency": m.warning_unknown_offer_currency,  # PrimitiveField in generate_composite

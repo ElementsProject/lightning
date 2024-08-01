@@ -1767,7 +1767,7 @@ static struct command_result *json_createinvoice(struct command *cmd,
 		hsm_sign_b12_invoice(cmd->ld, inv);
 		b12enc = invoice_encode(cmd, inv);
 
-		if (inv->offer_node_id) {
+		if (inv->offer_issuer_id) {
 			invoice_offer_id(inv, &offer_id);
 			if (wallet_offer_find(tmpctx, cmd->ld->wallet,
 					      &offer_id, NULL, &status)) {

@@ -963,6 +963,7 @@
             "Decode.offer_features": 13,
             "Decode.offer_id": 3,
             "Decode.offer_issuer": 12,
+            "Decode.offer_issuer_id": 83,
             "Decode.offer_metadata": 5,
             "Decode.offer_node_id": 17,
             "Decode.offer_paths[]": 16,
@@ -1002,6 +1003,7 @@
             "Decode.warning_missing_invreq_metadata": 35,
             "Decode.warning_missing_invreq_payer_id": 36,
             "Decode.warning_missing_offer_description": 22,
+            "Decode.warning_missing_offer_issuer_id": 84,
             "Decode.warning_missing_offer_node_id": 20,
             "Decode.warning_rune_invalid_utf8": 74,
             "Decode.warning_unknown_offer_currency": 7
@@ -4549,6 +4551,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "Decode.offer_issuer_id": {
+            "added": "v24.08",
+            "deprecated": null
+        },
         "Decode.offer_metadata": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -4835,6 +4841,10 @@
         },
         "Decode.warning_missing_offer_description": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Decode.warning_missing_offer_issuer_id": {
+            "added": "v24.08",
             "deprecated": null
         },
         "Decode.warning_missing_offer_node_id": {

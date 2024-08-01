@@ -930,11 +930,11 @@ static struct command_result *listoffers_done(struct command *cmd,
 	assert(ir->inv->invreq_payer_id);
 
 	/* BOLT-offers #12:
-	 *   - if `offer_node_id` is present:
-	 *     - MUST set `invoice_node_id` to `offer_node_id`.
+	 *   - if `offer_issuer_id` is present:
+	 *     - MUST set `invoice_node_id` to `offer_issuer_id`.
 	 */
-	/* We always provide an offer_node_id! */
-	ir->inv->invoice_node_id = ir->inv->offer_node_id;
+	/* We always provide an offer_issuer_id! */
+	ir->inv->invoice_node_id = ir->inv->offer_issuer_id;
 
 	/* BOLT-offers #12:
 	 * - MUST set `invoice_created_at` to the number of seconds since
@@ -1048,16 +1048,16 @@ struct command_result *handle_invoice_request(struct command *cmd,
 
 	/* BOLT-offers #12:
 	 *
-	 * - otherwise (no `offer_node_id`, not a response to our offer):
+	 * - otherwise (no `offer_issuer_id`, not a response to our offer):
 	 */
 	/* FIXME-OFFERS: handle this! */
-	if (!ir->invreq->offer_node_id) {
+	if (!ir->invreq->offer_issuer_id) {
 		return fail_invreq(cmd, ir, "Not based on an offer");
 	}
 
 	/* BOLT-offers #12:
 	 *
-	 * - if `offer_node_id` is present (response to an offer):
+	 * - if `offer_issuer_id` is present (response to an offer):
 	 *   - MUST fail the request if the offer fields do not exactly match a
 	 *     valid, unexpired offer.
 	 */
