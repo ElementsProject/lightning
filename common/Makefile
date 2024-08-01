@@ -16,6 +16,7 @@ COMMON_SRC_NOGEN :=				\
 	common/bolt11.c				\
 	common/bolt11_json.c			\
 	common/bolt12.c				\
+	common/bolt12_id.c			\
 	common/bolt12_merkle.c			\
 	common/channel_config.c			\
 	common/channel_id.c			\
@@ -52,7 +53,6 @@ COMMON_SRC_NOGEN :=				\
 	common/interactivetx.c			\
 	common/initial_channel.c		\
 	common/initial_commit_tx.c		\
-	common/invoice_path_id.c		\
 	common/iso4217.c			\
 	common/json_blinded_path.c		\
 	common/json_channel_type.c		\

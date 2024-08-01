@@ -9,9 +9,9 @@
 #include <common/bech32_util.h>
 #include <common/bolt11.h>
 #include <common/bolt11_json.h>
+#include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
 #include <common/gossmap.h>
-#include <common/invoice_path_id.h>
 #include <common/iso4217.h>
 #include <common/json_blinded_path.h>
 #include <common/json_param.h>
@@ -1380,7 +1380,7 @@ static const char *init(struct plugin *p,
 		 JSON_SCAN(json_to_bool, &offers_enabled));
 
 	rpc_scan(p, "makesecret",
-		 take(json_out_obj(NULL, "string", INVOICE_PATH_BASE_STRING)),
+		 take(json_out_obj(NULL, "string", BOLT12_ID_BASE_STRING)),
 		 "{secret:%}",
 		 JSON_SCAN(json_to_secret, &invoicesecret_base));
 

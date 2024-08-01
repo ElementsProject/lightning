@@ -8,9 +8,9 @@
 #include <ccan/tal/str/str.h>
 #include <common/blindedpath.h>
 #include <common/bolt11_json.h>
+#include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
 #include <common/configdir.h>
-#include <common/invoice_path_id.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/overflows.h>
@@ -154,20 +154,6 @@ static void invoice_secret(const struct preimage *payment_preimage,
 	sha256(&secret, modified.r,
 	       ARRAY_SIZE(modified.r) * sizeof(*modified.r));
 	CROSS_TYPE_ASSIGNMENT(&payment_secret->data, &secret.u.u8);
-}
-
-/* FIXME: The spec should require a *real* secret: a signature of the
- * payment_hash using the payer_id key.  This just means they've
- * *seen* the invoice! */
-static void invoice_secret_bolt12(struct lightningd *ld,
-				  const struct sha256 *payment_hash,
-				  struct secret *payment_secret)
-{
-	const void *path_id = invoice_path_id(tmpctx,
-					      &ld->invoicesecret_base,
-					      payment_hash);
-	assert(tal_bytelen(path_id) == sizeof(*payment_secret));
-	memcpy(payment_secret, path_id, sizeof(*payment_secret));
 }
 
 struct invoice_payment_hook_payload {
@@ -400,9 +386,14 @@ invoice_check_payment(const tal_t *ctx,
 	if (payment_secret) {
 		struct secret expected;
 
-		if (bolt12_payment)
-			invoice_secret_bolt12(ld, payment_hash, &expected);
-		else
+		/* FIXME: BOLT 12 should require a *real* secret: a signature of the
+		 * request using the payer_id key.  This just means they've
+		 * *seen* the invoice! */
+		if (bolt12_payment) {
+			bolt12_path_secret(&ld->invoicesecret_base,
+					   payment_hash,
+					   &expected);
+		} else
 			invoice_secret(&details->r, &expected);
 		if (!secret_eq_consttime(payment_secret, &expected)) {
 			*err = tal_fmt(ctx, "Attempt to pay %s with wrong %ssecret",
@@ -1636,9 +1627,9 @@ static void add_stub_blindedpath(const tal_t *ctx,
 	/* A message in a bottle to ourselves: match it with
 	 * the invoice: we assume the payment_hash is unique! */
 	tlv = tlv_encrypted_data_tlv_new(tmpctx);
-	tlv->path_id = invoice_path_id(inv,
-				       &ld->invoicesecret_base,
-				       inv->invoice_payment_hash);
+	tlv->path_id = bolt12_path_id(inv,
+				      &ld->invoicesecret_base,
+				      inv->invoice_payment_hash);
 
 	path->path[0]->encrypted_recipient_data
 		= encrypt_tlv_encrypted_data(path->path[0],

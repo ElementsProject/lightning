@@ -3,8 +3,8 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt12.h>
+#include <common/bolt12_id.h>
 #include <common/gossmap.h>
-#include <common/invoice_path_id.h>
 #include <common/iso4217.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
@@ -292,7 +292,6 @@ static struct command_result *found_best_peer(struct command *cmd,
 			   "No incoming channel to public peer, so no blinded path");
 	} else {
 		struct pubkey *ids;
-		const u8 *path_secret;
 		struct secret blinding_path_secret;
 		struct sha256 offer_id;
 
@@ -306,9 +305,8 @@ static struct command_result *found_best_peer(struct command *cmd,
 
 		/* So we recognize this */
 		/* We can check this when they try to take up offer. */
-		path_secret = invoice_path_id(tmpctx, &offerblinding_base, &offer_id);
-		assert(tal_count(path_secret) == sizeof(blinding_path_secret));
-		memcpy(&blinding_path_secret, path_secret, sizeof(blinding_path_secret));
+		bolt12_path_secret(&offerblinding_base, &offer_id,
+				   &blinding_path_secret);
 
 		offinfo->offer->offer_paths = tal_arr(offinfo->offer, struct blinded_path *, 1);
 		offinfo->offer->offer_paths[0]
@@ -561,16 +559,14 @@ struct command_result *json_offer(struct command *cmd,
 
 	/* Now rest of offer will not change: we use pathless offer to create secret. */
 	if (paths) {
-		const u8 *path_secret;
 		struct secret blinding_path_secret;
 		struct sha256 offer_id;
 		/* Note: "id" of offer minus paths */
 		offer_offer_id(offer, &offer_id);
 
 		/* We can check this when they try to take up offer. */
-		path_secret = invoice_path_id(tmpctx, &offerblinding_base, &offer_id);
-		assert(tal_count(path_secret) == sizeof(blinding_path_secret));
-		memcpy(&blinding_path_secret, path_secret, sizeof(blinding_path_secret));
+		bolt12_path_secret(&offerblinding_base, &offer_id,
+				   &blinding_path_secret);
 
 		offer->offer_paths = tal_arr(offer, struct blinded_path *, tal_count(paths));
 		for (size_t i = 0; i < tal_count(paths); i++) {

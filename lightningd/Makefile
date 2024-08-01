@@ -89,6 +89,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/bolt11.o				\
 	common/bolt11_json.o			\
 	common/bolt12.o				\
+	common/bolt12_id.o			\
 	common/bolt12_merkle.o			\
 	common/codex32.o			\
 	common/channel_config.o			\
@@ -115,7 +116,6 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/htlc_trim.o			\
 	common/htlc_tx.o			\
 	common/htlc_wire.o			\
-	common/invoice_path_id.o		\
 	common/key_derive.o			\
 	common/keyset.o				\
 	common/json_channel_type.o		\
