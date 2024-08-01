@@ -7,6 +7,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/blindedpath.h>
+#include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
@@ -877,6 +878,9 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	 * - if the offer contained `recurrence`:
 	 */
 	if (invreq->offer_recurrence) {
+		struct sha256 offer_id, tweak;
+		u8 *tweak_input;
+
 		/* BOLT-offers-recurrence #12:
 		 *    - for the initial request:
 		 *...
@@ -916,6 +920,29 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 		if (!rec_label)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "needs recurrence_label");
+
+		/* BOLT-offers #12:
+		 * - MUST set `invreq_metadata` to an unpredictable series of
+		 *   bytes.
+		 */
+		/* Derive metadata (and thus temp key) from offer data and label
+		 * as payer_id must be same for all recurring payments. */
+
+		/* Use "offer_id || label" as tweak input */
+		invreq_offer_id(invreq, &offer_id);
+		tweak_input = tal_arr(tmpctx, u8,
+				      sizeof(offer_id) + strlen(rec_label));
+		memcpy(tweak_input, &offer_id, sizeof(offer_id));
+		memcpy(tweak_input + sizeof(offer_id),
+		       rec_label,
+		       strlen(rec_label));
+
+		bolt12_alias_tweak(&nodealias_base,
+				   tweak_input,
+				   tal_bytelen(tweak_input),
+				   &tweak);
+		invreq->invreq_metadata
+			= (u8 *)tal_dup(invreq, struct sha256, &tweak);
 	} else {
 		/* BOLT-offers-recurrence #12:
 		 * - otherwise:
@@ -928,6 +955,14 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 		if (invreq->invreq_recurrence_start)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "unnecessary recurrence_start");
+
+		/* BOLT-offers #12:
+		 * - MUST set `invreq_metadata` to an unpredictable series of
+		 *   bytes.
+		 */
+		invreq->invreq_metadata = tal_arr(invreq, u8, 16);
+		randombytes_buf(invreq->invreq_metadata,
+				tal_bytelen(invreq->invreq_metadata));
 	}
 
 	/* BOLT-offers #12:

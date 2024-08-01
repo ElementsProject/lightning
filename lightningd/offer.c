@@ -15,7 +15,6 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <secp256k1_schnorrsig.h>
-#include <sodium/randombytes.h>
 
 static void json_populate_offer(struct json_stream *response,
 				const struct sha256 *offer_id,
@@ -415,32 +414,19 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	else
 		status = OFFER_MULTIPLE_USE_UNUSED;
 
+	if (!invreq->invreq_metadata)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "invoice_request has no invreq_metadata");
+
+	if (invreq->invreq_payer_id)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "invoice_request already has invreq_payer_id");
+
 	/* If it's a recurring payment, we look for previous to copy basetime */
 	if (invreq->invreq_recurrence_counter) {
 		if (!label)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Need payment label for recurring payments");
-
-		/* Derive metadata (and thus temp key, if any) from offer data and label */
-		if (!invreq->invreq_metadata) {
-			struct sha256 offer_id, tweak;
-			u8 *tweak_input;
-
-			/* Use "offer_id || label" as tweak input */
-			invreq_offer_id(invreq, &offer_id);
-			tweak_input = tal_arr(tmpctx, u8,
-					      sizeof(offer_id) + tal_bytelen(invreq->invreq_metadata));
-			memcpy(tweak_input, &offer_id, sizeof(offer_id));
-			memcpy(tweak_input + sizeof(offer_id),
-			       invreq->invreq_metadata,
-			       tal_bytelen(invreq->invreq_metadata));
-
-			bolt12_alias_tweak(&cmd->ld->nodealias_base,
-					   tweak_input,
-					   tal_bytelen(tweak_input),
-					   &tweak);
-			invreq->invreq_metadata = (u8 *)tal_dup(invreq, struct sha256, &tweak);
-		}
 
 		if (*invreq->invreq_recurrence_counter != 0) {
 			struct command_result *err
@@ -449,14 +435,6 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 			if (err)
 				return err;
 		}
-	}
-
-	/* invreq_metadata must be distinct: for non-recurring
-	 * payments, make it random */
-	if (!invreq->invreq_metadata) {
-		invreq->invreq_metadata = tal_arr(invreq, u8, 16);
-		randombytes_buf(invreq->invreq_metadata,
-				tal_bytelen(invreq->invreq_metadata));
 	}
 
 	/* BOLT-offers #12:
