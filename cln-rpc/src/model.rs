@@ -6690,6 +6690,24 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DecodeInvreq_pathsPath {
+	    pub blinded_node_id: PublicKey,
+	    pub encrypted_recipient_data: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DecodeInvreq_paths {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub first_node_id: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub first_scid: Option<ShortChannelId>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub first_scid_dir: Option<u32>,
+	    pub blinding: PublicKey,
+	    pub path: Vec<DecodeInvreq_pathsPath>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DecodeOffer_paths {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub first_node_id: Option<PublicKey>,
@@ -6901,6 +6919,8 @@ pub mod responses {
 	    pub fallbacks: Option<Vec<DecodeFallbacks>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub invoice_fallbacks: Option<Vec<DecodeInvoice_fallbacks>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub invreq_paths: Option<Vec<DecodeInvreq_paths>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub offer_chains: Option<Vec<Sha256>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]

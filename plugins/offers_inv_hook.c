@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
 #include <common/json_stream.h>
 #include <plugins/offers.h>
@@ -228,17 +229,41 @@ struct command_result *handle_invoice(struct command *cmd,
 				"Invalid invoice %s",
 				tal_hex(tmpctx, invbin));
 	}
-	invoice_invreq_id(inv->inv, &inv->invreq_id);
 
-	/* We never publish invoice_requests with a reply path, so replies via
-	 * a path are invalid */
 	if (secret) {
-		if (command_dev_apis(cmd))
-			return fail_inv(cmd, inv, "Unexpected blinded path");
-		/* Normally, "I don't know what you're talking about!" */
-		return fail_inv(cmd, inv, "Unknown invoice_request %s",
-				fmt_sha256(tmpctx, &inv->invreq_id));
+		const u8 *path_secret;
+		struct blinded_path **invreq_paths = inv->inv->invreq_paths;
+		struct sha256 invreq_id_nopath;
+
+		/* Necessarily, path_id is taken without the invreq_paths. */
+		inv->inv->invreq_paths = NULL;
+		invoice_invreq_id(inv->inv, &invreq_id_nopath);
+		inv->inv->invreq_paths = invreq_paths;
+
+		path_secret = bolt12_path_id(tmpctx, &offerblinding_base, &invreq_id_nopath);
+		if (!memeq(path_secret, tal_count(path_secret),
+			   secret, sizeof(*secret))) {
+			if (command_dev_apis(cmd))
+				return fail_inv(cmd, inv, "Wrong blinded path (invreq_id_nopath = %s, path_secret = %s, secret = %s)",
+						fmt_sha256(tmpctx, &invreq_id_nopath),
+						tal_hex(tmpctx, path_secret),
+						fmt_secret(tmpctx, secret));
+			/* Normally, "I don't know what you're talking about!" */
+			return fail_inv(cmd, inv, "Unknown invoice_request %s",
+					fmt_sha256(tmpctx, &inv->invreq_id));
+		}
+	} else {
+		/* Didn't use path.  Was it supposed to? */
+		if (inv->inv->invreq_paths) {
+			if (command_dev_apis(cmd))
+				return fail_inv(cmd, inv, "Expected to use invreq_path!");
+			/* Normally, "I don't know what you're talking about!" */
+			return fail_inv(cmd, inv, "Unknown invoice_request %s",
+					fmt_sha256(tmpctx, &inv->invreq_id));
+		}
 	}
+
+	invoice_invreq_id(inv->inv, &inv->invreq_id);
 
 	/* BOLT-offers #12:
 	 * A reader of an invoice:
@@ -303,6 +328,14 @@ struct command_result *handle_invoice(struct command *cmd,
 	    != tal_count(inv->inv->invoice_paths))
 		return fail_inv(cmd, inv,
 				"Mismatch between invoice_blindedpay and invoice_paths");
+
+	/* BOLT-offers #12:
+	 *   - MUST reject the invoice if `num_hops` is 0 in any `blinded_path` in `invoice_paths`.
+	 */
+	for (size_t i = 0; i < tal_count(inv->inv->invoice_paths); i++) {
+		if (tal_count(inv->inv->invoice_paths[i]->path) == 0)
+			return fail_inv(cmd, inv, "Empty path in invoice_paths");
+	}
 
 	/* BOLT-offers #12:
 	 * A reader of an invoice:

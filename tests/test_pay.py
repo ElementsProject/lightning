@@ -4909,6 +4909,26 @@ def test_sendinvoice(node_factory, bitcoind):
     assert out['amount_received_msat'] == Millisatoshi(10000000)
 
 
+def test_sendinvoice_blindedpath(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts=[{},
+                                           {'experimental-offers': None}])
+    # We join l3->l1->l2 so l3 can pay invoice sent by l2.
+    l3 = node_factory.get_node(options={'experimental-offers': None})
+    node_factory.join_nodes([l3, l1], announce_channels=False)
+
+    # Make sure l3 knows l1, l2 is public, so it will create blinded path to it.
+    wait_for(lambda: ['alias' in n for n in l3.rpc.listnodes()['nodes']] == [True, True])
+
+    invreq1 = l3.rpc.invoicerequest(amount='100000sat',
+                                    description='test_sendinvoice_blindedpath')
+    decode = l1.rpc.decode(invreq1['bolt12'])
+    assert len(decode['invreq_paths']) == 1
+    assert decode['invreq_paths'][0]['first_node_id'] == l1.info['id']
+
+    l2.rpc.sendinvoice(invreq=invreq1['bolt12'], label='test_sendinvoice_blindedpath 1')
+
+
 def test_self_pay(node_factory):
     """Repro test for issue 4345: pay ourselves via the pay plugin.
 

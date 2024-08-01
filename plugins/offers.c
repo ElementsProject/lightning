@@ -769,6 +769,7 @@ static bool json_add_invreq_fields(struct json_stream *js,
 				   const u64 *invreq_quantity,
 				   const struct pubkey *invreq_payer_id,
 				   const utf8 *invreq_payer_note,
+				   struct blinded_path **invreq_paths,
 				   const u32 *invreq_recurrence_counter,
 				   const u32 *invreq_recurrence_start)
 {
@@ -802,6 +803,9 @@ static bool json_add_invreq_fields(struct json_stream *js,
 		json_add_u64(js, "invreq_quantity", *invreq_quantity);
 	if (invreq_payer_note)
 		valid &= json_add_utf8(js, "invreq_payer_note", invreq_payer_note);
+	if (invreq_paths)
+		valid &= json_add_blinded_paths(js, "invreq_paths",
+						invreq_paths, NULL);
 	if (invreq_recurrence_counter) {
 		json_add_u32(js, "invreq_recurrence_counter",
 			     *invreq_recurrence_counter);
@@ -922,6 +926,7 @@ static void json_add_invoice_request(struct json_stream *js,
 					invreq->invreq_quantity,
 					invreq->invreq_payer_id,
 					invreq->invreq_payer_note,
+					invreq->invreq_paths,
 					invreq->invreq_recurrence_counter,
 					invreq->invreq_recurrence_start);
 
@@ -999,6 +1004,7 @@ static void json_add_b12_invoice(struct json_stream *js,
 					invoice->invreq_quantity,
 					invoice->invreq_payer_id,
 					invoice->invreq_payer_note,
+					invoice->invreq_paths,
 					invoice->invreq_recurrence_counter,
 					invoice->invreq_recurrence_start);
 
