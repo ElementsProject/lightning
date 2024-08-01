@@ -693,7 +693,6 @@ static bool json_add_offer_fields(struct json_stream *js,
 		json_object_end(js);
 	}
 
-	/* Required for offers, *not* for others! */
 	if (offer_issuer_id)
 		json_add_pubkey(js, "offer_issuer_id", offer_issuer_id);
 
@@ -749,12 +748,12 @@ static void json_add_offer(struct json_stream *js, const struct tlv_offer *offer
 				       offer->offer_recurrence_limit,
 				       offer->offer_recurrence_base);
 	/* BOLT-offers #12:
-	 * - if `offer_issuer_id` is not set:
+	 * - if neither `offer_issuer_id` nor `offer_paths` are set:
 	 *   - MUST NOT respond to the offer.
 	 */
-	if (!offer->offer_issuer_id) {
+	if (!offer->offer_issuer_id && !offer->offer_paths) {
 		json_add_string(js, "warning_missing_offer_issuer_id",
-				"offers without a node_id are invalid");
+				"offers without an issuer_id or paths are invalid");
 		valid = false;
 	}
 	json_add_extra_fields(js, "unknown_offer_tlvs", offer->fields);
@@ -890,8 +889,8 @@ static void json_add_invoice_request(struct json_stream *js,
 {
 	bool valid = true;
 
-	/* If there's an offer_issuer_id, then there's an offer. */
-	if (invreq->offer_issuer_id) {
+	/* If there's an offer_issuer_id or offer_paths, then there's an offer. */
+	if (invreq->offer_issuer_id || invreq->offer_paths) {
 		struct sha256 offer_id;
 
 		invreq_offer_id(invreq, &offer_id);
@@ -967,8 +966,8 @@ static void json_add_b12_invoice(struct json_stream *js,
 {
 	bool valid = true;
 
-	/* If there's an offer_issuer_id, then there's an offer. */
-	if (invoice->offer_issuer_id) {
+	/* If there's an offer_issuer_id or offer_paths, then there's an offer. */
+	if (invoice->offer_issuer_id || invoice->offer_paths) {
 		struct sha256 offer_id;
 
 		invoice_offer_id(invoice, &offer_id);

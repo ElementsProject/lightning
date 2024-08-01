@@ -136,6 +136,8 @@ static struct command_result *listinvreqs_done(struct command *cmd,
 	 *     - MUST reject the invoice if all fields in ranges 0 to 159 and 1000000000 to 2999999999 (inclusive) do not exactly match the `invoice_request`.
 	 *     - if `offer_issuer_id` is present (invoice_request for an offer):
 	 *       - MUST reject the invoice if `invoice_node_id` is not equal to `offer_issuer_id`.
+	 *     - otherwise, if `offer_paths` is present (invoice_request for an offer without id):
+	 *      - MUST reject the invoice if `invoice_node_id` is not equal to the final `blinded_node_id` it sent the `invoice_request` to.
 	 *     - otherwise (invoice_request without an offer):
 	 *       - MAY reject the invoice if it cannot confirm that `invoice_node_id` is correct, out-of-band.
 	 *
@@ -159,7 +161,7 @@ static struct command_result *listinvreqs_done(struct command *cmd,
 		return fail_inv(cmd, inv, "invoice_request no longer available");
 
 	/* We only save ones without offers to the db! */
-	assert(!inv->inv->offer_issuer_id);
+	assert(!inv->inv->offer_issuer_id && !inv->inv->offer_paths);
 
 	/* BOLT-offers #12:
 	 * - MUST reject the invoice if `signature` is not a valid signature

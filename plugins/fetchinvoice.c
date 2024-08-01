@@ -41,6 +41,9 @@ struct sent {
 	struct blinded_path **their_paths;
 	/* Direct destination (used iff no their_paths) */
 	struct pubkey *direct_dest;
+	/* Key we expect to sign the invoice: the offer_issuer_id if
+	 * present, otherwise the end blinded path we sent to. */
+	struct pubkey *issuer_key;
 
 	/* When creating blinded return path, use scid not pubkey for intro node. */
 	struct short_channel_id_dir *dev_path_use_scidd;
@@ -217,10 +220,10 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	}
 
 	/* BOLT-offers #12:
-	 *     - if `offer_issuer_id` is present (invoice_request for an offer):
-	 * 	  - MUST reject the invoice if `invoice_node_id` is not equal to `offer_issuer_id`.
+	 *     - if `offer_node_id` or `offer_paths` are present (invoice_request for an offer):
+	 *       - MUST reject the invoice if `invoice_node_id` is not equal to the public key it sent the `invoice_request` to.
 	 */
-	if (!inv->invoice_node_id || !pubkey_eq(inv->offer_issuer_id, inv->invoice_node_id)) {
+	if (!inv->invoice_node_id || !pubkey_eq(inv->offer_issuer_id, sent->issuer_key)) {
 		badfield = "invoice_node_id";
 		goto badinv;
 	}
@@ -479,7 +482,7 @@ struct establishing_paths {
 
 static const struct blinded_path *current_their_path(const struct establishing_paths *epaths)
 {
-	if (tal_count(epaths->sent->their_paths) == 0)
+	if (epaths->sent->direct_dest)
 		return NULL;
 	assert(epaths->which_blinded_path < tal_count(epaths->sent->their_paths));
 	return epaths->sent->their_paths[epaths->which_blinded_path];
@@ -521,7 +524,7 @@ static struct command_result *establish_path_fail(struct command *cmd,
 	const struct blinded_path *bpath = current_their_path(epaths);
 
 	/* No blinded paths?  We fail to establish connection directly */
-	if (!bpath) {
+	if (epaths->sent->direct_dest) {
 		return command_fail(cmd, OFFER_ROUTE_NOT_FOUND,
 				    "Failed: could not route or connect directly to %s: %s",
 				    fmt_pubkey(tmpctx, epaths->sent->direct_dest), why);
@@ -545,15 +548,23 @@ static struct command_result *try_establish(struct command *cmd,
 					    struct establishing_paths *epaths)
 {
 	struct pubkey target;
-	const struct blinded_path *bpath = current_their_path(epaths);
 
-	if (!bpath) {
+	if (epaths->sent->direct_dest) {
 		target = *epaths->sent->direct_dest;
 	} else {
+		const struct blinded_path *bpath = current_their_path(epaths);
 		struct sciddir_or_pubkey first = bpath->first_node_id;
 		if (!gossmap_scidd_pubkey(get_gossmap(cmd->plugin), &first))
 			return establish_path_fail(cmd, "Cannot resolve scidd", epaths);
 		target = first.pubkey;
+		/* BOLT-offers #12:
+		 *     - if `offer_issuer_id` is present (invoice_request for an offer):
+		 *       - MUST reject the invoice if `invoice_node_id` is not equal `offer_issuer_id`
+		 *     - otherwise, if `offer_paths` is present (invoice_request for an offer without id):
+		 *       - MUST reject the invoice if `invoice_node_id` is not equal to the final `blinded_node_id` it sent the `invoice_request` to.
+		 */
+		if (!epaths->sent->offer->offer_issuer_id)
+			epaths->sent->issuer_key = &bpath->path[tal_count(bpath->path)-1]->blinded_node_id;
 	}
 
 	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &id, &target,
@@ -788,7 +799,12 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 
 	sent->wait_timeout = *timeout;
 	sent->their_paths = sent->offer->offer_paths;
-	sent->direct_dest = sent->offer->offer_issuer_id;
+	if (sent->their_paths)
+		sent->direct_dest = NULL;
+	else
+		sent->direct_dest = sent->offer->offer_issuer_id;
+	/* This is NULL if offer_issuer_id is missing, and set by try_establish */
+	sent->issuer_key = sent->offer->offer_issuer_id;
 
 	/* BOLT-offers #12:
 	 * - SHOULD not respond to an offer if the current time is after
@@ -1036,7 +1052,10 @@ static struct command_result *createinvoice_done(struct command *cmd,
 	 *         `invreq_payer_id` as the node id to send to.
 	 */
 	sent->their_paths = sent->invreq->offer_paths;
-	sent->direct_dest = sent->invreq->invreq_payer_id;
+	if (sent->their_paths)
+		sent->direct_dest = NULL;
+	else
+		sent->direct_dest = sent->invreq->invreq_payer_id;
 
 	payload = tlv_onionmsg_tlv_new(sent);
 
@@ -1144,13 +1163,13 @@ static struct command_result *param_invreq(struct command *cmd,
 
 	/* Plugin handles these automatically, you shouldn't send one
 	 * manually. */
-	if ((*invreq)->offer_issuer_id) {
+	if ((*invreq)->offer_issuer_id || (*invreq)->offer_paths) {
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "This is based on an offer?");
 	}
 
 	/* BOLT-offers #12:
-	 *  - otherwise (no `offer_issuer_id`, not a response to our offer):
+	 *  - otherwise (no `offer_node_id` or `offer_paths`, not a response to our offer):
 	 *     - MUST fail the request if any of the following are present:
 	 *       - `offer_chains`, `offer_features` or `offer_quantity_max`.
 	 *     - MUST fail the request if `invreq_amount` is not present.
@@ -1169,7 +1188,7 @@ static struct command_result *param_invreq(struct command *cmd,
 					     "Missing invreq_amount");
 
 	/* BOLT-offers #12:
-	 *  - otherwise (no `offer_issuer_id`, not a response to our offer):
+	 *  - otherwise (no `offer_issuer_id` or `offer_paths`, not a response to our offer):
 	 *...
 	 *     - MAY use `offer_amount` (or `offer_currency`) for informational display to user.
 	 */
@@ -1261,6 +1280,8 @@ struct command_result *json_sendinvoice(struct command *cmd,
 	/* BOLT-offers #12:
 	 * - if `offer_issuer_id` is present:
 	 *   - MUST set `invoice_node_id` to `offer_issuer_id`.
+	 * - otherwise, if `offer_paths` is present:
+	 *   - MUST set `invoice_node_id` to the final `blinded_node_id` on the path it received the `invoice_request`
 	 * - otherwise:
 	 *   - MUST set `invoice_node_id` to a valid public key.
 	 */
@@ -1335,6 +1356,7 @@ struct command_result *json_dev_rawrequest(struct command *cmd,
 	sent->dev_reply_path = NULL;
 	sent->their_paths = NULL;
 	sent->direct_dest = node_id;
+	sent->issuer_key = node_id;
 
 	payload = tlv_onionmsg_tlv_new(sent);
 	payload->invoice_request = tal_arr(payload, u8, 0);
