@@ -2,6 +2,7 @@
 #include <ccan/cast/cast.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/take/take.h>
+#include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
 #include <common/configdir.h>
 #include <common/json_command.h>
@@ -9,6 +10,7 @@
 #include <common/json_stream.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
+#include <inttypes.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
@@ -227,17 +229,17 @@ static const struct json_command disableoffer_command = {
 AUTODATA(json_command, &disableoffer_command);
 
 /* We do some sanity checks now, since we're looking up prev payment anyway,
- * but our main purpose is to fill in invreq->invreq_metadata tweak. */
+ * but our main purpose is to fill in prev_basetime tweak. */
 static struct command_result *prev_payment(struct command *cmd,
 					   const struct json_escape *label,
-					   struct tlv_invoice_request *invreq,
+					   const struct tlv_invoice_request *invreq,
 					   u64 **prev_basetime)
 {
-	bool prev_paid = false;
 	struct sha256 invreq_oid;
+	u64 last_recurrence = UINT64_MAX;
+	bool prev_unpaid = false;
 
 	invreq_offer_id(invreq, &invreq_oid);
-	assert(!invreq->invreq_metadata);
 
 	for (struct db_stmt *stmt = payments_by_label(cmd->ld->wallet, label);
 	     stmt;
@@ -293,34 +295,40 @@ static struct command_result *prev_payment(struct command *cmd,
 						    " recurrence_start");
 		}
 
+		/* They should all have the same basetime */
+		if (!*prev_basetime)
+			*prev_basetime = tal_dup(cmd, u64, inv->invoice_recurrence_basetime);
+
+		/* Track highest one for better diagnostics */
+		if (last_recurrence == UINT64_MAX
+		    || last_recurrence < *inv->invreq_recurrence_counter) {
+			last_recurrence = *inv->invreq_recurrence_counter;
+		}
+
 		if (*inv->invreq_recurrence_counter == *invreq->invreq_recurrence_counter-1) {
-			if (payment->status == PAYMENT_COMPLETE)
-				prev_paid = true;
-		}
-
-		if (inv->invreq_metadata) {
-			invreq->invreq_metadata
-				= tal_dup_talarr(invreq, u8, inv->invreq_metadata);
-			*prev_basetime = tal_dup(cmd, u64,
-						 inv->invoice_recurrence_basetime);
-		}
-
-		if (prev_paid && inv->invreq_metadata) {
-			tal_free(stmt);
-			break;
+			/* Got it! */
+			if (payment->status == PAYMENT_COMPLETE) {
+				tal_free(stmt);
+				return NULL;
+			} else
+				prev_unpaid = true;
 		}
 	}
 
-	if (!invreq->invreq_metadata)
+	/* We found one, but it didn't succeed */
+	if (prev_unpaid)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "No previous payment attempted for this"
-				    " label and offer");
+				    "previous invoice payment did not succeed");
 
-	if (!prev_paid)
+	/* We found one, but it was not the previus one */
+	if (last_recurrence != UINT64_MAX)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "previous invoice has not been paid");
+				    "previous invoice has not been paid (last was %"PRIu64")",
+				    last_recurrence);
 
-	return NULL;
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			    "No previous payment attempted for this"
+			    " label and offer");
 }
 
 static struct command_result *param_b12_invreq(struct command *cmd,
@@ -407,12 +415,32 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	else
 		status = OFFER_MULTIPLE_USE_UNUSED;
 
-	/* If it's a recurring payment, we look for previous to copy
-	 * invreq_metadata, basetime */
+	/* If it's a recurring payment, we look for previous to copy basetime */
 	if (invreq->invreq_recurrence_counter) {
 		if (!label)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Need payment label for recurring payments");
+
+		/* Derive metadata (and thus temp key, if any) from offer data and label */
+		if (!invreq->invreq_metadata) {
+			struct sha256 offer_id, tweak;
+			u8 *tweak_input;
+
+			/* Use "offer_id || label" as tweak input */
+			invreq_offer_id(invreq, &offer_id);
+			tweak_input = tal_arr(tmpctx, u8,
+					      sizeof(offer_id) + tal_bytelen(invreq->invreq_metadata));
+			memcpy(tweak_input, &offer_id, sizeof(offer_id));
+			memcpy(tweak_input + sizeof(offer_id),
+			       invreq->invreq_metadata,
+			       tal_bytelen(invreq->invreq_metadata));
+
+			bolt12_alias_tweak(&cmd->ld->nodealias_base,
+					   tweak_input,
+					   tal_bytelen(tweak_input),
+					   &tweak);
+			invreq->invreq_metadata = (u8 *)tal_dup(invreq, struct sha256, &tweak);
+		}
 
 		if (*invreq->invreq_recurrence_counter != 0) {
 			struct command_result *err
@@ -423,24 +451,26 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 		}
 	}
 
+	/* invreq_metadata must be distinct: for non-recurring
+	 * payments, make it random */
 	if (!invreq->invreq_metadata) {
-		/* BOLT-offers #12:
-		 *
-		 * `invreq_metadata` might typically contain information about
-		 * the derivation of the `invreq_payer_id`.  This should not
-		 * leak any information (such as using a simple BIP-32
-		 * derivation path); a valid system might be for a node to
-		 * maintain a base payer key and encode a 128-bit tweak here.
-		 * The payer_id would be derived by tweaking the base key with
-		 * SHA256(payer_base_pubkey || tweak).  It's also the first
-		 * entry (if present), ensuring an unpredictable nonce for
-		 * hashing.
-		 */
 		invreq->invreq_metadata = tal_arr(invreq, u8, 16);
 		randombytes_buf(invreq->invreq_metadata,
 				tal_bytelen(invreq->invreq_metadata));
 	}
 
+	/* BOLT-offers #12:
+	 *
+	 * `invreq_metadata` might typically contain information about
+	 * the derivation of the `invreq_payer_id`.  This should not
+	 * leak any information (such as using a simple BIP-32
+	 * derivation path); a valid system might be for a node to
+	 * maintain a base payer key and encode a 128-bit tweak here.
+	 * The payer_id would be derived by tweaking the base key with
+	 * SHA256(payer_base_pubkey || tweak).  It's also the first
+	 * entry (if present), ensuring an unpredictable nonce for
+	 * hashing.
+	 */
 	invreq->invreq_payer_id = tal(invreq, struct pubkey);
 	if (*exposeid) {
 		*invreq->invreq_payer_id = cmd->ld->our_pubkey;
