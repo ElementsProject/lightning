@@ -765,9 +765,9 @@ static const char *check_bolt12_condition(const tal_t *ctx,
 			return rune_alt_single_missing(ctx, alt);
 		return rune_alt_single_int(ctx, alt, *b12->invoice_amount);
 	case INV_FIELD_NODE_ID: {
-		if (!b12->offer_node_id)
+		if (!b12->offer_issuer_id)
 			return rune_alt_single_missing(ctx, alt);
-		const char *id = fmt_pubkey(tmpctx, b12->offer_node_id);
+		const char *id = fmt_pubkey(tmpctx, b12->offer_issuer_id);
 		return rune_alt_single_str(ctx, alt, id, strlen(id));
 	}
 	case INV_FIELD_DESCRIPTION:

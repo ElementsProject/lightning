@@ -223,8 +223,8 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	}
 
 	/* FIXME(vincenzopalazzo): node id can be null when we use blinded path. */
-	if (!offer->offer_node_id) {
-		*fail = tal_strdup(ctx, "Offer does not contain a node_id");
+	if (!offer->offer_issuer_id) {
+		*fail = tal_strdup(ctx, "Offer does not contain an issuer_id");
 		return tal_free(offer);
 	}
 

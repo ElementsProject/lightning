@@ -1660,6 +1660,8 @@ message DecodeResponse {
 	optional string description = 80;
 	optional bytes features = 81;
 	optional DecodeRoutehintList routes = 82;
+	optional bytes offer_issuer_id = 83;
+	optional string warning_missing_offer_issuer_id = 84;
 }
 
 message DecodeOffer_paths {

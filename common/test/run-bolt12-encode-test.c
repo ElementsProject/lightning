@@ -155,8 +155,8 @@ int main(int argc, char *argv[])
 	memset(&carol, 'C', sizeof(carol));
 
 	offer = tlv_offer_new(tmpctx);
-	offer->offer_node_id = tal(offer, struct pubkey);
-	assert(pubkey_from_secret(&alice, offer->offer_node_id));
+	offer->offer_issuer_id = tal(offer, struct pubkey);
+	assert(pubkey_from_secret(&alice, offer->offer_issuer_id));
 	offer->offer_description = tal_utf8(tmpctx, "Test vectors");
 
 	printf("[\n");
@@ -275,14 +275,14 @@ int main(int argc, char *argv[])
 	/* Now let's do the invalid ones! */
 
 	/* Invalid encoding forms. */
-	/* offer_node_id then description */
+	/* offer_issuer_id then description */
 	print_malformed_tlv("lno",
-			    "1621020202020202020202020202020202020202020202020202020202020202020202" /* offer_node_id */
+			    "1621020202020202020202020202020202020202020202020202020202020202020202" /* offer_issuer_id */
 			    "0A05414C494345", /* offer_description */
 			    "Malformed: fields out of order");
 	print_malformed_tlv("lno",
 			    "0A05414C494345" /* offer_description */
-			    "1621020202020202020202020202020202020202020202020202020202020202020202" /* offer_node_id */
+			    "1621020202020202020202020202020202020202020202020202020202020202020202" /* offer_issuer_id */
 			    "48206fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000",
 			    "Malformed: unknown even TLV type 78");
 	/* various forms of truncation */
@@ -360,7 +360,7 @@ int main(int argc, char *argv[])
 	print_malformed_tlv("lno",
 			    "0A05414C494345"
 			    "1621020303030303030303030303030303030303030303030303030303030303030303",
-			    "Malformed: invalid offer_node_id");
+			    "Malformed: invalid offer_issuer_id");
 
 	/* Now these are simply invalid, not bad encodings */
 	/* BOLT-offers #12:
@@ -370,13 +370,13 @@ int main(int argc, char *argv[])
 	 */
 	print_malformed_tlv("lno",
 			    "0A05414C494345" /* offer_description */
-			    "1621020202020202020202020202020202020202020202020202020202020202020202" /* offer_node_id */
+			    "1621020202020202020202020202020202020202020202020202020202020202020202" /* offer_issuer_id */
 			    "50206fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000",
 			    "Contains type >= 80");
 
 	offer = tlv_offer_new(tmpctx);
-	offer->offer_node_id = tal(offer, struct pubkey);
-	assert(pubkey_from_secret(&alice, offer->offer_node_id));
+	offer->offer_issuer_id = tal(offer, struct pubkey);
+	assert(pubkey_from_secret(&alice, offer->offer_issuer_id));
 	offer->offer_description = tal_utf8(tmpctx, "Test vectors");
 
 	offer->offer_features = tal_arr(offer, u8, 0);
@@ -392,17 +392,17 @@ int main(int argc, char *argv[])
 	/* BOLT-offers #12:
 	 *   - if `offer_description` is not set:
 	 *     - MUST NOT respond to the offer.
-	 *   - if `offer_node_id` is not set:
+	 *   - if `offer_issuer_id` is not set:
 	 *     - MUST NOT respond to the offer.
 	 */
 	offer->offer_description = NULL;
 	print_invalid_offer(offer, "Missing offer_description");
 	offer->offer_description = tal_utf8(tmpctx, "Test vectors");
 
-	offer->offer_node_id = NULL;
-	print_invalid_offer(offer, "Missing offer_node_id");
-	offer->offer_node_id = tal(offer, struct pubkey);
-	assert(pubkey_from_secret(&alice, offer->offer_node_id));
+	offer->offer_issuer_id = NULL;
+	print_invalid_offer(offer, "Missing offer_issuer_id");
+	offer->offer_issuer_id = tal(offer, struct pubkey);
+	assert(pubkey_from_secret(&alice, offer->offer_issuer_id));
 
 	printf("]\n");
 	common_shutdown();

@@ -551,10 +551,10 @@ struct command_result *json_offer(struct command *cmd,
 	}
 
 	/* BOLT-offers #12:
-	 * - MUST set `offer_node_id` to the node's public key to request the
+	 * - MUST set `offer_issuer_id` to the node's public key to request the
 	 *   invoice from.
 	 */
-	offer->offer_node_id = tal_dup(offer, struct pubkey, &id);
+	offer->offer_issuer_id = tal_dup(offer, struct pubkey, &id);
 
 	/* Now rest of offer will not change: we use pathless offer to create secret. */
 	if (paths) {
@@ -631,9 +631,9 @@ struct command_result *json_invoicerequest(struct command *cmd,
 	 * - otherwise (not responding to an offer):
 	 *   - MUST set offer_description to a complete description of the purpose of the payment.
 	 *   - MUST set (or not set) offer_absolute_expiry and offer_issuer as it would for an offer.
-	 *   - MUST set invreq_payer_id (as it would set offer_node_id for an offer).
+	 *   - MUST set invreq_payer_id (as it would set offer_issuer_id for an offer).
 	 *   - MUST set invreq_paths as it would set (or not set) offer_paths for an offer.
-	 *   - MUST NOT include signature, offer_metadata, offer_chains, offer_amount, offer_currency, offer_features, offer_quantity_max, offer_paths or offer_node_id
+	 *   - MUST NOT include signature, offer_metadata, offer_chains, offer_amount, offer_currency, offer_features, offer_quantity_max, offer_paths or offer_issuer_id
 	 *   - if the chain for the invoice is not solely bitcoin:
 	 *     - MUST pecify invreq_chain the offer is valid for.
 	 *     - MUST set invreq_amount.
@@ -669,7 +669,7 @@ struct command_result *json_invoicerequest(struct command *cmd,
 	/* BOLT-offers #12:
 	 * - otherwise (not responding to an offer):
 	 *...
-	 *   - MUST set `invreq_payer_id` as it would set `offer_node_id` for an offer.
+	 *   - MUST set `invreq_payer_id` as it would set `offer_issuer_id` for an offer.
 	 */
 	/* createinvoicerequest sets these! */
 

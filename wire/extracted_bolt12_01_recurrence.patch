@@ -2,8 +2,8 @@
 +++ wire/bolt12_wire.csv	2022-10-04 13:25:59.617242667 +1030
 @@ -22,6 +22,14 @@
  tlvdata,offer,offer_quantity_max,max,tu64,
- tlvtype,offer,offer_node_id,24
- tlvdata,offer,offer_node_id,node_id,point,
+ tlvtype,offer,offer_issuer_id,22
+ tlvdata,offer,offer_issuer_id,id,point,
 +tlvtype,offer,offer_recurrence,1212121212
 +tlvdata,offer,offer_recurrence,recurrence,recurrence,
 +tlvtype,offer,offer_recurrence_paywindow,1212121214
@@ -17,8 +17,8 @@
  tlvtype,invoice_request,offer_chains,2
 @@ -48,6 +60,14 @@
  tlvdata,invoice_request,offer_quantity_max,max,tu64,
- tlvtype,invoice_request,offer_node_id,24
- tlvdata,invoice_request,offer_node_id,node_id,point,
+ tlvtype,invoice_request,offer_issuer_id,22
+ tlvdata,invoice_request,offer_issuer_id,id,point,
 +tlvtype,invoice_request,offer_recurrence,1212121212
 +tlvdata,invoice_request,offer_recurrence,recurrence,recurrence,
 +tlvtype,invoice_request,offer_recurrence_paywindow,1212121214
@@ -42,8 +42,8 @@
  tlvdata,invoice_request,signature,sig,bip340sig,
  tlvtype,invoice,invreq_metadata,0
 @@ -89,5 +117,13 @@
- tlvtype,invoice,offer_node_id,24
- tlvdata,invoice,offer_node_id,node_id,point,
+ tlvtype,invoice,offer_issuer_id,22
+ tlvdata,invoice,offer_issuer_id,id,point,
 +tlvtype,invoice,offer_recurrence,1212121212
 +tlvdata,invoice,offer_recurrence,recurrence,recurrence,
 +tlvtype,invoice,offer_recurrence_paywindow,1212121214

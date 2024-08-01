@@ -6824,6 +6824,8 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub offer_issuer: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offer_issuer_id: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub offer_metadata: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub offer_node_id: Option<PublicKey>,
@@ -6883,6 +6885,8 @@ pub mod responses {
 	    pub warning_missing_invreq_payer_id: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_missing_offer_description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_missing_offer_issuer_id: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_missing_offer_node_id: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

@@ -454,7 +454,7 @@ static u64 get_offer_type(const char *name)
 		 *     1. type: 20 (`offer_quantity_max`)
 		 *     2. data:
 		 *         * [`tu64`:`max`]
-		 *     1. type: 22 (`offer_node_id`)
+		 *     1. type: 22 (`offer_issuer_id`)
 		 *     2. data:
 		 *         * [`point`:`node_id`]
 		 */
@@ -468,7 +468,7 @@ static u64 get_offer_type(const char *name)
 		{ "offer_paths", 16 },
 		{ "offer_issuer", 18 },
 		{ "offer_quantity_max", 20 },
-		{ "offer_node_id", 22 },
+		{ "offer_issuer_id", 22 },
 		/* BOLT-offers #12:
 		 * 1. `tlv_stream`: `invoice_request`
 		 * 2. types:
@@ -505,7 +505,7 @@ static u64 get_offer_type(const char *name)
 		 *     1. type: 20 (`offer_quantity_max`)
 		 *     2. data:
 		 *         * [`tu64`:`max`]
-		 *     1. type: 22 (`offer_node_id`)
+		 *     1. type: 22 (`offer_issuer_id`)
 		 *     2. data:
 		 *         * [`point`:`node_id`]
 		 *     1. type: 80 (`invreq_chain`)
@@ -574,7 +574,7 @@ static u64 get_offer_type(const char *name)
 		 *     1. type: 20 (`offer_quantity_max`)
 		 *     2. data:
 		 *         * [`tu64`:`max`]
-		 *     1. type: 22 (`offer_node_id`)
+		 *     1. type: 22 (`offer_issuer_id`)
 		 *     2. data:
 		 *         * [`point`:`node_id`]
 		 *     1. type: 80 (`invreq_chain`)
@@ -797,8 +797,9 @@ int main(int argc, char *argv[])
 			well_formed &= print_utf8("offer_issuer", offer->offer_issuer);
 		if (offer->offer_quantity_max)
 			print_u64("offer_quantity_max", *offer->offer_quantity_max);
-		if (must_have(offer, offer_node_id))
-			print_node_id("offer_node_id", offer->offer_node_id);
+		/* FIXME: can have path instead! */
+		if (must_have(offer, offer_issuer_id))
+			print_node_id("offer_issuer_id", offer->offer_issuer_id);
 		if (offer->offer_recurrence)
 			well_formed &= print_recurrance(offer->offer_recurrence,
 							offer->offer_recurrence_paywindow,
@@ -814,7 +815,7 @@ int main(int argc, char *argv[])
 		if (!invreq)
 			errx(ERROR_BAD_DECODE, "Bad invreq: %s", fail);
 
-		if (invreq->offer_node_id) {
+		if (invreq->offer_issuer_id) {
 			invreq_offer_id(invreq, &offer_id);
 			print_hash("offer_id", &offer_id);
 		}
@@ -842,8 +843,8 @@ int main(int argc, char *argv[])
 			well_formed &= print_utf8("offer_issuer", invreq->offer_issuer);
 		if (invreq->offer_quantity_max)
 			print_u64("offer_quantity_max", *invreq->offer_quantity_max);
-		if (invreq->offer_node_id)
-			print_node_id("offer_node_id", invreq->offer_node_id);
+		if (invreq->offer_issuer_id)
+			print_node_id("offer_issuer_id", invreq->offer_issuer_id);
 		if (invreq->offer_recurrence)
 			well_formed &= print_recurrance(invreq->offer_recurrence,
 							invreq->offer_recurrence_paywindow,
@@ -885,7 +886,7 @@ int main(int argc, char *argv[])
 			errx(ERROR_BAD_DECODE, "Bad invoice: %s", fail);
 
 		if (invoice->invreq_payer_id) {
-			if (invoice->offer_node_id) {
+			if (invoice->offer_issuer_id) {
 				invoice_offer_id(invoice, &offer_id);
 				print_hash("offer_id", &offer_id);
 			}
@@ -914,8 +915,8 @@ int main(int argc, char *argv[])
 			well_formed &= print_utf8("offer_issuer", invoice->offer_issuer);
 		if (invoice->offer_quantity_max)
 			print_u64("offer_quantity_max", *invoice->offer_quantity_max);
-		if (invoice->offer_node_id)
-			print_node_id("offer_node_id", invoice->offer_node_id);
+		if (invoice->offer_issuer_id)
+			print_node_id("offer_issuer_id", invoice->offer_issuer_id);
 		if (invoice->offer_recurrence)
 			well_formed &= print_recurrance(invoice->offer_recurrence,
 							invoice->offer_recurrence_paywindow,

@@ -217,10 +217,10 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	}
 
 	/* BOLT-offers #12:
-	 *     - if `offer_node_id` is present (invoice_request for an offer):
-	 * 	  - MUST reject the invoice if `invoice_node_id` is not equal to `offer_node_id`.
+	 *     - if `offer_issuer_id` is present (invoice_request for an offer):
+	 * 	  - MUST reject the invoice if `invoice_node_id` is not equal to `offer_issuer_id`.
 	 */
-	if (!inv->invoice_node_id || !pubkey_eq(inv->offer_node_id, inv->invoice_node_id)) {
+	if (!inv->invoice_node_id || !pubkey_eq(inv->offer_issuer_id, inv->invoice_node_id)) {
 		badfield = "invoice_node_id";
 		goto badinv;
 	}
@@ -788,7 +788,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 
 	sent->wait_timeout = *timeout;
 	sent->their_paths = sent->offer->offer_paths;
-	sent->direct_dest = sent->offer->offer_node_id;
+	sent->direct_dest = sent->offer->offer_issuer_id;
 
 	/* BOLT-offers #12:
 	 * - SHOULD not respond to an offer if the current time is after
@@ -1144,13 +1144,13 @@ static struct command_result *param_invreq(struct command *cmd,
 
 	/* Plugin handles these automatically, you shouldn't send one
 	 * manually. */
-	if ((*invreq)->offer_node_id) {
+	if ((*invreq)->offer_issuer_id) {
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "This is based on an offer?");
 	}
 
 	/* BOLT-offers #12:
-	 *  - otherwise (no `offer_node_id`, not a response to our offer):
+	 *  - otherwise (no `offer_issuer_id`, not a response to our offer):
 	 *     - MUST fail the request if any of the following are present:
 	 *       - `offer_chains`, `offer_features` or `offer_quantity_max`.
 	 *     - MUST fail the request if `invreq_amount` is not present.
@@ -1169,7 +1169,7 @@ static struct command_result *param_invreq(struct command *cmd,
 					     "Missing invreq_amount");
 
 	/* BOLT-offers #12:
-	 *  - otherwise (no `offer_node_id`, not a response to our offer):
+	 *  - otherwise (no `offer_issuer_id`, not a response to our offer):
 	 *...
 	 *     - MAY use `offer_amount` (or `offer_currency`) for informational display to user.
 	 */
@@ -1259,8 +1259,8 @@ struct command_result *json_sendinvoice(struct command *cmd,
 	       &sent->inv_preimage, sizeof(sent->inv_preimage));
 
 	/* BOLT-offers #12:
-	 * - if `offer_node_id` is present:
-	 *   - MUST set `invoice_node_id` to `offer_node_id`.
+	 * - if `offer_issuer_id` is present:
+	 *   - MUST set `invoice_node_id` to `offer_issuer_id`.
 	 * - otherwise:
 	 *   - MUST set `invoice_node_id` to a valid public key.
 	 */

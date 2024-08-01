@@ -71,8 +71,7 @@
         },
         "then": {
           "required": [
-            "offer_id",
-            "offer_node_id"
+            "offer_id"
           ],
           "additionalProperties": false,
           "properties": {
@@ -239,7 +238,14 @@
             "offer_node_id": {
               "type": "pubkey",
               "description": [
-                "Public key of the offering node."
+                "Obsolete name for offer_issuer_id."
+              ]
+            },
+            "offer_issuer_id": {
+              "type": "pubkey",
+              "added": "v24.08",
+              "description": [
+                "The pubkey associated with the offer (can be a node id)."
               ]
             },
             "offer_recurrence": {
@@ -411,6 +417,13 @@
                 "`offer_node_id` is not present."
               ]
             },
+            "warning_missing_offer_issuer_id": {
+              "type": "string",
+              "added": "v24.08",
+              "description": [
+                "`offer_issuer_id` is not present and there are no offer_paths"
+              ]
+            },
             "warning_invalid_offer_description": {
               "type": "string",
               "description": [
@@ -457,7 +470,6 @@
         },
         "then": {
           "required": [
-            "offer_node_id",
             "invreq_metadata",
             "invreq_payer_id",
             "signature"
@@ -630,6 +642,13 @@
               "type": "pubkey",
               "description": [
                 "Public key of the offering node."
+              ]
+            },
+            "offer_issuer_id": {
+              "type": "pubkey",
+              "added": "v24.08",
+              "description": [
+                "Public key of the offering node (can be a node id)."
               ]
             },
             "offer_recurrence": {
@@ -854,6 +873,7 @@
             "offer_quantity_max": {},
             "offer_paths": {},
             "offer_node_id": {},
+            "offer_issuer_id": {},
             "offer_recurrence": {},
             "invreq_metadata": {},
             "invreq_payer_id": {},
@@ -940,7 +960,6 @@
         },
         "then": {
           "required": [
-            "offer_node_id",
             "invreq_metadata",
             "invreq_payer_id",
             "invoice_paths",
@@ -1117,6 +1136,13 @@
               "type": "pubkey",
               "description": [
                 "Public key of the offering node."
+              ]
+            },
+            "offer_issuer_id": {
+              "type": "pubkey",
+              "added": "v24.08",
+              "description": [
+                "Public key of the offering node (can be a node id)."
               ]
             },
             "offer_recurrence": {
@@ -1435,7 +1461,7 @@
             "invoice_node_id": {
               "type": "pubkey",
               "description": [
-                "The id to pay (usually the same as offer_node_id)."
+                "The id to pay (usually the same as offer_issuer_id)."
               ]
             },
             "invoice_recurrence_basetime": {
@@ -1447,7 +1473,7 @@
             "signature": {
               "type": "bip340sig",
               "description": [
-                "BIP-340 signature of the `offer_node_id` on this invoice."
+                "BIP-340 signature of the `offer_issuer_id` on this invoice."
               ]
             },
             "unknown_invoice_tlvs": {
@@ -1526,6 +1552,7 @@
             "offer_quantity_max": {},
             "offer_paths": {},
             "offer_node_id": {},
+            "offer_issuer_id": {},
             "offer_recurrence": {},
             "invreq_metadata": {},
             "invreq_payer_id": {},
