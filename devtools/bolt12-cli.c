@@ -860,7 +860,7 @@ int main(int argc, char *argv[])
 			print_features("offer_features", invreq->offer_features);
 		if (invreq->offer_absolute_expiry)
 			print_abstime("offer_absolute_expiry", *invreq->offer_absolute_expiry);
-		if (must_have(invreq, offer_paths))
+		if (invreq->offer_paths)
 			print_blindedpaths("offer_paths", invreq->offer_paths, NULL);
 		if (invreq->offer_issuer)
 			well_formed &= print_utf8("offer_issuer", invreq->offer_issuer);
@@ -891,6 +891,8 @@ int main(int argc, char *argv[])
 		} else {
 			must_not_have(invreq, invreq_recurrence_start);
 		}
+		if (invreq->invreq_paths)
+			print_blindedpaths("invreq_paths", invreq->invreq_paths, NULL);
 		if (must_have(invreq, signature)) {
 			well_formed = print_signature("invoice_request",
 						      "signature",
@@ -932,7 +934,7 @@ int main(int argc, char *argv[])
 			print_features("offer_features", invoice->offer_features);
 		if (invoice->offer_absolute_expiry)
 			print_abstime("offer_absolute_expiry", *invoice->offer_absolute_expiry);
-		if (must_have(invoice, offer_paths))
+		if (invoice->offer_paths)
 			print_blindedpaths("offer_paths", invoice->offer_paths, NULL);
 		if (invoice->offer_issuer)
 			well_formed &= print_utf8("offer_issuer", invoice->offer_issuer);
@@ -964,6 +966,8 @@ int main(int argc, char *argv[])
 		} else {
 			must_not_have(invoice, invreq_recurrence_start);
 		}
+		if (invoice->invreq_paths)
+			print_blindedpaths("invreq_paths", invoice->invreq_paths, NULL);
 		if (must_have(invoice, invoice_paths))
 			print_blindedpaths("invoice_paths",
 					   invoice->invoice_paths,

@@ -1484,6 +1484,30 @@ impl From<responses::DecodeInvoice_fallbacks> for pb::DecodeInvoiceFallbacks {
 }
 
 #[allow(unused_variables)]
+impl From<responses::DecodeInvreq_pathsPath> for pb::DecodeInvreqPathsPath {
+    fn from(c: responses::DecodeInvreq_pathsPath) -> Self {
+        Self {
+            blinded_node_id: c.blinded_node_id.serialize().to_vec(), // Rule #2 for type pubkey
+            encrypted_recipient_data: hex::decode(&c.encrypted_recipient_data).unwrap(), // Rule #2 for type hex
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::DecodeInvreq_paths> for pb::DecodeInvreqPaths {
+    fn from(c: responses::DecodeInvreq_paths) -> Self {
+        Self {
+            blinding: c.blinding.serialize().to_vec(), // Rule #2 for type pubkey
+            first_node_id: c.first_node_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            first_scid: c.first_scid.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+            first_scid_dir: c.first_scid_dir, // Rule #2 for type u32?
+            // Field: Decode.invreq_paths[].path[]
+            path: c.path.into_iter().map(|i| i.into()).collect(), // Rule #3 for type DecodeInvreq_pathsPath
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::DecodeOffer_paths> for pb::DecodeOfferPaths {
     fn from(c: responses::DecodeOffer_paths) -> Self {
         Self {
@@ -1537,6 +1561,8 @@ impl From<responses::DecodeResponse> for pb::DecodeResponse {
             invreq_chain: c.invreq_chain.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             invreq_features: c.invreq_features.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             invreq_metadata: c.invreq_metadata.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            // Field: Decode.invreq_paths[]
+            invreq_paths: c.invreq_paths.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             invreq_payer_id: c.invreq_payer_id.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             invreq_payer_note: c.invreq_payer_note, // Rule #2 for type string?
             invreq_quantity: c.invreq_quantity, // Rule #2 for type u64?

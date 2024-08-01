@@ -907,6 +907,17 @@
             "Decode.invoice_paths[].path[].blinded_node_id": 1,
             "Decode.invoice_paths[].path[].encrypted_recipient_data": 2
         },
+        "DecodeInvreq_paths": {
+            "Decode.invreq_paths[].blinding": 2,
+            "Decode.invreq_paths[].first_node_id": 3,
+            "Decode.invreq_paths[].first_scid": 4,
+            "Decode.invreq_paths[].first_scid_dir": 1,
+            "Decode.invreq_paths[].path[]": 5
+        },
+        "DecodeInvreq_pathsPath": {
+            "Decode.invreq_paths[].path[].blinded_node_id": 1,
+            "Decode.invreq_paths[].path[].encrypted_recipient_data": 2
+        },
         "DecodeOffer_paths": {
             "Decode.offer_paths[].blinding": 2,
             "Decode.offer_paths[].first_node_id": 1,
@@ -948,6 +959,7 @@
             "Decode.invreq_chain": 27,
             "Decode.invreq_features": 29,
             "Decode.invreq_metadata": 25,
+            "Decode.invreq_paths[]": 85,
             "Decode.invreq_payer_id": 26,
             "Decode.invreq_payer_note": 31,
             "Decode.invreq_quantity": 30,
@@ -4489,6 +4501,38 @@
         },
         "Decode.invreq_metadata": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Decode.invreq_paths[]": {
+            "added": "v24.08",
+            "deprecated": null
+        },
+        "Decode.invreq_paths[].blinding": {
+            "added": "v24.08",
+            "deprecated": null
+        },
+        "Decode.invreq_paths[].first_node_id": {
+            "added": "v24.08",
+            "deprecated": null
+        },
+        "Decode.invreq_paths[].first_scid": {
+            "added": "v24.08",
+            "deprecated": null
+        },
+        "Decode.invreq_paths[].first_scid_dir": {
+            "added": "v24.08",
+            "deprecated": null
+        },
+        "Decode.invreq_paths[].path[]": {
+            "added": "v24.08",
+            "deprecated": null
+        },
+        "Decode.invreq_paths[].path[].blinded_node_id": {
+            "added": "v24.08",
+            "deprecated": null
+        },
+        "Decode.invreq_paths[].path[].encrypted_recipient_data": {
+            "added": "v24.08",
             "deprecated": null
         },
         "Decode.invreq_payer_id": {

@@ -1165,6 +1165,23 @@ def decode_invoice_paths2py(m):
     })
 
 
+def decode_invreq_paths_path2py(m):
+    return remove_default({
+        "blinded_node_id": hexlify(m.blinded_node_id),  # PrimitiveField in generate_composite
+        "encrypted_recipient_data": hexlify(m.encrypted_recipient_data),  # PrimitiveField in generate_composite
+    })
+
+
+def decode_invreq_paths2py(m):
+    return remove_default({
+        "path": [decode_invreq_paths_path2py(i) for i in m.path],  # ArrayField[composite] in generate_composite
+        "blinding": hexlify(m.blinding),  # PrimitiveField in generate_composite
+        "first_node_id": hexlify(m.first_node_id),  # PrimitiveField in generate_composite
+        "first_scid": m.first_scid,  # PrimitiveField in generate_composite
+        "first_scid_dir": m.first_scid_dir,  # PrimitiveField in generate_composite
+    })
+
+
 def decode_offer_paths_path2py(m):
     return remove_default({
         "blinded_node_id": hexlify(m.blinded_node_id),  # PrimitiveField in generate_composite
@@ -1238,6 +1255,7 @@ def decode2py(m):
         "fallbacks": [decode_fallbacks2py(i) for i in m.fallbacks],  # ArrayField[composite] in generate_composite
         "invoice_fallbacks": [decode_invoice_fallbacks2py(i) for i in m.invoice_fallbacks],  # ArrayField[composite] in generate_composite
         "invoice_paths": [decode_invoice_paths2py(i) for i in m.invoice_paths],  # ArrayField[composite] in generate_composite
+        "invreq_paths": [decode_invreq_paths2py(i) for i in m.invreq_paths],  # ArrayField[composite] in generate_composite
         "offer_chains": [hexlify(m.offer_chains) for i in hexlify(m.offer_chains)], # ArrayField[primitive] in generate_composite
         "offer_paths": [decode_offer_paths2py(i) for i in m.offer_paths],  # ArrayField[composite] in generate_composite
         "restrictions": [decode_restrictions2py(i) for i in m.restrictions],  # ArrayField[composite] in generate_composite

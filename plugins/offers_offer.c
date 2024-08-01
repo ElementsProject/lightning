@@ -599,15 +599,90 @@ struct command_result *json_offer(struct command *cmd,
 	return maybe_add_path(cmd, offinfo);
 }
 
+static struct command_result *call_createinvoicerequest(struct command *cmd,
+							struct tlv_invoice_request *invreq,
+							bool single_use,
+							const char *label)
+{
+	struct out_req *req;
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "createinvoicerequest",
+				    check_result, forward_error,
+				    invreq);
+	json_add_string(req->js, "bolt12", invrequest_encode(tmpctx, invreq));
+	json_add_bool(req->js, "savetodb", true);
+	json_add_bool(req->js, "single_use", single_use);
+	if (label)
+		json_add_string(req->js, "recurrence_label", label);
+	return send_outreq(cmd->plugin, req);
+}
+
+struct invrequest_data {
+	struct tlv_invoice_request *invreq;
+	bool single_use;
+	const char *label;
+};
+
+static struct command_result *found_best_peer_invrequest(struct command *cmd,
+							 const struct chaninfo *best,
+							 struct invrequest_data *irdata)
+{
+	if (!best) {
+		/* FIXME: Make this a warning in the result! */
+		plugin_log(cmd->plugin, LOG_UNUSUAL,
+			   "No incoming channel to public peer, so no blinded path for invoice request");
+	} else {
+		struct pubkey *ids;
+		struct secret blinding_path_secret;
+		struct sha256 invreq_id;
+
+		/* BOLT-offers #12:
+		 *   - MUST set `invreq_paths` as it would set (or not set) `offer_paths` for an offer.
+		 */
+		/* BOLT-offers #12:
+		 *
+		 *   - if it is connected only by private channels:
+		 *     - MUST include `offer_paths` containing one or more paths to the node from
+		 *       publicly reachable nodes.
+		 */
+		/* Note: "id" of invreq minus paths (which we haven't added yet!) */
+		invreq_invreq_id(irdata->invreq, &invreq_id);
+
+		/* Make a small 1-hop path to us */
+		ids = tal_arr(tmpctx, struct pubkey, 2);
+		ids[0] = best->id;
+		ids[1] = id;
+
+		/* So we recognize this */
+		/* We can check this when they try to take up invoice_request. */
+		bolt12_path_secret(&offerblinding_base, &invreq_id,
+				   &blinding_path_secret);
+
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "Setting blinided path (invreq_id = %s, path_secret = %s)",
+			   fmt_sha256(tmpctx, &invreq_id),
+			   fmt_secret(tmpctx, &blinding_path_secret));
+		irdata->invreq->invreq_paths = tal_arr(irdata->invreq, struct blinded_path *, 1);
+		irdata->invreq->invreq_paths[0]
+			= incoming_message_blinded_path(irdata->invreq->invreq_paths,
+							ids,
+							NULL,
+							&blinding_path_secret);
+	}
+
+	return call_createinvoicerequest(cmd,
+					 irdata->invreq, irdata->single_use, irdata->label);
+}
+
 struct command_result *json_invoicerequest(struct command *cmd,
 					   const char *buffer,
 					   const jsmntok_t *params)
 {
 	const char *desc, *issuer, *label;
 	struct tlv_invoice_request *invreq;
-	struct out_req *req;
 	struct amount_msat *msat;
 	bool *single_use;
+	struct node_id local_nodeid;
 
 	invreq = tlv_invoice_request_new(cmd);
 
@@ -628,14 +703,14 @@ struct command_result *json_invoicerequest(struct command *cmd,
 
 	/* BOLT-offers #12:
 	 * - otherwise (not responding to an offer):
-	 *   - MUST set offer_description to a complete description of the purpose of the payment.
-	 *   - MUST set (or not set) offer_absolute_expiry and offer_issuer as it would for an offer.
-	 *   - MUST set invreq_payer_id (as it would set offer_issuer_id for an offer).
-	 *   - MUST set invreq_paths as it would set (or not set) offer_paths for an offer.
-	 *   - MUST NOT include signature, offer_metadata, offer_chains, offer_amount, offer_currency, offer_features, offer_quantity_max, offer_paths or offer_issuer_id
+	 *   - MUST set `offer_description` to a complete description of the purpose of the payment.
+	 *   - MUST set (or not set) `offer_absolute_expiry` and `offer_issuer` as it would for an offer.
+	 *   - MUST set `invreq_payer_id` (as it would set `offer_issuer_id` for an offer).
+	 *   - MUST set `invreq_paths` as it would set (or not set) `offer_paths` for an offer.
+	 *   - MUST NOT include `signature`, `offer_metadata`, `offer_chains`, `offer_amount`, `offer_currency`, `offer_features`, `offer_quantity_max`, `offer_paths` or `offer_issuer_id`
 	 *   - if the chain for the invoice is not solely bitcoin:
-	 *     - MUST pecify invreq_chain the offer is valid for.
-	 *     - MUST set invreq_amount.
+	 *     - MUST specify `invreq_chain` the offer is valid for.
+	 *     - MUST set `invreq_amount`.
 	 */
 	if (desc)
 		invreq->offer_description = tal_dup_arr(invreq, char, desc, strlen(desc), 0);
@@ -667,8 +742,6 @@ struct command_result *json_invoicerequest(struct command *cmd,
 	randombytes_buf(invreq->invreq_metadata,
 			tal_bytelen(invreq->invreq_metadata));
 
-	/* FIXME: enable blinded paths! */
-
 	/* BOLT-offers #12:
 	 * - otherwise (not responding to an offer):
 	 *...
@@ -681,14 +754,19 @@ struct command_result *json_invoicerequest(struct command *cmd,
 	 * - if it supports bolt12 invoice request features:
 	 *   - MUST set `invreq_features`.`features` to the bitmap of features.
 	 */
-	req = jsonrpc_request_start(cmd->plugin, cmd, "createinvoicerequest",
-				    check_result, forward_error,
-				    invreq);
-	json_add_string(req->js, "bolt12", invrequest_encode(tmpctx, invreq));
-	json_add_bool(req->js, "savetodb", true);
-	json_add_bool(req->js, "single_use", *single_use);
-	if (label)
-		json_add_string(req->js, "recurrence_label", label);
-	return send_outreq(cmd->plugin, req);
+
+	/* FIXME: We only set blinded path if private, we should allow
+	 * setting otherwise! */
+	node_id_from_pubkey(&local_nodeid, &id);
+	if (!gossmap_find_node(get_gossmap(cmd->plugin), &local_nodeid)) {
+		struct invrequest_data *idata = tal(cmd, struct invrequest_data);
+		idata->invreq = invreq;
+		idata->single_use = *single_use;
+		idata->label = label;
+		return find_best_peer(cmd, OPT_ONION_MESSAGES,
+				      found_best_peer_invrequest, idata);
+	}
+
+	return call_createinvoicerequest(cmd, invreq, *single_use, label);
 }
 

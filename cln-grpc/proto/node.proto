@@ -1662,6 +1662,7 @@ message DecodeResponse {
 	optional DecodeRoutehintList routes = 82;
 	optional bytes offer_issuer_id = 83;
 	optional string warning_missing_offer_issuer_id = 84;
+	repeated DecodeInvreq_paths invreq_paths = 85;
 }
 
 message DecodeOffer_paths {
@@ -1675,6 +1676,19 @@ message DecodeOffer_recurrencePaywindow {
 	uint32 seconds_before = 1;
 	uint32 seconds_after = 2;
 	optional bool proportional_amount = 3;
+}
+
+message DecodeInvreq_paths {
+	optional uint32 first_scid_dir = 1;
+	bytes blinding = 2;
+	optional bytes first_node_id = 3;
+	optional string first_scid = 4;
+	repeated DecodeInvreq_pathsPath path = 5;
+}
+
+message DecodeInvreq_pathsPath {
+	bytes blinded_node_id = 1;
+	bytes encrypted_recipient_data = 2;
 }
 
 message DecodeInvoice_pathsPath {

@@ -564,7 +564,7 @@ static struct command_result *try_establish(struct command *cmd,
 		 *     - otherwise, if `offer_paths` is present (invoice_request for an offer without id):
 		 *       - MUST reject the invoice if `invoice_node_id` is not equal to the final `blinded_node_id` it sent the `invoice_request` to.
 		 */
-		if (!epaths->sent->offer->offer_issuer_id)
+		if (epaths->sent->offer && !epaths->sent->offer->offer_issuer_id)
 			epaths->sent->issuer_key = &bpath->path[tal_count(bpath->path)-1]->blinded_node_id;
 	}
 
@@ -1107,10 +1107,10 @@ static struct command_result *createinvoice_done(struct command *cmd,
 
 	/* BOLT-offers #12:
 	 *     - if it sends an invoice in response:
-	 *       - MUST use `offer_paths` if present, otherwise MUST use
+	 *       - MUST use `invreq_paths` if present, otherwise MUST use
 	 *         `invreq_payer_id` as the node id to send to.
 	 */
-	sent->their_paths = sent->invreq->offer_paths;
+	sent->their_paths = sent->invreq->invreq_paths;
 	if (sent->their_paths)
 		sent->direct_dest = NULL;
 	else
