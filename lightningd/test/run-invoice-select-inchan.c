@@ -51,6 +51,16 @@ char *bolt11_encode_(const tal_t *ctx UNNEEDED,
 				  void *arg) UNNEEDED,
 		     void *arg UNNEEDED)
 { fprintf(stderr, "bolt11_encode_ called!\n"); abort(); }
+/* Generated stub for bolt12_path_id */
+u8 *bolt12_path_id(const tal_t *ctx UNNEEDED,
+		   const struct secret *base_secret UNNEEDED,
+		   const struct sha256 *payment_hash UNNEEDED)
+{ fprintf(stderr, "bolt12_path_id called!\n"); abort(); }
+/* Generated stub for bolt12_path_secret */
+void bolt12_path_secret(const struct secret *base_secret UNNEEDED,
+			const struct sha256 *payment_hash UNNEEDED,
+			struct secret *path_secret UNNEEDED)
+{ fprintf(stderr, "bolt12_path_secret called!\n"); abort(); }
 /* Generated stub for broadcast_tx_ */
 void broadcast_tx_(const tal_t *ctx UNNEEDED,
 		   struct chain_topology *topo UNNEEDED,
@@ -391,11 +401,6 @@ char *invoice_encode(const tal_t *ctx UNNEEDED, const struct tlv_invoice *bolt12
 /* Generated stub for invoice_offer_id */
 void invoice_offer_id(const struct tlv_invoice *invoice UNNEEDED, struct sha256 *id UNNEEDED)
 { fprintf(stderr, "invoice_offer_id called!\n"); abort(); }
-/* Generated stub for invoice_path_id */
-u8 *invoice_path_id(const tal_t *ctx UNNEEDED,
-		    const struct secret *base_secret UNNEEDED,
-		    const struct sha256 *payment_hash UNNEEDED)
-{ fprintf(stderr, "invoice_path_id called!\n"); abort(); }
 /* Generated stub for invoices_create */
 bool invoices_create(struct invoices *invoices UNNEEDED,
 		     u64 *inv_dbid UNNEEDED,
