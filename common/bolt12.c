@@ -214,7 +214,7 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 
 	/* BOLT-offers #12:
 	 *
-	 * - if offer_amount is set and offer_description is not set:
+	 * - if `offer_amount` is set and `offer_description` is not set:
 	 *    - MUST NOT respond to the offer.
 	 */
 	if (!offer->offer_description && offer->offer_amount) {
@@ -288,7 +288,7 @@ struct tlv_invoice_request *invrequest_decode(const tal_t *ctx,
 	/* BOLT-offers #12:
 	 * The reader:
 	 *...
-	 *  - MUST fail the request if any non-signature TLV fields outside the inclusive ranges: 0 to 159 and 1000000000 to 2999999999
+	 *  - MUST fail the request if any non-signature TLV fields are outside the inclusive ranges: 0 to 159 and 1000000000 to 2999999999
 	 */
 	badf = any_field_outside_range(invrequest->fields, true,
 				       0, 159,

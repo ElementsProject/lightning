@@ -104,9 +104,12 @@ static bool print_offer_amount(const struct bitcoin_blkid *chains,
 	 *     - MUST specify `offer_currency` `iso4217` as an ISO 4712 three-letter code.
 	 *     - MUST specify `offer_amount` in the currency unit adjusted by the ISO 4712
 	 *       exponent (e.g. USD cents).
+	 *   - MUST set `offer_description` to a complete description of the purpose
+	 *       of the payment.
 	 * - otherwise:
 	 *   - MUST NOT set `offer_amount`
 	 *   - MUST NOT set `offer_currency`
+	 *   - MAY set `offer_description`
 	 */
 	if (!iso4217) {
 		if (tal_count(chains) == 0)
