@@ -39,6 +39,7 @@ bool dev_invoice_bpath_scid;
 struct short_channel_id *dev_invoice_internal_scid;
 struct secret invoicesecret_base;
 struct secret offerblinding_base;
+struct secret nodealias_base;
 static struct gossmap *global_gossmap;
 
 static void init_gossmap(struct plugin *plugin)
@@ -1388,6 +1389,11 @@ static const char *init(struct plugin *p,
 		 take(json_out_obj(NULL, "string", "offer-blinded-path")),
 		 "{secret:%}",
 		 JSON_SCAN(json_to_secret, &offerblinding_base));
+
+	rpc_scan(p, "makesecret",
+		 take(json_out_obj(NULL, "string", NODE_ALIAS_BASE_STRING)),
+		 "{secret:%}",
+		 JSON_SCAN(json_to_secret, &nodealias_base));
 
 	return NULL;
 }

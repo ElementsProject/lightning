@@ -660,17 +660,21 @@ struct command_result *json_invoicerequest(struct command *cmd,
 	invreq->invreq_amount
 		= tal_dup(invreq, u64, &msat->millisatoshis); /* Raw: wire */
 
-	/* FIXME: enable blinded paths! */
-
 	/* BOLT-offers #12:
 	 * - MUST set `invreq_metadata` to an unpredictable series of bytes.
 	 */
+	invreq->invreq_metadata = tal_arr(invreq, u8, 16);
+	randombytes_buf(invreq->invreq_metadata,
+			tal_bytelen(invreq->invreq_metadata));
+
+	/* FIXME: enable blinded paths! */
+
 	/* BOLT-offers #12:
 	 * - otherwise (not responding to an offer):
 	 *...
 	 *   - MUST set `invreq_payer_id` as it would set `offer_issuer_id` for an offer.
 	 */
-	/* createinvoicerequest sets these! */
+	/* createinvoicerequest sets this! */
 
 	/* BOLT-offers #12:
 	 * - if it supports bolt12 invoice request features:
