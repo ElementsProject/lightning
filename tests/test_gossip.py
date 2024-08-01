@@ -2137,3 +2137,34 @@ def test_gossip_throttle(node_factory, bitcoind, chainparams):
     assert time_slow > 3
     out4 = [m for m in out4 if not m.startswith(b'0109')]
     assert set(out2) == set(out4)
+
+
+def test_seeker_first_peer(node_factory, bitcoind):
+    l1, l2, l3, l4, l5 = node_factory.get_nodes(5)
+
+    node_factory.join_nodes([l4, l5], wait_for_announce=True)
+
+    # We always ask peer for everything if we have no gossip.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.daemon.wait_for_log(rf"{l2.info['id']}-gossipd: seeker: starting gossip \(EVERYTHING\)")
+
+    # Still no gossip, so we ask second peer too.
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l1.daemon.wait_for_log(rf"{l3.info['id']}-gossipd: seeker: starting gossip \(EVERYTHING\)")
+
+    # We can actually get gossip *before* we kick seeker, so it may stream here!
+    l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
+
+    l1.rpc.connect(l5.info['id'], 'localhost', l5.port)
+    l1.daemon.wait_for_log(rf"{l5.info['id']}-gossipd: seeker: starting gossip \(streaming\)")
+
+    # Now we restart, and we'll ask the first peer, even though we have gossip.
+    l1.restart()
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.daemon.wait_for_log(rf"{l2.info['id']}-gossipd: seeker: starting gossip \(EVERYTHING\)")
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    # This can take more than 10 seconds, so we add to timeout here!
+    l1.daemon.wait_for_log(rf"{l3.info['id']}-gossipd: seeker: starting gossip \(streaming\)",
+                           timeout=TIMEOUT + 10)
