@@ -1456,6 +1456,7 @@ static const char *plugin_rpcmethod_add(struct plugin *plugin,
 	const jsmntok_t *nametok, *usagetok, *deprtok;
 	struct json_command *cmd;
 	const char *usage, *err;
+	char *collision_name;
 
 	nametok = json_get_member(buffer, meth, "name");
 	usagetok = json_get_member(buffer, meth, "usage");
@@ -1488,11 +1489,11 @@ static const char *plugin_rpcmethod_add(struct plugin *plugin,
 	cmd->dev_only = false;
 	cmd->dispatch = plugin_rpcmethod_dispatch;
 	cmd->check = plugin_rpcmethod_check;
-	char *collision_name;
 	if (!jsonrpc_command_add(plugin->plugins->ld->jsonrpc, cmd, usage,
 				 &collision_name)) {
 		struct plugin *p = find_plugin_for_command(plugin->plugins->ld,
 							   collision_name);
+		/** p will be NULL if collision occurs within this plugin */
 		if (!p) {
 			p = plugin;
 		}
