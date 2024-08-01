@@ -392,22 +392,27 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 			    "Not dropping our unilateral close onchain since "
 			    "we already saw theirs confirm.");
 	} else {
-		struct bitcoin_tx *tx COMPILER_WANTS_INIT("gcc 12.3.0");
+		struct bitcoin_tx **txs = tal_arr(tmpctx, struct bitcoin_tx*, 0);
 
 		/* We need to drop *every* commitment transaction to chain */
 		if (!cooperative && !list_empty(&channel->inflights)) {
 			list_for_each(&channel->inflights, inflight, list) {
 				if (!inflight->last_tx)
 					continue;
-				tx = sign_and_send_last(tmpctx, ld, channel, cmd_id,
-							inflight->last_tx,
-							&inflight->last_sig);
+				tal_arr_expand(&txs, sign_and_send_last(tmpctx,
+									ld,
+									channel,
+									cmd_id,
+									inflight->last_tx,
+									&inflight->last_sig));
 			}
 		} else
-			tx = sign_and_send_last(tmpctx, ld, channel, cmd_id, channel->last_tx,
-						&channel->last_sig);
+			tal_arr_expand(&txs, sign_and_send_last(tmpctx, ld,
+								channel, cmd_id,
+								channel->last_tx,
+								&channel->last_sig));
 
-		resolve_close_command(ld, channel, cooperative, tx);
+		resolve_close_command(ld, channel, cooperative, txs);
 	}
 
 	/* In cooperative mode, we're assuming that we closed the right one:

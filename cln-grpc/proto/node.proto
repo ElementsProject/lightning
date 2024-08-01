@@ -504,6 +504,8 @@ message CloseResponse {
 	CloseType item_type = 1;
 	optional bytes tx = 2;
 	optional bytes txid = 3;
+	repeated bytes txs = 4;
+	repeated bytes txids = 5;
 }
 
 message ConnectRequest {

@@ -3022,21 +3022,49 @@
             "then": {
               "additionalProperties": false,
               "required": [
-                "tx",
-                "txid"
+                "txs",
+                "txids"
               ],
               "properties": {
                 "type": {},
                 "tx": {
                   "type": "hex",
+                  "deprecated": [
+                    "v24.08",
+                    "v25.08"
+                  ],
                   "description": [
                     "The raw bitcoin transaction used to close the channel (if it was open)."
                   ]
                 },
                 "txid": {
                   "type": "txid",
+                  "deprecated": [
+                    "v24.08",
+                    "v25.08"
+                  ],
                   "description": [
                     "The transaction id of the *tx* field."
+                  ]
+                },
+                "txs": {
+                  "added": "v24.08",
+                  "type": "array",
+                  "items": {
+                    "type": "hex"
+                  },
+                  "description": [
+                    "The raw bitcoin transactions used to close the channel (if it was open)."
+                  ]
+                },
+                "txids": {
+                  "added": "v24.08",
+                  "type": "array",
+                  "items": {
+                    "type": "txid"
+                  },
+                  "description": [
+                    "The transaction ids of the *tx* field(s)."
                   ]
                 }
               }

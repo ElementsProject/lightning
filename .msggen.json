@@ -780,6 +780,8 @@
         "CloseResponse": {
             "Close.tx": 2,
             "Close.txid": 3,
+            "Close.txids[]": 5,
+            "Close.txs[]": 4,
             "Close.type": 1
         },
         "ConnectAddress": {
@@ -4055,11 +4057,19 @@
         },
         "Close.tx": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v24.08"
         },
         "Close.txid": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v24.08"
+        },
+        "Close.txids[]": {
+            "added": "v24.08",
+            "deprecated": false
+        },
+        "Close.txs[]": {
+            "added": "v24.08",
+            "deprecated": false
         },
         "Close.type": {
             "added": "pre-v0.10.1",
