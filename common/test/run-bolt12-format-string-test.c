@@ -117,10 +117,7 @@ int main(int argc, char *argv[])
 	offer = tlv_offer_new(tmpctx);
 	/* BOLT-offers #12:
 	 * A writer of an offer:
-	 *   - MUST NOT set any tlv fields greater or equal to 80, or tlv field 0.
-	 *   - MUST set `offer_issuer_id` to the node's public key to request the invoice from.
-	 *   - MUST set `offer_description` to a complete description of the purpose
-	 *     of the payment.
+	 *   - MUST NOT set any TLV fields outside the inclusive ranges: 1 to 79 and 1000000000 to 1999999999.
 	 *   - if the chain for the invoice is not solely bitcoin:
 	 *     - MUST specify `offer_chains` the offer is valid for.
 	 *   - otherwise:
@@ -134,9 +131,12 @@ int main(int argc, char *argv[])
 	 *       - MUST specify `offer_currency` `iso4217` as an ISO 4712 three-letter code.
 	 *       - MUST specify `offer_amount` in the currency unit adjusted by the ISO 4712
 	 *         exponent (e.g. USD cents).
+	 *     - MUST set `offer_description` to a complete description of the purpose
+	 *       of the payment.
 	 *   - otherwise:
 	 *     - MUST NOT set `offer_amount`
 	 *     - MUST NOT set `offer_currency`
+	 *     - MAY set `offer_description`
 	 *   - MAY set `offer_metadata` for its own use.
 	 *   - if it supports bolt12 offer features:
 	 *     - MUST set `offer_features`.`features` to the bitmap of bolt12 features.
@@ -151,6 +151,9 @@ int main(int argc, char *argv[])
 	 *     - MAY include `offer_paths`.
 	 *   - if it includes `offer_paths`:
 	 *     - SHOULD ignore any invoice_request which does not use the path.
+	 *     - MAY set `offer_issuer_id`.
+	 *   - otherwise:
+	 *     - MUST set `offer_issuer_id` to the node's public key to request the invoice from.
 	 *   - if it sets `offer_issuer`:
 	 *     - SHOULD set it to identify the issuer of the invoice clearly.
 	 *     - if it includes a domain name:

@@ -1599,6 +1599,7 @@ impl From<responses::DecodeResponse> for pb::DecodeResponse {
             unique_id: c.unique_id, // Rule #2 for type string?
             valid: c.valid, // Rule #2 for type boolean
             version: c.version, // Rule #2 for type string?
+            warning_empty_blinded_path: c.warning_empty_blinded_path, // Rule #2 for type string?
             warning_invalid_invoice_request_signature: c.warning_invalid_invoice_request_signature, // Rule #2 for type string?
             warning_invalid_invoice_signature: c.warning_invalid_invoice_signature, // Rule #2 for type string?
             warning_invalid_invreq_payer_note: c.warning_invalid_invreq_payer_note, // Rule #2 for type string?

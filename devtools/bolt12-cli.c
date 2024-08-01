@@ -459,7 +459,7 @@ static u64 get_offer_type(const char *name)
 		 *         * [`tu64`:`max`]
 		 *     1. type: 22 (`offer_issuer_id`)
 		 *     2. data:
-		 *         * [`point`:`node_id`]
+		 *         * [`point`:`id`]
 		 */
 		{ "offer_chains", 2 },
 		{ "offer_metadata", 4 },
@@ -510,7 +510,7 @@ static u64 get_offer_type(const char *name)
 		 *         * [`tu64`:`max`]
 		 *     1. type: 22 (`offer_issuer_id`)
 		 *     2. data:
-		 *         * [`point`:`node_id`]
+		 *         * [`point`:`id`]
 		 *     1. type: 80 (`invreq_chain`)
 		 *     2. data:
 		 *         * [`chain_hash`:`chain`]
@@ -583,7 +583,7 @@ static u64 get_offer_type(const char *name)
 		 *         * [`tu64`:`max`]
 		 *     1. type: 22 (`offer_issuer_id`)
 		 *     2. data:
-		 *         * [`point`:`node_id`]
+		 *         * [`point`:`id`]
 		 *     1. type: 80 (`invreq_chain`)
 		 *     2. data:
 		 *         * [`chain_hash`:`chain`]
@@ -602,6 +602,9 @@ static u64 get_offer_type(const char *name)
 		 *     1. type: 89 (`invreq_payer_note`)
 		 *     2. data:
 		 *         * [`...*utf8`:`note`]
+		 *     1. type: 90 (`invreq_paths`)
+		 *     2. data:
+		 *         * [`...*blinded_path`:`paths`]
 		 *     1. type: 160 (`invoice_paths`)
 		 *     2. data:
 		 *         * [`...*blinded_path`:`paths`]

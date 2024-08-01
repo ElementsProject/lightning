@@ -1312,6 +1312,7 @@ def decode2py(m):
         "unique_id": m.unique_id,  # PrimitiveField in generate_composite
         "valid": m.valid,  # PrimitiveField in generate_composite
         "version": m.version,  # PrimitiveField in generate_composite
+        "warning_empty_blinded_path": m.warning_empty_blinded_path,  # PrimitiveField in generate_composite
         "warning_invalid_invoice_request_signature": m.warning_invalid_invoice_request_signature,  # PrimitiveField in generate_composite
         "warning_invalid_invoice_signature": m.warning_invalid_invoice_signature,  # PrimitiveField in generate_composite
         "warning_invalid_invreq_payer_note": m.warning_invalid_invreq_payer_note,  # PrimitiveField in generate_composite

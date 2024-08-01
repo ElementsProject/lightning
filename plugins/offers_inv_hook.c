@@ -136,13 +136,11 @@ static struct command_result *listinvreqs_done(struct command *cmd,
 	 *   - if the invoice is a response to an `invoice_request`:
 	 *     - MUST reject the invoice if all fields in ranges 0 to 159 and 1000000000 to 2999999999 (inclusive) do not exactly match the `invoice_request`.
 	 *     - if `offer_issuer_id` is present (invoice_request for an offer):
-	 *       - MUST reject the invoice if `invoice_node_id` is not equal to `offer_issuer_id`.
+	 *       - MUST reject the invoice if `invoice_node_id` is not equal to `offer_issuer_id`
 	 *     - otherwise, if `offer_paths` is present (invoice_request for an offer without id):
 	 *      - MUST reject the invoice if `invoice_node_id` is not equal to the final `blinded_node_id` it sent the `invoice_request` to.
 	 *     - otherwise (invoice_request without an offer):
 	 *       - MAY reject the invoice if it cannot confirm that `invoice_node_id` is correct, out-of-band.
-	 *
-	 *   - otherwise: (a invoice presented without being requested, eg. scanned by user):
 	 */
 
 	/* Since the invreq_id hashes all fields in those ranges, we know it matches */
@@ -317,25 +315,22 @@ struct command_result *handle_invoice(struct command *cmd,
 	 * A reader of an invoice:
 	 *...
 	 *  - MUST reject the invoice if `invoice_paths` is not present or is empty.
+	 *  - MUST reject the invoice if `num_hops` is 0 in any `blinded_path` in `invoice_paths`.
 	 *  - MUST reject the invoice if `invoice_blindedpay` is not present.
 	 *  - MUST reject the invoice if `invoice_blindedpay` does not contain exactly one `blinded_payinfo` per `invoice_paths`.`blinded_path`.
 	 */
 	if (!inv->inv->invoice_paths)
 		return fail_inv(cmd, inv, "Missing invoice_paths");
+	for (size_t i = 0; i < tal_count(inv->inv->invoice_paths); i++) {
+		if (tal_count(inv->inv->invoice_paths[i]->path) == 0)
+			return fail_inv(cmd, inv, "Empty path in invoice_paths");
+	}
 	if (!inv->inv->invoice_blindedpay)
 		return fail_inv(cmd, inv, "Missing invoice_blindedpay");
 	if (tal_count(inv->inv->invoice_blindedpay)
 	    != tal_count(inv->inv->invoice_paths))
 		return fail_inv(cmd, inv,
 				"Mismatch between invoice_blindedpay and invoice_paths");
-
-	/* BOLT-offers #12:
-	 *   - MUST reject the invoice if `num_hops` is 0 in any `blinded_path` in `invoice_paths`.
-	 */
-	for (size_t i = 0; i < tal_count(inv->inv->invoice_paths); i++) {
-		if (tal_count(inv->inv->invoice_paths[i]->path) == 0)
-			return fail_inv(cmd, inv, "Empty path in invoice_paths");
-	}
 
 	/* BOLT-offers #12:
 	 * A reader of an invoice:

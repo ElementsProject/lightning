@@ -221,8 +221,11 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	}
 
 	/* BOLT-offers #12:
-	 *     - if `offer_node_id` or `offer_paths` are present (invoice_request for an offer):
-	 *       - MUST reject the invoice if `invoice_node_id` is not equal to the public key it sent the `invoice_request` to.
+	 * - if `offer_issuer_id` is present (invoice_request for an offer):
+	 *   - MUST reject the invoice if `invoice_node_id` is not equal to `offer_issuer_id`
+	 * - otherwise, if `offer_paths` is present (invoice_request for an offer without id):
+	 *   - MUST reject the invoice if `invoice_node_id` is not equal to the final
+	 *    `blinded_node_id` it sent the `invoice_request` to.
 	 */
 	if (!inv->invoice_node_id || !pubkey_eq(inv->offer_issuer_id, sent->issuer_key)) {
 		badfield = "invoice_node_id";
@@ -560,7 +563,7 @@ static struct command_result *try_establish(struct command *cmd,
 		target = first.pubkey;
 		/* BOLT-offers #12:
 		 *     - if `offer_issuer_id` is present (invoice_request for an offer):
-		 *       - MUST reject the invoice if `invoice_node_id` is not equal `offer_issuer_id`
+		 *       - MUST reject the invoice if `invoice_node_id` is not equal to `offer_issuer_id`
 		 *     - otherwise, if `offer_paths` is present (invoice_request for an offer without id):
 		 *       - MUST reject the invoice if `invoice_node_id` is not equal to the final `blinded_node_id` it sent the `invoice_request` to.
 		 */
@@ -1171,7 +1174,7 @@ static struct command_result *param_invreq(struct command *cmd,
 	 * The reader:
 	 *   - MUST fail the request if `invreq_payer_id` or `invreq_metadata`
 	 *     are not present.
-	 *   - MUST fail the request if any non-signature TLV fields are outside the inclusive ranges: 0 to 159 and 1000000000 to 2999999999.
+	 *   - MUST fail the request if any non-signature TLV fields are outside the inclusive ranges: 0 to 159 and 1000000000 to 2999999999
 	 *   - if `invreq_features` contains unknown _odd_ bits that are
 	 *     non-zero:
 	 *     - MUST ignore the bit.
@@ -1228,7 +1231,7 @@ static struct command_result *param_invreq(struct command *cmd,
 	}
 
 	/* BOLT-offers #12:
-	 *  - otherwise (no `offer_node_id` or `offer_paths`, not a response to our offer):
+	 *  - otherwise (no `offer_issuer_id` or `offer_paths`, not a response to our offer):
 	 *     - MUST fail the request if any of the following are present:
 	 *       - `offer_chains`, `offer_features` or `offer_quantity_max`.
 	 *     - MUST fail the request if `invreq_amount` is not present.
@@ -1338,7 +1341,7 @@ struct command_result *json_sendinvoice(struct command *cmd,
 
 	/* BOLT-offers #12:
 	 * - if `offer_issuer_id` is present:
-	 *   - MUST set `invoice_node_id` to `offer_issuer_id`.
+	 *   - MUST set `invoice_node_id` to the `offer_issuer_id`
 	 * - otherwise, if `offer_paths` is present:
 	 *   - MUST set `invoice_node_id` to the final `blinded_node_id` on the path it received the `invoice_request`
 	 * - otherwise:

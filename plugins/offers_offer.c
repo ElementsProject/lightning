@@ -745,7 +745,7 @@ struct command_result *json_invoicerequest(struct command *cmd,
 	/* BOLT-offers #12:
 	 * - otherwise (not responding to an offer):
 	 *...
-	 *   - MUST set `invreq_payer_id` as it would set `offer_issuer_id` for an offer.
+	 *   - MUST set `invreq_payer_id` (as it would set `offer_issuer_id` for an offer).
 	 */
 	/* FIXME: Allow invoicerequests using aliases! */
 	invreq->invreq_payer_id = tal_dup(invreq, struct pubkey, &id);
