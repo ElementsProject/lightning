@@ -5726,6 +5726,13 @@
                     }
                   }
                 },
+                "warning_empty_blinded_path": {
+                  "added": "v24.08",
+                  "type": "string",
+                  "description": [
+                    "The blinded path has 0 hops."
+                  ]
+                },
                 "offer_node_id": {
                   "type": "pubkey",
                   "deprecated": [

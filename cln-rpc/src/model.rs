@@ -6872,6 +6872,8 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub version: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_empty_blinded_path: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_invalid_invoice_request_signature: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_invalid_invoice_signature: Option<String>,

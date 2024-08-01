@@ -565,6 +565,19 @@ static bool json_add_blinded_paths(struct json_stream *js,
 		return false;
 	}
 
+	/* BOLT-offers #12:
+	 *  - if `num_hops` is 0 in any `blinded_path` in `offer_paths`:
+	 *    - MUST NOT respond to the offer.
+	 */
+	for (size_t i = 0; i < tal_count(paths); i++) {
+		if (tal_count(paths[i]->path) == 0) {
+			json_add_str_fmt(js, "warning_empty_blinded_path",
+					 "blinded path %zu has 0 hops",
+					 i);
+			return false;
+		}
+	}
+
 	return true;
 }
 
@@ -1011,6 +1024,7 @@ static void json_add_b12_invoice(struct json_stream *js,
 	/* BOLT-offers #12:
 	 * - MUST reject the invoice if `invoice_paths` is not present
 	 *   or is empty.
+	 * - MUST reject the invoice if `num_hops` is 0 in any `blinded_path` in `invoice_paths`.
 	 * - MUST reject the invoice if `invoice_blindedpay` is not present.
 	 * - MUST reject the invoice if `invoice_blindedpay` does not contain
 	 *   exactly one `blinded_payinfo` per `invoice_paths`.`blinded_path`.

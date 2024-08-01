@@ -930,7 +930,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 
 	/* BOLT-offers #12:
 	 *   - if `offer_issuer_id` is present:
-	 *     - MUST set `invoice_node_id` to `offer_issuer_id`.
+	 *     - MUST set `invoice_node_id` to the `offer_issuer_id`
 	 */
 	/* FIXME: We always provide an offer_issuer_id! */
 	ir->inv->invoice_node_id = ir->inv->offer_issuer_id;

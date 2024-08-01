@@ -1663,6 +1663,7 @@ message DecodeResponse {
 	optional bytes offer_issuer_id = 83;
 	optional string warning_missing_offer_issuer_id = 84;
 	repeated DecodeInvreq_paths invreq_paths = 85;
+	optional string warning_empty_blinded_path = 86;
 }
 
 message DecodeOffer_paths {

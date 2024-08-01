@@ -997,6 +997,7 @@
             "Decode.unknown_offer_tlvs[]": 19,
             "Decode.valid": 2,
             "Decode.version": 71,
+            "Decode.warning_empty_blinded_path": 86,
             "Decode.warning_invalid_invoice_request_signature": 39,
             "Decode.warning_invalid_invoice_signature": 58,
             "Decode.warning_invalid_invreq_payer_note": 37,
@@ -4813,6 +4814,10 @@
         },
         "Decode.version": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Decode.warning_empty_blinded_path": {
+            "added": "v24.08",
             "deprecated": null
         },
         "Decode.warning_invalid_invoice_request_signature": {

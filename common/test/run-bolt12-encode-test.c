@@ -248,7 +248,7 @@ int main(int argc, char *argv[])
 	/* BOLT-offers #12:
 	 *   - if it includes `offer_paths`:
 	 *     - SHOULD ignore any invoice_request which does not use the path.
-	 *     - MAY set `offer_issuer_id` to the node's public key to request the invoice from.
+	 *     - MAY set `offer_issuer_id`.
 	 *   - otherwise:
 	 *      - MUST set `offer_issuer_id` to the node's public key to request the invoice from.
 	 */
