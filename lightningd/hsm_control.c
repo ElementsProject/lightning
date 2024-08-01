@@ -192,6 +192,17 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	if (!fromwire_hsmd_derive_secret_reply(msg, &ld->invoicesecret_base))
 		err(EXITCODE_HSM_GENERIC_ERROR, "Bad derive_secret_reply");
 
+	/* This is equivalent to makesecret("node-alias-base") */
+	msg = towire_hsmd_derive_secret(NULL, tal_dup_arr(tmpctx, u8,
+							  (const u8 *)NODE_ALIAS_BASE_STRING,
+							  strlen(NODE_ALIAS_BASE_STRING), 0));
+	if (!wire_sync_write(ld->hsm_fd, take(msg)))
+		err(EXITCODE_HSM_GENERIC_ERROR, "Writing derive_secret msg to hsm");
+
+	msg = wire_sync_read(tmpctx, ld->hsm_fd);
+	if (!fromwire_hsmd_derive_secret_reply(msg, &ld->nodealias_base))
+		err(EXITCODE_HSM_GENERIC_ERROR, "Bad derive_secret_reply");
+
 	return bip32_base;
 }
 

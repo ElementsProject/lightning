@@ -157,6 +157,9 @@ struct lightningd {
 	/* Secret base for our invoices */
 	struct secret invoicesecret_base;
 
+	/* Secret base for node aliases  */
+	struct secret nodealias_base;
+
 	/* Feature set we offer. */
 	struct feature_set *our_features;
 
