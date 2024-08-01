@@ -56,17 +56,21 @@ static void hsm_sign_b12(struct lightningd *ld,
 {
 	const u8 *msg;
 	struct sha256 sighash;
+	/* Needs to be a (non-nul-terminated) tal_arr */
+	const u8 *info = tal_dup_arr(tmpctx, u8,
+				     (const u8 *)NODE_ALIAS_BASE_STRING,
+				     strlen(NODE_ALIAS_BASE_STRING), 0);
 
-	msg = towire_hsmd_sign_bolt12(NULL, messagename, fieldname, merkle,
-				      publictweak);
+	msg = towire_hsmd_sign_bolt12_2(NULL, messagename, fieldname, merkle,
+					info, publictweak);
 	msg = hsm_sync_req(tmpctx, ld, take(msg));
-        if (!fromwire_hsmd_sign_bolt12_reply(msg, sig))
-		fatal("HSM gave bad sign_offer_reply %s",
+        if (!fromwire_hsmd_sign_bolt12_2_reply(msg, sig))
+		fatal("HSM gave bad sign_bolt12_2 %s",
 		      tal_hex(msg, msg));
 
 	/* Now we sanity-check! */
 	sighash_from_merkle(messagename, fieldname, merkle, &sighash);
-	if (!check_schnorr_sig(&sighash, &key->pubkey, sig))
+ 	if (!check_schnorr_sig(&sighash, &key->pubkey, sig))
 		fatal("HSM gave bad signature %s for pubkey %s",
 		      fmt_bip340sig(tmpctx, sig),
 		      fmt_pubkey(tmpctx, key));
@@ -361,10 +365,11 @@ static bool payer_key(struct lightningd *ld,
 {
 	struct sha256 tweakhash;
 
-	payer_key_tweak(&ld->bolt12_base, public_tweak, public_tweak_len,
-			&tweakhash);
+	*key = ld->our_pubkey;
+	bolt12_alias_tweak(&ld->nodealias_base,
+			   public_tweak, public_tweak_len,
+			   &tweakhash);
 
-	*key = ld->bolt12_base;
 	return secp256k1_ec_pubkey_tweak_add(secp256k1_ctx,
 					     &key->pubkey,
 					     tweakhash.u.u8) == 1;

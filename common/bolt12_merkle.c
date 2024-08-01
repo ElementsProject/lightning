@@ -218,23 +218,3 @@ void sighash_from_merkle(const char *messagename,
 	sha256_update(&sctx, merkle, sizeof(*merkle));
 	sha256_done(&sctx, sighash);
 }
-
-/* We use the SHA(pubkey | publictweak); so reader cannot figure out the
- * tweak and derive the base key.
- */
-void payer_key_tweak(const struct pubkey *bolt12,
-		     const u8 *publictweak, size_t publictweaklen,
-		     struct sha256 *tweak)
-{
-	u8 rawkey[PUBKEY_CMPR_LEN];
-	struct sha256_ctx sha;
-
-	pubkey_to_der(rawkey, bolt12);
-
-	sha256_init(&sha);
-	sha256_update(&sha, rawkey, sizeof(rawkey));
-	sha256_update(&sha,
-		      memcheck(publictweak, publictweaklen),
-		      publictweaklen);
-	sha256_done(&sha, tweak);
-}
