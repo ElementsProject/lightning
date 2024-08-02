@@ -27,8 +27,14 @@ PLUGIN_LIB_SRC := plugins/libplugin.c
 PLUGIN_LIB_HEADER := plugins/libplugin.h
 PLUGIN_LIB_OBJS := $(PLUGIN_LIB_SRC:.c=.o)
 
-PLUGIN_PAY_LIB_SRC := plugins/libplugin-pay.c
-PLUGIN_PAY_LIB_HEADER := plugins/libplugin-pay.h
+PLUGIN_PAY_LIB_SRC := \
+	plugins/channel_hint.c \
+	plugins/libplugin-pay.c
+
+PLUGIN_PAY_LIB_HEADER := \
+	plugins/channel_hint.h \
+	plugins/libplugin-pay.h
+
 PLUGIN_PAY_LIB_OBJS := $(PLUGIN_PAY_LIB_SRC:.c=.o)
 
 PLUGIN_OFFERS_SRC := plugins/offers.c plugins/offers_offer.c plugins/offers_invreq_hook.c plugins/offers_inv_hook.c plugins/establish_onion_path.c plugins/fetchinvoice.c
