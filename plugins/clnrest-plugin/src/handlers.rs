@@ -1,8 +1,8 @@
-use std::{collections::HashMap, process};
+use std::{collections::hash_map::Entry, process};
 
 use anyhow::anyhow;
 use axum::{
-    body::{to_bytes, Body},
+    body::Body,
     extract::{Extension, Json, Path, State},
     http::{Request, StatusCode},
     middleware::Next,
@@ -17,8 +17,11 @@ use serde_json::json;
 use socketioxide::extract::{Data, SocketRef};
 
 use crate::{
-    shared::{call_rpc, filter_json, verify_rune},
-    PluginState, SWAGGER_FALLBACK,
+    shared::{
+        call_rpc, filter_json, generate_response, get_clnrest_manifests, get_content_type,
+        get_plugin_methods, handle_custom_paths, merge_params, parse_request_body, verify_rune,
+    },
+    ClnrestMap, PluginState, SWAGGER_FALLBACK,
 };
 
 #[derive(Debug)]
@@ -55,7 +58,13 @@ impl IntoResponse for AppError {
 pub async fn list_methods(
     Extension(plugin): Extension<Plugin<PluginState>>,
 ) -> Result<Html<String>, AppError> {
-    match call_rpc(plugin, "help", json!(HelpRequest { command: None })).await {
+    match call_rpc(
+        &plugin.configuration().rpc_file,
+        "help",
+        Some(json!(HelpRequest { command: None })),
+    )
+    .await
+    {
         Ok(help_response) => {
             let html_content = process_help_response(help_response);
             Ok(Html(html_content))
@@ -76,7 +85,14 @@ fn process_help_response(help_response: serde_json::Value) -> String {
     let mut processed_html_res = String::new();
 
     for row in processed_res.help {
-        processed_html_res.push_str(&format!("Command: {}\n", row.command));
+        processed_html_res.push_str(&format!("Command: {}<br>", row.command));
+        if let Some(clnrest) = row.clnrest {
+            processed_html_res.push_str(&format!("Clnrest path:: {}\n", clnrest.path));
+            processed_html_res.push_str(&format!("Clnrest method: {}\n", clnrest.method));
+            processed_html_res
+                .push_str(&format!("Clnrest content-type: {}\n", clnrest.content_type));
+            processed_html_res.push_str(&format!("Clnrest rune: {}\n", clnrest.rune));
+        }
         processed_html_res.push_str(line);
     }
 
@@ -86,9 +102,9 @@ fn process_help_response(help_response: serde_json::Value) -> String {
 // Handler for calling RPC methods
 #[utoipa::path(
     post,
-    path = "/v1/{rpc_method}",
+    path = "/v1/{rpc_method_or_path}",
     responses(
-        (status = 201, description = "Call rpc method", body = serde_json::Value),
+        (status = 201, description = "Call rpc method by name or custom path", body = serde_json::Value),
         (status = 401, description = "Unauthorized", body = serde_json::Value),
         (status = 403, description = "Forbidden", body = serde_json::Value),
         (status = 404, description = "Not Found", body = serde_json::Value),
@@ -98,67 +114,93 @@ fn process_help_response(help_response: serde_json::Value) -> String {
      example = json!({}) ),
     security(("api_key" = []))
 )]
-pub async fn call_rpc_method(
-    Path(rpc_method): Path<String>,
+pub async fn post_rpc_method(
+    Path(path): Path<String>,
     headers: axum::http::HeaderMap,
     Extension(plugin): Extension<Plugin<PluginState>>,
     body: Request<Body>,
 ) -> Result<Response, AppError> {
-    let rune = headers
-        .get("rune")
-        .and_then(|v| v.to_str().ok())
-        .map(String::from);
+    let (rpc_method, path_params, rest_map) = handle_custom_paths(&plugin, &path, "POST").await?;
 
-    let bytes = match to_bytes(body.into_body(), usize::MAX).await {
-        Ok(o) => o,
-        Err(e) => {
-            return Err(AppError::InternalServerError(RpcError {
-                code: None,
-                data: None,
-                message: format!("Could not read request body: {}", e),
-            }))
-        }
-    };
-
-    let mut rpc_params = match serde_json::from_slice(&bytes) {
-        Ok(o) => o,
-        Err(e1) => {
-            // it's not json but a form instead
-            let form_str = String::from_utf8(bytes.to_vec()).unwrap();
-            let mut form_data = HashMap::new();
-            for pair in form_str.split('&') {
-                let mut kv = pair.split('=');
-                if let (Some(key), Some(value)) = (kv.next(), kv.next()) {
-                    form_data.insert(key.to_string(), value.to_string());
-                }
-            }
-            match serde_json::to_value(form_data) {
-                Ok(o) => o,
-                Err(e2) => {
-                    return Err(AppError::InternalServerError(RpcError {
-                        code: None,
-                        data: None,
-                        message: format!(
-                            "Could not parse json from form data: {}\
-                        Original serde_json error: {}",
-                            e2, e1
-                        ),
-                    }))
-                }
-            }
-        }
-    };
+    let mut rpc_params = parse_request_body(body).await?;
 
     filter_json(&mut rpc_params);
 
-    verify_rune(plugin.clone(), rune, &rpc_method, &rpc_params).await?;
+    merge_params(&mut rpc_params, path_params)?;
 
-    match call_rpc(plugin, &rpc_method, rpc_params).await {
-        Ok(result) => {
-            let response_body = Json(result);
-            let response = (StatusCode::CREATED, response_body).into_response();
-            Ok(response)
+    if rest_map.as_ref().map_or_else(|| true, |map| map.rune) {
+        let rune = headers
+            .get("rune")
+            .and_then(|v| v.to_str().ok())
+            .map(String::from);
+        verify_rune(
+            &plugin.configuration().rpc_file,
+            rune,
+            &rpc_method,
+            Some(rpc_params.clone()),
+        )
+        .await?;
+    }
+
+    let content_type = get_content_type(rest_map)?;
+
+    match call_rpc(
+        &plugin.configuration().rpc_file,
+        &rpc_method,
+        Some(rpc_params),
+    )
+    .await
+    {
+        Ok(result) => Ok(generate_response(result, content_type)),
+        Err(err) => {
+            if let Some(code) = err.code {
+                if code == -32601 {
+                    return Err(AppError::NotFound(err));
+                }
+            }
+            Err(AppError::InternalServerError(err))
         }
+    }
+}
+
+// Handler for calling RPC methods
+#[utoipa::path(
+    get,
+    path = "/v1/{rpc_method_or_path}",
+    responses(
+        (status = 201, description = "Call rpc method by name or custom path", body = serde_json::Value),
+        (status = 401, description = "Unauthorized", body = serde_json::Value),
+        (status = 403, description = "Forbidden", body = serde_json::Value),
+        (status = 404, description = "Not Found", body = serde_json::Value),
+        (status = 500, description = "Server Error", body = serde_json::Value)
+    ),
+    security(("api_key" = []))
+)]
+pub async fn get_rpc_method(
+    Path(path): Path<String>,
+    headers: axum::http::HeaderMap,
+    Extension(plugin): Extension<Plugin<PluginState>>,
+) -> Result<Response, AppError> {
+    let (rpc_method, path_params, rest_map) = handle_custom_paths(&plugin, &path, "GET").await?;
+
+    if rest_map.as_ref().map_or_else(|| true, |map| map.rune) {
+        let rune = headers
+            .get("rune")
+            .and_then(|v| v.to_str().ok())
+            .map(String::from);
+        verify_rune(
+            &plugin.configuration().rpc_file,
+            rune,
+            &rpc_method,
+            path_params.clone(),
+        )
+        .await?;
+    }
+
+    let content_type = get_content_type(rest_map)?;
+
+    match call_rpc(&plugin.configuration().rpc_file, &rpc_method, path_params).await {
+        Ok(result) => Ok(generate_response(result, content_type)),
         Err(err) => {
             if let Some(code) = err.code {
                 if code == -32601 {
@@ -178,11 +220,42 @@ pub async fn handle_notification(
     plugin: Plugin<PluginState>,
     value: serde_json::Value,
 ) -> Result<(), anyhow::Error> {
+    log::debug!("notification: {}", value.to_string());
     if let Some(sht) = value.get("shutdown") {
         log::info!("Got shutdown notification: {}", sht);
         // This seems to error when subscribing to "*" notifications
         _ = plugin.shutdown();
         process::exit(0);
+    } else if let Some(p_started) = value.get("plugin_started") {
+        let rpc_methods = get_plugin_methods(p_started);
+
+        let manifests = get_clnrest_manifests(&plugin.configuration().rpc_file).await?;
+        let mut rest_paths = plugin.state().rest_paths.lock().unwrap();
+        for rpc_method in rpc_methods.into_iter() {
+            let clnrest_data = match manifests.get(&rpc_method) {
+                Some(c) => c.clone(),
+                None => continue,
+            };
+            if let Entry::Vacant(entry) = rest_paths.entry(clnrest_data.path.clone()) {
+                log::info!(
+                    "Registered custom path `{}` for `{}` via `{}`",
+                    clnrest_data.path,
+                    rpc_method,
+                    clnrest_data.method
+                );
+                entry.insert(ClnrestMap {
+                    content_type: clnrest_data.content_type,
+                    http_method: clnrest_data.method,
+                    rpc_method,
+                    rune: clnrest_data.rune,
+                });
+            }
+        }
+    } else if let Some(p_stopped) = value.get("plugin_stopped") {
+        let rpc_methods = get_plugin_methods(p_stopped);
+
+        let mut rest_paths = plugin.state().rest_paths.lock().unwrap();
+        rest_paths.retain(|_, v| !rpc_methods.contains(&v.rpc_method))
     }
     match plugin.state().notification_sender.send(value).await {
         Ok(()) => Ok(()),
@@ -213,7 +286,14 @@ pub async fn header_inspection_middleware(
         .map(String::from);
 
     if upgrade.is_some() {
-        match verify_rune(plugin, rune, "listclnrest-notifications", &json!({})).await {
+        match verify_rune(
+            &plugin.configuration().rpc_file,
+            rune,
+            "listclnrest-notifications",
+            None,
+        )
+        .await
+        {
             Ok(()) => Ok(next.run(req).await),
             Err(e) => Err(e),
         }

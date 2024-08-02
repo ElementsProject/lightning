@@ -16,7 +16,7 @@ serde_json = "1"
 tokio-util = { version = "0.7", features = ["codec"] }
 tokio = { version="1", features = ['io-std', 'rt-multi-thread', 'sync', 'macros', 'io-util'] }
 axum = "0.7"
-axum-server = { version = "0.6", features = ["tls-rustls"] }
+axum-server = { version = "0.7", features = ["tls-rustls"] }
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 rcgen = "0.13"
 hyper = "1"
