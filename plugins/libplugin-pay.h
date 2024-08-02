@@ -5,6 +5,7 @@
 #include <ccan/io/io.h>
 #include <common/bolt11.h>
 #include <common/route.h>
+#include <plugins/channel_hint.h>
 #include <plugins/libplugin.h>
 #include <wire/onion_wire.h>
 
@@ -59,42 +60,6 @@ struct local_hint {
 	 * is a local channel, because those are the channels we have exact
 	 * numbers on, and they are the bottleneck onto the network. */
 	u16 htlc_budget;
-};
-
-/* Information about channels we inferred from a) looking at our channels, and
- * b) from failures encountered during attempts to perform a payment. These
- * are attached to the root payment, since that information is
- * global. Attempts update the estimated channel capacities when starting, and
- * get remove on failure. Success keeps the capacities, since the capacities
- * changed due to the successful HTLCs. */
-struct channel_hint {
-	/* The timestamp this observation was made. Used to let the
-	 * constraint expressed by this hint decay over time, until it
-	 * is fully relaxed, at which point we can forget about it
-	 * (the structural information is the best we can do in that
-	 * case).
-	 */
-	u32 timestamp;
-	/* The short_channel_id we're going to use when referring to
-	 * this channel. This can either be the real scid, or the
-	 * local alias. The `pay` algorithm doesn't really care which
-	 * one it is, but we'll prefer the scid as that's likely more
-	 * readable than the alias. */
-	struct short_channel_id_dir scid;
-
-	/* Upper bound on remove channels inferred from payment failures. */
-	struct amount_msat estimated_capacity;
-
-	/* Is the channel enabled? */
-	bool enabled;
-
-	/* Non-null if we are one endpoint of this channel */
-	struct local_hint *local;
-
-	/* The total `amount_msat` that were used to fund the
-	 * channel. This is always smaller gte the
-	 * estimated_capacity */
-	struct amount_msat overall_capacity;
 };
 
 /* Each payment goes through a number of steps that are always processed in
