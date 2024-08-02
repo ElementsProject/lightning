@@ -8,6 +8,7 @@ from urllib3.util.retry import Retry
 import socketio
 import time
 import pytest
+import os
 
 
 def http_session_with_retry():
@@ -158,11 +159,13 @@ def test_unknown_method(node_factory):
     l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
     http_session = http_session_with_retry()
 
-    response = http_session.get(base_url + '/v1/unknown-get', verify=ca_cert)
-    assert response.status_code == 405
+    rune = l1.rpc.createrune()['rune']
+    response = http_session.get(base_url + '/v1/unknown-get', headers={'Rune': rune}, verify=ca_cert)
+    assert response.status_code == 404
+    assert response.json()['code'] == -32601
+    assert response.json()['message'] == "Unknown command 'unknown-get'"
 
     """Test POST request error on `/v1/unknown-post` end point."""
-    rune = l1.rpc.createrune()['rune']
     response = http_session.post(base_url + '/v1/unknown-post', headers={'Rune': rune}, verify=ca_cert)
     assert response.status_code == 404
     assert response.json()['code'] == -32601
@@ -467,13 +470,14 @@ def test_http_headers(node_factory):
                                 verify=ca_cert)
     assert response.headers['Access-Control-Allow-Origin'] == 'http://192.168.1.10:1010'
 
+
 def test_clnrest_manifest(node_factory):
     """
     Test that clnrest data can be returned in the manifest of a plugin.
     Does not test if the data is correctly registered in the manifest.
     """
 
-    l1, _, _ = start_node_with_clnrest(node_factory)
+    l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
     plugin_path = os.path.join(os.path.dirname(__file__), "plugins/get_manifest.py")
     l1.rpc.plugin_start(plugin_path)
     manifest = l1.rpc.checkmymanifest("checkmymanifest")
@@ -483,6 +487,44 @@ def test_clnrest_manifest(node_factory):
         "content_type": "application/json",
         "rune": True,
     }
+
+    rune = l1.rpc.createrune(restrictions=[["method=checkmymanifest"]])['rune']
+    http_session = http_session_with_retry()
+    response = http_session.post(base_url + '/v1/path/to/me', headers={'Rune': rune}, verify=ca_cert)
+    assert response.json()["clnrest"] == {
+        "path": "/path/to/me",
+        "method": "POST",
+        "content_type": "application/json",
+        "rune": True,
+    }
+
+    rune = l1.rpc.createrune(restrictions=[["method=dyncheckmymanifestpost"]])['rune']
+    response = http_session.post(base_url + '/v1/user/5/me', headers={'Rune': rune}, verify=ca_cert)
+    assert response.json()["clnrest"] == {
+        "path": r"/user/<id>/me",
+        "method": "POST",
+        "content_type": "application/json",
+        "rune": True,
+    }
+    assert response.json()["dyn_id_post"] == '5'
+
+    response = http_session.get(base_url + '/v1/stats/5/me', verify=ca_cert)
+    assert response.json()["clnrest"] == {
+        "path": r"/stats/<id>/me",
+        "method": "GET",
+        "content_type": "application/json",
+        "rune": False,
+    }
+    assert response.json()["dyn_id_get"] == '5'
+
+    response = http_session.get(base_url + '/v1/stats/to/me', verify=ca_cert)
+    assert response.json()["clnrest"] == {
+        "path": "/stats/to/me",
+        "method": "GET",
+        "content_type": "application/json",
+        "rune": False,
+    }
+    assert "dyn_id_get" not in response.json()
 
 
 def test_websocket_upgrade_header(node_factory):
