@@ -96,9 +96,6 @@ static void memleak_log(struct logger *log, const char *fmt, ...)
 
 static void finish_report(const struct leak_detect *leaks)
 {
-	struct htable *memtable;
-	struct command *cmd;
-	struct lightningd *ld;
 	struct json_stream *response;
 
 	/* If it timed out, we free ourselved and exit! */
@@ -107,34 +104,7 @@ static void finish_report(const struct leak_detect *leaks)
 		return;
 	}
 
-	/* Convenience variables */
-	cmd = leaks->cmd;
-	ld = cmd->ld;
-
-	/* Enter everything, except this cmd and its jcon */
-	memtable = memleak_start(cmd);
-
-	/* This command is not a leak! */
-	memleak_ptr(memtable, cmd);
-	memleak_ignore_children(memtable, cmd);
-
-	/* First delete known false positives. */
-	memleak_scan_htable(memtable, &ld->topology->txwatches->raw);
-	memleak_scan_htable(memtable, &ld->topology->txowatches->raw);
-	memleak_scan_htable(memtable, &ld->topology->outgoing_txs->raw);
-	memleak_scan_htable(memtable, &ld->htlcs_in->raw);
-	memleak_scan_htable(memtable, &ld->htlcs_out->raw);
-	memleak_scan_htable(memtable, &ld->htlc_sets->raw);
-	memleak_scan_htable(memtable, &ld->peers->raw);
-	memleak_scan_htable(memtable, &ld->peers_by_dbid->raw);
-
-	/* Now delete ld and those which it has pointers to. */
-	memleak_scan_obj(memtable, ld);
-
-	if (dump_memleak(memtable, memleak_log, ld->log))
-		tal_arr_expand(&leaks->leakers, "lightningd");
-
-	response = json_stream_success(cmd);
+	response = json_stream_success(leaks->cmd);
 	json_array_start(response, "leaks");
 	for (size_t num_leakers = 0;
 	     num_leakers < tal_count(leaks->leakers);
@@ -146,7 +116,7 @@ static void finish_report(const struct leak_detect *leaks)
 	json_array_end(response);
 
 	/* Command is now done. */
-	was_pending(command_success(cmd, response));
+	was_pending(command_success(leaks->cmd, response));
 }
 
 static void leak_detect_timeout(struct leak_detect *leak_detect)
@@ -210,6 +180,34 @@ static void connect_dev_memleak_done(struct subd *connectd,
 		report_subd_memleak(leaks, connectd);
 }
 
+static bool lightningd_check_leaks(struct command *cmd)
+{
+	struct lightningd *ld = cmd->ld;
+	struct htable *memtable;
+
+	/* Enter everything, except this cmd and its jcon */
+	memtable = memleak_start(cmd);
+
+	/* This command is not a leak! */
+	memleak_ptr(memtable, cmd);
+	memleak_ignore_children(memtable, cmd);
+
+	/* First delete known false positives. */
+	memleak_scan_htable(memtable, &ld->topology->txwatches->raw);
+	memleak_scan_htable(memtable, &ld->topology->txowatches->raw);
+	memleak_scan_htable(memtable, &ld->topology->outgoing_txs->raw);
+	memleak_scan_htable(memtable, &ld->htlcs_in->raw);
+	memleak_scan_htable(memtable, &ld->htlcs_out->raw);
+	memleak_scan_htable(memtable, &ld->htlc_sets->raw);
+	memleak_scan_htable(memtable, &ld->peers->raw);
+	memleak_scan_htable(memtable, &ld->peers_by_dbid->raw);
+
+	/* Now delete ld and those which it has pointers to. */
+	memleak_scan_obj(memtable, ld);
+
+	return dump_memleak(memtable, memleak_log, ld->log);
+}
+
 static struct command_result *json_memleak(struct command *cmd,
 					   const char *buffer,
 					   const jsmntok_t *obj UNNEEDED,
@@ -235,6 +233,10 @@ static struct command_result *json_memleak(struct command *cmd,
 	leaks->cmd = cmd;
 	leaks->num_outstanding_requests = 0;
 	leaks->leakers = tal_arr(leaks, const char *, 0);
+
+	/* Check for our own leaks. */
+	if (lightningd_check_leaks(cmd))
+		tal_arr_expand(&leaks->leakers, "lightningd");
 
 	/* hsmd is sync, so do that first. */
 	msg = hsm_sync_req(tmpctx, cmd->ld, take(towire_hsmd_dev_memleak(NULL)));
