@@ -48,15 +48,11 @@ class Method(object):
     """
     def __init__(self, name: str, func: Callable[..., JSONType],
                  mtype: MethodType = MethodType.RPCMETHOD,
-                 category: str = None, desc: str = None,
-                 long_desc: str = None, deprecated: Union[bool, List[str]] = None):
+                 deprecated: Union[bool, List[str]] = None):
         self.name = name
         self.func = func
         self.mtype = mtype
-        self.category = category
         self.background = False
-        self.desc = desc
-        self.long_desc = long_desc
         self.deprecated = deprecated
         self.before: List[str] = []
         self.after: List[str] = []
@@ -327,9 +323,6 @@ class Plugin(object):
 
     def add_method(self, name: str, func: Callable[..., Any],
                    background: bool = False,
-                   category: Optional[str] = None,
-                   desc: Optional[str] = None,
-                   long_desc: Optional[str] = None,
                    deprecated: Optional[Union[bool, List[str]]] = None) -> None:
         """Add a plugin method to the dispatch table.
 
@@ -357,9 +350,6 @@ class Plugin(object):
         `request.set_result` or `result.set_exception` to return a result or
         raise an exception for the call.
 
-        The `category` argument can be used to specify the category of the
-        newly created rpc command.
-
         `deprecated` True means that it won't appear unless `allow-deprecated-apis`
         is true (the default), or if list of version string (e.g. "v23.08"), then
         start deprecation cycle at that version (and removal after second entry in list).
@@ -370,11 +360,7 @@ class Plugin(object):
             )
 
         # Register the function with the name
-        method = Method(
-            name, func, MethodType.RPCMETHOD, category, desc, long_desc,
-            deprecated
-        )
-
+        method = Method(name, func, MethodType.RPCMETHOD, deprecated)
         method.background = background
         self.methods[name] = method
 
@@ -497,9 +483,10 @@ class Plugin(object):
         Internally uses add_method.
         """
         def decorator(f: Callable[..., None]) -> Callable[..., None]:
-            self.add_method(method_name, f, background=True, category=category,
-                            desc=desc, long_desc=long_desc,
-                            deprecated=deprecated)
+            for attr, attr_name in [(category, "Category"), (desc, "Description"), (long_desc, "Long description")]:
+                if attr is not None:
+                    self.log("{} is deprecated but defined in method {}; it will be ignored by Core Lightning".format(attr_name, method_name), level="warn")
+            self.add_method(method_name, f, background=True, deprecated=deprecated)
             return f
         return decorator
 
@@ -512,13 +499,10 @@ class Plugin(object):
         Internally uses add_method.
         """
         def decorator(f: Callable[..., JSONType]) -> Callable[..., JSONType]:
-            self.add_method(method_name,
-                            f,
-                            background=False,
-                            category=category,
-                            desc=desc,
-                            long_desc=long_desc,
-                            deprecated=deprecated)
+            for attr, attr_name in [(category, "Category"), (desc, "Description"), (long_desc, "Long description")]:
+                if attr is not None:
+                    self.log("{} is deprecated but defined in method {}; it will be ignored by Core Lightning".format(attr_name, method_name), level="warn")
+            self.add_method(method_name, f, background=False, deprecated=deprecated)
             return f
         return decorator
 
@@ -957,13 +941,8 @@ class Plugin(object):
 
             methods.append({
                 'name': method.name,
-                'category': method.category if method.category else "plugin",
-                'usage': " ".join(args),
-                'description': doc if not method.desc else method.desc
+                'usage': " ".join(args)
             })
-            if method.long_desc:
-                m = methods[len(methods) - 1]
-                m["long_description"] = method.long_desc
 
         manifest = {
             'options': list(d.json() for d in self.options.values()),

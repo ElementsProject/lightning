@@ -51,14 +51,11 @@ The `getmanifest` method is required for all plugins and will be called on start
   "rpcmethods": [
     {
       "name": "hello",
-      "usage": "[name]",
-      "description": "Returns a personalized greeting for {greeting} (set via options)."
+      "usage": "[name]"
     },
     {
       "name": "gettime",
       "usage": "",
-      "description": "Returns the current time in {timezone}",
-      "long_description": "Returns the current time in the timezone that is given as the only parameter.\nThis description may be quite long and is allowed to span multiple lines.",
       "deprecated": false
     }
   ],
@@ -101,7 +98,7 @@ The `getmanifest` method is required for all plugins and will be called on start
 
 During startup the `options` will be added to the list of command line options that `lightningd` accepts. If any `options` "name" is already taken startup will abort. The above will add a `--greeting` option with a default value of `World` and the specified description. _Notice that currently string, integers, bool, and flag options are supported._ If an option specifies `dynamic`: `true`, then it should allow a `setconfig` call for that option after initialization.
 
-The `rpcmethods` are methods that will be exposed via `lightningd`'s JSON-RPC over Unix-Socket interface, just like the builtin commands. Any parameters given to the JSON-RPC calls will be passed through verbatim. Notice that the `name`, `description` and `usage` fields are mandatory, while the `long_description` can be omitted (it'll be set to `description` if it was not provided). `usage` should surround optional parameter names in `[]`.
+The `rpcmethods` are methods that will be exposed via `lightningd`'s JSON-RPC over Unix-Socket interface, just like the builtin commands. Any parameters given to the JSON-RPC calls will be passed through verbatim. Notice that the `name` and `usage` fields are mandatory. `usage` should surround optional parameter names in `[]`.
 
 `options` and `rpcmethods` can mark themselves `deprecated: true` if you plan on removing them: this will disable them if the user sets `allow-deprecated-apis` to false, or in `--developer` mode.  You can also specify `deprecated` as an array of one or two version numbers, indicating when deprecation starts, and the final version it will be permitted, e.g. `"deprecated": ["v24.02", "v24.02"]`.  If only one version number is given, then the final version will be 6 months after the start version.
 
