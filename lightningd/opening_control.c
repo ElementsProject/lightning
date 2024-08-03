@@ -1473,7 +1473,10 @@ static struct channel *stub_chan(struct command *cmd,
 		log_debug(cmd->ld->log, "channel %s already exists!",
 				fmt_channel_id(tmpctx, &cid));
 		return NULL;
-	} else {
+	}
+
+	peer = peer_by_id(cmd->ld, &nodeid);
+	if (!peer) {
 		struct wireaddr_internal wint;
 
 		wint.itype = ADDR_INTERNAL_WIREADDR;
