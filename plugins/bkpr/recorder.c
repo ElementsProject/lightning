@@ -1564,7 +1564,7 @@ char *update_channel_onchain_fees(const tal_t *ctx,
 		if (streq("anchor", ev->tag))
 			continue;
 
-		/* Ignore stuff it's paid to
+		/* Ignore stuff which is paid to
 		 * the peer's account (external),
 		 * except for fulfilled htlcs (which originated
 		 * in our balance) */
