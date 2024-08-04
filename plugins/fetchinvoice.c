@@ -62,11 +62,15 @@ struct sent {
 	u32 wait_timeout;
 };
 
-static struct sent *find_sent_by_secret(const struct secret *pathsecret)
+static struct sent *find_sent_by_secret(struct plugin *plugin,
+					const struct secret *pathsecret)
 {
 	struct sent *i;
 
 	list_for_each(&sent_list, i, list) {
+		plugin_log(plugin, LOG_DBG, "Sent %s vs secret %s",
+			   i->reply_secret ? fmt_secret(tmpctx, i->reply_secret) : "NULL",
+			   fmt_secret(tmpctx, pathsecret));
 		if (i->reply_secret && secret_eq_consttime(i->reply_secret, pathsecret))
 			return i;
 	}
@@ -358,9 +362,12 @@ struct command_result *handle_invoice_onion_message(struct command *cmd,
 	struct sent *sent;
 	struct command_result *err;
 
-	sent = find_sent_by_secret(pathsecret);
-	if (!sent)
+	sent = find_sent_by_secret(cmd->plugin, pathsecret);
+	if (!sent) {
+		plugin_log(cmd->plugin, LOG_DBG, "No fetchinvoice match for secret: %s",
+			   fmt_secret(tmpctx, pathsecret));
 		return NULL;
+	}
 
 	plugin_log(cmd->plugin, LOG_DBG, "Received onion message reply for invoice_request: %.*s",
 		   json_tok_full_len(om),
