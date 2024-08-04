@@ -1693,6 +1693,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 		db_col_signature(stmt, "last_sig", &last_sig->s);
 		last_sig->sighash_type = SIGHASH_ALL;
 	} else {
+		db_col_ignore(stmt, "last_sig");
 		last_tx = NULL;
 		last_sig = NULL;
 	}
