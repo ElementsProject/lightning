@@ -518,6 +518,51 @@ static u32 infinite_block_deadline(const struct chain_topology *topo)
 	return get_block_height(topo) + 300;
 }
 
+/**
+ * slow_sweep_dealine -- A smart(-ish) way of estimating sweep fees.
+ *
+ * We use the `close_blockheight` as the basis for the target. We then
+ * target to have the funds back at most 2 weeks after the close,
+ * linearly increasing the confirmation target until we get
+ * close. However, we also don't want to panic and set a target that
+ * is too close, in order not to waste too many funds on the sweep
+ * fees.
+ */
+static u32 slow_sweep_deadline(const struct chain_topology *topo,
+			       const struct channel *c)
+{
+	u32 closeheight, deadline, height = get_block_height(topo);
+
+	if (c->close_blockheight) {
+		closeheight = *c->close_blockheight;
+	} else {
+		log_unusual(c->log,
+			    "Missing close_blockheight?  Using current height "
+			    "+ 300 = %d",
+			    height + 300);
+		return height + 300;
+	}
+
+	/* A two week deadline seems like a not too bad default. We
+	 * should likely tweak this to hit the desired cost vs. idle
+	 * time tradeoff. */
+	deadline = closeheight + 2016;
+
+	/* If we missed the deadline, don't panic, let's continue with
+	 * a somewhat reasonable target, and hope for the best. No
+	 * need to ramp up to confirmation target 1, we're supposed to
+	 * be slow. */
+	if (deadline < height + 12)
+		return height + 12;
+
+	/* At the same time don't be too lenient, we want this to
+	 * confirm and not just idle around forever. */
+	if (deadline > height + 300)
+		return height + 300;
+
+	return deadline;
+}
+
 static struct onchain_signing_info *new_signing_info(const tal_t *ctx,
 						     struct channel *channel,
 						     enum onchaind_wire msgtype)
@@ -1104,7 +1149,8 @@ static void handle_onchaind_spend_to_us(struct channel *channel,
 	}
 
 	/* No real deadline on this, it's just returning to our wallet. */
-	info->deadline_block = infinite_block_deadline(channel->peer->ld->topology);
+	info->deadline_block =
+	    slow_sweep_deadline(channel->peer->ld->topology, channel);
 	create_onchain_tx(channel, &out, out_sats,
 			  channel->channel_info.their_config.to_self_delay, 0,
 			  sign_tx_to_us, info,
