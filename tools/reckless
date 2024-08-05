@@ -835,7 +835,8 @@ def create_python3_venv(staged_plugin: InstInfo) -> InstInfo:
         # Avoid redirecting stdout in order to stream progress.
         # Timeout excluded as armv7 grpcio build/install can take 1hr.
         pip = run(['poetry', 'install', '--no-root'], check=False,
-                  cwd=staged_plugin.source_loc, env=mod_poetry_env)
+                  cwd=staged_plugin.source_loc, env=mod_poetry_env,
+                  stdout=stdout_redirect, stderr=stderr_redirect)
 
         (Path(staged_plugin.source_loc) / 'pyproject.toml').unlink()
         (Path(staged_plugin.source_loc) / 'poetry.lock').unlink()
@@ -852,7 +853,8 @@ def create_python3_venv(staged_plugin: InstInfo) -> InstInfo:
         elif staged_plugin.deps == 'requirements.txt':
             pip = run([str(env_path_full / 'bin/pip'), 'install', '-r',
                        str(plugin_path / 'requirements.txt')],
-                      check=False, cwd=plugin_path)
+                      check=False, cwd=plugin_path,
+                      stdout=stdout_redirect, stderr=stderr_redirect)
         else:
             log.debug("no python dependency file")
     if pip and pip.returncode != 0:
@@ -911,8 +913,7 @@ def cargo_installation(cloned_plugin: InstInfo):
     # source_loc now contains a symlink to the entrypoint and 'source/plugin/'
     source = Path(cloned_plugin.source_loc) / 'source' / cloned_plugin.name
     log.debug(f'cargo installing from {source}')
-    run(['ls'], cwd=str(source), text=True, check=True)
-    if logging.root.level < logging.INFO:
+    if logging.root.level < logging.INFO and not log.capture:
         cargo = Popen(call, cwd=str(source), text=True)
     else:
         cargo = Popen(call, cwd=str(source), stdout=PIPE,
@@ -1702,6 +1703,11 @@ if __name__ == '__main__':
 
     if args.json:
         log.capture = True
+        stdout_redirect = PIPE
+        stderr_redirect = PIPE
+    else:
+        stdout_redirect = None
+        stderr_redirect = None
 
     if args.verbose:
         logging.root.setLevel(logging.DEBUG)
