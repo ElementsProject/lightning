@@ -1,6 +1,6 @@
 import pytest
 import subprocess
-from urllib import request
+from urllib import request, error
 import os
 import json
 from time import time
@@ -64,9 +64,8 @@ def pytest_pyfunc_call(pyfuncitem):
             req,
             data=json.dumps(result).encode("ASCII"),
         )
-    except ConnectionError as e:
-        print(f"Could not report testrun: {e}")
-    except Exception as e:
+    except error.URLError as e:
         import warnings
-
-        warnings.warn(f"Error reporting testrun: {e}: {e.read()}")
+        warnings.warn(f"Error reporting testrun: {e}")
+    except Exception as e:
+        print(f"Could not report testrun: {e}")
