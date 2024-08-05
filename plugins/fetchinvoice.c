@@ -407,6 +407,8 @@ static struct command_result *sendonionmsg_done(struct command *cmd,
 	sent->cmd = cmd;
 	list_add_tail(&sent_list, &sent->list);
 	tal_add_destructor(sent, destroy_sent);
+	plugin_log(cmd->plugin, LOG_DBG, "Added sent to list with secret %s",
+		   fmt_secret(tmpctx, sent->reply_secret));
 	return command_still_pending(cmd);
 }
 
