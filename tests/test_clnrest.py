@@ -457,6 +457,23 @@ def test_clnrest_http_headers(node_factory):
                                 verify=ca_cert)
     assert response.headers['Access-Control-Allow-Origin'] == 'http://192.168.1.10:1010'
 
+def test_clnrest_manifest(node_factory):
+    """
+    Test that clnrest data can be returned in the manifest of a plugin.
+    Does not test if the data is correctly registered in the manifest.
+    """
+
+    l1, _, _ = start_node_with_clnrest(node_factory)
+    plugin_path = os.path.join(os.path.dirname(__file__), "plugins/get_manifest.py")
+    l1.rpc.plugin_start(plugin_path)
+    manifest = l1.rpc.checkmymanifest("checkmymanifest")
+    assert manifest["clnrest"] == {
+        "path": "/path/to/me",
+        "method": "POST",
+        "content_type": "application/json",
+        "rune": True,
+    }
+
 
 def test_clnrest_old_params(node_factory):
     """Test that we handle the v23.08-style parameters"""
