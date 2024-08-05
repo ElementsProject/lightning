@@ -84,6 +84,10 @@ struct gossmap {
 	/* local messages, if any. */
 	const u8 *local;
 
+	/* We keep running counters of these for convenience */
+	size_t num_channel_updates;
+	size_t num_node_announcements;
+
 	/* Callbacks for different events: return false to fail. */
 	void (*cupdate_fail)(struct gossmap *map,
 			     const struct short_channel_id_dir *scidd,
@@ -327,6 +331,8 @@ static void remove_node(struct gossmap *map, struct gossmap_node *node)
 	u32 nodeidx = gossmap_node_idx(map, node);
 	if (!nodeidx_htable_del(map->nodes, node2ptrint(node)))
 		abort();
+	if (gossmap_node_announced(node))
+		map->num_node_announcements--;
 	node->nann_off = map->freed_nodes;
 	free(node->chan_idxs);
 	node->chan_idxs = NULL;
@@ -418,6 +424,13 @@ void gossmap_remove_chan(struct gossmap *map, struct gossmap_chan *chan)
 		abort();
 	remove_chan_from_node(map, gossmap_nth_node(map, chan, 0), chanidx);
 	remove_chan_from_node(map, gossmap_nth_node(map, chan, 1), chanidx);
+
+	/* Keep num_channel_updates in sync */
+	for (int dir = 0; dir < 2; dir++) {
+		if (gossmap_chan_set(chan, dir))
+			map->num_channel_updates--;
+	}
+
 	chan->cann_off = map->freed_chans;
 	chan->plus_scid_off = 0;
 	map->freed_chans = chanidx;
@@ -565,6 +578,9 @@ static void update_channel(struct gossmap *map, size_t cupdate_off)
 		hc.enabled = false;
 	}
 
+	if (!gossmap_chan_set(chan, chanflags & 1))
+		map->num_channel_updates++;
+
 	/* Preserve this */
 	hc.nodeidx = chan->half[chanflags & 1].nodeidx;
 	chan->half[chanflags & 1] = hc;
@@ -618,8 +634,11 @@ static void node_announcement(struct gossmap *map, size_t nann_off)
 
 	feature_len = map_be16(map, nann_off + feature_len_off);
 	map_nodeid(map, nann_off + feature_len_off + 2 + feature_len + 4, &id);
-	if ((n = gossmap_find_node(map, &id)))
+	if ((n = gossmap_find_node(map, &id))) {
+		if (!gossmap_node_announced(n))
+			map->num_node_announcements++;
 		n->nann_off = nann_off;
+	}
 }
 
 static bool reopen_store(struct gossmap *map, size_t ended_off)
@@ -701,6 +720,8 @@ static bool load_gossip_store(struct gossmap *map)
 {
 	map->map_size = lseek(map->fd, 0, SEEK_END);
 	map->local = NULL;
+	map->num_channel_updates = 0;
+	map->num_node_announcements = 0;
 
 	/* gossipd uses pwritev(), which is not consistent with mmap on OpenBSD! */
 #ifndef __OpenBSD__
@@ -1190,6 +1211,17 @@ struct gossmap_node *gossmap_nth_node(const struct gossmap *map,
 size_t gossmap_num_nodes(const struct gossmap *map)
 {
 	return nodeidx_htable_count(map->nodes);
+}
+
+
+size_t gossmap_num_chan_updates(const struct gossmap *map)
+{
+	return map->num_channel_updates;
+}
+
+size_t gossmap_num_node_announcements(const struct gossmap *map)
+{
+	return map->num_node_announcements;
 }
 
 static struct gossmap_node *node_iter(const struct gossmap *map, size_t start)
