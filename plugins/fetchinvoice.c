@@ -397,9 +397,6 @@ static struct command_result *sendonionmsg_done(struct command *cmd,
 	tal_steal(cmd, plugin_timer(cmd->plugin,
 				    time_from_sec(sent->wait_timeout),
 				    timeout_sent_invreq, sent));
-	sent->cmd = cmd;
-	list_add_tail(&sent_list, &sent->list);
-	tal_add_destructor(sent, destroy_sent);
 	return command_still_pending(cmd);
 }
 
@@ -512,6 +509,14 @@ static struct command_result *establish_path_done(struct command *cmd,
 	if (sent->dev_path_use_scidd)
 		sciddir_or_pubkey_from_scidd(&final_tlv->reply_path->first_node_id,
 					     sent->dev_path_use_scidd);
+
+	/* Put in list so we recognize reply onion message.  Note: because
+	 * onion message notification comes from a different fd than the one
+	 * we send this command to, it can actually be processed *before* we
+	 * call done() */
+	sent->cmd = cmd;
+	list_add_tail(&sent_list, &sent->list);
+	tal_add_destructor(sent, destroy_sent);
 
 	omsg = outgoing_onion_message(tmpctx, path, NULL, current_their_path(epaths), final_tlv);
 	return inject_onionmessage(cmd, omsg, epaths->done, forward_error, sent);
