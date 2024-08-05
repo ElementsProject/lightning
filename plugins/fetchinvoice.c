@@ -221,13 +221,37 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	}
 
 	/* BOLT-offers #12:
+	 * A reader of an invoice:
+	 *   - MUST reject the invoice if `invoice_amount` is not present.
+	 *   - MUST reject the invoice if `invoice_created_at` is not present.
+	 *   - MUST reject the invoice if `invoice_payment_hash` is not present.
+	 *   - MUST reject the invoice if `invoice_node_id` is not present.
+	 */
+	if (!inv->invoice_amount) {
+		badfield = "invoice_amount";
+		goto badinv;
+	}
+	if (!inv->invoice_created_at) {
+		badfield = "invoice_amount";
+		goto badinv;
+	}
+	if (!inv->invoice_payment_hash) {
+		badfield = "invoice_payment_hash";
+		goto badinv;
+	}
+	if (!inv->invoice_node_id) {
+		badfield = "invoice_node_id";
+		goto badinv;
+	}
+	/* BOLT-offers #12:
 	 * - if `offer_issuer_id` is present (invoice_request for an offer):
 	 *   - MUST reject the invoice if `invoice_node_id` is not equal to `offer_issuer_id`
 	 * - otherwise, if `offer_paths` is present (invoice_request for an offer without id):
 	 *   - MUST reject the invoice if `invoice_node_id` is not equal to the final
 	 *    `blinded_node_id` it sent the `invoice_request` to.
 	 */
-	if (!inv->invoice_node_id || !pubkey_eq(inv->offer_issuer_id, sent->issuer_key)) {
+	/* Either way, we save the expected id in issuer_key */
+	if (!pubkey_eq(inv->invoice_node_id, sent->issuer_key)) {
 		badfield = "invoice_node_id";
 		goto badinv;
 	}
@@ -242,15 +266,6 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	if (!inv->signature
 	    || !check_schnorr_sig(&sighash, &inv->invoice_node_id->pubkey, inv->signature)) {
 		badfield = "signature";
-		goto badinv;
-	}
-
-	/* BOLT-offers #12:
-	 * A reader of an invoice:
-	 *   - MUST reject the invoice if `invoice_amount` is not present.
-	 */
-	if (!inv->invoice_amount) {
-		badfield = "invoice_amount";
 		goto badinv;
 	}
 
