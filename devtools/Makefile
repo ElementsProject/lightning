@@ -8,7 +8,7 @@ DEVTOOLS_TOOL_OBJS := $(DEVTOOLS_TOOL_SRC:.c=.o)
 
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(DEVTOOLS_TOOL_SRC)
-ALL_C_HEADERS +=
+ALL_C_HEADERS += devtools/print_wire.h 
 ALL_PROGRAMS += $(DEVTOOLS)
 
 # Don't include this in ALL_PROGRAMS as we need a special link line for -lz
@@ -90,7 +90,7 @@ devtools/onion: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) common/onio
 
 devtools/gossipwith: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/peer_wiregen.o devtools/gossipwith.o common/cryptomsg.o common/cryptomsg.o
 
-$(DEVTOOLS_OBJS) $(DEVTOOLS_TOOL_OBJS): wire/wire.h
+$(DEVTOOLS_OBJS) $(DEVTOOLS_TOOL_OBJS): wire/wire.h devtools/print_wire.h 
 
 devtools/mkcommit: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) common/derive_basepoints.o common/channel_type.o common/keyset.o common/key_derive.o common/initial_commit_tx.o common/permute_tx.o wire/fromwire.o wire/towire.o devtools/mkcommit.o channeld/full_channel.o common/initial_channel.o common/htlc_state.o common/pseudorand.o common/htlc_tx.o channeld/commit_tx.o common/htlc_trim.o
 
