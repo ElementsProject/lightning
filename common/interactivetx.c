@@ -166,6 +166,7 @@ static u8 *read_next_msg(const tal_t *ctx,
 		case WIRE_CHANNEL_REESTABLISH:
 		case WIRE_ANNOUNCEMENT_SIGNATURES:
 		case WIRE_GOSSIP_TIMESTAMP_FILTER:
+		case WIRE_GOSSIP_STATUS:
 		case WIRE_ONION_MESSAGE:
 		case WIRE_ACCEPT_CHANNEL2:
 		case WIRE_TX_ACK_RBF:
@@ -715,6 +716,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 		case WIRE_CHANNEL_REESTABLISH:
 		case WIRE_ANNOUNCEMENT_SIGNATURES:
 		case WIRE_GOSSIP_TIMESTAMP_FILTER:
+		case WIRE_GOSSIP_STATUS:
 		case WIRE_ONION_MESSAGE:
 		case WIRE_TX_SIGNATURES:
 		case WIRE_OPEN_CHANNEL2:

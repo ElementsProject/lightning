@@ -1609,6 +1609,7 @@ const void *gossmap_stream_next(const tal_t *ctx,
 		case WIRE_QUERY_CHANNEL_RANGE:
 		case WIRE_REPLY_CHANNEL_RANGE:
 		case WIRE_GOSSIP_TIMESTAMP_FILTER:
+		case WIRE_GOSSIP_STATUS:
 		case WIRE_ONION_MESSAGE:
 			break;
 		}

@@ -143,6 +143,10 @@ static const struct feature_style feature_styles[] = {
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
+	{ OPT_GOSSIP_STATUS,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
 };
 
 struct dependency {
@@ -440,7 +444,7 @@ const char *feature_name(const tal_t *ctx, size_t f)
 		NULL, /* 60/61 */
 		"option_splice",
 		NULL,
-		NULL,
+		"option_gossip_status",
 		NULL,
 		NULL, /* 70/71 */
 		NULL,
@@ -490,7 +494,7 @@ const char *feature_name(const tal_t *ctx, size_t f)
 		NULL, /* 160/161 */
 		"option_experimental_splice", /* https://github.com/lightning/bolts/pull/863 */
 		NULL,
-		NULL,
+		"option_experimental_gossip_status",
 		NULL,
 		NULL, /* 170/171 */
 	};

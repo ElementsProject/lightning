@@ -156,6 +156,11 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
  */
 #define OPT_QUIESCE 				34
 
+/* BOLT-gossip_status #9:
+ * | 66/67 | `option_gossip_status` | ... IN ...
+ */
+#define OPT_GOSSIP_STATUS			(100 + 66)
+
 #define OPT_SHUTDOWN_WRONG_FUNDING		104
 
 /* BOLT-peer-storage #9:
