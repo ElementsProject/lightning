@@ -108,7 +108,7 @@ enum lightningd_state {
 
 struct lightningd {
 	/* The directory to find all the subdaemons. */
-	const char *daemon_dir;
+	const char *subdaemon_dir;
 
 	/* Are deprecated APIs enabled? */
 	bool deprecated_ok;

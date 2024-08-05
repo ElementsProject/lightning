@@ -417,10 +417,10 @@ const char *subdaemon_path(const tal_t *ctx, const struct lightningd *ld, const 
 	const char *alt = strmap_get(&ld->alt_subdaemons, short_name);
 	if (alt) {
 		/* path_join will honor absolute paths as well. */
-		dpath = path_join(ctx, ld->daemon_dir, alt);
+		dpath = path_join(ctx, ld->subdaemon_dir, alt);
 	} else {
 		/* This subdaemon is found in the standard place. */
-		dpath = path_join(ctx, ld->daemon_dir, name);
+		dpath = path_join(ctx, ld->subdaemon_dir, name);
 	}
 	return dpath;
 }
@@ -529,42 +529,12 @@ static const char *find_my_directory(const tal_t *ctx, const char *argv0)
 	return path_dirname(ctx, take(me));
 }
 
-/*~ This returns the PKGLIBEXEC path which is where binaries get installed.
- * Note the `TAKES` annotation which indicates that the `my_path` parameter
- * can be take(); in which case, this function will handle freeing it.
- *
- * TAKES is only a convention unfortunately, and ignored by the compiler.
- */
-static const char *find_my_pkglibexec_path(struct lightningd *ld,
-					   const char *my_path TAKES)
-{
-	const char *pkglibexecdir;
-
-	/*~`path_join` is declared in ccan/path/path.h as:
-	 *
-	 *     char *path_join(const tal_t *ctx,
-	 *                     const char *base TAKES, const char *a TAKES);
-	 *
-	 * So, as we promised with 'TAKES' in our own declaration, if the
-	 * caller has called `take()` the `my_path` parameter, path_join()
-	 * will free it. */
-	pkglibexecdir = path_join(NULL, my_path, BINTOPKGLIBEXECDIR);
-
-	/*~ The plugin dir is in ../libexec/c-lightning/plugins, which (unlike
-	 * those given on the command line) does not need to exist. */
-	plugins_set_builtin_plugins_dir(ld->plugins,
-					path_join(tmpctx,
-						  pkglibexecdir, "plugins"));
-
-	/*~ Sometimes take() can be more efficient, since the routine can
-	 * manipulate the string in place.  This is the case here. */
-	return path_simplify(ld, take(pkglibexecdir));
-}
-
 /* Determine the correct daemon dir. */
-static const char *find_daemon_dir(struct lightningd *ld, const char *argv0)
+static void find_subdaemons_and_plugins(struct lightningd *ld, const char *argv0)
 {
-	const char *my_path = find_my_directory(ld, argv0);
+	const char *my_path = find_my_directory(NULL, argv0);
+	const char *prefix;
+
 	/* If we're running in-tree, all the subdaemons are with lightningd. */
 	if (has_all_subdaemons(my_path)) {
 		/* In this case, look for built-in plugins in ../plugins */
@@ -572,11 +542,18 @@ static const char *find_daemon_dir(struct lightningd *ld, const char *argv0)
 						path_join(tmpctx,
 							  my_path,
 							  "../plugins"));
-		return my_path;
+		ld->subdaemon_dir = tal_steal(ld, my_path);
+		return;
 	}
 
-	/* Otherwise we assume they're in the installed dir. */
-	return find_my_pkglibexec_path(ld, take(my_path));
+	/* Assume we're running the installed version.  Override
+	 * for "make installccheck" though. */
+	prefix = getenv("DEV_LIGHTNINGD_DESTDIR_PREFIX");
+	if (!prefix)
+		prefix = "";
+	ld->subdaemon_dir = tal_fmt(ld, "%s%s", prefix, PKGLIBEXECDIR);
+	plugins_set_builtin_plugins_dir(ld->plugins,
+					tal_fmt(ld->plugins, "%s%s", prefix, PLUGINDIR));
 }
 
 /*~ We like to free everything on exit, so valgrind doesn't complain (valgrind
@@ -1214,10 +1191,8 @@ int main(int argc, char *argv[])
 	orig_argv[0] = path_join(orig_argv, take(path_cwd(NULL)), argv[0]);
 	orig_argv[argc] = NULL;
 
-	/* Figure out where our daemons are first. */
-	ld->daemon_dir = find_daemon_dir(ld, argv[0]);
-	if (!ld->daemon_dir)
-		errx(EXITCODE_SUBDAEMON_FAIL, "Could not find daemons");
+	/* Figure out where our subdaemons are first. */
+	find_subdaemons_and_plugins(ld, argv[0]);
 
 	/* Set up the feature bits for what we support */
 	ld->our_features = default_features(ld);
