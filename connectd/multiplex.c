@@ -685,6 +685,70 @@ static void handle_gossip_timestamp_filter_in(struct peer *peer, const u8 *msg)
 		wake_gossip(peer);
 }
 
+static void handle_gossip_status(struct peer *peer, const u8 *msg)
+{
+	struct bitcoin_blkid chain_hash;
+	u64 num_channel_announcements, num_channel_updates, num_node_announcements;
+	struct gossmap *gossmap;
+
+	if (!fromwire_gossip_status(msg, &chain_hash,
+				    &num_channel_announcements,
+				    &num_channel_updates,
+				    &num_node_announcements)) {
+		send_warning(peer, "gossip_status invalid: %s",
+			     tal_hex(tmpctx, msg));
+		return;
+	}
+
+	/* BOLT-gossip_status #7:
+	 * - A receiving node:
+	 *    - If it does not advertize `option_gossip_status`, SHOULD ignore `gossip_status`.
+	 *    - If it has responded to a `gossip_status` from this peer already without a reconnection:
+	 *      - SHOULD ignore `option_gossip_status`
+	 */
+	if (!feature_offered(peer->daemon->our_features->bits[INIT_FEATURE],
+			     OPT_GOSSIP_STATUS))
+		return;
+
+	if (!bitcoin_blkid_eq(&chainparams->genesis_blockhash, &chain_hash)) {
+		send_warning(peer, "gossip_status for bad chain: %s",
+			     tal_hex(tmpctx, msg));
+		return;
+	}
+
+	if (peer->handled_gossip_status) {
+		send_warning(peer, "We already answered gossip_status");
+		return;
+	}
+
+	status_peer_debug(&peer->id, "Got gossip status ca=%"PRIu64"/cu=%"PRIu64"/na=%"PRIu64,
+			  num_channel_announcements, num_channel_updates, num_node_announcements);
+
+	/* BOLT-gossip_status #7:
+	 * - A receiving node:
+	 *...
+	 *  - If it has more than 100 more `channel_announcement` than `num_channel_announcements`:
+	 *    - SHOULD send all `channel_announcement`, `channel_update` and `node_announcement` to the peer.
+	 *  - Otherwise, if it has 100 more `channel_update` than `num_channel_updates`:
+	 *    - SHOULD send all `channel_update` to the peer.
+	 *    - MAY send additional gossip messages.
+	 *  - Otherwise, if it has 100 more `node_announcement` than `num_node_announcements`:
+	 *    - SHOULD send all `node_announcement` to the peer.
+	 *    - MAY send additional gossip messages.
+	 */
+	gossmap = get_gossmap(peer->daemon);
+
+	/* FIXME: We dump everything if they're missing anything. */
+	if (gossmap_num_chans(gossmap) > num_channel_announcements + 100
+	    || gossmap_num_chan_updates(gossmap) > num_channel_updates + 100
+	    || gossmap_num_node_announcements(gossmap) > num_node_announcements + 100) {
+		tal_free(peer->gs.iter);
+		peer->gs.iter = gossmap_iter_new(peer, gossmap);
+		status_peer_debug(&peer->id, "Streaming all gossip due to gossip_status");
+	}
+	peer->handled_gossip_status = true;
+}
+
 static bool find_custom_msg(const u16 *custom_msgs, u16 type)
 {
 	for (size_t i = 0; i < tal_count(custom_msgs); i++) {
@@ -736,6 +800,10 @@ static bool handle_message_locally(struct peer *peer, const u8 *msg)
 	if (type == WIRE_GOSSIP_TIMESTAMP_FILTER) {
 		status_peer_io(LOG_IO_IN, &peer->id, msg);
 		handle_gossip_timestamp_filter_in(peer, msg);
+		return true;
+	} else if (type == WIRE_GOSSIP_STATUS) {
+		status_peer_io(LOG_IO_IN, &peer->id, msg);
+		handle_gossip_status(peer, msg);
 		return true;
 	} else if (type == WIRE_PING) {
 		status_peer_io(LOG_IO_IN, &peer->id, msg);

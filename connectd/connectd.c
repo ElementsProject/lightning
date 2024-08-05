@@ -164,6 +164,7 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->counter = daemon->connection_counter++;
 	peer->cs = *cs;
 	peer->subds = tal_arr(peer, struct subd *, 0);
+	peer->handled_gossip_status = false;
 	peer->peer_in = NULL;
 	peer->sent_to_peer = NULL;
 	peer->urgent = false;
