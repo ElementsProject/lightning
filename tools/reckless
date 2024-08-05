@@ -93,6 +93,13 @@ log = Logger()
 repos = ['https://github.com/lightningd/plugins']
 
 
+def reckless_abort(err: str):
+    log.error(err)
+    log.add_result(None)
+    log.reply_json()
+    sys.exit(1)
+
+
 def py_entry_guesses(name) -> list:
     return [name, f'{name}.py', '__init__.py']
 
@@ -657,7 +664,7 @@ class Config():
             confirm = True
         sys.stdout = tmp
         if not confirm:
-            sys.exit(1)
+            reckless_abort(f"config file required: {config_path}")
         parent_path = Path(config_path).parent
         # Create up to one parent in the directory tree.
         if create_dir(parent_path):
@@ -914,11 +921,10 @@ def cargo_installation(cloned_plugin: InstInfo):
     source = Path(cloned_plugin.source_loc) / 'source' / cloned_plugin.name
     log.debug(f'cargo installing from {source}')
     if logging.root.level < logging.INFO and not log.capture:
-        cargo = Popen(call, cwd=str(source), text=True)
+        cargo = run(call, cwd=str(source), text=True)
     else:
-        cargo = Popen(call, cwd=str(source), stdout=PIPE,
-                      stderr=PIPE, text=True)
-    cargo.wait()
+        cargo = run(call, cwd=str(source), stdout=PIPE,
+                    stderr=PIPE, text=True)
 
     if cargo.returncode == 0:
         log.debug('rust project compiled successfully')
@@ -1143,7 +1149,7 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     log.debug(f'Install requested from {src}.')
     if RECKLESS_CONFIG is None:
         log.error('reckless install directory unavailable')
-        sys.exit(2)
+        return None
 
     # Use a unique directory for each cloned repo.
     tmp_path = get_temp_reckless_dir()
@@ -1426,7 +1432,7 @@ def enable(plugin_name: str):
     path = inst.entry
     if not Path(path).exists():
         log.error(f'cannot find installed plugin at expected path {path}')
-        sys.exit(1)
+        return None
     log.debug(f'activating {plugin_name}')
     try:
         lightning_cli('plugin', 'start', path)
@@ -1496,10 +1502,9 @@ def load_config(reckless_dir: Union[str, None] = None,
     reck_conf_path = Path(reckless_dir) / f'{network}-reckless.conf'
     if net_conf:
         if str(network_path) != net_conf.conf_fp:
-            log.error('reckless configuration does not match lightningd:\n'
-                      f'reckless network config path: {network_path}\n'
-                      f'lightningd active config: {net_conf.conf_fp}')
-            sys.exit(1)
+            reckless_abort('reckless configuration does not match lightningd:\n'
+                           f'reckless network config path: {network_path}\n'
+                           f'lightningd active config: {net_conf.conf_fp}')
     else:
         # The network-specific config file (bitcoin by default)
         net_conf = LightningBitcoinConfig(path=network_path)
@@ -1507,13 +1512,11 @@ def load_config(reckless_dir: Union[str, None] = None,
     try:
         reckless_conf = RecklessConfig(path=reck_conf_path)
     except FileNotFoundError:
-        log.error('reckless config file could not be written: '
-                  + str(reck_conf_path))
-        sys.exit(1)
+        reckless_abort('reckless config file could not be written: '
+                       + str(reck_conf_path))
     if not net_conf:
-        print('Error: could not load or create the network specific lightningd'
-              ' config (default .lightning/bitcoin)')
-        sys.exit(1)
+        reckless_abort('Error: could not load or create the network specific lightningd'
+                       ' config (default .lightning/bitcoin)')
     net_conf.editConfigFile(f'include {reckless_conf.conf_fp}', None)
     return reckless_conf
 
