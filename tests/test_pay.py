@@ -4768,6 +4768,36 @@ def test_fetchinvoice_disconnected_reply(node_factory, bitcoind):
     assert l3.rpc.listpeers(l1.info['id']) == {'peers': []}
 
 
+def test_enableoffer(node_factory):
+    l1, l2 = node_factory.line_graph(2, opts={'experimental-offers': None})
+
+    # Normal offer, works as expected
+    offer1 = l2.rpc.call('offer', {'amount': '2msat',
+                                   'description': 'test_disableoffer_reenable'})
+    assert offer1['created'] is True
+    l1.rpc.fetchinvoice(offer=offer1['bolt12'])
+
+    l2.rpc.disableoffer(offer_id=offer1['offer_id'])
+
+    with pytest.raises(RpcError, match="Offer no longer available"):
+        l1.rpc.fetchinvoice(offer=offer1['bolt12'])
+
+    with pytest.raises(RpcError, match="1000.*Already exists, but isn't active"):
+        l2.rpc.call('offer', {'amount': '2msat',
+                              'description': 'test_disableoffer_reenable'})
+
+    l2.rpc.enableoffer(offer_id=offer1['offer_id'])
+    l1.rpc.fetchinvoice(offer=offer1['bolt12'])
+
+    # Can't enable twice.
+    with pytest.raises(RpcError, match="1001.*offer already active"):
+        l2.rpc.enableoffer(offer_id=offer1['offer_id'])
+
+    # Can't enable unknown.
+    with pytest.raises(RpcError, match="Unknown offer"):
+        l1.rpc.enableoffer(offer_id=offer1['offer_id'])
+
+
 def test_pay_blockheight_mismatch(node_factory, bitcoind):
     """Test that we can send a payment even if not caught up with the chain.
 

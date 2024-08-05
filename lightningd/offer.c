@@ -231,6 +231,47 @@ static const struct json_command disableoffer_command = {
 };
 AUTODATA(json_command, &disableoffer_command);
 
+static struct command_result *json_enableoffer(struct command *cmd,
+					       const char *buffer,
+					       const jsmntok_t *obj UNNEEDED,
+					       const jsmntok_t *params)
+{
+	struct json_stream *response;
+	struct sha256 *offer_id;
+	struct wallet *wallet = cmd->ld->wallet;
+	const char *b12;
+	const struct json_escape *label;
+	enum offer_status status;
+
+	if (!param_check(cmd, buffer, params,
+			 p_req("offer_id", param_sha256, &offer_id),
+			 NULL))
+		return command_param_failed();
+
+	b12 = wallet_offer_find(tmpctx, wallet, offer_id, &label, &status);
+	if (!b12)
+		return command_fail(cmd, LIGHTNINGD, "Unknown offer");
+
+	if (offer_status_active(status))
+		return command_fail(cmd, OFFER_ALREADY_DISABLED,
+				    "offer already active");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	status = wallet_offer_enable(wallet, offer_id, status);
+
+	response = json_stream_success(cmd);
+	json_populate_offer(response, offer_id, b12, label, status);
+	return command_success(cmd, response);
+}
+
+static const struct json_command enableoffer_command = {
+	"enableoffer",
+	json_enableoffer,
+};
+AUTODATA(json_command, &enableoffer_command);
+
 /* We do some sanity checks now, since we're looking up prev payment anyway,
  * but our main purpose is to fill in prev_basetime tweak. */
 static struct command_result *prev_payment(struct command *cmd,
