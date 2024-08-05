@@ -78,6 +78,15 @@ struct gossmap_node *gossmap_nth_node(const struct gossmap *map UNNEEDED,
 				      const struct gossmap_chan *chan UNNEEDED,
 				      int n UNNEEDED)
 { fprintf(stderr, "gossmap_nth_node called!\n"); abort(); }
+/* Generated stub for gossmap_num_chan_updates */
+size_t gossmap_num_chan_updates(const struct gossmap *map UNNEEDED)
+{ fprintf(stderr, "gossmap_num_chan_updates called!\n"); abort(); }
+/* Generated stub for gossmap_num_chans */
+size_t gossmap_num_chans(const struct gossmap *map UNNEEDED)
+{ fprintf(stderr, "gossmap_num_chans called!\n"); abort(); }
+/* Generated stub for gossmap_num_node_announcements */
+size_t gossmap_num_node_announcements(const struct gossmap *map UNNEEDED)
+{ fprintf(stderr, "gossmap_num_node_announcements called!\n"); abort(); }
 /* Generated stub for memleak_scan_intmap_ */
 void memleak_scan_intmap_(struct htable *memtable UNNEEDED, const struct intmap *m UNNEEDED)
 { fprintf(stderr, "memleak_scan_intmap_ called!\n"); abort(); }
