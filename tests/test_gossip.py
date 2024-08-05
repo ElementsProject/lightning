@@ -2207,3 +2207,75 @@ def test_generate_gossip_store(node_factory):
     expected = sorted(expected, key=lambda x: x['source'] + x['destination'])
 
     assert lchans == expected
+
+
+def test_gossip_status(node_factory, chainparams):
+    # Since we respond if we have > 100 more than them, we need a big gossmap.
+    l1 = node_factory.get_node(start=False)
+    chans = [GenChannel(0, i) for i in range(1, 102)]
+    gsfile, nodemap = generate_gossip_store(chans)
+    shutil.copy(gsfile.name, os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'))
+
+    l1.daemon.opts['experimental-gossip-status'] = None
+    l1.start()
+
+    assert len(l1.rpc.listchannels()['channels']) == 101 * 2
+
+    # If I say I have 1/102/1, you won't give me anything.
+    out = subprocess.run(['devtools/gossipwith',
+                          '--no-gossip',
+                          '--hex',
+                          '--network={}'.format(TEST_NETWORK),
+                          '--timeout-after={}'.format(int(math.sqrt(TIMEOUT) + 1)),
+                          '{}@localhost:{}'.format(l1.info['id'], l1.port),
+                          # BOLT-gossip_status #7:
+                          # 1. type: 267 (`gossip_status`)
+                          # 2. data:
+                          #     * [`chain_hash`:`chain_hash`]
+                          #     * [`bigsize`:`num_channel_announcements`]
+                          #     * [`bigsize`:`num_channel_updates`]
+                          #     * [`bigsize`:`num_node_announcements`]
+                          '763B' + chainparams['chain_hash'] + '016601'],
+                         check=True,
+                         timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
+
+    # No channel_announcments, channel_updates or node_announcements
+    assert [m for m in out if m.startswith(b'0100') or m.startswith(b'0101') or m.startswith(b'0102')] == []
+
+    # If I say I have 0 channel_announcments, you spew gossip...
+    out = subprocess.run(['devtools/gossipwith',
+                          '--no-gossip',
+                          '--hex',
+                          '--network={}'.format(TEST_NETWORK),
+                          '--timeout-after={}'.format(int(math.sqrt(TIMEOUT) + 1)),
+                          '{}@localhost:{}'.format(l1.info['id'], l1.port),
+                          # BOLT-gossip_status #7:
+                          # 1. type: 267 (`gossip_status`)
+                          # 2. data:
+                          #     * [`chain_hash`:`chain_hash`]
+                          #     * [`bigsize`:`num_channel_announcements`]
+                          #     * [`bigsize`:`num_channel_updates`]
+                          #     * [`bigsize`:`num_node_announcements`]
+                          '763B' + chainparams['chain_hash'] + '00CA01'],
+                         check=True,
+                         timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
+    assert len([m for m in out if m.startswith(b'0100') or m.startswith(b'0101') or m.startswith(b'0102')]) == 303
+
+    # If I say I have 101 channel_updates, you spew gossip...
+    out = subprocess.run(['devtools/gossipwith',
+                          '--no-gossip',
+                          '--hex',
+                          '--network={}'.format(TEST_NETWORK),
+                          '--timeout-after={}'.format(int(math.sqrt(TIMEOUT) + 1)),
+                          '{}@localhost:{}'.format(l1.info['id'], l1.port),
+                          # BOLT-gossip_status #7:
+                          # 1. type: 267 (`gossip_status`)
+                          # 2. data:
+                          #     * [`chain_hash`:`chain_hash`]
+                          #     * [`bigsize`:`num_channel_announcements`]
+                          #     * [`bigsize`:`num_channel_updates`]
+                          #     * [`bigsize`:`num_node_announcements`]
+                          '763B' + chainparams['chain_hash'] + '656501'],
+                         check=True,
+                         timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
+    assert len([m for m in out if m.startswith(b'0100') or m.startswith(b'0101') or m.startswith(b'0102')]) == 303

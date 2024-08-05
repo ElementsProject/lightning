@@ -1313,6 +1313,14 @@ static char *opt_set_anchor_zero_fee_htlc_tx(struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_set_gossip_status(struct lightningd *ld)
+{
+	feature_set_or(ld->our_features,
+		       take(feature_set_for_feature(NULL,
+						    OPTIONAL_FEATURE(OPT_GOSSIP_STATUS))));
+	return NULL;
+}
+
 static char *opt_set_offers(struct lightningd *ld)
 {
 	ld->config.exp_offers = true;
@@ -1516,6 +1524,10 @@ static void register_opts(struct lightningd *ld)
 	opt_register_early_noarg("--experimental-anchors",
 				 opt_set_anchor_zero_fee_htlc_tx, ld,
 				 opt_hidden);
+	opt_register_early_noarg("--experimental-gossip-status",
+				 opt_set_gossip_status, ld,
+				 "EXPERIMENTAL: Send and process gossip_status messages for gossip bootstrap");
+
 	clnopt_witharg("--announce-addr-dns", OPT_EARLY|OPT_SHOWBOOL,
 		       opt_set_bool_arg, opt_show_bool,
 		       &ld->announce_dns,

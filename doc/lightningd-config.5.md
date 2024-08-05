@@ -799,7 +799,11 @@ protocol to update channel types.  At the moment, we only support setting
 `option_static_remotekey` to ancient channels.  The peer must also support
 this option.
 
+* **experimental-gossip-status**
 
+  Specifying this option means we send (and answer) `gossip_status`: a
+simply protocol to catch peers which are missing the bulk of gossip, as
+described in ([bolt][bolt] #1186).
 
 BUGS
 ----
