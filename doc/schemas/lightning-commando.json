@@ -146,7 +146,16 @@
             "netaddr": [
               "127.0.0.1:34785"
             ],
-            "features": "08a0802a8a59a1"
+            "alt_addrs": [
+              "127.0.0.1:34321"
+            ],
+            "features": "08a0000a8a5961",
+            "log": [
+              {
+                "type": "SKIPPED",
+                "num_skipped": 30
+              }
+            ]
           }
         ]
       }

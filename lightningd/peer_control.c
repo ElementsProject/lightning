@@ -2236,6 +2236,7 @@ static void json_add_peer(struct lightningd *ld,
 			  const enum log_level *ll)
 {
 	struct channel *channel;
+	struct wireaddr_internal *peer_alt_addr;
 	u32 num_channels;
 
 	json_object_start(response, NULL);
@@ -2256,6 +2257,15 @@ static void json_add_peer(struct lightningd *ld,
 		if (p->remote_addr)
 			json_add_string(response, "remote_addr",
 					fmt_wireaddr(response, p->remote_addr));
+	}
+
+	peer_alt_addr = wallet_get_alt_addr(ld->wallet, &p->id, false);
+	if (peer_alt_addr) {
+		json_array_start(response, "alt_addrs");
+		for (size_t i = 0; i < tal_count(peer_alt_addr); i++)
+			json_add_string(response, NULL,
+				        fmt_wireaddr_internal(tmpctx, &peer_alt_addr[i]));
+		json_array_end(response);
 	}
 
 	/* Note: If !PEER_CONNECTED, peer may use different features on reconnect */

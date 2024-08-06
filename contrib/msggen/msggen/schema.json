@@ -5524,7 +5524,16 @@
                 "netaddr": [
                   "127.0.0.1:34785"
                 ],
-                "features": "08a0802a8a59a1"
+                "alt_addrs": [
+                  "127.0.0.1:34321"
+                ],
+                "features": "08a0000a8a5961",
+                "log": [
+                  {
+                    "type": "SKIPPED",
+                    "num_skipped": 30
+                  }
+                ]
               }
             ]
           }
@@ -23963,6 +23972,19 @@
                           ]
                         }
                       },
+                      "alt_addrs": {
+                        "type": "array",
+                        "description": [
+                          "An array containing zero or more alternative addresses for the peer."
+                        ],
+                        "items": {
+                          "type": "string",
+                          "description": [
+                            "Address, e.g. 1.2.3.4:1234."
+                          ]
+                        },
+                        "added": "v24.11"
+                      },
                       "remote_addr": {
                         "type": "string",
                         "description": [
@@ -24019,7 +24041,10 @@
                 "netaddr": [
                   "127.0.0.1:34785"
                 ],
-                "features": "08a0802a8a59a1"
+                "alt_addrs": [
+                  "127.0.0.1:34321"
+                ],
+                "features": "08a0000a0a69a2"
               }
             ]
           }
@@ -24057,7 +24082,10 @@
                 "netaddr": [
                   "127.0.0.1:47032"
                 ],
-                "features": "08a0802a8a59a1"
+                "alt_addrs": [
+                  "127.0.0.1:34321"
+                ],
+                "features": "08a0000a0a69a2"
               }
             ]
           }
