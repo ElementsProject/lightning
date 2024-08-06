@@ -62,6 +62,8 @@ static struct chain_event *stmt2chain_event(const tal_t *ctx, struct db_stmt *st
 	else
 		e->desc = NULL;
 
+	e->splice_close = db_col_int(stmt, "e.spliced") == 1;
+
 	return e;
 }
 
@@ -162,6 +164,7 @@ struct chain_event **list_chain_events_timebox(const tal_t *ctx,
 				     ", e.ignored"
 				     ", e.stealable"
 				     ", e.ev_desc"
+				     ", e.spliced"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON e.account_id = a.id"
@@ -204,6 +207,7 @@ struct chain_event **account_get_chain_events(const tal_t *ctx,
 				     ", e.ignored"
 				     ", e.stealable"
 				     ", e.ev_desc"
+				     ", e.spliced"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON e.account_id = a.id"
@@ -239,6 +243,7 @@ static struct chain_event **find_txos_for_tx(const tal_t *ctx,
 				     ", e.ignored"
 				     ", e.stealable"
 				     ", e.ev_desc"
+				     ", e.spliced"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON e.account_id = a.id"
@@ -548,7 +553,9 @@ struct account *find_close_account(const tal_t *ctx,
 				     " ON e.account_id = a.id"
 				     " WHERE "
 				     "  e.tag = ?"
-				     "  AND e.spending_txid = ?"));
+				     "  AND e.spending_txid = ?"
+				     /* ignore splicing 'close' events */
+				     "  AND e.spliced = 0 "));
 
 	db_bind_text(stmt, mvt_tag_str(CHANNEL_CLOSE));
 	db_bind_txid(stmt, txid);
@@ -678,6 +685,7 @@ struct chain_event *find_chain_event_by_id(const tal_t *ctx,
 				     ", e.ignored"
 				     ", e.stealable"
 				     ", e.ev_desc"
+				     ", e.spliced"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON e.account_id = a.id"
@@ -726,6 +734,7 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     ", e.ignored"
 					     ", e.stealable"
 					     ", e.ev_desc"
+					     ", e.spliced"
 					     " FROM chain_events e"
 					     " LEFT OUTER JOIN accounts a"
 					     " ON e.account_id = a.id"
@@ -755,6 +764,7 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     ", e.ignored"
 					     ", e.stealable"
 					     ", e.ev_desc"
+					     ", e.spliced"
 					     " FROM chain_events e"
 					     " LEFT OUTER JOIN accounts a"
 					     " ON e.account_id = a.id"
@@ -1263,6 +1273,9 @@ void maybe_update_account(struct db *db,
 				*acct->open_event_db_id = e->db_id;
 				break;
 			case CHANNEL_CLOSE:
+				/* Splices dont count as closes */
+				if (e->splice_close)
+					break;
 				updated = true;
 				acct->closed_event_db_id = tal(acct, u64);
 				*acct->closed_event_db_id = e->db_id;
@@ -1305,7 +1318,7 @@ void maybe_update_account(struct db *db,
 		acct->peer_id = tal_dup(acct, struct node_id, peer_id);
 	}
 
-	if (closed_count > 0) {
+	if (!e->splice_close && closed_count > 0) {
 		updated = true;
 		acct->closed_count = closed_count;
 	}
@@ -1424,6 +1437,7 @@ static struct chain_event **find_chain_events_bytxid(const tal_t *ctx, struct db
 				     ", e.ignored"
 				     ", e.stealable"
 				     ", e.ev_desc"
+				     ", e.spliced"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON a.id = e.account_id"
@@ -2003,9 +2017,10 @@ bool log_chain_event(struct db *db,
 				     ", ignored"
 				     ", stealable"
 				     ", ev_desc"
+				     ", spliced"
 				     ")"
 				     " VALUES "
-				     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, acct->db_id);
 	if (e->origin_acct)
@@ -2038,6 +2053,7 @@ bool log_chain_event(struct db *db,
 		db_bind_text(stmt, e->desc);
 	else
 		db_bind_null(stmt);
+	db_bind_int(stmt, e->splice_close ? 1 : 0);
 	db_exec_prepared_v2(stmt);
 	e->db_id = db_last_insert_id_v2(stmt);
 	e->acct_db_id = acct->db_id;
