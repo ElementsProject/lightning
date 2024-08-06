@@ -671,6 +671,7 @@ static bool new_missed_channel_account(struct command *cmd,
 		chain_ev->payment_id = NULL;
 		chain_ev->ignored = false;
 		chain_ev->stealable = false;
+		chain_ev->splice_close = false;
 		chain_ev->desc = NULL;
 
 		/* Update the account info too */
@@ -1458,9 +1459,11 @@ parse_and_log_chain_move(struct command *cmd,
 
 	e->ignored = false;
 	e->stealable = false;
+	e->splice_close = false;
 	for (size_t i = 0; i < tal_count(tags); i++) {
 		e->ignored |= tags[i] == IGNORED;
 		e->stealable |= tags[i] == STEALABLE;
+		e->splice_close |= tags[i] == SPLICE;
 	}
 
 	db_begin_transaction(db);
