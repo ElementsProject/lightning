@@ -69,20 +69,36 @@ static struct command_result *reckless_result(struct io_conn *conn,
 					       reckless->process_failed);
 		return command_finished(reckless->cmd, response);
 	}
-	response = jsonrpc_stream_success(reckless->cmd);
-	json_array_start(response, "result");
 	const jsmntok_t *results, *result, *logs, *log;
 	size_t i;
 	jsmn_parser parser;
 	jsmntok_t *toks;
-	toks = tal_arr(reckless, jsmntok_t, 500);
+	toks = tal_arr(reckless, jsmntok_t, 5000);
 	jsmn_init(&parser);
-	if (jsmn_parse(&parser, reckless->stdoutbuf,
-	    strlen(reckless->stdoutbuf), toks, tal_count(toks)) <= 0) {
-		plugin_log(plugin, LOG_DBG, "need more json tokens");
-		assert(false);
+	int res;
+	res = jsmn_parse(&parser, reckless->stdoutbuf,
+			 strlen(reckless->stdoutbuf), toks, tal_count(toks));
+	const char *err;
+	if (res == JSMN_ERROR_INVAL)
+		err = tal_fmt(tmpctx, "reckless returned invalid character in json "
+			      "output");
+	else if (res == JSMN_ERROR_PART)
+		err = tal_fmt(tmpctx, "reckless returned partial output");
+	else if (res == JSMN_ERROR_NOMEM )
+		err = tal_fmt(tmpctx, "insufficient tokens to parse "
+			      "reckless output.");
+	else
+		err = NULL;
+
+	if (err) {
+		plugin_log(plugin, LOG_UNUSUAL, "failed to parse json: %s", err);
+		response = jsonrpc_stream_fail(reckless->cmd, PLUGIN_ERROR,
+					       err);
+		return command_finished(reckless->cmd, response);
 	}
 
+	response = jsonrpc_stream_success(reckless->cmd);
+	json_array_start(response, "result");
 	results = json_get_member(reckless->stdoutbuf, toks, "result");
 	json_for_each_arr(i, result, results) {
 		json_add_string(response,
