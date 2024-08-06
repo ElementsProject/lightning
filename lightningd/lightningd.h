@@ -194,6 +194,11 @@ struct lightningd {
 	struct wireaddr_internal *binding;
 	struct wireaddr *announceable;
 
+	/* Alternative address for peer connections not publicly announced */
+	u8 *alt_addr;
+	/* Alternative binding address for peer connections not publicly announced */
+	u8 *alt_bind_addr;
+
 	/* Current node announcement (if any) */
 	const u8 *node_announcement;
 

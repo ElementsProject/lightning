@@ -66,6 +66,9 @@ struct peer {
 	bool channel_ready[NUM_SIDES];
 	u64 next_index[NUM_SIDES];
 
+	/* ID of peer */
+	struct node_id id;
+
 	/* --developer? */
 	bool developer;
 
@@ -168,6 +171,9 @@ struct peer {
 	struct changed_htlc *last_sent_commit;
 	u64 revocations_received;
 	u8 channel_flags;
+
+	/* Alt address for peer connections not publicly announced */
+	u8 *my_alt_addr;
 
 	/* Make sure timestamps move forward. */
 	u32 last_update_timestamp;
@@ -5847,7 +5853,9 @@ static void init_channel(struct peer *peer)
 				    &reestablish_only,
 				    &peer->experimental_upgrade,
 				    &peer->splice_state->inflights,
-				    &peer->local_alias)) {
+				    &peer->local_alias,
+				    &peer->my_alt_addr,
+				    &peer->id)) {
 		master_badmsg(WIRE_CHANNELD_INIT, msg);
 	}
 

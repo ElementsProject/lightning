@@ -17179,6 +17179,93 @@
                   }
                 }
               },
+              "alt-addr": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "values_str",
+                  "sources"
+                ],
+                "properties": {
+                  "values_str": {
+                    "added": "v24.11",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "Field from config or cmdline."
+                      ]
+                    }
+                  },
+                  "sources": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "Source of configuration setting."
+                      ]
+                    }
+                  }
+                }
+              },
+              "alt-announce-addr": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "values_str",
+                  "sources"
+                ],
+                "properties": {
+                  "values_str": {
+                    "added": "v24.11",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "Field from config or cmdline."
+                      ]
+                    }
+                  },
+                  "sources": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "Source of configuration setting."
+                      ]
+                    }
+                  }
+                }
+              },
+              "alt-bind-addr": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "values_str",
+                  "sources"
+                ],
+                "properties": {
+                  "values_str": {
+                    "added": "v24.11",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "Field from config or cmdline."
+                      ]
+                    }
+                  },
+                  "sources": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "Source of configuration setting."
+                      ]
+                    }
+                  }
+                }
+              },
               "autolisten": {
                 "type": "object",
                 "additionalProperties": false,

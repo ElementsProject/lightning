@@ -635,6 +635,37 @@ its use disables autolisten.
 can be useful for maintenance and forensics, so is usually specified on
 the command line. Overrides all *addr* and *bind-addr* options.
 
+* **alt-addr**=*\[IPADDRESS\[:PORT\]]\*
+
+  Specify an alternative IP address (v4 or v6) and optionally a port,
+to be used for selective private communications with established peers.
+This address is used selectively, primarily for reconnections with known peers,
+enhancing privacy. This address is not publicly announced.
+
+  An empty 'IPADDRESS' is a special value that clears any previously saved
+  alternate addresses, effectively resetting this setting. (Added in v24.11).
+
+* **alt-bind-addr**=*\[IPADDRESS\[:PORT\]]\*
+
+  Bind an alternative IP address (v4 or v6) and optionally a port,
+but hold it in reserve and do not automatically use it for peer connections.
+This address can be used in specific scenarios where a non-public address is
+preferred for incoming connections, offering more control over the connection process.
+
+  An empty 'IPADDRESS' is a special value that clears any previously saved
+  alternate bind addresses, effectively resetting this setting. (Added in v24.11).
+
+* **alt-announce-addr**=*\[IPADDRESS\[:PORT\]]\*
+
+  Provide an alternative IP address (v4 or v6) and optionally a port,
+which is bound by `alt-bind-addr`, to any established channel peers.
+This address is given to peers with whom a channel is already established,
+allowing for enhanced privacy. This address is not used for initial connections
+but can be shared with trusted peers for future communications.
+
+  An empty 'IPADDRESS' is a special value that clears any previously saved
+  alternate announce addresses, effectively resetting this setting. (Added in v24.11).
+
 * **autolisten**=*BOOL*
 
   By default, we bind (and maybe announce) on IPv4 and IPv6 interfaces if
