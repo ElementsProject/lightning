@@ -912,6 +912,27 @@ static void handle_update_inflight(struct lightningd *ld,
 	wallet_inflight_save(ld->wallet, inflight);
 }
 
+static void channel_record_splice(struct channel *channel,
+				  struct amount_msat orig_our_msats,
+				  struct amount_sat orig_funding_sats,
+				  struct bitcoin_outpoint *funding,
+				  u32 blockheight, struct bitcoin_txid *txid, const struct channel_inflight *inflight)
+{
+	struct chain_coin_mvt *mvt;
+	u32 output_count;
+
+	output_count = inflight->funding_psbt->num_outputs;
+	mvt = new_coin_channel_close(tmpctx, &channel->cid,
+				     txid,
+				     funding,
+				     blockheight,
+				     orig_our_msats,
+				     orig_funding_sats,
+				     output_count,
+				     /* is_splice = */true);
+	notify_chain_mvt(channel->peer->ld, mvt);
+}
+
 void channel_record_open(struct channel *channel, u32 blockheight, bool record_push)
 {
 	struct chain_coin_mvt *mvt;
@@ -1039,7 +1060,9 @@ bool channel_on_channel_ready(struct channel *channel,
 
 static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 {
-	struct amount_sat funding_sats;
+	struct amount_sat funding_sats, prev_funding_sats;
+	struct amount_msat prev_our_msats;
+	struct bitcoin_outpoint prev_funding_out;
 	s64 splice_amnt;
 	struct channel_inflight *inflight;
 	struct bitcoin_txid locked_txid;
@@ -1054,15 +1077,21 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	channel->our_msat.millisatoshis += splice_amnt * 1000; /* Raw: splicing */
-	channel->msat_to_us_min.millisatoshis += splice_amnt * 1000; /* Raw: splicing */
-	channel->msat_to_us_max.millisatoshis += splice_amnt * 1000; /* Raw: splicing */
-
 	inflight = channel_inflight_find(channel, &locked_txid);
 	if(!inflight)
 		channel_internal_error(channel, "Unable to load inflight for"
 				       " locked_txid %s",
 				       fmt_bitcoin_txid(tmpctx, &locked_txid));
+
+	/* Stash prev funding data so we can log it after scid is updated
+	 * (to get the blockheight) */
+	prev_our_msats = channel->our_msat;
+	prev_funding_sats = channel->funding_sats;
+	prev_funding_out = channel->funding;
+
+	channel->our_msat.millisatoshis += splice_amnt * 1000; /* Raw: splicing */
+	channel->msat_to_us_min.millisatoshis += splice_amnt * 1000; /* Raw: splicing */
+	channel->msat_to_us_max.millisatoshis += splice_amnt * 1000; /* Raw: splicing */
 
 	wallet_htlcsigs_confirm_inflight(channel->peer->ld->wallet, channel,
 					 &inflight->funding->outpoint);
@@ -1084,6 +1113,16 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 
 	/* That freed watchers in inflights: now watch funding tx */
 	channel_watch_funding(channel->peer->ld, channel);
+
+	/* Log that funding output has been spent */
+	channel_record_splice(channel,
+			      prev_our_msats,
+			      prev_funding_sats,
+			      &prev_funding_out,
+			      channel->scid ?
+			      short_channel_id_blocknum(*channel->scid) : 0,
+			      &locked_txid,
+			      inflight);
 
 	/* Put the successful inflight back in as a memory-only object.
 	 * peer_control's funding_spent function will pick this up and clean up

@@ -40,6 +40,7 @@ static const char *mvt_tags[] = {
 	"leased",
 	"stealable",
 	"channel_proposed",
+	"splice",
 };
 
 const char *mvt_tag_str(enum mvt_tag tag)
@@ -177,19 +178,31 @@ struct chain_coin_mvt *new_onchaind_deposit(const tal_t *ctx,
 }
 
 struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx,
+					      const struct channel_id *chan_id,
 					      const struct bitcoin_txid *txid,
 					      const struct bitcoin_outpoint *out,
 					      u32 blockheight,
 					      const struct amount_msat amount,
 					      const struct amount_sat output_val,
-					      u32 output_count)
+					      u32 output_count,
+					      bool is_splice)
 {
-	return new_chain_coin_mvt(ctx, NULL, txid,
+	struct chain_coin_mvt *mvt;
+	enum mvt_tag *tags = new_tag_arr(NULL, CHANNEL_CLOSE);
+
+	if (is_splice)
+		tal_arr_expand(&tags, SPLICE);
+
+	mvt = new_chain_coin_mvt(ctx, NULL, txid,
 				  out, NULL, blockheight,
-				  take(new_tag_arr(NULL, CHANNEL_CLOSE)),
+				  take(tags),
 				  amount, false,
 				  output_val,
 				  output_count);
+	if (chan_id)
+		mvt->account_name = fmt_channel_id(mvt, chan_id);
+
+	return mvt;
 }
 
 struct chain_coin_mvt *new_coin_channel_open_proposed(const tal_t *ctx,
