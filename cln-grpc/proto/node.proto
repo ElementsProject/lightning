@@ -3324,6 +3324,14 @@ message HelpResponse {
 
 message HelpHelp {
 	string command = 1;
+	optional HelpHelpClnrest clnrest = 5;
+}
+
+message HelpHelpClnrest {
+	string path = 1;
+	string method = 2;
+	string content_type = 3;
+	bool rune = 4;
 }
 
 message PreapprovekeysendRequest {
