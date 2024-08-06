@@ -69,4 +69,4 @@ def pytest_pyfunc_call(pyfuncitem):
     except Exception as e:
         import warnings
 
-        warnings.warn(f"Error reporting testrun: {e}: {e.read()}")
+        warnings.warn(f"Error reporting testrun: {e}")
