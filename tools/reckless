@@ -39,12 +39,16 @@ class Logger:
                             "log": []}
         self.capture = capture
 
+    def str_esc(self, raw_string: str) -> str:
+        assert isinstance(raw_string, str)
+        return json.dumps(raw_string)[1:-1]
+
     def debug(self, to_log: str):
         assert isinstance(to_log, str) or hasattr(to_log, "__repr__")
         if logging.root.level > logging.DEBUG:
             return
         if self.capture:
-            self.json_output['log'].append(f"DEBUG: {to_log}")
+            self.json_output['log'].append(self.str_esc(f"DEBUG: {to_log}"))
         else:
             logging.debug(to_log)
 
@@ -53,7 +57,7 @@ class Logger:
         if logging.root.level > logging.INFO:
             return
         if self.capture:
-            self.json_output['log'].append(f"INFO: {to_log}")
+            self.json_output['log'].append(self.str_esc(f"INFO: {to_log}"))
         else:
             print(to_log)
 
@@ -62,7 +66,7 @@ class Logger:
         if logging.root.level > logging.WARNING:
             return
         if self.capture:
-            self.json_output['log'].append(f"WARNING: {to_log}")
+            self.json_output['log'].append(self.str_esc(f"WARNING: {to_log}"))
         else:
             logging.warning(to_log)
 
@@ -71,7 +75,7 @@ class Logger:
         if logging.root.level > logging.ERROR:
             return
         if self.capture:
-            self.json_output['log'].append(f"ERROR: {to_log}")
+            self.json_output['log'].append(self.str_esc(f"ERROR: {to_log}"))
         else:
             logging.error(to_log)
 
