@@ -690,18 +690,6 @@ fail:
 	return NULL;
 }
 
-/* <sigh>.  Bitcoind represents hashes as little-endian for RPC. */
-static void reverse_bytes(u8 *arr, size_t len)
-{
-	unsigned int i;
-
-	for (i = 0; i < len / 2; i++) {
-		unsigned char tmp = arr[i];
-		arr[i] = arr[len - 1 - i];
-		arr[len - 1 - i] = tmp;
-	}
-}
-
 bool bitcoin_txid_from_hex(const char *hexstr, size_t hexstr_len,
 			   struct bitcoin_txid *txid)
 {

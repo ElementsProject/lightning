@@ -122,6 +122,26 @@ static struct channel_event *stmt2channel_event(const tal_t *ctx, struct db_stmt
 	return e;
 }
 
+static struct channel_event **find_channel_events(const tal_t *ctx,
+						  struct db_stmt *stmt TAKES)
+{
+	struct channel_event **results;
+
+	db_query_prepared(stmt);
+	if (stmt->error)
+		db_fatal(stmt->db, "find_channel_events err: %s", stmt->error);
+	results = tal_arr(ctx, struct channel_event *, 0);
+	while (db_step(stmt)) {
+		struct channel_event *e = stmt2channel_event(results, stmt);
+		tal_arr_expand(&results, e);
+	}
+
+	if (taken(stmt))
+		tal_free(stmt);
+
+	return results;
+}
+
 static struct rebalance *stmt2rebalance(const tal_t *ctx, struct db_stmt *stmt)
 {
 	struct rebalance *r = tal(ctx, struct rebalance);
@@ -946,7 +966,6 @@ struct channel_event **account_get_channel_events(const tal_t *ctx,
 						  struct account *acct)
 {
 	struct db_stmt *stmt;
-	struct channel_event **results;
 
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  e.id"
@@ -969,16 +988,37 @@ struct channel_event **account_get_channel_events(const tal_t *ctx,
 				     " ORDER BY e.timestamp, e.id"));
 
 	db_bind_u64(stmt, acct->db_id);
-	db_query_prepared(stmt);
+	return find_channel_events(ctx, take(stmt));
+}
 
-	results = tal_arr(ctx, struct channel_event *, 0);
-	while (db_step(stmt)) {
-		struct channel_event *e = stmt2channel_event(results, stmt);
-		tal_arr_expand(&results, e);
-	}
-	tal_free(stmt);
+struct channel_event **get_channel_events_by_id(const tal_t *ctx,
+						struct db *db,
+						struct sha256 *id)
+{
+	struct db_stmt *stmt;
 
-	return results;
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  e.id"
+				     ", a.name"
+				     ", e.account_id"
+				     ", e.tag"
+				     ", e.credit"
+				     ", e.debit"
+				     ", e.fees"
+				     ", e.currency"
+				     ", e.payment_id"
+				     ", e.part_id"
+				     ", e.timestamp"
+				     ", e.ev_desc"
+				     ", e.rebalance_id"
+				     " FROM channel_events e"
+				     " LEFT OUTER JOIN accounts a"
+				     " ON a.id = e.account_id"
+				     " WHERE e.payment_id = ?"
+				     " ORDER BY e.timestamp, e.id"));
+
+	db_bind_sha256(stmt, id);
+	return find_channel_events(ctx, take(stmt));
 }
 
 static struct onchain_fee *stmt2onchain_fee(const tal_t *ctx,
@@ -998,11 +1038,30 @@ static struct onchain_fee *stmt2onchain_fee(const tal_t *ctx,
 	return of;
 }
 
+static struct onchain_fee **find_onchain_fees(const tal_t *ctx,
+					      struct db_stmt *stmt TAKES)
+{
+	struct onchain_fee **results;
+
+	db_query_prepared(stmt);
+	if (stmt->error)
+		db_fatal(stmt->db, "find_onchain_fees err: %s", stmt->error);
+	results = tal_arr(ctx, struct onchain_fee *, 0);
+	while (db_step(stmt)) {
+		struct onchain_fee *of = stmt2onchain_fee(results, stmt);
+		tal_arr_expand(&results, of);
+	}
+
+	if (taken(stmt))
+		tal_free(stmt);
+
+	return results;
+}
+
 struct onchain_fee **account_get_chain_fees(const tal_t *ctx, struct db *db,
 					    struct account *acct)
 {
 	struct db_stmt *stmt;
-	struct onchain_fee **results;
 
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  of.account_id"
@@ -1023,23 +1082,40 @@ struct onchain_fee **account_get_chain_fees(const tal_t *ctx, struct db *db,
 				     ", of.update_count"));
 
 	db_bind_u64(stmt, acct->db_id);
-	db_query_prepared(stmt);
+	return find_onchain_fees(ctx, take(stmt));
+}
 
-	results = tal_arr(ctx, struct onchain_fee *, 0);
-	while (db_step(stmt)) {
-		struct onchain_fee *of = stmt2onchain_fee(results, stmt);
-		tal_arr_expand(&results, of);
-	}
-	tal_free(stmt);
+struct onchain_fee **get_chain_fees_by_txid(const tal_t *ctx, struct db *db,
+					    struct bitcoin_txid *txid)
+{
+	struct db_stmt *stmt;
 
-	return results;
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  of.account_id"
+				     ", a.name"
+				     ", of.txid"
+				     ", of.credit"
+				     ", of.debit"
+				     ", of.currency"
+				     ", of.timestamp"
+				     ", of.update_count"
+				     " FROM onchain_fees of"
+				     " LEFT OUTER JOIN accounts a"
+				     " ON a.id = of.account_id"
+				     " WHERE of.txid = ?"
+				     " ORDER BY "
+				     "  of.timestamp"
+				     ", of.txid"
+				     ", of.update_count"));
+
+	db_bind_txid(stmt, txid);
+	return find_onchain_fees(ctx, take(stmt));
 }
 
 struct onchain_fee **list_chain_fees_timebox(const tal_t *ctx, struct db *db,
 					     u64 start_time, u64 end_time)
 {
 	struct db_stmt *stmt;
-	struct onchain_fee **results;
 
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  of.account_id"
@@ -1063,16 +1139,7 @@ struct onchain_fee **list_chain_fees_timebox(const tal_t *ctx, struct db *db,
 
 	db_bind_u64(stmt, start_time);
 	db_bind_u64(stmt, end_time);
-	db_query_prepared(stmt);
-
-	results = tal_arr(ctx, struct onchain_fee *, 0);
-	while (db_step(stmt)) {
-		struct onchain_fee *of = stmt2onchain_fee(results, stmt);
-		tal_arr_expand(&results, of);
-	}
-	tal_free(stmt);
-
-	return results;
+	return find_onchain_fees(ctx, take(stmt));
 }
 
 struct onchain_fee **list_chain_fees(const tal_t *ctx, struct db *db)
@@ -1157,7 +1224,6 @@ struct onchain_fee **account_onchain_fees(const tal_t *ctx,
 					  struct account *acct)
 {
 	struct db_stmt *stmt;
-	struct onchain_fee **results;
 
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  of.account_id"
@@ -1174,16 +1240,7 @@ struct onchain_fee **account_onchain_fees(const tal_t *ctx,
 				     " WHERE of.account_id = ?;"));
 
 	db_bind_u64(stmt, acct->db_id);
-	db_query_prepared(stmt);
-
-	results = tal_arr(ctx, struct onchain_fee *, 0);
-	while (db_step(stmt)) {
-		struct onchain_fee *of = stmt2onchain_fee(results, stmt);
-		tal_arr_expand(&results, of);
-	}
-	tal_free(stmt);
-
-	return results;
+	return find_onchain_fees(ctx, take(stmt));
 }
 
 struct account **list_accounts(const tal_t *ctx, struct db *db)
@@ -1399,8 +1456,8 @@ void log_channel_event(struct db *db,
 	tal_free(stmt);
 }
 
-static struct chain_event **find_chain_events_bytxid(const tal_t *ctx, struct db *db,
-						     struct bitcoin_txid *txid)
+struct chain_event **find_chain_events_bytxid(const tal_t *ctx, struct db *db,
+					      struct bitcoin_txid *txid)
 {
 	struct db_stmt *stmt;
 
