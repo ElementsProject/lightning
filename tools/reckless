@@ -1341,7 +1341,11 @@ def uninstall(plugin_name: str) -> str:
     assert isinstance(plugin_name, str)
     log.debug(f'Uninstalling plugin {plugin_name}')
     disable(plugin_name)
-    inst = InferInstall(plugin_name)
+    try:
+        inst = InferInstall(plugin_name)
+    except NotFoundError as err:
+        log.error(err)
+        return "uninstall failed"
     if not Path(inst.entry).exists():
         log.error("cannot find installed plugin at expected path"
                   f"{inst.entry}")
