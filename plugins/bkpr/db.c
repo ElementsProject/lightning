@@ -99,6 +99,7 @@ static struct migration db_migrations[] = {
 	{SQL("ALTER TABLE chain_events ADD ev_desc TEXT DEFAULT NULL;"), NULL},
 	{SQL("ALTER TABLE channel_events ADD ev_desc TEXT DEFAULT NULL;"), NULL},
 	{SQL("ALTER TABLE channel_events ADD rebalance_id BIGINT DEFAULT NULL;"), NULL},
+	{SQL("ALTER TABLE chain_events ADD spliced INTEGER DEFAULT 0;"), NULL},
 	{NULL, migration_remove_dupe_lease_fees}
 };
 
