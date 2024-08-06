@@ -1420,6 +1420,21 @@ static void handle_local_anchors(struct channel *channel, const u8 *msg)
 	}
 }
 
+static void handle_channeld_my_alt_addr(struct lightningd *ld, struct channel *channel,
+				const u8 *msg)
+{
+	u8 *my_alt_addr;
+
+	if (!fromwire_channeld_my_alt_addr(tmpctx, msg, &my_alt_addr)) {
+		channel_internal_error(channel,
+				       "bad channeld_my_alt_addr %s",
+				       tal_hex(channel, msg));
+		return;
+	}
+
+	tal_free(my_alt_addr);
+}
+
 static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
 	enum channeld_wire t = fromwire_peektype(msg);
@@ -1500,6 +1515,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_UPGRADED:
 		handle_channel_upgrade(sd->channel, msg);
 		break;
+	case WIRE_CHANNELD_MY_ALT_ADDR:
+		handle_channeld_my_alt_addr(sd->ld, sd->channel, msg);
+		break;
 	/* And we never get these from channeld. */
 	case WIRE_CHANNELD_INIT:
 	case WIRE_CHANNELD_FUNDING_DEPTH:
@@ -1516,6 +1534,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_DEV_MEMLEAK:
 	case WIRE_CHANNELD_DEV_QUIESCE:
 	case WIRE_CHANNELD_GOT_INFLIGHT:
+	case WIRE_CHANNELD_PEER_ALT_ADDR:
 		/* Replies go to requests. */
 	case WIRE_CHANNELD_OFFER_HTLC_REPLY:
 	case WIRE_CHANNELD_DEV_REENABLE_COMMIT_REPLY:

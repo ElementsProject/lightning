@@ -336,6 +336,9 @@ void update_recent_timestamp(struct daemon *daemon, struct gossmap *gossmap);
 /* add erros to error list */
 void add_errors_to_error_list(struct connecting *connect, const char *error);
 
+/* Handles alternative address message from peer. */
+void handle_peer_alt_addr_in(struct peer *peer, const u8 *msg);
+
 /* Called by peer_exchange_initmsg if successful. */
 struct io_plan *peer_connected(struct io_conn *conn,
 			       struct daemon *daemon,

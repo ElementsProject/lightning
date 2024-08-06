@@ -553,6 +553,21 @@ static void handle_custommsg_in(struct lightningd *ld, const u8 *msg)
 	plugin_hook_call_custommsg(ld, NULL, p);
 }
 
+static void handle_peer_alt_addr(struct lightningd *ld, const u8 *msg)
+{
+	struct node_id p_id;
+	u8 *p_alt_addr;
+
+	if (!fromwire_connectd_peer_alt_addr(tmpctx, msg, &p_id, &p_alt_addr)) {
+		log_broken(ld->log,
+			   "handle_alt_addr_in: Malformed alt_addr message: %s",
+			   tal_hex(tmpctx, msg));
+		return;
+	}
+
+	tal_free(p_alt_addr);
+}
+
 static void connectd_start_shutdown_reply(struct subd *connectd,
 					  const u8 *reply,
 					  const int *fds UNUSED,
@@ -645,6 +660,9 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 
 	case WIRE_CONNECTD_CUSTOMMSG_IN:
 		handle_custommsg_in(connectd->ld, msg);
+		break;
+	case WIRE_CONNECTD_PEER_ALT_ADDR:
+		handle_peer_alt_addr(connectd->ld, msg);
 		break;
 	}
 	return 0;

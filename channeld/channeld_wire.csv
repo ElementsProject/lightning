@@ -350,3 +350,13 @@ msgdata,channeld_upgraded,new_type,channel_type,
 # Tell peer about our latest and greatest blockheight.
 msgtype,channeld_blockheight,1012
 msgdata,channeld_blockheight,blockheight,u32,
+
+# master -> channeld: send peer our alternative addresses
+msgtype,channeld_peer_alt_addr,1035
+msgdata,channeld_peer_alt_addr,alt_addr_len,u16,
+msgdata,channeld_peer_alt_addr,alt_addr,u8,alt_addr_len,
+
+# channeld -> master: send our alternative addresses to our db
+msgtype,channeld_my_alt_addr,1037
+msgdata,channeld_my_alt_addr,alt_addr_len,u16,
+msgdata,channeld_my_alt_addr,alt_addr,u8,alt_addr_len,

@@ -50,6 +50,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <wire/peer_wiregen.h>
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 
@@ -516,6 +517,18 @@ static struct io_plan *connection_in(struct io_conn *conn,
 	conn_in_arg.daemon = daemon;
 	conn_in_arg.is_websocket = false;
 	return conn_in(conn, &conn_in_arg);
+}
+
+void handle_peer_alt_addr_in(struct peer *peer, const u8 *msg)
+{
+	u8 *p_alt_addr;
+
+	if (!fromwire_peer_alt_addr(peer, msg, &p_alt_addr))
+		master_badmsg(WIRE_PEER_ALT_ADDR, msg);
+
+	u8 *fwd_msg = towire_connectd_peer_alt_addr(tmpctx, &peer->id, p_alt_addr);
+	daemon_conn_send(peer->daemon->master, take(fwd_msg));
+	tal_free(p_alt_addr);
 }
 
 /*~ <hello>I speak web socket</hello>.
@@ -2249,6 +2262,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_PEER_DISCONNECT_DONE:
 	case WIRE_CONNECTD_START_SHUTDOWN_REPLY:
 	case WIRE_CONNECTD_INJECT_ONIONMSG_REPLY:
+	case WIRE_CONNECTD_PEER_ALT_ADDR:
 		break;
 	}
 

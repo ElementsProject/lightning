@@ -326,6 +326,7 @@ static bool is_urgent(enum peer_wire type)
 	case WIRE_SPLICE:
 	case WIRE_SPLICE_ACK:
 	case WIRE_SPLICE_LOCKED:
+	case WIRE_PEER_ALT_ADDR:
 		return false;
 
 	/* These are time-sensitive, and so send without delay. */
@@ -753,6 +754,9 @@ static bool handle_message_locally(struct peer *peer, const u8 *msg)
 		return true;
  	} else if (type == WIRE_QUERY_SHORT_CHANNEL_IDS) {
 		handle_query_short_channel_ids(peer, msg);
+		return true;
+	} else if (type == WIRE_PEER_ALT_ADDR) {
+		handle_peer_alt_addr_in(peer, msg);
 		return true;
 	} else if (handle_custommsg(peer->daemon, peer, msg)) {
 		return true;

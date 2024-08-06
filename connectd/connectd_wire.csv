@@ -187,3 +187,9 @@ msgtype,connectd_dev_exhaust_fds,2036
 # master -> connect: set artificial maximum reply_channel_range size.
 msgtype,connectd_dev_set_max_scids_encode_size,2035
 msgdata,connectd_dev_set_max_scids_encode_size,max,u32,
+
+# connectd -> master: incoming alternative connection address from peer
+msgtype,connectd_peer_alt_addr,2037
+msgdata,connectd_peer_alt_addr,id,node_id,
+msgdata,connectd_peer_alt_addr,addr_len,u8,
+msgdata,connectd_peer_alt_addr,addr,byte,addr_len,
