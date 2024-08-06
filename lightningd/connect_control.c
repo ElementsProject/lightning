@@ -565,6 +565,7 @@ static void handle_peer_alt_addr(struct lightningd *ld, const u8 *msg)
 		return;
 	}
 
+	wallet_add_alt_addr(ld->wallet->db, &p_id, (char *)p_alt_addr, false);
 	tal_free(p_alt_addr);
 }
 

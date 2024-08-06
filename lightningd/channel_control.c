@@ -1432,6 +1432,8 @@ static void handle_channeld_my_alt_addr(struct lightningd *ld, struct channel *c
 		return;
 	}
 
+	wallet_add_alt_addr(ld->wallet->db, &channel->peer->id,
+			    (char *)my_alt_addr, true);
 	tal_free(my_alt_addr);
 }
 
