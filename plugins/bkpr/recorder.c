@@ -1294,6 +1294,7 @@ void maybe_update_account(struct db *db,
 			case TO_MINER:
 			case LEASE_FEE:
 			case STEALABLE:
+			case SPLICE:
 				/* Ignored */
 				break;
 		}

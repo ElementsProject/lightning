@@ -103,12 +103,14 @@ void memleak_status_broken(void *unused UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "memleak_status_broken called!\n"); abort(); }
 /* Generated stub for new_coin_channel_close */
 struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx UNNEEDED,
+					      const struct channel_id *chan_id UNNEEDED,
 					      const struct bitcoin_txid *txid UNNEEDED,
 					      const struct bitcoin_outpoint *out UNNEEDED,
 					      u32 blockheight UNNEEDED,
 					      const struct amount_msat amount UNNEEDED,
 					      const struct amount_sat output_val UNNEEDED,
-					      u32 output_count)
+					      u32 output_count UNNEEDED,
+					      bool is_splice)
 
 { fprintf(stderr, "new_coin_channel_close called!\n"); abort(); }
 /* Generated stub for new_coin_external_deposit */
