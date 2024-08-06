@@ -641,6 +641,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_PING_REPLY:
 	case WIRE_CONNECTD_START_SHUTDOWN_REPLY:
 	case WIRE_CONNECTD_INJECT_ONIONMSG_REPLY:
+	case WIRE_CONNECTD_ALT_ADDR_WHITELIST:
 		break;
 
 	case WIRE_CONNECTD_PEER_CONNECTED:
@@ -793,7 +794,8 @@ int connectd_init(struct lightningd *ld)
 				   ld->dev_disconnect_fd >= 0,
 				   ld->dev_no_ping_timer,
 				   ld->dev_handshake_no_reply,
-				   ld->dev_throttle_gossip);
+				   ld->dev_throttle_gossip,
+				   ld->alt_bind_addr);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);

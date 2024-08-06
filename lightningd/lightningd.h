@@ -199,6 +199,9 @@ struct lightningd {
 	/* Alternative binding address for peer connections not publicly announced */
 	u8 *alt_bind_addr;
 
+	/* For confirming incoming alternative address connections from peers */
+	struct whitelisted_peer *whitelisted_peers;
+
 	/* Current node announcement (if any) */
 	const u8 *node_announcement;
 

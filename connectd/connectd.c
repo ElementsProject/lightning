@@ -313,6 +313,77 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	return multiplex_peer_setup(conn, peer);
 }
 
+static bool verify_alt_addr(struct io_conn *conn,
+                            struct daemon *daemon,
+                            const struct node_id *id)
+{
+	struct sockaddr_in local_addr;
+	socklen_t addr_len = sizeof(local_addr);
+
+	/* Get local address and port */
+	if (getsockname(io_conn_fd(conn), (struct sockaddr *)&local_addr,
+				   &addr_len) == -1) {
+		status_broken("verify_alt_addr: getsockname failed");
+		return false;
+	}
+
+	char listening_addr[INET_ADDRSTRLEN];
+	if (!inet_ntop(AF_INET, &local_addr.sin_addr, listening_addr,
+		       sizeof(listening_addr))) {
+		status_broken("verify_alt_addr: inet_ntop failed");
+		return false;
+	}
+	int listening_port = ntohs(local_addr.sin_port);
+
+	char full_listening_addr[INET_ADDRSTRLEN + 6];
+	snprintf(full_listening_addr, sizeof(full_listening_addr), "%s:%d",
+		 listening_addr, listening_port);
+
+	struct wireaddr_internal search_addr;
+	if (parse_wireaddr_internal(tmpctx, full_listening_addr, 0,
+				    false, &search_addr) != NULL) {
+		status_broken("verify_alt_addr: parse_wireaddr_internal failed");
+		return false;
+	}
+
+	struct whitelisted_peer *wp = whitelisted_peer_htable_get(daemon->whitelisted_peer_htable,
+								  id);
+	bool is_whitelisted = false;
+
+	if (wp) {
+		size_t num_addrs = tal_count(wp->my_alt_addrs);
+		for (size_t i = 0; i < num_addrs; ++i) {
+			char *whitelist_addr_str = fmt_wireaddr_internal(tmpctx,
+									 &wp->my_alt_addrs[i]);
+			if (strcmp(full_listening_addr, whitelist_addr_str) == 0) {
+				is_whitelisted = true;
+				status_debug("Peer's address %s is in the whitelist. Accepting connection.",
+					     full_listening_addr);
+				goto check_alt_bind_addr;
+			}
+		}
+	}
+
+check_alt_bind_addr:
+	/* Check against alt_bind_addr only if the connection is not whitelisted */
+	if (!is_whitelisted) {
+		char *alt_bind_addrs = tal_strdup(tmpctx,
+						  (const char *)daemon->alt_bind_addr);
+		for (char *alt_bind_token = strtok(alt_bind_addrs, ",");
+		     alt_bind_token;
+		     alt_bind_token = strtok(NULL, ",")) {
+			if (strcmp(full_listening_addr, alt_bind_token) == 0) {
+				status_unusual("Connection attempt from address %s which is not in the whitelist. Closing connection.",
+				               full_listening_addr);
+				tal_free(alt_bind_addrs);
+				return false;
+			}
+		}
+		tal_free(alt_bind_addrs);
+	}
+	return true;
+}
+
 /*~ handshake.c's handles setting up the crypto state once we get a connection
  * in; we hand it straight to peer_exchange_initmsg() to send and receive INIT
  * and call peer_connected(). */
@@ -327,6 +398,12 @@ static struct io_plan *handshake_in_success(struct io_conn *conn,
 	struct node_id id;
 	node_id_from_pubkey(&id, id_key);
 	status_peer_debug(&id, "Connect IN");
+
+	/* Confirm that peer connects to the alt-bind-addr you sent */
+	if (daemon->alt_bind_addr)
+		if (!verify_alt_addr(conn, daemon, &id))
+			return (io_close(conn));
+
 	return peer_exchange_initmsg(conn, daemon, daemon->our_features,
 				     cs, &id, addr, timeout, is_websocket, true);
 }
@@ -1438,7 +1515,8 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 				    &dev_disconnect,
 				    &daemon->dev_no_ping_timer,
 				    &daemon->dev_handshake_no_reply,
-				    &dev_throttle_gossip)) {
+				    &dev_throttle_gossip,
+				    &daemon->alt_bind_addr)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTD_INIT, msg);
@@ -1925,6 +2003,7 @@ static void dev_connect_memleak(struct daemon *daemon, const u8 *msg)
 	memleak_scan_obj(memtable, daemon);
 	memleak_scan_htable(memtable, &daemon->peers->raw);
 	memleak_scan_htable(memtable, &daemon->scid_htable->raw);
+	memleak_scan_htable(memtable, &daemon->whitelisted_peer_htable->raw);
 
 	found_leak = dump_memleak(memtable, memleak_status_broken, NULL);
 	daemon_conn_send(daemon->master,
@@ -2161,6 +2240,18 @@ static void dev_exhaust_fds(struct daemon *daemon, const u8 *msg)
 	daemon->dev_exhausted_fds = true;
 }
 
+static void handle_alt_addr_whitelist(struct daemon *daemon, const u8 *msg)
+{
+	struct whitelisted_peer *received_peers;
+
+	if (!fromwire_connectd_alt_addr_whitelist(daemon, msg, &received_peers)) {
+		master_badmsg(WIRE_CONNECTD_ALT_ADDR_WHITELIST, msg);
+		return;
+	}
+
+	populate_whitelist_table(daemon, received_peers);
+}
+
 static struct io_plan *recv_peer_connect_subd(struct io_conn *conn,
 					      const u8 *msg,
 					      int fd,
@@ -2261,6 +2352,10 @@ static struct io_plan *recv_req(struct io_conn *conn,
 			dev_set_max_scids_encode_size(daemon, msg);
 			goto out;
 		}
+		/* Fall thru */
+	case WIRE_CONNECTD_ALT_ADDR_WHITELIST:
+		handle_alt_addr_whitelist(daemon, msg);
+		goto out;
 		/* Fall thru */
 	/* We send these, we don't receive them */
 	case WIRE_CONNECTD_INIT_REPLY:
@@ -2363,6 +2458,9 @@ int main(int argc, char *argv[])
 	daemon->gossip_stream_limit = 1000000;
 	daemon->scid_htable = tal(daemon, struct scid_htable);
 	scid_htable_init(daemon->scid_htable);
+	daemon->whitelisted_peer_htable = tal(daemon,
+					      struct whitelisted_peer_htable);
+	whitelisted_peer_htable_init(daemon->whitelisted_peer_htable);
 
 	/* stdin == control */
 	daemon->master = daemon_conn_new(daemon, STDIN_FILENO, recv_req, NULL,

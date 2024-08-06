@@ -82,6 +82,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/utils.o				\
 	common/utxo.o				\
 	common/version.o			\
+	common/whitelisted_peer.o		\
 	common/wireaddr.o			\
 	common/wire_error.o			\
 	gossipd/gossipd_wiregen.o		\

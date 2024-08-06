@@ -3,6 +3,7 @@
 #include <common/cryptomsg.h>
 #include <common/features.h>
 #include <common/node_id.h>
+#include <common/whitelisted_peer.h>
 #include <common/wireaddr.h>
 #include <wire/onion_wire.h>
 
@@ -28,6 +29,9 @@ msgdata,connectd_init,dev_no_ping_timer,bool,
 # Allow incoming connections, but don't talk.
 msgdata,connectd_init,dev_noreply,bool,
 msgdata,connectd_init,dev_throttle_gossip,bool,
+# Whitelist for incoming alternative address connections
+msgdata,connectd_init,alt_bind_addr_len,u8,
+msgdata,connectd_init,alt_bind_addr,byte,alt_bind_addr_len,
 
 # Connectd->master, here are the addresses I bound, can announce.
 msgtype,connectd_init_reply,2100
@@ -194,3 +198,7 @@ msgtype,connectd_peer_alt_addr,2037
 msgdata,connectd_peer_alt_addr,id,node_id,
 msgdata,connectd_peer_alt_addr,addr_len,u8,
 msgdata,connectd_peer_alt_addr,addr,byte,addr_len,
+
+# master -> connectd: alternative connection whitelist
+msgtype,connectd_alt_addr_whitelist,2138
+msgdata,connectd_alt_addr_whitelist,whitelisted_peer,?whitelisted_peer,

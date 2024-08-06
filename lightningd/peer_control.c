@@ -2457,6 +2457,39 @@ command_find_channel(struct command *cmd,
 	}
 }
 
+void add_new_whitelisted_peer(struct lightningd *ld,
+			      const struct node_id *p_id,
+			      const struct wireaddr_internal *addrs,
+			      size_t addr_count)
+{
+	struct whitelisted_peer new_peer;
+
+	new_peer.id = *p_id;;
+	new_peer.my_alt_addrs = tal_dup_arr(ld->whitelisted_peers,
+					    struct wireaddr_internal,
+					    addrs, addr_count, 0);
+	tal_arr_expand(&ld->whitelisted_peers, new_peer);
+}
+
+static bool whitelist_peer_if_alt_addrs_exist(struct lightningd *ld,
+					      struct peer *p)
+{
+	struct wireaddr_internal *addrs;
+
+	/* Retrieve alt addrs we have sent to this peer */
+	addrs = wallet_get_alt_addr(ld->wallet, &p->id, true);
+	if (!addrs) {
+		log_debug(ld->log,
+			  "No alternative addresses sent to peer %s",
+			  fmt_node_id(tmpctx, &p->id));
+		return false;
+	}
+
+	add_new_whitelisted_peer(ld, &p->id, addrs, tal_count(addrs));
+	tal_free(addrs);
+	return true;
+}
+
 static void setup_peer(struct peer *peer, u32 delay)
 {
 	struct channel *channel;
@@ -2522,12 +2555,24 @@ void setup_peers(struct lightningd *ld)
 	/* Avoid thundering herd: after first five, delay by 1 second. */
 	int delay = -5;
 	struct peer_node_id_map_iter it;
+	bool whitelist_modified = false;
+
+	if (!ld->whitelisted_peers)
+		ld->whitelisted_peers = tal_arr(ld, struct whitelisted_peer, 0);
 
 	for (p = peer_node_id_map_first(ld->peers, &it);
 	     p;
 	     p = peer_node_id_map_next(ld->peers, &it)) {
+		if (whitelist_peer_if_alt_addrs_exist(ld, p))
+			whitelist_modified = true;
 		setup_peer(p, delay > 0 ? delay : 0);
 		delay++;
+	}
+
+	if (whitelist_modified) {
+		u8 *msg = towire_connectd_alt_addr_whitelist(tmpctx,
+							     ld->whitelisted_peers);
+		subd_send_msg(ld->connectd, take(msg));
 	}
 
 	/* In case there are no peers at all to connect to */
