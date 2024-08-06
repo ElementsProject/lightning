@@ -263,6 +263,7 @@ struct delayed_reconnect {
 	struct lightningd *ld;
 	struct node_id id;
 	struct wireaddr_internal *addrhint;
+	struct wireaddr_internal *peer_alt_addr;
 	bool dns_fallback;
 };
 
@@ -304,6 +305,7 @@ static void gossipd_got_addrs(struct subd *subd,
 						     &d->id,
 						     addrs,
 						     d->addrhint,
+						     d->peer_alt_addr,
 						     d->dns_fallback,
 						     transient);
 	subd_send_msg(d->ld->connectd, take(connectmsg));
@@ -332,6 +334,7 @@ static void try_connect(const tal_t *ctx,
 {
 	struct delayed_reconnect *d;
 	struct peer *peer;
+	struct wireaddr_internal *p_alt_addr;
 
 	/* Don't stack, unless this is an instant reconnect */
 	d = delayed_reconnect_map_get(ld->delayed_reconnect_map, id);
@@ -343,10 +346,13 @@ static void try_connect(const tal_t *ctx,
 		tal_free(d);
 	}
 
+	p_alt_addr = wallet_get_alt_addr(ld->wallet, id, false);
+
 	d = tal(ctx, struct delayed_reconnect);
 	d->ld = ld;
 	d->id = *id;
 	d->addrhint = tal_dup_or_null(d, struct wireaddr_internal, addrhint);
+	d->peer_alt_addr = tal_dup_or_null(d, struct wireaddr_internal, p_alt_addr);
 	d->dns_fallback = dns_fallback;
 	delayed_reconnect_map_add(ld->delayed_reconnect_map, d);
 	tal_add_destructor(d, destroy_delayed_reconnect);

@@ -62,6 +62,7 @@ msgdata,connectd_connect_to_peer,id,node_id,
 msgdata,connectd_connect_to_peer,len,u32,
 msgdata,connectd_connect_to_peer,addrs,wireaddr,len
 msgdata,connectd_connect_to_peer,addrhint,?wireaddr_internal,
+msgdata,connectd_connect_to_peer,peer_alt_addr,?wireaddr_internal,
 msgdata,connectd_connect_to_peer,dns_fallback,bool,
 msgdata,connectd_connect_to_peer,transient,bool,
 

@@ -1709,6 +1709,7 @@ static void try_connect_peer(struct daemon *daemon,
 			     const struct node_id *id,
 			     struct wireaddr *gossip_addrs,
 			     struct wireaddr_internal *addrhint STEALS,
+			     struct wireaddr_internal *peer_alt_addr STEALS,
 			     bool dns_fallback,
 			     bool transient)
 {
@@ -1736,6 +1737,11 @@ static void try_connect_peer(struct daemon *daemon,
 			tal_arr_expand(&connect->addrs, *addrhint);
 		}
 
+		/* Update addrs with peer_alt_addrs if provided */
+		for (size_t i = 0; i < tal_count(peer_alt_addr); i++)
+			if (peer_alt_addr[i].u.wireaddr.wireaddr.addrlen > 0)
+				tal_arr_expand(&connect->addrs, peer_alt_addr[i]);
+
 		return;
 	}
 
@@ -1749,10 +1755,15 @@ static void try_connect_peer(struct daemon *daemon,
 
 	/* Tell it to omit the existing hint (if that's a wireaddr itself) */
 	add_gossip_addrs(&addrs, gossip_addrs,
-			 addrhint
-			 && addrhint->itype == ADDR_INTERNAL_WIREADDR
-			 && !addrhint->u.wireaddr.is_websocket
-			 ? &addrhint->u.wireaddr.wireaddr : NULL);
+			addrhint
+			&& addrhint->itype == ADDR_INTERNAL_WIREADDR
+			&& !addrhint->u.wireaddr.is_websocket
+			? &addrhint->u.wireaddr.wireaddr : NULL);
+
+	/* Add all peer_alt_addrs next so they're tried after addrhint by connectd */
+	for (size_t i = 0; i < tal_count(peer_alt_addr); i++)
+		if (peer_alt_addr[i].u.wireaddr.wireaddr.addrlen > 0)
+			tal_arr_expand(&addrs, peer_alt_addr[i]);
 
 	if (tal_count(addrs) == 0) {
 		/* Don't resolve via DNS seed if we're supposed to use proxy. */
@@ -1809,17 +1820,19 @@ static void connect_to_peer(struct daemon *daemon, const u8 *msg)
 {
 	struct node_id id;
 	struct wireaddr_internal *addrhint;
+	struct wireaddr_internal *peer_alt_addr;
 	struct wireaddr *addrs;
 	bool dns_fallback;
 	bool transient;
 
 	if (!fromwire_connectd_connect_to_peer(tmpctx, msg,
 					       &id, &addrs, &addrhint,
-					       &dns_fallback,
+					       &peer_alt_addr, &dns_fallback,
 					       &transient))
 		master_badmsg(WIRE_CONNECTD_CONNECT_TO_PEER, msg);
 
-	try_connect_peer(daemon, &id, addrs, addrhint, dns_fallback, transient);
+	try_connect_peer(daemon, &id, addrs, addrhint,
+			 peer_alt_addr, dns_fallback, transient);
 }
 
 /* lightningd tells us a peer should be disconnected. */
