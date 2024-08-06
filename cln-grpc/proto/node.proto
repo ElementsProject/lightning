@@ -3434,6 +3434,7 @@ message BkprinspectTxsOutputs {
 
 message BkprlistaccounteventsRequest {
 	optional string account = 1;
+	optional string payment_id = 2;
 }
 
 message BkprlistaccounteventsResponse {

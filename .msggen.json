@@ -685,7 +685,8 @@
             "Bkpr-ListAccountEvents.events[].type": 2
         },
         "Bkpr-listaccounteventsRequest": {
-            "Bkpr-ListAccountEvents.account": 1
+            "Bkpr-ListAccountEvents.account": 1,
+            "Bkpr-ListAccountEvents.payment_id": 2
         },
         "Bkpr-listaccounteventsResponse": {
             "Bkpr-ListAccountEvents.events[]": 1
@@ -3870,6 +3871,10 @@
         },
         "Bkpr-ListAccountEvents.events[].type": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Bkpr-ListAccountEvents.payment_id": {
+            "added": "v24.08",
             "deprecated": null
         },
         "Bkpr-ListBalances": {

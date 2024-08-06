@@ -2306,6 +2306,10 @@
         "",
         "If the optional parameter **account** is set, we only emit events for the specified account, if exists.",
         "",
+        "If the optional parameter **payment_id** is set, we only emit events which have that value as payment hash or as transaction id.",
+        "",
+        "The parameters **account** and **payment_id** are mutually exclusive.",
+        "",
         "Note that the type **onchain_fees** that are emitted are of opposite credit/debit than as they appear in **listincome**, as **listincome** shows all events from the perspective of the node, whereas **listaccountevents** just dumps the event data as we've got it. Onchain fees are updated/recorded as we get more information about input and output spends -- the total onchain fees that were recorded for a transaction for an account can be found by summing all onchain fee events and taking the difference between the **credit_msat** and **debit_msat** for these events. We do this so that successive calls to **listaccountevents** always produce the same list of events -- no previously emitted event will be subsequently updated, rather we add a new event to the list."
       ],
       "request": {
@@ -2315,6 +2319,13 @@
             "type": "string",
             "description": [
               "Receive events for the specified account."
+            ]
+          },
+          "payment_id": {
+            "type": "string",
+            "added": "v24.08",
+            "description": [
+              "Receive events for the specified payment id."
             ]
           }
         }
