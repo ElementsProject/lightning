@@ -79,6 +79,9 @@ struct peer {
 	/* Is this draining?  If so, just keep writing until queue empty */
 	bool draining;
 
+	/* Have we answered peer_gossip_status before? */
+	bool handled_gossip_status;
+
 	/* Connections to the subdaemons */
 	struct subd **subds;
 

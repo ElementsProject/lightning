@@ -6,7 +6,7 @@ from utils import (
     wait_for, TIMEOUT, only_one, sync_blockheight,
     expected_node_features,
     mine_funding_to_announce, default_ln_port, CHANNEL_SIZE,
-    first_scid,
+    first_scid, generate_gossip_store, GenChannel
 )
 
 import json
@@ -18,6 +18,7 @@ import struct
 import subprocess
 import time
 import unittest
+import shutil
 import socket
 
 
@@ -2137,3 +2138,144 @@ def test_gossip_throttle(node_factory, bitcoind, chainparams):
     assert time_slow > 3
     out4 = [m for m in out4 if not m.startswith(b'0109')]
     assert set(out2) == set(out4)
+
+
+def test_generate_gossip_store(node_factory):
+    l1 = node_factory.get_node(start=False)
+    chans = [GenChannel(0, 1),
+             GenChannel(0, 2, capacity_sats=5000),
+             GenChannel(0, 3,
+                        forward=GenChannel.Half(enabled=False,
+                                                htlc_min=10,
+                                                htlc_max=5000000 - 10,
+                                                basefee=10,
+                                                propfee=10),
+                        reverse=GenChannel.Half(htlc_min=11,
+                                                htlc_max=5000000 - 11,
+                                                basefee=11,
+                                                propfee=11)),
+             GenChannel(0, 4)]
+    gsfile, nodemap = generate_gossip_store(chans)
+
+    # Set up l1 with this as the gossip_store
+    shutil.copy(gsfile.name, os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'))
+    l1.start()
+
+    nodes = [nodemap[i] for i in range(0, 5)]
+    expected = []
+    chancount = 0
+    for c in chans:
+        for d in (0, 1):
+            # listchannels direction 0 always lesser -> greater.
+            if nodes[c.node1] < nodes[c.node2]:
+                expected_dir = d
+            else:
+                expected_dir = d ^ 1
+            channel_flags = expected_dir
+            if not c.half[d].enabled:
+                active = False
+                channel_flags |= 2
+            else:
+                active = True
+            if d == 0:
+                n1 = nodes[c.node1]
+                n2 = nodes[c.node2]
+            else:
+                n1 = nodes[c.node2]
+                n2 = nodes[c.node1]
+
+            expected.append({'source': n1,
+                             'destination': n2,
+                             'short_channel_id': '{}x{}x{}'.format(c.node1, c.node2, chancount),
+                             'direction': expected_dir,
+                             'public': True,
+                             'amount_msat': c.capacity_sats * 1000,
+                             'message_flags': 1,
+                             'channel_flags': channel_flags,
+                             'active': active,
+                             'last_update': 0,
+                             'base_fee_millisatoshi': c.half[d].basefee,
+                             'fee_per_millionth': c.half[d].propfee,
+                             'delay': c.half[d].delay,
+                             'htlc_minimum_msat': c.half[d].htlc_min,
+                             'htlc_maximum_msat': c.half[d].htlc_max,
+                             'features': ''})
+        chancount += 1
+
+    # Order is not well-defined, and sets don't like dicts :(
+    lchans = sorted(l1.rpc.listchannels()['channels'], key=lambda x: x['source'] + x['destination'])
+    expected = sorted(expected, key=lambda x: x['source'] + x['destination'])
+
+    assert lchans == expected
+
+
+def test_gossip_status(node_factory, chainparams):
+    # Since we respond if we have > 100 more than them, we need a big gossmap.
+    l1 = node_factory.get_node(start=False)
+    chans = [GenChannel(0, i) for i in range(1, 102)]
+    gsfile, nodemap = generate_gossip_store(chans)
+    shutil.copy(gsfile.name, os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'))
+
+    l1.daemon.opts['experimental-gossip-status'] = None
+    l1.start()
+
+    assert len(l1.rpc.listchannels()['channels']) == 101 * 2
+
+    # If I say I have 1/102/1, you won't give me anything.
+    out = subprocess.run(['devtools/gossipwith',
+                          '--no-gossip',
+                          '--hex',
+                          '--network={}'.format(TEST_NETWORK),
+                          '--timeout-after={}'.format(int(math.sqrt(TIMEOUT) + 1)),
+                          '{}@localhost:{}'.format(l1.info['id'], l1.port),
+                          # BOLT-gossip_status #7:
+                          # 1. type: 267 (`gossip_status`)
+                          # 2. data:
+                          #     * [`chain_hash`:`chain_hash`]
+                          #     * [`bigsize`:`num_channel_announcements`]
+                          #     * [`bigsize`:`num_channel_updates`]
+                          #     * [`bigsize`:`num_node_announcements`]
+                          '763B' + chainparams['chain_hash'] + '016601'],
+                         check=True,
+                         timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
+
+    # No channel_announcments, channel_updates or node_announcements
+    assert [m for m in out if m.startswith(b'0100') or m.startswith(b'0101') or m.startswith(b'0102')] == []
+
+    # If I say I have 0 channel_announcments, you spew gossip...
+    out = subprocess.run(['devtools/gossipwith',
+                          '--no-gossip',
+                          '--hex',
+                          '--network={}'.format(TEST_NETWORK),
+                          '--timeout-after={}'.format(int(math.sqrt(TIMEOUT) + 1)),
+                          '{}@localhost:{}'.format(l1.info['id'], l1.port),
+                          # BOLT-gossip_status #7:
+                          # 1. type: 267 (`gossip_status`)
+                          # 2. data:
+                          #     * [`chain_hash`:`chain_hash`]
+                          #     * [`bigsize`:`num_channel_announcements`]
+                          #     * [`bigsize`:`num_channel_updates`]
+                          #     * [`bigsize`:`num_node_announcements`]
+                          '763B' + chainparams['chain_hash'] + '00CA01'],
+                         check=True,
+                         timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
+    assert len([m for m in out if m.startswith(b'0100') or m.startswith(b'0101') or m.startswith(b'0102')]) == 303
+
+    # If I say I have 101 channel_updates, you spew gossip...
+    out = subprocess.run(['devtools/gossipwith',
+                          '--no-gossip',
+                          '--hex',
+                          '--network={}'.format(TEST_NETWORK),
+                          '--timeout-after={}'.format(int(math.sqrt(TIMEOUT) + 1)),
+                          '{}@localhost:{}'.format(l1.info['id'], l1.port),
+                          # BOLT-gossip_status #7:
+                          # 1. type: 267 (`gossip_status`)
+                          # 2. data:
+                          #     * [`chain_hash`:`chain_hash`]
+                          #     * [`bigsize`:`num_channel_announcements`]
+                          #     * [`bigsize`:`num_channel_updates`]
+                          #     * [`bigsize`:`num_node_announcements`]
+                          '763B' + chainparams['chain_hash'] + '656501'],
+                         check=True,
+                         timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
+    assert len([m for m in out if m.startswith(b'0100') or m.startswith(b'0101') or m.startswith(b'0102')]) == 303

@@ -263,6 +263,10 @@ struct gossmap_chan *gossmap_first_chan(const struct gossmap *map);
 struct gossmap_chan *gossmap_next_chan(const struct gossmap *map,
 				       struct gossmap_chan *prev);
 
+/* Things which we would otherwise need to iterate for */
+size_t gossmap_num_chan_updates(const struct gossmap *map);
+size_t gossmap_num_node_announcements(const struct gossmap *map);
+
 /* For iterating the gossmap: returns iterator at start. */
 struct gossmap_iter *gossmap_iter_new(const tal_t *ctx,
 				      const struct gossmap *map);

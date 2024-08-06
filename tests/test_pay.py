@@ -102,6 +102,7 @@ def test_pay_limits(node_factory):
     """Test that we enforce fee max percentage and max delay"""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
 
+    assert False
     # FIXME: pylightning should define these!
     PAY_STOPPED_RETRYING = 210
 

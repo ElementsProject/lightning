@@ -387,6 +387,11 @@ msgtype,gossip_timestamp_filter,265
 msgdata,gossip_timestamp_filter,chain_hash,chain_hash,
 msgdata,gossip_timestamp_filter,first_timestamp,u32,
 msgdata,gossip_timestamp_filter,timestamp_range,u32,
+msgtype,gossip_status,30267
+msgdata,gossip_status,chain_hash,chain_hash,
+msgdata,gossip_status,num_channel_announcements,bigsize,
+msgdata,gossip_status,num_channel_updates,bigsize,
+msgdata,gossip_status,num_node_announcements,bigsize,
 msgtype,onion_message,513,option_onion_messages
 msgdata,onion_message,blinding,point,
 msgdata,onion_message,len,u16,

@@ -6,6 +6,7 @@
 #include <ccan/intmap/intmap.h>
 #include <ccan/tal/str/str.h>
 #include <common/decode_array.h>
+#include <common/features.h>
 #include <common/gossmap.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
@@ -262,6 +263,26 @@ static void normal_gossip_start(struct seeker *seeker, struct peer *peer)
 		enable_gossip_stream(seeker, peer);
 	else
 		disable_gossip_stream(seeker, peer);
+
+	/* BOLT-gossip_status #7:
+	 * - A sending node:
+	 *   - MUST not send `gossip_status` if it is not storing gossip messages.
+	 *   - MUST set `num_channel_announcements` to the number of live channels it has a valid `channel_announcement` for.
+	 *   - MUST set `num_channel_updates` to the number of valid unique `channel_update`s it has.
+	 *   - MUST set `num_node_announcements` to the number of valid unique `node_announcement`s it has.
+	 *   - SHOULD NOT send `gossip_status` if it knows it is not synced with the latest block.
+	 *   - SHOULD send `gossip_status` after the initial `gossip_timestamp_filter` message.
+	 */
+	if (feature_offered(peer->daemon->our_features->bits[INIT_FEATURE],
+			    OPT_GOSSIP_STATUS)) {
+		struct gossmap *gossmap = gossmap_manage_get_gossmap(peer->daemon->gm);
+		queue_peer_msg(peer->daemon, &peer->id,
+			       take(towire_gossip_status(NULL,
+							 &chainparams->genesis_blockhash,
+							 gossmap_num_chans(gossmap),
+							 gossmap_num_chan_updates(gossmap),
+							 gossmap_num_node_announcements(gossmap))));
+	}
 }
 
 /* Turn unknown_scids map into a flat array, removes from map. */

@@ -4282,6 +4282,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_QUERY_CHANNEL_RANGE:
 	case WIRE_REPLY_CHANNEL_RANGE:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
+	case WIRE_GOSSIP_STATUS:
 	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
 	case WIRE_PING:
 	case WIRE_PONG:
