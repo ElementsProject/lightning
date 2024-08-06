@@ -771,6 +771,10 @@ class LightningBitcoinConfig(Config):
                         default_text=default_text, warn=warn)
 
 
+class NotFoundError(Exception):
+    """Raised by InferInstall when a source/entrypoint cannot be located."""
+
+
 class InferInstall():
     """Once a plugin is installed, we may need its directory and entrypoint"""
     def __init__(self, name: str):
@@ -799,7 +803,8 @@ class InferInstall():
             actual_name = reck_contents_lower[name.lower()]
             self.dir = Path(RECKLESS_CONFIG.reckless_dir).joinpath(actual_name)
         else:
-            raise Exception(f"Could not find a reckless directory for {name}")
+            raise NotFoundError("Could not find a reckless directory "
+                                f"for {name}")
         plug_dir = Path(RECKLESS_CONFIG.reckless_dir).joinpath(actual_name)
         for guess in entry_guesses(actual_name):
             for content in plug_dir.iterdir():
@@ -807,7 +812,7 @@ class InferInstall():
                     self.entry = str(content)
                     self.name = actual_name
                     return
-        raise Exception(f'plugin entrypoint not found in {self.dir}')
+        raise NotFoundError(f'plugin entrypoint not found in {self.dir}')
 
 
 class InstallationFailure(Exception):
@@ -1306,7 +1311,11 @@ def install(plugin_name: str) -> Union[str, None]:
         src = LAST_FOUND
         src.commit = commit
         log.debug(f'Retrieving {src.name} from {src.source_loc}')
-        installed = _install_plugin(src)
+        try:
+            installed = _install_plugin(src)
+        except FileExistsError as err:
+            log.error(f'File exists: {err.filename}')
+            return None
         LAST_FOUND = None
         if not installed:
             log.warning(f'{plugin_name}: installation aborted')
@@ -1428,7 +1437,11 @@ def lightning_cli(*cli_args, timeout: int = 15) -> dict:
 def enable(plugin_name: str):
     """dynamically activates plugin and adds to config (persistent)"""
     assert isinstance(plugin_name, str)
-    inst = InferInstall(plugin_name)
+    try:
+        inst = InferInstall(plugin_name)
+    except NotFoundError as err:
+        log.error(err)
+        return None
     path = inst.entry
     if not Path(path).exists():
         log.error(f'cannot find installed plugin at expected path {path}')
@@ -1439,6 +1452,7 @@ def enable(plugin_name: str):
     except CLIError as err:
         if 'already registered' in err.message:
             log.debug(f'{inst.name} is already running')
+            return None
         else:
             log.error(f'reckless: {inst.name} failed to start!')
             log.error(err)
@@ -1455,7 +1469,11 @@ def disable(plugin_name: str):
     """reckless disable <plugin>
     deactivates an installed plugin"""
     assert isinstance(plugin_name, str)
-    inst = InferInstall(plugin_name)
+    try:
+        inst = InferInstall(plugin_name)
+    except NotFoundError as err:
+        log.warning(f'failed to disable: {err}')
+        return None
     path = inst.entry
     if not Path(path).exists():
         sys.stderr.write(f'Could not find plugin at {path}\n')
