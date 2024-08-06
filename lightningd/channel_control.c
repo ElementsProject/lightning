@@ -2462,3 +2462,63 @@ static const struct json_command dev_quiesce_command = {
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_quiesce_command);
+
+static struct command_result *json_alt_addr(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *obj UNNEEDED,
+					    const jsmntok_t *params)
+{
+	struct node_id *p_id;
+	struct peer *peer;
+	struct channel *channel;
+	const jsmntok_t *alt_addrs_tok;
+	bool more_than_one;
+
+	if (!param_check(cmd, buffer, params,
+			 p_req("node_id", param_node_id, &p_id),
+			 p_req("alt_addrs", param_array, &alt_addrs_tok),
+			 NULL))
+		return command_param_failed();
+
+	peer = peer_by_id(cmd->ld, p_id);
+	if (!peer) {
+		return command_fail(cmd, JSONRPC2_INVALID_REQUEST,
+				    "No such peer: %s",
+				    fmt_node_id(cmd, p_id));
+	}
+
+	channel = peer_any_channel(peer, channel_state_can_add_htlc, &more_than_one);
+	if (!channel || !channel->owner)
+		return command_fail(cmd, LIGHTNINGD, "Peer bad state");
+	/* This is a dev command: fix the api if you need this! */
+	if (more_than_one)
+		return command_fail(cmd, LIGHTNINGD, "More than one channel");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	char *addr_list = tal_fmt(tmpctx, "%s", json_strdup(tmpctx, buffer, json_get_arr(alt_addrs_tok, 0)));
+
+	for (size_t i = 1; i < alt_addrs_tok->size; i++) {
+		const jsmntok_t *addr_tok = json_get_arr(alt_addrs_tok, i);
+		const char *my_alt_addr = json_strdup(tmpctx, buffer, addr_tok);
+
+		/* Format the rpc array into comma-seperated string for the db's */
+		addr_list = tal_fmt(tmpctx, "%s,%s", addr_list, my_alt_addr);
+	}
+
+	u8 *msg = towire_channeld_peer_alt_addr(peer, (u8 *)addr_list);
+	subd_send_msg(channel->owner, take(msg));
+
+	wallet_add_alt_addr(cmd->ld->wallet->db, p_id, addr_list, true);
+	process_and_update_whitelist(cmd->ld, p_id, (u8 *)addr_list);
+
+	return command_success(cmd, json_stream_success(cmd));
+}
+
+static const struct json_command alt_addr_command = {
+	"alt-addr",
+	json_alt_addr,
+	.dev_only = true,
+};
+AUTODATA(json_command, &alt_addr_command);
