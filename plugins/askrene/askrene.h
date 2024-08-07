@@ -5,13 +5,6 @@
 #include <ccan/list/list.h>
 #include <common/amount.h>
 
-/* We reserve a path being used.  This records how many and how much */
-struct reserve {
-	size_t num_htlcs;
-	struct short_channel_id_dir sciddir;
-	struct amount_msat amount;
-};
-
 /* A single route. */
 struct route {
 	/* Actual path to take */
@@ -26,6 +19,8 @@ struct askrene {
 	struct gossmap *gossmap;
 	/* List of layers */
 	struct list_head layers;
+	/* In-flight payment attempts */
+	struct reserve_hash *reserved;
 };
 
 #endif /* LIGHTNING_PLUGINS_ASKRENE_ASKRENE_H */
