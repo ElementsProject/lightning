@@ -6,7 +6,7 @@ from utils import (
     wait_for, TIMEOUT, only_one, sync_blockheight,
     expected_node_features,
     mine_funding_to_announce, default_ln_port, CHANNEL_SIZE,
-    first_scid,
+    first_scid, generate_gossip_store, GenChannel
 )
 
 import json
@@ -18,6 +18,7 @@ import struct
 import subprocess
 import time
 import unittest
+import shutil
 import socket
 
 
@@ -2137,6 +2138,81 @@ def test_gossip_throttle(node_factory, bitcoind, chainparams):
     assert time_slow > 3
     out4 = [m for m in out4 if not m.startswith(b'0109')]
     assert set(out2) == set(out4)
+
+
+def test_generate_gossip_store(node_factory):
+    l1 = node_factory.get_node(start=False)
+    chans = [GenChannel(0, 1),
+             GenChannel(0, 2, capacity_sats=5000),
+             GenChannel(0, 3),
+             GenChannel(0, 4)]
+    chans[2].half[0] = GenChannel.Half(enabled=False,
+                                       htlc_min=10,
+                                       htlc_max=5000000 - 10,
+                                       basefee=10,
+                                       propfee=10)
+
+    chans[2].half[1] = GenChannel.Half(htlc_min=11,
+                                       htlc_max=5000000 - 11,
+                                       basefee=11,
+                                       propfee=11)
+    gsfile = generate_gossip_store(chans)
+
+    # Set up l1 with this as the gossip_store
+    shutil.copy(gsfile.name, os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'))
+    l1.start()
+
+    nodes = ['03c581bf310c4c97b05e5e6fed2f82d872f388ec9ab7f1feddfd5380ddb3c6531c',
+             '03091f559e2704cd80e41cd103ca4a60fd91010927674016b09f40c1d450368cf4',
+             '0255a0e1286c832286eda137bbefe17f21af265a08bbea481a6ea96b9f4b5f84ac',
+             '02ec99a74a8c8d10853e1a3b0806556abda6798a68a0cedca4c766b5f6cf314f22',
+             '02c5ad36f9c80ca70d4f88d50f17be2f1f481f37086dbf3433473765a0027ecd63']
+
+    expected = []
+    chancount = 0
+    for c in chans:
+        for d in (0, 1):
+            # listchannels direction 0 always lesser -> greater.
+            if nodes[c.node1] < nodes[c.node2]:
+                expected_dir = d
+            else:
+                expected_dir = d ^ 1
+            channel_flags = expected_dir
+            if not c.half[d].enabled:
+                active = False
+                channel_flags |= 2
+            else:
+                active = True
+            if d == 0:
+                n1 = nodes[c.node1]
+                n2 = nodes[c.node2]
+            else:
+                n1 = nodes[c.node2]
+                n2 = nodes[c.node1]
+
+            expected.append({'source': n1,
+                             'destination': n2,
+                             'short_channel_id': '{}x{}x{}'.format(c.node1, c.node2, chancount),
+                             'direction': expected_dir,
+                             'public': True,
+                             'amount_msat': c.capacity_sats * 1000,
+                             'message_flags': 1,
+                             'channel_flags': channel_flags,
+                             'active': active,
+                             'last_update': 0,
+                             'base_fee_millisatoshi': c.half[d].basefee,
+                             'fee_per_millionth': c.half[d].propfee,
+                             'delay': c.half[d].delay,
+                             'htlc_minimum_msat': c.half[d].htlc_min,
+                             'htlc_maximum_msat': c.half[d].htlc_max,
+                             'features': ''})
+        chancount += 1
+
+    # Order is not well-defined, and sets don't like dicts :(
+    lchans = sorted(l1.rpc.listchannels()['channels'], key=lambda x: x['source'] + x['destination'])
+    expected = sorted(expected, key=lambda x: x['source'] + x['destination'])
+
+    assert lchans == expected
 
 
 def test_seeker_first_peer(node_factory, bitcoind):
