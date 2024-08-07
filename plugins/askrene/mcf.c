@@ -520,22 +520,13 @@ alloc_residual_network(const tal_t *ctx, const size_t max_num_nodes,
 {
 	struct residual_network *residual_network =
 	    tal(ctx, struct residual_network);
-	if (!residual_network)
-		goto function_fail;
 
 	residual_network->cap = tal_arrz(residual_network, s64, max_num_arcs);
 	residual_network->cost = tal_arrz(residual_network, s64, max_num_arcs);
 	residual_network->potential =
 	    tal_arrz(residual_network, s64, max_num_nodes);
 
-	if (!residual_network->cap || !residual_network->cost ||
-	    !residual_network->potential) {
-		goto function_fail;
-	}
 	return residual_network;
-
-	function_fail:
-	return tal_free(residual_network);
 }
 
 static void init_residual_network(
@@ -635,14 +626,7 @@ static struct linear_network *
 init_linear_network(const tal_t *ctx, const struct pay_parameters *params,
 		    char **fail)
 {
-	tal_t *this_ctx = tal(ctx,tal_t);
-
 	struct linear_network * linear_network = tal(ctx, struct linear_network);
-	if (!linear_network) {
-		if (fail)
-		*fail = tal_fmt(ctx, "bad allocation of linear_network");
-		goto function_fail;
-	}
 
 	const size_t max_num_chans = gossmap_max_chan_idx(params->gossmap);
 	const size_t max_num_arcs = max_num_chans * ARCS_PER_CHANNEL;
@@ -652,62 +636,26 @@ init_linear_network(const tal_t *ctx, const struct pay_parameters *params,
 	linear_network->max_num_nodes = max_num_nodes;
 
 	linear_network->arc_tail_node = tal_arr(linear_network,u32,max_num_arcs);
-	if(!linear_network->arc_tail_node)
-	{
-		if (fail)
-		*fail = tal_fmt(ctx, "bad allocation of arc_tail_node");
-		goto function_fail;
-	}
 	for(size_t i=0;i<tal_count(linear_network->arc_tail_node);++i)
 		linear_network->arc_tail_node[i]=INVALID_INDEX;
 
 	linear_network->node_adjacency_next_arc = tal_arr(linear_network,struct arc,max_num_arcs);
-	if(!linear_network->node_adjacency_next_arc)
-	{
-		if (fail)
-		*fail = tal_fmt(ctx, "bad allocation of node_adjacency_next_arc");
-		goto function_fail;
-	}
 	for(size_t i=0;i<tal_count(linear_network->node_adjacency_next_arc);++i)
 		linear_network->node_adjacency_next_arc[i].idx=INVALID_INDEX;
 
 	linear_network->node_adjacency_first_arc = tal_arr(linear_network,struct arc,max_num_nodes);
-	if(!linear_network->node_adjacency_first_arc)
-	{
-		if (fail)
-		*fail = tal_fmt(ctx, "bad allocation of node_adjacency_first_arc");
-		goto function_fail;
-	}
 	for(size_t i=0;i<tal_count(linear_network->node_adjacency_first_arc);++i)
 		linear_network->node_adjacency_first_arc[i].idx=INVALID_INDEX;
 
 	linear_network->arc_prob_cost = tal_arr(linear_network,s64,max_num_arcs);
-	if(!linear_network->arc_prob_cost)
-	{
-		if (fail)
-		*fail = tal_fmt(ctx, "bad allocation of arc_prob_cost");
-		goto function_fail;
-	}
 	for(size_t i=0;i<tal_count(linear_network->arc_prob_cost);++i)
 		linear_network->arc_prob_cost[i]=INFINITE;
 
 	linear_network->arc_fee_cost = tal_arr(linear_network,s64,max_num_arcs);
-	if(!linear_network->arc_fee_cost)
-	{
-		if (fail)
-		*fail = tal_fmt(ctx, "bad allocation of arc_fee_cost");
-		goto function_fail;
-	}
 	for(size_t i=0;i<tal_count(linear_network->arc_fee_cost);++i)
 		linear_network->arc_fee_cost[i]=INFINITE;
 
 	linear_network->capacity = tal_arrz(linear_network,s64,max_num_arcs);
-	if(!linear_network->capacity)
-	{
-		if (fail)
-		*fail = tal_fmt(ctx, "bad allocation of capacity");
-		goto function_fail;
-	}
 
 	for(struct gossmap_node *node = gossmap_first_node(params->gossmap);
 	    node;
@@ -782,11 +730,9 @@ init_linear_network(const tal_t *ctx, const struct pay_parameters *params,
 		}
 	}
 
-	tal_free(this_ctx);
 	return linear_network;
 
 	function_fail:
-	tal_free(this_ctx);
 	return tal_free(linear_network);
 }
 
@@ -944,12 +890,6 @@ static bool find_feasible_flow(const tal_t *ctx,
 	/* path information
 	 * prev: is the id of the arc that lead to the node. */
 	struct arc *prev = tal_arr(this_ctx,struct arc,linear_network->max_num_nodes);
-	if(!prev)
-	{
-		if(fail)
-		*fail = tal_fmt(ctx, "bad allocation of prev");
-		goto function_fail;
-	}
 
 	while(amount>0)
 	{
@@ -999,15 +939,6 @@ static bool find_optimal_path(const tal_t *ctx, struct dijkstra *dijkstra,
 
 	bitmap *visited = tal_arrz(this_ctx, bitmap,
 					BITMAP_NWORDS(linear_network->max_num_nodes));
-
-	if(!visited)
-	{
-		if(fail)
-		*fail = tal_fmt(ctx, "bad allocation of visited");
-		goto finish;
-	}
-
-
 	for(size_t i=0;i<tal_count(prev);++i)
 		prev[i].idx=INVALID_INDEX;
 
@@ -1286,12 +1217,6 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 	int *prev_dir = tal_arr(this_ctx,int,max_num_nodes);
 	u32 *prev_idx = tal_arr(this_ctx,u32,max_num_nodes);
 
-	if (!chan_flow || !balance || !prev_chan || !prev_idx || !prev_dir) {
-		if (fail)
-		*fail = tal_fmt(ctx, "bad allocation");
-		goto function_fail;
-	}
-
 	// Convert the arc based residual network flow into a flow in the
 	// directed channel network.
 	// Compute balance on the nodes.
@@ -1519,23 +1444,9 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 
 	// build the uncertainty network with linearization and residual arcs
 	struct linear_network *linear_network= init_linear_network(this_ctx, params, &errmsg);
-	if (!linear_network) {
-		if(fail)
-		*fail = tal_fmt(ctx, "init_linear_network failed: %s",
-				errmsg);
-		goto function_fail;
-	}
-
 	struct residual_network *residual_network =
 	    alloc_residual_network(this_ctx, linear_network->max_num_nodes,
 				  linear_network->max_num_arcs);
-	if (!residual_network) {
-		if (fail)
-		*fail = tal_fmt(
-		    ctx, "failed to allocate the residual network");
-		goto function_fail;
-	}
-
 	dijkstra = dijkstra_new(this_ctx, gossmap_max_node_idx(params->gossmap));
 
 	const u32 target_idx = gossmap_node_idx(params->gossmap,target);
