@@ -226,18 +226,10 @@ void get_constraints(const struct route_query *rq,
 					   fmt_amount_sat(tmpctx, cap));
 			}
 		} else {
-			/* Local channel? */
-			const struct local_channel *lc;
-
-			/* In case it's not, set max to htlc max. */
-			*max = amount_msat(fp16_to_u64(chan->half[dir].htlc_max));
-			for (size_t i = 0; i < tal_count(rq->layers); i++) {
-				lc = layer_find_local_channel(rq->layers[i], scidd.scid);
-				if (lc) {
-					*max = local_channel_capacity(lc);
-					break;
-				}
-			}
+			/* Shouldn't happen: local channels have explicit constraints */
+			plugin_log(rq->plugin, LOG_BROKEN,
+				   "Channel %s without capacity?",
+				   fmt_short_channel_id(tmpctx, scidd.scid));
 		}
 	}
 

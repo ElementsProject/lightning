@@ -173,6 +173,7 @@ void layer_update_local_channel(struct layer *layer,
 {
 	struct local_channel *lc = local_channel_hash_get(layer->local_channels, scid);
 	int dir = canonicalize_node_order(&src, &dst);
+	struct short_channel_id_dir scidd;
 
 	if (lc) {
 		assert(layer_check_local_channel(lc, src, dst, capacity));
@@ -186,6 +187,12 @@ void layer_update_local_channel(struct layer *layer,
 	lc->half[dir].base_fee = base_fee;
 	lc->half[dir].proportional_fee = proportional_fee;
 	lc->half[dir].delay = delay;
+
+	/* We always add an explicit constraint for local channels, to simplify
+	 * lookups.  You can tell it's a fake one by the timestamp. */
+	scidd.scid = scid;
+	scidd.dir = dir;
+	layer_update_constraint(layer, &scidd, CONSTRAINT_MAX, UINT64_MAX, capacity);
 }
 
 struct amount_msat local_channel_capacity(const struct local_channel *lc)
@@ -400,6 +407,9 @@ static void json_add_layer(struct json_stream *js,
 	for (c = constraint_hash_first(layer->constraints, &conit);
 	     c;
 	     c = constraint_hash_next(layer->constraints, &conit)) {
+		/* Don't show ones we generated internally */
+		if (c->timestamp == UINT64_MAX)
+			continue;
 		json_add_constraint(js, NULL, c, NULL);
 	}
 	json_array_end(js);
