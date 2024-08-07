@@ -253,6 +253,26 @@ const struct constraint *layer_update_constraint(struct layer *layer,
 	return c;
 }
 
+void layer_clear_overridden_capacities(const struct layer *layer,
+				       const struct gossmap *gossmap,
+				       fp16_t *capacities)
+{
+	struct constraint_hash_iter conit;
+	struct constraint *con;
+
+	for (con = constraint_hash_first(layer->constraints, &conit);
+	     con;
+	     con = constraint_hash_next(layer->constraints, &conit)) {
+		struct gossmap_chan *c = gossmap_find_chan(gossmap, &con->key.scidd.scid);
+		size_t idx;
+		if (!c)
+			continue;
+		idx = gossmap_chan_idx(gossmap, c);
+		if (idx < tal_count(capacities))
+			capacities[idx] = 0;
+	}
+}
+
 size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 {
 	size_t num_removed = 0;

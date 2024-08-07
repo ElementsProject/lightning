@@ -69,6 +69,12 @@ void layer_update_local_channel(struct layer *layer,
 				struct amount_msat htlc_min,
 				struct amount_msat htlc_max);
 
+/* If any capacities of channels are limited, unset the corresponding element in
+ * the capacities[] array */
+void layer_clear_overridden_capacities(const struct layer *layer,
+				       const struct gossmap *gossmap,
+				       fp16_t *capacities);
+
 /* Find a constraint in a layer. */
 const struct constraint *layer_find_constraint(const struct layer *layer,
 					       const struct short_channel_id_dir *scidd,

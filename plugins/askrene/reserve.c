@@ -1,6 +1,7 @@
 #include "config.h"
 #include <assert.h>
 #include <ccan/htable/htable_type.h>
+#include <common/gossmap.h>
 #include <plugins/askrene/reserve.h>
 
 /* Hash table for reservations */
@@ -116,4 +117,24 @@ size_t reserves_remove(struct reserve_hash *reserved,
 			del_reserve(reserved, r);
 	}
 	return num;
+}
+
+void reserves_clear_capacities(struct reserve_hash *reserved,
+			       const struct gossmap *gossmap,
+			       fp16_t *capacities)
+{
+	struct reserve *r;
+	struct reserve_hash_iter rit;
+
+	for (r = reserve_hash_first(reserved, &rit);
+	     r;
+	     r = reserve_hash_next(reserved, &rit)) {
+		struct gossmap_chan *c = gossmap_find_chan(gossmap, &r->scidd.scid);
+		size_t idx;
+		if (!c)
+			continue;
+		idx = gossmap_chan_idx(gossmap, c);
+		if (idx < tal_count(capacities))
+			capacities[idx] = 0;
+	}
 }
