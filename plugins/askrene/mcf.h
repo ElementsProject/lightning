@@ -3,11 +3,10 @@
 /* Eduardo Quintela's (lagrang3@protonmail.com) Min Cost Flow implementation
  * from renepay, as modified to fit askrene */
 #include "config.h"
-#include <ccan/bitmap/bitmap.h>
 #include <common/amount.h>
 #include <common/gossmap.h>
 
-struct chan_extra_map;
+struct route_query;
 
 enum {
 	RENEPAY_ERR_OK,
@@ -52,7 +51,8 @@ enum {
  *
  * Return a series of subflows which deliver amount to target, or NULL.
  */
-struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
+struct flow **minflow(const tal_t *ctx,
+		      const struct route_query *rq,
 		      const struct gossmap_node *source,
 		      const struct gossmap_node *target,
 		      struct amount_msat amount,
