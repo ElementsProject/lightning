@@ -60,10 +60,6 @@ static inline struct amount_msat flow_delivers(const struct flow *flow)
 	return flow->amount;
 }
 
-struct amount_msat *tal_flow_amounts(const tal_t *ctx,
-				     struct plugin *plugin,
-				     const struct flow *flow);
-
 /* FIXME: remove */
 enum askrene_errorcode {
 	ASKRENE_NOERROR = 0,
