@@ -2,9 +2,11 @@
 #define LIGHTNING_PLUGINS_ASKRENE_FLOW_H
 #include "config.h"
 #include <bitcoin/short_channel_id.h>
-#include <ccan/htable/htable_type.h>
 #include <common/amount.h>
 #include <common/gossmap.h>
+
+struct plugin;
+struct route_query;
 
 /* An actual partial flow. */
 struct flow {
@@ -16,8 +18,8 @@ struct flow {
 	struct amount_msat amount;
 };
 
-const char *fmt_flows(const tal_t *ctx, const struct gossmap *gossmap,
-		      struct chan_extra_map *chan_extra_map,
+const char *fmt_flows(const tal_t *ctx,
+		      const struct route_query *rq,
 		      struct flow **flows);
 
 /* Helper to access the half chan at flow index idx */
@@ -39,9 +41,8 @@ double flow_edge_cost(const struct gossmap *gossmap,
 		      double delay_riskfactor);
 
 /* Compute the prob. of success of a set of concurrent set of flows. */
-double flowset_probability(const tal_t *ctx, struct flow **flows,
-			   const struct gossmap *const gossmap,
-			   struct chan_extra_map *chan_extra_map, char **fail);
+double flowset_probability(struct flow **flows,
+			   const struct route_query *rq);
 
 /* How much do we need to send to make this flow arrive. */
 struct amount_msat flow_spend(struct plugin *plugin, const struct flow *flow);
@@ -75,30 +76,23 @@ enum askrene_errorcode {
 	ASKRENE_UNEXPECTED,
 };
 
-enum askrene_errorcode
+/* Returns problematic channel, OR sets max_deliverable to non-zero amount */
+const struct gossmap_chan *
 flow_maximum_deliverable(struct amount_msat *max_deliverable,
 			 const struct flow *flow,
-			 const struct gossmap *gossmap,
-			 struct chan_extra_map *chan_extra_map,
-			 const struct gossmap_chan **bad_channel);
+			 const struct route_query *rq);
 
 /* Assign the delivered amount to the flow if it fits
- the path maximum capacity. */
-bool flow_assign_delivery(struct flow *flow, const struct gossmap *gossmap,
-			  struct chan_extra_map *chan_extra_map,
-			  struct amount_msat requested_amount);
+ the path maximum capacity. Returns bad channel if max would be zero. */
+const struct gossmap_chan *
+flow_assign_delivery(struct flow *flow,
+		     const struct route_query *rq,
+		     struct amount_msat requested_amount);
 
 double flow_probability(const struct flow *flow,
-			struct plugin *plugin,
-			const struct gossmap *gossmap,
-			struct chan_extra_map *chan_extra_map);
+			const struct route_query *rq);
 
 u64 flow_delay(const struct flow *flow);
 u64 flows_worst_delay(struct flow **flows);
-
-struct flow **
-flows_ensure_liquidity_constraints(const tal_t *ctx, struct flow **flows TAKES,
-				   const struct gossmap *gossmap,
-				   struct chan_extra_map *chan_extra_map);
 
 #endif /* LIGHTNING_PLUGINS_ASKRENE_FLOW_H */
