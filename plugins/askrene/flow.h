@@ -44,21 +44,24 @@ double flowset_probability(const tal_t *ctx, struct flow **flows,
 			   struct chan_extra_map *chan_extra_map, char **fail);
 
 /* How much do we need to send to make this flow arrive. */
-bool flow_spend(struct amount_msat *ret, struct flow *flow);
+struct amount_msat flow_spend(struct plugin *plugin, const struct flow *flow);
 
 /* How much do we pay in fees to make this flow arrive. */
-bool flow_fee(struct amount_msat *ret, struct flow *flow);
+struct amount_msat flow_fee(struct plugin *plugin, const struct flow *flow);
 
-bool flowset_fee(struct amount_msat *fee, struct flow **flows);
+struct amount_msat flowset_fee(struct plugin *plugin, struct flow **flows);
 
-bool flowset_delivers(struct amount_msat *delivers, struct flow **flows);
+struct amount_msat flowset_delivers(struct plugin *plugin,
+				    struct flow **flows);
 
 static inline struct amount_msat flow_delivers(const struct flow *flow)
 {
 	return flow->amount;
 }
 
-struct amount_msat *tal_flow_amounts(const tal_t *ctx, const struct flow *flow);
+struct amount_msat *tal_flow_amounts(const tal_t *ctx,
+				     struct plugin *plugin,
+				     const struct flow *flow);
 
 /* FIXME: remove */
 enum askrene_errorcode {
@@ -85,7 +88,9 @@ bool flow_assign_delivery(struct flow *flow, const struct gossmap *gossmap,
 			  struct chan_extra_map *chan_extra_map,
 			  struct amount_msat requested_amount);
 
-double flow_probability(struct flow *flow, const struct gossmap *gossmap,
+double flow_probability(const struct flow *flow,
+			struct plugin *plugin,
+			const struct gossmap *gossmap,
 			struct chan_extra_map *chan_extra_map);
 
 u64 flow_delay(const struct flow *flow);

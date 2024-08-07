@@ -14,7 +14,9 @@
 #define SUPERVERBOSE_ENABLED 1
 #endif
 
-struct amount_msat *tal_flow_amounts(const tal_t *ctx, const struct flow *flow)
+struct amount_msat *tal_flow_amounts(const tal_t *ctx,
+				     struct plugin *plugin,
+				     const struct flow *flow)
 {
 	const size_t pathlen = tal_count(flow->path);
 	struct amount_msat *amounts = tal_arr(ctx, struct amount_msat, pathlen);
@@ -24,14 +26,15 @@ struct amount_msat *tal_flow_amounts(const tal_t *ctx, const struct flow *flow)
 		const struct half_chan *h = flow_edge(flow, i + 1);
 		amounts[i] = amounts[i + 1];
 		if (!amount_msat_add_fee(&amounts[i], h->base_fee,
-					 h->proportional_fee))
-			goto function_fail;
+					 h->proportional_fee)) {
+			plugin_err(plugin, "Could not add fee %u/%u to amount %s in %i/%zu",
+				   h->base_fee, h->proportional_fee,
+				   fmt_amount_msat(tmpctx, &amounts[i+1]),
+				   i, pathlen);
+		}
 	}
 
 	return amounts;
-
-function_fail:
-	return tal_free(amounts);
 }
 
 const char *fmt_flows(const tal_t *ctx, const struct gossmap *gossmap,
@@ -168,38 +171,20 @@ flow_maximum_deliverable(struct amount_msat *max_deliverable,
 // }
 
 /* How much do we deliver to destination using this set of routes */
-bool flowset_delivers(struct amount_msat *delivers, struct flow **flows)
+struct amount_msat flowset_delivers(struct plugin *plugin,
+				    struct flow **flows)
 {
 	struct amount_msat final = AMOUNT_MSAT(0);
 	for (size_t i = 0; i < tal_count(flows); i++) {
-		if (!amount_msat_add(&final, flows[i]->amount, final))
-			return false;
+		if (!amount_msat_add(&final, flows[i]->amount, final)) {
+			plugin_err(plugin, "Could not add flowsat %s to %s (%zu/%zu)",
+				   fmt_amount_msat(tmpctx, flows[i]->amount),
+				   fmt_amount_msat(tmpctx, final),
+				   i, tal_count(flows));
+		}
 	}
-	*delivers = final;
-	return true;
+	return final;
 }
-
-/* Checks if the flows satisfy the liquidity bounds imposed by the known maximum
- * liquidity and pending HTLCs.
- *
- * FIXME The function returns false even in the case of failure. The caller has
- * no way of knowing the difference between a failure of evaluation and a
- * negative answer. */
-// static bool check_liquidity_bounds(struct flow **flows,
-// 				   const struct gossmap *gossmap,
-// 				   struct chan_extra_map *chan_extra_map)
-// {
-// 	bool check = true;
-// 	for (size_t i = 0; i < tal_count(flows); ++i) {
-// 		struct amount_msat max_deliverable;
-// 		if (!flow_maximum_deliverable(&max_deliverable, flows[i],
-// 					      gossmap, chan_extra_map))
-// 			return false;
-// 		struct amount_msat delivers = flow_delivers(flows[i]);
-// 		check &= amount_msat_less_eq(delivers, max_deliverable);
-// 	}
-// 	return check;
-// }
 
 /* Compute the prob. of success of a set of concurrent set of flows.
  *
@@ -226,7 +211,9 @@ struct chan_inflight_flow
 
 // TODO(eduardo): here chan_extra_map should be const
 // TODO(eduardo): here flows should be const
-double flowset_probability(const tal_t *ctx, struct flow **flows,
+double flowset_probability(const tal_t *ctx,
+			   struct plugin *plugin,
+			   struct flow **flows,
 			   const struct gossmap *const gossmap,
 			   struct chan_extra_map *chan_extra_map, char **fail)
 {
@@ -250,14 +237,6 @@ double flowset_probability(const tal_t *ctx, struct flow **flows,
 		const struct flow *f = flows[i];
 		const size_t pathlen = tal_count(f->path);
 		struct amount_msat *amounts = tal_flow_amounts(this_ctx, f);
-		if (!amounts)
-		{
-			if (fail)
-			*fail = tal_fmt(
-			    ctx,
-			    "failed to compute amounts along the path");
-			goto function_fail;
-		}
 
 		for (size_t j = 0; j < pathlen; ++j) {
 			const struct chan_extra_half *h =
@@ -313,59 +292,50 @@ double flowset_probability(const tal_t *ctx, struct flow **flows,
 	return -1;
 }
 
-bool flow_spend(struct amount_msat *ret, struct flow *flow)
+struct amount_msat flow_spend(struct plugin *plugin, const struct flow *flow)
 {
-	assert(ret);
-	assert(flow);
 	const size_t pathlen = tal_count(flow->path);
 	struct amount_msat spend = flow->amount;
 
 	for (int i = (int)pathlen - 1; i >= 0; i--) {
 		const struct half_chan *h = flow_edge(flow, i);
 		if (!amount_msat_add_fee(&spend, h->base_fee,
-					 h->proportional_fee))
-			goto function_fail;
+					 h->proportional_fee)) {
+			plugin_err(plugin, "Could not add fee %u/%u to amount %s in %i/%zu",
+				   h->base_fee, h->proportional_fee,
+				   fmt_amount_msat(tmpctx, &amounts[i]),
+				   i, pathlen);
+		}
 	}
 
-	*ret = spend;
-	return true;
-
-function_fail:
-	return false;
+	return spend;
 }
 
-bool flow_fee(struct amount_msat *ret, struct flow *flow)
+struct amount_msat flow_fee(struct plugin *plugin, const struct flow *flow)
 {
-	assert(ret);
-	assert(flow);
+	struct amount_msat spend = flow_spend(plugin, flow);
 	struct amount_msat fee;
-	struct amount_msat spend;
-	if (!flow_spend(&spend, flow))
-		goto function_fail;
-	if (!amount_msat_sub(&fee, spend, flow->amount))
-		goto function_fail;
+	if (!amount_msat_sub(&fee, spend, flow->amount)) {
+		plugin_err(plugin, "Could not subtract %s from %s for fee",
+				   fmt_amount_msat(tmpctx, flow->amount),
+				   fmt_amount_msat(tmpctx, spend));
+	}
 
-	*ret = fee;
-	return true;
-
-function_fail:
-	return false;
+	return fee;
 }
 
-bool flowset_fee(struct amount_msat *ret, struct flow **flows)
+struct amount_msat flowset_fee(struct plugin *plugin, struct flow **flows)
 {
-	assert(ret);
-	assert(flows);
 	struct amount_msat fee = AMOUNT_MSAT(0);
 	for (size_t i = 0; i < tal_count(flows); i++) {
-		struct amount_msat this_fee;
-		if (!flow_fee(&this_fee, flows[i]))
-			return false;
-		if (!amount_msat_add(&fee, this_fee, fee))
-			return false;
+		struct amount_msat this_fee = flow_fee(plugin, flows[i]);
+		if (!amount_msat_add(&fee, this_fee, fee)) {
+			plugin_err(plugin, "Could not add %s to %s for flowset fee",
+				   fmt_amount_msat(tmpctx, this_fee),
+				   fmt_amount_msat(tmpctx, fee));
+		}
 	}
-	*ret = fee;
-	return true;
+	return fee;
 }
 
 /* Helper to access the half chan at flow index idx */
@@ -396,7 +366,9 @@ bool flow_assign_delivery(struct flow *flow, const struct gossmap *gossmap,
  * IMPORTANT: flow->success_prob is misleading, because that's the prob. of
  * success provided that there are no other flows in the current MPP flow set.
  * */
-double flow_probability(struct flow *flow, const struct gossmap *gossmap,
+double flow_probability(const struct flow *flow,
+			struct plugin *plugin,
+			const struct gossmap *gossmap,
 			struct chan_extra_map *chan_extra_map)
 {
 	assert(flow);
@@ -417,8 +389,12 @@ double flow_probability(struct flow *flow, const struct gossmap *gossmap,
 		if (prob < 0)
 			goto function_fail;
 		if (!amount_msat_add_fee(&spend, h->base_fee,
-					 h->proportional_fee))
-			goto function_fail;
+					 h->proportional_fee)) {
+			plugin_err(plugin, "Could not add fee %u/%u to amount %s in %i/%zu",
+				   h->base_fee, h->proportional_fee,
+				   fmt_amount_msat(tmpctx, spend),
+				   i, pathlen);
+		}
 	}
 
 	return prob;

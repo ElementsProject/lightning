@@ -1184,6 +1184,7 @@ static inline uint64_t pseudorand_interval(uint64_t a, uint64_t b)
  * gossmap that corresponds to this flow. */
 static struct flow **
 get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
+	       struct plugin *plugin,
 	       const bitmap *disabled,
 
 	       // chan_extra_map cannot be const because we use it to keep
@@ -1354,10 +1355,9 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 			// accuracy
 			struct amount_msat delivered = amount_msat(delta*1000);
 			if (!amount_msat_sub(&delivered, delivered, excess)) {
-				if (fail)
-				*fail = tal_fmt(
-				    ctx, "unable to substract excess");
-				goto function_fail;
+				plugin_err(plugin, "Unable to subtract excess %s from %s",
+					   fmt_amount_msat(excess),
+					   fmt_amount_msat(delivered));
 			}
 			excess = amount_msat(0);
 			fp->amount = delivered;
