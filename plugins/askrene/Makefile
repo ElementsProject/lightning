@@ -1,5 +1,5 @@
-PLUGIN_ASKRENE_SRC := plugins/askrene/askrene.c plugins/askrene/layer.c plugins/askrene/reserve.c
-PLUGIN_ASKRENE_HEADER := plugins/askrene/askrene.h plugins/askrene/layer.h plugins/askrene/reserve.h
+PLUGIN_ASKRENE_SRC := plugins/askrene/askrene.c plugins/askrene/layer.c plugins/askrene/reserve.c plugins/askrene/mcf.c plugins/askrene/dijkstra.c plugins/askrene/flow.c 
+PLUGIN_ASKRENE_HEADER := plugins/askrene/askrene.h plugins/askrene/layer.h plugins/askrene/reserve.h plugins/askrene/mcf.h plugins/askrene/dijkstra.h plugins/askrene/flow.h
 PLUGIN_ASKRENE_OBJS := $(PLUGIN_ASKRENE_SRC:.c=.o)
 
 $(PLUGIN_ASKRENE_OBJS): $(PLUGIN_ASKRENE_HEADER)
