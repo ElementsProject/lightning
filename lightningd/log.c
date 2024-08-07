@@ -915,9 +915,8 @@ void opt_register_logging(struct lightningd *ld)
 		       opt_set_bool_arg, opt_show_bool,
 		       &ld->log_book->print_timestamps,
 		       "prefix log messages with timestamp");
-	opt_register_early_arg("--log-prefix", arg_log_prefix, show_log_prefix,
-			       ld->log_book,
-			       "log prefix");
+	clnopt_witharg("--log-prefix", OPT_EARLY|OPT_KEEP_WHITESPACE,
+		       arg_log_prefix, show_log_prefix, ld->log_book, "log prefix");
 	clnopt_witharg("--log-file=<file>",
 		       OPT_EARLY|OPT_MULTI,
 		       arg_log_to_file, NULL, ld,
