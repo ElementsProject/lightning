@@ -26,6 +26,15 @@ static struct askrene *get_askrene(struct plugin *plugin)
 	return plugin_get_data(plugin, struct askrene);
 }
 
+static bool have_layer(const char **layers, const char *name)
+{
+	for (size_t i = 0; i < tal_count(layers); i++) {
+		if (streq(layers[i], name))
+			return true;
+	}
+	return false;
+}
+
 /* JSON helpers */
 static struct command_result *param_string_array(struct command *cmd,
 						 const char *name,
@@ -165,6 +174,43 @@ static fp16_t *get_capacities(const tal_t *ctx,
 	return caps;
 }
 
+/* If we're the payer, we don't add delay or fee to our own outgoing
+ * channels.  This wouldn't be right if we looped back through ourselves,
+ * but we won't. */
+/* FIXME: We could cache this until gossmap changes... */
+static void add_free_source(struct command *cmd,
+			    struct gossmap *gossmap,
+			    struct gossmap_localmods *localmods,
+			    const struct node_id *source)
+{
+	const struct gossmap_node *srcnode;
+
+	/* If we're not in map, we complain later */
+	srcnode = gossmap_find_node(gossmap, source);
+	if (!srcnode)
+		return;
+
+	for (size_t i = 0; i < srcnode->num_chans; i++) {
+		struct gossmap_chan *c;
+		int dir;
+		struct short_channel_id scid;
+
+		c = gossmap_nth_chan(gossmap, srcnode, i, &dir);
+		scid = gossmap_chan_scid(gossmap, c);
+		if (!gossmap_local_updatechan(localmods,
+					      scid,
+					      /* Keep min and max */
+					      gossmap_chan_htlc_min(c, dir),
+					      gossmap_chan_htlc_max(c, dir),
+					      0, 0, 0,
+					      /* Keep enabled flag */
+					      c->half[dir].enabled,
+					      dir))
+			plugin_err(cmd->plugin, "Could not zero fee on local %s",
+				   fmt_short_channel_id(tmpctx, scid));
+	}
+}
+
 /* Returns an error message, or sets *routes */
 static const char *get_routes(struct command *cmd,
 			      const struct node_id *source,
@@ -214,6 +260,9 @@ static const char *get_routes(struct command *cmd,
 		 * override them (incl local channels) */
 		layer_clear_overridden_capacities(l, askrene->gossmap, rq->capacities);
 	}
+
+	if (have_layer(layers, "auto.sourcefree"))
+		add_free_source(cmd, askrene->gossmap, localmods, source);
 
 	/* Clear scids with reservations, too, so we don't have to look up
 	 * all the time! */
@@ -516,6 +565,20 @@ static struct command_result *json_askrene_unreserve(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
+static struct command_result *param_layername(struct command *cmd,
+					      const char *name,
+					      const char *buffer,
+					      const jsmntok_t *tok,
+					      const char **str)
+{
+	*str = tal_strndup(cmd, buffer + tok->start,
+			   tok->end - tok->start);
+	if (strstarts(*str, "auto."))
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "New layers cannot start with auto.");
+	return NULL;
+}
+
 static struct command_result *json_askrene_create_channel(struct command *cmd,
 							  const char *buffer,
 							  const jsmntok_t *params)
@@ -533,7 +596,7 @@ static struct command_result *json_askrene_create_channel(struct command *cmd,
 	struct askrene *askrene = get_askrene(cmd->plugin);
 
 	if (!param_check(cmd, buffer, params,
-			 p_req("layer", param_string, &layername),
+			 p_req("layer", param_layername, &layername),
 			 p_req("source", param_node_id, &src),
 			 p_req("destination", param_node_id, &dst),
 			 p_req("short_channel_id", param_short_channel_id, &scid),
@@ -586,7 +649,7 @@ static struct command_result *json_askrene_inform_channel(struct command *cmd,
 	struct askrene *askrene = get_askrene(cmd->plugin);
 
 	if (!param_check(cmd, buffer, params,
-			 p_req("layer", param_string, &layername),
+			 p_req("layer", param_layername, &layername),
 			 p_req("short_channel_id", param_short_channel_id, &scid),
 			 p_req("direction", param_zero_or_one, &direction),
 			 p_opt("minimum_msat", param_msat, &min),
@@ -633,7 +696,7 @@ static struct command_result *json_askrene_disable_node(struct command *cmd,
 	struct askrene *askrene = get_askrene(cmd->plugin);
 
 	if (!param(cmd, buffer, params,
-		   p_req("layer", param_string, &layername),
+		   p_req("layer", param_layername, &layername),
 		   p_req("node", param_node_id, &node),
 		   NULL))
 		return command_param_failed();

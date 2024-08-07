@@ -289,3 +289,76 @@ def test_getroutes_fee_fallback(node_factory):
                          maxfee_msat=200,
                          paths=[[{'short_channel_id': '0x2x1'},
                                  {'short_channel_id': '2x3x3'}]])
+
+
+def test_getroutes_auto_sourcefree(node_factory):
+    """Test getroutes call with auto.sourcefree layer"""
+    l1 = node_factory.get_node(start=False)
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, forward=GenChannel.Half(propfee=10000)),
+                                             GenChannel(0, 2, capacity_sats=9000),
+                                             GenChannel(1, 3, forward=GenChannel.Half(propfee=20000)),
+                                             GenChannel(0, 2, capacity_sats=10000),
+                                             GenChannel(2, 4, forward=GenChannel.Half(delay=2000))])
+
+    # Set up l1 with this as the gossip_store
+    shutil.copy(gsfile.name, os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'))
+    l1.start()
+
+    # Start easy
+    assert l1.rpc.getroutes(source=nodemap[0],
+                            destination=nodemap[1],
+                            amount_msat=1000,
+                            layers=['auto.sourcefree'],
+                            maxfee_msat=1000,
+                            finalcltv=99) == {'probability_ppm': 999999,
+                                              'routes': [{'probability_ppm': 999999,
+                                                          'amount_msat': 1000,
+                                                          'path': [{'short_channel_id': '0x1x0',
+                                                                    'direction': 1,
+                                                                    'next_node_id': nodemap[1],
+                                                                    'amount_msat': 1000,
+                                                                    'delay': 99}]}]}
+    # Two hop, still easy.
+    assert l1.rpc.getroutes(source=nodemap[0],
+                            destination=nodemap[3],
+                            amount_msat=100000,
+                            layers=['auto.sourcefree'],
+                            maxfee_msat=5000,
+                            finalcltv=99) == {'probability_ppm': 999798,
+                                              'routes': [{'probability_ppm': 999798,
+                                                          'amount_msat': 100000,
+                                                          'path': [{'short_channel_id': '0x1x0',
+                                                                    'direction': 1,
+                                                                    'next_node_id': nodemap[1],
+                                                                    'amount_msat': 102000,
+                                                                    'delay': 99 + 6},
+                                                                   {'short_channel_id': '1x3x2',
+                                                                    'direction': 1,
+                                                                    'next_node_id': nodemap[3],
+                                                                    'amount_msat': 102000,
+                                                                    'delay': 99 + 6}
+                                                                   ]}]}
+
+    # Too expensive
+    with pytest.raises(RpcError, match="Could not find route without excessive cost"):
+        l1.rpc.getroutes(source=nodemap[0],
+                         destination=nodemap[3],
+                         amount_msat=100000,
+                         layers=[],
+                         maxfee_msat=100,
+                         finalcltv=99)
+
+    # Too much delay (if final delay too great!)
+    l1.rpc.getroutes(source=nodemap[0],
+                     destination=nodemap[4],
+                     amount_msat=100000,
+                     layers=[],
+                     maxfee_msat=100,
+                     finalcltv=6)
+    with pytest.raises(RpcError, match="Could not find route without excessive delays"):
+        l1.rpc.getroutes(source=nodemap[0],
+                         destination=nodemap[4],
+                         amount_msat=100000,
+                         layers=[],
+                         maxfee_msat=100,
+                         finalcltv=99)
