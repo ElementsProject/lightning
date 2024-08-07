@@ -8,8 +8,8 @@
 #include <common/utils.h>
 #include <math.h>
 #include <plugins/askrene/mcf.h>
-#include <plugins/renepay/dijkstra.h>
-#include <plugins/renepay/flow.h>
+#include <plugins/askrene/dijkstra.h>
+#include <plugins/askrene/flow.h>
 #include <stdint.h>
 
 /* # Optimal payments
