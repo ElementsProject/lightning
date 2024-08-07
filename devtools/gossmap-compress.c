@@ -277,9 +277,15 @@ static u64 get_delay(struct gossmap *gossmap,
 	return chan->half[dir].delay;
 }
 
-static void pubkey_for_node(size_t nodeidx, struct pubkey *key)
+static void pubkey_for_node(size_t nodeidx, struct pubkey *key,
+			    const struct pubkey *node_ids)
 {
 	struct secret seckey;
+
+	if (nodeidx < tal_count(node_ids)) {
+		*key = node_ids[nodeidx];
+		return;
+	}
 
 	memset(&seckey, 1, sizeof(seckey));
 	memcpy(&seckey, &nodeidx, sizeof(nodeidx));
@@ -324,7 +330,8 @@ static void write_announce(int outfd,
 			   size_t node1,
 			   size_t node2,
 			   u64 capacity,
-			   size_t i)
+			   size_t i,
+			   const struct pubkey *node_ids)
 {
 	struct {
 		secp256k1_ecdsa_signature sig;
@@ -336,8 +343,8 @@ static void write_announce(int outfd,
 	struct node_id nodeid1, nodeid2;
 
 	memset(&vals, 0, sizeof(vals));
-	pubkey_for_node(node1, &id1);
-	pubkey_for_node(node2, &id2);
+	pubkey_for_node(node1, &id1, node_ids);
+	pubkey_for_node(node2, &id2, node_ids);
 
 	/* Nodes in pubkey order */
 	if (pubkey_cmp(&id1, &id2) < 0) {
@@ -385,7 +392,8 @@ static void write_update(int outfd,
 			 u64 htlc_min, u64 htlc_max,
 			 u64 basefee,
 			 u32 propfee,
-			 u16 delay)
+			 u16 delay,
+			 const struct pubkey *node_ids)
 {
 	struct vals {
 		secp256k1_ecdsa_signature sig;
@@ -404,8 +412,8 @@ static void write_update(int outfd,
 		abort();
 
 	/* If node ids are backward, dir is reversed */
-	pubkey_for_node(node1, &id1);
-	pubkey_for_node(node2, &id2);
+	pubkey_for_node(node1, &id1, node_ids);
+	pubkey_for_node(node2, &id2, node_ids);
 	if (pubkey_cmp(&id1, &id2) > 0)
 		dir = !dir;
 
@@ -467,14 +475,32 @@ static char *opt_add_one(unsigned int *val)
 	return NULL;
 }
 
+static char *opt_nodes(const char *optarg, struct pubkey **node_ids)
+{
+	char **ids = tal_strsplit(tmpctx, optarg, ",", STR_EMPTY_OK);
+
+	for (size_t i = 0; ids[i]; i++) {
+		struct pubkey n;
+		if (!pubkey_from_hexstr(ids[i], strlen(ids[i]), &n))
+			return tal_fmt(tmpctx, "Invalid node id '%s'", ids[i]);
+		tal_arr_expand(node_ids, n);
+	}
+	return NULL;
+}
+
 int main(int argc, char *argv[])
 {
 	int infd, outfd;
+	struct pubkey *node_ids;
+
 	common_setup(argv[0]);
 	setup_locale();
 
+	node_ids = tal_arr(tmpctx, struct pubkey, 0);
 	opt_register_noarg("--verbose|-v", opt_add_one, &verbose,
 			   "Print details (each additional gives more!).");
+	opt_register_arg("--nodes", opt_nodes, NULL, &node_ids,
+			   "Comma separated node ids to give first nodes.");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "[decompress|compress] infile outfile"
 			   "Compress or decompress a gossmap file",
@@ -643,15 +669,15 @@ int main(int argc, char *argv[])
 		/* Useful so they can map their ids back to node ids. */
 		for (size_t i = 0; i < node_limit; i++) {
 			struct pubkey node_id;
-			pubkey_for_node(i, &node_id);
+			pubkey_for_node(i, &node_id, node_ids);
 			printf("%s\n", fmt_pubkey(tmpctx, &node_id));
 		}
 
 		if (verbose >= 2) {
 			for (size_t i = 0; i < channel_count; i++) {
 				struct pubkey id1, id2;
-				pubkey_for_node(chans[i].node1, &id1);
-				pubkey_for_node(chans[i].node2, &id2);
+				pubkey_for_node(chans[i].node1, &id1, node_ids);
+				pubkey_for_node(chans[i].node2, &id2, node_ids);
 				printf("Channel %zu: %s -> %s\n",
 				       i,
 				       fmt_pubkey(tmpctx, &id1),
@@ -715,7 +741,7 @@ int main(int argc, char *argv[])
 				       chans[i].node1,
 				       chans[i].node2,
 				       chans[i].capacity,
-				       i);
+				       i, node_ids);
 			for (size_t dir = 0; dir < 2; dir++) {
 				write_update(outfd,
 					     chans[i].node1, chans[i].node2, i, dir,
@@ -724,7 +750,8 @@ int main(int argc, char *argv[])
 					     chans[i].half[dir].htlc_max,
 					     chans[i].half[dir].basefee,
 					     chans[i].half[dir].propfee,
-					     chans[i].half[dir].delay);
+					     chans[i].half[dir].delay,
+					     node_ids);
 			}
 		}
 		gzclose(inf);

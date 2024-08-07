@@ -460,7 +460,7 @@ class GenChannel(object):
         self.half = [forward, reverse]
 
 
-def generate_gossip_store(channels):
+def generate_gossip_store(channels, nodeids=[]):
     """Returns a gossip store file with the given channels in it, and a map of node labels -> ids
     """
     nodes = []
@@ -550,6 +550,7 @@ def generate_gossip_store(channels):
 
     outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
     nodeids = subprocess.check_output(['devtools/gossmap-compress',
+                                       '--nodes={}'.format(','.join(nodeids)),
                                        'decompress',
                                        cfile.name,
                                        outfile.name]).decode('utf-8').splitlines()
