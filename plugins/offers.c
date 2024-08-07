@@ -1473,7 +1473,7 @@ int main(int argc, char *argv[])
 
 	/* We deal in UTC; mktime() uses local time */
 	setenv("TZ", "", 1);
-	plugin_main(argv, init, PLUGIN_RESTARTABLE, true, NULL,
+	plugin_main(argv, init, NULL, PLUGIN_RESTARTABLE, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 		    notifications, ARRAY_SIZE(notifications),
 		    hooks, ARRAY_SIZE(hooks),

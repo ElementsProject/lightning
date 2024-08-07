@@ -668,6 +668,6 @@ static const char *init(struct plugin *p,
 int main(int argc, char *argv[])
 {
 	setup_locale();
-	plugin_main(argv, init, PLUGIN_RESTARTABLE, true, NULL, commands,
+	plugin_main(argv, init, NULL, PLUGIN_RESTARTABLE, true, NULL, commands,
 		    ARRAY_SIZE(commands), NULL, 0, NULL, 0, NULL, 0, NULL);
 }

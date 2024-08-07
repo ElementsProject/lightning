@@ -411,7 +411,7 @@ int main(int argc, char *argv[])
 
 	plugin_main(
 		argv,
-		init,
+		init, NULL,
 		PLUGIN_RESTARTABLE,
 		/* init_rpc */ true,
 		/* features */ NULL,

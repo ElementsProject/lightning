@@ -827,7 +827,7 @@ int main(int argc, char *argv[])
 {
         setup_locale();
 
-	plugin_main(argv, init, PLUGIN_STATIC, true, NULL,
+	plugin_main(argv, init, NULL, PLUGIN_STATIC, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 		    notifs, ARRAY_SIZE(notifs), hooks, ARRAY_SIZE(hooks),
 		    NULL, 0,  /* Notification topics we publish */

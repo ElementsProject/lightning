@@ -825,7 +825,7 @@ static const struct plugin_command commands[] = { {
 int main(int argc, char *argv[])
 {
 	setup_locale();
-	plugin_main(argv, init, PLUGIN_STATIC, true, NULL,
+	plugin_main(argv, init, NULL, PLUGIN_STATIC, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 	            NULL, 0,
 		    hooks, ARRAY_SIZE(hooks),

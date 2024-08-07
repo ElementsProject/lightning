@@ -1171,7 +1171,7 @@ int main(int argc, char *argv[])
 	/* Initialize our global context object here to handle startup options. */
 	bitcoind = new_bitcoind(NULL);
 
-	plugin_main(argv, init, PLUGIN_STATIC, false /* Do not init RPC on startup*/,
+	plugin_main(argv, init, NULL, PLUGIN_STATIC, false /* Do not init RPC on startup*/,
 		    NULL, commands, ARRAY_SIZE(commands),
 		    NULL, 0, NULL, 0, NULL, 0,
 		    plugin_option("bitcoin-datadir",
