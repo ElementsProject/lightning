@@ -4,6 +4,7 @@
 #include <bitcoin/short_channel_id.h>
 #include <ccan/list/list.h>
 #include <common/amount.h>
+#include <common/fp16.h>
 
 struct gossmap_chan;
 
@@ -23,6 +24,8 @@ struct askrene {
 	struct list_head layers;
 	/* In-flight payment attempts */
 	struct reserve_hash *reserved;
+	/* Compact cache of gossmap capacities */
+	fp16_t *capacities;
 };
 
 /* Information for a single route query. */
@@ -38,6 +41,9 @@ struct route_query {
 
 	/* Array of layers we're applying */
 	const struct layer **layers;
+
+	/* Cache of channel capacities for non-reserved, unknown channels. */
+	fp16_t *capacities;
 };
 
 /* Given a gossmap channel, get the current known min/max */

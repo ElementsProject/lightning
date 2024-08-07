@@ -139,6 +139,30 @@ static struct command_result *param_reserve_path(struct command *cmd,
 	return NULL;
 }
 
+static fp16_t *get_capacities(const tal_t *ctx,
+			      struct plugin *plugin, struct gossmap *gossmap)
+{
+	fp16_t *caps;
+	struct gossmap_chan *c;
+
+	caps = tal_arrz(ctx, fp16_t, gossmap_max_chan_idx(gossmap));
+
+	for (c = gossmap_first_chan(gossmap);
+	     c;
+	     c = gossmap_next_chan(gossmap, c)) {
+		struct amount_sat cap;
+
+		if (!gossmap_chan_get_capacity(gossmap, c, &cap)) {
+			plugin_log(plugin, LOG_BROKEN,
+				   "get_capacity failed for channel?");
+			cap = AMOUNT_SAT(0);
+		}
+		caps[gossmap_chan_idx(gossmap, c)]
+			= u64_to_fp16(cap.satoshis, true); /* Raw: fp16 */
+	}
+	return caps;
+}
+
 /* Returns an error message, or sets *routes */
 static const char *get_routes(struct command *cmd,
 			      const struct node_id *source,
@@ -151,12 +175,17 @@ static const char *get_routes(struct command *cmd,
 	struct route_query *rq = tal(cmd, struct route_query);
 	struct gossmap_localmods *localmods;
 
-	gossmap_refresh(askrene->gossmap, NULL);
+	if (gossmap_refresh(askrene->gossmap, NULL)) {
+		/* FIXME: gossmap_refresh callbacks to we can update in place */
+		tal_free(askrene->capacities);
+		askrene->capacities = get_capacities(askrene, askrene->plugin, askrene->gossmap);
+	}
 
 	rq->plugin = cmd->plugin;
 	rq->gossmap = askrene->gossmap;
 	rq->reserved = askrene->reserved;
 	rq->layers = tal_arr(rq, const struct layer *, 0);
+	rq->capacities = tal_dup_talarr(rq, fp16_t, askrene->capacities);
 	localmods = gossmap_localmods_new(rq);
 
 	/* Layers don't have to exist: they might be empty! */
@@ -168,7 +197,15 @@ static const char *get_routes(struct command *cmd,
 		tal_arr_expand(&rq->layers, l);
 		/* FIXME: Implement localmods_merge, and cache this in layer? */
 		layer_add_localmods(l, rq->gossmap, localmods);
+
+		/* Clear any entries in capacities array if we
+		 * override them (incl local channels) */
+		layer_clear_overridden_capacities(l, askrene->gossmap, rq->capacities);
 	}
+
+	/* Clear scids with reservations, too, so we don't have to look up
+	 * all the time! */
+	reserves_clear_capacities(askrene->reserved, askrene->gossmap, rq->capacities);
 
 	gossmap_apply_localmods(askrene->gossmap, localmods);
 	(void)rq;
@@ -195,13 +232,20 @@ void get_constraints(const struct route_query *rq,
 {
 	struct short_channel_id_dir scidd;
 	const struct reserve *reserve;
+	size_t idx = gossmap_chan_idx(rq->gossmap, chan);
 
 	*min = AMOUNT_MSAT(0);
-	*max = AMOUNT_MSAT(-1ULL);
+
+	/* Fast path: no information known, no reserve. */
+	if (idx < tal_count(rq->capacities) && rq->capacities[idx] != 0) {
+		*max = amount_msat(fp16_to_u64(rq->capacities[idx]) * 1000);
+		return;
+	}
 
 	/* Naive implementation! */
 	scidd.scid = gossmap_chan_scid(rq->gossmap, chan);
 	scidd.dir = dir;
+	*max = AMOUNT_MSAT(-1ULL);
 
 	/* Look through layers for any constraints */
 	for (size_t i = 0; i < tal_count(rq->layers); i++) {
@@ -214,7 +258,7 @@ void get_constraints(const struct route_query *rq,
 			*max = cmax->limit;
 	}
 
-	/* If we know nothing, use the raw channel capacity */
+	/* Might be here because it's reserved, but capacity is normal. */
 	if (amount_msat_eq(*max, AMOUNT_MSAT(-1ULL))) {
 		struct amount_sat cap;
 		if (gossmap_chan_get_capacity(rq->gossmap, chan, &cap)) {
@@ -576,6 +620,7 @@ static const char *init(struct plugin *plugin,
 	if (!askrene->gossmap)
 		plugin_err(plugin, "Could not load gossmap %s: %s",
 			   GOSSIP_STORE_FILENAME, strerror(errno));
+	askrene->capacities = get_capacities(askrene, askrene->plugin, askrene->gossmap);
 
 	plugin_set_data(plugin, askrene);
 	plugin_set_memleak_handler(plugin, askrene_markmem);

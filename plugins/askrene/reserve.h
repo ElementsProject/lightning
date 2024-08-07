@@ -6,6 +6,7 @@
 #include "config.h"
 #include <bitcoin/short_channel_id.h>
 #include <common/amount.h>
+#include <common/fp16.h>
 
 /* We reserve a path being used.  This records how many and how much */
 struct reserve {
@@ -35,4 +36,8 @@ size_t reserves_remove(struct reserve_hash *reserved,
 		       const struct amount_msat *amounts,
 		       size_t num);
 
+/* Clear capacities array where we have reserves */
+void reserves_clear_capacities(struct reserve_hash *reserved,
+			       const struct gossmap *gossmap,
+			       fp16_t *capacities);
 #endif /* LIGHTNING_PLUGINS_ASKRENE_RESERVE_H */
