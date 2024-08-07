@@ -2,6 +2,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/tal/str/str.h>
+#include <common/gossmap.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <plugins/askrene/askrene.h>
@@ -266,6 +267,61 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 void layer_add_disabled_node(struct layer *layer, const struct node_id *node)
 {
 	tal_arr_expand(&layer->disabled_nodes, *node);
+}
+
+void layer_add_localmods(struct layer *layer,
+			 const struct gossmap *gossmap,
+			 struct gossmap_localmods *localmods)
+{
+	struct local_channel *lc;
+	struct local_channel_hash_iter lcit;
+
+	/* First, disable all channels into blocked nodes (local updates
+	 * can add new ones)! */
+	for (size_t i = 0; i < tal_count(layer->disabled_nodes); i++) {
+		const struct gossmap_node *node;
+
+		node = gossmap_find_node(gossmap, &layer->disabled_nodes[i]);
+		if (!node)
+			continue;
+		for (size_t n = 0; n < node->num_chans; n++) {
+			struct short_channel_id scid;
+			struct gossmap_chan *c;
+			int dir;
+			c = gossmap_nth_chan(gossmap, node, n, &dir);
+			scid = gossmap_chan_scid(gossmap, c);
+
+			/* Disabled zero-capacity on incoming */
+			gossmap_local_updatechan(localmods,
+						 scid,
+						 AMOUNT_MSAT(0),
+						 AMOUNT_MSAT(0),
+						 0,
+						 0,
+						 0,
+						 false,
+						 !dir);
+		}
+	}
+
+	for (lc = local_channel_hash_first(layer->local_channels, &lcit);
+	     lc;
+	     lc = local_channel_hash_next(layer->local_channels, &lcit)) {
+		gossmap_local_addchan(localmods,
+				      &lc->n1, &lc->n2, lc->scid, NULL);
+		for (size_t i = 0; i < ARRAY_SIZE(lc->half); i++) {
+			if (!lc->half[i].enabled)
+				continue;
+			gossmap_local_updatechan(localmods, lc->scid,
+						 lc->half[i].htlc_min,
+						 lc->half[i].htlc_max,
+						 lc->half[i].base_fee.millisatoshis /* Raw: gossmap */,
+						 lc->half[i].proportional_fee,
+						 lc->half[i].delay,
+						 true,
+						 i);
+		}
+	}
 }
 
 static void json_add_local_channel(struct json_stream *response,

@@ -147,6 +147,32 @@ static const char *get_routes(struct command *cmd,
 			      const char **layers,
 			      struct route ***routes)
 {
+	struct askrene *askrene = get_askrene(cmd->plugin);
+	struct route_query *rq = tal(cmd, struct route_query);
+	struct gossmap_localmods *localmods;
+
+	gossmap_refresh(askrene->gossmap, NULL);
+
+	rq->plugin = cmd->plugin;
+	rq->gossmap = askrene->gossmap;
+	rq->reserved = askrene->reserved;
+	rq->layers = tal_arr(rq, const struct layer *, 0);
+	localmods = gossmap_localmods_new(rq);
+
+	/* Layers don't have to exist: they might be empty! */
+	for (size_t i = 0; i < tal_count(layers); i++) {
+		struct layer *l = find_layer(askrene, layers[i]);
+		if (!l)
+			continue;
+
+		tal_arr_expand(&rq->layers, l);
+		/* FIXME: Implement localmods_merge, and cache this in layer? */
+		layer_add_localmods(l, rq->gossmap, localmods);
+	}
+
+	gossmap_apply_localmods(askrene->gossmap, localmods);
+	(void)rq;
+
 	/* FIXME: Do route here!  This is a dummy, single "direct" route. */
 	*routes = tal_arr(cmd, struct route *, 1);
 	(*routes)[0]->success_prob = 1;
@@ -157,7 +183,73 @@ static const char *get_routes(struct command *cmd,
 	(*routes)[0]->hops[0].amount = amount;
 	(*routes)[0]->hops[0].delay = 6;
 
+	gossmap_remove_localmods(askrene->gossmap, localmods);
 	return NULL;
+}
+
+void get_constraints(const struct route_query *rq,
+		     const struct gossmap_chan *chan,
+		     int dir,
+		     struct amount_msat *min,
+		     struct amount_msat *max)
+{
+	struct short_channel_id_dir scidd;
+	const struct reserve *reserve;
+
+	*min = AMOUNT_MSAT(0);
+	*max = AMOUNT_MSAT(-1ULL);
+
+	/* Naive implementation! */
+	scidd.scid = gossmap_chan_scid(rq->gossmap, chan);
+	scidd.dir = dir;
+
+	/* Look through layers for any constraints */
+	for (size_t i = 0; i < tal_count(rq->layers); i++) {
+		const struct constraint *cmin, *cmax;
+		cmin = layer_find_constraint(rq->layers[i], &scidd, CONSTRAINT_MIN);
+		if (cmin && amount_msat_greater(cmin->limit, *min))
+			*min = cmin->limit;
+		cmax = layer_find_constraint(rq->layers[i], &scidd, CONSTRAINT_MAX);
+		if (cmax && amount_msat_less(cmax->limit, *max))
+			*max = cmax->limit;
+	}
+
+	/* If we know nothing, use the raw channel capacity */
+	if (amount_msat_eq(*max, AMOUNT_MSAT(-1ULL))) {
+		struct amount_sat cap;
+		if (gossmap_chan_get_capacity(rq->gossmap, chan, &cap)) {
+			/* Shouldn't happen! */
+			if (!amount_sat_to_msat(max, cap)) {
+				plugin_log(rq->plugin, LOG_BROKEN,
+					   "Local channel %s with capacity %s?",
+					   fmt_short_channel_id(tmpctx, scidd.scid),
+					   fmt_amount_sat(tmpctx, cap));
+			}
+		} else {
+			/* Local channel? */
+			const struct local_channel *lc;
+
+			/* In case it's not, set max to htlc max. */
+			*max = amount_msat(fp16_to_u64(chan->half[dir].htlc_max));
+			for (size_t i = 0; i < tal_count(rq->layers); i++) {
+				lc = layer_find_local_channel(rq->layers[i], scidd.scid);
+				if (lc) {
+					*max = local_channel_capacity(lc);
+					break;
+				}
+			}
+		}
+	}
+
+	/* Finally, if any is in use, subtract that! */
+	reserve = find_reserve(rq->reserved, &scidd);
+	if (reserve) {
+		/* They can definitely *try* to push too much through a channel! */
+		if (!amount_msat_sub(min, *min, reserve->amount))
+			*min = AMOUNT_MSAT(0);
+		if (!amount_msat_sub(max, *max, reserve->amount))
+			*max = AMOUNT_MSAT(0);
+	}
 }
 
 static struct command_result *json_getroutes(struct command *cmd,
