@@ -1,8 +1,13 @@
 from fixtures import *  # noqa: F401,F403
+from pyln.client import RpcError
 from utils import (
-    only_one, first_scid
+    only_one, first_scid, GenChannel, generate_gossip_store,
+    TEST_NETWORK
 )
+import os
+import pytest
 import time
+import shutil
 
 
 def test_layers(node_factory):
@@ -102,3 +107,146 @@ def test_layers(node_factory):
     del expect['constraints'][0]
     listlayers = l2.rpc.askrene_listlayers('test_layers')
     assert listlayers == {'layers': [expect]}
+
+
+def check_getroute_paths(node,
+                         source,
+                         destination,
+                         amount_msat,
+                         paths,
+                         layers=[],
+                         maxfee_msat=1000,
+                         finalcltv=99):
+    """Check that routes are as expected in result"""
+    getroutes = node.rpc.getroutes(source=source,
+                                   destination=destination,
+                                   amount_msat=amount_msat,
+                                   layers=layers,
+                                   maxfee_msat=maxfee_msat,
+                                   finalcltv=finalcltv)
+
+    assert getroutes['probability_ppm'] <= 1000000
+    # Total delivered should be amount we told it to send.
+    assert amount_msat == sum([r['amount_msat'] for r in getroutes['routes']])
+
+    def dict_subset_eq(a, b):
+        """Is every key in B is the same in A?"""
+        return all(a.get(key) == b[key] for key in b)
+
+    for expected_path in paths:
+        found = False
+        for i in range(len(getroutes['routes'])):
+            route = getroutes['routes'][i]
+            if len(route['path']) != len(expected_path):
+                continue
+            if all(dict_subset_eq(route['path'][i], expected_path[i]) for i in range(len(expected_path))):
+                del getroutes['routes'][i]
+                found = True
+                break
+        if not found:
+            raise ValueError("Could not find expected_path {} in paths {}".format(expected_path, getroutes['routes']))
+
+    if getroutes['routes'] != []:
+        raise ValueError("Did not expect paths {}".format(getroutes['routes']))
+
+
+def test_getroutes(node_factory):
+    """Test getroutes call"""
+    l1 = node_factory.get_node(start=False)
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, forward=GenChannel.Half(propfee=10000)),
+                                             GenChannel(0, 2, capacity_sats=9000),
+                                             GenChannel(1, 3, forward=GenChannel.Half(propfee=20000)),
+                                             GenChannel(0, 2, capacity_sats=10000),
+                                             GenChannel(2, 4, forward=GenChannel.Half(delay=2000))])
+
+    # Set up l1 with this as the gossip_store
+    shutil.copy(gsfile.name, os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'))
+    l1.start()
+
+    # Start easy
+    assert l1.rpc.getroutes(source=nodemap[0],
+                            destination=nodemap[1],
+                            amount_msat=1000,
+                            layers=[],
+                            maxfee_msat=1000,
+                            finalcltv=99) == {'probability_ppm': 999999,
+                                              'routes': [{'probability_ppm': 999999,
+                                                          'amount_msat': 1000,
+                                                          'path': [{'short_channel_id': '0x1x0',
+                                                                    'direction': 1,
+                                                                    'next_node_id': nodemap[1],
+                                                                    'amount_msat': 1010,
+                                                                    'delay': 99 + 6}]}]}
+    # Two hop, still easy.
+    assert l1.rpc.getroutes(source=nodemap[0],
+                            destination=nodemap[3],
+                            amount_msat=100000,
+                            layers=[],
+                            maxfee_msat=5000,
+                            finalcltv=99) == {'probability_ppm': 999798,
+                                              'routes': [{'probability_ppm': 999798,
+                                                          'amount_msat': 100000,
+                                                          'path': [{'short_channel_id': '0x1x0',
+                                                                    'direction': 1,
+                                                                    'next_node_id': nodemap[1],
+                                                                    'amount_msat': 103020,
+                                                                    'delay': 99 + 6 + 6},
+                                                                   {'short_channel_id': '1x3x2',
+                                                                    'direction': 1,
+                                                                    'next_node_id': nodemap[3],
+                                                                    'amount_msat': 102000,
+                                                                    'delay': 99 + 6}
+                                                                   ]}]}
+
+    # Too expensive
+    with pytest.raises(RpcError, match="Could not find route without excessive cost"):
+        l1.rpc.getroutes(source=nodemap[0],
+                         destination=nodemap[3],
+                         amount_msat=100000,
+                         layers=[],
+                         maxfee_msat=100,
+                         finalcltv=99)
+
+    # Too much delay (if final delay too great!)
+    l1.rpc.getroutes(source=nodemap[0],
+                     destination=nodemap[4],
+                     amount_msat=100000,
+                     layers=[],
+                     maxfee_msat=100,
+                     finalcltv=6)
+    with pytest.raises(RpcError, match="Could not find route without excessive delays"):
+        l1.rpc.getroutes(source=nodemap[0],
+                         destination=nodemap[4],
+                         amount_msat=100000,
+                         layers=[],
+                         maxfee_msat=100,
+                         finalcltv=99)
+
+    # Two choices, but for <= 1000 sats we choose the larger.
+    assert l1.rpc.getroutes(source=nodemap[0],
+                            destination=nodemap[2],
+                            amount_msat=1000000,
+                            layers=[],
+                            maxfee_msat=5000,
+                            finalcltv=99) == {'probability_ppm': 900000,
+                                              'routes': [{'probability_ppm': 900000,
+                                                          'amount_msat': 1000000,
+                                                          'path': [{'short_channel_id': '0x2x3',
+                                                                    'direction': 1,
+                                                                    'next_node_id': nodemap[2],
+                                                                    'amount_msat': 1000001,
+                                                                    'delay': 99 + 6}]}]}
+
+    # For 10000 sats, we will split.
+    check_getroute_paths(l1,
+                         nodemap[0],
+                         nodemap[2],
+                         10000000,
+                         [[{'short_channel_id': '0x2x1',
+                            'next_node_id': nodemap[2],
+                            'amount_msat': 500000,
+                            'delay': 99 + 6}],
+                          [{'short_channel_id': '0x2x3',
+                            'next_node_id': nodemap[2],
+                            'amount_msat': 9500009,
+                            'delay': 99 + 6}]])
