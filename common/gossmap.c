@@ -444,7 +444,8 @@ void gossmap_remove_node(struct gossmap *map, struct gossmap_node *node)
  *     * [`point`:`node_id_2`]
  */
 static struct gossmap_chan *add_channel(struct gossmap *map,
-					size_t cannounce_off)
+					size_t cannounce_off,
+					size_t msglen)
 {
 	/* Note that first two bytes are message type */
 	const size_t feature_len_off = 2 + (64 + 64 + 64 + 64);
@@ -472,6 +473,12 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
 		      chan->cann_off, cannounce_off);
 		return NULL;
 	}
+
+	/* gossipd writes WIRE_GOSSIP_STORE_CHANNEL_AMOUNT after this (not for
+	 * local channels), so ignore channel_announcement until that appears */
+	if (msglen
+	    && (map->map_size < cannounce_off + msglen + sizeof(struct gossip_hdr) + sizeof(u16) + sizeof(u64)))
+		return NULL;
 
 	/* We carefully map pointers to indexes, since new_node can move them! */
 	n[0] = gossmap_find_node(map, &node_id[0]);
@@ -668,9 +675,11 @@ static bool map_catchup(struct gossmap *map, bool *changed)
 
 		off = map->map_end + sizeof(ghdr);
 		type = map_be16(map, off);
-		if (type == WIRE_CHANNEL_ANNOUNCEMENT)
-			add_channel(map, off);
-		else if (type == WIRE_CHANNEL_UPDATE)
+		if (type == WIRE_CHANNEL_ANNOUNCEMENT) {
+			/* Don't read yet if amount field is not there! */
+			if (!add_channel(map, off, be16_to_cpu(ghdr.len)))
+				break;
+		} else if (type == WIRE_CHANNEL_UPDATE)
 			update_channel(map, off);
 		else if (type == WIRE_GOSSIP_STORE_DELETE_CHAN)
 			remove_channel_by_deletemsg(map, off);
@@ -944,7 +953,7 @@ void gossmap_apply_localmods(struct gossmap *map,
 				continue;
 
 			/* Create new channel, pointing into local. */
-			chan = add_channel(map, map->map_size + mod->local_off);
+			chan = add_channel(map, map->map_size + mod->local_off, 0);
 		}
 
 		/* Save old, overwrite (keep nodeidx) */
@@ -1144,7 +1153,7 @@ bool gossmap_chan_get_capacity(const struct gossmap *map,
 	off += sizeof(ghdr) + be16_to_cpu(ghdr.len);
 
 	/* Partial write, this can happen. */
-	if (off + sizeof(ghdr) + 2 > map->map_size)
+	if (off + sizeof(ghdr) + sizeof(u16) + sizeof(u64) > map->map_size)
 		return false;
 
 	/* Get type of next field. */

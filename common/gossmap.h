@@ -161,7 +161,7 @@ static inline bool gossmap_chan_set(const struct gossmap_chan *chan, int dir)
 	return chan->cupdate_off[dir] != 0;
 }
 
-/* Return capacity if it's known (fails only on race condition, or a local mod) */
+/* Return capacity if it's known (fails on a local mod) */
 bool gossmap_chan_get_capacity(const struct gossmap *map,
 			       const struct gossmap_chan *c,
 			       struct amount_sat *amount);
