@@ -212,20 +212,21 @@ static void add_free_source(struct plugin *plugin,
 }
 
 /* Returns an error message, or sets *routes */
-static const char *get_routes(struct command *cmd,
+static const char *get_routes(const tal_t *ctx,
+			      struct plugin *plugin,
 			      const struct node_id *source,
 			      const struct node_id *dest,
 			      struct amount_msat amount,
 			      struct amount_msat maxfee,
 			      u32 finalcltv,
 			      const char **layers,
+			      struct gossmap_localmods *localmods,
 			      struct route ***routes,
 			      struct amount_msat **amounts,
 			      double *probability)
 {
-	struct askrene *askrene = get_askrene(cmd->plugin);
-	struct route_query *rq = tal(cmd, struct route_query);
-	struct gossmap_localmods *localmods;
+	struct askrene *askrene = get_askrene(plugin);
+	struct route_query *rq = tal(ctx, struct route_query);
 	struct flow **flows;
 	const struct gossmap_node *srcnode, *dstnode;
 	double delay_feefactor;
@@ -239,12 +240,11 @@ static const char *get_routes(struct command *cmd,
 		askrene->capacities = get_capacities(askrene, askrene->plugin, askrene->gossmap);
 	}
 
-	rq->plugin = cmd->plugin;
+	rq->plugin = plugin;
 	rq->gossmap = askrene->gossmap;
 	rq->reserved = askrene->reserved;
 	rq->layers = tal_arr(rq, const struct layer *, 0);
 	rq->capacities = tal_dup_talarr(rq, fp16_t, askrene->capacities);
-	localmods = gossmap_localmods_new(rq);
 
 	/* Layers don't have to exist: they might be empty! */
 	for (size_t i = 0; i < tal_count(layers); i++) {
@@ -262,7 +262,7 @@ static const char *get_routes(struct command *cmd,
 	}
 
 	if (have_layer(layers, "auto.sourcefree"))
-		add_free_source(cmd->plugin, askrene->gossmap, localmods, source);
+		add_free_source(plugin, askrene->gossmap, localmods, source);
 
 	/* Clear scids with reservations, too, so we don't have to look up
 	 * all the time! */
@@ -272,13 +272,13 @@ static const char *get_routes(struct command *cmd,
 
 	srcnode = gossmap_find_node(askrene->gossmap, source);
 	if (!srcnode) {
-		ret = tal_fmt(cmd, "Unknown source node %s", fmt_node_id(tmpctx, source));
+		ret = tal_fmt(ctx, "Unknown source node %s", fmt_node_id(tmpctx, source));
 		goto out;
 	}
 
 	dstnode = gossmap_find_node(askrene->gossmap, dest);
 	if (!dstnode) {
-		ret = tal_fmt(cmd, "Unknown destination node %s", fmt_node_id(tmpctx, dest));
+		ret = tal_fmt(ctx, "Unknown destination node %s", fmt_node_id(tmpctx, dest));
 		goto out;
 	}
 
@@ -305,7 +305,7 @@ static const char *get_routes(struct command *cmd,
 		/* FIXME: disjktra here to see if there is any route, and
 		 * diagnose problem (offline peers?  Not enough capacity at
 		 * our end?  Not enough at theirs?) */
-		ret = tal_fmt(cmd, "Could not find route");
+		ret = tal_fmt(ctx, "Could not find route");
 		goto out;
 	}
 
@@ -322,30 +322,30 @@ static const char *get_routes(struct command *cmd,
 		flows = minflow(rq, rq, srcnode, dstnode, amount,
 				mu, delay_feefactor, base_fee_penalty, prob_cost_factor);
 		if (!flows || delay_feefactor > 10) {
-			ret = tal_fmt(cmd, "Could not find route without excessive delays");
+			ret = tal_fmt(ctx, "Could not find route without excessive delays");
 			goto out;
 		}
 	}
 
 	/* Too expensive? */
-	while (amount_msat_greater(flowset_fee(cmd->plugin, flows), maxfee)) {
+	while (amount_msat_greater(flowset_fee(plugin, flows), maxfee)) {
 		mu += 10;
 		flows = minflow(rq, rq, srcnode, dstnode, amount,
 				mu, delay_feefactor, base_fee_penalty, prob_cost_factor);
 		if (!flows || mu == 100) {
-			ret = tal_fmt(cmd, "Could not find route without excessive cost");
+			ret = tal_fmt(ctx, "Could not find route without excessive cost");
 			goto out;
 		}
 	}
 
 	if (finalcltv + flows_worst_delay(flows) > 2016) {
-		ret = tal_fmt(cmd, "Could not find route without excessive cost or delays");
+		ret = tal_fmt(ctx, "Could not find route without excessive cost or delays");
 		goto out;
 	}
 
 	/* Convert back into routes, with delay and other information fixed */
-	*routes = tal_arr(cmd, struct route *, tal_count(flows));
-	*amounts = tal_arr(cmd, struct amount_msat, tal_count(flows));
+	*routes = tal_arr(ctx, struct route *, tal_count(flows));
+	*amounts = tal_arr(ctx, struct amount_msat, tal_count(flows));
 	for (size_t i = 0; i < tal_count(flows); i++) {
 		struct route *r;
 		struct amount_msat msat;
@@ -366,7 +366,7 @@ static const char *get_routes(struct command *cmd,
 			const struct half_chan *h = flow_edge(flows[i], j);
 
 			if (!amount_msat_add_fee(&msat, h->base_fee, h->proportional_fee))
-				plugin_err(cmd->plugin, "Adding fee to amount");
+				plugin_err(plugin, "Adding fee to amount");
 			delay += h->delay;
 
 			rh->scid = gossmap_chan_scid(rq->gossmap, flows[i]->path[j]);
@@ -451,30 +451,27 @@ void get_constraints(const struct route_query *rq,
 	}
 }
 
-static struct command_result *json_getroutes(struct command *cmd,
-					     const char *buffer,
-					     const jsmntok_t *params)
-{
-	struct node_id *dest, *source;
-	const char **layers;
-	struct amount_msat *amount, *maxfee, *amounts;
-	struct route **routes;
-	struct json_stream *response;
+struct getroutes_info {
+	struct node_id *source, *dest;
+	struct amount_msat *amount, *maxfee;
 	u32 *finalcltv;
+	const char **layers;
+};
+
+static struct command_result *do_getroutes(struct command *cmd,
+					   struct gossmap_localmods *localmods,
+					   const struct getroutes_info *info)
+{
 	const char *err;
 	double probability;
+	struct amount_msat *amounts;
+	struct route **routes;
+	struct json_stream *response;
 
-	if (!param(cmd, buffer, params,
-		   p_req("source", param_node_id, &source),
-		   p_req("destination", param_node_id, &dest),
-		   p_req("amount_msat", param_msat, &amount),
-		   p_req("layers", param_string_array, &layers),
-		   p_req("maxfee_msat", param_msat, &maxfee),
-		   p_req("finalcltv", param_u32, &finalcltv),
-		   NULL))
-		return command_param_failed();
-
-	err = get_routes(cmd, source, dest, *amount, *maxfee, *finalcltv, layers,
+	err = get_routes(cmd, cmd->plugin,
+			 info->source, info->dest,
+			 *info->amount, *info->maxfee, *info->finalcltv,
+			 info->layers, localmods,
 			 &routes, &amounts, &probability);
 	if (err)
 		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", err);
@@ -502,6 +499,25 @@ static struct command_result *json_getroutes(struct command *cmd,
 	}
 	json_array_end(response);
 	return command_finished(cmd, response);
+}
+
+static struct command_result *json_getroutes(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *params)
+{
+	struct getroutes_info *info = tal(cmd, struct getroutes_info);
+
+	if (!param(cmd, buffer, params,
+		   p_req("source", param_node_id, &info->source),
+		   p_req("destination", param_node_id, &info->dest),
+		   p_req("amount_msat", param_msat, &info->amount),
+		   p_req("layers", param_string_array, &info->layers),
+		   p_req("maxfee_msat", param_msat, &info->maxfee),
+		   p_req("finalcltv", param_u32, &info->finalcltv),
+		   NULL))
+		return command_param_failed();
+
+	return do_getroutes(cmd, gossmap_localmods_new(cmd), info);
 }
 
 static struct command_result *json_askrene_reserve(struct command *cmd,
