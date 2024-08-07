@@ -677,8 +677,8 @@ class Config():
                 # FIXME: Handle write failure
                 return default_text
         else:
-            log.debug('could not create the parent directory ' +
-                      parent_path)
+            log.warning('could not create the parent directory ' +
+                        parent_path)
             raise FileNotFoundError('invalid parent directory')
 
     def editConfigFile(self, addline: Union[str, None],
@@ -874,7 +874,6 @@ def create_python3_venv(staged_plugin: InstInfo) -> InstInfo:
         else:
             log.debug("no python dependency file")
     if pip and pip.returncode != 0:
-        log.debug("install to virtual environment failed")
         log.error('error encountered installing dependencies')
         raise InstallationFailure
 
@@ -1191,7 +1190,7 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     cloned_src = _source_search(src.name, str(clone_path))
     log.debug(f'cloned_src: {cloned_src}')
     if not cloned_src:
-        log.debug('failed to find plugin after cloning repo.')
+        log.warning('failed to find plugin after cloning repo.')
         return None
 
     # If a specific commit or tag was requested, check it out now.
@@ -1211,7 +1210,8 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
         INSTALLER = inst_method
         break
     if not INSTALLER:
-        log.debug('Could not find a suitable installer method.')
+        log.warning('Could not find a suitable installer method for '
+                    f'{src.name}')
         return None
     if not cloned_src.entry:
         # The plugin entrypoint may not be discernable prior to cloning.
@@ -1395,7 +1395,7 @@ def search(plugin_name: str) -> Union[InstInfo, None]:
         # Stashing the search result saves install() a call to _source_search.
         LAST_FOUND = found
         return str(found.source_loc)
-    log.debug("Search exhausted all sources")
+    log.info("Search exhausted all sources")
     return None
 
 
