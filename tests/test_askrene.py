@@ -362,3 +362,51 @@ def test_getroutes_auto_sourcefree(node_factory):
                          layers=[],
                          maxfee_msat=100,
                          finalcltv=99)
+
+
+def test_getroutes_auto_localchans(node_factory):
+    """Test getroutes call with auto.localchans layer"""
+    # We get bad signature warnings, since our gossip is made up!
+    l1, l2 = node_factory.get_nodes(2, opts={'allow_warning': True})
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, forward=GenChannel.Half(propfee=10000)),
+                                             GenChannel(1, 2, forward=GenChannel.Half(propfee=10000))],
+                                            nodeids=[l2.info['id']])
+
+    # Set up l1 with this as the gossip_store
+    l1.stop()
+    shutil.copy(gsfile.name, os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'))
+    l1.start()
+
+    # Now l1 beleives l2 has an entire network behind it.
+    scid12, _ = l1.fundchannel(l2, 10**6, announce_channel=False)
+
+    # Cannot find a route unless we use local hints.
+    with pytest.raises(RpcError, match="Unknown source node {}".format(l1.info['id'])):
+        l1.rpc.getroutes(source=l1.info['id'],
+                         destination=nodemap[2],
+                         amount_msat=100000,
+                         layers=[],
+                         maxfee_msat=100000,
+                         finalcltv=99)
+
+    # This should work
+    check_getroute_paths(l1,
+                         l1.info['id'],
+                         nodemap[2],
+                         100000,
+                         maxfee_msat=100000,
+                         layers=['auto.localchans'],
+                         paths=[[{'short_channel_id': scid12, 'amount_msat': 102012, 'delay': 99 + 6 + 6 + 6},
+                                 {'short_channel_id': '0x1x0', 'amount_msat': 102010, 'delay': 99 + 6 + 6},
+                                 {'short_channel_id': '1x2x1', 'amount_msat': 101000, 'delay': 99 + 6}]])
+
+    # This should get self-discount correct
+    check_getroute_paths(l1,
+                         l1.info['id'],
+                         nodemap[2],
+                         100000,
+                         maxfee_msat=100000,
+                         layers=['auto.localchans', 'auto.sourcefree'],
+                         paths=[[{'short_channel_id': scid12, 'amount_msat': 102010, 'delay': 99 + 6 + 6},
+                                 {'short_channel_id': '0x1x0', 'amount_msat': 102010, 'delay': 99 + 6 + 6},
+                                 {'short_channel_id': '1x2x1', 'amount_msat': 101000, 'delay': 99 + 6}]])

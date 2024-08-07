@@ -10,6 +10,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/gossmap.h>
+#include <common/gossmods_listpeerchannels.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/route.h>
@@ -185,7 +186,8 @@ static void add_free_source(struct plugin *plugin,
 {
 	const struct gossmap_node *srcnode;
 
-	/* If we're not in map, we complain later */
+	/* If we're not in map, we complain later (unless we're purely
+	 * using local channels) */
 	srcnode = gossmap_find_node(gossmap, source);
 	if (!srcnode)
 		return;
@@ -221,6 +223,7 @@ static const char *get_routes(const tal_t *ctx,
 			      u32 finalcltv,
 			      const char **layers,
 			      struct gossmap_localmods *localmods,
+			      const struct layer *local_layer,
 			      struct route ***routes,
 			      struct amount_msat **amounts,
 			      double *probability)
@@ -233,6 +236,7 @@ static const char *get_routes(const tal_t *ctx,
 	double base_fee_penalty;
 	u32 prob_cost_factor, mu;
 	const char *ret;
+	bool zero_cost;
 
 	if (gossmap_refresh(askrene->gossmap, NULL)) {
 		/* FIXME: gossmap_refresh callbacks to we can update in place */
@@ -246,21 +250,33 @@ static const char *get_routes(const tal_t *ctx,
 	rq->layers = tal_arr(rq, const struct layer *, 0);
 	rq->capacities = tal_dup_talarr(rq, fp16_t, askrene->capacities);
 
+	/* If we're told to zerocost local channels, then make sure that's done
+	 * in local mods as well. */
+	zero_cost = have_layer(layers, "auto.sourcefree")
+		&& node_id_eq(source, &askrene->my_id);
+
 	/* Layers don't have to exist: they might be empty! */
 	for (size_t i = 0; i < tal_count(layers); i++) {
-		struct layer *l = find_layer(askrene, layers[i]);
-		if (!l)
-			continue;
+		const struct layer *l = find_layer(askrene, layers[i]);
+		if (!l) {
+			if (local_layer && streq(layers[i], "auto.localchans")) {
+				plugin_log(plugin, LOG_DBG, "Adding auto.localchans");
+				l = local_layer;
+			} else
+				continue;
+		}
 
 		tal_arr_expand(&rq->layers, l);
 		/* FIXME: Implement localmods_merge, and cache this in layer? */
-		layer_add_localmods(l, rq->gossmap, localmods);
+		layer_add_localmods(l, rq->gossmap, zero_cost, localmods);
 
 		/* Clear any entries in capacities array if we
 		 * override them (incl local channels) */
 		layer_clear_overridden_capacities(l, askrene->gossmap, rq->capacities);
 	}
 
+	/* This does not see local mods!  If you add local channel in a layer, it won't
+	 * have costs zeroed out here. */
 	if (have_layer(layers, "auto.sourcefree"))
 		add_free_source(plugin, askrene->gossmap, localmods, source);
 
@@ -460,6 +476,7 @@ struct getroutes_info {
 
 static struct command_result *do_getroutes(struct command *cmd,
 					   struct gossmap_localmods *localmods,
+					   const struct layer *local_layer,
 					   const struct getroutes_info *info)
 {
 	const char *err;
@@ -471,7 +488,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 	err = get_routes(cmd, cmd->plugin,
 			 info->source, info->dest,
 			 *info->amount, *info->maxfee, *info->finalcltv,
-			 info->layers, localmods,
+			 info->layers, localmods, local_layer,
 			 &routes, &amounts, &probability);
 	if (err)
 		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", err);
@@ -501,6 +518,55 @@ static struct command_result *do_getroutes(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
+static void add_localchan(struct gossmap_localmods *mods,
+			  const struct node_id *self,
+			  const struct node_id *peer,
+			  const struct short_channel_id_dir *scidd,
+			  struct amount_msat htlcmin,
+			  struct amount_msat htlcmax,
+			  struct amount_msat spendable,
+			  struct amount_msat fee_base,
+			  u32 fee_proportional,
+			  u32 cltv_delta,
+			  bool enabled,
+			  const char *buf UNUSED,
+			  const jsmntok_t *chantok UNUSED,
+			  struct layer *local_layer)
+{
+	gossmod_add_localchan(mods, self, peer, scidd, htlcmin, htlcmax,
+			      spendable, fee_base, fee_proportional, cltv_delta, enabled,
+			      buf, chantok, local_layer);
+
+	/* Known capacity on local channels (ts = max) */
+	layer_update_constraint(local_layer, scidd, CONSTRAINT_MIN, UINT64_MAX, spendable);
+	layer_update_constraint(local_layer, scidd, CONSTRAINT_MAX, UINT64_MAX, spendable);
+}
+
+static struct command_result *
+listpeerchannels_done(struct command *cmd,
+		      const char *buffer,
+		      const jsmntok_t *toks,
+		      struct getroutes_info *info)
+{
+	struct layer *local_layer = new_temp_layer(info, "auto.localchans");
+	struct gossmap_localmods *localmods;
+	bool zero_cost;
+
+	/* If we're told to zerocost local channels, then make sure that's done
+	 * in local mods as well. */
+	zero_cost = have_layer(info->layers, "auto.sourcefree")
+		&& node_id_eq(info->source, &get_askrene(cmd->plugin)->my_id);
+
+	localmods = gossmods_from_listpeerchannels(cmd,
+						   &get_askrene(cmd->plugin)->my_id,
+						   buffer, toks,
+						   zero_cost,
+						   add_localchan,
+						   local_layer);
+
+	return do_getroutes(cmd, localmods, local_layer, info);
+}
+
 static struct command_result *json_getroutes(struct command *cmd,
 					     const char *buffer,
 					     const jsmntok_t *params)
@@ -517,7 +583,17 @@ static struct command_result *json_getroutes(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	return do_getroutes(cmd, gossmap_localmods_new(cmd), info);
+	if (have_layer(info->layers, "auto.localchans")) {
+		struct out_req *req;
+
+		req = jsonrpc_request_start(cmd->plugin, cmd,
+					    "listpeerchannels",
+					    listpeerchannels_done,
+					    forward_error, info);
+		return send_outreq(cmd->plugin, req);
+	}
+
+	return do_getroutes(cmd, gossmap_localmods_new(cmd), NULL, info);
 }
 
 static struct command_result *json_askrene_reserve(struct command *cmd,
@@ -823,6 +899,8 @@ static const char *init(struct plugin *plugin,
 		plugin_err(plugin, "Could not load gossmap %s: %s",
 			   GOSSIP_STORE_FILENAME, strerror(errno));
 	askrene->capacities = get_capacities(askrene, askrene->plugin, askrene->gossmap);
+	rpc_scan(plugin, "getinfo", take(json_out_obj(NULL, NULL, NULL)),
+		 "{id:%}", JSON_SCAN(json_to_node_id, &askrene->my_id));
 
 	plugin_set_data(plugin, askrene);
 	plugin_set_memleak_handler(plugin, askrene_markmem);
