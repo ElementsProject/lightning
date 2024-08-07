@@ -2397,6 +2397,7 @@
             "ListPeerChannels.channels[]": 1
         },
         "ListpeersPeers": {
+            "ListPeers.peers[].alt_addrs[]": 9,
             "ListPeers.peers[].channels[]": 4,
             "ListPeers.peers[].connected": 2,
             "ListPeers.peers[].features": 6,
@@ -8871,6 +8872,10 @@
         },
         "ListPeers.peers[]": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListPeers.peers[].alt_addrs[]": {
+            "added": "v24.11",
             "deprecated": null
         },
         "ListPeers.peers[].channels[]": {

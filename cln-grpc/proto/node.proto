@@ -213,6 +213,7 @@ message ListpeersPeers {
 	optional bytes features = 6;
 	optional string remote_addr = 7;
 	optional uint32 num_channels = 8;
+	repeated string alt_addrs = 9;
 }
 
 message ListpeersPeersLog {
@@ -2916,6 +2917,9 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsRequireconfirmedinputs require_confirmed_inputs = 68;
 	optional ListconfigsConfigsCommitfee commit_fee = 69;
 	optional ListconfigsConfigsCommitfeerateoffset commit_feerate_offset = 70;
+	optional ListconfigsConfigsAltaddr alt_addr = 71;
+	optional ListconfigsConfigsAltbindaddr alt_bind_addr = 72;
+	optional ListconfigsConfigsAltannounceaddr alt_announce_addr = 73;
 }
 
 message ListconfigsConfigsConf {
@@ -3172,6 +3176,21 @@ message ListconfigsConfigsBindaddr {
 message ListconfigsConfigsOffline {
 	bool set = 1;
 	string source = 2;
+}
+
+message ListconfigsConfigsAltaddr {
+	repeated string values_str = 1;
+	repeated string sources = 2;
+}
+
+message ListconfigsConfigsAltannounceaddr {
+	repeated string values_str = 1;
+	repeated string sources = 2;
+}
+
+message ListconfigsConfigsAltbindaddr {
+	repeated string values_str = 1;
+	repeated string sources = 2;
 }
 
 message ListconfigsConfigsAutolisten {

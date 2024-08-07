@@ -193,6 +193,98 @@
         }
       ]
     },
+    "lightning-alt-addr.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "rpc": "alt-addr",
+      "title": "Command to set or clear alternative addresses for node connection.",
+      "description": [
+        "The **alt-addr** RPC command allows a node to set or clear alternate addresses for incoming connections.",
+        "These addresses can be used by peers to connect to the node, offering flexibility in network configurations."
+      ],
+      "request": {
+        "required": [
+          "node_id",
+          "alt_addrs"
+        ],
+        "properties": {
+          "node_id": {
+            "type": "pubkey",
+            "description": [
+              "The public key of the node for which the alternate addresses are being set."
+            ]
+          },
+          "alt_addrs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": [
+                "A list of alternate addresses in the format 'ip:port'.",
+                "An empty string can be used to clear existing alternate addresses."
+              ]
+            }
+          }
+        }
+      },
+      "response": {
+        "required": [],
+        "properties": {}
+      },
+      "errors": [
+        "On failure, one of the following error codes may be returned:",
+        "",
+        "- -32602: Error in given parameters (e.g., invalid address format or node ID)."
+      ],
+      "author": [
+        "Max Ranti <<rantil@pm.me>> wrote the initial version of this man page."
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:alt-addr#1",
+            "method": "alt-addr",
+            "params": {
+              "node_id": "0290bb147b0ea569938db873d5899048bd211ad034e57b47824b348756f66e8bca",
+              "alt_addrs": [
+                "127.0.0.21:9735"
+              ]
+            }
+          },
+          "response": {}
+        },
+        {
+          "request": {
+            "id": "example:alt-addr#2",
+            "method": "alt-addr",
+            "params": {
+              "node_id": "0290bb147b0ea569938db873d5899048bd211ad034e57b47824b348756f66e8bca",
+              "alt_addrs": [
+                "127.0.0.21:9735",
+                "192.168.1.1:9736"
+              ]
+            }
+          },
+          "response": {}
+        },
+        {
+          "request": {
+            "id": "example:alt-addr#3",
+            "method": "alt-addr",
+            "params": {
+              "node_id": "0290bb147b0ea569938db873d5899048bd211ad034e57b47824b348756f66e8bca",
+              "alt_addrs": [
+                ""
+              ]
+            }
+          },
+          "response": {}
+        }
+      ]
+    },
     "lightning-askrene-age.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
