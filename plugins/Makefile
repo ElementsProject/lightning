@@ -100,7 +100,8 @@ C_PLUGINS :=					\
 	plugins/recover				\
 	plugins/txprepare			\
 	plugins/cln-renepay			\
-	plugins/spenderp
+	plugins/spenderp			\
+	plugins/cln-askrene
 
 PY_PLUGINS :=					\
 	plugins/clnrest/clnrest \
@@ -176,6 +177,7 @@ PLUGIN_COMMON_OBJS :=				\
 	wire/tlvstream.o			\
 	wire/towire.o
 
+include plugins/askrene/Makefile
 include plugins/bkpr/Makefile
 include plugins/renepay/Makefile
 
