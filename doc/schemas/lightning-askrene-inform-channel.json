@@ -1,0 +1,111 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "askrene-inform-channel",
+  "title": "Command to add channel capacity restrictions to layer (EXPERIMENTAL)",
+  "description": [
+    "WARNING: experimental, so API may change.",
+    "",
+    "The **askrene-inform-channel** RPC command tells askrene about the minimum or maximum current capacity of a given channel.  It can be applied whether the curren channel exists or not.  If the layer does not exist, it will be created."
+  ],
+  "request": {
+    "required": [
+      "layer",
+      "short_channel_id",
+      "direction"
+    ],
+    "properties": {
+      "layer": {
+        "type": "string",
+        "description": [
+          "The name of the layer to apply this change to."
+        ]
+      },
+      "short_channel_id": {
+        "type": "short_channel_id",
+        "description": [
+          "The short channel id to apply this change to."
+        ]
+      },
+      "direction": {
+        "type": "u32",
+        "description": [
+          "The direction to apply this change to."
+        ]
+      },
+      "maximum_msat": {
+        "type": "msat",
+        "description": [
+          "The maximum value which this channel could pass.  This or *minimum_msat* must be specified, but not both."
+        ]
+      },
+      "minimum_msat": {
+        "type": "msat",
+        "description": [
+          "The minumum value which this channel could pass.  This or *minimum_msat* must be specified, but not both."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "constraint"
+    ],
+    "properties": {
+      "constraint": {
+        "type": "object",
+        "required": [
+          "short_channel_id",
+          "direction",
+          "timestamp"
+        ],
+        "properties": {
+          "short_channel_id": {
+            "type": "short_channel_id",
+            "description": [
+              "The *short_channel_id* specified."
+            ]
+          },
+          "direction": {
+            "type": "u32",
+            "description": [
+              "The *direction* specified."
+            ]
+          },
+          "timestamp": {
+            "type": "u64",
+            "description": [
+              "The UNIX time (seconds since 1970) this was created."
+            ]
+          },
+          "maximum_msat": {
+            "type": "msat",
+            "description": [
+              "The *minimum_msat* (if specified)"
+            ]
+          },
+          "minimum_msat": {
+            "type": "msat",
+            "description": [
+              "The *maximum_msat* (if specified)"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "see_also": [
+    "lightning-getroutes(7)",
+    "lightning-askrene-disable-node(7)",
+    "lightning-askrene-create-channel(7)",
+    "lightning-askrene-listlayers(7)",
+    "lightning-askrene-age(7)"
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

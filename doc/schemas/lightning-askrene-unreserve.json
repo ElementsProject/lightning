@@ -1,0 +1,72 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "askrene-unreserve",
+  "title": "Command for informing askrene that you are no longer trying a path (EXPERIMENTAL)",
+  "description": [
+    "WARNING: experimental, so API may change.",
+    "",
+    "The **askrene-unreserve** RPC command tells askrene that a path attempt has finished: it should only be called after a successful **askrene-reserve** call.",
+    "",
+    "Note that additional properties inside the *path* elements are ignored, which is useful when used with the result of *getroutes*."
+  ],
+  "request": {
+    "required": [
+      "path"
+    ],
+    "properties": {
+      "path": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "short_channel_id",
+            "direction",
+            "amount_msat"
+          ],
+          "properties": {
+            "short_channel_id": {
+              "type": "short_channel_id",
+              "description": [
+                "The channel joining these nodes."
+              ]
+            },
+            "direction": {
+              "type": "u32",
+              "description": [
+                "0 if this channel is traversed from lesser to greater **id**, otherwise 1."
+              ]
+            },
+            "amount_msat": {
+              "type": "msat",
+              "description": [
+                "The amount to send into this hop."
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "response": {
+    "required": [],
+    "properties": {}
+  },
+  "see_also": [
+    "lightning-getroutes(7)",
+    "lightning-askrene-reserve(7)",
+    "lightning-askrene-disable-node(7)",
+    "lightning-askrene-create-channel(7)",
+    "lightning-askrene-inform-channel(7)",
+    "lightning-askrene-listlayers(7)",
+    "lightning-askrene-age(7)"
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

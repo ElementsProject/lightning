@@ -1,0 +1,63 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "askrene-age",
+  "title": "Command for expiring information in a layer (EXPERIMENTAL)",
+  "description": [
+    "WARNING: experimental, so API may change.",
+    "",
+    "The **askrene-age** RPC command tells askrene that information added to a layer by *askrene-inform-channel* beyond a certain age is less useful.  It currently completely forgets constraints older than *cutoff*."
+  ],
+  "request": {
+    "required": [
+      "layer",
+      "cutoff"
+    ],
+    "properties": {
+      "layer": {
+        "type": "string",
+        "description": [
+          "The name of the layer to apply this change to."
+        ]
+      },
+      "cutoff": {
+        "type": "u64",
+        "description": [
+          "The UNIX timestamp: constraints older than this will be forgotten."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "layer",
+      "num_removed"
+    ],
+    "properties": {
+      "layer": {
+        "type": "string",
+        "description": [
+          "The *layer* parameter provided."
+        ]
+      },
+      "num_removed": {
+        "type": "u64",
+        "description": [
+          "The number of constraints removed from *layer*"
+        ]
+      }
+    }
+  },
+  "see_also": [
+    "lightning-getroutes(7)",
+    "lightning-askrene-inform-channel(7)",
+    "lightning-askrene-listlayers(7)"
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}
