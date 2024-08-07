@@ -178,7 +178,7 @@ static fp16_t *get_capacities(const tal_t *ctx,
  * channels.  This wouldn't be right if we looped back through ourselves,
  * but we won't. */
 /* FIXME: We could cache this until gossmap changes... */
-static void add_free_source(struct command *cmd,
+static void add_free_source(struct plugin *plugin,
 			    struct gossmap *gossmap,
 			    struct gossmap_localmods *localmods,
 			    const struct node_id *source)
@@ -206,7 +206,7 @@ static void add_free_source(struct command *cmd,
 					      /* Keep enabled flag */
 					      c->half[dir].enabled,
 					      dir))
-			plugin_err(cmd->plugin, "Could not zero fee on local %s",
+			plugin_err(plugin, "Could not zero fee on local %s",
 				   fmt_short_channel_id(tmpctx, scid));
 	}
 }
@@ -262,7 +262,7 @@ static const char *get_routes(struct command *cmd,
 	}
 
 	if (have_layer(layers, "auto.sourcefree"))
-		add_free_source(cmd, askrene->gossmap, localmods, source);
+		add_free_source(cmd->plugin, askrene->gossmap, localmods, source);
 
 	/* Clear scids with reservations, too, so we don't have to look up
 	 * all the time! */
