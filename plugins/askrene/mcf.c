@@ -700,8 +700,6 @@ find_admissible_path(const struct linear_network *linear_network,
 		     const struct residual_network *residual_network,
 		     const u32 source, const u32 target, struct arc *prev)
 {
-	tal_t *this_ctx = tal(tmpctx,tal_t);
-
 	bool target_found = false;
 
 	for(size_t i=0;i<tal_count(prev);++i)
@@ -712,7 +710,7 @@ find_admissible_path(const struct linear_network *linear_network,
 	LQUEUE(struct queue_data,ql) myqueue = LQUEUE_INIT;
 	struct queue_data *qdata;
 
-	qdata = tal(this_ctx,struct queue_data);
+	qdata = tal(tmpctx, struct queue_data);
 	qdata->idx = source;
 	lqueue_enqueue(&myqueue,qdata);
 
@@ -747,12 +745,11 @@ find_admissible_path(const struct linear_network *linear_network,
 
 			prev[next] = arc;
 
-			qdata = tal(this_ctx,struct queue_data);
+			qdata = tal(tmpctx, struct queue_data);
 			qdata->idx = next;
 			lqueue_enqueue(&myqueue,qdata);
 		}
 	}
-	tal_free(this_ctx);
 	return target_found;
 }
 
@@ -824,17 +821,15 @@ static void augment_flow(
  *
  * 13/04/2023 This implementation uses a simple augmenting path approach.
  * */
-static bool find_feasible_flow(const tal_t *ctx,
-			       const struct linear_network *linear_network,
+static bool find_feasible_flow(const struct linear_network *linear_network,
 			       struct residual_network *residual_network,
 			       const u32 source, const u32 target, s64 amount)
 {
 	assert(amount>=0);
-	tal_t *this_ctx = tal(ctx,tal_t);
 
 	/* path information
 	 * prev: is the id of the arc that lead to the node. */
-	struct arc *prev = tal_arr(this_ctx,struct arc,linear_network->max_num_nodes);
+	struct arc *prev = tal_arr(tmpctx,struct arc,linear_network->max_num_nodes);
 
 	while(amount>0)
 	{
@@ -842,7 +837,7 @@ static bool find_feasible_flow(const tal_t *ctx,
 		if (!find_admissible_path(linear_network,
 					  residual_network, source, target,
 					  prev)) {
-			goto function_fail;
+			return false;
 		}
 
 		// traverse the path and see how much flow we can send
@@ -858,12 +853,7 @@ static bool find_feasible_flow(const tal_t *ctx,
 		amount -= delta;
 	}
 
-	tal_free(this_ctx);
 	return true;
-
-	function_fail:
-	tal_free(this_ctx);
-	return false;
 }
 
 // TODO(eduardo): unit test this
@@ -875,11 +865,10 @@ static bool find_optimal_path(struct dijkstra *dijkstra,
 			      const u32 source, const u32 target,
 			      struct arc *prev)
 {
-	tal_t *this_ctx = tal(tmpctx,tal_t);
 	bool target_found = false;
 
-	bitmap *visited = tal_arrz(this_ctx, bitmap,
-					BITMAP_NWORDS(linear_network->max_num_nodes));
+	bitmap *visited = tal_arrz(tmpctx, bitmap,
+				   BITMAP_NWORDS(linear_network->max_num_nodes));
 	for(size_t i=0;i<tal_count(prev);++i)
 		prev[i].idx=INVALID_INDEX;
 
@@ -929,7 +918,6 @@ static bool find_optimal_path(struct dijkstra *dijkstra,
 		}
 	}
 
-	tal_free(this_ctx);
 	return target_found;
 }
 
@@ -970,10 +958,9 @@ static bool optimize_mcf(struct dijkstra *dijkstra,
 			 const u32 source, const u32 target, const s64 amount)
 {
 	assert(amount>=0);
-	tal_t *this_ctx = tal(tmpctx,tal_t);
 
 	zero_flow(linear_network,residual_network);
-	struct arc *prev = tal_arr(this_ctx,struct arc,linear_network->max_num_nodes);
+	struct arc *prev = tal_arr(tmpctx,struct arc,linear_network->max_num_nodes);
 
 	const s64 *const distance = dijkstra_distance_data(dijkstra);
 
@@ -983,7 +970,7 @@ static bool optimize_mcf(struct dijkstra *dijkstra,
 	{
 		if (!find_optimal_path(dijkstra, linear_network,
 				       residual_network, source, target, prev)) {
-			goto function_fail;
+			return false;
 		}
 
 		// traverse the path and see how much flow we can send
@@ -1014,13 +1001,7 @@ static bool optimize_mcf(struct dijkstra *dijkstra,
 			 * */
 		}
 	}
-	tal_free(this_ctx);
 	return true;
-
-	function_fail:
-
-	tal_free(this_ctx);
-	return false;
 }
 
 // flow on directed channels
@@ -1121,23 +1102,22 @@ get_flow_paths(const tal_t *ctx,
 	       // in the MCF solver
 	       struct amount_msat excess)
 {
-	tal_t *this_ctx = tal(ctx,tal_t);
 	struct flow **flows = tal_arr(ctx,struct flow*,0);
 
 	assert(amount_msat_less(excess, AMOUNT_MSAT(1000)));
 
 	const size_t max_num_chans = gossmap_max_chan_idx(rq->gossmap);
-	struct chan_flow *chan_flow = tal_arrz(this_ctx,struct chan_flow,max_num_chans);
+	struct chan_flow *chan_flow = tal_arrz(tmpctx,struct chan_flow,max_num_chans);
 
 	const size_t max_num_nodes = gossmap_max_node_idx(rq->gossmap);
-	s64 *balance = tal_arrz(this_ctx,s64,max_num_nodes);
+	s64 *balance = tal_arrz(tmpctx,s64,max_num_nodes);
 
 	const struct gossmap_chan **prev_chan
-		= tal_arr(this_ctx,const struct gossmap_chan *,max_num_nodes);
+		= tal_arr(tmpctx,const struct gossmap_chan *,max_num_nodes);
 
 
-	int *prev_dir = tal_arr(this_ctx,int,max_num_nodes);
-	u32 *prev_idx = tal_arr(this_ctx,u32,max_num_nodes);
+	int *prev_dir = tal_arr(tmpctx,int,max_num_nodes);
+	u32 *prev_idx = tal_arr(tmpctx,u32,max_num_nodes);
 
 	// Convert the arc based residual network flow into a flow in the
 	// directed channel network.
@@ -1243,7 +1223,7 @@ get_flow_paths(const tal_t *ctx,
 				    htlc_max);
 			}
 
-			struct flow *fp = tal(this_ctx,struct flow);
+			struct flow *fp = tal(tmpctx,struct flow);
 			fp->path = tal_arr(fp,const struct gossmap_chan *,length);
 			fp->dirs = tal_arr(fp,int,length);
 
@@ -1296,7 +1276,6 @@ get_flow_paths(const tal_t *ctx,
 		flows[i] = tal_steal(flows,flows[i]);
 		assert(flows[i]);
 	}
-	tal_free(this_ctx);
 	return flows;
 }
 
@@ -1321,10 +1300,9 @@ struct flow **minflow(const tal_t *ctx,
 		      double delay_feefactor, double base_fee_penalty,
 		      u32 prob_cost_factor)
 {
-	tal_t *this_ctx = tal(ctx,tal_t);
 	struct flow **flow_paths;
 
-	struct pay_parameters *params = tal(this_ctx,struct pay_parameters);
+	struct pay_parameters *params = tal(tmpctx,struct pay_parameters);
 	struct dijkstra *dijkstra;
 
 	params->rq = rq;
@@ -1351,11 +1329,11 @@ struct flow **minflow(const tal_t *ctx,
 	params->prob_cost_factor = prob_cost_factor;
 
 	// build the uncertainty network with linearization and residual arcs
-	struct linear_network *linear_network= init_linear_network(this_ctx, params);
+	struct linear_network *linear_network= init_linear_network(tmpctx, params);
 	struct residual_network *residual_network =
-	    alloc_residual_network(this_ctx, linear_network->max_num_nodes,
+	    alloc_residual_network(tmpctx, linear_network->max_num_nodes,
 				  linear_network->max_num_arcs);
-	dijkstra = dijkstra_new(this_ctx, gossmap_max_node_idx(rq->gossmap));
+	dijkstra = dijkstra_new(tmpctx, gossmap_max_node_idx(rq->gossmap));
 
 	const u32 target_idx = gossmap_node_idx(rq->gossmap,target);
 	const u32 source_idx = gossmap_node_idx(rq->gossmap,source);
@@ -1382,9 +1360,9 @@ struct flow **minflow(const tal_t *ctx,
 	const struct amount_msat excess
 		= amount_msat(pay_amount_msats ? 1000 - pay_amount_msats : 0);
 
-	if (!find_feasible_flow(this_ctx, linear_network, residual_network,
+	if (!find_feasible_flow(linear_network, residual_network,
 				source_idx, target_idx, pay_amount_sats)) {
-		goto function_fail;
+		return NULL;
 	}
 	combine_cost_function(linear_network, residual_network, mu);
 
@@ -1392,19 +1370,14 @@ struct flow **minflow(const tal_t *ctx,
 	if(!optimize_mcf(dijkstra,linear_network,residual_network,
 			 source_idx,target_idx,pay_amount_sats))
 	{
-		goto function_fail;
+		return NULL;
 	}
 
 	/* We dissect the solution of the MCF into payment routes.
 	 * Actual amounts considering fees are computed for every
 	 * channel in the routes. */
-	flow_paths = get_flow_paths(this_ctx, rq,
+	flow_paths = get_flow_paths(tmpctx, rq,
 				    linear_network, residual_network, excess);
-	tal_free(this_ctx);
 	return flow_paths;
-
-	function_fail:
-	tal_free(this_ctx);
-	return NULL;
 }
 

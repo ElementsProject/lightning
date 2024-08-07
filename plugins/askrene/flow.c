@@ -111,9 +111,9 @@ static struct amount_msat channel_maximum_forward(const struct gossmap_chan *cha
 	return best_send;
 }
 
-struct amount_msat *tal_flow_amounts(const tal_t *ctx,
-				     struct plugin *plugin,
-				     const struct flow *flow)
+static struct amount_msat *flow_amounts(const tal_t *ctx,
+					struct plugin *plugin,
+					const struct flow *flow)
 {
 	const size_t pathlen = tal_count(flow->path);
 	struct amount_msat *amounts = tal_arr(ctx, struct amount_msat, pathlen);
@@ -137,7 +137,6 @@ struct amount_msat *tal_flow_amounts(const tal_t *ctx,
 const char *fmt_flows(const tal_t *ctx, const struct route_query *rq,
 		      struct flow **flows)
 {
-	tal_t *this_ctx = tal(ctx, tal_t);
 	double tot_prob = flowset_probability(flows, rq);
 	assert(tot_prob >= 0);
 	char *buff = tal_fmt(ctx, "%zu subflows, prob %2lf\n", tal_count(flows),
@@ -149,17 +148,16 @@ const char *fmt_flows(const tal_t *ctx, const struct route_query *rq,
 			struct short_channel_id scid =
 			    gossmap_chan_scid(rq->gossmap, flows[i]->path[j]);
 			tal_append_fmt(&buff, "%s%s", j ? "->" : "",
-				       fmt_short_channel_id(this_ctx, scid));
+				       fmt_short_channel_id(tmpctx, scid));
 		}
 		delivered = flows[i]->amount;
 		fee = flow_fee(rq->plugin, flows[i]);
 		tal_append_fmt(&buff, " prob %.2f, %s delivered with fee %s\n",
 			       flows[i]->success_prob,
-			       fmt_amount_msat(this_ctx, delivered),
-			       fmt_amount_msat(this_ctx, fee));
+			       fmt_amount_msat(tmpctx, delivered),
+			       fmt_amount_msat(tmpctx, fee));
 	}
 
-	tal_free(this_ctx);
 	return buff;
 }
 
@@ -310,19 +308,18 @@ struct chan_inflight_flow
 double flowset_probability(struct flow **flows,
 			   const struct route_query *rq)
 {
-	tal_t *this_ctx = tal(tmpctx, tal_t);
 	double prob = 1.0;
 
 	// TODO(eduardo): should it be better to use a map instead of an array
 	// here?
 	const size_t max_num_chans = gossmap_max_chan_idx(rq->gossmap);
 	struct chan_inflight_flow *in_flight =
-	    tal_arrz(this_ctx, struct chan_inflight_flow, max_num_chans);
+	    tal_arrz(tmpctx, struct chan_inflight_flow, max_num_chans);
 
 	for (size_t i = 0; i < tal_count(flows); ++i) {
 		const struct flow *f = flows[i];
 		const size_t pathlen = tal_count(f->path);
-		struct amount_msat *amounts = tal_flow_amounts(this_ctx, rq->plugin, f);
+		struct amount_msat *amounts = flow_amounts(tmpctx, rq->plugin, f);
 
 		for (size_t j = 0; j < pathlen; ++j) {
 			struct amount_msat mincap, maxcap;
@@ -344,7 +341,6 @@ double flowset_probability(struct flow **flows,
 			}
 		}
 	}
-	tal_free(this_ctx);
 	return prob;
 }
 
