@@ -2156,18 +2156,13 @@ def test_generate_gossip_store(node_factory):
                                        htlc_max=5000000 - 11,
                                        basefee=11,
                                        propfee=11)
-    gsfile = generate_gossip_store(chans)
+    gsfile, nodemap = generate_gossip_store(chans)
 
     # Set up l1 with this as the gossip_store
     shutil.copy(gsfile.name, os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'))
     l1.start()
 
-    nodes = ['03c581bf310c4c97b05e5e6fed2f82d872f388ec9ab7f1feddfd5380ddb3c6531c',
-             '03091f559e2704cd80e41cd103ca4a60fd91010927674016b09f40c1d450368cf4',
-             '0255a0e1286c832286eda137bbefe17f21af265a08bbea481a6ea96b9f4b5f84ac',
-             '02ec99a74a8c8d10853e1a3b0806556abda6798a68a0cedca4c766b5f6cf314f22',
-             '02c5ad36f9c80ca70d4f88d50f17be2f1f481f37086dbf3433473765a0027ecd63']
-
+    nodes = [nodemap[i] for i in range(0, 5)]
     expected = []
     chancount = 0
     for c in chans:
