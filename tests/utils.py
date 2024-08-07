@@ -436,7 +436,7 @@ def scriptpubkey_addr(scriptpubkey):
 
 class GenChannel(object):
     class Half(object):
-        def __init__(self, htlc_max, enabled=True, htlc_min=0, basefee=0, propfee=1, delay=6):
+        def __init__(self, enabled=True, htlc_min=0, htlc_max=None, basefee=0, propfee=1, delay=6):
             self.enabled = enabled
             self.htlc_min = htlc_min
             self.htlc_max = htlc_max
@@ -444,12 +444,20 @@ class GenChannel(object):
             self.propfee = propfee
             self.delay = delay
 
-    def __init__(self, node1, node2, capacity_sats=1000000):
+    def __init__(self, node1, node2, capacity_sats=1000000, forward=None, reverse=None):
+        """We fill in htlc_max on half to == capacity, if not set"""
         self.node1 = node1
         self.node2 = node2
+        if forward is None:
+            forward = GenChannel.Half()
+        if reverse is None:
+            reverse = GenChannel.Half()
+        if forward.htlc_max is None:
+            forward.htlc_max = capacity_sats * 1000
+        if reverse.htlc_max is None:
+            reverse.htlc_max = capacity_sats * 1000
         self.capacity_sats = capacity_sats
-        self.half = [GenChannel.Half(htlc_max=capacity_sats * 1000),
-                     GenChannel.Half(htlc_max=capacity_sats * 1000)]
+        self.half = [forward, reverse]
 
 
 def generate_gossip_store(channels):
