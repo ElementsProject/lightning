@@ -7,9 +7,9 @@
 #include <common/pseudorand.h>
 #include <common/utils.h>
 #include <math.h>
+#include <plugins/askrene/mcf.h>
 #include <plugins/renepay/dijkstra.h>
 #include <plugins/renepay/flow.h>
-#include <plugins/renepay/mcf.h>
 #include <stdint.h>
 
 /* # Optimal payments
@@ -193,7 +193,7 @@ static const double CHANNEL_PIVOTS[]={0,0.5,0.8,0.95};
 static const s64 INFINITE = INT64_MAX;
 static const u64 INFINITE_MSAT = UINT64_MAX;
 static const u32 INVALID_INDEX = 0xffffffff;
-static const s64 MU_MAX = 128;
+static const s64 MU_MAX = 101;
 
 /* Let's try this encoding of arcs:
  * Each channel `c` has two possible directions identified by a bit
@@ -1468,119 +1468,6 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 	return tal_free(flows);
 }
 
-/* Given the constraints on max fee and min prob.,
- * is the flow A better than B? */
-static bool is_better(
-		struct amount_msat max_fee,
-		double min_probability,
-
-		struct amount_msat A_fee,
-		double A_prob,
-
-		struct amount_msat B_fee,
-		double B_prob)
-{
-	bool A_fee_pass = amount_msat_less_eq(A_fee,max_fee);
-	bool B_fee_pass = amount_msat_less_eq(B_fee,max_fee);
-	bool A_prob_pass = A_prob >= min_probability;
-	bool B_prob_pass = B_prob >= min_probability;
-
-	// all bounds are met
-	if(A_fee_pass && B_fee_pass && A_prob_pass && B_prob_pass)
-	{
-		// prefer lower fees
-		goto fees_or_prob;
-	}
-
-	// prefer the solution that satisfies both bounds
-	if(!(A_fee_pass && A_prob_pass) && (B_fee_pass && B_prob_pass))
-	{
-		return false;
-	}
-	// prefer the solution that satisfies both bounds
-	if((A_fee_pass && A_prob_pass) && !(B_fee_pass && B_prob_pass))
-	{
-		return true;
-	}
-
-	// no solution satisfies both bounds
-
-	// bound on fee is met
-	if(A_fee_pass && B_fee_pass)
-	{
-		// pick the highest prob.
-		return A_prob > B_prob;
-	}
-
-	// bound on prob. is met
-	if(A_prob_pass && B_prob_pass)
-	{
-		goto fees_or_prob;
-	}
-
-	// prefer the solution that satisfies the bound on fees
-	if(A_fee_pass && !B_fee_pass)
-	{
-		return true;
-	}
-	if(B_fee_pass && !A_fee_pass)
-	{
-		return false;
-	}
-
-	// none of them satisfy the fee bound
-
-	// prefer the solution that satisfies the bound on prob.
-	if(A_prob_pass && !B_prob_pass)
-	{
-		return true;
-	}
-	if(B_prob_pass && !A_prob_pass)
-	{
-		return true;
-	}
-
-	// no bound whatsoever is satisfied
-
-	fees_or_prob:
-
-	// fees are the same, wins the highest prob.
-	if(amount_msat_eq(A_fee,B_fee))
-	{
-		return A_prob > B_prob;
-	}
-
-	// go for fees
-	return amount_msat_less_eq(A_fee,B_fee);
-}
-
-/* Channels that are not in the chan_extra_map should be disabled. */
-static bool check_disabled(const bitmap *disabled,
-			   const struct gossmap *gossmap,
-			   const struct chan_extra_map *chan_extra_map)
-{
-	assert(disabled);
-	assert(gossmap);
-	assert(chan_extra_map);
-
-	if(tal_bytelen(disabled) != bitmap_sizeof(gossmap_max_chan_idx(gossmap)))
-		return false;
-
-	for (struct gossmap_chan *chan = gossmap_first_chan(gossmap); chan;
-	     chan = gossmap_next_chan(gossmap, chan)) {
-		const u32 chan_id = gossmap_chan_idx(gossmap, chan);
-		if (bitmap_test_bit(disabled, chan_id))
-			continue;
-
-		struct short_channel_id scid = gossmap_chan_scid(gossmap, chan);
-		struct chan_extra *ce =
-		    chan_extra_map_get(chan_extra_map, scid);
-		if (!ce)
-			return false;
-	}
-	return true;
-}
-
 // TODO(eduardo): choose some default values for the minflow parameters
 /* eduardo: I think it should be clear that this module deals with linear
  * flows, ie. base fees are not considered. Hence a flow along a path is
@@ -1595,16 +1482,14 @@ static bool check_disabled(const bitmap *disabled,
 // adjusting the frugality factor.
 struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 		      const struct gossmap_node *source,
-		      const struct gossmap_node *target,
-		      struct chan_extra_map *chan_extra_map,
-		      const bitmap *disabled, struct amount_msat amount,
-		      struct amount_msat max_fee, double min_probability,
+		      struct amount_msat amount,
+		      u32 mu,
 		      double delay_feefactor, double base_fee_penalty,
-		      u32 prob_cost_factor, char **fail)
+		      u32 prob_cost_factor)
 {
 	tal_t *this_ctx = tal(ctx,tal_t);
 	char *errmsg;
-	struct flow **best_flow_paths = NULL;
+	struct flow **flow_paths;
 
 	struct pay_parameters *params = tal(this_ctx,struct pay_parameters);
 	struct dijkstra *dijkstra;
@@ -1612,16 +1497,6 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 	params->gossmap = gossmap;
 	params->source = source;
 	params->target = target;
-	params->chan_extra_map = chan_extra_map;
-
-	params->disabled = disabled;
-
-	if (!check_disabled(disabled, gossmap, chan_extra_map)) {
-		if (fail)
-			*fail = tal_fmt(ctx, "Invalid disabled bitmap.");
-		goto function_fail;
-	}
-
 	params->amount = amount;
 
 	// template the channel partition into linear arcs
@@ -1638,8 +1513,6 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 		//	i,params->cap_fraction[i],params->cost_fraction[i]);
 	}
 
-	params->max_fee = max_fee;
-	params->min_probability = min_probability;
 	params->delay_feefactor = delay_feefactor;
 	params->base_fee_penalty = base_fee_penalty;
 	params->prob_cost_factor = prob_cost_factor;
@@ -1670,9 +1543,6 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 
 	init_residual_network(linear_network,residual_network);
 
-	struct amount_msat best_fee;
-	double best_prob_success;
-
 	/* TODO(eduardo):
 	 * Some MCF algorithms' performance depend on the size of maxflow. If we
 	 * were to work in units of msats we 1. risking overflow when computing
@@ -1701,135 +1571,30 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 		*fail = tal_fmt(ctx, "failed to find a feasible flow: %s", errmsg);
 		goto function_fail;
 	}
+	combine_cost_function(linear_network, residual_network, mu);
 
-	// first flow found
-	best_flow_paths = get_flow_paths(
-	    this_ctx, params->gossmap, params->disabled, params->chan_extra_map,
-	    linear_network, residual_network, excess, &errmsg);
-	if (!best_flow_paths) {
-		if (fail)
-		*fail =
-		    tal_fmt(ctx, "get_flow_paths failed: %s", errmsg);
-		goto function_fail;
-	}
-	best_flow_paths = tal_steal(ctx, best_flow_paths);
-
-	best_prob_success =
-	    flowset_probability(this_ctx, best_flow_paths, params->gossmap,
-				params->chan_extra_map, &errmsg);
-	if (best_prob_success < 0) {
-		if (fail)
-		*fail =
-		    tal_fmt(ctx, "flowset_probability failed: %s", errmsg);
-		goto function_fail;
-	}
-	if (!flowset_fee(&best_fee, best_flow_paths)) {
-		if (fail)
-		*fail =
-		    tal_fmt(ctx, "flowset_fee failed on MaxFlow phase");
-		goto function_fail;
-	}
-
-	// binary search for a value of `mu` that fits our fee and prob.
-	// constraints.
-	// mu=0 corresponds to only probabilities
-	// mu=MU_MAX-1 corresponds to only fee
-	s64 mu_left = 0, mu_right = MU_MAX;
-	while(mu_left<mu_right)
+	/* We solve a linear MCF problem. */
+	if(!optimize_mcf(this_ctx, dijkstra,linear_network,residual_network,
+			 source_idx,target_idx,pay_amount_sats, &errmsg))
 	{
-
-		s64 mu = (mu_left + mu_right)/2;
-
-		combine_cost_function(linear_network,residual_network,mu);
-
-		/* We solve a linear MCF problem. */
-		if(!optimize_mcf(this_ctx, dijkstra,linear_network,residual_network,
-				source_idx,target_idx,pay_amount_sats, &errmsg))
-		{
-			// optimize_mcf doesn't fail unless there is a bug.
-			if (fail)
+		// optimize_mcf doesn't fail unless there is a bug.
+		if (fail)
 			*fail =
-			    tal_fmt(ctx, "optimize_mcf failed: %s", errmsg);
-			goto function_fail;
-		}
-
-		struct flow **flow_paths;
-		/* We dissect the solution of the MCF into payment routes.
-		 * Actual amounts considering fees are computed for every
-		 * channel in the routes. */
-		flow_paths =
-		    get_flow_paths(this_ctx, params->gossmap, params->disabled,
-				   params->chan_extra_map, linear_network,
-				   residual_network, excess, &errmsg);
-		if(!flow_paths)
-		{
-			// get_flow_paths doesn't fail unless there is a bug.
-			if (fail)
-			*fail =
-			    tal_fmt(ctx, "get_flow_paths failed: %s", errmsg);
-			goto function_fail;
-		}
-
-		double prob_success =
-		    flowset_probability(this_ctx, flow_paths, params->gossmap,
-					params->chan_extra_map, &errmsg);
-		if (prob_success < 0) {
-			// flowset_probability doesn't fail unless there is a bug.
-			if (fail)
-			*fail =
-			    tal_fmt(ctx, "flowset_probability: %s", errmsg);
-			goto function_fail;
-		}
-
-		struct amount_msat fee;
-		if (!flowset_fee(&fee, flow_paths)) {
-			// flowset_fee doesn't fail unless there is a bug.
-			if (fail)
-			*fail =
-			    tal_fmt(ctx, "flowset_fee failed evaluating MinCostFlow candidate");
-			goto function_fail;
-		}
-
-		/* Is this better than the previous one? */
-		if(!best_flow_paths ||
-			is_better(params->max_fee,params->min_probability,
-				  fee,prob_success,
-			          best_fee, best_prob_success))
-		{
-
-			best_flow_paths = tal_free(best_flow_paths);
-			best_flow_paths = tal_steal(ctx,flow_paths);
-
-			best_fee = fee;
-			best_prob_success=prob_success;
-			flow_paths = NULL;
-		}
-		/* I don't like this candidate. */
-		else
-			tal_free(flow_paths);
-
-		if(amount_msat_greater(fee,params->max_fee))
-		{
-			// too expensive
-			mu_left = mu+1;
-
-		}else if(prob_success < params->min_probability)
-		{
-			// too unlikely
-			mu_right = mu;
-		}else
-		{
-			// with mu constraints are satisfied, now let's optimize
-			// the fees
-			mu_left = mu+1;
-		}
+				tal_fmt(ctx, "optimize_mcf failed: %s", errmsg);
+		goto function_fail;
 	}
 
+	/* We dissect the solution of the MCF into payment routes.
+	 * Actual amounts considering fees are computed for every
+	 * channel in the routes. */
+	flow_paths = get_flow_paths(this_ctx, params->gossmap, params->disabled,
+				    params->chan_extra_map, linear_network,
+				    residual_network, excess, &errmsg);
 	tal_free(this_ctx);
-	return best_flow_paths;
+	return flow_paths;
 
 	function_fail:
 	tal_free(this_ctx);
-	return tal_free(best_flow_paths);
+	return NULL;
 }
 
