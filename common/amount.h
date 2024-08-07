@@ -144,6 +144,19 @@ bool amount_msat_eq_sat(struct amount_msat msat, struct amount_sat sat);
 /* a / b */
 double amount_msat_ratio(struct amount_msat a, struct amount_msat b);
 
+/* min(a,b) and max(a,b) */
+static inline struct amount_msat amount_msat_min(struct amount_msat a,
+						 struct amount_msat b)
+{
+	return amount_msat_less(a, b) ? a : b;
+}
+
+static inline struct amount_msat amount_msat_max(struct amount_msat a,
+						 struct amount_msat b)
+{
+	return amount_msat_greater(a, b) ? a : b;
+}
+
 /* Check whether this asset is actually the main / fee-paying asset of the
  * current chain. */
 bool amount_asset_is_main(struct amount_asset *asset);

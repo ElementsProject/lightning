@@ -86,9 +86,9 @@ route_check_constraints(struct route *route, struct gossmap *gossmap,
 
 		// check that we stay within the htlc max and min limits
 		if (amount_msat_greater(hop->amount,
-					channel_htlc_max(chan, dir)) ||
+					gossmap_chan_htlc_max(chan, dir)) ||
 		    amount_msat_less(hop->amount,
-				     channel_htlc_min(chan, dir))) {
+				     gossmap_chan_htlc_min(chan, dir))) {
 			bitmap_set_bit(disabled_bitmap,
 				       gossmap_chan_idx(gossmap, chan));
 			return RENEPAY_BAD_CHANNEL;

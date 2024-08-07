@@ -242,6 +242,19 @@ bool gossmap_chan_has_capacity(const struct gossmap_chan *chan,
 			       int direction,
 			       struct amount_msat amount);
 
+/* Convenience routines to get htlc min/max as amount_msat */
+static inline struct amount_msat
+gossmap_chan_htlc_max(const struct gossmap_chan *chan, const int dir)
+{
+	return amount_msat(fp16_to_u64(chan->half[dir].htlc_max));
+}
+
+static inline struct amount_msat
+gossmap_chan_htlc_min(const struct gossmap_chan *chan, const int dir)
+{
+	return amount_msat(fp16_to_u64(chan->half[dir].htlc_min));
+}
+
 /* Remove a channel from the map (warning! realloc can move gossmap_chan
  * and gossmap_node ptrs!) */
 void gossmap_remove_chan(struct gossmap *map, struct gossmap_chan *chan);

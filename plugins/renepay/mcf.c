@@ -497,7 +497,7 @@ static bool linearize_channel(const struct pay_parameters *params,
 	/* An extra bound on capacity, here we use it to reduce the flow such
 	 * that it does not exceed htlcmax. */
 	s64 cap_on_capacity =
-	 channel_htlc_max(c, dir).millisatoshis/1000; /* Raw: linearize_channel */
+	 gossmap_chan_htlc_max(c, dir).millisatoshis/1000; /* Raw: linearize_channel */
 
 	capacity[0]=a;
 	cost[0]=0;
@@ -1363,12 +1363,12 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 				/* obtain the supremum htlc_min along the route
 				 */
 				sup_htlc_min = amount_msat_max(
-				    sup_htlc_min, channel_htlc_min(c, dir));
+				    sup_htlc_min, gossmap_chan_htlc_min(c, dir));
 
 				/* obtain the infimum htlc_max along the route
 				 */
 				inf_htlc_max = amount_msat_min(
-				    inf_htlc_max, channel_htlc_max(c, dir));
+				    inf_htlc_max, gossmap_chan_htlc_max(c, dir));
 			}
 
 			s64 htlc_max=inf_htlc_max.millisatoshis/1000;/* Raw: need htlc_max in sats to do arithmetic operations.*/
