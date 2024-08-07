@@ -115,19 +115,6 @@ struct chan_extra *new_chan_extra(struct chan_extra_map *chan_extra_map,
 				  const struct short_channel_id scid,
 				  struct amount_msat capacity);
 
-/* Helper to find the min of two amounts */
-static inline struct amount_msat amount_msat_min(struct amount_msat a,
-						 struct amount_msat b)
-{
-	return amount_msat_less(a, b) ? a : b;
-}
-/* Helper to find the max of two amounts */
-static inline struct amount_msat amount_msat_max(struct amount_msat a,
-						 struct amount_msat b)
-{
-	return amount_msat_greater(a, b) ? a : b;
-}
-
 /* Update the knowledge that this (channel,direction) can send x msat.*/
 enum renepay_errorcode
 chan_extra_can_send(struct chan_extra_map *chan_extra_map,
@@ -189,18 +176,6 @@ enum renepay_errorcode channel_liquidity(struct amount_msat *liquidity,
 					 struct chan_extra_map *chan_extra_map,
 					 const struct gossmap_chan *chan,
 					 const int dir);
-
-/* Helpers to get the htlc_max and htlc_min of a channel. */
-static inline struct amount_msat
-channel_htlc_max(const struct gossmap_chan *chan, const int dir)
-{
-	return amount_msat(fp16_to_u64(chan->half[dir].htlc_max));
-}
-static inline struct amount_msat
-channel_htlc_min(const struct gossmap_chan *chan, const int dir)
-{
-	return amount_msat(fp16_to_u64(chan->half[dir].htlc_min));
-}
 
 /* inputs
  * @chan: a channel
