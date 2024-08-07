@@ -27,13 +27,8 @@ enum {
  * @gossmap: the gossip map
  * @source: the source to start from
  * @target: the target to pay
- * @chan_extra_map: hashtable of extra per-channel information
- * @disabled: NULL, or a bitmap by channel index of channels not to use.
  * @amount: the amount we want to reach @target
- *
- * @max_fee: the maximum allowed in fees
- *
- * @min_probability: minimum probability accepted
+ * @mu: 0 = corresponds to only probabilities, 100 corresponds to only fee.
  *
  * @delay_feefactor converts 1 block delay into msat, as if it were an additional
  * fee.  So if a CLTV delay on a node is 5 blocks, that's treated as if it
@@ -60,9 +55,9 @@ enum {
 struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 		      const struct gossmap_node *source,
 		      const struct gossmap_node *target,
-		      struct chan_extra_map *chan_extra_map,
-		      const bitmap *disabled, struct amount_msat amount,
-		      struct amount_msat max_fee, double min_probability,
-		      double delay_feefactor, double base_fee_penalty,
-		      u32 prob_cost_factor, char **fail);
+		      struct amount_msat amount,
+		      u32 mu,
+		      double delay_feefactor,
+		      double base_fee_penalty,
+		      u32 prob_cost_factor);
 #endif /* LIGHTNING_PLUGINS_ASKRENE_MCF_H */
