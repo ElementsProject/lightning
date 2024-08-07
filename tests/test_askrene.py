@@ -250,3 +250,42 @@ def test_getroutes(node_factory):
                             'next_node_id': nodemap[2],
                             'amount_msat': 9500009,
                             'delay': 99 + 6}]])
+
+
+def test_getroutes_fee_fallback(node_factory):
+    """Test getroutes call takes into account fees, if excessive"""
+
+    l1 = node_factory.get_node(start=False)
+    # 0 -> 1 -> 3: high capacity, high fee (1%)
+    # 0 -> 2 -> 3: low capacity, low fee.
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1,
+                                                        capacity_sats=20000,
+                                                        forward=GenChannel.Half(propfee=10000)),
+                                             GenChannel(0, 2,
+                                                        capacity_sats=10000),
+                                             GenChannel(1, 3,
+                                                        capacity_sats=20000,
+                                                        forward=GenChannel.Half(propfee=10000)),
+                                             GenChannel(2, 3,
+                                                        capacity_sats=10000)])
+    # Set up l1 with this as the gossip_store
+    shutil.copy(gsfile.name, os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'))
+    l1.start()
+
+    # Don't hit maxfee?  Go easy path.
+    check_getroute_paths(l1,
+                         nodemap[0],
+                         nodemap[3],
+                         10000,
+                         maxfee_msat=201,
+                         paths=[[{'short_channel_id': '0x1x0'},
+                                 {'short_channel_id': '1x3x2'}]])
+
+    # maxfee exceeded?  lower prob path.
+    check_getroute_paths(l1,
+                         nodemap[0],
+                         nodemap[3],
+                         10000,
+                         maxfee_msat=200,
+                         paths=[[{'short_channel_id': '0x2x1'},
+                                 {'short_channel_id': '2x3x3'}]])
