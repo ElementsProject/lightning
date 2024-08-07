@@ -41,6 +41,12 @@ struct short_channel_id_dir {
 	int dir;
 };
 
+static inline bool short_channel_id_dir_eq(const struct short_channel_id_dir *a,
+					   const struct short_channel_id_dir *b)
+{
+	return short_channel_id_eq(a->scid, b->scid) && a->dir == b->dir;
+}
+
 static inline u32 short_channel_id_blocknum(struct short_channel_id scid)
 {
 	return scid.u64 >> 40;
