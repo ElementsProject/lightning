@@ -367,6 +367,20 @@ trap "rm -f $CONFIG_VAR_FILE.$$" 0
 
 $CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER.$$ --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $CSANFLAGS -I$CPATH -L$LIBRARY_PATH $SQLITE3_CFLAGS $POSTGRES_INCLUDE <<EOF
 
+var=HAVE_ZLIB
+desc=zlib support
+style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
+link=-lz
+code=
+#include <zlib.h>
+#include <stdlib.h>
+
+int main(void)
+{
+	gzFile f = gzopen("/dev/null", "wb");
+	return f != NULL ? 0 : 1;
+}
+/*END*/
 var=HAVE_GOOD_LIBSODIUM
 desc=libsodium with IETF chacha20 variants
 style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE

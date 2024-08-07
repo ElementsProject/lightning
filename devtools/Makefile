@@ -11,6 +11,11 @@ ALL_C_SOURCES += $(DEVTOOLS_TOOL_SRC)
 ALL_C_HEADERS +=
 ALL_PROGRAMS += $(DEVTOOLS)
 
+# gossmap-compress wants -lz if we say we have it.
+ifeq ($(HAVE_ZLIB),1)
+devtools/gossmap-compress_LDLIBS=-lz
+endif # ZLIB
+
 DEVTOOLS_COMMON_OBJS :=				\
 	common/amount.o				\
 	common/autodata.o			\
