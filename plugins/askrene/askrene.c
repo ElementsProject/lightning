@@ -15,7 +15,9 @@
 #include <common/route.h>
 #include <errno.h>
 #include <plugins/askrene/askrene.h>
+#include <plugins/askrene/flow.h>
 #include <plugins/askrene/layer.h>
+#include <plugins/askrene/mcf.h>
 #include <plugins/askrene/reserve.h>
 #include <plugins/libplugin.h>
 
@@ -168,12 +170,22 @@ static const char *get_routes(struct command *cmd,
 			      const struct node_id *source,
 			      const struct node_id *dest,
 			      struct amount_msat amount,
+			      struct amount_msat maxfee,
+			      u32 finalcltv,
 			      const char **layers,
-			      struct route ***routes)
+			      struct route ***routes,
+			      struct amount_msat **amounts,
+			      double *probability)
 {
 	struct askrene *askrene = get_askrene(cmd->plugin);
 	struct route_query *rq = tal(cmd, struct route_query);
 	struct gossmap_localmods *localmods;
+	struct flow **flows;
+	const struct gossmap_node *srcnode, *dstnode;
+	double delay_feefactor;
+	double base_fee_penalty;
+	u32 prob_cost_factor, mu;
+	const char *ret;
 
 	if (gossmap_refresh(askrene->gossmap, NULL)) {
 		/* FIXME: gossmap_refresh callbacks to we can update in place */
@@ -208,20 +220,122 @@ static const char *get_routes(struct command *cmd,
 	reserves_clear_capacities(askrene->reserved, askrene->gossmap, rq->capacities);
 
 	gossmap_apply_localmods(askrene->gossmap, localmods);
-	(void)rq;
 
-	/* FIXME: Do route here!  This is a dummy, single "direct" route. */
-	*routes = tal_arr(cmd, struct route *, 1);
-	(*routes)[0]->success_prob = 1;
-	(*routes)[0]->hops = tal_arr((*routes)[0], struct route_hop, 1);
-	(*routes)[0]->hops[0].scid.u64 = 0x0000010000020003ULL;
-	(*routes)[0]->hops[0].direction = 0;
-	(*routes)[0]->hops[0].node_id = *dest;
-	(*routes)[0]->hops[0].amount = amount;
-	(*routes)[0]->hops[0].delay = 6;
+	srcnode = gossmap_find_node(askrene->gossmap, source);
+	if (!srcnode) {
+		ret = tal_fmt(cmd, "Unknown source node %s", fmt_node_id(tmpctx, source));
+		goto out;
+	}
 
+	dstnode = gossmap_find_node(askrene->gossmap, dest);
+	if (!dstnode) {
+		ret = tal_fmt(cmd, "Unknown destination node %s", fmt_node_id(tmpctx, dest));
+		goto out;
+	}
+
+	delay_feefactor = 1.0/1000000;
+	base_fee_penalty = 10.0;
+
+	/* From mcf.c: The input parameter `prob_cost_factor` in the function
+	 * `minflow` is defined as the PPM from the delivery amount `T` we are
+	 * *willing to pay* to increase the prob. of success by 0.1% */
+
+	/* This value is somewhat implied by our fee budget: say we would pay
+	 * the entire budget for 100% probability, that means prob_cost_factor
+	 * is (fee / amount) / 1000, or in PPM: (fee / amount) * 1000 */
+	if (amount_msat_zero(amount))
+		prob_cost_factor = 0;
+	else
+		prob_cost_factor = amount_msat_ratio(maxfee, amount) * 1000;
+
+	/* First up, don't care about fees.   */
+	mu = 0;
+	flows = minflow(rq, rq, srcnode, dstnode, amount,
+			mu, delay_feefactor, base_fee_penalty, prob_cost_factor);
+	if (!flows) {
+		/* FIXME: disjktra here to see if there is any route, and
+		 * diagnose problem (offline peers?  Not enough capacity at
+		 * our end?  Not enough at theirs?) */
+		ret = tal_fmt(cmd, "Could not find route");
+		goto out;
+	}
+
+	/* Too much delay? */
+	/* BOLT #4:
+	 * ## `max_htlc_cltv` Selection
+	 *
+	 * This ... value is defined as 2016 blocks, based on historical value
+	 * deployed by Lightning implementations.
+	 */
+	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
+	while (finalcltv + flows_worst_delay(flows) > 2016) {
+		delay_feefactor *= 2;
+		flows = minflow(rq, rq, srcnode, dstnode, amount,
+				mu, delay_feefactor, base_fee_penalty, prob_cost_factor);
+		if (!flows || delay_feefactor > 10) {
+			ret = tal_fmt(cmd, "Could not find route without excessive delays");
+			goto out;
+		}
+	}
+
+	/* Too expensive? */
+	while (amount_msat_greater(flowset_fee(cmd->plugin, flows), maxfee)) {
+		mu += 10;
+		flows = minflow(rq, rq, srcnode, dstnode, amount,
+				mu, delay_feefactor, base_fee_penalty, prob_cost_factor);
+		if (!flows || mu == 100) {
+			ret = tal_fmt(cmd, "Could not find route without excessive cost");
+			goto out;
+		}
+	}
+
+	if (finalcltv + flows_worst_delay(flows) > 2016) {
+		ret = tal_fmt(cmd, "Could not find route without excessive cost or delays");
+		goto out;
+	}
+
+	/* Convert back into routes, with delay and other information fixed */
+	*routes = tal_arr(cmd, struct route *, tal_count(flows));
+	*amounts = tal_arr(cmd, struct amount_msat, tal_count(flows));
+	for (size_t i = 0; i < tal_count(flows); i++) {
+		struct route *r;
+		struct amount_msat msat;
+		u32 delay;
+
+		(*routes)[i] = r = tal(*routes, struct route);
+		/* FIXME: flow_probability doesn't take into account other flows! */
+		r->success_prob = flows[i]->success_prob;
+		r->hops = tal_arr(r, struct route_hop, tal_count(flows[i]->path));
+
+		/* Fill in backwards to calc amount and delay */
+		msat = flows[i]->amount;
+		delay = finalcltv;
+
+		for (int j = tal_count(flows[i]->path) - 1; j >= 0; j--) {
+			struct route_hop *rh = &r->hops[j];
+			struct gossmap_node *far_end;
+			const struct half_chan *h = flow_edge(flows[i], j);
+
+			if (!amount_msat_add_fee(&msat, h->base_fee, h->proportional_fee))
+				plugin_err(cmd->plugin, "Adding fee to amount");
+			delay += h->delay;
+
+			rh->scid = gossmap_chan_scid(rq->gossmap, flows[i]->path[j]);
+			rh->direction = flows[i]->dirs[j];
+			far_end = gossmap_nth_node(rq->gossmap, flows[i]->path[j], !flows[i]->dirs[j]);
+			gossmap_node_get_id(rq->gossmap, far_end, &rh->node_id);
+			rh->amount = msat;
+			rh->delay = delay;
+		}
+		(*amounts)[i] = flow_delivers(flows[i]);
+	}
+
+	*probability = flowset_probability(flows, rq);
+	ret = NULL;
+
+out:
 	gossmap_remove_localmods(askrene->gossmap, localmods);
-	return NULL;
+	return ret;
 }
 
 void get_constraints(const struct route_query *rq,
@@ -294,41 +408,50 @@ static struct command_result *json_getroutes(struct command *cmd,
 {
 	struct node_id *dest, *source;
 	const char **layers;
-	struct amount_msat *amount;
+	struct amount_msat *amount, *maxfee, *amounts;
 	struct route **routes;
 	struct json_stream *response;
+	u32 *finalcltv;
 	const char *err;
+	double probability;
 
 	if (!param(cmd, buffer, params,
 		   p_req("source", param_node_id, &source),
 		   p_req("destination", param_node_id, &dest),
 		   p_req("amount_msat", param_msat, &amount),
 		   p_req("layers", param_string_array, &layers),
+		   p_req("maxfee_msat", param_msat, &maxfee),
+		   p_req("finalcltv", param_u32, &finalcltv),
 		   NULL))
 		return command_param_failed();
 
-	err = get_routes(cmd, source, dest, *amount, layers, &routes);
+	err = get_routes(cmd, source, dest, *amount, *maxfee, *finalcltv, layers,
+			 &routes, &amounts, &probability);
 	if (err)
 		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", err);
 
 	response = jsonrpc_stream_success(cmd);
-	json_object_start(response, "routes");
+	json_add_u64(response, "probability_ppm", (u64)(probability * 1000000));
 	json_array_start(response, "routes");
 	for (size_t i = 0; i < tal_count(routes); i++) {
+		json_object_start(response, NULL);
 		json_add_u64(response, "probability_ppm", (u64)(routes[i]->success_prob * 1000000));
+		json_add_amount_msat(response, "amount_msat", amounts[i]);
 		json_array_start(response, "path");
 		for (size_t j = 0; j < tal_count(routes[i]->hops); j++) {
 			const struct route_hop *r = &routes[i]->hops[j];
+			json_object_start(response, NULL);
 			json_add_short_channel_id(response, "short_channel_id", r->scid);
 			json_add_u32(response, "direction", r->direction);
-			json_add_node_id(response, "node_id", &r->node_id);
-			json_add_amount_msat(response, "amount", r->amount);
+			json_add_node_id(response, "next_node_id", &r->node_id);
+			json_add_amount_msat(response, "amount_msat", r->amount);
 			json_add_u32(response, "delay", r->delay);
+			json_object_end(response);
 		}
 		json_array_end(response);
+		json_object_end(response);
 	}
 	json_array_end(response);
-	json_object_end(response);
 	return command_finished(cmd, response);
 }
 
