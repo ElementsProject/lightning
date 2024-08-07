@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <plugins/askrene/askrene.h>
 #include <plugins/askrene/layer.h>
+#include <plugins/askrene/reserve.h>
 #include <plugins/libplugin.h>
 
 static struct askrene *get_askrene(struct plugin *plugin)
@@ -209,11 +210,25 @@ static struct command_result *json_askrene_reserve(struct command *cmd,
 {
 	struct reserve_path *path;
 	struct json_stream *response;
+	size_t num;
+	struct askrene *askrene = get_askrene(cmd->plugin);
 
 	if (!param(cmd, buffer, params,
 		   p_req("path", param_reserve_path, &path),
 		   NULL))
 		return command_param_failed();
+
+	num = reserves_add(askrene->reserved, path->scidds, path->amounts,
+			   tal_count(path->scidds));
+	if (num != tal_count(path->scidds)) {
+		const struct reserve *r = find_reserve(askrene->reserved, &path->scidds[num]);
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Overflow reserving %zu: %s amount %s (%s reserved already)",
+				    num,
+				    fmt_short_channel_id_dir(tmpctx, &path->scidds[num]),
+				    fmt_amount_msat(tmpctx, path->amounts[num]),
+				    r ? fmt_amount_msat(tmpctx, r->amount) : "none");
+	}
 
 	response = jsonrpc_stream_success(cmd);
 	return command_finished(cmd, response);
@@ -225,11 +240,26 @@ static struct command_result *json_askrene_unreserve(struct command *cmd,
 {
 	struct reserve_path *path;
 	struct json_stream *response;
+	size_t num;
+	struct askrene *askrene = get_askrene(cmd->plugin);
 
 	if (!param(cmd, buffer, params,
 		   p_req("path", param_reserve_path, &path),
 		   NULL))
 		return command_param_failed();
+
+	num = reserves_remove(askrene->reserved, path->scidds, path->amounts,
+			      tal_count(path->scidds));
+	if (num != tal_count(path->scidds)) {
+		const struct reserve *r = find_reserve(askrene->reserved, &path->scidds[num]);
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Underflow unreserving %zu: %s amount %s (%zu reserved, amount %s)",
+				    num,
+				    fmt_short_channel_id_dir(tmpctx, &path->scidds[num]),
+				    fmt_amount_msat(tmpctx, path->amounts[num]),
+				    r ? r->num_htlcs : 0,
+				    r ? fmt_amount_msat(tmpctx, r->amount) : "none");
+	}
 
 	response = jsonrpc_stream_success(cmd);
 	return command_finished(cmd, response);
@@ -456,6 +486,7 @@ static const char *init(struct plugin *plugin,
 	struct askrene *askrene = tal(plugin, struct askrene);
 	askrene->plugin = plugin;
 	list_head_init(&askrene->layers);
+	askrene->reserved = new_reserve_hash(askrene);
 	askrene->gossmap = gossmap_load(askrene, GOSSIP_STORE_FILENAME, NULL);
 
 	if (!askrene->gossmap)
