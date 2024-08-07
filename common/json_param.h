@@ -220,6 +220,11 @@ struct command_result *param_sha256(struct command *cmd, const char *name,
 				    struct sha256 **hash);
 
 /* Extract number from this (may be a string, or a number literal) */
+struct command_result *param_u16(struct command *cmd, const char *name,
+				 const char *buffer, const jsmntok_t *tok,
+				 uint16_t **num);
+
+/* Extract number from this (may be a string, or a number literal) */
 struct command_result *param_u32(struct command *cmd, const char *name,
 				 const char *buffer, const jsmntok_t *tok,
 				 uint32_t **num);
