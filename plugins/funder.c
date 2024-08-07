@@ -1695,7 +1695,7 @@ int main(int argc, char **argv)
 	/* Our default funding policy is fixed (0msat) */
 	current_policy = default_funder_policy(NULL, FIXED, 0);
 
-	plugin_main(argv, init, PLUGIN_RESTARTABLE, true,
+	plugin_main(argv, init, NULL, PLUGIN_RESTARTABLE, true,
 		    NULL,
 		    commands, ARRAY_SIZE(commands),
 		    notifs, ARRAY_SIZE(notifs),

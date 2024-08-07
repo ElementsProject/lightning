@@ -805,7 +805,8 @@ int main(int argc, char *argv[])
 	setup_locale();
 
 	timer_cinfo = new_clean_info(NULL, NULL);
-	plugin_main(argv, init, PLUGIN_STATIC, true, NULL, commands, ARRAY_SIZE(commands),
+	plugin_main(argv, init, NULL, PLUGIN_STATIC, true, NULL,
+		    commands, ARRAY_SIZE(commands),
 	            NULL, 0, NULL, 0, NULL, 0,
 		    plugin_option_dynamic("autoclean-cycle",
 					  "int",

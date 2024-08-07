@@ -1809,7 +1809,7 @@ int main(int argc, char *argv[])
 	datadir = NULL;
 	db_dsn = NULL;
 
-	plugin_main(argv, init, PLUGIN_STATIC, true, NULL,
+	plugin_main(argv, init, NULL, PLUGIN_STATIC, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 		    notifs, ARRAY_SIZE(notifs),
 		    NULL, 0,

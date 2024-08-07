@@ -32,7 +32,7 @@ int main(int argc, char **argv)
 	notifs = tal_arr(NULL, struct plugin_notification, 0);
 	tal_expand(&notifs, openchannel_notifs, num_openchannel_notifs);
 
-	plugin_main(argv, &spender_init, PLUGIN_STATIC, true,
+	plugin_main(argv, &spender_init, NULL, PLUGIN_STATIC, true,
 		    NULL,
 		    take(commands), tal_count(commands),
 		    take(notifs), tal_count(notifs),

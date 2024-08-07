@@ -79,6 +79,9 @@ struct plugin {
 	/* to append to all our command ids */
 	const char *id;
 
+	/* Data for the plugin user */
+	void *data;
+
 	/* options to i-promise-to-fix-broken-api-user */
 	const char **beglist;
 
@@ -2179,6 +2182,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 void plugin_main(char *argv[],
 		 const char *(*init)(struct plugin *p,
 				     const char *buf, const jsmntok_t *),
+		 void *data,
 		 const enum plugin_restartability restartability,
 		 bool init_rpc,
 		 struct feature_set *features STEALS,
@@ -2208,6 +2212,7 @@ void plugin_main(char *argv[],
 			    init, restartability, init_rpc, features, commands,
 			    num_commands, notif_subs, num_notif_subs, hook_subs,
 			    num_hook_subs, notif_topics, num_notif_topics, ap);
+	plugin_set_data(plugin, data);
 	va_end(ap);
 	setup_command_usage(plugin);
 
@@ -2413,4 +2418,16 @@ notification_handled(struct command *cmd)
 bool plugin_developer_mode(const struct plugin *plugin)
 {
 	return plugin->developer;
+}
+
+void plugin_set_data(struct plugin *plugin, void *data TAKES)
+{
+	if (taken(data))
+		tal_steal(plugin, data);
+	plugin->data = data;
+}
+
+void *plugin_get_data_(struct plugin *plugin)
+{
+	return plugin->data;
 }

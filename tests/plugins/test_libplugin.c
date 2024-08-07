@@ -6,10 +6,18 @@
 #include <common/memleak.h>
 #include <plugins/libplugin.h>
 
-static char *somearg;
-static bool self_disable = false;
-static bool dont_shutdown = false;
-static u32 dynamic_opt = 7;
+/* Stash this in plugin's data */
+struct test_libplugin {
+	char *somearg;
+	bool self_disable;
+	bool dont_shutdown;
+	u32 dynamic_opt;
+};
+
+static struct test_libplugin *get_test_libplugin(struct plugin *plugin)
+{
+	return plugin_get_data(plugin, struct test_libplugin);
+}
 
 static struct command_result *get_ds_done(struct command *cmd,
 					  const char *val,
@@ -94,9 +102,10 @@ static struct command_result *json_shutdown(struct command *cmd,
 					    const char *buf,
 					    const jsmntok_t *params)
 {
+	struct test_libplugin *tlp = get_test_libplugin(cmd->plugin);
 	plugin_log(cmd->plugin, LOG_DBG, "shutdown called");
 
-	if (dont_shutdown)
+	if (tlp->dont_shutdown)
 		return notification_handled(cmd);
 
 	plugin_exit(cmd->plugin, 0);
@@ -202,13 +211,14 @@ static const char *init(struct plugin *p,
 {
 	const char *name, *err_str, *err_hex;
 	const u8 *binname;
+	struct test_libplugin *tlp = get_test_libplugin(p);
 
 	plugin_log(p, LOG_DBG, "test_libplugin initialised!");
-	if (somearg)
-		plugin_log(p, LOG_DBG, "somearg = %s", somearg);
-	somearg = tal_free(somearg);
+	if (tlp->somearg)
+		plugin_log(p, LOG_DBG, "somearg = %s", tlp->somearg);
+	tlp->somearg = tal_free(tlp->somearg);
 
-	if (self_disable)
+	if (tlp->self_disable)
 		return "Disabled via selfdisable option";
 
 	/* Test rpc_scan_datastore funcs */
@@ -277,30 +287,43 @@ static const struct plugin_notification notifs[] = { {
 int main(int argc, char *argv[])
 {
 	setup_locale();
-	plugin_main(argv, init, PLUGIN_RESTARTABLE, true, NULL,
+	/* We allocate now, so we can hand pointers for plugin options,
+	 * but by specifying take() to plugin_main, it reparents it to
+	 * the plugin */
+	struct test_libplugin *tlp = tal(NULL, struct test_libplugin);
+	tlp->somearg = NULL;
+	tlp->self_disable = false;
+	tlp->dont_shutdown = false;
+	tlp->dynamic_opt = 7;
+
+	plugin_main(argv, init, take(tlp), PLUGIN_RESTARTABLE, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 	            notifs, ARRAY_SIZE(notifs), hooks, ARRAY_SIZE(hooks),
 		    NULL, 0,  /* Notification topics we publish */
 		    plugin_option("somearg",
 				  "string",
 				  "Argument to print at init.",
-				  charp_option, charp_jsonfmt, &somearg),
+				  charp_option, charp_jsonfmt, &tlp->somearg),
 		    plugin_option_deprecated("somearg-deprecated",
 					     "string",
 					     "Deprecated arg for init.",
 					     CLN_NEXT_VERSION, NULL,
-					     charp_option, charp_jsonfmt, &somearg),
+					     charp_option, charp_jsonfmt,
+					     &tlp->somearg),
 		    plugin_option("selfdisable",
 				  "flag",
 				  "Whether to disable.",
-				  flag_option, flag_jsonfmt, &self_disable),
+				  flag_option, flag_jsonfmt,
+				  &tlp->self_disable),
 		    plugin_option("dont_shutdown",
 				  "flag",
 				  "Whether to timeout when asked to shutdown.",
-				  flag_option, flag_jsonfmt, &dont_shutdown),
+				  flag_option, flag_jsonfmt,
+				  &tlp->dont_shutdown),
 		    plugin_option_dynamic("dynamicopt",
 					  "int",
 					  "Set me!",
-					  set_dynamic, u32_jsonfmt, &dynamic_opt),
+					  set_dynamic, u32_jsonfmt,
+					  &tlp->dynamic_opt),
 		    NULL);
 }

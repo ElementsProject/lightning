@@ -440,6 +440,11 @@ static inline void *plugin_option_jsonfmt_check(bool (*jsonfmt)(struct plugin *,
 /* Is --developer enabled? */
 bool plugin_developer_mode(const struct plugin *plugin);
 
+/* Store a single pointer for our state in the plugin */
+void plugin_set_data(struct plugin *plugin, void *data TAKES);
+void *plugin_get_data_(struct plugin *plugin);
+#define plugin_get_data(plugin, type) ((type *)(plugin_get_data_(plugin)))
+
 /* Macro to define arguments */
 #define plugin_option_(name, type, description, set, jsonfmt, arg, dev_only, depr_start, depr_end, dynamic) \
 	(name),								\
@@ -504,6 +509,7 @@ void NORETURN LAST_ARG_NULL plugin_main(char *argv[],
 					const char *(*init)(struct plugin *p,
 							    const char *buf,
 							    const jsmntok_t *),
+					void *data TAKES,
 					const enum plugin_restartability restartability,
 					bool init_rpc,
 					struct feature_set *features STEALS,

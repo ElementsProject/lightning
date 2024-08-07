@@ -1650,7 +1650,7 @@ int main(int argc, char *argv[])
 		common_shutdown();
 		return 0;
 	}
-	plugin_main(argv, init, PLUGIN_RESTARTABLE, true, NULL, commands, ARRAY_SIZE(commands),
+	plugin_main(argv, init, NULL, PLUGIN_RESTARTABLE, true, NULL, commands, ARRAY_SIZE(commands),
 	            NULL, 0, NULL, 0, NULL, 0,
 		    plugin_option_dev("dev-sqlfilename",
 				      "string",
