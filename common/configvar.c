@@ -51,6 +51,20 @@ const struct opt_table *configvar_unparsed(struct configvar *cv)
 	return ot;
 }
 
+static void trim_whitespace(const char *s)
+{
+	size_t len = strlen(s);
+
+	/* Cast away const to allow modifications */
+	char *mutable_s = (char *)s;
+
+	while (len > 0 && isspace((unsigned char)mutable_s[len - 1]))
+		len--;
+
+	/* Move null terminator to the end of the trimmed string */
+	memmove(mutable_s + len, mutable_s + strlen(s), 1);
+}
+
 const char *configvar_parse(struct configvar *cv,
 			    bool early,
 			    bool full_knowledge,
@@ -82,6 +96,8 @@ const char *configvar_parse(struct configvar *cv,
 	} else {
 		if (!cv->optarg)
 			return "requires an argument";
+		if (!(ot->type & OPT_KEEP_WHITESPACE))
+			trim_whitespace(cv->optarg);
 		return ot->cb_arg(cv->optarg, ot->u.arg);
 	}
 }

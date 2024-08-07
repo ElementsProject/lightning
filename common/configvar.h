@@ -60,6 +60,8 @@ struct configvar {
 #define OPT_SHOWBOOL (1 << (OPT_USER_START+5))
 /* Can be changed at runtime: cb will get called with NULL for `check`! */
 #define OPT_DYNAMIC (1 << (OPT_USER_START+6))
+/* Keep whitespace at the end of the option argument */
+#define OPT_KEEP_WHITESPACE (1 << (OPT_USER_START+7))
 
 /* Use this instead of opt_register_*_arg if you want OPT_* from above */
 #define clnopt_witharg(names, type, cb, show, arg, desc)		\

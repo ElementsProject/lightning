@@ -1525,9 +1525,8 @@ static void register_opts(struct lightningd *ld)
 		     opt_lightningd_usage, ld, "Print this message.");
 	opt_register_arg("--rgb", opt_set_rgb, opt_show_rgb, ld,
 			 "RRGGBB hex color for node");
-	opt_register_arg("--alias", opt_set_alias, opt_show_alias, ld,
-			 "Up to 32-byte alias for node");
-
+	clnopt_witharg("--alias", OPT_KEEP_WHITESPACE, opt_set_alias,
+		       opt_show_alias, ld, "Up to 32-byte alias for node");
 	opt_register_arg("--pid-file=<file>", opt_set_talstr, opt_show_charp,
 			 &ld->pidfile,
 			 "Specify pid file");
