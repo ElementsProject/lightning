@@ -3,6 +3,8 @@ from pyln.testing.utils import env, only_one, wait_for, write_config, TailablePr
 import bitstring
 from pyln.client import Millisatoshi
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, EXPERIMENTAL_SPLICING
+import subprocess
+import tempfile
 import time
 
 COMPAT = env("COMPAT", "1") == "1"
@@ -430,3 +432,120 @@ def scriptpubkey_addr(scriptpubkey):
         # Modern bitcoin (at least, git master)
         return scriptpubkey['address']
     return None
+
+
+class GenChannel(object):
+    class Half(object):
+        def __init__(self, htlc_max, enabled=True, htlc_min=0, basefee=0, propfee=1, delay=6):
+            self.enabled = enabled
+            self.htlc_min = htlc_min
+            self.htlc_max = htlc_max
+            self.basefee = basefee
+            self.propfee = propfee
+            self.delay = delay
+
+    def __init__(self, node1, node2, capacity_sats=1000000):
+        self.node1 = node1
+        self.node2 = node2
+        self.capacity_sats = capacity_sats
+        self.half = [GenChannel.Half(htlc_max=capacity_sats * 1000),
+                     GenChannel.Half(htlc_max=capacity_sats * 1000)]
+
+
+def generate_gossip_store(channels):
+    """Returns a gossip store file with the given channels in it.
+    """
+    nodes = []
+
+    def write_bignum(outf, val):
+        if val < 253:
+            outf.write(val.to_bytes(1, byteorder='big'))
+        elif val <= 0xFFFF:
+            outf.write(b'\xFD')
+            outf.write(val.to_bytes(2, byteorder='big'))
+        elif val <= 0xFFFFFFFF:
+            outf.write(b'\xFE')
+            outf.write(val.to_bytes(4, byteorder='big'))
+        else:
+            outf.write(b'\xFF')
+            outf.write(val.to_bytes(8, byteorder='big'))
+
+    def write_dumb_template(outf, channels, propname, illegalvals=[]):
+        """We don't bother uniquifing, just one entry per chan dir"""
+        # Template is simply all the values
+        write_bignum(outf, len(channels) * 2)
+        for c in channels:
+            for d in (0, 1):
+                v = getattr(c.half[d], propname)
+                assert v not in illegalvals
+                write_bignum(outf, v)
+
+        # Now each entry for each channel half points into the values.
+        for i in range(0, len(channels) * 2):
+            write_bignum(outf, i)
+
+    # First create nodes
+    for c in channels:
+        if c.node1 not in nodes:
+            nodes.append(c.node1)
+        if c.node2 not in nodes:
+            nodes.append(c.node2)
+
+    cfile = tempfile.NamedTemporaryFile(prefix='gs-compressed-')
+    # <HEADER> := "GOSSMAP_COMPRESSv1\0"
+    cfile.write(b'GOSSMAP_COMPRESSv1\x00')
+    # <CHANNEL_ENDS> := {channel_count} {start_nodeidx}*{channel_count} {end_nodeidx}*{channel_count}
+    write_bignum(cfile, len(channels))
+    for c in channels:
+        write_bignum(cfile, nodes.index(c.node1))
+    for c in channels:
+        write_bignum(cfile, nodes.index(c.node2))
+
+    # <DISABLEDS> := <DISABLED>* {channel_count*2}
+    # <DISABLED> := {chanidx}*2+{direction}
+    for i, c in enumerate(channels):
+        for d in (0, 1):
+            if not c.half[d].enabled:
+                write_bignum(cfile, i * 2 + d)
+    write_bignum(cfile, len(channels) * 2)
+
+    # <CAPACITIES> := <CAPACITY_TEMPLATES> {channel_count}*{capacity_idx}
+    # <CAPACITY_TEMPLATES> := {capacity_count} {channel_count}*{capacity}
+    max_htlc_defaults = []
+    write_bignum(cfile, len(channels))
+    for c in channels:
+        write_bignum(cfile, c.capacity_sats)
+        max_htlc_defaults.append(c.capacity_sats)
+        max_htlc_defaults.append(c.capacity_sats)
+
+    for i, _ in enumerate(channels):
+        write_bignum(cfile, i)
+
+    # <HTLC_MINS> := <HTLC_MIN_TEMPLATES> {channel_ count*2}*{htlc_min_idx}
+    # <HTLC_MIN_TEMPLATES> := {htlc_min_count} {htlc_min_count}*{htlc_min}
+    write_dumb_template(cfile, channels, 'htlc_min')
+    # <HTLC_MAXS> := <HTLC_MAX_TEMPLATES> {channel_count*2}*{htlc_max_idx}
+    # <HTLC_MAX_TEMPLATES> := {htlc_max_count} {htlc_max_count}*{htlc_max}
+    # 0 and 1 have special meanings, don't use them!
+    write_dumb_template(cfile, channels, 'htlc_max', [0, 1])
+    # <BASEFEES> := <BASEFEE_TEMPLATES> {channel_count*2}*{basefee_idx}
+    # <BASEFEE_TEMPLATES> := {basefee_count} {basefee_count}*{basefee}
+    write_dumb_template(cfile, channels, 'basefee')
+    # <PROPFEES> := <PROPFEE_TEMPLATES> {channel_count*2}*{propfee_idx}
+    # <PROPFEE_TEMPLATES> := {propfee_count} {propfee_count}*{propfee}
+    write_dumb_template(cfile, channels, 'propfee')
+    # <DELAYS> := <DELAY_TEMPLATES> {channel_count*2}*{delay_idx}
+    # <DELAY_TEMPLATES> := {delay_count} {delay_count}*{delay}
+    write_dumb_template(cfile, channels, 'delay')
+
+    cfile.flush()
+
+    outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
+    subprocess.run(['devtools/gossmap-compress',
+                    'decompress',
+                    cfile.name,
+                    outfile.name],
+                   check=True)
+    cfile.close()
+
+    return outfile
