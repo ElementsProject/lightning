@@ -320,8 +320,8 @@ bool flow_spend(struct amount_msat *ret, struct flow *flow)
 	const size_t pathlen = tal_count(flow->path);
 	struct amount_msat spend = flow->amount;
 
-	for (int i = (int)pathlen - 2; i >= 0; i--) {
-		const struct half_chan *h = flow_edge(flow, i + 1);
+	for (int i = (int)pathlen - 1; i >= 0; i--) {
+		const struct half_chan *h = flow_edge(flow, i);
 		if (!amount_msat_add_fee(&spend, h->base_fee,
 					 h->proportional_fee))
 			goto function_fail;
