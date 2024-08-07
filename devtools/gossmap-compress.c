@@ -617,7 +617,7 @@ int main(int argc, char *argv[])
 			} half[2];
 		} *chans;
 		const u8 version = GOSSIP_STORE_VER;
-		size_t disabled_count;
+		size_t disabled_count, node_limit;
 		gzFile inf = gzdopen(infd, "rb");
 
 		if (gzread(inf, hdr, sizeof(hdr)) != sizeof(hdr)
@@ -628,10 +628,24 @@ int main(int argc, char *argv[])
 			printf("%zu channels\n", channel_count);
 		chans = tal_arrz(tmpctx, struct fakechan, channel_count);
 
-		for (size_t i = 0; i < channel_count; i++)
+		node_limit = 0;
+		for (size_t i = 0; i < channel_count; i++) {
 			chans[i].node1 = read_bigsize(inf);
-		for (size_t i = 0; i < channel_count; i++)
+			if (chans[i].node1 >= node_limit)
+				node_limit = chans[i].node1 + 1;
+		}
+		for (size_t i = 0; i < channel_count; i++) {
 			chans[i].node2 = read_bigsize(inf);
+			if (chans[i].node2 >= node_limit)
+				node_limit = chans[i].node2 + 1;
+		}
+
+		/* Useful so they can map their ids back to node ids. */
+		for (size_t i = 0; i < node_limit; i++) {
+			struct pubkey node_id;
+			pubkey_for_node(i, &node_id);
+			printf("%s\n", fmt_pubkey(tmpctx, &node_id));
+		}
 
 		if (verbose >= 2) {
 			for (size_t i = 0; i < channel_count; i++) {
