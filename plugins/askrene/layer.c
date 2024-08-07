@@ -85,9 +85,9 @@ struct layer {
 	struct node_id *disabled_nodes;
 };
 
-struct layer *new_layer(struct askrene *askrene, const char *name)
+struct layer *new_temp_layer(const tal_t *ctx, const char *name)
 {
-	struct layer *l = tal(askrene, struct layer);
+	struct layer *l = tal(ctx, struct layer);
 
 	l->name = tal_strdup(l, name);
 	l->local_channels = tal(l, struct local_channel_hash);
@@ -96,6 +96,12 @@ struct layer *new_layer(struct askrene *askrene, const char *name)
 	constraint_hash_init(l->constraints);
 	l->disabled_nodes = tal_arr(l, struct node_id, 0);
 
+	return l;
+}
+
+struct layer *new_layer(struct askrene *askrene, const char *name)
+{
+	struct layer *l = new_temp_layer(askrene, name);
 	list_add(&askrene->layers, &l->list);
 	return l;
 }
@@ -296,11 +302,12 @@ void layer_add_disabled_node(struct layer *layer, const struct node_id *node)
 	tal_arr_expand(&layer->disabled_nodes, *node);
 }
 
-void layer_add_localmods(struct layer *layer,
+void layer_add_localmods(const struct layer *layer,
 			 const struct gossmap *gossmap,
+			 bool zero_cost,
 			 struct gossmap_localmods *localmods)
 {
-	struct local_channel *lc;
+	const struct local_channel *lc;
 	struct local_channel_hash_iter lcit;
 
 	/* First, disable all channels into blocked nodes (local updates
@@ -337,14 +344,20 @@ void layer_add_localmods(struct layer *layer,
 		gossmap_local_addchan(localmods,
 				      &lc->n1, &lc->n2, lc->scid, NULL);
 		for (size_t i = 0; i < ARRAY_SIZE(lc->half); i++) {
+			u64 base, propfee, delay;
 			if (!lc->half[i].enabled)
 				continue;
+			if (zero_cost) {
+				base = propfee = delay = 0;
+			} else {
+				base = lc->half[i].base_fee.millisatoshis; /* Raw: gossmap */
+				propfee = lc->half[i].proportional_fee;
+				delay = lc->half[i].delay;
+			}
 			gossmap_local_updatechan(localmods, lc->scid,
 						 lc->half[i].htlc_min,
 						 lc->half[i].htlc_max,
-						 lc->half[i].base_fee.millisatoshis /* Raw: gossmap */,
-						 lc->half[i].proportional_fee,
-						 lc->half[i].delay,
+						 base, propfee, delay,
 						 true,
 						 i);
 		}

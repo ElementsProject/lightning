@@ -5,6 +5,7 @@
 #include <ccan/list/list.h>
 #include <common/amount.h>
 #include <common/fp16.h>
+#include <common/node_id.h>
 
 struct gossmap_chan;
 
@@ -26,6 +27,8 @@ struct askrene {
 	struct reserve_hash *reserved;
 	/* Compact cache of gossmap capacities */
 	fp16_t *capacities;
+	/* My own id */
+	struct node_id my_id;
 };
 
 /* Information for a single route query. */

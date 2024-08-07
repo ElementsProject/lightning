@@ -41,6 +41,9 @@ struct layer *find_layer(struct askrene *askrene, const char *name);
 /* Create new layer by name. */
 struct layer *new_layer(struct askrene *askrene, const char *name);
 
+/* New temporary layer (not in askrene's hash table) */
+struct layer *new_temp_layer(const tal_t *ctx, const char *name);
+
 /* Get the name of the layer */
 const char *layer_name(const struct layer *layer);
 
@@ -87,9 +90,10 @@ const struct constraint *layer_update_constraint(struct layer *layer,
 						 u64 timestamp,
 						 struct amount_msat limit);
 
-/* Add local channels from this layer */
-void layer_add_localmods(struct layer *layer,
+/* Add local channels from this layer.  zero_cost means set fees and delay to 0. */
+void layer_add_localmods(const struct layer *layer,
 			 const struct gossmap *gossmap,
+			 bool zero_cost,
 			 struct gossmap_localmods *localmods);
 
 /* Remove constraints older then cutoff: returns num removed. */
