@@ -5,6 +5,8 @@
 #include <ccan/list/list.h>
 #include <common/amount.h>
 
+struct gossmap_chan;
+
 /* A single route. */
 struct route {
 	/* Actual path to take */
@@ -22,5 +24,27 @@ struct askrene {
 	/* In-flight payment attempts */
 	struct reserve_hash *reserved;
 };
+
+/* Information for a single route query. */
+struct route_query {
+	/* Plugin pointer, for logging mainly */
+	struct plugin *plugin;
+
+	/* This is *not* updated during a query!  Has all layers applied. */
+	const struct gossmap *gossmap;
+
+	/* We need to take in-flight payments into account */
+	const struct reserve_hash *reserved;
+
+	/* Array of layers we're applying */
+	const struct layer **layers;
+};
+
+/* Given a gossmap channel, get the current known min/max */
+void get_constraints(const struct route_query *rq,
+		     const struct gossmap_chan *chan,
+		     int dir,
+		     struct amount_msat *min,
+		     struct amount_msat *max);
 
 #endif /* LIGHTNING_PLUGINS_ASKRENE_ASKRENE_H */

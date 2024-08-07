@@ -81,6 +81,11 @@ const struct constraint *layer_update_constraint(struct layer *layer,
 						 u64 timestamp,
 						 struct amount_msat limit);
 
+/* Add local channels from this layer */
+void layer_add_localmods(struct layer *layer,
+			 const struct gossmap *gossmap,
+			 struct gossmap_localmods *localmods);
+
 /* Remove constraints older then cutoff: returns num removed. */
 size_t layer_trim_constraints(struct layer *layer, u64 cutoff);
 
