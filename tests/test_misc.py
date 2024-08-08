@@ -2867,6 +2867,18 @@ def test_recoverchannel(node_factory):
     assert stubs[0] == "c3a7b9d74a174497122bc52d74d6d69836acadc77e0429c6d8b68b48d5c9139a"
 
 
+def test_getemergencyrecoverdata(node_factory):
+    """
+    Test getemergencyrecoverdata
+    """
+    l1 = node_factory.get_node()
+    filedata = l1.rpc.getemergencyrecoverdata()['filedata']
+
+    with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "emergency.recover"), "rb") as f:
+        lines = f.read().hex()
+    assert lines == filedata
+
+
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
 def test_emergencyrecover(node_factory, bitcoind):
     """
