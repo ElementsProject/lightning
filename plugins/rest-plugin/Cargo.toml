@@ -1,0 +1,32 @@
+[package]
+edition = "2021"
+name = "cln-rest-plugin"
+version = "0.1.0"
+
+description = "A REST interface Core Lightning plugin."
+license = "MIT"
+repository = "https://github.com/ElementsProject/lightning"
+documentation = "https://docs.rs/crate/cln-rest-plugin/"
+
+[[bin]]
+name = "clnrest"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0"
+log = "0.4"
+bytes = "1.6"
+hyper = { version = "1.4.1" }
+hyper-util = { version = "0.1.6", features = [ "tokio", "server-auto", "http1", "http2" ] }
+http-body-util = "0.1.2"
+rustls = { version = "0.23", default-features = false, features = [ "ring" ] }
+rustls-pemfile = "2.1.2"
+tokio-rustls = { version = "0.26", default-features = false }
+rcgen = { version = "0.10.0", features = ["pem", "x509-parser"] }
+cln-plugin = { version = "0.1" }
+cln-rpc = { version = "0.1" }
+serde_json = "1.0.120"
+
+[dependencies.tokio]
+features = ["net", "rt-multi-thread"]
+version = "1"
