@@ -145,7 +145,7 @@ wait_for_lightningd() {
 
 clnrest_status() {
 	logfile="$1"
-	active_str="plugin-clnrest: REST Server is starting"
+	active_str="plugin-clnrest: REST server running"
 	disabled_str="plugin-clnrest: Killing plugin: disabled itself"
 
 	if grep -q "$active_str" "$logfile"; then
@@ -155,6 +155,11 @@ clnrest_status() {
 	else
 		echo "waiting"
 	fi
+}
+
+has_clnrest() {
+	test -x "$LIGHTNING_BIN/plugins/clnrest"
+	return $?
 }
 
 start_nodes() {
@@ -207,7 +212,7 @@ funder-lease-requests-only=false
 		EOF
 
 		# If clnrest loads, add the port so it will run
-		if [ -n "$ACTIVATE_CLNREST" ]; then
+		if has_clnrest; then
 			echo "clnrest-port=$((3109+i))" >> "$LIGHTNING_DIR/l$i/config"
 		fi
 
@@ -269,16 +274,12 @@ start_ln() {
 	else
 		nodes="$1"
 	fi
-	# Are the clnrest dependencies installed?
-	if timeout 2 python3 plugins/clnrest/clnrest > /dev/null 2>&1; then
-		ACTIVATE_CLNREST=1
-	fi
 	start_nodes "$nodes" regtest
 	echo "	bt-cli, stop_ln, fund_nodes"
 
 	wait_for_lightningd "$nodes"
 	active_status=$(clnrest_status "$LIGHTNING_DIR/l1/log")
-	if [ -n "$ACTIVATE_CLNREST" ] && [ "$active_status" = "active" ] ; then
+	if has_clnrest && [ "$active_status" = "active" ] ; then
 		node_info regtest
 	elif [ "$active_status" = "disabled" ]; then
 		echo "clnrest is disabled."
