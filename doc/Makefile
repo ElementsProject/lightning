@@ -60,6 +60,7 @@ GENERATE_MARKDOWN := doc/lightning-addgossip.7 \
 	doc/lightning-fundchannel_start.7 \
 	doc/lightning-funderupdate.7 \
 	doc/lightning-fundpsbt.7 \
+	doc/lightning-getemergencyrecoverdata.7 \
 	doc/lightning-getinfo.7 \
 	doc/lightning-getlog.7 \
 	doc/lightning-getroute.7 \
