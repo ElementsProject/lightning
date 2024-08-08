@@ -22,8 +22,8 @@ self_scidd(const struct short_channel_id_dir *self)
 }
 
 static inline bool
-short_channel_id_dir_eq(const struct short_channel_id_dir *scidd_a,
-			const struct short_channel_id_dir scidd_b)
+my_short_channel_id_dir_eq(const struct short_channel_id_dir *scidd_a,
+			   const struct short_channel_id_dir scidd_b)
 {
 	return short_channel_id_eq(scidd_a->scid, scidd_b.scid) &&
 	       scidd_a->dir == scidd_b.dir;
@@ -32,7 +32,7 @@ short_channel_id_dir_eq(const struct short_channel_id_dir *scidd_a,
 /* A htable for short_channel_id_dir, the structure itself is the element key.
  */
 HTABLE_DEFINE_TYPE(struct short_channel_id_dir, self_scidd, hash_scidd,
-		   short_channel_id_dir_eq, scidd_map);
+		   my_short_channel_id_dir_eq, scidd_map);
 
 struct disabledmap {
 	/* Channels we decided to disable for various reasons. */
