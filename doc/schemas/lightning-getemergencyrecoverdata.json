@@ -1,0 +1,48 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "getemergencyrecoverdata",
+  "title": "Command to fetch data from the emergency.recover file",
+  "description": [
+    "The **getemergencyrecoverdata** RPC command is used to fetch data from the emergency.recover file, which contains encrypted data."
+  ],
+  "request": {
+    "required": [],
+    "properties": {}
+  },
+  "response": {
+    "required": [
+      "filedata"
+    ],
+    "properties": {
+      "filedata": {
+        "type": "hex",
+        "description": [
+          "The raw, hex-encoded, emergency.recover file"
+        ]
+      }
+    }
+  },
+  "author": [
+    "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-getsharedsecret(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:getemergencyrecoverdata#1",
+        "method": "getemergencyrecoverdata",
+        "params": {}
+      },
+      "response": {
+        "filedata": "5b3142fa0dd1115c29654b44780dcd9cf56cd53f9168061e964b39f3ce596962594b25660cba5d90ef07cfccbe1620f378ef284c7d1afed49d"
+      }
+    }
+  ]
+}
