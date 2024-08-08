@@ -55,6 +55,9 @@ bool flowset_fee(struct amount_msat *fee, struct flow **flows);
 
 bool flowset_delivers(struct amount_msat *delivers, struct flow **flows);
 
+/* how many channels are being used */
+size_t flowset_size(struct flow **flows);
+
 static inline struct amount_msat flow_delivers(const struct flow *flow)
 {
 	return flow->amount;

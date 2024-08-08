@@ -202,6 +202,7 @@ int main(int argc, char *argv[])
  		    AMOUNT_MSAT(100 * 1000 * 1000),
  		    /* max_fee = */ AMOUNT_MSAT(20 * 1000 * 1000),
  		    /* min probability = */ 0.9,
+		    /* base probability = */ 1.0,
  		    /* delay fee factor = */ 1e-6,
  		    /* base fee penalty */ 10,
  		    /* prob cost factor = */ 10, &errmsg);
@@ -239,6 +240,7 @@ int main(int argc, char *argv[])
 	pinfo.prob_cost_factor = 1e-5;
 	pinfo.delay_feefactor = 1e-6;
 	pinfo.min_prob_success = 0.9;
+	pinfo.base_prob_success = 1.0;
 	pinfo.use_shadow = false;
 
 	randombytes_buf(&preimage, sizeof(preimage));

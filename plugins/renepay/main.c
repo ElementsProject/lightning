@@ -184,6 +184,11 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 	u64 *riskfactor_millionths; // delay to proportional proportional fee
 	u64 *min_prob_success_millionths; // target probability
 
+	/* base probability of success, probability for a randomly picked
+	 * channel to be able to forward a payment request of amount greater
+	 * than zero. */
+	u64 *base_prob_success_millionths;
+
 	if (!param(cmd, buf, params,
 		   p_req("invstring", param_invstring, &invstr),
 		   p_opt("amount_msat", param_msat, &msat),
@@ -217,9 +222,18 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 			     &riskfactor_millionths, 1), // default is 1e-6
 		   p_opt_dev("dev_min_prob_success", param_millionths,
 			     &min_prob_success_millionths,
-			     900000), // default is 0.9
+			     800000), // default is 0.8
+		   p_opt_dev("dev_base_prob_success", param_millionths,
+			     &base_prob_success_millionths,
+			     980000), // default is 0.98
 		   NULL))
 		return command_param_failed();
+
+	if (*base_prob_success_millionths == 0 ||
+	    *base_prob_success_millionths > 1000000)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Base probability should be a number "
+				    "greater than zero and no greater than 1.");
 
 	/* === Parse invoice === */
 
@@ -315,6 +329,7 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 			*prob_cost_factor_millionths,
 			*riskfactor_millionths,
 			*min_prob_success_millionths,
+			*base_prob_success_millionths,
 			use_shadow,
 			cast_const2(const struct route_exclusion**, exclusions));
 
@@ -352,6 +367,7 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 				    *prob_cost_factor_millionths,
 				    *riskfactor_millionths,
 				    *min_prob_success_millionths,
+				    *base_prob_success_millionths,
 				    use_shadow,
 				    cast_const2(const struct route_exclusion**, exclusions)))
 			return command_fail(
