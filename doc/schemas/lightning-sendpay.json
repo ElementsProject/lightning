@@ -359,7 +359,7 @@
           "route": [
             {
               "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-              "channel": "109x1x1",
+              "channel": "109x1x0",
               "direction": 1,
               "amount_msat": 10001,
               "delay": 15,
@@ -367,27 +367,27 @@
             },
             {
               "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-              "channel": "111x1x0",
+              "channel": "111x1x1",
               "direction": 0,
               "amount_msat": 10000,
               "delay": 9,
               "style": "tlv"
             }
           ],
-          "payment_hash": "d598cfc62da16b381b8fb8af9833a24005f730e54cc32c317fecc511ffc6d2a2",
-          "payment_secret": "64733783b118ff27576f72c473c0c52814f1f47c4de41492194ddd7855486024"
+          "payment_hash": "paymenthash0020202020202020202020202020202020202020202020202020202",
+          "payment_secret": "paymentsecretinvl00310003100031000310003100031000310003100031000"
         }
       },
       "response": {
         "message": "Monitor status with listpays or waitsendpay",
         "created_index": 2,
         "id": 2,
-        "payment_hash": "d598cfc62da16b381b8fb8af9833a24005f730e54cc32c317fecc511ffc6d2a2",
+        "payment_hash": "paymenthash0030303030303030303030303030303030303030303030303030303",
         "groupid": 1,
         "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
         "amount_msat": 10000,
         "amount_sent_msat": 10001,
-        "created_at": 1722303675,
+        "created_at": 1737000000,
         "status": "pending"
       }
     }

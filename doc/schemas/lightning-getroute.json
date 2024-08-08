@@ -380,7 +380,7 @@
         "route": [
           {
             "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-            "channel": "109x1x1",
+            "channel": "109x1x0",
             "direction": 1,
             "amount_msat": 10001,
             "delay": 15,
@@ -388,7 +388,7 @@
           },
           {
             "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-            "channel": "111x1x0",
+            "channel": "111x1x1",
             "direction": 0,
             "amount_msat": 10000,
             "delay": 9,
@@ -412,7 +412,7 @@
         "route": [
           {
             "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-            "channel": "111x1x0",
+            "channel": "111x1x1",
             "direction": 0,
             "amount_msat": 500006,
             "delay": 15,
@@ -420,7 +420,7 @@
           },
           {
             "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
-            "channel": "113x1x1",
+            "channel": "113x1x0",
             "direction": 0,
             "amount_msat": 500000,
             "delay": 9,

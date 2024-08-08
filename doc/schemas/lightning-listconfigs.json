@@ -2472,7 +2472,7 @@
         "id": "example:listconfigs#1",
         "method": "listconfigs",
         "params": {
-          "config": "network"
+          "config": "account006060606060606060606060606060606060606060606060606060606work"
         }
       },
       "response": {
@@ -2510,7 +2510,7 @@
         "params": {}
       },
       "response": {
-        "# version": "v24.05-190-g5fd2f9c-modded",
+        "# version": "v24.08",
         "developer": true,
         "lightning-dir": "/tmp/.lightning/",
         "network": "regtest",
@@ -2543,7 +2543,7 @@
               "bitcoin-datadir": "/tmp/.lightning/",
               "bitcoin-rpcuser": "rpcuser",
               "bitcoin-rpcpassword": "rpcpass",
-              "bitcoin-rpcport": 51251,
+              "bitcoin-rpcport": 45929,
               "bitcoin-rpcclienttimeout": 60,
               "bitcoin-retry-timeout": 60
             }
@@ -2620,7 +2620,7 @@
         "experimental-peer-storage": false,
         "experimental-quiesce": false,
         "rgb": "022d22",
-        "alias": "SILENTARTIST-190-g5fd2f9c-modded",
+        "alias": "SILENTARTIST",
         "pid-file": "/tmp/.lightning/lightningd-regtest.pid",
         "ignore-fee-limits": false,
         "watchtime-blocks": 5,
@@ -2633,11 +2633,11 @@
         "rescan": 1,
         "fee-per-satoshi": 10,
         "htlc-minimum-msat": 0,
-        "htlc-maximum-msat": 18446744073709552000,
+        "htlc-maximum-msat": 18446744073709551615,
         "max-concurrent-htlcs": 483,
         "max-dust-htlc-exposure-msat": 50000000,
         "min-capacity-sat": 10000,
-        "addr": "127.0.0.1:41219",
+        "addr": "127.0.0.1:19735",
         "announce-addr-discovered": "auto",
         "announce-addr-discovered-port": 19846,
         "offline": false,
@@ -2748,7 +2748,7 @@
             "source": "default"
           },
           "alias": {
-            "value_str": "SILENTARTIST-190-g5fd2f9c-modded",
+            "value_str": "SILENTARTIST",
             "source": "default"
           },
           "pid-file": {
@@ -2800,7 +2800,7 @@
             "source": "default"
           },
           "htlc-maximum-msat": {
-            "value_msat": 18446744073709552000,
+            "value_msat": 18446744073709551615,
             "source": "default"
           },
           "max-concurrent-htlcs": {
@@ -2818,7 +2818,7 @@
           },
           "addr": {
             "values_str": [
-              "127.0.0.1:41219"
+              "127.0.0.1:19735"
             ],
             "sources": [
               "cmdline"
@@ -2958,7 +2958,7 @@
             "plugin": "/root/lightning/plugins/bcli"
           },
           "bitcoin-rpcport": {
-            "value_int": 51251,
+            "value_int": 45929,
             "source": "cmdline",
             "plugin": "/root/lightning/plugins/bcli"
           },

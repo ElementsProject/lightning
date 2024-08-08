@@ -354,7 +354,7 @@
       "response": {
         "outputs": [
           {
-            "txid": "9454852bb62e304ee8933662284e10bd22a7f3710c262da4c94bdcc8b05ae407",
+            "txid": "txid282828282828282828282828282828282828282828282828282828282828",
             "output": 0,
             "amount_msat": 19993653000,
             "scriptpubkey": "51206c27e1956acfa61e68292c80908880e813450f754132e8a2ac471a86bf1326b5",
@@ -364,8 +364,8 @@
             "reserved": false
           },
           {
-            "txid": "7547ffc11396c62852104f7100d5ca27a2b9c0d5d43d08122147b2b03eb157a5",
-            "output": 0,
+            "txid": "txid292929292929292929292929292929292929292929292929292929292929",
+            "output": 1,
             "amount_msat": 2000000000,
             "scriptpubkey": "00149fb67bfcefee6cb7db4c7e55d9c6bfd749e31d1e",
             "address": "bcrt1qn7m8hl80aekt0k6v0e2an34l6ay7x8g703x07y",
@@ -374,8 +374,8 @@
             "reserved": false
           },
           {
-            "txid": "737d6835ddafd515ba9e9def733bb4e4211f6053a32b1422bf1c8cc240850f96",
-            "output": 0,
+            "txid": "txid303030303030303030303030303030303030303030303030303030303030",
+            "output": 1,
             "amount_msat": 198995073000,
             "scriptpubkey": "512035f1184f6b470c9df347da62c4b28e7ec9ee10b220bac3accd22209def0036ea",
             "address": "bcrt1pxhc3snmtguxfmu68mf3vfv5w0my7uy9jyzav8txdygsfmmcqxm4q0mms62",
@@ -389,12 +389,12 @@
             "peer_id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
             "connected": true,
             "state": "CHANNELD_NORMAL",
-            "channel_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
-            "short_channel_id": "109x1x1",
+            "channel_id": "account003030303030303030303030303030303030303030303030303030303",
+            "short_channel_id": "109x1x0",
             "our_amount_msat": 490518792,
             "amount_msat": 1000000000,
-            "funding_txid": "737d6835ddafd515ba9e9def733bb4e4211f6053a32b1422bf1c8cc240850f96",
-            "funding_output": 1
+            "funding_txid": "txid303030303030303030303030303030303030303030303030303030303030",
+            "funding_output": 0
           }
         ]
       }

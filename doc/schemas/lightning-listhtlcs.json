@@ -129,108 +129,108 @@
         "id": "example:listhtlcs#1",
         "method": "listhtlcs",
         "params": [
-          "109x1x1"
+          "109x1x0"
         ]
       },
       "response": {
         "htlcs": [
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 0,
             "expiry": 126,
             "direction": "out",
             "amount_msat": 500000000,
-            "payment_hash": "684b5650b3deb052c93efe1fe16e7703b56272468eecdeb3daac5b81216dcb52",
+            "payment_hash": "paymenthash0313131313131313131313131313131313131313131313131313131",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 1,
             "expiry": 136,
             "direction": "out",
             "amount_msat": 10001,
-            "payment_hash": "d598cfc62da16b381b8fb8af9833a24005f730e54cc32c317fecc511ffc6d2a2",
+            "payment_hash": "paymenthash0323232323232323232323232323232323232323232323232323232",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 2,
             "expiry": 149,
             "direction": "out",
             "amount_msat": 10001,
-            "payment_hash": "80ff407792947a23f193f9a1968e9a437b071364ae3159f83631335c9a453c1b",
+            "payment_hash": "paymenthash0333333333333333333333333333333333333333333333333333333",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 3,
             "expiry": 155,
             "direction": "out",
             "amount_msat": 10000202,
-            "payment_hash": "3b80a3028343b16f8ab7261343eae40ff73ba833b0b7d4dcbfd42a3078dc322b",
+            "payment_hash": "paymenthash0343434343434343434343434343434343434343434343434343434",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 4,
             "expiry": 152,
             "direction": "out",
             "amount_msat": 10001,
-            "payment_hash": "0458c01fdd3aa0b9829002390301f92083e78dc27bb293bc3e7caee5d4ed7259",
+            "payment_hash": "paymenthash0353535353535353535353535353535353535353535353535353535",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 5,
             "expiry": 149,
             "direction": "out",
             "amount_msat": 10001,
-            "payment_hash": "0458c01fdd3aa0b9829002390301f92083e78dc27bb293bc3e7caee5d4ed7259",
+            "payment_hash": "paymenthash0363636363636363636363636363636363636363636363636363636",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 6,
             "expiry": 132,
             "direction": "out",
             "amount_msat": 50001,
-            "payment_hash": "788aea729ede48d315a199ce5ded76169601a61dd52e9734e707eb7c52e4e79e",
+            "payment_hash": "paymenthash0373737373737373737373737373737373737373737373737373737",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 7,
             "expiry": 142,
             "direction": "out",
             "amount_msat": 1002,
-            "payment_hash": "e445ebcf339db3cba6184330ccc6e4a41e0bb38d237b93c1d2f71958d5a74e13",
+            "payment_hash": "paymenthash0383838383838383838383838383838383838383838383838383838",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 8,
             "expiry": 137,
             "direction": "out",
             "amount_msat": 10001,
-            "payment_hash": "968c136c07c39b17d1925358dd36f5dd86f8691c666ec27f24de5a84d590dc49",
+            "payment_hash": "paymenthash0393939393939393939393939393939393939393939393939393939",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 0,
             "expiry": 136,
             "direction": "in",
             "amount_msat": 1000000,
-            "payment_hash": "a003badd6ad30f05f56e3607fd538456b05b9aad6135a494dad5320010af5844",
+            "payment_hash": "paymenthash0404040404040404040404040404040404040404040404040404040",
             "state": "SENT_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 9,
             "expiry": 136,
             "direction": "out",
             "amount_msat": 400000,
-            "payment_hash": "781dc1aee5839bf106f264b0a06cf0740f2c71fc51c9562e90f4ee38ca0fc459",
+            "payment_hash": "paymenthash0414141414141414141414141414141414141414141414141414141",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           }
         ]
@@ -245,102 +245,102 @@
       "response": {
         "htlcs": [
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 0,
             "expiry": 126,
             "direction": "out",
             "amount_msat": 500000000,
-            "payment_hash": "684b5650b3deb052c93efe1fe16e7703b56272468eecdeb3daac5b81216dcb52",
+            "payment_hash": "paymenthash0424242424242424242424242424242424242424242424242424242",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 1,
             "expiry": 136,
             "direction": "out",
             "amount_msat": 10001,
-            "payment_hash": "d598cfc62da16b381b8fb8af9833a24005f730e54cc32c317fecc511ffc6d2a2",
+            "payment_hash": "paymenthash0434343434343434343434343434343434343434343434343434343",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 2,
             "expiry": 149,
             "direction": "out",
             "amount_msat": 10001,
-            "payment_hash": "80ff407792947a23f193f9a1968e9a437b071364ae3159f83631335c9a453c1b",
+            "payment_hash": "paymenthash0444444444444444444444444444444444444444444444444444444",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 3,
             "expiry": 155,
             "direction": "out",
             "amount_msat": 10000202,
-            "payment_hash": "3b80a3028343b16f8ab7261343eae40ff73ba833b0b7d4dcbfd42a3078dc322b",
+            "payment_hash": "paymenthash0454545454545454545454545454545454545454545454545454545",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 4,
             "expiry": 152,
             "direction": "out",
             "amount_msat": 10001,
-            "payment_hash": "0458c01fdd3aa0b9829002390301f92083e78dc27bb293bc3e7caee5d4ed7259",
+            "payment_hash": "paymenthash0464646464646464646464646464646464646464646464646464646",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 5,
             "expiry": 149,
             "direction": "out",
             "amount_msat": 10001,
-            "payment_hash": "0458c01fdd3aa0b9829002390301f92083e78dc27bb293bc3e7caee5d4ed7259",
+            "payment_hash": "paymenthash0474747474747474747474747474747474747474747474747474747",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 6,
             "expiry": 132,
             "direction": "out",
             "amount_msat": 50001,
-            "payment_hash": "788aea729ede48d315a199ce5ded76169601a61dd52e9734e707eb7c52e4e79e",
+            "payment_hash": "paymenthash0484848484848484848484848484848484848484848484848484848",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 7,
             "expiry": 142,
             "direction": "out",
             "amount_msat": 1002,
-            "payment_hash": "e445ebcf339db3cba6184330ccc6e4a41e0bb38d237b93c1d2f71958d5a74e13",
+            "payment_hash": "paymenthash0494949494949494949494949494949494949494949494949494949",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 8,
             "expiry": 137,
             "direction": "out",
             "amount_msat": 10001,
-            "payment_hash": "968c136c07c39b17d1925358dd36f5dd86f8691c666ec27f24de5a84d590dc49",
+            "payment_hash": "paymenthash0505050505050505050505050505050505050505050505050505050",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 0,
             "expiry": 136,
             "direction": "in",
             "amount_msat": 1000000,
-            "payment_hash": "a003badd6ad30f05f56e3607fd538456b05b9aad6135a494dad5320010af5844",
+            "payment_hash": "paymenthash0515151515151515151515151515151515151515151515151515151",
             "state": "SENT_REMOVE_ACK_REVOCATION"
           },
           {
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "id": 9,
             "expiry": 136,
             "direction": "out",
             "amount_msat": 400000,
-            "payment_hash": "781dc1aee5839bf106f264b0a06cf0740f2c71fc51c9562e90f4ee38ca0fc459",
+            "payment_hash": "paymenthash0525252525252525252525252525252525252525252525252525252",
             "state": "RCVD_REMOVE_ACK_REVOCATION"
           }
         ]

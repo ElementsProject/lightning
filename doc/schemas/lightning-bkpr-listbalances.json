@@ -148,13 +148,13 @@
             "account": "wallet",
             "balances": [
               {
-                "balance_msat": 202498294000,
+                "balance_msat": 202500327000,
                 "coin_type": "bcrt"
               }
             ]
           },
           {
-            "account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "account": "account007070707070707070707070707070707070707070707070707070707",
             "peer_id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
             "we_opened": false,
             "account_closed": true,
@@ -168,7 +168,7 @@
             ]
           },
           {
-            "account": "21bd30cac60f477f2c4267220b1702a6ec5780db34f9934fa94b8c0508bf3357",
+            "account": "account008080808080808080808080808080808080808080808080808080808",
             "peer_id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
             "we_opened": true,
             "account_closed": true,
@@ -181,7 +181,7 @@
             ]
           },
           {
-            "account": "ecabe6d86abdd57565b3fb7e7c5d724e60ca1a07633951769b5dbfa48dc884b3",
+            "account": "account009090909090909090909090909090909090909090909090909090909",
             "peer_id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
             "we_opened": false,
             "account_closed": false,
@@ -194,7 +194,7 @@
             ]
           },
           {
-            "account": "7512083907c74ed3a045e9bf772b3d72948eb93daf84a1cee57108800451aaf2",
+            "account": "account010101010101010101010101010101010101010101010101010101010",
             "peer_id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
             "we_opened": true,
             "account_closed": false,

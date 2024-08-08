@@ -235,12 +235,12 @@
       },
       "response": {
         "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-        "payment_hash": "80ff407792947a23f193f9a1968e9a437b071364ae3159f83631335c9a453c1b",
-        "created_at": 1722303677.1300898,
+        "payment_hash": "paymenthash0060606060606060606060606060606060606060606060606060606",
+        "created_at": 1737020202,
         "parts": 1,
         "amount_msat": 10000,
         "amount_sent_msat": 10001,
-        "payment_preimage": "0d802c9c611bae611d51afa8ddf396df8ba4e0580a2eccfd1120da97e70482a0",
+        "payment_preimage": "paymentpreimage0010101010101010101010101010101010101010101010101",
         "status": "complete"
       }
     },
@@ -259,12 +259,12 @@
       },
       "response": {
         "destination": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
-        "payment_hash": "3b80a3028343b16f8ab7261343eae40ff73ba833b0b7d4dcbfd42a3078dc322b",
-        "created_at": 1722303679.3164163,
+        "payment_hash": "paymenthash0070707070707070707070707070707070707070707070707070707",
+        "created_at": 1737030303,
         "parts": 1,
         "amount_msat": 10000000,
         "amount_sent_msat": 10000202,
-        "payment_preimage": "f76d6b7ef362f33e25eb5571e616f6e539a2c77caf0afa4227d1351546823664",
+        "payment_preimage": "paymentpreimage0020202020202020202020202020202020202020202020202",
         "status": "complete"
       }
     },
@@ -278,7 +278,7 @@
           "routehints": [
             [
               {
-                "scid": "6250403x3681116x19863",
+                "scid": "2979196x13682100x12732",
                 "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
                 "feebase": "1msat",
                 "feeprop": 10,
@@ -290,12 +290,12 @@
       },
       "response": {
         "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-        "payment_hash": "0458c01fdd3aa0b9829002390301f92083e78dc27bb293bc3e7caee5d4ed7259",
-        "created_at": 1722303682.5805738,
+        "payment_hash": "paymenthash0080808080808080808080808080808080808080808080808080808",
+        "created_at": 1737040404,
         "parts": 2,
         "amount_msat": 10000,
         "amount_sent_msat": 10001,
-        "payment_preimage": "4dad6dcf625f650a35a8199fbda18ea4f6717cdfadb40e6bed2bf5f96a4742b0",
+        "payment_preimage": "paymentpreimage0030303030303030303030303030303030303030303030303",
         "status": "complete"
       }
     }

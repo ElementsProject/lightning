@@ -65,7 +65,7 @@
         "id": "example:delforward#1",
         "method": "delforward",
         "params": {
-          "in_channel": "109x1x1",
+          "in_channel": "109x1x0",
           "in_htlc_id": 4,
           "status": "local_failed"
         }
@@ -77,7 +77,7 @@
         "id": "example:delforward#2",
         "method": "delforward",
         "params": [
-          "109x1x1",
+          "109x1x0",
           19,
           "failed"
         ]

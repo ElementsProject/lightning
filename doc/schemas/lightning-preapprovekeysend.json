@@ -67,7 +67,7 @@
         "method": "preapprovekeysend",
         "params": {
           "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-          "payment_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "payment_hash": "paymenthash0131313131313131313131313131313131313131313131313131313",
           "amount_msat": 1000
         }
       },

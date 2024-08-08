@@ -214,7 +214,7 @@
       "response": {
         "channels_apy": [
           {
-            "account": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+            "account": "account003030303030303030303030303030303030303030303030303030303",
             "routed_out_msat": 1000000,
             "routed_in_msat": 510081208,
             "lease_fee_paid_msat": 0,
@@ -229,12 +229,12 @@
             "utilization_in": "51.0081%",
             "utilization_in_initial": "51.0081%",
             "apy_out": "0.0000%",
-            "apy_in": "0.0252%",
-            "apy_in_initial": "0.0252%",
-            "apy_total": "0.0252%"
+            "apy_in": "0.0264%",
+            "apy_in_initial": "0.0264%",
+            "apy_total": "0.0264%"
           },
           {
-            "account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "account": "account004040404040404040404040404040404040404040404040404040404",
             "routed_out_msat": 510181102,
             "routed_in_msat": 0,
             "lease_fee_paid_msat": 0,
@@ -255,7 +255,7 @@
             "apy_total_initial": "0.0505%"
           },
           {
-            "account": "f8fc83a432cbfb2fffe222cc06727fdd977b5dd10ebd6707158e799e6f522d9f",
+            "account": "account005050505050505050505050505050505050505050505050505050505",
             "routed_out_msat": 500000000,
             "routed_in_msat": 0,
             "lease_fee_paid_msat": 0,
@@ -276,7 +276,7 @@
             "apy_total_initial": "0.0000%"
           },
           {
-            "account": "net",
+            "account": "account006060606060606060606060606060606060606060606060606060606",
             "routed_out_msat": 1011181102,
             "routed_in_msat": 510081208,
             "lease_fee_paid_msat": 0,
@@ -291,12 +291,12 @@
             "utilization_out_initial": "50.5591%",
             "utilization_in": "17.0027%",
             "utilization_in_initial": "51.0081%",
-            "apy_out": "0.0084%",
-            "apy_out_initial": "0.0126%",
-            "apy_in": "0.0084%",
-            "apy_in_initial": "0.0252%",
-            "apy_total": "0.0168%",
-            "apy_total_initial": "0.0168%"
+            "apy_out": "0.0088%",
+            "apy_out_initial": "0.0132%",
+            "apy_in": "0.0088%",
+            "apy_in_initial": "0.0264%",
+            "apy_total": "0.0176%",
+            "apy_total_initial": "0.0176%"
           }
         ]
       }

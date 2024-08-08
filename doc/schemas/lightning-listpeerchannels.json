@@ -1444,9 +1444,9 @@
                 "fee_proportional_millionths": 10
               }
             },
-            "last_stable_connection": 1722303707,
+            "last_stable_connection": 1723180583,
             "state": "CHANNELD_NORMAL",
-            "scratch_txid": "80aa008578b3b6924f2362146907e46ad83351d5b9b056bd8537befc3f1d7d65",
+            "scratch_txid": "59e1205ba555fa60e209d0747d39fa3ade8ff97c7e1c5d3191072a270b951424",
             "last_tx_fee_msat": 4221000,
             "lost_state": false,
             "feerate": {
@@ -1454,18 +1454,18 @@
               "perkb": 15020
             },
             "owner": "channeld",
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "direction": 1,
-            "channel_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
-            "funding_txid": "737d6835ddafd515ba9e9def733bb4e4211f6053a32b1422bf1c8cc240850f96",
-            "funding_outnum": 1,
+            "channel_id": "account003030303030303030303030303030303030303030303030303030303",
+            "funding_txid": "txid303030303030303030303030303030303030303030303030303030303030",
+            "funding_outnum": 0,
             "close_to_addr": "bcrt1p8c0ku4mpxq3443rss8e6rjwamztvv8yxvmxtetal5d0n6v39rlwqvfqy6n",
             "close_to": "51203e1f6e576130235ac47081f3a1c9ddd896c61c8666ccbcafbfa35f3d32251fdc",
             "private": false,
             "opener": "local",
             "alias": {
-              "local": "2240075x4300189x56636",
-              "remote": "3321841x5311416x1695"
+              "local": "10101660x4346733x51861",
+              "remote": "12808526x3487986x1150"
             },
             "features": [
               "option_static_remotekey",
@@ -1484,7 +1484,7 @@
             "fee_base_msat": 1,
             "fee_proportional_millionths": 10,
             "dust_limit_msat": 546000,
-            "max_total_htlc_in_msat": 18446744073709552000,
+            "max_total_htlc_in_msat": 18446744073709551615,
             "their_reserve_msat": 10000000,
             "our_reserve_msat": 10000000,
             "spendable_msat": 469223792,
@@ -1497,14 +1497,14 @@
             "max_accepted_htlcs": 483,
             "state_changes": [
               {
-                "timestamp": "2024-07-30T01:40:45.942Z",
+                "timestamp": "2024-08-09T05:15:21.870Z",
                 "old_state": "DUALOPEND_OPEN_COMMITTED",
                 "new_state": "DUALOPEND_AWAITING_LOCKIN",
                 "cause": "user",
                 "message": "Sigs exchanged, waiting for lock-in"
               },
               {
-                "timestamp": "2024-07-30T01:40:47.619Z",
+                "timestamp": "2024-08-09T05:15:23.820Z",
                 "old_state": "DUALOPEND_AWAITING_LOCKIN",
                 "new_state": "CHANNELD_NORMAL",
                 "cause": "user",
@@ -1565,9 +1565,9 @@
                 "fee_proportional_millionths": 10
               }
             },
-            "last_stable_connection": 1722303707,
+            "last_stable_connection": 1723180583,
             "state": "CHANNELD_NORMAL",
-            "scratch_txid": "80aa008578b3b6924f2362146907e46ad83351d5b9b056bd8537befc3f1d7d65",
+            "scratch_txid": "59e1205ba555fa60e209d0747d39fa3ade8ff97c7e1c5d3191072a270b951424",
             "last_tx_fee_msat": 4221000,
             "lost_state": false,
             "feerate": {
@@ -1575,18 +1575,18 @@
               "perkb": 15020
             },
             "owner": "channeld",
-            "short_channel_id": "109x1x1",
+            "short_channel_id": "109x1x0",
             "direction": 1,
-            "channel_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
-            "funding_txid": "737d6835ddafd515ba9e9def733bb4e4211f6053a32b1422bf1c8cc240850f96",
-            "funding_outnum": 1,
+            "channel_id": "account003030303030303030303030303030303030303030303030303030303",
+            "funding_txid": "txid303030303030303030303030303030303030303030303030303030303030",
+            "funding_outnum": 0,
             "close_to_addr": "bcrt1p8c0ku4mpxq3443rss8e6rjwamztvv8yxvmxtetal5d0n6v39rlwqvfqy6n",
             "close_to": "51203e1f6e576130235ac47081f3a1c9ddd896c61c8666ccbcafbfa35f3d32251fdc",
             "private": false,
             "opener": "local",
             "alias": {
-              "local": "2240075x4300189x56636",
-              "remote": "3321841x5311416x1695"
+              "local": "10101660x4346733x51861",
+              "remote": "12808526x3487986x1150"
             },
             "features": [
               "option_static_remotekey",
@@ -1605,7 +1605,7 @@
             "fee_base_msat": 1,
             "fee_proportional_millionths": 10,
             "dust_limit_msat": 546000,
-            "max_total_htlc_in_msat": 18446744073709552000,
+            "max_total_htlc_in_msat": 18446744073709551615,
             "their_reserve_msat": 10000000,
             "our_reserve_msat": 10000000,
             "spendable_msat": 469223792,
@@ -1618,14 +1618,14 @@
             "max_accepted_htlcs": 483,
             "state_changes": [
               {
-                "timestamp": "2024-07-30T01:40:45.942Z",
+                "timestamp": "2024-08-09T05:15:21.870Z",
                 "old_state": "DUALOPEND_OPEN_COMMITTED",
                 "new_state": "DUALOPEND_AWAITING_LOCKIN",
                 "cause": "user",
                 "message": "Sigs exchanged, waiting for lock-in"
               },
               {
-                "timestamp": "2024-07-30T01:40:47.619Z",
+                "timestamp": "2024-08-09T05:15:23.820Z",
                 "old_state": "DUALOPEND_AWAITING_LOCKIN",
                 "new_state": "CHANNELD_NORMAL",
                 "cause": "user",

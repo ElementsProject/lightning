@@ -76,9 +76,7 @@
           "blockheight": 131
         }
       },
-      "response": {
-        "blockheight": 131
-      }
+      "response": null
     }
   ]
 }

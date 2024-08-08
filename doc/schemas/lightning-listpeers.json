@@ -336,7 +336,7 @@
             "connected": true,
             "num_channels": 2,
             "netaddr": [
-              "127.0.0.1:34785"
+              "127.0.0.1:19736"
             ],
             "features": "08a0802a8a59a1"
           }
@@ -352,11 +352,20 @@
       "response": {
         "peers": [
           {
+            "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+            "connected": true,
+            "num_channels": 1,
+            "netaddr": [
+              "127.0.0.1:58780"
+            ],
+            "features": "08a0802a8a59a1"
+          },
+          {
             "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
             "connected": true,
             "num_channels": 2,
             "netaddr": [
-              "127.0.0.1:34785"
+              "127.0.0.1:19736"
             ],
             "features": "08a0802a8a59a1"
           },
@@ -365,16 +374,7 @@
             "connected": true,
             "num_channels": 1,
             "netaddr": [
-              "127.0.0.1:38251"
-            ],
-            "features": "08a0802a8a59a1"
-          },
-          {
-            "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-            "connected": true,
-            "num_channels": 1,
-            "netaddr": [
-              "127.0.0.1:47032"
+              "127.0.0.1:19738"
             ],
             "features": "08a0802a8a59a1"
           }

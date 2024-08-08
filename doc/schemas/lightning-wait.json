@@ -335,16 +335,7 @@
           "nextvalue": 15
         }
       },
-      "response": {
-        "subsystem": "sendpays",
-        "created": 15,
-        "details": {
-          "status": "pending",
-          "partid": 0,
-          "groupid": 1,
-          "payment_hash": "4c6f04eaf19dd956b616f1ba8718df40e387c4a56be36cf4e881a009cbf66899"
-        }
-      }
+      "response": null
     },
     {
       "request": {
@@ -356,16 +347,7 @@
           15
         ]
       },
-      "response": {
-        "subsystem": "sendpays",
-        "updated": 15,
-        "details": {
-          "status": "complete",
-          "partid": 0,
-          "groupid": 1,
-          "payment_hash": "4c6f04eaf19dd956b616f1ba8718df40e387c4a56be36cf4e881a009cbf66899"
-        }
-      }
+      "response": null
     }
   ]
 }
