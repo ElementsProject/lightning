@@ -148,9 +148,9 @@ clnrest_status() {
 	active_str="plugin-clnrest: REST server running"
 	disabled_str="plugin-clnrest: Killing plugin: disabled itself"
 
-	if grep -q "$active_str" "$logfile"; then
+	if grep -n "Opened log file" "$logfile" | cut -d : -f 1 | tail -1 | xargs -I{} tail -n +{} "$logfile" | grep -q "$active_str"; then
 		echo "active"
-	elif grep -q "$disabled_str" "$logfile"; then
+	elif grep -n "Opened log file" "$logfile" | cut -d : -f 1 | tail -1 | xargs -I{} tail -n +{} "$logfile" | grep -q "$disabled_str"; then
 		echo "disabled"
 	else
 		echo "waiting"
