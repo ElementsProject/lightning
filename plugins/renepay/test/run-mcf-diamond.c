@@ -194,6 +194,7 @@ int main(int argc, char *argv[])
 			AMOUNT_MSAT(1000000), // 1000 sats
 			 /* max_fee = */ AMOUNT_MSAT(10000), // 10 sats
 			 /* min probability = */ 0.8, // 80%
+			 /* base probability = */ 1.0,
 			 /* delay fee factor = */ 0,
 			 /* base fee penalty */ 0,
 			 /* prob cost factor = */ 1,

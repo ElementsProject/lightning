@@ -32,6 +32,7 @@ struct payment *payment_new(
 	    u64 prob_cost_factor_millionths,
 	    u64 riskfactor_millionths,
 	    u64 min_prob_success_millionths,
+	    u64 base_prob_success_millionths,
 	    bool use_shadow)
 {
 	struct payment *p = tal(ctx, struct payment);
@@ -80,6 +81,7 @@ struct payment *payment_new(
 	pinfo->prob_cost_factor = prob_cost_factor_millionths / 1e6;
 	pinfo->delay_feefactor = riskfactor_millionths / 1e6;
 	pinfo->min_prob_success = min_prob_success_millionths / 1e6;
+	pinfo->base_prob_success = base_prob_success_millionths / 1e6;
 	pinfo->use_shadow = use_shadow;
 
 
@@ -139,6 +141,7 @@ bool payment_update(
 		u64 prob_cost_factor_millionths,
 		u64 riskfactor_millionths,
 		u64 min_prob_success_millionths,
+		u64 base_prob_success_millionths,
 		bool use_shadow)
 {
 	assert(p);
@@ -162,6 +165,7 @@ bool payment_update(
 	pinfo->prob_cost_factor = prob_cost_factor_millionths / 1e6;
 	pinfo->delay_feefactor = riskfactor_millionths / 1e6;
 	pinfo->min_prob_success = min_prob_success_millionths / 1e6;
+	pinfo->base_prob_success = base_prob_success_millionths / 1e6;
 	pinfo->use_shadow = use_shadow;
 
 
