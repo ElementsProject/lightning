@@ -399,6 +399,7 @@ int main(int argc, char *argv[])
 			AMOUNT_MSAT(500000000),
 			 /* max_fee = */ AMOUNT_MSAT(1000000), // 1k sats
 			 /* min probability = */ 0.1,
+			 /* base probability = */ 1.0,
 			 /* delay fee factor = */ 1,
 			 /* base fee penalty */ 1,
 			 /* prob cost factor = */ 10,
@@ -564,6 +565,7 @@ int main(int argc, char *argv[])
 			 /* amount = */ AMOUNT_MSAT(500000000), //500k sats
 			 /* max_fee = */ AMOUNT_MSAT(1000000), // 1k sats
 			 /* min probability = */ 0.1, // 10%
+			 /* base probability = */ 1.0,
 			 /* delay fee factor = */ 1,
 			 /* base fee penalty */ 1,
 			 /* prob cost factor = */ 10,

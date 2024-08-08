@@ -151,6 +151,7 @@ struct route **get_routes(const tal_t *ctx,
 	struct route **routes = tal_arr(ctx, struct route *, 0);
 
 	double probability_budget = payment_info->min_prob_success;
+	const double base_probability = payment_info->base_prob_success;
 	double delay_feefactor = payment_info->delay_feefactor;
 	const double base_fee_penalty = payment_info->base_fee_penalty;
 	const double prob_cost_factor = payment_info->prob_cost_factor;
@@ -215,8 +216,11 @@ struct route **get_routes(const tal_t *ctx,
 		    minflow(this_ctx, gossmap, src, dst,
 			    uncertainty_get_chan_extra_map(uncertainty),
 			    disabled_bitmap, amount_to_deliver, feebudget,
-			    probability_budget, delay_feefactor,
-			    base_fee_penalty, prob_cost_factor, &errmsg);
+			    probability_budget,
+			    base_probability,
+			    delay_feefactor,
+			    base_fee_penalty,
+			    prob_cost_factor, &errmsg);
 		delay_feefactor_updated = false;
 
 		if (!flows) {

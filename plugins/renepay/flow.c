@@ -179,6 +179,15 @@ bool flowset_delivers(struct amount_msat *delivers, struct flow **flows)
 	return true;
 }
 
+/* FIXME: pass a pointer to const here */
+size_t flowset_size(struct flow **flows)
+{
+	size_t size = 0;
+	for (size_t i = 0; i < tal_count(flows); i++)
+		size += tal_count(flows[i]->path);
+	return size;
+}
+
 /* Checks if the flows satisfy the liquidity bounds imposed by the known maximum
  * liquidity and pending HTLCs.
  *

@@ -117,6 +117,7 @@ struct payment *payment_new(
 	u64 prob_cost_factor_millionths,
 	u64 riskfactor_millionths,
 	u64 min_prob_success_millionths,
+	u64 base_prob_success_millionths,
 	bool use_shadow,
 	const struct route_exclusion **exclusions);
 
@@ -131,6 +132,7 @@ bool payment_update(
 	u64 prob_cost_factor_millionths,
 	u64 riskfactor_millionths,
 	u64 min_prob_success_millionths,
+	u64 base_prob_success_millionths,
 	bool use_shadow,
 	const struct route_exclusion **exclusions);
 

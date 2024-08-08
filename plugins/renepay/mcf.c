@@ -331,6 +331,7 @@ struct pay_parameters {
 
 	struct amount_msat max_fee;
 	double min_probability;
+	double base_probability;
 	double delay_feefactor;
 	double base_fee_penalty;
 	u32 prob_cost_factor;
@@ -501,15 +502,19 @@ static bool linearize_channel(const struct pay_parameters *params,
 
 	capacity[0]=a;
 	cost[0]=0;
+	assert(params->base_probability > 5e-7);
+	assert(params->base_probability <= 1.0);
+	const double base_prob_factor = -log(params->base_probability);
+
 	for(size_t i=1;i<CHANNEL_PARTS;++i)
 	{
 		capacity[i] = MIN(params->cap_fraction[i]*(b-a), cap_on_capacity);
 		cap_on_capacity -= capacity[i];
 		assert(cap_on_capacity>=0);
 
-		cost[i] = params->cost_fraction[i]
+		cost[i] = (params->cost_fraction[i]*1.0/(b-a) + base_prob_factor)
 		          *params->amount.millisatoshis /* Raw: linearize_channel */
-		          *params->prob_cost_factor*1.0/(b-a);
+		          *params->prob_cost_factor;
 	}
 	return true;
 }
@@ -1264,6 +1269,7 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 	       // how many msats in excess we paid for not having msat accuracy
 	       // in the MCF solver
 	       struct amount_msat excess,
+	       const double base_probability,
 
 	       // error message
 	       char **fail)
@@ -1437,8 +1443,10 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 			excess = amount_msat(0);
 			fp->amount = delivered;
 
+
 			fp->success_prob =
-			    flow_probability(fp, gossmap, chan_extra_map);
+			    flow_probability(fp, gossmap, chan_extra_map)
+			    * pow(base_probability, tal_count(fp->path));
 			if (fp->success_prob < 0) {
 				if (fail)
 					*fail =
@@ -1603,6 +1611,7 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 		      struct chan_extra_map *chan_extra_map,
 		      const bitmap *disabled, struct amount_msat amount,
 		      struct amount_msat max_fee, double min_probability,
+		      double base_probability,
 		      double delay_feefactor, double base_fee_penalty,
 		      u32 prob_cost_factor, char **fail)
 {
@@ -1647,6 +1656,7 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 	params->delay_feefactor = delay_feefactor;
 	params->base_fee_penalty = base_fee_penalty;
 	params->prob_cost_factor = prob_cost_factor;
+	params->base_probability = base_probability;
 
 	// build the uncertainty network with linearization and residual arcs
 	struct linear_network *linear_network= init_linear_network(this_ctx, params, &errmsg);
@@ -1709,7 +1719,8 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 	// first flow found
 	best_flow_paths = get_flow_paths(
 	    this_ctx, params->gossmap, params->disabled, params->chan_extra_map,
-	    linear_network, residual_network, excess, &errmsg);
+	    linear_network, residual_network, excess, params->base_probability,
+	    &errmsg);
 	if (!best_flow_paths) {
 		if (fail)
 		*fail =
@@ -1720,7 +1731,8 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 
 	best_prob_success =
 	    flowset_probability(this_ctx, best_flow_paths, params->gossmap,
-				params->chan_extra_map, &errmsg);
+				params->chan_extra_map, &errmsg)
+	    * pow(params->base_probability, flowset_size(best_flow_paths));
 	if (best_prob_success < 0) {
 		if (fail)
 		*fail =
@@ -1764,7 +1776,8 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 		flow_paths =
 		    get_flow_paths(this_ctx, params->gossmap, params->disabled,
 				   params->chan_extra_map, linear_network,
-				   residual_network, excess, &errmsg);
+				   residual_network, excess, params->base_probability,
+				   &errmsg);
 		if(!flow_paths)
 		{
 			// get_flow_paths doesn't fail unless there is a bug.
@@ -1776,7 +1789,8 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 
 		double prob_success =
 		    flowset_probability(this_ctx, flow_paths, params->gossmap,
-					params->chan_extra_map, &errmsg);
+					params->chan_extra_map, &errmsg)
+		    * pow(params->base_probability, flowset_size(flow_paths));
 		if (prob_success < 0) {
 			// flowset_probability doesn't fail unless there is a bug.
 			if (fail)
