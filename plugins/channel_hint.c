@@ -75,10 +75,9 @@ bool channel_hint_update(const struct timeabs now, struct channel_hint *hint)
  * @return The initialized `channel_hint` or `NULL` if we encountered a parsing
  *         error.
  */
-/*
 struct channel_hint *channel_hint_from_json(const tal_t *ctx,
-						   const char *buffer,
-						   const jsmntok_t *toks)
+					    const char *buffer,
+					    const jsmntok_t *toks)
 {
 	const char *ret;
 	struct channel_hint *hint = tal(ctx, struct channel_hint);
@@ -94,7 +93,6 @@ struct channel_hint *channel_hint_from_json(const tal_t *ctx,
 		hint = tal_free(hint);
 	return hint;
 }
-*/
 
 struct channel_hint_set *channel_hint_set_new(const tal_t *ctx)
 {

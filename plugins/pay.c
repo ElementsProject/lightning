@@ -14,6 +14,7 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
+#include <plugins/channel_hint.h>
 #include <plugins/libplugin-pay.h>
 #include <stdio.h>
 
@@ -1511,6 +1512,18 @@ static struct command_result *json_pay(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+static struct command_result *handle_channel_hint_update(struct command *cmd,
+							 const char *buf,
+							 const jsmntok_t *param)
+{
+	struct channel_hint *hint = channel_hint_from_json(NULL, buf, param);
+
+	plugin_log(cmd->plugin, LOG_DBG, "Received a channel_hint for scidd=%s",
+		   fmt_short_channel_id_dir(tmpctx, &hint->scid));
+	/* TODO: Apply the change to the channel_hint_set in `hints` */
+	return command_done();
+}
+
 static const struct plugin_command commands[] = {
 	{
 		"paystatus",
@@ -1531,15 +1544,23 @@ static const char *notification_topics[] = {
 	"channel_hint_update",
 };
 
+static const struct plugin_notification notification_subs[] = {
+    {
+	"channel_hint_update",
+	handle_channel_hint_update,
+    },
+};
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
 	plugin_main(argv, init, NULL, PLUGIN_RESTARTABLE, true, NULL, commands,
-		    ARRAY_SIZE(commands), NULL, 0, NULL, 0,
-		    notification_topics, ARRAY_SIZE(notification_topics),
+		    ARRAY_SIZE(commands), notification_subs,
+		    ARRAY_SIZE(notification_subs), NULL, 0, notification_topics,
+		    ARRAY_SIZE(notification_topics),
 		    plugin_option("disable-mpp", "flag",
-				  "Disable multi-part payments.",
-				  flag_option, flag_jsonfmt, &disablempp),
+				  "Disable multi-part payments.", flag_option,
+				  flag_jsonfmt, &disablempp),
 		    NULL);
 	io_poll_override(libplugin_pay_poll);
 	tal_free(global_hints);
