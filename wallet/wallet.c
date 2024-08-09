@@ -281,6 +281,15 @@ bool wallet_update_output_status(struct wallet *w,
 {
 	struct db_stmt *stmt;
 	size_t changes;
+
+	/* FIXME(vincenzopalazzo): There are different nasty case at this point that are
+	 *
+	 * - moving from OUTPUT_STATE_SPENT -> OUTPUT_STATE_CONFIRMENT required
+	 * to set the spendheight to null
+	 * - moving from OUTPUT_STATE_CONFIRMED -> OUTPUT_STATE_SPENT required
+	 * to set the spendheight.
+	 *
+	 * in both bases the following code do not do that. */
 	if (oldstatus != OUTPUT_STATE_ANY) {
 		stmt = db_prepare_v2(
 		    w->db, SQL("UPDATE outputs SET status=? WHERE status=? AND "
@@ -297,6 +306,32 @@ bool wallet_update_output_status(struct wallet *w,
 		db_bind_txid(stmt, &outpoint->txid);
 		db_bind_int(stmt, outpoint->n);
 	}
+	db_exec_prepared_v2(stmt);
+	changes = db_count_changes(stmt);
+	tal_free(stmt);
+	return changes > 0;
+}
+
+bool wallet_force_update_output_status(struct wallet *w,
+				       const struct bitcoin_txid *prev_txid,
+				       const u64 *prev_vout,
+				       enum output_status status,
+				       const u64 *spentheight)
+{
+	struct db_stmt *stmt;
+	size_t changes;
+
+	stmt = db_prepare_v2(
+		w->db, SQL("UPDATE outputs SET status=?, spend_height=? WHERE "
+			   "prev_out_tx=? AND prev_out_index=?"));
+	db_bind_int(stmt, output_status_in_db(status));
+	if (!spentheight)
+		db_bind_null(stmt);
+	else
+		db_bind_u64(stmt, *spentheight);
+	db_bind_txid(stmt, prev_txid);
+	db_bind_int(stmt, *prev_vout);
+
 	db_exec_prepared_v2(stmt);
 	changes = db_count_changes(stmt);
 	tal_free(stmt);
