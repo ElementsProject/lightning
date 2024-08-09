@@ -757,6 +757,23 @@ static struct command_result *json_restorefrompeer(struct command *cmd,
 				     	    NULL);
 }
 
+static struct command_result *json_getemergencyrecoverdata(struct command *cmd,
+						    	const char *buf,
+						    	const jsmntok_t *params)
+{
+	u8 *filedata;
+	if (!param(cmd, buf, params, NULL))
+		return command_param_failed();
+
+	struct json_stream *response;
+
+	filedata = get_file_data(tmpctx, cmd->plugin);
+	response = jsonrpc_stream_success(cmd);
+	json_add_hex(response, "filedata", filedata, tal_bytelen(filedata));
+
+	return command_finished(cmd, response);
+}
+
 static const char *init(struct plugin *p,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
@@ -816,6 +833,10 @@ static const struct plugin_command commands[] = {
 	{
 		"emergencyrecover",
 		json_emergencyrecover,
+	},
+	{
+		"getemergencyrecoverdata",
+		json_getemergencyrecoverdata,
 	},
 	{
 		"restorefrompeer",
