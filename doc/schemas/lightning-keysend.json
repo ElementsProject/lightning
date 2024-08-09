@@ -235,12 +235,12 @@
       },
       "response": {
         "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-        "payment_hash": "b6f88603008a9f7dd84b1b94c7b972c8efbaf0b86c8d3c04512955992da9028e",
-        "created_at": 1706315742.6861734,
+        "payment_hash": "paymenthash0060606060606060606060606060606060606060606060606060606",
+        "created_at": 1737020202,
         "parts": 1,
         "amount_msat": 10000,
         "amount_sent_msat": 10001,
-        "payment_preimage": "7178cf708e34dce816fc35aa692a65e1f85b92ae03bbc8ae6543302511823174",
+        "payment_preimage": "paymentpreimage0010101010101010101010101010101010101010101010101",
         "status": "complete"
       }
     },
@@ -249,7 +249,7 @@
         "id": "example:keysend#2",
         "method": "keysend",
         "params": {
-          "destination": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+          "destination": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
           "amount_msat": 10000000,
           "extratlvs": {
             "133773310": "68656c6c6f776f726c64",
@@ -258,13 +258,13 @@
         }
       },
       "response": {
-        "destination": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-        "payment_hash": "e8474eea8d5673e8407ef5f4924e58479b51a68afd136384683d5d6a97c9520d",
-        "created_at": 1708640424.1810749,
+        "destination": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
+        "payment_hash": "paymenthash0070707070707070707070707070707070707070707070707070707",
+        "created_at": 1737030303,
         "parts": 1,
         "amount_msat": 10000000,
-        "amount_sent_msat": 10000000,
-        "payment_preimage": "40e47272ea7da20c57a2381d81a5513ec03bd8ead9d51fbd2a91ec76d3f4bcbf",
+        "amount_sent_msat": 10000202,
+        "payment_preimage": "paymentpreimage0020202020202020202020202020202020202020202020202",
         "status": "complete"
       }
     },
@@ -278,19 +278,10 @@
           "routehints": [
             [
               {
-                "scid": "4615051x2233541x57738",
+                "scid": "2979196x13682100x12732",
                 "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-                "feebase": 1,
+                "feebase": "1msat",
                 "feeprop": 10,
-                "expirydelta": 9
-              }
-            ],
-            [
-              {
-                "scid": "1x2x3",
-                "id": "020202020202020202020202020202020202020202020202020202020202020202",
-                "feebase": 1,
-                "feeprop": 1,
                 "expirydelta": 9
               }
             ]
@@ -299,12 +290,12 @@
       },
       "response": {
         "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-        "payment_hash": "56e12e6f45120bef7385c9bf307319eaa6a1b9160cdb3e62a3f492abf5bfa4bc",
-        "created_at": 1708640437.2895157,
-        "parts": 1,
+        "payment_hash": "paymenthash0080808080808080808080808080808080808080808080808080808",
+        "created_at": 1737040404,
+        "parts": 2,
         "amount_msat": 10000,
         "amount_sent_msat": 10001,
-        "payment_preimage": "682870b8f96e2aed1c86694dbb2c3e64cd396b9bba9fafd824d90eb0bd371b85",
+        "payment_preimage": "paymentpreimage0030303030303030303030303030303030303030303030303",
         "status": "complete"
       }
     }

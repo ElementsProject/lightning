@@ -86,14 +86,14 @@
         "id": "example:commando-blacklist#1",
         "method": "commando-blacklist",
         "params": {
-          "start": 2
+          "start": 1
         }
       },
       "response": {
         "blacklist": [
           {
-            "start": 2,
-            "end": 2
+            "start": 1,
+            "end": 1
           }
         ]
       }
@@ -103,37 +103,15 @@
         "id": "example:commando-blacklist#2",
         "method": "commando-blacklist",
         "params": {
-          "start": 5,
-          "end": 7
+          "start": 2,
+          "end": 3
         }
       },
       "response": {
         "blacklist": [
           {
-            "start": 2,
-            "end": 2
-          },
-          {
-            "start": 5,
-            "end": 7
-          }
-        ]
-      }
-    },
-    {
-      "request": {
-        "id": "example:commando-blacklist#3",
-        "method": "commando-blacklist",
-        "params": {
-          "start": 3,
-          "end": 4
-        }
-      },
-      "response": {
-        "blacklist": [
-          {
-            "start": 2,
-            "end": 7
+            "start": 1,
+            "end": 3
           }
         ]
       }

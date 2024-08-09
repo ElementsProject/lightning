@@ -41,5 +41,27 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:preapproveinvoice#1",
+        "method": "preapproveinvoice",
+        "params": {
+          "bolt11": "lnbcrt100n1pnt2000000bolt11005050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505"
+        }
+      },
+      "response": {}
+    },
+    {
+      "request": {
+        "id": "example:preapproveinvoice#2",
+        "method": "preapproveinvoice",
+        "params": [
+          "lnbcrt100n1pnt2000000bolt11invl025000000000bolt11invl025000000000bolt11invl025000000000bolt11invl025000000000bolt11invl025000000000bolt11invl025000000000bolt11invl025000000000bolt11invl025000000000bolt11invl025000000000bolt11invl025000"
+        ]
+      },
+      "response": {}
+    }
   ]
 }

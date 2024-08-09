@@ -380,55 +380,103 @@
       "request": {
         "id": "example:listforwards#1",
         "method": "listforwards",
-        "params": {}
+        "params": {
+          "in_channel": "109x1x0",
+          "out_channel": "111x1x1",
+          "status": "settled"
+        }
       },
       "response": {
         "forwards": [
           {
             "created_index": 1,
             "updated_index": 1,
-            "in_channel": "103x1x0",
-            "in_htlc_id": 0,
-            "out_channel": "104x1x0",
-            "out_htlc_id": 0,
-            "in_msat": 100001001,
-            "out_msat": 100000000,
-            "fee_msat": 1001,
+            "in_channel": "109x1x0",
+            "in_htlc_id": 1,
+            "out_channel": "111x1x1",
+            "out_htlc_id": 1,
+            "in_msat": 10001,
+            "out_msat": 10000,
+            "fee_msat": 1,
             "status": "settled",
             "style": "tlv",
-            "received_time": 1706229285.5934534,
-            "resolved_time": 1706229288.830004
+            "received_time": 1723180552.0163267,
+            "resolved_time": 1723180553.5396442
           },
           {
             "created_index": 2,
             "updated_index": 2,
-            "in_channel": "103x1x0",
-            "in_htlc_id": 1,
-            "out_channel": "105x1x0",
-            "out_htlc_id": 0,
-            "in_msat": 100001001,
-            "out_msat": 100000000,
-            "fee_msat": 1001,
-            "status": "failed",
+            "in_channel": "109x1x0",
+            "in_htlc_id": 2,
+            "out_channel": "111x1x1",
+            "out_htlc_id": 2,
+            "in_msat": 10001,
+            "out_msat": 10000,
+            "fee_msat": 1,
+            "status": "settled",
             "style": "tlv",
-            "received_time": 1706229290.0289993,
-            "resolved_time": 1706229292.9487684
+            "received_time": 1723180554.337581,
+            "resolved_time": 1723180555.956251
           },
           {
             "created_index": 3,
             "updated_index": 3,
-            "in_channel": "103x1x0",
-            "in_htlc_id": 2,
-            "out_channel": "106x1x0",
-            "out_htlc_id": 0,
-            "in_msat": 100001000,
-            "out_msat": 99999999,
-            "fee_msat": 1001,
-            "status": "local_failed",
-            "failcode": 16392,
-            "failreason": "WIRE_PERMANENT_CHANNEL_FAILURE",
+            "in_channel": "109x1x0",
+            "in_htlc_id": 3,
+            "out_channel": "111x1x1",
+            "out_htlc_id": 3,
+            "in_msat": 10000202,
+            "out_msat": 10000101,
+            "fee_msat": 101,
+            "status": "settled",
             "style": "tlv",
-            "received_time": 1706229295.3175724
+            "received_time": 1723180556.7294333,
+            "resolved_time": 1723180559.27929
+          },
+          {
+            "created_index": 5,
+            "updated_index": 4,
+            "in_channel": "109x1x0",
+            "in_htlc_id": 5,
+            "out_channel": "111x1x1",
+            "out_htlc_id": 4,
+            "in_msat": 10001,
+            "out_msat": 10000,
+            "fee_msat": 1,
+            "status": "settled",
+            "style": "tlv",
+            "received_time": 1723180561.685372,
+            "resolved_time": 1723180563.1178942
+          },
+          {
+            "created_index": 6,
+            "updated_index": 5,
+            "in_channel": "109x1x0",
+            "in_htlc_id": 6,
+            "out_channel": "111x1x1",
+            "out_htlc_id": 5,
+            "in_msat": 50001,
+            "out_msat": 50000,
+            "fee_msat": 1,
+            "status": "settled",
+            "style": "tlv",
+            "received_time": 1723180564.0419087,
+            "resolved_time": 1723180565.5786428
+          },
+          {
+            "created_index": 7,
+            "updated_index": 6,
+            "in_channel": "109x1x0",
+            "in_htlc_id": 7,
+            "out_channel": "111x1x1",
+            "out_htlc_id": 7,
+            "in_msat": 1002,
+            "out_msat": 1001,
+            "fee_msat": 1,
+            "status": "settled",
+            "style": "tlv",
+            "received_time": 1723180567.3683016,
+            "resolved_time": 1723180569.9196622
           }
         ]
       }
@@ -437,14 +485,125 @@
       "request": {
         "id": "example:listforwards#2",
         "method": "listforwards",
-        "params": {
-          "in_channel": "0x1x2",
-          "out_channel": "0x2x3",
-          "status": "settled"
-        }
+        "params": {}
       },
       "response": {
-        "forwards": []
+        "forwards": [
+          {
+            "created_index": 1,
+            "updated_index": 1,
+            "in_channel": "109x1x0",
+            "in_htlc_id": 1,
+            "out_channel": "111x1x1",
+            "out_htlc_id": 1,
+            "in_msat": 10001,
+            "out_msat": 10000,
+            "fee_msat": 1,
+            "status": "settled",
+            "style": "tlv",
+            "received_time": 1723180552.0163267,
+            "resolved_time": 1723180553.5396442
+          },
+          {
+            "created_index": 2,
+            "updated_index": 2,
+            "in_channel": "109x1x0",
+            "in_htlc_id": 2,
+            "out_channel": "111x1x1",
+            "out_htlc_id": 2,
+            "in_msat": 10001,
+            "out_msat": 10000,
+            "fee_msat": 1,
+            "status": "settled",
+            "style": "tlv",
+            "received_time": 1723180554.337581,
+            "resolved_time": 1723180555.956251
+          },
+          {
+            "created_index": 3,
+            "updated_index": 3,
+            "in_channel": "109x1x0",
+            "in_htlc_id": 3,
+            "out_channel": "111x1x1",
+            "out_htlc_id": 3,
+            "in_msat": 10000202,
+            "out_msat": 10000101,
+            "fee_msat": 101,
+            "status": "settled",
+            "style": "tlv",
+            "received_time": 1723180556.7294333,
+            "resolved_time": 1723180559.27929
+          },
+          {
+            "created_index": 4,
+            "in_channel": "109x1x0",
+            "in_htlc_id": 4,
+            "out_channel": "2979196x13682100x12732",
+            "in_msat": 10001,
+            "status": "local_failed",
+            "failcode": 16394,
+            "failreason": "WIRE_UNKNOWN_NEXT_PEER",
+            "style": "tlv",
+            "received_time": 1723180560.07255
+          },
+          {
+            "created_index": 5,
+            "updated_index": 4,
+            "in_channel": "109x1x0",
+            "in_htlc_id": 5,
+            "out_channel": "111x1x1",
+            "out_htlc_id": 4,
+            "in_msat": 10001,
+            "out_msat": 10000,
+            "fee_msat": 1,
+            "status": "settled",
+            "style": "tlv",
+            "received_time": 1723180561.685372,
+            "resolved_time": 1723180563.1178942
+          },
+          {
+            "created_index": 6,
+            "updated_index": 5,
+            "in_channel": "109x1x0",
+            "in_htlc_id": 6,
+            "out_channel": "111x1x1",
+            "out_htlc_id": 5,
+            "in_msat": 50001,
+            "out_msat": 50000,
+            "fee_msat": 1,
+            "status": "settled",
+            "style": "tlv",
+            "received_time": 1723180564.0419087,
+            "resolved_time": 1723180565.5786428
+          },
+          {
+            "created_index": 7,
+            "updated_index": 6,
+            "in_channel": "109x1x0",
+            "in_htlc_id": 7,
+            "out_channel": "111x1x1",
+            "out_htlc_id": 7,
+            "in_msat": 1002,
+            "out_msat": 1001,
+            "fee_msat": 1,
+            "status": "settled",
+            "style": "tlv",
+            "received_time": 1723180567.3683016,
+            "resolved_time": 1723180569.9196622
+          },
+          {
+            "created_index": 8,
+            "in_channel": "109x1x0",
+            "in_htlc_id": 8,
+            "out_channel": "111x1x1",
+            "in_msat": 10001,
+            "status": "local_failed",
+            "failcode": 16394,
+            "failreason": "WIRE_UNKNOWN_NEXT_PEER",
+            "style": "tlv",
+            "received_time": 1723180574.669274
+          }
+        ]
       }
     }
   ]

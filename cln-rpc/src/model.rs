@@ -8148,13 +8148,14 @@ pub mod responses {
 	    pub parts: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_preimage: Option<Secret>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub notes: Option<Vec<String>>,
 	    // Path `RenePayStatus.paystatus[].status`
 	    pub status: RenepaystatusPaystatusStatus,
 	    pub amount_msat: Amount,
 	    pub bolt11: String,
 	    pub created_at: f64,
 	    pub groupid: u32,
-	    pub notes: Vec<String>,
 	    pub payment_hash: Sha256,
 	}
 

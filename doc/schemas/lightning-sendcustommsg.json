@@ -61,10 +61,10 @@
   "examples": [
     {
       "request": {
-        "id": "example:sendcustommsg#5",
+        "id": "example:sendcustommsg#1",
         "method": "sendcustommsg",
         "params": {
-          "node_id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+          "node_id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
           "msg": "77770012"
         }
       },

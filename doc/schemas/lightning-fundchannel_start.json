@@ -210,15 +210,24 @@
       "request": {
         "id": "example:fundchannel_start#1",
         "method": "fundchannel_start",
-        "params": {
-          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-          "amount": 16777216,
-          "announce": true
-        }
+        "params": [
+          "027ba5906fad81fcdbb774b4c806eb572b7fac3bee4720b12c44e7f70931d4b7cc",
+          16777216
+        ]
       },
       "response": {
-        "funding_address": "bcrt1qtwxd8wg5eanumk86vfeujvp48hfkgannf77evggzct048wggsrxsum2pmm",
-        "scriptpubkey": "00205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd",
+        "funding_address": "bcrt1q5ptrvwlgcldm2ygf3nzsl09zfpp7dmtduqlczer97xvc4x5z5zwsc2ulv4",
+        "scriptpubkey": "0020a056363be8c7dbb511098cc50fbca24843e6ed6de03f816465f1998a9a82a09d",
+        "channel_type": {
+          "bits": [
+            12,
+            22
+          ],
+          "names": [
+            "static_remotekey/even",
+            "anchors/even"
+          ]
+        },
         "warning_usage": "The funding transaction MUST NOT be broadcast until after channel establishment has been successfully completed by running `fundchannel_complete`"
       }
     },
@@ -227,14 +236,13 @@
         "id": "example:fundchannel_start#2",
         "method": "fundchannel_start",
         "params": {
-          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-          "amount": "100000sat",
-          "announce": true
+          "id": "027ba5906fad81fcdbb774b4c806eb572b7fac3bee4720b12c44e7f70931d4b7cc",
+          "amount": 16777216
         }
       },
       "response": {
-        "funding_address": "bcrt1qtwxd8wg5eanumk86vfeujvp48hfkgannf77evggzct048wggsrxsum2pmm",
-        "scriptpubkey": "00205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd",
+        "funding_address": "bcrt1q4hz6a4gtecfmy8z870cwkq2gzc0t7n9u9pu23689u55ghwewemqsv4v2zs",
+        "scriptpubkey": "0020adc5aed50bce13b21c47f3f0eb0148161ebf4cbc2878a8e8e5e5288bbb2ecec1",
         "channel_type": {
           "bits": [
             12,

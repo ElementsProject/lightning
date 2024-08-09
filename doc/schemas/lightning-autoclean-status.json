@@ -438,7 +438,8 @@
       "response": {
         "autoclean": {
           "expiredinvoices": {
-            "enabled": false,
+            "enabled": true,
+            "age": 300,
             "cleaned": 0
           }
         }
@@ -462,7 +463,7 @@
           },
           "succeededpays": {
             "enabled": false,
-            "cleaned": 0
+            "cleaned": 7
           },
           "failedpays": {
             "enabled": false,
@@ -474,7 +475,7 @@
           },
           "expiredinvoices": {
             "enabled": true,
-            "age": 2,
+            "age": 300,
             "cleaned": 0
           }
         }

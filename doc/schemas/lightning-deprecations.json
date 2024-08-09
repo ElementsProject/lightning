@@ -45,6 +45,16 @@
         "id": "example:deprecations#1",
         "method": "deprecations",
         "params": {
+          "enable": true
+        }
+      },
+      "response": {}
+    },
+    {
+      "request": {
+        "id": "example:deprecations#2",
+        "method": "deprecations",
+        "params": {
           "enable": false
         }
       },

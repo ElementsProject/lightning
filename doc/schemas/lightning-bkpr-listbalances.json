@@ -148,7 +148,60 @@
             "account": "wallet",
             "balances": [
               {
-                "balance_msat": 2222222000,
+                "balance_msat": 202500327000,
+                "coin_type": "bcrt"
+              }
+            ]
+          },
+          {
+            "account": "account007070707070707070707070707070707070707070707070707070707",
+            "peer_id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "we_opened": false,
+            "account_closed": true,
+            "account_resolved": true,
+            "resolved_at_block": 121,
+            "balances": [
+              {
+                "balance_msat": 0,
+                "coin_type": "bcrt"
+              }
+            ]
+          },
+          {
+            "account": "account008080808080808080808080808080808080808080808080808080808",
+            "peer_id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
+            "we_opened": true,
+            "account_closed": true,
+            "account_resolved": false,
+            "balances": [
+              {
+                "balance_msat": 0,
+                "coin_type": "bcrt"
+              }
+            ]
+          },
+          {
+            "account": "account009090909090909090909090909090909090909090909090909090909",
+            "peer_id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "we_opened": false,
+            "account_closed": false,
+            "account_resolved": false,
+            "balances": [
+              {
+                "balance_msat": 0,
+                "coin_type": "bcrt"
+              }
+            ]
+          },
+          {
+            "account": "account010101010101010101010101010101010101010101010101010101010",
+            "peer_id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
+            "we_opened": true,
+            "account_closed": false,
+            "account_resolved": false,
+            "balances": [
+              {
+                "balance_msat": 1000000000,
                 "coin_type": "bcrt"
               }
             ]

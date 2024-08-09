@@ -333,7 +333,7 @@
   "examples": [
     {
       "description": [
-        "This example opens three channels at once, with amounts 200,000 sats, 3,000,000 sats",
+        "This example opens three channels at once, with amounts 20,000 sats, 30,000 sats",
         "and the final channel using all remaining funds (actually, capped at 16,777,215 sats",
         "because large-channels is not enabled):"
       ],
@@ -343,38 +343,70 @@
         "params": {
           "destinations": [
             {
-              "id": "0201f42e167959c74d396ac57652fcea63c63940f78e8239cce5720df4d85ef857@127.0.0.1:7272",
-              "amount": "200000sat"
+              "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d@127.0.0.1:19736",
+              "amount": "20000sat"
             },
             {
-              "id": "0304a2468065535f9459567686e0f02b40f06e341d3eb2a62ec6763bcf2ccfd207@127.0.0.1:7373",
-              "amount": "0.03btc"
+              "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199@127.0.0.1:19737",
+              "amount": "0.0003btc"
             },
             {
-              "id": "0391f4c475050bb15871da5a72b1f3a1798de3d2e5fb4ffa262899b8d8e1f0b764@127.0.0.1:7474",
+              "id": "032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e@127.0.0.1:19738",
               "amount": "all"
             }
-          ]
+          ],
+          "feerate": "10000perkw",
+          "commitment_feerate": "2000perkw"
         }
       },
       "response": {
-        "tx": "02000000000101fbe3c68db87b72f82c3f5447b0bc032469c78e71f229ac99c230807ff378a9d80000000000fdffffff04400d0300000000002200202e9897ed5f9b237aa27fd5d02d24157cd452b0d3f0a5bb03d38ff73f9f8f384bffffff0000000000220020439d797ada249e1e12f8d27cabb7330de3c8de0456fb54892deb7b9c72b0ff7c1dc9b50400000000225120046e3966a2d5e43c1f1e0676161905782e1e7c00811485c618f5144f328f4e2bc0c62d0000000000220020e36fd5c03c3586c3763d8b4c9d8650f396ff1c8a460137fb09b60ee82536a3b20140ea4d564e91c919b50a2d32886f1d414de773491119beb1364b92f15d6d03e1810e5ddea89c265e42f2e96bb028dfb3aa0b5b30072ddcc78daad727503c53e37fa9010000",
-        "txid": "90dc53922b70628fc9e7804ad0b8cd0fb41f050d94ffa2db3b16e918c96c022a",
+        "tx": "02000000000101txtxtx16161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616",
+        "txid": "txid595959595959595959595959595959595959595959595959595959595959",
         "channel_ids": [
           {
-            "id": "0201f42e167959c74d396ac57652fcea63c63940f78e8239cce5720df4d85ef857",
-            "channel_id": "25c8253e66a860d17916cc0c21386e310eba9900030a68ec6ff6f59a8401a872",
-            "outnum": "0"
+            "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            "channel_id": "a9c39915cfa357205e3597ec62d92c541a2be7f44b9c6292e126aeddb11bf97e",
+            "channel_type": {
+              "bits": [
+                12,
+                22
+              ],
+              "names": [
+                "static_remotekey/even",
+                "anchors/even"
+              ]
+            },
+            "outnum": 3
           },
           {
-            "id": "0304a2468065535f9459567686e0f02b40f06e341d3eb2a62ec6763bcf2ccfd207",
-            "channel_id": "51749d724892a406896f6bf2e2f8c0b03399d0436691f294839897fa167e6521",
-            "outnum": "3"
+            "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
+            "channel_id": "a4a379248e49d207cc984646e632e1a31105a85708b9d6d961a5018fdd489f5a",
+            "channel_type": {
+              "bits": [
+                12,
+                22
+              ],
+              "names": [
+                "static_remotekey/even",
+                "anchors/even"
+              ]
+            },
+            "outnum": 2
           },
           {
-            "id": "0391f4c475050bb15871da5a72b1f3a1798de3d2e5fb4ffa262899b8d8e1f0b764",
-            "channel_id": "7e1414e72c081f0754fa18c1657cedabe696aa9ffeaf0b936bfbe3a28f2829d1",
-            "outnum": "1"
+            "id": "032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e",
+            "channel_id": "e13472d6512413eb1bf03b9a0bb391d0e4152fd337fa6d1014e3de5e131918d9",
+            "channel_type": {
+              "bits": [
+                12,
+                22
+              ],
+              "names": [
+                "static_remotekey/even",
+                "anchors/even"
+              ]
+            },
+            "outnum": 1
           }
         ],
         "failed": []
@@ -387,51 +419,15 @@
         "params": {
           "destinations": [
             {
-              "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59@localhost:41939",
-              "amount": 50000
-            }
-          ],
-          "feerate": "10000perkw",
-          "commitment_feerate": "2000perkw"
-        }
-      },
-      "response": {
-        "tx": "0200000000010100a8ceb6f76c49c8c0c809ca359461540708a9a5ac56e56e6a7aaafb35f4d3850000000000fdffffff0250c30000000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd0623ff030000000022512063ffee4ea7d51e6cadf9086e286a2527922aaa25b8c53aebf32fa32a0a627f5a02473044022064763837f2cc84507eb1fc28c9e95d51174e1da4b8755da8e67fe21e37d0a8b402206295d0f19625f014819361a20572b936d81f6c5ba419e56997e882f3a7be094a012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf66000000",
-        "txid": "ecba36e93bcf40542d43a05ef550bb0e4be51d766aa2ec8c5640a0d431ab0d06",
-        "channel_ids": [
-          {
-            "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-            "channel_id": "060dab31d4a040568ceca26a761de54b0ebb50f55ea0432d5440cf3be936baec",
-            "channel_type": {
-              "bits": [
-                12
-              ],
-              "names": [
-                "static_remotekey/even"
-              ]
-            },
-            "outnum": 0
-          }
-        ],
-        "failed": []
-      }
-    },
-    {
-      "request": {
-        "id": "example:multifundchannel#3",
-        "method": "multifundchannel",
-        "params": {
-          "destinations": [
-            {
-              "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59@localhost:44663",
+              "id": "03a389b3a2f7aa6f9f4ccc19f2bd7a2eba83596699e86b715caaaa147fc37f3144@127.0.0.1:19736",
               "amount": 50000
             },
             {
-              "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d@localhost:34631",
+              "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199@127.0.0.1:19737",
               "amount": 50000
             },
             {
-              "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199@localhost:34617",
+              "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518@127.0.0.1:19734",
               "amount": 50000
             }
           ],
@@ -439,12 +435,12 @@
         }
       },
       "response": {
-        "tx": "020000000001023041611dac05004825ab64781b4a33bf622380bf90196fae689196b1850a1f8f0000000000fdffffff5646519c565466c9588a88400ec71a39a2c0b6988beadb32491a13d9b89f85360100000000fdffffff0250c3000000000000220020181492c29a989f099fd2cf412c74b192dd095e81f4e4f6bec45bd1fbfdd2cfd983720000000000002251203e8a03f678bb7ca048baecc39788530560ea049816d604f72925e425288446c80140caa3b93c6667e4fe0026417cc87ae9dfd16d80018e7c6dcd6dfcee4d6cab7c7e84181baeb95ba25934ad1aa6b57f83c8287bf1b727123350b35549a3abe15b060140b3c6626b9b57081cc7eb5e4f518669764d265fb84316d8fb610e19ede13c5a370c1072861b909ec923acec980adb4a3e488ee3c6f9c49164bd4596945b52f62678000000",
-        "txid": "1fcc6d46200443ad21e3a1a1628b862bafd0d75c0b4454f5494957097bc7930d",
+        "tx": "02000000000101txtxtx17171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717",
+        "txid": "txid606060606060606060606060606060606060606060606060606060606060",
         "channel_ids": [
           {
             "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
-            "channel_id": "0d93c77b09574949f554440b5cd7d0af2b868b62a1a1e321ad430420466dcc1f",
+            "channel_id": "09eb55872cd9039ecd08281af756e23b15aad4129fd6a9bcd71b472114ebf43a",
             "channel_type": {
               "bits": [
                 12,
@@ -460,19 +456,19 @@
         ],
         "failed": [
           {
-            "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "id": "03a389b3a2f7aa6f9f4ccc19f2bd7a2eba83596699e86b715caaaa147fc37f3144",
             "method": "connect",
             "error": {
               "code": 401,
-              "message": "All addresses failed: 127.0.0.1:44663: Connection establishment: Connection refused. "
+              "message": "All addresses failed: 127.0.0.1:19736: Cryptographic handshake: peer closed connection (wrong key?). "
             }
           },
           {
-            "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
             "method": "connect",
             "error": {
-              "code": 401,
-              "message": "All addresses failed: 127.0.0.1:34631: Connection establishment: Connection refused. "
+              "code": 402,
+              "message": "disconnected during connection"
             }
           }
         ]

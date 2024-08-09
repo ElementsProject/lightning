@@ -416,6 +416,7 @@ class BitcoinD(TailableProc):
             '-debug=mempoolrej',
             '-debug=rpc',
             '-debug=validation',
+            '-rpcthreads=20',
         ]
         # For up to and including 0.16.1, this needs to be in main section.
         BITCOIND_CONFIG['rpcport'] = rpcport

@@ -83,7 +83,7 @@
       "response": {
         "datastoreusage": {
           "key": "[]",
-          "total_bytes": 0
+          "total_bytes": 55
         }
       }
     },
@@ -92,13 +92,16 @@
         "id": "example:datastoreusage#2",
         "method": "datastoreusage",
         "params": {
-          "key": "a"
+          "key": [
+            "test",
+            "name"
+          ]
         }
       },
       "response": {
         "datastoreusage": {
-          "key": "[a]",
-          "total_bytes": 32
+          "key": "[test,name]",
+          "total_bytes": 33
         }
       }
     },
@@ -107,16 +110,13 @@
         "id": "example:datastoreusage#3",
         "method": "datastoreusage",
         "params": {
-          "key": [
-            "a",
-            "thisissomelongkeythattriestostore46bytesofdata"
-          ]
+          "key": "otherkey"
         }
       },
       "response": {
         "datastoreusage": {
-          "key": "[a,thisissomelongkeythattriestostore46bytesofdata]",
-          "total_bytes": 77
+          "key": "[otherkey]",
+          "total_bytes": 14
         }
       }
     }

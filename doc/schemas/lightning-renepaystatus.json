@@ -40,8 +40,7 @@
             "created_at",
             "groupid",
             "amount_msat",
-            "status",
-            "notes"
+            "status"
           ],
           "properties": {
             "bolt11": {
@@ -135,5 +134,32 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:renepaystatus#1",
+        "method": "renepaystatus",
+        "params": {
+          "invstring": "lnbcrt100n1pnt2000000bolt11008080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808"
+        }
+      },
+      "response": {
+        "paystatus": [
+          {
+            "bolt11": "lnbcrt100n1pnt2000000bolt11010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010",
+            "amount_msat": 400000,
+            "payment_hash": "paymenthash0191919191919191919191919191919191919191919191919191919",
+            "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "created_at": 1737111111,
+            "groupid": 1,
+            "parts": 2,
+            "status": "complete",
+            "payment_preimage": "paymentpreimage0101010101010101010101010101010101010101010101010",
+            "amount_sent_msat": 400000
+          }
+        ]
+      }
+    }
   ]
 }

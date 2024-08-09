@@ -96,6 +96,27 @@
         "id": "example:deldatastore#1",
         "method": "deldatastore",
         "params": {
+          "key": [
+            "test",
+            "name"
+          ]
+        }
+      },
+      "response": {
+        "key": [
+          "test",
+          "name"
+        ],
+        "generation": 0,
+        "hex": "736176696e67206461746120746f207468652073746f7265",
+        "string": "saving data to the store"
+      }
+    },
+    {
+      "request": {
+        "id": "example:deldatastore#2",
+        "method": "deldatastore",
+        "params": {
           "key": "otherkey",
           "generation": 1
         }
@@ -105,27 +126,8 @@
           "otherkey"
         ],
         "generation": 1,
-        "hex": "6f746865726461746161",
-        "string": "otherdataa"
-      }
-    },
-    {
-      "request": {
-        "id": "example:deldatastore#2",
-        "method": "deldatastore",
-        "params": {
-          "key": [
-            "a"
-          ]
-        }
-      },
-      "response": {
-        "key": [
-          "a"
-        ],
-        "generation": 0,
-        "hex": "6176616c",
-        "string": "aval"
+        "hex": "666f6f626172",
+        "string": "foobar"
       }
     }
   ]

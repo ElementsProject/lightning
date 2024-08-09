@@ -86,5 +86,23 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:disableinvoicerequest#1",
+        "method": "disableinvoicerequest",
+        "params": {
+          "invreq_id": "83ebe8c9f879725b0189ec51aebf37c47726b7e966e43049066b938466654eb5"
+        }
+      },
+      "response": {
+        "invreq_id": "83ebe8c9f879725b0189ec51aebf37c47726b7e966e43049066b938466654eb5",
+        "active": false,
+        "single_use": true,
+        "bolt12": "lnr1qqgzvzr2g67cp0qsc6dr090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909",
+        "used": false
+      }
+    }
   ]
 }

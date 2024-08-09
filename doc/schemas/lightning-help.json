@@ -78,7 +78,7 @@
       "response": {
         "help": [
           {
-            "command": "pay bolt11 [amount_msat] [label] [riskfactor] [maxfeepercent] [retry_for] [maxdelay] [exemptfee] [localinvreqid] [exclude] [maxfee] [description] [dev_use_shadow]"
+            "command": "pay bolt11 [amount_msat] [label] [riskfactor] [maxfeepercent] [retry_for] [maxdelay] [exemptfee] [localinvreqid] [exclude] [maxfee] [description] [partial_msat] [dev_use_shadow]"
           }
         ],
         "format-hint": "simple"

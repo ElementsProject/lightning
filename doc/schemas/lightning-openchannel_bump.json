@@ -169,5 +169,94 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:openchannel_bump#1",
+        "method": "openchannel_bump",
+        "params": [
+          "channelid0111200111200111200111200111200111200111200111200111200",
+          1000000,
+          "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt20202020202020202020202020202020202020202020202020202020202020202020202020202020202020",
+          "15000perkw"
+        ]
+      },
+      "response": {
+        "channel_id": "channelid0111200111200111200111200111200111200111200111200111200",
+        "psbt": "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt21212121212121212121212121212121212121212121212121212121212121212121212121212121212121",
+        "channel_type": {
+          "bits": [
+            12,
+            22
+          ],
+          "names": [
+            "static_remotekey/even",
+            "anchors/even"
+          ]
+        },
+        "commitments_secured": false,
+        "funding_serial": 8498368825997515980,
+        "requires_confirmed_inputs": false
+      }
+    },
+    {
+      "request": {
+        "id": "example:openchannel_bump#2",
+        "method": "openchannel_bump",
+        "params": {
+          "channel_id": "channelid0111200111200111200111200111200111200111200111200111200",
+          "amount": 1000000,
+          "initialpsbt": "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt20202020202020202020202020202020202020202020202020202020202020202020202020202020202020",
+          "funding_feerate": "15000perkw"
+        }
+      },
+      "response": {
+        "channel_id": "channelid0111200111200111200111200111200111200111200111200111200",
+        "psbt": "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt22222222222222222222222222222222222222222222222222222222222222222222222222222222222222",
+        "channel_type": {
+          "bits": [
+            12,
+            22
+          ],
+          "names": [
+            "static_remotekey/even",
+            "anchors/even"
+          ]
+        },
+        "commitments_secured": false,
+        "funding_serial": 9265867161397533242,
+        "requires_confirmed_inputs": false
+      }
+    },
+    {
+      "request": {
+        "id": "example:openchannel_bump#3",
+        "method": "openchannel_bump",
+        "params": [
+          "channelid0111200111200111200111200111200111200111200111200111200",
+          2000000,
+          "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt26262626262626262626262626262626262626262626262626262626262626262626262626262626262626",
+          "18750perkw"
+        ]
+      },
+      "response": {
+        "channel_id": "channelid0111200111200111200111200111200111200111200111200111200",
+        "psbt": "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt27272727272727272727272727272727272727272727272727272727272727272727272727272727272727",
+        "channel_type": {
+          "bits": [
+            12,
+            22
+          ],
+          "names": [
+            "static_remotekey/even",
+            "anchors/even"
+          ]
+        },
+        "commitments_secured": false,
+        "funding_serial": 13800407682450435144,
+        "requires_confirmed_inputs": false
+      }
+    }
   ]
 }

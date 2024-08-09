@@ -62,12 +62,12 @@
         "id": "example:setpsbtversion#1",
         "method": "setpsbtversion",
         "params": {
-          "psbt": "cHNidP8BAAoCAAAAAAAAAAAAAA==",
-          "version": "2"
+          "psbt": "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt04040404040404040404040404040404040404040404040404040404040404040404040404040404040404",
+          "version": 0
         }
       },
       "response": {
-        "psbt": "cHNidP8BAgQCAAAAAQQBAAEFAQABBgEDAfsEAgAAAAA="
+        "psbt": "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt05050505050505050505050505050505050505050505050505050505050505050505050505050505050505"
       }
     },
     {
@@ -75,12 +75,12 @@
         "id": "example:setpsbtversion#2",
         "method": "setpsbtversion",
         "params": [
-          "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQABBQEBAQYBAwH7BAIAAAAAAQMIQEIPAAAAAAABBCJRIJd6ICNAQALFOMhoUHuSVSuzcaUdkDKlk4K+A+DR9+4uAA==",
-          0
+          "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt06060606060606060606060606060606060606060606060606060606060606060606060606060606060606",
+          2
         ]
       },
       "response": {
-        "psbt": "cHNidP8BADUCAAAAAAFAQg8AAAAAACJRIJd6ICNAQALFOMhoUHuSVSuzcaUdkDKlk4K+A+DR9+4ubwAAAAAA"
+        "psbt": "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt07070707070707070707070707070707070707070707070707070707070707070707070707070707070707"
       }
     }
   ]

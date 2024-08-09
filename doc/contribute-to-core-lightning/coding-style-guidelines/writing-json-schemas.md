@@ -62,6 +62,21 @@ To add conditional fields:
    it can be defined as `"dependentUpon": { "index": ["start", "limit"] }` in the json and it will
    generate the markdown syntax as `[*index* [*start*] [*limit*]]`.
 
+### Re-generate examples listed in rpc schemas (doc/schemas/lightning-*.json)
+
+1. The `autogenerate-rpc-examples.py` script regenerates RPC examples for methods listed in `doc/schemas/lightning-*.json` files.
+2. It uses our pre-existing pytest suite to perform this task.
+3. The script runs a test named `test_generate_examples`, which sets up test nodes, records RPC requests, and captures responses.
+4. To prevent accidental overwriting of examples with other tests, set the environment variable `GENERATE_EXAMPLES=True` before running the script.
+5. By default, all methods are regenerated. To specify which methods to regenerate, set the `REGENERATE` environment variable with a comma-separated list of method names. Eg. `REGENERATE='getinfo,connect'` will only regenerate examples for the getinfo and connect RPCs.
+6. The dev-bitcoind-poll is set to 3 seconds. Ensure the `TIMEOUT` environment variable is set to more than 3 seconds to avoid test failures due to a short waiting time for bitcoind responses.
+7. To run the script using Poetry, use the following command:
+```
+rm -rf /tmp/ltests* && REGENERATE='getinfo,connect' VALGRIND=0 TIMEOUT=10 TEST_DEBUG=1 pytest -vvv -s -p no:logging -n 6 tests/autogenerate-rpc-examples.py
+```
+8. The script saves logs in a file named `autogenerate-examples-status.log`, located in the root directory.
+9. After running the script, execute make to ensure that the schema has been updated in all relevant locations, such as `...msggen/schema.json`.
+
 ### JSON Drinking Game!
 
 1. Sip whenever you have an additional comma at the end of a sequence.

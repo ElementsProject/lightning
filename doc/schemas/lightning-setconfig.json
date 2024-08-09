@@ -140,16 +140,16 @@
         "id": "example:setconfig#1",
         "method": "setconfig",
         "params": [
-          "autoclean-paidinvoices-age",
-          1
+          "autoclean-expiredinvoices-age",
+          300
         ]
       },
       "response": {
         "config": {
-          "config": "autoclean-paidinvoices-age",
-          "value_int": 1,
-          "source": "/tmp/ltests-7u_8_rtu/test_autoclean_1/lightning-3/regtest/config:6",
-          "plugin": "~/lightning/plugins/autoclean",
+          "config": "autoclean-expiredinvoices-age",
+          "value_int": 300,
+          "source": "/tmp/.lightning/regtest/config:2",
+          "plugin": "/root/lightning/plugins/autoclean",
           "dynamic": true
         }
       }
@@ -157,25 +157,6 @@
     {
       "request": {
         "id": "example:setconfig#2",
-        "method": "setconfig",
-        "params": [
-          "test-dynamic-config",
-          "changed"
-        ]
-      },
-      "response": {
-        "config": {
-          "config": "test-dynamic-config",
-          "value_str": "changed",
-          "source": "/tmp/ltests-7u_8_rtu/test_dynamic_option_python_plugin_1/lightning-1/regtest/config:2",
-          "plugin": "~/lightning/tests/plugins/dynamic_option.py",
-          "dynamic": true
-        }
-      }
-    },
-    {
-      "request": {
-        "id": "example:setconfig#3",
         "method": "setconfig",
         "params": {
           "config": "min-capacity-sat",
@@ -186,7 +167,7 @@
         "config": {
           "config": "min-capacity-sat",
           "value_int": 500000,
-          "source": "/tmp/ltests-nvfdbou2/test_setconfig_1/lightning-2/regtest/config:2",
+          "source": "/tmp/.lightning/regtest/config:4",
           "dynamic": true
         }
       }

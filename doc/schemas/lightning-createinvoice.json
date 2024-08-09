@@ -203,5 +203,28 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:createinvoice#1",
+        "method": "createinvoice",
+        "params": {
+          "invstring": "lnbcrt100n1pnt2000000bolt11invl013000000000bolt11invl013000000000bolt11invl013000000000bolt11invl013000000000bolt11invl013000000000bolt11invl013000000000bolt11invl013000000000bolt11invl013000000000bolt11invl013000000000bolt11invl013000",
+          "label": "lbl_l13",
+          "preimage": "0101010101010101010101010101010101010101010101010101010101010101"
+        }
+      },
+      "response": {
+        "label": "lbl_l13",
+        "bolt11": "lnbcrt100n1pnt2000000bolt11006060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606",
+        "payment_hash": "paymenthash0151515151515151515151515151515151515151515151515151515",
+        "amount_msat": 100000,
+        "status": "unpaid",
+        "description": "l13 description",
+        "expires_at": 1738030303,
+        "created_index": 7
+      }
+    }
   ]
 }
