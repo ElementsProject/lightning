@@ -74,6 +74,12 @@
       "Note: the returned object is the same format as **listoffers**."
     ]
   },
+  "errors": [
+    "On failure, one of the following error codes may be returned:",
+    "",
+    "- -32602: Error in given parameters.",
+    "- 1006: offer already enabled."
+  ],
   "author": [
     "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
   ],
