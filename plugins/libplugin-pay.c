@@ -423,53 +423,51 @@ static void channel_hints_update(struct payment *p,
 				 u16 *htlc_budget)
 {
 	struct payment *root = payment_root(p);
-	struct channel_hint newhint;
+	struct channel_hint newhint, *hint;
 	u32 timestamp = time_now().ts.tv_sec;
+	struct short_channel_id_dir scidd = {.scid = scid, .dir = direction};
+
 	memcheck(&overall_capacity, sizeof(struct amount_msat));
 
 	/* If the channel is marked as enabled it must have an estimate. */
 	assert(!enabled || estimated_capacity != NULL);
 
-	/* Try and look for an existing hint: */
-	for (size_t i=0; i<tal_count(root->hints->hints); i++) {
-		struct channel_hint *hint = &root->hints->hints[i];
-		if (short_channel_id_eq(hint->scid.scid, scid) &&
-		    hint->scid.dir == direction) {
-			bool modified = false;
-			/* Prefer to disable a channel. */
-			if (!enabled && hint->enabled) {
-				hint->enabled = false;
-				modified = true;
-			}
+	hint = channel_hint_set_find(p->hints, &scidd);
 
-			/* Prefer the more conservative estimate. */
-			if (estimated_capacity != NULL &&
-			    amount_msat_greater(hint->estimated_capacity,
-						*estimated_capacity)) {
-				hint->estimated_capacity = *estimated_capacity;
-				modified = true;
-			}
-			if (htlc_budget != NULL) {
-				assert(hint->local);
-				hint->local->htlc_budget = *htlc_budget;
-				modified = true;
-			}
-
-			if (modified) {
-				hint->timestamp = timestamp;
-				paymod_log(p, LOG_DBG,
-					   "Updated a channel hint for %s: "
-					   "enabled %s, "
-					   "estimated capacity %s",
-					   fmt_short_channel_id_dir(tmpctx,
-						&hint->scid),
-					   hint->enabled ? "true" : "false",
-					   fmt_amount_msat(tmpctx,
-						hint->estimated_capacity));
-				channel_hint_notify(p->plugin, hint);
-			}
-			return;
+	if (hint) {
+		bool modified = false;
+		/* Prefer to disable a channel. */
+		if (!enabled && hint->enabled) {
+			hint->enabled = false;
+			modified = true;
 		}
+
+		/* Prefer the more conservative estimate. */
+		if (estimated_capacity != NULL &&
+		    amount_msat_greater(hint->estimated_capacity,
+					*estimated_capacity)) {
+			hint->estimated_capacity = *estimated_capacity;
+			modified = true;
+		}
+		if (htlc_budget != NULL) {
+			assert(hint->local);
+			hint->local->htlc_budget = *htlc_budget;
+			modified = true;
+		}
+
+		if (modified) {
+			hint->timestamp = timestamp;
+			paymod_log(
+			    p, LOG_DBG,
+			    "Updated a channel hint for %s: "
+			    "enabled %s, "
+			    "estimated capacity %s",
+			    fmt_short_channel_id_dir(tmpctx, &hint->scid),
+			    hint->enabled ? "true" : "false",
+			    fmt_amount_msat(tmpctx, hint->estimated_capacity));
+			channel_hint_notify(p->plugin, hint);
+		}
+		return;
 	}
 
 	/* No hint found, create one. */
