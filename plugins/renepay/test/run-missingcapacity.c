@@ -133,6 +133,7 @@ int main(int argc, char *argv[])
 	pinfo.prob_cost_factor = 1e-5;
 	pinfo.delay_feefactor = 1e-6;
 	pinfo.min_prob_success = 0.9;
+	pinfo.base_prob_success = 1.0;
 	pinfo.use_shadow = false;
 
 	randombytes_buf(&preimage, sizeof(preimage));

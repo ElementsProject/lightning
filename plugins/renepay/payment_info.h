@@ -61,6 +61,10 @@ struct payment_info {
 	double prob_cost_factor;
 	/* prob. cost = - prob_cost_factor * log prob. */
 
+	/* The probability for a channel to be able to forward an amount
+	 * greater than zero. */
+	double base_prob_success;
+
 	/* Penalty for CLTV delays */
 	double delay_feefactor;
 
