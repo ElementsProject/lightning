@@ -59,4 +59,13 @@ bool channel_hint_update(const struct timeabs now,
 void channel_hint_to_json(const char *name, const struct channel_hint *hint,
 			  struct json_stream *dest);
 
+struct channel_hint *channel_hint_from_json(const tal_t *ctx,
+					    const char *buffer,
+					    const jsmntok_t *toks);
+
+struct channel_hint_set *channel_hint_set_new(const tal_t *ctx);
+
+/* Relax all channel_hints in this set, based on the time that has elapsed. */
+void channel_hint_set_update(struct channel_hint_set *set, const struct timeabs now);
+
 #endif /* LIGHTNING_PLUGINS_CHANNEL_HINT_H */
