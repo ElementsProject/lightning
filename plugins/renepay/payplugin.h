@@ -57,14 +57,15 @@ struct pay_plugin {
 	bool exp_offers;
 
 	/* All the struct payment */
-	struct list_head payments;
 	struct payment_map *payment_map;
 
 	/* Per-channel metadata: some persists between payments */
 	struct uncertainty *uncertainty;
 
-	/* Pending sendpays (to match notifications to). */
-	struct route_map *route_map;
+	/* Pending sendpays. Each pending route has an associated HTLC data in
+	 * the uncertainty network. Pending routes are matched against sendpay
+	 * notifications. */
+	struct route_map *pending_routes;
 
 	bool debug_mcf;
 	bool debug_payflow;

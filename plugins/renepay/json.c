@@ -29,6 +29,48 @@ fail:
 
 	return tal_free(key);
 }
+
+struct route *tal_route_from_json(const tal_t *ctx, const char *buf,
+				  const jsmntok_t *obj)
+{
+	struct route *route = tal(ctx, struct route);
+
+	const jsmntok_t *hashtok = json_get_member(buf, obj, "payment_hash");
+	const jsmntok_t *groupidtok = json_get_member(buf, obj, "groupid");
+	const jsmntok_t *partidtok = json_get_member(buf, obj, "partid");
+	const jsmntok_t *amttok = json_get_member(buf, obj, "amount_msat");
+	const jsmntok_t *senttok =
+	    json_get_member(buf, obj, "amount_sent_msat");
+
+	if (hashtok == NULL || groupidtok == NULL || amttok == NULL ||
+	    senttok == NULL)
+		goto fail;
+
+	if (!json_to_u64(buf, groupidtok, &route->key.groupid))
+		goto fail;
+	if (!json_to_sha256(buf, hashtok, &route->key.payment_hash))
+		goto fail;
+	if (!json_to_msat(buf, amttok, &route->amount))
+		goto fail;
+	if (!json_to_msat(buf, senttok, &route->amount_sent))
+		goto fail;
+	if (partidtok == NULL)
+		route->key.partid = 0;
+	else if (!json_to_u64(buf, partidtok, &route->key.partid))
+		goto fail;
+
+	route->success_prob = 0;
+	route->result = NULL;
+	route->hops = NULL;
+	route->final_msg = NULL;
+	route->final_error = LIGHTNINGD;
+
+	return route;
+fail:
+
+	return tal_free(route);
+}
+
 struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 						    const char *buffer,
 						    const jsmntok_t *toks)
