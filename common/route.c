@@ -81,6 +81,7 @@ static bool dijkstra_to_hops(struct route_hop **hops,
 	const struct gossmap_node *next;
 	size_t num_hops = tal_count(*hops);
 	const struct half_chan *h;
+	struct amount_sat total;
 
 	if (dist == 0)
 		return true;
@@ -92,6 +93,7 @@ static bool dijkstra_to_hops(struct route_hop **hops,
 
 	/* OK, populate other fields. */
 	c = dijkstra_best_chan(dij, curidx);
+
 	if (c->half[0].nodeidx == curidx) {
 		(*hops)[num_hops].direction = 0;
 	} else {
@@ -106,6 +108,11 @@ static bool dijkstra_to_hops(struct route_hop **hops,
 
 	if (!dijkstra_to_hops(hops, gossmap, dij, next, amount, cltv))
 		return false;
+
+	gossmap_chan_get_capacity(gossmap, c, &total);
+
+	if (!amount_sat_to_msat(&(*hops)[num_hops].capacity, total))
+		abort();
 
 	(*hops)[num_hops].amount = *amount;
 	(*hops)[num_hops].delay = *cltv;
