@@ -138,11 +138,44 @@ void channel_hint_set_update(struct channel_hint_set *set,
 			     const struct timeabs now)
 {
 	for (size_t i = 0; i < tal_count(set->hints); i++)
-		channel_hint_update(time_now(), &set->hints[i]);
+		channel_hint_update(now, &set->hints[i]);
 }
 
-void channel_hint_set_add(struct channel_hint_set *self,
-			  const struct channel_hint *hint)
+bool channel_hint_set_add(struct channel_hint_set *self,
+			  struct channel_hint *hint)
 {
-	
+	/* Start by checking if we already have a channel_hint, update
+	 * it if yes. */
+	struct channel_hint *old = channel_hint_set_find(self, &hint->scid);
+	struct timeabs now = time_now();
+	if (old != NULL) {
+		/* Start by projecting both to now, so we can compare and merge
+		 * them. */
+		channel_hint_update(now, old);
+		channel_hint_update(now, hint);
+		assert(hint->timestamp == old->timestamp);
+
+		/* If either indicate this channel is disabled, keep
+		 * it disabled. */
+		/* Evaluate: A newer observation may mark this as
+		 * enabled, however we likely won't ever try that
+		 * channel until the hint expires anyway, so this
+		 * simple logic may be sufficient already. */
+		old->enabled = hint->enabled && old->enabled;
+
+		/* Keep the more restrictive one. */
+		old->estimated_capacity = amount_msat_min(
+		    old->estimated_capacity, hint->estimated_capacity);
+
+		/* If we don't have exact channel sizes we
+		 * approximate. These can be off. Always take the
+		 * least restrictive as the best estimate. */
+		old->overall_capacity = amount_msat_max(old->overall_capacity, hint->overall_capacity);
+		return false;
+	} else {
+		/* OK, this is the simple case, just add it to the end
+		 * of the tal_arr. */
+		tal_arr_expand(&self->hints, *hint);
+		return true;
+	}
 }

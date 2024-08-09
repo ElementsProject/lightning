@@ -425,50 +425,10 @@ static void channel_hints_update(struct payment *p,
 	struct payment *root = payment_root(p);
 	struct channel_hint newhint, *hint;
 	u32 timestamp = time_now().ts.tv_sec;
-	struct short_channel_id_dir scidd = {.scid = scid, .dir = direction};
-
 	memcheck(&overall_capacity, sizeof(struct amount_msat));
 
 	/* If the channel is marked as enabled it must have an estimate. */
 	assert(!enabled || estimated_capacity != NULL);
-
-	hint = channel_hint_set_find(p->hints, &scidd);
-
-	if (hint) {
-		bool modified = false;
-		/* Prefer to disable a channel. */
-		if (!enabled && hint->enabled) {
-			hint->enabled = false;
-			modified = true;
-		}
-
-		/* Prefer the more conservative estimate. */
-		if (estimated_capacity != NULL &&
-		    amount_msat_greater(hint->estimated_capacity,
-					*estimated_capacity)) {
-			hint->estimated_capacity = *estimated_capacity;
-			modified = true;
-		}
-		if (htlc_budget != NULL) {
-			assert(hint->local);
-			hint->local->htlc_budget = *htlc_budget;
-			modified = true;
-		}
-
-		if (modified) {
-			hint->timestamp = timestamp;
-			paymod_log(
-			    p, LOG_DBG,
-			    "Updated a channel hint for %s: "
-			    "enabled %s, "
-			    "estimated capacity %s",
-			    fmt_short_channel_id_dir(tmpctx, &hint->scid),
-			    hint->enabled ? "true" : "false",
-			    fmt_amount_msat(tmpctx, hint->estimated_capacity));
-			channel_hint_notify(p->plugin, hint);
-		}
-		return;
-	}
 
 	/* No hint found, create one. */
 	newhint.enabled = enabled;
@@ -482,20 +442,31 @@ static void channel_hints_update(struct payment *p,
 		newhint.local->htlc_budget = *htlc_budget;
 	} else
 		newhint.local = NULL;
+
 	if (estimated_capacity != NULL)
 		newhint.estimated_capacity = *estimated_capacity;
 	else
 		newhint.estimated_capacity = overall_capacity;
 
-	tal_arr_expand(&root->hints->hints, newhint);
+	bool isnew = channel_hint_set_add(p->hints, &newhint);
 
-	paymod_log(
-	    p, LOG_DBG,
-	    "Added a channel hint for %s: enabled %s, estimated capacity %s",
-	    fmt_short_channel_id_dir(tmpctx, &newhint.scid),
-	    newhint.enabled ? "true" : "false",
-	    fmt_amount_msat(tmpctx, newhint.estimated_capacity));
-	channel_hint_notify(p->plugin, &newhint);
+	if (isnew) {
+		paymod_log(p, LOG_DBG,
+			   "Updated a channel hint for %s: enabled %s, "
+			   "estimated capacity %s",
+			   fmt_short_channel_id_dir(tmpctx, &newhint.scid),
+			   newhint.enabled ? "true" : "false",
+			   fmt_amount_msat(tmpctx, newhint.estimated_capacity));
+	} else {
+		paymod_log(p, LOG_DBG,
+			   "Added a channel hint for %s: enabled %s, estimated "
+			   "capacity %s",
+			   fmt_short_channel_id_dir(tmpctx, &newhint.scid),
+			   newhint.enabled ? "true" : "false",
+			   fmt_amount_msat(tmpctx, newhint.estimated_capacity));
+	}
+
+	channel_hint_notify(p->plugin, hint);
 }
 
 static void payment_exclude_most_expensive(struct payment *p)

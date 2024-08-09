@@ -64,9 +64,11 @@ struct channel_hint *channel_hint_from_json(const tal_t *ctx,
 
 struct channel_hint_set *channel_hint_set_new(const tal_t *ctx);
 
-/* Add a new channel_hint or update an existing channel_hint, */
-void channel_hint_set_add(struct channel_hint_set *set,
-			  const struct channel_hint *hint);
+/* Add a new channel_hint or update an existing channel_hint, Returns
+ * `true` if this was a new channel_hint, false if we updated an
+ * existing one. */
+bool channel_hint_set_add(struct channel_hint_set *set,
+			  struct channel_hint *hint);
 
 /* Find a channel_hint based from its scidd. Returns NULL if there is
  * no matching channel_hint. */
