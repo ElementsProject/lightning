@@ -5,13 +5,6 @@
 
 #include <stdio.h>
 
-// static void uncertainty_commit_routes(struct uncertainty *uncertainty,
-// 				   struct route **routes)
-// {
-// 	const size_t N = tal_count(routes);
-// 	for (size_t i = 0; i < N; i++)
-// 		uncertainty_commit_htlcs(uncertainty, routes[i]);
-// }
 static void uncertainty_remove_routes(struct uncertainty *uncertainty,
 				   struct route **routes)
 {
@@ -53,9 +46,11 @@ flow_adjust_htlcmax_constraints(struct flow *flow, struct gossmap *gossmap,
 
 	if (errorcode == RENEPAY_BAD_CHANNEL) {
 		// this is a channel that we can disable
-		// FIXME: log this error?
+		// FIXME: log this error? disabling both directions?
 		bitmap_set_bit(disabled_bitmap,
-			       gossmap_chan_idx(gossmap, bad_channel));
+			       gossmap_chan_idx(gossmap, bad_channel) * 2 + 0);
+		bitmap_set_bit(disabled_bitmap,
+			       gossmap_chan_idx(gossmap, bad_channel) * 2 + 1);
 	}
 
 	// we had an unexpected error
@@ -90,7 +85,8 @@ route_check_constraints(struct route *route, struct gossmap *gossmap,
 		    amount_msat_less(hop->amount,
 				     gossmap_chan_htlc_min(chan, dir))) {
 			bitmap_set_bit(disabled_bitmap,
-				       gossmap_chan_idx(gossmap, chan));
+				       gossmap_chan_idx(gossmap, chan) * 2 +
+					   dir);
 			return RENEPAY_BAD_CHANNEL;
 		}
 
@@ -171,6 +167,10 @@ struct route **get_routes(const tal_t *ctx,
 	}
 
 	/* Also disable every channel that we don't have in the chan_extra_map.
+	 * We might have channels in the gossmap that are not usable for
+	 * probability computations for example if we don't know their capacity.
+	 * We can tell the solver to ignore those channels by disabling them
+	 * here.
 	 */
 	for (struct gossmap_chan *chan = gossmap_first_chan(gossmap); chan;
 	     chan = gossmap_next_chan(gossmap, chan)) {
@@ -178,8 +178,10 @@ struct route **get_routes(const tal_t *ctx,
 		struct short_channel_id scid = gossmap_chan_scid(gossmap, chan);
 		struct chan_extra *ce =
 		    chan_extra_map_get(uncertainty->chan_extra_map, scid);
-		if (!ce)
-			bitmap_set_bit(disabled_bitmap, chan_id);
+		if (!ce) {
+			bitmap_set_bit(disabled_bitmap, chan_id * 2 + 0);
+			bitmap_set_bit(disabled_bitmap, chan_id * 2 + 1);
+		}
 	}
 
 	const struct gossmap_node *src, *dst;
@@ -236,7 +238,7 @@ struct route **get_routes(const tal_t *ctx,
 				    ctx, ecode, fail, PLUGIN_ERROR,
 				    "%s: flow is delivering to destination "
 				    "(%s) more than requested (%s)",
-				    __PRETTY_FUNCTION__,
+				    __func__,
 				    fmt_amount_msat(this_ctx, flows[i]->amount),
 				    fmt_amount_msat(this_ctx,
 						    amount_to_deliver));
@@ -292,7 +294,7 @@ struct route **get_routes(const tal_t *ctx,
 				tal_report_error(
 				    ctx, ecode, fail, PLUGIN_ERROR,
 				    "%s failed to build route from flow.",
-				    __PRETTY_FUNCTION__);
+				    __func__);
 				goto function_fail;
 			}
 
@@ -354,7 +356,7 @@ struct route **get_routes(const tal_t *ctx,
 				    ctx, ecode, fail, PLUGIN_ERROR,
 				    "%s routing fees (%s) exceed fee "
 				    "budget (%s).",
-				    __PRETTY_FUNCTION__,
+				    __func__,
 				    fmt_amount_msat(this_ctx, fee),
 				    fmt_amount_msat(this_ctx, feebudget));
 				goto function_fail;
@@ -368,7 +370,7 @@ struct route **get_routes(const tal_t *ctx,
 				    ctx, ecode, fail, PLUGIN_ERROR,
 				    "%s: route delivering to destination (%s) "
 				    "is more than requested (%s)",
-				    __PRETTY_FUNCTION__,
+				    __func__,
 				    fmt_amount_msat(this_ctx, delivering),
 				    fmt_amount_msat(this_ctx,
 						    amount_to_deliver));

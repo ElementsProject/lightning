@@ -32,7 +32,8 @@ struct payment *payment_new(
 	    u64 prob_cost_factor_millionths,
 	    u64 riskfactor_millionths,
 	    u64 min_prob_success_millionths,
-	    bool use_shadow)
+	    bool use_shadow,
+	    const struct route_exclusion **exclusions)
 {
 	struct payment *p = tal(ctx, struct payment);
 	struct payment_info *pinfo = &p->payment_info;
@@ -101,11 +102,18 @@ struct payment *payment_new(
 	p->local_gossmods = NULL;
 	p->disabledmap = disabledmap_new(p);
 
+	for (size_t i = 0; i < tal_count(exclusions); i++) {
+		const struct route_exclusion *ex = exclusions[i];
+		if (ex->type == EXCLUDE_CHANNEL)
+			disabledmap_add_channel(p->disabledmap, ex->u.chan_id);
+		else
+			disabledmap_add_node(p->disabledmap, ex->u.node_id);
+	}
+
 	p->have_results = false;
 	p->retry = false;
 	p->waitresult_timer = NULL;
 
-	p->routes_computed = NULL;
 	p->routetracker = new_routetracker(p, p);
 	return p;
 }
@@ -124,7 +132,6 @@ static void payment_cleanup(struct payment *p)
 	disabledmap_reset(p->disabledmap);
 	p->waitresult_timer = tal_free(p->waitresult_timer);
 
-	p->routes_computed = tal_free(p->routes_computed);
 	routetracker_cleanup(p->routetracker);
 }
 
@@ -139,7 +146,8 @@ bool payment_update(
 		u64 prob_cost_factor_millionths,
 		u64 riskfactor_millionths,
 		u64 min_prob_success_millionths,
-		bool use_shadow)
+		bool use_shadow,
+		const struct route_exclusion **exclusions)
 {
 	assert(p);
 	struct payment_info *pinfo = &p->payment_info;
@@ -194,16 +202,18 @@ bool payment_update(
 	assert(p->disabledmap);
 	disabledmap_reset(p->disabledmap);
 
+	for (size_t i = 0; i < tal_count(exclusions); i++) {
+		const struct route_exclusion *ex = exclusions[i];
+		if (ex->type == EXCLUDE_CHANNEL)
+			disabledmap_add_channel(p->disabledmap, ex->u.chan_id);
+		else
+			disabledmap_add_node(p->disabledmap, ex->u.node_id);
+	}
+
 	p->have_results = false;
 	p->retry = false;
 	p->waitresult_timer = tal_free(p->waitresult_timer);
 
-	/* It is weird to have routes here stuck. */
-	if (p->routes_computed)
-		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
-			   "We have %zu unsent routes in this payment.",
-			   tal_count(p->routes_computed));
-	p->routes_computed = tal_free(p->routes_computed);
 	return true;
 }
 
@@ -273,23 +283,28 @@ struct command *payment_command(struct payment *p)
 	return p->cmd_array[0];
 }
 
-struct command_result *payment_success(struct payment *payment,
-				       const struct preimage *preimage TAKES)
+void register_payment_success(struct payment *payment,
+			      const struct preimage *preimage TAKES)
 {
 	assert(payment);
 	assert(preimage);
 	payment->status = PAYMENT_SUCCESS;
 	payment->preimage = tal_free(payment->preimage);
-	if(taken(preimage))
+	if (taken(preimage))
 		payment->preimage = tal_steal(payment, preimage);
 	else
 		payment->preimage = tal_dup(payment, struct preimage, preimage);
+}
+
+struct command_result *payment_success(struct payment *payment,
+				       const struct preimage *preimage TAKES)
+{
+	register_payment_success(payment, preimage);
 	return payment_finish(payment);
 }
 
-struct command_result *payment_fail(struct payment *payment,
-				    enum jsonrpc_errcode code, const char *fmt,
-				    ...)
+void register_payment_fail(struct payment *payment, enum jsonrpc_errcode code,
+			   const char *fmt, ...)
 {
 	payment->status = PAYMENT_FAIL;
 	payment->error_code = code;
@@ -299,6 +314,18 @@ struct command_result *payment_fail(struct payment *payment,
 	va_start(args, fmt);
 	payment->error_msg = tal_vfmt(payment, fmt, args);
 	va_end(args);
+}
+
+struct command_result *payment_fail(struct payment *payment,
+				    enum jsonrpc_errcode code, const char *fmt,
+				    ...)
+{
+	/* can't pass variadic arguments forward, so let's expand them. */
+	va_list args;
+	va_start(args, fmt);
+	const char *error_msg = tal_vfmt(tmpctx, fmt, args);
+	va_end(args);
+	register_payment_fail(payment, code, "%s", error_msg);
 
 	payment_note(payment, LOG_DBG, "Payment failed: %s",
 		     payment->error_msg);
@@ -357,7 +384,7 @@ static struct command_result *payment_finish(struct payment *p)
 	return my_command_finish(p, cmd);
 }
 
-void payment_disable_chan(struct payment *p, struct short_channel_id scid,
+void payment_disable_chan(struct payment *p, struct short_channel_id_dir scidd,
 			  enum log_level lvl, const char *fmt, ...)
 {
 	assert(p);
@@ -369,12 +396,12 @@ void payment_disable_chan(struct payment *p, struct short_channel_id scid,
 	str = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 	payment_note(p, lvl, "disabling %s: %s",
-		     fmt_short_channel_id(tmpctx, scid),
+		     fmt_short_channel_id_dir(tmpctx, &scidd),
 		     str);
-	disabledmap_add_channel(p->disabledmap, scid);
+	disabledmap_add_channel(p->disabledmap, scidd);
 }
 
-void payment_warn_chan(struct payment *p, struct short_channel_id scid,
+void payment_warn_chan(struct payment *p, struct short_channel_id_dir scidd,
 		       enum log_level lvl, const char *fmt, ...)
 {
 	assert(p);
@@ -386,16 +413,16 @@ void payment_warn_chan(struct payment *p, struct short_channel_id scid,
 	str = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
-	if (disabledmap_channel_is_warned(p->disabledmap, scid)) {
-		payment_disable_chan(p, scid, lvl, "%s, channel warned twice",
+	if (disabledmap_channel_is_warned(p->disabledmap, scidd)) {
+		payment_disable_chan(p, scidd, lvl, "%s, channel warned twice",
 				     str);
 		return;
 	}
 
 	payment_note(
 	    p, lvl, "flagged for warning %s: %s, next time it will be disabled",
-	    fmt_short_channel_id(tmpctx, scid), str);
-	disabledmap_warn_channel(p->disabledmap, scid);
+	    fmt_short_channel_id_dir(tmpctx, &scidd), str);
+	disabledmap_warn_channel(p->disabledmap, scidd);
 }
 
 void payment_disable_node(struct payment *p, struct node_id node,
