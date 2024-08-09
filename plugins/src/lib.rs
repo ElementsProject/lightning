@@ -437,6 +437,15 @@ where
             let option_value: Option<options::Value> = match (json_value, default_value) {
                 (None, None) => None,
                 (None, Some(default)) => Some(default.clone()),
+                (Some(JValue::Array(a)), _) => match a.first() {
+                    Some(JValue::String(_)) => Some(OValue::StringArray(
+                        a.iter().map(|x| x.as_str().unwrap().to_string()).collect(),
+                    )),
+                    Some(JValue::Number(_)) => Some(OValue::IntegerArray(
+                        a.iter().map(|x| x.as_i64().unwrap()).collect(),
+                    )),
+                    _ => panic!("Array type not supported for option: {}", name),
+                },
                 (Some(JValue::String(s)), _) => Some(OValue::String(s.to_string())),
                 (Some(JValue::Number(i)), _) => Some(OValue::Integer(i.as_i64().unwrap())),
                 (Some(JValue::Bool(b)), _) => Some(OValue::Boolean(*b)),

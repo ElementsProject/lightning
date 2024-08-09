@@ -3,10 +3,11 @@
 #[macro_use]
 extern crate serde_json;
 use cln_plugin::options::{
-    self, BooleanConfigOption, DefaultIntegerConfigOption, IntegerConfigOption,
+    self, BooleanConfigOption, DefaultIntegerArrayConfigOption, DefaultIntegerConfigOption,
+    DefaultStringArrayConfigOption, IntegerArrayConfigOption, IntegerConfigOption,
+    StringArrayConfigOption,
 };
 use cln_plugin::{messages, Builder, Error, Plugin};
-use tokio;
 
 const TEST_NOTIF_TAG: &str = "test_custom_notification";
 
@@ -18,6 +19,32 @@ const TEST_OPTION: DefaultIntegerConfigOption = DefaultIntegerConfigOption::new_
 
 const TEST_OPTION_NO_DEFAULT: IntegerConfigOption =
     IntegerConfigOption::new_i64_no_default("opt-option", "An option without a default");
+
+const TEST_MULTI_STR_OPTION: StringArrayConfigOption =
+    StringArrayConfigOption::new_str_arr_no_default(
+        "multi-str-option",
+        "An option that can have multiple string values",
+    );
+
+const TEST_MULTI_STR_OPTION_DEFAULT: DefaultStringArrayConfigOption =
+    DefaultStringArrayConfigOption::new_str_arr_with_default(
+        "multi-str-option-default",
+        "Default1",
+        "An option that can have multiple string values with defaults",
+    );
+
+const TEST_MULTI_I64_OPTION: IntegerArrayConfigOption =
+    IntegerArrayConfigOption::new_i64_arr_no_default(
+        "multi-i64-option",
+        "An option that can have multiple i64 values",
+    );
+
+const TEST_MULTI_I64_OPTION_DEFAULT: DefaultIntegerArrayConfigOption =
+    DefaultIntegerArrayConfigOption::new_i64_arr_with_default(
+        "multi-i64-option-default",
+        -42,
+        "An option that can have multiple i64 values with defaults",
+    );
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -33,6 +60,10 @@ async fn main() -> Result<(), anyhow::Error> {
         .option(TEST_OPTION)
         .option(TEST_OPTION_NO_DEFAULT)
         .option(test_dynamic_option)
+        .option(TEST_MULTI_STR_OPTION)
+        .option(TEST_MULTI_STR_OPTION_DEFAULT)
+        .option(TEST_MULTI_I64_OPTION)
+        .option(TEST_MULTI_I64_OPTION_DEFAULT)
         .setconfig_callback(setconfig_callback)
         .rpcmethod("testmethod", "This is a test", testmethod)
         .rpcmethod(
@@ -79,10 +110,18 @@ async fn setconfig_callback(
 async fn testoptions(p: Plugin<()>, _v: serde_json::Value) -> Result<serde_json::Value, Error> {
     let test_option = p.option(&TEST_OPTION)?;
     let test_option_no_default = p.option(&TEST_OPTION_NO_DEFAULT)?;
+    let test_multi_str_option = p.option(&TEST_MULTI_STR_OPTION)?;
+    let test_multi_str_option_default = p.option(&TEST_MULTI_STR_OPTION_DEFAULT)?;
+    let test_multi_i64_option = p.option(&TEST_MULTI_I64_OPTION)?;
+    let test_multi_i64_option_default = p.option(&TEST_MULTI_I64_OPTION_DEFAULT)?;
 
     Ok(json!({
         "test-option": test_option,
-        "opt-option" : test_option_no_default
+        "opt-option" : test_option_no_default,
+        "multi-str-option": test_multi_str_option,
+        "multi-str-option-default": test_multi_str_option_default,
+        "multi-i64-option": test_multi_i64_option,
+        "multi-i64-option-default": test_multi_i64_option_default,
     }))
 }
 
