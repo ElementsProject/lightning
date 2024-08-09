@@ -237,10 +237,10 @@ struct payment {
 	struct route_info **routes;
 	const u8 *features;
 
-	/* tal_arr of channel_hints we incrementally learn while performing
-	 * payment attempts. */
-	struct channel_hint *channel_hints;
 	struct node_id *excluded_nodes;
+
+	/* Pointer to global set of channel_hints. */
+	struct channel_hint_set *hints;
 
 	/* Optional temporarily excluded channels/nodes (i.e. this routehint) */
 	struct node_id *temp_exclusion;
@@ -443,10 +443,10 @@ REGISTER_PAYMENT_MODIFIER_HEADER(local_channel_hints, void);
 REGISTER_PAYMENT_MODIFIER_HEADER(payee_incoming_limit, void);
 REGISTER_PAYMENT_MODIFIER_HEADER(route_exclusions, struct route_exclusions_data);
 
-
 struct payment *payment_new(tal_t *ctx, struct command *cmd,
 			    struct payment *parent,
-			    struct payment_modifier **mods);
+			    struct payment_modifier **mods,
+			    struct channel_hint_set *hints);
 
 void payment_start(struct payment *p);
 void payment_continue(struct payment *p);
