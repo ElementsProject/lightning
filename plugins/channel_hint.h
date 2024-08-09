@@ -64,6 +64,15 @@ struct channel_hint *channel_hint_from_json(const tal_t *ctx,
 
 struct channel_hint_set *channel_hint_set_new(const tal_t *ctx);
 
+/* Add a new channel_hint or update an existing channel_hint, */
+void channel_hint_set_add(struct channel_hint_set *set,
+			  const struct channel_hint *hint);
+
+/* Find a channel_hint based from its scidd. Returns NULL if there is
+ * no matching channel_hint. */
+struct channel_hint *channel_hint_set_find(struct channel_hint_set *set,
+					   struct short_channel_id_dir *scidd);
+
 /* Relax all channel_hints in this set, based on the time that has elapsed. */
 void channel_hint_set_update(struct channel_hint_set *set, const struct timeabs now);
 

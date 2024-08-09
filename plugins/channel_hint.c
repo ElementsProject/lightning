@@ -101,9 +101,48 @@ struct channel_hint_set *channel_hint_set_new(const tal_t *ctx)
 	return set;
 }
 
+void channel_hint_set_add(struct channel_hint_set *set, const struct channel_hint *hint)
+{
+	abort();
+}
+
+/* Find the position of a routehint in the hints list. Allows for
+ * in-place updates in some cases. */
+static bool channel_hint_set_find_index(struct channel_hint_set *set,
+					struct short_channel_id_dir *scidd,
+					size_t *index)
+{
+	struct channel_hint *hint;
+	for (size_t i = 0; i < tal_count(set->hints); index++) {
+		hint = &set->hints[i];
+		if (short_channel_id_dir_eq(scidd, &hint->scid)) {
+			*index = i;
+			return true;
+		}
+	}
+	return false;
+}
+
+struct channel_hint *channel_hint_set_find(struct channel_hint_set *set,
+					   struct short_channel_id_dir *scidd)
+{
+	size_t index;
+
+	if (!channel_hint_set_find_index(set, scidd, &index))
+		return NULL;
+
+	return &set->hints[index];
+}
+
 void channel_hint_set_update(struct channel_hint_set *set,
 			     const struct timeabs now)
 {
 	for (size_t i = 0; i < tal_count(set->hints); i++)
 		channel_hint_update(time_now(), &set->hints[i]);
+}
+
+void channel_hint_set_add(struct channel_hint_set *self,
+			  const struct channel_hint *hint)
+{
+	
 }
