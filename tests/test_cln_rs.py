@@ -74,16 +74,34 @@ def test_plugin_options_handle_defaults(node_factory):
     """Start a minimal plugin and ensure it is well-behaved
     """
     bin_path = Path.cwd() / "target" / RUST_PROFILE / "examples" / "cln-plugin-startup"
-    l1 = node_factory.get_node(options={"plugin": str(bin_path), 'opt-option': 31337, "test-option": 31338})
+    l1 = node_factory.get_node(
+        options={
+            "plugin": str(bin_path),
+            "opt-option": 31337,
+            "test-option": 31338,
+            "multi-str-option": ["String1", "String2"],
+            "multi-str-option-default": ["NotDefault1", "NotDefault2"],
+            "multi-i64-option": [1, 2, 3, 4],
+            "multi-i64-option-default": [5, 6],
+        }
+    )
     opts = l1.rpc.testoptions()
     assert opts["opt-option"] == 31337
     assert opts["test-option"] == 31338
+    assert opts["multi-str-option"] == ["String1", "String2"]
+    assert opts["multi-str-option-default"] == ["NotDefault1", "NotDefault2"]
+    assert opts["multi-i64-option"] == [1, 2, 3, 4]
+    assert opts["multi-i64-option-default"] == [5, 6]
 
     # Do not set any value, should be None now
     l1 = node_factory.get_node(options={"plugin": str(bin_path)})
     opts = l1.rpc.testoptions()
     assert opts["opt-option"] is None, "opt-option has no default"
     assert opts["test-option"] == 42, "test-option has a default of 42"
+    assert opts["multi-str-option"] is None
+    assert opts["multi-str-option-default"] == ["Default1"]
+    assert opts["multi-i64-option"] is None
+    assert opts["multi-i64-option-default"] == [-42]
 
 
 def test_grpc_connect(node_factory):
