@@ -1724,6 +1724,7 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 	ev->spending_txid = NULL;
 	ev->payment_id = NULL;
 	ev->desc = NULL;
+	ev->splice_close = false;
 
 	plugin_log(cmd->plugin, LOG_DBG, "%s (%s|%s) %s -%s %"PRIu64" %d %s",
 		   move_tag, ev->tag, ev->acct_name,
