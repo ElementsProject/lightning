@@ -17,6 +17,7 @@
 static unsigned int maxdelay_default;
 static struct node_id my_id;
 static u64 *accepted_extra_tlvs;
+static struct channel_hint_set *global_hints;
 
 /*****************************************************************************
  * Keysend modifier
@@ -156,6 +157,8 @@ static bool jsonarr_accumulate_u64(const char *buffer,
 static const char *init(struct plugin *p, const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
 {
+	global_hints = notleak(channel_hint_set_new(p));
+
 	rpc_scan(p, "getinfo", take(json_out_obj(NULL, NULL, NULL)), "{id:%}",
 		 JSON_SCAN(json_to_node_id, &my_id));
 
@@ -178,6 +181,8 @@ static const char *init(struct plugin *p, const char *buf UNUSED,
 		 JSON_SCAN(json_to_u32, &maxdelay_default),
 		 JSON_SCAN(json_accumulate_uintarr, &accepted_extra_tlvs),
 		 JSON_SCAN(jsonarr_accumulate_u64, &accepted_extra_tlvs));
+
+	global_hints = notleak_with_children(tal(NULL , struct channel_hint_set));
 
 	return NULL;
 }
@@ -241,7 +246,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 		   NULL))
 		return command_param_failed();
 
-	p = payment_new(cmd, cmd, NULL /* No parent */, pay_mods);
+	p = payment_new(cmd, cmd, NULL /* No parent */, pay_mods, global_hints);
 	p->local_id = &my_id;
 	p->json_buffer = tal_dup_talarr(p, const char, buf);
 	p->json_toks = params;
@@ -598,4 +603,6 @@ int main(int argc, char *argv[])
 	plugin_main(argv, init, NULL, PLUGIN_STATIC, true, features, commands,
 		    ARRAY_SIZE(commands), NULL, 0, hooks, ARRAY_SIZE(hooks),
 		    notification_topics, ARRAY_SIZE(notification_topics), NULL);
+
+	tal_free(global_hints);
 }

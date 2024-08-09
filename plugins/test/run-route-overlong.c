@@ -430,7 +430,7 @@ int main(int argc, char *argv[])
 	}
 
 	mods = tal_arrz(tmpctx, struct payment_modifier *, 1);
-	p = payment_new(mods, tal(tmpctx, struct command), NULL, mods);
+	p = payment_new(mods, tal(tmpctx, struct command), NULL, mods, NULL);
 
 	for (size_t i = 1; i < NUM_NODES; i++) {
 		struct short_channel_id scid;

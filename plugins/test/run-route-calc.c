@@ -422,7 +422,7 @@ int main(int argc, char *argv[])
 	chainparams = chainparams_for_network("regtest");
 
 	mods = tal_arrz(tmpctx, struct payment_modifier *, 1);
-	p = payment_new(mods, tal(tmpctx, struct command), NULL, mods);
+	p = payment_new(mods, tal(tmpctx, struct command), NULL, mods, NULL);
 
 	/* We want to permute order of channels between each node, to
 	 * avoid "it works because it chooses the first one!" */

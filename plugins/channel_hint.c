@@ -95,3 +95,17 @@ struct channel_hint *channel_hint_from_json(const tal_t *ctx,
 	return hint;
 }
 */
+
+struct channel_hint_set *channel_hint_set_new(const tal_t *ctx)
+{
+	struct channel_hint_set *set = tal(ctx, struct channel_hint_set);
+	set->hints = tal_arr(set, struct channel_hint, 0);
+	return set;
+}
+
+void channel_hint_set_update(struct channel_hint_set *set,
+			     const struct timeabs now)
+{
+	for (size_t i = 0; i < tal_count(set->hints); i++)
+		channel_hint_update(time_now(), &set->hints[i]);
+}
