@@ -123,6 +123,6 @@ void memtaint(void *data, size_t len)
 	memcpy(p, tainter, len);
 
 #if HAVE_VALGRIND_MEMCHECK_H
-	VALGRIND_MAKE_MEM_UNDEFINED(data, len);
+	(void)VALGRIND_MAKE_MEM_UNDEFINED(data, len);
 #endif
 }
