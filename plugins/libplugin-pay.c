@@ -505,7 +505,7 @@ static void payment_exclude_most_expensive(struct payment *p)
 		}
 	}
 	channel_hints_update(p, e->scid, e->direction, false, false, NULL,
-			     e->total_amount, NULL);
+			     e->capacity, NULL);
 }
 
 static void payment_exclude_longest_delay(struct payment *p)
@@ -521,7 +521,7 @@ static void payment_exclude_longest_delay(struct payment *p)
 		}
 	}
 	channel_hints_update(p, e->scid, e->direction, false, false, NULL,
-			     e->total_amount, NULL);
+			     e->capacity, NULL);
 }
 
 static struct amount_msat payment_route_fee(struct payment *p)
@@ -1536,7 +1536,7 @@ handle_intermediate_failure(struct command *cmd,
 	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
 		/* All of these result in the channel being marked as disabled. */
 		channel_hints_update(root, errchan->scid, errchan->direction,
-				     false, false, NULL, errchan->total_amount,
+				     false, false, NULL, errchan->capacity,
 				     NULL);
 		break;
 
@@ -1555,7 +1555,7 @@ handle_intermediate_failure(struct command *cmd,
 		 * remember the amount we tried as an estimate. */
 		channel_hints_update(root, errchan->scid, errchan->direction,
 				     true, false, &estimated,
-				     errchan->total_amount, NULL);
+				     errchan->capacity, NULL);
 		goto error;
 	}
 
@@ -3173,7 +3173,7 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 			hop.amount = dest_amount;
 			hop.delay = route_cltv(d->final_cltv, routehint + i + 1,
 					       tal_count(routehint) - i - 1);
-			hop.total_amount = estimate;
+			hop.capacity = estimate;
 
 			/* Should we get a failure inside the routehint we'll
 			 * need the direction so we can exclude it. Luckily
@@ -3542,7 +3542,7 @@ static void direct_pay_override(struct payment *p) {
 		p->route[0].scid = hint->scid.scid;
 		p->route[0].direction = hint->scid.dir;
 		p->route[0].node_id = *p->route_destination;
-		p->route[0].total_amount = hint->overall_capacity;
+		p->route[0].capacity = hint->overall_capacity;
 		paymod_log(p, LOG_DBG,
 			   "Found a direct channel (%s) with sufficient "
 			   "capacity, skipping route computation.",

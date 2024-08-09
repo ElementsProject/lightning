@@ -26,7 +26,7 @@ struct route_hop {
 	int direction;
 	struct node_id node_id;
 	struct amount_msat amount;
-	struct amount_msat total_amount;
+	struct amount_msat capacity;
 	u32 delay;
 };
 
