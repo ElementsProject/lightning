@@ -1887,9 +1887,9 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 }
 
 /* Free *str, set *str to copy with `cln` prepended */
-static void prefix_cln(const char **str STEALS)
+static void prefix_cln(char **str STEALS)
 {
-	const char *newstr = tal_fmt(tal_parent(*str), "cln%s", *str);
+	char *newstr = tal_fmt(tal_parent(*str), "cln%s", *str);
 	tal_free(*str);
 	*str = newstr;
 }
@@ -1910,7 +1910,7 @@ static void fixup_clnrest_options(struct lightningd *ld)
 		    && !strstarts(cv->configline, "rest-certs="))
 			continue;
 		/* Did some (plugin) claim it? */
-		if (opt_find_long(cv->configline, &cv->optarg))
+		if (opt_find_long(cv->configline, cast_const2(const char **, &cv->optarg)))
 			continue;
 		if (!opt_deprecated_ok(ld,
 				       tal_strndup(tmpctx, cv->configline,

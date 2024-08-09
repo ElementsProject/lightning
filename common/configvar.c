@@ -31,7 +31,7 @@ const struct opt_table *configvar_unparsed(struct configvar *cv)
 		ot = opt_find_short(cv->configline[0]);
 		cv->optarg = NULL;
 	} else {
-		ot = opt_find_long(cv->configline, &cv->optarg);
+		ot = opt_find_long(cv->configline, cast_const2(const char **, &cv->optarg));
 	}
 	if (!ot)
 		return NULL;
@@ -51,18 +51,13 @@ const struct opt_table *configvar_unparsed(struct configvar *cv)
 	return ot;
 }
 
-static void trim_whitespace(const char *s)
+static void trim_whitespace(char *s)
 {
 	size_t len = strlen(s);
 
-	/* Cast away const to allow modifications */
-	char *mutable_s = (char *)s;
-
-	while (len > 0 && isspace((unsigned char)mutable_s[len - 1]))
+	while (len > 0 && cisspace(s[len - 1]))
 		len--;
-
-	/* Move null terminator to the end of the trimmed string */
-	memmove(mutable_s + len, mutable_s + strlen(s), 1);
+	s[len] = '\0';
 }
 
 const char *configvar_parse(struct configvar *cv,

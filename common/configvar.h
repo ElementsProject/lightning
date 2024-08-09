@@ -35,13 +35,13 @@ struct configvar {
 	/* Where did we get this from? */
 	enum configvar_src src;
 	/* Never NULL, the whole line */
-	const char *configline;
+	char *configline;
 
 	/* These are filled in by configvar_parse */
 	/* The variable name (without any =) */
 	const char *optvar;
 	/* NULL for no-arg options, otherwise points after =. */
-	const char *optarg;
+	char *optarg;
 	/* Was this overridden by a following option? */
 	bool overridden;
 };
