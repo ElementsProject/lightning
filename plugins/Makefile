@@ -63,6 +63,9 @@ PLUGIN_FUNDER_HEADER :=				\
 	plugins/funder_policy.h
 PLUGIN_FUNDER_OBJS := $(PLUGIN_FUNDER_SRC:.c=.o)
 
+PLUGIN_RECKLESSRPC_SRC := plugins/recklessrpc.c
+PLUGIN_RECKLESSRPC_OBJS := $(PLUGIN_RECKLESSRPC_SRC:.c=.o)
+
 PLUGIN_ALL_SRC :=				\
 	$(PLUGIN_AUTOCLEAN_SRC)			\
 	$(PLUGIN_chanbackup_SRC)		\
@@ -77,7 +80,8 @@ PLUGIN_ALL_SRC :=				\
 	$(PLUGIN_PAY_LIB_SRC)			\
 	$(PLUGIN_PAY_SRC)			\
 	$(PLUGIN_SPENDER_SRC)			\
-	$(PLUGIN_RECOVER_SRC)
+	$(PLUGIN_RECOVER_SRC)			\
+	$(PLUGIN_RECKLESSRPC_SRC)
 
 PLUGIN_ALL_HEADER :=				\
 	$(PLUGIN_PAY_HEADER)			\
@@ -97,6 +101,7 @@ C_PLUGINS :=					\
 	plugins/keysend				\
 	plugins/offers				\
 	plugins/pay				\
+	plugins/recklessrpc			\
 	plugins/recover				\
 	plugins/txprepare			\
 	plugins/cln-renepay			\
@@ -215,6 +220,8 @@ plugins/offers: $(PLUGIN_OFFERS_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) c
 plugins/funder: bitcoin/psbt.o common/psbt_open.o $(PLUGIN_FUNDER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 
 plugins/recover:  common/gossmap.o common/sciddir_or_pubkey.o common/fp16.o $(PLUGIN_RECOVER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+
+plugins/recklessrpc: $(PLUGIN_RECKLESSRPC_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 
 # This covers all the low-level list RPCs which return simple arrays
 SQL_LISTRPCS := listchannels listforwards listhtlcs listinvoices listnodes listoffers listpeers listpeerchannels listclosedchannels listtransactions listsendpays bkpr-listaccountevents bkpr-listincome

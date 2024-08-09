@@ -97,6 +97,7 @@ GENERATE_MARKDOWN := doc/lightning-addgossip.7 \
 	doc/lightning-plugin.7 \
 	doc/lightning-preapproveinvoice.7 \
 	doc/lightning-preapprovekeysend.7 \
+	doc/lightning-reckless.7 \
 	doc/lightning-recoverchannel.7 \
 	doc/lightning-recover.7 \
 	doc/lightning-renepay.7 \
