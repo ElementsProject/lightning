@@ -53,6 +53,7 @@ static bool unknown_type(enum peer_wire t)
 	case WIRE_SPLICE:
 	case WIRE_SPLICE_ACK:
 	case WIRE_SPLICE_LOCKED:
+	case WIRE_PEER_ALT_ADDR:
 		return false;
 	}
 	return true;
@@ -110,6 +111,7 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_SPLICE:
 	case WIRE_SPLICE_ACK:
 	case WIRE_SPLICE_LOCKED:
+	case WIRE_PEER_ALT_ADDR:
 		break;
 	}
 	return false;
@@ -162,6 +164,7 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 	case WIRE_ONION_MESSAGE:
 	case WIRE_PEER_STORAGE:
 	case WIRE_YOUR_PEER_STORAGE:
+	case WIRE_PEER_ALT_ADDR:
 		return false;
 
 	/* Special cases: */

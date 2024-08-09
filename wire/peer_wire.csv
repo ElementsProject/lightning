@@ -390,4 +390,7 @@ msgdata,gossip_timestamp_filter,timestamp_range,u32,
 msgtype,onion_message,513,option_onion_messages
 msgdata,onion_message,blinding,point,
 msgdata,onion_message,len,u16,
-msgdata,onion_message,onionmsg,byte,len
+msgdata,onion_message,onionmsg,byte,len,
+msgtype,peer_alt_addr,209
+msgdata,peer_alt_addr,addr_len,u8,
+msgdata,peer_alt_addr,addr,byte,addr_len,

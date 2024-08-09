@@ -4734,6 +4734,9 @@
                 "netaddr": [
                   "127.0.0.1:40119"
                 ],
+                "alt_addrs": [
+                  "127.0.0.1:34321"
+                ],
                 "features": "08a0000a8a5961",
                 "log": [
                   {
@@ -16112,6 +16115,93 @@
                   }
                 }
               },
+              "alt-addr": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "values_str",
+                  "sources"
+                ],
+                "properties": {
+                  "values_str": {
+                    "added": "v24.08",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "Field from config or cmdline."
+                      ]
+                    }
+                  },
+                  "sources": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "Source of configuration setting."
+                      ]
+                    }
+                  }
+                }
+              },
+              "alt-announce-addr": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "values_str",
+                  "sources"
+                ],
+                "properties": {
+                  "values_str": {
+                    "added": "v24.08",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "Field from config or cmdline."
+                      ]
+                    }
+                  },
+                  "sources": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "Source of configuration setting."
+                      ]
+                    }
+                  }
+                }
+              },
+              "alt-bind-addr": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "values_str",
+                  "sources"
+                ],
+                "properties": {
+                  "values_str": {
+                    "added": "v24.08",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "Field from config or cmdline."
+                      ]
+                    }
+                  },
+                  "sources": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "Source of configuration setting."
+                      ]
+                    }
+                  }
+                }
+              },
               "autolisten": {
                 "type": "object",
                 "additionalProperties": false,
@@ -22165,6 +22255,19 @@
                           ]
                         }
                       },
+                      "alt_addrs": {
+                        "type": "array",
+                        "description": [
+                          "An array containing zero or more alternative addresses for the peer."
+                        ],
+                        "items": {
+                          "type": "string",
+                          "description": [
+                            "Address, e.g. 1.2.3.4:1234."
+                          ]
+                        },
+                        "added": "v24.08"
+                      },
                       "remote_addr": {
                         "type": "string",
                         "description": [
@@ -22221,6 +22324,9 @@
                 "netaddr": [
                   "127.0.0.1:44619"
                 ],
+                "alt_addrs": [
+                  "127.0.0.1:34321"
+                ],
                 "features": "08a0000a0a69a2"
               }
             ]
@@ -22240,6 +22346,9 @@
                 "num_channels": 1,
                 "netaddr": [
                   "127.0.0.1:48862"
+                ],
+                "alt_addrs": [
+                  "127.0.0.1:34321"
                 ],
                 "features": "08a0000a0a69a2"
               }

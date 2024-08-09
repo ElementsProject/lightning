@@ -95,6 +95,8 @@ impl From<responses::ListpeersPeersLog> for pb::ListpeersPeersLog {
 impl From<responses::ListpeersPeers> for pb::ListpeersPeers {
     fn from(c: responses::ListpeersPeers) -> Self {
         Self {
+            // Field: ListPeers.peers[].alt_addrs[]
+            alt_addrs: c.alt_addrs.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             connected: c.connected, // Rule #2 for type boolean
             features: c.features.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
@@ -2634,6 +2636,42 @@ impl From<responses::ListconfigsConfigsAllowdeprecatedapis> for pb::ListconfigsC
 }
 
 #[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsAltaddr> for pb::ListconfigsConfigsAltaddr {
+    fn from(c: responses::ListconfigsConfigsAltaddr) -> Self {
+        Self {
+            // Field: ListConfigs.configs.alt-addr.sources[]
+            sources: c.sources.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            // Field: ListConfigs.configs.alt-addr.values_str[]
+            values_str: c.values_str.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsAltannounceaddr> for pb::ListconfigsConfigsAltannounceaddr {
+    fn from(c: responses::ListconfigsConfigsAltannounceaddr) -> Self {
+        Self {
+            // Field: ListConfigs.configs.alt-announce-addr.sources[]
+            sources: c.sources.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            // Field: ListConfigs.configs.alt-announce-addr.values_str[]
+            values_str: c.values_str.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsAltbindaddr> for pb::ListconfigsConfigsAltbindaddr {
+    fn from(c: responses::ListconfigsConfigsAltbindaddr) -> Self {
+        Self {
+            // Field: ListConfigs.configs.alt-bind-addr.sources[]
+            sources: c.sources.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            // Field: ListConfigs.configs.alt-bind-addr.values_str[]
+            values_str: c.values_str.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::ListconfigsConfigsAlwaysuseproxy> for pb::ListconfigsConfigsAlwaysuseproxy {
     fn from(c: responses::ListconfigsConfigsAlwaysuseproxy) -> Self {
         Self {
@@ -3320,6 +3358,9 @@ impl From<responses::ListconfigsConfigs> for pb::ListconfigsConfigs {
             addr: c.addr.map(|v| v.into()),
             alias: c.alias.map(|v| v.into()),
             allow_deprecated_apis: c.allow_deprecated_apis.map(|v| v.into()),
+            alt_addr: c.alt_addr.map(|v| v.into()),
+            alt_announce_addr: c.alt_announce_addr.map(|v| v.into()),
+            alt_bind_addr: c.alt_bind_addr.map(|v| v.into()),
             always_use_proxy: c.always_use_proxy.map(|v| v.into()),
             announce_addr: c.announce_addr.map(|v| v.into()),
             announce_addr_discovered: c.announce_addr_discovered.map(|v| v.into()),

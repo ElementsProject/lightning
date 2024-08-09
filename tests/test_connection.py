@@ -69,6 +69,154 @@ def test_connect_basic(node_factory):
     assert l1.rpc.listpeers(l2id)['peers'][0]['num_channels'] == 2
 
 
+# Helper function to setup nodes with the specified test case
+def alt_addr_setup_nodes(node_factory, test_case):
+    alt_addr = "127.0.0.1"
+    alt_port = node_factory.get_unused_port()
+
+    if test_case == "standard":
+        opts = {
+            'may_reconnect': True,
+            'dev-no-reconnect': None,
+            'alt-addr': f'{alt_addr}:{alt_port}'
+        }
+    elif test_case == "rpc":
+        opts = {
+            'may_reconnect': True,
+            'dev-no-reconnect': None,
+            'alt-bind-addr': f'{alt_addr}:{alt_port}'
+        }
+    elif test_case == "announce":
+        opts = {
+            'may_reconnect': True,
+            'dev-no-reconnect': None,
+            'alt-bind-addr': f'{alt_addr}:{alt_port}',
+            'alt-announce-addr': f'{alt_addr}:{alt_port}'
+        }
+    elif test_case == "whitelist":
+        opts = {
+            'may_reconnect': True,
+            'dev-no-reconnect': None,
+            'alt-bind-addr': f'{alt_addr}:{alt_port}',
+        }
+    else:
+        raise ValueError("Unknown test case")
+
+    l1, l2 = node_factory.line_graph(2, fundchannel=True, opts=[{'may_reconnect': True}, opts])
+    return l1, l2, alt_addr, alt_port
+
+
+@pytest.mark.parametrize("test_case", [
+    "standard",
+    "rpc",
+    "announce",
+])
+def test_alt_addr_connection_scenarios(node_factory, bitcoind, test_case):
+    """Test various alternate connection address scenarios for nodes."""
+
+    # Function to verify that the node is correctly bound to the alternate address
+    def verify_binding(l2, alt_addr, alt_port):
+        binding = l2.rpc.getinfo()['binding']
+        assert len(binding) > 0, "No binding found for l2"
+        assert any(bind['address'] == alt_addr for bind in binding), f"Expected alt-addr {alt_addr}, found {binding}"
+        assert any(bind['port'] == alt_port for bind in binding), f"Expected alt-port {alt_port}, found {binding}"
+
+    # Function to reconnect the node using the alternate address and verify the connection
+    def reconnect_and_verify(l1, l2, alt_addr, alt_port):
+        l1.rpc.disconnect(l2.info['id'], force=True)
+        assert not any(peer['connected'] for peer in l1.rpc.listpeers()['peers']), "l1 should not have any connected peers"
+
+        l1.rpc.connect(l2.info['id'], alt_addr, alt_port)
+        wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'][0]['connected'])
+        # assert l1.rpc.listpeers(l2.info['id'])['peers'][0]['connected'] is True
+
+        connected_peer = l1.rpc.getpeer(l2.info['id'])
+        assert connected_peer['connected'], "Peers not connected"
+        assert connected_peer['netaddr'][0] == f'{alt_addr}:{alt_port}', f"Connection not using alt-addr: {connected_peer['netaddr'][0]}"
+
+    def auto_reconnect_and_verify(l1, l2, alt_addr, alt_port):
+        l2.rpc.disconnect(l1.info['id'], force=True)
+        assert not any(peer['connected'] for peer in l2.rpc.listpeers()['peers']), "l2 should not have any connected peers"
+
+        # Wait for l1 to auto-reconnect
+        wait_for(lambda: any(peer['connected'] for peer in l1.rpc.listpeers()['peers']), timeout=30)
+
+        # Verify that l1 reconnected using alt-addr
+        connected_peer = l1.rpc.getpeer(l2.info['id'])
+        assert connected_peer['connected'], "Peers not reconnected"
+        assert connected_peer['netaddr'][0] == f'{alt_addr}:{alt_port}', "Connection not using alt-addr"
+
+    # Function to restart the node and verify it reconnects using the alternate address
+    def restart_and_verify(l1, l2, alt_addr, alt_port):
+        l2.restart()
+        wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'][0]['connected'])
+
+        connected_peer = l1.rpc.getpeer(l2.info['id'])
+        assert connected_peer['connected'], "Peers not connected"
+        assert connected_peer['netaddr'][0] == f'{alt_addr}:{alt_port}', "Connection address does not match"
+
+    # l2 provides alt_addrs to l1, l1 connects to l2.
+    l1, l2, alt_addr, alt_port = alt_addr_setup_nodes(node_factory, test_case)
+
+    if test_case == "rpc":
+        l2.rpc.alt_addr(l1.info['id'], f'{alt_addr}:{alt_port}')
+
+    verify_binding(l2, alt_addr, alt_port)
+    reconnect_and_verify(l1, l2, alt_addr, alt_port)
+    auto_reconnect_and_verify(l1, l2, alt_addr, alt_port)
+    restart_and_verify(l1, l2, alt_addr, alt_port)
+
+
+@pytest.mark.parametrize("test_case", [
+    ("wrong_port_standard"),
+    ("wrong_port_rpc"),
+])
+def test_alt_addr_wrong_port_handling(node_factory, test_case):
+    """Test handling of incorrect ports with alternative addresses."""
+
+    l1, l2, alt_addr, alt_port = alt_addr_setup_nodes(node_factory, test_case.replace("wrong_port_", ""))
+    wrong_port = node_factory.get_unused_port()
+
+    if "rpc" in test_case:
+        l2.rpc.alt_addr(l1.info['id'], f'{alt_addr}:{wrong_port}')
+
+        l1.rpc.disconnect(l2.info['id'], force=True)
+        assert not any(peer['connected'] for peer in l1.rpc.listpeers()['peers']), "l1 should not have any connected peers"
+        assert not any(peer['connected'] for peer in l2.rpc.listpeers()['peers']), "l2 should not have any connected peers"
+
+        with pytest.raises(Exception):
+            l1.rpc.connect(l2.info['id'], alt_addr, wrong_port)
+            connected_peer = l1.rpc.listpeers(l2.info['id'])['peers']
+            assert len(connected_peer) == 0 or not connected_peer[0]['connected'], "Peer should not be connected using wrong_port"
+
+            l1.restart()
+            connected_peer = l1.rpc.listpeers(l2.info['id'])['peers']
+            assert len(connected_peer) == 0 or not connected_peer[0]['connected'], "Peer should not be connected using wrong_port"
+    else:
+        l1.rpc.connect(l2.info['id'], alt_addr, wrong_port)
+        connected_peer = l1.rpc.getpeer(l2.info['id'])
+        assert not connected_peer['netaddr'][0] == f'{alt_addr}:{wrong_port}', "Connection address does not match"
+
+
+def test_alt_addr_whitelist_handling(node_factory):
+    """Test handling of whitelist with alternate addresses."""
+
+    l1, l2, alt_addr, alt_port = alt_addr_setup_nodes(node_factory, "whitelist")
+    l3 = node_factory.get_node()
+
+    try:
+        l3.rpc.connect(l2.info['id'], alt_addr, alt_port)
+    except RpcError as e:
+        print(f"RPC Error: {e.error}")
+        assert e.error['code'] == 401, f"Unexpected error code: {e.error['code']}"
+        assert "peer closed connection" in e.error['message'], f"Unexpected error message: {e.error['message']}"
+
+    l2.daemon.wait_for_log(f"Connection attempt from address {alt_addr}:{alt_port} which is not in the whitelist. Closing connection.")
+
+    connected_peers = l2.rpc.listpeers()['peers']
+    assert not any(peer['id'] == l3.info['id'] and peer['connected'] for peer in connected_peers), "l3 should not be connected to l2"
+
+
 def test_remote_addr(node_factory, bitcoind):
     """Check address discovery (BOLT1 #917) init remote_addr works as designed:
 

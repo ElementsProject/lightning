@@ -1028,6 +1028,9 @@ u8 *towire_channeld_offer_htlc(const tal_t *ctx UNNEEDED, struct amount_msat amo
 /* Generated stub for towire_channeld_sending_commitsig_reply */
 u8 *towire_channeld_sending_commitsig_reply(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channeld_sending_commitsig_reply called!\n"); abort(); }
+/* Generated stub for towire_connectd_alt_addr_whitelist */
+u8 *towire_connectd_alt_addr_whitelist(const tal_t *ctx UNNEEDED, const struct whitelisted_peer *whitelisted_peer)
+{ fprintf(stderr, "towire_connectd_alt_addr_whitelist called!\n"); abort(); }
 /* Generated stub for towire_connectd_discard_peer */
 u8 *towire_connectd_discard_peer(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 counter UNNEEDED)
 { fprintf(stderr, "towire_connectd_discard_peer called!\n"); abort(); }

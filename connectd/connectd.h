@@ -11,6 +11,7 @@
 #include <common/crypto_state.h>
 #include <common/node_id.h>
 #include <common/pseudorand.h>
+#include <common/whitelisted_peer.h>
 #include <common/wireaddr.h>
 #include <connectd/handshake.h>
 
@@ -226,6 +227,24 @@ HTABLE_DEFINE_TYPE(struct scid_to_node_id,
 		   scid_to_node_id_eq_scid,
 		   scid_htable);
 
+static const struct node_id *whitelisted_peer_keyof(const struct whitelisted_peer *wp)
+{
+	return &wp->id;
+}
+
+static bool whitelisted_peer_eq(const struct whitelisted_peer *wp, const struct node_id *id)
+{
+	return node_id_eq(&wp->id, id);
+}
+
+/*~ This defines 'struct witelisted_peer_htable' which contains
+ *  'struct whitelisted_peer' pointers. */
+HTABLE_DEFINE_TYPE(struct whitelisted_peer,
+                   whitelisted_peer_keyof,
+                   node_id_hash,
+                   whitelisted_peer_eq,
+                   whitelisted_peer_htable);
+
 /*~ This is the global state, like `struct lightningd *ld` in lightningd. */
 struct daemon {
 	/* Who am I? */
@@ -289,6 +308,11 @@ struct daemon {
 	/* Our features, as lightningd told us */
 	struct feature_set *our_features;
 
+	/* check whitelist before accepting incoming alt addr */
+	struct whitelisted_peer_htable *whitelisted_peer_htable;
+	/* Bind for 'alt-addr' rpc cmd, or '--alt-annouce-addr' listening, but do not announce */
+	u8 *alt_bind_addr;
+
 	/* Subdaemon to proxy websocket requests. */
 	char *websocket_helper;
 
@@ -335,6 +359,9 @@ void update_recent_timestamp(struct daemon *daemon, struct gossmap *gossmap);
 
 /* add erros to error list */
 void add_errors_to_error_list(struct connecting *connect, const char *error);
+
+/* Handles alternative address message from peer. */
+void handle_peer_alt_addr_in(struct peer *peer, const u8 *msg);
 
 /* Called by peer_exchange_initmsg if successful. */
 struct io_plan *peer_connected(struct io_conn *conn,

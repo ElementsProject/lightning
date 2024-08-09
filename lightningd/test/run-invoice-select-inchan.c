@@ -957,6 +957,9 @@ u8 *towire_channeld_dev_memleak(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_channeld_dev_reenable_commit */
 u8 *towire_channeld_dev_reenable_commit(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channeld_dev_reenable_commit called!\n"); abort(); }
+/* Generated stub for towire_connectd_alt_addr_whitelist */
+u8 *towire_connectd_alt_addr_whitelist(const tal_t *ctx UNNEEDED, const struct whitelisted_peer *whitelisted_peer)
+{ fprintf(stderr, "towire_connectd_alt_addr_whitelist called!\n"); abort(); }
 /* Generated stub for towire_connectd_discard_peer */
 u8 *towire_connectd_discard_peer(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 counter UNNEEDED)
 { fprintf(stderr, "towire_connectd_discard_peer called!\n"); abort(); }
@@ -1040,6 +1043,11 @@ int wallet_extract_owned_outputs(struct wallet *w UNNEEDED, const struct wally_t
 				 const u32 *blockheight UNNEEDED,
 				 struct amount_sat *total UNNEEDED)
 { fprintf(stderr, "wallet_extract_owned_outputs called!\n"); abort(); }
+/* Generated stub for wallet_get_alt_addr */
+struct wireaddr_internal *wallet_get_alt_addr(struct wallet *w UNNEEDED,
+					      const struct node_id *node_id UNNEEDED,
+					      bool use_my_alt_addr UNNEEDED)
+{ fprintf(stderr, "wallet_get_alt_addr called!\n"); abort(); }
 /* Generated stub for wallet_htlcs_load_in_for_channel */
 bool wallet_htlcs_load_in_for_channel(struct wallet *wallet UNNEEDED,
 				      struct channel *chan UNNEEDED,

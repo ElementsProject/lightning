@@ -103,6 +103,7 @@ COMMON_SRC_NOGEN :=				\
 	common/utxo.c				\
 	common/version.c			\
 	common/wallet.c				\
+	common/whitelisted_peer.c		\
 	common/wireaddr.c			\
 	common/wire_error.c
 
