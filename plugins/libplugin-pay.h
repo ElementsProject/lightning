@@ -129,6 +129,18 @@ enum payment_step {
 	PAYMENT_STEP_SUCCESS = 64,
 };
 
+const char * const payment_step_str[] =
+{
+    [PAYMENT_STEP_INITIALIZED] = "PAYMENT_STEP_INITIALIZED",
+    [PAYMENT_STEP_GOT_ROUTE] = "PAYMENT_STEP_GOT_ROUTE",
+    [PAYMENT_STEP_RETRY_GETROUTE]  = "PAYMENT_STEP_RETRY_GETROUTE",
+    [PAYMENT_STEP_ONION_PAYLOAD]  = "PAYMENT_STEP_ONION_PAYLOAD",
+    [PAYMENT_STEP_SPLIT] = "PAYMENT_STEP_SPLIT",
+    [PAYMENT_STEP_RETRY] = "PAYMENT_STEP_RETRY",
+    [PAYMENT_STEP_FAILED]  = "PAYMENT_STEP_FAILED",
+    [PAYMENT_STEP_SUCCESS]  = "PAYMENT_STEP_SUCCESS",
+};
+
 /* Just a container to collect a subtree result so we can summarize all
  * sub-payments and return a reasonable result to the caller of `pay` */
 struct payment_tree_result {

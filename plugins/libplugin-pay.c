@@ -10,9 +10,11 @@
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/random_select.h>
+#include <common/trace.h>
 #include <errno.h>
 #include <math.h>
 #include <plugins/libplugin-pay.h>
+#include <stdio.h>
 #include <sys/types.h>
 #include <wire/peer_wire.h>
 
@@ -2423,12 +2425,17 @@ void payment_continue(struct payment *p)
 {
 	struct payment_modifier *mod;
 	void *moddata;
+
+	trace_span_start("payment_continue", p);
 	/* If we are in the middle of calling the modifiers, continue calling
 	 * them, otherwise we can continue with the payment state-machine. */
 	p->current_modifier++;
 	mod = p->modifiers[p->current_modifier];
 
 	if (mod != NULL) {
+		char *str = tal_fmt(tmpctx, "%d", p->current_modifier);
+		trace_span_tag(p, "modifier", str);
+		trace_span_end(p);
 		/* There is another modifier, so call it. */
 		moddata = p->modifier_data[p->current_modifier];
 		return mod->post_step_cb(moddata, p);
@@ -2436,6 +2443,8 @@ void payment_continue(struct payment *p)
 		/* There are no more modifiers, so reset the call chain and
 		 * proceed to the next state. */
 		p->current_modifier = -1;
+		trace_span_tag(p, "step", payment_step_str[p->step]);
+		trace_span_end(p);
 		switch (p->step) {
 		case PAYMENT_STEP_INITIALIZED:
 		case PAYMENT_STEP_RETRY_GETROUTE:
@@ -2462,6 +2471,7 @@ void payment_continue(struct payment *p)
 			return;
 		}
 	}
+	trace_span_end(p);
 	/* We should never get here, it'd mean one of the state machine called
 	 * `payment_continue` after the final state. */
 	abort();
@@ -2663,7 +2673,7 @@ local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
 				     const jsmntok_t *toks, struct payment *p)
 {
 	struct listpeers_channel **chans;
-
+	trace_span_resume(p);
 	chans = json_to_listpeers_channels(tmpctx, buffer, toks);
 
 	for (size_t i = 0; i < tal_count(chans); i++) {
@@ -2713,6 +2723,7 @@ local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
 		}
 	}
 
+	trace_span_end(p);
 	payment_continue(p);
 	return command_still_pending(cmd);
 }
@@ -2728,6 +2739,8 @@ static void local_channel_hints_cb(void *d UNUSED, struct payment *p)
 	if (p->parent != NULL || p->step != PAYMENT_STEP_INITIALIZED)
 		return payment_continue(p);
 
+	trace_span_start("local_channel_hints_cb", p);
+	trace_span_suspend(p);
 	req = jsonrpc_request_start(p->plugin, NULL, "listpeerchannels",
 				    local_channel_hints_listpeerchannels,
 				    local_channel_hints_listpeerchannels, p);
@@ -3281,6 +3294,7 @@ static void exemptfee_cb(struct exemptfee_data *d, struct payment *p)
 	if (p->step != PAYMENT_STEP_INITIALIZED || p->parent != NULL)
 		return payment_continue(p);
 
+	trace_span_start("exemptfee_cb", p);
 	if (amount_msat_greater_eq(d->amount, p->constraints.fee_budget)) {
 		paymod_log(
 		    p, LOG_INFORM,
@@ -3291,6 +3305,8 @@ static void exemptfee_cb(struct exemptfee_data *d, struct payment *p)
 		p->constraints.fee_budget = d->amount;
 		p->start_constraints->fee_budget = d->amount;
 	}
+
+	trace_span_end(p);
 	return payment_continue(p);
 }
 
@@ -3507,8 +3523,12 @@ static void shadow_route_cb(struct shadow_route_data *d,
 		= amount_msat_div(p->constraints.fee_budget, 4);
 
 	if (pseudorand(2) == 0) {
+		trace_span_tag(p, "shadow_route_cb", "pseudorand(2) == 0");
+		trace_span_end(p);
 		return payment_continue(p);
 	} else {
+		trace_span_tag(p, "shadow_route_cb", "pseudorand(2) != 0");
+		trace_span_end(p);
 		shadow_route_extend(d, p);
 	}
 }
@@ -3527,8 +3547,11 @@ static void direct_pay_override(struct payment *p) {
 	 * anything. */
 	d = payment_mod_directpay_get_data(root);
 
-	if (d->chan == NULL)
+	if (d->chan == NULL) {
+		trace_span_tag(p, "direct_pay_override", "d->chan == NULL");
+		trace_span_end(p);
 		return payment_continue(p);
+	}
 
 	/* If we have a channel we need to make sure that it still has
 	 * sufficient capacity. Look it up in the channel_hints. */
@@ -3558,7 +3581,7 @@ static void direct_pay_override(struct payment *p) {
 		payment_set_step(p, PAYMENT_STEP_GOT_ROUTE);
 	}
 
-
+	trace_span_end(p);
 	payment_continue(p);
 }
 
@@ -3570,6 +3593,7 @@ static struct command_result *direct_pay_listpeerchannels(struct command *cmd,
 							  const jsmntok_t *toks,
 							  struct payment *p)
 {
+	trace_span_resume(p);
 	struct listpeers_channel **channels = json_to_listpeers_channels(tmpctx, buffer, toks);
 	struct direct_pay_data *d = payment_mod_directpay_get_data(p);
 
@@ -3620,7 +3644,8 @@ static void direct_pay_cb(struct direct_pay_data *d, struct payment *p)
 		return payment_continue(p);
 
 
-
+	trace_span_start("direct_pay_cb", p);
+	trace_span_suspend(p);
 	req = jsonrpc_request_start(p->plugin, NULL, "listpeerchannels",
 				    direct_pay_listpeerchannels,
 				    direct_pay_listpeerchannels,
@@ -3876,7 +3901,7 @@ payee_incoming_limit_count(struct command *cmd,
 {
 	const jsmntok_t *channelstok;
 	size_t num_channels = 0;
-
+	trace_span_start("payee_incoming_limit_count", p);
 	channelstok = json_get_member(buf, result, "channels");
 	assert(channelstok);
 
@@ -3909,6 +3934,7 @@ payee_incoming_limit_count(struct command *cmd,
 		payment_lower_max_htlcs(p, lim, why);
 	}
 
+	trace_span_end(p);
 	payment_continue(p);
 	return command_still_pending(cmd);
 }
@@ -3922,8 +3948,10 @@ static void payee_incoming_limit_step_cb(void *d UNUSED, struct payment *p)
 	 || !payment_supports_mpp(p))
 		return payment_continue(p);
 
+	trace_span_start("payee_incoming_limit_step_cb", p);
 	/* Get information on the destination.  */
 	struct out_req *req;
+	trace_span_end(p);
 	req = jsonrpc_request_start(p->plugin, NULL, "listchannels",
 				    &payee_incoming_limit_count,
 				    &payment_rpc_failure, p);
@@ -3952,6 +3980,8 @@ static void route_exclusions_step_cb(struct route_exclusions_data *d,
 {
 	if (p->parent)
 		return payment_continue(p);
+
+	trace_span_start("route_exclusions_step_cb", p);
 	struct route_exclusion **exclusions = d->exclusions;
 	for (size_t i = 0; i < tal_count(exclusions); i++) {
 		struct route_exclusion *e = exclusions[i];
@@ -3970,6 +4000,7 @@ static void route_exclusions_step_cb(struct route_exclusions_data *d,
 			tal_arr_expand(&p->excluded_nodes, e->u.node_id);
 		}
 	}
+	trace_span_end(p);
 	payment_continue(p);
 }
 
