@@ -4,6 +4,7 @@
 #include <common/gossip_store.h>
 #include <common/setup.h>
 #include <common/utils.h>
+#include <gossipd/gossip_store_wiregen.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -210,6 +211,10 @@ bool json_to_sat(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			      struct short_channel_id *scid UNNEEDED)
 { fprintf(stderr, "json_to_short_channel_id called!\n"); abort(); }
+/* Generated stub for json_to_short_channel_id_dir */
+bool json_to_short_channel_id_dir(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				  struct short_channel_id_dir *scidd UNNEEDED)
+{ fprintf(stderr, "json_to_short_channel_id_dir called!\n"); abort(); }
 /* Generated stub for json_to_u16 */
 bool json_to_u16(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
                  uint16_t *num UNNEEDED)
@@ -381,10 +386,16 @@ static void add_connection(int store_fd,
 					  ids[0], ids[1],
 					  &dummy_key, &dummy_key);
 	write_to_store(store_fd, msg);
+	tal_free(msg);
 
-	update_connection(store_fd, from, to, scid, min, max,
-			  base_fee, proportional_fee,
-			  delay, false);
+	/* Also needs a hint as to the funding size. */
+	struct amount_sat capacity = AMOUNT_SAT(100000000);
+	msg = towire_gossip_store_channel_amount(tmpctx, capacity);
+	write_to_store(store_fd, msg);
+	tal_free(msg);
+
+	update_connection(store_fd, from, to, scid, min, max, base_fee,
+			  proportional_fee, delay, false);
 }
 
 static void node_id_from_privkey(const struct privkey *p, struct node_id *id)
@@ -423,7 +434,7 @@ int main(int argc, char *argv[])
 	}
 
 	mods = tal_arrz(tmpctx, struct payment_modifier *, 1);
-	p = payment_new(mods, tal(tmpctx, struct command), NULL, mods);
+	p = payment_new(mods, tal(tmpctx, struct command), NULL, mods, NULL);
 
 	for (size_t i = 1; i < NUM_NODES; i++) {
 		struct short_channel_id scid;

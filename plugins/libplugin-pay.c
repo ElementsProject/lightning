@@ -1,5 +1,7 @@
 #include "config.h"
+#include "plugins/channel_hint.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/blindedpay.h>
 #include <common/daemon.h>
@@ -70,7 +72,8 @@ int libplugin_pay_poll(struct pollfd *fds, nfds_t nfds, int timeout)
 
 struct payment *payment_new(tal_t *ctx, struct command *cmd,
 			    struct payment *parent,
-			    struct payment_modifier **mods)
+			    struct payment_modifier **mods,
+			    struct channel_hint_set *hints)
 {
 	struct payment *p = tal(ctx, struct payment);
 
@@ -98,6 +101,15 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->on_payment_success = NULL;
 	p->on_payment_failure = NULL;
 	p->errorcode = 0;
+	p->hints = hints;
+
+	/* Either explicitly set, inherited, or track your own set. */
+	if (p->hints != NULL)
+		p->hints = hints;
+	else if (parent != NULL && parent->hints != NULL)
+		p->hints = parent->hints;
+	else
+		p->hints = channel_hint_set_new(p);
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
@@ -132,7 +144,6 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->partid = 0;
 		p->next_partid = 1;
 		p->plugin = cmd->plugin;
-		p->channel_hints = tal_arr(p, struct channel_hint, 0);
 		p->excluded_nodes = tal_arr(p, struct node_id, 0);
 		p->id = next_id++;
 		p->description = NULL;
@@ -387,41 +398,6 @@ void payment_start(struct payment *p)
 	payment_start_at_blockheight(p, INVALID_BLOCKHEIGHT);
 }
 
-static void channel_hint_to_json(const char *name, const struct channel_hint *hint, struct json_stream *dest)
-{
-	json_object_start(dest, name);
-	json_add_u32(dest, "timestamp", hint->timestamp);
-	json_add_short_channel_id_dir(dest, "scid", hint->scid);
-	json_add_amount_msat(dest, "capacity_msat", hint->estimated_capacity);
-	json_add_bool(dest, "enabled", hint->enabled);
-	json_object_end(dest);
-}
-
-/**
- * Load a channel_hint from its JSON representation.
- *
- * @return The initialized `channel_hint` or `NULL` if we encountered a parsing
- *         error.
- */
-/*
-static struct channel_hint *channel_hint_from_json(const tal_t *ctx,
-						   const char *buffer,
-						   const jsmntok_t *toks)
-{
-	const char *ret;
-	struct channel_hint *hint = tal(ctx, struct channel_hint);
-	ret = json_scan(ctx, buffer, toks,
-			"{timestamp:%,scid:%,capacity_msat:%,enabled:%}",
-			JSON_SCAN(json_to_u32, &hint->timestamp),
-			JSON_SCAN(json_to_short_channel_id_dir, &hint->scid),
-			JSON_SCAN(json_to_msat, &hint->estimated_capacity),
-			JSON_SCAN(json_to_bool, &hint->enabled));
-
-	if (ret != NULL)
-		hint = tal_free(hint);
-	return hint;
-}
-*/
     /**
      * Notify subscribers of the `channel_hint` topic about a changed hint
      *
@@ -443,55 +419,55 @@ static void channel_hints_update(struct payment *p,
 				 const struct short_channel_id scid,
 				 int direction, bool enabled, bool local,
 				 const struct amount_msat *estimated_capacity,
+				 const struct amount_msat overall_capacity,
 				 u16 *htlc_budget)
 {
 	struct payment *root = payment_root(p);
-	struct channel_hint newhint;
+	struct channel_hint newhint, *hint;
 	u32 timestamp = time_now().ts.tv_sec;
+	struct short_channel_id_dir scidd = {.scid = scid, .dir = direction};
+
+	memcheck(&overall_capacity, sizeof(struct amount_msat));
 
 	/* If the channel is marked as enabled it must have an estimate. */
 	assert(!enabled || estimated_capacity != NULL);
 
-	/* Try and look for an existing hint: */
-	for (size_t i=0; i<tal_count(root->channel_hints); i++) {
-		struct channel_hint *hint = &root->channel_hints[i];
-		if (short_channel_id_eq(hint->scid.scid, scid) &&
-		    hint->scid.dir == direction) {
-			bool modified = false;
-			/* Prefer to disable a channel. */
-			if (!enabled && hint->enabled) {
-				hint->enabled = false;
-				modified = true;
-			}
+	hint = channel_hint_set_find(p->hints, &scidd);
 
-			/* Prefer the more conservative estimate. */
-			if (estimated_capacity != NULL &&
-			    amount_msat_greater(hint->estimated_capacity,
-						*estimated_capacity)) {
-				hint->estimated_capacity = *estimated_capacity;
-				modified = true;
-			}
-			if (htlc_budget != NULL) {
-				assert(hint->local);
-				hint->local->htlc_budget = *htlc_budget;
-				modified = true;
-			}
-
-			if (modified) {
-				hint->timestamp = timestamp;
-				paymod_log(p, LOG_DBG,
-					   "Updated a channel hint for %s: "
-					   "enabled %s, "
-					   "estimated capacity %s",
-					   fmt_short_channel_id_dir(tmpctx,
-						&hint->scid),
-					   hint->enabled ? "true" : "false",
-					   fmt_amount_msat(tmpctx,
-						hint->estimated_capacity));
-				channel_hint_notify(p->plugin, hint);
-			}
-			return;
+	if (hint) {
+		bool modified = false;
+		/* Prefer to disable a channel. */
+		if (!enabled && hint->enabled) {
+			hint->enabled = false;
+			modified = true;
 		}
+
+		/* Prefer the more conservative estimate. */
+		if (estimated_capacity != NULL &&
+		    amount_msat_greater(hint->estimated_capacity,
+					*estimated_capacity)) {
+			hint->estimated_capacity = *estimated_capacity;
+			modified = true;
+		}
+		if (htlc_budget != NULL) {
+			assert(hint->local);
+			hint->local->htlc_budget = *htlc_budget;
+			modified = true;
+		}
+
+		if (modified) {
+			hint->timestamp = timestamp;
+			paymod_log(
+			    p, LOG_DBG,
+			    "Updated a channel hint for %s: "
+			    "enabled %s, "
+			    "estimated capacity %s",
+			    fmt_short_channel_id_dir(tmpctx, &hint->scid),
+			    hint->enabled ? "true" : "false",
+			    fmt_amount_msat(tmpctx, hint->estimated_capacity));
+			channel_hint_notify(p->plugin, hint);
+		}
+		return;
 	}
 
 	/* No hint found, create one. */
@@ -499,16 +475,19 @@ static void channel_hints_update(struct payment *p,
 	newhint.timestamp = timestamp;
 	newhint.scid.scid = scid;
 	newhint.scid.dir = direction;
+	newhint.overall_capacity = overall_capacity;
 	if (local) {
-		newhint.local = tal(root->channel_hints, struct local_hint);
+		newhint.local = tal(root->hints->hints, struct local_hint);
 		assert(htlc_budget);
 		newhint.local->htlc_budget = *htlc_budget;
 	} else
 		newhint.local = NULL;
 	if (estimated_capacity != NULL)
 		newhint.estimated_capacity = *estimated_capacity;
+	else
+		newhint.estimated_capacity = overall_capacity;
 
-	tal_arr_expand(&root->channel_hints, newhint);
+	tal_arr_expand(&root->hints->hints, newhint);
 
 	paymod_log(
 	    p, LOG_DBG,
@@ -533,8 +512,8 @@ static void payment_exclude_most_expensive(struct payment *p)
 			worst = fee;
 		}
 	}
-	channel_hints_update(p, e->scid, e->direction, false, false,
-			     NULL, NULL);
+	channel_hints_update(p, e->scid, e->direction, false, false, NULL,
+			     e->capacity, NULL);
 }
 
 static void payment_exclude_longest_delay(struct payment *p)
@@ -549,8 +528,8 @@ static void payment_exclude_longest_delay(struct payment *p)
 			worst = delay;
 		}
 	}
-	channel_hints_update(p, e->scid, e->direction, false, false,
-			     NULL, NULL);
+	channel_hints_update(p, e->scid, e->direction, false, false, NULL,
+			     e->capacity, NULL);
 }
 
 static struct amount_msat payment_route_fee(struct payment *p)
@@ -592,8 +571,8 @@ static struct channel_hint *payment_chanhints_get(struct payment *p,
 {
 	struct payment *root = payment_root(p);
 	struct channel_hint *curhint;
-	for (size_t j = 0; j < tal_count(root->channel_hints); j++) {
-		curhint = &root->channel_hints[j];
+	for (size_t j = 0; j < tal_count(root->hints->hints); j++) {
+		curhint = &root->hints->hints[j];
 		if (short_channel_id_eq(curhint->scid.scid, h->scid) &&
 		    curhint->scid.dir == h->direction) {
 			return curhint;
@@ -726,8 +705,8 @@ payment_get_excluded_channels(const tal_t *ctx, struct payment *p)
 	struct channel_hint *hint;
 	struct short_channel_id_dir *res =
 	    tal_arr(ctx, struct short_channel_id_dir, 0);
-	for (size_t i = 0; i < tal_count(root->channel_hints); i++) {
-		hint = &root->channel_hints[i];
+	for (size_t i = 0; i < tal_count(root->hints->hints); i++) {
+		hint = &root->hints->hints[i];
 
 		if (!hint->enabled)
 			tal_arr_expand(&res, hint->scid);
@@ -801,7 +780,7 @@ static bool payment_route_check(const struct gossmap *gossmap,
 		return false;
 
 	scid = gossmap_chan_scid(gossmap, c);
-	hint = find_hint(payment_root(p)->channel_hints, scid, dir);
+	hint = find_hint(payment_root(p)->hints->hints, scid, dir);
 	if (!hint)
 		return true;
 
@@ -1564,12 +1543,13 @@ handle_intermediate_failure(struct command *cmd,
 	case WIRE_UNKNOWN_NEXT_PEER:
 	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
 		/* All of these result in the channel being marked as disabled. */
-		channel_hints_update(root, errchan->scid,
-				     errchan->direction, false, false, NULL,
+		channel_hints_update(root, errchan->scid, errchan->direction,
+				     false, false, NULL, errchan->capacity,
 				     NULL);
 		break;
 
 	case WIRE_TEMPORARY_CHANNEL_FAILURE: {
+		memcheck(&errchan->amount, sizeof(struct amount_msat));
 		estimated = errchan->amount;
 
 		/* Subtract one msat more, since we know that the amount did not
@@ -1581,9 +1561,9 @@ handle_intermediate_failure(struct command *cmd,
 
 		/* These are an indication that the capacity was insufficient,
 		 * remember the amount we tried as an estimate. */
-		channel_hints_update(root, errchan->scid,
-				     errchan->direction, true, false,
-				     &estimated, NULL);
+		channel_hints_update(root, errchan->scid, errchan->direction,
+				     true, false, &estimated,
+				     errchan->capacity, NULL);
 		goto error;
 	}
 
@@ -2636,7 +2616,7 @@ static inline void retry_step_cb(struct retry_mod_data *rd,
 	/* If the failure was not final, and we tried a route, try again. */
 	if (rdata->retries > 0) {
 		payment_set_step(p, PAYMENT_STEP_RETRY);
-		subpayment = payment_new(p, NULL, p, p->modifiers);
+		subpayment = payment_new(p, NULL, p, p->modifiers, p->hints);
 		payment_start(subpayment);
 		subpayment->why =
 		    tal_fmt(subpayment, "Still have %d attempts left",
@@ -2697,20 +2677,29 @@ local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
 		if (chans[i]->scid != NULL) {
 			channel_hints_update(
 			    p, *chans[i]->scid, chans[i]->direction, enabled,
-			    true, &chans[i]->spendable_msat, &htlc_budget);
+			    true, &chans[i]->spendable_msat,
+			    chans[i]->total_msat, &htlc_budget);
 			if (chans[i]->alias[LOCAL] != NULL)
 				channel_hints_update(p, *chans[i]->alias[LOCAL],
 						     chans[i]->direction,
 						     false /* not enabled */,
 						     true, &AMOUNT_MSAT(0),
+						     chans[i]->total_msat,
 						     &htlc_budget);
 		} else {
-			channel_hints_update(p, *chans[i]->alias[LOCAL],
-					     chans[i]->direction, enabled, true,
-					     &chans[i]->spendable_msat,
-					     &htlc_budget);
+			channel_hints_update(
+			    p, *chans[i]->alias[LOCAL], chans[i]->direction,
+			    enabled, true, &chans[i]->spendable_msat,
+			    chans[i]->total_msat, &htlc_budget);
 		}
 	}
+
+	/* And now we iterate through all of the hints, and update
+	 * them. This relaxes any constraints coming from prior
+	 * observations, and should re-enable some channels that would
+	 * otherwise start out as excluded and remain so until
+	 * forever. */
+	channel_hint_set_update(payment_root(p)->hints, time_now());
 
 	payment_continue(p);
 	return command_still_pending(cmd);
@@ -2851,7 +2840,7 @@ static bool routehint_excluded(struct payment *p,
 	const struct node_id *nodes = payment_get_excluded_nodes(tmpctx, p);
 	const struct short_channel_id_dir *chans =
 	    payment_get_excluded_channels(tmpctx, p);
-	const struct channel_hint *hints = payment_root(p)->channel_hints;
+	const struct channel_hint *hints = payment_root(p)->hints->hints;
 
 	/* Note that we ignore direction here: in theory, we could have
 	 * found that one direction of a channel is unavailable, but they
@@ -3163,7 +3152,15 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 		routehint_pre_getroute(d, p);
 	} else if (p->step == PAYMENT_STEP_GOT_ROUTE && d->current_routehint != NULL) {
 		/* Now it's time to stitch the two partial routes together. */
-		struct amount_msat dest_amount;
+		struct amount_msat dest_amount, estimate;
+		/* We do not have the exact final amount, however we
+		 * know that we should be able to use the channel in
+		 * the routehint, so let's fake it as being 2x the
+		 * amount we want to route. */
+
+		if(!amount_msat_mul(&estimate, p->final_amount, 2))
+			abort();
+
 		struct route_info *routehint = d->current_routehint;
 		struct route_hop *prev_hop;
 		for (ssize_t i = 0; i < tal_count(routehint); i++) {
@@ -3181,6 +3178,7 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 			hop.amount = dest_amount;
 			hop.delay = route_cltv(d->final_cltv, routehint + i + 1,
 					       tal_count(routehint) - i - 1);
+			hop.capacity = estimate;
 
 			/* Should we get a failure inside the routehint we'll
 			 * need the direction so we can exclude it. Luckily
@@ -3531,11 +3529,11 @@ static void direct_pay_override(struct payment *p) {
 
 	/* If we have a channel we need to make sure that it still has
 	 * sufficient capacity. Look it up in the channel_hints. */
-	for (size_t i=0; i<tal_count(root->channel_hints); i++) {
-		struct short_channel_id_dir *cur = &root->channel_hints[i].scid;
+	for (size_t i=0; i<tal_count(root->hints->hints); i++) {
+		struct short_channel_id_dir *cur = &root->hints->hints[i].scid;
 		if (short_channel_id_eq(cur->scid, d->chan->scid) &&
 		    cur->dir == d->chan->dir) {
-			hint = &root->channel_hints[i];
+			hint = &root->hints->hints[i];
 			break;
 		}
 	}
@@ -3549,6 +3547,7 @@ static void direct_pay_override(struct payment *p) {
 		p->route[0].scid = hint->scid.scid;
 		p->route[0].direction = hint->scid.dir;
 		p->route[0].node_id = *p->route_destination;
+		p->route[0].capacity = hint->overall_capacity;
 		paymod_log(p, LOG_DBG,
 			   "Found a direct channel (%s) with sufficient "
 			   "capacity, skipping route computation.",
@@ -3643,8 +3642,8 @@ static u32 payment_max_htlcs(const struct payment *p)
 	const struct payment *root;
 	struct channel_hint *h;
 	u32 res = 0;
-	for (size_t i = 0; i < tal_count(p->channel_hints); i++) {
-		h = &p->channel_hints[i];
+	for (size_t i = 0; i < tal_count(p->hints->hints); i++) {
+		h = &p->hints->hints[i];
 		if (h->local && h->enabled)
 			res += h->local->htlc_budget;
 	}
@@ -3778,8 +3777,8 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 			}
 
 			p->step = PAYMENT_STEP_SPLIT;
-			a = payment_new(p, NULL, p, p->modifiers);
-			b = payment_new(p, NULL, p, p->modifiers);
+			a = payment_new(p, NULL, p, p->modifiers, p->hints);
+			b = payment_new(p, NULL, p, p->modifiers, p->hints);
 
 			a->our_amount.millisatoshis = mid;  /* Raw: split. */
 			b->our_amount.millisatoshis -= mid; /* Raw: split. */
@@ -3954,9 +3953,14 @@ static void route_exclusions_step_cb(struct route_exclusions_data *d,
 	struct route_exclusion **exclusions = d->exclusions;
 	for (size_t i = 0; i < tal_count(exclusions); i++) {
 		struct route_exclusion *e = exclusions[i];
+
+		/* We don't need the details if we skip anyway. */
+		struct amount_msat total = AMOUNT_MSAT(0);
+
 		if (e->type == EXCLUDE_CHANNEL) {
-			channel_hints_update(p, e->u.chan_id.scid, e->u.chan_id.dir,
-				false, false, NULL, NULL);
+			channel_hints_update(p, e->u.chan_id.scid,
+					     e->u.chan_id.dir, false, false,
+					     NULL, total, NULL);
 		} else {
 			if (node_id_eq(&e->u.node_id, p->route_destination)) {
 				payment_abort(p, PAY_USER_ERROR, "Payee is manually excluded");

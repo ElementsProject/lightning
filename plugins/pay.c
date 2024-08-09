@@ -14,6 +14,7 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
+#include <plugins/channel_hint.h>
 #include <plugins/libplugin-pay.h>
 #include <stdio.h>
 
@@ -22,6 +23,7 @@ static struct node_id my_id;
 static unsigned int maxdelay_default;
 static bool exp_offers;
 static bool disablempp = false;
+static struct channel_hint_set *global_hints;
 
 static LIST_HEAD(payments);
 
@@ -582,6 +584,9 @@ static const char *init(struct plugin *p,
 	 */
 	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
 	maxdelay_default = 2016;
+
+	global_hints = notleak(channel_hint_set_new(p));
+
 	/* max-locktime-blocks deprecated in v24.05, but still grab it! */
 	rpc_scan(p, "listconfigs",
 		 take(json_out_obj(NULL, NULL, NULL)),
@@ -1254,7 +1259,7 @@ static struct command_result *json_pay(struct command *cmd,
 		      NULL))
 		return command_param_failed();
 
-	p = payment_new(cmd, cmd, NULL /* No parent */, paymod_mods);
+	p = payment_new(cmd, cmd, NULL /* No parent */, paymod_mods, global_hints);
 	p->invstring = tal_steal(p, b11str);
 	p->description = tal_steal(p, description);
 	/* Overridded by bolt12 if present */
@@ -1507,6 +1512,18 @@ static struct command_result *json_pay(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+static struct command_result *handle_channel_hint_update(struct command *cmd,
+							 const char *buf,
+							 const jsmntok_t *param)
+{
+	struct channel_hint *hint = channel_hint_from_json(NULL, buf, param);
+
+	plugin_log(cmd->plugin, LOG_DBG, "Received a channel_hint for scidd=%s",
+		   fmt_short_channel_id_dir(tmpctx, &hint->scid));
+	/* TODO: Apply the change to the channel_hint_set in `hints` */
+	return command_done();
+}
+
 static const struct plugin_command commands[] = {
 	{
 		"paystatus",
@@ -1527,15 +1544,24 @@ static const char *notification_topics[] = {
 	"channel_hint_update",
 };
 
+static const struct plugin_notification notification_subs[] = {
+    {
+	"channel_hint_update",
+	handle_channel_hint_update,
+    },
+};
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
 	plugin_main(argv, init, NULL, PLUGIN_RESTARTABLE, true, NULL, commands,
-		    ARRAY_SIZE(commands), NULL, 0, NULL, 0,
-		    notification_topics, ARRAY_SIZE(notification_topics),
+		    ARRAY_SIZE(commands), notification_subs,
+		    ARRAY_SIZE(notification_subs), NULL, 0, notification_topics,
+		    ARRAY_SIZE(notification_topics),
 		    plugin_option("disable-mpp", "flag",
-				  "Disable multi-part payments.",
-				  flag_option, flag_jsonfmt, &disablempp),
+				  "Disable multi-part payments.", flag_option,
+				  flag_jsonfmt, &disablempp),
 		    NULL);
 	io_poll_override(libplugin_pay_poll);
+	tal_free(global_hints);
 }

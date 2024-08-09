@@ -5,6 +5,7 @@
 #include <ccan/io/io.h>
 #include <common/bolt11.h>
 #include <common/route.h>
+#include <plugins/channel_hint.h>
 #include <plugins/libplugin.h>
 #include <wire/onion_wire.h>
 
@@ -59,38 +60,6 @@ struct local_hint {
 	 * is a local channel, because those are the channels we have exact
 	 * numbers on, and they are the bottleneck onto the network. */
 	u16 htlc_budget;
-};
-
-/* Information about channels we inferred from a) looking at our channels, and
- * b) from failures encountered during attempts to perform a payment. These
- * are attached to the root payment, since that information is
- * global. Attempts update the estimated channel capacities when starting, and
- * get remove on failure. Success keeps the capacities, since the capacities
- * changed due to the successful HTLCs. */
-struct channel_hint {
-	/* The timestamp this observation was made. Used to let the
-	 * constraint expressed by this hint decay over time, until it
-	 * is fully relaxed, at which point we can forget about it
-	 * (the structural information is the best we can do in that
-	 * case).
-	 */
-	u32 timestamp;
-	/* The short_channel_id we're going to use when referring to
-	 * this channel. This can either be the real scid, or the
-	 * local alias. The `pay` algorithm doesn't really care which
-	 * one it is, but we'll prefer the scid as that's likely more
-	 * readable than the alias. */
-	struct short_channel_id_dir scid;
-
-	/* Upper bound on remove channels inferred from payment failures. */
-	struct amount_msat estimated_capacity;
-
-	/* Is the channel enabled? */
-	bool enabled;
-
-	/* Non-null if we are one endpoint of this channel */
-	struct local_hint *local;
-
 };
 
 /* Each payment goes through a number of steps that are always processed in
@@ -268,10 +237,10 @@ struct payment {
 	struct route_info **routes;
 	const u8 *features;
 
-	/* tal_arr of channel_hints we incrementally learn while performing
-	 * payment attempts. */
-	struct channel_hint *channel_hints;
 	struct node_id *excluded_nodes;
+
+	/* Pointer to global set of channel_hints. */
+	struct channel_hint_set *hints;
 
 	/* Optional temporarily excluded channels/nodes (i.e. this routehint) */
 	struct node_id *temp_exclusion;
@@ -474,10 +443,10 @@ REGISTER_PAYMENT_MODIFIER_HEADER(local_channel_hints, void);
 REGISTER_PAYMENT_MODIFIER_HEADER(payee_incoming_limit, void);
 REGISTER_PAYMENT_MODIFIER_HEADER(route_exclusions, struct route_exclusions_data);
 
-
 struct payment *payment_new(tal_t *ctx, struct command *cmd,
 			    struct payment *parent,
-			    struct payment_modifier **mods);
+			    struct payment_modifier **mods,
+			    struct channel_hint_set *hints);
 
 void payment_start(struct payment *p);
 void payment_continue(struct payment *p);

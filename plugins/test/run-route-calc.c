@@ -213,6 +213,10 @@ bool json_to_sat(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			      struct short_channel_id *scid UNNEEDED)
 { fprintf(stderr, "json_to_short_channel_id called!\n"); abort(); }
+/* Generated stub for json_to_short_channel_id_dir */
+bool json_to_short_channel_id_dir(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				  struct short_channel_id_dir *scidd UNNEEDED)
+{ fprintf(stderr, "json_to_short_channel_id_dir called!\n"); abort(); }
 /* Generated stub for json_to_u16 */
 bool json_to_u16(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
                  uint16_t *num UNNEEDED)
@@ -422,7 +426,7 @@ int main(int argc, char *argv[])
 	chainparams = chainparams_for_network("regtest");
 
 	mods = tal_arrz(tmpctx, struct payment_modifier *, 1);
-	p = payment_new(mods, tal(tmpctx, struct command), NULL, mods);
+	p = payment_new(mods, tal(tmpctx, struct command), NULL, mods, NULL);
 
 	/* We want to permute order of channels between each node, to
 	 * avoid "it works because it chooses the first one!" */
