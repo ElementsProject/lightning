@@ -359,6 +359,8 @@ static struct command_result *json_list_account_events(struct command *cmd,
 {
 	struct json_stream *res;
 	struct account *acct;
+	struct sha256 *payment_id;
+	struct bitcoin_txid *tx_id;
 	const char *acct_name;
 	struct channel_event **channel_events;
 	struct chain_event **chain_events;
@@ -366,8 +368,15 @@ static struct command_result *json_list_account_events(struct command *cmd,
 
 	if (!param(cmd, buf, params,
 		   p_opt("account", param_string, &acct_name),
+		   p_opt("payment_id", param_sha256, &payment_id),
 		   NULL))
 		return command_param_failed();
+
+	if (acct_name && payment_id != NULL) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only specify one of "
+				    "{account} or {payment_id}");
+	}
 
 	if (acct_name) {
 		db_begin_transaction(db);
@@ -386,6 +395,16 @@ static struct command_result *json_list_account_events(struct command *cmd,
 		channel_events = account_get_channel_events(cmd, db, acct);
 		chain_events = account_get_chain_events(cmd, db, acct);
 		onchain_fees = account_get_chain_fees(cmd, db, acct);
+	} else if (payment_id != NULL) {
+		channel_events = get_channel_events_by_id(cmd, db, payment_id);
+
+		tx_id = tal(cmd, struct bitcoin_txid);
+		tx_id->shad.sha = *payment_id;
+		/* Transaction ids are stored as big-endian in the database */
+		reverse_bytes(tx_id->shad.sha.u.u8, sizeof(tx_id->shad.sha.u.u8));
+
+		chain_events = find_chain_events_bytxid(cmd, db, tx_id);
+		onchain_fees = get_chain_fees_by_txid(cmd, db, tx_id);
 	} else {
 		channel_events = list_channel_events(cmd, db);
 		chain_events = list_chain_events(cmd, db);

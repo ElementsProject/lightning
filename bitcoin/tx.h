@@ -79,6 +79,18 @@ struct bitcoin_tx *clone_bitcoin_tx(const tal_t *ctx,
 struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex,
 				       size_t hexlen);
 
+/* <sigh>.  Bitcoind represents hashes as little-endian for RPC. */
+static inline void reverse_bytes(u8 *arr, size_t len)
+{
+	unsigned int i;
+
+	for (i = 0; i < len / 2; i++) {
+		unsigned char tmp = arr[i];
+		arr[i] = arr[len - 1 - i];
+		arr[len - 1 - i] = tmp;
+	}
+}
+
 /* Parse hex string to get txid (reversed, a-la bitcoind). */
 bool bitcoin_txid_from_hex(const char *hexstr, size_t hexstr_len,
 			   struct bitcoin_txid *txid);

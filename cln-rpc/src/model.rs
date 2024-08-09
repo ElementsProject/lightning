@@ -3726,6 +3726,8 @@ pub mod requests {
 	pub struct BkprlistaccounteventsRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub account: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_id: Option<String>,
 	}
 
 	impl From<BkprlistaccounteventsRequest> for Request {

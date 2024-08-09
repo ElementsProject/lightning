@@ -63,6 +63,11 @@ struct channel_event **account_get_channel_events(const tal_t *ctx,
 						  struct db *db,
 						  struct account *acct);
 
+/* Get all channel events for a payment id, order by timestamp */
+struct channel_event **get_channel_events_by_id(const tal_t *ctx,
+						struct db *db,
+						struct sha256 *id);
+
 /* Get all channel events, ordered by timestamp */
 struct channel_event **list_channel_events(const tal_t *ctx, struct db *db);
 
@@ -82,6 +87,10 @@ struct channel_event **list_channel_events_timebox(const tal_t *ctx,
 struct chain_event **account_get_chain_events(const tal_t *ctx,
 					      struct db *db,
 					      struct account *acct);
+
+/* Get all chain events for a transaction id, order by timestamp */
+struct chain_event **find_chain_events_bytxid(const tal_t *ctx, struct db *db,
+					      struct bitcoin_txid *txid);
 
 /* Get all chain events, order by timestamp.  */
 struct chain_event **list_chain_events(const tal_t *ctx, struct db *db);
@@ -114,6 +123,10 @@ char *account_get_balance(const tal_t *ctx,
 /* Get chain fees for account */
 struct onchain_fee **account_get_chain_fees(const tal_t *ctx, struct db *db,
 					    struct account *acct);
+
+/* Get all chain fees for a transaction id, order by timestamp */
+struct onchain_fee **get_chain_fees_by_txid(const tal_t *ctx, struct db *db,
+					    struct bitcoin_txid *txid);
 
 /* Find a chain event by its database id */
 struct chain_event *find_chain_event_by_id(const tal_t *ctx,

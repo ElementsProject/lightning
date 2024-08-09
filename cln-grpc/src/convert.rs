@@ -5257,6 +5257,7 @@ impl From<requests::BkprlistaccounteventsRequest> for pb::BkprlistaccounteventsR
     fn from(c: requests::BkprlistaccounteventsRequest) -> Self {
         Self {
             account: c.account, // Rule #2 for type string?
+            payment_id: c.payment_id, // Rule #2 for type string?
         }
     }
 }
@@ -6624,6 +6625,7 @@ impl From<pb::BkprlistaccounteventsRequest> for requests::BkprlistaccounteventsR
     fn from(c: pb::BkprlistaccounteventsRequest) -> Self {
         Self {
             account: c.account, // Rule #1 for type string?
+            payment_id: c.payment_id, // Rule #1 for type string?
         }
     }
 }
