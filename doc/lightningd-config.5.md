@@ -83,6 +83,14 @@ re-enable it.  Unless we've made a horrible mistake it's probably time
 to complain or fix to whatever is using the old API.  It can be
 specified multiple times for different features.
 
+### Whitespace Handling
+
+Because it's a common error, we automatically trim whitespace from the
+end of most configuration options. Exceptions are noted below:
+
+- `log-prefix`: Preserves whitespace at the end.
+- `alias`: Preserves whitespace at the end.
+
 ### Bitcoin control options:
 
 Bitcoin control options:

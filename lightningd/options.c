@@ -1525,9 +1525,8 @@ static void register_opts(struct lightningd *ld)
 		     opt_lightningd_usage, ld, "Print this message.");
 	opt_register_arg("--rgb", opt_set_rgb, opt_show_rgb, ld,
 			 "RRGGBB hex color for node");
-	opt_register_arg("--alias", opt_set_alias, opt_show_alias, ld,
-			 "Up to 32-byte alias for node");
-
+	clnopt_witharg("--alias", OPT_KEEP_WHITESPACE, opt_set_alias,
+		       opt_show_alias, ld, "Up to 32-byte alias for node");
 	opt_register_arg("--pid-file=<file>", opt_set_talstr, opt_show_charp,
 			 &ld->pidfile,
 			 "Specify pid file");
@@ -1888,9 +1887,9 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 }
 
 /* Free *str, set *str to copy with `cln` prepended */
-static void prefix_cln(const char **str STEALS)
+static void prefix_cln(char **str STEALS)
 {
-	const char *newstr = tal_fmt(tal_parent(*str), "cln%s", *str);
+	char *newstr = tal_fmt(tal_parent(*str), "cln%s", *str);
 	tal_free(*str);
 	*str = newstr;
 }
@@ -1911,7 +1910,7 @@ static void fixup_clnrest_options(struct lightningd *ld)
 		    && !strstarts(cv->configline, "rest-certs="))
 			continue;
 		/* Did some (plugin) claim it? */
-		if (opt_find_long(cv->configline, &cv->optarg))
+		if (opt_find_long(cv->configline, cast_const2(const char **, &cv->optarg)))
 			continue;
 		if (!opt_deprecated_ok(ld,
 				       tal_strndup(tmpctx, cv->configline,

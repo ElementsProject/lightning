@@ -31,7 +31,7 @@ const struct opt_table *configvar_unparsed(struct configvar *cv)
 		ot = opt_find_short(cv->configline[0]);
 		cv->optarg = NULL;
 	} else {
-		ot = opt_find_long(cv->configline, &cv->optarg);
+		ot = opt_find_long(cv->configline, cast_const2(const char **, &cv->optarg));
 	}
 	if (!ot)
 		return NULL;
@@ -49,6 +49,15 @@ const struct opt_table *configvar_unparsed(struct configvar *cv)
 						 cv->optarg - cv->configline - 1);
 	}
 	return ot;
+}
+
+static void trim_whitespace(char *s)
+{
+	size_t len = strlen(s);
+
+	while (len > 0 && cisspace(s[len - 1]))
+		len--;
+	s[len] = '\0';
 }
 
 const char *configvar_parse(struct configvar *cv,
@@ -82,6 +91,8 @@ const char *configvar_parse(struct configvar *cv,
 	} else {
 		if (!cv->optarg)
 			return "requires an argument";
+		if (!(ot->type & OPT_KEEP_WHITESPACE))
+			trim_whitespace(cv->optarg);
 		return ot->cb_arg(cv->optarg, ot->u.arg);
 	}
 }

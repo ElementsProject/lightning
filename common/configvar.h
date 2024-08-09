@@ -35,13 +35,13 @@ struct configvar {
 	/* Where did we get this from? */
 	enum configvar_src src;
 	/* Never NULL, the whole line */
-	const char *configline;
+	char *configline;
 
 	/* These are filled in by configvar_parse */
 	/* The variable name (without any =) */
 	const char *optvar;
 	/* NULL for no-arg options, otherwise points after =. */
-	const char *optarg;
+	char *optarg;
 	/* Was this overridden by a following option? */
 	bool overridden;
 };
@@ -60,6 +60,8 @@ struct configvar {
 #define OPT_SHOWBOOL (1 << (OPT_USER_START+5))
 /* Can be changed at runtime: cb will get called with NULL for `check`! */
 #define OPT_DYNAMIC (1 << (OPT_USER_START+6))
+/* Keep whitespace at the end of the option argument */
+#define OPT_KEEP_WHITESPACE (1 << (OPT_USER_START+7))
 
 /* Use this instead of opt_register_*_arg if you want OPT_* from above */
 #define clnopt_witharg(names, type, cb, show, arg, desc)		\
