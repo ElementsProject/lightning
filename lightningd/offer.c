@@ -253,7 +253,7 @@ static struct command_result *json_enableoffer(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "Unknown offer");
 
 	if (offer_status_active(status))
-		return command_fail(cmd, OFFER_ALREADY_DISABLED,
+		return command_fail(cmd, OFFER_ALREADY_ENABLED,
 				    "offer already active");
 
 	if (command_check_only(cmd))

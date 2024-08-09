@@ -5990,7 +5990,7 @@ def test_enableoffer(node_factory):
     l1.rpc.fetchinvoice(offer=offer1['bolt12'])
 
     # Can't enable twice.
-    with pytest.raises(RpcError, match="1001.*offer already active"):
+    with pytest.raises(RpcError, match="1006.*offer already active"):
         l2.rpc.enableoffer(offer_id=offer1['offer_id'])
 
     # Can't enable unknown.
