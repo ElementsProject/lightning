@@ -311,6 +311,36 @@ bool psbt_input_have_signature(const struct wally_psbt *psbt,
 	return ok;
 }
 
+bool psbt_input_get_ecdsa_sig(const tal_t *ctx,
+			      const struct wally_psbt *psbt,
+			      size_t in,
+			      const struct pubkey *pubkey,
+			      struct bitcoin_signature **sig)
+{
+	u8 pk_der[PUBKEY_CMPR_LEN];
+	size_t index_plus_one;
+	struct wally_map_item *item;
+	bool ok;
+
+	assert(in < psbt->num_inputs);
+
+	pubkey_to_der(pk_der, pubkey);
+	*sig = NULL;
+
+	ok = wally_psbt_input_find_signature(&psbt->inputs[in], pk_der,
+					     sizeof(pk_der),
+					     &index_plus_one) == WALLY_OK;
+	if (ok) {
+		item = &psbt->inputs[in].signatures.items[index_plus_one - 1];
+		*sig = tal(ctx, struct bitcoin_signature);
+		if (!signature_from_der(item->value, item->value_len, *sig)) {
+			*sig = tal_free(*sig);
+			return false;
+		}
+	}
+	return ok;
+}
+
 void psbt_input_set_wit_utxo(struct wally_psbt *psbt, size_t in,
 			     const u8 *scriptPubkey, struct amount_sat amt)
 {
@@ -609,6 +639,17 @@ void *psbt_get_lightning(const struct wally_map *map,
 		return NULL;
 	*val_len = item->value_len;
 	return item->value;
+}
+
+void psbt_set_lightning(const tal_t *ctx,
+			struct wally_map *map,
+			const u8 proprietary_type,
+			const void *value,
+			size_t val_len)
+{
+	u8 *key = psbt_make_key(NULL, proprietary_type, NULL);
+	map_replace(ctx, map, key, value, val_len);
+	tal_free(key);
 }
 
 void psbt_output_set_unknown(const tal_t *ctx,

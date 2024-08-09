@@ -251,7 +251,7 @@ static struct command_result *clean_finished(struct clean_info *cinfo)
 {
 	struct subsystem_and_variant sv = first_sv();
 	do {
-		size_t num_cleaned = get_per_variant(cinfo, &sv)->num_cleaned;
+		uint64_t num_cleaned = get_per_variant(cinfo, &sv)->num_cleaned;
 
 		if (!num_cleaned)
 			continue;

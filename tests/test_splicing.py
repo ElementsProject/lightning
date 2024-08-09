@@ -23,6 +23,9 @@ def test_splice(node_factory, bitcoind):
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is True)
     result = l1.rpc.signpsbt(result['psbt'])
     result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
 
@@ -60,6 +63,9 @@ def test_splice_gossip(node_factory, bitcoind):
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is True)
     result = l1.rpc.signpsbt(result['psbt'])
     result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
 
@@ -118,6 +124,9 @@ def test_splice_listnodes(node_factory, bitcoind):
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is True)
     result = l1.rpc.signpsbt(result['psbt'])
     result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
 
@@ -151,6 +160,9 @@ def test_splice_out(node_factory, bitcoind):
     # Pay with fee by subjtracting 5000 from channel balance
     result = l1.rpc.splice_init(chan_id, -105000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is True)
     result = l1.rpc.splice_signed(chan_id, result['psbt'])
 
     l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
@@ -189,6 +201,9 @@ def test_invalid_splice(node_factory, bitcoind):
 
     with pytest.raises(RpcError) as rpc_error:
         result = l1.rpc.splice_update(chan_id, result['psbt'])
+        assert(result['commitments_secured'] is False)
+        result = l1.rpc.splice_update(chan_id, result['psbt'])
+        assert(result['commitments_secured'] is True)
 
     assert rpc_error.value.error["code"] == 357
     assert rpc_error.value.error["message"] == "You provided 1000000000msat but committed to 1100000000msat."
@@ -205,6 +220,9 @@ def test_invalid_splice(node_factory, bitcoind):
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is True)
     result = l1.rpc.signpsbt(result['psbt'])
     result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
 
@@ -242,6 +260,9 @@ def test_commit_crash_splice(node_factory, bitcoind):
 
     result = l1.rpc.splice_init(chan_id, -105000, l1.rpc.addpsbtoutput(100000)['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is True)
 
     l1.daemon.wait_for_log(r"Splice initiator: we commit")
 
@@ -256,6 +277,9 @@ def test_commit_crash_splice(node_factory, bitcoind):
 
     result = l1.rpc.splice_init(chan_id, -105000, l1.rpc.addpsbtoutput(100000)['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is True)
     result = l1.rpc.splice_signed(chan_id, result['psbt'])
 
     l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
@@ -303,6 +327,9 @@ def test_splice_stuck_htlc(node_factory, bitcoind, executor):
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is True)
     result = l1.rpc.signpsbt(result['psbt'])
     result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
 

@@ -74,6 +74,12 @@ def expected_channel_features(extra=[]):
     return hex_bits(features + extra)
 
 
+def bkpr_account_balance(node, acct_id):
+    balances = node.rpc.bkpr_listbalances()['accounts']
+    acct = only_one([acct for acct in balances if acct['account'] == acct_id])
+    return only_one(acct['balances'])['balance_msat']
+
+
 def move_matches(exp, mv):
     if mv['type'] != exp['type']:
         return False
