@@ -1638,6 +1638,7 @@ def listpays_pays2py(m):
         "bolt12": m.bolt12,  # PrimitiveField in generate_composite
         "completed_at": m.completed_at,  # PrimitiveField in generate_composite
         "created_at": m.created_at,  # PrimitiveField in generate_composite
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
         "description": m.description,  # PrimitiveField in generate_composite
         "destination": hexlify(m.destination),  # PrimitiveField in generate_composite
         "erroronion": hexlify(m.erroronion),  # PrimitiveField in generate_composite
@@ -1645,6 +1646,7 @@ def listpays_pays2py(m):
         "number_of_parts": m.number_of_parts,  # PrimitiveField in generate_composite
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
         "preimage": hexlify(m.preimage),  # PrimitiveField in generate_composite
+        "updated_index": m.updated_index,  # PrimitiveField in generate_composite
     })
 
 

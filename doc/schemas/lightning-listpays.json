@@ -35,6 +35,32 @@
           "complete",
           "failed"
         ]
+      },
+      "index": {
+        "type": "string",
+        "added": "v24.08",
+        "enum": [
+          "created",
+          "updated"
+        ],
+        "description": [
+          "If neither *in_channel* nor *out_channel* is specified, it controls ordering."
+        ],
+        "default": "`created`"
+      },
+      "start": {
+        "type": "u64",
+        "added": "v24.08",
+        "description": [
+          "If `index` is specified, `start` may be specified to start from that value, which is generally returned from lightning-wait(7)."
+        ]
+      },
+      "limit": {
+        "type": "u32",
+        "added": "v24.08",
+        "description": [
+          "If `index` is specified, `limit` can be used to specify the maximum number of entries to return."
+        ]
       }
     }
   },
@@ -51,7 +77,8 @@
           "required": [
             "payment_hash",
             "status",
-            "created_at"
+            "created_at",
+            "created_index"
           ],
           "properties": {
             "payment_hash": {
@@ -112,6 +139,20 @@
               "description": [
                 "The bolt12 string (if supplied for pay: **experimental-offers** only)."
               ]
+            },
+            "created_index": {
+              "type": "u64",
+              "added": "v24.08",
+              "description": [
+                "1-based index indicating order this invoice was created in."
+              ]
+            },
+            "updated_index": {
+              "type": "u64",
+              "added": "v24.08",
+              "description": [
+                "1-based index indicating order this invoice was changed (only present if it has changed since creation)."
+              ]
             }
           },
           "allOf": [
@@ -133,6 +174,8 @@
                   "preimage"
                 ],
                 "properties": {
+                  "created_index": {},
+                  "updated_index": {},
                   "payment_hash": {},
                   "status": {},
                   "destination": {},
@@ -186,6 +229,8 @@
                   "amount_sent_msat"
                 ],
                 "properties": {
+                  "created_index": {},
+                  "updated_index": {},
                   "payment_hash": {},
                   "status": {},
                   "destination": {},
@@ -240,7 +285,9 @@
             "payment_hash": "bf75a41a19d1e559ebd4a33ca295b3d82ae8d50178a66e3cc2eddb8ac443455e",
             "status": "failed",
             "created_at": 1706231854,
-            "amount_sent_msat": 0
+            "amount_sent_msat": 0,
+            "created_index": 1,
+            "updated_index": 1
           }
         ]
       }
@@ -264,7 +311,9 @@
             "completed_at": 1706231854,
             "preimage": "89ce412a2089cbcb72a73ce755337cf693859ea58f21ef0d1caf286a9b0f2a7c",
             "amount_msat": 12300,
-            "amount_sent_msat": 12301
+            "amount_sent_msat": 12301,
+            "created_index": 1,
+            "updated_index": 1
           }
         ]
       }
