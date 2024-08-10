@@ -6,7 +6,7 @@
 
 /* Knowledge is proportionally decreased with time up to TIMER_FORGET_SEC when
  * we forget everything. */
-#define TIMER_FORGET_SEC 3600
+#define TIMER_FORGET_SEC 600000
 
 /* Time lapse used to wait for failed sendpays. */
 #define COLLECTOR_TIME_WINDOW_MSEC 50
