@@ -1719,6 +1719,7 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 	ev->ignored = false;
 	ev->stealable = false;
 	ev->rebalance = false;
+	ev->splice_close = false;
 	ev->debit = AMOUNT_MSAT(0);
 	ev->output_value = ev->credit;
 	ev->spending_txid = NULL;
@@ -1797,6 +1798,7 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 	ev->ignored = false;
 	ev->stealable = false;
 	ev->rebalance = false;
+	ev->splice_close = false;
 	ev->credit = AMOUNT_MSAT(0);
 	ev->output_value = ev->debit;
 	ev->payment_id = NULL;
