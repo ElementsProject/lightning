@@ -81,11 +81,11 @@
         "id": "example:openchannel_abort#1",
         "method": "openchannel_abort",
         "params": {
-          "channel_id": "b020c1c6818daf024954c9ee578caad058cbcae7dd75b2c4d38b8f6f81901ff5"
+          "channel_id": "channelid0111200111200111200111200111200111200111200111200111200"
         }
       },
       "response": {
-        "channel_id": "b020c1c6818daf024954c9ee578caad058cbcae7dd75b2c4d38b8f6f81901ff5",
+        "channel_id": "channelid0111200111200111200111200111200111200111200111200111200",
         "channel_canceled": false,
         "reason": "Abort requested"
       }

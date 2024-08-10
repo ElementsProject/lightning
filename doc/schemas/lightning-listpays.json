@@ -279,7 +279,7 @@
         "id": "example:listpays#1",
         "method": "listpays",
         "params": {
-          "bolt11": "lnbcrt500n1pn2s396sp5h5tz6fpm3dxvrlwcnwmfq85v45wfj43mdmplpce6ku2vmfdhrx5qpp50z9w5u57meydx9dpn889mmtkz6tqrfsa65hfwd88ql4hc5hyu70qdqcdsenygryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqduqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqt5m8qx0t25a0gygya7u4sxulyyp2dec87pwsxuuwtg0u66c07703g9j6vlwgmlhqk7qgn95qw7allhnuj2m9hf0xkcr2zkaxltv3t6gqjcdpll"
+          "bolt11": "lnbcrt100n1pnt2bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000"
         }
       },
       "response": {
@@ -293,74 +293,7 @@
         "params": {}
       },
       "response": {
-        "pays": [
-          {
-            "bolt11": "lnbcrt5m1pn2s39hsp50pekdm9axtcfm0ttsxzg2z0738ujk5uc3n0v5rul2y2ghkeh772qpp50a60qe8lg55t0mru27xlvcnpwetu46d0ff60tuj0dr9cged3secqdpcv3jhxcmjd9c8g6t0dcs8xetwvss8xmmdv5s8xct5wvsxcv3qw3hjqmpnxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqduqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqcjj3uz0ux4qxt4ev4patfwz44e7ns57tmvxdwzfq2pj5drm5xhk5agm8j2wha32g664a0mw6casy44vfdf76jj38n3669fsjps4jkaqpaydvjr",
-            "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-            "payment_hash": "7f74f064ff4528b7ec7c578df662617657cae9af4a74f5f24f68cb8465b18670",
-            "status": "complete",
-            "created_at": 1722303671,
-            "completed_at": 1722303672,
-            "preimage": "d9893938f4464933d87f5123a8c09b4e98e106c9c34c1812340c9570d72d16a2",
-            "amount_msat": 500000000,
-            "amount_sent_msat": 500000000
-          },
-          {
-            "bolt11": "lnbcrt5m1pn2s39csp59778k5kecnjhyqu7amy99kt8nhu43ap74m8q3xryvqxrjnsrnxpqpp5s3fd8u9xnhgwtqpsq9jtcspzu4dmxvcatpvl2a3dje5055fmqrdqdpcv3jhxcmjd9c8g6t0dcs8xetwvss8xmmdv5s8xct5wvsxcv3qw3hjqmp4xqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jx3rjwmh5d5rmgqqqqqpqqqqqzsqqc9qxpqysgqe4hfa6arms4pz6ajwhq07lhc57g60vrdqyfdsewu84q823m8zqdjtcsv7aun8zqxr86amyz0lclf8pfts0hqy60s9fcvvsjyxnnmpugpjcq9xk",
-            "destination": "032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e",
-            "payment_hash": "8452d3f0a69dd0e580300164bc4022e55bb3331d5859f5762d9668fa513b00da",
-            "status": "complete",
-            "created_at": 1722303672,
-            "completed_at": 1722303673,
-            "preimage": "576f5426f339b3db80d1b3c3546d6832274171609f25795c64b6cc74aa158d8c",
-            "amount_msat": 500000000,
-            "amount_sent_msat": 500000000
-          },
-          {
-            "bolt11": "lnbcrt1u1pn2s3xxsp5xk8hs6zuv0yqhq7hhl0sps6mxuj78pzwryejaljh48vr4htykujqpp593ndc8wrukteld5j4nqnt6tedavh8ezv48dmrkqen3440ajnre5qdqcdsenxgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqduqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgq0asve9rdtfd9fe20u5vjujzmm0phpq538z8ndhn5ts62aflhktqn6338e45xcxkyf7askjjq25ksxt4eqarjjame8wfdmau7kq7m4csqs0n32n",
-            "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-            "payment_hash": "2c66dc1dc3e5979fb692acc135e9796f5973e44ca9dbb1d8199c6b57f6531e68",
-            "status": "complete",
-            "created_at": 1722303688,
-            "completed_at": 1722303689,
-            "preimage": "1ce8370d3a179cee3af25a5a6c7058e8e12033a842efd6d34abae53334bc94bf",
-            "amount_msat": 100000,
-            "amount_sent_msat": 100000
-          },
-          {
-            "bolt12": "lni1qqgypua5g7rp293k00s66ayvnv26czst2d5k6urvv5s8getnw3gzqp3zderpzxstt8927ynqg044h0egcd8n5h3n9g0u0v4h8ncc3yg02gps7sjqtqssytfzxcs2xkdy0lml0tzy0jzugmyj8kjn8zfzrgq9fsgurc72x82e5zvqyehytxx360zptatj4pygsv9kpal8gnkeyd0tpvd6jv5rkv2uqdgcq2s27mvxt0arlnulnmce53cuz00vzaqvgvhpphxgavl89r8zrdhaxqgzpvxkkmwsmxnuwflttmnpc8vtzwlgd3cfty3xwlnlc9r2gcjesguqqv4xey4m7l4wxem27vxyxfhwznlc62kffsd5xncx9w49m4g72u2y7lcl6a3x5cpu52j6gm8q5x0q8k7myxdzrsqqqqqqqqqqqqqqq5qqqqqqqqqqqqqayjedltzjqqqqqq9yq3n2s38p5cq442pq5qpm4ht26v8statwxcrl65uy26c9hx4dvy66f9x665eqqy90tpz25qc0gfqtqggzvmj9nrga83q474e2sjygxzmq7ln5fmvjxh4skxafx2pmx9wqx5v0qsqfkcrpht0d3nnt8txkcgf5wr6gzrlacls2gyrvj5hhwuu98shurrn6ayruunju7k9yu9clvaj354tr064ruuht88q5dj73kzru20uzj",
-            "destination": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-            "payment_hash": "a003badd6ad30f05f56e3607fd538456b05b9aad6135a494dad5320010af5844",
-            "status": "complete",
-            "created_at": 1722303713,
-            "completed_at": 1722303714,
-            "preimage": "6f154ed7d108349cb6385eba5f160294ef83862c2c560ba6446b2a3da5c2b3b3",
-            "amount_msat": 1000000,
-            "amount_sent_msat": 1000000
-          },
-          {
-            "bolt11": "lnbcrt1pn2s38zsp5lv49w44a8tvkwtkxfxwts8rnr864u59srp7sxuua3haahdhlhtrqpp5p928w8rmsg2hjeymedcn54vxhsz372qhcedgf003nmsknhx9594sdqcdserxgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky96qqq0vqqqqgqqyqqqqqpqqqqqzsqqc9qxpqysgqt5h8te9lkn0jpdkhkmlkzs80aw7mt5kdm6jxmvddkavt3vj0vakkmfcs0hsde8y8g8za46sch2lp4jxy56u8ve25sgpgcsya0vp92sgphzw570",
-            "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-            "payment_hash": "0954771c7b821579649bcb713a5586bc051f2817c65a84bdf19ee169dcc5a16b",
-            "status": "complete",
-            "created_at": 1722303715,
-            "completed_at": 1722303715,
-            "preimage": "f3a3b40d63e62785f537aad60f93980914c5639872c7746299a6a1228abbc303",
-            "amount_msat": 9900,
-            "amount_sent_msat": 9900
-          },
-          {
-            "bolt11": "lnbcrt40n1pn2s3xxsp5j329vez86jvxw6543zlcla2fusm7v6h74pf7ftmmyfv6zm9uedlspp5j6xpxmq8cwd305vj2dvd6dh4mkr0s6guvehvyleymedgf4vsm3ysdqaveskjmr9vssxgetnvdexjur5d9hkuxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqduqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqk6uwy8pkv42jzhdna3z4vxpwkapdzzpn2tcpjnqj738nlpkjc583l9v72vlskt8y33rr4z3jma32xx7ve0jfy7anvn6r98cr5flhcuqqhr4shx",
-            "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-            "payment_hash": "968c136c07c39b17d1925358dd36f5dd86f8691c666ec27f24de5a84d590dc49",
-            "status": "complete",
-            "created_at": 1722303719,
-            "completed_at": 1722303720,
-            "preimage": "8815ee921dba644c076f9f879abb520d8539a6913856a439752eaaadff1e21ac",
-            "amount_msat": 4000,
-            "amount_sent_msat": 4000
-          }
-        ]
+        "pays": []
       }
     }
   ]

@@ -190,10 +190,10 @@
         }
       },
       "response": {
-        "offer_id": "dca9774ba2925b48c42eb12e599c09389d9d80d44445c4d0c944556c7228746e",
+        "offer_id": "offeridl21000002100000210000021000002100000210000021000002100000",
         "active": true,
         "single_use": false,
-        "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqgn3qzs2ge5hx6pqwdskcefpzcssytfzxcs2xkdy0lml0tzy0jzugmyj8kjn8zfzrgq9fsgurc72x82e",
+        "bolt12": "lno1qgsq000bolt210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000",
         "used": false,
         "created": true
       }
@@ -209,10 +209,10 @@
         }
       },
       "response": {
-        "offer_id": "f901018768e13ea2da95f437749e24d22d47b2a6ea3030ef66ae0281df49d94b",
+        "offer_id": "offeridl22000002200000220000022000002200000220000022000002200000",
         "active": true,
         "single_use": false,
-        "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqv85ysq2qepk7enxv4j3gqg2zcssytfzxcs2xkdy0lml0tzy0jzugmyj8kjn8zfzrgq9fsgurc72x82e",
+        "bolt12": "lno1qgsq000bolt220002200022000220002200022000220002200022000220002200022000220002200022000220002200022000220002200022000220002200022000",
         "used": false,
         "created": true
       }

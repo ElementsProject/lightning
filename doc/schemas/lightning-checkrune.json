@@ -90,7 +90,7 @@
         "id": "example:checkrune#1",
         "method": "checkrune",
         "params": {
-          "nodeid": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "nodeid": "nodeid020202020202020202020202020202020202020202020202020202020202",
           "rune": "_RWaZZRI7wAYU2hqlFBmYgC_dFczcpAdI_9O87YbDpg9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl",
           "method": "listpeers",
           "params": {}
@@ -105,7 +105,7 @@
         "id": "example:checkrune#2",
         "method": "checkrune",
         "params": {
-          "nodeid": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "nodeid": "nodeid020202020202020202020202020202020202020202020202020202020202",
           "rune": "QUJEYMLGgiaJvMDv_MhR2hiMKIBTbq-PrL-KxcIlirQ9MiZtZXRob2Q9cGF5JnBuYW1lYW1vdW50bXNhdDwxMDAwMA==",
           "method": "pay",
           "params": {

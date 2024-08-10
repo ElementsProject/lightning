@@ -211,24 +211,24 @@
         "id": "example:sendinvoice#1",
         "method": "sendinvoice",
         "params": {
-          "invreq": "lnr1qqgypua5g7rp293k00s66ayvnv26czst2d5k6urvv5s8getnw3gzqp3zderpzxstt8927ynqg044h0egcd8n5h3n9g0u0v4h8ncc3yg02gps7sjqtqssytfzxcs2xkdy0lml0tzy0jzugmyj8kjn8zfzrgq9fsgurc72x82e7pq947t0ks7a4yejz8w79x4zj25s3pu6zrnw2e0v2ugdescpcqsq307z4p2dlxe92fv7xd43qut0pjkg4y094hupqyhsj8dlhvmmfng6sv",
+          "invreq": "lno1qgsq000bolt210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000",
           "label": "test sendinvoice"
         }
       },
       "response": {
         "label": "test sendinvoice",
-        "bolt12": "lni1qqgypua5g7rp293k00s66ayvnv26czst2d5k6urvv5s8getnw3gzqp3zderpzxstt8927ynqg044h0egcd8n5h3n9g0u0v4h8ncc3yg02gps7sjqtqssytfzxcs2xkdy0lml0tzy0jzugmyj8kjn8zfzrgq9fsgurc72x82e5zvqyehytxx360zptatj4pygsv9kpal8gnkeyd0tpvd6jv5rkv2uqdgcq2s27mvxt0arlnulnmce53cuz00vzaqvgvhpphxgavl89r8zrdhaxqgzpvxkkmwsmxnuwflttmnpc8vtzwlgd3cfty3xwlnlc9r2gcjesguqqv4xey4m7l4wxem27vxyxfhwznlc62kffsd5xncx9w49m4g72u2y7lcl6a3x5cpu52j6gm8q5x0q8k7myxdzrsqqqqqqqqqqqqqqq5qqqqqqqqqqqqqayjedltzjqqqqqq9yq3n2s38p5cq442pq5qpm4ht26v8statwxcrl65uy26c9hx4dvy66f9x665eqqy90tpz25qc0gfqtqggzvmj9nrga83q474e2sjygxzmq7ln5fmvjxh4skxafx2pmx9wqx5v0qsqfkcrpht0d3nnt8txkcgf5wr6gzrlacls2gyrvj5hhwuu98shurrn6ayruunju7k9yu9clvaj354tr064ruuht88q5dj73kzru20uzj",
-        "payment_hash": "a003badd6ad30f05f56e3607fd538456b05b9aad6135a494dad5320010af5844",
+        "bolt12": "lno1qgsq000boltsi100si100si100si100si100si100si100si100si100si100si100si100si100si100si100si100si100si100si100si100si100si100si100si100",
+        "payment_hash": "paymenthashsdinvsi10si10si10si10si10si10si10si10si10si10si10si10",
         "amount_msat": 1000000,
         "status": "paid",
-        "pay_index": 1,
+        "pay_index": 2,
         "amount_received_msat": 1000000,
-        "paid_at": 1722303714,
-        "payment_preimage": "6f154ed7d108349cb6385eba5f160294ef83862c2c560ba6446b2a3da5c2b3b3",
+        "paid_at": 1738500000,
+        "payment_preimage": "paymentpreimagei010101010101010101010101010101010101010101010101",
         "description": "Simple test",
-        "expires_at": 1722303803,
-        "created_index": 3,
-        "updated_index": 1
+        "expires_at": 1739000000,
+        "created_index": 4,
+        "updated_index": 2
       }
     }
   ]

@@ -271,7 +271,7 @@
         "id": "example:bkpr-editdescriptionbyoutpoint#1",
         "method": "bkpr-editdescriptionbyoutpoint",
         "params": {
-          "outpoint": "55edd73a01f08057e1f5f61788477c0d7551d5d1aa2f2907bf9d03b6370bbacf:1",
+          "outpoint": "txidbk0101010101010101010101010101010101010101010101010101010101:1",
           "description": "edited utxo description"
         }
       },
@@ -284,8 +284,8 @@
             "credit_msat": 200000000000,
             "debit_msat": 0,
             "currency": "bcrt",
-            "outpoint": "55edd73a01f08057e1f5f61788477c0d7551d5d1aa2f2907bf9d03b6370bbacf:1",
-            "timestamp": 1724554221,
+            "outpoint": "txidbk0101010101010101010101010101010101010101010101010101010101:1",
+            "timestamp": 1738510000,
             "blockheight": 105,
             "description": "edited utxo description"
           }
@@ -297,8 +297,8 @@
         "id": "example:bkpr-editdescriptionbyoutpoint#2",
         "method": "bkpr-editdescriptionbyoutpoint",
         "params": {
-          "outpoint": "6472b4c9d39d8478ed9c848df7a62a512d953a4b2e6e7b09902d76a7bbb761ca:1",
-          "description": "edited utxo description"
+          "outpoint": "abcd020202020202020202020202020202020202020202020202020202020202:1",
+          "description": "edited utxo description for non existing outpoint"
         }
       },
       "response": {

@@ -84,7 +84,7 @@
       "response": {
         "datastoreusage": {
           "key": "[]",
-          "total_bytes": 55
+          "total_bytes": 161
         }
       }
     },
@@ -117,7 +117,7 @@
       "response": {
         "datastoreusage": {
           "key": "[otherkey]",
-          "total_bytes": 14
+          "total_bytes": 54
         }
       }
     }

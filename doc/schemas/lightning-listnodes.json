@@ -270,17 +270,17 @@
         "id": "example:listnodes#1",
         "method": "listnodes",
         "params": {
-          "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d"
+          "id": "nodeid030303030303030303030303030303030303030303030303030303030303"
         }
       },
       "response": {
         "nodes": [
           {
-            "nodeid": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-            "alias": "HOPPINGFIRE--190-g5fd2f9c-modded",
+            "nodeid": "nodeid030303030303030303030303030303030303030303030303030303030303",
+            "alias": "HOPPINGFIRE",
             "color": "035d2b",
-            "last_timestamp": 1722303669,
-            "features": "88a0802a8a59a1",
+            "last_timestamp": 1738000000,
+            "features": "88a0882a8a59a1",
             "addresses": []
           }
         ]
@@ -295,35 +295,35 @@
       "response": {
         "nodes": [
           {
-            "nodeid": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-            "alias": "SILENTARTIST-190-g5fd2f9c-modded",
+            "nodeid": "nodeid020202020202020202020202020202020202020202020202020202020202",
+            "alias": "SILENTARTIST",
             "color": "022d22",
-            "last_timestamp": 1722303662,
-            "features": "88a0802a8a59a1",
+            "last_timestamp": 1738000000,
+            "features": "88a0882a8a59a1",
             "addresses": []
           },
           {
-            "nodeid": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-            "alias": "JUNIORBEAM-5-190-g5fd2f9c-modded",
+            "nodeid": "nodeid010101010101010101010101010101010101010101010101010101010101",
+            "alias": "JUNIORBEAM",
             "color": "0266e4",
-            "last_timestamp": 1722303662,
-            "features": "88a0802a8a59a1",
+            "last_timestamp": 1738010000,
+            "features": "88a0882a8a59a1",
             "addresses": []
           },
           {
-            "nodeid": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-            "alias": "HOPPINGFIRE--190-g5fd2f9c-modded",
+            "nodeid": "nodeid030303030303030303030303030303030303030303030303030303030303",
+            "alias": "HOPPINGFIRE",
             "color": "035d2b",
-            "last_timestamp": 1722303669,
-            "features": "88a0802a8a59a1",
+            "last_timestamp": 1738020000,
+            "features": "88a0882a8a59a1",
             "addresses": []
           },
           {
-            "nodeid": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
-            "alias": "JUNIORFELONY-190-g5fd2f9c-modded",
+            "nodeid": "nodeid040404040404040404040404040404040404040404040404040404040404",
+            "alias": "JUNIORFELONY",
             "color": "0382ce",
-            "last_timestamp": 1722303669,
-            "features": "88a0802a8a59a1",
+            "last_timestamp": 1738030000,
+            "features": "88a0882a8a59a1",
             "addresses": []
           }
         ]

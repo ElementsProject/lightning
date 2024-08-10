@@ -90,15 +90,15 @@
         "id": "example:commando#1",
         "method": "commando",
         "params": {
-          "peer_id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "peer_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
           "rune": "_RWaZZRI7wAYU2hqlFBmYgC_dFczcpAdI_9O87YbDpg9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl",
           "method": "getinfo",
           "params": {}
         }
       },
       "response": {
-        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-        "alias": "SILENTARTIST-190-g5fd2f9c-modded",
+        "id": "nodeid020202020202020202020202020202020202020202020202020202020202",
+        "alias": "SILENTARTIST",
         "color": "022d22",
         "num_peers": 3,
         "num_pending_channels": 0,
@@ -109,17 +109,17 @@
           {
             "type": "ipv4",
             "address": "127.0.0.1",
-            "port": 41219
+            "port": 19735
           }
         ],
-        "version": "v24.05-190-g5fd2f9c-modded",
+        "version": "v24.08",
         "blockheight": 130,
         "network": "regtest",
         "fees_collected_msat": 106,
         "lightning-dir": "/tmp/.lightning/regtest",
         "our_features": {
-          "init": "08a0802a8a59a1",
-          "node": "88a0802a8a59a1",
+          "init": "08a0882a8a59a1",
+          "node": "88a0882a8a59a1",
           "channel": "",
           "invoice": "02000002024100"
         }
@@ -130,24 +130,24 @@
         "id": "example:commando#2",
         "method": "commando",
         "params": {
-          "peer_id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "peer_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
           "rune": "RXgu0DD_i0wSPEZkIDyZIWL0bSAGdhvJ_GHOQdTg04A9MSZpZF4wMjY2ZTQ1OThkMWQzYzQxNWY1NyZtZXRob2Q9bGlzdHBlZXJz",
           "method": "listpeers",
           "params": [
-            "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d"
+            "nodeid030303030303030303030303030303030303030303030303030303030303"
           ]
         }
       },
       "response": {
         "peers": [
           {
-            "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            "id": "nodeid030303030303030303030303030303030303030303030303030303030303",
             "connected": true,
             "num_channels": 2,
             "netaddr": [
-              "127.0.0.1:34785"
+              "127.0.0.1:19736"
             ],
-            "features": "08a0802a8a59a1"
+            "features": "08a0882a8a59a1"
           }
         ]
       }
@@ -157,23 +157,23 @@
         "id": "example:commando#3",
         "method": "commando",
         "params": {
-          "peer_id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "peer_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
           "rune": "QUJEYMLGgiaJvMDv_MhR2hiMKIBTbq-PrL-KxcIlirQ9MiZtZXRob2Q9cGF5JnBuYW1lYW1vdW50bXNhdDwxMDAwMA==",
           "method": "pay",
           "params": {
-            "bolt11": "lnbcrt1pn2s38zsp5lv49w44a8tvkwtkxfxwts8rnr864u59srp7sxuua3haahdhlhtrqpp5p928w8rmsg2hjeymedcn54vxhsz372qhcedgf003nmsknhx9594sdqcdserxgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky96qqq0vqqqqgqqyqqqqqpqqqqqzsqqc9qxpqysgqt5h8te9lkn0jpdkhkmlkzs80aw7mt5kdm6jxmvddkavt3vj0vakkmfcs0hsde8y8g8za46sch2lp4jxy56u8ve25sgpgcsya0vp92sgphzw570",
+            "bolt11": "lnbcrt100n1pnt2bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000",
             "amount_msat": 9900
           }
         }
       },
       "response": {
-        "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-        "payment_hash": "0954771c7b821579649bcb713a5586bc051f2817c65a84bdf19ee169dcc5a16b",
-        "created_at": 1722303715.008808,
+        "destination": "nodeid020202020202020202020202020202020202020202020202020202020202",
+        "payment_hash": "paymenthashcmdpycp10cp10cp10cp10cp10cp10cp10cp10cp10cp10cp10cp10",
+        "created_at": 1738000000,
         "parts": 1,
         "amount_msat": 9900,
         "amount_sent_msat": 9900,
-        "payment_preimage": "f3a3b40d63e62785f537aad60f93980914c5639872c7746299a6a1228abbc303",
+        "payment_preimage": "paymentpreimagec010101010101010101010101010101010101010101010101",
         "status": "complete"
       }
     }

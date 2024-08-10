@@ -144,7 +144,7 @@
       "response": {
         "rows": [
           [
-            "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+            "nodeid020202020202020202020202020202020202020202020202020202020202"
           ]
         ]
       }
@@ -157,26 +157,15 @@
         "id": "example:sql#2",
         "method": "sql",
         "params": [
-          "SELECT nodeid,last_timestamp FROM nodes WHERE last_timestamp>=1669578892"
+          "SELECT label, description, status FROM invoices WHERE label='label inv_l12'"
         ]
       },
       "response": {
         "rows": [
           [
-            "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-            1722303662
-          ],
-          [
-            "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-            1722303662
-          ],
-          [
-            "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-            1722303669
-          ],
-          [
-            "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
-            1722303669
+            "label inv_l12",
+            "description inv_l12",
+            "unpaid"
           ]
         ]
       }
@@ -189,19 +178,19 @@
         "id": "example:sql#3",
         "method": "sql",
         "params": [
-          "SELECT nodeid FROM nodes WHERE nodeid != x'035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d'"
+          "SELECT nodeid FROM nodes WHERE nodeid != x'nodeid030303030303030303030303030303030303030303030303030303030303'"
         ]
       },
       "response": {
         "rows": [
           [
-            "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+            "nodeid020202020202020202020202020202020202020202020202020202020202"
           ],
           [
-            "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
+            "nodeid010101010101010101010101010101010101010101010101010101010101"
           ],
           [
-            "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199"
+            "nodeid040404040404040404040404040404040404040404040404040404040404"
           ]
         ]
       }
@@ -214,16 +203,16 @@
         "id": "example:sql#4",
         "method": "sql",
         "params": [
-          "SELECT nodeid FROM nodes WHERE nodeid IN (x'0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518', x'035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d')"
+          "SELECT nodeid FROM nodes WHERE nodeid IN (x'nodeid010101010101010101010101010101010101010101010101010101010101', x'nodeid030303030303030303030303030303030303030303030303030303030303')"
         ]
       },
       "response": {
         "rows": [
           [
-            "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
+            "nodeid010101010101010101010101010101010101010101010101010101010101"
           ],
           [
-            "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d"
+            "nodeid030303030303030303030303030303030303030303030303030303030303"
           ]
         ]
       }
@@ -236,15 +225,14 @@
         "id": "example:sql#5",
         "method": "sql",
         "params": [
-          "SELECT peer_id, short_channel_id, to_us_msat, total_msat, peerchannels_status.status FROM peerchannels INNER JOIN peerchannels_status ON peerchannels_status.row = peerchannels.rowid"
+          "SELECT peer_id, to_us_msat, total_msat, peerchannels_status.status FROM peerchannels INNER JOIN peerchannels_status ON peerchannels_status.row = peerchannels.rowid"
         ]
       },
       "response": {
         "rows": [
           [
-            "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-            "109x1x1",
-            490503792,
+            "nodeid020202020202020202020202020202020202020202020202020202020202",
+            490493792,
             1000000000,
             "CHANNELD_NORMAL:Channel ready for use."
           ]
@@ -265,7 +253,7 @@
       "response": {
         "rows": [
           [
-            8
+            9
           ]
         ]
       }
@@ -281,20 +269,20 @@
       "response": {
         "rows": [
           [
+            28,
             23,
-            18,
             0,
             "option_static_remotekey"
           ],
           [
-            24,
-            18,
+            29,
+            23,
             1,
             "option_anchors_zero_fee_htlc_tx"
           ],
           [
-            25,
-            18,
+            30,
+            23,
             2,
             "option_anchors"
           ]

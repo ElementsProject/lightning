@@ -213,50 +213,23 @@
         "id": "example:bkpr-inspect#1",
         "method": "bkpr-inspect",
         "params": {
-          "account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2"
+          "account": "channelid0230200230200230200230200230200230200230200230200230200"
         }
       },
       "response": {
         "txs": [
           {
-            "txid": "cd23f0517eefc27194981253eb07b19b055246df77033e052c66eaf2bbb00483",
-            "blockheight": 111,
-            "fees_paid_msat": 4927000,
+            "txid": "channeltxid230200230200230200230200230200230200230200230200230200",
+            "blockheight": 123,
+            "fees_paid_msat": 5020000,
             "outputs": [
               {
-                "account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
-                "outnum": 0,
+                "account": "channelid0230200230200230200230200230200230200230200230200230200",
+                "outnum": 1,
                 "output_tag": "channel_open",
                 "output_value_msat": 1000000000,
                 "credit_msat": 1000000000,
-                "currency": "bcrt",
-                "spend_tag": "channel_close",
-                "spending_txid": "70e0466dc2e74f25afe38df6a85d5e8857079873a6d5eda4732806a7ac427305",
-                "debit_msat": 489818898
-              }
-            ]
-          },
-          {
-            "txid": "70e0466dc2e74f25afe38df6a85d5e8857079873a6d5eda4732806a7ac427305",
-            "blockheight": 121,
-            "fees_paid_msat": 2895898,
-            "outputs": [
-              {
-                "account": "wallet",
-                "outnum": 0,
-                "output_tag": "deposit",
-                "output_value_msat": 486923000,
-                "credit_msat": 486923000,
                 "currency": "bcrt"
-              },
-              {
-                "account": "external",
-                "outnum": 1,
-                "output_tag": "to_them",
-                "output_value_msat": 510181000,
-                "credit_msat": 510181000,
-                "currency": "bcrt",
-                "originating_account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2"
               }
             ]
           }

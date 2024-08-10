@@ -183,8 +183,8 @@
       "response": {
         "channels": [
           {
-            "peer_id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-            "channel_id": "ecabe6d86abdd57565b3fb7e7c5d724e60ca1a07633951769b5dbfa48dc884b3",
+            "peer_id": "nodeid030303030303030303030303030303030303030303030303030303030303",
+            "channel_id": "channelid0230200230200230200230200230200230200230200230200230200",
             "short_channel_id": "123x1x1",
             "fee_base_msat": 1,
             "fee_proportional_millionths": 10,
@@ -200,7 +200,7 @@
         "id": "example:setchannel#2",
         "method": "setchannel",
         "params": {
-          "id": "115x1x0",
+          "id": "115x1x1",
           "feebase": 4000,
           "feeppm": 300,
           "enforcedelay": 0
@@ -209,9 +209,9 @@
       "response": {
         "channels": [
           {
-            "peer_id": "032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e",
-            "channel_id": "f8fc83a432cbfb2fffe222cc06727fdd977b5dd10ebd6707158e799e6f522d9f",
-            "short_channel_id": "115x1x0",
+            "peer_id": "nodeid050505050505050505050505050505050505050505050505050505050505",
+            "channel_id": "channelid0250000250000250000250000250000250000250000250000250000",
+            "short_channel_id": "115x1x1",
             "fee_base_msat": 4000,
             "fee_proportional_millionths": 300,
             "minimum_htlc_out_msat": 0,

@@ -323,7 +323,7 @@
       },
       "response": {
         "subsystem": "invoices",
-        "created": 15
+        "created": 16
       }
     },
     {
@@ -333,17 +333,17 @@
         "params": {
           "subsystem": "sendpays",
           "indexname": "created",
-          "nextvalue": 15
+          "nextvalue": 18
         }
       },
       "response": {
         "subsystem": "sendpays",
-        "created": 15,
+        "created": 18,
         "details": {
           "status": "pending",
           "partid": 0,
           "groupid": 1,
-          "payment_hash": "4c6f04eaf19dd956b616f1ba8718df40e387c4a56be36cf4e881a009cbf66899"
+          "payment_hash": "paymenthashwtspct20101010101010101010101010101010101010101010101"
         }
       }
     },
@@ -354,17 +354,17 @@
         "params": [
           "sendpays",
           "updated",
-          15
+          18
         ]
       },
       "response": {
         "subsystem": "sendpays",
-        "updated": 15,
+        "updated": 18,
         "details": {
           "status": "complete",
           "partid": 0,
           "groupid": 1,
-          "payment_hash": "4c6f04eaf19dd956b616f1ba8718df40e387c4a56be36cf4e881a009cbf66899"
+          "payment_hash": "paymenthashwtspct20101010101010101010101010101010101010101010101"
         }
       }
     }

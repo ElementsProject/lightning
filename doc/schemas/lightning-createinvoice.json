@@ -211,19 +211,19 @@
         "id": "example:createinvoice#1",
         "method": "createinvoice",
         "params": {
-          "invstring": "lnbcrt1u1pn2s38zsp5j9w8t9p2y6an5se63n3vkpp8c20vdsthtn78sv5t2lmt57l742wqpp5wtxkappzcsrlkmgfs6g0zyct0hkhashh7hsaxz7e65slq9fkx7fsdqcdscnxgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqd5qqqqgqqyqqqqqpqqqqqzsqqc9qxpqysgq4sjk5smmjpgu6v8k7xc7q5evf370kdvt8s8t6x9he6jh9sgagxyqw8l7ctdldf8vgyz3pdfwr4hn9r6u5xvd48w2f2atu752zwqsulspwpxne4",
+          "invstring": "lnbcrt100n1pnt2bolt11invl010300000000bolt11invl010300000000bolt11invl010300000000bolt11invl010300000000bolt11invl010300000000bolt11invl010300000000bolt11invl010300000000bolt11invl010300000000bolt11invl010300000000bolt11invl010300000000",
           "label": "lbl_l13",
           "preimage": "0101010101010101010101010101010101010101010101010101010101010101"
         }
       },
       "response": {
         "label": "lbl_l13",
-        "bolt11": "lnbcrt1u1pn2s38zsp5j9w8t9p2y6an5se63n3vkpp8c20vdsthtn78sv5t2lmt57l742wqpp5wtxkappzcsrlkmgfs6g0zyct0hkhashh7hsaxz7e65slq9fkx7fsdqcdscnxgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqd5qqqqgqqyqqqqqpqqqqqzsqqc9qxpqysgqcjq9fq26ph2skcsm65xjwnw3crgygpampszjcvqs8aw2zf3jzcxqg4dh58fm8mxul29vh5urpyjkll9m4dq3807xcmq2q9yvgd5qt7qp695qvu",
-        "payment_hash": "72cd6e8422c407fb6d098690f1130b7ded7ec2f7f5e1d30bd9d521f015363793",
+        "bolt11": "lnbcrt100n1pnt2bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000",
+        "payment_hash": "paymenthashinvl0210021002100210021002100210021002100210021002100",
         "amount_msat": 100000,
         "status": "unpaid",
         "description": "l13 description",
-        "expires_at": 1722908514,
+        "expires_at": 1739000000,
         "created_index": 7
       }
     }

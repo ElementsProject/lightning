@@ -99,13 +99,13 @@
         "id": "example:dev-forget-channel#1",
         "method": "dev-forget-channel",
         "params": {
-          "id": "032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e"
+          "id": "nodeid050505050505050505050505050505050505050505050505050505050505"
         }
       },
       "response": {
         "forced": false,
         "funding_unspent": false,
-        "funding_txid": "c40c9d52aaac47f76c67163a2efc005df189b36b855b0ad209da7d0d066358b1"
+        "funding_txid": "fundingtxid00101010101010101010101010101010101010101010101010101"
       }
     },
     {
@@ -116,15 +116,15 @@
         "id": "example:dev-forget-channel#2",
         "method": "dev-forget-channel",
         "params": {
-          "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-          "short_channel_id": "111x1x0",
+          "id": "nodeid030303030303030303030303030303030303030303030303030303030303",
+          "short_channel_id": "111x1x1",
           "force": true
         }
       },
       "response": {
         "forced": true,
         "funding_unspent": false,
-        "funding_txid": "cd23f0517eefc27194981253eb07b19b055246df77033e052c66eaf2bbb00483"
+        "funding_txid": "fundingtxid00202020202020202020202020202020202020202020202020202"
       }
     }
   ]

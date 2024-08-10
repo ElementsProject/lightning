@@ -57,12 +57,14 @@
   ],
   "examples": [
     {
+      "description": [
+        "This will return immediately since the current blockheight exceeds the requested waitblockheight."
+      ],
       "request": {
         "id": "example:waitblockheight#1",
         "method": "waitblockheight",
         "params": {
-          "blockheight": 129,
-          "timeout": 600
+          "blockheight": 126
         }
       },
       "response": {
@@ -70,11 +72,15 @@
       }
     },
     {
+      "description": [
+        "This will return after the next block is mined because requested waitblockheight is one block higher than the current blockheight."
+      ],
       "request": {
         "id": "example:waitblockheight#2",
         "method": "waitblockheight",
         "params": {
-          "blockheight": 131
+          "blockheight": 131,
+          "timeout": 600
         }
       },
       "response": {
