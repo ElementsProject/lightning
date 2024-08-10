@@ -244,17 +244,17 @@
         "id": "example:pay#1",
         "method": "pay",
         "params": [
-          "lnbcrt500n1pn2s396sp5h5tz6fpm3dxvrlwcnwmfq85v45wfj43mdmplpce6ku2vmfdhrx5qpp50z9w5u57meydx9dpn889mmtkz6tqrfsa65hfwd88ql4hc5hyu70qdqcdsenygryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqduqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqt5m8qx0t25a0gygya7u4sxulyyp2dec87pwsxuuwtg0u66c07703g9j6vlwgmlhqk7qgn95qw7allhnuj2m9hf0xkcr2zkaxltv3t6gqjcdpll"
+          "lnbcrt100n1pnt2bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000"
         ]
       },
       "response": {
-        "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-        "payment_hash": "788aea729ede48d315a199ce5ded76169601a61dd52e9734e707eb7c52e4e79e",
-        "created_at": 1722303686.2193663,
+        "destination": "nodeid030303030303030303030303030303030303030303030303030303030303",
+        "payment_hash": "paymenthashinvl0320032003200320032003200320032003200320032003200",
+        "created_at": 1738000000,
         "parts": 1,
         "amount_msat": 50000,
         "amount_sent_msat": 50001,
-        "payment_preimage": "0e07efd883f66b6b22ec7f2e7116e203c3fecc22eb8596a73eaf06c4befb0641",
+        "payment_preimage": "paymentpreimagep010101010101010101010101010101010101010101010101",
         "status": "complete"
       }
     },
@@ -263,17 +263,17 @@
         "id": "example:pay#2",
         "method": "pay",
         "params": {
-          "bolt11": "lnbcrt1u1pn2s3xxsp5xk8hs6zuv0yqhq7hhl0sps6mxuj78pzwryejaljh48vr4htykujqpp593ndc8wrukteld5j4nqnt6tedavh8ezv48dmrkqen3440ajnre5qdqcdsenxgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqduqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgq0asve9rdtfd9fe20u5vjujzmm0phpq538z8ndhn5ts62aflhktqn6338e45xcxkyf7askjjq25ksxt4eqarjjame8wfdmau7kq7m4csqs0n32n"
+          "bolt11": "lnbcrt100n1pnt2bolt11invl030300000000bolt11invl030300000000bolt11invl030300000000bolt11invl030300000000bolt11invl030300000000bolt11invl030300000000bolt11invl030300000000bolt11invl030300000000bolt11invl030300000000bolt11invl030300000000"
         }
       },
       "response": {
-        "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-        "payment_hash": "2c66dc1dc3e5979fb692acc135e9796f5973e44ca9dbb1d8199c6b57f6531e68",
-        "created_at": 1722303688.41859,
+        "destination": "nodeid030303030303030303030303030303030303030303030303030303030303",
+        "payment_hash": "paymenthashinvl0330033003300330033003300330033003300330033003300",
+        "created_at": 1738000000,
         "parts": 1,
         "amount_msat": 100000,
         "amount_sent_msat": 100000,
-        "payment_preimage": "1ce8370d3a179cee3af25a5a6c7058e8e12033a842efd6d34abae53334bc94bf",
+        "payment_preimage": "paymentpreimagep020202020202020202020202020202020202020202020202",
         "status": "complete"
       }
     }

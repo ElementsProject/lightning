@@ -127,8 +127,8 @@
           "otherkey"
         ],
         "generation": 1,
-        "hex": "666f6f626172",
-        "string": "foobar"
+        "hex": "6f74686572206b65793a207465787420746f20626520617070656e64656420746f20746865206f746865726b6579",
+        "string": "other key: text to be appended to the otherkey"
       }
     }
   ]

@@ -241,55 +241,36 @@
         }
       },
       "response": {
-        "created_at": "1722303623.956237697",
-        "bytes_used": 1723719,
+        "created_at": 1738000000,
+        "bytes_used": 1630000,
         "bytes_max": 10485760,
         "log": [
           {
             "type": "SKIPPED",
-            "num_skipped": 2927
+            "num_skipped": 144
           },
           {
             "type": "UNUSUAL",
-            "time": "59.598510878",
-            "node_id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+            "time": "71.800000000",
+            "source": "plugin-bookkeeper",
+            "log": "topic 'utxo_deposit' is not a known notification topic"
+          },
+          {
+            "type": "UNUSUAL",
+            "time": "72.800000000",
+            "source": "plugin-bookkeeper",
+            "log": "topic 'utxo_spend' is not a known notification topic"
+          },
+          {
+            "type": "SKIPPED",
+            "num_skipped": 147
+          },
+          {
+            "type": "UNUSUAL",
+            "time": "74.800000000",
+            "node_id": "nodeid010101010101010101010101010101010101010101010101010101010101",
             "source": "chan#1",
-            "log": "No peer channel with scid=6250403x3681116x19863"
-          },
-          {
-            "type": "SKIPPED",
-            "num_skipped": 1183
-          },
-          {
-            "type": "UNUSUAL",
-            "time": "71.923794351",
-            "node_id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-            "source": "chan#2",
-            "log": "Peer permanent failure in CLOSINGD_COMPLETE: Funding transaction spent (reason=unknown)"
-          },
-          {
-            "type": "SKIPPED",
-            "num_skipped": 557
-          },
-          {
-            "type": "BROKEN",
-            "time": "89.108598990",
-            "source": "plugin-topology",
-            "log": "DEPRECATED API USED: listchannels.include_private by \\\"-c:listchannels#114/cln:listchannels#175\\\""
-          },
-          {
-            "type": "SKIPPED",
-            "num_skipped": 1246
-          },
-          {
-            "type": "UNUSUAL",
-            "time": "95.217065000",
-            "source": "plugin-cln-renepay",
-            "log": "Failed to update hint channel 111x1x0: Failed to update scid=111x1x0 in the local_gossmods."
-          },
-          {
-            "type": "SKIPPED",
-            "num_skipped": 1696
+            "log": "No peer channel with scid=228x1x1"
           }
         ]
       }

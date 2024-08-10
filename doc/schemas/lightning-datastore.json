@@ -132,18 +132,22 @@
         "id": "example:datastore#1",
         "method": "datastore",
         "params": {
-          "key": "somekey",
-          "hex": "61",
-          "mode": "create-or-append"
+          "key": [
+            "employee",
+            "index"
+          ],
+          "string": "saving employee keys to the store",
+          "mode": "must-create"
         }
       },
       "response": {
         "key": [
-          "somekey"
+          "employee",
+          "index"
         ],
         "generation": 0,
-        "hex": "61",
-        "string": "a"
+        "hex": "736176696e6720656d706c6f796565206b65797320746f207468652073746f7265",
+        "string": "saving employee keys to the store"
       }
     },
     {
@@ -151,31 +155,8 @@
         "id": "example:datastore#2",
         "method": "datastore",
         "params": {
-          "key": [
-            "test",
-            "name"
-          ],
-          "string": "saving data to the store",
-          "mode": "must-create"
-        }
-      },
-      "response": {
-        "key": [
-          "test",
-          "name"
-        ],
-        "generation": 0,
-        "hex": "736176696e67206461746120746f207468652073746f7265",
-        "string": "saving data to the store"
-      }
-    },
-    {
-      "request": {
-        "id": "example:datastore#3",
-        "method": "datastore",
-        "params": {
           "key": "otherkey",
-          "string": "foo",
+          "string": "other",
           "mode": "must-create"
         }
       },
@@ -184,17 +165,17 @@
           "otherkey"
         ],
         "generation": 0,
-        "hex": "666f6f",
-        "string": "foo"
+        "hex": "6f74686572",
+        "string": "other"
       }
     },
     {
       "request": {
-        "id": "example:datastore#4",
+        "id": "example:datastore#3",
         "method": "datastore",
         "params": {
           "key": "otherkey",
-          "string": "bar",
+          "string": " key: text to be appended to the otherkey",
           "mode": "must-append",
           "generation": 0
         }
@@ -204,8 +185,8 @@
           "otherkey"
         ],
         "generation": 1,
-        "hex": "666f6f626172",
-        "string": "foobar"
+        "hex": "6f74686572206b65793a207465787420746f20626520617070656e64656420746f20746865206f746865726b6579",
+        "string": "other key: text to be appended to the otherkey"
       }
     }
   ]

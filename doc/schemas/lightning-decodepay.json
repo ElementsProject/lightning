@@ -273,23 +273,23 @@
         "id": "example:decodepay#1",
         "method": "decodepay",
         "params": {
-          "bolt11": "lnbcrt100n1pn2s3xxsp5s4wvy67lduz0tpxzmw0x0m8z5krfn6ppeu3a9t559tcdxquqwjfqpp5r0zx30ded4lpxp7vrdxqenmwr9rqftn93dcymvmuaxpu8y5zxunqdqcdscnzgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqd5qqqqgqqyqqqqqpqqqqqzsqqc9qxpqysgqyk0lnqhsl07405jsqzyyaheu3dhxdv6s498ex97yvacs04gf6carplepnh5drlse8spy8nluz4uwj78h47ez6hak9md2s8mtg6yy5tcqt8yfsj"
+          "bolt11": "lnbcrt100n1pnt2bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000"
         }
       },
       "response": {
         "currency": "bcrt",
-        "created_at": 1722303686,
+        "created_at": 1738000000,
         "expiry": 604800,
-        "payee": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+        "payee": "nodeid010101010101010101010101010101010101010101010101010101010101",
         "amount_msat": 10000,
         "description": "l11 description",
         "min_final_cltv_expiry": 5,
-        "payment_secret": "855cc26bdf6f04f584c2db9e67ece2a58699e821cf23d2ae942af0d303807492",
+        "payment_secret": "paymentsecretinvl00110001100011000110001100011000110001100011000",
         "features": "02024100",
         "routes": [
           [
             {
-              "pubkey": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+              "pubkey": "nodeid020202020202020202020202020202020202020202020202020202020202",
               "short_channel_id": "109x1x1",
               "fee_base_msat": 1,
               "fee_proportional_millionths": 10,
@@ -297,8 +297,8 @@
             }
           ]
         ],
-        "payment_hash": "1bc468bdb96d7e1307cc1b4c0ccf6e194604ae658b704db37ce983c392823726",
-        "signature": "30440220259ff982f0fbfd57d25000884edf3c8b6e66b350a94f9317c4677107d509d63a022030ff219de8d1fe193c0243cffc1578e978f7afb22d5fb62edaa81f6b46884a2f"
+        "payment_hash": "paymenthashinvl0110011001100110011001100110011001100110011001100",
+        "signature": "dcdepay30c4bb50bed209d020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202"
       }
     }
   ]

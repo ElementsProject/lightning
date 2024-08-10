@@ -2517,7 +2517,6 @@
         }
       },
       "response": {
-        "network": "regtest",
         "configs": {
           "network": {
             "value_str": "regtest",
@@ -2535,7 +2534,6 @@
         }
       },
       "response": {
-        "experimental-dual-fund": true,
         "configs": {
           "experimental-dual-fund": {
             "set": true,
@@ -2551,323 +2549,30 @@
         "params": {}
       },
       "response": {
-        "# version": "v24.05-190-g5fd2f9c-modded",
-        "developer": true,
-        "lightning-dir": "/tmp/.lightning/",
-        "network": "regtest",
-        "rpc-file": "lightning-rpc",
-        "allow-deprecated-apis": true,
-        "plugins": [
-          {
-            "path": "/root/lightning/plugins/cln-renepay",
-            "name": "cln-renepay",
-            "options": {}
-          }
-        ],
-        "important-plugins": [
-          {
-            "path": "/root/lightning/plugins/autoclean",
-            "name": "autoclean",
-            "options": {
-              "autoclean-cycle": 3600,
-              "dev-autoclean-max-batch": 10000
-            }
-          },
-          {
-            "path": "/root/lightning/plugins/chanbackup",
-            "name": "chanbackup"
-          },
-          {
-            "path": "/root/lightning/plugins/bcli",
-            "name": "bcli",
-            "options": {
-              "bitcoin-datadir": "/tmp/.lightning/",
-              "bitcoin-rpcuser": "rpcuser",
-              "bitcoin-rpcpassword": "rpcpass",
-              "bitcoin-rpcport": 51251,
-              "bitcoin-rpcclienttimeout": 60,
-              "bitcoin-retry-timeout": 60
-            }
-          },
-          {
-            "path": "/root/lightning/plugins/commando",
-            "name": "commando"
-          },
-          {
-            "path": "/root/lightning/plugins/funder",
-            "name": "funder",
-            "options": {
-              "funder-policy": "fixed",
-              "funder-policy-mod": "0",
-              "funder-min-their-funding": "10000sat",
-              "funder-max-their-funding": "4294967295sat",
-              "funder-per-channel-min": "10000sat",
-              "funder-per-channel-max": "4294967295sat",
-              "funder-reserve-tank": "0sat",
-              "funder-fuzz-percent": 0,
-              "funder-fund-probability": 100,
-              "funder-lease-requests-only": true
-            }
-          },
-          {
-            "path": "/root/lightning/plugins/topology",
-            "name": "topology"
-          },
-          {
-            "path": "/root/lightning/plugins/keysend",
-            "name": "keysend"
-          },
-          {
-            "path": "/root/lightning/plugins/offers",
-            "name": "offers",
-            "options": {}
-          },
-          {
-            "path": "/root/lightning/plugins/pay",
-            "name": "pay",
-            "options": {}
-          },
-          {
-            "path": "/root/lightning/plugins/recover",
-            "name": "recover"
-          },
-          {
-            "path": "/root/lightning/plugins/txprepare",
-            "name": "txprepare"
-          },
-          {
-            "path": "/root/lightning/plugins/spenderp",
-            "name": "spenderp"
-          },
-          {
-            "path": "/root/lightning/plugins/sql",
-            "name": "sql",
-            "options": {}
-          },
-          {
-            "path": "/root/lightning/plugins/bookkeeper",
-            "name": "bookkeeper",
-            "options": {}
-          }
-        ],
-        "disable-plugin": [],
-        "always-use-proxy": false,
-        "daemon": false,
-        "wallet": "sqlite3:///tmp/.lightning/regtest/lightningd.sqlite3",
-        "experimental-dual-fund": true,
-        "experimental-splicing": false,
-        "experimental-offers": true,
-        "experimental-shutdown-wrong-funding": false,
-        "experimental-peer-storage": false,
-        "experimental-quiesce": false,
-        "rgb": "022d22",
-        "alias": "SILENTARTIST-190-g5fd2f9c-modded",
-        "pid-file": "/tmp/.lightning/lightningd-regtest.pid",
-        "ignore-fee-limits": false,
-        "watchtime-blocks": 5,
-        "funding-confirms": 1,
-        "require-confirmed-inputs": false,
-        "cltv-delta": 6,
-        "cltv-final": 5,
-        "commit-time": 10,
-        "fee-base": 1,
-        "rescan": 1,
-        "fee-per-satoshi": 10,
-        "htlc-minimum-msat": 0,
-        "htlc-maximum-msat": 18446744073709552000,
-        "max-concurrent-htlcs": 483,
-        "max-dust-htlc-exposure-msat": 50000000,
-        "min-capacity-sat": 10000,
-        "addr": "127.0.0.1:41219",
-        "announce-addr-discovered": "auto",
-        "announce-addr-discovered-port": 19846,
-        "offline": false,
-        "autolisten": false,
-        "disable-dns": true,
-        "encrypted-hsm": false,
-        "rpc-file-mode": "0600",
-        "commit-fee": 100,
-        "commit-feerate-offset": 5,
-        "min-emergency-msat": 25000000,
-        "experimental-upgrade-protocol": false,
-        "invoices-onchain-fallback": false,
-        "log-level": "debug",
-        "log-timestamps": true,
-        "log-prefix": "lightningd-2 ",
-        "log-file": "/tmp/.lightning/log",
         "configs": {
-          "developer": {
-            "set": true,
-            "source": "cmdline"
+          "accept-htlc-tlv-type": {
+            "values_int": [],
+            "sources": []
           },
-          "lightning-dir": {
-            "value_str": "/tmp/.lightning/",
-            "source": "cmdline"
+          "addr": {
+            "values_str": [
+              "127.0.0.1:19735"
+            ],
+            "sources": [
+              "cmdline"
+            ]
           },
-          "network": {
-            "value_str": "regtest",
-            "source": "cmdline"
-          },
-          "testnet": {
-            "set": false,
-            "source": "default"
-          },
-          "signet": {
-            "set": false,
-            "source": "default"
-          },
-          "mainnet": {
-            "set": false,
-            "source": "default"
-          },
-          "regtest": {
-            "set": false,
-            "source": "default"
-          },
-          "rpc-file": {
-            "value_str": "lightning-rpc",
+          "alias": {
+            "value_str": "SILENTARTIST",
             "source": "default"
           },
           "allow-deprecated-apis": {
             "value_bool": true,
             "source": "cmdline"
           },
-          "plugin": {
-            "values_str": [],
-            "sources": []
-          },
-          "plugin-dir": {
-            "values_str": [],
-            "sources": []
-          },
-          "clear-plugins": {
-            "set": false,
-            "source": "default"
-          },
-          "disable-plugin": {
-            "values_str": [],
-            "sources": []
-          },
-          "important-plugin": {
-            "values_str": [],
-            "sources": []
-          },
           "always-use-proxy": {
             "value_bool": false,
             "source": "default"
-          },
-          "daemon": {
-            "set": false,
-            "source": "default"
-          },
-          "experimental-dual-fund": {
-            "set": true,
-            "source": "cmdline"
-          },
-          "experimental-splicing": {
-            "set": false,
-            "source": "default"
-          },
-          "experimental-offers": {
-            "set": true,
-            "source": "cmdline"
-          },
-          "experimental-shutdown-wrong-funding": {
-            "set": false,
-            "source": "default"
-          },
-          "experimental-peer-storage": {
-            "set": false,
-            "source": "default"
-          },
-          "experimental-quiesce": {
-            "set": false,
-            "source": "default"
-          },
-          "rgb": {
-            "value_str": "022d22",
-            "source": "default"
-          },
-          "alias": {
-            "value_str": "SILENTARTIST-190-g5fd2f9c-modded",
-            "source": "default"
-          },
-          "pid-file": {
-            "value_str": "/tmp/.lightning/lightningd-regtest.pid",
-            "source": "default"
-          },
-          "ignore-fee-limits": {
-            "value_bool": false,
-            "source": "cmdline"
-          },
-          "watchtime-blocks": {
-            "value_int": 5,
-            "source": "cmdline"
-          },
-          "funding-confirms": {
-            "value_int": 1,
-            "source": "default"
-          },
-          "require-confirmed-inputs": {
-            "value_bool": false,
-            "source": "default"
-          },
-          "cltv-delta": {
-            "value_int": 6,
-            "source": "cmdline"
-          },
-          "cltv-final": {
-            "value_int": 5,
-            "source": "cmdline"
-          },
-          "commit-time": {
-            "value_int": 10,
-            "source": "default"
-          },
-          "fee-base": {
-            "value_int": 1,
-            "source": "default"
-          },
-          "rescan": {
-            "value_int": 1,
-            "source": "cmdline"
-          },
-          "fee-per-satoshi": {
-            "value_int": 10,
-            "source": "default"
-          },
-          "htlc-minimum-msat": {
-            "value_msat": 0,
-            "source": "default"
-          },
-          "htlc-maximum-msat": {
-            "value_msat": 18446744073709552000,
-            "source": "default"
-          },
-          "max-concurrent-htlcs": {
-            "value_int": 483,
-            "source": "default"
-          },
-          "max-dust-htlc-exposure-msat": {
-            "value_msat": 50000000,
-            "source": "default"
-          },
-          "min-capacity-sat": {
-            "value_int": 10000,
-            "source": "default",
-            "dynamic": true
-          },
-          "addr": {
-            "values_str": [
-              "127.0.0.1:41219"
-            ],
-            "sources": [
-              "cmdline"
-            ]
-          },
-          "bind-addr": {
-            "values_str": [],
-            "sources": []
           },
           "announce-addr": {
             "values_str": [],
@@ -2881,29 +2586,71 @@
             "value_int": 19846,
             "source": "default"
           },
-          "offline": {
-            "set": false,
-            "source": "default"
+          "autoclean-cycle": {
+            "value_int": 3600,
+            "source": "default",
+            "plugin": "/root/lightning/plugins/autoclean",
+            "dynamic": true
+          },
+          "autoclean-expiredinvoices-age": {
+            "value_int": 300,
+            "source": "/tmp/.lightning/regtest/config:2",
+            "plugin": "/root/lightning/plugins/autoclean",
+            "dynamic": true
+          },
+          "autoconnect-seeker-peers": {
+            "value_int": 0,
+            "source": "cmdline"
           },
           "autolisten": {
             "value_bool": false,
             "source": "default"
           },
-          "accept-htlc-tlv-type": {
-            "values_int": [],
+          "bind-addr": {
+            "values_str": [],
             "sources": []
           },
-          "disable-dns": {
-            "set": true,
-            "source": "cmdline"
+          "bitcoin-datadir": {
+            "value_str": "/tmp/.lightning/",
+            "source": "cmdline",
+            "plugin": "/root/lightning/plugins/bcli"
           },
-          "encrypted-hsm": {
+          "bitcoin-retry-timeout": {
+            "value_int": 60,
+            "source": "default",
+            "plugin": "/root/lightning/plugins/bcli"
+          },
+          "bitcoin-rpcclienttimeout": {
+            "value_int": 60,
+            "source": "default",
+            "plugin": "/root/lightning/plugins/bcli"
+          },
+          "bitcoin-rpcpassword": {
+            "value_str": "rpcpass",
+            "source": "cmdline",
+            "plugin": "/root/lightning/plugins/bcli"
+          },
+          "bitcoin-rpcport": {
+            "value_int": 18332,
+            "source": "cmdline",
+            "plugin": "/root/lightning/plugins/bcli"
+          },
+          "bitcoin-rpcuser": {
+            "value_str": "rpcuser",
+            "source": "cmdline",
+            "plugin": "/root/lightning/plugins/bcli"
+          },
+          "clear-plugins": {
             "set": false,
             "source": "default"
           },
-          "rpc-file-mode": {
-            "value_str": "0600",
-            "source": "default"
+          "cltv-delta": {
+            "value_int": 6,
+            "source": "cmdline"
+          },
+          "cltv-final": {
+            "value_int": 5,
+            "source": "cmdline"
           },
           "commit-fee": {
             "value_int": 100,
@@ -2913,36 +2660,199 @@
             "value_int": 5,
             "source": "default"
           },
-          "min-emergency-msat": {
-            "value_msat": 25000000,
+          "commit-time": {
+            "value_int": 10,
             "source": "default"
           },
-          "subdaemon": {
+          "daemon": {
+            "set": false,
+            "source": "default"
+          },
+          "dev-autoclean-max-batch": {
+            "value_int": 100,
+            "source": "default",
+            "plugin": "/root/lightning/plugins/autoclean",
+            "dynamic": true
+          },
+          "dev-bitcoind-poll": {
+            "value_int": 3,
+            "source": "cmdline"
+          },
+          "dev-fail-on-subdaemon-fail": {
+            "set": true,
+            "source": "cmdline"
+          },
+          "dev-fast-gossip": {
+            "set": true,
+            "source": "cmdline"
+          },
+          "dev-hsmd-no-preapprove-check": {
+            "set": true,
+            "source": "cmdline"
+          },
+          "dev-invoice-bpath-scid": {
+            "set": false,
+            "source": "default",
+            "plugin": "/root/lightning/plugins/offers"
+          },
+          "developer": {
+            "set": true,
+            "source": "cmdline"
+          },
+          "disable-dns": {
+            "set": true,
+            "source": "cmdline"
+          },
+          "disable-mpp": {
+            "set": false,
+            "source": "default",
+            "plugin": "/root/lightning/plugins/pay"
+          },
+          "disable-plugin": {
             "values_str": [],
             "sources": []
+          },
+          "encrypted-hsm": {
+            "set": false,
+            "source": "default"
+          },
+          "experimental-dual-fund": {
+            "set": true,
+            "source": "cmdline"
+          },
+          "experimental-peer-storage": {
+            "set": false,
+            "source": "default"
+          },
+          "experimental-quiesce": {
+            "set": false,
+            "source": "default"
+          },
+          "experimental-shutdown-wrong-funding": {
+            "set": false,
+            "source": "default"
+          },
+          "experimental-splicing": {
+            "set": false,
+            "source": "default"
           },
           "experimental-upgrade-protocol": {
             "set": false,
             "source": "default"
           },
-          "invoices-onchain-fallback": {
+          "exposesecret-passphrase": {
+            "value_str": "...",
+            "source": "default",
+            "plugin": "/root/lightning/plugins/exposesecret"
+          },
+          "fee-base": {
+            "value_int": 1,
+            "source": "default"
+          },
+          "fee-per-satoshi": {
+            "value_int": 10,
+            "source": "default"
+          },
+          "fetchinvoice-noconnect": {
             "set": false,
+            "source": "default",
+            "plugin": "/root/lightning/plugins/offers"
+          },
+          "funder-fund-probability": {
+            "value_int": 100,
+            "source": "default",
+            "plugin": "/root/lightning/plugins/funder"
+          },
+          "funder-fuzz-percent": {
+            "value_int": 0,
+            "source": "default",
+            "plugin": "/root/lightning/plugins/funder"
+          },
+          "funder-lease-requests-only": {
+            "value_bool": true,
+            "source": "default",
+            "plugin": "/root/lightning/plugins/funder"
+          },
+          "funder-max-their-funding": {
+            "value_str": "4294967295sat",
+            "source": "default",
+            "plugin": "/root/lightning/plugins/funder"
+          },
+          "funder-min-their-funding": {
+            "value_str": "10000sat",
+            "source": "default",
+            "plugin": "/root/lightning/plugins/funder"
+          },
+          "funder-per-channel-max": {
+            "value_str": "4294967295sat",
+            "source": "default",
+            "plugin": "/root/lightning/plugins/funder"
+          },
+          "funder-per-channel-min": {
+            "value_str": "10000sat",
+            "source": "default",
+            "plugin": "/root/lightning/plugins/funder"
+          },
+          "funder-policy": {
+            "value_str": "fixed",
+            "source": "default",
+            "plugin": "/root/lightning/plugins/funder"
+          },
+          "funder-policy-mod": {
+            "value_str": "0",
+            "source": "default",
+            "plugin": "/root/lightning/plugins/funder"
+          },
+          "funder-reserve-tank": {
+            "value_str": "0sat",
+            "source": "default",
+            "plugin": "/root/lightning/plugins/funder"
+          },
+          "funding-confirms": {
+            "value_int": 1,
+            "source": "default"
+          },
+          "grpc-host": {
+            "value_str": "127.0.0.1",
+            "source": "default",
+            "plugin": "/root/lightning/plugins/cln-grpc"
+          },
+          "grpc-msg-buffer-size": {
+            "value_int": 1024,
+            "source": "default",
+            "plugin": "/root/lightning/plugins/cln-grpc"
+          },
+          "grpc-port": {
+            "value_int": 9736,
+            "source": "cmdline",
+            "plugin": "/root/lightning/plugins/cln-grpc"
+          },
+          "htlc-maximum-msat": {
+            "value_msat": 18446744073709552000,
+            "source": "default"
+          },
+          "htlc-minimum-msat": {
+            "value_msat": 0,
             "source": "default"
           },
           "i-promise-to-fix-broken-api-user": {
             "values_str": [],
             "sources": []
           },
-          "log-level": {
-            "value_str": "debug",
+          "ignore-fee-limits": {
+            "value_bool": false,
             "source": "cmdline"
           },
-          "log-timestamps": {
-            "value_bool": true,
+          "important-plugin": {
+            "values_str": [],
+            "sources": []
+          },
+          "invoices-onchain-fallback": {
+            "set": false,
             "source": "default"
           },
-          "log-prefix": {
-            "value_str": "lightningd-2 ",
+          "lightning-dir": {
+            "value_str": "/tmp/.lightning/",
             "source": "cmdline"
           },
           "log-file": {
@@ -2955,128 +2865,62 @@
               "cmdline"
             ]
           },
-          "dev-fail-on-subdaemon-fail": {
-            "set": true,
+          "log-level": {
+            "value_str": "debug",
             "source": "cmdline"
           },
-          "dev-bitcoind-poll": {
-            "value_int": 3,
+          "log-prefix": {
+            "value_str": "lightningd-2 ",
             "source": "cmdline"
           },
-          "dev-fast-gossip": {
-            "set": true,
-            "source": "cmdline"
-          },
-          "dev-hsmd-no-preapprove-check": {
-            "set": true,
-            "source": "cmdline"
-          },
-          "autoclean-cycle": {
-            "value_int": 3600,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/autoclean",
-            "dynamic": true
-          },
-          "dev-autoclean-max-batch": {
-            "value_int": 10000,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/autoclean",
-            "dynamic": true
-          },
-          "bitcoin-datadir": {
-            "value_str": "/tmp/.lightning/",
-            "source": "cmdline",
-            "plugin": "/root/lightning/plugins/bcli"
-          },
-          "bitcoin-rpcuser": {
-            "value_str": "rpcuser",
-            "source": "cmdline",
-            "plugin": "/root/lightning/plugins/bcli"
-          },
-          "bitcoin-rpcpassword": {
-            "value_str": "rpcpass",
-            "source": "cmdline",
-            "plugin": "/root/lightning/plugins/bcli"
-          },
-          "bitcoin-rpcport": {
-            "value_int": 51251,
-            "source": "cmdline",
-            "plugin": "/root/lightning/plugins/bcli"
-          },
-          "bitcoin-rpcclienttimeout": {
-            "value_int": 60,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/bcli"
-          },
-          "bitcoin-retry-timeout": {
-            "value_int": 60,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/bcli"
-          },
-          "funder-policy": {
-            "value_str": "fixed",
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funder-policy-mod": {
-            "value_str": "0",
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funder-min-their-funding": {
-            "value_str": "10000sat",
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funder-max-their-funding": {
-            "value_str": "4294967295sat",
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funder-per-channel-min": {
-            "value_str": "10000sat",
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funder-per-channel-max": {
-            "value_str": "4294967295sat",
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funder-reserve-tank": {
-            "value_str": "0sat",
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funder-fuzz-percent": {
-            "value_int": 0,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funder-fund-probability": {
-            "value_int": 100,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funder-lease-requests-only": {
+          "log-timestamps": {
             "value_bool": true,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
+            "source": "default"
           },
-          "fetchinvoice-noconnect": {
+          "mainnet": {
             "set": false,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/offers"
+            "source": "default"
           },
-          "dev-invoice-bpath-scid": {
-            "set": false,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/offers"
+          "max-concurrent-htlcs": {
+            "value_int": 483,
+            "source": "default"
           },
-          "disable-mpp": {
+          "max-dust-htlc-exposure-msat": {
+            "value_msat": 50000000,
+            "source": "default"
+          },
+          "min-capacity-sat": {
+            "value_int": 500000,
+            "source": "/tmp/.lightning/regtest/config:4",
+            "dynamic": true
+          },
+          "min-emergency-msat": {
+            "value_msat": 25000000,
+            "source": "default"
+          },
+          "network": {
+            "value_str": "regtest",
+            "source": "cmdline"
+          },
+          "offline": {
             "set": false,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/pay"
+            "source": "default"
+          },
+          "pid-file": {
+            "value_str": "/tmp/.lightning/lightningd-regtest.pid",
+            "source": "default"
+          },
+          "plugin": {
+            "values_str": [],
+            "sources": []
+          },
+          "plugin-dir": {
+            "values_str": [],
+            "sources": []
+          },
+          "regtest": {
+            "set": false,
+            "source": "default"
           },
           "renepay-debug-mcf": {
             "set": false,
@@ -3087,6 +2931,48 @@
             "set": false,
             "source": "default",
             "plugin": "/root/lightning/plugins/cln-renepay"
+          },
+          "require-confirmed-inputs": {
+            "value_bool": false,
+            "source": "default"
+          },
+          "rescan": {
+            "value_int": 1,
+            "source": "cmdline"
+          },
+          "rgb": {
+            "value_str": "022d22",
+            "source": "default"
+          },
+          "rpc-file": {
+            "value_str": "lightning-rpc",
+            "source": "default"
+          },
+          "rpc-file-mode": {
+            "value_str": "0600",
+            "source": "default"
+          },
+          "signet": {
+            "set": false,
+            "source": "default"
+          },
+          "subdaemon": {
+            "values_str": [],
+            "sources": []
+          },
+          "testnet": {
+            "set": false,
+            "source": "default"
+          },
+          "watchtime-blocks": {
+            "value_int": 5,
+            "source": "cmdline"
+          },
+          "xpay-handle-pay": {
+            "value_bool": false,
+            "source": "default",
+            "plugin": "/root/lightning/plugins/cln-xpay",
+            "dynamic": true
           }
         }
       }

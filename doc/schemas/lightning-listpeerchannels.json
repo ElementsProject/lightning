@@ -1415,13 +1415,13 @@
         "id": "example:listpeerchannels#1",
         "method": "listpeerchannels",
         "params": {
-          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+          "id": "nodeid020202020202020202020202020202020202020202020202020202020202"
         }
       },
       "response": {
         "channels": [
           {
-            "peer_id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "peer_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
             "peer_connected": true,
             "reestablished": true,
             "channel_type": {
@@ -1450,10 +1450,10 @@
                 "fee_proportional_millionths": 10
               }
             },
-            "last_stable_connection": 1722303707,
+            "last_stable_connection": 1738510000,
             "state": "CHANNELD_NORMAL",
-            "scratch_txid": "80aa008578b3b6924f2362146907e46ad83351d5b9b056bd8537befc3f1d7d65",
-            "last_tx_fee_msat": 4221000,
+            "scratch_txid": "scratchid1010101010101010101010101010101010101010101010101010101",
+            "last_tx_fee_msat": 4867000,
             "lost_state": false,
             "feerate": {
               "perkw": 3755,
@@ -1462,16 +1462,16 @@
             "owner": "channeld",
             "short_channel_id": "109x1x1",
             "direction": 1,
-            "channel_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
-            "funding_txid": "737d6835ddafd515ba9e9def733bb4e4211f6053a32b1422bf1c8cc240850f96",
+            "channel_id": "channelid0120000120000120000120000120000120000120000120000120000",
+            "funding_txid": "channeltxid120000120000120000120000120000120000120000120000120000",
             "funding_outnum": 1,
             "close_to_addr": "bcrt1p8c0ku4mpxq3443rss8e6rjwamztvv8yxvmxtetal5d0n6v39rlwqvfqy6n",
             "close_to": "51203e1f6e576130235ac47081f3a1c9ddd896c61c8666ccbcafbfa35f3d32251fdc",
             "private": false,
             "opener": "local",
             "alias": {
-              "local": "2240075x4300189x56636",
-              "remote": "3321841x5311416x1695"
+              "local": "30000001x60000001x60001",
+              "remote": "10000001x20000001x30001"
             },
             "features": [
               "option_static_remotekey",
@@ -1483,8 +1483,8 @@
               "remote_funds_msat": 0,
               "pushed_msat": 0
             },
-            "to_us_msat": 490518792,
-            "min_to_us_msat": 489918792,
+            "to_us_msat": 390492790,
+            "min_to_us_msat": 390492790,
             "max_to_us_msat": 1000000000,
             "total_msat": 1000000000,
             "fee_base_msat": 1,
@@ -1493,8 +1493,8 @@
             "max_total_htlc_in_msat": 18446744073709552000,
             "their_reserve_msat": 10000000,
             "our_reserve_msat": 10000000,
-            "spendable_msat": 469223792,
-            "receivable_msat": 499481208,
+            "spendable_msat": 363951708,
+            "receivable_msat": 599507210,
             "minimum_htlc_in_msat": 0,
             "minimum_htlc_out_msat": 0,
             "maximum_htlc_out_msat": 990000000,
@@ -1503,14 +1503,14 @@
             "max_accepted_htlcs": 483,
             "state_changes": [
               {
-                "timestamp": "2024-07-30T01:40:45.942Z",
+                "timestamp": "2024-10-10T00:01:00.000Z",
                 "old_state": "DUALOPEND_OPEN_COMMITTED",
                 "new_state": "DUALOPEND_AWAITING_LOCKIN",
                 "cause": "user",
                 "message": "Sigs exchanged, waiting for lock-in"
               },
               {
-                "timestamp": "2024-07-30T01:40:47.619Z",
+                "timestamp": "2024-10-10T00:02:00.000Z",
                 "old_state": "DUALOPEND_AWAITING_LOCKIN",
                 "new_state": "CHANNELD_NORMAL",
                 "cause": "user",
@@ -1524,11 +1524,20 @@
             "in_offered_msat": 1000000,
             "in_payments_fulfilled": 1,
             "in_fulfilled_msat": 1000000,
-            "out_payments_offered": 10,
-            "out_offered_msat": 510501210,
-            "out_payments_fulfilled": 8,
-            "out_fulfilled_msat": 510481208,
-            "htlcs": []
+            "out_payments_offered": 22,
+            "out_offered_msat": 665528797,
+            "out_payments_fulfilled": 16,
+            "out_fulfilled_msat": 610507210,
+            "htlcs": [
+              {
+                "direction": "out",
+                "id": 17,
+                "amount_msat": 4000082,
+                "expiry": 181,
+                "payment_hash": "paymenthashdelpay30303030303030303030303030303030303030303030303",
+                "state": "SENT_ADD_ACK_REVOCATION"
+              }
+            ]
           }
         ]
       }
@@ -1542,7 +1551,7 @@
       "response": {
         "channels": [
           {
-            "peer_id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "peer_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
             "peer_connected": true,
             "reestablished": true,
             "channel_type": {
@@ -1571,10 +1580,10 @@
                 "fee_proportional_millionths": 10
               }
             },
-            "last_stable_connection": 1722303707,
+            "last_stable_connection": 1738520000,
             "state": "CHANNELD_NORMAL",
-            "scratch_txid": "80aa008578b3b6924f2362146907e46ad83351d5b9b056bd8537befc3f1d7d65",
-            "last_tx_fee_msat": 4221000,
+            "scratch_txid": "scratchid2020202020202020202020202020202020202020202020202020202",
+            "last_tx_fee_msat": 4867000,
             "lost_state": false,
             "feerate": {
               "perkw": 3755,
@@ -1583,16 +1592,16 @@
             "owner": "channeld",
             "short_channel_id": "109x1x1",
             "direction": 1,
-            "channel_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
-            "funding_txid": "737d6835ddafd515ba9e9def733bb4e4211f6053a32b1422bf1c8cc240850f96",
+            "channel_id": "channelid0120000120000120000120000120000120000120000120000120000",
+            "funding_txid": "channeltxid120000120000120000120000120000120000120000120000120000",
             "funding_outnum": 1,
-            "close_to_addr": "bcrt1p8c0ku4mpxq3443rss8e6rjwamztvv8yxvmxtetal5d0n6v39rlwqvfqy6n",
-            "close_to": "51203e1f6e576130235ac47081f3a1c9ddd896c61c8666ccbcafbfa35f3d32251fdc",
+            "close_to_addr": "bcrt1pcl00020002000200020002000200020002000200020002000200020002",
+            "close_to": "db2dec31020202020202020202020202020202020202020202020202020202020202",
             "private": false,
             "opener": "local",
             "alias": {
-              "local": "2240075x4300189x56636",
-              "remote": "3321841x5311416x1695"
+              "local": "30000002x60000002x60002",
+              "remote": "10000002x20000002x30002"
             },
             "features": [
               "option_static_remotekey",
@@ -1604,8 +1613,8 @@
               "remote_funds_msat": 0,
               "pushed_msat": 0
             },
-            "to_us_msat": 490518792,
-            "min_to_us_msat": 489918792,
+            "to_us_msat": 390492790,
+            "min_to_us_msat": 390492790,
             "max_to_us_msat": 1000000000,
             "total_msat": 1000000000,
             "fee_base_msat": 1,
@@ -1614,8 +1623,8 @@
             "max_total_htlc_in_msat": 18446744073709552000,
             "their_reserve_msat": 10000000,
             "our_reserve_msat": 10000000,
-            "spendable_msat": 469223792,
-            "receivable_msat": 499481208,
+            "spendable_msat": 363951708,
+            "receivable_msat": 599507210,
             "minimum_htlc_in_msat": 0,
             "minimum_htlc_out_msat": 0,
             "maximum_htlc_out_msat": 990000000,
@@ -1624,14 +1633,14 @@
             "max_accepted_htlcs": 483,
             "state_changes": [
               {
-                "timestamp": "2024-07-30T01:40:45.942Z",
+                "timestamp": "2024-10-10T00:01:00.000Z",
                 "old_state": "DUALOPEND_OPEN_COMMITTED",
                 "new_state": "DUALOPEND_AWAITING_LOCKIN",
                 "cause": "user",
                 "message": "Sigs exchanged, waiting for lock-in"
               },
               {
-                "timestamp": "2024-07-30T01:40:47.619Z",
+                "timestamp": "2024-10-10T00:02:00.000Z",
                 "old_state": "DUALOPEND_AWAITING_LOCKIN",
                 "new_state": "CHANNELD_NORMAL",
                 "cause": "user",
@@ -1645,11 +1654,165 @@
             "in_offered_msat": 1000000,
             "in_payments_fulfilled": 1,
             "in_fulfilled_msat": 1000000,
-            "out_payments_offered": 10,
-            "out_offered_msat": 510501210,
-            "out_payments_fulfilled": 8,
-            "out_fulfilled_msat": 510481208,
-            "htlcs": []
+            "out_payments_offered": 22,
+            "out_offered_msat": 665528797,
+            "out_payments_fulfilled": 16,
+            "out_fulfilled_msat": 610507210,
+            "htlcs": [
+              {
+                "direction": "out",
+                "id": 17,
+                "amount_msat": 4000082,
+                "expiry": 181,
+                "payment_hash": "paymenthashdelpay30303030303030303030303030303030303030303030303",
+                "state": "SENT_ADD_ACK_REVOCATION"
+              }
+            ]
+          },
+          {
+            "peer_id": "nodeid030303030303030303030303030303030303030303030303030303030303",
+            "peer_connected": false,
+            "channel_type": {
+              "bits": [
+                12,
+                22
+              ],
+              "names": [
+                "static_remotekey/even",
+                "anchors/even"
+              ]
+            },
+            "updates": {
+              "local": {
+                "htlc_minimum_msat": 0,
+                "htlc_maximum_msat": 19454000,
+                "cltv_expiry_delta": 6,
+                "fee_base_msat": 1,
+                "fee_proportional_millionths": 10
+              }
+            },
+            "state": "ONCHAIN",
+            "scratch_txid": "scratchid2030303030303030303030303030303030303030303030303030303",
+            "last_tx_fee_msat": 2250000,
+            "lost_state": false,
+            "feerate": {
+              "perkw": 3750,
+              "perkb": 15000
+            },
+            "direction": 0,
+            "channel_id": "channelid1100011000110001100011000110001100011000110001100011000",
+            "funding_txid": "channeltxid01050000500005000050000500005000050000500005000050000",
+            "funding_outnum": 1,
+            "initial_feerate": "10000perkw",
+            "last_feerate": "10000perkw",
+            "next_feerate": "10416perkw",
+            "inflight": [
+              {
+                "funding_txid": "channeltxid01050000500005000050000500005000050000500005000050000",
+                "funding_outnum": 1,
+                "feerate": "10000perkw",
+                "total_funding_msat": 20000000,
+                "our_funding_msat": 20000000,
+                "splice_amount": 0,
+                "scratch_txid": "scratchid2030303030303030303030303030303030303030303030303030303"
+              }
+            ],
+            "close_to_addr": "bcrt1pcl00030003000300030003000300030003000300030003000300030003",
+            "close_to": "db2dec31030303030303030303030303030303030303030303030303030303030303",
+            "private": false,
+            "opener": "local",
+            "closer": "local",
+            "alias": {
+              "local": "30000003x60000003x60003",
+              "remote": "10000003x20000003x30003"
+            },
+            "features": [
+              "option_static_remotekey",
+              "option_anchors_zero_fee_htlc_tx",
+              "option_anchors"
+            ],
+            "funding": {
+              "local_funds_msat": 20000000,
+              "remote_funds_msat": 0,
+              "pushed_msat": 0
+            },
+            "to_us_msat": 20000000,
+            "min_to_us_msat": 20000000,
+            "max_to_us_msat": 20000000,
+            "total_msat": 20000000,
+            "fee_base_msat": 1,
+            "fee_proportional_millionths": 10,
+            "dust_limit_msat": 546000,
+            "max_total_htlc_in_msat": 18446744073709552000,
+            "their_reserve_msat": 546000,
+            "our_reserve_msat": 546000,
+            "spendable_msat": 8172000,
+            "receivable_msat": 0,
+            "minimum_htlc_in_msat": 0,
+            "minimum_htlc_out_msat": 0,
+            "maximum_htlc_out_msat": 19454000,
+            "their_to_self_delay": 5,
+            "our_to_self_delay": 5,
+            "max_accepted_htlcs": 483,
+            "state_changes": [
+              {
+                "timestamp": "2024-10-10T00:01:00.000Z",
+                "old_state": "DUALOPEND_OPEN_COMMITTED",
+                "new_state": "DUALOPEND_AWAITING_LOCKIN",
+                "cause": "user",
+                "message": "Sigs exchanged, waiting for lock-in"
+              },
+              {
+                "timestamp": "2024-10-10T00:02:00.000Z",
+                "old_state": "DUALOPEND_AWAITING_LOCKIN",
+                "new_state": "CHANNELD_SHUTTING_DOWN",
+                "cause": "user",
+                "message": "User or plugin invoked close command"
+              },
+              {
+                "timestamp": "2024-10-10T00:03:00.000Z",
+                "old_state": "CHANNELD_SHUTTING_DOWN",
+                "new_state": "CLOSINGD_SIGEXCHANGE",
+                "cause": "user",
+                "message": "Start closingd"
+              },
+              {
+                "timestamp": "2024-10-10T00:04:00.000Z",
+                "old_state": "CLOSINGD_SIGEXCHANGE",
+                "new_state": "CLOSINGD_COMPLETE",
+                "cause": "user",
+                "message": "Closing complete"
+              },
+              {
+                "timestamp": "2024-10-10T00:05:00.000Z",
+                "old_state": "CLOSINGD_COMPLETE",
+                "new_state": "FUNDING_SPEND_SEEN",
+                "cause": "user",
+                "message": "Onchain funding spend"
+              },
+              {
+                "timestamp": "2024-10-10T00:06:00.000Z",
+                "old_state": "FUNDING_SPEND_SEEN",
+                "new_state": "ONCHAIN",
+                "cause": "user",
+                "message": "Onchain init reply"
+              }
+            ],
+            "status": [
+              "CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 2250 satoshi for tx:scratchid2030303030303030303030303030303030303030303030303030303",
+              "ONCHAIN:Tracking mutual close transaction",
+              "ONCHAIN:All outputs resolved: waiting 99 more blocks before forgetting channel"
+            ],
+            "in_payments_offered": 0,
+            "in_offered_msat": 0,
+            "in_payments_fulfilled": 0,
+            "in_fulfilled_msat": 0,
+            "out_payments_offered": 0,
+            "out_offered_msat": 0,
+            "out_payments_fulfilled": 0,
+            "out_fulfilled_msat": 0,
+            "htlcs": [],
+            "last_stable_connection": 1738530000
           }
         ]
       }

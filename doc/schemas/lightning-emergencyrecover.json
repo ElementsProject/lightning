@@ -58,9 +58,9 @@
       },
       "response": {
         "stubs": [
+          "1267da6521b372d7c6407a74066f7a3a5bc3489bbda5eb9f0e990e1e913e2eb9",
           "e13472d6512413eb1bf03b9a0bb391d0e4152fd337fa6d1014e3de5e131918d9",
-          "f8fc83a432cbfb2fffe222cc06727fdd977b5dd10ebd6707158e799e6f522d9f",
-          "1267da6521b372d7c6407a74066f7a3a5bc3489bbda5eb9f0e990e1e913e2eb9"
+          "f8fc83a432cbfb2fffe222cc06727fdd977b5dd10ebd6707158e799e6f522d9f"
         ]
       }
     }

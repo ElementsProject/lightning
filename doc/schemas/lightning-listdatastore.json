@@ -100,7 +100,7 @@
         "method": "listdatastore",
         "params": {
           "key": [
-            "test"
+            "employee"
           ]
         }
       },
@@ -108,12 +108,12 @@
         "datastore": [
           {
             "key": [
-              "test",
-              "name"
+              "employee",
+              "index"
             ],
             "generation": 0,
-            "hex": "736176696e67206461746120746f207468652073746f7265",
-            "string": "saving data to the store"
+            "hex": "736176696e6720656d706c6f796565206b65797320746f207468652073746f7265",
+            "string": "saving employee keys to the store"
           }
         ]
       }
@@ -123,18 +123,18 @@
         "id": "example:listdatastore#2",
         "method": "listdatastore",
         "params": {
-          "key": "otherkey"
+          "key": "somekey"
         }
       },
       "response": {
         "datastore": [
           {
             "key": [
-              "otherkey"
+              "somekey"
             ],
-            "generation": 1,
-            "hex": "666f6f626172",
-            "string": "foobar"
+            "generation": 0,
+            "hex": "61",
+            "string": "a"
           }
         ]
       }

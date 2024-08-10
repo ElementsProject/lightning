@@ -192,19 +192,19 @@
         "id": "example:connect#1",
         "method": "connect",
         "params": {
-          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "id": "nodeid020202020202020202020202020202020202020202020202020202020202",
           "host": "localhost",
-          "port": 41219
+          "port": 19735
         }
       },
       "response": {
-        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-        "features": "08a0802a8a59a1",
+        "id": "nodeid020202020202020202020202020202020202020202020202020202020202",
+        "features": "08a0882a8a59a1",
         "direction": "out",
         "address": {
           "type": "ipv4",
           "address": "127.0.0.1",
-          "port": 41219
+          "port": 19735
         }
       }
     },
@@ -213,19 +213,19 @@
         "id": "example:connect#2",
         "method": "connect",
         "params": {
-          "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+          "id": "nodeid030303030303030303030303030303030303030303030303030303030303",
           "host": "localhost",
-          "port": 34785
+          "port": 19736
         }
       },
       "response": {
-        "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-        "features": "08a0802a8a59a1",
+        "id": "nodeid030303030303030303030303030303030303030303030303030303030303",
+        "features": "08a0882a8a59a1",
         "direction": "out",
         "address": {
           "type": "ipv4",
           "address": "127.0.0.1",
-          "port": 34785
+          "port": 19736
         }
       }
     }

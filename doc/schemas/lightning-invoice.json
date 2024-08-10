@@ -212,10 +212,10 @@
         }
       },
       "response": {
-        "payment_hash": "d598cfc62da16b381b8fb8af9833a24005f730e54cc32c317fecc511ffc6d2a2",
-        "expires_at": 1722908474,
-        "bolt11": "lnbcrt100n1pn2s396sp5v3en0qa3rrljw4m0wtz88sx99q20rarufhjpfysefhwhs42gvqjqpp56kvvl33d594nsxu0hzhesvazgqzlwv89fnpjcvtlanz3rl7x623qdp9f9h8vmmfvdjjqer9wd3hy6tsw35k7m3qdsenzxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqduqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgq7za6z8kx2k5nul45zwttfz2njx3836v69mxqsl4ty9228pyjrkfnkymysy8ygsrrje9qf6j4tpalt5qkqusfp2esrsqc5ak7t4yzajgpezef54",
-        "payment_secret": "64733783b118ff27576f72c473c0c52814f1f47c4de41492194ddd7855486024",
+        "payment_hash": "paymenthashinvl0310031003100310031003100310031003100310031003100",
+        "expires_at": 1739000000,
+        "bolt11": "lnbcrt100n1pnt2bolt11invl030100000000bolt11invl030100000000bolt11invl030100000000bolt11invl030100000000bolt11invl030100000000bolt11invl030100000000bolt11invl030100000000bolt11invl030100000000bolt11invl030100000000bolt11invl030100000000",
+        "payment_secret": "paymentsecretinvl00310003100031000310003100031000310003100031000",
         "created_index": 2
       }
     },
@@ -230,10 +230,10 @@
         }
       },
       "response": {
-        "payment_hash": "788aea729ede48d315a199ce5ded76169601a61dd52e9734e707eb7c52e4e79e",
-        "expires_at": 1722908474,
-        "bolt11": "lnbcrt500n1pn2s396sp5h5tz6fpm3dxvrlwcnwmfq85v45wfj43mdmplpce6ku2vmfdhrx5qpp50z9w5u57meydx9dpn889mmtkz6tqrfsa65hfwd88ql4hc5hyu70qdqcdsenygryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqduqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqt5m8qx0t25a0gygya7u4sxulyyp2dec87pwsxuuwtg0u66c07703g9j6vlwgmlhqk7qgn95qw7allhnuj2m9hf0xkcr2zkaxltv3t6gqjcdpll",
-        "payment_secret": "bd162d243b8b4cc1fdd89bb6901e8cad1c99563b6ec3f0e33ab714cda5b719a8",
+        "payment_hash": "paymenthashinvl0320032003200320032003200320032003200320032003200",
+        "expires_at": 1739000000,
+        "bolt11": "lnbcrt100n1pnt2bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000",
+        "payment_secret": "paymentsecretinvl00032003200320032003200320032003200320032003200",
         "created_index": 3
       }
     }
