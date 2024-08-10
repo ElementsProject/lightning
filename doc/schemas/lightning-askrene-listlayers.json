@@ -187,5 +187,17 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:askrene-listlayers#1",
+        "method": "askrene-listlayers",
+        "params": {}
+      },
+      "response": {
+        "layers": []
+      }
+    }
   ]
 }
