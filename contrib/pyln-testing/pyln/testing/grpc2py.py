@@ -2871,6 +2871,111 @@ def showrunes2py(m):
     })
 
 
+def askrene_unreserve2py(m):
+    return remove_default({
+    })
+
+
+def askrene_listlayers_layers_constraints2py(m):
+    return remove_default({
+        "direction": m.direction,  # PrimitiveField in generate_composite
+        "maximum_msat": amount2msat(m.maximum_msat),  # PrimitiveField in generate_composite
+        "minimum_msat": amount2msat(m.minimum_msat),  # PrimitiveField in generate_composite
+        "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_listlayers_layers_created_channels2py(m):
+    return remove_default({
+        "capacity_msat": amount2msat(m.capacity_msat),  # PrimitiveField in generate_composite
+        "delay": m.delay,  # PrimitiveField in generate_composite
+        "destination": hexlify(m.destination),  # PrimitiveField in generate_composite
+        "fee_base_msat": amount2msat(m.fee_base_msat),  # PrimitiveField in generate_composite
+        "fee_proportional_millionths": m.fee_proportional_millionths,  # PrimitiveField in generate_composite
+        "htlc_maximum_msat": amount2msat(m.htlc_maximum_msat),  # PrimitiveField in generate_composite
+        "htlc_minimum_msat": amount2msat(m.htlc_minimum_msat),  # PrimitiveField in generate_composite
+        "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
+        "source": hexlify(m.source),  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_listlayers_layers2py(m):
+    return remove_default({
+        "constraints": [askrene_listlayers_layers_constraints2py(i) for i in m.constraints],  # ArrayField[composite] in generate_composite
+        "created_channels": [askrene_listlayers_layers_created_channels2py(i) for i in m.created_channels],  # ArrayField[composite] in generate_composite
+        "disabled_nodes": [hexlify(m.disabled_nodes) for i in hexlify(m.disabled_nodes)], # ArrayField[primitive] in generate_composite
+        "layer": m.layer,  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_listlayers2py(m):
+    return remove_default({
+        "layers": [askrene_listlayers_layers2py(i) for i in m.layers],  # ArrayField[composite] in generate_composite
+    })
+
+
+def askrene_reserve2py(m):
+    return remove_default({
+    })
+
+
+def askrene_age2py(m):
+    return remove_default({
+        "layer": m.layer,  # PrimitiveField in generate_composite
+        "num_removed": m.num_removed,  # PrimitiveField in generate_composite
+    })
+
+
+def getroutes_routes_path2py(m):
+    return remove_default({
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "delay": m.delay,  # PrimitiveField in generate_composite
+        "direction": m.direction,  # PrimitiveField in generate_composite
+        "next_node_id": hexlify(m.next_node_id),  # PrimitiveField in generate_composite
+        "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
+    })
+
+
+def getroutes_routes2py(m):
+    return remove_default({
+        "path": [getroutes_routes_path2py(i) for i in m.path],  # ArrayField[composite] in generate_composite
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "probability_ppm": m.probability_ppm,  # PrimitiveField in generate_composite
+    })
+
+
+def getroutes2py(m):
+    return remove_default({
+        "routes": [getroutes_routes2py(i) for i in m.routes],  # ArrayField[composite] in generate_composite
+        "probability_ppm": m.probability_ppm,  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_disable_node2py(m):
+    return remove_default({
+    })
+
+
+def askrene_inform_channel_constraint2py(m):
+    return remove_default({
+        "direction": m.direction,  # PrimitiveField in generate_composite
+        "maximum_msat": amount2msat(m.maximum_msat),  # PrimitiveField in generate_composite
+        "minimum_msat": amount2msat(m.minimum_msat),  # PrimitiveField in generate_composite
+        "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
+        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_inform_channel2py(m):
+    return remove_default({
+    })
+
+
+def askrene_create_channel2py(m):
+    return remove_default({
+    })
+
+
 def decodekeysend_routes2py(m): # manual override
     return remove_default({
         "expirydelta": m.expirydelta,

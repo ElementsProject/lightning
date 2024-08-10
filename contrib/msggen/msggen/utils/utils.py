@@ -120,6 +120,14 @@ grpc_method_names = [
     "CheckRune",
     "CreateRune",
     "ShowRunes",
+    "AskRene-Unreserve",
+    "AskRene-ListLayers",
+    "AskRene-Reserve",
+    "AskRene-Age",
+    "GetRoutes",
+    "AskRene-Disable-Node",
+    "AskRene-Inform-Channel",
+    "AskRene-Create-Channel",
 ]
 
 grpc_notification_names = [
