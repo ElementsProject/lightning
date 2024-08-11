@@ -3634,6 +3634,262 @@ impl Node for Server
 
     }
 
+    async fn ask_rene_unreserve(
+        &self,
+        request: tonic::Request<pb::AskreneunreserveRequest>,
+    ) -> Result<tonic::Response<pb::AskreneunreserveResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::AskreneunreserveRequest = req.into();
+        debug!("Client asked for ask_rene_unreserve");
+        trace!("ask_rene_unreserve request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::AskReneUnreserve(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method AskReneUnreserve: {:?}", e)))?;
+        match result {
+            Response::AskReneUnreserve(r) => {
+               trace!("ask_rene_unreserve response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call AskReneUnreserve",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn ask_rene_list_layers(
+        &self,
+        request: tonic::Request<pb::AskrenelistlayersRequest>,
+    ) -> Result<tonic::Response<pb::AskrenelistlayersResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::AskrenelistlayersRequest = req.into();
+        debug!("Client asked for ask_rene_list_layers");
+        trace!("ask_rene_list_layers request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::AskReneListLayers(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method AskReneListLayers: {:?}", e)))?;
+        match result {
+            Response::AskReneListLayers(r) => {
+               trace!("ask_rene_list_layers response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call AskReneListLayers",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn ask_rene_reserve(
+        &self,
+        request: tonic::Request<pb::AskrenereserveRequest>,
+    ) -> Result<tonic::Response<pb::AskrenereserveResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::AskrenereserveRequest = req.into();
+        debug!("Client asked for ask_rene_reserve");
+        trace!("ask_rene_reserve request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::AskReneReserve(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method AskReneReserve: {:?}", e)))?;
+        match result {
+            Response::AskReneReserve(r) => {
+               trace!("ask_rene_reserve response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call AskReneReserve",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn ask_rene_age(
+        &self,
+        request: tonic::Request<pb::AskreneageRequest>,
+    ) -> Result<tonic::Response<pb::AskreneageResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::AskreneageRequest = req.into();
+        debug!("Client asked for ask_rene_age");
+        trace!("ask_rene_age request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::AskReneAge(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method AskReneAge: {:?}", e)))?;
+        match result {
+            Response::AskReneAge(r) => {
+               trace!("ask_rene_age response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call AskReneAge",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn get_routes(
+        &self,
+        request: tonic::Request<pb::GetroutesRequest>,
+    ) -> Result<tonic::Response<pb::GetroutesResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::GetroutesRequest = req.into();
+        debug!("Client asked for get_routes");
+        trace!("get_routes request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::GetRoutes(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method GetRoutes: {:?}", e)))?;
+        match result {
+            Response::GetRoutes(r) => {
+               trace!("get_routes response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call GetRoutes",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn ask_rene_disable_node(
+        &self,
+        request: tonic::Request<pb::AskrenedisablenodeRequest>,
+    ) -> Result<tonic::Response<pb::AskrenedisablenodeResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::AskrenedisablenodeRequest = req.into();
+        debug!("Client asked for ask_rene_disable_node");
+        trace!("ask_rene_disable_node request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::AskReneDisableNode(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method AskReneDisableNode: {:?}", e)))?;
+        match result {
+            Response::AskReneDisableNode(r) => {
+               trace!("ask_rene_disable_node response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call AskReneDisableNode",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn ask_rene_inform_channel(
+        &self,
+        request: tonic::Request<pb::AskreneinformchannelRequest>,
+    ) -> Result<tonic::Response<pb::AskreneinformchannelResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::AskreneinformchannelRequest = req.into();
+        debug!("Client asked for ask_rene_inform_channel");
+        trace!("ask_rene_inform_channel request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::AskReneInformChannel(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method AskReneInformChannel: {:?}", e)))?;
+        match result {
+            Response::AskReneInformChannel(r) => {
+               trace!("ask_rene_inform_channel response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call AskReneInformChannel",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn ask_rene_create_channel(
+        &self,
+        request: tonic::Request<pb::AskrenecreatechannelRequest>,
+    ) -> Result<tonic::Response<pb::AskrenecreatechannelResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::AskrenecreatechannelRequest = req.into();
+        debug!("Client asked for ask_rene_create_channel");
+        trace!("ask_rene_create_channel request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::AskReneCreateChannel(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method AskReneCreateChannel: {:?}", e)))?;
+        match result {
+            Response::AskReneCreateChannel(r) => {
+               trace!("ask_rene_create_channel response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call AskReneCreateChannel",
+                    r
+                )
+            )),
+        }
+
+    }
+
 
 
     type SubscribeBlockAddedStream = NotificationStream<pb::BlockAddedNotification>;

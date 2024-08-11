@@ -3907,6 +3907,160 @@ impl From<responses::ShowrunesResponse> for pb::ShowrunesResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::AskreneunreserveResponse> for pb::AskreneunreserveResponse {
+    fn from(c: responses::AskreneunreserveResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenelistlayersLayersConstraints> for pb::AskrenelistlayersLayersConstraints {
+    fn from(c: responses::AskrenelistlayersLayersConstraints) -> Self {
+        Self {
+            direction: c.direction, // Rule #2 for type u32
+            maximum_msat: c.maximum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            minimum_msat: c.minimum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenelistlayersLayersCreated_channels> for pb::AskrenelistlayersLayersCreatedChannels {
+    fn from(c: responses::AskrenelistlayersLayersCreated_channels) -> Self {
+        Self {
+            capacity_msat: Some(c.capacity_msat.into()), // Rule #2 for type msat
+            delay: c.delay.into(), // Rule #2 for type u16
+            destination: c.destination.serialize().to_vec(), // Rule #2 for type pubkey
+            fee_base_msat: Some(c.fee_base_msat.into()), // Rule #2 for type msat
+            fee_proportional_millionths: c.fee_proportional_millionths, // Rule #2 for type u32
+            htlc_maximum_msat: Some(c.htlc_maximum_msat.into()), // Rule #2 for type msat
+            htlc_minimum_msat: Some(c.htlc_minimum_msat.into()), // Rule #2 for type msat
+            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+            source: c.source.serialize().to_vec(), // Rule #2 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenelistlayersLayers> for pb::AskrenelistlayersLayers {
+    fn from(c: responses::AskrenelistlayersLayers) -> Self {
+        Self {
+            // Field: AskRene-ListLayers.layers[].constraints[]
+            constraints: c.constraints.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenelistlayersLayersConstraints
+            // Field: AskRene-ListLayers.layers[].created_channels[]
+            created_channels: c.created_channels.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenelistlayersLayersCreated_channels
+            // Field: AskRene-ListLayers.layers[].disabled_nodes[]
+            disabled_nodes: c.disabled_nodes.into_iter().map(|i| i.serialize().to_vec()).collect(), // Rule #3 for type pubkey
+            layer: c.layer, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenelistlayersResponse> for pb::AskrenelistlayersResponse {
+    fn from(c: responses::AskrenelistlayersResponse) -> Self {
+        Self {
+            // Field: AskRene-ListLayers.layers[]
+            layers: c.layers.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenelistlayersLayers
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenereserveResponse> for pb::AskrenereserveResponse {
+    fn from(c: responses::AskrenereserveResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskreneageResponse> for pb::AskreneageResponse {
+    fn from(c: responses::AskreneageResponse) -> Self {
+        Self {
+            layer: c.layer, // Rule #2 for type string
+            num_removed: c.num_removed, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::GetroutesRoutesPath> for pb::GetroutesRoutesPath {
+    fn from(c: responses::GetroutesRoutesPath) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            delay: c.delay, // Rule #2 for type u32
+            direction: c.direction, // Rule #2 for type u32
+            next_node_id: c.next_node_id.serialize().to_vec(), // Rule #2 for type pubkey
+            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::GetroutesRoutes> for pb::GetroutesRoutes {
+    fn from(c: responses::GetroutesRoutes) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            // Field: GetRoutes.routes[].path[]
+            path: c.path.into_iter().map(|i| i.into()).collect(), // Rule #3 for type GetroutesRoutesPath
+            probability_ppm: c.probability_ppm, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::GetroutesResponse> for pb::GetroutesResponse {
+    fn from(c: responses::GetroutesResponse) -> Self {
+        Self {
+            probability_ppm: c.probability_ppm, // Rule #2 for type u64
+            // Field: GetRoutes.routes[]
+            routes: c.routes.into_iter().map(|i| i.into()).collect(), // Rule #3 for type GetroutesRoutes
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenedisablenodeResponse> for pb::AskrenedisablenodeResponse {
+    fn from(c: responses::AskrenedisablenodeResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskreneinformchannelConstraint> for pb::AskreneinformchannelConstraint {
+    fn from(c: responses::AskreneinformchannelConstraint) -> Self {
+        Self {
+            direction: c.direction, // Rule #2 for type u32
+            maximum_msat: c.maximum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            minimum_msat: c.minimum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+            timestamp: c.timestamp, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskreneinformchannelResponse> for pb::AskreneinformchannelResponse {
+    fn from(c: responses::AskreneinformchannelResponse) -> Self {
+        Self {
+            constraint: Some(c.constraint.into()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenecreatechannelResponse> for pb::AskrenecreatechannelResponse {
+    fn from(c: responses::AskrenecreatechannelResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::BlockAddedNotification> for pb::BlockAddedNotification {
     fn from(c: notifications::BlockAddedNotification) -> Self {
         Self {
@@ -5324,6 +5478,123 @@ impl From<requests::ShowrunesRequest> for pb::ShowrunesRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::AskreneunreservePath> for pb::AskreneunreservePath {
+    fn from(c: requests::AskreneunreservePath) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            direction: c.direction, // Rule #2 for type u32
+            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskreneunreserveRequest> for pb::AskreneunreserveRequest {
+    fn from(c: requests::AskreneunreserveRequest) -> Self {
+        Self {
+            // Field: AskRene-Unreserve.path[]
+            path: c.path.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskreneunreservePath
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskrenelistlayersRequest> for pb::AskrenelistlayersRequest {
+    fn from(c: requests::AskrenelistlayersRequest) -> Self {
+        Self {
+            layer: c.layer, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskrenereservePath> for pb::AskrenereservePath {
+    fn from(c: requests::AskrenereservePath) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            direction: c.direction, // Rule #2 for type u32
+            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskrenereserveRequest> for pb::AskrenereserveRequest {
+    fn from(c: requests::AskrenereserveRequest) -> Self {
+        Self {
+            // Field: AskRene-Reserve.path[]
+            path: c.path.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenereservePath
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskreneageRequest> for pb::AskreneageRequest {
+    fn from(c: requests::AskreneageRequest) -> Self {
+        Self {
+            cutoff: c.cutoff, // Rule #2 for type u64
+            layer: c.layer, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::GetroutesRequest> for pb::GetroutesRequest {
+    fn from(c: requests::GetroutesRequest) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            destination: c.destination.serialize().to_vec(), // Rule #2 for type pubkey
+            finalcltv: c.finalcltv, // Rule #2 for type u32
+            // Field: GetRoutes.layers[]
+            layers: c.layers.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            maxfee_msat: Some(c.maxfee_msat.into()), // Rule #2 for type msat
+            source: c.source.serialize().to_vec(), // Rule #2 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskrenedisablenodeRequest> for pb::AskrenedisablenodeRequest {
+    fn from(c: requests::AskrenedisablenodeRequest) -> Self {
+        Self {
+            layer: c.layer, // Rule #2 for type string
+            node: c.node.serialize().to_vec(), // Rule #2 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskreneinformchannelRequest> for pb::AskreneinformchannelRequest {
+    fn from(c: requests::AskreneinformchannelRequest) -> Self {
+        Self {
+            direction: c.direction, // Rule #2 for type u32
+            layer: c.layer, // Rule #2 for type string
+            maximum_msat: c.maximum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            minimum_msat: c.minimum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskrenecreatechannelRequest> for pb::AskrenecreatechannelRequest {
+    fn from(c: requests::AskrenecreatechannelRequest) -> Self {
+        Self {
+            base_fee: Some(c.base_fee.into()), // Rule #2 for type msat
+            capacity_msat: Some(c.capacity_msat.into()), // Rule #2 for type msat
+            delay: c.delay.into(), // Rule #2 for type u16
+            destination: c.destination.serialize().to_vec(), // Rule #2 for type pubkey
+            htlc_max: Some(c.htlc_max.into()), // Rule #2 for type msat
+            htlc_min: Some(c.htlc_min.into()), // Rule #2 for type msat
+            layer: c.layer, // Rule #2 for type string
+            proportional_fee: c.proportional_fee, // Rule #2 for type u32
+            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+            source: c.source.serialize().to_vec(), // Rule #2 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::requests::StreamBlockAddedRequest> for pb::StreamBlockAddedRequest {
     fn from(c: notifications::requests::StreamBlockAddedRequest) -> Self {
         Self {
@@ -6684,6 +6955,120 @@ impl From<pb::ShowrunesRequest> for requests::ShowrunesRequest {
     fn from(c: pb::ShowrunesRequest) -> Self {
         Self {
             rune: c.rune, // Rule #1 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskreneunreservePath> for requests::AskreneunreservePath {
+    fn from(c: pb::AskreneunreservePath) -> Self {
+        Self {
+            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
+            direction: c.direction, // Rule #1 for type u32
+            short_channel_id: cln_rpc::primitives::ShortChannelId::from_str(&c.short_channel_id).unwrap(), // Rule #1 for type short_channel_id
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskreneunreserveRequest> for requests::AskreneunreserveRequest {
+    fn from(c: pb::AskreneunreserveRequest) -> Self {
+        Self {
+            path: c.path.into_iter().map(|s| s.into()).collect(), // Rule #4
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskrenelistlayersRequest> for requests::AskrenelistlayersRequest {
+    fn from(c: pb::AskrenelistlayersRequest) -> Self {
+        Self {
+            layer: c.layer, // Rule #1 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskrenereservePath> for requests::AskrenereservePath {
+    fn from(c: pb::AskrenereservePath) -> Self {
+        Self {
+            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
+            direction: c.direction, // Rule #1 for type u32
+            short_channel_id: cln_rpc::primitives::ShortChannelId::from_str(&c.short_channel_id).unwrap(), // Rule #1 for type short_channel_id
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskrenereserveRequest> for requests::AskrenereserveRequest {
+    fn from(c: pb::AskrenereserveRequest) -> Self {
+        Self {
+            path: c.path.into_iter().map(|s| s.into()).collect(), // Rule #4
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskreneageRequest> for requests::AskreneageRequest {
+    fn from(c: pb::AskreneageRequest) -> Self {
+        Self {
+            cutoff: c.cutoff, // Rule #1 for type u64
+            layer: c.layer, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::GetroutesRequest> for requests::GetroutesRequest {
+    fn from(c: pb::GetroutesRequest) -> Self {
+        Self {
+            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
+            destination: PublicKey::from_slice(&c.destination).unwrap(), // Rule #1 for type pubkey
+            finalcltv: c.finalcltv, // Rule #1 for type u32
+            layers: c.layers.into_iter().map(|s| s.into()).collect(), // Rule #4
+            maxfee_msat: c.maxfee_msat.unwrap().into(), // Rule #1 for type msat
+            source: PublicKey::from_slice(&c.source).unwrap(), // Rule #1 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskrenedisablenodeRequest> for requests::AskrenedisablenodeRequest {
+    fn from(c: pb::AskrenedisablenodeRequest) -> Self {
+        Self {
+            layer: c.layer, // Rule #1 for type string
+            node: PublicKey::from_slice(&c.node).unwrap(), // Rule #1 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskreneinformchannelRequest> for requests::AskreneinformchannelRequest {
+    fn from(c: pb::AskreneinformchannelRequest) -> Self {
+        Self {
+            direction: c.direction, // Rule #1 for type u32
+            layer: c.layer, // Rule #1 for type string
+            maximum_msat: c.maximum_msat.map(|a| a.into()), // Rule #1 for type msat?
+            minimum_msat: c.minimum_msat.map(|a| a.into()), // Rule #1 for type msat?
+            short_channel_id: cln_rpc::primitives::ShortChannelId::from_str(&c.short_channel_id).unwrap(), // Rule #1 for type short_channel_id
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskrenecreatechannelRequest> for requests::AskrenecreatechannelRequest {
+    fn from(c: pb::AskrenecreatechannelRequest) -> Self {
+        Self {
+            base_fee: c.base_fee.unwrap().into(), // Rule #1 for type msat
+            capacity_msat: c.capacity_msat.unwrap().into(), // Rule #1 for type msat
+            delay: c.delay as u16, // Rule #1 for type u16
+            destination: PublicKey::from_slice(&c.destination).unwrap(), // Rule #1 for type pubkey
+            htlc_max: c.htlc_max.unwrap().into(), // Rule #1 for type msat
+            htlc_min: c.htlc_min.unwrap().into(), // Rule #1 for type msat
+            layer: c.layer, // Rule #1 for type string
+            proportional_fee: c.proportional_fee, // Rule #1 for type u32
+            short_channel_id: cln_rpc::primitives::ShortChannelId::from_str(&c.short_channel_id).unwrap(), // Rule #1 for type short_channel_id
+            source: PublicKey::from_slice(&c.source).unwrap(), // Rule #1 for type pubkey
         }
     }
 }

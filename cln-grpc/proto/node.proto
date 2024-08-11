@@ -119,6 +119,14 @@ service Node {
 	rpc CheckRune(CheckruneRequest) returns (CheckruneResponse) {}
 	rpc CreateRune(CreateruneRequest) returns (CreateruneResponse) {}
 	rpc ShowRunes(ShowrunesRequest) returns (ShowrunesResponse) {}
+	rpc AskReneUnreserve(AskreneunreserveRequest) returns (AskreneunreserveResponse) {}
+	rpc AskReneListLayers(AskrenelistlayersRequest) returns (AskrenelistlayersResponse) {}
+	rpc AskReneReserve(AskrenereserveRequest) returns (AskrenereserveResponse) {}
+	rpc AskReneAge(AskreneageRequest) returns (AskreneageResponse) {}
+	rpc GetRoutes(GetroutesRequest) returns (GetroutesResponse) {}
+	rpc AskReneDisableNode(AskrenedisablenodeRequest) returns (AskrenedisablenodeResponse) {}
+	rpc AskReneInformChannel(AskreneinformchannelRequest) returns (AskreneinformchannelResponse) {}
+	rpc AskReneCreateChannel(AskrenecreatechannelRequest) returns (AskrenecreatechannelResponse) {}
 
 	rpc SubscribeBlockAdded(StreamBlockAddedRequest) returns (stream BlockAddedNotification) {}
 	rpc SubscribeChannelOpenFailed(StreamChannelOpenFailedRequest) returns (stream ChannelOpenFailedNotification) {}
@@ -3575,6 +3583,148 @@ message ShowrunesRunesRestrictionsAlternatives {
 	string value = 2;
 	string condition = 3;
 	string english = 4;
+}
+
+message AskreneunreserveRequest {
+	repeated AskreneunreservePath path = 1;
+}
+
+message AskreneunreserveResponse {
+}
+
+message AskreneunreservePath {
+	string short_channel_id = 1;
+	uint32 direction = 2;
+	Amount amount_msat = 3;
+}
+
+message AskrenelistlayersRequest {
+	optional string layer = 1;
+}
+
+message AskrenelistlayersResponse {
+	repeated AskrenelistlayersLayers layers = 1;
+}
+
+message AskrenelistlayersLayers {
+	string layer = 1;
+	repeated bytes disabled_nodes = 2;
+	repeated AskrenelistlayersLayersCreated_channels created_channels = 3;
+	repeated AskrenelistlayersLayersConstraints constraints = 4;
+}
+
+message AskrenelistlayersLayersCreated_channels {
+	bytes source = 1;
+	bytes destination = 2;
+	string short_channel_id = 3;
+	Amount capacity_msat = 4;
+	Amount htlc_minimum_msat = 5;
+	Amount htlc_maximum_msat = 6;
+	Amount fee_base_msat = 7;
+	uint32 fee_proportional_millionths = 8;
+	uint32 delay = 9;
+}
+
+message AskrenelistlayersLayersConstraints {
+	string short_channel_id = 1;
+	uint32 direction = 2;
+	optional Amount maximum_msat = 3;
+	optional Amount minimum_msat = 4;
+}
+
+message AskrenereserveRequest {
+	repeated AskrenereservePath path = 1;
+}
+
+message AskrenereserveResponse {
+}
+
+message AskrenereservePath {
+	string short_channel_id = 1;
+	uint32 direction = 2;
+	Amount amount_msat = 3;
+}
+
+message AskreneageRequest {
+	string layer = 1;
+	uint64 cutoff = 2;
+}
+
+message AskreneageResponse {
+	string layer = 1;
+	uint64 num_removed = 2;
+}
+
+message GetroutesRequest {
+	bytes source = 1;
+	bytes destination = 2;
+	Amount amount_msat = 3;
+	repeated string layers = 4;
+	Amount maxfee_msat = 5;
+	uint32 finalcltv = 6;
+}
+
+message GetroutesResponse {
+	uint64 probability_ppm = 1;
+	repeated GetroutesRoutes routes = 2;
+}
+
+message GetroutesRoutes {
+	uint64 probability_ppm = 1;
+	Amount amount_msat = 2;
+	repeated GetroutesRoutesPath path = 3;
+}
+
+message GetroutesRoutesPath {
+	string short_channel_id = 1;
+	uint32 direction = 2;
+	Amount amount_msat = 3;
+	bytes next_node_id = 4;
+	uint32 delay = 5;
+}
+
+message AskrenedisablenodeRequest {
+	string layer = 1;
+	bytes node = 2;
+}
+
+message AskrenedisablenodeResponse {
+}
+
+message AskreneinformchannelRequest {
+	string layer = 1;
+	string short_channel_id = 2;
+	uint32 direction = 3;
+	optional Amount maximum_msat = 4;
+	optional Amount minimum_msat = 5;
+}
+
+message AskreneinformchannelResponse {
+	AskreneinformchannelConstraint constraint = 1;
+}
+
+message AskreneinformchannelConstraint {
+	string short_channel_id = 1;
+	uint32 direction = 2;
+	uint64 timestamp = 3;
+	optional Amount maximum_msat = 4;
+	optional Amount minimum_msat = 5;
+}
+
+message AskrenecreatechannelRequest {
+	string layer = 1;
+	bytes source = 2;
+	bytes destination = 3;
+	string short_channel_id = 4;
+	Amount capacity_msat = 5;
+	Amount htlc_min = 6;
+	Amount htlc_max = 7;
+	Amount base_fee = 8;
+	uint32 proportional_fee = 9;
+	uint32 delay = 10;
+}
+
+message AskrenecreatechannelResponse {
 }
 
 message StreamBlockAddedRequest {

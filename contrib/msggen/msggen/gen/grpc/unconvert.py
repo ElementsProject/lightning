@@ -54,6 +54,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     "secret": f"s.try_into().unwrap()",
                     "hash": f"Sha256::from_slice(&s).unwrap()",
                     "short_channel_id": f"cln_rpc::primitives::ShortChannelId::from_str(&s).unwrap()",
+                    "pubkey": f"PublicKey::from_slice(&s).unwrap()",
                 }.get(typ, f"s.into()")
 
                 # TODO fix properly
