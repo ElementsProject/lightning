@@ -467,7 +467,7 @@ static void channel_hints_update(struct payment *p,
 	newhint.timestamp = timestamp;
 	newhint.scid.scid = scid;
 	newhint.scid.dir = direction;
-	newhint.overall_capacity = overall_capacity;
+	newhint.capacity = overall_capacity;
 	if (local) {
 		newhint.local = tal(root->channel_hints, struct local_hint);
 		assert(htlc_budget);
@@ -3543,7 +3543,7 @@ static void direct_pay_override(struct payment *p) {
 		p->route[0].scid = hint->scid.scid;
 		p->route[0].direction = hint->scid.dir;
 		p->route[0].node_id = *p->route_destination;
-		p->route[0].total_amount = hint->overall_capacity;
+		p->route[0].total_amount = hint->capacity;
 		paymod_log(p, LOG_DBG,
 			   "Found a direct channel (%s) with sufficient "
 			   "capacity, skipping route computation.",
