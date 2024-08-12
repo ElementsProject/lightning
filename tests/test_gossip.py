@@ -2246,7 +2246,6 @@ def test_seeker_first_peer(node_factory, bitcoind):
                            timeout=TIMEOUT + 10)
 
 
-@pytest.mark.xfail(strict=True)
 def test_gossip_force_broadcast_channel_msgs(node_factory, bitcoind):
     """ Send our own channel_update, node_announcement or channel_announcement to existing peers, even if they say they're not interested.
     """

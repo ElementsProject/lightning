@@ -1,4 +1,5 @@
 #include "config.h"
+#include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
@@ -135,6 +136,66 @@ static void check_channel_gossip(const struct channel *channel)
 	fatal("Bad channel_gossip_state %u", cg->state);
 }
 
+static void msg_to_peer(const struct peer *peer, const u8 *msg TAKES)
+{
+	struct lightningd *ld = peer->ld;
+
+	/* Shutting down, or peer not connected? */
+	if (ld->connectd && peer->connected == PEER_CONNECTED) {
+		subd_send_msg(ld->connectd,
+			      take(towire_connectd_peer_send_msg(NULL,
+								 &peer->id,
+								 peer->connectd_counter,
+								 msg)));
+	}
+
+	if (taken(msg))
+		tal_free(msg);
+}
+
+static void addgossip_reply(struct subd *gossipd,
+			    const u8 *reply,
+			    const int *fds UNUSED,
+			    char *desc)
+{
+	char *err;
+
+	if (!fromwire_gossipd_addgossip_reply(reply, reply, &err))
+		fatal("Reading gossipd_addgossip_reply for %s: %s",
+		      desc, tal_hex(tmpctx, reply));
+
+	if (strlen(err))
+		log_broken(gossipd->log, "gossipd rejected our %s: %s", desc, err);
+}
+
+static void broadcast_new_gossip(struct lightningd *ld,
+				 const u8 *msg TAKES,
+				 struct amount_sat *known_channel,
+				 const char *desc)
+{
+	struct peer *peer;
+	struct peer_node_id_map_iter it;
+
+	if (taken(msg))
+		tal_steal(tmpctx, msg);
+
+	/* Tell gossipd about it */
+	subd_req(ld->gossip, ld->gossip,
+		 take(towire_gossipd_addgossip(NULL, msg, known_channel)),
+		 -1, 0, addgossip_reply, cast_const(char *, desc));
+
+	/* Don't tell them if we're supposed to be suppressing gossip for tests */
+	if (ld->dev_suppress_gossip)
+		return;
+
+	/* Tell all our peers about it, too! */
+	for (peer = peer_node_id_map_first(ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(ld->peers, &it)) {
+		msg_to_peer(peer, msg);
+	}
+}
+
 /* Recursion */
 static void cupdate_timer_refresh(struct channel *channel);
 
@@ -180,24 +241,6 @@ static void set_public_cupdate(struct channel *channel,
 					 time_between(due, now),
 					 cupdate_timer_refresh,
 					 channel);
-}
-
-static void msg_to_peer(const struct channel *channel, const u8 *msg TAKES)
-{
-	struct peer *peer = channel->peer;
-	struct lightningd *ld = peer->ld;
-
-	/* Shutting down, or peer not connected? */
-	if (ld->connectd && peer->connected == PEER_CONNECTED) {
-		subd_send_msg(ld->connectd,
-			      take(towire_connectd_peer_send_msg(NULL,
-								 &peer->id,
-								 peer->connectd_counter,
-								 msg)));
-	}
-
-	if (taken(msg))
-		tal_free(msg);
 }
 
 static enum channel_gossip_state init_public_state(struct channel *channel,
@@ -280,22 +323,7 @@ static void send_private_cupdate(struct channel *channel, bool even_if_redundant
 	}
 
 	cg->cupdate = sign_update(cg, channel->peer->ld, cupdate);
-	msg_to_peer(channel, cg->cupdate);
-}
-
-static void broadcast_public_cupdate_addgossip_reply(struct subd *gossip UNUSED,
-						     const u8 *reply,
-						     const int *fds UNUSED,
-						     struct channel *channel)
-{
-	char *err;
-
-	if (!fromwire_gossipd_addgossip_reply(reply, reply, &err))
-		fatal("Reading broadcast_public_cupdate_addgossip_reply: %s",
-		      tal_hex(tmpctx, reply));
-
-	if (strlen(err))
-		log_broken(channel->log, "gossipd rejected our channel update: %s", err);
+	msg_to_peer(channel->peer, cg->cupdate);
 }
 
 /* Send gossipd a channel_update, if not redundant. */
@@ -340,10 +368,7 @@ static void broadcast_public_cupdate(struct channel *channel,
 	set_public_cupdate(channel,
 			   take(sign_update(NULL, channel->peer->ld, cupdate)),
 			   true);
-
-	subd_req(ld->gossip, ld->gossip,
-		 take(towire_gossipd_addgossip(NULL, cg->cupdate, NULL)),
-		 -1, 0, broadcast_public_cupdate_addgossip_reply, channel);
+	broadcast_new_gossip(ld, cg->cupdate, NULL, "channel update");
 }
 
 static void cupdate_timer_refresh(struct channel *channel)
@@ -460,22 +485,7 @@ static void send_channel_announce_sigs(struct channel *channel)
 	msg = towire_announcement_signatures(NULL,
 					     &channel->cid, *channel->scid,
 					     &local_node_sig, &local_bitcoin_sig);
-	msg_to_peer(channel, take(msg));
-}
-
-static void send_channel_announce_addgossip_reply(struct subd *gossip UNUSED,
-						  const u8 *reply,
-						  const int *fds UNUSED,
-						  struct channel *channel)
-{
-	char *err;
-
-	if (!fromwire_gossipd_addgossip_reply(reply, reply, &err))
-		fatal("Reading send_channel_announce_addgossip_reply: %s",
-		      tal_hex(tmpctx, reply));
-
-	if (strlen(err))
-		log_broken(channel->log, "gossipd rejected our channel announcement: %s", err);
+	msg_to_peer(channel->peer, take(msg));
 }
 
 static void send_channel_announcement(struct channel *channel)
@@ -509,9 +519,8 @@ static void send_channel_announcement(struct channel *channel)
 					 &cg->remote_sigs->node_sig,
 					 &cg->remote_sigs->bitcoin_sig);
 
-	subd_req(ld->gossip, ld->gossip,
-		 take(towire_gossipd_addgossip(NULL, ca, &channel->funding_sats)),
-		 -1, 0, send_channel_announce_addgossip_reply, channel);
+	/* Send everyone our new channel announcement */
+	broadcast_new_gossip(ld, ca, &channel->funding_sats, "channel announcement");
 	/* We can also send our first public channel_update now */
 	broadcast_public_cupdate(channel, true);
 	/* And maybe our first node_announcement */
@@ -651,7 +660,7 @@ void channel_gossip_got_announcement_sigs(struct channel *channel,
 		u8 *warning = towire_warningfmt(NULL,
 						&channel->cid,
 						"You sent announcement_signatures for private channel");
-		msg_to_peer(channel, take(warning));
+		msg_to_peer(channel->peer, take(warning));
 		return;
 	case CGOSSIP_NOT_USABLE:
 	case CGOSSIP_NOT_DEEP_ENOUGH:
@@ -1059,22 +1068,6 @@ static bool has_announced_channels(struct lightningd *ld)
 	return false;
 }
 
-static void node_announce_addgossip_reply(struct subd *gossipd,
-					  const u8 *reply,
-					  const int *fds UNUSED,
-					  void *unused)
-{
-	char *err;
-
-	if (!fromwire_gossipd_addgossip_reply(reply, reply, &err))
-		fatal("Reading node_announce_addgossip_reply: %s",
-		      tal_hex(tmpctx, reply));
-
-	if (strlen(err))
-		log_broken(gossipd->ld->log,
-			   "gossipd rejected our node announcement: %s", err);
-}
-
 void channel_gossip_node_announce(struct lightningd *ld)
 {
 	u8 *nannounce;
@@ -1112,8 +1105,6 @@ void channel_gossip_node_announce(struct lightningd *ld)
 	tal_free(ld->node_announcement);
 	ld->node_announcement = tal_steal(ld, nannounce);
 
-	/* Tell gossipd. */
-	subd_req(ld->gossip, ld->gossip,
-		 take(towire_gossipd_addgossip(NULL, nannounce, NULL)),
-		 -1, 0, node_announce_addgossip_reply, NULL);
+	/* Tell gossipd and peers. */
+	broadcast_new_gossip(ld, nannounce, NULL, "node announcement");
 }
