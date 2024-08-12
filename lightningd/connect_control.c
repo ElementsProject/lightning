@@ -927,6 +927,7 @@ static struct command_result *json_dev_suppress_gossip(struct command *cmd,
 
 	subd_send_msg(cmd->ld->connectd,
 		      take(towire_connectd_dev_suppress_gossip(NULL)));
+	cmd->ld->dev_suppress_gossip = true;
 
 	return command_success(cmd, json_stream_success(cmd));
 }

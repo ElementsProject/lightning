@@ -313,6 +313,7 @@ struct lightningd {
 	bool dev_fast_gossip;
 	bool dev_fast_gossip_prune;
 	bool dev_throttle_gossip;
+	bool dev_suppress_gossip;
 
 	/* Speedup reconnect delay, for testing. */
 	bool dev_fast_reconnect;
