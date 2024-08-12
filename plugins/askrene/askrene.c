@@ -115,7 +115,7 @@ static struct command_result *parse_reserve_path(struct command *cmd,
 {
 	const char *err;
 
-	err = json_scan(tmpctx, buffer, tok, "{short_channel_id:%,direction:%,amount_msat:%s}",
+	err = json_scan(tmpctx, buffer, tok, "{short_channel_id:%,direction:%,amount_msat:%}",
 			JSON_SCAN(json_to_short_channel_id, &scidd->scid),
 			JSON_SCAN(json_to_zero_or_one, &scidd->dir),
 			JSON_SCAN(json_to_msat, amount));
