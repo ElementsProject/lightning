@@ -2,6 +2,8 @@
 #include <assert.h>
 #include <ccan/htable/htable_type.h>
 #include <common/gossmap.h>
+#include <common/memleak.h>
+#include <plugins/askrene/askrene.h>
 #include <plugins/askrene/reserve.h>
 
 /* Hash table for reservations */
@@ -137,4 +139,9 @@ void reserves_clear_capacities(struct reserve_htable *reserved,
 		if (idx < tal_count(capacities))
 			capacities[idx] = 0;
 	}
+}
+
+void reserve_memleak_mark(struct askrene *askrene, struct htable *memtable)
+{
+	memleak_scan_htable(memtable, &askrene->reserved->raw);
 }
