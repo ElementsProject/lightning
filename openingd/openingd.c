@@ -342,10 +342,11 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 		 * But:
 		 * 1. We didn't accept this in CLN prior to v23.05.
 		 * 2. LND won't accept that without OPT_ANCHORS_ZERO_FEE_HTLC_TX.
-		 *
-		 * So we keep it off for now, until anchors merge.
+		 * 3. LND <= 18 won't accept OPT_SCID_ALIAS unless it advertizes it,
+		 *    which it does not by default.
 		 */
-		if (channel_type_has(state->channel_type, OPT_ANCHORS_ZERO_FEE_HTLC_TX)) {
+		if (channel_type_has(state->channel_type, OPT_ANCHORS_ZERO_FEE_HTLC_TX)
+		    && feature_offered(state->their_features, OPT_SCID_ALIAS)) {
 			if (!(channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
 				channel_type_set_scid_alias(state->channel_type);
 		}
