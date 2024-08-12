@@ -799,7 +799,7 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
 
     # a helper that gives us the next channel_state_changed log entry
     def wait_for_event(node):
-        msg = node.daemon.wait_for_log("channel_state_changed.*new_state.*")
+        msg = node.daemon.wait_for_log("plugin-misc_notifications.py: channel_state_changed.*new_state.*")
         event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
         return event
 
@@ -967,7 +967,7 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
 
     # a helper that gives us the next channel_state_changed log entry
     def wait_for_event(node):
-        msg = node.daemon.wait_for_log("channel_state_changed.*new_state.*")
+        msg = node.daemon.wait_for_log("plugin-misc_notifications.py: channel_state_changed.*new_state.*")
         event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
         return event
 

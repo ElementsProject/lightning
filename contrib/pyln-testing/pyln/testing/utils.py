@@ -595,7 +595,6 @@ class LightningD(TailableProc):
             port=9735,
             random_hsm=False,
             node_id=0,
-            grpc_port=None
     ):
         # We handle our own version of verbose, below.
         TailableProc.__init__(self, lightning_dir, verbose=False)
@@ -613,6 +612,7 @@ class LightningD(TailableProc):
             'addr': '127.0.0.1:{}'.format(port),
             'allow-deprecated-apis': '{}'.format("true" if DEPRECATED_APIS
                                                  else "false"),
+
             'network': TEST_NETWORK,
             'ignore-fee-limits': 'false',
             'bitcoin-rpcuser': BITCOIND_CONFIG['rpcuser'],
@@ -621,9 +621,6 @@ class LightningD(TailableProc):
             # Make sure we don't touch any existing config files in the user's $HOME
             'bitcoin-datadir': lightning_dir,
         }
-
-        if grpc_port is not None:
-            opts['grpc-port'] = grpc_port
 
         for k, v in opts.items():
             self.opts[k] = v
@@ -758,7 +755,7 @@ class LightningNode(object):
                  broken_log=None,
                  allow_warning=False,
                  allow_bad_gossip=False,
-                 db=None, port=None, disconnect=None, random_hsm=None, options=None,
+                 db=None, port=None, grpc_port=None, disconnect=None, random_hsm=None, options=None,
                  jsonschemas={},
                  valgrind_plugins=True,
                  **kwargs):
@@ -783,7 +780,6 @@ class LightningNode(object):
         self.daemon = LightningD(
             lightning_dir, bitcoindproxy=bitcoind.get_proxy(),
             port=port, random_hsm=random_hsm, node_id=node_id,
-            grpc_port=self.grpc_port,
         )
 
         self.disconnect = disconnect
@@ -834,6 +830,13 @@ class LightningNode(object):
             if SLOW_MACHINE:
                 self.daemon.cmd_prefix += ['--read-inline-info=no']
 
+        if self.daemon.opts.get('disable-plugin') == 'cln-grpc':
+            self.grpc_port = None
+        else:
+            if grpc_port:
+                self.daemon.opts['grpc-port'] = grpc_port
+            self.grpc_port = grpc_port or 9736
+
     def _create_rpc(self, jsonschemas):
         """Prepares anything related to the RPC.
         """
@@ -845,7 +848,7 @@ class LightningNode(object):
 
     def _create_grpc_rpc(self):
         from pyln.testing import grpc
-        self.grpc_port = reserve_unused_port()
+        self.grpc_port = self.grpc_port or reserve_unused_port()
         d = self.lightning_dir / TEST_NETWORK
         d.mkdir(parents=True, exist_ok=True)
 
@@ -868,7 +871,6 @@ class LightningNode(object):
 
     def _create_jsonrpc_rpc(self, jsonschemas):
         socket_path = self.lightning_dir / TEST_NETWORK / "lightning-rpc"
-        self.grpc_port = None
 
         self.rpc = PrettyPrintingLightningRpc(
             str(socket_path),
@@ -881,12 +883,7 @@ class LightningNode(object):
         """Tiny helper to return a grpc stub if grpc was configured.
         """
         # Before doing anything let's see if we have a grpc-port at all
-        try:
-            grpc_port = int(filter(
-                lambda v: v[0] == 'grpc-port',
-                self.daemon.opts.items()
-            ).__next__()[1])
-        except Exception:
+        if not self.grpc_port:
             raise ValueError("grpc-port is not specified, can't connect over grpc")
 
         import grpc
@@ -902,7 +899,7 @@ class LightningNode(object):
         )
 
         channel = grpc.secure_channel(
-            f"localhost:{grpc_port}",
+            f"localhost:{self.grpc_port}",
             creds,
             options=(('grpc.ssl_target_name_override', 'cln'),)
         )
@@ -1590,9 +1587,10 @@ class NodeFactory(object):
     def get_node(self, node_id=None, options=None, dbfile=None,
                  bkpr_dbfile=None, feerates=(15000, 11000, 7500, 3750),
                  start=True, wait_for_bitcoind_sync=True, may_fail=False,
-                 expect_fail=False, cleandir=True, gossip_store_file=None, **kwargs):
+                 expect_fail=False, cleandir=True, gossip_store_file=None, unused_grpc_port=True, **kwargs):
         node_id = self.get_node_id() if not node_id else node_id
         port = reserve_unused_port()
+        grpc_port = self.get_unused_port() if unused_grpc_port else None
 
         lightning_dir = os.path.join(
             self.directory, "lightning-{}/".format(node_id))
@@ -1606,7 +1604,7 @@ class NodeFactory(object):
         db.provider = self.db_provider
         node = self.node_cls(
             node_id, lightning_dir, self.bitcoind, self.executor, self.valgrind, db=db,
-            port=port, options=options, may_fail=may_fail or expect_fail,
+            port=port, grpc_port=grpc_port, options=options, may_fail=may_fail or expect_fail,
             jsonschemas=self.jsonschemas,
             **kwargs
         )
