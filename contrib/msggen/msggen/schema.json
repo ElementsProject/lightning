@@ -446,16 +446,16 @@
               "The direction to apply this change to."
             ]
           },
-          "maximum_msat": {
-            "type": "msat",
-            "description": [
-              "The maximum value which this channel could pass.  This or *minimum_msat* must be specified, but not both."
-            ]
-          },
           "minimum_msat": {
             "type": "msat",
             "description": [
               "The minumum value which this channel could pass.  This or *minimum_msat* must be specified, but not both."
+            ]
+          },
+          "maximum_msat": {
+            "type": "msat",
+            "description": [
+              "The maximum value which this channel could pass.  This or *minimum_msat* must be specified, but not both."
             ]
           }
         }
