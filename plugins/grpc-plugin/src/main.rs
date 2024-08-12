@@ -17,9 +17,10 @@ struct PluginState {
     events: broadcast::Sender<cln_rpc::notifications::Notification>,
 }
 
-const OPTION_GRPC_PORT: options::IntegerConfigOption = options::ConfigOption::new_i64_no_default(
+const OPTION_GRPC_PORT: options::DefaultIntegerConfigOption = options::ConfigOption::new_i64_with_default(
     "grpc-port",
-    "Which port should the grpc plugin listen for incoming connections?",
+    9736,
+    "Which port should the grpc plugin listen for incoming connections?"
 );
 
 const OPTION_GRPC_MSG_BUFFER_SIZE : options::DefaultIntegerConfigOption = options::ConfigOption::new_i64_with_default(
@@ -53,15 +54,7 @@ async fn main() -> Result<()> {
         None => return Ok(()),
     };
 
-    let bind_port = match plugin.option(&OPTION_GRPC_PORT).unwrap() {
-        Some(port) => port,
-        None => {
-            log::info!("'grpc-port' options i not configured. exiting.");
-            plugin.disable("Missing 'grpc-port' option").await?;
-            return Ok(());
-        }
-    };
-
+    let bind_port: i64 = plugin.option(&OPTION_GRPC_PORT).unwrap();
     let buffer_size: i64 = plugin.option(&OPTION_GRPC_MSG_BUFFER_SIZE).unwrap();
     let buffer_size = match usize::try_from(buffer_size) {
         Ok(b) => b,
