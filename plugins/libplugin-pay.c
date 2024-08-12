@@ -2346,8 +2346,9 @@ static void payment_finished(struct payment *p)
 			json_add_u64(ret, "id", failure->id);
 
 			json_add_u32(ret, "failcode", failure->failcode);
-			json_add_string(ret, "failcodename",
-					failure->failcodename);
+			if (failure->failcodename)
+				json_add_string(ret, "failcodename",
+						failure->failcodename);
 
 			if (p->invstring)
 				json_add_invstring(ret, p->invstring);
