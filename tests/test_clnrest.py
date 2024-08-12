@@ -63,7 +63,7 @@ def test_clnrest_uses_grpc_plugin_certificates(node_factory):
     base_url = f'https://{rest_host}:{rest_port}'
     # This might happen really early!
     l1.daemon.logsearch_start = 0
-    l1.daemon.wait_for_logs([r'serving grpc on 0.0.0.0:',
+    l1.daemon.wait_for_logs([r'serving grpc on 127.0.0.1:',
                              r'plugin-clnrest: REST server running at ' + base_url])
     ca_cert = Path(l1.daemon.lightning_dir) / TEST_NETWORK / 'ca.pem'
     http_session = http_session_with_retry()
