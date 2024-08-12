@@ -892,7 +892,7 @@ static const char *init(struct plugin *plugin,
 	struct askrene *askrene = tal(plugin, struct askrene);
 	askrene->plugin = plugin;
 	list_head_init(&askrene->layers);
-	askrene->reserved = new_reserve_hash(askrene);
+	askrene->reserved = new_reserve_htable(askrene);
 	askrene->gossmap = gossmap_load(askrene, GOSSIP_STORE_FILENAME, NULL);
 
 	if (!askrene->gossmap)
