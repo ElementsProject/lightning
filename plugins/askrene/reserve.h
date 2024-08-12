@@ -40,4 +40,7 @@ size_t reserves_remove(struct reserve_htable *reserved,
 void reserves_clear_capacities(struct reserve_htable *reserved,
 			       const struct gossmap *gossmap,
 			       fp16_t *capacities);
+
+/* Scan for memleaks */
+void reserve_memleak_mark(struct askrene *askrene, struct htable *memtable);
 #endif /* LIGHTNING_PLUGINS_ASKRENE_RESERVE_H */

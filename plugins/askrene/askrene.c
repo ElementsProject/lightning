@@ -883,7 +883,9 @@ static const struct plugin_command commands[] = {
 
 static void askrene_markmem(struct plugin *plugin, struct htable *memtable)
 {
-	layer_memleak_mark(get_askrene(plugin), memtable);
+	struct askrene *askrene = get_askrene(plugin);
+	layer_memleak_mark(askrene, memtable);
+	reserve_memleak_mark(askrene, memtable);
 }
 
 static const char *init(struct plugin *plugin,
