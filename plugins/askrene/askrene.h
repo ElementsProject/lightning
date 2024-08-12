@@ -24,7 +24,7 @@ struct askrene {
 	/* List of layers */
 	struct list_head layers;
 	/* In-flight payment attempts */
-	struct reserve_hash *reserved;
+	struct reserve_htable *reserved;
 	/* Compact cache of gossmap capacities */
 	fp16_t *capacities;
 	/* My own id */
@@ -40,7 +40,7 @@ struct route_query {
 	const struct gossmap *gossmap;
 
 	/* We need to take in-flight payments into account */
-	const struct reserve_hash *reserved;
+	const struct reserve_htable *reserved;
 
 	/* Array of layers we're applying */
 	const struct layer **layers;

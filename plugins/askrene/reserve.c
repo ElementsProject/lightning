@@ -24,24 +24,24 @@ static bool reserve_eq_scidd(const struct reserve *r,
 }
 
 HTABLE_DEFINE_TYPE(struct reserve, reserve_scidd, hash_scidd,
-		   reserve_eq_scidd, reserve_hash);
+		   reserve_eq_scidd, reserve_htable);
 
-struct reserve_hash *new_reserve_hash(const tal_t *ctx)
+struct reserve_htable *new_reserve_htable(const tal_t *ctx)
 {
-	struct reserve_hash *reserved = tal(ctx, struct reserve_hash);
-	reserve_hash_init(reserved);
+	struct reserve_htable *reserved = tal(ctx, struct reserve_htable);
+	reserve_htable_init(reserved);
 	return reserved;
 }
 
 /* Find a reservation for this scidd (if any!) */
-const struct reserve *find_reserve(const struct reserve_hash *reserved,
+const struct reserve *find_reserve(const struct reserve_htable *reserved,
 				   const struct short_channel_id_dir *scidd)
 {
-	return reserve_hash_get(reserved, scidd);
+	return reserve_htable_get(reserved, scidd);
 }
 
 /* Create a new (empty) reservation */
-static struct reserve *new_reserve(struct reserve_hash *reserved,
+static struct reserve *new_reserve(struct reserve_htable *reserved,
 				   const struct short_channel_id_dir *scidd)
 {
 	struct reserve *r = tal(reserved, struct reserve);
@@ -50,15 +50,15 @@ static struct reserve *new_reserve(struct reserve_hash *reserved,
 	r->amount = AMOUNT_MSAT(0);
 	r->scidd = *scidd;
 
-	reserve_hash_add(reserved, r);
+	reserve_htable_add(reserved, r);
 	return r;
 }
 
-static void del_reserve(struct reserve_hash *reserved, struct reserve *r)
+static void del_reserve(struct reserve_htable *reserved, struct reserve *r)
 {
 	assert(r->num_htlcs == 0);
 
-	reserve_hash_del(reserved, r);
+	reserve_htable_del(reserved, r);
 	tal_free(r);
 }
 
@@ -83,13 +83,13 @@ static bool remove(struct reserve *r, struct amount_msat amount)
 
 /* Atomically add to reserves, or fail.
  * Returns offset of failure, or num on success */
-size_t reserves_add(struct reserve_hash *reserved,
+size_t reserves_add(struct reserve_htable *reserved,
 		    const struct short_channel_id_dir *scidds,
 		    const struct amount_msat *amounts,
 		    size_t num)
 {
 	for (size_t i = 0; i < num; i++) {
-		struct reserve *r = reserve_hash_get(reserved, &scidds[i]);
+		struct reserve *r = reserve_htable_get(reserved, &scidds[i]);
 		if (!r)
 			r = new_reserve(reserved, &scidds[i]);
 		if (!add(r, amounts[i])) {
@@ -102,13 +102,13 @@ size_t reserves_add(struct reserve_hash *reserved,
 
 /* Atomically remove from reserves, to fail.
  * Returns offset of failure or tal_count(scidds) */
-size_t reserves_remove(struct reserve_hash *reserved,
+size_t reserves_remove(struct reserve_htable *reserved,
 		       const struct short_channel_id_dir *scidds,
 		       const struct amount_msat *amounts,
 		       size_t num)
 {
 	for (size_t i = 0; i < num; i++) {
-		struct reserve *r = reserve_hash_get(reserved, &scidds[i]);
+		struct reserve *r = reserve_htable_get(reserved, &scidds[i]);
 		if (!r || !remove(r, amounts[i])) {
 			reserves_add(reserved, scidds, amounts, i);
 			return i;
@@ -119,16 +119,16 @@ size_t reserves_remove(struct reserve_hash *reserved,
 	return num;
 }
 
-void reserves_clear_capacities(struct reserve_hash *reserved,
+void reserves_clear_capacities(struct reserve_htable *reserved,
 			       const struct gossmap *gossmap,
 			       fp16_t *capacities)
 {
 	struct reserve *r;
-	struct reserve_hash_iter rit;
+	struct reserve_htable_iter rit;
 
-	for (r = reserve_hash_first(reserved, &rit);
+	for (r = reserve_htable_first(reserved, &rit);
 	     r;
-	     r = reserve_hash_next(reserved, &rit)) {
+	     r = reserve_htable_next(reserved, &rit)) {
 		struct gossmap_chan *c = gossmap_find_chan(gossmap, &r->scidd.scid);
 		size_t idx;
 		if (!c)
