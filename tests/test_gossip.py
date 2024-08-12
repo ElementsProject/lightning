@@ -2244,3 +2244,88 @@ def test_seeker_first_peer(node_factory, bitcoind):
     # This can take more than 10 seconds, so we add to timeout here!
     l1.daemon.wait_for_log(rf"{l3.info['id']}-gossipd: seeker: starting gossip \(streaming\)",
                            timeout=TIMEOUT + 10)
+
+
+@pytest.mark.xfail(strict=True)
+def test_gossip_force_broadcast_channel_msgs(node_factory, bitcoind):
+    """ Send our own channel_update, node_announcement or channel_announcement to existing peers, even if they say they're not interested.
+    """
+    l1, l2 = node_factory.get_nodes(2)
+
+    # One block away from being announced.
+    node_factory.join_nodes([l1, l2], wait_for_announce=False)
+    bitcoind.generate_block(4)
+
+    # It will send timestamp_filter. It should also send a channel_announcement, a
+    # channel_update, and a node_announcement, even though we said no gossip.
+    # It may or may not send:
+    #  query_short_channel_ids, query_channel_range, a ping.
+    process = subprocess.Popen(['devtools/gossipwith',
+                                '--no-gossip',
+                                '--hex',
+                                '--network={}'.format(TEST_NETWORK),
+                                '--max-messages={}'.format(7),
+                                '--timeout-after=30',
+                                '{}@localhost:{}'.format(l1.info['id'], l1.port)],
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # Now do the final announcement
+    bitcoind.generate_block(1)
+
+    stdout, stderr = process.communicate(timeout=30 + TIMEOUT)
+    assert process.returncode == 0, f"Exit failed: output = {stderr}"
+
+    lines = stdout.decode('utf-8').splitlines()
+    types = {'0100': 'channel_announce',
+             '0102': 'channel_update',
+             '0101': 'node_announce',
+             '0105': 'query_short_channel_ids',
+             '0107': 'query_channel_range',
+             '0109': 'gossip_filter',
+             '0012': 'ping'}
+    tally = {key: 0 for key in types.values()}
+    for l in lines:
+        tally[types[l[0:4]]] += 1
+
+    # Make sure the noise is within reasonable bounds
+    assert tally['query_short_channel_ids'] <= 1
+    assert tally['query_channel_range'] <= 1
+    assert tally['ping'] <= 1
+    del tally['query_short_channel_ids']
+    del tally['query_channel_range']
+    del tally['ping']
+    assert tally == {'channel_announce': 1,
+                     'channel_update': 1,
+                     'node_announce': 1,
+                     'gossip_filter': 1}
+
+    # Make sure l1 sees l2's channel update
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
+
+    # Now, let's test fast gossip.
+    l1.stop()
+    l1.daemon.opts['dev-fast-gossip-prune'] = None
+    l1.start()
+
+    # If we reconnect, we will get the four immediate messages, then
+    # a cupdate refresh (due to fast gossip).
+    lines = subprocess.run(['devtools/gossipwith',
+                            '--no-gossip',
+                            '--hex',
+                            '--network={}'.format(TEST_NETWORK),
+                            '--max-messages={}'.format(7),
+                            '--timeout-after={}'.format(30),
+                            '{}@localhost:{}'.format(l1.info['id'], l1.port)],
+                           check=True,
+                           timeout=30 + TIMEOUT, stdout=subprocess.PIPE).stdout.decode('utf-8').split()
+
+    tally = {key: 0 for key in types.values()}
+    for l in lines:
+        tally[types[l[0:4]]] += 1
+
+    del tally['query_short_channel_ids']
+    del tally['query_channel_range']
+    del tally['ping']
+    assert tally == {'channel_announce': 1,
+                     'channel_update': 3,
+                     'node_announce': 1,
+                     'gossip_filter': 1}
