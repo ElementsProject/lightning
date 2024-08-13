@@ -167,10 +167,10 @@ struct command_result *payment_fail(struct payment *payment,
 /* These log at LOG_DBG, append to notes, and send command notification */
 void payment_note(struct payment *p, enum log_level lvl, const char *fmt, ...);
 
-void payment_disable_chan(struct payment *p, struct short_channel_id scid,
+void payment_disable_chan(struct payment *p, struct short_channel_id_dir scidd,
 			  enum log_level lvl, const char *fmt, ...);
 
-void payment_warn_chan(struct payment *p, struct short_channel_id scid,
+void payment_warn_chan(struct payment *p, struct short_channel_id_dir scidd,
 		       enum log_level lvl, const char *fmt, ...);
 
 void payment_disable_node(struct payment *p, struct node_id node,
