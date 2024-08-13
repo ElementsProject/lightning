@@ -23,6 +23,12 @@ const OPTION_GRPC_PORT: options::DefaultIntegerConfigOption = options::ConfigOpt
     "Which port should the grpc plugin listen for incoming connections?"
 );
 
+const OPTION_GRPC_HOST: options::DefaultStringConfigOption = options::ConfigOption::new_str_with_default(
+    "grpc-host",
+    "127.0.0.1",
+    "Which host should the grpc listen for incomming connections?"
+);
+
 const OPTION_GRPC_MSG_BUFFER_SIZE : options::DefaultIntegerConfigOption = options::ConfigOption::new_i64_with_default(
     "grpc-msg-buffer-size",
     1024,
@@ -36,6 +42,7 @@ async fn main() -> Result<()> {
 
     let plugin = match Builder::new(tokio::io::stdin(), tokio::io::stdout())
         .option(OPTION_GRPC_PORT)
+        .option(OPTION_GRPC_HOST)
         .option(OPTION_GRPC_MSG_BUFFER_SIZE)
         // TODO: Use the catch-all subscribe method
         // However, doing this breaks the plugin at the time begin
@@ -55,6 +62,7 @@ async fn main() -> Result<()> {
     };
 
     let bind_port: i64 = plugin.option(&OPTION_GRPC_PORT).unwrap();
+    let bind_host: String = plugin.option(&OPTION_GRPC_HOST).unwrap();
     let buffer_size: i64 = plugin.option(&OPTION_GRPC_MSG_BUFFER_SIZE).unwrap();
     let buffer_size = match usize::try_from(buffer_size) {
         Ok(b) => b,
@@ -79,7 +87,7 @@ async fn main() -> Result<()> {
 
     let plugin = plugin.start(state.clone()).await?;
 
-    let bind_addr: SocketAddr = format!("0.0.0.0:{}", bind_port).parse().unwrap();
+    let bind_addr: SocketAddr = format!("{}:{}", bind_host, bind_port).parse().unwrap();
 
     tokio::select! {
         _ = plugin.join() => {
