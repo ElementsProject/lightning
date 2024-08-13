@@ -32,7 +32,8 @@ struct payment *payment_new(
 	    u64 prob_cost_factor_millionths,
 	    u64 riskfactor_millionths,
 	    u64 min_prob_success_millionths,
-	    bool use_shadow)
+	    bool use_shadow,
+	    const struct route_exclusion **exclusions)
 {
 	struct payment *p = tal(ctx, struct payment);
 	struct payment_info *pinfo = &p->payment_info;
@@ -101,6 +102,14 @@ struct payment *payment_new(
 	p->local_gossmods = NULL;
 	p->disabledmap = disabledmap_new(p);
 
+	for (size_t i = 0; i < tal_count(exclusions); i++) {
+		const struct route_exclusion *ex = exclusions[i];
+		if (ex->type == EXCLUDE_CHANNEL)
+			disabledmap_add_channel(p->disabledmap, ex->u.chan_id);
+		else
+			disabledmap_add_node(p->disabledmap, ex->u.node_id);
+	}
+
 	p->have_results = false;
 	p->retry = false;
 	p->waitresult_timer = NULL;
@@ -137,7 +146,8 @@ bool payment_update(
 		u64 prob_cost_factor_millionths,
 		u64 riskfactor_millionths,
 		u64 min_prob_success_millionths,
-		bool use_shadow)
+		bool use_shadow,
+		const struct route_exclusion **exclusions)
 {
 	assert(p);
 	struct payment_info *pinfo = &p->payment_info;
@@ -191,6 +201,14 @@ bool payment_update(
 
 	assert(p->disabledmap);
 	disabledmap_reset(p->disabledmap);
+
+	for (size_t i = 0; i < tal_count(exclusions); i++) {
+		const struct route_exclusion *ex = exclusions[i];
+		if (ex->type == EXCLUDE_CHANNEL)
+			disabledmap_add_channel(p->disabledmap, ex->u.chan_id);
+		else
+			disabledmap_add_node(p->disabledmap, ex->u.node_id);
+	}
 
 	p->have_results = false;
 	p->retry = false;
