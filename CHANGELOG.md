@@ -3,6 +3,136 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+
+## [24.08rc1] - 2024-08-12: "TO BE ADDED"
+
+This release named by @Lagrang3.
+
+### Added
+
+ - protocol: onion messages are now supported by default. ([#7455])
+ - protocol: onion messages can now be forwarded by short_channel_id. ([#7455])
+ - pay: The pay plugin now checks whether we have enough spendable capacity before computing a route, returning a clear error message if we don't ([#7418])
+ - pay: Payments now emit `channel_hint_updated` notification to share inferred balances and observations across multiple payments. ([#7487])
+ - pay: The pay plugin now returns better error codes ([#7418])
+ - reckless-rpc plugin: issue commands to reckless over rpc. ([#7506])
+ - reckless: accepts json array input for command targets ([#7484])
+ - reckless provides json output with option flag -j/--json ([#7484])
+ - reckless: added the ability to install rust plugins. ([#7484])
+ - JSON-RPC: `listpeers` `features` array string uses "option_anchors" for feature 22/23, following renaming in BOLT 9. ([#7388])
+ - plugins: `bookkeeper` now listens for two custom events: `utxo_deposit` and `utxo_spend`. This allows for 3rd party plugins to send onchain coin events to the `bookkeeper`.  See the new plugins/bkpr/README.md for details on how these work! ([#7258])
+ - plugins: Add payment_id parameter to bkpr-listaccountevents to filter events. ([#7536])
+ - cln-plugin: add multi options for String and i64 ([#7544])
+ - pyln-client: Added a notification mechanism for config changes ([#7289])
+ - pyln-client: implement setconfig hook for plugins so you can see changes in `dynamic` options. ([#7289])
+ - doc: all examples in the documentation are now generated from running the code, so they are current. ([#7457])
+
+
+### Changed
+
+ - protocol: We now send current peers our changed gossip (even if they set timestamp_filter otherwise), not just on reconnect. ([#7554])
+ - protocol: we now always ask the first peer for all its gossip. ([#7512])
+ - connectd: I/O optimizations to significantly speed up larger nodes. ([#7365])
+ - plugins: the `fetchinvoice` plugin has been combined into the `offers` plugin. ([#7456])
+ - close: We no longer attempt to publish a unilateral close that'd fail anyway when we witness a close onchain. ([#7447])
+ - pay: Improved logging should facilitate debugging considerably. ([#7418])
+ - reckless: option flags are now position independent. ([#7484])
+ - plugins: now allows date and time sqlite functions. ([#7467])
+ - splice: added outnum of new funding output to splice_signed RPC command ([#7465])
+ - lightningd: we wait for bitcoind if it has somehow gone backwards (as long as header height is still ok). ([#7342])
+ - wallet: The channel status is printed when loading it from the DB ([#7354])
+ - JSON-RPC: `listclosedchannels`, `listpeerchannels`, `openchannel_update`, `openchannel_init`, `fundchannel`, `fundchannel_start` and `multifundchannel`: `channel_type` array `names` now contains "anchors" instead of "anchors_zero_fee_htlc_tx". ([#7388])
+ - JSON-RPC: Do not return the contents of invalid parameters in error messages, refer to logs (use 'check' to get full error messages) ([#7420])
+ - lightningd: `--list-features-only` now lists "option_anchors" instead of "option_anchors_zero_fee_htlc_tx". ([#7388])
+ - updated Bitcoin to v27.1 and Elements to v23.2.1 ([#7436])
+ - update libwally to 1.3.0 ([#7480])
+
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - JSON-RPC: `listpeers` `features` array string "option_anchors_zero_fee_htlc_tx": use "option_anchors" (spec renamed it). ([#7388])
+ - config: the --experimental-onion-messages option is ignored (on by default). ([#7455])
+ - config: the --experimental-anchors option is ignored (on by default since v24.02). ([#7454])
+ - pyln-client: `category`, `description` and `long_description` for RPC commands are deprecated now. ([#7520])
+
+
+### Removed
+
+ - JSON-RPC: `sendonionmessage` (was experimental only, use `injectonionmessage`) ([#7461])
+ - JSON-RPC: `autocleaninvoice` command (deprecated v22.11, EOL v24.02) ([#7298])
+ - plugins: `estimatefees` returning feerates by name (e.g. "opening"); deprecated in v23.05. ([#7380])
+
+
+### Fixed
+
+ - protocol: we can now open unannounced channels with LND nodes again. ([#7564])
+ - config: whitespace at the end of (most) options is now ignored, not complained about. ([#7251])
+ - connectd: now should use far less CPU on large nodes. ([#7365])
+ - lightningd: occasionally we could miss transaction outputs (not telling gossipd, or even onchaind) ([#7567])
+ - notifications: we now send a `coin_movement` notification for splice confirmations of channel funding outpoint spends. ([#7533])
+
+### EXPERIMENTAL
+
+ - JSON-RPC: `offer` removed `@` prefix support from `recurrence_base` (use `recurrence_start_any_period` set to `false`) ([#7380])
+ - protocol: pay can now pay to bolt12 invoices if entry to blinded hop is specified as a short_channel_id (rather than node id). ([#7461])
+ - plugins: pay can now pay a bolt12 invoice even if we, ourselves, are the head of the blinded path within it. ([#7461])
+ - offers: automatically add a blinded path from a peer if we have no public channels, so unannounced nodes can have offers too. ([#7461])
+ - offers: we can now self-fetch and self-pay BOLT12 offers and invoices. ([#7461])
+ - offers: recurring offers had incompatible changes, won't work against older versions. ([#7476])
+ - offers: handle experimental ranges in offers/invoice_requests/invoices. ([#7474])
+ - offers: `invoicerequest` will set a blinded path if we're an unannounced node. ([#7476])
+ - offers: `sendinvoice` will use a blinded path in an invoice_request, if specified. ([#7476])
+ - offers: maintain unknown fields offers/invoice_requests correctly. ([#7474])
+ - offers: fixed: onionmessage replies now work even if we need to route to the start of the blinded reply path. ([#7456])
+ - offers: fixed: fetchinvoice tries all blinded paths until one is usable, and handles case where we have to route more than one hop to reach the entry point. ([#7456])
+ - renepay: prune the network by disabling channels we don't like, eg. very low max_htlc. ([#7403])
+ - renepay: fixed: un-reserve routes that have completed or failed ([#7357])
+ - renepay: add cli option "exclude" to manually disable channels and nodes. ([#7403])
+
+
+
+[#7447]: https://github.com/ElementsProject/lightning/pull/7447
+[#7420]: https://github.com/ElementsProject/lightning/pull/7420
+[#7418]: https://github.com/ElementsProject/lightning/pull/7418
+[#7454]: https://github.com/ElementsProject/lightning/pull/7454
+[#7436]: https://github.com/ElementsProject/lightning/pull/7436
+[#7484]: https://github.com/ElementsProject/lightning/pull/7484
+[#7544]: https://github.com/ElementsProject/lightning/pull/7544
+[#7476]: https://github.com/ElementsProject/lightning/pull/7476
+[#7456]: https://github.com/ElementsProject/lightning/pull/7456
+[#7403]: https://github.com/ElementsProject/lightning/pull/7403
+[#7289]: https://github.com/ElementsProject/lightning/pull/7289
+[#7388]: https://github.com/ElementsProject/lightning/pull/7388
+[#7474]: https://github.com/ElementsProject/lightning/pull/7474
+[#7536]: https://github.com/ElementsProject/lightning/pull/7536
+[#7457]: https://github.com/ElementsProject/lightning/pull/7457
+[#7467]: https://github.com/ElementsProject/lightning/pull/7467
+[#7487]: https://github.com/ElementsProject/lightning/pull/7487
+[#7251]: https://github.com/ElementsProject/lightning/pull/7251
+[#7365]: https://github.com/ElementsProject/lightning/pull/7365
+[#7461]: https://github.com/ElementsProject/lightning/pull/7461
+[#7520]: https://github.com/ElementsProject/lightning/pull/7520
+[#7357]: https://github.com/ElementsProject/lightning/pull/7357
+[#7480]: https://github.com/ElementsProject/lightning/pull/7480
+[#7465]: https://github.com/ElementsProject/lightning/pull/7465
+[#7354]: https://github.com/ElementsProject/lightning/pull/7354
+[#7512]: https://github.com/ElementsProject/lightning/pull/7512
+[#7380]: https://github.com/ElementsProject/lightning/pull/7380
+[#7564]: https://github.com/ElementsProject/lightning/pull/7564
+[#7455]: https://github.com/ElementsProject/lightning/pull/7455
+[#7342]: https://github.com/ElementsProject/lightning/pull/7342
+[#7506]: https://github.com/ElementsProject/lightning/pull/7506
+[#7554]: https://github.com/ElementsProject/lightning/pull/7554
+[#7258]: https://github.com/ElementsProject/lightning/pull/7258
+[#7533]: https://github.com/ElementsProject/lightning/pull/7533
+[#7567]: https://github.com/ElementsProject/lightning/pull/7567
+[#7298]: https://github.com/ElementsProject/lightning/pull/7298
+[24.08rc1]: https://github.com/ElementsProject/lightning/releases/tag/v24.08rc1
+
+
+
 ## [24.05] - 2024-06-04: "The Infinitely Divisible Satoshi"
 
 This release named by @daywalker90.
