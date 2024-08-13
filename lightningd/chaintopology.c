@@ -55,7 +55,7 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 	/* Now we see if any of those txs are interesting. */
 	const size_t num_txs = tal_count(b->full_txs);
 	for (i = 0; i < num_txs; i++) {
-		const struct bitcoin_tx *tx = b->full_txs[i];
+		struct bitcoin_tx *tx = b->full_txs[i];
 		struct bitcoin_txid txid;
 		size_t j;
 		bool is_coinbase = i == 0;
@@ -63,12 +63,14 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		/* Tell them if it spends a txo we care about. */
 		for (j = 0; j < tx->wtx->num_inputs; j++) {
 			struct bitcoin_outpoint out;
-			struct txowatch *txo;
+			struct txowatch_hash_iter it;
+
 			bitcoin_tx_input_get_txid(tx, j, &out.txid);
 			out.n = tx->wtx->inputs[j].index;
 
-			txo = txowatch_hash_get(topo->txowatches, &out);
-			if (txo) {
+			for (struct txowatch *txo = txowatch_hash_getfirst(topo->txowatches, &out, &it);
+			     txo;
+			     txo = txowatch_hash_getnext(topo->txowatches, &out, &it)) {
 				wallet_transaction_add(topo->ld->wallet,
 						       tx->wtx, b->height, i);
 				txowatch_fire(txo, tx, j, b);
@@ -104,7 +106,7 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 					       tx->wtx, b->height, i);
 		}
 
-		txwatch_inform(topo, &txid, tx);
+		txwatch_inform(topo, &txid, take(tx));
 	}
 	b->full_txs = tal_free(b->full_txs);
 	b->txids = tal_free(b->txids);
