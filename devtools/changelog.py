@@ -37,7 +37,7 @@ def get_commit_range():
     """
     description = git("describe")
     version = description.split('-')[0]
-    return "{version}..master".format(version=version)
+    return "{version}..HEAD".format(version=version)
 
 
 def get_log_entries(commitrange):
