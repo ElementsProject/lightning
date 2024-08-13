@@ -366,7 +366,7 @@ static struct command_result *payment_finish(struct payment *p)
 	return my_command_finish(p, cmd);
 }
 
-void payment_disable_chan(struct payment *p, struct short_channel_id scid,
+void payment_disable_chan(struct payment *p, struct short_channel_id_dir scidd,
 			  enum log_level lvl, const char *fmt, ...)
 {
 	assert(p);
@@ -378,12 +378,12 @@ void payment_disable_chan(struct payment *p, struct short_channel_id scid,
 	str = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 	payment_note(p, lvl, "disabling %s: %s",
-		     fmt_short_channel_id(tmpctx, scid),
+		     fmt_short_channel_id_dir(tmpctx, &scidd),
 		     str);
-	disabledmap_add_channel(p->disabledmap, scid);
+	disabledmap_add_channel(p->disabledmap, scidd);
 }
 
-void payment_warn_chan(struct payment *p, struct short_channel_id scid,
+void payment_warn_chan(struct payment *p, struct short_channel_id_dir scidd,
 		       enum log_level lvl, const char *fmt, ...)
 {
 	assert(p);
@@ -395,16 +395,16 @@ void payment_warn_chan(struct payment *p, struct short_channel_id scid,
 	str = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
-	if (disabledmap_channel_is_warned(p->disabledmap, scid)) {
-		payment_disable_chan(p, scid, lvl, "%s, channel warned twice",
+	if (disabledmap_channel_is_warned(p->disabledmap, scidd)) {
+		payment_disable_chan(p, scidd, lvl, "%s, channel warned twice",
 				     str);
 		return;
 	}
 
 	payment_note(
 	    p, lvl, "flagged for warning %s: %s, next time it will be disabled",
-	    fmt_short_channel_id(tmpctx, scid), str);
-	disabledmap_warn_channel(p->disabledmap, scid);
+	    fmt_short_channel_id_dir(tmpctx, &scidd), str);
+	disabledmap_warn_channel(p->disabledmap, scidd);
 }
 
 void payment_disable_node(struct payment *p, struct node_id node,

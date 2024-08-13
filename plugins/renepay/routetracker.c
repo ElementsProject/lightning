@@ -243,7 +243,9 @@ static struct command_result *sendpay_failed(struct command *cmd,
 
 	/* There is no new knowledge from this kind of failure.
 	 * We just disable this scid. */
-	payment_disable_chan(payment, route->hops[0].scid, LOG_INFORM,
+	struct short_channel_id_dir scidd_disable = {
+	    .scid = route->hops[0].scid, .dir = route->hops[0].direction};
+	payment_disable_chan(payment, scidd_disable, LOG_INFORM,
 			     "sendpay didn't like first hop: %s", msg);
 
 	if (!route_map_del(routetracker->sent_routes, route))
