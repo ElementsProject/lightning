@@ -30,6 +30,7 @@
  * WE ASSUME NO MALLEABILITY!  This requires segregated witness.
  */
 #include "config.h"
+#include <bitcoin/psbt.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/lightningd.h>
@@ -235,12 +236,13 @@ void txwatch_fire(struct chain_topology *topo,
 		  const struct bitcoin_txid *txid,
 		  unsigned int depth)
 {
-	struct txwatch *txw;
+	struct txwatch_hash_iter it;
 
-	txw = txwatch_hash_get(topo->txwatches, txid);
-
-	if (txw)
+	for (struct txwatch *txw = txwatch_hash_getfirst(topo->txwatches, txid, &it);
+	     txw;
+	     txw = txwatch_hash_getnext(topo->txwatches, txid, &it)) {
 		txw_fire(txw, txid, depth);
+	}
 }
 
 void txowatch_fire(const struct txowatch *txow,
@@ -295,12 +297,22 @@ void watch_topology_changed(struct chain_topology *topo)
 
 void txwatch_inform(const struct chain_topology *topo,
 		    const struct bitcoin_txid *txid,
-		    const struct bitcoin_tx *tx_may_steal)
+		    struct bitcoin_tx *tx TAKES)
 {
-	struct txwatch *txw;
+	struct txwatch_hash_iter it;
 
-	txw = txwatch_hash_get(topo->txwatches, txid);
+	for (struct txwatch *txw = txwatch_hash_getfirst(topo->txwatches, txid, &it);
+	     txw;
+	     txw = txwatch_hash_getnext(topo->txwatches, txid, &it)) {
+		if (txw->tx)
+			continue;
+		/* FIXME: YUCK!  These don't have PSBTs attached */
+		if (!tx->psbt)
+			tx->psbt = new_psbt(tx, tx->wtx);
+		txw->tx = clone_bitcoin_tx(txw, tx);
+	}
 
-	if (txw && !txw->tx)
-		txw->tx = tal_steal(txw, tx_may_steal);
+	/* If we don't clone above, handle take() now */
+	if (taken(tx))
+		tal_free(tx);
 }

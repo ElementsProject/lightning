@@ -89,10 +89,9 @@ void txowatch_fire(const struct txowatch *txow,
 bool watching_txid(const struct chain_topology *topo,
 		   const struct bitcoin_txid *txid);
 
-/* FIXME: Implement bitcoin_tx_dup() so we tx arg can be TAKEN */
 void txwatch_inform(const struct chain_topology *topo,
 		    const struct bitcoin_txid *txid,
-		    const struct bitcoin_tx *tx_may_steal);
+		    struct bitcoin_tx *tx TAKES);
 
 void watch_topology_changed(struct chain_topology *topo);
 #endif /* LIGHTNING_LIGHTNINGD_WATCH_H */
