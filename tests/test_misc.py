@@ -1921,7 +1921,8 @@ def test_logging(node_factory):
 @unittest.skipIf(VALGRIND,
                  "Valgrind sometimes fails assert on injected SEGV")
 def test_crashlog(node_factory):
-    l1 = node_factory.get_node(may_fail=True)
+    l1 = node_factory.get_node(may_fail=True,
+                               broken_log=' lightningd: ')
 
     def has_crash_log(n):
         files = os.listdir(os.path.join(n.daemon.lightning_dir, TEST_NETWORK))
@@ -2305,7 +2306,8 @@ def test_dev_force_bip32_seed(node_factory):
 
 
 def test_dev_demux(node_factory):
-    l1 = node_factory.get_node(may_fail=True)
+    l1 = node_factory.get_node(may_fail=True,
+                               broken_log=' lightningd: ')
 
     # Check should work.
     l1.rpc.check(command_to_check='dev', subcommand='crash')

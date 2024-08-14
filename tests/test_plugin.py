@@ -1668,7 +1668,7 @@ def test_libplugin_deprecated(node_factory):
                                         'somearg-deprecated': 'test_opt depr',
                                         'allow-deprecated-apis': True},
                                # testrpc-deprecated causes a complaint!
-                               )
+                               broken_log='DEPRECATED API USED')
 
     assert l1.daemon.is_in_log("somearg = test_opt depr")
     l1.rpc.help('testrpc-deprecated')
@@ -2006,7 +2006,9 @@ def test_watchtower(node_factory, bitcoind, directory, chainparams):
     p = os.path.join(os.path.dirname(__file__), "plugins/watchtower.py")
     l1, l2 = node_factory.line_graph(
         2,
-        opts=[{'may_fail': True}, {'plugin': p}]
+        opts=[{'may_fail': True,
+               'broken_log': r"onchaind-chan#[0-9]*: Could not find resolution for output .*: did \*we\* cheat\?"},
+              {'plugin': p}]
     )
     channel_id = l1.rpc.listpeerchannels()['channels'][0]['channel_id']
 

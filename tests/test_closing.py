@@ -514,7 +514,9 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams, anchors):
 
     # FIXME: | for dicts was added in Python 3.9 apparently.
     l1, l2 = node_factory.line_graph(2, opts=[{**opts, **{'may_fail': True,
-                                                          'feerates': (7500, 7500, 7500, 7500)}},
+                                                          'feerates': (7500, 7500, 7500, 7500),
+                                                          # We try to cheat!
+                                                          'broken_log': r"onchaind-chan#[0-9]*: Could not find resolution for output .*: did \*we\* cheat\?"}},
                                               opts])
 
     channel_id = first_channel_id(l1, l2)
@@ -646,7 +648,9 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams, anchors)
     # Feerates identical so we don't get gratuitous commit to update them
     l1, l2 = node_factory.line_graph(2,
                                      opts=[{**opts, **{'may_fail': True,
-                                                       'feerates': (7500, 7500, 7500, 7500)}},
+                                                       'feerates': (7500, 7500, 7500, 7500),
+                                                       # We try to cheat!
+                                                       'broken_log': r"onchaind-chan#[0-9]*: Could not find resolution for output .*: did \*we\* cheat\?"}},
                                            opts])
     channel_id = first_channel_id(l1, l2)
 

@@ -2020,7 +2020,8 @@ def test_dump_own_gossip(node_factory):
 def test_listchannels_deprecated_local(node_factory, bitcoind):
     """Test listchannels shows local/private channels only in deprecated mode"""
     l1, l2, l3 = node_factory.get_nodes(3,
-                                        opts=[{}, {'allow-deprecated-apis': True}, {}])
+                                        opts=[{}, {'allow-deprecated-apis': True,
+                                                   'broken_log': 'plugin-topology: DEPRECATED API USED: listchannels.include_private'}, {}])
     # This will be in block 103
     node_factory.join_nodes([l1, l2], wait_for_announce=False)
     l1l2 = first_scid(l1, l2)
