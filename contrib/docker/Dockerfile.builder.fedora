@@ -1,6 +1,6 @@
 FROM fedora:35
 
-ENV BITCOIN_VERSION 27.1
+ENV BITCOIN_VERSION=27.1
 WORKDIR /tmp
 
 RUN dnf update -y && \
@@ -12,8 +12,8 @@ RUN dnf update -y && \
 		libsq3-devel \
 		python3-devel \
 		python3-mako \
-                python3-pip \
-                python3-virtualenv \
+        python3-pip \
+        python3-virtualenv \
 		python3-setuptools \
 		redhat-lsb \
 		net-tools \
@@ -25,7 +25,7 @@ RUN dnf update -y && \
 		zlib-devel && \
 	dnf clean all
 
-RUN wget https://bitcoin.org/bin/bitcoin-core-$BITCOIN_VERSION/bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.gz -O bitcoin.tar.gz && \
+RUN wget https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.gz -O bitcoin.tar.gz && \
     tar -xvzf bitcoin.tar.gz && \
     mv bitcoin-$BITCOIN_VERSION/bin/bitcoin* /usr/local/bin/ && \
     mv bitcoin-$BITCOIN_VERSION/lib/* /usr/local/lib/ && \
