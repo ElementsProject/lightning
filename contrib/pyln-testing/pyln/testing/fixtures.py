@@ -605,6 +605,7 @@ def checkBadGossip(node):
 
 
 def checkBroken(node):
+    node.daemon.logs_catchup()
     broken_lines = [l for l in node.daemon.logs if '**BROKEN**' in l]
     if node.broken_log:
         ex = re.compile(node.broken_log)
