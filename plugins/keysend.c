@@ -182,8 +182,6 @@ static const char *init(struct plugin *p, const char *buf UNUSED,
 		 JSON_SCAN(json_accumulate_uintarr, &accepted_extra_tlvs),
 		 JSON_SCAN(jsonarr_accumulate_u64, &accepted_extra_tlvs));
 
-	global_hints = notleak_with_children(tal(NULL , struct channel_hint_set));
-
 	return NULL;
 }
 
