@@ -533,7 +533,7 @@ static const char *find_my_directory(const tal_t *ctx, const char *argv0)
 /* Determine the correct daemon dir. */
 static void find_subdaemons_and_plugins(struct lightningd *ld, const char *argv0)
 {
-	const char *my_path = find_my_directory(NULL, argv0);
+	const char *my_path = find_my_directory(tmpctx, argv0);
 	const char *prefix;
 
 	/* If we're running in-tree, all the subdaemons are with lightningd. */
