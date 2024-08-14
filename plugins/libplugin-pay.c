@@ -2411,6 +2411,18 @@ static void payment_finished(struct payment *p)
 	}
 }
 
+const char * const payment_step_str[] =
+{
+    [PAYMENT_STEP_INITIALIZED] = "PAYMENT_STEP_INITIALIZED",
+    [PAYMENT_STEP_GOT_ROUTE] = "PAYMENT_STEP_GOT_ROUTE",
+    [PAYMENT_STEP_RETRY_GETROUTE]  = "PAYMENT_STEP_RETRY_GETROUTE",
+    [PAYMENT_STEP_ONION_PAYLOAD]  = "PAYMENT_STEP_ONION_PAYLOAD",
+    [PAYMENT_STEP_SPLIT] = "PAYMENT_STEP_SPLIT",
+    [PAYMENT_STEP_RETRY] = "PAYMENT_STEP_RETRY",
+    [PAYMENT_STEP_FAILED]  = "PAYMENT_STEP_FAILED",
+    [PAYMENT_STEP_SUCCESS]  = "PAYMENT_STEP_SUCCESS",
+};
+
 void payment_set_step(struct payment *p, enum payment_step newstep)
 {
 	p->current_modifier = -1;
