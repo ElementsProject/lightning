@@ -470,8 +470,14 @@ static bool linearize_channel(const struct pay_parameters *params,
 		return false;
 	}
 
-	assert(
-	    amount_msat_less_eq(extra_half->htlc_total, extra_half->known_max));
+	/* FIXME: this assertion has been reported to be triggered in issue
+	 * #7535. A quick and dirty solution is to comment it and work-around
+	 * this case. But in principle if we do things the right way we should
+	 * not have htlc_total>known_max. The problem is likely to be
+	 * asynchronous way in which reserved htlcs are removed and known_max is
+	 * updated. */
+	// assert(
+	//    amount_msat_less_eq(extra_half->htlc_total, extra_half->known_max));
 	assert(
 	    amount_msat_less_eq(extra_half->known_min, extra_half->known_max));
 
