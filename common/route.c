@@ -100,7 +100,8 @@ static bool dijkstra_to_hops(struct route_hop **hops,
 		assert(c->half[1].nodeidx == curidx);
 		(*hops)[num_hops].direction = 1;
 	}
-	(*hops)[num_hops].scid = gossmap_chan_scid(gossmap, c);
+	struct route_hop *hint = &(*hops)[num_hops];
+	hint->scid = gossmap_chan_scid(gossmap, c);
 
 	/* Find other end of channel. */
 	next = gossmap_nth_node(gossmap, c, !(*hops)[num_hops].direction);
@@ -110,11 +111,11 @@ static bool dijkstra_to_hops(struct route_hop **hops,
 		return false;
 
 	gossmap_chan_get_capacity(gossmap, c, &total);
-	(*hops)[num_hops].total_amount.millisatoshis = total.satoshis * 1000; /* Raw: simpler. */
-	(*hops)[num_hops].amount = *amount;
-	(*hops)[num_hops].delay = *cltv;
+	hint->total_amount.millisatoshis = total.satoshis * 1000; /* Raw: simpler. */
+	hint->amount = *amount;
+	hint->delay = *cltv;
 
-	h = &c->half[(*hops)[num_hops].direction];
+	h = &c->half[hint->direction];
 	if (!amount_msat_add_fee(amount, h->base_fee, h->proportional_fee))
 		/* Shouldn't happen, since we said it would route,
 		 * amounts must be sane. */
