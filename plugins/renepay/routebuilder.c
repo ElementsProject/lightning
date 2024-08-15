@@ -166,6 +166,11 @@ struct route **get_routes(const tal_t *ctx,
 				 "Failed to build disabled_bitmap.");
 		goto function_fail;
 	}
+	if (amount_msat_zero(amount_to_deliver)) {
+		tal_report_error(ctx, ecode, fail, PLUGIN_ERROR,
+				 "amount to deliver is zero");
+		goto function_fail;
+	}
 
 	/* Also disable every channel that we don't have in the chan_extra_map.
 	 * We might have channels in the gossmap that are not usable for
@@ -280,7 +285,7 @@ struct route **get_routes(const tal_t *ctx,
 
 			const double prob = flow_probability(
 			    flows[i], gossmap,
-			    uncertainty_get_chan_extra_map(uncertainty));
+			    uncertainty_get_chan_extra_map(uncertainty), true);
 			if (prob < 0) {
 				// should not happen
 				tal_report_error(ctx, ecode, fail, PLUGIN_ERROR,

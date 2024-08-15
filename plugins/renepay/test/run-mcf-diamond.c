@@ -69,7 +69,7 @@ static const char* print_flows(
 {
 	tal_t *this_ctx = tal(ctx,tal_t);
 	double tot_prob =
-	    flowset_probability(tmpctx, flows, gossmap, chan_extra_map, NULL);
+	    flowset_probability(tmpctx, flows, gossmap, chan_extra_map, false, NULL);
 	assert(tot_prob>=0);
 	char *buff = tal_fmt(ctx,"%s: %zu subflows, prob %2lf\n", desc, tal_count(flows),tot_prob);
 	for (size_t i = 0; i < tal_count(flows); i++) {

@@ -34,7 +34,7 @@ static const char *print_flows(const tal_t *ctx, const char *desc,
 {
 	tal_t *this_ctx = tal(ctx, tal_t);
 	double tot_prob =
-	    flowset_probability(tmpctx, flows, gossmap, chan_extra_map, NULL);
+	    flowset_probability(tmpctx, flows, gossmap, chan_extra_map, false, NULL);
 	assert(tot_prob >= 0);
 	char *buff = tal_fmt(ctx, "%s: %zu subflows, prob %2lf\n", desc,
 			     tal_count(flows), tot_prob);
@@ -190,7 +190,8 @@ int main(int argc, char *argv[])
 	assert(skipped_count==0);
 
 	bitmap *disabled = tal_arrz(
- 	    tmpctx, bitmap, BITMAP_NWORDS(gossmap_max_chan_idx(gossmap)));
+	    tmpctx, bitmap, 2 * BITMAP_NWORDS(gossmap_max_chan_idx(gossmap)));
+	assert(disabled);
 
 	char *errmsg;
  	struct flow **flows;
@@ -208,11 +209,11 @@ int main(int argc, char *argv[])
  		    /* prob cost factor = */ 10, &errmsg);
 
 	if (!flows) {
-  		printf("Minflow has failed with: %s", errmsg);
-  		// assert(0 && "minflow failed");
-  	}
+		printf("Minflow has failed with: %s\n", errmsg);
+		assert(flows);
+	}
 
- 	if(flows)
+	if(flows)
   	printf("%s\n", print_flows(tmpctx, "Simple minflow", gossmap,
   				   uncertainty->chan_extra_map, flows));
 
@@ -274,10 +275,9 @@ int main(int argc, char *argv[])
 		&errcode,
 		&err_msg);
 
-	assert(routes);
-
 	if (!routes) {
-		printf("get_route failed with error %d: %s", errcode, err_msg);
+		printf("get_route failed with error %d: %s\n", errcode, err_msg);
+		assert(routes);
 	}
  	if(routes)
   	printf("get_routes: %s\n", print_routes(tmpctx, routes));
