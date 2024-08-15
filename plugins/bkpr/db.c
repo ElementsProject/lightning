@@ -14,6 +14,7 @@ struct migration {
 };
 
 static void migration_remove_dupe_lease_fees(struct plugin *p, struct db *db);
+static void migration_maybe_add_chainevents_spliced(struct plugin *p, struct db *db);
 
 /* Do not reorder or remove elements from this array.
  * It is used to migrate existing databases from a prevoius state, based on
@@ -100,7 +101,8 @@ static struct migration db_migrations[] = {
 	{SQL("ALTER TABLE channel_events ADD ev_desc TEXT DEFAULT NULL;"), NULL},
 	{SQL("ALTER TABLE channel_events ADD rebalance_id BIGINT DEFAULT NULL;"), NULL},
 	{SQL("ALTER TABLE chain_events ADD spliced INTEGER DEFAULT 0;"), NULL},
-	{NULL, migration_remove_dupe_lease_fees}
+	{NULL, migration_remove_dupe_lease_fees},
+	{NULL, migration_maybe_add_chainevents_spliced}
 };
 
 static bool db_migrate(struct plugin *p, struct db *db)
@@ -182,6 +184,27 @@ static void migration_remove_dupe_lease_fees(struct plugin *p, struct db *db)
 		db_exec_prepared_v2(take(del_stmt));
 	}
 	tal_free(stmt);
+}
+
+/* OK, funny story.  We added the "ALTER TABLE chain_events ADD spliced INTEGER DEFAULT 0;"
+ * migration in the wrong place, NOT at the end.  So if you are migrating from an old version,
+ * "migration_remove_dupe_lease_fees" ran (again), which is harmless, but this migration
+ * never got added. */
+static void migration_maybe_add_chainevents_spliced(struct plugin *p, struct db *db)
+{
+	struct db_stmt *stmt;
+	bool col_exists;
+
+	stmt = db_prepare_v2(db, SQL("SELECT spliced FROM chain_events"));
+	col_exists = db_query_prepared_canfail(stmt);
+	tal_free(stmt);
+	if (col_exists)
+		return;
+
+	plugin_log(p, LOG_INFORM,
+		   "Database fixup: adding spliced column to chain_events table");
+	stmt = db_prepare_v2(db, SQL("ALTER TABLE chain_events ADD spliced INTEGER DEFAULT 0;"));
+	db_exec_prepared_v2(take(stmt));
 }
 
 static void db_error(struct plugin *plugin, bool fatal, const char *fmt, va_list ap)

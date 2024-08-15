@@ -947,3 +947,16 @@ def test_bookkeeper_custom_notifs(node_factory):
     incomes = l1.rpc.bkpr_listincome()['income_events']
     acct_fee = only_one([inc['debit_msat'] for inc in incomes if inc['account'] == acct and inc['tag'] == 'onchain_fee'])
     assert acct_fee == Millisatoshi(fee)
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
+def test_bookkeeper_bad_migration(node_factory):
+    l1 = node_factory.get_node(bkpr_dbfile='bookkeeper-accounts-pre-v24.08-migration.sqlite3.xz')
+    l2 = node_factory.get_node()
+
+    # Make sure l1 does fixup, use query to force an access (which would fail if column not present)
+    assert l1.daemon.is_in_log("plugin-bookkeeper: Database fixup: adding spliced column to chain_events table")
+    l1.rpc.bkpr_listaccountevents('wallet')
+
+    # l2 will *not* do this
+    assert not l2.daemon.is_in_log("adding spliced column")
