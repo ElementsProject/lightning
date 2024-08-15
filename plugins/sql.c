@@ -534,7 +534,11 @@ static struct command_result *process_json_obj(struct command *cmd,
 			if (!col->sub->is_subobject)
 				continue;
 
-			coltok = json_get_member(buf, t, col->jsonname);
+			/* This can happen if the field is missing */
+			if (!t)
+				coltok = NULL;
+			else
+				coltok = json_get_member(buf, t, col->jsonname);
 			ret = process_json_obj(cmd, buf, coltok, col->sub, row, this_rowid,
 					       NULL, sqloff, stmt);
 			if (ret)
