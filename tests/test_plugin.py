@@ -4395,3 +4395,23 @@ def test_autoclean_batch(node_factory):
     l1.rpc.setconfig('autoclean-cycle', 5)
     wait_for(lambda: l1.rpc.autoclean_status('expiredinvoices')
              == {'autoclean': {'expiredinvoices': {'enabled': True, 'cleaned': 200, 'age': 2}}})
+
+
+def test_sql_crash(node_factory, bitcoind):
+    """sub-object with inner-sub-object is missing -> Crash.  This only
+    happens for local and remote inside listpeerchannels.update (for
+    now).
+
+    """
+    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+
+    addr = l1.rpc.newaddr()['bech32']
+    bitcoind.rpc.sendtoaddress(addr, 1)
+    bitcoind.generate_block(1)
+
+    wait_for(lambda: l1.rpc.listfunds()['outputs'] != [])
+
+    l1.rpc.fundchannel_start(l2.info['id'], '10000000sat')
+
+    assert 'updates' not in only_one(l1.rpc.listpeerchannels()['channels'])
+    l1.rpc.sql(f"SELECT * FROM peerchannels;")
