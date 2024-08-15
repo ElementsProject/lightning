@@ -18,7 +18,8 @@ static const char *print_routes(const tal_t *ctx,
 		delivered = route_delivers(routes[i]);
 		fee = route_fees(routes[i]);
 		tal_append_fmt(&buff, "   %s", fmt_route_path(this_ctx, routes[i]));
-		tal_append_fmt(&buff, " %s delivered with fee %s\n",
+		tal_append_fmt(&buff, " prob %.2f, %s delivered with fee %s\n",
+			       routes[i]->success_prob,
 			       fmt_amount_msat(this_ctx, delivered),
 			       fmt_amount_msat(this_ctx, fee));
 	}

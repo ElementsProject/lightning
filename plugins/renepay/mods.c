@@ -654,7 +654,8 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 
 	/* How much are we still trying to send? */
 	if (!amount_msat_sub(&remaining, payment->payment_info.amount,
-			     payment->total_delivering)) {
+			     payment->total_delivering) ||
+	    amount_msat_zero(remaining)) {
 		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
 			   "%s: Payment is pending with full amount already "
 			   "committed. We skip the computation of new routes.",
