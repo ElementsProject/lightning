@@ -695,7 +695,7 @@ static void test_flow_to_route(void)
 	assert(route);
 
 	assert(amount_msat_eq(route->hops[0].amount, deliver));
-	assert(fabs(flow_probability(F, gossmap, chan_extra_map) - 0.5)<eps);
+	assert(fabs(flow_probability(F, gossmap, chan_extra_map, true) - 0.5)<eps);
 
 	// flow 3->4->5
 	F = tal(this_ctx, struct flow);
@@ -711,7 +711,7 @@ static void test_flow_to_route(void)
 	assert(route);
 
 	assert(amount_msat_eq(route->hops[0].amount, amount_msat(250050016)));
-	assert(fabs(flow_probability(F, gossmap, chan_extra_map) - 1.)<eps);
+	assert(fabs(flow_probability(F, gossmap, chan_extra_map, true) - 1.)<eps);
 
 	// flow 2->3->4->5
 	F = tal(this_ctx, struct flow);
@@ -729,7 +729,7 @@ static void test_flow_to_route(void)
 	assert(route);
 
 	assert(amount_msat_eq(route->hops[0].amount, amount_msat(250087534)));
-	assert(fabs(flow_probability(F, gossmap, chan_extra_map) - 1. + 250.087534/2000)<eps);
+	assert(fabs(flow_probability(F, gossmap, chan_extra_map, true) - 1. + 250.087534/2000)<eps);
 
 	// flow 1->2->3->4->5
 	F = tal(this_ctx, struct flow);
@@ -749,7 +749,7 @@ static void test_flow_to_route(void)
 	assert(route);
 
 	assert(amount_msat_eq(route->hops[0].amount, amount_msat(250112544)));
-	assert(fabs(flow_probability(F, gossmap, chan_extra_map) - 0.43728117)<eps);
+	assert(fabs(flow_probability(F, gossmap, chan_extra_map, true) - 0.43728117)<eps);
 
 	tal_free(this_ctx);
 }

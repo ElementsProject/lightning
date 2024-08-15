@@ -1449,9 +1449,8 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 			excess = amount_msat(0);
 			fp->amount = delivered;
 
-
 			fp->success_prob =
-			    flow_probability(fp, gossmap, chan_extra_map)
+			    flow_probability(fp, gossmap, chan_extra_map, false)
 			    * pow(base_probability, tal_count(fp->path));
 			if (fp->success_prob < 0) {
 				if (fail)
@@ -1737,12 +1736,14 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 
 	best_prob_success =
 	    flowset_probability(this_ctx, best_flow_paths, params->gossmap,
-				params->chan_extra_map, &errmsg)
+				params->chan_extra_map, false, &errmsg)
 	    * pow(params->base_probability, flowset_size(best_flow_paths));
 	if (best_prob_success < 0) {
 		if (fail)
-		*fail =
-		    tal_fmt(ctx, "flowset_probability failed: %s", errmsg);
+			*fail = tal_fmt(
+			    ctx,
+			    "flowset_probability failed on MaxFlow phase: %s",
+			    errmsg);
 		goto function_fail;
 	}
 	if (!flowset_fee(&best_fee, best_flow_paths)) {
@@ -1795,7 +1796,7 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 
 		double prob_success =
 		    flowset_probability(this_ctx, flow_paths, params->gossmap,
-					params->chan_extra_map, &errmsg)
+					params->chan_extra_map, false, &errmsg)
 		    * pow(params->base_probability, flowset_size(flow_paths));
 		if (prob_success < 0) {
 			// flowset_probability doesn't fail unless there is a bug.

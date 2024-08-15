@@ -423,7 +423,7 @@ int main(int argc, char *argv[])
 
 	printf("Checking results.\n");
 	/* Should go 1->2->3 */
-	amounts = tal_flow_amounts(tmpctx, flows[0]);
+	amounts = tal_flow_amounts(tmpctx, flows[0], true);
 	assert(amounts);
 	assert(tal_count(flows) == 1);
 	assert(tal_count(flows[0]->path) == 2);
@@ -440,7 +440,7 @@ int main(int argc, char *argv[])
 
 	/* Each one has probability ~ 0.5 */
 	assert(flows[0]->success_prob > 0.249);
-	assert(flows[0]->success_prob <= 0.250);
+	assert(flows[0]->success_prob <= 0.251);
 
 
 	/* Should have filled in some extra data! */

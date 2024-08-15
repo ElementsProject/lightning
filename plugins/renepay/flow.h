@@ -43,7 +43,8 @@ double flow_edge_cost(const struct gossmap *gossmap,
 /* Compute the prob. of success of a set of concurrent set of flows. */
 double flowset_probability(const tal_t *ctx, struct flow **flows,
 			   const struct gossmap *const gossmap,
-			   struct chan_extra_map *chan_extra_map, char **fail);
+			   struct chan_extra_map *chan_extra_map,
+			   bool compute_fees, char **fail);
 
 /* How much do we need to send to make this flow arrive. */
 bool flow_spend(struct amount_msat *ret, struct flow *flow);
@@ -63,7 +64,8 @@ static inline struct amount_msat flow_delivers(const struct flow *flow)
 	return flow->amount;
 }
 
-struct amount_msat *tal_flow_amounts(const tal_t *ctx, const struct flow *flow);
+struct amount_msat *tal_flow_amounts(const tal_t *ctx, const struct flow *flow,
+				     bool compute_fees);
 
 enum renepay_errorcode
 flow_maximum_deliverable(struct amount_msat *max_deliverable,
@@ -79,7 +81,8 @@ bool flow_assign_delivery(struct flow *flow, const struct gossmap *gossmap,
 			  struct amount_msat requested_amount);
 
 double flow_probability(struct flow *flow, const struct gossmap *gossmap,
-			struct chan_extra_map *chan_extra_map);
+			struct chan_extra_map *chan_extra_map,
+			bool compute_fees);
 
 u64 flow_delay(const struct flow *flow);
 u64 flows_worst_delay(struct flow **flows);

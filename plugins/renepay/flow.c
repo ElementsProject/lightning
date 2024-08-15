@@ -14,7 +14,8 @@
 #define SUPERVERBOSE_ENABLED 1
 #endif
 
-struct amount_msat *tal_flow_amounts(const tal_t *ctx, const struct flow *flow)
+struct amount_msat *tal_flow_amounts(const tal_t *ctx, const struct flow *flow,
+				     bool compute_fees)
 {
 	const size_t pathlen = tal_count(flow->path);
 	struct amount_msat *amounts = tal_arr(ctx, struct amount_msat, pathlen);
@@ -23,7 +24,8 @@ struct amount_msat *tal_flow_amounts(const tal_t *ctx, const struct flow *flow)
 	for (int i = (int)pathlen - 2; i >= 0; i--) {
 		const struct half_chan *h = flow_edge(flow, i + 1);
 		amounts[i] = amounts[i + 1];
-		if (!amount_msat_add_fee(&amounts[i], h->base_fee,
+		if (compute_fees &&
+		    !amount_msat_add_fee(&amounts[i], h->base_fee,
 					 h->proportional_fee))
 			goto function_fail;
 	}
@@ -39,11 +41,7 @@ const char *fmt_flows(const tal_t *ctx, const struct gossmap *gossmap,
 		      struct flow **flows)
 {
 	tal_t *this_ctx = tal(ctx, tal_t);
-	double tot_prob =
-	    flowset_probability(tmpctx, flows, gossmap, chan_extra_map, NULL);
-	assert(tot_prob >= 0);
-	char *buff = tal_fmt(ctx, "%zu subflows, prob %2lf\n", tal_count(flows),
-			     tot_prob);
+	char *buff = tal_fmt(ctx, "%zu subflows\n", tal_count(flows));
 	for (size_t i = 0; i < tal_count(flows); i++) {
 		struct amount_msat fee, delivered;
 		tal_append_fmt(&buff, "   ");
@@ -233,11 +231,20 @@ struct chan_inflight_flow
 	struct amount_msat half[2];
 };
 
+/* @ctx: allocator
+ * @flows: flows for which the probability is computed
+ * @gossmap: gossip
+ * @chan_extra_map: knowledge
+ * @compute_fees: compute fees along the way or not
+ * @fail: if a failure occurs, returns a message to the caller
+ * */
 // TODO(eduardo): here chan_extra_map should be const
 // TODO(eduardo): here flows should be const
 double flowset_probability(const tal_t *ctx, struct flow **flows,
 			   const struct gossmap *const gossmap,
-			   struct chan_extra_map *chan_extra_map, char **fail)
+			   struct chan_extra_map *chan_extra_map,
+			   bool compute_fees,
+			   char **fail)
 {
 	assert(flows);
 	assert(gossmap);
@@ -251,6 +258,12 @@ double flowset_probability(const tal_t *ctx, struct flow **flows,
 	struct chan_inflight_flow *in_flight =
 	    tal_arr(this_ctx, struct chan_inflight_flow, max_num_chans);
 
+	if (!in_flight) {
+		if (fail)
+			*fail = tal_fmt(ctx, "failed to allocate memory");
+		goto function_fail;
+	}
+
 	for (size_t i = 0; i < max_num_chans; ++i) {
 		in_flight[i].half[0] = in_flight[i].half[1] = AMOUNT_MSAT(0);
 	}
@@ -258,7 +271,8 @@ double flowset_probability(const tal_t *ctx, struct flow **flows,
 	for (size_t i = 0; i < tal_count(flows); ++i) {
 		const struct flow *f = flows[i];
 		const size_t pathlen = tal_count(f->path);
-		struct amount_msat *amounts = tal_flow_amounts(this_ctx, f);
+		struct amount_msat *amounts =
+		    tal_flow_amounts(this_ctx, f, compute_fees);
 		if (!amounts)
 		{
 			if (fail)
@@ -284,18 +298,32 @@ double flowset_probability(const tal_t *ctx, struct flow **flows,
 
 			const struct amount_msat deliver = amounts[j];
 
-			struct amount_msat prev_flow;
+			struct amount_msat prev_flow, all_inflight;
 			if (!amount_msat_add(&prev_flow, h->htlc_total,
-					     in_flight[c_idx].half[c_dir])) {
+					     in_flight[c_idx].half[c_dir]) ||
+			    !amount_msat_add(&all_inflight, prev_flow,
+					     deliver)) {
 				if (fail)
-				*fail = tal_fmt(
-				    ctx, "in-flight amount_msat overflow");
+					*fail = tal_fmt(
+					    ctx,
+					    "in-flight amount_msat overflow");
 				goto function_fail;
 			}
 
-			double edge_prob =
-			    edge_probability(h->known_min, h->known_max,
-					     prev_flow, deliver);
+			if (!amount_msat_less_eq(all_inflight, h->known_max)) {
+				if (fail)
+					*fail = tal_fmt(
+					    ctx,
+					    "in-flight (%s) exceeds known_max "
+					    "(%s)",
+					    fmt_amount_msat(ctx, all_inflight),
+					    fmt_amount_msat(ctx, h->known_max));
+				goto function_fail;
+			}
+
+			double edge_prob = edge_probability(
+			    h->known_min, h->known_max, prev_flow, deliver);
+
 			if (edge_prob < 0) {
 				if (fail)
 				*fail = tal_fmt(ctx,
@@ -406,7 +434,8 @@ bool flow_assign_delivery(struct flow *flow, const struct gossmap *gossmap,
  * success provided that there are no other flows in the current MPP flow set.
  * */
 double flow_probability(struct flow *flow, const struct gossmap *gossmap,
-			struct chan_extra_map *chan_extra_map)
+			struct chan_extra_map *chan_extra_map,
+			bool compute_fees)
 {
 	assert(flow);
 	assert(gossmap);
@@ -425,8 +454,8 @@ double flow_probability(struct flow *flow, const struct gossmap *gossmap,
 
 		if (prob < 0)
 			goto function_fail;
-		if (!amount_msat_add_fee(&spend, h->base_fee,
-					 h->proportional_fee))
+		if (compute_fees && !amount_msat_add_fee(&spend, h->base_fee,
+							 h->proportional_fee))
 			goto function_fail;
 	}
 
