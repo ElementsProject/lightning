@@ -18,7 +18,7 @@ struct gossmap_node;
  * @direction: 0 (dest node_id < src node_id), 1 (dest node_id > src).
  * @node_id: the node_id of the destination of this hop.
  * @amount: amount to send through this hop.
- * @total_amount: The amount the channel was funded with.
+ * @capacity: The amount the channel was funded with.
  * @delay: total cltv delay at this hop.
  */
 struct route_hop {
@@ -26,7 +26,7 @@ struct route_hop {
 	int direction;
 	struct node_id node_id;
 	struct amount_msat amount;
-	struct amount_msat total_amount;
+	struct amount_sat capacity;
 	u32 delay;
 };
 

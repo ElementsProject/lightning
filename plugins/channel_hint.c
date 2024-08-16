@@ -9,8 +9,7 @@ void channel_hint_to_json(const char *name, const struct channel_hint *hint,
 	json_add_short_channel_id_dir(dest, "scid", hint->scid);
 	json_add_amount_msat(dest, "estimated_capacity_msat",
 			     hint->estimated_capacity);
-	json_add_amount_msat(dest, "capacity_msat",
-			     hint->capacity);
+	json_add_amount_sat(dest, "capacity_sat", hint->capacity);
 	json_add_bool(dest, "enabled", hint->enabled);
 	json_object_end(dest);
 }
@@ -37,8 +36,12 @@ bool channel_hint_update(const struct timeabs now, struct channel_hint *hint)
 	 * overall / refill_rate`.
 	 */
 	struct amount_msat refill;
+	struct amount_msat capacity;
+	if (!amount_sat_to_msat(&capacity, hint->capacity))
+		abort();
+
 	u64 seconds = now.ts.tv_sec - hint->timestamp;
-	if (!amount_msat_mul(&refill, hint->capacity, seconds))
+	if (!amount_msat_mul(&refill, capacity, seconds))
 		abort();
 
 	refill = amount_msat_div(refill, PAY_REFILL_TIME);
@@ -47,9 +50,8 @@ bool channel_hint_update(const struct timeabs now, struct channel_hint *hint)
 		abort();
 
 	/* Clamp the value to the `overall_capacity` */
-	if (amount_msat_greater(hint->estimated_capacity,
-				hint->capacity))
-		hint->estimated_capacity = hint->capacity;
+	if (amount_msat_greater(hint->estimated_capacity, capacity))
+		hint->estimated_capacity = capacity;
 
 	/* TODO This is rather coarse. We could map the disabled flag
 	to having 0msat capacity, and then relax from there. But it'd
@@ -65,8 +67,8 @@ bool channel_hint_update(const struct timeabs now, struct channel_hint *hint)
 	/* We report this hint as useless, if the hint does not
 	 * restrict the channel, i.e., if it is enabled and the
 	 * estimate is the same as the overall capacity. */
-	return !hint->enabled || amount_msat_greater(hint->capacity,
-						     hint->estimated_capacity);
+	return !hint->enabled ||
+	       amount_msat_greater(capacity, hint->estimated_capacity);
 }
 
 /**
@@ -90,7 +92,7 @@ struct channel_hint *channel_hint_from_json(const tal_t *ctx,
 			JSON_SCAN(json_to_u32, &hint->timestamp),
 			JSON_SCAN(json_to_short_channel_id_dir, &hint->scid),
 			JSON_SCAN(json_to_msat, &hint->estimated_capacity),
-			JSON_SCAN(json_to_msat, &hint->capacity),
+			JSON_SCAN(json_to_sat, &hint->capacity),
 			JSON_SCAN(json_to_bool, &hint->enabled));
 
 	if (ret != NULL)
