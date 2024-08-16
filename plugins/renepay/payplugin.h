@@ -87,7 +87,11 @@ struct pay_plugin {
 	u64 last_time;
 };
 
-/* Set in init */
-extern struct pay_plugin *pay_plugin;
+static inline struct pay_plugin *get_renepay(struct plugin *plugin)
+{
+	if (plugin)
+		return plugin_get_data(plugin, struct pay_plugin);
+	return NULL;
+}
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_PAYPLUGIN_H */

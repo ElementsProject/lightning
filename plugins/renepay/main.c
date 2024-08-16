@@ -24,10 +24,9 @@
 // it would be nice if listsendpay would give us the route of pending
 // sendpays.
 
-struct pay_plugin *pay_plugin;
-
 static void memleak_mark(struct plugin *p, struct htable *memtable)
 {
+	struct pay_plugin *pay_plugin = get_renepay(p);
 	memleak_scan_obj(memtable, pay_plugin);
 	memleak_scan_htable(memtable,
 			    &pay_plugin->uncertainty->chan_extra_map->raw);
@@ -38,6 +37,7 @@ static void memleak_mark(struct plugin *p, struct htable *memtable)
 static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
+	struct pay_plugin *pay_plugin = get_renepay(p);
 	size_t num_channel_updates_rejected = 0;
 
 	tal_steal(p, pay_plugin);
@@ -99,6 +99,7 @@ static struct command_result *json_paystatus(struct command *cmd,
 					     const char *buf,
 					     const jsmntok_t *params)
 {
+	struct pay_plugin *pay_plugin = get_renepay(cmd->plugin);
 	const char *invstring;
 	struct json_stream *ret;
 
@@ -155,6 +156,8 @@ static struct command_result * payment_start(struct payment *p)
 {
 	assert(p);
 	p->status = PAYMENT_PENDING;
+	struct pay_plugin *pay_plugin = get_renepay(p->plugin);
+	assert(pay_plugin);
 	plugin_log(pay_plugin->plugin, LOG_DBG, "Starting renepay");
 	p->exec_state = 0;
 	return payment_continue(p);
@@ -163,6 +166,8 @@ static struct command_result * payment_start(struct payment *p)
 static struct command_result *json_pay(struct command *cmd, const char *buf,
 				       const jsmntok_t *params)
 {
+	struct pay_plugin *pay_plugin = get_renepay(cmd->plugin);
+	assert(pay_plugin);
 	/* === Parse command line arguments === */
 	// TODO check if we leak some of these temporary variables
 
@@ -312,6 +317,7 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 	{
 		payment = payment_new(
 			tmpctx,
+			cmd->plugin,
 			&b11->payment_hash,
 			take(invstr),
 			take(label),
@@ -419,12 +425,12 @@ int main(int argc, char *argv[])
 	setup_locale();
 
 	/* Most gets initialized in init(), but set debug options here. */
-	pay_plugin = tal(NULL, struct pay_plugin);
+	struct pay_plugin *pay_plugin = tal(NULL, struct pay_plugin);
 	pay_plugin->debug_mcf = pay_plugin->debug_payflow = false;
 
 	plugin_main(
 		argv,
-		init, NULL,
+		init, pay_plugin,
 		PLUGIN_RESTARTABLE,
 		/* init_rpc */ true,
 		/* features */ NULL,

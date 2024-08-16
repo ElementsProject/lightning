@@ -29,7 +29,7 @@ struct command_result *payment_continue(struct payment *payment)
 	void *op = payment_virtual_program[payment->exec_state++];
 
 	if (op == OP_NULL) {
-		plugin_err(pay_plugin->plugin,
+		plugin_err(payment->plugin,
 			   "payment_continue reached the end of the virtual "
 			   "machine execution.");
 	} else if (op == OP_CALL) {
@@ -38,11 +38,11 @@ struct command_result *payment_continue(struct payment *payment)
 			payment_virtual_program[payment->exec_state++];
 
 		if (mod == NULL)
-			plugin_err(pay_plugin->plugin,
+			plugin_err(payment->plugin,
 				   "payment_continue expected payment_modifier "
 				   "but NULL found");
 
-		plugin_log(pay_plugin->plugin, LOG_DBG, "Calling modifier %s",
+		plugin_log(payment->plugin, LOG_DBG, "Calling modifier %s",
 			   mod->name);
 		return mod->step_cb(payment);
 	} else if (op == OP_IF) {
@@ -51,11 +51,11 @@ struct command_result *payment_continue(struct payment *payment)
 			payment_virtual_program[payment->exec_state++];
 
 		if (cond == NULL)
-			plugin_err(pay_plugin->plugin,
+			plugin_err(payment->plugin,
 				   "payment_continue expected pointer to "
 				   "condition but NULL found");
 
-		plugin_log(pay_plugin->plugin, LOG_DBG,
+		plugin_log(payment->plugin, LOG_DBG,
 			   "Calling payment condition %s", cond->name);
 
 		const u64 position_iftrue =
@@ -66,7 +66,7 @@ struct command_result *payment_continue(struct payment *payment)
 
 		return payment_continue(payment);
 	}
-	plugin_err(pay_plugin->plugin, "payment_continue op code not defined");
+	plugin_err(payment->plugin, "payment_continue op code not defined");
 	return NULL;
 }
 
@@ -104,10 +104,12 @@ struct success_data {
 };
 
 /* Extracts success data from listsendpays. */
-static bool success_data_from_listsendpays(const char *buf,
+static bool success_data_from_listsendpays(struct command *cmd, const char *buf,
 					   const jsmntok_t *arr,
 					   struct success_data *success)
 {
+	struct pay_plugin *pay_plugin = get_renepay(cmd->plugin);
+	assert(pay_plugin);
 	assert(success);
 
 	size_t i;
@@ -193,7 +195,7 @@ static struct command_result *previoussuccess_done(struct command *cmd,
 	}
 
 	struct success_data success;
-	if (!success_data_from_listsendpays(buf, arr, &success)) {
+	if (!success_data_from_listsendpays(cmd, buf, arr, &success)) {
 		/* There are no success sendpays. */
 		return payment_continue(payment);
 	}
@@ -256,6 +258,8 @@ static struct command_result *selfpay_success(struct command *cmd,
 					      const jsmntok_t *tok,
 					      struct route *route)
 {
+	struct pay_plugin *pay_plugin = get_renepay(cmd->plugin);
+	assert(pay_plugin);
 	tal_steal(tmpctx, route); // discard this route when tmpctx clears
 	struct payment *payment =
 		    payment_map_get(pay_plugin->payment_map, route->key.payment_hash);
@@ -279,6 +283,8 @@ static struct command_result *selfpay_failure(struct command *cmd,
 					      const jsmntok_t *tok,
 					      struct route *route)
 {
+	struct pay_plugin *pay_plugin = get_renepay(cmd->plugin);
+	assert(pay_plugin);
 	tal_steal(tmpctx, route); // discard this route when tmpctx clears
 	struct payment *payment =
 		    payment_map_get(pay_plugin->payment_map, route->key.payment_hash);
@@ -294,6 +300,8 @@ static struct command_result *selfpay_failure(struct command *cmd,
 
 static struct command_result *selfpay_cb(struct payment *payment)
 {
+	struct pay_plugin *pay_plugin = get_renepay(payment->plugin);
+	assert(pay_plugin);
 	if (!node_id_eq(&pay_plugin->my_id,
 			&payment->payment_info.destination)) {
 		return payment_continue(payment);
@@ -327,12 +335,12 @@ REGISTER_PAYMENT_MODIFIER(selfpay, selfpay_cb);
  * Calls listpeerchannels to get and updated state of the local channels.
  */
 
-static void
-uncertainty_update_from_listpeerchannels(struct uncertainty *uncertainty,
-				      const struct short_channel_id_dir *scidd,
-				      struct amount_msat max, bool enabled,
-				      const char *buf, const jsmntok_t *chantok)
+static void uncertainty_update_from_listpeerchannels(
+    struct pay_plugin *pay_plugin, const struct short_channel_id_dir *scidd,
+    struct amount_msat max, bool enabled, const char *buf,
+    const jsmntok_t *chantok)
 {
+	assert(pay_plugin);
 	if (!enabled)
 		return;
 
@@ -384,6 +392,8 @@ static void gossmod_cb(struct gossmap_localmods *mods,
 		       const jsmntok_t *chantok,
 		       struct payment *payment)
 {
+	struct pay_plugin *pay_plugin = get_renepay(payment->plugin);
+	assert(pay_plugin);
 	struct amount_msat min, max;
 
 	if (scidd->dir == node_id_idx(self, peer)) {
@@ -416,8 +426,8 @@ static void gossmod_cb(struct gossmap_localmods *mods,
 	 * channel as well we would have conflicting information because our
 	 * knowledge model does not take into account channel reserves. */
 	if (scidd->dir == node_id_idx(self, peer))
-		uncertainty_update_from_listpeerchannels(
-		    pay_plugin->uncertainty, scidd, max, enabled, buf, chantok);
+		uncertainty_update_from_listpeerchannels(pay_plugin, scidd, max,
+							 enabled, buf, chantok);
 }
 
 static struct command_result *getmychannels_done(struct command *cmd,
@@ -425,6 +435,8 @@ static struct command_result *getmychannels_done(struct command *cmd,
 						 const jsmntok_t *result,
 						 struct payment *payment)
 {
+	struct pay_plugin *pay_plugin = get_renepay(cmd->plugin);
+	assert(pay_plugin);
 	// FIXME: should local gossmods be global (ie. member of pay_plugin) or
 	// local (ie. member of payment)?
 	payment->local_gossmods = gossmods_from_listpeerchannels(
@@ -436,6 +448,8 @@ static struct command_result *getmychannels_done(struct command *cmd,
 
 static struct command_result *getmychannels_cb(struct payment *payment)
 {
+	struct pay_plugin *pay_plugin = get_renepay(payment->plugin);
+	assert(pay_plugin);
 	struct command *cmd = payment_command(payment);
 	if (!cmd)
 		plugin_err(pay_plugin->plugin,
@@ -457,9 +471,11 @@ REGISTER_PAYMENT_MODIFIER(getmychannels, getmychannels_cb);
 
 static struct command_result *refreshgossmap_cb(struct payment *payment)
 {
-	assert(pay_plugin->gossmap); // gossmap must be already initialized
 	assert(payment);
 	assert(payment->local_gossmods);
+	struct pay_plugin *pay_plugin = get_renepay(payment->plugin);
+	assert(pay_plugin);
+	assert(pay_plugin->gossmap); // gossmap must be already initialized
 
 	size_t num_channel_updates_rejected = 0;
 	bool gossmap_changed =
@@ -504,6 +520,8 @@ static void add_hintchan(struct payment *payment, const struct node_id *src,
 {
 	assert(payment);
 	assert(payment->local_gossmods);
+	struct pay_plugin *pay_plugin = get_renepay(payment->plugin);
+	assert(pay_plugin);
 
 	int dir = node_id_idx(src, dst);
 
@@ -560,7 +578,7 @@ function_error:
 		   errmsg);
 }
 
-static struct command_result *routehints_done(struct command *cmd UNUSED,
+static struct command_result *routehints_done(struct command *cmd,
 					      const char *buf UNUSED,
 					      const jsmntok_t *result UNUSED,
 					      struct payment *payment)
@@ -568,6 +586,8 @@ static struct command_result *routehints_done(struct command *cmd UNUSED,
 	// FIXME are there route hints for B12?
 	assert(payment);
 	assert(payment->local_gossmods);
+	struct pay_plugin *pay_plugin = get_renepay(cmd->plugin);
+	assert(pay_plugin);
 
 	const struct node_id *destination = &payment->payment_info.destination;
 	const struct route_info **routehints = payment->payment_info.routehints;
@@ -623,6 +643,9 @@ REGISTER_PAYMENT_MODIFIER(routehints, routehints_cb);
 
 static struct command_result *compute_routes_cb(struct payment *payment)
 {
+	assert(payment);
+	struct pay_plugin *pay_plugin = get_renepay(payment->plugin);
+	assert(pay_plugin);
 	assert(payment->status == PAYMENT_PENDING);
 	struct routetracker *routetracker = payment->routetracker;
 	assert(routetracker);
@@ -719,6 +742,8 @@ REGISTER_PAYMENT_MODIFIER(compute_routes, compute_routes_cb);
 static struct command_result *send_routes_cb(struct payment *payment)
 {
 	assert(payment);
+	struct pay_plugin *pay_plugin = get_renepay(payment->plugin);
+	assert(pay_plugin);
 	struct routetracker *routetracker = payment->routetracker;
 	assert(routetracker);
 	if (!routetracker->computed_routes ||
@@ -760,7 +785,7 @@ static void sleep_done(struct payment *payment)
 {
 	payment->waitresult_timer = NULL;
 	// TODO: is this compulsory?
-	timer_complete(pay_plugin->plugin);
+	timer_complete(payment->plugin);
 	payment_continue(payment);
 }
 
@@ -768,7 +793,7 @@ static struct command_result *sleep_cb(struct payment *payment)
 {
 	assert(payment->waitresult_timer == NULL);
 	payment->waitresult_timer = plugin_timer(
-	    pay_plugin->plugin, time_from_msec(COLLECTOR_TIME_WINDOW_MSEC), sleep_done, payment);
+	    payment->plugin, time_from_msec(COLLECTOR_TIME_WINDOW_MSEC), sleep_done, payment);
 	struct command *cmd = payment_command(payment);
 	assert(cmd);
 	return command_still_pending(cmd);
@@ -803,7 +828,7 @@ static struct command_result *collect_results_cb(struct payment *payment)
 		if (!amount_msat_greater_eq(payment->total_delivering,
 					    payment->payment_info.amount)) {
 			plugin_log(
-			    pay_plugin->plugin, LOG_UNUSUAL,
+			    payment->plugin, LOG_UNUSUAL,
 			    "%s: received a success sendpay for this "
 			    "payment but the total delivering amount %s "
 			    "is less than the payment amount %s.",
@@ -898,6 +923,8 @@ static struct command_result *pendingsendpays_done(struct command *cmd,
 						   const jsmntok_t *result,
 						   struct payment *payment)
 {
+	struct pay_plugin *pay_plugin = get_renepay(cmd->plugin);
+	assert(pay_plugin);
 	size_t i;
 	const char *err;
 	const jsmntok_t *t, *arr;
@@ -919,7 +946,7 @@ static struct command_result *pendingsendpays_done(struct command *cmd,
 	}
 
 	struct success_data success;
-	if (success_data_from_listsendpays(buf, arr, &success)) {
+	if (success_data_from_listsendpays(cmd, buf, arr, &success)) {
 		/* Have success data, hence the payment is complete, we stop. */
 		payment->payment_info.start_time.ts.tv_sec = success.created_at;
 		payment->payment_info.start_time.ts.tv_nsec = 0;
@@ -1068,6 +1095,8 @@ REGISTER_PAYMENT_MODIFIER(pendingsendpays, pendingsendpays_cb);
 
 static struct command_result *knowledgerelax_cb(struct payment *payment)
 {
+	struct pay_plugin *pay_plugin = get_renepay(payment->plugin);
+	assert(pay_plugin);
 	const u64 now_sec = time_now().ts.tv_sec;
 	enum renepay_errorcode err = uncertainty_relax(
 	    pay_plugin->uncertainty, now_sec - pay_plugin->last_time);
@@ -1102,6 +1131,8 @@ REGISTER_PAYMENT_MODIFIER(knowledgerelax, knowledgerelax_cb);
 static struct command_result *channelfilter_cb(struct payment *payment)
 {
 	assert(payment);
+	struct pay_plugin *pay_plugin = get_renepay(payment->plugin);
+	assert(pay_plugin);
 	assert(pay_plugin->gossmap);
 	const double HTLC_MAX_FRACTION = 0.01; // 1%
 	const u64 HTLC_MAX_STOP_MSAT = 1000000000; // 1M sats

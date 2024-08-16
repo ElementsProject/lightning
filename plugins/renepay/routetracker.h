@@ -7,6 +7,9 @@
 #include <plugins/renepay/route.h>
 
 struct routetracker{
+	/* able to write logs */
+	struct plugin *plugin;
+
 	/* Routes that we compute and are kept here before sending them. */
 	struct route **computed_routes;
 

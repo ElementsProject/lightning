@@ -25,6 +25,8 @@ static struct command_result *handle_failure(struct routefail *r);
 struct command_result *routefail_start(const tal_t *ctx, struct route *route,
 				       struct command *cmd)
 {
+	struct pay_plugin *pay_plugin = get_renepay(cmd->plugin);
+	assert(pay_plugin);
 	assert(route);
 	struct routefail *r = tal(ctx, struct routefail);
 	struct payment *payment =
