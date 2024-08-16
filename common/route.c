@@ -105,7 +105,8 @@ static bool dijkstra_to_hops(struct route_hop **hops,
 		return false;
 
 	gossmap_chan_get_capacity(gossmap, c, &total);
-	(*hops)[num_hops].total_amount.millisatoshis = total.satoshis * 1000; /* Raw: simpler. */
+	if (!amount_sat_to_msat(&((*hops[num_hops]).total_amount), total))
+		abort();
 	(*hops)[num_hops].amount = *amount;
 	(*hops)[num_hops].delay = *cltv;
 
