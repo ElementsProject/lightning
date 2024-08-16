@@ -40,10 +40,10 @@ struct channel_hint {
 	/* Non-null if we are one endpoint of this channel */
 	struct local_hint *local;
 
-	/* The total `amount_msat` that were used to fund the
+	/* The total `amount_sat` that were used to fund the
 	 * channel. This is always smaller gte the
-	 * estimated_capacity */
-	struct amount_msat capacity;
+	 * estimated_capacity (after normalization) */
+	struct amount_sat capacity;
 };
 
 /* A collection of channel_hint instances, allowing us to handle and

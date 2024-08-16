@@ -5,10 +5,10 @@
 #define LIGHTNING_COMMON_JSON_STREAM_H
 #include "config.h"
 
-#include <bitcoin/short_channel_id.h>
 #define JSMN_STRICT 1
 # include <external/jsmn/jsmn.h>
 
+#include <bitcoin/short_channel_id.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <ccan/time/time.h>
@@ -332,6 +332,11 @@ void json_add_address_internal(struct json_stream *response,
 void json_add_amount_msat(struct json_stream *result,
 			  const char *msatfieldname,
 			  struct amount_msat msat)
+	NO_NULL_ARGS;
+
+void json_add_amount_sat(struct json_stream *result,
+			  const char *satfieldname,
+			  struct amount_sat sat)
 	NO_NULL_ARGS;
 
 /* Adds an 'msat' field */
