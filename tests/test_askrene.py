@@ -116,14 +116,14 @@ def check_getroute_paths(node,
                          paths,
                          layers=[],
                          maxfee_msat=1000,
-                         finalcltv=99):
+                         final_cltv=99):
     """Check that routes are as expected in result"""
     getroutes = node.rpc.getroutes(source=source,
                                    destination=destination,
                                    amount_msat=amount_msat,
                                    layers=layers,
                                    maxfee_msat=maxfee_msat,
-                                   finalcltv=finalcltv)
+                                   final_cltv=final_cltv)
 
     assert getroutes['probability_ppm'] <= 1000000
     # Total delivered should be amount we told it to send.
@@ -169,34 +169,36 @@ def test_getroutes(node_factory):
                             amount_msat=1000,
                             layers=[],
                             maxfee_msat=1000,
-                            finalcltv=99) == {'probability_ppm': 999999,
-                                              'routes': [{'probability_ppm': 999999,
-                                                          'amount_msat': 1000,
-                                                          'path': [{'short_channel_id': '0x1x0',
-                                                                    'direction': 1,
-                                                                    'next_node_id': nodemap[1],
-                                                                    'amount_msat': 1010,
-                                                                    'delay': 99 + 6}]}]}
+                            final_cltv=99) == {'probability_ppm': 999999,
+                                               'routes': [{'probability_ppm': 999999,
+                                                           'final_cltv': 99,
+                                                           'amount_msat': 1000,
+                                                           'path': [{'short_channel_id': '0x1x0',
+                                                                     'direction': 1,
+                                                                     'next_node_id': nodemap[1],
+                                                                     'amount_msat': 1010,
+                                                                     'delay': 99 + 6}]}]}
     # Two hop, still easy.
     assert l1.rpc.getroutes(source=nodemap[0],
                             destination=nodemap[3],
                             amount_msat=100000,
                             layers=[],
                             maxfee_msat=5000,
-                            finalcltv=99) == {'probability_ppm': 999798,
-                                              'routes': [{'probability_ppm': 999798,
-                                                          'amount_msat': 100000,
-                                                          'path': [{'short_channel_id': '0x1x0',
-                                                                    'direction': 1,
-                                                                    'next_node_id': nodemap[1],
-                                                                    'amount_msat': 103020,
-                                                                    'delay': 99 + 6 + 6},
-                                                                   {'short_channel_id': '1x3x2',
-                                                                    'direction': 1,
-                                                                    'next_node_id': nodemap[3],
-                                                                    'amount_msat': 102000,
-                                                                    'delay': 99 + 6}
-                                                                   ]}]}
+                            final_cltv=99) == {'probability_ppm': 999798,
+                                               'routes': [{'probability_ppm': 999798,
+                                                           'final_cltv': 99,
+                                                           'amount_msat': 100000,
+                                                           'path': [{'short_channel_id': '0x1x0',
+                                                                     'direction': 1,
+                                                                     'next_node_id': nodemap[1],
+                                                                     'amount_msat': 103020,
+                                                                     'delay': 99 + 6 + 6},
+                                                                    {'short_channel_id': '1x3x2',
+                                                                     'direction': 1,
+                                                                     'next_node_id': nodemap[3],
+                                                                     'amount_msat': 102000,
+                                                                     'delay': 99 + 6}
+                                                                    ]}]}
 
     # Too expensive
     with pytest.raises(RpcError, match="Could not find route without excessive cost"):
@@ -205,7 +207,7 @@ def test_getroutes(node_factory):
                          amount_msat=100000,
                          layers=[],
                          maxfee_msat=100,
-                         finalcltv=99)
+                         final_cltv=99)
 
     # Too much delay (if final delay too great!)
     l1.rpc.getroutes(source=nodemap[0],
@@ -213,14 +215,14 @@ def test_getroutes(node_factory):
                      amount_msat=100000,
                      layers=[],
                      maxfee_msat=100,
-                     finalcltv=6)
+                     final_cltv=6)
     with pytest.raises(RpcError, match="Could not find route without excessive delays"):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[4],
                          amount_msat=100000,
                          layers=[],
                          maxfee_msat=100,
-                         finalcltv=99)
+                         final_cltv=99)
 
     # Two choices, but for <= 1000 sats we choose the larger.
     assert l1.rpc.getroutes(source=nodemap[0],
@@ -228,14 +230,15 @@ def test_getroutes(node_factory):
                             amount_msat=1000000,
                             layers=[],
                             maxfee_msat=5000,
-                            finalcltv=99) == {'probability_ppm': 900000,
-                                              'routes': [{'probability_ppm': 900000,
-                                                          'amount_msat': 1000000,
-                                                          'path': [{'short_channel_id': '0x2x3',
-                                                                    'direction': 1,
-                                                                    'next_node_id': nodemap[2],
-                                                                    'amount_msat': 1000001,
-                                                                    'delay': 99 + 6}]}]}
+                            final_cltv=99) == {'probability_ppm': 900000,
+                                               'routes': [{'probability_ppm': 900000,
+                                                           'final_cltv': 99,
+                                                           'amount_msat': 1000000,
+                                                           'path': [{'short_channel_id': '0x2x3',
+                                                                     'direction': 1,
+                                                                     'next_node_id': nodemap[2],
+                                                                     'amount_msat': 1000001,
+                                                                     'delay': 99 + 6}]}]}
 
     # For 10000 sats, we will split.
     check_getroute_paths(l1,
@@ -310,34 +313,36 @@ def test_getroutes_auto_sourcefree(node_factory):
                             amount_msat=1000,
                             layers=['auto.sourcefree'],
                             maxfee_msat=1000,
-                            finalcltv=99) == {'probability_ppm': 999999,
-                                              'routes': [{'probability_ppm': 999999,
-                                                          'amount_msat': 1000,
-                                                          'path': [{'short_channel_id': '0x1x0',
-                                                                    'direction': 1,
-                                                                    'next_node_id': nodemap[1],
-                                                                    'amount_msat': 1000,
-                                                                    'delay': 99}]}]}
+                            final_cltv=99) == {'probability_ppm': 999999,
+                                               'routes': [{'probability_ppm': 999999,
+                                                           'final_cltv': 99,
+                                                           'amount_msat': 1000,
+                                                           'path': [{'short_channel_id': '0x1x0',
+                                                                     'direction': 1,
+                                                                     'next_node_id': nodemap[1],
+                                                                     'amount_msat': 1000,
+                                                                     'delay': 99}]}]}
     # Two hop, still easy.
     assert l1.rpc.getroutes(source=nodemap[0],
                             destination=nodemap[3],
                             amount_msat=100000,
                             layers=['auto.sourcefree'],
                             maxfee_msat=5000,
-                            finalcltv=99) == {'probability_ppm': 999798,
-                                              'routes': [{'probability_ppm': 999798,
-                                                          'amount_msat': 100000,
-                                                          'path': [{'short_channel_id': '0x1x0',
-                                                                    'direction': 1,
-                                                                    'next_node_id': nodemap[1],
-                                                                    'amount_msat': 102000,
-                                                                    'delay': 99 + 6},
-                                                                   {'short_channel_id': '1x3x2',
-                                                                    'direction': 1,
-                                                                    'next_node_id': nodemap[3],
-                                                                    'amount_msat': 102000,
-                                                                    'delay': 99 + 6}
-                                                                   ]}]}
+                            final_cltv=99) == {'probability_ppm': 999798,
+                                               'routes': [{'probability_ppm': 999798,
+                                                           'final_cltv': 99,
+                                                           'amount_msat': 100000,
+                                                           'path': [{'short_channel_id': '0x1x0',
+                                                                     'direction': 1,
+                                                                     'next_node_id': nodemap[1],
+                                                                     'amount_msat': 102000,
+                                                                     'delay': 99 + 6},
+                                                                    {'short_channel_id': '1x3x2',
+                                                                     'direction': 1,
+                                                                     'next_node_id': nodemap[3],
+                                                                     'amount_msat': 102000,
+                                                                     'delay': 99 + 6}
+                                                                    ]}]}
 
     # Too expensive
     with pytest.raises(RpcError, match="Could not find route without excessive cost"):
@@ -346,7 +351,7 @@ def test_getroutes_auto_sourcefree(node_factory):
                          amount_msat=100000,
                          layers=[],
                          maxfee_msat=100,
-                         finalcltv=99)
+                         final_cltv=99)
 
     # Too much delay (if final delay too great!)
     l1.rpc.getroutes(source=nodemap[0],
@@ -354,14 +359,14 @@ def test_getroutes_auto_sourcefree(node_factory):
                      amount_msat=100000,
                      layers=[],
                      maxfee_msat=100,
-                     finalcltv=6)
+                     final_cltv=6)
     with pytest.raises(RpcError, match="Could not find route without excessive delays"):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[4],
                          amount_msat=100000,
                          layers=[],
                          maxfee_msat=100,
-                         finalcltv=99)
+                         final_cltv=99)
 
 
 def test_getroutes_auto_localchans(node_factory):
@@ -387,7 +392,7 @@ def test_getroutes_auto_localchans(node_factory):
                          amount_msat=100000,
                          layers=[],
                          maxfee_msat=100000,
-                         finalcltv=99)
+                         final_cltv=99)
 
     # This should work
     check_getroute_paths(l1,

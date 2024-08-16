@@ -8,7 +8,7 @@
   "description": [
     "WARNING: experimental, so API may change.",
     "",
-    "The **getroutes** RPC command attempts to find the best set of paths for the payment from *source* to *destination* of *amount_msat*, using the given *layers* on top of the gossip information.  The result is constrained by *maxfee*, and will arrive at the destiation with *finalcltv*.",
+    "The **getroutes** RPC command attempts to find the best set of paths for the payment from *source* to *destination* of *amount_msat*, using the given *layers* on top of the gossip information.  The result is constrained by *maxfee*, and will arrive at the destination with *final_cltv*.",
     "",
     "NOTE: The returned paths are a different format then *getroute*, being more appropriate for creating intermediary onion layers.",
     "",
@@ -26,7 +26,7 @@
       "amount_msat",
       "layers",
       "maxfee_msat",
-      "finalcltv"
+      "final_cltv"
     ],
     "properties": {
       "source": {
@@ -62,7 +62,7 @@
           "Maximum fee to spend: we will never return a set of routes more expensive than this. It can be a whole number, or a whole number ending in *msat* or *sat*, or a number with three decimal places ending in *sat*, or a number with 1 to 11 decimal places ending in *btc*."
         ]
       },
-      "finalcltv": {
+      "final_cltv": {
         "type": "u32",
         "description": [
           "Number of blocks for the final node.  We need to know this because no HTLC is allowed to have a CLTV delay more than 2016 blocks."
@@ -90,6 +90,7 @@
           "required": [
             "probability_ppm",
             "amount_msat",
+            "final_cltv",
             "path"
           ],
           "properties": {
@@ -103,6 +104,12 @@
               "type": "msat",
               "description": [
                 "The amount delivered to the *destination* by this path."
+              ]
+            },
+            "final_cltv": {
+              "type": "u32",
+              "description": [
+                "Number of blocks required by the final node (set by caller)"
               ]
             },
             "path": {
