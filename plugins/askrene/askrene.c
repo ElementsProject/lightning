@@ -500,6 +500,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 		json_object_start(response, NULL);
 		json_add_u64(response, "probability_ppm", (u64)(routes[i]->success_prob * 1000000));
 		json_add_amount_msat(response, "amount_msat", amounts[i]);
+		json_add_u32(response, "final_cltv", *info->finalcltv);
 		json_array_start(response, "path");
 		for (size_t j = 0; j < tal_count(routes[i]->hops); j++) {
 			const struct route_hop *r = &routes[i]->hops[j];
@@ -579,7 +580,7 @@ static struct command_result *json_getroutes(struct command *cmd,
 		   p_req("amount_msat", param_msat, &info->amount),
 		   p_req("layers", param_string_array, &info->layers),
 		   p_req("maxfee_msat", param_msat, &info->maxfee),
-		   p_req("finalcltv", param_u32, &info->finalcltv),
+		   p_req("final_cltv", param_u32, &info->finalcltv),
 		   NULL))
 		return command_param_failed();
 
