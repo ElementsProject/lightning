@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
-## [24.08rc1] - 2024-08-12: "TO BE ADDED"
+## [24.08rc2] - 2024-08-15: "TO BE ADDED"
 
 This release named by @Lagrang3.
 
@@ -68,6 +68,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 ### Fixed
 
  - protocol: we can now open unannounced channels with LND nodes again. ([#7564])
+ - plugins: `sql` crash on querying `listpeerchannels` during channel establishment. ([#7578])
  - config: whitespace at the end of (most) options is now ignored, not complained about. ([#7251])
  - connectd: now should use far less CPU on large nodes. ([#7365])
  - lightningd: occasionally we could miss transaction outputs (not telling gossipd, or even onchaind) ([#7567])
@@ -89,10 +90,13 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - offers: fixed: fetchinvoice tries all blinded paths until one is usable, and handles case where we have to route more than one hop to reach the entry point. ([#7456])
  - renepay: prune the network by disabling channels we don't like, eg. very low max_htlc. ([#7403])
  - renepay: fixed: un-reserve routes that have completed or failed ([#7357])
+ - renepay: Add a dev parameter representing a constant probability of availability for all channels in the network. ([#7540])
  - renepay: add cli option "exclude" to manually disable channels and nodes. ([#7403])
 
 
 
+[#7540]: https://github.com/ElementsProject/lightning/pull/7540
+[#7578]: https://github.com/ElementsProject/lightning/pull/7578
 [#7447]: https://github.com/ElementsProject/lightning/pull/7447
 [#7420]: https://github.com/ElementsProject/lightning/pull/7420
 [#7418]: https://github.com/ElementsProject/lightning/pull/7418
@@ -129,7 +133,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#7533]: https://github.com/ElementsProject/lightning/pull/7533
 [#7567]: https://github.com/ElementsProject/lightning/pull/7567
 [#7298]: https://github.com/ElementsProject/lightning/pull/7298
-[24.08rc1]: https://github.com/ElementsProject/lightning/releases/tag/v24.08rc1
+[24.08rc2]: https://github.com/ElementsProject/lightning/releases/tag/v24.08rc2
 
 
 
