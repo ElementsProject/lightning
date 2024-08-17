@@ -1200,21 +1200,22 @@ void *payment_virtual_program[] = {
     /*2*/ OP_CALL, &selfpay_pay_mod,
     /*4*/ OP_CALL, &knowledgerelax_pay_mod,
     /*6*/ OP_CALL, &getmychannels_pay_mod,
-    /*8*/ OP_CALL, &routehints_pay_mod,
-    /*10*/OP_CALL, &channelfilter_pay_mod,
+    /*8*/ OP_CALL, &refreshgossmap_pay_mod,
+    /*10*/ OP_CALL, &routehints_pay_mod,
+    /*12*/OP_CALL, &channelfilter_pay_mod,
     // TODO shadow_additions
     /* do */
-	    /*12*/ OP_CALL, &pendingsendpays_pay_mod,
-	    /*14*/ OP_CALL, &checktimeout_pay_mod,
-	    /*16*/ OP_CALL, &refreshgossmap_pay_mod,
-	    /*18*/ OP_CALL, &compute_routes_pay_mod,
-	    /*20*/ OP_CALL, &send_routes_pay_mod,
+	    /*14*/ OP_CALL, &pendingsendpays_pay_mod,
+	    /*16*/ OP_CALL, &checktimeout_pay_mod,
+	    /*18*/ OP_CALL, &refreshgossmap_pay_mod,
+	    /*20*/ OP_CALL, &compute_routes_pay_mod,
+	    /*22*/ OP_CALL, &send_routes_pay_mod,
 	    /*do*/
-		    /*22*/ OP_CALL, &sleep_pay_mod,
-		    /*24*/ OP_CALL, &collect_results_pay_mod,
+		    /*24*/ OP_CALL, &sleep_pay_mod,
+		    /*26*/ OP_CALL, &collect_results_pay_mod,
 	    /*while*/
-	    /*26*/ OP_IF, &nothaveresults_pay_cond, (void *)22,
+	    /*28*/ OP_IF, &nothaveresults_pay_cond, (void *)24,
     /* while */
-    /*29*/ OP_IF, &retry_pay_cond, (void *)12,
-    /*32*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
-    /*34*/ NULL};
+    /*31*/ OP_IF, &retry_pay_cond, (void *)14,
+    /*34*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
+    /*36*/ NULL};
