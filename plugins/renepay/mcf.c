@@ -481,7 +481,7 @@ static bool linearize_channel(const struct pay_parameters *params,
 	assert(
 	    amount_msat_less_eq(extra_half->known_min, extra_half->known_max));
 
-	s64 h = extra_half->htlc_total.millisatoshis/1000; /* Raw: linearize_channel */
+	s64 h = (extra_half->htlc_total.millisatoshis+999)/1000; /* Raw: linearize_channel */
 	s64 a = extra_half->known_min.millisatoshis/1000, /* Raw: linearize_channel */
 	    b = 1 + extra_half->known_max.millisatoshis/1000; /* Raw: linearize_channel */
 
