@@ -140,7 +140,8 @@ chan_extra_commit_htlc(struct chan_extra_map *chan_extra_map,
 enum renepay_errorcode
 chan_extra_set_liquidity(struct chan_extra_map *chan_extra_map,
 			 const struct short_channel_id_dir *scidd,
-			 struct amount_msat x);
+			 struct amount_msat min,
+			 struct amount_msat max);
 
 /* Update the knowledge that this (channel,direction) has sent x msat.*/
 enum renepay_errorcode
