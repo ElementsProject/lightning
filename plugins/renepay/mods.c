@@ -336,7 +336,7 @@ uncertainty_update_from_listpeerchannels(struct uncertainty *uncertainty,
 	if (!enabled)
 		return;
 
-	struct amount_msat capacity;
+	struct amount_msat capacity, min, gap;
 	const char *errmsg = json_scan(tmpctx, buf, chantok, "{total_msat:%}",
 				       JSON_SCAN(json_to_msat, &capacity));
 	if (errmsg)
@@ -350,8 +350,19 @@ uncertainty_update_from_listpeerchannels(struct uncertainty *uncertainty,
 		    fmt_short_channel_id(tmpctx, scidd->scid));
 		goto error;
 	}
+
+	if (!amount_msat_scale(&gap, capacity, 0.1) ||
+	    !amount_msat_sub(&min, max, gap))
+		min = AMOUNT_MSAT(0);
+
 	// FIXME this does not include pending HTLC of ongoing payments!
-	if (!uncertainty_set_liquidity(pay_plugin->uncertainty, scidd, max)) {
+	/* Allow a gap between min and max so that we don't use up all of our
+	 * channels' spendable sats and avoid our local error:
+	 * WIRE_TEMPORARY_CHANNEL_FAILURE: Capacity exceeded - HTLC fee: Xsat
+	 *
+	 * */
+	if (!uncertainty_set_liquidity(pay_plugin->uncertainty, scidd, min,
+				       max)) {
 		errmsg = tal_fmt(
 		    tmpctx,
 		    "Unable to set liquidity to channel scidd=%s in the "

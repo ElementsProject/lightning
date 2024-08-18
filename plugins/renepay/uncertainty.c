@@ -164,11 +164,12 @@ uncertainty_add_channel(struct uncertainty *uncertainty,
 
 bool uncertainty_set_liquidity(struct uncertainty *uncertainty,
 			       const struct short_channel_id_dir *scidd,
-			       struct amount_msat amount)
+			       struct amount_msat min,
+			       struct amount_msat max)
 {
 	// FIXME check error
 	enum renepay_errorcode err = chan_extra_set_liquidity(
-	    uncertainty->chan_extra_map, scidd, amount);
+	    uncertainty->chan_extra_map, scidd, min, max);
 
 	return err == RENEPAY_NOERROR;
 }

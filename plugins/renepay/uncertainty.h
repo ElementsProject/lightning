@@ -50,7 +50,8 @@ uncertainty_add_channel(struct uncertainty *uncertainty,
 
 bool uncertainty_set_liquidity(struct uncertainty *uncertainty,
 			       const struct short_channel_id_dir *scidd,
-			       struct amount_msat amount);
+			       struct amount_msat min,
+			       struct amount_msat max);
 
 struct chan_extra *uncertainty_find_channel(struct uncertainty *uncertainty,
 					    const struct short_channel_id scid);

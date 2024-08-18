@@ -349,14 +349,17 @@ restore_and_fail:
 /* Update the knowledge that this (channel,direction) has liquidity x.*/
 // FIXME for being this low level API, I thinkg it's too much to have verbose
 // error messages
-static enum renepay_errorcode
-chan_extra_set_liquidity_(struct chan_extra *ce, int dir, struct amount_msat x)
+static enum renepay_errorcode chan_extra_set_liquidity_(struct chan_extra *ce,
+							int dir,
+							struct amount_msat min,
+							struct amount_msat max)
 {
 	assert(ce);
 	assert(dir == 0 || dir == 1);
 	enum renepay_errorcode err;
 
-	if (amount_msat_greater(x, ce->capacity))
+	if (amount_msat_greater(max, ce->capacity) ||
+	    amount_msat_greater(min, max))
 		return RENEPAY_PRECONDITION_ERROR;
 
 	// in case we fail, let's remember the original state
@@ -364,8 +367,8 @@ chan_extra_set_liquidity_(struct chan_extra *ce, int dir, struct amount_msat x)
 	known_min = ce->half[dir].known_min;
 	known_max = ce->half[dir].known_max;
 
-	ce->half[dir].known_min = x;
-	ce->half[dir].known_max = x;
+	ce->half[dir].known_min = min;
+	ce->half[dir].known_max = max;
 
 	err = chan_extra_adjust_half(ce, !dir);
 	if (err != RENEPAY_NOERROR)
@@ -382,7 +385,8 @@ restore_and_fail:
 enum renepay_errorcode
 chan_extra_set_liquidity(struct chan_extra_map *chan_extra_map,
 			 const struct short_channel_id_dir *scidd,
-			 struct amount_msat x)
+			 struct amount_msat min,
+			 struct amount_msat max)
 {
 	assert(scidd);
 	assert(chan_extra_map);
@@ -390,7 +394,7 @@ chan_extra_set_liquidity(struct chan_extra_map *chan_extra_map,
 	if (!ce)
 		return RENEPAY_CHANNEL_NOT_FOUND;
 
-	return chan_extra_set_liquidity_(ce, scidd->dir, x);
+	return chan_extra_set_liquidity_(ce, scidd->dir, min, max);
 }
 
 /* Update the knowledge that this (channel,direction) has sent x msat.*/
