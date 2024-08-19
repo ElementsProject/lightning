@@ -469,6 +469,10 @@ struct utxo **wallet_utxo_boost(const tal_t *ctx,
 		if (utxo_is_reserved(utxo, blockheight))
 			continue;
 
+		/* Don't add csv-locked ones */
+		if (utxo_is_csv_locked(utxo, blockheight))
+			continue;
+
 		/* UTXOs must be sane amounts */
 		if (!amount_sat_add(&new_fee_amount,
 				    fee_amount, utxo->amount))
