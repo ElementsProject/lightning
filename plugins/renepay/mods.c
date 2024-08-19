@@ -1127,6 +1127,7 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 	 * HTLC_MAX_FRACTION. */
 	htlc_max_threshold = MIN(htlc_max_threshold, HTLC_MAX_STOP_MSAT);
 
+	gossmap_apply_localmods(pay_plugin->gossmap, payment->local_gossmods);
 	for (const struct gossmap_node *node =
 		 gossmap_first_node(pay_plugin->gossmap);
 	     node; node = gossmap_next_node(pay_plugin->gossmap, node)) {
@@ -1147,6 +1148,7 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 			}
 		}
 	}
+	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
 	// FIXME: prune the network over other parameters, eg. capacity,
 	// fees, ...
 	plugin_log(pay_plugin->plugin, LOG_DBG,
