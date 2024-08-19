@@ -1,6 +1,10 @@
-<div style="padding: 4px; margin-bottom: 20px; background: linear-gradient(45deg, #FFFFCC, #CCFFCC); color: #333; text-align: center; border-radius: 10px; font-size: 1.5em; font-weight: bold; box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);">
-    Feature freeze date for v24.08 is Aug 5th. RC1 is scheduled on Aug 10th, RC2 on Aug 15, and final release on Aug 22nd.
-</div>
+> ### ⚠️ **IMPORTANT:**
+> **Feature freeze date for v24.08 is _Aug 5th_.**
+>
+> **RC1 is scheduled on _Aug 10th_, RC2 on _Aug 15_, ...**
+>
+> **The final release is on _Aug 22nd_.**
+
 
 # Pull Request Title
 
