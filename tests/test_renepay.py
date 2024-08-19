@@ -768,3 +768,29 @@ def test_privatechan(node_factory, bitcoind):
     l1.wait_for_htlcs()
     invoice = only_one(l4.rpc.listinvoices("inv")["invoices"])
     assert invoice["amount_received_msat"] >= Millisatoshi("1000sat")
+
+
+def test_hardmpp2(node_factory, bitcoind):
+    """Credits to @daywalker90 for this test case."""
+    opts = {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 10}
+    l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
+    start_channels(
+        [
+            (l1, l2, 100_000),
+            (l1, l2, 200_000),
+            (l1, l2, 300_000),
+            (l1, l2, 400_000),
+            (l2, l3, 100_000),
+            (l2, l3, 200_000),
+            (l2, l3, 300_000),
+            (l2, l3, 600_000),
+        ]
+    )
+    # FIXME: changing the last channel from 600k to 400k will fail the test due
+    # to l2 not accepting to forward any amount above 200k with error:
+    # CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED, still investigating
+    inv = l3.rpc.invoice("800000sat", "inv", "description")
+    l1.rpc.call("renepay", {"invstring": inv["bolt11"]})
+    l1.wait_for_htlcs()
+    receipt = only_one(l3.rpc.listinvoices("inv")["invoices"])
+    assert receipt["amount_received_msat"] == Millisatoshi("800000sat")
