@@ -1,91 +1,79 @@
 ---
-name: Publish Python 🐍 distributions 📦 to PyPI and TestPyPI
-on:
-  # Only deploy if we're the result of a PR being merged
-  workflow_dispatch:
-  push:
-    branches:
-      - master
-    tags:
-      # Semantic versioning tags
-      - 'v[0-9]+.[0-9]+.[0-9]+'
-      # Date style tags
-      - 'v[0-9]{2}.[0-9]{2}'
-jobs:
-  deploy:
-    name: Build and publish ${{ matrix.package }} 🐍
-    runs-on: ubuntu-20.04
-    timeout-minutes: 120
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - PACKAGE: pyln-client
-            WORKDIR: contrib/pyln-client
-          - PACKAGE: pyln-testing
-            WORKDIR: contrib/pyln-testing
-          - PACKAGE: pyln-proto
-            WORKDIR: contrib/pyln-proto
-          - PACKAGE: pyln-grpc-proto
-            WORKDIR: contrib/pyln-grpc-proto
-          # Bolt packages are handled differently
-          #- PACKAGE: pyn-bolt1
-          #  WORKDIR: contrib/pyln-spec/bolt1/
-          #- PACKAGE: pyn-bolt2
-          #  WORKDIR: contrib/pyln-spec/bolt2/
-          #- PACKAGE: pyn-bolt4
-          #  WORKDIR: contrib/pyln-spec/bolt4/
-          #- PACKAGE: pyn-bolt7
-          #  WORKDIR: contrib/pyln-spec/bolt7/
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        # Need to fetch entire history in order to locate the version tag
-        fetch-depth: 0
-
-    - name: Set up Python 3.8
-      uses: actions/setup-python@v5
-      with:
-        python-version: 3.8
-
-    - name: Install pypa/build and poetry
-      run: >-
-        python -m pip install build poetry --user
-
-    - name: Check version tag
-      run: >-
-        git describe --always --dirty=-modded --abbrev=7
-
-    - name: Build a binary wheel and a source tarball
-      env:
-        WORKDIR: ${{ matrix.WORKDIR }}
-      run: |
-        export VERSION=$(git describe --abbrev=0).post$(git describe --abbrev=1 | awk -F "-" '{print $2}')
-        cd ${{ env.WORKDIR }}
-        make upgrade-version NEW_VERSION=$VERSION
-        poetry build --no-interaction
-
-    - name: Publish distribution 📦 to Test PyPI
-      if: github.repository == 'ElementsProject/lightning' && github.ref == 'refs/heads/master'
-      env:
-        POETRY_PYPI_TOKEN_TESTPYPI: ${{ secrets.TEST_PYPI_API_TOKEN }}
-        WORKDIR: ${{ matrix.WORKDIR }}
-      run: |
-        cd ${{ env.WORKDIR }}
-        python3 -m pip config set global.timeout 150
-        poetry config repositories.testpypi https://test.pypi.org/legacy/
-        poetry build  --no-interaction
-        poetry publish --repository testpypi --no-interaction --skip-existing
-
-    - name: Publish distribution 📦 to PyPI
-      if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'ElementsProject/lightning'
-      env:
-        POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
-        WORKDIR: ${{ matrix.WORKDIR }}
-      run: |
-        cd ${{ env.WORKDIR }}
-        export VERSION=$(git describe --abbrev=0)
-        make upgrade-version NEW_VERSION=$VERSION
-        python3 -m pip config set global.timeout 150
-        poetry build  --no-interaction
-        poetry publish --no-interaction
+  name: Publish Python 🐍 distributions 📦 to PyPI and TestPyPI
+  on:
+    push:
+      tags:
+        '^v[0-9]{2}\.[0-9]{2}(\.[0-9]{1,2})?$'
+    workflow_dispatch:
+  jobs:
+    deploy:
+      name: Build and publish ${{ matrix.package }} 🐍
+      runs-on: ubuntu-20.04
+      timeout-minutes: 120
+      strategy:
+        fail-fast: true
+        matrix:
+          include:
+            - PACKAGE: pyln-client
+              WORKDIR: contrib/pyln-client
+            - PACKAGE: pyln-testing
+              WORKDIR: contrib/pyln-testing
+            - PACKAGE: pyln-proto
+              WORKDIR: contrib/pyln-proto
+            - PACKAGE: pyln-grpc-proto
+              WORKDIR: contrib/pyln-grpc-proto
+      steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Need to fetch entire history in order to locate the version tag
+          fetch-depth: 0
+  
+      - name: Check version tag
+        run: >-
+          git describe --always --dirty=-modded --abbrev=7
+  
+      - name: Setup Version
+        env:
+          WORKDIR: ${{ matrix.WORKDIR }}
+        run: |
+          echo "VERSION=$(git describe --abbrev=0).post$(git describe --abbrev=1 | awk -F "-" '{print $2}')" >> $GITHUB_ENV
+  
+      - name: Install Poetry
+        env:
+          WORKDIR: ${{ matrix.WORKDIR }}
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "PATH=$HOME/.local/bin:$PATH"
+  
+      - name: Publish distribution 📦 to Test PyPI
+        if: github.event_name == 'workflow_dispatch' && github.repository == 'ElementsProject/lightning'
+        env:
+          POETRY_PYPI_TOKEN_TESTPYPI: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          WORKDIR: ${{ matrix.WORKDIR }}
+        run: |
+          echo "POETRY VERSION TEST: $(poetry --version)"
+          echo "Pyln* VERSION: $VERSION"
+          cd ${{ env.WORKDIR }}
+          python3 -m pip config set global.timeout 150
+          poetry config repositories.testpypi https://test.pypi.org/legacy/
+          make upgrade-version NEW_VERSION=$VERSION
+          poetry build  --no-interaction
+          poetry publish --repository testpypi --no-interaction --skip-existing
+  
+      - name: Publish distribution 📦 to PyPI
+        if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'ElementsProject/lightning'
+        env:
+          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
+          WORKDIR: ${{ matrix.WORKDIR }}
+        run: |
+          echo "POETRY VERSION PUBLISH: $(poetry --version)"
+          echo "Pyln* VERSION: $VERSION"
+          cd ${{ env.WORKDIR }}
+          export VERSION=$(git describe --abbrev=0)
+          make upgrade-version NEW_VERSION=$VERSION
+          python3 -m pip config set global.timeout 150
+          poetry build  --no-interaction
+          poetry publish --no-interaction
+  
