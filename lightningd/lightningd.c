@@ -554,7 +554,7 @@ static void find_subdaemons_and_plugins(struct lightningd *ld, const char *argv0
 		prefix = "";
 	ld->subdaemon_dir = tal_fmt(ld, "%s%s", prefix, PKGLIBEXECDIR);
 	plugins_set_builtin_plugins_dir(ld->plugins,
-					tal_fmt(ld->plugins, "%s%s", prefix, PLUGINDIR));
+					tal_fmt(tmpctx, "%s%s", prefix, PLUGINDIR));
 }
 
 /*~ We like to free everything on exit, so valgrind doesn't complain (valgrind
