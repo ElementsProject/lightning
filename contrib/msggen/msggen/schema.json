@@ -2605,6 +2605,275 @@
         }
       ]
     },
+    "lightning-bkpr-editdescriptionbyoutpoint.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "rpc": "bkpr-editdescriptionbyoutpoint",
+      "title": "Command to change the description for events with {outpoint} after they're made",
+      "description": [
+        "The **bkpr-editdescriptionbyoutpoint** RPC command updates all chain and channel events that match the {outpoint} with the provided {description}"
+      ],
+      "request": {
+        "required": [
+          "outpoint",
+          "description"
+        ],
+        "properties": {
+          "outpoint": {
+            "type": "string",
+            "description": [
+              "The outpoint to update the description for."
+            ]
+          },
+          "description": {
+            "type": "string",
+            "description": [
+              "The description to update to"
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "updated"
+        ],
+        "properties": {
+          "updated": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": [
+                "account",
+                "type",
+                "tag",
+                "credit_msat",
+                "debit_msat",
+                "currency",
+                "timestamp",
+                "description"
+              ],
+              "properties": {
+                "account": {
+                  "type": "string",
+                  "description": [
+                    "The account name. If the account is a channel, the channel_id."
+                  ]
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "chain",
+                    "channel"
+                  ],
+                  "description": [
+                    "Coin movement type."
+                  ]
+                },
+                "tag": {
+                  "type": "string",
+                  "description": [
+                    "Description of movement."
+                  ]
+                },
+                "credit_msat": {
+                  "type": "msat",
+                  "description": [
+                    "Amount credited."
+                  ]
+                },
+                "debit_msat": {
+                  "type": "msat",
+                  "description": [
+                    "Amount debited."
+                  ]
+                },
+                "currency": {
+                  "type": "string",
+                  "description": [
+                    "Human-readable bech32 part for this coin type."
+                  ]
+                },
+                "timestamp": {
+                  "type": "u32",
+                  "description": [
+                    "Timestamp this event was recorded by the node. For consolidated events such as onchain_fees, the most recent timestamp."
+                  ]
+                },
+                "description": {
+                  "type": "string",
+                  "description": [
+                    "The description of this event"
+                  ]
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "chain"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "account": {},
+                      "type": {},
+                      "tag": {},
+                      "credit_msat": {},
+                      "debit_msat": {},
+                      "currency": {},
+                      "timestamp": {},
+                      "description": {
+                        "type": "string",
+                        "description": [
+                          "A description of this outpoint."
+                        ]
+                      },
+                      "outpoint": {
+                        "type": "string",
+                        "description": [
+                          "The txid:outnum for this event."
+                        ]
+                      },
+                      "blockheight": {
+                        "type": "u32",
+                        "description": [
+                          "For chain events, blockheight this occured at."
+                        ]
+                      },
+                      "origin": {
+                        "type": "string",
+                        "description": [
+                          "The account this movement originated from."
+                        ]
+                      },
+                      "payment_id": {
+                        "type": "hex",
+                        "description": [
+                          "Lightning payment identifier. For an htlc, this will be the preimage."
+                        ]
+                      },
+                      "txid": {
+                        "type": "txid",
+                        "description": [
+                          "The txid of the transaction that created this event."
+                        ]
+                      }
+                    },
+                    "required": [
+                      "outpoint",
+                      "blockheight"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "onchain_fee"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "account": {},
+                      "type": {},
+                      "tag": {},
+                      "credit_msat": {},
+                      "debit_msat": {},
+                      "currency": {},
+                      "timestamp": {},
+                      "description": {},
+                      "txid": {
+                        "type": "txid",
+                        "description": [
+                          "The txid of the transaction that created this event."
+                        ]
+                      }
+                    },
+                    "required": [
+                      "txid"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "channel"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "account": {},
+                      "type": {},
+                      "tag": {},
+                      "credit_msat": {},
+                      "debit_msat": {},
+                      "currency": {},
+                      "timestamp": {},
+                      "description": {},
+                      "fees_msat": {
+                        "type": "msat",
+                        "description": [
+                          "Amount paid in fees."
+                        ]
+                      },
+                      "is_rebalance": {
+                        "type": "boolean",
+                        "description": [
+                          "Is this payment part of a rebalance."
+                        ]
+                      },
+                      "payment_id": {
+                        "type": "hex",
+                        "description": [
+                          "Lightning payment identifier. For an htlc, this will be the preimage."
+                        ]
+                      },
+                      "part_id": {
+                        "type": "u32",
+                        "description": [
+                          "Counter for multi-part payments."
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "author": [
+        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-bkpr-editdescriptionbypaymentid(7)",
+        "lightning-bkpr-listaccountevents(7)",
+        "lightning-bkpr-listincome(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": []
+    },
     "lightning-bkpr-editdescriptionbypaymentid.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
@@ -2859,6 +3128,7 @@
         "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
       ],
       "see_also": [
+        "lightning-bkpr-editdescriptionbyoutpoint(7)",
         "lightning-bkpr-listaccountevents(7)",
         "lightning-bkpr-listincome(7)"
       ],

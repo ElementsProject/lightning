@@ -479,6 +479,47 @@ static struct command_result *json_list_account_events(struct command *cmd,
 	return command_finished(cmd, res);
 }
 
+static struct command_result *param_outpoint(struct command *cmd,
+					     const char *name,
+					     const char *buffer,
+					     const jsmntok_t *tok,
+					     struct bitcoin_outpoint **outp)
+{
+	*outp = tal(cmd, struct bitcoin_outpoint);
+	if (json_to_outpoint(buffer, tok, *outp))
+		return NULL;
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a txid:outnum");
+}
+
+static struct command_result *json_edit_desc_utxo(struct command *cmd,
+						  const char *buf,
+						  const jsmntok_t *params)
+{
+	struct json_stream *res;
+	struct bitcoin_outpoint *outpoint;
+	const char *new_desc;
+	struct chain_event **chain_events;
+
+	if (!param(cmd, buf, params,
+		   p_req("identifier", param_outpoint, &outpoint),
+		   p_req("description", param_string, &new_desc),
+		   NULL))
+		return command_param_failed();
+
+	db_begin_transaction(db);
+	edit_utxo_description(db, outpoint, new_desc);
+	chain_events = get_chain_events_by_outpoint(cmd, db, outpoint, true);
+	db_commit_transaction(db);
+
+	res = jsonrpc_stream_success(cmd);
+	json_array_start(res, "updated");
+	json_add_events(res, NULL, chain_events, NULL);
+	json_array_end(res);
+
+	return command_finished(cmd, res);
+}
+
 static struct command_result *json_edit_desc_payment_id(struct command *cmd,
 							const char *buf,
 							const jsmntok_t *params)
@@ -2030,6 +2071,10 @@ static const struct plugin_command commands[] = {
 	{
 		"bkpr-editdescriptionbypaymentid",
 		json_edit_desc_payment_id
+	},
+	{
+		"bkpr-editdescriptionbyoutpoint",
+		json_edit_desc_utxo
 	},
 };
 

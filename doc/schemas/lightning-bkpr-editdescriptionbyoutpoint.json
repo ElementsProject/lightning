@@ -2,21 +2,21 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "additionalProperties": false,
-  "rpc": "bkpr-editdescriptionbypaymentid",
-  "title": "Command to change the description for events with {payment_id} after they're made",
+  "rpc": "bkpr-editdescriptionbyoutpoint",
+  "title": "Command to change the description for events with {outpoint} after they're made",
   "description": [
-    "The **bkpr-editdescriptionbypaymentid** RPC command updates all chain and channel events that match the {payment_id} with the provided {description}"
+    "The **bkpr-editdescriptionbyoutpoint** RPC command updates all chain and channel events that match the {outpoint} with the provided {description}"
   ],
   "request": {
     "required": [
-      "payment_id",
+      "outpoint",
       "description"
     ],
     "properties": {
-      "payment_id": {
+      "outpoint": {
         "type": "string",
         "description": [
-          "The payment hash (payment_id) to update the description for."
+          "The outpoint to update the description for."
         ]
       },
       "description": {
@@ -122,6 +122,12 @@
                   "debit_msat": {},
                   "currency": {},
                   "timestamp": {},
+                  "description": {
+                    "type": "string",
+                    "description": [
+                      "A description of this outpoint."
+                    ]
+		  },
                   "outpoint": {
                     "type": "string",
                     "description": [
@@ -252,7 +258,7 @@
     "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
   ],
   "see_also": [
-    "lightning-bkpr-editdescriptionbyoutpoint(7)",
+    "lightning-bkpr-editdescriptionbypaymentid(7)",
     "lightning-bkpr-listaccountevents(7)",
     "lightning-bkpr-listincome(7)"
   ],
