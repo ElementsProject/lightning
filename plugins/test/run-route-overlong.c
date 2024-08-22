@@ -16,14 +16,6 @@ u8 **blinded_onion_hops(const tal_t *ctx UNNEEDED,
 			struct amount_msat total_amount UNNEEDED,
 			const struct blinded_path *path UNNEEDED)
 { fprintf(stderr, "blinded_onion_hops called!\n"); abort(); }
-/* Generated stub for channel_hint_to_json */
-void channel_hint_to_json(const char *name UNNEEDED, const struct channel_hint *hint UNNEEDED,
-			  struct json_stream *dest UNNEEDED)
-{ fprintf(stderr, "channel_hint_to_json called!\n"); abort(); }
-/* Generated stub for channel_hint_update */
-bool channel_hint_update(const struct timeabs now UNNEEDED,
-				struct channel_hint *hint UNNEEDED)
-{ fprintf(stderr, "channel_hint_update called!\n"); abort(); }
 /* Generated stub for command_finished */
 struct command_result *command_finished(struct command *cmd UNNEEDED, struct json_stream *response UNNEEDED)
 { fprintf(stderr, "command_finished called!\n"); abort(); }
@@ -89,6 +81,16 @@ void json_add_amount_msat(struct json_stream *result UNNEEDED,
 			  struct amount_msat msat)
 
 { fprintf(stderr, "json_add_amount_msat called!\n"); abort(); }
+/* Generated stub for json_add_amount_sat */
+void json_add_amount_sat(struct json_stream *result UNNEEDED,
+			  const char *satfieldname UNNEEDED,
+			  struct amount_sat sat)
+
+{ fprintf(stderr, "json_add_amount_sat called!\n"); abort(); }
+/* Generated stub for json_add_bool */
+void json_add_bool(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		   bool value UNNEEDED)
+{ fprintf(stderr, "json_add_bool called!\n"); abort(); }
 /* Generated stub for json_add_hex_talarr */
 void json_add_hex_talarr(struct json_stream *result UNNEEDED,
 			 const char *fieldname UNNEEDED,
@@ -124,6 +126,11 @@ void json_add_short_channel_id(struct json_stream *response UNNEEDED,
 			       const char *fieldname UNNEEDED,
 			       struct short_channel_id id UNNEEDED)
 { fprintf(stderr, "json_add_short_channel_id called!\n"); abort(); }
+/* Generated stub for json_add_short_channel_id_dir */
+void json_add_short_channel_id_dir(struct json_stream *response UNNEEDED,
+				   const char *fieldname UNNEEDED,
+				   struct short_channel_id_dir idd UNNEEDED)
+{ fprintf(stderr, "json_add_short_channel_id_dir called!\n"); abort(); }
 /* Generated stub for json_add_string */
 void json_add_string(struct json_stream *js UNNEEDED,
 		     const char *fieldname UNNEEDED,
@@ -212,6 +219,10 @@ bool json_to_sat(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			      struct short_channel_id *scid UNNEEDED)
 { fprintf(stderr, "json_to_short_channel_id called!\n"); abort(); }
+/* Generated stub for json_to_short_channel_id_dir */
+bool json_to_short_channel_id_dir(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				  struct short_channel_id_dir *scidd UNNEEDED)
+{ fprintf(stderr, "json_to_short_channel_id_dir called!\n"); abort(); }
 /* Generated stub for json_to_u16 */
 bool json_to_u16(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
                  uint16_t *num UNNEEDED)
@@ -415,6 +426,7 @@ int main(int argc, char *argv[])
 	struct payment_modifier **mods;
 	char gossip_version = 10;
 	char *gossipfilename;
+	struct channel_hint_set *hints = channel_hint_set_new(tmpctx);
 
 	common_setup(argv[0]);
 	chainparams = chainparams_for_network("regtest");
@@ -431,7 +443,7 @@ int main(int argc, char *argv[])
 	}
 
 	mods = tal_arrz(tmpctx, struct payment_modifier *, 1);
-	p = payment_new(mods, tal(tmpctx, struct command), NULL, mods);
+	p = payment_new(mods, tal(tmpctx, struct command), NULL, hints, mods);
 
 	for (size_t i = 1; i < NUM_NODES; i++) {
 		struct short_channel_id scid;
@@ -480,6 +492,7 @@ int main(int argc, char *argv[])
 		assert(tal_count(r) == 2);
 	}
 
+	tal_free(hints);
 	common_shutdown();
 	return 0;
 }
