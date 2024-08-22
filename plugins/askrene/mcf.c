@@ -453,9 +453,17 @@ static void linearize_channel(const struct pay_parameters *params,
 
 	/* This takes into account any payments in progress. */
 	get_constraints(params->rq, c, dir, &mincap, &maxcap);
-	/* Assume if min > max, max is wrong */
+
+	/* We seem to have some rounding error (perhaps due to our use
+	 * of sats and fee interactions?).  Since it's unusual to see
+	 * a large unmber of flows, even if each overflows by 1 sat,
+	 * 5 sats should be plenty. */
+	if (!amount_msat_sub(&maxcap, maxcap, AMOUNT_MSAT(5000)))
+		maxcap = AMOUNT_MSAT(0);
+
+	/* Assume if min > max, min is wrong */
 	if (amount_msat_greater(mincap, maxcap))
-		maxcap = mincap;
+		mincap = maxcap;
 
 	u64 a = mincap.millisatoshis/1000, /* Raw: linearize_channel */
 	    b = 1 + maxcap.millisatoshis/1000; /* Raw: linearize_channel */

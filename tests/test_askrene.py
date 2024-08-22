@@ -169,8 +169,8 @@ def test_getroutes(node_factory):
                             amount_msat=1000,
                             layers=[],
                             maxfee_msat=1000,
-                            final_cltv=99) == {'probability_ppm': 999999,
-                                               'routes': [{'probability_ppm': 999999,
+                            final_cltv=99) == {'probability_ppm': 999998,
+                                               'routes': [{'probability_ppm': 999998,
                                                            'final_cltv': 99,
                                                            'amount_msat': 1000,
                                                            'path': [{'short_channel_id': '0x1x0',
@@ -184,8 +184,8 @@ def test_getroutes(node_factory):
                             amount_msat=100000,
                             layers=[],
                             maxfee_msat=5000,
-                            final_cltv=99) == {'probability_ppm': 999798,
-                                               'routes': [{'probability_ppm': 999798,
+                            final_cltv=99) == {'probability_ppm': 999797,
+                                               'routes': [{'probability_ppm': 999797,
                                                            'final_cltv': 99,
                                                            'amount_msat': 100000,
                                                            'path': [{'short_channel_id': '0x1x0',
@@ -247,11 +247,11 @@ def test_getroutes(node_factory):
                          10000000,
                          [[{'short_channel_id': '0x2x1',
                             'next_node_id': nodemap[2],
-                            'amount_msat': 500000,
+                            'amount_msat': 505000,
                             'delay': 99 + 6}],
                           [{'short_channel_id': '0x2x3',
                             'next_node_id': nodemap[2],
-                            'amount_msat': 9500009,
+                            'amount_msat': 9495009,
                             'delay': 99 + 6}]])
 
 
@@ -313,8 +313,8 @@ def test_getroutes_auto_sourcefree(node_factory):
                             amount_msat=1000,
                             layers=['auto.sourcefree'],
                             maxfee_msat=1000,
-                            final_cltv=99) == {'probability_ppm': 999999,
-                                               'routes': [{'probability_ppm': 999999,
+                            final_cltv=99) == {'probability_ppm': 999998,
+                                               'routes': [{'probability_ppm': 999998,
                                                            'final_cltv': 99,
                                                            'amount_msat': 1000,
                                                            'path': [{'short_channel_id': '0x1x0',
@@ -328,8 +328,8 @@ def test_getroutes_auto_sourcefree(node_factory):
                             amount_msat=100000,
                             layers=['auto.sourcefree'],
                             maxfee_msat=5000,
-                            final_cltv=99) == {'probability_ppm': 999798,
-                                               'routes': [{'probability_ppm': 999798,
+                            final_cltv=99) == {'probability_ppm': 999797,
+                                               'routes': [{'probability_ppm': 999797,
                                                            'final_cltv': 99,
                                                            'amount_msat': 100000,
                                                            'path': [{'short_channel_id': '0x1x0',
@@ -451,7 +451,6 @@ def test_fees_dont_exceed_constraints(node_factory):
     assert amount <= max_msat
 
 
-@pytest.mark.xfail(strict=True)
 def test_live_spendable(node_factory, bitcoind):
     """Test we don't exceed spendable limits on a real network on nodes"""
     l1, l2, l3 = node_factory.get_nodes(3)
