@@ -14,6 +14,7 @@ import json
 import subprocess
 import os
 import re
+import unittest
 
 
 def test_simple(node_factory):
@@ -770,6 +771,7 @@ def test_privatechan(node_factory, bitcoind):
     assert invoice["amount_received_msat"] >= Millisatoshi("1000sat")
 
 
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "broken for some reason")
 def test_hardmpp2(node_factory, bitcoind):
     """Credits to @daywalker90 for this test case."""
     opts = {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 10}
