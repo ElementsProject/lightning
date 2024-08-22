@@ -436,6 +436,13 @@ static struct arc node_adjacency_next(
 	return linear_network->node_adjacency_next_arc[arc.idx];
 }
 
+/* Set *capacity to value, up to *cap_on_capacity.  Reduce cap_on_capacity */
+static void set_capacity(s64 *capacity, u64 value, u64 *cap_on_capacity)
+{
+	*capacity = MIN(value, *cap_on_capacity);
+	*cap_on_capacity -= *capacity;
+}
+
 // TODO(eduardo): unit test this
 /* Split a directed channel into parts with linear cost function. */
 static void linearize_channel(const struct pay_parameters *params,
@@ -457,13 +464,11 @@ static void linearize_channel(const struct pay_parameters *params,
 	 * that it does not exceed htlcmax. */
 	u64 cap_on_capacity = fp16_to_u64(c->half[dir].htlc_max) / 1000;
 
-	capacity[0]=a;
+	set_capacity(&capacity[0], a, &cap_on_capacity);
 	cost[0]=0;
 	for(size_t i=1;i<CHANNEL_PARTS;++i)
 	{
-		capacity[i] = MIN(params->cap_fraction[i]*(b-a), cap_on_capacity);
-		assert(cap_on_capacity >= capacity[i]);
-		cap_on_capacity -= capacity[i];
+		set_capacity(&capacity[i], params->cap_fraction[i]*(b-a), &cap_on_capacity);
 
 		cost[i] = params->cost_fraction[i]
 		          *params->amount.millisatoshis /* Raw: linearize_channel */
