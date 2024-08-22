@@ -107,6 +107,11 @@ struct chain_event **list_chain_events_timebox(const tal_t *ctx,
 					       u64 start_time,
 					       u64 end_time);
 
+/* Get all chain events for a payment hash */
+struct chain_event **get_chain_events_by_id(const tal_t *ctx,
+					   struct db *db,
+					   const struct sha256 *id);
+
 /* Calculate the balances for an account
  *
  * @calc_sum     - compute the total balance. error if negative

@@ -723,6 +723,41 @@ struct chain_event *find_chain_event_by_id(const tal_t *ctx,
 	return e;
 }
 
+struct chain_event **get_chain_events_by_id(const tal_t *ctx,
+					    struct db *db,
+					    const struct sha256 *id)
+{
+	struct db_stmt *stmt;
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  e.id"
+				     ", e.account_id"
+				     ", a.name"
+				     ", e.origin"
+				     ", e.tag"
+				     ", e.credit"
+				     ", e.debit"
+				     ", e.output_value"
+				     ", e.currency"
+				     ", e.timestamp"
+				     ", e.blockheight"
+				     ", e.utxo_txid"
+				     ", e.outnum"
+				     ", e.spending_txid"
+				     ", e.payment_id"
+				     ", e.ignored"
+				     ", e.stealable"
+				     ", e.ev_desc"
+				     ", e.spliced"
+				     " FROM chain_events e"
+				     " LEFT OUTER JOIN accounts a"
+				     " ON e.account_id = a.id"
+				     " WHERE "
+				     " e.payment_id = ?"));
+
+	db_bind_sha256(stmt, id);
+	return find_chain_events(ctx, take(stmt));
+}
+
 static struct chain_event *find_chain_event(const tal_t *ctx,
 					    struct db *db,
 					    const struct account *acct,

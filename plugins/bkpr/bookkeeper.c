@@ -473,12 +473,38 @@ static struct command_result *json_list_account_events(struct command *cmd,
 	res = jsonrpc_stream_success(cmd);
 	json_array_start(res, "events");
 	json_add_events(res, channel_events, chain_events, onchain_fees);
-
-
-
-
-
 	json_array_end(res);
+	return command_finished(cmd, res);
+}
+
+static struct command_result *json_edit_desc_payment_id(struct command *cmd,
+							const char *buf,
+							const jsmntok_t *params)
+{
+	struct json_stream *res;
+	struct sha256 *identifier;
+	const char *new_desc;
+	struct channel_event **channel_events;
+	struct chain_event **chain_events;
+
+	if (!param(cmd, buf, params,
+		   p_req("payment_id", param_sha256, &identifier),
+		   p_req("description", param_string, &new_desc),
+		   NULL))
+		return command_param_failed();
+
+	db_begin_transaction(db);
+	add_payment_hash_desc(db, identifier, new_desc);
+
+	chain_events = get_chain_events_by_id(cmd, db, identifier);
+	channel_events = get_channel_events_by_id(cmd, db, identifier);
+	db_commit_transaction(db);
+
+	res = jsonrpc_stream_success(cmd);
+	json_array_start(res, "updated");
+	json_add_events(res, channel_events, chain_events, NULL);
+	json_array_end(res);
+
 	return command_finished(cmd, res);
 }
 
@@ -1987,6 +2013,10 @@ static const struct plugin_command commands[] = {
 	{
 		"bkpr-channelsapy",
 		json_channel_apy
+	},
+	{
+		"bkpr-editdescriptionbypaymentid",
+		json_edit_desc_payment_id
 	},
 };
 
