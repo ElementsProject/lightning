@@ -24,7 +24,7 @@ static struct node_id my_id;
 static unsigned int maxdelay_default;
 static bool exp_offers;
 static bool disablempp = false;
-static struct channel_hint *global_hints;
+static struct channel_hint_set *global_hints;
 
 static LIST_HEAD(payments);
 
@@ -586,17 +586,15 @@ static const char *init(struct plugin *p,
 	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
 	maxdelay_default = 2016;
 
-	global_hints =
-	    notleak_with_children(tal_arr(p, struct channel_hint, 0));
+	global_hints = notleak_with_children(channel_hint_set_new(p));
 
-	/* max-locktime-blocks deprecated in v24.05, but still grab it! */
-	rpc_scan(p, "listconfigs",
-		 take(json_out_obj(NULL, NULL, NULL)),
-		 "{configs:"
-		 "{max-locktime-blocks?:{value_int:%},"
-		 "experimental-offers:{set:%}}}",
-		 JSON_SCAN(json_to_number, &maxdelay_default),
-		 JSON_SCAN(json_to_bool, &exp_offers));
+	    /* max-locktime-blocks deprecated in v24.05, but still grab it! */
+	    rpc_scan(p, "listconfigs", take(json_out_obj(NULL, NULL, NULL)),
+		     "{configs:"
+		     "{max-locktime-blocks?:{value_int:%},"
+		     "experimental-offers:{set:%}}}",
+		     JSON_SCAN(json_to_number, &maxdelay_default),
+		     JSON_SCAN(json_to_bool, &exp_offers));
 
 	plugin_set_memleak_handler(p, memleak_mark_payments);
 	return NULL;
@@ -1261,7 +1259,7 @@ static struct command_result *json_pay(struct command *cmd,
 		      NULL))
 		return command_param_failed();
 
-	p = payment_new(cmd, cmd, NULL /* No parent */, paymod_mods);
+	p = payment_new(cmd, cmd, NULL /* No parent */, global_hints, paymod_mods);
 	p->invstring = tal_steal(p, b11str);
 	p->description = tal_steal(p, description);
 	/* Overridded by bolt12 if present */

@@ -239,7 +239,7 @@ struct payment {
 
 	/* tal_arr of channel_hints we incrementally learn while performing
 	 * payment attempts. */
-	struct channel_hint *channel_hints;
+	struct channel_hint_set *hints;
 	struct node_id *excluded_nodes;
 
 	/* Optional temporarily excluded channels/nodes (i.e. this routehint) */
@@ -446,6 +446,7 @@ REGISTER_PAYMENT_MODIFIER_HEADER(route_exclusions, struct route_exclusions_data)
 
 struct payment *payment_new(tal_t *ctx, struct command *cmd,
 			    struct payment *parent,
+			    struct channel_hint_set *channel_hints,
 			    struct payment_modifier **mods);
 
 void payment_start(struct payment *p);

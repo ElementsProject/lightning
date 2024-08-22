@@ -17,6 +17,7 @@
 static unsigned int maxdelay_default;
 static struct node_id my_id;
 static u64 *accepted_extra_tlvs;
+static struct channel_hint_set *global_hints;
 
 /*****************************************************************************
  * Keysend modifier
@@ -159,6 +160,8 @@ static const char *init(struct plugin *p, const char *buf UNUSED,
 	rpc_scan(p, "getinfo", take(json_out_obj(NULL, NULL, NULL)), "{id:%}",
 		 JSON_SCAN(json_to_node_id, &my_id));
 
+	global_hints = notleak_with_children(channel_hint_set_new(p));
+
 	accepted_extra_tlvs = notleak(tal_arr(NULL, u64, 0));
 	/* BOLT #4:
 	 * ## `max_htlc_cltv` Selection
@@ -241,7 +244,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 		   NULL))
 		return command_param_failed();
 
-	p = payment_new(cmd, cmd, NULL /* No parent */, pay_mods);
+	p = payment_new(cmd, cmd, NULL /* No parent */, global_hints, pay_mods);
 	p->local_id = &my_id;
 	p->json_buffer = tal_dup_talarr(p, const char, buf);
 	p->json_toks = params;
