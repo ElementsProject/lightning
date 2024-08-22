@@ -11,6 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     name: Build and test on FreeBSD
     timeout-minutes: 120
+    strategy:
+      fail-fast: true
+      matrix:
+        bitcoind-version: ["27.1"]
     steps:
     - uses: actions/checkout@v4
     - name: Test in FreeBSD
@@ -20,9 +24,9 @@ jobs:
         usesh: true
         prepare: |
           pkg install -y \
+            bash \
             wget \
-            py38-pip \
-            py38-sqlite3 \
+            python38 \
             gmake \
             git \
             python \
@@ -36,16 +40,16 @@ jobs:
             lowdown \
             curl
 
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2021-08-3z1
+            python3.8 -m ensurepip
+            python3.8 -m pip install --upgrade pip
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2021-08-3z1
 
-          cd /tmp/ || exit 1
-          wget https://bitcoincore.org/bin/bitcoin-core-27.1/bitcoin-27.1-x86_64-linux-gnu.tar.gz
-          tar -xf bitcoin-27.1-x86_64-linux-gnu.tar.bz2
-          sudo mv bitcoin-27.1/bin/* /usr/local/bin
-          rm -rf \
-            bitcoin-27.1-x86_64-linux-gnu.tar.gz \
-            bitcoin-27.1
-          
+            cd /tmp/ || exit 1
+            wget https://bitcoincore.org/bin/bitcoin-core-${{ matrix.bitcoind-version }}/bitcoin-${{ matrix.bitcoind-version }}-x86_64-linux-gnu.tar.gz
+            tar -xf bitcoin-${{ matrix.bitcoind-version }}-x86_64-linux-gnu.tar.bz2
+            sudo mv bitcoin-${{ matrix.bitcoind-version }}/bin/* /usr/local/bin
+            rm -rf bitcoin-${{ matrix.bitcoind-version }}-x86_64-linux-gnu.tar.gz bitcoin-${{ matrix.bitcoind-version }}
+
         run: |
           PATH=/root/.local/bin:$PATH
           pip install --user -U wheel pip
@@ -84,4 +88,3 @@ jobs:
 
           # Clean up to maximize rsync's chances of succeeding
           gmake clean
-
