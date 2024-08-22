@@ -52,7 +52,7 @@ It has the disadvantage that it will only work with the SQLITE3 backend and is n
 You can only specify _one_ replica.
 
 It is recommended that you use a network-mounted filesystem for the backup destination.  
-For example, if you have a NAS you can access remotely.
+For example, if you have a NAS you can access remotely. Note you need to mount the network filesystem using NFS version 4.
 
 At the minimum, set the backup to a different storage device.  
 This is no better than just using RAID-1 (and the RAID-1 will probably be faster) but this is easier to set up --- just plug in a commodity USB flash disk (with metal casing, since a lot of writes are done and you need to dissipate the heat quickly) and use it as the backup location, without  
