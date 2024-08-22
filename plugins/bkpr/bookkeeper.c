@@ -352,6 +352,64 @@ static struct command_result *json_inspect(struct command *cmd,
 	return command_finished(cmd, res);
 }
 
+static void json_add_events(struct json_stream *res,
+			    struct channel_event **channel_events,
+			    struct chain_event **chain_events,
+			    struct onchain_fee **onchain_fees)
+{
+	for (size_t i = 0, j = 0, k = 0;
+	     i < tal_count(chain_events)
+	     || j < tal_count(channel_events)
+	     || k < tal_count(onchain_fees);
+	     /* Incrementing happens inside loop */) {
+		struct channel_event *chan;
+		struct chain_event *chain;
+		struct onchain_fee *fee;
+		u64 lowest = 0;
+
+		if (i < tal_count(chain_events))
+			chain = chain_events[i];
+		else
+			chain = NULL;
+		if (j < tal_count(channel_events))
+			chan = channel_events[j];
+		else
+			chan = NULL;
+		if (k < tal_count(onchain_fees))
+			fee = onchain_fees[k];
+		else
+			fee = NULL;
+
+		if (chain)
+			lowest = chain->timestamp;
+
+		if (chan
+		    && (lowest == 0 || lowest > chan->timestamp))
+			lowest = chan->timestamp;
+
+		if (fee
+		    && (lowest == 0 || lowest > fee->timestamp))
+			lowest = fee->timestamp;
+
+		/* chain events first, then channel events, then fees. */
+		if (chain && chain->timestamp == lowest) {
+			json_add_chain_event(res, chain);
+			i++;
+			continue;
+		}
+
+		if (chan && chan->timestamp == lowest) {
+			json_add_channel_event(res, chan);
+			j++;
+			continue;
+		}
+
+		/* Last thing left is the fee */
+		json_add_onchain_fee(res, fee);
+		k++;
+	}
+}
+
 /* Find all the events for this account, ordered by timestamp */
 static struct command_result *json_list_account_events(struct command *cmd,
 						       const char *buf,
@@ -414,57 +472,12 @@ static struct command_result *json_list_account_events(struct command *cmd,
 
 	res = jsonrpc_stream_success(cmd);
 	json_array_start(res, "events");
-	for (size_t i = 0, j = 0, k = 0;
-	     i < tal_count(chain_events)
-	     || j < tal_count(channel_events)
-	     || k < tal_count(onchain_fees);
-	     /* Incrementing happens inside loop */) {
-		struct channel_event *chan;
-		struct chain_event *chain;
-		struct onchain_fee *fee;
-		u64 lowest = 0;
+	json_add_events(res, channel_events, chain_events, onchain_fees);
 
-		if (i < tal_count(chain_events))
-			chain = chain_events[i];
-		else
-			chain = NULL;
-		if (j < tal_count(channel_events))
-			chan = channel_events[j];
-		else
-			chan = NULL;
-		if (k < tal_count(onchain_fees))
-			fee = onchain_fees[k];
-		else
-			fee = NULL;
 
-		if (chain)
-			lowest = chain->timestamp;
 
-		if (chan
-		    && (lowest == 0 || lowest > chan->timestamp))
-			lowest = chan->timestamp;
 
-		if (fee
-		    && (lowest == 0 || lowest > fee->timestamp))
-			lowest = fee->timestamp;
 
-		/* chain events first, then channel events, then fees. */
-		if (chain && chain->timestamp == lowest) {
-			json_add_chain_event(res, chain);
-			i++;
-			continue;
-		}
-
-		if (chan && chan->timestamp == lowest) {
-			json_add_channel_event(res, chan);
-			j++;
-			continue;
-		}
-
-		/* Last thing left is the fee */
-		json_add_onchain_fee(res, fee);
-		k++;
-	}
 	json_array_end(res);
 	return command_finished(cmd, res);
 }
