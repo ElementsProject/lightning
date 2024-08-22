@@ -7,7 +7,6 @@
 #include <ccan/time/time.h>
 #include <common/amount.h>
 #include <common/json_stream.h>
-#include <plugins/libplugin-pay.h>
 #include <plugins/libplugin.h>
 
 /* Information about channels we inferred from a) looking at our channels, and
@@ -54,7 +53,7 @@ struct channel_hint_set {
 };
 
 bool channel_hint_update(const struct timeabs now,
-				struct channel_hint *hint);
+			 struct channel_hint *hint);
 
 void channel_hint_to_json(const char *name, const struct channel_hint *hint,
 			  struct json_stream *dest);
@@ -67,5 +66,25 @@ struct channel_hint_set *channel_hint_set_new(const tal_t *ctx);
 
 /* Relax all channel_hints in this set, based on the time that has elapsed. */
 void channel_hint_set_update(struct channel_hint_set *set, const struct timeabs now);
+
+/**
+ * Look up a `channel_hint` from a `channel_hint_set` for a scidd.
+ */
+struct channel_hint *channel_hint_set_find(struct channel_hint_set *self,
+					   const struct short_channel_id_dir *scidd);
+
+/**
+ * Add a new observation to the `channel_hint_set`
+ *
+ * This either adds a new entry, or updates an existing one in the set.
+ * @return A new channel_hint, if the addition resulted in changes.
+ */
+struct channel_hint *channel_hint_set_add(struct channel_hint_set *self,
+					  u32 timestamp,
+					  const struct short_channel_id_dir *scidd,
+					  bool enabled,
+					  const struct amount_msat *estimated_capacity,
+					  const struct amount_sat overall_capacity,
+					  u16 *htlc_budget);
 
 #endif /* LIGHTNING_PLUGINS_CHANNEL_HINT_H */
