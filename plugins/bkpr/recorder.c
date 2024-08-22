@@ -654,6 +654,26 @@ void maybe_mark_account_onchain(struct db *db, struct account *acct)
 	tal_free(ctx);
 }
 
+void edit_utxo_description(struct db *db,
+			   struct bitcoin_outpoint *outpoint,
+			   const char *desc)
+{
+	struct db_stmt *stmt;
+
+	/* Ok, now we update the account with this blockheight */
+	stmt = db_prepare_v2(db, SQL("UPDATE chain_events SET"
+				     "  ev_desc = ?"
+				     " WHERE"
+				     " utxo_txid = ?"
+				     " AND outnum = ?"
+				     " AND credit > 0"));
+	db_bind_text(stmt, desc);
+	db_bind_txid(stmt, &outpoint->txid);
+	db_bind_int(stmt, outpoint->n);
+
+	db_exec_prepared_v2(take(stmt));
+}
+
 void add_payment_hash_desc(struct db *db,
 			   struct sha256 *payment_hash,
 			   const char *desc)
@@ -721,6 +741,73 @@ struct chain_event *find_chain_event_by_id(const tal_t *ctx,
 
 	tal_free(stmt);
 	return e;
+}
+
+struct chain_event **get_chain_events_by_outpoint(const tal_t *ctx,
+						  struct db *db,
+						  const struct bitcoin_outpoint *outpoint,
+						  bool credits_only)
+{
+	struct db_stmt *stmt;
+	if (credits_only)
+		stmt = db_prepare_v2(db, SQL("SELECT"
+					     "  e.id"
+					     ", e.account_id"
+					     ", a.name"
+					     ", e.origin"
+					     ", e.tag"
+					     ", e.credit"
+					     ", e.debit"
+					     ", e.output_value"
+					     ", e.currency"
+					     ", e.timestamp"
+					     ", e.blockheight"
+					     ", e.utxo_txid"
+					     ", e.outnum"
+					     ", e.spending_txid"
+					     ", e.payment_id"
+					     ", e.ignored"
+					     ", e.stealable"
+					     ", e.ev_desc"
+					     ", e.spliced"
+					     " FROM chain_events e"
+					     " LEFT OUTER JOIN accounts a"
+					     " ON e.account_id = a.id"
+					     " WHERE "
+					     " e.utxo_txid = ?"
+					     " AND e.outnum = ?"
+					     " AND credit > 0"));
+	else
+		stmt = db_prepare_v2(db, SQL("SELECT"
+					     "  e.id"
+					     ", e.account_id"
+					     ", a.name"
+					     ", e.origin"
+					     ", e.tag"
+					     ", e.credit"
+					     ", e.debit"
+					     ", e.output_value"
+					     ", e.currency"
+					     ", e.timestamp"
+					     ", e.blockheight"
+					     ", e.utxo_txid"
+					     ", e.outnum"
+					     ", e.spending_txid"
+					     ", e.payment_id"
+					     ", e.ignored"
+					     ", e.stealable"
+					     ", e.ev_desc"
+					     ", e.spliced"
+					     " FROM chain_events e"
+					     " LEFT OUTER JOIN accounts a"
+					     " ON e.account_id = a.id"
+					     " WHERE "
+					     " e.utxo_txid = ?"
+					     " AND e.outnum = ?"));
+
+	db_bind_txid(stmt, &outpoint->txid);
+	db_bind_int(stmt, outpoint->n);
+	return find_chain_events(ctx, take(stmt));
 }
 
 struct chain_event **get_chain_events_by_id(const tal_t *ctx,

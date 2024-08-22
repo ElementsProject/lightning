@@ -112,6 +112,12 @@ struct chain_event **get_chain_events_by_id(const tal_t *ctx,
 					   struct db *db,
 					   const struct sha256 *id);
 
+/* Get all chain events for a utxo */
+struct chain_event **get_chain_events_by_outpoint(const tal_t *ctx,
+						  struct db *db,
+						  const struct bitcoin_outpoint *outpoint,
+						  bool credits_only);
+
 /* Calculate the balances for an account
  *
  * @calc_sum     - compute the total balance. error if negative
@@ -218,6 +224,12 @@ void maybe_mark_account_onchain(struct db *db, struct account *acct);
  * */
 void add_payment_hash_desc(struct db *db,
 			   struct sha256 *payment_hash,
+			   const char *desc);
+
+/* Set the description for all events on this outpoint to
+ * the provided one */
+void edit_utxo_description(struct db *db,
+			   struct bitcoin_outpoint *outpoint,
 			   const char *desc);
 
 /* When we make external deposits from the wallet, we don't
