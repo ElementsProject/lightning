@@ -451,7 +451,9 @@ def test_fees_dont_exceed_constraints(node_factory):
     assert amount <= max_msat
 
 
-def test_mpp_pay2(node_factory, bitcoind):
+@pytest.mark.xfail(strict=True)
+def test_live_spendable(node_factory, bitcoind):
+    """Test we don't exceed spendable limits on a real network on nodes"""
     l1, l2, l3 = node_factory.get_nodes(3)
     l1.fundwallet(10_000_000)
     l2.fundwallet(10_000_000)
@@ -480,11 +482,22 @@ def test_mpp_pay2(node_factory, bitcoind):
 
     # Don't exceed spendable_msat
     maxes = {}
-    for chan in l1.rpc.listpeerchannels()['channels']:
-        maxes["{}/{}".format(chan['short_channel_id'], chan['direction'])] = chan['spendable_msat']
+    for chan in l1.rpc.listpeerchannels()["channels"]:
+        maxes["{}/{}".format(chan["short_channel_id"], chan["direction"])] = chan[
+            "spendable_msat"
+        ]
 
-    for r in routes['routes']:
-        for p in r['path']:
-            scidd = "{}/{}".format(p['short_channel_id'], p['direction'])
-            if scidd in maxes:
-                assert p['amount_msat'] <= maxes[scidd]
+    path_total = {}
+    for r in routes["routes"]:
+        key = "{}/{}".format(
+            r["path"][0]["short_channel_id"], r["path"][0]["direction"]
+        )
+        path_total[key] = path_total.get(key, 0) + r["path"][0]["amount_msat"]
+
+    exceeded = {}
+    for scidd in maxes.keys():
+        if scidd in path_total:
+            if path_total[scidd] > maxes[scidd]:
+                exceeded[scidd] = f"Path total {path_total[scidd]} > spendable {maxes[scidd]}"
+
+    assert exceeded == {}
