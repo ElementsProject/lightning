@@ -169,8 +169,9 @@ static fp16_t *get_capacities(const tal_t *ctx,
 				   "get_capacity failed for channel?");
 			cap = AMOUNT_SAT(0);
 		}
+		/* Pessimistic: round down! */
 		caps[gossmap_chan_idx(gossmap, c)]
-			= u64_to_fp16(cap.satoshis, true); /* Raw: fp16 */
+			= u64_to_fp16(cap.satoshis, false); /* Raw: fp16 */
 	}
 	return caps;
 }
