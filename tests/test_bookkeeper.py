@@ -795,6 +795,31 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     assert l2_koinly_csv.find(bolt11_exp) >= 0
     assert l2_koinly_csv.find(bolt12_exp) >= 0
 
+    # Test that we can update the description, payment id
+    edited_desc_payid = 'edited payment_id description'
+    for node in [l1, l2]:
+        results = node.rpc.bkpr_editdescriptionbypaymentid(paid['payment_hash'], edited_desc_payid)
+        assert only_one(results['updated'])['description'] == edited_desc_payid
+
+    # Test that we can update the description, outpoint
+    edited_desc_outpoint = 'edited outpoint description'
+    deposits = [ev for ev in l1_inc_ev if ev['tag'] == 'deposit']
+    assert len(deposits) > 0
+    results = l1.rpc.bkpr_editdescriptionbyoutpoint(deposits[0]['outpoint'], edited_desc_outpoint)
+    assert only_one(results['updated'])['description'] == edited_desc_outpoint
+
+    # Test that input that doesn't match an event returns empty list
+    fake_outpoint = '01' * 32 + ':100'
+    results = l1.rpc.bkpr_editdescriptionbyoutpoint(fake_outpoint, edited_desc_outpoint)
+    assert len(results['updated']) == 0
+
+    # Make sure that only one event actually updated
+    acct_evs = l1.rpc.bkpr_listaccountevents()['events']
+    income_evs = l1.rpc.bkpr_listincome()['income_events']
+    for evs in [acct_evs, income_evs]:
+        assert only_one([ev for ev in evs if 'description' in ev and ev['description'] == edited_desc_payid])
+        assert only_one([ev for ev in evs if 'description' in ev and ev['description'] == edited_desc_outpoint])
+
 
 def test_empty_node(node_factory, bitcoind):
     """
