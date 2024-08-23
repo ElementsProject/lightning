@@ -729,6 +729,11 @@ static bool payment_route_check(const struct gossmap *gossmap,
 	if (!hint)
 		return true;
 
+	paymod_log(p, LOG_DBG,
+		   "Checking hint {.scid=%s, .enabled=%d, .estimate=%s}",
+		   fmt_short_channel_id_dir(tmpctx, &hint->scid), hint->enabled,
+		   fmt_amount_msat(tmpctx, hint->estimated_capacity));
+
 	if (!hint->enabled)
 		return false;
 
