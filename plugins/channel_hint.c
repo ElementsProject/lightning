@@ -14,8 +14,27 @@ void channel_hint_to_json(const char *name, const struct channel_hint *hint,
 	json_object_end(dest);
 }
 
+/* How long until even a channel whose estimate is down at 0msat will
+ * be considered fully refilled. The refill rate is the inverse of
+ * this times the channel size. The refilling is a linear
+ * approximation, with a small hysteresis applied in order to prevent
+ * a single payment relaxing its own constraints thus causing it to
+ * prematurely retry an already attempted channel.
+ */
 #define PAY_REFILL_TIME 7200
 
+/* Add an artificial delay before accepting updates. This ensures we
+ * don't actually end up relaxing a tight constraint inbetween the
+ * attempt that added it and the next retry. If we were to relax right
+ * away, then we could end up retrying the exact same path we just
+ * failed at.  If the `time_between_attempts * refill > 1msat`, we'd
+ * end up not actually constraining at all, because we set the
+ * estimate to `attempt - 1msat`. This also results in the updates
+ * being limited to once every minute, and causes a stairway
+ * pattern. The hysteresis has to be >60s otherwise a single payment
+ * can already end up retrying a previously excluded channel.
+ */
+#define PAY_REFILL_HYSTERESIS 60
 /**
  * Update the `channel_hint` in place, return whether it should be kept.
  *
@@ -39,6 +58,9 @@ bool channel_hint_update(const struct timeabs now, struct channel_hint *hint)
 	struct amount_msat capacity;
 	if (!amount_sat_to_msat(&capacity, hint->capacity))
 		abort();
+
+	if (now.ts.tv_sec < hint->timestamp + PAY_REFILL_HYSTERESIS)
+		return true;
 
 	u64 seconds = now.ts.tv_sec - hint->timestamp;
 	if (!amount_msat_mul(&refill, capacity, seconds))
