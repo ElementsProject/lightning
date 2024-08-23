@@ -205,3 +205,8 @@ void channel_hint_set_update(struct channel_hint_set *set,
 	for (size_t i = 0; i < tal_count(set->hints); i++)
 		channel_hint_update(time_now(), &set->hints[i]);
 }
+
+size_t channel_hint_set_count(const struct channel_hint_set *set)
+{
+	return tal_count(set->hints);
+}

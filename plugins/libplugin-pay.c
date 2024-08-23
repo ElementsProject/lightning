@@ -160,10 +160,6 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 			tal_arr_expand(&p->modifier_data, NULL);
 	}
 
-	paymod_log(p, LOG_DBG,
-		   "Initialized a new (sub-)payment with %zu channel_hints",
-		   tal_count(payment_root(p)->hints->hints));
-
 	return p;
 }
 
