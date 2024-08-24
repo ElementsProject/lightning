@@ -1288,7 +1288,11 @@ static struct channel_id *calc_forwarding_channel(struct lightningd *ld,
 		c = NULL;
 	}
 
-	best = best_channel(ld, peer, p->amt_to_forward, c);
+	if (!ld->dev_strict_forwarding)
+		best = best_channel(ld, peer, p->amt_to_forward, c);
+	else
+		best = c;
+
 	if (!c) {
 		if (!best)
 			return NULL;
