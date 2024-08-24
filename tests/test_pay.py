@@ -6586,3 +6586,111 @@ def test_injectpaymentonion_failures(node_factory, executor):
     # PAY_INJECTPAYMENTONION_FAILED
     assert err.value.error['code'] == 218
     assert 'onionreply' in err.value.error['data']
+
+
+def test_parallel_channels_reserve(node_factory, bitcoind):
+    """Tests wether we are able to pay through parallel channels concurrently.
+    To do that we need to enable strict-forwarding."""
+
+    def direction(node1, node2):
+        return 0 if node1.info["id"] < node2.info["id"] else 1
+
+    def get_local_channel_by_id(node, chanid):
+        peerchannels = node.rpc.listpeerchannels()["channels"]
+        if not peerchannels:
+            return None
+        for c in peerchannels:
+            if c["channel_id"] == chanid:
+                return c
+        return None
+
+    opts = {
+        "fee-base": 0,
+        "fee-per-satoshi": 0,
+        "cltv-delta": 6,
+        "dev-strict-forwarding": None,
+    }
+    l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
+
+    l1.fundwallet(10**7)
+    l2.fundwallet(10**7)
+
+    scids = []
+
+    l1.rpc.connect(l2.info["id"], "localhost", l2.port)
+    l2.rpc.connect(l3.info["id"], "localhost", l3.port)
+
+    c12 = l1.rpc.fundchannel(l2.info["id"], 3000_000, minconf=0)["channel_id"]
+
+    c23 = []
+    c23.append(l2.rpc.fundchannel(l3.info["id"], 1000_000, minconf=0)["channel_id"])
+    c23.append(l2.rpc.fundchannel(l3.info["id"], 2000_000, minconf=0)["channel_id"])
+
+    bitcoind.generate_block(6)
+    sync_blockheight(bitcoind, [l1, l2, l3])
+
+    scids.append(get_local_channel_by_id(l1, c12)["short_channel_id"])
+    scids.append(get_local_channel_by_id(l2, c23[0])["short_channel_id"])
+    scids.append(get_local_channel_by_id(l2, c23[1])["short_channel_id"])
+
+    for l in [l1, l2, l3]:
+        for c in scids:
+            l.wait_channel_active(c)
+
+    # we should be able to send these two parts:
+    nparts = 2
+    route_amounts = ["750000sat", "1750000sat"]
+    total_msat = sum([Millisatoshi(a) for a in route_amounts[:nparts]])
+
+    # Test succeeds if we are able to pay this invoice
+    inv = l3.rpc.call(
+        "invoice",
+        {"amount_msat": total_msat, "label": "inv", "description": "inv", "cltv": 10},
+    )
+
+    # Share data by every route we will construct: l1->l2->l3
+    route = [
+        {
+            "id": l2.info["id"],
+            "direction": direction(l1, l2),
+            "delay": 16,
+            "style": "tlv",
+        },
+        {
+            "id": l3.info["id"],
+            "direction": direction(l2, l3),
+            "delay": 10,
+            "style": "tlv",
+        },
+    ]
+
+    # Send every part with sendpay
+    for part in range(nparts):
+        this_part_msat = Millisatoshi(route_amounts[part])
+        chan1 = get_local_channel_by_id(l1, c12)
+        chan2 = get_local_channel_by_id(l2, c23[part])
+
+        route[0]["channel"] = chan1["short_channel_id"]
+        route[1]["channel"] = chan2["short_channel_id"]
+        route[0]["amount_msat"] = route[1]["amount_msat"] = this_part_msat
+
+        assert chan1["spendable_msat"] >= this_part_msat
+        assert chan2["spendable_msat"] >= this_part_msat
+
+        l1.rpc.call(
+            "sendpay",
+            {
+                "route": route,
+                "payment_hash": inv["payment_hash"],
+                "payment_secret": inv["payment_secret"],
+                "amount_msat": total_msat,
+                "groupid": 1,
+                "partid": part + 1,
+            },
+        )
+    l1.wait_for_htlcs()
+
+    # Are we happy?
+    receipt = only_one(l3.rpc.listinvoices("inv")["invoices"])
+    assert receipt["status"] == "paid"
+    assert receipt["amount_received_msat"] == total_msat

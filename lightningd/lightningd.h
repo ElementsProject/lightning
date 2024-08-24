@@ -362,6 +362,10 @@ struct lightningd {
 	/* Tell connectd not to talk after handshake */
 	bool dev_handshake_no_reply;
 
+	/* Remove the freedom to choose select between parallel channels to
+	 * forward a payment. */
+	bool dev_strict_forwarding;
+
 	/* tor support */
 	struct wireaddr *proxyaddr;
 	bool always_use_proxy;
