@@ -500,7 +500,7 @@ static struct command_result *json_edit_desc_utxo(struct command *cmd,
 	struct chain_event **chain_events;
 
 	if (!param(cmd, buf, params,
-		   p_req("identifier", param_outpoint, &outpoint),
+		   p_req("outpoint", param_outpoint, &outpoint),
 		   p_req("description", param_string, &new_desc),
 		   NULL))
 		return command_param_failed();

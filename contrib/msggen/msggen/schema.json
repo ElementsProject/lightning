@@ -2627,7 +2627,47 @@
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
       ],
-      "examples": []
+      "examples": [
+        {
+          "request": {
+            "id": "example:bkpr-editdescriptionbyoutpoint#1",
+            "method": "bkpr-editdescriptionbyoutpoint",
+            "params": {
+              "outpoint": "55edd73a01f08057e1f5f61788477c0d7551d5d1aa2f2907bf9d03b6370bbacf:1",
+              "description": "edited utxo description"
+            }
+          },
+          "response": {
+            "updated": [
+              {
+                "account": "wallet",
+                "type": "chain",
+                "tag": "deposit",
+                "credit_msat": 200000000000,
+                "debit_msat": 0,
+                "currency": "bcrt",
+                "outpoint": "55edd73a01f08057e1f5f61788477c0d7551d5d1aa2f2907bf9d03b6370bbacf:1",
+                "timestamp": 1724554221,
+                "blockheight": 105,
+                "description": "edited utxo description"
+              }
+            ]
+          }
+        },
+        {
+          "request": {
+            "id": "example:bkpr-editdescriptionbyoutpoint#2",
+            "method": "bkpr-editdescriptionbyoutpoint",
+            "params": {
+              "outpoint": "6472b4c9d39d8478ed9c848df7a62a512d953a4b2e6e7b09902d76a7bbb761ca:1",
+              "description": "edited utxo description"
+            }
+          },
+          "response": {
+            "updated": []
+          }
+        }
+      ]
     },
     "lightning-bkpr-editdescriptionbypaymentid.json": {
       "$schema": "../rpc-schema-draft.json",
@@ -2890,7 +2930,48 @@
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
       ],
-      "examples": []
+      "examples": [
+        {
+          "request": {
+            "id": "example:bkpr-editdescriptionbypaymentid#1",
+            "method": "bkpr-editdescriptionbypaymentid",
+            "params": {
+              "payment_id": "6ff673c6ae3527726cf200274426db79f93054a3cbbc4b3787d1afc2d65565a7",
+              "description": "edited invoice description"
+            }
+          },
+          "response": {
+            "updated": [
+              {
+                "account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+                "type": "channel",
+                "tag": "invoice",
+                "credit_msat": 500000000,
+                "debit_msat": 0,
+                "currency": "bcrt",
+                "payment_id": "6ff673c6ae3527726cf200274426db79f93054a3cbbc4b3787d1afc2d65565a7",
+                "part_id": 0,
+                "timestamp": 1724554257,
+                "description": "edited invoice description",
+                "is_rebalance": false
+              }
+            ]
+          }
+        },
+        {
+          "request": {
+            "id": "example:bkpr-editdescriptionbypaymentid#2",
+            "method": "bkpr-editdescriptionbypaymentid",
+            "params": {
+              "payment_id": "c97b61113636256111835c0204d70111c42f19069cefdc659849a6afc6b595a4",
+              "description": "edited invoice description"
+            }
+          },
+          "response": {
+            "updated": []
+          }
+        }
+      ]
     },
     "lightning-bkpr-inspect.json": {
       "$schema": "../rpc-schema-draft.json",
