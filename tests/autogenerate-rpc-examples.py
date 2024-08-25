@@ -483,7 +483,18 @@ def generate_bookkeeper_examples(l2, l3, c23_chan_id):
         update_example(node=l3, method='bkpr-listaccountevents', params={})
         update_example(node=l3, method='bkpr-listaccountevents', params=[c23_chan_id])
         update_example(node=l3, method='bkpr-listincome', params={})
-        update_example(node=l3, method='bkpr-listincome', params={'consolidate_fees': False})
+
+        # listincome and editing descriptions
+        listincome_result = update_example(node=l3, method='bkpr-listincome', params={'consolidate_fees': False})
+        invoice = next((event for event in listincome_result['income_events'] if 'payment_id' in event), None)
+        utxo_event = next((event for event in listincome_result['income_events'] if 'outpoint' in event), None)
+        update_example(node=l3, method='bkpr-editdescriptionbypaymentid', params={'payment_id': invoice['payment_id'], 'description': 'edited invoice description'})
+        # Try to edit a payment_id that does not exist
+        update_example(node=l3, method='bkpr-editdescriptionbypaymentid', params={'payment_id': 'c97b61113636256111835c0204d70111c42f19069cefdc659849a6afc6b595a4', 'description': 'edited invoice description'})
+        update_example(node=l3, method='bkpr-editdescriptionbyoutpoint', params={'outpoint': utxo_event['outpoint'], 'description': 'edited utxo description'})
+        # Try to edit an outpoint that does not exist
+        update_example(node=l3, method='bkpr-editdescriptionbyoutpoint', params={'outpoint': '6472b4c9d39d8478ed9c848df7a62a512d953a4b2e6e7b09902d76a7bbb761ca:1', 'description': 'edited utxo description'})
+
         logger.info('Bookkeeper Done!')
     except TaskFinished:
         raise

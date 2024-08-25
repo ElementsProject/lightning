@@ -45,7 +45,7 @@
             "debit_msat",
             "currency",
             "timestamp",
-	    "description"
+            "description"
           ],
           "properties": {
             "account": {
@@ -127,7 +127,7 @@
                     "description": [
                       "A description of this outpoint."
                     ]
-		  },
+                  },
                   "outpoint": {
                     "type": "string",
                     "description": [
@@ -266,5 +266,44 @@
     "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
+    {
+      "request": {
+        "id": "example:bkpr-editdescriptionbyoutpoint#1",
+        "method": "bkpr-editdescriptionbyoutpoint",
+        "params": {
+          "outpoint": "55edd73a01f08057e1f5f61788477c0d7551d5d1aa2f2907bf9d03b6370bbacf:1",
+          "description": "edited utxo description"
+        }
+      },
+      "response": {
+        "updated": [
+          {
+            "account": "wallet",
+            "type": "chain",
+            "tag": "deposit",
+            "credit_msat": 200000000000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "outpoint": "55edd73a01f08057e1f5f61788477c0d7551d5d1aa2f2907bf9d03b6370bbacf:1",
+            "timestamp": 1724554221,
+            "blockheight": 105,
+            "description": "edited utxo description"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "id": "example:bkpr-editdescriptionbyoutpoint#2",
+        "method": "bkpr-editdescriptionbyoutpoint",
+        "params": {
+          "outpoint": "6472b4c9d39d8478ed9c848df7a62a512d953a4b2e6e7b09902d76a7bbb761ca:1",
+          "description": "edited utxo description"
+        }
+      },
+      "response": {
+        "updated": []
+      }
+    }
   ]
 }
