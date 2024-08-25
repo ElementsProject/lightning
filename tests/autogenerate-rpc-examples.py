@@ -138,7 +138,7 @@ def update_example(node, method, params, res=None, description=None, execute=Tru
                 res = node.rpc.call(method, params)
             logger.info(f'{method} response: {res}')
             # Return response without updating the file because user doesn't want to update the example
-            # Executing the method and returing the response is useful for further example updates
+            # Executing the method and returning the response is useful for further example updates
             if method not in REGENERATING_RPCS:
                 return res
             else:
@@ -1150,7 +1150,7 @@ def test_generate_examples(node_factory, bitcoind, executor):
                 logger.error(f'Error in listing missing examples: {e}')
 
         def clear_existing_examples():
-            """Clear existing examples in JSON files to regenrate them later"""
+            """Clear existing examples in JSON files to regenerate them later"""
             global REGENERATING_RPCS
             for rpc in REGENERATING_RPCS:
                 try:
