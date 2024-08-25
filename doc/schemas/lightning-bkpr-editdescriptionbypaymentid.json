@@ -45,7 +45,7 @@
             "debit_msat",
             "currency",
             "timestamp",
-	    "description"
+            "description"
           ],
           "properties": {
             "account": {
@@ -260,5 +260,45 @@
     "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
+    {
+      "request": {
+        "id": "example:bkpr-editdescriptionbypaymentid#1",
+        "method": "bkpr-editdescriptionbypaymentid",
+        "params": {
+          "payment_id": "6ff673c6ae3527726cf200274426db79f93054a3cbbc4b3787d1afc2d65565a7",
+          "description": "edited invoice description"
+        }
+      },
+      "response": {
+        "updated": [
+          {
+            "account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "type": "channel",
+            "tag": "invoice",
+            "credit_msat": 500000000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "payment_id": "6ff673c6ae3527726cf200274426db79f93054a3cbbc4b3787d1afc2d65565a7",
+            "part_id": 0,
+            "timestamp": 1724554257,
+            "description": "edited invoice description",
+            "is_rebalance": false
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "id": "example:bkpr-editdescriptionbypaymentid#2",
+        "method": "bkpr-editdescriptionbypaymentid",
+        "params": {
+          "payment_id": "c97b61113636256111835c0204d70111c42f19069cefdc659849a6afc6b595a4",
+          "description": "edited invoice description"
+        }
+      },
+      "response": {
+        "updated": []
+      }
+    }
   ]
 }
