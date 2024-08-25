@@ -26,13 +26,13 @@ You should always list all fields which are _always_ present in `"required"`.
 
 We extend the basic types; see [fixtures.py](https://github.com/ElementsProject/lightning/tree/master/contrib/pyln-testing/pyln/testing/fixtures.py).
 
-In addition, before committing a new schema or a new version of it, make sure that it is well formatted. If you don't want do it by hand, use `make fmt-schema` that uses jq under the hood.
+In addition, before committing a new schema or a new version of it, make sure that it is well formatted. If you don't want to do it by hand, use `make fmt-schema` that uses jq under the hood.
 
 ### Using Conditional Fields
 
 Sometimes one field is only sometimes present; if you can, you should make the schema know when it should (and should not!) be there.
 
-There are two kinds of conditional fields expressable: fields which are only present if another field is present, or fields only present if another field has certain values.
+There are two kinds of conditional fields expressible: fields which are only present if another field is present, or fields only present if another field has certain values.
 
 To add conditional fields:
 
@@ -43,11 +43,11 @@ To add conditional fields:
 5. If a field requires another field value, use the pattern  
    `"properties": { "field": { "enum": [ "val1", "val2" ] } }` inside the "if".
 6. Inside the "then", use `"additionalProperties": false` and place empty `{}` for all the other possible properties.
-7. If you haven't covered all the possibilties with `if` statements, add an `else` with `"additionalProperties": false` which simply mentions every allowable property.  This ensures that the fields can _only_ be present when conditions are met.
+7. If you haven't covered all the possibilities with `if` statements, add an `else` with `"additionalProperties": false` which simply mentions every allowable property.  This ensures that the fields can _only_ be present when conditions are met.
 
 ### Exceptions in dynamic schema generation
 
-- If response (`RETURN VALUE`) should not be generated dynamically and you want it to be a custom text message instead. You can use `return_value_notes` to add custom text with empty `properties`. Examples: `setpsbtversion`, `commando`, `recover`.
+- If response (`RETURN VALUE`) should not be generated dynamically, and you want it to be a custom text message instead. You can use `return_value_notes` to add custom text with empty `properties`. Examples: `setpsbtversion`, `commando`, `recover`.
 - If only one of multiple request parameters can be provided then utilize `oneOfMany`
    key with condition defining arrays. For example, `plugin` command defines it as
    `"oneOfMany": [["plugin", "directory"]]` and it prints the parameter output as
@@ -60,13 +60,13 @@ To add conditional fields:
    use `dependentUpon` key where object key can be mapped with the array of dependent params.
    For example, `listforwards` command has `start` and `limit` params dependent upon `index` and
    it can be defined as `"dependentUpon": { "index": ["start", "limit"] }` in the json and it will
-   generate the markdown syntax as `[*index* [*start*] [*limit*]]`.
+   generate the Markdown syntax as `[*index* [*start*] [*limit*]]`.
 
 ### Re-generate examples listed in rpc schemas (doc/schemas/lightning-*.json)
 
 1. The `autogenerate-rpc-examples.py` script regenerates RPC examples for methods listed in `doc/schemas/lightning-*.json` files.
 2. It uses our pre-existing pytest suite to perform this task.
-3. The script runs a test named `test_generate_examples`, which sets up test nodes, records RPC requests, and captures responses.
+3. The script runs a test named `test_generate_examples`, which sets up test nodes, records RPC requests, and captures responses. If you have added an RPC, make sure to add its use to the scripts here.
 4. To prevent accidental overwriting of examples with other tests, set the environment variable `GENERATE_EXAMPLES=True` before running the script.
 5. By default, all methods are regenerated. To specify which methods to regenerate, set the `REGENERATE` environment variable with a comma-separated list of method names. Eg. `REGENERATE='getinfo,connect'` will only regenerate examples for the getinfo and connect RPCs.
 6. The dev-bitcoind-poll is set to 3 seconds. Ensure the `TIMEOUT` environment variable is set to more than 3 seconds to avoid test failures due to a short waiting time for bitcoind responses.
@@ -75,7 +75,7 @@ To add conditional fields:
 rm -rf /tmp/ltests* && REGENERATE='getinfo,connect' VALGRIND=0 TIMEOUT=10 TEST_DEBUG=1 pytest -vvv -s -p no:logging -n 6 tests/autogenerate-rpc-examples.py
 ```
 8. The script saves logs in a file named `autogenerate-examples-status.log`, located in the root directory.
-9. After running the script, execute make to ensure that the schema has been updated in all relevant locations, such as `...msggen/schema.json`.
+9. After running the script, execute `make` to ensure that the schema has been updated in all relevant locations, such as `...msggen/schema.json`.
 
 ### JSON Drinking Game!
 
