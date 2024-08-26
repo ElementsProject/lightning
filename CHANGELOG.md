@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
-## [24.08rc2] - 2024-08-15: "TO BE ADDED"
+## [24.08rc3] - 2024-08-26: "Steel Backed-up Channels"
 
 This release named by @Lagrang3.
 
@@ -133,7 +133,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#7533]: https://github.com/ElementsProject/lightning/pull/7533
 [#7567]: https://github.com/ElementsProject/lightning/pull/7567
 [#7298]: https://github.com/ElementsProject/lightning/pull/7298
-[24.08rc2]: https://github.com/ElementsProject/lightning/releases/tag/v24.08rc2
+[24.08rc3]: https://github.com/ElementsProject/lightning/releases/tag/v24.08rc3
 
 
 
