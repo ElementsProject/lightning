@@ -2121,6 +2121,130 @@ void wallet_channel_stats_load(struct wallet *w,
 	tal_free(stmt);
 }
 
+size_t channel_stats_hash(const u64 *out)
+{
+	struct siphash24_ctx ctx;
+	siphash24_init(&ctx, siphash_seed());
+	siphash24_update(&ctx, out, sizeof(u64));
+	return siphash24_done(&ctx);
+}
+
+const u64 *channel_stats_keyof(const struct channel_stats_list *out)
+{
+	return &out->channel_id;
+}
+
+bool channel_stats_eq(const struct channel_stats_list *a, const u64 *b)
+{
+	return a->channel_id == *b;
+}
+
+struct channel_stats_map *wallet_channel_stats_peer_get(struct wallet *w,
+			       			    u64 peer_id)
+{
+	struct db_stmt *stmt;
+	struct channel_stats_map *channels;
+	channels = tal(NULL, struct channel_stats_map);
+	channel_stats_map_init(channels);
+
+	stmt = db_prepare_v2(w->db, SQL(
+				     "SELECT"
+				     "  id"
+				     ",  in_payments_offered, in_payments_fulfilled"
+				     ",  in_msatoshi_offered, in_msatoshi_fulfilled"
+				     ", out_payments_offered, out_payments_fulfilled"
+				     ", out_msatoshi_offered, out_msatoshi_fulfilled"
+				     "  FROM channels"
+				     " WHERE peer_id = ? AND state != ?"
+				     " ORDER BY id ASC"));
+	db_bind_u64(stmt, peer_id);
+	db_bind_int(stmt, CLOSED);
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		struct channel_stats_list *tmp = tal(channels,
+						     struct channel_stats_list);
+		tmp->stats = tal(tmp, struct channel_stats);
+		tmp->channel_id = db_col_u64(stmt, "id");
+		tmp->stats->in_payments_offered = db_col_int_or_default(stmt,
+			"in_payments_offered", 0);
+		tmp->stats->in_payments_fulfilled = db_col_int_or_default(stmt,
+			"in_payments_fulfilled", 0);
+		db_col_amount_msat_or_default(stmt, "in_msatoshi_offered",
+				      &tmp->stats->in_msatoshi_offered,
+				      AMOUNT_MSAT(0));
+		db_col_amount_msat_or_default(stmt, "in_msatoshi_fulfilled",
+				      &tmp->stats->in_msatoshi_fulfilled,
+				      AMOUNT_MSAT(0));
+		tmp->stats->out_payments_offered
+		= db_col_int_or_default(stmt, "out_payments_offered", 0);
+		tmp->stats->out_payments_fulfilled
+			= db_col_int_or_default(stmt, "out_payments_fulfilled", 0);
+		db_col_amount_msat_or_default(stmt, "out_msatoshi_offered",
+					&tmp->stats->out_msatoshi_offered,
+					AMOUNT_MSAT(0));
+		db_col_amount_msat_or_default(stmt, "out_msatoshi_fulfilled",
+					&tmp->stats->out_msatoshi_fulfilled,
+					AMOUNT_MSAT(0));
+		channel_stats_map_add(channels, tmp);
+	}
+
+	tal_free(stmt);
+	return channels;
+}
+
+struct channel_stats_map *wallet_channel_stats_get(struct wallet *w)
+{
+	struct db_stmt *stmt;
+	struct channel_stats_map *channels;
+	channels = tal(NULL, struct channel_stats_map);
+	channel_stats_map_init(channels);
+
+	stmt = db_prepare_v2(w->db, SQL(
+				     "SELECT"
+				     "  id"
+				     ",  in_payments_offered,  in_payments_fulfilled"
+				     ",  in_msatoshi_offered,  in_msatoshi_fulfilled"
+				     ", out_payments_offered, out_payments_fulfilled"
+				     ", out_msatoshi_offered, out_msatoshi_fulfilled"
+				     "  FROM channels"
+				     " WHERE state != ?"
+				     " ORDER BY id ASC"));
+	db_bind_int(stmt, CLOSED);
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		struct channel_stats_list *tmp = tal(channels,
+						     struct channel_stats_list);
+		tmp->stats = tal(tmp, struct channel_stats);
+		tmp->channel_id = db_col_u64(stmt, "id");
+		tmp->stats->in_payments_offered = db_col_int_or_default(stmt,
+			"in_payments_offered", 0);
+		tmp->stats->in_payments_fulfilled = db_col_int_or_default(stmt,
+			"in_payments_fulfilled", 0);
+		db_col_amount_msat_or_default(stmt, "in_msatoshi_offered",
+				      &tmp->stats->in_msatoshi_offered,
+				      AMOUNT_MSAT(0));
+		db_col_amount_msat_or_default(stmt, "in_msatoshi_fulfilled",
+				      &tmp->stats->in_msatoshi_fulfilled,
+				      AMOUNT_MSAT(0));
+		tmp->stats->out_payments_offered
+		= db_col_int_or_default(stmt, "out_payments_offered", 0);
+		tmp->stats->out_payments_fulfilled
+			= db_col_int_or_default(stmt, "out_payments_fulfilled", 0);
+		db_col_amount_msat_or_default(stmt, "out_msatoshi_offered",
+					&tmp->stats->out_msatoshi_offered,
+					AMOUNT_MSAT(0));
+		db_col_amount_msat_or_default(stmt, "out_msatoshi_fulfilled",
+					&tmp->stats->out_msatoshi_fulfilled,
+					AMOUNT_MSAT(0));
+		channel_stats_map_add(channels, tmp);
+	}
+
+	tal_free(stmt);
+	return channels;
+}
+
 u32 wallet_blocks_maxheight(struct wallet *w)
 {
 	u32 max = 0;
@@ -2515,37 +2639,120 @@ void wallet_state_change_add(struct wallet *w,
 	db_exec_prepared_v2(take(stmt));
 }
 
-struct state_change_entry *wallet_state_change_get(const tal_t *ctx,
-						   struct wallet *w,
-						   u64 channel_id)
+size_t state_change_list_hash(const u64 *out)
 {
+	struct siphash24_ctx ctx;
+	siphash24_init(&ctx, siphash_seed());
+	siphash24_update(&ctx, out, sizeof(u64));
+	return siphash24_done(&ctx);
+}
+
+const u64 *state_change_list_keyof(const struct state_change_list *out)
+{
+	return &out->channel_id;
+}
+
+bool state_change_list_eq(const struct state_change_list *a, const u64 *b)
+{
+	return a->channel_id == *b;
+}
+
+struct channel_state_change_map *wallet_state_changes_peer_get(const tal_t *ctx,
+					  struct wallet *w,
+					  u64 peer_id) {
 	struct db_stmt *stmt;
-	struct state_change_entry tmp;
-	struct state_change_entry *res = tal_arr(ctx,
-						 struct state_change_entry, 0);
+	struct state_change_list *curr_list;
+	u64 *curr = NULL;
+	u64 *prev = NULL;
+	struct channel_state_change_map *channels;
+	channels = tal(NULL, struct channel_state_change_map);
+	channel_state_change_map_init(channels);
+
 	stmt = db_prepare_v2(
 	    w->db, SQL("SELECT"
-		       " timestamp,"
-		       " old_state,"
-		       " new_state,"
-		       " cause,"
-		       " message "
-		       "FROM channel_state_changes "
-		       "WHERE channel_id = ? "
-		       "ORDER BY timestamp ASC;"));
-	db_bind_int(stmt, channel_id);
+			   " s.channel_id,"
+			   " s.timestamp,"
+			   " s.old_state,"
+			   " s.new_state,"
+			   " s.cause,"
+			   " s.message "
+			   "FROM channel_state_changes s "
+			   "INNER JOIN channels c ON s.channel_id = c.id "
+			   "WHERE c.peer_id = ? AND c.state != ? "
+			   "ORDER BY s.channel_id ASC, s.timestamp ASC;"));
+	db_bind_u64(stmt, peer_id);
+	db_bind_int(stmt, CLOSED);
 	db_query_prepared(stmt);
 
 	while (db_step(stmt)) {
-		tmp.timestamp = db_col_timeabs(stmt, "timestamp");
-		tmp.old_state = db_col_int(stmt, "old_state");
-		tmp.new_state = db_col_int(stmt, "new_state");
-		tmp.cause = state_change_in_db(db_col_int(stmt, "cause"));
-		tmp.message = db_col_strdup(res, stmt, "message");
-		tal_arr_expand(&res, tmp);
+		struct state_change_entry tmp;
+		u64 t = db_col_u64(stmt, "s.channel_id");
+		curr = &t;
+		if (!prev || *curr != *prev) {
+			curr_list = tal(channels, struct state_change_list);
+			curr_list->channel_id = *curr;
+			curr_list->entries = tal_arr(ctx, struct state_change_entry, 0);
+			channel_state_change_map_add(channels, curr_list);
+		}
+		tmp.timestamp = db_col_timeabs(stmt, "s.timestamp");
+		tmp.old_state = db_col_int(stmt, "s.old_state");
+		tmp.new_state = db_col_int(stmt, "s.new_state");
+		tmp.cause = state_change_in_db(db_col_int(stmt, "s.cause"));
+		tmp.message = db_col_strdup(curr_list->entries, stmt, "s.message");
+		tal_arr_expand(&curr_list->entries, tmp);
+		prev = curr;
 	}
+
 	tal_free(stmt);
-	return res;
+	return channels;
+}
+
+struct channel_state_change_map *wallet_state_changes_get(const tal_t *ctx,
+					  struct wallet *w) {
+	struct db_stmt *stmt;
+	struct state_change_list *curr_list;
+	u64 *curr = NULL;
+	u64 *prev = NULL;
+	struct channel_state_change_map *channels;
+	channels = tal(NULL, struct channel_state_change_map);
+	channel_state_change_map_init(channels);
+
+	stmt = db_prepare_v2(
+	    w->db, SQL("SELECT"
+			   " s.channel_id,"
+			   " s.timestamp,"
+			   " s.old_state,"
+			   " s.new_state,"
+			   " s.cause,"
+			   " s.message "
+			   "FROM channel_state_changes s "
+			   "INNER JOIN channels c ON s.channel_id = c.id "
+			   "WHERE c.state != ? "
+			   "ORDER BY s.channel_id ASC, s.timestamp ASC;"));
+	db_bind_int(stmt, CLOSED);
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		struct state_change_entry tmp;
+		u64 t = db_col_u64(stmt, "s.channel_id");
+		curr = &t;
+		if (!prev || *curr != *prev) {
+			curr_list = tal(channels, struct state_change_list);
+			curr_list->channel_id = *curr;
+			curr_list->entries = tal_arr(ctx, struct state_change_entry, 0);
+			channel_state_change_map_add(channels, curr_list);
+		}
+		tmp.timestamp = db_col_timeabs(stmt, "s.timestamp");
+		tmp.old_state = db_col_int(stmt, "s.old_state");
+		tmp.new_state = db_col_int(stmt, "s.new_state");
+		tmp.cause = state_change_in_db(db_col_int(stmt, "s.cause"));
+		tmp.message = db_col_strdup(curr_list->entries, stmt, "s.message");
+		tal_arr_expand(&curr_list->entries, tmp);
+		prev = curr;
+	}
+
+	tal_free(stmt);
+	return channels;
 }
 
 static void wallet_peer_save(struct wallet *w, struct peer *peer)

@@ -670,13 +670,24 @@ void wallet_state_change_add(struct wallet *w,
 			     enum state_change cause,
 			     const char *message);
 
-/**
- * Gets all state change history entries for a channel from the database
- */
-struct state_change_entry *wallet_state_change_get(const tal_t *ctx,
-						   struct wallet *w,
-						   u64 channel_id);
+struct state_change_list {
+	u64 channel_id;
+	struct state_change_entry *entries;
+};
 
+size_t state_change_list_hash(const u64 *out);
+const u64 *state_change_list_keyof(const struct state_change_list *out);
+bool state_change_list_eq(const struct state_change_list *a, const u64 *b);
+
+HTABLE_DEFINE_TYPE(struct state_change_list, state_change_list_keyof,
+		   state_change_list_hash,  state_change_list_eq,
+		   channel_state_change_map);
+
+struct channel_state_change_map *wallet_state_changes_peer_get(const tal_t *ctx,
+							       struct wallet *w,
+							       u64 peer_id);
+struct channel_state_change_map *wallet_state_changes_get(const tal_t *ctx,
+					  		  struct wallet *w);
 /**
  * wallet_delete_peer_if_unused -- After no more channels in peer, forget about it
  */
@@ -723,6 +734,20 @@ void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 cdbid, struct
  * @stats: location to load statistics to
  */
 void wallet_channel_stats_load(struct wallet *w, u64 cdbid, struct channel_stats *stats);
+
+struct channel_stats_list {
+	u64 channel_id;
+	struct channel_stats *stats;
+};
+size_t channel_stats_hash(const u64 *out);
+const u64 *channel_stats_keyof(const struct channel_stats_list *out);
+bool channel_stats_eq(const struct channel_stats_list *a, const u64 *b);
+HTABLE_DEFINE_TYPE(struct channel_stats_list, channel_stats_keyof,
+		   channel_stats_hash, channel_stats_eq, channel_stats_map);
+
+struct channel_stats_map *wallet_channel_stats_peer_get(struct wallet *w,
+			       			    u64 peer_id);
+struct channel_stats_map *wallet_channel_stats_get(struct wallet *w);
 
 /**
  * Retrieve the blockheight of the last block processed by lightningd.

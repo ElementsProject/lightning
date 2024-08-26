@@ -12,6 +12,7 @@
 #include <ccan/str/str.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/tal/tal.h>
 #include <channeld/channeld_wiregen.h>
 #include <common/addr.h>
 #include <common/closing_fee.h>
@@ -815,13 +816,13 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 						       struct json_stream *response,
 						       const char *key,
 						       const struct channel *channel,
-						       const struct peer *peer)
+						       const struct peer *peer,
+						       struct state_change_entry **state_changes,
+						       struct channel_stats *channel_stats)
 {
 	struct lightningd *ld = cmd->ld;
-	struct channel_stats channel_stats;
 	struct amount_msat funding_msat;
 	struct amount_sat peer_funded_sats;
-	struct state_change_entry *state_changes;
 	const struct peer_update *peer_update;
 	u32 feerate;
 
@@ -1162,20 +1163,25 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 	json_add_num(response, "max_accepted_htlcs",
 		     channel->our_config.max_accepted_htlcs);
 
-	state_changes = wallet_state_change_get(tmpctx, ld->wallet, channel->dbid);
 	json_array_start(response, "state_changes");
-	for (size_t i = 0; i < tal_count(state_changes); i++) {
-		json_object_start(response, NULL);
-		json_add_timeiso(response, "timestamp",
-				 state_changes[i].timestamp);
-		json_add_string(response, "old_state",
-				channel_state_str(state_changes[i].old_state));
-		json_add_string(response, "new_state",
-				channel_state_str(state_changes[i].new_state));
-		json_add_string(response, "cause",
-				channel_change_state_reason_str(state_changes[i].cause));
-		json_add_string(response, "message", state_changes[i].message);
-		json_object_end(response);
+	if (state_changes) {
+		for (size_t i = 0; i < tal_count(*state_changes); i++) {
+			json_object_start(response, NULL);
+			json_add_timeiso(response, "timestamp",
+					(*state_changes)[i].timestamp);
+			json_add_string(response, "old_state",
+					channel_state_str(
+						(*state_changes)[i].old_state));
+			json_add_string(response, "new_state",
+					channel_state_str(
+						(*state_changes)[i].new_state));
+			json_add_string(response, "cause",
+					channel_change_state_reason_str(
+						(*state_changes)[i].cause));
+			json_add_string(response, "message",
+					(*state_changes)[i].message);
+			json_object_end(response);
+		}
 	}
 	json_array_end(response);
 
@@ -1190,28 +1196,29 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 		json_add_string(response, NULL, channel->billboard.transient);
 	json_array_end(response);
 
-	/* Provide channel statistics */
-	wallet_channel_stats_load(ld->wallet, channel->dbid, &channel_stats);
-	json_add_u64(response, "in_payments_offered",
-		     channel_stats.in_payments_offered);
-	json_add_amount_msat(response,
-			     "in_offered_msat",
-			     channel_stats.in_msatoshi_offered);
-	json_add_u64(response, "in_payments_fulfilled",
-		     channel_stats.in_payments_fulfilled);
-	json_add_amount_msat(response,
-			     "in_fulfilled_msat",
-			     channel_stats.in_msatoshi_fulfilled);
-	json_add_u64(response, "out_payments_offered",
-		     channel_stats.out_payments_offered);
-	json_add_amount_msat(response,
-			     "out_offered_msat",
-			     channel_stats.out_msatoshi_offered);
-	json_add_u64(response, "out_payments_fulfilled",
-		     channel_stats.out_payments_fulfilled);
-	json_add_amount_msat(response,
-			     "out_fulfilled_msat",
-			     channel_stats.out_msatoshi_fulfilled);
+	if (channel_stats) {
+		/* Provide channel statistics */
+		json_add_u64(response, "in_payments_offered",
+			channel_stats->in_payments_offered);
+		json_add_amount_msat(response,
+				"in_offered_msat",
+				channel_stats->in_msatoshi_offered);
+		json_add_u64(response, "in_payments_fulfilled",
+			channel_stats->in_payments_fulfilled);
+		json_add_amount_msat(response,
+				"in_fulfilled_msat",
+				channel_stats->in_msatoshi_fulfilled);
+		json_add_u64(response, "out_payments_offered",
+			channel_stats->out_payments_offered);
+		json_add_amount_msat(response,
+				"out_offered_msat",
+				channel_stats->out_msatoshi_offered);
+		json_add_u64(response, "out_payments_fulfilled",
+			channel_stats->out_payments_fulfilled);
+		json_add_amount_msat(response,
+				"out_fulfilled_msat",
+				channel_stats->out_msatoshi_fulfilled);
+	}
 
 	json_add_htlcs(ld, response, channel);
 	json_object_end(response);
@@ -2363,16 +2370,37 @@ AUTODATA(json_command, &staticbackup_command);
 
 static void json_add_peerchannels(struct command *cmd,
 				  struct json_stream *response,
-				  const struct peer *peer)
+				  const struct peer *peer,
+				  const struct channel_state_change_map *state_changes_map,
+				  const struct channel_stats_map *channel_stats_map)
 {
 	struct channel *channel;
+	struct state_change_list *state_change_list;
+	struct state_change_entry **state_changes;
+	struct channel_stats_list *channel_stats_list;
+	struct channel_stats *channel_stats;
 
 	json_add_uncommitted_channel(cmd, response, peer->uncommitted_channel, peer);
 	list_for_each(&peer->channels, channel, list) {
 		if (channel_state_uncommitted(channel->state))
 			json_add_unsaved_channel(cmd, response, channel, peer);
-		else
-			json_add_channel(cmd, response, NULL, channel, peer);
+		else {
+			state_change_list = channel_state_change_map_get(
+				state_changes_map, &channel->dbid);
+			if (state_change_list)
+				state_changes = &state_change_list->entries;
+			else
+			 	state_changes = NULL;
+
+			channel_stats_list = channel_stats_map_get(
+				channel_stats_map, &channel->dbid);
+			if (channel_stats_list)
+				channel_stats = channel_stats_list->stats;
+			else
+			 	channel_stats = NULL;
+			json_add_channel(cmd, response, NULL, channel, peer,
+					 state_changes, channel_stats);
+		}
 	}
 }
 
@@ -2384,6 +2412,8 @@ static struct command_result *json_listpeerchannels(struct command *cmd,
 	struct node_id *peer_id;
 	struct peer *peer;
 	struct json_stream *response;
+	struct channel_state_change_map *state_changes_map;
+	struct channel_stats_map *channel_stats_map;
 
 	/* FIME: filter by status */
 	if (!param(cmd, buffer, params,
@@ -2396,16 +2426,30 @@ static struct command_result *json_listpeerchannels(struct command *cmd,
 
 	if (peer_id) {
 		peer = peer_by_id(cmd->ld, peer_id);
-		if (peer)
-			json_add_peerchannels(cmd, response, peer);
+		if (peer) {
+			state_changes_map = wallet_state_changes_peer_get(
+				tmpctx, cmd->ld->wallet, peer->dbid);
+			channel_stats_map = wallet_channel_stats_peer_get(
+				cmd->ld->wallet, peer->dbid);
+			json_add_peerchannels(cmd, response, peer,
+				state_changes_map, channel_stats_map);
+			tal_free(state_changes_map);
+			tal_free(channel_stats_map);
+		}
 	} else {
 		struct peer_node_id_map_iter it;
-
+		state_changes_map = wallet_state_changes_get(tmpctx,
+			cmd->ld->wallet);
+		channel_stats_map = wallet_channel_stats_get(cmd->ld->wallet);
 		for (peer = peer_node_id_map_first(cmd->ld->peers, &it);
 		     peer;
 		     peer = peer_node_id_map_next(cmd->ld->peers, &it)) {
-			json_add_peerchannels(cmd, response, peer);
+			json_add_peerchannels(cmd, response, peer,
+				state_changes_map, channel_stats_map);
 		}
+
+		tal_free(state_changes_map);
+		tal_free(channel_stats_map);
 	}
 
 	json_array_end(response);

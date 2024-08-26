@@ -130,6 +130,12 @@ const char *channel_state_name(const struct channel *channel UNNEEDED)
 /* Generated stub for channel_state_str */
 const char *channel_state_str(enum channel_state state UNNEEDED)
 { fprintf(stderr, "channel_state_str called!\n"); abort(); }
+/* Generated stub for channel_stats_eq */
+bool channel_stats_eq(const struct channel_stats_list *a UNNEEDED, const u64 *b UNNEEDED)
+{ fprintf(stderr, "channel_stats_eq called!\n"); abort(); }
+/* Generated stub for channel_stats_hash */
+size_t channel_stats_hash(const u64 *out UNNEEDED)
+{ fprintf(stderr, "channel_stats_hash called!\n"); abort(); }
 /* Generated stub for channel_type_has */
 bool channel_type_has(const struct channel_type *type UNNEEDED, int feature UNNEEDED)
 { fprintf(stderr, "channel_type_has called!\n"); abort(); }
@@ -931,6 +937,12 @@ bool shachain_get_secret(const struct shachain *shachain UNNEEDED,
 void start_leak_request(const struct subd_req *req UNNEEDED,
 			struct leak_detect *leak_detect UNNEEDED)
 { fprintf(stderr, "start_leak_request called!\n"); abort(); }
+/* Generated stub for state_change_list_eq */
+bool state_change_list_eq(const struct state_change_list *a UNNEEDED, const u64 *b UNNEEDED)
+{ fprintf(stderr, "state_change_list_eq called!\n"); abort(); }
+/* Generated stub for state_change_list_hash */
+size_t state_change_list_hash(const u64 *out UNNEEDED)
+{ fprintf(stderr, "state_change_list_hash called!\n"); abort(); }
 /* Generated stub for subd_req_ */
 struct subd_req *subd_req_(const tal_t *ctx UNNEEDED,
 	       struct subd *sd UNNEEDED,
@@ -1023,9 +1035,13 @@ const char *version(void)
 /* Generated stub for wallet_channel_save */
 void wallet_channel_save(struct wallet *w UNNEEDED, struct channel *chan UNNEEDED)
 { fprintf(stderr, "wallet_channel_save called!\n"); abort(); }
-/* Generated stub for wallet_channel_stats_load */
-void wallet_channel_stats_load(struct wallet *w UNNEEDED, u64 cdbid UNNEEDED, struct channel_stats *stats UNNEEDED)
-{ fprintf(stderr, "wallet_channel_stats_load called!\n"); abort(); }
+/* Generated stub for wallet_channel_stats_get */
+struct channel_stats_map *wallet_channel_stats_get(struct wallet *w UNNEEDED)
+{ fprintf(stderr, "wallet_channel_stats_get called!\n"); abort(); }
+/* Generated stub for wallet_channel_stats_peer_get */
+struct channel_stats_map *wallet_channel_stats_peer_get(struct wallet *w UNNEEDED,
+			       			    u64 peer_id UNNEEDED)
+{ fprintf(stderr, "wallet_channel_stats_peer_get called!\n"); abort(); }
 /* Generated stub for wallet_channeltxs_add */
 void wallet_channeltxs_add(struct wallet *w UNNEEDED, struct channel *chan UNNEEDED,
 			    const int type UNNEEDED, const struct bitcoin_txid *txid UNNEEDED,
@@ -1062,11 +1078,15 @@ char *wallet_offer_find(const tal_t *ctx UNNEEDED,
 			enum offer_status *status)
 
 { fprintf(stderr, "wallet_offer_find called!\n"); abort(); }
-/* Generated stub for wallet_state_change_get */
-struct state_change_entry *wallet_state_change_get(const tal_t *ctx UNNEEDED,
-						   struct wallet *w UNNEEDED,
-						   u64 channel_id UNNEEDED)
-{ fprintf(stderr, "wallet_state_change_get called!\n"); abort(); }
+/* Generated stub for wallet_state_changes_get */
+struct channel_state_change_map *wallet_state_changes_get(const tal_t *ctx UNNEEDED,
+					  		  struct wallet *w UNNEEDED)
+{ fprintf(stderr, "wallet_state_changes_get called!\n"); abort(); }
+/* Generated stub for wallet_state_changes_peer_get */
+struct channel_state_change_map *wallet_state_changes_peer_get(const tal_t *ctx UNNEEDED,
+							       struct wallet *w UNNEEDED,
+							       u64 peer_id UNNEEDED)
+{ fprintf(stderr, "wallet_state_changes_peer_get called!\n"); abort(); }
 /* Generated stub for wallet_total_forward_fees */
 struct amount_msat wallet_total_forward_fees(struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_total_forward_fees called!\n"); abort(); }
