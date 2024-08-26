@@ -135,7 +135,7 @@ f11b4d687a305dd7ee47a384d82a9bf04de913362df9efa67d2a029ae65051a9  /var/cache/apt
 d23577c43936fedd8c4fa1337a6e960a6e71e94ac164d7a15c46ea96bf21265d  /var/cache/apt/archives/libsqlite3-dev_3.45.1-1ubuntu2_amd64.deb
 9d1d707179675d38e024bb13613b1d99e0d33fa6c45e5f3bcba19340781781d3  /var/cache/apt/archives/libtool_2.4.7-7build1_all.deb
 1fe6a815b56c7b6e9ce4086a363f09444bbd0a0d30e230c453d0b78e44b57a99  /var/cache/apt/archives/make_4.3-4.1build2_amd64.deb
-7360405fbf49e35dca2f7a4ebeac7d4fe5fe3b2db99adac70e11e104f53b2642  /var/cache/apt/archives/zlib1g-dev_1%3a1.3.dfsg-3.1ubuntu2_amd64.deb
+023cbe9dbf0af87f10e54e342c67571874e412b9950d89c6cd7b010be2e67c3c  /var/cache/apt/archives/zlib1g-dev_1%3a1.3.dfsg-3.1ubuntu2.1_amd64.deb
 EOF
 	;;
     *)
