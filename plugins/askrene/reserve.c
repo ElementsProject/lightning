@@ -83,6 +83,41 @@ static bool remove(struct reserve *r, struct amount_msat amount)
 	return true;
 }
 
+/* Just like reserves_add, but used to rewind a failed reserves_remove. It
+ * cannot fail cause we don't want recursion. */
+static void reserves_add_no_fail(struct reserve_htable *reserved,
+				 const struct short_channel_id_dir *scidds,
+				 const struct amount_msat *amounts, size_t num)
+{
+	bool success;
+	for (size_t i = 0; i < num; i++) {
+		struct reserve *r = reserve_htable_get(reserved, &scidds[i]);
+		if (!r)
+			r = new_reserve(reserved, &scidds[i]);
+		assert(r);
+		success = add(r, amounts[i]);
+		assert(success);
+	}
+}
+
+/* Just like reserves_remove, but used to rewind a failed reserves_add. It
+ * cannot fail cause we don't want recursion. */
+static void reserves_remove_no_fail(struct reserve_htable *reserved,
+				    const struct short_channel_id_dir *scidds,
+				    const struct amount_msat *amounts,
+				    size_t num)
+{
+	bool success;
+	for (size_t i = 0; i < num; i++) {
+		struct reserve *r = reserve_htable_get(reserved, &scidds[i]);
+		assert(r);
+		success = remove(r, amounts[i]);
+		assert(success);
+		if (r->num_htlcs == 0)
+			del_reserve(reserved, r);
+	}
+}
+
 /* Atomically add to reserves, or fail.
  * Returns offset of failure, or num on success */
 size_t reserves_add(struct reserve_htable *reserved,
@@ -95,7 +130,7 @@ size_t reserves_add(struct reserve_htable *reserved,
 		if (!r)
 			r = new_reserve(reserved, &scidds[i]);
 		if (!add(r, amounts[i])) {
-			reserves_remove(reserved, scidds, amounts, i);
+			reserves_remove_no_fail(reserved, scidds, amounts, i);
 			return i;
 		}
 	}
@@ -112,7 +147,7 @@ size_t reserves_remove(struct reserve_htable *reserved,
 	for (size_t i = 0; i < num; i++) {
 		struct reserve *r = reserve_htable_get(reserved, &scidds[i]);
 		if (!r || !remove(r, amounts[i])) {
-			reserves_add(reserved, scidds, amounts, i);
+			reserves_add_no_fail(reserved, scidds, amounts, i);
 			return i;
 		}
 		if (r->num_htlcs == 0)
