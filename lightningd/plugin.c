@@ -2536,14 +2536,19 @@ void plugins_set_builtin_plugins_dir(struct plugins *plugins,
 				     const char *dir)
 {
 	/*~ Load the builtin plugins as important.  */
-	for (size_t i = 0; list_of_builtin_plugins[i]; ++i)
-		plugin_register(plugins,
-				take(path_join(NULL, dir,
-					       list_of_builtin_plugins[i])),
-				NULL,
-				/* important = */
-				!streq(list_of_builtin_plugins[i], "cln-renepay"),
-				NULL, NULL);
+	for (size_t i = 0; list_of_builtin_plugins[i]; ++i) {
+		struct plugin *p = plugin_register(
+		    plugins,
+		    take(path_join(NULL, dir, list_of_builtin_plugins[i])),
+		    NULL,
+		    /* important = */
+		    !streq(list_of_builtin_plugins[i], "cln-renepay"), NULL,
+		    NULL);
+		if (!p)
+			log_unusual(
+			    plugins->log, "failed to register plugin %s",
+			    path_join(tmpctx, dir, list_of_builtin_plugins[i]));
+	}
 }
 
 void shutdown_plugins(struct lightningd *ld)
