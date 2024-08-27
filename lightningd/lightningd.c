@@ -530,11 +530,37 @@ static const char *find_my_directory(const tal_t *ctx, const char *argv0)
 	return path_dirname(ctx, take(me));
 }
 
+/* How to get from abspath dir1 to abspath dir2? */
+static const char *relative(const tal_t *ctx, const char *dir1, const char *dir2)
+{
+	char **dir1_parts, **dir2_parts;
+	size_t common;
+	char *backwards;
+
+	/* Collapse double /, and split into parts */
+	dir1_parts = path_split(tmpctx, take(path_simplify(NULL, dir1)));
+	dir2_parts = path_split(tmpctx, take(path_simplify(NULL, dir2)));
+
+	for (common = 0;
+	     dir1_parts[common]
+		     && dir2_parts[common]
+		     && streq(dir1_parts[common], dir2_parts[common]);
+	     common++);
+
+	/* We append .. for every non-shared part in dir1_parts */
+	for (size_t i = common; dir1_parts[i]; i++)
+		dir1_parts[i] = "..";
+
+	backwards = tal_strjoin(tmpctx, dir1_parts + common, PATH_SEP_STR, STR_TRAIL);
+	return tal_fmt(ctx, "%s%s", backwards,
+		       tal_strjoin(tmpctx, dir2_parts + common, PATH_SEP_STR, STR_NO_TRAIL));
+}
+
 /* Determine the correct daemon dir. */
 static void find_subdaemons_and_plugins(struct lightningd *ld, const char *argv0)
 {
 	const char *my_path = find_my_directory(tmpctx, argv0);
-	const char *prefix;
+	const char *rel;
 
 	/* If we're running in-tree, all the subdaemons are with lightningd. */
 	if (has_all_subdaemons(my_path)) {
@@ -547,14 +573,16 @@ static void find_subdaemons_and_plugins(struct lightningd *ld, const char *argv0
 		return;
 	}
 
-	/* Assume we're running the installed version.  Override
-	 * for "make installccheck" though. */
-	prefix = getenv("DEV_LIGHTNINGD_DESTDIR_PREFIX");
-	if (!prefix)
-		prefix = "";
-	ld->subdaemon_dir = tal_fmt(ld, "%s%s", prefix, PKGLIBEXECDIR);
+	/* OK, we're running the installed version?  But we used to allow
+	 * running in an arbitrary subtree, and people still do (plus,
+	 * installcheck does this).  So we use relative paths here.  path_rel
+	 * doesn't work if the paths don't exist, so we use our own function. */
+	rel = relative(NULL, BINDIR, PKGLIBEXECDIR);
+	ld->subdaemon_dir = path_join(ld, my_path, take(rel));
+
+	rel = relative(NULL, BINDIR, PLUGINDIR);
 	plugins_set_builtin_plugins_dir(ld->plugins,
-					tal_fmt(tmpctx, "%s%s", prefix, PLUGINDIR));
+					path_join(tmpctx, my_path, take(rel)));
 }
 
 /*~ We like to free everything on exit, so valgrind doesn't complain (valgrind
