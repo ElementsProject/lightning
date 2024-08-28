@@ -199,7 +199,7 @@ RUN ( ! [ "${target_host}" = "arm-linux-gnueabihf" ] ) || \
 # https://github.com/ElementsProject/lightning/pull/7376#issuecomment-2161102381
 RUN poetry lock --no-update && poetry install
 
-RUN ./configure --enable-static && make && poetry run make install
+RUN ./configure --prefix=/tmp/lightning_install --enable-static && make && poetry run make install
 
 # Export the requirements for the plugins so we can install them in builder-python stage
 WORKDIR /opt/lightningd/plugins/clnrest
@@ -273,9 +273,7 @@ RUN mkdir $LIGHTNINGD_DATA && \
     touch $LIGHTNINGD_DATA/config
 VOLUME [ "/root/.lightning" ]
 
-COPY --from=builder /usr/local/bin/lightning-cli /usr/local/bin/lightning-hsmtool /usr/local/bin/lightningd /usr/local/bin/reckless /usr/local/bin/
-COPY --from=builder /usr/local/libexec/ /usr/local/libexec
-COPY --from=builder /usr/local/share/ /usr/local/share
+COPY --from=builder /tmp/lightning_install/ /usr/local/
 COPY --from=builder-python /usr/local/lib/python3.9/dist-packages/ /usr/local/lib/python3.9/dist-packages/
 COPY --from=downloader /opt/bitcoin/bin /usr/bin
 COPY --from=downloader /opt/litecoin/bin /usr/bin
