@@ -450,40 +450,6 @@ static void channel_hints_update(struct payment *p,
 	}
 }
 
-static void payment_exclude_most_expensive(struct payment *p)
-{
-	struct route_hop *e = &p->route[0];
-	struct amount_msat fee, worst = AMOUNT_MSAT(0);
-
-	for (size_t i = 0; i < tal_count(p->route)-1; i++) {
-		if (!amount_msat_sub(&fee, p->route[i].amount, p->route[i+1].amount))
-			paymod_err(p, "Negative fee in a route.");
-
-		if (amount_msat_greater_eq(fee, worst)) {
-			e = &p->route[i];
-			worst = fee;
-		}
-	}
-	channel_hints_update(p, e->scid, e->direction, false, false, NULL,
-			     e->capacity, NULL);
-}
-
-static void payment_exclude_longest_delay(struct payment *p)
-{
-	struct route_hop *e = &p->route[0];
-	u32 delay, worst = 0;
-
-	for (size_t i = 0; i < tal_count(p->route)-1; i++) {
-		delay = p->route[i].delay - p->route[i+1].delay;
-		if (delay >= worst) {
-			e = &p->route[i];
-			worst = delay;
-		}
-	}
-	channel_hints_update(p, e->scid, e->direction, false, false, NULL,
-			     e->capacity, NULL);
-}
-
 static struct amount_msat payment_route_fee(struct payment *p)
 {
 	struct amount_msat fee;
@@ -952,7 +918,6 @@ static struct command_result *payment_getroute(struct payment *p)
 
 	/* Ensure that our fee and CLTV budgets are respected. */
 	if (amount_msat_greater(fee, p->constraints.fee_budget)) {
-		payment_exclude_most_expensive(p);
 		p->route = tal_free(p->route);
 		payment_fail(
 		    p, "Fee exceeds our fee budget: %s > %s, discarding route",
@@ -963,7 +928,6 @@ static struct command_result *payment_getroute(struct payment *p)
 
 	if (p->route[0].delay > p->constraints.cltv_budget) {
 		u32 delay = p->route[0].delay;
-		payment_exclude_longest_delay(p);
 		p->route = tal_free(p->route);
 		payment_fail(p, "CLTV delay exceeds our CLTV budget: %d > %d",
 			     delay, p->constraints.cltv_budget);
