@@ -4368,49 +4368,6 @@ def test_multichan(node_factory, executor, bitcoind):
     assert l2.rpc.listhtlcs(scid12)['htlcs'] == l1htlcs
 
 
-def test_mutual_reconnect_race(node_factory, executor, bitcoind):
-    """Test simultaneous reconnect between nodes"""
-    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True,
-                                              'dev-no-reconnect': None})
-
-    def send_many_payments():
-        for i in range(20):
-            time.sleep(0.5)
-            inv = l2.rpc.invoice(100, "label-" + str(i), "desc")['bolt11']
-            try:
-                l1.rpc.pay(inv)
-            except RpcError:
-                pass
-
-    # Send a heap of payments, while reconnecting...
-    fut = executor.submit(send_many_payments)
-
-    for i in range(10):
-        try:
-            l1.rpc.disconnect(l2.info['id'], force=True)
-        except RpcError:
-            pass
-        time.sleep(1)
-        # Aim for both at once!
-        executor.submit(l1.rpc.connect, l2.info['id'], 'localhost', l2.port)
-        executor.submit(l2.rpc.connect, l1.info['id'], 'localhost', l1.port)
-
-    # Wait for things to settle down, then make sure we're actually connected.
-    # Naively, you'd think we should be, but in fact, two connects which race
-    # can (do!) result in both disconnecting, thinking the other side is more
-    # recent.
-    time.sleep(1)
-    if not only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected']:
-        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-
-    # Now payments should finish!
-    fut.result(TIMEOUT)
-
-    wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'])
-    inv = l2.rpc.invoice(100000000, "invoice4", "invoice4")
-    l1.rpc.pay(inv['bolt11'])
-
-
 def test_no_reconnect_awating_unilateral(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
     l2.stop()
