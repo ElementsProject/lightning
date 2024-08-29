@@ -547,13 +547,22 @@ static const char *relative(const tal_t *ctx, const char *dir1, const char *dir2
 		     && streq(dir1_parts[common], dir2_parts[common]);
 	     common++);
 
-	/* We append .. for every non-shared part in dir1_parts */
-	for (size_t i = common; dir1_parts[i]; i++)
-		dir1_parts[i] = "..";
+	if (streq(dir1_parts[0], "/"))
+		backwards = "";
+	else{
+		/* We append .. for every non-shared part in dir1_parts */
+		for (size_t i = common; dir1_parts[i]; i++)
+			dir1_parts[i] = "..";
 
-	backwards = tal_strjoin(tmpctx, dir1_parts + common, PATH_SEP_STR, STR_TRAIL);
-	return tal_fmt(ctx, "%s%s", backwards,
-		       tal_strjoin(tmpctx, dir2_parts + common, PATH_SEP_STR, STR_NO_TRAIL));
+		backwards = tal_strjoin(tmpctx, dir1_parts + common,
+					PATH_SEP_STR, STR_TRAIL);
+	}
+	/* We put some extra characters so that we don't send an empty string to
+	 * path_simplify. */
+	return path_simplify(ctx,
+			     tal_fmt(tmpctx, "./%s%s/.", backwards,
+				     tal_strjoin(tmpctx, dir2_parts + common,
+						 PATH_SEP_STR, STR_NO_TRAIL)));
 }
 
 /* Determine the correct daemon dir. */
