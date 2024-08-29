@@ -4376,7 +4376,11 @@ def test_mutual_reconnect_race(node_factory, executor, bitcoind):
     def send_many_payments():
         for i in range(20):
             time.sleep(0.5)
-            inv = l2.rpc.invoice(100, "label-" + str(i), "desc")['bolt11']
+            inv = l2.rpc.invoice(
+                100 - i,  # Ensure prior chanhints don't block us
+                "label-" + str(i),
+                "desc"
+            )['bolt11']
             try:
                 l1.rpc.pay(inv)
             except RpcError:
