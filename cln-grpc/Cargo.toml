@@ -1,6 +1,6 @@
 [package]
 name = "cln-grpc"
-version = "0.1.9"
+version = "0.1.10"
 edition = "2021"
 license = "MIT"
 description = "The Core Lightning API as grpc primitives. Provides the bindings used to expose the API over the network."
