@@ -3,7 +3,9 @@ name: Build and push multi-platform docker images
 on:
   push:
     tags:
-      - '^v[0-9]{2}\.[0-9]{2}(\.[0-9]{1,2})?([a-zA-Z0-9]*)?$'
+      - 'v[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+[0-9a-z]+'
   workflow_dispatch:
     inputs:
       version:
@@ -48,9 +50,11 @@ jobs:
     - name: Set up values
       id: set-values
       run: |
-        if [ "${{ github.event.inputs.version }}" != "" ]; then
+        if [[ "${{ github.event.inputs.version }}" != "" ]]; then
+          echo "Input version provided"
           VERSION=${{ github.event.inputs.version }}
-        elif [ "${{ github.ref_type }}" == "tag" ]; then
+        elif [[ ${{ github.ref_type }} == "tag" ]]; then
+          echo "This is a tag event"
           VERSION=${{ github.ref_name }}
         else
           echo "No version provided and no tag found."
@@ -58,36 +62,33 @@ jobs:
         fi
         echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-        if [ "${{ github.event.inputs.repository-name }}" != "" ]; then
+        if [[ "${{ github.event.inputs.repository-name }}" != "" ]]; then
           REPONAME=${{ github.event.inputs.repository-name }}
         else
           REPONAME="elementsproject"
         fi
         echo "REPONAME=$REPONAME" >> $GITHUB_ENV
 
-        if [ "${{ github.event.inputs.platforms-to-build }}" != "" ]; then
+        if [[ "${{ github.event.inputs.platforms-to-build }}" != "" ]]; then
           PLATFORMS=${{ github.event.inputs.platforms-to-build }}
         else
           PLATFORMS="linux/amd64,linux/arm64,linux/arm/v7"
         fi
         echo "PLATFORMS=$PLATFORMS" >> $GITHUB_ENV
 
-        if [
-          "${{ github.event.inputs.push-latest }}" == "true" ||
-          ( "${{ github.ref_type }}" == "tag" && [[ ! "${{ env.VERSION }}" =~ rc ]] )
-        ]; then
+        if [[ "${{ github.event.inputs.push-latest }}" == "true" ]] || 
+          ([[ "${{ github.ref_type }}" == "tag" ]] && [[ ! "$VERSION" =~ rc ]]); then
+          echo "Latest true"
           PUSHLATEST="true"
         else
+          echo "Latest false"
           PUSHLATEST="false"
         fi
         echo "PUSHLATEST=$PUSHLATEST" >> $GITHUB_ENV
 
-    - name: Set Tags
-      id: set-tags
-      run: |
-        TAGS="${{ env.REPONAME }}/lightningd:${{ env.VERSION }}"
-        if [ "${{ env.PUSHLATEST }}" == "true" ]; then
-          TAGS="$TAGS,${{ env.REPONAME }}/lightningd:latest"
+        TAGS="$REPONAME/lightningd:$VERSION"
+        if [[ "$PUSHLATEST" == "true" ]]; then
+          TAGS="$TAGS,$REPONAME/lightningd:latest"
         fi
         echo "TAGS=$TAGS" >> $GITHUB_ENV
 
@@ -99,11 +100,11 @@ jobs:
         echo "EVENT INPUT REPO: ${{ github.event.inputs.repository-name }}"
         echo "EVENT INPUT PLATFORMS: ${{ github.event.inputs.platforms-to-build }}"
         echo "EVENT INPUT PUSH LATEST: ${{ github.event.inputs.push-latest }}"
-        echo "VERSION ENV: ${{ env.VERSION }}"
-        echo "REPO NAME: ${{ env.REPONAME }}"
-        echo "PLATFORMS: ${{ env.PLATFORMS }}"
-        echo "PUSH LATEST: ${{ env.PUSHLATEST }}"
-        echo "TAGS: ${{ env.TAGS }}"
+        echo "ENV VERSION: ${{ env.VERSION }}"
+        echo "ENV REPO NAME: ${{ env.REPONAME }}"
+        echo "ENV PLATFORMS: ${{ env.PLATFORMS }}"
+        echo "ENV PUSH LATEST: ${{ env.PUSHLATEST }}"
+        echo "ENV TAGS: ${{ env.TAGS }}"
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
