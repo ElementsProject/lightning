@@ -13,14 +13,14 @@ default = []
 server = ["cln-rpc"]
 
 [dependencies]
-anyhow = "1.0"
+anyhow = "1"
 log = "0.4"
-cln-rpc = { path="../cln-rpc/", version = "^0.1", optional = true }
-tonic = { version = "0.8", features = ["tls", "transport"] }
-prost = "0.11"
+cln-rpc = { path="../cln-rpc/", version = "0.1", optional = true }
+tonic = { version = "0.12", features = ["tls", "transport"] }
+prost = "0.13"
 serde = { version = "1.0", features = ["derive"] }
 hex = "0.4.3"
-bitcoin = { version = "0.30", features = [ "serde" ] }
+bitcoin = {  version = "0.32", default-features = false, features = [ "serde" ] }
 tokio-stream = { version = "0.1.14", features = ["sync"] }
 tokio = { version = "1.36.0", features = ["sync"] }
 futures-core = "0.3.30"
@@ -28,7 +28,7 @@ tokio-util = "0.7.10"
 
 [dev-dependencies]
 serde_json = "1.0.72"
-cln-rpc = { path="../cln-rpc/", version = "^0.1" }
+cln-rpc = { path="../cln-rpc/", version = "0.1" }
 
 [build-dependencies]
-tonic-build = "0.8"
+tonic-build = "0.12"

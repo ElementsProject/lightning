@@ -13,10 +13,10 @@ name = "cln-rpc-getinfo"
 path = "examples/getinfo.rs"
 
 [dependencies]
-anyhow = "1.0"
-bitcoin = { version = "0.30", features = [ "serde" ] }
+anyhow = "1"
+bitcoin = { version = "0.32", default-features = false, features = [ "serde" ] }
 bytes = "1"
-futures-util = { version = "0.3", features = [ "sink" ] }
+futures-util = { version = "0.3", default-features = false, features = [ "sink" ] }
 hex = "0.4.3"
 log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
@@ -25,6 +25,6 @@ tokio = { version = "1", features = ["net"]}
 tokio-util = { version = "0.7", features = ["codec"] }
 
 [dev-dependencies]
-env_logger = "0.10"
+env_logger = "0.11"
 tokio = { version = "1", features = ["net", "macros", "rt-multi-thread"]}
 tokio-test = "0.4.3"
