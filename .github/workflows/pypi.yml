@@ -3,8 +3,15 @@ name: Publish Python 🐍 distributions 📦 to PyPI and TestPyPI
 on:
   push:
     tags:
-      '^v[0-9]{2}\.[0-9]{2}(\.[0-9]{1,2})?$'
+      - 'v[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+[0-9a-z]+'
   workflow_dispatch:
+    inputs:
+      dist-location:
+        description: 'Distribution location (test/prod)'
+        default: 'test'
+        required: false
 
 jobs:
   deploy:
@@ -21,8 +28,6 @@ jobs:
             WORKDIR: contrib/pyln-testing
           - PACKAGE: pyln-proto
             WORKDIR: contrib/pyln-proto
-          - PACKAGE: pyln-grpc-proto
-            WORKDIR: contrib/pyln-grpc-proto
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -40,6 +45,20 @@ jobs:
       run: |
         echo "VERSION=$(git describe --abbrev=0).post$(git describe --abbrev=1 | awk -F "-" '{print $2}')" >> $GITHUB_ENV
 
+    - name: Set up values
+      id: set-values
+      run: |
+        if [[ "${{ github.event.inputs.dist-location }}" != "" ]]; then
+          DISTLOCATION=${{ github.event.inputs.dist-location }}
+        elif [[ "${{ github.ref_type }}" == "tag" ]] && [[ ! "${{ github.ref_name }}" =~ rc ]]; then
+          DISTLOCATION="prod"
+        else
+          DISTLOCATION="test"
+        fi
+        echo "DISTLOCATION=$DISTLOCATION" >> $GITHUB_OUTPUT
+        echo "EVENT DISTLOCATION: ${{ github.event.inputs.dist-location }}"
+        echo "DISTRIBUTION LOCATION: $DISTLOCATION"
+  
     - name: Install Poetry
       env:
         WORKDIR: ${{ matrix.WORKDIR }}
@@ -49,13 +68,13 @@ jobs:
         echo "PATH=$HOME/.local/bin:$PATH"
 
     - name: Publish distribution 📦 to Test PyPI
-      if: github.event_name == 'workflow_dispatch' && github.repository == 'ElementsProject/lightning'
+      if: github.repository == 'ElementsProject/lightning' && steps.set-values.outputs.DISTLOCATION == 'test'
       env:
         POETRY_PYPI_TOKEN_TESTPYPI: ${{ secrets.TEST_PYPI_API_TOKEN }}
         WORKDIR: ${{ matrix.WORKDIR }}
       run: |
         echo "POETRY VERSION TEST: $(poetry --version)"
-        echo "Pyln* VERSION: $VERSION"
+        echo "Pyln VERSION: $VERSION"
         cd ${{ env.WORKDIR }}
         python3 -m pip config set global.timeout 150
         poetry config repositories.testpypi https://test.pypi.org/legacy/
@@ -64,15 +83,15 @@ jobs:
         poetry publish --repository testpypi --no-interaction --skip-existing
 
     - name: Publish distribution 📦 to PyPI
-      if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'ElementsProject/lightning'
+      if: github.repository == 'ElementsProject/lightning' && steps.set-values.outputs.DISTLOCATION == 'prod'
       env:
         POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
         WORKDIR: ${{ matrix.WORKDIR }}
       run: |
         echo "POETRY VERSION PUBLISH: $(poetry --version)"
-        echo "Pyln* VERSION: $VERSION"
         cd ${{ env.WORKDIR }}
         export VERSION=$(git describe --abbrev=0)
+        echo "Pyln VERSION: $VERSION"
         make upgrade-version NEW_VERSION=$VERSION
         python3 -m pip config set global.timeout 150
         poetry build  --no-interaction
