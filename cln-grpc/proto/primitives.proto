@@ -127,6 +127,7 @@ enum ChannelTypeName {
   anchors_zero_fee_htlc_tx_even = 2;
   scid_alias_even = 3;
   zeroconf_even = 4;
+  anchors_even = 5;
 }
 
 enum AutocleanSubsystem {
