@@ -54,7 +54,7 @@ else
 fi
 
 PLATFORM="$OS"-"$VER"
-VERSION=${FORCE_VERSION:-$(git describe --always --dirty=-modded --abbrev=7 2>/dev/null || pwd | sed -n 's,.*/clightning-\(v[0-9.rc\-]*\)$,\1,p')}
+VERSION=${FORCE_VERSION:-$(git describe --tags --always --dirty=-modded --abbrev=7 2>/dev/null || pwd | sed -n 's,.*/clightning-\(v[0-9.rc\-]*\)$,\1,p')}
 
 # eg. ## [0.6.3] - 2019-01-09: "The Smallblock Conspiracy"
 # Skip 'v' here in $VERSION

@@ -37,13 +37,13 @@ jobs:
 
     - name: Check version tag
       run: >-
-        git describe --always --dirty=-modded --abbrev=7
+        git describe --tags --always --dirty=-modded --abbrev=7
 
     - name: Setup Version
       env:
         WORKDIR: ${{ matrix.WORKDIR }}
       run: |
-        echo "VERSION=$(git describe --abbrev=0).post$(git describe --abbrev=1 | awk -F "-" '{print $2}')" >> $GITHUB_ENV
+        echo "VERSION=$(git describe --tags --abbrev=0).post$(git describe --tags --abbrev=1 | awk -F "-" '{print $2}')" >> $GITHUB_ENV
 
     - name: Set up values
       id: set-values
@@ -90,7 +90,7 @@ jobs:
       run: |
         echo "POETRY VERSION PUBLISH: $(poetry --version)"
         cd ${{ env.WORKDIR }}
-        export VERSION=$(git describe --abbrev=0)
+        export VERSION=$(git describe --tags --abbrev=0)
         echo "Pyln VERSION: $VERSION"
         make upgrade-version NEW_VERSION=$VERSION
         python3 -m pip config set global.timeout 150
