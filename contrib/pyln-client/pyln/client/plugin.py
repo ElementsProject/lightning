@@ -810,7 +810,6 @@ class Plugin(object):
 
         method_tpl = textwrap.dedent("""
           {name}
-        {doc}
         """)
 
         for method in self.methods.values():
@@ -828,10 +827,8 @@ class Plugin(object):
                 parts.append(methods_header)
                 methods_header = None
 
-            doc = method.long_desc if method.long_desc is not None else "No documentation found"
             parts.append(method_tpl.format(
                 name=method.name,
-                doc=textwrap.indent(doc, prefix="    ")
             ))
 
         options_header = textwrap.dedent("""
