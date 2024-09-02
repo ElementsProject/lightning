@@ -632,9 +632,52 @@ REGISTER_PAYMENT_MODIFIER(routehints, routehints_cb);
  * Compute the payment routes.
  */
 
-static struct command_result *compute_routes_cb(struct payment *payment)
+static bool json_to_myroute(const char *buf, const jsmntok_t *tok,
+			    struct route *route)
 {
-	assert(payment->status == PAYMENT_PENDING);
+	u64 probability_ppm;
+	const char *err =
+	    json_scan(tmpctx, buf, tok, "{probability_ppm:%,amount_msat:%}",
+		      JSON_SCAN(json_to_u64, &probability_ppm),
+		      JSON_SCAN(json_to_msat, &route->amount));
+	if (err)
+		return false;
+	route->success_prob = probability_ppm * 1e-6;
+	const jsmntok_t *path_tok = json_get_member(buf, tok, "path");
+	if (!path_tok || path_tok->type != JSMN_ARRAY)
+		return false;
+
+	route->hops = tal_arr(route, struct route_hop, path_tok->size);
+	if (!route->hops)
+		return false;
+
+	size_t i;
+	const jsmntok_t *hop_tok;
+	json_for_each_arr(i, hop_tok, path_tok)
+	{
+		struct route_hop *hop = &route->hops[i];
+		err = json_scan(tmpctx, buf, hop_tok,
+				"{short_channel_id:%,direction:%,next_node_id:%"
+				",amount_msat:%,delay:%}",
+				JSON_SCAN(json_to_short_channel_id, &hop->scid),
+				JSON_SCAN(json_to_int, &hop->direction),
+				JSON_SCAN(json_to_node_id, &hop->node_id),
+				JSON_SCAN(json_to_msat, &hop->amount),
+				JSON_SCAN(json_to_u32, &hop->delay));
+		if (err) {
+			route->hops = tal_free(route->hops);
+			return false;
+		}
+	}
+	route->amount_sent = route->hops[0].amount;
+	return true;
+}
+
+static struct command_result *getroutes_done(struct command *cmd UNUSED,
+					     const char *buf,
+					     const jsmntok_t *result,
+					     struct payment *payment)
+{
 	struct routetracker *routetracker = payment->routetracker;
 	assert(routetracker);
 
@@ -643,7 +686,53 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 		plugin_err(pay_plugin->plugin,
 			   "%s: no previously computed routes expected.",
 			   __func__);
+	routetracker->computed_routes = tal_free(routetracker->computed_routes);
 
+	const jsmntok_t *routes_tok = json_get_member(buf, result, "routes");
+	assert(routes_tok && routes_tok->type == JSMN_ARRAY);
+
+	routetracker->computed_routes =
+	    tal_arr(routetracker, struct route *, 0);
+
+	size_t i;
+	const jsmntok_t *r;
+	json_for_each_arr(i, r, routes_tok)
+	{
+		struct route *route = new_route(
+		    routetracker->computed_routes, payment->groupid,
+		    payment->next_partid++, payment->payment_info.payment_hash,
+		    AMOUNT_MSAT(0), AMOUNT_MSAT(0));
+		assert(route);
+		tal_arr_expand(&routetracker->computed_routes, route);
+		bool success = json_to_myroute(buf, r, route);
+		if (!success)
+			plugin_err(pay_plugin->plugin,
+				   "%s: failed to parse route from json: %.*s",
+				   __func__, json_tok_full_len(r),
+				   json_tok_full(buf, r));
+		const size_t pathlen = tal_count(route->hops);
+		if (!amount_msat_eq(route->amount,
+				    route->hops[pathlen - 1].amount))
+			plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
+				   "%s: route partid=%" PRIu64
+				   " delivers %s which is different from what "
+				   "it claims to "
+				   "deliver %s",
+				   __func__, route->key.partid,
+				   fmt_amount_msat(
+				       tmpctx, route->hops[pathlen - 1].amount),
+				   fmt_amount_msat(tmpctx, route->amount));
+		/* FIXME: it seems that the route we get in response claims to
+		 * deliver an amount which is different to the amount in the
+		 * last hop. */
+		route->amount = route->hops[pathlen - 1].amount;
+	}
+	return payment_continue(payment);
+}
+
+static struct command_result *compute_routes_cb(struct payment *payment)
+{
+	assert(payment->status == PAYMENT_PENDING);
 	struct amount_msat feebudget, fees_spent, remaining;
 
 	/* Total feebudget  */
@@ -674,48 +763,26 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 		return payment_continue(payment);
 	}
 
-	enum jsonrpc_errcode errcode;
-	const char *err_msg = NULL;
-
-	gossmap_apply_localmods(pay_plugin->gossmap, payment->local_gossmods);
-
-	/* get_routes returns the answer, we assign it to the computed_routes,
-	 * that's why we need to tal_free the older array. Maybe it would be
-	 * better to pass computed_routes as a reference? */
-	routetracker->computed_routes = tal_free(routetracker->computed_routes);
-
-	// TODO: add an algorithm selector here
-	/* We let this return an unlikely path, as it's better to try  once than
-	 * simply refuse.  Plus, models are not truth! */
-	routetracker->computed_routes = get_routes(
-					    routetracker,
-					    &payment->payment_info,
-					    &pay_plugin->my_id,
-					    &payment->payment_info.destination,
-					    pay_plugin->gossmap,
-					    pay_plugin->uncertainty,
-					    payment->disabledmap,
-					    remaining,
-					    feebudget,
-					    &payment->next_partid,
-					    payment->groupid,
-					    &errcode,
-					    &err_msg);
-	/* Otherwise the error message remains a child of the routetracker. */
-	err_msg = tal_steal(tmpctx, err_msg);
-
-	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
-
-	/* Couldn't feasible route, we stop. */
-	if (!routetracker->computed_routes ||
-	    tal_count(routetracker->computed_routes) == 0) {
-		if (err_msg == NULL)
-			err_msg = tal_fmt(
-			    tmpctx, "get_routes returned NULL error message");
-		return payment_fail(payment, errcode, "%s", err_msg);
-	}
-
-	return payment_continue(payment);
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
+	struct out_req *req =
+	    jsonrpc_request_start(cmd->plugin, cmd, "getroutes", getroutes_done,
+				  payment_rpc_failure, payment);
+	// FIXME: when multi-destination is needed to fully support blinded path
+	// FIXME: we could have more than one algorithm to compute routes:
+	// Minimum Cost Flows or the Max-Expected-Value (recently discussed with
+	// Rene) or Dijkstra
+	json_add_node_id(req->js, "source", &pay_plugin->my_id);
+	json_add_node_id(req->js, "destination",
+			 &payment->payment_info.destination);
+	json_add_amount_msat(req->js, "amount_msat", remaining);
+	json_array_start(req->js, "layers");
+	// FIXME: put here the layers that we use
+	json_add_string(req->js, NULL, "auto.localchans");
+	json_array_end(req->js);
+	json_add_amount_msat(req->js, "maxfee_msat", feebudget);
+	json_add_u32(req->js, "final_cltv", payment->payment_info.final_cltv);
+	return send_outreq(cmd->plugin, req);
 }
 
 REGISTER_PAYMENT_MODIFIER(compute_routes, compute_routes_cb);
