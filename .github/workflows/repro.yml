@@ -1,0 +1,69 @@
+---
+# https://docs.corelightning.org/docs/repro
+name: Repro Build Nightly
+on:
+  # 05:00 Berlin, 03:00 UTC, 23:00 New York, 20:00 Los Angeles
+  schedule:
+    - cron: "0 3 * * *"
+jobs:
+  ubuntu-noble:
+    name: Ubuntu Noble Repro build
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v4
+
+      - name: Build environment setup
+        run: |
+          echo "Building base image for noble"
+          docker run --rm -v $(pwd):/build ubuntu:noble bash -c "apt-get update && apt-get install -y debootstrap && debootstrap noble /build/noble"
+          tar -C noble -c . | docker import - noble
+
+      - name: Builder image setup
+        run: docker build -t cl-repro-noble - < contrib/reprobuild/Dockerfile.noble
+
+      - name: Create release directory
+        run: mkdir $GITHUB_WORKSPACE/release
+
+      - name: Build using the builder image, storing version and Git state
+        run: |
+          # Perform the repro build.
+          docker run --name cl-build -v $GITHUB_WORKSPACE:/repo -e FORCE_MTIME=$(date +%F) -t cl-repro-noble
+
+          # Commit the image in order to inspect the build later.
+          docker commit cl-build cl-release
+
+          # Inspect the version.
+          docker run --rm -v $GITHUB_WORKSPACE:/repo -t cl-release bash -c "make version > /repo/release/version.txt"
+
+          # Inspect the Git tree state.
+          docker run --rm -v $GITHUB_WORKSPACE:/repo -t cl-release bash -c "\
+              git --no-pager status > /repo/release/git.log && \
+              git --no-pager diff >> /repo/release/git.log"
+
+          # Change permissions on the release files for access by build environment.
+          docker run --rm -v $GITHUB_WORKSPACE:/repo -t cl-repro-noble chmod -R 777 /repo/release
+
+      - name: Assert clean version and release
+        run: |
+          echo 'Version:'
+          cat release/version.txt
+          echo -e
+
+          releasefile=$(ls release/clightning-*)
+          echo 'Release file:'
+          ls -al release/clightning-*
+          echo -e
+
+          if [ -n "$(cat release/version.txt | sed -n '/-modded/p')" ] || \
+             [ -n "$(echo $releasefile | sed -n '/-modded/p')" ]
+          then
+            echo "Git Status and Diff:"
+            cat release/git.log
+            echo -e
+
+            echo 'Error: release modded / dirty tree.'
+            exit 1
+          else
+            echo 'Success! Clean release.'
+          fi
