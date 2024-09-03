@@ -172,6 +172,16 @@ struct payment_constraints {
 	u32 cltv_budget;
 };
 
+size_t channel_hint_hash(const struct short_channel_id_dir *out);
+
+const struct short_channel_id_dir *channel_hint_keyof(const struct channel_hint *out);
+
+bool channel_hint_eq(const struct channel_hint *a,
+		     const struct short_channel_id_dir *b);
+
+HTABLE_DEFINE_TYPE(struct channel_hint, channel_hint_keyof,
+	channel_hint_hash, channel_hint_eq, channel_hint_map)
+
 struct payment {
 	/* Usually in global payments list */
 	struct list_node list;
@@ -268,9 +278,9 @@ struct payment {
 	struct route_info **routes;
 	const u8 *features;
 
-	/* tal_arr of channel_hints we incrementally learn while performing
-	 * payment attempts. */
-	struct channel_hint *channel_hints;
+	/* htable of channel_hints we incrementally learn while performing
+	 * payment attempts, indexed by scid and direction. */
+	struct channel_hint_map *channel_hints;
 	struct node_id *excluded_nodes;
 
 	/* Optional temporarily excluded channels/nodes (i.e. this routehint) */
