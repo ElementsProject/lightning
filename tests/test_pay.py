@@ -5144,7 +5144,14 @@ def test_listpays_with_filter_by_status(node_factory, bitcoind):
 
 
 def test_sendpay_grouping(node_factory, bitcoind):
-    """Paying an invoice multiple times, listpays should list them individually
+    """`listpays` should be smart enough to group repeated `pay` calls.
+
+    We always use slightly decreasing values for the payment, in order
+    to avoid having to adjust the channel_hints that are being
+    remembered across attempts. In case of a failure the
+    `channel_hint` will be `attempted amount - 1msat` so use that as
+    the next payment's amount.
+
     """
     l1, l2, l3 = node_factory.line_graph(
         3,
@@ -5164,13 +5171,13 @@ def test_sendpay_grouping(node_factory, bitcoind):
     assert(len(l1.rpc.listpays()['pays']) == 0)
 
     with pytest.raises(RpcError, match=r'Ran out of routes to try after [0-9]+ attempts'):
-        l1.rpc.pay(inv, amount_msat='100000msat')
+        l1.rpc.pay(inv, amount_msat='100002msat')
 
     # After this one invocation we have one entry in `listpays`
     assert(len(l1.rpc.listpays()['pays']) == 1)
 
     with pytest.raises(RpcError, match=r'Ran out of routes to try after [0-9]+ attempts'):
-        l1.rpc.pay(inv, amount_msat='200000msat')
+        l1.rpc.pay(inv, amount_msat='100001msat')
 
     # Surprise: we should have 2 entries after 2 invocations
     assert(len(l1.rpc.listpays()['pays']) == 2)
@@ -5183,7 +5190,7 @@ def test_sendpay_grouping(node_factory, bitcoind):
     wait_for(lambda: only_one(l3.rpc.listpeers()['peers'])['connected'] is True)
     scid = l3.rpc.listpeerchannels()['channels'][0]['short_channel_id']
     wait_for(lambda: [c['active'] for c in l1.rpc.listchannels(scid)['channels']] == [True, True])
-    l1.rpc.pay(inv, amount_msat='420000msat')
+    l1.rpc.pay(inv, amount_msat='10000msat')
 
     # And finally we should have all 3 attempts to pay the invoice
     pays = l1.rpc.listpays()['pays']
