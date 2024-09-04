@@ -39,6 +39,14 @@ def canned_github_server(directory):
     repo_dir = os.path.join(directory, "lightningd")
     os.mkdir(repo_dir, 0o777)
     plugins_path = str(FILE_PATH / 'data/recklessrepo/lightningd')
+
+    # Create requirements.txt file for the testpluginpass
+    # with pyln-client installed from the local source
+    requirements_file_path = os.path.join(plugins_path, 'testplugpass', 'requirements.txt')
+    with open(requirements_file_path, 'w') as f:
+        pyln_client_path = os.path.abspath(os.path.join(FILE_PATH, '..', 'contrib', 'pyln-client'))
+        f.write(f"pyln-client @ file://{pyln_client_path}\n")
+
     # This lets us temporarily set .gitconfig user info in order to commit
     my_env['HOME'] = directory
     with open(os.path.join(directory, '.gitconfig'), 'w') as conf:
@@ -77,6 +85,9 @@ def canned_github_server(directory):
     # We also need the github api data for the repo which will be served via http
     shutil.copyfile(str(FILE_PATH / 'data/recklessrepo/rkls_api_lightningd_plugins.json'), os.path.join(directory, 'rkls_api_lightningd_plugins.json'))
     yield
+    # Delete requirements.txt from the testplugpass directory
+    with open(requirements_file_path, 'w') as f:
+        f.write(f"pyln-client\n\n")
     server.terminate()
 
 
