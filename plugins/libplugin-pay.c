@@ -2909,18 +2909,17 @@ static bool routehint_excluded(struct payment *p,
 		 * channel, which is greater than the destination.
 		 */
 		struct channel_hint *hint;
-		struct channel_hint_map_iter iter;
-		for (hint = channel_hint_map_first(hints, &iter);
-		     hint;
-		     hint = channel_hint_map_next(hints, &iter)) {
-			if (!short_channel_id_eq(hint->scid.scid, r->short_channel_id))
-				continue;
-			/* We exclude on equality because we set the estimate
-			 * to the smallest failed attempt.  */
-			if (amount_msat_greater_eq(needed_capacity,
+		struct short_channel_id_dir scidd;
+		scidd.scid = r->short_channel_id;
+		scidd.dir = node_id_cmp(&routehint->pubkey,
+					p->pay_destination) > 0 ? 1 : 0;
+
+		hint = channel_hint_map_get(hints, &scidd);
+		/* We exclude on equality because we set the estimate
+		* to the smallest failed attempt.  */
+		if (hint && amount_msat_greater_eq(needed_capacity,
 						   hint->estimated_capacity))
-				return true;
-		}
+			return true;
 	}
 	return false;
 }
