@@ -33,22 +33,27 @@ Here's a checklist for the release process.
 2. Tag it `git pull && git tag -s v<VERSION>rc1`. Note that you should get a prompt to give this tag a 'message'. Make sure you fill this in.
 3. Confirm that the tag will show up for builds with `git describe`
 4. Push the tag to remote `git push --tags`.
-5. Announce rc1 release on core-lightning's release-chat channel on Discord & [BuildOnL2](https://community.corelightning.org/c/general-questions/).
-6. Use `devtools/credit --verbose v<PREVIOUS-VERSION>` to get commits, days and contributors data for release note.
-7. Prepare draft release notes including information from above step, and share with the team for editing.
-8. Upgrade your personal nodes to the rc1, to help testing.
-9. Follow [reproducible build](https://docs.corelightning.org/docs/repro) for [Builder image setup](https://docs.corelightning.org/docs/repro#builder-image-setup). It will create builder images `cl-repro-<codename>` which are required for the next step.
-10. Run `tools/build-release.sh bin-Fedora-28-amd64 bin-Ubuntu sign` script to prepare required builds for the release. With `bin-Fedora-28-amd64 bin-Ubuntu sign`, it will build a zipfile, a non-reproducible Fedora, reproducible Ubuntu images. Once it is done, the script will sign the release contents and create SHA256SUMS and SHA256SUMS.asc in the release folder.
-11. RC images are not uploaded on Docker. Hence they can be removed from the target list for RC versions. Each docker image takes approx. 90 minutes to bundle but it is highly recommended to test docker setup once, if you haven't done that before. Prior to building docker images, ensure that `multiarch/qemu-user-static` setup is working on your system as described [here](https://docs.corelightning.org/docs/docker-images#setting-up-multiarchqemu-user-static).
+5. Draft a new `v<VERSION>rc1` release on Github and check `Set as a pre-release` option.
+6. Follow [reproducible build](https://docs.corelightning.org/docs/repro) for [Builder image setup](https://docs.corelightning.org/docs/repro#builder-image-setup). It will create builder images `cl-repro-<codename>` which are required for the next step.
+7. Run `tools/build-release.sh bin-Fedora-28-amd64 bin-Ubuntu sign` script to prepare required builds for the release. With `bin-Fedora-28-amd64 bin-Ubuntu sign`, it will build a zipfile, a non-reproducible Fedora, reproducible Ubuntu images. Once it is done, the script will sign the release contents and create SHA256SUMS and SHA256SUMS.asc in the release folder.
+8. Upload reproducible builds, SHA256SUMS and SHA256SUMS.asc from the release folder to newly drafted release.
+9. Announce rc1 release on core-lightning's release-chat channel on Discord & [BuildOnL2](https://community.corelightning.org/c/general-questions/).
+10. Use `devtools/credit --verbose v<PREVIOUS-VERSION>` to get commits, days and contributors data for release note.
+11. Prepare release notes draft including information from above step, and share with the team for editing.
+12. Upgrade your personal nodes to the rc1, to help testing.
+13. Github action `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` uploads the pyln modules on test PyPI server. Make sure that the action has been triggered with RC tag and that the modules have been published on `https://test.pypi.org/project/pyln-*/#history`.
+14. Docker image publishing is handled by the GitHub action `Build and push multi-platform docker images`. Ensure that this action is triggered and that the RC image has been successfully uploaded to Docker Hub after the action completes. Alternatively, you can publish Docker images by running the `tools/build-release.sh docker` script. The GitHub action takes approximately 3-4 hours, while the script takes about 6-7 hours. It is highly recommended to test your Docker setup if you haven't done so before. Prior to building docker images by `tools/build-release.sh` script, ensure that `multiarch/qemu-user-static` setup is working on your system as described [here](https://docs.corelightning.org/docs/docker-images#setting-up-multiarchqemu-user-static).
 
 ## Releasing -rc2, ..., -rcN
 
-1. Change rc(N-1) to rcN in CHANGELOG.md.
+1. Update CHANGELOG.md by changing rc(N-1) to rcN. Update the changelog list with information from newly merged PRs also.
 2. Update the contrib/pyln package versions: `make update-py-versions NEW_VERSION=<VERSION>`
 3. Add a PR with the rcN.
 4. Tag it `git pull && git tag -s v<VERSION>rcN && git push --tags`
+5. Draft a new `v<VERSION>rcN` pre-release on Github, upload reproducible builds, SHA256SUMS and SHA256SUMS.asc.
 5. Announce tagged rc release on core-lightning's release-chat channel on Discord & [BuildOnL2](https://community.corelightning.org/c/general-questions/).
 6. Upgrade your personal nodes to the rcN.
+7. Confirm that Github actions for PyPI and Docker publishing are working as expected.
 
 ## Tagging the Release
 
@@ -78,10 +83,12 @@ Here's a checklist for the release process.
    4. Send your signatures from `release/SHA256SUMS.new` to release captain.
    5. Or follow [link](https://docs.corelightning.org/docs/repro#verifying-a-reproducible-build) for manual verification instructions.
 10. Append signatures shared by the team into the `SHA256SUMS.asc` file, verify with `gpg --verify SHA256SUMS.asc` and include the file in the draft release.
-11. `make pyln-release` to upload pyln modules to pypi.org.  This requires keys for each of pyln-client, pyln-proto, and pyln-testing accessible to poetry. This can be done by configuring the python keyring library along with a suitable backend.  Alternatively, the key can be set as an environment variable and each of the pyln releases can be built and published independently:
+11. The GitHub action `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` should upload the pyln modules to pypi.org. However, this can also be done manually by running `make pyln-release`. This process requires keys for each of the `pyln-client`, `pyln-proto`, and `pyln-testing` modules to be accessible to Poetry. You can configure the Python keyring library with a suitable backend to handle this, or alternatively, set the key as an environment variable and build and publish each pyln release independently:
     - `export POETRY_PYPI_TOKEN_PYPI=<pyln-client token>`
     - `make pyln-release-client`
     - ... repeat for each pyln package.
+12. Publish multi-arch Docker images (`elementsproject/lightningd:v${VERSION}` and `elementsproject/lightningd:latest`) to Docker Hub either using the GitHub action `Build and push multi-platform docker images` or by running the `tools/build-release.sh docker` script. Prior to building docker images by `tools/build-release.sh` script, ensure that `multiarch/qemu-user-static` setup is working on your system as described [here](https://docs.corelightning.org/docs/docker-images#setting-up-multiarchqemu-user-static).
+
 
 ## Performing the Release
 

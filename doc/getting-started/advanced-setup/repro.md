@@ -93,9 +93,13 @@ sufficient to ensure that the resulting `cl-repro-<codename>` image is reproduci
 
 The dockerfiles assume that the base image has the codename as its image name.
 
+## Script cl-repro
+
+The script `contrib/cl-repro.sh` covers above `Base image creation` and `Builder image setup` steps. You can skip these steps by simply running the `contrib/cl-repro.sh` script.
+
 # Building using the builder image
 
-Finally, after this rather lengthy setup we can perform the actual build.  At this point we have a container image that has been prepared to build reproducibly. As you can see from the `Dockerfile` above we assume the source git repository gets mounted as `/repo` in the docker container. The container will clone the repository to an internal path, in order to keep the repository clean, build the artifacts there, and then copy them back to `/repo/release`.  
+Finally, after building enviornment setup we can perform the actual build.  At this point we have a container image that has been prepared to build reproducibly. As you can see from the `Dockerfile` above we assume the source git repository gets mounted as `/repo` in the docker container. The container will clone the repository to an internal path, in order to keep the repository clean, build the artifacts there, and then copy them back to `/repo/release`.  
 We'll need the release directory available for this, so create it now if it doesn't exist:`mkdir release`, then we can simply execute the following command inside the git repository (remember to checkout the tag you are trying to build):
 
 ```bash
@@ -120,7 +124,7 @@ The release captain is in charge of creating the manifest, whereas contributors 
 ## Script build-release
 1: Pull latest code from master
 
-2: Run `tools/build-release.sh bin-Fedora-28-amd64 bin-Ubuntu sign` script. It will create release directory, build bineries for Fedora, build bineries for Ubuntu (Focal, Jammy & Noble), sign zip, fedora & ubuntu builds.
+2: Run the `tools/build-release.sh bin-Fedora-28-amd64 bin-Ubuntu sign` script. This will create a release directory, build binaries for Fedora, and build binaries for Ubuntu (Focal, Jammy, and Noble). Finally, it will sign the ZIP, Fedora, and Ubuntu builds.
 
 ## Manual
 The release captain creates the manifest as follows:
