@@ -111,53 +111,42 @@ channel_hint_set_add(struct channel_hint_set *self, u32 timestamp,
 		     const struct amount_msat *estimated_capacity,
 		     const struct amount_sat capacity, u16 *htlc_budget)
 {
-	bool modified = false;
-	struct channel_hint *old, *newhint = tal(tmpctx, struct channel_hint);
-	struct timeabs now = time_now();
+	struct channel_hint *copy, *old, *newhint;
 
 	/* If the channel is marked as enabled it must have an estimate. */
 	assert(!enabled || estimated_capacity != NULL);
-	newhint->enabled = enabled;
-	newhint->scid = *scidd;
-	newhint->capacity = capacity;
-	if (estimated_capacity != NULL)
-		newhint->estimated_capacity = *estimated_capacity;
-	newhint->local = NULL;
-	newhint->timestamp = timestamp;
 
-	/* Project the channel_hints into the same domain, so we can merge them.
-	 */
-	channel_hint_update(now, newhint);
-	channel_hint_set_update(self, now);
-
-	/* And now we can merge the new hint into the existing ones if there
-	   are any. */
+	/* If there was no hint, add the new one, if there was one,
+	 * pick the one with the newer timestamp. */
 	old = channel_hint_set_find(self, scidd);
+	copy = tal_dup(tmpctx, struct channel_hint, old);
 	if (old == NULL) {
+		newhint = tal(tmpctx, struct channel_hint);
+		newhint->enabled = enabled;
+		newhint->scid = *scidd;
+		newhint->capacity = capacity;
+		if (estimated_capacity != NULL)
+			newhint->estimated_capacity = *estimated_capacity;
+		newhint->local = NULL;
+		newhint->timestamp = timestamp;
 		tal_arr_expand(&self->hints, *newhint);
-		// TODO extend the array
 		return &self->hints[tal_count(self->hints) - 1];
-	} else {
-		/* Prefer to disable a channel. */
-		if (!enabled && old->enabled) {
-			old->enabled = false;
-			modified = true;
-		}
-		/* Prefer the more conservative estimate. */
-		if (estimated_capacity != NULL &&
-		    amount_msat_greater(old->estimated_capacity,
-					newhint->estimated_capacity)) {
-			old->estimated_capacity = newhint->estimated_capacity;
-			modified = true;
-		}
-		if (newhint->local) {
-			tal_free(old->local);
-			old->local = tal_steal(old, newhint->local);
-		}
-	}
-	if (modified) {
+	} else if (old->timestamp <= timestamp) {
+		/* `local` is kept, since we do not pass in those
+		 * annotations here. */
+		old->enabled = enabled;
 		old->timestamp = timestamp;
-		return old;
+		if (estimated_capacity != NULL)
+			old->estimated_capacity = *estimated_capacity;
+
+		/* We always pick the larger of the capacities we are
+		 * being told. This is because in some cases, such as
+		 * routehints, we're not actually being told the total
+		 * capacity, just lower values. */
+		if (amount_sat_greater(capacity, old->capacity))
+			old->capacity = capacity;
+
+		return copy;
 	} else {
 		return NULL;
 	}
