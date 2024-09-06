@@ -614,11 +614,12 @@ payment_get_excluded_channels(const tal_t *ctx, struct payment *p)
 {
 	struct payment *root = payment_root(p);
 	struct channel_hint *hint;
+	struct channel_hint_map_iter iter;
 	struct short_channel_id_dir *res =
 	    tal_arr(ctx, struct short_channel_id_dir, 0);
-	for (size_t i = 0; i < tal_count(root->hints->hints); i++) {
-		hint = &root->hints->hints[i];
-
+	for (hint = channel_hint_map_first(root->hints->hints, &iter);
+	     hint;
+	     hint = channel_hint_map_next(root->hints->hints, &iter)) {
 		if (!hint->enabled)
 			tal_arr_expand(&res, hint->scid);
 
@@ -639,19 +640,6 @@ static const struct node_id *payment_get_excluded_nodes(const tal_t *ctx,
 {
 	struct payment *root = payment_root(p);
 	return root->excluded_nodes;
-}
-
-/* FIXME: This is slow! */
-static const struct channel_hint *find_hint(const struct channel_hint *hints,
-					    struct short_channel_id scid,
-					    int dir)
-{
-	for (size_t i = 0; i < tal_count(hints); i++) {
-		if (short_channel_id_eq(scid, hints[i].scid.scid)
-		    && dir == hints[i].scid.dir)
-			return &hints[i];
-	}
-	return NULL;
 }
 
 /* FIXME: This is slow! */
@@ -681,7 +669,7 @@ static bool payment_route_check(const struct gossmap *gossmap,
 				struct amount_msat amount,
 				struct payment *p)
 {
-	struct short_channel_id scid;
+	struct short_channel_id_dir scidd;
 	const struct channel_hint *hint;
 
 	if (dst_is_excluded(gossmap, c, dir, payment_root(p)->excluded_nodes))
@@ -690,8 +678,9 @@ static bool payment_route_check(const struct gossmap *gossmap,
 	if (dst_is_excluded(gossmap, c, dir, p->temp_exclusion))
 		return false;
 
-	scid = gossmap_chan_scid(gossmap, c);
-	hint = find_hint(payment_root(p)->hints->hints, scid, dir);
+	scidd.scid = gossmap_chan_scid(gossmap, c);
+	scidd.dir = dir;
+	hint = channel_hint_set_find(payment_root(p)->hints, &scidd);
 	if (!hint)
 		return true;
 
@@ -2618,10 +2607,7 @@ local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
 	 * observations, and should re-enable some channels that would
 	 * otherwise start out as excluded and remain so until
 	 * forever. */
-
-	struct channel_hint *hints = payment_root(p)->hints->hints;
-	for (size_t i = 0; i < tal_count(hints); i++)
-		channel_hint_update(time_now(), &hints[i]);
+	channel_hint_set_update(payment_root(p)->hints, time_now());
 
 	payment_continue(p);
 	return command_still_pending(cmd);
@@ -2763,6 +2749,8 @@ static bool routehint_excluded(struct payment *p,
 	const struct short_channel_id_dir *chans =
 	    payment_get_excluded_channels(tmpctx, p);
 	const struct channel_hint_set *hints = payment_root(p)->hints;
+	struct short_channel_id_dir scidd;
+	struct channel_hint *hint;
 
 	/* Note that we ignore direction here: in theory, we could have
 	 * found that one direction of a channel is unavailable, but they
@@ -2802,15 +2790,12 @@ static bool routehint_excluded(struct payment *p,
 		 * know the exact capacity we need to send via this
 		 * channel, which is greater than the destination.
 		 */
-		for (size_t j = 0; j < tal_count(hints); j++) {
-			if (!short_channel_id_eq(hints->hints[j].scid.scid, r->short_channel_id))
-				continue;
-			/* We exclude on equality because we set the estimate
-			 * to the smallest failed attempt.  */
-			if (amount_msat_greater_eq(needed_capacity,
-						   hints->hints[j].estimated_capacity))
-				return true;
-		}
+		scidd.scid = r->short_channel_id;
+		scidd.dir = node_id_idx(&r->pubkey, p->pay_destination);
+		hint = channel_hint_set_find(hints, &scidd);
+		if (hint && amount_msat_greater_eq(needed_capacity,
+					   	   hint->estimated_capacity))
+			return true;
 	}
 	return false;
 }

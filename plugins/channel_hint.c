@@ -1,5 +1,33 @@
 #include "config.h"
+#include <common/memleak.h>
 #include <plugins/channel_hint.h>
+
+size_t channel_hint_hash(const struct short_channel_id_dir *out)
+{
+	struct siphash24_ctx ctx;
+	siphash24_init(&ctx, siphash_seed());
+	siphash24_update(&ctx, &out->scid.u64, sizeof(u64));
+	siphash24_update(&ctx, &out->dir, sizeof(int));
+	return siphash24_done(&ctx);
+}
+
+const struct short_channel_id_dir *channel_hint_keyof(const struct channel_hint *out)
+{
+	return &out->scid;
+}
+
+bool channel_hint_eq(const struct channel_hint *a,
+		     const struct short_channel_id_dir *b)
+{
+	return short_channel_id_eq(a->scid.scid, b->scid) &&
+		a->scid.dir == b->dir;
+}
+
+static void memleak_help_channel_hint_map(struct htable *memtable,
+					 struct channel_hint_map *channel_hints)
+{
+	memleak_scan_htable(memtable, &channel_hints->raw);
+}
 
 void channel_hint_to_json(const char *name, const struct channel_hint *hint,
 			  struct json_stream *dest)
@@ -93,15 +121,10 @@ bool channel_hint_update(const struct timeabs now, struct channel_hint *hint)
 	       amount_msat_greater(capacity, hint->estimated_capacity);
 }
 
-struct channel_hint *channel_hint_set_find(struct channel_hint_set *self,
+struct channel_hint *channel_hint_set_find(const struct channel_hint_set *self,
 					   const struct short_channel_id_dir *scidd)
 {
-  for (size_t i=0; i<tal_count(self->hints); i++) {
-    struct channel_hint *hint = &self->hints[i];
-    if (short_channel_id_dir_eq(&hint->scid, scidd))
-      return hint;
-  }
-  return NULL;
+	return channel_hint_map_get(self->hints, scidd);
 }
 
 /* See header */
@@ -121,7 +144,7 @@ channel_hint_set_add(struct channel_hint_set *self, u32 timestamp,
 	old = channel_hint_set_find(self, scidd);
 	copy = tal_dup(tmpctx, struct channel_hint, old);
 	if (old == NULL) {
-		newhint = tal(tmpctx, struct channel_hint);
+		newhint = tal(self, struct channel_hint);
 		newhint->enabled = enabled;
 		newhint->scid = *scidd;
 		newhint->capacity = capacity;
@@ -129,8 +152,8 @@ channel_hint_set_add(struct channel_hint_set *self, u32 timestamp,
 			newhint->estimated_capacity = *estimated_capacity;
 		newhint->local = NULL;
 		newhint->timestamp = timestamp;
-		tal_arr_expand(&self->hints, *newhint);
-		return &self->hints[tal_count(self->hints) - 1];
+		channel_hint_map_add(self->hints, newhint);
+		return newhint;
 	} else if (old->timestamp <= timestamp) {
 		/* `local` is kept, since we do not pass in those
 		 * annotations here. */
@@ -184,18 +207,24 @@ struct channel_hint *channel_hint_from_json(const tal_t *ctx,
 struct channel_hint_set *channel_hint_set_new(const tal_t *ctx)
 {
 	struct channel_hint_set *set = tal(ctx, struct channel_hint_set);
-	set->hints = tal_arr(set, struct channel_hint, 0);
+	set->hints = tal(set, struct channel_hint_map);
+	channel_hint_map_init(set->hints);
+	memleak_add_helper(set->hints, memleak_help_channel_hint_map);
 	return set;
 }
 
 void channel_hint_set_update(struct channel_hint_set *set,
 			     const struct timeabs now)
 {
-	for (size_t i = 0; i < tal_count(set->hints); i++)
-		channel_hint_update(time_now(), &set->hints[i]);
+	struct channel_hint *hint;
+	struct channel_hint_map_iter iter;
+	for (hint = channel_hint_map_first(set->hints, &iter);
+	     hint;
+	     hint = channel_hint_map_next(set->hints, &iter))
+		channel_hint_update(now, hint);
 }
 
 size_t channel_hint_set_count(const struct channel_hint_set *set)
 {
-	return tal_count(set->hints);
+	return channel_hint_map_count(set->hints);
 }
