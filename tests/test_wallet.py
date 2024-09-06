@@ -1701,3 +1701,11 @@ def test_hsmtool_makerune(node_factory):
     # We have to generate a rune now, for commando to even start processing!
     rune = l1.rpc.commando_rune()['rune']
     assert rune == out
+
+
+def test_hsmtool_getnodeid(node_factory):
+    l1 = node_factory.get_node()
+
+    cmd_line = ["tools/hsmtool", "getnodeid", os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")]
+    out = subprocess.check_output(cmd_line).decode('utf-8').strip()
+    assert out == l1.info['id']
