@@ -20,38 +20,38 @@ as well as derive secrets used in channel commitments.
 METHODS
 -------
 
-**encrypt** *hsm\_secret* *password*
+**encrypt** *hsm\_secret\_path* *password*
 
-  Encrypt the `hsm_secret` file so that it can only be decrypted at
+  Encrypt the `hsm_secret_path` file so that it can only be decrypted at
 **lightningd** startup.
 You must give the option **--encrypted-hsm** to **lightningd**.
-The password of the `hsm_secret` file will be asked whenever you
+The password of the `hsm_secret_path` file will be asked whenever you
 start **lightningd**.
 
-**decrypt** *hsm\_secret* *password*
+**decrypt** *hsm\_secret\_path* *password*
 
-  Decrypt the `hsm_secret` file that was encrypted with the **encrypt**
+  Decrypt the `hsm_secret_path` file that was encrypted with the **encrypt**
 method.
 
-**dumpcommitments** *node\_id* *channel\_dbid* *depth* *hsm\_secret* \[*password*\]
+**dumpcommitments** *node\_id* *channel\_dbid* *depth* *hsm\_secret\_path* \[*password*\]
 
   Show the per-commitment secret and point of up to *depth* commitments,
 of the specified channel with the specified peer,
 identified by the channel database index.
-Specify *password* if the `hsm_secret` is encrypted.
+Specify *password* if the `hsm_secret_path` is encrypted.
 
-**guesstoremote** *p2wpkh* *node\_id* *max\_channel\_dbid* *hsm\_secret* \[*password*\]
+**guesstoremote** *p2wpkh* *node\_id* *max\_channel\_dbid* *hsm\_secret\_path* \[*password*\]
 
   Brute-force the private key to our funds from a remote unilateral close
 of a channel, in a case where we have lost all database data except for
-our `hsm_secret`.
+our `hsm_secret_path`.
 The peer must be the one to close the channel (and the funds will remain
 unrecoverable until the channel is closed).
 *max\_channel\_dbid* is your own guess on what the *channel\_dbid* was,
 or at least the maximum possible value,
 and is usually no greater than the number of channels that the node has
 ever had.
-Specify *password* if the `hsm_secret` is encrypted.
+Specify *password* if the `hsm_secret_path` is encrypted.
 
 **generatehsm** *hsm\_secret\_path*
   Generates a new hsm\_secret using BIP39.
@@ -59,7 +59,7 @@ Specify *password* if the `hsm_secret` is encrypted.
 **checkhsm** *hsm\_secret\_path*
   Checks that hsm\_secret matches a BIP39 passphrase.
 
-**dumponchaindescriptors** \[*--show-secrets*\] *hsm\_secret* \[*network*\]
+**dumponchaindescriptors** \[*--show-secrets*\] *hsm\_secret\_path* \[*network*\]
   Dump output descriptors for our onchain wallet.
 This command requires the path to the hsm\_secret containing the wallet seed.
 If the flag *--show-secrets* is set the command will show the BIP32 extended private
@@ -74,7 +74,7 @@ password.
 To generate descriptors using testnet master keys, you may specify *testnet* as
 the last parameter. By default, mainnet-encoded keys are generated.
 
-**makerune** *hsm\_secret*
+**makerune** *hsm\_secret\_path*
   Make a master rune for this node (with `uniqueid` 0)
 This produces the same results as lightning-commando-rune(7) on a fresh node.
 You will still need to create a rune once the node starts, if you want commando to work (as it is only activated once it has generated one).
@@ -84,6 +84,9 @@ You will still need to create a rune once the node starts, if you want commando 
 
 **getemergencyrecover** *emergency.recover\_path*
   Print out the bech32 encoded emergency.recover file.
+
+**getnodeid** *hsm\_secret\_path*
+  Print out the node id that a node using this hsm secret would have: useful for verifying that you are accessing the correct secret!
 
 BUGS
 ----

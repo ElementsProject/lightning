@@ -49,6 +49,7 @@ static void show_usage(const char *progname)
 	printf("	- makerune <path/to/hsm_secret>\n");
 	printf("	- getcodexsecret <path/to/hsm_secret> <id>\n");
 	printf("	- getemergencyrecover <path/to/emergency.recover>\n");
+	printf("	- getnodeid <path/to/hsm_secret>\n");
 	exit(0);
 }
 
@@ -697,6 +698,38 @@ static int make_rune(const char *hsm_secret_path)
 	return 0;
 }
 
+static int get_node_id(const char *hsm_secret_path)
+{
+	u32 salt = 0;
+	struct secret hsm_secret;
+	struct privkey node_privkey;
+	struct pubkey node_id;
+
+	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+	                                         | SECP256K1_CONTEXT_SIGN);
+
+	/* Get hsm_secret */
+	get_hsm_secret(&hsm_secret, hsm_secret_path);
+
+	/*~ So, there is apparently a 1 in 2^127 chance that a random value is
+	 * not a valid private key, so this never actually loops. */
+	do {
+		/*~ ccan/crypto/hkdf_sha256 implements RFC5869 "Hardened Key
+		 * Derivation Functions".  That means that if a derived key
+		 * leaks somehow, the other keys are not compromised. */
+		hkdf_sha256(&node_privkey, sizeof(node_privkey),
+			    &salt, sizeof(salt),
+			    &hsm_secret,
+			    sizeof(hsm_secret),
+			    "nodeid", 6);
+		salt++;
+	} while (!secp256k1_ec_pubkey_create(secp256k1_ctx, &node_id.pubkey,
+					     node_privkey.secret.data));
+
+	printf("%s\n", fmt_pubkey(tmpctx, &node_id));
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	const char *method;
@@ -836,6 +869,12 @@ int main(int argc, char *argv[])
 		if (argc < 3)
 			show_usage(argv[0]);
 		return getemergencyrecover(argv[2]);
+	}
+
+	if (streq(method, "getnodeid")) {
+		if (argc < 3)
+			show_usage(argv[0]);
+		return get_node_id(argv[2]);
 	}
 
 	show_usage(argv[0]);
