@@ -697,6 +697,11 @@ authenticate to the Tor control port.
 
   Defines the path for WSS cert & key. Default path is same as RPC file path to utilize gRPC/clnrest's client certificate. If it is missing at the configured location, new identity (`client.pem` and `client-key.pem`) will be generated.
 
+* **exposesecret-passphrase**=*passphrase*  [plugin `exposesecret`]
+
+  Defines a passphrase which will let users extract the `hsm_secret` using the `exposesecret` command.  If this is not set, the `exposesecret` command always fails.
+
+
 ### Lightning Plugins
 
 lightningd(8) supports plugins, which offer additional configuration

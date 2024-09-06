@@ -4434,3 +4434,78 @@ def test_listchannels_broken_message(node_factory):
     l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
 
     l1.rpc.listchannels()
+
+
+def test_exposesecret(node_factory):
+    l1, l2 = node_factory.get_nodes(2, opts=[{'exposesecret-passphrase': "test_exposesecret"}, {}])
+
+    # l2 won't expose the secret!
+    with pytest.raises(RpcError, match="exposesecrets-passphrase is not set"):
+        l2.rpc.exposesecret(passphrase='test_exposesecret')
+
+    # check command does the same.
+    with pytest.raises(RpcError, match="exposesecrets-passphrase is not set"):
+        l2.rpc.check('exposesecret', passphrase='test_exposesecret')
+
+    # l1, bad pass phrase
+    with pytest.raises(RpcError, match="passphrase does not match exposesecrets-passphrase"):
+        l1.rpc.exposesecret(passphrase='test_exposesecret2')
+
+    # Bad identifier length
+    for invalid in ('', 'x', 'xxxxx'):
+        with pytest.raises(RpcError, match="must be 4 characters"):
+            l1.rpc.exposesecret(passphrase='test_exposesecret', identifier=invalid)
+
+    # Bad case
+    for invalid in ('CLNX', 'Clnx', 'clnX'):
+        with pytest.raises(RpcError, match="must be lower-case"):
+            l1.rpc.exposesecret(passphrase='test_exposesecret', identifier=invalid)
+
+    # Bad identifier chars
+    for invalid in ('cln1', 'clno', 'clnb', 'clni'):
+        with pytest.raises(RpcError, match="must be valid bech32 string"):
+            l1.rpc.exposesecret(passphrase='test_exposesecret', identifier=invalid)
+
+    # As given by hsmtool:
+    # $ ./tools/hsmtool getcodexsecret /tmp/ltests-10uyxcnw/test_exposesecret_1/lightning-1/regtest/hsm_secret junr
+    # cl10junrsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqj00m675kxffh
+    # $ ./tools/hsmtool getcodexsecret /tmp/ltests-10uyxcnw/test_exposesecret_1/lightning-1/regtest/hsm_secret junx
+    # cl10junxsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6mdtn5lql6p8m
+    # $ ./tools/hsmtool getcodexsecret /tmp/ltests-10uyxcnw/test_exposesecret_1/lightning-1/regtest/hsm_secret cln2
+    # cl10cln2sd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq2v3y60yxxn4mq
+    assert l1.rpc.exposesecret(passphrase='test_exposesecret') == {'codex32': 'cl10junrsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqj00m675kxffh',
+                                                                   'identifier': 'junr'}
+
+    assert l1.rpc.exposesecret(passphrase='test_exposesecret', identifier='cln2') == {'codex32': 'cl10cln2sd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq2v3y60yxxn4mq',
+                                                                                      'identifier': 'cln2'}
+
+    # FIXME: runtime config for alias!!
+    l1.stop()
+    l1.daemon.opts["alias"] = 'J1U1IOBiobN'
+    l1.start()
+
+    assert l1.rpc.exposesecret(passphrase='test_exposesecret') == {'codex32': 'cl10junxsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6mdtn5lql6p8m',
+                                                                   'identifier': 'junx'}
+
+    # Test with encrypted-hsm (fails!)
+    password = 'test_exposesecret'
+    l1.stop()
+    # We need to simulate a terminal to use termios in `lightningd`.
+    master_fd, slave_fd = os.openpty()
+
+    def write_all(fd, bytestr):
+        """Wrapper, since os.write can do partial writes"""
+        off = 0
+        while off < len(bytestr):
+            off += os.write(fd, bytestr[off:])
+
+    l1.daemon.opts.update({"encrypted-hsm": None})
+    l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
+    l1.daemon.wait_for_log(r'Enter hsm_secret password')
+    write_all(master_fd, (password + '\n').encode("utf-8"))
+    l1.daemon.wait_for_log(r'Confirm hsm_secret password')
+    write_all(master_fd, (password + '\n').encode("utf-8"))
+    l1.daemon.wait_for_log("Server started with public key")
+
+    with pytest.raises(RpcError, match="maybe encrypted"):
+        l1.rpc.exposesecret(passphrase=password)
