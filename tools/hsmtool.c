@@ -104,7 +104,7 @@ static void get_encrypted_hsm_secret(struct secret *hsm_secret,
 {
 	struct secret key;
 	struct encrypted_hsm_secret encrypted_secret;
-	char *err;
+	const char *err;
 	int exit_code;
 
 	grab_hsm_file(hsm_secret_path,
@@ -183,7 +183,8 @@ static void get_hsm_secret(struct secret *hsm_secret,
 	/* This checks the file existence, too. */
 	if (hsm_secret_is_encrypted(hsm_secret_path)) {
 		int exit_code;
-		char *err, *passwd;
+		char *passwd;
+		const char *err;
 
 		printf("Enter hsm_secret password:\n");
 		fflush(stdout);
@@ -201,8 +202,8 @@ static int decrypt_hsm(const char *hsm_secret_path)
 {
 	int fd;
 	struct secret hsm_secret;
-	char *passwd, *err;
-	const char *dir, *backup;
+	char *passwd;
+	const char *dir, *backup, *err;
 	int exit_code = 0;
 	/* This checks the file existence, too. */
 	if (!hsm_secret_is_encrypted(hsm_secret_path))
@@ -292,8 +293,8 @@ static int encrypt_hsm(const char *hsm_secret_path)
 	int fd;
 	struct secret key, hsm_secret;
 	struct encrypted_hsm_secret encrypted_hsm_secret;
-	char *passwd, *passwd_confirmation, *err;
-	const char *dir, *backup;
+	char *passwd, *passwd_confirmation;
+	const char *err, *dir, *backup;
 	int exit_code = 0;
 
 	/* This checks the file existence, too. */
@@ -524,7 +525,8 @@ static void read_mnemonic(char *mnemonic) {
 static int generate_hsm(const char *hsm_secret_path)
 {
 	char mnemonic[BIP39_WORDLIST_LEN];
-	char *passphrase, *err;
+	char *passphrase;
+	const char *err;
 	int exit_code = 0;
 
 	read_mnemonic(mnemonic);
@@ -639,7 +641,8 @@ static int check_hsm(const char *hsm_secret_path)
 	u8 bip32_seed[BIP39_SEED_LEN_512];
 	size_t bip32_seed_len;
 	int exit_code;
-	char *passphrase, *err;
+	char *passphrase;
+	const char *err;
 
 	get_hsm_secret(&hsm_secret, hsm_secret_path);
 
