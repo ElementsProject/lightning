@@ -62,6 +62,8 @@ struct configvar {
 #define OPT_DYNAMIC (1 << (OPT_USER_START+6))
 /* Keep whitespace at the end of the option argument */
 #define OPT_KEEP_WHITESPACE (1 << (OPT_USER_START+7))
+/* Don't show value in listconfigs */
+#define OPT_CONCEAL (1 << (OPT_USER_START+8))
 
 /* Use this instead of opt_register_*_arg if you want OPT_* from above */
 #define clnopt_witharg(names, type, cb, show, arg, desc)		\

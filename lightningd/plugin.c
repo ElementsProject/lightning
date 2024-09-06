@@ -1168,7 +1168,10 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 		/* These all take an arg. */
 		char *(*cb_arg)(const char *optarg, void *arg);
 
-		if (json_tok_streq(buffer, typetok, "string")) {
+		if (json_tok_streq(buffer, typetok, "string-conceal")) {
+			optflags |= OPT_CONCEAL;
+			cb_arg = (void *)plugin_opt_string_check;
+		} else if (json_tok_streq(buffer, typetok, "string")) {
 			cb_arg = (void *)plugin_opt_string_check;
 		} else if (json_tok_streq(buffer, typetok, "int")) {
 			cb_arg = (void *)plugin_opt_long_check;

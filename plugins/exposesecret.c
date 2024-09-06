@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
 	plugin_main(argv, init, take(exposesecret),
 		    PLUGIN_RESTARTABLE, true, NULL, commands, ARRAY_SIZE(commands),
 	            NULL, 0, NULL, 0, NULL, 0,
-		    plugin_option("exposesecret-passphrase", "string",
+		    plugin_option("exposesecret-passphrase", "string-conceal",
 				  "Enable exposesecret command to allow HSM Secret backup, with this passphrase",
 				  charp_option, NULL, &exposesecret->exposure_passphrase),
 		    NULL);
