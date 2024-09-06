@@ -45,6 +45,10 @@ PLUGIN_SQL_SRC := plugins/sql.c
 PLUGIN_SQL_HEADER :=
 PLUGIN_SQL_OBJS := $(PLUGIN_SQL_SRC:.c=.o)
 
+PLUGIN_EXPOSESECRET_SRC := plugins/exposesecret.c
+PLUGIN_EXPOSESECRET_HEADER :=
+PLUGIN_EXPOSESECRET_OBJS := $(PLUGIN_EXPOSESECRET_SRC:.c=.o)
+
 PLUGIN_SPENDER_SRC :=				\
 	plugins/spender/fundchannel.c		\
 	plugins/spender/main.c			\
@@ -81,6 +85,7 @@ PLUGIN_ALL_SRC :=				\
 	$(PLUGIN_COMMANDO_SRC)			\
 	$(PLUGIN_FUNDER_SRC)			\
 	$(PLUGIN_TOPOLOGY_SRC)			\
+	$(PLUGIN_EXPOSESECRET_SRC)		\
 	$(PLUGIN_KEYSEND_SRC)			\
 	$(PLUGIN_TXPREPARE_SRC)			\
 	$(PLUGIN_LIB_SRC)			\
@@ -106,6 +111,7 @@ C_PLUGINS :=					\
 	plugins/commando			\
 	plugins/funder				\
 	plugins/topology			\
+	plugins/exposesecret			\
 	plugins/keysend				\
 	plugins/offers				\
 	plugins/pay				\
@@ -220,6 +226,8 @@ plugins/commando: $(PLUGIN_COMMANDO_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJ
 plugins/topology: common/route.o common/dijkstra.o common/gossmap.o common/sciddir_or_pubkey.o common/fp16.o wire/peer_wiregen.o wire/channel_type_wiregen.o bitcoin/block.o bitcoin/preimage.o common/gossmods_listpeerchannels.o  $(PLUGIN_TOPOLOGY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 
 plugins/txprepare: $(PLUGIN_TXPREPARE_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+
+plugins/exposesecret: $(PLUGIN_EXPOSESECRET_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) common/hsm_encryption.o common/codex32.o
 
 plugins/bcli: $(PLUGIN_BCLI_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 

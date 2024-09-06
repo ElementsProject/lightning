@@ -55,6 +55,7 @@ GENERATE_MARKDOWN := doc/lightning-addgossip.7 \
 	doc/lightning-disableoffer.7 \
 	doc/lightning-disconnect.7 \
 	doc/lightning-emergencyrecover.7 \
+	doc/lightning-exposesecret.7 \
 	doc/lightning-feerates.7 \
 	doc/lightning-fetchinvoice.7 \
 	doc/lightning-fundchannel_cancel.7 \

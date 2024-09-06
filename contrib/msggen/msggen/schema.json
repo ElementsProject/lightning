@@ -12782,6 +12782,64 @@
         }
       ]
     },
+    "lightning-exposesecret.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "rpc": "exposesecret",
+      "title": "Command for extracting the hsm_secret file for backup",
+      "description": [
+        "The **exposesecret** RPC command allows you to read the HSM secret, and does not work with encrypted hsm secrets.  It only operates if the `exposesecret-passphrase` has been set in the configuration."
+      ],
+      "request": {
+        "required": [
+          "passphrase"
+        ],
+        "properties": {
+          "passphrase": {
+            "type": "string",
+            "description": [
+              "The passphrase, which must match the `exposesecret-passphrase` configuration parameter."
+            ]
+          },
+          "identifier": {
+            "type": "string",
+            "description": [
+              "A four-character, valid lowercase bech32 string (not 1, i, o or b) to use in the resulting BIP-93 output.  If not specified, this is generated from the node alias."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "identifier",
+          "codex32"
+        ],
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": [
+              "The four-character identifier used in the codex32 output.  Redundant, but presented separately for clarity."
+            ]
+          },
+          "codex32": {
+            "type": "string",
+            "description": [
+              "The full codex32-encoded (i.e. BIP-93 encoded) HSM secret."
+            ]
+          }
+        }
+      },
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-hsmtool(8)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ]
+    },
     "lightning-feerates.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
