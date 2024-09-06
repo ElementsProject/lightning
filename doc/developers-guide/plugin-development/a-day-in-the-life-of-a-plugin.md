@@ -124,10 +124,11 @@ Plugins are free to register any `name` for their `rpcmethod` as long as the nam
 
 There are currently four supported option 'types':
 
-- string: a string
-- bool: a boolean
-- int: parsed as a signed integer (64-bit)
-- flag: no-arg flag option. Presented as `true` if config specifies it.
+- `string`: a string
+- `string-conceal`: a string which will appear as "..." in `listconfigs`.
+- `bool`: a boolean
+- `int`: parsed as a signed integer (64-bit)
+- `flag`: no-arg flag option. Presented as `true` if config specifies it.
 
 In addition, string and int types can specify `"multi": true` to indicate they can be specified multiple times.  These will always be represented in `init` as a (possibly empty) JSON array. "multi" flag types do not make  
 sense.

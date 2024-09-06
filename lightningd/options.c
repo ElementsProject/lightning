@@ -2095,8 +2095,10 @@ void add_config_deprecated(struct lightningd *ld,
 			if (!opt->show(buf, sizeof(buf) - sizeof("..."), opt->u.carg))
 				buf[0] = '\0';
 
-			if ((opt->type & OPT_SHOWINT)
-			    || (opt->type & OPT_SHOWMSATS)) {
+			if (opt->type & OPT_CONCEAL) {
+				strcpy(buf, "...");
+			} else if ((opt->type & OPT_SHOWINT)
+				   || (opt->type & OPT_SHOWMSATS)) {
 				if (streq(buf, "")
 				    || strspn(buf, "-0123456789.") != strlen(buf))
 					errx(1, "Bad literal for %s: %s", name0, buf);

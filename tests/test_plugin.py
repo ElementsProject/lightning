@@ -4453,6 +4453,10 @@ def test_listchannels_broken_message(node_factory):
 def test_exposesecret(node_factory):
     l1, l2 = node_factory.get_nodes(2, opts=[{'exposesecret-passphrase': "test_exposesecret"}, {}])
 
+    # listconfigs will conceal the value for us, even if we ask directly.
+    l1.rpc.listconfigs()['configs']['exposesecret-passphrase']['value_str'] == '...'
+    l1.rpc.listconfigs('exposesecret-passphrase')['configs']['exposesecret-passphrase']['value_str'] == '...'
+
     # l2 won't expose the secret!
     with pytest.raises(RpcError, match="exposesecrets-passphrase is not set"):
         l2.rpc.exposesecret(passphrase='test_exposesecret')

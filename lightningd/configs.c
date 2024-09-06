@@ -65,6 +65,9 @@ static const char *get_opt_val(const struct opt_table *ot,
 			       char buf[],
 			       const struct configvar *cv)
 {
+	if (ot->type & OPT_CONCEAL)
+		return "...";
+
 	if (ot->show == (void *)opt_show_charp) {
 		/* Don't truncate or quote! */
 		return *(char **)ot->u.carg;
