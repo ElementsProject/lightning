@@ -45,11 +45,21 @@ struct channel_hint {
 	struct amount_msat capacity;
 };
 
+size_t channel_hint_hash(const struct short_channel_id_dir *out);
+
+const struct short_channel_id_dir *channel_hint_keyof(const struct channel_hint *out);
+
+bool channel_hint_eq(const struct channel_hint *a,
+		     const struct short_channel_id_dir *b);
+
+HTABLE_DEFINE_TYPE(struct channel_hint, channel_hint_keyof,
+	channel_hint_hash, channel_hint_eq, channel_hint_map)
+
 /* A collection of channel_hint instances, allowing us to handle and
  * update them more easily. */
 struct channel_hint_set {
-	/* tal_arr of channel_hints. */
-	struct channel_hint *hints;
+	/* htable of channel_hints, indexed by scid and direction. */
+	struct channel_hint_map *hints;
 };
 
 bool channel_hint_update(const struct timeabs now,
@@ -70,7 +80,7 @@ void channel_hint_set_update(struct channel_hint_set *set, const struct timeabs 
 /**
  * Look up a `channel_hint` from a `channel_hint_set` for a scidd.
  */
-struct channel_hint *channel_hint_set_find(struct channel_hint_set *self,
+struct channel_hint *channel_hint_set_find(const struct channel_hint_set *self,
 					   const struct short_channel_id_dir *scidd);
 
 /**
