@@ -5158,7 +5158,7 @@ static void peer_reconnect(struct peer *peer,
 	} else if (pending_updates(peer->channel, LOCAL, true)
 		   || pending_updates(peer->channel, REMOTE, true)) {
 		status_debug("No upgrade: pending changes");
-	} else {
+	} else if (send_tlvs && recv_tlvs) {
 		const struct tlv_channel_reestablish_tlvs *initr, *ninitr;
 		const u8 *type;
 
