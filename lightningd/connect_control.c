@@ -263,6 +263,7 @@ struct delayed_reconnect {
 	struct lightningd *ld;
 	struct node_id id;
 	struct wireaddr_internal *addrhint;
+	struct wireaddr_internal *peer_alt_addr;
 	bool dns_fallback;
 };
 
@@ -304,6 +305,7 @@ static void gossipd_got_addrs(struct subd *subd,
 						     &d->id,
 						     addrs,
 						     d->addrhint,
+						     d->peer_alt_addr,
 						     d->dns_fallback,
 						     transient);
 	subd_send_msg(d->ld->connectd, take(connectmsg));
@@ -332,6 +334,7 @@ static void try_connect(const tal_t *ctx,
 {
 	struct delayed_reconnect *d;
 	struct peer *peer;
+	struct wireaddr_internal *p_alt_addr;
 
 	/* Don't stack, unless this is an instant reconnect */
 	d = delayed_reconnect_map_get(ld->delayed_reconnect_map, id);
@@ -343,10 +346,13 @@ static void try_connect(const tal_t *ctx,
 		tal_free(d);
 	}
 
+	p_alt_addr = wallet_get_alt_addr(ld->wallet, id, false);
+
 	d = tal(ctx, struct delayed_reconnect);
 	d->ld = ld;
 	d->id = *id;
 	d->addrhint = tal_dup_or_null(d, struct wireaddr_internal, addrhint);
+	d->peer_alt_addr = tal_dup_or_null(d, struct wireaddr_internal, p_alt_addr);
 	d->dns_fallback = dns_fallback;
 	delayed_reconnect_map_add(ld->delayed_reconnect_map, d);
 	tal_add_destructor(d, destroy_delayed_reconnect);
@@ -553,6 +559,22 @@ static void handle_custommsg_in(struct lightningd *ld, const u8 *msg)
 	plugin_hook_call_custommsg(ld, NULL, p);
 }
 
+static void handle_peer_alt_addr(struct lightningd *ld, const u8 *msg)
+{
+	struct node_id p_id;
+	u8 *p_alt_addr;
+
+	if (!fromwire_connectd_peer_alt_addr(tmpctx, msg, &p_id, &p_alt_addr)) {
+		log_broken(ld->log,
+			   "handle_alt_addr_in: Malformed alt_addr message: %s",
+			   tal_hex(tmpctx, msg));
+		return;
+	}
+
+	wallet_add_alt_addr(ld->wallet->db, &p_id, (char *)p_alt_addr, false);
+	tal_free(p_alt_addr);
+}
+
 static void connectd_start_shutdown_reply(struct subd *connectd,
 					  const u8 *reply,
 					  const int *fds UNUSED,
@@ -619,6 +641,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_PING_REPLY:
 	case WIRE_CONNECTD_START_SHUTDOWN_REPLY:
 	case WIRE_CONNECTD_INJECT_ONIONMSG_REPLY:
+	case WIRE_CONNECTD_ALT_ADDR_WHITELIST:
 		break;
 
 	case WIRE_CONNECTD_PEER_CONNECTED:
@@ -645,6 +668,9 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 
 	case WIRE_CONNECTD_CUSTOMMSG_IN:
 		handle_custommsg_in(connectd->ld, msg);
+		break;
+	case WIRE_CONNECTD_PEER_ALT_ADDR:
+		handle_peer_alt_addr(connectd->ld, msg);
 		break;
 	}
 	return 0;
@@ -768,7 +794,8 @@ int connectd_init(struct lightningd *ld)
 				   ld->dev_disconnect_fd >= 0,
 				   ld->dev_no_ping_timer,
 				   ld->dev_handshake_no_reply,
-				   ld->dev_throttle_gossip);
+				   ld->dev_throttle_gossip,
+				   ld->alt_bind_addr);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);

@@ -57,6 +57,7 @@
 #include <common/timeout.h>
 #include <common/trace.h>
 #include <common/version.h>
+#include <common/whitelisted_peer.h>
 #include <db/exec.h>
 
 #include <errno.h>
@@ -258,6 +259,9 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->recover_secret = NULL;
 	ld->db_upgrade_ok = NULL;
 	ld->num_startup_connects = 0;
+	ld->alt_addr = NULL;
+	ld->alt_bind_addr = NULL;
+	ld->whitelisted_peers = NULL;
 
 	/* --experimental-upgrade-protocol */
 	ld->experimental_upgrade_protocol = false;

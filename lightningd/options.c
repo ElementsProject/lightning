@@ -440,6 +440,71 @@ static char *opt_add_bind_addr(const char *arg, struct lightningd *ld)
 	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN);
 }
 
+static void update_addr_field(u8 **field, const char *arg, struct lightningd *ld)
+{
+	if (*arg == '\0') {
+		*field = tal_free(*field);
+		return;
+	}
+
+	if (!*field)
+		*field = (u8 *)tal_strdup(ld, arg);
+	else {
+		u8 *new_field = (u8 *)tal_fmt(ld, "%s,%s", *field, arg);
+		tal_free(*field);
+		*field = new_field;
+	}
+
+	return;
+}
+
+static char *opt_add_alt_addr(const char *arg, struct lightningd *ld)
+{
+	assert(arg != NULL);
+
+	update_addr_field(&ld->alt_addr, arg, ld);
+	update_addr_field(&ld->alt_bind_addr, arg, ld);
+
+	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN);
+}
+
+static char *opt_add_alt_bind_addr(const char *arg, struct lightningd *ld)
+{
+	assert(arg != NULL);
+
+	update_addr_field(&ld->alt_bind_addr, arg, ld);
+
+	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN);
+}
+
+static char *opt_add_alt_announce_addr(const char *arg, struct lightningd *ld)
+{
+	assert(arg != NULL);
+
+	/* 'alt-bind-addr' must be set before 'alt-announce-addr'. */
+	if (ld == NULL || ld->alt_bind_addr == NULL)
+		return tal_fmt(tmpctx,
+			       "argument must first be bound by 'alt-bind-addr'");
+
+	/* Check if the argument matches any of the bound alt-bind addresses */
+	bool match_found = false;
+	char **bind_addrs = tal_strsplit(tmpctx, (char *)ld->alt_bind_addr,
+					 ",", STR_NO_EMPTY);
+	for (size_t i = 0; bind_addrs[i] != NULL; i++)
+		if (strcmp(arg, bind_addrs[i]) == 0) {
+			match_found = true;
+			break;
+		}
+
+	if (!match_found)
+		return tal_fmt(tmpctx,
+			       "argument must match a bound 'alt-bind-addr'");
+
+	update_addr_field(&ld->alt_addr, arg, ld);
+	tal_free(bind_addrs);
+	return NULL;
+}
+
 static char *opt_subdaemon(const char *arg, struct lightningd *ld)
 {
 	char *subdaemon;
@@ -1605,6 +1670,15 @@ static void register_opts(struct lightningd *ld)
 		       "Sets the public TCP port to use for announcing discovered IPs.");
 	opt_register_noarg("--offline", opt_set_offline, ld,
 			   "Start in offline-mode (do not automatically reconnect and do not accept incoming connections)");
+	clnopt_witharg("--alt-addr", OPT_MULTI, opt_add_alt_addr, NULL,
+		       ld,
+		       "Set an alternative IP address (v4 or v6) to use by default for private reconnections with established peers.");
+	clnopt_witharg("--alt-bind-addr", OPT_MULTI, opt_add_alt_bind_addr, NULL,
+		       ld,
+		       "Bind an alternative IP address (v4 or v6) for listening, but do not announce or use automatically.");
+	clnopt_witharg("--alt-announce-addr", OPT_MULTI, opt_add_alt_announce_addr, NULL,
+		       ld,
+		       "Provide a reserved IP address (bound by --alt-bind-addr) to established channel peers.");
 	clnopt_witharg("--autolisten", OPT_SHOWBOOL,
 		       opt_set_bool_arg, opt_show_bool,
 		       &ld->autolisten,
@@ -2198,6 +2272,9 @@ bool is_known_opt_cb_arg(char *(*cb_arg)(const char *, void *))
 		|| cb_arg == (void *)opt_add_addr
 		|| cb_arg == (void *)opt_add_bind_addr
 		|| cb_arg == (void *)opt_add_announce_addr
+		|| cb_arg == (void *)opt_add_alt_addr
+		|| cb_arg == (void *)opt_add_alt_bind_addr
+		|| cb_arg == (void *)opt_add_alt_announce_addr
 		|| cb_arg == (void *)opt_subdaemon
 		|| cb_arg == (void *)opt_set_db_upgrade
 		|| cb_arg == (void *)arg_log_to_file

@@ -100,6 +100,13 @@ void channel_errmsg(struct channel *channel,
 u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx);
 u8 *p2tr_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx);
 
+
+/* Load whitelisted_peers struct from the database */
+void add_new_whitelisted_peer(struct lightningd *ld,
+			      const struct node_id *p_id,
+			      const struct wireaddr_internal *addrs,
+			      size_t addr_count);
+
 /* We've loaded peers from database, set them going. */
 void setup_peers(struct lightningd *ld);
 

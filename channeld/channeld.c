@@ -66,6 +66,9 @@ struct peer {
 	bool channel_ready[NUM_SIDES];
 	u64 next_index[NUM_SIDES];
 
+	/* ID of peer */
+	struct node_id id;
+
 	/* --developer? */
 	bool developer;
 
@@ -168,6 +171,9 @@ struct peer {
 	struct changed_htlc *last_sent_commit;
 	u64 revocations_received;
 	u8 channel_flags;
+
+	/* Alt address for peer connections not publicly announced */
+	u8 *my_alt_addr;
 
 	/* Make sure timestamps move forward. */
 	u32 last_update_timestamp;
@@ -531,6 +537,17 @@ static void handle_peer_splice_locked(struct peer *peer, const u8 *msg)
 
 	peer->splice_state->locked_ready[REMOTE] = true;
 	check_mutual_splice_locked(peer);
+}
+
+static void send_peer_my_alt_addr(struct peer *peer)
+{
+	/* Send my alt addr to peer db */
+	u8 *peer_msg = towire_peer_alt_addr(peer, peer->my_alt_addr);
+	peer_write(peer->pps, take(peer_msg));
+
+	/* We need the addrs in my own db too for later whitelist confirmation */
+	u8 *msg = towire_channeld_my_alt_addr(tmpctx, peer->my_alt_addr);
+	wire_sync_write(MASTER_FD, take(msg));
 }
 
 static void handle_peer_channel_ready(struct peer *peer, const u8 *msg)
@@ -4158,6 +4175,9 @@ static void peer_in(struct peer *peer, const u8 *msg)
 
 	check_tx_abort(peer, msg);
 
+	if (peer->my_alt_addr)
+		send_peer_my_alt_addr(peer);
+
 	/* If we're in STFU mode and aren't waiting for a STFU mode
 	 * specific message, the only valid message was tx_abort */
 	if (is_stfu_active(peer) && !peer->stfu_wait_single_msg) {
@@ -4290,6 +4310,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_ONION_MESSAGE:
 	case WIRE_PEER_STORAGE:
 	case WIRE_YOUR_PEER_STORAGE:
+	case WIRE_PEER_ALT_ADDR:
 		abort();
 	}
 
@@ -5660,6 +5681,18 @@ static void handle_dev_quiesce(struct peer *peer, const u8 *msg)
 	maybe_send_stfu(peer);
 }
 
+static void handle_channeld_peer_alt_addr(struct peer *peer, const u8 *msg)
+{
+	u8 *my_alt_addr;
+
+	if (!fromwire_channeld_peer_alt_addr(peer, msg, &my_alt_addr))
+		master_badmsg(WIRE_CHANNELD_PEER_ALT_ADDR, msg);
+
+	u8 *peer_msg = towire_peer_alt_addr(peer, my_alt_addr);
+	peer_write(peer->pps, take(peer_msg));
+	tal_free(my_alt_addr);
+}
+
 static void req_in(struct peer *peer, const u8 *msg)
 {
 	enum channeld_wire t = fromwire_peektype(msg);
@@ -5698,6 +5731,9 @@ static void req_in(struct peer *peer, const u8 *msg)
 		return;
 	case WIRE_CHANNELD_SEND_ERROR:
 		handle_send_error(peer, msg);
+		return;
+	case WIRE_CHANNELD_PEER_ALT_ADDR:
+		handle_channeld_peer_alt_addr(peer, msg);
 		return;
 	case WIRE_CHANNELD_SPLICE_INIT:
 		handle_splice_init(peer, msg);
@@ -5762,6 +5798,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_SPLICE_STATE_ERROR:
 	case WIRE_CHANNELD_LOCAL_ANCHOR_INFO:
 	case WIRE_CHANNELD_REESTABLISHED:
+	case WIRE_CHANNELD_MY_ALT_ADDR:
 		break;
 	}
 	master_badmsg(-1, msg);
@@ -5847,7 +5884,9 @@ static void init_channel(struct peer *peer)
 				    &reestablish_only,
 				    &peer->experimental_upgrade,
 				    &peer->splice_state->inflights,
-				    &peer->local_alias)) {
+				    &peer->local_alias,
+				    &peer->my_alt_addr,
+				    &peer->id)) {
 		master_badmsg(WIRE_CHANNELD_INIT, msg);
 	}
 
