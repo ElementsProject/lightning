@@ -176,9 +176,6 @@ struct lightningd {
 	/* Do we want to reconnect to other peers having only unannouced channels with us? */
 	bool reconnect_private;
 
-	/* How many outstanding startup connection attempts? */
-	size_t num_startup_connects;
-
 	/* Do we want to listen for other peers? */
 	bool listen;
 
@@ -213,8 +210,6 @@ struct lightningd {
 
 	/* Daemon looking after peers during init / before channel. */
 	struct subd *connectd;
-	/* Reconnection attempts */
-	struct delayed_reconnect_map *delayed_reconnect_map;
 
 	/* All peers we're tracking (by node_id) */
 	struct peer_node_id_map *peers;
@@ -361,6 +356,9 @@ struct lightningd {
 
 	/* Tell connectd not to talk after handshake */
 	bool dev_handshake_no_reply;
+
+	/* Tell connectd to block more than 1 simultanous connection attempt */
+	bool dev_limit_connections_inflight;
 
 	/* tor support */
 	struct wireaddr *proxyaddr;

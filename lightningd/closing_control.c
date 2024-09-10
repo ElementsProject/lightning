@@ -302,13 +302,14 @@ static void peer_closing_complete(struct channel *channel, const u8 *msg)
 	if (channel->state != CLOSINGD_SIGEXCHANGE)
 		return;
 
-	/* Channel gets dropped to chain cooperatively. */
-	drop_to_chain(channel->peer->ld, channel, true, true /* rebroadcast */);
 	channel_set_state(channel,
 			  CLOSINGD_SIGEXCHANGE,
 			  CLOSINGD_COMPLETE,
 			  REASON_UNKNOWN,
 			  "Closing complete");
+
+	/* Channel gets dropped to chain cooperatively. */
+	drop_to_chain(channel->peer->ld, channel, true, true /* rebroadcast */);
 }
 
 static void peer_closing_notify(struct channel *channel, const u8 *msg)
@@ -586,7 +587,7 @@ static struct command_result *param_channel_or_peer(struct command *cmd,
 	(*sc)->uc = NULL;
 
 	if (peer) {
-		(*sc)->channel = peer_any_channel(peer, channel_state_can_close, &more_than_one);
+		(*sc)->channel = peer_any_channel_bystate(peer, channel_state_can_close, &more_than_one);
 		if ((*sc)->channel) {
 			if (more_than_one)
 				goto more_than_one;
@@ -610,7 +611,7 @@ static struct command_result *param_channel_or_peer(struct command *cmd,
 	if ((*sc)->uc)
 		return NULL;
 
-	(*sc)->unsaved_channel = peer_any_channel(peer, channel_state_uncommitted, &more_than_one);
+	(*sc)->unsaved_channel = peer_any_channel_bystate(peer, channel_state_uncommitted, &more_than_one);
 	if ((*sc)->unsaved_channel) {
 		if (more_than_one)
 			goto more_than_one;

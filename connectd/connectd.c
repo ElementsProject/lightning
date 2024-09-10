@@ -50,6 +50,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <wire/peer_wire.h>
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 
@@ -60,12 +61,29 @@
 #define HSM_FD 3
 #define GOSSIPCTL_FD 4
 
+/*~ In C convention, constants are UPPERCASE macros.  Not everything needs to
+ * be a constant, but it soothes the programmer's conscience to encapsulate
+ * arbitrary decisions like these in one place. */
+#define INITIAL_WAIT_SECONDS	1
+#define MAX_WAIT_SECONDS	300
+
 /*~ C programs should generally be written bottom-to-top, with the root
  * function at the bottom, and functions it calls above it.  That avoids
  * us having to pre-declare functions; but in the case of mutual recursion
  * pre-declarations are necessary (also, sometimes we do it to avoid making
  * a patch hard to review with gratuitous reorganizations). */
 static void try_connect_one_addr(struct connecting *connect);
+
+/* Most commonly, pre-declarations like this are because a function sets a
+ * timer to call a higher function again, so has to be pre-declared. */
+static void try_connect_peer(struct daemon *daemon,
+			     const struct node_id *id,
+			     struct wireaddr_internal *addrs TAKES,
+			     bool dns_fallback);
+
+/* We track peers which are important, and try to reconnect (with backoff) */
+static void schedule_reconnect_if_important(struct daemon *daemon,
+					    const struct node_id *id);
 
 /*~ Some ISP resolvers will reply with a dummy IP to queries that would otherwise
  * result in an NXDOMAIN reply. This just checks whether we have one such
@@ -145,6 +163,8 @@ void destroy_peer(struct peer *peer)
 	 * *also* means that if we're freed directly, the ->to_peer
 	 * destructor won't call drain_peer(). */
 	peer->draining = true;
+
+	schedule_reconnect_if_important(peer->daemon, &peer->id);
 }
 
 /*~ This is where we create a new peer. */
@@ -154,7 +174,6 @@ static struct peer *new_peer(struct daemon *daemon,
 			     const u8 *their_features,
 			     enum is_websocket is_websocket,
 			     struct io_conn *conn STEALS,
-			     enum connection_prio prio,
 			     int *fd_for_subd)
 {
 	struct peer *peer = tal(daemon, struct peer);
@@ -171,7 +190,6 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->peer_outq = msg_queue_new(peer, false);
 	peer->last_recv_time = time_now();
 	peer->is_websocket = is_websocket;
-	peer->prio = prio;
 	peer->dev_writes_enabled = NULL;
 	peer->dev_read_enabled = true;
 	peer->scid_queries = NULL;
@@ -193,6 +211,111 @@ static struct peer *new_peer(struct daemon *daemon,
 	return peer;
 }
 
+/*~ Helper to append a wireaddr to an array if wireaddr_internal */
+static void append_addr(struct wireaddr_internal **wireaddrs,
+			const struct wireaddr *addr)
+{
+	struct wireaddr_internal addrint;
+	addrint.itype = ADDR_INTERNAL_WIREADDR;
+	addrint.u.wireaddr.is_websocket = false;
+	addrint.u.wireaddr.wireaddr = *addr;
+	tal_arr_expand(wireaddrs, addrint);
+}
+
+/*~ Nodes (can) advertize one or more addresses in their node_announcement:
+ * these are lower priority than ones explicitly supplied to the `connect`
+ * command, though. */
+static void append_gossmap_addresses(struct wireaddr_internal **wireaddrs,
+				     struct daemon *daemon,
+				     const struct node_id *node_id)
+{
+	struct gossmap_node *node;
+	u8 *nannounce;
+	struct node_id id;
+	secp256k1_ecdsa_signature signature;
+	u32 timestamp;
+	u8 *addresses, *features;
+	u8 rgb_color[3], alias[32];
+	struct tlv_node_ann_tlvs *na_tlvs;
+	struct wireaddr *alladdrs, *addrs[3];
+	struct gossmap *gossmap = get_gossmap(daemon);
+
+	node = gossmap_find_node(gossmap, node_id);
+	if (!node)
+		return;
+
+	nannounce = gossmap_node_get_announce(tmpctx, gossmap,
+					      node);
+	if (!nannounce)
+		return;
+
+	if (!fromwire_node_announcement(tmpctx, nannounce,
+					&signature, &features,
+					&timestamp,
+					&id, rgb_color, alias,
+					&addresses,
+					&na_tlvs)) {
+		status_broken("Bad node_announcement for %s in gossip_store: %s",
+			      fmt_node_id(tmpctx, node_id),
+			      tal_hex(tmpctx, nannounce));
+		return;
+	}
+
+	alladdrs = fromwire_wireaddr_array(tmpctx, addresses);
+	if (!alladdrs) {
+		status_broken("Bad wireaddrs in node_announcement in gossip_store: %s",
+			      tal_hex(tmpctx, nannounce));
+		return;
+	}
+
+	/* Orders the gossip addresses.
+	 *
+	 * Ignore deprecated protocols.  Adds all IPv6 addresses, followed by
+	 * IPv4 and then TOR.  This ensures we are modern and use IPv6 when
+	 * possible, falling back to direct (faster) IPv4 and finally (less
+	 * stable) TOR connections. */
+	for (size_t i = 0; i < ARRAY_SIZE(addrs); i++)
+		addrs[i] = tal_arr(tmpctx, struct wireaddr, 0);
+
+	for (size_t i = 0; i < tal_count(alladdrs); i++) {
+		/* A switch, so compiler tells you to update it if we
+		 * add a new type! */
+		switch (alladdrs[i].type) {
+		case ADDR_TYPE_IPV6:
+		case ADDR_TYPE_DNS:
+			tal_arr_expand(&addrs[0], alladdrs[i]);
+			break;
+		case ADDR_TYPE_IPV4:
+			tal_arr_expand(&addrs[1], alladdrs[i]);
+			break;
+		case ADDR_TYPE_TOR_V3:
+			tal_arr_expand(&addrs[2], alladdrs[i]);
+			break;
+		case ADDR_TYPE_TOR_V2_REMOVED:
+			/* Ignore.  We also ignore unknowns */
+			break;
+		}
+	}
+
+	/* Now, we first append V6/DNS, then V4, then Tor */
+	for (size_t i = 0; i < ARRAY_SIZE(addrs); i++) {
+		for (size_t j = 0; j < tal_count(addrs[i]); j++) {
+			append_addr(wireaddrs, &addrs[i][j]);
+		}
+	}
+}
+
+/*~ Once we've been connected long enough, we reset our backoff reconnection
+ * timer (if we're going to retry). */
+static void reset_reconnect_timer(struct peer *peer)
+{
+	struct important_id *imp;
+
+	imp = important_id_htable_get(peer->daemon->important_ids, &peer->id);
+	if (imp)
+		imp->reconnect_secs = INITIAL_WAIT_SECONDS;
+}
+
 /*~ Note the lack of static: this is called by peer_exchange_initmsg.c once the
  * INIT messages are exchanged, and also by the retry code above. */
 struct io_plan *peer_connected(struct io_conn *conn,
@@ -212,7 +335,6 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	int subd_fd;
 	bool option_gossip_queries;
 	struct connecting *connect;
-	enum connection_prio prio;
 
 	/* We remove any previous connection immediately, on the assumption it's dead */
 	peer = peer_htable_get(daemon->peers, id);
@@ -267,22 +389,15 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	}
 
 	if (connect) {
-		if (connect->transient)
-			prio = PRIO_TRANSIENT;
-		else
-			prio = PRIO_DELIBERATE;
-
 		/*~ Now we've connected, disable the callback which would
 		 * cause us to to try the next address on failure. */
 		io_set_finish(connect->conn, NULL, NULL);
 		tal_free(connect);
-	} else {
-		prio = PRIO_UNSOLICITED;
 	}
 
 	/* This contains the per-peer state info; gossipd fills in pps->gs */
 	peer = new_peer(daemon, id, cs, their_features, is_websocket, conn,
-			prio, &subd_fd);
+			&subd_fd);
 	/* Only takes over conn if it succeeds. */
 	if (!peer)
 		return io_close(conn);
@@ -307,6 +422,14 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	 * we have connected.  Once it says something interesting, we tell
 	 * it that, too. */
 	daemon_conn_send(daemon->master, take(msg));
+
+	/*~ If we stay connected for long enough, we will reset our
+	 * reconnection backoff timer. */
+	if (important_id_htable_get(daemon->important_ids, id)) {
+		notleak(new_reltimer(&daemon->timers, peer,
+				     time_from_sec(MAX_WAIT_SECONDS),
+				     reset_reconnect_timer, peer));
+	}
 
 	/*~ Now we set up this connection to read/write from subd */
 	return multiplex_peer_setup(conn, peer);
@@ -407,25 +530,18 @@ static struct io_plan *conn_in(struct io_conn *conn,
 }
 
 /* How much is peer worth (when considering disconnect)? */
-static size_t peer_score(enum connection_prio prio,
+static size_t peer_score(struct daemon *daemon,
+			 const struct node_id *id,
 			 struct subd **subds)
 {
 #define PEER_SCORE_MAX 3
-
-	switch (prio) {
-	case PRIO_DELIBERATE:
-		/* We definitely want this one */
+	/* Explicitly important! */
+	if (important_id_htable_get(daemon->important_ids, id))
 		return 3;
-	case PRIO_TRANSIENT:
-		/* We're explicitly told to dispose of these! */
-		return 0;
-	case PRIO_UNSOLICITED:
-		/* It has subds now?  Higher prio */
-		if (tal_count(subds))
-			return 2;
-		return 1;
-	}
-	return 0;
+	/* Otherwise, prefer ones which aren't talking. */
+	if (tal_count(subds))
+		return 2;
+	return 1;
 }
 
 /*~ When file descriptors are exhausted, we might be better to try to
@@ -443,7 +559,7 @@ void close_random_connection(struct daemon *daemon)
 	for (c = connecting_htable_first(daemon->connecting, &cit);
 	     c;
 	     c = connecting_htable_next(daemon->connecting, &cit)) {
-		if (!c->transient)
+		if (important_id_htable_get(daemon->important_ids, &c->id))
 			continue;
 
 		/* This could be the one caller is trying right now */
@@ -463,7 +579,7 @@ void close_random_connection(struct daemon *daemon)
 	peer = peer_htable_pick(daemon->peers, pseudorand_u64(), &it);
 
 	for (size_t i = 0; i < peer_htable_count(daemon->peers); i++) {
-		size_t score = peer_score(peer->prio, peer->subds);
+		size_t score = peer_score(daemon, &peer->id, peer->subds);
 		if (score < best_peer_score) {
 			best_peer = peer;
 			best_peer_score = score;
@@ -481,7 +597,7 @@ void close_random_connection(struct daemon *daemon)
 
 	/* Don't close active peer if we closed an attempt */
 	if (closed_connect_attempt
-	    && best_peer_score > peer_score(PRIO_UNSOLICITED, NULL))
+	    && best_peer_score > 1)
 		return;
 
 	status_debug("due to stress, randomly closing peer %s (score %zu)",
@@ -665,14 +781,77 @@ struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
  */
 static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
-			   const struct wireaddr_internal *addrhint,
 			   enum jsonrpc_errcode errcode,
 			   const char *errfmt, ...)
-	PRINTF_FMT(5,6);
+	PRINTF_FMT(4,5);
+
+static void reconnect(struct important_id *imp)
+{
+	struct wireaddr_internal *addrs;
+
+	addrs = tal_dup_talarr(tmpctx, struct wireaddr_internal, imp->addrs);
+
+	/* Do gossmap lookup to find any addresses from there, and append. */
+	append_gossmap_addresses(&addrs, imp->daemon, &imp->id);
+
+	try_connect_peer(imp->daemon, &imp->id, take(addrs), false);
+}
+
+static void schedule_reconnect_if_important(struct daemon *daemon,
+					    const struct node_id *id)
+{
+	struct important_id *imp;
+	u32 max_delay = daemon->dev_fast_reconnect ? 3 : MAX_WAIT_SECONDS;
+
+	/* Should we try again? */
+	imp = important_id_htable_get(daemon->important_ids, id);
+	if (!imp)
+		return;
+
+	/* Already on it? */
+	if (find_connecting(daemon, id))
+		return;
+
+	/* --dev-no-reconnect?  Don't reconnect. */
+	if (daemon->dev_no_reconnect)
+		return;
+
+	status_peer_debug(id, "Will try reconnect in %zu seconds",
+			  imp->reconnect_secs);
+	/* We fuzz the timer by up to 1 second, to avoid getting into
+	 * simultanous-reconnect deadlocks with peer. */
+	notleak(new_reltimer(&daemon->timers, imp,
+			     timerel_add(time_from_sec(imp->reconnect_secs),
+					 time_from_usec(pseudorand(1000000))),
+			     reconnect, imp));
+
+	/* Back off next time if that fails */
+	imp->reconnect_secs *= 2;
+	if (imp->reconnect_secs > max_delay)
+		imp->reconnect_secs = max_delay;
+}
+
+/* If another connection is waiting, unqueue it now.  Called once a
+ * second, or when subds are first connected.  This limits how many
+ * things we tell connectd about at once. */
+void release_one_waiting_connection(struct daemon *daemon, const char *why)
+{
+	struct connecting *c;
+	struct connecting_htable_iter it;
+
+	c = connecting_htable_pick(daemon->connecting, pseudorand_u64(), &it);
+	for (size_t i = 0; i < connecting_htable_count(daemon->connecting); i++) {
+		if (c->waiting) {
+			status_peer_debug(&c->id, "Unblocking for %s", why);
+			c->waiting = false;
+			try_connect_one_addr(c);
+			break;
+		}
+	}
+}
 
 static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
-			   const struct wireaddr_internal *addrhint,
 			   enum jsonrpc_errcode errcode,
 			   const char *errfmt, ...)
 {
@@ -687,11 +866,17 @@ static void connect_failed(struct daemon *daemon,
 	status_peer_debug(id, "Failed connected out: %s", errmsg);
 
 	/* lightningd may have a connect command waiting to know what
-	 * happened.  We leave it to lightningd to decide if it wants to try
-	 * again. */
-	msg = towire_connectd_connect_failed(NULL, id, errcode, errmsg,
-					     addrhint);
+	 * happened. */
+	msg = towire_connectd_connect_failed(NULL, id, errcode, errmsg);
 	daemon_conn_send(daemon->master, take(msg));
+
+	/* If we're supposed to schedule a reconnect, do so */
+	schedule_reconnect_if_important(daemon, id);
+
+	/* We limit thundering herd: let one out if waiting. */
+	release_one_waiting_connection(daemon,
+				       tal_fmt(tmpctx, "%s connect failure",
+					       fmt_node_id(tmpctx, id)));
 }
 
 /* add errors to error list */
@@ -819,20 +1004,26 @@ static void try_connect_one_addr(struct connecting *connect)
 	struct io_conn *conn;
 	bool use_dns = connect->daemon->use_dns;
 	struct addrinfo hints, *ais, *aii;
-	struct wireaddr_internal addrhint;
 	int gai_err;
 	struct sockaddr_in *sa4;
 	struct sockaddr_in6 *sa6;
 
 	assert(!connect->conn);
+	assert(!connect->waiting);
 
 	/* Out of addresses? */
 	if (connect->addrnum == tal_count(connect->addrs)) {
-		connect_failed(connect->daemon, &connect->id,
-			       connect->addrhint, CONNECT_ALL_ADDRESSES_FAILED,
-			       "All addresses failed: %s",
-			       connect->errors);
+		/* Free connect before connect_fail, so it doesn't think
+		 * a connect is in-progress if it wants to reconnect */
+		struct daemon *daemon = connect->daemon;
+		struct node_id id = connect->id;
+		const char *errors = tal_steal(tmpctx, connect->errors);
+
 		tal_free(connect);
+		connect_failed(daemon, &id,
+			       CONNECT_ALL_ADDRESSES_FAILED,
+			       "All addresses failed: %s",
+			       errors);
 		return;
 	}
 
@@ -899,23 +1090,22 @@ static void try_connect_one_addr(struct connecting *connect)
 			}
 			/* create new addrhints on-the-fly per result ... */
 			for (aii = ais; aii; aii = aii->ai_next) {
-				addrhint.itype = ADDR_INTERNAL_WIREADDR;
-				addrhint.u.wireaddr.is_websocket = false;
+				struct wireaddr wa;
 				if (aii->ai_family == AF_INET) {
 					sa4 = (struct sockaddr_in *) aii->ai_addr;
-					wireaddr_from_ipv4(&addrhint.u.wireaddr.wireaddr,
+					wireaddr_from_ipv4(&wa,
 							   &sa4->sin_addr,
 							   addr->u.wireaddr.wireaddr.port);
 				} else if (aii->ai_family == AF_INET6) {
 					sa6 = (struct sockaddr_in6 *) aii->ai_addr;
-					wireaddr_from_ipv6(&addrhint.u.wireaddr.wireaddr,
+					wireaddr_from_ipv6(&wa,
 							   &sa6->sin6_addr,
 							   addr->u.wireaddr.wireaddr.port);
 				} else {
 					/* skip unsupported ai_family */
 					continue;
 				}
-				tal_arr_expand(&connect->addrs, addrhint);
+				append_addr(&connect->addrs, &wa);
 				/* don't forget to update convenience pointer */
 				addr = &connect->addrs[connect->addrnum];
 			}
@@ -1391,6 +1581,20 @@ setup_listeners(const tal_t *ctx,
 	return listen_fds;
 }
 
+/* Every second we release one connection, so we don't get stuck even
+ * if there are many peers to connect to and lightningd doesn't attach
+ * subds to any of them. */
+static void release_one_connection_from_timer(struct daemon *daemon)
+{
+	release_one_waiting_connection(daemon, "timer");
+
+	daemon->connect_release_timer
+		= new_reltimer(&daemon->timers,
+			       daemon,
+			       time_from_sec(1),
+			       release_one_connection_from_timer,
+			       daemon);
+}
 
 /*~ Parse the incoming connect init message from lightningd ("master") and
  * assign config variables to the daemon; it should be the first message we
@@ -1403,7 +1607,7 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	enum addr_listen_announce *proposed_listen_announce;
 	struct wireaddr *announceable;
 	char *tor_password;
-	bool dev_disconnect, dev_throttle_gossip;
+	bool dev_disconnect, dev_throttle_gossip, dev_limit_connections_inflight;
 	char *errstr;
 
 	/* Fields which require allocation are allocated off daemon */
@@ -1425,7 +1629,10 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 				    &dev_disconnect,
 				    &daemon->dev_no_ping_timer,
 				    &daemon->dev_handshake_no_reply,
-				    &dev_throttle_gossip)) {
+				    &dev_throttle_gossip,
+				    &daemon->dev_no_reconnect,
+				    &daemon->dev_fast_reconnect,
+				    &dev_limit_connections_inflight)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTD_INIT, msg);
@@ -1495,6 +1702,12 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	/* 500 bytes per second, not 1M per second */
 	if (dev_throttle_gossip)
 		daemon->gossip_stream_limit = 500;
+
+	if (dev_limit_connections_inflight)
+		daemon->max_connect_in_flight = 1;
+
+	/* Does nothing (no peers yet!) but arms timer */
+	release_one_connection_from_timer(daemon);
 }
 
 /* Returning functions in C is ugly! */
@@ -1604,14 +1817,9 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 			for (size_t j = 0; j < tal_count(new_addrs); j++) {
 				if (new_addrs[j].type == ADDR_TYPE_DNS)
 					continue;
-				struct wireaddr_internal a;
-				a.itype = ADDR_INTERNAL_WIREADDR;
-				a.u.wireaddr.is_websocket = false;
-				a.u.wireaddr.wireaddr = new_addrs[j];
 				status_peer_debug(id, "Resolved %s to %s", hostnames[i],
-						  fmt_wireaddr(tmpctx,
-							       &a.u.wireaddr.wireaddr));
-				tal_arr_expand(addrs, a);
+						  fmt_wireaddr(tmpctx, &new_addrs[j]));
+				append_addr(addrs, &new_addrs[j]);
 			}
 			/* Other seeds will likely have the same information. */
 			return;
@@ -1620,126 +1828,47 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 	}
 }
 
-/*~ Adds just one address type.
- *
- * Ignores deprecated and the `addrhint`. */
-static void add_gossip_addrs_bytypes(struct wireaddr_internal **addrs,
-				     const struct wireaddr *normal_addrs,
-				     const struct wireaddr *addrhint,
-				     u64 types)
+static bool addr_in(const struct wireaddr_internal *needle,
+		    const struct wireaddr_internal haystack[])
 {
-	for (size_t i = 0; i < tal_count(normal_addrs); i++) {
-		if (addrhint && wireaddr_eq(addrhint, &normal_addrs[i]))
-			continue;
-		/* I guess this is possible in future! */
-		if (normal_addrs[i].type > 63)
-			continue;
-		if (((u64)1 << normal_addrs[i].type) & types) {
-			struct wireaddr_internal addr;
-			addr.itype = ADDR_INTERNAL_WIREADDR;
-			addr.u.wireaddr.is_websocket = false;
-			addr.u.wireaddr.wireaddr = normal_addrs[i];
-			tal_arr_expand(addrs, addr);
-		}
-	}
+	for (size_t i = 0; i < tal_count(haystack); i++)
+		if (wireaddr_internal_eq(needle, &haystack[i]))
+			return true;
 
+	return false;
 }
 
-
-/*~ Orders the addresses which lightningd gave us.
- *
- * Ignores deprecated protocols and the `addrhint` that is assumed to be
- * already added first. Adds all IPv6 addresses, followed by IPv4 and then TOR.
- * This ensures we are modern and use IPv6 when possible, falling back to
- * direct (faster) IPv4 and finally (less stable) TOR connections. */
-static void add_gossip_addrs(struct wireaddr_internal **addrs,
-			     const struct wireaddr *normal_addrs,
-			     const struct wireaddr *addrhint)
-{
-	u64 types[] = { 0, 0, 0 };
-
-	/* Note gratuitous use of switch() means we'll know if a new one
-	 * appears! */
-	for (size_t i = ADDR_TYPE_IPV4; i <= ADDR_TYPE_DNS; i++) {
-		switch ((enum wire_addr_type)i) {
-		/* First priority */
-		case ADDR_TYPE_IPV6:
-		case ADDR_TYPE_DNS:
-			types[0] |= ((u64)1 << i);
-			break;
-		/* Second priority */
-		case ADDR_TYPE_IPV4:
-			types[1] |= ((u64)1 << i);
-			break;
-		case ADDR_TYPE_TOR_V3:
-		/* Third priority */
-			types[2] |= ((u64)1 << i);
-			break;
-		/* We can't use these to connect to! */
-		case ADDR_TYPE_TOR_V2_REMOVED:
-			break;
-		}
-		/* Other results returned are possible, but we don't understand
-		 * them anyway! */
-	}
-
-	/* Add in priority order */
-	for (size_t i = 0; i < ARRAY_SIZE(types); i++)
-		add_gossip_addrs_bytypes(addrs, normal_addrs, addrhint, types[i]);
-}
-
-/*~ Consumes addrhint if not NULL.
- *
- * That's a pretty ugly interface: we should use TAKEN, but we only have one
- * caller so it's marginal. */
+/*~ Try to connect to a single peer, given some addresses (in order) */
 static void try_connect_peer(struct daemon *daemon,
 			     const struct node_id *id,
-			     struct wireaddr *gossip_addrs,
-			     struct wireaddr_internal *addrhint STEALS,
-			     bool dns_fallback,
-			     bool transient)
+			     struct wireaddr_internal *addrs TAKES,
+			     bool dns_fallback)
 {
-	struct wireaddr_internal *addrs;
 	bool use_proxy = daemon->always_use_proxy;
 	struct connecting *connect;
 	struct peer *peer;
 
+	/* In case we return without using it, make sure it's freed. */
+	if (taken(addrs))
+		tal_steal(tmpctx, addrs);
+
 	/* Already existing?  Must have crossed over, it'll know soon. */
 	peer = peer_htable_get(daemon->peers, id);
-	if (peer) {
-		/* Note if we explicitly tried to connect non-transiently */
-		if (!transient)
-			peer->prio = PRIO_DELIBERATE;
+	if (peer)
 		return;
-	}
 
 	/* If we're trying to connect it right now, that's OK. */
 	if ((connect = find_connecting(daemon, id))) {
 		/* If we've been passed in new connection details
 		 * for this connection, update our addrhint + add
 		 * to addresses to check */
-		if (addrhint) {
-			connect->addrhint = tal_steal(connect, addrhint);
-			tal_arr_expand(&connect->addrs, *addrhint);
+		for (size_t i = 0; i < tal_count(addrs); i++) {
+			if (!addr_in(&addrs[i], connect->addrs))
+				tal_arr_expand(&connect->addrs, addrs[i]);
 		}
 
 		return;
 	}
-
-	/* Start an array of addresses to try. */
-	addrs = tal_arr(tmpctx, struct wireaddr_internal, 0);
-
-	/* They can supply an optional address for the connect RPC */
-	/* We add this first so its tried first by connectd */
-	if (addrhint)
-		tal_arr_expand(&addrs, *addrhint);
-
-	/* Tell it to omit the existing hint (if that's a wireaddr itself) */
-	add_gossip_addrs(&addrs, gossip_addrs,
-			 addrhint
-			 && addrhint->itype == ADDR_INTERNAL_WIREADDR
-			 && !addrhint->u.wireaddr.is_websocket
-			 ? &addrhint->u.wireaddr.wireaddr : NULL);
 
 	if (tal_count(addrs) == 0) {
 		/* Don't resolve via DNS seed if we're supposed to use proxy. */
@@ -1763,7 +1892,7 @@ static void try_connect_peer(struct daemon *daemon,
 	/* Still no address?  Fail immediately.  Lightningd can still choose
 	* to retry; an address may get gossiped or appear on the DNS seed. */
 	if (tal_count(addrs) == 0) {
-		connect_failed(daemon, id, addrhint,
+		connect_failed(daemon, id,
 			       CONNECT_NO_KNOWN_ADDRESS,
 			       "Unable to connect, no address known for peer");
 		return;
@@ -1774,63 +1903,119 @@ static void try_connect_peer(struct daemon *daemon,
 	connect = tal(daemon, struct connecting);
 	connect->daemon = daemon;
 	connect->id = *id;
-	connect->addrs = tal_steal(connect, addrs);
+	connect->addrs = tal_dup_talarr(connect, struct wireaddr_internal, addrs);
 	connect->addrnum = 0;
 	/* connstate is supposed to be updated as we go, to give context for
 	 * errors which occur.  We miss it in a few places; would be nice to
 	 * fix! */
 	connect->connstate = "Connection establishment";
-	connect->addrhint = tal_steal(connect, addrhint);
 	connect->errors = tal_strdup(connect, "");
 	connect->conn = NULL;
-	connect->transient = transient;
 	connecting_htable_add(daemon->connecting, connect);
 	tal_add_destructor(connect, destroy_connecting);
 
-	/* Now we kick it off by recursively trying connect->addrs[connect->addrnum] */
-	try_connect_one_addr(connect);
+	/* We wait for another to be destroyed if too many are in
+	 * progress (useful for startup of large nodes) */
+	connect->waiting = (connecting_htable_count(daemon->connecting)
+			    > daemon->max_connect_in_flight);
+	if (connect->waiting)
+		status_peer_debug(id, "Too many connections, waiting...");
+	else
+		try_connect_one_addr(connect);
 }
 
-/* lightningd tells us to connect to a peer by id, with optional addr hint. */
+static void destroy_important_id(struct important_id *imp)
+{
+	important_id_htable_del(imp->daemon->important_ids, imp);
+}
+
+/* lightningd tells us to connect to a peer by id, with optional addresses to try. */
 static void connect_to_peer(struct daemon *daemon, const u8 *msg)
 {
 	struct node_id id;
-	struct wireaddr_internal *addrhint;
-	struct wireaddr *addrs;
+	struct wireaddr_internal *addrs;
 	bool dns_fallback;
 	bool transient;
+	struct important_id *imp;
 
 	if (!fromwire_connectd_connect_to_peer(tmpctx, msg,
-					       &id, &addrs, &addrhint,
+					       &id, &addrs,
 					       &dns_fallback,
 					       &transient))
 		master_badmsg(WIRE_CONNECTD_CONNECT_TO_PEER, msg);
 
-	try_connect_peer(daemon, &id, addrs, addrhint, dns_fallback, transient);
+	/* fromwire doesn't allocate empty arrays! */
+	if (!addrs)
+		addrs = tal_arr(tmpctx, struct wireaddr_internal, 0);
+
+
+	/* If it's important, it stays important, but harvest any new addresses */
+	imp = important_id_htable_get(daemon->important_ids, &id);
+	if (imp) {
+		status_peer_debug(&id, "Adding %zu addresses to important peer", tal_count(addrs));
+		/* Append any new addresses, and we're done */
+		for (size_t i = 0; i < tal_count(addrs); i++) {
+			if (!addr_in(&addrs[i], imp->addrs))
+				tal_arr_expand(&imp->addrs, addrs[i]);
+		}
+		transient = false;
+	} else {
+		/* If it's not transient, note it for reconnection (with addresses!) */
+		if (!transient) {
+			imp = tal(daemon, struct important_id);
+			imp->daemon = daemon;
+			imp->id = id;
+			status_peer_debug(&id, "Initializing important peer with %zu addresses", tal_count(addrs));
+			imp->addrs = tal_dup_talarr(imp,
+						    struct wireaddr_internal,
+						    addrs);
+			imp->reconnect_secs = INITIAL_WAIT_SECONDS;
+			tal_add_destructor(imp, destroy_important_id);
+			important_id_htable_add(daemon->important_ids, imp);
+		} else
+			status_peer_debug(&id, "Transient connection to peer (not important)");
+	}
+
+	/* Do gossmap lookup to find any addresses from there, and append. */
+	append_gossmap_addresses(&addrs, daemon, &id);
+
+	try_connect_peer(daemon, &id, addrs, dns_fallback);
 }
 
 /* lightningd tells us a peer should be disconnected. */
-static void peer_discard(struct daemon *daemon, const u8 *msg)
+static void peer_disconnect(struct daemon *daemon, const u8 *msg)
 {
 	struct node_id id;
 	u64 counter;
 	struct peer *peer;
 
-	if (!fromwire_connectd_discard_peer(msg, &id, &counter))
-		master_badmsg(WIRE_CONNECTD_DISCARD_PEER, msg);
+	if (!fromwire_connectd_disconnect_peer(msg, &id, &counter))
+		master_badmsg(WIRE_CONNECTD_DISCONNECT_PEER, msg);
 
 	/* We should stay in sync with lightningd, but this can happen
 	 * under stress. */
 	peer = peer_htable_get(daemon->peers, &id);
 	if (!peer)
 		return;
+
 	/* If it's reconnected already, it will learn soon. */
 	if (peer->counter != counter)
 		return;
 
 	/* We make sure any final messages from the subds are sent! */
-	status_peer_debug(&id, "discard_peer");
+	status_peer_debug(&id, "disconnect_peer");
 	drain_peer(peer);
+}
+
+/* lightningd tells us a peer is no longer "important". */
+static void peer_downgrade(struct daemon *daemon, const u8 *msg)
+{
+	struct node_id id;
+
+	if (!fromwire_connectd_downgrade_peer(msg, &id))
+		master_badmsg(WIRE_CONNECTD_DOWNGRADE_PEER, msg);
+
+	tal_free(important_id_htable_get(daemon->important_ids, &id));
 }
 
 static void start_shutdown(struct daemon *daemon, const u8 *msg)
@@ -1899,6 +2084,7 @@ static void dev_connect_memleak(struct daemon *daemon, const u8 *msg)
 	memleak_scan_obj(memtable, daemon);
 	memleak_scan_htable(memtable, &daemon->peers->raw);
 	memleak_scan_htable(memtable, &daemon->scid_htable->raw);
+	memleak_scan_htable(memtable, &daemon->important_ids->raw);
 
 	found_leak = dump_memleak(memtable, memleak_status_broken, NULL);
 	daemon_conn_send(daemon->master,
@@ -2165,8 +2351,12 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		connect_to_peer(daemon, msg);
 		goto out;
 
-	case WIRE_CONNECTD_DISCARD_PEER:
-		peer_discard(daemon, msg);
+	case WIRE_CONNECTD_DOWNGRADE_PEER:
+		peer_downgrade(daemon, msg);
+		goto out;
+
+	case WIRE_CONNECTD_DISCONNECT_PEER:
+		peer_disconnect(daemon, msg);
 		goto out;
 
 	case WIRE_CONNECTD_PEER_SEND_MSG:
@@ -2326,9 +2516,12 @@ int main(int argc, char *argv[])
 	memleak_add_helper(daemon, memleak_daemon_cb);
 	daemon->connecting = tal(daemon, struct connecting_htable);
 	connecting_htable_init(daemon->connecting);
+	daemon->important_ids = tal(daemon, struct important_id_htable);
+	important_id_htable_init(daemon->important_ids);
 	timers_init(&daemon->timers, time_mono());
 	daemon->gossmap_raw = NULL;
 	daemon->shutting_down = false;
+	daemon->max_connect_in_flight = 10;
 	daemon->dev_suppress_gossip = false;
 	daemon->custom_msgs = NULL;
 	daemon->dev_exhausted_fds = false;

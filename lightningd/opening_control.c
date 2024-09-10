@@ -110,7 +110,6 @@ wallet_commit_channel(struct lightningd *ld,
 	u32 lease_start_blockheight = 0; /* No leases on v1 */
 	struct short_channel_id local_alias;
 	struct timeabs timestamp;
-	bool any_active = peer_any_channel(uc->peer, channel_state_wants_peercomms, NULL);
 
 	/* We cannot both be the fundee *and* have a `fundchannel_start`
 	 * command running!
@@ -235,16 +234,6 @@ wallet_commit_channel(struct lightningd *ld,
 				     channel->state,
 				     channel->state_change_cause,
 				     "new channel opened");
-
-
-	/* We might have disconnected and decided we didn't need to
-	 * reconnect because no channels are active.  But the subd
-	 * just made it active! */
-	if (!any_active && channel->peer->connected == PEER_DISCONNECTED) {
-		try_reconnect(channel->peer, channel->peer,
-			      &channel->peer->addr);
-	}
-
 	return channel;
 }
 
@@ -373,6 +362,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	struct peer_fd *peer_fd;
 	struct penalty_base *pbase;
 	struct channel_type *type;
+	bool was_important;
 
 	/* This is a new channel_info.their_config so set its ID to 0 */
 	channel_info.their_config.id = 0;
@@ -416,6 +406,10 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info.old_remote_per_commit = channel_info.remote_per_commit;
 
+	/* Before this channel, was peer important? */
+	was_important = peer_any_channel(fc->uc->peer,
+					 channel_important_filter, NULL, NULL);
+
 	/* Steals fields from uc */
 	channel = wallet_commit_channel(ld, fc->uc,
 					&cid,
@@ -441,6 +435,9 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 
 	if (pbase)
 		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
+
+	/* This will have made us important, if we weren't before */
+	tell_connectd_peer_importance(channel->peer, was_important);
 
 	/* If this fails, it cleans up */
 	if (!peer_start_channeld(channel, peer_fd, NULL, false, NULL))
@@ -1479,13 +1476,12 @@ static struct channel *stub_chan(struct command *cmd,
 	if (!peer) {
 		struct wireaddr_internal wint;
 
-		wint.itype = ADDR_INTERNAL_WIREADDR;
-		wint.u.wireaddr.is_websocket = false;
-		wint.u.wireaddr.wireaddr = addr;
+		wireaddr_internal_from_wireaddr(&wint, &addr);
 		peer = new_peer(cmd->ld,
 				0,
 				&nodeid,
 				&wint,
+				&addr,
 				NULL,
 				false);
 	}

@@ -1302,66 +1302,6 @@ struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm)
 	return gm->raw_gossmap;
 }
 
-/* BOLT #7:
- * A node:
- *     - MUST NOT relay any gossip messages it did not generate itself,
- *       unless explicitly requested.
- */
-/* i.e. the strong implication is that we spam our own gossip aggressively!
- * "Look at me!"  "Look at me!!!!".
- */
-/* Statistically, how many peers to we tell about each channel? */
-#define GOSSIP_SPAM_REDUNDANCY 5
-
-void gossmap_manage_new_peer(struct gossmap_manage *gm,
-			     const struct node_id *peer)
-{
-	struct gossmap_node *me;
-	const u8 *msg;
-	u64 send_threshold;
-	struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
-
-	/* Find ourselves; if no channels, nothing to send */
-	me = gossmap_find_node(gossmap, &gm->daemon->id);
-	if (!me)
-		return;
-
-	send_threshold = -1ULL;
-
-	/* Just in case we have many peers and not all are connecting or
-	 * some other corner case, send everything to first few. */
-	if (peer_node_id_map_count(gm->daemon->peers) > GOSSIP_SPAM_REDUNDANCY
-	    && me->num_chans > GOSSIP_SPAM_REDUNDANCY) {
-		send_threshold = -1ULL / me->num_chans * GOSSIP_SPAM_REDUNDANCY;
-	}
-
-	for (size_t i = 0; i < me->num_chans; i++) {
-		struct gossmap_chan *chan = gossmap_nth_chan(gossmap, me, i, NULL);
-
-		/* We set this so we'll send a fraction of all our channels */
-		if (pseudorand_u64() > send_threshold)
-			continue;
-
-		/* Send channel_announce */
-		msg = gossmap_chan_get_announce(NULL, gossmap, chan);
-		queue_peer_msg(gm->daemon, peer, take(msg));
-
-		/* Send both channel_updates (if they exist): both help people
-		 * use our channel, so we care! */
-		for (int dir = 0; dir < 2; dir++) {
-			if (!gossmap_chan_set(chan, dir))
-				continue;
-			msg = gossmap_chan_get_update(NULL, gossmap, chan, dir);
-			queue_peer_msg(gm->daemon, peer, take(msg));
-		}
-	}
-
-	/* If we have one, we should send our own node_announcement */
-	msg = gossmap_node_get_announce(NULL, gossmap, me);
-	if (msg)
-		queue_peer_msg(gm->daemon, peer, take(msg));
-}
-
 void gossmap_manage_tell_lightningd_locals(struct daemon *daemon,
 					   struct gossmap_manage *gm)
 {
@@ -1400,50 +1340,4 @@ void gossmap_manage_tell_lightningd_locals(struct daemon *daemon,
 		daemon_conn_send(daemon->master,
 				 take(towire_gossipd_init_nannounce(NULL,
 								    nannounce)));
-}
-
-struct wireaddr *gossmap_manage_get_node_addresses(const tal_t *ctx,
-						   struct gossmap_manage *gm,
-						   const struct node_id *node_id)
-{
-	struct gossmap_node *node;
-	u8 *nannounce;
-	struct node_id id;
-	secp256k1_ecdsa_signature signature;
-	u32 timestamp;
-	u8 *addresses, *features;
-	u8 rgb_color[3], alias[32];
-	struct tlv_node_ann_tlvs *na_tlvs;
-	struct wireaddr *wireaddrs;
-	struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
-
-	node = gossmap_find_node(gossmap, node_id);
-	if (!node)
-		return NULL;
-
-	nannounce = gossmap_node_get_announce(tmpctx, gossmap,
-					      node);
-	if (!nannounce)
-		return NULL;
-
-	if (!fromwire_node_announcement(tmpctx, nannounce,
-					&signature, &features,
-					&timestamp,
-					&id, rgb_color, alias,
-					&addresses,
-					&na_tlvs)) {
-		status_broken("Bad node_announcement for %s in gossip_store: %s",
-			      fmt_node_id(tmpctx, node_id),
-			      tal_hex(tmpctx, nannounce));
-		return NULL;
-	}
-
-	wireaddrs = fromwire_wireaddr_array(ctx, addresses);
-	if (!wireaddrs) {
-		status_broken("Bad wireaddrs in node_announcement in gossip_store: %s",
-			      tal_hex(tmpctx, nannounce));
-		return NULL;
-	}
-
-	return wireaddrs;
 }

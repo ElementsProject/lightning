@@ -601,6 +601,18 @@ struct secret *db_col_secret_arr(const tal_t *ctx,
 	return db_col_arr(ctx, stmt, colname, struct secret);
 }
 
+struct wireaddr *db_col_wireaddr(const tal_t *ctx,
+				 struct db_stmt *stmt,
+				 const char *colname)
+{
+	struct wireaddr *waddr = tal(ctx, struct wireaddr);
+	const u8 *wire = db_col_arr(tmpctx, stmt, colname, u8);
+	size_t len = tal_bytelen(wire);
+	if (!fromwire_wireaddr(&wire, &len, waddr))
+		return tal_free(waddr);
+	return waddr;
+}
+
 void db_col_txid(struct db_stmt *stmt, const char *colname, struct bitcoin_txid *t)
 {
 	db_col_sha256d(stmt, colname, &t->shad);

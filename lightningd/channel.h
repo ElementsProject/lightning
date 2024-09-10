@@ -730,9 +730,24 @@ const char *channel_change_state_reason_str(enum state_change reason);
 
 /* Find a channel which is passes filter, if any: sets *others if there
  * is more than one. */
-struct channel *peer_any_channel(struct peer *peer,
-				 bool (*channel_state_filter)(enum channel_state),
-				 bool *others);
+#define peer_any_channel(peer, filter, arg, others)		\
+	peer_any_channel_((peer),				\
+			  typesafe_cb_preargs(bool, void *,		\
+					      (filter), (arg),		\
+					      const struct channel *),	\
+			  (arg),					\
+			  others)
+
+struct channel *peer_any_channel_(struct peer *peer,
+				  bool (*filter)(const struct channel *,
+						 void *arg),
+				  void *arg,
+				  bool *others);
+
+/* More common version for filtering by state */
+struct channel *peer_any_channel_bystate(struct peer *peer,
+					 bool (*channel_state_filter)(enum channel_state),
+					 bool *others);
 
 struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid);
 
@@ -762,6 +777,10 @@ struct channel *find_channel_by_alias(const struct peer *peer,
 /* Do we have any channel with option_anchors_zero_fee_htlc_tx?  (i.e. we
  * might need to CPFP the fee if it force closes!) */
 bool have_anchor_channel(struct lightningd *ld);
+
+/* Do we consider this channel "important" for connectd to maintain
+ * connection to peer? */
+bool channel_important_filter(const struct channel *channel, void *unused);
 
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,

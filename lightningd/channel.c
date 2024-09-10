@@ -5,7 +5,6 @@
 #include <common/fee_states.h>
 #include <common/json_command.h>
 #include <common/wire_error.h>
-#include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/channel.h>
@@ -479,6 +478,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 		channel->scb = tal(channel, struct scb_chan);
 		channel->scb->id = dbid;
 		channel->scb->unused = 0;
+		/* More useful to have last_known_addr, if avail */
+		if (peer->last_known_addr)
+			channel->scb->addr = *peer->last_known_addr;
 		channel->scb->addr = peer->addr.u.wireaddr.wireaddr;
 		channel->scb->node_id = peer->id;
 		channel->scb->funding = *funding;
@@ -635,26 +637,54 @@ const char *channel_state_str(enum channel_state state)
 	return "unknown";
 }
 
-struct channel *peer_any_channel(struct peer *peer,
-				 bool (*channel_state_filter)(enum channel_state),
-				 bool *others)
+#define peer_any_channel(peer, filter, arg, others)		\
+	peer_any_channel_((peer),				\
+			  typesafe_cb_preargs(bool, void *,		\
+					      (filter), (arg),		\
+					      const struct channel *),	\
+			  (arg),					\
+			  others)
+
+struct channel *peer_any_channel_(struct peer *peer,
+				  bool (*filter)(const struct channel *,
+						 void *arg),
+				  void *arg,
+				  bool *others)
 {
 	struct channel *channel, *ret = NULL;
 
 	list_for_each(&peer->channels, channel, list) {
-		if (channel_state_filter && !channel_state_filter(channel->state))
+		if (filter && !filter(channel, arg))
 			continue;
 		/* Already found one? */
 		if (ret) {
-			if (others)
-				*others = true;
+			*others = true;
 		} else {
 			if (others)
 				*others = false;
 			ret = channel;
 		}
+
+		/* Don't keep searching if others is NULL (they don't care). */
+		if (!others)
+			break;
 	}
 	return ret;
+}
+
+static bool filter_by_state(const struct channel *c,
+			    bool (*channel_state_filter)(enum channel_state))
+{
+	return channel_state_filter(c->state);
+}
+
+struct channel *peer_any_channel_bystate(struct peer *peer,
+					 bool (*channel_state_filter)(enum channel_state),
+					 bool *others)
+{
+	return peer_any_channel(peer,
+				filter_by_state, channel_state_filter,
+				others);
 }
 
 struct channel_inflight *channel_inflight_find(struct channel *channel,
@@ -821,6 +851,25 @@ void channel_set_last_tx(struct channel *channel,
 	channel->last_tx = tal_steal(channel, tx);
 }
 
+bool channel_important_filter(const struct channel *channel, void *unused)
+{
+	/* Wants to talk */
+	if (!channel_state_wants_peercomms(channel->state))
+		return false;
+
+	/* If nothing is committed yet, only maintain connection if
+	 * we're the opener */
+	if (channel_state_pre_open(channel->state) && channel->opener == REMOTE)
+		return false;
+
+	/* If we don't reconnect for private channels. */
+	if (!channel->peer->ld->reconnect_private
+	    && !(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
+		return false;
+
+	return true;
+}
+
 void channel_set_state(struct channel *channel,
 		       enum channel_state old_state,
 		       enum channel_state state,
@@ -828,6 +877,11 @@ void channel_set_state(struct channel *channel,
 		       char *why)
 {
 	struct timeabs timestamp;
+	bool was_important;
+
+	/* Does peer currently have an important channel? */
+	was_important = peer_any_channel(channel->peer,
+					 channel_important_filter, NULL, NULL);
 
 	/* set closer, if known */
 	if (channel_state_closing(state) && channel->closer == NUM_SIDES) {
@@ -874,6 +928,8 @@ void channel_set_state(struct channel *channel,
 					     reason,
 					     why);
 	}
+
+	tell_connectd_peer_importance(channel->peer, was_important);
 }
 
 const char *channel_change_state_reason_str(enum state_change reason)
@@ -930,7 +986,6 @@ void channel_fail_permanent(struct channel *channel,
 	 * it doesn't stand a chance anyway. */
 	rebroadcast = !(channel->state == ONCHAIN ||
 			channel->state == FUNDING_SPEND_SEEN);
-	drop_to_chain(ld, channel, false, rebroadcast);
 
 	if (channel_state_wants_onchain_fail(channel->state))
 		channel_set_state(channel,
@@ -938,6 +993,9 @@ void channel_fail_permanent(struct channel *channel,
 				  AWAITING_UNILATERAL,
 				  reason,
 				  why);
+
+	/* Drop non-cooperatively (unilateral) to chain. */
+	drop_to_chain(ld, channel, false, rebroadcast);
 
 	if (channel_state_open_uncommitted(channel->state))
 		delete_channel(channel);

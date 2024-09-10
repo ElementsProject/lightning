@@ -193,6 +193,9 @@ char *fmt_wireaddr_internal(const tal_t *ctx,
 bool wireaddr_from_unresolved(struct wireaddr_internal *addr,
 			      const char *name, u16 port);
 
+void wireaddr_internal_from_wireaddr(struct wireaddr_internal *addr,
+				     const struct wireaddr *waddr);
+
 void wireaddr_from_sockname(struct wireaddr_internal *addr,
 			    const char *sockname);
 bool wireaddr_to_sockname(const struct wireaddr_internal *addr,

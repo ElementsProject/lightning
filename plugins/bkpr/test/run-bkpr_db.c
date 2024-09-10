@@ -92,6 +92,9 @@ u8 fromwire_u8(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 /* Generated stub for fromwire_u8_array */
 void fromwire_u8_array(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, u8 *arr UNNEEDED, size_t num UNNEEDED)
 { fprintf(stderr, "fromwire_u8_array called!\n"); abort(); }
+/* Generated stub for fromwire_wireaddr */
+bool fromwire_wireaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct wireaddr *addr UNNEEDED)
+{ fprintf(stderr, "fromwire_wireaddr called!\n"); abort(); }
 /* Generated stub for fromwire_wirestring */
 char *fromwire_wirestring(const tal_t *ctx UNNEEDED, const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_wirestring called!\n"); abort(); }

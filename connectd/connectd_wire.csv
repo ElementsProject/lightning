@@ -28,6 +28,9 @@ msgdata,connectd_init,dev_no_ping_timer,bool,
 # Allow incoming connections, but don't talk.
 msgdata,connectd_init,dev_noreply,bool,
 msgdata,connectd_init,dev_throttle_gossip,bool,
+msgdata,connectd_init,dev_no_reconnect,bool,
+msgdata,connectd_init,dev_fast_reconnect,bool,
+msgdata,connectd_init,dev_limit_connections_inflight,bool,
 
 # Connectd->master, here are the addresses I bound, can announce.
 msgtype,connectd_init_reply,2100
@@ -57,11 +60,11 @@ msgdata,connectd_scid_map,scid,short_channel_id,
 msgdata,connectd_scid_map,node_id,node_id,
 
 # Master -> connectd: connect to a peer.
+# If !transient, we will keep trying to connect.
 msgtype,connectd_connect_to_peer,2001
 msgdata,connectd_connect_to_peer,id,node_id,
 msgdata,connectd_connect_to_peer,len,u32,
-msgdata,connectd_connect_to_peer,addrs,wireaddr,len
-msgdata,connectd_connect_to_peer,addrhint,?wireaddr_internal,
+msgdata,connectd_connect_to_peer,addrs,wireaddr_internal,len
 msgdata,connectd_connect_to_peer,dns_fallback,bool,
 msgdata,connectd_connect_to_peer,transient,bool,
 
@@ -70,7 +73,6 @@ msgtype,connectd_connect_failed,2020
 msgdata,connectd_connect_failed,id,node_id,
 msgdata,connectd_connect_failed,failcode,enum jsonrpc_errcode,
 msgdata,connectd_connect_failed,failreason,wirestring,
-msgdata,connectd_connect_failed,addrhint,?wireaddr_internal,
 
 # Connectd -> master: we got a peer.
 msgtype,connectd_peer_connected,2002
@@ -102,10 +104,14 @@ msgdata,connectd_peer_spoke,channel_id,channel_id,
 # If msgtype == WIRE_ERROR, this is the string.
 msgdata,connectd_peer_spoke,error,?wirestring,
 
-# master -> connectd: peer no longer wanted, you can disconnect.
-msgtype,connectd_discard_peer,2015
-msgdata,connectd_discard_peer,id,node_id,
-msgdata,connectd_discard_peer,counter,u64,
+# master -> connectd: peer no longer reqeuired, don't keep reconnecting.
+msgtype,connectd_downgrade_peer,2015
+msgdata,connectd_downgrade_peer,id,node_id,
+
+# master -> connectd: force disconnect of peer.
+msgtype,connectd_disconnect_peer,2016
+msgdata,connectd_disconnect_peer,id,node_id,
+msgdata,connectd_disconnect_peer,counter,u64,
 
 # master -> connectd: give message to peer.
 msgtype,connectd_peer_send_msg,2003

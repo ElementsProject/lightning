@@ -46,16 +46,6 @@ enum pong_expect_type {
 	PONG_EXPECTED_PROBING = 2,
 };
 
-/*~ We classify connections by loose priority */
-enum connection_prio {
-	/* We deliberately connected to them. */
-	PRIO_DELIBERATE,
-	/* They connected to us, unsolicited. */
-	PRIO_UNSOLICITED,
-	/* We connected, but transiently. */
-	PRIO_TRANSIENT,
-};
-
 /*~ We keep a hash table (ccan/htable) of peers, which tells us what peers are
  * already connected (by peer->id). */
 struct peer {
@@ -106,9 +96,6 @@ struct peer {
 	/* Last time we received traffic */
 	struct timeabs last_recv_time;
 
-	/* How important does this peer seem to be? */
-	enum connection_prio prio;
-
 	/* Ratelimits for onion messages.  One token per msec. */
 	size_t onionmsg_incoming_tokens;
 	struct timemono onionmsg_last_incoming;
@@ -156,6 +143,33 @@ HTABLE_DEFINE_TYPE(struct peer,
 		   peer_eq_node_id,
 		   peer_htable);
 
+/* Node id, with any addresses we were explicitly given for it */
+struct important_id {
+	struct daemon *daemon;
+
+	struct node_id id;
+	struct wireaddr_internal *addrs;
+	size_t reconnect_secs;
+};
+
+static const struct node_id *important_id_keyof(const struct important_id *imp)
+{
+	return &imp->id;
+}
+
+static bool important_id_eq_node_id(const struct important_id *imp,
+				    const struct node_id *id)
+{
+	return node_id_eq(&imp->id, id);
+}
+
+/*~ This defines 'struct important_id_htable' */
+HTABLE_DEFINE_TYPE(struct important_id,
+		   important_id_keyof,
+		   node_id_hash,
+		   important_id_eq_node_id,
+		   important_id_htable);
+
 /*~ Peers we're trying to reach: we iterate through addrs until we succeed
  * or fail. */
 struct connecting {
@@ -166,21 +180,18 @@ struct connecting {
 	/* The ID of the peer (not necessarily unique, in transit!) */
 	struct node_id id;
 
+	/* Are we queued waiting, to avoid too many connections at once? */
+	bool waiting;
+
 	/* We iterate through the tal_count(addrs) */
 	size_t addrnum;
 	struct wireaddr_internal *addrs;
-
-	/* NULL if there wasn't a hint. */
-	struct wireaddr_internal *addrhint;
 
 	/* How far did we get? */
 	const char *connstate;
 
 	/* Accumulated errors */
 	char *errors;
-
-	/* Is this a transient connection? */
-	bool transient;
 };
 
 static const struct node_id *connecting_keyof(const struct connecting *connecting)
@@ -248,8 +259,11 @@ struct daemon {
 	 * have disconnected. */
 	struct peer_htable *peers;
 
-	/* Peers we are trying to reach */
+	/* Peers we are trying to reach right now. */
 	struct connecting_htable *connecting;
+
+	/* Important (non-transient) peers we should reconnect to */
+	struct important_id_htable *important_ids;
 
 	/* Connection to main daemon. */
 	struct daemon_conn *master;
@@ -310,6 +324,13 @@ struct daemon {
 	/* What (even) custom messages we accept */
 	u16 *custom_msgs;
 
+	/* Timer which releases one pending connection per second. */
+	struct oneshot *connect_release_timer;
+
+	/* How many connection attempts do we allow at once
+	 * (--dev-limit-connectsion-inflight sets this to 1 for testing). */
+	size_t max_connect_in_flight;
+
 	/* Hack to speed up gossip timer */
 	bool dev_fast_gossip;
 	/* Hack to avoid ping timeouts */
@@ -322,6 +343,10 @@ struct daemon {
 	bool dev_exhausted_fds;
 	/* Allow connections in, but don't send anything */
 	bool dev_handshake_no_reply;
+	/* --dev-no-reconnect */
+	bool dev_no_reconnect;
+	/* --dev-fast-reconnect */
+	bool dev_fast_reconnect;
  };
 
 /* Called by io_tor_connect once it has a connection out. */
@@ -352,4 +377,8 @@ void destroy_peer(struct peer *peer);
 
 /* Remove a random connection, when under stress. */
 void close_random_connection(struct daemon *daemon);
+
+/* If connections are waiting to avoid flooding lightningd, release one now */
+void release_one_waiting_connection(struct daemon *daemon, const char *why);
+
 #endif /* LIGHTNING_CONNECTD_CONNECTD_H */

@@ -151,6 +151,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_hsmd_no_preapprove_check = false;
 	ld->dev_hsmd_fail_preapprove = false;
 	ld->dev_handshake_no_reply = false;
+	ld->dev_limit_connections_inflight = false;
 
 	/*~ We try to ensure enough fds for twice the number of channels
 	 * we start with.  We have a developer option to change that factor
@@ -257,7 +258,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->try_reexec = false;
 	ld->recover_secret = NULL;
 	ld->db_upgrade_ok = NULL;
-	ld->num_startup_connects = 0;
 
 	/* --experimental-upgrade-protocol */
 	ld->experimental_upgrade_protocol = false;
