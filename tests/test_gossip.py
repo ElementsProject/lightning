@@ -2017,40 +2017,6 @@ def test_dump_own_gossip(node_factory):
     assert expect == []
 
 
-def test_listchannels_deprecated_local(node_factory, bitcoind):
-    """Test listchannels shows local/private channels only in deprecated mode"""
-    l1, l2, l3 = node_factory.get_nodes(3,
-                                        opts=[{}, {'allow-deprecated-apis': True,
-                                                   'broken_log': 'plugin-topology: DEPRECATED API USED: listchannels.include_private'}, {}])
-    # This will be in block 103
-    node_factory.join_nodes([l1, l2], wait_for_announce=False)
-    l1l2 = first_scid(l1, l2)
-    # This will be in block 104
-    node_factory.join_nodes([l2, l3], wait_for_announce=False)
-    l2l3 = first_scid(l2, l3)
-
-    # Non-deprecated nodes say no.
-    assert l1.rpc.listchannels() == {'channels': []}
-    assert l3.rpc.listchannels() == {'channels': []}
-    # Deprecated API lists both sides of local channels:
-
-    vals = [(c['active'], c['public'], c['short_channel_id']) for c in l2.rpc.listchannels()['channels']]
-    # Either order
-    assert vals == [(True, False, l1l2)] * 2 + [(True, False, l2l3)] * 2 or vals == [(True, False, l2l3)] * 2 + [(True, False, l1l2)] * 2
-
-    # Mine l1-l2 channel so it's public.
-    bitcoind.generate_block(4)
-    sync_blockheight(bitcoind, [l1, l2, l3])
-
-    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
-    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
-
-    # l2 shows public one correctly, and private one correctly
-    # Either order
-    vals = [(c['active'], c['public'], c['short_channel_id']) for c in l2.rpc.listchannels()['channels']]
-    assert vals == [(True, True, l1l2)] * 2 + [(True, False, l2l3)] * 2 or vals == [(True, False, l2l3)] * 2 + [(True, True, l1l2)] * 2
-
-
 def test_gossip_throttle(node_factory, bitcoind, chainparams):
     """Make some gossip, test it gets throttled"""
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,

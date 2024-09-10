@@ -856,15 +856,15 @@ def test_listconfigs(node_factory, bitcoind, chainparams):
 
 
 def test_listconfigs_plugins(node_factory, bitcoind, chainparams):
-    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
+    l1 = node_factory.get_node()
 
-    configs = l1.rpc.listconfigs()
-    assert configs['important-plugins']
-    assert len([p for p in configs['important-plugins'] if p['name'] == "pay"]) == 1
-    for p in configs['important-plugins']:
-        assert p['name'] and len(p['name']) > 0
-        assert p['path'] and len(p['path']) > 0
-        assert os.path.isfile(p['path']) and os.access(p['path'], os.X_OK)
+    configs = l1.rpc.listconfigs()['configs']
+    assert len(configs['important-plugin']['values_str']) == 0
+    assert len(configs['i-promise-to-fix-broken-api-user']['values_str']) == 0
+
+    plugins = l1.rpc.plugin_list()['plugins']
+    assert [p['active'] for p in plugins if p['name'].endswith('sql')] == [True]
+    assert [p['active'] for p in plugins if p['name'].endswith('offers')] == [True]
 
 
 def test_multirpc(node_factory):

@@ -465,7 +465,9 @@ def test_clnrest_old_params(node_factory):
     base_url = f'https://{rest_host}:{rest_port}'
     l1 = node_factory.get_node(options={'rest-port': rest_port,
                                         'rest-host': rest_host,
-                                        'allow-deprecated-apis': True})
+                                        'allow-deprecated-apis': True},
+                               broken_log=r'DEPRECATED API USED rest-*')
+
     # This might happen really early!
     l1.daemon.logsearch_start = 0
     l1.daemon.wait_for_logs([r'UNUSUAL lightningd: Option rest-port=.* deprecated in v23\.11, renaming to clnrest-port',
@@ -477,7 +479,8 @@ def test_clnrest_old_params(node_factory):
     l2 = node_factory.get_node(options={'rest-port': rest_port,
                                         'rest-host': rest_host,
                                         'plugin': plugin,
-                                        'allow-deprecated-apis': True})
+                                        'allow-deprecated-apis': True},
+                               broken_log=r'DEPRECATED API USED rest-*')
 
     l2.daemon.logsearch_start = 0
     # We still rename this one, since it's for clnrest.
