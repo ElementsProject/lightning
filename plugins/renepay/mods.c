@@ -778,7 +778,9 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 	json_add_amount_msat(req->js, "amount_msat", remaining);
 	json_array_start(req->js, "layers");
 	// FIXME: put here the layers that we use
+	json_add_string(req->js, NULL, "auto.sourcefree");
 	json_add_string(req->js, NULL, "auto.localchans");
+	json_add_string(req->js, NULL, RENEPAY_LAYER);
 	json_array_end(req->js);
 	json_add_amount_msat(req->js, "maxfee_msat", feebudget);
 	json_add_u32(req->js, "final_cltv", payment->payment_info.final_cltv);
