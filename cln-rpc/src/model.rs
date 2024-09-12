@@ -5702,7 +5702,8 @@ pub mod responses {
 	    pub updated_index: Option<u64>,
 	    // Path `WaitAnyInvoice.status`
 	    pub status: WaitanyinvoiceStatus,
-	    pub description: String,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
 	    pub expires_at: u64,
 	    pub label: String,
 	    pub payment_hash: Sha256,
@@ -5778,7 +5779,8 @@ pub mod responses {
 	    pub updated_index: Option<u64>,
 	    // Path `WaitInvoice.status`
 	    pub status: WaitinvoiceStatus,
-	    pub description: String,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
 	    pub expires_at: u64,
 	    pub label: String,
 	    pub payment_hash: Sha256,
