@@ -1146,17 +1146,32 @@ REGISTER_PAYMENT_MODIFIER(pendingsendpays, pendingsendpays_cb);
  * Reduce the knowledge of the network as time goes by.
  */
 
+static struct command_result *askreneage_success(struct command *cmd UNUSED,
+						 const char *buf UNUSED,
+						 const jsmntok_t *result UNUSED,
+						 struct payment *payment)
+{
+	return payment_continue(payment);
+}
+
+/* FIXME: we lack an RPC call to request askrene to relax constraints by a
+ * smooth amount, instead we will need to forget all knowledge that exceeds a
+ * certain date. */
 static struct command_result *knowledgerelax_cb(struct payment *payment)
 {
-	const u64 now_sec = time_now().ts.tv_sec;
-	enum renepay_errorcode err = uncertainty_relax(
-	    pay_plugin->uncertainty, now_sec - pay_plugin->last_time);
-	if (err)
-		plugin_err(pay_plugin->plugin,
-			   "uncertainty_relax failed with error %s",
-			   renepay_errorcode_name(err));
-	pay_plugin->last_time = now_sec;
-	return payment_continue(payment);
+	/* Remove all knowledge older than TIMER_FORGET_SEC (number of seconds
+	 * in the past). */
+	const u64 cutoff = time_now().ts.tv_sec - TIMER_FORGET_SEC;
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
+
+	struct out_req *req = jsonrpc_request_start(
+	    cmd->plugin, cmd, "askrene-age", askreneage_success,
+	    payment_rpc_failure, payment);
+
+	json_add_string(req->js, "layer", RENEPAY_LAYER);
+	json_add_u64(req->js, "cutoff", cutoff);
+	return send_outreq(cmd->plugin, req);
 }
 
 REGISTER_PAYMENT_MODIFIER(knowledgerelax, knowledgerelax_cb);
