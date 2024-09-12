@@ -42,6 +42,16 @@ jobs:
           git fetch origin ${{ github.base_ref }}
           git rebase origin/${{ github.base_ref }}
 
+      - name: Check changelog
+        run: |
+          base_ref="${{ github.base_ref }}"
+          if [ -z "$base_ref" ]; then
+            base_ref="master"
+          fi
+          if [[ -z "$(git log origin/$base_ref..HEAD --oneline --grep='Changelog-')" && "$(git rev-parse --abbrev-ref HEAD)" != "$base_ref" ]]; then
+            echo "::error::'Changelog' entry is missing in all commits" && exit 1
+          fi
+
       - name: Set up Python 3.8
         uses: actions/setup-python@v5
         with:
