@@ -4427,3 +4427,11 @@ def test_sql_crash(node_factory, bitcoind):
 
     assert 'updates' not in only_one(l1.rpc.listpeerchannels()['channels'])
     l1.rpc.sql(f"SELECT * FROM peerchannels;")
+
+
+@pytest.mark.xfail(strict=True)
+def test_listchannels_broken_message(node_factory):
+    """This gave a bogus BROKEN message with deprecated-apis enabled"""
+    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
+
+    l1.rpc.listchannels()
