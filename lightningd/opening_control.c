@@ -28,7 +28,6 @@
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
 #include <openingd/openingd_wiregen.h>
-#include <sodium/randombytes.h>
 #include <wally_psbt.h>
 
 void json_add_uncommitted_channel(struct command *cmd,
@@ -108,7 +107,6 @@ wallet_commit_channel(struct lightningd *ld,
 	s64 final_key_idx;
 	u64 static_remotekey_start;
 	u32 lease_start_blockheight = 0; /* No leases on v1 */
-	struct short_channel_id local_alias;
 	struct timeabs timestamp;
 	bool any_active = peer_any_channel(uc->peer, channel_state_wants_peercomms, NULL);
 
@@ -158,9 +156,6 @@ wallet_commit_channel(struct lightningd *ld,
 	else
 		static_remotekey_start = 0x7FFFFFFFFFFFFFFF;
 
-	/* This won't clash, we don't even bother checking */
-	randombytes_buf(&local_alias, sizeof(local_alias));
-
 	channel = new_channel(uc->peer, uc->dbid,
 			      NULL, /* No shachain yet */
 			      CHANNELD_AWAITING_LOCKIN,
@@ -178,7 +173,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      local_funding,
 			      false, /* !remote_channel_ready */
 			      NULL, /* no scid yet */
-			      &local_alias,
+			      NULL, /* assign random local alias */
 			      NULL, /* They haven't told us an alias yet */
 			      cid,
 			      /* The three arguments below are msatoshi_to_us,

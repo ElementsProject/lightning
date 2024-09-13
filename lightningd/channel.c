@@ -513,6 +513,11 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->remote_channel_ready = remote_channel_ready;
 	channel->scid = tal_steal(channel, scid);
 	channel->alias[LOCAL] = tal_dup_or_null(channel, struct short_channel_id, alias_local);
+	/* We always make sure this is set (historical channels from db might not) */
+	if (!channel->alias[LOCAL]) {
+		channel->alias[LOCAL] = tal(channel, struct short_channel_id);
+		randombytes_buf(channel->alias[LOCAL], sizeof(struct short_channel_id));
+	}
 	channel->alias[REMOTE] = tal_steal(channel, alias_remote);  /* Haven't gotten one yet. */
 	channel->cid = *cid;
 	channel->our_msat = our_msat;
