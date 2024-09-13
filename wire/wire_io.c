@@ -27,8 +27,12 @@ static int do_read_wire_header(int fd, struct io_plan_arg *arg)
 	u8 *p = *(u8 **)arg->u1.vp;
 
 	ret = read(fd, p + len, HEADER_LEN - len);
-	if (ret <= 0)
+	if (ret <= 0) {
+		/* Errno isn't set if we hit EOF, so set it to distinct value */
+		if (ret == 0)
+			errno = 0;
 		return -1;
+	}
 	arg->u2.s += ret;
 
 	/* Length bytes read?  Set up for normal read of data. */
@@ -61,8 +65,12 @@ static int do_read_wire(int fd, struct io_plan_arg *arg)
 
 	/* Normal read */
 	ret = read(fd, arg->u1.cp, arg->u2.s);
-	if (ret <= 0)
+	if (ret <= 0) {
+		/* Errno isn't set if we hit EOF, so set it to distinct value */
+		if (ret == 0)
+			errno = 0;
 		return -1;
+	}
 
 	arg->u1.cp += ret;
 	arg->u2.s -= ret;
