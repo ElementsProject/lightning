@@ -524,6 +524,11 @@ else
     exit 1
 fi
 
+if ! check_command 'jq' jq; then
+    echo "*** We need jq!" >&2
+    exit 1
+fi
+
 # Now we can finally set our warning flags
 if [ -z ${CWARNFLAGS+x} ]; then
     CWARNFLAGS=$(default_cwarnflags "$COPTFLAGS" \
