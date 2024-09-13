@@ -33516,7 +33516,6 @@
       "response": {
         "required": [
           "label",
-          "description",
           "payment_hash",
           "status",
           "created_index",
@@ -33877,7 +33876,6 @@
       "response": {
         "required": [
           "label",
-          "description",
           "payment_hash",
           "status",
           "created_index",

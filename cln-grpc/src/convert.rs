@@ -957,7 +957,7 @@ impl From<responses::WaitanyinvoiceResponse> for pb::WaitanyinvoiceResponse {
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
             created_index: c.created_index, // Rule #2 for type u64?
-            description: c.description, // Rule #2 for type string
+            description: c.description, // Rule #2 for type string?
             expires_at: c.expires_at, // Rule #2 for type u64
             label: c.label, // Rule #2 for type string
             paid_at: c.paid_at, // Rule #2 for type u64?
@@ -990,7 +990,7 @@ impl From<responses::WaitinvoiceResponse> for pb::WaitinvoiceResponse {
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
             created_index: c.created_index, // Rule #2 for type u64?
-            description: c.description, // Rule #2 for type string
+            description: c.description, // Rule #2 for type string?
             expires_at: c.expires_at, // Rule #2 for type u64
             label: c.label, // Rule #2 for type string
             paid_at: c.paid_at, // Rule #2 for type u64?
