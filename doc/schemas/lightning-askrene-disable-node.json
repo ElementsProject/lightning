@@ -7,7 +7,7 @@
   "description": [
     "WARNING: experimental, so API may change.",
     "",
-    "The **askrene-disable-node** RPC command tells askrene to disable all channels connected to a node whenever the given layer is used.  This is mainly useful to force the use of alternate paths: while individual channels can be disabled using askrene-create-channel or askrene-inform-channel, that would be racy if new channels appeared."
+    "The **askrene-disable-node** RPC command tells askrene to disable all channels connected to a node whenever the given layer is used.  This is mainly useful to force the use of alternate paths: while individual channels can be disabled using askrene-create-channels or askrene-inform-channel, that would be racy if new channels appeared."
   ],
   "request": {
     "required": [
@@ -35,7 +35,7 @@
   },
   "see_also": [
     "lightning-getroutes(7)",
-    "lightning-askrene-create-channel(7)",
+    "lightning-askrene-create-channels(7)",
     "lightning-askrene-inform-channel(7)",
     "lightning-askrene-listlayers(7)",
     "lightning-askrene-age(7)"

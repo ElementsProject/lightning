@@ -28,13 +28,22 @@ def test_layers(node_factory):
     assert l2.rpc.askrene_listlayers('test_layers2') == {'layers': []}
 
     # Tell it l3 connects to l1!
-    l2.rpc.askrene_create_channel('test_layers',
-                                  l3.info['id'],
-                                  l1.info['id'],
-                                  '0x0x1',
-                                  '1000000sat',
-                                  100, '900000sat',
-                                  1, 2, 18)
+    l2.rpc.askrene_create_channels(
+        "test_layers",
+        [
+            {
+                "source": l3.info["id"],
+                "destination": l1.info["id"],
+                "short_channel_id": "0x0x1",
+                "capacity_msat": "1000000sat",
+                "htlc_minimum_msat": 100,
+                "htlc_maximum_msat": "900000sat",
+                "fee_base_msat": 1,
+                "fee_proportional_millionths": 2,
+                "delay": 18,
+            }
+        ],
+    )
     expect['created_channels'].append({'source': l3.info['id'],
                                        'destination': l1.info['id'],
                                        'short_channel_id': '0x0x1',

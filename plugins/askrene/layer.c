@@ -8,23 +8,6 @@
 #include <plugins/askrene/askrene.h>
 #include <plugins/askrene/layer.h>
 
-/* A channels which doesn't (necessarily) exist in the gossmap. */
-struct local_channel {
-	/* Canonical order, n1 < n2 */
-	struct node_id n1, n2;
-	struct short_channel_id scid;
-	struct amount_msat capacity;
-
-	struct added_channel_half {
-		/* Other fields only valid if this is true */
-		bool enabled;
-		u16 delay;
-		u32 proportional_fee;
-		struct amount_msat base_fee;
-		struct amount_msat htlc_min, htlc_max;
-	} half[2];
-};
-
 static const struct constraint_key *
 constraint_key(const struct constraint *c)
 {

@@ -17,6 +17,23 @@ struct askrene;
 struct layer;
 struct json_stream;
 
+/* A channels which doesn't (necessarily) exist in the gossmap. */
+struct local_channel {
+	/* Canonical order, n1 < n2 */
+	struct node_id n1, n2;
+	struct short_channel_id scid;
+	struct amount_msat capacity;
+
+	struct added_channel_half {
+		/* Other fields only valid if this is true */
+		bool enabled;
+		u16 delay;
+		u32 proportional_fee;
+		struct amount_msat base_fee;
+		struct amount_msat htlc_min, htlc_max;
+	} half[2];
+};
+
 enum constraint_type {
 	CONSTRAINT_MIN,
 	CONSTRAINT_MAX,

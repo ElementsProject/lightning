@@ -58,6 +58,49 @@ static struct command_result *param_string_array(struct command *cmd,
 	return NULL;
 }
 
+static struct command_result *
+param_localchannel_array(struct command *cmd, const char *name,
+			 const char *buffer, const jsmntok_t *tok,
+			 struct local_channel **channels)
+{
+	size_t i;
+	const jsmntok_t *t;
+
+	if (tok->type != JSMN_ARRAY)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should be an array");
+
+	*channels = tal_arr(cmd, struct local_channel, tok->size);
+	json_for_each_arr(i, t, tok)
+	{
+		struct local_channel *c = &(*channels)[i];
+
+		const char *err = json_scan(
+		    cmd, buffer, t,
+		    "{source:%"
+		    ",destination:%"
+		    ",short_channel_id:%"
+		    ",capacity_msat:%"
+		    ",htlc_minimum_msat:%"
+		    ",htlc_maximum_msat:%"
+		    ",fee_base_msat:%"
+		    ",fee_proportional_millionths:%"
+		    ",delay:%}",
+		    JSON_SCAN(json_to_node_id, &c->n1),
+		    JSON_SCAN(json_to_node_id, &c->n2),
+		    JSON_SCAN(json_to_short_channel_id, &c->scid),
+		    JSON_SCAN(json_to_msat, &c->capacity),
+		    JSON_SCAN(json_to_msat, &c->half[0].htlc_min),
+		    JSON_SCAN(json_to_msat, &c->half[0].htlc_max),
+		    JSON_SCAN(json_to_msat, &c->half[0].base_fee),
+		    JSON_SCAN(json_to_u32, &c->half[0].proportional_fee),
+		    JSON_SCAN(json_to_u16, &c->half[0].delay));
+		if (err)
+			return command_fail_badparam(cmd, name, buffer, t, err);
+	}
+	return NULL;
+}
+
 static struct command_result *param_known_layer(struct command *cmd,
 						const char *name,
 						const char *buffer,
@@ -673,56 +716,46 @@ static struct command_result *param_layername(struct command *cmd,
 	return NULL;
 }
 
-static struct command_result *json_askrene_create_channel(struct command *cmd,
-							  const char *buffer,
-							  const jsmntok_t *params)
+static struct command_result *
+json_askrene_create_channels(struct command *cmd, const char *buffer,
+			     const jsmntok_t *params)
 {
 	const char *layername;
+	struct local_channel *channels;
 	struct layer *layer;
 	const struct local_channel *lc;
-	struct node_id *src, *dst;
-	struct short_channel_id *scid;
-	struct amount_msat *capacity;
 	struct json_stream *response;
-	struct amount_msat *htlc_min, *htlc_max, *base_fee;
-	u32 *proportional_fee;
-	u16 *delay;
 	struct askrene *askrene = get_askrene(cmd->plugin);
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("layer", param_layername, &layername),
-			 p_req("source", param_node_id, &src),
-			 p_req("destination", param_node_id, &dst),
-			 p_req("short_channel_id", param_short_channel_id, &scid),
-			 p_req("capacity_msat", param_msat, &capacity),
-			 p_req("htlc_minimum_msat", param_msat, &htlc_min),
-			 p_req("htlc_maximum_msat", param_msat, &htlc_max),
-			 p_req("fee_base_msat", param_msat, &base_fee),
-			 p_req("fee_proportional_millionths", param_u32, &proportional_fee),
-			 p_req("delay", param_u16, &delay),
+			 p_req("channels", param_localchannel_array, &channels),
 			 NULL))
 		return command_param_failed();
-
-	/* If it exists, it must match */
-	layer = find_layer(askrene, layername);
-	if (layer) {
-		lc = layer_find_local_channel(layer, *scid);
-		if (lc && !layer_check_local_channel(lc, src, dst, *capacity)) {
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "channel already exists with different values!");
-		}
-	} else
-		lc = NULL;
 
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
+	layer = find_layer(askrene, layername);
 	if (!layer)
 		layer = new_layer(askrene, layername);
 
-	layer_update_local_channel(layer, src, dst, *scid, *capacity,
-				   *base_fee, *proportional_fee, *delay,
-				   *htlc_min, *htlc_max);
+	for (size_t i = 0; i < tal_count(channels); i++) {
+		struct local_channel *c = &channels[i];
+
+		/* If it exists, it must match */
+		lc = layer_find_local_channel(layer, c->scid);
+		if (lc &&
+		    !layer_check_local_channel(lc, &c->n1, &c->n2, c->capacity))
+			return command_fail(
+			    cmd, JSONRPC2_INVALID_PARAMS,
+			    "channel already exists with different values!");
+
+		layer_update_local_channel(
+		    layer, &c->n1, &c->n2, c->scid, c->capacity,
+		    c->half[0].base_fee, c->half[0].proportional_fee,
+		    c->half[0].delay, c->half[0].htlc_min, c->half[0].htlc_max);
+	}
 
 	response = jsonrpc_stream_success(cmd);
 	return command_finished(cmd, response);
@@ -866,8 +899,8 @@ static const struct plugin_command commands[] = {
 		json_askrene_disable_node,
 	},
 	{
-		"askrene-create-channel",
-		json_askrene_create_channel,
+		"askrene-create-channels",
+		json_askrene_create_channels,
 	},
 	{
 		"askrene-inform-channel",
