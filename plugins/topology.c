@@ -394,7 +394,7 @@ static struct command_result *listpeerchannels_done(struct command *cmd,
 	struct gossmap_localmods *mods;
 
 	/* In deprecated mode, re-add private channels */
-	if (command_deprecated_in_ok(cmd, "include_private", "v24.02", "v24.08")) {
+	if (command_deprecated_out_ok(cmd, "include_private", "v24.02", "v24.08")) {
 		connected = local_connected(opts, buf, result);
 		mods = gossmods_from_listpeerchannels(tmpctx, &local_id,
 						      buf, result, false,
