@@ -5691,6 +5691,8 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub created_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub paid_at: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub paid_outpoint: Option<WaitanyinvoicePaid_outpoint>,
@@ -5702,7 +5704,6 @@ pub mod responses {
 	    pub updated_index: Option<u64>,
 	    // Path `WaitAnyInvoice.status`
 	    pub status: WaitanyinvoiceStatus,
-	    pub description: String,
 	    pub expires_at: u64,
 	    pub label: String,
 	    pub payment_hash: Sha256,
@@ -5767,6 +5768,8 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub created_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub paid_at: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub paid_outpoint: Option<WaitinvoicePaid_outpoint>,
@@ -5778,7 +5781,6 @@ pub mod responses {
 	    pub updated_index: Option<u64>,
 	    // Path `WaitInvoice.status`
 	    pub status: WaitinvoiceStatus,
-	    pub description: String,
 	    pub expires_at: u64,
 	    pub label: String,
 	    pub payment_hash: Sha256,

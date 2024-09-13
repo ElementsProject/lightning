@@ -1077,7 +1077,7 @@ message WaitanyinvoiceResponse {
 		EXPIRED = 1;
 	}
 	string label = 1;
-	string description = 2;
+	optional string description = 2;
 	bytes payment_hash = 3;
 	WaitanyinvoiceStatus status = 4;
 	uint64 expires_at = 5;
@@ -1109,7 +1109,7 @@ message WaitinvoiceResponse {
 		EXPIRED = 1;
 	}
 	string label = 1;
-	string description = 2;
+	optional string description = 2;
 	bytes payment_hash = 3;
 	WaitinvoiceStatus status = 4;
 	uint64 expires_at = 5;
