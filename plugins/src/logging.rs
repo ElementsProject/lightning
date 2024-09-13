@@ -80,7 +80,10 @@ mod trace {
     where
         O: AsyncWrite + Send + Unpin + 'static,
     {
-        let filter = tracing_subscriber::filter::EnvFilter::from_env("CLN_PLUGIN_LOG");
+        let filter = tracing_subscriber::filter::EnvFilter::builder()
+            .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
+            .with_env_var("CLN_PLUGIN_LOG")
+            .from_env_lossy();
         let sender = start_writer(out);
 
         tracing_subscriber::registry()
