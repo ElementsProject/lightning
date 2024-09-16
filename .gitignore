@@ -93,3 +93,7 @@ release/
 SHA256SUMS-*
 doc/.doc_version
 autogenerate-examples-status.log
+
+# Ignore nix outputs
+result
+result-[0-9]*
