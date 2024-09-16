@@ -3,10 +3,11 @@ use cln_grpc::pb::node_server::NodeServer;
 use cln_plugin::{options, Builder, Plugin};
 use cln_rpc::notifications::Notification;
 use log::{debug, warn};
-use std::net::SocketAddr;
+use router::GrpcRouterConfig;
 use std::path::PathBuf;
 use tokio::sync::broadcast;
 
+mod router;
 mod tls;
 
 #[derive(Clone, Debug)]
@@ -53,12 +54,17 @@ async fn main() -> Result<()> {
         None => return Ok(()),
     };
 
-    let bind_port = match plugin.option(&OPTION_GRPC_PORT).unwrap() {
-        Some(port) => port,
-        None => {
-            log::info!("'grpc-port' options i not configured. exiting.");
+    let router_config = match GrpcRouterConfig::from_configured_plugin(&plugin) {
+        Ok(Some(cfg)) => cfg,
+        Ok(None) => {
+            log::info!("'grpc-port' option is not configured. Exiting.");
             plugin.disable("Missing 'grpc-port' option").await?;
             return Ok(());
+        }
+        Err(err) => {
+          log::warn!("{:?}", err);
+          plugin.disable(&format!("Invalid configuration: {:?}", err)).await?;
+          return Err(err)
         }
     };
 
@@ -86,8 +92,6 @@ async fn main() -> Result<()> {
 
     let plugin = plugin.start(state.clone()).await?;
 
-    let bind_addr: SocketAddr = format!("0.0.0.0:{}", bind_port).parse().unwrap();
-
     tokio::select! {
         _ = plugin.join() => {
         // This will likely never be shown, if we got here our
@@ -95,14 +99,15 @@ async fn main() -> Result<()> {
         // messages anymore.
             debug!("Plugin loop terminated")
         }
-        e = run_interface(bind_addr, state) => {
+        e = run_interface(router_config, state) => {
             warn!("Error running grpc interface: {:?}", e)
         }
     }
     Ok(())
 }
 
-async fn run_interface(bind_addr: SocketAddr, state: PluginState) -> Result<()> {
+async fn run_interface(router_config: GrpcRouterConfig, state: PluginState) -> Result<()> {
+    let bind_addr = router_config.socket_addr();
     let identity = state.identity.to_tonic_identity();
     let ca_cert = tonic::transport::Certificate::from_pem(state.ca_cert);
 

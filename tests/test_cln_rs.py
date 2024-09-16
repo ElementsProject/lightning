@@ -20,7 +20,7 @@ RUST_PROFILE = os.environ.get("RUST_PROFILE", "debug")
 
 def wait_for_grpc_start(node):
     """This can happen before "public key" which start() swallows"""
-    wait_for(lambda: node.daemon.is_in_log(r'serving grpc on 0.0.0.0:'))
+    wait_for(lambda: node.daemon.is_in_log(r'serving grpc on '))
 
 
 def test_rpc_client(node_factory):
