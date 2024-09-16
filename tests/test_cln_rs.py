@@ -20,7 +20,7 @@ RUST_PROFILE = os.environ.get("RUST_PROFILE", "debug")
 
 def wait_for_grpc_start(node):
     """This can happen before "public key" which start() swallows"""
-    wait_for(lambda: node.daemon.is_in_log(r'serving grpc'))
+    wait_for(lambda: node.daemon.is_in_log(r'serving grpc on '))
 
 
 def test_rpc_client(node_factory):
@@ -103,6 +103,32 @@ def test_plugin_options_handle_defaults(node_factory):
     assert opts["multi-str-option-default"] == ["Default1"]
     assert opts["multi-i64-option"] is None
     assert opts["multi-i64-option-default"] == [-42]
+
+
+def test_grpc_connect_http(node_factory):
+    """Attempts to connect to the grpc interface and call getinfo over http"""
+    grpc_port = node_factory.get_unused_port()
+    l1 = node_factory.get_node(options={"grpc-port": str(grpc_port), "grpc-scheme": "http"})
+
+    wait_for_grpc_start(l1)
+
+    channel = grpc.insecure_channel(f"localhost:{l1.grpc_port}")
+    stub = clnpb.NodeStub(channel)
+
+    response = stub.Getinfo(clnpb.GetinfoRequest())
+    print(response)
+
+
+def test_grpc_connection_refuses_non_loopback_address(node_factory):
+    grpc_port = node_factory.get_unused_port()
+    options = {
+        "grpc-port": str(grpc_port),
+        "grpc-scheme": "http",
+        "grpc-host": "0.0.0.0"
+    }
+
+    l1 = node_factory.get_node(options=options)
+    assert l1.daemon.is_in_log(r'Scheme \'http\' is only allowed on a loopback address')
 
 
 def test_grpc_connect(node_factory):
