@@ -1,9 +1,9 @@
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, SocketAddr};
 
 use anyhow::Context;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use crate::{PluginState, OPTION_GRPC_PORT};
+use crate::{PluginState, OPTION_GRPC_IP, OPTION_GRPC_PORT};
 
 use cln_plugin::ConfiguredPlugin;
 pub struct GrpcRouterConfig {
@@ -30,10 +30,16 @@ impl GrpcRouterConfig {
             })?,
         };
 
-        Ok(Some(GrpcRouterConfig {
-            ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
-            port,
-        }))
+        let ip = plugin.option(&OPTION_GRPC_IP)?;
+        let ip = ip.parse::<IpAddr>().with_context(|| {
+            format!(
+                "Invalid configuration for {}. '{}' is not a valid ip-address.",
+                OPTION_GRPC_IP.name(),
+                ip
+            )
+        })?;
+
+        Ok(Some(GrpcRouterConfig { ip, port }))
     }
 
     pub fn socket_addr(&self) -> SocketAddr {

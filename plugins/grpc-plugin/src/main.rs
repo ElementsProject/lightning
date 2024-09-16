@@ -23,6 +23,13 @@ const OPTION_GRPC_PORT: options::IntegerConfigOption = options::ConfigOption::ne
     "Which port should the grpc plugin listen for incoming connections?",
 );
 
+const OPTION_GRPC_IP: options::DefaultStringConfigOption =
+    options::ConfigOption::new_str_with_default(
+        "grpc-ip-address",
+        "127.0.0.1",
+        "The IP address on which the grpc plugin listens for incoming connections.",
+    );
+
 const OPTION_GRPC_MSG_BUFFER_SIZE : options::DefaultIntegerConfigOption = options::ConfigOption::new_i64_with_default(
     "grpc-msg-buffer-size",
     1024,
@@ -37,6 +44,7 @@ async fn main() -> Result<()> {
     let plugin = match Builder::new(tokio::io::stdin(), tokio::io::stdout())
         .option(OPTION_GRPC_PORT)
         .option(OPTION_GRPC_MSG_BUFFER_SIZE)
+        .option(OPTION_GRPC_IP)
         // TODO: Use the catch-all subscribe method
         // However, doing this breaks the plugin at the time begin
         // We should fix this
