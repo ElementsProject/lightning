@@ -6,7 +6,8 @@
 #include <plugins/renepay/routefail.h>
 #include <plugins/renepay/routetracker.h>
 
-static struct payment *route_get_payment_verify(struct route *route)
+static struct payment *route_get_payment_verify(struct pay_plugin *pay_plugin,
+						struct route *route)
 {
 	struct payment *payment =
 	    payment_map_get(pay_plugin->payment_map, route->key.payment_hash);
@@ -21,7 +22,7 @@ static struct payment *route_get_payment_verify(struct route *route)
 struct routetracker *new_routetracker(const tal_t *ctx, struct payment *payment)
 {
 	struct routetracker *rt = tal(ctx, struct routetracker);
-
+	rt->plugin = payment->plugin;
 	rt->computed_routes = tal_arr(rt, struct route *, 0);
 	rt->sent_routes = tal(rt, struct route_map);
 	rt->finalized_routes = tal_arr(rt, struct route *, 0);
@@ -48,6 +49,8 @@ void routetracker_cleanup(struct routetracker *routetracker)
 static void routetracker_add_to_final(struct routetracker *routetracker,
 				      struct route *route)
 {
+	struct pay_plugin *pay_plugin = get_renepay(routetracker->plugin);
+	assert(pay_plugin);
 	tal_arr_expand(&routetracker->finalized_routes, route);
 	tal_steal(routetracker->finalized_routes, route);
 
@@ -90,6 +93,8 @@ static void routetracker_add_to_final(struct routetracker *routetracker,
 static void route_success_register(struct routetracker *routetracker,
 				   struct route *route)
 {
+	struct pay_plugin *pay_plugin = get_renepay(routetracker->plugin);
+	assert(pay_plugin);
 	if(route->hops){
 		uncertainty_route_success(pay_plugin->uncertainty, route);
 	}
@@ -98,6 +103,8 @@ static void route_success_register(struct routetracker *routetracker,
 void route_failure_register(struct routetracker *routetracker,
 			    struct route *route)
 {
+	struct pay_plugin *pay_plugin = get_renepay(routetracker->plugin);
+	assert(pay_plugin);
 	struct payment_result *result = route->result;
 	assert(result);
 
@@ -138,9 +145,9 @@ void route_failure_register(struct routetracker *routetracker,
 	routetracker_add_to_final(routetracker, route);
 }
 
-static void remove_route(struct route *route, struct route_map *map)
+static void remove_route(struct route *route, struct pay_plugin *pay_plugin)
 {
-	route_map_del(map, route);
+	route_map_del(pay_plugin->pending_routes, route);
 	uncertainty_remove_htlcs(pay_plugin->uncertainty, route);
 }
 
@@ -152,9 +159,11 @@ static void remove_route(struct route *route, struct route_map *map)
 static void route_pending_register(struct routetracker *routetracker,
 				   struct route *route)
 {
+	struct pay_plugin *pay_plugin = get_renepay(routetracker->plugin);
+	assert(pay_plugin);
 	assert(route);
 	assert(routetracker);
-	struct payment *payment = route_get_payment_verify(route);
+	struct payment *payment = route_get_payment_verify(pay_plugin, route);
 	assert(payment);
 	assert(payment->groupid == route->key.groupid);
 
@@ -176,8 +185,7 @@ static void route_pending_register(struct routetracker *routetracker,
 
 	if (!tal_steal(pay_plugin->pending_routes, route) ||
 	    !route_map_add(pay_plugin->pending_routes, route) ||
-	    !tal_add_destructor2(route, remove_route,
-				 pay_plugin->pending_routes))
+	    !tal_add_destructor2(route, remove_route, pay_plugin))
 		plugin_err(pay_plugin->plugin, "%s: failed to register route.",
 			   __func__);
 
@@ -198,8 +206,10 @@ static struct command_result *sendpay_done(struct command *cmd,
 					   const jsmntok_t *result UNUSED,
 					   struct route *route)
 {
+	struct pay_plugin *pay_plugin = get_renepay(cmd->plugin);
+	assert(pay_plugin);
 	assert(route);
-	struct payment *payment = route_get_payment_verify(route);
+	struct payment *payment = route_get_payment_verify(pay_plugin, route);
 	route_pending_register(payment->routetracker, route);
 	return command_still_pending(cmd);
 }
@@ -213,8 +223,10 @@ static struct command_result *sendpay_failed(struct command *cmd,
 					     const jsmntok_t *tok,
 					     struct route *route)
 {
+	struct pay_plugin *pay_plugin = get_renepay(cmd->plugin);
+	assert(pay_plugin);
 	assert(route);
-	struct payment *payment = route_get_payment_verify(route);
+	struct payment *payment = route_get_payment_verify(pay_plugin, route);
 	struct routetracker *routetracker = payment->routetracker;
 	assert(routetracker);
 
@@ -263,6 +275,8 @@ void payment_collect_results(struct payment *payment,
 			     const char **final_msg)
 {
 	assert(payment);
+	struct pay_plugin *pay_plugin = get_renepay(payment->plugin);
+	assert(pay_plugin);
 	struct routetracker *routetracker = payment->routetracker;
 	assert(routetracker);
 	const size_t ncompleted = tal_count(routetracker->finalized_routes);
@@ -328,6 +342,8 @@ struct command_result *route_sendpay_request(struct command *cmd,
 					     struct route *route TAKES,
 					     struct payment *payment)
 {
+	struct pay_plugin *pay_plugin = get_renepay(cmd->plugin);
+	assert(pay_plugin);
 	struct out_req *req =
 	    jsonrpc_request_start(pay_plugin->plugin, cmd, "sendpay",
 				  sendpay_done, sendpay_failed, route);
@@ -344,6 +360,8 @@ struct command_result *notification_sendpay_failure(struct command *cmd,
 						    const char *buf,
 						    const jsmntok_t *params)
 {
+	struct pay_plugin *pay_plugin = get_renepay(cmd->plugin);
+	assert(pay_plugin);
 	plugin_log(pay_plugin->plugin, LOG_DBG,
 		   "sendpay_failure notification: %.*s",
 		   json_tok_full_len(params), json_tok_full(buf, params));
@@ -411,6 +429,8 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 						    const char *buf,
 						    const jsmntok_t *params)
 {
+	struct pay_plugin *pay_plugin = get_renepay(cmd->plugin);
+	assert(pay_plugin);
 	plugin_log(pay_plugin->plugin, LOG_DBG,
 		   "sendpay_success notification: %.*s",
 		   json_tok_full_len(params), json_tok_full(buf, params));

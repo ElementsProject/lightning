@@ -69,6 +69,9 @@ struct payment {
 	struct plugin_timer *waitresult_timer;
 
 	struct routetracker *routetracker;
+
+	/* able to write logs */
+	struct plugin *plugin;
 };
 
 static inline const struct sha256 payment_hash(const struct payment *p)
@@ -99,6 +102,7 @@ HTABLE_DEFINE_TYPE(struct payment, payment_hash, payment_hash64,
 
 struct payment *payment_new(
 	const tal_t *ctx,
+	struct plugin *plugin,
 	const struct sha256 *payment_hash,
 	const char *invstr TAKES,
 	const char *label TAKES,
