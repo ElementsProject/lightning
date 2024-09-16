@@ -381,7 +381,6 @@ static void gossmod_add_unknown_localchan(struct gossmap_localmods *mods,
 			      buf, chantok, gossmap);
 }
 
-/* FIXME: We don't need this listpeerchannels at all if not deprecated! */
 static struct command_result *listpeerchannels_done(struct command *cmd,
 					     const char *buf,
 					     const jsmntok_t *result,
@@ -472,9 +471,18 @@ static struct command_result *json_listchannels(struct command *cmd,
 				    "Can only specify one of "
 				    "`short_channel_id`, "
 				    "`source` or `destination`");
-	req = jsonrpc_request_start(cmd->plugin, cmd, "listpeerchannels",
+
+	// FIXME: Once this deprecation is removed, `listpeerchannels_done` can
+	// be embedded in the current function.
+	if (command_deprecated_out_ok(cmd, "include_private", "v24.02", "v24.08")) {
+		req = jsonrpc_request_start(cmd->plugin, cmd, "listpeerchannels",
 				    listpeerchannels_done, forward_error, opts);
-	return send_outreq(cmd->plugin, req);
+		return send_outreq(cmd->plugin, req);
+	}
+
+	// If deprecations are not necessary, call listpeerchannels_done directly,
+	// the output will not be used there.
+	return listpeerchannels_done(cmd, NULL, NULL, opts);
 }
 
 static void json_add_node(struct json_stream *js,
