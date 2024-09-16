@@ -3,9 +3,10 @@ use cln_grpc::pb::node_server::NodeServer;
 use cln_plugin::{options, Builder, Plugin};
 use cln_rpc::notifications::Notification;
 use log::{debug, warn};
-use router::GrpcRouterConfig;
+use router::{GrpcRouterConfig, GrpcRouterScheme};
 use std::path::PathBuf;
 use tokio::sync::broadcast;
+use tonic::transport::ServerTlsConfig;
 
 mod router;
 mod tls;
@@ -13,16 +14,22 @@ mod tls;
 #[derive(Clone, Debug)]
 struct PluginState {
     rpc_path: PathBuf,
-    identity: tls::Identity,
-    ca_cert: Vec<u8>,
     events: broadcast::Sender<cln_rpc::notifications::Notification>,
 }
 
-const OPTION_GRPC_PORT: options::DefaultIntegerConfigOption = options::ConfigOption::new_i64_with_default(
-    "grpc-port",
-    9736,
-    "Which port should the grpc plugin listen for incoming connections?"
-);
+const OPTION_GRPC_SCHEME: options::DefaultStringConfigOption =
+    options::ConfigOption::new_str_with_default(
+        "grpc-scheme",
+        "https",
+        "The scheme used by the gprc-plugin. Either 'http' or 'https'",
+    );
+
+const OPTION_GRPC_PORT: options::DefaultIntegerConfigOption =
+    options::ConfigOption::new_i64_with_default(
+        "grpc-port",
+        9736,
+        "Which port should the grpc plugin listen for incoming connections?"
+    );
 
 const OPTION_GRPC_HOST: options::DefaultStringConfigOption = options::ConfigOption::new_str_with_default(
     "grpc-host",
@@ -39,9 +46,8 @@ const OPTION_GRPC_MSG_BUFFER_SIZE : options::DefaultIntegerConfigOption = option
 async fn main() -> Result<()> {
     debug!("Starting grpc plugin");
 
-    let directory = std::env::current_dir()?;
-
     let plugin = match Builder::new(tokio::io::stdin(), tokio::io::stdout())
+        .option(OPTION_GRPC_SCHEME)
         .option(OPTION_GRPC_PORT)
         .option(OPTION_GRPC_HOST)
         .option(OPTION_GRPC_MSG_BUFFER_SIZE)
@@ -88,12 +94,8 @@ async fn main() -> Result<()> {
 
     let (sender, _) = broadcast::channel(buffer_size);
 
-    let (identity, ca_cert) = tls::init(&directory)?;
-
     let state = PluginState {
         rpc_path: PathBuf::from(plugin.configuration().rpc_file.as_str()),
-        identity,
-        ca_cert,
         events: sender,
     };
 
@@ -113,31 +115,47 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn run_interface(router_config: GrpcRouterConfig, state: PluginState) -> Result<()> {
-    let bind_addr = router_config.socket_addr();
-    let identity = state.identity.to_tonic_identity();
-    let ca_cert = tonic::transport::Certificate::from_pem(state.ca_cert);
+fn create_server_tls_config() -> anyhow::Result<ServerTlsConfig> {
+    let directory = std::env::current_dir()?;
+    let (identity, ca_cert) = tls::init(&directory)?;
+
+    let identity = identity.to_tonic_identity();
+    let ca_cert = tonic::transport::Certificate::from_pem(ca_cert);
 
     let tls = tonic::transport::ServerTlsConfig::new()
         .identity(identity)
         .client_ca_root(ca_cert);
 
-    let server = tonic::transport::Server::builder()
-        .tls_config(tls)
-        .context("configuring tls")?
+    return Ok(tls);
+}
+
+async fn run_interface(router_config: GrpcRouterConfig, state: PluginState) -> Result<()> {
+    let bind_addr = router_config.socket_addr();
+
+    let mut server = match router_config.scheme {
+        GrpcRouterScheme::HTTP => tonic::transport::Server::builder(),
+        GrpcRouterScheme::HTTPS => {
+            let server_tls_config = create_server_tls_config()?;
+            tonic::transport::Server::builder()
+                .tls_config(server_tls_config)
+                .context("Configuring tls")?
+        }
+    };
+
+    let svc_handle = server
         .add_service(NodeServer::new(
             cln_grpc::Server::new(&state.rpc_path, state.events.clone())
                 .await
                 .context("creating NodeServer instance")?,
         ))
-        .serve(bind_addr);
+        .serve(router_config.socket_addr());
 
     debug!(
         "Connecting to {:?} and serving grpc on {:?}",
         &state.rpc_path, &bind_addr
     );
 
-    server.await.context("serving requests")?;
+    svc_handle.await.context("serving requests")?;
 
     Ok(())
 }
