@@ -118,6 +118,18 @@ def test_grpc_connect_http(node_factory):
     print(response)
 
 
+def test_grpc_connection_refuses_non_loopback_address(node_factory):
+    grpc_port = node_factory.get_unused_port()
+    options = {
+        "grpc-port": str(grpc_port),
+        "grpc-scheme": "http",
+        "grpc-ip-address": "0.0.0.0"
+    }
+
+    l1 = node_factory.get_node(options=options)
+    assert l1.daemon.is_in_log(r'Scheme \'http\' is only allowed on a loopback address')
+
+
 def test_grpc_connect(node_factory):
     """Attempts to connect to the grpc interface and call getinfo"""
     # These only exist if we have rust!
