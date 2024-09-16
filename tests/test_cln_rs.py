@@ -104,6 +104,20 @@ def test_plugin_options_handle_defaults(node_factory):
     assert opts["multi-i64-option-default"] == [-42]
 
 
+def test_grpc_connect_http(node_factory):
+    """Attempts to connect to the grpc interface and call getinfo over http"""
+    grpc_port = node_factory.get_unused_port()
+    l1 = node_factory.get_node(options={"grpc-port": str(grpc_port), "grpc-scheme": "http"})
+
+    wait_for_grpc_start(l1)
+
+    channel = grpc.insecure_channel(f"localhost:{grpc_port}")
+    stub = clnpb.NodeStub(channel)
+
+    response = stub.Getinfo(clnpb.GetinfoRequest())
+    print(response)
+
+
 def test_grpc_connect(node_factory):
     """Attempts to connect to the grpc interface and call getinfo"""
     # These only exist if we have rust!

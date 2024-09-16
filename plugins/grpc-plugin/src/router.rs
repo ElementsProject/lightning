@@ -70,7 +70,7 @@ impl GrpcRouterConfig {
         })?;
 
         if GrpcRouterScheme::HTTP == scheme && !ip.is_loopback() {
-            anyhow::bail!("Invalid congig: Scheme 'http' is only allowed on a loopback address. Try setting {} to 127.0.0.1",
+            anyhow::bail!("Invalid config. Scheme 'http' is only allowed on a loopback address. Try setting {} to 127.0.0.1",
             OPTION_GRPC_IP.name());
         }
 
