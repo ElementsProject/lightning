@@ -1,6 +1,7 @@
 #include "config.h"
 #include <bitcoin/preimage.h>
 #include <bitcoin/privkey.h>
+#include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <common/json_stream.h>
@@ -117,6 +118,17 @@ struct payment *payment_new(
 	p->waitresult_timer = NULL;
 
 	p->routetracker = new_routetracker(p, p);
+
+	/* The name of our private layer is just the payment hash in hex. */
+	/* FIXME: we need a way to tell askrene to remove obsolete layers */
+	const size_t bytelen = sizeof(pinfo->payment_hash);
+	const size_t hexlen = hex_str_size(bytelen);
+	p->private_layer = tal_arr(p, char, hexlen);
+
+	if (!hex_encode(&pinfo->payment_hash, bytelen, p->private_layer,
+			hexlen))
+		return tal_free(p);
+
 	return p;
 }
 

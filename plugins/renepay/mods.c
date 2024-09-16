@@ -367,122 +367,111 @@ REGISTER_PAYMENT_MODIFIER(refreshgossmap, refreshgossmap_cb);
  * Use route hints from the invoice to update the local gossmods and uncertainty
  * network.
  */
-// TODO check how this is done in pay.c
 
-static void add_hintchan(struct payment *payment, const struct node_id *src,
-			 const struct node_id *dst, u16 cltv_expiry_delta,
-			 const struct short_channel_id scid, u32 fee_base_msat,
-			 u32 fee_proportional_millionths)
+struct routehints_batch {
+	size_t num_elements;
+	struct payment *payment;
+};
+
+static struct command_result *add_one_hint_done(struct command *cmd,
+						const char *buf UNUSED,
+						const jsmntok_t *result UNUSED,
+						struct routehints_batch *batch)
 {
-	assert(payment);
-	assert(payment->local_gossmods);
+	assert(batch->num_elements);
+	assert(batch->payment);
+	batch->num_elements--;
 
-	int dir = node_id_idx(src, dst);
+	if (!batch->num_elements)
+		return payment_continue(batch->payment);
 
-	const char *errmsg;
-	const struct chan_extra *ce =
-	    uncertainty_find_channel(pay_plugin->uncertainty, scid);
-
-	if (!ce) {
-		/* This channel is not public, we don't know his capacity
-		 One possible solution is set the capacity to
-		 MAX_CAP and the state to [0,MAX_CAP]. Alternatively we could
-		 the capacity to amount and state to [amount,amount], but that
-		 wouldn't work if the recepient provides more than one hints
-		 telling us to partition the payment in multiple routes. */
-		ce = uncertainty_add_channel(pay_plugin->uncertainty, scid,
-					  MAX_CAPACITY);
-		if (!ce) {
-			errmsg = tal_fmt(tmpctx,
-					 "Unable to find/add scid=%s in the "
-					 "local uncertainty network",
-					 fmt_short_channel_id(tmpctx, scid));
-			goto function_error;
-		}
-		/* FIXME: features? */
-		if (!gossmap_local_addchan(payment->local_gossmods, src, dst,
-					   scid, NULL) ||
-		    !gossmap_local_updatechan(
-			payment->local_gossmods, scid,
-			/* We assume any HTLC is allowed */
-			AMOUNT_MSAT(0), MAX_CAPACITY, fee_base_msat,
-			fee_proportional_millionths, cltv_expiry_delta, true,
-			dir)) {
-			errmsg = tal_fmt(
-			    tmpctx,
-			    "Failed to update scid=%s in the local_gossmods.",
-			    fmt_short_channel_id(tmpctx, scid));
-			goto function_error;
-		}
-	} else {
-		/* The channel is pubic and we already keep track of it in the
-		 * gossmap and uncertainty network. It would be wrong to assume
-		 * that this channel has sufficient capacity to forward the
-		 * entire payment! Doing so leads to knowledge updates in which
-		 * the known min liquidity is greater than the channel's
-		 * capacity. */
-	}
-
-	return;
-
-function_error:
-	plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
-		   "Failed to update hint channel %s: %s",
-		   fmt_short_channel_id(tmpctx, scid),
-		   errmsg);
+	return command_still_pending(cmd);
 }
 
-static struct command_result *routehints_done(struct command *cmd UNUSED,
-					      const char *buf UNUSED,
-					      const jsmntok_t *result UNUSED,
-					      struct payment *payment)
+static struct command_result *
+add_one_hint_failed(struct command *cmd, const char *buf,
+		    const jsmntok_t *result, struct routehints_batch *batch)
 {
-	// FIXME are there route hints for B12?
-	assert(payment);
-	assert(payment->local_gossmods);
-
-	const struct node_id *destination = &payment->payment_info.destination;
-	const struct route_info **routehints = payment->payment_info.routehints;
-	assert(routehints);
-	const size_t nhints = tal_count(routehints);
-	/* Hints are added to the local_gossmods. */
-	for (size_t i = 0; i < nhints; i++) {
-		/* Each one, presumably, leads to the destination */
-		const struct route_info *r = routehints[i];
-		const struct node_id *end = destination;
-
-		for (int j = tal_count(r) - 1; j >= 0; j--) {
-			add_hintchan(payment, &r[j].pubkey, end,
-				     r[j].cltv_expiry_delta,
-				     r[j].short_channel_id, r[j].fee_base_msat,
-				     r[j].fee_proportional_millionths);
-			end = &r[j].pubkey;
-		}
-	}
-
-	/* Add hints to the uncertainty network. */
-	gossmap_apply_localmods(pay_plugin->gossmap, payment->local_gossmods);
-	int skipped_count =
-	    uncertainty_update(pay_plugin->uncertainty, pay_plugin->gossmap);
-	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
-	if (skipped_count)
-		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
-			   "%s: uncertainty was updated but %d channels have "
-			   "been ignored.",
-			   __func__, skipped_count);
-
-	return payment_continue(payment);
+	plugin_log(cmd->plugin, LOG_UNUSUAL,
+		   "failed to create channel hint: %.*s",
+		   json_tok_full_len(result), json_tok_full(buf, result));
+	return add_one_hint_done(cmd, buf, result, batch);
 }
 
 static struct command_result *routehints_cb(struct payment *payment)
 {
 	struct command *cmd = payment_command(payment);
 	assert(cmd);
-	struct out_req *req = jsonrpc_request_start(
-	    cmd->plugin, cmd, "waitblockheight", routehints_done,
-	    payment_rpc_failure, payment);
-	json_add_num(req->js, "blockheight", 0);
-	return send_outreq(cmd->plugin, req);
+
+	/* For each channel hint, if not in gossmap make a request to
+	 * askrene-create-channel
+	 * */
+	size_t num_channel_updates_rejected = 0;
+	bool gossmap_changed =
+	    gossmap_refresh(pay_plugin->gossmap, &num_channel_updates_rejected);
+	if (gossmap_changed && num_channel_updates_rejected)
+		plugin_log(pay_plugin->plugin, LOG_DBG,
+			   "gossmap ignored %zu channel updates",
+			   num_channel_updates_rejected);
+
+	const struct route_info **routehints = payment->payment_info.routehints;
+	if (!routehints)
+		return payment_continue(payment);
+
+	const struct node_id *destination = &payment->payment_info.destination;
+	const size_t nhints = tal_count(routehints);
+	struct routehints_batch *batch = tal(cmd, struct routehints_batch);
+	batch->num_elements = 0;
+	batch->payment = payment;
+
+	for (size_t i = 0; i < nhints; i++) {
+		/* Each one, presumably, leads to the destination */
+		const struct route_info *r = routehints[i];
+		const struct node_id *end = destination;
+
+		for (int j = tal_count(r) - 1; j >= 0; j--) {
+			struct gossmap_chan *chan = gossmap_find_chan(
+			    pay_plugin->gossmap, &r[j].short_channel_id);
+
+			if (chan)
+				/* this channel is public, don't add a hint */
+				continue;
+
+			/* FIXME: what if the channel is local? can askrene
+			 * handle trying to add the same channel twice? */
+
+			struct out_req *req = jsonrpc_request_start(
+			    cmd->plugin, cmd, "askrene-create-channel",
+			    add_one_hint_done, add_one_hint_failed, batch);
+
+			// FIXME: initialize a name for private_layer
+			json_add_string(req->js, "layer",
+					payment->private_layer);
+			json_add_node_id(req->js, "source", &r[j].pubkey);
+			json_add_node_id(req->js, "destination", end);
+			json_add_short_channel_id(req->js, "short_channel_id",
+						  r[j].short_channel_id);
+			json_add_u32(req->js, "fee_base_msat",
+				     r[j].fee_base_msat);
+			json_add_u32(req->js, "fee_proportional_millionths",
+				     r[j].fee_proportional_millionths);
+			json_add_u32(req->js, "delay", r[j].cltv_expiry_delta);
+
+			/* we don't have this information, we try to guess */
+			json_add_amount_msat(req->js, "htlc_minimum_msat",
+					     AMOUNT_MSAT(0));
+			json_add_amount_msat(req->js, "htlc_maximum_msat",
+					     MAX_CAPACITY);
+			json_add_amount_msat(req->js, "capacity_msat",
+					     MAX_CAPACITY);
+
+			send_outreq(cmd->plugin, req);
+
+			batch->num_elements++;
+			end = &r[j].pubkey;
+		}
+	}
+	return command_still_pending(cmd);
 }
 
 REGISTER_PAYMENT_MODIFIER(routehints, routehints_cb);
@@ -642,6 +631,7 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 	json_add_string(req->js, NULL, "auto.sourcefree");
 	json_add_string(req->js, NULL, "auto.localchans");
 	json_add_string(req->js, NULL, RENEPAY_LAYER);
+	json_add_string(req->js, NULL, payment->private_layer);
 	json_array_end(req->js);
 	json_add_amount_msat(req->js, "maxfee_msat", feebudget);
 	json_add_u32(req->js, "final_cltv", payment->payment_info.final_cltv);

@@ -6,15 +6,6 @@
 #include <plugins/renepay/chan_extra.h>
 #include <plugins/renepay/route.h>
 
-/* FIXME a hard coded constant to indicate a limit on any channel
- capacity. Channels for which the capacity is unknown (because they are not
- announced) use this value. It makes sense, because if we don't even know the
- channel capacity the liquidity could be anything but it will never be greater
- than the global number of msats.
- It remains to be checked if this value does not lead to overflow somewhere in
- the code. */
-#define MAX_CAPACITY (AMOUNT_MSAT(21000000 * MSAT_PER_BTC))
-
 struct uncertainty {
 	struct chan_extra_map *chan_extra_map;
 };
