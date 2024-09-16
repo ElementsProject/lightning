@@ -528,6 +528,25 @@ jobs:
           cat config.vars
           VALGRIND=0 poetry run pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
 
+  check-flake:
+    name: Check Nix Flake
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+      - name: Check Nix flake inputs
+        uses: DeterminateSystems/flake-checker-action@v8
+      - name: Install Nix
+        uses: cachix/install-nix-action@V27
+        with:
+          nix_path: nixpkgs=channel:nixos-24.05
+      - name: Check flake
+        run: nix flake check .?submodules=1#
+
   gather:
     # A dummy task that depends on the full matrix of tests, and
     # signals successful completion. Used for the PR status to pass
@@ -540,6 +559,7 @@ jobs:
       - integration-valgrind
       - integration-sanitizers
       - min-btc-support
+      - check-flake
     steps:
       - name: Complete
         run: |
