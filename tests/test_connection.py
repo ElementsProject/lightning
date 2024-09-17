@@ -4492,10 +4492,15 @@ def test_reconnect_no_additional_transient_failure(node_factory, bitcoind):
     assert not l1.daemon.is_in_log(f"{l2id}-chan#1: Peer transient failure in CHANNELD_NORMAL: Disconnected", start=offset1)
 
 
-def test_offline_fd_check(node_factory):
+@pytest.mark.xfail(strict=True)
+def test_offline(node_factory):
     # if get_node starts it, it'll expect an address, so do it manually.
     l1 = node_factory.get_node(options={"offline": None}, start=False)
     l1.daemon.start()
+
+    # we expect it to log offline mode an not to create any listener
+    assert l1.daemon.is_in_log("Started in offline mode!")
+    assert not l1.daemon.is_in_log("connectd: Created listener on")
 
 
 def test_last_stable_connection(node_factory):
