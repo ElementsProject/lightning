@@ -300,7 +300,6 @@ def test_plugin_command(node_factory):
     n.rpc.stop()
 
 
-@pytest.mark.xfail(strict=True)
 def test_plugin_fail_on_startup(node_factory):
     for crash in ('during_init', 'before_start', 'during_getmanifest'):
         os.environ['BROKEN_CRASH'] = crash

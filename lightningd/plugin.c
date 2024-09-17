@@ -875,14 +875,24 @@ static struct io_plan *plugin_write_json(struct io_conn *conn,
 /* This catches the case where their stdout closes (usually they're dead). */
 static void plugin_conn_finish(struct io_conn *conn, struct plugin *plugin)
 {
-	struct db *db = plugin->plugins->ld->wallet->db;
-	db_begin_transaction(db);
+	struct db *db;
+
+	/* If they die during startup (plugins_init) wallet is NULL
+	 * (but there are also no plugin commands to kill, so nothing
+	 * would ever try to access db */
+	if (plugin->plugins->ld->wallet) {
+		db = plugin->plugins->ld->wallet->db;
+		db_begin_transaction(db);
+	} else
+		db = NULL;
+
 	/* This is expected at shutdown of course. */
 	plugin_kill(plugin,
 		    plugin->plugins->ld->state == LD_STATE_SHUTDOWN
 		    ? LOG_DBG : LOG_INFORM,
 		    "exited %s", state_desc(plugin));
-	db_commit_transaction(db);
+	if (db)
+		db_commit_transaction(db);
 }
 
 struct io_plan *plugin_stdin_conn_init(struct io_conn *conn,
