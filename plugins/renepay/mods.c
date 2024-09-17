@@ -430,7 +430,6 @@ static struct command_result *routehints_cb(struct payment *payment)
 			    cmd->plugin, cmd, "askrene-create-channel",
 			    add_one_hint_done, add_one_hint_failed, batch);
 
-			// FIXME: initialize a name for private_layer
 			json_add_string(req->js, "layer",
 					payment->private_layer);
 			json_add_node_id(req->js, "source", &r[j].pubkey);
@@ -1031,15 +1030,44 @@ REGISTER_PAYMENT_MODIFIER(knowledgerelax, knowledgerelax_cb);
  * FIXME: shall we set these threshold parameters as plugin options?
  */
 
+struct channelfilter_batch {
+	size_t num_requests;
+	struct payment *payment;
+};
+
+static struct command_result *
+one_channelfilter_done(struct command *cmd, const char *buf UNUSED,
+		       const jsmntok_t *result UNUSED,
+		       struct channelfilter_batch *batch)
+{
+	assert(batch->num_requests);
+	assert(batch->payment);
+	batch->num_requests--;
+
+	if (!batch->num_requests)
+		return payment_continue(batch->payment);
+
+	return command_still_pending(cmd);
+}
+
+static struct command_result *
+one_channelfilter_failed(struct command *cmd, const char *buf,
+			 const jsmntok_t *result,
+			 struct channelfilter_batch *batch)
+{
+	plugin_log(cmd->plugin, LOG_UNUSUAL, "failed to disable channel: %.*s",
+		   json_tok_full_len(result), json_tok_full(buf, result));
+	return one_channelfilter_done(cmd, buf, result, batch);
+}
+
 static struct command_result *channelfilter_cb(struct payment *payment)
 {
 	assert(payment);
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
 	assert(pay_plugin->gossmap);
 	const double HTLC_MAX_FRACTION = 0.01; // 1%
 	const u64 HTLC_MAX_STOP_MSAT = 1000000000; // 1M sats
-
-	u64 disabled_count = 0;
-
 
 	u64 htlc_max_threshold = HTLC_MAX_FRACTION * payment->payment_info
 		.amount.millisatoshis; /* Raw: a fraction of this amount. */
@@ -1047,8 +1075,11 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 	 * that represents a fraction of the payment smaller than
 	 * HTLC_MAX_FRACTION. */
 	htlc_max_threshold = MIN(htlc_max_threshold, HTLC_MAX_STOP_MSAT);
+	
+	struct channelfilter_batch *batch = tal(cmd, struct channelfilter_batch);
+	batch->num_requests = 0;
+	batch->payment = payment;
 
-	gossmap_apply_localmods(pay_plugin->gossmap, payment->local_gossmods);
 	for (const struct gossmap_node *node =
 		 gossmap_first_node(pay_plugin->gossmap);
 	     node; node = gossmap_next_node(pay_plugin->gossmap, node)) {
@@ -1063,18 +1094,36 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 				    .scid = gossmap_chan_scid(
 					pay_plugin->gossmap, chan),
 				    .dir = dir};
-				disabledmap_add_channel(payment->disabledmap,
-							scidd);
-				disabled_count++;
+
+				/* FIXME: there is no askrene-disable-channel,
+				 * we will fake its disabling by setting its
+				 * liquidity to 0  */
+				struct out_req *req = jsonrpc_request_start(
+				    cmd->plugin, cmd, "askrene-inform-channel",
+				    one_channelfilter_done,
+				    one_channelfilter_failed, batch);
+
+				/* This constraint only applies to this payment
+				 */
+				json_add_string(req->js, "layer",
+						payment->private_layer);
+				json_add_short_channel_id(
+				    req->js, "short_channel_id", scidd.scid);
+				json_add_num(req->js, "direction", scidd.dir);
+				json_add_amount_msat(req->js, "maximum_msat",
+						     AMOUNT_MSAT(0));
+				send_outreq(cmd->plugin, req);
+
+				batch->num_requests++;
 			}
 		}
 	}
-	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
+
 	// FIXME: prune the network over other parameters, eg. capacity,
 	// fees, ...
 	plugin_log(pay_plugin->plugin, LOG_DBG,
 		   "channelfilter: disabling %" PRIu64 " channels.",
-		   disabled_count);
+		   batch->num_requests);
 	return payment_continue(payment);
 }
 
