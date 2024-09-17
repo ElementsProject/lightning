@@ -300,6 +300,19 @@ def test_plugin_command(node_factory):
     n.rpc.stop()
 
 
+@pytest.mark.xfail(strict=True)
+def test_plugin_fail_on_startup(node_factory):
+    for crash in ('during_init', 'before_start', 'during_getmanifest'):
+        os.environ['BROKEN_CRASH'] = crash
+        n = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(), "tests/plugins/broken.py")})
+        # This can happen before 'Server started with public key' msg
+        n.daemon.logsearch_start = 0
+        n.daemon.wait_for_log('plugin-broken.py: Traceback')
+
+    # Make sure they don't die *after* the message!
+    time.sleep(30)
+
+
 def test_plugin_disable(node_factory):
     """--disable-plugin works"""
     plugin_dir = os.path.join(os.getcwd(), 'contrib/plugins')
