@@ -445,6 +445,20 @@ def test_pay_plugin(node_factory):
     assert only_one(l1.rpc.help('pay')['help'])['command'] == msg
 
 
+def test_keysend_plugin(node_factory):
+    l1, l2 = node_factory.line_graph(2)
+
+    with pytest.raises(RpcError, match=r'missing required parameter'):
+        l1.rpc.call('keysend')
+
+    # Make sure usage messages are present.
+    msg = 'keysend destination amount_msat [label] [maxfeepercent] [retry_for] '\
+          '[maxdelay] [exemptfee] [extratlvs] [routehints] [maxfee]'
+    # We run with --developer:
+    msg += ' [dev_use_shadow]'
+    assert only_one(l1.rpc.help('keysend')['help'])['command'] == msg
+
+
 def test_plugin_connected_hook_chaining(node_factory):
     """ l1 uses the logger_a, reject and logger_b plugin.
 

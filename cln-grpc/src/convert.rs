@@ -4473,6 +4473,7 @@ impl From<requests::KeysendRequest> for pb::KeysendRequest {
             extratlvs: c.extratlvs.map(|s| s.into()), // Rule #2 for type TlvStream?
             label: c.label, // Rule #2 for type string?
             maxdelay: c.maxdelay, // Rule #2 for type u32?
+            maxfee: c.maxfee.map(|f| f.into()), // Rule #2 for type msat?
             maxfeepercent: c.maxfeepercent, // Rule #2 for type number?
             retry_for: c.retry_for, // Rule #2 for type u32?
             routehints: c.routehints.map(|rl| rl.into()), // Rule #2 for type RoutehintList?
@@ -5857,6 +5858,7 @@ impl From<pb::KeysendRequest> for requests::KeysendRequest {
             extratlvs: c.extratlvs.map(|s| s.into()), // Rule #1 for type TlvStream?
             label: c.label, // Rule #1 for type string?
             maxdelay: c.maxdelay, // Rule #1 for type u32?
+            maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
             maxfeepercent: c.maxfeepercent, // Rule #1 for type number?
             retry_for: c.retry_for, // Rule #1 for type u32?
             routehints: c.routehints.map(|rl| rl.into()), // Rule #1 for type RoutehintList?
