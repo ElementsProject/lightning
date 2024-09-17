@@ -25,6 +25,14 @@ void *payment_virtual_program[];
 /* Advance the payment virtual machine */
 struct command_result *payment_continue(struct payment *payment)
 {
+	struct command *cmd = payment_command(payment);
+
+	/* Do not advance until we complete those pending RPC calls.
+	 * If each RPC call was an execution thread this line here would wait
+	 * for all threads to arrive to this point. */
+	if (payment->pending_rpcs > 0)
+		return command_still_pending(cmd);
+
 	assert(payment->exec_state != INVALID_STATE);
 	void *op = payment_virtual_program[payment->exec_state++];
 
@@ -354,34 +362,26 @@ REGISTER_PAYMENT_MODIFIER(refreshgossmap, refreshgossmap_cb);
  * network.
  */
 
-struct routehints_batch {
-	size_t num_elements;
-	struct payment *payment;
-};
-
-static struct command_result *add_one_hint_done(struct command *cmd,
+static struct command_result *askrene_hint_done(struct command *cmd,
 						const char *buf UNUSED,
 						const jsmntok_t *result UNUSED,
-						struct routehints_batch *batch)
+						struct payment *payment)
 {
-	assert(batch->num_elements);
-	assert(batch->payment);
-	batch->num_elements--;
-
-	if (!batch->num_elements)
-		return payment_continue(batch->payment);
-
-	return command_still_pending(cmd);
+	assert(payment->pending_rpcs > 0);
+	payment->pending_rpcs--;
+	return payment_continue(payment);
 }
 
-static struct command_result *
-add_one_hint_failed(struct command *cmd, const char *buf,
-		    const jsmntok_t *result, struct routehints_batch *batch)
+static struct command_result *askrene_hint_fail(struct command *cmd,
+						const char *buf,
+						const jsmntok_t *result,
+						struct payment *payment)
 {
-	plugin_log(cmd->plugin, LOG_UNUSUAL,
-		   "failed to create channel hint: %.*s",
-		   json_tok_full_len(result), json_tok_full(buf, result));
-	return add_one_hint_done(cmd, buf, result, batch);
+	plugin_log(
+	    cmd->plugin, LOG_UNUSUAL,
+	    "failed to add channel hint with askrene-create-channel: %.*s",
+	    json_tok_full_len(result), json_tok_full(buf, result));
+	return askrene_hint_done(cmd, buf, result, payment);
 }
 
 static struct command_result *routehints_cb(struct payment *payment)
@@ -406,9 +406,6 @@ static struct command_result *routehints_cb(struct payment *payment)
 
 	const struct node_id *destination = &payment->payment_info.destination;
 	const size_t nhints = tal_count(routehints);
-	struct routehints_batch *batch = tal(cmd, struct routehints_batch);
-	batch->num_elements = 0;
-	batch->payment = payment;
 
 	for (size_t i = 0; i < nhints; i++) {
 		/* Each one, presumably, leads to the destination */
@@ -428,7 +425,7 @@ static struct command_result *routehints_cb(struct payment *payment)
 
 			struct out_req *req = jsonrpc_request_start(
 			    cmd->plugin, cmd, "askrene-create-channel",
-			    add_one_hint_done, add_one_hint_failed, batch);
+			    askrene_hint_done, askrene_hint_fail, payment);
 
 			json_add_string(req->js, "layer",
 					payment->private_layer);
@@ -451,8 +448,8 @@ static struct command_result *routehints_cb(struct payment *payment)
 					     MAX_CAPACITY);
 
 			send_outreq(cmd->plugin, req);
+			payment->pending_rpcs++;
 
-			batch->num_elements++;
 			end = &r[j].pubkey;
 		}
 	}
@@ -464,7 +461,7 @@ REGISTER_PAYMENT_MODIFIER(routehints, routehints_cb);
 /*****************************************************************************
  * compute_routes
  *
- * Compute the payment routes.
+ * Get the payment routes calling (askrene)getroutes.
  */
 
 static bool json_to_myroute(const char *buf, const jsmntok_t *tok,
@@ -1001,6 +998,7 @@ static struct command_result *knowledgerelax_cb(struct payment *payment)
 	struct command *cmd = payment_command(payment);
 	assert(cmd);
 
+	// FIXME: should relax other layers too?
 	struct out_req *req = jsonrpc_request_start(
 	    cmd->plugin, cmd, "askrene-age", askreneage_success,
 	    payment_rpc_failure, payment);
@@ -1030,34 +1028,24 @@ REGISTER_PAYMENT_MODIFIER(knowledgerelax, knowledgerelax_cb);
  * FIXME: shall we set these threshold parameters as plugin options?
  */
 
-struct channelfilter_batch {
-	size_t num_requests;
-	struct payment *payment;
-};
-
 static struct command_result *
-one_channelfilter_done(struct command *cmd, const char *buf UNUSED,
-		       const jsmntok_t *result UNUSED,
-		       struct channelfilter_batch *batch)
+askrene_filter_done(struct command *cmd, const char *buf UNUSED,
+		    const jsmntok_t *result UNUSED, struct payment *payment)
 {
-	assert(batch->num_requests);
-	assert(batch->payment);
-	batch->num_requests--;
-
-	if (!batch->num_requests)
-		return payment_continue(batch->payment);
-
-	return command_still_pending(cmd);
+	assert(payment->pending_rpcs > 0);
+	payment->pending_rpcs--;
+	return payment_continue(payment);
 }
 
-static struct command_result *
-one_channelfilter_failed(struct command *cmd, const char *buf,
-			 const jsmntok_t *result,
-			 struct channelfilter_batch *batch)
+static struct command_result *askrene_filter_fail(struct command *cmd,
+						  const char *buf,
+						  const jsmntok_t *result,
+						  struct payment *payment)
 {
-	plugin_log(cmd->plugin, LOG_UNUSUAL, "failed to disable channel: %.*s",
+	plugin_log(cmd->plugin, LOG_UNUSUAL,
+		   "failed to filter channel with askrene-inform-channel: %.*s",
 		   json_tok_full_len(result), json_tok_full(buf, result));
-	return one_channelfilter_done(cmd, buf, result, batch);
+	return askrene_filter_done(cmd, buf, result, payment);
 }
 
 static struct command_result *channelfilter_cb(struct payment *payment)
@@ -1082,12 +1070,7 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 	htlc_max_threshold =
 	    amount_msat_min(htlc_max_threshold, HTLC_MAX_STOP_MSAT);
 
-	struct channelfilter_batch *batch =
-	    tal(cmd, struct channelfilter_batch);
-	assert(batch);
-	batch->num_requests = 0;
-	batch->payment = payment;
-
+	u64 num_disabled = 0;
 	for (const struct gossmap_node *node =
 		 gossmap_first_node(pay_plugin->gossmap);
 	     node; node = gossmap_next_node(pay_plugin->gossmap, node)) {
@@ -1107,8 +1090,8 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 				 * liquidity to 0  */
 				struct out_req *req = jsonrpc_request_start(
 				    cmd->plugin, cmd, "askrene-inform-channel",
-				    one_channelfilter_done,
-				    one_channelfilter_failed, batch);
+				    askrene_filter_done, askrene_filter_fail,
+				    payment);
 
 				/* This constraint only applies to this payment
 				 */
@@ -1121,7 +1104,8 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 						     AMOUNT_MSAT(0));
 				send_outreq(cmd->plugin, req);
 
-				batch->num_requests++;
+				payment->pending_rpcs++;
+				num_disabled++;
 			}
 		}
 	}
@@ -1130,7 +1114,7 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 	// fees, ...
 	plugin_log(pay_plugin->plugin, LOG_DBG,
 		   "channelfilter: disabling %" PRIu64 " channels.",
-		   batch->num_requests);
+		   num_disabled);
 	return payment_continue(payment);
 }
 

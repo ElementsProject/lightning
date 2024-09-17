@@ -100,6 +100,7 @@ struct payment *payment_new(
 
 	/* === Hidden State === */
 	p->exec_state = INVALID_STATE;
+	p->pending_rpcs = 0;
 	p->next_partid = 1;
 	p->cmd_array = tal_arr(p, struct command *, 0);
 	p->local_gossmods = NULL;
@@ -136,6 +137,7 @@ struct payment *payment_new(
 static void payment_cleanup(struct payment *p)
 {
 	p->exec_state = INVALID_STATE;
+	p->pending_rpcs = 0;
 	tal_resize(&p->cmd_array, 0);
 	p->local_gossmods = tal_free(p->local_gossmods);
 
@@ -206,6 +208,7 @@ bool payment_update(
 
 	/* === Hidden State === */
 	p->exec_state = INVALID_STATE;
+	p->pending_rpcs = 0;
 	p->next_partid = 1;
 
 	/* I shouldn't be calling a payment_update on a payment that has pending

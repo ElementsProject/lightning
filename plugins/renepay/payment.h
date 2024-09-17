@@ -47,6 +47,9 @@ struct payment {
 	/* Position in the payment virtual machine */
 	u64 exec_state;
 
+	/* Number of pending RPCs responses before we move to the next state. */
+	u32 pending_rpcs;
+
 	/* Used in get_payflows to set ids to each pay_flow. */
 	u64 next_partid;
 

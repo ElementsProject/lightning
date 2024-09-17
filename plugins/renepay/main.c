@@ -157,6 +157,7 @@ static struct command_result * payment_start(struct payment *p)
 	p->status = PAYMENT_PENDING;
 	plugin_log(pay_plugin->plugin, LOG_DBG, "Starting renepay");
 	p->exec_state = 0;
+	p->pending_rpcs = 0;
 	return payment_continue(p);
 }
 
