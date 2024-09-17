@@ -6,29 +6,36 @@ on:
   schedule:
     - cron: "0 3 * * *"
 jobs:
-  ubuntu-noble:
-    name: Ubuntu Noble Repro build
+  ubuntu:
+    name: "Ubuntu repro build: ${{ matrix.version }}"
     runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false    # Let each build finish.
+      matrix:
+        version: ['focal', 'jammy', 'noble']
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
 
       - name: Build environment setup
         run: |
-          echo "Building base image for noble"
-          docker run --rm -v $(pwd):/build ubuntu:noble bash -c "apt-get update && apt-get install -y debootstrap && debootstrap noble /build/noble"
-          tar -C noble -c . | docker import - noble
+          echo "Building base image for ${{ matrix.version }}"
+          sudo docker run --rm -v $(pwd):/build ubuntu:${{ matrix.version }} bash -c "\
+              apt-get update && \
+              apt-get install -y debootstrap && \
+              debootstrap ${{ matrix.version }} /build/${{ matrix.version }}"
+          sudo tar -C ${{ matrix.version }} -c . | docker import - ${{ matrix.version }}
 
       - name: Builder image setup
-        run: docker build -t cl-repro-noble - < contrib/reprobuild/Dockerfile.noble
+        run: docker build -t cl-repro-${{ matrix.version }} - < contrib/reprobuild/Dockerfile.${{ matrix.version }}
 
-      - name: Create release directory
-        run: mkdir $GITHUB_WORKSPACE/release
-
-      - name: Build using the builder image, storing version and Git state
+      - name: Build using the builder image and store Git state
         run: |
+          # Create release directory.
+          mkdir $GITHUB_WORKSPACE/release
+
           # Perform the repro build.
-          docker run --name cl-build -v $GITHUB_WORKSPACE:/repo -e FORCE_MTIME=$(date +%F) -t cl-repro-noble
+          docker run --name cl-build -v $GITHUB_WORKSPACE:/repo -e FORCE_MTIME=$(date +%F) -t cl-repro-${{ matrix.version }}
 
           # Commit the image in order to inspect the build later.
           docker commit cl-build cl-release
@@ -41,8 +48,8 @@ jobs:
               git --no-pager status > /repo/release/git.log && \
               git --no-pager diff >> /repo/release/git.log"
 
-          # Change permissions on the release files for access by build environment.
-          docker run --rm -v $GITHUB_WORKSPACE:/repo -t cl-repro-noble chmod -R 777 /repo/release
+          # Change permissions on the release files for access by the runner environment.
+          sudo chown -R runner $GITHUB_WORKSPACE/release
 
       - name: Assert clean version and release
         run: |
