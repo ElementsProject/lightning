@@ -342,20 +342,6 @@ static struct command_result *refreshgossmap_cb(struct payment *payment)
 			   "gossmap ignored %zu channel updates",
 			   num_channel_updates_rejected);
 
-	if (gossmap_changed) {
-		gossmap_apply_localmods(pay_plugin->gossmap,
-					payment->local_gossmods);
-		int skipped_count = uncertainty_update(pay_plugin->uncertainty,
-						       pay_plugin->gossmap);
-		gossmap_remove_localmods(pay_plugin->gossmap,
-					 payment->local_gossmods);
-		if (skipped_count)
-			plugin_log(
-			    pay_plugin->plugin, LOG_UNUSUAL,
-			    "%s: uncertainty was updated but %d channels have "
-			    "been ignored.",
-			    __func__, skipped_count);
-	}
 	return payment_continue(payment);
 }
 
