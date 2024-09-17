@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [24.08.1] - 2024-09-16: "Steel Backed-up Channels"
+
+This hotfix release fixes few crash issues and some other bugs.
+
+### Fixed
+
+ - No longer crash if a plugin dies during lightningd startup. ([#7673])
+ - Fixed crash when starting channeld for older channel with no local alias. ([#7664])
+ - Will not crash for older pre-tlv peers where send_tlvs is NULL. ([#7650])
+ - Compilation will fail gracefully if `jq` is missing or an outdated version is detected. ([#7662])
+ - cln-plugin: Change default log level filter back to INFO ([#7668])
+ - Fixed intermittant bug where hsmd (particularly, but also lightningd) could use 100% CPU. ([#7661])
+ - Made `description` optional in `Wait(any)invoiceResponse` to handle BOLT12 ([#7667])
+ - Removed bogus "**BROKEN** plugin-topology: DEPRECATED API USED: listchannels.include_private" message. ([#7663])
+
+
+[#7673]: https://github.com/ElementsProject/lightning/pull/7673
+[#7668]: https://github.com/ElementsProject/lightning/pull/7668
+[#7667]: https://github.com/ElementsProject/lightning/pull/7667
+[#7664]: https://github.com/ElementsProject/lightning/pull/7664
+[#7663]: https://github.com/ElementsProject/lightning/pull/7663
+[#7662]: https://github.com/ElementsProject/lightning/pull/7662
+[#7661]: https://github.com/ElementsProject/lightning/pull/7661
+[#7650]: https://github.com/ElementsProject/lightning/pull/7650
+
+
 ## [24.08] - 2024-08-28: "Steel Backed-up Channels"
 
 This release named by @Lagrang3.
