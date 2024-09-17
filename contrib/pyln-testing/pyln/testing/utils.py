@@ -256,6 +256,14 @@ class TailableProc(object):
         self.proc.kill()
         self.proc.wait()
 
+    def cleanup_files(self):
+        """Ensure files are closed."""
+        for f in ["stdout_write", "stderr_write", "stdout_read", "stderr_read"]:
+            try:
+                getattr(self, f).close()
+            except Exception:
+                pass
+
     def logs_catchup(self):
         """Save the latest stdout / stderr contents; return true if we got anything.
         """
