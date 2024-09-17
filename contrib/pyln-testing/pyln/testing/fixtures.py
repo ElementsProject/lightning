@@ -164,6 +164,8 @@ def bitcoind(directory, teardown_checks):
         bitcoind.proc.kill()
     bitcoind.proc.wait()
 
+    bitcoind.cleanup_files()
+
 
 class TeardownErrors(object):
     def __init__(self):
