@@ -1196,15 +1196,14 @@ void *payment_virtual_program[] = {
     /* do */
 	    /*12*/ OP_CALL, &pendingsendpays_pay_mod,
 	    /*14*/ OP_CALL, &checktimeout_pay_mod,
-	    /*16*/ OP_CALL, &refreshgossmap_pay_mod,
-	    /*18*/ OP_CALL, &compute_routes_pay_mod,
-	    /*20*/ OP_CALL, &send_routes_pay_mod,
+	    /*16*/ OP_CALL, &compute_routes_pay_mod,
+	    /*18*/ OP_CALL, &send_routes_pay_mod,
 	    /*do*/
-		    /*22*/ OP_CALL, &sleep_pay_mod,
-		    /*24*/ OP_CALL, &collect_results_pay_mod,
+		    /*20*/ OP_CALL, &sleep_pay_mod,
+		    /*22*/ OP_CALL, &collect_results_pay_mod,
 	    /*while*/
-	    /*26*/ OP_IF, &nothaveresults_pay_cond, (void *)22,
+	    /*24*/ OP_IF, &nothaveresults_pay_cond, (void *)20,
     /* while */
-    /*29*/ OP_IF, &retry_pay_cond, (void *)12,
-    /*32*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
-    /*34*/ NULL};
+    /*27*/ OP_IF, &retry_pay_cond, (void *)12,
+    /*30*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
+    /*32*/ NULL};
