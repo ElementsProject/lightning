@@ -1067,16 +1067,24 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 	assert(cmd);
 	assert(pay_plugin->gossmap);
 	const double HTLC_MAX_FRACTION = 0.01; // 1%
-	const u64 HTLC_MAX_STOP_MSAT = 1000000000; // 1M sats
+	const struct amount_msat HTLC_MAX_STOP_MSAT =
+	    AMOUNT_MSAT(1000000000); // 1M sats
+	struct amount_msat htlc_max_threshold;
 
-	u64 htlc_max_threshold = HTLC_MAX_FRACTION * payment->payment_info
-		.amount.millisatoshis; /* Raw: a fraction of this amount. */
+	if (!amount_msat_scale(&htlc_max_threshold,
+			       payment->payment_info.amount, HTLC_MAX_FRACTION))
+		plugin_err(cmd->plugin, "%s: error scaling amount_msat",
+			   __func__);
+
 	/* Don't exclude channels with htlc_max above HTLC_MAX_STOP_MSAT even if
 	 * that represents a fraction of the payment smaller than
 	 * HTLC_MAX_FRACTION. */
-	htlc_max_threshold = MIN(htlc_max_threshold, HTLC_MAX_STOP_MSAT);
-	
-	struct channelfilter_batch *batch = tal(cmd, struct channelfilter_batch);
+	htlc_max_threshold =
+	    amount_msat_min(htlc_max_threshold, HTLC_MAX_STOP_MSAT);
+
+	struct channelfilter_batch *batch =
+	    tal(cmd, struct channelfilter_batch);
+	assert(batch);
 	batch->num_requests = 0;
 	batch->payment = payment;
 
@@ -1087,9 +1095,8 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 			int dir;
 			const struct gossmap_chan *chan = gossmap_nth_chan(
 			    pay_plugin->gossmap, node, i, &dir);
-			const u64 htlc_max =
-			    fp16_to_u64(chan->half[dir].htlc_max);
-			if (htlc_max < htlc_max_threshold) {
+			if (amount_msat_greater_fp16(
+				htlc_max_threshold, chan->half[dir].htlc_max)) {
 				struct short_channel_id_dir scidd = {
 				    .scid = gossmap_chan_scid(
 					pay_plugin->gossmap, chan),
