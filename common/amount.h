@@ -188,6 +188,11 @@ WARN_UNUSED_RESULT bool amount_msat_add_fee(struct amount_msat *amt,
 					    u32 fee_base_msat,
 					    u32 fee_proportional_millionths);
 
+/* Reversed: what is the largest possible output for a given input and fee? */
+struct amount_msat amount_msat_sub_fee(struct amount_msat input,
+				       u32 fee_base_msat,
+				       u32 fee_proportional_millionths);
+
 /* What is the fee for this tx weight? */
 struct amount_sat amount_tx_fee(u32 fee_per_kw, size_t weight);
 

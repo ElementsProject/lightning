@@ -524,7 +524,7 @@ struct amount_sat amount_sat_div(struct amount_sat sat, u64 div)
 
 bool amount_sat_mul(struct amount_sat *res, struct amount_sat sat, u64 mul)
 {
-	if (	mul_overflows_u64(sat.satoshis, mul))
+	if (mul_overflows_u64(sat.satoshis, mul))
 		return false;
 	res->satoshis = sat.satoshis * mul;
 	return true;
@@ -532,7 +532,7 @@ bool amount_sat_mul(struct amount_sat *res, struct amount_sat sat, u64 mul)
 
 bool amount_msat_mul(struct amount_msat *res, struct amount_msat msat, u64 mul)
 {
-	if (	mul_overflows_u64(msat.millisatoshis, mul))
+	if (mul_overflows_u64(msat.millisatoshis, mul))
 		return false;
 	res->millisatoshis = msat.millisatoshis * mul;
 	return true;
@@ -558,6 +558,50 @@ bool amount_msat_fee(struct amount_msat *fee,
 		/ 1000000;
 
 	return amount_msat_add(fee, fee_base, fee_prop);
+}
+
+/* Does this input give enough to provide fee for output? */
+static bool within_fee(struct amount_msat in,
+		       struct amount_msat out,
+		       u32 fee_base_msat,
+		       u32 fee_proportional_millionths)
+{
+	struct amount_msat with_fee = out;
+	if (!amount_msat_add_fee(&with_fee,
+				 fee_base_msat,
+				 fee_proportional_millionths))
+		return false;
+	return amount_msat_less_eq(with_fee, in);
+}
+
+struct amount_msat amount_msat_sub_fee(struct amount_msat in,
+				       u32 fee_base_msat,
+				       u32 fee_proportional_millionths)
+{
+	struct amount_msat out, out_plus_one;
+
+	/* out = in - base - (out * prop / 1000000)
+	 * Thus: out * (1 + prop / 1000000) = in - base
+	 *       out = (in - base) / (1 + prop / 1000000)
+	 *       out = 1000000 * (in - base) / (1000000 + prop)
+	 *
+	 * Since we round the fee down, out can be a bit bigger than
+	 * expected, so we iterate upwards.
+	 */
+	if (!amount_msat_sub(&out, in, amount_msat(fee_base_msat)))
+		return AMOUNT_MSAT(0);
+	if (!amount_msat_mul(&out, out, 1000000))
+		return AMOUNT_MSAT(0);
+	out = amount_msat_div(out, 1000000ULL + fee_proportional_millionths);
+
+	/* If we calc reverse, it must work! */
+	assert(within_fee(in, out, fee_base_msat, fee_proportional_millionths));
+
+	/* We can be out-by-one */
+	if (amount_msat_add(&out_plus_one, out, AMOUNT_MSAT(1))
+	    && within_fee(in, out_plus_one, fee_base_msat, fee_proportional_millionths))
+		return out_plus_one;
+	return out;
 }
 
 bool amount_msat_add_fee(struct amount_msat *amt,
