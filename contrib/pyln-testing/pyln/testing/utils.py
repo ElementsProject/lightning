@@ -1582,7 +1582,7 @@ class NodeFactory(object):
     def get_node(self, node_id=None, options=None, dbfile=None,
                  bkpr_dbfile=None, feerates=(15000, 11000, 7500, 3750),
                  start=True, wait_for_bitcoind_sync=True, may_fail=False,
-                 expect_fail=False, cleandir=True, **kwargs):
+                 expect_fail=False, cleandir=True, gossip_store_file=None, **kwargs):
         node_id = self.get_node_id() if not node_id else node_id
         port = reserve_unused_port()
 
@@ -1620,6 +1620,10 @@ class NodeFactory(object):
                                     'accounts.sqlite3'), 'xb')
             with lzma.open(os.path.join('tests/data', bkpr_dbfile), 'rb') as f:
                 out.write(f.read())
+
+        if gossip_store_file:
+            shutil.copy(gossip_store_file, os.path.join(node.daemon.lightning_dir, TEST_NETWORK,
+                                                        'gossip_store'))
 
         if start:
             try:
