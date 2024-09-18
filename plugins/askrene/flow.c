@@ -249,6 +249,17 @@ u64 flows_worst_delay(struct flow **flows)
 	return maxdelay;
 }
 
+const char *fmt_flows_step_scid(const tal_t *ctx,
+				const struct route_query *rq,
+				const struct flow *flow, size_t i)
+{
+	struct short_channel_id_dir scidd;
+
+	scidd.scid = gossmap_chan_scid(rq->gossmap, flow->path[i]);
+	scidd.dir = flow->dirs[i];
+	return fmt_short_channel_id_dir(ctx, &scidd);
+}
+
 #ifndef SUPERVERBOSE_ENABLED
 #undef SUPERVERBOSE
 #endif
