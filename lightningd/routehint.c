@@ -160,9 +160,8 @@ routehint_candidates(const tal_t *ctx,
 			log_debug(ld->log, "%s: deadend",
 				  fmt_short_channel_id(tmpctx,
 						       r->short_channel_id));
-			if (!amount_msat_add(deadend_capacity,
-					     *deadend_capacity,
-					     candidate.capacity))
+			if (!amount_msat_accumulate(deadend_capacity,
+						    candidate.capacity))
 				fatal("Overflow summing deadend capacity!");
 			continue;
 		}
@@ -172,9 +171,8 @@ routehint_candidates(const tal_t *ctx,
 			log_debug(ld->log, "%s: offline",
 				  fmt_short_channel_id(tmpctx,
 						       r->short_channel_id));
-			if (!amount_msat_add(offline_capacity,
-					     *offline_capacity,
-					     candidate.capacity))
+			if (!amount_msat_accumulate(offline_capacity,
+						    candidate.capacity))
 				fatal("Overflow summing offline capacity!");
 			continue;
 		}
@@ -221,9 +219,8 @@ routehint_candidates(const tal_t *ctx,
 						       r->short_channel_id));
 			candidate.r = tal_steal(candidates, r);
 			tal_arr_expand(&candidates, candidate);
-			if (!amount_msat_add(avail_capacity,
-					     *avail_capacity,
-					     candidate.capacity)) {
+			if (!amount_msat_accumulate(avail_capacity,
+						    candidate.capacity)) {
 				fatal("Overflow summing pub capacities %s + %s",
 				      fmt_amount_msat(tmpctx,
 						      *avail_capacity),
@@ -236,9 +233,8 @@ routehint_candidates(const tal_t *ctx,
 						       r->short_channel_id));
 			candidate.r = tal_steal(privcandidates, r);
 			tal_arr_expand(&privcandidates, candidate);
-			if (!amount_msat_add(private_capacity,
-					     *private_capacity,
-					     candidate.capacity)) {
+			if (!amount_msat_accumulate(private_capacity,
+						    candidate.capacity)) {
 				fatal("Overflow summing priv capacities %s + %s",
 				      fmt_amount_msat(tmpctx,
 						      *private_capacity),

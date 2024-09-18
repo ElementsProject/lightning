@@ -892,13 +892,13 @@ char *account_get_balance(const tal_t *ctx,
 		}
 
 		amt = db_col_amount_msat(stmt, "credit");
-		if (!amount_msat_add(&bal->credit, bal->credit, amt)) {
+		if (!amount_msat_accumulate(&bal->credit, amt)) {
 			tal_free(stmt);
 			return "overflow adding channel_event credits";
 		}
 
 		amt = db_col_amount_msat(stmt, "debit");
-		if (!amount_msat_add(&bal->debit, bal->debit, amt)) {
+		if (!amount_msat_accumulate(&bal->debit, amt)) {
 			tal_free(stmt);
 			return "overflow adding channel_event debits";
 		}
@@ -1564,7 +1564,7 @@ static void insert_chain_fees_diff(struct db *db,
 
 		/* These should apply perfectly, as we sorted them by
 		 * insert order */
-		if (!amount_msat_add(&current_amt, current_amt, credit))
+		if (!amount_msat_accumulate(&current_amt, credit))
 			db_fatal(db, "Overflow when adding onchain fees");
 
 		if (!amount_msat_sub(&current_amt, current_amt, debit))
@@ -1645,8 +1645,7 @@ char *update_channel_onchain_fees(const tal_t *ctx,
 			continue;
 
 		/* anything else we count? */
-		if (!amount_msat_add(&onchain_amt, onchain_amt,
-				     ev->credit))
+		if (!amount_msat_accumulate(&onchain_amt, ev->credit))
 			return tal_fmt(ctx, "Unable to add"
 				       "onchain + %s's credit",
 				       ev->tag);
@@ -1871,8 +1870,8 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 			goto finished;
 
 		if (events[i]->spending_txid) {
-			if (!amount_msat_add(&withdraw_msat, withdraw_msat,
-					     events[i]->debit)) {
+			if (!amount_msat_accumulate(&withdraw_msat,
+						    events[i]->debit)) {
 				err = tal_fmt(ctx, "Overflow adding withdrawal debits for"
 					      " txid: %s",
 					      fmt_bitcoin_txid(ctx,
@@ -1880,8 +1879,8 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 				goto finished;
 			}
 		} else {
-			if (!amount_msat_add(&deposit_msat, deposit_msat,
-					     events[i]->credit)) {
+			if (!amount_msat_accumulate(&deposit_msat,
+						    events[i]->credit)) {
 				err = tal_fmt(ctx, "Overflow adding deposit credits for"
 					      " txid: %s",
 					      fmt_bitcoin_txid(ctx,

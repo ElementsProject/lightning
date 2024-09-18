@@ -595,9 +595,8 @@ static struct amount_msat peer_capacity(const struct gossmap *gossmap,
 			continue;
 		if (!c->half[!dir].enabled)
 			continue;
-		if (!amount_msat_add(
-			&capacity, capacity,
-			amount_msat(fp16_to_u64(c->half[!dir].htlc_max))))
+		if (!amount_msat_accumulate(&capacity,
+					    amount_msat(fp16_to_u64(c->half[!dir].htlc_max))))
 			continue;
 	}
 	return capacity;

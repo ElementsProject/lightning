@@ -1771,8 +1771,8 @@ static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
 		struct amount_msat oldamt = channel->our_msat;
 		const struct channel_coin_mvt *mvt;
 
-		if (!amount_msat_add(&channel->our_msat, channel->our_msat,
-				     hin->msat)) {
+		if (!amount_msat_accumulate(&channel->our_msat,
+					    hin->msat)) {
 			channel_internal_error(channel,
 					       "Overflow our_msat %s + HTLC %s",
 					       fmt_amount_msat(tmpctx,

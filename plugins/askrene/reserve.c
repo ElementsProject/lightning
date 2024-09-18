@@ -67,7 +67,7 @@ static void del_reserve(struct reserve_htable *reserved, struct reserve *r)
 /* Add to existing reservation (false if would overflow). */
 static bool add(struct reserve *r, struct amount_msat amount)
 {
-	if (!amount_msat_add(&r->amount, r->amount, amount))
+	if (!amount_msat_accumulate(&r->amount, amount))
 		return false;
 	r->num_htlcs++;
 	return true;

@@ -954,9 +954,8 @@ static struct command_result *check_progress(struct lightningd *ld,
 								    total_msat));
 			}
 
-			if (!amount_msat_add(&msat_already_pending,
-					     msat_already_pending,
-					     payment->msatoshi)) {
+			if (!amount_msat_accumulate(&msat_already_pending,
+						    payment->msatoshi)) {
 				tal_free(stmt);
 				return command_fail(cmd, LIGHTNINGD,
 						    "Internal amount overflow!"

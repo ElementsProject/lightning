@@ -333,7 +333,7 @@ static void add_amount_sent(struct plugin *p,
 
 
 	json_to_msat(buf, json_get_member(buf, t, "amount_sent_msat"), &sent);
-	if (!amount_msat_add(&mpp->amount_sent, mpp->amount_sent, sent))
+	if (!amount_msat_accumulate(&mpp->amount_sent, sent))
 		plugin_log(p, LOG_BROKEN,
 			   "Cannot add amount_sent_msat for %s: %s + %s",
 			   invstring,
@@ -360,7 +360,7 @@ static void add_amount_sent(struct plugin *p,
 			   json_tok_full_len(msattok),
 			   json_tok_full(buf, msattok));
 
-	if (!amount_msat_add(mpp->amount, *mpp->amount, recv))
+	if (!amount_msat_accumulate(mpp->amount, recv))
 		plugin_log(p, LOG_BROKEN,
 			   "Cannot add amount_msat for %s: %s + %s",
 			   invstring,
@@ -928,8 +928,8 @@ payment_listsendpays_previous(struct command *cmd, const char *buf,
 				  ",amount_sent_msat:%}",
 				  JSON_SCAN(json_to_msat, &diff_msat),
 				  JSON_SCAN(json_to_msat, &diff_sent));
-			if (!amount_msat_add(&msat, msat, diff_msat) ||
-			    !amount_msat_add(&sent, sent, diff_sent))
+			if (!amount_msat_accumulate(&msat, diff_msat) ||
+			    !amount_msat_accumulate(&sent, diff_sent))
 				plugin_err(p->plugin,
 					   "msat overflow adding up parts");
 			parts++;

@@ -243,7 +243,7 @@ struct amount_msat flowset_delivers(struct plugin *plugin,
 {
 	struct amount_msat final = AMOUNT_MSAT(0);
 	for (size_t i = 0; i < tal_count(flows); i++) {
-		if (!amount_msat_add(&final, flows[i]->amount, final)) {
+		if (!amount_msat_accumulate(&final, flows[i]->amount)) {
 			plugin_err(plugin, "Could not add flowsat %s to %s (%zu/%zu)",
 				   fmt_amount_msat(tmpctx, flows[i]->amount),
 				   fmt_amount_msat(tmpctx, final),
@@ -332,9 +332,8 @@ double flowset_probability(struct flow **flows,
 			prob *= edge_probability(deliver, mincap, maxcap,
 						 in_flight[c_idx].half[c_dir]);
 
-			if (!amount_msat_add(&in_flight[c_idx].half[c_dir],
-					     in_flight[c_idx].half[c_dir],
-					     deliver)) {
+			if (!amount_msat_accumulate(&in_flight[c_idx].half[c_dir],
+						    deliver)) {
 				plugin_err(rq->plugin, "Could not add %s to inflight %s",
 					   fmt_amount_msat(tmpctx, deliver),
 					   fmt_amount_msat(tmpctx, in_flight[c_idx].half[c_dir]));
@@ -381,7 +380,7 @@ struct amount_msat flowset_fee(struct plugin *plugin, struct flow **flows)
 	struct amount_msat fee = AMOUNT_MSAT(0);
 	for (size_t i = 0; i < tal_count(flows); i++) {
 		struct amount_msat this_fee = flow_fee(plugin, flows[i]);
-		if (!amount_msat_add(&fee, this_fee, fee)) {
+		if (!amount_msat_accumulate(&fee, this_fee)) {
 			plugin_err(plugin, "Could not add %s to %s for flowset fee",
 				   fmt_amount_msat(tmpctx, this_fee),
 				   fmt_amount_msat(tmpctx, fee));

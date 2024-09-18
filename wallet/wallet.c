@@ -4979,7 +4979,7 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w)
 	tal_free(stmt);
 
 	deleted = amount_msat(db_get_intvar(w->db, "deleted_forward_fees", 0));
-	if (!amount_msat_add(&total, total, deleted))
+	if (!amount_msat_accumulate(&total, deleted))
 		db_fatal(w->db, "Adding forward fees %s + %s overflowed",
 			 fmt_amount_msat(tmpctx, total),
 			 fmt_amount_msat(tmpctx, deleted));

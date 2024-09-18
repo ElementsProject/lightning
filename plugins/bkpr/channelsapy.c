@@ -60,38 +60,28 @@ bool channel_apy_sum(struct channel_apy *sum_apy,
 		     const struct channel_apy *entry)
 {
 	bool ok;
-	ok = amount_msat_add(&sum_apy->routed_in,
-			     sum_apy->routed_in,
-			     entry->routed_in);
-	ok &= amount_msat_add(&sum_apy->routed_out,
-			      sum_apy->routed_out,
-			      entry->routed_out);
-	ok &= amount_msat_add(&sum_apy->fees_in,
-			      sum_apy->fees_in,
-			      entry->fees_in);
-	ok &= amount_msat_add(&sum_apy->fees_out,
-			      sum_apy->fees_out,
-			      entry->fees_out);
-	ok &= amount_msat_add(&sum_apy->push_in,
-			      sum_apy->push_in,
-			      entry->push_in);
-	ok &= amount_msat_add(&sum_apy->push_out,
-			      sum_apy->push_out,
-			      entry->push_out);
-	ok &= amount_msat_add(&sum_apy->lease_in,
-			      sum_apy->lease_in,
-			      entry->lease_in);
-	ok &= amount_msat_add(&sum_apy->lease_out,
-			      sum_apy->lease_out,
-			      entry->lease_out);
+	ok = amount_msat_accumulate(&sum_apy->routed_in,
+				    entry->routed_in);
+	ok &= amount_msat_accumulate(&sum_apy->routed_out,
+				     entry->routed_out);
+	ok &= amount_msat_accumulate(&sum_apy->fees_in,
+				     entry->fees_in);
+	ok &= amount_msat_accumulate(&sum_apy->fees_out,
+				     entry->fees_out);
+	ok &= amount_msat_accumulate(&sum_apy->push_in,
+				     entry->push_in);
+	ok &= amount_msat_accumulate(&sum_apy->push_out,
+				     entry->push_out);
+	ok &= amount_msat_accumulate(&sum_apy->lease_in,
+				     entry->lease_in);
+	ok &= amount_msat_accumulate(&sum_apy->lease_out,
+				     entry->lease_out);
 
-	ok &= amount_msat_add(&sum_apy->our_start_bal,
-			      sum_apy->our_start_bal,
-			      entry->our_start_bal);
+	ok &= amount_msat_accumulate(&sum_apy->our_start_bal,
+				     entry->our_start_bal);
 
-	ok &= amount_msat_add(&sum_apy->total_start_bal,
-			      sum_apy->total_start_bal,
-			      entry->total_start_bal);
+	ok &= amount_msat_accumulate(&sum_apy->total_start_bal,
+				     entry->total_start_bal);
 
 	if (sum_apy->start_blockheight > entry->start_blockheight)
 		sum_apy->start_blockheight = entry->start_blockheight;
@@ -149,11 +139,9 @@ static void fillin_apy_acct_details(struct db *db,
 	assert(ok);
 
 	/* we add values in to starting balance */
-	ok = amount_msat_add(&apy->our_start_bal, apy->our_start_bal,
-			     apy->push_in);
+	ok = amount_msat_accumulate(&apy->our_start_bal, apy->push_in);
 	assert(ok);
-	ok = amount_msat_add(&apy->our_start_bal, apy->our_start_bal,
-			     apy->lease_in);
+	ok = amount_msat_accumulate(&apy->our_start_bal, apy->lease_in);
 	assert(ok);
 }
 
@@ -202,13 +190,11 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx, struct db *db,
 		/* Accumulate routing stats */
 		if (streq("routed", ev->tag)
 		    || streq("invoice", ev->tag)) {
-			ok = amount_msat_add(&apy->routed_in,
-					     apy->routed_in,
-					     ev->credit);
+			ok = amount_msat_accumulate(&apy->routed_in,
+						    ev->credit);
 			assert(ok);
-			ok = amount_msat_add(&apy->routed_out,
-					     apy->routed_out,
-					     ev->debit);
+			ok = amount_msat_accumulate(&apy->routed_out,
+						    ev->debit);
 			assert(ok);
 
 			/* No fees for invoices */
@@ -216,32 +202,26 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx, struct db *db,
 				continue;
 
 			if (!amount_msat_zero(ev->credit))
-				ok = amount_msat_add(&apy->fees_in,
-						     apy->fees_in,
-						     ev->fees);
+				ok = amount_msat_accumulate(&apy->fees_in,
+							    ev->fees);
 			else
-				ok = amount_msat_add(&apy->fees_out,
-						     apy->fees_out,
-						     ev->fees);
+				ok = amount_msat_accumulate(&apy->fees_out,
+							    ev->fees);
 			assert(ok);
 		}
 		else if (streq("pushed", ev->tag)) {
-			ok = amount_msat_add(&apy->push_in,
-					     apy->push_in,
-					     ev->credit);
+			ok = amount_msat_accumulate(&apy->push_in,
+						    ev->credit);
 			assert(ok);
-			ok = amount_msat_add(&apy->push_out,
-					     apy->push_out,
-					     ev->debit);
+			ok = amount_msat_accumulate(&apy->push_out,
+						    ev->debit);
 			assert(ok);
 		} else if (streq("lease_fee", ev->tag)) {
-			ok = amount_msat_add(&apy->lease_in,
-					     apy->lease_in,
-					     ev->credit);
+			ok = amount_msat_accumulate(&apy->lease_in,
+						    ev->credit);
 			assert(ok);
-			ok = amount_msat_add(&apy->lease_out,
-					     apy->lease_out,
-					     ev->debit);
+			ok = amount_msat_accumulate(&apy->lease_out,
+						    ev->debit);
 			assert(ok);
 		}
 

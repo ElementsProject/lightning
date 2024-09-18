@@ -260,7 +260,7 @@ struct payment_tree_result payment_collect_result(struct payment *p)
 
 		/* Some of our subpayments have succeeded, aggregate how much
 		 * we sent in total. */
-		if (!amount_msat_add(&res.sent, res.sent, cres.sent))
+		if (!amount_msat_accumulate(&res.sent, cres.sent))
 			paymod_err(
 			    p,
 			    "Number overflow summing partial payments: %s + %s",
@@ -707,9 +707,8 @@ static void payment_chanhints_unapply_route(struct payment *p)
 		if (curhint->local)
 			curhint->local->htlc_budget++;
 
-		if (!amount_msat_add(&curhint->estimated_capacity,
-				     curhint->estimated_capacity,
-				     curhop->amount)) {
+		if (!amount_msat_accumulate(&curhint->estimated_capacity,
+					    curhop->amount)) {
 			/* This should never happen, it'd mean
 			 * that we unapply a route that would
 			 * result in a msatoshi
@@ -884,7 +883,7 @@ static u64 route_score(struct amount_msat fee,
 		msat = AMOUNT_MSAT(-1ULL);
 
 	/* Slight tiebreaker bias: 1 msat per distance */
-	if (!amount_msat_add(&msat, msat, AMOUNT_MSAT(1)))
+	if (!amount_msat_accumulate(&msat, AMOUNT_MSAT(1)))
 		msat = AMOUNT_MSAT(-1ULL);
 
 	/* Percent penalty at different channel capacities:
@@ -1091,7 +1090,7 @@ static bool payment_listpeerchannels_balance_sum(struct payment *p,
 			return false;
 		}
 
-		if (!amount_msat_add(sum, *sum, spendable)) {
+		if (!amount_msat_accumulate(sum, spendable)) {
 			paymod_log(
 			    p, LOG_BROKEN,
 			    "Integer sum overflow summing spendable amounts.");

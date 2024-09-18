@@ -578,7 +578,7 @@ static struct route_info **select_inchan(const tal_t *ctx,
 
 		/* We don't want a 0 probability if 0 excess; it might be the
 		 * only one!  So bump it by 1 msat */
-		if (!amount_msat_add(&excess, excess, AMOUNT_MSAT(1))) {
+		if (!amount_msat_accumulate(&excess, AMOUNT_MSAT(1))) {
 			log_broken(ld->log, "Channel %s excess overflow!",
 				   fmt_short_channel_id(tmpctx,
 							*candidates[i].c->scid));
@@ -641,7 +641,7 @@ static struct route_info **select_inchan_mpp(const tal_t *ctx,
 			break;
 
 		/* Add to current routehints set.  */
-		if (!amount_msat_add(&gathered, gathered, candidates[i].capacity)) {
+		if (!amount_msat_accumulate(&gathered, candidates[i].capacity)) {
 			log_broken(ld->log,
 				   "Gathered channel capacity overflow: "
 				   "%s + %s",
@@ -761,8 +761,8 @@ add_routehints(struct invoice_info *info,
 		  fmt_amount_msat(tmpctx, deadend_capacity));
 
 	if (!amount_msat_add(&total, avail_capacity, offline_capacity)
-	    || !amount_msat_add(&total, total, deadend_capacity)
-	    || !amount_msat_add(&total, total, private_capacity))
+	    || !amount_msat_accumulate(&total, deadend_capacity)
+	    || !amount_msat_accumulate(&total, private_capacity))
 		fatal("Cannot add %s + %s + %s + %s",
 		      fmt_amount_msat(tmpctx, avail_capacity),
 		      fmt_amount_msat(tmpctx, offline_capacity),
@@ -789,7 +789,7 @@ add_routehints(struct invoice_info *info,
 		}
 
 		/* Hmm, what about deadends? */
-		if (!amount_msat_add(&tot, tot, deadend_capacity))
+		if (!amount_msat_accumulate(&tot, deadend_capacity))
 			abort();
 		if (amount_msat_greater_eq(tot, needed)) {
 			*warning_deadends = true;
@@ -797,7 +797,7 @@ add_routehints(struct invoice_info *info,
 		}
 
 		/* What about private channels? */
-		if (!amount_msat_add(&tot, tot, private_capacity))
+		if (!amount_msat_accumulate(&tot, private_capacity))
 			abort();
 		if (amount_msat_greater_eq(tot, needed)) {
 			*warning_private_unused = true;
