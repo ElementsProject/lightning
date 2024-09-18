@@ -1732,9 +1732,9 @@ static struct command_result *json_createinvoice(struct command *cmd,
 		u32 expiry;
 		enum offer_status status;
 
-		inv = invoice_decode_nosig(cmd, invstring, strlen(invstring),
-					   cmd->ld->our_features, chainparams,
-					   &fail);
+		inv = invoice_decode_minimal(cmd, invstring, strlen(invstring),
+					     cmd->ld->our_features, chainparams,
+					     &fail);
 		if (!inv)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Unparsable invoice '%s': %s",

@@ -1310,18 +1310,6 @@ static struct command_result *json_pay(struct command *cmd,
 		/* p->features = tal_steal(p, b12->features); */
 		p->features = NULL;
 
-		if (!b12->invoice_node_id)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "invoice missing node_id");
-		if (!b12->invoice_payment_hash)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "invoice missing payment_hash");
-		if (!b12->invoice_created_at)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "invoice missing created_at");
-		if (!b12->invoice_amount)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "invoice missing invoice_amount");
 		invmsat = tal(cmd, struct amount_msat);
 		*invmsat = amount_msat(*b12->invoice_amount);
 
@@ -1333,30 +1321,6 @@ static struct command_result *json_pay(struct command *cmd,
 			return command_fail(
 			    cmd, JSONRPC2_INVALID_PARAMS,
 			    "recurring invoice requires a label");
-
-		/* BOLT-offers #12:
-		 * - MUST reject the invoice if `invoice_paths` is not present
-		 *  or is empty.
-		 */
-		if (tal_count(b12->invoice_paths) == 0)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "invoice missing invoice_paths");
-
-		if (tal_count(b12->invoice_paths[0]->path) < 1)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "empty invoice_path[0]");
-
-		/* BOLT-offers #12:
-		 * - MUST reject the invoice if `invoice_blindedpay` does not
-		 *   contain exactly one `blinded_payinfo` per
-		 *   `invoice_paths`.`blinded_path`. */
-		if (tal_count(b12->invoice_paths)
-		    != tal_count(b12->invoice_blindedpay)) {
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Wrong blinding info: %zu paths, %zu payinfo",
-					    tal_count(b12->invoice_paths),
-					    tal_count(b12->invoice_blindedpay));
-		}
 
 		/* FIXME: do MPP across these!  We choose first one. */
 		p->blindedpath = tal_steal(p, b12->invoice_paths[0]);

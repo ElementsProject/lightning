@@ -1173,10 +1173,10 @@ static char *fetch_out_desc_invstr(const tal_t *ctx, const char *buf,
 			      JSON_SCAN_TAL(ctx, json_strdup, &bolt))) {
 		struct tlv_invoice *bolt12;
 
-		bolt12 = invoice_decode_nosig(ctx, bolt, strlen(bolt),
-					      /* No features/chain checks */
-					      NULL, NULL,
-					      &fail);
+		bolt12 = invoice_decode_minimal(ctx, bolt, strlen(bolt),
+						/* No features/chain checks */
+						NULL, NULL,
+						&fail);
 		if (!bolt12) {
 			*err = tal_fmt(ctx, "failed to parse"
 				       " bolt12 %s: %s",
