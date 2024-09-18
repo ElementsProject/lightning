@@ -442,6 +442,43 @@ def test_fees_dont_exceed_constraints(node_factory):
     assert amount <= max_msat
 
 
+def test_sourcefree_on_mods(node_factory, bitcoind):
+    """auto.sourcefree should also apply to layer-created channels"""
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, forward=GenChannel.Half(propfee=10000)),
+                                             GenChannel(0, 2, forward=GenChannel.Half(propfee=10000))])
+
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+
+    # Add a local channel from 0->l1 (we just needed a nodeid).
+    l1.rpc.askrene_create_channel('test_layers',
+                                  nodemap[0],
+                                  l1.info['id'],
+                                  '0x3x3',
+                                  '1000000sat',
+                                  100, '900000sat',
+                                  1000, 2000, 18)
+    routes = l1.rpc.getroutes(source=nodemap[0],
+                              destination=l1.info['id'],
+                              amount_msat=1000000,
+                              layers=['test_layers', 'auto.sourcefree'],
+                              maxfee_msat=100000,
+                              final_cltv=99)['routes']
+    # Expect no fee.
+    check_route_as_expected(routes, [[{'short_channel_id': '0x3x3',
+                                       'amount_msat': 1000000, 'delay': 99}]])
+
+    # Same if we specify layers in the other order!
+    routes = l1.rpc.getroutes(source=nodemap[0],
+                              destination=l1.info['id'],
+                              amount_msat=1000000,
+                              layers=['auto.sourcefree', 'test_layers'],
+                              maxfee_msat=100000,
+                              final_cltv=99)['routes']
+    # Expect no fee.
+    check_route_as_expected(routes, [[{'short_channel_id': '0x3x3',
+                                       'amount_msat': 1000000, 'delay': 99}]])
+
+
 def test_live_spendable(node_factory, bitcoind):
     """Test we don't exceed spendable limits on a real network on nodes"""
     l1, l2, l3 = node_factory.get_nodes(3)
