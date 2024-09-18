@@ -83,7 +83,7 @@ static u64 route_score(struct amount_msat fee,
 		msat = AMOUNT_MSAT(-1ULL);
 
 	/* Slight tiebreaker bias: 1 msat per distance */
-	if (!amount_msat_add(&msat, msat, AMOUNT_MSAT(1)))
+	if (!amount_msat_accumulate(&msat, AMOUNT_MSAT(1)))
 		msat = AMOUNT_MSAT(-1ULL);
 
 	/* Percent penalty at different channel capacities:

@@ -100,6 +100,10 @@ WARN_UNUSED_RESULT bool amount_sat_add_sat_s64(struct amount_sat *val,
 					       struct amount_sat a,
 					       s64 b);
 
+/* a += b */
+WARN_UNUSED_RESULT bool amount_msat_accumulate(struct amount_msat *a,
+					       struct amount_msat b);
+
 struct amount_msat amount_msat_div(struct amount_msat msat, u64 div);
 struct amount_sat amount_sat_div(struct amount_sat sat, u64 div);
 

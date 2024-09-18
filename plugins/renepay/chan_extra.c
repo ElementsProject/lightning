@@ -617,7 +617,7 @@ double edge_probability(struct amount_msat min, struct amount_msat max,
 	struct amount_msat B = max; // =  max +1 - in_flight
 
 	// one past the last known value, makes computations simpler
-	if (!amount_msat_add(&B, B, one))
+	if (!amount_msat_accumulate(&B, one))
 		goto function_fail;
 
 	// in_flight cannot be greater than max
@@ -675,7 +675,7 @@ chan_extra_commit_htlc(struct chan_extra_map *chan_extra_map,
 	    get_chan_extra_half_by_scid(chan_extra_map, scidd);
 	if (!h)
 		return RENEPAY_CHANNEL_NOT_FOUND;
-	if (!amount_msat_add(&h->htlc_total, h->htlc_total, amount))
+	if (!amount_msat_accumulate(&h->htlc_total, amount))
 		return RENEPAY_AMOUNT_OVERFLOW;
 	h->num_htlcs++;
 	return RENEPAY_NOERROR;

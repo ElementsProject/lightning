@@ -226,7 +226,7 @@ static bool sum_offered_msatoshis(struct amount_msat *total,
 	*total = AMOUNT_MSAT(0);
 	for (i = 0; i < tal_count(htlcs); i++) {
 		if (htlc_owner(htlcs[i]) == side) {
-			if (!amount_msat_add(total, *total, htlcs[i]->amount))
+			if (!amount_msat_accumulate(total, htlcs[i]->amount))
 				return false;
 		}
 	}

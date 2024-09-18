@@ -170,7 +170,7 @@ bool flowset_delivers(struct amount_msat *delivers, struct flow **flows)
 {
 	struct amount_msat final = AMOUNT_MSAT(0);
 	for (size_t i = 0; i < tal_count(flows); i++) {
-		if (!amount_msat_add(&final, flows[i]->amount, final))
+		if (!amount_msat_accumulate(&final, flows[i]->amount))
 			return false;
 	}
 	*delivers = final;

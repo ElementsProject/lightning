@@ -91,8 +91,8 @@ static bool merge_deadlines(struct channel *channel, struct anchor_details *adet
 			dst = i;
 			continue;
 		}
-		if (!amount_msat_add(&adet->vals[dst].msat,
-				     adet->vals[dst].msat, adet->vals[i].msat)) {
+		if (!amount_msat_accumulate(&adet->vals[dst].msat,
+					    adet->vals[i].msat)) {
 			log_broken(channel->log,
 				   "Cannot add deadlines %s + %s!",
 				   fmt_amount_msat(tmpctx, adet->vals[dst].msat),
@@ -287,7 +287,7 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 
 		/* Calculate the total value for the current deadline
 		 * and all the following */
-		if (!amount_msat_add(&total_value, total_value, val->msat))
+		if (!amount_msat_accumulate(&total_value, val->msat))
 			return NULL;
 
 		feerate_target = feerate_for_target(ld->topology, val->block);

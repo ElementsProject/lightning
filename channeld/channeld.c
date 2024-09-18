@@ -2897,7 +2897,7 @@ static struct amount_sat check_balances(struct peer *peer,
 		else
 			itr = &pending_htlcs[TX_ACCEPTER];
 
-		if (!amount_msat_add(itr, *itr, htlc->amount))
+		if (!amount_msat_accumulate(itr, htlc->amount))
 			peer_failed_warn(peer->pps, &peer->channel_id,
 					 "Unable to add HTLC balance");
 	}
@@ -2925,14 +2925,12 @@ static struct amount_sat check_balances(struct peer *peer,
 			     peer->channel->view->owed[REMOTE]))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Unable to calculate starting channel amount");
-	if (!amount_msat_add(&funding_amount,
-			     funding_amount,
-			     pending_htlcs[TX_INITIATOR]))
+	if (!amount_msat_accumulate(&funding_amount,
+				    pending_htlcs[TX_INITIATOR]))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Unable to calculate starting channel amount");
-	if (!amount_msat_add(&funding_amount,
-			     funding_amount,
-			     pending_htlcs[TX_ACCEPTER]))
+	if (!amount_msat_accumulate(&funding_amount,
+				    pending_htlcs[TX_ACCEPTER]))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Unable to calculate starting channel amount");
 

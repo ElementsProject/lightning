@@ -53,7 +53,7 @@ bool commit_tx_amount_trimmed(const struct htlc **htlcs,
 		if (trim(htlcs[i], feerate_per_kw, dust_limit,
 			 option_anchor_outputs, option_anchors_zero_fee_htlc_tx,
 			 side)) {
-			if (!amount_msat_add(amt, *amt, htlcs[i]->amount))
+			if (!amount_msat_accumulate(amt, htlcs[i]->amount))
 				return false;
 		}
 	}

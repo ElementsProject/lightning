@@ -174,7 +174,7 @@ void htlc_set_add(struct lightningd *ld,
 		return;
 	}
 
-	if (!amount_msat_add(&set->so_far, set->so_far, hin->msat)) {
+	if (!amount_msat_accumulate(&set->so_far, hin->msat)) {
 		log_unusual(ld->log, "Failing HTLC set %s:"
 			    " overflow adding %s+%s",
 			    fmt_sha256(tmpctx, &set->payment_hash),
