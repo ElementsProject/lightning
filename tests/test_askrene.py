@@ -515,11 +515,18 @@ def test_live_spendable(node_factory, bitcoind):
         ]
 
     path_total = {}
+    num_htlcs = {}
     for r in routes["routes"]:
         key = "{}/{}".format(
             r["path"][0]["short_channel_id"], r["path"][0]["direction"]
         )
         path_total[key] = path_total.get(key, 0) + r["path"][0]["amount_msat"]
+        num_htlcs[key] = num_htlcs.get(key, 0) + 1
+
+    # Take into account 645000msat (3750 feerate x 172 weight) per-HTLC reduction in capacity.
+    for k in path_total.keys():
+        if k in maxes:
+            maxes[k] -= (3750 * 172) * (num_htlcs[k] - 1)
 
     exceeded = {}
     for scidd in maxes.keys():

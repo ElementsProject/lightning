@@ -27,6 +27,47 @@ static struct askrene *get_askrene(struct plugin *plugin)
 	return plugin_get_data(plugin, struct askrene);
 }
 
+/* "spendable" for a channel assumes a single HTLC: for additional HTLCs,
+ * the need to pay for fees (if we're the owner) reduces it */
+struct per_htlc_cost {
+	struct short_channel_id_dir scidd;
+	struct amount_msat per_htlc_cost;
+};
+
+static const struct short_channel_id_dir *
+per_htlc_cost_key(const struct per_htlc_cost *phc)
+{
+	return &phc->scidd;
+}
+
+static size_t hash_scidd(const struct short_channel_id_dir *scidd)
+{
+	/* scids cost money to generate, so simple hash works here */
+	return (scidd->scid.u64 >> 32) ^ (scidd->scid.u64 << 1) ^ scidd->dir;
+}
+
+static inline bool per_htlc_cost_eq_key(const struct per_htlc_cost *phc,
+					const struct short_channel_id_dir *scidd)
+{
+	return short_channel_id_dir_eq(scidd, &phc->scidd);
+}
+
+HTABLE_DEFINE_TYPE(struct per_htlc_cost,
+		   per_htlc_cost_key,
+		   hash_scidd,
+		   per_htlc_cost_eq_key,
+		   additional_cost_htable);
+
+/* Get the scidd for the i'th hop in flow */
+static void get_scidd(const struct gossmap *gossmap,
+		      const struct flow *flow,
+		      size_t i,
+		      struct short_channel_id_dir *scidd)
+{
+	scidd->scid = gossmap_chan_scid(gossmap, flow->path[i]);
+	scidd->dir = flow->dirs[i];
+}
+
 static bool have_layer(const char **layers, const char *name)
 {
 	for (size_t i = 0; i < tal_count(layers); i++) {
@@ -271,8 +312,7 @@ static void add_reservation(struct reservations *r,
 	struct askrene *askrene = get_askrene(rq->plugin);
 	size_t idx;
 
-	scidd.scid = gossmap_chan_scid(rq->gossmap, flow->path[i]);
-	scidd.dir = flow->dirs[i];
+	get_scidd(rq->gossmap, flow, i, &scidd);
 
 	/* This should not happen, but simply don't reserve if it does */
 	if (!reserves_add(askrene->reserved, &scidd, &amt, 1)) {
@@ -293,7 +333,8 @@ static void add_reservation(struct reservations *r,
 	tal_arr_expand(&r->amounts, amt);
 }
 
-/* We have a basic set of flows, but we need to add fees.  This can
+/* We have a basic set of flows, but we need to add fees, and take into
+ * account that "spendable" estimates are for a single HTLC.  This can
  * push us again over capacity or htlc_maximum_msat.
  *
  * We may have to reduce the flow amount in response to these.
@@ -317,7 +358,9 @@ static const char *constrain_flow(const tal_t *ctx,
 	msat = flow->delivers;
 	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
 		const struct half_chan *h = flow_edge(flow, i);
-		struct amount_msat min, max;
+		struct amount_msat min, max, amount_to_reserve;
+		struct short_channel_id_dir scidd;
+		const struct per_htlc_cost *phc;
 		const char *max_cause;
 
 		/* We can pass constraints due to addition of fees! */
@@ -343,9 +386,19 @@ static const char *constrain_flow(const tal_t *ctx,
 			why_decreased = max_cause;
 		}
 
+		/* Reserve more for local channels if it reduces capacity */
+		get_scidd(rq->gossmap, flow, i, &scidd);
+		phc = additional_cost_htable_get(rq->additional_costs, &scidd);
+		if (phc) {
+			if (!amount_msat_add(&amount_to_reserve, msat, phc->per_htlc_cost))
+				abort();
+		} else {
+			amount_to_reserve = msat;
+		}
+
 		/* Reserve it, so if the next flow asks about the same channel,
 		   it will see the reduced capacity from this one.  */
-		add_reservation(reservations, rq, flow, i, msat);
+		add_reservation(reservations, rq, flow, i, amount_to_reserve);
 
 		if (!amount_msat_add_fee(&msat, h->base_fee, h->proportional_fee))
 			plugin_err(rq->plugin, "Adding fee to amount");
@@ -472,9 +525,11 @@ static void add_to_flow(struct flow *flow,
 	}
 }
 
-/* We got an answer from min-cost-flow, but we now need to add fees.
- * This can cause us to hit limits, and even find that some flows are
- * impossible.  Returns NULL on success, or an error message.*/
+/* We got an answer from min-cost-flow, but we now need to add fees,
+ * and take into account the cost of individual HTLCs (for local
+ * channels, at least).  This can cause us to hit limits, and even
+ * find that some flows are impossible.  Returns NULL on success, or
+ * an error message.*/
 static const char *
 refine_with_fees_and_limits(const tal_t *ctx,
 			    struct route_query *rq,
@@ -599,6 +654,7 @@ static const char *get_routes(const tal_t *ctx,
 			      const struct layer *local_layer,
 			      struct route ***routes,
 			      struct amount_msat **amounts,
+			      const struct additional_cost_htable *additional_costs,
 			      double *probability)
 {
 	struct askrene *askrene = get_askrene(plugin);
@@ -621,6 +677,7 @@ static const char *get_routes(const tal_t *ctx,
 	rq->reserved = askrene->reserved;
 	rq->layers = tal_arr(rq, const struct layer *, 0);
 	rq->capacities = tal_dup_talarr(rq, fp16_t, askrene->capacities);
+	rq->additional_costs = additional_costs;
 
 	/* Layers don't have to exist: they might be empty! */
 	for (size_t i = 0; i < tal_count(layers); i++) {
@@ -841,15 +898,18 @@ void get_constraints(const struct route_query *rq,
 }
 
 struct getroutes_info {
+	struct command *cmd;
 	struct node_id *source, *dest;
 	struct amount_msat *amount, *maxfee;
 	u32 *finalcltv;
 	const char **layers;
+	struct additional_cost_htable *additional_costs;
+	/* Non-NULL if we are told to use "auto.localchans" */
+	struct layer *local_layer;
 };
 
 static struct command_result *do_getroutes(struct command *cmd,
 					   struct gossmap_localmods *localmods,
-					   const struct layer *local_layer,
 					   const struct getroutes_info *info)
 {
 	const char *err;
@@ -861,8 +921,8 @@ static struct command_result *do_getroutes(struct command *cmd,
 	err = get_routes(cmd, cmd->plugin,
 			 info->source, info->dest,
 			 *info->amount, *info->maxfee, *info->finalcltv,
-			 info->layers, localmods, local_layer,
-			 &routes, &amounts, &probability);
+			 info->layers, localmods, info->local_layer,
+			 &routes, &amounts, info->additional_costs, &probability);
 	if (err)
 		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", err);
 
@@ -903,17 +963,60 @@ static void add_localchan(struct gossmap_localmods *mods,
 			  u32 fee_proportional,
 			  u32 cltv_delta,
 			  bool enabled,
-			  const char *buf UNUSED,
-			  const jsmntok_t *chantok UNUSED,
-			  struct layer *local_layer)
+			  const char *buf,
+			  const jsmntok_t *chantok,
+			  struct getroutes_info *info)
 {
+	u32 feerate;
+	const char *opener;
+	const char *err;
+
 	gossmod_add_localchan(mods, self, peer, scidd, htlcmin, htlcmax,
 			      spendable, fee_base, fee_proportional, cltv_delta, enabled,
-			      buf, chantok, local_layer);
+			      buf, chantok, info->local_layer);
+
+	/* We also need to know the feerate and opener, so we can calculate per-HTLC cost */
+	feerate = 0; /* Can be unset on unconfirmed channels */
+	err = json_scan(tmpctx, buf, chantok,
+			"{feerate?:{perkw:%},opener:%}",
+			JSON_SCAN(json_to_u32, &feerate),
+			JSON_SCAN_TAL(tmpctx, json_strdup, &opener));
+	if (err) {
+		plugin_log(info->cmd->plugin, LOG_BROKEN,
+			   "Cannot scan channel for feerate and owner (%s): %.*s",
+			   err, json_tok_full_len(chantok), json_tok_full(buf, chantok));
+		return;
+	}
+
+	if (feerate != 0 && streq(opener, "local")) {
+		/* BOLT #3:
+		 * The base fee for a commitment transaction:
+		 *   - MUST be calculated to match:
+		 *     1. Start with `weight` = 724 (1124 if `option_anchors` applies).
+		 *     2. For each committed HTLC, if that output is not trimmed as specified in
+		 *     [Trimmed Outputs](#trimmed-outputs), add 172 to `weight`.
+		 *     3. Multiply `feerate_per_kw` by `weight`, divide by 1000 (rounding down).
+		 */
+		struct per_htlc_cost *phc
+			= tal(info->additional_costs, struct per_htlc_cost);
+
+		phc->scidd = *scidd;
+		if (!amount_sat_to_msat(&phc->per_htlc_cost,
+					amount_tx_fee(feerate, 172))) {
+			/* Can't happen, since feerate is u32... */
+			abort();
+		}
+
+		plugin_log(info->cmd->plugin, LOG_DBG, "Per-htlc cost for %s = %s (%u x 172)",
+			   fmt_short_channel_id_dir(tmpctx, scidd),
+			   fmt_amount_msat(tmpctx, phc->per_htlc_cost),
+			   feerate);
+		additional_cost_htable_add(info->additional_costs, phc);
+	}
 
 	/* Known capacity on local channels (ts = max) */
-	layer_update_constraint(local_layer, scidd, CONSTRAINT_MIN, UINT64_MAX, spendable);
-	layer_update_constraint(local_layer, scidd, CONSTRAINT_MAX, UINT64_MAX, spendable);
+	layer_update_constraint(info->local_layer, scidd, CONSTRAINT_MIN, UINT64_MAX, spendable);
+	layer_update_constraint(info->local_layer, scidd, CONSTRAINT_MAX, UINT64_MAX, spendable);
 }
 
 static struct command_result *
@@ -922,17 +1025,17 @@ listpeerchannels_done(struct command *cmd,
 		      const jsmntok_t *toks,
 		      struct getroutes_info *info)
 {
-	struct layer *local_layer = new_temp_layer(info, "auto.localchans");
 	struct gossmap_localmods *localmods;
 
+	info->local_layer = new_temp_layer(info, "auto.localchans");
 	localmods = gossmods_from_listpeerchannels(cmd,
 						   &get_askrene(cmd->plugin)->my_id,
 						   buffer, toks,
 						   false,
 						   add_localchan,
-						   local_layer);
+						   info);
 
-	return do_getroutes(cmd, localmods, local_layer, info);
+	return do_getroutes(cmd, localmods, info);
 }
 
 static struct command_result *json_getroutes(struct command *cmd,
@@ -951,6 +1054,10 @@ static struct command_result *json_getroutes(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
+	info->cmd = cmd;
+	info->additional_costs = tal(info, struct additional_cost_htable);
+	additional_cost_htable_init(info->additional_costs);
+
 	if (have_layer(info->layers, "auto.localchans")) {
 		struct out_req *req;
 
@@ -959,9 +1066,10 @@ static struct command_result *json_getroutes(struct command *cmd,
 					    listpeerchannels_done,
 					    forward_error, info);
 		return send_outreq(cmd->plugin, req);
-	}
+	} else
+		info->local_layer = NULL;
 
-	return do_getroutes(cmd, gossmap_localmods_new(cmd), NULL, info);
+	return do_getroutes(cmd, gossmap_localmods_new(cmd), info);
 }
 
 static struct command_result *json_askrene_reserve(struct command *cmd,
