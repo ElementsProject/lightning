@@ -388,13 +388,13 @@ struct tlv_invoice *invoice_decode(const tal_t *ctx UNNEEDED,
 				   const struct chainparams *must_be_chain UNNEEDED,
 				   char **fail UNNEEDED)
 { fprintf(stderr, "invoice_decode called!\n"); abort(); }
-/* Generated stub for invoice_decode_nosig */
-struct tlv_invoice *invoice_decode_nosig(const tal_t *ctx UNNEEDED,
-					 const char *b12 UNNEEDED, size_t b12len UNNEEDED,
-					 const struct feature_set *our_features UNNEEDED,
-					 const struct chainparams *must_be_chain UNNEEDED,
-					 char **fail UNNEEDED)
-{ fprintf(stderr, "invoice_decode_nosig called!\n"); abort(); }
+/* Generated stub for invoice_decode_minimal */
+struct tlv_invoice *invoice_decode_minimal(const tal_t *ctx UNNEEDED,
+					   const char *b12 UNNEEDED, size_t b12len UNNEEDED,
+					   const struct feature_set *our_features UNNEEDED,
+					   const struct chainparams *must_be_chain UNNEEDED,
+					   char **fail UNNEEDED)
+{ fprintf(stderr, "invoice_decode_minimal called!\n"); abort(); }
 /* Generated stub for invoice_encode */
 char *invoice_encode(const tal_t *ctx UNNEEDED, const struct tlv_invoice *bolt12_tlv UNNEEDED)
 { fprintf(stderr, "invoice_encode called!\n"); abort(); }

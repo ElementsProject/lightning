@@ -2,11 +2,13 @@
 #include <assert.h>
 #include <bitcoin/chainparams.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/time/time.h>
 #include <common/bech32_util.h>
 #include <common/bolt12.h>
 #include <common/bolt12_merkle.h>
 #include <common/configdir.h>
 #include <common/features.h>
+#include <common/overflows.h>
 #include <inttypes.h>
 #include <secp256k1_schnorrsig.h>
 #include <time.h>
@@ -324,11 +326,11 @@ char *invoice_encode(const tal_t *ctx, const struct tlv_invoice *invoice_tlv)
 	return to_bech32_charset(ctx, "lni", wire);
 }
 
-struct tlv_invoice *invoice_decode_nosig(const tal_t *ctx,
-					 const char *b12, size_t b12len,
-					 const struct feature_set *our_features,
-					 const struct chainparams *must_be_chain,
-					 char **fail)
+struct tlv_invoice *invoice_decode_minimal(const tal_t *ctx,
+					   const char *b12, size_t b12len,
+					   const struct feature_set *our_features,
+					   const struct chainparams *must_be_chain,
+					   char **fail)
 {
 	struct tlv_invoice *invoice;
 	const u8 *data;
@@ -344,6 +346,17 @@ struct tlv_invoice *invoice_decode_nosig(const tal_t *ctx,
 		return NULL;
 	}
 
+	/* BOLT-offers #12:
+	 * - if `invreq_chain` is not present:
+	 *    - MUST fail the request if bitcoin is not a supported chain.
+	 *  - otherwise:
+	 *    - MUST fail the request if `invreq_chain`.`chain` is not a
+	 *      supported chain.
+	 * - if `invoice_features` contains unknown _odd_ bits that are non-zero:
+	 *  - MUST ignore the bit.
+	 * - if `invoice_features` contains unknown _even_ bits that are non-zero:
+	 *  - MUST reject the invoice.
+	 */
 	*fail = check_features_and_chain(ctx,
 					 our_features, must_be_chain,
 					 invoice->invoice_features,
@@ -476,17 +489,97 @@ struct tlv_invoice *invoice_decode(const tal_t *ctx,
 				   char **fail)
 {
 	struct tlv_invoice *invoice;
+	u64 expiry, now;
 
-	invoice = invoice_decode_nosig(ctx, b12, b12len, our_features,
-				       must_be_chain, fail);
-	if (invoice) {
-		*fail = check_signature(ctx, invoice->fields,
-					"invoice", "signature",
-					invoice->invoice_node_id,
-					invoice->signature);
-		if (*fail)
-			invoice = tal_free(invoice);
+	invoice = invoice_decode_minimal(ctx, b12, b12len, our_features,
+					 must_be_chain, fail);
+	if (!invoice)
+		return NULL;
+
+	*fail = check_signature(ctx, invoice->fields,
+				"invoice", "signature",
+				invoice->invoice_node_id,
+				invoice->signature);
+	if (*fail)
+		return tal_free(invoice);
+
+	/* BOLT-offers #12:
+	 * A reader of an invoice:
+	 *   - MUST reject the invoice if `invoice_amount` is not present.
+	 *   - MUST reject the invoice if `invoice_created_at` is not present.
+	 *   - MUST reject the invoice if `invoice_payment_hash` is not present.
+	 *   - MUST reject the invoice if `invoice_node_id` is not present.
+	 */
+	if (!invoice->invoice_amount) {
+		*fail = tal_strdup(ctx, "missing invoice_amount");
+		return tal_free(invoice);
 	}
+	if (!invoice->invoice_created_at) {
+		*fail = tal_strdup(ctx, "missing invoice_created_at");
+		return tal_free(invoice);
+	}
+	if (!invoice->invoice_payment_hash) {
+		*fail = tal_strdup(ctx, "missing invoice_payment_hash");
+		return tal_free(invoice);
+	}
+	if (!invoice->invoice_node_id) {
+		*fail = tal_strdup(ctx, "missing invoicenode_id");
+		return tal_free(invoice);
+	}
+
+	/* BOLT-offers #12:
+	 * - if `invoice_relative_expiry` is present:
+	 *   - MUST reject the invoice if the current time since 1970-01-01 UTC
+	 *     is greater than `invoice_created_at` plus `seconds_from_creation`.
+	 * - otherwise:
+	 *   - MUST reject the invoice if the current time since 1970-01-01 UTC
+	 *     is greater than `invoice_created_at` plus 7200.
+	 */
+	if (invoice->invoice_relative_expiry)
+		expiry = *invoice->invoice_relative_expiry;
+	else
+		expiry = 7200;
+	now = time_now().ts.tv_sec;
+	/* If it overflows, it's forever */
+	if (!add_overflows_u64(*invoice->invoice_created_at, expiry)
+	    && now > *invoice->invoice_created_at + expiry) {
+		*fail = tal_fmt(ctx, "expired %"PRIu64" seconds ago",
+				now - (*invoice->invoice_created_at + expiry));
+		return tal_free(invoice);
+	}
+
+	/* BOLT-offers #12:
+	 * - MUST reject the invoice if `invoice_paths` is not present or is
+	 *   empty. */
+	if (tal_count(invoice->invoice_paths) == 0) {
+		*fail = tal_strdup(ctx, "missing/empty invoice_paths");
+		return tal_free(invoice);
+	}
+
+	/* BOLT-offers #12:
+	 * - MUST reject the invoice if `num_hops` is 0 in any
+         *   `blinded_path` in `invoice_paths`.
+	 */
+	for (size_t i = 0; i < tal_count(invoice->invoice_paths); i++) {
+		if (tal_count(invoice->invoice_paths[i]->path) != 0)
+			continue;
+		*fail = tal_fmt(ctx, "zero num_hops in path %zu/%zu",
+				i, tal_count(invoice->invoice_paths));
+		return tal_free(invoice);
+	}
+
+	/* BOLT-offers #12:
+	 * - MUST reject the invoice if `invoice_blindedpay` is not present.
+	 * - MUST reject the invoice if `invoice_blindedpay` does not contain exactly one `blinded_payinfo` per `invoice_paths`.`blinded_path`.
+	 */
+	if (tal_count(invoice->invoice_blindedpay)
+	    != tal_count(invoice->invoice_paths)) {
+		*fail = tal_fmt(ctx, "expected %zu payinfo but found %zu",
+				tal_count(invoice->invoice_paths),
+				tal_count(invoice->invoice_blindedpay));
+		return tal_free(invoice);
+	}
+
 	return invoice;
 }
 

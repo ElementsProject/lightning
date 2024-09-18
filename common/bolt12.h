@@ -71,7 +71,10 @@ char *invoice_encode(const tal_t *ctx, const struct tlv_invoice *bolt12_tlv);
  * @must_be_chain: if non-NULL, chain to enforce.
  * @fail: pointer to descriptive error string, set if this returns NULL.
  *
- * Note: checks signature!
+ * It checks it's well-formed (has amount, payment_hash, node_id, and
+ * is not expired).  It also checks signature.
+ *
+ * Note: blinded path features need to be checked by the caller before use!
  */
 struct tlv_invoice *invoice_decode(const tal_t *ctx,
 				   const char *b12, size_t b12len,
@@ -79,12 +82,12 @@ struct tlv_invoice *invoice_decode(const tal_t *ctx,
 				   const struct chainparams *must_be_chain,
 				   char **fail);
 
-/* Variant which does not check signature */
-struct tlv_invoice *invoice_decode_nosig(const tal_t *ctx,
-					 const char *b12, size_t b12len,
-					 const struct feature_set *our_features,
-					 const struct chainparams *must_be_chain,
-					 char **fail);
+/* This one only checks it decides, and optionally is correct chain/features */
+struct tlv_invoice *invoice_decode_minimal(const tal_t *ctx,
+					   const char *b12, size_t b12len,
+					   const struct feature_set *our_features,
+					   const struct chainparams *must_be_chain,
+					   char **fail);
 
 /* Check a bolt12-style signature. */
 bool bolt12_check_signature(const struct tlv_field *fields,
