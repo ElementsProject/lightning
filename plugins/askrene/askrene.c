@@ -309,7 +309,7 @@ static const char *get_routes(const tal_t *ctx,
 	/* This value is somewhat implied by our fee budget: say we would pay
 	 * the entire budget for 100% probability, that means prob_cost_factor
 	 * is (fee / amount) / 1000, or in PPM: (fee / amount) * 1000 */
-	if (amount_msat_zero(amount))
+	if (amount_msat_is_zero(amount))
 		prob_cost_factor = 0;
 	else
 		prob_cost_factor = amount_msat_ratio(maxfee, amount) * 1000;

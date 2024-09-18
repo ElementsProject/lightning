@@ -1000,7 +1000,7 @@ static struct command_result *check_progress(struct lightningd *ld,
 	 *   set is already greater or equal to `total_msat`.
 	 */
 	/* We don't do this for single 0-value payments (sendonion does this) */
-	if (!amount_msat_eq(total_msat, AMOUNT_MSAT(0))
+	if (!amount_msat_is_zero(total_msat)
 	    && amount_msat_greater_eq(msat_already_pending, total_msat)) {
 		return command_fail(cmd, PAY_IN_PROGRESS,
 				    "Already have %s of %s payments in progress",

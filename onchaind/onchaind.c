@@ -395,7 +395,7 @@ static void record_coin_movements(struct tracked_output *out,
 	    || out->resolved->tx_type == OUR_HTLC_TIMEOUT_TO_US
 	    || out->resolved->tx_type == OUR_PENALTY_TX) {
 		/* penalty rbf cases, the amount might be zero */
-		if (amount_sat_zero(out->sat))
+		if (amount_sat_is_zero(out->sat))
 			record_channel_withdrawal(txid, out, blockheight, TO_MINER);
 		else
 			record_channel_withdrawal(txid, out, blockheight, TO_WALLET);

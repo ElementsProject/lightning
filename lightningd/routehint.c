@@ -156,7 +156,7 @@ routehint_candidates(const tal_t *ctx,
 				continue;
 			}
 			/* If they give us a hint, we use even if capacity 0 */
-		} else if (amount_msat_eq(capacity, AMOUNT_MSAT(0))) {
+		} else if (amount_msat_is_zero(capacity)) {
 			log_debug(ld->log, "%s: deadend",
 				  fmt_short_channel_id(tmpctx,
 						       r->short_channel_id));

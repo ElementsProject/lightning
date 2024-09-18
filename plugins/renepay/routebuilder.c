@@ -24,7 +24,7 @@ flow_adjust_htlcmax_constraints(struct flow *flow, struct gossmap *gossmap,
 	assert(gossmap);
 	assert(chan_extra_map);
 	assert(disabled_bitmap);
-	assert(!amount_msat_zero(flow_delivers(flow)));
+	assert(!amount_msat_is_zero(flow_delivers(flow)));
 
 	enum renepay_errorcode errorcode;
 
@@ -35,7 +35,7 @@ flow_adjust_htlcmax_constraints(struct flow *flow, struct gossmap *gossmap,
 					     chan_extra_map, &bad_channel);
 
 	if (!errorcode) {
-		assert(!amount_msat_zero(max_deliverable));
+		assert(!amount_msat_is_zero(max_deliverable));
 
 		// no issues
 		flow->amount =
@@ -166,7 +166,7 @@ struct route **get_routes(const tal_t *ctx,
 				 "Failed to build disabled_bitmap.");
 		goto function_fail;
 	}
-	if (amount_msat_zero(amount_to_deliver)) {
+	if (amount_msat_is_zero(amount_to_deliver)) {
 		tal_report_error(ctx, ecode, fail, PLUGIN_ERROR,
 				 "amount to deliver is zero");
 		goto function_fail;
@@ -207,7 +207,7 @@ struct route **get_routes(const tal_t *ctx,
 
 	char *errmsg;
 
-	while (!amount_msat_zero(amount_to_deliver)) {
+	while (!amount_msat_is_zero(amount_to_deliver)) {
 
 		/* TODO: choose an algorithm, could be something like
 		 * payment->algorithm, that we set up based on command line
@@ -277,7 +277,7 @@ struct route **get_routes(const tal_t *ctx,
 
 			// a bound check, we shouldn't deliver a zero amount, it
 			// would mean a bug somewhere
-			if (amount_msat_zero(flows[i]->amount)) {
+			if (amount_msat_is_zero(flows[i]->amount)) {
 				tal_report_error(ctx, ecode, fail, PLUGIN_ERROR,
 						 "flow conveys a zero amount");
 				goto function_fail;

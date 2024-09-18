@@ -1015,7 +1015,7 @@ openchannel_init_dest(struct multifundchannel_destination *dest)
 			   fmt_amount_msat(tmpctx, dest->push_msat));
 
 	/* Request some sats from the peer! */
-	if (!amount_sat_zero(dest->request_amt)) {
+	if (!amount_sat_is_zero(dest->request_amt)) {
 		json_add_string(req->js, "request_amt",
 				fmt_amount_sat(tmpctx, dest->request_amt));
 		json_add_string(req->js, "compact_lease",

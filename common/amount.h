@@ -115,8 +115,8 @@ bool amount_sat_eq(struct amount_sat a, struct amount_sat b);
 bool amount_msat_eq(struct amount_msat a, struct amount_msat b);
 
 /* Is a zero? */
-bool amount_sat_zero(struct amount_sat a);
-bool amount_msat_zero(struct amount_msat a);
+bool amount_sat_is_zero(struct amount_sat a);
+bool amount_msat_is_zero(struct amount_msat a);
 
 /* Is a > b? */
 bool amount_sat_greater(struct amount_sat a, struct amount_sat b);

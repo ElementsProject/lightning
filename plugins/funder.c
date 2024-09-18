@@ -448,7 +448,7 @@ psbt_funded(struct command *cmd,
 
 	/* If we're accepting an lease request, *and* they've
 	 * requested one, fill in our most recent infos */
-	if (current_policy->rates && !amount_sat_zero(info->requested_lease))
+	if (current_policy->rates && !amount_sat_is_zero(info->requested_lease))
 		json_add_lease_rates(response, current_policy->rates);
 
 	return command_finished(cmd, response);
@@ -696,7 +696,7 @@ listfunds_success(struct command *cmd,
 		   fmt_amount_sat(tmpctx, info->our_funding),
 		   funding_err ? funding_err : "");
 
-	if (amount_sat_zero(info->our_funding))
+	if (amount_sat_is_zero(info->our_funding))
 		return command_hook_success(cmd);
 
 	plugin_log(cmd->plugin, LOG_DBG,
@@ -841,7 +841,7 @@ json_openchannel2_call(struct command *cmd,
 	/* If they've requested funds, but we're not actually
 	 * supporting requested funds...*/
 	if (!current_policy->rates &&
-	    !amount_sat_zero(info->requested_lease)) {
+	    !amount_sat_is_zero(info->requested_lease)) {
 		struct json_stream *res = jsonrpc_stream_success(cmd);
 		json_add_string(res, "result", "reject");
 		json_add_string(res, "error_message",
@@ -852,7 +852,7 @@ json_openchannel2_call(struct command *cmd,
 
 
 	/* Check that their block height isn't too far behind */
-	if (!amount_sat_zero(info->requested_lease)) {
+	if (!amount_sat_is_zero(info->requested_lease)) {
 		u32 upper_bound, lower_bound;
 
 		/* BOLT- #2:

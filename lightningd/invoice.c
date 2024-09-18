@@ -1020,7 +1020,7 @@ static struct command_result *param_positive_msat_or_any(struct command *cmd,
 	}
 	*msat = tal(cmd, struct amount_msat);
 	if (parse_amount_msat(*msat, buffer + tok->start, tok->end - tok->start)
-	    && !amount_msat_eq(**msat, AMOUNT_MSAT(0)))
+	    && !amount_msat_is_zero(**msat))
 		return NULL;
 
 	return command_fail_badparam(cmd, name, buffer, tok,

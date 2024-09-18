@@ -2571,7 +2571,7 @@ static void add_amount_to_side(struct peer *peer,
 {
 	enum tx_role role;
 
-	if (amount_sat_zero(amount))
+	if (amount_sat_is_zero(amount))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Unable to add 0 sat fields to calculation");
 

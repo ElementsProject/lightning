@@ -117,7 +117,7 @@ void json_add_forwarding_fields(struct json_stream *response,
 	json_add_amount_msat(response, "in_msat", cur->msat_in);
 
 	/* These can be unset (aka zero) if we failed before channel lookup */
-	if (!amount_msat_eq(cur->msat_out, AMOUNT_MSAT(0))) {
+	if (!amount_msat_is_zero(cur->msat_out)) {
 		json_add_amount_msat(response, "out_msat", cur->msat_out);
 		json_add_amount_msat(response, "fee_msat", cur->fee);
 	}

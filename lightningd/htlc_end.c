@@ -91,7 +91,7 @@ static void *corrupt(const char *abortstr, const char *fmt, ...)
 
 struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr)
 {
-	if (amount_msat_eq(hin->msat, AMOUNT_MSAT(0)))
+	if (amount_msat_is_zero(hin->msat))
 		return corrupt(abortstr, "zero msatoshi");
 	else if (htlc_state_owner(hin->hstate) != REMOTE)
 		return corrupt(abortstr, "invalid state %s",

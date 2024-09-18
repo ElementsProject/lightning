@@ -234,8 +234,8 @@ REGISTER_PAYMENT_MODIFIER(previoussuccess, previoussuccess_cb);
  */
 static struct command_result *initial_sanity_checks_cb(struct payment *payment)
 {
-	assert(amount_msat_zero(payment->total_sent));
-	assert(amount_msat_zero(payment->total_delivering));
+	assert(amount_msat_is_zero(payment->total_sent));
+	assert(amount_msat_is_zero(payment->total_delivering));
 	assert(!payment->preimage);
 	assert(tal_count(payment->cmd_array) == 1);
 
@@ -666,7 +666,7 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 	/* How much are we still trying to send? */
 	if (!amount_msat_sub(&remaining, payment->payment_info.amount,
 			     payment->total_delivering) ||
-	    amount_msat_zero(remaining)) {
+	    amount_msat_is_zero(remaining)) {
 		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
 			   "%s: Payment is pending with full amount already "
 			   "committed. We skip the computation of new routes.",

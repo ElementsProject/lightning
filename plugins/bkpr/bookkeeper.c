@@ -99,7 +99,7 @@ getblockheight_done(struct command *cmd, const char *buf,
 	}
 
 	/* Append a net/rollup entry */
-	if (!amount_msat_zero(net_apys->total_start_bal)) {
+	if (!amount_msat_is_zero(net_apys->total_start_bal)) {
 		net_apys->acct_name = tal_fmt(net_apys, "net");
 		json_add_channel_apy(res, net_apys);
 	}
@@ -726,8 +726,8 @@ static bool new_missed_channel_account(struct command *cmd,
 			try_update_open_fees(cmd, acct);
 
 		/* We log a channel event for the push amt */
-		if (!amount_msat_zero(push_credit)
-		    || !amount_msat_zero(push_debit)) {
+		if (!amount_msat_is_zero(push_credit)
+		    || !amount_msat_is_zero(push_debit)) {
 			struct channel_event *chan_ev;
 			char *chan_tag;
 
@@ -799,13 +799,13 @@ static char *msat_find_diff(struct amount_msat balance,
 		return err;
 
 	/* If we're not missing events, debits == 0 */
-	if (!amount_msat_zero(net_debit)) {
-		assert(amount_msat_zero(net_credit));
+	if (!amount_msat_is_zero(net_debit)) {
+		assert(amount_msat_is_zero(net_credit));
 		if (!amount_msat_add(credit_diff, net_debit, balance))
 			return "Overflow finding credit_diff";
 		*debit_diff = AMOUNT_MSAT(0);
 	} else {
-		assert(amount_msat_zero(net_debit));
+		assert(amount_msat_is_zero(net_debit));
 		if (amount_msat_greater(net_credit, balance)) {
 			if (!amount_msat_sub(debit_diff, net_credit,
 					    balance))
@@ -832,8 +832,8 @@ static void log_journal_entry(struct account *acct,
 	struct channel_event *chan_ev;
 
 	/* No diffs to register, no journal needed */
-	if (amount_msat_zero(credit_diff)
-	    && amount_msat_zero(debit_diff))
+	if (amount_msat_is_zero(credit_diff)
+	    && amount_msat_is_zero(debit_diff))
 		return;
 
 	chan_ev = new_channel_event(tmpctx,
@@ -1091,7 +1091,7 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 			continue;
 		}
 
-		if (!amount_msat_zero(credit_diff) || !amount_msat_zero(debit_diff)) {
+		if (!amount_msat_is_zero(credit_diff) || !amount_msat_is_zero(debit_diff)) {
 			struct channel_event *ev;
 
 			plugin_log(cmd->plugin, LOG_UNUSUAL,
@@ -1287,7 +1287,7 @@ static struct command_result *lookup_invoice_desc(struct command *cmd,
 
 	/* Otherwise will go away when event is cleaned up */
 	tal_steal(cmd, payment_hash);
-	if (!amount_msat_zero(credit))
+	if (!amount_msat_is_zero(credit))
 		req = jsonrpc_request_start(cmd->plugin, cmd,
 					    "listinvoices",
 					    listinvoices_done,
@@ -1660,7 +1660,7 @@ parse_and_log_channel_move(struct command *cmd,
 
 			/* We only do rebalance checks for debits,
 			 * the credit event always arrives first */
-			if (!amount_msat_zero(e->debit))
+			if (!amount_msat_is_zero(e->debit))
 				maybe_record_rebalance(db, e);
 
 			db_commit_transaction(db);

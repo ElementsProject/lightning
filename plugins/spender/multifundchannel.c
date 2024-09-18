@@ -1380,7 +1380,7 @@ perform_fundpsbt(struct multifundchannel_command *mfc, u32 feerate)
 						"Overflow while summing "
 						"destination values.");
 			/* Also add in any fees for requested amt! */
-			if (!amount_sat_zero(requested)) {
+			if (!amount_sat_is_zero(requested)) {
 				struct amount_sat fee;
 
 				/* Assume they send >= what we've
@@ -1567,7 +1567,7 @@ connect_ok(struct command *cmd,
 			       dest->their_features,
 			       OPT_DUAL_FUND))
 		dest->protocol = OPEN_CHANNEL;
-	else if (!amount_sat_zero(dest->request_amt) || !(!dest->rates))
+	else if (!amount_sat_is_zero(dest->request_amt) || !(!dest->rates))
 		/* Return an error */
 		fail_destination_msg(dest, FUNDING_V2_NOT_SUPPORTED,
 				     "Tried to buy a liquidity ad"
@@ -1884,7 +1884,7 @@ param_destinations_array(struct command *cmd, const char *name,
 						     json_dest,
 						     "output would be dust");
 
-		if (!amount_sat_zero(*request_amt) && !rates)
+		if (!amount_sat_is_zero(*request_amt) && !rates)
 			return command_fail_badparam(cmd, name, buffer,
 					             json_dest,
 						     "Must pass in 'compact_"

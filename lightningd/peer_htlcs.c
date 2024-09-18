@@ -2093,7 +2093,7 @@ static bool channel_added_their_htlc(struct channel *channel,
 	 *     - SHOULD send a `warning` and close the connection, or send an
 	 *       `error` and fail the channel.
 	 */
-	if (amount_msat_eq(added->amount, AMOUNT_MSAT(0))
+	if (amount_msat_is_zero(added->amount)
 	    || amount_msat_less(added->amount, channel->our_config.htlc_minimum)) {
 		channel_internal_error(channel,
 				       "trying to add HTLC amount %s"
