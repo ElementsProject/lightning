@@ -2,12 +2,10 @@ from fixtures import *  # noqa: F401,F403
 from pyln.client import RpcError
 from utils import (
     only_one, first_scid, GenChannel, generate_gossip_store,
-    TEST_NETWORK, sync_blockheight, wait_for
+    sync_blockheight, wait_for
 )
-import os
 import pytest
 import time
-import shutil
 
 
 def test_layers(node_factory):
@@ -152,7 +150,6 @@ def check_getroute_paths(node,
 
 def test_getroutes(node_factory):
     """Test getroutes call"""
-    l1 = node_factory.get_node(start=False)
     gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, forward=GenChannel.Half(propfee=10000)),
                                              GenChannel(0, 2, capacity_sats=9000),
                                              GenChannel(1, 3, forward=GenChannel.Half(propfee=20000)),
@@ -160,8 +157,7 @@ def test_getroutes(node_factory):
                                              GenChannel(2, 4, forward=GenChannel.Half(delay=2000))])
 
     # Set up l1 with this as the gossip_store
-    shutil.copy(gsfile.name, os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'))
-    l1.start()
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
     # Start easy
     assert l1.rpc.getroutes(source=nodemap[0],
@@ -258,7 +254,6 @@ def test_getroutes(node_factory):
 def test_getroutes_fee_fallback(node_factory):
     """Test getroutes call takes into account fees, if excessive"""
 
-    l1 = node_factory.get_node(start=False)
     # 0 -> 1 -> 3: high capacity, high fee (1%)
     # 0 -> 2 -> 3: low capacity, low fee.
     gsfile, nodemap = generate_gossip_store([GenChannel(0, 1,
@@ -272,8 +267,7 @@ def test_getroutes_fee_fallback(node_factory):
                                              GenChannel(2, 3,
                                                         capacity_sats=10000)])
     # Set up l1 with this as the gossip_store
-    shutil.copy(gsfile.name, os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'))
-    l1.start()
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
     # Don't hit maxfee?  Go easy path.
     check_getroute_paths(l1,
@@ -296,7 +290,6 @@ def test_getroutes_fee_fallback(node_factory):
 
 def test_getroutes_auto_sourcefree(node_factory):
     """Test getroutes call with auto.sourcefree layer"""
-    l1 = node_factory.get_node(start=False)
     gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, forward=GenChannel.Half(propfee=10000)),
                                              GenChannel(0, 2, capacity_sats=9000),
                                              GenChannel(1, 3, forward=GenChannel.Half(propfee=20000)),
@@ -304,8 +297,7 @@ def test_getroutes_auto_sourcefree(node_factory):
                                              GenChannel(2, 4, forward=GenChannel.Half(delay=2000))])
 
     # Set up l1 with this as the gossip_store
-    shutil.copy(gsfile.name, os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'))
-    l1.start()
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
     # Start easy
     assert l1.rpc.getroutes(source=nodemap[0],
@@ -371,23 +363,20 @@ def test_getroutes_auto_sourcefree(node_factory):
 
 def test_getroutes_auto_localchans(node_factory):
     """Test getroutes call with auto.localchans layer"""
-    # We get bad signature warnings, since our gossip is made up!
-    l1, l2 = node_factory.get_nodes(2, opts={'allow_warning': True})
+    l1 = node_factory.get_node()
     gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, forward=GenChannel.Half(propfee=10000)),
                                              GenChannel(1, 2, forward=GenChannel.Half(propfee=10000))],
-                                            nodemap={0: l2.info['id']})
+                                            nodemap={0: l1.info['id']})
 
-    # Set up l1 with this as the gossip_store
-    l1.stop()
-    shutil.copy(gsfile.name, os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'))
-    l1.start()
+    # We get bad signature warnings, since our gossip is made up!
+    l2 = node_factory.get_node(allow_warning=True, gossip_store_file=gsfile.name)
 
-    # Now l1 beleives l2 has an entire network behind it.
-    scid12, _ = l1.fundchannel(l2, 10**6, announce_channel=False)
+    # Now l2 believes l1 has an entire network behind it.
+    scid12, _ = l2.fundchannel(l1, 10**6, announce_channel=False)
 
     # Cannot find a route unless we use local hints.
-    with pytest.raises(RpcError, match="Unknown source node {}".format(l1.info['id'])):
-        l1.rpc.getroutes(source=l1.info['id'],
+    with pytest.raises(RpcError, match="Unknown source node {}".format(l2.info['id'])):
+        l2.rpc.getroutes(source=l2.info['id'],
                          destination=nodemap[2],
                          amount_msat=100000,
                          layers=[],
@@ -395,8 +384,8 @@ def test_getroutes_auto_localchans(node_factory):
                          final_cltv=99)
 
     # This should work
-    check_getroute_paths(l1,
-                         l1.info['id'],
+    check_getroute_paths(l2,
+                         l2.info['id'],
                          nodemap[2],
                          100000,
                          maxfee_msat=100000,
@@ -406,8 +395,8 @@ def test_getroutes_auto_localchans(node_factory):
                                  {'short_channel_id': '1x2x1', 'amount_msat': 101000, 'delay': 99 + 6}]])
 
     # This should get self-discount correct
-    check_getroute_paths(l1,
-                         l1.info['id'],
+    check_getroute_paths(l2,
+                         l2.info['id'],
                          nodemap[2],
                          100000,
                          maxfee_msat=100000,
@@ -418,8 +407,6 @@ def test_getroutes_auto_localchans(node_factory):
 
 
 def test_fees_dont_exceed_constraints(node_factory):
-    l1 = node_factory.get_node(start=False)
-
     msat = 100000000
     max_msat = int(msat * 0.45)
     # 0 has to use two paths (1 and 2) to reach 3.  But we tell it 0->1 has limited capacity.
@@ -429,8 +416,7 @@ def test_fees_dont_exceed_constraints(node_factory):
                                              GenChannel(2, 3, capacity_sats=msat // 1000, forward=GenChannel.Half(propfee=10000))])
 
     # Set up l1 with this as the gossip_store
-    shutil.copy(gsfile.name, os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'))
-    l1.start()
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
     chan = only_one([c for c in l1.rpc.listchannels(source=nodemap[0])['channels'] if c['destination'] == nodemap[1]])
     l1.rpc.askrene_inform_channel(layer='test_layers',
@@ -514,8 +500,6 @@ def test_live_spendable(node_factory, bitcoind):
 
 def test_limits_fake_gossmap(node_factory, bitcoind):
     """Like test_live_spendable, but using a generated gossmap not real nodes"""
-    l1 = node_factory.get_node(start=False)
-
     gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, capacity_sats=100_000),
                                              GenChannel(0, 1, capacity_sats=100_000),
                                              GenChannel(0, 1, capacity_sats=200_000),
@@ -526,9 +510,7 @@ def test_limits_fake_gossmap(node_factory, bitcoind):
                                              GenChannel(1, 2, capacity_sats=200_000),
                                              GenChannel(1, 2, capacity_sats=300_000),
                                              GenChannel(1, 2, capacity_sats=400_000)])
-
-    shutil.copy(gsfile.name, os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'))
-    l1.start()
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
     # Create a layer like auto.localchans would from "spendable"
     spendable = {'0x1x0/1': 87718000,
