@@ -262,6 +262,24 @@ void json_add_payment(struct json_stream *s, const struct payment *payment)
 	// - number of parts?
 }
 
+void json_add_route_hops(struct json_stream *js, const char *fieldname,
+			 const struct route_hop *hops)
+{
+	const size_t pathlen = tal_count(hops);
+	json_array_start(js, fieldname);
+	for (size_t j = 0; j < pathlen; j++) {
+		const struct route_hop *h = &hops[j];
+		json_object_start(js, NULL);
+		json_add_node_id(js, "id", &h->node_id);
+		json_add_short_channel_id(js, "channel", h->scid);
+		json_add_amount_msat(js, "amount_msat", h->amount);
+		json_add_num(js, "direction", h->direction);
+		json_add_u32(js, "delay", h->delay);
+		json_object_end(js);
+	}
+	json_array_end(js);
+}
+
 void json_add_route(struct json_stream *js, const struct route *route,
 		    const struct payment *payment)
 {
@@ -273,22 +291,7 @@ void json_add_route(struct json_stream *js, const struct route *route,
 
 	assert(route->hops);
 	const size_t pathlen = tal_count(route->hops);
-
-	json_array_start(js, "route");
-	/* An empty route means a payment to oneself, pathlen=0 */
-	for (size_t j = 0; j < pathlen; j++) {
-		const struct route_hop *hop = &route->hops[j];
-
-		json_object_start(js, NULL);
-		json_add_node_id(js, "id", &hop->node_id);
-		json_add_short_channel_id(js, "channel", hop->scid);
-		json_add_amount_msat(js, "amount_msat", hop->amount);
-		json_add_num(js, "direction", hop->direction);
-		json_add_u32(js, "delay", hop->delay);
-		json_add_string(js, "style", "tlv");
-		json_object_end(js);
-	}
-	json_array_end(js);
+	json_add_route_hops(js, "route", route->hops);
 	json_add_sha256(js, "payment_hash", &pinfo->payment_hash);
 
 	if (pinfo->payment_secret)
