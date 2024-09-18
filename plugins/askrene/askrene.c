@@ -384,7 +384,7 @@ static const char *get_routes(const tal_t *ctx,
 		r->hops = tal_arr(r, struct route_hop, tal_count(flows[i]->path));
 
 		/* Fill in backwards to calc amount and delay */
-		msat = flows[i]->amount;
+		msat = flows[i]->delivers;
 		delay = finalcltv;
 
 		for (int j = tal_count(flows[i]->path) - 1; j >= 0; j--) {
@@ -403,7 +403,7 @@ static const char *get_routes(const tal_t *ctx,
 			rh->amount = msat;
 			rh->delay = delay;
 		}
-		(*amounts)[i] = flow_delivers(flows[i]);
+		(*amounts)[i] = flows[i]->delivers;
 	}
 
 	*probability = flowset_probability(flows, rq);
