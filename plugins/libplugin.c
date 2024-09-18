@@ -1037,6 +1037,105 @@ send_outreq(struct plugin *plugin, const struct out_req *req)
 	return &pending;
 }
 
+struct request_batch {
+	size_t num_remaining;
+
+	struct command_result *(*cb)(struct command *,
+				     const char *,
+				     const jsmntok_t *,
+				     void *);
+	struct command_result *(*errcb)(struct command *,
+					const char *,
+					const jsmntok_t *,
+					void *);
+	struct command_result *(*finalcb)(struct command *,
+					  void *);
+	void *arg;
+};
+
+struct request_batch *request_batch_new_(const tal_t *ctx,
+					 struct command_result *(*cb)(struct command *,
+								      const char *,
+								      const jsmntok_t *,
+								      void *),
+					 struct command_result *(*errcb)(struct command *,
+									 const char *,
+									 const jsmntok_t *,
+									 void *),
+					 struct command_result *(*finalcb)(struct command *,
+									   void *),
+					 void *arg)
+{
+	struct request_batch *batch = tal(ctx, struct request_batch);
+
+	batch->num_remaining = 0;
+	batch->cb = cb;
+	batch->errcb = errcb;
+	batch->finalcb = finalcb;
+	batch->arg = arg;
+	return batch;
+}
+
+static struct command_result *batch_one_complete(struct command *cmd,
+						 struct request_batch *batch)
+{
+	void *arg;
+	struct command_result *(*finalcb)(struct command *, void *);
+
+	assert(batch->num_remaining);
+
+	if (--batch->num_remaining != 0)
+		return command_still_pending(cmd);
+
+	arg = batch->arg;
+	finalcb = batch->finalcb;
+	tal_free(batch);
+	return finalcb(cmd, arg);
+}
+
+static struct command_result *batch_one_success(struct command *cmd,
+						const char *buf,
+						const jsmntok_t *result,
+						struct request_batch *batch)
+{
+	/* If this frees stuff (e.g. fails), just return */
+	if (batch->cb && batch->cb(cmd, buf, result, batch->arg) == &complete)
+		return command_done();
+	return batch_one_complete(cmd, batch);
+}
+
+static struct command_result *batch_one_failed(struct command *cmd,
+					       const char *buf,
+					       const jsmntok_t *result,
+					       struct request_batch *batch)
+{
+	/* If this frees stuff (e.g. fails), just return */
+	if (batch->errcb && batch->errcb(cmd, buf, result, batch->arg) == &complete)
+		return command_done();
+	return batch_one_complete(cmd, batch);
+}
+
+struct out_req *add_to_batch(struct command *cmd,
+			     struct request_batch *batch,
+			     const char *cmdname)
+{
+	batch->num_remaining++;
+
+	return jsonrpc_request_start(cmd->plugin, cmd, cmdname,
+				     batch_one_success,
+				     batch_one_failed,
+				     batch);
+}
+
+/* Runs finalcb immediately if batch is empty. */
+struct command_result *batch_done(struct command *cmd,
+				  struct request_batch *batch)
+{
+	/* Same path as completion */
+	batch->num_remaining++;
+	return batch_one_complete(cmd, batch);
+}
+
 static void json_add_deprecated(struct json_stream *js,
 				const char *fieldname,
 				const char *depr_start, const char *depr_end)

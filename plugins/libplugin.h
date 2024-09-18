@@ -155,6 +155,45 @@ struct out_req *jsonrpc_request_start_(struct plugin *plugin,
 			       NULL,					\
 			       (arg))
 
+/* Batch of requests: cb and errcb are optional, finalcb is called when all complete. */
+struct request_batch *request_batch_new_(const tal_t *ctx,
+					 struct command_result *(*cb)(struct command *,
+								      const char *,
+								      const jsmntok_t *,
+								      void *),
+					 struct command_result *(*errcb)(struct command *,
+									 const char *,
+									 const jsmntok_t *,
+									 void *),
+					 struct command_result *(*finalcb)(struct command *,
+									   void *),
+					 void *arg);
+
+#define request_batch_new(ctx, cb, errcb, finalcb, arg)			\
+	request_batch_new_((ctx),					\
+		     typesafe_cb_preargs(struct command_result *, void *, \
+					 (cb), (arg),			\
+					 struct command *command,	\
+					 const char *buf,		\
+					 const jsmntok_t *result),	\
+		     typesafe_cb_preargs(struct command_result *, void *, \
+					 (errcb), (arg),		\
+					 struct command *command,	\
+					 const char *buf,		\
+					 const jsmntok_t *result),	\
+		     typesafe_cb_preargs(struct command_result *, void *, \
+					 (finalcb), (arg),		\
+					 struct command *command),	\
+		     (arg))
+
+struct out_req *add_to_batch(struct command *cmd,
+			     struct request_batch *batch,
+			     const char *cmdname);
+
+/* Runs finalcb immediately if batch is empty. */
+struct command_result *batch_done(struct command *cmd,
+				  struct request_batch *batch);
+
 /* Helper to create a JSONRPC2 response stream with a "result" object. */
 struct json_stream *jsonrpc_stream_success(struct command *cmd);
 
