@@ -473,7 +473,7 @@ def test_live_spendable(node_factory, bitcoind):
     routes = l1.rpc.getroutes(
         source=l1.info["id"],
         destination=l3.info["id"],
-        amount_msat=800_000_000,
+        amount_msat=800_000_001,
         layers=["auto.localchans", "auto.sourcefree"],
         maxfee_msat=50_000_000,
         final_cltv=10,
@@ -500,3 +500,13 @@ def test_live_spendable(node_factory, bitcoind):
                 exceeded[scidd] = f"Path total {path_total[scidd]} > spendable {maxes[scidd]}"
 
     assert exceeded == {}
+
+    # No duplicate paths!
+    for i in range(0, len(routes["routes"])):
+        path_i = [(p['short_channel_id'], p['direction']) for p in routes["routes"][i]['path']]
+        for j in range(i + 1, len(routes["routes"])):
+            path_j = [(p['short_channel_id'], p['direction']) for p in routes["routes"][j]['path']]
+            assert path_i != path_j
+
+    # Must deliver exact amount.
+    assert sum(r['amount_msat'] for r in routes["routes"]) == 800_000_001
