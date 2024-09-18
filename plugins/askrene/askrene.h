@@ -7,6 +7,7 @@
 #include <common/amount.h>
 #include <common/fp16.h>
 #include <common/node_id.h>
+#include <plugins/libplugin.h>
 
 struct gossmap_chan;
 
@@ -59,5 +60,15 @@ void get_constraints(const struct route_query *rq,
 		     int dir,
 		     struct amount_msat *min,
 		     struct amount_msat *max);
+
+/* Is there a known additional per-htlc cost for this channel? */
+struct amount_msat get_additional_per_htlc_cost(const struct route_query *rq,
+						const struct short_channel_id_dir *scidd);
+
+/* Useful plugin->askrene mapping */
+static inline struct askrene *get_askrene(struct plugin *plugin)
+{
+	return plugin_get_data(plugin, struct askrene);
+}
 
 #endif /* LIGHTNING_PLUGINS_ASKRENE_ASKRENE_H */
