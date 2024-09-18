@@ -62,4 +62,7 @@ u64 flow_delay(const struct flow *flow);
 /* Max CLTV any of these flows requires */
 u64 flows_worst_delay(struct flow **flows);
 
+const char *fmt_flows_step_scid(const tal_t *ctx,
+				const struct route_query *rq,
+				const struct flow *flow, size_t i);
 #endif /* LIGHTNING_PLUGINS_ASKRENE_FLOW_H */
