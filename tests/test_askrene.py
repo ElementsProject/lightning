@@ -510,3 +510,76 @@ def test_live_spendable(node_factory, bitcoind):
 
     # Must deliver exact amount.
     assert sum(r['amount_msat'] for r in routes["routes"]) == 800_000_001
+
+
+def test_limits_fake_gossmap(node_factory, bitcoind):
+    """Like test_live_spendable, but using a generated gossmap not real nodes"""
+    l1 = node_factory.get_node(start=False)
+
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, capacity_sats=100_000),
+                                             GenChannel(0, 1, capacity_sats=100_000),
+                                             GenChannel(0, 1, capacity_sats=200_000),
+                                             GenChannel(0, 1, capacity_sats=300_000),
+                                             GenChannel(0, 1, capacity_sats=400_000),
+                                             GenChannel(1, 2, capacity_sats=100_000),
+                                             GenChannel(1, 2, capacity_sats=100_000),
+                                             GenChannel(1, 2, capacity_sats=200_000),
+                                             GenChannel(1, 2, capacity_sats=300_000),
+                                             GenChannel(1, 2, capacity_sats=400_000)])
+
+    shutil.copy(gsfile.name, os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'))
+    l1.start()
+
+    # Create a layer like auto.localchans would from "spendable"
+    spendable = {'0x1x0/1': 87718000,
+                 '0x1x1/1': 87718000,
+                 '0x1x2/1': 186718000,
+                 '0x1x3/1': 285718000,
+                 '0x1x4/1': 384718000}
+
+    # Sanity check that these exist!
+    for scidd in spendable:
+        assert scidd in [f"{c['short_channel_id']}/{c['direction']}" for c in l1.rpc.listchannels(source=nodemap[0])['channels']]
+
+    for scidd, amount in spendable.items():
+        chan, direction = scidd.split('/')
+        l1.rpc.askrene_inform_channel(layer='localchans',
+                                      short_channel_id=chan, direction=int(direction),
+                                      minimum_msat=amount)
+        l1.rpc.askrene_inform_channel(layer='localchans',
+                                      short_channel_id=chan, direction=int(direction),
+                                      maximum_msat=amount)
+
+    routes = l1.rpc.getroutes(
+        source=nodemap[0],
+        destination=nodemap[2],
+        amount_msat=800_000_001,
+        layers=["localchans", "auto.sourcefree"],
+        maxfee_msat=50_000_000,
+        final_cltv=10,
+    )
+
+    path_total = {}
+    for r in routes["routes"]:
+        key = "{}/{}".format(
+            r["path"][0]["short_channel_id"], r["path"][0]["direction"]
+        )
+        path_total[key] = path_total.get(key, 0) + r["path"][0]["amount_msat"]
+
+    exceeded = {}
+    for scidd in spendable.keys():
+        if scidd in path_total:
+            if path_total[scidd] > spendable[scidd]:
+                exceeded[scidd] = f"Path total {path_total[scidd]} > spendable {spendable[scidd]}"
+
+    assert exceeded == {}
+
+    # No duplicate paths!
+    for i in range(0, len(routes["routes"])):
+        path_i = [(p['short_channel_id'], p['direction']) for p in routes["routes"][i]['path']]
+        for j in range(i + 1, len(routes["routes"])):
+            path_j = [(p['short_channel_id'], p['direction']) for p in routes["routes"][j]['path']]
+            assert path_i != path_j
+
+    # Must deliver exact amount.
+    assert sum(r['amount_msat'] for r in routes["routes"]) == 800_000_001
