@@ -380,8 +380,7 @@ static const char *get_routes(const tal_t *ctx,
 		u32 delay;
 
 		(*routes)[i] = r = tal(*routes, struct route);
-		/* FIXME: flow_probability doesn't take into account other flows! */
-		r->success_prob = flows[i]->success_prob;
+		r->success_prob = flow_probability(flows[i], rq);
 		r->hops = tal_arr(r, struct route_hop, tal_count(flows[i]->path));
 
 		/* Fill in backwards to calc amount and delay */

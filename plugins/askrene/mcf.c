@@ -1276,8 +1276,6 @@ get_flow_paths(const tal_t *ctx,
 			excess = amount_msat(0);
 			fp->amount = delivered;
 
-			fp->success_prob = flow_probability(fp, rq);
-
 			// add fp to flows
 			tal_arr_expand(&flows, fp);
 		}
