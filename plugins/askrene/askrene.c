@@ -185,32 +185,50 @@ static void add_free_source(struct plugin *plugin,
 			    struct gossmap_localmods *localmods,
 			    const struct node_id *source)
 {
+	/* We apply existing localmods, save up mods we want, then append
+	 * them: it's not safe to modify localmods while they are applied! */
 	const struct gossmap_node *srcnode;
+	struct mod {
+		struct short_channel_id_dir scidd;
+		fp16_t htlc_min, htlc_max;
+		bool enabled;
+	} *mods = tal_arr(tmpctx, struct mod, 0);
 
-	/* If we're not in map, we complain later (unless we're purely
-	 * using local channels) */
+	gossmap_apply_localmods(gossmap, localmods);
+
+	/* If we're not in map, we complain later */
 	srcnode = gossmap_find_node(gossmap, source);
-	if (!srcnode)
-		return;
 
-	for (size_t i = 0; i < srcnode->num_chans; i++) {
-		struct gossmap_chan *c;
-		int dir;
-		struct short_channel_id scid;
+	for (size_t i = 0; srcnode && i < srcnode->num_chans; i++) {
+		const struct gossmap_chan *c;
+		const struct half_chan *h;
+		struct mod mod;
 
-		c = gossmap_nth_chan(gossmap, srcnode, i, &dir);
-		scid = gossmap_chan_scid(gossmap, c);
+		c = gossmap_nth_chan(gossmap, srcnode, i, &mod.scidd.dir);
+		h = &c->half[mod.scidd.dir];
+
+		mod.scidd.scid = gossmap_chan_scid(gossmap, c);
+		mod.htlc_min = h->htlc_min;
+		mod.htlc_max = h->htlc_max;
+		mod.enabled = h->enabled;
+		tal_arr_expand(&mods, mod);
+	}
+	gossmap_remove_localmods(gossmap, localmods);
+
+	/* Now we can update localmods */
+	for (size_t i = 0; i < tal_count(mods); i++) {
 		if (!gossmap_local_updatechan(localmods,
-					      scid,
+					      mods[i].scidd.scid,
 					      /* Keep min and max */
-					      gossmap_chan_htlc_min(c, dir),
-					      gossmap_chan_htlc_max(c, dir),
+					      /* FIXME: lossy conversion! */
+					      amount_msat(fp16_to_u64(mods[i].htlc_min)),
+					      amount_msat(fp16_to_u64(mods[i].htlc_max)),
 					      0, 0, 0,
 					      /* Keep enabled flag */
-					      c->half[dir].enabled,
-					      dir))
-			plugin_err(plugin, "Could not zero fee on local %s",
-				   fmt_short_channel_id(tmpctx, scid));
+					      mods[i].enabled,
+					      mods[i].scidd.dir))
+			plugin_err(plugin, "Could not zero fee on %s",
+				   fmt_short_channel_id_dir(tmpctx, &mods[i].scidd));
 	}
 }
 
@@ -237,7 +255,6 @@ static const char *get_routes(const tal_t *ctx,
 	double base_fee_penalty;
 	u32 prob_cost_factor, mu;
 	const char *ret;
-	bool zero_cost;
 
 	if (gossmap_refresh(askrene->gossmap, NULL)) {
 		/* FIXME: gossmap_refresh callbacks to we can update in place */
@@ -250,11 +267,6 @@ static const char *get_routes(const tal_t *ctx,
 	rq->reserved = askrene->reserved;
 	rq->layers = tal_arr(rq, const struct layer *, 0);
 	rq->capacities = tal_dup_talarr(rq, fp16_t, askrene->capacities);
-
-	/* If we're told to zerocost local channels, then make sure that's done
-	 * in local mods as well. */
-	zero_cost = have_layer(layers, "auto.sourcefree")
-		&& node_id_eq(source, &askrene->my_id);
 
 	/* Layers don't have to exist: they might be empty! */
 	for (size_t i = 0; i < tal_count(layers); i++) {
@@ -269,15 +281,14 @@ static const char *get_routes(const tal_t *ctx,
 
 		tal_arr_expand(&rq->layers, l);
 		/* FIXME: Implement localmods_merge, and cache this in layer? */
-		layer_add_localmods(l, rq->gossmap, zero_cost, localmods);
+		layer_add_localmods(l, rq->gossmap, false, localmods);
 
 		/* Clear any entries in capacities array if we
 		 * override them (incl local channels) */
 		layer_clear_overridden_capacities(l, askrene->gossmap, rq->capacities);
 	}
 
-	/* This does not see local mods!  If you add local channel in a layer, it won't
-	 * have costs zeroed out here. */
+	/* This also looks into localmods, to zero them */
 	if (have_layer(layers, "auto.sourcefree"))
 		add_free_source(plugin, askrene->gossmap, localmods, source);
 
@@ -552,17 +563,11 @@ listpeerchannels_done(struct command *cmd,
 {
 	struct layer *local_layer = new_temp_layer(info, "auto.localchans");
 	struct gossmap_localmods *localmods;
-	bool zero_cost;
-
-	/* If we're told to zerocost local channels, then make sure that's done
-	 * in local mods as well. */
-	zero_cost = have_layer(info->layers, "auto.sourcefree")
-		&& node_id_eq(info->source, &get_askrene(cmd->plugin)->my_id);
 
 	localmods = gossmods_from_listpeerchannels(cmd,
 						   &get_askrene(cmd->plugin)->my_id,
 						   buffer, toks,
-						   zero_cost,
+						   false,
 						   add_localchan,
 						   local_layer);
 
