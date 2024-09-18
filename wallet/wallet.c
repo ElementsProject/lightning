@@ -3287,25 +3287,6 @@ struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 	return stubs;
 }
 
-void wallet_local_htlc_out_delete(struct wallet *wallet,
-				  struct channel *chan,
-				  const struct sha256 *payment_hash,
-				  u64 partid)
-{
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(wallet->db, SQL("DELETE FROM channel_htlcs"
-					     " WHERE direction = ?"
-					     " AND origin_htlc = ?"
-					     " AND payment_hash = ?"
-					     " AND partid = ?;"));
-	db_bind_int(stmt, DIRECTION_OUTGOING);
-	db_bind_int(stmt, 0);
-	db_bind_sha256(stmt, payment_hash);
-	db_bind_u64(stmt, partid);
-	db_exec_prepared_v2(take(stmt));
-}
-
 /* FIXME: reorder! */
 static
 struct wallet_payment *wallet_payment_new(const tal_t *ctx,
