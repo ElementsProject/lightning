@@ -14,7 +14,7 @@ struct flow {
 	/* The directions to traverse. */
 	int *dirs;
 	/* Amount delivered */
-	struct amount_msat amount;
+	struct amount_msat delivers;
 };
 
 /* Helper to access the half chan at flow index idx */
@@ -35,6 +35,10 @@ double flow_edge_cost(const struct gossmap *gossmap,
 		      double basefee_penalty,
 		      double delay_riskfactor);
 
+/* What's the success probability of this flow in isolation? */
+double flow_probability(const struct flow *flow,
+			const struct route_query *rq);
+
 /* Compute the prob. of success of a set of concurrent set of flows. */
 double flowset_probability(struct flow **flows,
 			   const struct route_query *rq);
@@ -45,20 +49,17 @@ struct amount_msat flow_spend(struct plugin *plugin, const struct flow *flow);
 /* How much do we pay in fees to make this flow arrive. */
 struct amount_msat flow_fee(struct plugin *plugin, const struct flow *flow);
 
+/* What fee to we pay for this entire flow set? */
 struct amount_msat flowset_fee(struct plugin *plugin, struct flow **flows);
 
+/* How much does this entire flowset deliver? */
 struct amount_msat flowset_delivers(struct plugin *plugin,
 				    struct flow **flows);
 
-static inline struct amount_msat flow_delivers(const struct flow *flow)
-{
-	return flow->amount;
-}
-
-double flow_probability(const struct flow *flow,
-			const struct route_query *rq);
-
+/* How much CLTV does this flow require? */
 u64 flow_delay(const struct flow *flow);
+
+/* Max CLTV any of these flows requires */
 u64 flows_worst_delay(struct flow **flows);
 
 #endif /* LIGHTNING_PLUGINS_ASKRENE_FLOW_H */

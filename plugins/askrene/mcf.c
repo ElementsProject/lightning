@@ -1274,7 +1274,7 @@ get_flow_paths(const tal_t *ctx,
 					   fmt_amount_msat(tmpctx, delivered));
 			}
 			excess = amount_msat(0);
-			fp->amount = delivered;
+			fp->delivers = delivered;
 
 			// add fp to flows
 			tal_arr_expand(&flows, fp);

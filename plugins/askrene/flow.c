@@ -22,7 +22,7 @@ static struct amount_msat *flow_amounts(const tal_t *ctx,
 {
 	const size_t pathlen = tal_count(flow->path);
 	struct amount_msat *amounts = tal_arr(ctx, struct amount_msat, pathlen);
-	amounts[pathlen - 1] = flow->amount;
+	amounts[pathlen - 1] = flow->delivers;
 
 	for (int i = (int)pathlen - 2; i >= 0; i--) {
 		const struct half_chan *h = flow_edge(flow, i + 1);
@@ -45,9 +45,9 @@ struct amount_msat flowset_delivers(struct plugin *plugin,
 {
 	struct amount_msat final = AMOUNT_MSAT(0);
 	for (size_t i = 0; i < tal_count(flows); i++) {
-		if (!amount_msat_accumulate(&final, flows[i]->amount)) {
+		if (!amount_msat_accumulate(&final, flows[i]->delivers)) {
 			plugin_err(plugin, "Could not add flowsat %s to %s (%zu/%zu)",
-				   fmt_amount_msat(tmpctx, flows[i]->amount),
+				   fmt_amount_msat(tmpctx, flows[i]->delivers),
 				   fmt_amount_msat(tmpctx, final),
 				   i, tal_count(flows));
 		}
@@ -148,7 +148,7 @@ double flowset_probability(struct flow **flows,
 struct amount_msat flow_spend(struct plugin *plugin, const struct flow *flow)
 {
 	const size_t pathlen = tal_count(flow->path);
-	struct amount_msat spend = flow->amount;
+	struct amount_msat spend = flow->delivers;
 
 	for (int i = (int)pathlen - 1; i >= 0; i--) {
 		const struct half_chan *h = flow_edge(flow, i);
@@ -168,9 +168,9 @@ struct amount_msat flow_fee(struct plugin *plugin, const struct flow *flow)
 {
 	struct amount_msat spend = flow_spend(plugin, flow);
 	struct amount_msat fee;
-	if (!amount_msat_sub(&fee, spend, flow->amount)) {
+	if (!amount_msat_sub(&fee, spend, flow->delivers)) {
 		plugin_err(plugin, "Could not subtract %s from %s for fee",
-				   fmt_amount_msat(tmpctx, flow->amount),
+				   fmt_amount_msat(tmpctx, flow->delivers),
 				   fmt_amount_msat(tmpctx, spend));
 	}
 
@@ -208,7 +208,7 @@ double flow_probability(const struct flow *flow,
 			const struct route_query *rq)
 {
 	const size_t pathlen = tal_count(flow->path);
-	struct amount_msat spend = flow->amount;
+	struct amount_msat spend = flow->delivers;
 	double prob = 1.0;
 
 	for (int i = (int)pathlen - 1; i >= 0; i--) {
