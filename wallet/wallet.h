@@ -900,18 +900,6 @@ void wallet_payment_delete(struct wallet *wallet,
 			   const enum payment_status *status);
 
 /**
- * wallet_local_htlc_out_delete - Remove a local outgoing failed HTLC
- *
- * This is not a generic HTLC cleanup!  This is specifically for the
- * narrow (and simple!) case of removing the HTLC associated with a
- * local outgoing payment.
- */
-void wallet_local_htlc_out_delete(struct wallet *wallet,
-				  struct channel *chan,
-				  const struct sha256 *payment_hash,
-				  u64 partid);
-
-/**
  * wallet_payment_by_hash - Retrieve a specific payment
  *
  * Given the `payment_hash` retrieve the matching payment.
