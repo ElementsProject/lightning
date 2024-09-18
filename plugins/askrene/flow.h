@@ -18,10 +18,6 @@ struct flow {
 	struct amount_msat amount;
 };
 
-const char *fmt_flows(const tal_t *ctx,
-		      const struct route_query *rq,
-		      struct flow **flows);
-
 /* Helper to access the half chan at flow index idx */
 const struct half_chan *flow_edge(const struct flow *flow, size_t idx);
 
@@ -59,31 +55,6 @@ static inline struct amount_msat flow_delivers(const struct flow *flow)
 {
 	return flow->amount;
 }
-
-/* FIXME: remove */
-enum askrene_errorcode {
-	ASKRENE_NOERROR = 0,
-
-	ASKRENE_AMOUNT_OVERFLOW,
-	ASKRENE_CHANNEL_NOT_FOUND,
-	ASKRENE_BAD_CHANNEL,
-	ASKRENE_BAD_ALLOCATION,
-	ASKRENE_PRECONDITION_ERROR,
-	ASKRENE_UNEXPECTED,
-};
-
-/* Returns problematic channel, OR sets max_deliverable to non-zero amount */
-const struct gossmap_chan *
-flow_maximum_deliverable(struct amount_msat *max_deliverable,
-			 const struct flow *flow,
-			 const struct route_query *rq);
-
-/* Assign the delivered amount to the flow if it fits
- the path maximum capacity. Returns bad channel if max would be zero. */
-const struct gossmap_chan *
-flow_assign_delivery(struct flow *flow,
-		     const struct route_query *rq,
-		     struct amount_msat requested_amount);
 
 double flow_probability(const struct flow *flow,
 			const struct route_query *rq);
