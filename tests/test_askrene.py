@@ -107,6 +107,29 @@ def test_layers(node_factory):
     assert listlayers == {'layers': [expect]}
 
 
+def check_route_as_expected(routes, paths):
+    """Make sure all fields in paths are match those in routes"""
+    def dict_subset_eq(a, b):
+        """Is every key in B is the same in A?"""
+        return all(a.get(key) == b[key] for key in b)
+
+    for path in paths:
+        found = False
+        for i in range(len(routes)):
+            route = routes[i]
+            if len(route['path']) != len(path):
+                continue
+            if all(dict_subset_eq(route['path'][i], path[i]) for i in range(len(path))):
+                del routes[i]
+                found = True
+                break
+        if not found:
+            raise ValueError("Could not find path {} in paths {}".format(path, routes))
+
+    if routes != []:
+        raise ValueError("Did not expect paths {}".format(routes))
+
+
 def check_getroute_paths(node,
                          source,
                          destination,
@@ -127,25 +150,7 @@ def check_getroute_paths(node,
     # Total delivered should be amount we told it to send.
     assert amount_msat == sum([r['amount_msat'] for r in getroutes['routes']])
 
-    def dict_subset_eq(a, b):
-        """Is every key in B is the same in A?"""
-        return all(a.get(key) == b[key] for key in b)
-
-    for expected_path in paths:
-        found = False
-        for i in range(len(getroutes['routes'])):
-            route = getroutes['routes'][i]
-            if len(route['path']) != len(expected_path):
-                continue
-            if all(dict_subset_eq(route['path'][i], expected_path[i]) for i in range(len(expected_path))):
-                del getroutes['routes'][i]
-                found = True
-                break
-        if not found:
-            raise ValueError("Could not find expected_path {} in paths {}".format(expected_path, getroutes['routes']))
-
-    if getroutes['routes'] != []:
-        raise ValueError("Did not expect paths {}".format(getroutes['routes']))
+    check_route_as_expected(getroutes['routes'], paths)
 
 
 def test_getroutes(node_factory):
