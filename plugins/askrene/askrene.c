@@ -297,6 +297,11 @@ static void add_reservation(struct reservations *r,
  * push us again over capacity or htlc_maximum_msat.
  *
  * We may have to reduce the flow amount in response to these.
+ *
+ * We also check for going below htlc_maximum_msat at this point: this
+ * is unusual and means it's small, so we just remove that flow if
+ * this happens, as we can make it up by buffing up the other flows
+ * (or, it's simply impossible).
  */
 static const char *constrain_flow(const tal_t *ctx,
 				  struct route_query *rq,
