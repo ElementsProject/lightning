@@ -201,7 +201,7 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx, struct db *db,
 			if (streq("invoice", ev->tag))
 				continue;
 
-			if (!amount_msat_zero(ev->credit))
+			if (!amount_msat_is_zero(ev->credit))
 				ok = amount_msat_accumulate(&apy->fees_in,
 							    ev->fees);
 			else
@@ -247,7 +247,7 @@ WARN_UNUSED_RESULT static bool calc_apy(struct amount_msat earned,
 {
 	double apy;
 
-	assert(!amount_msat_zero(capital));
+	assert(!amount_msat_is_zero(capital));
 	assert(blocks_elapsed > 0);
 
 	apy = amount_msat_ratio(earned, capital) * BLOCK_YEAR / blocks_elapsed;
@@ -297,12 +297,12 @@ void json_add_channel_apy(struct json_stream *res,
 	json_add_amount_msat(res, "fees_in_msat", apy->fees_in);
 
 	/* utilization (out): routed_out/total_balance */
-	assert(!amount_msat_zero(apy->total_start_bal));
+	assert(!amount_msat_is_zero(apy->total_start_bal));
 	utilization = amount_msat_ratio(apy->routed_out, apy->total_start_bal);
 	json_add_string(res, "utilization_out",
 			tal_fmt(apy, "%.4f%%", utilization * 100));
 
-	if (!amount_msat_zero(apy->our_start_bal)) {
+	if (!amount_msat_is_zero(apy->our_start_bal)) {
 		utilization = amount_msat_ratio(apy->routed_out,
 						apy->our_start_bal);
 		json_add_string(res, "utilization_out_initial",
@@ -314,7 +314,7 @@ void json_add_channel_apy(struct json_stream *res,
 	json_add_string(res, "utilization_in",
 			tal_fmt(apy, "%.4f%%", utilization * 100));
 
-	if (!amount_msat_zero(their_start_bal)) {
+	if (!amount_msat_is_zero(their_start_bal)) {
 		utilization = amount_msat_ratio(apy->routed_in,
 						their_start_bal);
 		json_add_string(res, "utilization_in_initial",
@@ -331,7 +331,7 @@ void json_add_channel_apy(struct json_stream *res,
 	json_add_string(res, "apy_out", tal_fmt(apy, "%.4f%%", apy_result));
 
 	/* APY (outbound, initial) */
-	if (!amount_msat_zero(apy->our_start_bal)) {
+	if (!amount_msat_is_zero(apy->our_start_bal)) {
 		ok = calc_apy(apy->fees_out, apy->our_start_bal,
 			      blocks_elapsed, &apy_result);
 		assert(ok);
@@ -345,7 +345,7 @@ void json_add_channel_apy(struct json_stream *res,
 	assert(ok);
 	json_add_string(res, "apy_in", tal_fmt(apy, "%.4f%%", apy_result));
 
-	if (!amount_msat_zero(their_start_bal)) {
+	if (!amount_msat_is_zero(their_start_bal)) {
 		ok = calc_apy(apy->fees_in, their_start_bal,
 			      blocks_elapsed, &apy_result);
 		assert(ok);
@@ -359,7 +359,7 @@ void json_add_channel_apy(struct json_stream *res,
 	assert(ok);
 	json_add_string(res, "apy_total", tal_fmt(apy, "%.4f%%", apy_result));
 
-	if (!amount_msat_zero(apy->our_start_bal)) {
+	if (!amount_msat_is_zero(apy->our_start_bal)) {
 		ok = calc_apy(total_fees, apy->total_start_bal,
 			      blocks_elapsed, &apy_result);
 		assert(ok);
@@ -370,7 +370,7 @@ void json_add_channel_apy(struct json_stream *res,
 	/* If you earned fees for leasing funds, calculate APY
 	 * Note that this is a bit higher than it *should* be,
 	 * given that the onchainfees are partly covered here */
-	if (!amount_msat_zero(apy->lease_in)) {
+	if (!amount_msat_is_zero(apy->lease_in)) {
 		struct amount_msat start_no_lease_in;
 
 		/* We added the lease in to the starting balance, so we

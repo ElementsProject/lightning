@@ -22,7 +22,7 @@ static bool check_fee_inequality(struct amount_msat recv, struct amount_msat sen
 				 u64 base_fee, u64 proportional_fee)
 {
 	// nothing to forward, any incoming amount is good
-	if (amount_msat_zero(send))
+	if (amount_msat_is_zero(send))
 		return true;
 	// FIXME If this addition fails we return false. The caller will not be
 	// able to know that there was an addition overflow, he will just assume
@@ -182,7 +182,7 @@ flow_maximum_deliverable(struct amount_msat *max_deliverable,
 	get_constraints(rq, flow->path[0], flow->dirs[0], NULL, &maxcap);
 	maxcap = amount_msat_min(maxcap, gossmap_chan_htlc_max(flow->path[0], flow->dirs[0]));
 
-	if (amount_msat_zero(maxcap))
+	if (amount_msat_is_zero(maxcap))
 		return flow->path[0];
 
 	for (size_t i = 1; i < tal_count(flow->path); ++i) {
@@ -205,7 +205,7 @@ flow_maximum_deliverable(struct amount_msat *max_deliverable,
 		/* safety check: amounts decrease along the route */
 		assert(amount_msat_less_eq(new_max, maxcap));
 
-		if (amount_msat_zero(new_max))
+		if (amount_msat_is_zero(new_max))
 			return flow->path[i];
 
 		/* safety check: the max liquidity in the next hop + fees cannot
@@ -219,7 +219,7 @@ flow_maximum_deliverable(struct amount_msat *max_deliverable,
 
 		maxcap = new_max;
 	}
-	assert(!amount_msat_zero(maxcap));
+	assert(!amount_msat_is_zero(maxcap));
 	*max_deliverable = maxcap;
 	return NULL;
 }
@@ -410,7 +410,7 @@ flow_assign_delivery(struct flow *flow,
 	badchan = flow_maximum_deliverable(&max_deliverable, flow, rq);
 	if (badchan)
 		return badchan;
-	assert(!amount_msat_zero(max_deliverable));
+	assert(!amount_msat_is_zero(max_deliverable));
 	flow->amount = amount_msat_min(requested_amount, max_deliverable);
 	return NULL;
 }

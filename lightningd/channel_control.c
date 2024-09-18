@@ -937,7 +937,7 @@ void channel_record_open(struct channel *channel, u32 blockheight, bool record_p
 {
 	struct chain_coin_mvt *mvt;
 	struct amount_msat start_balance;
-	bool is_pushed = !amount_msat_zero(channel->push);
+	bool is_pushed = !amount_msat_is_zero(channel->push);
 	bool is_leased = channel->lease_expiry > 0;
 
 	/* If funds were pushed, add/sub them from the starting balance */
@@ -1852,7 +1852,7 @@ is_fundee_should_forget(struct lightningd *ld,
 		return false;
 
 	/* If we've got funds in the channel, don't forget it */
-	if (!amount_sat_zero(channel->our_funds))
+	if (!amount_sat_is_zero(channel->our_funds))
 		return false;
 
 	/* Ah forget it! */

@@ -490,10 +490,10 @@ static bool test_onchain_fee_wallet_spend(const tal_t *ctx, struct plugin *p)
 
 	/* we expect 800, then -700 */
 	CHECK(amount_msat_eq(ofs[0]->credit, AMOUNT_MSAT(800)));
-	CHECK(amount_msat_zero(ofs[0]->debit));
+	CHECK(amount_msat_is_zero(ofs[0]->debit));
 	CHECK(ofs[0]->update_count == 1);
 
-	CHECK(amount_msat_zero(ofs[1]->credit));
+	CHECK(amount_msat_is_zero(ofs[1]->credit));
 	CHECK(amount_msat_eq(ofs[1]->debit, AMOUNT_MSAT(700)));
 	CHECK(ofs[1]->update_count == 2);
 
@@ -736,28 +736,28 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 		if (bitcoin_txid_eq(&txid, &ofs[i]->txid)) {
 			CHECK(ofs[i]->update_count == 1);
 			CHECK(amount_msat_eq(ofs[i]->credit, AMOUNT_MSAT(200)));
-			CHECK(amount_msat_zero(ofs[i]->debit));
+			CHECK(amount_msat_is_zero(ofs[i]->debit));
 			continue;
 		}
 		memset(&txid, '2', sizeof(struct bitcoin_txid));
 		if (bitcoin_txid_eq(&txid, &ofs[i]->txid)) {
 			CHECK(ofs[i]->update_count == 1);
 			CHECK(amount_msat_eq(ofs[i]->credit, AMOUNT_MSAT(50)));
-			CHECK(amount_msat_zero(ofs[i]->debit));
+			CHECK(amount_msat_is_zero(ofs[i]->debit));
 			continue;
 		}
 		memset(&txid, '3', sizeof(struct bitcoin_txid));
 		if (bitcoin_txid_eq(&txid, &ofs[i]->txid)) {
 			CHECK(ofs[i]->update_count == 1);
 			CHECK(amount_msat_eq(ofs[i]->credit, AMOUNT_MSAT(150)));
-			CHECK(amount_msat_zero(ofs[i]->debit));
+			CHECK(amount_msat_is_zero(ofs[i]->debit));
 			continue;
 		}
 		memset(&txid, '4', sizeof(struct bitcoin_txid));
 		if (bitcoin_txid_eq(&txid, &ofs[i]->txid)) {
 			CHECK(ofs[i]->update_count == 1);
 			CHECK(amount_msat_eq(ofs[i]->credit, AMOUNT_MSAT(100)));
-			CHECK(amount_msat_zero(ofs[i]->debit));
+			CHECK(amount_msat_is_zero(ofs[i]->debit));
 			continue;
 		}
 

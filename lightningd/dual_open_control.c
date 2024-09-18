@@ -627,11 +627,11 @@ rbf_channel_hook_deserialize(struct rbf_channel_payload *payload,
 		fatal("Plugin failed to supply our_funding_msat field");
 
 	if (payload->psbt
-	    && amount_sat_zero(payload->our_funding))
+	    && amount_sat_is_zero(payload->our_funding))
 		fatal("Plugin failed to supply our_funding_msat field");
 
 	if (!payload->psbt &&
-		!amount_sat_zero(payload->our_funding)) {
+		!amount_sat_is_zero(payload->our_funding)) {
 
 		log_broken(channel->log, "`our_funding_msat` returned"
 			   " but no `psbt` present. %.*s",
@@ -835,11 +835,11 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 		fatal("Plugin failed to supply our_funding_msat field");
 
 	if (payload->psbt
-	    && amount_sat_zero(payload->accepter_funding))
+	    && amount_sat_is_zero(payload->accepter_funding))
 		fatal("Plugin failed to supply our_funding_msat field");
 
 	if (!payload->psbt
-	    && !amount_sat_zero(payload->accepter_funding)) {
+	    && !amount_sat_is_zero(payload->accepter_funding)) {
 		/* Gotta give a PSBT if you set the accepter_funding amount */
 		/* Let dualopend know we've failed */
 		payload->err_msg = "Client error. Unable to continue";
@@ -3089,7 +3089,7 @@ static struct command_result *openchannel_init(struct command *cmd,
 					   unilateral_feerate(cmd->ld->topology, true),
 					   feerate_per_kw_funding,
 					   channel->channel_flags,
-					   amount_sat_zero(request_amt) ?
+					   amount_sat_is_zero(request_amt) ?
 						NULL : &request_amt,
 					   get_block_height(cmd->ld->topology),
 					   false,
@@ -3190,7 +3190,7 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	}
 
 	/* Gotta expect some rates ! */
-	if (!amount_sat_zero(*info->request_amt) && !info->rates)
+	if (!amount_sat_is_zero(*info->request_amt) && !info->rates)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Must pass in 'compact_lease' if requesting"
 				    " funds from peer");
@@ -3858,7 +3858,7 @@ static struct command_result *json_queryrates(struct command *cmd,
 					   unilateral_feerate(cmd->ld->topology, true),
 					   *feerate_per_kw_funding,
 					   channel->channel_flags,
-					   amount_sat_zero(*request_amt) ?
+					   amount_sat_is_zero(*request_amt) ?
 						NULL : request_amt,
 					   get_block_height(cmd->ld->topology),
 					   true,
@@ -4235,7 +4235,7 @@ bool peer_restart_dualopend(struct peer *peer,
 				      inflight->lease_commit_sig,
 				      inflight->lease_chan_max_msat,
 				      inflight->lease_chan_max_ppt,
-				      amount_sat_zero(inflight->lease_amt) ?
+				      amount_sat_is_zero(inflight->lease_amt) ?
 					      NULL : &inflight->lease_amt,
 				      channel->type,
 				      channel->req_confirmed_ins[LOCAL],

@@ -14,7 +14,7 @@ bool route_can_carry_even_disabled(const struct gossmap *map,
 	if (!gossmap_chan_set(c, dir))
 		return false;
 	/* Amount 0 is a special "ignore min" probe case */
-	if (!amount_msat_eq(amount, AMOUNT_MSAT(0))
+	if (!amount_msat_is_zero(amount)
 	    && !gossmap_chan_has_capacity(c, dir, amount))
 		return false;
 	return true;

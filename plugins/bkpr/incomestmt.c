@@ -226,13 +226,13 @@ static struct income_event *rebalance_fee(const tal_t *ctx,
 static struct income_event *maybe_channel_income(const tal_t *ctx,
 						 struct channel_event *ev)
 {
-	if (amount_msat_zero(ev->credit)
-	    && amount_msat_zero(ev->debit))
+	if (amount_msat_is_zero(ev->credit)
+	    && amount_msat_is_zero(ev->debit))
 		return NULL;
 
 	/* We record a +/- penalty adj, but we only count the credit */
 	if (streq(ev->tag, "penalty_adj")) {
-		if (!amount_msat_zero(ev->credit))
+		if (!amount_msat_is_zero(ev->credit))
 			return channel_to_income(ctx, ev,
 						 ev->credit,
 						 ev->debit);
@@ -245,7 +245,7 @@ static struct income_event *maybe_channel_income(const tal_t *ctx,
 			return NULL;
 
 		/* If it's a payment, we note fees separately */
-		if (!amount_msat_zero(ev->debit)) {
+		if (!amount_msat_is_zero(ev->debit)) {
 			struct amount_msat paid;
 			bool ok;
 			ok = amount_msat_sub(&paid, ev->debit, ev->fees);
@@ -263,7 +263,7 @@ static struct income_event *maybe_channel_income(const tal_t *ctx,
 	/* for routed payments, we only record the fees on the
 	 * debiting side -- the side the $$ was made on! */
 	if (streq(ev->tag, "routed")) {
-		if (!amount_msat_zero(ev->debit))
+		if (!amount_msat_is_zero(ev->debit))
 			return channel_to_income(ctx, ev,
 						 ev->fees,
 						 AMOUNT_MSAT(0));
@@ -290,7 +290,7 @@ static struct onchain_fee **find_consolidated_fees(const tal_t *ctx,
 		/* Find the last matching feerate's data */
 		struct onchain_fee *fee;
 
-		if (amount_msat_zero(sums[i]->fees_paid))
+		if (amount_msat_is_zero(sums[i]->fees_paid))
 			continue;
 
 		fee = tal(fee_sums, struct onchain_fee);
@@ -394,8 +394,8 @@ struct income_event **list_income_events(const tal_t *ctx,
 
 			/* Report fees on payments, if present */
 			if (streq(chan->tag, "invoice")
-			    && !amount_msat_zero(chan->debit)
-			    && !amount_msat_zero(chan->fees)) {
+			    && !amount_msat_is_zero(chan->debit)
+			    && !amount_msat_is_zero(chan->fees)) {
 				if (!chan->rebalance_id)
 					ev = paid_invoice_fee(evs, chan);
 				else
@@ -482,7 +482,7 @@ static char *income_event_cointrack_type(const struct income_event *ev)
 {
 	/*  ['gift', 'lost', 'mined', 'airdrop', 'payment',
 	 *  'fork', 'donation', 'staked'] */
-	if (!amount_msat_zero(ev->debit)
+	if (!amount_msat_is_zero(ev->debit)
 	    && streq(ev->tag, "penalty"))
 		return "lost";
 
@@ -512,7 +512,7 @@ static void cointrack_entry(const tal_t *ctx, FILE *csvf, struct income_event *e
 	fprintf(csvf, ",");
 
 	/* Received Quantity + Received Currency */
-	if (!amount_msat_zero(ev->credit)) {
+	if (!amount_msat_is_zero(ev->credit)) {
 		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->credit, false));
 		fprintf(csvf, ",");
 		fprintf(csvf, "%s", convert_asset_type(ev));
@@ -522,7 +522,7 @@ static void cointrack_entry(const tal_t *ctx, FILE *csvf, struct income_event *e
 	fprintf(csvf, ",");
 
 	/* "Sent Quantity,Sent Currency," */
-	if (!amount_msat_zero(ev->debit)) {
+	if (!amount_msat_is_zero(ev->debit)) {
 		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->debit, false));
 		fprintf(csvf, ",");
 		fprintf(csvf, "%s", convert_asset_type(ev));
@@ -532,7 +532,7 @@ static void cointrack_entry(const tal_t *ctx, FILE *csvf, struct income_event *e
 	fprintf(csvf, ",");
 
 	/* "Fee Amount,Fee Currency," */
-	if (!amount_msat_zero(ev->fees)
+	if (!amount_msat_is_zero(ev->fees)
 	    && streq(ev->tag, mvt_tag_str(INVOICE))) {
 		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->fees, false));
 		fprintf(csvf, ",");
@@ -584,7 +584,7 @@ static void koinly_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
 	fprintf(csvf, ",");
 
 	/* "Sent Amount,Sent Currency," */
-	if (!amount_msat_zero(ev->debit)) {
+	if (!amount_msat_is_zero(ev->debit)) {
 		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->debit, false));
 		fprintf(csvf, ",");
 		fprintf(csvf, "%s", convert_asset_type(ev));
@@ -594,7 +594,7 @@ static void koinly_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
 	fprintf(csvf, ",");
 
 	/* Received Amount, Received Currency */
-	if (!amount_msat_zero(ev->credit)) {
+	if (!amount_msat_is_zero(ev->credit)) {
 		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->credit, false));
 		fprintf(csvf, ",");
 		fprintf(csvf, "%s", convert_asset_type(ev));
@@ -605,7 +605,7 @@ static void koinly_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
 
 
 	/* "Fee Amount,Fee Currency," */
-	if (!amount_msat_zero(ev->fees)
+	if (!amount_msat_is_zero(ev->fees)
 	    && streq(ev->tag, mvt_tag_str(INVOICE))) {
 		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->fees, false));
 		fprintf(csvf, ",");
@@ -673,7 +673,7 @@ static char *income_event_harmony_type(const struct income_event *ev)
 	if (streq(ONCHAIN_FEE, ev->tag))
 		return "fee:network";
 
-	if (!amount_msat_zero(ev->credit)) {
+	if (!amount_msat_is_zero(ev->credit)) {
 		if (streq(WALLET_ACCT, ev->acct_name))
 			return tal_fmt(ev, "transfer:%s", ev->tag);
 
@@ -716,7 +716,7 @@ static void harmony_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
 	fprintf(csvf, ",");
 
 	/* ",Amount" */
-	if (!amount_msat_zero(ev->debit)) {
+	if (!amount_msat_is_zero(ev->debit)) {
 		/* Debits are negative */
 		fprintf(csvf, "-");
 		fprintf(csvf, "%s",
@@ -799,13 +799,13 @@ static void quickbooks_entry(const tal_t *ctx, FILE *csvf, struct income_event *
 	fprintf(csvf, ",");
 
 	/* Credit */
-	if (!amount_msat_zero(ev->credit))
+	if (!amount_msat_is_zero(ev->credit))
 		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->credit, false));
 
 	fprintf(csvf, ",");
 
 	/* Debit */
-	if (!amount_msat_zero(ev->debit))
+	if (!amount_msat_is_zero(ev->debit))
 		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->debit, false));
 }
 

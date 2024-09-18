@@ -1916,8 +1916,8 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 		goto finished;
 
 	/* If either is zero, keep waiting */
-	if (amount_msat_zero(withdraw_msat)
-	    || amount_msat_zero(deposit_msat))
+	if (amount_msat_is_zero(withdraw_msat)
+	    || amount_msat_is_zero(deposit_msat))
 		goto finished;
 
 	/* If our withdraws < deposits, wait for more data */

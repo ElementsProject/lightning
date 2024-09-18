@@ -56,7 +56,7 @@ static void json_add_closed_channel(struct json_stream *response,
 		else
 			json_add_amount_msat(response, "funding_fee_rcvd_msat",
 					     channel->push);
-	} else if (!amount_msat_eq(channel->push, AMOUNT_MSAT(0)))
+	} else if (!amount_msat_is_zero(channel->push))
 		json_add_amount_msat(response, "funding_pushed_msat",
 				     channel->push);
 

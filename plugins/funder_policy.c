@@ -193,7 +193,7 @@ apply_policy(struct funder_policy *policy,
 	switch (policy->opt) {
 	case MATCH:
 		/* For matches, we use requested funding, if availalbe */
-		if (!amount_sat_zero(requested_lease))
+		if (!amount_sat_is_zero(requested_lease))
 			their_funding = requested_lease;
 
 		/* if this fails, it implies ludicrous funding offer, *and*
@@ -230,7 +230,7 @@ calculate_our_funding(struct funder_policy *policy,
 	struct amount_sat avail_channel_space, net_available_funds;
 
 	/* Are we only funding lease requests ? */
-	if (policy->leases_only && amount_sat_zero(requested_lease)) {
+	if (policy->leases_only && amount_sat_is_zero(requested_lease)) {
 		*our_funding = AMOUNT_SAT(0);
 		return tal_fmt(tmpctx,
 			       "Skipping funding open; leases-only=true"
@@ -240,7 +240,7 @@ calculate_our_funding(struct funder_policy *policy,
 	/* Are we skipping this one? */
 	if (pseudorand(100) >= policy->fund_probability
 	    /* We don't skip lease requests */
-	    && amount_sat_zero(requested_lease)) {
+	    && amount_sat_is_zero(requested_lease)) {
 		*our_funding = AMOUNT_SAT(0);
 		return tal_fmt(tmpctx,
 			       "Skipping, failed fund_probability test");
@@ -248,7 +248,7 @@ calculate_our_funding(struct funder_policy *policy,
 
 	/* Figure out amount of actual headroom we have */
 	if (!amount_sat_sub(&avail_channel_space, channel_max, their_funding)
-	    || amount_sat_zero(avail_channel_space)) {
+	    || amount_sat_is_zero(avail_channel_space)) {
 		*our_funding = AMOUNT_SAT(0);
 		return tal_fmt(tmpctx, "No space available in channel."
 			       " channel_max %s, their_funding %s",
@@ -260,7 +260,7 @@ calculate_our_funding(struct funder_policy *policy,
 	 * 'reserve_tank' */
 	if (!amount_sat_sub(&net_available_funds, available_funds,
 			    policy->reserve_tank)
-	    || amount_sat_zero(net_available_funds)) {
+	    || amount_sat_is_zero(net_available_funds)) {
 		*our_funding = AMOUNT_SAT(0);
 		return tal_fmt(tmpctx, "Reserve tank too low."
 			       " available_funds %s, reserve_tank requires %s",
@@ -295,7 +295,7 @@ calculate_our_funding(struct funder_policy *policy,
 				    available_funds);
 
 	/* Don't return an 'error' if we're already at 0 */
-	if (amount_sat_zero(*our_funding))
+	if (amount_sat_is_zero(*our_funding))
 		return NULL;
 
 	/* our_funding is probably sane, so let's fuzz this amount a bit */
@@ -317,7 +317,7 @@ calculate_our_funding(struct funder_policy *policy,
 
 	/* Are we putting in less than last time + it's a lease?
 	 * Return an error as a convenience to the buyer */
-	if (our_last_funding && !amount_sat_zero(requested_lease)) {
+	if (our_last_funding && !amount_sat_is_zero(requested_lease)) {
 		if (amount_sat_less(*our_funding, *our_last_funding)
 		    && amount_sat_less(*our_funding, requested_lease)) {
 			return tal_fmt(tmpctx, "New amount (%s) is less than"

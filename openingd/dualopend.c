@@ -2562,7 +2562,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	 *   ...
 	 *   - MUST set `funding_satoshis` to a value greater than 0msat
 	 */
-	if (tx_state->rates && amount_sat_zero(tx_state->accepter_funding)) {
+	if (tx_state->rates && amount_sat_is_zero(tx_state->accepter_funding)) {
 		status_broken("opt_will_fund ad passed in, but no funding");
 		negotiation_failed(state, "We're unable to accept"
 				   " your lease offer.");

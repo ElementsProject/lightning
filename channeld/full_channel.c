@@ -647,7 +647,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 *        - SHOULD send a `warning` and close the connection, or send an
 	 *        `error` and fail the channel.
 	 */
-	if (amount_msat_eq(htlc->amount, AMOUNT_MSAT(0))) {
+	if (amount_msat_is_zero(htlc->amount)) {
 		return CHANNEL_ERR_HTLC_BELOW_MINIMUM;
 	}
 	if (amount_msat_less(htlc->amount, channel->config[recipient].htlc_minimum)) {

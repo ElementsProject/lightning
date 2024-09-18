@@ -140,7 +140,7 @@ bool check_fee_inequality(struct amount_msat recv, struct amount_msat send,
 			  u64 base_fee, u64 proportional_fee)
 {
 	// nothing to forward, any incoming amount is good
-	if (amount_msat_zero(send))
+	if (amount_msat_is_zero(send))
 		return true;
 	// FIXME If this addition fails we return false. The caller will not be
 	// able to know that there was an addition overflow, he will just assume
