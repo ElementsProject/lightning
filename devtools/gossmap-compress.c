@@ -2,6 +2,7 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
 #include <ccan/asort/asort.h>
+#include <ccan/cast/cast.h>
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/err/err.h>
 #include <ccan/mem/mem.h>
@@ -278,12 +279,12 @@ static u64 get_delay(struct gossmap *gossmap,
 }
 
 static void pubkey_for_node(size_t nodeidx, struct pubkey *key,
-			    const struct pubkey *node_ids)
+			    const struct pubkey **node_ids)
 {
 	struct secret seckey;
 
-	if (nodeidx < tal_count(node_ids)) {
-		*key = node_ids[nodeidx];
+	if (nodeidx < tal_count(node_ids) && node_ids[nodeidx]) {
+		*key = *node_ids[nodeidx];
 		return;
 	}
 
@@ -331,7 +332,7 @@ static void write_announce(int outfd,
 			   size_t node2,
 			   u64 capacity,
 			   size_t i,
-			   const struct pubkey *node_ids)
+			   const struct pubkey **node_ids)
 {
 	struct {
 		secp256k1_ecdsa_signature sig;
@@ -393,7 +394,7 @@ static void write_update(int outfd,
 			 u64 basefee,
 			 u32 propfee,
 			 u16 delay,
-			 const struct pubkey *node_ids)
+			 const struct pubkey **node_ids)
 {
 	struct vals {
 		secp256k1_ecdsa_signature sig;
@@ -475,34 +476,40 @@ static char *opt_add_one(unsigned int *val)
 	return NULL;
 }
 
-static char *opt_nodes(const char *optarg, struct pubkey **node_ids)
+static char *opt_node(const char *optarg, const struct pubkey ***node_ids)
 {
-	char **ids = tal_strsplit(tmpctx, optarg, ",", STR_EMPTY_OK);
+	long num;
+	char *endl;
+	struct pubkey *pk;
 
-	for (size_t i = 0; ids[i]; i++) {
-		struct pubkey n;
-		if (!pubkey_from_hexstr(ids[i], strlen(ids[i]), &n))
-			return tal_fmt(tmpctx, "Invalid node id '%s'", ids[i]);
-		tal_arr_expand(node_ids, n);
-	}
+	num = strtol(optarg, &endl, 10);
+	if (*endl != '=')
+		return tal_fmt(tmpctx, "Must be of form NUMBER '=' NODEID");
+
+	if (tal_count(*node_ids) <= num)
+		tal_resizez(node_ids, num + 1);
+	(*node_ids)[num] = pk = tal(*node_ids, struct pubkey);
+
+	if (!pubkey_from_hexstr(endl + 1, strlen(endl + 1), pk))
+		return tal_fmt(tmpctx, "Invalid node id '%s'", endl + 1);
 	return NULL;
 }
 
 int main(int argc, char *argv[])
 {
 	int infd, outfd;
-	struct pubkey *node_ids;
+	const struct pubkey **node_ids;
 
 	common_setup(argv[0]);
 	setup_locale();
 
-	node_ids = tal_arr(tmpctx, struct pubkey, 0);
+	node_ids = tal_arr(tmpctx, const struct pubkey *, 0);
 	opt_register_noarg("--verbose|-v", opt_add_one, &verbose,
 			   "Print details (each additional gives more!).");
-	opt_register_arg("--nodes", opt_nodes, NULL, &node_ids,
-			   "Comma separated node ids to give first nodes.");
+	opt_register_arg("--node-map=num=<nodeid>", opt_node, NULL, &node_ids,
+			   "Map node num to <nodeid>");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "[decompress|compress] infile outfile"
+			   "[decompress|compress] infile outfile\n"
 			   "Compress or decompress a gossmap file",
 			   "Print this message.");
 

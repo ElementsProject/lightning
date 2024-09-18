@@ -375,7 +375,7 @@ def test_getroutes_auto_localchans(node_factory):
     l1, l2 = node_factory.get_nodes(2, opts={'allow_warning': True})
     gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, forward=GenChannel.Half(propfee=10000)),
                                              GenChannel(1, 2, forward=GenChannel.Half(propfee=10000))],
-                                            nodeids=[l2.info['id']])
+                                            nodemap={0: l2.info['id']})
 
     # Set up l1 with this as the gossip_store
     l1.stop()
