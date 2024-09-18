@@ -607,3 +607,52 @@ def test_limits_fake_gossmap(node_factory, bitcoind):
 
     # Must deliver exact amount.
     assert sum(r['amount_msat'] for r in routes["routes"]) == 800_000_001
+
+
+def test_max_htlc(node_factory, bitcoind):
+    """A route which looks good isn't actually, because of max htlc limits"""
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, capacity_sats=500_000,
+                                                        forward=GenChannel.Half(htlc_max=1_000_000)),
+                                             GenChannel(0, 1, capacity_sats=20_000)])
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+
+    routes = l1.rpc.getroutes(source=nodemap[0],
+                              destination=nodemap[1],
+                              amount_msat=20_000_000,
+                              layers=[],
+                              maxfee_msat=20_000_000,
+                              final_cltv=10)
+
+    check_route_as_expected(routes['routes'],
+                            [[{'short_channel_id': '0x1x0', 'amount_msat': 1_000_001, 'delay': 10 + 6}],
+                             [{'short_channel_id': '0x1x1', 'amount_msat': 19_000_019, 'delay': 10 + 6}]])
+
+    # If we can't use channel 2, we fail.
+    l1.rpc.askrene_inform_channel(layer='removechan2',
+                                  short_channel_id='0x1x1', direction=1,
+                                  maximum_msat=0)
+
+    # FIXME: Better diag!
+    with pytest.raises(RpcError, match="Could not find route"):
+        l1.rpc.getroutes(source=nodemap[0],
+                         destination=nodemap[1],
+                         amount_msat=20_000_000,
+                         layers=['removechan2'],
+                         maxfee_msat=20_000_000,
+                         final_cltv=10)
+
+
+def test_min_htlc(node_factory, bitcoind):
+    """A route which looks good isn't actually, because of min htlc limits"""
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, capacity_sats=500_000,
+                                                        forward=GenChannel.Half(htlc_min=2_000)),
+                                             GenChannel(0, 1, capacity_sats=20_000)])
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+
+    with pytest.raises(RpcError, match="Amount 1000msat below minimum across 0x1x0/1"):
+        l1.rpc.getroutes(source=nodemap[0],
+                         destination=nodemap[1],
+                         amount_msat=1000,
+                         layers=[],
+                         maxfee_msat=20_000_000,
+                         final_cltv=10)
