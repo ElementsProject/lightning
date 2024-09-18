@@ -13,8 +13,7 @@ struct flow {
 	const struct gossmap_chan **path;
 	/* The directions to traverse. */
 	int *dirs;
-	/* Amounts for this flow (fees mean this shrinks across path). */
-	double success_prob;
+	/* Amount delivered */
 	struct amount_msat amount;
 };
 
