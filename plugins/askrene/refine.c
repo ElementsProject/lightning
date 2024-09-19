@@ -267,6 +267,32 @@ static struct flow *pick_most_likely_flow(struct route_query *rq,
 	return best_flow;
 }
 
+/* A secondary check for htlc_min violations, after excess trimming. */
+static const char *flow_violates_min(const tal_t *ctx,
+				     struct route_query *rq,
+				     const struct flow *flow)
+{
+	struct amount_msat msat = flow->delivers;
+	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
+		const struct half_chan *h = flow_edge(flow, i);
+		struct amount_msat min = amount_msat(fp16_to_u64(h->htlc_min));
+
+		plugin_log(rq->plugin, LOG_DBG, "flow_violates_min: %u/%zu amt=%s, min=%s",
+			   i, tal_count(flow->path), fmt_amount_msat(tmpctx, msat), fmt_amount_msat(tmpctx, min));
+		if (amount_msat_less(msat, min)) {
+			struct short_channel_id_dir scidd;
+			get_scidd(rq->gossmap, flow, i, &scidd);
+			return tal_fmt(ctx, "Sending %s across %s would violate htlc_min (~%s)",
+				       fmt_amount_msat(tmpctx, msat),
+				       fmt_short_channel_id_dir(tmpctx, &scidd),
+				       fmt_amount_msat(tmpctx, min));
+		}
+		if (!amount_msat_add_fee(&msat, h->base_fee, h->proportional_fee))
+			plugin_err(rq->plugin, "Adding fee to amount");
+	}
+	return NULL;
+}
+
 const char *
 refine_with_fees_and_limits(const tal_t *ctx,
 			    struct route_query *rq,
@@ -314,20 +340,38 @@ refine_with_fees_and_limits(const tal_t *ctx,
 			abort();
 		for (size_t i = 0; i < tal_count(*flows); i++) {
 			if (amount_msat_sub(&(*flows)[i]->delivers, (*flows)[i]->delivers, excess)) {
+				const char *err;
 				plugin_log(rq->plugin, LOG_DBG,
 					   "Flows delivered %s extra, trimming %zu/%zu",
 					   fmt_amount_msat(tmpctx, excess),
 					   i, tal_count(*flows));
+				/* In theory, this can violate min_htlc!  Thanks @Lagrang3! */
+				err = flow_violates_min(tmpctx, rq, (*flows)[i]);
+				if (err) {
+					/* This flow was reduced to 0 / impossible, remove */
+					tal_arr_remove(flows, i);
+					i--;
+					/* If this causes failure, indicate why! */
+					flow_constraint_error = err;
+					continue;
+				}
 				break;
 			}
 		}
-		if (!amount_msat_eq(flowset_delivers(rq->plugin, *flows), deliver)) {
-			plugin_err(rq->plugin,
-				   "Flowset delivers %s, can't shed excess?",
-				   fmt_amount_msat(tmpctx, flowset_delivers(rq->plugin, *flows)),
-				   fmt_amount_msat(tmpctx, deliver));
+
+		/* Usually this should shed excess, *BUT* maybe one
+		 * was deleted instead for being below minimum */
+		if (!amount_msat_sub(&more_to_deliver, deliver,
+				     flowset_delivers(rq->plugin, *flows))) {
+			ret = tal_fmt(ctx,
+				      "Flowset delivers %s instead of %s, can't shed excess?",
+				      fmt_amount_msat(tmpctx, flowset_delivers(rq->plugin, *flows)),
+				      fmt_amount_msat(tmpctx, deliver));
+			goto out;
 		}
-		more_to_deliver = AMOUNT_MSAT(0);
+
+		plugin_log(rq->plugin, LOG_DBG, "After dealing with excess, more_to_deliver=%s",
+			   fmt_amount_msat(tmpctx, more_to_deliver));
 	}
 
 	/* The residual is minimal.  In theory we could add one msat at a time
