@@ -366,14 +366,6 @@ struct outpoint {
 	u32 spendheight;
 };
 
-/* Statistics for a channel */
-struct channel_stats {
-	u64  in_payments_offered,  in_payments_fulfilled;
-	struct amount_msat  in_msatoshi_offered,  in_msatoshi_fulfilled;
-	u64 out_payments_offered, out_payments_fulfilled;
-	struct amount_msat out_msatoshi_offered, out_msatoshi_fulfilled;
-};
-
 struct channeltx {
 	u32 channel_id;
 	int type;
