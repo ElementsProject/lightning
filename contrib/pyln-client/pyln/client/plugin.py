@@ -58,7 +58,35 @@ class Method(object):
         self.description = description
         self.before: List[str] = []
         self.after: List[str] = []
-        self.description = description
+
+    def get_usage(self):
+        # Handles out-of-order use of parameters like:
+        #
+        # ```python3
+        #
+        # def hello_obfus(arg1, arg2, plugin, thing3, request=None,
+        #                 thing5='at', thing6=21)
+        #
+        # ```
+        argspec = inspect.getfullargspec(self.func)
+        defaults = argspec.defaults
+        num_defaults = len(defaults) if defaults else 0
+        start_kwargs_idx = len(argspec.args) - num_defaults
+        args = []
+        for idx, arg in enumerate(argspec.args):
+            if arg in ('plugin', 'request'):
+                continue
+            # Positional arg
+            if idx < start_kwargs_idx:
+                args.append("%s" % arg)
+            # Keyword arg
+            else:
+                args.append("[%s]" % arg)
+
+        if self.description is not None:
+            args.append("\n%s" % self.description)
+
+        return " ".join(args)
 
 
 class RpcException(Exception):
@@ -778,7 +806,7 @@ class Plugin(object):
 
         return msgs[-1]
 
-    def print_usage(self):
+    def get_usage(self):
         import textwrap
 
         executable = os.path.abspath(sys.argv[0])
@@ -833,7 +861,7 @@ class Plugin(object):
                 methods_header = None
 
             parts.append(method_tpl.format(
-                name=method.name,
+                name="%s %s" % (method.name, method.get_usage()),
             ))
 
         options_header = textwrap.dedent("""
@@ -868,8 +896,10 @@ class Plugin(object):
                 default=opt.default,
                 typ=opt.opt_type,
             ))
+        return "".join(parts)
 
-        sys.stdout.write("".join(parts))
+    def print_usage(self):
+        sys.stdout.write(self.get_usage())
         sys.stdout.write("\n")
 
     def run(self) -> None:
@@ -918,35 +948,9 @@ class Plugin(object):
                 doc = "Undocumented RPC method from a plugin."
             doc = re.sub('\n+', ' ', doc)
 
-            # Handles out-of-order use of parameters like:
-            #
-            # ```python3
-            #
-            # def hello_obfus(arg1, arg2, plugin, thing3, request=None,
-            #                 thing5='at', thing6=21)
-            #
-            # ```
-            argspec = inspect.getfullargspec(method.func)
-            defaults = argspec.defaults
-            num_defaults = len(defaults) if defaults else 0
-            start_kwargs_idx = len(argspec.args) - num_defaults
-            args = []
-            for idx, arg in enumerate(argspec.args):
-                if arg in ('plugin', 'request'):
-                    continue
-                # Positional arg
-                if idx < start_kwargs_idx:
-                    args.append("%s" % arg)
-                # Keyword arg
-                else:
-                    args.append("[%s]" % arg)
-
-            if method.description:
-                args.append("\n%s" % method.description)
-
             methods.append({
                 'name': method.name,
-                'usage': " ".join(args)
+                'usage': method.get_usage()
             })
 
         manifest = {
