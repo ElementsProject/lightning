@@ -48,14 +48,17 @@ class Method(object):
     """
     def __init__(self, name: str, func: Callable[..., JSONType],
                  mtype: MethodType = MethodType.RPCMETHOD,
-                 deprecated: Union[bool, List[str]] = None):
+                 deprecated: Union[bool, List[str]] = None,
+                 description: str = None):
         self.name = name
         self.func = func
         self.mtype = mtype
         self.background = False
         self.deprecated = deprecated
+        self.description = description
         self.before: List[str] = []
         self.after: List[str] = []
+        self.description = description
 
 
 class RpcException(Exception):
@@ -323,7 +326,8 @@ class Plugin(object):
 
     def add_method(self, name: str, func: Callable[..., Any],
                    background: bool = False,
-                   deprecated: Optional[Union[bool, List[str]]] = None) -> None:
+                   deprecated: Optional[Union[bool, List[str]]] = None,
+                   description: str = None) -> None:
         """Add a plugin method to the dispatch table.
 
         The function will be expected at call time (see `_dispatch`)
@@ -360,7 +364,7 @@ class Plugin(object):
             )
 
         # Register the function with the name
-        method = Method(name, func, MethodType.RPCMETHOD, deprecated)
+        method = Method(name, func, MethodType.RPCMETHOD, deprecated, description)
         method.background = background
         self.methods[name] = method
 
@@ -493,7 +497,8 @@ class Plugin(object):
     def method(self, method_name: str, category: Optional[str] = None,
                desc: Optional[str] = None,
                long_desc: Optional[str] = None,
-               deprecated: Union[bool, List[str]] = None) -> JsonDecoratorType:
+               deprecated: Union[bool, List[str]] = None,
+               description: str = None) -> JsonDecoratorType:
         """Decorator to add a plugin method to the dispatch table.
 
         Internally uses add_method.
@@ -502,7 +507,7 @@ class Plugin(object):
             for attr, attr_name in [(category, "Category"), (desc, "Description"), (long_desc, "Long description")]:
                 if attr is not None:
                     self.log("{} is deprecated but defined in method {}; it will be ignored by Core Lightning".format(attr_name, method_name), level="warn")
-            self.add_method(method_name, f, background=False, deprecated=deprecated)
+            self.add_method(method_name, f, background=False, deprecated=deprecated, description=f.__doc__)
             return f
         return decorator
 
@@ -935,6 +940,9 @@ class Plugin(object):
                 # Keyword arg
                 else:
                     args.append("[%s]" % arg)
+
+            if method.description:
+                args.append("\n%s" % method.description)
 
             methods.append({
                 'name': method.name,
