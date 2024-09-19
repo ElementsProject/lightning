@@ -1522,6 +1522,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	bool ignore_fee_limits;
 	struct peer_update *remote_update;
 	struct channel_stats stats;
+	struct state_change_entry *state_changes;
 
 	peer_dbid = db_col_u64(stmt, "peer_id");
 	peer = find_peer_by_dbid(w->ld, peer_dbid);
@@ -1725,6 +1726,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 				      &stats.out_msatoshi_fulfilled,
 				      AMOUNT_MSAT(0));
 
+	/* Stolen by new_channel */
+	state_changes = wallet_state_change_get(NULL, w, db_col_u64(stmt, "id"));
 	chan = new_channel(peer, db_col_u64(stmt, "id"),
 			   &wshachain,
 			   channel_state_in_db(db_col_int(stmt, "state")),
@@ -1787,7 +1790,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   ignore_fee_limits,
 			   remote_update,
 			   db_col_u64(stmt, "last_stable_connection"),
-			   &stats);
+			   &stats,
+			   state_changes);
 
 	if (!wallet_channel_load_inflights(w, chan)) {
 		tal_free(chan);
