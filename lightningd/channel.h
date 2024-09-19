@@ -115,6 +115,15 @@ struct channel_stats {
 	struct amount_msat out_msatoshi_offered, out_msatoshi_fulfilled;
 };
 
+
+struct channel_state_change {
+	struct timeabs timestamp;
+	enum channel_state old_state;
+	enum channel_state new_state;
+	enum state_change cause;
+	const char *message;
+};
+
 struct channel {
 	/* Inside peer->channels. */
 	struct list_node list;
@@ -327,7 +336,7 @@ struct channel {
 	struct channel_stats stats;
 
 	/* Our change history. */
-	struct state_change_entry *state_changes;
+	struct channel_state_change **state_changes;
 };
 
 /* Is channel owned (and should be talking to peer) */
@@ -411,7 +420,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct peer_update *peer_update STEALS,
 			    u64 last_stable_connection,
 			    const struct channel_stats *stats,
-			    struct state_change_entry *state_changes STEALS);
+			    struct channel_state_change **state_changes STEALS);
 
 /* new_inflight - Create a new channel_inflight for a channel */
 struct channel_inflight *new_inflight(struct channel *channel,
@@ -430,6 +439,13 @@ struct channel_inflight *new_inflight(struct channel *channel,
 	     s64 splice_amnt,
 	     bool i_am_initiator,
 	     bool force_sign_first);
+
+struct channel_state_change *new_channel_state_change(const tal_t *ctx,
+						      struct timeabs timestamp,
+						      enum channel_state old_state,
+						      enum channel_state new_state,
+						      enum state_change cause,
+						      const char *message TAKES);
 
 /* Add a last_tx and sig to an inflight */
 void inflight_set_last_tx(struct channel_inflight *inflight,
