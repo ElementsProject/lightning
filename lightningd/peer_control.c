@@ -818,7 +818,6 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 						       const struct peer *peer)
 {
 	struct lightningd *ld = cmd->ld;
-	struct channel_stats channel_stats;
 	struct amount_msat funding_msat;
 	struct amount_sat peer_funded_sats;
 	struct state_change_entry *state_changes;
@@ -1191,27 +1190,26 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 	json_array_end(response);
 
 	/* Provide channel statistics */
-	wallet_channel_stats_load(ld->wallet, channel->dbid, &channel_stats);
 	json_add_u64(response, "in_payments_offered",
-		     channel_stats.in_payments_offered);
+		     channel->stats.in_payments_offered);
 	json_add_amount_msat(response,
 			     "in_offered_msat",
-			     channel_stats.in_msatoshi_offered);
+			     channel->stats.in_msatoshi_offered);
 	json_add_u64(response, "in_payments_fulfilled",
-		     channel_stats.in_payments_fulfilled);
+		     channel->stats.in_payments_fulfilled);
 	json_add_amount_msat(response,
 			     "in_fulfilled_msat",
-			     channel_stats.in_msatoshi_fulfilled);
+			     channel->stats.in_msatoshi_fulfilled);
 	json_add_u64(response, "out_payments_offered",
-		     channel_stats.out_payments_offered);
+		     channel->stats.out_payments_offered);
 	json_add_amount_msat(response,
 			     "out_offered_msat",
-			     channel_stats.out_msatoshi_offered);
+			     channel->stats.out_msatoshi_offered);
 	json_add_u64(response, "out_payments_fulfilled",
-		     channel_stats.out_payments_fulfilled);
+		     channel->stats.out_payments_fulfilled);
 	json_add_amount_msat(response,
 			     "out_fulfilled_msat",
-			     channel_stats.out_msatoshi_fulfilled);
+			     channel->stats.out_msatoshi_fulfilled);
 
 	json_add_htlcs(ld, response, channel);
 	json_object_end(response);

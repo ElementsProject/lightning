@@ -716,15 +716,6 @@ void wallet_channel_stats_incr_out_offered(struct wallet *w, u64 cdbid, struct a
 void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 cdbid, struct amount_msat msatoshi);
 
 /**
- * wallet_channel_stats_load - Load channel statistics
- *
- * @w: wallet containing the channel
- * @cdbid: channel database id
- * @stats: location to load statistics to
- */
-void wallet_channel_stats_load(struct wallet *w, u64 cdbid, struct channel_stats *stats);
-
-/**
  * Retrieve the blockheight of the last block processed by lightningd.
  *
  * Will return the 0 if the wallet was never used before.

@@ -1023,9 +1023,6 @@ const char *version(void)
 /* Generated stub for wallet_channel_save */
 void wallet_channel_save(struct wallet *w UNNEEDED, struct channel *chan UNNEEDED)
 { fprintf(stderr, "wallet_channel_save called!\n"); abort(); }
-/* Generated stub for wallet_channel_stats_load */
-void wallet_channel_stats_load(struct wallet *w UNNEEDED, u64 cdbid UNNEEDED, struct channel_stats *stats UNNEEDED)
-{ fprintf(stderr, "wallet_channel_stats_load called!\n"); abort(); }
 /* Generated stub for wallet_channeltxs_add */
 void wallet_channeltxs_add(struct wallet *w UNNEEDED, struct channel *chan UNNEEDED,
 			    const int type UNNEEDED, const struct bitcoin_txid *txid UNNEEDED,
