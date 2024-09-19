@@ -5,7 +5,6 @@
 #include <ccan/lqueue/lqueue.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
-#include <common/pseudorand.h>
 #include <common/utils.h>
 #include <math.h>
 #include <plugins/askrene/askrene.h>
@@ -1086,14 +1085,6 @@ struct list_data
 	struct list_node list;
 	struct flow *flow_path;
 };
-
-static inline uint64_t pseudorand_interval(uint64_t a, uint64_t b)
-{
-	if (a == b)
-		return b;
-	assert(b > a);
-	return a + pseudorand(b - a);
-}
 
 /* Given a flow in the residual network, build a set of payment flows in the
  * gossmap that corresponds to this flow. */
