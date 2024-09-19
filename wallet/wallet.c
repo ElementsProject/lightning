@@ -37,21 +37,6 @@
 /* 12 hours is usually enough reservation time */
 #define RESERVATION_INC (6 * 12)
 
-/* Possible channel state */
-enum channel_state_bucket {
-	IN_OFFERED = 0,
-	IN_FULLFILLED = 1,
-	OUT_OFFERED = 2,
-	OUT_FULLFILLED = 3,
-};
-
-/* channel state identifier */
-struct channel_state_param {
-	const char *dir_key;
-	const char *type_key;
-	const enum channel_state_bucket state;
-};
-
 /* These go in db, so values cannot change (we can't put this into
  * lightningd/channel_state.h since it confuses cdump!) */
 static enum state_change state_change_in_db(enum state_change s)
@@ -2029,56 +2014,12 @@ bool wallet_init_channels(struct wallet *w)
 	return wallet_channels_load_active(w);
 }
 
-static enum channel_state_bucket get_state_channel_db(const char *dir, const char *typ)
-{
-	enum channel_state_bucket channel_state = IN_OFFERED;
-	if (streq(dir, "out"))
-		channel_state += 2;
-	if (streq(typ, "fulfilled"))
-		channel_state += 1;
-	return channel_state;
-}
-
-static
-void wallet_channel_stats_incr_x(struct wallet *w,
-				 char const *dir,
-				 char const *typ,
-				 u64 cdbid,
-				 struct amount_msat msat)
+static void wallet_channel_stats_incr_x(struct wallet *w,
+					u64 cdbid,
+					struct amount_msat msat,
+					const char *query)
 {
 	struct db_stmt *stmt;
-	const char *query = NULL;
-
-	switch (get_state_channel_db(dir, typ)) {
-	case IN_OFFERED:
-		query = SQL("UPDATE channels"
-			    "   SET in_payments_offered = COALESCE(in_payments_offered, 0) + 1"
-			    "     , in_msatoshi_offered = COALESCE(in_msatoshi_offered, 0) + ?"
-			    " WHERE id = ?;");
-		break;
-	case IN_FULLFILLED:
-		query = SQL("UPDATE channels"
-			    "   SET in_payments_fulfilled = COALESCE(in_payments_fulfilled, 0) + 1"
-			    "     , in_msatoshi_fulfilled = COALESCE(in_msatoshi_fulfilled, 0) + ?"
-			    " WHERE id = ?;");
-		break;
-	case OUT_OFFERED:
-		query = SQL("UPDATE channels"
-			    "   SET out_payments_offered = COALESCE(out_payments_offered, 0) + 1"
-			    "     , out_msatoshi_offered = COALESCE(out_msatoshi_offered, 0) + ?"
-			    " WHERE id = ?;");
-		break;
-	case OUT_FULLFILLED:
-		query = SQL("UPDATE channels"
-			    "   SET out_payments_fulfilled = COALESCE(out_payments_fulfilled, 0) + 1"
-			    "     , out_msatoshi_fulfilled = COALESCE(out_msatoshi_fulfilled, 0) + ?"
-			    " WHERE id = ?;");
-		break;
-	}
-
-	// Sanity check!
-	if (!query)
-		fatal("Unknown channel state key (direction %s, type %s)", dir, typ);
 
 	stmt = db_prepare_v2(w->db, query);
 	db_bind_amount_msat(stmt, &msat);
@@ -2086,25 +2027,43 @@ void wallet_channel_stats_incr_x(struct wallet *w,
 
 	db_exec_prepared_v2(take(stmt));
 }
+
+/* I would use macros for these, but gettext needs string literals :( */
 void wallet_channel_stats_incr_in_offered(struct wallet *w, u64 id,
 					  struct amount_msat m)
 {
-	wallet_channel_stats_incr_x(w, "in", "offered", id, m);
+	const char query[] = SQL("UPDATE channels"
+				 "   SET in_payments_offered = COALESCE(in_payments_offered, 0) + 1"
+				 "     , in_msatoshi_offered = COALESCE(in_msatoshi_offered, 0) + ?"
+				 " WHERE id = ?;");
+	wallet_channel_stats_incr_x(w, id, m, query);
 }
 void wallet_channel_stats_incr_in_fulfilled(struct wallet *w, u64 id,
 					    struct amount_msat m)
 {
-	wallet_channel_stats_incr_x(w, "in", "fulfilled", id, m);
+	const char query[] = SQL("UPDATE channels"
+				 "   SET in_payments_fulfilled = COALESCE(in_payments_fulfilled, 0) + 1"
+				 "     , in_msatoshi_fulfilled = COALESCE(in_msatoshi_fulfilled, 0) + ?"
+				 " WHERE id = ?;");
+	wallet_channel_stats_incr_x(w, id, m, query);
 }
 void wallet_channel_stats_incr_out_offered(struct wallet *w, u64 id,
 					    struct amount_msat m)
 {
-	wallet_channel_stats_incr_x(w, "out", "offered", id, m);
+	const char query[] = SQL("UPDATE channels"
+				 "   SET out_payments_offered = COALESCE(out_payments_offered, 0) + 1"
+				 "     , out_msatoshi_offered = COALESCE(out_msatoshi_offered, 0) + ?"
+				 " WHERE id = ?;");
+	wallet_channel_stats_incr_x(w, id, m, query);
 }
 void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 id,
 					    struct amount_msat m)
 {
-	wallet_channel_stats_incr_x(w, "out", "fulfilled", id, m);
+	const char query[] = SQL("UPDATE channels"
+				 "   SET out_payments_fulfilled = COALESCE(out_payments_fulfilled, 0) + 1"
+				 "     , out_msatoshi_fulfilled = COALESCE(out_msatoshi_fulfilled, 0) + ?"
+				 " WHERE id = ?;");
+	wallet_channel_stats_incr_x(w, id, m, query);
 }
 
 u32 wallet_blocks_maxheight(struct wallet *w)
