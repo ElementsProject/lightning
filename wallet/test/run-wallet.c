@@ -1918,6 +1918,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 	secp256k1_ecdsa_signature *lease_commit_sig;
 	u32 feerate, lease_blockheight_start;
 	u64 dbid;
+	struct channel_stats *stats = talz(w, struct channel_stats);
 
 	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
 	node_id_from_pubkey(&id, &pk);
@@ -1995,7 +1996,8 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 			   AMOUNT_MSAT(-1ULL),
 			   false,
 			   NULL,
-			   0);
+			   0,
+			   stats);
 	db_begin_transaction(w->db);
 	CHECK(!wallet_err);
 	wallet_channel_insert(w, chan);

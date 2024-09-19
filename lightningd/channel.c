@@ -310,6 +310,8 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->ignore_fee_limits = ld->config.ignore_fee_limits;
 	channel->last_stable_connection = 0;
 	channel->stable_conn_timer = NULL;
+	/* Nothing happened yet */
+	memset(&channel->stats, 0, sizeof(channel->stats));
 
 	/* No shachain yet */
 	channel->their_shachain.id = 0;
@@ -445,7 +447,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool ignore_fee_limits,
 			    /* NULL or stolen */
 			    struct peer_update *peer_update STEALS,
-			    u64 last_stable_connection)
+			    u64 last_stable_connection,
+			    const struct channel_stats *stats)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
 	struct amount_msat htlc_min, htlc_max;
@@ -602,6 +605,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->ignore_fee_limits = ignore_fee_limits;
 	channel->last_stable_connection = last_stable_connection;
 	channel->stable_conn_timer = NULL;
+	channel->stats = *stats;
  	/* Populate channel->channel_gossip */
 	channel_gossip_init(channel, take(peer_update));
 
