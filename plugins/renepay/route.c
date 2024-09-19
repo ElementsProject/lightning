@@ -11,7 +11,8 @@ struct route *new_route(const tal_t *ctx, u32 groupid,
 	route->key.groupid = groupid;
 	route->key.payment_hash = payment_hash;
 
-	route->final_error = LIGHTNINGD;
+	// FIXME: assuming jsonrpc_errcode == 0 means no error
+	route->final_error = 0;
 	route->final_msg = NULL;
 	route->hops = NULL;
 	route->success_prob = 0.0;

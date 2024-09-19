@@ -629,6 +629,57 @@ REGISTER_PAYMENT_MODIFIER(compute_routes, compute_routes_cb);
  * request calling sendpay.
  */
 
+struct sendpay_request {
+	struct payment *payment;
+	struct route *route;
+};
+
+static struct command_result *sendpay_done(struct command *cmd, const char *buf,
+					   const jsmntok_t *result,
+					   struct sendpay_request *data)
+{
+	struct payment *payment = data->payment;
+	tal_free(data);
+
+	assert(payment->pending_rpcs > 0);
+	payment->pending_rpcs--;
+	return payment_continue(payment);
+}
+
+/* sendpay really only fails immediately in two ways:
+ * 1. We screwed up and misused the API.
+ * 2. The first peer is disconnected.
+ */
+static struct command_result *sendpay_fail(struct command *cmd, const char *buf,
+					   const jsmntok_t *result,
+					   struct sendpay_request *data)
+{
+	struct payment *payment = data->payment;
+	struct route *route = data->route;
+	const char *err =
+	    json_scan(tmpctx, buf, result, "{code:%,message:%}",
+		      JSON_SCAN(json_to_jsonrpc_errcode, &route->final_error),
+		      JSON_SCAN_TAL(route, json_strdup, &route->final_msg));
+	if (err)
+		plugin_err(cmd->plugin,
+			   "Unable to parse sendpay error: %s, json: %.*s", err,
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+
+	payment_note(payment, LOG_INFORM,
+		     "Sendpay failed: partid=%" PRIu64
+		     " errorcode:%d message=%s",
+		     route->key.partid, route->final_error, route->final_msg);
+
+	if (route->final_error != PAY_TRY_OTHER_ROUTE)
+		plugin_log(cmd->plugin, LOG_UNUSUAL,
+			   "Strange error from sendpay: %.*s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+
+	return sendpay_done(cmd, buf, result, data);
+}
+
 static struct command_result *send_routes_cb(struct payment *payment)
 {
 	assert(payment);
@@ -646,7 +697,57 @@ static struct command_result *send_routes_cb(struct payment *payment)
 	for (size_t i = 0; i < tal_count(routetracker->computed_routes); i++) {
 		struct route *route = routetracker->computed_routes[i];
 
-		route_sendpay_request(cmd, take(route), payment);
+		const struct payment_info *pinfo = &payment->payment_info;
+
+		struct sendpay_request *data = tal(cmd, struct sendpay_request);
+		data->payment = payment;
+		data->route = route;
+
+		struct out_req *req =
+		    jsonrpc_request_start(cmd->plugin, cmd, "sendpay",
+					  sendpay_done, sendpay_fail, data);
+
+		json_add_route_hops(req->js, "route", route->hops);
+		json_add_sha256(req->js, "payment_hash", &pinfo->payment_hash);
+		json_add_u64(req->js, "partid", route->key.partid);
+		json_add_u64(req->js, "groupid", route->key.groupid);
+
+		/* FIXME: sendpay has a check that we don't total more than
+		 * the exact amount, if we're setting partid (i.e. MPP).
+		 * However, we always set partid, and we add a shadow amount if
+		 * we've only have one part, so we have to use that amount
+		 * here.
+		 *
+		 * The spec was loosened so you are actually allowed
+		 * to overpay, so this check is now overzealous. */
+		const size_t pathlen = tal_count(route->hops);
+		if (pathlen > 0 &&
+		    amount_msat_greater(route_delivers(route), pinfo->amount))
+			json_add_amount_msat(req->js, "amount_msat",
+					     route_delivers(route));
+		else
+			json_add_amount_msat(req->js, "amount_msat",
+					     pinfo->amount);
+
+		if (pinfo->payment_secret)
+			json_add_secret(req->js, "payment_secret",
+					pinfo->payment_secret);
+
+		/* FIXME: some of these fields might not be required for all
+		 * payment parts. */
+		json_add_string(req->js, "bolt11", pinfo->invstr);
+
+		if (pinfo->payment_metadata)
+			json_add_hex_talarr(req->js, "payment_metadata",
+					    pinfo->payment_metadata);
+		if (pinfo->label)
+			json_add_string(req->js, "label", pinfo->label);
+		if (pinfo->description)
+			json_add_string(req->js, "description",
+					pinfo->description);
+
+		send_outreq(cmd->plugin, req);
+		payment->pending_rpcs++;
 
 		payment_note(payment, LOG_INFORM,
 			     "Sent route request: partid=%" PRIu64
@@ -657,7 +758,6 @@ static struct command_result *send_routes_cb(struct payment *payment)
 			     fmt_amount_msat(tmpctx, route_fees(route)),
 			     route_delay(route), fmt_route_path(tmpctx, route));
 	}
-	tal_resize(&routetracker->computed_routes, 0);
 	return payment_continue(payment);
 }
 

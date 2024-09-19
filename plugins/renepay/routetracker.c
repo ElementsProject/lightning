@@ -149,8 +149,8 @@ static void remove_route(struct route *route, struct route_map *map)
  *	- after a sendpay is accepted,
  *	- or after listsendpays reveals some pending route that we didn't
  *	previously know about. */
-static void route_pending_register(struct routetracker *routetracker,
-				   struct route *route)
+void route_pending_register(struct routetracker *routetracker,
+			    struct route *route)
 {
 	assert(route);
 	assert(routetracker);
@@ -190,71 +190,6 @@ static void route_pending_register(struct routetracker *routetracker,
 			   "%s: amount_msat arithmetic overflow.",
 			   __func__);
 	}
-}
-
-/* Callback function for sendpay request success. */
-static struct command_result *sendpay_done(struct command *cmd,
-					   const char *buf UNUSED,
-					   const jsmntok_t *result UNUSED,
-					   struct route *route)
-{
-	assert(route);
-	struct payment *payment = route_get_payment_verify(route);
-	route_pending_register(payment->routetracker, route);
-	return command_still_pending(cmd);
-}
-
-/* sendpay really only fails immediately in two ways:
- * 1. We screwed up and misused the API.
- * 2. The first peer is disconnected.
- */
-static struct command_result *sendpay_failed(struct command *cmd,
-					     const char *buf,
-					     const jsmntok_t *tok,
-					     struct route *route)
-{
-	assert(route);
-	struct payment *payment = route_get_payment_verify(route);
-	struct routetracker *routetracker = payment->routetracker;
-	assert(routetracker);
-
-	enum jsonrpc_errcode errcode;
-	const char *msg;
-	const char *err;
-
-	err = json_scan(tmpctx, buf, tok, "{code:%,message:%}",
-			JSON_SCAN(json_to_jsonrpc_errcode, &errcode),
-			JSON_SCAN_TAL(tmpctx, json_strdup, &msg));
-	if (err)
-		plugin_err(pay_plugin->plugin,
-			   "Unable to parse sendpay error: %s, json: %.*s", err,
-			   json_tok_full_len(tok), json_tok_full(buf, tok));
-
-	payment_note(payment, LOG_INFORM,
-		     "Sendpay failed: partid=%" PRIu64
-		     " errorcode:%d message=%s",
-		     route->key.partid, errcode, msg);
-
-	if (errcode != PAY_TRY_OTHER_ROUTE) {
-		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
-			   "Strange error from sendpay: %.*s",
-			   json_tok_full_len(tok), json_tok_full(buf, tok));
-	}
-
-	/* There is no new knowledge from this kind of failure.
-	 * We just disable this scid. */
-	struct short_channel_id_dir scidd_disable = {
-	    .scid = route->hops[0].scid, .dir = route->hops[0].direction};
-	payment_disable_chan(payment, scidd_disable, LOG_INFORM,
-			     "sendpay didn't like first hop: %s", msg);
-
-	if (!route_map_del(routetracker->sent_routes, route))
-		plugin_err(pay_plugin->plugin,
-			   "%s: route (%s) is not marked as sent",
-			   __func__,
-			   fmt_routekey(tmpctx, &route->key));
-	tal_free(route);
-	return command_still_pending(cmd);
 }
 
 void payment_collect_results(struct payment *payment,
@@ -322,22 +257,6 @@ void payment_collect_results(struct payment *payment,
 	for (size_t i = 0; i < ncompleted; i++)
 		tal_free(routetracker->finalized_routes[i]);
 	tal_resize(&routetracker->finalized_routes, 0);
-}
-
-struct command_result *route_sendpay_request(struct command *cmd,
-					     struct route *route TAKES,
-					     struct payment *payment)
-{
-	struct out_req *req =
-	    jsonrpc_request_start(pay_plugin->plugin, cmd, "sendpay",
-				  sendpay_done, sendpay_failed, route);
-
-	json_add_route(req->js, route, payment);
-
-	route_map_add(payment->routetracker->sent_routes, route);
-	if(taken(route))
-		tal_steal(payment->routetracker->sent_routes, route);
-	return send_outreq(pay_plugin->plugin, req);
 }
 
 struct command_result *notification_sendpay_failure(struct command *cmd,

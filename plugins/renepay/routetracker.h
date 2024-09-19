@@ -34,10 +34,8 @@ void payment_collect_results(struct payment *payment,
 			     enum jsonrpc_errcode *final_error,
 			     const char **final_msg);
 
-/* Sends a sendpay request for this route. */
-struct command_result *route_sendpay_request(struct command *cmd,
-					     struct route *route TAKES,
-					     struct payment *payment);
+void route_pending_register(struct routetracker *routetracker,
+			    struct route *route);
 
 struct command_result *notification_sendpay_failure(struct command *cmd,
 						    const char *buf,
