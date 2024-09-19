@@ -312,7 +312,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->stable_conn_timer = NULL;
 	/* Nothing happened yet */
 	memset(&channel->stats, 0, sizeof(channel->stats));
-	channel->state_changes = tal_arr(channel, struct state_change_entry, 0);
+	channel->state_changes = tal_arr(channel, struct channel_state_change *, 0);
 
 	/* No shachain yet */
 	channel->their_shachain.id = 0;
@@ -450,7 +450,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct peer_update *peer_update STEALS,
 			    u64 last_stable_connection,
 			    const struct channel_stats *stats,
-			    struct state_change_entry *state_changes STEALS)
+			    struct channel_state_change **state_changes STEALS)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
 	struct amount_msat htlc_min, htlc_max;
@@ -834,6 +834,22 @@ void channel_set_last_tx(struct channel *channel,
 	channel->last_tx = tal_steal(channel, tx);
 }
 
+struct channel_state_change *new_channel_state_change(const tal_t *ctx,
+						      struct timeabs timestamp,
+						      enum channel_state old_state,
+						      enum channel_state new_state,
+						      enum state_change cause,
+						      const char *message TAKES)
+{
+	struct channel_state_change *c = tal(ctx, struct channel_state_change);
+	c->timestamp = timestamp;
+	c->old_state = old_state;
+	c->new_state = new_state;
+	c->cause = cause;
+	c->message = tal_strdup(c, message);
+	return c;
+}
+
 void channel_set_state(struct channel *channel,
 		       enum channel_state old_state,
 		       enum channel_state state,
@@ -867,17 +883,19 @@ void channel_set_state(struct channel *channel,
 
 	/* plugin notification channel_state_changed and DB entry */
 	if (state != old_state) {  /* see issue #4029 */
-		struct state_change_entry change;
-		change.timestamp = time_now();
-		change.old_state = old_state;
-		change.new_state = state;
-		change.cause = reason;
-		change.message = tal_strdup(channel->state_changes, why);
+		struct channel_state_change *change;
+
+		change = new_channel_state_change(channel->state_changes,
+						  time_now(),
+						  old_state,
+						  state,
+						  reason,
+						  why);
 		tal_arr_expand(&channel->state_changes, change);
 
 		wallet_state_change_add(channel->peer->ld->wallet,
 					channel->dbid,
-					change.timestamp,
+					change->timestamp,
 					old_state,
 					state,
 					reason,
@@ -886,7 +904,7 @@ void channel_set_state(struct channel *channel,
 					     &channel->peer->id,
 					     &channel->cid,
 					     channel->scid,
-					     change.timestamp,
+					     change->timestamp,
 					     old_state,
 					     state,
 					     reason,
