@@ -325,6 +325,9 @@ struct channel {
 
 	/* Our stats */
 	struct channel_stats stats;
+
+	/* Our change history. */
+	struct state_change_entry *state_changes;
 };
 
 /* Is channel owned (and should be talking to peer) */
@@ -407,7 +410,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    struct peer_update *peer_update STEALS,
 			    u64 last_stable_connection,
-			    const struct channel_stats *stats);
+			    const struct channel_stats *stats,
+			    struct state_change_entry *state_changes STEALS);
 
 /* new_inflight - Create a new channel_inflight for a channel */
 struct channel_inflight *new_inflight(struct channel *channel,

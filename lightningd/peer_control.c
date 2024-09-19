@@ -820,7 +820,6 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 	struct lightningd *ld = cmd->ld;
 	struct amount_msat funding_msat;
 	struct amount_sat peer_funded_sats;
-	struct state_change_entry *state_changes;
 	const struct peer_update *peer_update;
 	u32 feerate;
 
@@ -1161,19 +1160,18 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 	json_add_num(response, "max_accepted_htlcs",
 		     channel->our_config.max_accepted_htlcs);
 
-	state_changes = wallet_state_change_get(tmpctx, ld->wallet, channel->dbid);
 	json_array_start(response, "state_changes");
-	for (size_t i = 0; i < tal_count(state_changes); i++) {
+	for (size_t i = 0; i < tal_count(channel->state_changes); i++) {
 		json_object_start(response, NULL);
 		json_add_timeiso(response, "timestamp",
-				 state_changes[i].timestamp);
+				 channel->state_changes[i].timestamp);
 		json_add_string(response, "old_state",
-				channel_state_str(state_changes[i].old_state));
+				channel_state_str(channel->state_changes[i].old_state));
 		json_add_string(response, "new_state",
-				channel_state_str(state_changes[i].new_state));
+				channel_state_str(channel->state_changes[i].new_state));
 		json_add_string(response, "cause",
-				channel_change_state_reason_str(state_changes[i].cause));
-		json_add_string(response, "message", state_changes[i].message);
+				channel_change_state_reason_str(channel->state_changes[i].cause));
+		json_add_string(response, "message", channel->state_changes[i].message);
 		json_object_end(response);
 	}
 	json_array_end(response);

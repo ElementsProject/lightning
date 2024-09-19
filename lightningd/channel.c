@@ -312,6 +312,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->stable_conn_timer = NULL;
 	/* Nothing happened yet */
 	memset(&channel->stats, 0, sizeof(channel->stats));
+	channel->state_changes = tal_arr(channel, struct state_change_entry, 0);
 
 	/* No shachain yet */
 	channel->their_shachain.id = 0;
@@ -448,7 +449,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    struct peer_update *peer_update STEALS,
 			    u64 last_stable_connection,
-			    const struct channel_stats *stats)
+			    const struct channel_stats *stats,
+			    struct state_change_entry *state_changes STEALS)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
 	struct amount_msat htlc_min, htlc_max;
@@ -606,6 +608,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->last_stable_connection = last_stable_connection;
 	channel->stable_conn_timer = NULL;
 	channel->stats = *stats;
+	channel->state_changes = tal_steal(channel, state_changes);
+
  	/* Populate channel->channel_gossip */
 	channel_gossip_init(channel, take(peer_update));
 
@@ -836,8 +840,6 @@ void channel_set_state(struct channel *channel,
 		       enum state_change reason,
 		       char *why)
 {
-	struct timeabs timestamp;
-
 	/* set closer, if known */
 	if (channel_state_closing(state) && channel->closer == NUM_SIDES) {
 		if (reason == REASON_LOCAL)   channel->closer = LOCAL;
@@ -865,10 +867,17 @@ void channel_set_state(struct channel *channel,
 
 	/* plugin notification channel_state_changed and DB entry */
 	if (state != old_state) {  /* see issue #4029 */
-		timestamp = time_now();
+		struct state_change_entry change;
+		change.timestamp = time_now();
+		change.old_state = old_state;
+		change.new_state = state;
+		change.cause = reason;
+		change.message = tal_strdup(channel->state_changes, why);
+		tal_arr_expand(&channel->state_changes, change);
+
 		wallet_state_change_add(channel->peer->ld->wallet,
 					channel->dbid,
-					timestamp,
+					change.timestamp,
 					old_state,
 					state,
 					reason,
@@ -877,7 +886,7 @@ void channel_set_state(struct channel *channel,
 					     &channel->peer->id,
 					     &channel->cid,
 					     channel->scid,
-					     timestamp,
+					     change.timestamp,
 					     old_state,
 					     state,
 					     reason,

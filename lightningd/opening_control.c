@@ -220,7 +220,8 @@ wallet_commit_channel(struct lightningd *ld,
 			      ld->config.ignore_fee_limits,
 			      NULL,
 			      0,
-			      &zero_channel_stats);
+			      &zero_channel_stats,
+			      tal_arr(NULL, struct state_change_entry, 0));
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
@@ -1598,7 +1599,8 @@ static struct channel *stub_chan(struct command *cmd,
 			      false,
 			      NULL,
 			      0,
-			      &zero_channel_stats);
+			      &zero_channel_stats,
+			      tal_arr(NULL, struct state_change_entry, 0));
 
 	/* We don't want to gossip about this, ever. */
 	channel->channel_gossip = tal_free(channel->channel_gossip);
