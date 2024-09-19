@@ -663,3 +663,17 @@ def test_min_htlc(node_factory, bitcoind):
                          layers=[],
                          maxfee_msat=20_000_000,
                          final_cltv=10)
+
+
+def test_min_htlc_after_excess(node_factory, bitcoind):
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, capacity_sats=500_000,
+                                                        forward=GenChannel.Half(htlc_min=2_000))])
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+
+    with pytest.raises(RpcError, match=r"ending 1999msat across 0x1x0/1 would violate htlc_min \(~2000msat\)"):
+        l1.rpc.getroutes(source=nodemap[0],
+                         destination=nodemap[1],
+                         amount_msat=1999,
+                         layers=[],
+                         maxfee_msat=20_000_000,
+                         final_cltv=10)
