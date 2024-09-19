@@ -1719,7 +1719,26 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 		db_col_ignore(stmt, "remote_htlc_maximum_msat");
 	}
 
-	wallet_channel_stats_load(w, db_col_u64(stmt, "id"), &stats);
+	stats.in_payments_offered
+		= db_col_int_or_default(stmt, "in_payments_offered", 0);
+	stats.in_payments_fulfilled
+		= db_col_int_or_default(stmt, "in_payments_fulfilled", 0);
+	db_col_amount_msat_or_default(stmt, "in_msatoshi_offered",
+				      &stats.in_msatoshi_offered,
+				      AMOUNT_MSAT(0));
+	db_col_amount_msat_or_default(stmt, "in_msatoshi_fulfilled",
+				      &stats.in_msatoshi_fulfilled,
+				      AMOUNT_MSAT(0));
+	stats.out_payments_offered
+		= db_col_int_or_default(stmt, "out_payments_offered", 0);
+	stats.out_payments_fulfilled
+		= db_col_int_or_default(stmt, "out_payments_fulfilled", 0);
+	db_col_amount_msat_or_default(stmt, "out_msatoshi_offered",
+				      &stats.out_msatoshi_offered,
+				      AMOUNT_MSAT(0));
+	db_col_amount_msat_or_default(stmt, "out_msatoshi_fulfilled",
+				      &stats.out_msatoshi_fulfilled,
+				      AMOUNT_MSAT(0));
 
 	chan = new_channel(peer, db_col_u64(stmt, "id"),
 			   &wshachain,
@@ -1977,6 +1996,14 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", remote_htlc_minimum_msat"
 					", remote_htlc_maximum_msat"
 					", last_stable_connection"
+					", in_payments_offered"
+					", in_payments_fulfilled"
+					", in_msatoshi_offered"
+					", in_msatoshi_fulfilled"
+					", out_payments_offered"
+					", out_payments_fulfilled"
+					", out_msatoshi_offered"
+					", out_msatoshi_fulfilled"
 					" FROM channels"
                                         " WHERE state != ?;")); //? 0
 	db_bind_int(stmt, CLOSED);
@@ -2078,51 +2105,6 @@ void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 id,
 					    struct amount_msat m)
 {
 	wallet_channel_stats_incr_x(w, "out", "fulfilled", id, m);
-}
-
-void wallet_channel_stats_load(struct wallet *w,
-			       u64 id,
-			       struct channel_stats *stats)
-{
-	struct db_stmt *stmt;
-	int res;
-	stmt = db_prepare_v2(w->db, SQL(
-				     "SELECT"
-				     "   in_payments_offered,  in_payments_fulfilled"
-				     ",  in_msatoshi_offered,  in_msatoshi_fulfilled"
-				     ", out_payments_offered, out_payments_fulfilled"
-				     ", out_msatoshi_offered, out_msatoshi_fulfilled"
-				     "  FROM channels"
-				     " WHERE id = ?"));
-	db_bind_u64(stmt, id);
-	db_query_prepared(stmt);
-
-	res = db_step(stmt);
-
-	/* This must succeed, since we know the channel exists */
-	assert(res);
-
-	stats->in_payments_offered
-		= db_col_int_or_default(stmt, "in_payments_offered", 0);
-	stats->in_payments_fulfilled
-		= db_col_int_or_default(stmt, "in_payments_fulfilled", 0);
-	db_col_amount_msat_or_default(stmt, "in_msatoshi_offered",
-				      &stats->in_msatoshi_offered,
-				      AMOUNT_MSAT(0));
-	db_col_amount_msat_or_default(stmt, "in_msatoshi_fulfilled",
-				      &stats->in_msatoshi_fulfilled,
-				      AMOUNT_MSAT(0));
-	stats->out_payments_offered
-		= db_col_int_or_default(stmt, "out_payments_offered", 0);
-	stats->out_payments_fulfilled
-		= db_col_int_or_default(stmt, "out_payments_fulfilled", 0);
-	db_col_amount_msat_or_default(stmt, "out_msatoshi_offered",
-				      &stats->out_msatoshi_offered,
-				      AMOUNT_MSAT(0));
-	db_col_amount_msat_or_default(stmt, "out_msatoshi_fulfilled",
-				      &stats->out_msatoshi_fulfilled,
-				      AMOUNT_MSAT(0));
-	tal_free(stmt);
 }
 
 u32 wallet_blocks_maxheight(struct wallet *w)
