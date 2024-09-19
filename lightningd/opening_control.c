@@ -109,6 +109,10 @@ wallet_commit_channel(struct lightningd *ld,
 	u32 lease_start_blockheight = 0; /* No leases on v1 */
 	struct timeabs timestamp;
 	bool any_active = peer_any_channel(uc->peer, channel_state_wants_peercomms, NULL);
+	struct channel_stats zero_channel_stats;
+
+	/* We can't have any payments yet */
+	memset(&zero_channel_stats, 0, sizeof(zero_channel_stats));
 
 	/* We cannot both be the fundee *and* have a `fundchannel_start`
 	 * command running!
@@ -215,7 +219,8 @@ wallet_commit_channel(struct lightningd *ld,
 			      ld->config.htlc_maximum_msat,
 			      ld->config.ignore_fee_limits,
 			      NULL,
-			      0);
+			      0,
+			      &zero_channel_stats);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
@@ -1456,6 +1461,7 @@ static struct channel *stub_chan(struct command *cmd,
 	struct short_channel_id *scid;
 	u32 blockht;
 	u32 feerate;
+	struct channel_stats zero_channel_stats;
 	u8 *dummy_sig = tal_hexdata(cmd,
 				    "30450221009b2e0eef267b94c3899fb0dc73750"
 				    "12e2cee4c10348a068fe78d1b82b4b1403602207"
@@ -1530,6 +1536,8 @@ static struct channel *stub_chan(struct command *cmd,
 	if (!mk_short_channel_id(scid, 1, 1, 1))
                 fatal("Failed to make short channel 1x1x1!");
 
+	memset(&zero_channel_stats, 0, sizeof(zero_channel_stats));
+
 	/* Channel Shell with Dummy data(mostly) */
 	channel = new_channel(peer, id,
 			      NULL, /* No shachain yet */
@@ -1589,7 +1597,8 @@ static struct channel *stub_chan(struct command *cmd,
 			      ld->config.htlc_maximum_msat,
 			      false,
 			      NULL,
-			      0);
+			      0,
+			      &zero_channel_stats);
 
 	/* We don't want to gossip about this, ever. */
 	channel->channel_gossip = tal_free(channel->channel_gossip);

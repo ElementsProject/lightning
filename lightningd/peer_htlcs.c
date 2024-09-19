@@ -93,6 +93,48 @@ static bool htlc_out_update_state(struct channel *channel,
 	return true;
 }
 
+static void cstat_accumulate(struct channel *c,
+			     struct amount_msat *val,
+			     struct amount_msat msat)
+{
+	if (!amount_msat_add(val, *val, msat))
+		log_broken(c->log, "Adding %s to stat %s overflowed!",
+			   fmt_amount_msat(tmpctx, *val),
+			   fmt_amount_msat(tmpctx, msat));
+}
+
+static void channel_stats_incr_in_fulfilled(struct channel *c,
+					    struct amount_msat msat)
+{
+	c->stats.in_payments_fulfilled++;
+	cstat_accumulate(c, &c->stats.in_msatoshi_fulfilled, msat);
+	wallet_channel_stats_incr_in_fulfilled(c->peer->ld->wallet, c->dbid, msat);
+}
+
+static void channel_stats_incr_out_fulfilled(struct channel *c,
+					     struct amount_msat msat)
+{
+	c->stats.out_payments_fulfilled++;
+	cstat_accumulate(c, &c->stats.out_msatoshi_fulfilled, msat);
+	wallet_channel_stats_incr_out_fulfilled(c->peer->ld->wallet, c->dbid, msat);
+}
+
+static void channel_stats_incr_in_offered(struct channel *c,
+					   struct amount_msat msat)
+{
+	c->stats.in_payments_offered++;
+	cstat_accumulate(c, &c->stats.in_msatoshi_offered, msat);
+	wallet_channel_stats_incr_in_offered(c->peer->ld->wallet, c->dbid, msat);
+}
+
+static void channel_stats_incr_out_offered(struct channel *c,
+					   struct amount_msat msat)
+{
+	c->stats.out_payments_offered++;
+	cstat_accumulate(c, &c->stats.out_msatoshi_offered, msat);
+	wallet_channel_stats_incr_out_offered(c->peer->ld->wallet, c->dbid, msat);
+}
+
 /* BOLT #4:
  *   - if `blinding_point` is set in the incoming `update_add_htlc`:
  *     - MUST return an `invalid_onion_blinding` error.
@@ -332,7 +374,6 @@ void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 {
 	u8 *msg;
 	struct channel *channel = hin->key.channel;
-	struct wallet *wallet = channel->peer->ld->wallet;
 
 	if (hin->hstate != RCVD_ADD_ACK_REVOCATION) {
 		log_debug(channel->log,
@@ -349,9 +390,7 @@ void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 	htlc_in_check(hin, __func__);
 
 	/* Update channel stats */
-	wallet_channel_stats_incr_in_fulfilled(wallet,
-					       channel->dbid,
-					       hin->msat);
+	channel_stats_incr_in_fulfilled(channel, hin->msat);
 
 	/* No owner?  We'll either send to channeld in peer_htlcs, or
 	 * onchaind in onchaind_tell_fulfill. */
@@ -1417,9 +1456,7 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 			   0, hout->failonion,
 			   hout->failmsg, &we_filled);
 	/* Update channel stats */
-	wallet_channel_stats_incr_out_fulfilled(ld->wallet,
-						channel->dbid,
-						hout->msat);
+	channel_stats_incr_out_fulfilled(channel, hout->msat);
 
 	if (hout->am_origin)
 		payment_succeeded(ld, &hout->payment_hash, hout->partid, hout->groupid, preimage);
@@ -1892,9 +1929,7 @@ static bool update_out_htlc(struct channel *channel,
 	if (!hout->dbid) {
 		wallet_htlc_save_out(ld->wallet, channel, hout);
 		/* Update channel stats */
-		wallet_channel_stats_incr_out_offered(ld->wallet,
-						      channel->dbid,
-						      hout->msat);
+		channel_stats_incr_out_offered(channel, hout->msat);
 
 		if (hout->in) {
 			struct short_channel_id scid;
@@ -2131,8 +2166,7 @@ static bool channel_added_their_htlc(struct channel *channel,
 	/* Save an incoming htlc to the wallet */
 	wallet_htlc_save_in(ld->wallet, channel, hin);
 	/* Update channel stats */
-	wallet_channel_stats_incr_in_offered(ld->wallet, channel->dbid,
-					     added->amount);
+	channel_stats_incr_in_offered(channel, added->amount);
 
 	log_debug(channel->log, "Adding their HTLC %"PRIu64, added->id);
 	connect_htlc_in(channel->peer->ld->htlcs_in, hin);

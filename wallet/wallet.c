@@ -1536,6 +1536,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	u16 lease_chan_max_ppt;
 	bool ignore_fee_limits;
 	struct peer_update *remote_update;
+	struct channel_stats stats;
 
 	peer_dbid = db_col_u64(stmt, "peer_id");
 	peer = find_peer_by_dbid(w->ld, peer_dbid);
@@ -1718,6 +1719,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 		db_col_ignore(stmt, "remote_htlc_maximum_msat");
 	}
 
+	wallet_channel_stats_load(w, db_col_u64(stmt, "id"), &stats);
+
 	chan = new_channel(peer, db_col_u64(stmt, "id"),
 			   &wshachain,
 			   channel_state_in_db(db_col_int(stmt, "state")),
@@ -1779,7 +1782,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   htlc_maximum_msat,
 			   ignore_fee_limits,
 			   remote_update,
-			   db_col_u64(stmt, "last_stable_connection"));
+			   db_col_u64(stmt, "last_stable_connection"),
+			   &stats);
 
 	if (!wallet_channel_load_inflights(w, chan)) {
 		tal_free(chan);
