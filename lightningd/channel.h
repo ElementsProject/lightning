@@ -314,6 +314,9 @@ struct channel {
 	/* Last time we had a stable connection, if any (0 = none) */
 	u64 last_stable_connection;
 	struct oneshot *stable_conn_timer;
+
+	/* Our stats */
+	struct channel_stats stats;
 };
 
 /* Is channel owned (and should be talking to peer) */
@@ -395,7 +398,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool ignore_fee_limits,
 			    /* NULL or stolen */
 			    struct peer_update *peer_update STEALS,
-			    u64 last_stable_connection);
+			    u64 last_stable_connection,
+			    const struct channel_stats *stats);
 
 /* new_inflight - Create a new channel_inflight for a channel */
 struct channel_inflight *new_inflight(struct channel *channel,
