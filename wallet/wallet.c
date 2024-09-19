@@ -1486,6 +1486,41 @@ static struct short_channel_id *db_col_optional_scid(const tal_t *ctx,
 	return scid;
 }
 
+static struct channel_state_change **wallet_state_change_get(const tal_t *ctx,
+							     struct wallet *w,
+							     u64 channel_id)
+{
+	struct db_stmt *stmt;
+	struct channel_state_change **res = tal_arr(ctx,
+						    struct channel_state_change *, 0);
+	stmt = db_prepare_v2(
+	    w->db, SQL("SELECT"
+		       " timestamp,"
+		       " old_state,"
+		       " new_state,"
+		       " cause,"
+		       " message "
+		       "FROM channel_state_changes "
+		       "WHERE channel_id = ? "
+		       "ORDER BY timestamp ASC;"));
+	db_bind_int(stmt, channel_id);
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		struct channel_state_change *c;
+
+		c = new_channel_state_change(res,
+					     db_col_timeabs(stmt, "timestamp"),
+					     db_col_int(stmt, "old_state"),
+					     db_col_int(stmt, "new_state"),
+					     state_change_in_db(db_col_int(stmt, "cause")),
+					     take(db_col_strdup(NULL, stmt, "message")));
+		tal_arr_expand(&res, c);
+	}
+	tal_free(stmt);
+	return res;
+}
+
 /**
  * wallet_stmt2channel - Helper to populate a wallet_channel from a `db_stmt`
  */
@@ -1522,7 +1557,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	bool ignore_fee_limits;
 	struct peer_update *remote_update;
 	struct channel_stats stats;
-	struct state_change_entry *state_changes;
+	struct channel_state_change **state_changes;
 
 	peer_dbid = db_col_u64(stmt, "peer_id");
 	peer = find_peer_by_dbid(w->ld, peer_dbid);
@@ -2462,39 +2497,6 @@ void wallet_state_change_add(struct wallet *w,
 	db_bind_text(stmt, message);
 
 	db_exec_prepared_v2(take(stmt));
-}
-
-struct state_change_entry *wallet_state_change_get(const tal_t *ctx,
-						   struct wallet *w,
-						   u64 channel_id)
-{
-	struct db_stmt *stmt;
-	struct state_change_entry tmp;
-	struct state_change_entry *res = tal_arr(ctx,
-						 struct state_change_entry, 0);
-	stmt = db_prepare_v2(
-	    w->db, SQL("SELECT"
-		       " timestamp,"
-		       " old_state,"
-		       " new_state,"
-		       " cause,"
-		       " message "
-		       "FROM channel_state_changes "
-		       "WHERE channel_id = ? "
-		       "ORDER BY timestamp ASC;"));
-	db_bind_int(stmt, channel_id);
-	db_query_prepared(stmt);
-
-	while (db_step(stmt)) {
-		tmp.timestamp = db_col_timeabs(stmt, "timestamp");
-		tmp.old_state = db_col_int(stmt, "old_state");
-		tmp.new_state = db_col_int(stmt, "new_state");
-		tmp.cause = state_change_in_db(db_col_int(stmt, "cause"));
-		tmp.message = db_col_strdup(res, stmt, "message");
-		tal_arr_expand(&res, tmp);
-	}
-	tal_free(stmt);
-	return res;
 }
 
 static void wallet_peer_save(struct wallet *w, struct peer *peer)

@@ -73,13 +73,4 @@ enum state_change {
 	/* Note: This is very likely a conscious remote decision. */
 	REASON_ONCHAIN
 };
-
-struct state_change_entry {
-	struct timeabs timestamp;
-	enum channel_state old_state;
-	enum channel_state new_state;
-	enum state_change cause;
-	char *message;
-};
-
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_STATE_H */

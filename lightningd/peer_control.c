@@ -1162,16 +1162,17 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 
 	json_array_start(response, "state_changes");
 	for (size_t i = 0; i < tal_count(channel->state_changes); i++) {
+		const struct channel_state_change *change
+			= channel->state_changes[i];
 		json_object_start(response, NULL);
-		json_add_timeiso(response, "timestamp",
-				 channel->state_changes[i].timestamp);
+		json_add_timeiso(response, "timestamp", change->timestamp);
 		json_add_string(response, "old_state",
-				channel_state_str(channel->state_changes[i].old_state));
+				channel_state_str(change->old_state));
 		json_add_string(response, "new_state",
-				channel_state_str(channel->state_changes[i].new_state));
+				channel_state_str(change->new_state));
 		json_add_string(response, "cause",
-				channel_change_state_reason_str(channel->state_changes[i].cause));
-		json_add_string(response, "message", channel->state_changes[i].message);
+				channel_change_state_reason_str(change->cause));
+		json_add_string(response, "message", change->message);
 		json_object_end(response);
 	}
 	json_array_end(response);
