@@ -168,7 +168,7 @@ static bool handle_blinded_terminal(struct onion_payload *p,
 
 struct onion_payload *onion_decode(const tal_t *ctx,
 				   const struct route_step *rs,
-				   const struct pubkey *blinding,
+				   const struct pubkey *path_key,
 				   const u64 *accepted_extra_tlvs,
 				   struct amount_msat amount_in,
 				   u32 cltv_expiry,
@@ -222,18 +222,18 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		 *     - MUST return an error if `current_path_key` is not present.
 		 *     - MUST use that `current_path_key` as the `path_key` for decryption.
 		 */
-		if (blinding) {
+		if (path_key) {
 			if (p->tlv->current_path_key) {
 				*failtlvtype = TLV_PAYLOAD_CURRENT_PATH_KEY;
 				goto field_bad;
 			}
-			p->blinding = tal_dup(p, struct pubkey, blinding);
+			p->path_key = tal_dup(p, struct pubkey, path_key);
 		} else {
 			if (!p->tlv->current_path_key) {
 				*failtlvtype = TLV_PAYLOAD_CURRENT_PATH_KEY;
 				goto field_bad;
 			}
-			p->blinding = tal_dup(p, struct pubkey,
+			p->path_key = tal_dup(p, struct pubkey,
 					      p->tlv->current_path_key);
 		}
 
@@ -244,7 +244,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		 *      not decrypt using the `path_key` as described in
 		 *      [Route Blinding](#route-blinding).
 		 */
-		ecdh(p->blinding, &p->blinding_ss);
+		ecdh(p->path_key, &p->blinding_ss);
 		enc = decrypt_encrypted_data(tmpctx, &p->blinding_ss,
 					     p->tlv->encrypted_recipient_data);
 		if (!enc) {
@@ -335,7 +335,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	 *        incoming `update_add_htlc` or `current_path_key`
 	 *        is present.
 	 */
-	if (blinding || p->tlv->current_path_key) {
+	if (path_key || p->tlv->current_path_key) {
 		*failtlvtype = TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
 		goto field_bad;
 	}
@@ -401,7 +401,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	else
 		p->payment_metadata = NULL;
 
-	p->blinding = NULL;
+	p->path_key = NULL;
 
 	return p;
 

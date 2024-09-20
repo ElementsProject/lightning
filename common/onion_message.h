@@ -106,7 +106,7 @@ struct blinded_path *incoming_message_blinded_path(const tal_t *ctx,
 
 /* A ready-to-be-encrypted-and-sent onion message. */
 struct onion_message {
-	struct pubkey first_blinding;
+	struct pubkey first_path_key;
 	struct sphinx_hop **hops;
 };
 

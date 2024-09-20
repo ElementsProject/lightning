@@ -1496,7 +1496,7 @@ static void marshall_htlc_info(const tal_t *ctx,
 			memcpy(a.onion_routing_packet,
 			       htlc->routing,
 			       sizeof(a.onion_routing_packet));
-			a.blinding = htlc->blinding;
+			a.path_key = htlc->path_key;
 			a.fail_immediate = htlc->fail_immediate;
 			tal_arr_expand(added, a);
 		} else if (htlc->state == RCVD_REMOVE_COMMIT) {
@@ -4410,10 +4410,10 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 
 		if (h->state == SENT_ADD_COMMIT) {
 			struct tlv_update_add_htlc_tlvs *tlvs;
-			if (h->blinding) {
+			if (h->path_key) {
 				tlvs = tlv_update_add_htlc_tlvs_new(tmpctx);
 				tlvs->blinded_path = tal_dup(tlvs, struct pubkey,
-							     h->blinding);
+							     h->path_key);
 			} else
 				tlvs = NULL;
 			msg = towire_update_add_htlc(NULL, &peer->channel_id,
@@ -5346,7 +5346,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	const u8 *failwiremsg;
 	const char *failstr;
 	struct amount_sat htlc_fee;
-	struct pubkey *blinding;
+	struct pubkey *path_key;
 	struct tlv_update_add_htlc_tlvs *tlvs;
 
 	if (!peer->channel_ready[LOCAL] || !peer->channel_ready[REMOTE])
@@ -5355,18 +5355,18 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 
 	if (!fromwire_channeld_offer_htlc(tmpctx, inmsg, &amount,
 					 &cltv_expiry, &payment_hash,
-					 onion_routing_packet, &blinding))
+					 onion_routing_packet, &path_key))
 		master_badmsg(WIRE_CHANNELD_OFFER_HTLC, inmsg);
 
-	if (blinding) {
+	if (path_key) {
 		tlvs = tlv_update_add_htlc_tlvs_new(tmpctx);
-		tlvs->blinded_path = tal_dup(tlvs, struct pubkey, blinding);
+		tlvs->blinded_path = tal_dup(tlvs, struct pubkey, path_key);
 	} else
 		tlvs = NULL;
 
 	e = channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
 			     amount, cltv_expiry, &payment_hash,
-			     onion_routing_packet, take(blinding), NULL,
+			     onion_routing_packet, take(path_key), NULL,
 			     &htlc_fee, true);
 	status_debug("Adding HTLC %"PRIu64" amount=%s cltv=%u gave %s",
 		     peer->htlc_id,

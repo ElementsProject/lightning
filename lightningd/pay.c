@@ -723,7 +723,7 @@ static const u8 *send_onion(const tal_t *ctx, struct lightningd *ld,
 			    const struct route_hop *first_hop,
 			    const struct amount_msat final_amount,
 			    const struct sha256 *payment_hash,
-			    const struct pubkey *blinding,
+			    const struct pubkey *path_key,
 			    u64 partid,
 			    u64 groupid,
 			    struct channel *channel,
@@ -738,7 +738,7 @@ static const u8 *send_onion(const tal_t *ctx, struct lightningd *ld,
 	return send_htlc_out(ctx, channel, first_hop->amount,
 			     base_expiry + first_hop->delay,
 			     final_amount, payment_hash,
-			     blinding, partid, groupid, onion, NULL, hout);
+			     path_key, partid, groupid, onion, NULL, hout);
 }
 
 static struct command_result *check_invoice_request_usage(struct command *cmd,

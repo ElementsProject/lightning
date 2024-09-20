@@ -221,7 +221,7 @@ wrap:
 
 	/* Now populate the onion message to return */
 	omsg = tal(ctx, struct onion_message);
-	omsg->first_blinding = combined_path->first_path_key;
+	omsg->first_path_key = combined_path->first_path_key;
 	omsg->hops = onionmsg_tlvs_to_hops(omsg, combined_path,
 					   cast_const2(const struct tlv_onionmsg_tlv **, otlvs));
 	return omsg;

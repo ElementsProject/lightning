@@ -21,24 +21,24 @@ void onionmsg_req(struct daemon *daemon, const u8 *msg)
 {
 	struct node_id id;
 	u8 *onionmsg;
-	struct pubkey blinding;
+	struct pubkey path_key;
 	struct peer *peer;
 
-	if (!fromwire_connectd_send_onionmsg(msg, msg, &id, &onionmsg, &blinding))
+	if (!fromwire_connectd_send_onionmsg(msg, msg, &id, &onionmsg, &path_key))
 		master_badmsg(WIRE_CONNECTD_SEND_ONIONMSG, msg);
 
 	/* Even though lightningd checks for valid ids, there's a race
 	 * where it might vanish before we read this command. */
 	peer = peer_htable_get(daemon->peers, &id);
 	if (peer) {
-		u8 *omsg = towire_onion_message(NULL, &blinding, onionmsg);
+		u8 *omsg = towire_onion_message(NULL, &path_key, onionmsg);
 		inject_peer_msg(peer, take(omsg));
 	}
 }
 
 static const char *handle_onion(const tal_t *ctx,
 				struct daemon *daemon,
-				const struct pubkey *blinding,
+				const struct pubkey *path_key,
 				const u8 *onion)
 {
 	u8 *next_onion_msg;
@@ -48,7 +48,7 @@ static const char *handle_onion(const tal_t *ctx,
 	struct secret *final_path_id;
 	const char *err;
 
-	err = onion_message_parse(tmpctx, onion, blinding,
+	err = onion_message_parse(tmpctx, onion, path_key,
 				  &daemon->mykey,
 				  &next_onion_msg, &next_node,
 				  &final_om, &final_alias, &final_path_id);
@@ -113,7 +113,7 @@ static const char *handle_onion(const tal_t *ctx,
 void handle_onion_message(struct daemon *daemon,
 			  struct peer *peer, const u8 *msg)
 {
-	struct pubkey blinding;
+	struct pubkey path_key;
 	u8 *onion;
 	u64 msec;
 	struct timemono now = time_mono();
@@ -144,26 +144,26 @@ void handle_onion_message(struct daemon *daemon,
 	}
 	peer->onionmsg_incoming_tokens -= ONION_MSG_MSEC;
 
-	if (!fromwire_onion_message(msg, msg, &blinding, &onion)) {
+	if (!fromwire_onion_message(msg, msg, &path_key, &onion)) {
 		inject_peer_msg(peer,
 				take(towire_warningfmt(NULL, NULL,
 						       "Bad onion_message")));
 		return;
 	}
 
-	handle_onion(tmpctx, daemon, &blinding, onion);
+	handle_onion(tmpctx, daemon, &path_key, onion);
 }
 
 void inject_onionmsg_req(struct daemon *daemon, const u8 *msg)
 {
 	u8 *onionmsg;
-	struct pubkey blinding;
+	struct pubkey path_key;
 	const char *err;
 
-	if (!fromwire_connectd_inject_onionmsg(msg, msg, &blinding, &onionmsg))
+	if (!fromwire_connectd_inject_onionmsg(msg, msg, &path_key, &onionmsg))
 		master_badmsg(WIRE_CONNECTD_INJECT_ONIONMSG, msg);
 
-	err = handle_onion(tmpctx, daemon, &blinding, onionmsg);
+	err = handle_onion(tmpctx, daemon, &path_key, onionmsg);
 	daemon_conn_send(daemon->master,
 			 take(towire_connectd_inject_onionmsg_reply(NULL, err ? err : "")));
 }
