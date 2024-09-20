@@ -95,13 +95,13 @@ static void test_ecdh(const struct pubkey *point, struct secret *ss)
 		abort();
 }
 
-static void test_decrypt(const struct pubkey *blinding,
+static void test_decrypt(const struct pubkey *path_key,
 			 const u8 *enctlv,
 			 const struct privkey *me,
 			 const struct pubkey *expected_next_node,
-			 const struct privkey *expected_next_blinding_priv)
+			 const struct privkey *expected_next_path_key_priv)
 {
-	struct pubkey expected_next_blinding, dummy, next_blinding;
+	struct pubkey expected_next_path_key, dummy, next_path_key;
 	struct secret ss;
 	struct tlv_encrypted_data_tlv *enc;
 
@@ -109,17 +109,17 @@ static void test_decrypt(const struct pubkey *blinding,
 	pubkey_from_privkey(me, &dummy);
 
 	mykey = me;
-	assert(unblind_onion(blinding, test_ecdh, &dummy, &ss));
-	enc = decrypt_encrypted_data(tmpctx, blinding, &ss, enctlv);
+	assert(unblind_onion(path_key, test_ecdh, &dummy, &ss));
+	enc = decrypt_encrypted_data(tmpctx, &ss, enctlv);
 	assert(enc);
 
-	pubkey_from_privkey(expected_next_blinding_priv, &expected_next_blinding);
-	blindedpath_next_blinding(enc, blinding, &ss, &next_blinding);
-	assert(pubkey_eq(&next_blinding, &expected_next_blinding));
+	pubkey_from_privkey(expected_next_path_key_priv, &expected_next_path_key);
+	blindedpath_next_path_key(enc, path_key, &ss, &next_path_key);
+	assert(pubkey_eq(&next_path_key, &expected_next_path_key));
 	assert(pubkey_eq(enc->next_node_id, expected_next_node));
 }
 
-static void test_final_decrypt(const struct pubkey *blinding,
+static void test_final_decrypt(const struct pubkey *path_key,
 			       const u8 *enctlv,
 			       const struct privkey *me,
 			       const struct pubkey *expected_alias,
@@ -134,8 +134,8 @@ static void test_final_decrypt(const struct pubkey *blinding,
 
 	mykey = me;
 	pubkey_from_privkey(me, &my_pubkey);
-	assert(unblind_onion(blinding, test_ecdh, &dummy, &ss));
-	enc = decrypt_encrypted_data(tmpctx, blinding, &ss, enctlv);
+	assert(unblind_onion(path_key, test_ecdh, &dummy, &ss));
+	enc = decrypt_encrypted_data(tmpctx, &ss, enctlv);
 	assert(enc);
 	assert(blindedpath_get_alias(&ss, &my_pubkey, &alias));
 
@@ -146,8 +146,8 @@ static void test_final_decrypt(const struct pubkey *blinding,
 
 int main(int argc, char *argv[])
 {
-	struct privkey alice, bob, carol, dave, blinding, override_blinding;
-	struct pubkey alice_id, bob_id, carol_id, dave_id, blinding_pub, override_blinding_pub, alias;
+	struct privkey alice, bob, carol, dave, path_key, override_path_key;
+	struct pubkey alice_id, bob_id, carol_id, dave_id, path_key_pub, override_path_key_pub, alias;
 	struct secret self_id;
 	u8 *enctlv;
 	struct tlv_encrypted_data_tlv *tlv;
@@ -163,8 +163,8 @@ int main(int argc, char *argv[])
 	pubkey_from_privkey(&carol, &carol_id);
 	pubkey_from_privkey(&dave, &dave_id);
 
-	memset(&blinding, 5, sizeof(blinding));
-	pubkey_from_privkey(&blinding, &blinding_pub);
+	memset(&path_key, 5, sizeof(path_key));
+	pubkey_from_privkey(&path_key, &path_key_pub);
 
 	/* We output the JSON test vectors. */
 	printf("[{");
@@ -173,10 +173,10 @@ int main(int argc, char *argv[])
 		      fmt_privkey(tmpctx, &alice));
 	json_strfield("node_id",
 		      fmt_pubkey(tmpctx, &alice_id));
-	json_strfield("blinding_secret",
-		      fmt_privkey(tmpctx, &blinding));
-	json_strfield("blinding",
-		      fmt_pubkey(tmpctx, &blinding_pub));
+	json_strfield("path_key_secret",
+		      fmt_privkey(tmpctx, &path_key));
+	json_strfield("path_key",
+		      fmt_pubkey(tmpctx, &path_key_pub));
 	printf("\t\"encrypted_data_tlv\": {\n"
 	       "\t\t\"next_node_id\": \"%s\"\n"
 	       "\t},\n",
@@ -184,50 +184,50 @@ int main(int argc, char *argv[])
 
 	tlv = tlv_encrypted_data_tlv_new(tmpctx);
 	tlv->next_node_id = &bob_id;
-	enctlv = encrypt_tlv_encrypted_data(tmpctx, &blinding, &alice_id, tlv,
-					    &blinding, &alias);
+	enctlv = encrypt_tlv_encrypted_data(tmpctx, &path_key, &alice_id, tlv,
+					    &path_key, &alias);
 	printf("\t\"encrypted_recipient_data_hex\": \"%s\"\n"
 	       "},\n",
 	       tal_hex(tmpctx, enctlv));
 
-	test_decrypt(&blinding_pub, enctlv, &alice, &bob_id, &blinding);
+	test_decrypt(&path_key_pub, enctlv, &alice, &bob_id, &path_key);
 
-	pubkey_from_privkey(&blinding, &blinding_pub);
-	memset(&override_blinding, 7, sizeof(override_blinding));
-	pubkey_from_privkey(&override_blinding, &override_blinding_pub);
+	pubkey_from_privkey(&path_key, &path_key_pub);
+	memset(&override_path_key, 7, sizeof(override_path_key));
+	pubkey_from_privkey(&override_path_key, &override_path_key_pub);
 
 	printf("{");
 	json_strfield("test name",
-		      "Blinding-key-override encrypted_recipient_data for Bob, next is Carol");
+		      "path_key_override encrypted_recipient_data for Bob, next is Carol");
 	json_strfield("node_privkey",
 		      fmt_privkey(tmpctx, &bob));
 	json_strfield("node_id",
 		      fmt_pubkey(tmpctx, &bob_id));
-	json_strfield("blinding_secret",
-		      fmt_privkey(tmpctx, &blinding));
-	json_strfield("blinding",
-		      fmt_pubkey(tmpctx, &blinding_pub));
+	json_strfield("path_key_secret",
+		      fmt_privkey(tmpctx, &path_key));
+	json_strfield("path_key",
+		      fmt_pubkey(tmpctx, &path_key_pub));
 	printf("\t\"encrypted_data_tlv\": {\n"
 	       "\t\t\"next_node_id\": \"%s\",\n"
-	       "\t\t\"blinding\": \"%s\"\n"
+	       "\t\t\"path_key\": \"%s\"\n"
 	       "\t},\n",
 	       fmt_pubkey(tmpctx, &carol_id),
-	       fmt_privkey(tmpctx, &override_blinding));
+	       fmt_privkey(tmpctx, &override_path_key));
 
 	tlv = tlv_encrypted_data_tlv_new(tmpctx);
 	tlv->next_node_id = &carol_id;
-	tlv->next_blinding_override = &override_blinding_pub;
-	enctlv = encrypt_tlv_encrypted_data(tmpctx, &blinding, &bob_id, tlv,
-					    &blinding, &alias);
+	tlv->next_path_key_override = &override_path_key_pub;
+	enctlv = encrypt_tlv_encrypted_data(tmpctx, &path_key, &bob_id, tlv,
+					    &path_key, &alias);
 	printf("\t\"encrypted_recipient_data_hex\": \"%s\"\n"
 	       "},\n",
 	       tal_hex(tmpctx, enctlv));
 
-	test_decrypt(&blinding_pub, enctlv, &bob, &carol_id, &override_blinding);
+	test_decrypt(&path_key_pub, enctlv, &bob, &carol_id, &override_path_key);
 
-	/* That replaced the blinding */
-	blinding = override_blinding;
-	blinding_pub = override_blinding_pub;
+	/* That replaced the path_key */
+	path_key = override_path_key;
+	path_key_pub = override_path_key_pub;
 
 	printf("{");
 	json_strfield("test name", "Padded encrypted_recipient_data for Carol, next is Dave");
@@ -235,10 +235,10 @@ int main(int argc, char *argv[])
 		      fmt_privkey(tmpctx, &carol));
 	json_strfield("node_id",
 		      fmt_pubkey(tmpctx, &carol_id));
-	json_strfield("blinding_secret",
-		      fmt_privkey(tmpctx, &blinding));
-	json_strfield("blinding",
-		      fmt_pubkey(tmpctx, &blinding_pub));
+	json_strfield("path_key_secret",
+		      fmt_privkey(tmpctx, &path_key));
+	json_strfield("path_key",
+		      fmt_pubkey(tmpctx, &path_key_pub));
 	printf("\t\"encrypted_data_tlv\": {\n"
 	       "\t\t\"next_node_id\": \"%s\",\n"
 	       "\t\t\"padding\": \"%s\"\n"
@@ -249,13 +249,13 @@ int main(int argc, char *argv[])
 	tlv = tlv_encrypted_data_tlv_new(tmpctx);
 	tlv->padding = tal_arrz(tlv, u8, 35);
 	tlv->next_node_id = &dave_id;
-	enctlv = encrypt_tlv_encrypted_data(tmpctx, &blinding, &carol_id, tlv,
-					    &blinding, &alias);
+	enctlv = encrypt_tlv_encrypted_data(tmpctx, &path_key, &carol_id, tlv,
+					    &path_key, &alias);
 	printf("\t\"encrypted_recipient_data_hex\": \"%s\"\n"
 	       "},\n",
 	       tal_hex(tmpctx, enctlv));
 
-	test_decrypt(&blinding_pub, enctlv, &carol, &dave_id, &blinding);
+	test_decrypt(&path_key_pub, enctlv, &carol, &dave_id, &path_key);
 
 	for (size_t i = 0; i < sizeof(self_id); i++)
 		self_id.data[i] = i+1;
@@ -265,10 +265,10 @@ int main(int argc, char *argv[])
 		      fmt_privkey(tmpctx, &dave));
 	json_strfield("node_id",
 		      fmt_pubkey(tmpctx, &dave_id));
-	json_strfield("blinding_secret",
-		      fmt_privkey(tmpctx, &blinding));
-	json_strfield("blinding",
-		      fmt_pubkey(tmpctx, &blinding_pub));
+	json_strfield("path_key_secret",
+		      fmt_privkey(tmpctx, &path_key));
+	json_strfield("path_key",
+		      fmt_pubkey(tmpctx, &path_key_pub));
 	printf("\t\"encrypted_data_tlv\": {\n"
 	       "\t\t\"self_id\": \"%s\"\n"
 	       "\t},\n",
@@ -277,15 +277,15 @@ int main(int argc, char *argv[])
 	tlv = tlv_encrypted_data_tlv_new(tmpctx);
 	tlv->path_id = tal_dup_arr(tlv, u8,
 				   self_id.data, ARRAY_SIZE(self_id.data), 0);
-	enctlv = encrypt_tlv_encrypted_data(tmpctx, &blinding, &dave_id, tlv,
+	enctlv = encrypt_tlv_encrypted_data(tmpctx, &path_key, &dave_id, tlv,
 					    NULL, &alias);
 
 	printf("\t\"encrypted_recipient_data_hex\": \"%s\"\n",
 	       tal_hex(tmpctx, enctlv));
 
 	printf("}]\n");
-	pubkey_from_privkey(&blinding, &blinding_pub);
+	pubkey_from_privkey(&path_key, &path_key_pub);
 
-	test_final_decrypt(&blinding_pub, enctlv, &dave, &alias, &self_id);
+	test_final_decrypt(&path_key_pub, enctlv, &dave, &alias, &self_id);
 	common_shutdown();
 }

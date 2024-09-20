@@ -244,10 +244,10 @@ char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 { fprintf(stderr, "encode_scriptpubkey_to_addr called!\n"); abort(); }
 /* Generated stub for encrypt_tlv_encrypted_data */
 u8 *encrypt_tlv_encrypted_data(const tal_t *ctx UNNEEDED,
-			       const struct privkey *blinding UNNEEDED,
+			       const struct privkey *path_privkey UNNEEDED,
 			       const struct pubkey *node UNNEEDED,
 			       const struct tlv_encrypted_data_tlv *tlv UNNEEDED,
-			       struct privkey *next_blinding UNNEEDED,
+			       struct privkey *next_path_privkey UNNEEDED,
 			       struct pubkey *node_alias)
 
 { fprintf(stderr, "encrypt_tlv_encrypted_data called!\n"); abort(); }

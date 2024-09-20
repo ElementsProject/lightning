@@ -14,13 +14,13 @@
 #endif
 
 /* Blinds node_id and calculates next blinding factor. */
-static bool blind_node(const struct privkey *blinding,
+static bool blind_node(const struct privkey *path_privkey,
 		       const struct secret *ss,
 		       const struct pubkey *node,
 		       struct pubkey *node_alias,
-		       struct privkey *next_blinding)
+		       struct privkey *next_path_privkey)
 {
-	struct pubkey blinding_pubkey;
+	struct pubkey path_pubkey;
 	struct sha256 h;
 
 	if (!blindedpath_get_alias(ss, node, node_alias))
@@ -30,32 +30,32 @@ static bool blind_node(const struct privkey *blinding,
 
 	/* BOLT #4:
 	 *  - $`E_{i+1} = SHA256(E_i || ss_i) * E_i`$
-	 *     (NB: $`N_i`$ MUST NOT learn $`e_i`$)
+	 *     (`path_key`. NB: $`N_i`$ MUST NOT learn $`e_i`$)
 	 */
-	if (!pubkey_from_privkey(blinding, &blinding_pubkey))
+	if (!pubkey_from_privkey(path_privkey, &path_pubkey))
 		return false;
 	SUPERVERBOSE("\t\"E\": \"%s\",\n",
-		     fmt_pubkey(tmpctx, &blinding_pubkey));
+		     fmt_pubkey(tmpctx, &path_pubkey));
 
 	/* BOLT #4:
 	 *  - $`e_{i+1} = SHA256(E_i || ss_i) * e_i`$
-	 *     (blinding ephemeral private key, only known by $`N_r`$)
+	 *     (ephemeral private path key, only known by $`N_r`$)
 	 */
-	blinding_hash_e_and_ss(&blinding_pubkey, ss, &h);
+	blinding_hash_e_and_ss(&path_pubkey, ss, &h);
 	SUPERVERBOSE("\t\"H(E || ss)\": \"%s\",\n",
 		     fmt_sha256(tmpctx, &h));
-	blinding_next_privkey(blinding, &h, next_blinding);
+	blinding_next_path_privkey(path_privkey, &h, next_path_privkey);
 	SUPERVERBOSE("\t\"next_e\": \"%s\",\n",
-		     fmt_privkey(tmpctx, next_blinding));
+		     fmt_privkey(tmpctx, next_path_privkey));
 
 	return true;
 }
 
 static u8 *enctlv_from_encmsg_raw(const tal_t *ctx,
-				  const struct privkey *blinding,
+				  const struct privkey *path_privkey,
 				  const struct pubkey *node,
 				  const u8 *raw_encmsg TAKES,
-				  struct privkey *next_blinding,
+				  struct privkey *next_path_privkey,
 				  struct pubkey *node_alias)
 {
 	struct secret ss, rho;
@@ -65,25 +65,25 @@ static u8 *enctlv_from_encmsg_raw(const tal_t *ctx,
 	static const unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
 
 	/* BOLT #4:
-	 *     - $`ss_i = SHA256(e_i * N_i) = SHA256(k_i * E_i)$`
+	 *     - $`ss_i = SHA256(e_i * N_i) = SHA256(k_i * E_i)`$
 	 *        (ECDH shared secret known only by $`N_r`$ and $`N_i`$)
 	 */
 	if (secp256k1_ecdh(secp256k1_ctx, ss.data,
-			   &node->pubkey, blinding->secret.data,
+			   &node->pubkey, path_privkey->secret.data,
 			   NULL, NULL) != 1)
 		return NULL;
 	SUPERVERBOSE("\t\"ss\": \"%s\",\n",
 		     fmt_secret(tmpctx, &ss));
 
-	/* This calculates the node's alias, and next blinding */
-	if (!blind_node(blinding, &ss, node, node_alias, next_blinding))
+	/* This calculates the node's alias, and next path_key */
+	if (!blind_node(path_privkey, &ss, node, node_alias, next_path_privkey))
 		return NULL;
 
 	ret = tal_dup_talarr(ctx, u8, raw_encmsg);
 
 	/* BOLT #4:
 	 * - $`rho_i = HMAC256(\text{"rho"}, ss_i)`$
-	 *    (key used to encrypt the payload for $`N_i`$ by $`N_r`$)
+	 *    (key used to encrypt `encrypted_recipient_data` for $`N_i`$ by $`N_r`$)
 	 */
 	subkey_from_hmac("rho", &ss, &rho);
 	SUPERVERBOSE("\t\"rho\": \"%s\",\n",
@@ -91,7 +91,7 @@ static u8 *enctlv_from_encmsg_raw(const tal_t *ctx,
 
 	/* BOLT #4:
 	 * - MUST encrypt each `encrypted_data_tlv[i]` with ChaCha20-Poly1305 using
-	 *   the corresponding `rho_i` key and an all-zero nonce to produce
+	 *   the corresponding $`rho_i`$ key and an all-zero nonce to produce
 	 *   `encrypted_recipient_data[i]`
 	 */
 	/* Encrypt in place */
@@ -109,24 +109,24 @@ static u8 *enctlv_from_encmsg_raw(const tal_t *ctx,
 }
 
 u8 *encrypt_tlv_encrypted_data(const tal_t *ctx,
-			       const struct privkey *blinding,
+			       const struct privkey *path_privkey,
 			       const struct pubkey *node,
-			       const struct tlv_encrypted_data_tlv *encmsg,
-			       struct privkey *next_blinding,
+			       const struct tlv_encrypted_data_tlv *tlv,
+			       struct privkey *next_path_privkey,
 			       struct pubkey *node_alias)
 {
 	struct privkey unused;
-	u8 *encmsg_raw = tal_arr(NULL, u8, 0);
-	towire_tlv_encrypted_data_tlv(&encmsg_raw, encmsg);
+	u8 *tlv_wire = tal_arr(NULL, u8, 0);
+	towire_tlv_encrypted_data_tlv(&tlv_wire, tlv);
 
-	/* last hop doesn't care about next_blinding */
-	if (!next_blinding)
-		next_blinding = &unused;
-	return enctlv_from_encmsg_raw(ctx, blinding, node, take(encmsg_raw),
-				      next_blinding, node_alias);
+	/* last hop doesn't care about next path_key */
+	if (!next_path_privkey)
+		next_path_privkey = &unused;
+	return enctlv_from_encmsg_raw(ctx, path_privkey, node, take(tlv_wire),
+				      next_path_privkey, node_alias);
 }
 
-bool unblind_onion(const struct pubkey *blinding,
+bool unblind_onion(const struct pubkey *path_key,
 		   void (*ecdh)(const struct pubkey *point, struct secret *ss),
 		   struct pubkey *onion_key,
 		   struct secret *ss)
@@ -140,7 +140,7 @@ bool unblind_onion(const struct pubkey *blinding,
 	 *   - $`ss_i = SHA256(k_i * E_i)`$ (standard ECDH)
 	 *   - $`b_i = HMAC256(\text{"blinded\_node\_id"}, ss_i) * k_i`$
 	 */
-	ecdh(blinding, ss);
+	ecdh(path_key, ss);
 	subkey_from_hmac("blinded_node_id", ss, &hmac);
 
 	/* We instead tweak the *ephemeral* key from the onion and use
@@ -149,7 +149,7 @@ bool unblind_onion(const struct pubkey *blinding,
 	/* BOLT #4:
 	 * - MUST use $`b_i`$ instead of its private key $`k_i`$ to decrypt the onion. Note
 	 *   that the node may instead tweak the onion ephemeral key with
-	 *   $`HMAC256(\text{"blinded\_node\_id}", ss_i)`$ which achieves the same result.
+	 *   $`HMAC256(\text{"blinded\_node\_id"}, ss_i)`$ which achieves the same result.
 	 */
 	return secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx,
 					     &onion_key->pubkey,
@@ -157,7 +157,6 @@ bool unblind_onion(const struct pubkey *blinding,
 }
 
 u8 *decrypt_encmsg_raw(const tal_t *ctx,
-		       const struct pubkey *blinding,
 		       const struct secret *ss,
 		       const u8 *enctlv)
 {
@@ -197,17 +196,16 @@ u8 *decrypt_encmsg_raw(const tal_t *ctx,
 }
 
 struct tlv_encrypted_data_tlv *decrypt_encrypted_data(const tal_t *ctx,
-						      const struct pubkey *blinding,
 						      const struct secret *ss,
 						      const u8 *enctlv)
 {
-	const u8 *cursor = decrypt_encmsg_raw(tmpctx, blinding, ss, enctlv);
+	const u8 *cursor = decrypt_encmsg_raw(tmpctx, ss, enctlv);
 	size_t maxlen = tal_bytelen(cursor);
 
 	/* BOLT #4:
 	 *
 	 * - MUST return an error if `encrypted_recipient_data` does not decrypt
-	 *   using the blinding point as described in
+	 *   using the `path_key` as described in
 	 *   [Route Blinding](#route-blinding).
 	 */
 	/* Note: our parser consider nothing is a valid TLV, but decrypt_encmsg_raw
@@ -237,27 +235,27 @@ bool blindedpath_get_alias(const struct secret *ss,
 					     node_id_blinding.data) == 1;
 }
 
-void blindedpath_next_blinding(const struct tlv_encrypted_data_tlv *enc,
-			       const struct pubkey *blinding,
+void blindedpath_next_path_key(const struct tlv_encrypted_data_tlv *enc,
+			       const struct pubkey *path_key,
 			       const struct secret *ss,
-			       struct pubkey *next_blinding)
+			       struct pubkey *next_path_key)
 {
 	/* BOLT #4:
 	 *   - $`E_{i+1} = SHA256(E_i || ss_i) * E_i`$
 	 * ...
-	 * - If `encrypted_data` contains a `next_blinding_override`:
-	 *   - MUST use it as the next blinding point instead of $`E_{i+1}`$
+	 * - If `encrypted_data` contains a `next_path_key_override`:
+	 *   - MUST use it as the next `path_key` instead of $`E_{i+1}`$
 	 *   - Otherwise:
-	 *     - MUST use $`E_{i+1}`$ as the next blinding point
+	 *     - MUST use $`E_{i+1}`$ as the next `path_key`
 	 */
-	if (enc->next_blinding_override)
-		*next_blinding = *enc->next_blinding_override;
+	if (enc->next_path_key_override)
+		*next_path_key = *enc->next_path_key_override;
 	else {
 		/* BOLT #4:
 		 * $`E_{i+1} = SHA256(E_i || ss_i) * E_i`$
 		 */
 		struct sha256 h;
-		blinding_hash_e_and_ss(blinding, ss, &h);
-		blinding_next_pubkey(blinding, &h, next_blinding);
+		blinding_hash_e_and_ss(path_key, ss, &h);
+		blinding_next_path_key(path_key, &h, next_path_key);
 	}
 }

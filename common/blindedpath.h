@@ -17,33 +17,33 @@ struct tlv_encrypted_data_tlv_payment_relay;
 /**
  * encrypt_tlv_encrypted_data - Encrypt a tlv_encrypted_data_tlv.
  * @ctx: tal context
- * @blinding: e(i), the blinding secret
+ * @path_privkey: e(i), the path key
  * @node: the pubkey of the node to encrypt for
  * @tlv: the message to encrypt.
- * @next_blinding: (out) e(i+1), the next blinding secret (optional)
+ * @next_path_privkey: (out) e(i+1), the next blinding secret (optional)
  * @node_alias: (out) the blinded pubkey of the node to tell the recipient.
  *
  * You create a blinding secret using randombytes_buf(), then call this
  * iteratively for each node in the path.
  */
 u8 *encrypt_tlv_encrypted_data(const tal_t *ctx,
-			       const struct privkey *blinding,
+			       const struct privkey *path_privkey,
 			       const struct pubkey *node,
 			       const struct tlv_encrypted_data_tlv *tlv,
-			       struct privkey *next_blinding,
+			       struct privkey *next_path_privkey,
 			       struct pubkey *node_alias)
 	NON_NULL_ARGS(2, 3, 4, 6);
 
 /**
  * unblind_onion - tweak onion epheremeral key so we can decode it with ours.
- * @blinding: E(i), the blinding pubkey the previous peer gave us.
+ * @path_key: E(i), the blinding pubkey the previous peer gave us.
  * @ecdh: the ecdh routine (usually ecdh from common/ecdh_hsmd).
  * @onion_key: (in, out) the onionpacket->ephemeralkey to tweak.
  * @ss: (out) the shared secret we gained from blinding pubkey.
  *
  * The shared secret is needed to decrypt the enctlv we expect to find, too.
  */
-bool unblind_onion(const struct pubkey *blinding,
+bool unblind_onion(const struct pubkey *path_key,
 		   void (*ecdh)(const struct pubkey *point, struct secret *ss),
 		   struct pubkey *onion_key,
 		   struct secret *ss)
@@ -64,30 +64,27 @@ bool blindedpath_get_alias(const struct secret *ss,
 /**
  * decrypt_encrypted_data - Decrypt an encmsg to form an tlv_encrypted_data_tlv.
  * @ctx: the context to allocate off.
- * @blinding: E(i), the blinding pubkey the previous peer gave us.
  * @ss: the blinding secret from unblind_onion().
  * @enctlv: the enctlv from the onion (tal, may be NULL).
  *
  * Returns NULL if decryption failed or encmsg was malformed.
  */
 struct tlv_encrypted_data_tlv *decrypt_encrypted_data(const tal_t *ctx,
-						      const struct pubkey *blinding,
 						      const struct secret *ss,
 						      const u8 *enctlv)
 	NON_NULL_ARGS(2, 3);
 
 /* Low-level accessor */
 u8 *decrypt_encmsg_raw(const tal_t *ctx,
-		       const struct pubkey *blinding,
 		       const struct secret *ss,
 		       const u8 *enctlv);
 
 /**
- * blindedpath_next_blinding - Calculate or extract next blinding pubkey
+ * blindedpath_next_path_key - Calculate or extract next blinding pubkey
  */
-void blindedpath_next_blinding(const struct tlv_encrypted_data_tlv *enc,
-			       const struct pubkey *blinding,
+void blindedpath_next_path_key(const struct tlv_encrypted_data_tlv *enc,
+			       const struct pubkey *path_key,
 			       const struct secret *ss,
-			       struct pubkey *next_blinding);
+			       struct pubkey *next_path_key);
 
 #endif /* LIGHTNING_COMMON_BLINDEDPATH_H */

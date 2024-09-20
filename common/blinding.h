@@ -13,13 +13,13 @@ void blinding_hash_e_and_ss(const struct pubkey *e,
 			    struct sha256 *sha);
 
 /* E(i+1) = H(E(i) || ss(i)) * E(i) */
-bool blinding_next_pubkey(const struct pubkey *pk,
-			  const struct sha256 *h,
-			  struct pubkey *next);
+bool blinding_next_path_key(const struct pubkey *pk,
+			    const struct sha256 *h,
+			    struct pubkey *next);
 
 /* e(i+1) = H(E(i) || ss(i)) * e(i) */
-bool blinding_next_privkey(const struct privkey *e,
-			   const struct sha256 *h,
-			   struct privkey *next);
+bool blinding_next_path_privkey(const struct privkey *e,
+				const struct sha256 *h,
+				struct privkey *next);
 
 #endif /* LIGHTNING_COMMON_BLINDING_H */

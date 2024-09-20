@@ -69,7 +69,7 @@ struct blinded_path *blinded_path_from_encdata_tlvs(const tal_t *ctx,
 	assert(tal_count(ids) > 0);
 
 	randombytes_buf(&first_blinding, sizeof(first_blinding));
-	if (!pubkey_from_privkey(&first_blinding, &path->blinding))
+	if (!pubkey_from_privkey(&first_blinding, &path->first_path_key))
 		abort();
 	sciddir_or_pubkey_from_pubkey(&path->first_node_id, &ids[0]);
 
@@ -191,9 +191,9 @@ struct onion_message *outgoing_onion_message(const tal_t *ctx,
 
 		/* We need to tell last hop to hand blinded_path blinding for next hop */
 		pre_final = etlvs[tal_count(ids)-2];
-		pre_final->next_blinding_override = tal_dup(pre_final,
+		pre_final->next_path_key_override = tal_dup(pre_final,
 							    struct pubkey,
-							    &their_path->blinding);
+							    &their_path->first_path_key);
 	}
 
 	our_path = blinded_path_from_encdata_tlvs(tmpctx,
@@ -221,7 +221,7 @@ wrap:
 
 	/* Now populate the onion message to return */
 	omsg = tal(ctx, struct onion_message);
-	omsg->first_blinding = combined_path->blinding;
+	omsg->first_blinding = combined_path->first_path_key;
 	omsg->hops = onionmsg_tlvs_to_hops(omsg, combined_path,
 					   cast_const2(const struct tlv_onionmsg_tlv **, otlvs));
 	return omsg;

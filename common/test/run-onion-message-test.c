@@ -119,15 +119,15 @@ void ecdh(const struct pubkey *point, struct secret *ss)
 #define LARGEST_DAVE_TLV_SIZE 42
 
 /* Generic, ugly, function to calc encrypted_recipient_data,
-   alias and next blinding, and print out JSON */
+   alias and next path_key, and print out JSON */
 static u8 *add_hop(const char *name,
 		   const char *comment,
 		   const struct pubkey *me,
 		   const struct pubkey *next,
-		   const struct privkey *override_blinding,
+		   const struct privkey *override_path_key,
 		   const char *additional_field_hexstr,
 		   const char *path_id_hexstr,
-		   struct privkey *blinding, /* in and out */
+		   struct privkey *path_key, /* in and out */
 		   struct pubkey *alias /* out */)
 {
 	struct tlv_encrypted_data_tlv *tlv = tlv_encrypted_data_tlv_new(tmpctx);
@@ -137,7 +137,7 @@ static u8 *add_hop(const char *name,
 	json_start(NULL, '{');
 	json_strfield("alias", name);
 	json_strfield("comment", comment);
-	json_hexfield("blinding_secret", blinding->secret.data, sizeof(*blinding));
+	json_hexfield("path_key_secret", path_key->secret.data, sizeof(*path_key));
 
 	/* We have to calc first, to make padding correct */
 	tlv->next_node_id = tal_dup_or_null(tlv, struct pubkey, next);
@@ -145,12 +145,12 @@ static u8 *add_hop(const char *name,
 		tlv->path_id = tal_hexdata(tlv, path_id_hexstr,
 					   strlen(path_id_hexstr));
 
-	/* Normally we wouldn't know blinding privkey, and we'd just
+	/* Normally we wouldn't know path_key privkey, and we'd just
 	 * paste in the rest of the path as given, but here we're actually
 	 * generating the lot. */
-	if (override_blinding) {
-		tlv->next_blinding_override = tal(tlv, struct pubkey);
-		assert(pubkey_from_privkey(override_blinding, tlv->next_blinding_override));
+	if (override_path_key) {
+		tlv->next_path_key_override = tal(tlv, struct pubkey);
+		assert(pubkey_from_privkey(override_path_key, tlv->next_path_key_override));
 	}
 
 	/* This is assumed to be a valid TLV tuple, and greater than
@@ -178,7 +178,7 @@ static u8 *add_hop(const char *name,
 	enctlv = tal_arr(tmpctx, u8, 0);
 	towire_tlv_encrypted_data_tlv(&enctlv, tlv);
 	towire(&enctlv, additional, tal_bytelen(additional));
-	if (!override_blinding)
+	if (!override_path_key)
 		assert(tal_bytelen(enctlv) == LARGEST_DAVE_TLV_SIZE);
 
 	json_start("tlvs", '{');
@@ -188,12 +188,12 @@ static u8 *add_hop(const char *name,
 		json_pubkey("next_node_id", tlv->next_node_id);
 	if (tlv->path_id)
 		json_hex_talfield("path_id", tlv->path_id);
-	if (tlv->next_blinding_override) {
-		json_pubkey("next_blinding_override",
-			    tlv->next_blinding_override);
-		json_hexfield("blinding_override_secret",
-			      override_blinding->secret.data,
-			      sizeof(*override_blinding));
+	if (tlv->next_path_key_override) {
+		json_pubkey("next_path_key_override",
+			    tlv->next_path_key_override);
+		json_hexfield("path_key_override_secret",
+			      override_path_key->secret.data,
+			      sizeof(*override_path_key));
 	}
 	if (additional) {
 		/* Deconstruct into type, len, value */
@@ -211,16 +211,16 @@ static u8 *add_hop(const char *name,
 	flush_comma();
 	enable_superverbose = true;
 	encrypted_recipient_data = enctlv_from_encmsg_raw(tmpctx,
-							  blinding,
+							  path_key,
 							  me,
 							  enctlv,
-							  blinding,
+							  path_key,
 							  alias);
 	enable_superverbose = false;
 	json_hex_talfield("encrypted_recipient_data",
 			  encrypted_recipient_data);
-	if (override_blinding)
-		*blinding = *override_blinding;
+	if (override_path_key)
+		*path_key = *override_path_key;
 
 	json_end('}');
 	maybe_comma();
@@ -230,8 +230,8 @@ static u8 *add_hop(const char *name,
 int main(int argc, char *argv[])
 {
 	const char *alias[] = {"Alice", "Bob", "Carol", "Dave"};
-	struct privkey privkey[ARRAY_SIZE(alias)], blinding, override_blinding;
-	struct pubkey id[ARRAY_SIZE(alias)], blinding_pub;
+	struct privkey privkey[ARRAY_SIZE(alias)], path_key, override_path_key;
+	struct pubkey id[ARRAY_SIZE(alias)], path_key_pub;
 	struct secret session_key;
 	u8 *erd[ARRAY_SIZE(alias)]; /* encrypted_recipient_data */
 	u8 *onion_message_packet, *onion_message;
@@ -257,36 +257,36 @@ int main(int argc, char *argv[])
 	json_hexfield("session_key", session_key.data, sizeof(session_key));
 	json_start("hops", '[');
 
-	memset(&blinding, 99, sizeof(blinding));
-	memset(&override_blinding, 1, sizeof(override_blinding));
-	erd[0] = add_hop("Alice", "Alice->Bob: note next_blinding_override to match that give by Dave for Bob",
+	memset(&path_key, 99, sizeof(path_key));
+	memset(&override_path_key, 1, sizeof(override_path_key));
+	erd[0] = add_hop("Alice", "Alice->Bob: note next_path_key_override to match that give by Dave for Bob",
 			 &id[0], &id[1],
-			 &override_blinding, NULL, NULL,
-			 &blinding, &blinded[0]);
+			 &override_path_key, NULL, NULL,
+			 &path_key, &blinded[0]);
 	erd[1] = add_hop("Bob", "Bob->Carol",
 			 &id[1], &id[2],
 			 NULL, "fd023103123456", NULL,
-			 &blinding, &blinded[1]);
+			 &path_key, &blinded[1]);
 	erd[2] = add_hop("Carol", "Carol->Dave",
 			 &id[2], &id[3],
 			 NULL, NULL, NULL,
-			 &blinding, &blinded[2]);
+			 &path_key, &blinded[2]);
 	erd[3] = add_hop("Dave", "Dave is final node, hence path_id",
 			 &id[3], NULL,
 			 NULL, "fdffff0206c1",
 			 "deadbeefbadc0ffeedeadbeefbadc0ffeedeadbeefbadc0ffeedeadbeefbadc0",
-			 &blinding, &blinded[3]);
+			 &path_key, &blinded[3]);
 
 	json_end(']');
 	json_end('}');
 	maybe_comma();
 
-	memset(&blinding, 99, sizeof(blinding));
-	assert(pubkey_from_privkey(&blinding, &blinding_pub));
+	memset(&path_key, 99, sizeof(path_key));
+	assert(pubkey_from_privkey(&path_key, &path_key_pub));
 	json_start("route", '{');
 	json_strfield("comment", "The resulting blinded route Alice to Dave.");
 	json_pubkey("introduction_node_id", &id[0]);
-	json_pubkey("blinding", &blinding_pub);
+	json_pubkey("path_key", &path_key_pub);
 
 	json_start("hops", '[');
 	for (size_t i = 0; i < ARRAY_SIZE(erd); i++) {
@@ -338,7 +338,7 @@ int main(int argc, char *argv[])
 	json_start("decrypt", '{');
 	json_strfield("comment", "This section contains the internal values generated by intermediate nodes when decrypting the onion.");
 
-	onion_message = towire_onion_message(tmpctx, &blinding_pub, onion_message_packet);
+	onion_message = towire_onion_message(tmpctx, &path_key_pub, onion_message_packet);
 
 	json_start("hops", '[');
 	for (size_t i = 0; i < ARRAY_SIZE(erd); i++) {
@@ -354,11 +354,11 @@ int main(int argc, char *argv[])
 
 		/* Now, do full decrypt code, to check */
 		assert(fromwire_onion_message(tmpctx, onion_message,
-					      &blinding_pub, &onion_message_packet));
+					      &path_key_pub, &onion_message_packet));
 
 		/* For test_ecdh */
 		mykey = &privkey[i];
-		assert(onion_message_parse(tmpctx, onion_message_packet, &blinding_pub,
+		assert(onion_message_parse(tmpctx, onion_message_packet, &path_key_pub,
 					   &id[i],
 					   &onion_message, &next_node,
 					   &final_om,

@@ -118,10 +118,10 @@ static u8 *json_to_enctlvs(const tal_t *ctx,
 			enctlv->path_id = json_tok_bin_from_hex(enctlv,
 								buf, t+1);
 			assert(enctlv->path_id);
-		} else if (json_tok_streq(buf, t, "next_blinding_override")) {
-			enctlv->next_blinding_override = tal(enctlv, struct pubkey);
+		} else if (json_tok_streq(buf, t, "next_path_key_override")) {
+			enctlv->next_path_key_override = tal(enctlv, struct pubkey);
 			assert(json_to_pubkey(buf, t+1,
-					      enctlv->next_blinding_override));
+					      enctlv->next_path_key_override));
 		} else if (json_tok_streq(buf, t, "payment_relay")) {
 			enctlv->payment_relay = json_to_payment_relay(enctlv, buf, t+1);
 		} else if (json_tok_streq(buf, t, "payment_constraints")) {
@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
 	const jsmntok_t *t, *hops_tok;
 	struct pubkey *ids;
 	u8 **enctlvs;
-	struct privkey blinding;
+	struct privkey path_key;
 
 	common_setup(argv[0]);
 
@@ -212,20 +212,20 @@ int main(int argc, char *argv[])
 		if (json_get_member(json, t, "session_key"))
 			assert(json_to_secret(json,
 					      json_get_member(json, t, "session_key"),
-					      &blinding.secret));
+					      &path_key.secret));
 		else
-			assert(secret_eq_consttime(&blinding.secret, &s));
+			assert(secret_eq_consttime(&path_key.secret, &s));
 
-		assert(pubkey_from_privkey(&blinding, &pubkey));
+		assert(pubkey_from_privkey(&path_key, &pubkey));
 		json_to_pubkey(json, json_get_member(json, t, "ephemeral_pubkey"),
 			       &expected_pubkey);
 		assert(pubkey_eq(&pubkey, &expected_pubkey));
 
 		enctlv = enctlv_from_encmsg_raw(tmpctx,
-						&blinding,
+						&path_key,
 						&ids[i],
 						enctlvs[i],
-						&blinding,
+						&path_key,
 						&alias);
 		expected_enctlv = json_tok_bin_from_hex(tmpctx,json,
 							json_get_member(json, t,

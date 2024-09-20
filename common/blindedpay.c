@@ -23,8 +23,8 @@ u8 **blinded_onion_hops(const tal_t *ctx,
 		 *   - MUST include the `encrypted_recipient_data` provided by the
 		 *     recipient
 		 *   - For the first node in the blinded route:
-		 *     - MUST include the `blinding_point` provided by the
-		 *       recipient in `current_blinding_point`
+		 *     - MUST include the `path_key` provided by the
+		 *       recipient in `current_path_key`
 		 *   - If it is the final node:
 		 *     - MUST include `amt_to_forward`, `outgoing_cltv_value` and `total_amount_msat`.
 		 *...
@@ -35,7 +35,7 @@ u8 **blinded_onion_hops(const tal_t *ctx,
 					      final ? &total_amount : NULL,
 					      final ? &final_cltv : NULL,
 					      path->path[i]->encrypted_recipient_data,
-					      first ? &path->blinding : NULL);
+					      first ? &path->first_path_key : NULL);
 	}
 	return onions;
 }
