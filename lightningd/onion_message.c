@@ -21,7 +21,8 @@ struct onion_message_hook_payload {
 	struct tlv_onionmsg_tlv *om;
 };
 
-static void json_add_blindedpath(struct json_stream *stream,
+static void json_add_blindedpath(struct plugin *plugin,
+				 struct json_stream *stream,
 				 const char *fieldname,
 				 const struct blinded_path *path)
 {
@@ -32,7 +33,15 @@ static void json_add_blindedpath(struct json_stream *stream,
 		json_add_short_channel_id(stream, "first_scid", path->first_node_id.scidd.scid);
 		json_add_u32(stream, "first_scid_dir", path->first_node_id.scidd.dir);
 	}
-	json_add_pubkey(stream, "blinding", &path->first_path_key);
+	if (lightningd_deprecated_in_ok(plugin->plugins->ld,
+					plugin->log,
+					plugin->plugins->ld->deprecated_ok,
+					"onion_message_recv", "blinding",
+					"v24.11", "v25.05",
+					NULL)) {
+		json_add_pubkey(stream, "blinding", &path->first_path_key);
+	}
+	json_add_pubkey(stream, "first_path_key", &path->first_path_key);
 	json_array_start(stream, "hops");
 	for (size_t i = 0; i < tal_count(path->path); i++) {
 		json_object_start(stream, NULL);
@@ -55,7 +64,7 @@ static void onion_message_serialize(struct onion_message_hook_payload *payload,
 		json_add_secret(stream, "pathsecret", payload->pathsecret);
 
 	if (payload->reply_path)
-		json_add_blindedpath(stream, "reply_blindedpath",
+		json_add_blindedpath(plugin, stream, "reply_blindedpath",
 				     payload->reply_path);
 
 	if (payload->om->invoice_request)

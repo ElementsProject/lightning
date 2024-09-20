@@ -1493,12 +1493,14 @@ impl From<responses::DecodeInvreq_pathsPath> for pb::DecodeInvreqPathsPath {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<responses::DecodeInvreq_paths> for pb::DecodeInvreqPaths {
     fn from(c: responses::DecodeInvreq_paths) -> Self {
         Self {
-            blinding: c.blinding.serialize().to_vec(), // Rule #2 for type pubkey
+            #[allow(deprecated)]
+            blinding: c.blinding.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             first_node_id: c.first_node_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            first_path_key: c.first_path_key.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             first_scid: c.first_scid.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
             first_scid_dir: c.first_scid_dir, // Rule #2 for type u32?
             // Field: Decode.invreq_paths[].path[]
@@ -1507,12 +1509,14 @@ impl From<responses::DecodeInvreq_paths> for pb::DecodeInvreqPaths {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<responses::DecodeOffer_paths> for pb::DecodeOfferPaths {
     fn from(c: responses::DecodeOffer_paths) -> Self {
         Self {
-            blinding: c.blinding.serialize().to_vec(), // Rule #2 for type pubkey
+            #[allow(deprecated)]
+            blinding: c.blinding.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             first_node_id: c.first_node_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            first_path_key: c.first_path_key.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             first_scid: c.first_scid.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
             first_scid_dir: c.first_scid_dir, // Rule #2 for type u32?
         }
