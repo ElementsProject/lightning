@@ -269,7 +269,7 @@ static bool print_blindedpaths(const char *fieldname,
 	size_t bp_idx = 0;
 
 	for (size_t i = 0; i < tal_count(paths); i++) {
-		struct onionmsg_hop **p = paths[i]->path;
+		struct blinded_path_hop **p = paths[i]->path;
 		printf("%s %zu/%zu: first_path_key %s ",
 		       fieldname,
 		       i, tal_count(paths),

@@ -73,13 +73,13 @@ struct blinded_path *blinded_path_from_encdata_tlvs(const tal_t *ctx,
 		abort();
 	sciddir_or_pubkey_from_pubkey(&path->first_node_id, &ids[0]);
 
-	path->path = tal_arr(ctx, struct onionmsg_hop *, nhops);
+	path->path = tal_arr(ctx, struct blinded_path_hop *, nhops);
 
 	blinding_iter = first_blinding;
 	for (size_t i = 0; i < nhops; i++) {
 		nodeid = get_nodeid(tlvs, ids, i);
 
-		path->path[i] = tal(path->path, struct onionmsg_hop);
+		path->path[i] = tal(path->path, struct blinded_path_hop);
 		path->path[i]->encrypted_recipient_data
 			= encrypt_tlv_encrypted_data(path->path[i],
 						     &blinding_iter,
@@ -154,9 +154,9 @@ struct blinded_path *incoming_message_blinded_path(const tal_t *ctx,
 }
 
 static void extend_blinded_path(struct blinded_path *bpath,
-				const struct onionmsg_hop *hop)
+				const struct blinded_path_hop *hop)
 {
-	struct onionmsg_hop *newhop = tal(bpath->path, struct onionmsg_hop);
+	struct blinded_path_hop *newhop = tal(bpath->path, struct blinded_path_hop);
         newhop->blinded_node_id = hop->blinded_node_id;
 	newhop->encrypted_recipient_data = tal_dup_talarr(newhop, u8, hop->encrypted_recipient_data);
 	tal_arr_expand(&bpath->path, newhop);
