@@ -218,14 +218,14 @@ static struct command_result *json_injectonionmessage(struct command *cmd,
 						      const jsmntok_t *params)
 {
 	struct onion_hop *hops;
-	struct pubkey *blinding;
+	struct pubkey *path_key;
 	struct sphinx_path *sphinx_path;
 	struct onionpacket *op;
 	struct secret *path_secrets;
 	size_t onion_size;
 
 	if (!param_check(cmd, buffer, params,
-			 p_req("blinding", param_pubkey, &blinding),
+			 p_req("path_key", param_pubkey, &path_key),
 			 p_req("hops", param_onion_hops, &hops),
 			 NULL))
 		return command_param_failed();
@@ -258,7 +258,7 @@ static struct command_result *json_injectonionmessage(struct command *cmd,
 
 	subd_req(cmd, cmd->ld->connectd,
 		 take(towire_connectd_inject_onionmsg(NULL,
-						      blinding,
+						      path_key,
 						      serialize_onionpacket(tmpctx, op))),
 		 -1, 0, inject_onionmsg_reply, cmd);
 	return command_still_pending(cmd);

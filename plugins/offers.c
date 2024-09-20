@@ -106,7 +106,7 @@ inject_onionmessage_(struct command *cmd,
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "injectonionmessage",
 				    cb, errcb, arg);
-	json_add_pubkey(req->js, "blinding", &omsg->first_blinding);
+	json_add_pubkey(req->js, "path_key", &omsg->first_blinding);
 	json_array_start(req->js, "hops");
 	for (size_t i = 0; i < tal_count(omsg->hops); i++) {
 		json_object_start(req->js, NULL);
