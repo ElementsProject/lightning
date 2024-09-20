@@ -764,6 +764,131 @@ static struct command_result *send_routes_cb(struct payment *payment)
 REGISTER_PAYMENT_MODIFIER(send_routes, send_routes_cb);
 
 /*****************************************************************************
+ * reserve_routes
+ *
+ * Reserves liquidity in the uncertainty network corresponding to the routes
+ * that we send by calling askrene-reserve.
+ */
+
+static struct command_result *
+askrene_disable_channel_done(struct command *cmd, const char *buf UNUSED,
+			     const jsmntok_t *result UNUSED,
+			     struct payment *payment);
+
+static struct command_result *
+askrene_disable_channel_fail(struct command *cmd, const char *buf,
+			     const jsmntok_t *result, struct payment *payment);
+
+static struct command_result *
+askrene_reserve_done(struct command *cmd, const char *buf UNUSED,
+		     const jsmntok_t *result UNUSED, struct payment *payment)
+{
+	assert(payment->pending_rpcs > 0);
+	payment->pending_rpcs--;
+	return payment_continue(payment);
+}
+
+static struct command_result *
+askrene_reserve_fail(struct command *cmd, const char *buf,
+			     const jsmntok_t *result, struct payment *payment)
+{
+	plugin_log(cmd->plugin, LOG_UNUSUAL,
+		   "failed to reserve liquidity with askrene-reserve: %.*s",
+		   json_tok_full_len(result), json_tok_full(buf, result));
+	return askrene_reserve_done(cmd, buf, result, payment);
+}
+
+static struct command_result *reserve_routes_cb(struct payment *payment)
+{
+	assert(payment);
+	struct routetracker *routetracker = payment->routetracker;
+	assert(routetracker);
+	if (!routetracker->computed_routes ||
+	    tal_count(routetracker->computed_routes) == 0) {
+		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
+			   "%s: there are no new routes, skipping.", __func__);
+		return payment_continue(payment);
+	}
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
+	for (size_t i = 0; i < tal_count(routetracker->computed_routes); i++) {
+		struct route *route = routetracker->computed_routes[i];
+			assert(route->hops);
+			assert(tal_count(route->hops));
+
+		// FIXME: assuming jsonrpc_errcode == 0 means no error
+		if (route->final_error) {
+
+			/* Disable the first channel in the route */
+			const struct short_channel_id_dir scidd = {
+			    .scid = route->hops[0].scid,
+			    .dir = route->hops[0].direction};
+
+			plugin_log(cmd->plugin, LOG_DBG,
+				   "route(partid=%" PRIu64
+				   ") failed at sendpay with error %s, "
+				   "disabling the first "
+				   "channel %s",
+				   route->key.partid, route->final_msg,
+				   fmt_short_channel_id_dir(tmpctx, &scidd));
+
+			/* FIXME: there is no askrene-disable-channel,
+			 * we will fake its disabling by setting its
+			 * liquidity to 0  */
+			struct out_req *req = jsonrpc_request_start(
+			    cmd->plugin, cmd, "askrene-inform-channel",
+			    askrene_disable_channel_done,
+			    askrene_disable_channel_fail, payment);
+
+			/* This constraint only applies to this payment */
+			json_add_string(req->js, "layer",
+					payment->private_layer);
+			json_add_short_channel_id(req->js, "short_channel_id",
+						  scidd.scid);
+			json_add_num(req->js, "direction", scidd.dir);
+			json_add_amount_msat(req->js, "maximum_msat",
+					     AMOUNT_MSAT(0));
+			send_outreq(cmd->plugin, req);
+
+			payment->pending_rpcs++;
+			tal_free(route);
+		} else {
+			// FIXME: don't forget to unreserve, maybe add a
+			// destructor to the route that calls unreserve
+			struct out_req *req = jsonrpc_request_start(
+			    cmd->plugin, cmd, "askrene-reserve",
+			    askrene_reserve_done, askrene_reserve_fail,
+			    payment);
+
+			json_array_start(req->js, "path");
+			for (size_t j = 0; j < tal_count(route->hops); j++) {
+				json_object_start(req->js, NULL);
+				json_add_short_channel_id(req->js,
+							  "short_channel_id",
+							  route->hops[j].scid);
+				json_add_num(req->js, "direction",
+					     route->hops[j].direction);
+				json_add_amount_msat(req->js, "amount_msat",
+						     route->hops[j].amount);
+				json_object_end(req->js);
+			}
+			json_array_end(req->js);
+
+			send_outreq(cmd->plugin, req);
+
+			payment->pending_rpcs++;
+			// TODO: check this
+			route_pending_register(payment->routetracker,
+					       take(route));
+		}
+	}
+	tal_resize(&routetracker->computed_routes, 0);
+	return payment_continue(payment);
+}
+
+REGISTER_PAYMENT_MODIFIER(reserve_routes, reserve_routes_cb);
+
+/*****************************************************************************
  * sleep
  *
  * The payment main thread sleeps for some time.
@@ -1129,23 +1254,24 @@ REGISTER_PAYMENT_MODIFIER(knowledgerelax, knowledgerelax_cb);
  */
 
 static struct command_result *
-askrene_filter_done(struct command *cmd, const char *buf UNUSED,
-		    const jsmntok_t *result UNUSED, struct payment *payment)
+askrene_disable_channel_done(struct command *cmd, const char *buf UNUSED,
+			     const jsmntok_t *result UNUSED,
+			     struct payment *payment)
 {
 	assert(payment->pending_rpcs > 0);
 	payment->pending_rpcs--;
 	return payment_continue(payment);
 }
 
-static struct command_result *askrene_filter_fail(struct command *cmd,
-						  const char *buf,
-						  const jsmntok_t *result,
-						  struct payment *payment)
+static struct command_result *
+askrene_disable_channel_fail(struct command *cmd, const char *buf,
+			     const jsmntok_t *result, struct payment *payment)
 {
-	plugin_log(cmd->plugin, LOG_UNUSUAL,
-		   "failed to filter channel with askrene-inform-channel: %.*s",
-		   json_tok_full_len(result), json_tok_full(buf, result));
-	return askrene_filter_done(cmd, buf, result, payment);
+	plugin_log(
+	    cmd->plugin, LOG_UNUSUAL,
+	    "failed to disable channel with askrene-inform-channel: %.*s",
+	    json_tok_full_len(result), json_tok_full(buf, result));
+	return askrene_disable_channel_done(cmd, buf, result, payment);
 }
 
 static struct command_result *channelfilter_cb(struct payment *payment)
@@ -1190,8 +1316,8 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 				 * liquidity to 0  */
 				struct out_req *req = jsonrpc_request_start(
 				    cmd->plugin, cmd, "askrene-inform-channel",
-				    askrene_filter_done, askrene_filter_fail,
-				    payment);
+				    askrene_disable_channel_done,
+				    askrene_disable_channel_fail, payment);
 
 				/* This constraint only applies to this payment
 				 */
@@ -1282,12 +1408,13 @@ void *payment_virtual_program[] = {
 	    /*14*/ OP_CALL, &checktimeout_pay_mod,
 	    /*16*/ OP_CALL, &compute_routes_pay_mod,
 	    /*18*/ OP_CALL, &send_routes_pay_mod,
+	    /*20*/ OP_CALL, &reserve_routes_pay_mod,
 	    /*do*/
-		    /*20*/ OP_CALL, &sleep_pay_mod,
-		    /*22*/ OP_CALL, &collect_results_pay_mod,
+		    /*22*/ OP_CALL, &sleep_pay_mod,
+		    /*24*/ OP_CALL, &collect_results_pay_mod,
 	    /*while*/
-	    /*24*/ OP_IF, &nothaveresults_pay_cond, (void *)20,
+	    /*26*/ OP_IF, &nothaveresults_pay_cond, (void *)22,
     /* while */
-    /*27*/ OP_IF, &retry_pay_cond, (void *)12,
-    /*30*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
+    /*29*/ OP_IF, &retry_pay_cond, (void *)12,
+    /*32*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
     /*32*/ NULL};
