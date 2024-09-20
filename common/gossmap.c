@@ -979,6 +979,8 @@ void gossmap_remove_localmods(struct gossmap *map,
 	for (size_t i = 0; i < n; i++) {
 		const struct localmod *mod = &localmods->mods[i];
 		struct gossmap_chan *chan = gossmap_find_chan(map, &mod->scid);
+		if (chan == NULL)
+			continue;
 
 		/* If that's a local channel, remove it now. */
 		if (chan->cann_off >= map->map_size) {
