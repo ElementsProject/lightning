@@ -219,7 +219,7 @@ struct onionpacket *parse_onionpacket(const tal_t *ctx,
 
 	assert(max == 0);
 	if (cursor == NULL) {
-		*failcode = WIRE_INVALID_REALM;
+		*failcode = WIRE_INVALID_ONION_HMAC;
 		return tal_free(dest);
 	}
 
