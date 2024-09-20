@@ -435,3 +435,22 @@ def test_duplicate_result():
     ba = p._bind_kwargs(test4, {}, req)
     with pytest.raises(ValueError, match=r'current state is RequestState\.FINISHED(.*\n*.*)*MARKER4'):
         test4(*ba.args)
+
+
+def test_usage():
+    p = Plugin(autopatch=False)
+
+    @p.method("some_method")
+    def some_method(some_arg: str = None):
+        """some description"""
+        pass
+
+    manifest = p._getmanifest()
+    usage = p.get_usage()
+
+    assert manifest['rpcmethods'][0]['name'] == 'some_method'
+    assert "some_arg" in manifest['rpcmethods'][0]['usage']
+    assert "some description" in manifest['rpcmethods'][0]['usage']
+    assert "some_method" in usage
+    assert "some_arg" in usage
+    assert "some description" in usage
