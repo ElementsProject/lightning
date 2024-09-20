@@ -136,21 +136,19 @@ bool unblind_onion(const struct pubkey *path_key,
 	/* BOLT #4:
 	 * A reader:
 	 *...
-	 * - MUST compute:
-	 *   - $`ss_i = SHA256(k_i * E_i)`$ (standard ECDH)
-	 *   - $`b_i = HMAC256(\text{"blinded\_node\_id"}, ss_i) * k_i`$
+	 * - if `path_key` is specified:
+	 *    - Calculate the `blinding_ss` as ECDH(`path_key`, `node_privkey`).
+	 *    - Either:
+	 *      - Tweak `public_key` by multiplying by $`HMAC256(\text{"blinded\_node\_id"}, blinding\_ss)`$.
+	 *    - or (equivalently):
+	 *      - Tweak its own `node_privkey` below by multiplying by $`HMAC256(\text{"blinded\_node\_id"}, blinding\_ss)`$.
 	 */
 	ecdh(path_key, ss);
 	subkey_from_hmac("blinded_node_id", ss, &hmac);
 
-	/* We instead tweak the *ephemeral* key from the onion and use
+	/* We tweak the *ephemeral* key from the onion and use
 	 * our normal privkey: since hsmd knows only how to ECDH with
-	 * our real key.  IOW: */
-	/* BOLT #4:
-	 * - MUST use $`b_i`$ instead of its private key $`k_i`$ to decrypt the onion. Note
-	 *   that the node may instead tweak the onion ephemeral key with
-	 *   $`HMAC256(\text{"blinded\_node\_id"}, ss_i)`$ which achieves the same result.
-	 */
+	 * our real key. */
 	return secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx,
 					     &onion_key->pubkey,
 					     hmac.data) == 1;
@@ -166,17 +164,19 @@ u8 *decrypt_encmsg_raw(const tal_t *ctx,
 	static const unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
 
 	/* BOLT #4:
-	 * A reader:
+	 * The reader of the `encrypted_recipient_data`:
 	 *...
-	 *- MUST decrypt the `encrypted_data` field using $`rho_i`$ and use
-	 *  the decrypted fields to locate the next node
+	 *- $`rho_i = HMAC256(\text{"rho"}, ss_i)`$
+	 *- MUST decrypt the `encrypted_recipient_data` field using $`rho_i`$
+         *  as a key using ChaCha20-Poly1305 and an all-zero nonce key.
 	 */
 	subkey_from_hmac("rho", ss, &rho);
 
 	/* BOLT #4:
-	 *- If the `encrypted_data` field is missing or cannot
-	 *  be decrypted:
-	 *   - MUST return an error
+	 * - If the `encrypted_recipient_data` field is missing, cannot be
+         *   decrypted into an `encrypted_data_tlv` or contains unknown even
+         *   fields:
+	 *    - MUST return an error
 	 */
 	/* Too short? */
 	if (tal_bytelen(enctlv) < crypto_aead_chacha20poly1305_ietf_ABYTES)
@@ -203,10 +203,10 @@ struct tlv_encrypted_data_tlv *decrypt_encrypted_data(const tal_t *ctx,
 	size_t maxlen = tal_bytelen(cursor);
 
 	/* BOLT #4:
-	 *
-	 * - MUST return an error if `encrypted_recipient_data` does not decrypt
-	 *   using the `path_key` as described in
-	 *   [Route Blinding](#route-blinding).
+	 * - If the `encrypted_recipient_data` field is missing, cannot be
+         *   decrypted into an `encrypted_data_tlv` or contains unknown even
+         *   fields:
+	 *    - MUST return an error
 	 */
 	/* Note: our parser consider nothing is a valid TLV, but decrypt_encmsg_raw
 	 * returns NULL if it couldn't decrypt. */
@@ -244,16 +244,13 @@ void blindedpath_next_path_key(const struct tlv_encrypted_data_tlv *enc,
 	 *   - $`E_{i+1} = SHA256(E_i || ss_i) * E_i`$
 	 * ...
 	 * - If `encrypted_data` contains a `next_path_key_override`:
-	 *   - MUST use it as the next `path_key` instead of $`E_{i+1}`$
-	 *   - Otherwise:
-	 *     - MUST use $`E_{i+1}`$ as the next `path_key`
+	 *   - MUST use it as the next `path_key`.
+	 * - Otherwise:
+	 *  - MUST use $`E_{i+1} = SHA256(E_i || ss_i) * E_i`$ as the next `path_key`
 	 */
 	if (enc->next_path_key_override)
 		*next_path_key = *enc->next_path_key_override;
 	else {
-		/* BOLT #4:
-		 * $`E_{i+1} = SHA256(E_i || ss_i) * E_i`$
-		 */
 		struct sha256 h;
 		blinding_hash_e_and_ss(path_key, ss, &h);
 		blinding_next_path_key(path_key, &h, next_path_key);

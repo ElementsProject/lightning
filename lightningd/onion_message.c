@@ -292,7 +292,8 @@ static struct command_result *json_decryptencrypteddata(struct command *cmd,
 	 * - MUST compute:
 	 *   - $`ss_i = SHA256(k_i * E_i)`$ (standard ECDH)
 	 *...
-	 * - MUST decrypt the `encrypted_data` field using $`rho_i`$
+	 *   - $`rho_i = HMAC256(\text{"rho"}, ss_i)`$
+	 * - MUST decrypt the `encrypted_recipient_data` field using $`rho_i`$
 	 */
 	ecdh(path_key, &ss);
 
