@@ -20,7 +20,7 @@ serde = { version = "1.0", features = ["derive"] }
 tonic = { version = "0.11", features = ["tls", "transport"] }
 prost = "0.12"
 hex = "0.4.3"
-bitcoin = { version = "0.30", features = [ "serde" ] }
+bitcoin = { version = "0.31", features = [ "serde" ] }
 tokio-stream = { version = "0.1.14", features = ["sync"] }
 tokio = { version = "1.36.0", features = ["sync"] }
 futures-core = "0.3.30"
