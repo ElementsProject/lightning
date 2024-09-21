@@ -9,7 +9,6 @@ ALL_TEST_PROGRAMS += $(PLUGIN_RENEPAY_TEST_PROGRAMS)
 $(PLUGIN_RENEPAY_TEST_OBJS): $(PLUGIN_RENEPAY_SRC)
 
 PLUGIN_RENEPAY_TEST_COMMON_OBJS :=		\
-	plugins/renepay/dijkstra.o		\
 	plugins/renepay/chan_extra.o		\
 	bitcoin/chainparams.o			\
 	common/gossmap.o			\
