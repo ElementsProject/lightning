@@ -7,7 +7,6 @@
 #include <plugins/renepay/flow.h>
 #include <plugins/renepay/payment.h>
 #include <plugins/renepay/renepayconfig.h>
-#include <plugins/renepay/uncertainty.h>
 
 // TODO(eduardo): renepaystatus should be similar to paystatus
 
@@ -58,9 +57,6 @@ struct pay_plugin {
 
 	/* All the struct payment */
 	struct payment_map *payment_map;
-
-	/* Per-channel metadata: some persists between payments */
-	struct uncertainty *uncertainty;
 
 	/* Pending sendpays. Each pending route has an associated HTLC data in
 	 * the uncertainty network. Pending routes are matched against sendpay

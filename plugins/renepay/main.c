@@ -29,8 +29,6 @@ struct pay_plugin *pay_plugin;
 static void memleak_mark(struct plugin *p, struct htable *memtable)
 {
 	memleak_scan_obj(memtable, pay_plugin);
-	memleak_scan_htable(memtable,
-			    &pay_plugin->uncertainty->chan_extra_map->raw);
 	memleak_scan_htable(memtable, &pay_plugin->payment_map->raw);
 	memleak_scan_htable(memtable, &pay_plugin->pending_routes->raw);
 }
@@ -82,14 +80,6 @@ static const char *init(struct plugin *p,
 		plugin_log(p, LOG_DBG,
 			   "gossmap ignored %zu channel updates",
 			   num_channel_updates_rejected);
-	pay_plugin->uncertainty = uncertainty_new(pay_plugin);
-	int skipped_count =
-	    uncertainty_update(pay_plugin->uncertainty, pay_plugin->gossmap);
-	if (skipped_count)
-		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
-			   "%s: uncertainty was updated but %d channels have "
-			   "been ignored.",
-			   __func__, skipped_count);
 
 	plugin_set_memleak_handler(p, memleak_mark);
 	return NULL;

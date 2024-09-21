@@ -91,7 +91,7 @@ static void route_success_register(struct routetracker *routetracker,
 				   struct route *route)
 {
 	if(route->hops){
-		uncertainty_route_success(pay_plugin->uncertainty, route);
+		// uncertainty_route_success(pay_plugin->uncertainty, route);
 	}
 	routetracker_add_to_final(routetracker, route);
 }
@@ -118,9 +118,9 @@ void route_failure_register(struct routetracker *routetracker,
 		/* All channels before the erring node could forward the
 		 * payment. */
 		for (int i = 0; i <= last_good_channel; i++) {
-			uncertainty_channel_can_send(pay_plugin->uncertainty,
-						     route->hops[i].scid,
-						     route->hops[i].direction);
+			// uncertainty_channel_can_send(pay_plugin->uncertainty,
+			// 			     route->hops[i].scid,
+			// 			     route->hops[i].direction);
 		}
 
 		if (result->failcode == WIRE_TEMPORARY_CHANNEL_FAILURE &&
@@ -129,10 +129,10 @@ void route_failure_register(struct routetracker *routetracker,
 			 * enough liquidity to forward the payment or cannot add
 			 * one more HTLC.
 			 */
-			uncertainty_channel_cannot_send(
-			    pay_plugin->uncertainty,
-			    route->hops[last_good_channel + 1].scid,
-			    route->hops[last_good_channel + 1].direction);
+			// uncertainty_channel_cannot_send(
+			//     pay_plugin->uncertainty,
+			//     route->hops[last_good_channel + 1].scid,
+			//     route->hops[last_good_channel + 1].direction);
 		}
 	}
 	routetracker_add_to_final(routetracker, route);
@@ -141,7 +141,7 @@ void route_failure_register(struct routetracker *routetracker,
 static void remove_route(struct route *route, struct route_map *map)
 {
 	route_map_del(map, route);
-	uncertainty_remove_htlcs(pay_plugin->uncertainty, route);
+	// uncertainty_remove_htlcs(pay_plugin->uncertainty, route);
 }
 
 /* This route is pending, ie. locked in HTLCs.
@@ -171,8 +171,6 @@ void route_pending_register(struct routetracker *routetracker,
 			   "payment call",
 			   __func__,
 			   fmt_routekey(tmpctx, &route->key));
-
-	uncertainty_commit_htlcs(pay_plugin->uncertainty, route);
 
 	if (!tal_steal(pay_plugin->pending_routes, route) ||
 	    !route_map_add(pay_plugin->pending_routes, route) ||
