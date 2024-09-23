@@ -5,6 +5,7 @@
 #include <common/gossmap.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/route.h>
 #include <plugins/askrene/askrene.h>
 #include <plugins/askrene/layer.h>
 
@@ -81,8 +82,8 @@ struct layer {
 	/* Additional info, indexed by scid+dir */
 	struct constraint_hash *constraints;
 
-	/* Nodes to completely disable (tal_arr) */
-	struct node_id *disabled_nodes;
+	/* Channels and nodes to disable (tal_arr). */
+	struct route_exclusion *disabled;
 };
 
 struct layer *new_temp_layer(const tal_t *ctx, const char *name)
@@ -94,7 +95,7 @@ struct layer *new_temp_layer(const tal_t *ctx, const char *name)
 	local_channel_hash_init(l->local_channels);
 	l->constraints = tal(l, struct constraint_hash);
 	constraint_hash_init(l->constraints);
-	l->disabled_nodes = tal_arr(l, struct node_id, 0);
+	l->disabled = tal_arr(l, struct route_exclusion, 0);
 
 	return l;
 }
@@ -299,7 +300,10 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 
 void layer_add_disabled_node(struct layer *layer, const struct node_id *node)
 {
-	tal_arr_expand(&layer->disabled_nodes, *node);
+	struct route_exclusion ex;
+	ex.type = EXCLUDE_NODE;
+	ex.u.node_id = *node;
+	tal_arr_expand(&layer->disabled, ex);
 }
 
 void layer_add_localmods(const struct layer *layer,
@@ -312,29 +316,32 @@ void layer_add_localmods(const struct layer *layer,
 
 	/* First, disable all channels into blocked nodes (local updates
 	 * can add new ones)! */
-	for (size_t i = 0; i < tal_count(layer->disabled_nodes); i++) {
-		const struct gossmap_node *node;
+	for (size_t i = 0; i < tal_count(layer->disabled); i++) {
+		struct route_exclusion ex = layer->disabled[i];
 
-		node = gossmap_find_node(gossmap, &layer->disabled_nodes[i]);
-		if (!node)
-			continue;
-		for (size_t n = 0; n < node->num_chans; n++) {
-			struct short_channel_id scid;
-			struct gossmap_chan *c;
-			int dir;
-			c = gossmap_nth_chan(gossmap, node, n, &dir);
-			scid = gossmap_chan_scid(gossmap, c);
+		/* Disable all channels of excluded nodes. */
+		if (ex.type == EXCLUDE_NODE) {
+			const struct gossmap_node *node;
 
-			/* Disabled zero-capacity on incoming */
-			gossmap_local_updatechan(localmods,
-						 scid,
-						 AMOUNT_MSAT(0),
-						 AMOUNT_MSAT(0),
-						 0,
-						 0,
-						 0,
-						 false,
-						 !dir);
+			node = gossmap_find_node(gossmap, &ex.u.node_id);
+			if (!node)
+				continue;
+			for (size_t n = 0; n < node->num_chans; n++) {
+				struct short_channel_id scid;
+				struct gossmap_chan *c;
+				int dir;
+				c = gossmap_nth_chan(gossmap, node, n, &dir);
+				scid = gossmap_chan_scid(gossmap, c);
+
+				/* Disabled zero-capacity on incoming */
+				gossmap_local_updatechan(
+				    localmods, scid, AMOUNT_MSAT(0),
+				    AMOUNT_MSAT(0), 0, 0, 0, false, !dir);
+			}
+		} else {
+			gossmap_local_updatechan(
+			    localmods, ex.u.chan_id.scid, AMOUNT_MSAT(0),
+			    AMOUNT_MSAT(0), 0, 0, 0, false, ex.u.chan_id.dir);
 		}
 	}
 
@@ -422,9 +429,9 @@ static void json_add_layer(struct json_stream *js,
 
 	json_object_start(js, fieldname);
 	json_add_string(js, "layer", layer->name);
-	json_array_start(js, "disabled_nodes");
-	for (size_t i = 0; i < tal_count(layer->disabled_nodes); i++)
-		json_add_node_id(js, NULL, &layer->disabled_nodes[i]);
+	json_array_start(js, "disabled");
+	for (size_t i = 0; i < tal_count(layer->disabled); i++)
+		json_add_route_exclusion(js, NULL, &layer->disabled[i]);
 	json_array_end(js);
 	json_array_start(js, "created_channels");
 	for (lc = local_channel_hash_first(layer->local_channels, &lcit);
