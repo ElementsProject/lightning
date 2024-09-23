@@ -306,6 +306,15 @@ void layer_add_disabled_node(struct layer *layer, const struct node_id *node)
 	tal_arr_expand(&layer->disabled, ex);
 }
 
+void layer_add_disabled_channel(struct layer *layer,
+				const struct short_channel_id_dir *scidd)
+{
+	struct route_exclusion ex;
+	ex.type = EXCLUDE_CHANNEL;
+	ex.u.chan_id = *scidd;
+	tal_arr_expand(&layer->disabled, ex);
+}
+
 void layer_add_localmods(const struct layer *layer,
 			 const struct gossmap *gossmap,
 			 bool zero_cost,
