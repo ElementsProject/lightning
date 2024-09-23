@@ -1272,6 +1272,27 @@ askrene_disable_channel_fail(struct command *cmd, const char *buf,
 	return askrene_disable_channel_done(cmd, buf, result, payment);
 }
 
+static struct command_result *
+askrene_disable_node_done(struct command *cmd, const char *buf UNUSED,
+			  const jsmntok_t *result UNUSED,
+			  struct payment *payment)
+{
+	assert(payment->pending_rpcs > 0);
+	payment->pending_rpcs--;
+	return payment_continue(payment);
+}
+
+static struct command_result *askrene_disable_node_fail(struct command *cmd,
+							const char *buf,
+							const jsmntok_t *result,
+							struct payment *payment)
+{
+	plugin_log(cmd->plugin, LOG_UNUSUAL,
+		   "failed to disable node with askrene-disable-node: %.*s",
+		   json_tok_full_len(result), json_tok_full(buf, result));
+	return askrene_disable_node_done(cmd, buf, result, payment);
+}
+
 static struct command_result *channelfilter_cb(struct payment *payment)
 {
 	assert(payment);
@@ -1344,6 +1365,57 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 
 REGISTER_PAYMENT_MODIFIER(channelfilter, channelfilter_cb);
 
+
+/*****************************************************************************
+ * manualexclusions
+ *
+ * Disable some channels and nodes specified in the command line or during our
+ * internal workflow.
+ */
+
+static struct command_result *manualexclusions_cb(struct payment *payment)
+{
+	assert(payment);
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
+	
+	for(size_t i=0;i<tal_count(payment->exclusions);i++){
+		const struct route_exclusion *ex = &payment->exclusions[i];
+		if (ex->type == EXCLUDE_CHANNEL) {
+			/* FIXME: there is no askrene-disable-channel,
+			 * we will fake its disabling by setting its
+			 * liquidity to 0  */
+			struct out_req *req = jsonrpc_request_start(
+			    cmd->plugin, cmd, "askrene-inform-channel",
+			    askrene_disable_channel_done,
+			    askrene_disable_channel_fail, payment);
+			json_add_string(req->js, "layer",
+					payment->private_layer);
+			json_add_short_channel_id(req->js, "short_channel_id",
+						  ex->u.chan_id.scid);
+			json_add_num(req->js, "direction", ex->u.chan_id.dir);
+			json_add_amount_msat(req->js, "maximum_msat",
+					     AMOUNT_MSAT(0));
+			send_outreq(cmd->plugin, req);
+			payment->pending_rpcs++;
+		} else {
+			struct out_req *req = jsonrpc_request_start(
+			    cmd->plugin, cmd, "askrene-disable-node",
+			    askrene_disable_node_done,
+			    askrene_disable_node_fail, payment);
+			json_add_string(req->js, "layer",
+					payment->private_layer);
+			json_add_node_id(req->js, "node", &ex->u.node_id);
+			send_outreq(cmd->plugin, req);
+			payment->pending_rpcs++;
+		}
+	}
+	tal_resize(&payment->exclusions, 0);
+	return payment_continue(payment);
+}
+
+REGISTER_PAYMENT_MODIFIER(manualexclusions, manualexclusions_cb);
+
 /*****************************************************************************
  * alwaystrue
  *
@@ -1402,17 +1474,18 @@ void *payment_virtual_program[] = {
     /*10*/OP_CALL, &channelfilter_pay_mod,
     // TODO shadow_additions
     /* do */
-	    /*12*/ OP_CALL, &pendingsendpays_pay_mod,
-	    /*14*/ OP_CALL, &checktimeout_pay_mod,
-	    /*16*/ OP_CALL, &compute_routes_pay_mod,
-	    /*18*/ OP_CALL, &send_routes_pay_mod,
-	    /*20*/ OP_CALL, &reserve_routes_pay_mod,
+            /*12*/OP_CALL, &manualexclusions_pay_mod,
+	    /*14*/ OP_CALL, &pendingsendpays_pay_mod,
+	    /*16*/ OP_CALL, &checktimeout_pay_mod,
+	    /*18*/ OP_CALL, &compute_routes_pay_mod,
+	    /*20*/ OP_CALL, &send_routes_pay_mod,
+	    /*22*/ OP_CALL, &reserve_routes_pay_mod,
 	    /*do*/
-		    /*22*/ OP_CALL, &sleep_pay_mod,
-		    /*24*/ OP_CALL, &collect_results_pay_mod,
+		    /*24*/ OP_CALL, &sleep_pay_mod,
+		    /*26*/ OP_CALL, &collect_results_pay_mod,
 	    /*while*/
-	    /*26*/ OP_IF, &nothaveresults_pay_cond, (void *)22,
+	    /*28*/ OP_IF, &nothaveresults_pay_cond, (void *)24,
     /* while */
-    /*29*/ OP_IF, &retry_pay_cond, (void *)12,
-    /*32*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
+    /*31*/ OP_IF, &retry_pay_cond, (void *)12,
+    /*34*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
     /*32*/ NULL};
