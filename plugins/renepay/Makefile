@@ -1,6 +1,5 @@
 PLUGIN_RENEPAY_SRC :=				\
 	plugins/renepay/main.c			\
-	plugins/renepay/flow.c			\
 	plugins/renepay/payment.c		\
 	plugins/renepay/chan_extra.c		\
 	plugins/renepay/route.c			\
@@ -12,7 +11,6 @@ PLUGIN_RENEPAY_SRC :=				\
 
 PLUGIN_RENEPAY_HDRS :=				\
 	plugins/renepay/payplugin.h		\
-	plugins/renepay/flow.h			\
 	plugins/renepay/payment.h		\
 	plugins/renepay/payment_info.h		\
 	plugins/renepay/chan_extra.h		\

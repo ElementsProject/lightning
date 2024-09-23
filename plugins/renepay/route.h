@@ -11,7 +11,6 @@
 #include <common/route.h>
 #include <common/utils.h>
 #include <inttypes.h>
-#include <plugins/renepay/flow.h>
 #include <wire/onion_wiregen.h>
 
 struct payment;
@@ -113,16 +112,6 @@ struct route *new_route(const tal_t *ctx, u32 groupid,
 			u32 partid, struct sha256 payment_hash,
 			struct amount_msat amount,
 			struct amount_msat amount_sent);
-
-struct route *flow_to_route(const tal_t *ctx,
-			    u32 groupid, u32 partid, struct sha256 payment_hash,
-			    u32 final_cltv, struct gossmap *gossmap,
-			    struct flow *flow);
-
-struct route **flows_to_routes(const tal_t *ctx,
-			       u32 groupid, u32 partid,
-			       struct sha256 payment_hash, u32 final_cltv,
-			       struct gossmap *gossmap, struct flow **flows);
 
 static inline struct short_channel_id_dir
 hop_to_scidd(const struct route_hop *hop)

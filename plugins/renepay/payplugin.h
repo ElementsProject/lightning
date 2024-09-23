@@ -4,7 +4,6 @@
 #include <ccan/list/list.h>
 #include <common/node_id.h>
 #include <plugins/libplugin.h>
-#include <plugins/renepay/flow.h>
 #include <plugins/renepay/payment.h>
 #include <plugins/renepay/renepayconfig.h>
 
