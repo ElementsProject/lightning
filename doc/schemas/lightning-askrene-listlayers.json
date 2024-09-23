@@ -33,6 +33,7 @@
           "required": [
             "layer",
             "disabled_nodes",
+            "disabled_channels",
             "created_channels",
             "constraints"
           ],
@@ -49,6 +50,15 @@
                 "type": "pubkey",
                 "description": [
                   "The id of the disabled node."
+                ]
+              }
+            },
+            "disabled_channels": {
+              "type": "array",
+              "items": {
+                "type": "short_channel_id_dir",
+                "description": [
+                  "The short channel id of the disabled channel."
                 ]
               }
             },

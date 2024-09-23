@@ -5,6 +5,7 @@
 #include <common/gossmap.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/route.h>
 #include <plugins/askrene/askrene.h>
 #include <plugins/askrene/layer.h>
 
@@ -81,8 +82,9 @@ struct layer {
 	/* Additional info, indexed by scid+dir */
 	struct constraint_hash *constraints;
 
-	/* Nodes to completely disable (tal_arr) */
+	/* Channels and nodes to disable (tal_arr). */
 	struct node_id *disabled_nodes;
+	struct short_channel_id_dir *disabled_chans;
 };
 
 struct layer *new_temp_layer(const tal_t *ctx, const char *name)
@@ -94,6 +96,7 @@ struct layer *new_temp_layer(const tal_t *ctx, const char *name)
 	local_channel_hash_init(l->local_channels);
 	l->constraints = tal(l, struct constraint_hash);
 	constraint_hash_init(l->constraints);
+	l->disabled_chans = tal_arr(l, struct short_channel_id_dir, 0);
 	l->disabled_nodes = tal_arr(l, struct node_id, 0);
 
 	return l;
@@ -302,6 +305,12 @@ void layer_add_disabled_node(struct layer *layer, const struct node_id *node)
 	tal_arr_expand(&layer->disabled_nodes, *node);
 }
 
+void layer_add_disabled_channel(struct layer *layer,
+				const struct short_channel_id_dir *scidd)
+{
+	tal_arr_expand(&layer->disabled_chans, *scidd);
+}
+
 void layer_add_localmods(const struct layer *layer,
 			 const struct gossmap *gossmap,
 			 bool zero_cost,
@@ -309,34 +318,6 @@ void layer_add_localmods(const struct layer *layer,
 {
 	const struct local_channel *lc;
 	struct local_channel_hash_iter lcit;
-
-	/* First, disable all channels into blocked nodes (local updates
-	 * can add new ones)! */
-	for (size_t i = 0; i < tal_count(layer->disabled_nodes); i++) {
-		const struct gossmap_node *node;
-
-		node = gossmap_find_node(gossmap, &layer->disabled_nodes[i]);
-		if (!node)
-			continue;
-		for (size_t n = 0; n < node->num_chans; n++) {
-			struct short_channel_id scid;
-			struct gossmap_chan *c;
-			int dir;
-			c = gossmap_nth_chan(gossmap, node, n, &dir);
-			scid = gossmap_chan_scid(gossmap, c);
-
-			/* Disabled zero-capacity on incoming */
-			gossmap_local_updatechan(localmods,
-						 scid,
-						 AMOUNT_MSAT(0),
-						 AMOUNT_MSAT(0),
-						 0,
-						 0,
-						 0,
-						 false,
-						 !dir);
-		}
-	}
 
 	for (lc = local_channel_hash_first(layer->local_channels, &lcit);
 	     lc;
@@ -426,6 +407,10 @@ static void json_add_layer(struct json_stream *js,
 	for (size_t i = 0; i < tal_count(layer->disabled_nodes); i++)
 		json_add_node_id(js, NULL, &layer->disabled_nodes[i]);
 	json_array_end(js);
+	json_array_start(js, "disabled_channels");
+	for (size_t i = 0; i < tal_count(layer->disabled_chans); i++)
+		json_add_short_channel_id_dir(js, NULL, layer->disabled_chans[i]);
+	json_array_end(js);
 	json_array_start(js, "created_channels");
 	for (lc = local_channel_hash_first(layer->local_channels, &lcit);
 	     lc;
@@ -472,4 +457,54 @@ void layer_memleak_mark(struct askrene *askrene, struct htable *memtable)
 		memleak_scan_htable(memtable, &l->constraints->raw);
 		memleak_scan_htable(memtable, &l->local_channels->raw);
 	}
+}
+
+static void set_channel_bit(bitmap *bm, const struct gossmap *gossmap,
+			    const struct short_channel_id_dir *scidd)
+{
+	const struct gossmap_chan *chan =
+	    gossmap_find_chan(gossmap, &scidd->scid);
+
+	if (!chan)
+		return;
+
+	bitmap_set_bit(bm, gossmap_chan_idx(gossmap, chan) * 2 + scidd->dir);
+}
+
+static void set_node_channels_bit(bitmap *bm, const struct gossmap *gossmap,
+				  const struct node_id *node_id)
+{
+	const struct gossmap_node *node = gossmap_find_node(gossmap, node_id);
+	for (size_t k = 0; k < node->num_chans; k++) {
+		int half;
+		const struct gossmap_chan *chan =
+		    gossmap_nth_chan(gossmap, node, k, &half);
+
+		bitmap_set_bit(bm, gossmap_chan_idx(gossmap, chan) * 2 + half);
+		bitmap_set_bit(bm, gossmap_chan_idx(gossmap, chan) * 2 + !half);
+	}
+}
+
+bitmap *tal_get_disabled_bitmap(const tal_t *ctx, struct route_query *rq)
+{
+
+	bitmap *disabled = tal_arrz(
+	    ctx, bitmap, 2 * BITMAP_NWORDS(gossmap_max_chan_idx(rq->gossmap)));
+
+	if (!disabled)
+		return NULL;
+
+	/* Disable every channel in the list of disabled scids. */
+	for (size_t i = 0; i < tal_count(rq->layers); i++) {
+		const struct layer *l = rq->layers[i];
+
+		for (size_t j = 0; j < tal_count(l->disabled_chans); j++)
+			set_channel_bit(disabled, rq->gossmap,
+					&l->disabled_chans[j]);
+
+		for (size_t j = 0; j < tal_count(l->disabled_nodes); j++)
+			set_node_channels_bit(disabled, rq->gossmap,
+					      &l->disabled_nodes[j]);
+	}
+	return disabled;
 }
