@@ -105,3 +105,23 @@ Here's a checklist for the release process.
 3. Look through PRs which were delayed for release and merge them.
 4. Close out the Milestone for the now-shipped release.
 5. Update this file with any missing or changed instructions.
+
+## Performing the Point (hotfix) Release
+
+1. Create a new branch named `release-<VERSION>.<POINT_VERSION>`, where each new branch is based on the commit from the previous release tag. For example, `release-<VERSION>.1` is based on `release-<VERSION>`, `release-<VERSION>.2` is based on `release-<VERSION>.1`, and so on.
+2. Cherry-pick all necessary commits for the hotfix into the new branch.
+3. Add entries for changes and fixed issues in `CHANGELOG.md` under a new heading for `v<VERSION>.<POINT_VERSION>`.
+4. Update the python package versions by running `make update-py-versions NEW_VERSION=<VERSION>.<POINT_VERSION>`
+5. Create a new commit that includes the updates from `update-py-versions` and `CHANGELOG.md`.
+6. Tag the release with `git pull && git tag -s v<VERSION>.<POINT_VERSION>`. You will be prompted to enter a tag message, ensure this is filled out.
+7. Confirm that the tag is properly set up for builds by running `git describe`.
+8. Push the tag to the remote repository `git push --tags`.
+9. Create a new release draft for `v<VERSION>.<POINT_VERSION>` on GitHub, ensuring to check the `Set as a pre-release` option.
+10. Follow the [reproducible build](https://docs.corelightning.org/docs/repro) instructions for [Builder image setup](https://docs.corelightning.org/docs/repro#builder-image-setup) to create builder images named `cl-repro-<codename>` required for the next step.
+11. Run the following script to prepare the required builds `tools/build-release.sh bin-Fedora-28-amd64 bin-Ubuntu sign`.
+12. Upload the reproducible builds along with `SHA256SUMS` and `SHA256SUMS.asc` files from the release folder to the newly drafted release.
+13. Share the `SHA256SUMS` and `SHA256SUMS.asc` files with the team for verification and signing.
+14. Append the signatures received from the team to the `SHA256SUMS.asc` file. Verify the file using `gpg --verify SHA256SUMS.asc`. Then re-upload the file.
+15. Finalize and publish the release (change it from draft to public).
+16. Ensure that the GitHub Actions for `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` and `Build and push multi-platform docker images` are functioning correctly. Check that the `PyPI` modules published on `https://pypi.org/project/pyln-*` and that the Docker image has been uploaded to Docker Hub.
+17. Announce the hotfix release in the core-lightning release-chat channel on Discord and on [BuildOnL2](https://community.corelightning.org/c/general-questions/).
