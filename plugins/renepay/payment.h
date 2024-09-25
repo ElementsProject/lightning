@@ -55,9 +55,6 @@ struct payment {
 	/* Running commands that want this payment */
 	struct command **cmd_array;
 
-	/* Localmods to apply to gossip_map for our own use. */
-	struct gossmap_localmods *local_gossmods;
-
 	/* Here we queue channel and node disabling orders. */
 	struct route_exclusion *exclusions;
 

@@ -337,7 +337,6 @@ static struct command_result *refreshgossmap_cb(struct payment *payment)
 {
 	assert(pay_plugin->gossmap); // gossmap must be already initialized
 	assert(payment);
-	assert(payment->local_gossmods);
 
 	size_t num_channel_updates_rejected = 0;
 	bool gossmap_changed =
@@ -451,7 +450,7 @@ static struct command_result *routehints_cb(struct payment *payment)
 			end = &r[j].pubkey;
 		}
 	}
-	return command_still_pending(cmd);
+	return payment_continue(payment);
 }
 
 REGISTER_PAYMENT_MODIFIER(routehints, routehints_cb);
@@ -1216,10 +1215,11 @@ static struct command_result *knowledgerelax_cb(struct payment *payment)
 	struct command *cmd = payment_command(payment);
 	assert(cmd);
 
-	// FIXME: should relax other layers too?
+	/* askrene-age may fail if the layer has not yet been created, in that
+	 * case we do nothing. */
 	struct out_req *req = jsonrpc_request_start(
 	    cmd->plugin, cmd, "askrene-age", askreneage_success,
-	    payment_rpc_failure, payment);
+	    askreneage_success, payment);
 
 	json_add_string(req->js, "layer", RENEPAY_LAYER);
 	json_add_u64(req->js, "cutoff", cutoff);

@@ -103,7 +103,6 @@ struct payment *payment_new(
 	p->pending_rpcs = 0;
 	p->next_partid = 1;
 	p->cmd_array = tal_arr(p, struct command *, 0);
-	p->local_gossmods = NULL;
 
 	p->exclusions =
 	    tal_arr(p, struct route_exclusion, tal_count(exclusions));
@@ -135,7 +134,6 @@ static void payment_cleanup(struct payment *p)
 	p->exec_state = INVALID_STATE;
 	p->pending_rpcs = 0;
 	tal_resize(&p->cmd_array, 0);
-	p->local_gossmods = tal_free(p->local_gossmods);
 	p->exclusions = tal_free(p->exclusions);
 	p->waitresult_timer = tal_free(p->waitresult_timer);
 	routetracker_cleanup(p->routetracker);
@@ -205,8 +203,6 @@ bool payment_update(
 	 * cmds. */
 	assert(p->cmd_array);
 	assert(tal_count(p->cmd_array) == 0);
-
-	p->local_gossmods = tal_free(p->local_gossmods);
 
 	p->exclusions = tal_free(p->exclusions);
 	p->exclusions =
