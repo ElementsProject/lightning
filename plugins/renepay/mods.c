@@ -830,11 +830,8 @@ static struct command_result *reserve_routes_cb(struct payment *payment)
 				   route->key.partid, route->final_msg,
 				   fmt_short_channel_id_dir(tmpctx, &scidd));
 
-			/* FIXME: there is no askrene-disable-channel,
-			 * we will fake its disabling by setting its
-			 * liquidity to 0  */
 			struct out_req *req = jsonrpc_request_start(
-			    cmd->plugin, cmd, "askrene-inform-channel",
+			    cmd->plugin, cmd, "askrene-disable-channel",
 			    askrene_disable_channel_done,
 			    askrene_disable_channel_fail, payment);
 
@@ -844,8 +841,6 @@ static struct command_result *reserve_routes_cb(struct payment *payment)
 			json_add_short_channel_id(req->js, "short_channel_id",
 						  scidd.scid);
 			json_add_num(req->js, "direction", scidd.dir);
-			json_add_amount_msat(req->js, "maximum_msat",
-					     AMOUNT_MSAT(0));
 			send_outreq(cmd->plugin, req);
 
 			payment->pending_rpcs++;
@@ -1267,7 +1262,7 @@ askrene_disable_channel_fail(struct command *cmd, const char *buf,
 {
 	plugin_log(
 	    cmd->plugin, LOG_UNUSUAL,
-	    "failed to disable channel with askrene-inform-channel: %.*s",
+	    "failed to disable channel with askrene-disable-channel: %.*s",
 	    json_tok_full_len(result), json_tok_full(buf, result));
 	return askrene_disable_channel_done(cmd, buf, result, payment);
 }
@@ -1330,11 +1325,8 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 					pay_plugin->gossmap, chan),
 				    .dir = dir};
 
-				/* FIXME: there is no askrene-disable-channel,
-				 * we will fake its disabling by setting its
-				 * liquidity to 0  */
 				struct out_req *req = jsonrpc_request_start(
-				    cmd->plugin, cmd, "askrene-inform-channel",
+				    cmd->plugin, cmd, "askrene-disable-channel",
 				    askrene_disable_channel_done,
 				    askrene_disable_channel_fail, payment);
 
@@ -1345,8 +1337,6 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 				json_add_short_channel_id(
 				    req->js, "short_channel_id", scidd.scid);
 				json_add_num(req->js, "direction", scidd.dir);
-				json_add_amount_msat(req->js, "maximum_msat",
-						     AMOUNT_MSAT(0));
 				send_outreq(cmd->plugin, req);
 
 				payment->pending_rpcs++;
@@ -1378,15 +1368,12 @@ static struct command_result *manualexclusions_cb(struct payment *payment)
 	assert(payment);
 	struct command *cmd = payment_command(payment);
 	assert(cmd);
-	
+
 	for(size_t i=0;i<tal_count(payment->exclusions);i++){
 		const struct route_exclusion *ex = &payment->exclusions[i];
 		if (ex->type == EXCLUDE_CHANNEL) {
-			/* FIXME: there is no askrene-disable-channel,
-			 * we will fake its disabling by setting its
-			 * liquidity to 0  */
 			struct out_req *req = jsonrpc_request_start(
-			    cmd->plugin, cmd, "askrene-inform-channel",
+			    cmd->plugin, cmd, "askrene-disable-channel",
 			    askrene_disable_channel_done,
 			    askrene_disable_channel_fail, payment);
 			json_add_string(req->js, "layer",
@@ -1394,8 +1381,6 @@ static struct command_result *manualexclusions_cb(struct payment *payment)
 			json_add_short_channel_id(req->js, "short_channel_id",
 						  ex->u.chan_id.scid);
 			json_add_num(req->js, "direction", ex->u.chan_id.dir);
-			json_add_amount_msat(req->js, "maximum_msat",
-					     AMOUNT_MSAT(0));
 			send_outreq(cmd->plugin, req);
 			payment->pending_rpcs++;
 		} else {
