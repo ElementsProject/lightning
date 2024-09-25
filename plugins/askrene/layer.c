@@ -323,37 +323,6 @@ void layer_add_localmods(const struct layer *layer,
 	const struct local_channel *lc;
 	struct local_channel_hash_iter lcit;
 
-	/* First, disable all channels into blocked nodes (local updates
-	 * can add new ones)! */
-	for (size_t i = 0; i < tal_count(layer->disabled); i++) {
-		struct route_exclusion ex = layer->disabled[i];
-
-		/* Disable all channels of excluded nodes. */
-		if (ex.type == EXCLUDE_NODE) {
-			const struct gossmap_node *node;
-
-			node = gossmap_find_node(gossmap, &ex.u.node_id);
-			if (!node)
-				continue;
-			for (size_t n = 0; n < node->num_chans; n++) {
-				struct short_channel_id scid;
-				struct gossmap_chan *c;
-				int dir;
-				c = gossmap_nth_chan(gossmap, node, n, &dir);
-				scid = gossmap_chan_scid(gossmap, c);
-
-				/* Disabled zero-capacity on incoming */
-				gossmap_local_updatechan(
-				    localmods, scid, AMOUNT_MSAT(0),
-				    AMOUNT_MSAT(0), 0, 0, 0, false, !dir);
-			}
-		} else {
-			gossmap_local_updatechan(
-			    localmods, ex.u.chan_id.scid, AMOUNT_MSAT(0),
-			    AMOUNT_MSAT(0), 0, 0, 0, false, ex.u.chan_id.dir);
-		}
-	}
-
 	for (lc = local_channel_hash_first(layer->local_channels, &lcit);
 	     lc;
 	     lc = local_channel_hash_next(layer->local_channels, &lcit)) {
@@ -488,4 +457,57 @@ void layer_memleak_mark(struct askrene *askrene, struct htable *memtable)
 		memleak_scan_htable(memtable, &l->constraints->raw);
 		memleak_scan_htable(memtable, &l->local_channels->raw);
 	}
+}
+
+static void set_channel_bit(bitmap *bm, const struct gossmap *gossmap,
+			    const struct short_channel_id_dir *scidd)
+{
+	const struct gossmap_chan *chan =
+	    gossmap_find_chan(gossmap, &scidd->scid);
+
+	if (!chan)
+		return;
+
+	bitmap_set_bit(bm, gossmap_chan_idx(gossmap, chan) * 2 + scidd->dir);
+}
+
+static void set_node_channels_bit(bitmap *bm, const struct gossmap *gossmap,
+				  const struct node_id *node_id)
+{
+	const struct gossmap_node *node = gossmap_find_node(gossmap, node_id);
+	for (size_t k = 0; k < node->num_chans; k++) {
+		int half;
+		const struct gossmap_chan *chan =
+		    gossmap_nth_chan(gossmap, node, k, &half);
+
+		bitmap_set_bit(bm, gossmap_chan_idx(gossmap, chan) * 2 + half);
+		bitmap_set_bit(bm, gossmap_chan_idx(gossmap, chan) * 2 + !half);
+	}
+}
+
+bitmap *tal_get_disabled_bitmap(const tal_t *ctx, struct route_query *rq)
+{
+
+	bitmap *disabled = tal_arrz(
+	    ctx, bitmap, 2 * BITMAP_NWORDS(gossmap_max_chan_idx(rq->gossmap)));
+
+	if (!disabled)
+		return NULL;
+
+	/* Disable every channel in the list of disabled scids. */
+	for (size_t i = 0; i < tal_count(rq->layers); i++) {
+		const struct layer *l = rq->layers[i];
+
+		for (size_t j = 0; j < tal_count(l->disabled); j++) {
+			const struct route_exclusion *ex = &l->disabled[j];
+
+			if (ex->type == EXCLUDE_CHANNEL)
+				set_channel_bit(disabled, rq->gossmap,
+						&ex->u.chan_id);
+			else
+				set_node_channels_bit(disabled, rq->gossmap,
+						      &ex->u.node_id);
+		}
+	}
+	return disabled;
 }

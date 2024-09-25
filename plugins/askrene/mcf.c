@@ -583,11 +583,22 @@ static s64 linear_fee_cost(
 	return pfee + bfee* base_fee_penalty+ delay*delay_feefactor;
 }
 
+static bool channel_is_available(const struct gossmap_chan *c, int dir,
+				 const struct gossmap *gossmap,
+				 const bitmap *disabled)
+{
+	if (!gossmap_chan_set(c, dir))
+		return false;
+	const u32 chan_idx = gossmap_chan_idx(gossmap, c);
+	return !bitmap_test_bit(disabled, chan_idx * 2 + dir);
+}
+
 static struct linear_network *
 init_linear_network(const tal_t *ctx, const struct pay_parameters *params)
 {
 	struct linear_network * linear_network = tal(ctx, struct linear_network);
 	const struct gossmap *gossmap = params->rq->gossmap;
+	const bitmap *disabled = params->rq->disabled;
 
 	const size_t max_num_chans = gossmap_max_chan_idx(gossmap);
 	const size_t max_num_arcs = max_num_chans * ARCS_PER_CHANNEL;
@@ -630,7 +641,7 @@ init_linear_network(const tal_t *ctx, const struct pay_parameters *params)
 			const struct gossmap_chan *c = gossmap_nth_chan(gossmap,
 			                                                node, j, &half);
 
-			if (!gossmap_chan_set(c, half))
+			if (!channel_is_available(c, half, gossmap, disabled))
 				continue;
 
 			const u32 chan_id = gossmap_chan_idx(gossmap, c);

@@ -337,6 +337,12 @@ static const char *get_routes(const tal_t *ctx,
 
 	gossmap_apply_localmods(askrene->gossmap, localmods);
 
+	rq->disabled = tal_get_disabled_bitmap(rq, rq);
+	if (!rq->disabled) {
+		ret = tal_fmt(ctx, "Failed creation of disabled bitmap.");
+		goto out;
+	}
+
 	srcnode = gossmap_find_node(askrene->gossmap, source);
 	if (!srcnode) {
 		ret = tal_fmt(ctx, "Unknown source node %s", fmt_node_id(tmpctx, source));

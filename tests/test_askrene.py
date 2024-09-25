@@ -172,6 +172,8 @@ def test_getroutes(node_factory):
     l1.rpc.askrene_disable_channel("chans_disabled", "0x1x0")
     l1.rpc.askrene_disable_channel("chans_disabled", "0x2x1")
     l1.rpc.askrene_disable_channel("chans_disabled", "0x2x3")
+    # we can also disable by mistake channels that do not exists
+    l1.rpc.askrene_disable_channel("chans_disabled", "111x222x333")
     with pytest.raises(RpcError, match="Could not find route"):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],

@@ -120,4 +120,9 @@ void json_add_constraint(struct json_stream *js,
 
 /* Scan for memleaks */
 void layer_memleak_mark(struct askrene *askrene, struct htable *memtable);
+
+/* Creates a bitmap of disabled channels. It loops over all layers in the
+ * query searching for disabled channels and disabled nodes. All channels
+ * linked to a disabled node will be disabled. */
+bitmap *tal_get_disabled_bitmap(const tal_t *ctx, struct route_query *rq);
 #endif /* LIGHTNING_PLUGINS_ASKRENE_LAYER_H */
