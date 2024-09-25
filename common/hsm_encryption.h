@@ -27,7 +27,7 @@ struct encrypted_hsm_secret {
  * On success, 0 is returned, on error a value > 0 is returned and it can be used as exit code.
  */
 int hsm_secret_encryption_key_with_exitcode(const char *pass, struct secret *key,
-					    char **err_msg);
+					    const char **err_msg);
 
 /** Encrypt the hsm_secret using a previously derived encryption key.
  * @encryption_key: the key derived from the passphrase.
@@ -62,7 +62,7 @@ void discard_key(struct secret *key TAKES);
  *
  * Caller must free the string as it does tal-reallocate getline's output.
  */
-char *read_stdin_pass_with_exit_code(char **reason, int *exit_code);
+char *read_stdin_pass_with_exit_code(const char **reason, int *exit_code);
 
 /** Returns -1 on error (and sets errno), 0 if not encrypted, 1 if it is */
 int is_hsm_secret_encrypted(const char *path);

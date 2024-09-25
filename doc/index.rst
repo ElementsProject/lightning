@@ -57,6 +57,7 @@ Core Lightning Documentation
    lightning-disableoffer <lightning-disableoffer.7.md>
    lightning-disconnect <lightning-disconnect.7.md>
    lightning-emergencyrecover <lightning-emergencyrecover.7.md>
+   lightning-exposesecret <lightning-exposesecret.7.md>
    lightning-feerates <lightning-feerates.7.md>
    lightning-fetchinvoice <lightning-fetchinvoice.7.md>
    lightning-fundchannel <lightning-fundchannel.7.md>
