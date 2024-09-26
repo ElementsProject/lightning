@@ -18,6 +18,7 @@ Core Lightning Documentation
    lightning-askrene-disable-node <lightning-askrene-disable-node.7.md>
    lightning-askrene-inform-channel <lightning-askrene-inform-channel.7.md>
    lightning-askrene-listlayers <lightning-askrene-listlayers.7.md>
+   lightning-askrene-query-reserve <lightning-askrene-query-reserve.7.md>
    lightning-askrene-reserve <lightning-askrene-reserve.7.md>
    lightning-askrene-unreserve <lightning-askrene-unreserve.7.md>
    lightning-autoclean-once <lightning-autoclean-once.7.md>
