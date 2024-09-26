@@ -23,7 +23,7 @@ static u64 *accepted_extra_tlvs;
  * ================
  *
  * The keysend modifier adds the payment preimage to the TLV payload. This
- * enables the recipient to accept the payment despite it not correspondin to
+ * enables the recipient to accept the payment despite it not corresponding to
  * an invoice that the recipient created. Keysend does not provide any proof
  * or payment, but does not require an out-of-band communication round to get
  * an invoice first.
@@ -215,7 +215,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 {
 	struct payment *p;
 	const char *label;
-	struct amount_msat *exemptfee, *msat;
+	struct amount_msat *exemptfee, *msat, *maxfee;
 	struct node_id *destination;
 	u64 *maxfee_pct_millionths;
 	u32 *maxdelay;
@@ -229,14 +229,15 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 		   p_req("destination", param_node_id, &destination),
 		   p_req("amount_msat", param_msat, &msat),
 		   p_opt("label", param_string, &label),
-		   p_opt_def("maxfeepercent", param_millionths,
-			     &maxfee_pct_millionths, 500000),
+		   p_opt("maxfeepercent", param_millionths,
+			 &maxfee_pct_millionths),
 		   p_opt_def("retry_for", param_number, &retryfor, 60),
 		   p_opt_def("maxdelay", param_number, &maxdelay,
 			     maxdelay_default),
-		   p_opt_def("exemptfee", param_msat, &exemptfee, AMOUNT_MSAT(5000)),
+		   p_opt("exemptfee", param_msat, &exemptfee),
 		   p_opt("extratlvs", param_extra_tlvs, &extra_fields),
 		   p_opt("routehints", param_routehint_array, &hints),
+		   p_opt("maxfee", param_msat, &maxfee),
 		   p_opt_dev("dev_use_shadow", param_bool, &dev_use_shadow, true),
 		   NULL))
 		return command_param_failed();
@@ -272,19 +273,36 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 		    "We are the destination. Keysend cannot be used to send funds to yourself");
 	}
 
-	if (!amount_msat_fee(&p->constraints.fee_budget, p->our_amount, 0,
-			     *maxfee_pct_millionths / 100)) {
-		return command_fail(
-		    cmd, JSONRPC2_INVALID_PARAMS,
-		    "Overflow when computing fee budget, fee rate too high.");
-	}
-
 	p->constraints.cltv_budget = *maxdelay;
 
 	payment_mod_keysend_get_data(p)->extra_tlvs =
 	    tal_steal(p, extra_fields);
 
-	payment_mod_exemptfee_get_data(p)->amount = *exemptfee;
+	if (maxfee) {
+		if (maxfee_pct_millionths || exemptfee) {
+			return command_fail(
+				cmd, JSONRPC2_INVALID_PARAMS,
+				"If you specify maxfee, cannot specify maxfeepercent or exemptfee.");
+		}
+		p->constraints.fee_budget = *maxfee;
+		payment_mod_exemptfee_get_data(p)->amount = AMOUNT_MSAT(0);
+	} else {
+		u64 maxppm;
+
+		if (maxfee_pct_millionths)
+			maxppm = *maxfee_pct_millionths / 100;
+		else
+			maxppm = 500000 / 100;
+		if (!amount_msat_fee(&p->constraints.fee_budget, p->our_amount, 0,
+				     maxppm)) {
+			return command_fail(
+				cmd, JSONRPC2_INVALID_PARAMS,
+				"Overflow when computing fee budget, fee rate too high.");
+		}
+		payment_mod_exemptfee_get_data(p)->amount
+			= exemptfee ? *exemptfee : AMOUNT_MSAT(5000);
+	}
+
 	payment_mod_shadowroute_get_data(p)->use_shadow = *dev_use_shadow;
 	p->label = tal_steal(p, label);
 

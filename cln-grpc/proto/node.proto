@@ -1199,6 +1199,7 @@ message KeysendRequest {
 	optional RoutehintList routehints = 8;
 	optional TlvStream extratlvs = 9;
 	Amount amount_msat = 10;
+	optional Amount maxfee = 11;
 }
 
 message KeysendResponse {

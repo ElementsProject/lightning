@@ -1521,6 +1521,7 @@
             "KeySend.extratlvs": 9,
             "KeySend.label": 3,
             "KeySend.maxdelay": 6,
+            "KeySend.maxfee": 11,
             "KeySend.maxfeepercent": 4,
             "KeySend.msatoshi": 2,
             "KeySend.retry_for": 5,
@@ -6360,6 +6361,10 @@
         },
         "KeySend.maxdelay": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "KeySend.maxfee": {
+            "added": "v24.11",
             "deprecated": null
         },
         "KeySend.maxfeepercent": {

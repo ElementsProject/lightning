@@ -293,6 +293,7 @@ fn test_keysend() {
                 }],
             }),
             extratlvs: None,
+            maxfee: None
         };
 
     let u: cln_rpc::model::requests::KeysendRequest = g.into();
