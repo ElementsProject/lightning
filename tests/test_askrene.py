@@ -677,3 +677,49 @@ def test_min_htlc_after_excess(node_factory, bitcoind):
                          layers=[],
                          maxfee_msat=20_000_000,
                          final_cltv=10)
+
+
+def test_reserve(node_factory):
+    """Test reserves"""
+    # Set up l1 with this as the gossip_store
+    l1 = node_factory.get_node()
+    expected = {
+        "short_channel_id": "1x1x1",
+        "direction": 0,
+        "num_htlcs": 0,
+        "amount_msat": 0,
+    }
+
+    assert l1.rpc.askrene_query_reserve("1x1x1", 0) == expected
+
+    l1.rpc.askrene_reserve(
+        [{"short_channel_id": "1x1x1", "direction": 0, "amount_msat": 105}]
+    )
+    expected["num_htlcs"] += 1
+    expected["amount_msat"] += 105
+
+    assert l1.rpc.askrene_query_reserve("1x1x1", 0) == expected
+
+    l1.rpc.askrene_reserve(
+        [{"short_channel_id": "1x1x1", "direction": 0, "amount_msat": 900}]
+    )
+    expected["num_htlcs"] += 1
+    expected["amount_msat"] += 900
+
+    assert l1.rpc.askrene_query_reserve("1x1x1", 0) == expected
+
+    l1.rpc.askrene_unreserve(
+        [{"short_channel_id": "1x1x1", "direction": 0, "amount_msat": 105}]
+    )
+    expected["num_htlcs"] -= 1
+    expected["amount_msat"] -= 105
+
+    assert l1.rpc.askrene_query_reserve("1x1x1", 0) == expected
+
+    l1.rpc.askrene_unreserve(
+        [{"short_channel_id": "1x1x1", "direction": 0, "amount_msat": 900}]
+    )
+    expected["num_htlcs"] -= 1
+    expected["amount_msat"] -= 900
+
+    assert l1.rpc.askrene_query_reserve("1x1x1", 0) == expected

@@ -12,6 +12,7 @@ GENERATE_MARKDOWN := doc/lightning-addgossip.7 \
 	doc/lightning-askrene-listlayers.7 \
 	doc/lightning-askrene-reserve.7 \
 	doc/lightning-askrene-unreserve.7 \
+	doc/lightning-askrene-query-reserve.7 \
 	doc/lightning-autoclean-once.7 \
 	doc/lightning-autoclean-status.7 \
 	doc/lightning-batching.7 \

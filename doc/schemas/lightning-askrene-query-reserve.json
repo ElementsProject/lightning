@@ -1,0 +1,82 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "askrene-query-reserve",
+  "title": "Command to query the reserved liquidity in a channel (EXPERIMENTAL)",
+  "description": [
+    "WARNING: experimental, so API may change.",
+    "",
+    "The **askrene-query-reserve** RPC command provides information about the number of in-flight HTLCs in a channel and the sum of their respective amounts."
+  ],
+  "request": {
+    "required": [
+      "short_channel_id",
+      "direction"
+    ],
+    "properties": {
+      "short_channel_id": {
+        "type": "short_channel_id",
+        "description": [
+          "The short channel id of the channel."
+        ]
+      },
+      "direction": {
+        "type": "u32",
+        "description": [
+          "The direction of the channel."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "short_channel_id",
+      "direction",
+      "num_htlcs",
+      "amount_msat"
+    ],
+    "properties": {
+      "short_channel_id": {
+        "type": "short_channel_id",
+        "description": [
+          "The *short_channel_id* specified."
+        ]
+      },
+      "direction": {
+        "type": "u32",
+        "description": [
+          "The *direction* specified."
+        ]
+      },
+      "num_htlcs": {
+        "type": "u32",
+        "description": [
+          "The number of HTLCs in-flight in the channel."
+        ]
+      },
+      "amount_msat": {
+        "type": "msat",
+        "description": [
+          "The total amount reserved in the channel."
+        ]
+      }
+    }
+  },
+  "see_also": [
+    "lightning-getroutes(7)",
+    "lightning-askrene-reserve(7)",
+    "lightning-askrene-unreserve(7)",
+    "lightning-askrene-inform-channel(7)",
+    "lightning-askrene-disable-node(7)",
+    "lightning-askrene-create-channel(7)",
+    "lightning-askrene-listlayers(7)",
+    "lightning-askrene-age(7)"
+  ],
+  "author": [
+    "Lagrang3 <<lagrang3@protonmail.com>> is mainly responsible."
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

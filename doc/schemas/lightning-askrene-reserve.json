@@ -57,6 +57,7 @@
   "see_also": [
     "lightning-getroutes(7)",
     "lightning-askrene-unreserve(7)",
+    "lightning-askrene-query-reserve(7)",
     "lightning-askrene-disable-node(7)",
     "lightning-askrene-create-channel(7)",
     "lightning-askrene-inform-channel(7)",

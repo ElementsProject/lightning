@@ -761,6 +761,39 @@ static struct command_result *json_askrene_unreserve(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
+static struct command_result *
+json_askrene_query_reserve(struct command *cmd, const char *buffer,
+			   const jsmntok_t *params)
+{
+	struct askrene *askrene = get_askrene(cmd->plugin);
+	struct short_channel_id *scid;
+	int *direction;
+	struct short_channel_id_dir scidd;
+
+	if (!param(cmd, buffer, params,
+		   p_req("short_channel_id", param_short_channel_id, &scid),
+		   p_req("direction", param_zero_or_one, &direction), NULL))
+		return command_param_failed();
+
+	scidd.scid = *scid;
+	scidd.dir = *direction;
+
+	struct json_stream *response = jsonrpc_stream_success(cmd);
+	json_add_short_channel_id(response, "short_channel_id", scidd.scid);
+	json_add_num(response, "direction", scidd.dir);
+
+	const struct reserve *r = find_reserve(askrene->reserved, &scidd);
+	if (!r) {
+		json_add_u32(response, "num_htlcs", 0);
+		json_add_amount_msat(response, "amount_msat", AMOUNT_MSAT(0));
+	} else {
+
+		json_add_u32(response, "num_htlcs", r->num_htlcs);
+		json_add_amount_msat(response, "amount_msat", r->amount);
+	}
+	return command_finished(cmd, response);
+}
+
 static struct command_result *param_layername(struct command *cmd,
 					      const char *name,
 					      const char *buffer,
@@ -962,6 +995,10 @@ static const struct plugin_command commands[] = {
 	{
 		"askrene-unreserve",
 		json_askrene_unreserve,
+	},
+	{
+		"askrene-query-reserve",
+		json_askrene_query_reserve,
 	},
 	{
 		"askrene-disable-node",
