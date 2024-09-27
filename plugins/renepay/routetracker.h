@@ -29,10 +29,10 @@ bool routetracker_have_results(struct routetracker *routetracker);
  *	- update the commited amounts,
  *	- update the uncertainty network,
  *	- and free the allocated memory. */
-void payment_collect_results(struct payment *payment,
-			     struct preimage **payment_preimage,
-			     enum jsonrpc_errcode *final_error,
-			     const char **final_msg);
+void tal_collect_results(const tal_t *ctx, struct routetracker *routetracker,
+			 struct preimage **payment_preimage,
+			 enum jsonrpc_errcode *final_error,
+			 const char **final_msg);
 
 void route_pending_register(struct routetracker *routetracker,
 			    struct route *route);

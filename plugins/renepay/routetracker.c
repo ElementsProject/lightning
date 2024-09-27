@@ -65,10 +65,9 @@ static void routetracker_add_to_final(struct routetracker *routetracker,
 		enum jsonrpc_errcode final_error = LIGHTNINGD;
 		const char *final_msg = NULL;
 
-		/* Finalized routes must be processed and removed in order to
-		 * free the uncertainty network's HTLCs. */
-		payment_collect_results(payment, &payment_preimage,
-					&final_error, &final_msg);
+		tal_collect_results(tmpctx, payment->routetracker,
+				    &payment_preimage, &final_error,
+				    &final_msg);
 
 		if (payment_preimage) {
 			/* If we have the preimage that means one succeed, we
@@ -190,13 +189,11 @@ void route_pending_register(struct routetracker *routetracker,
 	}
 }
 
-void payment_collect_results(struct payment *payment,
-			     struct preimage **payment_preimage,
-			     enum jsonrpc_errcode *final_error,
-			     const char **final_msg)
+void tal_collect_results(const tal_t *ctx, struct routetracker *routetracker,
+			 struct preimage **payment_preimage,
+			 enum jsonrpc_errcode *final_error,
+			 const char **final_msg)
 {
-	assert(payment);
-	struct routetracker *routetracker = payment->routetracker;
 	assert(routetracker);
 	const size_t ncompleted = tal_count(routetracker->finalized_routes);
 	for (size_t i = 0; i < ncompleted; i++) {
@@ -211,45 +208,17 @@ void payment_collect_results(struct payment *payment,
 		if (r->result->status == SENDPAY_COMPLETE && payment_preimage) {
 			assert(r->result->payment_preimage);
 			*payment_preimage =
-			    tal_dup(tmpctx, struct preimage,
+			    tal_dup(ctx, struct preimage,
 				    r->result->payment_preimage);
 			break;
 		}
-
-		/* We should never start a new groupid while there are pending
-		 * onions with a different groupid. We ignore any failure that
-		 * does not have the same groupid as the one we used for our
-		 * routes. */
-		if (payment->groupid != r->key.groupid) {
-			plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
-				   "%s: current groupid=%" PRIu64
-				   ", but recieved a sendpay result with "
-				   "groupid=%" PRIu64,
-				   __func__, payment->groupid,
-				   r->key.groupid);
-			continue;
-		}
-
-		assert(r->result->status == SENDPAY_FAILED &&
-		       payment->groupid == r->key.groupid);
 
 		if (r->final_msg) {
 			if (final_error)
 				*final_error = r->final_error;
 
 			if (final_msg)
-				*final_msg = tal_strdup(tmpctx, r->final_msg);
-		}
-
-		if (!amount_msat_sub(&payment->total_delivering,
-				     payment->total_delivering,
-				     route_delivers(r)) ||
-		    !amount_msat_sub(&payment->total_sent, payment->total_sent,
-				     route_sends(r))) {
-			plugin_err(pay_plugin->plugin,
-				   "%s: routes do not add up to "
-				   "payment total amount.",
-				   __func__);
+				*final_msg = tal_strdup(ctx, r->final_msg);
 		}
 	}
 	for (size_t i = 0; i < ncompleted; i++)

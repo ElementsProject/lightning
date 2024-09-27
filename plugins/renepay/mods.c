@@ -922,7 +922,8 @@ static struct command_result *collect_results_cb(struct payment *payment)
 	enum jsonrpc_errcode final_error = LIGHTNINGD;
 	const char *final_msg = NULL;
 
-	payment_collect_results(payment, &payment_preimage, &final_error, &final_msg);
+	tal_collect_results(tmpctx, payment->routetracker, &payment_preimage,
+			    &final_error, &final_msg);
 
 	if (payment_preimage) {
 		/* If we have the preimage that means one succeed, we
