@@ -913,7 +913,6 @@ REGISTER_PAYMENT_MODIFIER(sleep, sleep_cb);
 static struct command_result *collect_results_cb(struct payment *payment)
 {
 	assert(payment);
-	payment->have_results = false;
 	payment->retry = false;
 
 	/* pending sendpay callbacks should be zero */
@@ -954,12 +953,10 @@ static struct command_result *collect_results_cb(struct payment *payment)
 				   payment->payment_info.amount)) {
 		/* There are no succeeds but we are still pending delivering the
 		 * entire payment. We still need to collect more results. */
-		payment->have_results = false;
 		payment->retry = false;
 	} else {
 		/* We have some failures so that now we are short of
 		 * total_delivering, we may retry. */
-		payment->have_results = true;
 
 		// FIXME: we seem to always retry here if we don't fail
 		// inmediately. But I am going to leave this variable here,
@@ -1419,7 +1416,7 @@ REGISTER_PAYMENT_CONDITION(alwaystrue, alwaystrue_cb);
  */
 static bool nothaveresults_cb(const struct payment *payment)
 {
-	return !payment->have_results;
+	return !routetracker_have_results(payment->routetracker);
 }
 
 REGISTER_PAYMENT_CONDITION(nothaveresults, nothaveresults_cb);

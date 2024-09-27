@@ -58,10 +58,6 @@ struct payment {
 	/* Here we queue channel and node disabling orders. */
 	struct route_exclusion *exclusions;
 
-	/* Flag to indicate wether we have collected enough results to make a
-	 * decision on the payment progress. */
-	bool have_results;
-
 	/* Flag to indicate wether we would like to retry the payment. */
 	bool retry;
 
