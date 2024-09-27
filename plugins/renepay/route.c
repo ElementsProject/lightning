@@ -17,6 +17,7 @@ struct route *new_route(const tal_t *ctx, u32 groupid,
 	route->hops = NULL;
 	route->success_prob = 0.0;
 	route->result = NULL;
+	route->is_reserved = false;
 
 	route->amount = amount;
 	route->amount_sent = amount_sent;

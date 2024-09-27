@@ -67,7 +67,19 @@ struct route {
 
 	/* result of waitsenday */
 	struct payment_result *result;
+
+	/* Mark if we called askrene-reserve with this route */
+	bool is_reserved;
 };
+
+static inline bool route_is_reserved(const struct route *r)
+{
+	return r->is_reserved;
+}
+static inline void route_mark_reserved(struct route *r)
+{
+	r->is_reserved = true;
+}
 
 static inline struct routekey routekey(const struct sha256 *hash, u64 groupid,
 				       u64 partid)

@@ -776,23 +776,38 @@ static struct command_result *
 askrene_disable_channel_fail(struct command *cmd, const char *buf,
 			     const jsmntok_t *result, struct payment *payment);
 
+struct reserve_request{
+	struct payment *payment;
+	struct route *route;
+};
+
 static struct command_result *
-askrene_reserve_done(struct command *cmd, const char *buf UNUSED,
-		     const jsmntok_t *result UNUSED, struct payment *payment)
+askrene_reserve_continue(struct reserve_request *r)
 {
+	struct payment *payment = r->payment;
+	r = tal_free(r);
 	assert(payment->pending_rpcs > 0);
 	payment->pending_rpcs--;
 	return payment_continue(payment);
 }
 
 static struct command_result *
-askrene_reserve_fail(struct command *cmd, const char *buf,
-			     const jsmntok_t *result, struct payment *payment)
+askrene_reserve_done(struct command *cmd, const char *buf UNUSED,
+		     const jsmntok_t *result UNUSED, struct reserve_request *r)
+{
+	route_mark_reserved(r->route);
+	return askrene_reserve_continue(r);
+}
+
+static struct command_result *askrene_reserve_fail(struct command *cmd,
+						   const char *buf,
+						   const jsmntok_t *result,
+						   struct reserve_request *r)
 {
 	plugin_log(cmd->plugin, LOG_UNUSUAL,
 		   "failed to reserve liquidity with askrene-reserve: %.*s",
 		   json_tok_full_len(result), json_tok_full(buf, result));
-	return askrene_reserve_done(cmd, buf, result, payment);
+	return askrene_reserve_continue(r);
 }
 
 static struct command_result *reserve_routes_cb(struct payment *payment)
@@ -847,10 +862,14 @@ static struct command_result *reserve_routes_cb(struct payment *payment)
 		} else {
 			// FIXME: don't forget to unreserve, maybe add a
 			// destructor to the route that calls unreserve
+			struct reserve_request *r =
+			    tal(NULL, struct reserve_request);
+			r->payment = payment;
+			r->route = route;
+
 			struct out_req *req = jsonrpc_request_start(
 			    cmd->plugin, cmd, "askrene-reserve",
-			    askrene_reserve_done, askrene_reserve_fail,
-			    payment);
+			    askrene_reserve_done, askrene_reserve_fail, r);
 
 			json_array_start(req->js, "path");
 			for (size_t j = 0; j < tal_count(route->hops); j++) {
