@@ -45,15 +45,19 @@ void routetracker_cleanup(struct routetracker *routetracker)
 	// TODO
 }
 
-static void routetracker_add_to_final(struct routetracker *routetracker,
-				      struct route *route)
+static struct command_result *
+routetracker_add_to_final(struct route_notification *r)
 {
+	struct payment *payment = r->payment;
+	struct command *cmd = r->cmd;
+	struct route *route = r->route;
+	struct routetracker *routetracker = payment->routetracker;
+
+	r = tal_free(r);
+
 	tal_arr_expand(&routetracker->finalized_routes, route);
 	tal_steal(routetracker->finalized_routes, route);
 
-	struct payment *payment =
-	    payment_map_get(pay_plugin->payment_map, route->key.payment_hash);
-	assert(payment);
 	if (payment->exec_state == INVALID_STATE) {
 		/* payment is offline, collect results now and set the payment
 		 * state accordingly. */
@@ -74,73 +78,20 @@ static void routetracker_add_to_final(struct routetracker *routetracker,
 			 * inmediately finish the payment. */
 			register_payment_success(payment,
 						 take(payment_preimage));
-			return;
 		}
-		if (final_msg) {
+		else if (final_msg) {
 			/* We received a sendpay result with a final error
 			 * message, we inmediately finish the payment. */
 			register_payment_fail(payment, final_error, "%s",
 					      final_msg);
-			return;
 		}
 	}
-}
-
-static void route_success_register(struct routetracker *routetracker,
-				   struct route *route)
-{
-	if(route->hops){
-		// uncertainty_route_success(pay_plugin->uncertainty, route);
-	}
-	routetracker_add_to_final(routetracker, route);
-}
-void route_failure_register(struct routetracker *routetracker,
-			    struct route *route)
-{
-	struct payment_result *result = route->result;
-	assert(result);
-
-	/* Update the knowledge in the uncertaity network. */
-	if (route->hops) {
-		assert(result->erring_index);
-		int path_len = tal_count(route->hops);
-
-		/* index of the last channel before the erring node */
-		const int last_good_channel = *result->erring_index - 1;
-
-		if (last_good_channel >= path_len) {
-			plugin_err(pay_plugin->plugin,
-				   "last_good_channel (%d) >= path_len (%d)",
-				   last_good_channel, path_len);
-		}
-
-		/* All channels before the erring node could forward the
-		 * payment. */
-		for (int i = 0; i <= last_good_channel; i++) {
-			// uncertainty_channel_can_send(pay_plugin->uncertainty,
-			// 			     route->hops[i].scid,
-			// 			     route->hops[i].direction);
-		}
-
-		if (result->failcode == WIRE_TEMPORARY_CHANNEL_FAILURE &&
-		    (last_good_channel + 1) < path_len) {
-			/* A WIRE_TEMPORARY_CHANNEL_FAILURE could mean not
-			 * enough liquidity to forward the payment or cannot add
-			 * one more HTLC.
-			 */
-			// uncertainty_channel_cannot_send(
-			//     pay_plugin->uncertainty,
-			//     route->hops[last_good_channel + 1].scid,
-			//     route->hops[last_good_channel + 1].direction);
-		}
-	}
-	routetracker_add_to_final(routetracker, route);
+	return notification_handled(cmd);
 }
 
 static void remove_route(struct route *route, struct route_map *map)
 {
 	route_map_del(map, route);
-	// uncertainty_remove_htlcs(pay_plugin->uncertainty, route);
 }
 
 /* This route is pending, ie. locked in HTLCs.
@@ -226,6 +177,44 @@ void tal_collect_results(const tal_t *ctx, struct routetracker *routetracker,
 	tal_resize(&routetracker->finalized_routes, 0);
 }
 
+static struct command_result *
+askrene_unreserve_done(struct command *cmd, const char *buf,
+		       const jsmntok_t *tok, struct route_notification *r)
+{
+	return routetracker_add_to_final(r);
+}
+static struct command_result *
+askrene_unreserve_fail(struct command *cmd, const char *buf,
+		       const jsmntok_t *tok, struct route_notification *r)
+{
+	/* FIXME: we should implement a safer way to add and remove reserves. */
+	plugin_log(cmd->plugin, LOG_UNUSUAL, "askrene-unreserve failed: %.*s",
+		   json_tok_full_len(tok), json_tok_full(buf, tok));
+	return askrene_unreserve_done(cmd, buf, tok, r);
+}
+
+struct command_result *route_unreserve(struct route_notification *r)
+{
+	if (!route_is_reserved(r->route))
+		return routetracker_add_to_final(r);
+
+	struct out_req *req = jsonrpc_request_start(
+	    r->cmd->plugin, r->cmd, "askrene-unreserve", askrene_unreserve_done,
+	    askrene_unreserve_fail, r);
+	json_array_start(req->js, "path");
+	for (size_t i = 0; i < tal_count(r->route->hops); i++) {
+		json_object_start(req->js, NULL);
+		json_add_short_channel_id(req->js, "short_channel_id",
+					  r->route->hops[i].scid);
+		json_add_num(req->js, "direction", r->route->hops[i].direction);
+		json_add_amount_msat(req->js, "amount_msat",
+				     r->route->hops[i].amount);
+		json_object_end(req->js);
+	}
+	json_array_end(req->js);
+	return send_outreq(r->cmd->plugin, req);
+}
+
 struct command_result *notification_sendpay_failure(struct command *cmd,
 						    const char *buf,
 						    const jsmntok_t *params)
@@ -288,9 +277,12 @@ struct command_result *notification_sendpay_failure(struct command *cmd,
 		route->result->status = SENDPAY_FAILED;
 	}
 
-	/* we do some error processing steps before calling
-	 * route_failure_register. */
-	return routefail_start(payment, route, cmd);
+	/* we do some error processing steps before calling */
+	struct route_notification *r = tal(NULL, struct route_notification);
+	r->cmd = cmd;
+	r->payment = payment;
+	r->route = route;
+	return routefail_start(r);
 }
 
 struct command_result *notification_sendpay_success(struct command *cmd,
@@ -318,8 +310,6 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 		return notification_handled(cmd);
 	}
 
-	struct routetracker *routetracker = payment->routetracker;
-	assert(routetracker);
 	struct route *route =
 	    route_map_get(pay_plugin->pending_routes, key);
 	if (!route) {
@@ -340,6 +330,10 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 			   json_tok_full_len(sub), json_tok_full(buf, sub));
 
 	assert(route->result->status == SENDPAY_COMPLETE);
-	route_success_register(payment->routetracker, route);
-	return notification_handled(cmd);
+
+	struct route_notification *r = tal(NULL, struct route_notification);
+	r->cmd = cmd;
+	r->payment = payment;
+	r->route = route;
+	return route_unreserve(r);
 }

@@ -3,7 +3,6 @@
 #include <common/jsonrpc_errors.h>
 #include <plugins/renepay/payplugin.h>
 #include <plugins/renepay/routefail.h>
-#include <plugins/renepay/routetracker.h>
 #include <wire/peer_wiregen.h>
 
 enum node_type {
@@ -13,45 +12,21 @@ enum node_type {
 	UNKNOWN_NODE
 };
 
-struct routefail {
-	struct command *cmd;
-	struct payment *payment;
-	struct route *route;
-};
+static struct command_result *
+routefail_update_gossip(struct route_notification *r);
+static struct command_result *
+routefail_handle_cases(struct route_notification *r);
+static struct command_result *
+routefail_update_knowledge(struct route_notification *r);
 
-static struct command_result *update_gossip(struct routefail *r);
-static struct command_result *handle_failure(struct routefail *r);
-
-struct command_result *routefail_start(const tal_t *ctx, struct route *route,
-				       struct command *cmd)
+struct command_result *routefail_start(struct route_notification *r)
 {
-	assert(route);
-	struct routefail *r = tal(ctx, struct routefail);
-	struct payment *payment =
-		    payment_map_get(pay_plugin->payment_map, route->key.payment_hash);
-
-	if (payment == NULL)
-		plugin_err(pay_plugin->plugin,
-			   "%s: payment with hash %s not found.",
-			   __func__,
-			   fmt_sha256(tmpctx, &route->key.payment_hash));
-
-	r->payment = payment;
-	r->route = route;
-	r->cmd = cmd;
-	assert(route->result);
-	return update_gossip(r);
+	return routefail_update_gossip(r);
 }
 
-static struct command_result *routefail_end(struct routefail *r TAKES)
+static struct command_result *routefail_end(struct route_notification *r)
 {
-	/* Notify the tracker that route has failed and routefail have completed
-	 * handling all possible errors cases. */
-	struct command *cmd = r->cmd;
-	route_failure_register(r->payment->routetracker, r->route);
-	if (taken(r))
-		r = tal_steal(tmpctx, r);
-	return notification_handled(cmd);
+	return route_unreserve(r);
 }
 
 /*****************************************************************************
@@ -112,15 +87,15 @@ static u8 *channel_update_from_onion_error(const tal_t *ctx,
 static struct command_result *update_gossip_done(struct command *cmd UNUSED,
 						 const char *buf UNUSED,
 						 const jsmntok_t *result UNUSED,
-						 struct routefail *r)
+						 struct route_notification *r)
 {
-	return handle_failure(r);
+	return routefail_handle_cases(r);
 }
 
 static struct command_result *update_gossip_failure(struct command *cmd UNUSED,
 						    const char *buf,
 						    const jsmntok_t *result,
-						    struct routefail *r)
+						    struct route_notification *r)
 {
 	assert(r);
 	assert(r->payment);
@@ -139,7 +114,8 @@ static struct command_result *update_gossip_failure(struct command *cmd UNUSED,
 	return update_gossip_done(cmd, buf, result, r);
 }
 
-static struct command_result *update_gossip(struct routefail *r)
+static struct command_result *
+routefail_update_gossip(struct route_notification *r)
 {
 	/* if there is no raw_message we continue */
 	if (!r->route->result->raw_message)
@@ -158,7 +134,7 @@ static struct command_result *update_gossip(struct routefail *r)
 	return send_outreq(r->cmd->plugin, req);
 
 skip_update_gossip:
-	return handle_failure(r);
+	return routefail_handle_cases(r);
 }
 
 /*****************************************************************************
@@ -186,7 +162,8 @@ static void route_final_error(struct route *route, enum jsonrpc_errcode error,
 	route->final_msg = tal_strdup(route, what);
 }
 
-static struct command_result *handle_failure(struct routefail *r)
+static struct command_result *
+routefail_handle_cases(struct route_notification *r)
 {
 	/* BOLT #4:
 	 *
@@ -437,5 +414,86 @@ static struct command_result *handle_failure(struct routefail *r)
 
 		break;
 	}
-	return routefail_end(take(r));
+	return routefail_update_knowledge(r);
+}
+
+/*****************************************************************************
+ * update_knowledge
+ *
+ * Make RPC calls to askrene to pass information about the liquidity constraint
+ * we have learned from the errors.
+ */
+
+static struct command_result *
+askrene_inform_done(struct command *cmd UNUSED, const char *buf UNUSED,
+		    const jsmntok_t *result UNUSED,
+		    struct route_notification *r)
+{
+	return routefail_end(r);
+}
+
+static struct command_result *
+askrene_inform_fail(struct command *cmd UNUSED, const char *buf UNUSED,
+		    const jsmntok_t *result UNUSED,
+		    struct route_notification *r)
+{
+	plugin_log(
+	    cmd->plugin, LOG_UNUSUAL,
+	    "%s: failed RPC call to askrene-inform-channel, returned: %.*s",
+	    __func__, json_tok_full_len(result), json_tok_full(buf, result));
+	return askrene_inform_done(cmd, buf, result, r);
+}
+
+static struct command_result *
+routefail_update_knowledge(struct route_notification *r)
+{
+	/* If we don't have the hops we can't learn anything. */
+	if (!r->route->hops || !r->route->result
+		|| !r->route->result->erring_index) {
+		plugin_log(r->cmd->plugin, LOG_DBG,
+			   "Cannot update knowledge from route %s, missing "
+			   "hops or result.",
+			   fmt_routekey(tmpctx, &r->route->key));
+		goto skip_update_knowledge;
+	}
+
+	const int path_len = tal_count(r->route->hops);
+	const int last_good_channel = *r->route->result->erring_index - 1;
+
+	if (last_good_channel >= path_len)
+		plugin_err(r->cmd->plugin,
+			   "%s: last_good_channel (%d) >= path_len (%d)",
+			   __func__, last_good_channel, path_len);
+
+	if(r->route->result->failcode!=WIRE_TEMPORARY_CHANNEL_FAILURE ||
+		(last_good_channel + 1)>=path_len)
+		goto skip_update_knowledge;
+
+	/* A WIRE_TEMPORARY_CHANNEL_FAILURE could mean not enough liquidity to
+	 * forward the payment or cannot add one more HTLC. */
+	const struct short_channel_id scid =
+	    r->route->hops[last_good_channel + 1].scid;
+	const int direction = r->route->hops[last_good_channel + 1].direction;
+	const struct amount_msat this_amt =
+	    r->route->hops[last_good_channel + 1].amount;
+
+	// FIXME: call askrene-query-reserve
+	// if this route was reseved then
+	//	call askrene-inform-channel for amt
+	// else
+	//	call askrene-inform-channel for amt+this_amnt
+
+	struct out_req *req = jsonrpc_request_start(
+	    r->cmd->plugin, r->cmd, "askrene-inform-channel",
+	    askrene_inform_done, askrene_inform_fail, r);
+
+	json_add_string(req->js, "layer", RENEPAY_LAYER);
+	json_add_short_channel_id(req->js, "short_channel_id", scid);
+	json_add_num(req->js, "direction", direction);
+	json_add_amount_msat(req->js, "maximum_msat", this_amt);
+
+	return send_outreq(r->cmd->plugin, req);
+
+skip_update_knowledge:
+	return routefail_end(r);
 }

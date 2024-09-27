@@ -19,6 +19,15 @@ struct routetracker{
 	struct route **finalized_routes;
 };
 
+/* Data used to make RPC calls after a sendpay notification was received. */
+struct route_notification {
+	struct command *cmd;
+	struct payment *payment;
+	struct route *route;
+};
+
+struct command_result *route_unreserve(struct route_notification *r);
+
 struct routetracker *new_routetracker(const tal_t *ctx, struct payment *payment);
 void routetracker_cleanup(struct routetracker *routetracker);
 
@@ -44,14 +53,5 @@ struct command_result *notification_sendpay_failure(struct command *cmd,
 struct command_result *notification_sendpay_success(struct command *cmd,
 						    const char *buf,
 						    const jsmntok_t *params);
-
-/* Notify the tracker that this route has failed. */
-void route_failure_register(struct routetracker *routetracker,
-			    struct route *route);
-
-// FIXME: double-check that we actually get one notification for each sendpay,
-// ie. that after some time we don't have yet pending sendpays for old failed or
-// successful payments that we havent processed because we haven't received the
-// notification
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_ROUTETRACKER_H */
