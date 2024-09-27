@@ -1,6 +1,7 @@
 #include "config.h"
 #include <bitcoin/preimage.h>
 #include <bitcoin/privkey.h>
+#include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <common/json_stream.h>
@@ -99,24 +100,29 @@ struct payment *payment_new(
 
 	/* === Hidden State === */
 	p->exec_state = INVALID_STATE;
+	p->pending_rpcs = 0;
 	p->next_partid = 1;
 	p->cmd_array = tal_arr(p, struct command *, 0);
-	p->local_gossmods = NULL;
-	p->disabledmap = disabledmap_new(p);
 
-	for (size_t i = 0; i < tal_count(exclusions); i++) {
-		const struct route_exclusion *ex = exclusions[i];
-		if (ex->type == EXCLUDE_CHANNEL)
-			disabledmap_add_channel(p->disabledmap, ex->u.chan_id);
-		else
-			disabledmap_add_node(p->disabledmap, ex->u.node_id);
-	}
+	p->exclusions =
+	    tal_arr(p, struct route_exclusion, tal_count(exclusions));
+	for (size_t i = 0; i < tal_count(p->exclusions); i++)
+		p->exclusions[i] = *exclusions[i];
 
-	p->have_results = false;
-	p->retry = false;
 	p->waitresult_timer = NULL;
 
 	p->routetracker = new_routetracker(p, p);
+
+	/* The name of our private layer is just the payment hash in hex. */
+	/* FIXME: we need a way to tell askrene to remove obsolete layers */
+	const size_t bytelen = sizeof(pinfo->payment_hash);
+	const size_t hexlen = hex_str_size(bytelen);
+	p->private_layer = tal_arr(p, char, hexlen);
+
+	if (!hex_encode(&pinfo->payment_hash, bytelen, p->private_layer,
+			hexlen))
+		return tal_free(p);
+
 	return p;
 }
 
@@ -124,16 +130,10 @@ struct payment *payment_new(
 static void payment_cleanup(struct payment *p)
 {
 	p->exec_state = INVALID_STATE;
+	p->pending_rpcs = 0;
 	tal_resize(&p->cmd_array, 0);
-	p->local_gossmods = tal_free(p->local_gossmods);
-
-	/* FIXME: for optimization, a cleanup should prune all the data that has
-	 * no use after a payent is completed. The entire disablemap structure
-	 * is no longer needed, hence I guess we should free it not just reset
-	 * it. */
-	disabledmap_reset(p->disabledmap);
+	p->exclusions = tal_free(p->exclusions);
 	p->waitresult_timer = tal_free(p->waitresult_timer);
-
 	routetracker_cleanup(p->routetracker);
 }
 
@@ -194,6 +194,7 @@ bool payment_update(
 
 	/* === Hidden State === */
 	p->exec_state = INVALID_STATE;
+	p->pending_rpcs = 0;
 	p->next_partid = 1;
 
 	/* I shouldn't be calling a payment_update on a payment that has pending
@@ -201,21 +202,12 @@ bool payment_update(
 	assert(p->cmd_array);
 	assert(tal_count(p->cmd_array) == 0);
 
-	p->local_gossmods = tal_free(p->local_gossmods);
+	p->exclusions = tal_free(p->exclusions);
+	p->exclusions =
+	    tal_arr(p, struct route_exclusion, tal_count(exclusions));
+	for (size_t i = 0; i < tal_count(p->exclusions); i++)
+		p->exclusions[i] = *exclusions[i];
 
-	assert(p->disabledmap);
-	disabledmap_reset(p->disabledmap);
-
-	for (size_t i = 0; i < tal_count(exclusions); i++) {
-		const struct route_exclusion *ex = exclusions[i];
-		if (ex->type == EXCLUDE_CHANNEL)
-			disabledmap_add_channel(p->disabledmap, ex->u.chan_id);
-		else
-			disabledmap_add_node(p->disabledmap, ex->u.node_id);
-	}
-
-	p->have_results = false;
-	p->retry = false;
 	p->waitresult_timer = tal_free(p->waitresult_timer);
 
 	return true;
@@ -392,7 +384,11 @@ void payment_disable_chan(struct payment *p, struct short_channel_id_dir scidd,
 			  enum log_level lvl, const char *fmt, ...)
 {
 	assert(p);
-	assert(p->disabledmap);
+	assert(p->exclusions);
+	struct route_exclusion ex;
+	ex.type = EXCLUDE_CHANNEL;
+	ex.u.chan_id = scidd;
+
 	va_list ap;
 	const char *str;
 
@@ -400,16 +396,14 @@ void payment_disable_chan(struct payment *p, struct short_channel_id_dir scidd,
 	str = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 	payment_note(p, lvl, "disabling %s: %s",
-		     fmt_short_channel_id_dir(tmpctx, &scidd),
-		     str);
-	disabledmap_add_channel(p->disabledmap, scidd);
+		     fmt_short_channel_id_dir(tmpctx, &scidd), str);
+	tal_arr_expand(&p->exclusions, ex);
 }
 
 void payment_warn_chan(struct payment *p, struct short_channel_id_dir scidd,
 		       enum log_level lvl, const char *fmt, ...)
 {
 	assert(p);
-	assert(p->disabledmap);
 	va_list ap;
 	const char *str;
 
@@ -417,7 +411,10 @@ void payment_warn_chan(struct payment *p, struct short_channel_id_dir scidd,
 	str = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
-	if (disabledmap_channel_is_warned(p->disabledmap, scidd)) {
+	/* FIXME: add a data structure to remember metadata for channels and
+	 * nodes, so that we can evaluate those channels that cause trouble
+	 * frequently and disable them. Here we disable them by default. */
+	if (true) {
 		payment_disable_chan(p, scidd, lvl, "%s, channel warned twice",
 				     str);
 		return;
@@ -426,14 +423,17 @@ void payment_warn_chan(struct payment *p, struct short_channel_id_dir scidd,
 	payment_note(
 	    p, lvl, "flagged for warning %s: %s, next time it will be disabled",
 	    fmt_short_channel_id_dir(tmpctx, &scidd), str);
-	disabledmap_warn_channel(p->disabledmap, scidd);
 }
 
 void payment_disable_node(struct payment *p, struct node_id node,
 			  enum log_level lvl, const char *fmt, ...)
 {
 	assert(p);
-	assert(p->disabledmap);
+	assert(p->exclusions);
+	struct route_exclusion ex;
+	ex.type = EXCLUDE_NODE;
+	ex.u.node_id = node;
+
 	va_list ap;
 	const char *str;
 
@@ -443,5 +443,5 @@ void payment_disable_node(struct payment *p, struct node_id node,
 	payment_note(p, lvl, "disabling node %s: %s",
 		     fmt_node_id(tmpctx, &node),
 		     str);
-	disabledmap_add_node(p->disabledmap, node);
+	tal_arr_expand(&p->exclusions, ex);
 }

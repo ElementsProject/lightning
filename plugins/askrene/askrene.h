@@ -2,6 +2,7 @@
 #define LIGHTNING_PLUGINS_ASKRENE_ASKRENE_H
 #include "config.h"
 #include <bitcoin/short_channel_id.h>
+#include <ccan/bitmap/bitmap.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/list/list.h>
 #include <common/amount.h>
@@ -40,6 +41,10 @@ struct route_query {
 
 	/* This is *not* updated during a query!  Has all layers applied. */
 	const struct gossmap *gossmap;
+
+	/* Bit is set for [idx*2+dir] if that channel is disabled or if it
+	 * belongs to a disabled node.. */
+	bitmap *disabled;
 
 	/* We need to take in-flight payments into account */
 	const struct reserve_htable *reserved;

@@ -4,7 +4,6 @@
 #include <common/gossmap.h>
 #include <common/route.h>
 #include <plugins/libplugin.h>
-#include <plugins/renepay/disabledmap.h>
 #include <plugins/renepay/payment_info.h>
 
 enum payment_status { PAYMENT_PENDING, PAYMENT_SUCCESS, PAYMENT_FAIL };
@@ -47,28 +46,26 @@ struct payment {
 	/* Position in the payment virtual machine */
 	u64 exec_state;
 
+	/* Number of pending RPCs responses before we move to the next state. */
+	u32 pending_rpcs;
+
 	/* Used in get_payflows to set ids to each pay_flow. */
 	u64 next_partid;
 
 	/* Running commands that want this payment */
 	struct command **cmd_array;
 
-	/* Localmods to apply to gossip_map for our own use. */
-	struct gossmap_localmods *local_gossmods;
-
-	struct disabledmap *disabledmap;
-
-	/* Flag to indicate wether we have collected enough results to make a
-	 * decision on the payment progress. */
-	bool have_results;
-
-	/* Flag to indicate wether we would like to retry the payment. */
-	bool retry;
+	/* Here we queue channel and node disabling orders. */
+	struct route_exclusion *exclusions;
 
 	/* Timer we use to wait for results. */
 	struct plugin_timer *waitresult_timer;
 
 	struct routetracker *routetracker;
+
+	/* The name of the layer where we put information regarding this
+	 * payment. */
+	char *private_layer;
 };
 
 static inline const struct sha256 payment_hash(const struct payment *p)

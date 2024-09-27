@@ -19,6 +19,7 @@
 #include <common/json_parse.h>
 #include <common/json_stream.h>
 #include <common/node_id.h>
+#include <common/route.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
 #include <stdio.h>
@@ -492,6 +493,17 @@ void json_add_short_channel_id_dir(struct json_stream *response,
 			 short_channel_id_blocknum(scidd.scid),
 			 short_channel_id_txnum(scidd.scid),
 			 short_channel_id_outnum(scidd.scid), scidd.dir);
+}
+
+void json_add_route_exclusion(struct json_stream *response,
+			      const char *fieldname,
+			      const struct route_exclusion *ex)
+{
+	if (ex->type == EXCLUDE_NODE)
+		json_add_node_id(response, fieldname, &ex->u.node_id);
+	else
+		json_add_short_channel_id_dir(response, fieldname,
+					      ex->u.chan_id);
 }
 
 static void json_add_address_fields(struct json_stream *response,

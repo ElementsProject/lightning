@@ -36,6 +36,7 @@ struct wally_psbt;
 struct lease_rates;
 struct wireaddr;
 struct wireaddr_internal;
+struct route_exclusion;
 
 struct json_stream {
 	struct json_out *jout;
@@ -300,6 +301,12 @@ void json_add_node_id(struct json_stream *response,
 void json_add_channel_id(struct json_stream *response,
 			 const char *fieldname,
 			 const struct channel_id *cid);
+
+/* '"fieldname" : <value>' or "<value>" if fieldname is NULL, where <value> is
+ * either a node_id or a short_channel_id_dir. */
+void json_add_route_exclusion(struct json_stream *response,
+			      const char *fieldname,
+			      const struct route_exclusion *ex);
 
 /* '"fieldname" : <hexrev>' or "<hexrev>" if fieldname is NULL */
 void json_add_txid(struct json_stream *result, const char *fieldname,

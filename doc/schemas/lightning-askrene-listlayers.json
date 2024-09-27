@@ -32,7 +32,7 @@
           "additionalProperties": false,
           "required": [
             "layer",
-            "disabled_nodes",
+            "disabled",
             "created_channels",
             "constraints"
           ],
@@ -43,12 +43,22 @@
                 "The name of the layer."
               ]
             },
-            "disabled_nodes": {
+            "disabled": {
               "type": "array",
               "items": {
-                "type": "pubkey",
-                "description": [
-                  "The id of the disabled node."
+                "oneOf": [
+                  {
+                    "type": "pubkey",
+                    "description": [
+                      "The id of the disabled node."
+                    ]
+                  },
+                  {
+                    "type": "short_channel_id_dir",
+                    "description": [
+                      "The short channel id of the disabled channel."
+                    ]
+                  }
                 ]
               }
             },

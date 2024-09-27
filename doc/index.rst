@@ -15,6 +15,7 @@ Core Lightning Documentation
    lightning-addgossip <lightning-addgossip.7.md>
    lightning-addpsbtoutput <lightning-addpsbtoutput.7.md>
    lightning-askrene-create-channel <lightning-askrene-create-channel.7.md>
+   lightning-askrene-disable-channel <lightning-askrene-disable-channel.7.md>
    lightning-askrene-disable-node <lightning-askrene-disable-node.7.md>
    lightning-askrene-inform-channel <lightning-askrene-inform-channel.7.md>
    lightning-askrene-listlayers <lightning-askrene-listlayers.7.md>

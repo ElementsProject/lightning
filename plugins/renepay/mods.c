@@ -5,12 +5,10 @@
 #include <common/gossmods_listpeerchannels.h>
 #include <common/json_stream.h>
 #include <plugins/renepay/json.h>
-#include <plugins/renepay/mcf.h>
 #include <plugins/renepay/mods.h>
 #include <plugins/renepay/payplugin.h>
 #include <plugins/renepay/renepayconfig.h>
 #include <plugins/renepay/route.h>
-#include <plugins/renepay/routebuilder.h>
 #include <plugins/renepay/routetracker.h>
 #include <unistd.h>
 
@@ -25,6 +23,14 @@ void *payment_virtual_program[];
 /* Advance the payment virtual machine */
 struct command_result *payment_continue(struct payment *payment)
 {
+	struct command *cmd = payment_command(payment);
+
+	/* Do not advance until we complete those pending RPC calls.
+	 * If each RPC call was an execution thread this line here would wait
+	 * for all threads to arrive to this point. */
+	if (payment->pending_rpcs > 0)
+		return command_still_pending(cmd);
+
 	assert(payment->exec_state != INVALID_STATE);
 	void *op = payment_virtual_program[payment->exec_state++];
 
@@ -322,145 +328,6 @@ static struct command_result *selfpay_cb(struct payment *payment)
 REGISTER_PAYMENT_MODIFIER(selfpay, selfpay_cb);
 
 /*****************************************************************************
- * getmychannels
- *
- * Calls listpeerchannels to get and updated state of the local channels.
- */
-
-static void
-uncertainty_update_from_listpeerchannels(struct uncertainty *uncertainty,
-				      const struct short_channel_id_dir *scidd,
-				      struct amount_msat max, bool enabled,
-				      const char *buf, const jsmntok_t *chantok)
-{
-	if (!enabled)
-		return;
-
-	struct amount_msat capacity, min, gap;
-	const char *errmsg = json_scan(tmpctx, buf, chantok, "{total_msat:%}",
-				       JSON_SCAN(json_to_msat, &capacity));
-	if (errmsg)
-		goto error;
-
-	if (!uncertainty_add_channel(pay_plugin->uncertainty, scidd->scid,
-				  capacity)) {
-		errmsg = tal_fmt(
-		    tmpctx,
-		    "Unable to find/add scid=%s in the uncertainty network",
-		    fmt_short_channel_id(tmpctx, scidd->scid));
-		goto error;
-	}
-
-	if (!amount_msat_scale(&gap, capacity, 0.1) ||
-	    !amount_msat_sub(&min, max, gap))
-		min = AMOUNT_MSAT(0);
-
-	// FIXME this does not include pending HTLC of ongoing payments!
-	/* Allow a gap between min and max so that we don't use up all of our
-	 * channels' spendable sats and avoid our local error:
-	 * WIRE_TEMPORARY_CHANNEL_FAILURE: Capacity exceeded - HTLC fee: Xsat
-	 *
-	 * */
-	if (!uncertainty_set_liquidity(pay_plugin->uncertainty, scidd, min,
-				       max)) {
-		errmsg = tal_fmt(
-		    tmpctx,
-		    "Unable to set liquidity to channel scidd=%s in the "
-		    "uncertainty network.",
-		    fmt_short_channel_id_dir(tmpctx, scidd));
-		goto error;
-	}
-	return;
-
-error:
-	plugin_log(
-	    pay_plugin->plugin, LOG_UNUSUAL,
-	    "Failed to update local channel %s from listpeerchannels rpc: %s",
-	    fmt_short_channel_id(tmpctx, scidd->scid),
-	    errmsg);
-}
-
-static void gossmod_cb(struct gossmap_localmods *mods,
-		       const struct node_id *self,
-		       const struct node_id *peer,
-		       const struct short_channel_id_dir *scidd,
-		       struct amount_msat htlcmin,
-		       struct amount_msat htlcmax,
-		       struct amount_msat spendable,
-		       struct amount_msat fee_base,
-		       u32 fee_proportional,
-		       u32 cltv_delta,
-		       bool enabled,
-		       const char *buf,
-		       const jsmntok_t *chantok,
-		       struct payment *payment)
-{
-	struct amount_msat min, max;
-
-	if (scidd->dir == node_id_idx(self, peer)) {
-		/* local channels can send up to what's spendable */
-		min = AMOUNT_MSAT(0);
-		max = spendable;
-	} else {
-		/* remote channels can send up no more than spendable */
-		min = htlcmin;
-		max = amount_msat_min(spendable, htlcmax);
-	}
-
-	/* FIXME: features? */
-	gossmap_local_addchan(mods, self, peer, scidd->scid, NULL);
-
-	gossmap_local_updatechan(mods, scidd->scid, min, max,
-				 fee_base.millisatoshis, /* Raw: gossmap */
-				 fee_proportional,
-				 cltv_delta,
-				 enabled,
-				 scidd->dir);
-
-	/* Is it disabled? */
-	if (!enabled)
-		payment_disable_chan(payment, *scidd, LOG_DBG,
-				     "listpeerchannels says not enabled");
-
-	/* Also update the uncertainty network by fixing the liquidity of the
-	 * outgoing channel. If we try to set the liquidity of the incoming
-	 * channel as well we would have conflicting information because our
-	 * knowledge model does not take into account channel reserves. */
-	if (scidd->dir == node_id_idx(self, peer))
-		uncertainty_update_from_listpeerchannels(
-		    pay_plugin->uncertainty, scidd, max, enabled, buf, chantok);
-}
-
-static struct command_result *getmychannels_done(struct command *cmd,
-						 const char *buf,
-						 const jsmntok_t *result,
-						 struct payment *payment)
-{
-	// FIXME: should local gossmods be global (ie. member of pay_plugin) or
-	// local (ie. member of payment)?
-	payment->local_gossmods = gossmods_from_listpeerchannels(
-	    payment, &pay_plugin->my_id, buf, result, /* zero_rates = */ true,
-	    gossmod_cb, payment);
-
-	return payment_continue(payment);
-}
-
-static struct command_result *getmychannels_cb(struct payment *payment)
-{
-	struct command *cmd = payment_command(payment);
-	if (!cmd)
-		plugin_err(pay_plugin->plugin,
-			   "getmychannels_pay_mod: cannot get a valid cmd.");
-
-	struct out_req *req = jsonrpc_request_start(
-	    cmd->plugin, cmd, "listpeerchannels", getmychannels_done,
-	    payment_rpc_failure, payment);
-	return send_outreq(cmd->plugin, req);
-}
-
-REGISTER_PAYMENT_MODIFIER(getmychannels, getmychannels_cb);
-
-/*****************************************************************************
  * refreshgossmap
  *
  * Update the gossmap.
@@ -470,7 +337,6 @@ static struct command_result *refreshgossmap_cb(struct payment *payment)
 {
 	assert(pay_plugin->gossmap); // gossmap must be already initialized
 	assert(payment);
-	assert(payment->local_gossmods);
 
 	size_t num_channel_updates_rejected = 0;
 	bool gossmap_changed =
@@ -481,20 +347,6 @@ static struct command_result *refreshgossmap_cb(struct payment *payment)
 			   "gossmap ignored %zu channel updates",
 			   num_channel_updates_rejected);
 
-	if (gossmap_changed) {
-		gossmap_apply_localmods(pay_plugin->gossmap,
-					payment->local_gossmods);
-		int skipped_count = uncertainty_update(pay_plugin->uncertainty,
-						       pay_plugin->gossmap);
-		gossmap_remove_localmods(pay_plugin->gossmap,
-					 payment->local_gossmods);
-		if (skipped_count)
-			plugin_log(
-			    pay_plugin->plugin, LOG_UNUSUAL,
-			    "%s: uncertainty was updated but %d channels have "
-			    "been ignored.",
-			    __func__, skipped_count);
-	}
 	return payment_continue(payment);
 }
 
@@ -506,122 +358,99 @@ REGISTER_PAYMENT_MODIFIER(refreshgossmap, refreshgossmap_cb);
  * Use route hints from the invoice to update the local gossmods and uncertainty
  * network.
  */
-// TODO check how this is done in pay.c
 
-static void add_hintchan(struct payment *payment, const struct node_id *src,
-			 const struct node_id *dst, u16 cltv_expiry_delta,
-			 const struct short_channel_id scid, u32 fee_base_msat,
-			 u32 fee_proportional_millionths)
+static struct command_result *askrene_hint_done(struct command *cmd,
+						const char *buf UNUSED,
+						const jsmntok_t *result UNUSED,
+						struct payment *payment)
 {
-	assert(payment);
-	assert(payment->local_gossmods);
-
-	int dir = node_id_idx(src, dst);
-
-	const char *errmsg;
-	const struct chan_extra *ce =
-	    uncertainty_find_channel(pay_plugin->uncertainty, scid);
-
-	if (!ce) {
-		/* This channel is not public, we don't know his capacity
-		 One possible solution is set the capacity to
-		 MAX_CAP and the state to [0,MAX_CAP]. Alternatively we could
-		 the capacity to amount and state to [amount,amount], but that
-		 wouldn't work if the recepient provides more than one hints
-		 telling us to partition the payment in multiple routes. */
-		ce = uncertainty_add_channel(pay_plugin->uncertainty, scid,
-					  MAX_CAPACITY);
-		if (!ce) {
-			errmsg = tal_fmt(tmpctx,
-					 "Unable to find/add scid=%s in the "
-					 "local uncertainty network",
-					 fmt_short_channel_id(tmpctx, scid));
-			goto function_error;
-		}
-		/* FIXME: features? */
-		if (!gossmap_local_addchan(payment->local_gossmods, src, dst,
-					   scid, NULL) ||
-		    !gossmap_local_updatechan(
-			payment->local_gossmods, scid,
-			/* We assume any HTLC is allowed */
-			AMOUNT_MSAT(0), MAX_CAPACITY, fee_base_msat,
-			fee_proportional_millionths, cltv_expiry_delta, true,
-			dir)) {
-			errmsg = tal_fmt(
-			    tmpctx,
-			    "Failed to update scid=%s in the local_gossmods.",
-			    fmt_short_channel_id(tmpctx, scid));
-			goto function_error;
-		}
-	} else {
-		/* The channel is pubic and we already keep track of it in the
-		 * gossmap and uncertainty network. It would be wrong to assume
-		 * that this channel has sufficient capacity to forward the
-		 * entire payment! Doing so leads to knowledge updates in which
-		 * the known min liquidity is greater than the channel's
-		 * capacity. */
-	}
-
-	return;
-
-function_error:
-	plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
-		   "Failed to update hint channel %s: %s",
-		   fmt_short_channel_id(tmpctx, scid),
-		   errmsg);
+	assert(payment->pending_rpcs > 0);
+	payment->pending_rpcs--;
+	return payment_continue(payment);
 }
 
-static struct command_result *routehints_done(struct command *cmd UNUSED,
-					      const char *buf UNUSED,
-					      const jsmntok_t *result UNUSED,
-					      struct payment *payment)
+static struct command_result *askrene_hint_fail(struct command *cmd,
+						const char *buf,
+						const jsmntok_t *result,
+						struct payment *payment)
 {
-	// FIXME are there route hints for B12?
-	assert(payment);
-	assert(payment->local_gossmods);
-
-	const struct node_id *destination = &payment->payment_info.destination;
-	const struct route_info **routehints = payment->payment_info.routehints;
-	assert(routehints);
-	const size_t nhints = tal_count(routehints);
-	/* Hints are added to the local_gossmods. */
-	for (size_t i = 0; i < nhints; i++) {
-		/* Each one, presumably, leads to the destination */
-		const struct route_info *r = routehints[i];
-		const struct node_id *end = destination;
-
-		for (int j = tal_count(r) - 1; j >= 0; j--) {
-			add_hintchan(payment, &r[j].pubkey, end,
-				     r[j].cltv_expiry_delta,
-				     r[j].short_channel_id, r[j].fee_base_msat,
-				     r[j].fee_proportional_millionths);
-			end = &r[j].pubkey;
-		}
-	}
-
-	/* Add hints to the uncertainty network. */
-	gossmap_apply_localmods(pay_plugin->gossmap, payment->local_gossmods);
-	int skipped_count =
-	    uncertainty_update(pay_plugin->uncertainty, pay_plugin->gossmap);
-	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
-	if (skipped_count)
-		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
-			   "%s: uncertainty was updated but %d channels have "
-			   "been ignored.",
-			   __func__, skipped_count);
-
-	return payment_continue(payment);
+	plugin_log(
+	    cmd->plugin, LOG_UNUSUAL,
+	    "failed to add channel hint with askrene-create-channel: %.*s",
+	    json_tok_full_len(result), json_tok_full(buf, result));
+	return askrene_hint_done(cmd, buf, result, payment);
 }
 
 static struct command_result *routehints_cb(struct payment *payment)
 {
 	struct command *cmd = payment_command(payment);
 	assert(cmd);
-	struct out_req *req = jsonrpc_request_start(
-	    cmd->plugin, cmd, "waitblockheight", routehints_done,
-	    payment_rpc_failure, payment);
-	json_add_num(req->js, "blockheight", 0);
-	return send_outreq(cmd->plugin, req);
+
+	/* For each channel hint, if not in gossmap make a request to
+	 * askrene-create-channel
+	 * */
+	size_t num_channel_updates_rejected = 0;
+	bool gossmap_changed =
+	    gossmap_refresh(pay_plugin->gossmap, &num_channel_updates_rejected);
+	if (gossmap_changed && num_channel_updates_rejected)
+		plugin_log(pay_plugin->plugin, LOG_DBG,
+			   "gossmap ignored %zu channel updates",
+			   num_channel_updates_rejected);
+
+	const struct route_info **routehints = payment->payment_info.routehints;
+	if (!routehints)
+		return payment_continue(payment);
+
+	const struct node_id *destination = &payment->payment_info.destination;
+	const size_t nhints = tal_count(routehints);
+
+	for (size_t i = 0; i < nhints; i++) {
+		/* Each one, presumably, leads to the destination */
+		const struct route_info *r = routehints[i];
+		const struct node_id *end = destination;
+
+		for (int j = tal_count(r) - 1; j >= 0; j--) {
+			struct gossmap_chan *chan = gossmap_find_chan(
+			    pay_plugin->gossmap, &r[j].short_channel_id);
+
+			if (chan)
+				/* this channel is public, don't add a hint */
+				continue;
+
+			/* FIXME: what if the channel is local? can askrene
+			 * handle trying to add the same channel twice? */
+
+			struct out_req *req = jsonrpc_request_start(
+			    cmd->plugin, cmd, "askrene-create-channel",
+			    askrene_hint_done, askrene_hint_fail, payment);
+
+			json_add_string(req->js, "layer",
+					payment->private_layer);
+			json_add_node_id(req->js, "source", &r[j].pubkey);
+			json_add_node_id(req->js, "destination", end);
+			json_add_short_channel_id(req->js, "short_channel_id",
+						  r[j].short_channel_id);
+			json_add_u32(req->js, "fee_base_msat",
+				     r[j].fee_base_msat);
+			json_add_u32(req->js, "fee_proportional_millionths",
+				     r[j].fee_proportional_millionths);
+			json_add_u32(req->js, "delay", r[j].cltv_expiry_delta);
+
+			/* we don't have this information, we try to guess */
+			json_add_amount_msat(req->js, "htlc_minimum_msat",
+					     AMOUNT_MSAT(0));
+			json_add_amount_msat(req->js, "htlc_maximum_msat",
+					     MAX_CAPACITY);
+			json_add_amount_msat(req->js, "capacity_msat",
+					     MAX_CAPACITY);
+
+			send_outreq(cmd->plugin, req);
+			payment->pending_rpcs++;
+
+			end = &r[j].pubkey;
+		}
+	}
+	return payment_continue(payment);
 }
 
 REGISTER_PAYMENT_MODIFIER(routehints, routehints_cb);
@@ -629,12 +458,55 @@ REGISTER_PAYMENT_MODIFIER(routehints, routehints_cb);
 /*****************************************************************************
  * compute_routes
  *
- * Compute the payment routes.
+ * Get the payment routes calling (askrene)getroutes.
  */
 
-static struct command_result *compute_routes_cb(struct payment *payment)
+static bool json_to_myroute(const char *buf, const jsmntok_t *tok,
+			    struct route *route)
 {
-	assert(payment->status == PAYMENT_PENDING);
+	u64 probability_ppm;
+	const char *err =
+	    json_scan(tmpctx, buf, tok, "{probability_ppm:%,amount_msat:%}",
+		      JSON_SCAN(json_to_u64, &probability_ppm),
+		      JSON_SCAN(json_to_msat, &route->amount));
+	if (err)
+		return false;
+	route->success_prob = probability_ppm * 1e-6;
+	const jsmntok_t *path_tok = json_get_member(buf, tok, "path");
+	if (!path_tok || path_tok->type != JSMN_ARRAY)
+		return false;
+
+	route->hops = tal_arr(route, struct route_hop, path_tok->size);
+	if (!route->hops)
+		return false;
+
+	size_t i;
+	const jsmntok_t *hop_tok;
+	json_for_each_arr(i, hop_tok, path_tok)
+	{
+		struct route_hop *hop = &route->hops[i];
+		err = json_scan(tmpctx, buf, hop_tok,
+				"{short_channel_id:%,direction:%,next_node_id:%"
+				",amount_msat:%,delay:%}",
+				JSON_SCAN(json_to_short_channel_id, &hop->scid),
+				JSON_SCAN(json_to_int, &hop->direction),
+				JSON_SCAN(json_to_node_id, &hop->node_id),
+				JSON_SCAN(json_to_msat, &hop->amount),
+				JSON_SCAN(json_to_u32, &hop->delay));
+		if (err) {
+			route->hops = tal_free(route->hops);
+			return false;
+		}
+	}
+	route->amount_sent = route->hops[0].amount;
+	return true;
+}
+
+static struct command_result *getroutes_done(struct command *cmd UNUSED,
+					     const char *buf,
+					     const jsmntok_t *result,
+					     struct payment *payment)
+{
 	struct routetracker *routetracker = payment->routetracker;
 	assert(routetracker);
 
@@ -643,7 +515,53 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 		plugin_err(pay_plugin->plugin,
 			   "%s: no previously computed routes expected.",
 			   __func__);
+	routetracker->computed_routes = tal_free(routetracker->computed_routes);
 
+	const jsmntok_t *routes_tok = json_get_member(buf, result, "routes");
+	assert(routes_tok && routes_tok->type == JSMN_ARRAY);
+
+	routetracker->computed_routes =
+	    tal_arr(routetracker, struct route *, 0);
+
+	size_t i;
+	const jsmntok_t *r;
+	json_for_each_arr(i, r, routes_tok)
+	{
+		struct route *route = new_route(
+		    routetracker->computed_routes, payment->groupid,
+		    payment->next_partid++, payment->payment_info.payment_hash,
+		    AMOUNT_MSAT(0), AMOUNT_MSAT(0));
+		assert(route);
+		tal_arr_expand(&routetracker->computed_routes, route);
+		bool success = json_to_myroute(buf, r, route);
+		if (!success)
+			plugin_err(pay_plugin->plugin,
+				   "%s: failed to parse route from json: %.*s",
+				   __func__, json_tok_full_len(r),
+				   json_tok_full(buf, r));
+		const size_t pathlen = tal_count(route->hops);
+		if (!amount_msat_eq(route->amount,
+				    route->hops[pathlen - 1].amount))
+			plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
+				   "%s: route partid=%" PRIu64
+				   " delivers %s which is different from what "
+				   "it claims to "
+				   "deliver %s",
+				   __func__, route->key.partid,
+				   fmt_amount_msat(
+				       tmpctx, route->hops[pathlen - 1].amount),
+				   fmt_amount_msat(tmpctx, route->amount));
+		/* FIXME: it seems that the route we get in response claims to
+		 * deliver an amount which is different to the amount in the
+		 * last hop. */
+		route->amount = route->hops[pathlen - 1].amount;
+	}
+	return payment_continue(payment);
+}
+
+static struct command_result *compute_routes_cb(struct payment *payment)
+{
+	assert(payment->status == PAYMENT_PENDING);
 	struct amount_msat feebudget, fees_spent, remaining;
 
 	/* Total feebudget  */
@@ -674,48 +592,29 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 		return payment_continue(payment);
 	}
 
-	enum jsonrpc_errcode errcode;
-	const char *err_msg = NULL;
-
-	gossmap_apply_localmods(pay_plugin->gossmap, payment->local_gossmods);
-
-	/* get_routes returns the answer, we assign it to the computed_routes,
-	 * that's why we need to tal_free the older array. Maybe it would be
-	 * better to pass computed_routes as a reference? */
-	routetracker->computed_routes = tal_free(routetracker->computed_routes);
-
-	// TODO: add an algorithm selector here
-	/* We let this return an unlikely path, as it's better to try  once than
-	 * simply refuse.  Plus, models are not truth! */
-	routetracker->computed_routes = get_routes(
-					    routetracker,
-					    &payment->payment_info,
-					    &pay_plugin->my_id,
-					    &payment->payment_info.destination,
-					    pay_plugin->gossmap,
-					    pay_plugin->uncertainty,
-					    payment->disabledmap,
-					    remaining,
-					    feebudget,
-					    &payment->next_partid,
-					    payment->groupid,
-					    &errcode,
-					    &err_msg);
-	/* Otherwise the error message remains a child of the routetracker. */
-	err_msg = tal_steal(tmpctx, err_msg);
-
-	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
-
-	/* Couldn't feasible route, we stop. */
-	if (!routetracker->computed_routes ||
-	    tal_count(routetracker->computed_routes) == 0) {
-		if (err_msg == NULL)
-			err_msg = tal_fmt(
-			    tmpctx, "get_routes returned NULL error message");
-		return payment_fail(payment, errcode, "%s", err_msg);
-	}
-
-	return payment_continue(payment);
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
+	struct out_req *req =
+	    jsonrpc_request_start(cmd->plugin, cmd, "getroutes", getroutes_done,
+				  payment_rpc_failure, payment);
+	// FIXME: when multi-destination is needed to fully support blinded path
+	// FIXME: we could have more than one algorithm to compute routes:
+	// Minimum Cost Flows or the Max-Expected-Value (recently discussed with
+	// Rene) or Dijkstra
+	json_add_node_id(req->js, "source", &pay_plugin->my_id);
+	json_add_node_id(req->js, "destination",
+			 &payment->payment_info.destination);
+	json_add_amount_msat(req->js, "amount_msat", remaining);
+	json_array_start(req->js, "layers");
+	// FIXME: put here the layers that we use
+	json_add_string(req->js, NULL, "auto.sourcefree");
+	json_add_string(req->js, NULL, "auto.localchans");
+	json_add_string(req->js, NULL, RENEPAY_LAYER);
+	json_add_string(req->js, NULL, payment->private_layer);
+	json_array_end(req->js);
+	json_add_amount_msat(req->js, "maxfee_msat", feebudget);
+	json_add_u32(req->js, "final_cltv", payment->payment_info.final_cltv);
+	return send_outreq(cmd->plugin, req);
 }
 
 REGISTER_PAYMENT_MODIFIER(compute_routes, compute_routes_cb);
@@ -726,6 +625,57 @@ REGISTER_PAYMENT_MODIFIER(compute_routes, compute_routes_cb);
  * This payment modifier takes the payment routes and starts the payment
  * request calling sendpay.
  */
+
+struct sendpay_request {
+	struct payment *payment;
+	struct route *route;
+};
+
+static struct command_result *sendpay_done(struct command *cmd, const char *buf,
+					   const jsmntok_t *result,
+					   struct sendpay_request *data)
+{
+	struct payment *payment = data->payment;
+	tal_free(data);
+
+	assert(payment->pending_rpcs > 0);
+	payment->pending_rpcs--;
+	return payment_continue(payment);
+}
+
+/* sendpay really only fails immediately in two ways:
+ * 1. We screwed up and misused the API.
+ * 2. The first peer is disconnected.
+ */
+static struct command_result *sendpay_fail(struct command *cmd, const char *buf,
+					   const jsmntok_t *result,
+					   struct sendpay_request *data)
+{
+	struct payment *payment = data->payment;
+	struct route *route = data->route;
+	const char *err =
+	    json_scan(tmpctx, buf, result, "{code:%,message:%}",
+		      JSON_SCAN(json_to_jsonrpc_errcode, &route->final_error),
+		      JSON_SCAN_TAL(route, json_strdup, &route->final_msg));
+	if (err)
+		plugin_err(cmd->plugin,
+			   "Unable to parse sendpay error: %s, json: %.*s", err,
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+
+	payment_note(payment, LOG_INFORM,
+		     "Sendpay failed: partid=%" PRIu64
+		     " errorcode:%d message=%s",
+		     route->key.partid, route->final_error, route->final_msg);
+
+	if (route->final_error != PAY_TRY_OTHER_ROUTE)
+		plugin_log(cmd->plugin, LOG_UNUSUAL,
+			   "Strange error from sendpay: %.*s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+
+	return sendpay_done(cmd, buf, result, data);
+}
 
 static struct command_result *send_routes_cb(struct payment *payment)
 {
@@ -744,7 +694,57 @@ static struct command_result *send_routes_cb(struct payment *payment)
 	for (size_t i = 0; i < tal_count(routetracker->computed_routes); i++) {
 		struct route *route = routetracker->computed_routes[i];
 
-		route_sendpay_request(cmd, take(route), payment);
+		const struct payment_info *pinfo = &payment->payment_info;
+
+		struct sendpay_request *data = tal(cmd, struct sendpay_request);
+		data->payment = payment;
+		data->route = route;
+
+		struct out_req *req =
+		    jsonrpc_request_start(cmd->plugin, cmd, "sendpay",
+					  sendpay_done, sendpay_fail, data);
+
+		json_add_route_hops(req->js, "route", route->hops);
+		json_add_sha256(req->js, "payment_hash", &pinfo->payment_hash);
+		json_add_u64(req->js, "partid", route->key.partid);
+		json_add_u64(req->js, "groupid", route->key.groupid);
+
+		/* FIXME: sendpay has a check that we don't total more than
+		 * the exact amount, if we're setting partid (i.e. MPP).
+		 * However, we always set partid, and we add a shadow amount if
+		 * we've only have one part, so we have to use that amount
+		 * here.
+		 *
+		 * The spec was loosened so you are actually allowed
+		 * to overpay, so this check is now overzealous. */
+		const size_t pathlen = tal_count(route->hops);
+		if (pathlen > 0 &&
+		    amount_msat_greater(route_delivers(route), pinfo->amount))
+			json_add_amount_msat(req->js, "amount_msat",
+					     route_delivers(route));
+		else
+			json_add_amount_msat(req->js, "amount_msat",
+					     pinfo->amount);
+
+		if (pinfo->payment_secret)
+			json_add_secret(req->js, "payment_secret",
+					pinfo->payment_secret);
+
+		/* FIXME: some of these fields might not be required for all
+		 * payment parts. */
+		json_add_string(req->js, "bolt11", pinfo->invstr);
+
+		if (pinfo->payment_metadata)
+			json_add_hex_talarr(req->js, "payment_metadata",
+					    pinfo->payment_metadata);
+		if (pinfo->label)
+			json_add_string(req->js, "label", pinfo->label);
+		if (pinfo->description)
+			json_add_string(req->js, "description",
+					pinfo->description);
+
+		send_outreq(cmd->plugin, req);
+		payment->pending_rpcs++;
 
 		payment_note(payment, LOG_INFORM,
 			     "Sent route request: partid=%" PRIu64
@@ -755,11 +755,149 @@ static struct command_result *send_routes_cb(struct payment *payment)
 			     fmt_amount_msat(tmpctx, route_fees(route)),
 			     route_delay(route), fmt_route_path(tmpctx, route));
 	}
-	tal_resize(&routetracker->computed_routes, 0);
 	return payment_continue(payment);
 }
 
 REGISTER_PAYMENT_MODIFIER(send_routes, send_routes_cb);
+
+/*****************************************************************************
+ * reserve_routes
+ *
+ * Reserves liquidity in the uncertainty network corresponding to the routes
+ * that we send by calling askrene-reserve.
+ */
+
+static struct command_result *
+askrene_disable_channel_done(struct command *cmd, const char *buf UNUSED,
+			     const jsmntok_t *result UNUSED,
+			     struct payment *payment);
+
+static struct command_result *
+askrene_disable_channel_fail(struct command *cmd, const char *buf,
+			     const jsmntok_t *result, struct payment *payment);
+
+struct reserve_request{
+	struct payment *payment;
+	struct route *route;
+};
+
+static struct command_result *
+askrene_reserve_continue(struct reserve_request *r)
+{
+	struct payment *payment = r->payment;
+	r = tal_free(r);
+	assert(payment->pending_rpcs > 0);
+	payment->pending_rpcs--;
+	return payment_continue(payment);
+}
+
+static struct command_result *
+askrene_reserve_done(struct command *cmd, const char *buf UNUSED,
+		     const jsmntok_t *result UNUSED, struct reserve_request *r)
+{
+	route_mark_reserved(r->route);
+	return askrene_reserve_continue(r);
+}
+
+static struct command_result *askrene_reserve_fail(struct command *cmd,
+						   const char *buf,
+						   const jsmntok_t *result,
+						   struct reserve_request *r)
+{
+	plugin_log(cmd->plugin, LOG_UNUSUAL,
+		   "failed to reserve liquidity with askrene-reserve: %.*s",
+		   json_tok_full_len(result), json_tok_full(buf, result));
+	return askrene_reserve_continue(r);
+}
+
+static struct command_result *reserve_routes_cb(struct payment *payment)
+{
+	assert(payment);
+	struct routetracker *routetracker = payment->routetracker;
+	assert(routetracker);
+	if (!routetracker->computed_routes ||
+	    tal_count(routetracker->computed_routes) == 0) {
+		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
+			   "%s: there are no new routes, skipping.", __func__);
+		return payment_continue(payment);
+	}
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
+	for (size_t i = 0; i < tal_count(routetracker->computed_routes); i++) {
+		struct route *route = routetracker->computed_routes[i];
+			assert(route->hops);
+			assert(tal_count(route->hops));
+
+		// FIXME: assuming jsonrpc_errcode == 0 means no error
+		if (route->final_error) {
+
+			/* Disable the first channel in the route */
+			const struct short_channel_id_dir scidd = {
+			    .scid = route->hops[0].scid,
+			    .dir = route->hops[0].direction};
+
+			plugin_log(cmd->plugin, LOG_DBG,
+				   "route(partid=%" PRIu64
+				   ") failed at sendpay with error %s, "
+				   "disabling the first "
+				   "channel %s",
+				   route->key.partid, route->final_msg,
+				   fmt_short_channel_id_dir(tmpctx, &scidd));
+
+			struct out_req *req = jsonrpc_request_start(
+			    cmd->plugin, cmd, "askrene-disable-channel",
+			    askrene_disable_channel_done,
+			    askrene_disable_channel_fail, payment);
+
+			/* This constraint only applies to this payment */
+			json_add_string(req->js, "layer",
+					payment->private_layer);
+			json_add_short_channel_id(req->js, "short_channel_id",
+						  scidd.scid);
+			json_add_num(req->js, "direction", scidd.dir);
+			send_outreq(cmd->plugin, req);
+
+			payment->pending_rpcs++;
+			tal_free(route);
+		} else {
+			// FIXME: don't forget to unreserve, maybe add a
+			// destructor to the route that calls unreserve
+			struct reserve_request *r =
+			    tal(NULL, struct reserve_request);
+			r->payment = payment;
+			r->route = route;
+
+			struct out_req *req = jsonrpc_request_start(
+			    cmd->plugin, cmd, "askrene-reserve",
+			    askrene_reserve_done, askrene_reserve_fail, r);
+
+			json_array_start(req->js, "path");
+			for (size_t j = 0; j < tal_count(route->hops); j++) {
+				json_object_start(req->js, NULL);
+				json_add_short_channel_id(req->js,
+							  "short_channel_id",
+							  route->hops[j].scid);
+				json_add_num(req->js, "direction",
+					     route->hops[j].direction);
+				json_add_amount_msat(req->js, "amount_msat",
+						     route->hops[j].amount);
+				json_object_end(req->js);
+			}
+			json_array_end(req->js);
+
+			send_outreq(cmd->plugin, req);
+
+			payment->pending_rpcs++;
+			// TODO: check this
+			route_pending_register(payment->routetracker,
+					       take(route));
+		}
+	}
+	tal_resize(&routetracker->computed_routes, 0);
+	return payment_continue(payment);
+}
+
+REGISTER_PAYMENT_MODIFIER(reserve_routes, reserve_routes_cb);
 
 /*****************************************************************************
  * sleep
@@ -794,9 +932,6 @@ REGISTER_PAYMENT_MODIFIER(sleep, sleep_cb);
 static struct command_result *collect_results_cb(struct payment *payment)
 {
 	assert(payment);
-	payment->have_results = false;
-	payment->retry = false;
-
 	/* pending sendpay callbacks should be zero */
 	if (!routetracker_have_results(payment->routetracker))
 		return payment_continue(payment);
@@ -806,7 +941,8 @@ static struct command_result *collect_results_cb(struct payment *payment)
 	enum jsonrpc_errcode final_error = LIGHTNINGD;
 	const char *final_msg = NULL;
 
-	payment_collect_results(payment, &payment_preimage, &final_error, &final_msg);
+	tal_collect_results(tmpctx, payment->routetracker, &payment_preimage,
+			    &final_error, &final_msg);
 
 	if (payment_preimage) {
 		/* If we have the preimage that means one succeed, we
@@ -830,25 +966,6 @@ static struct command_result *collect_results_cb(struct payment *payment)
 		 * inmediately finish the payment. */
 		return payment_fail(payment, final_error, "%s", final_msg);
 	}
-
-	if (amount_msat_greater_eq(payment->total_delivering,
-				   payment->payment_info.amount)) {
-		/* There are no succeeds but we are still pending delivering the
-		 * entire payment. We still need to collect more results. */
-		payment->have_results = false;
-		payment->retry = false;
-	} else {
-		/* We have some failures so that now we are short of
-		 * total_delivering, we may retry. */
-		payment->have_results = true;
-
-		// FIXME: we seem to always retry here if we don't fail
-		// inmediately. But I am going to leave this variable here,
-		// cause we might decide in the future to put some conditions on
-		// retries, like a maximum number of retries.
-		payment->retry = true;
-	}
-
 	return payment_continue(payment);
 }
 
@@ -1077,17 +1194,34 @@ REGISTER_PAYMENT_MODIFIER(pendingsendpays, pendingsendpays_cb);
  * Reduce the knowledge of the network as time goes by.
  */
 
+static struct command_result *askreneage_success(struct command *cmd UNUSED,
+						 const char *buf UNUSED,
+						 const jsmntok_t *result UNUSED,
+						 struct payment *payment)
+{
+	return payment_continue(payment);
+}
+
+/* FIXME: we lack an RPC call to request askrene to relax constraints by a
+ * smooth amount, instead we will need to forget all knowledge that exceeds a
+ * certain date. */
 static struct command_result *knowledgerelax_cb(struct payment *payment)
 {
-	const u64 now_sec = time_now().ts.tv_sec;
-	enum renepay_errorcode err = uncertainty_relax(
-	    pay_plugin->uncertainty, now_sec - pay_plugin->last_time);
-	if (err)
-		plugin_err(pay_plugin->plugin,
-			   "uncertainty_relax failed with error %s",
-			   renepay_errorcode_name(err));
-	pay_plugin->last_time = now_sec;
-	return payment_continue(payment);
+	/* Remove all knowledge older than TIMER_FORGET_SEC (number of seconds
+	 * in the past). */
+	const u64 cutoff = time_now().ts.tv_sec - TIMER_FORGET_SEC;
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
+
+	/* askrene-age may fail if the layer has not yet been created, in that
+	 * case we do nothing. */
+	struct out_req *req = jsonrpc_request_start(
+	    cmd->plugin, cmd, "askrene-age", askreneage_success,
+	    askreneage_success, payment);
+
+	json_add_string(req->js, "layer", RENEPAY_LAYER);
+	json_add_u64(req->js, "cutoff", cutoff);
+	return send_outreq(cmd->plugin, req);
 }
 
 REGISTER_PAYMENT_MODIFIER(knowledgerelax, knowledgerelax_cb);
@@ -1110,24 +1244,71 @@ REGISTER_PAYMENT_MODIFIER(knowledgerelax, knowledgerelax_cb);
  * FIXME: shall we set these threshold parameters as plugin options?
  */
 
+static struct command_result *
+askrene_disable_channel_done(struct command *cmd, const char *buf UNUSED,
+			     const jsmntok_t *result UNUSED,
+			     struct payment *payment)
+{
+	assert(payment->pending_rpcs > 0);
+	payment->pending_rpcs--;
+	return payment_continue(payment);
+}
+
+static struct command_result *
+askrene_disable_channel_fail(struct command *cmd, const char *buf,
+			     const jsmntok_t *result, struct payment *payment)
+{
+	plugin_log(
+	    cmd->plugin, LOG_UNUSUAL,
+	    "failed to disable channel with askrene-disable-channel: %.*s",
+	    json_tok_full_len(result), json_tok_full(buf, result));
+	return askrene_disable_channel_done(cmd, buf, result, payment);
+}
+
+static struct command_result *
+askrene_disable_node_done(struct command *cmd, const char *buf UNUSED,
+			  const jsmntok_t *result UNUSED,
+			  struct payment *payment)
+{
+	assert(payment->pending_rpcs > 0);
+	payment->pending_rpcs--;
+	return payment_continue(payment);
+}
+
+static struct command_result *askrene_disable_node_fail(struct command *cmd,
+							const char *buf,
+							const jsmntok_t *result,
+							struct payment *payment)
+{
+	plugin_log(cmd->plugin, LOG_UNUSUAL,
+		   "failed to disable node with askrene-disable-node: %.*s",
+		   json_tok_full_len(result), json_tok_full(buf, result));
+	return askrene_disable_node_done(cmd, buf, result, payment);
+}
+
 static struct command_result *channelfilter_cb(struct payment *payment)
 {
 	assert(payment);
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
 	assert(pay_plugin->gossmap);
 	const double HTLC_MAX_FRACTION = 0.01; // 1%
-	const u64 HTLC_MAX_STOP_MSAT = 1000000000; // 1M sats
+	const struct amount_msat HTLC_MAX_STOP_MSAT =
+	    AMOUNT_MSAT(1000000000); // 1M sats
+	struct amount_msat htlc_max_threshold;
 
-	u64 disabled_count = 0;
+	if (!amount_msat_scale(&htlc_max_threshold,
+			       payment->payment_info.amount, HTLC_MAX_FRACTION))
+		plugin_err(cmd->plugin, "%s: error scaling amount_msat",
+			   __func__);
 
-
-	u64 htlc_max_threshold = HTLC_MAX_FRACTION * payment->payment_info
-		.amount.millisatoshis; /* Raw: a fraction of this amount. */
 	/* Don't exclude channels with htlc_max above HTLC_MAX_STOP_MSAT even if
 	 * that represents a fraction of the payment smaller than
 	 * HTLC_MAX_FRACTION. */
-	htlc_max_threshold = MIN(htlc_max_threshold, HTLC_MAX_STOP_MSAT);
+	htlc_max_threshold =
+	    amount_msat_min(htlc_max_threshold, HTLC_MAX_STOP_MSAT);
 
-	gossmap_apply_localmods(pay_plugin->gossmap, payment->local_gossmods);
+	u64 num_disabled = 0;
 	for (const struct gossmap_node *node =
 		 gossmap_first_node(pay_plugin->gossmap);
 	     node; node = gossmap_next_node(pay_plugin->gossmap, node)) {
@@ -1135,29 +1316,88 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 			int dir;
 			const struct gossmap_chan *chan = gossmap_nth_chan(
 			    pay_plugin->gossmap, node, i, &dir);
-			const u64 htlc_max =
-			    fp16_to_u64(chan->half[dir].htlc_max);
-			if (htlc_max < htlc_max_threshold) {
+			if (amount_msat_greater_fp16(
+				htlc_max_threshold, chan->half[dir].htlc_max)) {
 				struct short_channel_id_dir scidd = {
 				    .scid = gossmap_chan_scid(
 					pay_plugin->gossmap, chan),
 				    .dir = dir};
-				disabledmap_add_channel(payment->disabledmap,
-							scidd);
-				disabled_count++;
+
+				struct out_req *req = jsonrpc_request_start(
+				    cmd->plugin, cmd, "askrene-disable-channel",
+				    askrene_disable_channel_done,
+				    askrene_disable_channel_fail, payment);
+
+				/* This constraint only applies to this payment
+				 */
+				json_add_string(req->js, "layer",
+						payment->private_layer);
+				json_add_short_channel_id(
+				    req->js, "short_channel_id", scidd.scid);
+				json_add_num(req->js, "direction", scidd.dir);
+				send_outreq(cmd->plugin, req);
+
+				payment->pending_rpcs++;
+				num_disabled++;
 			}
 		}
 	}
-	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
+
 	// FIXME: prune the network over other parameters, eg. capacity,
 	// fees, ...
 	plugin_log(pay_plugin->plugin, LOG_DBG,
 		   "channelfilter: disabling %" PRIu64 " channels.",
-		   disabled_count);
+		   num_disabled);
 	return payment_continue(payment);
 }
 
 REGISTER_PAYMENT_MODIFIER(channelfilter, channelfilter_cb);
+
+
+/*****************************************************************************
+ * manualexclusions
+ *
+ * Disable some channels and nodes specified in the command line or during our
+ * internal workflow.
+ */
+
+static struct command_result *manualexclusions_cb(struct payment *payment)
+{
+	assert(payment);
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
+
+	for(size_t i=0;i<tal_count(payment->exclusions);i++){
+		const struct route_exclusion *ex = &payment->exclusions[i];
+		if (ex->type == EXCLUDE_CHANNEL) {
+			struct out_req *req = jsonrpc_request_start(
+			    cmd->plugin, cmd, "askrene-disable-channel",
+			    askrene_disable_channel_done,
+			    askrene_disable_channel_fail, payment);
+			json_add_string(req->js, "layer",
+					payment->private_layer);
+			json_add_short_channel_id(req->js, "short_channel_id",
+						  ex->u.chan_id.scid);
+			json_add_num(req->js, "direction", ex->u.chan_id.dir);
+			send_outreq(cmd->plugin, req);
+			payment->pending_rpcs++;
+		} else {
+			struct out_req *req = jsonrpc_request_start(
+			    cmd->plugin, cmd, "askrene-disable-node",
+			    askrene_disable_node_done,
+			    askrene_disable_node_fail, payment);
+			json_add_string(req->js, "layer",
+					payment->private_layer);
+			json_add_node_id(req->js, "node", &ex->u.node_id);
+			send_outreq(cmd->plugin, req);
+			payment->pending_rpcs++;
+		}
+	}
+	tal_resize(&payment->exclusions, 0);
+	return payment_continue(payment);
+}
+
+REGISTER_PAYMENT_MODIFIER(manualexclusions, manualexclusions_cb);
 
 /*****************************************************************************
  * alwaystrue
@@ -1177,7 +1417,7 @@ REGISTER_PAYMENT_CONDITION(alwaystrue, alwaystrue_cb);
  */
 static bool nothaveresults_cb(const struct payment *payment)
 {
-	return !payment->have_results;
+	return !routetracker_have_results(payment->routetracker);
 }
 
 REGISTER_PAYMENT_CONDITION(nothaveresults, nothaveresults_cb);
@@ -1186,8 +1426,10 @@ REGISTER_PAYMENT_CONDITION(nothaveresults, nothaveresults_cb);
  * retry
  *
  * A payment condition that returns true if we should retry the payment.
+ *
+ * FIXME: always true?
  */
-static bool retry_cb(const struct payment *payment) { return payment->retry; }
+static bool retry_cb(const struct payment *payment) { return true; }
 
 REGISTER_PAYMENT_CONDITION(retry, retry_cb);
 
@@ -1212,23 +1454,23 @@ void *payment_virtual_program[] = {
     /*0*/ OP_CALL, &previoussuccess_pay_mod,
     /*2*/ OP_CALL, &selfpay_pay_mod,
     /*4*/ OP_CALL, &knowledgerelax_pay_mod,
-    /*6*/ OP_CALL, &getmychannels_pay_mod,
-    /*8*/ OP_CALL, &refreshgossmap_pay_mod,
-    /*10*/ OP_CALL, &routehints_pay_mod,
-    /*12*/OP_CALL, &channelfilter_pay_mod,
+    /*6*/ OP_CALL, &refreshgossmap_pay_mod,
+    /*8*/ OP_CALL, &routehints_pay_mod,
+    /*10*/OP_CALL, &channelfilter_pay_mod,
     // TODO shadow_additions
     /* do */
+            /*12*/OP_CALL, &manualexclusions_pay_mod,
 	    /*14*/ OP_CALL, &pendingsendpays_pay_mod,
 	    /*16*/ OP_CALL, &checktimeout_pay_mod,
-	    /*18*/ OP_CALL, &refreshgossmap_pay_mod,
-	    /*20*/ OP_CALL, &compute_routes_pay_mod,
-	    /*22*/ OP_CALL, &send_routes_pay_mod,
+	    /*18*/ OP_CALL, &compute_routes_pay_mod,
+	    /*20*/ OP_CALL, &send_routes_pay_mod,
+	    /*22*/ OP_CALL, &reserve_routes_pay_mod,
 	    /*do*/
 		    /*24*/ OP_CALL, &sleep_pay_mod,
 		    /*26*/ OP_CALL, &collect_results_pay_mod,
 	    /*while*/
 	    /*28*/ OP_IF, &nothaveresults_pay_cond, (void *)24,
     /* while */
-    /*31*/ OP_IF, &retry_pay_cond, (void *)14,
+    /*31*/ OP_IF, &retry_pay_cond, (void *)12,
     /*34*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
-    /*36*/ NULL};
+    /*32*/ NULL};
