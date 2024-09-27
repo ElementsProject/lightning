@@ -913,8 +913,6 @@ REGISTER_PAYMENT_MODIFIER(sleep, sleep_cb);
 static struct command_result *collect_results_cb(struct payment *payment)
 {
 	assert(payment);
-	payment->retry = false;
-
 	/* pending sendpay callbacks should be zero */
 	if (!routetracker_have_results(payment->routetracker))
 		return payment_continue(payment);
@@ -948,23 +946,6 @@ static struct command_result *collect_results_cb(struct payment *payment)
 		 * inmediately finish the payment. */
 		return payment_fail(payment, final_error, "%s", final_msg);
 	}
-
-	if (amount_msat_greater_eq(payment->total_delivering,
-				   payment->payment_info.amount)) {
-		/* There are no succeeds but we are still pending delivering the
-		 * entire payment. We still need to collect more results. */
-		payment->retry = false;
-	} else {
-		/* We have some failures so that now we are short of
-		 * total_delivering, we may retry. */
-
-		// FIXME: we seem to always retry here if we don't fail
-		// inmediately. But I am going to leave this variable here,
-		// cause we might decide in the future to put some conditions on
-		// retries, like a maximum number of retries.
-		payment->retry = true;
-	}
-
 	return payment_continue(payment);
 }
 
@@ -1425,8 +1406,10 @@ REGISTER_PAYMENT_CONDITION(nothaveresults, nothaveresults_cb);
  * retry
  *
  * A payment condition that returns true if we should retry the payment.
+ *
+ * FIXME: always true?
  */
-static bool retry_cb(const struct payment *payment) { return payment->retry; }
+static bool retry_cb(const struct payment *payment) { return true; }
 
 REGISTER_PAYMENT_CONDITION(retry, retry_cb);
 

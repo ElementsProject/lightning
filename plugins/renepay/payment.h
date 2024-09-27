@@ -58,9 +58,6 @@ struct payment {
 	/* Here we queue channel and node disabling orders. */
 	struct route_exclusion *exclusions;
 
-	/* Flag to indicate wether we would like to retry the payment. */
-	bool retry;
-
 	/* Timer we use to wait for results. */
 	struct plugin_timer *waitresult_timer;
 

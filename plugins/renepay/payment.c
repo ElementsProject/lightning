@@ -109,7 +109,6 @@ struct payment *payment_new(
 	for (size_t i = 0; i < tal_count(p->exclusions); i++)
 		p->exclusions[i] = *exclusions[i];
 
-	p->retry = false;
 	p->waitresult_timer = NULL;
 
 	p->routetracker = new_routetracker(p, p);
@@ -209,7 +208,6 @@ bool payment_update(
 	for (size_t i = 0; i < tal_count(p->exclusions); i++)
 		p->exclusions[i] = *exclusions[i];
 
-	p->retry = false;
 	p->waitresult_timer = tal_free(p->waitresult_timer);
 
 	return true;
