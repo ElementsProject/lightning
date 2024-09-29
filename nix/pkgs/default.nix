@@ -2,6 +2,7 @@
   self,
   lib,
   pkgs,
+  config,
 }:
 with pkgs;
 let
@@ -28,12 +29,10 @@ stdenv.mkDerivation {
       autoconf
       autogen
       automake
-      cargo
       gettext
       gitMinimal
       libtool
       lowdown
-      protobuf
       py3
       unzip
       which
@@ -83,6 +82,7 @@ stdenv.mkDerivation {
   # The `clnrest` plugin requires a Python environment to run
   postInstall = ''
     rm -r $out/libexec/c-lightning/plugins/clnrest
+    cp ${config.packages.rust}/bin/cln-grpc $out/libexec/c-lightning/plugins
   '';
 
   meta = with lib; {
