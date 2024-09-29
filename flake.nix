@@ -3,7 +3,17 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+
     flake-parts.url = "github:hercules-ci/flake-parts";
+
+    crane.url = "github:ipetkov/crane";
+
+    treefmt-nix.url = "github:numtide/treefmt-nix";
+
+    advisory-db = {
+      url = "github:rustsec/advisory-db";
+      flake = false;
+    };
   };
 
   outputs =
@@ -15,18 +25,25 @@
     }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = nixpkgs.lib.systems.flakeExposed;
+      imports = [
+        inputs.treefmt-nix.flakeModule
+        ./nix/pkgs/flake-module.nix
+        ./nix/checks/flake-module.nix
+        ./nix/shells.nix
+        ./nix/treefmt.nix
+      ];
       perSystem =
         {
           config,
           pkgs,
           self',
+          system,
           ...
         }:
         {
-          packages = rec {
-            # This package depends on git submodules so use a shell command like 'nix build .?submodules=1'.
-            cln = pkgs.callPackage nix/pkgs/default.nix { inherit self pkgs; };
-            default = cln;
+          _module.args.pkgs = import inputs.nixpkgs {
+            inherit system;
+            overlays = [ (final: prev: { craneLib = (inputs.crane.mkLib pkgs); }) ];
           };
           apps = {
             lightningd = {
@@ -42,10 +59,6 @@
               program = "${self'.packages.cln}/bin/reckless";
             };
           };
-          checks = {
-            cln = self'.packages.cln;
-          };
-          formatter = pkgs.nixfmt-rfc-style;
         };
     };
 }
