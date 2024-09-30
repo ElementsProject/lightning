@@ -8,8 +8,8 @@ with pkgs;
 let
   version = builtins.readFile ../../.version;
   py3 = python3.withPackages (p: [
-    p.mako
     p.grpcio-tools
+    p.mako
   ]);
 in
 stdenv.mkDerivation {
@@ -19,6 +19,7 @@ stdenv.mkDerivation {
   makeFlags = [
     "VERSION=${version}"
     "MTIME=${self.lastModifiedDate}"
+    "NO_PYTHON=1"
   ];
 
   # when building on darwin we need cctools to provide the correct libtool
@@ -33,6 +34,7 @@ stdenv.mkDerivation {
       gitMinimal
       libtool
       lowdown
+      pkgconf
       py3
       unzip
       which
@@ -79,9 +81,7 @@ stdenv.mkDerivation {
     stdenv.isDarwin && stdenv.isx86_64
   ) "-Wno-error=gnu-folding-constant";
 
-  # The `clnrest` plugin requires a Python environment to run
   postInstall = ''
-    rm -r $out/libexec/c-lightning/plugins/clnrest
     cp ${config.packages.rust}/bin/cln-grpc $out/libexec/c-lightning/plugins
   '';
 
