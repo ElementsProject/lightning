@@ -3,6 +3,7 @@
   lib,
   pkgs,
   config,
+  postgresSupport ? false,
 }:
 with pkgs;
 let
@@ -32,6 +33,7 @@ stdenv.mkDerivation {
       automake
       gettext
       gitMinimal
+      postgresql
       libtool
       lowdown
       pkgconf
@@ -39,6 +41,7 @@ stdenv.mkDerivation {
       unzip
       which
     ]
+    ++ lib.optionals postgresSupport [ postgresql ]
     ++ lib.optionals stdenv.isDarwin [
       cctools
       darwin.autoSignDarwinBinariesHook
