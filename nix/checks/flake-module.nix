@@ -8,6 +8,7 @@
     {
       checks = {
         cln = config.packages.cln;
+        cln-postgres = config.packages.cln-postgres;
         rust = config.packages.rust;
         cargo-audit = pkgs.craneLib.cargoAudit {
           src = ../../.;
