@@ -2603,6 +2603,8 @@ local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
 	 * otherwise start out as excluded and remain so until
 	 * forever. */
 	channel_hint_set_update(payment_root(p)->hints, time_now());
+	p->mods = gossmods_from_listpeerchannels(
+	    p, p->local_id, buffer, toks, true, gossmod_add_localchan, NULL);
 
 	payment_continue(p);
 	return command_still_pending(cmd);
