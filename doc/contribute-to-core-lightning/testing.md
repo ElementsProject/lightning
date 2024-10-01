@@ -43,6 +43,10 @@ There are four kinds of tests:
 
   You can also append `-k TESTNAME` to run a single test.  Environment variables `DEBUG_SUBD=<subdaemon>` and `TIMEOUT=<seconds>` can be useful for debugging subdaemons on individual tests, and `DEBUG_LIGHTNINGD` for attaching a debugger to each `lightningd` instance created.
 
+  Alternatively, to run a specific test via the `Makefile`, you can specify the test by setting the environment variable `PYTEST_TESTS`:
+
+  `PYTEST_TESTS="tests/test_askrene.py::test_layers" make pytest`
+
 - **pylightning tests** - will check contrib pylightning for codestyle and run the tests in `contrib/pylightning/tests` afterwards:
 
   `make check-python`
@@ -52,14 +56,28 @@ Our Github Actions instance (see `.github/workflows/*.yml`) runs all these for e
 #### Additional Environment Variables
 
 ```text
-TEST_CHECK_DBSTMTS=[0|1]            - When running blackbox tests, this will
-                                      load a plugin that logs all compiled
-                                      and expanded database statements.
-                                      Note: Only SQLite3.
-TEST_DB_PROVIDER=[sqlite3|postgres] - Selects the database to use when running
-                                      blackbox tests.
-EXPERIMENTAL_DUAL_FUND=[0|1]        - Enable dual-funding tests.
-EXPERIMENTAL_SPLICING=[0|1]         - Enable splicing tests.
+EXPERIMENTAL_DUAL_FUND=[0|1]          - Enable dual-funding tests.
+EXPERIMENTAL_SPLICING=[0|1]           - Enable splicing tests.
+TEST_CHECK_DBSTMTS=[0|1]              - When running blackbox tests, this will
+                                        load a plugin that logs all compiled
+                                        and expanded database statements.
+                                        Note: Only SQLite3.
+TEST_DB_PROVIDER=[sqlite3|postgres]   - Selects the database to use when running
+                                        blackbox tests.
+TEST_DEBUG=[0|1]                      - Enable additional debug logging output
+                                        during tests.
+TEST_NETWORK=[regtest|liquid-regtest] - Select the test network to use. Default is
+                                        to 'regtest'.
+TIMEOUT                               - Override the default timeout value for
+                                        API calls.
+PYTEST_PAR=[1-n]                      - Number of processes to use when running
+                                        the blackbox the tests in parallel.
+PYTEST_TESTS="tests/"                 - Target a specific set of blackbox tests
+                                        when running 'make pytest'. Pass a string
+                                        of Pytest test targets.
+SLOW_MACHINE=[0|1]                    - Set sensible defaults for running tests
+                                        in resource-constrained environments.
+VALGRIND=[0|1]                        - Run the tests with Valgrind.
 ```
 
 #### Troubleshooting
