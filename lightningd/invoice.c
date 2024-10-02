@@ -1582,6 +1582,8 @@ static struct command_result *json_decodepay(struct command *cmd,
 static const struct json_command decodepay_command = {
 	"decodepay",
 	json_decodepay,
+	.depr_start = "v24.08",
+	.depr_end = "v25.08"
 };
 AUTODATA(json_command, &decodepay_command);
 

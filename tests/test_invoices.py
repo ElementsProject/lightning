@@ -24,7 +24,8 @@ def test_invoice(node_factory, chainparams):
     l1.daemon.wait_for_log(r': "{}:invoice#[0-9]*/cln:listincoming#[0-9]*"\[OUT\]'.format(myname))
 
     after = int(time.time())
-    b11 = l1.rpc.decodepay(inv['bolt11'])
+    b11 = l1.rpc.decode(inv['bolt11'])
+    assert b11['type'] == 'bolt11 invoice'
     assert b11['currency'] == chainparams['bip173_prefix']
     assert b11['created_at'] >= before
     assert b11['created_at'] <= after
@@ -63,7 +64,7 @@ def test_invoice(node_factory, chainparams):
 
     # Test cltv option.
     inv = l1.rpc.invoice(123000, 'label3', 'description', 3700, cltv=99)
-    b11 = l1.rpc.decodepay(inv['bolt11'])
+    b11 = l1.rpc.decode(inv['bolt11'])
     assert b11['min_final_cltv_expiry'] == 99
 
 
@@ -103,7 +104,7 @@ def test_invoice_weirdstring(node_factory):
     inv = only_one(l1.rpc.listinvoices()['invoices'])
     assert inv['label'] == weird_label
 
-    b11 = l1.rpc.decodepay(inv['bolt11'])
+    b11 = l1.rpc.decode(inv['bolt11'])
     assert b11['description'] == weird_desc
 
     # Can delete by weird label.
@@ -123,7 +124,7 @@ def test_invoice_weirdstring(node_factory):
     inv = only_one(l1.rpc.listinvoices()['invoices'])
     assert inv['label'] == str(weird_label)
 
-    b11 = l1.rpc.decodepay(inv['bolt11'])
+    b11 = l1.rpc.decode(inv['bolt11'])
     assert b11['description'] == weird_desc
 
     # Can delete by weird label.
@@ -167,7 +168,7 @@ def test_invoice_routeboost(node_factory, bitcoind):
     assert 'warning_deadends' not in inv
     assert 'warning_mpp' not in inv
     # Route array has single route with single element.
-    r = only_one(only_one(l2.rpc.decodepay(inv['bolt11'])['routes']))
+    r = only_one(only_one(l2.rpc.decode(inv['bolt11'])['routes']))
     assert r['pubkey'] == l2.info['id']
     assert r['short_channel_id'] == l3.rpc.listpeerchannels(l2.info['id'])['channels'][0]['short_channel_id']
     assert r['fee_base_msat'] == 1
@@ -241,7 +242,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     assert 'warning_deadends' not in inv
     assert 'warning_mpp' not in inv
     # Route array has single route with single element.
-    r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
+    r = only_one(only_one(l1.rpc.decode(inv['bolt11'])['routes']))
     assert r['pubkey'] == l1.info['id']
     # It uses our private alias!
     assert r['short_channel_id'] != l1.rpc.listchannels()['channels'][0]['short_channel_id']
@@ -257,7 +258,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     assert 'warning_offline' not in inv
     assert 'warning_deadends' not in inv
     assert 'warning_mpp' not in inv
-    assert 'routes' not in l1.rpc.decodepay(inv['bolt11'])
+    assert 'routes' not in l1.rpc.decode(inv['bolt11'])
 
     # If we ask for it, we get it.
     inv = l2.rpc.invoice(amount_msat=123456, label="inv1a", description="?", exposeprivatechannels=scid)
@@ -267,7 +268,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     assert 'warning_deadends' not in inv
     assert 'warning_mpp' not in inv
     # Route array has single route with single element.
-    r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
+    r = only_one(only_one(l1.rpc.decode(inv['bolt11'])['routes']))
     assert r['pubkey'] == l1.info['id']
     assert r['short_channel_id'] == alias
     assert r['fee_base_msat'] == 1
@@ -282,7 +283,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     assert 'warning_deadends' not in inv
     assert 'warning_mpp' not in inv
     # Route array has single route with single element.
-    r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
+    r = only_one(only_one(l1.rpc.decode(inv['bolt11'])['routes']))
     assert r['pubkey'] == l1.info['id']
     assert r['short_channel_id'] == alias
     assert r['fee_base_msat'] == 1
@@ -314,7 +315,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     assert 'warning_deadends' not in inv
     assert 'warning_mpp' not in inv
     # Route array has single route with single element.
-    r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
+    r = only_one(only_one(l1.rpc.decode(inv['bolt11'])['routes']))
     assert r['pubkey'] == l1.info['id']
     assert r['short_channel_id'] == alias
     assert r['fee_base_msat'] == 1
@@ -328,7 +329,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     assert 'warning_deadends' not in inv
     assert 'warning_mpp' not in inv
     # Route array has single route with single element.
-    r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
+    r = only_one(only_one(l1.rpc.decode(inv['bolt11'])['routes']))
     assert r['pubkey'] == l1.info['id']
     assert r['short_channel_id'] == alias
     assert r['fee_base_msat'] == 1
@@ -351,7 +352,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     assert 'warning_deadends' not in inv
     assert 'warning_mpp' not in inv
     # Route array has single route with single element.
-    r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
+    r = only_one(only_one(l1.rpc.decode(inv['bolt11'])['routes']))
     assert r['pubkey'] == l1.info['id']
     assert r['short_channel_id'] == alias
     assert r['fee_base_msat'] == 1
@@ -371,7 +372,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     assert 'warning_deadends' not in inv
     assert 'warning_mpp' not in inv
     # Route array has single route with single element.
-    r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
+    r = only_one(only_one(l1.rpc.decode(inv['bolt11'])['routes']))
     assert r['pubkey'] == l1.info['id']
     assert r['short_channel_id'] == alias
     assert r['fee_base_msat'] == 1
@@ -535,11 +536,11 @@ def test_signinvoice(node_factory, executor):
 
     # Create an invoice for l1
     inv1 = l1.rpc.invoice(1000, 'inv1', 'inv1')['bolt11']
-    assert l1.rpc.decodepay(inv1)['payee'] == l1.info['id']
+    assert l1.rpc.decode(inv1)['payee'] == l1.info['id']
 
     # Have l2 re-sign the invoice
     inv2 = l2.rpc.signinvoice(inv1)['bolt11']
-    assert l1.rpc.decodepay(inv2)['payee'] == l2.info['id']
+    assert l1.rpc.decode(inv2)['payee'] == l2.info['id']
 
 
 def test_waitanyinvoice_reversed(node_factory, executor):
@@ -570,7 +571,8 @@ def test_waitanyinvoice_reversed(node_factory, executor):
 def test_decode_unknown(node_factory):
     l1 = node_factory.get_node()
 
-    b11 = l1.rpc.decodepay('lntb30m1pw2f2yspp5s59w4a0kjecw3zyexm7zur8l8n4scw674w8sftjhwec33km882gsdpa2pshjmt9de6zqun9w96k2um5ypmkjargypkh2mr5d9cxzun5ypeh2ursdae8gxqruyqvzddp68gup69uhnzwfj9cejuvf3xshrwde68qcrswf0d46kcarfwpshyaplw3skw0tdw4k8g6tsv9e8gu2etcvsym36pdjpz04wm9nn96f9ntc3t3h5r08pe9d62p3js5wt5rkurqnrl7zkj2fjpvl3rmn7wwazt80letwxlm22hngu8n88g7hsp542qpl')
+    b11 = l1.rpc.decode('lntb30m1pw2f2yspp5s59w4a0kjecw3zyexm7zur8l8n4scw674w8sftjhwec33km882gsdpa2pshjmt9de6zqun9w96k2um5ypmkjargypkh2mr5d9cxzun5ypeh2ursdae8gxqruyqvzddp68gup69uhnzwfj9cejuvf3xshrwde68qcrswf0d46kcarfwpshyaplw3skw0tdw4k8g6tsv9e8gu2etcvsym36pdjpz04wm9nn96f9ntc3t3h5r08pe9d62p3js5wt5rkurqnrl7zkj2fjpvl3rmn7wwazt80letwxlm22hngu8n88g7hsp542qpl')
+    assert b11['type'] == 'bolt11 invoice'
     assert b11['currency'] == 'tb'
     assert b11['created_at'] == 1554294928
     assert b11['payment_hash'] == '850aeaf5f69670e8889936fc2e0cff3ceb0c3b5eab8f04ae57767118db673a91'
@@ -596,7 +598,7 @@ def test_amountless_invoice(node_factory):
     assert(len(i) == 1)
     assert('amount_received_msat' not in i[0])
     assert(i[0]['status'] == 'unpaid')
-    details = l1.rpc.decodepay(inv)
+    details = l1.rpc.decode(inv)
     assert('msatoshi' not in details)
 
     l1.rpc.pay(inv, amount_msat=1337)
@@ -781,7 +783,7 @@ def test_invoice_deschash(node_factory, chainparams):
     inv = l2.rpc.invoice(42, 'label', 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon', deschashonly=True)
     assert '8yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqs' in inv['bolt11']
 
-    b11 = l2.rpc.decodepay(inv['bolt11'])
+    b11 = l2.rpc.decode(inv['bolt11'])
     assert 'description' not in b11
     assert b11['description_hash'] == '3925b6f67e2c340036ed12093dd44e0368df1b6ea26c53dbe4811f58fd5db8c1'
 
@@ -864,7 +866,7 @@ def test_unified_invoices(node_factory, executor, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'invoices-onchain-fallback': None})
     amount_sat = 1000
     inv = l1.rpc.invoice(amount_sat * 1000, "inv1", "test_unified_invoices")
-    b11 = l1.rpc.decodepay(inv['bolt11'])
+    b11 = l1.rpc.decode(inv['bolt11'])
 
     assert len(b11['fallbacks']) == 1
 

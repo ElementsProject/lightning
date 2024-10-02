@@ -393,12 +393,6 @@ def test_grpc_decode(node_factory):
         label="label",
     ))
 
-    res = l1.grpc.DecodePay(clnpb.DecodepayRequest(
-        bolt11=inv.bolt11
-    ))
-    # If we get here we're good, conversions work
-    print(res)
-
     res = l1.grpc.Decode(clnpb.DecodeRequest(
         string=inv.bolt11
     ))
