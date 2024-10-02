@@ -516,22 +516,23 @@ int main(int argc, char *argv[])
 
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 	if (argc != 4)
-		opt_usage_and_exit("Needs 4 arguments");
+		opt_usage_exit_fail("Needs 4 arguments");
 
 	infd = open(argv[2], O_RDONLY);
 	if (infd < 0)
-		opt_usage_and_exit(tal_fmt(tmpctx, "Cannot open %s for reading: %s",
-					   argv[2], strerror(errno)));
+		opt_usage_exit_fail(tal_fmt(tmpctx, "Cannot open %s for reading: %s",
+					    argv[2], strerror(errno)));
 	outfd = open(argv[3], O_WRONLY|O_CREAT|O_TRUNC, 0666);
 	if (outfd < 0)
-		opt_usage_and_exit(tal_fmt(tmpctx, "Cannot open %s for writing: %s",
-					   argv[3], strerror(errno)));
+		opt_usage_exit_fail(tal_fmt(tmpctx, "Cannot open %s for writing: %s",
+					    argv[3], strerror(errno)));
 
 	if (streq(argv[1], "compress")) {
 		struct gossmap_node **nodes, *n;
 		size_t *node_to_compr_idx;
 		size_t node_count, channel_count;
 		struct gossmap_chan **chans, *c;
+		bool *dirs;
 		gzFile outf = gzdopen(outfd, "wb9");
 
 		struct gossmap *gossmap = gossmap_load_fd(tmpctx, infd, NULL, NULL, NULL);
@@ -569,26 +570,41 @@ int main(int argc, char *argv[])
 		if (verbose)
 			printf("%zu channels\n", channel_count);
 		chans = tal_arr(gossmap, struct gossmap_chan *, channel_count);
+		dirs = tal_arr(gossmap, bool, channel_count);
 
 		/*  * <CHANNEL_ENDS> := {channel_count} {start_nodeidx}*{channel_count} {end_nodeidx}*{channel_count} */
 		write_bigsize(outf, channel_count);
 		size_t chanidx = 0;
 		/* We iterate nodes to get to channels.  This gives us nicer ordering for compression */
-		for (size_t wanted_dir = 0; wanted_dir < 2; wanted_dir++) {
-			for (n = gossmap_first_node(gossmap); n; n = gossmap_next_node(gossmap, n)) {
-				for (size_t i = 0; i < n->num_chans; i++) {
-					int dir;
-					c = gossmap_nth_chan(gossmap, n, i, &dir);
-					if (dir != wanted_dir)
-						continue;
+		for (size_t i = 0; i < tal_count(nodes); i++) {
+			n = nodes[i];
+			for (size_t j = 0; j < n->num_chans; j++) {
+				const struct gossmap_node *peer;
+				int dir;
+				c = gossmap_nth_chan(gossmap, n, j, &dir);
 
-					write_bigsize(outf,
-						      node_to_compr_idx[gossmap_node_idx(gossmap, n)]);
-					/* First time reflects channel index for reader */
-					if (wanted_dir == 0)
-						chans[chanidx++] = c;
-				}
+				peer = gossmap_nth_node(gossmap, c, !dir);
+				/* Don't write if peer already wrote it! */
+				/* FIXME: What about self-channels? */
+				if (node_to_compr_idx[gossmap_node_idx(gossmap, peer)] < i)
+					continue;
+
+				write_bigsize(outf, node_to_compr_idx[gossmap_node_idx(gossmap, n)]);
+
+				assert(chanidx < channel_count);
+				dirs[chanidx] = dir;
+				chans[chanidx] = c;
+				chanidx++;
 			}
+		}
+		assert(chanidx == channel_count);
+
+		/* Now write out the other ends of the channels */
+		for (size_t i = 0; i < channel_count; i++) {
+			const struct gossmap_node *peer;
+
+			peer = gossmap_nth_node(gossmap, chans[i], !dirs[i]);
+			write_bigsize(outf, node_to_compr_idx[gossmap_node_idx(gossmap, peer)]);
 		}
 
 		/* <DISABLEDS> := <DISABLED>* {channel_count*2} */
