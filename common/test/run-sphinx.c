@@ -60,7 +60,6 @@ size_t bigsize_put(u8 buf[BIGSIZE_MAX_LEN] UNNEEDED, bigsize_t v UNNEEDED)
 { fprintf(stderr, "bigsize_put called!\n"); abort(); }
 /* Generated stub for decrypt_encrypted_data */
 struct tlv_encrypted_data_tlv *decrypt_encrypted_data(const tal_t *ctx UNNEEDED,
-						      const struct pubkey *blinding UNNEEDED,
 						      const struct secret *ss UNNEEDED,
 						      const u8 *enctlv)
 

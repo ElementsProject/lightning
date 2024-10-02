@@ -28,8 +28,8 @@ struct onion_payload {
 	struct secret *payment_secret;
 	u8 *payment_metadata;
 
-	/* If blinding is set, blinding_ss is the shared secret.*/
-	struct pubkey *blinding;
+	/* If path_key is set, blinding_ss is the shared secret.*/
+	struct pubkey *path_key;
 	struct secret blinding_ss;
 
 	/* The raw TLVs contained in the payload. */

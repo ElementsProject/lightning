@@ -9,7 +9,7 @@ index 3884c63dd..25798c3da 100644
  msgtype,invalid_onion_blinding,BADONION|PERM|24
  msgdata,invalid_onion_blinding,sha256_of_onion,sha256,
 -msgtype,onion_message,513
--msgdata,onion_message,blinding,point,
+-msgdata,onion_message,path_key,point,
 -msgdata,onion_message,len,u16,
 -msgdata,onion_message,onion_message_packet,byte,len
  tlvtype,onionmsg_tlv,reply_path,2

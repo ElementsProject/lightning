@@ -2991,8 +2991,8 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 	in->cltv_expiry = db_col_int(stmt, "cltv_expiry");
 	in->hstate = db_col_int(stmt, "hstate");
 	in->status = NULL;
-	/* FIXME: save blinding in db !*/
-	in->blinding = NULL;
+	/* FIXME: save path_key in db !*/
+	in->path_key = NULL;
 	in->payload = NULL;
 
 	db_col_sha256(stmt, "payment_hash", &in->payment_hash);
@@ -3064,8 +3064,8 @@ static bool wallet_stmt2htlc_out(struct wallet *wallet,
 	out->cltv_expiry = db_col_int(stmt, "cltv_expiry");
 	out->hstate = db_col_int(stmt, "hstate");
 	db_col_sha256(stmt, "payment_hash", &out->payment_hash);
-	/* FIXME: save blinding in db !*/
-	out->blinding = NULL;
+	/* FIXME: save path_key in db !*/
+	out->path_key = NULL;
 
 	out->preimage = db_col_optional(out, stmt, "payment_key", preimage);
 

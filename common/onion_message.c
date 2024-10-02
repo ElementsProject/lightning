@@ -69,17 +69,17 @@ struct blinded_path *blinded_path_from_encdata_tlvs(const tal_t *ctx,
 	assert(tal_count(ids) > 0);
 
 	randombytes_buf(&first_blinding, sizeof(first_blinding));
-	if (!pubkey_from_privkey(&first_blinding, &path->blinding))
+	if (!pubkey_from_privkey(&first_blinding, &path->first_path_key))
 		abort();
 	sciddir_or_pubkey_from_pubkey(&path->first_node_id, &ids[0]);
 
-	path->path = tal_arr(ctx, struct onionmsg_hop *, nhops);
+	path->path = tal_arr(ctx, struct blinded_path_hop *, nhops);
 
 	blinding_iter = first_blinding;
 	for (size_t i = 0; i < nhops; i++) {
 		nodeid = get_nodeid(tlvs, ids, i);
 
-		path->path[i] = tal(path->path, struct onionmsg_hop);
+		path->path[i] = tal(path->path, struct blinded_path_hop);
 		path->path[i]->encrypted_recipient_data
 			= encrypt_tlv_encrypted_data(path->path[i],
 						     &blinding_iter,
@@ -154,9 +154,9 @@ struct blinded_path *incoming_message_blinded_path(const tal_t *ctx,
 }
 
 static void extend_blinded_path(struct blinded_path *bpath,
-				const struct onionmsg_hop *hop)
+				const struct blinded_path_hop *hop)
 {
-	struct onionmsg_hop *newhop = tal(bpath->path, struct onionmsg_hop);
+	struct blinded_path_hop *newhop = tal(bpath->path, struct blinded_path_hop);
         newhop->blinded_node_id = hop->blinded_node_id;
 	newhop->encrypted_recipient_data = tal_dup_talarr(newhop, u8, hop->encrypted_recipient_data);
 	tal_arr_expand(&bpath->path, newhop);
@@ -191,9 +191,9 @@ struct onion_message *outgoing_onion_message(const tal_t *ctx,
 
 		/* We need to tell last hop to hand blinded_path blinding for next hop */
 		pre_final = etlvs[tal_count(ids)-2];
-		pre_final->next_blinding_override = tal_dup(pre_final,
+		pre_final->next_path_key_override = tal_dup(pre_final,
 							    struct pubkey,
-							    &their_path->blinding);
+							    &their_path->first_path_key);
 	}
 
 	our_path = blinded_path_from_encdata_tlvs(tmpctx,
@@ -221,7 +221,7 @@ wrap:
 
 	/* Now populate the onion message to return */
 	omsg = tal(ctx, struct onion_message);
-	omsg->first_blinding = combined_path->blinding;
+	omsg->first_path_key = combined_path->first_path_key;
 	omsg->hops = onionmsg_tlvs_to_hops(omsg, combined_path,
 					   cast_const2(const struct tlv_onionmsg_tlv **, otlvs));
 	return omsg;

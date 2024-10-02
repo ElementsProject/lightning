@@ -45,7 +45,7 @@ struct existing_htlc *new_existing_htlc(const tal_t *ctx,
 					const struct sha256 *payment_hash,
 					u32 cltv_expiry,
 					const u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
-					const struct pubkey *blinding TAKES,
+					const struct pubkey *path_key TAKES,
 					const struct preimage *preimage TAKES,
 					const struct failed_htlc *failed TAKES)
 {
@@ -58,7 +58,7 @@ struct existing_htlc *new_existing_htlc(const tal_t *ctx,
 	existing->payment_hash = *payment_hash;
 	memcpy(existing->onion_routing_packet, onion_routing_packet,
 	       sizeof(existing->onion_routing_packet));
-	existing->blinding = tal_dup_or_null(existing, struct pubkey, blinding);
+	existing->path_key = tal_dup_or_null(existing, struct pubkey, path_key);
 	existing->payment_preimage
 		= tal_dup_or_null(existing, struct preimage, preimage);
 	if (failed)
@@ -79,9 +79,9 @@ void towire_added_htlc(u8 **pptr, const struct added_htlc *added)
 	towire_u32(pptr, added->cltv_expiry);
 	towire(pptr, added->onion_routing_packet,
 	       sizeof(added->onion_routing_packet));
-	if (added->blinding) {
+	if (added->path_key) {
 		towire_bool(pptr, true);
-		towire_pubkey(pptr, added->blinding);
+		towire_pubkey(pptr, added->path_key);
 	} else
 		towire_bool(pptr, false);
 	towire_bool(pptr, added->fail_immediate);
@@ -106,9 +106,9 @@ void towire_existing_htlc(u8 **pptr, const struct existing_htlc *existing)
 		towire_failed_htlc(pptr, existing->failed);
 	} else
 		towire_bool(pptr, false);
-	if (existing->blinding) {
+	if (existing->path_key) {
 		towire_bool(pptr, true);
-		towire_pubkey(pptr, existing->blinding);
+		towire_pubkey(pptr, existing->path_key);
 	} else
 		towire_bool(pptr, false);
 }
@@ -181,10 +181,10 @@ void fromwire_added_htlc(const u8 **cursor, size_t *max,
 	fromwire(cursor, max, added->onion_routing_packet,
 		 sizeof(added->onion_routing_packet));
 	if (fromwire_bool(cursor, max)) {
-		added->blinding = tal(added, struct pubkey);
-		fromwire_pubkey(cursor, max, added->blinding);
+		added->path_key = tal(added, struct pubkey);
+		fromwire_pubkey(cursor, max, added->path_key);
 	} else
-		added->blinding = NULL;
+		added->path_key = NULL;
 	added->fail_immediate = fromwire_bool(cursor, max);
 }
 
@@ -210,10 +210,10 @@ struct existing_htlc *fromwire_existing_htlc(const tal_t *ctx,
 	else
 		existing->failed = NULL;
 	if (fromwire_bool(cursor, max)) {
-		existing->blinding = tal(existing, struct pubkey);
-		fromwire_pubkey(cursor, max, existing->blinding);
+		existing->path_key = tal(existing, struct pubkey);
+		fromwire_pubkey(cursor, max, existing->path_key);
 	} else
-		existing->blinding = NULL;
+		existing->path_key = NULL;
 	return existing;
 }
 

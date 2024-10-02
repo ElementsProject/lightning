@@ -7,6 +7,6 @@ FIXME: This is actually from BOLT 4, but we remove it from onion_wire.csv and pu
  msgdata,gossip_timestamp_filter,first_timestamp,u32,
  msgdata,gossip_timestamp_filter,timestamp_range,u32,
 +msgtype,onion_message,513,option_onion_messages
-+msgdata,onion_message,blinding,point,
++msgdata,onion_message,path_key,point,
 +msgdata,onion_message,len,u16,
 +msgdata,onion_message,onionmsg,byte,len

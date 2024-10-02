@@ -303,7 +303,6 @@ static struct command_result *handle_failure(struct routefail *r)
 	case WIRE_PERMANENT_NODE_FAILURE:
 	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
 	case WIRE_TEMPORARY_NODE_FAILURE:
-	case WIRE_INVALID_REALM:
 	case WIRE_INVALID_ONION_PAYLOAD:
 
 		if (node_type == FINAL_NODE) {

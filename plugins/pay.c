@@ -1105,16 +1105,16 @@ decrypt_done(struct command *cmd,
 {
 	const char *err;
 	u8 *encdata;
-	struct pubkey next_blinding;
+	struct pubkey next_path_key;
 	struct tlv_encrypted_data_tlv *enctlv;
 	const u8 *cursor;
 	size_t maxlen;
 
 	err = json_scan(tmpctx, buf, result,
 			"{decryptencrypteddata:{decrypted:%"
-			",next_blinding:%}}",
+			",next_path_key:%}}",
 			JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &encdata),
-			JSON_SCAN(json_to_pubkey, &next_blinding));
+			JSON_SCAN(json_to_pubkey, &next_path_key));
 	if (err) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Bad decryptencrypteddata response? %.*s: %s",
@@ -1146,10 +1146,10 @@ decrypt_done(struct command *cmd,
 	}
 
 	/* Promote second hop to first hop */
-	if (enctlv->next_blinding_override)
-		p->blindedpath->blinding = *enctlv->next_blinding_override;
+	if (enctlv->next_path_key_override)
+		p->blindedpath->first_path_key = *enctlv->next_path_key_override;
 	else
-		p->blindedpath->blinding = next_blinding;
+		p->blindedpath->first_path_key = next_path_key;
 
 	/* Remove now-decrypted part of path */
 	tal_free(p->blindedpath->path[0]);
@@ -1200,7 +1200,7 @@ preapproveinvoice_succeed(struct command *cmd,
 
 		json_add_hex_talarr(req->js, "encrypted_data",
 				    p->blindedpath->path[0]->encrypted_recipient_data);
-		json_add_pubkey(req->js, "blinding", &p->blindedpath->blinding);
+		json_add_pubkey(req->js, "path_key", &p->blindedpath->first_path_key);
 		return send_outreq(cmd->plugin, req);
 	}
 

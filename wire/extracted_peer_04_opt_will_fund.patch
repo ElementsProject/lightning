@@ -23,9 +23,9 @@
 +subtypedata,lease_rates,channel_fee_max_proportional_thousandths,u16,
 +subtypedata,lease_rates,lease_fee_base_sat,u32,
 +subtypedata,lease_rates,channel_fee_max_base_msat,tu32,
- msgtype,shutdown,38
- msgdata,shutdown,channel_id,channel_id,
- msgdata,shutdown,len,u16,
+ msgtype,stfu,2
+ msgdata,stfu,channel_id,channel_id,
+ msgdata,stfu,initiator,u8,
 @@ -215,6 +219,9 @@
  msgtype,update_fee,134
  msgdata,update_fee,channel_id,channel_id,

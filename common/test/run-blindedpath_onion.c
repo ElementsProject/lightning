@@ -118,11 +118,11 @@ void ecdh(const struct pubkey *point, struct secret *ss)
 
 static u8 *next_onion(const tal_t *ctx, u8 *omsg,
 		      const struct privkey *nodekey,
-		      const struct pubkey *expected_blinding)
+		      const struct pubkey *expected_path_key)
 {
 	struct onionpacket *op;
-	struct pubkey blinding, ephemeral;
-	struct pubkey next_blinding;
+	struct pubkey path_key, ephemeral;
+	struct pubkey next_path_key;
 	struct tlv_onionmsg_tlv *om;
 	struct secret ss, onion_ss;
 	const u8 *cursor;
@@ -130,14 +130,14 @@ static u8 *next_onion(const tal_t *ctx, u8 *omsg,
 	struct route_step *rs;
 	struct tlv_encrypted_data_tlv *enc;
 
-	assert(fromwire_onion_message(tmpctx, omsg, &blinding, &omsg));
-	assert(pubkey_eq(&blinding, expected_blinding));
+	assert(fromwire_onion_message(tmpctx, omsg, &path_key, &omsg));
+	assert(pubkey_eq(&path_key, expected_path_key));
 
 	op = parse_onionpacket(tmpctx, omsg, tal_bytelen(omsg), NULL);
 	ephemeral = op->ephemeralkey;
 
 	ecdh_key = nodekey;
-	assert(unblind_onion(&blinding, ecdh, &ephemeral, &ss));
+	assert(unblind_onion(&path_key, ecdh, &ephemeral, &ss));
 
 	ecdh(&ephemeral, &onion_ss);
 	rs = process_onionpacket(tmpctx, op, &onion_ss, NULL, 0);
@@ -152,17 +152,17 @@ static u8 *next_onion(const tal_t *ctx, u8 *omsg,
 	if (rs->nextcase == ONION_END)
 		return NULL;
 
-	enc = decrypt_encrypted_data(tmpctx, &blinding, &ss, om->encrypted_recipient_data);
+	enc = decrypt_encrypted_data(tmpctx, &ss, om->encrypted_recipient_data);
 	assert(enc);
-	blindedpath_next_blinding(enc, &blinding, &ss, &next_blinding);
-	return towire_onion_message(ctx, &next_blinding,
+	blindedpath_next_path_key(enc, &path_key, &ss, &next_path_key);
+	return towire_onion_message(ctx, &next_path_key,
 				    serialize_onionpacket(tmpctx, rs->next));
 }
 
 int main(int argc, char *argv[])
 {
-	struct privkey nodekey[4], blinding[4], override_blinding;
-	struct pubkey id[4], blinding_pub[4], override_blinding_pub, alias[4];
+	struct privkey nodekey[4], path_key[4], override_path_key;
+	struct pubkey id[4], path_key_pub[4], override_path_key_pub, alias[4];
 	struct secret self_id;
 	struct tlv_encrypted_data_tlv *tlv[4];
 	u8 *enctlv[4];
@@ -181,43 +181,43 @@ int main(int argc, char *argv[])
 	}
 
 	/* Make enctlvs as per enctlv test vectors */
-	memset(&blinding[ALICE], 5, sizeof(blinding[ALICE]));
-	pubkey_from_privkey(&blinding[ALICE], &blinding_pub[ALICE]);
+	memset(&path_key[ALICE], 5, sizeof(path_key[ALICE]));
+	pubkey_from_privkey(&path_key[ALICE], &path_key_pub[ALICE]);
 
 	tlv[ALICE] = tlv_encrypted_data_tlv_new(tmpctx);
 	tlv[ALICE]->next_node_id = &id[BOB];
 	enctlv[ALICE] = encrypt_tlv_encrypted_data(tmpctx,
-						   &blinding[ALICE],
+						   &path_key[ALICE],
 						   &id[ALICE], tlv[ALICE],
-						   &blinding[BOB],
+						   &path_key[BOB],
 						   &alias[ALICE]);
 
-	pubkey_from_privkey(&blinding[BOB], &blinding_pub[BOB]);
+	pubkey_from_privkey(&path_key[BOB], &path_key_pub[BOB]);
 
-	/* We override blinding for Carol. */
-	memset(&override_blinding, 7, sizeof(override_blinding));
-	pubkey_from_privkey(&override_blinding, &override_blinding_pub);
+	/* We override path_key for Carol. */
+	memset(&override_path_key, 7, sizeof(override_path_key));
+	pubkey_from_privkey(&override_path_key, &override_path_key_pub);
 
 	tlv[BOB] = tlv_encrypted_data_tlv_new(tmpctx);
 	tlv[BOB]->next_node_id = &id[CAROL];
-	tlv[BOB]->next_blinding_override = &override_blinding_pub;
+	tlv[BOB]->next_path_key_override = &override_path_key_pub;
 	enctlv[BOB] = encrypt_tlv_encrypted_data(tmpctx,
-						 &blinding[BOB],
+						 &path_key[BOB],
 						 &id[BOB], tlv[BOB],
-						 &blinding[CAROL],
+						 &path_key[CAROL],
 						 &alias[BOB]);
 
-	/* That replaced the blinding */
-	blinding[CAROL] = override_blinding;
-	blinding_pub[CAROL] = override_blinding_pub;
+	/* That replaced the path_key */
+	path_key[CAROL] = override_path_key;
+	path_key_pub[CAROL] = override_path_key_pub;
 
 	tlv[CAROL] = tlv_encrypted_data_tlv_new(tmpctx);
 	tlv[CAROL]->next_node_id = &id[DAVE];
 	tlv[CAROL]->padding = tal_arrz(tlv[CAROL], u8, 35);
 	enctlv[CAROL] = encrypt_tlv_encrypted_data(tmpctx,
-						   &blinding[CAROL],
+						   &path_key[CAROL],
 						   &id[CAROL], tlv[CAROL],
-						   &blinding[DAVE],
+						   &path_key[DAVE],
 						   &alias[CAROL]);
 
 	for (size_t i = 0; i < sizeof(self_id); i++)
@@ -228,11 +228,11 @@ int main(int argc, char *argv[])
 					 self_id.data, ARRAY_SIZE(self_id.data),
 					 0);
 	enctlv[DAVE] = encrypt_tlv_encrypted_data(tmpctx,
-						  &blinding[DAVE],
+						  &path_key[DAVE],
 						  &id[DAVE], tlv[DAVE],
 						  NULL,
 						  &alias[DAVE]);
-	pubkey_from_privkey(&blinding[DAVE], &blinding_pub[DAVE]);
+	pubkey_from_privkey(&path_key[DAVE], &path_key_pub[DAVE]);
 
 	/* Create an onion which encodes this. */
 	sphinx_path = sphinx_path_new(tmpctx, NULL);
@@ -248,7 +248,7 @@ int main(int argc, char *argv[])
 				&path_secrets);
 
 	/* And finally, the onion message as handed to Alice */
-	omsg = towire_onion_message(tmpctx, &blinding_pub[ALICE],
+	omsg = towire_onion_message(tmpctx, &path_key_pub[ALICE],
 				    serialize_onionpacket(tmpctx, op));
 
 	printf("{\n");
@@ -265,10 +265,10 @@ int main(int argc, char *argv[])
 
 		printf("\t\"onion_message\": {");
 		json_strfield("raw", tal_hex(tmpctx, omsg));
-		json_strfield("blinding_secret",
-			      fmt_privkey(tmpctx, &blinding[i]));
-		json_strfield("blinding",
-			      fmt_pubkey(tmpctx, &blinding_pub[i]));
+		json_strfield("path_key_secret",
+			      fmt_privkey(tmpctx, &path_key[i]));
+		json_strfield("path_key",
+			      fmt_pubkey(tmpctx, &path_key_pub[i]));
 		json_strfield("blinded_alias",
 			      fmt_pubkey(tmpctx, &alias[i]));
 		json_strfield("onionmsg_tlv",
@@ -280,7 +280,7 @@ int main(int argc, char *argv[])
 			printf(",\n");
 
 		/* Unwrap for next hop */
-		omsg = next_onion(tmpctx, omsg, &nodekey[i], &blinding_pub[i]);
+		omsg = next_onion(tmpctx, omsg, &nodekey[i], &path_key_pub[i]);
 	}
 	assert(!omsg);
 	printf("\n]}\n");

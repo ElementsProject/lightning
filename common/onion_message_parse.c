@@ -12,7 +12,6 @@
 #include <wire/peer_wire.h>
 
 static bool decrypt_final_onionmsg(const tal_t *ctx,
-				   const struct pubkey *blinding,
 				   const struct secret *ss,
 				   const u8 *enctlv,
 				   const struct pubkey *my_id,
@@ -24,7 +23,7 @@ static bool decrypt_final_onionmsg(const tal_t *ctx,
 	if (!blindedpath_get_alias(ss, my_id, alias))
 		return false;
 
-	encmsg = decrypt_encrypted_data(tmpctx, blinding, ss, enctlv);
+	encmsg = decrypt_encrypted_data(tmpctx, ss, enctlv);
 	if (!encmsg)
 		return false;
 
@@ -37,15 +36,15 @@ static bool decrypt_final_onionmsg(const tal_t *ctx,
 	return true;
 }
 
-static bool decrypt_forwarding_onionmsg(const struct pubkey *blinding,
+static bool decrypt_forwarding_onionmsg(const struct pubkey *path_key,
 					const struct secret *ss,
 					const u8 *enctlv,
 					struct sciddir_or_pubkey *next_node,
-					struct pubkey *next_blinding)
+					struct pubkey *next_path_key)
 {
 	struct tlv_encrypted_data_tlv *encmsg;
 
-	encmsg = decrypt_encrypted_data(tmpctx, blinding, ss, enctlv);
+	encmsg = decrypt_encrypted_data(tmpctx, ss, enctlv);
 	if (!encmsg)
 		return false;
 
@@ -79,14 +78,14 @@ static bool decrypt_forwarding_onionmsg(const struct pubkey *blinding,
 	} else
 		return false;
 
-	blindedpath_next_blinding(encmsg, blinding, ss, next_blinding);
+	blindedpath_next_path_key(encmsg, path_key, ss, next_path_key);
 	return true;
 }
 
 /* Returns false on failure */
 const char *onion_message_parse(const tal_t *ctx,
 				const u8 *onion_message_packet,
-				const struct pubkey *blinding,
+				const struct pubkey *path_key,
 				const struct pubkey *me,
 				u8 **next_onion_msg,
 				struct sciddir_or_pubkey *next_node,
@@ -114,7 +113,7 @@ const char *onion_message_parse(const tal_t *ctx,
 	}
 
 	ephemeral = op->ephemeralkey;
-	if (!unblind_onion(blinding, ecdh, &ephemeral, &ss)) {
+	if (!unblind_onion(path_key, ecdh, &ephemeral, &ss)) {
 		return tal_fmt(ctx, "onion_message_parse: can't unblind onionpacket");
 	}
 
@@ -151,7 +150,7 @@ const char *onion_message_parse(const tal_t *ctx,
 		if (!om->encrypted_recipient_data) {
 			*final_alias = *me;
 			*final_path_id = NULL;
-		} else if (!decrypt_final_onionmsg(ctx, blinding, &ss,
+		} else if (!decrypt_final_onionmsg(ctx, &ss,
 						   om->encrypted_recipient_data, me,
 						   final_alias,
 						   final_path_id)) {
@@ -160,7 +159,7 @@ const char *onion_message_parse(const tal_t *ctx,
 					  " %s", tal_hex(tmpctx, om->encrypted_recipient_data));
 		}
 	} else {
-		struct pubkey next_blinding;
+		struct pubkey next_path_key;
 
 		*final_om = NULL;
 
@@ -174,14 +173,14 @@ const char *onion_message_parse(const tal_t *ctx,
 		}
 
 		/* This fails as expected if no enctlv. */
-		if (!decrypt_forwarding_onionmsg(blinding, &ss, om->encrypted_recipient_data, next_node,
-						 &next_blinding)) {
+		if (!decrypt_forwarding_onionmsg(path_key, &ss, om->encrypted_recipient_data, next_node,
+						 &next_path_key)) {
 			return tal_fmt(ctx,
 				       "onion_message_parse: invalid encrypted_recipient_data %s",
 				       tal_hex(tmpctx, om->encrypted_recipient_data));
 		}
 		*next_onion_msg = towire_onion_message(ctx,
-						       &next_blinding,
+						       &next_path_key,
 						       serialize_onionpacket(tmpctx, rs->next));
 	}
 

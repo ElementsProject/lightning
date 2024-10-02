@@ -10,7 +10,7 @@
  * * 0x8000 (BADONION): unparsable onion encrypted by sending peer
  * * 0x4000 (PERM): permanent failure (otherwise transient)
  * * 0x2000 (NODE): node failure (otherwise channel)
- * * 0x1000 (UPDATE): new channel update enclosed
+ * * 0x1000 (UPDATE): channel forwarding parameter was violated
  */
 #define BADONION	0x8000
 #define PERM		0x4000

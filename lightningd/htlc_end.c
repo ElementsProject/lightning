@@ -128,7 +128,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 			    struct amount_msat msat, u32 cltv_expiry,
 			    const struct sha256 *payment_hash,
 			    const struct secret *shared_secret TAKES,
-			    const struct pubkey *blinding TAKES,
+			    const struct pubkey *path_key TAKES,
 			    const u8 *onion_routing_packet,
 			    bool fail_immediate)
 {
@@ -143,10 +143,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 	hin->status = NULL;
 	hin->fail_immediate = fail_immediate;
 	hin->shared_secret = tal_dup_or_null(hin, struct secret, shared_secret);
-	if (blinding)
-		hin->blinding = tal_dup(hin, struct pubkey, blinding);
-	else
-		hin->blinding = NULL;
+	hin->path_key = tal_dup_or_null(hin, struct pubkey, path_key);
 	memcpy(hin->onion_routing_packet, onion_routing_packet,
 	       sizeof(hin->onion_routing_packet));
 
@@ -267,7 +264,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      u32 cltv_expiry,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
-			      const struct pubkey *blinding,
+			      const struct pubkey *path_key,
 			      bool am_origin,
 			      struct amount_msat final_msat,
 			      u64 partid,
@@ -293,7 +290,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	hout->preimage = NULL;
 	hout->timeout = NULL;
 
-	hout->blinding = tal_dup_or_null(hout, struct pubkey, blinding);
+	hout->path_key = tal_dup_or_null(hout, struct pubkey, path_key);
 	hout->am_origin = am_origin;
 	if (am_origin) {
 		hout->partid = partid;

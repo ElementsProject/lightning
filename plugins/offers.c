@@ -106,7 +106,7 @@ inject_onionmessage_(struct command *cmd,
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "injectonionmessage",
 				    cb, errcb, arg);
-	json_add_pubkey(req->js, "blinding", &omsg->first_blinding);
+	json_add_pubkey(req->js, "path_key", &omsg->first_path_key);
 	json_array_start(req->js, "hops");
 	for (size_t i = 0; i < tal_count(omsg->hops); i++) {
 		json_object_start(req->js, NULL);
@@ -150,9 +150,9 @@ static struct blinded_path *blinded_path_dup(const tal_t *ctx,
 {
 	struct blinded_path *bp = tal(ctx, struct blinded_path);
 	*bp = *old;
-	bp->path = tal_arr(bp, struct onionmsg_hop *, tal_count(old->path));
+	bp->path = tal_arr(bp, struct blinded_path_hop *, tal_count(old->path));
 	for (size_t i = 0; i < tal_count(bp->path); i++) {
-		bp->path[i] = tal(bp->path, struct onionmsg_hop);
+		bp->path[i] = tal(bp->path, struct blinded_path_hop);
 		bp->path[i]->blinded_node_id = old->path[i]->blinded_node_id;
 		bp->path[i]->encrypted_recipient_data = tal_dup_talarr(bp->path[i], u8,
 								       old->path[i]->encrypted_recipient_data);
@@ -504,7 +504,7 @@ static void json_add_chains(struct json_stream *js,
 
 static void json_add_onionmsg_path(struct json_stream *js,
 				   const char *fieldname,
-				   const struct onionmsg_hop *hop)
+				   const struct blinded_path_hop *hop)
 {
 	json_object_start(js, fieldname);
 	json_add_pubkey(js, "blinded_node_id", &hop->blinded_node_id);
@@ -513,7 +513,8 @@ static void json_add_onionmsg_path(struct json_stream *js,
 }
 
 /* Returns true if valid */
-static bool json_add_blinded_paths(struct json_stream *js,
+static bool json_add_blinded_paths(struct command *cmd,
+				   struct json_stream *js,
 				   const char *fieldname,
 				   struct blinded_path **paths,
 				   struct blinded_payinfo **blindedpay)
@@ -530,7 +531,10 @@ static bool json_add_blinded_paths(struct json_stream *js,
 			json_add_u32(js, "first_scid_dir",
 				     paths[i]->first_node_id.scidd.dir);
 		}
-		json_add_pubkey(js, "blinding", &paths[i]->blinding);
+
+		if (command_deprecated_out_ok(cmd, "blinding", "v24.11", "v25.05"))
+			json_add_pubkey(js, "blinding", &paths[i]->first_path_key);
+		json_add_pubkey(js, "first_path_key", &paths[i]->first_path_key);
 
 		/* Don't crash if we're short a payinfo! */
 		if (i < tal_count(blindedpay)) {
@@ -612,7 +616,8 @@ static bool json_add_utf8(struct json_stream *js,
 	return false;
 }
 
-static bool json_add_offer_fields(struct json_stream *js,
+static bool json_add_offer_fields(struct command *cmd,
+				  struct json_stream *js,
 				  const struct bitcoin_blkid *offer_chains,
 				  const u8 *offer_metadata,
 				  const char *offer_currency,
@@ -672,7 +677,7 @@ static bool json_add_offer_fields(struct json_stream *js,
 		json_add_u64(js, "offer_absolute_expiry",
 			     *offer_absolute_expiry);
 	if (offer_paths)
-		valid &= json_add_blinded_paths(js, "offer_paths",
+		valid &= json_add_blinded_paths(cmd, js, "offer_paths",
 						offer_paths, NULL);
 
 	if (offer_quantity_max)
@@ -737,7 +742,7 @@ static void json_add_extra_fields(struct json_stream *js,
 		json_array_end(js);
 }
 
-static void json_add_offer(struct json_stream *js, const struct tlv_offer *offer)
+static void json_add_offer(struct command *cmd, struct json_stream *js, const struct tlv_offer *offer)
 {
 	struct sha256 offer_id;
 	bool valid = true;
@@ -745,7 +750,7 @@ static void json_add_offer(struct json_stream *js, const struct tlv_offer *offer
 	offer_offer_id(offer, &offer_id);
 	json_add_sha256(js, "offer_id", &offer_id);
 
-	valid &= json_add_offer_fields(js,
+	valid &= json_add_offer_fields(cmd, js,
 				       offer->offer_chains,
 				       offer->offer_metadata,
 				       offer->offer_currency,
@@ -774,7 +779,8 @@ static void json_add_offer(struct json_stream *js, const struct tlv_offer *offer
 	json_add_bool(js, "valid", valid);
 }
 
-static bool json_add_invreq_fields(struct json_stream *js,
+static bool json_add_invreq_fields(struct command *cmd,
+				   struct json_stream *js,
 				   const u8 *invreq_metadata,
 				   const struct bitcoin_blkid *invreq_chain,
 				   const u64 *invreq_amount,
@@ -817,7 +823,7 @@ static bool json_add_invreq_fields(struct json_stream *js,
 	if (invreq_payer_note)
 		valid &= json_add_utf8(js, "invreq_payer_note", invreq_payer_note);
 	if (invreq_paths)
-		valid &= json_add_blinded_paths(js, "invreq_paths",
+		valid &= json_add_blinded_paths(cmd, js, "invreq_paths",
 						invreq_paths, NULL);
 	if (invreq_recurrence_counter) {
 		json_add_u32(js, "invreq_recurrence_counter",
@@ -902,7 +908,8 @@ static bool json_add_fallbacks(struct json_stream *js,
 	return valid;
 }
 
-static void json_add_invoice_request(struct json_stream *js,
+static void json_add_invoice_request(struct command *cmd,
+				     struct json_stream *js,
 				     const struct tlv_invoice_request *invreq)
 {
 	bool valid = true;
@@ -915,7 +922,7 @@ static void json_add_invoice_request(struct json_stream *js,
 		json_add_sha256(js, "offer_id", &offer_id);
 	}
 
-	valid &= json_add_offer_fields(js,
+	valid &= json_add_offer_fields(cmd, js,
 				       invreq->offer_chains,
 				       invreq->offer_metadata,
 				       invreq->offer_currency,
@@ -931,7 +938,7 @@ static void json_add_invoice_request(struct json_stream *js,
 				       invreq->offer_recurrence_paywindow,
 				       invreq->offer_recurrence_limit,
 				       invreq->offer_recurrence_base);
-	valid &= json_add_invreq_fields(js,
+	valid &= json_add_invreq_fields(cmd, js,
 					invreq->invreq_metadata,
 					invreq->invreq_chain,
 					invreq->invreq_amount,
@@ -980,7 +987,8 @@ static void json_add_invoice_request(struct json_stream *js,
 	json_add_bool(js, "valid", valid);
 }
 
-static void json_add_b12_invoice(struct json_stream *js,
+static void json_add_b12_invoice(struct command *cmd,
+				 struct json_stream *js,
 				 const struct tlv_invoice *invoice)
 {
 	bool valid = true;
@@ -993,7 +1001,7 @@ static void json_add_b12_invoice(struct json_stream *js,
 		json_add_sha256(js, "offer_id", &offer_id);
 	}
 
-	valid &= json_add_offer_fields(js,
+	valid &= json_add_offer_fields(cmd, js,
 				       invoice->offer_chains,
 				       invoice->offer_metadata,
 				       invoice->offer_currency,
@@ -1009,7 +1017,7 @@ static void json_add_b12_invoice(struct json_stream *js,
 				       invoice->offer_recurrence_paywindow,
 				       invoice->offer_recurrence_limit,
 				       invoice->offer_recurrence_base);
-	valid &= json_add_invreq_fields(js,
+	valid &= json_add_invreq_fields(cmd, js,
 					invoice->invreq_metadata,
 					invoice->invreq_chain,
 					invoice->invreq_amount,
@@ -1035,7 +1043,7 @@ static void json_add_b12_invoice(struct json_stream *js,
 					"invoices with paths without blindedpay are invalid");
 			valid = false;
 		}
-		valid &= json_add_blinded_paths(js, "invoice_paths",
+		valid &= json_add_blinded_paths(cmd, js, "invoice_paths",
 						invoice->invoice_paths,
 						invoice->invoice_blindedpay);
 	} else {
@@ -1354,11 +1362,11 @@ static struct command_result *json_decode(struct command *cmd,
 	response = jsonrpc_stream_success(cmd);
 	json_add_string(response, "type", decodable->type);
 	if (decodable->offer)
-		json_add_offer(response, decodable->offer);
+		json_add_offer(cmd, response, decodable->offer);
 	if (decodable->invreq)
-		json_add_invoice_request(response, decodable->invreq);
+		json_add_invoice_request(cmd, response, decodable->invreq);
 	if (decodable->invoice)
-		json_add_b12_invoice(response, decodable->invoice);
+		json_add_b12_invoice(cmd, response, decodable->invoice);
 	if (decodable->b11) {
 		/* The bolt11 decoder simply refuses to decode bad invs. */
 		json_add_bolt11(response, decodable->b11);

@@ -18,11 +18,11 @@ json_to_blinded_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
 	/* It will give us either scid or node_id */
 	memset(&first_scidd, 0, sizeof(first_scidd));
 	err = json_scan(tmpctx, buffer, tok,
-			"{blinding:%,"
+			"{first_path_key:%,"
 			"first_node_id?:%,"
 			"first_scid?:%,"
 			"first_scid_dir?:%}",
-			JSON_SCAN(json_to_pubkey, &rpath->blinding),
+			JSON_SCAN(json_to_pubkey, &rpath->first_path_key),
 			JSON_SCAN(json_to_pubkey, &first_node_id),
 			JSON_SCAN(json_to_short_channel_id, &first_scidd.scid),
 			JSON_SCAN(json_to_int, &first_scidd.dir),
@@ -39,9 +39,9 @@ json_to_blinded_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
 	if (!hops || hops->size < 1)
 		return tal_free(rpath);
 
-	rpath->path = tal_arr(rpath, struct onionmsg_hop *, hops->size);
+	rpath->path = tal_arr(rpath, struct blinded_path_hop *, hops->size);
 	json_for_each_arr(i, t, hops) {
-		rpath->path[i] = tal(rpath->path, struct onionmsg_hop);
+		rpath->path[i] = tal(rpath->path, struct blinded_path_hop);
 		err = json_scan(tmpctx, buffer, t, "{blinded_node_id:%,encrypted_recipient_data:%}",
 				JSON_SCAN(json_to_pubkey,
 					  &rpath->path[i]->blinded_node_id),
