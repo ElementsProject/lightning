@@ -274,10 +274,10 @@
           "destination",
           "short_channel_id",
           "capacity_msat",
-          "htlc_min",
-          "htlc_max",
-          "base_fee",
-          "proportional_fee",
+          "htlc_minimum_msat",
+          "htlc_maximum_msat",
+          "fee_base_msat",
+          "fee_proportional_millionths",
           "delay"
         ],
         "properties": {
@@ -311,25 +311,25 @@
               "The capacity (onchain size) of the channel."
             ]
           },
-          "htlc_min": {
+          "htlc_minimum_msat": {
             "type": "msat",
             "description": [
               "The minimum value allowed in this direction."
             ]
           },
-          "htlc_max": {
+          "htlc_maximum_msat": {
             "type": "msat",
             "description": [
               "The maximum value allowed in this direction."
             ]
           },
-          "base_fee": {
+          "fee_base_msat": {
             "type": "msat",
             "description": [
               "The base fee to apply to use the channel in this direction."
             ]
           },
-          "proportional_fee": {
+          "fee_proportional_millionths": {
             "type": "u32",
             "description": [
               "The proportional fee (in parts per million) to apply to use the channel in this direction."
