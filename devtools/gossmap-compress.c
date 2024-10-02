@@ -496,10 +496,32 @@ static char *opt_node(const char *optarg, const struct pubkey ***node_ids)
 	return NULL;
 }
 
+static const char *get_alias(const tal_t *ctx,
+			     const struct gossmap *gossmap,
+			     const struct gossmap_node *n)
+{
+	const u8 *ann = gossmap_node_get_announce(tmpctx, gossmap, n);
+	secp256k1_ecdsa_signature signature;
+	u8 *features;
+	u32 timestamp;
+	struct node_id node_id;
+	u8 rgb_color[3];
+	u8 alias[32];
+	u8 *addresses;
+	struct tlv_node_ann_tlvs *tlvs;
+
+	if (!fromwire_node_announcement(tmpctx, ann, &signature, &features, &timestamp,
+					&node_id, rgb_color, alias, &addresses,
+					&tlvs))
+		return "";
+	return tal_strndup(ctx, (const char *)alias, 32);
+}
+
 int main(int argc, char *argv[])
 {
 	int infd, outfd;
 	const struct pubkey **node_ids;
+	bool print_nodes = false;
 
 	common_setup(argv[0]);
 	setup_locale();
@@ -508,7 +530,9 @@ int main(int argc, char *argv[])
 	opt_register_noarg("--verbose|-v", opt_add_one, &verbose,
 			   "Print details (each additional gives more!).");
 	opt_register_arg("--node-map=num=<nodeid>", opt_node, NULL, &node_ids,
-			   "Map node num to <nodeid>");
+			   "Map node num to <nodeid> (decompress only)");
+	opt_register_noarg("--output-node-map", opt_set_bool, &print_nodes,
+			   "Output nodenumber:nodeid:alias for each node (compress only)");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "[decompress|compress] infile outfile\n"
 			   "Compress or decompress a gossmap file",
@@ -554,8 +578,18 @@ int main(int argc, char *argv[])
 
 		/* Create map of gossmap index to compression index */
 		node_to_compr_idx = tal_arr(nodes, size_t, gossmap_max_node_idx(gossmap));
-		for (size_t i = 0; i < tal_count(nodes); i++)
+		for (size_t i = 0; i < tal_count(nodes); i++) {
 			node_to_compr_idx[gossmap_node_idx(gossmap, nodes[i])] = i;
+			if (print_nodes) {
+				struct node_id node_id;
+				gossmap_node_get_id(gossmap, nodes[i], &node_id);
+
+				printf("%zu:%s:%s\n",
+				       i,
+				       fmt_node_id(tmpctx, &node_id),
+				       get_alias(tmpctx, gossmap, nodes[i]));
+			}
+		}
 
 		if (gzwrite(outf, GC_HEADER, GC_HEADERLEN) == 0)
 			err(1, "Writing header");
