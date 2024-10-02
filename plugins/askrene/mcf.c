@@ -2,7 +2,6 @@
 #include <assert.h>
 #include <ccan/bitmap/bitmap.h>
 #include <ccan/list/list.h>
-#include <ccan/lqueue/lqueue.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <common/utils.h>
@@ -687,13 +686,6 @@ init_linear_network(const tal_t *ctx, const struct pay_parameters *params)
 	return linear_network;
 }
 
-/* Simple queue to traverse the network. */
-struct queue_data
-{
-	u32 idx;
-	struct lqueue_link ql;
-};
-
 // TODO(eduardo): unit test this
 /* Finds an admissible path from source to target, traversing arcs in the
  * residual network with capacity greater than 0.
@@ -705,25 +697,21 @@ find_admissible_path(const struct linear_network *linear_network,
 		     const u32 source, const u32 target, struct arc *prev)
 {
 	bool target_found = false;
+	/* Simple linear queue of node indexes */
+	u32 *queue = tal_arr(tmpctx, u32, linear_network->max_num_arcs);
+	size_t qstart, qend;
 
 	for(size_t i=0;i<tal_count(prev);++i)
 		prev[i].idx=INVALID_INDEX;
 
 	// The graph is dense, and the farthest node is just a few hops away,
 	// hence let's BFS search.
-	LQUEUE(struct queue_data,ql) myqueue = LQUEUE_INIT;
-	struct queue_data *qdata;
+	queue[0] = source;
+	qstart = 0;
+	qend = 1;
 
-	qdata = tal(tmpctx, struct queue_data);
-	qdata->idx = source;
-	lqueue_enqueue(&myqueue,qdata);
-
-	while(!lqueue_empty(&myqueue))
-	{
-		qdata = lqueue_dequeue(&myqueue);
-		u32 cur = qdata->idx;
-
-		tal_free(qdata);
+	while (qstart < qend) {
+		u32 cur = queue[qstart++];
 
 		if(cur==target)
 		{
@@ -748,10 +736,8 @@ find_admissible_path(const struct linear_network *linear_network,
 				continue;
 
 			prev[next] = arc;
-
-			qdata = tal(tmpctx, struct queue_data);
-			qdata->idx = next;
-			lqueue_enqueue(&myqueue,qdata);
+			assert(qend < linear_network->max_num_arcs);
+			queue[qend++] = next;
 		}
 	}
 	return target_found;
