@@ -84,11 +84,12 @@ static unsigned int verbose = 0;
 #define GC_HEADERLEN (sizeof(GC_HEADER))
 #define GOSSIP_STORE_VER ((0 << 5) | 14)
 
+/* Backwards, we want larger first */
 static int cmp_node_num_chans(struct gossmap_node *const *a,
 			      struct gossmap_node *const *b,
 			      void *unused)
 {
-	return (int)(*a)->num_chans - (int)(*b)->num_chans;
+	return (int)(*b)->num_chans - (int)(*a)->num_chans;
 }
 
 static void write_bigsize(gzFile outf, u64 val)
