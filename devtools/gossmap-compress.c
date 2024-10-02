@@ -517,6 +517,18 @@ static const char *get_alias(const tal_t *ctx,
 	return tal_strndup(ctx, (const char *)alias, 32);
 }
 
+static void cupdate_bad(struct gossmap *map,
+			const struct short_channel_id_dir *scidd,
+			u16 cltv_expiry_delta,
+			u32 fee_base_msat,
+			u32 fee_proportional_millionths,
+			void *unused)
+{
+	warnx("Bad cupdate for %s, ignoring (delta=%u, fee=%u/%u)",
+	      fmt_short_channel_id_dir(tmpctx, scidd),
+	      cltv_expiry_delta, fee_base_msat, fee_proportional_millionths);
+}
+
 int main(int argc, char *argv[])
 {
 	int infd, outfd;
@@ -559,7 +571,7 @@ int main(int argc, char *argv[])
 		bool *dirs;
 		gzFile outf = gzdopen(outfd, "wb9");
 
-		struct gossmap *gossmap = gossmap_load_fd(tmpctx, infd, NULL, NULL, NULL);
+		struct gossmap *gossmap = gossmap_load_fd(tmpctx, infd, cupdate_bad, NULL, NULL);
 		if (!gossmap)
 			opt_usage_and_exit("Cannot read gossmap");
 
