@@ -94,6 +94,7 @@ static bool dijkstra_to_hops(struct route_hop **hops,
 	/* OK, populate other fields. */
 	c = dijkstra_best_chan(dij, curidx);
 
+	assert(c->half[0].nodeidx == curidx || c->half[1].nodeidx == curidx);
 	(*hops)[num_hops].direction = c->half[0].nodeidx == curidx ? 0 : 1;
 	(*hops)[num_hops].scid = gossmap_chan_scid(gossmap, c);
 
