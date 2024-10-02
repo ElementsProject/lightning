@@ -49,8 +49,8 @@ int main(int argc, char *argv[])
 	if (!file && errno != ENOENT)
 		err(1, "Reading %s", argv[1]);
 
-	new = tal_fmt(NULL, template,
-		      IF_SQLITE3(sqlite3_libversion_number()));
+	new = tal_fmt(NULL, template
+		      IF_SQLITE3(, sqlite3_libversion_number()));
 	if (!file || !streq(new, file)) {
 		int fd = open(argv[1], O_TRUNC|O_WRONLY|O_CREAT, 0666);
 		if (fd < 0)
