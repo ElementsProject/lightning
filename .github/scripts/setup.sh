@@ -18,6 +18,7 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      gcc-aarch64-linux-gnu \
      gcc-arm-linux-gnueabihf \
      gcc-arm-none-eabi \
+     gdb \
      gettext \
      git \
      libc6-dev-arm64-cross \
@@ -32,6 +33,7 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      postgresql \
      python-pkg-resources \
      python3 \
+     python3-dbg \
      python3-dev \
      python3-pip \
      python3-setuptools \

@@ -270,6 +270,7 @@ jobs:
         run: |
           pip3 install --user pip wheel poetry
           poetry install
+          sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy gdb
 
       - name: Install bitcoind
         env:
@@ -310,6 +311,7 @@ jobs:
         run: |
           env
           cat config.vars
+          (sleep 3600; echo "*** Backtraces ***"; for p in `pidof python`; do echo "PID $p"; echo thread apply all py-bt | gdb -p $p; done) &
           VALGRIND=0 poetry run pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
 
   integration-valgrind:
