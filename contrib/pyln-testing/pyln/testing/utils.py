@@ -10,6 +10,7 @@ from collections import OrderedDict
 from decimal import Decimal
 from pyln.client import LightningRpc
 from pyln.client import Millisatoshi
+from pyln.client import NodeVersion, VersionSpec
 
 import ephemeral_port_reserve  # type: ignore
 import json
@@ -587,11 +588,12 @@ class LightningD(TailableProc):
             port=9735,
             random_hsm=False,
             node_id=0,
-            grpc_port=None
+            grpc_port=None,
+            executable=None,
     ):
         # We handle our own version of verbose, below.
         TailableProc.__init__(self, lightning_dir, verbose=False)
-        self.executable = 'lightningd'
+        self.executable = "lightningd" if executable is None else executable
         self.lightning_dir = lightning_dir
         self.port = port
         self.cmd_prefix = []
@@ -600,6 +602,11 @@ class LightningD(TailableProc):
         self.env['CLN_PLUGIN_LOG'] = "cln_plugin=trace,cln_rpc=trace,cln_grpc=trace,debug"
 
         self.opts = LIGHTNINGD_CONFIG.copy()
+
+        # Query the version of the cln-binary
+        cln_version_proc = subprocess.check_output([self.executable, "--version"])
+        self.cln_version = NodeVersion(cln_version_proc.decode('ascii').strip())
+
         opts = {
             'lightning-dir': lightning_dir,
             'addr': '127.0.0.1:{}'.format(port),
@@ -634,8 +641,15 @@ class LightningD(TailableProc):
         # Log to stdout so we see it in failure cases, and log file for TailableProc.
         self.opts['log-file'] = ['-', os.path.join(lightning_dir, "log")]
         self.opts['log-prefix'] = self.prefix + ' '
+
         # In case you want specific ordering!
-        self.early_opts = ['--developer']
+        self.early_opts = []
+
+        try:
+            if VersionSpec.parse(">=v23.11").matches(self.cln_version):
+                self.early_opts.append('--developer')
+        except Exception:
+            raise ValueError(f"Invalid version {type(self.cln_version)} - {self.cln_version}")
 
     def cleanup(self):
         # To force blackhole to exit, disconnect file must be truncated!
@@ -753,6 +767,7 @@ class LightningNode(object):
                  db=None, port=None, disconnect=None, random_hsm=None, options=None,
                  jsonschemas={},
                  valgrind_plugins=True,
+                 executable=None,
                  **kwargs):
         self.bitcoin = bitcoind
         self.executor = executor
@@ -775,8 +790,9 @@ class LightningNode(object):
         self.daemon = LightningD(
             lightning_dir, bitcoindproxy=bitcoind.get_proxy(),
             port=port, random_hsm=random_hsm, node_id=node_id,
-            grpc_port=self.grpc_port,
+            grpc_port=self.grpc_port, executable=executable
         )
+        self.cln_version = self.daemon.cln_version
 
         self.disconnect = disconnect
         if self.disconnect:
@@ -1131,10 +1147,27 @@ class LightningNode(object):
             return None
         return channels[0]['channel_id']
 
-    def is_local_channel_active(self, scid):
+    def is_local_channel_active(self, scid) -> bool:
         """Is the local channel @scid usable?"""
         channels = self.rpc.listpeerchannels()['channels']
-        return [c['state'] in ('CHANNELD_NORMAL', 'CHANNELD_AWAITING_SPLICE') and 'remote' in c.get('updates', {}) for c in channels if c.get('short_channel_id') == scid] == [True]
+        channel = next((channel for channel in channels if channel.get("short_channel_id") == scid), None)
+
+        if channel is None:
+            return False
+
+        if channel["state"] not in ["CHANNELD_NORMAL", "CHANNELD_AWAITING_SPLICE"]:
+            return False
+
+        # Since v24.02 we only consider a channel active once the gossip
+        # about feerates has arrived.
+        #
+        # The field `updates`-field didn't exist prio to v24.02 and will be
+        # ignored for older versions of cln
+        if VersionSpec.parse(">=v24.02").matches(self.cln_version):
+            if "remote" not in channel.get("updates", {}):
+                return False
+
+        return True
 
     def wait_local_channel_active(self, scid):
         wait_for(lambda: self.is_local_channel_active(scid))
