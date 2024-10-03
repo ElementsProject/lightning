@@ -69,16 +69,6 @@ static const char *why_max_constrained(const tal_t *ctx,
 		tal_append_fmt(&ret, "already reserved %s", reservations);
 	}
 
-	/* If that doesn't explain it, perhaps it violates htlc_max? */
-	if (!ret) {
-		struct gossmap_chan *c = gossmap_find_chan(rq->gossmap, &scidd->scid);
-		fp16_t htlc_max = c->half[scidd->dir].htlc_max;
-		if (amount_msat_greater_fp16(amount, htlc_max))
-			ret = tal_fmt(ctx, "exceeds htlc_maximum_msat ~%s",
-				      fmt_amount_msat(tmpctx,
-						      amount_msat(fp16_to_u64(htlc_max))));
-	}
-
 	/* This seems unlikely, but don't return NULL. */
 	if (!ret)
 		ret = tal_fmt(ctx, "is constrained");
@@ -176,11 +166,19 @@ static const char *check_capacity(const tal_t *ctx,
 
 /* Return description of why scidd is disabled scidd */
 static const char *describe_disabled(const tal_t *ctx,
-				  const struct route_query *rq,
-				  const struct short_channel_id_dir *scidd)
+				     const struct route_query *rq,
+				     const struct gossmap_chan *c,
+				     const struct short_channel_id_dir *scidd)
 {
 	for (int i = tal_count(rq->layers) - 1; i >= 0; i--) {
-		if (layer_disables(rq->layers[i], scidd)) {
+		struct gossmap_node *dst = gossmap_nth_node(rq->gossmap, c, !scidd->dir);
+		struct node_id dstid;
+
+		gossmap_node_get_id(rq->gossmap, dst, &dstid);
+		if (layer_disables_node(rq->layers[i], &dstid))
+			return tal_fmt(ctx, "leads to node disabled by layer %s.",
+				       layer_name(rq->layers[i]));
+		else if (layer_disables_chan(rq->layers[i], scidd)) {
 			return tal_fmt(ctx, "marked disabled by layer %s.",
 				       layer_name(rq->layers[i]));
 		}
@@ -253,27 +251,30 @@ const char *explain_failure(const tal_t *ctx,
 		const char *explanation;
 		struct short_channel_id_dir scidd;
 		struct gossmap_chan *c;
-		struct amount_msat cap_msat;
+		struct amount_msat cap_msat, min, max, htlc_max;
 
 		scidd.scid = hops[i].scid;
 		scidd.dir = hops[i].direction;
 		c = gossmap_find_chan(rq->gossmap, &scidd.scid);
 		cap_msat = gossmap_chan_get_capacity(rq->gossmap, c);
+		get_constraints(rq, c, scidd.dir, &min, &max);
+		htlc_max = amount_msat(fp16_to_u64(c->half[scidd.dir].htlc_max));
+
 		if (!gossmap_chan_set(c, scidd.dir))
 			explanation = "has no gossip";
 		else if (!c->half[scidd.dir].enabled)
-			explanation = describe_disabled(tmpctx, rq, &scidd);
+			explanation = describe_disabled(tmpctx, rq, c, &scidd);
 		else if (amount_msat_greater(amount, cap_msat))
 			explanation = describe_capacity(tmpctx, rq, &scidd, amount);
-		else {
-			struct amount_msat min, max;
-			get_constraints(rq, c, scidd.dir, &min, &max);
-			if (amount_msat_less(max, amount)) {
-				explanation = why_max_constrained(tmpctx, rq,
-								  &scidd, amount);
-			} else
-				continue;
-		}
+		else if (amount_msat_greater(amount, max))
+			explanation = why_max_constrained(tmpctx, rq,
+							  &scidd, amount);
+		else if (amount_msat_greater(amount, htlc_max))
+			explanation = tal_fmt(tmpctx,
+					      "exceeds htlc_maximum_msat ~%s",
+					      fmt_amount_msat(tmpctx, htlc_max));
+		else
+			continue;
 
 		return tal_fmt(ctx,
 			       NO_USABLE_PATHS_STRING

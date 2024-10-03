@@ -106,7 +106,10 @@ void json_add_constraint(struct json_stream *js,
 bool layer_created(const struct layer *layer, struct short_channel_id scid);
 
 /* For explain_failure: did this layer disable this channel? */
-bool layer_disables(const struct layer *layer, const struct short_channel_id_dir *scidd);
+bool layer_disables_chan(const struct layer *layer, const struct short_channel_id_dir *scidd);
+
+/* For explain_failure: did this layer disable this node? */
+bool layer_disables_node(const struct layer *layer, const struct node_id *node);
 
 /* Scan for memleaks */
 void layer_memleak_mark(struct askrene *askrene, struct htable *memtable);

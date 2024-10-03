@@ -845,8 +845,7 @@ def test_max_htlc(node_factory, bitcoind):
                                   amount_msat=1,
                                   inform='constrained')
 
-    # FIXME: Better diag!
-    with pytest.raises(RpcError, match="Could not find route"):
+    with pytest.raises(RpcError, match="We could not find a usable set of paths.  The shortest path is 0x1x0, but 0x1x0/1 exceeds htlc_maximum_msat ~1000448msat"):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
                          amount_msat=20_000_000,

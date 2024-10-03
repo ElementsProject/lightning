@@ -256,10 +256,8 @@ void layer_apply_constraints(const struct layer *layer,
 	for (c = constraint_hash_getfirst(layer->constraints, scidd, &cit);
 	     c;
 	     c = constraint_hash_getnext(layer->constraints, scidd, &cit)) {
-		if (amount_msat_greater(c->min, *min))
-			*min = c->min;
-		if (amount_msat_less(c->max, *max))
-			*max = c->max;
+		*min = amount_msat_max(*min, c->min);
+		*max = amount_msat_min(*max, c->max);
 	}
 }
 
@@ -350,7 +348,6 @@ void layer_add_localmods(const struct layer *layer,
 			struct short_channel_id_dir scidd;
 			struct gossmap_chan *c;
 			bool enabled = false;
-			struct amount_msat zero = AMOUNT_MSAT(0);
 			c = gossmap_nth_chan(gossmap, node, n, &scidd.dir);
 			scidd.scid = gossmap_chan_scid(gossmap, c);
 
@@ -358,8 +355,7 @@ void layer_add_localmods(const struct layer *layer,
 			gossmap_local_updatechan(localmods,
 						 &scidd,
 						 &enabled,
-						 &zero, &zero,
-						 NULL, NULL, NULL);
+						 NULL, NULL, NULL, NULL, NULL);
 		}
 	}
 
@@ -507,14 +503,24 @@ bool layer_created(const struct layer *layer, struct short_channel_id scid)
 	return local_channel_hash_get(layer->local_channels, scid);
 }
 
-bool layer_disables(const struct layer *layer,
-		    const struct short_channel_id_dir *scidd)
+bool layer_disables_chan(const struct layer *layer,
+			 const struct short_channel_id_dir *scidd)
 {
 	const struct local_update *lu;
 
 	lu = local_update_hash_get(layer->local_updates, scidd);
 
 	return (lu && lu->enabled && *lu->enabled == false);
+}
+
+bool layer_disables_node(const struct layer *layer,
+			 const struct node_id *node)
+{
+	for (size_t i = 0; i < tal_count(layer->disabled_nodes); i++) {
+		if (node_id_eq(&layer->disabled_nodes[i], node))
+			return true;
+	}
+	return false;
 }
 
 void layer_memleak_mark(struct askrene *askrene, struct htable *memtable)
