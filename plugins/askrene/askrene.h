@@ -35,6 +35,9 @@ struct askrene {
 
 /* Information for a single route query. */
 struct route_query {
+	/* Command pointer, mainly for command id. */
+	struct command *cmd;
+
 	/* Plugin pointer, for logging mainly */
 	struct plugin *plugin;
 

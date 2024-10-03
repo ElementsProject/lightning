@@ -256,7 +256,7 @@ struct amount_msat get_additional_per_htlc_cost(const struct route_query *rq,
 
 /* Returns an error message, or sets *routes */
 static const char *get_routes(const tal_t *ctx,
-			      struct plugin *plugin,
+			      struct command *cmd,
 			      const struct node_id *source,
 			      const struct node_id *dest,
 			      struct amount_msat amount,
@@ -270,7 +270,7 @@ static const char *get_routes(const tal_t *ctx,
 			      const struct additional_cost_htable *additional_costs,
 			      double *probability)
 {
-	struct askrene *askrene = get_askrene(plugin);
+	struct askrene *askrene = get_askrene(cmd->plugin);
 	struct route_query *rq = tal(ctx, struct route_query);
 	struct flow **flows;
 	const struct gossmap_node *srcnode, *dstnode;
@@ -285,7 +285,8 @@ static const char *get_routes(const tal_t *ctx,
 		askrene->capacities = get_capacities(askrene, askrene->plugin, askrene->gossmap);
 	}
 
-	rq->plugin = plugin;
+	rq->cmd = cmd;
+	rq->plugin = cmd->plugin;
 	rq->gossmap = askrene->gossmap;
 	rq->reserved = askrene->reserved;
 	rq->layers = tal_arr(rq, const struct layer *, 0);
@@ -297,7 +298,7 @@ static const char *get_routes(const tal_t *ctx,
 		const struct layer *l = find_layer(askrene, layers[i]);
 		if (!l) {
 			if (streq(layers[i], "auto.localchans")) {
-				plugin_log(plugin, LOG_DBG, "Adding auto.localchans");
+				plugin_log(rq->plugin, LOG_DBG, "Adding auto.localchans");
 				l = local_layer;
 			} else {
 				/* Handled below, after other layers */
@@ -317,7 +318,7 @@ static const char *get_routes(const tal_t *ctx,
 
 	/* This also looks into localmods, to zero them */
 	if (have_layer(layers, "auto.sourcefree"))
-		add_free_source(plugin, askrene->gossmap, localmods, source);
+		add_free_source(rq->plugin, askrene->gossmap, localmods, source);
 
 	/* Clear scids with reservations, too, so we don't have to look up
 	 * all the time! */
@@ -383,7 +384,7 @@ static const char *get_routes(const tal_t *ctx,
 	}
 
 	/* Too expensive? */
-	while (amount_msat_greater(flowset_fee(plugin, flows), maxfee)) {
+	while (amount_msat_greater(flowset_fee(rq->plugin, flows), maxfee)) {
 		mu += 10;
 		flows = minflow(rq, rq, srcnode, dstnode, amount,
 				mu, delay_feefactor, base_fee_penalty, prob_cost_factor);
@@ -428,7 +429,7 @@ static const char *get_routes(const tal_t *ctx,
 			const struct half_chan *h = flow_edge(flows[i], j);
 
 			if (!amount_msat_add_fee(&msat, h->base_fee, h->proportional_fee))
-				plugin_err(plugin, "Adding fee to amount");
+				plugin_err(rq->plugin, "Adding fee to amount");
 			delay += h->delay;
 
 			rh->scid = gossmap_chan_scid(rq->gossmap, flows[i]->path[j]);
@@ -534,7 +535,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 	struct route **routes;
 	struct json_stream *response;
 
-	err = get_routes(cmd, cmd->plugin,
+	err = get_routes(cmd, cmd,
 			 info->source, info->dest,
 			 *info->amount, *info->maxfee, *info->finalcltv,
 			 info->layers, localmods, info->local_layer,
