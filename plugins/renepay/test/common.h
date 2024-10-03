@@ -49,8 +49,7 @@ static void add_connection(int store_fd,
 			   struct amount_msat max,
 			   u32 base_fee, s32 proportional_fee,
 			   u32 delay,
-			   struct amount_sat capacity,
-			   bool add_capacity)
+			   struct amount_sat capacity)
 {
 	secp256k1_ecdsa_signature dummy_sig;
 	struct secret not_a_secret;
@@ -79,10 +78,8 @@ static void add_connection(int store_fd,
 					  &dummy_key, &dummy_key);
 	write_to_store(store_fd, msg);
 
-	if (add_capacity) {
-		msg = towire_gossip_store_channel_amount(tmpctx, capacity);
-		write_to_store(store_fd, msg);
-	}
+	msg = towire_gossip_store_channel_amount(tmpctx, capacity);
+	write_to_store(store_fd, msg);
 
 	u8 flags = node_id_idx(from, to);
 

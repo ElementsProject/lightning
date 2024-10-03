@@ -157,16 +157,12 @@ static fp16_t *get_capacities(const tal_t *ctx,
 	for (c = gossmap_first_chan(gossmap);
 	     c;
 	     c = gossmap_next_chan(gossmap, c)) {
-		struct amount_sat cap;
+		struct amount_msat cap;
 
-		if (!gossmap_chan_get_capacity(gossmap, c, &cap)) {
-			plugin_log(plugin, LOG_BROKEN,
-				   "get_capacity failed for channel?");
-			cap = AMOUNT_SAT(0);
-		}
+		cap = gossmap_chan_get_capacity(gossmap, c);
 		/* Pessimistic: round down! */
 		caps[gossmap_chan_idx(gossmap, c)]
-			= u64_to_fp16(cap.satoshis, false); /* Raw: fp16 */
+			= u64_to_fp16(cap.millisatoshis/1000, false); /* Raw: fp16 */
 	}
 	return caps;
 }
@@ -459,23 +455,8 @@ void get_constraints(const struct route_query *rq,
 	}
 
 	/* Might be here because it's reserved, but capacity is normal. */
-	if (amount_msat_eq(*max, AMOUNT_MSAT(-1ULL))) {
-		struct amount_sat cap;
-		if (gossmap_chan_get_capacity(rq->gossmap, chan, &cap)) {
-			/* Shouldn't happen! */
-			if (!amount_sat_to_msat(max, cap)) {
-				plugin_log(rq->plugin, LOG_BROKEN,
-					   "Local channel %s with capacity %s?",
-					   fmt_short_channel_id(tmpctx, scidd.scid),
-					   fmt_amount_sat(tmpctx, cap));
-			}
-		} else {
-			/* Shouldn't happen: local channels have explicit constraints */
-			plugin_log(rq->plugin, LOG_BROKEN,
-				   "Channel %s without capacity?",
-				   fmt_short_channel_id(tmpctx, scidd.scid));
-		}
-	}
+	if (amount_msat_eq(*max, AMOUNT_MSAT(-1ULL)))
+		*max = gossmap_chan_get_capacity(rq->gossmap, chan);
 
 	/* Finally, if any is in use, subtract that! */
 	reserve_sub(rq->reserved, &scidd, min);

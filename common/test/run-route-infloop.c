@@ -56,15 +56,13 @@ static double capacity_bias(const struct gossmap *map,
 			    int dir,
 			    struct amount_msat amount)
 {
-	struct amount_sat capacity;
+	struct amount_msat msat;
 	u64 amtmsat = amount.millisatoshis; /* Raw: lengthy math */
 	double capmsat;
 
-	/* Can fail in theory if gossmap changed underneath. */
-	if (!gossmap_chan_get_capacity(map, c, &capacity))
-		return 0;
+	msat = gossmap_chan_get_capacity(map, c);
 
-	capmsat = (double)capacity.satoshis * 1000; /* Raw: lengthy math */
+	capmsat = (double)msat.millisatoshis; /* Raw: log */
 	return -log((capmsat + 1 - amtmsat) / (capmsat + 1));
 }
 
@@ -174,13 +172,13 @@ int main(int argc, char *argv[])
 		} else {
 			double probability = 1;
 			for (size_t j = 0; j < tal_count(r); j++) {
-				struct amount_sat capacity_sat;
+				struct amount_msat msat;
 				u64 cap_msat;
 				struct gossmap_chan *c = gossmap_find_chan(gossmap, &r[j].scid);
 				assert(c);
-				assert(gossmap_chan_get_capacity(gossmap, c, &capacity_sat));
+				msat = gossmap_chan_get_capacity(gossmap, c);
 
-				cap_msat = capacity_sat.satoshis * 1000;
+				cap_msat = msat.millisatoshis;
 				/* Assume linear distribution, implying probability depends on
 				 * amount we would leave in channel */
 				assert(cap_msat >= r[0].amount.millisatoshis);

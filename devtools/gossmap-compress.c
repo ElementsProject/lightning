@@ -234,18 +234,17 @@ static u64 get_htlc_max(struct gossmap *gossmap,
 			int dir)
 {
 	struct amount_msat msat, capacity_msat;
-	struct amount_sat capacity_sats;
-	gossmap_chan_get_capacity(gossmap, chan, &capacity_sats);
+
+	capacity_msat = gossmap_chan_get_capacity(gossmap, chan);
 	gossmap_chan_get_update_details(gossmap, chan, dir,
 					NULL, NULL, NULL, NULL, NULL, NULL, &msat);
 
 	/* Special value for the common case of "max_htlc == capacity" */
-	if (amount_msat_eq_sat(msat, capacity_sats)) {
+	if (amount_msat_eq(msat, capacity_msat)) {
 		return 0;
 	}
 	/* Other common case: "max_htlc == 99% capacity" */
-	if (amount_sat_to_msat(&capacity_msat, capacity_sats)
-	    && amount_msat_scale(&capacity_msat, capacity_msat, 0.99)
+	if (amount_msat_scale(&capacity_msat, capacity_msat, 0.99)
 	    && amount_msat_eq(msat, capacity_msat)) {
 		return 1;
 	}
@@ -675,9 +674,9 @@ int main(int argc, char *argv[])
 		/* <CAPACITY_TEMPLATES> := {capacity_count} {capacity_count}*{capacity} */
 		u64 *vals = tal_arr(chans, u64, channel_count);
 		for (size_t i = 0; i < channel_count; i++) {
-			struct amount_sat sats;
-			gossmap_chan_get_capacity(gossmap, chans[i], &sats);
-			vals[i] = sats.satoshis; /* Raw: compression format */
+			struct amount_msat cap;
+			cap = gossmap_chan_get_capacity(gossmap, chans[i]);
+			vals[i] = cap.millisatoshis / 1000; /* Raw: compression format */
 		}
 		write_template_and_values(outf, vals, "capacities");
 

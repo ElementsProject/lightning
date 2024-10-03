@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
 	mods = gossmap_localmods_new(tmpctx);
 
 	/* 1->2->4 has capacity 10k sat, 1->3->4 has capacity 5k sat (lower fee!) */
-	assert(gossmap_local_addchan(mods, &l1, &l2, scid12, NULL));
+	assert(gossmap_local_addchan(mods, &l1, &l2, scid12, AMOUNT_MSAT(10000000), NULL));
 	assert(gossmap_local_setchan(mods, scid12,
 				     /*htlc_min=*/ AMOUNT_MSAT(0),
 				     /*htlc_max=*/ AMOUNT_MSAT(10000000),
@@ -142,21 +142,21 @@ int main(int argc, char *argv[])
 				     /* delay  =*/ 5,
 				     /* enabled=*/ true,
 				     /* dir    =*/ 0));
-	assert(gossmap_local_addchan(mods, &l2, &l4, scid24, NULL));
+	assert(gossmap_local_addchan(mods, &l2, &l4, scid24, AMOUNT_MSAT(10000000), NULL));
 	assert(gossmap_local_setchan(mods, scid24,
 				     AMOUNT_MSAT(0),
 				     AMOUNT_MSAT(10000000),
 				     AMOUNT_MSAT(0), 1002, 5,
 				     true,
 				     0));
-	assert(gossmap_local_addchan(mods, &l1, &l3, scid13, NULL));
+	assert(gossmap_local_addchan(mods, &l1, &l3, scid13, AMOUNT_MSAT(5000000), NULL));
 	assert(gossmap_local_setchan(mods, scid13,
 				     AMOUNT_MSAT(0),
 				     AMOUNT_MSAT(5000000),
 				     AMOUNT_MSAT(0), 503, 5,
 				     true,
 				     0));
-	assert(gossmap_local_addchan(mods, &l3, &l4, scid34, NULL));
+	assert(gossmap_local_addchan(mods, &l3, &l4, scid34, AMOUNT_MSAT(5000000), NULL));
 	assert(gossmap_local_setchan(mods, scid34,
 				     AMOUNT_MSAT(0),
 				     AMOUNT_MSAT(5000000),

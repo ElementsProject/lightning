@@ -409,7 +409,8 @@ static void gossmod_cb(struct gossmap_localmods *mods,
 	}
 
 	/* FIXME: features? */
-	gossmap_local_addchan(mods, self, peer, scidd->scid, NULL);
+	gossmap_local_addchan(mods, self, peer, scidd->scid, capacity_msat,
+			      NULL);
 	gossmap_local_updatechan(mods, scidd,
 				 &enabled,
 				 &min, &max,
@@ -544,7 +545,7 @@ static void add_hintchan(struct payment *payment, const struct node_id *src,
 		}
 		/* FIXME: features? */
 		if (!gossmap_local_addchan(payment->local_gossmods, src, dst,
-					   scid, NULL) ||
+					   scid, MAX_CAPACITY, NULL) ||
 		    !gossmap_local_updatechan(
 			payment->local_gossmods, &scidd,
 			&enabled, &htlc_min, &htlc_max,

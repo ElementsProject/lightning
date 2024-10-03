@@ -578,12 +578,12 @@ static void test_flow_to_route(void)
 
 	struct chan_extra_half *h0,*h1;
 	struct gossmap_chan *c;
-	struct amount_sat cap;
+	struct amount_msat cap;
 	struct amount_msat sum_min1_max0,sum_min0_max1;
 
 	// check the bounds channel 1--2
 	c = gossmap_find_chan(gossmap,&scid12);
-	assert(gossmap_chan_get_capacity(gossmap,c,&cap));
+	cap = gossmap_chan_get_capacity(gossmap,c);
 
 	h0 = get_chan_extra_half_by_chan_verify(gossmap,chan_extra_map,c,0);
 	assert(h0);
@@ -596,17 +596,17 @@ static void test_flow_to_route(void)
 	h1->known_max = AMOUNT_MSAT(1000000000);
 
 	assert(amount_msat_less_eq(h0->known_min,h0->known_max));
-	assert(amount_msat_less_eq_sat(h0->known_max,cap));
+	assert(amount_msat_less_eq(h0->known_max,cap));
 	assert(amount_msat_less_eq(h1->known_min,h1->known_max));
-	assert(amount_msat_less_eq_sat(h1->known_max,cap));
+	assert(amount_msat_less_eq(h1->known_max,cap));
 	assert(amount_msat_add(&sum_min1_max0,h1->known_min,h0->known_max));
 	assert(amount_msat_add(&sum_min0_max1,h0->known_min,h1->known_max));
-	assert(amount_msat_eq_sat(sum_min1_max0,cap));
-	assert(amount_msat_eq_sat(sum_min0_max1,cap));
+	assert(amount_msat_eq(sum_min1_max0,cap));
+	assert(amount_msat_eq(sum_min0_max1,cap));
 
 	// check the bounds channel 2--3
 	c = gossmap_find_chan(gossmap,&scid23);
-	assert(gossmap_chan_get_capacity(gossmap,c,&cap));
+	cap = gossmap_chan_get_capacity(gossmap,c);
 
 	h1 = get_chan_extra_half_by_chan_verify(gossmap,chan_extra_map,c,1);
 	assert(h1);
@@ -619,17 +619,17 @@ static void test_flow_to_route(void)
 	h0->known_max = AMOUNT_MSAT(2000000000);
 
 	assert(amount_msat_less_eq(h0->known_min,h0->known_max));
-	assert(amount_msat_less_eq_sat(h0->known_max,cap));
+	assert(amount_msat_less_eq(h0->known_max,cap));
 	assert(amount_msat_less_eq(h1->known_min,h1->known_max));
-	assert(amount_msat_less_eq_sat(h1->known_max,cap));
+	assert(amount_msat_less_eq(h1->known_max,cap));
 	assert(amount_msat_add(&sum_min1_max0,h1->known_min,h0->known_max));
 	assert(amount_msat_add(&sum_min0_max1,h0->known_min,h1->known_max));
-	assert(amount_msat_eq_sat(sum_min1_max0,cap));
-	assert(amount_msat_eq_sat(sum_min0_max1,cap));
+	assert(amount_msat_eq(sum_min1_max0,cap));
+	assert(amount_msat_eq(sum_min0_max1,cap));
 
 	// check the bounds channel 3--4
 	c = gossmap_find_chan(gossmap,&scid34);
-	assert(gossmap_chan_get_capacity(gossmap,c,&cap));
+	cap = gossmap_chan_get_capacity(gossmap,c);
 
 	h0 = get_chan_extra_half_by_chan_verify(gossmap,chan_extra_map,c,0);
 	assert(h0);
@@ -642,17 +642,17 @@ static void test_flow_to_route(void)
 	h1->known_max = AMOUNT_MSAT(500000000);
 
 	assert(amount_msat_less_eq(h0->known_min,h0->known_max));
-	assert(amount_msat_less_eq_sat(h0->known_max,cap));
+	assert(amount_msat_less_eq(h0->known_max,cap));
 	assert(amount_msat_less_eq(h1->known_min,h1->known_max));
-	assert(amount_msat_less_eq_sat(h1->known_max,cap));
+	assert(amount_msat_less_eq(h1->known_max,cap));
 	assert(amount_msat_add(&sum_min1_max0,h1->known_min,h0->known_max));
 	assert(amount_msat_add(&sum_min0_max1,h0->known_min,h1->known_max));
-	assert(amount_msat_eq_sat(sum_min1_max0,cap));
-	assert(amount_msat_eq_sat(sum_min0_max1,cap));
+	assert(amount_msat_eq(sum_min1_max0,cap));
+	assert(amount_msat_eq(sum_min0_max1,cap));
 
 	// check the bounds channel 4--5
 	c = gossmap_find_chan(gossmap,&scid45);
-	assert(gossmap_chan_get_capacity(gossmap,c,&cap));
+	cap = gossmap_chan_get_capacity(gossmap,c);
 
 	h0 = get_chan_extra_half_by_chan_verify(gossmap,chan_extra_map,c,0);
 	assert(h0);
@@ -665,13 +665,13 @@ static void test_flow_to_route(void)
 	h1->known_max = AMOUNT_MSAT(2000000000);
 
 	assert(amount_msat_less_eq(h0->known_min,h0->known_max));
-	assert(amount_msat_less_eq_sat(h0->known_max,cap));
+	assert(amount_msat_less_eq(h0->known_max,cap));
 	assert(amount_msat_less_eq(h1->known_min,h1->known_max));
-	assert(amount_msat_less_eq_sat(h1->known_max,cap));
+	assert(amount_msat_less_eq(h1->known_max,cap));
 	assert(amount_msat_add(&sum_min1_max0,h1->known_min,h0->known_max));
 	assert(amount_msat_add(&sum_min0_max1,h0->known_min,h1->known_max));
-	assert(amount_msat_eq_sat(sum_min1_max0,cap));
-	assert(amount_msat_eq_sat(sum_min0_max1,cap));
+	assert(amount_msat_eq(sum_min1_max0,cap));
+	assert(amount_msat_eq(sum_min0_max1,cap));
 
 	struct flow *F;
 	struct route *route;

@@ -559,13 +559,8 @@ get_chan_extra_half_by_chan_verify(const struct gossmap *gossmap,
 	struct chan_extra_half *h =
 	    get_chan_extra_half_by_scid(chan_extra_map, &scidd);
 	if (!h) {
-		struct amount_sat cap;
-		struct amount_msat cap_msat;
-
-		if (!gossmap_chan_get_capacity(gossmap, chan, &cap) ||
-		    !amount_sat_to_msat(&cap_msat, cap)) {
-			return NULL;
-		}
+		struct amount_msat cap_msat
+			= gossmap_chan_get_capacity(gossmap, chan);
 		h = &new_chan_extra(chan_extra_map, scidd.scid, cap_msat)
 			 ->half[scidd.dir];
 	}

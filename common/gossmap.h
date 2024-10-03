@@ -94,6 +94,7 @@ bool gossmap_local_addchan(struct gossmap_localmods *localmods,
 			   const struct node_id *n1,
 			   const struct node_id *n2,
 			   struct short_channel_id scid,
+			   struct amount_msat capacity,
 			   const u8 *features)
 	NON_NULL_ARGS(1,2,3);
 
@@ -171,10 +172,9 @@ static inline bool gossmap_chan_set(const struct gossmap_chan *chan, int dir)
 	return chan->cupdate_off[dir] != 0;
 }
 
-/* Return capacity if it's known (fails on a local mod) */
-bool gossmap_chan_get_capacity(const struct gossmap *map,
-			       const struct gossmap_chan *c,
-			       struct amount_sat *amount);
+/* Return capacity (in msat). */
+struct amount_msat gossmap_chan_get_capacity(const struct gossmap *map,
+					     const struct gossmap_chan *c);
 
 /* Get the announcement msg which created this chan (NULL for localmods) */
 u8 *gossmap_chan_get_announce(const tal_t *ctx,

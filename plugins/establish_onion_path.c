@@ -116,7 +116,8 @@ gossmods_from_listpeers(const tal_t *ctx,
 		fake_scidd.scid.u64 = i;
 		fake_scidd.dir = node_id_idx(self, &peer_id);
 
-		gossmap_local_addchan(mods, self, &peer_id, fake_scidd.scid, NULL);
+		gossmap_local_addchan(mods, self, &peer_id, fake_scidd.scid,
+				      AMOUNT_MSAT(1000), NULL);
 		gossmap_local_updatechan(mods, &fake_scidd, &enabled,
 					 NULL, NULL, NULL, NULL, NULL);
 	}
