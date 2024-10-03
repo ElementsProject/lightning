@@ -17,17 +17,6 @@ struct askrene;
 struct layer;
 struct json_stream;
 
-/* A constraint reflects something we learned about a channel */
-struct constraint {
-	struct short_channel_id_dir scidd;
-	/* Time this constraint was last updated */
-	u64 timestamp;
-	/* Non-zero means set */
-	struct amount_msat min;
-	/* Non-0xFFFFF.... means set */
-	struct amount_msat max;
-};
-
 /* Look up a layer by name. */
 struct layer *find_layer(struct askrene *askrene, const char *name);
 
@@ -76,16 +65,19 @@ void layer_clear_overridden_capacities(const struct layer *layer,
 				       const struct gossmap *gossmap,
 				       fp16_t *capacities);
 
-/* Find a constraint in a layer. */
-const struct constraint *layer_find_constraint(const struct layer *layer,
-					       const struct short_channel_id_dir *scidd);
+/* Apply constraints from a layer (reduce min, increase max). */
+void layer_apply_constraints(const struct layer *layer,
+			     const struct short_channel_id_dir *scidd,
+			     struct amount_msat *min,
+			     struct amount_msat *max)
+	NO_NULL_ARGS;
 
-/* Add/update one or more constraints on a layer. */
-const struct constraint *layer_update_constraint(struct layer *layer,
-						 const struct short_channel_id_dir *scidd,
-						 u64 timestamp,
-						 const struct amount_msat *min,
-						 const struct amount_msat *max);
+/* Add one or more constraints on a layer. */
+const struct constraint *layer_add_constraint(struct layer *layer,
+					      const struct short_channel_id_dir *scidd,
+					      u64 timestamp,
+					      const struct amount_msat *min,
+					      const struct amount_msat *max);
 
 /* Add local channels from this layer. */
 void layer_add_localmods(const struct layer *layer,

@@ -27,6 +27,17 @@ struct local_update {
 	const struct amount_msat *htlc_min, *htlc_max;
 };
 
+/* A constraint reflects something we learned about a channel */
+struct constraint {
+	struct short_channel_id_dir scidd;
+	/* Time this constraint was last updated */
+	u64 timestamp;
+	/* Non-zero means set */
+	struct amount_msat min;
+	/* Non-0xFFFFF.... means set */
+	struct amount_msat max;
+};
+
 static const struct short_channel_id_dir *
 constraint_scidd(const struct constraint *c)
 {
@@ -233,43 +244,45 @@ const struct local_channel *layer_find_local_channel(const struct layer *layer,
 	return local_channel_hash_get(layer->local_channels, scid);
 }
 
-static struct constraint *layer_find_constraint_nonconst(const struct layer *layer,
-							 const struct short_channel_id_dir *scidd)
+void layer_apply_constraints(const struct layer *layer,
+			     const struct short_channel_id_dir *scidd,
+			     struct amount_msat *min,
+			     struct amount_msat *max)
 {
-	return constraint_hash_get(layer->constraints, scidd);
-}
+	struct constraint *c;
+	struct constraint_hash_iter cit;
 
-/* Public one returns const */
-const struct constraint *layer_find_constraint(const struct layer *layer,
-					       const struct short_channel_id_dir *scidd)
-{
-	return layer_find_constraint_nonconst(layer, scidd);
-}
-
-const struct constraint *layer_update_constraint(struct layer *layer,
-						 const struct short_channel_id_dir *scidd,
-						 u64 timestamp,
-						 const struct amount_msat *min,
-						 const struct amount_msat *max)
-{
-	struct constraint *c = layer_find_constraint_nonconst(layer, scidd);
-	if (!c) {
-		c = tal(layer, struct constraint);
-		c->scidd = *scidd;
-		c->min = AMOUNT_MSAT(0);
-		c->max = AMOUNT_MSAT(UINT64_MAX);
-		constraint_hash_add(layer->constraints, c);
+	/* We can have more than one: apply them all! */
+	for (c = constraint_hash_getfirst(layer->constraints, scidd, &cit);
+	     c;
+	     c = constraint_hash_getnext(layer->constraints, scidd, &cit)) {
+		if (amount_msat_greater(c->min, *min))
+			*min = c->min;
+		if (amount_msat_less(c->max, *max))
+			*max = c->max;
 	}
+}
 
-	/* Increase minimum? */
-	if (min && amount_msat_greater(*min, c->min))
+const struct constraint *layer_add_constraint(struct layer *layer,
+					      const struct short_channel_id_dir *scidd,
+					      u64 timestamp,
+					      const struct amount_msat *min,
+					      const struct amount_msat *max)
+{
+	struct constraint *c = tal(layer, struct constraint);
+	c->scidd = *scidd;
+
+	if (min)
 		c->min = *min;
-
-	/* Decrease maximum? */
-	if (max && amount_msat_less(*max, c->max))
+	else
+		c->min = AMOUNT_MSAT(0);
+	if (max)
 		c->max = *max;
-
+	else
+		c->max = AMOUNT_MSAT(UINT64_MAX);
 	c->timestamp = timestamp;
+
+	constraint_hash_add(layer->constraints, c);
 	return c;
 }
 
