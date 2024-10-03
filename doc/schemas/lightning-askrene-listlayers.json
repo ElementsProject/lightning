@@ -140,20 +140,13 @@
               "items": {
                 "type": "object",
                 "required": [
-                  "short_channel_id",
-                  "direction"
+                  "short_channel_id_dir"
                 ],
                 "properties": {
-                  "short_channel_id": {
-                    "type": "short_channel_id",
+                  "short_channel_id_dir": {
+                    "type": "short_channel_id_dir",
                     "description": [
-                      "The short channel id."
-                    ]
-                  },
-                  "direction": {
-                    "type": "u32",
-                    "description": [
-                      "The direction."
+                      "The short channel id and direction"
                     ]
                   },
                   "maximum_msat": {
