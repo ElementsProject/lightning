@@ -40,6 +40,11 @@ bool reserve_accumulate(const struct reserve_htable *reserved,
 			const struct short_channel_id_dir *scidd,
 			struct amount_msat *amount);
 
+/* To explain why we couldn't route */
+const char *fmt_reservations(const tal_t *ctx,
+			     const struct reserve_htable *reserved,
+			     const struct short_channel_id_dir *scidd);
+
 /* Print out a json object for all reservations */
 void json_add_reservations(struct json_stream *js,
 			   const struct reserve_htable *reserved,

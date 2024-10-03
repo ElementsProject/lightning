@@ -20,8 +20,10 @@ def test_reserve(node_factory):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
 
     assert l1.rpc.askrene_listreservations() == {'reservations': []}
-    scid12dir = f"{first_scid(l1, l2)}/{direction(l1.info['id'], l2.info['id'])}"
-    scid23dir = f"{first_scid(l2, l3)}/{direction(l2.info['id'], l3.info['id'])}"
+    scid12 = first_scid(l1, l2)
+    scid23 = first_scid(l2, l3)
+    scid12dir = f"{scid12}/{direction(l1.info['id'], l2.info['id'])}"
+    scid23dir = f"{scid23}/{direction(l2.info['id'], l3.info['id'])}"
 
     initial_prob = l1.rpc.getroutes(source=l1.info['id'],
                                     destination=l3.info['id'],
@@ -60,8 +62,12 @@ def test_reserve(node_factory):
                                  {'short_channel_id_dir': scid23dir,
                                   'amount_msat': 1000_000_000_000}])
 
-    # FIXME: better error!
-    with pytest.raises(RpcError, match="Could not find route"):
+    # Keep it consistent: the below will mention a time if >= 1 seconds old,
+    # which might happen without the sleep on slow machines.
+    time.sleep(2)
+
+    # Reservations can be in either order.
+    with pytest.raises(RpcError, match=rf'We could not find a usable set of paths.  The shortest path is {scid12}->{scid23}, but {scid12dir} already reserved 10000000*msat by command ".*" \([0-9]* seconds ago\), 10000000*msat by command ".*" \([0-9]* seconds ago\)'):
         l1.rpc.getroutes(source=l1.info['id'],
                          destination=l3.info['id'],
                          amount_msat=1000000,
@@ -305,18 +311,46 @@ def test_getroutes(node_factory):
     # Set up l1 with this as the gossip_store
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
+    # Too much should give a decent explanation.
+    with pytest.raises(RpcError, match=r"We could not find a usable set of paths\.  The shortest path is 0x1x0, but 0x1x0/1 isn't big enough to carry 1000000001msat\."):
+        l1.rpc.getroutes(source=nodemap[0],
+                         destination=nodemap[1],
+                         amount_msat=1000000001,
+                         layers=[],
+                         maxfee_msat=100000000,
+                         final_cltv=99)
+
+    # This should tell us source doesn't have enough.
+    with pytest.raises(RpcError, match=r"We could not find a usable set of paths\.  Total source capacity is only 1019000000msat \(in 3 channels\)\."):
+        l1.rpc.getroutes(source=nodemap[0],
+                         destination=nodemap[1],
+                         amount_msat=2000000001,
+                         layers=[],
+                         maxfee_msat=20000000,
+                         final_cltv=99)
+
+    # This should tell us dest doesn't have enough.
+    with pytest.raises(RpcError, match=r"We could not find a usable set of paths\.  Total destination capacity is only 1000000000msat \(in 1 channels\)\."):
+        l1.rpc.getroutes(source=nodemap[0],
+                         destination=nodemap[4],
+                         amount_msat=1000000001,
+                         layers=[],
+                         maxfee_msat=30000000,
+                         final_cltv=99)
+
     # Disabling channels makes getroutes fail
     l1.rpc.askrene_create_layer('chans_disabled')
     l1.rpc.askrene_update_channel(layer="chans_disabled",
                                   short_channel_id_dir='0x1x0/1',
                                   enabled=False)
-    with pytest.raises(RpcError, match="Could not find route"):
+    with pytest.raises(RpcError, match=r"We could not find a usable set of paths\.  The shortest path is 0x1x0, but 0x1x0/1 marked disabled by layer chans_disabled\."):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
                          amount_msat=1000,
                          layers=["chans_disabled"],
                          maxfee_msat=1000,
                          final_cltv=99)
+
     # Start easy
     assert l1.rpc.getroutes(source=nodemap[0],
                             destination=nodemap[1],
