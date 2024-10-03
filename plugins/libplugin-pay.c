@@ -411,7 +411,7 @@ static void channel_hints_update(struct payment *p,
 				 const struct short_channel_id scid,
 				 int direction, bool enabled, bool local,
 				 const struct amount_msat *estimated_capacity,
-				 const struct amount_sat overall_capacity,
+				 const struct amount_msat overall_capacity,
 				 u16 *htlc_budget)
 {
 	struct payment *root = payment_root(p);
@@ -2553,7 +2553,7 @@ local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
 				     const jsmntok_t *toks, struct payment *p)
 {
 	struct listpeers_channel **chans;
-	struct amount_sat capacity;
+	struct amount_msat capacity;
 
 	chans = json_to_listpeers_channels(tmpctx, buffer, toks);
 
@@ -2578,8 +2578,7 @@ local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
 		else
 			htlc_budget = chans[i]->max_accepted_htlcs - chans[i]->num_htlcs;
 
-		if(!amount_msat_to_sat(&capacity, chans[i]->total_msat))
-			abort();
+		capacity = chans[i]->total_msat;
 
 		/* If we have both a scid and a local alias we want to
 		 * use the scid, and mark the alias as
@@ -3096,7 +3095,7 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 			hop.amount = dest_amount;
 			hop.delay = route_cltv(d->final_cltv, routehint + i + 1,
 					       tal_count(routehint) - i - 1);
-			hop.capacity = amount_msat_to_sat_round_down(estimate);
+			hop.capacity = estimate;
 
 			/* Should we get a failure inside the routehint we'll
 			 * need the direction so we can exclude it. Luckily
@@ -3866,7 +3865,7 @@ static void route_exclusions_step_cb(struct route_exclusions_data *d,
 		struct route_exclusion *e = exclusions[i];
 
 		/* We don't need the details if we skip anyway. */
-		struct amount_sat total = AMOUNT_SAT(0);
+		struct amount_msat total = AMOUNT_MSAT(0);
 
 		if (e->type == EXCLUDE_CHANNEL) {
 			channel_hints_update(p, e->u.chan_id.scid,
