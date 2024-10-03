@@ -293,7 +293,7 @@ static const char *get_routes(const tal_t *ctx,
 
 		tal_arr_expand(&rq->layers, l);
 		/* FIXME: Implement localmods_merge, and cache this in layer? */
-		layer_add_localmods(l, rq->gossmap, false, localmods);
+		layer_add_localmods(l, rq->gossmap, localmods);
 
 		/* Clear any entries in capacities array if we
 		 * override them (incl local channels) */
