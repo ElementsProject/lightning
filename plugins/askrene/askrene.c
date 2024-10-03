@@ -301,13 +301,13 @@ static const char *get_routes(const tal_t *ctx,
 	srcnode = gossmap_find_node(askrene->gossmap, source);
 	if (!srcnode) {
 		ret = tal_fmt(ctx, "Unknown source node %s", fmt_node_id(tmpctx, source));
-		goto out;
+		goto fail;
 	}
 
 	dstnode = gossmap_find_node(askrene->gossmap, dest);
 	if (!dstnode) {
 		ret = tal_fmt(ctx, "Unknown destination node %s", fmt_node_id(tmpctx, dest));
-		goto out;
+		goto fail;
 	}
 
 	delay_feefactor = 1.0/1000000;
@@ -331,7 +331,7 @@ static const char *get_routes(const tal_t *ctx,
 			mu, delay_feefactor, base_fee_penalty, prob_cost_factor);
 	if (!flows) {
 		ret = explain_failure(ctx, rq, srcnode, dstnode, amount);
-		goto out;
+		goto fail;
 	}
 
 	/* Too much delay? */
@@ -348,7 +348,7 @@ static const char *get_routes(const tal_t *ctx,
 				mu, delay_feefactor, base_fee_penalty, prob_cost_factor);
 		if (!flows || delay_feefactor > 10) {
 			ret = tal_fmt(ctx, "Could not find route without excessive delays");
-			goto out;
+			goto fail;
 		}
 	}
 
@@ -359,13 +359,13 @@ static const char *get_routes(const tal_t *ctx,
 				mu, delay_feefactor, base_fee_penalty, prob_cost_factor);
 		if (!flows || mu == 100) {
 			ret = tal_fmt(ctx, "Could not find route without excessive cost");
-			goto out;
+			goto fail;
 		}
 	}
 
 	if (finalcltv + flows_worst_delay(flows) > 2016) {
 		ret = tal_fmt(ctx, "Could not find route without excessive cost or delays");
-		goto out;
+		goto fail;
 	}
 
 	/* The above did not take into account the extra funds to pay
@@ -374,7 +374,7 @@ static const char *get_routes(const tal_t *ctx,
 	 * still possible */
 	ret = refine_with_fees_and_limits(ctx, rq, amount, &flows);
 	if (ret)
-		goto out;
+		goto fail;
 
 	/* Convert back into routes, with delay and other information fixed */
 	*routes = tal_arr(ctx, struct route *, tal_count(flows));
@@ -412,9 +412,13 @@ static const char *get_routes(const tal_t *ctx,
 	}
 
 	*probability = flowset_probability(flows, rq);
-	ret = NULL;
+	gossmap_remove_localmods(askrene->gossmap, localmods);
+	return NULL;
 
-out:
+	/* Explicit failure path keeps the compiler (gcc version 12.3.0 -O3) from
+	 * warning about uninitialized variables in the caller */
+fail:
+	assert(ret != NULL);
 	gossmap_remove_localmods(askrene->gossmap, localmods);
 	return ret;
 }

@@ -3167,7 +3167,7 @@ static struct command_result *param_dev_channel(struct command *cmd,
 						const jsmntok_t *tok,
 						struct channel **channel)
 {
-	struct peer *peer;
+	struct peer *peer COMPILER_WANTS_INIT("gcc version 12.3.0 -O3");
 	struct command_result *res;
 	bool more_than_one;
 
