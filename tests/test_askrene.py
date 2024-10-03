@@ -158,7 +158,8 @@ def test_layers(node_factory):
     first_timestamp = int(time.time())
     l2.rpc.askrene_inform_channel('test_layers',
                                   '0x0x1/1',
-                                  100000)
+                                  100000,
+                                  'unconstrained')
     last_timestamp = int(time.time()) + 1
     expect['constraints'].append({'short_channel_id_dir': '0x0x1/1',
                                   'minimum_msat': 100000})
@@ -178,7 +179,8 @@ def test_layers(node_factory):
     scid12dir = f"{scid12}/{direction(l2.info['id'], l1.info['id'])}"
     l2.rpc.askrene_inform_channel(layer='test_layers',
                                   short_channel_id_dir=scid12dir,
-                                  maximum_msat=12341234)
+                                  amount_msat=12341235,
+                                  inform='constrained')
     last_timestamp = int(time.time()) + 1
     expect['constraints'].append({'short_channel_id_dir': scid12dir,
                                   'timestamp': first_timestamp,
@@ -543,7 +545,8 @@ def test_fees_dont_exceed_constraints(node_factory):
     l1.rpc.askrene_create_layer('test_layers')
     l1.rpc.askrene_inform_channel(layer='test_layers',
                                   short_channel_id_dir=f"{chan['short_channel_id']}/{chan['direction']}",
-                                  maximum_msat=max_msat)
+                                  amount_msat=max_msat + 1,
+                                  inform='constrained')
 
     routes = l1.rpc.getroutes(source=nodemap[0],
                               destination=nodemap[3],
@@ -687,14 +690,18 @@ def test_limits_fake_gossmap(node_factory, bitcoind):
     for scidd in spendable:
         assert scidd in [f"{c['short_channel_id']}/{c['direction']}" for c in l1.rpc.listchannels(source=nodemap[0])['channels']]
 
+    # We tell it we could get through amount, but not amount + 1.
+    # This makes min == max, just like we do for auto.localchans spendable.
     l1.rpc.askrene_create_layer('localchans')
     for scidd, amount in spendable.items():
         l1.rpc.askrene_inform_channel(layer='localchans',
                                       short_channel_id_dir=scidd,
-                                      minimum_msat=amount)
+                                      amount_msat=amount,
+                                      inform='unconstrained')
         l1.rpc.askrene_inform_channel(layer='localchans',
                                       short_channel_id_dir=scidd,
-                                      maximum_msat=amount)
+                                      amount_msat=amount + 1,
+                                      inform='constrained')
 
     routes = l1.rpc.getroutes(
         source=nodemap[0],
@@ -751,7 +758,8 @@ def test_max_htlc(node_factory, bitcoind):
     l1.rpc.askrene_create_layer('removechan2')
     l1.rpc.askrene_inform_channel(layer='removechan2',
                                   short_channel_id_dir='0x1x1/1',
-                                  maximum_msat=0)
+                                  amount_msat=1,
+                                  inform='constrained')
 
     # FIXME: Better diag!
     with pytest.raises(RpcError, match="Could not find route"):

@@ -782,41 +782,86 @@ static struct command_result *json_askrene_create_channel(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
+enum inform {
+	INFORM_CONSTRAINED,
+	INFORM_UNCONSTRAINED,
+	INFORM_SUCCEEDED,
+};
+
+static struct command_result *param_inform(struct command *cmd,
+					   const char *name,
+					   const char *buffer,
+					   const jsmntok_t *tok,
+					   enum inform **inform)
+{
+	*inform = tal(cmd, enum inform);
+	if (json_tok_streq(buffer, tok, "constrained"))
+		**inform = INFORM_CONSTRAINED;
+	else if (json_tok_streq(buffer, tok, "unconstrained"))
+		**inform = INFORM_UNCONSTRAINED;
+	else if (json_tok_streq(buffer, tok, "succeeded"))
+		**inform = INFORM_SUCCEEDED;
+	else
+		command_fail_badparam(cmd, name, buffer, tok,
+				      "must be constrained/unconstrained/succeeded");
+	return NULL;
+}
+
 static struct command_result *json_askrene_inform_channel(struct command *cmd,
 							    const char *buffer,
 							    const jsmntok_t *params)
 {
+	struct askrene *askrene = get_askrene(cmd->plugin);
 	struct layer *layer;
 	struct short_channel_id_dir *scidd;
 	struct json_stream *response;
-	struct amount_msat *max, *min;
+	struct amount_msat *amount;
+	enum inform *inform;
 	const struct constraint *c;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("layer", param_known_layer, &layer),
 			 p_req("short_channel_id_dir", param_short_channel_id_dir, &scidd),
-			 p_opt("minimum_msat", param_msat, &min),
-			 p_opt("maximum_msat", param_msat, &max),
+			 p_req("amount_msat", param_msat, &amount),
+			 p_req("inform", param_inform, &inform),
 			 NULL))
 		return command_param_failed();
 
-	if ((!min && !max) || (min && max)) {
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Must specify exactly one of maximum_msat/minimum_msat");
-	}
-
-	if (command_check_only(cmd))
-		return command_check_done(cmd);
-
-	if (min) {
-		c = layer_update_constraint(layer, scidd, CONSTRAINT_MIN,
-					    time_now().ts.tv_sec, *min);
-	} else {
+	switch (*inform) {
+	case INFORM_CONSTRAINED:
+		/* It didn't pass, so minimal assumption is that reserve was all used
+		 * then there we were one msat short. */
+		if (!amount_msat_sub(amount, *amount, AMOUNT_MSAT(1)))
+			*amount = AMOUNT_MSAT(0);
+		if (!reserve_accumulate(askrene->reserved, scidd, amount))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Amount overflow with reserves");
+		if (command_check_only(cmd))
+			return command_check_done(cmd);
 		c = layer_update_constraint(layer, scidd, CONSTRAINT_MAX,
-					    time_now().ts.tv_sec, *max);
+					    time_now().ts.tv_sec, *amount);
+		goto output;
+	case INFORM_UNCONSTRAINED:
+		/* It passed, so the capacity is at least this much (minimal assumption is
+		 * that no reserves were used) */
+		if (command_check_only(cmd))
+			return command_check_done(cmd);
+		c = layer_update_constraint(layer, scidd, CONSTRAINT_MIN,
+					    time_now().ts.tv_sec, *amount);
+		goto output;
+	case INFORM_SUCCEEDED:
+		/* FIXME: We could do something useful here! */
+		c = NULL;
+		goto output;
 	}
+	abort();
+
+output:
 	response = jsonrpc_stream_success(cmd);
-	json_add_constraint(response, "constraint", c, layer);
+	json_array_start(response, "constraints");
+	if (c)
+		json_add_constraint(response, NULL, c, layer);
+	json_array_end(response);
 	return command_finished(cmd, response);
 }
 

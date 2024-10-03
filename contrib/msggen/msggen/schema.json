@@ -664,12 +664,14 @@
       "description": [
         "WARNING: experimental, so API may change.",
         "",
-        "The **askrene-inform-channel** RPC command tells askrene about the minimum or maximum current capacity of a given channel.  It can be applied whether the current channel exists or not."
+        "The **askrene-inform-channel** RPC command tells askrene about channels we used so it can update its capacity estimates.  For most accuracy, you should remove your own reservations before calling this.  It can be applied whether the current channel exists or not."
       ],
       "request": {
         "required": [
           "layer",
-          "short_channel_id_dir"
+          "short_channel_id_dir",
+          "amount_msat",
+          "inform"
         ],
         "properties": {
           "layer": {
@@ -684,55 +686,56 @@
               "The short channel id and direction to apply this change to."
             ]
           },
-          "minimum_msat": {
+          "amount_msat": {
             "type": "msat",
             "description": [
-              "The minumum value which this channel could pass.  This or *minimum_msat* must be specified, but not both."
+              "The amount we used on the channel"
             ]
           },
-          "maximum_msat": {
-            "type": "msat",
+          "inform": {
+            "type": "string",
+            "enum": [
+              "constrained",
+              "unconstrained",
+              "succeeded"
+            ],
             "description": [
-              "The maximum value which this channel could pass.  This or *minimum_msat* must be specified, but not both."
+              "Whether this payment passed (implying capacity of at least that amount), failed (implying maximum capacity of one msat less), or succeeded (implying capacity has been reduced in this direction)"
             ]
           }
         }
       },
       "response": {
         "required": [
-          "constraint"
+          "constraints"
         ],
         "properties": {
-          "constraint": {
-            "type": "object",
-            "required": [
-              "short_channel_id_dir",
-              "timestamp"
-            ],
-            "properties": {
-              "short_channel_id_dir": {
-                "type": "short_channel_id_dir",
-                "description": [
-                  "The *short_channel_id* and *direction* specified."
-                ]
-              },
-              "timestamp": {
-                "type": "u64",
-                "description": [
-                  "The UNIX time (seconds since 1970) this was created."
-                ]
-              },
-              "maximum_msat": {
-                "type": "msat",
-                "description": [
-                  "The *minimum_msat* (if specified)"
-                ]
-              },
-              "minimum_msat": {
-                "type": "msat",
-                "description": [
-                  "The *maximum_msat* (if specified)"
-                ]
+          "constraints": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "short_channel_id_dir"
+              ],
+              "properties": {
+                "short_channel_id_dir": {
+                  "type": "short_channel_id_dir",
+                  "description": [
+                    "The short channel id and direction"
+                  ]
+                },
+                "maximum_msat": {
+                  "type": "msat",
+                  "description": [
+                    "The maximum value which this channel could pass.  This or *minimum_msat* will be present, but not both."
+                  ]
+                },
+                "minimum_msat": {
+                  "type": "msat",
+                  "description": [
+                    "The minimum value which this channel could pass.  This or *minimum_msat* will be present, but not both."
+                  ]
+                }
               }
             }
           }
@@ -1057,7 +1060,7 @@
       "description": [
         "WARNING: experimental, so API may change.",
         "",
-        "The **askrene-reserve** RPC command tells askrene that a path is being attempted.  This allows it to take that into account when other *getroutes* calls are made.  You should call **askrene-unreserve** after the attempt has completed.",
+        "The **askrene-reserve** RPC command tells askrene that a path is being attempted.  This allows it to take that into account when other *getroutes* calls are made.  You should call *askrene-unreserve* after the attempt has completed (and before calling *askrene-inform*).",
         "",
         "Note that additional properties inside the *path* elements are ignored, which is useful when used with the result of *getroutes*."
       ],

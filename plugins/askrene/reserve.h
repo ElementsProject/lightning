@@ -35,6 +35,11 @@ void reserve_sub(const struct reserve_htable *reserved,
 		 const struct short_channel_id_dir *scidd,
 		 struct amount_msat *amount);
 
+/* Add any reserves for scidd to this amount */
+bool reserve_accumulate(const struct reserve_htable *reserved,
+			const struct short_channel_id_dir *scidd,
+			struct amount_msat *amount);
+
 /* Print out a json object for all reservations */
 void json_add_reservations(struct json_stream *js,
 			   const struct reserve_htable *reserved,

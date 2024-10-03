@@ -115,6 +115,22 @@ void reserve_sub(const struct reserve_htable *reserved,
 	}
 }
 
+bool reserve_accumulate(const struct reserve_htable *reserved,
+			const struct short_channel_id_dir *scidd,
+			struct amount_msat *amount)
+{
+	struct reserve *r;
+	struct reserve_htable_iter rit;
+
+	for (r = reserve_htable_getfirst(reserved, scidd, &rit);
+	     r;
+	     r = reserve_htable_getnext(reserved, scidd, &rit)) {
+		if (!amount_msat_add(amount, *amount, r->rhop.amount))
+			return false;
+	}
+	return true;
+}
+
 void json_add_reservations(struct json_stream *js,
 			   const struct reserve_htable *reserved,
 			   const char *fieldname)
