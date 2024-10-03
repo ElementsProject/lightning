@@ -17,6 +17,7 @@ def test_layers(node_factory):
 
     expect = {'layer': 'test_layers',
               'disabled_nodes': [],
+              'disabled_channels': [],
               'created_channels': [],
               'constraints': []}
     l2.rpc.askrene_disable_node('test_layers', l1.info['id'])
@@ -24,6 +25,10 @@ def test_layers(node_factory):
     assert l2.rpc.askrene_listlayers('test_layers') == {'layers': [expect]}
     assert l2.rpc.askrene_listlayers() == {'layers': [expect]}
     assert l2.rpc.askrene_listlayers('test_layers2') == {'layers': []}
+
+    l2.rpc.askrene_disable_channel('test_layers', "1x2x3/0")
+    expect['disabled_channels'].append("1x2x3/0")
+    assert l2.rpc.askrene_listlayers('test_layers') == {'layers': [expect]}
 
     # Tell it l3 connects to l1!
     l2.rpc.askrene_create_channel('test_layers',
@@ -164,6 +169,20 @@ def test_getroutes(node_factory):
     # Set up l1 with this as the gossip_store
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
+    def direction(nodemap, src, dst):
+        if nodemap[src] < nodemap[dst]:
+            return 0
+        return 1
+
+    # Disabling channels makes getroutes fail
+    l1.rpc.askrene_disable_channel("chans_disabled", f"0x1x0/{direction(nodemap, 0, 1)}")
+    with pytest.raises(RpcError, match="Could not find route"):
+        l1.rpc.getroutes(source=nodemap[0],
+                         destination=nodemap[1],
+                         amount_msat=1000,
+                         layers=["chans_disabled"],
+                         maxfee_msat=1000,
+                         final_cltv=99)
     # Start easy
     assert l1.rpc.getroutes(source=nodemap[0],
                             destination=nodemap[1],
