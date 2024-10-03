@@ -419,8 +419,7 @@ void json_add_constraint(struct json_stream *js,
 	json_object_start(js, fieldname);
 	if (layer)
 		json_add_string(js, "layer", layer->name);
-	json_add_short_channel_id(js, "short_channel_id", c->key.scidd.scid);
-	json_add_u32(js, "direction", c->key.scidd.dir);
+	json_add_short_channel_id_dir(js, "short_channel_id_dir", c->key.scidd);
 	json_add_u64(js, "timestamp", c->timestamp);
 	switch (c->key.type) {
 	case CONSTRAINT_MIN:

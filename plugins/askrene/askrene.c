@@ -102,20 +102,6 @@ static struct command_result *param_known_layer(struct command *cmd,
 	return NULL;
 }
 
-static struct command_result *param_zero_or_one(struct command *cmd,
-						const char *name,
-						const char *buffer,
-						const jsmntok_t *tok,
-						int **num)
-{
-	*num = tal(cmd, int);
-	if (json_to_zero_or_one(buffer, tok, *num))
-		return NULL;
-
-	return command_fail_badparam(cmd, name, buffer, tok,
-				     "should be 0 or 1");
-}
-
 struct reserve_path {
 	struct short_channel_id_dir *scidds;
 	struct amount_msat *amounts;
@@ -130,9 +116,8 @@ static struct command_result *parse_reserve_path(struct command *cmd,
 {
 	const char *err;
 
-	err = json_scan(tmpctx, buffer, tok, "{short_channel_id:%,direction:%,amount_msat:%}",
-			JSON_SCAN(json_to_short_channel_id, &scidd->scid),
-			JSON_SCAN(json_to_zero_or_one, &scidd->dir),
+	err = json_scan(tmpctx, buffer, tok, "{short_channel_id_dir:%,amount_msat:%}",
+			JSON_SCAN(json_to_short_channel_id_dir, scidd),
 			JSON_SCAN(json_to_msat, amount));
 	if (err)
 		return command_fail_badparam(cmd, name, buffer, tok, err);
@@ -553,10 +538,12 @@ static struct command_result *do_getroutes(struct command *cmd,
 		json_add_u32(response, "final_cltv", *info->finalcltv);
 		json_array_start(response, "path");
 		for (size_t j = 0; j < tal_count(routes[i]->hops); j++) {
+			struct short_channel_id_dir scidd;
 			const struct route_hop *r = &routes[i]->hops[j];
 			json_object_start(response, NULL);
-			json_add_short_channel_id(response, "short_channel_id", r->scid);
-			json_add_u32(response, "direction", r->direction);
+			scidd.scid = r->scid;
+			scidd.dir = r->direction;
+			json_add_short_channel_id_dir(response, "short_channel_id_dir", scidd);
 			json_add_node_id(response, "next_node_id", &r->node_id);
 			json_add_amount_msat(response, "amount_msat", r->amount);
 			json_add_u32(response, "delay", r->delay);
@@ -825,18 +812,15 @@ static struct command_result *json_askrene_inform_channel(struct command *cmd,
 {
 	struct layer *layer;
 	const char *layername;
-	struct short_channel_id *scid;
-	int *direction;
+	struct short_channel_id_dir *scidd;
 	struct json_stream *response;
 	struct amount_msat *max, *min;
 	const struct constraint *c;
-	struct short_channel_id_dir scidd;
 	struct askrene *askrene = get_askrene(cmd->plugin);
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("layer", param_layername, &layername),
-			 p_req("short_channel_id", param_short_channel_id, &scid),
-			 p_req("direction", param_zero_or_one, &direction),
+			 p_req("short_channel_id_dir", param_short_channel_id_dir, &scidd),
 			 p_opt("minimum_msat", param_msat, &min),
 			 p_opt("maximum_msat", param_msat, &max),
 			 NULL))
@@ -854,15 +838,11 @@ static struct command_result *json_askrene_inform_channel(struct command *cmd,
 	if (!layer)
 		layer = new_layer(askrene, layername);
 
-	/* Calls expect a convenient short_channel_id_dir struct */
-	scidd.scid = *scid;
-	scidd.dir = *direction;
-
 	if (min) {
-		c = layer_update_constraint(layer, &scidd, CONSTRAINT_MIN,
+		c = layer_update_constraint(layer, scidd, CONSTRAINT_MIN,
 					    time_now().ts.tv_sec, *min);
 	} else {
-		c = layer_update_constraint(layer, &scidd, CONSTRAINT_MAX,
+		c = layer_update_constraint(layer, scidd, CONSTRAINT_MAX,
 					    time_now().ts.tv_sec, *max);
 	}
 	response = jsonrpc_stream_success(cmd);

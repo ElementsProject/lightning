@@ -474,8 +474,7 @@
       "request": {
         "required": [
           "layer",
-          "short_channel_id",
-          "direction"
+          "short_channel_id_dir"
         ],
         "properties": {
           "layer": {
@@ -484,16 +483,10 @@
               "The name of the layer to apply this change to."
             ]
           },
-          "short_channel_id": {
-            "type": "short_channel_id",
+          "short_channel_id_dir": {
+            "type": "short_channel_id_dir",
             "description": [
-              "The short channel id to apply this change to."
-            ]
-          },
-          "direction": {
-            "type": "u32",
-            "description": [
-              "The direction to apply this change to."
+              "The short channel id and direction to apply this change to."
             ]
           },
           "minimum_msat": {
@@ -518,21 +511,14 @@
           "constraint": {
             "type": "object",
             "required": [
-              "short_channel_id",
-              "direction",
+              "short_channel_id_dir",
               "timestamp"
             ],
             "properties": {
-              "short_channel_id": {
-                "type": "short_channel_id",
+              "short_channel_id_dir": {
+                "type": "short_channel_id_dir",
                 "description": [
-                  "The *short_channel_id* specified."
-                ]
-              },
-              "direction": {
-                "type": "u32",
-                "description": [
-                  "The *direction* specified."
+                  "The *short_channel_id* and *direction* specified."
                 ]
               },
               "timestamp": {
@@ -713,20 +699,13 @@
                   "items": {
                     "type": "object",
                     "required": [
-                      "short_channel_id",
-                      "direction"
+                      "short_channel_id_dir"
                     ],
                     "properties": {
-                      "short_channel_id": {
-                        "type": "short_channel_id",
+                      "short_channel_id_dir": {
+                        "type": "short_channel_id_dir",
                         "description": [
-                          "The short channel id."
-                        ]
-                      },
-                      "direction": {
-                        "type": "u32",
-                        "description": [
-                          "The direction."
+                          "The short channel id and direction"
                         ]
                       },
                       "maximum_msat": {
@@ -787,21 +766,14 @@
               "type": "object",
               "additionalProperties": true,
               "required": [
-                "short_channel_id",
-                "direction",
+                "short_channel_id_dir",
                 "amount_msat"
               ],
               "properties": {
-                "short_channel_id": {
-                  "type": "short_channel_id",
+                "short_channel_id_dir": {
+                  "type": "short_channel_id_dir",
                   "description": [
-                    "The channel joining these nodes."
-                  ]
-                },
-                "direction": {
-                  "type": "u32",
-                  "description": [
-                    "0 if this channel is traversed from lesser to greater **id**, otherwise 1."
+                    "The channel and direction joining these nodes."
                   ]
                 },
                 "amount_msat": {
@@ -859,21 +831,14 @@
               "type": "object",
               "additionalProperties": true,
               "required": [
-                "short_channel_id",
-                "direction",
+                "short_channel_id_dir",
                 "amount_msat"
               ],
               "properties": {
-                "short_channel_id": {
-                  "type": "short_channel_id",
+                "short_channel_id_dir": {
+                  "type": "short_channel_id_dir",
                   "description": [
-                    "The channel joining these nodes."
-                  ]
-                },
-                "direction": {
-                  "type": "u32",
-                  "description": [
-                    "0 if this channel is traversed from lesser to greater **id**, otherwise 1."
+                    "The channel and direction joining these nodes."
                   ]
                 },
                 "amount_msat": {
@@ -14435,23 +14400,16 @@
                     "type": "object",
                     "additionalProperties": false,
                     "required": [
-                      "short_channel_id",
-                      "direction",
+                      "short_channel_id_dir",
                       "next_node_id",
                       "amount_msat",
                       "delay"
                     ],
                     "properties": {
-                      "short_channel_id": {
-                        "type": "short_channel_id",
+                      "short_channel_id_dir": {
+                        "type": "short_channel_id_dir",
                         "description": [
-                          "The channel joining these nodes."
-                        ]
-                      },
-                      "direction": {
-                        "type": "u32",
-                        "description": [
-                          "0 if this channel is traversed from lesser to greater **id**, otherwise 1."
+                          "The channel and direction joining these nodes."
                         ]
                       },
                       "amount_msat": {

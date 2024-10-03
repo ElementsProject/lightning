@@ -22,21 +22,14 @@
           "type": "object",
           "additionalProperties": true,
           "required": [
-            "short_channel_id",
-            "direction",
+            "short_channel_id_dir",
             "amount_msat"
           ],
           "properties": {
-            "short_channel_id": {
-              "type": "short_channel_id",
+            "short_channel_id_dir": {
+              "type": "short_channel_id_dir",
               "description": [
-                "The channel joining these nodes."
-              ]
-            },
-            "direction": {
-              "type": "u32",
-              "description": [
-                "0 if this channel is traversed from lesser to greater **id**, otherwise 1."
+                "The channel and direction joining these nodes."
               ]
             },
             "amount_msat": {
