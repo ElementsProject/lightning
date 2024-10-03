@@ -319,22 +319,19 @@ void layer_add_localmods(const struct layer *layer,
 		if (!node)
 			continue;
 		for (size_t n = 0; n < node->num_chans; n++) {
-			struct short_channel_id scid;
+			struct short_channel_id_dir scidd;
 			struct gossmap_chan *c;
-			int dir;
-			c = gossmap_nth_chan(gossmap, node, n, &dir);
-			scid = gossmap_chan_scid(gossmap, c);
+			bool enabled = false;
+			struct amount_msat zero = AMOUNT_MSAT(0);
+			c = gossmap_nth_chan(gossmap, node, n, &scidd.dir);
+			scidd.scid = gossmap_chan_scid(gossmap, c);
 
 			/* Disabled zero-capacity on incoming */
 			gossmap_local_updatechan(localmods,
-						 scid,
-						 AMOUNT_MSAT(0),
-						 AMOUNT_MSAT(0),
-						 0,
-						 0,
-						 0,
-						 false,
-						 !dir);
+						 &scidd,
+						 &enabled,
+						 &zero, &zero,
+						 NULL, NULL, NULL);
 		}
 	}
 
@@ -344,30 +341,29 @@ void layer_add_localmods(const struct layer *layer,
 		gossmap_local_addchan(localmods,
 				      &lc->n1, &lc->n2, lc->scid, NULL);
 		for (size_t i = 0; i < ARRAY_SIZE(lc->half); i++) {
+			struct short_channel_id_dir scidd;
+			bool enabled = true;
 			if (!lc->half[i].enabled)
 				continue;
-			gossmap_local_updatechan(localmods, lc->scid,
-						 lc->half[i].htlc_min,
-						 lc->half[i].htlc_max,
-						 lc->half[i].base_fee.millisatoshis, /* Raw: gossmap */
-						 lc->half[i].proportional_fee,
-						 lc->half[i].delay,
-						 true,
-						 i);
+			scidd.scid = lc->scid;
+			scidd.dir = i;
+			gossmap_local_updatechan(localmods, &scidd,
+						 &enabled,
+						 &lc->half[i].htlc_min,
+						 &lc->half[i].htlc_max,
+						 &lc->half[i].base_fee,
+						 &lc->half[i].proportional_fee,
+						 &lc->half[i].delay);
 		}
 	}
 
 	/* Now disable any channels they asked us to */
 	for (size_t i = 0; i < tal_count(layer->disabled_channels); i++) {
+		bool enabled = false;
 		gossmap_local_updatechan(localmods,
-					 layer->disabled_channels[i].scid,
-					 AMOUNT_MSAT(0),
-					 AMOUNT_MSAT(0),
-					 0,
-					 0,
-					 0,
-					 false,
-					 layer->disabled_channels[i].dir);
+					 &layer->disabled_channels[i],
+					 &enabled,
+					 NULL, NULL, NULL, NULL, NULL);
 	}
 }
 

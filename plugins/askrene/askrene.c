@@ -183,11 +183,11 @@ static void add_free_source(struct plugin *plugin,
 	/* We apply existing localmods, save up mods we want, then append
 	 * them: it's not safe to modify localmods while they are applied! */
 	const struct gossmap_node *srcnode;
-	struct mod {
-		struct short_channel_id_dir scidd;
-		fp16_t htlc_min, htlc_max;
-		bool enabled;
-	} *mods = tal_arr(tmpctx, struct mod, 0);
+	const struct amount_msat zero_base_fee = AMOUNT_MSAT(0);
+	const u16 zero_delay = 0;
+	const u32 zero_prop_fee = 0;
+	struct short_channel_id_dir *scidds
+		= tal_arr(tmpctx, struct short_channel_id_dir, 0);
 
 	gossmap_apply_localmods(gossmap, localmods);
 
@@ -195,35 +195,24 @@ static void add_free_source(struct plugin *plugin,
 	srcnode = gossmap_find_node(gossmap, source);
 
 	for (size_t i = 0; srcnode && i < srcnode->num_chans; i++) {
+		struct short_channel_id_dir scidd;
 		const struct gossmap_chan *c;
-		const struct half_chan *h;
-		struct mod mod;
 
-		c = gossmap_nth_chan(gossmap, srcnode, i, &mod.scidd.dir);
-		h = &c->half[mod.scidd.dir];
-
-		mod.scidd.scid = gossmap_chan_scid(gossmap, c);
-		mod.htlc_min = h->htlc_min;
-		mod.htlc_max = h->htlc_max;
-		mod.enabled = h->enabled;
-		tal_arr_expand(&mods, mod);
+		c = gossmap_nth_chan(gossmap, srcnode, i, &scidd.dir);
+		scidd.scid = gossmap_chan_scid(gossmap, c);
+		tal_arr_expand(&scidds, scidd);
 	}
 	gossmap_remove_localmods(gossmap, localmods);
 
-	/* Now we can update localmods */
-	for (size_t i = 0; i < tal_count(mods); i++) {
+	/* Now we can update localmods: we only change fee levels and delay */
+	for (size_t i = 0; i < tal_count(scidds); i++) {
 		if (!gossmap_local_updatechan(localmods,
-					      mods[i].scidd.scid,
-					      /* Keep min and max */
-					      /* FIXME: lossy conversion! */
-					      amount_msat(fp16_to_u64(mods[i].htlc_min)),
-					      amount_msat(fp16_to_u64(mods[i].htlc_max)),
-					      0, 0, 0,
-					      /* Keep enabled flag */
-					      mods[i].enabled,
-					      mods[i].scidd.dir))
-			plugin_err(plugin, "Could not zero fee on %s",
-				   fmt_short_channel_id_dir(tmpctx, &mods[i].scidd));
+					      &scidds[i],
+					      NULL, NULL, NULL,
+					      &zero_base_fee, &zero_prop_fee,
+					      &zero_delay))
+			plugin_err(plugin, "Could not zero fee/delay on %s",
+				   fmt_short_channel_id_dir(tmpctx, &scidds[i]));
 	}
 }
 

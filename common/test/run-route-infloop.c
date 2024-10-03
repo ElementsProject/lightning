@@ -138,17 +138,18 @@ int main(int argc, char *argv[])
 	/* We overlay our own channels as zero fee & delay, since we don't pay fees */
 	struct gossmap_localmods *localmods = gossmap_localmods_new(gossmap);
 	for (size_t i = 0; i < me->num_chans; i++) {
-		int dir;
-		struct short_channel_id scid;
-		struct gossmap_chan *c = gossmap_nth_chan(gossmap, me, i, &dir);
+		struct short_channel_id_dir scidd;
+		const struct amount_msat base_fee = AMOUNT_MSAT(0);
+		const u32 proportional_fee = 0;
+		struct gossmap_chan *c = gossmap_nth_chan(gossmap, me, i, &scidd.dir);
 
-		if (!c->half[dir].enabled)
+		if (!c->half[scidd.dir].enabled)
 			continue;
-		scid = gossmap_chan_scid(gossmap, c);
-		assert(gossmap_local_updatechan(localmods, scid,
-						amount_msat(fp16_to_u64(c->half[dir].htlc_min)),
-						amount_msat(fp16_to_u64(c->half[dir].htlc_max)),
-						0, 0, 0, true, dir));
+		scidd.scid = gossmap_chan_scid(gossmap, c);
+		assert(gossmap_local_updatechan(localmods, &scidd,
+						NULL, NULL, NULL,
+						&base_fee, &proportional_fee,
+						NULL));
 	}
 	gossmap_apply_localmods(gossmap, localmods);
 
