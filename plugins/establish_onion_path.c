@@ -95,7 +95,8 @@ gossmods_from_listpeers(const tal_t *ctx,
 		struct node_id peer_id;
 		const char *err;
 		u8 *features = NULL;
-		struct short_channel_id fake_scid;
+		struct short_channel_id_dir fake_scidd;
+		bool enabled = true;
 
 		err = json_scan(tmpctx, buf, peer,
 				"{connected:%,"
@@ -112,13 +113,12 @@ gossmods_from_listpeers(const tal_t *ctx,
 			continue;
 
 		/* Add a fake channel */
-		fake_scid.u64 = i;
+		fake_scidd.scid.u64 = i;
+		fake_scidd.dir = node_id_idx(self, &peer_id);
 
-		gossmap_local_addchan(mods, self, &peer_id, fake_scid, NULL);
-		gossmap_local_updatechan(mods, fake_scid,
-					 AMOUNT_MSAT(0),
-					 AMOUNT_MSAT(0),
-					 0, 0, 0, true, node_id_idx(self, &peer_id));
+		gossmap_local_addchan(mods, self, &peer_id, fake_scidd.scid, NULL);
+		gossmap_local_updatechan(mods, &fake_scidd, &enabled,
+					 NULL, NULL, NULL, NULL, NULL);
 	}
 	return mods;
 }

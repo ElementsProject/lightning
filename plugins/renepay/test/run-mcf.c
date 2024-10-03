@@ -481,12 +481,12 @@ int main(int argc, char *argv[])
 
 	/* 400,000sat channel from 1->3, basefee 0, ppm 1000, delay 5 */
 	assert(gossmap_local_addchan(mods, &l1, &l3, scid13, NULL));
-	assert(gossmap_local_updatechan(mods, scid13,
-					AMOUNT_MSAT(0),
-					AMOUNT_MSAT(400000000),
-					0, 1000, 5,
-					true,
-					0));
+	assert(gossmap_local_setchan(mods, scid13,
+				     AMOUNT_MSAT(0),
+				     AMOUNT_MSAT(400000000),
+				     AMOUNT_MSAT(0), 1000, 5,
+				     true,
+				     0));
 
 	/* Apply changes, check they work. */
 	gossmap_apply_localmods(gossmap, mods);

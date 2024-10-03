@@ -485,25 +485,25 @@ int main(int argc, char *argv[])
 	assert(!gossmap_find_node(map, &l4));
 
 	/* Now update it both local, and an existing one. */
-	gossmap_local_updatechan(mods, scid_local,
-				 AMOUNT_MSAT(1),
-				 AMOUNT_MSAT(100000),
-				 2, 3, 4, true, 0);
+	gossmap_local_setchan(mods, scid_local,
+			      AMOUNT_MSAT(1),
+			      AMOUNT_MSAT(100000),
+			      AMOUNT_MSAT(2), 3, 4, true, 0);
 
 	/* Adding an existing channel is a noop. */
 	assert(gossmap_local_addchan(mods, &l2, &l3, scid23, NULL));
 
-	gossmap_local_updatechan(mods, scid23,
-				 AMOUNT_MSAT(99),
-				 AMOUNT_MSAT(100),
-				 101, 102, 103, true, 0);
+	gossmap_local_setchan(mods, scid23,
+			      AMOUNT_MSAT(99),
+			      AMOUNT_MSAT(100),
+			      AMOUNT_MSAT(101), 102, 103, true, 0);
 
 	/* We can "update" a channel which doesn't exist, and it's a noop */
 	scid_nonexisting.u64 = 1;
-	gossmap_local_updatechan(mods, scid_nonexisting,
-				 AMOUNT_MSAT(1),
-				 AMOUNT_MSAT(100000),
-				 2, 3, 4, false, 0);
+	gossmap_local_setchan(mods, scid_nonexisting,
+			      AMOUNT_MSAT(1),
+			      AMOUNT_MSAT(100000),
+			      AMOUNT_MSAT(2), 3, 4, false, 0);
 
 	gossmap_apply_localmods(map, mods);
 	chan = gossmap_find_chan(map, &scid_local);

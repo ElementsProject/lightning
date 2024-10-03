@@ -28,12 +28,12 @@ void gossmod_add_localchan(struct gossmap_localmods *mods,
 	/* FIXME: features? */
 	gossmap_local_addchan(mods, self, peer, scidd->scid, NULL);
 
-	gossmap_local_updatechan(mods, scidd->scid, min, max,
-				 fee_base.millisatoshis, /* Raw: gossmap */
-				 fee_proportional,
-				 cltv_delta,
-				 enabled,
-				 scidd->dir);
+	gossmap_local_updatechan(mods, scidd,
+				 &enabled,
+				 &min, &max,
+				 &fee_base,
+				 &fee_proportional,
+				 &cltv_delta);
 }
 
 struct gossmap_localmods *
