@@ -82,10 +82,9 @@ const struct constraint *layer_update_constraint(struct layer *layer,
 						 const struct amount_msat *min,
 						 const struct amount_msat *max);
 
-/* Add local channels from this layer.  zero_cost means set fees and delay to 0. */
+/* Add local channels from this layer. */
 void layer_add_localmods(const struct layer *layer,
 			 const struct gossmap *gossmap,
-			 bool zero_cost,
 			 struct gossmap_localmods *localmods);
 
 /* Remove constraints older then cutoff: returns num removed. */

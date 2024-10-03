@@ -305,7 +305,6 @@ void layer_add_disabled_channel(struct layer *layer, const struct short_channel_
 
 void layer_add_localmods(const struct layer *layer,
 			 const struct gossmap *gossmap,
-			 bool zero_cost,
 			 struct gossmap_localmods *localmods)
 {
 	const struct local_channel *lc;
@@ -345,20 +344,14 @@ void layer_add_localmods(const struct layer *layer,
 		gossmap_local_addchan(localmods,
 				      &lc->n1, &lc->n2, lc->scid, NULL);
 		for (size_t i = 0; i < ARRAY_SIZE(lc->half); i++) {
-			u64 base, propfee, delay;
 			if (!lc->half[i].enabled)
 				continue;
-			if (zero_cost) {
-				base = propfee = delay = 0;
-			} else {
-				base = lc->half[i].base_fee.millisatoshis; /* Raw: gossmap */
-				propfee = lc->half[i].proportional_fee;
-				delay = lc->half[i].delay;
-			}
 			gossmap_local_updatechan(localmods, lc->scid,
 						 lc->half[i].htlc_min,
 						 lc->half[i].htlc_max,
-						 base, propfee, delay,
+						 lc->half[i].base_fee.millisatoshis, /* Raw: gossmap */
+						 lc->half[i].proportional_fee,
+						 lc->half[i].delay,
 						 true,
 						 i);
 		}
