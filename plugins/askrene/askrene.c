@@ -720,6 +720,22 @@ static struct command_result *json_askrene_unreserve(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
+static struct command_result *json_askrene_listreservations(struct command *cmd,
+							    const char *buffer,
+							    const jsmntok_t *params)
+{
+	struct askrene *askrene = get_askrene(cmd->plugin);
+	struct json_stream *response;
+
+	if (!param(cmd, buffer, params,
+		   NULL))
+		return command_param_failed();
+
+	response = jsonrpc_stream_success(cmd);
+	json_add_reservations(response, askrene->reserved, "reservations");
+	return command_finished(cmd, response);
+}
+
 static struct command_result *json_askrene_create_channel(struct command *cmd,
 							  const char *buffer,
 							  const jsmntok_t *params)
@@ -941,6 +957,10 @@ static const struct plugin_command commands[] = {
 	{
 		"getroutes",
 		json_getroutes,
+	},
+	{
+		"askrene-listreservations",
+		json_askrene_listreservations,
 	},
 	{
 		"askrene-reserve",
