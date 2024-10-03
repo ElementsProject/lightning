@@ -543,6 +543,7 @@ static void add_localchan(struct gossmap_localmods *mods,
 			  const struct node_id *self,
 			  const struct node_id *peer,
 			  const struct short_channel_id_dir *scidd,
+			  struct amount_msat capacity_msat,
 			  struct amount_msat htlcmin,
 			  struct amount_msat htlcmax,
 			  struct amount_msat spendable,
@@ -558,7 +559,7 @@ static void add_localchan(struct gossmap_localmods *mods,
 	const char *opener;
 	const char *err;
 
-	gossmod_add_localchan(mods, self, peer, scidd, htlcmin, htlcmax,
+	gossmod_add_localchan(mods, self, peer, scidd, capacity_msat, htlcmin, htlcmax,
 			      spendable, fee_base, fee_proportional, cltv_delta, enabled,
 			      buf, chantok, info->local_layer);
 
