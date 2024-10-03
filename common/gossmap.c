@@ -980,6 +980,10 @@ void gossmap_remove_localmods(struct gossmap *map,
 		const struct localmod *mod = &localmods->mods[i];
 		struct gossmap_chan *chan = gossmap_find_chan(map, &mod->scid);
 
+		/* If there was no channel, ignore */
+		if (!chan)
+			continue;
+
 		/* If that's a local channel, remove it now. */
 		if (chan->cann_off >= map->map_size) {
 			gossmap_remove_chan(map, chan);

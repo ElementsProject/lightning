@@ -333,7 +333,7 @@ int main(int argc, char *argv[])
 	char *gossfile;
 	struct gossmap *map;
 	struct node_id l1, l2, l3, l4;
-	struct short_channel_id scid23, scid12, scid_local;
+	struct short_channel_id scid23, scid12, scid_local, scid_nonexisting;
 	struct gossmap_chan *chan;
 	struct gossmap_localmods *mods;
 	struct amount_sat capacity;
@@ -498,6 +498,13 @@ int main(int argc, char *argv[])
 				 AMOUNT_MSAT(100),
 				 101, 102, 103, true, 0);
 
+	/* We can "update" a channel which doesn't exist, and it's a noop */
+	scid_nonexisting.u64 = 1;
+	gossmap_local_updatechan(mods, scid_nonexisting,
+				 AMOUNT_MSAT(1),
+				 AMOUNT_MSAT(100000),
+				 2, 3, 4, false, 0);
+
 	gossmap_apply_localmods(map, mods);
 	chan = gossmap_find_chan(map, &scid_local);
 	assert(gossmap_chan_set(chan, 0));
@@ -509,6 +516,8 @@ int main(int argc, char *argv[])
 	assert(chan->half[0].base_fee == 2);
 	assert(chan->half[0].proportional_fee == 3);
 	assert(chan->half[0].delay == 4);
+
+	assert(!gossmap_find_chan(map, &scid_nonexisting));
 
 	chan = gossmap_find_chan(map, &scid23);
 	assert(chan->half[0].enabled);
