@@ -12,6 +12,7 @@ GENERATE_MARKDOWN := doc/lightning-addgossip.7 \
 	doc/lightning-askrene-disable-node.7 \
 	doc/lightning-askrene-inform-channel.7 \
 	doc/lightning-askrene-listlayers.7 \
+	doc/lightning-askrene-listreservations.7 \
 	doc/lightning-askrene-reserve.7 \
 	doc/lightning-askrene-unreserve.7 \
 	doc/lightning-autoclean-once.7 \

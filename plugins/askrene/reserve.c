@@ -3,6 +3,7 @@
 #include <ccan/htable/htable_type.h>
 #include <ccan/tal/str/str.h>
 #include <common/gossmap.h>
+#include <common/json_stream.h>
 #include <common/memleak.h>
 #include <plugins/askrene/askrene.h>
 #include <plugins/askrene/reserve.h>
@@ -112,6 +113,32 @@ void reserve_sub(const struct reserve_htable *reserved,
 		if (!amount_msat_sub(amount, *amount, r->rhop.amount))
 			*amount = AMOUNT_MSAT(0);
 	}
+}
+
+void json_add_reservations(struct json_stream *js,
+			   const struct reserve_htable *reserved,
+			   const char *fieldname)
+{
+	struct reserve *r;
+	struct reserve_htable_iter rit;
+
+	json_array_start(js, fieldname);
+	for (r = reserve_htable_first(reserved, &rit);
+	     r;
+	     r = reserve_htable_next(reserved, &rit)) {
+		json_object_start(js, NULL);
+		json_add_short_channel_id_dir(js,
+					      "short_channel_id_dir",
+					      r->rhop.scidd);
+		json_add_amount_msat(js,
+				     "amount_msat",
+				     r->rhop.amount);
+		json_add_u64(js, "age_in_seconds",
+			     timemono_between(time_mono(), r->timestamp).ts.tv_sec);
+		json_add_string(js, "command_id", r->cmd_id);
+		json_object_end(js);
+	}
+	json_array_end(js);
 }
 
 void reserve_memleak_mark(struct askrene *askrene, struct htable *memtable)

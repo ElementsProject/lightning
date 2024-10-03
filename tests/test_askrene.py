@@ -15,6 +15,99 @@ def direction(src, dst):
     return 1
 
 
+def test_reserve(node_factory):
+    """Test reserving channels"""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    assert l1.rpc.askrene_listreservations() == {'reservations': []}
+    scid12dir = f"{first_scid(l1, l2)}/{direction(l1.info['id'], l2.info['id'])}"
+    scid23dir = f"{first_scid(l2, l3)}/{direction(l2.info['id'], l3.info['id'])}"
+
+    initial_prob = l1.rpc.getroutes(source=l1.info['id'],
+                                    destination=l3.info['id'],
+                                    amount_msat=1000000,
+                                    layers=[],
+                                    maxfee_msat=100000,
+                                    final_cltv=0)['probability_ppm']
+
+    # Reserve 1000 sats on path.  This should reduce probability!
+    l1.rpc.askrene_reserve(path=[{'short_channel_id_dir': scid12dir,
+                                  'amount_msat': 1000_000},
+                                 {'short_channel_id_dir': scid23dir,
+                                  'amount_msat': 1000_001}])
+    listres = l1.rpc.askrene_listreservations()['reservations']
+    if listres[0]['short_channel_id_dir'] == scid12dir:
+        assert listres[0]['amount_msat'] == 1000_000
+        assert listres[1]['short_channel_id_dir'] == scid23dir
+        assert listres[1]['amount_msat'] == 1000_001
+    else:
+        assert listres[0]['short_channel_id_dir'] == scid23dir
+        assert listres[0]['amount_msat'] == 1000_001
+        assert listres[1]['short_channel_id_dir'] == scid12dir
+        assert listres[1]['amount_msat'] == 1000_000
+    assert len(listres) == 2
+
+    assert l1.rpc.getroutes(source=l1.info['id'],
+                            destination=l3.info['id'],
+                            amount_msat=1000000,
+                            layers=[],
+                            maxfee_msat=100000,
+                            final_cltv=0)['probability_ppm'] < initial_prob
+
+    # Now reserve so much there's nothing left.
+    l1.rpc.askrene_reserve(path=[{'short_channel_id_dir': scid12dir,
+                                  'amount_msat': 1000_000_000_000},
+                                 {'short_channel_id_dir': scid23dir,
+                                  'amount_msat': 1000_000_000_000}])
+
+    # FIXME: better error!
+    with pytest.raises(RpcError, match="Could not find route"):
+        l1.rpc.getroutes(source=l1.info['id'],
+                         destination=l3.info['id'],
+                         amount_msat=1000000,
+                         layers=[],
+                         maxfee_msat=100000,
+                         final_cltv=0)['probability_ppm']
+
+    # Can't remove wrong amounts: that's user error
+    with pytest.raises(RpcError, match="Unknown reservation"):
+        l1.rpc.askrene_unreserve(path=[{'short_channel_id_dir': scid12dir,
+                                        'amount_msat': 1000_001},
+                                       {'short_channel_id_dir': scid23dir,
+                                        'amount_msat': 1000_000}])
+
+    # Remove, it's all ok.
+    l1.rpc.askrene_unreserve(path=[{'short_channel_id_dir': scid12dir,
+                                    'amount_msat': 1000_000},
+                                   {'short_channel_id_dir': scid23dir,
+                                    'amount_msat': 1000_001}])
+    l1.rpc.askrene_unreserve(path=[{'short_channel_id_dir': scid12dir,
+                                    'amount_msat': 1000_000_000_000},
+                                   {'short_channel_id_dir': scid23dir,
+                                    'amount_msat': 1000_000_000_000}])
+    assert l1.rpc.askrene_listreservations() == {'reservations': []}
+    assert l1.rpc.getroutes(source=l1.info['id'],
+                            destination=l3.info['id'],
+                            amount_msat=1000000,
+                            layers=[],
+                            maxfee_msat=100000,
+                            final_cltv=0)['probability_ppm'] == initial_prob
+
+    # Reserving in reverse makes no difference!
+    scid12rev = f"{first_scid(l1, l2)}/{direction(l2.info['id'], l1.info['id'])}"
+    scid23rev = f"{first_scid(l2, l3)}/{direction(l3.info['id'], l2.info['id'])}"
+    l1.rpc.askrene_reserve(path=[{'short_channel_id_dir': scid12rev,
+                                  'amount_msat': 1000_000_000_000},
+                                 {'short_channel_id_dir': scid23rev,
+                                  'amount_msat': 1000_000_000_000}])
+    assert l1.rpc.getroutes(source=l1.info['id'],
+                            destination=l3.info['id'],
+                            amount_msat=1000000,
+                            layers=[],
+                            maxfee_msat=100000,
+                            final_cltv=0)['probability_ppm'] == initial_prob
+
+
 def test_layers(node_factory):
     """Test manipulating information in layers"""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
