@@ -113,23 +113,17 @@ static struct command_result *param_known_layer(struct command *cmd,
 	return NULL;
 }
 
-struct reserve_path {
-	struct short_channel_id_dir *scidds;
-	struct amount_msat *amounts;
-};
-
-static struct command_result *parse_reserve_path(struct command *cmd,
-						 const char *name,
-						 const char *buffer,
-						 const jsmntok_t *tok,
-						 struct short_channel_id_dir *scidd,
-						 struct amount_msat *amount)
+static struct command_result *parse_reserve_hop(struct command *cmd,
+						const char *name,
+						const char *buffer,
+						const jsmntok_t *tok,
+						struct reserve_hop *rhop)
 {
 	const char *err;
 
 	err = json_scan(tmpctx, buffer, tok, "{short_channel_id_dir:%,amount_msat:%}",
-			JSON_SCAN(json_to_short_channel_id_dir, scidd),
-			JSON_SCAN(json_to_msat, amount));
+			JSON_SCAN(json_to_short_channel_id_dir, &rhop->scidd),
+			JSON_SCAN(json_to_msat, &rhop->amount));
 	if (err)
 		return command_fail_badparam(cmd, name, buffer, tok, err);
 	return NULL;
@@ -139,7 +133,7 @@ static struct command_result *param_reserve_path(struct command *cmd,
 						 const char *name,
 						 const char *buffer,
 						 const jsmntok_t *tok,
-						 struct reserve_path **path)
+						 struct reserve_hop **path)
 {
 	size_t i;
 	const jsmntok_t *t;
@@ -147,15 +141,11 @@ static struct command_result *param_reserve_path(struct command *cmd,
 	if (tok->type != JSMN_ARRAY)
 		return command_fail_badparam(cmd, name, buffer, tok, "should be an array");
 
-	*path = tal(cmd, struct reserve_path);
-	(*path)->scidds = tal_arr(cmd, struct short_channel_id_dir, tok->size);
-	(*path)->amounts = tal_arr(cmd, struct amount_msat, tok->size);
+	*path = tal_arr(cmd, struct reserve_hop, tok->size);
 	json_for_each_arr(i, t, tok) {
 		struct command_result *ret;
 
-		ret = parse_reserve_path(cmd, name, buffer, t,
-					 &(*path)->scidds[i],
-					 &(*path)->amounts[i]);
+		ret = parse_reserve_hop(cmd, name, buffer, t, &(*path)[i]);
 		if (ret)
 			return ret;
 	}
@@ -695,7 +685,7 @@ static struct command_result *json_askrene_reserve(struct command *cmd,
 						   const char *buffer,
 						   const jsmntok_t *params)
 {
-	struct reserve_path *path;
+	struct reserve_hop *path;
 	struct json_stream *response;
 	size_t num;
 	struct askrene *askrene = get_askrene(cmd->plugin);
@@ -705,15 +695,14 @@ static struct command_result *json_askrene_reserve(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	num = reserves_add(askrene->reserved, path->scidds, path->amounts,
-			   tal_count(path->scidds));
-	if (num != tal_count(path->scidds)) {
-		const struct reserve *r = find_reserve(askrene->reserved, &path->scidds[num]);
+	num = reserves_add(askrene->reserved, path, tal_count(path));
+	if (num != tal_count(path)) {
+		const struct reserve *r = find_reserve(askrene->reserved, &path[num].scidd);
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Overflow reserving %zu: %s amount %s (%s reserved already)",
 				    num,
-				    fmt_short_channel_id_dir(tmpctx, &path->scidds[num]),
-				    fmt_amount_msat(tmpctx, path->amounts[num]),
+				    fmt_short_channel_id_dir(tmpctx, &path[num].scidd),
+				    fmt_amount_msat(tmpctx, path[num].amount),
 				    r ? fmt_amount_msat(tmpctx, r->amount) : "none");
 	}
 
@@ -725,7 +714,7 @@ static struct command_result *json_askrene_unreserve(struct command *cmd,
 						     const char *buffer,
 						     const jsmntok_t *params)
 {
-	struct reserve_path *path;
+	struct reserve_hop *path;
 	struct json_stream *response;
 	size_t num;
 	struct askrene *askrene = get_askrene(cmd->plugin);
@@ -735,15 +724,14 @@ static struct command_result *json_askrene_unreserve(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	num = reserves_remove(askrene->reserved, path->scidds, path->amounts,
-			      tal_count(path->scidds));
-	if (num != tal_count(path->scidds)) {
-		const struct reserve *r = find_reserve(askrene->reserved, &path->scidds[num]);
+	num = reserves_remove(askrene->reserved, path, tal_count(path));
+	if (num != tal_count(path)) {
+		const struct reserve *r = find_reserve(askrene->reserved, &path[num].scidd);
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Underflow unreserving %zu: %s amount %s (%zu reserved, amount %s)",
 				    num,
-				    fmt_short_channel_id_dir(tmpctx, &path->scidds[num]),
-				    fmt_amount_msat(tmpctx, path->amounts[num]),
+				    fmt_short_channel_id_dir(tmpctx, &path[num].scidd),
+				    fmt_amount_msat(tmpctx, path[num].amount),
 				    r ? r->num_htlcs : 0,
 				    r ? fmt_amount_msat(tmpctx, r->amount) : "none");
 	}
