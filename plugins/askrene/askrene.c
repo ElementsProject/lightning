@@ -443,16 +443,8 @@ void get_constraints(const struct route_query *rq,
 
 	/* Look through layers for any constraints (might be dummy
 	 * ones, for created channels!) */
-	for (size_t i = 0; i < tal_count(rq->layers); i++) {
-		const struct constraint *c;
-		c = layer_find_constraint(rq->layers[i], &scidd);
-		if (c) {
-			if (amount_msat_greater(c->min, *min))
-				*min = c->min;
-			if (amount_msat_less(c->max, *max))
-				*max = c->max;
-		}
-	}
+	for (size_t i = 0; i < tal_count(rq->layers); i++)
+		layer_apply_constraints(rq->layers[i], &scidd, min, max);
 
 	/* Might be here because it's reserved, but capacity is normal. */
 	if (amount_msat_eq(*max, AMOUNT_MSAT(-1ULL)))
@@ -584,7 +576,7 @@ static void add_localchan(struct gossmap_localmods *mods,
 	}
 
 	/* Known capacity on local channels (ts = max) */
-	layer_update_constraint(info->local_layer, scidd, UINT64_MAX, &spendable, &spendable);
+	layer_add_constraint(info->local_layer, scidd, UINT64_MAX, &spendable, &spendable);
 }
 
 static struct command_result *
@@ -824,16 +816,16 @@ static struct command_result *json_askrene_inform_channel(struct command *cmd,
 					    "Amount overflow with reserves");
 		if (command_check_only(cmd))
 			return command_check_done(cmd);
-		c = layer_update_constraint(layer, scidd, time_now().ts.tv_sec,
-					    NULL, amount);
+		c = layer_add_constraint(layer, scidd, time_now().ts.tv_sec,
+					 NULL, amount);
 		goto output;
 	case INFORM_UNCONSTRAINED:
 		/* It passed, so the capacity is at least this much (minimal assumption is
 		 * that no reserves were used) */
 		if (command_check_only(cmd))
 			return command_check_done(cmd);
-		c = layer_update_constraint(layer, scidd, time_now().ts.tv_sec,
-					    amount, NULL);
+		c = layer_add_constraint(layer, scidd, time_now().ts.tv_sec,
+					 amount, NULL);
 		goto output;
 	case INFORM_SUCCEEDED:
 		/* FIXME: We could do something useful here! */
