@@ -31,6 +31,9 @@ u8 *json_tok_bin_from_hex(const tal_t *ctx, const char *buffer, const jsmntok_t 
 bool json_to_number(const char *buffer, const jsmntok_t *tok,
 		    unsigned int *num);
 
+/* Extract 0/1 from this */
+bool json_to_zero_or_one(const char *buffer, const jsmntok_t *tok, int *num);
+
 /* Extract signed 64 bit integer from this (may be a string, or a number literal) */
 bool json_to_s64(const char *buffer, const jsmntok_t *tok, s64 *num);
 
@@ -85,6 +88,10 @@ bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 /* Extract a short_channel_id from this */
 bool json_to_short_channel_id(const char *buffer, const jsmntok_t *tok,
 			      struct short_channel_id *scid);
+
+/* Extract a short_channel_id_dir from this */
+bool json_to_short_channel_id_dir(const char *buffer, const jsmntok_t *tok,
+				  struct short_channel_id_dir *scidd);
 
 /* Extract a satoshis amount from this */
 bool json_to_sat(const char *buffer, const jsmntok_t *tok,

@@ -642,6 +642,19 @@ struct command_result *param_short_channel_id(struct command *cmd,
 				     "should be a short_channel_id of form NxNxN");
 }
 
+struct command_result *param_short_channel_id_dir(struct command *cmd,
+						  const char *name,
+						  const char *buffer,
+						  const jsmntok_t *tok,
+						  struct short_channel_id_dir **scidd)
+{
+	*scidd = tal(cmd, struct short_channel_id_dir);
+	if (!json_to_short_channel_id_dir(buffer, tok, *scidd))
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should be a short_channel_id_dir of form NxNxN/N");
+	return NULL;
+}
+
 struct command_result *param_secret(struct command *cmd, const char *name,
 				    const char *buffer, const jsmntok_t *tok,
 				    struct secret **secret)
