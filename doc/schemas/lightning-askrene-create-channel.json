@@ -7,7 +7,7 @@
   "description": [
     "WARNING: experimental, so API may change.",
     "",
-    "The **askrene-create-channel** RPC command tells askrene to populate one direction of a channel in the given layer.  If the channel already exists, it will be overridden.  If the layer does not exist, it will be created."
+    "The **askrene-create-channel** RPC command tells askrene to populate one direction of a channel in the given layer.  If the channel already exists, it will be overridden."
   ],
   "request": {
     "required": [

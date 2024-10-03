@@ -15,9 +15,11 @@ Core Lightning Documentation
    lightning-addgossip <lightning-addgossip.7.md>
    lightning-addpsbtoutput <lightning-addpsbtoutput.7.md>
    lightning-askrene-create-channel <lightning-askrene-create-channel.7.md>
+   lightning-askrene-create-layer <lightning-askrene-create-layer.7.md>
    lightning-askrene-disable-node <lightning-askrene-disable-node.7.md>
    lightning-askrene-inform-channel <lightning-askrene-inform-channel.7.md>
    lightning-askrene-listlayers <lightning-askrene-listlayers.7.md>
+   lightning-askrene-remove-layer <lightning-askrene-remove-layer.7.md>
    lightning-askrene-reserve <lightning-askrene-reserve.7.md>
    lightning-askrene-unreserve <lightning-askrene-unreserve.7.md>
    lightning-autoclean-once <lightning-autoclean-once.7.md>

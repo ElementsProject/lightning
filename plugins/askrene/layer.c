@@ -103,10 +103,16 @@ struct layer *new_temp_layer(const tal_t *ctx, const char *name)
 	return l;
 }
 
+static void destroy_layer(struct layer *l, struct askrene *askrene)
+{
+	list_del_from(&askrene->layers, &l->list);
+}
+
 struct layer *new_layer(struct askrene *askrene, const char *name)
 {
 	struct layer *l = new_temp_layer(askrene, name);
 	list_add(&askrene->layers, &l->list);
+	tal_add_destructor2(l, destroy_layer, askrene);
 	return l;
 }
 
@@ -477,13 +483,13 @@ static void json_add_layer(struct json_stream *js,
 void json_add_layers(struct json_stream *js,
 		     struct askrene *askrene,
 		     const char *fieldname,
-		     const char *layername)
+		     const struct layer *layer)
 {
 	struct layer *l;
 
 	json_array_start(js, fieldname);
 	list_for_each(&askrene->layers, l, list) {
-		if (layername && !streq(l->name, layername))
+		if (layer && l != layer)
 			continue;
 		json_add_layer(js, NULL, l);
 	}

@@ -7,7 +7,7 @@
   "description": [
     "WARNING: experimental, so API may change.",
     "",
-    "The **askrene-inform-channel** RPC command tells askrene about the minimum or maximum current capacity of a given channel.  It can be applied whether the curren channel exists or not.  If the layer does not exist, it will be created."
+    "The **askrene-inform-channel** RPC command tells askrene about the minimum or maximum current capacity of a given channel.  It can be applied whether the current channel exists or not."
   ],
   "request": {
     "required": [

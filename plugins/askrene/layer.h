@@ -106,11 +106,11 @@ void layer_add_disabled_node(struct layer *layer, const struct node_id *node);
 void layer_add_disabled_channel(struct layer *layer,
 				const struct short_channel_id_dir *scidd);
 
-/* Print out a json object per layer, or all if layer is NULL */
+/* Print out a json object for this layer, or all if layer is NULL */
 void json_add_layers(struct json_stream *js,
 		     struct askrene *askrene,
 		     const char *fieldname,
-		     const char *layername);
+		     const struct layer *layer);
 
 /* Print a single constraint */
 void json_add_constraint(struct json_stream *js,

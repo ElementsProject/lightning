@@ -6,6 +6,8 @@ doc-wrongdir:
 
 GENERATE_MARKDOWN := doc/lightning-addgossip.7 \
 	doc/lightning-addpsbtoutput.7 \
+	doc/lightning-askrene-create-layer.7 \
+	doc/lightning-askrene-remove-layer.7 \
 	doc/lightning-askrene-create-channel.7 \
 	doc/lightning-askrene-disable-node.7 \
 	doc/lightning-askrene-inform-channel.7 \
