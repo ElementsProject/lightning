@@ -102,17 +102,6 @@ static struct command_result *param_known_layer(struct command *cmd,
 	return NULL;
 }
 
-static bool json_to_zero_or_one(const char *buffer, const jsmntok_t *tok, int *num)
-{
-	u32 v32;
-	if (!json_to_u32(buffer, tok, &v32))
-		return false;
-	if (v32 != 0 && v32 != 1)
-		return false;
-	*num = v32;
-	return true;
-}
-
 static struct command_result *param_zero_or_one(struct command *cmd,
 						const char *name,
 						const char *buffer,

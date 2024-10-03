@@ -109,6 +109,17 @@ bool json_to_int(const char *buffer, const jsmntok_t *tok, int *num)
 	return true;
 }
 
+bool json_to_zero_or_one(const char *buffer, const jsmntok_t *tok, int *num)
+{
+	u32 v32;
+	if (!json_to_u32(buffer, tok, &v32))
+		return false;
+	if (v32 != 0 && v32 != 1)
+		return false;
+	*num = v32;
+	return true;
+}
+
 bool json_to_jsonrpc_errcode(const char *buffer, const jsmntok_t *tok,
 			     enum jsonrpc_errcode *errcode)
 {
@@ -577,7 +588,6 @@ bool json_to_short_channel_id_dir(const char *buffer, const jsmntok_t *tok,
 				  struct short_channel_id_dir *scidd)
 {
 	jsmntok_t scidtok, numtok;
-	u32 dir;
 
 	if (!split_tok(buffer, tok, '/', &scidtok, &numtok))
 		return false;
@@ -585,10 +595,9 @@ bool json_to_short_channel_id_dir(const char *buffer, const jsmntok_t *tok,
 	if (!json_to_short_channel_id(buffer, &scidtok, &scidd->scid))
 		return false;
 
-	if (!json_to_u32(buffer, &numtok, &dir) || (dir > 1))
+	if (!json_to_zero_or_one(buffer, &numtok, &scidd->dir))
 		return false;
 
-	scidd->dir = dir;
 	return true;
 }
 
