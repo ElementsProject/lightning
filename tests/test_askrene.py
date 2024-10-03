@@ -118,8 +118,8 @@ def test_layers(node_factory):
 
     expect = {'layer': 'test_layers',
               'disabled_nodes': [],
-              'disabled_channels': [],
               'created_channels': [],
+              'channel_updates': [],
               'constraints': []}
     l2.rpc.askrene_create_layer('test_layers')
     l2.rpc.askrene_disable_node('test_layers', l1.info['id'])
@@ -129,8 +129,9 @@ def test_layers(node_factory):
     with pytest.raises(RpcError, match="Unknown layer"):
         l2.rpc.askrene_listlayers('test_layers2')
 
-    l2.rpc.askrene_disable_channel('test_layers', "1x2x3/0")
-    expect['disabled_channels'].append("1x2x3/0")
+    l2.rpc.askrene_update_channel('test_layers', "0x0x1/0", False)
+    expect['channel_updates'].append({'short_channel_id_dir': "0x0x1/0",
+                                      'enabled': False})
     assert l2.rpc.askrene_listlayers('test_layers') == {'layers': [expect]}
     with pytest.raises(RpcError, match="Layer already exists"):
         l2.rpc.askrene_create_layer('test_layers')
@@ -140,18 +141,44 @@ def test_layers(node_factory):
                                   l3.info['id'],
                                   l1.info['id'],
                                   '0x0x1',
-                                  '1000000sat',
-                                  100, '900000sat',
-                                  1, 2, 18)
-    expect['created_channels'].append({'source': l3.info['id'],
-                                       'destination': l1.info['id'],
+                                  '1000000sat')
+    # src/dst gets turned into BOLT 7 order
+    expect['created_channels'].append({'source': l1.info['id'],
+                                       'destination': l3.info['id'],
                                        'short_channel_id': '0x0x1',
-                                       'capacity_msat': 1000000000,
-                                       'htlc_minimum_msat': 100,
-                                       'htlc_maximum_msat': 900000000,
-                                       'fee_base_msat': 1,
-                                       'fee_proportional_millionths': 2,
-                                       'delay': 18})
+                                       'capacity_msat': 1000000000})
+    assert l2.rpc.askrene_listlayers('test_layers') == {'layers': [expect]}
+
+    # And give details.
+    l2.rpc.askrene_update_channel(layer='test_layers',
+                                  short_channel_id_dir='0x0x1/0',
+                                  htlc_minimum_msat=100,
+                                  htlc_maximum_msat=900000000,
+                                  fee_base_msat=1,
+                                  fee_proportional_millionths=2,
+                                  cltv_expiry_delta=18)
+    # This is *still* disabled, since we disabled it above!
+    expect['channel_updates'] = [{'short_channel_id_dir': '0x0x1/0',
+                                  'enabled': False,
+                                  'htlc_minimum_msat': 100,
+                                  'htlc_maximum_msat': 900000000,
+                                  'fee_base_msat': 1,
+                                  'fee_proportional_millionths': 2,
+                                  'cltv_expiry_delta': 18}]
+    assert l2.rpc.askrene_listlayers('test_layers') == {'layers': [expect]}
+
+    # Now enable (and change another value for good measure!
+    l2.rpc.askrene_update_channel(layer='test_layers',
+                                  short_channel_id_dir='0x0x1/0',
+                                  enabled=True,
+                                  cltv_expiry_delta=19)
+    expect['channel_updates'] = [{'short_channel_id_dir': '0x0x1/0',
+                                  'enabled': True,
+                                  'htlc_minimum_msat': 100,
+                                  'htlc_maximum_msat': 900000000,
+                                  'fee_base_msat': 1,
+                                  'fee_proportional_millionths': 2,
+                                  'cltv_expiry_delta': 19}]
     assert l2.rpc.askrene_listlayers('test_layers') == {'layers': [expect]}
 
     # We can tell it about made up channels...
@@ -161,9 +188,7 @@ def test_layers(node_factory):
                                   100000,
                                   'unconstrained')
     last_timestamp = int(time.time()) + 1
-    # Maximum for created channels is the real capacity.
     expect['constraints'].append({'short_channel_id_dir': '0x0x1/1',
-                                  'maximum_msat': 1000000000,
                                   'minimum_msat': 100000})
     # Check timestamp first.
     listlayers = l2.rpc.askrene_listlayers('test_layers')
@@ -282,7 +307,9 @@ def test_getroutes(node_factory):
 
     # Disabling channels makes getroutes fail
     l1.rpc.askrene_create_layer('chans_disabled')
-    l1.rpc.askrene_disable_channel("chans_disabled", '0x1x0/1')
+    l1.rpc.askrene_update_channel(layer="chans_disabled",
+                                  short_channel_id_dir='0x1x0/1',
+                                  enabled=False)
     with pytest.raises(RpcError, match="Could not find route"):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
@@ -591,9 +618,15 @@ def test_sourcefree_on_mods(node_factory, bitcoind):
                                   nodemap[0],
                                   l1.info['id'],
                                   '0x3x3',
-                                  '1000000sat',
-                                  100, '900000sat',
-                                  1000, 2000, 18)
+                                  '1000000sat')
+    l1.rpc.askrene_update_channel(layer='test_layers',
+                                  short_channel_id_dir=f'0x3x3/{direction(nodemap[0], l1.info["id"])}',
+                                  enabled=True,
+                                  htlc_minimum_msat=100,
+                                  htlc_maximum_msat='900000sat',
+                                  fee_base_msat=1000,
+                                  fee_proportional_millionths=2000,
+                                  cltv_expiry_delta=18)
     routes = l1.rpc.getroutes(source=nodemap[0],
                               destination=l1.info['id'],
                               amount_msat=1000000,

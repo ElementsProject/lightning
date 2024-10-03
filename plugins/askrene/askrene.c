@@ -707,14 +707,10 @@ static struct command_result *json_askrene_create_channel(struct command *cmd,
 							  const jsmntok_t *params)
 {
 	struct layer *layer;
-	const struct local_channel *lc;
 	struct node_id *src, *dst;
 	struct short_channel_id *scid;
 	struct amount_msat *capacity;
 	struct json_stream *response;
-	struct amount_msat *htlc_min, *htlc_max, *base_fee;
-	u32 *proportional_fee;
-	u16 *delay;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("layer", param_known_layer, &layer),
@@ -722,27 +718,51 @@ static struct command_result *json_askrene_create_channel(struct command *cmd,
 			 p_req("destination", param_node_id, &dst),
 			 p_req("short_channel_id", param_short_channel_id, &scid),
 			 p_req("capacity_msat", param_msat, &capacity),
-			 p_req("htlc_minimum_msat", param_msat, &htlc_min),
-			 p_req("htlc_maximum_msat", param_msat, &htlc_max),
-			 p_req("fee_base_msat", param_msat, &base_fee),
-			 p_req("fee_proportional_millionths", param_u32, &proportional_fee),
-			 p_req("delay", param_u16, &delay),
 			 NULL))
 		return command_param_failed();
 
-	/* If it exists, it must match */
-	lc = layer_find_local_channel(layer, *scid);
-	if (lc && !layer_check_local_channel(lc, src, dst, *capacity)) {
+	if (layer_find_local_channel(layer, *scid)) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "channel already exists with different values!");
+				    "channel already exists");
 	}
 
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
-	layer_update_local_channel(layer, src, dst, *scid, *capacity,
-				   *base_fee, *proportional_fee, *delay,
-				   *htlc_min, *htlc_max);
+	layer_add_local_channel(layer, src, dst, *scid, *capacity);
+
+	response = jsonrpc_stream_success(cmd);
+	return command_finished(cmd, response);
+}
+
+static struct command_result *json_askrene_update_channel(struct command *cmd,
+							  const char *buffer,
+							  const jsmntok_t *params)
+{
+	struct layer *layer;
+	struct short_channel_id_dir *scidd;
+	bool *enabled;
+	struct amount_msat *htlc_min, *htlc_max, *base_fee;
+	u32 *proportional_fee;
+	u16 *delay;
+	struct json_stream *response;
+
+ 	if (!param(cmd, buffer, params,
+		   p_req("layer", param_known_layer, &layer),
+		   p_req("short_channel_id_dir", param_short_channel_id_dir, &scidd),
+		   p_opt("enabled", param_bool, &enabled),
+		   p_opt("htlc_minimum_msat", param_msat, &htlc_min),
+		   p_opt("htlc_maximum_msat", param_msat, &htlc_max),
+		   p_opt("fee_base_msat", param_msat, &base_fee),
+		   p_opt("fee_proportional_millionths", param_u32, &proportional_fee),
+		   p_opt("cltv_expiry_delta", param_u16, &delay),
+		   NULL))
+		return command_param_failed();
+
+	layer_add_update_channel(layer, scidd,
+				 enabled,
+				 htlc_min, htlc_max,
+				 base_fee, proportional_fee, delay);
 
 	response = jsonrpc_stream_success(cmd);
 	return command_finished(cmd, response);
@@ -828,26 +848,6 @@ output:
 	if (c)
 		json_add_constraint(response, NULL, c, layer);
 	json_array_end(response);
-	return command_finished(cmd, response);
-}
-
-static struct command_result *json_askrene_disable_channel(struct command *cmd,
-							   const char *buffer,
-							   const jsmntok_t *params)
-{
-	struct short_channel_id_dir *scidd;
-	struct layer *layer;
-	struct json_stream *response;
-
-	if (!param(cmd, buffer, params,
-		   p_req("layer", param_known_layer, &layer),
-		   p_req("short_channel_id_dir", param_short_channel_id_dir, &scidd),
-		   NULL))
-		return command_param_failed();
-
-	layer_add_disabled_channel(layer, scidd);
-
-	response = jsonrpc_stream_success(cmd);
 	return command_finished(cmd, response);
 }
 
@@ -990,6 +990,10 @@ static const struct plugin_command commands[] = {
 		json_askrene_create_channel,
 	},
 	{
+		"askrene-update-channel",
+		json_askrene_update_channel,
+	},
+	{
 		"askrene-inform-channel",
 		json_askrene_inform_channel,
 	},
@@ -1008,10 +1012,6 @@ static const struct plugin_command commands[] = {
 	{
 		"askrene-age",
 		json_askrene_age,
-	},
-	{
-		"askrene-disable-channel",
-		json_askrene_disable_channel,
 	},
 };
 

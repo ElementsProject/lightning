@@ -7,7 +7,7 @@
   "description": [
     "WARNING: experimental, so API may change.",
     "",
-    "The **askrene-create-channel** RPC command tells askrene to populate one direction of a channel in the given layer.  If the channel already exists, it will be overridden."
+    "The **askrene-create-channel** RPC command tells askrene create a channel in the given layer.  To actually populate the channel use *askrene-update-channel* in each direction."
   ],
   "request": {
     "required": [
@@ -15,12 +15,7 @@
       "source",
       "destination",
       "short_channel_id",
-      "capacity_msat",
-      "htlc_min",
-      "htlc_max",
-      "base_fee",
-      "proportional_fee",
-      "delay"
+      "capacity_msat"
     ],
     "properties": {
       "layer": {
@@ -50,37 +45,8 @@
       "capacity_msat": {
         "type": "msat",
         "description": [
-          "The capacity (onchain size) of the channel."
-        ]
-      },
-      "htlc_min": {
-        "type": "msat",
-        "description": [
-          "The minimum value allowed in this direction."
-        ]
-      },
-      "htlc_max": {
-        "type": "msat",
-        "description": [
-          "The maximum value allowed in this direction."
-        ]
-      },
-      "base_fee": {
-        "type": "msat",
-        "description": [
-          "The base fee to apply to use the channel in this direction."
-        ]
-      },
-      "proportional_fee": {
-        "type": "u32",
-        "description": [
-          "The proportional fee (in parts per million) to apply to use the channel in this direction."
-        ]
-      },
-      "delay": {
-        "type": "u16",
-        "description": [
-          "The CLTV delay required for this direction."
+          "The capacity (onchain size) of the channel.",
+          "NOTE: this is in millisatoshis!"
         ]
       }
     }
@@ -92,6 +58,7 @@
   "see_also": [
     "lightning-getroutes(7)",
     "lightning-askrene-disable-node(7)",
+    "lightning-askrene-update-channel(7)",
     "lightning-askrene-inform-channel(7)",
     "lightning-askrene-listlayers(7)",
     "lightning-askrene-age(7)"

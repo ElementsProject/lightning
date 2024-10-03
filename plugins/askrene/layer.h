@@ -53,17 +53,22 @@ bool layer_check_local_channel(const struct local_channel *lc,
 			       const struct node_id *n2,
 			       struct amount_msat capacity);
 
-/* Update a local channel to a layer: fails if you try to change capacity or nodes! */
-void layer_update_local_channel(struct layer *layer,
-				const struct node_id *src,
-				const struct node_id *dst,
-				struct short_channel_id scid,
-				struct amount_msat capacity,
-				struct amount_msat base_fee,
-				u32 proportional_fee,
-				u16 delay,
-				struct amount_msat htlc_min,
-				struct amount_msat htlc_max);
+/* Add a local channel to a layer! */
+void layer_add_local_channel(struct layer *layer,
+			     const struct node_id *src,
+			     const struct node_id *dst,
+			     struct short_channel_id scid,
+			     struct amount_msat capacity);
+
+/* Update details on a channel (could be in this layer, or another) */
+void layer_add_update_channel(struct layer *layer,
+			      const struct short_channel_id_dir *scidd,
+			      const bool *enabled,
+			      const struct amount_msat *htlc_min,
+			      const struct amount_msat *htlc_max,
+			      const struct amount_msat *base_fee,
+			      const u32 *proportional_fee,
+			      const u16 *delay);
 
 /* If any capacities of channels are limited, unset the corresponding element in
  * the capacities[] array */
@@ -92,10 +97,6 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff);
 
 /* Add a disabled node to a layer. */
 void layer_add_disabled_node(struct layer *layer, const struct node_id *node);
-
-/* Add a disabled channel to a layer. */
-void layer_add_disabled_channel(struct layer *layer,
-				const struct short_channel_id_dir *scidd);
 
 /* Print out a json object for this layer, or all if layer is NULL */
 void json_add_layers(struct json_stream *js,
