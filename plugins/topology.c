@@ -224,7 +224,7 @@ static void json_add_halfchan(struct json_stream *response,
 	struct short_channel_id scid;
 	struct node_id node_id[2];
 	const u8 *chanfeatures;
-	struct amount_sat capacity;
+	struct amount_msat capacity_msat;
 	bool local_disable;
 
 	/* These are channel (not per-direction) properties */
@@ -234,9 +234,7 @@ static void json_add_halfchan(struct json_stream *response,
 		gossmap_node_get_id(gossmap, gossmap_nth_node(gossmap, c, i),
 				    &node_id[i]);
 
-	/* This can theoretically happen on partial write races. */
-	if (!gossmap_chan_get_capacity(gossmap, c, &capacity))
-		capacity = AMOUNT_SAT(0);
+	capacity_msat = gossmap_chan_get_capacity(gossmap, c);
 
 	/* Deprecated: local channels are not "active" unless peer is connected. */
 	if (connected && node_id_eq(&node_id[0], &local_id))
@@ -287,7 +285,7 @@ static void json_add_halfchan(struct json_stream *response,
 							&htlc_maximum_msat);
 		}
 
-		json_add_amount_sat_msat(response, "amount_msat", capacity);
+		json_add_amount_msat(response, "amount_msat", capacity_msat);
 		json_add_num(response, "message_flags", message_flags);
 		json_add_num(response, "channel_flags", channel_flags);
 

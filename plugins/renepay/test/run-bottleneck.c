@@ -113,32 +113,28 @@ int main(int argc, char *argv[])
  		       AMOUNT_MSAT(0),
  		       AMOUNT_MSAT(60 * 1000 * 1000),
  		       0, 0, 5,
- 		       AMOUNT_SAT(60 * 1000),
-		       true);
+ 		       AMOUNT_SAT(60 * 1000));
 
 	assert(mk_short_channel_id(&scid, 1, 3, 0));
  	add_connection(fd, &nodes[0], &nodes[2], scid,
  		       AMOUNT_MSAT(0),
  		       AMOUNT_MSAT(60 * 1000 * 1000),
  		       0, 0, 5,
- 		       AMOUNT_SAT(60 * 1000),
-		       true);
+ 		       AMOUNT_SAT(60 * 1000));
 
 	assert(mk_short_channel_id(&scid, 2, 4, 0));
  	add_connection(fd, &nodes[1], &nodes[3], scid,
  		       AMOUNT_MSAT(0),
  		       AMOUNT_MSAT(1000 * 1000 * 1000),
  		       0, 0, 5,
- 		       AMOUNT_SAT(1000 * 1000),
-		       true);
+ 		       AMOUNT_SAT(1000 * 1000));
 
 	assert(mk_short_channel_id(&scid, 3, 4, 0));
  	add_connection(fd, &nodes[2], &nodes[3], scid,
  		       AMOUNT_MSAT(0),
  		       AMOUNT_MSAT(1000 * 1000 * 1000),
  		       0, 0, 5,
- 		       AMOUNT_SAT(1000 * 1000),
-		       true);
+ 		       AMOUNT_SAT(1000 * 1000));
 
 	assert(mk_short_channel_id(&scid, 4, 5, 0));
  	add_connection(fd, &nodes[3], &nodes[4], scid,
@@ -148,40 +144,35 @@ int main(int argc, char *argv[])
 			* through this channel. */
  		       AMOUNT_MSAT(106 * 1000 * 1000),
  		       0, 0, 5,
- 		       AMOUNT_SAT(110 * 1000),
-		       true);
+ 		       AMOUNT_SAT(110 * 1000));
 
 	assert(mk_short_channel_id(&scid, 5, 6, 0));
  	add_connection(fd, &nodes[4], &nodes[5], scid,
  		       AMOUNT_MSAT(0),
  		       AMOUNT_MSAT(1000 * 1000 * 1000),
  		       0, 100 * 1000 /* 10% */, 5,
- 		       AMOUNT_SAT(1000 * 1000),
-		       true);
+ 		       AMOUNT_SAT(1000 * 1000));
 
 	assert(mk_short_channel_id(&scid, 5, 7, 0));
  	add_connection(fd, &nodes[4], &nodes[6], scid,
  		       AMOUNT_MSAT(0),
  		       AMOUNT_MSAT(1000 * 1000 * 1000),
  		       0, 100 * 1000 /* 10% */, 5,
- 		       AMOUNT_SAT(1000 * 1000),
-		       true);
+ 		       AMOUNT_SAT(1000 * 1000));
 
 	assert(mk_short_channel_id(&scid, 6, 8, 0));
  	add_connection(fd, &nodes[5], &nodes[7], scid,
  		       AMOUNT_MSAT(0),
  		       AMOUNT_MSAT(1000 * 1000 * 1000),
  		       0, 0, 5,
- 		       AMOUNT_SAT(1000 * 1000),
-		       true);
+ 		       AMOUNT_SAT(1000 * 1000));
 
 	assert(mk_short_channel_id(&scid, 7, 8, 0));
  	add_connection(fd, &nodes[6], &nodes[7], scid,
  		       AMOUNT_MSAT(0),
  		       AMOUNT_MSAT(1000 * 1000 * 1000),
  		       0, 0, 5,
- 		       AMOUNT_SAT(1000 * 1000),
-		       true);
+ 		       AMOUNT_SAT(1000 * 1000));
 
 	assert(gossmap_refresh(gossmap, NULL));
 	struct uncertainty *uncertainty = uncertainty_new(tmpctx);

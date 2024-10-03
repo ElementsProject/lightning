@@ -104,12 +104,10 @@ int uncertainty_update(struct uncertainty *uncertainty, struct gossmap *gossmap)
 		struct chan_extra *ce =
 		    chan_extra_map_get(chan_extra_map, scid);
 		if (!ce) {
-			struct amount_sat cap;
 			struct amount_msat cap_msat;
 
-			if (!gossmap_chan_get_capacity(gossmap, chan, &cap) ||
-			    !amount_sat_to_msat(&cap_msat, cap) ||
-			    !new_chan_extra(chan_extra_map, scid,
+			cap_msat = gossmap_chan_get_capacity(gossmap, chan);
+			if (!new_chan_extra(chan_extra_map, scid,
 					    cap_msat)) {
 				/* If the new chan_extra cannot be created we
 				 * skip this channel. */

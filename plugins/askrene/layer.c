@@ -339,7 +339,8 @@ void layer_add_localmods(const struct layer *layer,
 	     lc;
 	     lc = local_channel_hash_next(layer->local_channels, &lcit)) {
 		gossmap_local_addchan(localmods,
-				      &lc->n1, &lc->n2, lc->scid, NULL);
+				      &lc->n1, &lc->n2, lc->scid, lc->capacity,
+				      NULL);
 		for (size_t i = 0; i < ARRAY_SIZE(lc->half); i++) {
 			struct short_channel_id_dir scidd;
 			bool enabled = true;

@@ -19,7 +19,8 @@ plugins/test/run-route-overlong:		\
 	common/fp16.o				\
 	common/gossmap.o			\
 	common/node_id.o			\
-	common/route.o
+	common/route.o				\
+	gossipd/gossip_store_wiregen.o
 
 plugins/test/run-route-calc:			\
 	common/fp16.o				\

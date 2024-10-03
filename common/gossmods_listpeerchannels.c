@@ -27,7 +27,8 @@ void gossmod_add_localchan(struct gossmap_localmods *mods,
 		max = spendable;
 
 	/* FIXME: features? */
-	gossmap_local_addchan(mods, self, peer, scidd->scid, NULL);
+	gossmap_local_addchan(mods, self, peer, scidd->scid, capacity_msat,
+			      NULL);
 
 	gossmap_local_updatechan(mods, scidd,
 				 &enabled,

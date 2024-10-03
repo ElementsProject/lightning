@@ -474,8 +474,8 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
 		return NULL;
 	}
 
-	/* gossipd writes WIRE_GOSSIP_STORE_CHANNEL_AMOUNT after this (not for
-	 * local channels), so ignore channel_announcement until that appears */
+	/* gossipd writes WIRE_GOSSIP_STORE_CHANNEL_AMOUNT after this,
+	 * so ignore channel_announcement until that appears */
 	if (msglen
 	    && (map->map_size < cannounce_off + msglen + sizeof(struct gossip_hdr) + sizeof(u16) + sizeof(u64)))
 		return NULL;
@@ -828,6 +828,7 @@ bool gossmap_local_addchan(struct gossmap_localmods *localmods,
 			   const struct node_id *n1,
 			   const struct node_id *n2,
 			   struct short_channel_id scid,
+			   struct amount_msat capacity,
 			   const u8 *features)
 {
 	be16 be16;
@@ -847,15 +848,23 @@ bool gossmap_local_addchan(struct gossmap_localmods *localmods,
 	 *   compressed keys sorted in ascending lexicographic order.
 	 */
 	if (node_id_cmp(n1, n2) > 0)
-		return gossmap_local_addchan(localmods, n2, n1, scid, features);
+		return gossmap_local_addchan(localmods, n2, n1, scid, capacity,
+					     features);
 
 	mod.scid = scid;
 	memset(&mod.changes, 0, sizeof(mod.changes));
 
-	/* We create fake local channel_announcement. */
+	/* We create amount, then fake local channel_announcement */
 	off = insert_local_space(localmods,
-				 2 + 64 * 4 + 2 + tal_bytelen(features)
+				 8 + 2 + 64 * 4 + 2 + tal_bytelen(features)
 				 + 32 + 8 + 33 + 33);
+
+	/* Write amount */
+	be64 = be64_to_cpu(capacity.millisatoshis / 1000 /* Raw: gossmap */);
+	memcpy(localmods->local + off, &be64, sizeof(be64));
+	off += sizeof(be64);
+
+	/* From here is a channel-announcment, with only the fields we use */
 	mod.local_off = off;
 
 	/* Set type to be kosher. */
@@ -1224,34 +1233,39 @@ bool gossmap_chan_is_dying(const struct gossmap *map,
 	return ghdr.flags & CPU_TO_BE16(GOSSIP_STORE_DYING_BIT);
 }
 
-bool gossmap_chan_get_capacity(const struct gossmap *map,
-			       const struct gossmap_chan *c,
-			       struct amount_sat *amount)
+struct amount_msat gossmap_chan_get_capacity(const struct gossmap *map,
+					     const struct gossmap_chan *c)
 {
 	struct gossip_hdr ghdr;
 	size_t off;
 	u16 type;
+	struct amount_sat sat;
+	struct amount_msat msat;
 
-	/* Fail for local channels */
-	if (gossmap_chan_is_localmod(map, c))
-		return false;
+	if (gossmap_chan_is_localmod(map, c)) {
+		/* Amount is *before* c->cann_off */
+		off = c->cann_off - sizeof(u64);
+		goto get_amount;
+	}
 
 	/* Skip over this record to next; expect a gossip_store_channel_amount */
 	off = c->cann_off - sizeof(ghdr);
 	map_copy(map, off, &ghdr, sizeof(ghdr));
 	off += sizeof(ghdr) + be16_to_cpu(ghdr.len);
 
-	/* Partial write, this can happen. */
-	if (off + sizeof(ghdr) + sizeof(u16) + sizeof(u64) > map->map_size)
-		return false;
-
-	/* Get type of next field. */
+	/* We don't allow loading a channel unless it has capacity field! */
 	type = map_be16(map, off + sizeof(ghdr));
-	if (type != WIRE_GOSSIP_STORE_CHANNEL_AMOUNT)
-		return false;
+	assert(type == WIRE_GOSSIP_STORE_CHANNEL_AMOUNT);
 
-	*amount = amount_sat(map_be64(map, off + sizeof(ghdr) + sizeof(be16)));
-	return true;
+	off += sizeof(ghdr) + sizeof(be16);
+
+get_amount:
+	/* Shouldn't overflow */
+	sat = amount_sat(map_be64(map, off));
+	if (!amount_sat_to_msat(&msat, sat))
+		errx(1, "invalid capacity %s", fmt_amount_sat(tmpctx, sat));
+
+	return msat;
 }
 
 struct gossmap_chan *gossmap_nth_chan(const struct gossmap *map,

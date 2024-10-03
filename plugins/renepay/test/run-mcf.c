@@ -480,7 +480,8 @@ int main(int argc, char *argv[])
 	assert(short_channel_id_from_str("111x1x1", 7, &scid13));
 
 	/* 400,000sat channel from 1->3, basefee 0, ppm 1000, delay 5 */
-	assert(gossmap_local_addchan(mods, &l1, &l3, scid13, NULL));
+	assert(gossmap_local_addchan(mods, &l1, &l3, scid13,
+				     AMOUNT_MSAT(400000000), NULL));
 	assert(gossmap_local_setchan(mods, scid13,
 				     AMOUNT_MSAT(0),
 				     AMOUNT_MSAT(400000000),
@@ -494,6 +495,7 @@ int main(int argc, char *argv[])
 	assert(local_chan);
 
 	/* The local chans have no "capacity", so set it manually. */
+	/* FIXME: They do now! */
 	uncertainty_add_channel(uncertainty, scid13, AMOUNT_MSAT(400000000));
 
 	// flows = minflow(tmpctx, gossmap,

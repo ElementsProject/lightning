@@ -314,7 +314,7 @@ int main(int argc, char *argv[])
 	struct gossmap *map;
 	struct node_id l1, l2;
 	struct short_channel_id scid12;
-	struct amount_sat capacity;
+	struct amount_msat capacity;
 	u32 timestamp, fee_base_msat, fee_proportional_millionths;
 	u8 message_flags, channel_flags;
 	struct amount_msat htlc_minimum_msat, htlc_maximum_msat;
@@ -337,9 +337,8 @@ int main(int argc, char *argv[])
 	assert(short_channel_id_from_str("110x1x0", 7, &scid12));
 	assert(gossmap_find_chan(map, &scid12));
 	assert(!gossmap_chan_is_localmod(map, gossmap_find_chan(map, &scid12)));
-	assert(gossmap_chan_get_capacity(map, gossmap_find_chan(map, &scid12),
-					 &capacity));
-	assert(amount_sat_eq(capacity, AMOUNT_SAT(1000000)));
+	capacity = gossmap_chan_get_capacity(map, gossmap_find_chan(map, &scid12));
+	assert(amount_msat_eq_sat(capacity, AMOUNT_SAT(1000000)));
 
 	gossmap_chan_get_update_details(map, gossmap_find_chan(map, &scid12),
 					0,
