@@ -102,6 +102,10 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff);
 /* Add a disabled node to a layer. */
 void layer_add_disabled_node(struct layer *layer, const struct node_id *node);
 
+/* Add a disabled channel to a layer. */
+void layer_add_disabled_channel(struct layer *layer,
+				const struct short_channel_id_dir *scidd);
+
 /* Print out a json object per layer, or all if layer is NULL */
 void json_add_layers(struct json_stream *js,
 		     struct askrene *askrene,

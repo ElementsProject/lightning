@@ -83,6 +83,9 @@ struct layer {
 
 	/* Nodes to completely disable (tal_arr) */
 	struct node_id *disabled_nodes;
+
+	/* Channels to completely disable (tal_arr) */
+	struct short_channel_id_dir *disabled_channels;
 };
 
 struct layer *new_temp_layer(const tal_t *ctx, const char *name)
@@ -95,6 +98,7 @@ struct layer *new_temp_layer(const tal_t *ctx, const char *name)
 	l->constraints = tal(l, struct constraint_hash);
 	constraint_hash_init(l->constraints);
 	l->disabled_nodes = tal_arr(l, struct node_id, 0);
+	l->disabled_channels = tal_arr(l, struct short_channel_id_dir, 0);
 
 	return l;
 }
@@ -302,6 +306,11 @@ void layer_add_disabled_node(struct layer *layer, const struct node_id *node)
 	tal_arr_expand(&layer->disabled_nodes, *node);
 }
 
+void layer_add_disabled_channel(struct layer *layer, const struct short_channel_id_dir *scidd)
+{
+	tal_arr_expand(&layer->disabled_channels, *scidd);
+}
+
 void layer_add_localmods(const struct layer *layer,
 			 const struct gossmap *gossmap,
 			 bool zero_cost,
@@ -361,6 +370,19 @@ void layer_add_localmods(const struct layer *layer,
 						 true,
 						 i);
 		}
+	}
+
+	/* Now disable any channels they asked us to */
+	for (size_t i = 0; i < tal_count(layer->disabled_channels); i++) {
+		gossmap_local_updatechan(localmods,
+					 layer->disabled_channels[i].scid,
+					 AMOUNT_MSAT(0),
+					 AMOUNT_MSAT(0),
+					 0,
+					 0,
+					 0,
+					 false,
+					 layer->disabled_channels[i].dir);
 	}
 }
 
@@ -425,6 +447,10 @@ static void json_add_layer(struct json_stream *js,
 	json_array_start(js, "disabled_nodes");
 	for (size_t i = 0; i < tal_count(layer->disabled_nodes); i++)
 		json_add_node_id(js, NULL, &layer->disabled_nodes[i]);
+	json_array_end(js);
+	json_array_start(js, "disabled_channels");
+	for (size_t i = 0; i < tal_count(layer->disabled_channels); i++)
+		json_add_short_channel_id_dir(js, NULL, layer->disabled_channels[i]);
 	json_array_end(js);
 	json_array_start(js, "created_channels");
 	for (lc = local_channel_hash_first(layer->local_channels, &lcit);
