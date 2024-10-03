@@ -35,12 +35,6 @@ per_htlc_cost_key(const struct per_htlc_cost *phc)
 	return &phc->scidd;
 }
 
-static size_t hash_scidd(const struct short_channel_id_dir *scidd)
-{
-	/* scids cost money to generate, so simple hash works here */
-	return (scidd->scid.u64 >> 32) ^ (scidd->scid.u64 << 1) ^ scidd->dir;
-}
-
 static inline bool per_htlc_cost_eq_key(const struct per_htlc_cost *phc,
 					const struct short_channel_id_dir *scidd)
 {
@@ -462,15 +456,17 @@ void get_constraints(const struct route_query *rq,
 	scidd.dir = dir;
 	*max = AMOUNT_MSAT(-1ULL);
 
-	/* Look through layers for any constraints */
+	/* Look through layers for any constraints (might be dummy
+	 * ones, for created channels!) */
 	for (size_t i = 0; i < tal_count(rq->layers); i++) {
-		const struct constraint *cmin, *cmax;
-		cmin = layer_find_constraint(rq->layers[i], &scidd, CONSTRAINT_MIN);
-		if (cmin && amount_msat_greater(cmin->limit, *min))
-			*min = cmin->limit;
-		cmax = layer_find_constraint(rq->layers[i], &scidd, CONSTRAINT_MAX);
-		if (cmax && amount_msat_less(cmax->limit, *max))
-			*max = cmax->limit;
+		const struct constraint *c;
+		c = layer_find_constraint(rq->layers[i], &scidd);
+		if (c) {
+			if (amount_msat_greater(c->min, *min))
+				*min = c->min;
+			if (amount_msat_less(c->max, *max))
+				*max = c->max;
+		}
 	}
 
 	/* Might be here because it's reserved, but capacity is normal. */
@@ -617,8 +613,7 @@ static void add_localchan(struct gossmap_localmods *mods,
 	}
 
 	/* Known capacity on local channels (ts = max) */
-	layer_update_constraint(info->local_layer, scidd, CONSTRAINT_MIN, UINT64_MAX, spendable);
-	layer_update_constraint(info->local_layer, scidd, CONSTRAINT_MAX, UINT64_MAX, spendable);
+	layer_update_constraint(info->local_layer, scidd, UINT64_MAX, &spendable, &spendable);
 }
 
 static struct command_result *
@@ -838,16 +833,16 @@ static struct command_result *json_askrene_inform_channel(struct command *cmd,
 					    "Amount overflow with reserves");
 		if (command_check_only(cmd))
 			return command_check_done(cmd);
-		c = layer_update_constraint(layer, scidd, CONSTRAINT_MAX,
-					    time_now().ts.tv_sec, *amount);
+		c = layer_update_constraint(layer, scidd, time_now().ts.tv_sec,
+					    NULL, amount);
 		goto output;
 	case INFORM_UNCONSTRAINED:
 		/* It passed, so the capacity is at least this much (minimal assumption is
 		 * that no reserves were used) */
 		if (command_check_only(cmd))
 			return command_check_done(cmd);
-		c = layer_update_constraint(layer, scidd, CONSTRAINT_MIN,
-					    time_now().ts.tv_sec, *amount);
+		c = layer_update_constraint(layer, scidd, time_now().ts.tv_sec,
+					    amount, NULL);
 		goto output;
 	case INFORM_SUCCEEDED:
 		/* FIXME: We could do something useful here! */

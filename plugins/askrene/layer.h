@@ -17,22 +17,15 @@ struct askrene;
 struct layer;
 struct json_stream;
 
-enum constraint_type {
-	CONSTRAINT_MIN,
-	CONSTRAINT_MAX,
-};
-
-struct constraint_key {
-	struct short_channel_id_dir scidd;
-	enum constraint_type type;
-};
-
 /* A constraint reflects something we learned about a channel */
 struct constraint {
-	struct constraint_key key;
+	struct short_channel_id_dir scidd;
 	/* Time this constraint was last updated */
 	u64 timestamp;
-	struct amount_msat limit;
+	/* Non-zero means set */
+	struct amount_msat min;
+	/* Non-0xFFFFF.... means set */
+	struct amount_msat max;
 };
 
 /* Look up a layer by name. */
@@ -80,15 +73,14 @@ void layer_clear_overridden_capacities(const struct layer *layer,
 
 /* Find a constraint in a layer. */
 const struct constraint *layer_find_constraint(const struct layer *layer,
-					       const struct short_channel_id_dir *scidd,
-					       enum constraint_type type);
+					       const struct short_channel_id_dir *scidd);
 
-/* Add/update a constraint on a layer. */
+/* Add/update one or more constraints on a layer. */
 const struct constraint *layer_update_constraint(struct layer *layer,
 						 const struct short_channel_id_dir *scidd,
-						 enum constraint_type type,
 						 u64 timestamp,
-						 struct amount_msat limit);
+						 const struct amount_msat *min,
+						 const struct amount_msat *max);
 
 /* Add local channels from this layer.  zero_cost means set fees and delay to 0. */
 void layer_add_localmods(const struct layer *layer,

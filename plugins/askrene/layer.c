@@ -25,27 +25,20 @@ struct local_channel {
 	} half[2];
 };
 
-static const struct constraint_key *
-constraint_key(const struct constraint *c)
+static const struct short_channel_id_dir *
+constraint_scidd(const struct constraint *c)
 {
-	return &c->key;
+	return &c->scidd;
 }
 
-static size_t hash_constraint_key(const struct constraint_key *key)
+static inline bool constraint_eq_scidd(const struct constraint *c,
+				       const struct short_channel_id_dir *scidd)
 {
-	/* scids cost money to generate, so simple hash works here */
-	return (key->scidd.scid.u64 >> 32) ^ (key->scidd.scid.u64)
-		^ (key->scidd.dir << 1) ^ (key->type);
+	return short_channel_id_dir_eq(scidd, &c->scidd);
 }
 
-static inline bool constraint_eq_key(const struct constraint *c,
-				     const struct constraint_key *key)
-{
-	return short_channel_id_dir_eq(&key->scidd, &c->key.scidd) && key->type == c->key.type;
-}
-
-HTABLE_DEFINE_TYPE(struct constraint, constraint_key, hash_constraint_key,
-		   constraint_eq_key, constraint_hash);
+HTABLE_DEFINE_TYPE(struct constraint, constraint_scidd, hash_scidd,
+		   constraint_eq_scidd, constraint_hash);
 
 static struct short_channel_id
 local_channel_scid(const struct local_channel *lc)
@@ -208,7 +201,7 @@ void layer_update_local_channel(struct layer *layer,
 	 * lookups.  You can tell it's a fake one by the timestamp. */
 	scidd.scid = scid;
 	scidd.dir = dir;
-	layer_update_constraint(layer, &scidd, CONSTRAINT_MAX, UINT64_MAX, capacity);
+	layer_update_constraint(layer, &scidd, UINT64_MAX, NULL, &capacity);
 }
 
 struct amount_msat local_channel_capacity(const struct local_channel *lc)
@@ -223,48 +216,41 @@ const struct local_channel *layer_find_local_channel(const struct layer *layer,
 }
 
 static struct constraint *layer_find_constraint_nonconst(const struct layer *layer,
-							 const struct short_channel_id_dir *scidd,
-							 enum constraint_type type)
+							 const struct short_channel_id_dir *scidd)
 {
-	struct constraint_key k = { *scidd, type };
-	return constraint_hash_get(layer->constraints, &k);
+	return constraint_hash_get(layer->constraints, scidd);
 }
 
 /* Public one returns const */
 const struct constraint *layer_find_constraint(const struct layer *layer,
-					       const struct short_channel_id_dir *scidd,
-					       enum constraint_type type)
+					       const struct short_channel_id_dir *scidd)
 {
-	return layer_find_constraint_nonconst(layer, scidd, type);
+	return layer_find_constraint_nonconst(layer, scidd);
 }
 
 const struct constraint *layer_update_constraint(struct layer *layer,
 						 const struct short_channel_id_dir *scidd,
-						 enum constraint_type type,
 						 u64 timestamp,
-						 struct amount_msat limit)
+						 const struct amount_msat *min,
+						 const struct amount_msat *max)
 {
-	struct constraint *c = layer_find_constraint_nonconst(layer, scidd, type);
+	struct constraint *c = layer_find_constraint_nonconst(layer, scidd);
 	if (!c) {
 		c = tal(layer, struct constraint);
-		c->key.scidd = *scidd;
-		c->key.type = type;
-		c->limit = limit;
+		c->scidd = *scidd;
+		c->min = AMOUNT_MSAT(0);
+		c->max = AMOUNT_MSAT(UINT64_MAX);
 		constraint_hash_add(layer->constraints, c);
-	} else {
-		switch (type) {
-		case CONSTRAINT_MIN:
-			/* Increase minimum? */
-			if (amount_msat_greater(limit, c->limit))
-				c->limit = limit;
-			break;
-		case CONSTRAINT_MAX:
-			/* Decrease maximum? */
-			if (amount_msat_less(limit, c->limit))
-				c->limit = limit;
-			break;
-		}
 	}
+
+	/* Increase minimum? */
+	if (min && amount_msat_greater(*min, c->min))
+		c->min = *min;
+
+	/* Decrease maximum? */
+	if (max && amount_msat_less(*max, c->max))
+		c->max = *max;
+
 	c->timestamp = timestamp;
 	return c;
 }
@@ -279,7 +265,7 @@ void layer_clear_overridden_capacities(const struct layer *layer,
 	for (con = constraint_hash_first(layer->constraints, &conit);
 	     con;
 	     con = constraint_hash_next(layer->constraints, &conit)) {
-		struct gossmap_chan *c = gossmap_find_chan(gossmap, &con->key.scidd.scid);
+		struct gossmap_chan *c = gossmap_find_chan(gossmap, &con->scidd.scid);
 		size_t idx;
 		if (!c)
 			continue;
@@ -425,16 +411,12 @@ void json_add_constraint(struct json_stream *js,
 	json_object_start(js, fieldname);
 	if (layer)
 		json_add_string(js, "layer", layer->name);
-	json_add_short_channel_id_dir(js, "short_channel_id_dir", c->key.scidd);
+	json_add_short_channel_id_dir(js, "short_channel_id_dir", c->scidd);
 	json_add_u64(js, "timestamp", c->timestamp);
-	switch (c->key.type) {
-	case CONSTRAINT_MIN:
-		json_add_amount_msat(js, "minimum_msat", c->limit);
-		break;
-	case CONSTRAINT_MAX:
-		json_add_amount_msat(js, "maximum_msat", c->limit);
-		break;
-	}
+	if (!amount_msat_is_zero(c->min))
+		json_add_amount_msat(js, "minimum_msat", c->min);
+	if (!amount_msat_eq(c->max, AMOUNT_MSAT(UINT64_MAX)))
+		json_add_amount_msat(js, "maximum_msat", c->max);
 	json_object_end(js);
 }
 

@@ -25,12 +25,6 @@ reserve_scidd(const struct reserve *r)
 	return &r->rhop.scidd;
 }
 
-static size_t hash_scidd(const struct short_channel_id_dir *scidd)
-{
-	/* scids cost money to generate, so simple hash works here */
-	return (scidd->scid.u64 >> 32) ^ (scidd->scid.u64 >> 16) ^ (scidd->scid.u64 << 1) ^ scidd->dir;
-}
-
 static bool reserve_eq_scidd(const struct reserve *r,
 			     const struct short_channel_id_dir *scidd)
 {

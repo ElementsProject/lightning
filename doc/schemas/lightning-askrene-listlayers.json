@@ -152,13 +152,13 @@
                   "maximum_msat": {
                     "type": "msat",
                     "description": [
-                      "The maximum value which this channel could pass.  This or *minimum_msat* will be present, but not both."
+                      "The maximum value which this channel could pass."
                     ]
                   },
                   "minimum_msat": {
                     "type": "msat",
                     "description": [
-                      "The minimum value which this channel could pass.  This or *minimum_msat* will be present, but not both."
+                      "The minimum value which this channel could pass."
                     ]
                   }
                 }
