@@ -626,7 +626,7 @@ init_linear_network(const tal_t *ctx, const struct pay_parameters *params)
 			const struct gossmap_chan *c = gossmap_nth_chan(gossmap,
 			                                                node, j, &half);
 
-			if (!gossmap_chan_set(c, half))
+			if (!gossmap_chan_set(c, half) || !c->half[half].enabled)
 				continue;
 
 			const u32 chan_id = gossmap_chan_idx(gossmap, c);
