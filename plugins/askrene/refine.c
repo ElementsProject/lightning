@@ -22,10 +22,8 @@ static void get_scidd(const struct gossmap *gossmap,
 
 static void destroy_reservations(struct reserve_hop *rhops, struct askrene *askrene)
 {
-	if (reserves_remove(askrene->reserved, rhops, tal_count(rhops))
-	    != tal_count(rhops)) {
-		plugin_err(askrene->plugin, "Failed to remove reservations?");
-	}
+	for (size_t i = 0; i < tal_count(rhops); i++)
+		reserve_remove(askrene->reserved, &rhops[i]);
 }
 
 static struct reserve_hop *new_reservations(const tal_t *ctx,
@@ -53,14 +51,7 @@ static void add_reservation(struct reserve_hop **reservations,
 	get_scidd(rq->gossmap, flow, i, &rhop.scidd);
 	rhop.amount = amt;
 
-	/* This should not happen, but simply don't reserve if it does */
-	if (!reserves_add(askrene->reserved, &rhop, 1)) {
-		plugin_log(rq->plugin, LOG_BROKEN,
-			   "Failed to reserve %s in %s",
-			   fmt_amount_msat(tmpctx, amt),
-			   fmt_short_channel_id_dir(tmpctx, &rhop.scidd));
-		return;
-	}
+	reserve_add(askrene->reserved, &rhop, rq->cmd->id);
 
 	/* Set capacities entry to 0 so it get_constraints() looks in reserve. */
 	idx = gossmap_chan_idx(rq->gossmap, flow->path[i]);

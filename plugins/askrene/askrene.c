@@ -447,7 +447,6 @@ void get_constraints(const struct route_query *rq,
 		     struct amount_msat *max)
 {
 	struct short_channel_id_dir scidd;
-	const struct reserve *reserve;
 	size_t idx = gossmap_chan_idx(rq->gossmap, chan);
 
 	*min = AMOUNT_MSAT(0);
@@ -494,14 +493,8 @@ void get_constraints(const struct route_query *rq,
 	}
 
 	/* Finally, if any is in use, subtract that! */
-	reserve = find_reserve(rq->reserved, &scidd);
-	if (reserve) {
-		/* They can definitely *try* to push too much through a channel! */
-		if (!amount_msat_sub(min, *min, reserve->amount))
-			*min = AMOUNT_MSAT(0);
-		if (!amount_msat_sub(max, *max, reserve->amount))
-			*max = AMOUNT_MSAT(0);
-	}
+	reserve_sub(rq->reserved, &scidd, min);
+	reserve_sub(rq->reserved, &scidd, max);
 }
 
 struct getroutes_info {
@@ -687,7 +680,6 @@ static struct command_result *json_askrene_reserve(struct command *cmd,
 {
 	struct reserve_hop *path;
 	struct json_stream *response;
-	size_t num;
 	struct askrene *askrene = get_askrene(cmd->plugin);
 
 	if (!param(cmd, buffer, params,
@@ -695,16 +687,8 @@ static struct command_result *json_askrene_reserve(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	num = reserves_add(askrene->reserved, path, tal_count(path));
-	if (num != tal_count(path)) {
-		const struct reserve *r = find_reserve(askrene->reserved, &path[num].scidd);
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Overflow reserving %zu: %s amount %s (%s reserved already)",
-				    num,
-				    fmt_short_channel_id_dir(tmpctx, &path[num].scidd),
-				    fmt_amount_msat(tmpctx, path[num].amount),
-				    r ? fmt_amount_msat(tmpctx, r->amount) : "none");
-	}
+	for (size_t i = 0; i < tal_count(path); i++)
+		reserve_add(askrene->reserved, &path[i], cmd->id);
 
 	response = jsonrpc_stream_success(cmd);
 	return command_finished(cmd, response);
@@ -716,7 +700,6 @@ static struct command_result *json_askrene_unreserve(struct command *cmd,
 {
 	struct reserve_hop *path;
 	struct json_stream *response;
-	size_t num;
 	struct askrene *askrene = get_askrene(cmd->plugin);
 
 	if (!param(cmd, buffer, params,
@@ -724,17 +707,14 @@ static struct command_result *json_askrene_unreserve(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	num = reserves_remove(askrene->reserved, path, tal_count(path));
-	if (num != tal_count(path)) {
-		const struct reserve *r = find_reserve(askrene->reserved, &path[num].scidd);
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Underflow unreserving %zu: %s amount %s (%zu reserved, amount %s)",
-				    num,
-				    fmt_short_channel_id_dir(tmpctx, &path[num].scidd),
-				    fmt_amount_msat(tmpctx, path[num].amount),
-				    r ? r->num_htlcs : 0,
-				    r ? fmt_amount_msat(tmpctx, r->amount) : "none");
-	}
+	for (size_t i = 0; i < tal_count(path); i++) {
+		if (!reserve_remove(askrene->reserved, &path[i])) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Unknown reservation for %s",
+					    fmt_short_channel_id_dir(tmpctx,
+								     &path[i].scidd));
+		}
+ 	}
 
 	response = jsonrpc_stream_success(cmd);
 	return command_finished(cmd, response);
