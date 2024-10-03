@@ -14,15 +14,17 @@ struct local_channel {
 	struct node_id n1, n2;
 	struct short_channel_id scid;
 	struct amount_msat capacity;
+};
 
-	struct added_channel_half {
-		/* Other fields only valid if this is true */
-		bool enabled;
-		u16 delay;
-		u32 proportional_fee;
-		struct amount_msat base_fee;
-		struct amount_msat htlc_min, htlc_max;
-	} half[2];
+struct local_update {
+	struct short_channel_id_dir scidd;
+
+	/* Non-null fields apply. */
+	const bool *enabled;
+	const u16 *delay;
+	const u32 *proportional_fee;
+	const struct amount_msat *base_fee;
+	const struct amount_msat *htlc_min, *htlc_max;
 };
 
 static const struct short_channel_id_dir *
@@ -61,6 +63,21 @@ static inline bool local_channel_eq_scid(const struct local_channel *lc,
 HTABLE_DEFINE_TYPE(struct local_channel, local_channel_scid, hash_scid,
 		   local_channel_eq_scid, local_channel_hash);
 
+static const struct short_channel_id_dir *
+local_update_scidd(const struct local_update *lu)
+{
+	return &lu->scidd;
+}
+
+static inline bool local_update_eq_scidd(const struct local_update *lu,
+					 const struct short_channel_id_dir *scidd)
+{
+	return short_channel_id_dir_eq(scidd, &lu->scidd);
+}
+
+HTABLE_DEFINE_TYPE(struct local_update, local_update_scidd, hash_scidd,
+		   local_update_eq_scidd, local_update_hash);
+
 struct layer {
 	/* Inside global list of layers */
 	struct list_node list;
@@ -71,14 +88,14 @@ struct layer {
 	/* Completely made up local additions, indexed by scid */
 	struct local_channel_hash *local_channels;
 
+	/* Modifications to channels, indexed by scidd */
+	struct local_update_hash *local_updates;
+
 	/* Additional info, indexed by scid+dir */
 	struct constraint_hash *constraints;
 
 	/* Nodes to completely disable (tal_arr) */
 	struct node_id *disabled_nodes;
-
-	/* Channels to completely disable (tal_arr) */
-	struct short_channel_id_dir *disabled_channels;
 };
 
 struct layer *new_temp_layer(const tal_t *ctx, const char *name)
@@ -88,10 +105,11 @@ struct layer *new_temp_layer(const tal_t *ctx, const char *name)
 	l->name = tal_strdup(l, name);
 	l->local_channels = tal(l, struct local_channel_hash);
 	local_channel_hash_init(l->local_channels);
+	l->local_updates = tal(l, struct local_update_hash);
+	local_update_hash_init(l->local_updates);
 	l->constraints = tal(l, struct constraint_hash);
 	constraint_hash_init(l->constraints);
 	l->disabled_nodes = tal_arr(l, struct node_id, 0);
-	l->disabled_channels = tal_arr(l, struct short_channel_id_dir, 0);
 
 	return l;
 }
@@ -107,20 +125,6 @@ struct layer *new_layer(struct askrene *askrene, const char *name)
 	list_add(&askrene->layers, &l->list);
 	tal_add_destructor2(l, destroy_layer, askrene);
 	return l;
-}
-
-/* Swap if necessary to make into BOLT-7 order.  Return direction. */
-static int canonicalize_node_order(const struct node_id **n1,
-				   const struct node_id **n2)
-{
-	const struct node_id *tmp;
-
-	if (node_id_cmp(*n1, *n2) < 0)
-		return 0;
-	tmp = *n2;
-	*n2 = *n1;
-	*n1 = tmp;
-	return 1;
 }
 
 struct layer *find_layer(struct askrene *askrene, const char *name)
@@ -145,63 +149,77 @@ static struct local_channel *new_local_channel(struct layer *layer,
 					       struct amount_msat capacity)
 {
 	struct local_channel *lc = tal(layer, struct local_channel);
-	lc->n1 = *n1;
-	lc->n2 = *n2;
+
+	/* Swap if necessary to make into BOLT-7 order. */
+	if (node_id_cmp(n1, n2) < 0) {
+		lc->n1 = *n1;
+		lc->n2 = *n2;
+	} else {
+		lc->n1 = *n2;
+		lc->n2 = *n1;
+	}
 	lc->scid = scid;
 	lc->capacity = capacity;
-
-	for (size_t i = 0; i < ARRAY_SIZE(lc->half); i++)
-		lc->half[i].enabled = false;
 
 	local_channel_hash_add(layer->local_channels, lc);
 	return lc;
 }
 
-bool layer_check_local_channel(const struct local_channel *lc,
-			       const struct node_id *n1,
-			       const struct node_id *n2,
-			       struct amount_msat capacity)
+void layer_add_local_channel(struct layer *layer,
+			     const struct node_id *src,
+			     const struct node_id *dst,
+			     struct short_channel_id scid,
+			     struct amount_msat capacity)
 {
-	canonicalize_node_order(&n1, &n2);
-	return node_id_eq(&lc->n1, n1)
-		&& node_id_eq(&lc->n2, n2)
-		&& amount_msat_eq(lc->capacity, capacity);
+	assert(!local_channel_hash_get(layer->local_channels, scid));
+	new_local_channel(layer, src, dst, scid, capacity);
 }
 
-/* Update a local channel to a layer: fails if you try to change capacity or nodes! */
-void layer_update_local_channel(struct layer *layer,
-				const struct node_id *src,
-				const struct node_id *dst,
-				struct short_channel_id scid,
-				struct amount_msat capacity,
-				struct amount_msat base_fee,
-				u32 proportional_fee,
-				u16 delay,
-				struct amount_msat htlc_min,
-				struct amount_msat htlc_max)
+void layer_add_update_channel(struct layer *layer,
+			      const struct short_channel_id_dir *scidd,
+			      const bool *enabled,
+			      const struct amount_msat *htlc_min,
+			      const struct amount_msat *htlc_max,
+			      const struct amount_msat *base_fee,
+			      const u32 *proportional_fee,
+			      const u16 *delay)
 {
-	struct local_channel *lc = local_channel_hash_get(layer->local_channels, scid);
-	int dir = canonicalize_node_order(&src, &dst);
-	struct short_channel_id_dir scidd;
+	struct local_update *lu;
 
-	if (lc) {
-		assert(layer_check_local_channel(lc, src, dst, capacity));
-	} else {
-		lc = new_local_channel(layer, src, dst, scid, capacity);
+	lu = local_update_hash_get(layer->local_updates, scidd);
+	if (!lu) {
+		lu = tal(layer, struct local_update);
+		lu->scidd = *scidd;
+		lu->enabled = NULL;
+		lu->delay = NULL;
+		lu->proportional_fee = NULL;
+		lu->base_fee = lu->htlc_min = lu->htlc_max = NULL;
+		local_update_hash_add(layer->local_updates, lu);
 	}
-
-	lc->half[dir].enabled = true;
-	lc->half[dir].htlc_min = htlc_min;
-	lc->half[dir].htlc_max = htlc_max;
-	lc->half[dir].base_fee = base_fee;
-	lc->half[dir].proportional_fee = proportional_fee;
-	lc->half[dir].delay = delay;
-
-	/* We always add an explicit constraint for local channels, to simplify
-	 * lookups.  You can tell it's a fake one by the timestamp. */
-	scidd.scid = scid;
-	scidd.dir = dir;
-	layer_update_constraint(layer, &scidd, UINT64_MAX, NULL, &capacity);
+	if (enabled) {
+		tal_free(lu->enabled);
+		lu->enabled = tal_dup(lu, bool, enabled);
+	}
+	if (htlc_min) {
+		tal_free(lu->htlc_min);
+		lu->htlc_min = tal_dup(lu, struct amount_msat, htlc_min);
+	}
+	if (htlc_max) {
+		tal_free(lu->htlc_max);
+		lu->htlc_max = tal_dup(lu, struct amount_msat, htlc_max);
+	}
+	if (base_fee) {
+		tal_free(lu->base_fee);
+		lu->base_fee = tal_dup(lu, struct amount_msat, base_fee);
+	}
+	if (proportional_fee) {
+		tal_free(lu->proportional_fee);
+		lu->proportional_fee = tal_dup(lu, u32, proportional_fee);
+	}
+	if (delay) {
+		tal_free(lu->delay);
+		lu->delay = tal_dup(lu, u16, delay);
+	}
 }
 
 struct amount_msat local_channel_capacity(const struct local_channel *lc)
@@ -298,17 +316,14 @@ void layer_add_disabled_node(struct layer *layer, const struct node_id *node)
 	tal_arr_expand(&layer->disabled_nodes, *node);
 }
 
-void layer_add_disabled_channel(struct layer *layer, const struct short_channel_id_dir *scidd)
-{
-	tal_arr_expand(&layer->disabled_channels, *scidd);
-}
-
 void layer_add_localmods(const struct layer *layer,
 			 const struct gossmap *gossmap,
 			 struct gossmap_localmods *localmods)
 {
 	const struct local_channel *lc;
 	struct local_channel_hash_iter lcit;
+	const struct local_update *lu;
+	struct local_update_hash_iter luit;
 
 	/* First, disable all channels into blocked nodes (local updates
 	 * can add new ones)! */
@@ -335,61 +350,65 @@ void layer_add_localmods(const struct layer *layer,
 		}
 	}
 
+	/* Now create new channels */
 	for (lc = local_channel_hash_first(layer->local_channels, &lcit);
 	     lc;
 	     lc = local_channel_hash_next(layer->local_channels, &lcit)) {
 		gossmap_local_addchan(localmods,
 				      &lc->n1, &lc->n2, lc->scid, lc->capacity,
 				      NULL);
-		for (size_t i = 0; i < ARRAY_SIZE(lc->half); i++) {
-			struct short_channel_id_dir scidd;
-			bool enabled = true;
-			if (!lc->half[i].enabled)
-				continue;
-			scidd.scid = lc->scid;
-			scidd.dir = i;
-			gossmap_local_updatechan(localmods, &scidd,
-						 &enabled,
-						 &lc->half[i].htlc_min,
-						 &lc->half[i].htlc_max,
-						 &lc->half[i].base_fee,
-						 &lc->half[i].proportional_fee,
-						 &lc->half[i].delay);
-		}
 	}
 
-	/* Now disable any channels they asked us to */
-	for (size_t i = 0; i < tal_count(layer->disabled_channels); i++) {
-		bool enabled = false;
-		gossmap_local_updatechan(localmods,
-					 &layer->disabled_channels[i],
-					 &enabled,
-					 NULL, NULL, NULL, NULL, NULL);
+	/* Now update channels */
+	/* Now modify channels, if they exist */
+	for (lu = local_update_hash_first(layer->local_updates, &luit);
+	     lu;
+	     lu = local_update_hash_next(layer->local_updates, &luit)) {
+		gossmap_local_updatechan(localmods, &lu->scidd,
+					 lu->enabled,
+					 lu->htlc_min,
+					 lu->htlc_max,
+					 lu->base_fee,
+					 lu->proportional_fee,
+					 lu->delay);
 	}
 }
 
 static void json_add_local_channel(struct json_stream *response,
 				   const char *fieldname,
-				   const struct local_channel *lc,
-				   int dir)
+				   const struct local_channel *lc)
 {
 	json_object_start(response, fieldname);
-
-	if (dir == 0) {
-		json_add_node_id(response, "source", &lc->n1);
-		json_add_node_id(response, "destination", &lc->n2);
-	} else {
-		json_add_node_id(response, "source", &lc->n2);
-		json_add_node_id(response, "destination", &lc->n1);
-	}
+	json_add_node_id(response, "source", &lc->n1);
+	json_add_node_id(response, "destination", &lc->n2);
 	json_add_short_channel_id(response, "short_channel_id", lc->scid);
 	json_add_amount_msat(response, "capacity_msat", lc->capacity);
-	json_add_amount_msat(response, "htlc_minimum_msat", lc->half[dir].htlc_min);
-	json_add_amount_msat(response, "htlc_maximum_msat", lc->half[dir].htlc_max);
-	json_add_amount_msat(response, "fee_base_msat", lc->half[dir].base_fee);
-	json_add_u32(response, "fee_proportional_millionths", lc->half[dir].proportional_fee);
-	json_add_u32(response, "delay", lc->half[dir].delay);
+	json_object_end(response);
+}
 
+static void json_add_local_update(struct json_stream *response,
+				   const char *fieldname,
+				   const struct local_update *lu)
+{
+	json_object_start(response, fieldname);
+	json_add_short_channel_id_dir(response, "short_channel_id_dir",
+				      lu->scidd);
+	if (lu->enabled)
+		json_add_bool(response, "enabled", *lu->enabled);
+	if (lu->htlc_min)
+		json_add_amount_msat(response,
+				     "htlc_minimum_msat", *lu->htlc_min);
+	if (lu->htlc_max)
+		json_add_amount_msat(response,
+				     "htlc_maximum_msat", *lu->htlc_max);
+	if (lu->base_fee)
+		json_add_amount_msat(response, "fee_base_msat", *lu->base_fee);
+	if (lu->proportional_fee)
+		json_add_u32(response,
+			     "fee_proportional_millionths",
+			     *lu->proportional_fee);
+	if (lu->delay)
+		json_add_u32(response, "cltv_expiry_delta", *lu->delay);
 	json_object_end(response);
 }
 
@@ -416,6 +435,8 @@ static void json_add_layer(struct json_stream *js,
 {
 	struct local_channel_hash_iter lcit;
 	const struct local_channel *lc;
+	const struct local_update *lu;
+	struct local_update_hash_iter luit;
 	struct constraint_hash_iter conit;
 	const struct constraint *c;
 
@@ -425,18 +446,18 @@ static void json_add_layer(struct json_stream *js,
 	for (size_t i = 0; i < tal_count(layer->disabled_nodes); i++)
 		json_add_node_id(js, NULL, &layer->disabled_nodes[i]);
 	json_array_end(js);
-	json_array_start(js, "disabled_channels");
-	for (size_t i = 0; i < tal_count(layer->disabled_channels); i++)
-		json_add_short_channel_id_dir(js, NULL, layer->disabled_channels[i]);
-	json_array_end(js);
 	json_array_start(js, "created_channels");
 	for (lc = local_channel_hash_first(layer->local_channels, &lcit);
 	     lc;
 	     lc = local_channel_hash_next(layer->local_channels, &lcit)) {
-		for (size_t i = 0; i < ARRAY_SIZE(lc->half); i++) {
-			if (lc->half[i].enabled)
-				json_add_local_channel(js, NULL, lc, i);
-		}
+		json_add_local_channel(js, NULL, lc);
+	}
+	json_array_end(js);
+	json_array_start(js, "channel_updates");
+	for (lu = local_update_hash_first(layer->local_updates, &luit);
+	     lu;
+	     lu = local_update_hash_next(layer->local_updates, &luit)) {
+		json_add_local_update(js, NULL, lu);
 	}
 	json_array_end(js);
 	json_array_start(js, "constraints");

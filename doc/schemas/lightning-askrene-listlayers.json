@@ -33,8 +33,8 @@
           "required": [
             "layer",
             "disabled_nodes",
-            "disabled_channels",
             "created_channels",
+            "channel_updates",
             "constraints"
           ],
           "properties": {
@@ -70,12 +70,7 @@
                   "source",
                   "destination",
                   "short_channel_id",
-                  "capacity_msat",
-                  "htlc_minimum_msat",
-                  "htlc_maximum_msat",
-                  "fee_base_msat",
-                  "fee_proportional_millionths",
-                  "delay"
+                  "capacity_msat"
                 ],
                 "properties": {
                   "source": {
@@ -101,7 +96,18 @@
                     "description": [
                       "The capacity (onchain size) of the channel."
                     ]
-                  },
+                  }
+                }
+              }
+            },
+            "channel_updates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "short_channel_id_dir"
+                ],
+                "properties": {
                   "htlc_minimum_msat": {
                     "type": "msat",
                     "description": [
