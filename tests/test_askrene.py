@@ -426,6 +426,21 @@ def test_getroutes_auto_sourcefree(node_factory):
     # Set up l1 with this as the gossip_store
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
+    # Without sourcefree:
+    assert l1.rpc.getroutes(source=nodemap[0],
+                            destination=nodemap[1],
+                            amount_msat=1000,
+                            layers=[],
+                            maxfee_msat=1000,
+                            final_cltv=99) == {'probability_ppm': 999999,
+                                               'routes': [{'probability_ppm': 999999,
+                                                           'final_cltv': 99,
+                                                           'amount_msat': 1000,
+                                                           'path': [{'short_channel_id_dir': '0x1x0/1',
+                                                                     'next_node_id': nodemap[1],
+                                                                     'amount_msat': 1010,
+                                                                     'delay': 105}]}]}
+
     # Start easy
     assert l1.rpc.getroutes(source=nodemap[0],
                             destination=nodemap[1],
