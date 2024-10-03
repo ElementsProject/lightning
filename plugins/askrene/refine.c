@@ -9,10 +9,6 @@
 /* We (ab)use the reservation system to place temporary reservations
  * on channels while we are refining each flow.  This has the effect
  * of making flows aware of each other. */
-struct reservations {
-	struct short_channel_id_dir *scidds;
-	struct amount_msat *amounts;
-};
 
 /* Get the scidd for the i'th hop in flow */
 static void get_scidd(const struct gossmap *gossmap,
@@ -24,48 +20,45 @@ static void get_scidd(const struct gossmap *gossmap,
 	scidd->dir = flow->dirs[i];
 }
 
-static void destroy_reservations(struct reservations *r, struct askrene *askrene)
+static void destroy_reservations(struct reserve_hop *rhops, struct askrene *askrene)
 {
-	assert(tal_count(r->scidds) == tal_count(r->amounts));
-	if (reserves_remove(askrene->reserved,
-			    r->scidds, r->amounts,
-			    tal_count(r->scidds)) != tal_count(r->scidds)) {
+	if (reserves_remove(askrene->reserved, rhops, tal_count(rhops))
+	    != tal_count(rhops)) {
 		plugin_err(askrene->plugin, "Failed to remove reservations?");
 	}
 }
 
-static struct reservations *new_reservations(const tal_t *ctx,
-					     struct route_query *rq)
+static struct reserve_hop *new_reservations(const tal_t *ctx,
+					    const struct route_query *rq)
 {
-	struct reservations *r = tal(ctx, struct reservations);
-	r->scidds = tal_arr(r, struct short_channel_id_dir, 0);
-	r->amounts = tal_arr(r, struct amount_msat, 0);
+	struct reserve_hop *rhops = tal_arr(ctx, struct reserve_hop, 0);
 
 	/* Unreserve on free */
-	tal_add_destructor2(r, destroy_reservations, get_askrene(rq->plugin));
-	return r;
+	tal_add_destructor2(rhops, destroy_reservations, get_askrene(rq->plugin));
+	return rhops;
 }
 
 /* Add reservation: we (ab)use this to temporarily avoid over-usage as
  * we refine. */
-static void add_reservation(struct reservations *r,
+static void add_reservation(struct reserve_hop **reservations,
 			    struct route_query *rq,
 			    const struct flow *flow,
 			    size_t i,
 			    struct amount_msat amt)
 {
-	struct short_channel_id_dir scidd;
+	struct reserve_hop rhop;
 	struct askrene *askrene = get_askrene(rq->plugin);
 	size_t idx;
 
-	get_scidd(rq->gossmap, flow, i, &scidd);
+	get_scidd(rq->gossmap, flow, i, &rhop.scidd);
+	rhop.amount = amt;
 
 	/* This should not happen, but simply don't reserve if it does */
-	if (!reserves_add(askrene->reserved, &scidd, &amt, 1)) {
+	if (!reserves_add(askrene->reserved, &rhop, 1)) {
 		plugin_log(rq->plugin, LOG_BROKEN,
 			   "Failed to reserve %s in %s",
 			   fmt_amount_msat(tmpctx, amt),
-			   fmt_short_channel_id_dir(tmpctx, &scidd));
+			   fmt_short_channel_id_dir(tmpctx, &rhop.scidd));
 		return;
 	}
 
@@ -75,8 +68,7 @@ static void add_reservation(struct reservations *r,
 		rq->capacities[idx] = 0;
 
 	/* Record so destructor will unreserve */
-	tal_arr_expand(&r->scidds, scidd);
-	tal_arr_expand(&r->amounts, amt);
+	tal_arr_expand(reservations, rhop);
 }
 
 /* We have a basic set of flows, but we need to add fees, and take into
@@ -93,7 +85,7 @@ static void add_reservation(struct reservations *r,
 static const char *constrain_flow(const tal_t *ctx,
 				  struct route_query *rq,
 				  struct flow *flow,
-				  struct reservations *reservations)
+				  struct reserve_hop **reservations)
 {
 	struct amount_msat msat;
 	int decreased = -1;
@@ -187,7 +179,7 @@ static const char *constrain_flow(const tal_t *ctx,
 /* Flow is now delivering `extra` additional msat, so modify reservations */
 static void add_to_flow(struct flow *flow,
 			struct route_query *rq,
-			struct reservations *reservations,
+			struct reserve_hop **reservations,
 			struct amount_msat extra)
 {
 	struct amount_msat orig, updated;
@@ -299,7 +291,7 @@ refine_with_fees_and_limits(const tal_t *ctx,
 			    struct amount_msat deliver,
 			    struct flow ***flows)
 {
-	struct reservations *reservations = new_reservations(NULL, rq);
+	struct reserve_hop *reservations = new_reservations(NULL, rq);
 	struct amount_msat more_to_deliver;
 	const char *flow_constraint_error = NULL;
 	const char *ret;
@@ -317,7 +309,7 @@ refine_with_fees_and_limits(const tal_t *ctx,
 				   fmt_amount_msat(tmpctx, max));
 		}
 
-		flow_constraint_error = constrain_flow(tmpctx, rq, flow, reservations);
+		flow_constraint_error = constrain_flow(tmpctx, rq, flow, &reservations);
 		if (!flow_constraint_error) {
 			i++;
 			continue;
@@ -398,7 +390,7 @@ refine_with_fees_and_limits(const tal_t *ctx,
 		}
 
 		/* Make this flow deliver +extra, and modify reservations */
-		add_to_flow(f, rq, reservations, extra);
+		add_to_flow(f, rq, &reservations, extra);
 
 		/* Should not happen, since extra comes from div... */
 		if (!amount_msat_sub(&more_to_deliver, more_to_deliver, extra))

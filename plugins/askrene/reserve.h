@@ -22,18 +22,22 @@ struct reserve_htable *new_reserve_htable(const tal_t *ctx);
 const struct reserve *find_reserve(const struct reserve_htable *reserved,
 				   const struct short_channel_id_dir *scidd);
 
+
+struct reserve_hop {
+	struct short_channel_id_dir scidd;
+	struct amount_msat amount;
+};
+
 /* Atomically add to reserves, or fail.
  * Returns offset of failure, or num on success */
 size_t reserves_add(struct reserve_htable *reserved,
-		    const struct short_channel_id_dir *scidds,
-		    const struct amount_msat *amounts,
+		    const struct reserve_hop *hops,
 		    size_t num);
 
 /* Atomically remove from reserves, to fail.
  * Returns offset of failure or tal_count(scidds) */
 size_t reserves_remove(struct reserve_htable *reserved,
-		       const struct short_channel_id_dir *scidds,
-		       const struct amount_msat *amounts,
+		       const struct reserve_hop *hops,
 		       size_t num);
 
 /* Clear capacities array where we have reserves */

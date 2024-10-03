@@ -86,16 +86,15 @@ static bool remove(struct reserve *r, struct amount_msat amount)
 /* Atomically add to reserves, or fail.
  * Returns offset of failure, or num on success */
 size_t reserves_add(struct reserve_htable *reserved,
-		    const struct short_channel_id_dir *scidds,
-		    const struct amount_msat *amounts,
+		    const struct reserve_hop *hops,
 		    size_t num)
 {
 	for (size_t i = 0; i < num; i++) {
-		struct reserve *r = reserve_htable_get(reserved, &scidds[i]);
+		struct reserve *r = reserve_htable_get(reserved, &hops[i].scidd);
 		if (!r)
-			r = new_reserve(reserved, &scidds[i]);
-		if (!add(r, amounts[i])) {
-			reserves_remove(reserved, scidds, amounts, i);
+			r = new_reserve(reserved, &hops[i].scidd);
+		if (!add(r, hops[i].amount)) {
+			reserves_remove(reserved, hops, i);
 			return i;
 		}
 	}
@@ -105,14 +104,13 @@ size_t reserves_add(struct reserve_htable *reserved,
 /* Atomically remove from reserves, to fail.
  * Returns offset of failure or tal_count(scidds) */
 size_t reserves_remove(struct reserve_htable *reserved,
-		       const struct short_channel_id_dir *scidds,
-		       const struct amount_msat *amounts,
+		       const struct reserve_hop *hops,
 		       size_t num)
 {
 	for (size_t i = 0; i < num; i++) {
-		struct reserve *r = reserve_htable_get(reserved, &scidds[i]);
-		if (!r || !remove(r, amounts[i])) {
-			reserves_add(reserved, scidds, amounts, i);
+		struct reserve *r = reserve_htable_get(reserved, &hops[i].scidd);
+		if (!r || !remove(r, hops[i].amount)) {
+			reserves_add(reserved, hops, i);
 			return i;
 		}
 		if (r->num_htlcs == 0)
