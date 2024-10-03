@@ -362,6 +362,7 @@ static void gossmod_add_unknown_localchan(struct gossmap_localmods *mods,
 					  const struct node_id *self,
 					  const struct node_id *peer,
 					  const struct short_channel_id_dir *scidd,
+					  struct amount_msat capacity_msat,
 					  struct amount_msat min,
 					  struct amount_msat max,
 					  struct amount_msat spendable,
@@ -376,7 +377,8 @@ static void gossmod_add_unknown_localchan(struct gossmap_localmods *mods,
 	if (gossmap_find_chan(gossmap, &scidd->scid))
 		return;
 
-	gossmod_add_localchan(mods, self, peer, scidd, min, max, spendable,
+	gossmod_add_localchan(mods, self, peer, scidd, capacity_msat,
+			      min, max, spendable,
 			      fee_base, fee_proportional, cltv_delta, enabled,
 			      buf, chantok, gossmap);
 }

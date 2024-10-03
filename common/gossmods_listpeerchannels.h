@@ -30,6 +30,7 @@ struct gossmap_localmods *gossmods_from_listpeerchannels_(const tal_t *ctx,
 								     const struct node_id *self_,
 								     const struct node_id *peer,
 								     const struct short_channel_id_dir *scidd,
+								     struct amount_msat capacity_msat,
 								     struct amount_msat htlcmin,
 								     struct amount_msat htlcmax,
 								     struct amount_msat spendable,
@@ -53,6 +54,7 @@ struct gossmap_localmods *gossmods_from_listpeerchannels_(const tal_t *ctx,
 							    struct amount_msat,	\
 							    struct amount_msat,	\
 							    struct amount_msat,	\
+							    struct amount_msat,	\
 							    u32,	\
 							    u16,	\
 							    bool,	\
@@ -65,6 +67,7 @@ void gossmod_add_localchan(struct gossmap_localmods *mods,
 			   const struct node_id *self,
 			   const struct node_id *peer,
 			   const struct short_channel_id_dir *scidd,
+			   struct amount_msat capacity_msat,
 			   struct amount_msat htlcmin,
 			   struct amount_msat htlcmax,
 			   struct amount_msat spendable,
