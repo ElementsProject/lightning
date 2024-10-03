@@ -870,6 +870,32 @@ static struct command_result *json_askrene_inform_channel(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
+static struct command_result *json_askrene_disable_channel(struct command *cmd,
+							   const char *buffer,
+							   const jsmntok_t *params)
+{
+	struct short_channel_id_dir *scidd;
+	const char *layername;
+	struct layer *layer;
+	struct json_stream *response;
+	struct askrene *askrene = get_askrene(cmd->plugin);
+
+	if (!param(cmd, buffer, params,
+		   p_req("layer", param_layername, &layername),
+		   p_req("short_channel_id_dir", param_short_channel_id_dir, &scidd),
+		   NULL))
+		return command_param_failed();
+
+	layer = find_layer(askrene, layername);
+	if (!layer)
+		layer = new_layer(askrene, layername);
+
+	layer_add_disabled_channel(layer, scidd);
+
+	response = jsonrpc_stream_success(cmd);
+	return command_finished(cmd, response);
+}
+
 static struct command_result *json_askrene_disable_node(struct command *cmd,
 							const char *buffer,
 							const jsmntok_t *params)
@@ -971,6 +997,10 @@ static const struct plugin_command commands[] = {
 	{
 		"askrene-age",
 		json_askrene_age,
+	},
+	{
+		"askrene-disable-channel",
+		json_askrene_disable_channel,
 	},
 };
 

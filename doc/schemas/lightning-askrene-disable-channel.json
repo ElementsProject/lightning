@@ -1,0 +1,50 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "askrene-disable-channel",
+  "title": "Command to disable a channel in a layer (EXPERIMENTAL)",
+  "description": [
+    "WARNING: experimental, so API may change.",
+    "",
+    "The **askrene-disable-channel** RPC command tells askrene to disable a channel whenever the given layer is used.  This is mainly useful to force the use of alternate paths."
+  ],
+  "request": {
+    "required": [
+      "layer",
+      "short_channel_id_dir"
+    ],
+    "properties": {
+      "layer": {
+        "type": "string",
+        "description": [
+          "The name of the layer to apply this change to."
+        ]
+      },
+      "short_channel_id_dir": {
+        "type": "short_channel_id_dir",
+        "description": [
+          "The channel and direction to disable."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [],
+    "properties": {}
+  },
+  "see_also": [
+    "lightning-getroutes(7)",
+    "lightning-askrene-create-channel(7)",
+    "lightning-askrene-inform-channel(7)",
+    "lightning-askrene-disable-node(7)",
+    "lightning-askrene-listlayers(7)",
+    "lightning-askrene-age(7)"
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}
