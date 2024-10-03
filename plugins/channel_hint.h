@@ -39,10 +39,10 @@ struct channel_hint {
 	/* Non-null if we are one endpoint of this channel */
 	struct local_hint *local;
 
-	/* The total `amount_sat` that were used to fund the
-	 * channel. This is always smaller gte the
-	 * estimated_capacity (after normalization) */
-	struct amount_sat capacity;
+	/* The total `amount_msat` that were used to fund the
+	 * channel. This is always smaller gte the estimated_capacity
+	 * (after normalization) */
+	struct amount_msat capacity;
 };
 
 /* A collection of channel_hint instances, allowing us to handle and
@@ -84,7 +84,7 @@ struct channel_hint *channel_hint_set_add(struct channel_hint_set *self,
 					  const struct short_channel_id_dir *scidd,
 					  bool enabled,
 					  const struct amount_msat *estimated_capacity,
-					  const struct amount_sat overall_capacity,
+					  const struct amount_msat overall_capacity,
 					  u16 *htlc_budget);
 
 /**

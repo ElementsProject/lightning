@@ -9,7 +9,7 @@ void channel_hint_to_json(const char *name, const struct channel_hint *hint,
 	json_add_short_channel_id_dir(dest, "scid", hint->scid);
 	json_add_amount_msat(dest, "estimated_capacity_msat",
 			     hint->estimated_capacity);
-	json_add_amount_sat(dest, "capacity_sat", hint->capacity);
+	json_add_amount_msat(dest, "total_capacity_msat", hint->capacity);
 	json_add_bool(dest, "enabled", hint->enabled);
 	json_object_end(dest);
 }
@@ -55,9 +55,7 @@ bool channel_hint_update(const struct timeabs now, struct channel_hint *hint)
 	 * overall / refill_rate`.
 	 */
 	struct amount_msat refill;
-	struct amount_msat capacity;
-	if (!amount_sat_to_msat(&capacity, hint->capacity))
-		abort();
+	struct amount_msat capacity = hint->capacity;
 
 	if (now.ts.tv_sec < hint->timestamp + PAY_REFILL_HYSTERESIS)
 		return true;
@@ -109,7 +107,7 @@ struct channel_hint *
 channel_hint_set_add(struct channel_hint_set *self, u32 timestamp,
 		     const struct short_channel_id_dir *scidd, bool enabled,
 		     const struct amount_msat *estimated_capacity,
-		     const struct amount_sat capacity, u16 *htlc_budget)
+		     const struct amount_msat capacity, u16 *htlc_budget)
 {
 	struct channel_hint *copy, *old, *newhint;
 
@@ -143,7 +141,7 @@ channel_hint_set_add(struct channel_hint_set *self, u32 timestamp,
 		 * being told. This is because in some cases, such as
 		 * routehints, we're not actually being told the total
 		 * capacity, just lower values. */
-		if (amount_sat_greater(capacity, old->capacity))
+		if (amount_msat_greater(capacity, old->capacity))
 			old->capacity = capacity;
 
 		return copy;
@@ -169,11 +167,11 @@ struct channel_hint *channel_hint_from_json(const tal_t *ctx,
 	struct channel_hint *hint = tal(ctx, struct channel_hint);
 
 	ret = json_scan(ctx, buffer, jhint,
-			"{timestamp:%,scid:%,estimated_capacity_msat:%,capacity_sat:%,enabled:%}",
+			"{timestamp:%,scid:%,estimated_capacity_msat:%,total_capacity_msat:%,enabled:%}",
 			JSON_SCAN(json_to_u32, &hint->timestamp),
 			JSON_SCAN(json_to_short_channel_id_dir, &hint->scid),
 			JSON_SCAN(json_to_msat, &hint->estimated_capacity),
-			JSON_SCAN(json_to_sat, &hint->capacity),
+			JSON_SCAN(json_to_msat, &hint->capacity),
 			JSON_SCAN(json_to_bool, &hint->enabled));
 
 	if (ret != NULL)
