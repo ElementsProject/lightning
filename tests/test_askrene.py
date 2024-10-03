@@ -161,7 +161,9 @@ def test_layers(node_factory):
                                   100000,
                                   'unconstrained')
     last_timestamp = int(time.time()) + 1
+    # Maximum for created channels is the real capacity.
     expect['constraints'].append({'short_channel_id_dir': '0x0x1/1',
+                                  'maximum_msat': 1000000000,
                                   'minimum_msat': 100000})
     # Check timestamp first.
     listlayers = l2.rpc.askrene_listlayers('test_layers')

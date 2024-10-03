@@ -74,4 +74,11 @@ static inline struct askrene *get_askrene(struct plugin *plugin)
 	return plugin_get_data(plugin, struct askrene);
 }
 
+/* Convenience routine for hash tables */
+static inline size_t hash_scidd(const struct short_channel_id_dir *scidd)
+{
+	/* scids cost money to generate, so simple hash works here */
+	return (scidd->scid.u64 >> 32) ^ (scidd->scid.u64 >> 16) ^ (scidd->scid.u64 << 1) ^ scidd->dir;
+}
+
 #endif /* LIGHTNING_PLUGINS_ASKRENE_ASKRENE_H */
