@@ -9,6 +9,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
+#include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <common/gossmods_listpeerchannels.h>
 #include <common/json_param.h>
@@ -16,6 +17,7 @@
 #include <common/route.h>
 #include <errno.h>
 #include <plugins/askrene/askrene.h>
+#include <plugins/askrene/explain_failure.h>
 #include <plugins/askrene/flow.h>
 #include <plugins/askrene/layer.h>
 #include <plugins/askrene/mcf.h>
@@ -223,6 +225,7 @@ struct amount_msat get_additional_per_htlc_cost(const struct route_query *rq,
 		return AMOUNT_MSAT(0);
 }
 
+
 /* Returns an error message, or sets *routes */
 static const char *get_routes(const tal_t *ctx,
 			      struct command *cmd,
@@ -327,10 +330,7 @@ static const char *get_routes(const tal_t *ctx,
 	flows = minflow(rq, rq, srcnode, dstnode, amount,
 			mu, delay_feefactor, base_fee_penalty, prob_cost_factor);
 	if (!flows) {
-		/* FIXME: disjktra here to see if there is any route, and
-		 * diagnose problem (offline peers?  Not enough capacity at
-		 * our end?  Not enough at theirs?) */
-		ret = tal_fmt(ctx, "Could not find route");
+		ret = explain_failure(ctx, rq, srcnode, dstnode, amount);
 		goto out;
 	}
 

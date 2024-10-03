@@ -502,6 +502,21 @@ void json_add_layers(struct json_stream *js,
 	json_array_end(js);
 }
 
+bool layer_created(const struct layer *layer, struct short_channel_id scid)
+{
+	return local_channel_hash_get(layer->local_channels, scid);
+}
+
+bool layer_disables(const struct layer *layer,
+		    const struct short_channel_id_dir *scidd)
+{
+	const struct local_update *lu;
+
+	lu = local_update_hash_get(layer->local_updates, scidd);
+
+	return (lu && lu->enabled && *lu->enabled == false);
+}
+
 void layer_memleak_mark(struct askrene *askrene, struct htable *memtable)
 {
 	struct layer *l;

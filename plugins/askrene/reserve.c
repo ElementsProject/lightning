@@ -151,6 +151,32 @@ void json_add_reservations(struct json_stream *js,
 	json_array_end(js);
 }
 
+const char *fmt_reservations(const tal_t *ctx,
+			     const struct reserve_htable *reserved,
+			     const struct short_channel_id_dir *scidd)
+{
+	struct reserve *r;
+	struct reserve_htable_iter rit;
+	char *ret = NULL;
+
+	for (r = reserve_htable_getfirst(reserved, scidd, &rit);
+	     r;
+	     r = reserve_htable_getnext(reserved, scidd, &rit)) {
+		u64 seconds;
+		if (!ret)
+			ret = tal_strdup(ctx, "");
+		else
+			tal_append_fmt(&ret, ", ");
+		tal_append_fmt(&ret, "%s by command %s",
+			       fmt_amount_msat(tmpctx, r->rhop.amount), r->cmd_id);
+		seconds = timemono_between(time_mono(), r->timestamp).ts.tv_sec;
+		/* Add a note if it's old */
+		if (seconds > 0)
+			tal_append_fmt(&ret, " (%"PRIu64" seconds ago)", seconds);
+	}
+	return ret;
+}
+
 void reserve_memleak_mark(struct askrene *askrene, struct htable *memtable)
 {
 	memleak_scan_htable(memtable, &askrene->reserved->raw);

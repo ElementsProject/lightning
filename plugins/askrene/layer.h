@@ -102,6 +102,12 @@ void json_add_constraint(struct json_stream *js,
 			 const struct constraint *c,
 			 const struct layer *layer);
 
+/* For explain_failure: did this layer create this scid? */
+bool layer_created(const struct layer *layer, struct short_channel_id scid);
+
+/* For explain_failure: did this layer disable this channel? */
+bool layer_disables(const struct layer *layer, const struct short_channel_id_dir *scidd);
+
 /* Scan for memleaks */
 void layer_memleak_mark(struct askrene *askrene, struct htable *memtable);
 #endif /* LIGHTNING_PLUGINS_ASKRENE_LAYER_H */
