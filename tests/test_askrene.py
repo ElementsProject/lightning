@@ -20,22 +20,27 @@ def test_layers(node_factory):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
 
     assert l2.rpc.askrene_listlayers() == {'layers': []}
-    assert l2.rpc.askrene_listlayers('test_layers') == {'layers': []}
+    with pytest.raises(RpcError, match="Unknown layer"):
+        l2.rpc.askrene_listlayers('test_layers')
 
     expect = {'layer': 'test_layers',
               'disabled_nodes': [],
               'disabled_channels': [],
               'created_channels': [],
               'constraints': []}
+    l2.rpc.askrene_create_layer('test_layers')
     l2.rpc.askrene_disable_node('test_layers', l1.info['id'])
     expect['disabled_nodes'].append(l1.info['id'])
     assert l2.rpc.askrene_listlayers('test_layers') == {'layers': [expect]}
     assert l2.rpc.askrene_listlayers() == {'layers': [expect]}
-    assert l2.rpc.askrene_listlayers('test_layers2') == {'layers': []}
+    with pytest.raises(RpcError, match="Unknown layer"):
+        l2.rpc.askrene_listlayers('test_layers2')
 
     l2.rpc.askrene_disable_channel('test_layers', "1x2x3/0")
     expect['disabled_channels'].append("1x2x3/0")
     assert l2.rpc.askrene_listlayers('test_layers') == {'layers': [expect]}
+    with pytest.raises(RpcError, match="Layer already exists"):
+        l2.rpc.askrene_create_layer('test_layers')
 
     # Tell it l3 connects to l1!
     l2.rpc.askrene_create_channel('test_layers',
@@ -114,6 +119,12 @@ def test_layers(node_factory):
     listlayers = l2.rpc.askrene_listlayers('test_layers')
     assert listlayers == {'layers': [expect]}
 
+    with pytest.raises(RpcError, match="Unknown layer"):
+        l2.rpc.askrene_remove_layer('test_layers_unknown')
+
+    assert l2.rpc.askrene_remove_layer('test_layers') == {}
+    assert l2.rpc.askrene_listlayers() == {'layers': []}
+
 
 def check_route_as_expected(routes, paths):
     """Make sure all fields in paths are match those in routes"""
@@ -173,6 +184,7 @@ def test_getroutes(node_factory):
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
     # Disabling channels makes getroutes fail
+    l1.rpc.askrene_create_layer('chans_disabled')
     l1.rpc.askrene_disable_channel("chans_disabled", '0x1x0/1')
     with pytest.raises(RpcError, match="Could not find route"):
         l1.rpc.getroutes(source=nodemap[0],
@@ -435,6 +447,7 @@ def test_fees_dont_exceed_constraints(node_factory):
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
     chan = only_one([c for c in l1.rpc.listchannels(source=nodemap[0])['channels'] if c['destination'] == nodemap[1]])
+    l1.rpc.askrene_create_layer('test_layers')
     l1.rpc.askrene_inform_channel(layer='test_layers',
                                   short_channel_id_dir=f"{chan['short_channel_id']}/{chan['direction']}",
                                   maximum_msat=max_msat)
@@ -460,6 +473,7 @@ def test_sourcefree_on_mods(node_factory, bitcoind):
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
     # Add a local channel from 0->l1 (we just needed a nodeid).
+    l1.rpc.askrene_create_layer('test_layers')
     l1.rpc.askrene_create_channel('test_layers',
                                   nodemap[0],
                                   l1.info['id'],
@@ -580,6 +594,7 @@ def test_limits_fake_gossmap(node_factory, bitcoind):
     for scidd in spendable:
         assert scidd in [f"{c['short_channel_id']}/{c['direction']}" for c in l1.rpc.listchannels(source=nodemap[0])['channels']]
 
+    l1.rpc.askrene_create_layer('localchans')
     for scidd, amount in spendable.items():
         l1.rpc.askrene_inform_channel(layer='localchans',
                                       short_channel_id_dir=scidd,
@@ -640,6 +655,7 @@ def test_max_htlc(node_factory, bitcoind):
                              [{'short_channel_id_dir': '0x1x1/1', 'amount_msat': 19_000_019, 'delay': 10 + 6}]])
 
     # If we can't use channel 2, we fail.
+    l1.rpc.askrene_create_layer('removechan2')
     l1.rpc.askrene_inform_channel(layer='removechan2',
                                   short_channel_id_dir='0x1x1/1',
                                   maximum_msat=0)

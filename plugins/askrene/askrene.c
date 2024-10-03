@@ -62,24 +62,35 @@ static bool have_layer(const char **layers, const char *name)
 	return false;
 }
 
-/* JSON helpers */
-static struct command_result *param_string_array(struct command *cmd,
-						 const char *name,
-						 const char *buffer,
-						 const jsmntok_t *tok,
-						 const char ***arr)
+/* Valid, known layers */
+static struct command_result *param_layer_names(struct command *cmd,
+						const char *name,
+						const char *buffer,
+						const jsmntok_t *tok,
+						const char ***arr)
 {
 	size_t i;
 	const jsmntok_t *t;
 
 	if (tok->type != JSMN_ARRAY)
-		return command_fail_badparam(cmd, name, buffer, tok, "should be an array");
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should be an array");
 
 	*arr = tal_arr(cmd, const char *, tok->size);
 	json_for_each_arr(i, t, tok) {
 		if (t->type != JSMN_STRING)
-			return command_fail_badparam(cmd, name, buffer, t, "should be a string");
+			return command_fail_badparam(cmd, name, buffer, t,
+						     "should be a string");
 		(*arr)[i] = json_strdup(*arr, buffer, t);
+
+		/* Must be a known layer name */
+		if (streq((*arr)[i], "auto.localchans")
+		    || streq((*arr)[i], "auto.sourcefree"))
+			continue;
+		if (!find_layer(get_askrene(cmd->plugin), (*arr)[i])) {
+			return command_fail_badparam(cmd, name, buffer, t,
+						     "unknown layer");
+		}
 	}
 	return NULL;
 }
@@ -285,11 +296,14 @@ static const char *get_routes(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(layers); i++) {
 		const struct layer *l = find_layer(askrene, layers[i]);
 		if (!l) {
-			if (local_layer && streq(layers[i], "auto.localchans")) {
+			if (streq(layers[i], "auto.localchans")) {
 				plugin_log(plugin, LOG_DBG, "Adding auto.localchans");
 				l = local_layer;
-			} else
+			} else {
+				/* Handled below, after other layers */
+				assert(streq(layers[i], "auto.sourcefree"));
 				continue;
+			}
 		}
 
 		tal_arr_expand(&rq->layers, l);
@@ -652,7 +666,7 @@ static struct command_result *json_getroutes(struct command *cmd,
 		   p_req("source", param_node_id, &info->source),
 		   p_req("destination", param_node_id, &info->dest),
 		   p_req("amount_msat", param_msat, &info->amount),
-		   p_req("layers", param_string_array, &info->layers),
+		   p_req("layers", param_layer_names, &info->layers),
 		   p_req("maxfee_msat", param_msat, &info->maxfee),
 		   p_req("final_cltv", param_u32, &info->finalcltv),
 		   NULL))
@@ -737,25 +751,10 @@ static struct command_result *json_askrene_unreserve(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
-static struct command_result *param_layername(struct command *cmd,
-					      const char *name,
-					      const char *buffer,
-					      const jsmntok_t *tok,
-					      const char **str)
-{
-	*str = tal_strndup(cmd, buffer + tok->start,
-			   tok->end - tok->start);
-	if (strstarts(*str, "auto."))
-		return command_fail_badparam(cmd, name, buffer, tok,
-					     "New layers cannot start with auto.");
-	return NULL;
-}
-
 static struct command_result *json_askrene_create_channel(struct command *cmd,
 							  const char *buffer,
 							  const jsmntok_t *params)
 {
-	const char *layername;
 	struct layer *layer;
 	const struct local_channel *lc;
 	struct node_id *src, *dst;
@@ -765,10 +764,9 @@ static struct command_result *json_askrene_create_channel(struct command *cmd,
 	struct amount_msat *htlc_min, *htlc_max, *base_fee;
 	u32 *proportional_fee;
 	u16 *delay;
-	struct askrene *askrene = get_askrene(cmd->plugin);
 
 	if (!param_check(cmd, buffer, params,
-			 p_req("layer", param_layername, &layername),
+			 p_req("layer", param_known_layer, &layer),
 			 p_req("source", param_node_id, &src),
 			 p_req("destination", param_node_id, &dst),
 			 p_req("short_channel_id", param_short_channel_id, &scid),
@@ -782,21 +780,14 @@ static struct command_result *json_askrene_create_channel(struct command *cmd,
 		return command_param_failed();
 
 	/* If it exists, it must match */
-	layer = find_layer(askrene, layername);
-	if (layer) {
-		lc = layer_find_local_channel(layer, *scid);
-		if (lc && !layer_check_local_channel(lc, src, dst, *capacity)) {
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "channel already exists with different values!");
-		}
-	} else
-		lc = NULL;
+	lc = layer_find_local_channel(layer, *scid);
+	if (lc && !layer_check_local_channel(lc, src, dst, *capacity)) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "channel already exists with different values!");
+	}
 
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
-
-	if (!layer)
-		layer = new_layer(askrene, layername);
 
 	layer_update_local_channel(layer, src, dst, *scid, *capacity,
 				   *base_fee, *proportional_fee, *delay,
@@ -811,15 +802,13 @@ static struct command_result *json_askrene_inform_channel(struct command *cmd,
 							    const jsmntok_t *params)
 {
 	struct layer *layer;
-	const char *layername;
 	struct short_channel_id_dir *scidd;
 	struct json_stream *response;
 	struct amount_msat *max, *min;
 	const struct constraint *c;
-	struct askrene *askrene = get_askrene(cmd->plugin);
 
 	if (!param_check(cmd, buffer, params,
-			 p_req("layer", param_layername, &layername),
+			 p_req("layer", param_known_layer, &layer),
 			 p_req("short_channel_id_dir", param_short_channel_id_dir, &scidd),
 			 p_opt("minimum_msat", param_msat, &min),
 			 p_opt("maximum_msat", param_msat, &max),
@@ -833,10 +822,6 @@ static struct command_result *json_askrene_inform_channel(struct command *cmd,
 
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
-
-	layer = find_layer(askrene, layername);
-	if (!layer)
-		layer = new_layer(askrene, layername);
 
 	if (min) {
 		c = layer_update_constraint(layer, scidd, CONSTRAINT_MIN,
@@ -855,20 +840,14 @@ static struct command_result *json_askrene_disable_channel(struct command *cmd,
 							   const jsmntok_t *params)
 {
 	struct short_channel_id_dir *scidd;
-	const char *layername;
 	struct layer *layer;
 	struct json_stream *response;
-	struct askrene *askrene = get_askrene(cmd->plugin);
 
 	if (!param(cmd, buffer, params,
-		   p_req("layer", param_layername, &layername),
+		   p_req("layer", param_known_layer, &layer),
 		   p_req("short_channel_id_dir", param_short_channel_id_dir, &scidd),
 		   NULL))
 		return command_param_failed();
-
-	layer = find_layer(askrene, layername);
-	if (!layer)
-		layer = new_layer(askrene, layername);
 
 	layer_add_disabled_channel(layer, scidd);
 
@@ -881,24 +860,68 @@ static struct command_result *json_askrene_disable_node(struct command *cmd,
 							const jsmntok_t *params)
 {
 	struct node_id *node;
-	const char *layername;
 	struct layer *layer;
 	struct json_stream *response;
-	struct askrene *askrene = get_askrene(cmd->plugin);
 
 	if (!param(cmd, buffer, params,
-		   p_req("layer", param_layername, &layername),
+		   p_req("layer", param_known_layer, &layer),
 		   p_req("node", param_node_id, &node),
 		   NULL))
 		return command_param_failed();
 
-	layer = find_layer(askrene, layername);
-	if (!layer)
-		layer = new_layer(askrene, layername);
-
 	/* We save this in the layer, because they want us to disable all the channels
 	 * to the node at *use* time (a new channel might be gossiped!). */
 	layer_add_disabled_node(layer, node);
+
+	response = jsonrpc_stream_success(cmd);
+	return command_finished(cmd, response);
+}
+
+static struct command_result *json_askrene_create_layer(struct command *cmd,
+							const char *buffer,
+							const jsmntok_t *params)
+{
+	struct askrene *askrene = get_askrene(cmd->plugin);
+	struct layer *layer;
+	const char *layername;
+	struct json_stream *response;
+
+	if (!param_check(cmd, buffer, params,
+			 p_req("layer", param_string, &layername),
+			 NULL))
+		return command_param_failed();
+
+	if (find_layer(askrene, layername))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Layer already exists");
+
+	if (strstarts(layername, "auto."))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Cannot create auto layer");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	layer = new_layer(askrene, layername);
+
+	response = jsonrpc_stream_success(cmd);
+	json_add_layers(response, askrene, "layers", layer);
+	return command_finished(cmd, response);
+}
+
+static struct command_result *json_askrene_remove_layer(struct command *cmd,
+							const char *buffer,
+							const jsmntok_t *params)
+{
+	struct layer *layer;
+	struct json_stream *response;
+
+	if (!param(cmd, buffer, params,
+		   p_req("layer", param_known_layer, &layer),
+		   NULL))
+		return command_param_failed();
+
+	tal_free(layer);
 
 	response = jsonrpc_stream_success(cmd);
 	return command_finished(cmd, response);
@@ -909,16 +932,16 @@ static struct command_result *json_askrene_listlayers(struct command *cmd,
 						      const jsmntok_t *params)
 {
 	struct askrene *askrene = get_askrene(cmd->plugin);
-	const char *layername;
+	struct layer *layer;
 	struct json_stream *response;
 
 	if (!param(cmd, buffer, params,
-		   p_opt("layer", param_string, &layername),
+		   p_opt("layer", param_known_layer, &layer),
 		   NULL))
 		return command_param_failed();
 
 	response = jsonrpc_stream_success(cmd);
-	json_add_layers(response, askrene, "layers", layername);
+	json_add_layers(response, askrene, "layers", layer);
 	return command_finished(cmd, response);
 }
 
@@ -969,6 +992,14 @@ static const struct plugin_command commands[] = {
 	{
 		"askrene-inform-channel",
 		json_askrene_inform_channel,
+	},
+	{
+		"askrene-create-layer",
+		json_askrene_create_layer,
+	},
+	{
+		"askrene-remove-layer",
+		json_askrene_remove_layer,
 	},
 	{
 		"askrene-listlayers",

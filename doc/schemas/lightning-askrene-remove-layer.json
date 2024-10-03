@@ -1,0 +1,39 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "askrene-remove-layer",
+  "title": "Command to destroy a layer (EXPERIMENTAL)",
+  "description": [
+    "WARNING: experimental, so API may change.",
+    "",
+    "The **askrene-remove-layer** RPC command tells askrene to forget a layer."
+  ],
+  "request": {
+    "required": [
+      "layer"
+    ],
+    "properties": {
+      "layer": {
+        "type": "string",
+        "description": [
+          "The name of the layer to remove."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [],
+    "properties": {}
+  },
+  "see_also": [
+    "lightning-askrene-create-layer(7)",
+    "lightning-askrene-listlayers(7)"
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

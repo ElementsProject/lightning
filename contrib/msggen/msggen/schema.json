@@ -265,7 +265,7 @@
       "description": [
         "WARNING: experimental, so API may change.",
         "",
-        "The **askrene-create-channel** RPC command tells askrene to populate one direction of a channel in the given layer.  If the channel already exists, it will be overridden.  If the layer does not exist, it will be created."
+        "The **askrene-create-channel** RPC command tells askrene to populate one direction of a channel in the given layer.  If the channel already exists, it will be overridden."
       ],
       "request": {
         "required": [
@@ -350,6 +350,201 @@
       "see_also": [
         "lightning-getroutes(7)",
         "lightning-askrene-disable-node(7)",
+        "lightning-askrene-inform-channel(7)",
+        "lightning-askrene-listlayers(7)",
+        "lightning-askrene-age(7)"
+      ],
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ]
+    },
+    "lightning-askrene-create-layer.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "rpc": "askrene-create-layer",
+      "title": "Command to create a new layer (EXPERIMENTAL)",
+      "description": [
+        "WARNING: experimental, so API may change.",
+        "",
+        "The **askrene-create-layer** RPC command tells askrene to create a new, empty layer.  This layer can then be populated with `askrene-create-channel` and `askrene-inform-channel`, and be used in `getroutes`."
+      ],
+      "request": {
+        "required": [
+          "layer"
+        ],
+        "properties": {
+          "layer": {
+            "type": "string",
+            "description": [
+              "The name of the layer to create."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "layers"
+        ],
+        "properties": {
+          "layers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "layer",
+                "disabled_nodes",
+                "disabled_channels",
+                "created_channels",
+                "constraints"
+              ],
+              "properties": {
+                "layer": {
+                  "type": "string",
+                  "description": [
+                    "The name of the layer."
+                  ]
+                },
+                "disabled_nodes": {
+                  "type": "array",
+                  "items": {
+                    "type": "pubkey",
+                    "description": [
+                      "The id of the disabled node."
+                    ]
+                  }
+                },
+                "disabled_channels": {
+                  "type": "array",
+                  "items": {
+                    "type": "short_channel_id_dir",
+                    "description": [
+                      "The channel and direction which is disabled."
+                    ]
+                  }
+                },
+                "created_channels": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "source",
+                      "destination",
+                      "short_channel_id",
+                      "capacity_msat",
+                      "htlc_minimum_msat",
+                      "htlc_maximum_msat",
+                      "fee_base_msat",
+                      "fee_proportional_millionths",
+                      "delay"
+                    ],
+                    "properties": {
+                      "source": {
+                        "type": "pubkey",
+                        "description": [
+                          "The source node id for the channel."
+                        ]
+                      },
+                      "destination": {
+                        "type": "pubkey",
+                        "description": [
+                          "The destination node id for the channel."
+                        ]
+                      },
+                      "short_channel_id": {
+                        "type": "short_channel_id",
+                        "description": [
+                          "The short channel id for the channel."
+                        ]
+                      },
+                      "capacity_msat": {
+                        "type": "msat",
+                        "description": [
+                          "The capacity (onchain size) of the channel."
+                        ]
+                      },
+                      "htlc_minimum_msat": {
+                        "type": "msat",
+                        "description": [
+                          "The minimum value allowed in this direction."
+                        ]
+                      },
+                      "htlc_maximum_msat": {
+                        "type": "msat",
+                        "description": [
+                          "The maximum value allowed in this direction."
+                        ]
+                      },
+                      "fee_base_msat": {
+                        "type": "msat",
+                        "description": [
+                          "The base fee to apply to use the channel in this direction."
+                        ]
+                      },
+                      "fee_proportional_millionths": {
+                        "type": "u32",
+                        "description": [
+                          "The proportional fee (in parts per million) to apply to use the channel in this direction."
+                        ]
+                      },
+                      "delay": {
+                        "type": "u16",
+                        "description": [
+                          "The CLTV delay required for this direction."
+                        ]
+                      }
+                    }
+                  }
+                },
+                "constraints": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "short_channel_id",
+                      "direction"
+                    ],
+                    "properties": {
+                      "short_channel_id": {
+                        "type": "short_channel_id",
+                        "description": [
+                          "The short channel id."
+                        ]
+                      },
+                      "direction": {
+                        "type": "u32",
+                        "description": [
+                          "The direction."
+                        ]
+                      },
+                      "maximum_msat": {
+                        "type": "msat",
+                        "description": [
+                          "The maximum value which this channel could pass.  This or *minimum_msat* will be present, but not both."
+                        ]
+                      },
+                      "minimum_msat": {
+                        "type": "msat",
+                        "description": [
+                          "The minimum value which this channel could pass.  This or *minimum_msat* will be present, but not both."
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "see_also": [
+        "lightning-askrene-remove-layer(7)",
+        "lightning-getroutes(7)",
+        "lightning-askrene-create-channel(7)",
         "lightning-askrene-inform-channel(7)",
         "lightning-askrene-listlayers(7)",
         "lightning-askrene-age(7)"
@@ -469,7 +664,7 @@
       "description": [
         "WARNING: experimental, so API may change.",
         "",
-        "The **askrene-inform-channel** RPC command tells askrene about the minimum or maximum current capacity of a given channel.  It can be applied whether the curren channel exists or not.  If the layer does not exist, it will be created."
+        "The **askrene-inform-channel** RPC command tells askrene about the minimum or maximum current capacity of a given channel.  It can be applied whether the current channel exists or not."
       ],
       "request": {
         "required": [
@@ -734,6 +929,45 @@
         "lightning-askrene-create-channel(7)",
         "lightning-askrene-inform-channel(7)",
         "lightning-askrene-age(7)"
+      ],
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ]
+    },
+    "lightning-askrene-remove-layer.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "rpc": "askrene-remove-layer",
+      "title": "Command to destroy a layer (EXPERIMENTAL)",
+      "description": [
+        "WARNING: experimental, so API may change.",
+        "",
+        "The **askrene-remove-layer** RPC command tells askrene to forget a layer."
+      ],
+      "request": {
+        "required": [
+          "layer"
+        ],
+        "properties": {
+          "layer": {
+            "type": "string",
+            "description": [
+              "The name of the layer to remove."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [],
+        "properties": {}
+      },
+      "see_also": [
+        "lightning-askrene-create-layer(7)",
+        "lightning-askrene-listlayers(7)"
       ],
       "author": [
         "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
