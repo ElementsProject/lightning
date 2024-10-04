@@ -491,6 +491,8 @@ static void check_mutual_splice_locked(struct peer *peer)
 				 "Splice lock unable to update funding. %s",
 				 error);
 
+	peer->channel->funding_pubkey[REMOTE] = inflight->remote_funding;
+
 	status_debug("mutual splice_locked, channel updated to: %s",
 		     fmt_channel(tmpctx, peer->channel));
 
