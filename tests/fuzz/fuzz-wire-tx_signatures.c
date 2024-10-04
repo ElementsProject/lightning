@@ -58,8 +58,8 @@ static bool equal(const struct tx_signatures *x, const struct tx_signatures *y)
 		return false;
 
 	assert(x->tlvs && y->tlvs);
-	return tal_arr_eq(x->tlvs->funding_outpoint_sig,
-			  y->tlvs->funding_outpoint_sig);
+	return tal_arr_eq(x->tlvs->shared_input_signature,
+			  y->tlvs->shared_input_signature);
 }
 
 void run(const u8 *data, size_t size)
