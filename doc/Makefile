@@ -120,6 +120,7 @@ GENERATE_MARKDOWN := doc/lightning-addgossip.7 \
 	doc/lightning-signinvoice.7 \
 	doc/lightning-signmessage.7 \
 	doc/lightning-signpsbt.7 \
+	doc/lightning-splice.7 \
 	doc/lightning-splice_init.7 \
 	doc/lightning-splice_signed.7 \
 	doc/lightning-splice_update.7 \

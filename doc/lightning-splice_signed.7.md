@@ -1,0 +1,155 @@
+lightning-splice\_signed -- Command to initiate a channel to a peer
+===================================================================
+
+SYNOPSIS
+--------
+
+**(WARNING: experimental-splicing only)**
+
+**splice\_signed** *channel\_id* *psbt* [*sign\_first*] 
+
+DESCRIPTION
+-----------
+
+Command *added* in v23.08.
+
+`splice_signed` is a low level RPC command which finishes the active channel splice associated with `channel_id`.
+
+The *psbt* must have all signatures attached to all inputs that you have added to it or it will fail.
+
+- **channel\_id** (hash): The channel id of the channel to be spliced.
+- **psbt** (string): The psbt of the resulting transaction after splice negotiation(s)
+- **sign\_first** (boolean, optional): A flag that makes our node offer the final splice signature first (defaults to false). When false, the node will calculate who should sign first based off who is adding inputting the least sats to the splice as per spec.
+
+USAGE
+-----
+
+In this example we funded the psbt from our lightning node, so we can use the lightning node to sign for its funds.
+
+```shell
+SIGNPSBT=$(echo $(lightning-cli signpsbt $PSBT_SPLICE_UPDATE) | jq -r ".signed_psbt")
+
+lightning-cli splice_signed $CHANNEL_ID $SIGNPSBT
+```
+
+Here is an example set of splice commands that will splice in 100,000 sats to the first channel that comes out of `listpeerchannels`.
+
+The example assumes you already have at least one confirmed channel.
+
+1: Get the channel id of the first channel.
+
+```shell
+CHANNEL_ID=$(echo $(lightning-cli listpeerchannels) | jq -r ".channels[0].channel_id")
+```
+2: Get the PSBT from fundpsbt.
+
+```shell
+INITIALPSBT=$(echo $(lightning-cli fundpsbt -k satoshi=100000sat feerate=urgent startweight=800 excess_as_change=true) | jq -r ".psbt")
+```
+3: Initiate the splice by passing channel id and initialpsbt received from above steps.
+
+```shell
+PSBT_SPLICE_INIT=$(echo $(lightning-cli splice_init $CHANNEL_ID 100000 $INITIALPSBT) | jq -r ".psbt")
+```
+4: Update PSBTs with the splice\_update command.
+
+```shell
+RESULT={"commitments_secured":false}
+while [[ $(echo $RESULT | jq -r ".commitments_secured") == "false" ]]
+do
+  PSBT_SPLICE_UPDATE=$(echo $(lightning-cli splice_update $CHANNEL_ID $PSBT_SPLICE_INIT) | jq -r ".psbt")
+  echo $PSBT_SPLICE_UPDATE
+done
+```
+5: Sign the updated PSBT.
+
+```shell
+SIGNPSBT=$(echo $(lightning-cli signpsbt -k psbt="$PSBT_SPLICE_UPDATE") | jq -r ".signed_psbt")
+```
+6: Finally, call splice\_signed with channel id and signed PSBT parameters.
+
+```shell
+lightning-cli splice_signed $CHANNEL_ID $SIGNPSBT
+```
+
+RETURN VALUE
+------------
+
+On success, an object is returned, containing:
+
+- **tx** (hex): The hex representation of the final transaction that is published.
+- **txid** (txid): The txid is of the final transaction.
+- **outnum** (u32, optional): The index of the new funding output. *(added v24.08)*
+
+AUTHOR
+------
+
+Dusty <<@dusty\_daemon>> is mainly responsible.
+
+SEE ALSO
+--------
+
+lightning-splice\_init(7), lightning-splice\_update(7)
+
+RESOURCES
+---------
+
+Main web site: <https://github.com/ElementsProject/lightning>
+
+<details>
+<summary>
+<span style="font-size: 1.5em; font-weight: bold;">EXAMPLES</span><br>
+</summary>
+
+**Example 1**: 
+
+Request:
+```shell
+lightning-cli splice_signed -k "channel_id"="f62126acb4e1a8113eb3ce40ed80e34a49d49b035cb9d36417b1c1333227112c" "psbt"="cHNidP8BAgQCAAAAAQMEkgAAAAEEAQIBBQECAQYBAwH7BAIAAAAAAQCJAgAAAAH5+Z9NssTFQhFzAFkPSrEKg0AcgN7uwR9geC5Lqd+SfgAAAAAA/f///wJAQg8AAAAAACIAIJPe3QwmW8qGhXbT7i5Z7ruyDrwpblj37cqT1e6uwImWgWzcCwAAAAAiUSBbtDt/2hcV0N0BQWgloYUiotfssWR1uIeA6Pr8HHPviY0AAAABASuBbNwLAAAAACJRIFu0O3/aFxXQ3QFBaCWhhSKi1+yxZHW4h4Do+vwcc++JAQ4g9iEmrLThqBE+s85A7YDjSknUmwNcudNkF7HBMzInESwBDwQBAAAAARAE/f///wETQKcuGy6h+BqXM6UBaTWpiX1wgQdVDWQdu3poUITFMK4JR7Jjaqy0IsnjfOXmaFZAUIS01Heqa7RbgzHF+5qDI/AhFvTEPeeTGXjlJSGiyNDqLm+lpUC+f31Q3j7YhyeyShxZCQD2T+TUAAAAAAz8CWxpZ2h0bmluZwEImfI55kWjFBwAAQCJAgAAAAH5+Z9NssTFQhFzAFkPSrEKg0AcgN7uwR9geC5Lqd+SfgAAAAAA/f///wJAQg8AAAAAACIAIJPe3QwmW8qGhXbT7i5Z7ruyDrwpblj37cqT1e6uwImWgWzcCwAAAAAiUSBbtDt/2hcV0N0BQWgloYUiotfssWR1uIeA6Pr8HHPviY0AAAABAStAQg8AAAAAACIAIJPe3QwmW8qGhXbT7i5Z7ruyDrwpblj37cqT1e6uwImWAQ4g9iEmrLThqBE+s85A7YDjSknUmwNcudNkF7HBMzInESwBDwQAAAAAARAEAAAAAAz8CWxpZ2h0bmluZwEIo0w+EfrhL4QAAQMIzrnaCwAAAAABBCJRII+O1EYnVX28zEKuAYqcVHSpkShXksTKiRwfWcVmXTRgIQf4l/XsahrhZhlxJbtZN6e213tQQFKbPCTiBwSf3CvcvAkA9Hbq9AUAAAAM/AlsaWdodG5pbmcBCI/PBFM/C09aAAEDCODIEAAAAAAAAQQiACCT3t0MJlvKhoV20+4uWe67sg68KW5Y9+3Kk9XursCJlgz8CWxpZ2h0bmluZwEIreWkThWNrsoA"
+```
+```json
+{
+  "id": "example:splice_signed#1",
+  "method": "splice_signed",
+  "params": {
+    "channel_id": "f62126acb4e1a8113eb3ce40ed80e34a49d49b035cb9d36417b1c1333227112c",
+    "psbt": "cHNidP8BAgQCAAAAAQMEkgAAAAEEAQIBBQECAQYBAwH7BAIAAAAAAQCJAgAAAAH5+Z9NssTFQhFzAFkPSrEKg0AcgN7uwR9geC5Lqd+SfgAAAAAA/f///wJAQg8AAAAAACIAIJPe3QwmW8qGhXbT7i5Z7ruyDrwpblj37cqT1e6uwImWgWzcCwAAAAAiUSBbtDt/2hcV0N0BQWgloYUiotfssWR1uIeA6Pr8HHPviY0AAAABASuBbNwLAAAAACJRIFu0O3/aFxXQ3QFBaCWhhSKi1+yxZHW4h4Do+vwcc++JAQ4g9iEmrLThqBE+s85A7YDjSknUmwNcudNkF7HBMzInESwBDwQBAAAAARAE/f///wETQKcuGy6h+BqXM6UBaTWpiX1wgQdVDWQdu3poUITFMK4JR7Jjaqy0IsnjfOXmaFZAUIS01Heqa7RbgzHF+5qDI/AhFvTEPeeTGXjlJSGiyNDqLm+lpUC+f31Q3j7YhyeyShxZCQD2T+TUAAAAAAz8CWxpZ2h0bmluZwEImfI55kWjFBwAAQCJAgAAAAH5+Z9NssTFQhFzAFkPSrEKg0AcgN7uwR9geC5Lqd+SfgAAAAAA/f///wJAQg8AAAAAACIAIJPe3QwmW8qGhXbT7i5Z7ruyDrwpblj37cqT1e6uwImWgWzcCwAAAAAiUSBbtDt/2hcV0N0BQWgloYUiotfssWR1uIeA6Pr8HHPviY0AAAABAStAQg8AAAAAACIAIJPe3QwmW8qGhXbT7i5Z7ruyDrwpblj37cqT1e6uwImWAQ4g9iEmrLThqBE+s85A7YDjSknUmwNcudNkF7HBMzInESwBDwQAAAAAARAEAAAAAAz8CWxpZ2h0bmluZwEIo0w+EfrhL4QAAQMIzrnaCwAAAAABBCJRII+O1EYnVX28zEKuAYqcVHSpkShXksTKiRwfWcVmXTRgIQf4l/XsahrhZhlxJbtZN6e213tQQFKbPCTiBwSf3CvcvAkA9Hbq9AUAAAAM/AlsaWdodG5pbmcBCI/PBFM/C09aAAEDCODIEAAAAAAAAQQiACCT3t0MJlvKhoV20+4uWe67sg68KW5Y9+3Kk9XursCJlgz8CWxpZ2h0bmluZwEIreWkThWNrsoA"
+  }
+}
+```
+
+Response:
+```json
+{
+  "tx": "02000000000102f62126acb4e1a8113eb3ce40ed80e34a49d49b035cb9d36417b1c1333227112c0100000000fdfffffff62126acb4e1a8113eb3ce40ed80e34a49d49b035cb9d36417b1c1333227112c00000000000000000002ceb9da0b000000002251208f8ed44627557dbccc42ae018a9c5474a991285792c4ca891c1f59c5665d3460e0c810000000000022002093dedd0c265bca868576d3ee2e59eebbb20ebc296e58f7edca93d5eeaec089960140a72e1b2ea1f81a9733a5016935a9897d708107550d641dbb7a685084c530ae0947b2636aacb422c9e37ce5e66856405084b4d477aa6bb45b8331c5fb9a8323f00400473044022024af89f1987cfee986aacf511ed101aa083a8300d4ae4d6b87cd68fef4f722c60220263fd2a4750c7fbb08c433cc0d14e500c714820175454d18b5bef74e01cdc2f9014730440220306e4f6a09653e44f9306c6c47afb58d756d7ba2803f61184db3730ab208a8a302207c40845740e1e791d05957c75eb1b3e62db18fb5ec75039768972dc5efb881710147522102570ec0b6eb545663302183a62eac75d08fdeeb64f31352192065d601c8ca521d210266867c342b8250ab6b4edac6dbae2fde53782b69cd17139949fbd4f208487ff252ae92000000",
+  "txid": "f84514e06974b167a47021f31854b497632a35ca414b04c45a34ef7a8115bb95",
+  "outnum": 1
+}
+```
+
+**Example 2**: 
+
+Request:
+```shell
+lightning-cli splice_signed "f62126acb4e1a8113eb3ce40ed80e34a49d49b035cb9d36417b1c1333227112c" "cHNidP8BAgQCAAAAAQMElAAAAAEEAQEBBQECAQYBAwH7BAIAAAAAAQCyAgAAAAL2ISastOGoET6zzkDtgONKSdSbA1y502QXscEzMicRLAEAAAAA/f////YhJqy04agRPrPOQO2A40pJ1JsDXLnTZBexwTMyJxEsAAAAAAAAAAAAAs652gsAAAAAIlEgj47URidVfbzMQq4BipxUdKmRKFeSxMqJHB9ZxWZdNGDgyBAAAAAAACIAIJPe3QwmW8qGhXbT7i5Z7ruyDrwpblj37cqT1e6uwImWkgAAAAEBK+DIEAAAAAAAIgAgk97dDCZbyoaFdtPuLlnuu7IOvCluWPftypPV7q7AiZYBDiCVuxWBeu80WsQES0HKNSpjl7RUGPMhcKRnsXRp4BRF+AEPBAEAAAABEAQAAAAADPwJbGlnaHRuaW5nAQheLXaEp+y8AgABAwi4Lg8AAAAAAAEEIgAgk97dDCZbyoaFdtPuLlnuu7IOvCluWPftypPV7q7AiZYM/AlsaWdodG5pbmcBCBkNULro+QrwAAEDCKCGAQAAAAAAAQQiUSDE0oJBX5qB0Y4IthmhnRFrhlbLG/ST5fVAu/e3oFhM2gz8CWxpZ2h0bmluZwEIuBcidnXj4BAA"
+```
+```json
+{
+  "id": "example:splice_signed#2",
+  "method": "splice_signed",
+  "params": [
+    "f62126acb4e1a8113eb3ce40ed80e34a49d49b035cb9d36417b1c1333227112c",
+    "cHNidP8BAgQCAAAAAQMElAAAAAEEAQEBBQECAQYBAwH7BAIAAAAAAQCyAgAAAAL2ISastOGoET6zzkDtgONKSdSbA1y502QXscEzMicRLAEAAAAA/f////YhJqy04agRPrPOQO2A40pJ1JsDXLnTZBexwTMyJxEsAAAAAAAAAAAAAs652gsAAAAAIlEgj47URidVfbzMQq4BipxUdKmRKFeSxMqJHB9ZxWZdNGDgyBAAAAAAACIAIJPe3QwmW8qGhXbT7i5Z7ruyDrwpblj37cqT1e6uwImWkgAAAAEBK+DIEAAAAAAAIgAgk97dDCZbyoaFdtPuLlnuu7IOvCluWPftypPV7q7AiZYBDiCVuxWBeu80WsQES0HKNSpjl7RUGPMhcKRnsXRp4BRF+AEPBAEAAAABEAQAAAAADPwJbGlnaHRuaW5nAQheLXaEp+y8AgABAwi4Lg8AAAAAAAEEIgAgk97dDCZbyoaFdtPuLlnuu7IOvCluWPftypPV7q7AiZYM/AlsaWdodG5pbmcBCBkNULro+QrwAAEDCKCGAQAAAAAAAQQiUSDE0oJBX5qB0Y4IthmhnRFrhlbLG/ST5fVAu/e3oFhM2gz8CWxpZ2h0bmluZwEIuBcidnXj4BAA"
+  ]
+}
+```
+
+Response:
+```json
+{
+  "tx": "0200000000010195bb15817aef345ac4044b41ca352a6397b45418f32170a467b17469e01445f801000000000000000002b82e0f000000000022002093dedd0c265bca868576d3ee2e59eebbb20ebc296e58f7edca93d5eeaec08996a086010000000000225120c4d282415f9a81d18e08b619a19d116b8656cb1bf493e5f540bbf7b7a0584cda04004730440220259ff7ffc38775f34aed9be01a57b3002b2cba938e8bdf37ee0d529401ca0ae102206f77ba80e128ed5096679a304078efbff423394f2ffeb286e307fc71af06773d0147304402206e715aa27e9f192a787949dd322dd8c41d69dbf0b134099b942f40f3727ecaa80220154ab1a180d2103884ac73307f6f5faa0e384d7d40dcda44a26c17fdd83a89910147522102570ec0b6eb545663302183a62eac75d08fdeeb64f31352192065d601c8ca521d210266867c342b8250ab6b4edac6dbae2fde53782b69cd17139949fbd4f208487ff252ae94000000",
+  "txid": "b81ed02d0235b63cb73d1ee840345a696bc7224ba28be590165aa340bc9e37de",
+  "outnum": 0
+}
+```
+</details>
