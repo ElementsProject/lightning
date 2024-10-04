@@ -3606,7 +3606,6 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	const u8 *msg;
 	struct interactivetx_context *ictx;
 	u32 splice_funding_index;
-	struct bitcoin_blkid genesis_blockhash;
 	struct channel_id channel_id;
 	struct amount_sat both_amount;
 	u32 funding_feerate_perkw;
@@ -3628,7 +3627,6 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 
 	if (!fromwire_splice(inmsg,
 			     &channel_id,
-			     &genesis_blockhash,
 			     &peer->splicing->opener_relative,
 			     &funding_feerate_perkw,
 			     &locktime,
@@ -3641,11 +3639,6 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	if (!is_stfu_active(peer))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Must be in STFU mode before intiating splice");
-
-	if (!bitcoin_blkid_eq(&genesis_blockhash,
-			      &chainparams->genesis_blockhash))
-		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Bad splice blockhash");
 
 	if (!channel_id_eq(&channel_id, &peer->channel_id))
 		peer_failed_warn(peer->pps, &peer->channel_id,
@@ -3665,7 +3658,6 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 
 	msg = towire_splice_ack(NULL,
 				&peer->channel_id,
-				&chainparams->genesis_blockhash,
 				peer->splicing->accepter_relative,
 				&peer->channel->funding_pubkey[LOCAL]);
 
@@ -3777,7 +3769,6 @@ static struct bitcoin_tx *bitcoin_tx_from_txid(struct peer *peer,
  * stages. */
 static void splice_initiator(struct peer *peer, const u8 *inmsg)
 {
-	struct bitcoin_blkid genesis_blockhash;
 	struct channel_id channel_id;
 	size_t input_index;
 	const u8 *wit_script;
@@ -3792,17 +3783,11 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 
 	if (!fromwire_splice_ack(inmsg,
 				 &channel_id,
-				 &genesis_blockhash,
 				 &peer->splicing->accepter_relative,
 				 &peer->splicing->remote_funding_pubkey))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad wire_splice_ack %s",
 				 tal_hex(tmpctx, inmsg));
-
-	if (!bitcoin_blkid_eq(&genesis_blockhash,
-			      &chainparams->genesis_blockhash))
-		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Bad splice[ACK] blockhash");
 
 	if (!channel_id_eq(&channel_id, &peer->channel_id))
 		peer_failed_warn(peer->pps, &peer->channel_id,
@@ -4179,7 +4164,6 @@ static void handle_splice_stfu_success(struct peer *peer)
 {
 	u8 *msg = towire_splice(tmpctx,
 				&peer->channel_id,
-				&chainparams->genesis_blockhash,
 				peer->splicing->opener_relative,
 				peer->splicing->feerate_per_kw,
 				peer->splicing->current_psbt->fallback_locktime,

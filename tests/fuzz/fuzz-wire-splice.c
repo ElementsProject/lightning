@@ -5,7 +5,6 @@
 
 struct splice {
 	struct channel_id channel_id;
-	struct bitcoin_blkid chain_hash;
 	s64 relative_satoshis;
 	u32 funding_feerate_perkw;
 	u32 locktime;
@@ -14,7 +13,7 @@ struct splice {
 
 static void *encode(const tal_t *ctx, const struct splice *s)
 {
-	return towire_splice(ctx, &s->channel_id, &s->chain_hash,
+	return towire_splice(ctx, &s->channel_id,
 			     s->relative_satoshis, s->funding_feerate_perkw,
 			     s->locktime, &s->funding_pubkey);
 }
@@ -23,7 +22,7 @@ static struct splice *decode(const tal_t *ctx, const void *p)
 {
 	struct splice *s = tal(ctx, struct splice);
 
-	if (fromwire_splice(p, &s->channel_id, &s->chain_hash,
+	if (fromwire_splice(p, &s->channel_id,
 			    &s->relative_satoshis, &s->funding_feerate_perkw,
 			    &s->locktime, &s->funding_pubkey))
 		return s;
