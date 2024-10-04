@@ -2910,6 +2910,60 @@ relative_splice_balance_fundee(struct peer *peer,
 	return amount_msat(push_value);
 }
 
+static struct amount_sat calc_balance(struct peer *peer)
+{
+	struct amount_sat funding_amount_res;
+	struct amount_msat funding_amount;
+	struct amount_msat pending_htlcs;
+	struct htlc_map_iter it;
+	const struct htlc *htlc;
+
+	/* pending_htlcs holds the value of all pending htlcs for each side */
+	pending_htlcs = AMOUNT_MSAT(0);
+	for (htlc = htlc_map_first(peer->channel->htlcs, &it);
+	     htlc;
+	     htlc = htlc_map_next(peer->channel->htlcs, &it)) {
+		if (!amount_msat_accumulate(&pending_htlcs, htlc->amount))
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Unable to add HTLC balance");
+	}
+
+	/* Calculate original channel output amount */
+	if (!amount_msat_add(&funding_amount,
+			     peer->channel->view->owed[LOCAL],
+			     peer->channel->view->owed[REMOTE]))
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Unable to calculate starting channel amount");
+	if (!amount_msat_accumulate(&funding_amount,
+				    pending_htlcs))
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Unable to calculate starting channel amount");
+
+	if (!amount_msat_add_sat_s64(&funding_amount, funding_amount,
+				peer->splicing->opener_relative))
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Unable to add opener funding");
+
+	if (!amount_msat_add_sat_s64(&funding_amount, funding_amount,
+				peer->splicing->accepter_relative))
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Unable to add accepter funding");
+
+	if (!amount_msat_to_sat(&funding_amount_res, funding_amount)) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "splice error: msat of total funding %s should"
+			      " always add up to a full sat. original local bal"
+			      " %s, original remote bal %s,",
+			      fmt_amount_msat(tmpctx, funding_amount),
+			      fmt_amount_msat(tmpctx,
+					      peer->channel->view->owed[LOCAL]),
+			      fmt_amount_msat(tmpctx,
+					      peer->channel->view->owed[REMOTE]));
+	}
+
+	return funding_amount_res;
+}
+
 /* Returns the total channel funding output amount if all checks pass.
  * Otherwise, exits via peer_failed_warn. DTODO: Change to `tx_abort`. */
 static struct amount_sat check_balances(struct peer *peer,
@@ -3838,7 +3892,7 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 	 */
 	psbt_append_output(ictx->desired_psbt,
 			   scriptpubkey_p2wsh(ictx->desired_psbt, wit_script),
-			   amount_sat(0));
+			   calc_balance(peer));
 
 	psbt_add_serials(ictx->desired_psbt, ictx->our_role);
 
