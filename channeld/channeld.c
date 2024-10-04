@@ -1136,7 +1136,8 @@ static u8 *send_commit_part(const tal_t *ctx,
 			    u64 remote_index,
 			    const struct pubkey *remote_per_commit,
 			    struct local_anchor_info **anchor,
-			    u16 batch_size)
+			    u16 batch_size,
+			    struct pubkey remote_funding_pubkey)
 {
 	u8 *msg;
 	struct bitcoin_signature commit_sig, *htlc_sigs;
@@ -1146,6 +1147,9 @@ static u8 *send_commit_part(const tal_t *ctx,
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
 	struct penalty_base *pbase;
 	int local_anchor_outnum;
+	struct pubkey funding_pubkeys[NUM_SIDES] =
+		{ peer->channel->funding_pubkey[LOCAL],
+		  remote_funding_pubkey };
 	struct tlv_commitment_signed_tlvs *cs_tlv
 		= tlv_commitment_signed_tlvs_new(tmpctx);
 
@@ -1172,11 +1176,11 @@ static u8 *send_commit_part(const tal_t *ctx,
 			  peer->channel, remote_per_commit,
 			  remote_index, REMOTE,
 			  splice_amnt, remote_splice_amnt, &local_anchor_outnum,
-			  NULL);
+			  funding_pubkeys);
 	htlc_sigs =
 	    calc_commitsigs(tmpctx, peer, txs, funding_wscript, htlc_map,
 			    remote_index, remote_per_commit, &commit_sig,
-			    peer->channel->funding_pubkey[REMOTE]);
+			    remote_funding_pubkey);
 
 	if (direct_outputs[LOCAL] != NULL) {
 		pbase = penalty_base_new(tmpctx, remote_index,
@@ -1356,7 +1360,8 @@ static void send_commit(struct peer *peer)
 				   peer->channel->funding_sats, changed_htlcs,
 				   true, 0, 0, peer->next_index[REMOTE],
 				   &peer->remote_per_commit, &local_anchor,
-				   batch_size);
+				   batch_size,
+				   peer->channel->funding_pubkey[REMOTE]);
 	if (local_anchor)
 		tal_arr_expand(&anchors_info, *local_anchor);
 
@@ -1385,7 +1390,8 @@ static void send_commit(struct peer *peer)
 						peer->next_index[REMOTE],
 						&peer->remote_per_commit,
 						&local_anchor,
-						batch_size);
+						batch_size,
+						peer->splice_state->inflights[i]->remote_funding));
 		if (local_anchor)
 			tal_arr_expand(&anchors_info, *local_anchor);
 	}
@@ -1836,6 +1842,7 @@ struct commitsig_info {
 static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 						     const u8 *msg,
 						     u32 commit_index,
+						     struct pubkey remote_funding,
 						     const struct htlc **changed_htlcs,
 						     s64 splice_amnt,
 						     s64 remote_splice_amnt,
@@ -1862,6 +1869,9 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 	struct channel_id active_id;
 	const struct commitsig **commitsigs;
 	int remote_anchor_outnum;
+	struct pubkey funding_pubkeys[NUM_SIDES] =
+		{ peer->channel->funding_pubkey[LOCAL],
+		  remote_funding };
 
 	status_debug("handle_peer_commit_sig(splice: %d, remote_splice: %d,"
 		     " index: %"PRIu64")",
@@ -1948,11 +1958,11 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 			  local_per_commit,
 			  local_index, LOCAL, splice_amnt,
 			  remote_splice_amnt, &remote_anchor_outnum,
-			  NULL);
+			  funding_pubkeys);
 
 	/* Set the commit_sig on the commitment tx psbt */
 	if (!psbt_input_set_signature(txs[0]->psbt, 0,
-				      &peer->channel->funding_pubkey[REMOTE],
+				      &remote_funding,
 				      &commit_sig))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Unable to set signature internally");
@@ -1975,7 +1985,7 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 	 *        `error` and fail the channel.
 	 */
 	if (!check_tx_sig(txs[0], 0, NULL, funding_wscript,
-			  &peer->channel->funding_pubkey[REMOTE], &commit_sig)) {
+			  &remote_funding, &commit_sig)) {
 		dump_htlcs(peer->channel, "receiving commit_sig");
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad commit_sig signature %"PRIu64" %s for tx"
@@ -1986,8 +1996,7 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 				 fmt_bitcoin_signature(msg, &commit_sig),
 				 fmt_bitcoin_tx(msg, txs[0]),
 				 tal_hex(msg, funding_wscript),
-				 fmt_pubkey(msg,
-					    &peer->channel->funding_pubkey[REMOTE]),
+				 fmt_pubkey(msg, &remote_funding),
 				 channel_feerate(peer->channel, LOCAL),
 				 fmt_channel_id(tmpctx,	&active_id),
 				 cs_tlv && cs_tlv->splice_info
@@ -2025,6 +2034,9 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 
 		wscript = bitcoin_tx_output_get_witscript(tmpctx, txs[0],
 							  txs[i+1]->wtx->inputs[0].index);
+
+		/* DTODO: How does the htlc sig know the funding pubkey has changed?
+		 * It probably doesn't even though send_commit_part does! */
 
 		if (!check_tx_sig(txs[1+i], 0, NULL, wscript,
 				  &remote_htlckey, &htlc_sigs[i]))
@@ -2105,6 +2117,7 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 
 		/* We purposely just store the last commit msg in result */
 		result = handle_peer_commit_sig(peer, splice_msg, i + 1,
+						peer->splice_state->inflights[i]->remote_funding,
 						changed_htlcs, sub_splice_amnt,
 						funding_diff - sub_splice_amnt,
 						local_index, local_per_commit,
@@ -2747,7 +2760,8 @@ static struct commitsig *interactive_send_commitments(struct peer *peer,
 						       next_index_remote - 1,
 						       &peer->old_remote_per_commit,
 						       &local_anchor,
-						       1);
+						       1,
+						       inflight->remote_funding));
 	}
 
 	result = NULL;
@@ -2776,6 +2790,7 @@ static struct commitsig *interactive_send_commitments(struct peer *peer,
 
 			result = handle_peer_commit_sig(peer, msg,
 							inflight_index + 1,
+							inflight->remote_funding,
 							NULL,
 							inflight->splice_amnt,
 							remote_splice_amnt,
@@ -2804,7 +2819,8 @@ static struct commitsig *interactive_send_commitments(struct peer *peer,
 						       next_index_remote - 1,
 						       &peer->old_remote_per_commit,
 						       &local_anchor,
-						       1));
+						       1,
+						       inflight->remote_funding));
 	}
 
 	/* Sending and receiving splice commit should not increment commit
@@ -4429,8 +4445,9 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		handle_peer_add_htlc(peer, msg);
 		return;
 	case WIRE_COMMITMENT_SIGNED:
-		handle_peer_commit_sig(peer, msg, 0, NULL, 0, 0,
-				       peer->next_index[LOCAL],
+		handle_peer_commit_sig(peer, msg, 0,
+				       peer->channel->funding_pubkey[REMOTE],
+				       NULL, 0, 0, peer->next_index[LOCAL],
 				       &peer->next_local_per_commit, false);
 		return;
 	case WIRE_UPDATE_FEE:
@@ -4665,7 +4682,8 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 				   peer->channel->funding_sats, NULL,
 				   false, 0, 0, peer->next_index[REMOTE] - 1,
 				   &peer->remote_per_commit,
-				   &local_anchor, batch_size);
+				   &local_anchor, batch_size,
+				   peer->channel->funding_pubkey[REMOTE]);
 
 	/* Loop over current inflights
 	 * BOLT-0d8b701614b09c6ee4172b04da2203e73deec7e2 #2:
@@ -4691,7 +4709,8 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 						remote_splice_amnt,
 						peer->next_index[REMOTE] - 1,
 						&peer->remote_per_commit,
-						&local_anchor, batch_size));
+						&local_anchor, batch_size,
+						peer->splice_state->inflights[i]->remote_funding));
 	}
 
 	for(i = 0; i < tal_count(msgs); i++)
