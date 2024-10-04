@@ -269,7 +269,8 @@ msgdata,commitment_signed,num_htlcs,u16,
 msgdata,commitment_signed,htlc_signature,signature,num_htlcs
 msgdata,commitment_signed,splice_channel_id,commitment_signed_tlvs,
 tlvtype,commitment_signed_tlvs,splice_info,0
-tlvdata,commitment_signed_tlvs,splice_info,splice_channel_id,channel_id,
+tlvdata,commitment_signed_tlvs,splice_info,batch_size,u16,
+tlvdata,commitment_signed_tlvs,splice_info,funding_txid,channel_id,
 msgtype,revoke_and_ack,133
 msgdata,revoke_and_ack,channel_id,channel_id,
 msgdata,revoke_and_ack,per_commitment_secret,byte,32

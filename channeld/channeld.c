@@ -1135,7 +1135,8 @@ static u8 *send_commit_part(const tal_t *ctx,
 			    s64 remote_splice_amnt,
 			    u64 remote_index,
 			    const struct pubkey *remote_per_commit,
-			    struct local_anchor_info **anchor)
+			    struct local_anchor_info **anchor,
+			    u16 batch_size)
 {
 	u8 *msg;
 	struct bitcoin_signature commit_sig, *htlc_sigs;
@@ -1159,8 +1160,11 @@ static u8 *send_commit_part(const tal_t *ctx,
 			     (int)splice_amnt, (int)remote_splice_amnt,
 			     remote_index);
 
-		cs_tlv->splice_info = tal(cs_tlv, struct channel_id);
-		derive_channel_id(cs_tlv->splice_info, funding);
+		cs_tlv->splice_info = tal(cs_tlv,
+					  struct tlv_commitment_signed_tlvs_splice_info);
+
+		cs_tlv->splice_info->batch_size = batch_size;
+		derive_channel_id(&cs_tlv->splice_info->funding_txid, funding);
 	}
 
 	txs = channel_txs(tmpctx, funding, funding_sats, &htlc_map,
@@ -1236,6 +1240,7 @@ static void send_commit(struct peer *peer)
 	u32 feerate_target;
 	u8 **msgs = tal_arr(tmpctx, u8*, 1);
 	u8 *msg;
+	u16 batch_size = tal_count(peer->splice_state->inflights) + 1;
 	struct local_anchor_info *local_anchor, *anchors_info;
 
 	if (peer->dev_disable_commit && !*peer->dev_disable_commit) {
@@ -1350,7 +1355,8 @@ static void send_commit(struct peer *peer)
 	msgs[0] = send_commit_part(msgs, peer, &peer->channel->funding,
 				   peer->channel->funding_sats, changed_htlcs,
 				   true, 0, 0, peer->next_index[REMOTE],
-				   &peer->remote_per_commit, &local_anchor);
+				   &peer->remote_per_commit, &local_anchor,
+				   batch_size);
 	if (local_anchor)
 		tal_arr_expand(&anchors_info, *local_anchor);
 
@@ -1378,7 +1384,8 @@ static void send_commit(struct peer *peer)
 						remote_splice_amnt,
 						peer->next_index[REMOTE],
 						&peer->remote_per_commit,
-						&local_anchor));
+						&local_anchor,
+						batch_size);
 		if (local_anchor)
 			tal_arr_expand(&anchors_info, *local_anchor);
 	}
@@ -1877,10 +1884,12 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 	derive_channel_id(&active_id, &peer->channel->funding);
 	if (peer->splice_state->await_commitment_succcess
 	    && !tal_count(peer->splice_state->inflights) && cs_tlv && cs_tlv->splice_info) {
-		if (!channel_id_eq(&active_id, cs_tlv->splice_info)) {
+		if (!channel_id_eq(&active_id,
+				   &cs_tlv->splice_info->funding_txid)) {
 			status_info("Ignoring stale commit_sig for channel_id"
 				    " %s, as %s is locked in now.",
-				    fmt_channel_id(tmpctx, cs_tlv->splice_info),
+				    fmt_channel_id(tmpctx,
+				    		   &cs_tlv->splice_info->funding_txid),
 				    fmt_channel_id(tmpctx, &active_id));
 			return NULL;
 		}
@@ -1983,7 +1992,7 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 				 fmt_channel_id(tmpctx,	&active_id),
 				 cs_tlv && cs_tlv->splice_info
 				 	? fmt_channel_id(tmpctx,
-							 cs_tlv->splice_info)
+							 &cs_tlv->splice_info->funding_txid)
 				 	: "N/A",
 				 peer->splice_state->await_commitment_succcess ? "yes"
 				 					: "no",
@@ -2737,7 +2746,8 @@ static struct commitsig *interactive_send_commitments(struct peer *peer,
 						       remote_splice_amnt,
 						       next_index_remote - 1,
 						       &peer->old_remote_per_commit,
-						       &local_anchor));
+						       &local_anchor,
+						       1);
 	}
 
 	result = NULL;
@@ -2793,7 +2803,8 @@ static struct commitsig *interactive_send_commitments(struct peer *peer,
 						       remote_splice_amnt,
 						       next_index_remote - 1,
 						       &peer->old_remote_per_commit,
-						       &local_anchor));
+						       &local_anchor,
+						       1));
 	}
 
 	/* Sending and receiving splice commit should not increment commit
@@ -4559,6 +4570,7 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 	u8 *msg;
 	u8 **msgs = tal_arr(tmpctx, u8*, 1);
 	struct local_anchor_info *local_anchor;
+	u16 batch_size = tal_count(peer->splice_state->inflights) + 1;
 
 	status_debug("Retransmitting commitment, feerate LOCAL=%u REMOTE=%u,"
 		     " blockheight LOCAL=%u REMOTE=%u",
@@ -4653,7 +4665,7 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 				   peer->channel->funding_sats, NULL,
 				   false, 0, 0, peer->next_index[REMOTE] - 1,
 				   &peer->remote_per_commit,
-				   &local_anchor);
+				   &local_anchor, batch_size);
 
 	/* Loop over current inflights
 	 * BOLT-0d8b701614b09c6ee4172b04da2203e73deec7e2 #2:
@@ -4679,7 +4691,7 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 						remote_splice_amnt,
 						peer->next_index[REMOTE] - 1,
 						&peer->remote_per_commit,
-						&local_anchor));
+						&local_anchor, batch_size));
 	}
 
 	for(i = 0; i < tal_count(msgs); i++)
