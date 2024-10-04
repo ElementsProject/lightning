@@ -2058,6 +2058,10 @@ void update_channel_from_inflight(struct lightningd *ld,
 			    bitcoin_tx_with_psbt(channel, psbt_copy),
 			    &inflight->last_sig);
 
+	/* If the remote side rotated their pubkey during splice, update now */
+	if (inflight->funding->splice_remote_funding)
+		channel->channel_info.remote_fundingkey = *inflight->funding->splice_remote_funding;
+
 	/* Update the reserve */
 	channel_update_reserve(channel,
 			       &channel->channel_info.their_config,
