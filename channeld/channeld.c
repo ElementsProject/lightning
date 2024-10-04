@@ -1709,7 +1709,8 @@ static void check_tx_abort(struct peer *peer, const u8 *msg)
 	struct inflight *inflight = last_inflight(peer);
 	struct bitcoin_outpoint *outpoint;
 	struct channel_id channel_id;
-	u8 *reason;
+	u8 *data;
+	char *reason;
 
 	if (fromwire_peektype(msg) != WIRE_TX_ABORT)
 		return;
@@ -1721,7 +1722,7 @@ static void check_tx_abort(struct peer *peer, const u8 *msg)
 			        tal_hex(tmpctx, msg));
 	}
 
-	if (!fromwire_tx_abort(tmpctx, msg, &channel_id, &reason))
+	if (!fromwire_tx_abort(tmpctx, msg, &channel_id, &data))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "bad tx_abort %s", tal_hex(msg, msg));
 
@@ -1736,10 +1737,17 @@ static void check_tx_abort(struct peer *peer, const u8 *msg)
 
 	status_info("Send tx_abort to master");
 
+	reason = sanitize_error(tmpctx, msg, &peer->channel_id);
+
+	status_info("Peer initiated tx_abort for reason: %s", reason);
+
 	wire_sync_write(MASTER_FD,
 			take(towire_channeld_splice_abort(NULL, false,
 							  outpoint,
-							  (char*)reason)));
+							  tal_fmt(tmpctx,
+							  "Peer aborted"
+							  " for reason: %s",
+							  reason))));
 
 	/* Give master a chance to pass the fd along */
 	status_info("Delaying closing of master fd by 1 second");
@@ -1769,7 +1777,8 @@ static void splice_abort(struct peer *peer, const char *fmt, ...)
 	status_info("We are initiating tx_abort for reason: %s", reason);
 
 	peer_write(peer->pps,
-		   take(towire_tx_abort(NULL, &peer->channel_id, (u8*)reason)));
+		   take(towire_abortfmt(NULL, &peer->channel_id, "%s",
+		   			 reason)));
 
 	do {
 		msg = peer_read(tmpctx, peer->pps);

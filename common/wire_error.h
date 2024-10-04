@@ -54,6 +54,30 @@ u8 *towire_warningfmtv(const tal_t *ctx,
 		       const char *fmt,
 		       va_list ap);
 
+/**
+ * towire_abortfmt - helper to turn string into WIRE_TX_ABORT.
+ *
+ * @ctx: context to allocate from
+ * @channel: specific channel to complain about, or NULL for all.
+ * @fmt: format for warning.
+ */
+u8 *towire_abortfmt(const tal_t *ctx,
+		    const struct channel_id *channel,
+		    const char *fmt, ...) PRINTF_FMT(3,4);
+
+/**
+ * towire_abortfmtv - helper to turn string into WIRE_TX_ABORT.
+ *
+ * @ctx: context to allocate from
+ * @channel: specific channel to complain about, or NULL for all.
+ * @fmt: format for warning.
+ * @ap: accumulated varargs.
+ */
+u8 *towire_abortfmtv(const tal_t *ctx,
+		     const struct channel_id *channel,
+		     const char *fmt,
+		     va_list ap);
+
 /* BOLT #1:
  *
  * The channel is referred to by `channel_id`, unless `channel_id` is 0
