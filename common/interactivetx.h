@@ -30,6 +30,14 @@ struct interactivetx_context {
 	struct per_peer_state *pps;
 	struct channel_id channel_id;
 
+	/* The existing funding outpoint of a channel being spliced.
+	 * This input will send funding_txid instead of prevtx. */
+	struct bitcoin_outpoint *shared_outpoint;
+
+	/* When receiving `tx_add_input` we will fill in prevtx using this
+	 * value when `shared_outpoint`'s txid matches */
+	struct bitcoin_tx *funding_tx;
+
 	/* Track how many of each tx collab msg we receive */
 	u16 tx_add_input_count, tx_add_output_count;
 

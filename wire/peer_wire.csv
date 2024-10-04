@@ -44,6 +44,9 @@ msgdata,tx_add_input,prevtx_len,u16,
 msgdata,tx_add_input,prevtx,byte,prevtx_len
 msgdata,tx_add_input,prevtx_vout,u32,
 msgdata,tx_add_input,sequence,u32,
+msgdata,tx_add_input,tlvs,tx_add_input_tlvs,
+tlvtype,tx_add_input_tlvs,shared_input_txid,0
+tlvdata,tx_add_input_tlvs,shared_input_txid,funding_txid,sha256,
 msgtype,tx_add_output,67
 msgdata,tx_add_output,channel_id,channel_id,
 msgdata,tx_add_output,serial_id,u64,
