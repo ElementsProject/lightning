@@ -31,6 +31,8 @@ struct splice_state *splice_state_new(const tal_t *ctx);
 /* An active splice negotiation. Born when splice beings and dies when a splice
  * negotation has finished */
 struct splicing {
+	/* The remote side's rotated funding pubkey */
+	struct pubkey remote_funding_pubkey;
 	/* The opener side's relative balance change */
 	s64 opener_relative;
 	/* The accepter side's relative balance change */
