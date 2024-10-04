@@ -213,6 +213,7 @@ struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx UNNEEDED,
 { fprintf(stderr, "new_coin_wallet_deposit called!\n"); abort(); }
 /* Generated stub for new_inflight */
 struct channel_inflight *new_inflight(struct channel *channel UNNEEDED,
+	     struct pubkey *remote_funding UNNEEDED,
 	     const struct bitcoin_outpoint *funding_outpoint UNNEEDED,
 	     u32 funding_feerate UNNEEDED,
 	     struct amount_sat funding_sat UNNEEDED,

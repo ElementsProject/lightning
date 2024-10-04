@@ -1283,6 +1283,7 @@ wallet_update_channel(struct lightningd *ld,
 
 	/* Add open attempt to channel's inflights */
 	inflight = new_inflight(channel,
+				NULL,
 				&channel->funding,
 				funding_feerate,
 				channel->funding_sats,
@@ -1502,6 +1503,7 @@ wallet_commit_channel(struct lightningd *ld,
 
 	/* Open attempt to channel's inflights */
 	inflight = new_inflight(channel,
+				NULL,
 				&channel->funding,
 				funding_feerate,
 				channel->funding_sats,

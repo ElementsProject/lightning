@@ -1027,6 +1027,7 @@ static struct migration dbmigrations[] = {
 	 "  keyidx BIGINT,"
 	 "  addrtype INTEGER)"), NULL},
     {NULL, insert_addrtype_to_addresses},
+    {SQL("ALTER TABLE channel_funding_inflights ADD remote_funding BLOB DEFAULT NULL;"), NULL},
 };
 
 /**

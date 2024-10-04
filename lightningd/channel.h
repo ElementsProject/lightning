@@ -41,6 +41,7 @@ struct funding_info {
 
 	/* Relative splicing balance change */
 	s64 splice_amnt;
+	struct pubkey *splice_remote_funding;
 };
 
 struct channel_inflight {
@@ -431,6 +432,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 
 /* new_inflight - Create a new channel_inflight for a channel */
 struct channel_inflight *new_inflight(struct channel *channel,
+	     struct pubkey *remote_funding STEALS,
 	     const struct bitcoin_outpoint *funding_outpoint,
 	     u32 funding_feerate,
 	     struct amount_sat funding_sat,
