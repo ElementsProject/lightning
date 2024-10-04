@@ -619,7 +619,7 @@ void gossmap_manage_handle_get_txout_reply(struct gossmap_manage *gm, const u8 *
 
 	pca = map_del(&gm->pending_ann_map, scid);
 	if (!pca) {
-		/* If we looking specifically for this, we no longer
+		/* If we were looking specifically for this, we no longer
 		 * are (but don't penalize sender: we don't know if it was
 		 * good or bad). */
 		remove_unknown_scid(gm->daemon->seeker, &scid, true);
@@ -704,7 +704,7 @@ bad:
 	txout_failures_add(gm->txf, scid);
 out:
 	tal_free(pca);
-	/* If we looking specifically for this, we no longer are. */
+	/* If we were looking specifically for this, we no longer are. */
 	remove_unknown_scid(gm->daemon->seeker, &scid, false);
 }
 
@@ -774,7 +774,7 @@ static const char *process_channel_update(const tal_t *ctx,
 	} else {
 		/* Is this the first update in either direction?  If so,
 		 * rewrite channel_announcement so timestamp is correct. */
-		if (!gossmap_chan_set(chan, dir))
+		if (!gossmap_chan_set(chan, !dir))
 			gossip_store_set_timestamp(gm->daemon->gs, chan->cann_off, timestamp);
 	}
 
