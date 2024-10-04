@@ -3664,6 +3664,23 @@ static void update_hsmd_with_splice(struct peer *peer, struct inflight *inflight
 			      tal_hex(tmpctx, msg));
 }
 
+static struct bitcoin_tx *bitcoin_tx_from_txid(struct peer *peer,
+					       struct bitcoin_txid txid)
+{
+	u8 *msg;
+	struct bitcoin_tx *tx = NULL;
+
+	msg = towire_channeld_splice_lookup_tx(NULL, &txid);
+
+	msg = master_wait_sync_reply(tmpctx, peer, take(msg),
+				     WIRE_CHANNELD_SPLICE_LOOKUP_TX_RESULT);
+
+	if (!fromwire_channeld_splice_lookup_tx_result(tmpctx, msg, &tx))
+		master_badmsg(WIRE_CHANNELD_SPLICE_LOOKUP_TX_RESULT, msg);
+
+	return tx;
+}
+
 /* ACCEPTER side of the splice. Here we handle all the accepter's steps for the
  * splice. Since the channel must be in STFU mode we block the daemon here until
  * the splice is finished or aborted. */
@@ -3812,23 +3829,6 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	peer->splice_state->count++;
 
 	resume_splice_negotiation(peer, true, true, true, true);
-}
-
-static struct bitcoin_tx *bitcoin_tx_from_txid(struct peer *peer,
-					       struct bitcoin_txid txid)
-{
-	u8 *msg;
-	struct bitcoin_tx *tx = NULL;
-
-	msg = towire_channeld_splice_lookup_tx(NULL, &txid);
-
-	msg = master_wait_sync_reply(tmpctx, peer, take(msg),
-				     WIRE_CHANNELD_SPLICE_LOOKUP_TX_RESULT);
-
-	if (!fromwire_channeld_splice_lookup_tx_result(tmpctx, msg, &tx))
-		master_badmsg(WIRE_CHANNELD_SPLICE_LOOKUP_TX_RESULT, msg);
-
-	return tx;
 }
 
 /* splice_initiator runs when splice_ack is received by the other side. It
