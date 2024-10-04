@@ -9,6 +9,7 @@ struct inflight *fromwire_inflight(const tal_t *ctx, const u8 **cursor, size_t *
 	struct inflight *inflight = tal(ctx, struct inflight);
 
 	fromwire_bitcoin_outpoint(cursor, max, &inflight->outpoint);
+	fromwire_pubkey(cursor, max, &inflight->remote_funding);
 	inflight->amnt = fromwire_amount_sat(cursor, max);
 	inflight->remote_tx_sigs = fromwire_bool(cursor, max);
 	inflight->psbt = fromwire_wally_psbt(inflight, cursor, max);
@@ -31,6 +32,7 @@ struct inflight *fromwire_inflight(const tal_t *ctx, const u8 **cursor, size_t *
 void towire_inflight(u8 **pptr, const struct inflight *inflight)
 {
 	towire_bitcoin_outpoint(pptr, &inflight->outpoint);
+	towire_pubkey(pptr, &inflight->remote_funding);
 	towire_amount_sat(pptr, inflight->amnt);
 	towire_bool(pptr, inflight->remote_tx_sigs);
 	towire_wally_psbt(pptr, inflight->psbt);
@@ -42,17 +44,4 @@ void towire_inflight(u8 **pptr, const struct inflight *inflight)
 	}
 	towire_bool(pptr, inflight->i_am_initiator);
 	towire_bool(pptr, inflight->force_sign_first);
-}
-
-void copy_inflight(struct inflight *dest, struct inflight *src)
-{
-	dest->outpoint = src->outpoint;
-	dest->amnt = src->amnt;
-	dest->remote_tx_sigs = src->remote_tx_sigs;
-	dest->psbt = src->psbt ? clone_psbt(dest, src->psbt): NULL;
-	dest->splice_amnt = src->splice_amnt;
-	dest->last_tx = src->last_tx ? clone_bitcoin_tx(dest, src->last_tx) : NULL;
-	dest->last_sig = src->last_sig;
-	dest->i_am_initiator = src->i_am_initiator;
-	dest->force_sign_first = src->force_sign_first;
 }
