@@ -824,6 +824,7 @@ static void handle_add_inflight(struct lightningd *ld,
 				struct channel *channel,
 				const u8 *msg)
 {
+	struct pubkey *remote_funding = tal(tmpctx, struct pubkey);
 	struct bitcoin_outpoint outpoint;
 	u32 feerate;
 	struct amount_sat satoshis;
@@ -834,6 +835,7 @@ static void handle_add_inflight(struct lightningd *ld,
 
 	if (!fromwire_channeld_add_inflight(tmpctx,
 					    msg,
+					    remote_funding,
 					    &outpoint.txid,
 					    &outpoint.n,
 					    &feerate,
@@ -849,7 +851,7 @@ static void handle_add_inflight(struct lightningd *ld,
 	}
 
 	inflight = new_inflight(channel,
-				NULL,
+				remote_funding,
 				&outpoint,
 				feerate,
 				satoshis,
@@ -1798,6 +1800,7 @@ bool peer_start_channeld(struct channel *channel,
 
 		infcopy = tal(inflights, struct inflight);
 
+		infcopy->remote_funding = *inflight->funding->splice_remote_funding;
 		infcopy->outpoint = inflight->funding->outpoint;
 		infcopy->amnt = inflight->funding->total_funds;
 		infcopy->remote_tx_sigs = inflight->remote_tx_sigs;
