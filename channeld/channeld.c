@@ -941,7 +941,8 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 						  const struct htlc **htlc_map,
 						  u64 commit_index,
 						  const struct pubkey *remote_per_commit,
-						  struct bitcoin_signature *commit_sig)
+						  struct bitcoin_signature *commit_sig,
+						  struct pubkey remote_funding_pubkey)
 {
 	struct simple_htlc **htlcs;
 	size_t i;
@@ -951,8 +952,8 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 
 	htlcs = collect_htlcs(tmpctx, htlc_map);
 	msg = towire_hsmd_sign_remote_commitment_tx(NULL, txs[0],
-						   &peer->channel->funding_pubkey[REMOTE],
-						   remote_per_commit,
+						    &remote_funding_pubkey,
+						    remote_per_commit,
 						    channel_has(peer->channel,
 								OPT_STATIC_REMOTEKEY),
 						    commit_index,
@@ -1170,7 +1171,8 @@ static u8 *send_commit_part(const tal_t *ctx,
 			  NULL);
 	htlc_sigs =
 	    calc_commitsigs(tmpctx, peer, txs, funding_wscript, htlc_map,
-			    remote_index, remote_per_commit, &commit_sig);
+			    remote_index, remote_per_commit, &commit_sig,
+			    peer->channel->funding_pubkey[REMOTE]);
 
 	if (direct_outputs[LOCAL] != NULL) {
 		pbase = penalty_base_new(tmpctx, remote_index,
