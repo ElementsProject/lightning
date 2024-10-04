@@ -371,7 +371,7 @@ static void handle_splice_abort(struct lightningd *ld,
 	log_debug(channel->log, "made the socket pair");
 
 	if (peer_start_channeld(channel, new_peer_fd(tmpctx, fds[0]), NULL,
-						     true, false)) {
+						     false, false)) {
 		log_info(channel->log, "Sending the peer fd to connectd");
 		subd_send_msg(ld->connectd,
 			      take(towire_connectd_peer_connect_subd(NULL,
