@@ -318,6 +318,7 @@ static void remove_channel(struct gossmap_manage *gm,
 					      GOSSIP_STORE_DYING_BIT,
 					      WIRE_NODE_ANNOUNCEMENT);
 	}
+	gossmap_remove_chan(gossmap, chan);
 }
 
 static u32 get_timestamp(struct gossmap *gossmap,
