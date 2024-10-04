@@ -211,13 +211,13 @@ subtypedata,lease_rates,channel_fee_max_base_msat,tu32,
 msgtype,stfu,2
 msgdata,stfu,channel_id,channel_id,
 msgdata,stfu,initiator,u8,
-msgtype,splice,75
+msgtype,splice,80
 msgdata,splice,channel_id,channel_id,
 msgdata,splice,relative_satoshis,s64,
 msgdata,splice,funding_feerate_perkw,u32,
 msgdata,splice,locktime,u32,
 msgdata,splice,funding_pubkey,point,
-msgtype,splice_ack,76
+msgtype,splice_ack,81
 msgdata,splice_ack,channel_id,channel_id,
 msgdata,splice_ack,relative_satoshis,s64,
 msgdata,splice_ack,funding_pubkey,point,
