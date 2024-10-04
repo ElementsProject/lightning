@@ -262,7 +262,8 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 
 		msg = towire_tx_add_input(ctx, cid, serial_id,
 					  prevtx, in->input.index,
-					  in->input.sequence);
+					  in->input.sequence,
+					  NULL);
 
 		tal_arr_remove(&set->added_ins, 0);
 		return msg;
@@ -1742,12 +1743,14 @@ static bool run_tx_interactive(struct state *state,
 			struct bitcoin_tx *tx;
 			struct bitcoin_outpoint outpoint;
 			struct amount_sat amt;
+			struct tlv_tx_add_input_tlvs *tlvs;
 
 			if (!fromwire_tx_add_input(tmpctx, msg, &cid,
 						   &serial_id,
 						   cast_const2(u8 **,
 							       &tx_bytes),
-						   &outpoint.n, &sequence))
+						   &outpoint.n, &sequence,
+						   &tlvs))
 				open_err_fatal(state,
 					       "Parsing tx_add_input %s",
 					       tal_hex(tmpctx, msg));
