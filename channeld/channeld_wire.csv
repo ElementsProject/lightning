@@ -255,6 +255,7 @@ msgdata,channeld_splice_feerate_error,too_high,bool,
 
 # channeld->master: Add an inflight to the DB
 msgtype,channeld_add_inflight,7216
+msgdata,channeld_add_inflight,remote_funding,pubkey,
 msgdata,channeld_add_inflight,tx_id,bitcoin_txid,
 msgdata,channeld_add_inflight,tx_outnum,u32,
 msgdata,channeld_add_inflight,feerate,u32,

@@ -3714,6 +3714,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 		     fmt_wally_psbt(tmpctx, ictx->current_psbt));
 
 	msg = towire_channeld_add_inflight(NULL,
+					   &peer->splicing->remote_funding_pubkey,
 					   &outpoint.txid,
 					   outpoint.n,
 					   funding_feerate_perkw,
@@ -3946,6 +3947,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	psbt_txid(tmpctx, ictx->current_psbt, &current_psbt_txid, NULL);
 
 	outmsg = towire_channeld_add_inflight(tmpctx,
+					      &peer->splicing->remote_funding_pubkey,
 					      &current_psbt_txid,
 					      chan_output_index,
 					      peer->splicing->feerate_per_kw,
