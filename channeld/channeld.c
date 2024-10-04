@@ -1166,7 +1166,8 @@ static u8 *send_commit_part(const tal_t *ctx,
 			  direct_outputs, &funding_wscript,
 			  peer->channel, remote_per_commit,
 			  remote_index, REMOTE,
-			  splice_amnt, remote_splice_amnt, &local_anchor_outnum);
+			  splice_amnt, remote_splice_amnt, &local_anchor_outnum,
+			  NULL);
 	htlc_sigs =
 	    calc_commitsigs(tmpctx, peer, txs, funding_wscript, htlc_map,
 			    remote_index, remote_per_commit, &commit_sig);
@@ -1935,7 +1936,8 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 			  NULL, &funding_wscript, peer->channel,
 			  local_per_commit,
 			  local_index, LOCAL, splice_amnt,
-			  remote_splice_amnt, &remote_anchor_outnum);
+			  remote_splice_amnt, &remote_anchor_outnum,
+			  NULL);
 
 	/* Set the commit_sig on the commitment tx psbt */
 	if (!psbt_input_set_signature(txs[0]->psbt, 0,
