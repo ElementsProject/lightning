@@ -425,7 +425,7 @@ int main(int argc, char *argv[])
 	local_txs = channel_txs(NULL, &channel->funding, channel->funding_sats,
 				&htlcmap, NULL, &funding_wscript, channel,
 				&local_per_commit_point, commitnum,
-				LOCAL, 0, 0, &local_anchor_outnum);
+				LOCAL, 0, 0, &local_anchor_outnum, NULL);
 
 	printf("## local_commitment\n"
 	       "# input amount %s, funding_wscript %s, pubkey %s\n",
@@ -536,7 +536,7 @@ int main(int argc, char *argv[])
 	remote_txs = channel_txs(NULL, &channel->funding, channel->funding_sats,
 				 &htlcmap, NULL, &funding_wscript, channel,
 				 &remote_per_commit_point, commitnum,
-				 REMOTE, 0, 0, &local_anchor_outnum);
+				 REMOTE, 0, 0, &local_anchor_outnum, NULL);
 
 	printf("## remote_commitment\n"
 	       "# input amount %s, funding_wscript %s, key %s\n",
