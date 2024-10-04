@@ -1231,8 +1231,9 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 				 ", splice_amnt"
 				 ", i_am_initiator"
 				 ", force_sign_first"
+				 ", remote_funding"
 				 ") VALUES ("
-				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, inflight->channel->dbid);
 	db_bind_txid(stmt, &inflight->funding->outpoint.txid);
@@ -1271,6 +1272,10 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 	db_bind_s64(stmt, inflight->funding->splice_amnt);
 	db_bind_int(stmt, inflight->i_am_initiator);
 	db_bind_int(stmt, inflight->force_sign_first);
+	if (inflight->funding->splice_remote_funding)
+		db_bind_pubkey(stmt, inflight->funding->splice_remote_funding);
+	else
+		db_bind_null(stmt);
 
 	db_exec_prepared_v2(stmt);
 	assert(!stmt->error);
@@ -1348,6 +1353,7 @@ static struct channel_inflight *
 wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 		     struct channel *chan)
 {
+	struct pubkey *remote_funding = NULL;
 	struct amount_sat funding_sat, our_funding_sat;
 	struct amount_msat lease_fee;
 	struct bitcoin_outpoint funding;
@@ -1391,11 +1397,16 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 		db_col_ignore(stmt, "lease_satoshi");
 	}
 
+	if (!db_col_is_null(stmt, "remote_funding")) {
+		remote_funding = tal(tmpctx, struct pubkey);
+		db_col_pubkey(stmt, "remote_funding", remote_funding);
+	}
+
 	splice_amnt = db_col_s64(stmt, "splice_amnt");
 	i_am_initiator = db_col_int(stmt, "i_am_initiator");
 	force_sign_first = db_col_int(stmt, "force_sign_first");
 
-	inflight = new_inflight(chan, &funding,
+	inflight = new_inflight(chan, remote_funding, &funding,
 				db_col_int(stmt, "funding_feerate"),
 				funding_sat,
 				our_funding_sat,
@@ -1461,6 +1472,7 @@ static bool wallet_channel_load_inflights(struct wallet *w,
 					", splice_amnt"
 					", i_am_initiator"
 					", force_sign_first"
+					", remote_funding"
 					" FROM channel_funding_inflights"
 					" WHERE channel_id = ?"
 					" ORDER BY funding_feerate"));
