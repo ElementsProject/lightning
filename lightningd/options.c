@@ -1263,7 +1263,7 @@ static char *opt_set_splicing(struct lightningd *ld)
 {
 	feature_set_or(ld->our_features,
 		       take(feature_set_for_feature(NULL,
-						    OPTIONAL_FEATURE(OPT_EXPERIMENTAL_SPLICE))));
+						    OPTIONAL_FEATURE(OPT_SPLICE))));
 	return NULL;
 }
 
@@ -2058,7 +2058,7 @@ void add_config_deprecated(struct lightningd *ld,
 			json_add_bool(response, name0,
 				      feature_offered(ld->our_features
 						      ->bits[INIT_FEATURE],
-						      OPT_EXPERIMENTAL_SPLICE));
+						      OPT_SPLICE));
 		} else if (opt->cb == (void *)opt_set_onion_messages) {
 			json_add_bool(response, name0,
 				      feature_offered(ld->our_features

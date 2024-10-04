@@ -1160,7 +1160,7 @@ static u8 *send_commit_part(const tal_t *ctx,
 	 * send unless negotiated */
 	if (feature_negotiated(peer->our_features,
 			       peer->their_features,
-			       OPT_EXPERIMENTAL_SPLICE)) {
+			       OPT_SPLICE)) {
 		status_debug("send_commit_part(splice: %d, remote_splice: %d,"
 			     " index: %"PRIu64")",
 			     (int)splice_amnt, (int)remote_splice_amnt,

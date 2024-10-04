@@ -45,7 +45,7 @@ def expected_peer_features(extra=[]):
         # option_dual_fund
         features += [29]
     if EXPERIMENTAL_SPLICING:
-        features += [163]  # option_experimental_splice
+        features += [63]  # option_splice
     if TEST_NETWORK != 'liquid-regtest':
         # Anchors, except for elements
         features += [23]
@@ -61,7 +61,7 @@ def expected_node_features(extra=[]):
         # option_dual_fund
         features += [29]
     if EXPERIMENTAL_SPLICING:
-        features += [163]  # option_experimental_splice
+        features += [63]  # option_splice
     if TEST_NETWORK != 'liquid-regtest':
         # Anchors, except for elements
         features += [23]
