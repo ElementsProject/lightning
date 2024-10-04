@@ -84,6 +84,7 @@ enum jsonrpc_errcode {
 	SPLICE_LOW_FEE = 359,
 	SPLICE_HIGH_FEE = 360,
 	SPLICE_ABORT = 362,
+	SPLICE_CHANNEL_ERROR = 363,
 
 	/* `connect` errors */
 	CONNECT_NO_KNOWN_ADDRESS = 400,

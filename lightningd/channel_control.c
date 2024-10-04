@@ -1625,6 +1625,27 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	return 0;
 }
 
+/* If we get a disconnecting warning or error during a splice command, let
+ * the user know out of an abundance of politeness.
+ * After, we forward the event onto the standard `channel_errmsg`. */
+static void channel_control_errmsg(struct channel *channel,
+				   struct peer_fd *peer_fd,
+				   const char *desc,
+				   const u8 *err_for_them,
+				   bool disconnect,
+				   bool warning)
+{
+	struct lightningd *ld = channel->peer->ld;
+	struct splice_command *cc = splice_command_for_chan(ld, channel);
+	if (cc && disconnect) {
+		was_pending(command_fail(cc->cmd, SPLICE_CHANNEL_ERROR,
+					 "Splice command failed:"
+					 " %s", desc));
+	}
+
+	channel_errmsg(channel, peer_fd, desc, err_for_them, disconnect, warning);
+}
+
 bool peer_start_channeld(struct channel *channel,
 			 struct peer_fd *peer_fd,
 			 const u8 *fwd_msg,
@@ -1674,7 +1695,7 @@ bool peer_start_channeld(struct channel *channel,
 					   channel->log, true,
 					   channeld_wire_name,
 					   channel_msg,
-					   channel_errmsg,
+					   channel_control_errmsg,
 					   channel_set_billboard,
 					   take(&peer_fd->fd),
 					   take(&hsmfd), NULL));
@@ -2139,9 +2160,9 @@ static struct command_result *channel_for_splice(struct command *cmd,
 
 	if (!feature_negotiated(cmd->ld->our_features,
 			        (*channel)->peer->their_features,
-				OPT_EXPERIMENTAL_SPLICE))
+				OPT_SPLICE))
 		return command_fail(cmd, SPLICE_NOT_SUPPORTED,
-				    "splicing not supported");
+				    "Peer does not support splicing");
 
 	if (!(*channel)->owner)
 		return command_fail(cmd, SPLICE_WRONG_OWNER,
