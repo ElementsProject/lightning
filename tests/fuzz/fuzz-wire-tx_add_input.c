@@ -22,7 +22,7 @@ static void *encode(const tal_t *ctx, const struct tx_add_input *s)
 static struct tx_add_input *decode(const tal_t *ctx, const void *p)
 {
 	struct tx_add_input *s = tal(ctx, struct tx_add_input);
-	const struct tlv_tx_add_input_tlvs *tlvs;
+	struct tlv_tx_add_input_tlvs *tlvs;
 
 	if (fromwire_tx_add_input(s, p, &s->channel_id, &s->serial_id,
 				  &s->prevtx, &s->prevtx_vout, &s->sequence,
