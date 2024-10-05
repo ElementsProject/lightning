@@ -5996,3 +5996,47 @@ def test_enableoffer(node_factory):
     # Can't enable unknown.
     with pytest.raises(RpcError, match="Unknown offer"):
         l1.rpc.enableoffer(offer_id=offer1['offer_id'])
+
+
+def test_offer_with_private_channels(node_factory):
+    """We should be able to fetch an invoice through a private path"""
+    l1, l2, l3 = node_factory.line_graph(3, fundchannel=False, opts={'experimental-offers': None})
+
+    # Private channel from l2->l3, makes l3 add a blinded path to invoice
+    # (l1's existence makes sure l3 doesn't see l2 as a dead end!)
+    node_factory.join_nodes([l1, l2], wait_for_announce=True)
+    node_factory.join_nodes([l2, l3], announce_channels=False)
+    wait_for(lambda: ['alias' in n for n in l3.rpc.listnodes()['nodes']] == [True, True])
+
+    offer = l3.rpc.offer(amount='2msat', description='test_offer_path_self')['bolt12']
+    invoice = l1.rpc.fetchinvoice(offer=offer)["invoice"]
+    assert l1.rpc.pay(invoice) is not None
+
+
+def test_offer_with_private_channels_multyhop(node_factory):
+    """We should be able to fetch an invoice through a private path and pay the invoice"""
+    l1, l2, l3, l4 = node_factory.line_graph(4, fundchannel=False, opts={'experimental-offers': None})
+
+    node_factory.join_nodes([l1, l2], wait_for_announce=True)
+    node_factory.join_nodes([l2, l3], wait_for_announce=True)
+    node_factory.join_nodes([l3, l4], announce_channels=False)
+    wait_for(lambda: ['alias' in n for n in l4.rpc.listnodes()['nodes']] == [True, True, True])
+
+    offer = l4.rpc.offer(amount='2msat', description='test_offer_with_private_channels_multyhop')['bolt12']
+    invoice = l1.rpc.fetchinvoice(offer=offer)["invoice"]
+    assert l1.rpc.pay(invoice) is not None
+
+
+def test_offer_with_private_channels_multyhop2(node_factory):
+    """We should be able to fetch an invoice through a private path and pay the invoice"""
+    l1, l2, l3, l4, l5 = node_factory.line_graph(5, fundchannel=False, opts={'experimental-offers': None})
+
+    node_factory.join_nodes([l1, l2], wait_for_announce=True)
+    node_factory.join_nodes([l2, l3], wait_for_announce=True)
+    node_factory.join_nodes([l3, l4], wait_for_announce=True)
+    node_factory.join_nodes([l3, l5], announce_channels=False)
+    wait_for(lambda: ['alias' in n for n in l4.rpc.listnodes()['nodes']] == [True, True, True, True])
+
+    offer = l5.rpc.offer(amount='2msat', description='test_offer_with_private_channels_multyhop2')['bolt12']
+    invoice = l1.rpc.fetchinvoice(offer=offer)["invoice"]
+    assert l1.rpc.pay(invoice) is not None
