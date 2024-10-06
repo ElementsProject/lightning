@@ -1,0 +1,339 @@
+<html>
+<head>
+<script>
+function cssClean(str)
+{
+	return str.replaceAll(/[^A-Za-z0-9]/g, "_")
+}
+function firstPubkey(str)
+{
+	if (!str)
+		return null;
+
+	var res = str.match(/0[23][0-9a-fA-F]{64}/)
+
+	return res ? res.at(0) : null;
+}
+function parseDaemon(daemon)
+{
+	var res = {};
+
+	var items = daemon.split('-');
+
+	if (daemon == "plugin-manager")
+		items = ["plugin manager"];
+
+	res.str = daemon;
+	res.name = items.pop();
+	res.peer = firstPubkey(items[0]);
+	res.short_peer = null;
+
+	if (res.peer) {
+		items.shift();
+		res.short_peer = res.peer.substring(0, 4);
+	}
+
+	res.parents = items;
+
+	if(res.name.startsWith("chan#"))
+		if(res.parents.length)
+			res.name = res.parents.pop() + " " + res.name;
+		else
+			res.name = "lightningd " + res.name;
+
+	return res;
+}
+function parseLogLine(line)
+{
+	var res = {};
+
+	function eat_upto(re)
+	{
+		details = line.match(re);
+		if(!details)
+			return null;
+		value = line.substring(0, details.index);
+		line = line.substring(details.index + details[0].length);
+		return value;
+	}
+
+	res.date = new Date(eat_upto(/\s+/));
+	res.type = eat_upto(/\s+/);
+	res.daemon = parseDaemon(eat_upto(/: /));
+	res.msg = line;
+
+	return res;
+}
+function parseUs(lineInfo)
+{
+	return {
+		pubkey: firstPubkey(lineInfo.msg),
+		alias: (lineInfo.msg.match(/, alias (.*) \(color /) || []).at(1),
+		color: (lineInfo.msg.match(/ \(color ([#][0-9a-fA-F]{6})\)/) || []).at(1),
+		lightngind: (lineInfo.msg.match(/\) and lightningd ([0-9a-fA-F]+)/) || []).at(1),
+	}
+}
+function toggle_type()
+{
+	var sheet = document.getElementById('logStyleSheet').sheet;
+	var rule = "";
+	let selector = ".type-" + cssClean(this.type_str);
+	if(this.className == 'type_on') {
+		this.className = 'type_off';
+		rule = "display:none";
+	}
+	else {
+		this.className = 'type_on';
+	}
+
+	for(let i = 0; i < sheet.cssRules.length; i++) {
+		if (sheet.cssRules[i].selectorText != selector)
+			continue;
+		sheet.deleteRule(i);
+		sheet.insertRule(selector + " {" + rule + "}", i);
+		break;
+	}
+}
+function togggle_all_type()
+{
+	for (b of this.buttons)
+		if(b.className == this.className)
+			b.click();
+
+	if(this.className == 'type_on')
+		this.className = 'type_off';
+	else
+		this.className = 'type_on';
+}
+function toggle_daemon()
+{
+	var sheet = document.getElementById('logStyleSheet').sheet;
+	var rule = "";
+	let selector = ".daemon-" + cssClean(this.daemon.name);
+	if(this.className == 'daemon_on') {
+		this.className = 'daemon_off';
+		rule = "display:none";
+	}
+	else {
+		this.className = 'daemon_on';
+	}
+
+	for(let i = 0; i < sheet.cssRules.length; i++) {
+		if (sheet.cssRules[i].selectorText != selector)
+			continue;
+		sheet.deleteRule(i);
+		sheet.insertRule(selector + " {" + rule + "}", i);
+		break;
+	}
+}
+function togggle_all_daemon()
+{
+	for (b of this.buttons)
+		if(b.className == this.className)
+			b.click();
+
+	if(this.className == 'daemon_on')
+		this.className = 'daemon_off';
+	else
+		this.className = 'daemon_on';
+}
+function filter_messages()
+{
+	lines = document.getElementsByClassName("logLine");
+
+	try {
+		for(line of lines) {
+			if(line.info.msg.match(this.value))
+				line.style.display = "";
+			else
+				line.style.display = "none";
+		}
+		document.getElementById('filter_error').innerText = "";
+	}
+	catch (error) {
+		document.getElementById('filter_error').innerText = error.message;
+	}
+}
+function do_render(logs, area)
+{
+	var d = document;
+	var sheet = d.getElementById('logStyleSheet').sheet;
+	var types = {};
+	var daemons = {};
+	var us = null;
+
+	while(area.firstChild)
+		area.removeChild(area.firstChild);
+
+	while(sheet.cssRules.length)
+		sheet.deleteRule(0);
+
+	for(line of logs.split("\n")) {
+		line = line.trim()
+		if(!line.length)
+			continue;
+
+		info = parseLogLine(line);
+
+		if(info.msg.startsWith('Server started with public key'))
+			us = parseUs(info);
+
+		p = d.createElement('p');
+		p.info = info;
+		p.className = "logLine type-" + cssClean(info.type) + " daemon-" + cssClean(info.daemon.name);
+
+		if (info.daemon.peer)
+			p.className += " peer-" + info.daemon.peer;
+
+		types[info.type] = (types[info.type] || 0) + 1
+		daemons[info.daemon.str] = (daemons[info.daemon.str] || 0) + 1
+
+		var s = d.createElement('span');
+		s.className = "daemon"
+		s.title = info.daemon.parents;
+		s.innerText = info.daemon.name;
+		if (info.daemon.short_peer)
+			s.innerText += " " + info.daemon.short_peer;
+		s.innerText += " ";
+		p.appendChild(s);
+
+		var s = d.createElement('span');
+		s.className = "logMsg";
+		s.title = info.date;
+		s.innerText = info.msg;
+		p.appendChild(s);
+
+		area.appendChild(p);
+	}
+
+	types = Object.fromEntries(
+	    Object.entries(types).sort(([,a],[,b]) => b-a)
+	);
+
+	daemons = Object.fromEntries(
+	    Object.entries(daemons).sort(([,a],[,b]) => b-a)
+	);
+
+	var controls = d.createElement('p');
+	controls.className = "controls";
+	var type_buttons = [];
+	var daemon_buttons = [];
+
+	for(type in types) {
+		var b = d.createElement('button');
+		b.className = 'type_on';
+		b.type_str = type;
+		b.innerText = type + " " + types[type];
+		b.onclick = toggle_type;
+		type_buttons.push(b);
+		controls.appendChild(b);
+
+		sheet.insertRule(".type-" + cssClean(type) + "{}", 0);
+	}
+
+	var b = d.createElement('button');
+	b.className = 'type_on';
+	b.innerText = "All"
+	b.onclick = togggle_all_type;
+	b.buttons = type_buttons;
+	controls.appendChild(b);
+
+	controls.appendChild(d.createElement('hr'));
+
+	for(daemon_str in daemons) {
+		var daemon = parseDaemon(daemon_str)
+		var b = d.createElement('button');
+		b.className = 'daemon_on';
+		b.daemon = daemon;
+		b.innerText = (daemon.short_peer || "") + " " + daemon.name + " " + daemons[daemon_str];
+		b.onclick = toggle_daemon;
+		daemon_buttons.push(b);
+		controls.appendChild(b);
+
+		sheet.insertRule(".daemon-" + cssClean(daemon.name) + "{}", 0);
+	}
+
+	var b = d.createElement('button');
+	b.className = 'daemon_on';
+	b.innerText = "All"
+	b.onclick = togggle_all_daemon;
+	b.buttons = daemon_buttons;
+	controls.appendChild(b);
+
+	controls.appendChild(d.createElement('hr'));
+
+
+	var t = d.createElement('input');
+	t.type = 'text';
+	t.placeholder = 'message filter regex';
+	t.onchange = filter_messages;
+	t.onkeyup = filter_messages;
+
+	controls.appendChild(t);
+	controls.appendChild(document.createTextNode(" "));
+
+	var s = d.createElement('span');
+	s.id = 'filter_error';
+	controls.appendChild(s);
+
+	area.prepend(controls);
+}
+</script>
+<style id="logStyleSheet">
+</style>
+<style>
+.logLine {
+	font-family: Cascadia, Hack, monospace;
+}
+.type_on:after, .daemon_on:after {
+	content: " (on)";
+}
+.type_off:after, .daemon_off:after {
+	content: " (off)";
+}
+.type_on, .daemon_on {
+}
+.type_off, .daemon_off {
+	background-color: #FF6961;
+}
+.controls {
+	position: sticky;
+	top: 0;
+	background-color: #aaa9;
+	padding: 1em;
+}
+.logLine .daemon {
+	color: #AEC6CF;
+}
+.type-IO:before {
+	content: "io ";
+}
+.type-TRACE:before {
+	content: "trace ";
+}
+.type-DEBUG:before {
+	content: "debug ";
+	color: #Ffd1dc;
+}
+.type-INFO:before {
+	content: "info ";
+	color: #AEC6CF;
+}
+.type-UNUSUAL:before {
+	content: "unusual ";
+	color: #E9D502;
+}
+.type-BROKEN:before {
+	content: "broken ";
+	color: #FF6961;
+}
+</style>
+</head>
+<body>
+<div id="area">
+	<h3>Enter Logs:</h3>
+	<textarea id="logs"></textarea>
+	<button onclick="do_render(document.getElementById('logs').value, document.getElementById('area'))">Render</button>
+</div>
+</body>
+</html>
