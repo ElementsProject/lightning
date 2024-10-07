@@ -269,6 +269,12 @@ void trace_span_tag(const void *key, const char *name, const char *value)
 	size_t s = tal_count(span->tags);
 	tal_resize(&span->tags, s + 1);
 	span->tags[s].name = tal_strdup(span->tags, name);
+	if (strstarts(value, "\"")
+		&& strlen(value) > 1
+		&& strends(value, "\"")) {
+		value = tal_strndup(tmpctx, value + 1,
+			strlen(value) - 2);
+	}
 	span->tags[s].value = tal_strdup(span->tags, value);
 }
 
