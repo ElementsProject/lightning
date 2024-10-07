@@ -45,7 +45,7 @@ The manpages are generated from the JSON schemas using the [`fromschema`](https:
 
 ### `cln-rpc`
 
-We use `msggen` to generate the Rust bindings crate [`cln-rpc`](https://github.com/ElementsProject/lightning/tree/master/cln-rpc). These bindings contain the stubs for the JSON-RPC methods, as well as types for the request and response structs. The [generator code](https://github.com/ElementsProject/lightning/blob/master/contrib/msggen/msggen/gen/rust.py) maps each abstract JSON-RPC type to a Rust type, minimizing size (e.g., binary data is hex-decoded).
+We use `msggen` to generate the Rust bindings crate [`cln-rpc`](https://github.com/ElementsProject/lightning/tree/master/cln-rpc). These bindings contain the stubs for the JSON-RPC methods, as well as types for the request and response structs. The [generator code](https://github.com/ElementsProject/lightning/blob/master/contrib/msggen/msggen/gen/rpc/rust.py) maps each abstract JSON-RPC type to a Rust type, minimizing size (e.g., binary data is hex-decoded).
 
 The calling pattern follows the `call(req_obj) -> resp_obj` format, and the individual arguments are not expanded. For more ergonomic handling of generic requests and responses we also define the `Request` and `Response` enumerations, so you can hand them to a generic function without having to resort to dynamic dispatch.
 
