@@ -46,8 +46,24 @@ Clean up the lightning directories:
  destroy_ln
 ```
 
-
-
 ## Using Polar
 
 [Polar](https://lightningpolar.com/) offers a one-click setup of Lightning Network for local app development & testing.
+
+## Using Nix
+
+Install [Nix](https://nixos.org/download/)
+
+Update git submodules `git submodule update --init --recursive`.
+
+The entry point is `flake.nix` in the root of the project, where the inputs and outputs are defined.
+
+`nix develop` will create the default shell env with the build and runtime dependencies of the cln package. Then you can call `make` manually and the project will compile as usual.
+
+`nix develop .#rust` will create a shell env for developing rust.
+
+`nix build .?submodules=1` will build the default package (cln).
+
+`nix flake check .?submodules=1` will build the cln and rust packages. Rust tests are run during the build. There are also checks to run cargo audit and nixfmt.
+
+If you have nix installed you can use `nix run "git+https://github.com/hashrelay/lightning?ref=flake&submodules=1#lightningd"` to run lightningd without having to manually clone the repo. This make use of the flake output apps.
