@@ -4,6 +4,7 @@ name = "cln-meta-project"
 version = "0.1.0"
 description = "Just a helper to get our python dependencies under control"
 authors = ["Christian Decker <cdecker@blockstream.com>"]
+package-mode = false
 
 [tool.poetry.dependencies]
 # Build dependencies belong here
