@@ -555,7 +555,7 @@ void gossip_store_del(struct gossip_store *gs,
 		      u64 offset,
 		      int type)
 {
-	u32 next_index;
+	u64 next_index;
 
 	assert(offset > sizeof(struct gossip_hdr));
 	next_index = gossip_store_set_flag(gs, offset,
