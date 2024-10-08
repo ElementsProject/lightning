@@ -140,7 +140,7 @@ openssl x509 -req -CA ca.pem -CAkey ca-key.pem \
 
 
 
-This will finally create the `server.pem` file, signed by the CA, allowing you to access the node through its real domain name. You can now move `server.pem` and `server-key.pem` into the lightning directory, and they should be picked up during the start.
+This will finally create the `server.pem` file, signed by the CA, allowing you to access the node through its real domain name. You can now move `server.pem` and `server-key.pem` into the lightning directory (ex. `<lightning-dir>/bitcoin` for `mainnet`), and they should be picked up during the start.
 
 #### Generating custom certificates using SANs (Subject Alternative Names)
 
@@ -192,4 +192,4 @@ openssl x509 -req -CA ca.pem -CAkey ca-key.pem -in server.csr -out server.pem -d
 
 
 
-As above, generate the new server certificate, but this time with the `SAN` configuration. Copy `server.pem` and `server-key.pem` into the certificates location and restart the service to take effect.
+As above, generate the new server certificate, but this time with the `SAN` configuration. Copy `server.pem` and `server-key.pem` into the certificates location (ex. `<lightning-dir>/bitcoin` for `mainnet`) and restart the service to take effect.
