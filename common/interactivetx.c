@@ -64,6 +64,8 @@ struct interactivetx_context *new_interactivetx_context(const tal_t *ctx,
 	ictx->our_role = our_role;
 	ictx->pps = pps;
 	ictx->channel_id = channel_id;
+	ictx->shared_outpoint = NULL;
+	ictx->funding_tx = NULL;
 	ictx->tx_add_input_count = 0;
 	ictx->tx_add_output_count = 0;
 	ictx->next_update_fn = default_next_update;
@@ -208,6 +210,7 @@ static char *send_next(const tal_t *ctx,
 
 	if (tal_count(set->added_ins) != 0) {
 		const struct input_set *in = &set->added_ins[0];
+		struct bitcoin_outpoint point;
 		u8 *prevtx;
 
 		if (!psbt_get_serial_id(&in->input.unknowns, &serial_id))
@@ -220,9 +223,24 @@ static char *send_next(const tal_t *ctx,
 			return "interactivetx ADD_INPUT PSBT needs the previous"
 			       " transaction set.";
 
-		msg = towire_tx_add_input(NULL, cid, serial_id,
-					  prevtx, in->input.index,
-					  in->input.sequence);
+		wally_psbt_input_get_outpoint(&in->input, &point);
+
+		/* If this the shared channel input, we send funding txid in
+		 * in tlvs and do not send prevtx */
+ 		if (ictx->shared_outpoint
+ 			&& bitcoin_outpoint_eq(&point, ictx->shared_outpoint)) {
+			struct tlv_tx_add_input_tlvs *tlvs = tal(tmpctx, struct tlv_tx_add_input_tlvs);
+			tlvs->shared_input_txid = tal_dup(tlvs,
+							  struct bitcoin_txid,
+							  &point.txid);
+ 			msg = towire_tx_add_input(NULL, cid, serial_id,
+						  NULL, in->input.index,
+						  in->input.sequence, tlvs);
+ 		} else {
+			msg = towire_tx_add_input(NULL, cid, serial_id,
+						  prevtx, in->input.index,
+						  in->input.sequence, NULL);
+		}
 
 		tal_arr_remove(&set->added_ins, 0);
 	}
@@ -417,12 +435,14 @@ char *process_interactivetx_updates(const tal_t *ctx,
 			size_t len;
 			struct bitcoin_tx *tx;
 			struct bitcoin_outpoint outpoint;
+			struct tlv_tx_add_input_tlvs *tlvs;
 
 			if (!fromwire_tx_add_input(ctx, msg, &cid,
 						   &serial_id,
 						   cast_const2(u8 **,
 							       &tx_bytes),
-						   &outpoint.n, &sequence))
+						   &outpoint.n, &sequence,
+						   &tlvs))
 				return tal_fmt(ctx,
 					       "Parsing tx_add_input %s",
 					       tal_hex(ctx, msg));
@@ -459,13 +479,30 @@ char *process_interactivetx_updates(const tal_t *ctx,
 				return tal_fmt(ctx, "Duplicate serial_id rcvd"
 					       " %"PRIu64, serial_id);
 
-			/* Convert tx_bytes to a tx! */
-			len = tal_bytelen(tx_bytes);
-			tx = pull_bitcoin_tx_only(ctx, &tx_bytes, &len);
-
-			if (!tx || len != 0)
-				return tal_fmt(ctx, "Invalid tx sent. len: %d",
-					       (int)len);
+			/* For our shared input only, we will fill in prevtx */
+			if (ictx->shared_outpoint && tlvs->shared_input_txid) {
+				if (!bitcoin_txid_eq(tlvs->shared_input_txid,
+						     &ictx->shared_outpoint->txid))
+					return tal_fmt(ctx, "funding_txid value"
+						       " %s unrecognized."
+						       " Should be %s",
+						       fmt_bitcoin_txid(ctx, tlvs->shared_input_txid),
+						       fmt_bitcoin_txid(ctx, &ictx->shared_outpoint->txid));
+				if (!ictx->funding_tx)
+					return tal_fmt(ctx, "Internal error"
+						       " did not set"
+						       " interactivetx"
+						       " funding_tx");
+				tx = ictx->funding_tx;
+			}
+			else {
+				/* Convert tx_bytes to a tx! */
+				len = tal_bytelen(tx_bytes);
+				tx = pull_bitcoin_tx_only(ctx, &tx_bytes, &len);
+				if (!tx || len != 0)
+					return tal_fmt(ctx, "Invalid tx sent. len: %d",
+						       (int)len);
+			}
 
 			if (outpoint.n >= tx->wtx->num_outputs)
 				return tal_fmt(ctx,

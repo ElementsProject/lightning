@@ -359,7 +359,7 @@ static void handle_splice_abort(struct lightningd *ld,
 	log_debug(channel->log, "made the socket pair");
 
 	if (peer_start_channeld(channel, new_peer_fd(tmpctx, fds[0]), NULL,
-						     true, false)) {
+						     false, false)) {
 		log_info(channel->log, "Sending the peer fd to connectd");
 		subd_send_msg(ld->connectd,
 			      take(towire_connectd_peer_connect_subd(NULL,
@@ -806,6 +806,7 @@ static void handle_add_inflight(struct lightningd *ld,
 				struct channel *channel,
 				const u8 *msg)
 {
+	struct pubkey *remote_funding = tal(tmpctx, struct pubkey);
 	struct bitcoin_outpoint outpoint;
 	u32 feerate;
 	struct amount_sat satoshis;
@@ -816,6 +817,7 @@ static void handle_add_inflight(struct lightningd *ld,
 
 	if (!fromwire_channeld_add_inflight(tmpctx,
 					    msg,
+					    remote_funding,
 					    &outpoint.txid,
 					    &outpoint.n,
 					    &feerate,
@@ -831,6 +833,7 @@ static void handle_add_inflight(struct lightningd *ld,
 	}
 
 	inflight = new_inflight(channel,
+				remote_funding,
 				&outpoint,
 				feerate,
 				satoshis,
@@ -1532,6 +1535,27 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	return 0;
 }
 
+/* If we get a disconnecting warning or error during a splice command, let
+ * the user know out of an abundance of politeness.
+ * After, we forward the event onto the standard `channel_errmsg`. */
+static void channel_control_errmsg(struct channel *channel,
+				   struct peer_fd *peer_fd,
+				   const char *desc,
+				   const u8 *err_for_them,
+				   bool disconnect,
+				   bool warning)
+{
+	struct lightningd *ld = channel->peer->ld;
+	struct splice_command *cc = splice_command_for_chan(ld, channel);
+	if (cc && disconnect) {
+		was_pending(command_fail(cc->cmd, SPLICE_CHANNEL_ERROR,
+					 "Splice command failed:"
+					 " %s", desc));
+	}
+
+	channel_errmsg(channel, peer_fd, desc, err_for_them, disconnect, warning);
+}
+
 bool peer_start_channeld(struct channel *channel,
 			 struct peer_fd *peer_fd,
 			 const u8 *fwd_msg,
@@ -1581,7 +1605,7 @@ bool peer_start_channeld(struct channel *channel,
 					   channel->log, true,
 					   channeld_wire_name,
 					   channel_msg,
-					   channel_errmsg,
+					   channel_control_errmsg,
 					   channel_set_billboard,
 					   take(&peer_fd->fd),
 					   take(&hsmfd), NULL));
@@ -1683,6 +1707,7 @@ bool peer_start_channeld(struct channel *channel,
 
 		infcopy = tal(inflights, struct inflight);
 
+		infcopy->remote_funding = *inflight->funding->splice_remote_funding;
 		infcopy->outpoint = inflight->funding->outpoint;
 		infcopy->amnt = inflight->funding->total_funds;
 		infcopy->remote_tx_sigs = inflight->remote_tx_sigs;
@@ -2056,9 +2081,9 @@ static struct command_result *param_channel_for_splice(struct command *cmd,
 
 	if (!feature_negotiated(cmd->ld->our_features,
 			        (*channel)->peer->their_features,
-				OPT_EXPERIMENTAL_SPLICE))
+				OPT_SPLICE))
 		return command_fail(cmd, SPLICE_NOT_SUPPORTED,
-				    "splicing not supported");
+				    "Peer does not support splicing");
 
 	if (!(*channel)->owner)
 		return command_fail(cmd, SPLICE_WRONG_OWNER,

@@ -72,6 +72,43 @@ u8 *towire_warningfmt(const tal_t *ctx,
 	return msg;
 }
 
+u8 *towire_abortfmtv(const tal_t *ctx,
+		     const struct channel_id *channel,
+		     const char *fmt,
+		     va_list ap)
+{
+	/* BOLT #1:
+	 *
+	 * The channel is referred to by `channel_id`, unless `channel_id` is
+	 * 0 (i.e. all bytes are 0), in which case it refers to all
+	 * channels. */
+	static const struct channel_id all_channels;
+	char *estr;
+	u8 *msg;
+
+	estr = tal_vfmt(ctx, fmt, ap);
+	/* We need tal_len to work, so we use copy. */
+	msg = towire_tx_abort(ctx, channel ? channel : &all_channels,
+			      (u8 *)tal_dup_arr(estr, char, estr, strlen(estr), 0));
+	tal_free(estr);
+
+	return msg;
+}
+
+u8 *towire_abortfmt(const tal_t *ctx,
+		    const struct channel_id *channel,
+		    const char *fmt, ...)
+{
+	va_list ap;
+	u8 *msg;
+
+	va_start(ap, fmt);
+	msg = towire_abortfmtv(ctx, channel, fmt, ap);
+	va_end(ap);
+
+	return msg;
+}
+
 bool channel_id_is_all(const struct channel_id *channel_id)
 {
 	return memeqzero(channel_id, sizeof(*channel_id));
