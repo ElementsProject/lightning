@@ -25,7 +25,7 @@ The plugin only runs when `lightningd` is configured with the option `--grpc-por
 - `server.pem` and `server-key.pem`: this is the identity (certificate and private key) used by the plugin to authenticate itself. It is signed by the CA, and the client will verify its identity.
 - `client.pem` and `client-key.pem`: this is an example identity that can be used by a client to connect to the plugin, and issue requests. It is also signed by the CA.
 
-These files are generated with sane defaults, however you can generate custom certificates should you require some changes (see [below](doc:app-development#generating-custom-certificates) for details).
+These files are generated with sane defaults, however you can generate custom certificates should you require some changes (see [below](doc:grpc#generating-custom-certificates) for details).
 
 The client needs a valid mTLS identity in order to connect to the plugin, so copy over the `ca.pem`, `client.pem` and `client-key.pem` files from the node to your project directory.
 
@@ -107,7 +107,7 @@ used as `--grpc-port` option when we started our node.
 
 In this example, we first load the client identity as well as the CA certificate so we can verify the server's identity against it. We then create a `creds` instance using those details. Next we open a secure channel, i.e., a channel over TLS with verification of identities.
 
-Notice that we override the expected SSL name with `cln`. This is required because the plugin does not know the domain under which it will be reachable, and will therefore use `cln` as a standin. See [custom certificate generation](doc:app-development#generating-custom-certificates) for how this could be changed.
+Notice that we override the expected SSL name with `cln`. This is required because the plugin does not know the domain under which it will be reachable, and will therefore use `cln` as a standin. See [custom certificate generation](doc:grpc#generating-custom-certificates) for how this could be changed.
 
 We then use the channel to instantiate the `NodeStub` representing the service and its methods, so we can finally call the `Getinfo` method with default arguments.
 
@@ -140,4 +140,56 @@ openssl x509 -req -CA ca.pem -CAkey ca-key.pem \
 
 
 
-This will finally create the `server.pem` file, signed by the CA, allowing you to access the node through its real domain name. You can now move `server.pem` and `server-key.pem` into the lightning directory, and they should be picked up during the start.
+This will finally create the `server.pem` file, signed by the CA, allowing you to access the node through its real domain name. You can now move `server.pem` and `server-key.pem` into the lightning directory (ex. `<lightning-dir>/bitcoin` for `mainnet`), and they should be picked up during the start.
+
+#### Generating custom certificates using SANs (Subject Alternative Names)
+
+To add additional domain names to the custom certificate, you can use a variation of the above commands. This is helpful, for example, if you are exposing the API over Tor, or experiencing errors due to client SSL verification asking for verification via a `SAN` instead of `CN`.
+
+```shell
+openssl genrsa -out server-key.pem 2048
+```
+
+
+
+As above, generate a new server key.
+
+Then, create an openssl CSR configuration file name `cln-csr.conf` that looks something like the following:
+
+```
+[req]
+default_bits       = 2048
+distinguished_name = req_distinguished_name
+req_extensions     = req_ext
+
+[req_distinguished_name]
+CN = "cln rest server"
+
+[req_ext]
+subjectAltName = @alt_names
+
+[alt_names]
+IP.1  = 127.0.0.1
+DNS.1 = localhost
+DNS.2 = cln
+DNS.3 = <put your custom DNS name here and add more if desired>
+```
+
+
+Consult the `openssl` [documentation ](https://docs.openssl.org/master/man1/openssl-req/#configuration-file-format) for your version for additional customization.
+
+```shell
+openssl req -new -key server-key.pem -out server.csr -config cln-csr.conf
+```
+
+
+
+This example configuration suggests the generated default for _Common Name_, but can be changed when prompted.
+
+```shell
+openssl x509 -req -CA ca.pem -CAkey ca-key.pem -in server.csr -out server.pem -days 365 -CAcreateserial -extensions req_ext -extfile cln-csr.conf
+```
+
+
+
+As above, generate the new server certificate, but this time with the `SAN` configuration. Copy `server.pem` and `server-key.pem` into the certificates location (ex. `<lightning-dir>/bitcoin` for `mainnet`) and restart the service to take effect.
