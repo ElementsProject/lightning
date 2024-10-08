@@ -140,4 +140,56 @@ openssl x509 -req -CA ca.pem -CAkey ca-key.pem \
 
 
 
-This will finally create the `server.pem` file, signed by the CA, allowing you to access the node through its real domain name. You can now move `server.pem` and `server-key.pem` into the lightning directory, and they should be picked up during the start.
+This will finally create the `server.pem` file, signed by the CA, allowing you to access the node through its real domain name. You can now move `server.pem` and `server-key.pem` into the lightning directory (ex. `<lightning-dir>/bitcoin` for `mainnet`), and they should be picked up during the start.
+
+#### Generating custom certificates using SANs (Subject Alternative Names)
+
+To add additional domain names to the custom certificate, you can use a variation of the above commands. This is helpful, for example, if you are exposing the API over Tor, or experiencing errors due to client SSL verification asking for verification via a `SAN` instead of `CN`.
+
+```shell
+openssl genrsa -out server-key.pem 2048
+```
+
+
+
+As above, generate a new server key.
+
+Then, create an openssl CSR configuration file name `cln-csr.conf` that looks something like the following:
+
+```
+[req]
+default_bits       = 2048
+distinguished_name = req_distinguished_name
+req_extensions     = req_ext
+
+[req_distinguished_name]
+CN = "cln rest server"
+
+[req_ext]
+subjectAltName = @alt_names
+
+[alt_names]
+IP.1  = 127.0.0.1
+DNS.1 = localhost
+DNS.2 = cln
+DNS.3 = <put your custom DNS name here and add more if desired>
+```
+
+
+Consult the `openssl` [documentation ](https://docs.openssl.org/master/man1/openssl-req/#configuration-file-format) for your version for additional customization.
+
+```shell
+openssl req -new -key server-key.pem -out server.csr -config cln-csr.conf
+```
+
+
+
+This example configuration suggests the generated default for _Common Name_, but can be changed when prompted.
+
+```shell
+openssl x509 -req -CA ca.pem -CAkey ca-key.pem -in server.csr -out server.pem -days 365 -CAcreateserial -extensions req_ext -extfile cln-csr.conf
+```
+
+
+
+As above, generate the new server certificate, but this time with the `SAN` configuration. Copy `server.pem` and `server-key.pem` into the certificates location (ex. `<lightning-dir>/bitcoin` for `mainnet`) and restart the service to take effect.
