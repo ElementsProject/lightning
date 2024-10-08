@@ -510,7 +510,7 @@ static void json_add_node(struct json_stream *js,
 						&na_tlvs)) {
 			plugin_log(plugin, LOG_BROKEN,
 				   "Cannot parse stored node_announcement"
-				   " for %s at %u: %s",
+				   " for %s at %"PRIu64": %s",
 				   fmt_node_id(tmpctx, &node_id),
 				   n->nann_off,
 				   tal_hex(tmpctx, nannounce));

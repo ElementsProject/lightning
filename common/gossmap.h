@@ -12,18 +12,18 @@ struct sciddir_or_pubkey;
 
 struct gossmap_node {
 	/* Offset in memory map for node_announce, or 0. */
-	u32 nann_off;
+	u64 nann_off;
 	u32 num_chans;
 	u32 *chan_idxs;
 };
 
 struct gossmap_chan {
-	u32 cann_off;
-	/* Technically redundant, but we have a hole anyway: from cann_off */
-	u32 plus_scid_off;
+	u64 cann_off;
+	/* FIXME: Technically redundant */
+	u64 plus_scid_off;
 	/* Offsets of cupdates (0 if missing).  Logically inside half_chan,
 	 * but that would add padding. */
-	u32 cupdate_off[2];
+	u64 cupdate_off[2];
 	/* two nodes we connect (lesser idx first) */
 	struct half_chan {
 		/* Top bit indicates it's enabled */
@@ -57,7 +57,7 @@ struct gossmap *gossmap_load(const tal_t *ctx, const char *filename,
 			 typesafe_cb_preargs(bool, void *, (unknown_record), (cbarg), \
 					     struct gossmap *,		\
 					     int type,			\
-					     size_t off,		\
+					     u64 off,			\
 					     size_t msglen),		\
 			 (cbarg))
 
@@ -70,7 +70,7 @@ struct gossmap *gossmap_load_fd_(const tal_t *ctx, int fd,
 						      void *cb_arg),
 				 bool (*unknown_record)(struct gossmap *map,
 							int type,
-							size_t off,
+							u64 off,
 							size_t msglen,
 							void *cb_arg),
 				 void *cb_arg);
@@ -306,7 +306,7 @@ void gossmap_iter_fast_forward(const struct gossmap *map,
 void gossmap_iter_end(const struct gossmap *map, struct gossmap_iter *iter);
 
 /* For debugging: returns length read, and total known length of file */
-size_t gossmap_lengths(const struct gossmap *map, size_t *total);
+u64 gossmap_lengths(const struct gossmap *map, u64 *total);
 
 /* Debugging: connectd wants to enumerate fds */
 int gossmap_fd(const struct gossmap *map);
