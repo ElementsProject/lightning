@@ -25,7 +25,7 @@ The plugin only runs when `lightningd` is configured with the option `--grpc-por
 - `server.pem` and `server-key.pem`: this is the identity (certificate and private key) used by the plugin to authenticate itself. It is signed by the CA, and the client will verify its identity.
 - `client.pem` and `client-key.pem`: this is an example identity that can be used by a client to connect to the plugin, and issue requests. It is also signed by the CA.
 
-These files are generated with sane defaults, however you can generate custom certificates should you require some changes (see [below](doc:app-development#generating-custom-certificates) for details).
+These files are generated with sane defaults, however you can generate custom certificates should you require some changes (see [below](doc:grpc#generating-custom-certificates) for details).
 
 The client needs a valid mTLS identity in order to connect to the plugin, so copy over the `ca.pem`, `client.pem` and `client-key.pem` files from the node to your project directory.
 
@@ -107,7 +107,7 @@ used as `--grpc-port` option when we started our node.
 
 In this example, we first load the client identity as well as the CA certificate so we can verify the server's identity against it. We then create a `creds` instance using those details. Next we open a secure channel, i.e., a channel over TLS with verification of identities.
 
-Notice that we override the expected SSL name with `cln`. This is required because the plugin does not know the domain under which it will be reachable, and will therefore use `cln` as a standin. See [custom certificate generation](doc:app-development#generating-custom-certificates) for how this could be changed.
+Notice that we override the expected SSL name with `cln`. This is required because the plugin does not know the domain under which it will be reachable, and will therefore use `cln` as a standin. See [custom certificate generation](doc:grpc#generating-custom-certificates) for how this could be changed.
 
 We then use the channel to instantiate the `NodeStub` representing the service and its methods, so we can finally call the `Getinfo` method with default arguments.
 
