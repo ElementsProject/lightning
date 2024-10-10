@@ -327,6 +327,36 @@ void layer_add_disabled_node(struct layer *layer, const struct node_id *node)
 	tal_arr_expand(&layer->disabled_nodes, *node);
 }
 
+bool layers_get_htlc_min(const struct layer **layers,
+			 const struct short_channel_id_dir *scidd,
+			 struct amount_msat *min)
+{
+	for (int i = tal_count(layers) - 1; i >= 0; i--) {
+		const struct local_update *lu
+			= local_update_hash_get(layers[i]->local_updates, scidd);
+		if (lu && lu->htlc_min) {
+			*min = *lu->htlc_min;
+			return true;
+		}
+	}
+	return false;
+}
+
+bool layers_get_htlc_max(const struct layer **layers,
+			 const struct short_channel_id_dir *scidd,
+			 struct amount_msat *max)
+{
+	for (int i = tal_count(layers) - 1; i >= 0; i--) {
+		const struct local_update *lu
+			= local_update_hash_get(layers[i]->local_updates, scidd);
+		if (lu && lu->htlc_max) {
+			*max = *lu->htlc_max;
+			return true;
+		}
+	}
+	return false;
+}
+
 void layer_add_localmods(const struct layer *layer,
 			 const struct gossmap *gossmap,
 			 struct gossmap_localmods *localmods)

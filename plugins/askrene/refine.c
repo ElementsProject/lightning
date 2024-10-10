@@ -3,6 +3,7 @@
 #include <common/gossmap.h>
 #include <plugins/askrene/askrene.h>
 #include <plugins/askrene/flow.h>
+#include <plugins/askrene/layer.h>
 #include <plugins/askrene/refine.h>
 #include <plugins/askrene/reserve.h>
 
@@ -62,6 +63,97 @@ static void add_reservation(struct reserve_hop **reservations,
 	tal_arr_expand(reservations, rhop);
 }
 
+/* We aren't allowed to ask for update_details on locally-generated channels,
+ * so go to the source in that case */
+static struct amount_msat get_chan_htlc_max(const struct route_query *rq,
+					    const struct gossmap_chan *c,
+					    const struct short_channel_id_dir *scidd)
+{
+	struct amount_msat htlc_max;
+
+	/* If it's modified by a layer, that's the answer, otherwise use base */
+	if (!layers_get_htlc_max(rq->layers, scidd, &htlc_max))
+		gossmap_chan_get_update_details(rq->gossmap,
+						c, scidd->dir,
+						NULL, NULL, NULL, NULL, NULL,
+						NULL, &htlc_max);
+	return htlc_max;
+}
+
+static struct amount_msat get_chan_htlc_min(const struct route_query *rq,
+					    const struct gossmap_chan *c,
+					    const struct short_channel_id_dir *scidd)
+{
+	struct amount_msat htlc_min;
+
+	/* If it's modified by a layer, that's the answer, otherwise use base */
+	if (!layers_get_htlc_min(rq->layers, scidd, &htlc_min))
+		gossmap_chan_get_update_details(rq->gossmap,
+						c, scidd->dir,
+						NULL, NULL, NULL, NULL, NULL,
+						&htlc_min, NULL);
+	return htlc_min;
+}
+
+enum why_capped {
+	CAPPED_HTLC_MAX,
+	CAPPED_CAPACITY,
+};
+
+/* Get exact maximum we can deliver with this flow.  Returns reason
+ * why this is the limit (max_hltc or capacity), and optionally sets scidd */
+static enum why_capped flow_max_capacity(const struct route_query *rq,
+					 const struct flow *flow,
+					 struct amount_msat *deliverable,
+					 struct short_channel_id_dir *scidd_why,
+					 struct amount_msat *amount_why)
+{
+	struct amount_msat max_msat = AMOUNT_MSAT(-1ULL);
+	enum why_capped why_capped = CAPPED_CAPACITY;
+
+	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
+		const struct half_chan *h = flow_edge(flow, i);
+		struct amount_msat min, max, htlc_max;
+		struct short_channel_id_dir scidd;
+
+		get_scidd(rq->gossmap, flow, i, &scidd);
+		/* We can pass constraints due to addition of fees! */
+		get_constraints(rq, flow->path[i], flow->dirs[i], &min, &max);
+
+		if (amount_msat_greater(max_msat, max)) {
+			why_capped = CAPPED_CAPACITY;
+			if (scidd_why)
+				*scidd_why = scidd;
+			if (amount_why)
+				*amount_why = max;
+			max_msat = max;
+		}
+
+		htlc_max = get_chan_htlc_max(rq, flow->path[i], &scidd);
+		if (amount_msat_greater(max_msat, htlc_max)) {
+			why_capped = CAPPED_HTLC_MAX;
+			if (scidd_why)
+				*scidd_why = scidd;
+			if (amount_why)
+				*amount_why = htlc_max;
+			max_msat = htlc_max;
+		}
+		if (!amount_msat_add_fee(&max_msat, h->base_fee, h->proportional_fee))
+			max_msat = AMOUNT_MSAT(-1ULL);
+	}
+
+	/* Calculate deliverable max */
+	*deliverable = max_msat;
+	for (size_t i = 0; i < tal_count(flow->path); i++) {
+		const struct half_chan *h = flow_edge(flow, i);
+		*deliverable = amount_msat_sub_fee(*deliverable,
+						   h->base_fee,
+						   h->proportional_fee);
+	}
+	return why_capped;
+}
+
+
 /* We have a basic set of flows, but we need to add fees, and take into
  * account that "spendable" estimates are for a single HTLC.  This can
  * push us again over capacity or htlc_maximum_msat.
@@ -78,90 +170,65 @@ static const char *constrain_flow(const tal_t *ctx,
 				  struct flow *flow,
 				  struct reserve_hop **reservations)
 {
-	struct amount_msat msat;
-	int decreased = -1;
-	const char *why_decreased = NULL;
+	struct amount_msat deliverable, msat, amount_capped;
+	enum why_capped why_capped;
+	struct short_channel_id_dir scidd_capped;
 
-	/* Walk backwards, adding fees and testing for htlc_max and
-	 * capacity limits. */
+	why_capped = flow_max_capacity(rq, flow, &deliverable,
+				       &scidd_capped, &amount_capped);
+	if (amount_msat_less(deliverable, flow->delivers)) {
+		rq_log(tmpctx, rq, LOG_INFORM,
+		       "Flow reduced to deliver %s not %s, because %s %s %s",
+		       fmt_amount_msat(tmpctx, deliverable),
+		       fmt_amount_msat(tmpctx, flow->delivers),
+		       fmt_short_channel_id_dir(tmpctx, &scidd_capped),
+		       why_capped == CAPPED_HTLC_MAX
+		       ? "advertizes htlc_maximum_msat"
+		       : "has remaining capacity",
+		       fmt_amount_msat(tmpctx, amount_capped));
+		flow->delivers = deliverable;
+	}
+
+	/* Now, check if any of them violate htlc_min */
 	msat = flow->delivers;
 	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
 		const struct half_chan *h = flow_edge(flow, i);
-		struct amount_msat min, max, amount_to_reserve;
+		struct amount_msat min;
 		struct short_channel_id_dir scidd;
-		const char *max_cause;
 
-		/* We can pass constraints due to addition of fees! */
-		get_constraints(rq, flow->path[i], flow->dirs[i], &min, &max);
-		if (amount_msat_less(amount_msat(fp16_to_u64(h->htlc_max)), max)) {
-			max_cause = "htlc_maximum_msat of ";
-			max = amount_msat(fp16_to_u64(h->htlc_max));
-		} else {
-			max_cause = "channel capacity of ";
-		}
+		get_scidd(rq->gossmap, flow, i, &scidd);
+		min = get_chan_htlc_min(rq, flow->path[i], &scidd);
 
-		/* If amount is > max, we decrease and add note it in
-		 * case something goes wrong later. */
-		if (amount_msat_greater(msat, max)) {
-			plugin_log(rq->plugin, LOG_DBG,
-				   "Decreased %s to %s%s across %s",
-				   fmt_amount_msat(tmpctx, msat),
-				   max_cause,
-				   fmt_amount_msat(tmpctx, max),
-				   fmt_flows_step_scid(tmpctx, rq, flow, i));
-			msat = max;
-			decreased = i;
-			why_decreased = max_cause;
+		if (amount_msat_less(msat, min)) {
+			return rq_log(ctx, rq, LOG_UNUSUAL,
+				      "Amount %s below minimum %s across %s",
+				      fmt_amount_msat(tmpctx, msat),
+				      fmt_amount_msat(tmpctx, min),
+				      fmt_short_channel_id_dir(tmpctx, &scidd));
 		}
+		if (!amount_msat_add_fee(&msat,
+					 h->base_fee, h->proportional_fee))
+			plugin_err(rq->plugin, "Adding fee to amount");
+	}
+
+	/* Finally, reserve so next flow sees reduced capacity. */
+	msat = flow->delivers;
+	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
+		const struct half_chan *h = flow_edge(flow, i);
+		struct amount_msat amount_to_reserve;
+		struct short_channel_id_dir scidd;
+
+		get_scidd(rq->gossmap, flow, i, &scidd);
 
 		/* Reserve more for local channels if it reduces capacity */
-		get_scidd(rq->gossmap, flow, i, &scidd);
 		if (!amount_msat_add(&amount_to_reserve, msat,
 				     get_additional_per_htlc_cost(rq, &scidd)))
 			abort();
 
-		/* Reserve it, so if the next flow asks about the same channel,
-		   it will see the reduced capacity from this one.  */
 		add_reservation(reservations, rq, flow, i, amount_to_reserve);
-
-		if (!amount_msat_add_fee(&msat, h->base_fee, h->proportional_fee))
+		if (!amount_msat_add_fee(&msat,
+					 h->base_fee, h->proportional_fee))
 			plugin_err(rq->plugin, "Adding fee to amount");
-	}
-
-	/* Now we know how much we could send, figure out how much would be
-	 * actually delivered.  Here we also check for min_htlc violations. */
-	for (size_t i = 0; i < tal_count(flow->path); i++) {
-		const struct half_chan *h = flow_edge(flow, i);
-		struct amount_msat next, min = amount_msat(fp16_to_u64(h->htlc_min));
-
-		next = amount_msat_sub_fee(msat,
-					   h->base_fee, h->proportional_fee);
-
-		/* These failures are incredibly unlikely, but possible */
-		if (amount_msat_is_zero(next)) {
-			return tal_fmt(ctx, "Amount %s cannot pay its own fees across %s",
-				       fmt_amount_msat(tmpctx, msat),
-				       fmt_flows_step_scid(tmpctx, rq, flow, i));
-		}
-
-		/* Does happen if we try to pay 1 msat, and all paths have 1000msat min */
-		if (amount_msat_less(next, min)) {
-			return tal_fmt(ctx, "Amount %s below minimum across %s",
-				       fmt_amount_msat(tmpctx, next),
-				       fmt_flows_step_scid(tmpctx, rq, flow, i));
-		}
-
-		msat = next;
-	}
-
-	if (!amount_msat_eq(flow->delivers, msat)) {
-		plugin_log(rq->plugin, LOG_DBG, "Flow changed to deliver %s not %s, because max constrained by %s%s",
-			   fmt_amount_msat(tmpctx, msat),
-			   fmt_amount_msat(tmpctx, flow->delivers),
-			   why_decreased ? why_decreased : NULL,
-			   decreased == -1 ? "none"
-			   : fmt_flows_step_scid(tmpctx, rq, flow, decreased));
-		flow->delivers = msat;
 	}
 
 	return NULL;
@@ -198,36 +265,22 @@ static void add_to_flow(struct flow *flow,
 	}
 }
 
-/* Check out remaining capacity for this flow.  Changes as other flows get
- * increased (which sets reservations) */
-static struct amount_msat flow_remaining_capacity(struct route_query *rq,
+static struct amount_msat flow_remaining_capacity(const struct route_query *rq,
 						  const struct flow *flow)
 {
-	struct amount_msat max_msat = AMOUNT_MSAT(-1ULL);
-	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
-		const struct half_chan *h = flow_edge(flow, i);
-		struct amount_msat min, max;
+	struct amount_msat max, diff;
+	flow_max_capacity(rq, flow, &max, NULL, NULL);
 
-		/* We can pass constraints due to addition of fees! */
-		get_constraints(rq, flow->path[i], flow->dirs[i], &min, &max);
-		max = amount_msat_min(max, amount_msat(fp16_to_u64(h->htlc_max)));
+	if (!amount_msat_sub(&diff, max, flow->delivers))
+		plugin_err(rq->plugin, "Flow delivers %s but max only %s",
+			   fmt_amount_msat(tmpctx, flow->delivers),
+			   fmt_amount_msat(tmpctx, max));
 
-		max_msat = amount_msat_min(max_msat, max);
-		if (!amount_msat_add_fee(&max_msat, h->base_fee, h->proportional_fee))
-			max_msat = AMOUNT_MSAT(-1ULL);
-	}
-
-	/* Calculate deliverable max */
-	for (size_t i = 0; i < tal_count(flow->path); i++) {
-		const struct half_chan *h = flow_edge(flow, i);
-		max_msat = amount_msat_sub_fee(max_msat,
-					       h->base_fee, h->proportional_fee);
-	}
-	return max_msat;
+	return diff;
 }
 
 /* What's the "best" flow to add to? */
-static struct flow *pick_most_likely_flow(struct route_query *rq,
+static struct flow *pick_most_likely_flow(const struct route_query *rq,
 					  struct flow **flows,
 					  struct amount_msat additional)
 {
@@ -244,7 +297,6 @@ static struct flow *pick_most_likely_flow(struct route_query *rq,
 			continue;
 		best_prob = prob;
 		best_flow = flows[i];
-		plugin_log(rq->plugin, LOG_DBG, "Best flow is #%zu!", i);
 	}
 
 	return best_flow;
@@ -258,22 +310,51 @@ static const char *flow_violates_min(const tal_t *ctx,
 	struct amount_msat msat = flow->delivers;
 	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
 		const struct half_chan *h = flow_edge(flow, i);
-		struct amount_msat min = amount_msat(fp16_to_u64(h->htlc_min));
+		struct amount_msat min;
+		struct short_channel_id_dir scidd;
+		get_scidd(rq->gossmap, flow, i, &scidd);
 
-		plugin_log(rq->plugin, LOG_DBG, "flow_violates_min: %u/%zu amt=%s, min=%s",
-			   i, tal_count(flow->path), fmt_amount_msat(tmpctx, msat), fmt_amount_msat(tmpctx, min));
+		min = get_chan_htlc_min(rq, flow->path[i], &scidd);
 		if (amount_msat_less(msat, min)) {
-			struct short_channel_id_dir scidd;
-			get_scidd(rq->gossmap, flow, i, &scidd);
-			return tal_fmt(ctx, "Sending %s across %s would violate htlc_min (~%s)",
-				       fmt_amount_msat(tmpctx, msat),
-				       fmt_short_channel_id_dir(tmpctx, &scidd),
-				       fmt_amount_msat(tmpctx, min));
+			return rq_log(ctx, rq, LOG_UNUSUAL,
+				      "Sending %s across %s would violate htlc_min (~%s)",
+				      fmt_amount_msat(tmpctx, msat),
+				      fmt_short_channel_id_dir(tmpctx, &scidd),
+				      fmt_amount_msat(tmpctx, min));
 		}
 		if (!amount_msat_add_fee(&msat, h->base_fee, h->proportional_fee))
 			plugin_err(rq->plugin, "Adding fee to amount");
 	}
 	return NULL;
+}
+
+/* If one flow is constrained by htlc_max, we might be able to simply
+ * duplicate it.  This is naive: it could still fail due to total
+ * capacity, but it is a corner case anyway. */
+static bool duplicate_one_flow(const struct route_query *rq,
+			       struct flow ***flows)
+{
+	for (size_t i = 0; i < tal_count(*flows); i++) {
+		struct flow *flow = (*flows)[i], *new_flow;
+		struct amount_msat max;
+		if (flow_max_capacity(rq, flow, &max, NULL, NULL)
+		    != CAPPED_HTLC_MAX)
+			continue;
+
+		new_flow = tal(*flows, struct flow);
+		new_flow->path = tal_dup_talarr(new_flow,
+						const struct gossmap_chan *,
+						flow->path);
+		new_flow->dirs = tal_dup_talarr(new_flow, int,
+						flow->dirs);
+		new_flow->delivers = amount_msat_div(flow->delivers, 2);
+		if (!amount_msat_sub(&flow->delivers,
+				     flow->delivers, new_flow->delivers))
+			abort();
+		tal_arr_expand(flows, new_flow);
+		return true;
+	}
+	return false;
 }
 
 const char *
@@ -286,19 +367,10 @@ refine_with_fees_and_limits(const tal_t *ctx,
 	struct amount_msat more_to_deliver;
 	const char *flow_constraint_error = NULL;
 	const char *ret;
+	bool tried_split_flow = false;
 
 	for (size_t i = 0; i < tal_count(*flows);) {
 		struct flow *flow = (*flows)[i];
-
-		plugin_log(rq->plugin, LOG_DBG, "Constraining flow %zu: %s",
-			   i, fmt_amount_msat(tmpctx, flow->delivers));
-		for (size_t j = 0; j < tal_count(flow->path); j++) {
-			struct amount_msat min, max;
-			get_constraints(rq, flow->path[j], flow->dirs[j], &min, &max);
-			plugin_log(rq->plugin, LOG_DBG, "->%s(max %s)",
-				   fmt_flows_step_scid(tmpctx, rq, flow, j),
-				   fmt_amount_msat(tmpctx, max));
-		}
 
 		flow_constraint_error = constrain_flow(tmpctx, rq, flow, &reservations);
 		if (!flow_constraint_error) {
@@ -306,8 +378,8 @@ refine_with_fees_and_limits(const tal_t *ctx,
 			continue;
 		}
 
-		plugin_log(rq->plugin, LOG_DBG, "Flow was too constrained: %s",
-			   flow_constraint_error);
+		rq_log(tmpctx, rq, LOG_UNUSUAL, "Flow %zu/%zu was too constrained (%s) so removing it",
+		       i, tal_count(*flows), flow_constraint_error);
 		/* This flow was reduced to 0 / impossible, remove */
 		tal_arr_remove(flows, i);
 	}
@@ -324,10 +396,10 @@ refine_with_fees_and_limits(const tal_t *ctx,
 		for (size_t i = 0; i < tal_count(*flows); i++) {
 			if (amount_msat_sub(&(*flows)[i]->delivers, (*flows)[i]->delivers, excess)) {
 				const char *err;
-				plugin_log(rq->plugin, LOG_DBG,
-					   "Flows delivered %s extra, trimming %zu/%zu",
-					   fmt_amount_msat(tmpctx, excess),
-					   i, tal_count(*flows));
+				rq_log(tmpctx, rq, LOG_DBG,
+				       "Flow %zu/%zu delivered %s extra, trimming",
+				       i, tal_count(*flows),
+				       fmt_amount_msat(tmpctx, excess));
 				/* In theory, this can violate min_htlc!  Thanks @Lagrang3! */
 				err = flow_violates_min(tmpctx, rq, (*flows)[i]);
 				if (err) {
@@ -346,38 +418,45 @@ refine_with_fees_and_limits(const tal_t *ctx,
 		 * was deleted instead for being below minimum */
 		if (!amount_msat_sub(&more_to_deliver, deliver,
 				     flowset_delivers(rq->plugin, *flows))) {
-			ret = tal_fmt(ctx,
+			ret = rq_log(ctx, rq, LOG_UNUSUAL,
 				      "Flowset delivers %s instead of %s, can't shed excess?",
 				      fmt_amount_msat(tmpctx, flowset_delivers(rq->plugin, *flows)),
 				      fmt_amount_msat(tmpctx, deliver));
 			goto out;
 		}
 
-		plugin_log(rq->plugin, LOG_DBG, "After dealing with excess, more_to_deliver=%s",
-			   fmt_amount_msat(tmpctx, more_to_deliver));
+		rq_log(tmpctx, rq, LOG_DBG,
+		       "After dealing with excess, more_to_deliver=%s",
+		       fmt_amount_msat(tmpctx, more_to_deliver));
 	}
 
 	/* The residual is minimal.  In theory we could add one msat at a time
 	 * to the most probably flow which has capacity.  For speed, we break it
 	 * into the number of flows, then assign each one. */
-	for (size_t i = 0; i < tal_count(*flows) && !amount_msat_is_zero(more_to_deliver); i++) {
+	while (!amount_msat_is_zero(more_to_deliver)) {
 		struct flow *f;
 		struct amount_msat extra;
 
 		/* How much more do we deliver?  Round up if we can */
-		extra = amount_msat_div(more_to_deliver, tal_count(*flows) - i);
+		extra = amount_msat_div(more_to_deliver, tal_count(*flows));
 		if (amount_msat_less(extra, more_to_deliver)) {
 			if (!amount_msat_accumulate(&extra, AMOUNT_MSAT(1)))
 				abort();
 		}
 
-		/* In theory, this can happen.  If it ever does, we
-		 * could try MCF again for the remainder. */
+		/* This happens when we have a single flow, and hit
+		 * htlc_max.  For this corner case, we split into an
+		 * additional flow, but only once! */
 		f = pick_most_likely_flow(rq, *flows, extra);
 		if (!f) {
-			ret = tal_fmt(ctx, "We couldn't quite afford it, we need to send %s more for fees: please submit a bug report!",
-				      fmt_amount_msat(tmpctx, more_to_deliver));
-			goto out;
+			if (tried_split_flow || !duplicate_one_flow(rq, flows)) {
+				ret = rq_log(ctx, rq, LOG_BROKEN,
+					     "We couldn't quite afford it, we need to send %s more for fees: please submit a bug report!",
+					     fmt_amount_msat(tmpctx, more_to_deliver));
+				goto out;
+			}
+			tried_split_flow = true;
+			continue;
 		}
 
 		/* Make this flow deliver +extra, and modify reservations */
@@ -398,6 +477,7 @@ refine_with_fees_and_limits(const tal_t *ctx,
 			   fmt_amount_msat(tmpctx, flowset_delivers(rq->plugin, *flows)),
 			   fmt_amount_msat(tmpctx, deliver));
 	}
+
 	ret = NULL;
 
 out:

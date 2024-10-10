@@ -1544,6 +1544,7 @@ class NodeFactory(object):
             'wait_for_bitcoind_sync',
             'allow_bad_gossip',
             'start',
+            'gossip_store_file',
         ]
         node_opts = {k: v for k, v in opts.items() if k in node_opt_keys}
         cli_opts = {k: v for k, v in opts.items() if k not in node_opt_keys}

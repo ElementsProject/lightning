@@ -102,6 +102,14 @@ void json_add_constraint(struct json_stream *js,
 			 const struct constraint *c,
 			 const struct layer *layer);
 
+/* Get max/min htlc for this scidd */
+bool layers_get_htlc_min(const struct layer **layers,
+			 const struct short_channel_id_dir *scidd,
+			 struct amount_msat *min);
+bool layers_get_htlc_max(const struct layer **layers,
+			 const struct short_channel_id_dir *scidd,
+			 struct amount_msat *max);
+
 /* For explain_failure: did this layer create this scid? */
 bool layer_created(const struct layer *layer, struct short_channel_id scid);
 
