@@ -15,16 +15,16 @@ Here's a checklist for the release process.
 2. Look through outstanding issues, to identify any problems that might be necessary to fixup before the release. Good candidates are reports of the project not building on different architectures or crashes.
 3. Identify a good lead for each outstanding issue, and ask them about a fix timeline.
 4. Create a milestone for the _next_ release on Github, and go though open issues and PRs and mark accordingly.
-5. Ask (via email) the most significant contributor who has not already named a release to name the release (use  
+5. Ask (via email) the most significant contributor who has not already named a release to name the release (use
    `devtools/credit --verbose v<PREVIOUS-VERSION>` to find this contributor). CC previous namers and team.
 
 ## Preparing for -rc1
 
 1. Check that `CHANGELOG.md` is well formatted, ordered in areas, covers all signficant changes, and sub-ordered approximately by user impact & coolness.
-2. Use `devtools/changelog.py` to collect the changelog entries from pull request commit messages and merge them into the manually maintained `CHANGELOG.md`.  This does API queries to GitHub, which are severely  
+2. Use `devtools/changelog.py` to collect the changelog entries from pull request commit messages and merge them into the manually maintained `CHANGELOG.md`.  This does API queries to GitHub, which are severely
    ratelimited unless you use an API token: set the `GH_TOKEN` environment variable to a Personal Access Token from <https://github.com/settings/tokens>
 3. Create a new CHANGELOG.md heading to `v<VERSION>rc1`, and create a link at the bottom. Note that you should exactly copy the date and name format from a previous release, as the `build-release.sh` script relies on this.
-4. Update the contrib/pyln package versions: `make update-py-versions NEW_VERSION=<VERSION>`
+4. Update the package versions: `make update-versions NEW_VERSION=<VERSION>`
 5. Create a PR with the above.
 
 ## Releasing -rc1
@@ -47,7 +47,7 @@ Here's a checklist for the release process.
 ## Releasing -rc2, ..., -rcN
 
 1. Update CHANGELOG.md by changing rc(N-1) to rcN. Update the changelog list with information from newly merged PRs also.
-2. Update the contrib/pyln package versions: `make update-py-versions NEW_VERSION=<VERSION>`
+2. Update the package versions: `make update-versions NEW_VERSION=<VERSION>`
 3. Add a PR with the rcN.
 4. Tag it `git pull && git tag -s v<VERSION>rcN && git push --tags`
 5. Draft a new `v<VERSION>rcN` pre-release on Github, upload reproducible builds, SHA256SUMS and SHA256SUMS.asc.
@@ -71,9 +71,9 @@ Here's a checklist for the release process.
    - Build reproducible Ubuntu-v18.04, Ubuntu-v20.04, Ubuntu-v22.04 images. Follow [link](https://docs.corelightning.org/docs/repro#building-using-the-builder-image) for manually Building Ubuntu Images.
    - Build Docker images for amd64 and arm64v8. Follow [link](https://docs.corelightning.org/docs/docker-images) for more details on Docker publishing.
    - Create and sign checksums. Follow [link](https://docs.corelightning.org/docs/repro#co-signing-the-release-manifest) for manually signing the release.
-6. The tarballs may be owned by root, so revert ownership if necessary:  
+6. The tarballs may be owned by root, so revert ownership if necessary:
    `sudo chown ${USER}:${USER} *${VERSION}*`
-7. Upload the resulting files to github and save as a draft.  
+7. Upload the resulting files to github and save as a draft.
    (<https://github.com/ElementsProject/lightning/releases/>)
 8. Send `SHA256SUMS` & `SHA256SUMS.asc` files to the rest of the team to check and sign the release.
 9. Team members can verify the release with the help of `build-release.sh`:

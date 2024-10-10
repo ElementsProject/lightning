@@ -726,7 +726,7 @@ clean: obsclean
 
 PYLNS=client proto testing
 # See doc/contribute-to-core-lightning/contributor-workflow.md
-update-py-versions: update-pyln-versions update-clnrest-version update-wss-proxy-version update-poetry-lock
+update-versions: update-pyln-versions update-clnrest-version update-wss-proxy-version update-poetry-lock update-dot-version
 
 update-pyln-versions: $(PYLNS:%=update-pyln-version-%)
 
@@ -753,6 +753,10 @@ update-poetry-lock:
 update-reckless-version:
 	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
 	@sed -i "s/__VERSION__ = '\([.-z]*\)'/__VERSION__ = '$(NEW_VERSION)'/" tools/reckless
+
+update-dot-version:
+	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
+	echo $(NEW_VERSION) > .version
 
 update-mocks: $(ALL_TEST_PROGRAMS:%=update-mocks/%.c)
 
