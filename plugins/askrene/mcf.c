@@ -134,38 +134,7 @@
  * However we propose to scale the prob. cost by a global factor k that
  * translates into the monetization of prob. cost.
  *
- * k/1000, for instance, becomes the equivalent monetary cost
- * of increasing the probability of success by 0.1% for P~100%.
- *
- * The input parameter `prob_cost_factor` in the function `minflow` is defined
- * as the PPM from the delivery amount `T` we are *willing to pay* to increase the
- * prob. of success by 0.1%:
- *
- * 	k_microsat = floor(1000*prob_cost_factor * T_sat)
- *
- * Is this enough to make integer prob. cost per unit flow?
- * For `prob_cost_factor=10`; i.e. we pay 10ppm for increasing the prob. by
- * 0.1%, we get that
- *
- * 	-> any arc with (b-a) > 10000 T, will have zero prob. cost, which is
- * 	reasonable because even if all the flow passes through that arc, we get
- * 	a 1.3 T/(b-a) ~ 0.01% prob. of failure at most.
- *
- * 	-> if (b-a) ~ 10000 T, then the arc will have unit cost, or just that we
- * 	pay 1 microsat for every sat we send through this arc.
- *
- * 	-> it would be desirable to have a high proportional fee when (b-a)~T,
- * 	because prob. of failure start to become very high.
- * 	In this case we get to pay 10000 microsats for every sat.
- *
- * Once `k` is fixed then we can combine the linear prob. and fee costs, both
- * are in monetary units.
- *
- * Note: with costs in microsats, because slopes represent ppm and flows are in
- * sats, then our integer bounds with 64 bits are such that we can move as many
- * as 10'000 BTC without overflow:
- *
- * 	10^6 (max ppm) * 10^8 (sats per BTC) * 10^4 = 10^18
+ * To do this, we scale the mean probability cost to match the median fee.
  *
  * # References
  *
@@ -324,7 +293,7 @@ struct pay_parameters {
 
 	double delay_feefactor;
 	double base_fee_penalty;
-	u32 prob_cost_factor;
+	double k_factor;
 };
 
 /* Representation of the linear MCF network.
@@ -470,7 +439,7 @@ static void linearize_channel(const struct pay_parameters *params,
 
 		cost[i] = params->cost_fraction[i]
 		          *params->amount.millisatoshis /* Raw: linearize_channel */
-		          *params->prob_cost_factor*1.0/(b-a);
+		          *params->k_factor*1.0/(b-a);
 	}
 }
 
@@ -1263,6 +1232,74 @@ get_flow_paths(const tal_t *ctx,
 	return flows;
 }
 
+/* We use Jeff McLintoch's running median here, as a fast approximation */
+static void running_median(double val,
+			   double *median, double *mean)
+{
+	*mean += (val - *mean) * 0.1f;
+	if (val > *median)
+		*median += *mean * 0.01;
+	else if (val < *median)
+		*median -= *mean * 0.01;
+}
+
+static double median_fee(const struct gossmap *gossmap,
+			 double base_fee_penalty,
+			 double delay_feefactor)
+{
+	double median = 0.0, mean = 0.0;
+	struct gossmap_chan *c;
+
+	for (c = gossmap_first_chan(gossmap);
+	     c;
+	     c = gossmap_next_chan(gossmap, c)) {
+		for (int dir = 0; dir < 2; dir++) {
+			running_median(linear_fee_cost(c, dir,
+						       base_fee_penalty,
+						       delay_feefactor),
+				       &median, &mean);
+		}
+	}
+
+	return median;
+}
+
+static double mean_cost_fraction(const double cost_fraction[CHANNEL_PARTS])
+{
+	double area;
+
+	/* cost_fraction
+	 *    ^
+	 *  9 |
+	 *    |                                       #
+	 *    |                                      /
+	 *    |                                     |
+	 *    |                                    /
+	 *    |                                   /
+	 *    |                                  /
+	 *    |                            ----#-
+	 *    |                  --#------/
+	 *    |        ---------/
+	 *    |#------/
+	 *  0 +--------------------+-----------+------+--->
+	 *    0                   0.5         0.8     0.95
+	 *                     Capacity
+	 *
+	 * The mean is simple: calculate the total area and
+	 * divide by the width to get the average height.
+	 */
+	area = 0;
+	for (size_t i = 1; i < CHANNEL_PARTS; i++) {
+		double width = CHANNEL_PIVOTS[i] - CHANNEL_PIVOTS[i-1];
+		/* Square underneath */
+		area += cost_fraction[i-1] * width;
+		/* Triangle on top */
+		area += (cost_fraction[i] - cost_fraction[i-1]) * width / 2;
+	}
+
+	return area / CHANNEL_PIVOTS[CHANNEL_PARTS-1];
+}
+
 // TODO(eduardo): choose some default values for the minflow parameters
 /* eduardo: I think it should be clear that this module deals with linear
  * flows, ie. base fees are not considered. Hence a flow along a path is
@@ -1281,8 +1318,7 @@ struct flow **minflow(const tal_t *ctx,
 		      const struct gossmap_node *target,
 		      struct amount_msat amount,
 		      u32 mu,
-		      double delay_feefactor, double base_fee_penalty,
-		      u32 prob_cost_factor)
+		      double delay_feefactor, double base_fee_penalty)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -1312,7 +1348,8 @@ struct flow **minflow(const tal_t *ctx,
 
 	params->delay_feefactor = delay_feefactor;
 	params->base_fee_penalty = base_fee_penalty;
-	params->prob_cost_factor = prob_cost_factor;
+	params->k_factor = median_fee(rq->gossmap, base_fee_penalty, delay_feefactor)
+		/ mean_cost_fraction(params->cost_fraction);
 
 	// build the uncertainty network with linearization and residual arcs
 	struct linear_network *linear_network= init_linear_network(working_ctx, params);

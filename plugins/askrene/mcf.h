@@ -39,16 +39,6 @@ enum {
  *
  * 	effective_ppm = proportional_fee + base_fee_msat * base_fee_penalty
  *
- * @prob_cost_factor: factor used to monetize the probability cost. It is
- * defined as the number of ppm (parts per million of the total payment) we
- * are willing to pay to improve the probability of success by 0.1%.
- *
- * 	k_microsat = floor(1000*prob_cost_factor * payment_sat)
- *
- * this k is used to compute a prob. cost in units of microsats
- *
- * 	cost(payment) = - k_microsat * log Prob(payment)
- *
  * Return a series of subflows which deliver amount to target, or NULL.
  */
 struct flow **minflow(const tal_t *ctx,
@@ -58,6 +48,5 @@ struct flow **minflow(const tal_t *ctx,
 		      struct amount_msat amount,
 		      u32 mu,
 		      double delay_feefactor,
-		      double base_fee_penalty,
-		      u32 prob_cost_factor);
+		      double base_fee_penalty);
 #endif /* LIGHTNING_PLUGINS_ASKRENE_MCF_H */
