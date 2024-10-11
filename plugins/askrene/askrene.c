@@ -172,21 +172,20 @@ static fp16_t *get_capacities(const tal_t *ctx,
 /* If we're the payer, we don't add delay or fee to our own outgoing
  * channels.  This wouldn't be right if we looped back through ourselves,
  * but we won't. */
-/* FIXME: We could cache this until gossmap changes... */
-static void add_free_source(struct plugin *plugin,
-			    struct gossmap *gossmap,
-			    struct gossmap_localmods *localmods,
-			    const struct node_id *source)
+/* FIXME: We could cache this until gossmap/layer changes... */
+static struct layer *source_free_layer(const tal_t *ctx,
+				       struct gossmap *gossmap,
+				       const struct node_id *source,
+				       struct gossmap_localmods *localmods)
 {
-	/* We apply existing localmods, save up mods we want, then append
-	 * them: it's not safe to modify localmods while they are applied! */
+	/* We apply existing localmods so we see *all* channels */
 	const struct gossmap_node *srcnode;
 	const struct amount_msat zero_base_fee = AMOUNT_MSAT(0);
 	const u16 zero_delay = 0;
 	const u32 zero_prop_fee = 0;
-	struct short_channel_id_dir *scidds
-		= tal_arr(tmpctx, struct short_channel_id_dir, 0);
+	struct layer *layer = new_temp_layer(ctx, "auto.sourcefree");
 
+	/* We apply this so we see any created channels */
 	gossmap_apply_localmods(gossmap, localmods);
 
 	/* If we're not in map, we complain later */
@@ -198,20 +197,14 @@ static void add_free_source(struct plugin *plugin,
 
 		c = gossmap_nth_chan(gossmap, srcnode, i, &scidd.dir);
 		scidd.scid = gossmap_chan_scid(gossmap, c);
-		tal_arr_expand(&scidds, scidd);
+		layer_add_update_channel(layer, &scidd,
+					 NULL, NULL, NULL,
+					 &zero_base_fee, &zero_prop_fee,
+					 &zero_delay);
 	}
 	gossmap_remove_localmods(gossmap, localmods);
 
-	/* Now we can update localmods: we only change fee levels and delay */
-	for (size_t i = 0; i < tal_count(scidds); i++) {
-		if (!gossmap_local_updatechan(localmods,
-					      &scidds[i],
-					      NULL, NULL, NULL,
-					      &zero_base_fee, &zero_prop_fee,
-					      &zero_delay))
-			plugin_err(plugin, "Could not zero fee/delay on %s",
-				   fmt_short_channel_id_dir(tmpctx, &scidds[i]));
-	}
+	return layer;
 }
 
 struct amount_msat get_additional_per_htlc_cost(const struct route_query *rq,
@@ -319,7 +312,8 @@ static const char *get_routes(const tal_t *ctx,
 			} else {
 				/* Handled below, after other layers */
 				assert(streq(layers[i], "auto.sourcefree"));
-				continue;
+				plugin_log(rq->plugin, LOG_DBG, "Adding auto.sourcefree");
+				l = source_free_layer(layers, askrene->gossmap, source, localmods);
 			}
 		}
 
@@ -331,10 +325,6 @@ static const char *get_routes(const tal_t *ctx,
 		 * override them (incl local channels) */
 		layer_clear_overridden_capacities(l, askrene->gossmap, rq->capacities);
 	}
-
-	/* This also looks into localmods, to zero them */
-	if (have_layer(layers, "auto.sourcefree"))
-		add_free_source(rq->plugin, askrene->gossmap, localmods, source);
 
 	/* Clear scids with reservations, too, so we don't have to look up
 	 * all the time! */
