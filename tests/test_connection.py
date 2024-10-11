@@ -4498,13 +4498,19 @@ def test_reconnect_no_additional_transient_failure(node_factory, bitcoind):
 
 @pytest.mark.xfail(strict=True)
 def test_offline(node_factory):
-    # if get_node starts it, it'll expect an address, so do it manually.
-    l1 = node_factory.get_node(options={"offline": None}, start=False)
-    l1.daemon.start()
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
 
-    # we expect it to log offline mode an not to create any listener
+    # restart in offline
+    l1.stop()
+    l1.daemon.opts['offline'] = None
+    l1.start()
+
+    # we expect it to log offline mode
     assert l1.daemon.is_in_log("Started in offline mode!")
+    # not to create any listener
     assert not l1.daemon.is_in_log("connectd: Created listener on")
+    # and not to allow connections
+    assert not l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
 
 def test_last_stable_connection(node_factory):

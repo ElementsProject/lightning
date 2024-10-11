@@ -1008,7 +1008,8 @@ class LightningNode(object):
         # Cache `getinfo`, we'll be using it a lot
         self.info = self.rpc.getinfo()
         # This shortcut is sufficient for our simple tests.
-        self.port = self.info['binding'][0]['port']
+        if 'binding' in self.info:
+            self.port = self.info['binding'][0]['port']
         self.gossip_store.open()  # Reopen the gossip_store now that we should have one
         if wait_for_bitcoind_sync and not self.is_synced_with_bitcoin(self.info):
             wait_for(lambda: self.is_synced_with_bitcoin())
