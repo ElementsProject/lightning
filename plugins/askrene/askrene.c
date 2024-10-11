@@ -285,7 +285,7 @@ static const char *get_routes(const tal_t *ctx,
 	const struct gossmap_node *srcnode, *dstnode;
 	double delay_feefactor;
 	double base_fee_penalty;
-	u32 prob_cost_factor, mu;
+	u32 mu;
 	const char *ret;
 
 	if (gossmap_refresh(askrene->gossmap, NULL)) {
@@ -351,22 +351,10 @@ static const char *get_routes(const tal_t *ctx,
 	delay_feefactor = 1.0/1000000;
 	base_fee_penalty = 10.0;
 
-	/* From mcf.c: The input parameter `prob_cost_factor` in the function
-	 * `minflow` is defined as the PPM from the delivery amount `T` we are
-	 * *willing to pay* to increase the prob. of success by 0.1% */
-
-	/* This value is somewhat implied by our fee budget: say we would pay
-	 * the entire budget for 100% probability, that means prob_cost_factor
-	 * is (fee / amount) / 1000, or in PPM: (fee / amount) * 1000 */
-	if (amount_msat_is_zero(amount))
-		prob_cost_factor = 0;
-	else
-		prob_cost_factor = amount_msat_ratio(maxfee, amount) * 1000;
-
 	/* First up, don't care about fees.   */
 	mu = 0;
 	flows = minflow(rq, rq, srcnode, dstnode, amount,
-			mu, delay_feefactor, base_fee_penalty, prob_cost_factor);
+			mu, delay_feefactor, base_fee_penalty);
 	if (!flows) {
 		ret = explain_failure(ctx, rq, srcnode, dstnode, amount);
 		goto fail;
@@ -386,7 +374,7 @@ static const char *get_routes(const tal_t *ctx,
 		       "The worst flow delay is %"PRIu64" (> %i), retrying with delay_feefactor %f...",
 		       flows_worst_delay(flows), 2016 - finalcltv, delay_feefactor);
 		flows = minflow(rq, rq, srcnode, dstnode, amount,
-				mu, delay_feefactor, base_fee_penalty, prob_cost_factor);
+				mu, delay_feefactor, base_fee_penalty);
 		if (!flows || delay_feefactor > 10) {
 			ret = rq_log(ctx, rq, LOG_UNUSUAL,
 				     "Could not find route without excessive delays");
@@ -404,8 +392,8 @@ too_expensive:
 		       fmt_amount_msat(tmpctx, maxfee),
 		       mu);
 		flows = minflow(rq, rq, srcnode, dstnode, amount,
-				mu, delay_feefactor, base_fee_penalty, prob_cost_factor);
-		if (!flows || mu == 100) {
+				mu > 100 ? 100 : mu, delay_feefactor, base_fee_penalty);
+		if (!flows || mu >= 100) {
 			ret = rq_log(ctx, rq, LOG_UNUSUAL,
 				     "Could not find route without excessive cost");
 			goto fail;

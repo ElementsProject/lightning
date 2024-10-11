@@ -134,38 +134,7 @@
  * However we propose to scale the prob. cost by a global factor k that
  * translates into the monetization of prob. cost.
  *
- * k/1000, for instance, becomes the equivalent monetary cost
- * of increasing the probability of success by 0.1% for P~100%.
- *
- * The input parameter `prob_cost_factor` in the function `minflow` is defined
- * as the PPM from the delivery amount `T` we are *willing to pay* to increase the
- * prob. of success by 0.1%:
- *
- * 	k_microsat = floor(1000*prob_cost_factor * T_sat)
- *
- * Is this enough to make integer prob. cost per unit flow?
- * For `prob_cost_factor=10`; i.e. we pay 10ppm for increasing the prob. by
- * 0.1%, we get that
- *
- * 	-> any arc with (b-a) > 10000 T, will have zero prob. cost, which is
- * 	reasonable because even if all the flow passes through that arc, we get
- * 	a 1.3 T/(b-a) ~ 0.01% prob. of failure at most.
- *
- * 	-> if (b-a) ~ 10000 T, then the arc will have unit cost, or just that we
- * 	pay 1 microsat for every sat we send through this arc.
- *
- * 	-> it would be desirable to have a high proportional fee when (b-a)~T,
- * 	because prob. of failure start to become very high.
- * 	In this case we get to pay 10000 microsats for every sat.
- *
- * Once `k` is fixed then we can combine the linear prob. and fee costs, both
- * are in monetary units.
- *
- * Note: with costs in microsats, because slopes represent ppm and flows are in
- * sats, then our integer bounds with 64 bits are such that we can move as many
- * as 10'000 BTC without overflow:
- *
- * 	10^6 (max ppm) * 10^8 (sats per BTC) * 10^4 = 10^18
+ * This was chosen empirically from examination of typical network values.
  *
  * # References
  *
@@ -324,7 +293,7 @@ struct pay_parameters {
 
 	double delay_feefactor;
 	double base_fee_penalty;
-	u32 prob_cost_factor;
+	double k_factor;
 };
 
 /* Representation of the linear MCF network.
@@ -470,7 +439,7 @@ static void linearize_channel(const struct pay_parameters *params,
 
 		cost[i] = params->cost_fraction[i]
 		          *params->amount.millisatoshis /* Raw: linearize_channel */
-		          *params->prob_cost_factor*1.0/(b-a);
+		          *params->k_factor/(b-a);
 	}
 }
 
@@ -561,17 +530,13 @@ static void linear_network_add_adjacenct_arc(
  *  use `base_fee_penalty` to weight the base fee and `delay_feefactor` to
  *  weight the CLTV delay.
  *  */
-static s64 linear_fee_cost(
-		const struct gossmap_chan *c,
-		const int dir,
-		double base_fee_penalty,
-		double delay_feefactor)
+static s64 linear_fee_cost(u32 base_fee, u32 proportional_fee, u16 cltv_delta,
+			   double base_fee_penalty,
+			   double delay_feefactor)
 {
-	assert(c);
-	assert(dir==0 || dir==1);
-	s64 pfee = c->half[dir].proportional_fee,
-	    bfee = c->half[dir].base_fee,
-	    delay = c->half[dir].delay;
+	s64 pfee = proportional_fee,
+	    bfee = base_fee,
+	    delay = cltv_delta;
 
 	return pfee + bfee* base_fee_penalty+ delay*delay_feefactor;
 }
@@ -644,9 +609,12 @@ init_linear_network(const tal_t *ctx, const struct pay_parameters *params)
 			// that are outgoing to `node`
 			linearize_channel(params, c, half, capacity, prob_cost);
 
-			const s64 fee_cost = linear_fee_cost(c,half,
-						params->base_fee_penalty,
-						params->delay_feefactor);
+			const s64 fee_cost = linear_fee_cost(
+				c->half[half].base_fee,
+				c->half[half].proportional_fee,
+				c->half[half].delay,
+				params->base_fee_penalty,
+				params->delay_feefactor);
 
 			// let's subscribe the 4 parts of the channel direction
 			// (c,half), the dual of these guys will be subscribed
@@ -1281,8 +1249,7 @@ struct flow **minflow(const tal_t *ctx,
 		      const struct gossmap_node *target,
 		      struct amount_msat amount,
 		      u32 mu,
-		      double delay_feefactor, double base_fee_penalty,
-		      u32 prob_cost_factor)
+		      double delay_feefactor, double base_fee_penalty)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -1312,7 +1279,7 @@ struct flow **minflow(const tal_t *ctx,
 
 	params->delay_feefactor = delay_feefactor;
 	params->base_fee_penalty = base_fee_penalty;
-	params->prob_cost_factor = prob_cost_factor;
+	params->k_factor = 8.0;
 
 	// build the uncertainty network with linearization and residual arcs
 	struct linear_network *linear_network= init_linear_network(working_ctx, params);
