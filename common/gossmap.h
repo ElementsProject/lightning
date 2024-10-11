@@ -222,8 +222,7 @@ u8 *gossmap_chan_get_update(const tal_t *ctx,
 bool gossmap_scidd_pubkey(struct gossmap *gossmap,
 			  struct sciddir_or_pubkey *sciddpk);
 
-/* Returns details from channel_update (must be gossmap_chan_set, and
- * does not work for local_updatechan)! */
+/* Returns details from channel_update (must be gossmap_chan_set)! */
 void gossmap_chan_get_update_details(const struct gossmap *map,
 				     const struct gossmap_chan *chan,
 				     int dir,

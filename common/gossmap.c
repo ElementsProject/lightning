@@ -82,8 +82,10 @@ struct gossmap {
 	/* Linked list of freed ones, if any. */
 	u32 freed_nodes, freed_chans;
 
-	/* local messages, if any. */
-	const u8 *local;
+	/* local channel_announce messages, if any. */
+	const u8 *local_announces;
+	/* local channel_update messages, if any. */
+	u8 *local_updates;
 
 	/* Callbacks for different events: return false to fail. */
 	void (*cupdate_fail)(struct gossmap *map,
@@ -104,10 +106,17 @@ struct gossmap {
 static void map_copy(const struct gossmap *map, u64 offset,
 		     void *dst, size_t len)
 {
+	/* After mmap, we place local channel_announcements then channel_updates */
 	if (offset >= map->map_size) {
-		u64 localoff = offset - map->map_size;
-		assert(localoff + len <= tal_bytelen(map->local));
-		memcpy(dst, map->local + localoff, len);
+		u64 localannoff = offset - map->map_size;
+		if (localannoff < tal_bytelen(map->local_announces)) {
+			assert(localannoff + len <= tal_bytelen(map->local_announces));
+			memcpy(dst, map->local_announces + localannoff, len);
+		} else {
+			u64 localchanoff = localannoff - tal_bytelen(map->local_announces);
+			assert(localchanoff + len <= tal_bytelen(map->local_updates));
+			memcpy(dst, map->local_updates + localchanoff, len);
+		}
 	} else {
 		assert(offset + len <= map->map_size);
 		if (map->mmap)
@@ -508,6 +517,61 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
 	return chan;
 }
 
+/* Does not set hc->nodeidx! */
+static void fill_from_update(struct gossmap *map,
+			     struct short_channel_id_dir *scidd,
+			     struct half_chan *hc,
+			     u64 cupdate_off,
+			     void (*cupdate_fail)(struct gossmap *map,
+						  const struct short_channel_id_dir *scidd,
+						  u16 cltv_expiry_delta,
+						  u32 fee_base_msat,
+						  u32 fee_proportional_millionths,
+						  void *cb_arg),
+			     void *cb_arg)
+{
+	/* Note that first two bytes are message type */
+	const u64 scid_off = cupdate_off + 2 + (64 + 32);
+	const u64 message_flags_off = scid_off + 8 + 4;
+	const u64 channel_flags_off = message_flags_off + 1;
+	const u64 cltv_expiry_delta_off = channel_flags_off + 1;
+	const u64 htlc_minimum_off = cltv_expiry_delta_off + 2;
+	const u64 fee_base_off = htlc_minimum_off + 8;
+	const u64 fee_prop_off = fee_base_off + 4;
+	const u64 htlc_maximum_off = fee_prop_off + 4;
+	u8 chanflags;
+	u32 base_fee, proportional_fee;
+	u16 delay;
+
+	/* We round this *down*, since too-low min is more conservative */
+	hc->htlc_min = u64_to_fp16(map_be64(map, htlc_minimum_off), false);
+	hc->htlc_max = u64_to_fp16(map_be64(map, htlc_maximum_off), true);
+
+	scidd->scid.u64 = map_be64(map, scid_off);
+	chanflags = map_u8(map, channel_flags_off);
+	scidd->dir = (chanflags & ROUTING_FLAGS_DIRECTION);
+	hc->enabled = !(chanflags & ROUTING_FLAGS_DISABLED);
+	base_fee = map_be32(map, fee_base_off);
+	proportional_fee = map_be32(map, fee_prop_off);
+	delay = map_be16(map, cltv_expiry_delta_off);
+
+	hc->base_fee = base_fee;
+	hc->proportional_fee = proportional_fee;
+	hc->delay = delay;
+
+	/* Check they fit: we turn off if not, call optional callback. */
+	if (hc->base_fee != base_fee
+	    || hc->proportional_fee != proportional_fee
+	    || hc->delay != delay) {
+		hc->htlc_max = 0;
+		hc->enabled = false;
+		if (cupdate_fail)
+			cupdate_fail(map, scidd,
+				     delay, base_fee, proportional_fee,
+				     cb_arg);
+	}
+}
+
 /* BOLT #7:
  * 1. type: 258 (`channel_update`)
  * 2. data:
@@ -525,58 +589,21 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
  */
 static void update_channel(struct gossmap *map, u64 cupdate_off)
 {
-	/* Note that first two bytes are message type */
-	const u64 scid_off = cupdate_off + 2 + (64 + 32);
-	const u64 message_flags_off = scid_off + 8 + 4;
-	const u64 channel_flags_off = message_flags_off + 1;
-	const u64 cltv_expiry_delta_off = channel_flags_off + 1;
-	const u64 htlc_minimum_off = cltv_expiry_delta_off + 2;
-	const u64 fee_base_off = htlc_minimum_off + 8;
-	const u64 fee_prop_off = fee_base_off + 4;
-	const u64 htlc_maximum_off = fee_prop_off + 4;
 	struct short_channel_id_dir scidd;
 	struct gossmap_chan *chan;
 	struct half_chan hc;
-	u8 chanflags;
-	u32 base_fee, proportional_fee;
-	u16 delay;
 
-	scidd.scid.u64 = map_be64(map, scid_off);
+	fill_from_update(map, &scidd, &hc, cupdate_off,
+			 map->cupdate_fail, map->cb_arg);
 	chan = gossmap_find_chan(map, &scidd.scid);
 	/* This can happen if channel gets deleted! */
 	if (!chan)
 		return;
 
-	/* We round this *down*, since too-low min is more conservative */
-	hc.htlc_min = u64_to_fp16(map_be64(map, htlc_minimum_off), false);
-	hc.htlc_max = u64_to_fp16(map_be64(map, htlc_maximum_off), true);
-
-	chanflags = map_u8(map, channel_flags_off);
-	hc.enabled = !(chanflags & ROUTING_FLAGS_DISABLED);
-	scidd.dir = (chanflags & ROUTING_FLAGS_DIRECTION);
-	base_fee = map_be32(map, fee_base_off);
-	proportional_fee = map_be32(map, fee_prop_off);
-	delay = map_be16(map, cltv_expiry_delta_off);
-
-	hc.base_fee = base_fee;
-	hc.proportional_fee = proportional_fee;
-	hc.delay = delay;
-	/* Check they fit: we turn off if not. */
-	if (hc.base_fee != base_fee
-	    || hc.proportional_fee != proportional_fee
-	    || hc.delay != delay) {
-		if (map->cupdate_fail)
-			map->cupdate_fail(map, &scidd,
-					  delay, base_fee, proportional_fee,
-					  map->cb_arg);
-		hc.htlc_max = 0;
-		hc.enabled = false;
-	}
-
 	/* Preserve this */
-	hc.nodeidx = chan->half[chanflags & 1].nodeidx;
-	chan->half[chanflags & 1] = hc;
-	chan->cupdate_off[chanflags & 1] = cupdate_off;
+	hc.nodeidx = chan->half[scidd.dir].nodeidx;
+	chan->half[scidd.dir] = hc;
+	chan->cupdate_off[scidd.dir] = cupdate_off;
 }
 
 static void remove_channel_by_deletemsg(struct gossmap *map, u64 del_off)
@@ -710,7 +737,8 @@ static bool map_catchup(struct gossmap *map, bool *changed)
 static bool load_gossip_store(struct gossmap *map)
 {
 	map->map_size = lseek(map->fd, 0, SEEK_END);
-	map->local = NULL;
+	map->local_announces = NULL;
+	map->local_updates = NULL;
 
 	/* gossipd uses pwritev(), which is not consistent with mmap on OpenBSD! */
 #ifndef __OpenBSD__
@@ -772,7 +800,7 @@ struct localmod {
 	/* Non-NULL values mean change existing ones */
 	struct localmod_changes {
 		const bool *enabled;
-		const fp16_t *htlc_min, *htlc_max;
+		const struct amount_msat *htlc_min, *htlc_max;
 		const u32 *base_fee, *proportional_fee;
 		const u16 *delay;
 	} changes[2];
@@ -791,8 +819,8 @@ static bool localmod_is_local_chan(const struct localmod *mod)
 
 struct gossmap_localmods {
 	struct localmod *mods;
-	/* This is the local array to be used by the gossmap */
-	u8 *local;
+	/* This is the local announcement to be used by the gossmap */
+	u8 *local_announces;
 };
 
 struct gossmap_localmods *gossmap_localmods_new(const tal_t *ctx)
@@ -801,18 +829,17 @@ struct gossmap_localmods *gossmap_localmods_new(const tal_t *ctx)
 
 	localmods = tal(ctx, struct gossmap_localmods);
 	localmods->mods = tal_arr(localmods, struct localmod, 0);
-	localmods->local = tal_arr(localmods, u8, 0);
+	localmods->local_announces = tal_arr(localmods, u8, 0);
 
 	return localmods;
 }
 
 /* Create space at end of local map, return offset it was added at. */
-static size_t insert_local_space(struct gossmap_localmods *localmods,
-				 size_t msglen)
+static size_t insert_local_space(u8 **localspace, size_t msglen)
 {
-	size_t oldlen = tal_bytelen(localmods->local);
+	size_t oldlen = tal_bytelen(*localspace);
 
-	tal_resize(&localmods->local, oldlen + msglen);
+	tal_resize(localspace, oldlen + msglen);
 	return oldlen;
 }
 
@@ -856,13 +883,13 @@ bool gossmap_local_addchan(struct gossmap_localmods *localmods,
 	memset(&mod.changes, 0, sizeof(mod.changes));
 
 	/* We create amount, then fake local channel_announcement */
-	off = insert_local_space(localmods,
+	off = insert_local_space(&localmods->local_announces,
 				 8 + 2 + 64 * 4 + 2 + tal_bytelen(features)
 				 + 32 + 8 + 33 + 33);
 
 	/* Write amount */
 	be64 = be64_to_cpu(capacity.millisatoshis / 1000 /* Raw: gossmap */);
-	memcpy(localmods->local + off, &be64, sizeof(be64));
+	memcpy(localmods->local_announces + off, &be64, sizeof(be64));
 	off += sizeof(be64);
 
 	/* From here is a channel-announcment, with only the fields we use */
@@ -870,7 +897,7 @@ bool gossmap_local_addchan(struct gossmap_localmods *localmods,
 
 	/* Set type to be kosher. */
 	be16 = CPU_TO_BE16(WIRE_CHANNEL_ANNOUNCEMENT);
-	memcpy(localmods->local + off, &be16, sizeof(be16));
+	memcpy(localmods->local_announces + off, &be16, sizeof(be16));
 	off += sizeof(be16);
 
 	/* Skip sigs */
@@ -878,11 +905,11 @@ bool gossmap_local_addchan(struct gossmap_localmods *localmods,
 
 	/* Set length and features */
 	be16 = cpu_to_be16(tal_bytelen(features));
-	memcpy(localmods->local + off, &be16, sizeof(be16));
+	memcpy(localmods->local_announces + off, &be16, sizeof(be16));
 	off += sizeof(be16);
 	/* Damn you, C committee! */
 	if (features)
-		memcpy(localmods->local + off, features, tal_bytelen(features));
+		memcpy(localmods->local_announces + off, features, tal_bytelen(features));
 	off += tal_bytelen(features);
 
 	/* Skip chain_hash */
@@ -890,16 +917,16 @@ bool gossmap_local_addchan(struct gossmap_localmods *localmods,
 
 	/* Set scid */
 	be64 = be64_to_cpu(scid.u64);
-	memcpy(localmods->local + off, &be64, sizeof(be64));
+	memcpy(localmods->local_announces + off, &be64, sizeof(be64));
 	off += sizeof(be64);
 
 	/* set node_ids */
-	memcpy(localmods->local + off, n1->k, sizeof(n1->k));
+	memcpy(localmods->local_announces + off, n1->k, sizeof(n1->k));
 	off += sizeof(n1->k);
-	memcpy(localmods->local + off, n2->k, sizeof(n2->k));
+	memcpy(localmods->local_announces + off, n2->k, sizeof(n2->k));
 	off += sizeof(n2->k);
 
-	assert(off == tal_bytelen(localmods->local));
+	assert(off == tal_bytelen(localmods->local_announces));
 
 	tal_arr_expand(&localmods->mods, mod);
 	return true;
@@ -954,16 +981,12 @@ bool gossmap_local_updatechan(struct gossmap_localmods *localmods,
 		lc->enabled = tal_dup(localmods, bool, enabled);
 	}
 	if (htlc_min) {
-		fp16_t min = u64_to_fp16(htlc_min->millisatoshis, /* Raw: to fp16 */
-					 false);
 		tal_free(lc->htlc_min);
-		lc->htlc_min = tal_dup(localmods, fp16_t, &min);
+		lc->htlc_min = tal_dup(localmods, struct amount_msat, htlc_min);
 	}
 	if (htlc_max) {
-		fp16_t max = u64_to_fp16(htlc_max->millisatoshis, /* Raw: to fp16 */
-					 true);
 		tal_free(lc->htlc_max);
-		lc->htlc_max = tal_dup(localmods, fp16_t, &max);
+		lc->htlc_max = tal_dup(localmods, struct amount_msat, htlc_max);
 	}
 	if (base_fee) {
 		u32 base_as_u32 = base_fee->millisatoshis; /* Raw: localmod */
@@ -1005,8 +1028,9 @@ void gossmap_apply_localmods(struct gossmap *map,
 {
 	size_t n = tal_count(localmods->mods);
 
-	assert(!map->local);
-	map->local = localmods->local;
+	assert(!map->local_announces);
+	map->local_announces = localmods->local_announces;
+	map->local_updates = tal_arr(map, u8, 0);
 
 	for (size_t i = 0; i < n; i++) {
 		struct localmod *mod = &localmods->mods[i];
@@ -1025,47 +1049,87 @@ void gossmap_apply_localmods(struct gossmap *map,
 
 		/* Save old, update any fields they wanted to change */
 		for (size_t h = 0; h < 2; h++) {
-			bool was_set, all_changed;
 			const struct localmod_changes *c = &mod->changes[h];
+			/* Default values all zero, disabled */
+			u32 timestamp = 0;
+			u8 message_flags = ROUTING_OPT_HTLC_MAX_MSAT, channel_flags = h | ROUTING_FLAGS_DISABLED;
+			u16 cltv_expiry_delta = 0;
+			u32 fee_base_msat = 0, fee_proportional_millionths = 0;
+			struct amount_msat htlc_minimum_msat = AMOUNT_MSAT(0),
+				htlc_maximum_msat = AMOUNT_MSAT(0);
+			const u8 *cupdatemsg;
+			secp256k1_ecdsa_signature fake_signature;
+			struct bitcoin_blkid fake_blkid;
+			struct short_channel_id_dir scidd;
+			u64 off;
+			bool any_set = false;
+
 			/* Save existing versions */
 			mod->orig[h] = chan->half[h];
 			mod->orig_cupdate_off[h] = chan->cupdate_off[h];
 
-			was_set = gossmap_chan_set(chan, h);
+			/* If we have a previous one, base it on that! */
+			if (gossmap_chan_set(chan, h)) {
+				gossmap_chan_get_update_details(map, chan, h,
+								&timestamp,
+								&message_flags,
+								&channel_flags,
+								&cltv_expiry_delta,
+								&fee_base_msat,
+								&fee_proportional_millionths,
+								&htlc_minimum_msat,
+								&htlc_maximum_msat);
+				any_set = true;
+			}
 
 			/* Override specified fields. */
-			all_changed = true;
-			if (c->enabled)
-				chan->half[h].enabled = *c->enabled;
-			else
-				all_changed = false;
-			if (c->htlc_min)
-				chan->half[h].htlc_min = *c->htlc_min;
-			else
-				all_changed = false;
-			if (c->htlc_max)
-				chan->half[h].htlc_max = *c->htlc_max;
-			else
-				all_changed = false;
-			if (c->base_fee)
-				chan->half[h].base_fee = *c->base_fee;
-			else
-				all_changed = false;
-			if (c->proportional_fee)
-				chan->half[h].proportional_fee = *c->proportional_fee;
-			else
-				all_changed = false;
-			if (c->delay)
-				chan->half[h].delay = *c->delay;
-			else
-				all_changed = false;
+			if (c->enabled) {
+				any_set = true;
+				if (!*c->enabled)
+					channel_flags |= ROUTING_FLAGS_DISABLED;
+				else
+					channel_flags &= ~ROUTING_FLAGS_DISABLED;
+			}
+			if (c->htlc_min) {
+				any_set = true;
+				htlc_minimum_msat = *c->htlc_min;
+			}
+			if (c->htlc_max) {
+				any_set = true;
+				htlc_maximum_msat = *c->htlc_max;
+			}
+			if (c->base_fee) {
+				any_set = true;
+				fee_base_msat = *c->base_fee;
+			}
+			if (c->proportional_fee) {
+				any_set = true;
+				fee_proportional_millionths = *c->proportional_fee;
+			}
+			if (c->delay) {
+				any_set = true;
+				cltv_expiry_delta = *c->delay;
+			}
 
-			/* Is it all defined?
-			 * This controls gossmap_chan_set(chan, h); */
-			if (was_set || all_changed)
-				chan->cupdate_off[h] = 0xFFFFFFFFFFFFFFFFULL;
-			else
-				chan->cupdate_off[h] = 0;
+			/* Leave unset */
+			if (!any_set)
+				continue;
+
+			/* We create fake local channel_update */
+			memset(&fake_signature, 0, sizeof(fake_signature));
+			memset(&fake_blkid, 0, sizeof(fake_blkid));
+			cupdatemsg = towire_channel_update(tmpctx, &fake_signature, &fake_blkid, mod->scid,
+							   timestamp, message_flags, channel_flags, cltv_expiry_delta,
+							   htlc_minimum_msat, fee_base_msat, fee_proportional_millionths,
+							   htlc_maximum_msat);
+			off = insert_local_space(&map->local_updates, tal_bytelen(cupdatemsg));
+			memcpy(map->local_updates + off, cupdatemsg, tal_bytelen(cupdatemsg));
+			chan->cupdate_off[h] = map->map_size + tal_bytelen(map->local_announces) + off;
+			fill_from_update(map, &scidd, &chan->half[h], chan->cupdate_off[h], NULL, NULL);
+
+			/* We wrote the right update, correct? */
+			assert(short_channel_id_eq(scidd.scid, mod->scid));
+			assert(scidd.dir == h);
 		}
 	}
 }
@@ -1075,7 +1139,7 @@ void gossmap_remove_localmods(struct gossmap *map,
 {
 	size_t n = tal_count(localmods->mods);
 
-	assert(map->local == localmods->local);
+	assert(map->local_announces == localmods->local_announces);
 
 	for (size_t i = 0; i < n; i++) {
 		const struct localmod *mod = &localmods->mods[i];
@@ -1096,15 +1160,16 @@ void gossmap_remove_localmods(struct gossmap *map,
 			}
 		}
 	}
-	map->local = NULL;
+	map->local_announces = NULL;
+	map->local_updates = tal_free(map->local_updates);
 }
 
 bool gossmap_refresh_mayfail(struct gossmap *map, bool *updated)
 {
 	off_t len;
 
-	/* You must remove local updates before this. */
-	assert(!map->local);
+	/* You must remove local modifications before this. */
+	assert(!map->local_announces);
 
 	/* If file has gotten larger, try rereading */
 	len = lseek(map->fd, 0, SEEK_END);
@@ -1503,8 +1568,6 @@ void gossmap_chan_get_update_details(const struct gossmap *map,
 	const u64 htlc_maximum_off = fee_prop_off + 4;
 
 	assert(gossmap_chan_set(chan, dir));
-	/* Not allowed on local updates! */
-	assert(chan->cann_off < map->map_size);
 
 	if (timestamp)
 		*timestamp = map_be32(map, timestamp_off);
