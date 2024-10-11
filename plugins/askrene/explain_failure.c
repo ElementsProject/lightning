@@ -236,7 +236,8 @@ const char *explain_failure(const tal_t *ctx,
 	hops = route_from_dijkstra(tmpctx, rq->gossmap, dij, srcnode,
 				   AMOUNT_MSAT(0), 0);
 	if (!hops)
-		return tal_fmt(ctx, "There is no connection between source and destination at all");
+		return rq_log(ctx, rq, LOG_INFORM,
+			      "There is no connection between source and destination at all");
 
 	/* Description of shortest path */
 	path = tal_strdup(tmpctx, "");
@@ -276,15 +277,15 @@ const char *explain_failure(const tal_t *ctx,
 		else
 			continue;
 
-		return tal_fmt(ctx,
-			       NO_USABLE_PATHS_STRING
-			       "  The shortest path is %s, but %s %s",
-			       path,
-			       fmt_short_channel_id_dir(tmpctx, &scidd),
-			       explanation);
+		return rq_log(ctx, rq, LOG_INFORM,
+			      NO_USABLE_PATHS_STRING
+			      "  The shortest path is %s, but %s %s",
+			      path,
+			      fmt_short_channel_id_dir(tmpctx, &scidd),
+			      explanation);
 	}
 
-	return tal_fmt(ctx,
+	return rq_log(ctx, rq, LOG_BROKEN,
 		       "Actually, I'm not sure why we didn't find the"
 		       " obvious route %s: perhaps this is a bug?",
 		       path);
