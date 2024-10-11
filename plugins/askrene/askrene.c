@@ -395,6 +395,7 @@ static const char *get_routes(const tal_t *ctx,
 	}
 
 	/* Too expensive? */
+too_expensive:
 	while (amount_msat_greater(flowset_fee(rq->plugin, flows), maxfee)) {
 		mu += 10;
 		rq_log(tmpctx, rq, LOG_UNUSUAL,
@@ -424,6 +425,13 @@ static const char *get_routes(const tal_t *ctx,
 	ret = refine_with_fees_and_limits(ctx, rq, amount, &flows);
 	if (ret)
 		goto fail;
+
+	/* Again, a tiny corner case: refine step can make us exceed maxfee */
+	if (amount_msat_greater(flowset_fee(rq->plugin, flows), maxfee)) {
+		rq_log(tmpctx, rq, LOG_UNUSUAL,
+		       "After final refinement, fee was excessive: retrying");
+		goto too_expensive;
+	}
 
 	/* Convert back into routes, with delay and other information fixed */
 	*routes = tal_arr(ctx, struct route *, tal_count(flows));

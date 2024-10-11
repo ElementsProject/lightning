@@ -861,7 +861,7 @@ def test_min_htlc(node_factory, bitcoind):
                                              GenChannel(0, 1, capacity_sats=20_000)])
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
-    with pytest.raises(RpcError, match="Amount 1000msat below minimum across 0x1x0/1"):
+    with pytest.raises(RpcError, match="Amount 1000msat below minimum 2000msat across 0x1x0/1"):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
                          amount_msat=1000,
