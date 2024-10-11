@@ -225,6 +225,50 @@ struct amount_msat get_additional_per_htlc_cost(const struct route_query *rq,
 		return AMOUNT_MSAT(0);
 }
 
+const char *rq_log(const tal_t *ctx,
+		   const struct route_query *rq,
+		   enum log_level level,
+		   const char *fmt,
+		   ...)
+{
+	va_list args;
+	const char *msg;
+
+	va_start(args, fmt);
+	msg = tal_vfmt(ctx, fmt, args);
+	va_end(args);
+
+	plugin_notify_message(rq->cmd, level, "%s", msg);
+
+	/* Notifications already get logged at debug. Otherwise reduce
+	 * severity. */
+	if (level != LOG_DBG)
+		plugin_log(rq->plugin,
+			   level == LOG_BROKEN ? level : level - 1,
+			   "%s: %s", rq->cmd->id, msg);
+	return msg;
+}
+
+static const char *fmt_route(const tal_t *ctx,
+			     const struct route *route,
+			     struct amount_msat delivers,
+			     u32 final_cltv)
+{
+	char *str = tal_strdup(ctx, "");
+
+	for (size_t i = 0; i < tal_count(route->hops); i++) {
+		struct short_channel_id_dir scidd;
+		scidd.scid = route->hops[i].scid;
+		scidd.dir = route->hops[i].direction;
+		tal_append_fmt(&str, "%s/%u %s -> ",
+			       fmt_amount_msat(tmpctx, route->hops[i].amount),
+			       route->hops[i].delay,
+			       fmt_short_channel_id_dir(tmpctx, &scidd));
+	}
+	tal_append_fmt(&str, "%s/%u",
+		       fmt_amount_msat(tmpctx, delivers), final_cltv);
+	return str;
+}
 
 /* Returns an error message, or sets *routes */
 static const char *get_routes(const tal_t *ctx,
@@ -300,13 +344,17 @@ static const char *get_routes(const tal_t *ctx,
 
 	srcnode = gossmap_find_node(askrene->gossmap, source);
 	if (!srcnode) {
-		ret = tal_fmt(ctx, "Unknown source node %s", fmt_node_id(tmpctx, source));
+		ret = rq_log(ctx, rq, LOG_INFORM,
+			     "Unknown source node %s",
+			     fmt_node_id(tmpctx, source));
 		goto fail;
 	}
 
 	dstnode = gossmap_find_node(askrene->gossmap, dest);
 	if (!dstnode) {
-		ret = tal_fmt(ctx, "Unknown destination node %s", fmt_node_id(tmpctx, dest));
+		ret = rq_log(ctx, rq, LOG_INFORM,
+			     "Unknown destination node %s",
+			     fmt_node_id(tmpctx, dest));
 		goto fail;
 	}
 
@@ -344,10 +392,14 @@ static const char *get_routes(const tal_t *ctx,
 	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
 	while (finalcltv + flows_worst_delay(flows) > 2016) {
 		delay_feefactor *= 2;
+		rq_log(tmpctx, rq, LOG_UNUSUAL,
+		       "The worst flow delay is %"PRIu64" (> %i), retrying with delay_feefactor %f...",
+		       flows_worst_delay(flows), 2016 - finalcltv, delay_feefactor);
 		flows = minflow(rq, rq, srcnode, dstnode, amount,
 				mu, delay_feefactor, base_fee_penalty, prob_cost_factor);
 		if (!flows || delay_feefactor > 10) {
-			ret = tal_fmt(ctx, "Could not find route without excessive delays");
+			ret = rq_log(ctx, rq, LOG_UNUSUAL,
+				     "Could not find route without excessive delays");
 			goto fail;
 		}
 	}
@@ -355,16 +407,23 @@ static const char *get_routes(const tal_t *ctx,
 	/* Too expensive? */
 	while (amount_msat_greater(flowset_fee(rq->plugin, flows), maxfee)) {
 		mu += 10;
+		rq_log(tmpctx, rq, LOG_UNUSUAL,
+		       "The flows had a fee of %s, greater than max of %s, retrying with mu of %u%%...",
+		       fmt_amount_msat(tmpctx, flowset_fee(rq->plugin, flows)),
+		       fmt_amount_msat(tmpctx, maxfee),
+		       mu);
 		flows = minflow(rq, rq, srcnode, dstnode, amount,
 				mu, delay_feefactor, base_fee_penalty, prob_cost_factor);
 		if (!flows || mu == 100) {
-			ret = tal_fmt(ctx, "Could not find route without excessive cost");
+			ret = rq_log(ctx, rq, LOG_UNUSUAL,
+				     "Could not find route without excessive cost");
 			goto fail;
 		}
 	}
 
 	if (finalcltv + flows_worst_delay(flows) > 2016) {
-		ret = tal_fmt(ctx, "Could not find route without excessive cost or delays");
+		ret = rq_log(ctx, rq, LOG_UNUSUAL,
+			     "Could not find route without excessive cost or delays");
 		goto fail;
 	}
 
@@ -409,10 +468,14 @@ static const char *get_routes(const tal_t *ctx,
 			rh->delay = delay;
 		}
 		(*amounts)[i] = flows[i]->delivers;
+		rq_log(tmpctx, rq, LOG_INFORM, "Flow %zu/%zu: %s",
+		       i, tal_count(flows),
+		       fmt_route(tmpctx, r, (*amounts)[i], finalcltv));
 	}
 
 	*probability = flowset_probability(flows, rq);
 	gossmap_remove_localmods(askrene->gossmap, localmods);
+
 	return NULL;
 
 	/* Explicit failure path keeps the compiler (gcc version 12.3.0 -O3) from

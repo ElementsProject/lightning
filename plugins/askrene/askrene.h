@@ -64,6 +64,14 @@ void get_constraints(const struct route_query *rq,
 		     struct amount_msat *min,
 		     struct amount_msat *max);
 
+/* Say something about this route_query */
+const char *rq_log(const tal_t *ctx,
+		   const struct route_query *rq,
+		   enum log_level level,
+		   const char *fmt,
+		   ...)
+	PRINTF_FMT(4, 5);
+
 /* Is there a known additional per-htlc cost for this channel? */
 struct amount_msat get_additional_per_htlc_cost(const struct route_query *rq,
 						const struct short_channel_id_dir *scidd);
