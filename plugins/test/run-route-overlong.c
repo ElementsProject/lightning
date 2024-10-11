@@ -81,12 +81,6 @@ void json_add_amount_msat(struct json_stream *result UNNEEDED,
 			  struct amount_msat msat)
 
 { fprintf(stderr, "json_add_amount_msat called!\n"); abort(); }
-/* Generated stub for json_add_amount_sat */
-void json_add_amount_sat(struct json_stream *result UNNEEDED,
-			  const char *satfieldname UNNEEDED,
-			  struct amount_sat sat)
-
-{ fprintf(stderr, "json_add_amount_sat called!\n"); abort(); }
 /* Generated stub for json_add_bool */
 void json_add_bool(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		   bool value UNNEEDED)

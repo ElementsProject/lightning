@@ -225,7 +225,7 @@ static u64 get_htlc_min(struct gossmap *gossmap,
 {
 	struct amount_msat msat;
 	gossmap_chan_get_update_details(gossmap, chan, dir,
-					NULL, NULL, NULL, NULL, NULL, &msat, NULL);
+					NULL, NULL, NULL, NULL, NULL, NULL, &msat, NULL);
 	return msat.millisatoshis; /* Raw: compressed format */
 }
 
@@ -237,7 +237,7 @@ static u64 get_htlc_max(struct gossmap *gossmap,
 
 	capacity_msat = gossmap_chan_get_capacity(gossmap, chan);
 	gossmap_chan_get_update_details(gossmap, chan, dir,
-					NULL, NULL, NULL, NULL, NULL, NULL, &msat);
+					NULL, NULL, NULL, NULL, NULL, NULL, NULL, &msat);
 
 	/* Special value for the common case of "max_htlc == capacity" */
 	if (amount_msat_eq(msat, capacity_msat)) {
@@ -257,7 +257,7 @@ static u64 get_basefee(struct gossmap *gossmap,
 {
 	u32 basefee;
 	gossmap_chan_get_update_details(gossmap, chan, dir,
-					NULL, NULL, NULL, &basefee, NULL, NULL, NULL);
+					NULL, NULL, NULL, NULL, &basefee, NULL, NULL, NULL);
 	return basefee;
 }
 
@@ -267,7 +267,7 @@ static u64 get_propfee(struct gossmap *gossmap,
 {
 	u32 propfee;
 	gossmap_chan_get_update_details(gossmap, chan, dir,
-					NULL, NULL, NULL, NULL, &propfee, NULL, NULL);
+					NULL, NULL, NULL, NULL, NULL, &propfee, NULL, NULL);
 	return propfee;
 }
 

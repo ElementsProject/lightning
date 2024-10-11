@@ -622,7 +622,7 @@ static bool want_update(struct gossmap *gossmap,
 		return timestamp != 0;
 
 	gossmap_chan_get_update_details(gossmap, chan, dir, &our_timestamp,
-					NULL, NULL, NULL, NULL, NULL, NULL);
+					NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 	if (timestamp <= our_timestamp)
 		return false;
 
