@@ -433,11 +433,11 @@ def test_getroutes(node_factory):
                          10000000,
                          [[{'short_channel_id_dir': '0x2x1/1',
                             'next_node_id': nodemap[2],
-                            'amount_msat': 500000,
+                            'amount_msat': 4500004,
                             'delay': 99 + 6}],
                           [{'short_channel_id_dir': '0x2x3/1',
                             'next_node_id': nodemap[2],
-                            'amount_msat': 9500009,
+                            'amount_msat': 5500005,
                             'delay': 99 + 6}]])
 
 
@@ -992,4 +992,4 @@ def test_real_data(node_factory, bitcoind):
         if len(fees[n]) > len(fees[best]):
             best = n
 
-    assert (len(fees[best]), len(improved), total_first_fee, total_final_fee, percent_fee_reduction) == (9, 91, 20917688, 5254665, 75)
+    assert (len(fees[best]), len(improved), total_first_fee, total_final_fee, percent_fee_reduction) == (10, 96, 19969585, 801613, 96)
