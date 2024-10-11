@@ -998,8 +998,10 @@ struct chan_flow
 };
 
 /* Search in the network a path of positive flow until we reach a node with
- * positive balance. */
-static u32 find_positive_balance(
+ * positive balance (returns a node idx with positive balance)
+ * or we discover a cycle (returns a node idx with 0 balance).
+ * */
+static u32 find_path_or_cycle(
 		const struct gossmap *gossmap,
 		const struct chan_flow *chan_flow,
 		const u32 start_idx,
@@ -1009,42 +1011,34 @@ static u32 find_positive_balance(
 		int *prev_dir,
 		u32 *prev_idx)
 {
+	const size_t max_num_nodes = gossmap_max_node_idx(gossmap);
+	bitmap *visited =
+	    tal_arrz(tmpctx, bitmap, BITMAP_NWORDS(max_num_nodes));
 	u32 final_idx = start_idx;
+	bitmap_set_bit(visited, start_idx);
 
-	/* TODO(eduardo)
-	 * This is guaranteed to halt if there are no directed flow cycles.
-	 * There souldn't be any. In fact if cost is strickly
-	 * positive, then flow cycles do not exist at all in the
-	 * MCF solution. But if cost is allowed to be zero for
-	 * some arcs, then we might have flow cyles in the final
-	 * solution. We must somehow ensure that the MCF
-	 * algorithm does not come up with spurious flow cycles. */
-	while(balance[final_idx]<=0)
-	{
-		// printf("%s: node = %d\n",__PRETTY_FUNCTION__,final_idx);
-		u32 updated_idx=INVALID_INDEX;
-		struct gossmap_node *cur
-			= gossmap_node_byidx(gossmap,final_idx);
+	/* It is guaranteed to halt, because we either find a node with
+	 * balance[]>0 or we hit a node twice and we stop. */
+	while (balance[final_idx] <= 0) {
+		u32 updated_idx = INVALID_INDEX;
+		struct gossmap_node *cur =
+		    gossmap_node_byidx(gossmap, final_idx);
 
-		for(size_t i=0;i<cur->num_chans;++i)
-		{
+		for (size_t i = 0; i < cur->num_chans; ++i) {
 			int dir;
-			const struct gossmap_chan *c
-				= gossmap_nth_chan(gossmap,
-				                   cur,i,&dir);
+			const struct gossmap_chan *c =
+			    gossmap_nth_chan(gossmap, cur, i, &dir);
 
-			if (!gossmap_chan_set(c, dir))
+			if (!gossmap_chan_set(c, dir) || !c->half[dir].enabled)
 				continue;
 
-			const u32 c_idx = gossmap_chan_idx(gossmap,c);
+			const u32 c_idx = gossmap_chan_idx(gossmap, c);
 
-			// follow the flow
-			if(chan_flow[c_idx].half[dir]>0)
-			{
-				const struct gossmap_node *next
-					= gossmap_nth_node(gossmap,c,!dir);
-				u32 next_idx = gossmap_node_idx(gossmap,next);
-
+			/* follow the flow */
+			if (chan_flow[c_idx].half[dir] > 0) {
+				const struct gossmap_node *next =
+				    gossmap_nth_node(gossmap, c, !dir);
+				u32 next_idx = gossmap_node_idx(gossmap, next);
 
 				prev_dir[next_idx] = dir;
 				prev_chan[next_idx] = c;
@@ -1055,10 +1049,17 @@ static u32 find_positive_balance(
 			}
 		}
 
-		assert(updated_idx!=INVALID_INDEX);
-		assert(updated_idx!=final_idx);
-
+		assert(updated_idx != INVALID_INDEX);
+		assert(updated_idx != final_idx);
 		final_idx = updated_idx;
+
+		if (bitmap_test_bit(visited, updated_idx)) {
+			/* We have seen this node before, we've found a cycle.
+			 */
+			assert(balance[updated_idx] <= 0);
+			break;
+		}
+		bitmap_set_bit(visited, updated_idx);
 	}
 	return final_idx;
 }
@@ -1068,6 +1069,108 @@ struct list_data
 	struct list_node list;
 	struct flow *flow_path;
 };
+
+/* Given a path from a node with negative balance to a node with positive
+ * balance, compute the bigest flow and substract it from the nodes balance and
+ * the channels allocation. */
+static struct flow *substract_flow(const tal_t *ctx,
+				   const struct gossmap *gossmap,
+				   const u32 start_idx, const u32 final_idx,
+				   s64 *balance, struct chan_flow *chan_flow,
+				   const u32 *prev_idx, const int *prev_dir,
+				   const struct gossmap_chan *const *prev_chan)
+{
+	assert(balance[start_idx] < 0);
+	assert(balance[final_idx] > 0);
+	s64 delta = -balance[start_idx];
+	size_t length = 0;
+	delta = MIN(delta, balance[final_idx]);
+
+	/* We can only walk backwards, now get me the legth of the path and the
+	 * max flow we can send through this route. */
+	for (u32 cur_idx = final_idx; cur_idx != start_idx;
+	     cur_idx = prev_idx[cur_idx]) {
+		assert(cur_idx != INVALID_INDEX);
+		const int dir = prev_dir[cur_idx];
+		const struct gossmap_chan *const chan = prev_chan[cur_idx];
+
+		/* we could optimize here by caching the idx of the channels in
+		 * the path, but the bottleneck of the algorithm is the MCF
+		 * computation not here. */
+		const u32 chan_idx = gossmap_chan_idx(gossmap, chan);
+
+		delta = MIN(delta, chan_flow[chan_idx].half[dir]);
+		length++;
+	}
+
+	struct flow *f = tal(ctx, struct flow);
+	f->path = tal_arr(f, const struct gossmap_chan *, length);
+	f->dirs = tal_arr(f, int, length);
+
+	/* Walk again and substract the flow value (delta). */
+	assert(delta > 0);
+	balance[start_idx] += delta;
+	balance[final_idx] -= delta;
+	for (u32 cur_idx = final_idx; cur_idx != start_idx;
+	     cur_idx = prev_idx[cur_idx]) {
+		const int dir = prev_dir[cur_idx];
+		const struct gossmap_chan *const chan = prev_chan[cur_idx];
+		const u32 chan_idx = gossmap_chan_idx(gossmap, chan);
+
+		length--;
+		/* f->path and f->dirs contain the channels in the path in the
+		 * correct order. */
+		f->path[length] = chan;
+		f->dirs[length] = dir;
+
+		chan_flow[chan_idx].half[dir] -= delta;
+	}
+	f->delivers = amount_msat(delta * 1000);
+	return f;
+}
+
+/* Substract a flow cycle from the channel allocation. */
+static void substract_cycle(const struct gossmap *gossmap, const u32 final_idx,
+			    struct chan_flow *chan_flow, const u32 *prev_idx,
+			    const int *prev_dir,
+			    const struct gossmap_chan *const *prev_chan)
+{
+	s64 delta = INFINITE;
+	u32 cur_idx;
+
+	/* Compute greatest flow in this cycle. */
+	for (cur_idx = final_idx; cur_idx!=INVALID_INDEX;) {
+		const int dir = prev_dir[cur_idx];
+		const struct gossmap_chan *const chan = prev_chan[cur_idx];
+		const u32 chan_idx = gossmap_chan_idx(gossmap, chan);
+
+		delta = MIN(delta, chan_flow[chan_idx].half[dir]);
+
+		cur_idx = prev_idx[cur_idx];
+		if (cur_idx == final_idx)
+			/* we have come back full circle */
+			break;
+	}
+	assert(cur_idx==final_idx);
+
+	/* Walk again and substract the flow value (delta). */
+	assert(delta < INFINITE);
+	assert(delta > 0);
+
+	for (cur_idx = final_idx;cur_idx!=INVALID_INDEX;) {
+		const int dir = prev_dir[cur_idx];
+		const struct gossmap_chan *const chan = prev_chan[cur_idx];
+		const u32 chan_idx = gossmap_chan_idx(gossmap, chan);
+
+		chan_flow[chan_idx].half[dir] -= delta;
+
+		cur_idx = prev_idx[cur_idx];
+		if (cur_idx == final_idx)
+			/* we have come back full circle */
+			break;
+	}
+	assert(cur_idx==final_idx);
+}
 
 /* Given a flow in the residual network, build a set of payment flows in the
  * gossmap that corresponds to this flow. */
@@ -1091,6 +1194,9 @@ get_flow_paths(const tal_t *ctx,
 
 	int *prev_dir = tal_arr(tmpctx,int,max_num_nodes);
 	u32 *prev_idx = tal_arr(tmpctx,u32,max_num_nodes);
+
+	for (u32 node_idx = 0; node_idx < max_num_nodes; node_idx++)
+		prev_idx[node_idx] = INVALID_INDEX;
 
 	// Convert the arc based residual network flow into a flow in the
 	// directed channel network.
@@ -1117,75 +1223,34 @@ get_flow_paths(const tal_t *ctx,
 
 	}
 
-
 	// Select all nodes with negative balance and find a flow that reaches a
 	// positive balance node.
 	for(u32 node_idx=0;node_idx<max_num_nodes;++node_idx)
 	{
-		// for(size_t i=0;i<tal_count(prev_idx);++i)
-		// {
-		// 	prev_idx[i]=INVALID_INDEX;
-		// }
 		// this node has negative balance, flows leaves from here
 		while(balance[node_idx]<0)
 		{
-			prev_chan[node_idx]=NULL;
-			u32 final_idx = find_positive_balance(
+			prev_chan[node_idx] = NULL;
+			u32 final_idx = find_path_or_cycle(
 			    rq->gossmap, chan_flow, node_idx, balance,
 			    prev_chan, prev_dir, prev_idx);
 
-			s64 delta=-balance[node_idx];
-			int length = 0;
-			delta = MIN(delta,balance[final_idx]);
-
-			// walk backwards, get me the length and the max flow we
-			// can send.
-			for(u32 cur_idx = final_idx;
-			    cur_idx!=node_idx;
-			    cur_idx=prev_idx[cur_idx])
+			if (balance[final_idx] > 0)
+			/* case 1. found a path */
 			{
-				assert(cur_idx!=INVALID_INDEX);
+				struct flow *fp = substract_flow(
+				    flows, rq->gossmap, node_idx, final_idx,
+				    balance, chan_flow, prev_idx, prev_dir,
+				    prev_chan);
 
-				const int dir = prev_dir[cur_idx];
-				const struct gossmap_chan *const c = prev_chan[cur_idx];
-				const u32 c_idx = gossmap_chan_idx(rq->gossmap,c);
-
-				delta=MIN(delta,chan_flow[c_idx].half[dir]);
-				length++;
-			}
-
-			struct flow *fp = tal(flows,struct flow);
-			fp->path = tal_arr(fp,const struct gossmap_chan *,length);
-			fp->dirs = tal_arr(fp,int,length);
-
-			balance[node_idx] += delta;
-			balance[final_idx]-= delta;
-
-			// walk backwards, substract flow
-			for(u32 cur_idx = final_idx;
-			    cur_idx!=node_idx;
-			    cur_idx=prev_idx[cur_idx])
+				tal_arr_expand(&flows, fp);
+			} else
+			/* case 2. found a cycle */
 			{
-				assert(cur_idx!=INVALID_INDEX);
-
-				const int dir = prev_dir[cur_idx];
-				const struct gossmap_chan *const c = prev_chan[cur_idx];
-				const u32 c_idx = gossmap_chan_idx(rq->gossmap,c);
-
-				length--;
-				fp->path[length]=c;
-				fp->dirs[length]=dir;
-				// notice: fp->path and fp->dirs have the path
-				// in the correct order.
-
-				chan_flow[c_idx].half[prev_dir[cur_idx]]-=delta;
+				substract_cycle(rq->gossmap, final_idx,
+						chan_flow, prev_idx, prev_dir,
+						prev_chan);
 			}
-
-			assert(delta>0);
-			fp->delivers = amount_msat(delta*1000);
-
-			// add fp to flows
-			tal_arr_expand(&flows, fp);
 		}
 	}
 	return flows;
