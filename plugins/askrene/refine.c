@@ -323,6 +323,35 @@ static const char *flow_violates_min(const tal_t *ctx,
 	return NULL;
 }
 
+/* If one flow is constrained by htlc_max, we might be able to simply
+ * duplicate it.  This is naive: it could still fail due to total
+ * capacity, but it is a corner case anyway. */
+static bool duplicate_one_flow(const struct route_query *rq,
+			       struct flow ***flows)
+{
+	for (size_t i = 0; i < tal_count(*flows); i++) {
+		struct flow *flow = (*flows)[i], *new_flow;
+		struct amount_msat max;
+		if (flow_max_capacity(rq, flow, &max, NULL, NULL)
+		    != CAPPED_HTLC_MAX)
+			continue;
+
+		new_flow = tal(*flows, struct flow);
+		new_flow->path = tal_dup_talarr(new_flow,
+						const struct gossmap_chan *,
+						flow->path);
+		new_flow->dirs = tal_dup_talarr(new_flow, int,
+						flow->dirs);
+		new_flow->delivers = amount_msat_div(flow->delivers, 2);
+		if (!amount_msat_sub(&flow->delivers,
+				     flow->delivers, new_flow->delivers))
+			abort();
+		tal_arr_expand(flows, new_flow);
+		return true;
+	}
+	return false;
+}
+
 const char *
 refine_with_fees_and_limits(const tal_t *ctx,
 			    struct route_query *rq,
@@ -333,6 +362,7 @@ refine_with_fees_and_limits(const tal_t *ctx,
 	struct amount_msat more_to_deliver;
 	const char *flow_constraint_error = NULL;
 	const char *ret;
+	bool tried_split_flow = false;
 
 	for (size_t i = 0; i < tal_count(*flows);) {
 		struct flow *flow = (*flows)[i];
@@ -398,25 +428,30 @@ refine_with_fees_and_limits(const tal_t *ctx,
 	/* The residual is minimal.  In theory we could add one msat at a time
 	 * to the most probably flow which has capacity.  For speed, we break it
 	 * into the number of flows, then assign each one. */
-	for (size_t i = 0; i < tal_count(*flows) && !amount_msat_is_zero(more_to_deliver); i++) {
+	while (!amount_msat_is_zero(more_to_deliver) && tal_count(*flows)) {
 		struct flow *f;
 		struct amount_msat extra;
 
 		/* How much more do we deliver?  Round up if we can */
-		extra = amount_msat_div(more_to_deliver, tal_count(*flows) - i);
+		extra = amount_msat_div(more_to_deliver, tal_count(*flows));
 		if (amount_msat_less(extra, more_to_deliver)) {
 			if (!amount_msat_accumulate(&extra, AMOUNT_MSAT(1)))
 				abort();
 		}
 
-		/* In theory, this can happen.  If it ever does, we
-		 * could try MCF again for the remainder. */
+		/* This happens when we have a single flow, and hit
+		 * htlc_max.  For this corner case, we split into an
+		 * additional flow, but only once! */
 		f = pick_most_likely_flow(rq, *flows, extra);
 		if (!f) {
-			ret = rq_log(ctx, rq, LOG_BROKEN,
-				     "We couldn't quite afford it, we need to send %s more for fees: please submit a bug report!",
-				     fmt_amount_msat(tmpctx, more_to_deliver));
-			goto out;
+			if (tried_split_flow || !duplicate_one_flow(rq, flows)) {
+				ret = rq_log(ctx, rq, LOG_BROKEN,
+					     "We couldn't quite afford it, we need to send %s more for fees: please submit a bug report!",
+					     fmt_amount_msat(tmpctx, more_to_deliver));
+				goto out;
+			}
+			tried_split_flow = true;
+			continue;
 		}
 
 		/* Make this flow deliver +extra, and modify reservations */
@@ -430,7 +465,7 @@ refine_with_fees_and_limits(const tal_t *ctx,
 	if (!amount_msat_eq(deliver, flowset_delivers(rq->plugin, *flows))) {
 		/* This should only happen if there were no flows */
 		if (tal_count(*flows) == 0) {
-			ret = flow_constraint_error;
+			ret = tal_steal(ctx, flow_constraint_error);
 			goto out;
 		}
 		plugin_err(rq->plugin, "Flows delivered only %s of %s?",
