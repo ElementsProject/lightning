@@ -263,6 +263,56 @@ static const char *fmt_route(const tal_t *ctx,
 	return str;
 }
 
+static const char *fmt_flow_full(const tal_t *ctx,
+				 const struct route_query *rq,
+				 const struct flow *flow,
+				 struct amount_msat total_delivered,
+				 double delay_feefactor)
+{
+	struct amount_msat amt = flow->delivers;
+	char *str = tal_fmt(ctx, "%s (linear cost %s)",
+			    fmt_amount_msat(tmpctx, amt),
+			    fmt_amount_msat(tmpctx, linear_flow_cost(flow,
+								     total_delivered,
+								     delay_feefactor)));
+
+	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
+		struct short_channel_id_dir scidd;
+		struct amount_msat min, max;
+		scidd.scid = gossmap_chan_scid(rq->gossmap, flow->path[i]);
+		scidd.dir = flow->dirs[i];
+		if (!amount_msat_add_fee(&amt,
+					 flow->path[i]->half[scidd.dir].base_fee,
+					 flow->path[i]->half[scidd.dir].proportional_fee))
+			abort();
+		get_constraints(rq, flow->path[i], scidd.dir, &min, &max);
+		tal_append_fmt(&str, " <- %s %s (cap=%s,fee=%u+%u,delay=%u)",
+			       fmt_amount_msat(tmpctx, amt),
+			       fmt_short_channel_id_dir(tmpctx, &scidd),
+			       fmt_amount_msat(tmpctx, max),
+			       flow->path[i]->half[scidd.dir].base_fee,
+			       flow->path[i]->half[scidd.dir].proportional_fee,
+			       flow->path[i]->half[scidd.dir].delay);
+	}
+	return str;
+}
+
+static struct amount_msat linear_flows_cost(struct flow **flows,
+					    struct amount_msat total_amount,
+					    double delay_feefactor)
+{
+	struct amount_msat total = AMOUNT_MSAT(0);
+
+	for (size_t i = 0; i < tal_count(flows); i++) {
+		if (!amount_msat_accumulate(&total,
+					    linear_flow_cost(flows[i],
+							     total_amount,
+							     delay_feefactor)))
+			abort();
+	}
+	return total;
+}
+
 /* Returns an error message, or sets *routes */
 static const char *get_routes(const tal_t *ctx,
 			      struct command *cmd,
@@ -383,19 +433,46 @@ static const char *get_routes(const tal_t *ctx,
 	/* Too expensive? */
 too_expensive:
 	while (amount_msat_greater(flowset_fee(rq->plugin, flows), maxfee)) {
+		struct flow **new_flows;
+
 		mu += 10;
 		rq_log(tmpctx, rq, LOG_UNUSUAL,
 		       "The flows had a fee of %s, greater than max of %s, retrying with mu of %u%%...",
 		       fmt_amount_msat(tmpctx, flowset_fee(rq->plugin, flows)),
 		       fmt_amount_msat(tmpctx, maxfee),
 		       mu);
-		flows = minflow(rq, rq, srcnode, dstnode, amount,
-				mu > 100 ? 100 : mu, delay_feefactor);
+		new_flows = minflow(rq, rq, srcnode, dstnode, amount,
+				    mu > 100 ? 100 : mu, delay_feefactor);
 		if (!flows || mu >= 100) {
 			ret = rq_log(ctx, rq, LOG_UNUSUAL,
 				     "Could not find route without excessive cost");
 			goto fail;
 		}
+
+		/* This is possible, because MCF's linear fees are not the same. */
+		if (amount_msat_greater(flowset_fee(rq->plugin, new_flows),
+					flowset_fee(rq->plugin, flows))) {
+			struct amount_msat old_cost = linear_flows_cost(flows, amount, delay_feefactor);
+			struct amount_msat new_cost = linear_flows_cost(new_flows, amount, delay_feefactor);
+			if (amount_msat_greater_eq(new_cost, old_cost)) {
+				rq_log(tmpctx, rq, LOG_BROKEN, "Old flows cost %s:",
+				       fmt_amount_msat(tmpctx, old_cost));
+				for (size_t i = 0; i < tal_count(flows); i++) {
+					rq_log(tmpctx, rq, LOG_BROKEN,
+					       "Flow %zu/%zu: %s", i, tal_count(flows),
+					       fmt_flow_full(tmpctx, rq, flows[i], amount, delay_feefactor));
+				}
+				rq_log(tmpctx, rq, LOG_BROKEN, "Old flows cost %s:",
+				       fmt_amount_msat(tmpctx, new_cost));
+				for (size_t i = 0; i < tal_count(new_flows); i++) {
+					rq_log(tmpctx, rq, LOG_BROKEN,
+					       "Flow %zu/%zu: %s", i, tal_count(new_flows),
+					       fmt_flow_full(tmpctx, rq, new_flows[i], amount, delay_feefactor));
+				}
+			}
+		}
+		tal_free(flows);
+		flows = new_flows;
 	}
 
 	if (finalcltv + flows_worst_delay(flows) > 2016) {
