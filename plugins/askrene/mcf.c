@@ -193,7 +193,7 @@ static const double CHANNEL_PIVOTS[]={0,0.5,0.8,0.95};
 
 static const s64 INFINITE = INT64_MAX;
 static const u32 INVALID_INDEX = 0xffffffff;
-static const s64 MU_MAX = 101;
+static const s64 MU_MAX = 100;
 
 /* Let's try this encoding of arcs:
  * Each channel `c` has two possible directions identified by a bit
@@ -524,14 +524,11 @@ static void combine_cost_function(
 			continue;
 
 		const s64 pcost = linear_network->arc_prob_cost[arc.idx],
-		          fcost = linear_network->arc_fee_cost[arc.idx];
+			fcost = linear_network->arc_fee_cost[arc.idx];
 
-		const s64 combined = pcost==INFINITE || fcost==INFINITE ? INFINITE :
-		                     mu*fcost + (MU_MAX-1-mu)*pcost;
-
-		residual_network->cost[arc.idx]
-			= mu==0 ? pcost :
-			          (mu==(MU_MAX-1) ? fcost : combined);
+		assert(pcost != INFINITE);
+		assert(fcost != INFINITE);
+		residual_network->cost[arc.idx] = fcost*mu + (MU_MAX-mu)*pcost;
 	}
 }
 
