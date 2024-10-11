@@ -5,7 +5,9 @@ from utils import (
     sync_blockheight, wait_for
 )
 import pytest
+import subprocess
 import time
+import tempfile
 
 
 def direction(src, dst):
@@ -882,3 +884,54 @@ def test_min_htlc_after_excess(node_factory, bitcoind):
                          layers=[],
                          maxfee_msat=20_000_000,
                          final_cltv=10)
+
+
+@pytest.mark.slow_test
+def test_real_data(node_factory, bitcoind):
+    # Route from Rusty's node to the top 100.
+    # From tests/data/gossip-store-2024-09-22-node-map.xz:
+    # Me: 3301:024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605:BLUEIRON
+    # So we make l2 node 3301.
+    outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
+    nodeids = subprocess.check_output(['devtools/gossmap-compress',
+                                       'decompress',
+                                       '--node-map=3301=022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
+                                       'tests/data/gossip-store-2024-09-22.compressed',
+                                       outfile.name]).decode('utf-8').splitlines()
+
+    # l2 complains being given bad gossip from l1
+    l1, l2 = node_factory.line_graph(2,
+                                     opts=[{'gossip_store_file': outfile.name,
+                                            'allow_warning': True},
+                                           {'allow_warning': True}])
+
+    # These were obviously having a bad day at the time of the snapshot:
+    badnodes = {
+        # 62:03dbe3fedd4f6e7f7020c69e6d01453d5a69f9faa1382901cf3028f1e997ef2814:BTC_👽👽👽👽👽👽
+        62: " marked disabled by gossip message",
+        # This one has 151 channels, with peers each only connected to it.  An island!
+        # 76:0298906458987af756e2a43b208c03499c4d2bde630d4868dda0ea6a184f87c62a:0298906458987af756e2
+        76: "There is no connection between source and destination at all",
+        # 80:02d246c519845e7b23b02684d64ca23b750958e0307f9519849ee2535e3637999a:SLIMYRAGE-
+        80: " marked disabled by gossip message",
+        # 97:034a5fdb2df3ce1bfd2c2aca205ce9cfeef1a5f4af21b0b5e81c453080c30d7683:🚶LightningTransact
+        97: r"We could not find a usable set of paths\.  The shortest path is 103x1x0->0x3301x1646->0x1281x2323->97x1281x33241, but 97x1281x33241/1 isn't big enough to carry 100000000msat\.",
+    }
+    for n in range(0, 100):
+        if n in badnodes:
+            with pytest.raises(RpcError, match=badnodes[n]):
+                l1.rpc.getroutes(source=l1.info['id'],
+                                 destination=nodeids[n],
+                                 amount_msat=100000000,
+                                 layers=['auto.sourcefree', 'auto.localchans'],
+                                 maxfee_msat=10000000,
+                                 final_cltv=18)
+            continue
+
+        routes = l1.rpc.getroutes(source=l1.info['id'],
+                                  destination=nodeids[n],
+                                  amount_msat=100000000,
+                                  layers=['auto.sourcefree', 'auto.localchans'],
+                                  maxfee_msat=10000000,
+                                  final_cltv=18)
+        print(f"{n} route has {len(routes['routes'])} paths")
