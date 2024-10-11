@@ -433,6 +433,9 @@ too_expensive:
 		goto too_expensive;
 	}
 
+	rq_log(tmpctx, rq, LOG_DBG, "Final answer has %zu flows with mu=%u",
+	       tal_count(flows), mu);
+
 	/* Convert back into routes, with delay and other information fixed */
 	*routes = tal_arr(ctx, struct route *, tal_count(flows));
 	*amounts = tal_arr(ctx, struct amount_msat, tal_count(flows));

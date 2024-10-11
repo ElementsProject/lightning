@@ -899,10 +899,15 @@ def test_real_data(node_factory, bitcoind):
                                        'tests/data/gossip-store-2024-09-22.compressed',
                                        outfile.name]).decode('utf-8').splitlines()
 
-    # l2 complains being given bad gossip from l1
-    l1, l2 = node_factory.line_graph(2,
+    # This is in msat, but is also the size of channel we create.
+    AMOUNT = 100000000
+
+    # l2 complains being given bad gossip from l1, throttle to reduce
+    # the sheer amount of log noise.
+    l1, l2 = node_factory.line_graph(2, fundamount=AMOUNT,
                                      opts=[{'gossip_store_file': outfile.name,
-                                            'allow_warning': True},
+                                            'allow_warning': True,
+                                            'dev-throttle-gossip': None},
                                            {'allow_warning': True}])
 
     # These were obviously having a bad day at the time of the snapshot:
@@ -917,21 +922,74 @@ def test_real_data(node_factory, bitcoind):
         # 97:034a5fdb2df3ce1bfd2c2aca205ce9cfeef1a5f4af21b0b5e81c453080c30d7683:🚶LightningTransact
         97: r"We could not find a usable set of paths\.  The shortest path is 103x1x0->0x3301x1646->0x1281x2323->97x1281x33241, but 97x1281x33241/1 isn't big enough to carry 100000000msat\.",
     }
+
+    fees = {}
     for n in range(0, 100):
+        print(f"XXX: {n}")
+        # 0.5% is the norm
+        MAX_FEE = AMOUNT // 200
+
         if n in badnodes:
             with pytest.raises(RpcError, match=badnodes[n]):
                 l1.rpc.getroutes(source=l1.info['id'],
                                  destination=nodeids[n],
-                                 amount_msat=100000000,
+                                 amount_msat=AMOUNT,
                                  layers=['auto.sourcefree', 'auto.localchans'],
-                                 maxfee_msat=10000000,
+                                 maxfee_msat=MAX_FEE,
                                  final_cltv=18)
+            fees[n] = []
             continue
 
-        routes = l1.rpc.getroutes(source=l1.info['id'],
-                                  destination=nodeids[n],
-                                  amount_msat=100000000,
-                                  layers=['auto.sourcefree', 'auto.localchans'],
-                                  maxfee_msat=10000000,
-                                  final_cltv=18)
-        print(f"{n} route has {len(routes['routes'])} paths")
+        try:
+            prev = l1.rpc.getroutes(source=l1.info['id'],
+                                    destination=nodeids[n],
+                                    amount_msat=AMOUNT,
+                                    layers=['auto.sourcefree', 'auto.localchans'],
+                                    maxfee_msat=MAX_FEE,
+                                    final_cltv=18)
+        except RpcError:
+            fees[n] = []
+            continue
+
+        # Now stress it, by asking it to spend 1msat less!
+        fees[n] = [sum([r['path'][0]['amount_msat'] for r in prev['routes']]) - AMOUNT]
+
+        while True:
+            # Keep making it harder...
+            try:
+                routes = l1.rpc.getroutes(source=l1.info['id'],
+                                          destination=nodeids[n],
+                                          amount_msat=AMOUNT,
+                                          layers=['auto.sourcefree', 'auto.localchans'],
+                                          maxfee_msat=fees[n][-1] - 1,
+                                          final_cltv=18)
+            except RpcError:
+                break
+
+            fee = sum([r['path'][0]['amount_msat'] for r in routes['routes']]) - AMOUNT
+            # Should get less expensive
+            assert fee < fees[n][-1]
+
+            # Should get less likely (Note!  This is violated because once we care
+            # about fees, the total is reduced, leading to better prob!).
+#            assert routes['probability_ppm'] < prev['probability_ppm']
+
+            fees[n].append(fee)
+            prev = routes
+
+    # Which succeeded in improving
+    improved = [n for n in fees if len(fees[n]) > 1]
+    total_first_fee = sum([fees[n][0] for n in improved])
+    total_final_fee = sum([fees[n][-1] for n in improved])
+
+    if total_first_fee != 0:
+        percent_fee_reduction = 100 - int(total_final_fee * 100 / total_first_fee)
+    else:
+        percent_fee_reduction = 0
+
+    best = 0
+    for n in fees:
+        if len(fees[n]) > len(fees[best]):
+            best = n
+
+    assert (len(fees[best]), len(improved), total_first_fee, total_final_fee, percent_fee_reduction) == (9, 91, 20917688, 5254665, 75)
