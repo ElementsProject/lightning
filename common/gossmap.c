@@ -1485,6 +1485,7 @@ void gossmap_chan_get_update_details(const struct gossmap *map,
 				     u32 *timestamp,
 				     u8 *message_flags,
 				     u8 *channel_flags,
+				     u16 *cltv_expiry_delta,
 				     u32 *fee_base_msat,
 				     u32 *fee_proportional_millionths,
 				     struct amount_msat *htlc_minimum_msat,
@@ -1511,6 +1512,8 @@ void gossmap_chan_get_update_details(const struct gossmap *map,
 		*channel_flags = map_u8(map, channel_flags_off);
 	if (message_flags)
 		*message_flags = map_u8(map, message_flags_off);
+	if (cltv_expiry_delta)
+		*cltv_expiry_delta = map_be16(map, cltv_expiry_delta_off);
 	if (fee_base_msat)
 		*fee_base_msat = map_be32(map, fee_base_off);
 	if (fee_proportional_millionths)

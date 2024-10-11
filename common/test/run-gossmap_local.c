@@ -338,6 +338,7 @@ int main(int argc, char *argv[])
 	struct gossmap_localmods *mods;
 	struct amount_msat capacity;
 	u32 timestamp, fee_base_msat, fee_proportional_millionths;
+	u16 cltv_expiry_delta;
 	u8 message_flags, channel_flags;
 	struct amount_msat htlc_minimum_msat, htlc_maximum_msat;
 	u8 *cann, *nann;
@@ -375,6 +376,7 @@ int main(int argc, char *argv[])
 					&timestamp,
 					&message_flags,
 					&channel_flags,
+					&cltv_expiry_delta,
 					&fee_base_msat,
 					&fee_proportional_millionths,
 					&htlc_minimum_msat,
@@ -382,6 +384,7 @@ int main(int argc, char *argv[])
 	assert(timestamp == 1700115301);
 	assert(message_flags == 1);
 	assert(channel_flags == 0);
+	assert(cltv_expiry_delta == 6);
 	assert(fee_base_msat == 20);
 	assert(fee_proportional_millionths == 1000);
 	assert(amount_msat_eq(htlc_minimum_msat, AMOUNT_MSAT(0)));
@@ -392,6 +395,7 @@ int main(int argc, char *argv[])
 					&timestamp,
 					&message_flags,
 					&channel_flags,
+					&cltv_expiry_delta,
 					&fee_base_msat,
 					&fee_proportional_millionths,
 					&htlc_minimum_msat,
@@ -399,6 +403,7 @@ int main(int argc, char *argv[])
 	assert(timestamp == 1700115311);
 	assert(message_flags == 1);
 	assert(channel_flags == 1);
+	assert(cltv_expiry_delta == 6);
 	assert(fee_base_msat == 20);
 	assert(fee_proportional_millionths == 1000);
 	assert(amount_msat_eq(htlc_minimum_msat, AMOUNT_MSAT(0)));
@@ -409,6 +414,7 @@ int main(int argc, char *argv[])
 					&timestamp,
 					&message_flags,
 					&channel_flags,
+					&cltv_expiry_delta,
 					&fee_base_msat,
 					&fee_proportional_millionths,
 					&htlc_minimum_msat,
@@ -416,6 +422,7 @@ int main(int argc, char *argv[])
 	assert(timestamp == 1700115313);
 	assert(message_flags == 1);
 	assert(channel_flags == 0);
+	assert(cltv_expiry_delta == 6);
 	assert(fee_base_msat == 20);
 	assert(fee_proportional_millionths == 1000);
 	assert(amount_msat_eq(htlc_minimum_msat, AMOUNT_MSAT(0)));
@@ -426,6 +433,7 @@ int main(int argc, char *argv[])
 					&timestamp,
 					&message_flags,
 					&channel_flags,
+					&cltv_expiry_delta,
 					&fee_base_msat,
 					&fee_proportional_millionths,
 					&htlc_minimum_msat,
@@ -433,6 +441,7 @@ int main(int argc, char *argv[])
 	assert(timestamp == 1700115313);
 	assert(message_flags == 1);
 	assert(channel_flags == 1);
+	assert(cltv_expiry_delta == 6);
 	assert(fee_base_msat == 20);
 	assert(fee_proportional_millionths == 1000);
 	assert(amount_msat_eq(htlc_minimum_msat, AMOUNT_MSAT(0)));

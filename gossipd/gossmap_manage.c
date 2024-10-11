@@ -332,7 +332,7 @@ static u32 get_timestamp(struct gossmap *gossmap,
 
 	gossmap_chan_get_update_details(gossmap, chan, dir,
 					&timestamp,
-					NULL, NULL, NULL, NULL, NULL, NULL);
+					NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 	return timestamp;
 }
 
