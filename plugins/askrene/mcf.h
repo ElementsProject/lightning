@@ -21,12 +21,6 @@ struct route_query;
  * fee.  So if a CLTV delay on a node is 5 blocks, that's treated as if it
  * were a fee of 5 * @delay_feefactor.
  *
- * @base_fee_penalty: factor to compute additional proportional cost from each
- * unit of base fee. So #base_fee_penalty will be added to the effective
- * proportional fee for each msat of base fee.
- *
- * 	effective_ppm = proportional_fee + base_fee_msat * base_fee_penalty
- *
  * Return a series of subflows which deliver amount to target, or NULL.
  */
 struct flow **minflow(const tal_t *ctx,
@@ -35,6 +29,5 @@ struct flow **minflow(const tal_t *ctx,
 		      const struct gossmap_node *target,
 		      struct amount_msat amount,
 		      u32 mu,
-		      double delay_feefactor,
-		      double base_fee_penalty);
+		      double delay_feefactor);
 #endif /* LIGHTNING_PLUGINS_ASKRENE_MCF_H */
