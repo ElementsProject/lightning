@@ -992,4 +992,4 @@ def test_real_data(node_factory, bitcoind):
         if len(fees[n]) > len(fees[best]):
             best = n
 
-    assert (len(fees[best]), len(improved), total_first_fee, total_final_fee, percent_fee_reduction) == (10, 96, 19969585, 801613, 96)
+    assert (len(fees[best]), len(improved), total_first_fee, total_final_fee, percent_fee_reduction) == (9, 96, 19961361, 650099, 97)

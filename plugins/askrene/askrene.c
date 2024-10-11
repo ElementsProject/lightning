@@ -284,7 +284,6 @@ static const char *get_routes(const tal_t *ctx,
 	struct flow **flows;
 	const struct gossmap_node *srcnode, *dstnode;
 	double delay_feefactor;
-	double base_fee_penalty;
 	u32 mu;
 	const char *ret;
 
@@ -349,12 +348,11 @@ static const char *get_routes(const tal_t *ctx,
 	}
 
 	delay_feefactor = 1.0/1000000;
-	base_fee_penalty = 10.0;
 
 	/* First up, don't care about fees.   */
 	mu = 0;
 	flows = minflow(rq, rq, srcnode, dstnode, amount,
-			mu, delay_feefactor, base_fee_penalty);
+			mu, delay_feefactor);
 	if (!flows) {
 		ret = explain_failure(ctx, rq, srcnode, dstnode, amount);
 		goto fail;
@@ -374,7 +372,7 @@ static const char *get_routes(const tal_t *ctx,
 		       "The worst flow delay is %"PRIu64" (> %i), retrying with delay_feefactor %f...",
 		       flows_worst_delay(flows), 2016 - finalcltv, delay_feefactor);
 		flows = minflow(rq, rq, srcnode, dstnode, amount,
-				mu, delay_feefactor, base_fee_penalty);
+				mu, delay_feefactor);
 		if (!flows || delay_feefactor > 10) {
 			ret = rq_log(ctx, rq, LOG_UNUSUAL,
 				     "Could not find route without excessive delays");
@@ -392,7 +390,7 @@ too_expensive:
 		       fmt_amount_msat(tmpctx, maxfee),
 		       mu);
 		flows = minflow(rq, rq, srcnode, dstnode, amount,
-				mu > 100 ? 100 : mu, delay_feefactor, base_fee_penalty);
+				mu > 100 ? 100 : mu, delay_feefactor);
 		if (!flows || mu >= 100) {
 			ret = rq_log(ctx, rq, LOG_UNUSUAL,
 				     "Could not find route without excessive cost");

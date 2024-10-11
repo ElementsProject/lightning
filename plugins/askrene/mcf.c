@@ -541,6 +541,14 @@ static s64 linear_fee_cost(u32 base_fee, u32 proportional_fee, u16 cltv_delta,
 	return pfee + bfee* base_fee_penalty+ delay*delay_feefactor;
 }
 
+/* This is inversely proportional to the amount we expect to send.  Let's
+ * assume we will send ~10th of the total amount per path.  But note
+ * that it converts to parts per million! */
+static double base_fee_penalty_estimate(struct amount_msat amount)
+{
+	return amount_msat_ratio(AMOUNT_MSAT(10000000), amount);
+}
+
 static struct linear_network *
 init_linear_network(const tal_t *ctx, const struct pay_parameters *params)
 {
@@ -1249,7 +1257,7 @@ struct flow **minflow(const tal_t *ctx,
 		      const struct gossmap_node *target,
 		      struct amount_msat amount,
 		      u32 mu,
-		      double delay_feefactor, double base_fee_penalty)
+		      double delay_feefactor)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -1278,7 +1286,7 @@ struct flow **minflow(const tal_t *ctx,
 	}
 
 	params->delay_feefactor = delay_feefactor;
-	params->base_fee_penalty = base_fee_penalty;
+	params->base_fee_penalty = base_fee_penalty_estimate(amount);
 	params->k_factor = 8.0;
 
 	// build the uncertainty network with linearization and residual arcs
