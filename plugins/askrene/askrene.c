@@ -309,7 +309,7 @@ static const char *get_routes(const tal_t *ctx,
 	rq->capacities = tal_dup_talarr(rq, fp16_t, askrene->capacities);
 	rq->additional_costs = additional_costs;
 
-	/* Layers don't have to exist: they might be empty! */
+	/* Layers must exist, but might be special ones! */
 	for (size_t i = 0; i < tal_count(layers); i++) {
 		const struct layer *l = find_layer(askrene, layers[i]);
 		if (!l) {
@@ -599,9 +599,14 @@ static void add_localchan(struct gossmap_localmods *mods,
 	const char *opener;
 	const char *err;
 
-	gossmod_add_localchan(mods, self, peer, scidd, capacity_msat, htlcmin, htlcmax,
-			      spendable, fee_base, fee_proportional, cltv_delta, enabled,
-			      buf, chantok, info->local_layer);
+	/* We get called twice, once in each direction: only create once. */
+	if (!layer_find_local_channel(info->local_layer, scidd->scid))
+		layer_add_local_channel(info->local_layer,
+					self, peer, scidd->scid, capacity_msat);
+	layer_add_update_channel(info->local_layer, scidd,
+				 &enabled,
+				 &htlcmin, &htlcmax,
+				 &fee_base, &fee_proportional, &cltv_delta);
 
 	/* We also need to know the feerate and opener, so we can calculate per-HTLC cost */
 	feerate = 0; /* Can be unset on unconfirmed channels */
