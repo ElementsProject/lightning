@@ -14647,7 +14647,7 @@
         "",
         "Layers are generally maintained by plugins, either to contain persistent information about capacities which have been discovered, or to contain transient information for this particular payment (such as blinded paths or routehints).",
         "",
-        "There are two automatic layers: *auto.localchans* contains information on local channels from this node (including non-public ones), and their exact current spendable capacities, and *auto.sourcefree* overrides all channels leading out of the *source* to be zero fee and zero delay.  These are both useful in the case where the source is the current node."
+        "There are two automatic layers: *auto.localchans* contains information on local channels from this node (including non-public ones), and their exact current spendable capacities, and *auto.sourcefree* overrides all channels (including those from previous layers) leading out of the *source* to be zero fee and zero delay.  These are both useful in the case where the source is the current node."
       ],
       "categories": [
         "readonly"

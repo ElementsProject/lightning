@@ -671,7 +671,7 @@ def test_sourcefree_on_mods(node_factory, bitcoind):
     check_route_as_expected(routes, [[{'short_channel_id_dir': '0x3x3/1',
                                        'amount_msat': 1000000, 'delay': 99}]])
 
-    # Same if we specify layers in the other order!
+    # NOT if we specify layers in the other order!
     routes = l1.rpc.getroutes(source=nodemap[0],
                               destination=l1.info['id'],
                               amount_msat=1000000,
@@ -680,7 +680,7 @@ def test_sourcefree_on_mods(node_factory, bitcoind):
                               final_cltv=99)['routes']
     # Expect no fee.
     check_route_as_expected(routes, [[{'short_channel_id_dir': '0x3x3/1',
-                                       'amount_msat': 1000000, 'delay': 99}]])
+                                       'amount_msat': 1003000, 'delay': 117}]])
 
 
 def test_live_spendable(node_factory, bitcoind):
