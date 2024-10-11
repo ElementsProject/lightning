@@ -30,4 +30,11 @@ struct flow **minflow(const tal_t *ctx,
 		      struct amount_msat amount,
 		      u32 mu,
 		      double delay_feefactor);
+
+/* To sanity check: this is the approximation mcf uses for the cost
+ * of each channel. */
+struct amount_msat linear_flow_cost(const struct flow *flow,
+				    struct amount_msat total_amount,
+				    double delay_feefactor);
+
 #endif /* LIGHTNING_PLUGINS_ASKRENE_MCF_H */

@@ -549,6 +549,26 @@ static double base_fee_penalty_estimate(struct amount_msat amount)
 	return amount_msat_ratio(AMOUNT_MSAT(10000000), amount);
 }
 
+struct amount_msat linear_flow_cost(const struct flow *flow,
+				    struct amount_msat total_amount,
+				    double delay_feefactor)
+{
+	struct amount_msat msat_cost;
+	s64 cost = 0;
+	double base_fee_penalty = base_fee_penalty_estimate(total_amount);
+
+	for (size_t i = 0; i < tal_count(flow->path); i++) {
+		const struct half_chan *h = &flow->path[i]->half[flow->dirs[i]];
+
+		cost += linear_fee_cost(h->base_fee, h ->proportional_fee, h->delay,
+					base_fee_penalty, delay_feefactor);
+	}
+
+	if (!amount_msat_mul(&msat_cost, flow->delivers, cost))
+		abort();
+	return msat_cost;
+}
+
 static struct linear_network *
 init_linear_network(const tal_t *ctx, const struct pay_parameters *params)
 {
