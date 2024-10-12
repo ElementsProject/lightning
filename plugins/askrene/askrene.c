@@ -399,8 +399,8 @@ static const char *get_routes(const tal_t *ctx,
 
 	delay_feefactor = 1.0/1000000;
 
-	/* First up, don't care about fees.   */
-	mu = 0;
+	/* First up, don't care about fees (well, just enough to tiebreak!) */
+	mu = 1;
 	flows = minflow(rq, rq, srcnode, dstnode, amount,
 			mu, delay_feefactor);
 	if (!flows) {
@@ -435,7 +435,10 @@ too_expensive:
 	while (amount_msat_greater(flowset_fee(rq->plugin, flows), maxfee)) {
 		struct flow **new_flows;
 
-		mu += 10;
+		if (mu == 1)
+			mu = 10;
+		else
+			mu += 10;
 		rq_log(tmpctx, rq, LOG_UNUSUAL,
 		       "The flows had a fee of %s, greater than max of %s, retrying with mu of %u%%...",
 		       fmt_amount_msat(tmpctx, flowset_fee(rq->plugin, flows)),
