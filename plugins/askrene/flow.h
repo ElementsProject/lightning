@@ -39,10 +39,6 @@ double flow_edge_cost(const struct gossmap *gossmap,
 double flow_probability(const struct flow *flow,
 			const struct route_query *rq);
 
-/* Compute the prob. of success of a set of concurrent set of flows. */
-double flowset_probability(struct flow **flows,
-			   const struct route_query *rq);
-
 /* How much do we need to send to make this flow arrive. */
 struct amount_msat flow_spend(struct plugin *plugin, const struct flow *flow);
 

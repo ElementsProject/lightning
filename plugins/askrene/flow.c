@@ -16,29 +16,6 @@
 #define SUPERVERBOSE_ENABLED 1
 #endif
 
-static struct amount_msat *flow_amounts(const tal_t *ctx,
-					struct plugin *plugin,
-					const struct flow *flow)
-{
-	const size_t pathlen = tal_count(flow->path);
-	struct amount_msat *amounts = tal_arr(ctx, struct amount_msat, pathlen);
-	amounts[pathlen - 1] = flow->delivers;
-
-	for (int i = (int)pathlen - 2; i >= 0; i--) {
-		const struct half_chan *h = flow_edge(flow, i + 1);
-		amounts[i] = amounts[i + 1];
-		if (!amount_msat_add_fee(&amounts[i], h->base_fee,
-					 h->proportional_fee)) {
-			plugin_err(plugin, "Could not add fee %u/%u to amount %s in %i/%zu",
-				   h->base_fee, h->proportional_fee,
-				   fmt_amount_msat(tmpctx, amounts[i+1]),
-				   i, pathlen);
-		}
-	}
-
-	return amounts;
-}
-
 /* How much do we deliver to destination using this set of routes */
 struct amount_msat flowset_delivers(struct plugin *plugin,
 				    struct flow **flows)
@@ -82,75 +59,6 @@ static double edge_probability(struct amount_msat sent,
 	if (!amount_msat_sub(&denominator, maxcap, mincap))
 		abort();
 	return 1.0 - amount_msat_ratio(numerator, denominator);
-}
-
-/* Compute the prob. of success of a set of concurrent set of flows.
- *
- * IMPORTANT: this is not simply the multiplication of the prob. of success of
- * all of them, because they're not independent events. A flow that passes
- * through a channel c changes that channel's liquidity and then if another flow
- * passes through that same channel the previous liquidity change must be taken
- * into account.
- *
- * 	P(A and B) != P(A) * P(B),
- *
- * but
- *
- * 	P(A and B) = P(A) * P(B | A)
- *
- * also due to the linear form of P() we have
- *
- * 	P(A and B) = P(A + B)
- * 	*/
-struct chan_inflight_flow
-{
-	struct amount_msat half[2];
-};
-
-double flowset_probability(struct flow **flows,
-			   const struct route_query *rq)
-{
-	double prob = 1.0;
-
-	// TODO(eduardo): should it be better to use a map instead of an array
-	// here?
-	const size_t max_num_chans = gossmap_max_chan_idx(rq->gossmap);
-	struct chan_inflight_flow *in_flight =
-	    tal_arrz(tmpctx, struct chan_inflight_flow, max_num_chans);
-
-	for (size_t i = 0; i < tal_count(flows); ++i) {
-		const struct flow *f = flows[i];
-		const size_t pathlen = tal_count(f->path);
-		struct amount_msat *amounts = flow_amounts(tmpctx, rq->plugin, f);
-
-		for (size_t j = 0; j < pathlen; ++j) {
-			struct amount_msat mincap, maxcap;
-			const int c_dir = f->dirs[j];
-			const u32 c_idx = gossmap_chan_idx(rq->gossmap, f->path[j]);
-			const struct amount_msat deliver = amounts[j];
-
-			get_constraints(rq, f->path[j], c_dir, &mincap, &maxcap);
-			struct short_channel_id_dir scidd;
-			scidd.scid = gossmap_chan_scid(rq->gossmap, f->path[j]);
-			scidd.dir = c_dir;
-
-			rq_log(tmpctx, rq, LOG_DBG, "flow: edge_probability for %s: min=%s, max=%s, sent=%s",
-			       fmt_short_channel_id_dir(tmpctx, &scidd),
-			       fmt_amount_msat(tmpctx, mincap),
-			       fmt_amount_msat(tmpctx, maxcap),
-			       fmt_amount_msat(tmpctx, in_flight[c_idx].half[c_dir]));
-			prob *= edge_probability(deliver, mincap, maxcap,
-						 in_flight[c_idx].half[c_dir]);
-
-			if (!amount_msat_accumulate(&in_flight[c_idx].half[c_dir],
-						    deliver)) {
-				plugin_err(rq->plugin, "Could not add %s to inflight %s",
-					   fmt_amount_msat(tmpctx, deliver),
-					   fmt_amount_msat(tmpctx, in_flight[c_idx].half[c_dir]));
-			}
-		}
-	}
-	return prob;
 }
 
 struct amount_msat flow_spend(struct plugin *plugin, const struct flow *flow)

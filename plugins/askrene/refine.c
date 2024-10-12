@@ -427,11 +427,6 @@ static double edge_probability(const struct route_query *rq,
 	    || !amount_msat_accumulate(&maxcap, additional))
 		abort();
 
-	rq_log(tmpctx, rq, LOG_DBG, "refine: edge_probability for %s: min=%s, max=%s, sent=%s",
-	       fmt_short_channel_id_dir(tmpctx, scidd),
-	       fmt_amount_msat(tmpctx, mincap),
-	       fmt_amount_msat(tmpctx, maxcap),
-	       fmt_amount_msat(tmpctx, sent));
 	if (amount_msat_less_eq(sent, mincap))
 		return 1.0;
 	else if (amount_msat_greater(sent, maxcap))
