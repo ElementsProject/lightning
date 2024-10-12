@@ -130,7 +130,15 @@ double flowset_probability(struct flow **flows,
 			const struct amount_msat deliver = amounts[j];
 
 			get_constraints(rq, f->path[j], c_dir, &mincap, &maxcap);
+			struct short_channel_id_dir scidd;
+			scidd.scid = gossmap_chan_scid(rq->gossmap, f->path[j]);
+			scidd.dir = c_dir;
 
+			rq_log(tmpctx, rq, LOG_DBG, "flow: edge_probability for %s: min=%s, max=%s, sent=%s",
+			       fmt_short_channel_id_dir(tmpctx, &scidd),
+			       fmt_amount_msat(tmpctx, mincap),
+			       fmt_amount_msat(tmpctx, maxcap),
+			       fmt_amount_msat(tmpctx, in_flight[c_idx].half[c_dir]));
 			prob *= edge_probability(deliver, mincap, maxcap,
 						 in_flight[c_idx].half[c_dir]);
 

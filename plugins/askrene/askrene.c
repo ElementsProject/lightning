@@ -16,6 +16,7 @@
 #include <common/json_stream.h>
 #include <common/route.h>
 #include <errno.h>
+#include <math.h>
 #include <plugins/askrene/askrene.h>
 #include <plugins/askrene/explain_failure.h>
 #include <plugins/askrene/flow.h>
@@ -336,6 +337,7 @@ static const char *get_routes(const tal_t *ctx,
 	double delay_feefactor;
 	u32 mu;
 	const char *ret;
+	double flowset_prob;
 
 	if (gossmap_refresh(askrene->gossmap, NULL)) {
 		/* FIXME: gossmap_refresh callbacks to we can update in place */
@@ -488,7 +490,7 @@ too_expensive:
 	 * fees, so we try to adjust now.  We could re-run MCF if this
 	 * fails, but failure basically never happens where payment is
 	 * still possible */
-	ret = refine_with_fees_and_limits(ctx, rq, amount, &flows);
+	ret = refine_with_fees_and_limits(ctx, rq, amount, &flows, &flowset_prob);
 	if (ret)
 		goto fail;
 
@@ -541,6 +543,10 @@ too_expensive:
 	}
 
 	*probability = flowset_probability(flows, rq);
+	if (fabs(*probability - flowset_prob) > 0.000001) {
+		rq_log(tmpctx, rq, LOG_BROKEN, "Probability %f != expected %f",
+		       *probability, flowset_prob);
+	}
 	gossmap_remove_localmods(askrene->gossmap, localmods);
 
 	return NULL;
