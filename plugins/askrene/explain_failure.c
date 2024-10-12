@@ -133,33 +133,33 @@ static const char *check_capacity(const tal_t *ctx,
 
 	node_stats(rq, node, node_direction, &stats);
 	if (amount_msat_greater(amount, stats.total.capacity)) {
-		return tal_fmt(ctx,
-			       NO_USABLE_PATHS_STRING
-			       "  Total %s capacity is only %s"
-			       " (in %zu channels).",
-			       name,
-			       fmt_amount_msat(tmpctx, stats.total.capacity),
-			       stats.total.num_channels);
+		return rq_log(ctx, rq, LOG_DBG,
+			      NO_USABLE_PATHS_STRING
+			      "  Total %s capacity is only %s"
+			      " (in %zu channels).",
+			      name,
+			      fmt_amount_msat(tmpctx, stats.total.capacity),
+			      stats.total.num_channels);
 	}
 	if (amount_msat_greater(amount, stats.gossip_known.capacity)) {
-		return tal_fmt(ctx,
-			       NO_USABLE_PATHS_STRING
-			       "  Missing gossip for %s: only known %zu/%zu channels, leaving capacity only %s of %s.",
-			       name,
-			       stats.gossip_known.num_channels,
-			       stats.total.num_channels,
-			       fmt_amount_msat(tmpctx, stats.gossip_known.capacity),
-			       fmt_amount_msat(tmpctx, stats.total.capacity));
+		return rq_log(ctx, rq, LOG_DBG,
+			      NO_USABLE_PATHS_STRING
+			      "  Missing gossip for %s: only known %zu/%zu channels, leaving capacity only %s of %s.",
+			      name,
+			      stats.gossip_known.num_channels,
+			      stats.total.num_channels,
+			      fmt_amount_msat(tmpctx, stats.gossip_known.capacity),
+			      fmt_amount_msat(tmpctx, stats.total.capacity));
 	}
 	if (amount_msat_greater(amount, stats.enabled.capacity)) {
-		return tal_fmt(ctx,
-			       NO_USABLE_PATHS_STRING
-			       "  The %s has disabled %zu of %zu channels, leaving capacity only %s of %s.",
-			       name,
-			       stats.total.num_channels - stats.enabled.num_channels,
-			       stats.total.num_channels,
-			       fmt_amount_msat(tmpctx, stats.enabled.capacity),
-			       fmt_amount_msat(tmpctx, stats.total.capacity));
+		return rq_log(ctx, rq, LOG_DBG,
+			      NO_USABLE_PATHS_STRING
+			      "  The %s has disabled %zu of %zu channels, leaving capacity only %s of %s.",
+			      name,
+			      stats.total.num_channels - stats.enabled.num_channels,
+			      stats.total.num_channels,
+			      fmt_amount_msat(tmpctx, stats.enabled.capacity),
+			      fmt_amount_msat(tmpctx, stats.total.capacity));
 	}
 	return NULL;
 }
