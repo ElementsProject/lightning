@@ -1,10 +1,12 @@
 #include "config.h"
 #include <assert.h>
+#include <ccan/asort/asort.h>
 #include <ccan/bitmap/bitmap.h>
 #include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <common/utils.h>
+#include <float.h>
 #include <math.h>
 #include <plugins/askrene/askrene.h>
 #include <plugins/askrene/dijkstra.h>
@@ -293,7 +295,6 @@ struct pay_parameters {
 
 	double delay_feefactor;
 	double base_fee_penalty;
-	double k_factor;
 };
 
 /* Representation of the linear MCF network.
@@ -311,7 +312,8 @@ struct linear_network
 	struct arc *node_adjacency_first_arc;
 
 	// probability and fee cost associated to an arc
-	s64 *arc_prob_cost, *arc_fee_cost;
+	double *arc_prob_cost;
+	s64 *arc_fee_cost;
 	s64 *capacity;
 
 	size_t max_num_arcs,max_num_nodes;
@@ -413,7 +415,7 @@ static void set_capacity(s64 *capacity, u64 value, u64 *cap_on_capacity)
 /* Split a directed channel into parts with linear cost function. */
 static void linearize_channel(const struct pay_parameters *params,
 			      const struct gossmap_chan *c, const int dir,
-			      s64 *capacity, s64 *cost)
+			      s64 *capacity, double *cost)
 {
 	struct amount_msat mincap, maxcap;
 
@@ -439,7 +441,7 @@ static void linearize_channel(const struct pay_parameters *params,
 
 		cost[i] = params->cost_fraction[i]
 		          *params->amount.millisatoshis /* Raw: linearize_channel */
-		          *params->k_factor/(b-a);
+		          /(b-a);
 	}
 }
 
@@ -482,22 +484,71 @@ static void init_residual_network(
 	}
 }
 
+static int cmp_u64(const u64 *a, const u64 *b, void *unused)
+{
+	if (*a < *b)
+		return -1;
+	if (*a > *b)
+		return 1;
+	return 0;
+}
+
+static int cmp_double(const double *a, const double *b, void *unused)
+{
+	if (*a < *b)
+		return -1;
+	if (*a > *b)
+		return 1;
+	return 0;
+}
+
+static double get_median_ratio(const tal_t *working_ctx,
+			       const struct linear_network* linear_network)
+{
+	u64 *u64_arr = tal_arr(working_ctx, u64, linear_network->max_num_arcs/2);
+	double *double_arr = tal_arr(working_ctx, double, linear_network->max_num_arcs/2);
+	size_t n = 0;
+
+	for (struct arc arc = {0};arc.idx < linear_network->max_num_arcs; ++arc.idx) {
+		if (arc_is_dual(arc))
+			continue;
+		assert(n < linear_network->max_num_arcs/2);
+		u64_arr[n] = linear_network->arc_fee_cost[arc.idx];
+		double_arr[n] = linear_network->arc_prob_cost[arc.idx];
+		n++;
+	}
+	asort(u64_arr, n, cmp_u64, NULL);
+	asort(double_arr, n, cmp_double, NULL);
+
+	/* Empty network, or tiny probability, nobody cares */
+	if (n == 0 || double_arr[n/2] < 0.001)
+		return 1;
+
+	/* You need to scale arc_prob_cost by this to match arc_fee_cost */
+	return u64_arr[n/2] / double_arr[n/2];
+}
+
 static void combine_cost_function(
+		const tal_t *working_ctx,
 		const struct linear_network* linear_network,
 		struct residual_network *residual_network,
 		s64 mu)
 {
+	/* probabilty and fee costs are not directly comparable!
+	 * Scale by ratio of (positive) medians. */
+	const double k = get_median_ratio(working_ctx, linear_network);
+
 	for(struct arc arc = {0};arc.idx < linear_network->max_num_arcs; ++arc.idx)
 	{
 		if(arc_tail(linear_network,arc)==INVALID_INDEX)
 			continue;
 
-		const s64 pcost = linear_network->arc_prob_cost[arc.idx],
-			fcost = linear_network->arc_fee_cost[arc.idx];
+		const double pcost = linear_network->arc_prob_cost[arc.idx];
+		const s64 fcost = linear_network->arc_fee_cost[arc.idx];
 
-		assert(pcost != INFINITE);
 		assert(fcost != INFINITE);
-		residual_network->cost[arc.idx] = fcost*mu + (MU_MAX-mu)*pcost;
+		assert(pcost != DBL_MAX);
+		residual_network->cost[arc.idx] = fcost*mu + (MU_MAX-mu)*pcost*k;
 	}
 }
 
@@ -594,9 +645,9 @@ init_linear_network(const tal_t *ctx, const struct pay_parameters *params)
 	for(size_t i=0;i<max_num_nodes;++i)
 		linear_network->node_adjacency_first_arc[i].idx=INVALID_INDEX;
 
-	linear_network->arc_prob_cost = tal_arr(linear_network,s64,max_num_arcs);
+	linear_network->arc_prob_cost = tal_arr(linear_network,double,max_num_arcs);
 	for(size_t i=0;i<max_num_arcs;++i)
-		linear_network->arc_prob_cost[i]=INFINITE;
+		linear_network->arc_prob_cost[i]=DBL_MAX;
 
 	linear_network->arc_fee_cost = tal_arr(linear_network,s64,max_num_arcs);
 	for(size_t i=0;i<max_num_arcs;++i)
@@ -631,7 +682,8 @@ init_linear_network(const tal_t *ctx, const struct pay_parameters *params)
 
 			// `cost` is the word normally used to denote cost per
 			// unit of flow in the context of MCF.
-			s64 prob_cost[CHANNEL_PARTS], capacity[CHANNEL_PARTS];
+			double prob_cost[CHANNEL_PARTS];
+			s64 capacity[CHANNEL_PARTS];
 
 			// split this channel direction to obtain the arcs
 			// that are outgoing to `node`
@@ -1307,7 +1359,6 @@ struct flow **minflow(const tal_t *ctx,
 
 	params->delay_feefactor = delay_feefactor;
 	params->base_fee_penalty = base_fee_penalty_estimate(amount);
-	params->k_factor = 8.0;
 
 	// build the uncertainty network with linearization and residual arcs
 	struct linear_network *linear_network= init_linear_network(working_ctx, params);
@@ -1342,7 +1393,7 @@ struct flow **minflow(const tal_t *ctx,
 		tal_free(working_ctx);
 		return NULL;
 	}
-	combine_cost_function(linear_network, residual_network, mu);
+	combine_cost_function(working_ctx, linear_network, residual_network, mu);
 
 	/* We solve a linear MCF problem. */
 	if(!optimize_mcf(working_ctx, dijkstra,linear_network,residual_network,
