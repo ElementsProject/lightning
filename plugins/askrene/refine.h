@@ -21,5 +21,6 @@ const char *
 refine_with_fees_and_limits(const tal_t *ctx,
 			    struct route_query *rq,
 			    struct amount_msat deliver,
-			    struct flow ***flows);
+			    struct flow ***flows,
+			    double *flowset_probability);
 #endif /* LIGHTNING_PLUGINS_ASKRENE_REFINE_H */

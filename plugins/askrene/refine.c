@@ -408,11 +408,53 @@ static bool duplicate_one_flow(const struct route_query *rq,
 	return false;
 }
 
+/* Stolen whole-cloth from @Lagrang3 in renepay's flow.c.  Wrong
+ * because of htlc overhead in reservations! */
+static double edge_probability(const struct route_query *rq,
+			       const struct short_channel_id_dir *scidd,
+			       struct amount_msat sent)
+{
+	struct amount_msat numerator, denominator;
+	struct amount_msat mincap, maxcap, additional;
+	const struct gossmap_chan *c = gossmap_find_chan(rq->gossmap, &scidd->scid);
+
+	get_constraints(rq, c, scidd->dir, &mincap, &maxcap);
+
+	/* We add an extra per-htlc reservation for the *next* HTLC, so we "over-reserve"
+	 * on local channels.  Undo that! */
+	additional = get_additional_per_htlc_cost(rq, scidd);
+	if (!amount_msat_accumulate(&mincap, additional)
+	    || !amount_msat_accumulate(&maxcap, additional))
+		abort();
+
+	rq_log(tmpctx, rq, LOG_DBG, "refine: edge_probability for %s: min=%s, max=%s, sent=%s",
+	       fmt_short_channel_id_dir(tmpctx, scidd),
+	       fmt_amount_msat(tmpctx, mincap),
+	       fmt_amount_msat(tmpctx, maxcap),
+	       fmt_amount_msat(tmpctx, sent));
+	if (amount_msat_less_eq(sent, mincap))
+		return 1.0;
+	else if (amount_msat_greater(sent, maxcap))
+		return 0.0;
+
+	/* Linear probability: 1 - (spend - min) / (max - min) */
+
+	/* spend > mincap, from above. */
+	if (!amount_msat_sub(&numerator, sent, mincap))
+		abort();
+	/* This can only fail is maxcap was < mincap,
+	 * so we would be captured above */
+	if (!amount_msat_sub(&denominator, maxcap, mincap))
+		abort();
+	return 1.0 - amount_msat_ratio(numerator, denominator);
+}
+
 const char *
 refine_with_fees_and_limits(const tal_t *ctx,
 			    struct route_query *rq,
 			    struct amount_msat deliver,
-			    struct flow ***flows)
+			    struct flow ***flows,
+			    double *flowset_probability)
 {
 	struct reserve_hop *reservations = new_reservations(NULL, rq);
 	struct amount_msat more_to_deliver;
@@ -535,6 +577,17 @@ refine_with_fees_and_limits(const tal_t *ctx,
 	}
 
 	ret = NULL;
+
+	/* Total flowset probability is now easily calculated given reservations
+	 * contains the total amounts through each channel (once we remove them) */
+	destroy_reservations(reservations, get_askrene(rq->plugin));
+	tal_add_destructor2(reservations, destroy_reservations, get_askrene(rq->plugin));
+
+	*flowset_probability = 1.0;
+	for (size_t i = 0; i < tal_count(reservations); i++) {
+		const struct reserve_hop *r = &reservations[i];
+		*flowset_probability *= edge_probability(rq, &r->scidd, r->amount);
+	}
 
 out:
 	tal_free(reservations);
