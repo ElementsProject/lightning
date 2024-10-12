@@ -5,6 +5,8 @@ on:
   # 05:00 Berlin, 03:00 UTC, 23:00 New York, 20:00 Los Angeles
   schedule:
     - cron: "0 3 * * *"
+  workflow_dispatch:
+
 jobs:
   ubuntu:
     name: "Ubuntu repro build: ${{ matrix.version }}"
