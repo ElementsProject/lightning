@@ -1845,8 +1845,8 @@ def test_addgossip(node_factory):
                                      opts={'log-level': 'io'})
 
     # We should get two node_announcements, one channel_announcement, and two
-    # channel_update.
-    l3 = node_factory.get_node()
+    # channel_update.  We deliberately inject bad gossip!
+    l3 = node_factory.get_node(allow_bad_gossip=True)
 
     # 0x0100 = channel_announcement
     # 0x0102 = channel_update
