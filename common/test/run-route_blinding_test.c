@@ -204,7 +204,7 @@ int main(int argc, char *argv[])
 		struct pubkey alias, expected_alias;
 
 		assert(json_to_secret(json,
-				      json_get_member(json, t, "ephemeral_privkey"),
+				      json_get_member(json, t, "path_privkey"),
 				      &s));
 
 		/* First blinding/replacement is stated, remainder are
@@ -217,7 +217,7 @@ int main(int argc, char *argv[])
 			assert(secret_eq_consttime(&path_key.secret, &s));
 
 		assert(pubkey_from_privkey(&path_key, &pubkey));
-		json_to_pubkey(json, json_get_member(json, t, "ephemeral_pubkey"),
+		json_to_pubkey(json, json_get_member(json, t, "path_key"),
 			       &expected_pubkey);
 		assert(pubkey_eq(&pubkey, &expected_pubkey));
 

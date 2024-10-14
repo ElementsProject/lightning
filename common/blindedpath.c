@@ -243,7 +243,7 @@ void blindedpath_next_path_key(const struct tlv_encrypted_data_tlv *enc,
 	/* BOLT #4:
 	 *   - $`E_{i+1} = SHA256(E_i || ss_i) * E_i`$
 	 * ...
-	 * - If `encrypted_data` contains a `next_path_key_override`:
+	 * - If the `encrypted_data_tlv` contains a `next_path_key_override`:
 	 *   - MUST use it as the next `path_key`.
 	 * - Otherwise:
 	 *  - MUST use $`E_{i+1} = SHA256(E_i || ss_i) * E_i`$ as the next `path_key`
