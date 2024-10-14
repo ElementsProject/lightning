@@ -514,8 +514,11 @@ int main(int argc, const char *argv[])
 	 */
 	local_per_commitment_point = pubkey_from_hex("025f7117a78150fe2ef97db7cfc83bd57b2e2c0d0dd25eaf467a4a1c2a45ce1486");
 	/* BOLT #3:
-	 * localpubkey: 030d417a46946384f88d5f3337267c5e579765875dc4daca813e21734b140639e7
-	 * remotepubkey: 0394854aa6eab5b2a8122cc726e9dded053a2184d88256816826d6231c068d4a5b
+	 * local_funding_pubkey: 023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb
+	 * remote_funding_pubkey: 030e9f7b623d2ccc7c9bd44d66d5ce21ce504c0acf6385a132cec6d3c39fa711c1
+	 * local_privkey: bb13b121cdc357cd2e608b0aea294afca36e2b34cf958e2e6451a2f27469449101
+	 * local_htlcpubkey: 030d417a46946384f88d5f3337267c5e579765875dc4daca813e21734b140639e7
+	 * remote_htlcpubkey: 0394854aa6eab5b2a8122cc726e9dded053a2184d88256816826d6231c068d4a5b
 	 * local_delayedpubkey: 03fd5960528dc152014952efdb702a88f71e3c1653b2314431701ec77e57fde83c
 	 * local_revocation_pubkey: 0212a140cd0c6539d07cd08dfe09984dec3251ea808b892efeac3ede9402bf2b19
 	 */
@@ -526,7 +529,6 @@ int main(int argc, const char *argv[])
 	keyset.self_delayed_payment_key = pubkey_from_hex("03fd5960528dc152014952efdb702a88f71e3c1653b2314431701ec77e57fde83c");
 	keyset.self_revocation_key = pubkey_from_hex("0212a140cd0c6539d07cd08dfe09984dec3251ea808b892efeac3ede9402bf2b19");
 
-	/* FIXME: Update bolt */
 	keyset.self_htlc_key = pubkey_from_hex("030d417a46946384f88d5f3337267c5e579765875dc4daca813e21734b140639e7");
 	keyset.other_htlc_key = pubkey_from_hex("0394854aa6eab5b2a8122cc726e9dded053a2184d88256816826d6231c068d4a5b");
 
