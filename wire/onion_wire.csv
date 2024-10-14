@@ -9,7 +9,7 @@ tlvtype,payload,payment_data,8
 tlvdata,payload,payment_data,payment_secret,byte,32
 tlvdata,payload,payment_data,total_msat,tu64,
 tlvtype,payload,encrypted_recipient_data,10
-tlvdata,payload,encrypted_recipient_data,encrypted_data,byte,...
+tlvdata,payload,encrypted_recipient_data,encrypted_recipient_data,byte,...
 tlvtype,payload,current_path_key,12
 tlvdata,payload,current_path_key,path_key,point,
 tlvtype,payload,payment_metadata,16
