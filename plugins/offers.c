@@ -150,9 +150,9 @@ static struct blinded_path *blinded_path_dup(const tal_t *ctx,
 {
 	struct blinded_path *bp = tal(ctx, struct blinded_path);
 	*bp = *old;
-	bp->path = tal_arr(bp, struct onionmsg_hop *, tal_count(old->path));
+	bp->path = tal_arr(bp, struct blinded_path_hop *, tal_count(old->path));
 	for (size_t i = 0; i < tal_count(bp->path); i++) {
-		bp->path[i] = tal(bp->path, struct onionmsg_hop);
+		bp->path[i] = tal(bp->path, struct blinded_path_hop);
 		bp->path[i]->blinded_node_id = old->path[i]->blinded_node_id;
 		bp->path[i]->encrypted_recipient_data = tal_dup_talarr(bp->path[i], u8,
 								       old->path[i]->encrypted_recipient_data);
@@ -504,7 +504,7 @@ static void json_add_chains(struct json_stream *js,
 
 static void json_add_onionmsg_path(struct json_stream *js,
 				   const char *fieldname,
-				   const struct onionmsg_hop *hop)
+				   const struct blinded_path_hop *hop)
 {
 	json_object_start(js, fieldname);
 	json_add_pubkey(js, "blinded_node_id", &hop->blinded_node_id);

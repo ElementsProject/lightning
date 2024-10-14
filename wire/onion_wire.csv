@@ -20,11 +20,11 @@ subtype,blinded_path
 subtypedata,blinded_path,first_node_id,sciddir_or_pubkey,
 subtypedata,blinded_path,first_path_key,point,
 subtypedata,blinded_path,num_hops,byte,
-subtypedata,blinded_path,path,onionmsg_hop,num_hops
-subtype,onionmsg_hop
-subtypedata,onionmsg_hop,blinded_node_id,point,
-subtypedata,onionmsg_hop,enclen,u16,
-subtypedata,onionmsg_hop,encrypted_recipient_data,byte,enclen
+subtypedata,blinded_path,path,blinded_path_hop,num_hops
+subtype,blinded_path_hop
+subtypedata,blinded_path_hop,blinded_node_id,point,
+subtypedata,blinded_path_hop,enclen,u16,
+subtypedata,blinded_path_hop,encrypted_recipient_data,byte,enclen
 tlvtype,encrypted_data_tlv,padding,1
 tlvdata,encrypted_data_tlv,padding,padding,byte,...
 tlvtype,encrypted_data_tlv,short_channel_id,2
