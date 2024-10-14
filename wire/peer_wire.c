@@ -366,7 +366,7 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 		 *     * [`channel_id`:`channel_id`]
 		 */
 	case WIRE_STFU:
-		/* BOLT-quiescent #2:
+		/* BOLT #2:
 		 * 1. type: 2 (`stfu`)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]

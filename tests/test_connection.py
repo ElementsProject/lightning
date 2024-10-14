@@ -3996,7 +3996,7 @@ def test_upgrade_statickey_fail(node_factory, executor, bitcoind):
 
 
 def test_quiescence(node_factory, executor):
-    l1, l2 = node_factory.line_graph(2, opts={'experimental-quiesce': None})
+    l1, l2 = node_factory.line_graph(2)
 
     # Works fine.
     l1.pay(l2, 1000)
