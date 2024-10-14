@@ -18,7 +18,7 @@ json_to_blinded_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
 	/* It will give us either scid or node_id */
 	memset(&first_scidd, 0, sizeof(first_scidd));
 	err = json_scan(tmpctx, buffer, tok,
-			"{blinding:%,"
+			"{first_path_key:%,"
 			"first_node_id?:%,"
 			"first_scid?:%,"
 			"first_scid_dir?:%}",

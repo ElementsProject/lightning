@@ -31,6 +31,8 @@ hidden: false
 | listpeers.features.option_anchors_zero_fee_htlc_tx | Field | v24.08          | v25.08         | Renamed to `option_anchors` in the spec: check for that in `features` instead                                                          |
 | experimental-anchors                 | Config             | v24.02           | v25.02         | Now the default                                                                                                                        |
 | experimental-onion-messages          | Config             | v24.08           | v25.02         | Now the default                                                                                                                        |
+| decode.blinding                      | Field              | v24.11           | v25.05         | Renamed to `first_path_key` in BOLT 4 (available in `decode` from v24.11)                                                              |
+| onion_message_recv.blinding          | Hook Field         | v24.11           | v25.05         | Renamed to `first_path_key` in BOLT 4 (available in hook from v24.11)                                                                  |
 
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
@@ -42,7 +44,7 @@ Types of deprecation:
 * Parameter(s): a JSON RPC input.
 * Getmanifest Reply: a field in the JSON reply which plugins give to `getmanifest`.
 * Hook Return: a field/value in the JSON reply which plugins give to a plugin hook.
-* Notification Field: a field in the JSON notification to a plugin.
+* Notification/Hook Field: a field in the JSON notification/hook to a plugin.
 
 For each deprecation:
 1. The deprecation is listed here, and in the CHANGELOG.md file.

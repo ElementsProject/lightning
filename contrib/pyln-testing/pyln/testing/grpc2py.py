@@ -1159,6 +1159,7 @@ def decode_invoice_paths2py(m):
     return remove_default({
         "blinding": hexlify(m.blinding),  # PrimitiveField in generate_composite
         "first_node_id": hexlify(m.first_node_id),  # PrimitiveField in generate_composite
+        "first_path_key": hexlify(m.first_path_key),  # PrimitiveField in generate_composite
         "first_scid": m.first_scid,  # PrimitiveField in generate_composite
         "first_scid_dir": m.first_scid_dir,  # PrimitiveField in generate_composite
         "path": [decode_invoice_paths_path2py(i) for i in m.path],  # ArrayField[composite] in generate_composite
@@ -1177,6 +1178,7 @@ def decode_invreq_paths2py(m):
         "path": [decode_invreq_paths_path2py(i) for i in m.path],  # ArrayField[composite] in generate_composite
         "blinding": hexlify(m.blinding),  # PrimitiveField in generate_composite
         "first_node_id": hexlify(m.first_node_id),  # PrimitiveField in generate_composite
+        "first_path_key": hexlify(m.first_path_key),  # PrimitiveField in generate_composite
         "first_scid": m.first_scid,  # PrimitiveField in generate_composite
         "first_scid_dir": m.first_scid_dir,  # PrimitiveField in generate_composite
     })
@@ -1194,6 +1196,7 @@ def decode_offer_paths2py(m):
         "path": [decode_offer_paths_path2py(i) for i in m.path],  # ArrayField[composite] in generate_composite
         "blinding": hexlify(m.blinding),  # PrimitiveField in generate_composite
         "first_node_id": hexlify(m.first_node_id),  # PrimitiveField in generate_composite
+        "first_path_key": hexlify(m.first_path_key),  # PrimitiveField in generate_composite
         "first_scid": m.first_scid,  # PrimitiveField in generate_composite
         "first_scid_dir": m.first_scid_dir,  # PrimitiveField in generate_composite
     })
