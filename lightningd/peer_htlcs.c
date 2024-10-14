@@ -136,9 +136,9 @@ static void channel_stats_incr_out_offered(struct channel *c,
 }
 
 /* BOLT #4:
- *   - if `blinding_point` is set in the incoming `update_add_htlc`:
+ *   - if `path_key` is set in the incoming `update_add_htlc`:
  *     - MUST return an `invalid_onion_blinding` error.
- *   - if `current_blinding_point` is set in the onion payload and it is not the
+ *   - if `current_path_key` is set in the onion payload and it is not the
  *     final node:
  *     - MUST return an `invalid_onion_blinding` error.
  */
@@ -1421,8 +1421,8 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 				       &hook_payload->payload->blinding_ss,
 				       &sha);
 		hook_payload->next_blinding = tal(hook_payload, struct pubkey);
-		blinding_next_pubkey(hook_payload->payload->blinding, &sha,
-				     hook_payload->next_blinding);
+		blinding_next_path_key(hook_payload->payload->blinding, &sha,
+				       hook_payload->next_blinding);
 	} else
 		hook_payload->next_blinding = NULL;
 

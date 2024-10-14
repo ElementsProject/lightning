@@ -2,7 +2,7 @@ diff --git a/wire/onion_wire.csv b/wire/onion_wire.csv
 index ae05f09fd..b09811ed1 100644
 --- a/wire/onion_wire.csv
 +++ b/wire/onion_wire.csv
-@@ -92,6 +92,12 @@ tlvtype,onionmsg_tlv,reply_path,2
+@@ -92,3 +92,9 @@ tlvtype,onionmsg_tlv,reply_path,2
  tlvdata,onionmsg_tlv,reply_path,path,blinded_path,
  tlvtype,onionmsg_tlv,encrypted_recipient_data,4
  tlvdata,onionmsg_tlv,encrypted_recipient_data,encrypted_recipient_data,byte,...
@@ -12,6 +12,3 @@ index ae05f09fd..b09811ed1 100644
 +tlvdata,onionmsg_tlv,invoice,invoice,tlv_invoice,
 +tlvtype,onionmsg_tlv,invoice_error,68
 +tlvdata,onionmsg_tlv,invoice_error,invoice_error,tlv_invoice_error,
- subtype,blinded_path
- subtypedata,blinded_path,first_node_id,point,
- subtypedata,blinded_path,blinding,point,

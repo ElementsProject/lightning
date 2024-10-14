@@ -19,9 +19,9 @@ void blinding_hash_e_and_ss(const struct pubkey *e,
 }
 
 /* E(i+1) = H(E(i) || ss(i)) * E(i) */
-bool blinding_next_pubkey(const struct pubkey *pk,
-			  const struct sha256 *h,
-			  struct pubkey *next)
+bool blinding_next_path_key(const struct pubkey *pk,
+			    const struct sha256 *h,
+			    struct pubkey *next)
 {
 
 	*next = *pk;
@@ -30,9 +30,9 @@ bool blinding_next_pubkey(const struct pubkey *pk,
 }
 
 /* e(i+1) = H(E(i) || ss(i)) * e(i) */
-bool blinding_next_privkey(const struct privkey *e,
-			   const struct sha256 *h,
-			   struct privkey *next)
+bool blinding_next_path_privkey(const struct privkey *e,
+				const struct sha256 *h,
+				struct privkey *next)
 {
 	*next = *e;
 	return secp256k1_ec_seckey_tweak_mul(secp256k1_ctx, next->secret.data,

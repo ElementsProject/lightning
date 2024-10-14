@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
 			 "final_amount_msat:%,"
 			 "final_cltv:%,"
 			 "blinded_payinfo:{fee_base_msat:%,fee_proportional_millionths:%,cltv_expiry_delta:%},"
-			 "blinded_route:{introduction_node_id:%,blinding:%,hops:%}}}",
+			 "blinded_route:{first_node_id:%,first_path_key:%,hops:%}}}",
 			 JSON_SCAN(json_to_secret, &session_key),
 			 JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &associated_data),
 			 JSON_SCAN(json_to_msat, &final_amount),
@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
 			 JSON_SCAN(json_to_u32, &path_fee_proportional_millionths),
 			 JSON_SCAN(json_to_u32, &path_cltv_delta),
 			 JSON_SCAN(json_to_pubkey, &bpath->first_node_id.pubkey),
-			 JSON_SCAN(json_to_pubkey, &bpath->blinding),
+			 JSON_SCAN(json_to_pubkey, &bpath->first_path_key),
 			 JSON_SCAN(json_to_tok, &hops_tok)) == NULL);
 
 	/* FIXME: Test scid as well! */

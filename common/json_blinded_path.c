@@ -22,7 +22,7 @@ json_to_blinded_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
 			"first_node_id?:%,"
 			"first_scid?:%,"
 			"first_scid_dir?:%}",
-			JSON_SCAN(json_to_pubkey, &rpath->blinding),
+			JSON_SCAN(json_to_pubkey, &rpath->first_path_key),
 			JSON_SCAN(json_to_pubkey, &first_node_id),
 			JSON_SCAN(json_to_short_channel_id, &first_scidd.scid),
 			JSON_SCAN(json_to_int, &first_scidd.dir),

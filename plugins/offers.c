@@ -530,7 +530,7 @@ static bool json_add_blinded_paths(struct json_stream *js,
 			json_add_u32(js, "first_scid_dir",
 				     paths[i]->first_node_id.scidd.dir);
 		}
-		json_add_pubkey(js, "blinding", &paths[i]->blinding);
+		json_add_pubkey(js, "blinding", &paths[i]->first_path_key);
 
 		/* Don't crash if we're short a payinfo! */
 		if (i < tal_count(blindedpay)) {

@@ -21,16 +21,16 @@ void blinding_hash_e_and_ss(const struct pubkey *e UNNEEDED,
 			    const struct secret *ss UNNEEDED,
 			    struct sha256 *sha UNNEEDED)
 { fprintf(stderr, "blinding_hash_e_and_ss called!\n"); abort(); }
-/* Generated stub for blinding_next_privkey */
-bool blinding_next_privkey(const struct privkey *e UNNEEDED,
-			   const struct sha256 *h UNNEEDED,
-			   struct privkey *next UNNEEDED)
-{ fprintf(stderr, "blinding_next_privkey called!\n"); abort(); }
-/* Generated stub for blinding_next_pubkey */
-bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
-			  const struct sha256 *h UNNEEDED,
-			  struct pubkey *next UNNEEDED)
-{ fprintf(stderr, "blinding_next_pubkey called!\n"); abort(); }
+/* Generated stub for blinding_next_path_key */
+bool blinding_next_path_key(const struct pubkey *pk UNNEEDED,
+			    const struct sha256 *h UNNEEDED,
+			    struct pubkey *next UNNEEDED)
+{ fprintf(stderr, "blinding_next_path_key called!\n"); abort(); }
+/* Generated stub for blinding_next_path_privkey */
+bool blinding_next_path_privkey(const struct privkey *e UNNEEDED,
+				const struct sha256 *h UNNEEDED,
+				struct privkey *next UNNEEDED)
+{ fprintf(stderr, "blinding_next_path_privkey called!\n"); abort(); }
 /* Generated stub for decode_channel_update_timestamps */
 struct channel_update_timestamps *decode_channel_update_timestamps(const tal_t *ctx UNNEEDED,
 				 const struct tlv_reply_channel_range_tlvs_timestamps_tlv *timestamps_tlv UNNEEDED)

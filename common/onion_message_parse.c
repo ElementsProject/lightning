@@ -24,7 +24,7 @@ static bool decrypt_final_onionmsg(const tal_t *ctx,
 	if (!blindedpath_get_alias(ss, my_id, alias))
 		return false;
 
-	encmsg = decrypt_encrypted_data(tmpctx, blinding, ss, enctlv);
+	encmsg = decrypt_encrypted_data(tmpctx, ss, enctlv);
 	if (!encmsg)
 		return false;
 
@@ -37,15 +37,15 @@ static bool decrypt_final_onionmsg(const tal_t *ctx,
 	return true;
 }
 
-static bool decrypt_forwarding_onionmsg(const struct pubkey *blinding,
+static bool decrypt_forwarding_onionmsg(const struct pubkey *path_key,
 					const struct secret *ss,
 					const u8 *enctlv,
 					struct sciddir_or_pubkey *next_node,
-					struct pubkey *next_blinding)
+					struct pubkey *next_path_key)
 {
 	struct tlv_encrypted_data_tlv *encmsg;
 
-	encmsg = decrypt_encrypted_data(tmpctx, blinding, ss, enctlv);
+	encmsg = decrypt_encrypted_data(tmpctx, ss, enctlv);
 	if (!encmsg)
 		return false;
 
@@ -79,7 +79,7 @@ static bool decrypt_forwarding_onionmsg(const struct pubkey *blinding,
 	} else
 		return false;
 
-	blindedpath_next_blinding(encmsg, blinding, ss, next_blinding);
+	blindedpath_next_path_key(encmsg, path_key, ss, next_path_key);
 	return true;
 }
 

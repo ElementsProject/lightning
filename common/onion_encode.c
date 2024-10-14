@@ -120,7 +120,7 @@ u8 *onion_blinded_hop(const tal_t *ctx,
 	}
 	tlv->outgoing_cltv_value = cast_const(u32 *, outgoing_cltv_value);
 	tlv->encrypted_recipient_data = cast_const(u8 *, enctlv);
-	tlv->current_blinding_point = cast_const(struct pubkey *, blinding);
+	tlv->current_path_key = cast_const(struct pubkey *, blinding);
 
 	return make_tlv_hop(ctx, tlv);
 }

@@ -32,7 +32,7 @@ static void json_add_blindedpath(struct json_stream *stream,
 		json_add_short_channel_id(stream, "first_scid", path->first_node_id.scidd.scid);
 		json_add_u32(stream, "first_scid_dir", path->first_node_id.scidd.dir);
 	}
-	json_add_pubkey(stream, "blinding", &path->blinding);
+	json_add_pubkey(stream, "blinding", &path->first_path_key);
 	json_array_start(stream, "hops");
 	for (size_t i = 0; i < tal_count(path->path); i++) {
 		json_object_start(stream, NULL);
@@ -267,14 +267,14 @@ static struct command_result *json_decryptencrypteddata(struct command *cmd,
 							const jsmntok_t *params)
 {
 	u8 *encdata, *decrypted;
-	struct pubkey *blinding, next_blinding;
+	struct pubkey *path_key, next_path_key;
 	struct secret ss;
 	struct sha256 h;
 	struct json_stream *response;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("encrypted_data", param_bin_from_hex, &encdata),
-			 p_req("blinding", param_pubkey, &blinding),
+			 p_req("blinding", param_pubkey, &path_key),
 			 NULL))
 		return command_param_failed();
 
@@ -285,9 +285,9 @@ static struct command_result *json_decryptencrypteddata(struct command *cmd,
 	 *...
 	 * - MUST decrypt the `encrypted_data` field using $`rho_i`$
 	 */
-	ecdh(blinding, &ss);
+	ecdh(path_key, &ss);
 
-	decrypted = decrypt_encmsg_raw(cmd, blinding, &ss, encdata);
+	decrypted = decrypt_encmsg_raw(cmd, &ss, encdata);
 	if (!decrypted)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Decryption failed!");
@@ -299,13 +299,13 @@ static struct command_result *json_decryptencrypteddata(struct command *cmd,
 	 *
 	 *   - $`E_{i+1} = SHA256(E_i || ss_i) * E_i`$
 	 */
-	blinding_hash_e_and_ss(blinding, &ss, &h);
-	blinding_next_pubkey(blinding, &h, &next_blinding);
+	blinding_hash_e_and_ss(path_key, &ss, &h);
+	blinding_next_path_key(path_key, &h, &next_path_key);
 
 	response = json_stream_success(cmd);
 	json_object_start(response, "decryptencrypteddata");
 	json_add_hex_talarr(response, "decrypted", decrypted);
-	json_add_pubkey(response, "next_blinding", &next_blinding);
+	json_add_pubkey(response, "next_blinding", &next_path_key);
 	json_object_end(response);
 	return command_success(cmd, response);
 }

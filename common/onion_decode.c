@@ -14,14 +14,14 @@
  *...
  *     - If it is not the final node:
  *       - MUST return an error if the payload contains other tlv fields than
- *         `encrypted_recipient_data` and `current_blinding_point`.
+ *         `encrypted_recipient_data` and `current_path_key`.
  */
 static bool check_nonfinal_tlv(const struct tlv_payload *tlv,
 			       u64 *failtlvtype)
 {
 	for (size_t i = 0; i < tal_count(tlv->fields); i++) {
 		switch (tlv->fields[i].numtype) {
-		case TLV_PAYLOAD_CURRENT_BLINDING_POINT:
+		case TLV_PAYLOAD_CURRENT_PATH_KEY:
 		case TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA:
 			continue;
 		}
@@ -36,7 +36,7 @@ static bool check_nonfinal_tlv(const struct tlv_payload *tlv,
  *...
  *   - If it is the final node:
  *     - MUST return an error if the payload contains other tlv fields than
- *      `encrypted_recipient_data`, `current_blinding_point`, `amt_to_forward`,
+ *      `encrypted_recipient_data`, `current_path_key`, `amt_to_forward`,
  *      `outgoing_cltv_value` and `total_amount_msat`.
  */
 static bool check_final_tlv(const struct tlv_payload *tlv,
@@ -45,7 +45,7 @@ static bool check_final_tlv(const struct tlv_payload *tlv,
 	for (size_t i = 0; i < tal_count(tlv->fields); i++) {
 		switch (tlv->fields[i].numtype) {
 		case TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA:
-		case TLV_PAYLOAD_CURRENT_BLINDING_POINT:
+		case TLV_PAYLOAD_CURRENT_PATH_KEY:
 		case TLV_PAYLOAD_AMT_TO_FORWARD:
 		case TLV_PAYLOAD_OUTGOING_CLTV_VALUE:
 		case TLV_PAYLOAD_TOTAL_AMOUNT_MSAT:
@@ -215,37 +215,37 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 
 		/* BOLT #4:
 		 *
-		 *   - If `blinding_point` is set in the incoming `update_add_htlc`:
-		 *     - MUST return an error if `current_blinding_point` is present.
-		 *     - MUST use that `blinding_point` as the blinding point for decryption.
+		 *   - If `path_key` is set in the incoming `update_add_htlc`:
+		 *     - MUST return an error if `current_path_key` is present.
+		 *     - MUST use that `path_key` as `path_key` for decryption.
 		 *   - Otherwise:
-		 *     - MUST return an error if `current_blinding_point` is not present.
-		 *     - MUST use that `current_blinding_point` as the blinding point for decryption.
+		 *     - MUST return an error if `current_path_key` is not present.
+		 *     - MUST use that `current_path_key` as the `path_key` for decryption.
 		 */
 		if (blinding) {
-			if (p->tlv->current_blinding_point) {
-				*failtlvtype = TLV_PAYLOAD_CURRENT_BLINDING_POINT;
+			if (p->tlv->current_path_key) {
+				*failtlvtype = TLV_PAYLOAD_CURRENT_PATH_KEY;
 				goto field_bad;
 			}
 			p->blinding = tal_dup(p, struct pubkey, blinding);
 		} else {
-			if (!p->tlv->current_blinding_point) {
-				*failtlvtype = TLV_PAYLOAD_CURRENT_BLINDING_POINT;
+			if (!p->tlv->current_path_key) {
+				*failtlvtype = TLV_PAYLOAD_CURRENT_PATH_KEY;
 				goto field_bad;
 			}
 			p->blinding = tal_dup(p, struct pubkey,
-					      p->tlv->current_blinding_point);
+					      p->tlv->current_path_key);
 		}
 
 		/* BOLT #4:
 		 * The reader:
 		 *...
 		 *    - MUST return an error if `encrypted_recipient_data` does
-		 *      not decrypt using the blinding point as described in
+		 *      not decrypt using the `path_key` as described in
 		 *      [Route Blinding](#route-blinding).
 		 */
 		ecdh(p->blinding, &p->blinding_ss);
-		enc = decrypt_encrypted_data(tmpctx, p->blinding, &p->blinding_ss,
+		enc = decrypt_encrypted_data(tmpctx, &p->blinding_ss,
 					     p->tlv->encrypted_recipient_data);
 		if (!enc) {
 			*failtlvtype = TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
@@ -331,11 +331,11 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 
 	/* BOLT #4:
 	 *   - Otherwise (it is not part of a blinded route):
-	 *      - MUST return an error if `blinding_point` is set in the
-	 *        incoming `update_add_htlc` or `current_blinding_point`
+	 *      - MUST return an error if `path_key` is set in the
+	 *        incoming `update_add_htlc` or `current_path_key`
 	 *        is present.
 	 */
-	if (blinding || p->tlv->current_blinding_point) {
+	if (blinding || p->tlv->current_path_key) {
 		*failtlvtype = TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
 		goto field_bad;
 	}
