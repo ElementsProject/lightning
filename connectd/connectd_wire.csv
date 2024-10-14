@@ -147,11 +147,11 @@ msgtype,connectd_send_onionmsg,2041
 msgdata,connectd_send_onionmsg,id,node_id,
 msgdata,connectd_send_onionmsg,onion_len,u16,
 msgdata,connectd_send_onionmsg,onion,u8,onion_len
-msgdata,connectd_send_onionmsg,blinding,pubkey,
+msgdata,connectd_send_onionmsg,path_key,pubkey,
 
 # Lightningd tells us to digest an onion message.
 msgtype,connectd_inject_onionmsg,2042
-msgdata,connectd_inject_onionmsg,blinding,pubkey,
+msgdata,connectd_inject_onionmsg,path_key,pubkey,
 msgdata,connectd_inject_onionmsg,onion_len,u16,
 msgdata,connectd_inject_onionmsg,onion,u8,onion_len
 

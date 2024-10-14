@@ -580,7 +580,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 				     u32 cltv_expiry,
 				     const struct sha256 *payment_hash,
 				     const u8 routing[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
-				     const struct pubkey *blinding TAKES,
+				     const struct pubkey *path_key TAKES,
 				     struct htlc **htlcp,
 				     bool enforce_aggregate_limits,
 				     struct amount_sat *htlc_fee,
@@ -605,7 +605,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	htlc->fail_immediate = false;
 
 	htlc->rhash = *payment_hash;
-	htlc->blinding = tal_dup_or_null(htlc, struct pubkey, blinding);
+	htlc->path_key = tal_dup_or_null(htlc, struct pubkey, path_key);
 	htlc->failed = NULL;
 	htlc->r = NULL;
 	htlc->routing = tal_dup_arr(htlc, u8, routing, TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE), 0);
@@ -898,7 +898,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      u32 cltv_expiry,
 				      const struct sha256 *payment_hash,
 				      const u8 routing[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
-				      const struct pubkey *blinding TAKES,
+				      const struct pubkey *path_key TAKES,
 				      struct htlc **htlcp,
 				      struct amount_sat *htlc_fee,
 				      bool err_immediate_failures)
@@ -918,7 +918,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 		status_broken("Peer sent out-of-order HTLC ids (is that you, old c-lightning node?)");
 
 	return add_htlc(channel, state, id, amount, cltv_expiry,
-			payment_hash, routing, blinding,
+			payment_hash, routing, path_key,
 			htlcp, true, htlc_fee, err_immediate_failures);
 }
 
@@ -1616,7 +1616,7 @@ bool channel_force_htlcs(struct channel *channel,
 			     htlcs[i]->cltv_expiry,
 			     &htlcs[i]->payment_hash,
 			     htlcs[i]->onion_routing_packet,
-			     htlcs[i]->blinding,
+			     htlcs[i]->path_key,
 			     &htlc, false, NULL, false);
 		if (e != CHANNEL_ERR_ADD_OK) {
 			status_broken("%s HTLC %"PRIu64" failed error %u",

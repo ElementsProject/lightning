@@ -10,7 +10,7 @@
  * @ctx: context to allocate onion_contents off.
  * @rs: the route_step, whose raw_payload is of at least length
  *       onion_payload_length().
- * @blinding: the optional incoming blinding point.
+ * @path_key: the optional incoming path_key point.
  * @accepted_extra_tlvs: Allow these types to be in the TLV without failing
  * @amount_in: Incoming HTLC amount
  * @cltv_expiry: Incoming HTLC cltv_expiry
@@ -21,7 +21,7 @@
  */
 struct onion_payload *onion_decode(const tal_t *ctx,
 				   const struct route_step *rs,
-				   const struct pubkey *blinding,
+				   const struct pubkey *path_key,
 				   const u64 *accepted_extra_tlvs,
 				   struct amount_msat amount_in,
 				   u32 cltv_expiry,
