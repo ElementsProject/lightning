@@ -5967,7 +5967,7 @@ def test_decryptencrypteddata(node_factory):
     #     1. type: 4 (`next_node_id`)
     #     2. data:
     #         * [`point`:`node_id`]
-    dec = l2.rpc.decryptencrypteddata(encrypted_data=encdata1, blinding=first_path_key)['decryptencrypteddata']
+    dec = l2.rpc.decryptencrypteddata(encrypted_data=encdata1, path_key=first_path_key)['decryptencrypteddata']
     assert dec['decrypted'].startswith('0421' + l3.info['id'])
 
 

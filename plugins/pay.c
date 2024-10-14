@@ -1117,7 +1117,7 @@ decrypt_done(struct command *cmd,
 
 	err = json_scan(tmpctx, buf, result,
 			"{decryptencrypteddata:{decrypted:%"
-			",next_blinding:%}}",
+			",next_path_key:%}}",
 			JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &encdata),
 			JSON_SCAN(json_to_pubkey, &next_path_key));
 	if (err) {
@@ -1205,7 +1205,7 @@ preapproveinvoice_succeed(struct command *cmd,
 
 		json_add_hex_talarr(req->js, "encrypted_data",
 				    p->blindedpath->path[0]->encrypted_recipient_data);
-		json_add_pubkey(req->js, "blinding", &p->blindedpath->first_path_key);
+		json_add_pubkey(req->js, "path_key", &p->blindedpath->first_path_key);
 		return send_outreq(cmd->plugin, req);
 	}
 

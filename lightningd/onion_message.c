@@ -283,7 +283,7 @@ static struct command_result *json_decryptencrypteddata(struct command *cmd,
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("encrypted_data", param_bin_from_hex, &encdata),
-			 p_req("blinding", param_pubkey, &path_key),
+			 p_req("path_key", param_pubkey, &path_key),
 			 NULL))
 		return command_param_failed();
 
@@ -314,7 +314,7 @@ static struct command_result *json_decryptencrypteddata(struct command *cmd,
 	response = json_stream_success(cmd);
 	json_object_start(response, "decryptencrypteddata");
 	json_add_hex_talarr(response, "decrypted", decrypted);
-	json_add_pubkey(response, "next_blinding", &next_path_key);
+	json_add_pubkey(response, "next_path_key", &next_path_key);
 	json_object_end(response);
 	return command_success(cmd, response);
 }
