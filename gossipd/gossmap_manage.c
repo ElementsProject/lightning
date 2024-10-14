@@ -734,8 +734,11 @@ static const char *process_channel_update(const tal_t *ctx,
 	chan = gossmap_find_chan(gossmap, &scid);
 	if (!chan) {
 		/* Did we explicitly reject announce?  Ignore completely. */
-		if (in_txout_failures(gm->txf, scid))
+		if (in_txout_failures(gm->txf, scid)) {
+			status_debug("Previously-rejected announce for %s",
+				     fmt_short_channel_id(tmpctx, scid));
 			return NULL;
+		}
 
 		/* Seeker may want to ask about this. */
 		query_unknown_channel(gm->daemon, source_peer, scid);
@@ -767,6 +770,8 @@ static const char *process_channel_update(const tal_t *ctx,
 		u32 prev_timestamp
 			= gossip_store_get_timestamp(gm->daemon->gs, chan->cupdate_off[dir]);
 		if (prev_timestamp >= timestamp) {
+			status_debug("Too-old update for %s",
+				     fmt_short_channel_id(tmpctx, scid));
 			/* Too old, ignore */
 			return NULL;
 		}
@@ -850,11 +855,15 @@ const char *gossmap_manage_channel_update(const tal_t *ctx,
 	}
 
 	/* Don't accept ancient or far-future timestamps. */
-	if (!timestamp_reasonable(gm->daemon, timestamp))
+	if (!timestamp_reasonable(gm->daemon, timestamp)) {
+		status_debug("Unreasonable timestamp in %s", tal_hex(tmpctx, update));
 		return NULL;
+	}
 
 	/* Still waiting? */
 	if (map_get(&gm->pending_ann_map, scid)) {
+		status_debug("Enqueueing update for announcne %s",
+			     tal_hex(tmpctx, update));
 		enqueue_cupdate(&gm->pending_cupdates,
 				scid,
 				&signature,
@@ -873,6 +882,8 @@ const char *gossmap_manage_channel_update(const tal_t *ctx,
 
 	/* Too early? */
 	if (map_get(&gm->early_ann_map, scid)) {
+		status_debug("Enqueueing update for too early %s",
+			     tal_hex(tmpctx, update));
 		enqueue_cupdate(&gm->early_cupdates,
 				scid,
 				&signature,
