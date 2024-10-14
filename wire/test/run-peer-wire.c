@@ -792,12 +792,19 @@ static bool update_fail_htlc_eq(const struct msg_update_fail_htlc *a,
 		&& eq_var(a, b, reason);
 }
 
+static bool tlv_splice_info_eq(const struct tlv_commitment_signed_tlvs_splice_info *a,
+			       const struct tlv_commitment_signed_tlvs_splice_info *b)
+{
+	return eq_field(a, b, batch_size)
+		&& eq_field(a, b, funding_txid);
+}
+
 static bool commitment_signed_eq(const struct msg_commitment_signed *a,
 			  const struct msg_commitment_signed *b)
 {
 	return eq_upto(a, b, htlc_signature)
 		&& eq_var(a, b, htlc_signature)
-		&& eq_tlv(a, b, splice_info, channel_id_eq);
+		&& eq_tlv(a, b, splice_info, tlv_splice_info_eq);
 }
 
 static bool funding_signed_eq(const struct msg_funding_signed *a,
@@ -1019,8 +1026,9 @@ int main(int argc, char *argv[])
 	cs.htlc_signature = tal_arr(ctx, secp256k1_ecdsa_signature, 2);
 	memset(cs.htlc_signature, 2, sizeof(secp256k1_ecdsa_signature)*2);
 	cs.tlvs = tlv_commitment_signed_tlvs_new(tmpctx);
-	cs.tlvs->splice_info = tal(ctx, struct channel_id);
-	set_cid(cs.tlvs->splice_info);
+	cs.tlvs->splice_info = tal(ctx, struct tlv_commitment_signed_tlvs_splice_info);
+	cs.tlvs->splice_info->batch_size = 1;
+	set_cid(&cs.tlvs->splice_info->funding_txid);
 
 	msg = towire_struct_commitment_signed(ctx, &cs);
 	cs2 = fromwire_struct_commitment_signed(ctx, msg);

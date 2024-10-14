@@ -549,7 +549,7 @@ int main(int argc, const char *argv[])
 	txs = channel_txs(tmpctx, &funding, funding_amount,
 			  &htlc_map, NULL, &funding_wscript_alt,
 			  lchannel, &local_per_commitment_point, 42, LOCAL, 0, 0,
-			  &local_anchor);
+			  &local_anchor, NULL);
 	assert(tal_count(txs) == 1);
 	assert(tal_count(htlc_map) == 2);
 	assert(scripteq(funding_wscript_alt, funding_wscript));
@@ -558,7 +558,7 @@ int main(int argc, const char *argv[])
 	txs2 = channel_txs(tmpctx, &funding, funding_amount,
 			   &htlc_map, NULL, &funding_wscript,
 			   rchannel, &local_per_commitment_point, 42, REMOTE, 0, 0,
-			   &local_anchor);
+			   &local_anchor, NULL);
 	txs_must_be_eq(txs, txs2);
 
 	/* BOLT #3:
@@ -587,12 +587,12 @@ int main(int argc, const char *argv[])
 	txs = channel_txs(tmpctx, &funding, funding_amount,
 			  &htlc_map, NULL, &funding_wscript,
 			  lchannel, &local_per_commitment_point, 42, LOCAL, 0, 0,
-			  &local_anchor);
+			  &local_anchor, NULL);
 	assert(tal_count(txs) == 1);
 	txs2 = channel_txs(tmpctx, &funding, funding_amount,
 			   &htlc_map, NULL, &funding_wscript,
 			   rchannel, &local_per_commitment_point, 42, REMOTE, 0, 0,
-			   &local_anchor);
+			   &local_anchor, NULL);
 	txs_must_be_eq(txs, txs2);
 
 	update_feerate(lchannel, feerate_per_kw[LOCAL]);
@@ -609,12 +609,12 @@ int main(int argc, const char *argv[])
 	txs = channel_txs(tmpctx, &funding, funding_amount,
 			  &htlc_map, NULL, &funding_wscript,
 			  lchannel, &local_per_commitment_point, 42, LOCAL, 0, 0,
-			  &local_anchor);
+			  &local_anchor, NULL);
 	assert(tal_count(txs) == 6);
 	txs2 = channel_txs(tmpctx, &funding, funding_amount,
 			   &htlc_map, NULL, &funding_wscript,
 			   rchannel, &local_per_commitment_point, 42, REMOTE, 0, 0,
-			   &local_anchor);
+			   &local_anchor, NULL);
 	txs_must_be_eq(txs, txs2);
 
 	/* FIXME: Compare signatures! */
@@ -689,14 +689,14 @@ int main(int argc, const char *argv[])
 				  &htlc_map, NULL, &funding_wscript,
 				  lchannel, &local_per_commitment_point, 42,
 				  LOCAL, 0, 0,
-				  &local_anchor);
+				  &local_anchor, NULL);
 		tx_must_be_eq(txs[0], raw_tx);
 
 		txs2 = channel_txs(tmpctx, &funding, funding_amount,
 				   &htlc_map, NULL, &funding_wscript,
 				   rchannel, &local_per_commitment_point,
 				   42, REMOTE, 0, 0,
-				   &local_anchor);
+				   &local_anchor, NULL);
 		txs_must_be_eq(txs, txs2);
 	}
 

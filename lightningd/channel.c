@@ -152,6 +152,7 @@ static void destroy_inflight(struct channel_inflight *inflight)
 
 struct channel_inflight *
 new_inflight(struct channel *channel,
+	     struct pubkey *remote_funding,
 	     const struct bitcoin_outpoint *funding_outpoint,
 	     u32 funding_feerate,
 	     struct amount_sat total_funds,
@@ -177,6 +178,7 @@ new_inflight(struct channel *channel,
 	funding->feerate = funding_feerate;
 	funding->our_funds = our_funds;
 	funding->splice_amnt = splice_amnt;
+	funding->splice_remote_funding = tal_steal(funding, remote_funding);
 
 	inflight->funding = funding;
 	inflight->channel = channel;

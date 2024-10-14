@@ -253,6 +253,7 @@ msgdata,channeld_splice_feerate_error,too_high,bool,
 
 # channeld->master: Add an inflight to the DB
 msgtype,channeld_add_inflight,7216
+msgdata,channeld_add_inflight,remote_funding,pubkey,
 msgdata,channeld_add_inflight,tx_id,bitcoin_txid,
 msgdata,channeld_add_inflight,tx_outnum,u32,
 msgdata,channeld_add_inflight,feerate,u32,
@@ -285,7 +286,7 @@ msgdata,channeld_splice_state_error,state_error,wirestring,
 msgtype,channeld_splice_abort,7223
 msgdata,channeld_splice_abort,did_i_initiate,bool,
 msgdata,channeld_splice_abort,inflight_outpoint,?bitcoin_outpoint,
-msgdata,channeld_splice_abort,reason,?wirestring,
+msgdata,channeld_splice_abort,reason,wirestring,
 
 # Tell peer to shut down channel.
 msgtype,channeld_send_shutdown,1023
