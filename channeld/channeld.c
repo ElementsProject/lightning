@@ -313,7 +313,7 @@ static void handle_stfu(struct peer *peer, const u8 *stfu)
 
 		status_debug("STFU initiator was remote.");
 	} else {
-		/* BOLT-quiescent #2:
+		/* BOLT #2:
 		 *
 		 * If both sides send `stfu` simultaneously, they will both
 		 * set `initiator` to `1`, in which case the "initiator" is
@@ -329,7 +329,7 @@ static void handle_stfu(struct peer *peer, const u8 *stfu)
 		}
 	}
 
-	/* BOLT-quiescent #2:
+	/* BOLT #2:
 	 * The receiver of `stfu`:
 	 *   - if it has sent `stfu` then:
 	 *     - MUST now consider the channel to be quiescent

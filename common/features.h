@@ -115,6 +115,7 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
  * | 24/25 | `option_route_blinding`           |...IN9 ...
  * | 26/27 | `option_shutdown_anysegwit`       |... IN ...
  * | 28/29 | `option_dual_fund`                |... IN ...
+ * | 34/35 | `option_quiesce`                  | ... IN ...
  * | 38/39 | `option_onion_messages`           |... IN ...
  * | 44/45 | `option_channel_type`             |... IN ...
  * | 46/47 | `option_scid_alias`               | ... IN ...
@@ -135,6 +136,7 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
 #define OPT_ROUTE_BLINDING 			24
 #define OPT_SHUTDOWN_ANYSEGWIT			26
 #define OPT_DUAL_FUND 				28
+#define OPT_QUIESCE 				34
 #define OPT_ONION_MESSAGES			38
 #define OPT_CHANNEL_TYPE			44
 #define OPT_SCID_ALIAS				46
@@ -150,11 +152,6 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
  */
 #define OPT_SPLICE				62
 #define OPT_EXPERIMENTAL_SPLICE			162
-
-/* BOLT-quiescent #9:
- * | 34/35 | `option_quiesce` | ... IN ...
- */
-#define OPT_QUIESCE 				34
 
 #define OPT_SHUTDOWN_WRONG_FUNDING		104
 
