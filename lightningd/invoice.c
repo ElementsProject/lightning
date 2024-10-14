@@ -1613,13 +1613,13 @@ static void add_stub_blindedpath(const tal_t *ctx,
 				 struct tlv_invoice *inv)
 {
 	struct blinded_path *path;
-	struct privkey blinding;
+	struct privkey path_key;
 	struct tlv_encrypted_data_tlv *tlv;
 
 	path = tal(NULL, struct blinded_path);
 	sciddir_or_pubkey_from_pubkey(&path->first_node_id, &ld->our_pubkey);
-	randombytes_buf(&blinding, sizeof(blinding));
-	if (!pubkey_from_privkey(&blinding, &path->blinding))
+	randombytes_buf(&path_key, sizeof(path_key));
+	if (!pubkey_from_privkey(&path_key, &path->first_path_key))
 		abort();
 	path->path = tal_arr(path, struct onionmsg_hop *, 1);
 	path->path[0] = tal(path->path, struct onionmsg_hop);
@@ -1633,7 +1633,7 @@ static void add_stub_blindedpath(const tal_t *ctx,
 
 	path->path[0]->encrypted_recipient_data
 		= encrypt_tlv_encrypted_data(path->path[0],
-					     &blinding,
+					     &path_key,
 					     &path->first_node_id.pubkey,
 					     tlv,
 					     NULL,

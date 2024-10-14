@@ -8,6 +8,6 @@ index 41cafe553..c1d850c60 100644
  subtype,blinded_path
 -subtypedata,blinded_path,first_node_id,point,
 +subtypedata,blinded_path,first_node_id,sciddir_or_pubkey,
- subtypedata,blinded_path,blinding,point,
+ subtypedata,blinded_path,first_path_key,point,
  subtypedata,blinded_path,num_hops,byte,
  subtypedata,blinded_path,path,onionmsg_hop,num_hops

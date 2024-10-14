@@ -62,11 +62,11 @@ void blinding_hash_e_and_ss(const struct pubkey *e UNNEEDED,
 			    const struct secret *ss UNNEEDED,
 			    struct sha256 *sha UNNEEDED)
 { fprintf(stderr, "blinding_hash_e_and_ss called!\n"); abort(); }
-/* Generated stub for blinding_next_pubkey */
-bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
-			  const struct sha256 *h UNNEEDED,
-			  struct pubkey *next UNNEEDED)
-{ fprintf(stderr, "blinding_next_pubkey called!\n"); abort(); }
+/* Generated stub for blinding_next_path_key */
+bool blinding_next_path_key(const struct pubkey *pk UNNEEDED,
+			    const struct sha256 *h UNNEEDED,
+			    struct pubkey *next UNNEEDED)
+{ fprintf(stderr, "blinding_next_path_key called!\n"); abort(); }
 /* Generated stub for bolt11_decode */
 struct bolt11 *bolt11_decode(const tal_t *ctx UNNEEDED, const char *str UNNEEDED,
 			     const struct feature_set *our_features UNNEEDED,

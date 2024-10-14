@@ -622,7 +622,7 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 	}
 	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount,
 				   cltv_expiry, &payment_hash,
-				   onion_routing_packet, tlvs->blinding_point, &htlc, NULL,
+				   onion_routing_packet, tlvs->blinded_path, &htlc, NULL,
 				   /* We don't immediately fail incoming htlcs,
 				    * instead we wait and fail them after
 				    * they've been committed */
@@ -4412,8 +4412,8 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 			struct tlv_update_add_htlc_tlvs *tlvs;
 			if (h->blinding) {
 				tlvs = tlv_update_add_htlc_tlvs_new(tmpctx);
-				tlvs->blinding_point = tal_dup(tlvs, struct pubkey,
-							       h->blinding);
+				tlvs->blinded_path = tal_dup(tlvs, struct pubkey,
+							     h->blinding);
 			} else
 				tlvs = NULL;
 			msg = towire_update_add_htlc(NULL, &peer->channel_id,
@@ -5360,7 +5360,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 
 	if (blinding) {
 		tlvs = tlv_update_add_htlc_tlvs_new(tmpctx);
-		tlvs->blinding_point = tal_dup(tlvs, struct pubkey, blinding);
+		tlvs->blinded_path = tal_dup(tlvs, struct pubkey, blinding);
 	} else
 		tlvs = NULL;
 
