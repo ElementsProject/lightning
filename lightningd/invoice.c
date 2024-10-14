@@ -1621,8 +1621,8 @@ static void add_stub_blindedpath(const tal_t *ctx,
 	randombytes_buf(&path_key, sizeof(path_key));
 	if (!pubkey_from_privkey(&path_key, &path->first_path_key))
 		abort();
-	path->path = tal_arr(path, struct onionmsg_hop *, 1);
-	path->path[0] = tal(path->path, struct onionmsg_hop);
+	path->path = tal_arr(path, struct blinded_path_hop *, 1);
+	path->path[0] = tal(path->path, struct blinded_path_hop);
 
 	/* A message in a bottle to ourselves: match it with
 	 * the invoice: we assume the payment_hash is unique! */

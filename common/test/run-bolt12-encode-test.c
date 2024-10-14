@@ -232,14 +232,14 @@ int main(int argc, char *argv[])
 	/* Random blinding secret. */
 	assert(pubkey_from_hexstr("020202020202020202020202020202020202020202020202020202020202020202", 66, &offer->offer_paths[0]->first_path_key));
 	offer->offer_paths[0]->path = tal_arr(offer->offer_paths[0],
-					      struct onionmsg_hop *,
+					      struct blinded_path_hop *,
 					      2);
 	offer->offer_paths[0]->path[0] = tal(offer->offer_paths[0]->path,
-					     struct onionmsg_hop);
+					     struct blinded_path_hop);
 	assert(pubkey_from_hexstr("020202020202020202020202020202020202020202020202020202020202020202", 66, &offer->offer_paths[0]->path[0]->blinded_node_id));
 	offer->offer_paths[0]->path[0]->encrypted_recipient_data = tal_arrz(offer->offer_paths[0]->path[0], u8, 16);
 	offer->offer_paths[0]->path[1] = tal(offer->offer_paths[0]->path,
-					     struct onionmsg_hop);
+					     struct blinded_path_hop);
 	assert(pubkey_from_hexstr("020202020202020202020202020202020202020202020202020202020202020202", 66, &offer->offer_paths[0]->path[1]->blinded_node_id));
 	offer->offer_paths[0]->path[1]->encrypted_recipient_data = tal_hexdata(offer->offer_paths[0]->path[1], "1111111111111111", 16);
 	print_valid_offer(offer, "with blinded path via Bob (0x424242...), path_key 020202...",
@@ -266,14 +266,14 @@ int main(int argc, char *argv[])
 	/* Random path_key secret. */
 	assert(pubkey_from_hexstr("020202020202020202020202020202020202020202020202020202020202020202", 66, &offer->offer_paths[1]->first_path_key));
 	offer->offer_paths[1]->path = tal_arr(offer->offer_paths[1],
-					      struct onionmsg_hop *,
+					      struct blinded_path_hop *,
 					      2);
 	offer->offer_paths[1]->path[0] = tal(offer->offer_paths[1]->path,
-					     struct onionmsg_hop);
+					     struct blinded_path_hop);
 	assert(pubkey_from_hexstr("020202020202020202020202020202020202020202020202020202020202020202", 66, &offer->offer_paths[1]->path[0]->blinded_node_id));
 	offer->offer_paths[1]->path[0]->encrypted_recipient_data = tal_arrz(offer->offer_paths[1]->path[0], u8, 16);
 	offer->offer_paths[1]->path[1] = tal(offer->offer_paths[1]->path,
-					     struct onionmsg_hop);
+					     struct blinded_path_hop);
 	assert(pubkey_from_hexstr("020202020202020202020202020202020202020202020202020202020202020202", 66, &offer->offer_paths[1]->path[1]->blinded_node_id));
 	offer->offer_paths[1]->path[1]->encrypted_recipient_data = tal_hexdata(offer->offer_paths[1]->path[1], "2222222222222222", 16);
 	print_valid_offer(offer, "... and with second blinded path via 1x2x3 (direction 1), path_key 020202...",
@@ -353,7 +353,7 @@ int main(int argc, char *argv[])
 			    "0A05414C494345"
 			    "100202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020102020202020202020202020202020202020202020202020202020202020202020201"
 			    "1621020202020202020202020202020202020202020202020202020202020202020202",
-			    "Malformed: truncated onionmsg_hop in blinded_path");
+			    "Malformed: truncated blinded_path_hop in blinded_path");
 	print_malformed_tlv("lno",
 			    "0A05414C494345"
 			    "10030303030303030303030303030303030303030303030303030303030303030303020202020202020202020202020202020202020202020202020202020202020202010202020202020202020202020202020202020202020202020202020202020202020100"
@@ -368,7 +368,7 @@ int main(int argc, char *argv[])
 			    "0A05414C494345"
 			    "10020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202010303030303030303030303030303030303030303030303030303030303030303030100"
 			    "1621020202020202020202020202020202020202020202020202020202020202020202",
-			    "Malformed: bad blinded_node_id in onionmsg_hop");
+			    "Malformed: bad blinded_node_id in blinded_path_hop");
 
 	print_malformed_tlv("lno",
 			    "0A05414C494345"
