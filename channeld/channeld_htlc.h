@@ -27,7 +27,7 @@ struct htlc {
 	const u8 *routing;
 
 	/* Blinding (optional). */
-	struct pubkey *blinding;
+	struct pubkey *path_key;
 
 	/* Should we immediately fail this htlc? */
 	bool fail_immediate;

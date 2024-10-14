@@ -5,27 +5,27 @@
 #include <wire/peer_wire.h>
 
 struct onion_message {
-	struct pubkey blinding;
+	struct pubkey path_key;
 	u8 *onionmsg;
 };
 
 static void *encode(const tal_t *ctx, const struct onion_message *s)
 {
-	return towire_onion_message(ctx, &s->blinding, s->onionmsg);
+	return towire_onion_message(ctx, &s->path_key, s->onionmsg);
 }
 
 static struct onion_message *decode(const tal_t *ctx, const void *p)
 {
 	struct onion_message *s = tal(ctx, struct onion_message);
 
-	if (fromwire_onion_message(s, p, &s->blinding, &s->onionmsg))
+	if (fromwire_onion_message(s, p, &s->path_key, &s->onionmsg))
 		return s;
 	return tal_free(s);
 }
 
 static bool equal(const struct onion_message *x, const struct onion_message *y)
 {
-	if (memcmp(&x->blinding, &y->blinding, sizeof(x->blinding)) != 0)
+	if (memcmp(&x->path_key, &y->path_key, sizeof(x->path_key)) != 0)
 		return false;
 	return tal_arr_eq(x->onionmsg, y->onionmsg);
 }

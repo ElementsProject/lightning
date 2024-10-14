@@ -12,7 +12,7 @@ struct pubkey;
  * onion_message_parse: core routine to check onion_message
  * @ctx: context to allocate @next_onion_msg or @final_om/@path_id off
  * @onion_message_packet: Sphinx-encrypted onion
- * @blinding: Blinding we were given for @onion_message_packet
+ * @path_key: Path_Key we were given for @onion_message_packet
  * @me: my pubkey
  * @next_onion_msg (out): set if we should forward, otherwise NULL.
  * @next_node (out): set to node id or scid to fwd to, iff *@next_onion_msg.
@@ -24,7 +24,7 @@ struct pubkey;
  */
 const char *onion_message_parse(const tal_t *ctx,
 				const u8 *onion_message_packet,
-				const struct pubkey *blinding,
+				const struct pubkey *path_key,
 				const struct pubkey *me,
 				u8 **next_onion_msg,
 				struct sciddir_or_pubkey *next_node,

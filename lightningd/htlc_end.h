@@ -47,7 +47,7 @@ struct htlc_in {
         struct timeabs received_time;
 
 	/* If it was blinded. */
-	struct pubkey *blinding;
+	struct pubkey *path_key;
 	/* true if we supplied the preimage */
 	bool *we_filled;
 	/* true if we immediately fail the htlc (too much dust) */
@@ -101,8 +101,8 @@ struct htlc_out {
 	/* Where it's from, if not going to us. */
 	struct htlc_in *in;
 
-	/* Blinding to send alongside, if any. */
-	struct pubkey *blinding;
+	/* Path_Key to send alongside, if any. */
+	struct pubkey *path_key;
 
 	/* Timer we use in case they don't add an HTLC in a timely manner. */
 	struct oneshot *timeout;
@@ -156,7 +156,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 			    struct amount_msat msat, u32 cltv_expiry,
 			    const struct sha256 *payment_hash,
 			    const struct secret *shared_secret TAKES,
-			    const struct pubkey *blinding TAKES,
+			    const struct pubkey *path_key TAKES,
 			    const u8 *onion_routing_packet,
 			    bool fail_immediate);
 
@@ -167,7 +167,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      u32 cltv_expiry,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
-			      const struct pubkey *blinding,
+			      const struct pubkey *path_key,
 			      bool am_origin,
 			      struct amount_msat final_msat,
 			      u64 partid,
