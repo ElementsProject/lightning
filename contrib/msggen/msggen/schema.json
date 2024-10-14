@@ -7397,7 +7397,7 @@
                   "items": {
                     "type": "object",
                     "required": [
-                      "blinding",
+                      "first_path_key",
                       "path"
                     ],
                     "additionalProperties": false,
@@ -7423,9 +7423,20 @@
                         ]
                       },
                       "blinding": {
+                        "deprecated": [
+                          "v24.11",
+                          "v25.05"
+                        ],
                         "type": "pubkey",
                         "description": [
                           "Blinding factor for this path."
+                        ]
+                      },
+                      "first_path_key": {
+                        "added": "v24.11",
+                        "type": "pubkey",
+                        "description": [
+                          "Path key to deliver to first hop on this path."
                         ]
                       },
                       "path": {
@@ -7815,7 +7826,7 @@
                   "items": {
                     "type": "object",
                     "required": [
-                      "blinding",
+                      "first_path_key",
                       "path"
                     ],
                     "additionalProperties": false,
@@ -7840,7 +7851,18 @@
                           "which end of the first_scid is the start of the path"
                         ]
                       },
+                      "first_path_key": {
+                        "added": "v24.11",
+                        "type": "pubkey",
+                        "description": [
+                          "Path key to deliver to first hop on this path."
+                        ]
+                      },
                       "blinding": {
+                        "deprecated": [
+                          "v24.11",
+                          "v25.05"
+                        ],
                         "type": "pubkey",
                         "description": [
                           "Blinding factor for this path."
@@ -8031,7 +8053,7 @@
                   "items": {
                     "type": "object",
                     "required": [
-                      "blinding",
+                      "first_path_key",
                       "path"
                     ],
                     "additionalProperties": false,
@@ -8059,9 +8081,20 @@
                       },
                       "blinding": {
                         "added": "v24.08",
+                        "deprecated": [
+                          "v24.11",
+                          "v25.05"
+                        ],
                         "type": "pubkey",
                         "description": [
                           "Blinding factor for this path."
+                        ]
+                      },
+                      "first_path_key": {
+                        "added": "v24.11",
+                        "type": "pubkey",
+                        "description": [
+                          "Path key to deliver to first hop on this path."
                         ]
                       },
                       "path": {
@@ -8390,7 +8423,7 @@
                   "items": {
                     "type": "object",
                     "required": [
-                      "blinding",
+                      "first_path_key",
                       "path"
                     ],
                     "additionalProperties": false,
@@ -8416,9 +8449,20 @@
                         ]
                       },
                       "blinding": {
+                        "deprecated": [
+                          "v24.11",
+                          "v25.05"
+                        ],
                         "type": "pubkey",
                         "description": [
                           "Blinding factor for this path."
+                        ]
+                      },
+                      "first_path_key": {
+                        "added": "v24.11",
+                        "type": "pubkey",
+                        "description": [
+                          "Path key to deliver to first hop on this path."
                         ]
                       },
                       "path": {
@@ -8606,7 +8650,7 @@
                   "items": {
                     "type": "object",
                     "required": [
-                      "blinding",
+                      "first_path_key",
                       "path"
                     ],
                     "additionalProperties": false,
@@ -8634,9 +8678,20 @@
                       },
                       "blinding": {
                         "added": "v24.08",
+                        "deprecated": [
+                          "v24.11",
+                          "v25.05"
+                        ],
                         "type": "pubkey",
                         "description": [
                           "Blinding factor for this path."
+                        ]
+                      },
+                      "first_path_key": {
+                        "added": "v24.11",
+                        "type": "pubkey",
+                        "description": [
+                          "Path key to deliver to first hop on this path."
                         ]
                       },
                       "path": {
@@ -8693,7 +8748,7 @@
                   "items": {
                     "type": "object",
                     "required": [
-                      "blinding",
+                      "first_path_key",
                       "payinfo",
                       "path"
                     ],
@@ -8721,8 +8776,19 @@
                       },
                       "blinding": {
                         "type": "pubkey",
+                        "deprecated": [
+                          "v24.11",
+                          "v25.05"
+                        ],
                         "description": [
                           "Blinding factor for this path."
+                        ]
+                      },
+                      "first_path_key": {
+                        "added": "v24.11",
+                        "type": "pubkey",
+                        "description": [
+                          "Path key to deliver to first hop on this path."
                         ]
                       },
                       "payinfo": {

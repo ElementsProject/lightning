@@ -911,6 +911,7 @@
         "DecodeInvreq_paths": {
             "Decode.invreq_paths[].blinding": 2,
             "Decode.invreq_paths[].first_node_id": 3,
+            "Decode.invreq_paths[].first_path_key": 6,
             "Decode.invreq_paths[].first_scid": 4,
             "Decode.invreq_paths[].first_scid_dir": 1,
             "Decode.invreq_paths[].path[]": 5
@@ -922,6 +923,7 @@
         "DecodeOffer_paths": {
             "Decode.offer_paths[].blinding": 2,
             "Decode.offer_paths[].first_node_id": 1,
+            "Decode.offer_paths[].first_path_key": 6,
             "Decode.offer_paths[].first_scid": 5,
             "Decode.offer_paths[].first_scid_dir": 4,
             "Decode.offer_paths[].path[]": 3
@@ -4437,10 +4439,14 @@
         },
         "Decode.invoice_paths[].blinding": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v24.11"
         },
         "Decode.invoice_paths[].first_node_id": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Decode.invoice_paths[].first_path_key": {
+            "added": "v24.11",
             "deprecated": null
         },
         "Decode.invoice_paths[].first_scid": {
@@ -4517,10 +4523,14 @@
         },
         "Decode.invreq_paths[].blinding": {
             "added": "v24.08",
-            "deprecated": null
+            "deprecated": "v24.11"
         },
         "Decode.invreq_paths[].first_node_id": {
             "added": "v24.08",
+            "deprecated": null
+        },
+        "Decode.invreq_paths[].first_path_key": {
+            "added": "v24.11",
             "deprecated": null
         },
         "Decode.invreq_paths[].first_scid": {
@@ -4621,10 +4631,14 @@
         },
         "Decode.offer_paths[].blinding": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v24.11"
         },
         "Decode.offer_paths[].first_node_id": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Decode.offer_paths[].first_path_key": {
+            "added": "v24.11",
             "deprecated": null
         },
         "Decode.offer_paths[].first_scid": {

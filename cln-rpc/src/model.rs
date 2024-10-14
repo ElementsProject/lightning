@@ -6705,25 +6705,33 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DecodeInvreq_paths {
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub blinding: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub first_node_id: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub first_path_key: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub first_scid: Option<ShortChannelId>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub first_scid_dir: Option<u32>,
-	    pub blinding: PublicKey,
 	    pub path: Vec<DecodeInvreq_pathsPath>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DecodeOffer_paths {
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub blinding: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub first_node_id: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub first_path_key: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub first_scid: Option<ShortChannelId>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub first_scid_dir: Option<u32>,
-	    pub blinding: PublicKey,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]

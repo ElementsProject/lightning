@@ -1669,9 +1669,10 @@ message DecodeResponse {
 
 message DecodeOffer_paths {
 	optional bytes first_node_id = 1;
-	bytes blinding = 2;
+	optional bytes blinding = 2;
 	optional uint32 first_scid_dir = 4;
 	optional string first_scid = 5;
+	optional bytes first_path_key = 6;
 }
 
 message DecodeOffer_recurrencePaywindow {
@@ -1682,10 +1683,11 @@ message DecodeOffer_recurrencePaywindow {
 
 message DecodeInvreq_paths {
 	optional uint32 first_scid_dir = 1;
-	bytes blinding = 2;
+	optional bytes blinding = 2;
 	optional bytes first_node_id = 3;
 	optional string first_scid = 4;
 	repeated DecodeInvreq_pathsPath path = 5;
+	optional bytes first_path_key = 6;
 }
 
 message DecodeInvreq_pathsPath {

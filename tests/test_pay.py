@@ -5957,7 +5957,7 @@ def test_decryptencrypteddata(node_factory):
     decode = l2.rpc.decode(inv)
     path = decode['invoice_paths'][0]
     assert path['first_node_id'] == l2.info['id']
-    blinding = path['blinding']
+    first_path_key = path['first_path_key']
 
     encdata1 = path['path'][0]['encrypted_recipient_data']
     # BOLT #4:
@@ -5967,7 +5967,7 @@ def test_decryptencrypteddata(node_factory):
     #     1. type: 4 (`next_node_id`)
     #     2. data:
     #         * [`point`:`node_id`]
-    dec = l2.rpc.decryptencrypteddata(encrypted_data=encdata1, blinding=blinding)['decryptencrypteddata']
+    dec = l2.rpc.decryptencrypteddata(encrypted_data=encdata1, blinding=first_path_key)['decryptencrypteddata']
     assert dec['decrypted'].startswith('0421' + l3.info['id'])
 
 
