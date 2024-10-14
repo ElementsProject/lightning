@@ -1373,7 +1373,6 @@ handle_final_failure(struct command *cmd,
 		goto strange_error;
 
 	case WIRE_INVALID_ONION_PAYLOAD:
-	case WIRE_INVALID_REALM:
 	case WIRE_PERMANENT_NODE_FAILURE:
 	case WIRE_TEMPORARY_NODE_FAILURE:
 	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
@@ -1477,7 +1476,6 @@ handle_intermediate_failure(struct command *cmd,
 	case WIRE_TEMPORARY_NODE_FAILURE:
 	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
 	case WIRE_INVALID_ONION_PAYLOAD:
-	case WIRE_INVALID_REALM:
 	case WIRE_INVALID_ONION_BLINDING:
 		tal_arr_expand(&root->excluded_nodes, *errnode);
 		goto error;
@@ -2449,7 +2447,6 @@ static bool payment_can_retry(struct payment *p)
 	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
 	case WIRE_INVALID_ONION_PAYLOAD:
 	case WIRE_INVALID_ONION_VERSION:
-	case WIRE_INVALID_REALM:
 	case WIRE_MPP_TIMEOUT:
 	case WIRE_PERMANENT_NODE_FAILURE:
 	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
