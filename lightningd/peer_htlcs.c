@@ -564,7 +564,18 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 	}
 
 	if (tal_count(failmsg)) {
-		/* It's our job to append the channel_update */
+		/* BOLT #4:
+		 * The `channel_update` field used to be mandatory in messages
+		 * whose `failure_code` includes the `UPDATE` flag. However,
+		 * because nodes applying an update contained in the onion to
+		 * their gossip data is a massive fingerprinting
+		 * vulnerability, the `channel_update` field is no longer
+		 * mandatory and nodes are expected to transition away from
+		 * including it. Nodes which do not provide a `channel_update`
+		 * are expected to set the `channel_update` `len` field to
+		 * zero.
+		 */
+		/* We still append the channel_update (if we have one!)  FIXME: provide an option? */
 		if (fromwire_peektype(failmsg) & UPDATE) {
 			const u8 *update = channel_update_for_error(tmpctx, hout->key.channel);
 			towire(&failmsg, update, tal_bytelen(update));
