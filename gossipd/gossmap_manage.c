@@ -1375,23 +1375,42 @@ void gossmap_manage_tell_lightningd_locals(struct daemon *daemon,
 		return;
 
 	for (size_t i = 0; i < me->num_chans; i++) {
-		struct gossmap_chan *chan = gossmap_nth_chan(gossmap, me, i, NULL);
+		int dir;
+		struct gossmap_chan *chan = gossmap_nth_chan(gossmap, me, i, &dir);
 		struct short_channel_id scid;
 		const u8 *cupdate;
 
 		scid = gossmap_chan_scid(gossmap, chan);
-		cupdate = gossmap_chan_get_update(tmpctx, gossmap, chan, 0);
+		cupdate = gossmap_chan_get_update(tmpctx, gossmap, chan, dir);
 		if (cupdate)
 			daemon_conn_send(daemon->master,
 					 take(towire_gossipd_init_cupdate(NULL,
 									  scid,
 									  cupdate)));
-		cupdate = gossmap_chan_get_update(tmpctx, gossmap, chan, 1);
-		if (cupdate)
+		cupdate = gossmap_chan_get_update(tmpctx, gossmap, chan, !dir);
+		if (cupdate) {
+			struct peer_update peer_update;
+			secp256k1_ecdsa_signature signature;
+			u32 timestamp;
+			u8 message_flags, channel_flags;
+			struct bitcoin_blkid chain_hash;
+			if (!fromwire_channel_update(cupdate, &signature,
+						     &chain_hash, &peer_update.scid,
+						     &timestamp, &message_flags,
+						     &channel_flags, &peer_update.cltv_delta,
+						     &peer_update.htlc_minimum_msat,
+						     &peer_update.fee_base,
+						     &peer_update.fee_ppm,
+						     &peer_update.htlc_maximum_msat)) {
+				status_broken("Invalid remote cupdate in store: %s",
+					      tal_hex(tmpctx, cupdate));
+				continue;
+			}
 			daemon_conn_send(daemon->master,
-					 take(towire_gossipd_init_cupdate(NULL,
-									  scid,
-									  cupdate)));
+					 take(towire_gossipd_remote_channel_update(NULL,
+										   NULL,
+										   &peer_update)));
+		}
 	}
 
 	/* Tell lightningd about our current node_announcement, if any */
