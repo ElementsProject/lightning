@@ -1,5 +1,27 @@
-PLUGIN_ASKRENE_SRC := plugins/askrene/askrene.c plugins/askrene/layer.c plugins/askrene/reserve.c plugins/askrene/mcf.c plugins/askrene/dijkstra.c plugins/askrene/flow.c plugins/askrene/refine.c plugins/askrene/explain_failure.c plugins/askrene/graph.c
-PLUGIN_ASKRENE_HEADER := plugins/askrene/askrene.h plugins/askrene/layer.h plugins/askrene/reserve.h plugins/askrene/mcf.h plugins/askrene/dijkstra.h plugins/askrene/flow.h plugins/askrene/refine.h plugins/askrene/explain_failure.h plugins/askrene/graph.h
+PLUGIN_ASKRENE_SRC := \
+	plugins/askrene/askrene.c \
+	plugins/askrene/layer.c \
+	plugins/askrene/reserve.c \
+	plugins/askrene/mcf.c \
+	plugins/askrene/dijkstra.c \
+	plugins/askrene/flow.c \
+	plugins/askrene/refine.c \
+	plugins/askrene/explain_failure.c \
+	plugins/askrene/graph.c \
+	plugins/askrene/priorityqueue.c
+
+PLUGIN_ASKRENE_HEADER := \
+	plugins/askrene/askrene.h \
+	plugins/askrene/layer.h \
+	plugins/askrene/reserve.h \
+	plugins/askrene/mcf.h \
+	plugins/askrene/dijkstra.h \
+	plugins/askrene/flow.h \
+	plugins/askrene/refine.h \
+	plugins/askrene/explain_failure.h \
+	plugins/askrene/graph.h \
+	plugins/askrene/priorityqueue.h
+
 PLUGIN_ASKRENE_OBJS := $(PLUGIN_ASKRENE_SRC:.c=.o)
 
 $(PLUGIN_ASKRENE_OBJS): $(PLUGIN_ASKRENE_HEADER)
