@@ -3313,6 +3313,29 @@ def test_listforwards_wait(node_factory, executor):
                                    'status': 'failed'}}
 
 
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "modifies database, which is assumed sqlite3")
+def test_listforwards_ancient(node_factory, bitcoind):
+    """Test listforwards command with old records."""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    amt1 = 1000
+    inv1 = l3.rpc.invoice(amt1, 'inv1', 'desc')
+    l1.rpc.pay(inv1['bolt11'])
+
+    forwards = l2.rpc.listforwards()['forwards']
+    assert len(forwards) == 1
+    assert forwards[0]['received_time']
+
+    # Make this forward look like an older record, with received_time default 0.
+    l2.stop()
+    l2.db_manip("UPDATE forwards SET received_time=0;")
+    l2.start()
+
+    forwards = l2.rpc.listforwards()['forwards']
+    assert len(forwards) == 1
+    assert forwards[0]['received_time'] == 0
+
+
 @pytest.mark.openchannel('v1')
 def test_version_reexec(node_factory, bitcoind):
     badopeningd = os.path.join(os.path.dirname(__file__), "plugins", "badopeningd.sh")
