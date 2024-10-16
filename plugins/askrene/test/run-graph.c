@@ -57,5 +57,6 @@ int main(int argc, char *argv[])
 	printf("Freeing memory\n");
 	ctx = tal_free(ctx);
 	common_shutdown();
+	return 0;
 }
 

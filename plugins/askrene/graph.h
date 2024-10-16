@@ -1,7 +1,7 @@
 #ifndef LIGHTNING_PLUGINS_ASKRENE_GRAPH_H
 #define LIGHTNING_PLUGINS_ASKRENE_GRAPH_H
 
-/* Solves a Minimum Cost Flow with arc selection costs and side constraints. */
+/* Defines a graph data structure. */
 
 #include "config.h"
 #include <assert.h>
