@@ -322,3 +322,87 @@ s64 node_balance(const struct graph *graph,
 	}
 	return balance;
 }
+
+
+bool simple_mcf(const tal_t *ctx, const struct graph *graph,
+		const struct node source, const struct node destination,
+		s64 *capacity, s64 amount, const s64 *cost)
+{
+	tal_t *this_ctx = tal(ctx, tal_t);
+	const size_t max_num_arcs = graph_max_num_arcs(graph);
+	const size_t max_num_nodes = graph_max_num_nodes(graph);
+	s64 remaining_amount = amount;
+
+	if (amount < 0)
+		goto finish;
+
+	if (!graph || source.idx >= max_num_nodes ||
+	    destination.idx >= max_num_nodes || !capacity || !cost)
+		goto finish;
+
+	if (tal_count(capacity) != max_num_arcs ||
+	    tal_count(cost) != max_num_arcs)
+		goto finish;
+
+	struct arc *prev = tal_arr(this_ctx, struct arc, max_num_nodes);
+	s64 *distance = tal_arrz(this_ctx, s64, max_num_nodes);
+	s64 *potential = tal_arrz(this_ctx, s64, max_num_nodes);
+
+	if (!prev || !distance || !potential)
+		goto finish;
+
+	/* FIXME: implement this algorithm as a search for matching negative and
+	 * positive balance nodes, so that we can use it to adapt a flow
+	 * structure for changes in the cost function. */
+	while (remaining_amount > 0) {
+		if (!dijkstra_path(this_ctx, graph, source, destination,
+				   /* prune = */ true, capacity, 1, cost,
+				   potential, prev, distance))
+			goto finish;
+
+		/* traverse the path and see how much flow we can send */
+		s64 delta = get_augmenting_flow(graph, source, destination,
+						capacity, prev);
+
+		/* commit that flow to the path */
+		delta = MIN(remaining_amount, delta);
+		assert(delta > 0 && delta <= remaining_amount);
+
+		augment_flow(graph, source, destination, prev, capacity, delta);
+		remaining_amount -= delta;
+
+		/* update potentials */
+		for (u32 n = 0; n < max_num_nodes; n++) {
+			/* see page 323 of Ahuja-Magnanti-Orlin.
+			 * Whether we prune or not the Dijkstra search, the
+			 * following potentials will keep reduced costs
+			 * non-negative. */
+			potential[n] -=
+			    MIN(distance[destination.idx], distance[n]);
+		}
+	}
+finish:
+	tal_free(this_ctx);
+	return remaining_amount == 0;
+}
+
+s64 flow_cost(const struct graph *graph, const s64 *capacity, const s64 *cost)
+{
+	const size_t max_num_arcs = graph_max_num_arcs(graph);
+	s64 total_cost = 0;
+
+	assert(graph && capacity && cost);
+	assert(tal_count(capacity) == max_num_arcs &&
+	       tal_count(cost) == max_num_arcs);
+
+	for (u32 i = 0; i < max_num_arcs; i++) {
+		struct arc arc = {.idx = i};
+		struct arc dual = arc_dual(graph, arc);
+
+		if (arc_is_dual(graph, arc))
+			continue;
+
+		total_cost += capacity[dual.idx] * cost[arc.idx];
+	}
+	return total_cost;
+}
