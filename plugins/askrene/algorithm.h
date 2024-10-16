@@ -69,4 +69,50 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 		   s64 *distance);
 
 
+/* Finds any flow that satisfy the capacity constraints:
+ * 	flow[i] <= capacity[i]
+ * and supply/demand constraints:
+ * 	supply[source] = demand[destination] = amount
+ * 	supply/demand[node] = 0 for every other node
+ *
+ * It uses simple augmenting paths algorithm.
+ *
+ * input:
+ * @ctx: tal context for internal allocation
+ * @graph: topological information of the graph
+ * @source: source node
+ * @destination: destination node
+ * @capacity: arcs capacity
+ * @amount: supply/demand
+ *
+ * output:
+ * @capacity: residual capacity
+ * returns true if the balance constraint can be satisfied
+ *
+ * precondition:
+ * |capacity|=graph_max_num_arcs
+ * amount>=0
+ * */
+bool simple_feasibleflow(const tal_t *ctx, const struct graph *graph,
+			 const struct node source,
+			 const struct node destination, s64 *capacity,
+			 s64 amount);
+
+
+/* Computes the balance of a node, ie. the incoming flows minus the outgoing.
+ *
+ * @graph: topology
+ * @node: node
+ * @capacity: capacity in the residual sense, not the constrain capacity
+ *
+ * This works because in the adjacency list an arc wich is dual is associated
+ * with an inconming arc i, then we add this flow, while an arc which is not
+ * dual corresponds to and outgoing flow that we need to substract.
+ * The flow on the arc i (not dual) is computed as:
+ * 	flow[i] = residual_capacity[i_dual],
+ * while the constrain capacity is
+ * 	capacity[i] = residual_capacity[i] + residual_capacity[i_dual] */
+s64 node_balance(const struct graph *graph, const struct node node,
+		 const s64 *capacity);
+
 #endif /* LIGHTNING_PLUGINS_ASKRENE_ALGORITHM_H */
