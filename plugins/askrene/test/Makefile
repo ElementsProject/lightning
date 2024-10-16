@@ -10,7 +10,7 @@ $(PLUGIN_RENEPAY_TEST_OBJS): $(PLUGIN_ASKRENE_SRC)
 
 PLUGIN_ASKRENE_TEST_COMMON_OBJS :=
 
-plugins/askrene/test/run-bfs: \
+plugins/askrene/test/run-bfs plugins/askrene/test/run-dijkstra: \
 	plugins/askrene/priorityqueue.o \
 	plugins/askrene/graph.o
 
