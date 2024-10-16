@@ -10,6 +10,10 @@ $(PLUGIN_RENEPAY_TEST_OBJS): $(PLUGIN_ASKRENE_SRC)
 
 PLUGIN_ASKRENE_TEST_COMMON_OBJS :=
 
+plugins/askrene/test/run-bfs: \
+	plugins/askrene/priorityqueue.o \
+	plugins/askrene/graph.o
+
 $(PLUGIN_ASKRENE_TEST_PROGRAMS): $(PLUGIN_ASKRENE_TEST_COMMON_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
 
 check-askrene: $(PLUGIN_ASKRENE_TEST_PROGRAMS:%=unittest/%)
