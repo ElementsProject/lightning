@@ -115,4 +115,42 @@ bool simple_feasibleflow(const tal_t *ctx, const struct graph *graph,
 s64 node_balance(const struct graph *graph, const struct node node,
 		 const s64 *capacity);
 
+
+/* Finds the minimum cost flow that satisfy the capacity constraints:
+ * 	flow[i] <= capacity[i]
+ * and supply/demand constraints:
+ * 	supply[source] = demand[destination] = amount
+ * 	supply/demand[node] = 0 for every other node
+ *
+ * It uses successive shortest path algorithm.
+ *
+ * input:
+ * @ctx: tal context for internal allocation
+ * @graph: topological information of the graph
+ * @source: source node
+ * @destination: destination node
+ * @capacity: arcs capacity
+ * @amount: desired balance at the destination
+ * @cost: cost per unit of flow
+ *
+ * output:
+ * @capacity: residual capacity
+ * returns true if the balance constraint can be satisfied
+ *
+ * precondition:
+ * |capacity|=graph_max_num_arcs
+ * |cost|=graph_max_num_arcs
+ * amount>=0
+ * */
+bool simple_mcf(const tal_t *ctx, const struct graph *graph,
+		const struct node source, const struct node destination,
+		s64 *capacity, s64 amount, const s64 *cost);
+
+/* Compute the cost of a flow in the network.
+ *
+ * @graph: network topology
+ * @capacity: residual capacity (encodes the flow)
+ * @cost: cost per unit of flow */
+s64 flow_cost(const struct graph *graph, const s64 *capacity, const s64 *cost);
+
 #endif /* LIGHTNING_PLUGINS_ASKRENE_ALGORITHM_H */
