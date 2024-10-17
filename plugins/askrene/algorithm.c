@@ -212,11 +212,35 @@ static s64 get_augmenting_flow(const struct graph *graph,
 	return flow;
 }
 
+
+/* Helper.
+ * Sends an amount of flow through an arc, changing the flow balance of the
+ * nodes connected by the arc and the [residual] capacity of the arc and its
+ * dual. */
+static inline void sendflow(const struct graph *graph, const struct arc arc,
+			    const s64 flow, s64 *arc_capacity,
+			    s64 *node_balance)
+{
+	const struct arc dual = arc_dual(graph, arc);
+
+	arc_capacity[arc.idx] -= flow;
+	arc_capacity[dual.idx] += flow;
+
+	if (node_balance) {
+		const struct node src = arc_tail(graph, arc),
+				  dst = arc_tail(graph, dual);
+
+		node_balance[src.idx] -= flow;
+		node_balance[dst.idx] += flow;
+	}
+}
+
 /* Augment a `flow` amount along the path defined by `prev`.*/
 static void augment_flow(const struct graph *graph,
 			 const struct node source,
 			 const struct node target,
 			 const struct arc *prev,
+			 s64 *excess,
 			 s64 *capacity,
 			 s64 flow)
 {
@@ -232,15 +256,8 @@ static void augment_flow(const struct graph *graph,
 	while (cur.idx != source.idx) {
 		assert(cur.idx < max_num_nodes);
 		const struct arc arc = prev[cur.idx];
-		const struct arc dual = arc_dual(graph, arc);
 
-		assert(arc.idx < max_num_arcs);
-		assert(dual.idx < max_num_arcs);
-
-		capacity[arc.idx] -= flow;
-		capacity[dual.idx] += flow;
-
-		assert(capacity[arc.idx] >= 0);
+		sendflow(graph, arc, flow, capacity, excess);
 
 		/* we are traversing in the opposite direction to the flow,
 		 * hence the next node is at the tail of the arc. */
@@ -249,7 +266,7 @@ static void augment_flow(const struct graph *graph,
 		/* We may never have a path exceeds the number of nodes, it this
 		 * happens it means we have an infinite loop. */
 		path_length++;
-		if(path_length >= max_num_nodes)
+		if (path_length >= max_num_nodes)
 			break;
 	}
 	assert(path_length < max_num_nodes);
@@ -297,7 +314,8 @@ bool simple_feasibleflow(const tal_t *ctx,
 		delta = MIN(amount, delta);
 		assert(delta > 0 && delta <= amount);
 
-		augment_flow(graph, source, destination, prev, capacity, delta);
+		augment_flow(graph, source, destination, prev, NULL, capacity,
+			     delta);
 		amount -= delta;
 	}
 finish:
@@ -368,7 +386,8 @@ bool simple_mcf(const tal_t *ctx, const struct graph *graph,
 		delta = MIN(remaining_amount, delta);
 		assert(delta > 0 && delta <= remaining_amount);
 
-		augment_flow(graph, source, destination, prev, capacity, delta);
+		augment_flow(graph, source, destination, prev, NULL, capacity,
+			     delta);
 		remaining_amount -= delta;
 
 		/* update potentials */
