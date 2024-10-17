@@ -30,6 +30,9 @@ def test_splice_disconnect_sig(node_factory, bitcoind):
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is True)
     result = l1.rpc.signpsbt(result['psbt'])
     result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
 
@@ -79,13 +82,10 @@ def test_splice_disconnect_commit(node_factory, bitcoind, executor):
     funds_result = l1.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
-    print("l1 splice_update")
     result = l1.rpc.splice_update(chan_id, result['psbt'])
-    print("l1 signpsbt")
-    result = l1.rpc.signpsbt(result['psbt'])
-    print("l1 splice_signed")
+    assert(result['commitments_secured'] is False)
 
-    executor.submit(l1.rpc.splice_signed, chan_id, result['signed_psbt'])
+    executor.submit(l1.rpc.splice_update, chan_id, result['psbt'])
 
     print("l2 waiting for dev_disconnect msg")
 
