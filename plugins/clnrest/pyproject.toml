@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "clnrest"
-version = "24.08rc3"
+version = "24.08.2"
 description = "Transforms RPC calls into REST APIs"
 authors = ["ShahanaFarooqui <sfarooqui@blockstream.com>"]
 
