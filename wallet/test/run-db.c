@@ -193,8 +193,16 @@ struct channel *new_channel(struct peer *peer UNNEEDED, u64 dbid UNNEEDED,
 			    struct peer_update *peer_update STEALS UNNEEDED,
 			    u64 last_stable_connection UNNEEDED,
 			    const struct channel_stats *stats UNNEEDED,
-			    struct state_change_entry *state_changes STEALS UNNEEDED)
+			    struct channel_state_change **state_changes STEALS UNNEEDED)
 { fprintf(stderr, "new_channel called!\n"); abort(); }
+/* Generated stub for new_channel_state_change */
+struct channel_state_change *new_channel_state_change(const tal_t *ctx UNNEEDED,
+						      struct timeabs timestamp UNNEEDED,
+						      enum channel_state old_state UNNEEDED,
+						      enum channel_state new_state UNNEEDED,
+						      enum state_change cause UNNEEDED,
+						      const char *message TAKES UNNEEDED)
+{ fprintf(stderr, "new_channel_state_change called!\n"); abort(); }
 /* Generated stub for new_coin_wallet_deposit */
 struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx UNNEEDED,
 					       const struct bitcoin_outpoint *outpoint UNNEEDED,

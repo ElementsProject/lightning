@@ -1059,11 +1059,6 @@ char *wallet_offer_find(const tal_t *ctx UNNEEDED,
 			enum offer_status *status)
 
 { fprintf(stderr, "wallet_offer_find called!\n"); abort(); }
-/* Generated stub for wallet_state_change_get */
-struct state_change_entry *wallet_state_change_get(const tal_t *ctx UNNEEDED,
-						   struct wallet *w UNNEEDED,
-						   u64 channel_id UNNEEDED)
-{ fprintf(stderr, "wallet_state_change_get called!\n"); abort(); }
 /* Generated stub for wallet_total_forward_fees */
 struct amount_msat wallet_total_forward_fees(struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_total_forward_fees called!\n"); abort(); }
