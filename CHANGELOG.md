@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [24.08.2] - 2024-10-18: "Steel Backed-up Channels"
+
+This point release addresses few crash fixes and includes an enhancement to remember and update channel hints for payments.
+
+### Changed
+
+- pay: Now remembers and updates channel hints across payments ([#7494])
+- pay: Discarding an overly long or expensive route does not blacklist channels anymore. ([#7494])
+- grpc: Channel type `anchors/even` was added to the grpc bindings. ([#7628])
+
+### Fixed
+- gossipd: crash errors with large gossip_store (>4MB) growth on longer-running nodes. ([#7729])
+- connectd: crash on erroneous timeout. ([#7736])
+- Protocol: we could get confused on restart and not re-transmit our own channel_updates. ([#7737])
+- rpc: `listpeerchannels` (and thus, pay) sped up on very large nodes. ([#7679])
+- Improved pathfinding speed for large nodes. ([#7726])
+
+
+[#7494]: https://github.com/ElementsProject/lightning/pull/7494
+[#7628]: https://github.com/ElementsProject/lightning/pull/7628
+[#7679]: https://github.com/ElementsProject/lightning/pull/7679
+[#7726]: https://github.com/ElementsProject/lightning/pull/7726
+[#7729]: https://github.com/ElementsProject/lightning/pull/7729
+[#7736]: https://github.com/ElementsProject/lightning/pull/7736
+[#7737]: https://github.com/ElementsProject/lightning/pull/7737
+[24.08.2]: https://github.com/ElementsProject/lightning/releases/tag/v24.08.2
+
+
 ## [24.08.1] - 2024-09-16: "Steel Backed-up Channels"
 
 This hotfix release fixes few crash issues and some other bugs.
