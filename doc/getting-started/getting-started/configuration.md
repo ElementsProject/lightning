@@ -235,9 +235,23 @@ The [`lightning-listconfigs`](ref:lightning-listconfigs) command will output a v
   If you have an unencrypted `hsm_secret` you want to encrypt on-disk, or vice versa,  
   see [`lightning-hsmtool`](ref:lightning-hsmtool).
 
+- **grpc-scheme**=_scheme_ [plugin `cln-grpc`]
+
+  The scheme on which the gRPC plugin will listen for incoming connections. The default is `https`.
+  The interface supports both `http` and `https`.
+  However, if `http` can only be used if `grpc-ip-address` is set to a loopback address which is `127.0.0.1` for IPv4.
+  The option will be ignored if `grpc-port` is not set.
+
+- **grpc-ip-address**=_portnum_ [plugin `cln-grpc`]
+
+  The IP address for the gRPC plugin to listen for incoming connections;
+  The default is the IPv4 loopback address `127.0.0.1`.
+  This option will be ignored if `grpc-port` is not set.
+
+
 - **grpc-port**=_portnum_ [plugin `cln-grpc`]
 
-  The port number for the GRPC plugin to listen for incoming connections; default is not to activate the plugin at all.
+  The port number for the gRPC plugin to listen for incoming connections; default is not to activate the plugin at all.
 
 ### Lightning node customization options
 
