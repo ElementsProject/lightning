@@ -397,6 +397,51 @@ static void channel_hint_to_json(const char *name, const struct channel_hint *hi
 	json_object_end(dest);
 }
 
+#define PAY_REFILL_TIME 7200
+
+/**
+ * Update the `channel_hint` in place, return whether it should be kept.
+ *
+ * This computes the refill-rate based on the overall capacity, and
+ * the time elapsed since the last update and relaxes the upper bound
+ * on the capacity, and resets the enabled flag if appropriate. If the
+ * hint is no longer useful, i.e., it does not provide any additional
+ * information on top of the structural information we've learned from
+ * the gossip, then we return `false` to signal that the
+ * `channel_hint` may be removed.
+ */
+static bool channel_hint_update(const struct timeabs now,
+				struct channel_hint *hint)
+{
+	/* Precision is not required here, so integer division is good enough.
+	 */
+	u64 refill_rate = hint->overall_capacity.millisatoshis / PAY_REFILL_TIME; /* Raw: just simpler */
+	u64 seconds = now.ts.tv_sec - hint->timestamp;
+	hint->estimated_capacity.millisatoshis += refill_rate * seconds; /* Raw: simpler */
+
+	/* Clamp the value to the `overall_capacity` */
+	if (amount_msat_greater(hint->estimated_capacity,
+				hint->overall_capacity))
+		hint->estimated_capacity = hint->overall_capacity;
+
+	/* TODO This is rather coarse. We could map the disabled flag
+	to having 0msat capacity, and then relax from there. But it'd
+	likely be too slow of a relaxation.*/
+	if (seconds > 60)
+		hint->enabled = true;
+
+	/* Since we update in-place we should make sure that we can
+	 * just call update again and the result is stable, if no time
+	 * has passed. */
+	hint->timestamp = now.ts.tv_sec;
+
+	/* We report this hint as useless, if the hint does not
+	 * restrict the channel, i.e., if it is enabled and the
+	 * estimate is the same as the overall capacity. */
+	return !hint->enabled || amount_msat_greater(hint->overall_capacity,
+						     hint->estimated_capacity);
+}
+
 /**
  * Load a channel_hint from its JSON representation.
  *
@@ -2712,6 +2757,16 @@ local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
 					     &htlc_budget);
 		}
 	}
+
+	/* And now we iterate through all of the hints, and update
+	 * them. This relaxes any constraints coming from prior
+	 * observations, and should re-enable some channels that would
+	 * otherwise start out as excluded and remain so until
+	 * forever. */
+
+	struct channel_hint *hints = payment_root(p)->channel_hints;
+	for (size_t i = 0; i < tal_count(hints); i++)
+		channel_hint_update(time_now(), &hints[i]);
 
 	payment_continue(p);
 	return command_still_pending(cmd);
