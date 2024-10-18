@@ -1649,10 +1649,12 @@ perform_multiconnect(struct multifundchannel_command *mfc)
 
 
 /* Initiate the multifundchannel execution.  */
-static void
-perform_multifundchannel(struct multifundchannel_command *mfc)
+static struct command_result *
+perform_multifundchannel(struct command *timer_cmd,
+			 struct multifundchannel_command *mfc)
 {
 	perform_multiconnect(mfc);
+	return timer_complete(timer_cmd);
 }
 
 
@@ -1778,8 +1780,8 @@ post_cleanup_redo_multifundchannel(struct multifundchannel_redo *redo)
 
 	/* Okay, we still have destinations to try: wait a second in case it
 	 * takes that long to disconnect from peer, then retry.  */
-	plugin_timer(mfc->cmd->plugin, time_from_sec(1),
-		     perform_multifundchannel, mfc);
+	command_timer(mfc->cmd, time_from_sec(1),
+		      perform_multifundchannel, mfc);
 	return command_still_pending(mfc->cmd);
 }
 
@@ -2011,7 +2013,7 @@ json_multifundchannel(struct command *cmd,
 
 	mfc->sigs_collected = false;
 
-	perform_multifundchannel(mfc);
+	perform_multiconnect(mfc);
 	return command_still_pending(mfc->cmd);
 }
 

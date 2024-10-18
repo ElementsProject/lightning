@@ -73,7 +73,7 @@ new_channel_open(const tal_t *ctx,
 }
 
 static struct command_result *
-unreserve_done(struct command *cmd UNUSED,
+unreserve_done(struct command *aux_cmd,
 	       const char *buf,
 	       const jsmntok_t *result,
 	       struct pending_open *open)
@@ -85,11 +85,12 @@ unreserve_done(struct command *cmd UNUSED,
 		   json_tok_full(buf, result));
 
 	tal_free(open);
-	return command_done();
+	return aux_command_done(aux_cmd);
 }
 
 /* Frees open (eventually, in unreserve_done callback) */
-static void unreserve_psbt(struct pending_open *open)
+static void unreserve_psbt(struct command *cmd,
+			   struct pending_open *open)
 {
 	struct out_req *req;
 
@@ -98,7 +99,8 @@ static void unreserve_psbt(struct pending_open *open)
 		   fmt_channel_id(tmpctx,
 				  &open->channel_id));
 
-	req = jsonrpc_request_start(open->p, NULL,
+	/* This can outlive the underlying cmd, so us an aux! */
+	req = jsonrpc_request_start(open->p, aux_command(cmd),
 				    "unreserveinputs",
 				    unreserve_done, unreserve_done,
 				    open);
@@ -111,12 +113,13 @@ static void unreserve_psbt(struct pending_open *open)
 	notleak(open);
 }
 
-static void cleanup_peer_pending_opens(const struct node_id *id)
+static void cleanup_peer_pending_opens(struct command *cmd,
+				       const struct node_id *id)
 {
 	struct pending_open *i, *next;
 	list_for_each_safe(&pending_opens, i, next, list) {
 		if (node_id_eq(&i->peer_id, id)) {
-			unreserve_psbt(i);
+			unreserve_psbt(cmd, i);
 		}
 	}
 }
@@ -1088,7 +1091,7 @@ static struct command_result *json_disconnect(struct command *cmd,
 		   "Cleaning up inflights for peer id %s",
 		   fmt_node_id(tmpctx, &id));
 
-	cleanup_peer_pending_opens(&id);
+	cleanup_peer_pending_opens(cmd, &id);
 
 	return notification_handled(cmd);
 }
@@ -1176,7 +1179,7 @@ static struct command_result *json_channel_open_failed(struct command *cmd,
 
 	open = find_channel_pending_open(&cid);
 	if (open)
-		unreserve_psbt(open);
+		unreserve_psbt(cmd, open);
 
 	/* Also clean up datastore for this channel */
 	return delete_channel_from_datastore(cmd, &cid);

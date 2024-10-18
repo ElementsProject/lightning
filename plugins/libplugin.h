@@ -49,11 +49,25 @@ struct out_req {
 	void *arg;
 };
 
+enum command_type {
+	/* Terminate with jsonrpc_stream_success/fail etc */
+	COMMAND_TYPE_NORMAL,
+	/* Terminate with command_hook_success or command_success */
+	COMMAND_TYPE_HOOK,
+	/* Terminate with aux_command_done */
+	COMMAND_TYPE_AUX,
+	/* Terminate with notification_handled */
+	COMMAND_TYPE_NOTIFICATION,
+	/* These self-terminate */
+	COMMAND_TYPE_TIMER,
+	COMMAND_TYPE_CHECK,
+	COMMAND_TYPE_USAGE_ONLY,
+};
+
 struct command {
 	const char *id;
 	const char *methodname;
-	bool usage_only;
-	bool check;
+	enum command_type type;
 	struct plugin *plugin;
 	/* Optional output field filter. */
 	struct json_filter *filter;
@@ -109,7 +123,8 @@ struct out_req *jsonrpc_request_start_(struct plugin *plugin,
 								       const char *buf,
 								       const jsmntok_t *result,
 								       void *arg),
-				       void *arg);
+				       void *arg)
+	NON_NULL_ARGS(1, 2, 3, 4, 6);
 
 /* This variant has callbacks received whole obj, not "result" or
  * "error" members. */
@@ -188,25 +203,36 @@ struct request_batch *request_batch_new_(const tal_t *ctx,
 
 struct out_req *add_to_batch(struct command *cmd,
 			     struct request_batch *batch,
-			     const char *cmdname);
+			     const char *cmdname)
+	NON_NULL_ARGS(1, 2, 3);
+
+/* We want some commands to live after this command (possibly)
+ * completes.  This creates a new command with the same id but its own
+ * lifetime: use aux_command_done() or tal_free() when you're done. */
+struct command *aux_command(const struct command *cmd)
+	NON_NULL_ARGS(1);
 
 /* Runs finalcb immediately if batch is empty. */
 struct command_result *batch_done(struct command *cmd,
-				  struct request_batch *batch);
+				  struct request_batch *batch)
+	NON_NULL_ARGS(1, 2);
 
 /* Helper to create a JSONRPC2 response stream with a "result" object. */
-struct json_stream *jsonrpc_stream_success(struct command *cmd);
+struct json_stream *jsonrpc_stream_success(struct command *cmd)
+	NON_NULL_ARGS(1);
 
 /* Helper to create a JSONRPC2 response stream with an "error" object. */
 struct json_stream *jsonrpc_stream_fail(struct command *cmd,
 					int code,
-					const char *err);
+					const char *err)
+	NON_NULL_ARGS(1, 3);
 
 /* Helper to create a JSONRPC2 response stream with an "error" object,
  * to which will be added a "data" object. */
 struct json_stream *jsonrpc_stream_fail_data(struct command *cmd,
 					     int code,
-					     const char *err);
+					     const char *err)
+	NON_NULL_ARGS(1, 3);
 
 /* Helper to jsonrpc_request_start() and send_outreq() to update datastore.
  * NULL cb means ignore, NULL errcb means plugin_error.
@@ -225,7 +251,8 @@ struct command_result *jsonrpc_set_datastore_(struct plugin *plugin,
 									      const char *buf,
 									      const jsmntok_t *result,
 									      void *arg),
-					      void *arg);
+					      void *arg)
+	NON_NULL_ARGS(1, 2, 3, 4, 6);
 
 #define jsonrpc_set_datastore_string(plugin, cmd, path, str, mode, cb, errcb, arg) \
 	jsonrpc_set_datastore_((plugin), (cmd), (path), (str), true, (mode), \
@@ -267,7 +294,8 @@ struct command_result *jsonrpc_get_datastore_(struct plugin *plugin,
 					      struct command_result *(*binary_cb)(struct command *command,
 									   const u8 *val,
 									   void *arg),
-					      void *arg);
+					      void *arg)
+	NON_NULL_ARGS(1, 2, 3);
 
 #define jsonrpc_get_datastore_string(plugin, cmd, path, cb, arg)	\
 	jsonrpc_get_datastore_((plugin), (cmd), (path),			\
@@ -293,11 +321,13 @@ struct command_result *jsonrpc_get_datastore_(struct plugin *plugin,
 /* This command is finished, here's the response (the content of the
  * "result" or "error" field) */
 WARN_UNUSED_RESULT
-struct command_result *command_finished(struct command *cmd, struct json_stream *response);
+struct command_result *command_finished(struct command *cmd, struct json_stream *response)
+	NON_NULL_ARGS(1, 2);
 
 /* Helper for a command that'll be finished in a callback. */
 WARN_UNUSED_RESULT
-struct command_result *command_still_pending(struct command *cmd);
+struct command_result *command_still_pending(struct command *cmd)
+	NON_NULL_ARGS(1);
 
 /* Helper to create a zero or single-value JSON object; if @str is NULL,
  * object is empty. */
@@ -336,24 +366,34 @@ struct command_result *WARN_UNUSED_RESULT
 command_done_err(struct command *cmd,
 		 enum jsonrpc_errcode code,
 		 const char *errmsg,
-		 const struct json_out *data);
+		 const struct json_out *data)
+	NON_NULL_ARGS(1, 3);
 
 /* Send a raw error response. Useful for forwarding a previous
  * error after cleanup */
 struct command_result *command_err_raw(struct command *cmd,
-				       const char *json_str);
+				       const char *json_str)
+	NON_NULL_ARGS(1, 2);
 
 /* This command is finished, here's the result object; @cmd cannot be NULL. */
 struct command_result *WARN_UNUSED_RESULT
-command_success(struct command *cmd, const struct json_out *result);
+command_success(struct command *cmd, const struct json_out *result)
+	NON_NULL_ARGS(1, 2);
 
 /* End a hook normally (with "result": "continue") */
 struct command_result *WARN_UNUSED_RESULT
-command_hook_success(struct command *cmd);
+command_hook_success(struct command *cmd)
+	NON_NULL_ARGS(1);
 
 /* End a notification handler.  */
 struct command_result *WARN_UNUSED_RESULT
-notification_handled(struct command *cmd);
+notification_handled(struct command *cmd)
+	NON_NULL_ARGS(1);
+
+/* End a command created with aux_command.  */
+struct command_result *WARN_UNUSED_RESULT
+aux_command_done(struct command *cmd)
+	NON_NULL_ARGS(1);
 
 /**
  * What's the deprecation_ok state for this cmd?
@@ -361,7 +401,8 @@ notification_handled(struct command *cmd);
  *
  * Either the default, or the explicit connection override.
  */
-bool command_deprecated_ok_flag(const struct command *cmd);
+bool command_deprecated_ok_flag(const struct command *cmd)
+	NON_NULL_ARGS(1);
 
 /* Helper for notification handler that will be finished in a callback.  */
 #define notification_handler_pending(cmd) command_still_pending(cmd)
@@ -399,38 +440,52 @@ struct command_result *send_outreq(struct plugin *plugin,
 struct command_result *forward_error(struct command *cmd,
 				     const char *buf,
 				     const jsmntok_t *error,
-				     void *arg);
+				     void *arg)
+	NON_NULL_ARGS(1, 2, 3);
 
 /* Callback to just forward result and close request; @cmd cannot be NULL */
 struct command_result *forward_result(struct command *cmd,
 				      const char *buf,
 				      const jsmntok_t *result,
-				      void *arg);
+				      void *arg)
+	NON_NULL_ARGS(1, 2, 3);
 
 /* Callback for timer where we expect a 'command_result'.  All timers
  * must return this eventually, though they may do so via a convoluted
  * send_req() path. */
-struct command_result *timer_complete(struct plugin *p);
+struct command_result *timer_complete(struct command *cmd)
+	NON_NULL_ARGS(1);
 
-/* Signals that we've completed a command. Useful for when
- * there's no `cmd` present */
-struct command_result *command_done(void);
-
-/* Access timer infrastructure to add a timer.
+/* Access timer infrastructure to add a global timer for the plugin.
  *
- * Freeing this releases the timer, otherwise it's freed after @cb
- * if it hasn't been freed already.
+ * This is a timer with the same lifetime as the plugin.
  */
-struct plugin_timer *plugin_timer_(struct plugin *p,
+struct plugin_timer *global_timer_(struct plugin *p,
 				   struct timerel t,
-				   void (*cb)(void *cb_arg),
+				   struct command_result *(*cb)(struct command *cmd, void *cb_arg),
 				   void *cb_arg);
 
-#define plugin_timer(plugin, time, cb, cb_arg)		\
-	plugin_timer_((plugin), (time),			\
-		      typesafe_cb(void, void *,		\
-				  (cb), (cb_arg)),	\
-		      (cb_arg))				\
+#define global_timer(plugin, time, cb, cb_arg)				\
+	global_timer_((plugin), (time),					\
+		      typesafe_cb_preargs(struct command_result *,	\
+					  void *,			\
+					  (cb), (cb_arg),		\
+					  struct command *),		\
+		      (cb_arg))						\
+
+/* Timer based off specific cmd */
+struct plugin_timer *command_timer_(struct command *cmd,
+				    struct timerel t,
+				    struct command_result *(*cb)(struct command *cmd, void *cb_arg),
+				    void *cb_arg);
+
+#define command_timer(cmd, time, cb, cb_arg)				\
+	command_timer_((cmd), (time),					\
+		       typesafe_cb_preargs(struct command_result *,	\
+					   void *,			\
+					   (cb), (cb_arg),		\
+					   struct command *),		\
+		       (cb_arg))					\
 
 /* Log something */
 void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...) PRINTF_FMT(3, 4);
