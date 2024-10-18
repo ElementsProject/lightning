@@ -53,6 +53,10 @@ else
 LDLIBS += -lsodium
 endif
 
+ifeq ($(HAVE_ZLIB),1)
+LDLIBS += -lz
+endif
+
 EXTERNAL_LDLIBS := -L${TARGET_DIR} $(patsubst lib%.a,-l%,$(notdir $(EXTERNAL_LIBS)))
 
 submodcheck: $(FORCE)
