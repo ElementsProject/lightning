@@ -97,6 +97,12 @@ static inline struct node arc_head(const struct graph *graph,
 	return graph->arc_tail[dual.idx];
 }
 
+/* We use an arc array but not all arcs in that array do exist in the graph. */
+static inline bool arc_enabled(const struct graph *graph, const struct arc arc)
+{
+	return graph->arc_tail[arc.idx].idx < graph->max_num_nodes;
+}
+
 /* Used to loop over the arcs that exit a node.
  *
  * for example:
