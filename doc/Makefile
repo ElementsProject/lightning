@@ -193,9 +193,15 @@ LOWDOWN := lowdown
 endif
 
 # For versions in documentation, we don't change with every git version, to
-# save build time.  We simply to pre-XXX and XXX.
+# save build time.  We build them on new tags or keep them on pre-next-release version.
 doc/.doc_version: version_gen.h
-	@if [ "$(VERSION)" = "$(CLN_NEXT_VERSION)" ]; then DOC_VERSION="$(VERSION)"; else DOC_VERSION="pre-$(CLN_NEXT_VERSION)"; fi; echo $$DOC_VERSION > $@.new
+	@case "$(VERSION)" in \
+	*-*-g*) \
+		DOC_VERSION="pre-$(CLN_NEXT_VERSION)";; \
+	*) \
+		DOC_VERSION="$(VERSION)";; \
+	esac; \
+	echo $$DOC_VERSION > $@.new
 	@if cmp $@.new $@ >/dev/null 2>&1; then rm -f $@.new; else mv $@.new $@; $(ECHO) Documentation version updated to `cat doc/.doc_version`; fi
 
 $(MANPAGES): doc/%: doc/%.md tools/md2man.sh doc/.doc_version
