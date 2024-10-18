@@ -20,6 +20,9 @@
 #define GOSSIP_SEEKER_INTERVAL(seeker) \
 	DEV_FAST_GOSSIP((seeker)->daemon->dev_fast_gossip, 5, 60)
 
+#define GOSSIP_SEEKER_RESYNC_INTERVAL(seeker) \
+	DEV_FAST_GOSSIP((seeker)->daemon->dev_fast_gossip, 30, 3600)
+
 enum seeker_state {
 	/* Still streaming gossip from single peer. */
 	STARTING_UP,
@@ -48,6 +51,9 @@ struct seeker {
 
 	/* Timer which checks on progress every minute */
 	struct oneshot *check_timer;
+
+	/* Full sync gossip from one peer every hour */
+	struct oneshot *sync_timer;
 
 	/* Channels we've heard about, but don't know (by scid). */
 	UINTMAP(bool) unknown_scids;
@@ -144,6 +150,7 @@ struct seeker *new_seeker(struct daemon *daemon)
 	seeker->unknown_nodes = false;
 	set_state(seeker, STARTING_UP, NULL, "New seeker");
 	begin_check_timer(seeker);
+	seeker->sync_timer = NULL;
 	return seeker;
 }
 
@@ -948,6 +955,7 @@ static void seeker_check(struct seeker *seeker)
 		check_probe(seeker, peer_gossip_probe_nannounces);
 		break;
 	case NORMAL:
+		/* FIXME: maybe_get_more_peers(seeker); */
 		maybe_rotate_gossipers(seeker);
 		if (!seek_any_unknown_scids(seeker)
 		    && !seek_any_stale_scids(seeker))
@@ -957,6 +965,40 @@ static void seeker_check(struct seeker *seeker)
 
 out:
 	begin_check_timer(seeker);
+}
+
+/* Mutual recursion */
+static void begin_sync_timer(struct seeker *seeker);
+
+/* Periodically ask for a full sync from a random peer to backfill anything
+ * we might have missed. */
+static void full_sync_random_peer(struct seeker *seeker)
+{
+	/* Select random peer */
+	struct peer *random_peer;
+	struct peer_node_id_map_iter it;
+	random_peer = first_random_peer(seeker->daemon, &it);
+	if (!random_peer) {
+		begin_sync_timer(seeker);
+		return;
+	}
+	/* FIXME: store random sync peer and don't select next time. */
+	status_peer_debug(&random_peer->id,
+			  "seeker: chosen for periodic full sync");
+	normal_gossip_start(seeker,random_peer, true);
+	begin_sync_timer(seeker);
+}
+
+static void begin_sync_timer(struct seeker *seeker)
+{
+	if (seeker->sync_timer)
+		tal_free(seeker->sync_timer);
+	const u32 polltime = GOSSIP_SEEKER_RESYNC_INTERVAL(seeker);
+
+	seeker->sync_timer = new_reltimer(&seeker->daemon->timers,
+					  seeker,
+					  time_from_sec(polltime),
+					  full_sync_random_peer, seeker);
 }
 
 /* We get this when we have a new peer. */
@@ -972,8 +1014,11 @@ void seeker_setup_peer_gossip(struct seeker *seeker, struct peer *peer)
 
 	switch (seeker->state) {
 	case STARTING_UP:
-		if (seeker->random_peer == NULL)
+		if (seeker->random_peer == NULL) {
 			peer_gossip_startup(seeker, peer, true);
+			/* Get another full gossip sync later. */
+			begin_sync_timer(seeker);
+		}
 		/* Waiting for seeker_check to release us */
 		return;
 
