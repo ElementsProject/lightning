@@ -43,7 +43,7 @@ struct channel_hint {
 	/* The total `amount_msat` that were used to fund the
 	 * channel. This is always smaller gte the
 	 * estimated_capacity */
-	struct amount_msat overall_capacity;
+	struct amount_msat capacity;
 };
 
 /* A collection of channel_hint instances, allowing us to handle and
@@ -56,6 +56,7 @@ struct channel_hint_set {
 bool channel_hint_update(const struct timeabs now,
 				struct channel_hint *hint);
 
-void channel_hint_to_json(const char *name, const struct channel_hint *hint, struct json_stream *dest);
+void channel_hint_to_json(const char *name, const struct channel_hint *hint,
+			  struct json_stream *dest);
 
 #endif /* LIGHTNING_PLUGINS_CHANNEL_HINT_H */
