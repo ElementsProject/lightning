@@ -7,22 +7,25 @@
 #include <unistd.h>
 
 int hsm_secret_encryption_key_with_exitcode(const char *pass, struct secret *key,
-					      char **err_msg)
+					    const char **err_msg)
 {
 	u8 salt[16] = "c-lightning\0\0\0\0\0";
 
 	/* Don't swap the encryption key ! */
 	if (sodium_mlock(key->data, sizeof(key->data)) != 0) {
-		*err_msg = "Could not lock hsm_secret encryption key memory.";
+		if (err_msg)
+			*err_msg = "Could not lock hsm_secret encryption key memory.";
 		return EXITCODE_HSM_GENERIC_ERROR;
 	}
 
 	/* Check bounds. */
 	if (strlen(pass) < crypto_pwhash_argon2id_PASSWD_MIN) {
-		*err_msg = "Password too short to be able to derive a key from it.";
+		if (err_msg)
+			*err_msg = "Password too short to be able to derive a key from it.";
 		return EXITCODE_HSM_BAD_PASSWORD;
 	} else if (strlen(pass) > crypto_pwhash_argon2id_PASSWD_MAX) {
-		*err_msg = "Password too long to be able to derive a key from it.";
+		if (err_msg)
+			*err_msg = "Password too long to be able to derive a key from it.";
 		return EXITCODE_HSM_BAD_PASSWORD;
 	}
 
@@ -33,7 +36,8 @@ int hsm_secret_encryption_key_with_exitcode(const char *pass, struct secret *key
 			  crypto_pwhash_argon2id_OPSLIMIT_MODERATE,
 			  crypto_pwhash_argon2id_MEMLIMIT_MODERATE,
 			  crypto_pwhash_ALG_ARGON2ID13) != 0) {
-		*err_msg = "Could not derive a key from the password.";
+		if (err_msg)
+			*err_msg = "Could not derive a key from the password.";
 		return EXITCODE_HSM_BAD_PASSWORD;
 	}
 
@@ -112,7 +116,7 @@ static bool getline_stdin_pass(char **passwd, size_t *passwd_size)
 	return true;
 }
 
-char *read_stdin_pass_with_exit_code(char **reason, int *exit_code)
+char *read_stdin_pass_with_exit_code(const char **reason, int *exit_code)
 {
 	struct termios current_term, temp_term;
 	char *passwd = NULL;

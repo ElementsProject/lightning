@@ -637,7 +637,8 @@ static void prompt(struct lightningd *ld, const char *str)
  */
 static char *opt_set_hsm_password(struct lightningd *ld)
 {
-	char *passwd, *passwd_confirmation, *err_msg;
+	char *passwd, *passwd_confirmation;
+	const char *err_msg;
 	int is_encrypted;
 
         is_encrypted = is_hsm_secret_encrypted("hsm_secret");
@@ -657,13 +658,13 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 
 	passwd = read_stdin_pass_with_exit_code(&err_msg, &opt_exitcode);
 	if (!passwd)
-		return err_msg;
+		return cast_const(char *, err_msg);
 	if (!is_encrypted) {
 		prompt(ld, "Confirm hsm_secret password:");
 		fflush(stdout);
 		passwd_confirmation = read_stdin_pass_with_exit_code(&err_msg, &opt_exitcode);
 		if (!passwd_confirmation)
-			return err_msg;
+			return cast_const(char *, err_msg);
 
 		if (!streq(passwd, passwd_confirmation)) {
 			opt_exitcode = EXITCODE_HSM_BAD_PASSWORD;
@@ -677,7 +678,7 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 
 	opt_exitcode = hsm_secret_encryption_key_with_exitcode(passwd, ld->config.keypass, &err_msg);
 	if (opt_exitcode > 0)
-		return err_msg;
+		return cast_const(char *, err_msg);
 
 	ld->encrypted_hsm = true;
 	free(passwd);
@@ -2090,8 +2091,10 @@ void add_config_deprecated(struct lightningd *ld,
 			if (!opt->show(buf, sizeof(buf) - sizeof("..."), opt->u.carg))
 				buf[0] = '\0';
 
-			if ((opt->type & OPT_SHOWINT)
-			    || (opt->type & OPT_SHOWMSATS)) {
+			if (opt->type & OPT_CONCEAL) {
+				strcpy(buf, "...");
+			} else if ((opt->type & OPT_SHOWINT)
+				   || (opt->type & OPT_SHOWMSATS)) {
 				if (streq(buf, "")
 				    || strspn(buf, "-0123456789.") != strlen(buf))
 					errx(1, "Bad literal for %s: %s", name0, buf);
