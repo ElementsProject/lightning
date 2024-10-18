@@ -1939,7 +1939,16 @@ def test_pay_avoid_low_fee_chan(node_factory, bitcoind, executor, chainparams):
 
 @pytest.mark.slow_test
 def test_pay_routeboost(node_factory, bitcoind):
-    """Make sure we can use routeboost information. """
+    """Make sure we can use routeboost information.
+
+    ```dot
+    graph {
+      l1 -- l2 -- l3
+      l3 -- l4 [style="dotted"]
+      l4 -- l5 [style="dotted"]
+    }
+    ```
+    """
     # l1->l2->l3--private-->l4
     l1, l2 = node_factory.line_graph(2, announce_channels=True, wait_for_announce=True)
     l3, l4, l5 = node_factory.line_graph(3, announce_channels=False, wait_for_announce=False)
@@ -2016,10 +2025,24 @@ def test_pay_routeboost(node_factory, bitcoind):
     assert 'success' in attempts[0]
 
     # Finally, it should fall back to second routehint if first fails.
-    # (Note, this is not public because it's not 6 deep)
+    # (Note, this is not public because it's not 6 deep). To test this
+    # we add another edge to the graph, resulting in:
+    #
+    # ```dot
+    # graph {
+    #   rankdir=LR
+    #   l1 -- l2 -- l3
+    #   l4 [label="l4 (offline)",style="dashed"]
+    #   l3 -- l4 [style="dotted"]
+    #   l4 -- l5 [style="dotted"]
+    #   l3 -- l5 [style="dotted"]
+    # }
+    # ```
     l3.rpc.connect(l5.info['id'], 'localhost', l5.port)
     scid35, _ = l3.fundchannel(l5, 10**6)
     l4.stop()
+
+    # Now that we have the channels ready, let's build the routehints through l3l5
     routel3l5 = [{'id': l3.info['id'],
                   'short_channel_id': scid35,
                   'fee_base_msat': 1000,
@@ -2040,10 +2063,11 @@ def test_pay_routeboost(node_factory, bitcoind):
     assert 'local_exclusions' not in only_one(status['pay'])
     attempts = only_one(status['pay'])['attempts']
 
-    # First one fails, second one succeeds, no routehint would come last.
-    assert len(attempts) == 2
+    # First routehint in the invoice fails, we may retry that one
+    # unsuccessfully before switching, hence the >2 instead of =2
+    assert len(attempts) >= 2
     assert 'success' not in attempts[0]
-    assert 'success' in attempts[1]
+    assert 'success' in attempts[-1]
     # TODO Add assertion on the routehint once we add them to the pay
     # output
 
