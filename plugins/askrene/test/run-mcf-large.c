@@ -56,7 +56,7 @@ static bool solve_case(const tal_t *ctx)
 	tal_t *this_ctx = tal(ctx, tal_t);
 
 	int N_nodes, N_arcs;
-	scanf("%d %d\n", &N_nodes, &N_arcs);
+	myscanf("%d %d\n", &N_nodes, &N_arcs);
 	printf("Testcase %d\n", c);
 	printf("nodes %d arcs %d\n", N_nodes, N_arcs);
 	if (N_nodes == 0 && N_arcs == 0)
@@ -68,14 +68,14 @@ static bool solve_case(const tal_t *ctx)
 	printf("max nodes %d max arcs %d bit %d\n", MAX_NODES, MAX_ARCS, DUAL_BIT);
 
 	struct graph *graph = graph_new(ctx, MAX_NODES, MAX_ARCS, DUAL_BIT);
-	assert(graph);
+	CHECK(graph);
 
 	s64 *capacity = tal_arrz(ctx, s64, MAX_ARCS);
 	s64 *cost = tal_arrz(ctx, s64, MAX_ARCS);
 
 	for (u32 i = 0; i < N_arcs; i++) {
 		u32 from, to;
-		scanf("%" PRIu32 " %" PRIu32 " %" PRIi64 " %" PRIi64, &from,
+		myscanf("%" PRIu32 " %" PRIu32 " %" PRIi64 " %" PRIi64, &from,
 		      &to, &capacity[i], &cost[i]);
 
 		struct arc arc = {.idx = i};
@@ -89,19 +89,19 @@ static bool solve_case(const tal_t *ctx)
 	struct node dst = {.idx = 1};
 
 	s64 amount, best_cost;
-	scanf("%" PRIi64 " %" PRIi64, &amount, &best_cost);
+	myscanf("%" PRIi64 " %" PRIi64, &amount, &best_cost);
 
 	bool result = simple_mcf(ctx, graph, src, dst, capacity, amount, cost);
-	assert(result);
+	CHECK(result);
 
-	assert(node_balance(graph, src, capacity) == -amount);
-	assert(node_balance(graph, dst, capacity) == amount);
+	CHECK(node_balance(graph, src, capacity) == -amount);
+	CHECK(node_balance(graph, dst, capacity) == amount);
 
 	for (u32 i = 2; i < N_nodes; i++)
-		assert(node_balance(graph, node_obj(i), capacity) == 0);
+		CHECK(node_balance(graph, node_obj(i), capacity) == 0);
 
 	const s64 total_cost = flow_cost(graph, capacity, cost);
-	assert(total_cost == best_cost);
+	CHECK(total_cost == best_cost);
 
 	tal_free(this_ctx);
 	return true;
