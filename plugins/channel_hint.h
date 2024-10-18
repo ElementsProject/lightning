@@ -87,4 +87,9 @@ struct channel_hint *channel_hint_set_add(struct channel_hint_set *self,
 					  const struct amount_sat overall_capacity,
 					  u16 *htlc_budget);
 
+/**
+ * Count how many channel_hints the set contains.
+ */
+size_t channel_hint_set_count(const struct channel_hint_set *set);
+
 #endif /* LIGHTNING_PLUGINS_CHANNEL_HINT_H */
