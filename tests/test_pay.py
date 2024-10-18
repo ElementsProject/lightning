@@ -5998,7 +5998,7 @@ def test_enableoffer(node_factory):
         l1.rpc.enableoffer(offer_id=offer1['offer_id'])
 
 
-def test_pay_remember_hint(node_factory):
+def diamond_network(node_factory):
     """Build a diamond, with a cheap route, that is exhausted. The
     first payment should try that route first, learn it's exhausted,
     and then succeed over the other leg. The second, unrelated,
@@ -6007,9 +6007,68 @@ def test_pay_remember_hint(node_factory):
 
     ```mermaid
     graph LR
-      Sender -- "propfee=1\nexhausted" --> Forwarder1
-      Forwarder1 -- "propfee=1" --> Recipient
-      Sender -- "propfee=50" --> Forwarder2
-      Forwarder2 -- "propfee=1" --> Recipient
+      Sender -- "propfee=1" --> Forwarder1
+      Forwarder1 -- "propfee="1\nexhausted --> Recipient
+      Sender -- "propfee=1" --> Forwarder2
+      Forwarder2 -- "propfee=5" --> Recipient
     ```
     """
+    opts = [
+        {'fee-per-satoshi': 0, 'fee-base': 0},     # Sender
+        {'fee-per-satoshi': 0, 'fee-base': 0},     # Low fee, but exhausted channel
+        {'fee-per-satoshi': 5000, 'fee-base': 0},  # Disincentivize using fw2
+        {'fee-per-satoshi': 0, 'fee-base': 0},     # Recipient
+    ]
+
+    sender, fw1, fw2, recipient, = node_factory.get_nodes(4, opts=opts)
+
+    # And now wire them all up: notice that all channels, except the
+    # recipent <> fw1 are created in the direction of the planned
+    # from, meaning we won't be able to forward through there, causing
+    # a `channel_hint` to be created, disincentivizing usage of this
+    # channel on the second payment.
+    node_factory.join_nodes(
+        [sender, fw2, recipient, fw1],
+        wait_for_announce=True,
+        announce_channels=True,
+    )
+    # And we complete the diamond by adding the edge from sender to fw1
+    node_factory.join_nodes(
+        [sender, fw1],
+        wait_for_announce=True,
+        announce_channels=True
+    )
+    return [sender, fw1, fw2, recipient]
+
+
+def test_pay_remember_hint(node_factory):
+    """Using a diamond graph, with inferred `channel_hint`s, see if we remember
+    """
+    sender, fw1, fw2, recipient, = diamond_network(node_factory)
+
+    inv = recipient.rpc.invoice(
+        4200000,
+        "lbl1",
+        "desc1",
+        exposeprivatechannels=[],  # suppress routehints, so fees alone control route
+    )['bolt11']
+
+    p = sender.rpc.pay(inv)
+
+    # Ensure we failed the first, cheap, path, and then tried the successful one.
+    assert(p['parts'] == 2)
+
+    # Now for the final trick: a new payment should remember the
+    # previous failure, and go directly for the successful route
+    # through fw2
+
+    inv = recipient.rpc.invoice(
+        4200000,
+        "lbl2",
+        "desc2",
+        exposeprivatechannels=[],  # suppress routehints, so fees alone control route
+    )['bolt11']
+
+    # We should not have touched fw1, and should succeed after a single call
+    p = sender.rpc.pay(inv)
+    assert(p['parts'] == 1)
