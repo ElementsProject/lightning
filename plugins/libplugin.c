@@ -164,11 +164,6 @@ struct command_result *command_param_failed(void)
 	return &complete;
 }
 
-struct command_result *command_done(void)
-{
-	return &complete;
-}
-
 struct json_filter **command_filter_ptr(struct command *cmd)
 {
 	return &cmd->filter;
@@ -295,7 +290,7 @@ static struct command_result *ignore_cb(struct command *command,
 					const jsmntok_t *result,
 					void *arg)
 {
-	return command_done();
+	return &complete;
 }
 
 static void disable_request_cb(struct command *cmd, struct out_req *out)
@@ -308,9 +303,6 @@ static void disable_request_cb(struct command *cmd, struct out_req *out)
 
 const char *json_id_prefix(const tal_t *ctx, const struct command *cmd)
 {
-	if (!cmd)
-		return "";
-
 	/* Strip quotes! */
 	if (strstarts(cmd->id, "\"")) {
 		assert(strlen(cmd->id) >= 2);
@@ -354,6 +346,7 @@ jsonrpc_request_start_(struct plugin *plugin, struct command *cmd,
 {
 	struct out_req *out;
 
+	assert(cmd);
 	out = tal(cmd, struct out_req);
 	out->id = append_json_id(out, plugin, method, id_prefix);
 	out->cmd = cmd;
@@ -364,8 +357,7 @@ jsonrpc_request_start_(struct plugin *plugin, struct command *cmd,
 	tal_add_destructor2(out, destroy_out_req, plugin);
 
 	/* If command goes away, don't call callbacks! */
-	if (out->cmd)
-		tal_add_destructor2(out->cmd, disable_request_cb, out);
+	tal_add_destructor2(out->cmd, disable_request_cb, out);
 
 	out->js = new_json_stream(NULL, cmd, NULL);
 	json_object_start(out->js, NULL);
@@ -481,8 +473,7 @@ struct command_result *command_finished(struct command *cmd,
 struct command_result *WARN_UNUSED_RESULT
 command_still_pending(struct command *cmd)
 {
-	if (cmd)
-		notleak_with_children(cmd);
+	notleak_with_children(cmd);
 	return &pending;
 }
 
@@ -1022,8 +1013,7 @@ static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
 	}
 
 	/* Remove destructor if one existed */
-	if (out->cmd)
-		tal_del_destructor2(out->cmd, disable_request_cb, out);
+	tal_del_destructor2(out->cmd, disable_request_cb, out);
 
 	/* We want to free this if callback doesn't. */
 	tal_steal(tmpctx, out);
@@ -1129,7 +1119,7 @@ static struct command_result *batch_one_success(struct command *cmd,
 {
 	/* If this frees stuff (e.g. fails), just return */
 	if (batch->cb && batch->cb(cmd, buf, result, batch->arg) == &complete)
-		return command_done();
+		return &complete;
 	return batch_one_complete(cmd, batch);
 }
 
@@ -1140,7 +1130,7 @@ static struct command_result *batch_one_failed(struct command *cmd,
 {
 	/* If this frees stuff (e.g. fails), just return */
 	if (batch->errcb && batch->errcb(cmd, buf, result, batch->arg) == &complete)
-		return command_done();
+		return &complete;
 	return batch_one_complete(cmd, batch);
 }
 
