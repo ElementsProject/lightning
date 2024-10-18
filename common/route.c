@@ -105,8 +105,9 @@ static bool dijkstra_to_hops(struct route_hop **hops,
 	if (!dijkstra_to_hops(hops, gossmap, dij, next, amount, cltv))
 		return false;
 
-	gossmap_chan_get_capacity(gossmap, c, &total);
-	(*hops)[num_hops].capacity = total;
+	if (!gossmap_chan_get_capacity(gossmap, c, &total)
+	    || !amount_sat_to_msat(&(*hops)[num_hops].capacity, total))
+		return false;
 	(*hops)[num_hops].amount = *amount;
 	(*hops)[num_hops].delay = *cltv;
 

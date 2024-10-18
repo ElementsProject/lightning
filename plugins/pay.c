@@ -1523,7 +1523,7 @@ static struct command_result *handle_channel_hint_update(struct command *cmd,
 		   ".estimate = %s, .capacity = %s }",
 		   fmt_short_channel_id_dir(tmpctx, &hint->scid), hint->enabled,
 		   fmt_amount_msat(tmpctx, hint->estimated_capacity),
-		   fmt_amount_sat(tmpctx, hint->capacity)
+		   fmt_amount_msat(tmpctx, hint->capacity)
 	);
 	channel_hint_set_add(global_hints, time_now().ts.tv_sec, &hint->scid,
 			     hint->enabled, &hint->estimated_capacity,
