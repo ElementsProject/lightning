@@ -199,7 +199,12 @@ RUN ( ! [ "${target_host}" = "arm-linux-gnueabihf" ] ) || \
 # https://github.com/ElementsProject/lightning/pull/7376#issuecomment-2161102381
 RUN poetry lock --no-update && poetry install
 
-RUN ./configure --prefix=/tmp/lightning_install --enable-static && make && poetry run make install
+# Ensure that git differences are removed before making bineries, to avoid `-modded` suffix
+# poetry.lock changed due to pyln-client, pyln-proto and pyln-testing version updates
+# pyproject.toml was updated to exclude clnrest and wss-proxy plugins in base-builder stage
+RUN git reset --hard HEAD
+
+RUN ./configure --prefix=/tmp/lightning_install --enable-static && poetry run make install
 
 # Export the requirements for the plugins so we can install them in builder-python stage
 WORKDIR /opt/lightningd/plugins/clnrest
