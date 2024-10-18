@@ -554,8 +554,9 @@ static bool mcf_refinement(const tal_t *ctx,
 	 * constraints.  */
 	for (u32 arc_id = 0; arc_id < max_num_arcs; arc_id++) {
 		struct arc arc = {.idx = arc_id};
+		if(!arc_enabled(graph, arc))
+			continue;
 		const s64 r = capacity[arc.idx];
-
 		if (reduced_cost(graph, arc, cost, potential) < 0 && r > 0) {
 			/* This arc's reduced cost is negative and non
 			 * saturated. */
@@ -615,7 +616,19 @@ static bool mcf_refinement(const tal_t *ctx,
 	for (u32 i = 0; i < max_num_nodes; i++) {
 		assert(excess[i] == 0);
 	}
+	for (u32 i = 0; i < max_num_arcs; i++) {
+		struct arc arc = {.idx = i};
+		if(!arc_enabled(graph, arc))
+			continue;
+		const s64 cap = capacity[arc.idx];
+		const s64 rc = reduced_cost(graph, arc, cost, potential);
+
+		assert(cap >= 0);
+		/* asserts logic implication: (rc<0 -> cap==0)*/
+		assert(!(rc < 0) || cap == 0);
+	}
 #endif
+	solved = true;
 
 finish:
 	tal_free(this_ctx);
