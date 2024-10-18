@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store_wiregen.h>
+#include <inttypes.h>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <wire/peer_wire.h>
@@ -60,7 +61,7 @@ struct gossmap {
 	/* The memory map of the file: u8 for arithmetic portability */
 	u8 *mmap;
 	/* map_end is where we read to so far, map_size is total size */
-	size_t map_end, map_size;
+	u64 map_end, map_size;
 
 	/* Map of node id -> node */
 	struct nodeidx_htable *nodes;
@@ -93,18 +94,18 @@ struct gossmap {
 			     void *cb_arg);
 	bool (*unknown_record)(struct gossmap *map,
 			       int type,
-			       size_t off,
+			       u64 off,
 			       size_t msglen,
 			       void *cb_arg);
 	void *cb_arg;
 };
 
 /* Accessors for the gossmap */
-static void map_copy(const struct gossmap *map, size_t offset,
+static void map_copy(const struct gossmap *map, u64 offset,
 		     void *dst, size_t len)
 {
 	if (offset >= map->map_size) {
-		size_t localoff = offset - map->map_size;
+		u64 localoff = offset - map->map_size;
 		assert(localoff + len <= tal_bytelen(map->local));
 		memcpy(dst, map->local + localoff, len);
 	} else {
@@ -119,35 +120,35 @@ static void map_copy(const struct gossmap *map, size_t offset,
 	}
 }
 
-static u8 map_u8(const struct gossmap *map, size_t offset)
+static u8 map_u8(const struct gossmap *map, u64 offset)
 {
 	u8 u8;
 	map_copy(map, offset, &u8, sizeof(u8));
 	return u8;
 }
 
-static u16 map_be16(const struct gossmap *map, size_t offset)
+static u16 map_be16(const struct gossmap *map, u64 offset)
 {
 	be16 be16;
 	map_copy(map, offset, &be16, sizeof(be16));
 	return be16_to_cpu(be16);
 }
 
-static u32 map_be32(const struct gossmap *map, size_t offset)
+static u32 map_be32(const struct gossmap *map, u64 offset)
 {
 	be32 be32;
 	map_copy(map, offset, &be32, sizeof(be32));
 	return be32_to_cpu(be32);
 }
 
-static u64 map_be64(const struct gossmap *map, size_t offset)
+static u64 map_be64(const struct gossmap *map, u64 offset)
 {
 	be64 be64;
 	map_copy(map, offset, &be64, sizeof(be64));
 	return be64_to_cpu(be64);
 }
 
-static void map_nodeid(const struct gossmap *map, size_t offset,
+static void map_nodeid(const struct gossmap *map, u64 offset,
 		       struct node_id *id)
 {
 	map_copy(map, offset, id, sizeof(*id));
@@ -156,7 +157,7 @@ static void map_nodeid(const struct gossmap *map, size_t offset,
 /* Returns optional or compulsory feature if set, otherwise -1 */
 static int map_feature_test(const struct gossmap *map,
 			    int compulsory_bit,
-			    size_t offset, size_t len)
+			    u64 offset, size_t len)
 {
 	size_t bytenum = compulsory_bit / 8;
 	u8 bits;
@@ -373,8 +374,8 @@ static struct gossmap_chan *next_free_chan(struct gossmap *map)
 }
 
 static struct gossmap_chan *new_channel(struct gossmap *map,
-					u32 cannounce_off,
-					u32 plus_scid_off,
+					u64 cannounce_off,
+					u64 plus_scid_off,
 					u32 n1idx, u32 n2idx)
 {
 	struct gossmap_chan *chan = next_free_chan(map);
@@ -444,13 +445,13 @@ void gossmap_remove_node(struct gossmap *map, struct gossmap_node *node)
  *     * [`point`:`node_id_2`]
  */
 static struct gossmap_chan *add_channel(struct gossmap *map,
-					size_t cannounce_off,
+					u64 cannounce_off,
 					size_t msglen)
 {
 	/* Note that first two bytes are message type */
-	const size_t feature_len_off = 2 + (64 + 64 + 64 + 64);
+	const u64 feature_len_off = 2 + (64 + 64 + 64 + 64);
 	size_t feature_len;
-	size_t plus_scid_off;
+	u64 plus_scid_off;
 	struct short_channel_id scid;
 	struct node_id node_id[2];
 	struct gossmap_node *n[2];
@@ -468,7 +469,7 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
 	chan = gossmap_find_chan(map, &scid);
 	if (chan) {
 		/* FIXME: Report this better! */
-		warnx("gossmap: redundant channel_announce for %s, offsets %u and %zu!",
+		warnx("gossmap: redundant channel_announce for %s, offsets %"PRIu64" and %"PRIu64"!",
 		      fmt_short_channel_id(tmpctx, scid),
 		      chan->cann_off, cannounce_off);
 		return NULL;
@@ -522,17 +523,17 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
  *     * [`u32`:`fee_proportional_millionths`]
  *     * [`u64`:`htlc_maximum_msat`]
  */
-static void update_channel(struct gossmap *map, size_t cupdate_off)
+static void update_channel(struct gossmap *map, u64 cupdate_off)
 {
 	/* Note that first two bytes are message type */
-	const size_t scid_off = cupdate_off + 2 + (64 + 32);
-	const size_t message_flags_off = scid_off + 8 + 4;
-	const size_t channel_flags_off = message_flags_off + 1;
-	const size_t cltv_expiry_delta_off = channel_flags_off + 1;
-	const size_t htlc_minimum_off = cltv_expiry_delta_off + 2;
-	const size_t fee_base_off = htlc_minimum_off + 8;
-	const size_t fee_prop_off = fee_base_off + 4;
-	const size_t htlc_maximum_off = fee_prop_off + 4;
+	const u64 scid_off = cupdate_off + 2 + (64 + 32);
+	const u64 message_flags_off = scid_off + 8 + 4;
+	const u64 channel_flags_off = message_flags_off + 1;
+	const u64 cltv_expiry_delta_off = channel_flags_off + 1;
+	const u64 htlc_minimum_off = cltv_expiry_delta_off + 2;
+	const u64 fee_base_off = htlc_minimum_off + 8;
+	const u64 fee_prop_off = fee_base_off + 4;
+	const u64 htlc_maximum_off = fee_prop_off + 4;
 	struct short_channel_id_dir scidd;
 	struct gossmap_chan *chan;
 	struct half_chan hc;
@@ -578,7 +579,7 @@ static void update_channel(struct gossmap *map, size_t cupdate_off)
 	chan->cupdate_off[chanflags & 1] = cupdate_off;
 }
 
-static void remove_channel_by_deletemsg(struct gossmap *map, size_t del_off)
+static void remove_channel_by_deletemsg(struct gossmap *map, u64 del_off)
 {
 	struct short_channel_id scid;
 	struct gossmap_chan *chan;
@@ -616,9 +617,9 @@ struct short_channel_id gossmap_chan_scid(const struct gossmap *map,
  *    * [`u16`:`addrlen`]
  *    * [`addrlen*byte`:`addresses`]
  */
-static void node_announcement(struct gossmap *map, size_t nann_off)
+static void node_announcement(struct gossmap *map, u64 nann_off)
 {
-	const size_t feature_len_off = 2 + 64;
+	const u64 feature_len_off = 2 + 64;
 	size_t feature_len;
 	struct gossmap_node *n;
 	struct node_id id;
@@ -629,7 +630,7 @@ static void node_announcement(struct gossmap *map, size_t nann_off)
 		n->nann_off = nann_off;
 }
 
-static bool reopen_store(struct gossmap *map, size_t ended_off)
+static bool reopen_store(struct gossmap *map, u64 ended_off)
 {
 	int fd;
 
@@ -659,7 +660,7 @@ static bool map_catchup(struct gossmap *map, bool *changed)
 	for (; map->map_end + sizeof(struct gossip_hdr) < map->map_size;
 	     map->map_end += reclen) {
 		struct gossip_hdr ghdr;
-		size_t off;
+		u64 off;
 		u16 type, flags;
 
 		map_copy(map, map->map_end, &ghdr, sizeof(ghdr));
@@ -764,18 +765,18 @@ static void destroy_map(struct gossmap *map)
 struct localmod {
 	struct short_channel_id scid;
 	/* If this is an entirely-local channel, here's its offset.
-	 * Otherwise, 0xFFFFFFFF. */
-	u32 local_off;
+	 * Otherwise, 0xFFFFFFFFFFFFFFFF. */
+	u64 local_off;
 
 	/* Are updates in either direction set? */
 	bool updates_set[2];
 	/* hc[n] defined if updates_set[n]. */
 	struct half_chan hc[2];
-	/* orig[n] defined if updates_set[n] and local_off == 0xFFFFFFFF */
+	/* orig[n] defined if updates_set[n] and local_off == 0xFFFFFFFFFFFFFFFF */
 	struct half_chan orig[2];
 
 	/* Original update offsets */
-	u32 orig_cupdate_off[2];
+	u64 orig_cupdate_off[2];
 };
 
 struct gossmap_localmods {
@@ -822,7 +823,7 @@ bool gossmap_local_addchan(struct gossmap_localmods *localmods,
 {
 	be16 be16;
 	be64 be64;
-	size_t off;
+	u64 off;
 	struct localmod mod;
 
 	/* Don't create duplicate channels. */
@@ -907,7 +908,7 @@ bool gossmap_local_updatechan(struct gossmap_localmods *localmods,
 		mod = &localmods->mods[nmods];
 		mod->scid = scid;
 		mod->updates_set[0] = mod->updates_set[1] = false;
-		mod->local_off = 0xFFFFFFFF;
+		mod->local_off = 0xFFFFFFFFFFFFFFFF;
 	}
 
 	assert(dir == 0 || dir == 1);
@@ -949,7 +950,7 @@ void gossmap_apply_localmods(struct gossmap *map,
 		chan = gossmap_find_chan(map, &mod->scid);
 		/* If it doesn't exist, are we supposed to create a local one? */
 		if (!chan) {
-			if (mod->local_off == 0xFFFFFFFF)
+			if (mod->local_off == 0xFFFFFFFFFFFFFFFF)
 				continue;
 
 			/* Create new channel, pointing into local. */
@@ -1090,7 +1091,7 @@ struct gossmap *gossmap_load_fd_(const tal_t *ctx, int fd,
 						      void *cb_arg),
 				 bool (*unknown_record)(struct gossmap *map,
 							int type,
-							size_t off,
+							u64 off,
 							size_t msglen,
 							void *cb_arg),
 				 void *cb_arg)
@@ -1130,7 +1131,7 @@ bool gossmap_chan_is_dying(const struct gossmap *map,
 			   const struct gossmap_chan *c)
 {
 	struct gossip_hdr ghdr;
-	size_t off;
+	u64 off;
 
 	/* FIXME: put this flag in plus_scid_off instead? */
 	off = c->cann_off - sizeof(ghdr);
@@ -1144,7 +1145,7 @@ bool gossmap_chan_get_capacity(const struct gossmap *map,
 			       struct amount_sat *amount)
 {
 	struct gossip_hdr ghdr;
-	size_t off;
+	u64 off;
 	u16 type;
 
 	/* Fail for local channels */
@@ -1319,7 +1320,7 @@ int gossmap_chan_get_feature(const struct gossmap *map,
 			     int fbit)
 {
 	/* Note that first two bytes are message type */
-	const size_t feature_len_off = 2 + (64 + 64 + 64 + 64);
+	const u64 feature_len_off = 2 + (64 + 64 + 64 + 64);
 	size_t feature_len;
 
 	feature_len = map_be16(map, c->cann_off + feature_len_off);
@@ -1334,7 +1335,7 @@ u8 *gossmap_chan_get_features(const tal_t *ctx,
 {
 	u8 *ret;
 	/* Note that first two bytes are message type */
-	const size_t feature_len_off = 2 + (64 + 64 + 64 + 64);
+	const u64 feature_len_off = 2 + (64 + 64 + 64 + 64);
 	size_t feature_len;
 
 	feature_len = map_be16(map, c->cann_off + feature_len_off);
@@ -1391,15 +1392,15 @@ void gossmap_chan_get_update_details(const struct gossmap *map,
 				     struct amount_msat *htlc_maximum_msat)
 {
 	/* Note that first two bytes are message type */
-	const size_t scid_off = chan->cupdate_off[dir] + 2 + (64 + 32);
-	const size_t timestamp_off = scid_off + 8;
-	const size_t message_flags_off = timestamp_off + 4;
-	const size_t channel_flags_off = message_flags_off + 1;
-	const size_t cltv_expiry_delta_off = channel_flags_off + 1;
-	const size_t htlc_minimum_off = cltv_expiry_delta_off + 2;
-	const size_t fee_base_off = htlc_minimum_off + 8;
-	const size_t fee_prop_off = fee_base_off + 4;
-	const size_t htlc_maximum_off = fee_prop_off + 4;
+	const u64 scid_off = chan->cupdate_off[dir] + 2 + (64 + 32);
+	const u64 timestamp_off = scid_off + 8;
+	const u64 message_flags_off = timestamp_off + 4;
+	const u64 channel_flags_off = message_flags_off + 1;
+	const u64 cltv_expiry_delta_off = channel_flags_off + 1;
+	const u64 htlc_minimum_off = cltv_expiry_delta_off + 2;
+	const u64 fee_base_off = htlc_minimum_off + 8;
+	const u64 fee_prop_off = fee_base_off + 4;
+	const u64 htlc_maximum_off = fee_prop_off + 4;
 
 	assert(gossmap_chan_set(chan, dir));
 	/* Not allowed on local updates! */
@@ -1440,7 +1441,7 @@ int gossmap_node_get_feature(const struct gossmap *map,
 			     const struct gossmap_node *n,
 			     int fbit)
 {
-	const size_t feature_len_off = 2 + 64;
+	const u64 feature_len_off = 2 + 64;
 	size_t feature_len;
 
 	if (n->nann_off == 0)
@@ -1458,7 +1459,7 @@ u8 *gossmap_node_get_features(const tal_t *ctx,
 {
 	u8 *ret;
 	/* Note that first two bytes are message type */
-	const size_t feature_len_off = 2 + 64;
+	const u64 feature_len_off = 2 + 64;
 	size_t feature_len;
 
 	if (n->nann_off == 0)
@@ -1491,7 +1492,7 @@ bool gossmap_scidd_pubkey(struct gossmap *gossmap,
 	return sciddir_or_pubkey_from_node_id(sciddpk, &id);
 }
 
-size_t gossmap_lengths(const struct gossmap *map, size_t *total)
+u64 gossmap_lengths(const struct gossmap *map, u64 *total)
 {
 	*total = map->map_size;
 	return map->map_end;
@@ -1549,7 +1550,7 @@ const void *gossmap_stream_next(const tal_t *ctx,
 
 	while (iter->offset + sizeof(h.u.type) <= map->map_size) {
 		void *ret;
-		size_t len;
+		u64 len;
 
 		map_copy(map, iter->offset, &h, sizeof(h.u.type));
 
