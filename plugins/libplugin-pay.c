@@ -409,7 +409,7 @@ static void channel_hints_update(struct payment *p,
 				 const struct short_channel_id scid,
 				 int direction, bool enabled, bool local,
 				 const struct amount_msat *estimated_capacity,
-				 const struct amount_msat overall_capacity,
+				 const struct amount_sat overall_capacity,
 				 u16 *htlc_budget)
 {
 	struct payment *root = payment_root(p);
@@ -476,8 +476,9 @@ static void channel_hints_update(struct payment *p,
 		newhint.local = NULL;
 	if (estimated_capacity != NULL)
 		newhint.estimated_capacity = *estimated_capacity;
-	else
-		newhint.estimated_capacity = overall_capacity;
+	else if (!amount_sat_to_msat(&newhint.estimated_capacity,
+				     overall_capacity))
+		abort();
 
 	tal_arr_expand(&root->channel_hints, newhint);
 
@@ -505,7 +506,7 @@ static void payment_exclude_most_expensive(struct payment *p)
 		}
 	}
 	channel_hints_update(p, e->scid, e->direction, false, false, NULL,
-			     e->total_amount, NULL);
+			     e->capacity, NULL);
 }
 
 static void payment_exclude_longest_delay(struct payment *p)
@@ -521,7 +522,7 @@ static void payment_exclude_longest_delay(struct payment *p)
 		}
 	}
 	channel_hints_update(p, e->scid, e->direction, false, false, NULL,
-			     e->total_amount, NULL);
+			     e->capacity, NULL);
 }
 
 static struct amount_msat payment_route_fee(struct payment *p)
@@ -1471,7 +1472,7 @@ handle_final_failure(struct command *cmd,
 	case WIRE_TEMPORARY_NODE_FAILURE:
 	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
 	case WIRE_INVALID_ONION_BLINDING:
- 	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
+	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
 	case WIRE_MPP_TIMEOUT:
 		goto error;
 	}
@@ -1523,9 +1524,9 @@ handle_intermediate_failure(struct command *cmd,
 	 *...
 	 *     - MUST return a `final_incorrect_htlc_amount` error.
 	 */
- 	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
- 	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
- 	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
+	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
+	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
+	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
 	/* FIXME: Document in BOLT that intermediates must not return this! */
 	case WIRE_MPP_TIMEOUT:
 		goto strange_error;
@@ -1536,7 +1537,7 @@ handle_intermediate_failure(struct command *cmd,
 	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
 		/* All of these result in the channel being marked as disabled. */
 		channel_hints_update(root, errchan->scid, errchan->direction,
-				     false, false, NULL, errchan->total_amount,
+				     false, false, NULL, errchan->capacity,
 				     NULL);
 		break;
 
@@ -1555,7 +1556,7 @@ handle_intermediate_failure(struct command *cmd,
 		 * remember the amount we tried as an estimate. */
 		channel_hints_update(root, errchan->scid, errchan->direction,
 				     true, false, &estimated,
-				     errchan->total_amount, NULL);
+				     errchan->capacity, NULL);
 		goto error;
 	}
 
@@ -1675,13 +1676,13 @@ static u8 *channel_update_from_onion_error(const tal_t *ctx,
 					   onion_message, &unused_msat,
 					   &channel_update) &&
 	    !fromwire_fee_insufficient(ctx,
-		    		       onion_message, &unused_msat,
+				       onion_message, &unused_msat,
 				       &channel_update) &&
 	    !fromwire_incorrect_cltv_expiry(ctx,
-		    			    onion_message, &unused32,
+					    onion_message, &unused32,
 					    &channel_update) &&
 	    !fromwire_expiry_too_soon(ctx,
-		    		      onion_message,
+				      onion_message,
 				      &channel_update))
 		/* No channel update. */
 		return NULL;
@@ -2635,6 +2636,7 @@ local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
 				     const jsmntok_t *toks, struct payment *p)
 {
 	struct listpeers_channel **chans;
+	struct amount_sat capacity;
 
 	chans = json_to_listpeers_channels(tmpctx, buffer, toks);
 
@@ -2659,6 +2661,9 @@ local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
 		else
 			htlc_budget = chans[i]->max_accepted_htlcs - chans[i]->num_htlcs;
 
+		if(!amount_msat_to_sat(&capacity, chans[i]->total_msat))
+			abort();
+
 		/* If we have both a scid and a local alias we want to
 		 * use the scid, and mark the alias as
 		 * unusable. Otherwise `getroute` might return the
@@ -2671,19 +2676,19 @@ local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
 			channel_hints_update(
 			    p, *chans[i]->scid, chans[i]->direction, enabled,
 			    true, &chans[i]->spendable_msat,
-			    chans[i]->total_msat, &htlc_budget);
+			    capacity, &htlc_budget);
 			if (chans[i]->alias[LOCAL] != NULL)
 				channel_hints_update(p, *chans[i]->alias[LOCAL],
 						     chans[i]->direction,
 						     false /* not enabled */,
 						     true, &AMOUNT_MSAT(0),
-						     chans[i]->total_msat,
+						     capacity,
 						     &htlc_budget);
 		} else {
 			channel_hints_update(
 			    p, *chans[i]->alias[LOCAL], chans[i]->direction,
 			    enabled, true, &chans[i]->spendable_msat,
-			    chans[i]->total_msat, &htlc_budget);
+			    capacity, &htlc_budget);
 		}
 	}
 
@@ -3174,7 +3179,7 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 			hop.amount = dest_amount;
 			hop.delay = route_cltv(d->final_cltv, routehint + i + 1,
 					       tal_count(routehint) - i - 1);
-			hop.total_amount = estimate;
+			hop.capacity = amount_msat_to_sat_round_down(estimate);
 
 			/* Should we get a failure inside the routehint we'll
 			 * need the direction so we can exclude it. Luckily
@@ -3543,7 +3548,7 @@ static void direct_pay_override(struct payment *p) {
 		p->route[0].scid = hint->scid.scid;
 		p->route[0].direction = hint->scid.dir;
 		p->route[0].node_id = *p->route_destination;
-		p->route[0].total_amount = hint->capacity;
+		p->route[0].capacity = hint->capacity;
 		paymod_log(p, LOG_DBG,
 			   "Found a direct channel (%s) with sufficient "
 			   "capacity, skipping route computation.",
@@ -3951,7 +3956,7 @@ static void route_exclusions_step_cb(struct route_exclusions_data *d,
 		struct route_exclusion *e = exclusions[i];
 
 		/* We don't need the details if we skip anyway. */
-		struct amount_msat total = AMOUNT_MSAT(0);
+		struct amount_sat total = AMOUNT_SAT(0);
 
 		if (e->type == EXCLUDE_CHANNEL) {
 			channel_hints_update(p, e->u.chan_id.scid,
