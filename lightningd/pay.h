@@ -18,8 +18,13 @@ void payment_succeeded(struct lightningd *ld,
 		       u64 partid, u64 groupid,
 		       const struct preimage *rval);
 
-/* hout->failmsg or hout->failonion must be set. */
-void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
+/* failmsg or failonion must be set. */
+void payment_failed(struct lightningd *ld,
+		    struct logger *log,
+		    const struct sha256 *payment_hash,
+		    u64 partid, u64 groupid,
+		    const struct onionreply *failonion,
+		    const u8 *failmsg,
 		    const char *localfail);
 
 /* This json will be also used in 'sendpay_success' notifictaion. */

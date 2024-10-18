@@ -54,6 +54,18 @@ void fixup_htlcs_out(struct lightningd *ld);
 void htlcs_resubmit(struct lightningd *ld,
 		    struct htlc_in_map *unconnected_htlcs_in STEALS);
 
+/* Apply tweak to ephemeral key if path_key is non-NULL, then do ECDH */
+bool ecdh_maybe_blinding(const struct pubkey *ephemeral_key,
+			 const struct pubkey *path_key,
+			 struct secret *ss);
+
+/* Select best (highest capacity) to peer.  If hint is set, must match that
+ * feerate */
+struct channel *best_channel(struct lightningd *ld,
+			     const struct peer *next_peer,
+			     struct amount_msat amt_to_forward,
+			     const struct channel *hint);
+
 /* For HTLCs which terminate here, invoice payment calls one of these. */
 void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage);
 void local_fail_in_htlc(struct htlc_in *hin, const u8 *failmsg TAKES);
@@ -62,11 +74,7 @@ void local_fail_in_htlc_needs_update(struct htlc_in *hin,
 				     const struct short_channel_id *failmsg_scid);
 
 /* Helper to create (common) WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS */
-#define failmsg_incorrect_or_unknown(ctx, ld, hin) \
-	failmsg_incorrect_or_unknown_((ctx), (ld), (hin), __FILE__, __LINE__)
-
-const u8 *failmsg_incorrect_or_unknown_(const tal_t *ctx,
-					struct lightningd *ld,
-					const struct htlc_in *hin,
-					const char *file, int line);
+const u8 *failmsg_incorrect_or_unknown(const tal_t *ctx,
+				       struct lightningd *ld,
+				       struct amount_msat msat);
 #endif /* LIGHTNING_LIGHTNINGD_PEER_HTLCS_H */
