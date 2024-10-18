@@ -192,7 +192,8 @@ struct channel *new_channel(struct peer *peer UNNEEDED, u64 dbid UNNEEDED,
 			    /* NULL or stolen */
 			    struct peer_update *peer_update STEALS UNNEEDED,
 			    u64 last_stable_connection UNNEEDED,
-			    const struct channel_stats *stats UNNEEDED)
+			    const struct channel_stats *stats UNNEEDED,
+			    struct state_change_entry *state_changes STEALS UNNEEDED)
 { fprintf(stderr, "new_channel called!\n"); abort(); }
 /* Generated stub for new_coin_wallet_deposit */
 struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx UNNEEDED,
