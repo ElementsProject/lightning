@@ -40,7 +40,7 @@ Pruning (`prune=n` option in `bitcoin.conf`) is partially supported, see [here](
 
 ### Installation
 
-There are 4 supported installation options:
+There are 3 supported installation options:
 
  - Installation of a pre-compiled binary from the [release page][releases] on GitHub.
  - Using one of the [provided docker images][dockerhub] on the Docker Hub.
