@@ -513,12 +513,12 @@ finish:
  *	algorithm that changes the cost function at every iteration and we need
  *	to find the MCF every time.
  * */
-static bool mcf_refinement(const tal_t *ctx,
-			   const struct graph *graph,
-			   s64 *excess,
-			   s64 *capacity,
-			   const s64 *cost,
-			   s64 *potential)
+bool mcf_refinement(const tal_t *ctx,
+		    const struct graph *graph,
+		    s64 *excess,
+		    s64 *capacity,
+		    const s64 *cost,
+		    s64 *potential)
 {
 	bool solved = false;
 	tal_t *this_ctx = tal(ctx, tal_t);

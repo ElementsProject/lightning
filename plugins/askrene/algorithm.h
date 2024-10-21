@@ -153,4 +153,27 @@ bool simple_mcf(const tal_t *ctx, const struct graph *graph,
  * @cost: cost per unit of flow */
 s64 flow_cost(const struct graph *graph, const s64 *capacity, const s64 *cost);
 
+/* Take an existent flow and find an optimal redistribution:
+ *
+ * inputs:
+ * @ctx: tal context for internal allocation,
+ * @graph: topological information of the graph,
+ * @excess: supply/demand of nodes,
+ * @capacity: residual capacity in the arcs,
+ * @cost: cost per unit of flow for every arc,
+ * @potential: node potential,
+ *
+ * outputs:
+ * @excess: all values become zero if there exist a feasible solution,
+ * @capacity: encodes the resulting flow,
+ * @potential: the potential that proves the solution using the complementary
+ * slackness optimality condition.
+ * */
+bool mcf_refinement(const tal_t *ctx,
+		    const struct graph *graph,
+		    s64 *excess,
+		    s64 *capacity,
+		    const s64 *cost,
+		    s64 *potential);
+
 #endif /* LIGHTNING_PLUGINS_ASKRENE_ALGORITHM_H */
