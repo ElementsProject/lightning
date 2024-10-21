@@ -51,12 +51,14 @@ static int next_bit(s64 x)
 
 static bool solve_case(const tal_t *ctx)
 {
+	int ret;
 	static int c = 0;
 	c++;
 	tal_t *this_ctx = tal(ctx, tal_t);
 
 	int N_nodes, N_arcs;
-	myscanf("%d %d\n", &N_nodes, &N_arcs);
+	ret = myscanf("%d %d\n", &N_nodes, &N_arcs);
+	CHECK(ret == 2);
 	printf("Testcase %d\n", c);
 	printf("nodes %d arcs %d\n", N_nodes, N_arcs);
 	if (N_nodes == 0 && N_arcs == 0)
@@ -75,9 +77,9 @@ static bool solve_case(const tal_t *ctx)
 
 	for (u32 i = 0; i < N_arcs; i++) {
 		u32 from, to;
-		myscanf("%" PRIu32 " %" PRIu32 " %" PRIi64 " %" PRIi64, &from,
-		      &to, &capacity[i], &cost[i]);
-
+		ret = myscanf("%" PRIu32 " %" PRIu32 " %" PRIi64 " %" PRIi64,
+			      &from, &to, &capacity[i], &cost[i]);
+		CHECK(ret == 4);
 		struct arc arc = {.idx = i};
 		graph_add_arc(graph, arc, node_obj(from), node_obj(to));
 
@@ -89,7 +91,8 @@ static bool solve_case(const tal_t *ctx)
 	struct node dst = {.idx = 1};
 
 	s64 amount, best_cost;
-	myscanf("%" PRIi64 " %" PRIi64, &amount, &best_cost);
+	ret = myscanf("%" PRIi64 " %" PRIi64, &amount, &best_cost);
+	CHECK(ret == 2);
 
 	bool result = simple_mcf(ctx, graph, src, dst, capacity, amount, cost);
 	CHECK(result);
