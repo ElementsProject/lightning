@@ -190,6 +190,11 @@ struct out_req *add_to_batch(struct command *cmd,
 			     struct request_batch *batch,
 			     const char *cmdname);
 
+/* We want some commands to live after this command (possibly)
+ * completes.  This creates a new command with the same id but its own
+ * lifetime: use aux_command_done() or tal_free() when you're done. */
+struct command *aux_command(const struct command *cmd);
+
 /* Runs finalcb immediately if batch is empty. */
 struct command_result *batch_done(struct command *cmd,
 				  struct request_batch *batch);
@@ -354,6 +359,10 @@ command_hook_success(struct command *cmd);
 /* End a notification handler.  */
 struct command_result *WARN_UNUSED_RESULT
 notification_handled(struct command *cmd);
+
+/* End a command created with aux_command.  */
+struct command_result *WARN_UNUSED_RESULT
+aux_command_done(struct command *cmd);
 
 /**
  * What's the deprecation_ok state for this cmd?
