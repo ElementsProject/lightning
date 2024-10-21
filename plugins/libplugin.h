@@ -49,11 +49,25 @@ struct out_req {
 	void *arg;
 };
 
+enum command_type {
+	/* Terminate with jsonrpc_stream_success/fail etc */
+	COMMAND_TYPE_NORMAL,
+	/* Terminate with command_hook_success or command_success */
+	COMMAND_TYPE_HOOK,
+	/* Terminate with aux_command_done */
+	COMMAND_TYPE_AUX,
+	/* Terminate with notification_handled */
+	COMMAND_TYPE_NOTIFICATION,
+	/* These self-terminate */
+	COMMAND_TYPE_TIMER,
+	COMMAND_TYPE_CHECK,
+	COMMAND_TYPE_USAGE_ONLY,
+};
+
 struct command {
 	const char *id;
 	const char *methodname;
-	bool usage_only;
-	bool check;
+	enum command_type type;
 	struct plugin *plugin;
 	/* Optional output field filter. */
 	struct json_filter *filter;
