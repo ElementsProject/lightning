@@ -254,6 +254,22 @@
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:askrene-age#1",
+            "method": "askrene-age",
+            "params": {
+              "layer": "test_layers",
+              "cutoff": 1738000000
+            }
+          },
+          "response": {
+            "layer": "test_layers",
+            "num_removed": 1
+          }
+        }
       ]
     },
     "lightning-askrene-create-channel.json": {
@@ -326,6 +342,22 @@
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:askrene-create-channel#1",
+            "method": "askrene-create-channel",
+            "params": {
+              "layer": "test_layers",
+              "source": "nodeid030303030303030303030303030303030303030303030303030303030303",
+              "destination": "nodeid010101010101010101010101010101010101010101010101010101010101",
+              "short_channel_id": "0x0x1",
+              "capacity_msat": "1000000sat"
+            }
+          },
+          "response": {}
+        }
       ]
     },
     "lightning-askrene-create-layer.json": {
@@ -527,6 +559,28 @@
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:askrene-create-layer#1",
+            "method": "askrene-create-layer",
+            "params": {
+              "layer": "test_layers"
+            }
+          },
+          "response": {
+            "layers": [
+              {
+                "layer": "test_layers",
+                "disabled_nodes": [],
+                "created_channels": [],
+                "channel_updates": [],
+                "constraints": []
+              }
+            ]
+          }
+        }
       ]
     },
     "lightning-askrene-disable-node.json": {
@@ -576,6 +630,19 @@
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:askrene-disable-node#1",
+            "method": "askrene-disable-node",
+            "params": {
+              "layer": "test_layers",
+              "node": "nodeid010101010101010101010101010101010101010101010101010101010101"
+            }
+          },
+          "response": {}
+        }
       ]
     },
     "lightning-askrene-inform-channel.json": {
@@ -676,6 +743,30 @@
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:askrene-inform-channel#1",
+            "method": "askrene-inform-channel",
+            "params": {
+              "layer": "test_layers",
+              "short_channel_id_dir": "0x0x1/1",
+              "amount_msat": 100000,
+              "inform": "unconstrained"
+            }
+          },
+          "response": {
+            "constraints": [
+              {
+                "layer": "test_layers",
+                "short_channel_id_dir": "0x0x1/1",
+                "timestamp": 1738000000,
+                "minimum_msat": 100000
+              }
+            ]
+          }
+        }
       ]
     },
     "lightning-askrene-listlayers.json": {
@@ -873,10 +964,86 @@
           "request": {
             "id": "example:askrene-listlayers#1",
             "method": "askrene-listlayers",
+            "params": [
+              "test_layers"
+            ]
+          },
+          "response": {
+            "layers": [
+              {
+                "layer": "test_layers",
+                "disabled_nodes": [
+                  "nodeid010101010101010101010101010101010101010101010101010101010101"
+                ],
+                "created_channels": [
+                  {
+                    "source": "nodeid010101010101010101010101010101010101010101010101010101010101",
+                    "destination": "nodeid030303030303030303030303030303030303030303030303030303030303",
+                    "short_channel_id": "0x0x1",
+                    "capacity_msat": 1000000000
+                  }
+                ],
+                "channel_updates": [
+                  {
+                    "short_channel_id_dir": "0x0x1/0",
+                    "htlc_minimum_msat": 100,
+                    "htlc_maximum_msat": 900000000,
+                    "fee_base_msat": 1,
+                    "fee_proportional_millionths": 2,
+                    "cltv_expiry_delta": 18
+                  }
+                ],
+                "constraints": [
+                  {
+                    "short_channel_id_dir": "0x0x1/1",
+                    "timestamp": 1738000000,
+                    "minimum_msat": 100000
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "request": {
+            "id": "example:askrene-listlayers#2",
+            "method": "askrene-listlayers",
             "params": {}
           },
           "response": {
-            "layers": []
+            "layers": [
+              {
+                "layer": "test_layers",
+                "disabled_nodes": [
+                  "nodeid010101010101010101010101010101010101010101010101010101010101"
+                ],
+                "created_channels": [
+                  {
+                    "source": "nodeid010101010101010101010101010101010101010101010101010101010101",
+                    "destination": "nodeid030303030303030303030303030303030303030303030303030303030303",
+                    "short_channel_id": "0x0x1",
+                    "capacity_msat": 1000000000
+                  }
+                ],
+                "channel_updates": [
+                  {
+                    "short_channel_id_dir": "0x0x1/0",
+                    "htlc_minimum_msat": 100,
+                    "htlc_maximum_msat": 900000000,
+                    "fee_base_msat": 1,
+                    "fee_proportional_millionths": 2,
+                    "cltv_expiry_delta": 18
+                  }
+                ],
+                "constraints": [
+                  {
+                    "short_channel_id_dir": "0x0x1/1",
+                    "timestamp": 1738000000,
+                    "minimum_msat": 100000
+                  }
+                ]
+              }
+            ]
           }
         }
       ]
@@ -951,6 +1118,43 @@
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:askrene-listreservations#1",
+            "method": "askrene-listreservations",
+            "params": {}
+          },
+          "response": {
+            "reservations": [
+              {
+                "short_channel_id_dir": "109x1x1/1",
+                "amount_msat": 1250000,
+                "age_in_seconds": 2,
+                "command_id": "\"-c:askrene-reserve#62/cln:askrene-reserve#122\""
+              },
+              {
+                "short_channel_id_dir": "123x1x1/0",
+                "amount_msat": 1250001,
+                "age_in_seconds": 2,
+                "command_id": "\"-c:askrene-reserve#62/cln:askrene-reserve#122\""
+              },
+              {
+                "short_channel_id_dir": "109x1x1/1",
+                "amount_msat": 1250000000000,
+                "age_in_seconds": 2,
+                "command_id": "\"-c:askrene-reserve#66/cln:askrene-reserve#126\""
+              },
+              {
+                "short_channel_id_dir": "123x1x1/0",
+                "amount_msat": 1250000000000,
+                "age_in_seconds": 2,
+                "command_id": "\"-c:askrene-reserve#66/cln:askrene-reserve#126\""
+              }
+            ]
+          }
+        }
       ]
     },
     "lightning-askrene-remove-layer.json": {
@@ -990,6 +1194,18 @@
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:askrene-remove-layer#1",
+            "method": "askrene-remove-layer",
+            "params": {
+              "layer": "test_layers"
+            }
+          },
+          "response": {}
+        }
       ]
     },
     "lightning-askrene-reserve.json": {
@@ -1051,6 +1267,46 @@
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:askrene-reserve#1",
+            "method": "askrene-reserve",
+            "params": {
+              "path": [
+                {
+                  "short_channel_id_dir": "109x1x1/1",
+                  "amount_msat": 1250000
+                },
+                {
+                  "short_channel_id_dir": "123x1x1/0",
+                  "amount_msat": 1250001
+                }
+              ]
+            }
+          },
+          "response": {}
+        },
+        {
+          "request": {
+            "id": "example:askrene-reserve#2",
+            "method": "askrene-reserve",
+            "params": {
+              "path": [
+                {
+                  "short_channel_id_dir": "109x1x1/1",
+                  "amount_msat": 1250000000000
+                },
+                {
+                  "short_channel_id_dir": "123x1x1/0",
+                  "amount_msat": 1250000000000
+                }
+              ]
+            }
+          },
+          "response": {}
+        }
       ]
     },
     "lightning-askrene-unreserve.json": {
@@ -1112,6 +1368,46 @@
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:askrene-unreserve#1",
+            "method": "askrene-unreserve",
+            "params": {
+              "path": [
+                {
+                  "short_channel_id_dir": "109x1x1/1",
+                  "amount_msat": 1250000
+                },
+                {
+                  "short_channel_id_dir": "123x1x1/0",
+                  "amount_msat": 1250001
+                }
+              ]
+            }
+          },
+          "response": {}
+        },
+        {
+          "request": {
+            "id": "example:askrene-unreserve#2",
+            "method": "askrene-unreserve",
+            "params": {
+              "path": [
+                {
+                  "short_channel_id_dir": "109x1x1/1",
+                  "amount_msat": 1250000000000
+                },
+                {
+                  "short_channel_id_dir": "123x1x1/0",
+                  "amount_msat": 1250000000000
+                }
+              ]
+            }
+          },
+          "response": {}
+        }
       ]
     },
     "lightning-askrene-update-channel.json": {
@@ -1188,6 +1484,35 @@
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:askrene-update-channel#1",
+            "method": "askrene-update-channel",
+            "params": [
+              "test_layers",
+              "0x0x1/0"
+            ]
+          },
+          "response": {}
+        },
+        {
+          "request": {
+            "id": "example:askrene-update-channel#2",
+            "method": "askrene-update-channel",
+            "params": {
+              "layer": "test_layers",
+              "short_channel_id_dir": "0x0x1/0",
+              "htlc_minimum_msat": 100,
+              "htlc_maximum_msat": 900000000,
+              "fee_base_msat": 1,
+              "fee_proportional_millionths": 2,
+              "cltv_expiry_delta": 18
+            }
+          },
+          "response": {}
+        }
       ]
     },
     "lightning-autoclean-once.json": {
@@ -14061,6 +14386,46 @@
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:getroutes#1",
+            "method": "getroutes",
+            "params": {
+              "source": "nodeid010101010101010101010101010101010101010101010101010101010101",
+              "destination": "nodeid030303030303030303030303030303030303030303030303030303030303",
+              "amount_msat": 1250000,
+              "layers": [],
+              "maxfee_msat": 125000,
+              "final_cltv": 0
+            }
+          },
+          "response": {
+            "probability_ppm": 997501,
+            "routes": [
+              {
+                "probability_ppm": 997501,
+                "amount_msat": 1250000,
+                "final_cltv": 0,
+                "path": [
+                  {
+                    "short_channel_id_dir": "109x1x1/1",
+                    "next_node_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
+                    "amount_msat": 1250026,
+                    "delay": 12
+                  },
+                  {
+                    "short_channel_id_dir": "123x1x1/0",
+                    "next_node_id": "nodeid030303030303030303030303030303030303030303030303030303030303",
+                    "amount_msat": 1250013,
+                    "delay": 6
+                  }
+                ]
+              }
+            ]
+          }
+        }
       ]
     },
     "lightning-help.json": {

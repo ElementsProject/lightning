@@ -45,5 +45,18 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:askrene-disable-node#1",
+        "method": "askrene-disable-node",
+        "params": {
+          "layer": "test_layers",
+          "node": "nodeid010101010101010101010101010101010101010101010101010101010101"
+        }
+      },
+      "response": {}
+    }
   ]
 }
