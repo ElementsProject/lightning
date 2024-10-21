@@ -450,7 +450,7 @@ static double get_median_ratio(const tal_t *working_ctx,
 	size_t n = 0;
 
 	for (struct arc arc = {.idx=0};arc.idx < max_num_arcs; ++arc.idx) {
-		if (arc_is_dual(graph, arc) || !arc_enabled(graph, arc))
+		if (arc_is_dual(graph, arc))
 			continue;
 		assert(n < max_num_arcs/2);
 		u64_arr[n] = linear_network->arc_fee_cost[arc.idx];
