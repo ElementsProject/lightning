@@ -771,21 +771,24 @@ REGISTER_PAYMENT_MODIFIER(send_routes, send_routes_cb);
  * The payment main thread sleeps for some time.
  */
 
-static void sleep_done(struct payment *payment)
+static struct command_result *sleep_done(struct command *cmd, struct payment *payment)
 {
+	struct command_result *ret;
 	payment->waitresult_timer = NULL;
-	// TODO: is this compulsory?
-	timer_complete(pay_plugin->plugin);
+	ret = timer_complete(cmd);
 	payment_continue(payment);
+	return ret;
 }
 
 static struct command_result *sleep_cb(struct payment *payment)
 {
-	assert(payment->waitresult_timer == NULL);
-	payment->waitresult_timer = plugin_timer(
-	    pay_plugin->plugin, time_from_msec(COLLECTOR_TIME_WINDOW_MSEC), sleep_done, payment);
 	struct command *cmd = payment_command(payment);
 	assert(cmd);
+	assert(payment->waitresult_timer == NULL);
+	payment->waitresult_timer
+		= command_timer(cmd,
+				time_from_msec(COLLECTOR_TIME_WINDOW_MSEC),
+				sleep_done, payment);
 	return command_still_pending(cmd);
 }
 

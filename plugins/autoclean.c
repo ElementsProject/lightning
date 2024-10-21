@@ -206,7 +206,7 @@ static const struct subsystem_ops *get_subsystem_ops(const struct per_subsystem 
 }
 
 /* Mutual recursion */
-static void do_clean_timer(void *unused);
+static struct command_result *do_clean_timer(struct command *cmd, void *unused);
 static struct command_result *do_clean(struct clean_info *cinfo);
 
 static struct clean_info *new_clean_info(const tal_t *ctx,
@@ -267,7 +267,7 @@ static struct command_result *clean_finished(struct clean_info *cinfo)
 	} while (next_sv(&sv));
 
 	/* autoclean-once? */
-	if (cinfo->cmd) {
+	if (cinfo != timer_cinfo) {
 		struct json_stream *response = jsonrpc_stream_success(cinfo->cmd);
 
 		json_object_start(response, "autoclean");
@@ -287,9 +287,10 @@ static struct command_result *clean_finished(struct clean_info *cinfo)
 		return command_finished(cinfo->cmd, response);
 	} else { /* timer */
 		plugin_log(plugin, LOG_DBG, "setting next timer");
-		cleantimer = plugin_timer(plugin, time_from_sec(cycle_seconds),
+		cleantimer = global_timer(plugin,
+					  time_from_sec(cycle_seconds),
 					  do_clean_timer, NULL);
-		return timer_complete(plugin);
+		return timer_complete(cinfo->cmd);
 	}
 }
 
@@ -554,7 +555,7 @@ static struct command_result *do_clean(struct clean_info *cinfo)
 
 		filter = tal_fmt(tmpctx, "{\"%s\":[{%s}]}",
 				 ops->arr_name, ops->list_filter);
-		req = jsonrpc_request_with_filter_start(plugin, NULL,
+		req = jsonrpc_request_with_filter_start(plugin, cinfo->cmd,
 							tal_fmt(tmpctx,
 								"list%s",
 								ops->system_name),
@@ -641,11 +642,12 @@ static struct command_result *start_clean(struct clean_info *cinfo)
 }
 
 /* Needs a different signature than do_clean */
-static void do_clean_timer(void *unused)
+static struct command_result *do_clean_timer(struct command *cmd, void *unused)
 {
 	assert(timer_cinfo->cleanup_reqs_remaining == 0);
 	cleantimer = NULL;
-	start_clean(timer_cinfo);
+	timer_cinfo->cmd = cmd;
+	return start_clean(timer_cinfo);
 }
 
 static struct command_result *param_subsystem(struct command *cmd,
@@ -750,7 +752,7 @@ static const char *init(struct plugin *p,
 	tal_steal(plugin, timer_cinfo);
 	plugin_set_memleak_handler(plugin, memleak_mark_timer_cinfo);
 
-	cleantimer = plugin_timer(p, time_from_sec(cycle_seconds), do_clean_timer, NULL);
+	cleantimer = global_timer(p, time_from_sec(cycle_seconds), do_clean_timer, NULL);
 
 	/* We don't care if this fails (it usually does, since entries
 	 * don't exist! */
@@ -777,7 +779,8 @@ static char *cycle_seconds_option(struct plugin *plugin, const char *arg,
 	/* If timer is not running right now, reset it to new cycle_seconds */
 	if (cleantimer) {
 		tal_free(cleantimer);
-		cleantimer = plugin_timer(plugin, time_from_sec(*cycle_seconds),
+		cleantimer = global_timer(plugin,
+					  time_from_sec(*cycle_seconds),
 					  do_clean_timer, NULL);
 	}
 	return NULL;
