@@ -62,11 +62,11 @@ void local_fail_in_htlc_needs_update(struct htlc_in *hin,
 				     const struct short_channel_id *failmsg_scid);
 
 /* Helper to create (common) WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS */
-#define failmsg_incorrect_or_unknown(ctx, ld, hin) \
-	failmsg_incorrect_or_unknown_((ctx), (ld), (hin), __FILE__, __LINE__)
+#define failmsg_incorrect_or_unknown(ctx, ld, msat) \
+	failmsg_incorrect_or_unknown_((ctx), (ld), (msat), __FILE__, __LINE__)
 
 const u8 *failmsg_incorrect_or_unknown_(const tal_t *ctx,
 					struct lightningd *ld,
-					const struct htlc_in *hin,
+					struct amount_msat msat,
 					const char *file, int line);
 #endif /* LIGHTNING_LIGHTNINGD_PEER_HTLCS_H */

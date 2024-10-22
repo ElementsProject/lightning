@@ -242,7 +242,7 @@ static const u8 *hook_gives_failmsg(const tal_t *ctx,
 		if (json_tok_streq(buffer, resulttok, "continue")) {
 			return NULL;
 		} else if (json_tok_streq(buffer, resulttok, "reject")) {
-			return failmsg_incorrect_or_unknown(ctx, ld, hin);
+			return failmsg_incorrect_or_unknown(ctx, ld, hin->msat);
 		} else
 			fatal("Invalid invoice_payment hook result: %.*s",
 			      toks[0].end - toks[0].start, buffer);
@@ -275,7 +275,7 @@ invoice_payment_hooks_done(struct invoice_payment_hook_payload *payload STEALS)
 	 * we can also fail */
 	if (!invoices_find_by_label(ld->wallet->invoices, &inv_dbid, payload->label)) {
 		htlc_set_fail(payload->set, take(failmsg_incorrect_or_unknown(
-							 NULL, ld, payload->set->htlcs[0])));
+							 NULL, ld, payload->set->htlcs[0]->msat)));
 		return;
 	}
 
@@ -284,7 +284,7 @@ invoice_payment_hooks_done(struct invoice_payment_hook_payload *payload STEALS)
 			      payload->label, payload->outpoint)) {
 		if (payload->set)
 			htlc_set_fail(payload->set, take(failmsg_incorrect_or_unknown(
-								NULL, ld, payload->set->htlcs[0])));
+								NULL, ld, payload->set->htlcs[0]->msat)));
 		return;
 	}
 
