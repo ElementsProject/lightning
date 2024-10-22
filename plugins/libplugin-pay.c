@@ -2156,134 +2156,117 @@ static void payment_finished(struct payment *p)
 	assert((result.leafstates & PAYMENT_STEP_SUCCESS) == 0 ||
 	       result.preimage != NULL);
 
-	if (p->parent == NULL) {
-		/* We are about to reply, unset the pointer to the cmd so we
-		 * don't attempt to return a response twice. */
-		p->cmd = NULL;
-		if (cmd == NULL) {
-			/* This is the tree root, but we already reported
-			 * success or failure, so noop. */
-			return;
-		} else if (payment_is_success(p)) {
-			assert(result.treestates & PAYMENT_STEP_SUCCESS);
-			assert(result.leafstates & PAYMENT_STEP_SUCCESS);
-			assert(result.preimage != NULL);
+	if (p->parent != NULL)
+		return payment_child_finished(p->parent, p);
 
-			/* Call any callback we might have registered. */
-			if (p->on_payment_success != NULL)
-				p->on_payment_success(p);
-
-			ret = jsonrpc_stream_success(cmd);
-			json_add_payment_success(ret, p, result.preimage,
-						 &result);
-
-			if (command_finished(cmd, ret)) {/* Ignore result. */}
-			p->cmd = NULL;
-			return;
-		} else if (p->aborterror != NULL) {
-			/* We set an explicit toplevel error message,
-			 * so let's report that. */
-			ret = jsonrpc_stream_fail(cmd, p->errorcode,
-						  p->aborterror);
-			payment_json_add_attempts(ret, "attempts", p);
-
-			payment_notify_failure(p, p->aborterror);
-
-			if (command_finished(cmd, ret)) {/* Ignore result. */}
-			p->cmd = NULL;
-			return;
-		} else if (result.failure == NULL || result.failure->failcode < NODE) {
-			if (p->on_payment_failure != NULL)
-				p->on_payment_failure(p);
-
-			/* This is failing because we have no more routes to try */
-			msg = tal_fmt(cmd,
-				      "Ran out of routes to try after "
-				      "%d attempt%s: see `paystatus`",
-				      result.attempts,
-				      result.attempts == 1 ? "" : "s");
-			ret = jsonrpc_stream_fail(cmd, PAY_STOPPED_RETRYING,
-						  msg);
-			payment_json_add_attempts(ret, "attempts", p);
-
-			payment_notify_failure(p, msg);
-
-			if (command_finished(cmd, ret)) {/* Ignore result. */}
-			p->cmd = NULL;
-			return;
-
-		}  else {
-			struct payment_result *failure = result.failure;
-			assert(failure!= NULL);
-			if (p->on_payment_failure != NULL)
-				p->on_payment_failure(p);
-			ret = jsonrpc_stream_fail(cmd, failure->code,
-						  failure->message);
-
-			json_add_u64(ret, "id", failure->id);
-
-			json_add_u32(ret, "failcode", failure->failcode);
-			if (failure->failcodename)
-				json_add_string(ret, "failcodename",
-						failure->failcodename);
-
-			if (p->invstring)
-				json_add_invstring(ret, p->invstring);
-
-			json_add_hex_talarr(ret, "raw_message",
-					    result.failure->raw_message);
-			json_add_num(ret, "created_at", p->start_time.ts.tv_sec);
-			json_add_node_id(ret, "destination", p->pay_destination);
-			json_add_sha256(ret, "payment_hash", p->payment_hash);
-
-			if (result.leafstates & PAYMENT_STEP_SUCCESS) {
-				/* If one sub-payment succeeded then we have
-				 * proof of payment, and the payment is a
-				 * success. */
-				json_add_string(ret, "status", "complete");
-
-			} else if (result.leafstates & ~PAYMENT_STEP_FAILED) {
-				/* If there are non-failed leafs we are still trying. */
-				json_add_string(ret, "status", "pending");
-
-			} else {
-				json_add_string(ret, "status", "failed");
-			}
-
-			json_add_amount_msat(ret, "amount_msat", p->our_amount);
-			json_add_amount_msat(ret, "amount_sent_msat",
-					     result.sent);
-
-			if (failure != NULL) {
-				if (failure->erring_index)
-					json_add_num(ret, "erring_index",
-						     *failure->erring_index);
-
-				if (failure->erring_node)
-					json_add_node_id(ret, "erring_node",
-							 failure->erring_node);
-
-				if (failure->erring_channel)
-					json_add_short_channel_id(
-					    ret, "erring_channel",
-					    *failure->erring_channel);
-
-				if (failure->erring_direction)
-					json_add_num(
-					    ret, "erring_direction",
-					    *failure->erring_direction);
-			}
-
-			payment_notify_failure(p, failure->message);
-
-			if (command_finished(cmd, ret)) { /* Ignore result. */}
-			p->cmd = NULL;
-			return;
-		}
-	} else {
-		payment_child_finished(p->parent, p);
+	/* We are about to reply, unset the pointer to the cmd so we
+	 * don't attempt to return a response twice. */
+	p->cmd = NULL;
+	if (cmd == NULL) {
+		/* This is the tree root, but we already reported
+		 * success or failure, so noop. */
 		return;
+	} else if (payment_is_success(p)) {
+		assert(result.treestates & PAYMENT_STEP_SUCCESS);
+		assert(result.leafstates & PAYMENT_STEP_SUCCESS);
+		assert(result.preimage != NULL);
+
+		/* Call any callback we might have registered. */
+		if (p->on_payment_success != NULL)
+			p->on_payment_success(p);
+
+		ret = jsonrpc_stream_success(cmd);
+		json_add_payment_success(ret, p, result.preimage,
+					 &result);
+	} else if (p->aborterror != NULL) {
+		/* We set an explicit toplevel error message,
+		 * so let's report that. */
+		ret = jsonrpc_stream_fail(cmd, p->errorcode,
+					  p->aborterror);
+		payment_json_add_attempts(ret, "attempts", p);
+
+		payment_notify_failure(p, p->aborterror);
+	} else if (result.failure == NULL || result.failure->failcode < NODE) {
+		if (p->on_payment_failure != NULL)
+			p->on_payment_failure(p);
+
+		/* This is failing because we have no more routes to try */
+		msg = tal_fmt(cmd,
+			      "Ran out of routes to try after "
+			      "%d attempt%s: see `paystatus`",
+			      result.attempts,
+			      result.attempts == 1 ? "" : "s");
+		ret = jsonrpc_stream_fail(cmd, PAY_STOPPED_RETRYING,
+					  msg);
+		payment_json_add_attempts(ret, "attempts", p);
+
+		payment_notify_failure(p, msg);
+	}  else {
+		struct payment_result *failure = result.failure;
+		assert(failure!= NULL);
+		if (p->on_payment_failure != NULL)
+			p->on_payment_failure(p);
+		ret = jsonrpc_stream_fail(cmd, failure->code,
+					  failure->message);
+
+		json_add_u64(ret, "id", failure->id);
+
+		json_add_u32(ret, "failcode", failure->failcode);
+		if (failure->failcodename)
+			json_add_string(ret, "failcodename",
+					failure->failcodename);
+
+		if (p->invstring)
+			json_add_invstring(ret, p->invstring);
+
+		json_add_hex_talarr(ret, "raw_message",
+				    result.failure->raw_message);
+		json_add_num(ret, "created_at", p->start_time.ts.tv_sec);
+		json_add_node_id(ret, "destination", p->pay_destination);
+		json_add_sha256(ret, "payment_hash", p->payment_hash);
+
+		if (result.leafstates & PAYMENT_STEP_SUCCESS) {
+			/* If one sub-payment succeeded then we have
+			 * proof of payment, and the payment is a
+			 * success. */
+			json_add_string(ret, "status", "complete");
+
+		} else if (result.leafstates & ~PAYMENT_STEP_FAILED) {
+			/* If there are non-failed leafs we are still trying. */
+			json_add_string(ret, "status", "pending");
+
+		} else {
+			json_add_string(ret, "status", "failed");
+		}
+
+		json_add_amount_msat(ret, "amount_msat", p->our_amount);
+		json_add_amount_msat(ret, "amount_sent_msat",
+				     result.sent);
+
+		if (failure != NULL) {
+			if (failure->erring_index)
+				json_add_num(ret, "erring_index",
+					     *failure->erring_index);
+
+			if (failure->erring_node)
+				json_add_node_id(ret, "erring_node",
+						 failure->erring_node);
+
+			if (failure->erring_channel)
+				json_add_short_channel_id(
+					ret, "erring_channel",
+					*failure->erring_channel);
+
+			if (failure->erring_direction)
+				json_add_num(
+					ret, "erring_direction",
+					*failure->erring_direction);
+		}
+
+		payment_notify_failure(p, failure->message);
 	}
+
+	if (command_finished(cmd, ret)) { /* Ignore result. */}
 }
 
 void payment_set_step(struct payment *p, enum payment_step newstep)
