@@ -1,6 +1,7 @@
 #include "config.h"
 #include <common/features.h>
 #include <common/timeout.h>
+#include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/htlc_set.h>
 #include <lightningd/invoice.h>
@@ -41,16 +42,29 @@ static void timeout_htlc_set(struct htlc_set *set)
 	htlc_set_fail(set, take(towire_mpp_timeout(NULL)));
 }
 
-void htlc_set_fail(struct htlc_set *set, const u8 *failmsg TAKES)
+void htlc_set_fail_(struct htlc_set *set, const u8 *failmsg TAKES,
+		    const char *file, int line)
 {
 	/* Don't let local_fail_in_htlc take! */
 	if (taken(failmsg))
 		tal_steal(set, failmsg);
 
 	for (size_t i = 0; i < tal_count(set->htlcs); i++) {
+		const u8 *this_failmsg;
+
 		/* Don't remove from set */
 		tal_del_destructor2(set->htlcs[i], htlc_set_hin_destroyed, set);
-		local_fail_in_htlc(set->htlcs[i], failmsg);
+
+		if (tal_bytelen(failmsg) == 0)
+			this_failmsg = towire_incorrect_or_unknown_payment_details(tmpctx, set->htlcs[i]->msat, get_block_height(set->ld->topology));
+		else
+			this_failmsg = failmsg;
+
+		log_debug(set->htlcs[i]->key.channel->log,
+			  "failing with %s: %s:%u",
+			  onion_wire_name(fromwire_peektype(this_failmsg)),
+			  file, line);
+		local_fail_in_htlc(set->htlcs[i], this_failmsg);
 	}
 	tal_free(set);
 }
@@ -76,6 +90,7 @@ static struct htlc_set *new_htlc_set(struct lightningd *ld,
 	struct htlc_set *set;
 
 	set = tal(ld, struct htlc_set);
+	set->ld = ld;
 	set->total_msat = total_msat;
 	set->payment_hash = hin->payment_hash;
 	set->so_far = AMOUNT_MSAT(0);
@@ -122,7 +137,8 @@ void htlc_set_add(struct lightningd *ld,
 	/* If we insist on a payment secret, it must always have it */
 	if (feature_is_set(details->features, COMPULSORY_FEATURE(OPT_PAYMENT_SECRET))
 	    && !payment_secret) {
-		log_debug(ld->log, "Missing payment_secret, but required for %s",
+		log_debug(hin->key.channel->log,
+			  "Missing payment_secret, but required for %s",
 			  fmt_sha256(tmpctx, &hin->payment_hash));
 		local_fail_in_htlc(hin,
 				   take(failmsg_incorrect_or_unknown(NULL, ld, hin->msat)));
@@ -149,6 +165,8 @@ void htlc_set_add(struct lightningd *ld,
 		/* We check this now, since we want to fail with this as soon
 		 * as possible, to avoid other probing attacks. */
 		if (!payment_secret) {
+			log_debug(hin->key.channel->log,
+				  "Missing payment_secret, but required for MPP");
 			local_fail_in_htlc(hin, take(failmsg_incorrect_or_unknown(NULL, ld, hin->msat)));
 			return;
 		}
@@ -214,8 +232,7 @@ void htlc_set_add(struct lightningd *ld,
 	 *   - MUST require `payment_secret` for all HTLCs in the set. */
 	/* This catches the case of the first payment in a set. */
 	if (!payment_secret) {
-		htlc_set_fail(set,
-			      take(failmsg_incorrect_or_unknown(NULL, ld, hin->msat)));
+		htlc_set_fail(set, NULL);
 		return;
 	}
 }

@@ -251,12 +251,6 @@ u8 *encrypt_tlv_encrypted_data(const tal_t *ctx UNNEEDED,
 			       struct pubkey *node_alias)
 
 { fprintf(stderr, "encrypt_tlv_encrypted_data called!\n"); abort(); }
-/* Generated stub for failmsg_incorrect_or_unknown_ */
-const u8 *failmsg_incorrect_or_unknown_(const tal_t *ctx UNNEEDED,
-					struct lightningd *ld UNNEEDED,
-					struct amount_msat msat UNNEEDED,
-					const char *file UNNEEDED, int line UNNEEDED)
-{ fprintf(stderr, "failmsg_incorrect_or_unknown_ called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
@@ -375,9 +369,10 @@ bool htlc_is_trimmed(enum side htlc_owner UNNEEDED,
 /* Generated stub for htlc_max_possible_send */
 struct amount_msat htlc_max_possible_send(const struct channel *channel UNNEEDED)
 { fprintf(stderr, "htlc_max_possible_send called!\n"); abort(); }
-/* Generated stub for htlc_set_fail */
-void htlc_set_fail(struct htlc_set *set UNNEEDED, const u8 *failmsg TAKES UNNEEDED)
-{ fprintf(stderr, "htlc_set_fail called!\n"); abort(); }
+/* Generated stub for htlc_set_fail_ */
+void htlc_set_fail_(struct htlc_set *set UNNEEDED, const u8 *failmsg TAKES UNNEEDED,
+		    const char *file UNNEEDED, int line UNNEEDED)
+{ fprintf(stderr, "htlc_set_fail_ called!\n"); abort(); }
 /* Generated stub for htlc_set_fulfill */
 void htlc_set_fulfill(struct htlc_set *set UNNEEDED, const struct preimage *preimage UNNEEDED)
 { fprintf(stderr, "htlc_set_fulfill called!\n"); abort(); }

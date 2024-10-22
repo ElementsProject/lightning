@@ -223,9 +223,9 @@ static void invoice_payload_remove_set(struct htlc_set *set,
 	payload->set = NULL;
 }
 
+/* Returns magic value to send generic incorrect_or_unknown_payment_details */
 static const u8 *hook_gives_failmsg(const tal_t *ctx,
 				    struct lightningd *ld,
-				    const struct htlc_in *hin,
 				    const char *buffer,
 				    const jsmntok_t *toks)
 {
@@ -242,7 +242,9 @@ static const u8 *hook_gives_failmsg(const tal_t *ctx,
 		if (json_tok_streq(buffer, resulttok, "continue")) {
 			return NULL;
 		} else if (json_tok_streq(buffer, resulttok, "reject")) {
-			return failmsg_incorrect_or_unknown(ctx, ld, hin->msat);
+			/* htlc_set_fail makes this a per-htlc
+			 * incorrect_or_unknown_payment_details */
+			return tal_arr(ctx, u8, 0);
 		} else
 			fatal("Invalid invoice_payment hook result: %.*s",
 			      toks[0].end - toks[0].start, buffer);
@@ -274,8 +276,7 @@ invoice_payment_hooks_done(struct invoice_payment_hook_payload *payload STEALS)
 	/* If invoice gets paid meanwhile (plugin responds out-of-order?) then
 	 * we can also fail */
 	if (!invoices_find_by_label(ld->wallet->invoices, &inv_dbid, payload->label)) {
-		htlc_set_fail(payload->set, take(failmsg_incorrect_or_unknown(
-							 NULL, ld, payload->set->htlcs[0]->msat)));
+		htlc_set_fail(payload->set, NULL);
 		return;
 	}
 
@@ -283,8 +284,7 @@ invoice_payment_hooks_done(struct invoice_payment_hook_payload *payload STEALS)
 	if (!invoices_resolve(ld->wallet->invoices, inv_dbid, payload->msat,
 			      payload->label, payload->outpoint)) {
 		if (payload->set)
-			htlc_set_fail(payload->set, take(failmsg_incorrect_or_unknown(
-								NULL, ld, payload->set->htlcs[0]->msat)));
+			htlc_set_fail(payload->set, NULL);
 		return;
 	}
 
@@ -316,8 +316,7 @@ invoice_payment_deserialize(struct invoice_payment_hook_payload *payload,
 
 	if (payload->set) {
 		/* Did we have a hook result? */
-		failmsg = hook_gives_failmsg(NULL, ld,
-						payload->set->htlcs[0], buffer, toks);
+		failmsg = hook_gives_failmsg(NULL, ld, buffer, toks);
 		if (failmsg) {
 			htlc_set_fail(payload->set, take(failmsg));
 			return false;

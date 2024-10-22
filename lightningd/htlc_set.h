@@ -14,6 +14,7 @@ struct lightningd;
 
 /* Set of incoming HTLCs for multi-part-payments */
 struct htlc_set {
+	struct lightningd *ld;
 	struct amount_msat total_msat, so_far;
 	struct sha256 payment_hash;
 	struct htlc_in **htlcs;
@@ -48,8 +49,12 @@ void htlc_set_add(struct lightningd *ld,
 		  struct amount_msat total_msat,
 		  const struct secret *payment_secret);
 
-/* Fail every htlc in the set: frees set */
-void htlc_set_fail(struct htlc_set *set, const u8 *failmsg TAKES);
+/* Fail every htlc in the set: frees set.  If failmsg is NULL/zero-length,
+ * it sends each one a WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS. */
+#define htlc_set_fail(set, failmsg)				\
+	htlc_set_fail_((set), (failmsg), __FILE__, __LINE__)
+void htlc_set_fail_(struct htlc_set *set, const u8 *failmsg TAKES,
+		    const char *file, int line);
 
 /* Fulfill every htlc in the set: frees set */
 void htlc_set_fulfill(struct htlc_set *set, const struct preimage *preimage);
