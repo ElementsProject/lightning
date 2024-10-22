@@ -291,7 +291,14 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 	assert(hout->failmsg || hout->failonion);
 
 	if (hout->am_origin) {
-		payment_failed(hout->key.channel->peer->ld, hout, localfail);
+		payment_failed(hout->key.channel->peer->ld,
+			       hout->key.channel->log,
+			       &hout->payment_hash,
+			       hout->partid,
+			       hout->groupid,
+			       hout->failonion,
+			       hout->failmsg,
+			       localfail);
 	} else if (hout->in) {
 		const struct onionreply *failonion;
 
@@ -598,8 +605,14 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 			char *localfail = tal_fmt(msg, "%s: %s",
 						  onion_wire_name(fromwire_peektype(failmsg)),
 						  failurestr);
-			payment_failed(ld, hout, localfail);
-
+			payment_failed(ld,
+				       hout->key.channel->log,
+				       &hout->payment_hash,
+				       hout->partid,
+				       hout->groupid,
+				       hout->failonion,
+				       hout->failmsg,
+				       localfail);
 		} else if (hout->in) {
 			struct onionreply *failonion;
 			struct short_channel_id scid;
@@ -1783,7 +1796,14 @@ void onchain_failed_our_htlc(const struct channel *channel,
 		char *localfail = tal_fmt(channel, "%s: %s",
 					  onion_wire_name(WIRE_PERMANENT_CHANNEL_FAILURE),
 					  why);
-		payment_failed(ld, hout, localfail);
+		payment_failed(ld,
+			       hout->key.channel->log,
+			       &hout->payment_hash,
+			       hout->partid,
+			       hout->groupid,
+			       hout->failonion,
+			       hout->failmsg,
+			       localfail);
 		tal_free(localfail);
 	} else if (hout->in) {
 		struct short_channel_id scid = channel_scid_or_local_alias(channel);
