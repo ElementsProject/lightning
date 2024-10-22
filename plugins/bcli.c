@@ -199,15 +199,16 @@ static void destroy_bcli(struct bitcoin_cli *bcli)
 	list_del_from(&bitcoind->current, &bcli->list);
 }
 
-static void retry_bcli(void *cb_arg)
+static struct command_result *retry_bcli(struct command *cmd,
+					 struct bitcoin_cli *bcli)
 {
-	struct bitcoin_cli *bcli = cb_arg;
 	list_del_from(&bitcoind->current, &bcli->list);
 	tal_del_destructor(bcli, destroy_bcli);
 
 	list_add_tail(&bitcoind->pending[bcli->prio], &bcli->list);
 	tal_free(bcli->output);
 	next_bcli(bcli->prio);
+	return timer_complete(cmd);
 }
 
 /* We allow 60 seconds of spurious errors, eg. reorg. */
@@ -238,7 +239,7 @@ static void bcli_failure(struct bitcoin_cli *bcli,
 	bitcoind->error_count++;
 
 	/* Retry in 1 second */
-	plugin_timer(bcli->cmd->plugin, time_from_sec(1), retry_bcli, bcli);
+	command_timer(bcli->cmd, time_from_sec(1), retry_bcli, bcli);
 }
 
 static void bcli_finished(struct io_conn *conn UNUSED, struct bitcoin_cli *bcli)
