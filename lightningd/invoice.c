@@ -176,10 +176,14 @@ static void invoice_payment_add_tlvs(struct json_stream *stream,
 {
 	struct htlc_in *hin;
 	const struct tlv_payload *tlvs;
-	assert(tal_count(hset->htlcs) > 0);
+	assert(tal_count(hset->inpays) > 0);
+
+	/* Only do this if it's actually an HTLC */
+	if ((void *)hset->inpays[0]->fail != (void *)local_fail_in_htlc)
+		return;
 
 	/* Pick the first HTLC as representative for the entire set. */
-	hin = hset->htlcs[0];
+	hin = hset->inpays[0]->arg;
 
 	tlvs = hin->payload->tlv;
 
@@ -291,7 +295,7 @@ invoice_payment_hooks_done(struct invoice_payment_hook_payload *payload STEALS)
 	log_info(ld->log, "Resolved invoice '%s' with amount %s in %zu htlcs",
 		 payload->label->s,
 		 fmt_amount_msat(tmpctx, payload->msat),
-		 payload->set ? tal_count(payload->set->htlcs) : 0);
+		 payload->set ? tal_count(payload->set->inpays) : 0);
 	if (payload->set)
 		htlc_set_fulfill(payload->set, &payload->preimage);
 

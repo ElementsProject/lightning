@@ -359,12 +359,17 @@ bool htlc_is_trimmed(enum side htlc_owner UNNEEDED,
 		     bool option_anchor_outputs UNNEEDED,
 		     bool option_anchors_zero_fee_htlc_tx UNNEEDED)
 { fprintf(stderr, "htlc_is_trimmed called!\n"); abort(); }
-/* Generated stub for htlc_set_add */
-void htlc_set_add(struct lightningd *ld UNNEEDED,
-		  struct htlc_in *hin UNNEEDED,
-		  struct amount_msat total_msat UNNEEDED,
-		  const struct secret *payment_secret UNNEEDED)
-{ fprintf(stderr, "htlc_set_add called!\n"); abort(); }
+/* Generated stub for htlc_set_add_ */
+void htlc_set_add_(struct lightningd *ld UNNEEDED,
+		   struct logger *log UNNEEDED,
+		   struct amount_msat msat UNNEEDED,
+		   struct amount_msat total_msat UNNEEDED,
+		   const struct sha256 *payment_hash UNNEEDED,
+		   const struct secret *payment_secret UNNEEDED,
+		   void (*fail)(void * UNNEEDED, const u8 *) UNNEEDED,
+		   void (*succeeded)(void * UNNEEDED, const struct preimage *) UNNEEDED,
+		   void *arg UNNEEDED)
+{ fprintf(stderr, "htlc_set_add_ called!\n"); abort(); }
 /* Generated stub for invoice_check_payment */
 const struct invoice_details *invoice_check_payment(const tal_t *ctx UNNEEDED,
 						    struct lightningd *ld UNNEEDED,
