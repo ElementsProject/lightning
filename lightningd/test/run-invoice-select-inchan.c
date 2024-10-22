@@ -254,7 +254,7 @@ u8 *encrypt_tlv_encrypted_data(const tal_t *ctx UNNEEDED,
 /* Generated stub for failmsg_incorrect_or_unknown_ */
 const u8 *failmsg_incorrect_or_unknown_(const tal_t *ctx UNNEEDED,
 					struct lightningd *ld UNNEEDED,
-					const struct htlc_in *hin UNNEEDED,
+					struct amount_msat msat UNNEEDED,
 					const char *file UNNEEDED, int line UNNEEDED)
 { fprintf(stderr, "failmsg_incorrect_or_unknown_ called!\n"); abort(); }
 /* Generated stub for fatal */

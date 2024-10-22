@@ -115,7 +115,7 @@ void htlc_set_add(struct lightningd *ld,
 	if (!details) {
 		log_debug(hin->key.channel->log, "payment failed: %s", err);
 		local_fail_in_htlc(hin,
-				   take(failmsg_incorrect_or_unknown(NULL, ld, hin)));
+				   take(failmsg_incorrect_or_unknown(NULL, ld, hin->msat)));
 		return;
 	}
 
@@ -125,7 +125,7 @@ void htlc_set_add(struct lightningd *ld,
 		log_debug(ld->log, "Missing payment_secret, but required for %s",
 			  fmt_sha256(tmpctx, &hin->payment_hash));
 		local_fail_in_htlc(hin,
-				   take(failmsg_incorrect_or_unknown(NULL, ld, hin)));
+				   take(failmsg_incorrect_or_unknown(NULL, ld, hin->msat)));
 		return;
 	}
 
@@ -149,7 +149,7 @@ void htlc_set_add(struct lightningd *ld,
 		/* We check this now, since we want to fail with this as soon
 		 * as possible, to avoid other probing attacks. */
 		if (!payment_secret) {
-			local_fail_in_htlc(hin, take(failmsg_incorrect_or_unknown(NULL, ld, hin)));
+			local_fail_in_htlc(hin, take(failmsg_incorrect_or_unknown(NULL, ld, hin->msat)));
 			return;
 		}
 		tal_arr_expand(&set->htlcs, hin);
@@ -215,7 +215,7 @@ void htlc_set_add(struct lightningd *ld,
 	/* This catches the case of the first payment in a set. */
 	if (!payment_secret) {
 		htlc_set_fail(set,
-			      take(failmsg_incorrect_or_unknown(NULL, ld, hin)));
+			      take(failmsg_incorrect_or_unknown(NULL, ld, hin->msat)));
 		return;
 	}
 }
