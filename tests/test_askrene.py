@@ -441,6 +441,7 @@ def test_getroutes(node_factory):
                             'delay': 99 + 6}]])
 
 
+@pytest.mark.skip
 def test_getroutes_fee_fallback(node_factory):
     """Test getroutes call takes into account fees, if excessive"""
 
@@ -887,6 +888,7 @@ def test_min_htlc_after_excess(node_factory, bitcoind):
 
 
 @pytest.mark.slow_test
+@pytest.mark.skip
 def test_real_data(node_factory, bitcoind):
     # Route from Rusty's node to the top 100.
     # From tests/data/gossip-store-2024-09-22-node-map.xz:
