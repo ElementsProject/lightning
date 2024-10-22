@@ -410,7 +410,6 @@ immediate_routing_failure(const tal_t *ctx,
 static struct routing_failure*
 local_routing_failure(const tal_t *ctx,
 		      const struct lightningd *ld,
-		      const struct htlc_out *hout,
 		      enum onion_wire failcode,
 		      const struct wallet_payment *payment)
 {
@@ -435,9 +434,6 @@ local_routing_failure(const tal_t *ctx,
 
 	routing_failure->msg = NULL;
 
-	log_debug(hout->key.channel->log, "local_routing_failure: %u (%s)",
-		  routing_failure->failcode,
-		  onion_wire_name(routing_failure->failcode));
 	return routing_failure;
 }
 
@@ -545,28 +541,32 @@ remote_routing_failure(const tal_t *ctx,
 	return routing_failure;
 }
 
-void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
+void payment_failed(struct lightningd *ld,
+		    struct logger *log,
+		    const struct sha256 *payment_hash,
+		    u64 partid, u64 groupid,
+		    const struct onionreply *failonion,
+		    const u8 *failmsg,
 		    const char *localfail)
 {
 	struct wallet_payment *payment;
 	struct routing_failure* fail = NULL;
 	const char *failstr;
 	enum jsonrpc_errcode pay_errcode;
-	const u8 *failmsg;
 	int origin_index;
 
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
-					 &hout->payment_hash,
-					 hout->partid, hout->groupid);
+					 payment_hash,
+					 partid, groupid);
 
 #ifdef COMPAT_V052
 	/* Prior to "pay: delete HTLC when we delete payment." we would
 	 * delete a payment on retry, but leave the HTLC. */
 	if (!payment) {
-		log_unusual(hout->key.channel->log,
+		log_unusual(log,
 			    "No payment for %s:"
 			    " was this an old database?",
-			    fmt_sha256(tmpctx, &hout->payment_hash));
+			    fmt_sha256(tmpctx, payment_hash));
 		return;
 	}
 #else
@@ -578,10 +578,12 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	if (localfail) {
 		/* Use temporary_channel_failure if failmsg has it */
 		enum onion_wire failcode;
-		failcode = fromwire_peektype(hout->failmsg);
+		failcode = fromwire_peektype(failmsg);
 
-		fail = local_routing_failure(tmpctx, ld, hout, failcode,
-					     payment);
+		fail = local_routing_failure(tmpctx, ld, failcode, payment);
+		log_debug(log, "local_routing_failure: %u (%s)",
+			  fail->failcode,
+			  onion_wire_name(fail->failcode));
 		failstr = localfail;
 		pay_errcode = PAY_TRY_OTHER_ROUTE;
 	} else if (payment->path_secrets == NULL) {
@@ -593,11 +595,10 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 		pay_errcode = PAY_UNPARSEABLE_ONION;
 		fail = NULL;
 		failstr = NULL;
-	} else if (hout->failmsg) {
+	} else if (failmsg) {
 		/* This can happen when a direct peer told channeld it's a
 		 * malformed onion using update_fail_malformed_htlc. */
 		failstr = "local failure";
-		failmsg = hout->failmsg;
 		origin_index = 0;
 		pay_errcode = PAY_TRY_OTHER_ROUTE;
 		goto use_failmsg;
@@ -609,12 +610,11 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 
 		failmsg = unwrap_onionreply(tmpctx, path_secrets,
 					    tal_count(path_secrets),
-					    hout->failonion, &origin_index);
+					    failonion, &origin_index);
 		if (!failmsg) {
-			log_info(hout->key.channel->log,
-				 "htlc %"PRIu64" failed with bad reply (%s)",
-				 hout->key.id,
-				 tal_hex(tmpctx, hout->failonion->contents));
+			log_info(log,
+				 "htlc failed with bad reply (%s)",
+				 tal_hex(tmpctx, failonion->contents));
 			/* Cannot record failure. */
 			fail = NULL;
 			pay_errcode = PAY_UNPARSEABLE_ONION;
@@ -623,28 +623,27 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 
 		use_failmsg:
 			failcode = fromwire_peektype(failmsg);
-			log_info(hout->key.channel->log,
-				 "htlc %"PRIu64" "
-				 "failed from %ith node "
+			log_info(log,
+				 "htlc failed from %ith node "
 				 "with code 0x%04x (%s)",
-				 hout->key.id,
 				 origin_index,
 				 failcode, onion_wire_name(failcode));
 			fail = remote_routing_failure(tmpctx, ld,
 						      payment, failmsg,
 						      origin_index,
-						      hout->key.channel->log,
+						      log,
 						      &pay_errcode);
 		}
 	}
 
-	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
-				  hout->partid, hout->groupid,
+	wallet_payment_set_status(ld->wallet, payment_hash,
+				  partid, groupid,
 				  PAYMENT_FAILED, NULL);
 	wallet_payment_set_failinfo(ld->wallet,
-				    &hout->payment_hash,
-				    hout->partid,
-				    fail ? NULL : hout->failonion,
+				    payment_hash,
+				    partid,
+				    /* We only save failonion if it's unparseable */
+				    fail ? NULL : failonion,
 				    pay_errcode == PAY_DESTINATION_PERM_FAIL,
 				    fail ? fail->erring_index : -1,
 				    fail ? fail->failcode : 0,
@@ -654,8 +653,8 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 				    failstr,
 				    fail ? fail->channel_dir : 0);
 
-	tell_waiters_failed(ld, &hout->payment_hash, payment, pay_errcode,
-			    hout->failonion, fail, failstr);
+	tell_waiters_failed(ld, payment_hash, payment, pay_errcode,
+			    failonion, fail, failstr);
 }
 
 /* Wait for a payment. If cmd is deleted, then wait_payment()
