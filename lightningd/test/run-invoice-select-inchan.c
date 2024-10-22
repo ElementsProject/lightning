@@ -694,6 +694,9 @@ struct jsonrpc_request *jsonrpc_request_start_(
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
 { fprintf(stderr, "kill_uncommitted_channel called!\n"); abort(); }
+/* Generated stub for local_fail_in_htlc */
+void local_fail_in_htlc(struct htlc_in *hin UNNEEDED, const u8 *failmsg TAKES UNNEEDED)
+{ fprintf(stderr, "local_fail_in_htlc called!\n"); abort(); }
 /* Generated stub for lockin_complete */
 void lockin_complete(struct channel *channel UNNEEDED,
 		     enum channel_state expected_state UNNEEDED)

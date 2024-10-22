@@ -407,6 +407,16 @@ void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 	subd_send_msg(channel->owner, take(msg));
 }
 
+/* HTLC-specific wrappers */
+static void htlc_set_fulfill_htlc(struct htlc_in *hin,
+				  const struct preimage *preimage)
+{
+	/* mark that we filled -- needed for tagging coin mvt */
+	hin->we_filled = tal(hin, bool);
+	*hin->we_filled = true;
+	fulfill_htlc(hin, preimage);
+}
+
 static void handle_localpay(struct htlc_in *hin,
 			    struct amount_msat amt_to_forward,
 			    u32 outgoing_cltv_value,
@@ -499,7 +509,13 @@ static void handle_localpay(struct htlc_in *hin,
 		goto fail;
 	}
 
-	htlc_set_add(ld, hin, total_msat, payment_secret);
+	htlc_set_add(ld, hin->key.channel->log,
+		     hin->msat, total_msat,
+		     &hin->payment_hash,
+		     payment_secret,
+		     local_fail_in_htlc,
+		     htlc_set_fulfill_htlc,
+		     hin);
 	return;
 
 fail:
