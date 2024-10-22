@@ -275,15 +275,12 @@ void local_fail_in_htlc(struct htlc_in *hin, const u8 *failmsg TAKES)
 }
 
 /* Helper to create (common) WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS */
-const u8 *failmsg_incorrect_or_unknown_(const tal_t *ctx,
-					struct lightningd *ld,
-					const struct htlc_in *hin,
-					const char *file, int line)
+const u8 *failmsg_incorrect_or_unknown(const tal_t *ctx,
+				       struct lightningd *ld,
+				       struct amount_msat msat)
 {
-	log_debug(ld->log, "WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS: %s:%u",
-		  file, line);
 	return towire_incorrect_or_unknown_payment_details(
-		ctx, hin->msat,
+		ctx, msat,
 		get_block_height(ld->topology));
 }
 
@@ -294,7 +291,14 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 	assert(hout->failmsg || hout->failonion);
 
 	if (hout->am_origin) {
-		payment_failed(hout->key.channel->peer->ld, hout, localfail);
+		payment_failed(hout->key.channel->peer->ld,
+			       hout->key.channel->log,
+			       &hout->payment_hash,
+			       hout->partid,
+			       hout->groupid,
+			       hout->failonion,
+			       hout->failmsg,
+			       localfail);
 	} else if (hout->in) {
 		const struct onionreply *failonion;
 
@@ -410,6 +414,16 @@ void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 	subd_send_msg(channel->owner, take(msg));
 }
 
+/* HTLC-specific wrappers */
+static void htlc_set_fulfill_htlc(struct htlc_in *hin,
+				  const struct preimage *preimage)
+{
+	/* mark that we filled -- needed for tagging coin mvt */
+	hin->we_filled = tal(hin, bool);
+	*hin->we_filled = true;
+	fulfill_htlc(hin, preimage);
+}
+
 static void handle_localpay(struct htlc_in *hin,
 			    struct amount_msat amt_to_forward,
 			    u32 outgoing_cltv_value,
@@ -477,7 +491,7 @@ static void handle_localpay(struct htlc_in *hin,
 			  hin->cltv_expiry,
 			  get_block_height(ld->topology),
 			  ld->config.cltv_final);
-		failmsg = failmsg_incorrect_or_unknown(NULL, ld, hin);
+		failmsg = failmsg_incorrect_or_unknown(NULL, ld, hin->msat);
 		goto fail;
 	}
 
@@ -502,7 +516,13 @@ static void handle_localpay(struct htlc_in *hin,
 		goto fail;
 	}
 
-	htlc_set_add(ld, hin, total_msat, payment_secret);
+	htlc_set_add(ld, hin->key.channel->log,
+		     hin->msat, total_msat,
+		     &hin->payment_hash,
+		     payment_secret,
+		     local_fail_in_htlc,
+		     htlc_set_fulfill_htlc,
+		     hin);
 	return;
 
 fail:
@@ -585,8 +605,14 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 			char *localfail = tal_fmt(msg, "%s: %s",
 						  onion_wire_name(fromwire_peektype(failmsg)),
 						  failurestr);
-			payment_failed(ld, hout, localfail);
-
+			payment_failed(ld,
+				       hout->key.channel->log,
+				       &hout->payment_hash,
+				       hout->partid,
+				       hout->groupid,
+				       hout->failonion,
+				       hout->failmsg,
+				       localfail);
 		} else if (hout->in) {
 			struct onionreply *failonion;
 			struct short_channel_id scid;
@@ -713,13 +739,13 @@ const u8 *send_htlc_out(const tal_t *ctx,
 
 /* What's the best channel to this peer?
  * If @hint is set, channel must match that one. */
-static struct channel *best_channel(struct lightningd *ld,
-				    const struct peer *next_peer,
-				    struct amount_msat amt_to_forward,
-				    struct channel *hint)
+struct channel *best_channel(struct lightningd *ld,
+			     const struct peer *next_peer,
+			     struct amount_msat amt_to_forward,
+			     const struct channel *hint)
 {
 	struct amount_msat best_spendable = AMOUNT_MSAT(0);
-	struct channel *channel, *best = hint;
+	struct channel *channel, *best = cast_const(struct channel *, hint);
 
 	/* Seek channel with largest spendable! */
 	list_for_each(&next_peer->channels, channel, list) {
@@ -1176,9 +1202,9 @@ htlc_accepted_hook_final(struct htlc_accepted_hook_payload *request STEALS)
 }
 
 /* Apply tweak to ephemeral key if path_key is non-NULL, then do ECDH */
-static bool ecdh_maybe_blinding(const struct pubkey *ephemeral_key,
-				const struct pubkey *path_key,
-				struct secret *ss)
+bool ecdh_maybe_blinding(const struct pubkey *ephemeral_key,
+			 const struct pubkey *path_key,
+			 struct secret *ss)
 {
 	struct pubkey point = *ephemeral_key;
 
@@ -1770,7 +1796,14 @@ void onchain_failed_our_htlc(const struct channel *channel,
 		char *localfail = tal_fmt(channel, "%s: %s",
 					  onion_wire_name(WIRE_PERMANENT_CHANNEL_FAILURE),
 					  why);
-		payment_failed(ld, hout, localfail);
+		payment_failed(ld,
+			       hout->key.channel->log,
+			       &hout->payment_hash,
+			       hout->partid,
+			       hout->groupid,
+			       hout->failonion,
+			       hout->failmsg,
+			       localfail);
 		tal_free(localfail);
 	} else if (hout->in) {
 		struct short_channel_id scid = channel_scid_or_local_alias(channel);

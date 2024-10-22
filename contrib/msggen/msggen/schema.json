@@ -14979,6 +14979,131 @@
         }
       ]
     },
+    "lightning-injectpaymentonion.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "rpc": "injectpaymentonion",
+      "title": "Send a payment with a custom onion packet",
+      "description": [
+        "The **injectpaymentonion** RPC command causes the node to receive a payment attempt similar to the way it would receive one from a peer. The onion packet is unwrapped, then handled normally: either as a local payment, or forwarded to the next peer.",
+        "Compared to lightning-sendonion(7): the handling of blinded paths and self-payments is trivial, and the interface blocks until the payment succeeds or fails."
+      ],
+      "request": {
+        "required": [
+          "onion",
+          "payment_hash",
+          "amount_msat",
+          "cltv_expiry",
+          "partid",
+          "groupid"
+        ],
+        "properties": {
+          "onion": {
+            "type": "hex",
+            "description": [
+              "Hex-encoded 1366 bytes long blob that was returned by either of the tools that can generate onions. It contains the payloads destined for each hop and some metadata. Please refer to [BOLT 04][bolt04] for further details. If is specific to the route that is being used and the *payment_hash* used to construct, and therefore cannot be reused for other payments or to attempt a separate route. The custom onion can generally be created using the `devtools/onion` CLI tool, or the **createonion** RPC command."
+            ]
+          },
+          "payment_hash": {
+            "type": "hash",
+            "description": [
+              "Specifies the 32 byte hex-encoded hash to use as a challenge to the HTLC that we are sending. It is specific to the onion and has to match the one the onion was created with."
+            ]
+          },
+          "amount_msat": {
+            "type": "msat",
+            "description": [
+              "The amount for the first HTLC in millisatoshis.  This is also the amount which will be forwarded to the first peer (if any) as we do not charge fees on our own payments."
+            ]
+          },
+          "cltv_expiry": {
+            "type": "u16",
+            "description": [
+              "The cltv_expiry for the first HTLC in blocks.  This must be greater than the current blockheight."
+            ]
+          },
+          "partid": {
+            "type": "u64",
+            "description": [
+              "The non-zero identifier for multiple parallel partial payments with the same *payment_hash*."
+            ]
+          },
+          "groupid": {
+            "type": "u64",
+            "description": [
+              "Grouping key to disambiguate multiple attempts to pay the same *payment_hash*.  All payments in other groups must be completed before starting a new group."
+            ]
+          },
+          "label": {
+            "type": "string",
+            "description": [
+              "Can be used to provide a human readable reference to retrieve the payment at a later time."
+            ]
+          },
+          "invstring": {
+            "type": "string",
+            "description": [
+              "Usually a bolt11 or bolt12 string, which, it will be returned in *waitsendpay* and *listsendpays* results."
+            ]
+          },
+          "localinvreqid": {
+            "type": "hash",
+            "description": [
+              "`localinvreqid` is used by offers to link a payment attempt to a local `invoice_request` offer created by lightningd-invoicerequest(7)."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "created_index",
+          "created_at",
+          "completed_at",
+          "payment_preimage"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "u64",
+            "description": [
+              "The UNIX timestamp showing when this payment was initiated."
+            ]
+          },
+          "completed_at": {
+            "type": "u64",
+            "description": [
+              "The UNIX timestamp showing when this payment was completed."
+            ]
+          },
+          "created_index": {
+            "type": "u64",
+            "description": [
+              "1-based index indicating order this payment was created in."
+            ]
+          }
+        }
+      },
+      "errors": [
+        "The following error codes may occur:",
+        "",
+        "- 218: injectpaymentonion failed",
+        "",
+        "The *onionreply* is returned in the error details, which can be unwrapped to discover the error"
+      ],
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-createonion(7)",
+        "lightning-sendonion(7)",
+        "lightning-listsendpays(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "",
+        "[bolt04]: https://github.com/lightning/bolts/blob/master/04-onion-routing.md"
+      ]
+    },
     "lightning-invoice.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",

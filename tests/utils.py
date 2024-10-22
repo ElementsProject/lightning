@@ -3,6 +3,8 @@ from pyln.testing.utils import env, only_one, wait_for, write_config, TailablePr
 import bitstring
 from pyln.client import Millisatoshi
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, EXPERIMENTAL_SPLICING
+from pyln.proto.onion import TlvPayload
+import struct
 import subprocess
 import tempfile
 import time
@@ -560,3 +562,56 @@ def generate_gossip_store(channels, nodemap={}):
         nodemap[nodes[i]] = n
 
     return outfile, nodemap
+
+
+def tu64_encode(i: int):
+    """Encode a tu64 (or tu32 etc) value"""
+    ret = struct.pack("!Q", i)
+    while ret.startswith(b'\0'):
+        ret = ret[1:]
+    return ret
+
+
+def serialize_payload_tlv(amount_msat, delay, next_channel, blockheight):
+    """Encode TLV onion payload for non-final hops, returns bytes"""
+    block, tx, out = next_channel.split('x')
+
+    payload = TlvPayload()
+    # BOLT #4:
+    #     1. type: 2 (`amt_to_forward`)
+    #     2. data:
+    #         * [`tu64`:`amt_to_forward`]
+    payload.add_field(2, tu64_encode(int(amount_msat)))
+    # BOLT #4:
+    #    1. type: 4 (`outgoing_cltv_value`)
+    #    2. data:
+    #        * [`tu32`:`outgoing_cltv_value`]
+    payload.add_field(4, tu64_encode(blockheight + delay))
+    # BOLT #4:
+    #    1. type: 6 (`short_channel_id`)
+    #    2. data:
+    #        * [`short_channel_id`:`short_channel_id`]
+    payload.add_field(6, struct.pack("!Q", int(block) << 40 | int(tx) << 16 | int(out)))
+    return payload.to_bytes()
+
+
+def serialize_payload_final_tlv(amount_msat, delay, total_msat, blockheight, payment_secret: str):
+    """Encode TLV onion payload for final hop, returns bytes"""
+    payload = TlvPayload()
+    # BOLT #4:
+    #     1. type: 2 (`amt_to_forward`)
+    #     2. data:
+    #         * [`tu64`:`amt_to_forward`]
+    payload.add_field(2, tu64_encode(int(amount_msat)))
+    # BOLT #4:
+    #    1. type: 4 (`outgoing_cltv_value`)
+    #    2. data:
+    #        * [`tu32`:`outgoing_cltv_value`]
+    payload.add_field(4, tu64_encode(blockheight + delay))
+    # BOLT #4:
+    #    1. type: 8 (`payment_data`)
+    #    2. data:
+    #        * [`32*byte`:`payment_secret`]
+    #        * [`tu64`:`total_msat`]
+    payload.add_field(8, bytes.fromhex(payment_secret) + tu64_encode(int(total_msat)))
+    return payload.to_bytes()
