@@ -739,13 +739,13 @@ const u8 *send_htlc_out(const tal_t *ctx,
 
 /* What's the best channel to this peer?
  * If @hint is set, channel must match that one. */
-static struct channel *best_channel(struct lightningd *ld,
-				    const struct peer *next_peer,
-				    struct amount_msat amt_to_forward,
-				    struct channel *hint)
+struct channel *best_channel(struct lightningd *ld,
+			     const struct peer *next_peer,
+			     struct amount_msat amt_to_forward,
+			     const struct channel *hint)
 {
 	struct amount_msat best_spendable = AMOUNT_MSAT(0);
-	struct channel *channel, *best = hint;
+	struct channel *channel, *best = cast_const(struct channel *, hint);
 
 	/* Seek channel with largest spendable! */
 	list_for_each(&next_peer->channels, channel, list) {
@@ -1202,9 +1202,9 @@ htlc_accepted_hook_final(struct htlc_accepted_hook_payload *request STEALS)
 }
 
 /* Apply tweak to ephemeral key if path_key is non-NULL, then do ECDH */
-static bool ecdh_maybe_blinding(const struct pubkey *ephemeral_key,
-				const struct pubkey *path_key,
-				struct secret *ss)
+bool ecdh_maybe_blinding(const struct pubkey *ephemeral_key,
+			 const struct pubkey *path_key,
+			 struct secret *ss)
 {
 	struct pubkey point = *ephemeral_key;
 

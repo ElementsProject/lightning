@@ -54,6 +54,18 @@ void fixup_htlcs_out(struct lightningd *ld);
 void htlcs_resubmit(struct lightningd *ld,
 		    struct htlc_in_map *unconnected_htlcs_in STEALS);
 
+/* Apply tweak to ephemeral key if path_key is non-NULL, then do ECDH */
+bool ecdh_maybe_blinding(const struct pubkey *ephemeral_key,
+			 const struct pubkey *path_key,
+			 struct secret *ss);
+
+/* Select best (highest capacity) to peer.  If hint is set, must match that
+ * feerate */
+struct channel *best_channel(struct lightningd *ld,
+			     const struct peer *next_peer,
+			     struct amount_msat amt_to_forward,
+			     const struct channel *hint);
+
 /* For HTLCs which terminate here, invoice payment calls one of these. */
 void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage);
 void local_fail_in_htlc(struct htlc_in *hin, const u8 *failmsg TAKES);

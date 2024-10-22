@@ -66,6 +66,7 @@ GENERATE_MARKDOWN := doc/lightning-addgossip.7 \
 	doc/lightning-getroute.7 \
 	doc/lightning-getroutes.7 \
 	doc/lightning-help.7 \
+	doc/lightning-injectpaymentonion.7 \
 	doc/lightning-invoice.7 \
 	doc/lightning-invoicerequest.7 \
 	doc/lightning-keysend.7 \
