@@ -1,13 +1,12 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pathlib import Path
-from io import BytesIO
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, scid_to_int
 from utils import (
     wait_for, only_one, sync_blockheight, TIMEOUT,
-    mine_funding_to_announce, first_scid
+    mine_funding_to_announce, first_scid, serialize_payload_tlv, serialize_payload_final_tlv
 )
 import copy
 import os
@@ -15,7 +14,6 @@ import pytest
 import random
 import re
 import string
-import struct
 import subprocess
 import time
 import unittest
@@ -2980,80 +2978,19 @@ def test_sendonion_rpc(node_factory):
     first_hop = route[0]
     blockheight = l1.rpc.getinfo()['blockheight']
 
-    def truncate_encode(i: int):
-        """Encode a tu64 (or tu32 etc) value"""
-        ret = struct.pack("!Q", i)
-        while ret.startswith(b'\0'):
-            ret = ret[1:]
-        return ret
-
-    def serialize_payload_tlv(n):
-        block, tx, out = n['channel'].split('x')
-
-        payload = TlvPayload()
-        # BOLT #4:
-        #     1. type: 2 (`amt_to_forward`)
-        #     2. data:
-        #         * [`tu64`:`amt_to_forward`]
-        b = BytesIO()
-        b.write(truncate_encode(int(n['amount_msat'])))
-        payload.add_field(2, b.getvalue())
-        # BOLT #4:
-        #    1. type: 4 (`outgoing_cltv_value`)
-        #    2. data:
-        #        * [`tu32`:`outgoing_cltv_value`]
-        b = BytesIO()
-        b.write(truncate_encode(blockheight + n['delay']))
-        payload.add_field(4, b.getvalue())
-        # BOLT #4:
-        #    1. type: 6 (`short_channel_id`)
-        #    2. data:
-        #        * [`short_channel_id`:`short_channel_id`]
-        b = BytesIO()
-        b.write(struct.pack("!Q", int(block) << 40 | int(tx) << 16 | int(out)))
-        payload.add_field(6, b.getvalue())
-        return payload.to_bytes().hex()
-
-    def serialize_payload_final_tlv(n, payment_secret: str):
-        payload = TlvPayload()
-        # BOLT #4:
-        #     1. type: 2 (`amt_to_forward`)
-        #     2. data:
-        #         * [`tu64`:`amt_to_forward`]
-        b = BytesIO()
-        b.write(truncate_encode(int(n['amount_msat'])))
-        payload.add_field(2, b.getvalue())
-        # BOLT #4:
-        #    1. type: 4 (`outgoing_cltv_value`)
-        #    2. data:
-        #        * [`tu32`:`outgoing_cltv_value`]
-        b = BytesIO()
-        b.write(truncate_encode(blockheight + n['delay']))
-        payload.add_field(4, b.getvalue())
-        # BOLT #4:
-        #    1. type: 8 (`payment_data`)
-        #    2. data:
-        #        * [`32*byte`:`payment_secret`]
-        #        * [`tu64`:`total_msat`]
-        b = BytesIO()
-        b.write(bytes.fromhex(payment_secret))
-        b.write(truncate_encode(int(n['amount_msat'])))
-        payload.add_field(8, b.getvalue())
-        return payload.to_bytes().hex()
-
     # Need to shift the parameters by one hop
     hops = []
     for h, n in zip(route[:-1], route[1:]):
         # We tell the node h about the parameters to use for n (a.k.a. h + 1)
         hops.append({
             "pubkey": h['id'],
-            "payload": serialize_payload_tlv(n)
+            "payload": serialize_payload_tlv(n['amount_msat'], n['delay'], n['channel'], blockheight).hex()
         })
 
     # The last hop has a special payload:
     hops.append({
         "pubkey": route[-1]['id'],
-        "payload": serialize_payload_final_tlv(route[-1], inv['payment_secret'])
+        "payload": serialize_payload_final_tlv(route[-1]['amount_msat'], route[-1]['delay'], route[-1]['amount_msat'], blockheight, inv['payment_secret']).hex()
     })
 
     onion = l1.rpc.createonion(hops=hops, assocdata=inv['payment_hash'])
