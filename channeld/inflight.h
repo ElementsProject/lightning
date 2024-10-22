@@ -2,11 +2,13 @@
 #define LIGHTNING_CHANNELD_INFLIGHT_H
 
 #include "config.h"
+#include <bitcoin/pubkey.h>
 #include <bitcoin/tx.h>
 #include <common/amount.h>
 
 struct inflight {
 	struct bitcoin_outpoint outpoint;
+	struct pubkey remote_funding;
 	struct amount_sat amnt;
 	bool remote_tx_sigs;
 	struct wally_psbt *psbt;

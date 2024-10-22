@@ -309,12 +309,16 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 				enum side side,
 				s64 splice_amnt,
 				s64 remote_splice_amnt,
-				int *other_anchor_outnum)
+				int *other_anchor_outnum,
+				const struct pubkey funding_pubkeys[NUM_SIDES])
 {
 	struct bitcoin_tx **txs;
 	const struct htlc **committed;
 	struct keyset keyset;
 	struct amount_msat side_pay, other_side_pay;
+
+	if (!funding_pubkeys)
+		funding_pubkeys = channel->funding_pubkey;
 
 	if (!derive_keyset(per_commitment_point,
 			   &channel->basepoints[side],
@@ -329,8 +333,8 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	/* Generating and saving witness script required to spend
 	 * the funding output */
 	*funding_wscript = bitcoin_redeem_2of2(ctx,
-					      &channel->funding_pubkey[side],
-					      &channel->funding_pubkey[!side]);
+					      &funding_pubkeys[side],
+					      &funding_pubkeys[!side]);
 
 	side_pay = channel->view[side].owed[side];
 	other_side_pay = channel->view[side].owed[!side];
@@ -351,8 +355,8 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	txs[0] = commit_tx(
 	    txs, funding,
 	    funding_sats,
-	    &channel->funding_pubkey[side],
-	    &channel->funding_pubkey[!side],
+	    &funding_pubkeys[side],
+	    &funding_pubkeys[!side],
 	    channel->opener,
 	    channel->config[!side].to_self_delay,
 	    channel->lease_expiry,
@@ -367,9 +371,9 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 
 	/* Set the remote/local pubkeys on the commitment tx psbt */
 	psbt_input_add_pubkey(txs[0]->psbt, 0,
-			      &channel->funding_pubkey[side], false /* is_taproot */);
+			      &funding_pubkeys[side], false /* is_taproot */);
 	psbt_input_add_pubkey(txs[0]->psbt, 0,
-			      &channel->funding_pubkey[!side], false /* is_taproot */);
+			      &funding_pubkeys[!side], false /* is_taproot */);
 
 	add_htlcs(&txs, *htlcmap, channel, &keyset, side);
 
