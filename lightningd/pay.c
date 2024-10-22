@@ -37,6 +37,18 @@ struct waitsendpay_command {
 	u64 partid;
 	u64 groupid;
 	struct command *cmd;
+	void *arg;
+
+	struct command_result *(*success)(struct command *cmd,
+					  const struct wallet_payment *payment,
+					  void *arg);
+	struct command_result *(*fail)(struct command *cmd,
+				       const struct wallet_payment *payment,
+				       enum jsonrpc_errcode pay_errcode,
+				       const struct onionreply *onionreply,
+				       const struct routing_failure *fail,
+				       const char *errmsg,
+				       void *arg);
 };
 
 static bool string_to_payment_status(const char *status_str, size_t len,
@@ -78,10 +90,21 @@ static void destroy_waitsendpay_command(struct waitsendpay_command *pc)
 /* Owned by cmd, if cmd is deleted, then sendpay_success/sendpay_fail will
  * no longer be called. */
 static void
-add_waitsendpay_waiter(struct lightningd *ld,
-		       struct command *cmd,
-		       const struct sha256 *payment_hash,
-		       u64 partid, u64 groupid)
+add_waitsendpay_waiter_(struct lightningd *ld,
+			struct command *cmd,
+			const struct sha256 *payment_hash,
+			u64 partid, u64 groupid,
+			struct command_result *(*success)(struct command *cmd,
+							  const struct wallet_payment *payment,
+							  void *arg),
+			struct command_result *(*fail)(struct command *cmd,
+						       const struct wallet_payment *payment,
+						       enum jsonrpc_errcode pay_errcode,
+						       const struct onionreply *onionreply,
+						       const struct routing_failure *fail,
+						       const char *errmsg,
+						       void *arg),
+			void *arg)
 {
 	struct waitsendpay_command *pc = tal(cmd, struct waitsendpay_command);
 
@@ -89,9 +112,28 @@ add_waitsendpay_waiter(struct lightningd *ld,
 	pc->partid = partid;
 	pc->groupid = groupid;
 	pc->cmd = cmd;
+	pc->arg = arg;
+	pc->success = success;
+	pc->fail = fail;
 	list_add(&ld->waitsendpay_commands, &pc->list);
 	tal_add_destructor(pc, destroy_waitsendpay_command);
 }
+
+#define add_waitsendpay_waiter(ld, cmd, payment_hash, partid, groupid, success, fail, arg) \
+	add_waitsendpay_waiter_((ld), (cmd), (payment_hash), (partid), (groupid), \
+				typesafe_cb_preargs(struct command_result *, void *, \
+						    (success), (arg),	\
+						    struct command *,	\
+						    const struct wallet_payment *), \
+				typesafe_cb_preargs(struct command_result *, void *, \
+						    (fail), (arg),	\
+						    struct command *,	\
+						    const struct wallet_payment *, \
+						    enum jsonrpc_errcode, \
+						    const struct onionreply *, \
+						    const struct routing_failure *, \
+						    const char *),	\
+				(arg))
 
 /* Outputs fields, not a separate object*/
 void json_add_payment_fields(struct json_stream *response,
@@ -149,7 +191,8 @@ void json_add_payment_fields(struct json_stream *response,
 }
 
 static struct command_result *sendpay_success(struct command *cmd,
-					      const struct wallet_payment *payment)
+					      const struct wallet_payment *payment,
+					      void *unused)
 {
 	struct json_stream *response;
 
@@ -232,7 +275,8 @@ sendpay_fail(struct command *cmd,
 	     enum jsonrpc_errcode pay_errcode,
 	     const struct onionreply *onionreply,
 	     const struct routing_failure *fail,
-	     const char *errmsg)
+	     const char *errmsg,
+	     void *unused)
 {
 	struct json_stream *data;
 
@@ -272,7 +316,7 @@ static void tell_waiters_failed(struct lightningd *ld,
 	const char *errmsg =
 	    sendpay_errmsg_fmt(tmpctx, pay_errcode, fail, details);
 
-	/* Careful: sendpay_fail deletes cmd */
+	/* Careful: ->fail deletes cmd */
 	list_for_each_safe(&ld->waitsendpay_commands, pc, next, list) {
 		if (!sha256_eq(payment_hash, &pc->payment_hash))
 			continue;
@@ -281,8 +325,7 @@ static void tell_waiters_failed(struct lightningd *ld,
 		if (payment->groupid != pc->groupid)
 			continue;
 
-		sendpay_fail(pc->cmd, payment, pay_errcode, onionreply, fail,
-			     errmsg);
+		pc->fail(pc->cmd, payment, pay_errcode, onionreply, fail, errmsg, pc->arg);
 	}
 
 	notify_sendpay_failure(ld,
@@ -309,7 +352,7 @@ static void tell_waiters_success(struct lightningd *ld,
 		if (payment->groupid != pc->groupid)
 			continue;
 
-		sendpay_success(pc->cmd, payment);
+		pc->success(pc->cmd, payment, pc->arg);
 	}
 	notify_sendpay_success(ld, payment);
 }
@@ -651,11 +694,12 @@ static struct command_result *wait_payment(struct lightningd *ld,
 
 	switch (payment->status) {
 	case PAYMENT_PENDING:
-		add_waitsendpay_waiter(ld, cmd, payment_hash, partid, groupid);
+		add_waitsendpay_waiter(ld, cmd, payment_hash, partid, groupid,
+				       sendpay_success, sendpay_fail, NULL);
 		return NULL;
 
 	case PAYMENT_COMPLETE:
-		return sendpay_success(cmd, payment);
+		return sendpay_success(cmd, payment, NULL);
 
 	case PAYMENT_FAILED:
 		/* Get error from DB */
@@ -682,7 +726,8 @@ static struct command_result *wait_payment(struct lightningd *ld,
 			    cmd, payment, PAY_UNPARSEABLE_ONION, failonionreply,
 			    NULL,
 			    sendpay_errmsg_fmt(tmpctx, PAY_UNPARSEABLE_ONION,
-					       NULL, faildetail));
+					       NULL, faildetail),
+			    NULL);
 		} else {
 			/* Parsed onion error, get its details */
 			assert(failnode);
@@ -709,7 +754,8 @@ static struct command_result *wait_payment(struct lightningd *ld,
 			return sendpay_fail(
 			    cmd, payment, rpcerrorcode, NULL, fail,
 			    sendpay_errmsg_fmt(tmpctx, rpcerrorcode, fail,
-					       faildetail));
+					       faildetail),
+			    NULL);
 		}
 	}
 
@@ -896,7 +942,7 @@ static struct command_result *check_progress(struct lightningd *ld,
 						    fmt_node_id(tmpctx,
 								payment->destination));
 			}
-			return sendpay_success(cmd, payment);
+			return sendpay_success(cmd, payment, NULL);
 
 		case PAYMENT_PENDING:
 			/* At most one payment group can be in-flight at any
@@ -1090,7 +1136,8 @@ send_payment_core(struct lightningd *ld,
 		return sendpay_fail(
 		    cmd, NULL, PAY_TRY_OTHER_ROUTE, NULL, fail,
 		    sendpay_errmsg_fmt(tmpctx, PAY_TRY_OTHER_ROUTE, fail,
-				       "First peer not ready"));
+				       "First peer not ready"),
+		    NULL);
 	}
 
 	payment = wallet_add_payment(cmd,
@@ -1458,14 +1505,14 @@ static struct command_result *self_payment(struct lightningd *ld,
 		tell_waiters_failed(ld, rhash, payment, PAY_DESTINATION_PERM_FAIL,
 				    NULL, fail, err);
 		return sendpay_fail(cmd, payment, PAY_DESTINATION_PERM_FAIL, NULL,
-				    fail, err);
+				    fail, err, NULL);
 	}
 
 	/* These should not fail, given the above succeded! */
 	if (!invoices_find_by_rhash(ld->wallet->invoices, &inv_dbid, rhash)
 	    || !invoices_resolve(ld->wallet->invoices, inv_dbid, msat, inv->label, NULL)) {
 		log_broken(ld->log, "Could not resolve invoice %"PRIu64"!?!", inv_dbid);
-		return sendpay_fail(cmd, payment, PAY_DESTINATION_PERM_FAIL, NULL, NULL, "broken");
+		return sendpay_fail(cmd, payment, PAY_DESTINATION_PERM_FAIL, NULL, NULL, "broken", NULL);
 	}
 
 	log_info(ld->log, "Self-resolved invoice '%s' with amount %s",
@@ -1479,7 +1526,7 @@ static struct command_result *self_payment(struct lightningd *ld,
 	/* Now the specific command which called this. */
 	payment->status = PAYMENT_COMPLETE;
 	payment->payment_preimage = tal_dup(payment, struct preimage, &inv->r);
-	return sendpay_success(cmd, payment);
+	return sendpay_success(cmd, payment, NULL);
 }
 
 static struct command_result *json_sendpay(struct command *cmd,
