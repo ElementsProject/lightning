@@ -450,7 +450,8 @@ static double get_median_ratio(const tal_t *working_ctx,
 	size_t n = 0;
 
 	for (struct arc arc = {.idx=0};arc.idx < max_num_arcs; ++arc.idx) {
-		if (arc_is_dual(graph, arc))
+		/* scan real arcs, not unused id slots or dual arcs */
+		if (arc_is_dual(graph, arc) || !arc_enabled(graph, arc))
 			continue;
 		assert(n < max_num_arcs/2);
 		u64_arr[n] = linear_network->arc_fee_cost[arc.idx];
@@ -484,7 +485,7 @@ static void combine_cost_function(
 
 	for(struct arc arc = {.idx=0};arc.idx < max_num_arcs; ++arc.idx)
 	{
-		if (!arc_enabled(graph, arc))
+		if (arc_is_dual(graph, arc) || !arc_enabled(graph, arc))
 			continue;
 
 		const double pcost = linear_network->arc_prob_cost[arc.idx];
@@ -512,6 +513,9 @@ static void combine_cost_function(
 		} else {
 			residual_network->cost[arc.idx] = combined;
 		}
+		/* and the respective dual */
+		struct arc dual = arc_dual(graph, arc);
+		residual_network->cost[dual.idx] = -combined;
 	}
 }
 
