@@ -152,6 +152,9 @@ struct command_result *command_failed(struct command *cmd UNNEEDED,
 				      struct json_stream *result)
 
 { fprintf(stderr, "command_failed called!\n"); abort(); }
+/* Generated stub for command_its_complicated */
+struct command_result *command_its_complicated(const char *why UNNEEDED)
+{ fprintf(stderr, "command_its_complicated called!\n"); abort(); }
 /* Generated stub for command_param_failed */
 struct command_result *command_param_failed(void)
 
@@ -840,6 +843,11 @@ struct command_result *param_number(struct command *cmd UNNEEDED, const char *na
 				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 				    unsigned int **num UNNEEDED)
 { fprintf(stderr, "param_number called!\n"); abort(); }
+/* Generated stub for param_pubkey */
+struct command_result *param_pubkey(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				    struct pubkey **pubkey UNNEEDED)
+{ fprintf(stderr, "param_pubkey called!\n"); abort(); }
 /* Generated stub for param_secret */
 struct command_result *param_secret(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,

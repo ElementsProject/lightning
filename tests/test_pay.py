@@ -1,12 +1,14 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
+from hashlib import sha256
 from pathlib import Path
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, scid_to_int
 from utils import (
     wait_for, only_one, sync_blockheight, TIMEOUT,
-    mine_funding_to_announce, first_scid, serialize_payload_tlv, serialize_payload_final_tlv
+    mine_funding_to_announce, first_scid, serialize_payload_tlv, serialize_payload_final_tlv,
+    tu64_encode
 )
 import copy
 import os
@@ -6065,3 +6067,516 @@ def test_pay_remember_hint(node_factory):
     # We should not have touched fw1, and should succeed after a single call
     p = sender.rpc.pay(inv)
     assert(p['parts'] == 1)
+
+
+def test_injectpaymentonion_simple(node_factory, executor):
+    l1, l2 = node_factory.line_graph(2)
+
+    blockheight = l1.rpc.getinfo()['blockheight']
+    inv1 = l2.rpc.invoice(1000, "test_injectpaymentonion1", "test_injectpaymentonion1")
+
+    # First hop for injectpaymentonion is self.
+    hops = [{'pubkey': l1.info['id'],
+             'payload': serialize_payload_tlv(1000, 18 + 6, first_scid(l1, l2), blockheight).hex()},
+            {'pubkey': l2.info['id'],
+             'payload': serialize_payload_final_tlv(1000, 18, 1000, blockheight, inv1['payment_secret']).hex()}]
+    onion = l1.rpc.createonion(hops=hops, assocdata=inv1['payment_hash'])
+
+    ret = l1.rpc.injectpaymentonion(onion=onion['onion'],
+                                    payment_hash=inv1['payment_hash'],
+                                    amount_msat=1000,
+                                    cltv_expiry=blockheight + 18 + 6,
+                                    partid=1,
+                                    groupid=0)
+    assert ret['completed_at'] >= ret['created_at']
+    assert sha256(bytes.fromhex(ret['payment_preimage'])).hexdigest() == inv1['payment_hash']
+    assert ret == {'payment_preimage': ret['payment_preimage'],
+                   'created_index': 1,
+                   'completed_at': ret['completed_at'],
+                   'created_at': ret['created_at']}
+    assert only_one(l2.rpc.listinvoices("test_injectpaymentonion1")['invoices'])['status'] == 'paid'
+    lsp = only_one(l1.rpc.listsendpays(inv1['bolt11'])['payments'])
+    assert lsp['groupid'] == 0
+    assert lsp['partid'] == 1
+    assert lsp['payment_hash'] == inv1['payment_hash']
+    assert lsp['status'] == 'complete'
+
+
+def test_injectpaymentonion_mpp(node_factory, executor):
+    l1, l2 = node_factory.line_graph(2)
+
+    blockheight = l1.rpc.getinfo()['blockheight']
+    inv2 = l2.rpc.invoice(3000, "test_injectpaymentonion2", "test_injectpaymentonion2")
+
+    # First hop for injectpaymentonion is self.
+    hops1 = [{'pubkey': l1.info['id'],
+              'payload': serialize_payload_tlv(1000, 18 + 6, first_scid(l1, l2), blockheight).hex()},
+             {'pubkey': l2.info['id'],
+              'payload': serialize_payload_final_tlv(1000, 18, 3000, blockheight, inv2['payment_secret']).hex()}]
+    onion1 = l1.rpc.createonion(hops=hops1, assocdata=inv2['payment_hash'])
+    hops2 = [{'pubkey': l1.info['id'],
+              'payload': serialize_payload_tlv(2000, 18 + 6, first_scid(l1, l2), blockheight).hex()},
+             {'pubkey': l2.info['id'],
+              'payload': serialize_payload_final_tlv(2000, 18, 3000, blockheight, inv2['payment_secret']).hex()}]
+    onion2 = l1.rpc.createonion(hops=hops2, assocdata=inv2['payment_hash'])
+
+    fut1 = executor.submit(l1.rpc.injectpaymentonion,
+                           onion1['onion'],
+                           inv2['payment_hash'],
+                           1000,
+                           blockheight + 18 + 6,
+                           1,
+                           0)
+    fut2 = executor.submit(l1.rpc.injectpaymentonion,
+                           onion2['onion'],
+                           inv2['payment_hash'],
+                           2000,
+                           blockheight + 18 + 6,
+                           2,
+                           0)
+
+    # Now both should complete.
+    ret = fut1.result(TIMEOUT)
+    assert sha256(bytes.fromhex(ret['payment_preimage'])).hexdigest() == inv2['payment_hash']
+    ret = fut2.result(TIMEOUT)
+    assert sha256(bytes.fromhex(ret['payment_preimage'])).hexdigest() == inv2['payment_hash']
+
+    assert only_one(l2.rpc.listinvoices("test_injectpaymentonion2")['invoices'])['status'] == 'paid'
+    lsps = l1.rpc.listsendpays(inv2['bolt11'])['payments']
+    for lsp in lsps:
+        assert lsp['groupid'] == 0
+        assert lsp['partid'] == 1 or lsp['partid'] == 2
+        assert lsp['payment_hash'] == inv2['payment_hash']
+        assert lsp['status'] == 'complete'
+    assert len(lsps) == 2
+
+
+def test_injectpaymentonion_3hop(node_factory, executor):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    blockheight = l1.rpc.getinfo()['blockheight']
+    inv3 = l3.rpc.invoice(1000, "test_injectpaymentonion3", "test_injectpaymentonion3")
+
+    # First hop for injectpaymentonion is self.
+    hops = [{'pubkey': l1.info['id'],
+             'payload': serialize_payload_tlv(1001, 18 + 6 + 6, first_scid(l1, l2), blockheight).hex()},
+            {'pubkey': l2.info['id'],
+             'payload': serialize_payload_tlv(1000, 18 + 6, first_scid(l3, l2), blockheight).hex()},
+            {'pubkey': l3.info['id'],
+             'payload': serialize_payload_final_tlv(1000, 18, 1000, blockheight, inv3['payment_secret']).hex()}]
+    onion = l1.rpc.createonion(hops=hops, assocdata=inv3['payment_hash'])
+
+    ret = l1.rpc.injectpaymentonion(onion=onion['onion'],
+                                    payment_hash=inv3['payment_hash'],
+                                    amount_msat=1001,
+                                    cltv_expiry=blockheight + 18 + 6 + 6,
+                                    partid=1,
+                                    groupid=0)
+    assert sha256(bytes.fromhex(ret['payment_preimage'])).hexdigest() == inv3['payment_hash']
+    assert only_one(l3.rpc.listinvoices("test_injectpaymentonion3")['invoices'])['status'] == 'paid'
+    lsp = only_one(l1.rpc.listsendpays(inv3['bolt11'])['payments'])
+    assert lsp['groupid'] == 0
+    assert lsp['partid'] == 1
+    assert lsp['payment_hash'] == inv3['payment_hash']
+    assert lsp['status'] == 'complete'
+
+
+def test_injectpaymentonion_selfpay(node_factory, executor):
+    l1, l2 = node_factory.line_graph(2, opts={'experimental-offers': None})
+
+    blockheight = l1.rpc.getinfo()['blockheight']
+
+    # Test simple self-pay.
+    inv4 = l1.rpc.invoice(1000, "test_injectpaymentonion4", "test_injectpaymentonion4")
+
+    # First hop for injectpaymentonion is self.
+    hops = [{'pubkey': l1.info['id'],
+             'payload': serialize_payload_final_tlv(1000, 18, 1000, blockheight, inv4['payment_secret']).hex()}]
+    onion = l1.rpc.createonion(hops=hops, assocdata=inv4['payment_hash'])
+
+    ret = l1.rpc.injectpaymentonion(onion=onion['onion'],
+                                    payment_hash=inv4['payment_hash'],
+                                    amount_msat=1000,
+                                    cltv_expiry=blockheight + 18,
+                                    partid=1,
+                                    groupid=0)
+    assert sha256(bytes.fromhex(ret['payment_preimage'])).hexdigest() == inv4['payment_hash']
+    assert only_one(l1.rpc.listinvoices("test_injectpaymentonion4")['invoices'])['status'] == 'paid'
+    lsp = only_one(l1.rpc.listsendpays(inv4['bolt11'])['payments'])
+    assert lsp['groupid'] == 0
+    assert lsp['partid'] == 1
+    assert lsp['payment_hash'] == inv4['payment_hash']
+    assert lsp['status'] == 'complete'
+
+    # Test self-pay with MPP.
+    inv5 = l1.rpc.invoice(1000, "test_injectpaymentonion5", "test_injectpaymentonion5")
+
+    # First hop for injectpaymentonion is self.
+    hops1 = [{'pubkey': l1.info['id'],
+             'payload': serialize_payload_final_tlv(333, 18, 1000, blockheight, inv5['payment_secret']).hex()}]
+    onion1 = l1.rpc.createonion(hops=hops1, assocdata=inv5['payment_hash'])
+    hops2 = [{'pubkey': l1.info['id'],
+             'payload': serialize_payload_final_tlv(666, 18, 1000, blockheight, inv5['payment_secret']).hex()}]
+    onion2 = l1.rpc.createonion(hops=hops2, assocdata=inv5['payment_hash'])
+
+    fut1 = executor.submit(l1.rpc.injectpaymentonion,
+                           onion1['onion'],
+                           inv5['payment_hash'],
+                           333,
+                           blockheight + 18,
+                           1,
+                           0)
+    fut2 = executor.submit(l1.rpc.injectpaymentonion,
+                           onion2['onion'],
+                           inv5['payment_hash'],
+                           667,
+                           blockheight + 18,
+                           2,
+                           0)
+    # Now both should complete.
+    ret = fut1.result(TIMEOUT)
+    assert sha256(bytes.fromhex(ret['payment_preimage'])).hexdigest() == inv5['payment_hash']
+
+    ret = fut2.result(TIMEOUT)
+    assert sha256(bytes.fromhex(ret['payment_preimage'])).hexdigest() == inv5['payment_hash']
+
+    assert only_one(l1.rpc.listinvoices("test_injectpaymentonion5")['invoices'])['status'] == 'paid'
+    lsps = l1.rpc.listsendpays(inv5['bolt11'])['payments']
+    for lsp in lsps:
+        assert lsp['groupid'] == 0
+        assert lsp['partid'] == 1 or lsp['partid'] == 2
+        assert lsp['payment_hash'] == inv5['payment_hash']
+        assert lsp['status'] == 'complete'
+    assert len(lsps) == 2
+
+    # Check listpays gives a reasonable result!
+    pays = only_one(l1.rpc.listpays(inv5['bolt11'])['pays'])
+    # Don't know these values
+    del pays['created_at']
+    del pays['completed_at']
+    del pays['preimage']
+    assert pays == {'bolt11': inv5['bolt11'],
+                    'payment_hash': inv5['payment_hash'],
+                    'status': "complete",
+                    'amount_sent_msat': 1000,
+                    'number_of_parts': 2}
+
+    # Test self-pay with MPP from non-selfpay.
+    inv6 = l2.rpc.invoice(3000, "test_injectpaymentonion6", "test_injectpaymentonion6")
+
+    # First hop for injectpaymentonion is self.
+    hops1 = [{'pubkey': l1.info['id'],
+              'payload': serialize_payload_tlv(1000, 18 + 6, first_scid(l1, l2), blockheight).hex()},
+             {'pubkey': l2.info['id'],
+              'payload': serialize_payload_final_tlv(1000, 18, 3000, blockheight, inv6['payment_secret']).hex()}]
+    onion1 = l1.rpc.createonion(hops=hops1, assocdata=inv6['payment_hash'])
+    hops2 = [{'pubkey': l2.info['id'],
+              'payload': serialize_payload_final_tlv(2000, 18, 3000, blockheight, inv6['payment_secret']).hex()}]
+    onion2 = l1.rpc.createonion(hops=hops2, assocdata=inv6['payment_hash'])
+
+    fut1 = executor.submit(l1.rpc.injectpaymentonion,
+                           onion1['onion'],
+                           inv6['payment_hash'],
+                           1000,
+                           blockheight + 18 + 6,
+                           1,
+                           0)
+    fut2 = executor.submit(l2.rpc.injectpaymentonion,
+                           onion2['onion'],
+                           inv6['payment_hash'],
+                           2000,
+                           blockheight + 18,
+                           2,
+                           1)
+
+    # Now both should complete.
+    ret = fut1.result(TIMEOUT)
+    assert sha256(bytes.fromhex(ret['payment_preimage'])).hexdigest() == inv6['payment_hash']
+
+    ret = fut2.result(TIMEOUT)
+    assert sha256(bytes.fromhex(ret['payment_preimage'])).hexdigest() == inv6['payment_hash']
+
+    assert only_one(l2.rpc.listinvoices("test_injectpaymentonion6")['invoices'])['status'] == 'paid'
+    lsp = only_one(l1.rpc.listsendpays(inv6['bolt11'])['payments'])
+    assert lsp['groupid'] == 0
+    assert lsp['partid'] == 1
+    assert lsp['payment_hash'] == inv6['payment_hash']
+    assert lsp['status'] == 'complete'
+    lsp = only_one(l2.rpc.listsendpays(inv6['bolt11'])['payments'])
+    assert lsp['groupid'] == 1
+    assert lsp['partid'] == 2
+    assert lsp['payment_hash'] == inv6['payment_hash']
+    assert lsp['status'] == 'complete'
+
+    # Test bolt12 self-pay.
+    offer = l1.rpc.offer('any')
+    inv10 = l1.rpc.fetchinvoice(offer['bolt12'], '1000msat')
+    decoded = l1.rpc.decode(inv10['invoice'])
+
+    final_tlvs = TlvPayload()
+    final_tlvs.add_field(2, tu64_encode(1000))
+    final_tlvs.add_field(4, tu64_encode(blockheight + 18))
+    final_tlvs.add_field(10, bytes.fromhex(decoded['invoice_paths'][0]['path'][0]['encrypted_recipient_data']))
+    final_tlvs.add_field(12, bytes.fromhex(decoded['invoice_paths'][0]['first_path_key']))
+    final_tlvs.add_field(18, tu64_encode(1000))
+
+    hops = [{'pubkey': l1.info['id'],
+             'payload': final_tlvs.to_bytes().hex()}]
+    onion = l1.rpc.createonion(hops=hops, assocdata=decoded['invoice_payment_hash'])
+
+    ret = l1.rpc.injectpaymentonion(onion=onion['onion'],
+                                    payment_hash=decoded['invoice_payment_hash'],
+                                    amount_msat=1000,
+                                    cltv_expiry=blockheight + 18,
+                                    partid=1,
+                                    groupid=0)
+    assert sha256(bytes.fromhex(ret['payment_preimage'])).hexdigest() == decoded['invoice_payment_hash']
+    # The label for the invoice is deterministic.
+    label = f"{decoded['offer_id']}-{decoded['invreq_payer_id']}-0"
+    assert only_one(l1.rpc.listinvoices(label)['invoices'])['status'] == 'paid'
+    lsp = only_one(l1.rpc.listsendpays(inv4['bolt11'])['payments'])
+    assert lsp['groupid'] == 0
+    assert lsp['partid'] == 1
+    assert lsp['payment_hash'] == inv4['payment_hash']
+    assert lsp['status'] == 'complete'
+
+
+def test_injectpaymentonion_blindedpath(node_factory, executor):
+    l1, l2 = node_factory.line_graph(2,
+                                     wait_for_announce=True,
+                                     opts={'experimental-offers': None})
+    blockheight = l1.rpc.getinfo()['blockheight']
+
+    # Test bolt12, with stub blinded path.
+    offer = l2.rpc.offer('any')
+    inv7 = l1.rpc.fetchinvoice(offer['bolt12'], '1000msat')
+
+    decoded = l1.rpc.decode(inv7['invoice'])
+    assert len(decoded['invoice_paths']) == 1
+    path_key = decoded['invoice_paths'][0]['first_path_key']
+    assert decoded['invoice_paths'][0]['first_node_id'] == l2.info['id']
+    path = decoded['invoice_paths'][0]['path']
+    assert len(path) == 1
+
+    # Manually encode the onion payload to include blinded info
+    # BOLT #4:
+    #   - For every node inside a blinded route:
+    #     - MUST include the `encrypted_recipient_data` provided by the recipient
+    #     - For the first node in the blinded route:
+    #       - MUST include the `path_key` provided by the recipient in `current_path_key`
+    #     - If it is the final node:
+    #       - MUST include `amt_to_forward`, `outgoing_cltv_value` and `total_amount_msat`.
+    #       - The value set for `outgoing_cltv_value`:
+    #         - MUST use the current block height as a baseline value.
+    #         - if a [random offset](07-routing-gossip.md#recommendations-for-routing) was added to improve privacy:
+    #           - SHOULD add the offset to the baseline value.
+    #     - MUST NOT include any other tlv field.
+    final_tlvs = TlvPayload()
+
+    # BOLT #4:
+    #     1. type: 2 (`amt_to_forward`)
+    #     2. data:
+    #         * [`tu64`:`amt_to_forward`]
+    #     1. type: 4 (`outgoing_cltv_value`)
+    #     2. data:
+    #         * [`tu32`:`outgoing_cltv_value`]
+    # ...
+    #     1. type: 10 (`encrypted_recipient_data`)
+    #     2. data:
+    #         * [`...*byte`:`encrypted_recipient_data`]
+    #     1. type: 12 (`current_path_key`)
+    #     2. data:
+    #         * [`point`:`path_key`]
+    # ...
+    #    1. type: 18 (`total_amount_msat`)
+    #    2. data:
+    #        * [`tu64`:`total_msat`]
+    final_tlvs.add_field(2, tu64_encode(1000))
+    final_tlvs.add_field(4, tu64_encode(blockheight + 18))
+    final_tlvs.add_field(10, bytes.fromhex(path[0]['encrypted_recipient_data']))
+    final_tlvs.add_field(12, bytes.fromhex(path_key))
+    final_tlvs.add_field(18, tu64_encode(1000))
+
+    hops = [{'pubkey': l1.info['id'],
+             'payload': serialize_payload_tlv(1000, 18 + 6, first_scid(l1, l2), blockheight).hex()},
+            {'pubkey': l2.info['id'],
+             'payload': final_tlvs.to_bytes().hex()}]
+    onion = l1.rpc.createonion(hops=hops, assocdata=decoded['invoice_payment_hash'])
+
+    ret = l1.rpc.injectpaymentonion(onion=onion['onion'],
+                                    payment_hash=decoded['invoice_payment_hash'],
+                                    amount_msat=1000,
+                                    cltv_expiry=blockheight + 18 + 6,
+                                    partid=1,
+                                    groupid=0)
+    assert sha256(bytes.fromhex(ret['payment_preimage'])).hexdigest() == decoded['invoice_payment_hash']
+    # The label for l2's invoice is deterministic.
+    label = f"{decoded['offer_id']}-{decoded['invreq_payer_id']}-0"
+    assert only_one(l2.rpc.listinvoices(label)['invoices'])['status'] == 'paid'
+
+    lsp = only_one(l1.rpc.listsendpays(inv7['invoice'])['payments'])
+    assert lsp['groupid'] == 0
+    assert lsp['partid'] == 1
+    assert lsp['payment_hash'] == decoded['invoice_payment_hash']
+    assert lsp['status'] == 'complete'
+
+    # Now test bolt12 with real blinded path.
+    l4 = node_factory.get_node(options={'experimental-offers': None})
+    # Private channel.
+    node_factory.join_nodes([l2, l4], announce_channels=False)
+
+    # Make sure l4 knows about other nodes, so will add route hint.
+    wait_for(lambda: len(l4.rpc.listnodes()['nodes']) == 2)
+    offer = l4.rpc.offer('any')
+    inv8 = l1.rpc.fetchinvoice(offer['bolt12'], '1000msat')
+
+    decoded = l1.rpc.decode(inv8['invoice'])
+    assert len(decoded['invoice_paths']) == 1
+    path_key = decoded['invoice_paths'][0]['first_path_key']
+    assert decoded['invoice_paths'][0]['first_node_id'] == l2.info['id']
+    path = decoded['invoice_paths'][0]['path']
+    assert len(path) == 2
+
+    mid_tlvs = TlvPayload()
+    mid_tlvs.add_field(10, bytes.fromhex(path[0]['encrypted_recipient_data']))
+    mid_tlvs.add_field(12, bytes.fromhex(path_key))
+
+    final_tlvs = TlvPayload()
+    final_tlvs.add_field(2, tu64_encode(1000))
+    final_tlvs.add_field(4, tu64_encode(blockheight + 18))
+    final_tlvs.add_field(10, bytes.fromhex(path[1]['encrypted_recipient_data']))
+    final_tlvs.add_field(18, tu64_encode(1000))
+
+    hops = [{'pubkey': l1.info['id'],
+             'payload': serialize_payload_tlv(1001, 18 + 6 + 6, first_scid(l1, l2), blockheight).hex()},
+            {'pubkey': l2.info['id'],
+             'payload': mid_tlvs.to_bytes().hex()},
+            {'pubkey': path[1]['blinded_node_id'],
+             'payload': final_tlvs.to_bytes().hex()}]
+    onion = l1.rpc.createonion(hops=hops, assocdata=decoded['invoice_payment_hash'])
+
+    ret = l1.rpc.injectpaymentonion(onion=onion['onion'],
+                                    payment_hash=decoded['invoice_payment_hash'],
+                                    amount_msat=1001,
+                                    cltv_expiry=blockheight + 18 + 6,
+                                    partid=1,
+                                    groupid=0)
+    assert sha256(bytes.fromhex(ret['payment_preimage'])).hexdigest() == decoded['invoice_payment_hash']
+    # The label for l4's invoice is deterministic.
+    label = f"{decoded['offer_id']}-{decoded['invreq_payer_id']}-0"
+    assert only_one(l4.rpc.listinvoices(label)['invoices'])['status'] == 'paid'
+    lsp = only_one(l1.rpc.listsendpays(inv8['invoice'])['payments'])
+    assert lsp['groupid'] == 0
+    assert lsp['partid'] == 1
+    assert lsp['payment_hash'] == decoded['invoice_payment_hash']
+    assert lsp['status'] == 'complete'
+
+    # Finally, with blinded path which starts with us.
+    offer = l4.rpc.offer('any')
+    inv9 = l1.rpc.fetchinvoice(offer['bolt12'], '1000msat')
+
+    decoded = l1.rpc.decode(inv9['invoice'])
+    assert len(decoded['invoice_paths']) == 1
+    path_key = decoded['invoice_paths'][0]['first_path_key']
+    assert decoded['invoice_paths'][0]['first_node_id'] == l2.info['id']
+    path = decoded['invoice_paths'][0]['path']
+    assert len(path) == 2
+
+    mid_tlvs = TlvPayload()
+    mid_tlvs.add_field(10, bytes.fromhex(path[0]['encrypted_recipient_data']))
+    mid_tlvs.add_field(12, bytes.fromhex(path_key))
+
+    final_tlvs = TlvPayload()
+    final_tlvs.add_field(2, tu64_encode(1000))
+    final_tlvs.add_field(4, tu64_encode(blockheight + 18))
+    final_tlvs.add_field(10, bytes.fromhex(path[1]['encrypted_recipient_data']))
+    final_tlvs.add_field(18, tu64_encode(1000))
+
+    hops = [{'pubkey': l2.info['id'],
+             'payload': mid_tlvs.to_bytes().hex()},
+            {'pubkey': path[1]['blinded_node_id'],
+             'payload': final_tlvs.to_bytes().hex()}]
+    onion = l1.rpc.createonion(hops=hops, assocdata=decoded['invoice_payment_hash'])
+
+    ret = l2.rpc.injectpaymentonion(onion=onion['onion'],
+                                    payment_hash=decoded['invoice_payment_hash'],
+                                    amount_msat=1001,
+                                    cltv_expiry=blockheight + 18 + 6,
+                                    partid=1,
+                                    groupid=0)
+    assert sha256(bytes.fromhex(ret['payment_preimage'])).hexdigest() == decoded['invoice_payment_hash']
+    # The label for the invoice is deterministic.
+    label = f"{decoded['offer_id']}-{decoded['invreq_payer_id']}-0"
+    assert only_one(l4.rpc.listinvoices(label)['invoices'])['status'] == 'paid'
+    lsp = only_one(l2.rpc.listsendpays(inv9['invoice'])['payments'])
+    assert lsp['groupid'] == 0
+    assert lsp['partid'] == 1
+    assert lsp['payment_hash'] == decoded['invoice_payment_hash']
+    assert lsp['status'] == 'complete'
+
+
+def test_injectpaymentonion_failures(node_factory, executor):
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+    blockheight = l1.rpc.getinfo()['blockheight']
+
+    #
+    # Failure cases should give an onion:
+    #  Unknown invoice.
+    #  Unknown invoice (selfpay)
+    #  Cannot forward.
+
+    # Unknown invoice
+    hops = [{'pubkey': l1.info['id'],
+             'payload': serialize_payload_tlv(1000, 18 + 6, first_scid(l1, l2), blockheight).hex()},
+            {'pubkey': l2.info['id'],
+             'payload': serialize_payload_final_tlv(1000, 18, 1000, blockheight, '00' * 32).hex()}]
+    onion = l1.rpc.createonion(hops=hops, assocdata='00' * 32)
+
+    with pytest.raises(RpcError) as err:
+        l1.rpc.injectpaymentonion(onion=onion['onion'],
+                                  payment_hash='00' * 32,
+                                  amount_msat=1000,
+                                  cltv_expiry=blockheight + 18 + 6,
+                                  partid=1,
+                                  groupid=0)
+
+    # PAY_INJECTPAYMENTONION_FAILED
+    assert err.value.error['code'] == 218
+    assert 'onionreply' in err.value.error['data']
+
+    # Self-pay (unknown payment_hash)
+    hops = [{'pubkey': l1.info['id'],
+             'payload': serialize_payload_final_tlv(1000, 18, 1000, blockheight, '00' * 32).hex()}]
+    onion = l1.rpc.createonion(hops=hops, assocdata='00' * 32)
+
+    with pytest.raises(RpcError) as err:
+        l1.rpc.injectpaymentonion(onion=onion['onion'],
+                                  payment_hash='00' * 32,
+                                  amount_msat=1000,
+                                  cltv_expiry=blockheight + 18 + 6,
+                                  partid=1,
+                                  groupid=1)
+
+    # PAY_INJECTPAYMENTONION_FAILED
+    assert err.value.error['code'] == 218
+    assert 'onionreply' in err.value.error['data']
+
+    # Insufficient funds (l2 can't pay to l1)
+    inv11 = l1.rpc.invoice(3000, "test_injectpaymentonion11", "test_injectpaymentonion11")
+    hops = [{'pubkey': l2.info['id'],
+             'payload': serialize_payload_tlv(1000, 18 + 6, first_scid(l1, l2), blockheight).hex()},
+            {'pubkey': l1.info['id'],
+             'payload': serialize_payload_final_tlv(1000, 18, 1000, blockheight, inv11['payment_secret']).hex()}]
+    onion = l1.rpc.createonion(hops=hops, assocdata=inv11['payment_hash'])
+
+    with pytest.raises(RpcError) as err:
+        l2.rpc.injectpaymentonion(onion=onion['onion'],
+                                  payment_hash=inv11['payment_hash'],
+                                  amount_msat=1000,
+                                  cltv_expiry=blockheight + 18 + 6,
+                                  partid=1,
+                                  groupid=0)
+
+    # PAY_INJECTPAYMENTONION_FAILED
+    assert err.value.error['code'] == 218
+    assert 'onionreply' in err.value.error['data']
