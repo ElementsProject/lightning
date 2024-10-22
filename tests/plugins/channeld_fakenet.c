@@ -2,7 +2,7 @@
  * pretends to.  It knows secret keys though, for a fake network, and can
  * respond as if we are connected to that network.
  *
- * Known payment_hashes (0000000..., 0100000..., 020000...):
+ * Example known payment_hashes (0000000..., 0100000..., 020000..., ...  FF0000...):
  *  66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925
  *  01d0fabd251fcbbe2b93b4b927b26ad2a1a99077152e45ded1e678afa45dbec5
  *  5778f985db754c6628691f56fadae50c65fddbe8eb2e93039633fefa05d45e31
