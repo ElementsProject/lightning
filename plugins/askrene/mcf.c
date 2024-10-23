@@ -286,6 +286,9 @@ struct pay_parameters {
 	// how much we pay
 	struct amount_msat amount;
 
+	/* base unit for computation, ie. accuracy */
+	struct amount_msat accuracy;
+
 	// channel linearization parameters
 	double cap_fraction[CHANNEL_PARTS],
 	       cost_fraction[CHANNEL_PARTS];
@@ -360,12 +363,13 @@ static void linearize_channel(const struct pay_parameters *params,
 	if (amount_msat_greater(mincap, maxcap))
 		mincap = maxcap;
 
-	u64 a = mincap.millisatoshis/1000, /* Raw: linearize_channel */
-	    b = 1 + maxcap.millisatoshis/1000; /* Raw: linearize_channel */
+	u64 a = amount_msat_ratio_floor(mincap, params->accuracy),
+	    b = 1 + amount_msat_ratio_floor(maxcap, params->accuracy);
 
 	/* An extra bound on capacity, here we use it to reduce the flow such
 	 * that it does not exceed htlcmax. */
-	u64 cap_on_capacity = fp16_to_u64(c->half[dir].htlc_max) / 1000;
+	u64 cap_on_capacity =
+	    amount_msat_ratio_floor(gossmap_chan_htlc_max(c, dir), params->accuracy);
 
 	set_capacity(&capacity[0], a, &cap_on_capacity);
 	cost[0]=0;
@@ -373,9 +377,9 @@ static void linearize_channel(const struct pay_parameters *params,
 	{
 		set_capacity(&capacity[i], params->cap_fraction[i]*(b-a), &cap_on_capacity);
 
-		cost[i] = params->cost_fraction[i]
-		          *params->amount.millisatoshis /* Raw: linearize_channel */
-		          /(b-a);
+		cost[i] = params->cost_fraction[i] * 1000
+			  * amount_msat_ratio(params->amount, params->accuracy)
+			  / (b - a);
 	}
 }
 
@@ -528,7 +532,7 @@ static void combine_cost_function(
  *
  * into
  *
- *  	fee_microsat = c_fee * x_sat
+ *  	fee = c_fee/10^6 * x
  *
  *  use `base_fee_penalty` to weight the base fee and `delay_feefactor` to
  *  weight the CLTV delay.
@@ -557,21 +561,24 @@ struct amount_msat linear_flow_cost(const struct flow *flow,
 				    double delay_feefactor)
 {
 	struct amount_msat msat_cost;
-	s64 cost = 0;
+	s64 cost_ppm = 0;
 	double base_fee_penalty = base_fee_penalty_estimate(total_amount);
 
 	for (size_t i = 0; i < tal_count(flow->path); i++) {
 		const struct half_chan *h = &flow->path[i]->half[flow->dirs[i]];
 
-		cost += linear_fee_cost(h->base_fee, h ->proportional_fee, h->delay,
-					base_fee_penalty, delay_feefactor);
+		cost_ppm +=
+		    linear_fee_cost(h->base_fee, h->proportional_fee, h->delay,
+				    base_fee_penalty, delay_feefactor);
 	}
-
-	if (!amount_msat_mul(&msat_cost, flow->delivers, cost))
+	if (!amount_msat_fee(&msat_cost, flow->delivers, 0, cost_ppm))
 		abort();
 	return msat_cost;
 }
 
+/* FIXME: Instead of mapping one-to-one the indexes in the gossmap, try to
+ * reduce the number of nodes and arcs used by taking only those that are
+ * enabled. We might save some cpu if the work with a pruned network. */
 static struct linear_network *
 init_linear_network(const tal_t *ctx, const struct pay_parameters *params)
 {
@@ -629,6 +636,7 @@ init_linear_network(const tal_t *ctx, const struct pay_parameters *params)
 			// that are outgoing to `node`
 			linearize_channel(params, c, half, capacity, prob_cost);
 
+			/* linear fee_cost per unit of flow */
 			const s64 fee_cost = linear_fee_cost(
 				c->half[half].base_fee,
 				c->half[half].proportional_fee,
@@ -751,13 +759,14 @@ struct list_data
  * balance, compute the bigest flow and substract it from the nodes balance and
  * the channels allocation. */
 static struct flow *substract_flow(const tal_t *ctx,
-				   const struct gossmap *gossmap,
+				   const struct pay_parameters *params,
 				   const struct node source,
 				   const struct node sink,
 				   s64 *balance, struct chan_flow *chan_flow,
 				   const u32 *prev_idx, const int *prev_dir,
 				   const struct gossmap_chan *const *prev_chan)
 {
+	const struct gossmap *gossmap = params->rq->gossmap;
 	assert(balance[source.idx] < 0);
 	assert(balance[sink.idx] > 0);
 	s64 delta = -balance[source.idx];
@@ -803,7 +812,8 @@ static struct flow *substract_flow(const tal_t *ctx,
 
 		chan_flow[chan_idx].half[dir] -= delta;
 	}
-	f->delivers = amount_msat(delta * 1000);
+	if (!amount_msat_mul(&f->delivers, params->accuracy, delta))
+		abort();
 	return f;
 }
 
@@ -856,16 +866,16 @@ static void substract_cycle(const struct gossmap *gossmap,
 static struct flow **
 get_flow_paths(const tal_t *ctx,
 	       const tal_t *working_ctx,
-	       const struct route_query *rq,
+	       const struct pay_parameters *params,
 	       const struct linear_network *linear_network,
 	       const struct residual_network *residual_network)
 {
 	struct flow **flows = tal_arr(ctx,struct flow*,0);
 
-	const size_t max_num_chans = gossmap_max_chan_idx(rq->gossmap);
+	const size_t max_num_chans = gossmap_max_chan_idx(params->rq->gossmap);
 	struct chan_flow *chan_flow = tal_arrz(working_ctx,struct chan_flow,max_num_chans);
 
-	const size_t max_num_nodes = gossmap_max_node_idx(rq->gossmap);
+	const size_t max_num_nodes = gossmap_max_node_idx(params->rq->gossmap);
 	s64 *balance = tal_arrz(working_ctx,s64,max_num_nodes);
 
 	const struct gossmap_chan **prev_chan
@@ -911,21 +921,21 @@ get_flow_paths(const tal_t *ctx,
 		while (balance[source.idx] < 0) {
 			prev_chan[source.idx] = NULL;
 			struct node sink = find_path_or_cycle(
-			    working_ctx, rq->gossmap, chan_flow, source,
+			    working_ctx, params->rq->gossmap, chan_flow, source,
 			    balance, prev_chan, prev_dir, prev_idx);
 
 			if (balance[sink.idx] > 0)
 			/* case 1. found a path */
 			{
 				struct flow *fp = substract_flow(
-				    flows, rq->gossmap, source, sink, balance,
+				    flows, params, source, sink, balance,
 				    chan_flow, prev_idx, prev_dir, prev_chan);
 
 				tal_arr_expand(&flows, fp);
 			} else
 			/* case 2. found a cycle */
 			{
-				substract_cycle(rq->gossmap, sink, chan_flow,
+				substract_cycle(params->rq->gossmap, sink, chan_flow,
 						prev_idx, prev_dir, prev_chan);
 			}
 		}
@@ -963,6 +973,10 @@ struct flow **minflow(const tal_t *ctx,
 	params->source = source;
 	params->target = target;
 	params->amount = amount;
+	params->accuracy = AMOUNT_MSAT(1000);
+	/* FIXME: params->accuracy = amount_msat_max(amount_msat_div(amount,
+	 * 1000), AMOUNT_MSAT(1));
+	 * */
 
 	// template the channel partition into linear arcs
 	params->cap_fraction[0]=0;
@@ -991,24 +1005,14 @@ struct flow **minflow(const tal_t *ctx,
 
 	init_residual_network(linear_network,residual_network);
 
-	/* TODO(eduardo):
-	 * Some MCF algorithms' performance depend on the size of maxflow. If we
-	 * were to work in units of msats we 1. risking overflow when computing
-	 * costs and 2. we risk a performance overhead for no good reason.
-	 *
-	 * Working in units of sats was my first choice, but maybe working in
-	 * units of 10, or 100 sats could be even better.
-	 *
-	 * IDEA: define the size of our precision as some parameter got at
-	 * runtime that depends on the size of the payment and adjust the MCF
-	 * accordingly.
-	 * For example if we are trying to pay 1M sats our precision could be
-	 * set to 1000sat, then channels that had capacity for 3M sats become 3k
-	 * flow units. */
-	const u64 pay_amount_sats = (params->amount.millisatoshis + 999)/1000; /* Raw: minflow */
+	/* Since we have constraint accuracy, ask to find a payment solution
+	 * that can pay a bit more than the actual value rathen than undershoot it.
+	 * That's why we use the ceil function here. */
+	const u64 pay_amount =
+	    amount_msat_ratio_ceil(params->amount, params->accuracy);
 
 	if (!simple_feasibleflow(working_ctx, linear_network->graph, src, dst,
-				 residual_network->cap, pay_amount_sats)) {
+				 residual_network->cap, pay_amount)) {
 		rq_log(tmpctx, rq, LOG_INFORM,
 		       "%s failed: unable to find a feasible flow.", __func__);
 		goto fail;
@@ -1031,7 +1035,7 @@ struct flow **minflow(const tal_t *ctx,
 	/* We dissect the solution of the MCF into payment routes.
 	 * Actual amounts considering fees are computed for every
 	 * channel in the routes. */
-	flow_paths = get_flow_paths(ctx, working_ctx, rq,
+	flow_paths = get_flow_paths(ctx, working_ctx, params,
 				    linear_network, residual_network);
 	if(!flow_paths){
 		rq_log(tmpctx, rq, LOG_BROKEN,
