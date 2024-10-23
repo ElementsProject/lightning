@@ -87,6 +87,9 @@ struct seeker {
 
 	/* A peer that told us about unknown gossip (set to NULL if peer dies). */
 	struct peer *preferred_peer;
+
+	/* check_timer cycles since streaming began from the last new gossiper. */
+	u8 new_gossiper_elapsed;
 };
 
 /* Mutual recursion */
@@ -152,6 +155,7 @@ struct seeker *new_seeker(struct daemon *daemon)
 	seeker->preferred_peer = NULL;
 	seeker->unknown_nodes = false;
 	seeker->last_full_sync_peer = NULL;
+	seeker->new_gossiper_elapsed = 0;
 	set_state(seeker, STARTING_UP, NULL, "New seeker");
 	begin_check_timer(seeker);
 	seeker->sync_timer = NULL;
@@ -890,39 +894,63 @@ static bool peer_is_not_gossipper(const struct peer *peer)
 	return true;
 }
 
-/* FIXME: We should look at gossip performance and replace the underperforming
- * peers in preference. */
+/* Allows evaluation of least useful gossip streamer. */
+static void reset_gossip_performance_metrics(struct seeker *seeker)
+{
+	seeker->new_gossiper_elapsed = 0;
+	for (int i = 0; i < ARRAY_SIZE(seeker->gossiper); i++) {
+		seeker->gossiper[i]->gossip_counter = 0;
+	}
+}
+
 static void maybe_rotate_gossipers(struct seeker *seeker)
 {
 	struct peer *peer;
-	size_t i;
+	size_t i, lowest_idx;
+
+	seeker->new_gossiper_elapsed++;
 
 	/* If all (usable) peers are gossiping, we're done */
 	peer = random_seeker(seeker, peer_is_not_gossipper);
 	if (!peer)
 		return;
 
-	/* If we have a slot free, or ~ 1 per hour */
+	/* If we have a slot free, fill it. */
 	for (i = 0; i < ARRAY_SIZE(seeker->gossiper); i++) {
 		if (!seeker->gossiper[i]) {
 			status_peer_debug(&peer->id, "seeker: filling slot %zu",
 					  i);
+			lowest_idx = i;
 			goto set_gossiper;
 		}
-		if (pseudorand(ARRAY_SIZE(seeker->gossiper) * 60) == 0) {
-			status_peer_debug(&peer->id,
-					  "seeker: replacing slot %zu",
-					  i);
-			goto disable_gossiper;
+	}
+	/* Otherwise, rotate out a gossiper ~once per hour. */
+	if (pseudorand(60) != 0)
+		return;
+	/* Don't evaluate gossip performance at a faster rate than
+	 * new gossip is periodically emitted. */
+	if (seeker->new_gossiper_elapsed < 3)
+		return;
+	u32 lowest_count = UINT_MAX;
+	for (int j = 0; j < ARRAY_SIZE(seeker->gossiper); j++) {
+		if (seeker-> gossiper[j]->gossip_counter < lowest_count) {
+			lowest_count = seeker-> gossiper[j]->gossip_counter;
+			lowest_idx = j;
 		}
 	}
-	return;
+	status_debug("seeker: ejecting worst gossiper %s - slot %zu: "
+		     "novel gossip count %zu over %u minutes",
+		     fmt_node_id(tmpctx, &seeker->gossiper[lowest_idx]->id),
+		     lowest_idx, seeker->gossiper[lowest_idx]->gossip_counter,
+		     seeker->new_gossiper_elapsed);
+	status_peer_debug(&peer->id, "seeker: replacing slot %zu",
+			  lowest_idx);
+	disable_gossip_stream(seeker, seeker->gossiper[lowest_idx]);
 
-disable_gossiper:
-	disable_gossip_stream(seeker, seeker->gossiper[i]);
 set_gossiper:
-	seeker->gossiper[i] = peer;
+	seeker->gossiper[lowest_idx] = peer;
 	enable_gossip_stream(seeker, peer, false);
+	reset_gossip_performance_metrics(seeker);
 }
 
 static bool seek_any_unknown_nodes(struct seeker *seeker)
