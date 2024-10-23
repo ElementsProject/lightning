@@ -100,6 +100,9 @@ struct peer {
 	/* How much contribution have we made to gossip? */
 	size_t gossip_counter;
 
+	/* How much gossip have we sent in response to gossip queries? */
+	size_t query_reply_counter;
+
 	/* The two features gossip cares about (so far) */
 	bool gossip_queries_feature, initial_routing_sync_feature;
 
@@ -128,10 +131,15 @@ struct peer {
 /* Search for a peer. */
 struct peer *find_peer(struct daemon *daemon, const struct node_id *id);
 
-/* This peer (may be NULL) gave is valid gossip. */
+/* This peer (may be NULL) gave us valid gossip. */
 void peer_supplied_good_gossip(struct daemon *daemon,
 			       const struct node_id *source_peer,
 			       size_t amount);
+
+/* Increase peer's query_reply_counter, if peer not NULL */
+void peer_supplied_query_response(struct daemon *daemon,
+				  const struct node_id *source_peer,
+				  size_t amount);
 
 /* Get a random peer.  NULL if no peers. */
 struct peer *first_random_peer(struct daemon *daemon,
