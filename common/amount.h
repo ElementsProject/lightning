@@ -148,6 +148,12 @@ bool amount_msat_eq_sat(struct amount_msat msat, struct amount_sat sat);
 /* a / b */
 double amount_msat_ratio(struct amount_msat a, struct amount_msat b);
 
+/* floor(a/b) */
+u64 amount_msat_ratio_floor(struct amount_msat a, struct amount_msat b);
+
+/* ceil(a/b) */
+u64 amount_msat_ratio_ceil(struct amount_msat a, struct amount_msat b);
+
 /* min(a,b) and max(a,b) */
 static inline struct amount_msat amount_msat_min(struct amount_msat a,
 						 struct amount_msat b)
