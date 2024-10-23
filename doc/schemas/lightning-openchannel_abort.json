@@ -5,7 +5,7 @@
   "rpc": "openchannel_abort",
   "title": "Command to abort a channel to a peer",
   "description": [
-    "`openchannel_init` is a low level RPC command which initiates a channel open with a specified peer. It uses the openchannel protocol which allows for interactive transaction construction."
+    "`openchannel_abort` is a low level RPC command which initiates an abort for specified channel. It uses the openchannel protocol which allows for interactive transaction construction."
   ],
   "request": {
     "required": [
