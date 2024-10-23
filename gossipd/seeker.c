@@ -68,6 +68,9 @@ struct seeker {
 	/* During startup, we ask a single peer for gossip (set to NULL if peer dies)*/
 	struct peer *random_peer;
 
+	/* The last peer we requested a full gossip sync from. */
+	struct peer *last_full_sync_peer;
+
 	/* This checks progress of our random peer */
 	size_t prev_gossip_count;
 
@@ -148,6 +151,7 @@ struct seeker *new_seeker(struct daemon *daemon)
 		seeker->gossiper[i] = NULL;
 	seeker->preferred_peer = NULL;
 	seeker->unknown_nodes = false;
+	seeker->last_full_sync_peer = NULL;
 	set_state(seeker, STARTING_UP, NULL, "New seeker");
 	begin_check_timer(seeker);
 	seeker->sync_timer = NULL;
@@ -982,10 +986,21 @@ static void full_sync_random_peer(struct seeker *seeker)
 		begin_sync_timer(seeker);
 		return;
 	}
-	/* FIXME: store random sync peer and don't select next time. */
+	/* Don't repeatedly resync from the same node. */
+	if (seeker->last_full_sync_peer && seeker->last_full_sync_peer == random_peer) {
+		struct peer *new_peer;
+		new_peer = next_random_peer(seeker->daemon, random_peer, &it);
+		if (new_peer)
+			random_peer = new_peer;
+		else {
+			begin_sync_timer(seeker);
+			return;
+		}
+	}
 	status_peer_debug(&random_peer->id,
 			  "seeker: chosen for periodic full sync");
 	normal_gossip_start(seeker,random_peer, true);
+	seeker->last_full_sync_peer = random_peer;
 	begin_sync_timer(seeker);
 }
 
