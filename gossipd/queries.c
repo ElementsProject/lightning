@@ -338,7 +338,7 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 
 	/* Credit peer for answering gossip, so seeker doesn't get upset:
 	 * since scids are only 8 bytes, use a discount over normal gossip. */
-	peer_supplied_good_gossip(peer->daemon, &peer->id, tal_count(scids) / 20);
+	peer_supplied_query_response(peer->daemon, &peer->id, tal_count(scids) / 20);
 
 	/* Old code used to set this to 1 all the time; not setting it implies
 	 * we're talking to an upgraded node. */

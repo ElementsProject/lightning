@@ -83,6 +83,23 @@ void peer_supplied_good_gossip(struct daemon *daemon,
 	peer->gossip_counter += amount;
 }
 
+/* Increase a peer's query_reply_counter, if peer not NULL */
+void peer_supplied_query_response(struct daemon *daemon,
+				  const struct node_id *source_peer,
+				  size_t amount)
+{
+	struct peer *peer;
+
+	if (!source_peer)
+		return;
+
+	peer = find_peer(daemon, source_peer);
+	if (!peer)
+		return;
+
+	peer->query_reply_counter += amount;
+}
+
 /* Queue a gossip message for the peer: connectd simply forwards it to
  * the peer. */
 void queue_peer_msg(struct daemon *daemon,
@@ -124,6 +141,7 @@ static void connectd_new_peer(struct daemon *daemon, const u8 *msg)
 	/* Populate the rest of the peer info. */
 	peer->daemon = daemon;
 	peer->gossip_counter = 0;
+	peer->query_reply_counter = 0;
 	peer->scid_queries = NULL;
 	peer->scid_query_idx = 0;
 	peer->scid_query_nodes = NULL;

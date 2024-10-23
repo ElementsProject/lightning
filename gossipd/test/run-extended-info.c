@@ -42,11 +42,11 @@ struct short_channel_id *decode_short_ids(const tal_t *ctx UNNEEDED, const u8 *e
 void fromwire_sciddir_or_pubkey(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 				struct sciddir_or_pubkey *sciddpk UNNEEDED)
 { fprintf(stderr, "fromwire_sciddir_or_pubkey called!\n"); abort(); }
-/* Generated stub for peer_supplied_good_gossip */
-void peer_supplied_good_gossip(struct daemon *daemon UNNEEDED,
-			       const struct node_id *source_peer UNNEEDED,
-			       size_t amount UNNEEDED)
-{ fprintf(stderr, "peer_supplied_good_gossip called!\n"); abort(); }
+/* Generated stub for peer_supplied_query_response */
+void peer_supplied_query_response(struct daemon *daemon UNNEEDED,
+				  const struct node_id *source_peer UNNEEDED,
+				  size_t amount UNNEEDED)
+{ fprintf(stderr, "peer_supplied_query_response called!\n"); abort(); }
 /* Generated stub for queue_peer_msg */
 void queue_peer_msg(struct daemon *daemon UNNEEDED,
 		    const struct node_id *peer UNNEEDED,

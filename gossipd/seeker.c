@@ -113,7 +113,7 @@ static bool selected_peer(struct seeker *seeker, struct peer *peer)
 
 	/* Give it some grace in case we immediately hit timer */
 	seeker->prev_gossip_count
-		= peer->gossip_counter - GOSSIP_SEEKER_INTERVAL(seeker);
+		= peer->query_reply_counter - GOSSIP_SEEKER_INTERVAL(seeker);
 	return true;
 }
 
@@ -197,9 +197,9 @@ static bool peer_made_progress(struct seeker *seeker, const struct peer *peer)
 	/* Has it made progress (at least one valid update per second)?  If
 	 * not, we assume it's finished, and if it hasn't, we'll end up
 	 * querying backwards in next steps. */
-	if (peer->gossip_counter
+	if (peer->query_reply_counter
 	    >= seeker->prev_gossip_count + GOSSIP_SEEKER_INTERVAL(seeker)) {
-		seeker->prev_gossip_count = peer->gossip_counter;
+		seeker->prev_gossip_count = peer->query_reply_counter;
 		return true;
 	}
 
@@ -867,7 +867,7 @@ static void check_probe(struct seeker *seeker,
 
 	status_peer_debug(&peer->id,
 			  "has only moved gossip %zu->%zu for probe, giving up on it",
-			  seeker->prev_gossip_count, peer->gossip_counter);
+			  seeker->prev_gossip_count, peer->query_reply_counter);
 	seeker->random_peer = NULL;
 	restart(seeker);
 }

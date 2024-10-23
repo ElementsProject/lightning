@@ -804,11 +804,15 @@ static const char *process_channel_update(const tal_t *ctx,
 					    htlc_maximum_msat);
 	}
 
+	/* Used to evaluate gossip peers' performance */
+	peer_supplied_good_gossip(gm->daemon, source_peer, 1);
+
 	status_peer_debug(source_peer,
 			  "Received channel_update for channel %s/%d now %s",
 			  fmt_short_channel_id(tmpctx, scid),
 			  dir,
 			  channel_flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE");
+
 	return NULL;
 }
 
@@ -940,6 +944,9 @@ static void process_node_announcement(struct gossmap_manage *gm,
 	/* Now delete old */
 	if (gossmap_node_announced(node))
 		gossip_store_del(gm->daemon->gs, node->nann_off, WIRE_NODE_ANNOUNCEMENT);
+
+	/* Used to evaluate gossip peers' performance */
+	peer_supplied_good_gossip(gm->daemon, source_peer, 1);
 
 	status_peer_debug(source_peer,
 			  "Received node_announcement for node %s",
