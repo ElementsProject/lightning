@@ -37,7 +37,7 @@ IGNORE_RPCS_LIST = ['reckless']
 
 # Constants for replacing values in examples
 NEW_VALUES_LIST = {
-    'root_dir': '/root/lightning',
+    'root_dir': '/root/tmp/lightning',
     'tmp_dir': '/tmp/.lightning',
     'str_1': '1',
     'num_1': 1,
