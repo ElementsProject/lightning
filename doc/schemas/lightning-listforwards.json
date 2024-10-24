@@ -129,7 +129,7 @@
             "received_time": {
               "type": "number",
               "description": [
-                "The UNIX timestamp when this was received."
+                "The UNIX timestamp when this was received (may be zero for old forwards)."
               ]
             },
             "out_channel": {
