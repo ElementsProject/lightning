@@ -516,6 +516,16 @@ double amount_msat_ratio(struct amount_msat a, struct amount_msat b)
 	return (double)a.millisatoshis / b.millisatoshis;
 }
 
+u64 amount_msat_ratio_floor(struct amount_msat a, struct amount_msat b)
+{
+	return a.millisatoshis / b.millisatoshis;
+}
+
+u64 amount_msat_ratio_ceil(struct amount_msat a, struct amount_msat b)
+{
+	return (a.millisatoshis + b.millisatoshis - 1) / b.millisatoshis;
+}
+
 struct amount_msat amount_msat_div(struct amount_msat msat, u64 div)
 {
 	msat.millisatoshis /= div;
