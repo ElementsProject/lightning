@@ -101,7 +101,7 @@
         "method": "reckless",
         "params": {
           "command": "search",
-          "target/subcommand": "backup"
+          "target/subcommand": "testplugpyproj"
         }
       },
       "response": {
@@ -110,11 +110,9 @@
         ],
         "log": [
           "DEBUG: Warning: Reckless requires write access",
-          "DEBUG: fetching from gh API: https://api.github.com/repos/lightningd/plugins/contents/",
-          "DEBUG: fetching from gh API: https://api.github.com/repos/lightningd/plugins/git/trees/294f93d7060799439c994daa84f534c4d1458325",
-          "INFO: found backup in source: https://github.com/lightningd/plugins",
+          "INFO: found testplugpass in source: https://github.com/lightningd/plugins",
           "DEBUG: entry: None",
-          "DEBUG: sub-directory: backup"
+          "DEBUG: sub-directory: testplugpass"
         ]
       }
     },
@@ -125,65 +123,64 @@
         "params": {
           "command": "install",
           "target/subcommand": [
-            "summars",
-            "currecyrate"
+            "testplugpass@v1",
+            "testplugpyproj"
           ]
         }
       },
       "response": {
         "result": [
-          "/tmp/l1/reckless/summars",
-          "/tmp/l1/reckless/currencyrate"
+          "/tmp/.lightning/reckless/testplugpass",
+          "/tmp/.lightning/reckless/testplugpyproj"
         ],
         "log": [
-          "DEBUG: Searching for summars",
-          "DEBUG: fetching from gh API: https://api.github.com/repos/lightningd/plugins/contents/",
-          "DEBUG: fetching from gh API: https://api.github.com/repos/lightningd/plugins/git/trees/294f93d7060799439c994daa84f534c4d1458325",
-          "INFO: found summars in source: https://github.com/lightningd/plugins",
+          "DEBUG: testing for a commit/tag in plugin name",
+          "DEBUG: Searching for testplugpass",
+          "INFO: found testplugpass in source: https://github.com/lightningd/plugins",
           "DEBUG: entry: None",
-          "DEBUG: sub-directory: summars",
-          "DEBUG: Retrieving summars from https://github.com/lightningd/plugins",
-          "DEBUG: Install requested from InstInfo(summars, https://github.com/lightningd/plugins, None, None, None, summars).",
-          "INFO: cloning Source.GITHUB_REPO InstInfo(summars, https://github.com/lightningd/plugins, None, None, None, summars)",
-          "DEBUG: cloned_src: InstInfo(summars, /tmp/reckless-726255950dyifh_fh/clone, None, Cargo.toml, Cargo.toml, summars/summars)",
-          "DEBUG: using latest commit of default branch",
-          "DEBUG: checked out HEAD: 5e449468bd57db7d0f33178fe0dc867e0da94133",
-          "DEBUG: using installer rust",
-          "DEBUG: creating /tmp/l1/reckless/summars",
-          "DEBUG: creating /tmp/l1/reckless/summars/source",
-          "DEBUG: copying /tmp/reckless-726255950dyifh_fh/clone/summars/summars tree to /tmp/l1/reckless/summars/source/summars",
-          "DEBUG: linking source /tmp/l1/reckless/summars/source/summars/Cargo.toml to /tmp/l1/reckless/summars/Cargo.toml",
-          "DEBUG: InstInfo(summars, /tmp/l1/reckless/summars, None, Cargo.toml, Cargo.toml, source/summars)",
-          "DEBUG: cargo installing from /tmp/l1/reckless/summars/source/summars",
-          "DEBUG: rust project compiled successfully",
-          "INFO: plugin installed: /tmp/l1/reckless/summars",
-          "DEBUG: activating summars",
-          "INFO: summars enabled",
-          "DEBUG: Searching for currencyrate",
-          "DEBUG: fetching from gh API: https://api.github.com/repos/lightningd/plugins/contents/",
-          "DEBUG: fetching from gh API: https://api.github.com/repos/lightningd/plugins/git/trees/294f93d7060799439c994daa84f534c4d1458325",
-          "INFO: found currencyrate in source: https://github.com/lightningd/plugins",
-          "DEBUG: entry: None",
-          "DEBUG: sub-directory: currencyrate",
-          "DEBUG: Retrieving currencyrate from https://github.com/lightningd/plugins",
-          "DEBUG: Install requested from InstInfo(currencyrate, https://github.com/lightningd/plugins, None, None, None, currencyrate).",
-          "INFO: cloning Source.GITHUB_REPO InstInfo(currencyrate, https://github.com/lightningd/plugins, None, None, None, currencyrate)",
-          "DEBUG: cloned_src: InstInfo(currencyrate, /tmp/reckless-192564272t478naxn/clone, None, currencyrate.py, requirements.txt, currencyrate/currencyrate)",
-          "DEBUG: using latest commit of default branch",
-          "DEBUG: checked out HEAD: 5e449468bd57db7d0f33178fe0dc867e0da94133",
+          "DEBUG: sub-directory: testplugpass",
+          "DEBUG: Retrieving testplugpass from https://github.com/lightningd/plugins",
+          "DEBUG: Install requested from InstInfo(testplugpass, https://github.com/lightningd/plugins, None, None, None, testplugpass).",
+          "INFO: cloning Source.GITHUB_REPO InstInfo(testplugpass, https://github.com/lightningd/plugins, None, None, None, testplugpass)",
+          "DEBUG: cloned_src: InstInfo(testplugpass, /tmp/reckless-0123456789abcdefg/clone, None, testplugpass.py, requirements.txt, testplugpass/testplugpass)",
+          "DEBUG: Checking out v1",
+          "DEBUG: checked out HEAD: 012abc345def678ghi901jkl234mno567pqr89st",
           "DEBUG: using installer python3venv",
-          "DEBUG: creating /tmp/l1/reckless/currencyrate",
-          "DEBUG: creating /tmp/l1/reckless/currencyrate/source",
-          "DEBUG: copying /tmp/reckless-192564272t478naxn/clone/currencyrate/currencyrate tree to /tmp/l1/reckless/currencyrate/source/currencyrate",
-          "DEBUG: linking source /tmp/l1/reckless/currencyrate/source/currencyrate/currencyrate.py to /tmp/l1/reckless/currencyrate/currencyrate.py",
-          "DEBUG: InstInfo(currencyrate, /tmp/l1/reckless/currencyrate, None, currencyrate.py, requirements.txt, source/currencyrate)",
-          "DEBUG: configuring a python virtual environment (pip) in /tmp/l1/reckless/currencyrate/.venv",
-          "DEBUG: virtual environment created in /tmp/l1/reckless/currencyrate/.venv.",
+          "DEBUG: creating /tmp/.lightning/reckless/testplugpass",
+          "DEBUG: creating /tmp/.lightning/reckless/testplugpass/source",
+          "DEBUG: copying /tmp/reckless-0123456789abcdefg/clone/testplugpass/testplugpass tree to /tmp/.lightning/reckless/testplugpass/source/testplugpass",
+          "DEBUG: linking source /tmp/.lightning/reckless/testplugpass/source/testplugpass/testplugpass.py to /tmp/.lightning/reckless/testplugpass/testplugpass.py",
+          "DEBUG: InstInfo(testplugpass, /tmp/.lightning/reckless/testplugpass, None, testplugpass.py, requirements.txt, source/testplugpass)",
+          "DEBUG: configuring a python virtual environment (pip) in /tmp/.lightning/reckless/testplugpass/.venv",
+          "DEBUG: virtual environment created in /tmp/.lightning/reckless/testplugpass/.venv.",
           "INFO: dependencies installed successfully",
           "DEBUG: virtual environment for cloned plugin: .venv",
-          "INFO: plugin installed: /tmp/l1/reckless/currencyrate",
-          "DEBUG: activating currencyrate",
-          "INFO: currencyrate enabled"
+          "INFO: plugin installed: /tmp/.lightning/reckless/testplugpass",
+          "DEBUG: activating testplugpass",
+          "INFO: testplugpass enabled",
+          "DEBUG: Searching for testplugpyproj",
+          "INFO: found testplugpyproj in source: https://github.com/lightningd/plugins",
+          "DEBUG: entry: None",
+          "DEBUG: sub-directory: testplugpyproj",
+          "DEBUG: Retrieving testplugpyproj from https://github.com/lightningd/plugins",
+          "DEBUG: Install requested from InstInfo(testplugpyproj, https://github.com/lightningd/plugins, None, None, None, testplugpyproj).",
+          "INFO: cloning Source.GITHUB_REPO InstInfo(testplugpyproj, https://github.com/lightningd/plugins, None, None, None, testplugpyproj)",
+          "DEBUG: missing dependency for InstInfo(testplugpyproj, /tmp/reckless-0123456789abcdefg/clone, None, None, None, None)",
+          "DEBUG: cloned_src: InstInfo(testplugpyproj, /tmp/reckless-0123456789abcdefg/clone, None, testplugpyproj.py, pyproject.toml, testplugpyproj/testplugpyproj)",
+          "DEBUG: using latest commit of default branch",
+          "DEBUG: checked out HEAD: 012abc345def678ghi901jkl234mno567pqr89st",
+          "DEBUG: using installer poetryvenv",
+          "DEBUG: creating /tmp/.lightning/reckless/testplugpyproj",
+          "DEBUG: creating /tmp/.lightning/reckless/testplugpyproj/source",
+          "DEBUG: copying /tmp/reckless-0123456789abcdefg/clone/testplugpyproj/testplugpyproj tree to /tmp/.lightning/reckless/testplugpyproj/source/testplugpyproj",
+          "DEBUG: linking source /tmp/.lightning/reckless/testplugpyproj/source/testplugpyproj/testplugpyproj.py to /tmp/.lightning/reckless/testplugpyproj/testplugpyproj.py",
+          "DEBUG: InstInfo(testplugpyproj, /tmp/.lightning/reckless/testplugpyproj, None, testplugpyproj.py, pyproject.toml, source/testplugpyproj)",
+          "DEBUG: configuring a python virtual environment (poetry) in /tmp/.lightning/reckless/testplugpyproj/.venv",
+          "INFO: dependencies installed successfully",
+          "DEBUG: virtual environment for cloned plugin: .venv",
+          "INFO: plugin installed: /tmp/.lightning/reckless/testplugpyproj",
+          "DEBUG: activating testplugpyproj",
+          "DEBUG: testplugpyproj is already running"
         ]
       }
     }

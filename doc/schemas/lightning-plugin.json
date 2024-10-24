@@ -244,6 +244,11 @@
             "dynamic": true
           },
           {
+            "name": "/root/lightning/plugins/recklessrpc",
+            "active": true,
+            "dynamic": true
+          },
+          {
             "name": "/root/lightning/plugins/recover",
             "active": true,
             "dynamic": false
@@ -262,6 +267,11 @@
             "name": "/root/lightning/plugins/spenderp",
             "active": true,
             "dynamic": false
+          },
+          {
+            "name": "/root/lightning/plugins/cln-askrene",
+            "active": true,
+            "dynamic": true
           },
           {
             "name": "/root/lightning/plugins/sql",
@@ -352,6 +362,11 @@
             "dynamic": true
           },
           {
+            "name": "/root/lightning/plugins/recklessrpc",
+            "active": true,
+            "dynamic": true
+          },
+          {
             "name": "/root/lightning/plugins/recover",
             "active": true,
             "dynamic": false
@@ -370,6 +385,11 @@
             "name": "/root/lightning/plugins/spenderp",
             "active": true,
             "dynamic": false
+          },
+          {
+            "name": "/root/lightning/plugins/cln-askrene",
+            "active": true,
+            "dynamic": true
           },
           {
             "name": "/root/lightning/plugins/sql",

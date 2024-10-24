@@ -76,11 +76,11 @@
       "request": {
         "id": "example:delforward#2",
         "method": "delforward",
-        "params": [
-          "109x1x1",
-          19,
-          "failed"
-        ]
+        "params": {
+          "in_channel": "109x1x1",
+          "in_htlc_id": 19,
+          "status": "failed"
+        }
       },
       "response": {}
     }

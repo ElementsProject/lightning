@@ -57,5 +57,45 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:askrene-unreserve#1",
+        "method": "askrene-unreserve",
+        "params": {
+          "path": [
+            {
+              "short_channel_id_dir": "109x1x1/1",
+              "amount_msat": 1250000
+            },
+            {
+              "short_channel_id_dir": "123x1x1/0",
+              "amount_msat": 1250001
+            }
+          ]
+        }
+      },
+      "response": {}
+    },
+    {
+      "request": {
+        "id": "example:askrene-unreserve#2",
+        "method": "askrene-unreserve",
+        "params": {
+          "path": [
+            {
+              "short_channel_id_dir": "109x1x1/1",
+              "amount_msat": 1250000000000
+            },
+            {
+              "short_channel_id_dir": "123x1x1/0",
+              "amount_msat": 1250000000000
+            }
+          ]
+        }
+      },
+      "response": {}
+    }
   ]
 }
