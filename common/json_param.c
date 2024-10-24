@@ -465,6 +465,22 @@ struct command_result *param_string(struct command *cmd, const char *name,
 	return NULL;
 }
 
+/* Extract a string or a json array */
+struct command_result *param_string_or_array(struct command *cmd, const char *name,
+					     const char * buffer, const jsmntok_t *tok,
+					     struct str_or_arr **result)
+{
+	*result = tal(cmd, struct str_or_arr);
+	(*result)->arr = NULL;
+	(*result)->str = NULL;
+	if (tok->type == JSMN_ARRAY) {
+		(*result)->arr = tok;
+		return NULL;
+	}
+
+	return param_string(cmd, name, buffer, tok, &(*result)->str);
+}
+
 struct command_result *param_invstring(struct command *cmd, const char *name,
 				       const char * buffer, const jsmntok_t *tok,
 				       const char **str)

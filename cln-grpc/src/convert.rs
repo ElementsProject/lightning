@@ -2502,6 +2502,7 @@ impl From<responses::Splice_signedResponse> for pb::SpliceSignedResponse {
     fn from(c: responses::Splice_signedResponse) -> Self {
         Self {
             outnum: c.outnum, // Rule #2 for type u32?
+            psbt: c.psbt, // Rule #2 for type string
             tx: hex::decode(&c.tx).unwrap(), // Rule #2 for type hex
             txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
         }
@@ -2514,6 +2515,7 @@ impl From<responses::Splice_updateResponse> for pb::SpliceUpdateResponse {
         Self {
             commitments_secured: c.commitments_secured, // Rule #2 for type boolean
             psbt: c.psbt, // Rule #2 for type string
+            signatures_secured: c.signatures_secured, // Rule #2 for type boolean?
         }
     }
 }

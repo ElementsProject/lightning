@@ -180,11 +180,19 @@ WARN_UNUSED_RESULT bool psbt_input_set_signature(struct wally_psbt *psbt, size_t
 
 /* Returns false on error. On success, *signature_found is set to true if the
  * input has a signature present for `pubkey` and false if if one was not found.
- * Only ignature presence is checked, is not validated. */
+ * Only signature presence is checked, it is not validated. */
 WARN_UNUSED_RESULT bool psbt_input_have_signature(const struct wally_psbt *psbt,
 						  size_t in,
 						  const struct pubkey *pubkey,
 						  bool *signature_found);
+
+/* Returns false on error. On success *sig is set to the signature otherwise
+ * *sig is set to NULL. */
+WARN_UNUSED_RESULT bool psbt_input_get_ecdsa_sig(const tal_t *ctx,
+						 const struct wally_psbt *psbt,
+						 size_t in,
+						 const struct pubkey *pubkey,
+						 struct bitcoin_signature **sig);
 
 void psbt_input_set_witscript(struct wally_psbt *psbt, size_t in, const u8 *wscript);
 
@@ -211,6 +219,19 @@ void psbt_input_set_unknown(const tal_t *ctx,
 void *psbt_get_lightning(const struct wally_map *map,
 			 const u8 proprietary_type,
 			 size_t *val_len);
+
+/* psbt_set_lightning - Set a propreitary lightning value on the given map
+ *
+ * @map - map of unknowns to set the value
+ * @proprietary_type - type no. to set
+ * @value - the value to be set
+ * @val_len - length of value
+ */
+void psbt_set_lightning(const tal_t *ctx,
+			struct wally_map *map,
+			const u8 proprietary_type,
+			const void *value,
+			size_t val_len);
 
 /* psbt_output_set_unknown - Set the given Key-Value in the psbt's output keymap
  *

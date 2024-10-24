@@ -2662,6 +2662,7 @@ message Splice_signedResponse {
 	bytes tx = 1;
 	bytes txid = 2;
 	optional uint32 outnum = 3;
+	string psbt = 4;
 }
 
 message Splice_updateRequest {
@@ -2672,6 +2673,7 @@ message Splice_updateRequest {
 message Splice_updateResponse {
 	string psbt = 1;
 	bool commitments_secured = 2;
+	optional bool signatures_secured = 3;
 }
 
 message UnreserveinputsRequest {
