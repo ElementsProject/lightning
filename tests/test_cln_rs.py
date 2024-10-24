@@ -20,7 +20,7 @@ RUST_PROFILE = os.environ.get("RUST_PROFILE", "debug")
 
 def wait_for_grpc_start(node):
     """This can happen before "public key" which start() swallows"""
-    wait_for(lambda: node.daemon.is_in_log(r'serving grpc on 0.0.0.0:'))
+    wait_for(lambda: node.daemon.is_in_log(r'serving grpc'))
 
 
 def test_rpc_client(node_factory):
@@ -35,8 +35,9 @@ def test_plugin_start(node_factory):
     """Start a minimal plugin and ensure it is well-behaved
     """
     bin_path = Path.cwd() / "target" / RUST_PROFILE / "examples" / "cln-plugin-startup"
-    l1 = node_factory.get_node(options={"plugin": str(bin_path), 'test-option': 31337})
-    l2 = node_factory.get_node()
+    l1, l2 = node_factory.get_nodes(2, opts=[
+        {"plugin": str(bin_path), 'test-option': 31337}, {}
+    ])
 
     # The plugin should be in the list of active plugins
     plugins = l1.rpc.plugin('list')['plugins']
@@ -107,9 +108,7 @@ def test_plugin_options_handle_defaults(node_factory):
 def test_grpc_connect(node_factory):
     """Attempts to connect to the grpc interface and call getinfo"""
     # These only exist if we have rust!
-
-    grpc_port = node_factory.get_unused_port()
-    l1 = node_factory.get_node(options={"grpc-port": str(grpc_port)})
+    l1 = node_factory.get_node()
 
     p = Path(l1.daemon.lightning_dir) / TEST_NETWORK
     cert_path = p / "client.pem"
@@ -123,7 +122,7 @@ def test_grpc_connect(node_factory):
 
     wait_for_grpc_start(l1)
     channel = grpc.secure_channel(
-        f"localhost:{grpc_port}",
+        f"localhost:{l1.grpc_port}",
         creds,
         options=(('grpc.ssl_target_name_override', 'cln'),)
     )
@@ -164,10 +163,7 @@ def test_grpc_generate_certificate(node_factory):
      - If we have certs, we they should just get loaded
      - If we delete one cert or its key it should get regenerated.
     """
-    grpc_port = node_factory.get_unused_port()
-    l1 = node_factory.get_node(options={
-        "grpc-port": str(grpc_port),
-    }, start=False)
+    l1 = node_factory.get_node(start=False)
 
     p = Path(l1.daemon.lightning_dir) / TEST_NETWORK
     files = [p / f for f in [
@@ -202,18 +198,20 @@ def test_grpc_generate_certificate(node_factory):
     assert all(private)
 
 
-def test_grpc_no_auto_start(node_factory):
-    """Ensure that we do not start cln-grpc unless a port is configured.
-    Also check that we do not generate certificates.
-    """
-    l1 = node_factory.get_node()
+def test_grpc_default_port_auto_starts(node_factory):
+    """Ensure that we start cln-grpc on default port. Also check that certificates are generated."""
+    l1 = node_factory.get_node(unused_grpc_port=False)
 
-    wait_for(lambda: [p for p in l1.rpc.plugin('list')['plugins'] if 'cln-grpc' in p['name']] == [])
-    assert l1.daemon.is_in_log(r'plugin-cln-grpc: Killing plugin: disabled itself at init')
-    p = Path(l1.daemon.lightning_dir) / TEST_NETWORK
-    files = os.listdir(p)
-    pem_files = [f for f in files if re.match(r".*\.pem$", f)]
-    assert pem_files == []
+    grpcplugin = next((p for p in l1.rpc.plugin('list')['plugins'] if 'cln-grpc' in p['name'] and p['active']), None)
+    # Check that the plugin is active
+    assert grpcplugin is not None
+    # Check that the plugin is listening on the default port
+    assert l1.daemon.is_in_log(f'plugin-cln-grpc: Plugin logging initialized')
+    # Check that the certificates are generated
+    assert len([f for f in os.listdir(Path(l1.daemon.lightning_dir) / TEST_NETWORK) if re.match(r".*\.pem$", f)]) >= 6
+
+    # Check server connection
+    l1.grpc.Getinfo(clnpb.GetinfoRequest())
 
 
 def test_grpc_wrong_auth(node_factory):
@@ -223,12 +221,7 @@ def test_grpc_wrong_auth(node_factory):
     and then we try to cross the wires.
     """
     # These only exist if we have rust!
-
-    grpc_port = node_factory.get_unused_port()
-    l1, l2 = node_factory.get_nodes(2, opts={
-        "start": False,
-        "grpc-port": str(grpc_port),
-    })
+    l1, l2 = node_factory.get_nodes(2, opts=[{"start": False}, {"start": False}])
     l1.start()
     wait_for_grpc_start(l1)
 
@@ -246,7 +239,7 @@ def test_grpc_wrong_auth(node_factory):
         )
 
         channel = grpc.secure_channel(
-            f"localhost:{grpc_port}",
+            f"localhost:{node.grpc_port}",
             creds,
             options=(('grpc.ssl_target_name_override', 'cln'),)
         )
@@ -282,8 +275,7 @@ def test_cln_plugin_reentrant(node_factory, executor):
 
     """
     bin_path = Path.cwd() / "target" / RUST_PROFILE / "examples" / "cln-plugin-reentrant"
-    l1 = node_factory.get_node(options={"plugin": str(bin_path)})
-    l2 = node_factory.get_node()
+    l1, l2 = node_factory.get_nodes(2, opts=[{"plugin": str(bin_path)}, {}])
     l2.connect(l1)
     l2.fundchannel(l1)
 
@@ -311,18 +303,13 @@ def test_grpc_keysend_routehint(bitcoind, node_factory):
     recipient.
 
     """
-    grpc_port = node_factory.get_unused_port()
     l1, l2, l3 = node_factory.line_graph(
         3,
-        opts=[
-            {"grpc-port": str(grpc_port)}, {}, {}
-        ],
         announce_channels=True,  # Do not enforce scid-alias
     )
     bitcoind.generate_block(3)
     sync_blockheight(bitcoind, [l1, l2, l3])
 
-    stub = l1.grpc
     chan = l2.rpc.listpeerchannels(l3.info['id'])
 
     routehint = clnpb.RoutehintList(hints=[
@@ -348,19 +335,15 @@ def test_grpc_keysend_routehint(bitcoind, node_factory):
         routehints=routehint,
     )
 
-    res = stub.KeySend(call)
+    res = l1.grpc.KeySend(call)
     print(res)
 
 
 def test_grpc_listpeerchannels(bitcoind, node_factory):
     """ Check that conversions of this rather complex type work.
     """
-    grpc_port = node_factory.get_unused_port()
     l1, l2 = node_factory.line_graph(
         2,
-        opts=[
-            {"grpc-port": str(grpc_port)}, {}
-        ],
         announce_channels=True,  # Do not enforce scid-alias
     )
 
@@ -385,8 +368,7 @@ def test_grpc_listpeerchannels(bitcoind, node_factory):
 
 
 def test_grpc_decode(node_factory):
-    grpc_port = node_factory.get_unused_port()
-    l1 = node_factory.get_node(options={'grpc-port': str(grpc_port)})
+    l1 = node_factory.get_node()
     inv = l1.grpc.Invoice(clnpb.InvoiceRequest(
         amount_msat=clnpb.AmountOrAny(any=True),
         description="desc",
@@ -418,9 +400,7 @@ def test_rust_plugin_subscribe_wildcard(node_factory):
 
 
 def test_grpc_block_added_notifications(node_factory, bitcoind):
-    grpc_port = node_factory.get_unused_port()
-
-    l1 = node_factory.get_node(options={"grpc-port": str(grpc_port)})
+    l1 = node_factory.get_node()
 
     # Test the block_added notification
     # Start listening to block added events over grpc
@@ -436,10 +416,7 @@ def test_grpc_block_added_notifications(node_factory, bitcoind):
 
 
 def test_grpc_connect_notification(node_factory):
-    grpc_port = node_factory.get_unused_port()
-
-    l1 = node_factory.get_node(options={"grpc-port": str(grpc_port)})
-    l2 = node_factory.get_node()
+    l1, l2 = node_factory.get_nodes(2)
 
     # Test the connect notification
     connect_stream = l1.grpc.SubscribeConnect(clnpb.StreamConnectRequest())
@@ -451,10 +428,7 @@ def test_grpc_connect_notification(node_factory):
 
 
 def test_grpc_custommsg_notification(node_factory):
-    grpc_port = node_factory.get_unused_port()
-
-    l1 = node_factory.get_node(options={"grpc-port": str(grpc_port)})
-    l2 = node_factory.get_node()
+    l1, l2 = node_factory.get_nodes(2)
 
     # Test the connect notification
     custommsg_stream = l1.grpc.SubscribeCustomMsg(clnpb.StreamCustomMsgRequest())
