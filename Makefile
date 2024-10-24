@@ -903,8 +903,11 @@ installcheck: all-programs
 	fi
 	@rm -rf testinstall || true
 
+version:
+	@echo ${VERSION}
+
 .PHONY: installdirs install-program install-data install uninstall \
-	installcheck ncc bin-tarball show-flags
+	installcheck ncc bin-tarball show-flags version
 
 # Make a tarball of opt/clightning/, optionally with label for distribution.
 ifneq ($(VERSION),)
