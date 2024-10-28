@@ -151,7 +151,7 @@ void status_vfmt(enum log_level level,
 
 	/* We only suppress async debug msgs.  IO messages are even spammier
 	 * but they only occur when explicitly asked for */
-	if (level == LOG_DBG && status_conn) {
+	if ((level == LOG_DBG || level == LOG_TRACE) && status_conn) {
 		size_t qlen = daemon_conn_queue_length(status_conn);
 
 		/* Once suppressing, we keep suppressing until we're empty */
@@ -159,7 +159,7 @@ void status_vfmt(enum log_level level,
 			size_t n = traces_suppressed;
 			traces_suppressed = 0;
 			/* Careful: recursion! */
-			status_debug("...[%zu debug messages suppressed]...", n);
+			status_debug("...[%zu debug/trace messages suppressed]...", n);
 		} else if (traces_suppressed || qlen > TRACE_QUEUE_LIMIT) {
 			traces_suppressed++;
 			return;
