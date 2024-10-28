@@ -924,12 +924,12 @@ static void maybe_rotate_gossipers(struct seeker *seeker)
 			goto set_gossiper;
 		}
 	}
-	/* Otherwise, rotate out a gossiper ~once per hour. */
-	if (pseudorand(60) != 0)
+	/* Otherwise, rotate out worst gossiper every 30 minutes on average. */
+	if (pseudorand(25) != 0)
 		return;
 	/* Don't evaluate gossip performance at a faster rate than
 	 * new gossip is periodically emitted. */
-	if (seeker->new_gossiper_elapsed < 3)
+	if (seeker->new_gossiper_elapsed < 5)
 		return;
 	u32 lowest_count = UINT_MAX;
 	for (int j = 0; j < ARRAY_SIZE(seeker->gossiper); j++) {
