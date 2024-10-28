@@ -4,6 +4,7 @@
 #include <common/bigsize.h>
 #include <common/channel_id.h>
 #include <common/configvar.h>
+#include <common/daemon.h>
 #include <common/json_stream.h>
 #include <common/node_id.h>
 #include <common/setup.h>
@@ -95,6 +96,9 @@ bool log_level_parse(const char *levelstr UNNEEDED, size_t len UNNEEDED,
 /* Generated stub for pubkey_from_node_id */
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
+/* Generated stub for send_backtrace */
+void send_backtrace(const char *why UNNEEDED)
+{ fprintf(stderr, "send_backtrace called!\n"); abort(); }
 /* Generated stub for towire_amount_msat */
 void towire_amount_msat(u8 **pptr UNNEEDED, const struct amount_msat msat UNNEEDED)
 { fprintf(stderr, "towire_amount_msat called!\n"); abort(); }

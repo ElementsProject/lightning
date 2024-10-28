@@ -729,7 +729,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,
 /* Generated stub for onion_decode */
 struct onion_payload *onion_decode(const tal_t *ctx UNNEEDED,
 				   const struct route_step *rs UNNEEDED,
-				   const struct pubkey *blinding UNNEEDED,
+				   const struct pubkey *path_key UNNEEDED,
 				   const u64 *accepted_extra_tlvs UNNEEDED,
 				   struct amount_msat amount_in UNNEEDED,
 				   u32 cltv_expiry UNNEEDED,
@@ -1023,7 +1023,7 @@ u8 *towire_channeld_got_commitsig_reply(const tal_t *ctx UNNEEDED)
 u8 *towire_channeld_got_revoke_reply(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channeld_got_revoke_reply called!\n"); abort(); }
 /* Generated stub for towire_channeld_offer_htlc */
-u8 *towire_channeld_offer_htlc(const tal_t *ctx UNNEEDED, struct amount_msat amount_msat UNNEEDED, u32 cltv_expiry UNNEEDED, const struct sha256 *payment_hash UNNEEDED, const u8 onion_routing_packet[1366] UNNEEDED, const struct pubkey *blinding UNNEEDED)
+u8 *towire_channeld_offer_htlc(const tal_t *ctx UNNEEDED, struct amount_msat amount_msat UNNEEDED, u32 cltv_expiry UNNEEDED, const struct sha256 *payment_hash UNNEEDED, const u8 onion_routing_packet[1366] UNNEEDED, const struct pubkey *path_key UNNEEDED)
 { fprintf(stderr, "towire_channeld_offer_htlc called!\n"); abort(); }
 /* Generated stub for towire_channeld_sending_commitsig_reply */
 u8 *towire_channeld_sending_commitsig_reply(const tal_t *ctx UNNEEDED)

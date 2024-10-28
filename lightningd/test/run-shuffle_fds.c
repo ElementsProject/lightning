@@ -37,6 +37,7 @@ static int test_fcntl(int fd, int cmd, ... /* arg */ )
 }
 
 #include "../subd.c"
+#include <common/daemon.h>
 #include <common/json_stream.h>
 #include <common/setup.h>
 
@@ -104,6 +105,9 @@ struct peer_fd *new_peer_fd_arr(const tal_t *ctx UNNEEDED, const int *fd UNNEEDE
 /* Generated stub for pubkey_from_node_id */
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
+/* Generated stub for send_backtrace */
+void send_backtrace(const char *why UNNEEDED)
+{ fprintf(stderr, "send_backtrace called!\n"); abort(); }
 /* Generated stub for subdaemon_path */
 const char *subdaemon_path(const tal_t *ctx UNNEEDED, const struct lightningd *ld UNNEEDED, const char *name UNNEEDED)
 { fprintf(stderr, "subdaemon_path called!\n"); abort(); }

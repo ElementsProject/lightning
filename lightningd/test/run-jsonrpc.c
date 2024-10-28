@@ -3,6 +3,7 @@
 #include "../../common/json_stream.c"
 #include "../jsonrpc.c"
 #include "../feerate.c"
+#include <common/daemon.h>
 #include <common/setup.h>
 #include <stdio.h>
 
@@ -160,6 +161,9 @@ bool plugin_hook_call_(struct lightningd *ld UNNEEDED,
 /* Generated stub for pubkey_from_node_id */
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
+/* Generated stub for send_backtrace */
+void send_backtrace(const char *why UNNEEDED)
+{ fprintf(stderr, "send_backtrace called!\n"); abort(); }
 /* Generated stub for towire_bigsize */
 void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)
 { fprintf(stderr, "towire_bigsize called!\n"); abort(); }
