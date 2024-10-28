@@ -3,6 +3,7 @@
 #include "../peer_control.c"
 #include "../routehint.c"
 #include <ccan/alignof/alignof.h>
+#include <common/daemon.h>
 #include <common/errcode.h>
 #include <common/setup.h>
 #include <stdio.h>
@@ -920,6 +921,9 @@ void report_subd_memleak(struct leak_detect *leak_detect UNNEEDED, struct subd *
 void resolve_close_command(struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED,
 			   bool cooperative UNNEEDED, const struct bitcoin_tx *close_tx UNNEEDED)
 { fprintf(stderr, "resolve_close_command called!\n"); abort(); }
+/* Generated stub for send_backtrace */
+void send_backtrace(const char *why UNNEEDED)
+{ fprintf(stderr, "send_backtrace called!\n"); abort(); }
 /* Generated stub for shachain_get_secret */
 bool shachain_get_secret(const struct shachain *shachain UNNEEDED,
 			 u64 commit_num UNNEEDED,

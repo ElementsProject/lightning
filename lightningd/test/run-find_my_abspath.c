@@ -230,6 +230,9 @@ struct runes *runes_early_init(struct lightningd *ld UNNEEDED)
 /* Generated stub for runes_finish_init */
 void runes_finish_init(struct runes *runes UNNEEDED)
 { fprintf(stderr, "runes_finish_init called!\n"); abort(); }
+/* Generated stub for send_backtrace */
+void send_backtrace(const char *why UNNEEDED)
+{ fprintf(stderr, "send_backtrace called!\n"); abort(); }
 /* Generated stub for setup_color_and_alias */
 void setup_color_and_alias(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "setup_color_and_alias called!\n"); abort(); }

@@ -2,9 +2,12 @@
 #include <assert.h>
 #include <ccan/cast/cast.h>
 #include <ccan/membuf/membuf.h>
+#include <common/daemon.h>
 #include <common/msg_queue.h>
 #include <common/utils.h>
 #include <wire/wire.h>
+
+static bool warned_once;
 
 struct msg_queue {
 	bool fd_passing;
@@ -59,6 +62,12 @@ static void do_enqueue(struct msg_queue *q, const u8 *add TAKES)
 	const u8 **msg = membuf_add(&q->mb, 1);
 
 	*msg = tal_dup_talarr(q, u8, add);
+
+	if (!warned_once && msg_queue_length(q) > 100000) {
+		/* Can cause re-entry, so set flag first! */
+		warned_once = true;
+		send_backtrace("excessive queue length");
+	}
 
 	/* In case someone is waiting */
 	io_wake(q);
