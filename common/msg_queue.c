@@ -63,7 +63,7 @@ static void do_enqueue(struct msg_queue *q, const u8 *add TAKES)
 
 	*msg = tal_dup_talarr(q, u8, add);
 
-	if (!warned_once && msg_queue_length(q) > 100000) {
+	if (!warned_once && msg_queue_length(q) > 250000) {
 		/* Can cause re-entry, so set flag first! */
 		warned_once = true;
 		send_backtrace("excessive queue length");
