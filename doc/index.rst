@@ -76,6 +76,7 @@ Core Lightning Documentation
    lightning-getroutes <lightning-getroutes.7.md>
    lightning-help <lightning-help.7.md>
    lightning-hsmtool <lightning-hsmtool.8.md>
+   lightning-injectpaymentonion <lightning-injectpaymentonion.7.md>
    lightning-invoice <lightning-invoice.7.md>
    lightning-invoicerequest <lightning-invoicerequest.7.md>
    lightning-keysend <lightning-keysend.7.md>
