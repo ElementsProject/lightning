@@ -18,7 +18,7 @@
       "reservations"
     ],
     "properties": {
-      "layers": {
+      "reservations": {
         "type": "array",
         "items": {
           "type": "object",

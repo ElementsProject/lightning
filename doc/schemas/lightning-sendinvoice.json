@@ -120,7 +120,11 @@
         "description": [
           "1-based index indicating order this invoice was changed (only present if it has changed since creation)."
         ]
-      }
+      },
+      "amount_received_msat": {},
+      "paid_at": {},
+      "pay_index": {},
+      "payment_preimage": {}
     },
     "allOf": [
       {

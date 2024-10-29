@@ -58,13 +58,27 @@
         "items": {
           "type": "object",
           "required": [
-            "short_channel_id_dir"
+            "layer",
+            "short_channel_id_dir",
+            "timestamp"
           ],
           "properties": {
             "short_channel_id_dir": {
               "type": "short_channel_id_dir",
               "description": [
                 "The short channel id and direction"
+              ]
+            },
+            "layer": {
+              "type": "string",
+              "description": [
+                "The name of the layer to apply this change to."
+              ]
+            },
+            "timestamp": {
+              "type": "u64",
+              "description": [
+                "The UNIX timestamp when this constraint was created."
               ]
             },
             "maximum_msat": {

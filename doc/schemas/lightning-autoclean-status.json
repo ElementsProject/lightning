@@ -5,7 +5,7 @@
   "rpc": "autoclean-status",
   "title": "Examine auto-delete of old invoices/payments/forwards",
   "description": [
-    "The **autoclean-status** RPC command tells you about the status of the autclean plugin, optionally for only one subsystem."
+    "The **autoclean-status** RPC command tells you about the status of the autoclean plugin, optionally for only one subsystem."
   ],
   "request": {
     "required": [],

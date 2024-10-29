@@ -150,7 +150,9 @@
         "description": [
           "The bolt12 string (if supplied for pay: **experimental-offers** only)."
         ]
-      }
+      },
+      "message": {},
+      "payment_preimage": {}
     },
     "allOf": [
       {

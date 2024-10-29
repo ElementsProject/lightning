@@ -2342,8 +2342,11 @@ impl From<responses::RenepayResponse> for pb::RenepayResponse {
         Self {
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
+            bolt11: c.bolt11, // Rule #2 for type string?
+            bolt12: c.bolt12, // Rule #2 for type string?
             created_at: c.created_at, // Rule #2 for type number
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            groupid: c.groupid, // Rule #2 for type u64?
             parts: c.parts, // Rule #2 for type u32
             payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             payment_preimage: c.payment_preimage.to_vec(), // Rule #2 for type secret

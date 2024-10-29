@@ -33,7 +33,7 @@
       "first_hop": {
         "type": "object",
         "description": [
-          "Instructs Core Lightning which peer to send the onion to. It is a JSON dictionary that corresponds to the first element of the route array returned by *getroute*."
+          "Instructs Core Lightning which peer to send the onion to. It is a JSON dictionary that corresponds to the first element of the route array returned by *getroute* (so fields not mentioned here are ignored)."
         ],
         "required": [
           "id",
