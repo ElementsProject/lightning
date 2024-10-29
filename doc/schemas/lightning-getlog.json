@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "getlog",
   "title": "Command to show logs.",
   "description": [
@@ -12,6 +11,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "level": {
         "type": "string",
@@ -37,6 +37,7 @@
       "bytes_max",
       "log"
     ],
+    "additionalProperties": false,
     "properties": {
       "created_at": {
         "type": "string",

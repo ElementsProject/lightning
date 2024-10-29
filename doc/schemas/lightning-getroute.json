@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "getroute",
   "title": "Command for routing a payment (low-level)",
   "description": [
@@ -18,6 +17,7 @@
       "amount_msat",
       "riskfactor"
     ],
+    "additionalProperties": false,
     "properties": {
       "id": {
         "type": "pubkey",
@@ -80,6 +80,7 @@
     "required": [
       "route"
     ],
+    "additionalProperties": false,
     "properties": {
       "route": {
         "type": "array",

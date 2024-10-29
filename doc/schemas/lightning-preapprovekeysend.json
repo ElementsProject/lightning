@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v23.02",
   "rpc": "preapprovekeysend",
   "title": "Ask the HSM to preapprove a keysend payment (low-level)",
@@ -22,6 +21,7 @@
       "payment_hash",
       "amount_msat"
     ],
+    "additionalProperties": false,
     "properties": {
       "destination": {
         "type": "pubkey",
@@ -49,6 +49,7 @@
     }
   },
   "response": {
+    "additionalProperties": false,
     "properties": {}
   },
   "author": [

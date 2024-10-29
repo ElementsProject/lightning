@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "listsendpays",
   "title": "Low-level command for querying sendpay status",
   "description": [
@@ -14,6 +13,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "bolt11": {
         "type": "string",
@@ -75,6 +75,7 @@
     "required": [
       "payments"
     ],
+    "additionalProperties": false,
     "properties": {
       "payments": {
         "type": "array",
@@ -192,6 +193,7 @@
           "allOf": [
             {
               "if": {
+                "additionalProperties": true,
                 "properties": {
                   "status": {
                     "type": "string",
@@ -242,6 +244,7 @@
             },
             {
               "if": {
+                "additionalProperties": true,
                 "properties": {
                   "status": {
                     "type": "string",
@@ -284,6 +287,7 @@
             },
             {
               "if": {
+                "additionalProperties": true,
                 "properties": {
                   "status": {
                     "type": "string",

@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v23.08",
   "rpc": "wait",
   "title": "Command to wait for creations, changes and deletions",
@@ -14,6 +13,7 @@
       "indexname",
       "nextvalue"
     ],
+    "additionalProperties": false,
     "properties": {
       "subsystem": {
         "type": "string",
@@ -55,6 +55,7 @@
     "required": [
       "subsystem"
     ],
+    "additionalProperties": false,
     "properties": {
       "subsystem": {
         "type": "string",

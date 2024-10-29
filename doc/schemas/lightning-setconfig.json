@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v23.08",
   "rpc": "setconfig",
   "title": "Dynamically change some config options",
@@ -16,6 +15,7 @@
     "required": [
       "config"
     ],
+    "additionalProperties": false,
     "properties": {
       "config": {
         "type": "string",
@@ -45,6 +45,7 @@
     "required": [
       "config"
     ],
+    "additionalProperties": false,
     "properties": {
       "config": {
         "type": "object",

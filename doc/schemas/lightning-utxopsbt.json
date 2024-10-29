@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "utxopsbt",
   "title": "Command to populate PSBT inputs from given UTXOs",
   "description": [
@@ -16,6 +15,7 @@
       "startweight",
       "utxos"
     ],
+    "additionalProperties": false,
     "properties": {
       "satoshi": {
         "type": "sat_or_all",
@@ -93,6 +93,7 @@
       "estimated_final_weight",
       "excess_msat"
     ],
+    "additionalProperties": false,
     "properties": {
       "psbt": {
         "type": "string",

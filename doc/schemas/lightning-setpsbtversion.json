@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "setpsbtversion",
   "title": "Command for setting PSBT version",
   "description": [
@@ -12,6 +11,7 @@
       "psbt",
       "version"
     ],
+    "additionalProperties": false,
     "properties": {
       "psbt": {
         "type": "string",
@@ -31,6 +31,7 @@
     "required": [
       "psbt"
     ],
+    "additionalProperties": false,
     "properties": {
       "psbt": {
         "type": "string",

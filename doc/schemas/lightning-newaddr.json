@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "newaddr",
   "title": "Command for generating a new address to be used by Core Lightning",
   "description": [
@@ -13,6 +12,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "addresstype": {
         "type": "string",
@@ -30,6 +30,7 @@
   },
   "response": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "p2tr": {
         "added": "v23.08",

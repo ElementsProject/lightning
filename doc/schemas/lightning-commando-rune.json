@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "deprecated": [
     "v23.08",
     "v25.02"
@@ -13,6 +12,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "rune": {
         "type": "string",
@@ -64,6 +64,7 @@
       "rune",
       "unique_id"
     ],
+    "additionalProperties": false,
     "properties": {
       "rune": {
         "type": "string",

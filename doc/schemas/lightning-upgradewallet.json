@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "upgradewallet",
   "title": "Command to spend all P2SH-wrapped inputs into a Native Segwit output",
   "description": [
@@ -9,6 +8,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "feerate": {
         "type": "feerate",
@@ -31,6 +31,7 @@
     "required": [
       "upgraded_outs"
     ],
+    "additionalProperties": false,
     "properties": {
       "upgraded_outs": {
         "type": "u64",

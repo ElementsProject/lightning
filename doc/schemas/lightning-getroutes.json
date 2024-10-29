@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "getroutes",
   "title": "Command for routing a payment (EXPERIMENTAL)",
   "added": "v24.08",
@@ -28,6 +27,7 @@
       "maxfee_msat",
       "final_cltv"
     ],
+    "additionalProperties": false,
     "properties": {
       "source": {
         "type": "pubkey",
@@ -75,6 +75,7 @@
       "probability_ppm",
       "routes"
     ],
+    "additionalProperties": false,
     "properties": {
       "probability_ppm": {
         "type": "u64",

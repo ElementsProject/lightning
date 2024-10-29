@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "openchannel_update",
   "title": "Command to update a collab channel open",
   "description": [
@@ -16,6 +15,7 @@
       "channel_id",
       "psbt"
     ],
+    "additionalProperties": false,
     "properties": {
       "channel_id": {
         "type": "hash",
@@ -39,6 +39,7 @@
       "channel_type",
       "funding_outnum"
     ],
+    "additionalProperties": false,
     "properties": {
       "channel_id": {
         "type": "hash",
@@ -128,6 +129,7 @@
     "allOf": [
       {
         "if": {
+          "additionalProperties": true,
           "properties": {
             "commitments_secured": {
               "type": "boolean",

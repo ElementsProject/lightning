@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v22.11",
   "rpc": "disableinvoicerequest",
   "title": "Command for removing an invoice request",
@@ -15,6 +14,7 @@
     "required": [
       "invreq_id"
     ],
+    "additionalProperties": false,
     "properties": {
       "invreq_id": {
         "type": "string",
@@ -32,6 +32,7 @@
       "bolt12",
       "used"
     ],
+    "additionalProperties": false,
     "properties": {
       "invreq_id": {
         "type": "hash",

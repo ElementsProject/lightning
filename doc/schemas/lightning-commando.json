@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "commando",
   "title": "Command to Send a Command to a Remote Peer",
   "description": [
@@ -12,6 +11,7 @@
       "peer_id",
       "method"
     ],
+    "additionalProperties": false,
     "properties": {
       "peer_id": {
         "type": "pubkey",
@@ -57,6 +57,7 @@
   },
   "response": {
     "required": [],
+    "additionalProperties": true,
     "properties": {},
     "pre_return_value_notes": [
       "On success, the return depends on the *method* invoked."

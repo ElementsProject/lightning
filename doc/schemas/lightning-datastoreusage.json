@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v23.11",
   "rpc": "datastoreusage",
   "title": "Command for listing datastore usage info",
@@ -12,6 +11,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "key": {
         "oneOf": [
@@ -35,6 +35,7 @@
     "required": [
       "datastoreusage"
     ],
+    "additionalProperties": false,
     "properties": {
       "datastoreusage": {
         "type": "object",

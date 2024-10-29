@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "help",
   "title": "Command to return all information about RPC commands.",
   "description": [
@@ -11,6 +10,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "command": {
         "type": "string",
@@ -24,6 +24,7 @@
     "required": [
       "help"
     ],
+    "additionalProperties": false,
     "properties": {
       "help": {
         "type": "array",

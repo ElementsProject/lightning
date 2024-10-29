@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "reserveinputs",
   "title": "Construct a transaction and reserve the UTXOs it spends",
   "description": [
@@ -13,6 +12,7 @@
     "required": [
       "psbt"
     ],
+    "additionalProperties": false,
     "properties": {
       "psbt": {
         "type": "string",
@@ -38,6 +38,7 @@
     "required": [
       "reservations"
     ],
+    "additionalProperties": false,
     "properties": {
       "reservations": {
         "type": "array",

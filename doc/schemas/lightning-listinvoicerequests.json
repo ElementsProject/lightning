@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v22.11",
   "rpc": "listinvoicerequests",
   "title": "Command for querying invoice_request status",
@@ -13,6 +12,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "invreq_id": {
         "type": "string",
@@ -33,6 +33,7 @@
     "required": [
       "invoicerequests"
     ],
+    "additionalProperties": false,
     "properties": {
       "invoicerequests": {
         "type": "array",

@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v23.05",
   "deprecated": [
     "v23.08",
@@ -16,6 +15,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "start": {
         "type": "u64",
@@ -40,6 +40,7 @@
     "required": [
       "blacklist"
     ],
+    "additionalProperties": false,
     "properties": {
       "blacklist": {
         "type": "array",

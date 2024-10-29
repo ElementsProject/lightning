@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v23.02",
   "rpc": "preapproveinvoice",
   "title": "Ask the HSM to preapprove an invoice (low-level)",
@@ -20,6 +19,7 @@
     "required": [
       "bolt11"
     ],
+    "additionalProperties": false,
     "properties": {
       "bolt11": {
         "type": "string",
@@ -31,6 +31,7 @@
     }
   },
   "response": {
+    "additionalProperties": false,
     "properties": {}
   },
   "author": [

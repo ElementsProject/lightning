@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "askrene-disable-node",
   "title": "Command to disable all channels to/from a node in a layer (EXPERIMENTAL)",
   "description": [
@@ -14,6 +13,7 @@
       "layer",
       "node"
     ],
+    "additionalProperties": false,
     "properties": {
       "layer": {
         "type": "string",
@@ -31,6 +31,7 @@
   },
   "response": {
     "required": [],
+    "additionalProperties": false,
     "properties": {}
   },
   "see_also": [

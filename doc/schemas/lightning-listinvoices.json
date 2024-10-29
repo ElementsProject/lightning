@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "listinvoices",
   "title": "Command for querying invoice status",
   "description": [
@@ -14,6 +13,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "label": {
         "oneOf": [
@@ -84,6 +84,7 @@
     "required": [
       "invoices"
     ],
+    "additionalProperties": false,
     "properties": {
       "invoices": {
         "type": "array",
@@ -181,6 +182,7 @@
           "allOf": [
             {
               "if": {
+                "additionalProperties": true,
                 "properties": {
                   "status": {
                     "type": "string",

@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "txsend",
   "title": "Command to sign and send transaction from txprepare",
   "description": [
@@ -11,6 +10,7 @@
     "required": [
       "txid"
     ],
+    "additionalProperties": false,
     "properties": {
       "txid": {
         "type": "txid",
@@ -26,6 +26,7 @@
       "tx",
       "txid"
     ],
+    "additionalProperties": false,
     "properties": {
       "psbt": {
         "type": "string",

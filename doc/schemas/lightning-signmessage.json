@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "signmessage",
   "title": "Command to create a signature from this node",
   "description": [
@@ -11,6 +10,7 @@
     "required": [
       "message"
     ],
+    "additionalProperties": false,
     "properties": {
       "message": {
         "type": "string",
@@ -26,6 +26,7 @@
       "recid",
       "zbase"
     ],
+    "additionalProperties": false,
     "properties": {
       "signature": {
         "type": "hex",

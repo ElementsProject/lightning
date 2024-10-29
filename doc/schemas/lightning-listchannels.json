@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "listchannels",
   "title": "Command to query active lightning channels in the entire network",
   "description": [
@@ -14,6 +13,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "short_channel_id": {
         "type": "short_channel_id",
@@ -39,6 +39,7 @@
     "required": [
       "channels"
     ],
+    "additionalProperties": false,
     "properties": {
       "channels": {
         "type": "array",

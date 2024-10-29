@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v0.10.1",
   "rpc": "sendcustommsg",
   "title": "Low-level interface to send protocol messages to peers",
@@ -15,6 +14,7 @@
       "node_id",
       "msg"
     ],
+    "additionalProperties": false,
     "properties": {
       "node_id": {
         "type": "pubkey",
@@ -34,6 +34,7 @@
     "required": [
       "status"
     ],
+    "additionalProperties": false,
     "properties": {
       "status": {
         "type": "string",

@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "connect",
   "title": "Command for connecting to another lightning node",
   "description": [
@@ -15,6 +14,7 @@
     "required": [
       "id"
     ],
+    "additionalProperties": false,
     "properties": {
       "id": {
         "type": "string",
@@ -47,6 +47,7 @@
       "direction",
       "address"
     ],
+    "additionalProperties": false,
     "properties": {
       "id": {
         "type": "pubkey",
@@ -97,6 +98,7 @@
         "allOf": [
           {
             "if": {
+              "additionalProperties": true,
               "properties": {
                 "type": {
                   "type": "string",
@@ -124,6 +126,7 @@
           },
           {
             "if": {
+              "additionalProperties": true,
               "properties": {
                 "type": {
                   "type": "string",

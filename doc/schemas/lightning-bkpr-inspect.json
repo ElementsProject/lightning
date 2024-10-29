@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "bkpr-inspect",
   "title": "Command to show onchain footprint of a channel",
   "description": [
@@ -11,6 +10,7 @@
     "required": [
       "account"
     ],
+    "additionalProperties": false,
     "properties": {
       "account": {
         "type": "string",
@@ -24,6 +24,7 @@
     "required": [
       "txs"
     ],
+    "additionalProperties": false,
     "properties": {
       "txs": {
         "type": "array",

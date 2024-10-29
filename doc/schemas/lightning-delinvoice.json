@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "delinvoice",
   "title": "Command for removing an invoice (or just its description)",
   "description": [
@@ -12,6 +11,7 @@
       "label",
       "status"
     ],
+    "additionalProperties": true,
     "properties": {
       "label": {
         "oneOf": [
@@ -53,6 +53,7 @@
       "created_index",
       "expires_at"
     ],
+    "additionalProperties": true,
     "properties": {
       "label": {
         "type": "string",
@@ -187,6 +188,7 @@
       },
       {
         "if": {
+          "additionalProperties": true,
           "properties": {
             "status": {
               "type": "string",

@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "dev-forget-channel",
   "title": "Command to remove the DB entries from the database after a close",
   "warning": "For advanced users only",
@@ -16,6 +15,7 @@
     "required": [
       "id"
     ],
+    "additionalProperties": false,
     "properties": {
       "id": {
         "type": "pubkey",
@@ -50,6 +50,7 @@
       "funding_unspent",
       "funding_txid"
     ],
+    "additionalProperties": false,
     "properties": {
       "forced": {
         "type": "boolean",

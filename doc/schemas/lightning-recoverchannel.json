@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "recoverchannel",
   "title": "Command for recovering channels bundeled in an array in the form of *Static Backup*",
   "description": [
@@ -13,6 +12,7 @@
     "required": [
       "scb"
     ],
+    "additionalProperties": false,
     "properties": {
       "scb": {
         "type": "array",
@@ -29,6 +29,7 @@
     "required": [
       "stubs"
     ],
+    "additionalProperties": false,
     "properties": {
       "stubs": {
         "type": "array",

@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "invoice",
   "title": "Command for accepting payments",
   "description": [
@@ -13,6 +12,7 @@
       "label",
       "description"
     ],
+    "additionalProperties": false,
     "properties": {
       "amount_msat": {
         "type": "msat_or_any",
@@ -111,6 +111,7 @@
       "bolt11",
       "payment_secret"
     ],
+    "additionalProperties": false,
     "properties": {
       "bolt11": {
         "type": "string",

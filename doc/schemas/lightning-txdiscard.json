@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "txdiscard",
   "title": "Abandon a transaction from txprepare, release inputs",
   "description": [
@@ -11,6 +10,7 @@
     "required": [
       "txid"
     ],
+    "additionalProperties": false,
     "properties": {
       "txid": {
         "type": "txid",
@@ -25,6 +25,7 @@
       "unsigned_tx",
       "txid"
     ],
+    "additionalProperties": false,
     "properties": {
       "unsigned_tx": {
         "type": "hex",

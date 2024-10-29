@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "pay",
   "title": "Command for sending a payment to a BOLT11 invoice",
   "description": [
@@ -15,6 +14,7 @@
     "required": [
       "bolt11"
     ],
+    "additionalProperties": false,
     "properties": {
       "bolt11": {
         "type": "string",
@@ -122,6 +122,7 @@
       "amount_sent_msat",
       "status"
     ],
+    "additionalProperties": false,
     "properties": {
       "payment_preimage": {
         "type": "secret",

@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "listpays",
   "title": "Command for querying payment status",
   "description": [
@@ -12,6 +11,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "bolt11": {
         "type": "string",
@@ -42,6 +42,7 @@
     "required": [
       "pays"
     ],
+    "additionalProperties": false,
     "properties": {
       "pays": {
         "type": "array",
@@ -117,6 +118,7 @@
           "allOf": [
             {
               "if": {
+                "additionalProperties": true,
                 "properties": {
                   "status": {
                     "type": "string",
@@ -171,6 +173,7 @@
             },
             {
               "if": {
+                "additionalProperties": true,
                 "properties": {
                   "status": {
                     "type": "string",

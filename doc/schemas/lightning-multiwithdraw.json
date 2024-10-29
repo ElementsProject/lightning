@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "multiwithdraw",
   "title": "Command for withdrawing to multiple addresses",
   "description": [
@@ -11,6 +10,7 @@
     "required": [
       "outputs"
     ],
+    "additionalProperties": false,
     "properties": {
       "outputs": {
         "type": "array",
@@ -51,6 +51,7 @@
       "tx",
       "txid"
     ],
+    "additionalProperties": false,
     "properties": {
       "tx": {
         "type": "hex",

@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "reckless",
   "title": "Issue a command to the reckless plugin manager utility",
   "description": [
@@ -11,6 +10,7 @@
     "required": [
       "command"
     ],
+    "additionalProperties": false,
     "properties": {
       "command": {
         "type": "string",
@@ -64,6 +64,7 @@
       "log",
       "result"
     ],
+    "additionalProperties": false,
     "properties": {
       "result": {
         "type": "array",

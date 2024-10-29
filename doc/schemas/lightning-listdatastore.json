@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "listdatastore",
   "title": "Command for listing (plugin) data",
   "description": [
@@ -9,6 +8,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "key": {
         "oneOf": [
@@ -34,6 +34,7 @@
     "required": [
       "datastore"
     ],
+    "additionalProperties": false,
     "properties": {
       "datastore": {
         "type": "array",

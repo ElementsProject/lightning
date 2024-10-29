@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v23.02",
   "rpc": "listsqlschemas",
   "title": "Command to example lightning-sql schemas",
@@ -15,6 +14,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "table": {
         "type": "string"
@@ -25,6 +25,7 @@
     "required": [
       "schemas"
     ],
+    "additionalProperties": false,
     "properties": {
       "schemas": {
         "type": "array",

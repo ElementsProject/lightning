@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "emergencyrecover",
   "title": "Command for recovering channels from the emergency.recovery file in the lightning directory",
   "description": [
@@ -11,12 +10,14 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {}
   },
   "response": {
     "required": [
       "stubs"
     ],
+    "additionalProperties": false,
     "properties": {
       "stubs": {
         "type": "array",

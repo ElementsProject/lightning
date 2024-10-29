@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "sendpsbt",
   "title": "Command to finalize, extract and send a partially signed bitcoin transaction (PSBT).",
   "description": [
@@ -11,6 +10,7 @@
     "required": [
       "psbt"
     ],
+    "additionalProperties": false,
     "properties": {
       "psbt": {
         "type": "string",
@@ -32,6 +32,7 @@
       "tx",
       "txid"
     ],
+    "additionalProperties": false,
     "properties": {
       "tx": {
         "type": "hex",

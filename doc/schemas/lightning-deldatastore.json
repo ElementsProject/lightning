@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "deldatastore",
   "title": "Command for removing (plugin) data",
   "description": [
@@ -13,6 +12,7 @@
     "required": [
       "key"
     ],
+    "additionalProperties": false,
     "properties": {
       "key": {
         "oneOf": [
@@ -42,6 +42,7 @@
     "required": [
       "key"
     ],
+    "additionalProperties": false,
     "properties": {
       "key": {
         "type": "array",

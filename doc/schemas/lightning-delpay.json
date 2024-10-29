@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "delpay",
   "title": "Command for removing a completed or failed payment",
   "description": [
@@ -12,6 +11,7 @@
       "payment_hash",
       "status"
     ],
+    "additionalProperties": false,
     "properties": {
       "payment_hash": {
         "type": "hash",
@@ -53,6 +53,7 @@
     "required": [
       "payments"
     ],
+    "additionalProperties": false,
     "properties": {
       "payments": {
         "type": "array",

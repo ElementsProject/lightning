@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "openchannel_bump",
   "title": "Command to initiate a channel RBF",
   "description": [
@@ -15,6 +14,7 @@
       "amount",
       "initialpsbt"
     ],
+    "additionalProperties": false,
     "properties": {
       "channel_id": {
         "type": "hash",
@@ -51,6 +51,7 @@
       "commitments_secured",
       "funding_serial"
     ],
+    "additionalProperties": false,
     "properties": {
       "channel_id": {
         "type": "hash",

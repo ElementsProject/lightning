@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "staticbackup",
   "title": "Command for deriving getting SCB of all the existing channels",
   "description": [
@@ -9,12 +8,14 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {}
   },
   "response": {
     "required": [
       "scb"
     ],
+    "additionalProperties": false,
     "properties": {
       "scb": {
         "type": "array",

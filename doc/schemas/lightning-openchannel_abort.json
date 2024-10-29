@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "openchannel_abort",
   "title": "Command to abort a channel to a peer",
   "description": [
@@ -11,6 +10,7 @@
     "required": [
       "channel_id"
     ],
+    "additionalProperties": false,
     "properties": {
       "channel_id": {
         "type": "hash",
@@ -26,6 +26,7 @@
       "channel_canceled",
       "reason"
     ],
+    "additionalProperties": false,
     "properties": {
       "channel_id": {
         "type": "hash",

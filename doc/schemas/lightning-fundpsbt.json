@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "fundpsbt",
   "title": "Command to populate PSBT inputs from the wallet",
   "description": [
@@ -13,6 +12,7 @@
       "feerate",
       "startweight"
     ],
+    "additionalProperties": false,
     "properties": {
       "satoshi": {
         "type": "sat_or_all",
@@ -88,6 +88,7 @@
       "estimated_final_weight",
       "excess_msat"
     ],
+    "additionalProperties": false,
     "properties": {
       "psbt": {
         "type": "string",

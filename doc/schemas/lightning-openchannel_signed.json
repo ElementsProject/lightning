@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "openchannel_signed",
   "title": "Command to conclude a channel open",
   "description": [
@@ -16,6 +15,7 @@
       "channel_id",
       "signed_psbt"
     ],
+    "additionalProperties": false,
     "properties": {
       "channel_id": {
         "type": "hash",
@@ -37,6 +37,7 @@
       "tx",
       "txid"
     ],
+    "additionalProperties": false,
     "properties": {
       "channel_id": {
         "type": "hash",

@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v23.08",
   "rpc": "blacklistrune",
   "title": "Command to prevent a rune from working",
@@ -14,6 +13,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "start": {
         "type": "u64",
@@ -38,6 +38,7 @@
     "required": [
       "blacklist"
     ],
+    "additionalProperties": false,
     "properties": {
       "blacklist": {
         "type": "array",

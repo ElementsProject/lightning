@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "listpeers",
   "title": "Command returning data on connected lightning nodes",
   "description": [
@@ -20,6 +19,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "id": {
         "type": "pubkey",
@@ -46,6 +46,7 @@
     "required": [
       "peers"
     ],
+    "additionalProperties": false,
     "properties": {
       "peers": {
         "type": "array",
@@ -106,6 +107,7 @@
                 "allOf": [
                   {
                     "if": {
+                      "additionalProperties": true,
                       "properties": {
                         "type": {
                           "enum": [
@@ -133,6 +135,7 @@
                   },
                   {
                     "if": {
+                      "additionalProperties": true,
                       "properties": {
                         "type": {
                           "enum": [
@@ -185,6 +188,7 @@
                   },
                   {
                     "if": {
+                      "additionalProperties": true,
                       "properties": {
                         "type": {
                           "enum": [

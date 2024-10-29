@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "fundchannel_complete",
   "title": "Command for completing channel establishment",
   "description": [
@@ -14,6 +13,7 @@
       "id",
       "psbt"
     ],
+    "additionalProperties": false,
     "properties": {
       "id": {
         "type": "pubkey",
@@ -34,6 +34,7 @@
       "channel_id",
       "commitments_secured"
     ],
+    "additionalProperties": false,
     "properties": {
       "channel_id": {
         "type": "hash",

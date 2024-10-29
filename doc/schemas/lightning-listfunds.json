@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "listfunds",
   "title": "Command showing all funds currently managed by the Core Lightning node",
   "description": [
@@ -12,6 +11,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "spent": {
         "type": "boolean",
@@ -27,6 +27,7 @@
       "outputs",
       "channels"
     ],
+    "additionalProperties": false,
     "properties": {
       "outputs": {
         "type": "array",
@@ -97,6 +98,7 @@
           "allOf": [
             {
               "if": {
+                "additionalProperties": true,
                 "properties": {
                   "status": {
                     "type": "string",
@@ -133,6 +135,7 @@
             },
             {
               "if": {
+                "additionalProperties": true,
                 "properties": {
                   "reserved": {
                     "type": "boolean",
@@ -254,6 +257,7 @@
           "allOf": [
             {
               "if": {
+                "additionalProperties": true,
                 "properties": {
                   "state": {
                     "type": "string",
@@ -290,6 +294,7 @@
             },
             {
               "if": {
+                "additionalProperties": true,
                 "properties": {
                   "state": {
                     "type": "string",

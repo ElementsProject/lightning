@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "bkpr-channelsapy",
   "title": "Command to list stats on channel earnings",
   "description": [
@@ -9,6 +8,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "start_time": {
         "type": "u64",
@@ -30,6 +30,7 @@
     "required": [
       "channels_apy"
     ],
+    "additionalProperties": false,
     "properties": {
       "channels_apy": {
         "type": "array",

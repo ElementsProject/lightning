@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v24.02",
   "rpc": "deprecations",
   "title": "Command to enable/disable deprecated APIs",
@@ -12,6 +11,7 @@
     "required": [
       "enable"
     ],
+    "additionalProperties": false,
     "properties": {
       "enable": {
         "type": "boolean",
@@ -22,6 +22,7 @@
     }
   },
   "response": {
+    "additionalProperties": false,
     "properties": {}
   },
   "errors": [

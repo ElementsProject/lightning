@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "feerates",
   "title": "Command for querying recommended onchain feerates",
   "description": [
@@ -23,6 +22,7 @@
     "required": [
       "style"
     ],
+    "additionalProperties": false,
     "properties": {
       "style": {
         "type": "string",
@@ -40,6 +40,7 @@
   },
   "response": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "warning_missing_feerates": {
         "type": "string",
