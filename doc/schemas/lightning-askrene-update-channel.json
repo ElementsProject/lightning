@@ -27,25 +27,31 @@
           "The channel and direction to apply the change to."
         ]
       },
-      "htlc_min": {
+      "enabled": {
+        "type": "boolean",
+        "description": [
+          "Whether the channel is usable at all."
+        ]
+      },
+      "htlc_minimum_msat": {
         "type": "msat",
         "description": [
           "The minimum value allowed in this direction."
         ]
       },
-      "htlc_max": {
+      "htlc_maximum_msat": {
         "type": "msat",
         "description": [
           "The maximum value allowed in this direction."
         ]
       },
-      "base_fee": {
+      "fee_base_msat": {
         "type": "msat",
         "description": [
           "The base fee to apply to use the channel in this direction."
         ]
       },
-      "proportional_fee": {
+      "fee_proportional_millionths": {
         "type": "u32",
         "description": [
           "The proportional fee (in parts per million) to apply to use the channel in this direction."
