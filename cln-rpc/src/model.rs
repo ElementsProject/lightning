@@ -8227,7 +8227,13 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct RenepayResponse {
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bolt11: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bolt12: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub destination: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub groupid: Option<u64>,
 	    // Path `RenePay.status`
 	    pub status: RenepayStatus,
 	    pub amount_msat: Amount,

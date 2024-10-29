@@ -62,6 +62,12 @@
         "description": [
           "To ask the issuer to include in the fetched invoice."
         ]
+      },
+      "dev_reply_path": {
+        "hidden": true
+      },
+      "dev_path_use_scidd": {
+        "hidden": true
       }
     }
   },

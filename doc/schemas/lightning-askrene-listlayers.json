@@ -108,6 +108,18 @@
                   "short_channel_id_dir"
                 ],
                 "properties": {
+                  "short_channel_id_dir": {
+                    "type": "short_channel_id_dir",
+                    "description": [
+                      "The short channel id and direction this update applies to."
+                    ]
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "description": [
+                      "True if this can be used, false otherwise."
+                    ]
+                  },
                   "htlc_minimum_msat": {
                     "type": "msat",
                     "description": [
@@ -132,7 +144,7 @@
                       "The proportional fee (in parts per million) to apply to use the channel in this direction."
                     ]
                   },
-                  "delay": {
+                  "cltv_expiry_delta": {
                     "type": "u16",
                     "description": [
                       "The CLTV delay required for this direction."
@@ -153,6 +165,12 @@
                     "type": "short_channel_id_dir",
                     "description": [
                       "The short channel id and direction"
+                    ]
+                  },
+                  "timestamp": {
+                    "type": "u64",
+                    "description": [
+                      "The UNIX timestamp when this constraint was created."
                     ]
                   },
                   "maximum_msat": {

@@ -119,6 +119,9 @@
         "description": [
           "Description used in the invoice."
         ]
+      },
+      "dev_legacy_hop": {
+        "hidden": true
       }
     }
   },
@@ -227,7 +230,9 @@
         "description": [
           "The bolt12 string (if supplied: **experimental-offers** only)."
         ]
-      }
+      },
+      "message": {},
+      "payment_preimage": {}
     },
     "allOf": [
       {

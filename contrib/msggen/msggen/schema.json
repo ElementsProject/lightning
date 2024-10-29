@@ -638,13 +638,27 @@
             "items": {
               "type": "object",
               "required": [
-                "short_channel_id_dir"
+                "layer",
+                "short_channel_id_dir",
+                "timestamp"
               ],
               "properties": {
                 "short_channel_id_dir": {
                   "type": "short_channel_id_dir",
                   "description": [
                     "The short channel id and direction"
+                  ]
+                },
+                "layer": {
+                  "type": "string",
+                  "description": [
+                    "The name of the layer to apply this change to."
+                  ]
+                },
+                "timestamp": {
+                  "type": "u64",
+                  "description": [
+                    "The UNIX timestamp when this constraint was created."
                   ]
                 },
                 "maximum_msat": {
@@ -788,6 +802,18 @@
                       "short_channel_id_dir"
                     ],
                     "properties": {
+                      "short_channel_id_dir": {
+                        "type": "short_channel_id_dir",
+                        "description": [
+                          "The short channel id and direction this update applies to."
+                        ]
+                      },
+                      "enabled": {
+                        "type": "boolean",
+                        "description": [
+                          "True if this can be used, false otherwise."
+                        ]
+                      },
                       "htlc_minimum_msat": {
                         "type": "msat",
                         "description": [
@@ -812,7 +838,7 @@
                           "The proportional fee (in parts per million) to apply to use the channel in this direction."
                         ]
                       },
-                      "delay": {
+                      "cltv_expiry_delta": {
                         "type": "u16",
                         "description": [
                           "The CLTV delay required for this direction."
@@ -833,6 +859,12 @@
                         "type": "short_channel_id_dir",
                         "description": [
                           "The short channel id and direction"
+                        ]
+                      },
+                      "timestamp": {
+                        "type": "u64",
+                        "description": [
+                          "The UNIX timestamp when this constraint was created."
                         ]
                       },
                       "maximum_msat": {
@@ -889,7 +921,7 @@
           "reservations"
         ],
         "properties": {
-          "layers": {
+          "reservations": {
             "type": "array",
             "items": {
               "type": "object",
@@ -1428,7 +1460,7 @@
       "rpc": "autoclean-status",
       "title": "Examine auto-delete of old invoices/payments/forwards",
       "description": [
-        "The **autoclean-status** RPC command tells you about the status of the autclean plugin, optionally for only one subsystem."
+        "The **autoclean-status** RPC command tells you about the status of the autoclean plugin, optionally for only one subsystem."
       ],
       "request": {
         "required": [],
@@ -12001,7 +12033,9 @@
             "description": [
               "To ask the issuer to include in the fetched invoice."
             ]
-          }
+          },
+          "dev_reply_path": {},
+          "dev_path_use_scidd": {}
         }
       },
       "response": {
@@ -26650,7 +26684,8 @@
               "This means that the invoice may start by paying during any period; otherwise it must start by paying at the first period.  Setting this to false only makes sense if *recurrence_base* was provided. This is encoded in the offer."
             ],
             "default": "True"
-          }
+          },
+          "dev_paths": {}
         }
       },
       "response": {
@@ -29253,10 +29288,31 @@
               "The hash of the *payment_preimage* which will prove payment."
             ]
           },
+          "bolt11": {
+            "type": "string",
+            "added": "v23.08",
+            "description": [
+              "The bolt11 invoice paid."
+            ]
+          },
+          "bolt12": {
+            "type": "string",
+            "added": "v23.08",
+            "description": [
+              "The bolt12 invoice paid."
+            ]
+          },
           "created_at": {
             "type": "number",
             "description": [
               "The UNIX timestamp showing when this payment was initiated."
+            ]
+          },
+          "groupid": {
+            "type": "u64",
+            "added": "v23.08",
+            "description": [
+              "The groupid used for these payment parts (as can be seen in listsendpays)"
             ]
           },
           "parts": {
@@ -29898,7 +29954,11 @@
             "description": [
               "1-based index indicating order this invoice was changed (only present if it has changed since creation)."
             ]
-          }
+          },
+          "amount_received_msat": {},
+          "paid_at": {},
+          "pay_index": {},
+          "payment_preimage": {}
         },
         "allOf": [
           {
@@ -30041,7 +30101,7 @@
           "first_hop": {
             "type": "object",
             "description": [
-              "Instructs Core Lightning which peer to send the onion to. It is a JSON dictionary that corresponds to the first element of the route array returned by *getroute*."
+              "Instructs Core Lightning which peer to send the onion to. It is a JSON dictionary that corresponds to the first element of the route array returned by *getroute* (so fields not mentioned here are ignored)."
             ],
             "required": [
               "id",
@@ -30485,7 +30545,8 @@
             "description": [
               "Description used in the invoice."
             ]
-          }
+          },
+          "dev_legacy_hop": {}
         }
       },
       "response": {
@@ -30593,7 +30654,9 @@
             "description": [
               "The bolt12 string (if supplied: **experimental-offers** only)."
             ]
-          }
+          },
+          "message": {},
+          "payment_preimage": {}
         },
         "allOf": [
           {
@@ -34852,7 +34915,9 @@
             "description": [
               "The bolt12 string (if supplied for pay: **experimental-offers** only)."
             ]
-          }
+          },
+          "message": {},
+          "payment_preimage": {}
         },
         "allOf": [
           {

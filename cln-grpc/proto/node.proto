@@ -2506,6 +2506,9 @@ message RenepayResponse {
 	Amount amount_sent_msat = 6;
 	RenepayStatus status = 7;
 	optional bytes destination = 8;
+	optional string bolt11 = 9;
+	optional string bolt12 = 10;
+	optional uint64 groupid = 11;
 }
 
 message ReserveinputsRequest {

@@ -97,6 +97,9 @@
           "This means that the invoice may start by paying during any period; otherwise it must start by paying at the first period.  Setting this to false only makes sense if *recurrence_base* was provided. This is encoded in the offer."
         ],
         "default": "True"
+      },
+      "dev_paths": {
+        "hidden": true
       }
     }
   },

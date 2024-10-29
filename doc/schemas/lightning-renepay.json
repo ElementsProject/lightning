@@ -107,10 +107,31 @@
           "The hash of the *payment_preimage* which will prove payment."
         ]
       },
+      "bolt11": {
+        "type": "string",
+        "added": "v23.08",
+        "description": [
+          "The bolt11 invoice paid."
+        ]
+      },
+      "bolt12": {
+        "type": "string",
+        "added": "v23.08",
+        "description": [
+          "The bolt12 invoice paid."
+        ]
+      },
       "created_at": {
         "type": "number",
         "description": [
           "The UNIX timestamp showing when this payment was initiated."
+        ]
+      },
+      "groupid": {
+        "type": "u64",
+        "added": "v23.08",
+        "description": [
+          "The groupid used for these payment parts (as can be seen in listsendpays)"
         ]
       },
       "parts": {

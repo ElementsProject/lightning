@@ -2855,8 +2855,11 @@
         "RenepayResponse": {
             "RenePay.amount_msat": 5,
             "RenePay.amount_sent_msat": 6,
+            "RenePay.bolt11": 9,
+            "RenePay.bolt12": 10,
             "RenePay.created_at": 3,
             "RenePay.destination": 8,
+            "RenePay.groupid": 11,
             "RenePay.parts": 4,
             "RenePay.payment_hash": 2,
             "RenePay.payment_preimage": 1,
@@ -10101,6 +10104,14 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "RenePay.bolt11": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "RenePay.bolt12": {
+            "added": "v23.08",
+            "deprecated": null
+        },
         "RenePay.created_at": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -10119,6 +10130,10 @@
         },
         "RenePay.exclude": {
             "added": "v24.08",
+            "deprecated": null
+        },
+        "RenePay.groupid": {
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePay.invstring": {
