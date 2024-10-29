@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "delforward",
   "title": "Command for removing a forwarding entry",
   "description": [
@@ -15,6 +14,7 @@
       "in_htlc_id",
       "status"
     ],
+    "additionalProperties": false,
     "properties": {
       "in_channel": {
         "type": "short_channel_id",
@@ -43,6 +43,7 @@
   },
   "response": {
     "required": [],
+    "additionalProperties": false,
     "properties": {}
   },
   "errors": [

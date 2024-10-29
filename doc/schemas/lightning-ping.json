@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "ping",
   "title": "Command to check if a node is up.",
   "description": [
@@ -11,6 +10,7 @@
     "required": [
       "id"
     ],
+    "additionalProperties": false,
     "properties": {
       "id": {
         "type": "pubkey",
@@ -38,6 +38,7 @@
     "required": [
       "totlen"
     ],
+    "additionalProperties": false,
     "properties": {
       "totlen": {
         "type": "u16",

@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v23.05",
   "rpc": "decode",
   "title": "Command for decoding an invoice string (low-level)",
@@ -12,6 +11,7 @@
     "required": [
       "string"
     ],
+    "additionalProperties": false,
     "properties": {
       "string": {
         "type": "string",
@@ -29,6 +29,7 @@
       "type",
       "valid"
     ],
+    "additionalProperties": true,
     "properties": {
       "type": {
         "type": "string",
@@ -54,6 +55,7 @@
     "allOf": [
       {
         "if": {
+          "additionalProperties": true,
           "properties": {
             "type": {
               "type": "string",
@@ -394,6 +396,7 @@
       },
       {
         "if": {
+          "additionalProperties": true,
           "properties": {
             "type": {
               "type": "string",
@@ -479,6 +482,7 @@
       },
       {
         "if": {
+          "additionalProperties": true,
           "properties": {
             "type": {
               "type": "string",
@@ -965,6 +969,7 @@
       },
       {
         "if": {
+          "additionalProperties": true,
           "properties": {
             "type": {
               "type": "string",
@@ -1072,6 +1077,7 @@
       },
       {
         "if": {
+          "additionalProperties": true,
           "properties": {
             "type": {
               "type": "string",
@@ -1758,6 +1764,7 @@
       },
       {
         "if": {
+          "additionalProperties": true,
           "properties": {
             "type": {
               "type": "string",
@@ -1905,6 +1912,7 @@
                   "version",
                   "hex"
                 ],
+                "additionalProperties": false,
                 "properties": {
                   "version": {},
                   "hex": {},
@@ -1923,6 +1931,7 @@
       },
       {
         "if": {
+          "additionalProperties": true,
           "properties": {
             "type": {
               "type": "string",
@@ -2161,6 +2170,7 @@
       },
       {
         "if": {
+          "additionalProperties": true,
           "properties": {
             "type": {
               "type": "string",
@@ -2248,6 +2258,7 @@
       },
       {
         "if": {
+          "additionalProperties": true,
           "properties": {
             "type": {
               "type": "string",
@@ -2293,6 +2304,7 @@
       },
       {
         "if": {
+          "additionalProperties": true,
           "properties": {
             "type": {
               "type": "string",

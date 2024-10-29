@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "fundchannel",
   "title": "Command for establishing a lightning channel",
   "description": [
@@ -18,6 +17,7 @@
       "id",
       "amount"
     ],
+    "additionalProperties": false,
     "properties": {
       "id": {
         "type": "pubkey",
@@ -127,6 +127,7 @@
       "channel_type",
       "channel_id"
     ],
+    "additionalProperties": false,
     "properties": {
       "tx": {
         "type": "hex",

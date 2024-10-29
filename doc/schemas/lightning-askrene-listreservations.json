@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "askrene-listreservations",
   "title": "Command to display information about reservations (EXPERIMENTAL)",
   "description": [
@@ -11,24 +10,26 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {}
   },
   "response": {
     "required": [
       "reservations"
     ],
+    "additionalProperties": false,
     "properties": {
       "reservations": {
         "type": "array",
         "items": {
           "type": "object",
-          "additionalProperties": false,
           "required": [
             "short_channel_id_dir",
             "amount_msat",
             "age_in_seconds",
             "command_id"
           ],
+          "additionalProperties": false,
           "properties": {
             "short_channel_id_dir": {
               "type": "short_channel_id_dir",

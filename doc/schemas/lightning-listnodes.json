@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "listnodes",
   "title": "Command to get the list of nodes in the known network.",
   "description": [
@@ -12,6 +11,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "id": {
         "type": "pubkey",
@@ -25,6 +25,7 @@
     "required": [
       "nodes"
     ],
+    "additionalProperties": false,
     "properties": {
       "nodes": {
         "type": "array",
@@ -124,6 +125,7 @@
                         }
                       },
                       "if": {
+                        "additionalProperties": true,
                         "properties": {
                           "type": {
                             "type": "string",

@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "createonion",
   "title": "Low-level command to create a custom onion",
   "description": [
@@ -12,6 +11,7 @@
       "hops",
       "assocdata"
     ],
+    "additionalProperties": false,
     "properties": {
       "hops": {
         "type": "array",
@@ -66,6 +66,7 @@
       "onion",
       "shared_secrets"
     ],
+    "additionalProperties": false,
     "properties": {
       "onion": {
         "type": "hex",

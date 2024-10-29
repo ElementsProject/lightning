@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "notifications",
   "title": "Command to set up notifications.",
   "description": [
@@ -13,6 +12,7 @@
     "required": [
       "enable"
     ],
+    "additionalProperties": false,
     "properties": {
       "enable": {
         "type": "boolean",
@@ -23,6 +23,7 @@
     }
   },
   "response": {
+    "additionalProperties": false,
     "properties": {},
     "post_return_value_notes": [
       "On success, if *enable* was *true*, notifications will be forwarded from then on."

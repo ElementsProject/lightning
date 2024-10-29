@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "askrene-age",
   "title": "Command for expiring information in a layer (EXPERIMENTAL)",
   "description": [
@@ -14,6 +13,7 @@
       "layer",
       "cutoff"
     ],
+    "additionalProperties": false,
     "properties": {
       "layer": {
         "type": "string",
@@ -34,6 +34,7 @@
       "layer",
       "num_removed"
     ],
+    "additionalProperties": false,
     "properties": {
       "layer": {
         "type": "string",

@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "bkpr-listbalances",
   "title": "Command for listing current channel + wallet balances",
   "description": [
@@ -11,12 +10,14 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {}
   },
   "response": {
     "required": [
       "accounts"
     ],
+    "additionalProperties": false,
     "properties": {
       "accounts": {
         "type": "array",
@@ -112,11 +113,11 @@
             }
           },
           "else": {
+            "additionalProperties": false,
             "properties": {
               "account": {},
               "balances": {}
-            },
-            "additionalProperties": false
+            }
           }
         }
       }

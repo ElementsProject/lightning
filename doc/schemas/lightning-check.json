@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "check",
   "title": "Command for verifying parameters",
   "description": [
@@ -15,6 +14,7 @@
     "required": [
       "command_to_check"
     ],
+    "additionalProperties": true,
     "properties": {
       "command_to_check": {
         "type": "string",
@@ -25,6 +25,7 @@
     }
   },
   "response": {
+    "additionalProperties": false,
     "properties": {
       "command_to_check": {
         "type": "string",

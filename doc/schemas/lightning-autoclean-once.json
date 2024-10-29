@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "autoclean-once",
   "title": "A single deletion of old invoices/payments/forwards",
   "description": [
@@ -12,6 +11,7 @@
       "subsystem",
       "age"
     ],
+    "additionalProperties": false,
     "properties": {
       "subsystem": {
         "type": "string",
@@ -45,6 +45,7 @@
     "required": [
       "autoclean"
     ],
+    "additionalProperties": false,
     "properties": {
       "autoclean": {
         "type": "object",

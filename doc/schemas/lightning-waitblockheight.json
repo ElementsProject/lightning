@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "waitblockheight",
   "title": "Command for waiting for blocks on the blockchain",
   "description": [
@@ -11,6 +10,7 @@
     "required": [
       "blockheight"
     ],
+    "additionalProperties": false,
     "properties": {
       "blockheight": {
         "type": "u32",
@@ -31,6 +31,7 @@
     "required": [
       "blockheight"
     ],
+    "additionalProperties": false,
     "properties": {
       "blockheight": {
         "type": "u32",

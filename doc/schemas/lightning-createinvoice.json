@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "createinvoice",
   "title": "Low-level invoice creation",
   "description": [
@@ -13,6 +12,7 @@
       "label",
       "preimage"
     ],
+    "additionalProperties": false,
     "properties": {
       "invstring": {
         "type": "string",
@@ -50,6 +50,7 @@
       "description",
       "expires_at"
     ],
+    "additionalProperties": false,
     "properties": {
       "label": {
         "type": "string",

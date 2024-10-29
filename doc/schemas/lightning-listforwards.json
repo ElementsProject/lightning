@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "listforwards",
   "title": "Command showing all htlcs and their information",
   "description": [
@@ -12,6 +11,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "status": {
         "type": "string",
@@ -75,6 +75,7 @@
     "required": [
       "forwards"
     ],
+    "additionalProperties": false,
     "properties": {
       "forwards": {
         "type": "array",
@@ -227,6 +228,7 @@
             },
             {
               "if": {
+                "additionalProperties": true,
                 "properties": {
                   "status": {
                     "type": "string",
@@ -293,6 +295,7 @@
             },
             {
               "if": {
+                "additionalProperties": true,
                 "properties": {
                   "status": {
                     "type": "string",

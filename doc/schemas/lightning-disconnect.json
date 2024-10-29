@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "disconnect",
   "title": "Command for disconnecting from another lightning node",
   "description": [
@@ -11,6 +10,7 @@
     "required": [
       "id"
     ],
+    "additionalProperties": false,
     "properties": {
       "id": {
         "type": "pubkey",
@@ -27,6 +27,7 @@
     }
   },
   "response": {
+    "additionalProperties": false,
     "properties": {}
   },
   "errors": [

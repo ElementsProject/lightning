@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v23.05",
   "rpc": "decodepay",
   "title": "Command for decoding a bolt11 string (low-level)",
@@ -12,6 +11,7 @@
     "required": [
       "bolt11"
     ],
+    "additionalProperties": false,
     "properties": {
       "bolt11": {
         "type": "string",
@@ -37,6 +37,7 @@
       "payment_hash",
       "signature"
     ],
+    "additionalProperties": false,
     "properties": {
       "currency": {
         "type": "string",

@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "batching",
   "title": "Command to allow database batching.",
   "description": [
@@ -11,6 +10,7 @@
     "required": [
       "enable"
     ],
+    "additionalProperties": false,
     "properties": {
       "enable": {
         "type": "boolean",
@@ -22,6 +22,7 @@
     }
   },
   "response": {
+    "additionalProperties": false,
     "properties": {}
   },
   "errors": [

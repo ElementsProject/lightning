@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v22.11",
   "rpc": "invoicerequest",
   "title": "Command for offering payments",
@@ -14,6 +13,7 @@
       "amount",
       "description"
     ],
+    "additionalProperties": false,
     "properties": {
       "amount": {
         "type": "msat",
@@ -62,6 +62,7 @@
       "bolt12",
       "used"
     ],
+    "additionalProperties": false,
     "properties": {
       "invreq_id": {
         "type": "hash",

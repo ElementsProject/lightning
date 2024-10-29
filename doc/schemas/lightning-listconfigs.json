@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "listconfigs",
   "title": "Command to list all configuration options.",
   "description": [
@@ -12,6 +11,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "config": {
         "type": "string",
@@ -23,6 +23,7 @@
   },
   "response": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "configs": {
         "added": "v23.08",

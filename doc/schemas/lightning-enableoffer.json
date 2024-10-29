@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "disableoffer",
   "title": "Command for re-enabling an offer",
   "warning": "experimental-offers only",
@@ -12,6 +11,7 @@
     "required": [
       "offer_id"
     ],
+    "additionalProperties": false,
     "properties": {
       "offer_id": {
         "type": "hash",
@@ -29,6 +29,7 @@
       "bolt12",
       "used"
     ],
+    "additionalProperties": false,
     "properties": {
       "offer_id": {
         "type": "hash",

@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "getemergencyrecoverdata",
   "title": "Command to fetch data from the emergency.recover file",
   "description": [
@@ -9,12 +8,14 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {}
   },
   "response": {
     "required": [
       "filedata"
     ],
+    "additionalProperties": false,
     "properties": {
       "filedata": {
         "type": "hex",

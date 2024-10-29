@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "openchannel_init",
   "title": "Command to initiate a channel to a peer",
   "description": [
@@ -13,6 +12,7 @@
       "amount",
       "initialpsbt"
     ],
+    "additionalProperties": false,
     "properties": {
       "id": {
         "type": "pubkey",
@@ -91,6 +91,7 @@
       "commitments_secured",
       "funding_serial"
     ],
+    "additionalProperties": false,
     "properties": {
       "channel_id": {
         "type": "hash",

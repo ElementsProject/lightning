@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "close",
   "title": "Command for closing channels with direct peers",
   "description": [
@@ -13,6 +12,7 @@
     "required": [
       "id"
     ],
+    "additionalProperties": true,
     "properties": {
       "id": {
         "type": "string",
@@ -75,6 +75,7 @@
     "required": [
       "type"
     ],
+    "additionalProperties": true,
     "properties": {
       "type": {
         "type": "string",
@@ -91,6 +92,7 @@
     "allOf": [
       {
         "if": {
+          "additionalProperties": true,
           "properties": {
             "type": {
               "type": "string",

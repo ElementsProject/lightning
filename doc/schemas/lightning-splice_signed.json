@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v23.08",
   "rpc": "splice_signed",
   "title": "Command to initiate a channel to a peer",
@@ -16,6 +15,7 @@
       "channel_id",
       "psbt"
     ],
+    "additionalProperties": false,
     "properties": {
       "channel_id": {
         "type": "hash",
@@ -42,6 +42,7 @@
       "tx",
       "txid"
     ],
+    "additionalProperties": false,
     "properties": {
       "tx": {
         "type": "hex",

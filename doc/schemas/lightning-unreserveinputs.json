@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "unreserveinputs",
   "title": "Release reserved UTXOs",
   "description": [
@@ -11,6 +10,7 @@
     "required": [
       "psbt"
     ],
+    "additionalProperties": false,
     "properties": {
       "psbt": {
         "type": "string",
@@ -31,6 +31,7 @@
     "required": [
       "reservations"
     ],
+    "additionalProperties": false,
     "properties": {
       "reservations": {
         "type": "array",
@@ -85,6 +86,7 @@
                 "required": [
                   "reserved_to_block"
                 ],
+                "additionalProperties": false,
                 "properties": {
                   "txid": {},
                   "vout": {},

@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "listoffers",
   "title": "Command for listing offers",
   "warning": "experimental-offers only",
@@ -13,6 +12,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "offer_id": {
         "type": "hash",
@@ -32,6 +32,7 @@
     "required": [
       "offers"
     ],
+    "additionalProperties": false,
     "properties": {
       "offers": {
         "type": "array",

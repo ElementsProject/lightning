@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "bkpr-dumpincomecsv",
   "title": "Command to emit a CSV of income events",
   "description": [
@@ -11,6 +10,7 @@
     "required": [
       "csv_format"
     ],
+    "additionalProperties": false,
     "properties": {
       "csv_format": {
         "type": "string",
@@ -52,6 +52,7 @@
       "csv_file",
       "csv_format"
     ],
+    "additionalProperties": false,
     "properties": {
       "csv_file": {
         "type": "string",

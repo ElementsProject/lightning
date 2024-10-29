@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "askrene-update-channel",
   "title": "Command to manipulate channel in a layer (EXPERIMENTAL)",
   "description": [
@@ -14,6 +13,7 @@
       "layer",
       "short_channel_id_dir"
     ],
+    "additionalProperties": false,
     "properties": {
       "layer": {
         "type": "string",
@@ -67,6 +67,7 @@
   },
   "response": {
     "required": [],
+    "additionalProperties": false,
     "properties": {}
   },
   "see_also": [

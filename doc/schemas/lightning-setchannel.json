@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "setchannel",
   "title": "Command for configuring fees / htlc range advertized for a channel",
   "description": [
@@ -13,6 +12,7 @@
     "required": [
       "id"
     ],
+    "additionalProperties": false,
     "properties": {
       "id": {
         "type": "string",
@@ -66,6 +66,7 @@
     "required": [
       "channels"
     ],
+    "additionalProperties": false,
     "properties": {
       "channels": {
         "type": "array",

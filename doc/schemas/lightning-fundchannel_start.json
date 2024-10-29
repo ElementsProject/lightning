@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "fundchannel_start",
   "title": "Command for initiating channel establishment for a lightning channel",
   "description": [
@@ -14,6 +13,7 @@
       "id",
       "amount"
     ],
+    "additionalProperties": false,
     "properties": {
       "id": {
         "type": "pubkey",
@@ -94,6 +94,7 @@
       "scriptpubkey",
       "warning_usage"
     ],
+    "additionalProperties": false,
     "properties": {
       "funding_address": {
         "type": "string",

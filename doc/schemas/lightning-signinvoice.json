@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v23.02",
   "rpc": "signinvoice",
   "title": "Low-level invoice signing",
@@ -12,6 +11,7 @@
     "required": [
       "invstring"
     ],
+    "additionalProperties": false,
     "properties": {
       "invstring": {
         "type": "string",
@@ -25,6 +25,7 @@
     "required": [
       "bolt11"
     ],
+    "additionalProperties": false,
     "properties": {
       "bolt11": {
         "type": "string",

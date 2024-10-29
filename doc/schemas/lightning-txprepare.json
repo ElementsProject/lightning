@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "txprepare",
   "title": "Command to prepare to withdraw funds from the internal wallet",
   "description": [
@@ -13,6 +12,7 @@
     "required": [
       "outputs"
     ],
+    "additionalProperties": false,
     "properties": {
       "outputs": {
         "type": "array",
@@ -54,6 +54,7 @@
       "unsigned_tx",
       "txid"
     ],
+    "additionalProperties": false,
     "properties": {
       "psbt": {
         "type": "string",

@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "getinfo",
   "title": "Command to receive all information about the Core Lightning node.",
   "description": [
@@ -12,6 +11,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {}
   },
   "response": {
@@ -30,6 +30,7 @@
       "lightning-dir",
       "address"
     ],
+    "additionalProperties": false,
     "properties": {
       "id": {
         "type": "pubkey",
@@ -179,6 +180,7 @@
             }
           },
           "if": {
+            "additionalProperties": true,
             "properties": {
               "type": {
                 "type": "string",
@@ -233,6 +235,7 @@
           "required": [
             "type"
           ],
+          "additionalProperties": true,
           "properties": {
             "type": {
               "type": "string",
@@ -264,6 +267,7 @@
           "allOf": [
             {
               "if": {
+                "additionalProperties": true,
                 "properties": {
                   "type": {
                     "type": "string",
@@ -306,6 +310,7 @@
             },
             {
               "if": {
+                "additionalProperties": true,
                 "properties": {
                   "type": {
                     "type": "string",

@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "sendonion",
   "title": "Send a payment with a custom onion packet",
   "description": [
@@ -23,6 +22,7 @@
       "first_hop",
       "payment_hash"
     ],
+    "additionalProperties": false,
     "properties": {
       "onion": {
         "type": "hex",
@@ -40,6 +40,7 @@
           "amount_msat",
           "delay"
         ],
+        "additionalProperties": true,
         "properties": {
           "id": {
             "type": "pubkey",
@@ -136,6 +137,7 @@
       "created_at",
       "amount_sent_msat"
     ],
+    "additionalProperties": true,
     "properties": {
       "created_index": {
         "added": "v23.11",
@@ -218,6 +220,7 @@
     "allOf": [
       {
         "if": {
+          "additionalProperties": true,
           "properties": {
             "status": {
               "type": "string",
@@ -266,6 +269,7 @@
       },
       {
         "if": {
+          "additionalProperties": true,
           "properties": {
             "status": {
               "type": "string",

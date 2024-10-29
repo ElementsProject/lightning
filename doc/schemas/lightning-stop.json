@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "stop",
   "title": "Command to shutdown the Core Lightning node.",
   "description": [
@@ -9,12 +8,14 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {}
   },
   "response": {
     "required": [
       "result"
     ],
+    "additionalProperties": false,
     "properties": {
       "result": {
         "type": "string",

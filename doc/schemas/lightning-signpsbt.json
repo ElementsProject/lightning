@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "signpsbt",
   "title": "Command to sign a wallet's inputs on a provided bitcoin transaction (PSBT).",
   "description": [
@@ -15,6 +14,7 @@
     "required": [
       "psbt"
     ],
+    "additionalProperties": false,
     "properties": {
       "psbt": {
         "type": "string",
@@ -37,6 +37,7 @@
     "required": [
       "signed_psbt"
     ],
+    "additionalProperties": false,
     "properties": {
       "signed_psbt": {
         "type": "string",

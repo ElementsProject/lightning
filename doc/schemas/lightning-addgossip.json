@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "addgossip",
   "title": "Command for injecting a gossip message (low-level)",
   "description": [
@@ -15,6 +14,7 @@
     "required": [
       "message"
     ],
+    "additionalProperties": false,
     "properties": {
       "message": {
         "type": "hex",
@@ -25,6 +25,7 @@
     }
   },
   "response": {
+    "additionalProperties": false,
     "properties": {}
   },
   "author": [

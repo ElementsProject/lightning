@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "askrene-create-layer",
   "title": "Command to create a new layer (EXPERIMENTAL)",
   "description": [
@@ -13,6 +12,7 @@
     "required": [
       "layer"
     ],
+    "additionalProperties": false,
     "properties": {
       "layer": {
         "type": "string",
@@ -26,6 +26,7 @@
     "required": [
       "layers"
     ],
+    "additionalProperties": false,
     "properties": {
       "layers": {
         "type": "array",
@@ -74,6 +75,7 @@
                   "short_channel_id",
                   "capacity_msat"
                 ],
+                "additionalProperties": false,
                 "properties": {
                   "source": {
                     "type": "pubkey",
@@ -109,6 +111,7 @@
                 "required": [
                   "short_channel_id_dir"
                 ],
+                "additionalProperties": false,
                 "properties": {
                   "htlc_minimum_msat": {
                     "type": "msat",
@@ -151,6 +154,7 @@
                   "short_channel_id",
                   "direction"
                 ],
+                "additionalProperties": false,
                 "properties": {
                   "short_channel_id": {
                     "type": "short_channel_id",

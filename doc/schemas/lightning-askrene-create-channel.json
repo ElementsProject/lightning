@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "askrene-create-channel",
   "title": "Command to add a channel to layer (EXPERIMENTAL)",
   "description": [
@@ -17,6 +16,7 @@
       "short_channel_id",
       "capacity_msat"
     ],
+    "additionalProperties": false,
     "properties": {
       "layer": {
         "type": "string",
@@ -53,6 +53,7 @@
   },
   "response": {
     "required": [],
+    "additionalProperties": false,
     "properties": {}
   },
   "see_also": [

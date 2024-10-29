@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "waitsendpay",
   "title": "Command for sending a payment via a route",
   "description": [
@@ -13,6 +12,7 @@
     "required": [
       "payment_hash"
     ],
+    "additionalProperties": false,
     "properties": {
       "payment_hash": {
         "type": "hash",
@@ -55,6 +55,7 @@
       "created_at",
       "amount_sent_msat"
     ],
+    "additionalProperties": false,
     "properties": {
       "created_index": {
         "added": "v23.11",
@@ -157,6 +158,7 @@
     "allOf": [
       {
         "if": {
+          "additionalProperties": true,
           "properties": {
             "status": {
               "type": "string",

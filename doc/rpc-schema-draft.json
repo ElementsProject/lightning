@@ -261,6 +261,9 @@
             "type": "object",
             "additionalProperties": false,
             "properties": {
+                "additionalProperties": {
+                    "type": "boolean"
+                },
                 "required": {
                     "type": "array",
                     "items": {
@@ -290,6 +293,9 @@
             "type": "object",
             "additionalProperties": false,
             "properties": {
+                "additionalProperties": {
+                    "type": "boolean"
+                },
                 "required": {
                     "type": "array",
                     "items": {

@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v23.08",
   "rpc": "showrunes",
   "title": "Command to list previously generated runes",
@@ -10,6 +9,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "rune": {
         "type": "string",
@@ -23,6 +23,7 @@
     "required": [
       "runes"
     ],
+    "additionalProperties": false,
     "properties": {
       "runes": {
         "type": "array",

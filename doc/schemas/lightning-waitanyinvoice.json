@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "waitanyinvoice",
   "title": "Command for waiting for payments",
   "description": [
@@ -11,6 +10,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "lastpay_index": {
         "type": "u64",
@@ -34,6 +34,7 @@
       "created_index",
       "expires_at"
     ],
+    "additionalProperties": true,
     "properties": {
       "label": {
         "type": "string",
@@ -105,6 +106,7 @@
     "allOf": [
       {
         "if": {
+          "additionalProperties": true,
           "properties": {
             "status": {
               "type": "string",

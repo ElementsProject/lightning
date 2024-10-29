@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "checkmessage",
   "title": "Command to check if a signature is from a node",
   "description": [
@@ -14,6 +13,7 @@
       "message",
       "zbase"
     ],
+    "additionalProperties": false,
     "properties": {
       "message": {
         "type": "string",
@@ -40,6 +40,7 @@
       "verified",
       "pubkey"
     ],
+    "additionalProperties": false,
     "properties": {
       "verified": {
         "type": "boolean",

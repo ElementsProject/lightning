@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "bkpr-listaccountevents",
   "title": "Command for listing recorded bookkeeping events",
   "description": [
@@ -17,6 +16,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "account": {
         "type": "string",
@@ -37,6 +37,7 @@
     "required": [
       "events"
     ],
+    "additionalProperties": false,
     "properties": {
       "events": {
         "type": "array",
@@ -104,6 +105,7 @@
           "allOf": [
             {
               "if": {
+                "additionalProperties": true,
                 "properties": {
                   "type": {
                     "type": "string",
@@ -114,6 +116,7 @@
                 }
               },
               "then": {
+                "additionalProperties": false,
                 "properties": {
                   "account": {},
                   "type": {},
@@ -162,12 +165,12 @@
                 "required": [
                   "outpoint",
                   "blockheight"
-                ],
-                "additionalProperties": false
+                ]
               }
             },
             {
               "if": {
+                "additionalProperties": true,
                 "properties": {
                   "type": {
                     "type": "string",
@@ -178,6 +181,7 @@
                 }
               },
               "then": {
+                "additionalProperties": false,
                 "properties": {
                   "account": {},
                   "type": {},
@@ -196,12 +200,12 @@
                 },
                 "required": [
                   "txid"
-                ],
-                "additionalProperties": false
+                ]
               }
             },
             {
               "if": {
+                "additionalProperties": true,
                 "properties": {
                   "type": {
                     "type": "string",
@@ -212,6 +216,7 @@
                 }
               },
               "then": {
+                "additionalProperties": false,
                 "properties": {
                   "account": {},
                   "type": {},
@@ -245,8 +250,7 @@
                       "Counter for multi-part payments."
                     ]
                   }
-                },
-                "additionalProperties": false
+                }
               }
             }
           ]

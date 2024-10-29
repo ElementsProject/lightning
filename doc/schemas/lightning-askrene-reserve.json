@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "askrene-reserve",
   "title": "Command for informing askrene that you are trying a path (EXPERIMENTAL)",
   "description": [
@@ -15,12 +14,13 @@
     "required": [
       "path"
     ],
+    "additionalProperties": false,
     "properties": {
       "path": {
         "type": "array",
         "items": {
           "type": "object",
-          "additionalProperties": true,
+          "additionalProperties": false,
           "required": [
             "short_channel_id_dir",
             "amount_msat"
@@ -45,6 +45,7 @@
   },
   "response": {
     "required": [],
+    "additionalProperties": false,
     "properties": {}
   },
   "see_also": [

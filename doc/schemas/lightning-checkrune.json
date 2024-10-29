@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v23.08",
   "rpc": "checkrune",
   "title": "Command to Validate Rune",
@@ -16,6 +15,7 @@
     "required": [
       "rune"
     ],
+    "additionalProperties": false,
     "properties": {
       "rune": {
         "type": "string",
@@ -57,6 +57,7 @@
     "required": [
       "valid"
     ],
+    "additionalProperties": false,
     "properties": {
       "valid": {
         "type": "boolean",

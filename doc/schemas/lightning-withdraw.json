@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "withdraw",
   "title": "Command for withdrawing funds from the internal wallet",
   "description": [
@@ -12,6 +11,7 @@
       "destination",
       "satoshi"
     ],
+    "additionalProperties": false,
     "properties": {
       "destination": {
         "type": "string",
@@ -56,6 +56,7 @@
       "tx",
       "txid"
     ],
+    "additionalProperties": false,
     "properties": {
       "tx": {
         "type": "hex",

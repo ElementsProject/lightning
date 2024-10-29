@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "fundchannel_cancel",
   "title": "Command for completing channel establishment",
   "description": [
@@ -15,6 +14,7 @@
     "required": [
       "id"
     ],
+    "additionalProperties": false,
     "properties": {
       "id": {
         "type": "pubkey",
@@ -28,6 +28,7 @@
     "required": [
       "cancelled"
     ],
+    "additionalProperties": false,
     "properties": {
       "cancelled": {
         "type": "string",

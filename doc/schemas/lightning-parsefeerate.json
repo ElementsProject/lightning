@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "parsefeerate",
   "title": "Command for parsing a feerate string to a feerate",
   "description": [
@@ -11,6 +10,7 @@
     "required": [
       "feerate_str"
     ],
+    "additionalProperties": false,
     "properties": {
       "feerate_str": {
         "type": "string",
@@ -22,6 +22,7 @@
   },
   "response": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "perkw": {
         "type": "u32",

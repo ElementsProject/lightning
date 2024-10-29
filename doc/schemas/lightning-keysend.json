@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "keysend",
   "title": "Send funds to a node without an invoice",
   "description": [
@@ -16,6 +15,7 @@
       "destination",
       "amount_msat"
     ],
+    "additionalProperties": false,
     "properties": {
       "destination": {
         "type": "pubkey",
@@ -123,6 +123,7 @@
       "amount_sent_msat",
       "status"
     ],
+    "additionalProperties": false,
     "properties": {
       "payment_preimage": {
         "type": "secret",

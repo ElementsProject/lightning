@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "v23.05",
   "rpc": "listclosedchannels",
   "title": "Get data on our closed historical channels",
@@ -13,6 +12,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "id": {
         "type": "pubkey",
@@ -26,6 +26,7 @@
     "required": [
       "closedchannels"
     ],
+    "additionalProperties": false,
     "properties": {
       "closedchannels": {
         "type": "array",
@@ -70,6 +71,7 @@
             "alias": {
               "type": "object",
               "required": [],
+              "additionalProperties": false,
               "properties": {
                 "local": {
                   "type": "short_channel_id",

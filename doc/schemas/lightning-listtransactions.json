@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "listtransactions",
   "title": "Command to get the list of transactions that was stored in the wallet.",
   "description": [
@@ -12,12 +11,14 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {}
   },
   "response": {
     "required": [
       "transactions"
     ],
+    "additionalProperties": false,
     "properties": {
       "transactions": {
         "type": "array",

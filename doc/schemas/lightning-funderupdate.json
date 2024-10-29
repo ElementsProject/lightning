@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "funderupdate",
   "title": "Command for adjusting node funding v2 channels",
   "description": [
@@ -15,6 +14,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "policy": {
         "type": "string",
@@ -152,6 +152,7 @@
       "fuzz_percent",
       "fund_probability"
     ],
+    "additionalProperties": false,
     "properties": {
       "summary": {
         "type": "string",

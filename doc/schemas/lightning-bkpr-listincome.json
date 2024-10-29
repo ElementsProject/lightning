@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "added": "pre-v0.10.1",
   "rpc": "bkpr-listincome",
   "title": "Command for listing all income impacting events",
@@ -10,6 +9,7 @@
   ],
   "request": {
     "required": [],
+    "additionalProperties": false,
     "properties": {
       "consolidate_fees": {
         "type": "boolean",
@@ -38,6 +38,7 @@
     "required": [
       "income_events"
     ],
+    "additionalProperties": false,
     "properties": {
       "income_events": {
         "type": "array",

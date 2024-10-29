@@ -1,7 +1,6 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "additionalProperties": false,
   "rpc": "datastore",
   "title": "Command for storing (plugin) data",
   "description": [
@@ -11,6 +10,7 @@
     "required": [
       "key"
     ],
+    "additionalProperties": false,
     "properties": {
       "key": {
         "description": [
@@ -74,6 +74,7 @@
     "required": [
       "key"
     ],
+    "additionalProperties": false,
     "properties": {
       "key": {
         "type": "array",
