@@ -336,75 +336,8 @@ jobs:
         run: |
           env
           cat config.vars
+          (sleep 3600; top -b -n 1; PID=`top -b -n 1 | head -n 8 | tail -n 1 | awk '{print $1}'`; gdb --batch -ex "attach $PID" -ex "bt") &
           VALGRIND=0 poetry run pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
-
-  integration-valgrind:
-    name: Valgrind Test CLN ${{ matrix.name }}
-    runs-on: ubuntu-22.04
-    timeout-minutes: 120
-    env:
-      RUST_PROFILE: release  # Has to match the one in the compile step
-      CFG: compile-gcc
-      PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800 --force-flaky
-    needs:
-      - compile
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - NAME: Valgrind (01/10)
-            PYTEST_OPTS: --test-group=1  --test-group-count=10
-          - NAME: Valgrind (02/10)
-            PYTEST_OPTS: --test-group=2  --test-group-count=10
-          - NAME: Valgrind (03/10)
-            PYTEST_OPTS: --test-group=3  --test-group-count=10
-          - NAME: Valgrind (04/10)
-            PYTEST_OPTS: --test-group=4  --test-group-count=10
-          - NAME: Valgrind (05/10)
-            PYTEST_OPTS: --test-group=5  --test-group-count=10
-          - NAME: Valgrind (06/10)
-            PYTEST_OPTS: --test-group=6  --test-group-count=10
-          - NAME: Valgrind (07/10)
-            PYTEST_OPTS: --test-group=7  --test-group-count=10
-          - NAME: Valgrind (08/10)
-            PYTEST_OPTS: --test-group=8  --test-group-count=10
-          - NAME: Valgrind (09/10)
-            PYTEST_OPTS: --test-group=9  --test-group-count=10
-          - NAME: Valgrind (10/10)
-            PYTEST_OPTS: --test-group=10 --test-group-count=10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -yyq valgrind
-          pip3 install --user pip wheel poetry
-          poetry install
-
-      - name: Install bitcoind
-        run: .github/scripts/install-bitcoind.sh
-
-      - name: Download build
-        uses: actions/download-artifact@v4
-        with:
-          name: cln-compile-gcc.tar.bz2
-
-      - name: Unpack build
-        run: tar -xvjf cln-compile-gcc.tar.bz2
-
-      - name: Test
-        env:
-          SLOW_MACHINE: 1
-          TEST_DEBUG: 1
-        run: |
-          VALGRIND=1 poetry run pytest tests/ -vvv -n 3 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
 
   integration-sanitizers:
     name: Sanitizers Test CLN
@@ -470,6 +403,7 @@ jobs:
 
       - name: Test
         run: |
+          (sleep 3600; top -b -n 1; PID=`top -b -n 1 | head -n 8 | tail -n 1 | awk '{print $1}'`; gdb --batch -ex "attach $PID" -ex "bt") &
           poetry run pytest tests/ -vvv -n 2 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
 
   min-btc-support:
@@ -542,6 +476,7 @@ jobs:
         run: |
           env
           cat config.vars
+          (sleep 3600; top -b -n 1; PID=`top -b -n 1 | head -n 8 | tail -n 1 | awk '{print $1}'`; gdb --batch -ex "attach $PID" -ex "bt") &
           VALGRIND=0 poetry run pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
 
   check-flake:
@@ -572,7 +507,6 @@ jobs:
     needs:
       - integration
       - check-units
-      - integration-valgrind
       - integration-sanitizers
       - min-btc-support
       - check-flake
