@@ -217,7 +217,7 @@ bool plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 		       const char *cmd_id TAKES,
 		       tal_t *cb_arg STEALS)
 {
-	if (tal_count(hook->hooks)) {
+	if (tal_count(hook->hooks) && !ld->plugins->startup) {
 		/* If we have a plugin that has registered for this
 		 * hook, serialize and call it */
 		/* FIXME: technically this is a leak, but we don't
