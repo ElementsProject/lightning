@@ -44,12 +44,27 @@ jobs:
 
       - name: Check changelog
         run: |
-          base_ref="${{ github.base_ref }}"
-          if [ -z "$base_ref" ]; then
-            base_ref="master"
+          EVENT_NAME="${{ github.event_name }}"
+          BASE_REF="${{ github.base_ref }}"
+          if [ -z "$BASE_REF" ]; then
+            BASE_REF="master"
           fi
-          if [[ -z "$(git log origin/$base_ref..HEAD --oneline --grep='Changelog-')" && "$(git rev-parse --abbrev-ref HEAD)" != "$base_ref" ]]; then
-            echo "::error::'Changelog' entry is missing in all commits" && exit 1
+          echo "Event Name: $EVENT_NAME"
+          echo "Base Ref: $BASE_REF"
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            PR_DESCRIPTION="$(echo '${{ github.event.pull_request.body }}')"
+            echo "PR Description: $PR_DESCRIPTION"
+            if [[ -z "$(git log origin/$BASE_REF..HEAD --oneline --grep='Changelog-')" && \
+              "$(git rev-parse --abbrev-ref HEAD)" != "$BASE_REF" && \
+              "$PR_DESCRIPTION" != *"Changelog-None"* ]]; then
+              echo "::error::'Changelog' entry is missing in all commits, and 'Changelog-None' not specified in the PR description"
+              exit 1
+            else
+              echo "Changelog found."
+            fi
+          else
+            echo "Not a PR event."
           fi
 
       - name: Set up Python 3.8
