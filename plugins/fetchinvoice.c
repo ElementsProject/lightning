@@ -881,7 +881,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	} else {
 		if (!msat)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "msatoshi parameter required");
+					    "amount_msat parameter required");
 		invreq->invreq_amount = tal_dup(invreq, u64,
 						&msat->millisatoshis); /* Raw: tu64 */
 	}
