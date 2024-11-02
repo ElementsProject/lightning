@@ -1,5 +1,5 @@
 > [!IMPORTANT]
-> Open for merging new PRs until the next PR freeze date is confirmed!
+> 24.11 FREEZE NOVEMBER 7TH: Non-bugfix PRs not ready by this date will wait for 25.02.
 
 ## Checklist
 Before submitting the PR, ensure the following tasks are completed. If an item is not applicable to your PR, please mark it as checked:
