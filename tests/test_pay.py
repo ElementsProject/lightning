@@ -4514,7 +4514,7 @@ def test_fetchinvoice(node_factory, bitcoind):
     # If no amount is specified in offer, one must be in invoice.
     offer_noamount = l3.rpc.call('offer', {'amount': 'any',
                                            'description': 'any amount test'})
-    with pytest.raises(RpcError, match="msatoshi parameter required"):
+    with pytest.raises(RpcError, match="amount_msat parameter required"):
         l1.rpc.call('fetchinvoice', {'offer': offer_noamount['bolt12']})
     inv1 = l1.rpc.call('fetchinvoice', {'offer': offer_noamount['bolt12'], 'amount_msat': 100})
     # But amount won't appear in changes
