@@ -256,24 +256,6 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Invalid bolt11:"
 				    " sets feature var_onion with no secret");
-	/* BOLT #11:
-	 * A reader:
-	 *...
-	 * - MUST check that the SHA2 256-bit hash in the `h` field
-	 *   exactly matches the hashed description.
-	 */
-	if (!b11->description) {
-		if (!b11->description_hash)
-			return command_fail(
-			    cmd, JSONRPC2_INVALID_PARAMS,
-			    "Invalid bolt11: missing description");
-
-		if (!description)
-			return command_fail(
-			    cmd, JSONRPC2_INVALID_PARAMS,
-			    "bolt11 uses description_hash, but you did "
-			    "not provide description parameter");
-	}
 
 	if (b11->msat) {
 		// amount is written in the invoice
