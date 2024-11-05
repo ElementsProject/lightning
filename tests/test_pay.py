@@ -5134,13 +5134,19 @@ def test_sendpay_grouping(node_factory, bitcoind):
     assert(len(l1.db.query("SELECT * FROM payments")) == 0)
     assert(len(l1.rpc.listpays()['pays']) == 0)
 
-    with pytest.raises(RpcError, match=r'Ran out of routes to try after [0-9]+ attempts'):
+    with pytest.raises(RpcError, match=r'Ran out of routes to try after [1-9]+ attempts'):
         l1.rpc.pay(inv, amount_msat='100002msat')
 
     # After this one invocation we have one entry in `listpays`
     assert(len(l1.rpc.listpays()['pays']) == 1)
 
-    with pytest.raises(RpcError, match=r'Ran out of routes to try after [0-9]+ attempts'):
+    # Pay learns, and sometimes now refuses to even attempt.  Give it a new channel.
+    l3.start()
+    node_factory.join_nodes([l2, l3], wait_for_announce=True)
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 6)
+    l3.stop()
+
+    with pytest.raises(RpcError, match=r'Ran out of routes to try after [1-9]+ attempts'):
         l1.rpc.pay(inv, amount_msat='100001msat')
 
     # Surprise: we should have 2 entries after 2 invocations
