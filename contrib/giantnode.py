@@ -41,13 +41,9 @@ parser.add_argument('num', type=int, nargs='?',
 
 args = parser.parse_args()
 
-nodes = (LightningRpc('/tmp/l1-regtest/regtest/lightning-rpc'),
-         LightningRpc('/tmp/l2-regtest/regtest/lightning-rpc'),
-         LightningRpc('/tmp/l3-regtest/regtest/lightning-rpc'))
-
-nodes = (LightningRpc('/tmp/l1-regtest/regtest/lightning-rpc'),
-         LightningRpc('/tmp/l2-regtest/regtest/lightning-rpc'),
-         LightningRpc('/tmp/l3-regtest/regtest/lightning-rpc'))
+nodes = (LightningRpc('/tmp/l1/regtest/lightning-rpc'),
+         LightningRpc('/tmp/l2/regtest/lightning-rpc'),
+         LightningRpc('/tmp/l3/regtest/lightning-rpc'))
 
 # Convenient aliases
 l1 = nodes[0]
@@ -59,9 +55,9 @@ if not args.allow_bookkeeper:
         print("""
 Bookkeeper is running on l1, will slow things down!  Run this:
 
-echo 'disable-plugin=bookkeeper' >> /tmp/l1-regtest/regtest/config
-echo 'disable-plugin=bookkeeper' >> /tmp/l2-regtest/regtest/config
-echo 'disable-plugin=bookkeeper' >> /tmp/l3-regtest/regtest/config
+echo 'disable-plugin=bookkeeper' >> /tmp/l1/regtest/config
+echo 'disable-plugin=bookkeeper' >> /tmp/l2/regtest/config
+echo 'disable-plugin=bookkeeper' >> /tmp/l3/regtest/config
 stop_ln
 start_ln 3
 """)
