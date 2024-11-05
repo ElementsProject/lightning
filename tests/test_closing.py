@@ -4180,4 +4180,4 @@ def test_onchain_reestablish_reply(node_factory, bitcoind, executor):
 
     # Then we get the error, close.
     l3.daemon.wait_for_log("peer_in WIRE_ERROR")
-    assert only_one(l3.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'AWAITING_UNILATERAL'
+    wait_for(lambda: only_one(l3.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'AWAITING_UNILATERAL')
