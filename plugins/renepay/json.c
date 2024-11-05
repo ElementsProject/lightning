@@ -226,8 +226,11 @@ void json_add_payment(struct json_stream *s, const struct payment *payment)
 	json_add_sha256(s, "payment_hash", &pinfo->payment_hash);
 	json_add_node_id(s, "destination", &pinfo->destination);
 
+	/* FIXME: we have not declared "description" in renepay's response
+	 * schema
 	if (pinfo->description)
 		json_add_string(s, "description", pinfo->description);
+	*/
 
 	json_add_timeabs(s, "created_at", pinfo->start_time);
 	json_add_u64(s, "groupid", payment->groupid);

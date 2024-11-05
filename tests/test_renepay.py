@@ -796,3 +796,46 @@ def test_hardmpp2(node_factory, bitcoind):
     l1.wait_for_htlcs()
     receipt = only_one(l3.rpc.listinvoices("inv")["invoices"])
     assert receipt["amount_received_msat"] == Millisatoshi("800000sat")
+
+
+def test_description(node_factory):
+    """Test the processing of the payment description interface."""
+    l1, l2 = node_factory.line_graph(2)
+
+    # do not provide description in the command line, all payments should be
+    # fine
+    inv_with_desc = l2.rpc.invoice(
+        "100sat", "desctest1", "paying for pizza", deschashonly=False
+    )["bolt11"]
+    inv_with_hash = l2.rpc.invoice(
+        "100sat", "desctest2", "paying for coffee", deschashonly=True
+    )["bolt11"]
+
+    details = l1.rpc.call("renepay", {"invstring": inv_with_desc})
+    assert details["status"] == "complete"
+    details = l1.rpc.call("renepay", {"invstring": inv_with_hash})
+    assert details["status"] == "complete"
+
+    # pass a description in the command line, should check if the hash matches
+    inv_with_desc = l2.rpc.invoice(
+        "100sat", "desctest3", "paying for pizza", deschashonly=False
+    )["bolt11"]
+    inv_with_hash = l2.rpc.invoice(
+        "100sat", "desctest4", "paying for coffee", deschashonly=True
+    )["bolt11"]
+
+    details = l1.rpc.call(
+        "renepay", {"invstring": inv_with_desc, "description": "paying for pizza"}
+    )
+    assert details["status"] == "complete"
+
+    # if the description does not match the hash in the invoice, we fail
+    with pytest.raises(RpcError, match=r"h: does not match description"):
+        l1.rpc.call(
+            "renepay", {"invstring": inv_with_hash, "description": "paying for cookies"}
+        )
+
+    details = l1.rpc.call(
+        "renepay", {"invstring": inv_with_hash, "description": "paying for coffee"}
+    )
+    assert details["status"] == "complete"
