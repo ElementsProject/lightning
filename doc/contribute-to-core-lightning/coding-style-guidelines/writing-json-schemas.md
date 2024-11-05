@@ -62,22 +62,59 @@ To add conditional fields:
    it can be defined as `"dependentUpon": { "index": ["start", "limit"] }` in the json and it will
    generate the Markdown syntax as `[*index* [*start*] [*limit*]]`.
 
-### Re-generate examples listed in rpc schemas (doc/schemas/lightning-*.json)
+## Generating Examples in Schema
+The `tests/autogenerate-rpc-examples.py` test script regenerates RPC examples for methods defined 
+in `doc/schemas/lightning-*.json`. These examples are located at the end of each schema page, 
+detailing `shell` and `json` request formats along with their corresponding `json` responses.
+The script utilizes the pytest suite to automate this task by running a test, `test_generate_examples`,
+that sets up test nodes, records RPC requests, and captures responses. Any new RPC command's examples 
+should also be included in this scripts. This test only executes example generation if `GENERATE_EXAMPLES=True`
+is set, preventing accidental overwrites from unrelated tests.
 
-1. The `autogenerate-rpc-examples.py` script regenerates RPC examples for methods listed in `doc/schemas/lightning-*.json` files.
-2. It uses our pre-existing pytest suite to perform this task.
-3. The script runs a test named `test_generate_examples`, which sets up test nodes, records RPC requests, and captures responses. If you have added an RPC, make sure to add its use to the scripts here.
-4. To prevent accidental overwriting of examples with other tests, set the environment variable `GENERATE_EXAMPLES=True` before running the script.
-5. By default, all methods are regenerated. To specify which methods to regenerate, set the `REGENERATE` environment variable with a comma-separated list of method names. Eg. `REGENERATE='getinfo,connect'` will only regenerate examples for the getinfo and connect RPCs.
-6. The dev-bitcoind-poll is set to 3 seconds. Ensure the `TIMEOUT` environment variable is set to more than 3 seconds to avoid test failures due to a short waiting time for bitcoind responses.
-7. To run the script using Poetry, use the following command:
-```
-rm -rf /tmp/ltests* && REGENERATE='getinfo,connect' VALGRIND=0 TIMEOUT=10 TEST_DEBUG=1 pytest -vvv -s -p no:logging -n 6 tests/autogenerate-rpc-examples.py
-```
-8. The script saves logs in a file named `autogenerate-examples-status.log`, located in the root directory.
-9. After running the script, execute `make` to ensure that the schema has been updated in all relevant locations, such as `...msggen/schema.json`.
+### Adding New Examples
+1. Define a New Function (if needed):
+	- If adding multiple examples for the same feature (e.g., `askrene`), create a new function. Otherwise, use an existing relevant function.
+2. Add the update_example Method:
+	- Define examples using `update_example` with parameters: `node method params [res] [description]`.
+	`node`: Specifies the node to execute the RPC.
+	`method`: The RPC method name.
+	`params`: RPC parameters in JSON or list format.
+	`response (optional)`: Specify for wait commands or pre-recorded responses.
+	`description (optional)`: Brief explanation of the example.
+3. Update the Ignore List:
+	- Remove the RPC method name from `IGNORE_RPCS_LIST` to include it in the example generation.
+4. Run and Refine:
+	- Run the test multiple times to detect variable values in responses:
+	```bash
+	rm -rf /tmp/ltests* && make -s && VALGRIND=0 TIMEOUT=40 TEST_DEBUG=1 pytest -vvv -n 6 tests/autogenerate-rpc-examples.py
+	```
+	- Identify changing values, and add them to `REPLACE_RESPONSE_VALUES`:
+	```bash
+	REPLACE_RESPONSE_VALUES.extend([
+      {'data_keys': ['xyz'], 'original_value': l1.info['xyz'], 'new_value': NEW_VALUES_LIST['xyz_value_1']}
+   ])
+	```
+	- If `xyz_value_1` already does not exist in the list, add it to `NEW_VALUES_LIST`.
+4. Run `make` after the script completes to ensure schema updates are applied in other places too, such as `...msggen/schema.json`.
 
-### JSON Drinking Game!
+
+### Avoiding Missing Example Errors (MissingExampleError)
+   - If an RPC is in progress and lacks examples, add it to `IGNORE_RPCS_LIST` to bypass the auto-generation requirement.
+
+
+### Manually Regenerating Specific Examples
+1. By default, all methods are regenerated. To specify which methods to regenerate, set the `REGENERATE`
+environment variable with a comma-separated list of method names. Eg. `REGENERATE='getinfo,connect'` will
+only regenerate examples for the `getinfo` and `connect` RPCs.
+2. To regenerate specific examples, set the REGENERATE environment variable:
+```bash
+REGENERATE='getinfo,connect' VALGRIND=0 TIMEOUT=10 TEST_DEBUG=1 pytest -vvv -n 6 tests/autogenerate-rpc-examples.py
+```
+3. Logs are saved in `tests/autogenerate-examples-status.log`, and JSON data is in `tests/autogenerate-examples.json`.
+4. Run `make` after the script completes to ensure schema updates are applied in other places too, such as `...msggen/schema.json`.
+
+
+## JSON Drinking Game!
 
 1. Sip whenever you have an additional comma at the end of a sequence.
 2. Sip whenever you omit a comma in a sequence because you cut & paste.
