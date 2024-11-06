@@ -322,7 +322,7 @@ bool command_deprecated_in_nocmd_ok(struct plugin *plugin,
 				    const char *depr_end);
 
 /* Call this on fatal error. */
-void NORETURN plugin_err(struct plugin *p, const char *fmt, ...);
+void NORETURN PRINTF_FMT(2,3) plugin_err(struct plugin *p, const char *fmt, ...);
 
 /* Call this on fatal error. */
 void NORETURN plugin_errv(struct plugin *p, const char *fmt, va_list ap);

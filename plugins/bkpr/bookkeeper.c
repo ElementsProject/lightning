@@ -891,7 +891,7 @@ static struct command_result *listpeerchannels_multi_done(struct command *cmd,
 		db_commit_transaction(db);
 
 		if (err)
-			plugin_err(cmd->plugin, err);
+			plugin_err(cmd->plugin, "%s", err);
 
 		/* FIXME: multiple currencies */
 		if (tal_count(balances) > 0)
@@ -907,7 +907,7 @@ static struct command_result *listpeerchannels_multi_done(struct command *cmd,
 				     bal->debit,
 				     &credit_diff, &debit_diff);
 		if (err)
-			plugin_err(cmd->plugin, err);
+			plugin_err(cmd->plugin, "%s", err);
 
 		log_journal_entry(info->acct,
 				  info->currency,
@@ -1327,7 +1327,7 @@ listpeerchannels_done(struct command *cmd, const char *buf,
 		db_commit_transaction(db);
 
 		if (err)
-			plugin_err(cmd->plugin, err);
+			plugin_err(cmd->plugin, "%s", err);
 
 		/* FIXME: multiple currencies per account? */
 		if (tal_count(balances) > 0)
@@ -1346,7 +1346,7 @@ listpeerchannels_done(struct command *cmd, const char *buf,
 				     bal->debit,
 				     &credit_diff, &debit_diff);
 		if (err)
-			plugin_err(cmd->plugin, err);
+			plugin_err(cmd->plugin, "%s", err);
 
 		log_journal_entry(info->acct,
 				  info->ev->currency,
@@ -1360,7 +1360,7 @@ listpeerchannels_done(struct command *cmd, const char *buf,
 	/* Maybe mark acct as onchain resolved */
 	err = do_account_close_checks(cmd, info->ev, info->acct);
 	if (err)
-		plugin_err(cmd->plugin, err);
+		plugin_err(cmd->plugin, "%s", err);
 
 	if (info->ev->payment_id &&
 	    streq(info->ev->tag, mvt_tag_str(INVOICE))) {
@@ -1576,7 +1576,7 @@ parse_and_log_chain_move(struct command *cmd,
 	/* Maybe mark acct as onchain resolved */
 	err = do_account_close_checks(cmd, e, acct);
 	if (err)
-		plugin_err(cmd->plugin, err);
+		plugin_err(cmd->plugin, "%s", err);
 
 	/* Check for invoice desc data, necessary */
 	if (e->payment_id) {
