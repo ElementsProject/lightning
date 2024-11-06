@@ -625,11 +625,12 @@ static void on_payment_success(struct payment *payment)
 		if (!sha256_eq(payment->payment_hash, p->payment_hash) ||
 		    payment->groupid != p->groupid)
 			continue;
-		if (p->cmd == NULL)
+		if (p->finished)
 			continue;
 
 		cmd = p->cmd;
-		p->cmd = NULL;
+		p->cmd = aux_command(cmd);
+		p->finished = true;
 
 		ret = jsonrpc_stream_success(cmd);
 		json_add_node_id(ret, "destination", p->pay_destination);
@@ -713,11 +714,12 @@ static void on_payment_failure(struct payment *payment)
 		if (!sha256_eq(payment->payment_hash, p->payment_hash) ||
 		    payment->groupid != p->groupid)
 			continue;
-		if (p->cmd == NULL)
+		if (p->finished)
 			continue;
 
 		cmd = p->cmd;
-		p->cmd = NULL;
+		p->cmd = aux_command(cmd);
+		p->finished = true;
 		if (p->aborterror != NULL) {
 			/* We set an explicit toplevel error message,
 			 * so let's report that. */
