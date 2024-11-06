@@ -123,7 +123,8 @@ struct out_req *jsonrpc_request_start_(struct plugin *plugin,
 								       const char *buf,
 								       const jsmntok_t *result,
 								       void *arg),
-				       void *arg);
+				       void *arg)
+	NON_NULL_ARGS(1, 2, 3, 4, 6);
 
 /* This variant has callbacks received whole obj, not "result" or
  * "error" members. */
@@ -202,30 +203,36 @@ struct request_batch *request_batch_new_(const tal_t *ctx,
 
 struct out_req *add_to_batch(struct command *cmd,
 			     struct request_batch *batch,
-			     const char *cmdname);
+			     const char *cmdname)
+	NON_NULL_ARGS(1, 2, 3);
 
 /* We want some commands to live after this command (possibly)
  * completes.  This creates a new command with the same id but its own
  * lifetime: use aux_command_done() or tal_free() when you're done. */
-struct command *aux_command(const struct command *cmd);
+struct command *aux_command(const struct command *cmd)
+	NON_NULL_ARGS(1);
 
 /* Runs finalcb immediately if batch is empty. */
 struct command_result *batch_done(struct command *cmd,
-				  struct request_batch *batch);
+				  struct request_batch *batch)
+	NON_NULL_ARGS(1, 2);
 
 /* Helper to create a JSONRPC2 response stream with a "result" object. */
-struct json_stream *jsonrpc_stream_success(struct command *cmd);
+struct json_stream *jsonrpc_stream_success(struct command *cmd)
+	NON_NULL_ARGS(1);
 
 /* Helper to create a JSONRPC2 response stream with an "error" object. */
 struct json_stream *jsonrpc_stream_fail(struct command *cmd,
 					int code,
-					const char *err);
+					const char *err)
+	NON_NULL_ARGS(1, 3);
 
 /* Helper to create a JSONRPC2 response stream with an "error" object,
  * to which will be added a "data" object. */
 struct json_stream *jsonrpc_stream_fail_data(struct command *cmd,
 					     int code,
-					     const char *err);
+					     const char *err)
+	NON_NULL_ARGS(1, 3);
 
 /* Helper to jsonrpc_request_start() and send_outreq() to update datastore.
  * NULL cb means ignore, NULL errcb means plugin_error.
@@ -244,7 +251,8 @@ struct command_result *jsonrpc_set_datastore_(struct plugin *plugin,
 									      const char *buf,
 									      const jsmntok_t *result,
 									      void *arg),
-					      void *arg);
+					      void *arg)
+	NON_NULL_ARGS(1, 2, 3, 4, 6);
 
 #define jsonrpc_set_datastore_string(plugin, cmd, path, str, mode, cb, errcb, arg) \
 	jsonrpc_set_datastore_((plugin), (cmd), (path), (str), true, (mode), \
@@ -286,7 +294,8 @@ struct command_result *jsonrpc_get_datastore_(struct plugin *plugin,
 					      struct command_result *(*binary_cb)(struct command *command,
 									   const u8 *val,
 									   void *arg),
-					      void *arg);
+					      void *arg)
+	NON_NULL_ARGS(1, 2, 3);
 
 #define jsonrpc_get_datastore_string(plugin, cmd, path, cb, arg)	\
 	jsonrpc_get_datastore_((plugin), (cmd), (path),			\
@@ -312,11 +321,13 @@ struct command_result *jsonrpc_get_datastore_(struct plugin *plugin,
 /* This command is finished, here's the response (the content of the
  * "result" or "error" field) */
 WARN_UNUSED_RESULT
-struct command_result *command_finished(struct command *cmd, struct json_stream *response);
+struct command_result *command_finished(struct command *cmd, struct json_stream *response)
+	NON_NULL_ARGS(1, 2);
 
 /* Helper for a command that'll be finished in a callback. */
 WARN_UNUSED_RESULT
-struct command_result *command_still_pending(struct command *cmd);
+struct command_result *command_still_pending(struct command *cmd)
+	NON_NULL_ARGS(1);
 
 /* Helper to create a zero or single-value JSON object; if @str is NULL,
  * object is empty. */
@@ -355,28 +366,34 @@ struct command_result *WARN_UNUSED_RESULT
 command_done_err(struct command *cmd,
 		 enum jsonrpc_errcode code,
 		 const char *errmsg,
-		 const struct json_out *data);
+		 const struct json_out *data)
+	NON_NULL_ARGS(1, 3);
 
 /* Send a raw error response. Useful for forwarding a previous
  * error after cleanup */
 struct command_result *command_err_raw(struct command *cmd,
-				       const char *json_str);
+				       const char *json_str)
+	NON_NULL_ARGS(1, 2);
 
 /* This command is finished, here's the result object; @cmd cannot be NULL. */
 struct command_result *WARN_UNUSED_RESULT
-command_success(struct command *cmd, const struct json_out *result);
+command_success(struct command *cmd, const struct json_out *result)
+	NON_NULL_ARGS(1, 2);
 
 /* End a hook normally (with "result": "continue") */
 struct command_result *WARN_UNUSED_RESULT
-command_hook_success(struct command *cmd);
+command_hook_success(struct command *cmd)
+	NON_NULL_ARGS(1);
 
 /* End a notification handler.  */
 struct command_result *WARN_UNUSED_RESULT
-notification_handled(struct command *cmd);
+notification_handled(struct command *cmd)
+	NON_NULL_ARGS(1);
 
 /* End a command created with aux_command.  */
 struct command_result *WARN_UNUSED_RESULT
-aux_command_done(struct command *cmd);
+aux_command_done(struct command *cmd)
+	NON_NULL_ARGS(1);
 
 /**
  * What's the deprecation_ok state for this cmd?
@@ -384,7 +401,8 @@ aux_command_done(struct command *cmd);
  *
  * Either the default, or the explicit connection override.
  */
-bool command_deprecated_ok_flag(const struct command *cmd);
+bool command_deprecated_ok_flag(const struct command *cmd)
+	NON_NULL_ARGS(1);
 
 /* Helper for notification handler that will be finished in a callback.  */
 #define notification_handler_pending(cmd) command_still_pending(cmd)
@@ -422,22 +440,21 @@ struct command_result *send_outreq(struct plugin *plugin,
 struct command_result *forward_error(struct command *cmd,
 				     const char *buf,
 				     const jsmntok_t *error,
-				     void *arg);
+				     void *arg)
+	NON_NULL_ARGS(1, 2, 3);
 
 /* Callback to just forward result and close request; @cmd cannot be NULL */
 struct command_result *forward_result(struct command *cmd,
 				      const char *buf,
 				      const jsmntok_t *result,
-				      void *arg);
+				      void *arg)
+	NON_NULL_ARGS(1, 2, 3);
 
 /* Callback for timer where we expect a 'command_result'.  All timers
  * must return this eventually, though they may do so via a convoluted
  * send_req() path. */
-struct command_result *timer_complete(struct command *cmd);
-
-/* Signals that we've completed a command. Useful for when
- * there's no `cmd` present.  Deprecated! */
-struct command_result *command_done(void);
+struct command_result *timer_complete(struct command *cmd)
+	NON_NULL_ARGS(1);
 
 /* Access timer infrastructure to add a global timer for the plugin.
  *
