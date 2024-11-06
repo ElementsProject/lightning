@@ -128,7 +128,6 @@ endif
 
 # This is non-python plugins (PY_PLUGINS need their whole directory!)
 PLUGINS := $(C_PLUGINS)
-PLUGIN_ALL_OBJS := $(PLUGIN_ALL_SRC:.c=.o)
 
 ifneq ($(RUST),0)
 # Builtin plugins must be in this plugins dir to work when we're executed
@@ -198,6 +197,8 @@ include plugins/renepay/Makefile
 ALL_C_SOURCES += $(PLUGIN_ALL_SRC)
 ALL_C_HEADERS += $(PLUGIN_ALL_HEADER)
 ALL_PROGRAMS += $(C_PLUGINS)
+
+PLUGIN_ALL_OBJS := $(PLUGIN_ALL_SRC:.c=.o)
 
 # Make all plugins depend on all plugin headers, for simplicity.
 $(PLUGIN_ALL_OBJS): $(PLUGIN_ALL_HEADER)
