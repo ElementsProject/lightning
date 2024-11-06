@@ -195,14 +195,12 @@ static struct command *new_command(const tal_t *ctx,
 				   struct plugin *plugin,
 				   const char *id TAKES,
 				   const char *methodname TAKES,
-				   bool usage_only,
-				   bool check)
+				   enum command_type type)
 {
 	struct command *cmd = tal(ctx, struct command);
 
 	cmd->plugin = plugin;
-	cmd->usage_only = usage_only;
-	cmd->check = check;
+	cmd->type = type;
 	cmd->filter = NULL;
 	cmd->methodname = tal_strdup(cmd, methodname);
 	cmd->id = tal_strdup(cmd, id);
@@ -412,6 +410,8 @@ static struct json_stream *jsonrpc_stream_start(struct command *cmd)
 struct json_stream *jsonrpc_stream_success(struct command *cmd)
 {
 	struct json_stream *js = jsonrpc_stream_start(cmd);
+	assert(cmd->type == COMMAND_TYPE_NORMAL
+	       || cmd->type == COMMAND_TYPE_HOOK);
 
 	json_object_start(js, "result");
 	if (cmd->filter)
@@ -425,6 +425,8 @@ struct json_stream *jsonrpc_stream_fail(struct command *cmd,
 {
 	struct json_stream *js = jsonrpc_stream_start(cmd);
 
+	assert(cmd->type == COMMAND_TYPE_NORMAL
+	       || cmd->type == COMMAND_TYPE_CHECK);
 	json_object_start(js, "error");
 	json_add_primitive_fmt(js, "code", "%d", code);
 	json_add_string(js, "message", err);
@@ -458,6 +460,10 @@ static struct command_result *command_complete(struct command *cmd,
 struct command_result *command_finished(struct command *cmd,
 					struct json_stream *response)
 {
+	assert(cmd->type == COMMAND_TYPE_NORMAL
+	       || cmd->type == COMMAND_TYPE_HOOK
+	       || cmd->type == COMMAND_TYPE_CHECK);
+
 	/* Detach filter before it complains about closing object it never saw */
 	if (cmd->filter) {
 		const char *err = json_stream_detach_filter(tmpctx, response);
@@ -563,6 +569,8 @@ struct command_result *WARN_UNUSED_RESULT
 command_success(struct command *cmd, const struct json_out *result)
 {
 	struct json_stream *js = jsonrpc_stream_start(cmd);
+	assert(cmd->type == COMMAND_TYPE_NORMAL
+	       || cmd->type == COMMAND_TYPE_HOOK);
 
 	json_out_add_splice(js->jout, "result", result);
 	return command_complete(cmd, js);
@@ -574,6 +582,8 @@ struct command_result *command_done_err(struct command *cmd,
 					const struct json_out *data)
 {
 	struct json_stream *js = jsonrpc_stream_start(cmd);
+	assert(cmd->type == COMMAND_TYPE_NORMAL
+	       || cmd->type == COMMAND_TYPE_CHECK);
 
 	json_object_start(js, "error");
 	json_add_jsonrpc_errcode(js, "code", code);
@@ -589,6 +599,8 @@ struct command_result *command_done_err(struct command *cmd,
 struct command_result *command_err_raw(struct command *cmd,
 				       const char *json_str)
 {
+	assert(cmd->type == COMMAND_TYPE_NORMAL
+	       || cmd->type == COMMAND_TYPE_CHECK);
 	return command_done_raw(cmd, "error",
 				json_str, strlen(json_str));
 }
@@ -636,7 +648,7 @@ struct command_result *command_fail(struct command *cmd,
 /* We invoke param for usage at registration time. */
 bool command_usage_only(const struct command *cmd)
 {
-	return cmd->usage_only;
+	return cmd->type == COMMAND_TYPE_USAGE_ONLY;
 }
 
 bool command_dev_apis(const struct command *cmd)
@@ -646,7 +658,7 @@ bool command_dev_apis(const struct command *cmd)
 
 bool command_check_only(const struct command *cmd)
 {
-	return cmd->check;
+	return cmd->type == COMMAND_TYPE_CHECK;
 }
 
 void command_log(struct command *cmd, enum log_level level,
@@ -664,11 +676,13 @@ void command_log(struct command *cmd, enum log_level level,
 
 struct command_result *command_check_done(struct command *cmd)
 {
+	struct json_stream *js = jsonrpc_stream_start(cmd);
 	assert(command_check_only(cmd));
 
-	return command_success(cmd,
-			       json_out_obj(cmd, "command_to_check",
-					    cmd->methodname));
+	json_out_add_splice(js->jout, "result",
+			    json_out_obj(cmd, "command_to_check",
+					 cmd->methodname));
+	return command_complete(cmd, js);
 }
 
 void command_set_usage(struct command *cmd, const char *usage TAKES)
@@ -1647,7 +1661,7 @@ static void setup_command_usage(struct plugin *p)
 {
 	struct command *usage_cmd = new_command(tmpctx, p, "usage",
 						"check-usage",
-						true, false);
+						COMMAND_TYPE_USAGE_ONLY);
 
 	/* This is how common/param can tell it's just a usage request */
 	for (size_t i = 0; i < p->num_commands; i++) {
@@ -1721,6 +1735,7 @@ struct json_stream *plugin_notification_start(struct plugin *plugin,
 	json_object_start(js, "params");
 	return js;
 }
+
 void plugin_notification_end(struct plugin *plugin,
 			     struct json_stream *stream)
 {
@@ -1899,6 +1914,7 @@ static void ld_command_handle(struct plugin *plugin,
 	const char *methodname;
 	struct command *cmd;
 	const char *id;
+	enum command_type type;
 
 	methtok = json_get_member(plugin->buffer, toks, "method");
 	paramstok = json_get_member(plugin->buffer, toks, "params");
@@ -1913,10 +1929,17 @@ static void ld_command_handle(struct plugin *plugin,
 	methodname = json_strdup(NULL, plugin->buffer, methtok);
 	id = json_get_id(tmpctx, plugin->buffer, toks);
 
+	if (!id)
+		type = COMMAND_TYPE_NOTIFICATION;
+	else if (streq(methodname, "check"))
+		type = COMMAND_TYPE_CHECK;
+	else
+		type = COMMAND_TYPE_NORMAL;
+
 	cmd = new_command(plugin, plugin,
 			  id ? id : tal_fmt(tmpctx, "notification-%s", methodname),
 			  take(methodname),
-			  false, streq(methodname, "check"));
+			  type);
 
 	if (!plugin->manifested) {
 		if (streq(cmd->methodname, "getmanifest")) {
@@ -1939,7 +1962,7 @@ static void ld_command_handle(struct plugin *plugin,
 	}
 
 	/* If that's a notification. */
-	if (!id) {
+	if (cmd->type == COMMAND_TYPE_NOTIFICATION) {
 		bool is_shutdown = streq(cmd->methodname, "shutdown");
 		if (is_shutdown && plugin->developer)
 			memleak_check(plugin, cmd);
@@ -1979,6 +2002,7 @@ static void ld_command_handle(struct plugin *plugin,
 
 	for (size_t i = 0; i < plugin->num_hook_subs; i++) {
 		if (streq(cmd->methodname, plugin->hook_subs[i].name)) {
+			cmd->type = COMMAND_TYPE_HOOK;
 			plugin->hook_subs[i].handle(cmd,
 						    plugin->buffer,
 						    paramstok);
@@ -1994,8 +2018,7 @@ static void ld_command_handle(struct plugin *plugin,
 	}
 
 	/* Is this actually a check command? */
-	cmd->check = streq(cmd->methodname, "check");
-	if (cmd->check) {
+	if (cmd->type == COMMAND_TYPE_CHECK) {
 		const jsmntok_t *method;
 		jsmntok_t *mod_params;
 
@@ -2521,20 +2544,21 @@ struct command_result *WARN_UNUSED_RESULT
 command_hook_success(struct command *cmd)
 {
 	struct json_stream *response = jsonrpc_stream_success(cmd);
+	assert(cmd->type == COMMAND_TYPE_HOOK);
 	json_add_string(response, "result", "continue");
 	return command_finished(cmd, response);
 }
 
 struct command *aux_command(const struct command *cmd)
 {
-	assert(!cmd->check);
 	return new_command(cmd->plugin, cmd->plugin, cmd->id,
-			   cmd->methodname, false, false);
+			   cmd->methodname, COMMAND_TYPE_AUX);
 }
 
 struct command_result *WARN_UNUSED_RESULT
 aux_command_done(struct command *cmd)
 {
+	assert(cmd->type == COMMAND_TYPE_AUX);
 	tal_free(cmd);
 	return &complete;
 }
@@ -2542,6 +2566,7 @@ aux_command_done(struct command *cmd)
 struct command_result *WARN_UNUSED_RESULT
 notification_handled(struct command *cmd)
 {
+	assert(cmd->type == COMMAND_TYPE_NOTIFICATION);
 	tal_free(cmd);
 	return &complete;
 }
