@@ -278,7 +278,7 @@ static u64 get_delay(struct gossmap *gossmap,
 	return chan->half[dir].delay;
 }
 
-static void pubkey_for_node(size_t nodeidx, struct pubkey *key,
+static void pubkey_for_node(u64 nodeidx, struct pubkey *key,
 			    const struct pubkey **node_ids)
 {
 	struct secret seckey;
