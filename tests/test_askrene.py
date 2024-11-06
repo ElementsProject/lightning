@@ -1,9 +1,11 @@
 from fixtures import *  # noqa: F401,F403
+from hashlib import sha256
 from pyln.client import RpcError
 from utils import (
     only_one, first_scid, GenChannel, generate_gossip_store,
-    sync_blockheight, wait_for
+    sync_blockheight, wait_for, TEST_NETWORK, TIMEOUT
 )
+import os
 import pytest
 import subprocess
 import time
@@ -993,3 +995,64 @@ def test_real_data(node_factory, bitcoind):
             best = n
 
     assert (len(fees[best]), len(improved), total_first_fee, total_final_fee, percent_fee_reduction) == (8, 95, 6007785, 564997, 91)
+
+
+def test_askrene_fake_channeld(node_factory, bitcoind):
+    outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
+    nodeids = subprocess.check_output(['devtools/gossmap-compress',
+                                       'decompress',
+                                       '--node-map=3301=022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
+                                       'tests/data/gossip-store-2024-09-22.compressed',
+                                       outfile.name]).decode('utf-8').splitlines()
+    AMOUNT = 100_000_000
+
+    # l2 will warn l1 about its invalid gossip: ignore.
+    # We throttle l1's gossip to avoid massive log spam.
+    l1, l2 = node_factory.line_graph(2,
+                                     # This is in sats, so 1000x amount we send.
+                                     fundamount=AMOUNT,
+                                     opts=[{'gossip_store_file': outfile.name,
+                                            'subdaemon': 'channeld:../tests/plugins/channeld_fakenet',
+                                            'allow_warning': True,
+                                            'dev-throttle-gossip': None},
+                                           {'allow_bad_gossip': True}])
+
+    # l1 needs to know l2's shaseed for the channel so it can make revocations
+    hsmfile = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    # Needs peer node id and channel dbid (1, it's the first channel), prints out:
+    # "shaseed: xxxxxxx\n"
+    shaseed = subprocess.check_output(["tools/hsmtool", "dumpcommitments", l1.info['id'], "1", "0", hsmfile]).decode('utf-8').strip().partition(": ")[2]
+    l1.rpc.dev_peer_shachain(l2.info['id'], shaseed)
+
+    for n in range(0, 100):
+        if n in (62, 76, 80, 97):
+            continue
+
+        routes = l1.rpc.getroutes(source=l1.info['id'],
+                                  destination=nodeids[n],
+                                  amount_msat=AMOUNT,
+                                  layers=['auto.sourcefree', 'auto.localchans'],
+                                  maxfee_msat=AMOUNT,
+                                  final_cltv=18)
+
+        preimage_hex = f'{n:02}' + '00' * 31
+        hash_hex = sha256(bytes.fromhex(preimage_hex)).hexdigest()
+
+        # Sendpay wants a different format, so we convert.
+        for i, r in enumerate(routes['routes']):
+            hops = [{'id': h['next_node_id'],
+                     'channel': h['short_channel_id_dir'].split('/')[0]}
+                    for h in r['path']]
+            # delay and amount_msat for sendpay are amounts at *end* of hop, not start!
+            with_end = r['path'] + [{'amount_msat': r['amount_msat'], 'delay': r['final_cltv']}]
+            for n, h in enumerate(hops):
+                h['delay'] = with_end[n + 1]['delay']
+                h['amount_msat'] = with_end[n + 1]['amount_msat']
+
+            l1.rpc.sendpay(hops, hash_hex,
+                           amount_msat=AMOUNT,
+                           payment_secret='00' * 32,
+                           partid=i + 1, groupid=1)
+
+        for i, _ in enumerate(routes['routes']):
+            assert l1.rpc.waitsendpay(hash_hex, timeout=TIMEOUT, partid=i + 1, groupid=1)['payment_preimage'] == preimage_hex
