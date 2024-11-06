@@ -989,11 +989,17 @@ struct command_result *jsonrpc_get_datastore_(struct plugin *plugin,
 	return send_outreq(plugin, req);
 }
 
+static void destroy_cmd_mark_freed(struct command *cmd, bool *cmd_freed)
+{
+	*cmd_freed = true;
+}
+
 static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
 {
 	const jsmntok_t *idtok, *contenttok;
 	struct out_req *out;
 	struct command_result *res;
+	bool cmd_freed;
 	const char *buf = plugin->rpc_buffer + plugin->rpc_read_offset;
 
 	idtok = json_get_member(buf, toks, "id");
@@ -1018,6 +1024,10 @@ static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
 	/* We want to free this if callback doesn't. */
 	tal_steal(tmpctx, out);
 
+	/* If they return complete, cmd should have been freed! */
+	cmd_freed = false;
+	tal_add_destructor2(out->cmd, destroy_cmd_mark_freed, &cmd_freed);
+
 	contenttok = json_get_member(buf, toks, "error");
 	if (contenttok) {
 		if (out->errcb)
@@ -1037,7 +1047,14 @@ static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
 			res = out->cb(out->cmd, buf, toks, out->arg);
 	}
 
-	assert(res == &pending || res == &complete);
+	if (res == &complete) {
+		assert(cmd_freed);
+	} else {
+		assert(res == &pending);
+		assert(!cmd_freed);
+		tal_del_destructor2(out->cmd, destroy_cmd_mark_freed,
+				    &cmd_freed);
+	}
 }
 
 struct command_result *
@@ -1669,12 +1686,22 @@ static void call_plugin_timer(struct plugin *p, struct timer *timer)
 	struct plugin_timer *t = container_of(timer, struct plugin_timer, timer);
 	struct command *timer_cmd;
 	struct command_result *res;
+	bool cmd_freed = false;
 
 	/* This *isn't* owned by timer, which is owned by original command,
 	 * since they may free that in callback */
 	timer_cmd = new_command(p, p, t->id, "timer", COMMAND_TYPE_TIMER);
+	tal_add_destructor2(timer_cmd, destroy_cmd_mark_freed, &cmd_freed);
+
 	res = t->cb(timer_cmd, t->cb_arg);
-	assert(res == &pending || res == &complete);
+	if (res == &pending) {
+		assert(!cmd_freed);
+		tal_del_destructor2(timer_cmd, destroy_cmd_mark_freed,
+				    &cmd_freed);
+	} else {
+		assert(res == &complete);
+		assert(cmd_freed);
+	}
 }
 
 static void destroy_plugin_timer(struct plugin_timer *timer, struct plugin *p)
