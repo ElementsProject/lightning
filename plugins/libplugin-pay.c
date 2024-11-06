@@ -178,31 +178,18 @@ struct payment *payment_root(struct payment *p)
 		return payment_root(p->parent);
 }
 
-static void
-paymod_log_header(struct payment *p, const char **type, u64 *id)
+static const char *paymod_log_header(const tal_t *ctx,
+				     struct payment *p)
 {
-	struct payment *root = payment_root(p);
-	/* We prefer to show the command ID here since it is also known
-	 * by `lightningd`, so in theory it can be used to correlate
-	 * debugging logs between the main `lightningd` and whatever
-	 * plugin is using the paymod system.
-	 * We only fall back to a unique id per root payment if there
-	 * is no command with an id associated with this payment.
-	 */
-	if (root->cmd && root->cmd->id) {
-		*type = "cmd";
-		*id = *root->cmd->id;
-	} else {
-		*type = "id";
-		*id = root->id;
-	}
+	const char *id = payment_cmd(p)->id;
+	if (strstarts(id, "\""))
+		return tal_strndup(ctx, id+1, strlen(id+1)-1);
+	return tal_strdup(ctx, id);
 }
 
 void
 paymod_log(struct payment *p, enum log_level l, const char *fmt, ...)
 {
-	const char *type;
-	u64 id;
 	char *txt;
 	va_list ap;
 
@@ -210,15 +197,12 @@ paymod_log(struct payment *p, enum log_level l, const char *fmt, ...)
 	txt = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
-	paymod_log_header(p, &type, &id);
-	plugin_log(p->plugin, l, "%s %"PRIu64" partid %"PRIu32": %s",
-		   type, id, p->partid, txt);
+	plugin_log(p->plugin, l, "cmd %s partid %"PRIu32": %s",
+		   paymod_log_header(tmpctx, p), p->partid, txt);
 }
 static void
 paymod_err(struct payment *p, const char *fmt, ...)
 {
-	const char *type;
-	u64 id;
 	char *txt;
 	va_list ap;
 
@@ -226,9 +210,8 @@ paymod_err(struct payment *p, const char *fmt, ...)
 	txt = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
-	paymod_log_header(p, &type, &id);
-	plugin_err(p->plugin, "%s %"PRIu64" partid %"PRIu32": %s",
-		   type, id, p->partid, txt);
+	plugin_err(p->plugin, "cmd %s partid %"PRIu32": %s",
+		   paymod_log_header(tmpctx, p), p->partid, txt);
 }
 
 /* Generic handler for RPC failures that should end up failing the payment. */
