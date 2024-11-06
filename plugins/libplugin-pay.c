@@ -69,6 +69,12 @@ int libplugin_pay_poll(struct pollfd *fds, nfds_t nfds, int timeout)
 	return daemon_poll(fds, nfds, timeout);
 }
 
+/* Only root has a non-NULL cmd ptr */
+static struct command *payment_cmd(struct payment *p)
+{
+	return payment_root(p)->cmd;
+}
+
 struct payment *payment_new(tal_t *ctx, struct command *cmd,
 			    struct payment *parent,
 			    struct channel_hint_set *channel_hints,
@@ -82,6 +88,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->parent = parent;
 	p->modifiers = mods;
 	p->cmd = cmd;
+	p->finished = false;
 	p->start_time = time_now();
 	p->result = NULL;
 	p->why = NULL;
@@ -230,10 +237,9 @@ static struct command_result *payment_rpc_failure(struct command *cmd,
 						  const jsmntok_t *toks,
 						  struct payment *p)
 {
-	payment_fail(p,
-		     "Failing a partial payment due to a failed RPC call: %.*s",
-		     toks->end - toks->start, buffer + toks->start);
-	return command_still_pending(cmd);
+	return payment_fail(p,
+			    "Failing a partial payment due to a failed RPC call: %.*s",
+			    toks->end - toks->start, buffer + toks->start);
 }
 
 struct payment_tree_result payment_collect_result(struct payment *p)
@@ -306,8 +312,7 @@ static struct command_result *payment_waitblockheight_cb(struct command *cmd,
 			   "(syncheight=%d < headercount=%d)",
 			   p->chainlag, syncheight, p->start_block);
 
-	payment_continue(p);
-	return command_still_pending(cmd);
+	return payment_continue(p);
 }
 
 static struct command_result *
@@ -330,19 +335,17 @@ payment_getblockheight_success(struct command *cmd,
 
 	/* Now we just need to ask `lightningd` what height it has
 	 * synced up to, and we remember that as chainlag. */
-	req = jsonrpc_request_start(p->plugin, NULL, "waitblockheight",
+	req = jsonrpc_request_start(p->plugin, cmd, "waitblockheight",
 				    &payment_waitblockheight_cb,
 				    &payment_rpc_failure, p);
 	json_add_u32(req->js, "blockheight", 0);
-	send_outreq(p->plugin, req);
-
-	return command_still_pending(cmd);
+	return send_outreq(p->plugin, req);
 }
 
 #define INVALID_BLOCKHEIGHT UINT32_MAX
 
-static
-void payment_start_at_blockheight(struct payment *p, u32 blockheight)
+static struct command_result *
+payment_start_at_blockheight(struct payment *p, u32 blockheight)
 {
 	struct payment *root = payment_root(p);
 
@@ -378,11 +381,11 @@ void payment_start_at_blockheight(struct payment *p, u32 blockheight)
 	 * height, allowing us to send while still syncing.
 	 */
 	struct out_req *req;
-	req = jsonrpc_request_start(p->plugin, NULL, "getchaininfo",
+	req = jsonrpc_request_start(p->plugin, payment_cmd(p), "getchaininfo",
 				    &payment_getblockheight_success,
 				    &payment_rpc_failure, p);
 	json_add_u32(req->js, "last_height", 0);
-	send_outreq(p->plugin, req);
+	return send_outreq(p->plugin, req);
 }
 
 void payment_start(struct payment *p)
@@ -864,22 +867,16 @@ static struct command_result *payment_getroute(struct payment *p)
 	dst = gossmap_find_node(gossmap, p->getroute->destination);
 	if (!dst) {
 		put_gossmap(p);
-		payment_fail(
+		return payment_fail(
 			p, "Unknown destination %s",
 			fmt_node_id(tmpctx, p->getroute->destination));
-
-		/* Let payment_finished_ handle this, so we mark it as pending */
-		return command_still_pending(p->cmd);
 	}
 
 	/* If we don't exist in gossip, routing can't happen. */
 	src = gossmap_find_node(gossmap, p->local_id);
 	if (!src) {
 		put_gossmap(p);
-		payment_fail(p, "We don't have any channels");
-
-		/* Let payment_finished_ handle this, so we mark it as pending */
-		return command_still_pending(p->cmd);
+		return payment_fail(p, "We don't have any channels");
 	}
 
 	p->route = route(p, gossmap, src, dst, p->getroute->amount, p->getroute->cltv,
@@ -888,9 +885,7 @@ static struct command_result *payment_getroute(struct payment *p)
 	put_gossmap(p);
 
 	if (!p->route) {
-		payment_fail(p, "%s", errstr);
-		/* Let payment_finished_ handle this, so we mark it as pending */
-		return command_still_pending(p->cmd);
+		return payment_fail(p, "%s", errstr);
 	}
 
 	/* OK, now we *have* a route */
@@ -898,9 +893,8 @@ static struct command_result *payment_getroute(struct payment *p)
 
 	if (tal_count(p->route) == 0) {
 		payment_root(p)->abort = true;
-		payment_fail(p, "Empty route returned by getroute, are you "
-				"trying to pay yourself?");
-		return command_still_pending(p->cmd);
+		return payment_fail(p, "Empty route returned by getroute, are you "
+				    "trying to pay yourself?");
 	}
 
 	fee = payment_route_fee(p);
@@ -908,19 +902,17 @@ static struct command_result *payment_getroute(struct payment *p)
 	/* Ensure that our fee and CLTV budgets are respected. */
 	if (amount_msat_greater(fee, p->constraints.fee_budget)) {
 		p->route = tal_free(p->route);
-		payment_fail(
-		    p, "Fee exceeds our fee budget: %s > %s, discarding route",
-		    fmt_amount_msat(tmpctx, fee),
-		    fmt_amount_msat(tmpctx, p->constraints.fee_budget));
-		return command_still_pending(p->cmd);
+		return payment_fail(
+			p, "Fee exceeds our fee budget: %s > %s, discarding route",
+			fmt_amount_msat(tmpctx, fee),
+			fmt_amount_msat(tmpctx, p->constraints.fee_budget));
 	}
 
 	if (p->route[0].delay > p->constraints.cltv_budget) {
 		u32 delay = p->route[0].delay;
 		p->route = tal_free(p->route);
-		payment_fail(p, "CLTV delay exceeds our CLTV budget: %d > %d",
-			     delay, p->constraints.cltv_budget);
-		return command_still_pending(p->cmd);
+		return payment_fail(p, "CLTV delay exceeds our CLTV budget: %d > %d",
+				    delay, p->constraints.cltv_budget);
 	}
 
 	/* Now update the constraints in fee_budget and cltv_budget so
@@ -934,8 +926,7 @@ static struct command_result *payment_getroute(struct payment *p)
 	/* Allow modifiers to modify the route, before
 	 * payment_compute_onion_payloads uses the route to generate the
 	 * onion_payloads */
-	payment_continue(p);
-	return command_still_pending(p->cmd);
+	return payment_continue(p);
 }
 
 /**
@@ -1018,12 +1009,11 @@ payment_listpeerchannels_success(struct command *cmd, const char *buffer,
 			   "spendable=%s < payment=%s",
 			   fmt_amount_msat(tmpctx, spendable),
 			   fmt_amount_msat(tmpctx, p->getroute->amount));
-		payment_abort(p, PAY_INSUFFICIENT_FUNDS,
+		return payment_abort(p, PAY_INSUFFICIENT_FUNDS,
 			      "Insufficient funds to perform the payment: "
 			      "spendable=%s < payment=%s",
 			      fmt_amount_msat(tmpctx, spendable),
 			      fmt_amount_msat(tmpctx, p->getroute->amount));
-		return command_still_pending(p->cmd);
 	} else if (amount_msat_greater(maxrequired, spendable)) {
 		char *msg = tal_fmt(
 		    tmpctx,
@@ -1034,7 +1024,7 @@ payment_listpeerchannels_success(struct command *cmd, const char *buffer,
 		    fmt_amount_msat(tmpctx, p->getroute->amount),
 		    fmt_amount_msat(tmpctx, p->constraints.fee_budget));
 
-		plugin_notify_message(p->cmd, LOG_INFORM, "%s", msg);
+		plugin_notify_message(payment_cmd(p), LOG_INFORM, "%s", msg);
 	}
 
 	return payment_getroute(p);
@@ -1048,7 +1038,7 @@ static struct command_result *payment_getlocalmods(struct payment *p)
 	if (p->mods)
 		return payment_getroute(p);
 
-	req = jsonrpc_request_start(p->plugin, NULL, "listpeerchannels",
+	req = jsonrpc_request_start(p->plugin, payment_cmd(p), "listpeerchannels",
 				    &payment_listpeerchannels_success,
 				    &payment_rpc_failure, p);
 	return send_outreq(p->plugin, req);
@@ -1393,9 +1383,7 @@ error:
 	payment_root(p)->abort = true;
 
 nonerror:
-	payment_fail(p, "%s", p->result->message);
-	return command_still_pending(cmd);
-
+	return payment_fail(p, "%s", p->result->message);
 }
 
 
@@ -1494,8 +1482,7 @@ strange_error:
 		   failcode, describe_failcode(tmpctx, failcode));
 
 error:
-	payment_fail(p, "%s", p->result->message);
-	return command_still_pending(cmd);
+	return payment_fail(p, "%s", p->result->message);
 }
 
 /* From the docs:
@@ -1609,8 +1596,7 @@ payment_addgossip_success(struct command *cmd, const char *buffer,
 			   json_tok_full(buffer, toks));
 		/* FIXME: Pick a random channel to fail? */
 		payment_set_step(p, PAYMENT_STEP_FAILED);
-		payment_continue(p);
-		return command_still_pending(cmd);
+		return payment_continue(p);
 	}
 
 	if (!errchan)
@@ -1650,16 +1636,14 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 			   json_tok_full_len(toks),
 			   json_tok_full(buffer, toks));
 		payment_set_step(p, PAYMENT_STEP_FAILED);
-		payment_continue(p);
-		return command_still_pending(cmd);
+		return payment_continue(p);
 	}
 
 	payment_result_infer(p->route, p->result);
 
 	if (p->result->state == PAYMENT_COMPLETE) {
 		payment_set_step(p, PAYMENT_STEP_SUCCESS);
-		payment_continue(p);
-		return command_still_pending(cmd);
+		return payment_continue(p);
 	}
 
 	payment_chanhints_unapply_route(p);
@@ -1672,12 +1656,11 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 			   "Extracted channel_update %s from onionreply %s",
 			   tal_hex(tmpctx, update),
 			   tal_hex(tmpctx, p->result->raw_message));
-		req = jsonrpc_request_start(p->plugin, NULL, "addgossip",
+		req = jsonrpc_request_start(p->plugin, payment_cmd(p), "addgossip",
 					    payment_addgossip_success,
 					    payment_addgossip_failure, p);
 		json_add_hex_talarr(req->js, "message", update);
-		send_outreq(p->plugin, req);
-		return command_still_pending(cmd);
+		return send_outreq(p->plugin, req);
 	}
 
 	return payment_addgossip_success(cmd, NULL, NULL, p);
@@ -1689,15 +1672,13 @@ static struct command_result *payment_sendonion_success(struct command *cmd,
 							  struct payment *p)
 {
 	struct out_req *req;
-	req = jsonrpc_request_start(p->plugin, NULL, "waitsendpay",
+	req = jsonrpc_request_start(p->plugin, payment_cmd(p), "waitsendpay",
 				    payment_waitsendpay_finished,
 				    payment_waitsendpay_finished, p);
 	json_add_sha256(req->js, "payment_hash", p->payment_hash);
 	json_add_num(req->js, "partid", p->partid);
 	json_add_u64(req->js, "groupid", p->groupid);
-	send_outreq(p->plugin, req);
-
-	return command_still_pending(cmd);
+	return send_outreq(p->plugin, req);
 }
 
 static struct command_result *payment_createonion_success(struct command *cmd,
@@ -1719,7 +1700,7 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 
 	p->createonion_response = json_to_createonion_response(p, buffer, toks);
 
-	req = jsonrpc_request_start(p->plugin, NULL, "sendonion",
+	req = jsonrpc_request_start(p->plugin, payment_cmd(p), "sendonion",
 				    payment_sendonion_success,
 				    payment_rpc_failure, p);
 	json_add_hex_talarr(req->js, "onion", p->createonion_response->onion);
@@ -1762,8 +1743,7 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	if (p->local_invreq_id)
 		json_add_sha256(req->js, "localinvreqid", p->local_invreq_id);
 
-	send_outreq(p->plugin, req);
-	return command_still_pending(cmd);
+	return send_outreq(p->plugin, req);
 }
 
 /* Temporary serialization method for the tlv_payload.data until we rework the
@@ -1857,7 +1837,7 @@ static void payment_add_blindedpath(const tal_t *ctx,
 	}
 }
 
-static void payment_compute_onion_payloads(struct payment *p)
+static struct command_result *payment_compute_onion_payloads(struct payment *p)
 {
 	struct createonion_request *cr;
 	size_t hopcount;
@@ -1943,14 +1923,14 @@ static void payment_compute_onion_payloads(struct payment *p)
 
 	/* Now allow all the modifiers to mess with the payloads, before we
 	 * serialize via a call to createonion in the next step. */
-	payment_continue(p);
+	return payment_continue(p);
 }
 
-static void payment_sendonion(struct payment *p)
+static struct command_result *payment_sendonion(struct payment *p)
 {
 	struct out_req *req;
 	u8 *payload, *tlv;
-	req = jsonrpc_request_start(p->plugin, NULL, "createonion",
+	req = jsonrpc_request_start(p->plugin, payment_cmd(p), "createonion",
 				    payment_createonion_success,
 				    payment_rpc_failure, p);
 
@@ -1979,11 +1959,11 @@ static void payment_sendonion(struct payment *p)
 		json_add_secret(req->js, "sessionkey",
 				p->createonion_request->session_key);
 
-	send_outreq(p->plugin, req);
+	return send_outreq(p->plugin, req);
 }
 
 /* Mutual recursion. */
-static void payment_finished(struct payment *p);
+static struct command_result *payment_finished(struct payment *p);
 
 /* A payment is finished if a) it is in a final state, of b) it's in a
  * child-spawning state and all of its children are in a final state. */
@@ -2033,14 +2013,14 @@ static bool payment_is_success(struct payment *p)
 
 /* Function to bubble up completions to the root, which actually holds on to
  * the command that initiated the flow. */
-static void payment_child_finished(struct payment *p,
+static struct command_result *payment_child_finished(struct payment *p,
 						     struct payment *child)
 {
 	if (!payment_is_finished(p))
-		return;
+		return command_still_pending(payment_cmd(p));
 
 	/* Should we continue bubbling up? */
-	payment_finished(p);
+	return payment_finished(p);
 }
 
 static void payment_add_attempt(struct json_stream *s, const char *fieldname, struct payment *p, bool recurse)
@@ -2144,7 +2124,7 @@ void json_add_payment_success(struct json_stream *js,
  * leafs in the subtree rooted in the payment are all in a final state. It is
  * called only once, and it is guaranteed to be called in post-order
  * traversal, i.e., all children are finished before the parent is called. */
-static void payment_finished(struct payment *p)
+static struct command_result *payment_finished(struct payment *p)
 {
 	struct payment_tree_result result = payment_collect_result(p);
 	struct json_stream *ret;
@@ -2159,14 +2139,14 @@ static void payment_finished(struct payment *p)
 	if (p->parent != NULL)
 		return payment_child_finished(p->parent, p);
 
-	/* We are about to reply, unset the pointer to the cmd so we
-	 * don't attempt to return a response twice. */
-	p->cmd = NULL;
-	if (cmd == NULL) {
-		/* This is the tree root, but we already reported
-		 * success or failure, so noop. */
-		return;
-	} else if (payment_is_success(p)) {
+	if (p->finished) {
+		/* cmd is the aux_command: real cmd has been freed. */
+		return command_still_pending(p->cmd);
+	}
+
+	/* on_payment_failure / on_payment_success looks at this! */
+	p->finished = true;
+	if (payment_is_success(p)) {
 		assert(result.treestates & PAYMENT_STEP_SUCCESS);
 		assert(result.leafstates & PAYMENT_STEP_SUCCESS);
 		assert(result.preimage != NULL);
@@ -2266,7 +2246,11 @@ static void payment_finished(struct payment *p)
 		payment_notify_failure(p, failure->message);
 	}
 
-	if (command_finished(cmd, ret)) { /* Ignore result. */}
+	/* We're going to resolve p->cmd.  Put an aux_command in place
+	 * so we can use that to wrap up any remaining payments */
+	p->cmd = aux_command(cmd);
+
+	return command_finished(cmd, ret);
 }
 
 void payment_set_step(struct payment *p, enum payment_step newstep)
@@ -2279,7 +2263,7 @@ void payment_set_step(struct payment *p, enum payment_step newstep)
 		p->end_time = time_now();
 }
 
-void payment_continue(struct payment *p)
+struct command_result *payment_continue(struct payment *p)
 {
 	struct payment_modifier *mod;
 	void *moddata;
@@ -2299,27 +2283,23 @@ void payment_continue(struct payment *p)
 		switch (p->step) {
 		case PAYMENT_STEP_INITIALIZED:
 		case PAYMENT_STEP_RETRY_GETROUTE:
-			payment_getlocalmods(p);
-			return;
+			return payment_getlocalmods(p);
 
 		case PAYMENT_STEP_GOT_ROUTE:
-			payment_compute_onion_payloads(p);
-			return;
+			return payment_compute_onion_payloads(p);
 
 		case PAYMENT_STEP_ONION_PAYLOAD:
-			payment_sendonion(p);
-			return;
+			return payment_sendonion(p);
 
 		case PAYMENT_STEP_SUCCESS:
 		case PAYMENT_STEP_FAILED:
-			payment_finished(p);
-			return;
+			return payment_finished(p);
 
 		case PAYMENT_STEP_RETRY:
 		case PAYMENT_STEP_SPLIT:
 			/* Do nothing, we'll get pinged by a child succeeding
 			 * or failing. */
-			return;
+			return command_still_pending(payment_cmd(p));
 		}
 	}
 	/* We should never get here, it'd mean one of the state machine called
@@ -2327,7 +2307,7 @@ void payment_continue(struct payment *p)
 	abort();
 }
 
-void payment_abort(struct payment *p, enum jsonrpc_errcode code, const char *fmt, ...) {
+struct command_result *payment_abort(struct payment *p, enum jsonrpc_errcode code, const char *fmt, ...) {
 	va_list ap;
 	struct payment *root = payment_root(p);
 	payment_set_step(p, PAYMENT_STEP_FAILED);
@@ -2352,10 +2332,10 @@ void payment_abort(struct payment *p, enum jsonrpc_errcode code, const char *fmt
 	/* Do not use payment_continue, because that'd continue
 	 * applying the modifiers before calling
 	 * payment_finished(). */
-	payment_finished(p);
+	return payment_finished(p);
 }
 
-void payment_fail(struct payment *p, const char *fmt, ...)
+struct command_result *payment_fail(struct payment *p, const char *fmt, ...)
 {
 	va_list ap;
 	p->end_time = time_now();
@@ -2368,7 +2348,7 @@ void payment_fail(struct payment *p, const char *fmt, ...)
 
 	paymod_log(p, LOG_INFORM, "%s", p->failreason);
 
-	payment_continue(p);
+	return payment_continue(p);
 }
 
 void *payment_mod_get_data(const struct payment *p,
@@ -2386,8 +2366,8 @@ void *payment_mod_get_data(const struct payment *p,
 
 static struct retry_mod_data *retry_data_init(struct payment *p);
 
-static inline void retry_step_cb(struct retry_mod_data *rd,
-				 struct payment *p);
+static struct command_result *retry_step_cb(struct retry_mod_data *rd,
+					    struct payment *p);
 
 static struct retry_mod_data *
 retry_data_init(struct payment *p)
@@ -2460,8 +2440,8 @@ static bool payment_can_retry(struct payment *p)
 	return true;
 }
 
-static inline void retry_step_cb(struct retry_mod_data *rd,
-				 struct payment *p)
+static struct command_result *retry_step_cb(struct retry_mod_data *rd,
+					    struct payment *p)
 {
 	struct payment *subpayment, *root = payment_root(p);
 	struct retry_mod_data *rdata = payment_mod_retry_get_data(p);
@@ -2511,7 +2491,7 @@ static inline void retry_step_cb(struct retry_mod_data *rd,
 		    rdata->retries - 1);
 	}
 
-	payment_continue(p);
+	return payment_continue(p);
 }
 
 REGISTER_PAYMENT_MODIFIER(retry, struct retry_mod_data *, retry_data_init,
@@ -2586,11 +2566,10 @@ local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
 	p->mods = gossmods_from_listpeerchannels(
 	    p, p->local_id, buffer, toks, true, gossmod_add_localchan, NULL);
 
-	payment_continue(p);
-	return command_still_pending(cmd);
+	return payment_continue(p);
 }
 
-static void local_channel_hints_cb(void *d UNUSED, struct payment *p)
+static struct command_result *local_channel_hints_cb(void *d UNUSED, struct payment *p)
 {
 	struct out_req *req;
 	/* If we are not the root we don't look up the channel balances since
@@ -2601,10 +2580,10 @@ static void local_channel_hints_cb(void *d UNUSED, struct payment *p)
 	if (p->parent != NULL || p->step != PAYMENT_STEP_INITIALIZED)
 		return payment_continue(p);
 
-	req = jsonrpc_request_start(p->plugin, NULL, "listpeerchannels",
+	req = jsonrpc_request_start(p->plugin, payment_cmd(p), "listpeerchannels",
 				    local_channel_hints_listpeerchannels,
 				    local_channel_hints_listpeerchannels, p);
-	send_outreq(p->plugin, req);
+	return send_outreq(p->plugin, req);
 }
 
 REGISTER_PAYMENT_MODIFIER(local_channel_hints, void *, NULL, local_channel_hints_cb);
@@ -2908,7 +2887,7 @@ static void routehint_pre_getroute(struct routehints_data *d, struct payment *p)
 		paymod_log(p, LOG_DBG, "Not using a routehint");
 }
 
-static void routehint_check_reachable(struct payment *p)
+static struct command_result *routehint_check_reachable(struct payment *p)
 {
 	const struct gossmap_node *dst, *src;
 	struct gossmap *gossmap = get_gossmap(p);
@@ -2962,14 +2941,13 @@ static void routehint_check_reachable(struct payment *p)
 		 * isn't reachable, then there is no point in
 		 * continuing. */
 
-		payment_abort(
+		put_gossmap(p);
+		return payment_abort(
 		    p,
 		    PAY_UNREACHABLE,
 		    "Destination %s is not reachable directly and "
 		    "all routehints were unusable.",
 		    fmt_node_id(tmpctx, p->route_destination));
-		put_gossmap(p);
-		return;
 	}
 
 	routehint_pre_getroute(d, p);
@@ -2982,10 +2960,10 @@ static void routehint_check_reachable(struct payment *p)
 		   d->destination_reachable ? "including" : "excluding");
 
 	/* Now we can continue on our merry way. */
-	payment_continue(p);
+	return payment_continue(p);
 }
 
-static void routehint_step_cb(struct routehints_data *d, struct payment *p)
+static struct command_result *routehint_step_cb(struct routehints_data *d, struct payment *p)
 {
 	struct route_hop hop;
 	const struct payment *root = payment_root(p);
@@ -3075,7 +3053,7 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 		}
 	}
 
-	payment_continue(p);
+	return payment_continue(p);
 }
 
 static struct routehints_data *routehint_data_init(struct payment *p)
@@ -3157,7 +3135,7 @@ static struct exemptfee_data *exemptfee_data_init(struct payment *p)
 	}
 }
 
-static void exemptfee_cb(struct exemptfee_data *d, struct payment *p)
+static struct command_result *exemptfee_cb(struct exemptfee_data *d, struct payment *p)
 {
 	if (p->step != PAYMENT_STEP_INITIALIZED || p->parent != NULL)
 		return payment_continue(p);
@@ -3223,7 +3201,7 @@ static struct command_result *shadow_route_extend(struct shadow_route_data *d,
 						  struct payment *p)
 {
 	struct out_req *req;
-	req = jsonrpc_request_start(p->plugin, NULL, "listchannels",
+	req = jsonrpc_request_start(p->plugin, payment_cmd(p), "listchannels",
 				    shadow_route_listchannels,
 				    payment_rpc_failure, p);
 	json_add_node_id(req->js, "source", &d->destination);
@@ -3364,14 +3342,13 @@ next:
 
 	/* Now it's time to decide whether we want to extend or continue. */
 	if (best == NULL || pseudorand(2) == 0) {
-		payment_continue(p);
-		return command_still_pending(cmd);
+		return payment_continue(p);
 	} else {
 		return shadow_route_extend(d, p);
 	}
 }
 
-static void shadow_route_cb(struct shadow_route_data *d,
+static struct command_result *shadow_route_cb(struct shadow_route_data *d,
 					      struct payment *p)
 {
 	if (!d->use_shadow)
@@ -3390,15 +3367,15 @@ static void shadow_route_cb(struct shadow_route_data *d,
 	if (pseudorand(2) == 0) {
 		return payment_continue(p);
 	} else {
-		shadow_route_extend(d, p);
+		return shadow_route_extend(d, p);
 	}
 }
 
 REGISTER_PAYMENT_MODIFIER(shadowroute, struct shadow_route_data *,
 			  shadow_route_init, shadow_route_cb);
 
-static void direct_pay_override(struct payment *p) {
-
+static struct command_result *direct_pay_override(struct payment *p)
+{
 	/* The root has performed the search for a direct channel. */
 	struct payment *root = payment_root(p);
 	struct direct_pay_data *d;
@@ -3432,8 +3409,7 @@ static void direct_pay_override(struct payment *p) {
 		payment_set_step(p, PAYMENT_STEP_GOT_ROUTE);
 	}
 
-
-	payment_continue(p);
+	return payment_continue(p);
 }
 
 /* Now that we have the listpeerchannels result for the root payment, let's search
@@ -3480,12 +3456,11 @@ static struct command_result *direct_pay_listpeerchannels(struct command *cmd,
 							 gossmod_add_localchan,
 							 NULL);
 
-	direct_pay_override(p);
-	return command_still_pending(cmd);
+	return direct_pay_override(p);
 
 }
 
-static void direct_pay_cb(struct direct_pay_data *d, struct payment *p)
+static struct command_result *direct_pay_cb(struct direct_pay_data *d, struct payment *p)
 {
 	struct out_req *req;
 
@@ -3493,14 +3468,12 @@ static void direct_pay_cb(struct direct_pay_data *d, struct payment *p)
 	if (p->step != PAYMENT_STEP_INITIALIZED)
 		return payment_continue(p);
 
-
-
-	req = jsonrpc_request_start(p->plugin, NULL, "listpeerchannels",
+	req = jsonrpc_request_start(p->plugin, payment_cmd(p), "listpeerchannels",
 				    direct_pay_listpeerchannels,
 				    direct_pay_listpeerchannels,
 				    p);
 	json_add_node_id(req->js, "id", p->route_destination);
-	send_outreq(p->plugin, req);
+	return send_outreq(p->plugin, req);
 }
 
 static struct direct_pay_data *direct_pay_init(struct payment *p)
@@ -3596,7 +3569,7 @@ static struct adaptive_split_mod_data *adaptive_splitter_data_init(struct paymen
 	}
 }
 
-static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payment *p)
+static struct command_result *adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payment *p)
 {
 	struct payment *root = payment_root(p);
 	struct adaptive_split_mod_data *root_data =
@@ -3705,7 +3678,7 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 						   MPP_ADAPTIVE_LOWER_LIMIT));
 		}
 	}
-	payment_continue(p);
+	return payment_continue(p);
 }
 
 REGISTER_PAYMENT_MODIFIER(adaptive_splitter, struct adaptive_split_mod_data *,
@@ -3785,11 +3758,10 @@ payee_incoming_limit_count(struct command *cmd,
 		payment_lower_max_htlcs(p, lim, why);
 	}
 
-	payment_continue(p);
-	return command_still_pending(cmd);
+	return payment_continue(p);
 }
 
-static void payee_incoming_limit_step_cb(void *d UNUSED, struct payment *p)
+static struct command_result *payee_incoming_limit_step_cb(void *d UNUSED, struct payment *p)
 {
 	/* Only operate at the initialization of te root payment.
 	 * Also, no point operating if payment does not support MPP anyway.
@@ -3800,11 +3772,11 @@ static void payee_incoming_limit_step_cb(void *d UNUSED, struct payment *p)
 
 	/* Get information on the destination.  */
 	struct out_req *req;
-	req = jsonrpc_request_start(p->plugin, NULL, "listchannels",
+	req = jsonrpc_request_start(p->plugin, payment_cmd(p), "listchannels",
 				    &payee_incoming_limit_count,
 				    &payment_rpc_failure, p);
 	json_add_node_id(req->js, "source", p->route_destination);
-	(void) send_outreq(p->plugin, req);
+	return send_outreq(p->plugin, req);
 }
 
 REGISTER_PAYMENT_MODIFIER(payee_incoming_limit, void *, NULL,
@@ -3823,7 +3795,7 @@ route_exclusions_data_init(struct payment *p)
 	return d;
 }
 
-static void route_exclusions_step_cb(struct route_exclusions_data *d,
+static struct command_result *route_exclusions_step_cb(struct route_exclusions_data *d,
 		struct payment *p)
 {
 	if (p->parent)
@@ -3841,17 +3813,15 @@ static void route_exclusions_step_cb(struct route_exclusions_data *d,
 					     NULL, total, NULL);
 		} else {
 			if (node_id_eq(&e->u.node_id, p->route_destination)) {
-				payment_abort(p, PAY_USER_ERROR, "Payee is manually excluded");
-				return;
+				return payment_abort(p, PAY_USER_ERROR, "Payee is manually excluded");
 			} else if (node_id_eq(&e->u.node_id, p->local_id)) {
-				payment_abort(p, PAY_USER_ERROR, "Payer is manually excluded");
-				return;
+				return payment_abort(p, PAY_USER_ERROR, "Payer is manually excluded");
 			}
 
 			tal_arr_expand(&p->excluded_nodes, e->u.node_id);
 		}
 	}
-	payment_continue(p);
+	return payment_continue(p);
 }
 
 REGISTER_PAYMENT_MODIFIER(route_exclusions, struct route_exclusions_data *,

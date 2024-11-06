@@ -62,7 +62,7 @@ static struct keysend_data *keysend_init(struct payment *p)
 	}
 }
 
-static void keysend_cb(struct keysend_data *d, struct payment *p) {
+static struct command_result *keysend_cb(struct keysend_data *d, struct payment *p) {
 	struct createonion_hop *last_payload;
 	size_t hopcount;
 

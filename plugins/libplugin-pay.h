@@ -145,8 +145,9 @@ struct payment {
 	/* Usually in global payments list */
 	struct list_node list;
 	/* The command that triggered this payment. Only set for the root
-	 * payment. */
+	 * payment.  It's an aux command if finished is set. */
 	struct command *cmd;
+	bool finished;
 	struct plugin *plugin;
 	struct node_id *local_id;
 
@@ -322,7 +323,7 @@ struct payment {
 struct payment_modifier {
 	const char *name;
 	void *(*data_init)(struct payment *p);
-	void (*post_step_cb)(void *data, struct payment *p);
+	struct command_result *(*post_step_cb)(void *data, struct payment *p);
 };
 
 void *payment_mod_get_data(const struct payment *payment,
@@ -333,8 +334,8 @@ void *payment_mod_get_data(const struct payment *payment,
 	    stringify(name),                                                   \
 	    typesafe_cb_cast(void *(*)(struct payment *),                      \
 			     data_type (*)(struct payment *), data_init_cb),   \
-	    typesafe_cb_cast(void (*)(void *, struct payment *),               \
-			     void (*)(data_type, struct payment *), step_cb),  \
+	    typesafe_cb_cast(struct command_result *(*)(void *, struct payment *), \
+			     struct command_result *(*)(data_type, struct payment *), step_cb),  \
 	};
 
 /* The UNUSED marker is used to shut some compilers up. */
@@ -450,7 +451,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 			    struct payment_modifier **mods);
 
 void payment_start(struct payment *p);
-void payment_continue(struct payment *p);
+struct command_result *payment_continue(struct payment *p);
 
 /**
  * Set the payment to the current step.
@@ -463,14 +464,14 @@ void payment_set_step(struct payment *p, enum payment_step newstep);
 
 
 /* Fails a partial payment and continues with the core flow. */
-void payment_fail(struct payment *p, const char *fmt, ...) PRINTF_FMT(2,3);
+struct command_result *payment_fail(struct payment *p, const char *fmt, ...) PRINTF_FMT(2,3);
 
 /* Fails a payment process by setting the root payment to
  * aborted. This will cause all subpayments to terminate as soon as
  * they can, and sets the root failreason so we have a sensible error
  * message. The failreason is overwritten if it is already set, since
  * we probably know better what happened in the modifier.. */
-void payment_abort(struct payment *p, enum jsonrpc_errcode code, const char *fmt, ...) PRINTF_FMT(3,4);
+struct command_result *payment_abort(struct payment *p, enum jsonrpc_errcode code, const char *fmt, ...) PRINTF_FMT(3,4);
 
 struct payment *payment_root(struct payment *p);
 struct payment_tree_result payment_collect_result(struct payment *p);
