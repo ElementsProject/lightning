@@ -347,3 +347,7 @@ msgdata,channeld_upgraded,new_type,channel_type,
 # Tell peer about our latest and greatest blockheight.
 msgtype,channeld_blockheight,1012
 msgdata,channeld_blockheight,blockheight,u32,
+
+# Tell channeld about peer's shachain seed.
+msgtype,channeld_dev_peer_shachain,1013
+msgdata,channeld_dev_peer_shachain,seed,sha256,
