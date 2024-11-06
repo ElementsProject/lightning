@@ -1054,5 +1054,6 @@ def test_askrene_fake_channeld(node_factory, bitcoind):
                            payment_secret='00' * 32,
                            partid=i + 1, groupid=1)
 
-        for i, _ in enumerate(routes['routes']):
-            assert l1.rpc.waitsendpay(hash_hex, timeout=TIMEOUT, partid=i + 1, groupid=1)['payment_preimage'] == preimage_hex
+        for i, r in enumerate(routes['routes']):
+            # Worst-case timeout is 1 second per hop.
+            assert l1.rpc.waitsendpay(hash_hex, timeout=TIMEOUT + len(r['path']), partid=i + 1, groupid=1)['payment_preimage'] == preimage_hex

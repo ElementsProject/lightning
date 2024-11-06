@@ -56,8 +56,10 @@ struct info {
 	size_t commit_num;
 	/* MPP parts we've gathered */
 	struct multi_payment **multi_payments;
-	/* For MPP timers */
+	/* For MPP timers, delay timers */
 	struct timers timers;
+	/* Seed for channel feature determination (e.g. delay time) */
+	struct siphash_seed seed;
 
 	/* Fake stuff we feed into lightningd */
 	struct fee_states *fee_states;
@@ -128,6 +130,14 @@ static const char *fmt_nodeidx(const tal_t *ctx, size_t idx)
 	if (idx & 1)
 		return tal_fmt(ctx, "lightningd-%zu", idx >> 1);
 	return tal_fmt(ctx, "gossmap-node-%zu", idx >> 1);
+}
+
+/* Return deterministic value >= min < max for this channel */
+static u64 channel_range(const struct info *info,
+			 const struct short_channel_id_dir *scidd,
+			 u64 min, u64 max)
+{
+	return min + (siphash24(&info->seed, scidd, sizeof(scidd)) % max);
 }
 
 void ecdh(const struct pubkey *point, struct secret *ss)
@@ -563,6 +573,19 @@ static void add_mpp(struct info *info,
 	tal_free(mp);
 }
 
+/* Mutual recursion via timer */
+struct delayed_forward {
+	struct info *info;
+	struct fake_htlc *htlc;
+	struct amount_msat amount;
+	u32 cltv_expiry;
+	const u8 *onion_routing_packet;
+	const struct pubkey *path_key;
+	struct node_id expected;
+};
+
+static void delayed_forward(struct delayed_forward *dfwd);
+
 static void forward_htlc(struct info *info,
 			 struct fake_htlc *htlc,
 			 struct amount_msat amount,
@@ -580,6 +603,9 @@ static void forward_htlc(struct info *info,
 	struct short_channel_id_dir scidd;
 	struct amount_msat amt_expected, htlc_min, htlc_max;
 	struct pubkey *next_path_key;
+	struct oneshot *timer;
+	struct delayed_forward *dfwd;
+	unsigned int msec_delay;
 
 	/* Decode, and figure out who I am */
 	payload = decode_onion(tmpctx,
@@ -689,14 +715,38 @@ found_next:
 	} else
 		next_path_key = NULL;
 
-	/* Limited recursion for the "next node" */
-	forward_htlc(info,
-		     htlc,
-		     payload->amt_to_forward,
-		     payload->outgoing_cltv,
-		     next_onion_packet,
-		     next_path_key,
-		     &next);
+	dfwd = tal(NULL, struct delayed_forward);
+	dfwd->info = info;
+	dfwd->htlc = htlc;
+	dfwd->amount = payload->amt_to_forward;
+	dfwd->cltv_expiry = payload->outgoing_cltv;
+	dfwd->onion_routing_packet = tal_steal(dfwd, next_onion_packet);
+	dfwd->path_key = tal_steal(dfwd, next_path_key);
+	dfwd->expected = next;
+
+	/* Delay 0.1 - 1 seconds, but skewed lower */
+	msec_delay = channel_range(info, &scidd, 0, 900);
+	msec_delay = 100 + channel_range(info, &scidd, 0, msec_delay);
+
+	status_debug("Delaying %u msec for %s",
+		     msec_delay, fmt_short_channel_id_dir(tmpctx, &scidd));
+	timer = new_reltimer(&info->timers,
+			     info,
+			     time_from_msec(msec_delay),
+			     delayed_forward, dfwd);
+	/* Free dfwd after timer expires */
+	tal_steal(timer, dfwd);
+}
+
+static void delayed_forward(struct delayed_forward *dfwd)
+{
+	forward_htlc(dfwd->info,
+		     dfwd->htlc,
+		     dfwd->amount,
+		     dfwd->cltv_expiry,
+		     dfwd->onion_routing_packet,
+		     dfwd->path_key,
+		     &dfwd->expected);
 }
 
 static void handle_offer_htlc(struct info *info, const u8 *inmsg)
@@ -1126,8 +1176,12 @@ int main(int argc, char *argv[])
 	info->commit_num = 1;
 	info->fakesig.sighash_type = SIGHASH_ALL;
 	memset(&info->fakesig.s, 0, sizeof(info->fakesig.s));
+	memset(&info->seed, 0, sizeof(info->seed));
 
- 	status_debug("Waiting for init...");
+	if (getenv("CHANNELD_FAKENET_SEED"))
+		info->seed.u.u64[0] = atol(getenv("CHANNELD_FAKENET_SEED"));
+
+	status_debug("channeld_fakenet seed is %"PRIu64, info->seed.u.u64[0]);
 
 	/* This loop never exits.  io_loop() only returns if a timer has
 	 * expired, or io_break() is called, or all fds are closed.  We don't
