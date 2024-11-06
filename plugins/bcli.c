@@ -1006,17 +1006,18 @@ static void parse_getnetworkinfo_result(struct plugin *p, const char *buf)
 	if (!result)
 		plugin_err(p, "Invalid response to '%s': '%s'. Can not "
 			      "continue without proceeding to sanity checks.",
-			      gather_args(bitcoind, "getnetworkinfo", NULL), buf);
+			   args_string(tmpctx, gather_args(bitcoind, "getnetworkinfo", NULL)),
+			   buf);
 
 	/* Check that we have a fully-featured `estimatesmartfee`. */
 	err = json_scan(tmpctx, buf, result, "{version:%,localrelay:%}",
 			JSON_SCAN(json_to_u32, &bitcoind->version),
 			JSON_SCAN(json_to_bool, &tx_relay));
 	if (err)
-		plugin_err(p, "%s.  Got '%s'. Can not"
+		plugin_err(p, "%s.  Got '%.*s'. Can not"
 			   " continue without proceeding to sanity checks.",
 			   err,
-			   gather_args(bitcoind, "getnetworkinfo", NULL), buf);
+			   json_tok_full_len(result), json_tok_full(buf, result));
 
 	if (bitcoind->version < min_version)
 		plugin_err(p, "Unsupported bitcoind version %"PRIu32", at least"
