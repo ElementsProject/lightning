@@ -1516,6 +1516,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_DEV_MEMLEAK:
 	case WIRE_CHANNELD_DEV_QUIESCE:
 	case WIRE_CHANNELD_GOT_INFLIGHT:
+	case WIRE_CHANNELD_DEV_PEER_SHACHAIN:
 		/* Replies go to requests. */
 	case WIRE_CHANNELD_OFFER_HTLC_REPLY:
 	case WIRE_CHANNELD_DEV_REENABLE_COMMIT_REPLY:
@@ -2305,6 +2306,51 @@ static const struct json_command dev_feerate_command = {
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_feerate_command);
+
+static struct command_result *json_dev_peer_shachain(struct command *cmd,
+						     const char *buffer,
+						     const jsmntok_t *obj UNNEEDED,
+						     const jsmntok_t *params)
+{
+	struct sha256 *shachain_seed;
+	struct node_id *id;
+	struct peer *peer;
+	struct channel *channel;
+	const u8 *msg;
+	bool more_than_one;
+
+	if (!param_check(cmd, buffer, params,
+			 p_req("id", param_node_id, &id),
+			 p_req("seed", param_sha256, &shachain_seed),
+			 NULL))
+		return command_param_failed();
+
+	peer = peer_by_id(cmd->ld, id);
+	if (!peer)
+		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
+
+	channel = peer_any_channel(peer, channel_state_can_add_htlc, &more_than_one);
+	if (!channel || !channel->owner)
+		return command_fail(cmd, LIGHTNINGD, "Peer bad state");
+	/* This is a dev command: fix the api if you need this! */
+	if (more_than_one)
+		return command_fail(cmd, LIGHTNINGD, "More than one channel");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	msg = towire_channeld_dev_peer_shachain(NULL, shachain_seed);
+	subd_send_msg(channel->owner, take(msg));
+
+	return command_success(cmd, json_stream_success(cmd));
+}
+
+static const struct json_command dev_peer_shachain_command = {
+	"dev-peer-shachain",
+	json_dev_peer_shachain,
+	.dev_only = true,
+};
+AUTODATA(json_command, &dev_peer_shachain_command);
 
 static void quiesce_reply(struct subd *channeld UNUSED,
 			  const u8 *reply,
