@@ -205,13 +205,7 @@ static struct command *new_command(const tal_t *ctx,
 	cmd->check = check;
 	cmd->filter = NULL;
 	cmd->methodname = tal_strdup(cmd, methodname);
-	if (id) {
-		cmd->id = tal_strdup(cmd, id);
-	} else {
-		/* Might be taken, even if NULL */
-		taken(id);
-		cmd->id = NULL;
-	}
+	cmd->id = tal_strdup(cmd, id);
 	return cmd;
 }
 
@@ -318,10 +312,6 @@ const char *json_id_prefix(const tal_t *ctx, const struct command *cmd)
 {
 	if (!cmd)
 		return "";
-
-	/* Notifications have no cmd->id, use methodname */
-	if (!cmd->id)
-		return tal_fmt(ctx, "%s/", cmd->methodname);
 
 	/* Strip quotes! */
 	if (strstarts(cmd->id, "\"")) {
@@ -1908,6 +1898,7 @@ static void ld_command_handle(struct plugin *plugin,
 	const jsmntok_t *methtok, *paramstok, *filtertok;
 	const char *methodname;
 	struct command *cmd;
+	const char *id;
 
 	methtok = json_get_member(plugin->buffer, toks, "method");
 	paramstok = json_get_member(plugin->buffer, toks, "params");
@@ -1920,8 +1911,10 @@ static void ld_command_handle(struct plugin *plugin,
 			   json_tok_full(plugin->buffer, toks));
 
 	methodname = json_strdup(NULL, plugin->buffer, methtok);
+	id = json_get_id(tmpctx, plugin->buffer, toks);
+
 	cmd = new_command(plugin, plugin,
-			  take(json_get_id(NULL, plugin->buffer, toks)),
+			  id ? id : tal_fmt(tmpctx, "notification-%s", methodname),
 			  take(methodname),
 			  false, streq(methodname, "check"));
 
@@ -1946,7 +1939,7 @@ static void ld_command_handle(struct plugin *plugin,
 	}
 
 	/* If that's a notification. */
-	if (!cmd->id) {
+	if (!id) {
 		bool is_shutdown = streq(cmd->methodname, "shutdown");
 		if (is_shutdown && plugin->developer)
 			memleak_check(plugin, cmd);
