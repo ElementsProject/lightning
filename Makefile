@@ -840,6 +840,7 @@ install: install-program install-data
 TESTBINS = \
 	$(CLN_PLUGIN_EXAMPLES) \
 	tests/plugins/test_libplugin \
+	tests/plugins/channeld_fakenet \
 	tests/plugins/test_selfdisable_after_getmanifest \
 	tools/hsmtool
 
