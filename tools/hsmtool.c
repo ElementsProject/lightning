@@ -366,9 +366,6 @@ static int dump_commitments_infos(struct node_id *node_id, u64 channel_id,
 	struct secret hsm_secret, channel_seed, per_commitment_secret;
 	struct pubkey per_commitment_point;
 
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-	                                         | SECP256K1_CONTEXT_SIGN);
-
 	get_hsm_secret(&hsm_secret, hsm_secret_path);
 	get_channel_seed(&channel_seed, node_id, channel_id, &hsm_secret);
 
@@ -423,9 +420,6 @@ static int guess_to_remote(const char *address, struct node_id *node_id,
 		errx(ERROR_USAGE, "Could not get address' network");
 	if (segwit_addr_decode(&witver, goal_pubkeyhash, &witlen, hrp, address) != 1)
 		errx(ERROR_USAGE, "Wrong bech32 address");
-
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-	                                         | SECP256K1_CONTEXT_SIGN);
 
 	get_hsm_secret(&hsm_secret, hsm_secret_path);
 
@@ -705,9 +699,6 @@ static int get_node_id(const char *hsm_secret_path)
 	struct privkey node_privkey;
 	struct pubkey node_id;
 
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-	                                         | SECP256K1_CONTEXT_SIGN);
-
 	/* Get hsm_secret */
 	get_hsm_secret(&hsm_secret, hsm_secret_path);
 
@@ -736,14 +727,12 @@ int main(int argc, char *argv[])
 
 	setup_locale();
 	err_set_progname(argv[0]);
+	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+	                                         | SECP256K1_CONTEXT_SIGN);
 
 	method = argc > 1 ? argv[1] : NULL;
 	if (!method)
 		show_usage(argv[0]);
-
-	if (sodium_init() == -1)
-		errx(ERROR_LIBSODIUM,
-		    "Could not initialize libsodium. Not enough entropy ?");
 
 	if (streq(method, "decrypt")) {
 		if (argc < 3)
