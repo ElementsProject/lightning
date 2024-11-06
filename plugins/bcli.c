@@ -1100,10 +1100,10 @@ static void memleak_mark_bitcoind(struct plugin *p, struct htable *memtable)
 	memleak_scan_obj(memtable, bitcoind);
 }
 
-static const char *init(struct plugin *p, const char *buffer UNUSED,
+static const char *init(struct command *init_cmd, const char *buffer UNUSED,
 			const jsmntok_t *config UNUSED)
 {
-	wait_and_check_bitcoind(p);
+	wait_and_check_bitcoind(init_cmd->plugin);
 
 	/* Usually we fake up fees in regtest */
 	if (streq(chainparams->network_name, "regtest"))
@@ -1111,8 +1111,8 @@ static const char *init(struct plugin *p, const char *buffer UNUSED,
 	else
 		bitcoind->fake_fees = false;
 
-	plugin_set_memleak_handler(p, memleak_mark_bitcoind);
-	plugin_log(p, LOG_INFORM,
+	plugin_set_memleak_handler(init_cmd->plugin, memleak_mark_bitcoind);
+	plugin_log(init_cmd->plugin, LOG_INFORM,
 		   "bitcoin-cli initialized and connected to bitcoind.");
 
 	return NULL;

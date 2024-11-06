@@ -35,7 +35,7 @@ static struct command_result *get_ds_bin_done(struct command *cmd,
 	plugin_log(cmd->plugin, LOG_INFORM, "get_ds_bin_done: %s",
 		   val ? tal_hex(tmpctx, val) : "NOT FOUND");
 
-	return jsonrpc_get_datastore_string(cmd->plugin, cmd,
+	return jsonrpc_get_datastore_string(cmd,
 					    "test_libplugin/name",
 					    get_ds_done, arg);
 }
@@ -54,7 +54,7 @@ static struct command_result *json_helloworld(struct command *cmd,
 	plugin_notify_message(cmd, LOG_INFORM, "Notification from %s", "json_helloworld");
 
 	if (!name)
-		return jsonrpc_get_datastore_binary(cmd->plugin, cmd,
+		return jsonrpc_get_datastore_binary(cmd,
 						    "test_libplugin/name",
 						    get_ds_bin_done,
 						    "hello");
@@ -147,9 +147,9 @@ static struct command_result *json_testrpc(struct command *cmd,
 	if (!param(cmd, buf, params, NULL))
 		return command_param_failed();
 
-	req = jsonrpc_request_start(cmd->plugin, cmd, "getinfo", testrpc_cb,
+	req = jsonrpc_request_start(cmd, "getinfo", testrpc_cb,
 				    testrpc_cb, NULL);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 static struct command_result *listdatastore_ok(struct command *cmd,
@@ -178,13 +178,13 @@ static struct command_result *json_checkthis(struct command *cmd,
 			 NULL))
 		return command_param_failed();
 
-	req = jsonrpc_request_start(cmd->plugin, cmd,
+	req = jsonrpc_request_start(cmd,
 				    "listdatastore",
 				    listdatastore_ok,
 				    forward_error, NULL);
 	if (key)
 		json_add_tok(req->js, "key", key, buf);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 static char *set_dynamic(struct plugin *plugin,
@@ -205,12 +205,13 @@ static char *set_dynamic(struct plugin *plugin,
 	return NULL;
 }
 
-static const char *init(struct plugin *p,
+static const char *init(struct command *init_cmd,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
 {
 	const char *name, *err_str, *err_hex;
 	const u8 *binname;
+	struct plugin *p = init_cmd->plugin;
 	struct test_libplugin *tlp = get_test_libplugin(p);
 
 	plugin_log(p, LOG_DBG, "test_libplugin initialised!");
@@ -222,12 +223,12 @@ static const char *init(struct plugin *p,
 		return "Disabled via selfdisable option";
 
 	/* Test rpc_scan_datastore funcs */
-	err_str = rpc_scan_datastore_str(tmpctx, p, "test_libplugin/name",
+	err_str = rpc_scan_datastore_str(tmpctx, init_cmd, "test_libplugin/name",
 					 JSON_SCAN_TAL(tmpctx, json_strdup,
 						       &name));
 	if (err_str)
 		name = NULL;
-	err_hex = rpc_scan_datastore_hex(tmpctx, p, "test_libplugin/name",
+	err_hex = rpc_scan_datastore_hex(tmpctx, init_cmd, "test_libplugin/name",
 					 JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex,
 						       &binname));
 	if (err_hex)

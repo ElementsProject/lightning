@@ -248,13 +248,12 @@ mw_perform_cleanup(struct multiwithdraw_command *mw,
 	cleanup->mw = mw;
 	cleanup->error_json = tal_strdup(cleanup, error_json);
 
-	req = jsonrpc_request_start(mw->cmd->plugin,
-				    mw->cmd,
+	req = jsonrpc_request_start(mw->cmd,
 				    "unreserveinputs",
 				    &mw_after_cleanup, &mw_after_cleanup,
 				    cleanup);
 	json_add_psbt(req->js, "psbt", mw->psbt);
-	return send_outreq(mw->cmd->plugin, req);
+	return send_outreq(req);
 }
 static struct command_result *
 mw_after_cleanup(struct command *cmd UNUSED,
@@ -344,8 +343,7 @@ static struct command_result *start_mw(struct multiwithdraw_command *mw)
 		plugin_log(mw->cmd->plugin, LOG_DBG,
 			   "multiwithdraw %"PRIu64": utxopsbt.",
 			   mw->id);
-		req = jsonrpc_request_start(mw->cmd->plugin,
-					    mw->cmd,
+		req = jsonrpc_request_start(mw->cmd,
 					    "utxopsbt",
 					    &mw_after_fundpsbt,
 					    &mw_forward_error,
@@ -356,8 +354,7 @@ static struct command_result *start_mw(struct multiwithdraw_command *mw)
 		plugin_log(mw->cmd->plugin, LOG_DBG,
 			   "multiwithdraw %"PRIu64": fundpsbt.",
 			   mw->id);
-		req = jsonrpc_request_start(mw->cmd->plugin,
-					    mw->cmd,
+		req = jsonrpc_request_start(mw->cmd,
 					    "fundpsbt",
 					    &mw_after_fundpsbt,
 					    &mw_forward_error,
@@ -379,7 +376,7 @@ static struct command_result *start_mw(struct multiwithdraw_command *mw)
 	json_add_string(req->js, "feerate", mw->feerate);
 	json_add_u64(req->js, "startweight", startweight);
 
-	return send_outreq(mw->cmd->plugin, req);
+	return send_outreq(req);
 }
 
 /*-----------------------------------------------------------------------------
@@ -500,11 +497,11 @@ mw_get_change_addr(struct multiwithdraw_command *mw)
 		   "multiwithdraw %"PRIu64": change output newaddr.",
 		   mw->id);
 
-	req = jsonrpc_request_start(mw->cmd->plugin, mw->cmd,
+	req = jsonrpc_request_start(mw->cmd,
 				    "newaddr",
 				    &mw_after_newaddr, &mw_forward_error, mw);
 	json_add_string(req->js, "addresstype", chainparams->is_elements ? "bech32" : "p2tr");
-	return send_outreq(mw->cmd->plugin, req);
+	return send_outreq(req);
 }
 
 static struct command_result *
@@ -627,13 +624,13 @@ mw_sign_and_send(struct multiwithdraw_command *mw)
 	plugin_log(mw->cmd->plugin, LOG_DBG,
 		   "multiwithdraw %"PRIu64": signpsbt.", mw->id);
 
-	req = jsonrpc_request_start(mw->cmd->plugin, mw->cmd,
+	req = jsonrpc_request_start(mw->cmd,
 				    "signpsbt",
 				    &mw_after_signpsbt,
 				    &mw_forward_error,
 				    mw);
 	json_add_psbt(req->js, "psbt", mw->psbt);
-	return send_outreq(mw->cmd->plugin, req);
+	return send_outreq(req);
 }
 
 static struct command_result *
@@ -668,8 +665,7 @@ mw_after_signpsbt(struct command *cmd,
 	plugin_log(mw->cmd->plugin, LOG_DBG,
 		   "multiwithdraw: %"PRIu64": sendpsbt.", mw->id);
 
-	req = jsonrpc_request_start(mw->cmd->plugin,
-				    mw->cmd,
+	req = jsonrpc_request_start(mw->cmd,
 				    "sendpsbt",
 				    &forward_result,
 				    /* Properly speaking, if `sendpsbt` fails,
@@ -683,5 +679,5 @@ mw_after_signpsbt(struct command *cmd,
 				    &mw_forward_error,
 				    mw);
 	json_add_psbt(req->js, "psbt", mw->psbt);
-	return send_outreq(mw->cmd->plugin, req);
+	return send_outreq(req);
 }

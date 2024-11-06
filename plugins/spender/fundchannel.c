@@ -75,7 +75,7 @@ json_fundchannel(struct command *cmd,
 				    "Must pass in 'compact_lease' if requesting"
 				    " funds from peer");
 
-	req = jsonrpc_request_start(cmd->plugin, cmd, "multifundchannel",
+	req = jsonrpc_request_start(cmd, "multifundchannel",
 				    &fundchannel_get_result, &forward_error,
 				    NULL);
 
@@ -111,7 +111,7 @@ json_fundchannel(struct command *cmd,
 	if (utxos)
 		json_add_tok(req->js, "utxos", utxos, buf);
 
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 static bool json_to_tok(const char *buffer, const jsmntok_t *tok, const jsmntok_t **ret)

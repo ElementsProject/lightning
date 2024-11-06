@@ -145,13 +145,13 @@ static struct command_result *send_response(struct command *cmd,
 	towire(&cmd_msg, reply->buf + reply->off, msglen);
 	reply->off += msglen;
 
-	req = jsonrpc_request_start(plugin, cmd, "sendcustommsg",
+	req = jsonrpc_request_start(cmd, "sendcustommsg",
 				    send_response, send_response,
 				    reply);
 	json_add_node_id(req->js, "node_id", &reply->incoming->peer);
 	json_add_hex_talarr(req->js, "msg", cmd_msg);
 	tal_free(cmd_msg);
-	send_outreq(plugin, req);
+	send_outreq(req);
 
 	return command_still_pending(cmd);
 }
@@ -279,7 +279,7 @@ static struct command_result *execute_command(struct command *cmd,
 	struct out_req *req;
 
 	/* We handle success and failure the same */
-	req = jsonrpc_request_whole_object_start(plugin, cmd,
+	req = jsonrpc_request_whole_object_start(cmd,
 						 json_strdup(tmpctx, cinfo->buf, cinfo->method),
 						 cinfo->cmdid_prefix,
 						 cmd_done, cinfo->incoming);
@@ -318,7 +318,7 @@ static struct command_result *execute_command(struct command *cmd,
 				 json_tok_full(cinfo->buf, cinfo->filter),
 				 json_tok_full_len(cinfo->filter));
 	}
-	return send_outreq(plugin, req);
+	return send_outreq(req);
 }
 
 static struct command_result *checkrune_done(struct command *cmd,
@@ -420,7 +420,7 @@ static struct command_result *try_command(struct command *cmd,
 	destroy_commando(incoming, &incoming_commands);
 	tal_del_destructor2(incoming, destroy_commando, &incoming_commands);
 
-	req = jsonrpc_request_start(plugin, cmd, "checkrune",
+	req = jsonrpc_request_start(cmd, "checkrune",
 				    checkrune_done, checkrune_failed,
 				    cinfo);
 	json_add_node_id(req->js, "nodeid", &incoming->peer);
@@ -428,7 +428,7 @@ static struct command_result *try_command(struct command *cmd,
 	json_add_tok(req->js, "method", method, cinfo->buf);
 	if (params)
 		json_add_tok(req->js, "params", params, cinfo->buf);
-	return send_outreq(plugin, req);
+	return send_outreq(req);
 }
 
 static struct command_result *handle_incmd(struct command *cmd,
@@ -630,12 +630,12 @@ static struct command_result *send_more_cmd(struct command *cmd,
 		return command_still_pending(cmd);
 	}
 
-	req = jsonrpc_request_start(plugin, cmd, "sendcustommsg",
+	req = jsonrpc_request_start(cmd, "sendcustommsg",
 				    send_more_cmd, forward_error, outgoing);
 	json_add_node_id(req->js, "node_id", &outgoing->peer);
 	json_add_hex_talarr(req->js, "msg", outgoing->msgs[outgoing->msg_off++]);
 
-	return send_outreq(plugin, req);
+	return send_outreq(req);
 }
 
 static struct command_result *json_commando(struct command *cmd,
@@ -728,11 +728,11 @@ static struct command_result *forward_command(struct command *cmd,
 	/* params could be an array, so use low-level helper */
 	struct out_req *req;
 
-	req = jsonrpc_request_whole_object_start(plugin, cmd, method,
+	req = jsonrpc_request_whole_object_start(cmd, method,
 						 json_id_prefix(tmpctx, cmd),
 						 forward_reply, NULL);
 	json_add_tok(req->js, "params", params, buffer);
-	return send_outreq(plugin, req);
+	return send_outreq(req);
 }
 
 static struct command_result *json_commando_rune(struct command *cmd,
@@ -787,13 +787,13 @@ static void memleak_mark_globals(struct plugin *p, struct htable *memtable)
 	memleak_scan_obj(memtable, incoming_commands);
 }
 
-static const char *init(struct plugin *p,
+static const char *init(struct command *init_cmd,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
-	outgoing_commands = tal_arr(p, struct commando *, 0);
-	incoming_commands = tal_arr(p, struct commando *, 0);
-	plugin = p;
-	plugin_set_memleak_handler(p, memleak_mark_globals);
+	plugin = init_cmd->plugin;
+	outgoing_commands = tal_arr(plugin, struct commando *, 0);
+	incoming_commands = tal_arr(plugin, struct commando *, 0);
+	plugin_set_memleak_handler(plugin, memleak_mark_globals);
 
 	return NULL;
 }

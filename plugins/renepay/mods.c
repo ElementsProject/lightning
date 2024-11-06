@@ -216,13 +216,13 @@ static struct command_result *previoussuccess_cb(struct payment *payment)
 	assert(cmd);
 
 	struct out_req *req = jsonrpc_request_start(
-	    cmd->plugin, cmd, "listsendpays", previoussuccess_done,
+	    cmd, "listsendpays", previoussuccess_done,
 	    payment_rpc_failure, payment);
 
 	json_add_sha256(req->js, "payment_hash",
 			&payment->payment_info.payment_hash);
 	json_add_string(req->js, "status", "complete");
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 REGISTER_PAYMENT_MODIFIER(previoussuccess, previoussuccess_cb);
@@ -312,11 +312,11 @@ static struct command_result *selfpay_cb(struct payment *payment)
 		      /*partid=*/0, pinfo->payment_hash,
 		      pinfo->amount, pinfo->amount);
 	struct out_req *req;
-	req = jsonrpc_request_start(cmd->plugin, cmd, "sendpay",
+	req = jsonrpc_request_start(cmd, "sendpay",
 				    selfpay_success, selfpay_failure, route);
 	route->hops = tal_arr(route, struct route_hop, 0);
 	json_add_route(req->js, route, payment);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 REGISTER_PAYMENT_MODIFIER(selfpay, selfpay_cb);
@@ -452,9 +452,9 @@ static struct command_result *getmychannels_cb(struct payment *payment)
 			   "getmychannels_pay_mod: cannot get a valid cmd.");
 
 	struct out_req *req = jsonrpc_request_start(
-	    cmd->plugin, cmd, "listpeerchannels", getmychannels_done,
+	    cmd, "listpeerchannels", getmychannels_done,
 	    payment_rpc_failure, payment);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 REGISTER_PAYMENT_MODIFIER(getmychannels, getmychannels_cb);
@@ -622,10 +622,10 @@ static struct command_result *routehints_cb(struct payment *payment)
 	struct command *cmd = payment_command(payment);
 	assert(cmd);
 	struct out_req *req = jsonrpc_request_start(
-	    cmd->plugin, cmd, "waitblockheight", routehints_done,
+	    cmd, "waitblockheight", routehints_done,
 	    payment_rpc_failure, payment);
 	json_add_num(req->js, "blockheight", 0);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 REGISTER_PAYMENT_MODIFIER(routehints, routehints_cb);
@@ -879,10 +879,10 @@ static struct command_result *end_cb(struct payment *payment)
 	struct command *cmd = payment_command(payment);
 	assert(cmd);
 	struct out_req *req =
-	    jsonrpc_request_start(cmd->plugin, cmd, "waitblockheight", end_done,
+	    jsonrpc_request_start(cmd, "waitblockheight", end_done,
 				  payment_rpc_failure, payment);
 	json_add_num(req->js, "blockheight", 0);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 REGISTER_PAYMENT_MODIFIER(end, end_cb);
@@ -1068,12 +1068,12 @@ static struct command_result *pendingsendpays_cb(struct payment *payment)
 	assert(cmd);
 
 	struct out_req *req = jsonrpc_request_start(
-	    cmd->plugin, cmd, "listsendpays", pendingsendpays_done,
+	    cmd, "listsendpays", pendingsendpays_done,
 	    payment_rpc_failure, payment);
 
 	json_add_sha256(req->js, "payment_hash",
 			&payment->payment_info.payment_hash);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 REGISTER_PAYMENT_MODIFIER(pendingsendpays, pendingsendpays_cb);
