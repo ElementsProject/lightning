@@ -190,6 +190,31 @@ static void complain_deprecated_nocmd(const char *feature,
 	}
 }
 
+/* New command, without a filter */
+static struct command *new_command(const tal_t *ctx,
+				   struct plugin *plugin,
+				   const char *id TAKES,
+				   const char *methodname TAKES,
+				   bool usage_only,
+				   bool check)
+{
+	struct command *cmd = tal(ctx, struct command);
+
+	cmd->plugin = plugin;
+	cmd->usage_only = usage_only;
+	cmd->check = check;
+	cmd->filter = NULL;
+	cmd->methodname = tal_strdup(cmd, methodname);
+	if (id) {
+		cmd->id = tal_strdup(cmd, id);
+	} else {
+		/* Might be taken, even if NULL */
+		taken(id);
+		cmd->id = NULL;
+	}
+	return cmd;
+}
+
 bool command_deprecated_in_nocmd_ok(struct plugin *plugin,
 				    const char *name,
 				    const char *depr_start,
@@ -1630,11 +1655,11 @@ bool flag_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fie
 
 static void setup_command_usage(struct plugin *p)
 {
-	struct command *usage_cmd = tal(tmpctx, struct command);
+	struct command *usage_cmd = new_command(tmpctx, p, "usage",
+						"check-usage",
+						true, false);
 
 	/* This is how common/param can tell it's just a usage request */
-	usage_cmd->usage_only = true;
-	usage_cmd->plugin = p;
 	for (size_t i = 0; i < p->num_commands; i++) {
 		struct command_result *res;
 
@@ -1881,6 +1906,7 @@ static void ld_command_handle(struct plugin *plugin,
 			      const jsmntok_t *toks)
 {
 	const jsmntok_t *methtok, *paramstok, *filtertok;
+	const char *methodname;
 	struct command *cmd;
 
 	methtok = json_get_member(plugin->buffer, toks, "method");
@@ -1893,12 +1919,11 @@ static void ld_command_handle(struct plugin *plugin,
 			   json_tok_full_len(toks),
 			   json_tok_full(plugin->buffer, toks));
 
-	cmd = tal(plugin, struct command);
-	cmd->plugin = plugin;
-	cmd->usage_only = false;
-	cmd->filter = NULL;
-	cmd->methodname = json_strdup(cmd, plugin->buffer, methtok);
-	cmd->id = json_get_id(cmd, plugin->buffer, toks);
+	methodname = json_strdup(NULL, plugin->buffer, methtok);
+	cmd = new_command(plugin, plugin,
+			  take(json_get_id(NULL, plugin->buffer, toks)),
+			  take(methodname),
+			  false, streq(methodname, "check"));
 
 	if (!plugin->manifested) {
 		if (streq(cmd->methodname, "getmanifest")) {
@@ -2505,6 +2530,20 @@ command_hook_success(struct command *cmd)
 	struct json_stream *response = jsonrpc_stream_success(cmd);
 	json_add_string(response, "result", "continue");
 	return command_finished(cmd, response);
+}
+
+struct command *aux_command(const struct command *cmd)
+{
+	assert(!cmd->check);
+	return new_command(cmd->plugin, cmd->plugin, cmd->id,
+			   cmd->methodname, false, false);
+}
+
+struct command_result *WARN_UNUSED_RESULT
+aux_command_done(struct command *cmd)
+{
+	tal_free(cmd);
+	return &complete;
 }
 
 struct command_result *WARN_UNUSED_RESULT
