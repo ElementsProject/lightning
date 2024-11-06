@@ -189,6 +189,7 @@ static void update_commitment_tx_added(struct info *info, u64 htlc_id)
 {
 	struct changed_htlc *changed;
 	u8 *msg;
+	const struct htlc **htlcs = tal_arr(tmpctx, const struct htlc *, 0);
 
 	changed = tal_arr(tmpctx, struct changed_htlc, 1);
 	changed->id = htlc_id;
@@ -201,6 +202,8 @@ static void update_commitment_tx_added(struct info *info, u64 htlc_id)
 						info->blockheight_states,
 						changed);
 	daemon_conn_send(info->dc, take(msg));
+
+	channel_sending_commit(info->channel, &htlcs);
 
 	/* Tell it we got revoke & ack from them. */
 	pretend_got_revoke(info, htlc_id, RCVD_ADD_REVOCATION);
@@ -219,6 +222,11 @@ static void update_commitment_tx_added(struct info *info, u64 htlc_id)
 					    info->commit_tx,
 					    NULL);
 	daemon_conn_send(info->dc, take(msg));
+
+	/* Tell full_channel.c the htlc is totally committed. */
+	channel_rcvd_revoke_and_ack(info->channel, &htlcs);
+	channel_rcvd_commit(info->channel, &htlcs);
+	channel_sending_revoke_and_ack(info->channel);
 
 	/* Final change to SENT_ADD_ACK_REVOCATION is implied */
 	info->commit_num++;
@@ -367,6 +375,7 @@ static void fail(struct info *info,
 	const struct failed_htlc **failed_arr;
 	u8 *msg;
 	struct changed_htlc *changed;
+	enum channel_remove_err err;
 
 	msg = tal_arr(tmpctx, u8, 0);
 	towire_u16(&msg, failcode);
@@ -374,6 +383,12 @@ static void fail(struct info *info,
 	status_debug("Failing payment at %s due to %s",
 		     fmt_nodeidx(tmpctx, current_nodeidx),
 		     onion_wire_name(failcode));
+
+	err = channel_fail_htlc(info->channel,
+				LOCAL,
+				htlc->htlc_id,
+				NULL);
+	assert(err == CHANNEL_ERR_REMOVE_OK);
 
 	failed_arr = tal_arr(tmpctx, const struct failed_htlc *, 1);
 	failed_arr[0] = failed = tal(failed_arr, struct failed_htlc);
@@ -502,6 +517,15 @@ static void succeed(struct info *info,
 	struct changed_htlc *changed;
 	struct fulfilled_htlc *fulfilled;
 	u8 *msg;
+	enum channel_remove_err err;
+
+	err = channel_fulfill_htlc(info->channel,
+				   LOCAL,
+				   htlc->htlc_id,
+				   preimage,
+				   NULL);
+	status_debug("channel_fulfill_htlc = %i", err);
+	assert(err == CHANNEL_ERR_REMOVE_OK);
 
 	fulfilled = tal_arr(tmpctx, struct fulfilled_htlc, 1);
 	fulfilled->id = htlc->htlc_id;
@@ -836,7 +860,6 @@ static void handle_offer_htlc(struct info *info, const u8 *inmsg)
 	u8 *msg;
 	u32 cltv_expiry;
 	struct amount_msat amount;
-	struct sha256 payment_hash;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
 	enum channel_add_err e;
 	const u8 *failwiremsg;
@@ -854,7 +877,7 @@ static void handle_offer_htlc(struct info *info, const u8 *inmsg)
 		master_badmsg(WIRE_CHANNELD_OFFER_HTLC, inmsg);
 
 	e = channel_add_htlc(info->channel, LOCAL, htlc->htlc_id,
-			     amount, cltv_expiry, &payment_hash,
+			     amount, cltv_expiry, &htlc->payment_hash,
 			     onion_routing_packet, take(blinding), NULL,
 			     &htlc_fee, true);
 	status_debug("Adding HTLC %"PRIu64" amount=%s cltv=%u gave %s",
