@@ -28,9 +28,9 @@ static struct plugin_timer *lost_state_timer, *find_exes_timer, *peer_storage_ti
 
 /* This tells if we are already in the process of recovery. */
 static bool recovery, already_has_peers;
-static void do_check_lost_peer (void *unused);
-static void do_check_gossip (struct command *cmd);
-static void do_find_peer_storage (struct command *cmd);
+static struct command_result *do_check_lost_peer (struct command *cmd, void *unused);
+static struct command_result *do_check_gossip (struct command *cmd, void *unused);
+static struct command_result *do_find_peer_storage (struct command *cmd, void *unused);
 static struct node_id local_id;
 
 /* List of most connected nodes on the network */
@@ -84,9 +84,10 @@ static struct command_result *after_restorefrompeer(struct command *cmd,
 	plugin_log(plugin, LOG_DBG, "restorefrompeer called");
 
 	peer_storage_timer =
-	    plugin_timer(plugin, time_from_sec(CHECK_STORAGE_INTERVAL),
-			 do_find_peer_storage, cmd);
-	return command_still_pending(cmd);
+		global_timer(plugin,
+			     time_from_sec(CHECK_STORAGE_INTERVAL),
+			     do_find_peer_storage, NULL);
+	return timer_complete(cmd);
 }
 
 static struct command_result *find_peer_storage (struct command *cmd)
@@ -101,14 +102,13 @@ static struct command_result *find_peer_storage (struct command *cmd)
 	return send_outreq(plugin, req);
 }
 
-static void do_find_peer_storage (struct command *cmd)
+static struct command_result *do_find_peer_storage(struct command *cmd, void *unused)
 {
-	find_peer_storage(cmd);
-	return;
+	return find_peer_storage(cmd);
 }
 
 
-static void do_check_gossip (struct command *cmd)
+static struct command_result *do_check_gossip(struct command *cmd, void *unused)
 {
 	find_exes_timer = NULL;
 
@@ -144,14 +144,15 @@ static void do_check_gossip (struct command *cmd)
 		}
 
 		peer_storage_timer =
-		    plugin_timer(plugin, time_from_sec(CHECK_STORAGE_INTERVAL),
-				 do_find_peer_storage, cmd);
-		return;
+			global_timer(plugin,
+				     time_from_sec(CHECK_STORAGE_INTERVAL),
+				     do_find_peer_storage, NULL);
+		return timer_complete(cmd);
 	}
 
-	find_exes_timer = plugin_timer(
-	    plugin, time_from_sec(CHECK_PEER_INTERVAL), do_check_gossip, cmd);
-	return;
+	find_exes_timer = global_timer(
+	    plugin, time_from_sec(CHECK_PEER_INTERVAL), do_check_gossip, NULL);
+	return timer_complete(cmd);
 }
 
 static void entering_recovery_mode(struct command *cmd)
@@ -182,7 +183,7 @@ static void entering_recovery_mode(struct command *cmd)
 						  NULL);
 
 	send_outreq(plugin, req_emer_recovery);
-	find_exes_timer = plugin_timer(
+	find_exes_timer = global_timer(
 	    plugin, time_from_sec(CHECK_GOSSIP_INTERVAL), do_check_gossip, cmd);
 	return;
 }
@@ -216,32 +217,32 @@ static struct command_result *after_listpeerchannels(struct command *cmd,
 	}
 
 	lost_state_timer =
-	    plugin_timer(plugin, time_from_sec(CHECK_PEER_INTERVAL),
+	    global_timer(plugin, time_from_sec(CHECK_PEER_INTERVAL),
 			 do_check_lost_peer, NULL);
 	return command_still_pending(cmd);
 }
 
-static struct command_result *check_lost_peer(void *unused)
+static struct command_result *check_lost_peer(struct command *cmd)
 {
 	struct out_req *req;
-	req = jsonrpc_request_start(plugin, NULL, "listpeerchannels",
-					after_listpeerchannels,
-					&forward_error, NULL);
+	req = jsonrpc_request_start(plugin, cmd, "listpeerchannels",
+				    after_listpeerchannels,
+				    &forward_error, NULL);
 
 	return send_outreq(plugin, req);
 }
 
-static void do_check_lost_peer (void *unused)
+static struct command_result *do_check_lost_peer(struct command *cmd, void *unused)
 {
 
 	/* Set to NULL when already in progress. */
 	lost_state_timer = NULL;
 
 	if (recovery) {
-		return;
+		return timer_complete(cmd);
 	}
 
-	check_lost_peer(unused);
+	return check_lost_peer(cmd);
 }
 
 static const char *init(struct plugin *p,
@@ -251,7 +252,7 @@ static const char *init(struct plugin *p,
 	plugin = p;
 	plugin_log(p, LOG_DBG, "Recover Plugin Initialised!");
 	recovery = false;
-	lost_state_timer = plugin_timer(plugin, time_from_sec(STARTUP_TIME),
+	lost_state_timer = global_timer(plugin, time_from_sec(STARTUP_TIME),
 					do_check_lost_peer, NULL);
 	u32 num_peers;
 	size_t num_cupdates_rejected;

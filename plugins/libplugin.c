@@ -25,7 +25,8 @@
 
 struct plugin_timer {
 	struct timer timer;
-	void (*cb)(void *cb_arg);
+	const char *id;
+	struct command_result *(*cb)(struct command *cmd, void *cb_arg);
 	void *cb_arg;
 };
 
@@ -133,7 +134,6 @@ struct plugin {
 	STRMAP(const char *) usagemap;
 	/* Timers */
 	struct timers timers;
-	size_t in_timer;
 
 	/* Feature set for lightningd */
 	struct feature_set *our_features;
@@ -605,10 +605,10 @@ struct command_result *command_err_raw(struct command *cmd,
 				json_str, strlen(json_str));
 }
 
-struct command_result *timer_complete(struct plugin *p)
+struct command_result *timer_complete(struct command *cmd)
 {
-	assert(p->in_timer > 0);
-	p->in_timer--;
+	assert(cmd->type == COMMAND_TYPE_TIMER);
+	tal_free(cmd);
 	return &complete;
 }
 
@@ -1677,11 +1677,14 @@ static void setup_command_usage(struct plugin *p)
 static void call_plugin_timer(struct plugin *p, struct timer *timer)
 {
 	struct plugin_timer *t = container_of(timer, struct plugin_timer, timer);
+	struct command *timer_cmd;
+	struct command_result *res;
 
-	p->in_timer++;
-	/* Free this if they don't. */
-	tal_steal(tmpctx, t);
-	t->cb(t->cb_arg);
+	/* This *isn't* owned by timer, which is owned by original command,
+	 * since they may free that in callback */
+	timer_cmd = new_command(p, p, t->id, "timer", COMMAND_TYPE_TIMER);
+	res = t->cb(timer_cmd, t->cb_arg);
+	assert(res == &pending || res == &complete);
 }
 
 static void destroy_plugin_timer(struct plugin_timer *timer, struct plugin *p)
@@ -1689,17 +1692,39 @@ static void destroy_plugin_timer(struct plugin_timer *timer, struct plugin *p)
 	timer_del(&p->timers, &timer->timer);
 }
 
-struct plugin_timer *plugin_timer_(struct plugin *p, struct timerel t,
-				   void (*cb)(void *cb_arg),
-				   void *cb_arg)
+static struct plugin_timer *new_timer(const tal_t *ctx,
+				      struct plugin *p,
+				      const char *id TAKES,
+				      struct timerel t,
+				      struct command_result *(*cb)(struct command *, void *),
+				      void *cb_arg)
 {
-	struct plugin_timer *timer = notleak(tal(NULL, struct plugin_timer));
+	struct plugin_timer *timer = notleak(tal(ctx, struct plugin_timer));
+	timer->id = tal_strdup(timer, id);
 	timer->cb = cb;
 	timer->cb_arg = cb_arg;
 	timer_init(&timer->timer);
 	timer_addrel(&p->timers, &timer->timer, t);
 	tal_add_destructor2(timer, destroy_plugin_timer, p);
 	return timer;
+}
+
+struct plugin_timer *global_timer_(struct plugin *p,
+				   struct timerel t,
+				   struct command_result *(*cb)(struct command *cmd, void *cb_arg),
+				   void *cb_arg)
+{
+	return new_timer(p, p, "timer", t, cb, cb_arg);
+}
+
+struct plugin_timer *command_timer_(struct command *cmd,
+				    struct timerel t,
+				    struct command_result *(*cb)(struct command *cmd, void *cb_arg),
+				    void *cb_arg)
+{
+	return new_timer(cmd, cmd->plugin,
+			 take(tal_fmt(NULL, "%s-timer", cmd->id)),
+			 t, cb, cb_arg);
 }
 
 void plugin_logv(struct plugin *p, enum log_level l,
@@ -2280,7 +2305,6 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	p->manifested = p->initialized = p->exiting = false;
 	p->restartability = restartability;
 	strmap_init(&p->usagemap);
-	p->in_timer = 0;
 
 	p->commands = commands;
 	if (taken(commands))

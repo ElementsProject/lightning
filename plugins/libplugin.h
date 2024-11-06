@@ -433,27 +433,42 @@ struct command_result *forward_result(struct command *cmd,
 /* Callback for timer where we expect a 'command_result'.  All timers
  * must return this eventually, though they may do so via a convoluted
  * send_req() path. */
-struct command_result *timer_complete(struct plugin *p);
+struct command_result *timer_complete(struct command *cmd);
 
 /* Signals that we've completed a command. Useful for when
- * there's no `cmd` present */
+ * there's no `cmd` present.  Deprecated! */
 struct command_result *command_done(void);
 
-/* Access timer infrastructure to add a timer.
+/* Access timer infrastructure to add a global timer for the plugin.
  *
- * Freeing this releases the timer, otherwise it's freed after @cb
- * if it hasn't been freed already.
+ * This is a timer with the same lifetime as the plugin.
  */
-struct plugin_timer *plugin_timer_(struct plugin *p,
+struct plugin_timer *global_timer_(struct plugin *p,
 				   struct timerel t,
-				   void (*cb)(void *cb_arg),
+				   struct command_result *(*cb)(struct command *cmd, void *cb_arg),
 				   void *cb_arg);
 
-#define plugin_timer(plugin, time, cb, cb_arg)		\
-	plugin_timer_((plugin), (time),			\
-		      typesafe_cb(void, void *,		\
-				  (cb), (cb_arg)),	\
-		      (cb_arg))				\
+#define global_timer(plugin, time, cb, cb_arg)				\
+	global_timer_((plugin), (time),					\
+		      typesafe_cb_preargs(struct command_result *,	\
+					  void *,			\
+					  (cb), (cb_arg),		\
+					  struct command *),		\
+		      (cb_arg))						\
+
+/* Timer based off specific cmd */
+struct plugin_timer *command_timer_(struct command *cmd,
+				    struct timerel t,
+				    struct command_result *(*cb)(struct command *cmd, void *cb_arg),
+				    void *cb_arg);
+
+#define command_timer(cmd, time, cb, cb_arg)				\
+	command_timer_((cmd), (time),					\
+		       typesafe_cb_preargs(struct command_result *,	\
+					   void *,			\
+					   (cb), (cb_arg),		\
+					   struct command *),		\
+		       (cb_arg))					\
 
 /* Log something */
 void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...) PRINTF_FMT(3, 4);

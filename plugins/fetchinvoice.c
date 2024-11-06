@@ -397,11 +397,13 @@ static void destroy_sent(struct sent *sent)
 }
 
 /* We've received neither a reply nor a payment; return failure. */
-static void timeout_sent_invreq(struct sent *sent)
+static struct command_result *timeout_sent_invreq(struct command *timer_cmd,
+						  struct sent *sent)
 {
 	/* This will free sent! */
 	discard_result(command_fail(sent->cmd, OFFER_TIMEOUT,
 				    "Timeout waiting for response"));
+	return timer_complete(timer_cmd);
 }
 
 static struct command_result *sendonionmsg_done(struct command *cmd,
@@ -409,9 +411,9 @@ static struct command_result *sendonionmsg_done(struct command *cmd,
 						const jsmntok_t *result UNUSED,
 						struct sent *sent)
 {
-	tal_steal(cmd, plugin_timer(cmd->plugin,
-				    time_from_sec(sent->wait_timeout),
-				    timeout_sent_invreq, sent));
+	command_timer(cmd,
+		      time_from_sec(sent->wait_timeout),
+		      timeout_sent_invreq, sent);
 	return command_still_pending(cmd);
 }
 
@@ -618,7 +620,8 @@ static struct command_result *send_message(struct command *cmd,
 }
 
 /* We've received neither a reply nor a payment; return failure. */
-static void timeout_sent_inv(struct sent *sent)
+static struct command_result *timeout_sent_inv(struct command *timer_cmd,
+					       struct sent *sent)
 {
 	struct json_out *details = json_out_new(sent);
 
@@ -630,6 +633,7 @@ static void timeout_sent_inv(struct sent *sent)
 	discard_result(command_done_err(sent->cmd, OFFER_TIMEOUT,
 					"Failed: timeout waiting for response",
 					details));
+	return timer_complete(timer_cmd);
 }
 
 static struct command_result *prepare_inv_timeout(struct command *cmd,
@@ -637,9 +641,9 @@ static struct command_result *prepare_inv_timeout(struct command *cmd,
 						  const jsmntok_t *result UNUSED,
 						  struct sent *sent)
 {
-	tal_steal(cmd, plugin_timer(cmd->plugin,
-				    time_from_sec(sent->wait_timeout),
-				    timeout_sent_inv, sent));
+	command_timer(cmd,
+		      time_from_sec(sent->wait_timeout),
+		      timeout_sent_inv, sent);
 	return sendonionmsg_done(cmd, buf, result, sent);
 }
 
