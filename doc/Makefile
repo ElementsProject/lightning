@@ -259,11 +259,11 @@ doc-clean:
 	$(RM) $(MANPAGES) $(MARKDOWN_WITH_SCHEMA) doc/.doc_version
 	$(RM) doc/deployable-lightning.{aux,bbl,blg,dvi,log,out,tex}
 
-doc/index.rst: $(MANPAGES:=.md)
+doc/index.rst: $(MANPAGES:=.md) Makefile
 	@$(call VERBOSE, "genidx $@", \
-	  find doc -maxdepth 1 -name '*\.[0-9]\.md' | \
-	  cut -b 5- | LC_ALL=C sort | \
-	  sed "s/\(.*\)\.\(.*\).*\.md/\1 <\1.\2.md>/" | \
+	  for m in $(MANPAGES); do basename $$m; done |  \
+	  LC_ALL=C sort | \
+	  sed "s/\(.*\)\.\(.*\)/\1 <\1.\2.md>/" | \
 	  $(PYTHON) devtools/blockreplace.py doc/index.rst manpages --language=rst --indent "   " \
 	)
 
