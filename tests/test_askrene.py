@@ -997,6 +997,7 @@ def test_real_data(node_factory, bitcoind):
     assert (len(fees[best]), len(improved), total_first_fee, total_final_fee, percent_fee_reduction) == (8, 95, 6007785, 564997, 91)
 
 
+@pytest.mark.slow_test
 def test_askrene_fake_channeld(node_factory, bitcoind):
     outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
     nodeids = subprocess.check_output(['devtools/gossmap-compress',
@@ -1024,36 +1025,71 @@ def test_askrene_fake_channeld(node_factory, bitcoind):
     shaseed = subprocess.check_output(["tools/hsmtool", "dumpcommitments", l1.info['id'], "1", "0", hsmfile]).decode('utf-8').strip().partition(": ")[2]
     l1.rpc.dev_peer_shachain(l2.info['id'], shaseed)
 
+    TEMPORARY_CHANNEL_FAILURE = 0x1007
+    MPP_TIMEOUT = 0x17
+
+    l1.rpc.askrene_create_layer('test_askrene_fake_channeld')
     for n in range(0, 100):
         if n in (62, 76, 80, 97):
             continue
 
-        routes = l1.rpc.getroutes(source=l1.info['id'],
-                                  destination=nodeids[n],
-                                  amount_msat=AMOUNT,
-                                  layers=['auto.sourcefree', 'auto.localchans'],
-                                  maxfee_msat=AMOUNT,
-                                  final_cltv=18)
+        print(f"PAYING Node #{n}")
+        success = False
+        while not success:
+            routes = l1.rpc.getroutes(source=l1.info['id'],
+                                      destination=nodeids[n],
+                                      amount_msat=AMOUNT,
+                                      layers=['auto.sourcefree', 'auto.localchans'],
+                                      maxfee_msat=AMOUNT,
+                                      final_cltv=18)
 
-        preimage_hex = f'{n:02}' + '00' * 31
-        hash_hex = sha256(bytes.fromhex(preimage_hex)).hexdigest()
+            preimage_hex = f'{n:02}' + '00' * 31
+            hash_hex = sha256(bytes.fromhex(preimage_hex)).hexdigest()
 
-        # Sendpay wants a different format, so we convert.
-        for i, r in enumerate(routes['routes']):
-            hops = [{'id': h['next_node_id'],
-                     'channel': h['short_channel_id_dir'].split('/')[0]}
-                    for h in r['path']]
-            # delay and amount_msat for sendpay are amounts at *end* of hop, not start!
-            with_end = r['path'] + [{'amount_msat': r['amount_msat'], 'delay': r['final_cltv']}]
-            for n, h in enumerate(hops):
-                h['delay'] = with_end[n + 1]['delay']
-                h['amount_msat'] = with_end[n + 1]['amount_msat']
+            paths = {}
+            # Sendpay wants a different format, so we convert.
+            for i, r in enumerate(routes['routes']):
+                paths[i] = [{'id': h['next_node_id'],
+                             'channel': h['short_channel_id_dir'].split('/')[0],
+                             'direction': int(h['short_channel_id_dir'].split('/')[1])}
+                            for h in r['path']]
 
-            l1.rpc.sendpay(hops, hash_hex,
-                           amount_msat=AMOUNT,
-                           payment_secret='00' * 32,
-                           partid=i + 1, groupid=1)
+                # delay and amount_msat for sendpay are amounts at *end* of hop, not start!
+                with_end = r['path'] + [{'amount_msat': r['amount_msat'], 'delay': r['final_cltv']}]
+                for n, h in enumerate(paths[i]):
+                    h['delay'] = with_end[n + 1]['delay']
+                    h['amount_msat'] = with_end[n + 1]['amount_msat']
 
-        for i, r in enumerate(routes['routes']):
-            # Worst-case timeout is 1 second per hop.
-            assert l1.rpc.waitsendpay(hash_hex, timeout=TIMEOUT + len(r['path']), partid=i + 1, groupid=1)['payment_preimage'] == preimage_hex
+                l1.rpc.sendpay(paths[i], hash_hex,
+                               amount_msat=AMOUNT,
+                               payment_secret='00' * 32,
+                               partid=i + 1, groupid=1)
+
+            for i, p in paths.items():
+                # Worst-case timeout is 1 second per hop, + 60 seconds if MPP timeout!
+                try:
+                    if l1.rpc.waitsendpay(hash_hex, timeout=TIMEOUT + len(p) + 60, partid=i + 1, groupid=1):
+                        success = True
+                except RpcError as err:
+                    # Timeout means this one succeeded!
+                    if err.error['data']['failcode'] == MPP_TIMEOUT:
+                        for h in p:
+                            l1.rpc.askrene_inform_channel('test_askrene_fake_channeld',
+                                                          f"{h['channel']}/{h['direction']}",
+                                                          h['amount_msat'],
+                                                          'unconstrained')
+                    elif err.error['data']['failcode'] == TEMPORARY_CHANNEL_FAILURE:
+                        # We succeeded up to here
+                        failpoint = err.error['data']['erring_index']
+                        for h in p[:failpoint]:
+                            l1.rpc.askrene_inform_channel('test_askrene_fake_channeld',
+                                                          f"{h['channel']}/{h['direction']}",
+                                                          h['amount_msat'],
+                                                          'unconstrained')
+                        h = p[failpoint]
+                        l1.rpc.askrene_inform_channel('test_askrene_fake_channeld',
+                                                      f"{h['channel']}/{h['direction']}",
+                                                      h['amount_msat'],
+                                                      'constrained')
+                    else:
+                        raise err

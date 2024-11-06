@@ -60,6 +60,8 @@ struct info {
 	struct timers timers;
 	/* Seed for channel feature determination (e.g. delay time) */
 	struct siphash_seed seed;
+	/* Currently used channels */
+	struct reservation **reservations;
 
 	/* Fake stuff we feed into lightningd */
 	struct fee_states *fee_states;
@@ -96,6 +98,12 @@ struct multi_payment {
 	struct sha256 payment_hash;
 	/* All the payloads we've gathered */
 	struct payment **payments;
+};
+
+/* We've taken up some part of a channel */
+struct reservation {
+	struct short_channel_id_dir scidd;
+	struct amount_msat amount;
 };
 
 static void make_privkey(size_t idx, struct privkey *pk)
@@ -573,6 +581,72 @@ static void add_mpp(struct info *info,
 	tal_free(mp);
 }
 
+static void destroy_reservation(struct reservation *r,
+				struct info *info)
+{
+	for (size_t i = 0; i < tal_count(info->reservations); i++) {
+		if (info->reservations[i] == r) {
+			tal_arr_remove(&info->reservations, i);
+			return;
+		}
+	}
+	abort();
+}
+
+static void add_reservation(const tal_t *ctx,
+			    struct info *info,
+			    const struct short_channel_id_dir *scidd,
+			    struct amount_msat amount)
+{
+	struct reservation *r = tal(ctx, struct reservation);
+	r->scidd = *scidd;
+	r->amount = amount;
+	tal_arr_expand(&info->reservations, r);
+	tal_add_destructor2(r, destroy_reservation, info);
+}
+
+/* We determine capacity for one side, then we derive the other side.
+ * Reservations, however, do *not* credit the other side, since
+ * they're htlcs in flight.  (We don't update after payments, either!) */
+static struct amount_msat calc_capacity(struct info *info,
+					const struct gossmap_chan *c,
+					const struct short_channel_id_dir *scidd)
+{
+	struct short_channel_id_dir base_scidd;
+	struct amount_msat base_capacity, dynamic_capacity;
+
+	base_scidd.scid = scidd->scid;
+	base_scidd.dir = 0;
+	base_capacity = gossmap_chan_get_capacity(info->gossmap, c);
+	dynamic_capacity = amount_msat(channel_range(info, &base_scidd,
+						     0, base_capacity.millisatoshis)); /* Raw: rand function */
+	/* Invert capacity if that is backwards */
+	if (scidd->dir != base_scidd.dir) {
+		if (!amount_msat_sub(&dynamic_capacity, base_capacity, dynamic_capacity))
+			abort();
+	}
+
+	status_debug("Capacity for %s is %s, dynamic capacity is %s",
+		     fmt_short_channel_id_dir(tmpctx, scidd),
+		     fmt_amount_msat(tmpctx, base_capacity),
+		     fmt_amount_msat(tmpctx, dynamic_capacity));
+
+	/* Take away any reservations */
+	for (size_t i = 0; i < tal_count(info->reservations); i++) {
+		if (!short_channel_id_dir_eq(&info->reservations[i]->scidd, scidd))
+			continue;
+		/* We should never use more that we have! */
+		if (!amount_msat_sub(&dynamic_capacity,
+				     dynamic_capacity,
+				     info->reservations[i]->amount))
+			abort();
+		status_debug("... minus reservation %s",
+			     fmt_amount_msat(tmpctx, info->reservations[i]->amount));
+	}
+
+	return dynamic_capacity;
+}
+
 /* Mutual recursion via timer */
 struct delayed_forward {
 	struct info *info;
@@ -703,6 +777,14 @@ found_next:
 		fail(info, htlc, payload, WIRE_TEMPORARY_CHANNEL_FAILURE);
 		return;
 	}
+
+	if (amount_msat_greater(amount, calc_capacity(info, c, &scidd))) {
+		fail(info, htlc, payload, WIRE_TEMPORARY_CHANNEL_FAILURE);
+		return;
+	}
+
+	/* When we resolve the HTLC, we'll cancel the reservations */
+	add_reservation(htlc, info, &scidd, amount);
 
 	if (payload->path_key) {
 		struct sha256 sha;
@@ -1172,6 +1254,7 @@ int main(int argc, char *argv[])
 
 	info->cached_node_idx = tal_arr(info, size_t, 0);
 	info->multi_payments = tal_arr(info, struct multi_payment *, 0);
+	info->reservations = tal_arr(info, struct reservation *, 0);
 	timers_init(&info->timers, time_mono());
 	info->commit_num = 1;
 	info->fakesig.sighash_type = SIGHASH_ALL;
