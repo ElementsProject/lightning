@@ -204,10 +204,10 @@ static struct command_result *json_getroute(struct command *cmd,
 		return command_param_failed();
 
 	/* Add local info */
-	req = jsonrpc_request_start(cmd->plugin, cmd, "listpeerchannels",
+	req = jsonrpc_request_start(cmd, "listpeerchannels",
 				    listpeerchannels_getroute_done,
 				    listpeerchannels_err, info);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 HTABLE_DEFINE_TYPE(struct node_id, node_id_keyof, node_id_hash, node_id_eq,
@@ -476,9 +476,9 @@ static struct command_result *json_listchannels(struct command *cmd,
 	// FIXME: Once this deprecation is removed, `listpeerchannels_done` can
 	// be embedded in the current function.
 	if (command_deprecated_out_ok(cmd, "include_private", "v24.02", "v24.08")) {
-		req = jsonrpc_request_start(cmd->plugin, cmd, "listpeerchannels",
+		req = jsonrpc_request_start(cmd, "listpeerchannels",
 				    listpeerchannels_done, forward_error, opts);
-		return send_outreq(cmd->plugin, req);
+		return send_outreq(req);
 	}
 
 	// If deprecations are not necessary, call listpeerchannels_done directly,
@@ -696,11 +696,10 @@ static struct command_result *json_listincoming(struct command *cmd,
 		return command_param_failed();
 
 	/* Add local info */
-	req = jsonrpc_request_start(cmd->plugin,
-				    cmd, "listpeerchannels",
+	req = jsonrpc_request_start(cmd, "listpeerchannels",
 				    listpeerchannels_listincoming_done,
 				    listpeerchannels_err, NULL);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 static void memleak_mark(struct plugin *p, struct htable *memtable)
@@ -708,13 +707,13 @@ static void memleak_mark(struct plugin *p, struct htable *memtable)
 	memleak_scan_obj(memtable, global_gossmap);
 }
 
-static const char *init(struct plugin *p,
+static const char *init(struct command *init_cmd,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
 	size_t num_cupdates_rejected;
 
-	plugin = p;
-	rpc_scan(p, "getinfo",
+	plugin = init_cmd->plugin;
+	rpc_scan(init_cmd, "getinfo",
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{id:%}", JSON_SCAN(json_to_node_id, &local_id));
 
@@ -729,7 +728,7 @@ static const char *init(struct plugin *p,
 		plugin_log(plugin, LOG_DBG,
 			   "gossmap ignored %zu channel updates",
 			   num_cupdates_rejected);
- 	plugin_set_memleak_handler(p, memleak_mark);
+ 	plugin_set_memleak_handler(plugin, memleak_mark);
 	return NULL;
 }
 

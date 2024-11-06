@@ -759,11 +759,11 @@ static struct command_result *json_getroutes(struct command *cmd,
 	if (have_layer(info->layers, "auto.localchans")) {
 		struct out_req *req;
 
-		req = jsonrpc_request_start(cmd->plugin, cmd,
+		req = jsonrpc_request_start(cmd,
 					    "listpeerchannels",
 					    listpeerchannels_done,
 					    forward_error, info);
-		return send_outreq(cmd->plugin, req);
+		return send_outreq(req);
 	} else
 		info->local_layer = NULL;
 
@@ -1152,9 +1152,10 @@ static void askrene_markmem(struct plugin *plugin, struct htable *memtable)
 	reserve_memleak_mark(askrene, memtable);
 }
 
-static const char *init(struct plugin *plugin,
+static const char *init(struct command *init_cmd,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
+	struct plugin *plugin = init_cmd->plugin;
 	struct askrene *askrene = tal(plugin, struct askrene);
 	askrene->plugin = plugin;
 	list_head_init(&askrene->layers);
@@ -1165,7 +1166,7 @@ static const char *init(struct plugin *plugin,
 		plugin_err(plugin, "Could not load gossmap %s: %s",
 			   GOSSIP_STORE_FILENAME, strerror(errno));
 	askrene->capacities = get_capacities(askrene, askrene->plugin, askrene->gossmap);
-	rpc_scan(plugin, "getinfo", take(json_out_obj(NULL, NULL, NULL)),
+	rpc_scan(init_cmd, "getinfo", take(json_out_obj(NULL, NULL, NULL)),
 		 "{id:%}", JSON_SCAN(json_to_node_id, &askrene->my_id));
 
 	plugin_set_data(plugin, askrene);

@@ -444,8 +444,7 @@ openchannel_signed_dest(struct multifundchannel_destination *dest)
 		   fmt_channel_id(tmpctx, &dest->channel_id),
 		   fmt_wally_psbt(tmpctx, dest->psbt));
 
-	req = jsonrpc_request_start(cmd->plugin,
-				    cmd,
+	req = jsonrpc_request_start(cmd,
 				    "openchannel_signed",
 				    &openchannel_signed_ok,
 				    &openchannel_signed_err,
@@ -453,7 +452,7 @@ openchannel_signed_dest(struct multifundchannel_destination *dest)
 	json_add_channel_id(req->js, "channel_id", &dest->channel_id);
 	json_add_psbt(req->js, "signed_psbt", dest->psbt);
 
-	send_outreq(cmd->plugin, req);
+	send_outreq(req);
 }
 
 struct command_result *
@@ -786,8 +785,7 @@ openchannel_update_dest(struct multifundchannel_destination *dest)
 		   fmt_node_id(tmpctx, &dest->id),
 		   fmt_wally_psbt(tmpctx, dest->psbt));
 
-	req = jsonrpc_request_start(cmd->plugin,
-				    cmd,
+	req = jsonrpc_request_start(cmd,
 				    "openchannel_update",
 				    &openchannel_update_ok,
 				    &openchannel_update_err,
@@ -795,7 +793,7 @@ openchannel_update_dest(struct multifundchannel_destination *dest)
 	json_add_channel_id(req->js, "channel_id", &dest->channel_id);
 	json_add_psbt(req->js, "psbt", dest->psbt);
 
-	send_outreq(cmd->plugin, req);
+	send_outreq(req);
 }
 
 struct command_result *
@@ -972,7 +970,7 @@ openchannel_init_dest(struct multifundchannel_destination *dest)
 		   mfc->id, dest->index,
 		   fmt_node_id(tmpctx, &dest->id));
 
-	req = jsonrpc_request_start(cmd->plugin, cmd,
+	req = jsonrpc_request_start(cmd,
 				    "openchannel_init",
 				    &openchannel_init_ok,
 				    &openchannel_init_err,
@@ -1026,7 +1024,7 @@ openchannel_init_dest(struct multifundchannel_destination *dest)
 		json_add_channel_type_arr(req->js,
 					  "channel_type", dest->channel_type);
 	}
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 void openchannel_init(struct plugin *p, const char *b, const jsmntok_t *t)

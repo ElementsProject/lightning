@@ -120,7 +120,7 @@ struct plugin {
 	struct plugin_option *opts;
 
 	/* Anything special to do at init ? */
-	const char *(*init)(struct plugin *p,
+	const char *(*init)(struct command *init_cmd,
 			    const char *buf, const jsmntok_t *);
 	/* Has the manifest been sent already ? */
 	bool manifested;
@@ -169,22 +169,6 @@ struct json_filter **command_filter_ptr(struct command *cmd)
 	return &cmd->filter;
 }
 
-static void complain_deprecated_nocmd(const char *feature,
-				      bool allowing,
-				      struct plugin *plugin)
-{
-	if (!allowing) {
-		/* Mild log message for disallowing */
-		plugin_log(plugin, LOG_DBG,
-			   "Note: disallowing deprecated %s",
-			   feature);
-	} else {
-		plugin_log(plugin, LOG_BROKEN,
-			   "DEPRECATED API USED: %s",
-			   feature);
-	}
-}
-
 /* New command, without a filter */
 static struct command *new_command(const tal_t *ctx,
 				   struct plugin *plugin,
@@ -200,18 +184,6 @@ static struct command *new_command(const tal_t *ctx,
 	cmd->methodname = tal_strdup(cmd, methodname);
 	cmd->id = tal_strdup(cmd, id);
 	return cmd;
-}
-
-bool command_deprecated_in_nocmd_ok(struct plugin *plugin,
-				    const char *name,
-				    const char *depr_start,
-				    const char *depr_end)
-{
-	return deprecated_ok(plugin->deprecated_ok,
-			     name,
-			     depr_start, depr_end,
-			     plugin->beglist,
-			     complain_deprecated_nocmd, plugin);
 }
 
 static void complain_deprecated(const char *feature,
@@ -330,7 +302,7 @@ static void destroy_out_req(struct out_req *out_req, struct plugin *plugin)
 /* FIXME: Move lightningd/jsonrpc to common/ ? */
 
 struct out_req *
-jsonrpc_request_start_(struct plugin *plugin, struct command *cmd,
+jsonrpc_request_start_(struct command *cmd,
 		       const char *method,
 		       const char *id_prefix,
 		       const char *filter,
@@ -348,13 +320,13 @@ jsonrpc_request_start_(struct plugin *plugin, struct command *cmd,
 
 	assert(cmd);
 	out = tal(cmd, struct out_req);
-	out->id = append_json_id(out, plugin, method, id_prefix);
+	out->id = append_json_id(out, cmd->plugin, method, id_prefix);
 	out->cmd = cmd;
 	out->cb = cb;
 	out->errcb = errcb;
 	out->arg = arg;
-	strmap_add(&plugin->out_reqs, out->id, out);
-	tal_add_destructor2(out, destroy_out_req, plugin);
+	strmap_add(&cmd->plugin->out_reqs, out->id, out);
+	tal_add_destructor2(out, destroy_out_req, cmd->plugin);
 
 	/* If command goes away, don't call callbacks! */
 	tal_add_destructor2(out->cmd, disable_request_cb, out);
@@ -753,12 +725,14 @@ static const jsmntok_t *sync_req(const tal_t *ctx,
 	return contents;
 }
 
-const jsmntok_t *jsonrpc_request_sync(const tal_t *ctx, struct plugin *plugin,
+const jsmntok_t *jsonrpc_request_sync(const tal_t *ctx,
+				      struct command *init_cmd,
 				      const char *method,
 				      const struct json_out *params TAKES,
 				      const char **resp)
 {
-	return sync_req(ctx, plugin, method, params, resp);
+	assert(streq(init_cmd->methodname, "init"));
+	return sync_req(ctx, init_cmd->plugin, method, params, resp);
 }
 
 /* Returns contents of scanning guide on 'result' */
@@ -777,7 +751,7 @@ static const char *rpc_scan_core(const tal_t *ctx,
 }
 
 /* Synchronous routine to send command and extract fields from response */
-void rpc_scan(struct plugin *plugin,
+void rpc_scan(struct command *init_cmd,
 	      const char *method,
 	      const struct json_out *params TAKES,
 	      const char *guide,
@@ -786,12 +760,13 @@ void rpc_scan(struct plugin *plugin,
 	const char *err;
 	va_list ap;
 
+	assert(streq(init_cmd->methodname, "init"));
 	va_start(ap, guide);
-	err = rpc_scan_core(tmpctx, plugin, method, params, guide, ap);
+	err = rpc_scan_core(tmpctx, init_cmd->plugin, method, params, guide, ap);
 	va_end(ap);
 
 	if (err)
-		plugin_err(plugin, "Could not parse %s in reply to %s: %s",
+		plugin_err(init_cmd->plugin, "Could not parse %s in reply to %s: %s",
 			   guide, method, err);
 }
 
@@ -806,7 +781,7 @@ static void json_add_keypath(struct json_out *jout, const char *fieldname, const
 }
 
 static const char *rpc_scan_datastore(const tal_t *ctx,
-				      struct plugin *plugin,
+				      struct command *init_cmd,
 				      const char *path,
 				      const char *hex_or_string,
 				      va_list ap)
@@ -814,6 +789,7 @@ static const char *rpc_scan_datastore(const tal_t *ctx,
 	const char *guide;
 	struct json_out *params;
 
+	assert(streq(init_cmd->methodname, "init"));
 	params = json_out_new(NULL);
 	json_out_start(params, NULL, '{');
 	json_add_keypath(params, "key", path);
@@ -821,12 +797,12 @@ static const char *rpc_scan_datastore(const tal_t *ctx,
 	json_out_finished(params);
 
 	guide = tal_fmt(tmpctx, "{datastore:[0:{%s:%%}]}", hex_or_string);
-	return rpc_scan_core(ctx, plugin, "listdatastore", take(params),
+	return rpc_scan_core(ctx, init_cmd->plugin, "listdatastore", take(params),
 			     guide, ap);
 }
 
 const char *rpc_scan_datastore_str(const tal_t *ctx,
-				   struct plugin *plugin,
+				   struct command *init_cmd,
 				   const char *path,
 				   ...)
 {
@@ -834,14 +810,14 @@ const char *rpc_scan_datastore_str(const tal_t *ctx,
 	va_list ap;
 
 	va_start(ap, path);
-	ret = rpc_scan_datastore(ctx, plugin, path, "string", ap);
+	ret = rpc_scan_datastore(ctx, init_cmd, path, "string", ap);
 	va_end(ap);
 	return ret;
 }
 
 /* This variant scans the hex encoding, not the string */
 const char *rpc_scan_datastore_hex(const tal_t *ctx,
-				   struct plugin *plugin,
+				   struct command *init_cmd,
 				   const char *path,
 				   ...)
 {
@@ -849,7 +825,7 @@ const char *rpc_scan_datastore_hex(const tal_t *ctx,
 	va_list ap;
 
 	va_start(ap, path);
-	ret = rpc_scan_datastore(ctx, plugin, path, "hex", ap);
+	ret = rpc_scan_datastore(ctx, init_cmd, path, "hex", ap);
 	va_end(ap);
 	return ret;
 }
@@ -879,8 +855,7 @@ static struct command_result *datastore_fail(struct command *command,
 		   json_tok_full(buf, result));
 }
 
-struct command_result *jsonrpc_set_datastore_(struct plugin *plugin,
-					      struct command *cmd,
+struct command_result *jsonrpc_set_datastore_(struct command *cmd,
 					      const char *path,
 					      const void *value,
 					      bool value_is_string,
@@ -902,7 +877,7 @@ struct command_result *jsonrpc_set_datastore_(struct plugin *plugin,
 	if (!errcb)
 		errcb = datastore_fail;
 
-	req = jsonrpc_request_start(plugin, cmd, "datastore", cb, errcb, arg);
+	req = jsonrpc_request_start(cmd, "datastore", cb, errcb, arg);
 
 	json_add_keypath(req->js->jout, "key", path);
 	if (value_is_string)
@@ -910,7 +885,7 @@ struct command_result *jsonrpc_set_datastore_(struct plugin *plugin,
 	else
 		json_add_hex_talarr(req->js, "hex", value);
 	json_add_string(req->js, "mode", mode);
-	return send_outreq(plugin, req);
+	return send_outreq(req);
 }
 
 struct get_ds_info {
@@ -962,8 +937,7 @@ static struct command_result *listdatastore_done(struct command *cmd,
 	return dsi->binary_cb(cmd, val, dsi->arg);
 }
 
-struct command_result *jsonrpc_get_datastore_(struct plugin *plugin,
-					      struct command *cmd,
+struct command_result *jsonrpc_get_datastore_(struct command *cmd,
 					      const char *path,
 					      struct command_result *(*string_cb)(struct command *command,
 									   const char *val,
@@ -981,12 +955,12 @@ struct command_result *jsonrpc_get_datastore_(struct plugin *plugin,
 	dsi->arg = arg;
 
 	/* listdatastore doesn't fail (except API misuse) */
-	req = jsonrpc_request_start(plugin, cmd, "listdatastore",
+	req = jsonrpc_request_start(cmd, "listdatastore",
 				    listdatastore_done, datastore_fail, dsi);
 	tal_steal(req, dsi);
 
 	json_add_keypath(req->js->jout, "key", path);
-	return send_outreq(plugin, req);
+	return send_outreq(req);
 }
 
 static void destroy_cmd_mark_freed(struct command *cmd, bool *cmd_freed)
@@ -1058,7 +1032,7 @@ static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
 }
 
 struct command_result *
-send_outreq(struct plugin *plugin, const struct out_req *req)
+send_outreq(const struct out_req *req)
 {
 	/* The "param" object. */
 	if (req->errcb)
@@ -1066,10 +1040,8 @@ send_outreq(struct plugin *plugin, const struct out_req *req)
 	json_object_end(req->js);
 	json_stream_close(req->js, req->cmd);
 
-	ld_rpc_send(plugin, req->js);
-
-	if (req->cmd != NULL)
-		notleak_with_children(req->cmd);
+	ld_rpc_send(req->cmd->plugin, req->js);
+	notleak_with_children(req->cmd);
 	return &pending;
 }
 
@@ -1157,7 +1129,7 @@ struct out_req *add_to_batch(struct command *cmd,
 {
 	batch->num_remaining++;
 
-	return jsonrpc_request_start(cmd->plugin, cmd, cmdname,
+	return jsonrpc_request_start(cmd, cmdname,
 				     batch_one_success,
 				     batch_one_failed,
 				     batch);
@@ -1527,7 +1499,7 @@ static struct command_result *handle_init(struct command *cmd,
 	}
 
 	if (p->init) {
-		const char *disable = p->init(p, buf, configtok);
+		const char *disable = p->init(cmd, buf, configtok);
 		if (disable)
 			return command_success(cmd, json_out_obj(cmd, "disable",
 								 disable));
@@ -1535,7 +1507,7 @@ static struct command_result *handle_init(struct command *cmd,
 
 	if (with_rpc) {
 		p->beglist = NULL;
-		rpc_scan(p, "listconfigs",
+		rpc_scan(cmd, "listconfigs",
 			 take(json_out_obj(NULL, "config", "i-promise-to-fix-broken-api-user")),
 			 "{configs:{i-promise-to-fix-broken-api-user?:%}}",
 			 JSON_SCAN_TAL(p, json_to_apilist, &p->beglist));
@@ -2267,7 +2239,7 @@ static struct io_plan *stdout_conn_init(struct io_conn *conn,
 static struct plugin *new_plugin(const tal_t *ctx,
 				 const char *argv0,
 				 bool developer,
-				 const char *(*init)(struct plugin *p,
+				 const char *(*init)(struct command *init_cmd,
 						     const char *buf,
 						     const jsmntok_t *),
 				 const enum plugin_restartability restartability,
@@ -2361,7 +2333,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 }
 
 void plugin_main(char *argv[],
-		 const char *(*init)(struct plugin *p,
+		 const char *(*init)(struct command *init_cmd,
 				     const char *buf, const jsmntok_t *),
 		 void *data,
 		 const enum plugin_restartability restartability,

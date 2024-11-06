@@ -318,11 +318,11 @@ payment_getblockheight_success(struct command *cmd,
 
 	/* Now we just need to ask `lightningd` what height it has
 	 * synced up to, and we remember that as chainlag. */
-	req = jsonrpc_request_start(p->plugin, cmd, "waitblockheight",
+	req = jsonrpc_request_start(cmd, "waitblockheight",
 				    &payment_waitblockheight_cb,
 				    &payment_rpc_failure, p);
 	json_add_u32(req->js, "blockheight", 0);
-	return send_outreq(p->plugin, req);
+	return send_outreq(req);
 }
 
 #define INVALID_BLOCKHEIGHT UINT32_MAX
@@ -364,11 +364,11 @@ payment_start_at_blockheight(struct payment *p, u32 blockheight)
 	 * height, allowing us to send while still syncing.
 	 */
 	struct out_req *req;
-	req = jsonrpc_request_start(p->plugin, payment_cmd(p), "getchaininfo",
+	req = jsonrpc_request_start(payment_cmd(p), "getchaininfo",
 				    &payment_getblockheight_success,
 				    &payment_rpc_failure, p);
 	json_add_u32(req->js, "last_height", 0);
-	return send_outreq(p->plugin, req);
+	return send_outreq(req);
 }
 
 void payment_start(struct payment *p)
@@ -1021,10 +1021,10 @@ static struct command_result *payment_getlocalmods(struct payment *p)
 	if (p->mods)
 		return payment_getroute(p);
 
-	req = jsonrpc_request_start(p->plugin, payment_cmd(p), "listpeerchannels",
+	req = jsonrpc_request_start(payment_cmd(p), "listpeerchannels",
 				    &payment_listpeerchannels_success,
 				    &payment_rpc_failure, p);
-	return send_outreq(p->plugin, req);
+	return send_outreq(req);
 }
 
 static struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
@@ -1639,11 +1639,11 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 			   "Extracted channel_update %s from onionreply %s",
 			   tal_hex(tmpctx, update),
 			   tal_hex(tmpctx, p->result->raw_message));
-		req = jsonrpc_request_start(p->plugin, payment_cmd(p), "addgossip",
+		req = jsonrpc_request_start(payment_cmd(p), "addgossip",
 					    payment_addgossip_success,
 					    payment_addgossip_failure, p);
 		json_add_hex_talarr(req->js, "message", update);
-		return send_outreq(p->plugin, req);
+		return send_outreq(req);
 	}
 
 	return payment_addgossip_success(cmd, NULL, NULL, p);
@@ -1655,13 +1655,13 @@ static struct command_result *payment_sendonion_success(struct command *cmd,
 							  struct payment *p)
 {
 	struct out_req *req;
-	req = jsonrpc_request_start(p->plugin, payment_cmd(p), "waitsendpay",
+	req = jsonrpc_request_start(payment_cmd(p), "waitsendpay",
 				    payment_waitsendpay_finished,
 				    payment_waitsendpay_finished, p);
 	json_add_sha256(req->js, "payment_hash", p->payment_hash);
 	json_add_num(req->js, "partid", p->partid);
 	json_add_u64(req->js, "groupid", p->groupid);
-	return send_outreq(p->plugin, req);
+	return send_outreq(req);
 }
 
 static struct command_result *payment_createonion_success(struct command *cmd,
@@ -1683,7 +1683,7 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 
 	p->createonion_response = json_to_createonion_response(p, buffer, toks);
 
-	req = jsonrpc_request_start(p->plugin, payment_cmd(p), "sendonion",
+	req = jsonrpc_request_start(payment_cmd(p), "sendonion",
 				    payment_sendonion_success,
 				    payment_rpc_failure, p);
 	json_add_hex_talarr(req->js, "onion", p->createonion_response->onion);
@@ -1726,7 +1726,7 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	if (p->local_invreq_id)
 		json_add_sha256(req->js, "localinvreqid", p->local_invreq_id);
 
-	return send_outreq(p->plugin, req);
+	return send_outreq(req);
 }
 
 /* Temporary serialization method for the tlv_payload.data until we rework the
@@ -1913,7 +1913,7 @@ static struct command_result *payment_sendonion(struct payment *p)
 {
 	struct out_req *req;
 	u8 *payload, *tlv;
-	req = jsonrpc_request_start(p->plugin, payment_cmd(p), "createonion",
+	req = jsonrpc_request_start(payment_cmd(p), "createonion",
 				    payment_createonion_success,
 				    payment_rpc_failure, p);
 
@@ -1942,7 +1942,7 @@ static struct command_result *payment_sendonion(struct payment *p)
 		json_add_secret(req->js, "sessionkey",
 				p->createonion_request->session_key);
 
-	return send_outreq(p->plugin, req);
+	return send_outreq(req);
 }
 
 /* Mutual recursion. */
@@ -2563,10 +2563,10 @@ static struct command_result *local_channel_hints_cb(void *d UNUSED, struct paym
 	if (p->parent != NULL || p->step != PAYMENT_STEP_INITIALIZED)
 		return payment_continue(p);
 
-	req = jsonrpc_request_start(p->plugin, payment_cmd(p), "listpeerchannels",
+	req = jsonrpc_request_start(payment_cmd(p), "listpeerchannels",
 				    local_channel_hints_listpeerchannels,
 				    local_channel_hints_listpeerchannels, p);
-	return send_outreq(p->plugin, req);
+	return send_outreq(req);
 }
 
 REGISTER_PAYMENT_MODIFIER(local_channel_hints, void *, NULL, local_channel_hints_cb);
@@ -3184,11 +3184,11 @@ static struct command_result *shadow_route_extend(struct shadow_route_data *d,
 						  struct payment *p)
 {
 	struct out_req *req;
-	req = jsonrpc_request_start(p->plugin, payment_cmd(p), "listchannels",
+	req = jsonrpc_request_start(payment_cmd(p), "listchannels",
 				    shadow_route_listchannels,
 				    payment_rpc_failure, p);
 	json_add_node_id(req->js, "source", &d->destination);
-	return send_outreq(p->plugin, req);
+	return send_outreq(req);
 }
 
 static struct command_result *shadow_route_listchannels(struct command *cmd,
@@ -3451,12 +3451,12 @@ static struct command_result *direct_pay_cb(struct direct_pay_data *d, struct pa
 	if (p->step != PAYMENT_STEP_INITIALIZED)
 		return payment_continue(p);
 
-	req = jsonrpc_request_start(p->plugin, payment_cmd(p), "listpeerchannels",
+	req = jsonrpc_request_start(payment_cmd(p), "listpeerchannels",
 				    direct_pay_listpeerchannels,
 				    direct_pay_listpeerchannels,
 				    p);
 	json_add_node_id(req->js, "id", p->route_destination);
-	return send_outreq(p->plugin, req);
+	return send_outreq(req);
 }
 
 static struct direct_pay_data *direct_pay_init(struct payment *p)
@@ -3755,11 +3755,11 @@ static struct command_result *payee_incoming_limit_step_cb(void *d UNUSED, struc
 
 	/* Get information on the destination.  */
 	struct out_req *req;
-	req = jsonrpc_request_start(p->plugin, payment_cmd(p), "listchannels",
+	req = jsonrpc_request_start(payment_cmd(p), "listchannels",
 				    &payee_incoming_limit_count,
 				    &payment_rpc_failure, p);
 	json_add_node_id(req->js, "source", p->route_destination);
-	return send_outreq(p->plugin, req);
+	return send_outreq(req);
 }
 
 REGISTER_PAYMENT_MODIFIER(payee_incoming_limit, void *, NULL,

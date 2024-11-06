@@ -8,9 +8,9 @@
  * spending from the onchain wallet.  */
 
 static
-const char *spender_init(struct plugin *p, const char *b, const jsmntok_t *t)
+const char *spender_init(struct command *init_cmd, const char *b, const jsmntok_t *t)
 {
-	openchannel_init(p, b, t);
+	openchannel_init(init_cmd->plugin, b, t);
 	/* whatever_init(p, b, t); */
 	return NULL;
 }

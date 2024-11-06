@@ -281,29 +281,29 @@ static struct command_result *json_reckless(struct command *cmd,
 	return reckless_call(cmd, command, target, target2);
 }
 
-static const char *init(struct plugin *p,
+static const char *init(struct command *init_cmd,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
 {
-	plugin = p;
-	rpc_scan(p, "listconfigs",
+	plugin = init_cmd->plugin;
+	rpc_scan(init_cmd, "listconfigs",
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{configs:{"
 		 "conf?:{value_str:%},"
 		 "lightning-dir:{value_str:%},"
 		 "network:{value_str:%}"
 		 "}}",
-		 JSON_SCAN_TAL(p, json_strdup, &lconfig.config),
-		 JSON_SCAN_TAL(p, json_strdup, &lconfig.lightningdir),
-		 JSON_SCAN_TAL(p, json_strdup, &lconfig.network));
+		 JSON_SCAN_TAL(plugin, json_strdup, &lconfig.config),
+		 JSON_SCAN_TAL(plugin, json_strdup, &lconfig.lightningdir),
+		 JSON_SCAN_TAL(plugin, json_strdup, &lconfig.network));
 	/* These lightning config parameters need to stick around for each
 	 * reckless call. */
 	if (lconfig.config)
 		notleak(lconfig.config);
 	notleak(lconfig.lightningdir);
 	notleak(lconfig.network);
-	plugin_log(p, LOG_DBG, "plugin initialized!");
-	plugin_log(p, LOG_DBG, "lightning-dir: %s", lconfig.lightningdir);
+	plugin_log(plugin, LOG_DBG, "plugin initialized!");
+	plugin_log(plugin, LOG_DBG, "lightning-dir: %s", lconfig.lightningdir);
 	return NULL;
 }
 

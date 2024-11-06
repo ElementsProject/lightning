@@ -110,8 +110,7 @@ struct plugin_hook {
 const struct feature_set *plugin_feature_set(const struct plugin *p);
 
 /* Helper to create a JSONRPC2 request stream. Send it with `send_outreq`. */
-struct out_req *jsonrpc_request_start_(struct plugin *plugin,
-				       struct command *cmd,
+struct out_req *jsonrpc_request_start_(struct command *cmd,
 				       const char *method,
 				       const char *id_prefix,
 				       const char *filter,
@@ -124,12 +123,12 @@ struct out_req *jsonrpc_request_start_(struct plugin *plugin,
 								       const jsmntok_t *result,
 								       void *arg),
 				       void *arg)
-	NON_NULL_ARGS(1, 2, 3, 4, 6);
+	NON_NULL_ARGS(1, 2, 3, 5);
 
 /* This variant has callbacks received whole obj, not "result" or
  * "error" members. */
-#define jsonrpc_request_start(plugin, cmd, method, cb, errcb, arg)	\
-	jsonrpc_request_start_((plugin), (cmd), (method),		\
+#define jsonrpc_request_start(cmd, method, cb, errcb, arg)	\
+	jsonrpc_request_start_((cmd), (method),		\
 		     json_id_prefix(tmpctx, (cmd)), NULL,		\
 		     typesafe_cb_preargs(struct command_result *, void *, \
 					 (cb), (arg),			\
@@ -143,8 +142,8 @@ struct out_req *jsonrpc_request_start_(struct plugin *plugin,
 					 const jsmntok_t *result),	\
 		     (arg))
 
-#define jsonrpc_request_with_filter_start(plugin, cmd, method, filter, cb, errcb, arg) \
-	jsonrpc_request_start_((plugin), (cmd), (method),		\
+#define jsonrpc_request_with_filter_start(cmd, method, filter, cb, errcb, arg) \
+	jsonrpc_request_start_((cmd), (method),		\
 		     json_id_prefix(tmpctx, (cmd)), (filter),		\
 		     typesafe_cb_preargs(struct command_result *, void *, \
 					 (cb), (arg),			\
@@ -160,8 +159,8 @@ struct out_req *jsonrpc_request_start_(struct plugin *plugin,
 
 /* This variant has callbacks received whole obj, not "result" or
  * "error" members.  It also doesn't start params{}. */
-#define jsonrpc_request_whole_object_start(plugin, cmd, method, id_prefix, cb, arg) \
-	jsonrpc_request_start_((plugin), (cmd), (method), (id_prefix), NULL, \
+#define jsonrpc_request_whole_object_start(cmd, method, id_prefix, cb, arg) \
+	jsonrpc_request_start_((cmd), (method), (id_prefix), NULL, \
 			       typesafe_cb_preargs(struct command_result *, void *, \
 						   (cb), (arg),		\
 						   struct command *command, \
@@ -237,8 +236,7 @@ struct json_stream *jsonrpc_stream_fail_data(struct command *cmd,
 /* Helper to jsonrpc_request_start() and send_outreq() to update datastore.
  * NULL cb means ignore, NULL errcb means plugin_error.
  */
-struct command_result *jsonrpc_set_datastore_(struct plugin *plugin,
-					      struct command *cmd,
+struct command_result *jsonrpc_set_datastore_(struct command *cmd,
 					      const char *path,
 					      const void *value,
 					      bool value_is_string,
@@ -252,10 +250,10 @@ struct command_result *jsonrpc_set_datastore_(struct plugin *plugin,
 									      const jsmntok_t *result,
 									      void *arg),
 					      void *arg)
-	NON_NULL_ARGS(1, 2, 3, 4, 6);
+	NON_NULL_ARGS(1, 2, 3, 5);
 
-#define jsonrpc_set_datastore_string(plugin, cmd, path, str, mode, cb, errcb, arg) \
-	jsonrpc_set_datastore_((plugin), (cmd), (path), (str), true, (mode), \
+#define jsonrpc_set_datastore_string(cmd, path, str, mode, cb, errcb, arg) \
+	jsonrpc_set_datastore_((cmd), (path), (str), true, (mode),	\
 			       typesafe_cb_preargs(struct command_result *, void *, \
 						   (cb), (arg),		\
 						   struct command *command, \
@@ -268,8 +266,8 @@ struct command_result *jsonrpc_set_datastore_(struct plugin *plugin,
 						   const jsmntok_t *result), \
 			       (arg))
 
-#define jsonrpc_set_datastore_binary(plugin, cmd, path, tal_ptr, mode, cb, errcb, arg) \
-	jsonrpc_set_datastore_((plugin), (cmd), (path), (tal_ptr), false, (mode), \
+#define jsonrpc_set_datastore_binary(cmd, path, tal_ptr, mode, cb, errcb, arg) \
+	jsonrpc_set_datastore_((cmd), (path), (tal_ptr), false, (mode), \
 			       typesafe_cb_preargs(struct command_result *, void *, \
 						   (cb), (arg),		\
 						   struct command *command, \
@@ -285,8 +283,7 @@ struct command_result *jsonrpc_set_datastore_(struct plugin *plugin,
 /* Helper to jsonrpc_request_start() and send_outreq() to read datastore.
  * If the value not found, cb gets NULL @val.
  */
-struct command_result *jsonrpc_get_datastore_(struct plugin *plugin,
-					      struct command *cmd,
+struct command_result *jsonrpc_get_datastore_(struct command *cmd,
 					      const char *path,
 					      struct command_result *(*string_cb)(struct command *command,
 									   const char *val,
@@ -295,10 +292,10 @@ struct command_result *jsonrpc_get_datastore_(struct plugin *plugin,
 									   const u8 *val,
 									   void *arg),
 					      void *arg)
-	NON_NULL_ARGS(1, 2, 3);
+	NON_NULL_ARGS(1, 2);
 
-#define jsonrpc_get_datastore_string(plugin, cmd, path, cb, arg)	\
-	jsonrpc_get_datastore_((plugin), (cmd), (path),			\
+#define jsonrpc_get_datastore_string(cmd, path, cb, arg)		\
+	jsonrpc_get_datastore_((cmd), (path),				\
 			       typesafe_cb_preargs(struct command_result *, \
 						   void *,		\
 						   (cb), (arg),		\
@@ -307,8 +304,8 @@ struct command_result *jsonrpc_get_datastore_(struct plugin *plugin,
 			       NULL,				     \
 			       (arg))
 
-#define jsonrpc_get_datastore_binary(plugin, cmd, path, cb, arg)	\
-	jsonrpc_get_datastore_((plugin), (cmd), (path),			\
+#define jsonrpc_get_datastore_binary(cmd, path, cb, arg)		\
+	jsonrpc_get_datastore_((cmd), (path),				\
 			       NULL,					\
 			       typesafe_cb_preargs(struct command_result *, \
 						   void *,		\
@@ -342,12 +339,6 @@ struct command_result *command_param_failed(void);
 bool command_deprecated_in_named_ok(struct command *cmd,
 				    const char *cmdname,
 				    const char *param,
-				    const char *depr_start,
-				    const char *depr_end);
-
-/* For commando, which doesn't have a "cmd" incoming */
-bool command_deprecated_in_nocmd_ok(struct plugin *plugin,
-				    const char *name,
 				    const char *depr_start,
 				    const char *depr_end);
 
@@ -409,7 +400,7 @@ bool command_deprecated_ok_flag(const struct command *cmd)
 
 /* Synchronous helper to send command and extract fields from
  * response; can only be used in init callback. */
-void rpc_scan(struct plugin *plugin,
+void rpc_scan(struct command *init_cmd,
 	      const char *method,
 	      const struct json_out *params TAKES,
 	      const char *guide,
@@ -420,12 +411,12 @@ void rpc_scan(struct plugin *plugin,
  * /-separated.  Final arg is JSON_SCAN or JSON_SCAN_TAL.
  */
 const char *rpc_scan_datastore_str(const tal_t *ctx,
-				   struct plugin *plugin,
+				   struct command *init_cmd,
 				   const char *path,
 				   ...);
 /* This variant scans the hex encoding, not the string */
 const char *rpc_scan_datastore_hex(const tal_t *ctx,
-				   struct plugin *plugin,
+				   struct command *init_cmd,
 				   const char *path,
 				   ...);
 
@@ -433,8 +424,7 @@ const char *rpc_scan_datastore_hex(const tal_t *ctx,
 void rpc_enable_batching(struct plugin *plugin);
 
 /* Send an async rpc request to lightningd. */
-struct command_result *send_outreq(struct plugin *plugin,
-				   const struct out_req *req);
+struct command_result *send_outreq(const struct out_req *req);
 
 /* Callback to just forward error and close request; @cmd cannot be NULL */
 struct command_result *forward_error(struct command *cmd,
@@ -600,7 +590,7 @@ bool flag_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fie
 
 /* The main plugin runner: append with 0 or more plugin_option(), then NULL. */
 void NORETURN LAST_ARG_NULL plugin_main(char *argv[],
-					const char *(*init)(struct plugin *p,
+					const char *(*init)(struct command *init_cmd,
 							    const char *buf,
 							    const jsmntok_t *),
 					void *data TAKES,
@@ -660,7 +650,8 @@ void plugin_set_memleak_handler(struct plugin *plugin,
 
 /* Synchronously call a JSON-RPC method and return its contents and
  * the parser token. */
-const jsmntok_t *jsonrpc_request_sync(const tal_t *ctx, struct plugin *plugin,
+const jsmntok_t *jsonrpc_request_sync(const tal_t *ctx,
+				      struct command *init_cmd,
 				      const char *method,
 				      const struct json_out *params TAKES,
 				      const char **resp);

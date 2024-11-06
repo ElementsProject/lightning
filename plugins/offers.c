@@ -104,7 +104,7 @@ inject_onionmessage_(struct command *cmd,
 {
 	struct out_req *req;
 
-	req = jsonrpc_request_start(cmd->plugin, cmd, "injectonionmessage",
+	req = jsonrpc_request_start(cmd, "injectonionmessage",
 				    cb, errcb, arg);
 	json_add_pubkey(req->js, "path_key", &omsg->first_path_key);
 	json_array_start(req->js, "hops");
@@ -115,7 +115,7 @@ inject_onionmessage_(struct command *cmd,
 		json_object_end(req->js);
 	}
 	json_array_end(req->js);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 /* Holds the details while we wait for establish_onion_path to connect */
@@ -326,9 +326,9 @@ struct command_result *find_best_peer_(struct command *cmd,
 	data->cb = cb;
 	data->arg = arg;
 	data->needed_feature = needed_feature;
-	req = jsonrpc_request_start(cmd->plugin, cmd, "listincoming",
+	req = jsonrpc_request_start(cmd, "listincoming",
 				    listincoming_done, forward_error, data);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 static const struct plugin_hook hooks[] = {
@@ -1377,30 +1377,30 @@ static struct command_result *json_decode(struct command *cmd,
 	if (decodable->emergency_recover) {
 		struct out_req *req;
 
-		req = jsonrpc_request_start(cmd->plugin, cmd, "makesecret",
+		req = jsonrpc_request_start(cmd, "makesecret",
 					    after_makesecret, &forward_error,
 					    decodable);
 
 		json_add_string(req->js, "string", "scb secret");
-		return send_outreq(cmd->plugin, req);
+		return send_outreq(req);
 	}
 
 	return command_finished(cmd, response);
 }
 
-static const char *init(struct plugin *p,
+static const char *init(struct command *init_cmd,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
 {
-	rpc_scan(p, "getinfo",
+	rpc_scan(init_cmd, "getinfo",
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{id:%}", JSON_SCAN(json_to_pubkey, &id));
 
-	rpc_scan(p, "getchaininfo",
+	rpc_scan(init_cmd, "getchaininfo",
 		 take(json_out_obj(NULL, "last_height", NULL)),
 		 "{headercount:%}", JSON_SCAN(json_to_u32, &blockheight));
 
-	rpc_scan(p, "listconfigs",
+	rpc_scan(init_cmd, "listconfigs",
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{configs:"
 		 "{cltv-final:{value_int:%},"
@@ -1408,17 +1408,17 @@ static const char *init(struct plugin *p,
 		 JSON_SCAN(json_to_u16, &cltv_final),
 		 JSON_SCAN(json_to_bool, &offers_enabled));
 
-	rpc_scan(p, "makesecret",
+	rpc_scan(init_cmd, "makesecret",
 		 take(json_out_obj(NULL, "string", BOLT12_ID_BASE_STRING)),
 		 "{secret:%}",
 		 JSON_SCAN(json_to_secret, &invoicesecret_base));
 
-	rpc_scan(p, "makesecret",
+	rpc_scan(init_cmd, "makesecret",
 		 take(json_out_obj(NULL, "string", "offer-blinded-path")),
 		 "{secret:%}",
 		 JSON_SCAN(json_to_secret, &offerblinding_base));
 
-	rpc_scan(p, "makesecret",
+	rpc_scan(init_cmd, "makesecret",
 		 take(json_out_obj(NULL, "string", NODE_ALIAS_BASE_STRING)),
 		 "{secret:%}",
 		 JSON_SCAN(json_to_secret, &nodealias_base));

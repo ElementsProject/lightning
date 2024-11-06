@@ -168,8 +168,7 @@ static struct command_result *unreserve_call(struct command *cmd,
 					     void *cb, void *cbdata)
 {
 	struct wally_psbt *pruned_psbt;
-	struct out_req *req = jsonrpc_request_start(cmd->plugin,
-						    cmd,
+	struct out_req *req = jsonrpc_request_start(cmd,
 						    "unreserveinputs",
 						    cb, cb, cbdata);
 
@@ -188,7 +187,7 @@ static struct command_result *unreserve_call(struct command *cmd,
 
 	json_add_psbt(req->js, "psbt", take(pruned_psbt));
 	json_add_u32(req->js, "reserve", 2016);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 /* Cleans up a txid by doing `txdiscard` on it.  */
@@ -206,14 +205,13 @@ mfc_cleanup_oc(struct command *cmd,
 	       struct multifundchannel_cleanup *cleanup,
 	       struct multifundchannel_destination *dest)
 {
-	struct out_req *req = jsonrpc_request_start(cmd->plugin,
-						     cmd,
+	struct out_req *req = jsonrpc_request_start(cmd,
 						     "openchannel_abort",
 						     &mfc_cleanup_done,
 						     &mfc_cleanup_done,
 						     cleanup);
 	json_add_channel_id(req->js, "channel_id", &dest->channel_id);
-	send_outreq(cmd->plugin, req);
+	send_outreq(req);
 }
 
 /* Cleans up a `fundchannel_start` by doing `fundchannel_cancel` on
@@ -224,15 +222,14 @@ mfc_cleanup_fc(struct command *cmd,
 	       struct multifundchannel_cleanup *cleanup,
 	       struct multifundchannel_destination *dest)
 {
-	struct out_req *req = jsonrpc_request_start(cmd->plugin,
-						    cmd,
+	struct out_req *req = jsonrpc_request_start(cmd,
 						    "fundchannel_cancel",
 						    &mfc_cleanup_done,
 						    &mfc_cleanup_done,
 						    cleanup);
 	json_add_node_id(req->js, "id", &dest->id);
 
-	send_outreq(cmd->plugin, req);
+	send_outreq(req);
 }
 
 /* Core cleanup function.  */
@@ -647,7 +644,7 @@ after_signpsbt(struct command *cmd,
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64": sendpsbt.", mfc->id);
 
-	req = jsonrpc_request_start(mfc->cmd->plugin, mfc->cmd,
+	req = jsonrpc_request_start(mfc->cmd,
 				    "sendpsbt",
 				    &after_sendpsbt,
 				    &mfc_forward_error,
@@ -656,7 +653,7 @@ after_signpsbt(struct command *cmd,
 	/* We already reserved inputs by 2 weeks, we don't need
 	 * another 72 blocks. */
 	json_add_u32(req->js, "reserve", 0);
-	return send_outreq(mfc->cmd->plugin, req);
+	return send_outreq(req);
 }
 
 struct command_result *
@@ -669,7 +666,7 @@ perform_signpsbt(struct multifundchannel_command *mfc)
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64": signpsbt.", mfc->id);
 
-	req = jsonrpc_request_start(mfc->cmd->plugin, mfc->cmd,
+	req = jsonrpc_request_start(mfc->cmd,
 				    "signpsbt",
 				    &after_signpsbt,
 				    &mfc_forward_error,
@@ -684,7 +681,7 @@ perform_signpsbt(struct multifundchannel_command *mfc)
 			json_add_num(req->js, NULL, i);
 	}
 	json_array_end(req->js);
-	return send_outreq(mfc->cmd->plugin, req);
+	return send_outreq(req);
 }
 
 /*~
@@ -795,8 +792,7 @@ fundchannel_complete_dest(struct multifundchannel_destination *dest)
 		   mfc->id, dest->index,
 		   fmt_node_id(tmpctx, &dest->id));
 
-	req = jsonrpc_request_start(cmd->plugin,
-				    cmd,
+	req = jsonrpc_request_start(cmd,
 				    "fundchannel_complete",
 				    &fundchannel_complete_ok,
 				    &fundchannel_complete_err,
@@ -804,7 +800,7 @@ fundchannel_complete_dest(struct multifundchannel_destination *dest)
 	json_add_node_id(req->js, "id", &dest->id);
 	json_add_psbt(req->js, "psbt", mfc->psbt);
 
-	send_outreq(cmd->plugin, req);
+	send_outreq(req);
 }
 
 struct command_result *
@@ -1108,8 +1104,7 @@ fundchannel_start_dest(struct multifundchannel_destination *dest)
 		   mfc->id, dest->index,
 		   fmt_node_id(tmpctx, &dest->id));
 
-	req = jsonrpc_request_start(cmd->plugin,
-				    cmd,
+	req = jsonrpc_request_start(cmd,
 				    "fundchannel_start",
 				    &fundchannel_start_ok,
 				    &fundchannel_start_err,
@@ -1144,7 +1139,7 @@ fundchannel_start_dest(struct multifundchannel_destination *dest)
 		    req->js, "reserve",
 		    fmt_amount_sat(tmpctx, *dest->reserve));
 
-	send_outreq(cmd->plugin, req);
+	send_outreq(req);
 }
 
 static struct command_result *
@@ -1325,8 +1320,7 @@ perform_fundpsbt(struct multifundchannel_command *mfc, u32 feerate)
 			   "mfc %"PRIu64": utxopsbt.",
 			   mfc->id);
 
-		req = jsonrpc_request_start(mfc->cmd->plugin,
-					    mfc->cmd,
+		req = jsonrpc_request_start(mfc->cmd,
 					    "utxopsbt",
 					    &after_fundpsbt,
 					    &mfc_forward_error,
@@ -1339,8 +1333,7 @@ perform_fundpsbt(struct multifundchannel_command *mfc, u32 feerate)
 			   "mfc %"PRIu64": fundpsbt.",
 			   mfc->id);
 
-		req = jsonrpc_request_start(mfc->cmd->plugin,
-					    mfc->cmd,
+		req = jsonrpc_request_start(mfc->cmd,
 					    "fundpsbt",
 					    &after_fundpsbt,
 					    &mfc_forward_error,
@@ -1424,7 +1417,7 @@ perform_fundpsbt(struct multifundchannel_command *mfc, u32 feerate)
 	/* Handle adding a change output if required. */
 	json_add_bool(req->js, "excess_as_change", true);
 
-	return send_outreq(mfc->cmd->plugin, req);
+	return send_outreq(req);
 }
 
 static struct command_result *
@@ -1460,8 +1453,7 @@ getfeerate(struct multifundchannel_command *mfc)
 	 * fees for the channel open. This requires that we know
 	 * the feerate ahead of time, so that we can figure the
 	 * expected lease fees, and add that to the funding amount. */
-	req = jsonrpc_request_start(mfc->cmd->plugin,
-				    mfc->cmd,
+	req = jsonrpc_request_start(mfc->cmd,
 				    "parsefeerate",
 				    &after_getfeerate,
 				    &mfc_forward_error,
@@ -1471,7 +1463,7 @@ getfeerate(struct multifundchannel_command *mfc)
 	json_add_string(req->js, "feerate",
 			mfc->feerate_str ? mfc->feerate_str: "opening");
 
-	return send_outreq(mfc->cmd->plugin, req);
+	return send_outreq(req);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -1610,7 +1602,7 @@ connect_dest(struct multifundchannel_destination *dest)
 		   "mfc %"PRIu64", dest %u: connect %s.",
 		   mfc->id, dest->index, id);
 
-	req = jsonrpc_request_start(cmd->plugin, cmd,
+	req = jsonrpc_request_start(cmd,
 				    "connect",
 				    &connect_ok,
 				    &connect_err,
@@ -1622,7 +1614,7 @@ connect_dest(struct multifundchannel_destination *dest)
 					dest->addrhint));
 	else
 		json_add_node_id(req->js, "id", &dest->id);
-	send_outreq(cmd->plugin, req);
+	send_outreq(req);
 }
 
 /*-----------------------------------------------------------------------------

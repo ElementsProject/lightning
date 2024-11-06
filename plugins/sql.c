@@ -735,10 +735,10 @@ static struct command_result *default_refresh(struct command *cmd,
 					      struct db_query *dbq)
 {
 	struct out_req *req;
-	req = jsonrpc_request_start(cmd->plugin, cmd, td->cmdname,
+	req = jsonrpc_request_start(cmd, td->cmdname,
 				    default_list_done, forward_error,
 				    dbq);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 static bool extract_scid(int gosstore_fd, size_t off, u16 type,
@@ -870,12 +870,12 @@ static struct command_result *channels_refresh(struct command *cmd,
 			/* FIXME: sqlite 3.24.0 (2018-06-04) added UPSERT, but
 			 * we don't require it. */
 			delete_channel_from_db(cmd, scid);
-			req = jsonrpc_request_start(cmd->plugin, cmd, "listchannels",
+			req = jsonrpc_request_start(cmd, "listchannels",
 						    listchannels_one_done,
 						    forward_error,
 						    dbq);
 			json_add_short_channel_id(req->js, "short_channel_id", scid);
-			return send_outreq(cmd->plugin, req);
+			return send_outreq(req);
 		} else if (type == WIRE_GOSSIP_STORE_DELETE_CHAN) {
 			/* This can fail if entry not fully written yet. */
 			if (!extract_scid(gosstore_fd, off, type, &scid)) {
@@ -1007,12 +1007,12 @@ static struct command_result *nodes_refresh(struct command *cmd,
 			/* FIXME: sqlite 3.24.0 (2018-06-04) added UPSERT, but
 			 * we don't require it. */
 			delete_node_from_db(cmd, &id);
-			req = jsonrpc_request_start(cmd->plugin, cmd, "listnodes",
+			req = jsonrpc_request_start(cmd, "listnodes",
 						    listnodes_one_done,
 						    forward_error,
 						    dbq);
 			json_add_node_id(req->js, "id", &id);
-			return send_outreq(cmd->plugin, req);
+			return send_outreq(req);
 		}
 		/* FIXME: Add WIRE_GOSSIP_STORE_DELETE_NODE marker! */
 	}
@@ -1537,9 +1537,10 @@ static void memleak_mark_tablemap(struct plugin *p, struct htable *memtable)
 	memleak_scan_strmap(memtable, &tablemap);
 }
 
-static const char *init(struct plugin *plugin,
+static const char *init(struct command *init_cmd,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
+	struct plugin *plugin = init_cmd->plugin;
 	db = sqlite_setup(plugin);
 	init_tablemap(plugin);
 	init_indices(plugin);

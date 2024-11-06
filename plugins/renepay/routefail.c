@@ -152,10 +152,10 @@ static struct command_result *update_gossip(struct routefail *r)
 		goto skip_update_gossip;
 
 	struct out_req *req =
-	    jsonrpc_request_start(r->cmd->plugin, r->cmd, "addgossip",
+	    jsonrpc_request_start(r->cmd, "addgossip",
 				  update_gossip_done, update_gossip_failure, r);
 	json_add_hex_talarr(req->js, "message", update);
-	return send_outreq(r->cmd->plugin, req);
+	return send_outreq(req);
 
 skip_update_gossip:
 	return handle_failure(r);

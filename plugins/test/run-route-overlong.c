@@ -246,8 +246,7 @@ int json_tok_full_len(const jsmntok_t *t UNNEEDED)
 bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, const char *str UNNEEDED)
 { fprintf(stderr, "json_tok_streq called!\n"); abort(); }
 /* Generated stub for jsonrpc_request_start_ */
-struct out_req *jsonrpc_request_start_(struct plugin *plugin UNNEEDED,
-				       struct command *cmd UNNEEDED,
+struct out_req *jsonrpc_request_start_(struct command *cmd UNNEEDED,
 				       const char *method UNNEEDED,
 				       const char *id_prefix UNNEEDED,
 				       const char *filter UNNEEDED,
@@ -305,8 +304,7 @@ void plugin_notify_message(struct command *cmd UNNEEDED,
 bool random_select(double weight UNNEEDED, double *tot_weight UNNEEDED)
 { fprintf(stderr, "random_select called!\n"); abort(); }
 /* Generated stub for send_outreq */
-struct command_result *send_outreq(struct plugin *plugin UNNEEDED,
-				   const struct out_req *req UNNEEDED)
+struct command_result *send_outreq(const struct out_req *req UNNEEDED)
 { fprintf(stderr, "send_outreq called!\n"); abort(); }
 /* Generated stub for towire_bigsize */
 void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)

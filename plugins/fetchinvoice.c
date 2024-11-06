@@ -1045,7 +1045,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 							0);
 
 	/* Make the invoice request (fills in payer_key and payer_info) */
-	req = jsonrpc_request_start(cmd->plugin, cmd, "createinvoicerequest",
+	req = jsonrpc_request_start(cmd, "createinvoicerequest",
 				    &invreq_done,
 				    &forward_error,
 				    sent);
@@ -1055,7 +1055,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	json_add_bool(req->js, "savetodb", false);
 	if (rec_label)
 		json_add_string(req->js, "recurrence_label", rec_label);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 /* FIXME: Using a hook here is not ideal: technically it doesn't mean
@@ -1094,12 +1094,12 @@ struct command_result *invoice_payment(struct command *cmd,
 			continue;
 
 		/* It was paid!  Success.  Return as per waitinvoice. */
-		req = jsonrpc_request_start(cmd->plugin, i->cmd, "waitinvoice",
+		req = jsonrpc_request_start(i->cmd, "waitinvoice",
 					    &forward_result,
 					    &forward_error,
 					    i);
 		json_add_escaped_string(req->js, "label", i->inv_label);
-		discard_result(send_outreq(cmd->plugin, req));
+		discard_result(send_outreq(req));
 		break;
 	}
 	return command_hook_success(cmd);
@@ -1157,14 +1157,14 @@ static struct command_result *sign_invoice(struct command *cmd,
 	struct out_req *req;
 
 	/* Get invoice signature and put in db so we can receive payment */
-	req = jsonrpc_request_start(cmd->plugin, cmd, "createinvoice",
+	req = jsonrpc_request_start(cmd, "createinvoice",
 				    &createinvoice_done,
 				    &forward_error,
 				    sent);
 	json_add_string(req->js, "invstring", invoice_encode(tmpctx, sent->inv));
 	json_add_preimage(req->js, "preimage", &sent->inv_preimage);
 	json_add_escaped_string(req->js, "label", sent->inv_label);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 static struct command_result *param_invreq(struct command *cmd,

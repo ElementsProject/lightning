@@ -552,7 +552,7 @@ static struct command_result *json_listpays(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	req = jsonrpc_request_start(cmd->plugin, cmd, "listsendpays",
+	req = jsonrpc_request_start(cmd, "listsendpays",
 				    listsendpays_done, forward_error,
 				    cast_const(char *, invstring));
 	if (invstring)
@@ -563,7 +563,7 @@ static struct command_result *json_listpays(struct command *cmd,
 
 	if (status_str)
 		json_add_string(req->js, "status", status_str);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 static void memleak_mark_payments(struct plugin *p, struct htable *memtable)
@@ -571,10 +571,10 @@ static void memleak_mark_payments(struct plugin *p, struct htable *memtable)
 	memleak_scan_list_head(memtable, &payments);
 }
 
-static const char *init(struct plugin *p,
+static const char *init(struct command *init_cmd,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
-	rpc_scan(p, "getinfo", take(json_out_obj(NULL, NULL, NULL)),
+	rpc_scan(init_cmd, "getinfo", take(json_out_obj(NULL, NULL, NULL)),
 		 "{id:%}", JSON_SCAN(json_to_node_id, &my_id));
 
 	/* BOLT #4:
@@ -586,17 +586,17 @@ static const char *init(struct plugin *p,
 	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
 	maxdelay_default = 2016;
 
-	global_hints = notleak_with_children(channel_hint_set_new(p));
+	global_hints = notleak_with_children(channel_hint_set_new(init_cmd->plugin));
 
-	    /* max-locktime-blocks deprecated in v24.05, but still grab it! */
-	    rpc_scan(p, "listconfigs", take(json_out_obj(NULL, NULL, NULL)),
-		     "{configs:"
-		     "{max-locktime-blocks?:{value_int:%},"
-		     "experimental-offers:{set:%}}}",
-		     JSON_SCAN(json_to_number, &maxdelay_default),
-		     JSON_SCAN(json_to_bool, &exp_offers));
+	/* max-locktime-blocks deprecated in v24.05, but still grab it! */
+	rpc_scan(init_cmd, "listconfigs", take(json_out_obj(NULL, NULL, NULL)),
+		 "{configs:"
+		 "{max-locktime-blocks?:{value_int:%},"
+		 "experimental-offers:{set:%}}}",
+		 JSON_SCAN(json_to_number, &maxdelay_default),
+		 JSON_SCAN(json_to_bool, &exp_offers));
 
-	plugin_set_memleak_handler(p, memleak_mark_payments);
+	plugin_set_memleak_handler(init_cmd->plugin, memleak_mark_payments);
 	return NULL;
 }
 
@@ -835,7 +835,7 @@ static struct command_result *selfpay(struct command *cmd, struct payment *p)
 	/* This "struct payment" simply gets freed once command is done. */
 	tal_steal(cmd, p);
 
-	req = jsonrpc_request_start(cmd->plugin, cmd, "sendpay",
+	req = jsonrpc_request_start(cmd, "sendpay",
 				    selfpay_success,
 				    forward_error, p);
 	/* Empty route means "to-self" */
@@ -855,7 +855,7 @@ static struct command_result *selfpay(struct command *cmd, struct payment *p)
 		json_add_hex_talarr(req->js, "payment_metadata", p->payment_metadata);
 	if (p->description)
 		json_add_string(req->js, "description", p->description);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 /* We are interested in any prior attempts to pay this payment_hash /
@@ -1033,12 +1033,12 @@ start_payment(struct command *cmd, struct payment *p)
 	/* We're keeping this around now */
 	tal_steal(cmd->plugin, p);
 
-	req = jsonrpc_request_start(cmd->plugin, cmd, "listsendpays",
+	req = jsonrpc_request_start(cmd, "listsendpays",
 				    payment_listsendpays_previous,
 				    payment_listsendpays_previous, p);
 
 	json_add_sha256(req->js, "payment_hash", p->payment_hash);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 static bool scidtok_eq(const char *buf,
@@ -1176,10 +1176,10 @@ decrypt_done(struct command *cmd,
 		p->blindedpath->first_node_id.is_pubkey = false;
 		p->blindedpath->first_node_id.scidd.scid = *enctlv->short_channel_id;
 
-		req = jsonrpc_request_with_filter_start(cmd->plugin, cmd, "listpeerchannels",
+		req = jsonrpc_request_with_filter_start(cmd, "listpeerchannels",
 							"{\"channels\":[{\"peer_id\":true,\"short_channel_id\":true,\"alias\":{\"local\":true}}]}",
 							listpeerchannels_done, forward_error, p);
-		return send_outreq(cmd->plugin, req);
+		return send_outreq(req);
 	} else {
 		return command_fail(cmd, PAY_UNPARSEABLE_ONION,
 				    "Invalid TLV for blinded path (no next!): %s",
@@ -1202,13 +1202,13 @@ preapproveinvoice_succeed(struct command *cmd,
 	if (p->blindedpath && node_id_eq(p->route_destination, &my_id)) {
 		struct out_req *req;
 
-		req = jsonrpc_request_start(cmd->plugin, cmd, "decryptencrypteddata",
+		req = jsonrpc_request_start(cmd, "decryptencrypteddata",
 					    decrypt_done, forward_error, p);
 
 		json_add_hex_talarr(req->js, "encrypted_data",
 				    p->blindedpath->path[0]->encrypted_recipient_data);
 		json_add_pubkey(req->js, "path_key", &p->blindedpath->first_path_key);
-		return send_outreq(cmd->plugin, req);
+		return send_outreq(req);
 	}
 
 	return start_payment(cmd, p);
@@ -1465,17 +1465,17 @@ static struct command_result *json_pay(struct command *cmd,
 
 	/* Now preapprove, then start payment. */
 	if (command_check_only(cmd)) {
-		req = jsonrpc_request_start(p->plugin, cmd, "check",
+		req = jsonrpc_request_start(cmd, "check",
 					    &preapproveinvoice_succeed,
 					    &forward_error, p);
 		json_add_string(req->js, "command_to_check", "preapproveinvoice");
 	} else {
-		req = jsonrpc_request_start(p->plugin, cmd, "preapproveinvoice",
+		req = jsonrpc_request_start(cmd, "preapproveinvoice",
 					    &preapproveinvoice_succeed,
 					    &forward_error, p);
 	}
 	json_add_string(req->js, "bolt11", p->invstring);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 static struct command_result *handle_channel_hint_update(struct command *cmd,

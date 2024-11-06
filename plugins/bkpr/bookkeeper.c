@@ -123,11 +123,11 @@ static struct command_result *json_channel_apy(struct command *cmd,
 		return command_param_failed();
 
 	/* First get the current blockheight */
-	req = jsonrpc_request_start(cmd->plugin, cmd, "getinfo",
+	req = jsonrpc_request_start(cmd, "getinfo",
 				    &getblockheight_done,
 				    forward_error,
 				    apyreq);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 static struct command_result *param_csv_format(struct command *cmd, const char *name,
@@ -1122,13 +1122,13 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 	if (tal_count(new_accts) > 0) {
 		struct out_req *req;
 
-		req = jsonrpc_request_start(cmd->plugin, cmd,
+		req = jsonrpc_request_start(cmd,
 					    "listpeerchannels",
 					    listpeerchannels_multi_done,
 					    log_error,
 					    new_accts);
 		/* FIXME(vicenzopalazzo) require the channel by channel_id to avoid parsing not useful json  */
-		return send_outreq(cmd->plugin, req);
+		return send_outreq(req);
 	}
 
 	plugin_log(cmd->plugin, LOG_DBG, "Snapshot balances updated");
@@ -1288,20 +1288,20 @@ static struct command_result *lookup_invoice_desc(struct command *cmd,
 	/* Otherwise will go away when event is cleaned up */
 	tal_steal(cmd, payment_hash);
 	if (!amount_msat_is_zero(credit))
-		req = jsonrpc_request_start(cmd->plugin, cmd,
+		req = jsonrpc_request_start(cmd,
 					    "listinvoices",
 					    listinvoices_done,
 					    log_error,
 					    payment_hash);
 	else
-		req = jsonrpc_request_start(cmd->plugin, cmd,
+		req = jsonrpc_request_start(cmd,
 					    "listsendpays",
 					    listsendpays_done,
 					    log_error,
 					    payment_hash);
 
 	json_add_sha256(req->js, "payment_hash", payment_hash);
-	return send_outreq(cmd->plugin, req);
+	return send_outreq(req);
 }
 
 struct event_info {
@@ -1564,13 +1564,13 @@ parse_and_log_chain_move(struct command *cmd,
 				       is_channel_account(acct) ?
 				       acct : orig_acct);
 
-		req = jsonrpc_request_start(cmd->plugin, cmd,
+		req = jsonrpc_request_start(cmd,
 					    "listpeerchannels",
 					    listpeerchannels_done,
 					    log_error,
 					    info);
 		/* FIXME: use the peer_id to reduce work here */
-		return send_outreq(cmd->plugin, req);
+		return send_outreq(req);
 	}
 
 	/* Maybe mark acct as onchain resolved */
@@ -1977,8 +1977,10 @@ static const struct plugin_command commands[] = {
 	},
 };
 
-static const char *init(struct plugin *p, const char *b, const jsmntok_t *t)
+static const char *init(struct command *init_cmd, const char *b, const jsmntok_t *t)
 {
+	struct plugin *p = init_cmd->plugin;
+
 	/* Switch to bookkeeper-dir, if specified */
 	if (datadir && chdir(datadir) != 0) {
 		if (mkdir(datadir, 0700) != 0 && errno != EEXIST)

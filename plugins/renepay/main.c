@@ -35,16 +35,17 @@ static void memleak_mark(struct plugin *p, struct htable *memtable)
 	memleak_scan_htable(memtable, &pay_plugin->pending_routes->raw);
 }
 
-static const char *init(struct plugin *p,
+static const char *init(struct command *init_cmd,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
+	struct plugin *p = init_cmd->plugin;
 	size_t num_channel_updates_rejected = 0;
 
 	tal_steal(p, pay_plugin);
 	pay_plugin->plugin = p;
 	pay_plugin->last_time = 0;
 
-	rpc_scan(p, "getinfo", take(json_out_obj(NULL, NULL, NULL)),
+	rpc_scan(init_cmd, "getinfo", take(json_out_obj(NULL, NULL, NULL)),
 		 "{id:%}", JSON_SCAN(json_to_node_id, &pay_plugin->my_id));
 
 	/* BOLT #4:
@@ -56,7 +57,7 @@ static const char *init(struct plugin *p,
 	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
 	pay_plugin->maxdelay_default = 2016;
 	/* max-locktime-blocks deprecated in v24.05, but still grab it! */
-	rpc_scan(p, "listconfigs",
+	rpc_scan(init_cmd, "listconfigs",
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{configs:"
 		 "{max-locktime-blocks?:{value_int:%},"
