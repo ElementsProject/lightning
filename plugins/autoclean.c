@@ -509,7 +509,7 @@ static struct command_result *list_done(struct command *cmd,
 		}
 
 		subsystem->cinfo->cleanup_reqs_remaining++;
-		req = jsonrpc_request_start(plugin, NULL, ops->del_command,
+		req = jsonrpc_request_start(plugin, cmd, ops->del_command,
 					    del_done, del_failed, variant);
 		ops->add_del_fields(req, buf, t);
 		send_outreq(plugin, req);
@@ -572,7 +572,7 @@ static struct command_result *do_clean(struct clean_info *cinfo)
 	}
 
 	if (cinfo->cleanup_reqs_remaining)
-		return command_still_pending(NULL);
+		return command_still_pending(cinfo->cmd);
 	return clean_finished(cinfo);
 }
 
@@ -628,7 +628,7 @@ static struct command_result *start_clean(struct clean_info *cinfo)
 		}
 		ps->offset = 0;
 
-		req = jsonrpc_request_start(plugin, NULL,
+		req = jsonrpc_request_start(plugin, cinfo->cmd,
 					    "wait",
 					    wait_done, wait_failed, ps);
 		json_add_string(req->js, "subsystem", ops->system_name);
