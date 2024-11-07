@@ -33,9 +33,9 @@ Here's a checklist for the release process.
 2. Tag it `git pull && git tag -s v<VERSION>rc1`. Note that you should get a prompt to give this tag a 'message'. Make sure you fill this in.
 3. Confirm that the tag will show up for builds with `git describe`
 4. Push the tag to remote `git push --tags`.
-5. Draft a new `v<VERSION>rc1` release on Github and check `Set as a pre-release` option.
-6. Follow [reproducible build](https://docs.corelightning.org/docs/repro) for [Builder image setup](https://docs.corelightning.org/docs/repro#builder-image-setup). It will create builder images `cl-repro-<codename>` which are required for the next step.
-7. Run `tools/build-release.sh bin-Fedora-28-amd64 bin-Ubuntu sign` script to prepare required builds for the release. With `bin-Fedora-28-amd64 bin-Ubuntu sign`, it will build a zipfile, a non-reproducible Fedora, reproducible Ubuntu images. Once it is done, the script will sign the release contents and create SHA256SUMS and SHA256SUMS.asc in the release folder.
+5. Pushing the tag will kickoff the "Release 🚀" CI action which builds the release targets. Verify this action completed successfully and download the artifact it produces named `c-lightning-<release tag>`.zip and extract it into a directory named `release` in the root of your local repository. Ex. `unzip -d release/ ~/Downloads/c-lightning-<release tab>.zip`
+6. Sign the release locally by running `tools/build-release.sh --without-zip sign` which will sign the release contents and create SHA256SUMS and SHA256SUMS.asc in the release folder.
+7. Draft a new `v<VERSION>rc1` release on Github and check `Set as a pre-release` option.
 8. Upload reproducible builds, SHA256SUMS and SHA256SUMS.asc from the release folder to newly drafted release.
 9. Announce rc1 release on core-lightning's release-chat channel on Discord & [BuildOnL2](https://community.corelightning.org/c/general-questions/).
 10. Use `devtools/credit --verbose v<PREVIOUS-VERSION>` to get commits, days and contributors data for release note.
