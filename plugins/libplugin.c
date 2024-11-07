@@ -273,25 +273,26 @@ static void disable_request_cb(struct command *cmd, struct out_req *out)
 	out->cmd = NULL;
 }
 
-const char *json_id_prefix(const tal_t *ctx, const struct command *cmd)
+/* Prefix is usually a cmd->id */
+static const char *json_id(const tal_t *ctx, struct plugin *plugin,
+			   const char *method, const char *prefix)
 {
-	/* Strip quotes! */
-	if (strstarts(cmd->id, "\"")) {
-		assert(strlen(cmd->id) >= 2);
-		assert(strends(cmd->id, "\""));
-		return tal_fmt(ctx, "%.*s/",
-			       (int)strlen(cmd->id) - 2, cmd->id + 1);
-	}
-	return tal_fmt(ctx, "%s/", cmd->id);
-}
+	const char *rawid;
+	int rawidlen;
 
-static const char *append_json_id(const tal_t *ctx,
-				  struct plugin *plugin,
-				  const char *method,
-				  const char *prefix)
-{
-	return tal_fmt(ctx, "\"%s%s:%s#%"PRIu64"\"",
-		       prefix, plugin->id, method, plugin->next_outreq_id++);
+	/* Strip quotes! */
+	if (strstarts(prefix, "\"")) {
+		assert(strlen(prefix) >= 2);
+		assert(strends(prefix, "\""));
+		rawid = prefix + 1;
+		rawidlen = strlen(prefix) - 2;
+	} else {
+		rawid = prefix;
+		rawidlen = strlen(prefix);
+	}
+
+	return tal_fmt(ctx, "\"%.*s/%s:%s#%"PRIu64"\"",
+		       rawidlen, rawid, plugin->id, method, plugin->next_outreq_id++);
 }
 
 static void destroy_out_req(struct out_req *out_req, struct plugin *plugin)
@@ -320,7 +321,7 @@ jsonrpc_request_start_(struct command *cmd,
 
 	assert(cmd);
 	out = tal(cmd, struct out_req);
-	out->id = append_json_id(out, cmd->plugin, method, id_prefix);
+	out->id = json_id(out, cmd->plugin, method, id_prefix ? id_prefix : cmd->id);
 	out->cmd = cmd;
 	out->cb = cb;
 	out->errcb = errcb;
@@ -704,7 +705,7 @@ static const jsmntok_t *sync_req(const tal_t *ctx,
 	const jsmntok_t *contents;
 	int reqlen;
 	struct json_out *jout = json_out_new(tmpctx);
-	const char *id = append_json_id(tmpctx, plugin, method, "init/");
+	const char *id = json_id(tmpctx, plugin, "init/", method);
 
 	json_out_start(jout, NULL, '{');
 	json_out_addstr(jout, "jsonrpc", "2.0");

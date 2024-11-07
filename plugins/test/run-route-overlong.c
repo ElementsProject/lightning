@@ -158,9 +158,6 @@ void json_array_start(struct json_stream *js UNNEEDED, const char *fieldname UNN
 const jsmntok_t *json_get_member(const char *buffer UNNEEDED, const jsmntok_t tok[] UNNEEDED,
 				 const char *label UNNEEDED)
 { fprintf(stderr, "json_get_member called!\n"); abort(); }
-/* Generated stub for json_id_prefix */
-const char *json_id_prefix(const tal_t *ctx UNNEEDED, const struct command *cmd UNNEEDED)
-{ fprintf(stderr, "json_id_prefix called!\n"); abort(); }
 /* Generated stub for json_next */
 const jsmntok_t *json_next(const jsmntok_t *tok UNNEEDED)
 { fprintf(stderr, "json_next called!\n"); abort(); }

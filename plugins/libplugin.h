@@ -123,13 +123,10 @@ struct out_req *jsonrpc_request_start_(struct command *cmd,
 								       const jsmntok_t *result,
 								       void *arg),
 				       void *arg)
-	NON_NULL_ARGS(1, 2, 3, 5);
+	NON_NULL_ARGS(1, 2, 5);
 
-/* This variant has callbacks received whole obj, not "result" or
- * "error" members. */
-#define jsonrpc_request_start(cmd, method, cb, errcb, arg)	\
-	jsonrpc_request_start_((cmd), (method),		\
-		     json_id_prefix(tmpctx, (cmd)), NULL,		\
+#define jsonrpc_request_start(cmd, method, cb, errcb, arg)		\
+	jsonrpc_request_start_((cmd), (method), NULL, NULL,		\
 		     typesafe_cb_preargs(struct command_result *, void *, \
 					 (cb), (arg),			\
 					 struct command *command,	\
@@ -143,8 +140,7 @@ struct out_req *jsonrpc_request_start_(struct command *cmd,
 		     (arg))
 
 #define jsonrpc_request_with_filter_start(cmd, method, filter, cb, errcb, arg) \
-	jsonrpc_request_start_((cmd), (method),		\
-		     json_id_prefix(tmpctx, (cmd)), (filter),		\
+	jsonrpc_request_start_((cmd), (method),	NULL, (filter),		\
 		     typesafe_cb_preargs(struct command_result *, void *, \
 					 (cb), (arg),			\
 					 struct command *command,	\
@@ -160,7 +156,7 @@ struct out_req *jsonrpc_request_start_(struct command *cmd,
 /* This variant has callbacks received whole obj, not "result" or
  * "error" members.  It also doesn't start params{}. */
 #define jsonrpc_request_whole_object_start(cmd, method, id_prefix, cb, arg) \
-	jsonrpc_request_start_((cmd), (method), (id_prefix), NULL, \
+	jsonrpc_request_start_((cmd), (method), (id_prefix), NULL,	\
 			       typesafe_cb_preargs(struct command_result *, void *, \
 						   (cb), (arg),		\
 						   struct command *command, \
@@ -640,9 +636,6 @@ struct createonion_response *json_to_createonion_response(const tal_t *ctx,
 
 struct route_hop *json_to_route(const tal_t *ctx, const char *buffer,
 				const jsmntok_t *toks);
-
-/* Create a prefix (ending in /) for this cmd_id, if any. */
-const char *json_id_prefix(const tal_t *ctx, const struct command *cmd);
 
 void plugin_set_memleak_handler(struct plugin *plugin,
 				void (*mark_mem)(struct plugin *plugin,
