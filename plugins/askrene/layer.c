@@ -529,5 +529,6 @@ void layer_memleak_mark(struct askrene *askrene, struct htable *memtable)
 	list_for_each(&askrene->layers, l, list) {
 		memleak_scan_htable(memtable, &l->constraints->raw);
 		memleak_scan_htable(memtable, &l->local_channels->raw);
+		memleak_scan_htable(memtable, &l->local_updates->raw);
 	}
 }
