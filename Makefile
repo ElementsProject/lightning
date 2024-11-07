@@ -694,6 +694,7 @@ update-ccan:
 
 # Now ALL_PROGRAMS is fully populated, we can expand it.
 all-programs: $(ALL_PROGRAMS)
+all-fuzz-programs: $(ALL_FUZZ_TARGETS)
 all-test-programs: $(ALL_TEST_PROGRAMS) $(ALL_FUZZ_TARGETS)
 default-targets: $(DEFAULT_TARGETS)
 
