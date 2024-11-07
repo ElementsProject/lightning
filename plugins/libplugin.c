@@ -1486,6 +1486,27 @@ static const char **json_to_apilist(const tal_t *ctx, const char *buffer, const 
 	return ret;
 }
 
+static struct command_result *get_beglist(struct command *aux_cmd,
+					  const char *method,
+					  const char *buf,
+					  const jsmntok_t *result,
+					  void *unused)
+{
+	struct plugin *plugin = aux_cmd->plugin;
+	const char *err;
+
+	err = json_scan(tmpctx, buf, result,
+			"{configs:{i-promise-to-fix-broken-api-user?:%}}",
+			JSON_SCAN_TAL(plugin, json_to_apilist, &plugin->beglist));
+	if (err)
+		plugin_err(aux_cmd->plugin, "bad listconfigs '%.*s': %s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result),
+			   err);
+
+	return aux_command_done(aux_cmd);
+}
+
 static struct command_result *handle_init(struct command *cmd,
 					  const char *buf,
 					  const jsmntok_t *params)
@@ -1568,12 +1589,15 @@ static struct command_result *handle_init(struct command *cmd,
 	}
 
 	if (with_rpc) {
-		p->beglist = NULL;
-		rpc_scan(cmd, "listconfigs",
-			 take(json_out_obj(NULL, "config", "i-promise-to-fix-broken-api-user")),
-			 "{configs:{i-promise-to-fix-broken-api-user?:%}}",
-			 JSON_SCAN_TAL(p, json_to_apilist, &p->beglist));
+		struct out_req *req;
+		struct command *aux_cmd = aux_command(cmd);
+
 		io_new_conn(p, p->rpc_conn->fd, rpc_conn_init, p);
+		/* In case they intercept rpc_command, we can't do this sync. */
+		req = jsonrpc_request_start(aux_cmd, "listconfigs",
+					    get_beglist, plugin_broken_cb, NULL);
+		json_add_string(req->js, "config", "i-promise-to-fix-broken-api-user");
+		send_outreq(req);
 	}
 
 	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
@@ -2343,6 +2367,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	p->rpc_toks = toks_alloc(p);
 	p->next_outreq_id = 0;
 	strmap_init(&p->out_reqs);
+	p->beglist = NULL;
 
 	p->desired_features = tal_steal(p, features);
 	if (init_rpc) {
