@@ -118,6 +118,7 @@ struct reply {
 
 /* Calls itself repeatedly: first time, result is NULL */
 static struct command_result *send_response(struct command *cmd,
+					    const char *method UNUSED,
 					    const char *buf UNUSED,
 					    const jsmntok_t *result,
 					    struct reply *reply)
@@ -157,6 +158,7 @@ static struct command_result *send_response(struct command *cmd,
 }
 
 static struct command_result *cmd_done(struct command *command,
+				       const char *method,
 				       const char *buf,
 				       const jsmntok_t *obj,
 				       struct commando *incoming)
@@ -190,7 +192,7 @@ static struct command_result *cmd_done(struct command *command,
 	}
 	reply->off = 0;
 
-	return send_response(command, NULL, NULL, reply);
+	return send_response(command, NULL, NULL, NULL, reply);
 }
 
 static struct command_result *commando_error(struct command *cmd,
@@ -216,7 +218,7 @@ static struct command_result *commando_error(struct command *cmd,
 	reply->off = 0;
 	reply->len = tal_bytelen(reply->buf) - 1;
 
-	return send_response(cmd, NULL, NULL, reply);
+	return send_response(cmd, NULL, NULL, NULL, reply);
 }
 
 struct cond_info {
@@ -320,6 +322,7 @@ static struct command_result *execute_command(struct command *cmd,
 }
 
 static struct command_result *checkrune_done(struct command *cmd,
+					     const char *method,
 					     const char *buf,
 					     const jsmntok_t *result,
 					     struct cond_info *cinfo)
@@ -347,6 +350,7 @@ static struct command_result *checkrune_done(struct command *cmd,
 }
 
 static struct command_result *checkrune_failed(struct command *cmd,
+					       const char *method,
 					       const char *buf,
 					       const jsmntok_t *result,
 					       struct cond_info *cinfo)
@@ -617,6 +621,7 @@ struct outgoing {
 };
 
 static struct command_result *send_more_cmd(struct command *cmd,
+					    const char *method UNUSED,
 					    const char *buf UNUSED,
 					    const jsmntok_t *result UNUSED,
 					    struct outgoing *outgoing)
@@ -703,19 +708,20 @@ static struct command_result *json_commando(struct command *cmd,
 		outgoing->msgs[i] = cmd_msg;
 	}
 
-	return send_more_cmd(cmd, NULL, NULL, outgoing);
+	return send_more_cmd(cmd, NULL, NULL, NULL, outgoing);
 }
 
 /* Handles error or success */
 static struct command_result *forward_reply(struct command *cmd,
+					    const char *method,
 					    const char *buf,
 					    const jsmntok_t *result,
 					    void *arg)
 {
 	const jsmntok_t *err = json_get_member(buf, result, "error");
 	if (err)
-		return forward_error(cmd, buf, err, arg);
-	return forward_result(cmd, buf, json_get_member(buf, result, "result"), arg);
+		return forward_error(cmd, method, buf, err, arg);
+	return forward_result(cmd, method, buf, json_get_member(buf, result, "result"), arg);
 }
 
 static struct command_result *forward_command(struct command *cmd,

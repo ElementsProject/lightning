@@ -161,6 +161,7 @@ static void json_add_label(struct json_stream *js,
  * used at the same time between the check and now.
  */
 static struct command_result *error(struct command *cmd,
+				    const char *method,
 				    const char *buf,
 				    const jsmntok_t *err,
 				    struct invreq *ir)
@@ -173,6 +174,7 @@ static struct command_result *error(struct command *cmd,
 
 /* We can fail to create the invoice if we've already done so. */
 static struct command_result *createinvoice_done(struct command *cmd,
+						 const char *method,
 						 const char *buf,
 						 const jsmntok_t *result,
 						 struct invreq *ir)
@@ -198,6 +200,7 @@ static struct command_result *createinvoice_done(struct command *cmd,
 }
 
 static struct command_result *createinvoice_error(struct command *cmd,
+						  const char *method,
 						  const char *buf,
 						  const jsmntok_t *err,
 						  struct invreq *ir)
@@ -208,10 +211,10 @@ static struct command_result *createinvoice_error(struct command *cmd,
 	if (json_scan(tmpctx, buf, err,
 		      "{code:%}", JSON_SCAN(json_to_u32, &code)) == NULL
 	    && code == INVOICE_LABEL_ALREADY_EXISTS) {
-		return createinvoice_done(cmd, buf,
+		return createinvoice_done(cmd, method, buf,
 					  json_get_member(buf, err, "data"), ir);
 	}
-	return error(cmd, buf, err, ir);
+	return error(cmd, method, buf, err, ir);
 }
 
 static struct command_result *create_invoicereq(struct command *cmd,
@@ -483,6 +486,7 @@ static struct command_result *check_period(struct command *cmd,
 }
 
 static struct command_result *prev_invoice_done(struct command *cmd,
+						const char *method,
 						const char *buf,
 						const jsmntok_t *result,
 						struct invreq *ir)
@@ -690,6 +694,7 @@ static struct command_result *handle_amount_and_recurrence(struct command *cmd,
 }
 
 static struct command_result *currency_done(struct command *cmd,
+					    const char *method,
 					    const char *buf,
 					    const jsmntok_t *result,
 					    struct invreq *ir)
@@ -760,6 +765,7 @@ static struct command_result *convert_currency(struct command *cmd,
 }
 
 static struct command_result *listoffers_done(struct command *cmd,
+					      const char *method,
 					      const char *buf,
 					      const jsmntok_t *result,
 					      struct invreq *ir)

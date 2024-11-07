@@ -49,6 +49,7 @@ static const char *nodes_for_gossip[] = {
 
 
 static struct command_result *connect_success(struct command *cmd,
+					      const char *method,
 					      const char *buf,
 					      const jsmntok_t *params,
 					      void *cb_arg UNUSED)
@@ -58,6 +59,7 @@ static struct command_result *connect_success(struct command *cmd,
 }
 
 static struct command_result *connect_fail(struct command *cmd,
+					   const char *method,
 					   const char *buf,
 					   const jsmntok_t *params,
 					   void *cb_arg UNUSED)
@@ -67,6 +69,7 @@ static struct command_result *connect_fail(struct command *cmd,
 }
 
 static struct command_result *after_emergency_recover(struct command *cmd,
+						      const char *method,
 					   	      const char *buf,
 					   	      const jsmntok_t *params,
 					   	      void *cb_arg UNUSED)
@@ -77,9 +80,10 @@ static struct command_result *after_emergency_recover(struct command *cmd,
 }
 
 static struct command_result *after_restorefrompeer(struct command *cmd,
-					             const char *buf,
-					             const jsmntok_t *params,
-					             void *cb_arg UNUSED)
+						    const char *method,
+						    const char *buf,
+						    const jsmntok_t *params,
+						    void *cb_arg UNUSED)
 {
 	plugin_log(plugin, LOG_DBG, "restorefrompeer called");
 
@@ -186,6 +190,7 @@ static void entering_recovery_mode(struct command *cmd)
 }
 
 static struct command_result *after_listpeerchannels(struct command *cmd,
+						     const char *method,
 					             const char *buf,
 					             const jsmntok_t *params,
 					             void *cb_arg UNUSED)

@@ -18,6 +18,7 @@ const size_t num_fundchannel_commands = ARRAY_SIZE(fundchannel_commands);
 
 static struct command_result *
 fundchannel_get_result(struct command *cmd,
+		       const char *method,
 		       const char *buf,
 		       const jsmntok_t *result,
 		       void *nothing UNUSED);
@@ -122,6 +123,7 @@ static bool json_to_tok(const char *buffer, const jsmntok_t *tok, const jsmntok_
 
 static struct command_result *
 fundchannel_get_result(struct command *cmd,
+		       const char *method,
 		       const char *buf,
 		       const jsmntok_t *result,
 		       void *nothing UNUSED)

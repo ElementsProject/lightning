@@ -216,13 +216,14 @@ paymod_err(struct payment *p, const char *fmt, ...)
 
 /* Generic handler for RPC failures that should end up failing the payment. */
 static struct command_result *payment_rpc_failure(struct command *cmd,
+						  const char *method,
 						  const char *buffer,
 						  const jsmntok_t *toks,
 						  struct payment *p)
 {
 	return payment_fail(p,
-			    "Failing a partial payment due to a failed RPC call: %.*s",
-			    toks->end - toks->start, buffer + toks->start);
+			    "Failing a partial payment due to a failed RPC call %s: %.*s",
+			    method, toks->end - toks->start, buffer + toks->start);
 }
 
 struct payment_tree_result payment_collect_result(struct payment *p)
@@ -279,6 +280,7 @@ struct payment_tree_result payment_collect_result(struct payment *p)
 }
 
 static struct command_result *payment_waitblockheight_cb(struct command *cmd,
+							 const char *method,
 							 const char *buffer,
 							 const jsmntok_t *toks,
 							 struct payment *p)
@@ -300,6 +302,7 @@ static struct command_result *payment_waitblockheight_cb(struct command *cmd,
 
 static struct command_result *
 payment_getblockheight_success(struct command *cmd,
+			       const char *method,
 			       const char *buffer,
 			       const jsmntok_t *toks,
 			       struct payment *p)
@@ -954,8 +957,11 @@ static bool payment_listpeerchannels_balance_sum(struct payment *p,
 }
 
 static struct command_result *
-payment_listpeerchannels_success(struct command *cmd, const char *buffer,
-				 const jsmntok_t *toks, struct payment *p)
+payment_listpeerchannels_success(struct command *cmd,
+				 const char *method,
+				 const char *buffer,
+				 const jsmntok_t *toks,
+				 struct payment *p)
 {
 	/* The maximum amount we may end up trying to send. This
 	 * includes the value and the full fee budget. If the
@@ -1566,7 +1572,9 @@ static u8 *channel_update_from_onion_error(const tal_t *ctx,
 
 
 static struct command_result *
-payment_addgossip_success(struct command *cmd, const char *buffer,
+payment_addgossip_success(struct command *cmd,
+			  const char *method,
+			  const char *buffer,
 			  const jsmntok_t *toks, struct payment *p)
 {
 	const struct node_id *errnode;
@@ -1592,18 +1600,22 @@ payment_addgossip_success(struct command *cmd, const char *buffer,
 
 /* If someone gives us an invalid update, all we can do is log it */
 static struct command_result *
-payment_addgossip_failure(struct command *cmd, const char *buffer,
+payment_addgossip_failure(struct command *cmd,
+			  const char *method,
+			  const char *buffer,
 			  const jsmntok_t *toks, struct payment *p)
 {
 	paymod_log(p, LOG_DBG, "Invalid channel_update: %.*s",
 		   json_tok_full_len(toks),
 		   json_tok_full(buffer, toks));
 
-	return payment_addgossip_success(cmd, NULL, NULL, p);
+	return payment_addgossip_success(cmd, NULL, NULL, NULL, p);
 }
 
 static struct command_result *
-payment_waitsendpay_finished(struct command *cmd, const char *buffer,
+payment_waitsendpay_finished(struct command *cmd,
+			     const char *method,
+			     const char *buffer,
 			     const jsmntok_t *toks, struct payment *p)
 {
 	u8 *update;
@@ -1646,13 +1658,14 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 		return send_outreq(req);
 	}
 
-	return payment_addgossip_success(cmd, NULL, NULL, p);
+	return payment_addgossip_success(cmd, NULL, NULL, NULL, p);
 }
 
 static struct command_result *payment_sendonion_success(struct command *cmd,
-							  const char *buffer,
-							  const jsmntok_t *toks,
-							  struct payment *p)
+							const char *method,
+							const char *buffer,
+							const jsmntok_t *toks,
+							struct payment *p)
 {
 	struct out_req *req;
 	req = jsonrpc_request_start(payment_cmd(p), "waitsendpay",
@@ -1665,6 +1678,7 @@ static struct command_result *payment_sendonion_success(struct command *cmd,
 }
 
 static struct command_result *payment_createonion_success(struct command *cmd,
+							  const char *method,
 							  const char *buffer,
 							  const jsmntok_t *toks,
 							  struct payment *p)
@@ -2481,7 +2495,9 @@ REGISTER_PAYMENT_MODIFIER(retry, struct retry_mod_data *, retry_data_init,
 			  retry_step_cb);
 
 static struct command_result *
-local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
+local_channel_hints_listpeerchannels(struct command *cmd,
+				     const char *method,
+				     const char *buffer,
 				     const jsmntok_t *toks, struct payment *p)
 {
 	struct listpeers_channel **chans;
@@ -3176,6 +3192,7 @@ static struct shadow_route_data *shadow_route_init(struct payment *p)
 
 /* Mutual recursion */
 static struct command_result *shadow_route_listchannels(struct command *cmd,
+							const char *method,
 							const char *buf,
 							const jsmntok_t *result,
 							struct payment *p);
@@ -3192,9 +3209,10 @@ static struct command_result *shadow_route_extend(struct shadow_route_data *d,
 }
 
 static struct command_result *shadow_route_listchannels(struct command *cmd,
-					       const char *buf,
-					       const jsmntok_t *result,
-					       struct payment *p)
+							const char *method,
+							const char *buf,
+							const jsmntok_t *result,
+							struct payment *p)
 {
 	struct shadow_route_data *d = payment_mod_shadowroute_get_data(p);
 	struct payment_constraints *cons = &d->constraints;
@@ -3399,6 +3417,7 @@ static struct command_result *direct_pay_override(struct payment *p)
  * for a direct channel that is a) connected and b) in state normal. We will
  * check the capacity based on the channel_hints in the override. */
 static struct command_result *direct_pay_listpeerchannels(struct command *cmd,
+							  const char *method,
 							  const char *buffer,
 							  const jsmntok_t *toks,
 							  struct payment *p)
@@ -3702,6 +3721,7 @@ REGISTER_PAYMENT_MODIFIER(adaptive_splitter, struct adaptive_split_mod_data *,
 
 static struct command_result *
 payee_incoming_limit_count(struct command *cmd,
+			   const char *method,
 			   const char *buf,
 			   const jsmntok_t *result,
 			   struct payment *p)

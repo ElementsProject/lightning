@@ -150,6 +150,7 @@ static struct command_result *try_route(struct command *cmd,
 
 static struct command_result *
 listpeerchannels_getroute_done(struct command *cmd,
+			       const char *method,
 			       const char *buf,
 			       const jsmntok_t *result,
 			       struct getroute_info *info)
@@ -170,17 +171,6 @@ listpeerchannels_getroute_done(struct command *cmd,
 	gossmap_remove_localmods(gossmap, mods);
 
 	return res;
-}
-
-static struct command_result *listpeerchannels_err(struct command *cmd,
-						   const char *buf,
-						   const jsmntok_t *result,
-						   void *unused)
-{
-	plugin_err(cmd->plugin,
-		   "Bad listpeerchannels: %.*s",
-		   json_tok_full_len(result),
-		   json_tok_full(buf, result));
 }
 
 static struct command_result *json_getroute(struct command *cmd,
@@ -206,7 +196,7 @@ static struct command_result *json_getroute(struct command *cmd,
 	/* Add local info */
 	req = jsonrpc_request_start(cmd, "listpeerchannels",
 				    listpeerchannels_getroute_done,
-				    listpeerchannels_err, info);
+				    plugin_broken_cb, info);
 	return send_outreq(req);
 }
 
@@ -383,9 +373,10 @@ static void gossmod_add_unknown_localchan(struct gossmap_localmods *mods,
 }
 
 static struct command_result *listpeerchannels_done(struct command *cmd,
-					     const char *buf,
-					     const jsmntok_t *result,
-					     struct listchannels_opts *opts)
+						    const char *method,
+						    const char *buf,
+						    const jsmntok_t *result,
+						    struct listchannels_opts *opts)
 {
 	struct node_map *connected;
 	struct gossmap_chan *c;
@@ -483,7 +474,7 @@ static struct command_result *json_listchannels(struct command *cmd,
 
 	// If deprecations are not necessary, call listpeerchannels_done directly,
 	// the output will not be used there.
-	return listpeerchannels_done(cmd, NULL, NULL, opts);
+	return listpeerchannels_done(cmd, NULL, NULL, NULL, opts);
 }
 
 static void json_add_node(struct json_stream *js,
@@ -613,6 +604,7 @@ static struct amount_msat peer_capacity(const struct gossmap *gossmap,
 
 static struct command_result *
 listpeerchannels_listincoming_done(struct command *cmd,
+				   const char *method,
 				   const char *buffer,
 				   const jsmntok_t *result,
 				   void *unused)
@@ -698,7 +690,7 @@ static struct command_result *json_listincoming(struct command *cmd,
 	/* Add local info */
 	req = jsonrpc_request_start(cmd, "listpeerchannels",
 				    listpeerchannels_listincoming_done,
-				    listpeerchannels_err, NULL);
+				    plugin_broken_cb, NULL);
 	return send_outreq(req);
 }
 

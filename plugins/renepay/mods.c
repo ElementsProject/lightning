@@ -73,6 +73,7 @@ struct command_result *payment_continue(struct payment *payment)
 
 /* Generic handler for RPC failures that should end up failing the payment. */
 static struct command_result *payment_rpc_failure(struct command *cmd,
+						  const char *method UNUSED,
 						  const char *buffer,
 						  const jsmntok_t *toks,
 						  struct payment *payment)
@@ -180,6 +181,7 @@ static bool success_data_from_listsendpays(const char *buf,
 }
 
 static struct command_result *previoussuccess_done(struct command *cmd,
+						   const char *method UNUSED,
 						   const char *buf,
 						   const jsmntok_t *result,
 						   struct payment *payment)
@@ -252,6 +254,7 @@ REGISTER_PAYMENT_MODIFIER(initial_sanity_checks, initial_sanity_checks_cb);
  */
 
 static struct command_result *selfpay_success(struct command *cmd,
+					      const char *method UNUSED,
 					      const char *buf,
 					      const jsmntok_t *tok,
 					      struct route *route)
@@ -275,6 +278,7 @@ static struct command_result *selfpay_success(struct command *cmd,
 	return payment_success(payment, &preimage);
 }
 static struct command_result *selfpay_failure(struct command *cmd,
+					      const char *method UNUSED,
 					      const char *buf,
 					      const jsmntok_t *tok,
 					      struct route *route)
@@ -431,6 +435,7 @@ static void gossmod_cb(struct gossmap_localmods *mods,
 }
 
 static struct command_result *getmychannels_done(struct command *cmd,
+						 const char *method UNUSED,
 						 const char *buf,
 						 const jsmntok_t *result,
 						 struct payment *payment)
@@ -576,6 +581,7 @@ function_error:
 }
 
 static struct command_result *routehints_done(struct command *cmd UNUSED,
+					      const char *method UNUSED,
 					      const char *buf UNUSED,
 					      const jsmntok_t *result UNUSED,
 					      struct payment *payment)
@@ -867,6 +873,7 @@ REGISTER_PAYMENT_MODIFIER(collect_results, collect_results_cb);
  * The default ending of a payment.
  */
 static struct command_result *end_done(struct command *cmd UNUSED,
+				       const char *method UNUSED,
 				       const char *buf UNUSED,
 				       const jsmntok_t *result UNUSED,
 				       struct payment *payment)
@@ -912,6 +919,7 @@ REGISTER_PAYMENT_MODIFIER(checktimeout, checktimeout_cb);
  */
 
 static struct command_result *pendingsendpays_done(struct command *cmd,
+						   const char *method UNUSED,
 						   const char *buf,
 						   const jsmntok_t *result,
 						   struct payment *payment)

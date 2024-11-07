@@ -240,6 +240,7 @@ struct multifundchannel_command {
 /* Use this instead of forward_error.  */
 struct command_result *
 mfc_forward_error(struct command *cmd,
+		  const char *method,
 		  const char *buf, const jsmntok_t *error,
 		  struct multifundchannel_command *);
 

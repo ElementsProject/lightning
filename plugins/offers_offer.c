@@ -235,6 +235,7 @@ struct offer_info {
 };
 
 static struct command_result *check_result(struct command *cmd,
+					   const char *method,
 					   const char *buf,
 					   const jsmntok_t *result,
 					   void *arg UNNEEDED)
@@ -256,7 +257,7 @@ static struct command_result *check_result(struct command *cmd,
 				    "Already exists, but isn't active");
 
 	/* Otherwise, push through the result. */
-	return forward_result(cmd, buf, result, arg);
+	return forward_result(cmd, method, buf, result, arg);
 }
 
 static struct command_result *create_offer(struct command *cmd,
@@ -339,13 +340,14 @@ static struct command_result *maybe_add_path(struct command *cmd,
 }
 
 static struct command_result *currency_done(struct command *cmd,
+					    const char *method,
 					    const char *buf,
 					    const jsmntok_t *result,
 					    struct offer_info *offinfo)
 {
 	/* Fail in this case, by forwarding warnings. */
 	if (!json_get_member(buf, result, "msat"))
-		return forward_error(cmd, buf, result, offinfo);
+		return forward_error(cmd, method, buf, result, offinfo);
 
 	return maybe_add_path(cmd, offinfo);
 }

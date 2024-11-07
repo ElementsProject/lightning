@@ -52,7 +52,9 @@ struct apy_req {
 };
 
 static struct command_result *
-getblockheight_done(struct command *cmd, const char *buf,
+getblockheight_done(struct command *cmd,
+		    const char *method,
+		    const char *buf,
 		    const jsmntok_t *result,
 		    struct apy_req *req)
 {
@@ -851,19 +853,21 @@ static void log_journal_entry(struct account *acct,
 }
 
 static struct command_result *log_error(struct command *cmd,
+					const char *method,
 					const char *buf,
 					const jsmntok_t *error,
 					void *arg UNNEEDED)
 {
 	plugin_log(cmd->plugin, LOG_BROKEN,
-		   "error calling rpc: %.*s",
-		   json_tok_full_len(error),
+		   "error calling %s: %.*s",
+		   method, json_tok_full_len(error),
 		   json_tok_full(buf, error));
 
 	return notification_handled(cmd);
 }
 
 static struct command_result *listpeerchannels_multi_done(struct command *cmd,
+		     const char *method,
 		     const char *buf,
 		     const jsmntok_t *result,
 		     struct new_account_info **new_accts)
@@ -1198,8 +1202,11 @@ static char *fetch_out_desc_invstr(const tal_t *ctx, const char *buf,
 }
 
 static struct command_result *
-listinvoices_done(struct command *cmd, const char *buf,
-		  const jsmntok_t *result, struct sha256 *payment_hash)
+listinvoices_done(struct command *cmd,
+		  const char *method,
+		  const char *buf,
+		  const jsmntok_t *result,
+		  struct sha256 *payment_hash)
 {
 	size_t i;
 	const jsmntok_t *inv_arr_tok, *inv_tok;
@@ -1243,8 +1250,11 @@ listinvoices_done(struct command *cmd, const char *buf,
 }
 
 static struct command_result *
-listsendpays_done(struct command *cmd, const char *buf,
-		  const jsmntok_t *result, struct sha256 *payment_hash)
+listsendpays_done(struct command *cmd,
+		  const char *method,
+		  const char *buf,
+		  const jsmntok_t *result,
+		  struct sha256 *payment_hash)
 {
 	size_t i;
 	const jsmntok_t *pays_arr_tok, *pays_tok;
@@ -1310,8 +1320,11 @@ struct event_info {
 };
 
 static struct command_result *
-listpeerchannels_done(struct command *cmd, const char *buf,
-	       const jsmntok_t *result, struct event_info *info)
+listpeerchannels_done(struct command *cmd,
+		      const char *method,
+		      const char *buf,
+		      const jsmntok_t *result,
+		      struct event_info *info)
 {
 	struct acct_balance **balances, *bal;
 	struct amount_msat credit_diff, debit_diff;

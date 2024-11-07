@@ -198,6 +198,7 @@ struct payment_modifier *pay_mods[] = {
 
 static struct command_result *
 preapprovekeysend_succeed(struct command *cmd,
+			  const char *method,
 			  const char *buf,
 			  const jsmntok_t *result,
 			  struct payment *p)
@@ -378,7 +379,9 @@ static bool keysend_accept_extra_tlv_type(u64 type)
 }
 
 static struct command_result *
-htlc_accepted_invoice_created(struct command *cmd, const char *buf,
+htlc_accepted_invoice_created(struct command *cmd,
+			      const char *method,
+			      const char *buf,
 			      const jsmntok_t *result,
 			      struct keysend_in *ki)
 {
@@ -445,7 +448,9 @@ htlc_accepted_invoice_created(struct command *cmd, const char *buf,
 }
 
 static struct command_result *
-htlc_accepted_invoice_failed(struct command *cmd, const char *buf,
+htlc_accepted_invoice_failed(struct command *cmd,
+			     const char *method,
+			     const char *buf,
 			     const jsmntok_t *error,
 			     struct keysend_in *ki)
 {

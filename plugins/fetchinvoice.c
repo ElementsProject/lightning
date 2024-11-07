@@ -407,6 +407,7 @@ static struct command_result *timeout_sent_invreq(struct command *timer_cmd,
 }
 
 static struct command_result *sendonionmsg_done(struct command *cmd,
+						const char *method UNUSED,
 						const char *buf UNUSED,
 						const jsmntok_t *result UNUSED,
 						struct sent *sent)
@@ -493,6 +494,7 @@ struct establishing_paths {
 	struct sent *sent;
 	struct tlv_onionmsg_tlv *final_tlv;
 	struct command_result *(*done)(struct command *cmd,
+				       const char *method UNUSED,
 				       const char *buf UNUSED,
 				       const jsmntok_t *result UNUSED,
 				       struct sent *sent);
@@ -605,6 +607,7 @@ static struct command_result *send_message(struct command *cmd,
 					   struct tlv_onionmsg_tlv *final_tlv STEALS,
 					   struct command_result *(*done)
 					   (struct command *cmd,
+					    const char *method UNUSED,
 					    const char *buf UNUSED,
 					    const jsmntok_t *result UNUSED,
 					    struct sent *sent))
@@ -637,6 +640,7 @@ static struct command_result *timeout_sent_inv(struct command *timer_cmd,
 }
 
 static struct command_result *prepare_inv_timeout(struct command *cmd,
+						  const char *method UNUSED,
 						  const char *buf UNUSED,
 						  const jsmntok_t *result UNUSED,
 						  struct sent *sent)
@@ -644,10 +648,11 @@ static struct command_result *prepare_inv_timeout(struct command *cmd,
 	command_timer(cmd,
 		      time_from_sec(sent->wait_timeout),
 		      timeout_sent_inv, sent);
-	return sendonionmsg_done(cmd, buf, result, sent);
+	return sendonionmsg_done(cmd, method, buf, result, sent);
 }
 
 static struct command_result *invreq_done(struct command *cmd,
+					  const char *method,
 					  const char *buf,
 					  const jsmntok_t *result,
 					  struct sent *sent)
@@ -1106,6 +1111,7 @@ struct command_result *invoice_payment(struct command *cmd,
 }
 
 static struct command_result *createinvoice_done(struct command *cmd,
+						 const char *method,
 						 const char *buf,
 						 const jsmntok_t *result,
 						 struct sent *sent)

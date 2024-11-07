@@ -216,6 +216,7 @@ static u8 *decrypt_scb(struct plugin *p)
 }
 
 static struct command_result *after_recover_rpc(struct command *cmd,
+						const char *method,
 					        const char *buf,
 					        const jsmntok_t *params,
 					        void *cb_arg UNUSED)
@@ -263,7 +264,7 @@ static struct command_result *json_emergencyrecover(struct command *cmd,
 
 	req = jsonrpc_request_start(cmd, "recoverchannel",
 				    after_recover_rpc,
-				    &forward_error, NULL);
+				    forward_error, NULL);
 
 	json_array_start(req->js, "scb");
 	for (size_t i=0; i<tal_count(scb); i++) {
@@ -319,6 +320,7 @@ static void update_scb(struct plugin *p, struct scb_chan **channels)
 
 static struct command_result
 *peer_after_send_their_peer_strg(struct command *cmd,
+				 const char *method,
 				 const char *buf,
 				 const jsmntok_t *params,
 				 void *cb_arg UNUSED)
@@ -329,6 +331,7 @@ static struct command_result
 
 static struct command_result
 *peer_after_send_their_peer_strg_err(struct command *cmd,
+				     const char *method,
 				     const char *buf,
 				     const jsmntok_t *params,
 				     void *cb_arg UNUSED)
@@ -367,6 +370,7 @@ static struct command_result *peer_after_listdatastore(struct command *cmd,
 }
 
 static struct command_result *peer_after_send_scb(struct command *cmd,
+						  const char *method,
 						  const char *buf,
 						  const jsmntok_t *params,
 						  struct node_id *nodeid)
@@ -383,6 +387,7 @@ static struct command_result *peer_after_send_scb(struct command *cmd,
 }
 
 static struct command_result *peer_after_send_scb_failed(struct command *cmd,
+							 const char *method,
 							 const char *buf,
 							 const jsmntok_t *params,
 							 struct node_id *nodeid)
@@ -397,6 +402,7 @@ struct info {
 };
 
 static struct command_result *after_send_scb_single(struct command *cmd,
+						    const char *method,
 						    const char *buf,
 						    const jsmntok_t *params,
 						    struct info *info)
@@ -409,6 +415,7 @@ static struct command_result *after_send_scb_single(struct command *cmd,
 }
 
 static struct command_result *after_send_scb_single_fail(struct command *cmd,
+							 const char *method,
 							 const char *buf,
 							 const jsmntok_t *params,
 							 struct info *info)
@@ -421,6 +428,7 @@ static struct command_result *after_send_scb_single_fail(struct command *cmd,
 }
 
 static struct command_result *after_listpeers(struct command *cmd,
+					      const char *method,
 					      const char *buf,
 					      const jsmntok_t *params,
 					      void *cb_arg UNUSED)
@@ -482,6 +490,7 @@ static struct command_result *after_listpeers(struct command *cmd,
 }
 
 static struct command_result *after_staticbackup(struct command *cmd,
+						 const char *method,
 					         const char *buf,
 					         const jsmntok_t *params,
 					         void *cb_arg UNUSED)
@@ -588,6 +597,7 @@ static struct command_result *failed_peer_restore(struct command *cmd,
 }
 
 static struct command_result *datastore_success(struct command *cmd,
+						const char *method,
 						const char *buf,
 						const jsmntok_t *result,
 						char *what)
@@ -597,6 +607,7 @@ static struct command_result *datastore_success(struct command *cmd,
 }
 
 static struct command_result *datastore_failed(struct command *cmd,
+					       const char *method,
 					       const char *buf,
 					       const jsmntok_t *result,
 					       char *what)

@@ -706,6 +706,7 @@ static struct command_result *process_json_result(struct command *cmd,
 }
 
 static struct command_result *default_list_done(struct command *cmd,
+						const char *method,
 						const char *buf,
 						const jsmntok_t *result,
 						struct db_query *dbq)
@@ -797,6 +798,7 @@ static struct command_result *channels_refresh(struct command *cmd,
 					       struct db_query *dbq);
 
 static struct command_result *listchannels_one_done(struct command *cmd,
+						    const char *method,
 						    const char *buf,
 						    const jsmntok_t *result,
 						    struct db_query *dbq)
@@ -896,6 +898,7 @@ static struct command_result *nodes_refresh(struct command *cmd,
 					    struct db_query *dbq);
 
 static struct command_result *listnodes_one_done(struct command *cmd,
+						 const char *method,
 						 const char *buf,
 						 const jsmntok_t *result,
 						 struct db_query *dbq)

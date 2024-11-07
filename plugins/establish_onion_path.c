@@ -20,6 +20,7 @@ struct connect_info {
 };
 
 static struct command_result *connect_ok(struct command *cmd,
+					 const char *method,
 					 const char *buf,
 					 const jsmntok_t *result,
 					 struct connect_info *ci)
@@ -34,6 +35,7 @@ static struct command_result *connect_ok(struct command *cmd,
 }
 
 static struct command_result *command_failed(struct command *cmd,
+					     const char *method,
 					     const char *buf,
 					     const jsmntok_t *result,
 					     struct connect_info *ci)
@@ -185,6 +187,7 @@ fail:
 }
 
 static struct command_result *listpeers_done(struct command *cmd,
+					     const char *method,
 					     const char *buf,
 					     const jsmntok_t *result,
 					     struct connect_info *ci)

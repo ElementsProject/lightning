@@ -128,6 +128,7 @@ static struct command_result *param_outputs(struct command *cmd,
 
 /* Called after lightningd has broadcast the transaction. */
 static struct command_result *sendpsbt_done(struct command *cmd,
+					    const char *method,
 					    const char *buf,
 					    const jsmntok_t *result,
 					    struct unreleased_tx *utx)
@@ -145,6 +146,7 @@ static struct command_result *sendpsbt_done(struct command *cmd,
 
 /* Called after lightningd has signed the inputs. */
 static struct command_result *signpsbt_done(struct command *cmd,
+					    const char *method,
 					    const char *buf,
 					    const jsmntok_t *result,
 					    struct unreleased_tx *utx)
@@ -235,6 +237,7 @@ static struct command_result *finish_txprepare(struct command *cmd,
 
 /* fundpsbt/utxopsbt gets a viable PSBT for us. */
 static struct command_result *psbt_created(struct command *cmd,
+					   const char *method,
 					   const char *buf,
 					   const jsmntok_t *result,
 					   struct txprepare *txp)
@@ -360,6 +363,7 @@ static struct command_result *json_txprepare(struct command *cmd,
 
 /* Called after we've unreserved the inputs. */
 static struct command_result *unreserve_done(struct command *cmd,
+					     const char *method,
 					     const char *buf,
 					     const jsmntok_t *result,
 					     struct unreleased_tx *utx)
@@ -493,6 +497,7 @@ struct listfunds_info {
 
 /* Find all the utxos that are p2sh in our wallet */
 static struct command_result *listfunds_done(struct command *cmd,
+					     const char *method,
 					     const char *buf,
 					     const jsmntok_t *result,
 					     struct listfunds_info *info)
@@ -566,6 +571,7 @@ static struct command_result *listfunds_done(struct command *cmd,
 
 /* We've got an address for sending funds */
 static struct command_result *newaddr_sweep_done(struct command *cmd,
+						 const char *method,
 						 const char *buf,
 						 const jsmntok_t *result,
 						 struct listfunds_info *info)
