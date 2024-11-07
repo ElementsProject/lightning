@@ -20,6 +20,7 @@ fi
 
 FORCE_UNCLEAN=false
 VERIFY_RELEASE=false
+WITHOUT_ZIP=false
 
 ALL_TARGETS="bin-Fedora-28-amd64 bin-Ubuntu docker sign"
 # ALL_TARGETS="bin-Fedora-28-amd64 bin-Ubuntu tarball deb docker sign"
@@ -37,6 +38,9 @@ for arg; do
         ;;
     --verify)
         VERIFY_RELEASE=true
+        ;;
+    --without-zip)
+        WITHOUT_ZIP=true
         ;;
     --help)
         echo "Usage: [--force-version=<ver>] [--force-unclean] [--force-mtime=YYYY-MM-DD] [--verify] [TARGETS]"
@@ -113,32 +117,35 @@ echo "Release Directory: $RELEASEDIR"
 echo "Tarball File: $TARBALL"
 echo "Current Timestamp: $DATE"
 
-# submodcheck needs to know if we have lowdown
-./configure --reconfigure
-# If it's a completely clean directory, we need submodules!
-make submodcheck
 mkdir -p "$RELEASEDIR"
 
-echo "Creating Zip File"
-# delete zipfile if exists
-[ -f "$RELEASEDIR/clightning-$VERSION.zip" ] && rm "$RELEASEDIR/clightning-$VERSION.zip"
-mkdir "$RELEASEDIR/clightning-$VERSION"
-# git archive won't go into submodules :(; We use tar to copy
-git ls-files -z --recurse-submodules | tar --null --files-from=- -c -f - | (cd "$RELEASEDIR/clightning-$VERSION" && tar xf -)
-# tar can set dates on files, but zip cares about dates in directories!
-# We set to local time (not "$MTIME 00:00Z") because zip uses local time!
-find "$RELEASEDIR/clightning-$VERSION" -print0 | xargs -0r touch --no-dereference --date="$MTIME"
-# Seriously, we can have differing permissions, too.  Normalize.
-# Directories become drwxr-xr-x
-find "$RELEASEDIR/clightning-$VERSION" -type d -print0 | xargs -0r chmod 755
-# Executables become -rwxr-xr-x
-find "$RELEASEDIR/clightning-$VERSION" -type f -perm -100 -print0 | xargs -0r chmod 755
-# Non-executables become -rw-r--r--
-find "$RELEASEDIR/clightning-$VERSION" -type f ! -perm -100 -print0 | xargs -0r chmod 644
-# zip -r doesn't have a deterministic order, and git ls-files does.
-LANG=C git ls-files --recurse-submodules | sed "s@^@clightning-$VERSION/@" | (cd release && zip -@ -X "clightning-$VERSION.zip")
-rm -r "$RELEASEDIR/clightning-$VERSION"
-echo "Zip File Created"
+if [ "$WITHOUT_ZIP" = "false" ]; then
+    # submodcheck needs to know if we have lowdown
+    ./configure --reconfigure
+    # If it's a completely clean directory, we need submodules!
+    make submodcheck
+
+    echo "Creating Zip File"
+    # delete zipfile if exists
+    [ -f "$RELEASEDIR/clightning-$VERSION.zip" ] && rm "$RELEASEDIR/clightning-$VERSION.zip"
+    mkdir "$RELEASEDIR/clightning-$VERSION"
+    # git archive won't go into submodules :(; We use tar to copy
+    git ls-files -z --recurse-submodules | tar --null --files-from=- -c -f - | (cd "$RELEASEDIR/clightning-$VERSION" && tar xf -)
+    # tar can set dates on files, but zip cares about dates in directories!
+    # We set to local time (not "$MTIME 00:00Z") because zip uses local time!
+    find "$RELEASEDIR/clightning-$VERSION" -print0 | xargs -0r touch --no-dereference --date="$MTIME"
+    # Seriously, we can have differing permissions, too.  Normalize.
+    # Directories become drwxr-xr-x
+    find "$RELEASEDIR/clightning-$VERSION" -type d -print0 | xargs -0r chmod 755
+    # Executables become -rwxr-xr-x
+    find "$RELEASEDIR/clightning-$VERSION" -type f -perm -100 -print0 | xargs -0r chmod 755
+    # Non-executables become -rw-r--r--
+    find "$RELEASEDIR/clightning-$VERSION" -type f ! -perm -100 -print0 | xargs -0r chmod 644
+    # zip -r doesn't have a deterministic order, and git ls-files does.
+    LANG=C git ls-files --recurse-submodules | sed "s@^@clightning-$VERSION/@" | (cd release && zip -@ -X "clightning-$VERSION.zip")
+    rm -r "$RELEASEDIR/clightning-$VERSION"
+    echo "Zip File Created"
+fi
 
 for target in $TARGETS; do
     platform=${target#bin-}
