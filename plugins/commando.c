@@ -262,9 +262,7 @@ static struct cond_info *new_cond_info(const tal_t *ctx,
 		cinfo->cmdid_prefix = NULL;
 		incoming->json_id = NULL;
 	} else {
-		cinfo->cmdid_prefix = tal_fmt(cinfo, "%.*s/",
-					      id->end - id->start,
-					      cinfo->buf + id->start);
+		cinfo->cmdid_prefix = json_strdup(cinfo, cinfo->buf, id);
 		/* Includes quotes, if any! */
 		incoming->json_id = tal_strndup(incoming,
 						json_tok_full(cinfo->buf, id),
@@ -728,8 +726,7 @@ static struct command_result *forward_command(struct command *cmd,
 	/* params could be an array, so use low-level helper */
 	struct out_req *req;
 
-	req = jsonrpc_request_whole_object_start(cmd, method,
-						 json_id_prefix(tmpctx, cmd),
+	req = jsonrpc_request_whole_object_start(cmd, method, NULL,
 						 forward_reply, NULL);
 	json_add_tok(req->js, "params", params, buffer);
 	return send_outreq(req);
