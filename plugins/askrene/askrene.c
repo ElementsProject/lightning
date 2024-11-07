@@ -719,6 +719,7 @@ static void add_localchan(struct gossmap_localmods *mods,
 
 static struct command_result *
 listpeerchannels_done(struct command *cmd,
+		      const char *method UNUSED,
 		      const char *buffer,
 		      const jsmntok_t *toks,
 		      struct getroutes_info *info)

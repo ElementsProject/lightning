@@ -123,6 +123,7 @@ static struct command_result *json_all_notifs(struct command *cmd,
 }
 
 static struct command_result *testrpc_cb(struct command *cmd,
+					 const char *method UNUSED,
 					 const char *buf,
 					 const jsmntok_t *params,
 					 void *cb_arg UNUSED)
@@ -153,6 +154,7 @@ static struct command_result *json_testrpc(struct command *cmd,
 }
 
 static struct command_result *listdatastore_ok(struct command *cmd,
+					       const char *method,
 					       const char *buf,
 					       const jsmntok_t *params,
 					       void *cb_arg UNUSED)
@@ -160,7 +162,7 @@ static struct command_result *listdatastore_ok(struct command *cmd,
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
-	return forward_result(cmd, buf, params, NULL);
+	return forward_result(cmd, method, buf, params, NULL);
 }
 
 /* A command which does async, even if it is a check */

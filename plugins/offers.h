@@ -43,10 +43,12 @@ send_onion_reply(struct command *cmd,
 						 (success), (arg),	\
 						 struct command *,	\
 						 const char *,		\
+						 const char *,		\
 						 const jsmntok_t *),	\
 			     typesafe_cb_preargs(struct command_result *, void *, \
 						 (fail), (arg),		\
 						 struct command *,	\
+						 const char *,		\
 						 const char *,		\
 						 const jsmntok_t *),	\
 			     (arg))
@@ -55,10 +57,12 @@ struct command_result *
 inject_onionmessage_(struct command *cmd,
 		     const struct onion_message *omsg,
 		     struct command_result *(*cb)(struct command *command,
+						  const char *method,
 						  const char *buf,
 						  const jsmntok_t *result,
 						  void *arg),
 		     struct command_result *(*errcb)(struct command *command,
+						     const char *method,
 						     const char *buf,
 						     const jsmntok_t *result,
 						     void *arg),

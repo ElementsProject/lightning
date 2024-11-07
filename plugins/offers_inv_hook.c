@@ -91,6 +91,7 @@ fail_internalerr(struct command *cmd,
 }
 
 static struct command_result *pay_done(struct command *cmd,
+				       const char *method,
 				       const char *buf,
 				       const jsmntok_t *result,
 				       struct inv *inv)
@@ -107,6 +108,7 @@ static struct command_result *pay_done(struct command *cmd,
 }
 
 static struct command_result *pay_error(struct command *cmd,
+					const char *method,
 					const char *buf,
 					const jsmntok_t *error,
 					struct inv *inv)
@@ -119,6 +121,7 @@ static struct command_result *pay_error(struct command *cmd,
 }
 
 static struct command_result *listinvreqs_done(struct command *cmd,
+					       const char *method,
 					       const char *buf,
 					       const jsmntok_t *result,
 					       struct inv *inv)
@@ -198,6 +201,7 @@ static struct command_result *listinvreqs_done(struct command *cmd,
 }
 
 static struct command_result *listinvreqs_error(struct command *cmd,
+						const char *method,
 						const char *buf,
 						const jsmntok_t *err,
 						struct inv *inv)

@@ -380,6 +380,7 @@ after_openchannel_signed(struct multifundchannel_command *mfc)
 
 static struct command_result *
 openchannel_signed_ok(struct command *cmd,
+		      const char *method,
 		      const char *buf,
 		      const jsmntok_t *result,
 		      struct multifundchannel_destination *dest)
@@ -420,6 +421,7 @@ openchannel_signed_ok(struct command *cmd,
 
 static struct command_result *
 openchannel_signed_err(struct command *cmd,
+		       const char *method,
 		       const char *buf,
 		       const jsmntok_t *error,
 		       struct multifundchannel_destination *dest)
@@ -670,6 +672,7 @@ openchannel_update_returned(struct multifundchannel_destination *dest)
 
 static struct command_result *
 openchannel_update_ok(struct command *cmd,
+		      const char *method,
 		      const char *buf,
 		      const jsmntok_t *result,
 		      struct multifundchannel_destination *dest)
@@ -763,6 +766,7 @@ openchannel_update_ok(struct command *cmd,
 
 static struct command_result *
 openchannel_update_err(struct command *cmd,
+		       const char *method,
 		       const char *buf,
 		       const jsmntok_t *error,
 		       struct multifundchannel_destination *dest)
@@ -901,6 +905,7 @@ openchannel_init_done(struct multifundchannel_destination *dest)
 
 static struct command_result *
 openchannel_init_ok(struct command *cmd,
+		    const char *method,
 		    const char *buf,
 		    const jsmntok_t *result,
 		    struct multifundchannel_destination *dest)
@@ -950,6 +955,7 @@ openchannel_init_ok(struct command *cmd,
 
 static struct command_result *
 openchannel_init_err(struct command *cmd,
+		     const char *method,
 		     const char *buf,
 		     const jsmntok_t *error,
 		     struct multifundchannel_destination *dest)

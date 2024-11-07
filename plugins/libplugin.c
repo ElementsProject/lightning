@@ -258,11 +258,68 @@ static void ld_rpc_send(struct plugin *plugin, struct json_stream *stream)
 
 /* When cmd for request is gone, we use this as noop callback */
 static struct command_result *ignore_cb(struct command *command,
+					const char *method,
 					const char *buf,
 					const jsmntok_t *result,
 					void *arg)
 {
 	return &complete;
+}
+
+/* Ignore the result, and terminate the timer/aux/hook */
+struct command_result *ignore_and_complete(struct command *cmd,
+					   const char *method,
+					   const char *buf,
+					   const jsmntok_t *result,
+					   void *arg)
+{
+	switch (cmd->type) {
+	case COMMAND_TYPE_NORMAL:
+	case COMMAND_TYPE_CHECK:
+	case COMMAND_TYPE_USAGE_ONLY:
+		plugin_err(cmd->plugin,
+			   "%s: cannot ignore_and_complete type %u",
+			   method, cmd->type);
+	case COMMAND_TYPE_HOOK:
+		return command_hook_success(cmd);
+	/* Terminate with aux_command_done */
+	case COMMAND_TYPE_AUX:
+		return aux_command_done(cmd);
+	case COMMAND_TYPE_NOTIFICATION:
+		return notification_handled(cmd);
+	case COMMAND_TYPE_TIMER:
+		return timer_complete(cmd);
+	}
+	abort();
+}
+
+/* Broken the result, and terminate the command */
+struct command_result *log_broken_and_complete(struct command *cmd,
+					       const char *method,
+					       const char *buf,
+					       const jsmntok_t *result,
+					       void *arg)
+{
+	plugin_log(cmd->plugin, LOG_BROKEN,
+		   "%s failed with %.*s",
+		   method,
+		   json_tok_full_len(result),
+		   json_tok_full(buf, result));
+	return ignore_and_complete(cmd, method, buf, result, arg);
+}
+
+/* Call plugin_err */
+struct command_result *plugin_broken_cb(struct command *cmd,
+					const char *method,
+					const char *buf,
+					const jsmntok_t *result,
+					void *arg)
+{
+	plugin_err(cmd->plugin,
+		   "%s failed with %.*s",
+		   method,
+		   json_tok_full_len(result),
+		   json_tok_full(buf, result));
 }
 
 static void disable_request_cb(struct command *cmd, struct out_req *out)
@@ -308,10 +365,12 @@ jsonrpc_request_start_(struct command *cmd,
 		       const char *id_prefix,
 		       const char *filter,
 		       struct command_result *(*cb)(struct command *command,
+						    const char *methodname,
 						    const char *buf,
 						    const jsmntok_t *result,
 						    void *arg),
 		       struct command_result *(*errcb)(struct command *command,
+						       const char *methodname,
 						       const char *buf,
 						       const jsmntok_t *result,
 						       void *arg),
@@ -321,6 +380,7 @@ jsonrpc_request_start_(struct command *cmd,
 
 	assert(cmd);
 	out = tal(cmd, struct out_req);
+	out->method = tal_strdup(out, method);
 	out->id = json_id(out, cmd->plugin, method, id_prefix ? id_prefix : cmd->id);
 	out->cmd = cmd;
 	out->cb = cb;
@@ -577,6 +637,7 @@ struct command_result *timer_complete(struct command *cmd)
 }
 
 struct command_result *forward_error(struct command *cmd,
+				     const char *method,
 				     const char *buf,
 				     const jsmntok_t *error,
 				     void *arg UNNEEDED)
@@ -587,6 +648,7 @@ struct command_result *forward_error(struct command *cmd,
 }
 
 struct command_result *forward_result(struct command *cmd,
+				      const char *method,
 				      const char *buf,
 				      const jsmntok_t *result,
 				      void *arg UNNEEDED)
@@ -846,26 +908,18 @@ void rpc_enable_batching(struct plugin *plugin)
 	sync_req(tmpctx, plugin, "batching", take(params), &p);
 }
 
-static struct command_result *datastore_fail(struct command *command,
-					     const char *buf,
-					     const jsmntok_t *result,
-					     void *unused)
-{
-	plugin_err(command->plugin, "datastore failed: %.*s",
-		   json_tok_full_len(result),
-		   json_tok_full(buf, result));
-}
-
 struct command_result *jsonrpc_set_datastore_(struct command *cmd,
 					      const char *path,
 					      const void *value,
 					      bool value_is_string,
 					      const char *mode,
 					      struct command_result *(*cb)(struct command *command,
+									   const char *method,
 									   const char *buf,
 									   const jsmntok_t *result,
 									   void *arg),
 					      struct command_result *(*errcb)(struct command *command,
+									      const char *method,
 									      const char *buf,
 									      const jsmntok_t *result,
 									      void *arg),
@@ -876,7 +930,7 @@ struct command_result *jsonrpc_set_datastore_(struct command *cmd,
 	if (!cb)
 		cb = ignore_cb;
 	if (!errcb)
-		errcb = datastore_fail;
+		errcb = plugin_broken_cb;
 
 	req = jsonrpc_request_start(cmd, "datastore", cb, errcb, arg);
 
@@ -900,6 +954,7 @@ struct get_ds_info {
 };
 
 static struct command_result *listdatastore_done(struct command *cmd,
+						 const char *method,
 						 const char *buf,
 						 const jsmntok_t *result,
 						 struct get_ds_info *dsi)
@@ -957,7 +1012,7 @@ struct command_result *jsonrpc_get_datastore_(struct command *cmd,
 
 	/* listdatastore doesn't fail (except API misuse) */
 	req = jsonrpc_request_start(cmd, "listdatastore",
-				    listdatastore_done, datastore_fail, dsi);
+				    listdatastore_done, plugin_broken_cb, dsi);
 	tal_steal(req, dsi);
 
 	json_add_keypath(req->js->jout, "key", path);
@@ -1006,9 +1061,9 @@ static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
 	contenttok = json_get_member(buf, toks, "error");
 	if (contenttok) {
 		if (out->errcb)
-			res = out->errcb(out->cmd, buf, contenttok, out->arg);
+			res = out->errcb(out->cmd, out->method, buf, contenttok, out->arg);
 		else
-			res = out->cb(out->cmd, buf, toks, out->arg);
+			res = out->cb(out->cmd, out->method, buf, toks, out->arg);
 	} else {
 		contenttok = json_get_member(buf, toks, "result");
 		if (!contenttok)
@@ -1017,9 +1072,9 @@ static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
 				   json_tok_full(buf, toks));
 		/* errcb is NULL if it's a single whole-object callback */
 		if (out->errcb)
-			res = out->cb(out->cmd, buf, contenttok, out->arg);
+			res = out->cb(out->cmd, out->method, buf, contenttok, out->arg);
 		else
-			res = out->cb(out->cmd, buf, toks, out->arg);
+			res = out->cb(out->cmd, out->method, buf, toks, out->arg);
 	}
 
 	if (res == &complete) {
@@ -1051,9 +1106,11 @@ struct request_batch {
 
 	struct command_result *(*cb)(struct command *,
 				     const char *,
+				     const char *,
 				     const jsmntok_t *,
 				     void *);
 	struct command_result *(*errcb)(struct command *,
+					const char *,
 					const char *,
 					const jsmntok_t *,
 					void *);
@@ -1065,9 +1122,11 @@ struct request_batch {
 struct request_batch *request_batch_new_(const tal_t *ctx,
 					 struct command_result *(*cb)(struct command *,
 								      const char *,
+								      const char *,
 								      const jsmntok_t *,
 								      void *),
 					 struct command_result *(*errcb)(struct command *,
+									 const char *,
 									 const char *,
 									 const jsmntok_t *,
 									 void *),
@@ -1103,23 +1162,25 @@ static struct command_result *batch_one_complete(struct command *cmd,
 }
 
 static struct command_result *batch_one_success(struct command *cmd,
+						const char *method,
 						const char *buf,
 						const jsmntok_t *result,
 						struct request_batch *batch)
 {
 	/* If this frees stuff (e.g. fails), just return */
-	if (batch->cb && batch->cb(cmd, buf, result, batch->arg) == &complete)
+	if (batch->cb && batch->cb(cmd, method, buf, result, batch->arg) == &complete)
 		return &complete;
 	return batch_one_complete(cmd, batch);
 }
 
 static struct command_result *batch_one_failed(struct command *cmd,
+					       const char *method,
 					       const char *buf,
 					       const jsmntok_t *result,
 					       struct request_batch *batch)
 {
 	/* If this frees stuff (e.g. fails), just return */
-	if (batch->errcb && batch->errcb(cmd, buf, result, batch->arg) == &complete)
+	if (batch->errcb && batch->errcb(cmd, method, buf, result, batch->arg) == &complete)
 		return &complete;
 	return batch_one_complete(cmd, batch);
 }

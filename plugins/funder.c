@@ -74,6 +74,7 @@ new_channel_open(const tal_t *ctx,
 
 static struct command_result *
 unreserve_done(struct command *aux_cmd,
+	       const char *method,
 	       const char *buf,
 	       const jsmntok_t *result,
 	       struct pending_open *open)
@@ -140,6 +141,7 @@ command_hook_cont_psbt(struct command *cmd, struct wally_psbt *psbt)
 
 static struct command_result *
 datastore_del_fail(struct command *cmd,
+		   const char *method,
 		   const char *buf,
 		   const jsmntok_t *error,
 		   void *data UNUSED)
@@ -150,6 +152,7 @@ datastore_del_fail(struct command *cmd,
 
 static struct command_result *
 datastore_del_success(struct command *cmd,
+		      const char *method,
 		      const char *buf,
 		      const jsmntok_t *result,
 		      void *data UNUSED)
@@ -165,14 +168,15 @@ datastore_del_success(struct command *cmd,
 
 static struct command_result *
 datastore_add_fail(struct command *cmd,
+		   const char *method,
 		   const char *buf,
 		   const jsmntok_t *error,
 		   struct wally_psbt *signed_psbt)
 {
 	/* Oops, something's broken */
 	plugin_log(cmd->plugin, LOG_BROKEN,
-		   "`datastore` add failed: %*.s",
-		   json_tok_full_len(error),
+		   "%s failed: %*.s",
+		   method, json_tok_full_len(error),
 		   json_tok_full(buf, error));
 
 	return command_hook_cont_psbt(cmd, signed_psbt);
@@ -180,6 +184,7 @@ datastore_add_fail(struct command *cmd,
 
 static struct command_result *
 datastore_add_success(struct command *cmd,
+		      const char *method,
 		      const char *buf,
 		      const jsmntok_t *result,
 		      struct wally_psbt *signed_psbt)
@@ -242,6 +247,7 @@ remember_channel_utxos(struct command *cmd,
 
 static struct command_result *
 signpsbt_done(struct command *cmd,
+	      const char *method,
 	      const char *buf,
 	      const jsmntok_t *result,
 	      struct pending_open *open)
@@ -417,6 +423,7 @@ static struct open_info *new_open_info(const tal_t *ctx)
 
 static struct command_result *
 psbt_funded(struct command *cmd,
+	    const char *method,
 	    const char *buf,
 	    const jsmntok_t *result,
 	    struct open_info *info)
@@ -462,6 +469,7 @@ psbt_funded(struct command *cmd,
 
 static struct command_result *
 psbt_fund_failed(struct command *cmd,
+		 const char *method,
 		 const char *buf,
 		 const jsmntok_t *error,
 		 struct open_info *info)
@@ -469,9 +477,10 @@ psbt_fund_failed(struct command *cmd,
 	/* Attempt to fund a psbt for this open failed.
 	 * We probably ran out of funds (race?) */
 	plugin_log(cmd->plugin, LOG_INFORM,
-		   "Unable to secure %s from wallet,"
+		   "%s: unable to secure %s from wallet,"
 		   " continuing channel open to %s"
 		   " without our participation. err %.*s",
+		   method,
 		   fmt_amount_sat(tmpctx, info->our_funding),
 		   fmt_node_id(tmpctx, &info->id),
 		   json_tok_full_len(error),
@@ -567,6 +576,7 @@ build_utxopsbt_request(struct command *cmd,
 
 static struct command_result *
 listfunds_success(struct command *cmd,
+		  const char *method,
 		  const char *buf,
 		  const jsmntok_t *result,
 		  struct open_info *info)
@@ -750,6 +760,7 @@ listfunds_success(struct command *cmd,
 
 static struct command_result *
 listfunds_failed(struct command *cmd,
+		 const char *method,
 		 const char *buf,
 		 const jsmntok_t *error,
 		 struct open_info *info)
@@ -903,6 +914,7 @@ json_openchannel2_call(struct command *cmd,
 
 static struct command_result *
 datastore_list_fail(struct command *cmd,
+		    const char *method,
 		    const char *buf,
 		    const jsmntok_t *error,
 		    struct open_info *info)
@@ -927,6 +939,7 @@ datastore_list_fail(struct command *cmd,
 
 static struct command_result *
 datastore_list_success(struct command *cmd,
+		       const char *method,
 		       const char *buf,
 		       const jsmntok_t *result,
 		       struct open_info *info)
@@ -1317,7 +1330,9 @@ parse_lease_rates(struct command *cmd, const char *buffer,
 }
 
 static struct command_result *
-leaserates_set(struct command *cmd, const char *buf,
+leaserates_set(struct command *cmd,
+	       const char *method,
+	       const char *buf,
 	       const jsmntok_t *result,
 	       struct funder_policy *policy)
 {

@@ -220,6 +220,7 @@ struct multiwithdraw_cleanup {
 
 static struct command_result *
 mw_after_cleanup(struct command *cmd UNUSED,
+		 const char *method UNUSED,
 		 const char *buf UNUSED,
 		 const jsmntok_t *result UNUSED,
 		 struct multiwithdraw_cleanup *cleanup);
@@ -257,6 +258,7 @@ mw_perform_cleanup(struct multiwithdraw_command *mw,
 }
 static struct command_result *
 mw_after_cleanup(struct command *cmd UNUSED,
+		 const char *method UNUSED,
 		 const char *buf UNUSED,
 		 const jsmntok_t *result UNUSED,
 		 struct multiwithdraw_cleanup *cleanup)
@@ -273,6 +275,7 @@ mw_after_cleanup(struct command *cmd UNUSED,
 /* Use this instead of forward_error.  */
 static struct command_result *
 mw_forward_error(struct command *cmd UNUSED,
+		 const char *method,
 		 const char *buf,
 		 const jsmntok_t *error,
 		 struct multiwithdraw_command *mw)
@@ -318,6 +321,7 @@ specified, from a `utxopsbt` command.
 
 static struct command_result *
 mw_after_fundpsbt(struct command *cmd,
+		  const char *method,
 		  const char *buf,
 		  const jsmntok_t *result,
 		  struct multiwithdraw_command *mw);
@@ -393,6 +397,7 @@ mw_load_outputs(struct multiwithdraw_command *mw);
 
 static struct command_result *
 mw_after_fundpsbt(struct command *cmd,
+		  const char *method,
 		  const char *buf,
 		  const jsmntok_t *result,
 		  struct multiwithdraw_command *mw)
@@ -484,6 +489,7 @@ we need to `newaddr` and get one.  */
 
 static struct command_result *
 mw_after_newaddr(struct command *cmd,
+		 const char *method,
 		 const char *buf,
 		 const jsmntok_t *result,
 		 struct multiwithdraw_command *mw);
@@ -506,6 +512,7 @@ mw_get_change_addr(struct multiwithdraw_command *mw)
 
 static struct command_result *
 mw_after_newaddr(struct command *cmd,
+		 const char *method,
 		 const char *buf,
 		 const jsmntok_t *result,
 		 struct multiwithdraw_command *mw)
@@ -612,6 +619,7 @@ Sign and Send PSBT
 
 static struct command_result *
 mw_after_signpsbt(struct command *cmd,
+		  const char *method,
 		  const char *buf,
 		  const jsmntok_t *result,
 		  struct multiwithdraw_command *mw);
@@ -635,6 +643,7 @@ mw_sign_and_send(struct multiwithdraw_command *mw)
 
 static struct command_result *
 mw_after_signpsbt(struct command *cmd,
+		  const char *method,
 		  const char *buf,
 		  const jsmntok_t *result,
 		  struct multiwithdraw_command *mw)

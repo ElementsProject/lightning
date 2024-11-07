@@ -194,6 +194,7 @@ static void route_pending_register(struct routetracker *routetracker,
 
 /* Callback function for sendpay request success. */
 static struct command_result *sendpay_done(struct command *cmd,
+					   const char *method UNUSED,
 					   const char *buf UNUSED,
 					   const jsmntok_t *result UNUSED,
 					   struct route *route)
@@ -209,6 +210,7 @@ static struct command_result *sendpay_done(struct command *cmd,
  * 2. The first peer is disconnected.
  */
 static struct command_result *sendpay_failed(struct command *cmd,
+					     const char *method UNUSED,
 					     const char *buf,
 					     const jsmntok_t *tok,
 					     struct route *route)

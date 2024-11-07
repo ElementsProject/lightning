@@ -34,15 +34,19 @@ struct out_req {
 	const char *id;
 	/* The command which is why we're calling this rpc. */
 	struct command *cmd;
+	/* The method this is calling */
+	const char *method;
 	/* The request stream. */
 	struct json_stream *js;
 	/* The callback when we get a response. */
 	struct command_result *(*cb)(struct command *command,
+				     const char *method,
 				     const char *buf,
 				     const jsmntok_t *result,
 				     void *arg);
 	/* The callback when we get an error. */
 	struct command_result *(*errcb)(struct command *command,
+					const char *method,
 					const char *buf,
 					const jsmntok_t *error,
 					void *arg);
@@ -58,8 +62,9 @@ enum command_type {
 	COMMAND_TYPE_AUX,
 	/* Terminate with notification_handled */
 	COMMAND_TYPE_NOTIFICATION,
-	/* These self-terminate */
+	/* Terminate with timer_complete */
 	COMMAND_TYPE_TIMER,
+	/* These self-terminate */
 	COMMAND_TYPE_CHECK,
 	COMMAND_TYPE_USAGE_ONLY,
 };
@@ -109,16 +114,39 @@ struct plugin_hook {
 /* Return the feature set of the current lightning node */
 const struct feature_set *plugin_feature_set(const struct plugin *p);
 
+/* Ignore the result, and terminate the command */
+struct command_result *ignore_and_complete(struct command *cmd,
+					   const char *method,
+					   const char *buf,
+					   const jsmntok_t *result,
+					   void *arg);
+
+/* Broken the result, and terminate the command */
+struct command_result *log_broken_and_complete(struct command *cmd,
+					       const char *method,
+					       const char *buf,
+					       const jsmntok_t *result,
+					       void *arg);
+
+/* Call plugin_err */
+struct command_result *plugin_broken_cb(struct command *cmd,
+					const char *method,
+					const char *buf,
+					const jsmntok_t *result,
+					void *arg);
+
 /* Helper to create a JSONRPC2 request stream. Send it with `send_outreq`. */
 struct out_req *jsonrpc_request_start_(struct command *cmd,
 				       const char *method,
 				       const char *id_prefix,
 				       const char *filter,
 				       struct command_result *(*cb)(struct command *command,
+								    const char *methodname,
 								    const char *buf,
 								    const jsmntok_t *result,
 								    void *arg),
 				       struct command_result *(*errcb)(struct command *command,
+								       const char *methodname,
 								       const char *buf,
 								       const jsmntok_t *result,
 								       void *arg),
@@ -130,11 +158,13 @@ struct out_req *jsonrpc_request_start_(struct command *cmd,
 		     typesafe_cb_preargs(struct command_result *, void *, \
 					 (cb), (arg),			\
 					 struct command *command,	\
+					 const char *mthod,		\
 					 const char *buf,		\
 					 const jsmntok_t *result),	\
 		     typesafe_cb_preargs(struct command_result *, void *, \
 					 (errcb), (arg),		\
 					 struct command *command,	\
+					 const char *mthod,		\
 					 const char *buf,		\
 					 const jsmntok_t *result),	\
 		     (arg))
@@ -144,11 +174,13 @@ struct out_req *jsonrpc_request_start_(struct command *cmd,
 		     typesafe_cb_preargs(struct command_result *, void *, \
 					 (cb), (arg),			\
 					 struct command *command,	\
+					 const char *mthod,		\
 					 const char *buf,		\
 					 const jsmntok_t *result),	\
 		     typesafe_cb_preargs(struct command_result *, void *, \
 					 (errcb), (arg),		\
 					 struct command *command,	\
+					 const char *mthod,			\
 					 const char *buf,		\
 					 const jsmntok_t *result),	\
 		     (arg))
@@ -160,6 +192,7 @@ struct out_req *jsonrpc_request_start_(struct command *cmd,
 			       typesafe_cb_preargs(struct command_result *, void *, \
 						   (cb), (arg),		\
 						   struct command *command, \
+						   const char *mthod,	\
 						   const char *buf,	\
 						   const jsmntok_t *result), \
 			       NULL,					\
@@ -168,10 +201,12 @@ struct out_req *jsonrpc_request_start_(struct command *cmd,
 /* Batch of requests: cb and errcb are optional, finalcb is called when all complete. */
 struct request_batch *request_batch_new_(const tal_t *ctx,
 					 struct command_result *(*cb)(struct command *,
+								      const char *method,
 								      const char *,
 								      const jsmntok_t *,
 								      void *),
 					 struct command_result *(*errcb)(struct command *,
+									 const char *method,
 									 const char *,
 									 const jsmntok_t *,
 									 void *),
@@ -184,11 +219,13 @@ struct request_batch *request_batch_new_(const tal_t *ctx,
 		     typesafe_cb_preargs(struct command_result *, void *, \
 					 (cb), (arg),			\
 					 struct command *command,	\
+					 const char *method,		\
 					 const char *buf,		\
 					 const jsmntok_t *result),	\
 		     typesafe_cb_preargs(struct command_result *, void *, \
 					 (errcb), (arg),		\
 					 struct command *command,	\
+					 const char *method,		\
 					 const char *buf,		\
 					 const jsmntok_t *result),	\
 		     typesafe_cb_preargs(struct command_result *, void *, \
@@ -238,10 +275,12 @@ struct command_result *jsonrpc_set_datastore_(struct command *cmd,
 					      bool value_is_string,
 					      const char *mode,
 					      struct command_result *(*cb)(struct command *command,
+									   const char *method,
 									   const char *buf,
 									   const jsmntok_t *result,
 									   void *arg),
 					      struct command_result *(*errcb)(struct command *command,
+									      const char *method,
 									      const char *buf,
 									      const jsmntok_t *result,
 									      void *arg),
@@ -253,11 +292,13 @@ struct command_result *jsonrpc_set_datastore_(struct command *cmd,
 			       typesafe_cb_preargs(struct command_result *, void *, \
 						   (cb), (arg),		\
 						   struct command *command, \
+						   const char *method,	\
 						   const char *buf,	\
 						   const jsmntok_t *result), \
 			       typesafe_cb_preargs(struct command_result *, void *, \
 						   (errcb), (arg),	\
 						   struct command *command, \
+						   const char *method,	\
 						   const char *buf,	\
 						   const jsmntok_t *result), \
 			       (arg))
@@ -267,11 +308,13 @@ struct command_result *jsonrpc_set_datastore_(struct command *cmd,
 			       typesafe_cb_preargs(struct command_result *, void *, \
 						   (cb), (arg),		\
 						   struct command *command, \
+						   const char *method,	\
 						   const char *buf,	\
 						   const jsmntok_t *result), \
 			       typesafe_cb_preargs(struct command_result *, void *, \
 						   (errcb), (arg),	\
 						   struct command *command, \
+						   const char *method,	\
 						   const char *buf,	\
 						   const jsmntok_t *result), \
 			       (arg))
@@ -424,17 +467,19 @@ struct command_result *send_outreq(const struct out_req *req);
 
 /* Callback to just forward error and close request; @cmd cannot be NULL */
 struct command_result *forward_error(struct command *cmd,
+				     const char *method,
 				     const char *buf,
 				     const jsmntok_t *error,
 				     void *arg)
-	NON_NULL_ARGS(1, 2, 3);
+	NON_NULL_ARGS(1, 2, 3, 4);
 
 /* Callback to just forward result and close request; @cmd cannot be NULL */
 struct command_result *forward_result(struct command *cmd,
+				     const char *method,
 				      const char *buf,
 				      const jsmntok_t *result,
 				      void *arg)
-	NON_NULL_ARGS(1, 2, 3);
+	NON_NULL_ARGS(1, 2, 3, 4);
 
 /* Callback for timer where we expect a 'command_result'.  All timers
  * must return this eventually, though they may do so via a convoluted

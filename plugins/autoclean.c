@@ -305,6 +305,7 @@ static struct command_result *clean_finished_one(struct clean_info *cinfo)
 }
 
 static struct command_result *del_done(struct command *cmd,
+				       const char *method,
 				       const char *buf,
 				       const jsmntok_t *result,
 				       struct per_variant *variant)
@@ -314,6 +315,7 @@ static struct command_result *del_done(struct command *cmd,
 }
 
 static struct command_result *del_failed(struct command *cmd,
+					 const char *method,
 					 const char *buf,
 					 const jsmntok_t *result,
 					 struct per_variant *variant)
@@ -477,6 +479,7 @@ static void add_forward_del_fields(struct out_req *req,
 }
 
 static struct command_result *list_done(struct command *cmd,
+					const char *method,
 					const char *buf,
 					const jsmntok_t *result,
 					struct per_subsystem *subsystem)
@@ -520,6 +523,7 @@ static struct command_result *list_done(struct command *cmd,
 }
 
 static struct command_result *list_failed(struct command *cmd,
+					  const char *method,
 					  const char *buf,
 					  const jsmntok_t *result,
 					  struct per_subsystem *subsystem)
@@ -577,6 +581,7 @@ static struct command_result *do_clean(struct clean_info *cinfo)
 }
 
 static struct command_result *wait_done(struct command *cmd,
+					const char *method,
 					const char *buf,
 					const jsmntok_t *result,
 					struct per_subsystem *ps)
@@ -599,17 +604,6 @@ static struct command_result *wait_done(struct command *cmd,
 	return do_clean(ps->cinfo);
 }
 
-static struct command_result *wait_failed(struct command *cmd,
-					  const char *buf,
-					  const jsmntok_t *result,
-					  struct per_subsystem *subsystem)
-{
-	plugin_err(plugin, "Failed wait '%s': '%.*s'",
-		   get_subsystem_ops(subsystem)->system_name,
-		   json_tok_full_len(result),
-		   json_tok_full(buf, result));
-}
-
 static struct command_result *start_clean(struct clean_info *cinfo)
 {
 	cinfo->cleanup_reqs_remaining = 0;
@@ -630,7 +624,7 @@ static struct command_result *start_clean(struct clean_info *cinfo)
 
 		req = jsonrpc_request_start(cinfo->cmd,
 					    "wait",
-					    wait_done, wait_failed, ps);
+					    wait_done, plugin_broken_cb, ps);
 		json_add_string(req->js, "subsystem", ops->system_name);
 		json_add_string(req->js, "indexname", "created");
 		json_add_u64(req->js, "nextvalue", 0);

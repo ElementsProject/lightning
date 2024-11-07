@@ -416,6 +416,7 @@ static void add_new_entry(struct json_stream *ret,
 }
 
 static struct command_result *listsendpays_done(struct command *cmd,
+						const char *method,
 						const char *buf,
 						const jsmntok_t *result,
 						char *invstring)
@@ -808,6 +809,7 @@ static void on_payment_failure(struct payment *payment)
 }
 
 static struct command_result *selfpay_success(struct command *cmd,
+					      const char *method,
 					      const char *buf,
 					      const jsmntok_t *result,
 					      struct payment *p)
@@ -864,8 +866,11 @@ static struct command_result *selfpay(struct command *cmd, struct payment *p)
  * about an eventual previous complete payment so we can return that
  * as a no-op. */
 static struct command_result *
-payment_listsendpays_previous(struct command *cmd, const char *buf,
-			      const jsmntok_t *result, struct payment *p)
+payment_listsendpays_previous(struct command *cmd,
+			      const char *method,
+			      const char *buf,
+			      const jsmntok_t *result,
+			      struct payment *p)
 {
 	size_t i;
 	const jsmntok_t *t, *arr, *err;
@@ -1058,6 +1063,7 @@ static bool scidtok_eq(const char *buf,
 /* We are the entry point, so the next hop could actually be an scid alias,
  * so we can't just use gossmap. */
 static struct command_result *listpeerchannels_done(struct command *cmd,
+						    const char *method,
 						    const char *buf,
 						    const jsmntok_t *result,
 						    struct payment *p)
@@ -1106,6 +1112,7 @@ static struct command_result *listpeerchannels_done(struct command *cmd,
 
 static struct command_result *
 decrypt_done(struct command *cmd,
+	     const char *method,
 	     const char *buf,
 	     const jsmntok_t *result,
 	     struct payment *p)
@@ -1189,6 +1196,7 @@ decrypt_done(struct command *cmd,
 
 static struct command_result *
 preapproveinvoice_succeed(struct command *cmd,
+			  const char *method,
 			  const char *buf,
 			  const jsmntok_t *result,
 			  struct payment *p)

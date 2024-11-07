@@ -68,6 +68,7 @@ struct gossmap *get_gossmap(struct plugin *plugin)
 }
 
 static struct command_result *finished(struct command *cmd,
+				       const char *method,
 				       const char *buf,
 				       const jsmntok_t *result,
 				       void *unused)
@@ -76,6 +77,7 @@ static struct command_result *finished(struct command *cmd,
 }
 
 static struct command_result *injectonionmessage_error(struct command *cmd,
+						       const char *method,
 						       const char *buf,
 						       const jsmntok_t *err,
 						       void *unused)
@@ -93,10 +95,12 @@ struct command_result *
 inject_onionmessage_(struct command *cmd,
 		     const struct onion_message *omsg,
 		     struct command_result *(*cb)(struct command *command,
+						  const char *method,
 						  const char *buf,
 						  const jsmntok_t *result,
 						  void *arg),
 		     struct command_result *(*errcb)(struct command *command,
+						     const char *method,
 						     const char *buf,
 						     const jsmntok_t *result,
 						     void *arg),
@@ -256,6 +260,7 @@ struct find_best_peer_data {
 };
 
 static struct command_result *listincoming_done(struct command *cmd,
+						const char *method,
 						const char *buf,
 						const jsmntok_t *result,
 						struct find_best_peer_data *data)
@@ -1299,6 +1304,7 @@ static void json_add_rune(struct command *cmd, struct json_stream *js, const str
 }
 
 static struct command_result *after_makesecret(struct command *cmd,
+					       const char *method,
 					       const char *buf,
 					       const jsmntok_t *result,
 					       struct decodable *decodable)

@@ -152,9 +152,10 @@ mfc_cleanup_complete(struct multifundchannel_cleanup *cleanup)
 
 static struct command_result *
 mfc_cleanup_done(struct command *cmd,
-		       const char *buf UNUSED,
-		       const jsmntok_t *res UNUSED,
-		       struct multifundchannel_cleanup *cleanup)
+		 const char *method,
+		 const char *buf UNUSED,
+		 const jsmntok_t *res UNUSED,
+		 struct multifundchannel_cleanup *cleanup)
 {
 	--cleanup->pending;
 	if (cleanup->pending == 0)
@@ -395,6 +396,7 @@ mfc_err_raw(struct multifundchannel_command *mfc, const char *json_string)
 }
 struct command_result *
 mfc_forward_error(struct command *cmd,
+		  const char *method,
 		  const char *buf, const jsmntok_t *error,
 		  struct multifundchannel_command *mfc)
 {
@@ -517,6 +519,7 @@ multifundchannel_finished(struct multifundchannel_command *mfc)
 
 static struct command_result *
 after_sendpsbt(struct command *cmd,
+	       const char *method,
 	       const char *buf,
 	       const jsmntok_t *result,
 	       struct multifundchannel_command *mfc)
@@ -551,6 +554,7 @@ after_sendpsbt(struct command *cmd,
 
 static struct command_result *
 after_signpsbt(struct command *cmd,
+	       const char *method,
 	       const char *buf,
 	       const jsmntok_t *result,
 	       struct multifundchannel_command *mfc)
@@ -737,6 +741,7 @@ fundchannel_complete_done(struct multifundchannel_destination *dest)
 
 static struct command_result *
 fundchannel_complete_ok(struct command *cmd,
+			const char *method,
 			const char *buf,
 			const jsmntok_t *result,
 			struct multifundchannel_destination *dest)
@@ -763,6 +768,7 @@ fundchannel_complete_ok(struct command *cmd,
 
 static struct command_result *
 fundchannel_complete_err(struct command *cmd,
+			 const char *method,
 			 const char *buf,
 			 const jsmntok_t *error,
 			 struct multifundchannel_destination *dest)
@@ -1031,6 +1037,7 @@ struct channel_type *json_bits_to_channel_type(const tal_t *ctx,
 
 static struct command_result *
 fundchannel_start_ok(struct command *cmd,
+		     const char *method,
 		     const char *buf,
 		     const jsmntok_t *result,
 		     struct multifundchannel_destination *dest)
@@ -1065,6 +1072,7 @@ fundchannel_start_ok(struct command *cmd,
 
 static struct command_result *
 fundchannel_start_err(struct command *cmd,
+		      const char *method,
 		      const char *buf,
 		      const jsmntok_t *error,
 		      struct multifundchannel_destination *dest)
@@ -1195,6 +1203,7 @@ perform_fundpsbt(struct multifundchannel_command *mfc, u32 feerate);
 
 static struct command_result *
 retry_fundpsbt_capped_all(struct command *cmd,
+			  const char *method,
 			  const char *buf,
 			  const jsmntok_t *result,
 			  struct multifundchannel_command *mfc)
@@ -1206,6 +1215,7 @@ retry_fundpsbt_capped_all(struct command *cmd,
 
 static struct command_result *
 after_fundpsbt(struct command *cmd,
+	       const char *method,
 	       const char *buf,
 	       const jsmntok_t *result,
 	       struct multifundchannel_command *mfc)
@@ -1422,6 +1432,7 @@ perform_fundpsbt(struct multifundchannel_command *mfc, u32 feerate)
 
 static struct command_result *
 after_getfeerate(struct command *cmd,
+		 const char *method,
 		 const char *buf,
 		 const jsmntok_t *result,
 		 struct multifundchannel_command *mfc)
@@ -1528,6 +1539,7 @@ connect_done(struct multifundchannel_destination *dest)
 
 static struct command_result *
 connect_ok(struct command *cmd,
+	   const char *method,
 	   const char *buf,
 	   const jsmntok_t *result,
 	   struct multifundchannel_destination *dest)
@@ -1572,6 +1584,7 @@ connect_ok(struct command *cmd,
 
 static struct command_result *
 connect_err(struct command *cmd,
+	    const char *method,
 	    const char *buf,
 	    const jsmntok_t *error,
 	    struct multifundchannel_destination *dest)
