@@ -14,6 +14,7 @@ Core Lightning Documentation
  .. block_start manpages
    lightning-addgossip <lightning-addgossip.7.md>
    lightning-addpsbtoutput <lightning-addpsbtoutput.7.md>
+   lightning-askrene-age <lightning-askrene-age.7.md>
    lightning-askrene-create-channel <lightning-askrene-create-channel.7.md>
    lightning-askrene-create-layer <lightning-askrene-create-layer.7.md>
    lightning-askrene-disable-node <lightning-askrene-disable-node.7.md>
