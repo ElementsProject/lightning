@@ -615,7 +615,7 @@ static void mark_plugin_destroyed(const struct plugin *unused,
 static struct plugin_destroyed *
 plugin_detect_destruction(const struct plugin *plugin)
 {
-	struct plugin_destroyed *pd = tal(NULL, struct plugin_destroyed);
+	struct plugin_destroyed *pd = notleak(tal(NULL, struct plugin_destroyed));
 	pd->plugin = plugin;
 	tal_add_destructor2(plugin, mark_plugin_destroyed, pd);
 	return pd;
@@ -655,7 +655,7 @@ static void plugin_response_handle(struct plugin *plugin,
 
 
 	/* Request callback often frees request: if not, we do. */
-	ctx = tal(NULL, char);
+	ctx = tal(tmpctx, char);
 	tal_steal(ctx, request);
 	/* Don't keep track of this request; we will terminate it */
 	tal_del_destructor2(request, destroy_request, plugin);
