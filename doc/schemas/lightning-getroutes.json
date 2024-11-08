@@ -2,11 +2,9 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "rpc": "getroutes",
-  "title": "Command for routing a payment (EXPERIMENTAL)",
+  "title": "Command for routing a payment",
   "added": "v24.08",
   "description": [
-    "WARNING: experimental, so API may change.",
-    "",
     "The **getroutes** RPC command attempts to find the best set of paths for the payment from *source* to *destination* of *amount_msat*, using the given *layers* on top of the gossip information.  The result is constrained by *maxfee*, and will arrive at the destination with *final_cltv*.",
     "",
     "NOTE: The returned paths are a different format then *getroute*, being more appropriate for creating intermediary onion layers.",

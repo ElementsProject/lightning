@@ -2,10 +2,9 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "rpc": "askrene-bias-channel",
-  "title": "Command to apply a manual bias to a channel in a layer (EXPERIMENTAL)",
+  "title": "Command to apply a manual bias to a channel in a layer",
+  "added": "v24.11",
   "description": [
-    "WARNING: experimental, so API may change.",
-    "",
     "The **askrene-bias-channel** RPC command tells askrene to favor or disfavor a channel when considering it for routing."
   ],
   "request": {

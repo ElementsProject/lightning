@@ -2,10 +2,9 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "rpc": "askrene-remove-layer",
-  "title": "Command to destroy a layer (EXPERIMENTAL)",
+  "title": "Command to destroy a layer",
+  "added": "v24.11",
   "description": [
-    "WARNING: experimental, so API may change.",
-    "",
     "The **askrene-remove-layer** RPC command tells askrene to forget a layer."
   ],
   "request": {

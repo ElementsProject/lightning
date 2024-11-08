@@ -2,10 +2,9 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "rpc": "askrene-create-layer",
-  "title": "Command to create a new layer (EXPERIMENTAL)",
+  "title": "Command to create a new layer",
+  "added": "v24.11",
   "description": [
-    "WARNING: experimental, so API may change.",
-    "",
     "The **askrene-create-layer** RPC command tells askrene to create a new, empty layer.  This layer can then be populated with `askrene-create-channel` and `askrene-inform-channel`, and be used in `getroutes`."
   ],
   "request": {

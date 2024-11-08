@@ -2,10 +2,9 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "rpc": "askrene-reserve",
-  "title": "Command for informing askrene that you are trying a path (EXPERIMENTAL)",
+  "title": "Command for informing askrene that you are trying a path",
+  "added": "v24.11",
   "description": [
-    "WARNING: experimental, so API may change.",
-    "",
     "The **askrene-reserve** RPC command tells askrene that a path is being attempted.  This allows it to take that into account when other *getroutes* calls are made.  You should call *askrene-unreserve* after the attempt has completed (and before calling *askrene-inform*).",
     "",
     "Note that additional properties inside the *path* elements are ignored, which is useful when used with the result of *getroutes*."

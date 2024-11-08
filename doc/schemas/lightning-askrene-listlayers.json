@@ -2,10 +2,9 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "rpc": "askrene-listlayers",
-  "title": "Command to display information about layers (EXPERIMENTAL)",
+  "title": "Command to display information about layers",
+  "added": "v24.11",
   "description": [
-    "WARNING: experimental, so API may change.",
-    "",
     "The **askrene-listlayers** RPC command reports any modifications each layer (or, the layer specified) would make to the topology, if it were used for *getroutes*."
   ],
   "request": {

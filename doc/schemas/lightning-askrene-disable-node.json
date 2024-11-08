@@ -2,10 +2,9 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "rpc": "askrene-disable-node",
-  "title": "Command to disable all channels to/from a node in a layer (EXPERIMENTAL)",
+  "title": "Command to disable all channels to/from a node in a layer",
+  "added": "v24.11",
   "description": [
-    "WARNING: experimental, so API may change.",
-    "",
     "The **askrene-disable-node** RPC command tells askrene to disable all channels connected to a node whenever the given layer is used.  This is mainly useful to force the use of alternate paths: while individual channels can be disabled using askrene-create-channel or askrene-inform-channel, that would be racy if new channels appeared."
   ],
   "request": {

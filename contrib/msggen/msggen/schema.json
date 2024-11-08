@@ -199,10 +199,9 @@
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-age",
-      "title": "Command for expiring information in a layer (EXPERIMENTAL)",
+      "title": "Command for expiring information in a layer",
+      "added": "v24.11",
       "description": [
-        "WARNING: experimental, so API may change.",
-        "",
         "The **askrene-age** RPC command tells askrene that information added to a layer by *askrene-inform-channel* beyond a certain age is less useful.  It currently completely forgets constraints older than *cutoff*."
       ],
       "request": {
@@ -263,10 +262,9 @@
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-bias-channel",
-      "title": "Command to apply a manual bias to a channel in a layer (EXPERIMENTAL)",
+      "title": "Command to apply a manual bias to a channel in a layer",
+      "added": "v24.11",
       "description": [
-        "WARNING: experimental, so API may change.",
-        "",
         "The **askrene-bias-channel** RPC command tells askrene to favor or disfavor a channel when considering it for routing."
       ],
       "request": {
@@ -367,10 +365,9 @@
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-create-channel",
-      "title": "Command to add a channel to layer (EXPERIMENTAL)",
+      "title": "Command to add a channel to layer",
+      "added": "v24.11",
       "description": [
-        "WARNING: experimental, so API may change.",
-        "",
         "The **askrene-create-channel** RPC command tells askrene create a channel in the given layer.  To actually populate the channel use *askrene-update-channel* in each direction."
       ],
       "request": {
@@ -440,10 +437,9 @@
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-create-layer",
-      "title": "Command to create a new layer (EXPERIMENTAL)",
+      "title": "Command to create a new layer",
+      "added": "v24.11",
       "description": [
-        "WARNING: experimental, so API may change.",
-        "",
         "The **askrene-create-layer** RPC command tells askrene to create a new, empty layer.  This layer can then be populated with `askrene-create-channel` and `askrene-inform-channel`, and be used in `getroutes`."
       ],
       "request": {
@@ -690,10 +686,9 @@
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-disable-node",
-      "title": "Command to disable all channels to/from a node in a layer (EXPERIMENTAL)",
+      "title": "Command to disable all channels to/from a node in a layer",
+      "added": "v24.11",
       "description": [
-        "WARNING: experimental, so API may change.",
-        "",
         "The **askrene-disable-node** RPC command tells askrene to disable all channels connected to a node whenever the given layer is used.  This is mainly useful to force the use of alternate paths: while individual channels can be disabled using askrene-create-channel or askrene-inform-channel, that would be racy if new channels appeared."
       ],
       "request": {
@@ -740,10 +735,9 @@
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-inform-channel",
-      "title": "Command to add channel capacity restrictions to layer (EXPERIMENTAL)",
+      "title": "Command to add channel capacity restrictions to layer",
+      "added": "v24.11",
       "description": [
-        "WARNING: experimental, so API may change.",
-        "",
         "The **askrene-inform-channel** RPC command tells askrene about channels we used so it can update its capacity estimates.  For most accuracy, you should remove your own reservations before calling this.  It can be applied whether the current channel exists or not."
       ],
       "request": {
@@ -856,10 +850,9 @@
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-listlayers",
-      "title": "Command to display information about layers (EXPERIMENTAL)",
+      "title": "Command to display information about layers",
+      "added": "v24.11",
       "description": [
-        "WARNING: experimental, so API may change.",
-        "",
         "The **askrene-listlayers** RPC command reports any modifications each layer (or, the layer specified) would make to the topology, if it were used for *getroutes*."
       ],
       "request": {
@@ -1108,10 +1101,9 @@
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-listreservations",
-      "title": "Command to display information about reservations (EXPERIMENTAL)",
+      "title": "Command to display information about reservations",
+      "added": "v24.11",
       "description": [
-        "WARNING: experimental, so API may change.",
-        "",
         "The **askrene-reservations** RPC command reports outstanding reservations made with `askrene-reserve`, mainly for debugging."
       ],
       "request": {
@@ -1181,10 +1173,9 @@
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-remove-layer",
-      "title": "Command to destroy a layer (EXPERIMENTAL)",
+      "title": "Command to destroy a layer",
+      "added": "v24.11",
       "description": [
-        "WARNING: experimental, so API may change.",
-        "",
         "The **askrene-remove-layer** RPC command tells askrene to forget a layer."
       ],
       "request": {
@@ -1221,10 +1212,9 @@
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-reserve",
-      "title": "Command for informing askrene that you are trying a path (EXPERIMENTAL)",
+      "title": "Command for informing askrene that you are trying a path",
+      "added": "v24.11",
       "description": [
-        "WARNING: experimental, so API may change.",
-        "",
         "The **askrene-reserve** RPC command tells askrene that a path is being attempted.  This allows it to take that into account when other *getroutes* calls are made.  You should call *askrene-unreserve* after the attempt has completed (and before calling *askrene-inform*).",
         "",
         "Note that additional properties inside the *path* elements are ignored, which is useful when used with the result of *getroutes*."
@@ -1283,10 +1273,9 @@
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-unreserve",
-      "title": "Command for informing askrene that you are no longer trying a path (EXPERIMENTAL)",
+      "title": "Command for informing askrene that you are no longer trying a path",
+      "added": "v24.11",
       "description": [
-        "WARNING: experimental, so API may change.",
-        "",
         "The **askrene-unreserve** RPC command tells askrene that a path attempt has finished: it should only be called after a successful **askrene-reserve** call.",
         "",
         "Note that additional properties inside the *path* elements are ignored, which is useful when used with the result of *getroutes*."
@@ -1345,10 +1334,9 @@
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-update-channel",
-      "title": "Command to manipulate channel in a layer (EXPERIMENTAL)",
+      "title": "Command to manipulate channel in a layer",
+      "added": "v24.11",
       "description": [
-        "WARNING: experimental, so API may change.",
-        "",
         "The **askrene-update-channel** RPC command overrides updates for an existing channel when the layer is applied."
       ],
       "request": {
@@ -15030,11 +15018,9 @@
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "getroutes",
-      "title": "Command for routing a payment (EXPERIMENTAL)",
+      "title": "Command for routing a payment",
       "added": "v24.08",
       "description": [
-        "WARNING: experimental, so API may change.",
-        "",
         "The **getroutes** RPC command attempts to find the best set of paths for the payment from *source* to *destination* of *amount_msat*, using the given *layers* on top of the gossip information.  The result is constrained by *maxfee*, and will arrive at the destination with *final_cltv*.",
         "",
         "NOTE: The returned paths are a different format then *getroute*, being more appropriate for creating intermediary onion layers.",
