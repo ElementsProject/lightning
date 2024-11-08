@@ -21,10 +21,16 @@ struct json_stream;
 struct layer *find_layer(struct askrene *askrene, const char *name);
 
 /* Create new layer by name. */
-struct layer *new_layer(struct askrene *askrene, const char *name);
+struct layer *new_layer(struct askrene *askrene, const char *name TAKES, bool persistent);
+
+/* Save new (persistent) layer */
+void save_new_layer(struct layer *layer);
 
 /* New temporary layer (not in askrene's hash table) */
-struct layer *new_temp_layer(const tal_t *ctx, const char *name);
+struct layer *new_temp_layer(const tal_t *ctx, struct askrene *askrene, const char *name TAKES);
+
+/* Remove this layer. */
+void remove_layer(struct layer *layer);
 
 /* Get the name of the layer */
 const char *layer_name(const struct layer *layer);
@@ -35,6 +41,9 @@ const struct local_channel *layer_find_local_channel(const struct layer *layer,
 
 /* Get capacity of that channel. */
 struct amount_msat local_channel_capacity(const struct local_channel *lc);
+
+/* Load any persistent layers */
+void load_layers(struct askrene *askrene);
 
 /* Check local channel matches these */
 bool layer_check_local_channel(const struct local_channel *lc,

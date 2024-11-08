@@ -31,6 +31,8 @@ struct askrene {
 	fp16_t *capacities;
 	/* My own id */
 	struct node_id my_id;
+	/* Aux command for layer */
+	struct command *layer_cmd;
 };
 
 /* Information for a single route query. */

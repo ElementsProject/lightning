@@ -33,6 +33,7 @@
           "additionalProperties": false,
           "required": [
             "layer",
+            "persistent",
             "disabled_nodes",
             "created_channels",
             "channel_updates",
@@ -43,6 +44,12 @@
               "type": "string",
               "description": [
                 "The name of the layer."
+              ]
+            },
+            "persistent": {
+              "type": "boolean",
+              "description": [
+                "Whether the layer is saved across restarts."
               ]
             },
             "disabled_nodes": {
