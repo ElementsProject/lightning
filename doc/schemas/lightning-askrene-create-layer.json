@@ -182,6 +182,37 @@
                   }
                 }
               }
+            },
+            "biases": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "short_channel_id_dir",
+                  "bias"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "short_channel_id_dir": {
+                    "type": "short_channel_id_dir",
+                    "description": [
+                      "The short channel id and direction"
+                    ]
+                  },
+                  "bias": {
+                    "type": "integer",
+                    "description": [
+                      "The bias (-100 to +100)"
+                    ]
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": [
+                      "The bias (-100 to +100)"
+                    ]
+                  }
+                }
+              }
             }
           }
         }
