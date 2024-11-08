@@ -127,6 +127,7 @@ def test_layers(node_factory):
         l2.rpc.askrene_listlayers('test_layers')
 
     expect = {'layer': 'test_layers',
+              'persistent': False,
               'disabled_nodes': [],
               'created_channels': [],
               'channel_updates': [],
@@ -281,6 +282,85 @@ def test_layers(node_factory):
 
     assert l2.rpc.askrene_remove_layer('test_layers') == {}
     assert l2.rpc.askrene_listlayers() == {'layers': []}
+
+    # This layer is not persistent.
+    l2.rpc.askrene_create_layer('test_layers')
+    l2.restart()
+    assert l2.rpc.askrene_listlayers() == {'layers': []}
+
+
+def test_layer_persistence(node_factory):
+    """Test persistence of layers across restart"""
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+
+    assert l1.rpc.askrene_listlayers() == {'layers': []}
+    with pytest.raises(RpcError, match="Unknown layer"):
+        l1.rpc.askrene_listlayers('test_layer_persistence')
+
+    l1.rpc.askrene_create_layer(layer='test_layer_persistence', persistent=True)
+    expect = {'layer': 'test_layer_persistence',
+              'persistent': True,
+              'disabled_nodes': [],
+              'created_channels': [],
+              'channel_updates': [],
+              'constraints': [],
+              'biases': []}
+    assert l1.rpc.askrene_listlayers('test_layer_persistence') == {'layers': [expect]}
+
+    # Restart, (empty layer) should still be there.
+    l1.restart()
+
+    assert l1.rpc.askrene_listlayers('test_layer_persistence') == {'layers': [expect]}
+
+    # Re-creation of persistent layer is a noop.
+    l1.rpc.askrene_create_layer(layer='test_layer_persistence', persistent=True)
+
+    # Populate it.
+    l1.rpc.askrene_disable_node('test_layer_persistence', l1.info['id'])
+    l1.rpc.askrene_update_channel('test_layer_persistence', "0x0x1/0", False)
+    l1.rpc.askrene_create_channel('test_layer_persistence',
+                                  l2.info['id'],
+                                  l1.info['id'],
+                                  '0x0x1',
+                                  '1000000sat')
+    l1.rpc.askrene_update_channel(layer='test_layer_persistence',
+                                  short_channel_id_dir='0x0x1/0',
+                                  htlc_minimum_msat=100,
+                                  htlc_maximum_msat=900000000,
+                                  fee_base_msat=1,
+                                  fee_proportional_millionths=2,
+                                  cltv_expiry_delta=18)
+    l1.rpc.askrene_update_channel(layer='test_layer_persistence',
+                                  short_channel_id_dir='0x0x1/0',
+                                  enabled=True,
+                                  cltv_expiry_delta=19)
+    l1.rpc.askrene_inform_channel('test_layer_persistence',
+                                  '0x0x1/1',
+                                  100000,
+                                  'unconstrained')
+    scid12 = first_scid(l1, l2)
+    scid12dir = f"{scid12}/{direction(l1.info['id'], l2.info['id'])}"
+    l1.rpc.askrene_inform_channel(layer='test_layer_persistence',
+                                  short_channel_id_dir=scid12dir,
+                                  amount_msat=12341235,
+                                  inform='constrained')
+
+    expect = l1.rpc.askrene_listlayers('test_layer_persistence')
+
+    l1.restart()
+    assert l1.rpc.askrene_listlayers('test_layer_persistence') == expect
+
+    # Aging will cause a rewrite.
+    assert l1.rpc.askrene_age('test_layer_persistence', 1) == {'layer': 'test_layer_persistence', 'num_removed': 0}
+    assert l1.rpc.askrene_listlayers('test_layer_persistence') == expect
+    l1.restart()
+    assert l1.rpc.askrene_listlayers('test_layer_persistence') == expect
+
+    # Delete layer, it won't reappear.
+    assert l1.rpc.askrene_remove_layer('test_layer_persistence') == {}
+    assert l1.rpc.askrene_listlayers() == {'layers': []}
+    l1.restart()
+    assert l1.rpc.askrene_listlayers() == {'layers': []}
 
 
 def check_route_as_expected(routes, paths):

@@ -175,16 +175,17 @@ static fp16_t *get_capacities(const tal_t *ctx,
  * but we won't. */
 /* FIXME: We could cache this until gossmap/layer changes... */
 static struct layer *source_free_layer(const tal_t *ctx,
-				       struct gossmap *gossmap,
+				       struct askrene *askrene,
 				       const struct node_id *source,
 				       struct gossmap_localmods *localmods)
 {
 	/* We apply existing localmods so we see *all* channels */
+	struct gossmap *gossmap = askrene->gossmap;
 	const struct gossmap_node *srcnode;
 	const struct amount_msat zero_base_fee = AMOUNT_MSAT(0);
 	const u16 zero_delay = 0;
 	const u32 zero_prop_fee = 0;
-	struct layer *layer = new_temp_layer(ctx, "auto.sourcefree");
+	struct layer *layer = new_temp_layer(ctx, askrene, "auto.sourcefree");
 
 	/* We apply this so we see any created channels */
 	gossmap_apply_localmods(gossmap, localmods);
@@ -363,7 +364,7 @@ static const char *get_routes(const tal_t *ctx,
 				/* Handled below, after other layers */
 				assert(streq(layers[i], "auto.sourcefree"));
 				plugin_log(rq->plugin, LOG_DBG, "Adding auto.sourcefree");
-				l = source_free_layer(layers, askrene->gossmap, source, localmods);
+				l = source_free_layer(layers, askrene, source, localmods);
 			}
 		}
 
@@ -732,11 +733,12 @@ listpeerchannels_done(struct command *cmd,
 		      const jsmntok_t *toks,
 		      struct getroutes_info *info)
 {
+	struct askrene *askrene = get_askrene(cmd->plugin);
 	struct gossmap_localmods *localmods;
 
-	info->local_layer = new_temp_layer(info, "auto.localchans");
+	info->local_layer = new_temp_layer(info, askrene, "auto.localchans");
 	localmods = gossmods_from_listpeerchannels(cmd,
-						   &get_askrene(cmd->plugin)->my_id,
+						   &askrene->my_id,
 						   buffer, toks,
 						   false,
 						   add_localchan,
@@ -1066,24 +1068,33 @@ static struct command_result *json_askrene_create_layer(struct command *cmd,
 	struct layer *layer;
 	const char *layername;
 	struct json_stream *response;
+	bool *persistent;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("layer", param_string, &layername),
+			 p_opt_def("persistent", param_bool, &persistent, false),
 			 NULL))
 		return command_param_failed();
-
-	if (find_layer(askrene, layername))
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Layer already exists");
 
 	if (strstarts(layername, "auto."))
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Cannot create auto layer");
 
+	/* If it's persistent, creation is a noop if it already exists */
+	layer = find_layer(askrene, layername);
+	if (layer && !*persistent) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Layer already exists");
+	}
+
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
-	layer = new_layer(askrene, layername);
+	if (!layer) {
+		layer = new_layer(askrene, layername, *persistent);
+		if (*persistent)
+			save_new_layer(layer);
+	}
 
 	response = jsonrpc_stream_success(cmd);
 	json_add_layers(response, askrene, "layers", layer);
@@ -1102,7 +1113,7 @@ static struct command_result *json_askrene_remove_layer(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	tal_free(layer);
+	remove_layer(layer);
 
 	response = jsonrpc_stream_success(cmd);
 	return command_finished(cmd, response);
@@ -1230,6 +1241,10 @@ static const char *init(struct command *init_cmd,
 
 	plugin_set_data(plugin, askrene);
 	plugin_set_memleak_handler(plugin, askrene_markmem);
+
+	/* Layer needs its own command to access datastore */
+	askrene->layer_cmd = aux_command(init_cmd);
+	load_layers(askrene);
 	return NULL;
 }
 

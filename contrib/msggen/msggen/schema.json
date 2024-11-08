@@ -457,6 +457,13 @@
             "description": [
               "The name of the layer to create."
             ]
+          },
+          "persistent": {
+            "type": "boolean",
+            "default": "False",
+            "description": [
+              "True if askrene should save and restore this layer.  As a side-effect, create-layer also succeeds if the layer already exists and persistent is true."
+            ]
           }
         }
       },
@@ -473,6 +480,7 @@
               "additionalProperties": false,
               "required": [
                 "layer",
+                "persistent",
                 "disabled_nodes",
                 "created_channels",
                 "channel_updates",
@@ -483,6 +491,12 @@
                   "type": "string",
                   "description": [
                     "The name of the layer."
+                  ]
+                },
+                "persistent": {
+                  "type": "boolean",
+                  "description": [
+                    "Whether the layer is saved/restored across restarts."
                   ]
                 },
                 "disabled_nodes": {
@@ -873,6 +887,7 @@
               "additionalProperties": false,
               "required": [
                 "layer",
+                "persistent",
                 "disabled_nodes",
                 "created_channels",
                 "channel_updates",
@@ -883,6 +898,12 @@
                   "type": "string",
                   "description": [
                     "The name of the layer."
+                  ]
+                },
+                "persistent": {
+                  "type": "boolean",
+                  "description": [
+                    "Whether the layer is saved across restarts."
                   ]
                 },
                 "disabled_nodes": {

@@ -7,6 +7,17 @@
 #include <common/memleak.h>
 #include <plugins/askrene/askrene.h>
 #include <plugins/askrene/layer.h>
+#include <wire/wire.h>
+
+/* Different elements in the datastore */
+enum dstore_layer_type {
+	/* We don't use type 0, which fromwire_u16 returns on trunction */
+	DSTORE_CHANNEL = 1,
+	DSTORE_CHANNEL_UPDATE = 2,
+	DSTORE_CHANNEL_CONSTRAINT = 3,
+	DSTORE_CHANNEL_BIAS = 4,
+	DSTORE_DISABLED_NODE = 5,
+};
 
 /* A channels which doesn't (necessarily) exist in the gossmap. */
 struct local_channel {
@@ -115,8 +126,14 @@ struct layer {
 	/* Inside global list of layers */
 	struct list_node list;
 
+	/* Convenience pointer to askrene */
+	struct askrene *askrene;
+
 	/* Unique identifiers */
 	const char *name;
+
+	/* Save to datastore */
+	bool persistent;
 
 	/* Completely made up local additions, indexed by scid */
 	struct local_channel_hash *local_channels;
@@ -134,11 +151,13 @@ struct layer {
 	struct node_id *disabled_nodes;
 };
 
-struct layer *new_temp_layer(const tal_t *ctx, const char *name)
+struct layer *new_temp_layer(const tal_t *ctx, struct askrene *askrene, const char *name TAKES)
 {
 	struct layer *l = tal(ctx, struct layer);
 
+	l->askrene = askrene;
 	l->name = tal_strdup(l, name);
+	l->persistent = false;
 	l->local_channels = tal(l, struct local_channel_hash);
 	local_channel_hash_init(l->local_channels);
 	l->local_updates = tal(l, struct local_update_hash);
@@ -157,9 +176,468 @@ static void destroy_layer(struct layer *l, struct askrene *askrene)
 	list_del_from(&askrene->layers, &l->list);
 }
 
-struct layer *new_layer(struct askrene *askrene, const char *name)
+static struct command_result *ignore_result(struct command *aux_cmd,
+					    const char *method,
+					    const char *buf,
+					    const jsmntok_t *result,
+					    void *arg)
 {
-	struct layer *l = new_temp_layer(askrene, name);
+	return command_still_pending(aux_cmd);
+}
+
+static void json_add_layer_key(struct json_stream *js,
+			       const char *fieldname,
+			       const struct layer *layer)
+{
+	json_array_start(js, fieldname);
+	json_add_string(js, NULL, "askrene");
+	json_add_string(js, NULL, "layers");
+	json_add_string(js, NULL, layer->name);
+	json_array_end(js);
+}
+
+static void save_remove(struct layer *layer)
+{
+	struct out_req *req;
+
+	if (!layer->persistent)
+		return;
+
+	req = jsonrpc_request_start(layer->askrene->layer_cmd,
+				    "deldatastore",
+				    ignore_result,
+				    plugin_broken_cb,
+				    NULL);
+	json_add_layer_key(req->js, "key", layer);
+	send_outreq(req);
+}
+
+static void append_layer_datastore(struct layer *layer, const u8 *data)
+{
+	struct out_req *req = jsonrpc_request_start(layer->askrene->layer_cmd,
+						    "datastore",
+						    ignore_result,
+						    plugin_broken_cb,
+						    NULL);
+	json_add_layer_key(req->js, "key", layer);
+	json_add_hex_talarr(req->js, "hex", data);
+	json_add_string(req->js, "mode", "create-or-append");
+	send_outreq(req);
+}
+
+/* We don't autogenerate our wire code here.  Partially because the
+ * fromwire_ routines we generate are aimed towards single messages,
+ * not a continuous stream, but also because this needs to be
+ * consistent across updates, and the extensions to the wire format
+ * we use (for inter-daemon comms) do not have such a guarantee */
+
+/* Helper to append bool to data, and return value */
+static bool towire_bool_val(u8 **pptr, bool v)
+{
+	towire_bool(pptr, v);
+	return v;
+}
+
+static void towire_short_channel_id_dir(u8 **pptr, const struct short_channel_id_dir *scidd)
+{
+	towire_short_channel_id(pptr, scidd->scid);
+	towire_u8(pptr, scidd->dir);
+}
+
+static void fromwire_short_channel_id_dir(const u8 **cursor, size_t *max,
+					  struct short_channel_id_dir *scidd)
+{
+	scidd->scid = fromwire_short_channel_id(cursor, max);
+	scidd->dir = fromwire_u8(cursor, max);
+}
+
+static void towire_save_channel(u8 **data, const struct local_channel *lc)
+{
+	towire_u16(data, DSTORE_CHANNEL);
+	towire_node_id(data, &lc->n1);
+	towire_node_id(data, &lc->n2);
+	towire_short_channel_id(data, lc->scid);
+	towire_amount_msat(data, lc->capacity);
+}
+
+static void save_channel(struct layer *layer, const struct local_channel *lc)
+{
+	u8 *data;
+
+	if (!layer->persistent)
+		return;
+
+	data = tal_arr(tmpctx, u8, 0);
+	towire_save_channel(&data, lc);
+	append_layer_datastore(layer, data);
+}
+
+static void load_channel(struct plugin *plugin,
+			 struct layer *layer,
+			 const u8 **cursor,
+			 size_t *len)
+{
+	struct node_id n1, n2;
+	struct short_channel_id scid;
+	struct amount_msat capacity;
+
+	fromwire_node_id(cursor, len, &n1);
+	fromwire_node_id(cursor, len, &n2);
+	scid = fromwire_short_channel_id(cursor, len);
+	capacity = fromwire_amount_msat(cursor, len);
+
+	if (*cursor)
+		layer_add_local_channel(layer, &n1, &n2, scid, capacity);
+}
+
+static void towire_save_channel_update(u8 **data, const struct local_update *lu)
+{
+	towire_u16(data, DSTORE_CHANNEL_UPDATE);
+	towire_short_channel_id_dir(data, &lu->scidd);
+	if (towire_bool_val(data, lu->enabled != NULL))
+		towire_bool(data, *lu->enabled);
+	if (towire_bool_val(data, lu->htlc_min != NULL))
+		towire_amount_msat(data, *lu->htlc_min);
+	if (towire_bool_val(data, lu->htlc_max != NULL))
+		towire_amount_msat(data, *lu->htlc_max);
+	if (towire_bool_val(data, lu->base_fee != NULL))
+		towire_amount_msat(data, *lu->base_fee);
+	if (towire_bool_val(data, lu->proportional_fee != NULL))
+		towire_u32(data, *lu->proportional_fee);
+	if (towire_bool_val(data, lu->delay != NULL))
+		towire_u16(data, *lu->delay);
+}
+
+static void save_channel_update(struct layer *layer, const struct local_update *lu)
+{
+	u8 *data;
+
+	if (!layer->persistent)
+		return;
+
+	data = tal_arr(tmpctx, u8, 0);
+	towire_save_channel_update(&data, lu);
+	append_layer_datastore(layer, data);
+}
+
+static void load_channel_update(struct plugin *plugin,
+				struct layer *layer,
+				const u8 **cursor,
+				size_t *len)
+{
+	struct short_channel_id_dir scidd;
+	bool *enabled = NULL, enabled_val;
+	struct amount_msat *htlc_min = NULL, htlc_min_val;
+	struct amount_msat *htlc_max = NULL, htlc_max_val;
+	struct amount_msat *base_fee = NULL, base_fee_val;
+	u32 *proportional_fee = NULL, proportional_fee_val;
+	u16 *delay = NULL, delay_val;
+
+	fromwire_short_channel_id_dir(cursor, len, &scidd);
+	if (fromwire_bool(cursor, len)) {
+		enabled_val = fromwire_bool(cursor, len);
+		enabled = &enabled_val;
+	}
+	if (fromwire_bool(cursor, len)) {
+		htlc_min_val = fromwire_amount_msat(cursor, len);
+		htlc_min = &htlc_min_val;
+	}
+	if (fromwire_bool(cursor, len)) {
+		htlc_max_val = fromwire_amount_msat(cursor, len);
+		htlc_max = &htlc_max_val;
+	}
+	if (fromwire_bool(cursor, len)) {
+		base_fee_val = fromwire_amount_msat(cursor, len);
+		base_fee = &base_fee_val;
+	}
+	if (fromwire_bool(cursor, len)) {
+		proportional_fee_val = fromwire_u32(cursor, len);
+		proportional_fee = &proportional_fee_val;
+	}
+	if (fromwire_bool(cursor, len)) {
+		delay_val = fromwire_u16(cursor, len);
+		delay = &delay_val;
+	}
+
+	if (*cursor)
+		layer_add_update_channel(layer, &scidd,
+					 enabled,
+					 htlc_min,
+					 htlc_max,
+					 base_fee,
+					 proportional_fee,
+					 delay);
+}
+
+static void towire_save_channel_constraint(u8 **data, const struct constraint *c)
+{
+	towire_u16(data, DSTORE_CHANNEL_CONSTRAINT);
+	towire_short_channel_id_dir(data, &c->scidd);
+	towire_u64(data, c->timestamp);
+	if (towire_bool_val(data, !amount_msat_is_zero(c->min)))
+		towire_amount_msat(data, c->min);
+	if (towire_bool_val(data, !amount_msat_eq(c->max, AMOUNT_MSAT(UINT64_MAX))))
+		towire_amount_msat(data, c->max);
+}
+
+static void save_channel_constraint(struct layer *layer, const struct constraint *c)
+{
+	u8 *data;
+
+	if (!layer->persistent)
+		return;
+
+	data = tal_arr(tmpctx, u8, 0);
+	towire_save_channel_constraint(&data, c);
+	append_layer_datastore(layer, data);
+}
+
+static void load_channel_constraint(struct plugin *plugin,
+				    struct layer *layer,
+				    const u8 **cursor,
+				    size_t *len)
+{
+	struct short_channel_id_dir scidd;
+	struct amount_msat *min = NULL, min_val;
+	struct amount_msat *max = NULL, max_val;
+	u64 timestamp;
+
+	fromwire_short_channel_id_dir(cursor, len, &scidd);
+	timestamp = fromwire_u64(cursor, len);
+	if (fromwire_bool(cursor, len)) {
+		min_val = fromwire_amount_msat(cursor, len);
+		min = &min_val;
+	}
+	if (fromwire_bool(cursor, len)) {
+		max_val = fromwire_amount_msat(cursor, len);
+		max = &max_val;
+	}
+	if (*cursor)
+		layer_add_constraint(layer, &scidd, timestamp, min, max);
+}
+
+static void towire_save_channel_bias(u8 **data, const struct bias *bias)
+{
+	towire_u16(data, DSTORE_CHANNEL_BIAS);
+	towire_short_channel_id_dir(data, &bias->scidd);
+	towire_s8(data, bias->bias);
+	towire_wirestring(data, bias->description);
+}
+
+static void save_channel_bias(struct layer *layer, const struct bias *bias)
+{
+	u8 *data;
+
+	if (!layer->persistent)
+		return;
+
+	data = tal_arr(tmpctx, u8, 0);
+	towire_save_channel_bias(&data, bias);
+	append_layer_datastore(layer, data);
+}
+
+static void load_channel_bias(struct plugin *plugin,
+			      struct layer *layer,
+			      const u8 **cursor,
+			      size_t *len)
+{
+	struct short_channel_id_dir scidd;
+	char *description;
+	s8 bias_factor;
+
+	fromwire_short_channel_id_dir(cursor, len, &scidd);
+	bias_factor = fromwire_s8(cursor, len);
+	description = fromwire_wirestring(tmpctx, cursor, len);
+
+	if (*cursor)
+		layer_set_bias(layer, &scidd, take(description), bias_factor);
+}
+
+static void towire_save_disabled_node(u8 **data, const struct node_id *node)
+{
+	towire_u16(data, DSTORE_DISABLED_NODE);
+	towire_node_id(data, node);
+}
+
+static void save_disabled_node(struct layer *layer, const struct node_id *node)
+{
+	u8 *data;
+
+	if (!layer->persistent)
+		return;
+	data = tal_arr(tmpctx, u8, 0);
+	towire_save_disabled_node(&data, node);
+	append_layer_datastore(layer, data);
+}
+
+static void load_disabled_node(struct plugin *plugin,
+			       struct layer *layer,
+			       const u8 **cursor,
+			       size_t *len)
+{
+	struct node_id node;
+
+	fromwire_node_id(cursor, len, &node);
+	if (*cursor)
+		layer_add_disabled_node(layer, &node);
+}
+
+static void save_complete_layer(struct layer *layer)
+{
+	struct local_channel_hash_iter lcit;
+	const struct local_channel *lc;
+	const struct local_update *lu;
+	struct local_update_hash_iter luit;
+	struct constraint_hash_iter conit;
+	const struct constraint *c;
+	struct bias_hash_iter biasit;
+	const struct bias *b;
+	struct out_req *req;
+	u8 *data;
+
+	if (!layer->persistent)
+		return;
+
+	data = tal_arr(tmpctx, u8, 0);
+	for (size_t i = 0; i < tal_count(layer->disabled_nodes); i++)
+		towire_save_disabled_node(&data, &layer->disabled_nodes[i]);
+
+	for (lc = local_channel_hash_first(layer->local_channels, &lcit);
+	     lc;
+	     lc = local_channel_hash_next(layer->local_channels, &lcit)) {
+		towire_save_channel(&data, lc);
+	}
+	for (lu = local_update_hash_first(layer->local_updates, &luit);
+	     lu;
+	     lu = local_update_hash_next(layer->local_updates, &luit)) {
+		towire_save_channel_update(&data, lu);
+	}
+	for (c = constraint_hash_first(layer->constraints, &conit);
+	     c;
+	     c = constraint_hash_next(layer->constraints, &conit)) {
+		/* Don't save ones we generated internally */
+		if (c->timestamp == UINT64_MAX)
+			continue;
+		towire_save_channel_constraint(&data, c);
+	}
+	for (b = bias_hash_first(layer->biases, &biasit);
+	     b;
+	     b = bias_hash_next(layer->biases, &biasit)) {
+		towire_save_channel_bias(&data, b);
+	}
+
+	/* Wholesale replacement */
+	req = jsonrpc_request_start(layer->askrene->layer_cmd,
+				    "datastore",
+				    ignore_result,
+				    plugin_broken_cb,
+				    NULL);
+	json_add_layer_key(req->js, "key", layer);
+	json_add_hex_talarr(req->js, "hex", data);
+	json_add_string(req->js, "mode", "create-or-replace");
+	send_outreq(req);
+}
+
+void save_new_layer(struct layer *layer)
+{
+	return save_complete_layer(layer);
+}
+
+static void populate_layer(struct askrene *askrene,
+			   const char *layername TAKES,
+			   const u8 *data)
+{
+	struct layer *layer = new_layer(askrene, layername, true);
+	size_t len = tal_bytelen(data);
+
+	plugin_log(askrene->plugin, LOG_DBG,
+		   "Loaded level %s (%zu bytes)",
+		   layer->name, len);
+
+	while (len != 0) {
+		enum dstore_layer_type type;
+		type = fromwire_u16(&data, &len);
+
+		switch (type) {
+		case DSTORE_CHANNEL:
+			load_channel(askrene->plugin, layer, &data, &len);
+			continue;
+		case DSTORE_CHANNEL_UPDATE:
+			load_channel_update(askrene->plugin, layer, &data, &len);
+			continue;
+		case DSTORE_CHANNEL_CONSTRAINT:
+			load_channel_constraint(askrene->plugin, layer, &data, &len);
+			continue;
+		case DSTORE_CHANNEL_BIAS:
+			load_channel_bias(askrene->plugin, layer, &data, &len);
+			continue;
+		case DSTORE_DISABLED_NODE:
+			load_disabled_node(askrene->plugin, layer, &data, &len);
+			continue;
+		}
+		plugin_err(askrene->plugin, "Invalid type %i in datastore: layer %s %s",
+			   type, layer->name, tal_hexstr(tmpctx, data, len));
+	}
+	if (!data)
+		plugin_log(askrene->plugin, LOG_BROKEN,
+			   "%s: invalid data in datastore",
+			   layer->name);
+}
+
+static struct command_result *listdatastore_done(struct command *aux_cmd,
+						 const char *method,
+						 const char *buf,
+						 const jsmntok_t *result,
+						 struct askrene *askrene)
+{
+	const jsmntok_t *datastore, *t, *key, *data;
+	size_t i;
+
+	plugin_log(aux_cmd->plugin, LOG_DBG, "datastore = %.*s",
+		   json_tok_full_len(result),
+		   json_tok_full(buf, result));
+	datastore = json_get_member(buf, result, "datastore");
+	json_for_each_arr(i, t, datastore) {
+		const char *layername;
+
+		/* Key is an array, first two elements are askrene, layers */
+		key = json_get_member(buf, t, "key") + 3;
+		data = json_get_member(buf, t, "hex");
+		/* In case someone creates a subdir? */
+		if (!data)
+			continue;
+		layername = json_strdup(NULL, buf, key);
+		populate_layer(askrene,
+			       take(layername),
+			       json_tok_bin_from_hex(tmpctx, buf, data));
+	}
+	return command_still_pending(aux_cmd);
+}
+
+void load_layers(struct askrene *askrene)
+{
+	struct out_req *req = jsonrpc_request_start(askrene->layer_cmd,
+						    "listdatastore",
+						    listdatastore_done,
+						    plugin_broken_cb,
+						    askrene);
+	json_array_start(req->js, "key");
+	json_add_string(req->js, NULL, "askrene");
+	json_add_string(req->js, NULL, "layers");
+	json_array_end(req->js);
+	send_outreq(req);
+}
+
+void remove_layer(struct layer *l)
+{
+	save_remove(l);
+	tal_free(l);
+}
+
+struct layer *new_layer(struct askrene *askrene, const char *name TAKES, bool persistent)
+{
+	struct layer *l = new_temp_layer(askrene, askrene, name);
+	l->persistent = persistent;
 	list_add(&askrene->layers, &l->list);
 	tal_add_destructor2(l, destroy_layer, askrene);
 	return l;
@@ -200,6 +678,7 @@ static struct local_channel *new_local_channel(struct layer *layer,
 	lc->capacity = capacity;
 
 	local_channel_hash_add(layer->local_channels, lc);
+	save_channel(layer, lc);
 	return lc;
 }
 
@@ -258,6 +737,7 @@ void layer_add_update_channel(struct layer *layer,
 		tal_free(lu->delay);
 		lu->delay = tal_dup(lu, u16, delay);
 	}
+	save_channel_update(layer, lu);
 }
 
 const struct bias *layer_set_bias(struct layer *layer,
@@ -278,6 +758,8 @@ const struct bias *layer_set_bias(struct layer *layer,
 
 	bias->bias = bias_factor;
 	bias->description = tal_strdup_or_null(bias, description);
+
+	save_channel_bias(layer, bias);
 
 	/* Don't bother keeping around zero biases */
 	if (bias_factor == 0) {
@@ -355,6 +837,7 @@ const struct constraint *layer_add_constraint(struct layer *layer,
 	c->timestamp = timestamp;
 
 	constraint_hash_add(layer->constraints, c);
+	save_channel_constraint(layer, c);
 	return c;
 }
 
@@ -393,12 +876,15 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 			num_removed++;
 		}
 	}
+
+	save_complete_layer(layer);
 	return num_removed;
 }
 
 void layer_add_disabled_node(struct layer *layer, const struct node_id *node)
 {
 	tal_arr_expand(&layer->disabled_nodes, *node);
+	save_disabled_node(layer, node);
 }
 
 void layer_add_localmods(const struct layer *layer,
@@ -542,6 +1028,7 @@ static void json_add_layer(struct json_stream *js,
 
 	json_object_start(js, fieldname);
 	json_add_string(js, "layer", layer->name);
+	json_add_bool(js, "persistent", layer->persistent);
 	json_array_start(js, "disabled_nodes");
 	for (size_t i = 0; i < tal_count(layer->disabled_nodes); i++)
 		json_add_node_id(js, NULL, &layer->disabled_nodes[i]);
