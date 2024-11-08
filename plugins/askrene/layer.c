@@ -38,6 +38,13 @@ struct constraint {
 	struct amount_msat max;
 };
 
+/* A bias, for special-effects (user-controlled) */
+struct bias {
+	struct short_channel_id_dir scidd;
+	const char *description;
+	s8 bias;
+};
+
 static const struct short_channel_id_dir *
 constraint_scidd(const struct constraint *c)
 {
@@ -89,6 +96,21 @@ static inline bool local_update_eq_scidd(const struct local_update *lu,
 HTABLE_DEFINE_TYPE(struct local_update, local_update_scidd, hash_scidd,
 		   local_update_eq_scidd, local_update_hash);
 
+static const struct short_channel_id_dir *
+bias_scidd(const struct bias *bias)
+{
+	return &bias->scidd;
+}
+
+static bool bias_eq_scidd(const struct bias *bias,
+			  const struct short_channel_id_dir *scidd)
+{
+	return short_channel_id_dir_eq(scidd, &bias->scidd);
+}
+
+HTABLE_DEFINE_TYPE(struct bias, bias_scidd, hash_scidd,
+		   bias_eq_scidd, bias_hash);
+
 struct layer {
 	/* Inside global list of layers */
 	struct list_node list;
@@ -105,6 +127,9 @@ struct layer {
 	/* Additional info, indexed by scid+dir */
 	struct constraint_hash *constraints;
 
+	/* Bias, indexed by scid+dir */
+	struct bias_hash *biases;
+
 	/* Nodes to completely disable (tal_arr) */
 	struct node_id *disabled_nodes;
 };
@@ -120,6 +145,8 @@ struct layer *new_temp_layer(const tal_t *ctx, const char *name)
 	local_update_hash_init(l->local_updates);
 	l->constraints = tal(l, struct constraint_hash);
 	constraint_hash_init(l->constraints);
+	l->biases = tal(l, struct bias_hash);
+	bias_hash_init(l->biases);
 	l->disabled_nodes = tal_arr(l, struct node_id, 0);
 
 	return l;
@@ -230,6 +257,53 @@ void layer_add_update_channel(struct layer *layer,
 	if (delay) {
 		tal_free(lu->delay);
 		lu->delay = tal_dup(lu, u16, delay);
+	}
+}
+
+const struct bias *layer_set_bias(struct layer *layer,
+				  const struct short_channel_id_dir *scidd,
+				  const char *description TAKES,
+				  s8 bias_factor)
+{
+	struct bias *bias;
+
+	bias = bias_hash_get(layer->biases, scidd);
+	if (!bias) {
+		bias = tal(layer, struct bias);
+		bias->scidd = *scidd;
+		bias_hash_add(layer->biases, bias);
+	} else {
+		tal_free(bias->description);
+	}
+
+	bias->bias = bias_factor;
+	bias->description = tal_strdup_or_null(bias, description);
+
+	/* Don't bother keeping around zero biases */
+	if (bias_factor == 0) {
+		bias_hash_del(layer->biases, bias);
+		bias = tal_free(bias);
+	}
+	return bias;
+}
+
+void layer_apply_biases(const struct layer *layer,
+			const struct gossmap *gossmap,
+			s8 *biases)
+{
+	struct bias *bias;
+	struct bias_hash_iter it;
+
+	for (bias = bias_hash_first(layer->biases, &it);
+	     bias;
+	     bias = bias_hash_next(layer->biases, &it)) {
+		struct gossmap_chan *c;
+
+		c = gossmap_find_chan(gossmap, &bias->scidd.scid);
+		if (!c)
+			continue;
+		biases[(gossmap_chan_idx(gossmap, c) << 1) | bias->scidd.dir]
+			= bias->bias;
 	}
 }
 
@@ -438,6 +512,21 @@ void json_add_constraint(struct json_stream *js,
 	json_object_end(js);
 }
 
+void json_add_bias(struct json_stream *js,
+		   const char *fieldname,
+		   const struct bias *b,
+		   const struct layer *layer)
+{
+	json_object_start(js, fieldname);
+	if (layer)
+		json_add_string(js, "layer", layer->name);
+	json_add_short_channel_id_dir(js, "short_channel_id_dir", b->scidd);
+	if (b->description)
+		json_add_string(js, "description", b->description);
+	json_add_s64(js, "bias", b->bias);
+	json_object_end(js);
+}
+
 static void json_add_layer(struct json_stream *js,
 			   const char *fieldname,
 			   const struct layer *layer)
@@ -448,6 +537,8 @@ static void json_add_layer(struct json_stream *js,
 	struct local_update_hash_iter luit;
 	struct constraint_hash_iter conit;
 	const struct constraint *c;
+	struct bias_hash_iter biasit;
+	const struct bias *b;
 
 	json_object_start(js, fieldname);
 	json_add_string(js, "layer", layer->name);
@@ -477,6 +568,13 @@ static void json_add_layer(struct json_stream *js,
 		if (c->timestamp == UINT64_MAX)
 			continue;
 		json_add_constraint(js, NULL, c, NULL);
+	}
+	json_array_end(js);
+	json_array_start(js, "biases");
+	for (b = bias_hash_first(layer->biases, &biasit);
+	     b;
+	     b = bias_hash_next(layer->biases, &biasit)) {
+		json_add_bias(js, NULL, b, NULL);
 	}
 	json_array_end(js);
 	json_object_end(js);
@@ -530,5 +628,6 @@ void layer_memleak_mark(struct askrene *askrene, struct htable *memtable)
 		memleak_scan_htable(memtable, &l->constraints->raw);
 		memleak_scan_htable(memtable, &l->local_channels->raw);
 		memleak_scan_htable(memtable, &l->local_updates->raw);
+		memleak_scan_htable(memtable, &l->biases->raw);
 	}
 }

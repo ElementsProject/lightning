@@ -53,6 +53,9 @@ struct route_query {
 	/* Cache of channel capacities for non-reserved, unknown channels. */
 	fp16_t *capacities;
 
+	/* Compact cache of biases */
+	s8 *biases;
+
 	/* Additional per-htlc cost for local channels */
 	const struct additional_cost_htable *additional_costs;
 };

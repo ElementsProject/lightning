@@ -532,11 +532,13 @@ static void combine_cost_function(
 		const tal_t *working_ctx,
 		const struct linear_network* linear_network,
 		struct residual_network *residual_network,
+		const s8 *biases,
 		s64 mu)
 {
 	/* probabilty and fee costs are not directly comparable!
 	 * Scale by ratio of (positive) medians. */
 	const double k = get_median_ratio(working_ctx, linear_network);
+	const double ln_30 = log(30);
 
 	for(struct arc arc = {0};arc.idx < linear_network->max_num_arcs; ++arc.idx)
 	{
@@ -545,10 +547,29 @@ static void combine_cost_function(
 
 		const double pcost = linear_network->arc_prob_cost[arc.idx];
 		const s64 fcost = linear_network->arc_fee_cost[arc.idx];
+		double combined;
+		u32 chanidx;
+		int chandir;
+		s32 bias;
 
 		assert(fcost != INFINITE);
 		assert(pcost != DBL_MAX);
-		residual_network->cost[arc.idx] = fcost*mu + (MU_MAX-mu)*pcost*k;
+		combined = fcost*mu + (MU_MAX-mu)*pcost*k;
+
+		/* Bias is in human scale, where "bigger is better" */
+		arc_to_parts(arc, &chanidx, &chandir, NULL, NULL);
+		bias = biases[(chanidx << 1) | chandir];
+		if (bias != 0) {
+			/* After some trial and error, this gives a nice
+			 * dynamic range (25 seems to be "infinite" in
+			 * practice):
+			 *    e^(-bias / (100/ln(30)))
+			 */
+			double bias_factor = exp(-bias / (100 / ln_30));
+			residual_network->cost[arc.idx] = combined * bias_factor;
+		} else {
+			residual_network->cost[arc.idx] = combined;
+		}
 	}
 }
 
@@ -1393,7 +1414,8 @@ struct flow **minflow(const tal_t *ctx,
 		tal_free(working_ctx);
 		return NULL;
 	}
-	combine_cost_function(working_ctx, linear_network, residual_network, mu);
+	combine_cost_function(working_ctx, linear_network, residual_network,
+			      rq->biases, mu);
 
 	/* We solve a linear MCF problem. */
 	if(!optimize_mcf(working_ctx, dijkstra,linear_network,residual_network,

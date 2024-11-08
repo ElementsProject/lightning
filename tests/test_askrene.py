@@ -130,7 +130,8 @@ def test_layers(node_factory):
               'disabled_nodes': [],
               'created_channels': [],
               'channel_updates': [],
-              'constraints': []}
+              'constraints': [],
+              'biases': []}
     l2.rpc.askrene_create_layer('test_layers')
     l2.rpc.askrene_disable_node('test_layers', l1.info['id'])
     expect['disabled_nodes'].append(l1.info['id'])
@@ -253,6 +254,30 @@ def test_layers(node_factory):
 
     with pytest.raises(RpcError, match="Unknown layer"):
         l2.rpc.askrene_remove_layer('test_layers_unknown')
+
+    # Add biases.
+    l2.rpc.askrene_bias_channel('test_layers', '1x1x1/1', 1)
+    expect['biases'] = [{'short_channel_id_dir': '1x1x1/1', 'bias': 1}]
+    listlayers = l2.rpc.askrene_listlayers('test_layers')
+    assert listlayers == {'layers': [expect]}
+
+    # Works with description.
+    l2.rpc.askrene_bias_channel('test_layers', '1x1x1/1', -5, "bigger bias")
+    expect['biases'] = [{'short_channel_id_dir': '1x1x1/1', 'bias': -5, 'description': "bigger bias"}]
+    listlayers = l2.rpc.askrene_listlayers('test_layers')
+    assert listlayers == {'layers': [expect]}
+
+    with pytest.raises(RpcError, match="bias: should be a number between -100 and 100"):
+        l2.rpc.askrene_bias_channel('test_layers', '1x1x1/1', -101)
+
+    with pytest.raises(RpcError, match="bias: should be a number between -100 and 100"):
+        l2.rpc.askrene_bias_channel('test_layers', '1x1x1/1', 101, "bigger bias")
+
+    # We can remove them.
+    l2.rpc.askrene_bias_channel('test_layers', '1x1x1/1', 0)
+    expect['biases'] = []
+    listlayers = l2.rpc.askrene_listlayers('test_layers')
+    assert listlayers == {'layers': [expect]}
 
     assert l2.rpc.askrene_remove_layer('test_layers') == {}
     assert l2.rpc.askrene_listlayers() == {'layers': []}
@@ -995,6 +1020,114 @@ def test_real_data(node_factory, bitcoind):
             best = n
 
     assert (len(fees[best]), len(improved), total_first_fee, total_final_fee, percent_fee_reduction) == (8, 95, 6007785, 564997, 91)
+
+
+@pytest.mark.slow_test
+def test_real_biases(node_factory, bitcoind):
+    # Route from Rusty's node to the top 100.
+    # From tests/data/gossip-store-2024-09-22-node-map.xz:
+    # Me: 3301:024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605:BLUEIRON
+    # So we make l2 node 3301.
+    outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
+    nodeids = subprocess.check_output(['devtools/gossmap-compress',
+                                       'decompress',
+                                       '--node-map=3301=022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
+                                       'tests/data/gossip-store-2024-09-22.compressed',
+                                       outfile.name]).decode('utf-8').splitlines()
+
+    # This is in msat, but is also the size of channel we create.
+    AMOUNT = 100000000
+
+    # l2 complains being given bad gossip from l1, throttle to reduce
+    # the sheer amount of log noise.
+    l1, l2 = node_factory.line_graph(2, fundamount=AMOUNT,
+                                     opts=[{'gossip_store_file': outfile.name,
+                                            'allow_warning': True,
+                                            'dev-throttle-gossip': None},
+                                           {'allow_warning': True}])
+
+    # These were obviously having a bad day at the time of the snapshot:
+    badnodes = {
+        # 62:03dbe3fedd4f6e7f7020c69e6d01453d5a69f9faa1382901cf3028f1e997ef2814:BTC_👽👽👽👽👽👽
+        62: " marked disabled by gossip message",
+        # This one has 151 channels, with peers each only connected to it.  An island!
+        # 76:0298906458987af756e2a43b208c03499c4d2bde630d4868dda0ea6a184f87c62a:0298906458987af756e2
+        76: "There is no connection between source and destination at all",
+        # 80:02d246c519845e7b23b02684d64ca23b750958e0307f9519849ee2535e3637999a:SLIMYRAGE-
+        80: " marked disabled by gossip message",
+        # 97:034a5fdb2df3ce1bfd2c2aca205ce9cfeef1a5f4af21b0b5e81c453080c30d7683:🚶LightningTransact
+        97: r"We could not find a usable set of paths\.  The shortest path is 103x1x0->0x3301x1646->0x1281x2323->97x1281x33241, but 97x1281x33241/1 isn't big enough to carry 100000000msat\.",
+    }
+
+    l1.rpc.askrene_create_layer('biases')
+    num_changed = {}
+    bias_ineffective = 0
+
+    for bias in (1, 2, 4, 8, 16, 32, 64, 100):
+        num_changed[bias] = 0
+        for n in range(0, 100):
+            # 0.5% is the norm
+            MAX_FEE = AMOUNT // 200
+
+            if n in badnodes:
+                continue
+
+            route = l1.rpc.getroutes(source=l1.info['id'],
+                                     destination=nodeids[n],
+                                     amount_msat=AMOUNT,
+                                     layers=['auto.sourcefree', 'auto.localchans'],
+                                     maxfee_msat=MAX_FEE,
+                                     final_cltv=18)
+
+            # Now add bias against final channel, see if it changes.
+            chan = route['routes'][0]['path'][-1]['short_channel_id_dir']
+
+            def amount_through_chan(chan, routes):
+                total = 0
+                for r in routes:
+                    for p in r['path']:
+                        if p['short_channel_id_dir'] == chan:
+                            total += p['amount_msat']
+                return total
+            amount_before = amount_through_chan(chan, route['routes'])
+
+            l1.rpc.askrene_bias_channel('biases', chan, -bias)
+            route2 = l1.rpc.getroutes(source=l1.info['id'],
+                                      destination=nodeids[n],
+                                      amount_msat=AMOUNT,
+                                      layers=['auto.sourcefree', 'auto.localchans', 'biases'],
+                                      maxfee_msat=MAX_FEE,
+                                      final_cltv=18)
+            if route2 != route:
+                # It should have avoided biassed channel
+                amount_after = amount_through_chan(chan, route2['routes'])
+                assert amount_after < amount_before
+                num_changed[bias] += 1
+
+            # Undo bias
+            l1.rpc.askrene_bias_channel(layer='biases', short_channel_id_dir=chan, bias=0)
+
+            # If it didn't change, try eliminating channel.
+            if route2 == route and bias == 100:
+                l1.rpc.askrene_update_channel(layer='biases',
+                                              short_channel_id_dir=chan,
+                                              enabled=False)
+                try:
+                    l1.rpc.getroutes(source=l1.info['id'],
+                                     destination=nodeids[n],
+                                     amount_msat=AMOUNT,
+                                     layers=['auto.sourcefree', 'auto.localchans', 'biases'],
+                                     maxfee_msat=MAX_FEE,
+                                     final_cltv=18)
+                    bias_ineffective += 1
+                except RpcError:
+                    pass
+                l1.rpc.askrene_update_channel(layer='biases',
+                                              short_channel_id_dir=chan,
+                                              enabled=True)
+
+    # With e^(-bias / (100/ln(30))):
+    assert (num_changed, bias_ineffective) == ({1: 19, 2: 25, 4: 36, 8: 51, 16: 66, 32: 81, 64: 96, 100: 96}, 0)
 
 
 @pytest.mark.slow_test

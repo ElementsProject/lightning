@@ -1,0 +1,104 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "rpc": "askrene-bias-channel",
+  "title": "Command to apply a manual bias to a channel in a layer (EXPERIMENTAL)",
+  "description": [
+    "WARNING: experimental, so API may change.",
+    "",
+    "The **askrene-bias-channel** RPC command tells askrene to favor or disfavor a channel when considering it for routing."
+  ],
+  "request": {
+    "required": [
+      "layer",
+      "short_channel_id_dir",
+      "bias"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "layer": {
+        "type": "string",
+        "description": [
+          "The name of the layer to apply this bias to."
+        ]
+      },
+      "short_channel_id_dir": {
+        "type": "short_channel_id_dir",
+        "description": [
+          "The short channel id and direction to apply this bias to."
+        ]
+      },
+      "bias": {
+        "type": "integer",
+        "description": [
+          "The bias, positive being good and negative being bad (0 being no bias).  Useful values are +/-1 through +/-10, though -100 through +100 are possible values."
+        ]
+      },
+      "description": {
+        "type": "string",
+        "description": [
+          "Description/annotation to display in askrene-listlayers(7)"
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "biases"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "biases": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "layer",
+            "short_channel_id_dir",
+            "bias"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "layer": {
+              "type": "string",
+              "description": [
+                "The name of the layer this bias applies to."
+              ]
+            },
+            "short_channel_id_dir": {
+              "type": "short_channel_id_dir",
+              "description": [
+                "The short channel id and direction"
+              ]
+            },
+            "bias": {
+              "type": "integer",
+              "description": [
+                "The bias (-100 to +100)"
+              ]
+            },
+            "description": {
+              "type": "string",
+              "description": [
+                "The bias (-100 to +100)"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "see_also": [
+    "lightning-getroutes(7)",
+    "lightning-askrene-disable-node(7)",
+    "lightning-askrene-create-channel(7)",
+    "lightning-askrene-listlayers(7)",
+    "lightning-askrene-age(7)"
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

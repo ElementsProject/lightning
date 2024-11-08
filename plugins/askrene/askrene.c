@@ -16,6 +16,7 @@
 #include <common/json_stream.h>
 #include <common/route.h>
 #include <errno.h>
+#include <math.h>
 #include <plugins/askrene/askrene.h>
 #include <plugins/askrene/explain_failure.h>
 #include <plugins/askrene/flow.h>
@@ -380,6 +381,13 @@ static const char *get_routes(const tal_t *ctx,
 	reserves_clear_capacities(askrene->reserved, askrene->gossmap, rq->capacities);
 
 	gossmap_apply_localmods(askrene->gossmap, localmods);
+
+	/* localmods can add channels, so we need to allocate biases array *afterwards* */
+	rq->biases = tal_arrz(rq, s8, gossmap_max_chan_idx(askrene->gossmap) * 2);
+
+	/* Note any channel biases */
+	for (size_t i = 0; i < tal_count(rq->layers); i++)
+		layer_apply_biases(rq->layers[i], askrene->gossmap, rq->biases);
 
 	srcnode = gossmap_find_node(askrene->gossmap, source);
 	if (!srcnode) {
@@ -982,6 +990,52 @@ output:
 	return command_finished(cmd, response);
 }
 
+static struct command_result *param_s8_hundred(struct command *cmd,
+					       const char *name,
+					       const char *buffer,
+					       const jsmntok_t *tok,
+					       s8 **v)
+{
+	s64 s64val;
+
+	if (!json_to_s64(buffer, tok, &s64val)
+	    || s64val < -100
+	    || s64val > 100)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should be a number between -100 and 100");
+	*v = tal(cmd, s8);
+	**v = s64val;
+	return NULL;
+}
+
+static struct command_result *json_askrene_bias_channel(struct command *cmd,
+							const char *buffer,
+							const jsmntok_t *params)
+{
+	struct layer *layer;
+	struct short_channel_id_dir *scidd;
+	struct json_stream *response;
+	const char *description;
+	s8 *bias;
+	const struct bias *b;
+
+	if (!param(cmd, buffer, params,
+		   p_req("layer", param_known_layer, &layer),
+		   p_req("short_channel_id_dir", param_short_channel_id_dir, &scidd),
+		   p_req("bias", param_s8_hundred, &bias),
+		   p_opt("description", param_string, &description),
+		   NULL))
+		return command_param_failed();
+
+	b = layer_set_bias(layer, scidd, description, *bias);
+	response = jsonrpc_stream_success(cmd);
+	json_array_start(response, "biases");
+	if (b)
+		json_add_bias(response, NULL, b, layer);
+	json_array_end(response);
+	return command_finished(cmd, response);
+}
+
 static struct command_result *json_askrene_disable_node(struct command *cmd,
 							const char *buffer,
 							const jsmntok_t *params)
@@ -1127,6 +1181,10 @@ static const struct plugin_command commands[] = {
 	{
 		"askrene-inform-channel",
 		json_askrene_inform_channel,
+	},
+	{
+		"askrene-bias-channel",
+		json_askrene_bias_channel,
 	},
 	{
 		"askrene-create-layer",
