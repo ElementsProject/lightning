@@ -2,10 +2,9 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "rpc": "askrene-inform-channel",
-  "title": "Command to add channel capacity restrictions to layer (EXPERIMENTAL)",
+  "title": "Command to add channel capacity restrictions to layer",
+  "added": "v24.11",
   "description": [
-    "WARNING: experimental, so API may change.",
-    "",
     "The **askrene-inform-channel** RPC command tells askrene about channels we used so it can update its capacity estimates.  For most accuracy, you should remove your own reservations before calling this.  It can be applied whether the current channel exists or not."
   ],
   "request": {

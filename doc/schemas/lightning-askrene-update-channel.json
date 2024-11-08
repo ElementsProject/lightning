@@ -2,10 +2,9 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "rpc": "askrene-update-channel",
-  "title": "Command to manipulate channel in a layer (EXPERIMENTAL)",
+  "title": "Command to manipulate channel in a layer",
+  "added": "v24.11",
   "description": [
-    "WARNING: experimental, so API may change.",
-    "",
     "The **askrene-update-channel** RPC command overrides updates for an existing channel when the layer is applied."
   ],
   "request": {

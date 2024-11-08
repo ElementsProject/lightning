@@ -2,10 +2,9 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "rpc": "askrene-age",
-  "title": "Command for expiring information in a layer (EXPERIMENTAL)",
+  "title": "Command for expiring information in a layer",
+  "added": "v24.11",
   "description": [
-    "WARNING: experimental, so API may change.",
-    "",
     "The **askrene-age** RPC command tells askrene that information added to a layer by *askrene-inform-channel* beyond a certain age is less useful.  It currently completely forgets constraints older than *cutoff*."
   ],
   "request": {

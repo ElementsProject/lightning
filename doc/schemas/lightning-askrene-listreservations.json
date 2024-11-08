@@ -2,10 +2,9 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "rpc": "askrene-listreservations",
-  "title": "Command to display information about reservations (EXPERIMENTAL)",
+  "title": "Command to display information about reservations",
+  "added": "v24.11",
   "description": [
-    "WARNING: experimental, so API may change.",
-    "",
     "The **askrene-reservations** RPC command reports outstanding reservations made with `askrene-reserve`, mainly for debugging."
   ],
   "request": {

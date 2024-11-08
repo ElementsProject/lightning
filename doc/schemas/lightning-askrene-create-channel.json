@@ -2,10 +2,9 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "rpc": "askrene-create-channel",
-  "title": "Command to add a channel to layer (EXPERIMENTAL)",
+  "title": "Command to add a channel to layer",
+  "added": "v24.11",
   "description": [
-    "WARNING: experimental, so API may change.",
-    "",
     "The **askrene-create-channel** RPC command tells askrene create a channel in the given layer.  To actually populate the channel use *askrene-update-channel* in each direction."
   ],
   "request": {
