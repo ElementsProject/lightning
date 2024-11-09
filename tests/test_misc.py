@@ -4325,3 +4325,84 @@ def test_badparam_discretion(node_factory):
         l1.rpc.check('checkrune', rune='THIS IS NOT ACTUALLY A RUNE')
 
     assert err.value.error['message'] == "rune: should be base64 string: invalid token '\"THIS IS NOT ACTUALLY A RUNE\"'"
+
+
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "P2TR not yet supported on Elements")
+def test_listaddresses(node_factory):
+    """Test listaddresses command."""
+    l1 = node_factory.get_node()
+    addr = []
+    for i in range(10):
+        if i % 3 == 0:
+            addr.append(l1.rpc.newaddr('all')['p2tr'])
+        elif i % 3 == 1:
+            addr.append(l1.rpc.newaddr('p2tr')['p2tr'])
+        else:
+            addr.append(l1.rpc.newaddr('bech32')['bech32'])
+
+    # Default start and limit (all)
+    addresses = l1.rpc.listaddresses()["addresses"]
+    assert len(addresses) == 10
+    assert addresses[0]['keyidx'] == 1
+    assert addresses[-1]['keyidx'] == 10
+
+    # Default limit (till end)
+    addresses = l1.rpc.listaddresses(start=5)["addresses"]
+    assert len(addresses) == 6
+    assert addresses[0]['keyidx'] == 5
+    assert addresses[-1]['keyidx'] == 10
+
+    # Default start
+    addresses = l1.rpc.listaddresses(limit=5)["addresses"]
+    assert len(addresses) == 5
+    assert addresses[0]['keyidx'] == 1
+    assert addresses[-1]['keyidx'] == 5
+
+    # Start and limit
+    addresses = l1.rpc.listaddresses(start=5, limit=2)["addresses"]
+    assert len(addresses) == 2
+    assert addresses[0]['keyidx'] == 5
+    assert addresses[-1]['keyidx'] == 6
+
+    # Invalid Address
+    with pytest.raises(RpcError, match='Could not parse destination address, address should be a valid address') as err:
+        l1.rpc.listaddresses(address="bcrt1q3p9jh7x0907wc0")
+
+    assert err.value.error['code'] == -1
+    assert err.value.error['message'] == "Could not parse destination address, address should be a valid address"
+
+    # Address search, default start=0, default limit is length of the list
+    addresses = l1.rpc.listaddresses(address=addr[7])["addresses"]
+    assert len(addresses) == 1
+    assert addresses[0]['keyidx'] == 8
+
+    # Address is between start and limit indices
+    addresses = l1.rpc.listaddresses(address=addr[4], start=2, limit=4)["addresses"]
+    assert len(addresses) == 1
+    assert addresses[0]['keyidx'] == 5
+
+    # Address is not between start and limit indices
+    addresses = l1.rpc.listaddresses(address=addr[9], start=5, limit=4)["addresses"]
+    assert len(addresses) == 0
+
+    # Not our Address
+    addresses = l1.rpc.listaddresses(address="bcrt1q3p9jh7x0mnx8tmx5meapksvcxytlxgwz907wc0")["addresses"]
+    assert len(addresses) == 0
+
+    # Check all fields are present in the response
+    addresses = l1.rpc.listaddresses(address=addr[0])["addresses"]
+    assert addresses[0]['keyidx'] == 1
+    assert addresses[0]['bech32'] == 'bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf'
+    assert addresses[0]['p2tr'] == 'bcrt1pjaazqg6qgqpv2wxgdpg8hyj49wehrfgajqe2tyuzhcp7p50hachq7tkdxf'
+
+    # start > 10 (issued addresses till now)
+    addresses = l1.rpc.listaddresses(start=11, limit=2)["addresses"]
+    assert len(addresses) == 0
+
+    # limit > bip32_max_index (10)
+    addresses = l1.rpc.listaddresses(start=8, limit=15)["addresses"]
+    assert len(addresses) == 3
+
+    # start and limit from future
+    addresses = l1.rpc.listaddresses(start=21, limit=5)["addresses"]
+    assert len(addresses) == 0
