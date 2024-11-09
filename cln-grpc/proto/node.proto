@@ -28,6 +28,8 @@ service Node {
 	rpc DelInvoice(DelinvoiceRequest) returns (DelinvoiceResponse) {}
 	rpc DevForgetChannel(DevforgetchannelRequest) returns (DevforgetchannelResponse) {}
 	rpc EmergencyRecover(EmergencyrecoverRequest) returns (EmergencyrecoverResponse) {}
+	rpc GetEmergencyRecoverData(GetemergencyrecoverdataRequest) returns (GetemergencyrecoverdataResponse) {}
+	rpc ExposeSecret(ExposesecretRequest) returns (ExposesecretResponse) {}
 	rpc Recover(RecoverRequest) returns (RecoverResponse) {}
 	rpc RecoverChannel(RecoverchannelRequest) returns (RecoverchannelResponse) {}
 	rpc Invoice(InvoiceRequest) returns (InvoiceResponse) {}
@@ -62,6 +64,7 @@ service Node {
 	rpc DelPay(DelpayRequest) returns (DelpayResponse) {}
 	rpc DelForward(DelforwardRequest) returns (DelforwardResponse) {}
 	rpc DisableOffer(DisableofferRequest) returns (DisableofferResponse) {}
+	rpc EnableOffer(EnableofferRequest) returns (EnableofferResponse) {}
 	rpc Disconnect(DisconnectRequest) returns (DisconnectResponse) {}
 	rpc Feerates(FeeratesRequest) returns (FeeratesResponse) {}
 	rpc FetchInvoice(FetchinvoiceRequest) returns (FetchinvoiceResponse) {}
@@ -72,6 +75,7 @@ service Node {
 	rpc GetLog(GetlogRequest) returns (GetlogResponse) {}
 	rpc FunderUpdate(FunderupdateRequest) returns (FunderupdateResponse) {}
 	rpc GetRoute(GetrouteRequest) returns (GetrouteResponse) {}
+	rpc ListAddresses(ListaddressesRequest) returns (ListaddressesResponse) {}
 	rpc ListForwards(ListforwardsRequest) returns (ListforwardsResponse) {}
 	rpc ListOffers(ListoffersRequest) returns (ListoffersResponse) {}
 	rpc ListPays(ListpaysRequest) returns (ListpaysResponse) {}
@@ -99,6 +103,7 @@ service Node {
 	rpc Splice_Init(Splice_initRequest) returns (Splice_initResponse) {}
 	rpc Splice_Signed(Splice_signedRequest) returns (Splice_signedResponse) {}
 	rpc Splice_Update(Splice_updateRequest) returns (Splice_updateResponse) {}
+	rpc DevSplice(DevspliceRequest) returns (DevspliceResponse) {}
 	rpc UnreserveInputs(UnreserveinputsRequest) returns (UnreserveinputsResponse) {}
 	rpc UpgradeWallet(UpgradewalletRequest) returns (UpgradewalletResponse) {}
 	rpc WaitBlockHeight(WaitblockheightRequest) returns (WaitblockheightResponse) {}
@@ -115,10 +120,27 @@ service Node {
 	rpc BkprListAccountEvents(BkprlistaccounteventsRequest) returns (BkprlistaccounteventsResponse) {}
 	rpc BkprListBalances(BkprlistbalancesRequest) returns (BkprlistbalancesResponse) {}
 	rpc BkprListIncome(BkprlistincomeRequest) returns (BkprlistincomeResponse) {}
+	rpc BkprEditDescriptionByPaymentId(BkpreditdescriptionbypaymentidRequest) returns (BkpreditdescriptionbypaymentidResponse) {}
+	rpc BkprEditDescriptionByOutpoint(BkpreditdescriptionbyoutpointRequest) returns (BkpreditdescriptionbyoutpointResponse) {}
 	rpc BlacklistRune(BlacklistruneRequest) returns (BlacklistruneResponse) {}
 	rpc CheckRune(CheckruneRequest) returns (CheckruneResponse) {}
 	rpc CreateRune(CreateruneRequest) returns (CreateruneResponse) {}
 	rpc ShowRunes(ShowrunesRequest) returns (ShowrunesResponse) {}
+	rpc AskReneUnreserve(AskreneunreserveRequest) returns (AskreneunreserveResponse) {}
+	rpc AskReneListLayers(AskrenelistlayersRequest) returns (AskrenelistlayersResponse) {}
+	rpc AskReneCreateLayer(AskrenecreatelayerRequest) returns (AskrenecreatelayerResponse) {}
+	rpc AskReneRemoveLayer(AskreneremovelayerRequest) returns (AskreneremovelayerResponse) {}
+	rpc AskReneReserve(AskrenereserveRequest) returns (AskrenereserveResponse) {}
+	rpc AskReneAge(AskreneageRequest) returns (AskreneageResponse) {}
+	rpc GetRoutes(GetroutesRequest) returns (GetroutesResponse) {}
+	rpc AskReneDisableNode(AskrenedisablenodeRequest) returns (AskrenedisablenodeResponse) {}
+	rpc AskReneInformChannel(AskreneinformchannelRequest) returns (AskreneinformchannelResponse) {}
+	rpc AskReneCreateChannel(AskrenecreatechannelRequest) returns (AskrenecreatechannelResponse) {}
+	rpc AskReneUpdateChannel(AskreneupdatechannelRequest) returns (AskreneupdatechannelResponse) {}
+	rpc AskReneBiasChannel(AskrenebiaschannelRequest) returns (AskrenebiaschannelResponse) {}
+	rpc AskReneListReservations(AskrenelistreservationsRequest) returns (AskrenelistreservationsResponse) {}
+	rpc InjectPaymentOnion(InjectpaymentonionRequest) returns (InjectpaymentonionResponse) {}
+	rpc Xpay(XpayRequest) returns (XpayResponse) {}
 
 	rpc SubscribeBlockAdded(StreamBlockAddedRequest) returns (stream BlockAddedNotification) {}
 	rpc SubscribeChannelOpenFailed(StreamChannelOpenFailedRequest) returns (stream ChannelOpenFailedNotification) {}
@@ -697,6 +719,23 @@ message EmergencyrecoverRequest {
 
 message EmergencyrecoverResponse {
 	repeated bytes stubs = 1;
+}
+
+message GetemergencyrecoverdataRequest {
+}
+
+message GetemergencyrecoverdataResponse {
+	bytes filedata = 1;
+}
+
+message ExposesecretRequest {
+	string passphrase = 1;
+	optional string identifier = 2;
+}
+
+message ExposesecretResponse {
+	string identifier = 1;
+	string codex32 = 2;
 }
 
 message RecoverRequest {
@@ -1803,6 +1842,19 @@ message DisableofferResponse {
 	optional string label = 6;
 }
 
+message EnableofferRequest {
+	bytes offer_id = 1;
+}
+
+message EnableofferResponse {
+	bytes offer_id = 1;
+	bool active = 2;
+	bool single_use = 3;
+	string bolt12 = 4;
+	bool used = 5;
+	optional string label = 6;
+}
+
 message DisconnectRequest {
 	bytes id = 1;
 	optional bool force = 2;
@@ -2103,6 +2155,22 @@ message GetrouteRoute {
 	Amount amount_msat = 4;
 	uint32 delay = 5;
 	GetrouteRouteStyle style = 6;
+}
+
+message ListaddressesRequest {
+	optional string address = 1;
+	optional uint64 start = 2;
+	optional uint32 limit = 3;
+}
+
+message ListaddressesResponse {
+	repeated ListaddressesAddresses addresses = 1;
+}
+
+message ListaddressesAddresses {
+	uint64 keyidx = 1;
+	optional string bech32 = 2;
+	optional string p2tr = 3;
 }
 
 message ListforwardsRequest {
@@ -2690,6 +2758,22 @@ message Splice_updateResponse {
 	string psbt = 1;
 	bool commitments_secured = 2;
 	optional bool signatures_secured = 3;
+}
+
+message DevspliceRequest {
+	string script_or_json = 1;
+	optional bool dryrun = 2;
+	optional bool force_feerate = 3;
+	optional bool debug_log = 4;
+	optional bool dev_wetrun = 5;
+}
+
+message DevspliceResponse {
+	repeated string dryrun = 1;
+	optional string psbt = 2;
+	optional string tx = 3;
+	optional string txid = 4;
+	repeated string log = 5;
 }
 
 message UnreserveinputsRequest {
@@ -3540,6 +3624,72 @@ message BkprlistincomeIncome_events {
 	optional bytes payment_id = 10;
 }
 
+message BkpreditdescriptionbypaymentidRequest {
+	string payment_id = 1;
+	string description = 2;
+}
+
+message BkpreditdescriptionbypaymentidResponse {
+	repeated BkpreditdescriptionbypaymentidUpdated updated = 1;
+}
+
+message BkpreditdescriptionbypaymentidUpdated {
+	// Bkpr-EditDescriptionByPaymentId.updated[].type
+	enum BkpreditdescriptionbypaymentidUpdatedType {
+		CHAIN = 0;
+		CHANNEL = 1;
+	}
+	string account = 1;
+	BkpreditdescriptionbypaymentidUpdatedType item_type = 2;
+	string tag = 3;
+	Amount credit_msat = 4;
+	Amount debit_msat = 5;
+	string currency = 6;
+	uint32 timestamp = 7;
+	string description = 8;
+	optional string outpoint = 9;
+	optional uint32 blockheight = 10;
+	optional string origin = 11;
+	optional bytes payment_id = 12;
+	optional bytes txid = 13;
+	optional Amount fees_msat = 14;
+	optional bool is_rebalance = 15;
+	optional uint32 part_id = 16;
+}
+
+message BkpreditdescriptionbyoutpointRequest {
+	string outpoint = 1;
+	string description = 2;
+}
+
+message BkpreditdescriptionbyoutpointResponse {
+	repeated BkpreditdescriptionbyoutpointUpdated updated = 1;
+}
+
+message BkpreditdescriptionbyoutpointUpdated {
+	// Bkpr-EditDescriptionByOutpoint.updated[].type
+	enum BkpreditdescriptionbyoutpointUpdatedType {
+		CHAIN = 0;
+		CHANNEL = 1;
+	}
+	string account = 1;
+	BkpreditdescriptionbyoutpointUpdatedType item_type = 2;
+	string tag = 3;
+	Amount credit_msat = 4;
+	Amount debit_msat = 5;
+	string currency = 6;
+	uint32 timestamp = 7;
+	string description = 8;
+	optional string outpoint = 9;
+	optional uint32 blockheight = 10;
+	optional string origin = 11;
+	optional bytes payment_id = 12;
+	optional bytes txid = 13;
+	optional Amount fees_msat = 14;
+	optional bool is_rebalance = 15;
+	optional uint32 part_id = 16;
+}
+
 message BlacklistruneRequest {
 	optional uint64 start = 1;
 	optional uint64 end = 2;
@@ -3605,6 +3755,297 @@ message ShowrunesRunesRestrictionsAlternatives {
 	string value = 2;
 	string condition = 3;
 	string english = 4;
+}
+
+message AskreneunreserveRequest {
+	repeated AskreneunreservePath path = 1;
+}
+
+message AskreneunreserveResponse {
+}
+
+message AskreneunreservePath {
+	Amount amount_msat = 3;
+	optional string short_channel_id_dir = 4;
+}
+
+message AskrenelistlayersRequest {
+	optional string layer = 1;
+}
+
+message AskrenelistlayersResponse {
+	repeated AskrenelistlayersLayers layers = 1;
+}
+
+message AskrenelistlayersLayers {
+	string layer = 1;
+	repeated bytes disabled_nodes = 2;
+	repeated AskrenelistlayersLayersCreated_channels created_channels = 3;
+	repeated AskrenelistlayersLayersConstraints constraints = 4;
+	optional bool persistent = 5;
+	repeated string disabled_channels = 6;
+	repeated AskrenelistlayersLayersChannel_updates channel_updates = 7;
+	repeated AskrenelistlayersLayersBiases biases = 8;
+}
+
+message AskrenelistlayersLayersCreated_channels {
+	bytes source = 1;
+	bytes destination = 2;
+	string short_channel_id = 3;
+	Amount capacity_msat = 4;
+}
+
+message AskrenelistlayersLayersChannel_updates {
+	string short_channel_id_dir = 1;
+	optional bool enabled = 2;
+	optional Amount htlc_minimum_msat = 3;
+	optional Amount htlc_maximum_msat = 4;
+	optional Amount fee_base_msat = 5;
+	optional uint32 fee_proportional_millionths = 6;
+	optional uint32 cltv_expiry_delta = 7;
+}
+
+message AskrenelistlayersLayersConstraints {
+	optional Amount maximum_msat = 3;
+	optional Amount minimum_msat = 4;
+	optional string short_channel_id_dir = 5;
+	optional uint64 timestamp = 6;
+}
+
+message AskrenelistlayersLayersBiases {
+	string short_channel_id_dir = 1;
+	sint64 bias = 2;
+	optional string description = 3;
+}
+
+message AskrenecreatelayerRequest {
+	string layer = 1;
+	optional bool persistent = 2;
+}
+
+message AskrenecreatelayerResponse {
+	repeated AskrenecreatelayerLayers layers = 1;
+}
+
+message AskrenecreatelayerLayers {
+	string layer = 1;
+	bool persistent = 2;
+	repeated bytes disabled_nodes = 3;
+	repeated string disabled_channels = 4;
+	repeated AskrenecreatelayerLayersCreated_channels created_channels = 5;
+	repeated AskrenecreatelayerLayersChannel_updates channel_updates = 6;
+	repeated AskrenecreatelayerLayersConstraints constraints = 7;
+	repeated AskrenecreatelayerLayersBiases biases = 8;
+}
+
+message AskrenecreatelayerLayersCreated_channels {
+	bytes source = 1;
+	bytes destination = 2;
+	string short_channel_id = 3;
+	Amount capacity_msat = 4;
+}
+
+message AskrenecreatelayerLayersChannel_updates {
+	optional Amount htlc_minimum_msat = 1;
+	optional Amount htlc_maximum_msat = 2;
+	optional Amount fee_base_msat = 3;
+	optional uint32 fee_proportional_millionths = 4;
+	optional uint32 delay = 5;
+}
+
+message AskrenecreatelayerLayersConstraints {
+	string short_channel_id = 1;
+	uint32 direction = 2;
+	optional Amount maximum_msat = 3;
+	optional Amount minimum_msat = 4;
+}
+
+message AskrenecreatelayerLayersBiases {
+	string short_channel_id_dir = 1;
+	sint64 bias = 2;
+	optional string description = 3;
+}
+
+message AskreneremovelayerRequest {
+	string layer = 1;
+}
+
+message AskreneremovelayerResponse {
+}
+
+message AskrenereserveRequest {
+	repeated AskrenereservePath path = 1;
+}
+
+message AskrenereserveResponse {
+}
+
+message AskrenereservePath {
+	Amount amount_msat = 3;
+	optional string short_channel_id_dir = 4;
+}
+
+message AskreneageRequest {
+	string layer = 1;
+	uint64 cutoff = 2;
+}
+
+message AskreneageResponse {
+	string layer = 1;
+	uint64 num_removed = 2;
+}
+
+message GetroutesRequest {
+	bytes source = 1;
+	bytes destination = 2;
+	Amount amount_msat = 3;
+	repeated string layers = 4;
+	Amount maxfee_msat = 5;
+	optional uint32 final_cltv = 7;
+}
+
+message GetroutesResponse {
+	uint64 probability_ppm = 1;
+	repeated GetroutesRoutes routes = 2;
+}
+
+message GetroutesRoutes {
+	uint64 probability_ppm = 1;
+	Amount amount_msat = 2;
+	repeated GetroutesRoutesPath path = 3;
+	optional uint32 final_cltv = 4;
+}
+
+message GetroutesRoutesPath {
+	Amount amount_msat = 3;
+	bytes next_node_id = 4;
+	uint32 delay = 5;
+	optional string short_channel_id_dir = 6;
+}
+
+message AskrenedisablenodeRequest {
+	string layer = 1;
+	bytes node = 2;
+}
+
+message AskrenedisablenodeResponse {
+}
+
+message AskreneinformchannelRequest {
+	// AskRene-Inform-Channel.inform
+	enum AskreneinformchannelInform {
+		CONSTRAINED = 0;
+		UNCONSTRAINED = 1;
+		SUCCEEDED = 2;
+	}
+	string layer = 1;
+	optional string short_channel_id_dir = 6;
+	optional Amount amount_msat = 7;
+	optional AskreneinformchannelInform inform = 8;
+}
+
+message AskreneinformchannelResponse {
+	repeated AskreneinformchannelConstraints constraints = 2;
+}
+
+message AskreneinformchannelConstraints {
+	string short_channel_id_dir = 1;
+	string layer = 2;
+	uint64 timestamp = 3;
+	optional Amount maximum_msat = 4;
+	optional Amount minimum_msat = 5;
+}
+
+message AskrenecreatechannelRequest {
+	string layer = 1;
+	bytes source = 2;
+	bytes destination = 3;
+	string short_channel_id = 4;
+	Amount capacity_msat = 5;
+}
+
+message AskrenecreatechannelResponse {
+}
+
+message AskreneupdatechannelRequest {
+	string layer = 1;
+	string short_channel_id_dir = 2;
+	optional bool enabled = 3;
+	optional Amount htlc_minimum_msat = 4;
+	optional Amount htlc_maximum_msat = 5;
+	optional Amount fee_base_msat = 6;
+	optional uint32 fee_proportional_millionths = 7;
+	optional uint32 cltv_expiry_delta = 8;
+}
+
+message AskreneupdatechannelResponse {
+}
+
+message AskrenebiaschannelRequest {
+	string layer = 1;
+	string short_channel_id_dir = 2;
+	sint64 bias = 3;
+	optional string description = 4;
+}
+
+message AskrenebiaschannelResponse {
+	repeated AskrenebiaschannelBiases biases = 1;
+}
+
+message AskrenebiaschannelBiases {
+	string layer = 1;
+	string short_channel_id_dir = 2;
+	sint64 bias = 3;
+	optional string description = 4;
+}
+
+message AskrenelistreservationsRequest {
+}
+
+message AskrenelistreservationsResponse {
+	repeated AskrenelistreservationsReservations reservations = 1;
+}
+
+message AskrenelistreservationsReservations {
+	string short_channel_id_dir = 1;
+	Amount amount_msat = 2;
+	uint64 age_in_seconds = 3;
+	string command_id = 4;
+}
+
+message InjectpaymentonionRequest {
+	bytes onion = 1;
+	bytes payment_hash = 2;
+	Amount amount_msat = 3;
+	uint32 cltv_expiry = 4;
+	uint64 partid = 5;
+	uint64 groupid = 6;
+	optional string label = 7;
+	optional string invstring = 8;
+	optional bytes localinvreqid = 9;
+}
+
+message InjectpaymentonionResponse {
+	uint64 created_at = 1;
+	uint64 completed_at = 2;
+	uint64 created_index = 3;
+}
+
+message XpayRequest {
+	string invstring = 1;
+	optional Amount amount_msat = 2;
+	optional Amount maxfee = 3;
+	repeated string layers = 4;
+	optional uint32 retry_for = 5;
+	optional Amount partial_msat = 6;
+}
+
+message XpayResponse {
+	bytes payment_preimage = 1;
+	uint64 failed_parts = 2;
+	uint64 successful_parts = 3;
+	Amount amount_msat = 4;
+	Amount amount_sent_msat = 5;
 }
 
 message StreamBlockAddedRequest {

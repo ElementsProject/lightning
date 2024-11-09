@@ -40,6 +40,8 @@ pub enum Request {
 	#[serde(rename = "dev-forget-channel")]
 	DevForgetChannel(requests::DevforgetchannelRequest),
 	EmergencyRecover(requests::EmergencyrecoverRequest),
+	GetEmergencyRecoverData(requests::GetemergencyrecoverdataRequest),
+	ExposeSecret(requests::ExposesecretRequest),
 	Recover(requests::RecoverRequest),
 	RecoverChannel(requests::RecoverchannelRequest),
 	Invoice(requests::InvoiceRequest),
@@ -74,6 +76,7 @@ pub enum Request {
 	DelPay(requests::DelpayRequest),
 	DelForward(requests::DelforwardRequest),
 	DisableOffer(requests::DisableofferRequest),
+	EnableOffer(requests::EnableofferRequest),
 	Disconnect(requests::DisconnectRequest),
 	Feerates(requests::FeeratesRequest),
 	FetchInvoice(requests::FetchinvoiceRequest),
@@ -84,6 +87,7 @@ pub enum Request {
 	GetLog(requests::GetlogRequest),
 	FunderUpdate(requests::FunderupdateRequest),
 	GetRoute(requests::GetrouteRequest),
+	ListAddresses(requests::ListaddressesRequest),
 	ListForwards(requests::ListforwardsRequest),
 	ListOffers(requests::ListoffersRequest),
 	ListPays(requests::ListpaysRequest),
@@ -111,6 +115,8 @@ pub enum Request {
 	Splice_Init(requests::Splice_initRequest),
 	Splice_Signed(requests::Splice_signedRequest),
 	Splice_Update(requests::Splice_updateRequest),
+	#[serde(rename = "dev-splice")]
+	DevSplice(requests::DevspliceRequest),
 	UnreserveInputs(requests::UnreserveinputsRequest),
 	UpgradeWallet(requests::UpgradewalletRequest),
 	WaitBlockHeight(requests::WaitblockheightRequest),
@@ -133,10 +139,41 @@ pub enum Request {
 	BkprListBalances(requests::BkprlistbalancesRequest),
 	#[serde(rename = "bkpr-listincome")]
 	BkprListIncome(requests::BkprlistincomeRequest),
+	#[serde(rename = "bkpr-editdescriptionbypaymentid")]
+	BkprEditDescriptionByPaymentId(requests::BkpreditdescriptionbypaymentidRequest),
+	#[serde(rename = "bkpr-editdescriptionbyoutpoint")]
+	BkprEditDescriptionByOutpoint(requests::BkpreditdescriptionbyoutpointRequest),
 	BlacklistRune(requests::BlacklistruneRequest),
 	CheckRune(requests::CheckruneRequest),
 	CreateRune(requests::CreateruneRequest),
 	ShowRunes(requests::ShowrunesRequest),
+	#[serde(rename = "askrene-unreserve")]
+	AskReneUnreserve(requests::AskreneunreserveRequest),
+	#[serde(rename = "askrene-listlayers")]
+	AskReneListLayers(requests::AskrenelistlayersRequest),
+	#[serde(rename = "askrene-create-layer")]
+	AskReneCreateLayer(requests::AskrenecreatelayerRequest),
+	#[serde(rename = "askrene-remove-layer")]
+	AskReneRemoveLayer(requests::AskreneremovelayerRequest),
+	#[serde(rename = "askrene-reserve")]
+	AskReneReserve(requests::AskrenereserveRequest),
+	#[serde(rename = "askrene-age")]
+	AskReneAge(requests::AskreneageRequest),
+	GetRoutes(requests::GetroutesRequest),
+	#[serde(rename = "askrene-disable-node")]
+	AskReneDisableNode(requests::AskrenedisablenodeRequest),
+	#[serde(rename = "askrene-inform-channel")]
+	AskReneInformChannel(requests::AskreneinformchannelRequest),
+	#[serde(rename = "askrene-create-channel")]
+	AskReneCreateChannel(requests::AskrenecreatechannelRequest),
+	#[serde(rename = "askrene-update-channel")]
+	AskReneUpdateChannel(requests::AskreneupdatechannelRequest),
+	#[serde(rename = "askrene-bias-channel")]
+	AskReneBiasChannel(requests::AskrenebiaschannelRequest),
+	#[serde(rename = "askrene-listreservations")]
+	AskReneListReservations(requests::AskrenelistreservationsRequest),
+	InjectPaymentOnion(requests::InjectpaymentonionRequest),
+	Xpay(requests::XpayRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -166,6 +203,8 @@ pub enum Response {
 	#[serde(rename = "dev-forget-channel")]
 	DevForgetChannel(responses::DevforgetchannelResponse),
 	EmergencyRecover(responses::EmergencyrecoverResponse),
+	GetEmergencyRecoverData(responses::GetemergencyrecoverdataResponse),
+	ExposeSecret(responses::ExposesecretResponse),
 	Recover(responses::RecoverResponse),
 	RecoverChannel(responses::RecoverchannelResponse),
 	Invoice(responses::InvoiceResponse),
@@ -200,6 +239,7 @@ pub enum Response {
 	DelPay(responses::DelpayResponse),
 	DelForward(responses::DelforwardResponse),
 	DisableOffer(responses::DisableofferResponse),
+	EnableOffer(responses::EnableofferResponse),
 	Disconnect(responses::DisconnectResponse),
 	Feerates(responses::FeeratesResponse),
 	FetchInvoice(responses::FetchinvoiceResponse),
@@ -210,6 +250,7 @@ pub enum Response {
 	GetLog(responses::GetlogResponse),
 	FunderUpdate(responses::FunderupdateResponse),
 	GetRoute(responses::GetrouteResponse),
+	ListAddresses(responses::ListaddressesResponse),
 	ListForwards(responses::ListforwardsResponse),
 	ListOffers(responses::ListoffersResponse),
 	ListPays(responses::ListpaysResponse),
@@ -237,6 +278,8 @@ pub enum Response {
 	Splice_Init(responses::Splice_initResponse),
 	Splice_Signed(responses::Splice_signedResponse),
 	Splice_Update(responses::Splice_updateResponse),
+	#[serde(rename = "dev-splice")]
+	DevSplice(responses::DevspliceResponse),
 	UnreserveInputs(responses::UnreserveinputsResponse),
 	UpgradeWallet(responses::UpgradewalletResponse),
 	WaitBlockHeight(responses::WaitblockheightResponse),
@@ -259,10 +302,41 @@ pub enum Response {
 	BkprListBalances(responses::BkprlistbalancesResponse),
 	#[serde(rename = "bkpr-listincome")]
 	BkprListIncome(responses::BkprlistincomeResponse),
+	#[serde(rename = "bkpr-editdescriptionbypaymentid")]
+	BkprEditDescriptionByPaymentId(responses::BkpreditdescriptionbypaymentidResponse),
+	#[serde(rename = "bkpr-editdescriptionbyoutpoint")]
+	BkprEditDescriptionByOutpoint(responses::BkpreditdescriptionbyoutpointResponse),
 	BlacklistRune(responses::BlacklistruneResponse),
 	CheckRune(responses::CheckruneResponse),
 	CreateRune(responses::CreateruneResponse),
 	ShowRunes(responses::ShowrunesResponse),
+	#[serde(rename = "askrene-unreserve")]
+	AskReneUnreserve(responses::AskreneunreserveResponse),
+	#[serde(rename = "askrene-listlayers")]
+	AskReneListLayers(responses::AskrenelistlayersResponse),
+	#[serde(rename = "askrene-create-layer")]
+	AskReneCreateLayer(responses::AskrenecreatelayerResponse),
+	#[serde(rename = "askrene-remove-layer")]
+	AskReneRemoveLayer(responses::AskreneremovelayerResponse),
+	#[serde(rename = "askrene-reserve")]
+	AskReneReserve(responses::AskrenereserveResponse),
+	#[serde(rename = "askrene-age")]
+	AskReneAge(responses::AskreneageResponse),
+	GetRoutes(responses::GetroutesResponse),
+	#[serde(rename = "askrene-disable-node")]
+	AskReneDisableNode(responses::AskrenedisablenodeResponse),
+	#[serde(rename = "askrene-inform-channel")]
+	AskReneInformChannel(responses::AskreneinformchannelResponse),
+	#[serde(rename = "askrene-create-channel")]
+	AskReneCreateChannel(responses::AskrenecreatechannelResponse),
+	#[serde(rename = "askrene-update-channel")]
+	AskReneUpdateChannel(responses::AskreneupdatechannelResponse),
+	#[serde(rename = "askrene-bias-channel")]
+	AskReneBiasChannel(responses::AskrenebiaschannelResponse),
+	#[serde(rename = "askrene-listreservations")]
+	AskReneListReservations(responses::AskrenelistreservationsResponse),
+	InjectPaymentOnion(responses::InjectpaymentonionResponse),
+	Xpay(responses::XpayResponse),
 }
 
 
@@ -935,6 +1009,51 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "emergencyrecover"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct GetemergencyrecoverdataRequest {
+	}
+
+	impl From<GetemergencyrecoverdataRequest> for Request {
+	    fn from(r: GetemergencyrecoverdataRequest) -> Self {
+	        Request::GetEmergencyRecoverData(r)
+	    }
+	}
+
+	impl IntoRequest for GetemergencyrecoverdataRequest {
+	    type Response = super::responses::GetemergencyrecoverdataResponse;
+	}
+
+	impl TypedRequest for GetemergencyrecoverdataRequest {
+	    type Response = super::responses::GetemergencyrecoverdataResponse;
+
+	    fn method(&self) -> &str {
+	        "getemergencyrecoverdata"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ExposesecretRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub identifier: Option<String>,
+	    pub passphrase: String,
+	}
+
+	impl From<ExposesecretRequest> for Request {
+	    fn from(r: ExposesecretRequest) -> Self {
+	        Request::ExposeSecret(r)
+	    }
+	}
+
+	impl IntoRequest for ExposesecretRequest {
+	    type Response = super::responses::ExposesecretResponse;
+	}
+
+	impl TypedRequest for ExposesecretRequest {
+	    type Response = super::responses::ExposesecretResponse;
+
+	    fn method(&self) -> &str {
+	        "exposesecret"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2065,6 +2184,28 @@ pub mod requests {
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct EnableofferRequest {
+	    pub offer_id: Sha256,
+	}
+
+	impl From<EnableofferRequest> for Request {
+	    fn from(r: EnableofferRequest) -> Self {
+	        Request::EnableOffer(r)
+	    }
+	}
+
+	impl IntoRequest for EnableofferRequest {
+	    type Response = super::responses::EnableofferResponse;
+	}
+
+	impl TypedRequest for EnableofferRequest {
+	    type Response = super::responses::EnableofferResponse;
+
+	    fn method(&self) -> &str {
+	        "enableoffer"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DisconnectRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub force: Option<bool>,
@@ -2491,6 +2632,33 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "getroute"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListaddressesRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub address: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub limit: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub start: Option<u64>,
+	}
+
+	impl From<ListaddressesRequest> for Request {
+	    fn from(r: ListaddressesRequest) -> Self {
+	        Request::ListAddresses(r)
+	    }
+	}
+
+	impl IntoRequest for ListaddressesRequest {
+	    type Response = super::responses::ListaddressesResponse;
+	}
+
+	impl TypedRequest for ListaddressesRequest {
+	    type Response = super::responses::ListaddressesResponse;
+
+	    fn method(&self) -> &str {
+	        "listaddresses"
 	    }
 	}
 	/// ['If neither *in_channel* nor *out_channel* is specified, it controls ordering.']
@@ -3388,6 +3556,37 @@ pub mod requests {
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DevspliceRequest {
+	    #[serde(rename = "dev-wetrun")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub dev_wetrun: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub debug_log: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub dryrun: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub force_feerate: Option<bool>,
+	    pub script_or_json: String,
+	}
+
+	impl From<DevspliceRequest> for Request {
+	    fn from(r: DevspliceRequest) -> Self {
+	        Request::DevSplice(r)
+	    }
+	}
+
+	impl IntoRequest for DevspliceRequest {
+	    type Response = super::responses::DevspliceResponse;
+	}
+
+	impl TypedRequest for DevspliceRequest {
+	    type Response = super::responses::DevspliceResponse;
+
+	    fn method(&self) -> &str {
+	        "dev-splice"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct UnreserveinputsRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub reserve: Option<u32>,
@@ -3837,6 +4036,52 @@ pub mod requests {
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkpreditdescriptionbypaymentidRequest {
+	    pub description: String,
+	    pub payment_id: String,
+	}
+
+	impl From<BkpreditdescriptionbypaymentidRequest> for Request {
+	    fn from(r: BkpreditdescriptionbypaymentidRequest) -> Self {
+	        Request::BkprEditDescriptionByPaymentId(r)
+	    }
+	}
+
+	impl IntoRequest for BkpreditdescriptionbypaymentidRequest {
+	    type Response = super::responses::BkpreditdescriptionbypaymentidResponse;
+	}
+
+	impl TypedRequest for BkpreditdescriptionbypaymentidRequest {
+	    type Response = super::responses::BkpreditdescriptionbypaymentidResponse;
+
+	    fn method(&self) -> &str {
+	        "bkpr-editdescriptionbypaymentid"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkpreditdescriptionbyoutpointRequest {
+	    pub description: String,
+	    pub outpoint: String,
+	}
+
+	impl From<BkpreditdescriptionbyoutpointRequest> for Request {
+	    fn from(r: BkpreditdescriptionbyoutpointRequest) -> Self {
+	        Request::BkprEditDescriptionByOutpoint(r)
+	    }
+	}
+
+	impl IntoRequest for BkpreditdescriptionbyoutpointRequest {
+	    type Response = super::responses::BkpreditdescriptionbyoutpointResponse;
+	}
+
+	impl TypedRequest for BkpreditdescriptionbyoutpointRequest {
+	    type Response = super::responses::BkpreditdescriptionbyoutpointResponse;
+
+	    fn method(&self) -> &str {
+	        "bkpr-editdescriptionbyoutpoint"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct BlacklistruneRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub end: Option<u64>,
@@ -3935,6 +4180,441 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "showrunes"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneunreservePath {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub short_channel_id_dir: Option<ShortChannelIdDir>,
+	    pub amount_msat: Amount,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneunreserveRequest {
+	    pub path: Vec<AskreneunreservePath>,
+	}
+
+	impl From<AskreneunreserveRequest> for Request {
+	    fn from(r: AskreneunreserveRequest) -> Self {
+	        Request::AskReneUnreserve(r)
+	    }
+	}
+
+	impl IntoRequest for AskreneunreserveRequest {
+	    type Response = super::responses::AskreneunreserveResponse;
+	}
+
+	impl TypedRequest for AskreneunreserveRequest {
+	    type Response = super::responses::AskreneunreserveResponse;
+
+	    fn method(&self) -> &str {
+	        "askrene-unreserve"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenelistlayersRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub layer: Option<String>,
+	}
+
+	impl From<AskrenelistlayersRequest> for Request {
+	    fn from(r: AskrenelistlayersRequest) -> Self {
+	        Request::AskReneListLayers(r)
+	    }
+	}
+
+	impl IntoRequest for AskrenelistlayersRequest {
+	    type Response = super::responses::AskrenelistlayersResponse;
+	}
+
+	impl TypedRequest for AskrenelistlayersRequest {
+	    type Response = super::responses::AskrenelistlayersResponse;
+
+	    fn method(&self) -> &str {
+	        "askrene-listlayers"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenecreatelayerRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub persistent: Option<bool>,
+	    pub layer: String,
+	}
+
+	impl From<AskrenecreatelayerRequest> for Request {
+	    fn from(r: AskrenecreatelayerRequest) -> Self {
+	        Request::AskReneCreateLayer(r)
+	    }
+	}
+
+	impl IntoRequest for AskrenecreatelayerRequest {
+	    type Response = super::responses::AskrenecreatelayerResponse;
+	}
+
+	impl TypedRequest for AskrenecreatelayerRequest {
+	    type Response = super::responses::AskrenecreatelayerResponse;
+
+	    fn method(&self) -> &str {
+	        "askrene-create-layer"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneremovelayerRequest {
+	    pub layer: String,
+	}
+
+	impl From<AskreneremovelayerRequest> for Request {
+	    fn from(r: AskreneremovelayerRequest) -> Self {
+	        Request::AskReneRemoveLayer(r)
+	    }
+	}
+
+	impl IntoRequest for AskreneremovelayerRequest {
+	    type Response = super::responses::AskreneremovelayerResponse;
+	}
+
+	impl TypedRequest for AskreneremovelayerRequest {
+	    type Response = super::responses::AskreneremovelayerResponse;
+
+	    fn method(&self) -> &str {
+	        "askrene-remove-layer"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenereservePath {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub short_channel_id_dir: Option<ShortChannelIdDir>,
+	    pub amount_msat: Amount,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenereserveRequest {
+	    pub path: Vec<AskrenereservePath>,
+	}
+
+	impl From<AskrenereserveRequest> for Request {
+	    fn from(r: AskrenereserveRequest) -> Self {
+	        Request::AskReneReserve(r)
+	    }
+	}
+
+	impl IntoRequest for AskrenereserveRequest {
+	    type Response = super::responses::AskrenereserveResponse;
+	}
+
+	impl TypedRequest for AskrenereserveRequest {
+	    type Response = super::responses::AskrenereserveResponse;
+
+	    fn method(&self) -> &str {
+	        "askrene-reserve"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneageRequest {
+	    pub cutoff: u64,
+	    pub layer: String,
+	}
+
+	impl From<AskreneageRequest> for Request {
+	    fn from(r: AskreneageRequest) -> Self {
+	        Request::AskReneAge(r)
+	    }
+	}
+
+	impl IntoRequest for AskreneageRequest {
+	    type Response = super::responses::AskreneageResponse;
+	}
+
+	impl TypedRequest for AskreneageRequest {
+	    type Response = super::responses::AskreneageResponse;
+
+	    fn method(&self) -> &str {
+	        "askrene-age"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct GetroutesRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub final_cltv: Option<u32>,
+	    pub amount_msat: Amount,
+	    pub destination: PublicKey,
+	    pub layers: Vec<String>,
+	    pub maxfee_msat: Amount,
+	    pub source: PublicKey,
+	}
+
+	impl From<GetroutesRequest> for Request {
+	    fn from(r: GetroutesRequest) -> Self {
+	        Request::GetRoutes(r)
+	    }
+	}
+
+	impl IntoRequest for GetroutesRequest {
+	    type Response = super::responses::GetroutesResponse;
+	}
+
+	impl TypedRequest for GetroutesRequest {
+	    type Response = super::responses::GetroutesResponse;
+
+	    fn method(&self) -> &str {
+	        "getroutes"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenedisablenodeRequest {
+	    pub layer: String,
+	    pub node: PublicKey,
+	}
+
+	impl From<AskrenedisablenodeRequest> for Request {
+	    fn from(r: AskrenedisablenodeRequest) -> Self {
+	        Request::AskReneDisableNode(r)
+	    }
+	}
+
+	impl IntoRequest for AskrenedisablenodeRequest {
+	    type Response = super::responses::AskrenedisablenodeResponse;
+	}
+
+	impl TypedRequest for AskrenedisablenodeRequest {
+	    type Response = super::responses::AskrenedisablenodeResponse;
+
+	    fn method(&self) -> &str {
+	        "askrene-disable-node"
+	    }
+	}
+	/// ['Whether this payment passed (implying capacity of at least that amount), failed (implying maximum capacity of one msat less), or succeeded (implying capacity has been reduced in this direction)']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum AskreneinformchannelInform {
+	    #[serde(rename = "constrained")]
+	    CONSTRAINED = 0,
+	    #[serde(rename = "unconstrained")]
+	    UNCONSTRAINED = 1,
+	    #[serde(rename = "succeeded")]
+	    SUCCEEDED = 2,
+	}
+
+	impl TryFrom<i32> for AskreneinformchannelInform {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<AskreneinformchannelInform, anyhow::Error> {
+	        match c {
+	    0 => Ok(AskreneinformchannelInform::CONSTRAINED),
+	    1 => Ok(AskreneinformchannelInform::UNCONSTRAINED),
+	    2 => Ok(AskreneinformchannelInform::SUCCEEDED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum AskreneinformchannelInform", o)),
+	        }
+	    }
+	}
+
+	impl ToString for AskreneinformchannelInform {
+	    fn to_string(&self) -> String {
+	        match self {
+	            AskreneinformchannelInform::CONSTRAINED => "CONSTRAINED",
+	            AskreneinformchannelInform::UNCONSTRAINED => "UNCONSTRAINED",
+	            AskreneinformchannelInform::SUCCEEDED => "SUCCEEDED",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneinformchannelRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub inform: Option<AskreneinformchannelInform>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub short_channel_id_dir: Option<ShortChannelIdDir>,
+	    pub layer: String,
+	}
+
+	impl From<AskreneinformchannelRequest> for Request {
+	    fn from(r: AskreneinformchannelRequest) -> Self {
+	        Request::AskReneInformChannel(r)
+	    }
+	}
+
+	impl IntoRequest for AskreneinformchannelRequest {
+	    type Response = super::responses::AskreneinformchannelResponse;
+	}
+
+	impl TypedRequest for AskreneinformchannelRequest {
+	    type Response = super::responses::AskreneinformchannelResponse;
+
+	    fn method(&self) -> &str {
+	        "askrene-inform-channel"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenecreatechannelRequest {
+	    pub capacity_msat: Amount,
+	    pub destination: PublicKey,
+	    pub layer: String,
+	    pub short_channel_id: ShortChannelId,
+	    pub source: PublicKey,
+	}
+
+	impl From<AskrenecreatechannelRequest> for Request {
+	    fn from(r: AskrenecreatechannelRequest) -> Self {
+	        Request::AskReneCreateChannel(r)
+	    }
+	}
+
+	impl IntoRequest for AskrenecreatechannelRequest {
+	    type Response = super::responses::AskrenecreatechannelResponse;
+	}
+
+	impl TypedRequest for AskrenecreatechannelRequest {
+	    type Response = super::responses::AskrenecreatechannelResponse;
+
+	    fn method(&self) -> &str {
+	        "askrene-create-channel"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneupdatechannelRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub cltv_expiry_delta: Option<u16>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub enabled: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fee_base_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fee_proportional_millionths: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_maximum_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_minimum_msat: Option<Amount>,
+	    pub layer: String,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	}
+
+	impl From<AskreneupdatechannelRequest> for Request {
+	    fn from(r: AskreneupdatechannelRequest) -> Self {
+	        Request::AskReneUpdateChannel(r)
+	    }
+	}
+
+	impl IntoRequest for AskreneupdatechannelRequest {
+	    type Response = super::responses::AskreneupdatechannelResponse;
+	}
+
+	impl TypedRequest for AskreneupdatechannelRequest {
+	    type Response = super::responses::AskreneupdatechannelResponse;
+
+	    fn method(&self) -> &str {
+	        "askrene-update-channel"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenebiaschannelRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    pub bias: i64,
+	    pub layer: String,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	}
+
+	impl From<AskrenebiaschannelRequest> for Request {
+	    fn from(r: AskrenebiaschannelRequest) -> Self {
+	        Request::AskReneBiasChannel(r)
+	    }
+	}
+
+	impl IntoRequest for AskrenebiaschannelRequest {
+	    type Response = super::responses::AskrenebiaschannelResponse;
+	}
+
+	impl TypedRequest for AskrenebiaschannelRequest {
+	    type Response = super::responses::AskrenebiaschannelResponse;
+
+	    fn method(&self) -> &str {
+	        "askrene-bias-channel"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenelistreservationsRequest {
+	}
+
+	impl From<AskrenelistreservationsRequest> for Request {
+	    fn from(r: AskrenelistreservationsRequest) -> Self {
+	        Request::AskReneListReservations(r)
+	    }
+	}
+
+	impl IntoRequest for AskrenelistreservationsRequest {
+	    type Response = super::responses::AskrenelistreservationsResponse;
+	}
+
+	impl TypedRequest for AskrenelistreservationsRequest {
+	    type Response = super::responses::AskrenelistreservationsResponse;
+
+	    fn method(&self) -> &str {
+	        "askrene-listreservations"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct InjectpaymentonionRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub invstring: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub localinvreqid: Option<Sha256>,
+	    pub amount_msat: Amount,
+	    pub cltv_expiry: u16,
+	    pub groupid: u64,
+	    pub onion: String,
+	    pub partid: u64,
+	    pub payment_hash: Sha256,
+	}
+
+	impl From<InjectpaymentonionRequest> for Request {
+	    fn from(r: InjectpaymentonionRequest) -> Self {
+	        Request::InjectPaymentOnion(r)
+	    }
+	}
+
+	impl IntoRequest for InjectpaymentonionRequest {
+	    type Response = super::responses::InjectpaymentonionResponse;
+	}
+
+	impl TypedRequest for InjectpaymentonionRequest {
+	    type Response = super::responses::InjectpaymentonionResponse;
+
+	    fn method(&self) -> &str {
+	        "injectpaymentonion"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct XpayRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maxfee: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub partial_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub retry_for: Option<u32>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub layers: Option<Vec<String>>,
+	    pub invstring: String,
+	}
+
+	impl From<XpayRequest> for Request {
+	    fn from(r: XpayRequest) -> Self {
+	        Request::Xpay(r)
+	    }
+	}
+
+	impl IntoRequest for XpayRequest {
+	    type Response = super::responses::XpayResponse;
+	}
+
+	impl TypedRequest for XpayRequest {
+	    type Response = super::responses::XpayResponse;
+
+	    fn method(&self) -> &str {
+	        "xpay"
 	    }
 	}
 }
@@ -5040,6 +5720,39 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::EmergencyRecover(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct GetemergencyrecoverdataResponse {
+	    pub filedata: String,
+	}
+
+	impl TryFrom<Response> for GetemergencyrecoverdataResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::GetEmergencyRecoverData(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ExposesecretResponse {
+	    pub codex32: String,
+	    pub identifier: String,
+	}
+
+	impl TryFrom<Response> for ExposesecretResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::ExposeSecret(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
@@ -7126,6 +7839,28 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct EnableofferResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    pub active: bool,
+	    pub bolt12: String,
+	    pub offer_id: Sha256,
+	    pub single_use: bool,
+	    pub used: bool,
+	}
+
+	impl TryFrom<Response> for EnableofferResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::EnableOffer(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DisconnectResponse {
 	}
 
@@ -7585,6 +8320,31 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::GetRoute(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListaddressesAddresses {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bech32: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub p2tr: Option<String>,
+	    pub keyidx: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListaddressesResponse {
+	    pub addresses: Vec<ListaddressesAddresses>,
+	}
+
+	impl TryFrom<Response> for ListaddressesResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::ListAddresses(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
@@ -8582,6 +9342,31 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::Splice_Update(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DevspliceResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub psbt: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub tx: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub txid: Option<String>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub dryrun: Option<Vec<String>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub log: Option<Vec<String>>,
+	}
+
+	impl TryFrom<Response> for DevspliceResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::DevSplice(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
@@ -10226,6 +11011,156 @@ pub mod responses {
 	    }
 	}
 
+	/// ['Coin movement type.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum BkpreditdescriptionbypaymentidUpdatedType {
+	    #[serde(rename = "chain")]
+	    CHAIN = 0,
+	    #[serde(rename = "channel")]
+	    CHANNEL = 1,
+	}
+
+	impl TryFrom<i32> for BkpreditdescriptionbypaymentidUpdatedType {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<BkpreditdescriptionbypaymentidUpdatedType, anyhow::Error> {
+	        match c {
+	    0 => Ok(BkpreditdescriptionbypaymentidUpdatedType::CHAIN),
+	    1 => Ok(BkpreditdescriptionbypaymentidUpdatedType::CHANNEL),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum BkpreditdescriptionbypaymentidUpdatedType", o)),
+	        }
+	    }
+	}
+
+	impl ToString for BkpreditdescriptionbypaymentidUpdatedType {
+	    fn to_string(&self) -> String {
+	        match self {
+	            BkpreditdescriptionbypaymentidUpdatedType::CHAIN => "CHAIN",
+	            BkpreditdescriptionbypaymentidUpdatedType::CHANNEL => "CHANNEL",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkpreditdescriptionbypaymentidUpdated {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub blockheight: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fees_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub is_rebalance: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub origin: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub outpoint: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub part_id: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_id: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub txid: Option<String>,
+	    // Path `Bkpr-EditDescriptionByPaymentId.updated[].type`
+	    #[serde(rename = "type")]
+	    pub item_type: BkpreditdescriptionbypaymentidUpdatedType,
+	    pub account: String,
+	    pub credit_msat: Amount,
+	    pub currency: String,
+	    pub debit_msat: Amount,
+	    pub description: String,
+	    pub tag: String,
+	    pub timestamp: u32,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkpreditdescriptionbypaymentidResponse {
+	    pub updated: Vec<BkpreditdescriptionbypaymentidUpdated>,
+	}
+
+	impl TryFrom<Response> for BkpreditdescriptionbypaymentidResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::BkprEditDescriptionByPaymentId(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	/// ['Coin movement type.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum BkpreditdescriptionbyoutpointUpdatedType {
+	    #[serde(rename = "chain")]
+	    CHAIN = 0,
+	    #[serde(rename = "channel")]
+	    CHANNEL = 1,
+	}
+
+	impl TryFrom<i32> for BkpreditdescriptionbyoutpointUpdatedType {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<BkpreditdescriptionbyoutpointUpdatedType, anyhow::Error> {
+	        match c {
+	    0 => Ok(BkpreditdescriptionbyoutpointUpdatedType::CHAIN),
+	    1 => Ok(BkpreditdescriptionbyoutpointUpdatedType::CHANNEL),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum BkpreditdescriptionbyoutpointUpdatedType", o)),
+	        }
+	    }
+	}
+
+	impl ToString for BkpreditdescriptionbyoutpointUpdatedType {
+	    fn to_string(&self) -> String {
+	        match self {
+	            BkpreditdescriptionbyoutpointUpdatedType::CHAIN => "CHAIN",
+	            BkpreditdescriptionbyoutpointUpdatedType::CHANNEL => "CHANNEL",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkpreditdescriptionbyoutpointUpdated {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub blockheight: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fees_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub is_rebalance: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub origin: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub outpoint: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub part_id: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_id: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub txid: Option<String>,
+	    // Path `Bkpr-EditDescriptionByOutpoint.updated[].type`
+	    #[serde(rename = "type")]
+	    pub item_type: BkpreditdescriptionbyoutpointUpdatedType,
+	    pub account: String,
+	    pub credit_msat: Amount,
+	    pub currency: String,
+	    pub debit_msat: Amount,
+	    pub description: String,
+	    pub tag: String,
+	    pub timestamp: u32,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkpreditdescriptionbyoutpointResponse {
+	    pub updated: Vec<BkpreditdescriptionbyoutpointUpdated>,
+	}
+
+	impl TryFrom<Response> for BkpreditdescriptionbyoutpointResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::BkprEditDescriptionByOutpoint(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct BlacklistruneBlacklist {
 	    pub end: u64,
@@ -10324,6 +11259,410 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::ShowRunes(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneunreserveResponse {
+	}
+
+	impl TryFrom<Response> for AskreneunreserveResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AskReneUnreserve(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenelistlayersLayersBiases {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    pub bias: i64,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenelistlayersLayersChannel_updates {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub cltv_expiry_delta: Option<u16>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub enabled: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fee_base_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fee_proportional_millionths: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_maximum_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_minimum_msat: Option<Amount>,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenelistlayersLayersConstraints {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maximum_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub minimum_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub short_channel_id_dir: Option<ShortChannelIdDir>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub timestamp: Option<u64>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenelistlayersLayersCreated_channels {
+	    pub capacity_msat: Amount,
+	    pub destination: PublicKey,
+	    pub short_channel_id: ShortChannelId,
+	    pub source: PublicKey,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenelistlayersLayers {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub persistent: Option<bool>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub biases: Option<Vec<AskrenelistlayersLayersBiases>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub channel_updates: Option<Vec<AskrenelistlayersLayersChannel_updates>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub disabled_channels: Option<Vec<ShortChannelIdDir>>,
+	    pub constraints: Vec<AskrenelistlayersLayersConstraints>,
+	    pub created_channels: Vec<AskrenelistlayersLayersCreated_channels>,
+	    pub disabled_nodes: Vec<PublicKey>,
+	    pub layer: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenelistlayersResponse {
+	    pub layers: Vec<AskrenelistlayersLayers>,
+	}
+
+	impl TryFrom<Response> for AskrenelistlayersResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AskReneListLayers(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenecreatelayerLayersBiases {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    pub bias: i64,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenecreatelayerLayersChannel_updates {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub delay: Option<u16>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fee_base_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fee_proportional_millionths: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_maximum_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_minimum_msat: Option<Amount>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenecreatelayerLayersConstraints {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maximum_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub minimum_msat: Option<Amount>,
+	    pub direction: u32,
+	    pub short_channel_id: ShortChannelId,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenecreatelayerLayersCreated_channels {
+	    pub capacity_msat: Amount,
+	    pub destination: PublicKey,
+	    pub short_channel_id: ShortChannelId,
+	    pub source: PublicKey,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenecreatelayerLayers {
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub biases: Option<Vec<AskrenecreatelayerLayersBiases>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub disabled_channels: Option<Vec<ShortChannelIdDir>>,
+	    pub channel_updates: Vec<AskrenecreatelayerLayersChannel_updates>,
+	    pub constraints: Vec<AskrenecreatelayerLayersConstraints>,
+	    pub created_channels: Vec<AskrenecreatelayerLayersCreated_channels>,
+	    pub disabled_nodes: Vec<PublicKey>,
+	    pub layer: String,
+	    pub persistent: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenecreatelayerResponse {
+	    pub layers: Vec<AskrenecreatelayerLayers>,
+	}
+
+	impl TryFrom<Response> for AskrenecreatelayerResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AskReneCreateLayer(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneremovelayerResponse {
+	}
+
+	impl TryFrom<Response> for AskreneremovelayerResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AskReneRemoveLayer(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenereserveResponse {
+	}
+
+	impl TryFrom<Response> for AskrenereserveResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AskReneReserve(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneageResponse {
+	    pub layer: String,
+	    pub num_removed: u64,
+	}
+
+	impl TryFrom<Response> for AskreneageResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AskReneAge(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct GetroutesRoutesPath {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub short_channel_id_dir: Option<ShortChannelIdDir>,
+	    pub amount_msat: Amount,
+	    pub delay: u32,
+	    pub next_node_id: PublicKey,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct GetroutesRoutes {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub final_cltv: Option<u32>,
+	    pub amount_msat: Amount,
+	    pub path: Vec<GetroutesRoutesPath>,
+	    pub probability_ppm: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct GetroutesResponse {
+	    pub probability_ppm: u64,
+	    pub routes: Vec<GetroutesRoutes>,
+	}
+
+	impl TryFrom<Response> for GetroutesResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::GetRoutes(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenedisablenodeResponse {
+	}
+
+	impl TryFrom<Response> for AskrenedisablenodeResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AskReneDisableNode(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneinformchannelConstraints {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maximum_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub minimum_msat: Option<Amount>,
+	    pub layer: String,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	    pub timestamp: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneinformchannelResponse {
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub constraints: Option<Vec<AskreneinformchannelConstraints>>,
+	}
+
+	impl TryFrom<Response> for AskreneinformchannelResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AskReneInformChannel(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenecreatechannelResponse {
+	}
+
+	impl TryFrom<Response> for AskrenecreatechannelResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AskReneCreateChannel(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneupdatechannelResponse {
+	}
+
+	impl TryFrom<Response> for AskreneupdatechannelResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AskReneUpdateChannel(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenebiaschannelBiases {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    pub bias: i64,
+	    pub layer: String,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenebiaschannelResponse {
+	    pub biases: Vec<AskrenebiaschannelBiases>,
+	}
+
+	impl TryFrom<Response> for AskrenebiaschannelResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AskReneBiasChannel(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenelistreservationsReservations {
+	    pub age_in_seconds: u64,
+	    pub amount_msat: Amount,
+	    pub command_id: String,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenelistreservationsResponse {
+	    pub reservations: Vec<AskrenelistreservationsReservations>,
+	}
+
+	impl TryFrom<Response> for AskrenelistreservationsResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AskReneListReservations(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct InjectpaymentonionResponse {
+	    pub completed_at: u64,
+	    pub created_at: u64,
+	    pub created_index: u64,
+	}
+
+	impl TryFrom<Response> for InjectpaymentonionResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::InjectPaymentOnion(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct XpayResponse {
+	    pub amount_msat: Amount,
+	    pub amount_sent_msat: Amount,
+	    pub failed_parts: u64,
+	    pub payment_preimage: Secret,
+	    pub successful_parts: u64,
+	}
+
+	impl TryFrom<Response> for XpayResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::Xpay(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
