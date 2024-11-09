@@ -15,6 +15,7 @@ typemap = {
     "number": "double",
     "pubkey": "bytes",
     "short_channel_id": "string",
+    "short_channel_id_dir": "string",
     "signature": "string",
     "string": "string",
     "txid": "bytes",

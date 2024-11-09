@@ -33,6 +33,7 @@ typemap = {
     "number": "f64",
     "pubkey": "PublicKey",
     "short_channel_id": "ShortChannelId",
+    "short_channel_id_dir": "ShortChannelIdDir",
     "signature": "String",
     "string": "String",
     "txid": "String",
