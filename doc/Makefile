@@ -74,6 +74,7 @@ GENERATE_MARKDOWN := doc/lightning-addgossip.7 \
 	doc/lightning-invoice.7 \
 	doc/lightning-invoicerequest.7 \
 	doc/lightning-keysend.7 \
+	doc/lightning-listaddresses.7 \
 	doc/lightning-listchannels.7 \
 	doc/lightning-listclosedchannels.7 \
 	doc/lightning-listconfigs.7 \
