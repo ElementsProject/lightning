@@ -97,3 +97,4 @@ autogenerate-examples-status.log
 # Ignore nix outputs
 result
 result-[0-9]*
+tests/plugins/channeld_fakenet
