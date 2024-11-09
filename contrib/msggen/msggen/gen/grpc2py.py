@@ -53,6 +53,7 @@ class Grpc2PyGenerator(IGenerator):
             "integer": "m.{name}",
             "boolean": "m.{name}",
             "short_channel_id": "m.{name}",
+            "short_channel_id_dir": "m.{name}",
             "msat": "amount2msat(m.{name})",
             "sat": "amount2sat(m.{name})",
             "currency": "m.{name}",

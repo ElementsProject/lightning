@@ -267,6 +267,60 @@ impl ShortChannelId {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ShortChannelIdDir {
+    pub short_channel_id: ShortChannelId,
+    pub direction: u32,
+}
+impl Serialize for ShortChannelIdDir {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for ShortChannelIdDir {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use serde::de::Error;
+        let s: String = Deserialize::deserialize(deserializer)?;
+        Ok(Self::from_str(&s).map_err(|e| Error::custom(e.to_string()))?)
+    }
+}
+impl FromStr for ShortChannelIdDir {
+    type Err = crate::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Result<Vec<String>, _> = s.split('/').map(|p| p.parse()).collect();
+        let parts = parts.with_context(|| format!("Malformed short_channel_id_dir: {}", s))?;
+        if parts.len() != 2 {
+            return Err(anyhow!(
+                "Malformed short_channel_id_dir: element count mismatch"
+            ));
+        }
+
+        Ok(ShortChannelIdDir {
+            short_channel_id: ShortChannelId::from_str(&parts[0])?,
+            direction: parts[1].parse::<u32>()?,
+        })
+    }
+}
+impl Display for ShortChannelIdDir {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}x{}x{}/{}",
+            self.short_channel_id.block(),
+            self.short_channel_id.txindex(),
+            self.short_channel_id.outnum(),
+            self.direction
+        )
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Secret([u8; 32]);
 
