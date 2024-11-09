@@ -177,6 +177,93 @@ static const struct json_command newaddr_command = {
 };
 AUTODATA(json_command, &newaddr_command);
 
+static void json_add_address_details(struct json_stream *response,
+				 const u64 keyidx,
+				 const char *out_p2wpkh,
+				 const char *out_p2tr)
+{
+	json_object_start(response, NULL);
+	json_add_u64(response, "keyidx", keyidx);
+	if (!streq(out_p2wpkh, "")) {
+		json_add_string(response, "bech32", out_p2wpkh);
+	}
+	if (!streq(out_p2tr,"")) {
+		json_add_string(response, "p2tr", out_p2tr);
+	}
+	json_object_end(response);
+}
+
+static struct command_result *json_listaddresses(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *obj UNNEEDED,
+					     const jsmntok_t *params)
+{
+	struct json_stream *response;
+	struct pubkey pubkey;
+	const u8 *scriptpubkey;
+	u64 *liststart;
+	u32 *listlimit;
+	char *addr = NULL;
+
+	if (!param(cmd, buffer, params,
+			 p_opt("address", param_bitcoin_address, &scriptpubkey),
+			 p_opt_def("start", param_u64, &liststart, 1),
+			 p_opt("limit", param_u32, &listlimit),
+			 NULL))
+		return command_param_failed();
+
+	addr = encode_scriptpubkey_to_addr(tmpctx, chainparams, scriptpubkey);
+
+	if (*liststart == 0) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						"Starting keyidx is 1; Cannot {start} with 0");
+	}
+	struct issued_address_type *listaddrtypes = wallet_list_addresses(tmpctx, cmd->ld->wallet, *liststart, listlimit);
+	response = json_stream_success(cmd);
+	json_array_start(response, "addresses");
+	for (size_t i = 0; i < tal_count(listaddrtypes); i++) {
+		if (listaddrtypes[i].keyidx == BIP32_INITIAL_HARDENED_CHILD){
+			break;
+		}
+		bip32_pubkey(cmd->ld, &pubkey, listaddrtypes[i].keyidx);
+		char *out_p2wpkh = "";
+		char *out_p2tr = "";
+		if (listaddrtypes[i].addrtype == ADDR_BECH32 || listaddrtypes[i].addrtype == ADDR_ALL) {
+			u8 *redeemscript_p2wpkh;
+			out_p2wpkh = encode_pubkey_to_addr(cmd,
+								&pubkey,
+								ADDR_BECH32,
+								&redeemscript_p2wpkh);
+			if (!out_p2wpkh) {
+				abort();
+			}
+		}
+		if (listaddrtypes[i].addrtype == ADDR_P2TR || listaddrtypes[i].addrtype == ADDR_ALL) {
+			out_p2tr = encode_pubkey_to_addr(cmd,
+								&pubkey,
+								ADDR_P2TR,
+								/* out_redeemscript */ NULL);
+			if (!out_p2tr) {
+				abort();
+			}
+		}
+		if (!addr || streq(addr, out_p2wpkh) || streq(addr, out_p2tr)) {
+			json_add_address_details(response, listaddrtypes[i].keyidx, out_p2wpkh, out_p2tr);
+			if (addr) {
+				break;
+			}
+		}
+	}
+	json_array_end(response);
+	return command_success(cmd, response);
+}
+
+static const struct json_command listaddresses_command = {
+	"listaddresses",
+	json_listaddresses
+};
+AUTODATA(json_command, &listaddresses_command);
+
 static struct command_result *json_listaddrs(struct command *cmd,
 					     const char *buffer,
 					     const jsmntok_t *obj UNNEEDED,
