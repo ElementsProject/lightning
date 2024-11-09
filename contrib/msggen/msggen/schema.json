@@ -17245,6 +17245,134 @@
         }
       ]
     },
+    "lightning-listaddresses.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "added": "v24.11",
+      "rpc": "listaddresses",
+      "title": "Command to list all addresses issued by the node to date",
+      "description": [
+        "The **listaddresses** RPC command provides a detailed list of all Bitcoin addresses that have been generated and issued by the Core Lightning node up to the current date."
+      ],
+      "categories": [
+        "readonly"
+      ],
+      "request": {
+        "required": [],
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": [
+              "A Bitcoin accepted type, including a bech32, address for lookup in the list of addresses issued to date."
+            ]
+          },
+          "start": {
+            "type": "u64",
+            "description": [
+              "Starting key index for listing addresses or searching for a particular address."
+            ],
+            "default": 1
+          },
+          "limit": {
+            "type": "u32",
+            "description": [
+              "The maximum number of addresses to return or search for."
+            ],
+            "default": "Total number of addresses issued"
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "addresses"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "addresses": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "keyidx"
+              ],
+              "properties": {
+                "keyidx": {
+                  "type": "u64",
+                  "description": [
+                    "The key index of the address issued."
+                  ]
+                },
+                "bech32": {
+                  "type": "string",
+                  "description": [
+                    "The bech32 (native segwit) address."
+                  ]
+                },
+                "p2tr": {
+                  "type": "string",
+                  "description": [
+                    "The taproot address."
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "author": [
+        "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-newaddr(7)",
+        "lightning-withdraw(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:listaddresses#1",
+            "method": "listaddresses",
+            "params": [
+              "bcrt1phtprcvhz842sxe8qw0yryvc0g6n6dw2puweklcpnfye273kjpfhs0d6d2e"
+            ]
+          },
+          "response": {
+            "addresses": [
+              {
+                "keyidx": 13,
+                "p2tr": "bcrt1phtprcvhz842sxe8qw0yryvc0g6n6dw2puweklcpnfye273kjpfhs0d6d2e"
+              }
+            ]
+          }
+        },
+        {
+          "request": {
+            "id": "example:listaddresses#2",
+            "method": "listaddresses",
+            "params": {
+              "start": 6,
+              "limit": 2
+            }
+          },
+          "response": {
+            "addresses": [
+              {
+                "keyidx": 6,
+                "bech32": "bcrt1qkpw662yvzdy5ttdg8nw4eh4el0uc7m2ythw0h3"
+              },
+              {
+                "keyidx": 7,
+                "p2tr": "bcrt1pn45xgkyj54usdu98plm4zgcp4c5jvvfxmyexwcm5kc3gyfsrjmasd6ctsf"
+              }
+            ]
+          }
+        }
+      ]
+    },
     "lightning-listchannels.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
