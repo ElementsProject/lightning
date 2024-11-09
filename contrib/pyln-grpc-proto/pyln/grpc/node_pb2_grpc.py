@@ -114,6 +114,16 @@ class NodeStub(object):
                 request_serializer=node__pb2.EmergencyrecoverRequest.SerializeToString,
                 response_deserializer=node__pb2.EmergencyrecoverResponse.FromString,
                 )
+        self.GetEmergencyRecoverData = channel.unary_unary(
+                '/cln.Node/GetEmergencyRecoverData',
+                request_serializer=node__pb2.GetemergencyrecoverdataRequest.SerializeToString,
+                response_deserializer=node__pb2.GetemergencyrecoverdataResponse.FromString,
+                )
+        self.ExposeSecret = channel.unary_unary(
+                '/cln.Node/ExposeSecret',
+                request_serializer=node__pb2.ExposesecretRequest.SerializeToString,
+                response_deserializer=node__pb2.ExposesecretResponse.FromString,
+                )
         self.Recover = channel.unary_unary(
                 '/cln.Node/Recover',
                 request_serializer=node__pb2.RecoverRequest.SerializeToString,
@@ -284,6 +294,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.DisableofferRequest.SerializeToString,
                 response_deserializer=node__pb2.DisableofferResponse.FromString,
                 )
+        self.EnableOffer = channel.unary_unary(
+                '/cln.Node/EnableOffer',
+                request_serializer=node__pb2.EnableofferRequest.SerializeToString,
+                response_deserializer=node__pb2.EnableofferResponse.FromString,
+                )
         self.Disconnect = channel.unary_unary(
                 '/cln.Node/Disconnect',
                 request_serializer=node__pb2.DisconnectRequest.SerializeToString,
@@ -333,6 +348,11 @@ class NodeStub(object):
                 '/cln.Node/GetRoute',
                 request_serializer=node__pb2.GetrouteRequest.SerializeToString,
                 response_deserializer=node__pb2.GetrouteResponse.FromString,
+                )
+        self.ListAddresses = channel.unary_unary(
+                '/cln.Node/ListAddresses',
+                request_serializer=node__pb2.ListaddressesRequest.SerializeToString,
+                response_deserializer=node__pb2.ListaddressesResponse.FromString,
                 )
         self.ListForwards = channel.unary_unary(
                 '/cln.Node/ListForwards',
@@ -469,6 +489,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.Splice_updateRequest.SerializeToString,
                 response_deserializer=node__pb2.Splice_updateResponse.FromString,
                 )
+        self.DevSplice = channel.unary_unary(
+                '/cln.Node/DevSplice',
+                request_serializer=node__pb2.DevspliceRequest.SerializeToString,
+                response_deserializer=node__pb2.DevspliceResponse.FromString,
+                )
         self.UnreserveInputs = channel.unary_unary(
                 '/cln.Node/UnreserveInputs',
                 request_serializer=node__pb2.UnreserveinputsRequest.SerializeToString,
@@ -549,6 +574,16 @@ class NodeStub(object):
                 request_serializer=node__pb2.BkprlistincomeRequest.SerializeToString,
                 response_deserializer=node__pb2.BkprlistincomeResponse.FromString,
                 )
+        self.BkprEditDescriptionByPaymentId = channel.unary_unary(
+                '/cln.Node/BkprEditDescriptionByPaymentId',
+                request_serializer=node__pb2.BkpreditdescriptionbypaymentidRequest.SerializeToString,
+                response_deserializer=node__pb2.BkpreditdescriptionbypaymentidResponse.FromString,
+                )
+        self.BkprEditDescriptionByOutpoint = channel.unary_unary(
+                '/cln.Node/BkprEditDescriptionByOutpoint',
+                request_serializer=node__pb2.BkpreditdescriptionbyoutpointRequest.SerializeToString,
+                response_deserializer=node__pb2.BkpreditdescriptionbyoutpointResponse.FromString,
+                )
         self.BlacklistRune = channel.unary_unary(
                 '/cln.Node/BlacklistRune',
                 request_serializer=node__pb2.BlacklistruneRequest.SerializeToString,
@@ -568,6 +603,81 @@ class NodeStub(object):
                 '/cln.Node/ShowRunes',
                 request_serializer=node__pb2.ShowrunesRequest.SerializeToString,
                 response_deserializer=node__pb2.ShowrunesResponse.FromString,
+                )
+        self.AskReneUnreserve = channel.unary_unary(
+                '/cln.Node/AskReneUnreserve',
+                request_serializer=node__pb2.AskreneunreserveRequest.SerializeToString,
+                response_deserializer=node__pb2.AskreneunreserveResponse.FromString,
+                )
+        self.AskReneListLayers = channel.unary_unary(
+                '/cln.Node/AskReneListLayers',
+                request_serializer=node__pb2.AskrenelistlayersRequest.SerializeToString,
+                response_deserializer=node__pb2.AskrenelistlayersResponse.FromString,
+                )
+        self.AskReneCreateLayer = channel.unary_unary(
+                '/cln.Node/AskReneCreateLayer',
+                request_serializer=node__pb2.AskrenecreatelayerRequest.SerializeToString,
+                response_deserializer=node__pb2.AskrenecreatelayerResponse.FromString,
+                )
+        self.AskReneRemoveLayer = channel.unary_unary(
+                '/cln.Node/AskReneRemoveLayer',
+                request_serializer=node__pb2.AskreneremovelayerRequest.SerializeToString,
+                response_deserializer=node__pb2.AskreneremovelayerResponse.FromString,
+                )
+        self.AskReneReserve = channel.unary_unary(
+                '/cln.Node/AskReneReserve',
+                request_serializer=node__pb2.AskrenereserveRequest.SerializeToString,
+                response_deserializer=node__pb2.AskrenereserveResponse.FromString,
+                )
+        self.AskReneAge = channel.unary_unary(
+                '/cln.Node/AskReneAge',
+                request_serializer=node__pb2.AskreneageRequest.SerializeToString,
+                response_deserializer=node__pb2.AskreneageResponse.FromString,
+                )
+        self.GetRoutes = channel.unary_unary(
+                '/cln.Node/GetRoutes',
+                request_serializer=node__pb2.GetroutesRequest.SerializeToString,
+                response_deserializer=node__pb2.GetroutesResponse.FromString,
+                )
+        self.AskReneDisableNode = channel.unary_unary(
+                '/cln.Node/AskReneDisableNode',
+                request_serializer=node__pb2.AskrenedisablenodeRequest.SerializeToString,
+                response_deserializer=node__pb2.AskrenedisablenodeResponse.FromString,
+                )
+        self.AskReneInformChannel = channel.unary_unary(
+                '/cln.Node/AskReneInformChannel',
+                request_serializer=node__pb2.AskreneinformchannelRequest.SerializeToString,
+                response_deserializer=node__pb2.AskreneinformchannelResponse.FromString,
+                )
+        self.AskReneCreateChannel = channel.unary_unary(
+                '/cln.Node/AskReneCreateChannel',
+                request_serializer=node__pb2.AskrenecreatechannelRequest.SerializeToString,
+                response_deserializer=node__pb2.AskrenecreatechannelResponse.FromString,
+                )
+        self.AskReneUpdateChannel = channel.unary_unary(
+                '/cln.Node/AskReneUpdateChannel',
+                request_serializer=node__pb2.AskreneupdatechannelRequest.SerializeToString,
+                response_deserializer=node__pb2.AskreneupdatechannelResponse.FromString,
+                )
+        self.AskReneBiasChannel = channel.unary_unary(
+                '/cln.Node/AskReneBiasChannel',
+                request_serializer=node__pb2.AskrenebiaschannelRequest.SerializeToString,
+                response_deserializer=node__pb2.AskrenebiaschannelResponse.FromString,
+                )
+        self.AskReneListReservations = channel.unary_unary(
+                '/cln.Node/AskReneListReservations',
+                request_serializer=node__pb2.AskrenelistreservationsRequest.SerializeToString,
+                response_deserializer=node__pb2.AskrenelistreservationsResponse.FromString,
+                )
+        self.InjectPaymentOnion = channel.unary_unary(
+                '/cln.Node/InjectPaymentOnion',
+                request_serializer=node__pb2.InjectpaymentonionRequest.SerializeToString,
+                response_deserializer=node__pb2.InjectpaymentonionResponse.FromString,
+                )
+        self.Xpay = channel.unary_unary(
+                '/cln.Node/Xpay',
+                request_serializer=node__pb2.XpayRequest.SerializeToString,
+                response_deserializer=node__pb2.XpayResponse.FromString,
                 )
         self.SubscribeBlockAdded = channel.unary_stream(
                 '/cln.Node/SubscribeBlockAdded',
@@ -714,6 +824,18 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def EmergencyRecover(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetEmergencyRecoverData(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ExposeSecret(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -923,6 +1045,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def EnableOffer(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Disconnect(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -978,6 +1106,12 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def GetRoute(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListAddresses(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1145,6 +1279,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def DevSplice(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def UnreserveInputs(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1241,6 +1381,18 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def BkprEditDescriptionByPaymentId(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def BkprEditDescriptionByOutpoint(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def BlacklistRune(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1260,6 +1412,96 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def ShowRunes(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AskReneUnreserve(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AskReneListLayers(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AskReneCreateLayer(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AskReneRemoveLayer(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AskReneReserve(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AskReneAge(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetRoutes(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AskReneDisableNode(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AskReneInformChannel(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AskReneCreateChannel(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AskReneUpdateChannel(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AskReneBiasChannel(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AskReneListReservations(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def InjectPaymentOnion(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Xpay(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1397,6 +1639,16 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.EmergencyRecover,
                     request_deserializer=node__pb2.EmergencyrecoverRequest.FromString,
                     response_serializer=node__pb2.EmergencyrecoverResponse.SerializeToString,
+            ),
+            'GetEmergencyRecoverData': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetEmergencyRecoverData,
+                    request_deserializer=node__pb2.GetemergencyrecoverdataRequest.FromString,
+                    response_serializer=node__pb2.GetemergencyrecoverdataResponse.SerializeToString,
+            ),
+            'ExposeSecret': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExposeSecret,
+                    request_deserializer=node__pb2.ExposesecretRequest.FromString,
+                    response_serializer=node__pb2.ExposesecretResponse.SerializeToString,
             ),
             'Recover': grpc.unary_unary_rpc_method_handler(
                     servicer.Recover,
@@ -1568,6 +1820,11 @@ def add_NodeServicer_to_server(servicer, server):
                     request_deserializer=node__pb2.DisableofferRequest.FromString,
                     response_serializer=node__pb2.DisableofferResponse.SerializeToString,
             ),
+            'EnableOffer': grpc.unary_unary_rpc_method_handler(
+                    servicer.EnableOffer,
+                    request_deserializer=node__pb2.EnableofferRequest.FromString,
+                    response_serializer=node__pb2.EnableofferResponse.SerializeToString,
+            ),
             'Disconnect': grpc.unary_unary_rpc_method_handler(
                     servicer.Disconnect,
                     request_deserializer=node__pb2.DisconnectRequest.FromString,
@@ -1617,6 +1874,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.GetRoute,
                     request_deserializer=node__pb2.GetrouteRequest.FromString,
                     response_serializer=node__pb2.GetrouteResponse.SerializeToString,
+            ),
+            'ListAddresses': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListAddresses,
+                    request_deserializer=node__pb2.ListaddressesRequest.FromString,
+                    response_serializer=node__pb2.ListaddressesResponse.SerializeToString,
             ),
             'ListForwards': grpc.unary_unary_rpc_method_handler(
                     servicer.ListForwards,
@@ -1753,6 +2015,11 @@ def add_NodeServicer_to_server(servicer, server):
                     request_deserializer=node__pb2.Splice_updateRequest.FromString,
                     response_serializer=node__pb2.Splice_updateResponse.SerializeToString,
             ),
+            'DevSplice': grpc.unary_unary_rpc_method_handler(
+                    servicer.DevSplice,
+                    request_deserializer=node__pb2.DevspliceRequest.FromString,
+                    response_serializer=node__pb2.DevspliceResponse.SerializeToString,
+            ),
             'UnreserveInputs': grpc.unary_unary_rpc_method_handler(
                     servicer.UnreserveInputs,
                     request_deserializer=node__pb2.UnreserveinputsRequest.FromString,
@@ -1833,6 +2100,16 @@ def add_NodeServicer_to_server(servicer, server):
                     request_deserializer=node__pb2.BkprlistincomeRequest.FromString,
                     response_serializer=node__pb2.BkprlistincomeResponse.SerializeToString,
             ),
+            'BkprEditDescriptionByPaymentId': grpc.unary_unary_rpc_method_handler(
+                    servicer.BkprEditDescriptionByPaymentId,
+                    request_deserializer=node__pb2.BkpreditdescriptionbypaymentidRequest.FromString,
+                    response_serializer=node__pb2.BkpreditdescriptionbypaymentidResponse.SerializeToString,
+            ),
+            'BkprEditDescriptionByOutpoint': grpc.unary_unary_rpc_method_handler(
+                    servicer.BkprEditDescriptionByOutpoint,
+                    request_deserializer=node__pb2.BkpreditdescriptionbyoutpointRequest.FromString,
+                    response_serializer=node__pb2.BkpreditdescriptionbyoutpointResponse.SerializeToString,
+            ),
             'BlacklistRune': grpc.unary_unary_rpc_method_handler(
                     servicer.BlacklistRune,
                     request_deserializer=node__pb2.BlacklistruneRequest.FromString,
@@ -1852,6 +2129,81 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.ShowRunes,
                     request_deserializer=node__pb2.ShowrunesRequest.FromString,
                     response_serializer=node__pb2.ShowrunesResponse.SerializeToString,
+            ),
+            'AskReneUnreserve': grpc.unary_unary_rpc_method_handler(
+                    servicer.AskReneUnreserve,
+                    request_deserializer=node__pb2.AskreneunreserveRequest.FromString,
+                    response_serializer=node__pb2.AskreneunreserveResponse.SerializeToString,
+            ),
+            'AskReneListLayers': grpc.unary_unary_rpc_method_handler(
+                    servicer.AskReneListLayers,
+                    request_deserializer=node__pb2.AskrenelistlayersRequest.FromString,
+                    response_serializer=node__pb2.AskrenelistlayersResponse.SerializeToString,
+            ),
+            'AskReneCreateLayer': grpc.unary_unary_rpc_method_handler(
+                    servicer.AskReneCreateLayer,
+                    request_deserializer=node__pb2.AskrenecreatelayerRequest.FromString,
+                    response_serializer=node__pb2.AskrenecreatelayerResponse.SerializeToString,
+            ),
+            'AskReneRemoveLayer': grpc.unary_unary_rpc_method_handler(
+                    servicer.AskReneRemoveLayer,
+                    request_deserializer=node__pb2.AskreneremovelayerRequest.FromString,
+                    response_serializer=node__pb2.AskreneremovelayerResponse.SerializeToString,
+            ),
+            'AskReneReserve': grpc.unary_unary_rpc_method_handler(
+                    servicer.AskReneReserve,
+                    request_deserializer=node__pb2.AskrenereserveRequest.FromString,
+                    response_serializer=node__pb2.AskrenereserveResponse.SerializeToString,
+            ),
+            'AskReneAge': grpc.unary_unary_rpc_method_handler(
+                    servicer.AskReneAge,
+                    request_deserializer=node__pb2.AskreneageRequest.FromString,
+                    response_serializer=node__pb2.AskreneageResponse.SerializeToString,
+            ),
+            'GetRoutes': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetRoutes,
+                    request_deserializer=node__pb2.GetroutesRequest.FromString,
+                    response_serializer=node__pb2.GetroutesResponse.SerializeToString,
+            ),
+            'AskReneDisableNode': grpc.unary_unary_rpc_method_handler(
+                    servicer.AskReneDisableNode,
+                    request_deserializer=node__pb2.AskrenedisablenodeRequest.FromString,
+                    response_serializer=node__pb2.AskrenedisablenodeResponse.SerializeToString,
+            ),
+            'AskReneInformChannel': grpc.unary_unary_rpc_method_handler(
+                    servicer.AskReneInformChannel,
+                    request_deserializer=node__pb2.AskreneinformchannelRequest.FromString,
+                    response_serializer=node__pb2.AskreneinformchannelResponse.SerializeToString,
+            ),
+            'AskReneCreateChannel': grpc.unary_unary_rpc_method_handler(
+                    servicer.AskReneCreateChannel,
+                    request_deserializer=node__pb2.AskrenecreatechannelRequest.FromString,
+                    response_serializer=node__pb2.AskrenecreatechannelResponse.SerializeToString,
+            ),
+            'AskReneUpdateChannel': grpc.unary_unary_rpc_method_handler(
+                    servicer.AskReneUpdateChannel,
+                    request_deserializer=node__pb2.AskreneupdatechannelRequest.FromString,
+                    response_serializer=node__pb2.AskreneupdatechannelResponse.SerializeToString,
+            ),
+            'AskReneBiasChannel': grpc.unary_unary_rpc_method_handler(
+                    servicer.AskReneBiasChannel,
+                    request_deserializer=node__pb2.AskrenebiaschannelRequest.FromString,
+                    response_serializer=node__pb2.AskrenebiaschannelResponse.SerializeToString,
+            ),
+            'AskReneListReservations': grpc.unary_unary_rpc_method_handler(
+                    servicer.AskReneListReservations,
+                    request_deserializer=node__pb2.AskrenelistreservationsRequest.FromString,
+                    response_serializer=node__pb2.AskrenelistreservationsResponse.SerializeToString,
+            ),
+            'InjectPaymentOnion': grpc.unary_unary_rpc_method_handler(
+                    servicer.InjectPaymentOnion,
+                    request_deserializer=node__pb2.InjectpaymentonionRequest.FromString,
+                    response_serializer=node__pb2.InjectpaymentonionResponse.SerializeToString,
+            ),
+            'Xpay': grpc.unary_unary_rpc_method_handler(
+                    servicer.Xpay,
+                    request_deserializer=node__pb2.XpayRequest.FromString,
+                    response_serializer=node__pb2.XpayResponse.SerializeToString,
             ),
             'SubscribeBlockAdded': grpc.unary_stream_rpc_method_handler(
                     servicer.SubscribeBlockAdded,
@@ -2225,6 +2577,40 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/EmergencyRecover',
             node__pb2.EmergencyrecoverRequest.SerializeToString,
             node__pb2.EmergencyrecoverResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetEmergencyRecoverData(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/GetEmergencyRecoverData',
+            node__pb2.GetemergencyrecoverdataRequest.SerializeToString,
+            node__pb2.GetemergencyrecoverdataResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ExposeSecret(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/ExposeSecret',
+            node__pb2.ExposesecretRequest.SerializeToString,
+            node__pb2.ExposesecretResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -2807,6 +3193,23 @@ class Node(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def EnableOffer(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/EnableOffer',
+            node__pb2.EnableofferRequest.SerializeToString,
+            node__pb2.EnableofferResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def Disconnect(request,
             target,
             options=(),
@@ -2973,6 +3376,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/GetRoute',
             node__pb2.GetrouteRequest.SerializeToString,
             node__pb2.GetrouteResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ListAddresses(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/ListAddresses',
+            node__pb2.ListaddressesRequest.SerializeToString,
+            node__pb2.ListaddressesResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -3436,6 +3856,23 @@ class Node(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def DevSplice(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/DevSplice',
+            node__pb2.DevspliceRequest.SerializeToString,
+            node__pb2.DevspliceResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def UnreserveInputs(request,
             target,
             options=(),
@@ -3708,6 +4145,40 @@ class Node(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def BkprEditDescriptionByPaymentId(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/BkprEditDescriptionByPaymentId',
+            node__pb2.BkpreditdescriptionbypaymentidRequest.SerializeToString,
+            node__pb2.BkpreditdescriptionbypaymentidResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def BkprEditDescriptionByOutpoint(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/BkprEditDescriptionByOutpoint',
+            node__pb2.BkpreditdescriptionbyoutpointRequest.SerializeToString,
+            node__pb2.BkpreditdescriptionbyoutpointResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def BlacklistRune(request,
             target,
             options=(),
@@ -3772,6 +4243,261 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/ShowRunes',
             node__pb2.ShowrunesRequest.SerializeToString,
             node__pb2.ShowrunesResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AskReneUnreserve(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/AskReneUnreserve',
+            node__pb2.AskreneunreserveRequest.SerializeToString,
+            node__pb2.AskreneunreserveResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AskReneListLayers(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/AskReneListLayers',
+            node__pb2.AskrenelistlayersRequest.SerializeToString,
+            node__pb2.AskrenelistlayersResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AskReneCreateLayer(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/AskReneCreateLayer',
+            node__pb2.AskrenecreatelayerRequest.SerializeToString,
+            node__pb2.AskrenecreatelayerResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AskReneRemoveLayer(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/AskReneRemoveLayer',
+            node__pb2.AskreneremovelayerRequest.SerializeToString,
+            node__pb2.AskreneremovelayerResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AskReneReserve(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/AskReneReserve',
+            node__pb2.AskrenereserveRequest.SerializeToString,
+            node__pb2.AskrenereserveResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AskReneAge(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/AskReneAge',
+            node__pb2.AskreneageRequest.SerializeToString,
+            node__pb2.AskreneageResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetRoutes(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/GetRoutes',
+            node__pb2.GetroutesRequest.SerializeToString,
+            node__pb2.GetroutesResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AskReneDisableNode(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/AskReneDisableNode',
+            node__pb2.AskrenedisablenodeRequest.SerializeToString,
+            node__pb2.AskrenedisablenodeResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AskReneInformChannel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/AskReneInformChannel',
+            node__pb2.AskreneinformchannelRequest.SerializeToString,
+            node__pb2.AskreneinformchannelResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AskReneCreateChannel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/AskReneCreateChannel',
+            node__pb2.AskrenecreatechannelRequest.SerializeToString,
+            node__pb2.AskrenecreatechannelResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AskReneUpdateChannel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/AskReneUpdateChannel',
+            node__pb2.AskreneupdatechannelRequest.SerializeToString,
+            node__pb2.AskreneupdatechannelResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AskReneBiasChannel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/AskReneBiasChannel',
+            node__pb2.AskrenebiaschannelRequest.SerializeToString,
+            node__pb2.AskrenebiaschannelResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AskReneListReservations(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/AskReneListReservations',
+            node__pb2.AskrenelistreservationsRequest.SerializeToString,
+            node__pb2.AskrenelistreservationsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def InjectPaymentOnion(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/InjectPaymentOnion',
+            node__pb2.InjectpaymentonionRequest.SerializeToString,
+            node__pb2.InjectpaymentonionResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Xpay(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/Xpay',
+            node__pb2.XpayRequest.SerializeToString,
+            node__pb2.XpayResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

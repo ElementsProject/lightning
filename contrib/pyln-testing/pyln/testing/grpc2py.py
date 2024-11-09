@@ -441,6 +441,19 @@ def emergencyrecover2py(m):
     })
 
 
+def getemergencyrecoverdata2py(m):
+    return remove_default({
+        "filedata": hexlify(m.filedata),  # PrimitiveField in generate_composite
+    })
+
+
+def exposesecret2py(m):
+    return remove_default({
+        "codex32": m.codex32,  # PrimitiveField in generate_composite
+        "identifier": m.identifier,  # PrimitiveField in generate_composite
+    })
+
+
 def recover2py(m):
     return remove_default({
         "result": str(m.result),  # EnumField in generate_composite
@@ -1387,6 +1400,17 @@ def disableoffer2py(m):
     })
 
 
+def enableoffer2py(m):
+    return remove_default({
+        "active": m.active,  # PrimitiveField in generate_composite
+        "bolt12": m.bolt12,  # PrimitiveField in generate_composite
+        "label": m.label,  # PrimitiveField in generate_composite
+        "offer_id": hexlify(m.offer_id),  # PrimitiveField in generate_composite
+        "single_use": m.single_use,  # PrimitiveField in generate_composite
+        "used": m.used,  # PrimitiveField in generate_composite
+    })
+
+
 def disconnect2py(m):
     return remove_default({
     })
@@ -1588,6 +1612,20 @@ def getroute_route2py(m):
 def getroute2py(m):
     return remove_default({
         "route": [getroute_route2py(i) for i in m.route],  # ArrayField[composite] in generate_composite
+    })
+
+
+def listaddresses_addresses2py(m):
+    return remove_default({
+        "bech32": m.bech32,  # PrimitiveField in generate_composite
+        "keyidx": m.keyidx,  # PrimitiveField in generate_composite
+        "p2tr": m.p2tr,  # PrimitiveField in generate_composite
+    })
+
+
+def listaddresses2py(m):
+    return remove_default({
+        "addresses": [listaddresses_addresses2py(i) for i in m.addresses],  # ArrayField[composite] in generate_composite
     })
 
 
@@ -1985,6 +2023,16 @@ def splice_update2py(m):
         "commitments_secured": m.commitments_secured,  # PrimitiveField in generate_composite
         "psbt": m.psbt,  # PrimitiveField in generate_composite
         "signatures_secured": m.signatures_secured,  # PrimitiveField in generate_composite
+    })
+
+
+def dev_splice2py(m):
+    return remove_default({
+        "dryrun": [m.dryrun for i in m.dryrun], # ArrayField[primitive] in generate_composite
+        "log": [m.log for i in m.log], # ArrayField[primitive] in generate_composite
+        "psbt": m.psbt,  # PrimitiveField in generate_composite
+        "tx": m.tx,  # PrimitiveField in generate_composite
+        "txid": m.txid,  # PrimitiveField in generate_composite
     })
 
 
@@ -2829,6 +2877,60 @@ def bkpr_listincome2py(m):
     })
 
 
+def bkpr_editdescriptionbypaymentid_updated2py(m):
+    return remove_default({
+        "type": str(m.item_type),  # EnumField in generate_composite
+        "account": m.account,  # PrimitiveField in generate_composite
+        "blockheight": m.blockheight,  # PrimitiveField in generate_composite
+        "credit_msat": amount2msat(m.credit_msat),  # PrimitiveField in generate_composite
+        "currency": m.currency,  # PrimitiveField in generate_composite
+        "debit_msat": amount2msat(m.debit_msat),  # PrimitiveField in generate_composite
+        "description": m.description,  # PrimitiveField in generate_composite
+        "fees_msat": amount2msat(m.fees_msat),  # PrimitiveField in generate_composite
+        "is_rebalance": m.is_rebalance,  # PrimitiveField in generate_composite
+        "origin": m.origin,  # PrimitiveField in generate_composite
+        "outpoint": m.outpoint,  # PrimitiveField in generate_composite
+        "part_id": m.part_id,  # PrimitiveField in generate_composite
+        "payment_id": hexlify(m.payment_id),  # PrimitiveField in generate_composite
+        "tag": m.tag,  # PrimitiveField in generate_composite
+        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
+        "txid": hexlify(m.txid),  # PrimitiveField in generate_composite
+    })
+
+
+def bkpr_editdescriptionbypaymentid2py(m):
+    return remove_default({
+        "updated": [bkpr_editdescriptionbypaymentid_updated2py(i) for i in m.updated],  # ArrayField[composite] in generate_composite
+    })
+
+
+def bkpr_editdescriptionbyoutpoint_updated2py(m):
+    return remove_default({
+        "type": str(m.item_type),  # EnumField in generate_composite
+        "account": m.account,  # PrimitiveField in generate_composite
+        "blockheight": m.blockheight,  # PrimitiveField in generate_composite
+        "credit_msat": amount2msat(m.credit_msat),  # PrimitiveField in generate_composite
+        "currency": m.currency,  # PrimitiveField in generate_composite
+        "debit_msat": amount2msat(m.debit_msat),  # PrimitiveField in generate_composite
+        "description": m.description,  # PrimitiveField in generate_composite
+        "fees_msat": amount2msat(m.fees_msat),  # PrimitiveField in generate_composite
+        "is_rebalance": m.is_rebalance,  # PrimitiveField in generate_composite
+        "origin": m.origin,  # PrimitiveField in generate_composite
+        "outpoint": m.outpoint,  # PrimitiveField in generate_composite
+        "part_id": m.part_id,  # PrimitiveField in generate_composite
+        "payment_id": hexlify(m.payment_id),  # PrimitiveField in generate_composite
+        "tag": m.tag,  # PrimitiveField in generate_composite
+        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
+        "txid": hexlify(m.txid),  # PrimitiveField in generate_composite
+    })
+
+
+def bkpr_editdescriptionbyoutpoint2py(m):
+    return remove_default({
+        "updated": [bkpr_editdescriptionbyoutpoint_updated2py(i) for i in m.updated],  # ArrayField[composite] in generate_composite
+    })
+
+
 def blacklistrune_blacklist2py(m):
     return remove_default({
         "end": m.end,  # PrimitiveField in generate_composite
@@ -2888,6 +2990,244 @@ def showrunes_runes2py(m):
 def showrunes2py(m):
     return remove_default({
         "runes": [showrunes_runes2py(i) for i in m.runes],  # ArrayField[composite] in generate_composite
+    })
+
+
+def askrene_unreserve2py(m):
+    return remove_default({
+    })
+
+
+def askrene_listlayers_layers_biases2py(m):
+    return remove_default({
+        "bias": m.bias,  # PrimitiveField in generate_composite
+        "description": m.description,  # PrimitiveField in generate_composite
+        "short_channel_id_dir": m.short_channel_id_dir,  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_listlayers_layers_channel_updates2py(m):
+    return remove_default({
+        "cltv_expiry_delta": m.cltv_expiry_delta,  # PrimitiveField in generate_composite
+        "enabled": m.enabled,  # PrimitiveField in generate_composite
+        "fee_base_msat": amount2msat(m.fee_base_msat),  # PrimitiveField in generate_composite
+        "fee_proportional_millionths": m.fee_proportional_millionths,  # PrimitiveField in generate_composite
+        "htlc_maximum_msat": amount2msat(m.htlc_maximum_msat),  # PrimitiveField in generate_composite
+        "htlc_minimum_msat": amount2msat(m.htlc_minimum_msat),  # PrimitiveField in generate_composite
+        "short_channel_id_dir": m.short_channel_id_dir,  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_listlayers_layers_constraints2py(m):
+    return remove_default({
+        "maximum_msat": amount2msat(m.maximum_msat),  # PrimitiveField in generate_composite
+        "minimum_msat": amount2msat(m.minimum_msat),  # PrimitiveField in generate_composite
+        "short_channel_id_dir": m.short_channel_id_dir,  # PrimitiveField in generate_composite
+        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_listlayers_layers_created_channels2py(m):
+    return remove_default({
+        "capacity_msat": amount2msat(m.capacity_msat),  # PrimitiveField in generate_composite
+        "destination": hexlify(m.destination),  # PrimitiveField in generate_composite
+        "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
+        "source": hexlify(m.source),  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_listlayers_layers2py(m):
+    return remove_default({
+        "biases": [askrene_listlayers_layers_biases2py(i) for i in m.biases],  # ArrayField[composite] in generate_composite
+        "channel_updates": [askrene_listlayers_layers_channel_updates2py(i) for i in m.channel_updates],  # ArrayField[composite] in generate_composite
+        "constraints": [askrene_listlayers_layers_constraints2py(i) for i in m.constraints],  # ArrayField[composite] in generate_composite
+        "created_channels": [askrene_listlayers_layers_created_channels2py(i) for i in m.created_channels],  # ArrayField[composite] in generate_composite
+        "disabled_channels": [m.disabled_channels for i in m.disabled_channels], # ArrayField[primitive] in generate_composite
+        "disabled_nodes": [hexlify(m.disabled_nodes) for i in hexlify(m.disabled_nodes)], # ArrayField[primitive] in generate_composite
+        "layer": m.layer,  # PrimitiveField in generate_composite
+        "persistent": m.persistent,  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_listlayers2py(m):
+    return remove_default({
+        "layers": [askrene_listlayers_layers2py(i) for i in m.layers],  # ArrayField[composite] in generate_composite
+    })
+
+
+def askrene_create_layer_layers_biases2py(m):
+    return remove_default({
+        "bias": m.bias,  # PrimitiveField in generate_composite
+        "description": m.description,  # PrimitiveField in generate_composite
+        "short_channel_id_dir": m.short_channel_id_dir,  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_create_layer_layers_channel_updates2py(m):
+    return remove_default({
+        "delay": m.delay,  # PrimitiveField in generate_composite
+        "fee_base_msat": amount2msat(m.fee_base_msat),  # PrimitiveField in generate_composite
+        "fee_proportional_millionths": m.fee_proportional_millionths,  # PrimitiveField in generate_composite
+        "htlc_maximum_msat": amount2msat(m.htlc_maximum_msat),  # PrimitiveField in generate_composite
+        "htlc_minimum_msat": amount2msat(m.htlc_minimum_msat),  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_create_layer_layers_constraints2py(m):
+    return remove_default({
+        "direction": m.direction,  # PrimitiveField in generate_composite
+        "maximum_msat": amount2msat(m.maximum_msat),  # PrimitiveField in generate_composite
+        "minimum_msat": amount2msat(m.minimum_msat),  # PrimitiveField in generate_composite
+        "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_create_layer_layers_created_channels2py(m):
+    return remove_default({
+        "capacity_msat": amount2msat(m.capacity_msat),  # PrimitiveField in generate_composite
+        "destination": hexlify(m.destination),  # PrimitiveField in generate_composite
+        "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
+        "source": hexlify(m.source),  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_create_layer_layers2py(m):
+    return remove_default({
+        "biases": [askrene_create_layer_layers_biases2py(i) for i in m.biases],  # ArrayField[composite] in generate_composite
+        "channel_updates": [askrene_create_layer_layers_channel_updates2py(i) for i in m.channel_updates],  # ArrayField[composite] in generate_composite
+        "constraints": [askrene_create_layer_layers_constraints2py(i) for i in m.constraints],  # ArrayField[composite] in generate_composite
+        "created_channels": [askrene_create_layer_layers_created_channels2py(i) for i in m.created_channels],  # ArrayField[composite] in generate_composite
+        "disabled_channels": [m.disabled_channels for i in m.disabled_channels], # ArrayField[primitive] in generate_composite
+        "disabled_nodes": [hexlify(m.disabled_nodes) for i in hexlify(m.disabled_nodes)], # ArrayField[primitive] in generate_composite
+        "layer": m.layer,  # PrimitiveField in generate_composite
+        "persistent": m.persistent,  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_create_layer2py(m):
+    return remove_default({
+        "layers": [askrene_create_layer_layers2py(i) for i in m.layers],  # ArrayField[composite] in generate_composite
+    })
+
+
+def askrene_remove_layer2py(m):
+    return remove_default({
+    })
+
+
+def askrene_reserve2py(m):
+    return remove_default({
+    })
+
+
+def askrene_age2py(m):
+    return remove_default({
+        "layer": m.layer,  # PrimitiveField in generate_composite
+        "num_removed": m.num_removed,  # PrimitiveField in generate_composite
+    })
+
+
+def getroutes_routes_path2py(m):
+    return remove_default({
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "delay": m.delay,  # PrimitiveField in generate_composite
+        "next_node_id": hexlify(m.next_node_id),  # PrimitiveField in generate_composite
+        "short_channel_id_dir": m.short_channel_id_dir,  # PrimitiveField in generate_composite
+    })
+
+
+def getroutes_routes2py(m):
+    return remove_default({
+        "path": [getroutes_routes_path2py(i) for i in m.path],  # ArrayField[composite] in generate_composite
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "final_cltv": m.final_cltv,  # PrimitiveField in generate_composite
+        "probability_ppm": m.probability_ppm,  # PrimitiveField in generate_composite
+    })
+
+
+def getroutes2py(m):
+    return remove_default({
+        "routes": [getroutes_routes2py(i) for i in m.routes],  # ArrayField[composite] in generate_composite
+        "probability_ppm": m.probability_ppm,  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_disable_node2py(m):
+    return remove_default({
+    })
+
+
+def askrene_inform_channel_constraints2py(m):
+    return remove_default({
+        "layer": m.layer,  # PrimitiveField in generate_composite
+        "maximum_msat": amount2msat(m.maximum_msat),  # PrimitiveField in generate_composite
+        "minimum_msat": amount2msat(m.minimum_msat),  # PrimitiveField in generate_composite
+        "short_channel_id_dir": m.short_channel_id_dir,  # PrimitiveField in generate_composite
+        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_inform_channel2py(m):
+    return remove_default({
+        "constraints": [askrene_inform_channel_constraints2py(i) for i in m.constraints],  # ArrayField[composite] in generate_composite
+    })
+
+
+def askrene_create_channel2py(m):
+    return remove_default({
+    })
+
+
+def askrene_update_channel2py(m):
+    return remove_default({
+    })
+
+
+def askrene_bias_channel_biases2py(m):
+    return remove_default({
+        "bias": m.bias,  # PrimitiveField in generate_composite
+        "description": m.description,  # PrimitiveField in generate_composite
+        "layer": m.layer,  # PrimitiveField in generate_composite
+        "short_channel_id_dir": m.short_channel_id_dir,  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_bias_channel2py(m):
+    return remove_default({
+        "biases": [askrene_bias_channel_biases2py(i) for i in m.biases],  # ArrayField[composite] in generate_composite
+    })
+
+
+def askrene_listreservations_reservations2py(m):
+    return remove_default({
+        "age_in_seconds": m.age_in_seconds,  # PrimitiveField in generate_composite
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "command_id": m.command_id,  # PrimitiveField in generate_composite
+        "short_channel_id_dir": m.short_channel_id_dir,  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_listreservations2py(m):
+    return remove_default({
+        "reservations": [askrene_listreservations_reservations2py(i) for i in m.reservations],  # ArrayField[composite] in generate_composite
+    })
+
+
+def injectpaymentonion2py(m):
+    return remove_default({
+        "completed_at": m.completed_at,  # PrimitiveField in generate_composite
+        "created_at": m.created_at,  # PrimitiveField in generate_composite
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
+    })
+
+
+def xpay2py(m):
+    return remove_default({
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "amount_sent_msat": amount2msat(m.amount_sent_msat),  # PrimitiveField in generate_composite
+        "failed_parts": m.failed_parts,  # PrimitiveField in generate_composite
+        "payment_preimage": hexlify(m.payment_preimage),  # PrimitiveField in generate_composite
+        "successful_parts": m.successful_parts,  # PrimitiveField in generate_composite
     })
 
 

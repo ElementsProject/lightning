@@ -602,6 +602,25 @@ impl From<responses::EmergencyrecoverResponse> for pb::EmergencyrecoverResponse 
 }
 
 #[allow(unused_variables)]
+impl From<responses::GetemergencyrecoverdataResponse> for pb::GetemergencyrecoverdataResponse {
+    fn from(c: responses::GetemergencyrecoverdataResponse) -> Self {
+        Self {
+            filedata: hex::decode(&c.filedata).unwrap(), // Rule #2 for type hex
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ExposesecretResponse> for pb::ExposesecretResponse {
+    fn from(c: responses::ExposesecretResponse) -> Self {
+        Self {
+            codex32: c.codex32, // Rule #2 for type string
+            identifier: c.identifier, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::RecoverResponse> for pb::RecoverResponse {
     fn from(c: responses::RecoverResponse) -> Self {
         Self {
@@ -1695,6 +1714,20 @@ impl From<responses::DisableofferResponse> for pb::DisableofferResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::EnableofferResponse> for pb::EnableofferResponse {
+    fn from(c: responses::EnableofferResponse) -> Self {
+        Self {
+            active: c.active, // Rule #2 for type boolean
+            bolt12: c.bolt12, // Rule #2 for type string
+            label: c.label, // Rule #2 for type string?
+            offer_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.offer_id).to_vec(), // Rule #2 for type hash
+            single_use: c.single_use, // Rule #2 for type boolean
+            used: c.used, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::DisconnectResponse> for pb::DisconnectResponse {
     fn from(c: responses::DisconnectResponse) -> Self {
         Self {
@@ -1976,6 +2009,27 @@ impl From<responses::GetrouteResponse> for pb::GetrouteResponse {
         Self {
             // Field: GetRoute.route[]
             route: c.route.into_iter().map(|i| i.into()).collect(), // Rule #3 for type GetrouteRoute
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListaddressesAddresses> for pb::ListaddressesAddresses {
+    fn from(c: responses::ListaddressesAddresses) -> Self {
+        Self {
+            bech32: c.bech32, // Rule #2 for type string?
+            keyidx: c.keyidx, // Rule #2 for type u64
+            p2tr: c.p2tr, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListaddressesResponse> for pb::ListaddressesResponse {
+    fn from(c: responses::ListaddressesResponse) -> Self {
+        Self {
+            // Field: ListAddresses.addresses[]
+            addresses: c.addresses.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ListaddressesAddresses
         }
     }
 }
@@ -2527,6 +2581,21 @@ impl From<responses::Splice_updateResponse> for pb::SpliceUpdateResponse {
             commitments_secured: c.commitments_secured, // Rule #2 for type boolean
             psbt: c.psbt, // Rule #2 for type string
             signatures_secured: c.signatures_secured, // Rule #2 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::DevspliceResponse> for pb::DevspliceResponse {
+    fn from(c: responses::DevspliceResponse) -> Self {
+        Self {
+            // Field: Dev-Splice.dryrun[]
+            dryrun: c.dryrun.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            // Field: Dev-Splice.log[]
+            log: c.log.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            psbt: c.psbt, // Rule #2 for type string?
+            tx: c.tx, // Rule #2 for type string?
+            txid: c.txid, // Rule #2 for type string?
         }
     }
 }
@@ -3846,6 +3915,74 @@ impl From<responses::BkprlistincomeResponse> for pb::BkprlistincomeResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::BkpreditdescriptionbypaymentidUpdated> for pb::BkpreditdescriptionbypaymentidUpdated {
+    fn from(c: responses::BkpreditdescriptionbypaymentidUpdated) -> Self {
+        Self {
+            account: c.account, // Rule #2 for type string
+            blockheight: c.blockheight, // Rule #2 for type u32?
+            credit_msat: Some(c.credit_msat.into()), // Rule #2 for type msat
+            currency: c.currency, // Rule #2 for type string
+            debit_msat: Some(c.debit_msat.into()), // Rule #2 for type msat
+            description: c.description, // Rule #2 for type string
+            fees_msat: c.fees_msat.map(|f| f.into()), // Rule #2 for type msat?
+            is_rebalance: c.is_rebalance, // Rule #2 for type boolean?
+            origin: c.origin, // Rule #2 for type string?
+            outpoint: c.outpoint, // Rule #2 for type string?
+            part_id: c.part_id, // Rule #2 for type u32?
+            payment_id: c.payment_id.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            tag: c.tag, // Rule #2 for type string
+            timestamp: c.timestamp, // Rule #2 for type u32
+            txid: c.txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
+            item_type: c.item_type as i32,
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::BkpreditdescriptionbypaymentidResponse> for pb::BkpreditdescriptionbypaymentidResponse {
+    fn from(c: responses::BkpreditdescriptionbypaymentidResponse) -> Self {
+        Self {
+            // Field: Bkpr-EditDescriptionByPaymentId.updated[]
+            updated: c.updated.into_iter().map(|i| i.into()).collect(), // Rule #3 for type BkpreditdescriptionbypaymentidUpdated
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::BkpreditdescriptionbyoutpointUpdated> for pb::BkpreditdescriptionbyoutpointUpdated {
+    fn from(c: responses::BkpreditdescriptionbyoutpointUpdated) -> Self {
+        Self {
+            account: c.account, // Rule #2 for type string
+            blockheight: c.blockheight, // Rule #2 for type u32?
+            credit_msat: Some(c.credit_msat.into()), // Rule #2 for type msat
+            currency: c.currency, // Rule #2 for type string
+            debit_msat: Some(c.debit_msat.into()), // Rule #2 for type msat
+            description: c.description, // Rule #2 for type string
+            fees_msat: c.fees_msat.map(|f| f.into()), // Rule #2 for type msat?
+            is_rebalance: c.is_rebalance, // Rule #2 for type boolean?
+            origin: c.origin, // Rule #2 for type string?
+            outpoint: c.outpoint, // Rule #2 for type string?
+            part_id: c.part_id, // Rule #2 for type u32?
+            payment_id: c.payment_id.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            tag: c.tag, // Rule #2 for type string
+            timestamp: c.timestamp, // Rule #2 for type u32
+            txid: c.txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
+            item_type: c.item_type as i32,
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::BkpreditdescriptionbyoutpointResponse> for pb::BkpreditdescriptionbyoutpointResponse {
+    fn from(c: responses::BkpreditdescriptionbyoutpointResponse) -> Self {
+        Self {
+            // Field: Bkpr-EditDescriptionByOutpoint.updated[]
+            updated: c.updated.into_iter().map(|i| i.into()).collect(), // Rule #3 for type BkpreditdescriptionbyoutpointUpdated
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::BlacklistruneBlacklist> for pb::BlacklistruneBlacklist {
     fn from(c: responses::BlacklistruneBlacklist) -> Self {
         Self {
@@ -3931,6 +4068,353 @@ impl From<responses::ShowrunesResponse> for pb::ShowrunesResponse {
         Self {
             // Field: ShowRunes.runes[]
             runes: c.runes.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ShowrunesRunes
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskreneunreserveResponse> for pb::AskreneunreserveResponse {
+    fn from(c: responses::AskreneunreserveResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenelistlayersLayersBiases> for pb::AskrenelistlayersLayersBiases {
+    fn from(c: responses::AskrenelistlayersLayersBiases) -> Self {
+        Self {
+            bias: c.bias, // Rule #2 for type integer
+            description: c.description, // Rule #2 for type string?
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenelistlayersLayersChannel_updates> for pb::AskrenelistlayersLayersChannelUpdates {
+    fn from(c: responses::AskrenelistlayersLayersChannel_updates) -> Self {
+        Self {
+            cltv_expiry_delta: c.cltv_expiry_delta.map(|v| v.into()), // Rule #2 for type u16?
+            enabled: c.enabled, // Rule #2 for type boolean?
+            fee_base_msat: c.fee_base_msat.map(|f| f.into()), // Rule #2 for type msat?
+            fee_proportional_millionths: c.fee_proportional_millionths, // Rule #2 for type u32?
+            htlc_maximum_msat: c.htlc_maximum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            htlc_minimum_msat: c.htlc_minimum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenelistlayersLayersConstraints> for pb::AskrenelistlayersLayersConstraints {
+    fn from(c: responses::AskrenelistlayersLayersConstraints) -> Self {
+        Self {
+            maximum_msat: c.maximum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            minimum_msat: c.minimum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            short_channel_id_dir: c.short_channel_id_dir.map(|v| v.to_string()), // Rule #2 for type short_channel_id_dir?
+            timestamp: c.timestamp, // Rule #2 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenelistlayersLayersCreated_channels> for pb::AskrenelistlayersLayersCreatedChannels {
+    fn from(c: responses::AskrenelistlayersLayersCreated_channels) -> Self {
+        Self {
+            capacity_msat: Some(c.capacity_msat.into()), // Rule #2 for type msat
+            destination: c.destination.serialize().to_vec(), // Rule #2 for type pubkey
+            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+            source: c.source.serialize().to_vec(), // Rule #2 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenelistlayersLayers> for pb::AskrenelistlayersLayers {
+    fn from(c: responses::AskrenelistlayersLayers) -> Self {
+        Self {
+            // Field: AskRene-ListLayers.layers[].biases[]
+            biases: c.biases.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            // Field: AskRene-ListLayers.layers[].channel_updates[]
+            channel_updates: c.channel_updates.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            // Field: AskRene-ListLayers.layers[].constraints[]
+            constraints: c.constraints.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenelistlayersLayersConstraints
+            // Field: AskRene-ListLayers.layers[].created_channels[]
+            created_channels: c.created_channels.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenelistlayersLayersCreated_channels
+            // Field: AskRene-ListLayers.layers[].disabled_channels[]
+            disabled_channels: c.disabled_channels.map(|arr| arr.into_iter().map(|i| i.to_string()).collect()).unwrap_or(vec![]), // Rule #3
+            // Field: AskRene-ListLayers.layers[].disabled_nodes[]
+            disabled_nodes: c.disabled_nodes.into_iter().map(|i| i.serialize().to_vec()).collect(), // Rule #3 for type pubkey
+            layer: c.layer, // Rule #2 for type string
+            persistent: c.persistent, // Rule #2 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenelistlayersResponse> for pb::AskrenelistlayersResponse {
+    fn from(c: responses::AskrenelistlayersResponse) -> Self {
+        Self {
+            // Field: AskRene-ListLayers.layers[]
+            layers: c.layers.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenelistlayersLayers
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenecreatelayerLayersBiases> for pb::AskrenecreatelayerLayersBiases {
+    fn from(c: responses::AskrenecreatelayerLayersBiases) -> Self {
+        Self {
+            bias: c.bias, // Rule #2 for type integer
+            description: c.description, // Rule #2 for type string?
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenecreatelayerLayersChannel_updates> for pb::AskrenecreatelayerLayersChannelUpdates {
+    fn from(c: responses::AskrenecreatelayerLayersChannel_updates) -> Self {
+        Self {
+            delay: c.delay.map(|v| v.into()), // Rule #2 for type u16?
+            fee_base_msat: c.fee_base_msat.map(|f| f.into()), // Rule #2 for type msat?
+            fee_proportional_millionths: c.fee_proportional_millionths, // Rule #2 for type u32?
+            htlc_maximum_msat: c.htlc_maximum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            htlc_minimum_msat: c.htlc_minimum_msat.map(|f| f.into()), // Rule #2 for type msat?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenecreatelayerLayersConstraints> for pb::AskrenecreatelayerLayersConstraints {
+    fn from(c: responses::AskrenecreatelayerLayersConstraints) -> Self {
+        Self {
+            direction: c.direction, // Rule #2 for type u32
+            maximum_msat: c.maximum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            minimum_msat: c.minimum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenecreatelayerLayersCreated_channels> for pb::AskrenecreatelayerLayersCreatedChannels {
+    fn from(c: responses::AskrenecreatelayerLayersCreated_channels) -> Self {
+        Self {
+            capacity_msat: Some(c.capacity_msat.into()), // Rule #2 for type msat
+            destination: c.destination.serialize().to_vec(), // Rule #2 for type pubkey
+            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+            source: c.source.serialize().to_vec(), // Rule #2 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenecreatelayerLayers> for pb::AskrenecreatelayerLayers {
+    fn from(c: responses::AskrenecreatelayerLayers) -> Self {
+        Self {
+            // Field: AskRene-Create-Layer.layers[].biases[]
+            biases: c.biases.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            // Field: AskRene-Create-Layer.layers[].channel_updates[]
+            channel_updates: c.channel_updates.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenecreatelayerLayersChannel_updates
+            // Field: AskRene-Create-Layer.layers[].constraints[]
+            constraints: c.constraints.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenecreatelayerLayersConstraints
+            // Field: AskRene-Create-Layer.layers[].created_channels[]
+            created_channels: c.created_channels.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenecreatelayerLayersCreated_channels
+            // Field: AskRene-Create-Layer.layers[].disabled_channels[]
+            disabled_channels: c.disabled_channels.map(|arr| arr.into_iter().map(|i| i.to_string()).collect()).unwrap_or(vec![]), // Rule #3
+            // Field: AskRene-Create-Layer.layers[].disabled_nodes[]
+            disabled_nodes: c.disabled_nodes.into_iter().map(|i| i.serialize().to_vec()).collect(), // Rule #3 for type pubkey
+            layer: c.layer, // Rule #2 for type string
+            persistent: c.persistent, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenecreatelayerResponse> for pb::AskrenecreatelayerResponse {
+    fn from(c: responses::AskrenecreatelayerResponse) -> Self {
+        Self {
+            // Field: AskRene-Create-Layer.layers[]
+            layers: c.layers.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenecreatelayerLayers
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskreneremovelayerResponse> for pb::AskreneremovelayerResponse {
+    fn from(c: responses::AskreneremovelayerResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenereserveResponse> for pb::AskrenereserveResponse {
+    fn from(c: responses::AskrenereserveResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskreneageResponse> for pb::AskreneageResponse {
+    fn from(c: responses::AskreneageResponse) -> Self {
+        Self {
+            layer: c.layer, // Rule #2 for type string
+            num_removed: c.num_removed, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::GetroutesRoutesPath> for pb::GetroutesRoutesPath {
+    fn from(c: responses::GetroutesRoutesPath) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            delay: c.delay, // Rule #2 for type u32
+            next_node_id: c.next_node_id.serialize().to_vec(), // Rule #2 for type pubkey
+            short_channel_id_dir: c.short_channel_id_dir.map(|v| v.to_string()), // Rule #2 for type short_channel_id_dir?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::GetroutesRoutes> for pb::GetroutesRoutes {
+    fn from(c: responses::GetroutesRoutes) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            final_cltv: c.final_cltv, // Rule #2 for type u32?
+            // Field: GetRoutes.routes[].path[]
+            path: c.path.into_iter().map(|i| i.into()).collect(), // Rule #3 for type GetroutesRoutesPath
+            probability_ppm: c.probability_ppm, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::GetroutesResponse> for pb::GetroutesResponse {
+    fn from(c: responses::GetroutesResponse) -> Self {
+        Self {
+            probability_ppm: c.probability_ppm, // Rule #2 for type u64
+            // Field: GetRoutes.routes[]
+            routes: c.routes.into_iter().map(|i| i.into()).collect(), // Rule #3 for type GetroutesRoutes
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenedisablenodeResponse> for pb::AskrenedisablenodeResponse {
+    fn from(c: responses::AskrenedisablenodeResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskreneinformchannelConstraints> for pb::AskreneinformchannelConstraints {
+    fn from(c: responses::AskreneinformchannelConstraints) -> Self {
+        Self {
+            layer: c.layer, // Rule #2 for type string
+            maximum_msat: c.maximum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            minimum_msat: c.minimum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+            timestamp: c.timestamp, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskreneinformchannelResponse> for pb::AskreneinformchannelResponse {
+    fn from(c: responses::AskreneinformchannelResponse) -> Self {
+        Self {
+            // Field: AskRene-Inform-Channel.constraints[]
+            constraints: c.constraints.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenecreatechannelResponse> for pb::AskrenecreatechannelResponse {
+    fn from(c: responses::AskrenecreatechannelResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskreneupdatechannelResponse> for pb::AskreneupdatechannelResponse {
+    fn from(c: responses::AskreneupdatechannelResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenebiaschannelBiases> for pb::AskrenebiaschannelBiases {
+    fn from(c: responses::AskrenebiaschannelBiases) -> Self {
+        Self {
+            bias: c.bias, // Rule #2 for type integer
+            description: c.description, // Rule #2 for type string?
+            layer: c.layer, // Rule #2 for type string
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenebiaschannelResponse> for pb::AskrenebiaschannelResponse {
+    fn from(c: responses::AskrenebiaschannelResponse) -> Self {
+        Self {
+            // Field: AskRene-Bias-Channel.biases[]
+            biases: c.biases.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenebiaschannelBiases
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenelistreservationsReservations> for pb::AskrenelistreservationsReservations {
+    fn from(c: responses::AskrenelistreservationsReservations) -> Self {
+        Self {
+            age_in_seconds: c.age_in_seconds, // Rule #2 for type u64
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            command_id: c.command_id, // Rule #2 for type string
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenelistreservationsResponse> for pb::AskrenelistreservationsResponse {
+    fn from(c: responses::AskrenelistreservationsResponse) -> Self {
+        Self {
+            // Field: AskRene-ListReservations.reservations[]
+            reservations: c.reservations.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenelistreservationsReservations
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::InjectpaymentonionResponse> for pb::InjectpaymentonionResponse {
+    fn from(c: responses::InjectpaymentonionResponse) -> Self {
+        Self {
+            completed_at: c.completed_at, // Rule #2 for type u64
+            created_at: c.created_at, // Rule #2 for type u64
+            created_index: c.created_index, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::XpayResponse> for pb::XpayResponse {
+    fn from(c: responses::XpayResponse) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
+            failed_parts: c.failed_parts, // Rule #2 for type u64
+            payment_preimage: c.payment_preimage.to_vec(), // Rule #2 for type secret
+            successful_parts: c.successful_parts, // Rule #2 for type u64
         }
     }
 }
@@ -4243,6 +4727,24 @@ impl From<requests::DevforgetchannelRequest> for pb::DevforgetchannelRequest {
 impl From<requests::EmergencyrecoverRequest> for pb::EmergencyrecoverRequest {
     fn from(c: requests::EmergencyrecoverRequest) -> Self {
         Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::GetemergencyrecoverdataRequest> for pb::GetemergencyrecoverdataRequest {
+    fn from(c: requests::GetemergencyrecoverdataRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::ExposesecretRequest> for pb::ExposesecretRequest {
+    fn from(c: requests::ExposesecretRequest) -> Self {
+        Self {
+            identifier: c.identifier, // Rule #2 for type string?
+            passphrase: c.passphrase, // Rule #2 for type string
         }
     }
 }
@@ -4670,6 +5172,15 @@ impl From<requests::DisableofferRequest> for pb::DisableofferRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::EnableofferRequest> for pb::EnableofferRequest {
+    fn from(c: requests::EnableofferRequest) -> Self {
+        Self {
+            offer_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.offer_id).to_vec(), // Rule #2 for type hash
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::DisconnectRequest> for pb::DisconnectRequest {
     fn from(c: requests::DisconnectRequest) -> Self {
         Self {
@@ -4811,6 +5322,17 @@ impl From<requests::GetrouteRequest> for pb::GetrouteRequest {
             id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
             maxhops: c.maxhops, // Rule #2 for type u32?
             riskfactor: c.riskfactor, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::ListaddressesRequest> for pb::ListaddressesRequest {
+    fn from(c: requests::ListaddressesRequest) -> Self {
+        Self {
+            address: c.address, // Rule #2 for type string?
+            limit: c.limit, // Rule #2 for type u32?
+            start: c.start, // Rule #2 for type u64?
         }
     }
 }
@@ -5162,6 +5684,19 @@ impl From<requests::Splice_updateRequest> for pb::SpliceUpdateRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::DevspliceRequest> for pb::DevspliceRequest {
+    fn from(c: requests::DevspliceRequest) -> Self {
+        Self {
+            debug_log: c.debug_log, // Rule #2 for type boolean?
+            dev_wetrun: c.dev_wetrun, // Rule #2 for type boolean?
+            dryrun: c.dryrun, // Rule #2 for type boolean?
+            force_feerate: c.force_feerate, // Rule #2 for type boolean?
+            script_or_json: c.script_or_json, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::UnreserveinputsRequest> for pb::UnreserveinputsRequest {
     fn from(c: requests::UnreserveinputsRequest) -> Self {
         Self {
@@ -5318,6 +5853,26 @@ impl From<requests::BkprlistincomeRequest> for pb::BkprlistincomeRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::BkpreditdescriptionbypaymentidRequest> for pb::BkpreditdescriptionbypaymentidRequest {
+    fn from(c: requests::BkpreditdescriptionbypaymentidRequest) -> Self {
+        Self {
+            description: c.description, // Rule #2 for type string
+            payment_id: c.payment_id, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::BkpreditdescriptionbyoutpointRequest> for pb::BkpreditdescriptionbyoutpointRequest {
+    fn from(c: requests::BkpreditdescriptionbyoutpointRequest) -> Self {
+        Self {
+            description: c.description, // Rule #2 for type string
+            outpoint: c.outpoint, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::BlacklistruneRequest> for pb::BlacklistruneRequest {
     fn from(c: requests::BlacklistruneRequest) -> Self {
         Self {
@@ -5356,6 +5911,202 @@ impl From<requests::ShowrunesRequest> for pb::ShowrunesRequest {
     fn from(c: requests::ShowrunesRequest) -> Self {
         Self {
             rune: c.rune, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskreneunreservePath> for pb::AskreneunreservePath {
+    fn from(c: requests::AskreneunreservePath) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            short_channel_id_dir: c.short_channel_id_dir.map(|v| v.to_string()), // Rule #2 for type short_channel_id_dir?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskreneunreserveRequest> for pb::AskreneunreserveRequest {
+    fn from(c: requests::AskreneunreserveRequest) -> Self {
+        Self {
+            // Field: AskRene-Unreserve.path[]
+            path: c.path.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskreneunreservePath
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskrenelistlayersRequest> for pb::AskrenelistlayersRequest {
+    fn from(c: requests::AskrenelistlayersRequest) -> Self {
+        Self {
+            layer: c.layer, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskrenecreatelayerRequest> for pb::AskrenecreatelayerRequest {
+    fn from(c: requests::AskrenecreatelayerRequest) -> Self {
+        Self {
+            layer: c.layer, // Rule #2 for type string
+            persistent: c.persistent, // Rule #2 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskreneremovelayerRequest> for pb::AskreneremovelayerRequest {
+    fn from(c: requests::AskreneremovelayerRequest) -> Self {
+        Self {
+            layer: c.layer, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskrenereservePath> for pb::AskrenereservePath {
+    fn from(c: requests::AskrenereservePath) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            short_channel_id_dir: c.short_channel_id_dir.map(|v| v.to_string()), // Rule #2 for type short_channel_id_dir?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskrenereserveRequest> for pb::AskrenereserveRequest {
+    fn from(c: requests::AskrenereserveRequest) -> Self {
+        Self {
+            // Field: AskRene-Reserve.path[]
+            path: c.path.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenereservePath
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskreneageRequest> for pb::AskreneageRequest {
+    fn from(c: requests::AskreneageRequest) -> Self {
+        Self {
+            cutoff: c.cutoff, // Rule #2 for type u64
+            layer: c.layer, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::GetroutesRequest> for pb::GetroutesRequest {
+    fn from(c: requests::GetroutesRequest) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            destination: c.destination.serialize().to_vec(), // Rule #2 for type pubkey
+            final_cltv: c.final_cltv, // Rule #2 for type u32?
+            // Field: GetRoutes.layers[]
+            layers: c.layers.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            maxfee_msat: Some(c.maxfee_msat.into()), // Rule #2 for type msat
+            source: c.source.serialize().to_vec(), // Rule #2 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskrenedisablenodeRequest> for pb::AskrenedisablenodeRequest {
+    fn from(c: requests::AskrenedisablenodeRequest) -> Self {
+        Self {
+            layer: c.layer, // Rule #2 for type string
+            node: c.node.serialize().to_vec(), // Rule #2 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskreneinformchannelRequest> for pb::AskreneinformchannelRequest {
+    fn from(c: requests::AskreneinformchannelRequest) -> Self {
+        Self {
+            amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
+            inform: c.inform.map(|v| v as i32),
+            layer: c.layer, // Rule #2 for type string
+            short_channel_id_dir: c.short_channel_id_dir.map(|v| v.to_string()), // Rule #2 for type short_channel_id_dir?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskrenecreatechannelRequest> for pb::AskrenecreatechannelRequest {
+    fn from(c: requests::AskrenecreatechannelRequest) -> Self {
+        Self {
+            capacity_msat: Some(c.capacity_msat.into()), // Rule #2 for type msat
+            destination: c.destination.serialize().to_vec(), // Rule #2 for type pubkey
+            layer: c.layer, // Rule #2 for type string
+            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+            source: c.source.serialize().to_vec(), // Rule #2 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskreneupdatechannelRequest> for pb::AskreneupdatechannelRequest {
+    fn from(c: requests::AskreneupdatechannelRequest) -> Self {
+        Self {
+            cltv_expiry_delta: c.cltv_expiry_delta.map(|v| v.into()), // Rule #2 for type u16?
+            enabled: c.enabled, // Rule #2 for type boolean?
+            fee_base_msat: c.fee_base_msat.map(|f| f.into()), // Rule #2 for type msat?
+            fee_proportional_millionths: c.fee_proportional_millionths, // Rule #2 for type u32?
+            htlc_maximum_msat: c.htlc_maximum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            htlc_minimum_msat: c.htlc_minimum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            layer: c.layer, // Rule #2 for type string
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskrenebiaschannelRequest> for pb::AskrenebiaschannelRequest {
+    fn from(c: requests::AskrenebiaschannelRequest) -> Self {
+        Self {
+            bias: c.bias, // Rule #2 for type integer
+            description: c.description, // Rule #2 for type string?
+            layer: c.layer, // Rule #2 for type string
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::AskrenelistreservationsRequest> for pb::AskrenelistreservationsRequest {
+    fn from(c: requests::AskrenelistreservationsRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::InjectpaymentonionRequest> for pb::InjectpaymentonionRequest {
+    fn from(c: requests::InjectpaymentonionRequest) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            cltv_expiry: c.cltv_expiry.into(), // Rule #2 for type u16
+            groupid: c.groupid, // Rule #2 for type u64
+            invstring: c.invstring, // Rule #2 for type string?
+            label: c.label, // Rule #2 for type string?
+            localinvreqid: c.localinvreqid.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
+            onion: hex::decode(&c.onion).unwrap(), // Rule #2 for type hex
+            partid: c.partid, // Rule #2 for type u64
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::XpayRequest> for pb::XpayRequest {
+    fn from(c: requests::XpayRequest) -> Self {
+        Self {
+            amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
+            invstring: c.invstring, // Rule #2 for type string
+            // Field: Xpay.layers[]
+            layers: c.layers.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            maxfee: c.maxfee.map(|f| f.into()), // Rule #2 for type msat?
+            partial_msat: c.partial_msat.map(|f| f.into()), // Rule #2 for type msat?
+            retry_for: c.retry_for, // Rule #2 for type u32?
         }
     }
 }
@@ -5639,6 +6390,24 @@ impl From<pb::DevforgetchannelRequest> for requests::DevforgetchannelRequest {
 impl From<pb::EmergencyrecoverRequest> for requests::EmergencyrecoverRequest {
     fn from(c: pb::EmergencyrecoverRequest) -> Self {
         Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::GetemergencyrecoverdataRequest> for requests::GetemergencyrecoverdataRequest {
+    fn from(c: pb::GetemergencyrecoverdataRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::ExposesecretRequest> for requests::ExposesecretRequest {
+    fn from(c: pb::ExposesecretRequest) -> Self {
+        Self {
+            identifier: c.identifier, // Rule #1 for type string?
+            passphrase: c.passphrase, // Rule #1 for type string
         }
     }
 }
@@ -6055,6 +6824,15 @@ impl From<pb::DisableofferRequest> for requests::DisableofferRequest {
 }
 
 #[allow(unused_variables)]
+impl From<pb::EnableofferRequest> for requests::EnableofferRequest {
+    fn from(c: pb::EnableofferRequest) -> Self {
+        Self {
+            offer_id: Sha256::from_slice(&c.offer_id).unwrap(), // Rule #1 for type hash
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<pb::DisconnectRequest> for requests::DisconnectRequest {
     fn from(c: pb::DisconnectRequest) -> Self {
         Self {
@@ -6192,6 +6970,17 @@ impl From<pb::GetrouteRequest> for requests::GetrouteRequest {
             id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
             maxhops: c.maxhops, // Rule #1 for type u32?
             riskfactor: c.riskfactor, // Rule #1 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::ListaddressesRequest> for requests::ListaddressesRequest {
+    fn from(c: pb::ListaddressesRequest) -> Self {
+        Self {
+            address: c.address, // Rule #1 for type string?
+            limit: c.limit, // Rule #1 for type u32?
+            start: c.start, // Rule #1 for type u64?
         }
     }
 }
@@ -6536,6 +7325,19 @@ impl From<pb::SpliceUpdateRequest> for requests::Splice_updateRequest {
 }
 
 #[allow(unused_variables)]
+impl From<pb::DevspliceRequest> for requests::DevspliceRequest {
+    fn from(c: pb::DevspliceRequest) -> Self {
+        Self {
+            debug_log: c.debug_log, // Rule #1 for type boolean?
+            dev_wetrun: c.dev_wetrun, // Rule #1 for type boolean?
+            dryrun: c.dryrun, // Rule #1 for type boolean?
+            force_feerate: c.force_feerate, // Rule #1 for type boolean?
+            script_or_json: c.script_or_json, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<pb::UnreserveinputsRequest> for requests::UnreserveinputsRequest {
     fn from(c: pb::UnreserveinputsRequest) -> Self {
         Self {
@@ -6692,6 +7494,26 @@ impl From<pb::BkprlistincomeRequest> for requests::BkprlistincomeRequest {
 }
 
 #[allow(unused_variables)]
+impl From<pb::BkpreditdescriptionbypaymentidRequest> for requests::BkpreditdescriptionbypaymentidRequest {
+    fn from(c: pb::BkpreditdescriptionbypaymentidRequest) -> Self {
+        Self {
+            description: c.description, // Rule #1 for type string
+            payment_id: c.payment_id, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::BkpreditdescriptionbyoutpointRequest> for requests::BkpreditdescriptionbyoutpointRequest {
+    fn from(c: pb::BkpreditdescriptionbyoutpointRequest) -> Self {
+        Self {
+            description: c.description, // Rule #1 for type string
+            outpoint: c.outpoint, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<pb::BlacklistruneRequest> for requests::BlacklistruneRequest {
     fn from(c: pb::BlacklistruneRequest) -> Self {
         Self {
@@ -6728,6 +7550,198 @@ impl From<pb::ShowrunesRequest> for requests::ShowrunesRequest {
     fn from(c: pb::ShowrunesRequest) -> Self {
         Self {
             rune: c.rune, // Rule #1 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskreneunreservePath> for requests::AskreneunreservePath {
+    fn from(c: pb::AskreneunreservePath) -> Self {
+        Self {
+            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
+            short_channel_id_dir: c.short_channel_id_dir.map(|v| cln_rpc::primitives::ShortChannelIdDir::from_str(&v).unwrap()), // Rule #1 for type short_channel_id_dir?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskreneunreserveRequest> for requests::AskreneunreserveRequest {
+    fn from(c: pb::AskreneunreserveRequest) -> Self {
+        Self {
+            path: c.path.into_iter().map(|s| s.into()).collect(), // Rule #4
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskrenelistlayersRequest> for requests::AskrenelistlayersRequest {
+    fn from(c: pb::AskrenelistlayersRequest) -> Self {
+        Self {
+            layer: c.layer, // Rule #1 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskrenecreatelayerRequest> for requests::AskrenecreatelayerRequest {
+    fn from(c: pb::AskrenecreatelayerRequest) -> Self {
+        Self {
+            layer: c.layer, // Rule #1 for type string
+            persistent: c.persistent, // Rule #1 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskreneremovelayerRequest> for requests::AskreneremovelayerRequest {
+    fn from(c: pb::AskreneremovelayerRequest) -> Self {
+        Self {
+            layer: c.layer, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskrenereservePath> for requests::AskrenereservePath {
+    fn from(c: pb::AskrenereservePath) -> Self {
+        Self {
+            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
+            short_channel_id_dir: c.short_channel_id_dir.map(|v| cln_rpc::primitives::ShortChannelIdDir::from_str(&v).unwrap()), // Rule #1 for type short_channel_id_dir?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskrenereserveRequest> for requests::AskrenereserveRequest {
+    fn from(c: pb::AskrenereserveRequest) -> Self {
+        Self {
+            path: c.path.into_iter().map(|s| s.into()).collect(), // Rule #4
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskreneageRequest> for requests::AskreneageRequest {
+    fn from(c: pb::AskreneageRequest) -> Self {
+        Self {
+            cutoff: c.cutoff, // Rule #1 for type u64
+            layer: c.layer, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::GetroutesRequest> for requests::GetroutesRequest {
+    fn from(c: pb::GetroutesRequest) -> Self {
+        Self {
+            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
+            destination: PublicKey::from_slice(&c.destination).unwrap(), // Rule #1 for type pubkey
+            final_cltv: c.final_cltv, // Rule #1 for type u32?
+            layers: c.layers.into_iter().map(|s| s.into()).collect(), // Rule #4
+            maxfee_msat: c.maxfee_msat.unwrap().into(), // Rule #1 for type msat
+            source: PublicKey::from_slice(&c.source).unwrap(), // Rule #1 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskrenedisablenodeRequest> for requests::AskrenedisablenodeRequest {
+    fn from(c: pb::AskrenedisablenodeRequest) -> Self {
+        Self {
+            layer: c.layer, // Rule #1 for type string
+            node: PublicKey::from_slice(&c.node).unwrap(), // Rule #1 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskreneinformchannelRequest> for requests::AskreneinformchannelRequest {
+    fn from(c: pb::AskreneinformchannelRequest) -> Self {
+        Self {
+            amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
+            inform: c.inform.map(|v| v.try_into().unwrap()),
+            layer: c.layer, // Rule #1 for type string
+            short_channel_id_dir: c.short_channel_id_dir.map(|v| cln_rpc::primitives::ShortChannelIdDir::from_str(&v).unwrap()), // Rule #1 for type short_channel_id_dir?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskrenecreatechannelRequest> for requests::AskrenecreatechannelRequest {
+    fn from(c: pb::AskrenecreatechannelRequest) -> Self {
+        Self {
+            capacity_msat: c.capacity_msat.unwrap().into(), // Rule #1 for type msat
+            destination: PublicKey::from_slice(&c.destination).unwrap(), // Rule #1 for type pubkey
+            layer: c.layer, // Rule #1 for type string
+            short_channel_id: cln_rpc::primitives::ShortChannelId::from_str(&c.short_channel_id).unwrap(), // Rule #1 for type short_channel_id
+            source: PublicKey::from_slice(&c.source).unwrap(), // Rule #1 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskreneupdatechannelRequest> for requests::AskreneupdatechannelRequest {
+    fn from(c: pb::AskreneupdatechannelRequest) -> Self {
+        Self {
+            cltv_expiry_delta: c.cltv_expiry_delta.map(|v| v as u16), // Rule #1 for type u16?
+            enabled: c.enabled, // Rule #1 for type boolean?
+            fee_base_msat: c.fee_base_msat.map(|a| a.into()), // Rule #1 for type msat?
+            fee_proportional_millionths: c.fee_proportional_millionths, // Rule #1 for type u32?
+            htlc_maximum_msat: c.htlc_maximum_msat.map(|a| a.into()), // Rule #1 for type msat?
+            htlc_minimum_msat: c.htlc_minimum_msat.map(|a| a.into()), // Rule #1 for type msat?
+            layer: c.layer, // Rule #1 for type string
+            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).unwrap(), // Rule #1 for type short_channel_id_dir
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskrenebiaschannelRequest> for requests::AskrenebiaschannelRequest {
+    fn from(c: pb::AskrenebiaschannelRequest) -> Self {
+        Self {
+            bias: c.bias, // Rule #1 for type integer
+            description: c.description, // Rule #1 for type string?
+            layer: c.layer, // Rule #1 for type string
+            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).unwrap(), // Rule #1 for type short_channel_id_dir
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskrenelistreservationsRequest> for requests::AskrenelistreservationsRequest {
+    fn from(c: pb::AskrenelistreservationsRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::InjectpaymentonionRequest> for requests::InjectpaymentonionRequest {
+    fn from(c: pb::InjectpaymentonionRequest) -> Self {
+        Self {
+            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
+            cltv_expiry: c.cltv_expiry as u16, // Rule #1 for type u16
+            groupid: c.groupid, // Rule #1 for type u64
+            invstring: c.invstring, // Rule #1 for type string?
+            label: c.label, // Rule #1 for type string?
+            localinvreqid: c.localinvreqid.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
+            onion: hex::encode(&c.onion), // Rule #1 for type hex
+            partid: c.partid, // Rule #1 for type u64
+            payment_hash: Sha256::from_slice(&c.payment_hash).unwrap(), // Rule #1 for type hash
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::XpayRequest> for requests::XpayRequest {
+    fn from(c: pb::XpayRequest) -> Self {
+        Self {
+            amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
+            invstring: c.invstring, // Rule #1 for type string
+            layers: Some(c.layers.into_iter().map(|s| s.into()).collect()), // Rule #4
+            maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
+            partial_msat: c.partial_msat.map(|a| a.into()), // Rule #1 for type msat?
+            retry_for: c.retry_for, // Rule #1 for type u32?
         }
     }
 }
