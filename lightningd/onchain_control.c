@@ -882,10 +882,15 @@ static struct bitcoin_tx *onchaind_tx_unsigned(const tal_t *ctx,
 	bitcoin_tx_add_input(tx, &info->out, info->to_self_delay,
 			     NULL, info->out_sats, NULL, info->wscript);
 
-	/* FIXME should this be p2tr now? */
-	bitcoin_tx_add_output(
-	    tx, scriptpubkey_p2wpkh(tmpctx, &final_key), NULL, info->out_sats);
-	psbt_add_keypath_to_last_output(tx, channel->final_key_idx, &final_wallet_ext_key, false /* is_taproot */);
+	if (chainparams->is_elements) {
+		bitcoin_tx_add_output(
+			tx, scriptpubkey_p2wpkh(tmpctx, &final_key), NULL, info->out_sats);
+		psbt_add_keypath_to_last_output(tx, channel->final_key_idx, &final_wallet_ext_key, false /* is_taproot */);
+	} else {
+		bitcoin_tx_add_output(
+			tx, scriptpubkey_p2tr(tmpctx, &final_key), NULL, info->out_sats);
+		psbt_add_keypath_to_last_output(tx, channel->final_key_idx, &final_wallet_ext_key, true /* is_taproot */);
+	}
 
 	/* Worst-case sig is 73 bytes */
 	weight = bitcoin_tx_weight(tx) + 1 + 3 + 73 + 0 + tal_count(info->wscript);
@@ -1117,7 +1122,7 @@ static bool consider_onchain_htlc_tx_rebroadcast(struct channel *channel,
 		struct pubkey final_key;
 		bip32_pubkey(ld, &final_key, channel->final_key_idx);
 		psbt_append_output(psbt,
-				   scriptpubkey_p2wpkh(tmpctx, &final_key),
+				   scriptpubkey_p2tr(tmpctx, &final_key),
 				   change);
 	}
 
