@@ -251,7 +251,7 @@ static struct wally_psbt *anchor_psbt(const tal_t *ctx,
 
 	bip32_pubkey(ld, &final_key, channel->final_key_idx);
 	psbt_append_output(psbt,
-			   scriptpubkey_p2wpkh(tmpctx, &final_key),
+			   scriptpubkey_p2tr(tmpctx, &final_key),
 			   change);
 	return psbt;
 }
