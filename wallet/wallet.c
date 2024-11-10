@@ -836,15 +836,48 @@ bool wallet_can_spend(struct wallet *w, const u8 *script,
 	return false;
 }
 
-s64 wallet_get_newindex(struct lightningd *ld)
+s64 wallet_get_newindex(struct lightningd *ld, enum addrtype addrtype)
 {
+	struct db_stmt *stmt;
 	u64 newidx = db_get_intvar(ld->wallet->db, "bip32_max_index", 0) + 1;
 
 	if (newidx == BIP32_INITIAL_HARDENED_CHILD)
 		return -1;
 
 	db_set_intvar(ld->wallet->db, "bip32_max_index", newidx);
+	stmt = db_prepare_v2(ld->wallet->db,
+			     SQL("INSERT INTO addresses ("
+				 "  keyidx"
+				 ", addrtype"
+				 ") VALUES (?, ?);"));
+	db_bind_u64(stmt, newidx);
+	db_bind_int(stmt, wallet_addrtype_in_db(addrtype));
+	db_exec_prepared_v2(take(stmt));
+
 	return newidx;
+}
+
+enum addrtype wallet_get_addrtype(struct wallet *wallet, u64 idx)
+{
+	struct db_stmt *stmt;
+	enum addrtype type;
+
+	stmt = db_prepare_v2(wallet->db,
+			     SQL("SELECT addrtype"
+				 " FROM addresses"
+				 " WHERE keyidx=?"));
+	db_bind_u64(stmt, idx);
+	db_query_prepared(stmt);
+
+	/* Unknown means prior to v24.11 */
+	if (!db_step(stmt)) {
+		tal_free(stmt);
+		return ADDR_P2TR|ADDR_BECH32;
+	}
+
+	type = wallet_addrtype_in_db(db_col_int(stmt, "addrtype"));
+	tal_free(stmt);
+	return type;
 }
 
 static void wallet_shachain_init(struct wallet *wallet,

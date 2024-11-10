@@ -2,12 +2,6 @@
 #define LIGHTNING_WALLET_WALLETRPC_H
 #include "config.h"
 
-enum addrtype {
-	ADDR_BECH32 = 2,
-	ADDR_P2TR = 4,
-	ADDR_ALL = (ADDR_BECH32 + ADDR_P2TR)
-};
-
 struct utxo;
 
 /* We evaluate reserved timeouts lazily, so use this. */
