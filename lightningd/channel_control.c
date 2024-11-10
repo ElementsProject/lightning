@@ -1212,9 +1212,9 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	u8 *scriptpubkey;
 	struct lightningd *ld = channel->peer->ld;
 	struct bitcoin_outpoint *wrong_funding;
-	bool anysegwit = feature_negotiated(ld->our_features,
-					    channel->peer->their_features,
-					    OPT_SHUTDOWN_ANYSEGWIT);
+	bool anysegwit = !chainparams->is_elements && feature_negotiated(ld->our_features,
+                        channel->peer->their_features,
+                        OPT_SHUTDOWN_ANYSEGWIT);
 	bool anchors = feature_negotiated(ld->our_features,
 					  channel->peer->their_features,
 					  OPT_ANCHOR_OUTPUTS_DEPRECATED)

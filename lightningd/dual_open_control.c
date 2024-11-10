@@ -1383,6 +1383,9 @@ wallet_commit_channel(struct lightningd *ld,
 {
 	struct amount_msat our_msat, lease_fee_msat;
 	struct channel_inflight *inflight;
+	bool anysegwit = !chainparams->is_elements && feature_negotiated(channel->peer->ld->our_features,
+                        channel->peer->their_features,
+                        OPT_SHUTDOWN_ANYSEGWIT);
 	bool any_active = peer_any_channel(channel->peer, channel_state_wants_peercomms, NULL);
 
 	if (!amount_sat_to_msat(&our_msat, our_funding)) {
@@ -1395,8 +1398,11 @@ wallet_commit_channel(struct lightningd *ld,
 		return NULL;
 	}
 
-	/* Get a key to use for closing outputs from this tx */
-	channel->final_key_idx = wallet_get_newindex(ld);
+	/* Get a key to use for closing outputs from this tx.  Prefer
+	 * P2TR, but we'll use BECH32 for older peers (but always P2TR
+	 * for our own onchian spends, if any).  */
+
+	channel->final_key_idx = wallet_get_newindex(ld, anysegwit ? ADDR_P2TR : (ADDR_BECH32|ADDR_P2TR));
 	if (channel->final_key_idx == -1) {
 		log_broken(channel->log, "Can't get final key index");
 		return NULL;

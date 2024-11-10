@@ -366,9 +366,16 @@ static struct command_result *finish_psbt(struct command *cmd,
 		struct pubkey pubkey;
 		s64 keyidx;
 		u8 *b32script;
+		enum addrtype type;
+
+		/* FIXME: P2TR for elements! */
+		if (chainparams->is_elements)
+			type = ADDR_BECH32;
+		else
+			type = ADDR_P2TR;
 
 		/* Get a change adddress */
-		keyidx = wallet_get_newindex(cmd->ld);
+		keyidx = wallet_get_newindex(cmd->ld, type);
 		if (keyidx < 0)
 			return command_fail(cmd, LIGHTNINGD,
 					    "Failed to generate change address."
@@ -700,7 +707,15 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 
 	/* Get a change adddress */
 	if (!b32script) {
-		keyidx = wallet_get_newindex(cmd->ld);
+		enum addrtype type;
+
+		/* FIXME: P2TR for elements! */
+		if (chainparams->is_elements)
+			type = ADDR_BECH32;
+		else
+			type = ADDR_P2TR;
+
+		keyidx = wallet_get_newindex(cmd->ld, type);
 		if (keyidx < 0)
 			return command_fail(cmd, LIGHTNINGD,
 					    "Failed to generate change address."

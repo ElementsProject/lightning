@@ -271,6 +271,30 @@ static inline enum channel_state channel_state_in_db(enum channel_state s)
 	fatal("%s: %u is invalid", __func__, s);
 }
 
+/* /!\ This is a DB ENUM, please do not change the numbering of any
+ * already defined elements (adding is ok) /!\ */
+enum addrtype {
+	ADDR_BECH32 = 2,
+	ADDR_P2TR = 4,
+	ADDR_ALL = (ADDR_BECH32 + ADDR_P2TR)
+};
+
+static inline enum addrtype wallet_addrtype_in_db(enum addrtype t)
+{
+	switch (t) {
+	case ADDR_BECH32:
+		BUILD_ASSERT(ADDR_BECH32 == 2);
+		return t;
+	case ADDR_P2TR:
+		BUILD_ASSERT(ADDR_P2TR == 4);
+		return t;
+	case ADDR_ALL:
+		BUILD_ASSERT(ADDR_ALL == 6);
+		return t;
+	}
+	fatal("%s: %u is invalid", __func__, t);
+}
+
 /* A database backed shachain struct. The datastructure is
  * writethrough, reads are performed from an in-memory version, all
  * writes are passed through to the DB. */
@@ -567,10 +591,18 @@ bool wallet_can_spend(struct wallet *w,
 /**
  * wallet_get_newindex - get a new index from the wallet.
  * @ld: (in) lightning daemon
+ * @addrtype: (in) addess types we will publish for this
  *
  * Returns -1 on error (key exhaustion).
  */
-s64 wallet_get_newindex(struct lightningd *ld);
+s64 wallet_get_newindex(struct lightningd *ld, enum addrtype addrtype);
+
+/**
+ * wallet_get_addrtype - get the address types for this key.
+ * @wallet: (in) wallet
+ * @keyidx: what address types we've published.
+ */
+enum addrtype wallet_get_addrtype(struct wallet *w, u64 keyidx);
 
 /**
  * wallet_shachain_add_hash -- wallet wrapper around shachain_add_hash

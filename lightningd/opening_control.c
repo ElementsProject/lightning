@@ -110,6 +110,7 @@ wallet_commit_channel(struct lightningd *ld,
 	struct timeabs timestamp;
 	bool any_active = peer_any_channel(uc->peer, channel_state_wants_peercomms, NULL);
 	struct channel_stats zero_channel_stats;
+	enum addrtype addrtype;
 
 	/* We can't have any payments yet */
 	memset(&zero_channel_stats, 0, sizeof(zero_channel_stats));
@@ -119,8 +120,14 @@ wallet_commit_channel(struct lightningd *ld,
 	 */
 	assert(!(uc->got_offer && uc->fc));
 
+	/* FIXME: P2TR for elements! */
+	if (chainparams->is_elements)
+		addrtype = ADDR_BECH32;
+	else
+		addrtype = ADDR_P2TR;
+
 	/* Get a key to use for closing outputs from this tx */
-	final_key_idx = wallet_get_newindex(ld);
+	final_key_idx = wallet_get_newindex(ld, addrtype);
 	if (final_key_idx == -1) {
 		log_broken(uc->log, "Can't get final key index");
 		return NULL;

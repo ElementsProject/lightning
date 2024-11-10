@@ -119,7 +119,7 @@ bool WARN_UNUSED_RESULT newaddr_inner(struct command *cmd, struct pubkey *pubkey
 	u8 *b32script;
 	u8 *p2tr_script;
 
-	keyidx = wallet_get_newindex(cmd->ld);
+	keyidx = wallet_get_newindex(cmd->ld, addrtype);
 	if (keyidx < 0) {
 		// return command_fail(cmd, LIGHTNINGD, "Keys exhausted ");
 		return false;
