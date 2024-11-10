@@ -46,9 +46,6 @@ static struct amount_sat dust_limit;
 /* The CSV delays for each side. */
 static u32 to_self_delay[NUM_SIDES];
 
-/* Where we send money to (our wallet) */
-static u32 our_wallet_index;
-
 /* Their revocation secret (only if they cheated). */
 static const struct secret *remote_per_commitment_secret;
 
@@ -3433,7 +3430,6 @@ int main(int argc, char *argv[])
 				   &our_broadcast_txid,
 				   &scriptpubkey[LOCAL],
 				   &scriptpubkey[REMOTE],
-				   &our_wallet_index,
 				   &opener,
 				   &basepoints[LOCAL],
 				   &basepoints[REMOTE],
