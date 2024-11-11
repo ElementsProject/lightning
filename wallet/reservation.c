@@ -8,6 +8,7 @@
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/key_derive.h>
+#include <common/psbt_open.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
@@ -734,6 +735,184 @@ static const struct json_command addpsbtoutput_command = {
 	false
 };
 AUTODATA(json_command, &addpsbtoutput_command);
+
+static struct command_result *json_addpsbtinput(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *obj UNNEEDED,
+						const jsmntok_t *params)
+{
+	struct utxo **utxos;
+	const struct utxo **excluded;
+	bool all;
+	struct amount_sat *req_amount, input, emergency_sat, diff;
+	u32 current_height, *locktime, *reserve, weight, *min_feerate;
+	struct json_stream *response;
+	struct wally_psbt *psbt;
+	bool *add_initiator_serial_ids, *mark_our_inputs;
+	size_t inputs_count, psbt_locktime;
+	u64 serial_id;
+
+	if (!param_check(cmd, buffer, params,
+			 p_req("satoshi", param_sat, &req_amount),
+			 p_opt("initialpsbt", param_psbt, &psbt),
+			 p_opt("locktime", param_number, &locktime),
+			 p_opt("min_feerate", param_feerate, &min_feerate),
+			 p_opt_def("add_initiator_serial_ids", param_bool,
+			 	   &add_initiator_serial_ids, false),
+			 p_opt_def("mark_our_inputs", param_bool,
+			 	   &mark_our_inputs, false),
+			 p_opt_def("reserve", param_number, &reserve,
+				   RESERVATION_DEFAULT),
+			 NULL))
+		return command_param_failed();
+
+	if (!psbt) {
+		if (!locktime) {
+			locktime = tal(cmd, u32);
+			*locktime = default_locktime(cmd->ld->topology);
+		}
+		psbt = create_psbt(cmd, 0, 0, *locktime);
+	} else if (locktime) {
+		return command_fail(cmd, FUNDING_PSBT_INVALID,
+				    "Can't set locktime of an existing"
+				    " {initialpsbt}");
+	}
+
+	if (!validate_psbt(psbt))
+		return command_fail(cmd,
+				    FUNDING_PSBT_INVALID,
+				    "PSBT failed to validate.");
+
+	if (!req_amount || amount_sat_is_zero(*req_amount))
+		return command_fail(cmd, FUND_INPUT_IS_ZERO, "Cannot add input"
+				    " value of zero.");
+
+	if (!min_feerate) {
+		min_feerate = tal(cmd, u32);
+		*min_feerate = opening_feerate(cmd->ld->topology);
+	}
+
+	all = amount_sat_eq(*req_amount, AMOUNT_SAT(-1ULL));
+
+	current_height = get_block_height(cmd->ld->topology);
+
+	/* We keep adding until we meet their output requirements. */
+	utxos = tal_arr(cmd, struct utxo *, 0);
+
+	/* Either uneconomical at this feerate, or already included. */
+	excluded = tal_arr(cmd, const struct utxo *, 0);
+
+	input = AMOUNT_SAT(0);
+	weight = 0;
+	while (!inputs_sufficient(input, *req_amount, 0, 0, &diff)) {
+		struct utxo *utxo;
+		struct amount_sat fee;
+		u32 utxo_weight;
+
+		utxo = wallet_find_utxo(utxos, cmd->ld->wallet, current_height,
+					&diff, 0,
+					minconf_to_maxheight(1, cmd->ld), true,
+					excluded);
+
+		if (utxo) {
+			tal_arr_expand(&excluded, utxo);
+			utxo_weight = utxo_spend_weight(utxo, 0);
+			fee = amount_tx_fee(*min_feerate, utxo_weight);
+
+			/* Uneconomic to add this utxo, skip it */
+			if (!all && amount_sat_greater_eq(fee, utxo->amount))
+				continue;
+			if (utxo_is_csv_locked(utxo, current_height))
+				continue;
+
+			tal_arr_expand(&utxos, utxo);
+
+			/* It supplies more input. */
+			if (!amount_sat_add(&input, input, utxo->amount))
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "impossible UTXO value");
+
+			/* But also adds weight */
+			weight += utxo_weight;
+			continue;
+		}
+
+		/* If they said "all", we expect to run out of utxos. */
+		if (all && tal_count(utxos))
+			break;
+
+		/* Since it's possible the lack of utxos is because we haven't
+		 * finished syncing yet, report a sync timing error first */
+		if (!topology_synced(cmd->ld->topology))
+			return command_fail(cmd,
+					    FUNDING_STILL_SYNCING_BITCOIN,
+					    "Cannot afford: still syncing with"
+					    " bitcoin network...");
+
+		return command_fail(cmd, FUND_CANNOT_AFFORD,
+				    "Could not afford %s using all %zu"
+				    " available UTXOs: %s short",
+				    all ? "all"
+				    : fmt_amount_sat(tmpctx, *req_amount),
+				    tal_count(utxos),
+				    all ? "all"
+				    : fmt_amount_sat(tmpctx, diff));
+	}
+
+	tal_free(excluded);
+
+	/* If rest of wallet has enough funds, than no emergency sats required. */
+	if (wallet_has_funds(cmd->ld->wallet,
+			     cast_const2(const struct utxo **, utxos),
+			     get_block_height(cmd->ld->topology),
+			     &cmd->ld->emergency_sat))
+		emergency_sat = AMOUNT_SAT(0);
+	else
+		emergency_sat = cmd->ld->emergency_sat;
+
+	if (wally_psbt_get_locktime(psbt, &psbt_locktime) != WALLY_OK)
+		return command_fail(cmd, FUNDING_PSBT_INVALID,
+				    "Unable to load locktime from psbt");
+
+	inputs_count = psbt->num_inputs;
+	psbt = psbt_using_utxos(cmd, cmd->ld->wallet, utxos, psbt_locktime,
+				BITCOIN_TX_RBF_SEQUENCE, psbt);
+
+	if (*add_initiator_serial_ids) {
+		for (size_t i = inputs_count; i < psbt->num_inputs; i++) {
+			serial_id = psbt_new_input_serial(psbt, TX_INITIATOR);
+			psbt_input_set_serial_id(psbt, &psbt->inputs[i],
+						 serial_id);
+		}
+	}
+
+	if (*mark_our_inputs)
+		for (size_t i = inputs_count; i < psbt->num_inputs; i++)
+			psbt_input_mark_ours(psbt, &psbt->inputs[i]);
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	response = json_stream_success(cmd);
+	json_add_psbt(response, "psbt", psbt);
+	json_add_num(response, "appended_inputs",
+		     psbt->num_inputs - inputs_count);
+	json_add_num(response, "estimated_added_weight", weight);
+	json_add_amount_sat_msat(response, "excess_msat", diff);
+	json_add_amount_sat_msat(response, "emergency_msat", emergency_sat);
+	if (reserve)
+		reserve_and_report(response, cmd->ld->wallet, current_height,
+				   *reserve, utxos);
+
+	return command_success(cmd, response);
+}
+
+static const struct json_command addpsbtinput_command = {
+	"addpsbtinput",
+	json_addpsbtinput,
+	false
+};
+AUTODATA(json_command, &addpsbtinput_command);
 
 static struct command_result *param_txout(struct command *cmd,
 					  const char *name,
