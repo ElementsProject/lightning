@@ -3137,6 +3137,7 @@
         },
         "Splice_signedResponse": {
             "Splice_Signed.outnum": 3,
+            "Splice_Signed.psbt": 4,
             "Splice_Signed.tx": 1,
             "Splice_Signed.txid": 2
         },

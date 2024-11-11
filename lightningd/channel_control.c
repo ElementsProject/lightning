@@ -7,6 +7,7 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/psbt_open.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/wire_error.h>
 #include <connectd/connectd_wiregen.h>
@@ -2035,20 +2036,10 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-static struct command_result *param_channel_for_splice(struct command *cmd,
-						       const char *name,
-						       const char *buffer,
-						       const jsmntok_t *tok,
-						       struct channel **channel)
+static struct command_result *channel_for_splice(struct command *cmd,
+						 struct channel_id *cid,
+						 struct channel **channel)
 {
-	struct command_result *result;
-	struct channel_id *cid;
-
-	result = param_channel_id(cmd, name, buffer, tok, &cid);
-
-	if (result != NULL)
-		return result;
-
 	*channel = channel_by_cid(cmd->ld, cid);
 	if (!*channel)
 		return command_fail(cmd, SPLICE_UNKNOWN_CHANNEL,
@@ -2080,6 +2071,23 @@ static struct command_result *param_channel_for_splice(struct command *cmd,
 				    channel_state_name(*channel));
 
 	return NULL;
+}
+
+static struct command_result *param_channel_for_splice(struct command *cmd,
+						       const char *name,
+						       const char *buffer,
+						       const jsmntok_t *tok,
+						       struct channel **channel)
+{
+	struct command_result *result;
+	struct channel_id *cid;
+
+	result = param_channel_id(cmd, name, buffer, tok, &cid);
+
+	if (result != NULL)
+		return result;
+
+	return channel_for_splice(cmd, cid, channel);
 }
 
 static void destroy_splice_command(struct splice_command *cc)
@@ -2189,39 +2197,20 @@ static struct command_result *json_splice_update(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-static struct command_result *json_splice_signed(struct command *cmd,
-						 const char *buffer,
-						 const jsmntok_t *obj UNNEEDED,
-						 const jsmntok_t *params)
+static struct command_result *single_splice_signed(struct command *cmd,
+						   struct channel *channel,
+						   struct wally_psbt *psbt,
+						   bool sign_first,
+						   bool *success)
 {
-	u8 *msg;
-	struct channel *channel;
 	struct splice_command *cc;
-	struct wally_psbt *psbt;
-	bool *sign_first;
-
-	if (!param_check(cmd, buffer, params,
-			 p_req("channel_id", param_channel_for_splice, &channel),
-			 p_req("psbt", param_psbt, &psbt),
-			 p_opt_def("sign_first", param_bool, &sign_first, false),
-			 NULL))
-		return command_param_failed();
+	u8 *msg;
 
 	if (splice_command_for_chan(cmd->ld, channel))
 		return command_fail(cmd,
 				    SPLICE_BUSY_ERROR,
 				    "Currently waiting on previous splice"
 				    " command to finish.");
-	if (!validate_psbt(psbt))
-		return command_fail(cmd,
-				    SPLICE_INPUT_ERROR,
-				    "PSBT failed to validate.");
-
-	if (command_check_only(cmd))
-		return command_check_done(cmd);
-
-	log_debug(cmd->ld->log, "splice_signed input PSBT version %d",
-		  psbt->version);
 
 	cc = tal(cmd, struct splice_command);
 
@@ -2231,9 +2220,72 @@ static struct command_result *json_splice_signed(struct command *cmd,
 	cc->cmd = cmd;
 	cc->channel = channel;
 
-	msg = towire_channeld_splice_signed(tmpctx, psbt, *sign_first);
+	msg = towire_channeld_splice_signed(tmpctx, psbt, sign_first);
 	subd_send_msg(channel->owner, take(msg));
+	if (success)
+		*success = true;
 	return command_still_pending(cmd);
+}
+
+static struct command_result *json_splice_signed(struct command *cmd,
+						 const char *buffer,
+						 const jsmntok_t *obj UNNEEDED,
+						 const jsmntok_t *params)
+{
+	struct channel *channel, **channels;
+	struct wally_psbt *psbt;
+	struct channel_id *channel_ids;
+	struct command_result *result;
+	bool *sign_first;
+	bool success;
+
+	if (!param_check(cmd, buffer, params,
+			 p_req("psbt", param_psbt, &psbt),
+			 p_opt("channel_id", param_channel_for_splice, &channel),
+			 p_opt_def("sign_first", param_bool, &sign_first, false),
+			 NULL))
+		return command_param_failed();
+
+	if (!validate_psbt(psbt))
+		return command_fail(cmd, SPLICE_INPUT_ERROR,
+				    "PSBT failed to validate.");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	/* If a single channel is specified, we do that and finish. */
+	if (channel)
+		return single_splice_signed(cmd, channel, psbt, *sign_first,
+					    NULL);
+
+	if (!psbt_get_channel_ids(tmpctx, psbt, &channel_ids))
+		return command_fail(cmd, SPLICE_INPUT_ERROR,
+				    "Unable to find channel_ids in psbt.");
+
+	/* We load into channels in a seperate pass to do checks before
+	 * beginning in earnest. */
+	channels = tal_arr(tmpctx, struct channel*, tal_count(channel_ids));
+	for (size_t i = 0; i < tal_count(channels); i++) {
+		result = channel_for_splice(cmd, &channel_ids[i], &channels[i]);
+		if (result)
+			return result;
+	}
+
+	/* Now execute the splice event for each channel */
+	/* TODO: We need to intelligently choose the order of channel to splice,
+	 * store the signatures received on each run, and pass them to the next
+	 */
+	for (size_t i = 0; i < tal_count(channels); i++) {
+		success = false;
+		result = single_splice_signed(cmd, channels[i], psbt,
+					      *sign_first, &success);
+		/* If one channel fails, we stop there and return the error */
+		if (!success)
+			return result;
+	}
+
+	/* If we did multiple channels, just return the last one */
+	return result;
 }
 
 static const struct json_command splice_init_command = {

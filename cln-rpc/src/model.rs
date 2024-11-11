@@ -8505,6 +8505,7 @@ pub mod responses {
 	pub struct Splice_signedResponse {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub outnum: Option<u32>,
+	    pub psbt: String,
 	    pub tx: String,
 	    pub txid: String,
 	}

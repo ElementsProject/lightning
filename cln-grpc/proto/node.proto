@@ -2665,6 +2665,7 @@ message Splice_signedResponse {
 	bytes tx = 1;
 	bytes txid = 2;
 	optional uint32 outnum = 3;
+	string psbt = 4;
 }
 
 message Splice_updateRequest {
