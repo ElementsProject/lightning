@@ -1150,8 +1150,10 @@ static u8 *send_commit_part(const tal_t *ctx,
 	if (feature_negotiated(peer->our_features,
 			       peer->their_features,
 			       OPT_EXPERIMENTAL_SPLICE)) {
-		status_debug("send_commit_part(splice: %d, remote_splice: %d)",
-			     (int)splice_amnt, (int)remote_splice_amnt);
+		status_debug("send_commit_part(splice: %d, remote_splice: %d,"
+			     " index: %"PRIu64")",
+			     (int)splice_amnt, (int)remote_splice_amnt,
+			     remote_index);
 
 		cs_tlv->splice_info = tal(cs_tlv, struct channel_id);
 		derive_channel_id(cs_tlv->splice_info, funding);
@@ -1839,8 +1841,9 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 	const struct commitsig **commitsigs;
 	int remote_anchor_outnum;
 
-	status_debug("handle_peer_commit_sig(splice: %d, remote_splice: %d)",
-		     (int)splice_amnt, (int)remote_splice_amnt);
+	status_debug("handle_peer_commit_sig(splice: %d, remote_splice: %d,"
+		     " index: %"PRIu64")",
+		     (int)splice_amnt, (int)remote_splice_amnt, local_index);
 
 	struct tlv_commitment_signed_tlvs *cs_tlv
 		= tlv_commitment_signed_tlvs_new(tmpctx);
@@ -2703,8 +2706,11 @@ static struct commitsig *interactive_send_commitments(struct peer *peer,
 	if (do_i_sign_first(peer, psbt, our_role, inflight->force_sign_first)
 		&& send_commitments) {
 
-		status_debug("Splice %s: we commit first",
-			     our_role == TX_INITIATOR ? "initiator" : "accepter");
+		status_debug("Splice %s: we commit first;"
+			     " next_index_local:%"PRIu64";"
+			     " next_index_remote:%"PRIu64,
+			     our_role == TX_INITIATOR ? "initiator" : "accepter",
+			     next_index_local, next_index_remote);
 
 		peer_write(peer->pps, send_commit_part(tmpctx,
 						       peer,
@@ -2731,6 +2737,12 @@ static struct commitsig *interactive_send_commitments(struct peer *peer,
 		if (msg_received)
 			*msg_received = msg;
 
+		status_debug("Splice %s: we recv commit;"
+			     " next_index_local:%"PRIu64";"
+			     " next_index_remote:%"PRIu64,
+			     our_role == TX_INITIATOR ? "initiator" : "accepter",
+			     next_index_local, next_index_remote);
+
 		/* Funding counts as 0th commit so we do inflight_index + 1 */
 		if (fromwire_peektype(msg) == WIRE_COMMITMENT_SIGNED) {
 			get_per_commitment_point(next_index_local - 1,
@@ -2750,8 +2762,11 @@ static struct commitsig *interactive_send_commitments(struct peer *peer,
 	if (!do_i_sign_first(peer, psbt, our_role, inflight->force_sign_first)
 		&& send_commitments) {
 
-		status_debug("Splice %s: we commit second",
-			     our_role == TX_INITIATOR ? "initiator" : "accepter");
+		status_debug("Splice %s: we commit second;"
+			     " next_index_local:%"PRIu64";"
+			     " next_index_remote:%"PRIu64,
+			     our_role == TX_INITIATOR ? "initiator" : "accepter",
+			     next_index_local, next_index_remote);
 
 		peer_write(peer->pps, send_commit_part(tmpctx,
 						       peer,
