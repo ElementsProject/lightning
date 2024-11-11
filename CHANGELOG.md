@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [24.11-rc1] - 2024-11-06: "Se7enZ Release CI Testing"
+
 ## [24.08.2] - 2024-10-18: "Steel Backed-up Channels"
 
 This point release addresses few crash fixes and includes an enhancement to remember and update channel hints for payments.
