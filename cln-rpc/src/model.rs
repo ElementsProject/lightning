@@ -2615,7 +2615,7 @@ pub mod requests {
 	        "listoffers"
 	    }
 	}
-	/// ['If neither *in_channel* nor *out_channel* is specified, it controls ordering.']
+	/// ['If neither *in_channel* nor *out_channel* is specified, it controls ordering, by `created` or `updated`.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListpaysIndex {
 	    #[serde(rename = "created")]

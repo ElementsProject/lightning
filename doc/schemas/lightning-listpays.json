@@ -4,7 +4,7 @@
   "rpc": "listpays",
   "title": "Command for querying payment status",
   "description": [
-    "The **listpay** RPC command gets the status of all *pay* commands, or a single one if either *bolt11* or *payment_hash* was specified."
+    "The **listpays** RPC command gets the status of all *pay* commands (by combining results from listsendpays which lists every payment part), or a single one if either *bolt11* or *payment_hash* was specified."
   ],
   "categories": [
     "readonly"
@@ -44,22 +44,24 @@
           "updated"
         ],
         "description": [
-          "If neither *in_channel* nor *out_channel* is specified, it controls ordering."
-        ],
-        "default": "`created`"
+          "If neither *in_channel* nor *out_channel* is specified, it controls ordering, by `created` or `updated`."
+        ]
       },
       "start": {
         "type": "u64",
         "added": "v24.11",
         "description": [
-          "If `index` is specified, `start` may be specified to start from that value, which is generally returned from lightning-wait(7)."
+          "If `index` is specified, `start` may be specified to start from that value, which is generally returned from lightning-wait(7).",
+          "NOTE: if this is used, `amount_sent_msat` and `number_of_parts` fields may be lower than expected, as not all payment parts will be considered"
         ]
       },
       "limit": {
         "type": "u32",
         "added": "v24.11",
         "description": [
-          "If `index` is specified, `limit` can be used to specify the maximum number of entries to return."
+          "If `index` is specified, `limit` can be used to specify the maximum number of entries to return.",
+          "NOTE: if this is used, `amount_sent_msat` and `number_of_parts` fields may be lower than expected, as not all payment parts will be considered",
+          "NOTE: the actual number returned may be less than the limit, as individual payment parts are combined together"
         ]
       }
     }
