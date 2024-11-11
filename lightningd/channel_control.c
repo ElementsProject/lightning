@@ -411,7 +411,7 @@ static void handle_splice_confirmed_update(struct lightningd *ld,
 {
 	struct splice_command *cc;
 	struct wally_psbt *psbt;
-	bool commitments_secured;
+	bool commitments_secured, signatures_secured;
 
 	if (!fromwire_channeld_splice_confirmed_update(tmpctx,
 						      msg,
@@ -422,6 +422,8 @@ static void handle_splice_confirmed_update(struct lightningd *ld,
 				       tal_hex(channel, msg));
 		return;
 	}
+	/* FIXME! */
+	signatures_secured = commitments_secured;
 
 	cc = splice_command_for_chan(ld, channel);
 	if (!cc) {
@@ -434,6 +436,7 @@ static void handle_splice_confirmed_update(struct lightningd *ld,
 	struct json_stream *response = json_stream_success(cc->cmd);
 	json_add_string(response, "psbt", fmt_wally_psbt(tmpctx, psbt));
 	json_add_bool(response, "commitments_secured", commitments_secured);
+	json_add_bool(response, "signatures_secured", signatures_secured);
 
 	was_pending(command_success(cc->cmd, response));
 }

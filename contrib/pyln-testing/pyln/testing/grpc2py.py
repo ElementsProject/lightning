@@ -1980,6 +1980,7 @@ def splice_update2py(m):
     return remove_default({
         "commitments_secured": m.commitments_secured,  # PrimitiveField in generate_composite
         "psbt": m.psbt,  # PrimitiveField in generate_composite
+        "signatures_secured": m.signatures_secured,  # PrimitiveField in generate_composite
     })
 
 

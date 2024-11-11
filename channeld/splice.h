@@ -53,6 +53,10 @@ struct splicing {
 	bool sent_tx_complete;
 	/* If our peer signs early, we allow that and cache it here */
 	const u8 *tx_sig_msg;
+	/* The witness stack data received by peer */
+	struct witness **inws;
+	/* Their channel funding signature */
+	struct bitcoin_signature *their_sig;
 };
 
 /* Sets `splice` items to default values */

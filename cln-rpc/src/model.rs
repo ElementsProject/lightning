@@ -8523,6 +8523,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct Splice_updateResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub signatures_secured: Option<bool>,
 	    pub commitments_secured: bool,
 	    pub psbt: String,
 	}
