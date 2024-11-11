@@ -2889,7 +2889,8 @@ static struct amount_sat check_balances(struct peer *peer,
 {
 	struct amount_sat min_initiator_fee, min_accepter_fee,
 			  max_initiator_fee, max_accepter_fee,
-			  funding_amount_res, min_multiplied;
+			  funding_amount_res, min_multiplied,
+			  initiator_penalty_fee, accepter_penalty_fee;
 	struct amount_msat funding_amount,
 			   initiator_fee, accepter_fee;
 	struct amount_msat in[NUM_TX_ROLES], out[NUM_TX_ROLES],
@@ -3041,14 +3042,22 @@ static struct amount_sat check_balances(struct peer *peer,
 					 calc_weight(TX_ACCEPTER, psbt));
 	max_initiator_fee = amount_tx_fee(peer->feerate_max,
 					  calc_weight(TX_INITIATOR, psbt));
+	initiator_penalty_fee = amount_tx_fee(peer->feerate_penalty,
+					      calc_weight(TX_INITIATOR, psbt));
+	accepter_penalty_fee = amount_tx_fee(peer->feerate_penalty,
+					     calc_weight(TX_ACCEPTER, psbt));
 
 	/* Sometimes feerate_max is some absurdly high value, in that case we
 	 * give a fee warning based of a multiple of the min value. */
 	amount_sat_mul(&min_multiplied, min_accepter_fee, 5);
 	max_accepter_fee = SAT_MIN(min_multiplied, max_accepter_fee);
+	if (amount_sat_greater(accepter_penalty_fee, max_accepter_fee))
+		max_accepter_fee = accepter_penalty_fee;
 
 	amount_sat_mul(&min_multiplied, min_initiator_fee, 5);
 	max_initiator_fee = SAT_MIN(min_multiplied, max_initiator_fee);
+	if (amount_sat_greater(initiator_penalty_fee, max_initiator_fee))
+		max_initiator_fee = initiator_penalty_fee;
 
 	/* Check initiator fee */
 	if (amount_msat_less_sat(initiator_fee, min_initiator_fee)) {
@@ -3161,7 +3170,7 @@ static void update_view_from_inflights(struct peer *peer)
 	}
 }
 
-/* Called to finish an ongoing splice OR on restart from chanenl_reestablish. */
+/* Called to finish an ongoing splice OR on restart from channel_reestablish. */
 static void resume_splice_negotiation(struct peer *peer,
 				      bool send_commitments,
 				      bool recv_commitments,
@@ -3339,7 +3348,7 @@ static void resume_splice_negotiation(struct peer *peer,
 		else {
 			status_debug("Splice: Awaiting signature message");
 			msg = peer_read(tmpctx, peer->pps);
-			status_debug("Splice: Got signature message!");
+			status_debug("Splice: Got peer message! (is signature?)");
 		}
 
 		type = fromwire_peektype(msg);
@@ -3422,7 +3431,7 @@ static void resume_splice_negotiation(struct peer *peer,
 
 		if (!their_sig) {
 			status_debug("Splice: Extracting their_sig from psbt");
-			if (!psbt_input_get_signature(tmpctx, current_psbt,
+			if (!psbt_input_get_ecdsa_sig(tmpctx, current_psbt,
 						      splice_funding_index,
 						      &peer->channel->funding_pubkey[REMOTE],
 						      &their_sig))
@@ -3933,9 +3942,13 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	new_inflight->last_tx = NULL;
 	new_inflight->i_am_initiator = true;
 	new_inflight->force_sign_first = peer->splicing->force_sign_first;
-	new_inflight->psbt = tal_steal(new_inflight, ictx->current_psbt);
 
-	/* Switch over to using inflight psbt */
+	/* Switch over to using inflight psbt. This allows us to be reentrant.
+	 * On restart we *will* have inflight psbt but we will not have any
+	 * normal in-memory copy of the psbt: peer->splicing/ictx->current_psbt.
+	 * Since we have to support using the inflight psbt anyway, we default
+	 * to it. */
+	new_inflight->psbt = tal_steal(new_inflight, ictx->current_psbt);
 	ictx->current_psbt = NULL;
 	peer->splicing->current_psbt = NULL;
 
