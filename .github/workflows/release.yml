@@ -100,3 +100,52 @@ jobs:
           name: c-lightning-${{ env.version }}
           pattern: bin-*
           delete-merged: true
+
+  release:
+    name: Sign release
+    needs:
+      - check
+      - artifact
+    env:
+      version: ${{ needs.check.outputs.version }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: c-lightning-${{ env.version }}
+          path: release/
+
+      - name: Import GPG keys
+        id: gpg
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          trust_level: 5
+
+      - name: Set default GPG key
+        run: |
+          gpg -K
+          gpg --list-secret-keys
+          echo "default-key ${{ steps.gpg.outputs.keyid }}" >> ~/.gnupg/gpg.conf
+          cat ~/.gnupg/gpg.conf
+
+      - name: Sign release
+        run: |
+          sudo apt-get install -y lowdown
+          ./configure
+          # TODO: configure GPG key
+          tools/build-release.sh --without-zip sign
+
+      - name: Upload signed artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: c-lightning-${{ env.version }}
+          overwrite: true
+          path: release/
