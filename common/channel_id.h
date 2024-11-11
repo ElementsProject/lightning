@@ -43,4 +43,7 @@ char *fmt_channel_id(const tal_t *ctx, const struct channel_id *channel_id);
 void towire_channel_id(u8 **pptr, const struct channel_id *channel_id);
 bool fromwire_channel_id(const u8 **cursor, size_t *max,
 			 struct channel_id *channel_id);
+
+char *fmt_channel_id(const tal_t *ctx, const struct channel_id *channel_id);
+
 #endif /* LIGHTNING_COMMON_CHANNEL_ID_H */
