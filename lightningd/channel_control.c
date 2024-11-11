@@ -31,6 +31,12 @@
 #include <wally_bip32.h>
 #include <wally_psbt.h>
 
+struct stfu_result
+{
+	struct channel_id channel_id;
+	struct amount_msat available_funds;
+};
+
 struct splice_command {
 	/* Inside struct lightningd splice_commands. */
 	struct list_node list;
@@ -38,6 +44,11 @@ struct splice_command {
 	struct command *cmd;
 	/* Channel being spliced. */
 	struct channel *channel;
+	/* For multi-channel commands: remaining channels awaiting response.
+	 * Allocated on ld -- free when finished. */
+	struct channel_id **channel_ids;
+	/* For multi-channel stfu command: the pending result */
+	struct stfu_result **results;
 };
 
 void channel_update_feerates(struct lightningd *ld, const struct channel *channel)
@@ -414,16 +425,15 @@ static void handle_splice_confirmed_update(struct lightningd *ld,
 	bool commitments_secured, signatures_secured;
 
 	if (!fromwire_channeld_splice_confirmed_update(tmpctx,
-						      msg,
-						      &psbt,
-						      &commitments_secured)) {
+						       msg,
+						       &psbt,
+						       &commitments_secured,
+						       &signatures_secured)) {
 		channel_internal_error(channel,
 				       "bad splice_confirmed_update %s",
 				       tal_hex(channel, msg));
 		return;
 	}
-	/* FIXME! */
-	signatures_secured = commitments_secured;
 
 	cc = splice_command_for_chan(ld, channel);
 	if (!cc) {
@@ -479,6 +489,7 @@ struct send_splice_info
 	const struct bitcoin_tx *final_tx;
 	u32 output_index;
 	const char *err_msg;
+	const struct wally_psbt *psbt;
 };
 
 static void handle_tx_broadcast(struct send_splice_info *info)
@@ -506,6 +517,7 @@ static void handle_tx_broadcast(struct send_splice_info *info)
 		json_add_hex(response, "tx", tx_bytes, tal_bytelen(tx_bytes));
 		json_add_txid(response, "txid", &txid);
 		json_add_u32(response, "outnum", info->output_index);
+		json_add_psbt(response, "psbt", info->psbt);
 
 		was_pending(command_success(info->cc->cmd, response));
 	}
@@ -571,7 +583,8 @@ static void send_splice_tx_done(struct bitcoind *bitcoind UNUSED,
 static void send_splice_tx(struct channel *channel,
 			   const struct bitcoin_tx *tx,
 			   struct splice_command *cc,
-			   u32 output_index)
+			   u32 output_index,
+			   struct wally_psbt *psbt)
 {
 	struct lightningd *ld = channel->peer->ld;
 	u8* tx_bytes = linearize_tx(tmpctx, tx);
@@ -588,6 +601,7 @@ static void send_splice_tx(struct channel *channel,
 	info->final_tx = tal_steal(info, tx);
 	info->output_index = output_index;
 	info->err_msg = NULL;
+	info->psbt = psbt;
 
 	bitcoind_sendrawtx(ld->topology->bitcoind,
 			   ld->topology->bitcoind,
@@ -637,7 +651,7 @@ static void handle_splice_confirmed_signed(struct lightningd *ld,
 
 	cc = splice_command_for_chan(ld, channel);
 
-	send_splice_tx(channel, tx, cc, output_index);
+	send_splice_tx(channel, tx, cc, output_index, inflight->funding_psbt);
 }
 
 static enum watch_result splice_depth_cb(struct lightningd *ld,
@@ -1424,6 +1438,75 @@ static void handle_local_anchors(struct channel *channel, const u8 *msg)
 	}
 }
 
+/* Channeld sends us this in response to a user's `stfu` request */
+static void handle_confirmed_stfu(struct lightningd *ld,
+				  struct channel *channel,
+				  const u8 *msg)
+{
+	struct splice_command *cc;
+	struct amount_msat available_funds;
+	struct stfu_result *stfu_result;
+
+	if (!fromwire_channeld_confirmed_stfu(msg,
+					      &available_funds)) {
+		channel_internal_error(channel,
+				       "bad confirmed_stfu %s",
+				       tal_hex(channel, msg));
+		return;
+	}
+
+	cc = splice_command_for_chan(ld, channel);
+	if (!cc) {
+		channel_internal_error(channel, "confirmed_stfu"
+				       " received without an active command %s",
+				       tal_hex(channel, msg));
+		return;
+	}
+
+	log_info(channel->log, "lightningd got confirmed stfu from channeld,"
+		 " channel_id count: %zu", tal_count(cc->channel_ids));
+
+	for (size_t i = 0; i < tal_count(cc->channel_ids); i++) {
+		if (channel_id_eq(cc->channel_ids[i], &channel->cid)) {
+			stfu_result = tal(cc->results, struct stfu_result);
+			stfu_result->channel_id = channel->cid;
+			stfu_result->available_funds = available_funds;
+
+			tal_arr_expand(&cc->results, stfu_result);
+			tal_arr_remove(&cc->channel_ids, i);
+
+			log_info(channel->log, "lightningd found channel_id in command and removed it");
+			break;
+		}
+	}
+
+	log_info(channel->log, "Finished processing confirmed stfu,"
+		 " channel_id count: %zu", tal_count(cc->channel_ids));
+
+	/* Once we run out of pending stfu requests we return to user */
+	if (tal_count(cc->channel_ids))
+		return;
+
+	struct json_stream *response = json_stream_success(cc->cmd);
+
+	json_array_start(response, "channels");
+	for (size_t i = 0; i < tal_count(cc->results); i++) {
+		json_object_start(response, NULL);
+		json_add_channel_id(response, "channel_id",
+				    &cc->results[i]->channel_id);
+		json_add_amount_msat(response, "available_msat",
+				     cc->results[i]->available_funds);
+		json_object_end(response);
+	}
+	json_array_end(response);
+
+	/* channel_ids and results are free'd when the last stfu is finished */
+	tal_free(cc->channel_ids);
+	tal_free(cc->results);
+
+	was_pending(command_success(cc->cmd, response));
+}
+
 static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
 	enum channeld_wire t = fromwire_peektype(msg);
@@ -1501,6 +1584,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_GOT_SPLICE_LOCKED:
 		handle_peer_splice_locked(sd->channel, msg);
 		break;
+	case WIRE_CHANNELD_CONFIRMED_STFU:
+		handle_confirmed_stfu(sd->ld, sd->channel, msg);
+		break;
 	case WIRE_CHANNELD_UPGRADED:
 		handle_channel_upgrade(sd->channel, msg);
 		break;
@@ -1530,7 +1616,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_SPLICE_UPDATE:
 	case WIRE_CHANNELD_SPLICE_LOOKUP_TX_RESULT:
 	case WIRE_CHANNELD_SPLICE_SIGNED:
+	case WIRE_CHANNELD_STFU:
 	case WIRE_CHANNELD_DEV_QUIESCE_REPLY:
+	case WIRE_CHANNELD_ABORT:
 		break;
 	}
 
@@ -2108,7 +2196,7 @@ static struct command_result *json_splice_init(struct command *cmd,
 	struct wally_psbt *initialpsbt;
 	s64 *relative_amount;
 	u32 *feerate_per_kw;
-	bool *force_feerate;
+	bool *force_feerate, *skip_stfu;
 	u8 *msg;
 
 	if (!param_check(cmd, buffer, params,
@@ -2117,6 +2205,7 @@ static struct command_result *json_splice_init(struct command *cmd,
 			 p_opt("initialpsbt", param_psbt, &initialpsbt),
 			 p_opt("feerate_per_kw", param_feerate, &feerate_per_kw),
 			 p_opt_def("force_feerate", param_bool, &force_feerate, false),
+			 p_opt_def("skip_stfu", param_bool, &skip_stfu, false),
 			 NULL))
 		return command_param_failed();
 
@@ -2151,9 +2240,12 @@ static struct command_result *json_splice_init(struct command *cmd,
 
 	cc->cmd = cmd;
 	cc->channel = channel;
+	cc->channel_ids = NULL;
+	cc->results = NULL;
 
 	msg = towire_channeld_splice_init(NULL, initialpsbt, *relative_amount,
-					  *feerate_per_kw, *force_feerate);
+					  *feerate_per_kw, *force_feerate,
+					  *skip_stfu);
 
 	subd_send_msg(channel->owner, take(msg));
 	return command_still_pending(cmd);
@@ -2194,6 +2286,8 @@ static struct command_result *json_splice_update(struct command *cmd,
 
 	cc->cmd = cmd;
 	cc->channel = channel;
+	cc->channel_ids = NULL;
+	cc->results = NULL;
 
 	subd_send_msg(channel->owner,
 		      take(towire_channeld_splice_update(NULL, psbt)));
@@ -2222,6 +2316,8 @@ static struct command_result *single_splice_signed(struct command *cmd,
 
 	cc->cmd = cmd;
 	cc->channel = channel;
+	cc->channel_ids = NULL;
+	cc->results = NULL;
 
 	msg = towire_channeld_splice_signed(tmpctx, psbt, sign_first);
 	subd_send_msg(channel->owner, take(msg));
@@ -2253,13 +2349,13 @@ static struct command_result *json_splice_signed(struct command *cmd,
 		return command_fail(cmd, SPLICE_INPUT_ERROR,
 				    "PSBT failed to validate.");
 
-	if (command_check_only(cmd))
-		return command_check_done(cmd);
-
 	/* If a single channel is specified, we do that and finish. */
-	if (channel)
+	if (channel) {
+		if (command_check_only(cmd))
+			return command_check_done(cmd);
 		return single_splice_signed(cmd, channel, psbt, *sign_first,
 					    NULL);
+	}
 
 	if (!psbt_get_channel_ids(tmpctx, psbt, &channel_ids))
 		return command_fail(cmd, SPLICE_INPUT_ERROR,
@@ -2273,6 +2369,9 @@ static struct command_result *json_splice_signed(struct command *cmd,
 		if (result)
 			return result;
 	}
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	/* Now execute the splice event for each channel */
 	/* TODO: We need to intelligently choose the order of channel to splice,
@@ -2289,6 +2388,114 @@ static struct command_result *json_splice_signed(struct command *cmd,
 
 	/* If we did multiple channels, just return the last one */
 	return result;
+}
+
+static struct command_result *json_stfu_channels(struct command *cmd,
+						 const char *buffer,
+						 const jsmntok_t *obj UNNEEDED,
+						 const jsmntok_t *params)
+{
+	struct channel *channel, **channels;
+	struct channel_id **channel_ids;
+	const jsmntok_t *channel_ids_tok, *channel_id_tok;
+	struct command_result *result;
+	struct splice_command *cc;
+	struct stfu_result **stfu_result;
+	size_t i;
+
+	if (!param_check(cmd, buffer, params,
+			 p_opt("channel_ids", param_array, &channel_ids_tok),
+			 NULL))
+		return command_param_failed();
+
+	channels = tal_arr(cmd, struct channel*, 0);
+	json_for_each_arr(i, channel_id_tok, channel_ids_tok) {
+		result = param_channel_for_splice(cmd, NULL, buffer, channel_id_tok,
+						  &channel);
+		if (result)
+			return result;
+		if (splice_command_for_chan(cmd->ld, channel))
+			return command_fail(cmd,
+					    SPLICE_BUSY_ERROR,
+					    "Currently waiting on previous"
+					    " splice command to finish.");
+
+		tal_arr_expand(&channels, channel);
+	}
+
+	if (!tal_count(channels))
+		return command_fail_badparam(cmd, "channel_ids", buffer,
+					     channel_ids_tok,
+					     "Must specify a channel");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	/* Next we split into multiple `stfu` commands. The final command to
+	 * return will handle free'ing `stfu_result` and `channel_ids` */
+	stfu_result = tal_arr(NULL, struct stfu_result*, 0);
+	channel_ids = tal_arr(NULL, struct channel_id*, tal_count(channels));
+
+	for (i = 0; i < tal_count(channels); i++) {
+		channel = channels[i];
+
+		channel_ids[i] = tal(channel_ids, struct channel_id);
+		*channel_ids[i] = channel->cid;
+
+		cc = tal(cmd, struct splice_command);
+
+		list_add_tail(&cmd->ld->splice_commands, &cc->list);
+		tal_add_destructor(cc, destroy_splice_command);
+
+		cc->cmd = cmd;
+		cc->channel = channel;
+		cc->channel_ids = channel_ids;
+		cc->results = stfu_result;
+
+		subd_send_msg(channel->owner, take(towire_channeld_stfu(NULL)));
+	}
+
+	return command_still_pending(cmd);
+}
+
+static struct command_result *json_abort_channels(struct command *cmd,
+						  const char *buffer,
+						  const jsmntok_t *obj UNNEEDED,
+						  const jsmntok_t *params)
+{
+	struct channel **channels;
+	struct channel *channel;
+	const jsmntok_t *channel_ids_tok, *channel_id_tok;
+	struct command_result *result;
+	size_t i;
+
+	if (!param_check(cmd, buffer, params,
+			 p_opt("channel_ids", param_array, &channel_ids_tok),
+			 NULL))
+		return command_param_failed();
+
+	channels = tal_arr(cmd, struct channel*, 0);
+	json_for_each_arr(i, channel_id_tok, channel_ids_tok) {
+		result = param_channel_for_splice(cmd, NULL, buffer, channel_id_tok,
+						  &channel);
+		if (result)
+			return result;
+		tal_arr_expand(&channels, channel);
+	}
+
+	if (!tal_count(channels))
+		return command_fail_badparam(cmd, "channel_ids", buffer,
+					     channel_ids_tok,
+					     "Must specify a channel");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	for (i = 0; i < tal_count(channels); i++)
+		subd_send_msg(channels[i]->owner,
+			      take(towire_channeld_abort(NULL)));
+
+	return command_success(cmd, json_stream_success(cmd));
 }
 
 static const struct json_command splice_init_command = {
@@ -2308,6 +2515,18 @@ static const struct json_command splice_signed_command = {
 	json_splice_signed,
 };
 AUTODATA(json_command, &splice_signed_command);
+
+static const struct json_command stfu_channels_command = {
+	"stfu_channels",
+	json_stfu_channels,
+};
+AUTODATA(json_command, &stfu_channels_command);
+
+static const struct json_command abort_channels_command = {
+	"abort_channels",
+	json_abort_channels,
+};
+AUTODATA(json_command, &abort_channels_command);
 
 static struct command_result *json_dev_feerate(struct command *cmd,
 					       const char *buffer,

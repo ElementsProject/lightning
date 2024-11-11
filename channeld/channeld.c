@@ -57,7 +57,8 @@
 
 #define VALID_STFU_MESSAGE(msg) \
 	((msg) == WIRE_SPLICE || \
-	(msg) == WIRE_SPLICE_ACK)
+	(msg) == WIRE_SPLICE_ACK || \
+	(msg) == WIRE_TX_ABORT)
 
 #define SAT_MIN(a, b) (amount_sat_less((a), (b)) ? (a) : (b))
 
@@ -3969,7 +3970,8 @@ static void splice_initiator_user_finalized(struct peer *peer)
 
 	outmsg = towire_channeld_splice_confirmed_update(NULL,
 							 new_inflight->psbt,
-							 true);
+							 true,
+							 !sign_first);
 	wire_sync_write(MASTER_FD, take(outmsg));
 }
 
@@ -4042,7 +4044,7 @@ static void splice_initiator_user_update(struct peer *peer, const u8 *inmsg)
 	/* Peer may have modified our PSBT so we return it to the user here */
 	outmsg = towire_channeld_splice_confirmed_update(NULL,
 							 ictx->current_psbt,
-							 false);
+							 false, false);
 	wire_sync_write(MASTER_FD, take(outmsg));
 }
 
@@ -4147,6 +4149,7 @@ static void handle_splice_stfu_success(struct peer *peer)
 static void handle_splice_init(struct peer *peer, const u8 *inmsg)
 {
 	u8 *msg;
+	bool skip_stfu;
 
 	/* Can't start a splice with another splice still active */
 	if (peer->splicing) {
@@ -4163,20 +4166,29 @@ static void handle_splice_init(struct peer *peer, const u8 *inmsg)
 					   &peer->splicing->current_psbt,
 					   &peer->splicing->opener_relative,
 					   &peer->splicing->feerate_per_kw,
-					   &peer->splicing->force_feerate))
+					   &peer->splicing->force_feerate,
+					   &skip_stfu))
 		master_badmsg(WIRE_CHANNELD_SPLICE_INIT, inmsg);
 
-	if (peer->want_stfu) {
+	if (!skip_stfu && peer->want_stfu) {
 		msg = towire_channeld_splice_state_error(NULL, "Can't begin a"
 							 " splice while waiting"
 							 " for STFU.");
 		wire_sync_write(MASTER_FD, take(msg));
 		return;
 	}
-	if (is_stfu_active(peer)) {
+	if (!skip_stfu && is_stfu_active(peer)) {
 		msg = towire_channeld_splice_state_error(NULL, "Can't begin a"
 							 " splice while"
 							 " currently in STFU");
+		wire_sync_write(MASTER_FD, take(msg));
+		return;
+	}
+	if (skip_stfu && !is_stfu_active(peer)) {
+		msg = towire_channeld_splice_state_error(NULL, "Can't begin a"
+							 " splice with"
+							 " skip_stfu if not"
+							 " already in STFU");
 		wire_sync_write(MASTER_FD, take(msg));
 		return;
 	}
@@ -4199,14 +4211,72 @@ static void handle_splice_init(struct peer *peer, const u8 *inmsg)
 		return;
 	}
 
-	status_debug("Getting handle_splice_init psbt version %d", peer->splicing->current_psbt->version);
+	status_debug("Getting handle_splice_init psbt version %d",
+		     peer->splicing->current_psbt->version);
 
-	peer->on_stfu_success = handle_splice_stfu_success;
+	if (skip_stfu) {
+		handle_splice_stfu_success(peer);
+	} else {
+		peer->on_stfu_success = handle_splice_stfu_success;
 
-	/* First things first we must STFU the channel */
+		/* First things first we must STFU the channel */
+		peer->stfu_initiator = LOCAL;
+		peer->want_stfu = true;
+		maybe_send_stfu(peer);
+	}
+}
+
+static void handle_stfu_req_success(struct peer *peer)
+{
+	struct amount_msat available_funds = peer->channel->view->owed[LOCAL];
+	/* DTODO: Subtract reserve requirment from available_funds? */
+	wire_sync_write(MASTER_FD,
+			take(towire_channeld_confirmed_stfu(NULL,
+		   					    available_funds)));
+}
+
+static void handle_stfu_req(struct peer *peer, const u8 *inmsg)
+{
+	u8 *msg;
+
+	if (!fromwire_channeld_stfu(inmsg))
+		master_badmsg(WIRE_CHANNELD_STFU, inmsg);
+
+	if (peer->splicing) {
+		msg = towire_channeld_splice_state_error(NULL, "Can't start"
+							 " stfu when a splice"
+							 " is active");
+		wire_sync_write(MASTER_FD, take(msg));
+		return;
+	}
+	if (peer->want_stfu) {
+		msg = towire_channeld_splice_state_error(NULL, "Can't stfu"
+							 " splice while waiting"
+							 " for STFU.");
+		wire_sync_write(MASTER_FD, take(msg));
+		return;
+	}
+	if (is_stfu_active(peer)) {
+		msg = towire_channeld_splice_state_error(NULL, "Can't stfu"
+							 " splice while"
+							 " currently in STFU");
+		wire_sync_write(MASTER_FD, take(msg));
+		return;
+	}
+
+	peer->on_stfu_success = handle_stfu_req_success;
+
 	peer->stfu_initiator = LOCAL;
 	peer->want_stfu = true;
 	maybe_send_stfu(peer);
+}
+
+static void handle_abort_req(struct peer *peer, const u8 *inmsg)
+{
+	if (!fromwire_channeld_abort(inmsg))
+		master_badmsg(WIRE_CHANNELD_ABORT, inmsg);
+
+	splice_abort(peer, "requested by user");
 }
 
 static void peer_in(struct peer *peer, const u8 *msg)
@@ -4309,6 +4379,9 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_SPLICE_LOCKED:
 		handle_peer_splice_locked(peer, msg);
 		return;
+	case WIRE_TX_ABORT:
+		check_tx_abort(peer, msg);
+		return;
 	case WIRE_INIT:
 	case WIRE_OPEN_CHANNEL:
 	case WIRE_ACCEPT_CHANNEL:
@@ -4320,7 +4393,6 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_TX_ADD_OUTPUT:
 	case WIRE_TX_REMOVE_OUTPUT:
 	case WIRE_TX_COMPLETE:
-	case WIRE_TX_ABORT:
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
 	case WIRE_TX_SIGNATURES:
@@ -5768,6 +5840,12 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_SPLICE_SIGNED:
 		splice_initiator_user_signed(peer, msg);
 		return;
+	case WIRE_CHANNELD_STFU:
+		handle_stfu_req(peer, msg);
+		return;
+	case WIRE_CHANNELD_ABORT:
+		handle_abort_req(peer, msg);
+		return;
 	case WIRE_CHANNELD_SPLICE_CONFIRMED_INIT:
 	case WIRE_CHANNELD_SPLICE_CONFIRMED_SIGNED:
 	case WIRE_CHANNELD_SPLICE_SENDING_SIGS:
@@ -5778,6 +5856,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_SPLICE_FUNDING_ERROR:
 	case WIRE_CHANNELD_SPLICE_ABORT:
 		check_tx_abort(peer, msg);
+	case WIRE_CHANNELD_CONFIRMED_STFU:
 		break;
  	case WIRE_CHANNELD_DEV_REENABLE_COMMIT:
 		if (peer->developer) {

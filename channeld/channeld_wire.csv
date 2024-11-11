@@ -210,6 +210,7 @@ msgdata,channeld_splice_init,psbt,wally_psbt,
 msgdata,channeld_splice_init,relative_amount,s64,
 msgdata,channeld_splice_init,feerate_per_kw,u32,
 msgdata,channeld_splice_init,force_feerate,bool,
+msgdata,channeld_splice_init,skip_stfu,bool,
 
 # channeld->master: hello, I started a channel splice open
 msgtype,channeld_splice_confirmed_init,7205
@@ -223,6 +224,7 @@ msgdata,channeld_splice_update,psbt,wally_psbt,
 msgtype,channeld_splice_confirmed_update,7207
 msgdata,channeld_splice_confirmed_update,psbt,wally_psbt,
 msgdata,channeld_splice_confirmed_update,commitments_secured,bool,
+msgdata,channeld_splice_confirmed_update,signatures_secured,bool,
 
 # channeld->master: Lookup a transaction
 msgtype,channeld_splice_lookup_tx,7208
@@ -286,6 +288,16 @@ msgtype,channeld_splice_abort,7223
 msgdata,channeld_splice_abort,did_i_initiate,bool,
 msgdata,channeld_splice_abort,inflight_outpoint,?bitcoin_outpoint,
 msgdata,channeld_splice_abort,reason,?wirestring,
+
+# master->channeld: Please enter stfu mode
+msgtype,channeld_stfu,7224
+
+# channeld->master: Entered stfu result
+msgtype,channeld_confirmed_stfu,7225
+msgdata,channeld_confirmed_stfu,available_funds,amount_msat,
+
+# master->channeld: Please enter perform tx_abort
+msgtype,channeld_abort,7226
 
 # Tell peer to shut down channel.
 msgtype,channeld_send_shutdown,1023
