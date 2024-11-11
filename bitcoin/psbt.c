@@ -641,6 +641,17 @@ void *psbt_get_lightning(const struct wally_map *map,
 	return item->value;
 }
 
+void psbt_set_lightning(const tal_t *ctx,
+			struct wally_map *map,
+			const u8 proprietary_type,
+			const void *value,
+			size_t val_len)
+{
+	u8 *key = psbt_make_key(NULL, proprietary_type, NULL);
+	map_replace(ctx, map, key, value, val_len);
+	tal_free(key);
+}
+
 void psbt_output_set_unknown(const tal_t *ctx,
 			     struct wally_psbt_output *out,
 			     const u8 *key,
