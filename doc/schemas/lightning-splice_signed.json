@@ -26,7 +26,7 @@
       "psbt": {
         "type": "string",
         "description": [
-          "The final version of the psbt to complete the splice with."
+          "The psbt of the resulting transaction after splice negotiation(s)"
         ]
       },
       "sign_first": {
@@ -40,7 +40,8 @@
   "response": {
     "required": [
       "tx",
-      "txid"
+      "txid",
+      "psbt"
     ],
     "additionalProperties": false,
     "properties": {
@@ -54,6 +55,12 @@
         "type": "txid",
         "description": [
           "The txid is of the final transaction."
+        ]
+      },
+      "psbt": {
+        "type": "string",
+        "description": [
+          "The psbt of the resulting transaction after splice negotiation(s)"
         ]
       },
       "outnum": {

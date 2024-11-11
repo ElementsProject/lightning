@@ -2505,6 +2505,7 @@ impl From<responses::Splice_signedResponse> for pb::SpliceSignedResponse {
     fn from(c: responses::Splice_signedResponse) -> Self {
         Self {
             outnum: c.outnum, // Rule #2 for type u32?
+            psbt: c.psbt, // Rule #2 for type string
             tx: hex::decode(&c.tx).unwrap(), // Rule #2 for type hex
             txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
         }
