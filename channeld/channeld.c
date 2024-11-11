@@ -2969,20 +2969,20 @@ static struct amount_sat check_balances(struct peer *peer,
 	 *   While we're, here, adjust the output counts by splice amount.
 	 */
 	if (!amount_msat_add_sat_s64(&funding_amount, funding_amount,
-				peer->splicing->opener_relative))
-		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Unable to add opener funding");
+				     peer->splicing->opener_relative))
+		splice_abort(peer, "Splice initiator did not provide enough"
+			     " funding");
 	if (!amount_msat_add_sat_s64(&out[TX_INITIATOR], out[TX_INITIATOR],
-				peer->splicing->opener_relative))
+				     peer->splicing->opener_relative))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Unable to add opener funding to out amnt.");
 
 	if (!amount_msat_add_sat_s64(&funding_amount, funding_amount,
-				peer->splicing->accepter_relative))
-		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Unable to add accepter funding");
+				     peer->splicing->accepter_relative))
+		splice_abort(peer, "Splice accepter did not provide enough"
+			     " funding");
 	if (!amount_msat_add_sat_s64(&out[TX_ACCEPTER], out[TX_ACCEPTER],
-				peer->splicing->accepter_relative))
+				     peer->splicing->accepter_relative))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Unable to add accepter funding to out amnt.");
 
