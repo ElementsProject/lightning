@@ -220,6 +220,19 @@ void *psbt_get_lightning(const struct wally_map *map,
 			 const u8 proprietary_type,
 			 size_t *val_len);
 
+/* psbt_set_lightning - Set a propreitary lightning value on the given map
+ *
+ * @map - map of unknowns to set the value
+ * @proprietary_type - type no. to set
+ * @value - the value to be set
+ * @val_len - length of value
+ */
+void psbt_set_lightning(const tal_t *ctx,
+			struct wally_map *map,
+			const u8 proprietary_type,
+			const void *value,
+			size_t val_len);
+
 /* psbt_output_set_unknown - Set the given Key-Value in the psbt's output keymap
  *
  * @ctx - tal context for allocations
