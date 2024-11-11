@@ -5055,7 +5055,6 @@ static void peer_reconnect(struct peer *peer,
 	if (inflight && (remote_next_funding || local_next_funding)) {
 		if (!remote_next_funding) {
 			status_info("Resuming splice negotation.");
-			assume_stfu_mode(peer);
 			resume_splice_negotiation(peer,
 						  false,
 						  true,
@@ -5067,6 +5066,7 @@ static void peer_reconnect(struct peer *peer,
 			assert(local_next_funding || inflight->remote_tx_sigs);
 
 			status_info("Resuming splice negotation");
+			/* If send & receive sigs we must assume stfu */
 			if (local_next_funding)
 				assume_stfu_mode(peer);
 			resume_splice_negotiation(peer,
