@@ -92,6 +92,7 @@ COMMON_SRC_NOGEN :=				\
 	common/setup.c				\
 	common/shutdown_scriptpubkey.c		\
 	common/sphinx.c				\
+	common/splice_script.c			\
 	common/status.c				\
 	common/status_levels.c			\
 	common/status_wire.c			\
