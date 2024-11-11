@@ -50,6 +50,7 @@ GENERATE_MARKDOWN := doc/lightning-addgossip.7 \
 	doc/lightning-delpay.7 \
 	doc/lightning-deprecations.7 \
 	doc/lightning-dev-forget-channel.7 \
+	doc/lightning-dev-splice.7 \
 	doc/lightning-disableinvoicerequest.7 \
 	doc/lightning-disableoffer.7 \
 	doc/lightning-disconnect.7 \
