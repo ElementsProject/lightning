@@ -1540,7 +1540,7 @@ def test_rpc_command_hook(node_factory):
     # Both plugins will replace calls made for the "invoice" command
     # The first will win, for the second a warning should be logged
     invoice = l1.rpc.invoice(10**6, "test_side", "test_input")
-    decoded = l1.rpc.decodepay(invoice["bolt11"])
+    decoded = l1.rpc.decode(invoice["bolt11"])
     assert decoded["description"] == "rpc_command_1 modified this description"
     l1.daemon.wait_for_log("rpc_command hook 'invoice' already modified, ignoring.")
 
