@@ -1212,8 +1212,7 @@ class LightningNode(object):
 
         # make an invoice
         inv = dst.rpc.invoice(amt, label, label)
-        # FIXME: pre 0.10.1 invoice calls didn't have payment_secret field
-        psecret = dst.rpc.decodepay(inv['bolt11'])['payment_secret']
+        psecret = inv['payment_secret']
         rhash = inv['payment_hash']
         invoices = dst.rpc.listinvoices(label)['invoices']
         assert len(invoices) == 1 and invoices[0]['status'] == 'unpaid'

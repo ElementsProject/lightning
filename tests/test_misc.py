@@ -3733,21 +3733,21 @@ def test_field_filter(node_factory, chainparams):
     inv = l1.rpc.invoice(123000, 'label', 'description', 3700, [addr1, addr2])
 
     # Simple case: single field
-    dec = l1.rpc.call('decodepay', {'bolt11': inv['bolt11']}, filter={"currency": True})
+    dec = l1.rpc.call('decode', {'string': inv['bolt11']}, filter={"currency": True})
     assert dec == {"currency": chainparams['bip173_prefix']}
 
     # Use context manager:
     with l1.rpc.reply_filter({"currency": True}):
-        dec = l1.rpc.decodepay(bolt11=inv['bolt11'])
+        dec = l1.rpc.decode(string=inv['bolt11'])
     assert dec == {"currency": chainparams['bip173_prefix']}
 
     # Two fields
-    dec = l1.rpc.call('decodepay', {'bolt11': inv['bolt11']}, filter={"currency": True, "payment_hash": True})
+    dec = l1.rpc.call('decode', {'string': inv['bolt11']}, filter={"currency": True, "payment_hash": True})
     assert dec == {"currency": chainparams['bip173_prefix'],
                    "payment_hash": inv['payment_hash']}
 
     # Nested fields
-    dec = l1.rpc.call('decodepay', {'bolt11': inv['bolt11']},
+    dec = l1.rpc.call('decode', {'string': inv['bolt11']},
                       filter={"currency": True,
                               "payment_hash": True,
                               "fallbacks": [{"type": True}]})
@@ -3756,12 +3756,12 @@ def test_field_filter(node_factory, chainparams):
                    "fallbacks": [{"type": 'P2WPKH'}, {"type": 'P2SH'}]}
 
     # Nonexistent fields.
-    dec = l1.rpc.call('decodepay', {'bolt11': inv['bolt11']},
+    dec = l1.rpc.call('decode', {'string': inv['bolt11']},
                       filter={"foobar": True})
     assert dec == {}
 
     # Bad filters
-    dec = l1.rpc.call('decodepay', {'bolt11': inv['bolt11']},
+    dec = l1.rpc.call('decode', {'string': inv['bolt11']},
                       filter={"currency": True,
                               "payment_hash": True,
                               "fallbacks": {'type': True}})

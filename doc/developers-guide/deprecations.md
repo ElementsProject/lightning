@@ -33,7 +33,7 @@ hidden: false
 | experimental-onion-messages          | Config             | v24.08           | v25.02         | Now the default                                                                                                                        |
 | decode.blinding                      | Field              | v24.11           | v25.05         | Renamed to `first_path_key` in BOLT 4 (available in `decode` from v24.11)                                                              |
 | onion_message_recv.blinding          | Hook Field         | v24.11           | v25.05         | Renamed to `first_path_key` in BOLT 4 (available in hook from v24.11)                                                                  |
-
+| decodepay                            | Command            | v24.11           | v25.11         | Use `decode` which is more powerful (since v23.05)                                                                                     |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 

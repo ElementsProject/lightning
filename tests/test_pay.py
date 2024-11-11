@@ -182,7 +182,7 @@ def test_pay_exclude_node(node_factory, bitcoind):
     # Get a fresh invoice, but do it before other routes exist, so routehint
     # will be via l2.
     inv = l3.rpc.invoice(amount, "test2", 'description')['bolt11']
-    assert only_one(l1.rpc.decodepay(inv)['routes'])[0]['pubkey'] == l2.info['id']
+    assert only_one(l1.rpc.decode(inv)['routes'])[0]['pubkey'] == l2.info['id']
 
     # l1->l4->l5->l3 is the longer route. This makes sure this route won't be
     # tried for the first pay attempt. Just to be sure we also raise the fees
@@ -809,7 +809,7 @@ def test_sendpay_cant_afford(node_factory, anchors):
     l2.pay(l1, available - reserve * 2)
 
 
-def test_decodepay(node_factory):
+def test_decode(node_factory):
     l1 = node_factory.get_node()
 
     # BOLT #11:
@@ -829,7 +829,7 @@ def test_decodepay(node_factory):
     #   * `2pkx2ctnv5sxxmmwwd5kgetjypeh2ursdae8g6twvus8g6rfwvs8qun0dfjkxaq`: 'Please consider supporting this project'
     # * `32vjcgqxyuj7nqphl3xmmhls2rkl3t97uan4j0xa87gj5779czc8p0z58zf5wpt9ggem6adl64cvawcxlef9djqwp2jzzfvs272504sp`: signature
     # * `0lkg3c`: Bech32 checksum
-    b11 = l1.rpc.decodepay(
+    b11 = l1.rpc.decode(
         'lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqd'
         'pl2pkx2ctnv5sxxmmwwd5kgetjypeh2ursdae8g6twvus8g6rfwvs8qun0dfjkxaq8rk'
         'x3yf5tcsyz3d73gafnh3cax9rn449d9p5uxz9ezhhypd0elx87sjle52x86fux2ypatg'
@@ -861,7 +861,7 @@ def test_decodepay(node_factory):
     #   * `pu`: 60 seconds (`p` = 1, `u` = 28.  1 * 32 + 28 == 60)
     # * `azh8qt5w7qeewkmxtv55khqxvdfs9zzradsvj7rcej9knpzdwjykcq8gv4v2dl705pjadhpsc967zhzdpuwn5qzjm0s4hqm2u0vuhhqq`: signature
     # * `7vc09u`: Bech32 checksum
-    b11 = l1.rpc.decodepay(
+    b11 = l1.rpc.decode(
         'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqf'
         'qypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cq'
         'v3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rsp'
@@ -891,14 +891,11 @@ def test_decodepay(node_factory):
     # * `8yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqs`: SHA256 of 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon'
     # * `vjfls3ljx9e93jkw0kw40yxn4pevgzflf83qh2852esjddv4xk4z70nehrdcxa4fk0t6hlcc6vrxywke6njenk7yzkzw0quqcwxphkcp`: signature
     # * `vam37w`: Bech32 checksum
-    b11 = l1.rpc.decodepay(
+    b11 = l1.rpc.decode(
         'lnbc20m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqy'
         'pqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqscc6gd6ql3jr'
         'c5yzme8v4ntcewwz5cnw92tz0pc8qcuufvq7khhr8wpald05e92xw006sq94mg8v2ndf'
-        '4sefvf9sygkshp5zfem29trqq2yxxz7',
-        'One piece of chocolate cake, one icecream cone, one pickle, one slic'
-        'e of swiss cheese, one slice of salami, one lollypop, one piece of c'
-        'herry pie, one sausage, one cupcake, and one slice of watermelon'
+        '4sefvf9sygkshp5zfem29trqq2yxxz7'
     )
     assert b11['currency'] == 'bc'
     assert b11['amount_msat'] == Millisatoshi(str(20 * 10**11 // 1000) + 'msat')
@@ -923,14 +920,8 @@ def test_decodepay(node_factory):
     # * `h`: tagged field: hash of description...
     # * `qh84fmvn2klvglsjxfy0vq2mz6t9kjfzlxfwgljj35w2kwa60qv49k7jlsgx43yhs9nuutllkhhnt090mmenuhp8ue33pv4klmrzlcqp`: signature
     # * `us2s2r`: Bech32 checksum
-    b11 = l1.rpc.decodepay(
-        'lntb20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahr'
-        'qspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfpp3x9et2e2'
-        '0v6pu37c5d9vax37wxq72un98kmzzhznpurw9sgl2v0nklu2g4d0keph5t7tj9tcqd8r'
-        'exnd07ux4uv2cjvcqwaxgj7v4uwn5wmypjd5n69z2xm3xgksg28nwht7f6zspwp3f9t',
-        'One piece of chocolate cake, one icecream cone, one pickle, one slic'
-        'e of swiss cheese, one slice of salami, one lollypop, one piece of c'
-        'herry pie, one sausage, one cupcake, and one slice of watermelon'
+    b11 = l1.rpc.decode(
+        'lntb20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfpp3x9et2e20v6pu37c5d9vax37wxq72un98kmzzhznpurw9sgl2v0nklu2g4d0keph5t7tj9tcqd8rexnd07ux4uv2cjvcqwaxgj7v4uwn5wmypjd5n69z2xm3xgksg28nwht7f6zspwp3f9t'
     )
     assert b11['currency'] == 'tb'
     assert b11['amount_msat'] == Millisatoshi(20 * 10**11 // 1000)
@@ -962,7 +953,7 @@ def test_decodepay(node_factory):
     #     `q20q82gphp2nflc7jtzrcazrra7wwgzxqc8u7754cdlpfrmccae92qgzqvzq2ps8pqqqqqqqqqqqq9qqqvpeuqafqxu92d8lr6fvg0r5gv0heeeqgcrqlnm6jhphu9y00rrhy4grqszsvpcgpy9qqqqqqqqqqqq7qqzq`: pubkey `029e03a901b85534ff1e92c43c74431f7ce72046060fcf7a95c37e148f78c77255`, `short_channel_id` 0102030405060708, `fee_base_msat` 1 millisatoshi, `fee_proportional_millionths` 20, `cltv_expiry_delta` 3.  pubkey `039e03a901b85534ff1e92c43c74431f7ce72046060fcf7a95c37e148f78c77255`, `short_channel_id` 030405060708090a, `fee_base_msat` 2 millisatoshi, `fee_proportional_millionths` 30, `cltv_expiry_delta` 4.
     # * `j9n4evl6mr5aj9f58zp6fyjzup6ywn3x6sk8akg5v4tgn2q8g4fhx05wf6juaxu9760yp46454gpg5mtzgerlzezqcqvjnhjh8z3g2qq`: signature
     # * `dhhwkj`: Bech32 checksum
-    b11 = l1.rpc.decodepay('lnbc20m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqsfpp3qjmp7lwpagxun9pygexvgpjdc4jdj85fr9yq20q82gphp2nflc7jtzrcazrra7wwgzxqc8u7754cdlpfrmccae92qgzqvzq2ps8pqqqqqqpqqqqq9qqqvpeuqafqxu92d8lr6fvg0r5gv0heeeqgcrqlnm6jhphu9y00rrhy4grqszsvpcgpy9qqqqqqgqqqqq7qqzqj9n4evl6mr5aj9f58zp6fyjzup6ywn3x6sk8akg5v4tgn2q8g4fhx05wf6juaxu9760yp46454gpg5mtzgerlzezqcqvjnhjh8z3g2qqdhhwkj', 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon')
+    b11 = l1.rpc.decode('lnbc20m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqsfpp3qjmp7lwpagxun9pygexvgpjdc4jdj85fr9yq20q82gphp2nflc7jtzrcazrra7wwgzxqc8u7754cdlpfrmccae92qgzqvzq2ps8pqqqqqqpqqqqq9qqqvpeuqafqxu92d8lr6fvg0r5gv0heeeqgcrqlnm6jhphu9y00rrhy4grqszsvpcgpy9qqqqqqgqqqqq7qqzqj9n4evl6mr5aj9f58zp6fyjzup6ywn3x6sk8akg5v4tgn2q8g4fhx05wf6juaxu9760yp46454gpg5mtzgerlzezqcqvjnhjh8z3g2qqdhhwkj')
     assert b11['currency'] == 'bc'
     assert b11['amount_msat'] == Millisatoshi(20 * 10**11 // 1000)
     assert b11['created_at'] == 1496314658
@@ -1004,7 +995,7 @@ def test_decodepay(node_factory):
     # * `h`: tagged field: hash of description...
     # * `2jhz8j78lv2jynuzmz6g8ve53he7pheeype33zlja5azae957585uu7x59w0f2l3rugyva6zpu394y4rh093j6wxze0ldsvk757a9msq`: signature
     # * `mf9swh`: Bech32 checksum
-    b11 = l1.rpc.decodepay('lnbc20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfppj3a24vwu6r8ejrss3axul8rxldph2q7z9kmrgvr7xlaqm47apw3d48zm203kzcq357a4ls9al2ea73r8jcceyjtya6fu5wzzpe50zrge6ulk4nvjcpxlekvmxl6qcs9j3tz0469gq5g658y', 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon')
+    b11 = l1.rpc.decode('lnbc20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfppj3a24vwu6r8ejrss3axul8rxldph2q7z9kmrgvr7xlaqm47apw3d48zm203kzcq357a4ls9al2ea73r8jcceyjtya6fu5wzzpe50zrge6ulk4nvjcpxlekvmxl6qcs9j3tz0469gq5g658y')
     assert b11['currency'] == 'bc'
     assert b11['amount_msat'] == Millisatoshi(20 * 10**11 // 1000)
     assert b11['created_at'] == 1496314658
@@ -1030,7 +1021,7 @@ def test_decodepay(node_factory):
     # * `h`: tagged field: hash of description...
     # * `gw6tk8z0p0qdy9ulggx65lvfsg3nxxhqjxuf2fvmkhl9f4jc74gy44d5ua9us509prqz3e7vjxrftn3jnk7nrglvahxf7arye5llphgq`: signature
     # * `qdtpa4`: Bech32 checksum
-    b11 = l1.rpc.decodepay('lnbc20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfppqw508d6qejxtdg4y5r3zarvary0c5xw7kepvrhrm9s57hejg0p662ur5j5cr03890fa7k2pypgttmh4897d3raaq85a293e9jpuqwl0rnfuwzam7yr8e690nd2ypcq9hlkdwdvycqa0qza8', 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon')
+    b11 = l1.rpc.decode('lnbc20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfppqw508d6qejxtdg4y5r3zarvary0c5xw7kepvrhrm9s57hejg0p662ur5j5cr03890fa7k2pypgttmh4897d3raaq85a293e9jpuqwl0rnfuwzam7yr8e690nd2ypcq9hlkdwdvycqa0qza8')
     assert b11['currency'] == 'bc'
     assert b11['amount_msat'] == Millisatoshi(20 * 10**11 // 1000)
     assert b11['created_at'] == 1496314658
@@ -1056,7 +1047,7 @@ def test_decodepay(node_factory):
     # * `h`: tagged field: hash of description...
     # * `5yps56lmsvgcrf476flet6js02m93kgasews8q3jhtp7d6cqckmh70650maq4u65tk53ypszy77v9ng9h2z3q3eqhtc3ewgmmv2grasp`: signature
     # * `akvd7y`: Bech32 checksum
-    b11 = l1.rpc.decodepay('lnbc20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfp4qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q28j0v3rwgy9pvjnd48ee2pl8xrpxysd5g44td63g6xcjcu003j3qe8878hluqlvl3km8rm92f5stamd3jw763n3hck0ct7p8wwj463cql26ava', 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon')
+    b11 = l1.rpc.decode('lnbc20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfp4qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q28j0v3rwgy9pvjnd48ee2pl8xrpxysd5g44td63g6xcjcu003j3qe8878hluqlvl3km8rm92f5stamd3jw763n3hck0ct7p8wwj463cql26ava')
     assert b11['currency'] == 'bc'
     assert b11['amount_msat'] == Millisatoshi(20 * 10**11 // 1000)
     assert b11['created_at'] == 1496314658
@@ -1085,7 +1076,7 @@ def test_decodepay(node_factory):
     #   * `sz`: b1000000010
     # * `e992adudgku8p05pstl6zh7av6rx2f297pv89gu5q93a0hf3g7lynl3xq56t23dpvah6u7y9qey9lccrdml3gaqwc6nxsl5ktzm464sq`: signature
     # * `73t7cl`: Bech32 checksum
-    b11 = l1.rpc.decodepay('lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdees9qzsze992adudgku8p05pstl6zh7av6rx2f297pv89gu5q93a0hf3g7lynl3xq56t23dpvah6u7y9qey9lccrdml3gaqwc6nxsl5ktzm464sq73t7cl')
+    b11 = l1.rpc.decode('lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdees9qzsze992adudgku8p05pstl6zh7av6rx2f297pv89gu5q93a0hf3g7lynl3xq56t23dpvah6u7y9qey9lccrdml3gaqwc6nxsl5ktzm464sq73t7cl')
     assert b11['currency'] == 'bc'
     assert b11['amount_msat'] == Millisatoshi(25 * 10**11 // 1000)
     assert b11['created_at'] == 1496314658
@@ -1114,7 +1105,7 @@ def test_decodepay(node_factory):
     # * `k3ed62snp73037h4py4gry05eltlp0uezm2w9ajnerhmxzhzhsu40g9mgyx5v3ad4aqwkmvyftzk4k9zenz90mhjcy9hcevc7r3lx2sp`: signature
     # * `hzfxz7`: Bech32 checksum
     with pytest.raises(RpcError, match='unknown feature.*100'):
-        l1.rpc.decodepay('lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdees9q4pqqqqqqqqqqqqqqqqqqszk3ed62snp73037h4py4gry05eltlp0uezm2w9ajnerhmxzhzhsu40g9mgyx5v3ad4aqwkmvyftzk4k9zenz90mhjcy9hcevc7r3lx2sphzfxz7')
+        l1.rpc.decode('lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdees9q4pqqqqqqqqqqqqqqqqqqszk3ed62snp73037h4py4gry05eltlp0uezm2w9ajnerhmxzhzhsu40g9mgyx5v3ad4aqwkmvyftzk4k9zenz90mhjcy9hcevc7r3lx2sphzfxz7')
 
     # Example of an invoice without a multiplier suffix to the amount. This
     # should then be interpreted as 7 BTC according to the spec:
@@ -1124,12 +1115,12 @@ def test_decodepay(node_factory):
     #   a payment unit -- in the case of Bitcoin the unit is 'bitcoin' NOT
     #   satoshis.
     b11 = "lnbcrt71p0g4u8upp5xn4k45tsp05akmn65s5k2063d5fyadhjse9770xz5sk7u4x6vcmqdqqcqzynxqrrssx94cf4p727jamncsvcd8m99n88k423ruzq4dxwevfatpp5gx2mksj2swshjlx4pe3j5w9yed5xjktrktzd3nc2a04kq8yu84l7twhwgpxjn3pw"
-    b11 = l1.rpc.decodepay(b11)
+    b11 = l1.rpc.decode(b11)
     sat_per_btc = 10**8
     assert(b11['amount_msat'] == 7 * sat_per_btc * 1000)
 
     with pytest.raises(RpcError):
-        l1.rpc.decodepay('1111111')
+        l1.rpc.decode('1111111')
 
 
 def test_forward(node_factory, bitcoind):
@@ -1773,17 +1764,17 @@ def test_pay_variants(node_factory):
 
     # Upper case is allowed
     b11 = l2.rpc.invoice(123000, 'test_pay_variants upper', 'description')['bolt11'].upper()
-    l1.rpc.decodepay(b11)
+    l1.rpc.decode(b11)
     l1.rpc.pay(b11)
 
     # lightning: prefix is allowed
     b11 = 'lightning:' + l2.rpc.invoice(123000, 'test_pay_variants with prefix', 'description')['bolt11']
-    l1.rpc.decodepay(b11)
+    l1.rpc.decode(b11)
     l1.rpc.pay(b11)
 
     # BOTH is allowed.
     b11 = 'LIGHTNING:' + l2.rpc.invoice(123000, 'test_pay_variants upper with prefix', 'description')['bolt11'].upper()
-    l1.rpc.decodepay(b11)
+    l1.rpc.decode(b11)
     l1.rpc.pay(b11)
 
 
@@ -1979,7 +1970,7 @@ def test_pay_routeboost(node_factory, bitcoind):
                          exposeprivatechannels=True)
     assert 'warning_capacity' not in inv
     assert 'warning_offline' not in inv
-    assert only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
+    assert only_one(only_one(l1.rpc.decode(inv['bolt11'])['routes']))
 
     # Now we should be able to pay it.
     l1.dev_pay(inv['bolt11'], dev_use_shadow=False)
@@ -2390,7 +2381,7 @@ def test_setchannel_routing(node_factory, bitcoind):
     # do and check actual payment
     inv = l3.rpc.invoice(4000000, 'test_setchannel_2', 'desc')
     # Check that routehint from l3 incorporated new feerate!
-    decoded = l1.rpc.decodepay(inv['bolt11'])
+    decoded = l1.rpc.decode(inv['bolt11'])
     assert decoded['routes'] == [[{'pubkey': l2.info['id'], 'short_channel_id': scid, 'fee_base_msat': 1337, 'fee_proportional_millionths': 137, 'cltv_expiry_delta': 6}]]
 
     # This will fail.
@@ -3066,7 +3057,7 @@ def test_partial_payment(node_factory, bitcoind, executor):
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 8)
 
     inv = l4.rpc.invoice(1000, 'inv', 'inv')
-    paysecret = l4.rpc.decodepay(inv['bolt11'])['payment_secret']
+    paysecret = l4.rpc.decode(inv['bolt11'])['payment_secret']
 
     # Separate routes for each part of the payment.
     r134 = l1.rpc.getroute(l4.info['id'], 501, 1, exclude=[scid24 + '/0', scid24 + '/1'])['route']
@@ -3216,7 +3207,7 @@ def test_partial_payment_timeout(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2)
 
     inv = l2.rpc.invoice(1000, 'inv', 'inv')
-    paysecret = l2.rpc.decodepay(inv['bolt11'])['payment_secret']
+    paysecret = l2.rpc.decode(inv['bolt11'])['payment_secret']
 
     route = l1.rpc.getroute(l2.info['id'], 500, 1)['route']
     l1.rpc.sendpay(
@@ -3270,7 +3261,7 @@ def test_partial_payment_restart(node_factory, bitcoind):
                                          + [{'may_reconnect': True}] * 2)
 
     inv = l3.rpc.invoice(1000, 'inv', 'inv')
-    paysecret = l3.rpc.decodepay(inv['bolt11'])['payment_secret']
+    paysecret = l3.rpc.decode(inv['bolt11'])['payment_secret']
 
     route = l1.rpc.getroute(l3.info['id'], 500, 1)['route']
 
@@ -3315,7 +3306,7 @@ def test_partial_payment_htlc_loss(node_factory, bitcoind):
                                                {}])
 
     inv = l3.rpc.invoice(1000, 'inv', 'inv')
-    paysecret = l3.rpc.decodepay(inv['bolt11'])['payment_secret']
+    paysecret = l3.rpc.decode(inv['bolt11'])['payment_secret']
 
     route = l1.rpc.getroute(l3.info['id'], 500, 1)['route']
 
@@ -4043,7 +4034,7 @@ def test_mpp_waitblockheight_routehint_conflict(node_factory, bitcoind, executor
     sync_blockheight(bitcoind, [l3])
 
     inv = l3.rpc.invoice(Millisatoshi(2 * 10000 * 1000), 'i', 'i', exposeprivatechannels=True)['bolt11']
-    assert 'routes' in l3.rpc.decodepay(inv)
+    assert 'routes' in l3.rpc.decode(inv)
 
     # Have l1 pay l3
     def pay(l1, inv):
@@ -4167,7 +4158,7 @@ def test_mpp_interference_2(node_factory, bitcoind, executor):
         # Buyers check out some purchaseable stuff from the merchant.
         i2 = l1.rpc.invoice(unit * 6, ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20)), 'i2')['bolt11']
         i3 = l1.rpc.invoice(unit * 6, ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20)), 'i3')['bolt11']
-        if len(l1.rpc.decodepay(i2)['routes'] + l1.rpc.decodepay(i3)['routes']) <= 4:
+        if len(l1.rpc.decode(i2)['routes'] + l1.rpc.decode(i3)['routes']) <= 4:
             break
 
     # Pay simultaneously!
@@ -4960,7 +4951,7 @@ def test_unreachable_routehint(node_factory, bitcoind):
     # Generate an invoice with exactly one routehint.
     for i in range(100):
         invoice = l5.rpc.invoice(10, 'attempt{}'.format(i), 'description')['bolt11']
-        decoded = l1.rpc.decodepay(invoice)
+        decoded = l1.rpc.decode(invoice)
         if 'routes' in decoded and len(decoded['routes']) == 1:
             break
 
@@ -5014,7 +5005,7 @@ gives a routehint straight to us causes an issue
     l3.wait_channel_active(scid12)
 
     inv = l3.rpc.invoice(10, "test", "test")['bolt11']
-    decoded = l3.rpc.decodepay(inv)
+    decoded = l3.rpc.decode(inv)
     assert(only_one(only_one(decoded['routes']))['short_channel_id']
            == only_one(l3.rpc.listpeerchannels()['channels'])['alias']['remote'])
 
@@ -5382,7 +5373,7 @@ def test_fetchinvoice_with_no_quantity(node_factory):
 
 def test_invoice_pay_desc_with_quotes(node_factory):
     """Test that we can decode and pay invoice where hashed description contains double quotes"""
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
     description = '[["text/plain","Funding @odell on stacker.news"],["text/identifier","odell@stacker.news"]]'
 
     invoice = l2.rpc.invoice(label="test12345", amount_msat=1000,
@@ -5603,7 +5594,7 @@ def test_pay_routehint_minhtlc(node_factory, bitcoind):
     wait_for(lambda: l1.rpc.listchannels(scid)['channels'][0]['htlc_minimum_msat'] == Millisatoshi(1000))
 
     inv = l4.rpc.invoice(100000, "inv", "inv")
-    assert only_one(l1.rpc.decodepay(inv['bolt11'])['routes'])
+    assert only_one(l1.rpc.decode(inv['bolt11'])['routes'])
 
     # You should be able to pay the invoice!
     l1.rpc.pay(inv['bolt11'])
@@ -5967,6 +5958,45 @@ def test_fetch_no_description_with_amount(node_factory):
     err = r'description is required for the user to know what it was they paid for'
     with pytest.raises(RpcError, match=err) as err:
         _ = l2.rpc.call('offer', {'amount': '2msat'})
+
+
+def test_decodepay(node_factory, chainparams):
+    """Test we don't break (deprecated) decodepay command"""
+    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
+
+    addr1 = l1.rpc.newaddr('bech32')['bech32']
+    addr2 = '2MxqzNANJNAdMjHQq8ZLkwzooxAFiRzXvEz' if not chainparams['elements'] else 'XGx1E2JSTLZLmqYMAo3CGpsco85aS7so33'
+
+    before = int(time.time())
+    inv = l1.rpc.invoice(123000, 'label', 'description', 3700, [addr1, addr2])
+    after = int(time.time())
+    b11 = l1.rpc.decodepay(inv['bolt11'])
+
+    # This can vary within a range.
+    created = b11['created_at']
+    assert created >= before
+    assert created <= after
+
+    # Don't bother checking these
+    del b11['fallbacks'][0]['hex']
+    del b11['fallbacks'][1]['hex']
+    del b11['payment_secret']
+    del b11['signature']
+
+    assert b11 == {
+        'amount_msat': 123000,
+        'currency': chainparams['bip173_prefix'],
+        'created_at': created,
+        'payment_hash': inv['payment_hash'],
+        'description': 'description',
+        'expiry': 3700,
+        'payee': l1.info['id'],
+        'fallbacks': [{'addr': addr1,
+                       'type': 'P2WPKH'},
+                      {'addr': addr2,
+                       'type': 'P2SH'}],
+        'features': '02024100',
+        'min_final_cltv_expiry': 5}
 
 
 def test_enableoffer(node_factory):

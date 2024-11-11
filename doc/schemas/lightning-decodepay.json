@@ -2,9 +2,15 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "added": "v23.05",
+  "depecated": [
+    "v24.11",
+    "v25.11"
+  ],
   "rpc": "decodepay",
   "title": "Command for decoding a bolt11 string (low-level)",
   "description": [
+    "WARNING: deprecated: use *decode* which also handles bolt12.",
+    "",
     "The **decodepay** RPC command checks and parses a *bolt11* string as specified by the BOLT 11 specification."
   ],
   "request": {

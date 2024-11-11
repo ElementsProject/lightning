@@ -7,7 +7,6 @@ from utils import (
 from pyln.testing.utils import FUNDAMOUNT
 
 from pathlib import Path
-from pprint import pprint
 import pytest
 import re
 import unittest
@@ -1665,8 +1664,7 @@ def test_zeroconf_open(bitcoind, node_factory):
     wait_for(lambda: l3.rpc.listchannels() != {'channels': []})
 
     inv = l3.rpc.invoice(10**8, 'lbl', 'desc')['bolt11']
-    details = l2.rpc.decodepay(inv)
-    pprint(details)
+    details = l2.rpc.decode(inv)
     assert('routes' in details and len(details['routes']) == 1)
     hop = details['routes'][0][0]  # First (and only) hop of hint 0
     l2alias = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['alias']['local']
@@ -1679,7 +1677,6 @@ def test_zeroconf_open(bitcoind, node_factory):
     l3.daemon.wait_for_log(r'Balance [0-9]+msat -> [0-9]+msat')
 
     # Inverse payments should work too
-    pprint(l3.rpc.listpeers())
     inv = l2.rpc.invoice(10**5, 'lbl', 'desc')['bolt11']
     l3.rpc.pay(inv)
 
