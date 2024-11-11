@@ -34,9 +34,9 @@ Here's a checklist for the release process.
 3. Confirm that the tag will show up for builds with `git describe`
 4. Push the tag to remote `git push --tags`.
 5. Pushing the tag will kickoff the "Release 🚀" CI action which builds the release targets. Verify this action completed successfully and download the artifact it produces named `c-lightning-<release tag>`.zip and extract it into a directory named `release` in the root of your local repository. Ex. `unzip -d release/ ~/Downloads/c-lightning-<release tab>.zip`
-6. Sign the release locally by running `tools/build-release.sh --without-zip sign` which will sign the release contents and create SHA256SUMS and SHA256SUMS.asc in the release folder.
-7. Draft a new `v<VERSION>rc1` release on Github and check `Set as a pre-release` option.
-8. Upload reproducible builds, SHA256SUMS and SHA256SUMS.asc from the release folder to newly drafted release.
+6. The CI will also create a draft release in Github with the assets attached. Locate the release and edit it to add the body copy, verify the settings and tweak as needed.
+7. Build, verify and sign the release locally by running `tools/build-release.sh --without-zip sign` which will sign the release contents and create SHA256SUMS and SHA256SUMS.asc in the release folder.
+8. Compare the signatures to those from CI and your key to the SHA256SUMS.asc file. Then, upload the SHA256SUMS.asc from your local release folder to newly drafted release, replacing it.
 9. Announce rc1 release on core-lightning's release-chat channel on Discord & [BuildOnL2](https://community.corelightning.org/c/general-questions/).
 10. Use `devtools/credit --verbose v<PREVIOUS-VERSION>` to get commits, days and contributors data for release note.
 11. Prepare release notes draft including information from above step, and share with the team for editing.
