@@ -188,7 +188,7 @@ WARN_UNUSED_RESULT bool psbt_input_have_signature(const struct wally_psbt *psbt,
 
 /* Returns false on error. On success *sig is set to the signature otherwise
  * *sig is set to NULL. */
-WARN_UNUSED_RESULT bool psbt_input_get_signature(const tal_t *ctx,
+WARN_UNUSED_RESULT bool psbt_input_get_ecdsa_sig(const tal_t *ctx,
 						 const struct wally_psbt *psbt,
 						 size_t in,
 						 const struct pubkey *pubkey,
