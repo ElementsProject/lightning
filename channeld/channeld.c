@@ -3420,10 +3420,17 @@ static void resume_splice_negotiation(struct peer *peer,
 		&& have_they_signed_inflight(peer, inflight)) {
 
 		if (!their_sig) {
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "Should not arrive here w/o their_sig");
-			return;
+			status_debug("Splice: Extracting their_sig from psbt");
+			if (!psbt_input_get_signature(tmpctx, current_psbt,
+						      splice_funding_index,
+						      &peer->channel->funding_pubkey[REMOTE],
+						      &their_sig))
+				status_failed(STATUS_FAIL_INTERNAL_ERROR,
+					      "Should not arrive here w/o"
+					      " their_sig");
 		}
+		assert(their_sig);
+
 		psbt_input_set_witscript(current_psbt,
 					 splice_funding_index,
 					 wit_script);
