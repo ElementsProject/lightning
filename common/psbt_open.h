@@ -36,6 +36,7 @@ struct psbt_changeset {
 #define PSBT_TYPE_SERIAL_ID 0x01
 #define PSBT_TYPE_INPUT_MARKER 0x02
 #define PSBT_TYPE_OUTPUT_EXTERNAL 0x04
+#define PSBT_TYPE_CHANNELIDS 0x08 /* The channel ids (used for splice resume) */
 
 /* psbt_get_serial_id - Returns the serial_id from an unknowns map
  *
@@ -54,6 +55,25 @@ WARN_UNUSED_RESULT bool psbt_get_serial_id(const struct wally_map *map,
  * @psbt - psbt to sort
  */
 void psbt_sort_by_serial_id(struct wally_psbt *psbt);
+
+
+/* psbt_get_channel_ids - Returns the array of channel_ids stored in the PSBT
+ *
+ * @ctx - allocation context for returned changeset
+ * @psbt - psbt to search
+ * @channel_ids - result placed into this tal array
+ */
+WARN_UNUSED_RESULT bool psbt_get_channel_ids(const tal_t *ctx,
+					     const struct wally_psbt *psbt,
+					     struct channel_id **channel_ids);
+
+/* psbt_set_channel_ids - Stores the channel_ids in the PSBT
+ *
+ * @psbt - the psbt to put the channel_ids into
+ * @channel_ids - the channel ids to put in
+ */
+void psbt_set_channel_ids(struct wally_psbt *psbt,
+			  struct channel_id *channel_ids);
 
 /* psbt_get_changeset - Returns set of diffs btw orig + new psbt
  *
