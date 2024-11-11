@@ -2518,6 +2518,7 @@ impl From<responses::Splice_updateResponse> for pb::SpliceUpdateResponse {
         Self {
             commitments_secured: c.commitments_secured, // Rule #2 for type boolean
             psbt: c.psbt, // Rule #2 for type string
+            signatures_secured: c.signatures_secured, // Rule #2 for type boolean?
         }
     }
 }

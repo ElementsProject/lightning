@@ -3147,7 +3147,8 @@
         },
         "Splice_updateResponse": {
             "Splice_Update.commitments_secured": 2,
-            "Splice_Update.psbt": 1
+            "Splice_Update.psbt": 1,
+            "Splice_Update.signatures_secured": 3
         },
         "StaticbackupResponse": {
             "StaticBackup.scb[]": 1
@@ -10927,6 +10928,10 @@
         },
         "Splice_Update.psbt": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Splice_Update.signatures_secured": {
+            "added": "v24.11",
             "deprecated": null
         },
         "StaticBackup": {

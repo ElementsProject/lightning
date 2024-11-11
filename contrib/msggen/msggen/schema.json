@@ -32758,7 +32758,8 @@
       "response": {
         "required": [
           "psbt",
-          "commitments_secured"
+          "commitments_secured",
+          "signatures_secured"
         ],
         "additionalProperties": false,
         "properties": {
@@ -32772,6 +32773,13 @@
             "type": "boolean",
             "description": [
               "Whether or not the commitments were secured."
+            ]
+          },
+          "signatures_secured": {
+            "added": "v24.11",
+            "type": "boolean",
+            "description": [
+              "whether or not the peer sent us their signatures for this splice"
             ]
           }
         }
@@ -32853,7 +32861,8 @@
           },
           "response": {
             "psbt": "cHNidP8BAgQCAAAAAQMEkgAAAAEEAQIBBQECAQYBAwH7BAIAAAAAAQCJAgAAAAH5+Z9NssTFQhFzAFkPSrEKg0AcgN7uwR9geC5Lqd+SfgAAAAAA/f///wJAQg8AAAAAACIAIJPe3QwmW8qGhXbT7i5Z7ruyDrwpblj37cqT1e6uwImWgWzcCwAAAAAiUSBbtDt/2hcV0N0BQWgloYUiotfssWR1uIeA6Pr8HHPviY0AAAABASuBbNwLAAAAACJRIFu0O3/aFxXQ3QFBaCWhhSKi1+yxZHW4h4Do+vwcc++JAQ4g9iEmrLThqBE+s85A7YDjSknUmwNcudNkF7HBMzInESwBDwQBAAAAARAE/f///wz8CWxpZ2h0bmluZwEImfI55kWjFBwAAQCJAgAAAAH5+Z9NssTFQhFzAFkPSrEKg0AcgN7uwR9geC5Lqd+SfgAAAAAA/f///wJAQg8AAAAAACIAIJPe3QwmW8qGhXbT7i5Z7ruyDrwpblj37cqT1e6uwImWgWzcCwAAAAAiUSBbtDt/2hcV0N0BQWgloYUiotfssWR1uIeA6Pr8HHPviY0AAAABAStAQg8AAAAAACIAIJPe3QwmW8qGhXbT7i5Z7ruyDrwpblj37cqT1e6uwImWAQ4g9iEmrLThqBE+s85A7YDjSknUmwNcudNkF7HBMzInESwBDwQAAAAAARAEAAAAAAz8CWxpZ2h0bmluZwEIo0w+EfrhL4QAAQMIzrnaCwAAAAABBCJRII+O1EYnVX28zEKuAYqcVHSpkShXksTKiRwfWcVmXTRgDPwJbGlnaHRuaW5nAQiPzwRTPwtPWgABAwjgyBAAAAAAAAEEIgAgk97dDCZbyoaFdtPuLlnuu7IOvCluWPftypPV7q7AiZYM/AlsaWdodG5pbmcBCK3lpE4Vja7KAA==",
-            "commitments_secured": true
+            "commitments_secured": true,
+            "signatures_secured": true
           }
         },
         {
@@ -32867,7 +32876,8 @@
           },
           "response": {
             "psbt": "cHNidP8BAgQCAAAAAQMElAAAAAEEAQEBBQECAQYBAwH7BAIAAAAAAQCyAgAAAAL2ISastOGoET6zzkDtgONKSdSbA1y502QXscEzMicRLAEAAAAA/f////YhJqy04agRPrPOQO2A40pJ1JsDXLnTZBexwTMyJxEsAAAAAAAAAAAAAs652gsAAAAAIlEgj47URidVfbzMQq4BipxUdKmRKFeSxMqJHB9ZxWZdNGDgyBAAAAAAACIAIJPe3QwmW8qGhXbT7i5Z7ruyDrwpblj37cqT1e6uwImWkgAAAAEBK+DIEAAAAAAAIgAgk97dDCZbyoaFdtPuLlnuu7IOvCluWPftypPV7q7AiZYBDiCVuxWBeu80WsQES0HKNSpjl7RUGPMhcKRnsXRp4BRF+AEPBAEAAAABEAQAAAAADPwJbGlnaHRuaW5nAQheLXaEp+y8AgABAwi4Lg8AAAAAAAEEIgAgk97dDCZbyoaFdtPuLlnuu7IOvCluWPftypPV7q7AiZYM/AlsaWdodG5pbmcBCBkNULro+QrwAAEDCKCGAQAAAAAAAQQiUSDE0oJBX5qB0Y4IthmhnRFrhlbLG/ST5fVAu/e3oFhM2gz8CWxpZ2h0bmluZwEIuBcidnXj4BAA",
-            "commitments_secured": true
+            "commitments_secured": true,
+            "signatures_secured": true
           }
         }
       ]
