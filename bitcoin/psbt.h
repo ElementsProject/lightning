@@ -180,7 +180,7 @@ WARN_UNUSED_RESULT bool psbt_input_set_signature(struct wally_psbt *psbt, size_t
 
 /* Returns false on error. On success, *signature_found is set to true if the
  * input has a signature present for `pubkey` and false if if one was not found.
- * Only ignature presence is checked, is not validated. */
+ * Only signature presence is checked, it is not validated. */
 WARN_UNUSED_RESULT bool psbt_input_have_signature(const struct wally_psbt *psbt,
 						  size_t in,
 						  const struct pubkey *pubkey,
