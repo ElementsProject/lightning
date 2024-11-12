@@ -5,7 +5,8 @@
 static void graph_push_outbound_arc(struct graph *graph, const struct arc arc,
 				    const struct node node)
 {
-	assert(arc.idx < tal_count(graph->arc_tail));
+	assert(arc.idx < graph_max_num_arcs(graph));
+	assert(node.idx < graph_max_num_nodes(graph));
 
 	/* arc is already added, skip */
 	if (graph->arc_tail[arc.idx].idx != INVALID_INDEX)
@@ -13,13 +14,8 @@ static void graph_push_outbound_arc(struct graph *graph, const struct arc arc,
 
 	graph->arc_tail[arc.idx] = node;
 
-	assert(node.idx < tal_count(graph->node_adjacency_first));
 	const struct arc first_arc = graph->node_adjacency_first[node.idx];
-
-	assert(arc.idx < tal_count(graph->node_adjacency_next));
 	graph->node_adjacency_next[arc.idx] = first_arc;
-
-	assert(node.idx < tal_count(graph->node_adjacency_first));
 	graph->node_adjacency_first[node.idx] = arc;
 }
 

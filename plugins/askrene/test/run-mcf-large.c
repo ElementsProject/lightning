@@ -54,7 +54,7 @@ static bool solve_case(const tal_t *ctx)
 	int ret;
 	static int c = 0;
 	c++;
-	tal_t *this_ctx = tal(ctx, tal_t);
+	const tal_t *this_ctx = tal(ctx, tal_t);
 
 	int N_nodes, N_arcs;
 	ret = myscanf("%d %d\n", &N_nodes, &N_arcs);
