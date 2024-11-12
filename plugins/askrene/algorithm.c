@@ -1,6 +1,5 @@
 #include "config.h"
 #include <ccan/bitmap/bitmap.h>
-#include <ccan/lqueue/lqueue.h>
 #include <ccan/tal/tal.h>
 #include <plugins/askrene/algorithm.h>
 #include <plugins/askrene/priorityqueue.h>
@@ -10,44 +9,37 @@ static const s64 INFINITE = INT64_MAX;
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-/* Simple queue to traverse the network. */
-struct queue_data {
-	u32 idx;
-	struct lqueue_link ql;
-};
-
 bool BFS_path(const tal_t *ctx, const struct graph *graph,
 	      const struct node source, const struct node destination,
 	      const s64 *capacity, const s64 cap_threshold, struct arc *prev)
 {
-	tal_t *this_ctx = tal(ctx, tal_t);
+	const tal_t *this_ctx = tal(ctx, tal_t);
 	bool target_found = false;
+	assert(graph);
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
 
 	/* check preconditions */
-	if (!graph || source.idx >= max_num_nodes || !capacity || !prev)
-		goto finish;
-
-	if (tal_count(capacity) != max_num_arcs ||
-	    tal_count(prev) != max_num_nodes)
-		goto finish;
+	assert(source.idx < max_num_nodes);
+	assert(capacity);
+	assert(prev);
+	assert(tal_count(capacity) == max_num_arcs);
+	assert(tal_count(prev) == max_num_nodes);
 
 	for (size_t i = 0; i < max_num_nodes; i++)
 		prev[i].idx = INVALID_INDEX;
 
-	LQUEUE(struct queue_data, ql) myqueue = LQUEUE_INIT;
-	struct queue_data *qdata;
+	/* A minimalistic queue is implemented here. Nodes are not visited more
+	 * than once, therefore a maximum size of max_num_nodes is sufficient.
+	 * max_num_arcs would work as well but we expect max_num_arcs to be a
+	 * factor >10 greater than max_num_nodes. */
+	u32 *queue = tal_arr(this_ctx, u32, max_num_nodes);
+	size_t queue_start = 0, queue_end = 0;
 
-	qdata = tal(this_ctx, struct queue_data);
-	qdata->idx = source.idx;
-	lqueue_enqueue(&myqueue, qdata);
+	queue[queue_end++] = source.idx;
 
-	while (!lqueue_empty(&myqueue)) {
-		qdata = lqueue_dequeue(&myqueue);
-		struct node cur = {.idx = qdata->idx};
-
-		tal_free(qdata);
+	while (queue_start < queue_end) {
+		struct node cur = {.idx = queue[queue_start++]};
 
 		if (cur.idx == destination.idx) {
 			target_found = true;
@@ -69,13 +61,11 @@ bool BFS_path(const tal_t *ctx, const struct graph *graph,
 
 			prev[next.idx] = arc;
 
-			qdata = tal(this_ctx, struct queue_data);
-			qdata->idx = next.idx;
-			lqueue_enqueue(&myqueue, qdata);
+			assert(queue_end < max_num_nodes);
+			queue[queue_end++] = next.idx;
 		}
 	}
 
-finish:
 	tal_free(this_ctx);
 	return target_found;
 }
@@ -87,24 +77,25 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 		   s64 *distance)
 {
 	bool target_found = false;
+	assert(graph);
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
-	tal_t *this_ctx = tal(ctx, tal_t);
+	const tal_t *this_ctx = tal(ctx, tal_t);
 
 	/* check preconditions */
-	if (!graph || source.idx >=max_num_nodes || !cost || !capacity ||
-	    !prev || !distance)
-		goto finish;
+	assert(source.idx<max_num_nodes);
+	assert(cost);
+	assert(capacity);
+	assert(prev);
+	assert(distance);
 
 	/* if prune is true then the destination cannot be invalid */
-	if (destination.idx >=max_num_nodes && prune)
-		goto finish;
+	assert(destination.idx < max_num_nodes || !prune);
 
-	if (tal_count(cost) != max_num_arcs ||
-	    tal_count(capacity) != max_num_arcs ||
-	    tal_count(prev) != max_num_nodes ||
-	    tal_count(distance) != max_num_nodes)
-		goto finish;
+	assert(tal_count(cost) == max_num_arcs);
+	assert(tal_count(capacity) == max_num_arcs);
+	assert(tal_count(prev) == max_num_nodes);
+	assert(tal_count(distance) == max_num_nodes);
 
 	/* FIXME: maybe this is unnecessary */
 	bitmap *visited = tal_arrz(this_ctx, bitmap,
@@ -217,9 +208,8 @@ static s64 get_augmenting_flow(const struct graph *graph,
  * Sends an amount of flow through an arc, changing the flow balance of the
  * nodes connected by the arc and the [residual] capacity of the arc and its
  * dual. */
-static inline void sendflow(const struct graph *graph, const struct arc arc,
-			    const s64 flow, s64 *arc_capacity,
-			    s64 *node_balance)
+static void sendflow(const struct graph *graph, const struct arc arc,
+		     const s64 flow, s64 *arc_capacity, s64 *node_balance)
 {
 	const struct arc dual = arc_dual(graph, arc);
 
@@ -279,20 +269,17 @@ bool simple_feasibleflow(const tal_t *ctx,
 			 s64 *capacity,
 			 s64 amount)
 {
-	tal_t *this_ctx = tal(ctx, tal_t);
+	const tal_t *this_ctx = tal(ctx, tal_t);
+	assert(graph);
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
 
 	/* check preconditions */
-	if (amount < 0)
-		goto finish;
-
-	if (!graph || source.idx >= max_num_nodes ||
-	    destination.idx >= max_num_nodes || !capacity)
-		goto finish;
-
-	if (tal_count(capacity) != max_num_arcs)
-		goto finish;
+	assert(amount > 0);
+	assert(source.idx < max_num_nodes);
+	assert(destination.idx < max_num_nodes);
+	assert(capacity);
+	assert(tal_count(capacity) == max_num_arcs);
 
 	/* path information
 	 * prev: is the id of the arc that lead to the node. */
@@ -343,8 +330,8 @@ s64 node_balance(const struct graph *graph,
 
 /* Helper.
  * Compute the reduced cost of an arc. */
-static inline s64 reduced_cost(const struct graph *graph, const struct arc arc,
-			       const s64 *cost, const s64 *potential)
+static s64 reduced_cost(const struct graph *graph, const struct arc arc,
+			const s64 *cost, const s64 *potential)
 {
 	struct node src = arc_tail(graph, arc);
 	struct node dst = arc_head(graph, arc);
@@ -368,7 +355,7 @@ static struct node dijkstra_nearest_sink(const tal_t *ctx,
 					 s64 *distance)
 {
 	struct node target = {.idx = INVALID_INDEX};
-	tal_t *this_ctx = tal(ctx, tal_t);
+	const tal_t *this_ctx = tal(ctx, tal_t);
 
 	if (!this_ctx)
 		/* bad allocation */
@@ -521,7 +508,7 @@ bool mcf_refinement(const tal_t *ctx,
 		    s64 *potential)
 {
 	bool solved = false;
-	tal_t *this_ctx = tal(ctx, tal_t);
+	const tal_t *this_ctx = tal(ctx, tal_t);
 
 	if (!this_ctx)
 		/* bad allocation */
@@ -639,24 +626,23 @@ bool simple_mcf(const tal_t *ctx, const struct graph *graph,
 		const struct node source, const struct node destination,
 		s64 *capacity, s64 amount, const s64 *cost)
 {
-	tal_t *this_ctx = tal(ctx, tal_t);
+	const tal_t *this_ctx = tal(ctx, tal_t);
 	if (!this_ctx)
 		/* bad allocation */
 		goto fail;
 
-	if (!graph)
-		goto fail;
-
+	assert(graph);
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
 
-	if (amount < 0 || source.idx >= max_num_nodes ||
-	    destination.idx >= max_num_nodes || !capacity || !cost)
-		goto fail;
-
-	if (tal_count(capacity) != max_num_arcs ||
-	    tal_count(cost) != max_num_arcs)
-		goto fail;
+	/* check preconditions */
+	assert(amount > 0);
+	assert(source.idx < max_num_nodes);
+	assert(destination.idx < max_num_nodes);
+	assert(capacity);
+	assert(cost);
+	assert(tal_count(capacity) == max_num_arcs);
+	assert(tal_count(cost) == max_num_arcs);
 
 	s64 *potential = tal_arrz(this_ctx, s64, max_num_nodes);
 	s64 *excess = tal_arrz(this_ctx, s64, max_num_nodes);
@@ -681,12 +667,15 @@ fail:
 
 s64 flow_cost(const struct graph *graph, const s64 *capacity, const s64 *cost)
 {
+	assert(graph);
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	s64 total_cost = 0;
 
-	assert(graph && capacity && cost);
-	assert(tal_count(capacity) == max_num_arcs &&
-	       tal_count(cost) == max_num_arcs);
+	/* check preconditions */
+	assert(capacity);
+	assert(cost);
+	assert(tal_count(capacity) == max_num_arcs);
+	assert(tal_count(cost) == max_num_arcs);
 
 	for (u32 i = 0; i < max_num_arcs; i++) {
 		struct arc arc = {.idx = i};
