@@ -185,6 +185,9 @@ struct clean_info {
 	struct command *cmd;
 	size_t cleanup_reqs_remaining;
 
+	/* When did we start making requests? */
+	struct timemono reqs_start;
+
 	struct per_subsystem per_subsystem[NUM_SUBSYSTEM_TYPES];
 };
 
@@ -294,14 +297,26 @@ static struct command_result *clean_finished(struct clean_info *cinfo)
 	}
 }
 
+static struct command_result *do_clean_after_sleep(struct command *timer_cmd,
+						   struct clean_info *cinfo)
+{
+	do_clean(cinfo);
+	return timer_complete(timer_cmd);
+}
+
 static struct command_result *clean_finished_one(struct clean_info *cinfo)
 {
 	assert(cinfo->cleanup_reqs_remaining != 0);
 	if (--cinfo->cleanup_reqs_remaining > 0)
 		return command_still_pending(cinfo->cmd);
 
-	/* See if there are more entries we need to list. */
-	return do_clean(cinfo);
+	/* See if there are more entries we need to list, but don't
+	 * use more than half the node's RPC capacity: sleep as long
+	 * as the last cleans took. */
+	notleak(command_timer(cinfo->cmd,
+			      timemono_between(time_mono(), cinfo->reqs_start),
+			      do_clean_after_sleep, cinfo));
+	return command_still_pending(cinfo->cmd);
 }
 
 static struct command_result *del_done(struct command *cmd,
@@ -537,6 +552,8 @@ static struct command_result *list_failed(struct command *cmd,
 static struct command_result *do_clean(struct clean_info *cinfo)
 {
 	cinfo->cleanup_reqs_remaining = 0;
+	cinfo->reqs_start = time_mono();
+
 	for (size_t i = 0; i < NUM_SUBSYSTEM_TYPES; i++) {
 		struct per_subsystem *ps = &cinfo->per_subsystem[i];
 		struct out_req *req;
