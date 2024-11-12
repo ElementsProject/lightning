@@ -13,7 +13,7 @@ static struct clean_info *timer_cinfo;
 static struct plugin *plugin;
 /* This is NULL if it's running now. */
 static struct plugin_timer *cleantimer;
-static u64 max_entries_per_call = 10000;
+static u64 max_entries_per_call = 100;
 
 enum subsystem_type {
 	FORWARDS,
