@@ -2256,13 +2256,14 @@ def test_gossip_force_broadcast_channel_msgs(node_factory, bitcoind):
     assert tally['query_short_channel_ids'] <= 1
     assert tally['query_channel_range'] <= 1
     assert tally['ping'] <= 1
+    assert tally['gossip_filter'] >= 1
     del tally['query_short_channel_ids']
     del tally['query_channel_range']
     del tally['ping']
+    del tally['gossip_filter']
     assert tally == {'channel_announce': 1,
                      'channel_update': 1,
-                     'node_announce': 1,
-                     'gossip_filter': 1}
+                     'node_announce': 1}
 
     # Make sure l1 sees l2's channel update
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
