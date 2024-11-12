@@ -830,7 +830,7 @@ class LightningNode(object):
             if SLOW_MACHINE:
                 self.daemon.cmd_prefix += ['--read-inline-info=no']
 
-        if self.daemon.opts.get('disable-plugin') == 'cln-grpc':
+        if self.daemon.opts.get('disable-plugin') == 'cln-grpc' or env('RUST') == '0':
             self.grpc_port = None
         else:
             if grpc_port:
