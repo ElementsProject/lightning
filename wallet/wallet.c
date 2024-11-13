@@ -4198,7 +4198,7 @@ bool wallet_sanity_check(struct wallet *w)
 /**
  * wallet_utxoset_prune -- Remove spent UTXO entries that are old
  */
-static void wallet_utxoset_prune(struct wallet *w, const u32 blockheight)
+void wallet_utxoset_prune(struct wallet *w, u32 blockheight)
 {
 	struct db_stmt *stmt;
 
@@ -4236,9 +4236,6 @@ void wallet_block_add(struct wallet *w, struct block *b)
 		db_bind_null(stmt);
 	}
 	db_exec_prepared_v2(take(stmt));
-
-	/* Now cleanup UTXOs that we don't care about anymore */
-	wallet_utxoset_prune(w, b->height);
 }
 
 void wallet_block_remove(struct wallet *w, struct block *b)

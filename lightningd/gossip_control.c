@@ -222,6 +222,10 @@ static void gossipd_new_blockheight_reply(struct subd *gossipd,
 
 	/* Now, finally update getinfo's blockheight */
 	gossipd->ld->gossip_blockheight = ptr2int(blockheight);
+
+	/* And use that to trim old entries in the UTXO set */
+	wallet_utxoset_prune(gossipd->ld->wallet,
+			     gossipd->ld->gossip_blockheight);
 }
 
 void gossip_notify_new_block(struct lightningd *ld, u32 blockheight)
