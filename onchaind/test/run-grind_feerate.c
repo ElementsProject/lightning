@@ -334,9 +334,9 @@ u8 *towire_onchaind_spend_penalty(const tal_t *ctx UNNEEDED, const struct bitcoi
 /* Generated stub for towire_onchaind_spend_to_us */
 u8 *towire_onchaind_spend_to_us(const tal_t *ctx UNNEEDED, const struct bitcoin_outpoint *outpoint UNNEEDED, struct amount_sat outpoint_amount UNNEEDED, u32 minblock UNNEEDED, u64 commit_num UNNEEDED, const u8 *wscript UNNEEDED)
 { fprintf(stderr, "towire_onchaind_spend_to_us called!\n"); abort(); }
-/* Generated stub for towire_onchaind_unwatch_tx */
-u8 *towire_onchaind_unwatch_tx(const tal_t *ctx UNNEEDED, const struct bitcoin_txid *txid UNNEEDED)
-{ fprintf(stderr, "towire_onchaind_unwatch_tx called!\n"); abort(); }
+/* Generated stub for towire_onchaind_spent_reply */
+u8 *towire_onchaind_spent_reply(const tal_t *ctx UNNEEDED, bool interested UNNEEDED)
+{ fprintf(stderr, "towire_onchaind_spent_reply called!\n"); abort(); }
 /* Generated stub for towire_secp256k1_ecdsa_signature */
 void towire_secp256k1_ecdsa_signature(u8 **pptr UNNEEDED,
 			      const secp256k1_ecdsa_signature *signature UNNEEDED)

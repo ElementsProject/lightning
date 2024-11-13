@@ -67,14 +67,14 @@ msgdata,onchaind_spent,tx,tx_parts,
 msgdata,onchaind_spent,input_num,u32,
 msgdata,onchaind_spent,blockheight,u32,
 
+# onchaind->master: do we want to continue watching this?
+msgtype,onchaind_spent_reply,5104
+msgdata,onchaind_spent_reply,interested,bool,
+
 # master->onchaind: We will receive more than one of these, as depth changes.
 msgtype,onchaind_depth,5005
 msgdata,onchaind_depth,txid,bitcoin_txid,
 msgdata,onchaind_depth,depth,u32,
-
-# onchaind->master: We don't want to watch this tx, or its outputs
-msgtype,onchaind_unwatch_tx,5006
-msgdata,onchaind_unwatch_tx,txid,bitcoin_txid,
 
 # master->onchaind: We know HTLC preimage
 msgtype,onchaind_known_preimage,5007
