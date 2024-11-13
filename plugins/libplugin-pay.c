@@ -11,9 +11,11 @@
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/random_select.h>
+#include <common/trace.h>
 #include <errno.h>
 #include <math.h>
 #include <plugins/libplugin-pay.h>
+#include <stdio.h>
 #include <sys/types.h>
 #include <wire/peer_wire.h>
 
@@ -2250,6 +2252,18 @@ static struct command_result *payment_finished(struct payment *p)
 	return command_finished(cmd, ret);
 }
 
+const char * const payment_step_str[] =
+{
+    [PAYMENT_STEP_INITIALIZED] = "PAYMENT_STEP_INITIALIZED",
+    [PAYMENT_STEP_GOT_ROUTE] = "PAYMENT_STEP_GOT_ROUTE",
+    [PAYMENT_STEP_RETRY_GETROUTE]  = "PAYMENT_STEP_RETRY_GETROUTE",
+    [PAYMENT_STEP_ONION_PAYLOAD]  = "PAYMENT_STEP_ONION_PAYLOAD",
+    [PAYMENT_STEP_SPLIT] = "PAYMENT_STEP_SPLIT",
+    [PAYMENT_STEP_RETRY] = "PAYMENT_STEP_RETRY",
+    [PAYMENT_STEP_FAILED]  = "PAYMENT_STEP_FAILED",
+    [PAYMENT_STEP_SUCCESS]  = "PAYMENT_STEP_SUCCESS",
+};
+
 void payment_set_step(struct payment *p, enum payment_step newstep)
 {
 	p->current_modifier = -1;
@@ -2264,12 +2278,17 @@ struct command_result *payment_continue(struct payment *p)
 {
 	struct payment_modifier *mod;
 	void *moddata;
+
+	trace_span_start("payment_continue", p);
 	/* If we are in the middle of calling the modifiers, continue calling
 	 * them, otherwise we can continue with the payment state-machine. */
 	p->current_modifier++;
 	mod = p->modifiers[p->current_modifier];
 
 	if (mod != NULL) {
+		char *str = tal_fmt(tmpctx, "%d", p->current_modifier);
+		trace_span_tag(p, "modifier", str);
+		trace_span_end(p);
 		/* There is another modifier, so call it. */
 		moddata = p->modifier_data[p->current_modifier];
 		return mod->post_step_cb(moddata, p);
@@ -2277,6 +2296,8 @@ struct command_result *payment_continue(struct payment *p)
 		/* There are no more modifiers, so reset the call chain and
 		 * proceed to the next state. */
 		p->current_modifier = -1;
+		trace_span_tag(p, "step", payment_step_str[p->step]);
+		trace_span_end(p);
 		switch (p->step) {
 		case PAYMENT_STEP_INITIALIZED:
 		case PAYMENT_STEP_RETRY_GETROUTE:
@@ -2299,6 +2320,7 @@ struct command_result *payment_continue(struct payment *p)
 			return command_still_pending(payment_cmd(p));
 		}
 	}
+	trace_span_end(p);
 	/* We should never get here, it'd mean one of the state machine called
 	 * `payment_continue` after the final state. */
 	abort();
