@@ -1242,6 +1242,12 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 		return;
 	}
 
+	/* Is it already dying?  It's lightningd re-telling us */
+	for (size_t i = 0; i < tal_count(gm->dying_channels); i++) {
+		if (short_channel_id_eq(gm->dying_channels[i].scid, scid))
+			return;
+	}
+
 	/* BOLT #7:
 	 *   - once its funding output has been spent OR reorganized out:
 	 *     - SHOULD forget a channel after a 12-block delay.

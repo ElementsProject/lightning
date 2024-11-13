@@ -1138,6 +1138,9 @@ wallet_utxoset_get_spent(const tal_t *ctx, struct wallet *w, u32 blockheight);
 /* Prune all UTXO entries spent (far) below this block height */
 void wallet_utxoset_prune(struct wallet *w, u32 blockheight);
 
+/* Get oldest spendheight (or 0 if none), to catch up */
+u32 wallet_utxoset_oldest_spentheight(const tal_t *ctx, struct wallet *w);
+
 /**
  * Retrieve all UTXO entries that were created at a given blockheight.
  */

@@ -4462,6 +4462,26 @@ wallet_utxoset_get_spent(const tal_t *ctx, struct wallet *w,
 	return db_scids(ctx, stmt);
 }
 
+u32 wallet_utxoset_oldest_spentheight(const tal_t *ctx, struct wallet *w)
+{
+	struct db_stmt *stmt;
+	u32 height;
+	stmt = db_prepare_v2(w->db, SQL("SELECT"
+					" spendheight "
+					"FROM utxoset "
+					"WHERE spendheight IS NOT NULL "
+					"ORDER BY spendheight ASC "
+					"LIMIT 1"));
+	db_query_prepared(stmt);
+
+	if (db_step(stmt))
+		height = db_col_int(stmt, "spendheight");
+	else
+		height = 0;
+	tal_free(stmt);
+	return height;
+}
+
 const struct short_channel_id *
 wallet_utxoset_get_created(const tal_t *ctx, struct wallet *w,
 			   u32 blockheight)
