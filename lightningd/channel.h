@@ -196,6 +196,10 @@ struct channel {
 
 	/* If we're doing a replay for onchaind, here are the txids it's watching */
 	struct replay_tx_hash *onchaind_replay_watches;
+	/* Number of outstanding onchaind_spent calls */
+	size_t num_onchain_spent_calls;
+	/* Height we're replaying at (if onchaind_replay_watches set) */
+	u32 onchaind_replay_height;
 
 	/* Our original funds, in funding amount */
 	struct amount_sat our_funds;

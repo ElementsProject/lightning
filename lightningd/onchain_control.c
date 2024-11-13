@@ -217,6 +217,7 @@ static enum watch_result onchain_tx_watched(struct lightningd *ld,
 
 static void watch_tx_and_outputs(struct channel *channel,
 				 const struct bitcoin_tx *tx);
+static void onchaind_replay(struct channel *channel);
 
 static void replay_unwatch_txid(struct channel *channel,
 				const struct bitcoin_txid *txid)
@@ -236,14 +237,16 @@ static void onchaind_spent_reply(struct subd *onchaind, const u8 *msg,
 		channel_internal_error(channel, "Invalid onchaind_spent_reply %s",
 				       tal_hex(tmpctx, msg));
 
+	channel->num_onchain_spent_calls--;
+
 	/* Only delete watch if it says it doesn't care */
 	if (interested)
-		return;
+		goto out;
 
 	/* If we're doing replay: */
 	if (channel->onchaind_replay_watches) {
 		replay_unwatch_txid(channel, txid);
-		return;
+		goto out;
 	}
 
 	/* Frees the txo watches, too: see watch_tx_and_outputs() */
@@ -253,6 +256,13 @@ static void onchaind_spent_reply(struct subd *onchaind, const u8 *msg,
 		log_unusual(channel->log, "Can't unwatch txid %s",
 			    fmt_bitcoin_txid(tmpctx, txid));
 	tal_free(txw);
+
+out:
+	/* If that's the last request, continue asking for blocks */
+	if (channel->onchaind_replay_watches
+	    && channel->num_onchain_spent_calls == 0) {
+		onchaind_replay(channel);
+	}
 }
 
 /**
@@ -276,7 +286,7 @@ static void onchain_txo_spent(struct channel *channel, const struct bitcoin_tx *
 	msg = towire_onchaind_spent(channel, parts, input_num, blockheight);
 	subd_req(channel->owner, channel->owner, take(msg), -1, 0,
 		 onchaind_spent_reply, take(txid));
-
+	channel->num_onchain_spent_calls++;
 }
 
 /**
@@ -405,8 +415,24 @@ static void replay_block(struct bitcoind *bitcoind,
 		return;
 	}
 
-	/* Otherwise, loop on next block. */
-	bitcoind_getrawblockbyheight(channel, bitcoind, height + 1, replay_block, channel);
+	/* Ready for next block */
+	channel->onchaind_replay_height = height + 1;
+
+	/* Otherwise, wait for those to be resolved (in case onchaind is slow,
+	 * e.g. waiting for HSM). */
+	if (channel->num_onchain_spent_calls == 0)
+		onchaind_replay(channel);
+}
+
+static void onchaind_replay(struct channel *channel)
+{
+	assert(channel->onchaind_replay_watches);
+	assert(channel->num_onchain_spent_calls == 0);
+
+	bitcoind_getrawblockbyheight(channel,
+				     channel->peer->ld->topology->bitcoind,
+				     channel->onchaind_replay_height,
+				     replay_block, channel);
 }
 
 static void handle_extracted_preimage(struct channel *channel, const u8 *msg)
@@ -1824,12 +1850,11 @@ void onchaind_replay_channels(struct lightningd *ld)
 
 			/* We're in replay mode */
 			channel->onchaind_replay_watches = tal(channel, struct replay_tx_hash);
+			channel->onchaind_replay_height = blockheight;
 			replay_tx_hash_init(channel->onchaind_replay_watches);
 
 			onchaind_funding_spent(channel, tx, blockheight);
-			/* Ask bitcoind to start grabbing those blocks for replay */
-			bitcoind_getrawblockbyheight(channel, ld->topology->bitcoind, blockheight,
-						     replay_block, channel);
+			onchaind_replay(channel);
 		}
 	}
 	db_commit_transaction(ld->wallet->db);
