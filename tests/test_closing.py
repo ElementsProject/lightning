@@ -1751,7 +1751,7 @@ def test_onchain_first_commit(node_factory, bitcoind):
     l1.daemon.wait_for_log('onchaind complete, forgetting peer')
 
 
-def test_onchain_unwatch(node_factory, bitcoind):
+def test_onchain_unwatch(node_factory, bitcoind, chainparams):
     """Onchaind should not watch random spends"""
     # We track channel balances, to verify that accounting is ok.
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
@@ -1784,7 +1784,12 @@ def test_onchain_unwatch(node_factory, bitcoind):
     # Daemon gets told about wallet; says it doesn't care.
     l1.rpc.withdraw(l1.rpc.newaddr()['bech32'], 'all')
     bitcoind.generate_block(1)
-    l1.daemon.wait_for_log("but we don't care")
+
+    # We see *two* of these: one for anchor spend as well!
+    if chainparams['elements']:
+        l1.daemon.wait_for_log("but we don't care")
+    else:
+        l1.daemon.wait_for_logs(["but we don't care"] * 2)
 
     # And lightningd should respect that!
     assert not l1.daemon.is_in_log("Can't unwatch txid")

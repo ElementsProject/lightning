@@ -218,12 +218,50 @@ static enum watch_result onchain_tx_watched(struct lightningd *ld,
 static void watch_tx_and_outputs(struct channel *channel,
 				 const struct bitcoin_tx *tx);
 
+static void replay_unwatch_txid(struct channel *channel,
+				const struct bitcoin_txid *txid)
+{
+	replay_tx_hash_delkey(channel->onchaind_replay_watches, txid);
+}
+
+static void onchaind_spent_reply(struct subd *onchaind, const u8 *msg,
+				 const int *fds,
+				 struct bitcoin_txid *txid)
+{
+	bool interested;
+	struct txwatch *txw;
+	struct channel *channel = onchaind->channel;
+
+	if (!fromwire_onchaind_spent_reply(msg, &interested))
+		channel_internal_error(channel, "Invalid onchaind_spent_reply %s",
+				       tal_hex(tmpctx, msg));
+
+	/* Only delete watch if it says it doesn't care */
+	if (interested)
+		return;
+
+	/* If we're doing replay: */
+	if (channel->onchaind_replay_watches) {
+		replay_unwatch_txid(channel, txid);
+		return;
+	}
+
+	/* Frees the txo watches, too: see watch_tx_and_outputs() */
+	txw = find_txwatch(channel->peer->ld->topology, txid,
+			   onchain_tx_watched, channel);
+	if (!txw)
+		log_unusual(channel->log, "Can't unwatch txid %s",
+			    fmt_bitcoin_txid(tmpctx, txid));
+	tal_free(txw);
+}
+
 /**
  * Notify onchaind that an output was spent and register new watches.
  */
 static void onchain_txo_spent(struct channel *channel, const struct bitcoin_tx *tx, size_t input_num, u32 blockheight)
 {
 	u8 *msg;
+	struct bitcoin_txid *txid;
 	/* Onchaind needs all inputs, since it uses those to compare
 	 * with existing spends (which can vary, with feerate changes). */
 	struct tx_parts *parts = tx_parts_from_wally_tx(tmpctx, tx->wtx,
@@ -231,8 +269,13 @@ static void onchain_txo_spent(struct channel *channel, const struct bitcoin_tx *
 
 	watch_tx_and_outputs(channel, tx);
 
+	/* Reply will need this if we want to unwatch */
+	txid = tal(NULL, struct bitcoin_txid);
+	bitcoin_txid(tx, txid);
+
 	msg = towire_onchaind_spent(channel, parts, input_num, blockheight);
-	subd_send_msg(channel->owner, take(msg));
+	subd_req(channel->owner, channel->owner, take(msg), -1, 0,
+		 onchaind_spent_reply, take(txid));
 
 }
 
@@ -304,12 +347,6 @@ static void replay_watch_tx(struct channel *channel,
 	replay_tx_hash_add(channel->onchaind_replay_watches, rtx);
 }
 
-static void replay_unwatch_txid(struct channel *channel,
-				const struct bitcoin_txid *txid)
-{
-	replay_tx_hash_delkey(channel->onchaind_replay_watches, txid);
-}
-
 /* We've finished replaying, turn any txs left into live watches */
 static void convert_replay_txs(struct channel *channel)
 {
@@ -370,31 +407,6 @@ static void replay_block(struct bitcoind *bitcoind,
 
 	/* Otherwise, loop on next block. */
 	bitcoind_getrawblockbyheight(channel, bitcoind, height + 1, replay_block, channel);
-}
-
-static void handle_onchain_unwatch_tx(struct channel *channel, const u8 *msg)
-{
-	struct bitcoin_txid txid;
-	struct txwatch *txw;
-
-	if (!fromwire_onchaind_unwatch_tx(msg, &txid)) {
-		channel_internal_error(channel, "Invalid onchain_unwatch_tx");
-		return;
-	}
-
-	/* If we're doing replay: */
-	if (channel->onchaind_replay_watches) {
-		replay_unwatch_txid(channel, &txid);
-		return;
-	}
-
-	/* Frees the txo watches, too: see watch_tx_and_outputs() */
-	txw = find_txwatch(channel->peer->ld->topology, &txid,
-			   onchain_tx_watched, channel);
-	if (!txw)
-		log_unusual(channel->log, "Can't unwatch txid %s",
-			    fmt_bitcoin_txid(tmpctx, &txid));
-	tal_free(txw);
 }
 
 static void handle_extracted_preimage(struct channel *channel, const u8 *msg)
@@ -1545,10 +1557,6 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds U
 		handle_onchain_init_reply(sd->channel, msg);
 		break;
 
-	case WIRE_ONCHAIND_UNWATCH_TX:
-		handle_onchain_unwatch_tx(sd->channel, msg);
-		break;
-
  	case WIRE_ONCHAIND_EXTRACTED_PREIMAGE:
 		handle_extracted_preimage(sd->channel, msg);
 		break;
@@ -1614,6 +1622,7 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds U
 	case WIRE_ONCHAIND_SPEND_CREATED:
 	case WIRE_ONCHAIND_DEV_MEMLEAK:
 	case WIRE_ONCHAIND_DEV_MEMLEAK_REPLY:
+	case WIRE_ONCHAIND_SPENT_REPLY:
 		break;
 	}
 

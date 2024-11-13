@@ -939,7 +939,7 @@ struct subd_req *subd_req_(const tal_t *ctx UNNEEDED,
 	       const u8 *msg_out UNNEEDED,
 	       int fd_out UNNEEDED, size_t num_fds_in UNNEEDED,
 	       void (*replycb)(struct subd * UNNEEDED, const u8 * UNNEEDED, const int * UNNEEDED, void *) UNNEEDED,
-	       void *replycb_data UNNEEDED)
+	       void *replycb_data TAKES UNNEEDED)
 { fprintf(stderr, "subd_req_ called!\n"); abort(); }
 /* Generated stub for subd_send_fd */
 void subd_send_fd(struct subd *sd UNNEEDED, int fd UNNEEDED)

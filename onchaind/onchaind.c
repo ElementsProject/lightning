@@ -978,14 +978,6 @@ static void billboard_update(struct tracked_output **outs)
 		       output_type_name(best->output_type), best->depth);
 }
 
-static void unwatch_txid(const struct bitcoin_txid *txid)
-{
-	u8 *msg;
-
-	msg = towire_onchaind_unwatch_tx(NULL, txid);
-	wire_sync_write(REQ_FD, take(msg));
-}
-
 static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 					const struct tx_parts *tx_parts,
 					const struct bitcoin_outpoint *htlc_outpoint)
@@ -1194,21 +1186,28 @@ static void onchain_annotate_txin(const struct bitcoin_txid *txid, u32 innum,
 				    tmpctx, txid, innum, type)));
 }
 
-/* An output has been spent: see if it resolves something we care about. */
-static void output_spent(struct tracked_output ***outs,
+/* An output has been spent: see if it resolves something we care about.
+ * Return true if it's useful to know about, false to suppress this and any
+ * child transactions.
+ */
+static bool output_spent(struct tracked_output ***outs,
 			 const struct tx_parts *tx_parts,
 			 u32 input_num,
 			 u32 tx_blockheight)
 {
+	bool interesting;
+
 	for (size_t i = 0; i < tal_count(*outs); i++) {
 		struct tracked_output *out = (*outs)[i];
 		struct bitcoin_outpoint htlc_outpoint;
 
-		if (out->resolved)
-			continue;
-
 		if (!wally_tx_input_spends(tx_parts->inputs[input_num],
 					   &out->outpoint))
+			continue;
+
+		interesting = true;
+
+		if (out->resolved)
 			continue;
 
 		/* Was this our resolution? */
@@ -1221,7 +1220,7 @@ static void output_spent(struct tracked_output ***outs,
 
 			record_coin_movements(out, tx_blockheight,
 					      &tx_parts->txid);
-			return;
+			return interesting;
 		}
 
 		htlc_outpoint.txid = tx_parts->txid;
@@ -1342,17 +1341,18 @@ static void output_spent(struct tracked_output ***outs,
 				      tx_type_name(out->tx_type),
 				      output_type_name(out->output_type));
 		}
-		return;
 	}
 
-	struct bitcoin_txid txid;
-	wally_tx_input_get_txid(tx_parts->inputs[input_num], &txid);
-	/* Not interesting to us, so unwatch the tx and all its outputs */
-	status_debug("Notified about tx %s output %u spend, but we don't care",
-		     fmt_bitcoin_txid(tmpctx, &txid),
-		     tx_parts->inputs[input_num]->index);
+	if (!interesting) {
+		struct bitcoin_txid txid;
+		wally_tx_input_get_txid(tx_parts->inputs[input_num], &txid);
 
-	unwatch_txid(&tx_parts->txid);
+		status_debug("Notified about tx %s output %u spend, but we don't care",
+			     fmt_bitcoin_txid(tmpctx, &txid),
+			     tx_parts->inputs[input_num]->index);
+	}
+
+	return interesting;
 }
 
 static void update_resolution_depth(struct tracked_output *out, u32 depth)
@@ -1610,12 +1610,16 @@ static void handle_onchaind_spent(struct tracked_output ***outs, const u8 *msg)
 {
 	struct tx_parts *tx_parts;
 	u32 input_num, tx_blockheight;
+	bool interesting;
 
 	if (!fromwire_onchaind_spent(msg, msg, &tx_parts, &input_num,
 				     &tx_blockheight))
 		master_badmsg(WIRE_ONCHAIND_SPENT, msg);
 
-	output_spent(outs, tx_parts, input_num, tx_blockheight);
+	interesting = output_spent(outs, tx_parts, input_num, tx_blockheight);
+
+	/* Tell lightningd if it was interesting */
+	wire_sync_write(REQ_FD, take(towire_onchaind_spent_reply(NULL, interesting)));
 }
 
 static void handle_onchaind_known_preimage(struct tracked_output ***outs,
@@ -1675,7 +1679,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 
 		/* We send these, not receive! */
 		case WIRE_ONCHAIND_INIT_REPLY:
-		case WIRE_ONCHAIND_UNWATCH_TX:
+		case WIRE_ONCHAIND_SPENT_REPLY:
 		case WIRE_ONCHAIND_EXTRACTED_PREIMAGE:
 		case WIRE_ONCHAIND_MISSING_HTLC_OUTPUT:
 		case WIRE_ONCHAIND_HTLC_TIMEOUT:
