@@ -101,10 +101,6 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 	bitmap *visited = tal_arrz(this_ctx, bitmap,
 				   BITMAP_NWORDS(max_num_nodes));
 
-	if (!visited)
-		/* bad allocation */
-		goto finish;
-
 	for (size_t i = 0; i < max_num_nodes; ++i)
 		prev[i].idx = INVALID_INDEX;
 
@@ -158,7 +154,6 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 	for (size_t i = 0; i < max_num_nodes; i++)
 		distance[i] = dijkstra_distance[i];
 
-finish:
 	tal_free(this_ctx);
 	return target_found;
 }
@@ -357,10 +352,6 @@ static struct node dijkstra_nearest_sink(const tal_t *ctx,
 	struct node target = {.idx = INVALID_INDEX};
 	const tal_t *this_ctx = tal(ctx, tal_t);
 
-	if (!this_ctx)
-		/* bad allocation */
-		goto finish;
-
 	/* check preconditions */
 	assert(graph);
 	assert(node_balance);
@@ -405,7 +396,6 @@ static struct node dijkstra_nearest_sink(const tal_t *ctx,
 #ifdef ASKRENE_UNITTEST
 	bitmap *visited =
 	    tal_arrz(this_ctx, bitmap, BITMAP_NWORDS(max_num_nodes));
-	assert(visited);
 #endif
 
 	struct priorityqueue *q;
@@ -509,10 +499,6 @@ bool mcf_refinement(const tal_t *ctx,
 {
 	bool solved = false;
 	const tal_t *this_ctx = tal(ctx, tal_t);
-
-	if (!this_ctx)
-		/* bad allocation */
-		goto finish;
 
 	assert(graph);
 	assert(excess);
@@ -627,9 +613,6 @@ bool simple_mcf(const tal_t *ctx, const struct graph *graph,
 		s64 *capacity, s64 amount, const s64 *cost)
 {
 	const tal_t *this_ctx = tal(ctx, tal_t);
-	if (!this_ctx)
-		/* bad allocation */
-		goto fail;
 
 	assert(graph);
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
@@ -646,10 +629,6 @@ bool simple_mcf(const tal_t *ctx, const struct graph *graph,
 
 	s64 *potential = tal_arrz(this_ctx, s64, max_num_nodes);
 	s64 *excess = tal_arrz(this_ctx, s64, max_num_nodes);
-
-	if (!potential || !excess)
-		/* bad allocation */
-		goto fail;
 
 	excess[source.idx] = amount;
 	excess[destination.idx] = -amount;
