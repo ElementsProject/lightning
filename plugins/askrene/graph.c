@@ -42,10 +42,6 @@ struct graph *graph_new(const tal_t *ctx, const size_t max_num_nodes,
 	struct graph *graph;
 	graph = tal(ctx, struct graph);
 
-	/* bad allocation of graph */
-	if (!graph)
-		return graph;
-
 	graph->max_num_arcs = max_num_arcs;
 	graph->max_num_nodes = max_num_nodes;
 	graph->arc_dual_bit = arc_dual_bit;
@@ -55,12 +51,6 @@ struct graph *graph_new(const tal_t *ctx, const size_t max_num_nodes,
 	    tal_arr(graph, struct arc, graph->max_num_nodes);
 	graph->node_adjacency_next =
 	    tal_arr(graph, struct arc, graph->max_num_arcs);
-
-	/* bad allocation of graph components */
-	if (!graph->arc_tail || !graph->node_adjacency_first ||
-	    !graph->node_adjacency_next) {
-		return tal_free(graph);
-	}
 
 	/* initialize with invalid indexes so that we know these slots have
 	 * never been used, eg. arc/node is newly created */
