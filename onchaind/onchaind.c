@@ -1195,7 +1195,7 @@ static bool output_spent(struct tracked_output ***outs,
 			 u32 input_num,
 			 u32 tx_blockheight)
 {
-	bool interesting;
+	bool interesting = false;
 
 	for (size_t i = 0; i < tal_count(*outs); i++) {
 		struct tracked_output *out = (*outs)[i];
@@ -1220,7 +1220,7 @@ static bool output_spent(struct tracked_output ***outs,
 
 			record_coin_movements(out, tx_blockheight,
 					      &tx_parts->txid);
-			return interesting;
+			break;
 		}
 
 		htlc_outpoint.txid = tx_parts->txid;

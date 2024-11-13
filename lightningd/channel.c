@@ -609,6 +609,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->last_stable_connection = last_stable_connection;
 	channel->stable_conn_timer = NULL;
 	channel->onchaind_replay_watches = NULL;
+	channel->num_onchain_spent_calls = 0;
 	channel->stats = *stats;
 	channel->state_changes = tal_steal(channel, state_changes);
 
