@@ -15,6 +15,7 @@
 #include <common/memleak.h>
 #include <common/plugin.h>
 #include <common/route.h>
+#include <common/trace.h>
 #include <errno.h>
 #include <plugins/libplugin.h>
 #include <stdio.h>
@@ -1058,7 +1059,14 @@ static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
 	cmd_freed = false;
 	tal_add_destructor2(out->cmd, destroy_cmd_mark_freed, &cmd_freed);
 
+	trace_span_resume(out);
 	contenttok = json_get_member(buf, toks, "error");
+
+	/* Annotate the JSON-RPC span whether it succeeded or failed,
+	 * and then emit it. */
+	trace_span_tag(out, "error", contenttok ? "true" : "false");
+	trace_span_end(out);
+
 	if (contenttok) {
 		if (out->errcb)
 			res = out->errcb(out->cmd, out->method, buf, contenttok, out->arg);
@@ -1095,6 +1103,14 @@ send_outreq(const struct out_req *req)
 		json_object_end(req->js);
 	json_object_end(req->js);
 	json_stream_close(req->js, req->cmd);
+
+	/* We are about to hand control over to the RPC, so suspend
+	 * the current span. It'll be resumed as soon as we have a
+	 * result to pass to either the error or the success
+	 * callback. */
+	trace_span_start("jsonrpc", req);
+	trace_span_tag(req, "id", req->id);
+	trace_span_suspend(req);
 
 	ld_rpc_send(req->cmd->plugin, req->js);
 	notleak_with_children(req->cmd);

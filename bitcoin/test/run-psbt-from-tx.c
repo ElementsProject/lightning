@@ -65,12 +65,12 @@ u8 *scriptpubkey_p2wsh(const tal_t *ctx UNNEEDED, const u8 *witnessscript UNNEED
 /* Generated stub for sha256_double */
 void sha256_double(struct sha256_double *shadouble UNNEEDED, const void *p UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "sha256_double called!\n"); abort(); }
+/* Generated stub for signature_from_der */
+bool signature_from_der(const u8 *der UNNEEDED, size_t len UNNEEDED, struct bitcoin_signature *sig UNNEEDED)
+{ fprintf(stderr, "signature_from_der called!\n"); abort(); }
 /* Generated stub for signature_to_der */
 size_t signature_to_der(u8 der[73] UNNEEDED, const struct bitcoin_signature *sig UNNEEDED)
 { fprintf(stderr, "signature_to_der called!\n"); abort(); }
-/* Generated stub for signature_to_der */
-bool signature_from_der(const u8 *der UNNEEDED, size_t len UNNEEDED, struct bitcoin_signature *sig UNNEEDED)
-{ fprintf(stderr, "signature_from_der called!\n"); abort(); }
 /* Generated stub for towire_sha256_double */
 void towire_sha256_double(u8 **pptr UNNEEDED, const struct sha256_double *sha256d UNNEEDED)
 { fprintf(stderr, "towire_sha256_double called!\n"); abort(); }

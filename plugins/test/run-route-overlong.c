@@ -280,7 +280,7 @@ void memleak_scan_htable(struct htable *memtable UNNEEDED, const struct htable *
 void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
 { fprintf(stderr, "notleak_ called!\n"); abort(); }
 /* Generated stub for plugin_err */
-void  plugin_err(struct plugin *p UNNEEDED, const char *fmt UNNEEDED, ...)
+void   plugin_err(struct plugin *p UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "plugin_err called!\n"); abort(); }
 /* Generated stub for plugin_log */
 void plugin_log(struct plugin *p UNNEEDED, enum log_level l UNNEEDED, const char *fmt UNNEEDED, ...)
