@@ -1135,6 +1135,9 @@ void wallet_utxoset_add(struct wallet *w,
 const struct short_channel_id *
 wallet_utxoset_get_spent(const tal_t *ctx, struct wallet *w, u32 blockheight);
 
+/* Prune all UTXO entries spent (far) below this block height */
+void wallet_utxoset_prune(struct wallet *w, u32 blockheight);
+
 /**
  * Retrieve all UTXO entries that were created at a given blockheight.
  */
