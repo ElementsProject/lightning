@@ -56,7 +56,8 @@ bool BFS_path(const tal_t *ctx, const struct graph *graph,
 			const struct node next = arc_head(graph, arc);
 
 			/* if that node has been seen previously */
-			if (prev[next.idx].idx != INVALID_INDEX)
+			if (prev[next.idx].idx != INVALID_INDEX ||
+			    next.idx == source.idx)
 				continue;
 
 			prev[next.idx] = arc;
