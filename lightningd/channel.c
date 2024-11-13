@@ -310,6 +310,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->ignore_fee_limits = ld->config.ignore_fee_limits;
 	channel->last_stable_connection = 0;
 	channel->stable_conn_timer = NULL;
+	channel->onchaind_replay_watches = NULL;
 	/* Nothing happened yet */
 	memset(&channel->stats, 0, sizeof(channel->stats));
 	channel->state_changes = tal_arr(channel, struct channel_state_change *, 0);
@@ -607,6 +608,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->ignore_fee_limits = ignore_fee_limits;
 	channel->last_stable_connection = last_stable_connection;
 	channel->stable_conn_timer = NULL;
+	channel->onchaind_replay_watches = NULL;
 	channel->stats = *stats;
 	channel->state_changes = tal_steal(channel, state_changes);
 
