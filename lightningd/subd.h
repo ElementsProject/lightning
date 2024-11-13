@@ -178,7 +178,7 @@ void subd_send_fd(struct subd *sd, int fd);
  * @fd_out: if >=0 fd to pass at the end of the message (closed after)
  * @num_fds_in: how many fds to read in to hand to @replycb if it's a reply.
  * @replycb: callback (inside db transaction) when reply comes in (can free subd)
- * @replycb_data: final arg to hand to @replycb
+ * @replycb_data: final arg to hand to @replycb (can be TAKE())
  *
  * @replycb cannot free @sd, so it returns false to remove it.
  * Note that @replycb is called for replies of type @msg_out + SUBD_REPLY_OFFSET
@@ -196,7 +196,7 @@ struct subd_req *subd_req_(const tal_t *ctx,
 	       const u8 *msg_out,
 	       int fd_out, size_t num_fds_in,
 	       void (*replycb)(struct subd *, const u8 *, const int *, void *),
-	       void *replycb_data);
+	       void *replycb_data TAKES);
 
 /**
  * subd_release_channel - shut down a subdaemon which no longer owns the channel.

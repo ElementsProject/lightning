@@ -142,13 +142,15 @@ static struct subd_req *add_req(const tal_t *ctx,
 				struct subd *sd, int type, size_t num_fds_in,
 				void (*replycb)(struct subd *, const u8 *, const int *,
 						void *),
-				void *replycb_data)
+				void *replycb_data TAKES)
 {
 	struct subd_req *sr = tal(sd, struct subd_req);
 
 	sr->type = type;
 	sr->replycb = replycb;
 	sr->replycb_data = replycb_data;
+	if (taken(replycb_data))
+		tal_steal(sr, replycb_data);
 	sr->num_reply_fds = num_fds_in;
 
 	/* We don't allocate sr off ctx, because we still have to handle the
@@ -852,7 +854,7 @@ struct subd_req *subd_req_(const tal_t *ctx,
 			   const u8 *msg_out,
 			   int fd_out, size_t num_fds_in,
 			   void (*replycb)(struct subd *, const u8 *, const int *, void *),
-			   void *replycb_data)
+			   void *replycb_data TAKES)
 {
 	/* Grab type now in case msg_out is taken() */
 	int type = fromwire_peektype(msg_out);
