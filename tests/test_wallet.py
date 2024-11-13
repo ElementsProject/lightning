@@ -1383,6 +1383,27 @@ def test_hsmtool_generatehsm(node_factory):
     # We can start the node with this hsm_secret
     l1.start()
     assert l1.info['id'] == '02244b73339edd004bc6dfbb953a87984c88e9e7c02ca14ef6ec593ca6be622ba7'
+    l1.stop()
+
+    # We can do the entire thing non-interactive!
+    os.remove(hsm_path)
+    subprocess.check_output(["tools/hsmtool",
+                             "generatehsm", hsm_path,
+                             "en",
+                             "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"])
+    assert open(hsm_path, "rb").read().hex() == "5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc1"
+
+    # Including passphrase
+    os.remove(hsm_path)
+    subprocess.check_output(["tools/hsmtool",
+                             "generatehsm", hsm_path,
+                             "en",
+                             "ritual idle hat sunny universe pluck key alpha wing cake have wedding",
+                             "This is actually not a passphrase"])
+
+    l1.start()
+    assert l1.info['id'] == '02244b73339edd004bc6dfbb953a87984c88e9e7c02ca14ef6ec593ca6be622ba7'
+    l1.stop()
 
 
 # this test does a 'listtransactions' on a yet unconfirmed channel
