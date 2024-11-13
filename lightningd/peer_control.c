@@ -2208,8 +2208,8 @@ static enum watch_result funding_spent(struct channel *channel,
 		}
 	}
 
-	wallet_channeltxs_add(channel->peer->ld->wallet, channel,
-			      WIRE_ONCHAIND_INIT, &txid, 0, block->height);
+	wallet_insert_funding_spend(channel->peer->ld->wallet, channel,
+				    &txid, 0, block->height);
 
 	return onchaind_funding_spent(channel, tx, block->height);
 }

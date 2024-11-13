@@ -208,9 +208,8 @@ static enum watch_result onchain_tx_watched(struct lightningd *ld,
 		return KEEP_WATCHING;
 	}
 
-	/* Store the channeltx so we can replay later */
-	wallet_channeltxs_add(ld->wallet, channel,
-			      WIRE_ONCHAIND_DEPTH, txid, 0, blockheight);
+	/* Store so we remember if we crash, and can replay later */
+	wallet_insert_funding_spend(ld->wallet, channel, txid, 0, blockheight);
 
 	onchain_tx_depth(channel, txid, depth);
 	return KEEP_WATCHING;
@@ -245,14 +244,6 @@ static enum watch_result onchain_txo_watched(struct channel *channel,
 					     size_t input_num,
 					     const struct block *block)
 {
-	struct bitcoin_txid txid;
-	bitcoin_txid(tx, &txid);
-
-	/* Store the channeltx so we can replay later */
-	wallet_channeltxs_add(channel->peer->ld->wallet, channel,
-			      WIRE_ONCHAIND_SPENT, &txid, input_num,
-			      block->height);
-
 	onchain_txo_spent(channel, tx, input_num, block->height);
 
 	/* We don't need to keep watching: If this output is double-spent

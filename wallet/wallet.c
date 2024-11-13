@@ -4659,9 +4659,10 @@ struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
 	return txids;
 }
 
-void wallet_channeltxs_add(struct wallet *w, struct channel *chan,
-			   const int type, const struct bitcoin_txid *txid,
-			   const u32 input_num, const u32 blockheight)
+void wallet_insert_funding_spend(struct wallet *w,
+				 const struct channel *chan,
+				 const struct bitcoin_txid *txid,
+				 const u32 input_num, const u32 blockheight)
 {
 	struct db_stmt *stmt;
 	stmt = db_prepare_v2(w->db, SQL("INSERT INTO channeltxs ("
@@ -4672,70 +4673,13 @@ void wallet_channeltxs_add(struct wallet *w, struct channel *chan,
 					", blockheight"
 					") VALUES (?, ?, ?, ?, ?);"));
 	db_bind_int(stmt, chan->dbid);
-	db_bind_int(stmt, type);
-	db_bind_sha256(stmt, &txid->shad.sha);
+	/* FIXME: This is WIRE_ONCHAIND_INIT, accidentally leaked into db! */
+	db_bind_int(stmt, 5001);
+	db_bind_txid(stmt, txid);
 	db_bind_int(stmt, input_num);
 	db_bind_int(stmt, blockheight);
 
 	db_exec_prepared_v2(take(stmt));
-}
-
-u32 *wallet_onchaind_channels(const tal_t *ctx, struct wallet *w)
-{
-	struct db_stmt *stmt;
-	size_t count = 0;
-	u32 *channel_ids = tal_arr(ctx, u32, 0);
-	stmt = db_prepare_v2(
-	    w->db,
-	    SQL("SELECT DISTINCT(channel_id) FROM channeltxs WHERE type = ?;"));
-	db_bind_int(stmt, WIRE_ONCHAIND_INIT);
-	db_query_prepared(stmt);
-
-	while (db_step(stmt)) {
-		count++;
-		tal_resize(&channel_ids, count);
-		channel_ids[count-1] = db_col_u64(stmt, "DISTINCT(channel_id)");
-	}
-	tal_free(stmt);
-
-	return channel_ids;
-}
-
-struct channeltx *wallet_channeltxs_get(const tal_t *ctx, struct wallet *w,
-					u32 channel_id)
-{
-	struct db_stmt *stmt;
-	size_t count = 0;
-	struct channeltx *res = tal_arr(ctx, struct channeltx, 0);
-	stmt = db_prepare_v2(
-	    w->db, SQL("SELECT"
-		       "  c.type"
-		       ", c.blockheight"
-		       ", t.rawtx"
-		       ", c.input_num"
-		       ", c.blockheight - t.blockheight + 1 AS depth"
-		       ", t.id as txid "
-		       "FROM channeltxs c "
-		       "JOIN transactions t ON t.id = c.transaction_id "
-		       "WHERE c.channel_id = ? "
-		       "ORDER BY c.id ASC;"));
-	db_bind_int(stmt, channel_id);
-	db_query_prepared(stmt);
-
-	while (db_step(stmt)) {
-		count++;
-		tal_resize(&res, count);
-
-		res[count-1].channel_id = channel_id;
-		res[count-1].type = db_col_int(stmt, "c.type");
-		res[count-1].blockheight = db_col_int(stmt, "c.blockheight");
-		res[count-1].tx = db_col_tx(ctx, stmt, "t.rawtx");
-		res[count-1].input_num = db_col_int(stmt, "c.input_num");
-		res[count-1].depth = db_col_int(stmt, "depth");
-		db_col_txid(stmt, "txid", &res[count-1].txid);
-	}
-	tal_free(stmt);
-	return res;
 }
 
 struct bitcoin_tx *wallet_get_funding_spend(const tal_t *ctx,
