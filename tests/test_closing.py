@@ -1848,7 +1848,7 @@ def test_onchaind_replay(node_factory, bitcoind):
     l1.restart()
 
     # Can't wait for it, it's after the "Server started" wait in restart()
-    assert l1.daemon.is_in_log(r'Restarting onchaind for channel')
+    assert l1.daemon.is_in_log(r'Restarting onchaind \(ONCHAIN\): closed in block 109')
 
     # l1 should still notice that the funding was spent and that we should react to it
     _, txid, blocks = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',

@@ -336,7 +336,7 @@ static void convert_replay_txs(struct channel *channel)
 	}
 }
 
-static UNNEEDED void replay_block(struct bitcoind *bitcoind,
+static void replay_block(struct bitcoind *bitcoind,
 			 u32 height,
 			 struct bitcoin_blkid *blkid,
 			 struct bitcoin_block *blk,
@@ -1781,7 +1781,12 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  feerate_min(ld, NULL));
 	subd_send_msg(channel->owner, take(msg));
 
-	watch_tx_and_outputs(channel, tx);
+	/* If we're replaying, we just watch this */
+	if (channel->onchaind_replay_watches) {
+		replay_watch_tx(channel, blockheight, tx);
+	} else {
+		watch_tx_and_outputs(channel, tx);
+	}
 
 	/* We keep watching until peer finally deleted, for reorgs. */
 	return KEEP_WATCHING;
@@ -1789,43 +1794,43 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 
 void onchaind_replay_channels(struct lightningd *ld)
 {
-	u32 *onchaind_ids;
-	struct channeltx *txs;
-	struct channel *chan;
+	struct peer *peer;
+	struct peer_node_id_map_iter it;
 
+	/* We don't hold a db tx for all of init */
 	db_begin_transaction(ld->wallet->db);
-	onchaind_ids = wallet_onchaind_channels(tmpctx, ld->wallet);
 
-	for (size_t i = 0; i < tal_count(onchaind_ids); i++) {
-		log_info(ld->log, "Restarting onchaind for channel %d",
-			 onchaind_ids[i]);
+	/* For each channel, if we've recorded a spend, it's onchaind time! */
+	for (peer = peer_node_id_map_first(ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(ld->peers, &it)) {
+		struct channel *channel;
 
-		txs = wallet_channeltxs_get(onchaind_ids, ld->wallet,
-					    onchaind_ids[i]);
-		chan = channel_by_dbid(ld, onchaind_ids[i]);
+		list_for_each(&peer->channels, channel, list) {
+			struct bitcoin_tx *tx;
+			u32 blockheight;
 
-		for (size_t j = 0; j < tal_count(txs); j++) {
-			if (txs[j].type == WIRE_ONCHAIND_INIT) {
-				onchaind_funding_spent(chan, txs[j].tx,
-						       txs[j].blockheight);
+			if (channel_state_uncommitted(channel->state))
+				continue;
 
-			} else if (txs[j].type == WIRE_ONCHAIND_SPENT) {
-				onchain_txo_spent(chan, txs[j].tx,
-						  txs[j].input_num,
-						  txs[j].blockheight);
+			tx = wallet_get_funding_spend(tmpctx, ld->wallet, channel->dbid,
+						      &blockheight);
+			if (!tx)
+				continue;
 
-			} else if (txs[j].type == WIRE_ONCHAIND_DEPTH) {
-				onchain_tx_depth(chan, &txs[j].txid,
-						 txs[j].depth);
+			log_info(channel->log,
+				 "Restarting onchaind (%s): closed in block %u",
+				 channel_state_name(channel), blockheight);
 
-			} else {
-				fatal("unknown message of type %d during "
-				      "onchaind replay",
-				      txs[j].type);
-			}
+			/* We're in replay mode */
+			channel->onchaind_replay_watches = tal(channel, struct replay_tx_hash);
+			replay_tx_hash_init(channel->onchaind_replay_watches);
+
+			onchaind_funding_spent(channel, tx, blockheight);
+			/* Ask bitcoind to start grabbing those blocks for replay */
+			bitcoind_getrawblockbyheight(channel, ld->topology->bitcoind, blockheight,
+						     replay_block, channel);
 		}
-		tal_free(txs);
 	}
-
 	db_commit_transaction(ld->wallet->db);
 }
