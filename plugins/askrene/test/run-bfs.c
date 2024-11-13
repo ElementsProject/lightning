@@ -6,6 +6,7 @@
 #include <plugins/askrene/graph.h>
 #include <stdio.h>
 
+#define ASKRENE_UNITTEST
 #include "../algorithm.c"
 
 #define MAX_NODES 256

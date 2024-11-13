@@ -6,6 +6,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 
+#define ASKRENE_UNITTEST
 #include "../graph.c"
 
 #define MAX_NODES 10
