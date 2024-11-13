@@ -402,7 +402,7 @@ static struct node dijkstra_nearest_sink(const tal_t *ctx,
 		prev[i].idx = INVALID_INDEX;
 
 /* Only in debug mode we keep track of visited nodes. */
-#ifndef NDEBUG
+#ifdef ASKRENE_UNITTEST
 	bitmap *visited =
 	    tal_arrz(this_ctx, bitmap, BITMAP_NWORDS(max_num_nodes));
 	assert(visited);
@@ -421,7 +421,7 @@ static struct node dijkstra_nearest_sink(const tal_t *ctx,
 		priorityqueue_pop(q);
 
 /* Only in debug mode we keep track of visited nodes. */
-#ifndef NDEBUG
+#ifdef ASKRENE_UNITTEST
 		assert(!bitmap_test_bit(visited, cur.idx));
 		bitmap_set_bit(visited, cur.idx);
 #endif
@@ -598,7 +598,7 @@ bool mcf_refinement(const tal_t *ctx,
 		}
 	}
 
-#ifndef NDEBUG
+#ifdef ASKRENE_UNITTEST
 	/* verify that we have satisfied all constraints */
 	for (u32 i = 0; i < max_num_nodes; i++) {
 		assert(excess[i] == 0);
