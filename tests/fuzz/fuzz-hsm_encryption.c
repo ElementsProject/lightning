@@ -17,7 +17,7 @@ void run(const uint8_t *data, size_t size)
 		struct secret *hsm_secret, decrypted_hsm_secret, encryption_key;
 		char *passphrase;
 		struct encrypted_hsm_secret encrypted_secret;
-		char *emsg;
+		const char *emsg;
 
 		/* Take the first 32 bytes as the plaintext hsm_secret seed,
 		 * and the remaining ones as the passphrase. */
