@@ -53,8 +53,8 @@ and is usually no greater than the number of channels that the node has
 ever had.
 Specify *password* if the `hsm_secret_path` is encrypted.
 
-**generatehsm** *hsm\_secret\_path*
-  Generates a new hsm\_secret using BIP39.
+**generatehsm** *hsm\_secret\_path* \[*lang* *seed\_phrase*  \[*passphrase*\]\]
+  Generates a new hsm\_secret using BIP39.  If lang, seed\_phrase and optional passphrase are not provided they will be prompted for.  *lang* can be "en" (English), "es" (Spanish), "fr" (French), "it" ("Italian"), "jp" (Japanese), "zhs" (Chinese Simplified) or "zht" ("Chinese Traditional"). Note that the seed phrase consists of multiple words, so should be surrounded by quotes.
 
 **checkhsm** *hsm\_secret\_path*
   Checks that hsm\_secret matches a BIP39 passphrase.
@@ -117,4 +117,3 @@ COPYING
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license.
 Main web site: <https://github.com/ElementsProject/lightning>
-
