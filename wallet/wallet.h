@@ -1199,6 +1199,14 @@ struct channeltx *wallet_channeltxs_get(const tal_t *ctx, struct wallet *w,
 					u32 channel_id);
 
 /**
+ * Get the transaction which spend funding for this channel, if any.
+ */
+struct bitcoin_tx *wallet_get_funding_spend(const tal_t *ctx,
+					    struct wallet *w,
+					    u64 channel_id,
+					    u32 *blockheight);
+
+/**
  * Add of update a forwarded_payment
  */
 void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,

@@ -4738,6 +4738,36 @@ struct channeltx *wallet_channeltxs_get(const tal_t *ctx, struct wallet *w,
 	return res;
 }
 
+struct bitcoin_tx *wallet_get_funding_spend(const tal_t *ctx,
+					    struct wallet *w,
+					    u64 channel_id,
+					    u32 *blockheight)
+{
+	struct db_stmt *stmt;
+	struct bitcoin_tx *tx;
+
+	stmt = db_prepare_v2(w->db,
+			     SQL("SELECT"
+				 " t.blockheight"
+				 ", t.rawtx"
+				 " FROM channeltxs c"
+				 " JOIN transactions t ON t.id = c.transaction_id"
+				 " WHERE c.channel_id = ? AND t.blockheight IS NOT NULL AND c.type = ?"
+				 " ORDER BY c.id ASC;"));
+	db_bind_int(stmt, channel_id);
+	db_bind_int(stmt, WIRE_ONCHAIND_INIT);
+	db_query_prepared(stmt);
+
+	if (db_step(stmt)) {
+		tx = db_col_tx(ctx, stmt, "t.rawtx");
+		*blockheight = db_col_int(stmt, "t.blockheight");
+	} else
+		tx = NULL;
+	tal_free(stmt);
+
+	return tx;
+}
+
 static bool wallet_forwarded_payment_update(struct wallet *w,
 					    const struct htlc_in *in,
 					    const struct htlc_out *out,
