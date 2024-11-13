@@ -43,7 +43,7 @@ static void show_usage(const char *progname)
 	       "<path/to/hsm_secret>\n");
 	printf("	- guesstoremote <P2WPKH address> <node id> <tries> "
 	       "<path/to/hsm_secret>\n");
-	printf("	- generatehsm <path/to/new/hsm_secret> [<language_id> <word list> [<password>]");
+	printf("	- generatehsm <path/to/new/hsm_secret> [<language_id> <word list> [<password>]]\n");
 	printf("	- checkhsm <path/to/new/hsm_secret>\n");
 	printf("	- dumponchaindescriptors [--show-secrets] <path/to/hsm_secret> [network]\n");
 	printf("	- makerune <path/to/hsm_secret>\n");
