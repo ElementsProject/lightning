@@ -129,11 +129,11 @@ static struct command_result *json_exposesecret(struct command *cmd,
 	return command_finished(cmd, js);
 }
 
-static const char *init(struct plugin *plugin,
+static const char *init(struct command *init_cmd,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
-	struct exposesecret *exposesecret = exposesecret_data(plugin);
-	rpc_scan(plugin, "getinfo",
+	struct exposesecret *exposesecret = exposesecret_data(init_cmd->plugin);
+	rpc_scan(init_cmd, "getinfo",
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{id:%,alias:%}",
 		 JSON_SCAN(json_to_pubkey, &exposesecret->our_node_id),
