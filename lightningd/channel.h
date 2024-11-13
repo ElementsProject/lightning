@@ -194,6 +194,9 @@ struct channel {
 	/* Watch we have on funding output. */
 	struct txowatch *funding_spend_watch;
 
+	/* If we're doing a replay for onchaind, here are the txids it's watching */
+	struct replay_tx_hash *onchaind_replay_watches;
+
 	/* Our original funds, in funding amount */
 	struct amount_sat our_funds;
 

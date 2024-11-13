@@ -26,6 +26,27 @@
 #include <wally_psbt.h>
 #include <wire/wire_sync.h>
 
+/* If we're restarting, we keep a per-channel copy of watches, and replay */
+struct replay_tx {
+	u32 blockheight;
+	struct bitcoin_txid txid;
+	struct bitcoin_tx *tx;
+};
+
+static const struct bitcoin_txid *replay_tx_keyof(const struct replay_tx *rtx)
+{
+	return &rtx->txid;
+}
+
+static bool replay_tx_eq_txid(const struct replay_tx *rtx,
+			      const struct bitcoin_txid *txid)
+{
+	return bitcoin_txid_eq(&rtx->txid, txid);
+}
+
+HTABLE_DEFINE_TYPE(struct replay_tx, replay_tx_keyof, txid_hash, replay_tx_eq_txid,
+		   replay_tx_hash);
+
 /* We dump all the known preimages when onchaind starts up. */
 static void onchaind_tell_fulfill(struct channel *channel)
 {
@@ -280,6 +301,86 @@ static void handle_onchain_log_coin_move(struct channel *channel, const u8 *msg)
 	tal_free(mvt);
 }
 
+static void replay_watch_tx(struct channel *channel,
+			    u32 blockheight,
+			    const struct bitcoin_tx *tx TAKES)
+{
+	struct replay_tx *rtx = tal(channel->onchaind_replay_watches, struct replay_tx);
+	bitcoin_txid(tx, &rtx->txid);
+	rtx->blockheight = blockheight;
+	rtx->tx = clone_bitcoin_tx(rtx, tx);
+
+	replay_tx_hash_add(channel->onchaind_replay_watches, rtx);
+}
+
+static void replay_unwatch_txid(struct channel *channel,
+				const struct bitcoin_txid *txid)
+{
+	replay_tx_hash_delkey(channel->onchaind_replay_watches, txid);
+}
+
+/* We've finished replaying, turn any txs left into live watches */
+static void convert_replay_txs(struct channel *channel)
+{
+	struct replay_tx *rtx;
+	struct replay_tx_hash_iter rit;
+	struct replay_tx_hash *watches;
+
+	/* Set to NULL so these are queued as real watches */
+	watches = tal_steal(tmpctx, channel->onchaind_replay_watches);
+	channel->onchaind_replay_watches = NULL;
+	for (rtx = replay_tx_hash_first(watches, &rit);
+	     rtx;
+	     rtx = replay_tx_hash_next(watches, &rit)) {
+		watch_tx_and_outputs(channel, rtx->tx);
+	}
+}
+
+static UNNEEDED void replay_block(struct bitcoind *bitcoind,
+			 u32 height,
+			 struct bitcoin_blkid *blkid,
+			 struct bitcoin_block *blk,
+			 struct channel *channel)
+{
+	struct replay_tx *rtx;
+	struct replay_tx_hash_iter rit;
+
+	/* Tell onchaind that all existing txs have reached a new depth */
+	for (rtx = replay_tx_hash_first(channel->onchaind_replay_watches, &rit);
+	     rtx;
+	     rtx = replay_tx_hash_next(channel->onchaind_replay_watches, &rit)) {
+		/* Note: if you're in this block, that's depth 1! */
+		onchain_tx_depth(channel, &rtx->txid, height - rtx->blockheight + 1);
+	}
+
+	/* See if we add any new txs which spend a watched one */
+	for (size_t i = 0; i < tal_count(blk->tx); i++) {
+		for (size_t j = 0; j < blk->tx[i]->wtx->num_inputs; j++) {
+			struct bitcoin_txid spent;
+			bitcoin_tx_input_get_txid(blk->tx[i], j, &spent);
+			rtx = replay_tx_hash_get(channel->onchaind_replay_watches, &spent);
+			if (rtx) {
+				/* Note: for efficiency, blk->tx's don't have
+				 * PSBTs, so add one now */
+				if (!blk->tx[i]->psbt)
+					blk->tx[i]->psbt = new_psbt(blk->tx[i], blk->tx[i]->wtx);
+				onchain_txo_spent(channel, blk->tx[i], j, height);
+				/* Watch this and all the children too. */
+				replay_watch_tx(channel, height, blk->tx[i]);
+			}
+		}
+	}
+
+	/* Replay finished?  Now we'll get fed real blocks */
+	if (height == get_block_height(bitcoind->ld->topology)) {
+		convert_replay_txs(channel);
+		return;
+	}
+
+	/* Otherwise, loop on next block. */
+	bitcoind_getrawblockbyheight(channel, bitcoind, height + 1, replay_block, channel);
+}
+
 static void handle_onchain_unwatch_tx(struct channel *channel, const u8 *msg)
 {
 	struct bitcoin_txid txid;
@@ -287,6 +388,12 @@ static void handle_onchain_unwatch_tx(struct channel *channel, const u8 *msg)
 
 	if (!fromwire_onchaind_unwatch_tx(msg, &txid)) {
 		channel_internal_error(channel, "Invalid onchain_unwatch_tx");
+		return;
+	}
+
+	/* If we're doing replay: */
+	if (channel->onchaind_replay_watches) {
+		replay_unwatch_txid(channel, &txid);
 		return;
 	}
 
