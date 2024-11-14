@@ -1155,12 +1155,6 @@ u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
 		      const struct channel_id *channel UNNEEDED,
 		      const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_warningfmt called!\n"); abort(); }
-/* Generated stub for trace_span_end */
-void trace_span_end(const void *key UNNEEDED)
-{ fprintf(stderr, "trace_span_end called!\n"); abort(); }
-/* Generated stub for trace_span_start */
-void trace_span_start(const char *name UNNEEDED, const void *key UNNEEDED)
-{ fprintf(stderr, "trace_span_start called!\n"); abort(); }
 /* Generated stub for try_reconnect */
 void try_reconnect(const tal_t *ctx UNNEEDED,
 		   struct peer *peer UNNEEDED,
