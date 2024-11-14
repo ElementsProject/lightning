@@ -84,6 +84,8 @@ static void migrate_initialize_forwards_wait_indexes(struct lightningd *ld,
 						     struct db *db);
 static void migrate_initialize_alias_local(struct lightningd *ld,
 					   struct db *db);
+static void insert_addrtype_to_addresses(struct lightningd *ld,
+					   struct db *db);
 
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
@@ -1024,6 +1026,7 @@ static struct migration dbmigrations[] = {
     {SQL("CREATE TABLE addresses ("
 	 "  keyidx BIGINT,"
 	 "  addrtype INTEGER)"), NULL},
+    {NULL, insert_addrtype_to_addresses},
 };
 
 /**
@@ -1996,6 +1999,25 @@ static void migrate_initialize_alias_local(struct lightningd *ld,
 		randombytes_buf(&alias, sizeof(alias));
 		db_bind_short_channel_id(stmt, alias);
 		db_bind_u64(stmt, ids[i]);
+		db_exec_prepared_v2(stmt);
+		tal_free(stmt);
+	}
+}
+
+/* Insert address type as `ADDR_ALL` for issued addresses */
+static void insert_addrtype_to_addresses(struct lightningd *ld,
+					   struct db *db)
+{
+	struct db_stmt *stmt;
+	u64 bip32_max_index = db_get_intvar(db, "bip32_max_index", 0);
+	for (u64 newidx = 1; newidx <= bip32_max_index; newidx++) {
+		stmt = db_prepare_v2(db,
+					SQL("INSERT INTO addresses ("
+					"  keyidx"
+					", addrtype"
+					") VALUES (?, ?);"));
+		db_bind_u64(stmt, newidx);
+		db_bind_int(stmt, wallet_addrtype_in_db(ADDR_ALL));
 		db_exec_prepared_v2(stmt);
 		tal_free(stmt);
 	}
