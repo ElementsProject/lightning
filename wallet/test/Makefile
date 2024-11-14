@@ -25,6 +25,7 @@ WALLET_TEST_COMMON_OBJS :=			\
 	common/pseudorand.o			\
 	common/setup.o				\
 	common/timeout.o			\
+	common/trace.o				\
 	common/utils.o				\
 	common/utxo.o				\
 	common/wireaddr.o			\

@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/tal/str/str.h>
+#include <common/trace.h>
 #include <common/utils.h>
 #include <db/common.h>
 #include <db/utils.h>
@@ -140,9 +141,12 @@ bool db_query_prepared_canfail(struct db_stmt *stmt)
 	 * read-only path. */
 	bool ret;
 	assert(stmt->query->readonly);
+	trace_span_start("db_query_prepared", stmt);
+	trace_span_tag(&ret, "query", stmt->query->query);
 	ret = stmt->db->config->query_fn(stmt);
 	stmt->executed = true;
 	list_del_from(&stmt->db->pending_statements, &stmt->list);
+	trace_span_end(stmt);
 	return ret;
 }
 
@@ -171,7 +175,10 @@ bool db_step(struct db_stmt *stmt)
 
 void db_exec_prepared_v2(struct db_stmt *stmt TAKES)
 {
+	trace_span_start("db_query_prepared", stmt);
+	trace_span_tag(stmt, "query", stmt->query->query);
 	bool ret = stmt->db->config->exec_fn(stmt);
+	trace_span_end(stmt);
 
 	if (stmt->db->readonly)
 		assert(stmt->query->readonly);
@@ -357,10 +364,12 @@ struct db *db_open_(const tal_t *ctx, const char *filename,
 	/* This must be outside a transaction, so catch it */
 	assert(!db->in_transaction);
 
+	trace_span_start("db_setup", db);
 	db_prepare_for_changes(db);
 	if (db->config->setup_fn && !db->config->setup_fn(db))
 		db_fatal(db, "Error calling DB setup: %s", db->error);
 	db_report_changes(db, NULL, 0);
+	trace_span_end(db);
 
 	return db;
 }
