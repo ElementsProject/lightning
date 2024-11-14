@@ -482,7 +482,7 @@ static void combine_cost_function(
 {
 	/* probabilty and fee costs are not directly comparable!
 	 * Scale by ratio of (positive) medians. */
-	const double k = 1000 * get_median_ratio(working_ctx, linear_network);
+	const double k = get_median_ratio(working_ctx, linear_network);
 	const double ln_30 = log(30);
 	const struct graph *graph = linear_network->graph;
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
