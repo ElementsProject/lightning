@@ -1798,4 +1798,23 @@ void wallet_remove_local_anchors(struct wallet *w,
 struct local_anchor_info *wallet_get_local_anchors(const tal_t *ctx,
 						   struct wallet *w,
 						   u64 channel_id);
+
+/* Get the addresses addrtype */
+struct issued_address_type {
+	u64 keyidx;
+	enum addrtype addrtype;
+};
+
+/**
+ * wallet_list_addresses: get the list of addresses with addrtype
+ *
+ * @ctx: tal context for returned array
+ * @wallet: the wallet
+ * @liststart: first index to return (0 == all).
+ * @listlimit: limit on number of entries to return (NULL == no limit).
+ *
+ * Returns NULL if none, otherwise list of addresses with addrtype.
+ */
+struct issued_address_type *wallet_list_addresses(const tal_t *ctx, struct wallet *wallet,
+					 u64 liststart, const u32 *listlimit);
 #endif /* LIGHTNING_WALLET_WALLET_H */
