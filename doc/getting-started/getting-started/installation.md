@@ -326,7 +326,7 @@ make
 Assuming you have Xcode and Homebrew installed. Install dependencies:
 
 ```shell
-brew install autoconf automake libtool python3 gnu-sed gettext libsodium
+brew install autoconf automake libtool python3 gnu-sed gettext libsodium protobuf
 ln -s /usr/local/Cellar/gettext/0.20.1/bin/xgettext /usr/local/opt
 export PATH="/usr/local/opt:$PATH"
 ```
