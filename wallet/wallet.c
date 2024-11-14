@@ -6377,3 +6377,25 @@ struct local_anchor_info *wallet_get_local_anchors(const tal_t *ctx,
 
 	return anchors;
 }
+
+struct issued_address_type *wallet_list_addresses(const tal_t *ctx, struct wallet *wallet,
+						   u64 liststart, const u32 *listlimit)
+{
+	struct db_stmt *stmt;
+	struct issued_address_type *addresseslist = tal_arr(ctx, struct issued_address_type, 0);
+	stmt = db_prepare_v2(wallet->db, SQL("SELECT keyidx, addrtype FROM addresses WHERE keyidx >= ? ORDER BY keyidx LIMIT ?;"));
+	db_bind_u64(stmt, liststart);
+	if (listlimit)
+		db_bind_int(stmt, *listlimit);
+	else
+		db_bind_int(stmt, INT_MAX);
+	db_query_prepared(stmt);
+	while(db_step(stmt)) {
+		struct issued_address_type a;
+		a.keyidx = db_col_u64(stmt, "keyidx");
+		a.addrtype = wallet_addrtype_in_db(db_col_int(stmt, "addrtype"));
+		tal_arr_expand(&addresseslist, a);
+	}
+	tal_free(stmt);
+	return addresseslist;
+}
