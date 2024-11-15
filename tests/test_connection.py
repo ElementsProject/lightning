@@ -4581,6 +4581,11 @@ def test_wss_proxy(node_factory):
             self.recvbuf = self.recvbuf[maxlen:]
             return ret
 
+    # There can be a delay between the printing of "Websocket Secure Server Started"
+    # and actually binding the port.  There's no obvious way to delay that message
+    # it's done.  So we sleep here.
+    time.sleep(10)
+
     wss = BindWebSecureSocket('localhost', wss_port)
 
     lconn = wire.LightningConnection(wss,
