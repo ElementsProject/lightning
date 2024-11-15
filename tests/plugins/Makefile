@@ -10,8 +10,11 @@ PLUGIN_TESTSELFDISABLE_AFTER_GETMANIFEST_OBJS := $(PLUGIN_TESTSELFDISABLE_AFTER_
 
 tests/plugins/test_selfdisable_after_getmanifest: bitcoin/chainparams.o $(PLUGIN_TESTSELFDISABLE_AFTER_GETMANIFEST_OBJS) common/autodata.o common/json_parse_simple.o common/setup.o common/utils.o $(JSMN_OBJS)
 
+PLUGIN_CHANNELD_FAKENET_SRC := tests/plugins/channeld_fakenet.c 
+PLUGIN_CHANNELD_FAKENET_OBJS := $(PLUGIN_CHANNELD_FAKENET_SRC:.c=.o)
+
 tests/plugins/channeld_fakenet:			\
-	tests/plugins/channeld_fakenet.o	\
+	$(PLUGIN_CHANNELD_FAKENET_OBJS)		\
 	channeld/channeld_wiregen.o		\
 	channeld/commit_tx.o			\
 	bitcoin/block.o				\
@@ -96,4 +99,4 @@ tests/plugins/channeld_fakenet:			\
 
 # Make sure these depend on everything.
 ALL_TEST_PROGRAMS += tests/plugins/test_libplugin tests/plugins/test_selfdisable_after_getmanifest tests/plugins/channeld_fakenet
-ALL_C_SOURCES += $(PLUGIN_TESTLIBPLUGIN_SRC) $(PLUGIN_TESTSELFDISABLE_AFTER_GETMANIFEST_SRC) $(PLUGIN_CHANNELD_FAKENET)
+ALL_C_SOURCES += $(PLUGIN_TESTLIBPLUGIN_SRC) $(PLUGIN_TESTSELFDISABLE_AFTER_GETMANIFEST_SRC) $(PLUGIN_CHANNELD_FAKENET_SRC)
