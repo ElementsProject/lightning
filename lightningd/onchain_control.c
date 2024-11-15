@@ -383,6 +383,10 @@ static void replay_block(struct bitcoind *bitcoind,
 	struct replay_tx *rtx;
 	struct replay_tx_hash_iter rit;
 
+	/* If we're shutting down, this can happen! */
+	if (!channel->owner)
+		return;
+
 	/* Tell onchaind that all existing txs have reached a new depth */
 	for (rtx = replay_tx_hash_first(channel->onchaind_replay_watches, &rit);
 	     rtx;
