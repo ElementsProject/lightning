@@ -1334,6 +1334,12 @@ class LightningNode(object):
             rawtx = re.search(r'.* tx ([0-9a-fA-F]*)', r).group(1)
             txid = self.bitcoin.rpc.decoderawtransaction(rawtx, True)['txid']
             ret = ret + ((rawtx, txid, blocks),)
+            # If it's delayed, we get 'Deferring broadcast of txid' on next line, otherwise
+            # we get 'Broadcasting txid'.  In the latter, make sure bitcoind has it!
+            r = self.daemon.wait_for_log('Deferring broadcast of txid|Broadcasting txid')
+            if 'Broadcasting txid' in r:
+                self.daemon.wait_for_log(f"plugin-bcli: sendrawtx exit.*{rawtx}")
+
         return ret
 
     def wait_for_onchaind_tx(self, name, resolve):
