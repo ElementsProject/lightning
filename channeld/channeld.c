@@ -3485,6 +3485,12 @@ static void resume_splice_negotiation(struct peer *peer,
 				    "Splicing bad tx_signatures msg %s",
 				    tal_hex(msg, msg));
 
+		if (!their_txsigs_tlvs->shared_input_signature)
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "tx_signatures msg must include"
+					 " `shared_input_signature`. Msg: %s",
+					 tal_hex(msg, msg));
+
 		if (peer->splicing)
 			peer->splicing->inws = tal_steal(peer->splicing, inws);
 
@@ -3501,8 +3507,8 @@ static void resume_splice_negotiation(struct peer *peer,
 		/* BOLT-a8b9f495cac28124c69cc5ee429f9ef2bacb9921 #2:
 		 * Both nodes:
 		 *   - MUST sign the transaction using SIGHASH_ALL */
-		their_sig.sighash_type = SIGHASH_ALL;
-		their_sig.s = *their_txsigs_tlvs->shared_input_signature;
+		their_sig->sighash_type = SIGHASH_ALL;
+		their_sig->s = *their_txsigs_tlvs->shared_input_signature;
 
 		/* Set the commit_sig on the commitment tx psbt */
 		if (!psbt_input_set_signature(current_psbt,
@@ -3727,7 +3733,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Splice internal error: mismatched channelid");
 
-	if (!pubkey_eq(&splice_remote_pubkey,
+	if (!pubkey_eq(&peer->splicing->remote_funding_pubkey,
 		       &peer->channel->funding_pubkey[REMOTE]))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Splice doesnt support changing pubkeys");
@@ -3757,6 +3763,11 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	ictx->next_update_fn = next_splice_step;
 	ictx->desired_psbt = NULL;
 	ictx->pause_when_complete = false;
+
+	ictx->shared_outpoint = tal(ictx, struct bitcoin_outpoint);
+	*ictx->shared_outpoint = peer->channel->funding;
+	ictx->funding_tx = bitcoin_tx_from_txid(peer,
+						peer->channel->funding.txid);
 
 	error = process_interactivetx_updates(tmpctx, ictx,
 					      &peer->splicing->received_tx_complete,
@@ -3845,6 +3856,7 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 	u32 sequence = 0;
 	u8 *scriptPubkey;
 
+	/* DTODO: Remove ictx from this function as its no longer used. */
 	ictx = new_interactivetx_context(tmpctx, TX_INITIATOR,
 					 peer->pps, peer->channel_id);
 
@@ -3860,7 +3872,7 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Splice[ACK] internal error: mismatched channelid");
 
-	if (!pubkey_eq(&splice_remote_pubkey,
+	if (!pubkey_eq(&peer->splicing->remote_funding_pubkey,
 		       &peer->channel->funding_pubkey[REMOTE]))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Splice[ACK] doesnt support changing pubkeys");
@@ -3926,6 +3938,10 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 
 	psbt_add_serials(ictx->desired_psbt, ictx->our_role);
 
+	ictx->shared_outpoint = tal(ictx, struct bitcoin_outpoint);
+	*ictx->shared_outpoint = peer->channel->funding;
+	ictx->funding_tx = prev_tx;
+
 	peer->splicing->tx_add_input_count = 0;
 	peer->splicing->tx_add_output_count = 0;
 
@@ -3949,6 +3965,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 {
 	u8 *outmsg;
 	struct interactivetx_context *ictx;
+	struct bitcoin_tx *prev_tx;
 	bool sign_first;
 	char *error;
 	u32 chan_output_index, splice_funding_index;
@@ -3961,6 +3978,9 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	const enum tx_role our_role = TX_INITIATOR;
 	u8 *abort_msg;
 
+	/* We must loading the funding tx as our previous utxo */
+	prev_tx = bitcoin_tx_from_txid(peer, peer->channel->funding.txid);
+
 	ictx = new_interactivetx_context(tmpctx, our_role,
 					 peer->pps, peer->channel_id);
 
@@ -3969,6 +3989,10 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	ictx->desired_psbt = ictx->current_psbt = peer->splicing->current_psbt;
 	ictx->tx_add_input_count = peer->splicing->tx_add_input_count;
 	ictx->tx_add_output_count = peer->splicing->tx_add_output_count;
+
+	ictx->shared_outpoint = tal(ictx, struct bitcoin_outpoint);
+	*ictx->shared_outpoint = peer->channel->funding;
+	ictx->funding_tx = prev_tx;
 
 	error = process_interactivetx_updates(tmpctx, ictx,
 					      &peer->splicing->received_tx_complete,
