@@ -83,7 +83,7 @@ char *fmt_secp256k1_pubkey(const tal_t *ctx, const secp256k1_pubkey *key)
 
 int pubkey_cmp(const struct pubkey *a, const struct pubkey *b)
 {
-	u8 keya[33], keyb[33];
+	u8 keya[PUBKEY_CMPR_LEN], keyb[PUBKEY_CMPR_LEN];
 	pubkey_to_der(keya, a);
 	pubkey_to_der(keyb, b);
 	return memcmp(keya, keyb, sizeof(keya));
