@@ -4450,6 +4450,7 @@ def test_listchannels_broken_message(node_factory):
     l1.rpc.listchannels()
 
 
+@unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
 def test_exposesecret(node_factory):
     l1, l2 = node_factory.get_nodes(2, opts=[{'exposesecret-passphrase': "test_exposesecret"}, {}])
 
