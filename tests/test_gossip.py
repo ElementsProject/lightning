@@ -748,19 +748,32 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
                            chainparams['chain_hash'],
                            0, 1000000,
                            filters=['0109', '0107', '0012'])
-    encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12, scid23],
-                             check=True,
-                             timeout=TIMEOUT,
-                             stdout=subprocess.PIPE).stdout.strip().decode()
+    # Either order!
+    encoded1 = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12, scid23],
+                              check=True,
+                              timeout=TIMEOUT,
+                              stdout=subprocess.PIPE).stdout.strip().decode()
+    encoded2 = subprocess.run(['devtools/mkencoded', '--scids', '00', scid23, scid12],
+                              check=True,
+                              timeout=TIMEOUT,
+                              stdout=subprocess.PIPE).stdout.strip().decode()
     # reply_channel_range == 264
-    assert msgs == ['0108'
-                    # blockhash
-                    + genesis_blockhash
-                    # first_blocknum, number_of_blocks, complete
-                    + format(0, '08x') + format(1000000, '08x') + '01'
-                    # encoded_short_ids
-                    + format(len(encoded) // 2, '04x')
-                    + encoded]
+    assert msgs in (['0108'
+                     # blockhash
+                     + genesis_blockhash
+                     # first_blocknum, number_of_blocks, complete
+                     + format(0, '08x') + format(1000000, '08x') + '01'
+                     # encoded_short_ids
+                     + format(len(encoded1) // 2, '04x')
+                     + encoded1],
+                    ['0108'
+                     # blockhash
+                     + genesis_blockhash
+                     # first_blocknum, number_of_blocks, complete
+                     + format(0, '08x') + format(1000000, '08x') + '01'
+                     # encoded_short_ids
+                     + format(len(encoded2) // 2, '04x')
+                     + encoded2])
 
     # Does not include scid12
     msgs = l4.query_gossip('query_channel_range',
@@ -819,19 +832,32 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
                            genesis_blockhash,
                            block12, block23 - block12 + 1,
                            filters=['0109', '0107', '0012'])
-    encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12, scid23],
-                             check=True,
-                             timeout=TIMEOUT,
-                             stdout=subprocess.PIPE).stdout.strip().decode()
+    # Either order
+    encoded1 = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12, scid23],
+                              check=True,
+                              timeout=TIMEOUT,
+                              stdout=subprocess.PIPE).stdout.strip().decode()
+    encoded2 = subprocess.run(['devtools/mkencoded', '--scids', '00', scid23, scid12],
+                              check=True,
+                              timeout=TIMEOUT,
+                              stdout=subprocess.PIPE).stdout.strip().decode()
     # reply_channel_range == 264
-    assert msgs == ['0108'
-                    # blockhash
-                    + genesis_blockhash
-                    # first_blocknum, number_of_blocks, complete
-                    + format(block12, '08x') + format(block23 - block12 + 1, '08x') + '01'
-                    # encoded_short_ids
-                    + format(len(encoded) // 2, '04x')
-                    + encoded]
+    assert msgs in (['0108'
+                     # blockhash
+                     + genesis_blockhash
+                     # first_blocknum, number_of_blocks, complete
+                     + format(block12, '08x') + format(block23 - block12 + 1, '08x') + '01'
+                     # encoded_short_ids
+                     + format(len(encoded1) // 2, '04x')
+                     + encoded1],
+                    ['0108'
+                     # blockhash
+                     + genesis_blockhash
+                     # first_blocknum, number_of_blocks, complete
+                     + format(block12, '08x') + format(block23 - block12 + 1, '08x') + '01'
+                     # encoded_short_ids
+                     + format(len(encoded2) // 2, '04x')
+                     + encoded2])
 
     # Only includes scid23
     msgs = l4.query_gossip('query_channel_range',
@@ -888,11 +914,16 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
         assert this_start == start
         start += num
 
-    encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12, scid23],
-                             check=True,
-                             timeout=TIMEOUT,
-                             stdout=subprocess.PIPE).stdout.strip().decode()
-    assert scids == encoded
+    # Either order
+    encoded1 = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12, scid23],
+                              check=True,
+                              timeout=TIMEOUT,
+                              stdout=subprocess.PIPE).stdout.strip().decode()
+    encoded2 = subprocess.run(['devtools/mkencoded', '--scids', '00', scid23, scid12],
+                              check=True,
+                              timeout=TIMEOUT,
+                              stdout=subprocess.PIPE).stdout.strip().decode()
+    assert scids in (encoded1, encoded2)
 
     # Test overflow case doesn't split forever; should still only get 2 for this
     msgs = l4.query_gossip('query_channel_range',
