@@ -1759,12 +1759,16 @@ def test_onchain_unwatch(node_factory, bitcoind, chainparams):
     channel_id = first_channel_id(l1, l2)
 
     l1.pay(l2, 200000000)
+    # If the HTLC isn't completely removed, we will use an anchor to bump
+    # the commitment tx.  Under valgrind we tend to resolve the HTLC
+    # before getting to dev_fail.  Unify the cases by waiting a bit.
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
 
     l1.rpc.dev_fail(l2.info['id'])
     l1.daemon.wait_for_log('Failing due to dev-fail command')
     l1.wait_for_channel_onchain(l2.info['id'])
 
-    l1.bitcoin.generate_block(1)
+    l1.bitcoin.generate_block(1, wait_for_mempool=1)
     l1.daemon.wait_for_log(' to ONCHAIN')
     l2.daemon.wait_for_log(' to ONCHAIN')
 
@@ -1785,11 +1789,7 @@ def test_onchain_unwatch(node_factory, bitcoind, chainparams):
     l1.rpc.withdraw(l1.rpc.newaddr()['bech32'], 'all')
     bitcoind.generate_block(1)
 
-    # We see *two* of these: one for anchor spend as well!
-    if chainparams['elements']:
-        l1.daemon.wait_for_log("but we don't care")
-    else:
-        l1.daemon.wait_for_logs(["but we don't care"] * 2)
+    l1.daemon.wait_for_log("but we don't care")
 
     # And lightningd should respect that!
     assert not l1.daemon.is_in_log("Can't unwatch txid")
