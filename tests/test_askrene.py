@@ -1033,8 +1033,8 @@ def test_real_data(node_factory, bitcoind):
 
     # CI, it's slow.
     if SLOW_MACHINE:
-        limit = 50
-        expected = (7, 49, 2912123, 259464, 92)
+        limit = 25
+        expected = (4, 25, 1533317, 143026, 91)
     else:
         limit = 100
         expected = (8, 95, 6007785, 564997, 91)
@@ -1148,13 +1148,21 @@ def test_real_biases(node_factory, bitcoind):
         97: r"We could not find a usable set of paths\.  The shortest path is 103x1x0->0x3301x1646->0x1281x2323->97x1281x33241, but 97x1281x33241/1 isn't big enough to carry 100000000msat\.",
     }
 
+    # CI, it's slow.
+    if SLOW_MACHINE:
+        limit = 25
+        expected = ({1: 4, 2: 5, 4: 7, 8: 11, 16: 14, 32: 19, 64: 25, 100: 25}, 0)
+    else:
+        limit = 100
+        expected = ({1: 19, 2: 25, 4: 36, 8: 51, 16: 66, 32: 81, 64: 96, 100: 96}, 0)
+
     l1.rpc.askrene_create_layer('biases')
     num_changed = {}
     bias_ineffective = 0
 
     for bias in (1, 2, 4, 8, 16, 32, 64, 100):
         num_changed[bias] = 0
-        for n in range(0, 100):
+        for n in range(0, limit):
             # 0.5% is the norm
             MAX_FEE = AMOUNT // 200
 
@@ -1216,7 +1224,7 @@ def test_real_biases(node_factory, bitcoind):
                                               enabled=True)
 
     # With e^(-bias / (100/ln(30))):
-    assert (num_changed, bias_ineffective) == ({1: 19, 2: 25, 4: 36, 8: 51, 16: 66, 32: 81, 64: 96, 100: 96}, 0)
+    assert (num_changed, bias_ineffective) == expected
 
 
 @pytest.mark.slow_test
