@@ -420,6 +420,10 @@ def test_grpc_connect_notification(node_factory):
 
     # Test the connect notification
     connect_stream = l1.grpc.SubscribeConnect(clnpb.StreamConnectRequest())
+
+    # FIXME: The above does not seem to be synchronous, causing a flake.  Wait
+    # until it does something (and this seems to be something!)
+    l1.daemon.wait_for_log('plugin-cln-grpc: received settings ACK')
     l2.connect(l1)
 
     for connect_event in connect_stream:
