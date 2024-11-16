@@ -20,6 +20,7 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      gcc-arm-none-eabi \
      gettext \
      git \
+     jq \
      libc6-dev-arm64-cross \
      libc6-dev-armhf-cross \
      libpq-dev \
