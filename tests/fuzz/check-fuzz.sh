@@ -1,9 +1,10 @@
 #!/bin/bash -eu
 
 # Runs each fuzz target on its seed corpus and prints any failures.
-
-readonly FUZZ_DIR=$(dirname "$0")
-readonly TARGETS=$(find "${FUZZ_DIR}" -type f -name "fuzz-*" ! -name "*.*")
+FUZZ_DIR=$(dirname "$0")
+readonly FUZZ_DIR
+TARGETS=$(find "${FUZZ_DIR}" -type f -name "fuzz-*" ! -name "*.*")
+readonly TARGETS
 
 export UBSAN_OPTIONS="halt_on_error=1:print_stacktrace=1"
 
