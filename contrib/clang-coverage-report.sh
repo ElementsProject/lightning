@@ -17,7 +17,8 @@ readonly BINARY="$1"
 readonly RAW_PROFILE_FILE="$2"
 readonly TARGET_HTML_FILE="$3"
 
-readonly MERGED_PROFILE_FILE=$(mktemp)
+MERGED_PROFILE_FILE=$(mktemp)
+readonly MERGED_PROFILE_FILE
 
 llvm-profdata merge -sparse "${RAW_PROFILE_FILE}" -o "${MERGED_PROFILE_FILE}"
 llvm-cov show "${BINARY}" -instr-profile="${MERGED_PROFILE_FILE}" -format=html \
