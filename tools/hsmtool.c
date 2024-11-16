@@ -530,7 +530,7 @@ static char *read_mnemonic(void) {
 
 static int generate_hsm(const char *hsm_secret_path,
 			const char *lang_id,
-			const char *mnemonic,
+			char *mnemonic,
 			char *passphrase)
 {
 	const char *err;
@@ -584,6 +584,7 @@ static int generate_hsm(const char *hsm_secret_path,
 	printf("New hsm_secret file created at %s\n", hsm_secret_path);
 	printf("Use the `encrypt` command to encrypt the BIP32 seed if needed\n");
 
+	free(mnemonic);
 	free(passphrase);
 	return 0;
 }
@@ -685,6 +686,7 @@ static int check_hsm(const char *hsm_secret_path)
 
 	printf("OK\n");
 
+	free(mnemonic);
 	free(passphrase);
 	return 0;
 }
@@ -810,8 +812,8 @@ int main(int argc, char *argv[])
 		if (lang_id && !check_lang(lang_id))
 			show_usage(argv[0]);
 
-		word_list = (argc > 4 ? argv[4] : NULL);
-		/* generate_hsm expects to free this, so use strdup */
+		/* generate_hsm expects to free these, so use strdup */
+		word_list = (argc > 4 ? strdup(argv[4]) : NULL);
 		passphrase = (argc > 5 ? strdup(argv[5]) : NULL);
 
 		return generate_hsm(hsm_secret_path, lang_id, word_list, passphrase);
