@@ -166,26 +166,27 @@ def test_sources(node_factory):
     assert (reckless_dir / '.sources').exists()
     print(os.listdir(reckless_dir))
     print(reckless_dir / '.sources')
+    plugin_dir = str(os.path.join(n.lightning_dir, '..', 'lightningd'))
     r = reckless([f"--network={NETWORK}", "-v", "source", "add",
-                  "tests/data/recklessrepo/lightningd/testplugfail"],
+                  f'{plugin_dir}/testplugfail'],
                  dir=n.lightning_dir)
     r = reckless([f"--network={NETWORK}", "-v", "source", "add",
-                  "tests/data/recklessrepo/lightningd/testplugpass"],
+                  f'{plugin_dir}/testplugpass'],
                  dir=n.lightning_dir)
     with open(reckless_dir / '.sources') as sources:
         contents = [c.strip() for c in sources.readlines()]
         print('contents:', contents)
         assert 'https://github.com/lightningd/plugins' in contents
-        assert "tests/data/recklessrepo/lightningd/testplugfail" in contents
-        assert "tests/data/recklessrepo/lightningd/testplugpass" in contents
+        assert f'{plugin_dir}/testplugfail' in contents
+        assert f'{plugin_dir}/testplugpass' in contents
     r = reckless([f"--network={NETWORK}", "-v", "source", "remove",
-                  "tests/data/recklessrepo/lightningd/testplugfail"],
+                  f'{plugin_dir}/testplugfail'],
                  dir=n.lightning_dir)
     with open(reckless_dir / '.sources') as sources:
         contents = [c.strip() for c in sources.readlines()]
         print('contents:', contents)
-        assert "tests/data/recklessrepo/lightningd/testplugfail" not in contents
-        assert "tests/data/recklessrepo/lightningd/testplugpass" in contents
+        assert f'{plugin_dir}/testplugfail' not in contents
+        assert f'{plugin_dir}/testplugpass' in contents
 
 
 def test_search(node_factory):
@@ -236,7 +237,7 @@ def test_local_dir_install(node_factory):
     n = get_reckless_node(node_factory)
     n.start()
     r = reckless([f"--network={NETWORK}", "-v", "source", "add",
-                  "tests/data/recklessrepo/lightningd/testplugpass"],
+                  os.path.join(n.lightning_dir, '..', 'lightningd', 'testplugpass')],
                  dir=n.lightning_dir)
     assert r.returncode == 0
     r = reckless([f"--network={NETWORK}", "-v", "install", "testplugpass"], dir=n.lightning_dir)
