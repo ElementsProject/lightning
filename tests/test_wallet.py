@@ -1338,7 +1338,12 @@ def test_hsmtool_generatehsm(node_factory):
               "cake have wedding\n".encode("utf-8"))
     hsmtool.wait_for_log(r"Enter your passphrase:")
     write_all(master_fd, "This is actually not a passphrase\n".encode("utf-8"))
-    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+    if hsmtool.proc.wait(WAIT_TIMEOUT) != 0:
+        hsmtool.logs_catchup()
+        print("hsmtool failure! Logs:")
+        for l in hsmtool.logs:
+            print('  ' + l)
+        assert False
     hsmtool.is_in_log(r"New hsm_secret file created")
 
     # Check should pass.
