@@ -20,7 +20,7 @@ env:
 jobs:
   prebuild:
     name: Pre-build checks
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 30
     env:
       BOLTDIR: bolts
@@ -546,7 +546,7 @@ jobs:
 
   check-flake:
     name: Check Nix Flake
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: true
     steps:
@@ -568,7 +568,7 @@ jobs:
     # signals successful completion. Used for the PR status to pass
     # before merging.
     name: CI completion
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs:
       - integration
       - check-units
