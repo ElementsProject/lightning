@@ -358,8 +358,8 @@ fi
 POSTGRES_INCLUDE=""
 POSTGRES_LDLIBS=""
 if command -v "${PG_CONFIG}" >/dev/null; then
-    POSTGRES_INCLUDE="-I$("${PG_CONFIG}" --includedir)"
-    POSTGRES_LDLIBS="-L$("${PG_CONFIG}" --libdir) -lpq"
+    POSTGRES_INCLUDE="$("${PKG_CONFIG}" --silence-errors --cflags libpq || :)"
+    POSTGRES_LDLIBS="$("${PKG_CONFIG}" --silence-errors --libs libpq || :)"
 fi
 
 # Clean up on exit.
