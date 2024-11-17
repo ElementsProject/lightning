@@ -944,7 +944,7 @@ char *opt_subd_dev_disconnect(const char *optarg, struct lightningd *ld)
 /* If test specified that this disconnection should cause permanent failure */
 bool dev_disconnect_permanent(struct lightningd *ld)
 {
-	char permfail[strlen("PERMFAIL")];
+	char permfail[sizeof("PERMFAIL") - 1];
 	int r;
 
 	if (ld->dev_disconnect_fd == -1)
