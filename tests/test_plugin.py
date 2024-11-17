@@ -4450,6 +4450,15 @@ def test_listchannels_broken_message(node_factory):
     l1.rpc.listchannels()
 
 
+def test_important_plugin_shutdown(node_factory):
+    """We can shutdown an important plugin (as long as it's dynamic) without dying"""
+
+    l1 = node_factory.get_node()
+
+    l1.rpc.plugin_stop("pay")
+    l1.rpc.plugin_start(os.path.join(os.getcwd(), 'plugins/pay'))
+
+
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
 def test_exposesecret(node_factory):
     l1, l2 = node_factory.get_nodes(2, opts=[{'exposesecret-passphrase': "test_exposesecret"}, {}])
