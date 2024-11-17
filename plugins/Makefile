@@ -119,6 +119,7 @@ C_PLUGINS :=					\
 	plugins/recover				\
 	plugins/txprepare			\
 	plugins/cln-renepay			\
+	plugins/cln-xpay			\
 	plugins/spenderp			\
 	plugins/cln-askrene
 
@@ -202,6 +203,7 @@ PLUGIN_COMMON_OBJS :=				\
 include plugins/askrene/Makefile
 include plugins/bkpr/Makefile
 include plugins/renepay/Makefile
+include plugins/xpay/Makefile
 
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(PLUGIN_ALL_SRC)

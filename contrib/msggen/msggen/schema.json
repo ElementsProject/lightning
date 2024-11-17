@@ -36754,6 +36754,129 @@
           }
         }
       ]
+    },
+    "lightning-xpay.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "rpc": "xpay",
+      "title": "Command for sending a payment for an invoice",
+      "description": [
+        "The **xpay** RPC command attempts to find routes to the given destination, and send the funds it asks for.",
+        "",
+        "This plugin is simpler and more sophisticated than the older 'pay' plugin, but does not have all the same features."
+      ],
+      "request": {
+        "required": [
+          "invstring"
+        ],
+        "properties": {
+          "invstring": {
+            "type": "string",
+            "description": [
+              "bolt11 or bolt12 invoice"
+            ]
+          },
+          "amount_msat": {
+            "type": "msat",
+            "description": [
+              "Only possible for a bolt11 invoice which does not have an amount (in which case, it's compulsory).  *amount_msat* is in millisatoshi precision; it can be a whole number, or a whole number with suffix *msat* or *sat*, or a three decimal point number with suffix *sat*, or an 1 to 11 decimal point number suffixed by *btc*."
+            ]
+          },
+          "maxfee": {
+            "type": "msat",
+            "description": [
+              "*maxfee* creates an absolute limit on what fee we will pay."
+            ],
+            "default": "5000msat, or 1% (whatever is greater)"
+          },
+          "layers": {
+            "type": "array",
+            "description": [
+              "These are askrene layers to apply in addition to xpay's own: these can alter the topology or provide additional information on the lightning network.  See askrene-create-layer."
+            ],
+            "items": {
+              "type": "string",
+              "description": [
+                "name of an existing layer"
+              ]
+            }
+          },
+          "retry_for": {
+            "type": "u32",
+            "description": [
+              "Until *retry_for* seconds passes, the command will keep finding routes and retrying the payment."
+            ],
+            "default": "60 seconds"
+          },
+          "partial_msat": {
+            "type": "msat",
+            "description": [
+              "Explicitly state that you are only paying some part of the invoice.  Presumably someone else is paying the rest (otherwise the payment will time out at the recipient)."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "payment_preimage",
+          "failed_parts",
+          "successful_parts",
+          "amount_msat",
+          "amount_sent_msat"
+        ],
+        "properties": {
+          "payment_preimage": {
+            "type": "secret",
+            "description": [
+              "The proof of payment: SHA256 of this **payment_hash**."
+            ]
+          },
+          "failed_parts": {
+            "type": "u64",
+            "description": [
+              "How many separate payment parts failed."
+            ]
+          },
+          "successful_parts": {
+            "type": "u64",
+            "description": [
+              "How many separate payment parts succeeded (or are anticipated to succeed).  This will be at least one."
+            ]
+          },
+          "amount_msat": {
+            "type": "msat",
+            "description": [
+              "Amount the recipient received."
+            ]
+          },
+          "amount_sent_msat": {
+            "type": "msat",
+            "description": [
+              "Total amount we sent (including fees)."
+            ]
+          }
+        }
+      },
+      "errors": [
+        "The following error codes may occur:",
+        "",
+        "- -1: Catchall nonspecific error.",
+        "- 203: Permanent failure from destination (e.g. it said it didn't recognize invoice)",
+        "- 205: Couldn't find, or find a way to, the destination.",
+        "- 219: Invoice has already been paid.",
+        "- 209: Other payment error."
+      ],
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-pay(7)",
+        "lightning-decodepay(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ]
     }
   },
   "notifications": {
