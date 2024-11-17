@@ -889,7 +889,8 @@ found:
 	return channel;
 }
 
-/* Check if payment already in progress.  Returns NULL if all good */
+/* Check if payment already in progress.  Returns NULL if all good.
+ * Sets *succeeded_payment if we had a previous successful payment for this hash. */
 static struct command_result *check_progress(struct lightningd *ld,
 					     struct command *cmd,
 					     const struct sha256 *rhash,
@@ -897,10 +898,13 @@ static struct command_result *check_progress(struct lightningd *ld,
 					     struct amount_msat total_msat,
 					     u64 partid,
 					     u64 group,
-					     const struct node_id *destination)
+					     const struct node_id *destination,
+					     const struct wallet_payment **succeeded_payment)
 {
 	bool have_complete = false;
 	struct amount_msat msat_already_pending = AMOUNT_MSAT(0);
+
+	*succeeded_payment = NULL;
 
 	/* Now, do we already have one or more payments? */
 	for (struct db_stmt *stmt = payments_by_hash(cmd->ld->wallet, rhash);
@@ -941,7 +945,8 @@ static struct command_result *check_progress(struct lightningd *ld,
 						    fmt_node_id(tmpctx,
 								payment->destination));
 			}
-			return sendpay_success(cmd, payment, NULL);
+			*succeeded_payment = payment;
+			return NULL;
 
 		case PAYMENT_PENDING:
 			/* At most one payment group can be in-flight at any
@@ -1083,13 +1088,17 @@ send_payment_core(struct lightningd *ld,
 	struct htlc_out *hout;
 	struct routing_failure *fail;
 	struct command_result *ret;
-	struct wallet_payment *payment;
+	const struct wallet_payment *payment;
 
 	/* Reconcile this with previous attempts */
 	ret = check_progress(ld, cmd, rhash, msat, total_msat, partid, group,
-			     destination);
+			     destination, &payment);
 	if (ret)
 		return ret;
+
+	/* Previous payment success is defined to be idempotent */
+	if (payment)
+		return sendpay_success(cmd, payment, NULL);
 
 	ret = check_invoice_request_usage(cmd, local_invreq_id);
 	if (ret)
@@ -1834,6 +1843,7 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 	struct command_result *ret;
 	const u8 *failmsg;
 	struct htlc_out *hout;
+	const struct wallet_payment *prev_payment;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("onion", param_bin_from_hex, &onion),
@@ -1853,9 +1863,18 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 	 * partid/groupid uniqueness: we don't know amount or total. */
 	ret = check_progress(cmd->ld, cmd, payment_hash, AMOUNT_MSAT(0),
 			     AMOUNT_MSAT(0),
-			     *partid, *groupid, NULL);
+			     *partid, *groupid, NULL, &prev_payment);
 	if (ret)
 		return ret;
+
+	if (prev_payment) {
+		struct json_stream *js = json_stream_fail(cmd,
+							  PAY_INJECTPAYMENTONION_ALREADY_PAID,
+							  "Already paid this invoice");
+		json_add_payment_fields(js, prev_payment);
+		json_object_end(js);
+		return command_failed(cmd, js);
+	}
 
 	/* This checks we're not trying to pay our a locally-generated
 	 * invoice_request more than once. */

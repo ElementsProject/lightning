@@ -16441,7 +16441,7 @@
       "title": "Send a payment with a custom onion packet",
       "description": [
         "The **injectpaymentonion** RPC command causes the node to receive a payment attempt similar to the way it would receive one from a peer. The onion packet is unwrapped, then handled normally: either as a local payment, or forwarded to the next peer.",
-        "Compared to lightning-sendonion(7): the handling of blinded paths and self-payments is trivial, and the interface blocks until the payment succeeds or fails."
+        "Compared to lightning-sendonion(7): the handling of blinded paths and self-payments is trivial, and the interface blocks until the payment succeeds or fails.  The call also fails if this payment_hash has already been successfully paid."
       ],
       "request": {
         "required": [
@@ -16542,7 +16542,11 @@
         "",
         "- 218: injectpaymentonion failed",
         "",
-        "The *onionreply* is returned in the error details, which can be unwrapped to discover the error"
+        "The *onionreply* is returned in the error *data*, which can be unwrapped to discover the error",
+        "",
+        "- 219: injectpaymentonion already succeeded",
+        "",
+        "The *data* object contains the previous success, as per lightning-sendpay."
       ],
       "author": [
         "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."

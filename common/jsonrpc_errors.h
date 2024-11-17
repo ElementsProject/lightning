@@ -52,6 +52,7 @@ enum jsonrpc_errcode {
 	PAY_UNREACHABLE = 216,
 	PAY_USER_ERROR = 217,
 	PAY_INJECTPAYMENTONION_FAILED = 218,
+	PAY_INJECTPAYMENTONION_ALREADY_PAID = 219,
 
 	/* `fundchannel` or `withdraw` errors */
 	FUND_MAX_EXCEEDED = 300,

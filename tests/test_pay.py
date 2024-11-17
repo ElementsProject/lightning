@@ -6137,6 +6137,19 @@ def test_injectpaymentonion_simple(node_factory, executor):
     assert lsp['payment_hash'] == inv1['payment_hash']
     assert lsp['status'] == 'complete'
 
+    # We FAIL on reattempt
+    with pytest.raises(RpcError, match="Already paid this invoice") as err:
+        l1.rpc.injectpaymentonion(onion=onion['onion'],
+                                  payment_hash=inv1['payment_hash'],
+                                  amount_msat=1000,
+                                  cltv_expiry=blockheight + 18 + 6,
+                                  partid=1,
+                                  groupid=0)
+    # PAY_INJECTPAYMENTONION_ALREADY_PAID
+    assert err.value.error['code'] == 219
+    assert 'onionreply' not in err.value.error['data']
+    assert err.value.error['data'] == lsp
+
 
 def test_injectpaymentonion_mpp(node_factory, executor):
     l1, l2 = node_factory.line_graph(2)
