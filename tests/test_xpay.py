@@ -1,8 +1,9 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError
+from pyln.testing.utils import FUNDAMOUNT
 from utils import (
-    TIMEOUT, first_scid, GenChannel, generate_gossip_store
+    TIMEOUT, first_scid, GenChannel, generate_gossip_store, wait_for
 )
 
 import os
@@ -246,3 +247,25 @@ def test_xpay_fake_channeld(node_factory, bitcoind, chainparams):
                                        f"amount={AMOUNT}msat"]).decode('utf-8').strip()
         assert l1.rpc.decode(inv)['payee'] == nodeids[n]
         l1.rpc.xpay(inv)
+
+
+def test_xpay_timeout(node_factory, executor):
+    #         ->l3->
+    # l1->l2<        >l4
+    #         ->l5->
+    l1, l2, l3, l4, l5 = node_factory.get_nodes(5, opts={'dev-no-reconnect': None})
+
+    node_factory.join_nodes([l1, l2, l3, l4], wait_for_announce=True)
+    node_factory.join_nodes([l2, l5, l4], fundamount=FUNDAMOUNT // 2, wait_for_announce=True)
+
+    # Make sure l1 sees both paths.
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 5 * 2)
+
+    # Break l3->l4
+    l3.rpc.disconnect(l4.info['id'], force=True)
+
+    b11 = l4.rpc.invoice('100000sat', 'test_xpay_timeout', 'test_xpay_timeout')['bolt11']
+    fut = executor.submit(l1.rpc.xpay, invstring=b11, retry_for=0)
+
+    with pytest.raises(RpcError, match=r"Timed out after after 1 attempts"):
+        fut.result(TIMEOUT)

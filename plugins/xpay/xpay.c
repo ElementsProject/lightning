@@ -1,4 +1,3 @@
-/* FIXME: Timeout! */
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/siphash24/siphash24.h>
@@ -51,6 +50,8 @@ static struct gossmap *get_gossmap(struct xpay *xpay)
 /* The unifies bolt11 and bolt12 handling */
 struct payment {
 	struct plugin *plugin;
+	/* Stop sending new payments after this */
+	struct timemono deadline;
 	/* This is the command which is expecting the success/fail.  When
 	 * it's NULL, that means we're just cleaning up */
 	struct command *cmd;
@@ -576,6 +577,10 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 
 		case WIRE_MPP_TIMEOUT:
 			/* Not actually an error at all, nothing to do. */
+			add_result_summary(attempt, LOG_DBG,
+					   "Payment of %s reached destination,"
+					   " but timed out before the rest arrived.",
+					   fmt_amount_msat(tmpctx, attempt->delivers));
 			return;
 		}
 	} else {
@@ -928,6 +933,15 @@ static struct command_result *getroutes_done(struct command *aux_cmd,
 		return getroutes_for(aux_cmd, payment, needs_routing);
 	}
 
+	/* Even if we're amazingly slow, we should make one attempt. */
+	if (payment->total_num_attempts > 0
+	    && time_greater_(time_mono().ts, payment->deadline.ts)) {
+		payment_failed(aux_cmd, payment, PAY_UNSPECIFIED_ERROR,
+			       "Timed out after after %"PRIu64" attempts. %s",
+			       payment->total_num_attempts,
+			       payment->prior_results);
+		return command_still_pending(aux_cmd);
+	}
 
 	routes = json_get_member(buf, result, "routes");
 	payment_log(payment, LOG_DBG, "routes for %s = %.*s",
@@ -1321,6 +1335,7 @@ static struct command_result *json_xpay(struct command *cmd,
 	struct xpay *xpay = xpay_of(cmd->plugin);
 	struct amount_msat *msat, *maxfee;
 	struct payment *payment = tal(cmd, struct payment);
+	unsigned int *retryfor;
 	char *err;
 
 	if (!param(cmd, buffer, params,
@@ -1328,6 +1343,7 @@ static struct command_result *json_xpay(struct command *cmd,
 		   p_opt("amount_msat", param_msat, &msat),
 		   p_opt("maxfee", param_msat, &maxfee),
 		   p_opt("layers", param_string_array, &payment->layers),
+		   p_opt_def("retry_for", param_number, &retryfor, 60),
 		   NULL))
 		return command_param_failed();
 
@@ -1343,6 +1359,7 @@ static struct command_result *json_xpay(struct command *cmd,
 	payment->total_num_attempts = payment->num_failures = 0;
 	payment->requests = tal_arr(payment, struct out_req *, 0);
 	payment->prior_results = tal_strdup(payment, "");
+	payment->deadline = timemono_add(time_mono(), time_from_sec(*retryfor));
 
 	if (bolt12_has_prefix(payment->invstring)) {
 		struct gossmap *gossmap = get_gossmap(xpay);
