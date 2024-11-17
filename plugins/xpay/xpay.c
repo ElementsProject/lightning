@@ -1509,6 +1509,36 @@ static struct command_result *getinfo_done(struct command *aux_cmd,
 	return aux_command_done(aux_cmd);
 }
 
+/* Recursion */
+static void start_aging_timer(struct plugin *plugin);
+
+static struct command_result *age_done(struct command *timer_cmd,
+				       const char *method,
+				       const char *buf,
+				       const jsmntok_t *result,
+				       void *unused)
+{
+	start_aging_timer(timer_cmd->plugin);
+	return timer_complete(timer_cmd);
+}
+
+static struct command_result *age_layer(struct command *timer_cmd, void *unused)
+{
+	struct out_req *req;
+	req = jsonrpc_request_start(timer_cmd, "askrene-age",
+				    age_done,
+				    plugin_broken_cb,
+				    NULL);
+	json_add_string(req->js, "layer", "xpay");
+	json_add_u64(req->js, "cutoff", time_now().ts.tv_sec - 3600);
+	return send_outreq(req);
+}
+
+static void start_aging_timer(struct plugin *plugin)
+{
+	notleak(global_timer(plugin, time_from_sec(60), age_layer, NULL));
+}
+
 static const char *init(struct command *init_cmd,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
@@ -1554,6 +1584,7 @@ static const char *init(struct command *init_cmd,
 	json_add_string(req->js, "layer", "xpay");
 	send_outreq(req);
 
+	start_aging_timer(plugin);
 	return NULL;
 }
 
