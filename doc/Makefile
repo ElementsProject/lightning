@@ -142,7 +142,8 @@ GENERATE_MARKDOWN := doc/lightning-addgossip.7 \
 	doc/lightning-waitinvoice.7 \
 	doc/lightning-wait.7 \
 	doc/lightning-waitsendpay.7 \
-	doc/lightning-withdraw.7
+	doc/lightning-withdraw.7 \
+	doc/lightning-xpay.7
 
 ifeq ($(HAVE_SQLITE3),1)
 GENERATE_MARKDOWN += doc/lightning-listsqlschemas.7 \

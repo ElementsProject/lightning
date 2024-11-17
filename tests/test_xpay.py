@@ -132,3 +132,65 @@ def test_pay_fakenet(node_factory):
 
     l1.rpc.waitsendpay(payment_hash=hash2, timeout=TIMEOUT, partid=2)
     l1.rpc.waitsendpay(payment_hash=hash2, timeout=TIMEOUT, partid=3)
+
+
+def test_xpay_simple(node_factory):
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts={'experimental-offers': None,
+                                                     'may_reconnect': True})
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
+    node_factory.join_nodes([l3, l4], announce_channels=False)
+
+    # BOLT 11, direct peer
+    b11 = l2.rpc.invoice('10000msat', 'test_xpay_simple', 'test_xpay_simple bolt11')['bolt11']
+    ret = l1.rpc.xpay(b11)
+    assert ret['failed_parts'] == 0
+    assert ret['successful_parts'] == 1
+    assert ret['amount_msat'] == 10000
+    assert ret['amount_sent_msat'] == 10000
+
+    # Fails if we try to pay again
+    b11_paid = b11
+    with pytest.raises(RpcError, match="Already paid"):
+        l1.rpc.xpay(b11_paid)
+
+    # BOLT 11, indirect peer
+    b11 = l3.rpc.invoice('10000msat', 'test_xpay_simple', 'test_xpay_simple bolt11')['bolt11']
+    ret = l1.rpc.xpay(b11)
+    assert ret['failed_parts'] == 0
+    assert ret['successful_parts'] == 1
+    assert ret['amount_msat'] == 10000
+    assert ret['amount_sent_msat'] == 10001
+
+    # BOLT 11, routehint
+    b11 = l4.rpc.invoice('10000msat', 'test_xpay_simple', 'test_xpay_simple bolt11')['bolt11']
+    l1.rpc.xpay(b11)
+
+    # BOLT 12.
+    offer = l3.rpc.offer('any')['bolt12']
+    b12 = l1.rpc.fetchinvoice(offer, '100000msat')['invoice']
+    l1.rpc.xpay(b12)
+
+    # Failure from l4.
+    b11 = l4.rpc.invoice('10000msat', 'test_xpay_simple2', 'test_xpay_simple2 bolt11')['bolt11']
+    l4.rpc.delinvoice('test_xpay_simple2', 'unpaid')
+    with pytest.raises(RpcError, match="Destination said it doesn't know invoice"):
+        l1.rpc.xpay(b11)
+
+    offer = l4.rpc.offer('any')['bolt12']
+    b12 = l1.rpc.fetchinvoice(offer, '100000msat')['invoice']
+
+    # Failure from l3 (with routehint)
+    l4.stop()
+    with pytest.raises(RpcError, match=r"Failed after 1 attempts\. We got temporary_channel_failure for the invoice's route hint \([0-9x]*/[01]\), assuming it can't carry 10000msat\. Then routing failed: We could not find a usable set of paths\.  The shortest path is [0-9x]*->[0-9x]*->[0-9x]*, but [0-9x]*/[01]\ layer xpay-6 says max is 9999msat"):
+        l1.rpc.xpay(b11)
+
+    # Failure from l3 (with blinded path)
+    # FIXME: We return wrong error here!
+    with pytest.raises(RpcError, match=r"Failed after 1 attempts\. Unexpected error \(invalid_onion_payload\) from intermediate node: disabling the invoice's blinded path \(0x0x0/[01]\) for this payment\. Then routing failed: We could not find a usable set of paths\.  The destination has disabled 1 of 1 channels, leaving capacity only 0msat of 10605000msat\."):
+        l1.rpc.xpay(b12)
+
+    # Restart, try pay already paid one again.
+    l1.restart()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    with pytest.raises(RpcError, match="Already paid"):
+        l1.rpc.xpay(b11_paid)

@@ -121,7 +121,9 @@ def test_reserve(node_factory):
 
 def test_layers(node_factory):
     """Test manipulating information in layers"""
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    # remove xpay, since it creates a layer!
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts={'disable-plugin': 'cln-xpay'})
 
     assert l2.rpc.askrene_listlayers() == {'layers': []}
     with pytest.raises(RpcError, match="Unknown layer"):
