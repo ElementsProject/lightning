@@ -1,9 +1,21 @@
-#include <common/node_id.h>
-#include <common/channel_id.h>
-#include <common/wireaddr.h>
-#include <common/channel_type.h>
-#include <common/amount.h>
 #include <bitcoin/tx.h>
+#include <ccan/crypto/shachain/shachain.h>
+#include <common/amount.h>
+#include <common/channel_id.h>
+#include <common/channel_type.h>
+#include <common/derive_basepoints.h>
+#include <common/htlc_wire.h>
+#include <common/node_id.h>
+#include <common/wireaddr.h>
+
+tlvtype,scb_tlvs,shachain,1,
+tlvdata,scb_tlvs,shachain,their_shachain,shachain,
+tlvtype,scb_tlvs,basepoints,3,
+tlvdata,scb_tlvs,basepoints,their_basepoint,basepoints,
+tlvtype,scb_tlvs,opener,5,
+tlvdata,scb_tlvs,opener,opener,enum side,
+tlvtype,scb_tlvs,remote_to_self_delay,7,
+tlvdata,scb_tlvs,remote_to_self_delay,remote_to_self_delay,u16,
 
 # scb_chan stores min. info required to sweep the peer's force close.
 subtype,scb_chan
@@ -15,6 +27,7 @@ subtypedata,scb_chan,addr,wireaddr,
 subtypedata,scb_chan,funding,bitcoin_outpoint,
 subtypedata,scb_chan,funding_sats,amount_sat,
 subtypedata,scb_chan,type,channel_type,
+subtypedata,scb_chan,tlvs,scb_tlvs,
 
 msgtype,static_chan_backup,6135,
 msgdata,static_chan_backup,version,u64,
