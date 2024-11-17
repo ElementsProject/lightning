@@ -767,6 +767,11 @@ found_next:
 			      fmt_short_channel_id_dir(tmpctx, &scidd));
 	}
 	if (payload->outgoing_cltv + c->half[scidd.dir].delay < cltv_expiry) {
+		status_broken("%s: incoming cltv %u (delay=%u), but outgoing %u",
+			      fmt_short_channel_id_dir(tmpctx, &scidd),
+			      cltv_expiry,
+			      c->half[scidd.dir].delay,
+			      payload->outgoing_cltv);
 		fail(info, htlc, payload, WIRE_INCORRECT_CLTV_EXPIRY);
 		return;
 	}
@@ -776,6 +781,13 @@ found_next:
 				 c->half[scidd.dir].proportional_fee))
 		abort();
 	if (amount_msat_less(amount, amt_expected)) {
+		status_broken("%s: expected %s (base=%u, prop=%u), but got %s to fwd %s",
+			      fmt_short_channel_id_dir(tmpctx, &scidd),
+			      fmt_amount_msat(tmpctx, amt_expected),
+			      c->half[scidd.dir].base_fee,
+			      c->half[scidd.dir].proportional_fee,
+			      fmt_amount_msat(tmpctx, amount),
+			      fmt_amount_msat(tmpctx, payload->amt_to_forward));
 		fail(info, htlc, payload, WIRE_FEE_INSUFFICIENT);
 		return;
 	}
