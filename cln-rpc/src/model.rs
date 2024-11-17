@@ -4638,10 +4638,16 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct CloseResponse {
+	    #[deprecated]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub tx: Option<String>,
+	    #[deprecated]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub txid: Option<String>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub txids: Option<Vec<String>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub txs: Option<Vec<String>>,
 	    // Path `Close.type`
 	    #[serde(rename = "type")]
 	    pub item_type: CloseType,

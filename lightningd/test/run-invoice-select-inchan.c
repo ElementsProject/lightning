@@ -919,7 +919,7 @@ void report_subd_memleak(struct leak_detect *leak_detect UNNEEDED, struct subd *
 { fprintf(stderr, "report_subd_memleak called!\n"); abort(); }
 /* Generated stub for resolve_close_command */
 void resolve_close_command(struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED,
-			   bool cooperative UNNEEDED, const struct bitcoin_tx *close_tx UNNEEDED)
+			   bool cooperative UNNEEDED, struct bitcoin_tx **close_txs UNNEEDED)
 { fprintf(stderr, "resolve_close_command called!\n"); abort(); }
 /* Generated stub for send_backtrace */
 void send_backtrace(const char *why UNNEEDED)

@@ -52,9 +52,11 @@ struct close_command {
 /* Resolve a single close command. */
 static void
 resolve_one_close_command(struct close_command *cc, bool cooperative,
-			  const struct bitcoin_tx *close_tx)
+			  struct bitcoin_tx **close_txs)
 {
+	assert(tal_count(close_txs));
 	struct json_stream *result = json_stream_success(cc->cmd);
+	const struct bitcoin_tx *close_tx = close_txs[tal_count(close_txs) - 1];
 
 	json_add_tx(result, "tx", close_tx);
 	if (!invalid_last_tx(close_tx)) {
@@ -62,6 +64,24 @@ resolve_one_close_command(struct close_command *cc, bool cooperative,
 		bitcoin_txid(close_tx, &txid);
 		json_add_txid(result, "txid", &txid);
 	}
+
+	json_array_start(result, "txs");
+	for (int i = 0; i < tal_count(close_txs); i++)
+		json_add_tx(result, NULL, close_txs[i]);
+	json_array_end(result);
+
+	json_array_start(result, "txids");
+	for (int i = 0; i < tal_count(close_txs); i++) {
+		if (invalid_last_tx(close_txs[i])) {
+			json_add_string(result, NULL, "INVALID_TXID");
+		} else {
+			struct bitcoin_txid txid;
+			bitcoin_txid(close_txs[i], &txid);
+			json_add_txid(result, NULL, &txid);
+		}
+	}
+	json_array_end(result);
+
 	if (cooperative)
 		json_add_string(result, "type", "mutual");
 	else
@@ -85,7 +105,7 @@ const char *cmd_id_from_close_command(const tal_t *ctx,
 
 /* Resolve a close command for a channel that will be closed soon. */
 void resolve_close_command(struct lightningd *ld, struct channel *channel,
-			   bool cooperative, const struct bitcoin_tx *close_tx)
+			   bool cooperative, struct bitcoin_tx **close_txs)
 {
 	struct close_command *cc;
 	struct close_command *n;
@@ -93,7 +113,7 @@ void resolve_close_command(struct lightningd *ld, struct channel *channel,
 	list_for_each_safe(&ld->close_commands, cc, n, list) {
 		if (cc->channel != channel)
 			continue;
-		resolve_one_close_command(cc, cooperative, close_tx);
+		resolve_one_close_command(cc, cooperative, close_txs);
 	}
 }
 
