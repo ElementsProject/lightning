@@ -1684,8 +1684,17 @@ injectonion_fail(struct command *cmd,
 	struct json_stream *js;
 
 	/* Turn local errors into onion reply. */
-	if (!onionreply)
-		onionreply = create_onionreply(tmpctx, shared_secret, fail->msg);
+	if (!onionreply) {
+		const u8 *err;
+
+		/* Local error with no context, use default error */
+		if (fail->msg)
+			err = fail->msg;
+		else
+			err = towire_temporary_channel_failure(tmpctx, NULL);
+
+		onionreply = create_onionreply(tmpctx, shared_secret, err);
+	}
 
 	js = json_stream_fail(cmd, PAY_INJECTPAYMENTONION_FAILED, errmsg);
 	/* We wrap the onion reply, as it expects. */
