@@ -139,7 +139,7 @@ struct attempt {
 	struct amount_msat delivers;
 
 	/* Path we tried, so we can unreserve, and tell askrene the results */
-	struct hop *hops;
+	const struct hop *hops;
 
 	/* Secrets, so we can decrypt error onions */
 	struct secret *shared_secrets;
@@ -334,16 +334,31 @@ static void payment_failed(struct command *aux_cmd,
 		cleanup(aux_cmd, payment);
 }
 
+/* For self-pay, we don't have hops. */
+static struct amount_msat initial_sent(const struct attempt *attempt)
+{
+	if (tal_count(attempt->hops) == 0)
+		return attempt->delivers;
+	return attempt->hops[0].amount_in;
+}
+
+static u32 initial_cltv_delta(const struct attempt *attempt)
+{
+	if (tal_count(attempt->hops) == 0)
+		return attempt->payment->final_cltv;
+	return attempt->hops[0].cltv_value_in;
+}
+
 /* The current attempt is the first to succeed: we assume all the ones
  * in progress will succeed too */
 static struct amount_msat total_sent(const struct payment *payment,
 				     const struct attempt *attempt)
 {
-	struct amount_msat total = attempt->hops[0].amount_in;
+	struct amount_msat total = initial_sent(attempt);
 	const struct attempt *i;
 
 	list_for_each(&payment->current_attempts, i, list) {
-		if (!amount_msat_accumulate(&total, attempt->hops[0].amount_in))
+		if (!amount_msat_accumulate(&total, initial_sent(i)))
 			abort();
 	}
 	return total;
@@ -855,17 +870,12 @@ static const u8 *create_onion(const tal_t *ctx, struct attempt *attempt)
 	return ret;
 }
 
-static struct command_result *reserve_done(struct command *aux_cmd,
-					   const char *method,
-					   const char *buf,
-					   const jsmntok_t *result,
-					   struct attempt *attempt)
+static struct command_result *do_inject(struct command *aux_cmd,
+					struct attempt *attempt)
 {
 	struct out_req *req;
 	const u8 *onion;
 	struct xpay *xpay = xpay_of(attempt->payment->plugin);
-
-	attempt_debug(attempt, "%s", "Reserve done!");
 
 	onion = create_onion(tmpctx, attempt);
 	/* FIXME: Handle this better! */
@@ -882,12 +892,24 @@ static struct command_result *reserve_done(struct command *aux_cmd,
 				    attempt);
 	json_add_hex_talarr(req->js, "onion", onion);
 	json_add_sha256(req->js, "payment_hash", &attempt->payment->payment_hash);
-	json_add_amount_msat(req->js, "amount_msat", attempt->hops[0].amount_in);
-	json_add_u32(req->js, "cltv_expiry", attempt->hops[0].cltv_value_in + xpay->blockheight);
+	/* If no route, its the same as delivery (self-pay) */
+	json_add_amount_msat(req->js, "amount_msat", initial_sent(attempt));
+	json_add_u32(req->js, "cltv_expiry", initial_cltv_delta(attempt) + xpay->blockheight);
 	json_add_u64(req->js, "partid", attempt->partid);
 	json_add_u64(req->js, "groupid", attempt->payment->group_id);
 	json_add_string(req->js, "invstring", attempt->payment->invstring);
 	return send_payment_req(aux_cmd, attempt->payment, req);
+}
+
+static struct command_result *reserve_done(struct command *aux_cmd,
+					   const char *method,
+					   const char *buf,
+					   const jsmntok_t *result,
+					   struct attempt *attempt)
+{
+	attempt_debug(attempt, "%s", "Reserve done!");
+
+	return do_inject(aux_cmd, attempt);
 }
 
 static struct command_result *reserve_done_err(struct command *aux_cmd,
@@ -901,6 +923,22 @@ static struct command_result *reserve_done_err(struct command *aux_cmd,
 		       json_tok_full_len(result),
 		       json_tok_full(buf, result));
 	return command_still_pending(aux_cmd);
+}
+
+/* Does not set shared_secrets */
+static struct attempt *new_attempt(struct payment *payment,
+				   struct amount_msat delivers,
+				   const struct hop *hops TAKES)
+{
+	struct attempt *attempt = tal(payment, struct attempt);
+
+	attempt->payment = payment;
+	attempt->delivers = delivers;
+	attempt->partid = ++payment->total_num_attempts;
+	attempt->hops = tal_dup_talarr(attempt, struct hop, hops);
+	list_add_tail(&payment->current_attempts, &attempt->list);
+
+	return attempt;
 }
 
 static struct command_result *getroutes_done(struct command *aux_cmd,
@@ -955,16 +993,17 @@ static struct command_result *getroutes_done(struct command *aux_cmd,
 		size_t j;
 		const jsmntok_t *hoptok, *path;
 		struct out_req *req;
-		struct attempt *attempt = tal(payment, struct attempt);
+		struct amount_msat delivers;
+		struct hop *hops;
+		struct attempt *attempt;
+
 		json_to_msat(buf, json_get_member(buf, t, "amount_msat"),
-			     &attempt->delivers);
+			     &delivers);
 		path = json_get_member(buf, t, "path");
-		attempt->hops = tal_arr(attempt, struct hop, path->size);
-		attempt->payment = payment;
-		attempt->partid = ++payment->total_num_attempts;
+		hops = tal_arr(NULL, struct hop, path->size);
 		json_for_each_arr(j, hoptok, path) {
 			const char *err;
-			struct hop *hop = &attempt->hops[j];
+			struct hop *hop = &hops[j];
 			err = json_scan(tmpctx, buf, hoptok,
 					"{short_channel_id_dir:%"
 					",amount_msat:%"
@@ -979,14 +1018,13 @@ static struct command_result *getroutes_done(struct command *aux_cmd,
 				plugin_err(aux_cmd->plugin, "Malformed routes: %s",
 					   err);
 			if (j > 0) {
-				attempt->hops[j-1].amount_out = hop->amount_in;
-				attempt->hops[j-1].cltv_value_out = hop->cltv_value_in;
+				hops[j-1].amount_out = hop->amount_in;
+				hops[j-1].cltv_value_out = hop->cltv_value_in;
 			}
 		}
-		attempt->hops[j-1].amount_out = attempt->delivers;
-		attempt->hops[j-1].cltv_value_out = attempt->payment->final_cltv;
-
-		list_add_tail(&payment->current_attempts, &attempt->list);
+		hops[j-1].amount_out = delivers;
+		hops[j-1].cltv_value_out = payment->final_cltv;
+		attempt = new_attempt(payment, delivers, take(hops));
 
 		/* Reserve this route */
 		attempt_debug(attempt, "%s", "doing askrene-reserve");
@@ -1053,9 +1091,21 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 {
 	struct xpay *xpay = xpay_of(aux_cmd->plugin);
 	struct out_req *req;
+	const struct pubkey *dst;
 
 	/* If we get injectpaymentonion responses, they can wait */
 	payment->amount_being_routed = deliver;
+
+	if (payment->paths)
+		dst = &xpay->fakenode;
+	else
+		dst = &payment->destination;
+
+	/* Self-pay?  Shortcut all this */
+	if (pubkey_eq(&xpay->local_id, dst)) {
+		struct attempt *attempt = new_attempt(payment, deliver, NULL);
+		return do_inject(aux_cmd, attempt);
+	}
 
 	req = jsonrpc_request_start(aux_cmd, "getroutes",
 				    getroutes_done,
@@ -1063,10 +1113,8 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 				    payment);
 
 	json_add_pubkey(req->js, "source", &xpay->local_id);
-	if (payment->paths)
-		json_add_pubkey(req->js, "destination", &xpay->fakenode);
-	else
-		json_add_pubkey(req->js, "destination", &payment->destination);
+	json_add_pubkey(req->js, "destination", dst);
+
 	payment_log(payment, LOG_DBG, "getroutes from %s to %s",
 		    fmt_pubkey(tmpctx, &xpay->local_id),
 		    payment->paths
