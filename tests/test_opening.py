@@ -2149,7 +2149,7 @@ def test_zeroreserve(node_factory, bitcoind):
     # closing should result in the output being trimmed again since we
     # dropped below dust again.
     c = l2.rpc.close(l1.info['id'])
-    decoded = bitcoind.rpc.decoderawtransaction(c['tx'])
+    decoded = bitcoind.rpc.decoderawtransaction(only_one(c['txs']))
     # Elements has a change output always
     assert len(decoded['vout']) == 1 if TEST_NETWORK == 'regtest' else 2
 
