@@ -33,6 +33,8 @@ struct xpay {
 	struct pubkey fakenode;
 	/* We need to know current block height */
 	u32 blockheight;
+	/* Do we take over "pay" commands? */
+	bool take_over_pay;
 };
 
 static struct xpay *xpay_of(struct plugin *plugin)
@@ -1591,13 +1593,122 @@ static const struct plugin_notification notifications[] = {
 	},
 };
 
+static struct command_result *handle_rpc_command(struct command *cmd,
+						 const char *buf,
+						 const jsmntok_t *params)
+{
+	struct xpay *xpay = xpay_of(cmd->plugin);
+	const jsmntok_t *rpc_tok, *method_tok, *params_tok, *id_tok,
+		*bolt11 = NULL, *amount_msat = NULL, *maxfee = NULL,
+		*partial_msat = NULL, *retry_for = NULL;
+	struct json_stream *response;
+
+	if (!xpay->take_over_pay)
+		goto dont_redirect;
+
+	rpc_tok = json_get_member(buf, params, "rpc_command");
+	method_tok = json_get_member(buf, rpc_tok, "method");
+	params_tok = json_get_member(buf, rpc_tok, "params");
+	id_tok = json_get_member(buf, rpc_tok, "id");
+	plugin_log(cmd->plugin, LOG_INFORM, "Got command %s",
+		   json_strdup(tmpctx, buf, method_tok));
+
+	if (!json_tok_streq(buf, method_tok, "pay"))
+		goto dont_redirect;
+
+	/* Array params?  Only handle up to two args (bolt11, msat) */
+	if (params_tok->type == JSMN_ARRAY) {
+		if (params_tok->size != 1 && params_tok->size != 2) {
+			plugin_log(cmd->plugin, LOG_INFORM,
+				   "Not redirecting pay (only handle 1 or 2 args): %.*s",
+				   json_tok_full_len(params),
+				   json_tok_full(buf, params));
+			goto dont_redirect;
+		}
+
+		bolt11 = params_tok + 1;
+		if (params_tok->size == 2)
+			amount_msat = json_next(bolt11);
+	} else if (params_tok->type == JSMN_OBJECT) {
+		const jsmntok_t *t;
+		size_t i;
+
+		json_for_each_obj(i, t, params_tok) {
+			if (json_tok_streq(buf, t, "bolt11"))
+				bolt11 = t + 1;
+			else if (json_tok_streq(buf, t, "amount_msat"))
+				amount_msat = t + 1;
+			else if (json_tok_streq(buf, t, "retry_for"))
+				retry_for = t + 1;
+			else if (json_tok_streq(buf, t, "maxfee"))
+				maxfee = t + 1;
+			else if (json_tok_streq(buf, t, "partial_msat"))
+				partial_msat = t + 1;
+			else {
+				plugin_log(cmd->plugin, LOG_INFORM,
+					   "Not redirecting pay (unknown arg %.*s)",
+					   json_tok_full_len(t),
+					   json_tok_full(buf, t));
+				goto dont_redirect;
+			}
+		}
+		if (!bolt11) {
+			plugin_log(cmd->plugin, LOG_INFORM,
+				   "Not redirecting pay (missing bolt11 parameter)");
+			goto dont_redirect;
+		}
+	} else {
+		plugin_log(cmd->plugin, LOG_INFORM,
+			   "Not redirecting pay (unexpected params type)");
+		goto dont_redirect;
+	}
+
+	plugin_log(cmd->plugin, LOG_INFORM, "Redirecting pay->xpay");
+	response = jsonrpc_stream_success(cmd);
+	json_object_start(response, "replace");
+	json_add_string(response, "jsonrpc", "2.0");
+	json_add_tok(response, "id", id_tok, buf);
+	json_add_string(response, "method", "xpay");
+	json_object_start(response, "params");
+	json_add_tok(response, "invstring", bolt11, buf);
+	if (amount_msat)
+		json_add_tok(response, "amount_msat", amount_msat, buf);
+	if (retry_for)
+		json_add_tok(response, "retry_for", retry_for, buf);
+	if (maxfee)
+		json_add_tok(response, "maxfee", maxfee, buf);
+	if (partial_msat)
+		json_add_tok(response, "partial_msat", partial_msat, buf);
+	json_object_end(response);
+	json_object_end(response);
+	return command_finished(cmd, response);
+
+dont_redirect:
+	return command_hook_success(cmd);
+}
+
+static const struct plugin_hook hooks[] = {
+	{
+		"rpc_command",
+		handle_rpc_command,
+	},
+};
+
 int main(int argc, char *argv[])
 {
-	setup_locale();
+	struct xpay *xpay;
 
-	plugin_main(argv, init, take(tal(NULL, struct xpay)),
+	setup_locale();
+	xpay = tal(NULL, struct xpay);
+	xpay->take_over_pay = false;
+	plugin_main(argv, init, take(xpay),
 		    PLUGIN_RESTARTABLE, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 		    notifications, ARRAY_SIZE(notifications),
-	            NULL, 0, NULL, 0, NULL, 0, NULL);
+		    hooks, ARRAY_SIZE(hooks),
+	            NULL, 0,
+		    plugin_option_dynamic("xpay-handle-pay", "bool",
+					  "Make xpay take over pay commands it can handle.",
+					  bool_option, bool_jsonfmt, &xpay->take_over_pay),
+		    NULL);
 }
