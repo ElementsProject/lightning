@@ -200,6 +200,17 @@ def test_xpay_simple(node_factory):
         l1.rpc.xpay(b11_paid)
 
 
+def test_xpay_selfpay(node_factory):
+    l1 = node_factory.get_node(options={'experimental-offers': None})
+
+    b11 = l1.rpc.invoice(1000, "test_xpay_selfpay1", "test_xpay_selfpay1")['bolt11']
+    offer = l1.rpc.offer('any')
+    b12 = l1.rpc.fetchinvoice(offer['bolt12'], '1000msat')['invoice']
+
+    l1.rpc.xpay(b11)
+    l1.rpc.xpay(b12)
+
+
 @pytest.mark.slow_test
 @unittest.skipIf(TEST_NETWORK != 'regtest', '29-way split for node 17 is too dusty on elements')
 def test_xpay_fake_channeld(node_factory, bitcoind, chainparams):
