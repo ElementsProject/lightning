@@ -4746,7 +4746,7 @@ def test_fetchinvoice_disconnected_reply(node_factory, bitcoind):
     # Make l1, l2 public (so l3 can auto connect).
     node_factory.join_nodes([l1, l2], wait_for_announce=True)
     # Make sure l3 knows about l1's public address
-    wait_for(lambda: all(['addresses' in n for n in l3.rpc.listnodes()['nodes']]))
+    wait_for(lambda: ['addresses' in n for n in l3.rpc.listnodes()['nodes']] == [True] * 2)
 
     offer = l3.rpc.offer(amount='5msat', description='test_fetchinvoice_disconnected_reply')
 
