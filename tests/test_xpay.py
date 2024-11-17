@@ -312,3 +312,103 @@ def test_xpay_partial_msat(node_factory, executor):
 
     l1pay.result(TIMEOUT)
     l3pay.result(TIMEOUT)
+
+
+def test_xpay_takeover(node_factory, executor):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts={'xpay-handle-pay': True,
+                                               'experimental-offers': None})
+
+    # xpay does NOT look like pay!
+    l1.rpc.jsonschemas = {}
+    l2.rpc.jsonschemas = {}
+
+    # Simple bolt11/bolt12 payment.
+    inv = l3.rpc.invoice(100000, "test_xpay_takeover1", "test_xpay_takeover1")['bolt11']
+    l1.rpc.pay(inv)
+    l1.daemon.wait_for_log('Redirecting pay->xpay')
+
+    # Array version
+    inv = l3.rpc.invoice(100000, "test_xpay_takeover2", "test_xpay_takeover2")['bolt11']
+    subprocess.check_output(['cli/lightning-cli',
+                             '--network={}'.format(TEST_NETWORK),
+                             '--lightning-dir={}'
+                             .format(l1.daemon.lightning_dir),
+                             'pay',
+                             inv])
+    l1.daemon.wait_for_log('Redirecting pay->xpay')
+
+    offer = l3.rpc.offer(100000, "test_xpay_takeover2")['bolt12']
+    b12 = l1.rpc.fetchinvoice(offer)['invoice']
+    l1.rpc.pay(b12)
+    l1.daemon.wait_for_log('Redirecting pay->xpay')
+
+    # BOLT11 with amount.
+    inv = l3.rpc.invoice('any', "test_xpay_takeover3", "test_xpay_takeover3")['bolt11']
+    l1.rpc.pay(inv, amount_msat=10000)
+    l1.daemon.wait_for_log('Redirecting pay->xpay')
+
+    # Array version
+    inv = l3.rpc.invoice('any', "test_xpay_takeover4", "test_xpay_takeover4")['bolt11']
+    subprocess.check_output(['cli/lightning-cli',
+                             '--network={}'.format(TEST_NETWORK),
+                             '--lightning-dir={}'
+                             .format(l1.daemon.lightning_dir),
+                             'pay',
+                             inv, "10000"])
+    l1.daemon.wait_for_log('Redirecting pay->xpay')
+
+    # retry_for, maxfee and partial_msat all work
+    inv = l3.rpc.invoice('any', "test_xpay_takeover5", "test_xpay_takeover5")['bolt11']
+
+    fut1 = executor.submit(l1.rpc.pay, bolt11=inv, amount_msat=2000, retry_for=0, maxfee=100, partial_msat=1000)
+    l1.daemon.wait_for_log('Redirecting pay->xpay')
+    fut2 = executor.submit(l2.rpc.pay, bolt11=inv, amount_msat=2000, retry_for=0, maxfee=0, partial_msat=1000)
+    l2.daemon.wait_for_log('Redirecting pay->xpay')
+    fut1.result(TIMEOUT)
+    fut2.result(TIMEOUT)
+
+    # Three-array-arg replacements don't work.
+    inv = l3.rpc.invoice('any', "test_xpay_takeover6", "test_xpay_takeover6")['bolt11']
+    subprocess.check_output(['cli/lightning-cli',
+                             '--network={}'.format(TEST_NETWORK),
+                             '--lightning-dir={}'
+                             .format(l1.daemon.lightning_dir),
+                             'pay',
+                             inv, "10000", 'label'])
+    l1.daemon.wait_for_log(r'Not redirecting pay \(only handle 1 or 2 args\): ')
+
+    # Other args fail.
+    inv = l3.rpc.invoice('any', "test_xpay_takeover7", "test_xpay_takeover7")
+    l1.rpc.pay(inv['bolt11'], amount_msat=10000, label='test_xpay_takeover7')
+    l1.daemon.wait_for_log(r'Not redirecting pay \(unknown arg \\"label\\"\)')
+
+    inv = l3.rpc.invoice('any', "test_xpay_takeover8", "test_xpay_takeover8")
+    l1.rpc.pay(inv['bolt11'], amount_msat=10000, riskfactor=1)
+    l1.daemon.wait_for_log(r'Not redirecting pay \(unknown arg \\"riskfactor\\"\)')
+
+    inv = l3.rpc.invoice('any', "test_xpay_takeover9", "test_xpay_takeover9")
+    l1.rpc.pay(inv['bolt11'], amount_msat=10000, maxfeepercent=1)
+    l1.daemon.wait_for_log(r'Not redirecting pay \(unknown arg \\"maxfeepercent\\"\)')
+
+    inv = l3.rpc.invoice('any', "test_xpay_takeover10", "test_xpay_takeover10")
+    l1.rpc.pay(inv['bolt11'], amount_msat=10000, maxdelay=200)
+    l1.daemon.wait_for_log(r'Not redirecting pay \(unknown arg \\"maxdelay\\"\)')
+
+    inv = l3.rpc.invoice('any', "test_xpay_takeover11", "test_xpay_takeover11")
+    l1.rpc.pay(inv['bolt11'], amount_msat=10000, exemptfee=1)
+    l1.daemon.wait_for_log(r'Not redirecting pay \(unknown arg \\"exemptfee\\"\)')
+
+    # Test that it's really dynamic.
+    l1.rpc.setconfig('xpay-handle-pay', False)
+
+    # There's no log for this though!
+    inv = l3.rpc.invoice(100000, "test_xpay_takeover12", "test_xpay_takeover12")['bolt11']
+    l1.rpc.pay(inv)
+    assert not l1.daemon.is_in_log('Redirecting pay->xpay',
+                                   start=l1.daemon.logsearch_start)
+
+    l1.rpc.setconfig('xpay-handle-pay', True)
+    inv = l3.rpc.invoice(100000, "test_xpay_takeover13", "test_xpay_takeover13")['bolt11']
+    l1.rpc.pay(inv)
+    l1.daemon.wait_for_log('Redirecting pay->xpay')

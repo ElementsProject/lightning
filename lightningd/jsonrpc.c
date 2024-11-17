@@ -919,7 +919,10 @@ static void replace_command(struct rpc_command_hook_payload *p,
 
 fail:
 	was_pending(command_fail(p->cmd, JSONRPC2_INVALID_REQUEST,
-				 "Bad response to 'rpc_command' hook: %s", bad));
+				 "Bad response to 'rpc_command' hook: %s (%.*s)",
+				 bad,
+				 json_tok_full_len(replacetok),
+				 json_tok_full(buffer, replacetok)));
 }
 
 static void rpc_command_hook_final(struct rpc_command_hook_payload *p STEALS)
