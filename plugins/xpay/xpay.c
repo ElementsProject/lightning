@@ -1582,6 +1582,7 @@ static const char *init(struct command *init_cmd,
 				    plugin_broken_cb,
 				    "askrene-create-layer");
 	json_add_string(req->js, "layer", "xpay");
+	json_add_bool(req->js, "persistent", true);
 	send_outreq(req);
 
 	start_aging_timer(plugin);

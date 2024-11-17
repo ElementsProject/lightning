@@ -294,7 +294,8 @@ def test_layers(node_factory):
 
 def test_layer_persistence(node_factory):
     """Test persistence of layers across restart"""
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts={'disable-plugin': 'cln-xpay'})
 
     assert l1.rpc.askrene_listlayers() == {'layers': []}
     with pytest.raises(RpcError, match="Unknown layer"):

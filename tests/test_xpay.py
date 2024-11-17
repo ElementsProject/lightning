@@ -229,6 +229,7 @@ def test_xpay_fake_channeld(node_factory, bitcoind, chainparams):
     shaseed = subprocess.check_output(["tools/hsmtool", "dumpcommitments", l1.info['id'], "1", "0", hsmfile]).decode('utf-8').strip().partition(": ")[2]
     l1.rpc.dev_peer_shachain(l2.info['id'], shaseed)
 
+    failed_parts = []
     for n in range(0, 100):
         if n in (62, 76, 80, 97):
             continue
@@ -246,7 +247,47 @@ def test_xpay_fake_channeld(node_factory, bitcoind, chainparams):
                                        f"d=Paying node {n}",
                                        f"amount={AMOUNT}msat"]).decode('utf-8').strip()
         assert l1.rpc.decode(inv)['payee'] == nodeids[n]
-        l1.rpc.xpay(inv)
+        failed_parts.append(l1.rpc.xpay(inv)['failed_parts'])
+
+    # Should be no reservations left (clean up happens after return though)
+    wait_for(lambda: l1.rpc.askrene_listreservations() == {'reservations': []})
+
+    # It should remember the information it learned across restarts!
+    # FIXME: channeld_fakenet doesn't restart properly, so just redo xpay.
+    layers = l1.rpc.askrene_listlayers()
+    # Temporary layers should be gone.
+    assert len(layers['layers']) == 1
+
+    l1.rpc.plugin_stop("cln-askrene")
+    l1.rpc.plugin_start(os.path.join(os.getcwd(), 'plugins/cln-askrene'))
+    layers_after = l1.rpc.askrene_listlayers()
+    assert layers == layers_after
+
+    failed_parts_retry = []
+    for n in range(0, 100):
+        if n in (62, 76, 80, 97):
+            continue
+
+        print(f"PAYING Node #{n}")
+
+        preimage_hex = bytes([n + 100]).hex() + '00' * 31
+        hash_hex = sha256(bytes.fromhex(preimage_hex)).hexdigest()
+        inv = subprocess.check_output(["devtools/bolt11-cli",
+                                       "encode",
+                                       n.to_bytes(length=8, byteorder=sys.byteorder).hex() + '01' * 24,
+                                       f"p={hash_hex}",
+                                       f"s={'00' * 32}",
+                                       f"d=Paying node {n}",
+                                       f"amount={AMOUNT}msat"]).decode('utf-8').strip()
+        assert l1.rpc.decode(inv)['payee'] == nodeids[n]
+        failed_parts_retry.append(l1.rpc.xpay(inv)['failed_parts'])
+
+    # At least some will have improved!
+    assert failed_parts_retry != failed_parts
+
+    # Now, we should be as good *or better* than the first time, since we remembered!
+    for p in zip(failed_parts_retry, failed_parts):
+        assert p[0] <= p[1]
 
 
 def test_xpay_timeout(node_factory, executor):
