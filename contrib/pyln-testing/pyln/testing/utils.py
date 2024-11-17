@@ -792,8 +792,16 @@ class LightningNode(object):
         # Don't run --version on every subdaemon if we're valgrinding and slow.
         if SLOW_MACHINE and VALGRIND:
             self.daemon.opts["dev-no-version-checks"] = None
-        if os.getenv("DEBUG_SUBD"):
-            self.daemon.opts["dev-debugger"] = os.getenv("DEBUG_SUBD")
+        dbgvar = os.getenv("DEBUG_SUBD")
+        if dbgvar and ':' in dbgvar:
+            path = dbgvar.split(':')[0]
+            if lightning_dir.endswith(path + '/'):
+                dbgvar = dbgvar.split(':')[-1]
+            else:
+                dbgvar = None
+
+        if dbgvar:
+            self.daemon.opts["dev-debugger"] = dbgvar
         if os.getenv("DEBUG_LIGHTNINGD"):
             self.daemon.opts["dev-debug-self"] = None
         if valgrind:
