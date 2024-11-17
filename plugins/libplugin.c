@@ -253,7 +253,8 @@ static void ld_rpc_send(struct plugin *plugin, struct json_stream *stream)
 	struct jstream *jstr = tal(plugin, struct jstream);
 	jstr->js = tal_steal(jstr, stream);
 	list_add_tail(&plugin->rpc_js_list, &jstr->list);
-	io_wake(plugin->io_rpc_conn);
+	if (plugin->io_rpc_conn)
+		io_wake(plugin->io_rpc_conn);
 }
 
 
@@ -2376,6 +2377,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	/* Async RPC */
 	p->rpc_buffer = tal_arr(p, char, 64);
 	list_head_init(&p->rpc_js_list);
+	p->io_rpc_conn = NULL;
 	p->rpc_used = 0;
 	p->rpc_read_offset = 0;
 	p->rpc_len_read = 0;
