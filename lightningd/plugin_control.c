@@ -156,6 +156,8 @@ plugin_dynamic_stop(struct command *cmd, const char *plugin_name)
 				                    "%s cannot be managed when "
 				                    "lightningd is up",
 				                    plugin_name);
+			/* Don't freak out, even if it's a built-in */
+			p->important = false;
 
 			/* If it's interested in clean shutdown, tell it. */
 			if (notify_plugin_shutdown(cmd->ld, p)) {
