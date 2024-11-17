@@ -1196,7 +1196,7 @@ send_payment(struct lightningd *ld,
 	   and use bitcoind's block height, even if we're behind in processing */
 	base_expiry = get_network_blockheight(ld->topology) + 1;
 
-	path = sphinx_path_new(tmpctx, rhash->u.u8);
+	path = sphinx_path_new(tmpctx, rhash->u.u8, sizeof(rhash->u.u8));
 	/* Extract IDs for each hop: create_onionpacket wants array. */
 	for (i = 0; i < n_hops; i++)
 		ids[i] = route[i].node_id;
@@ -2340,9 +2340,10 @@ static struct command_result *json_createonion(struct command *cmd,
 	}
 
 	if (session_key == NULL)
-		sp = sphinx_path_new(cmd, assocdata);
+		sp = sphinx_path_new(cmd, assocdata, tal_bytelen(assocdata));
 	else
-		sp = sphinx_path_new_with_key(cmd, assocdata, session_key);
+		sp = sphinx_path_new_with_key(cmd, assocdata, tal_bytelen(assocdata),
+					      session_key);
 
 	for (size_t i=0; i<tal_count(hops); i++) {
 		if (!sphinx_add_hop_has_length(sp, &hops[i].pubkey, hops[i].raw_payload))

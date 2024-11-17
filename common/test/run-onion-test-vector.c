@@ -161,7 +161,8 @@ int main(int argc, char *argv[])
 	generate_tok = json_get_member(json, toks, "generate");
 	json_to_secret(json, json_get_member(json, generate_tok, "session_key"), &session_key);
 	assoc_data = json_tok_bin_from_hex(tmpctx, json, json_get_member(json, generate_tok, "associated_data"));
-	sp = sphinx_path_new_with_key(tmpctx, assoc_data, &session_key);
+	sp = sphinx_path_new_with_key(tmpctx, assoc_data, tal_bytelen(assoc_data),
+				      &session_key);
 	json_for_each_arr(i, t, json_get_member(json, generate_tok, "hops")) {
 		struct pubkey k;
 		const u8 *cursor;

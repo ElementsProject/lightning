@@ -962,11 +962,13 @@ void sphinx_add_v0_hop(struct sphinx_path *path UNNEEDED, const struct pubkey *p
 { fprintf(stderr, "sphinx_add_v0_hop called!\n"); abort(); }
 /* Generated stub for sphinx_path_new */
 struct sphinx_path *sphinx_path_new(const tal_t *ctx UNNEEDED,
-				    const u8 *associated_data UNNEEDED)
+				    const u8 *associated_data UNNEEDED,
+				    size_t associated_data_len UNNEEDED)
 { fprintf(stderr, "sphinx_path_new called!\n"); abort(); }
 /* Generated stub for sphinx_path_new_with_key */
 struct sphinx_path *sphinx_path_new_with_key(const tal_t *ctx UNNEEDED,
 					     const u8 *associated_data UNNEEDED,
+					     size_t associated_data_len UNNEEDED,
 					     const struct secret *session_key UNNEEDED)
 { fprintf(stderr, "sphinx_path_new_with_key called!\n"); abort(); }
 /* Generated stub for sphinx_path_payloads_size */

@@ -235,7 +235,7 @@ int main(int argc, char *argv[])
 	pubkey_from_privkey(&path_key[DAVE], &path_key_pub[DAVE]);
 
 	/* Create an onion which encodes this. */
-	sphinx_path = sphinx_path_new(tmpctx, NULL);
+	sphinx_path = sphinx_path_new(tmpctx, NULL, 0);
 	for (size_t i = 0; i < 4; i++) {
 		struct tlv_onionmsg_tlv *payload
 			= tlv_onionmsg_tlv_new(tmpctx);

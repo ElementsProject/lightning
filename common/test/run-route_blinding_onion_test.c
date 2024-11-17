@@ -171,7 +171,8 @@ int main(int argc, char *argv[])
 	}
 
 	/* Now, create onion! */
-	sp = sphinx_path_new_with_key(tmpctx, associated_data, &session_key);
+	sp = sphinx_path_new_with_key(tmpctx, associated_data, tal_bytelen(associated_data),
+				      &session_key);
 	for (i = 0; i < tal_count(ids); i++)
 		sphinx_add_hop_has_length(sp, &ids[i], onionhops[i]);
 

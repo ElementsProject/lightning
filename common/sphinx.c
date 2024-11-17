@@ -58,10 +58,18 @@ struct sphinx_path {
 	struct pubkey *rendezvous_id;
 };
 
-struct sphinx_path *sphinx_path_new(const tal_t *ctx, const u8 *associated_data)
+struct sphinx_path *sphinx_path_new(const tal_t *ctx,
+				    const u8 *associated_data,
+				    size_t associated_data_len)
 {
 	struct sphinx_path *sp = tal(ctx, struct sphinx_path);
-	sp->associated_data = tal_dup_talarr(sp, u8, associated_data);
+	if (associated_data) {
+		sp->associated_data
+			= tal_dup_arr(sp, u8, associated_data, associated_data_len, 0);
+	} else {
+		assert(associated_data_len == 0);
+		sp->associated_data = NULL;
+	}
 	sp->session_key = NULL;
 	sp->rendezvous_id = NULL;
 	sp->hops = tal_arr(sp, struct sphinx_hop, 0);
@@ -70,9 +78,10 @@ struct sphinx_path *sphinx_path_new(const tal_t *ctx, const u8 *associated_data)
 
 struct sphinx_path *sphinx_path_new_with_key(const tal_t *ctx,
 					     const u8 *associated_data,
+					     size_t associated_data_len,
 					     const struct secret *session_key)
 {
-	struct sphinx_path *sp = sphinx_path_new(ctx, associated_data);
+	struct sphinx_path *sp = sphinx_path_new(ctx, associated_data, associated_data_len);
 	sp->session_key = tal_dup(sp, struct secret, session_key);
 	return sp;
 }
