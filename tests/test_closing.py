@@ -3906,8 +3906,8 @@ def test_closing_tx_valid(node_factory, bitcoind):
     close = l1.rpc.close(l2.info['id'])
 
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
-    assert only_one(bitcoind.rpc.getrawmempool()) == close['txid']
-    assert bitcoind.rpc.getrawtransaction(close['txid']) == close['tx']
+    assert only_one(bitcoind.rpc.getrawmempool()) == only_one(close['txids'])
+    assert bitcoind.rpc.getrawtransaction(only_one(close['txids'])) == only_one(close['txs'])
     bitcoind.generate_block(1)
     # Change output and the closed channel output.
     wait_for(lambda: [o['status'] for o in l1.rpc.listfunds()['outputs']] == ['confirmed'] * 2)
@@ -3921,8 +3921,8 @@ def test_closing_tx_valid(node_factory, bitcoind):
     close = l1.rpc.close(l2.info['id'], 1)
 
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
-    assert only_one(bitcoind.rpc.getrawmempool()) == close['txid']
-    assert bitcoind.rpc.getrawtransaction(close['txid']) == close['tx']
+    assert only_one(bitcoind.rpc.getrawmempool()) == only_one(close['txids'])
+    assert bitcoind.rpc.getrawtransaction(only_one(close['txids'])) == only_one(close['txs'])
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd does not provide feerates on regtest')
@@ -3933,7 +3933,7 @@ def test_closing_minfee(node_factory, bitcoind):
 
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
-    txid = l1.rpc.close(l2.info['id'])['txid']
+    txid = only_one(l1.rpc.close(l2.info['id'])['txids'])
     bitcoind.generate_block(1, wait_for_mempool=txid)
 
 
@@ -4014,7 +4014,7 @@ def test_closing_cpfp(node_factory, bitcoind):
     l1.rpc.pay(l2.rpc.invoice(10000000, 'test', 'test')['bolt11'])
 
     # Mutual close
-    close_txid = l1.rpc.close(l2.info['id'])['txid']
+    close_txid = only_one(l1.rpc.close(l2.info['id'])['txids'])
 
     l1out = only_one([o for o in l1.rpc.listfunds()['outputs'] if o != change])
     assert l1out['txid'] == close_txid
@@ -4093,7 +4093,7 @@ def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
 
     l4.rpc.disconnect(l2.info['id'], force=True)
     close = l4.rpc.close(l2.info['id'], 1)
-    bitcoind.generate_block(1, wait_for_mempool=close['txid'])
+    bitcoind.generate_block(1, wait_for_mempool=only_one(close['txids']))
     wait_for(lambda: len(l2.rpc.listfunds()['outputs']) == 1)
     # Don't need l4 any more
     l4.stop()

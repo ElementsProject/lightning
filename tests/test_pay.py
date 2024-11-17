@@ -5753,7 +5753,7 @@ def test_offer_paths(node_factory, bitcoind):
 
     # Make scid path invalid by closing it
     close = l1.rpc.close(paths[0]['first_scid'])
-    bitcoind.generate_block(13, wait_for_mempool=close['txid'])
+    bitcoind.generate_block(13, wait_for_mempool=only_one(close['txids']))
     wait_for(lambda: l5.rpc.listchannels(paths[0]['first_scid']) == {'channels': []})
 
     # Now connect l5->l4, and it will be able to reach l3 via that, and join blinded path.

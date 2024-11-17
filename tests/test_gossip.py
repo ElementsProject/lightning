@@ -1430,7 +1430,7 @@ def test_gossip_notices_close(node_factory, bitcoind):
     channel_update = l1.daemon.is_in_log(r'\[IN\] 0102').split(' ')[-1][:-1]
     node_announcement = l1.daemon.is_in_log(r'\[IN\] 0101').split(' ')[-1][:-1]
 
-    txid = l2.rpc.close(l3.info['id'])['txid']
+    txid = only_one(l2.rpc.close(l3.info['id'])['txids'])
     wait_for(lambda: l2.rpc.listpeerchannels(l3.info['id'])['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
     bitcoind.generate_block(13, txid)
 
@@ -1894,7 +1894,7 @@ def test_topology_leak(node_factory, bitcoind):
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 4)
 
     # Close and wait for gossip to catchup.
-    txid = l2.rpc.close(l3.info['id'])['txid']
+    txid = only_one(l2.rpc.close(l3.info['id'])['txids'])
     bitcoind.generate_block(13, txid)
 
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
@@ -1926,14 +1926,14 @@ def test_close_12_block_delay(node_factory, bitcoind):
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True)
 
     # Close l1-l2
-    txid = l1.rpc.close(l2.info['id'])['txid']
+    txid = only_one(l1.rpc.close(l2.info['id'])['txids'])
     bitcoind.generate_block(1, txid)
 
     # But l4 doesn't believe it immediately.
     l4.daemon.wait_for_log("channel .* closing soon due to the funding outpoint being spent")
 
     # Close l2-l3 one block later.
-    txid = l2.rpc.close(l3.info['id'])['txid']
+    txid = only_one(l2.rpc.close(l3.info['id'])['txids'])
     bitcoind.generate_block(1, txid)
     l4.daemon.wait_for_log("channel .* closing soon due to the funding outpoint being spent")
 

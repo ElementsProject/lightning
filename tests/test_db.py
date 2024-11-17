@@ -1,7 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError
-from utils import wait_for, sync_blockheight, COMPAT, TIMEOUT, scid_to_int
+from utils import wait_for, sync_blockheight, COMPAT, TIMEOUT, scid_to_int, only_one
 
 import base64
 import os
@@ -94,7 +94,7 @@ def test_block_backfill(node_factory, bitcoind, chainparams):
     l3.daemon.wait_for_log('seeker: state = NORMAL')
 
     # Now close the channel and make sure `l3` cleans up correctly:
-    txid = l1.rpc.close(l2.info['id'])['txid']
+    txid = only_one(l1.rpc.close(l2.info['id'])['txids'])
     bitcoind.generate_block(13, wait_for_mempool=txid)
     wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 0)
 
