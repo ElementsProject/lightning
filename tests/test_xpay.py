@@ -1,7 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError
-from pyln.testing.utils import FUNDAMOUNT
+from pyln.testing.utils import FUNDAMOUNT, only_one
 from utils import (
     TIMEOUT, first_scid, GenChannel, generate_gossip_store, wait_for
 )
@@ -269,3 +269,46 @@ def test_xpay_timeout(node_factory, executor):
 
     with pytest.raises(RpcError, match=r"Timed out after after 1 attempts"):
         fut.result(TIMEOUT)
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_xpay_partial_msat(node_factory, executor):
+    l1, l2, l3 = node_factory.line_graph(3)
+
+    inv = l3.rpc.invoice(100000000, "inv", "inv")
+
+    with pytest.raises(RpcError, match="partial_msat must be less or equal to total amount 10000000"):
+        l2.rpc.xpay(invstring=inv['bolt11'], partial_msat=100000001)
+
+    # This will fail with an MPP timeout.
+    with pytest.raises(RpcError, match=r"Timed out after after 1 attempts\. Payment of 90000000msat reached destination, but timed out before the rest arrived\."):
+        l2.rpc.xpay(invstring=inv['bolt11'], partial_msat=90000000)
+
+    # This will work like normal.
+    l2.rpc.xpay(invstring=inv['bolt11'], partial_msat=100000000)
+
+    # Make sure l3 can pay to l2 now.
+    wait_for(lambda: only_one(l3.rpc.listpeerchannels()['channels'])['spendable_msat'] > 1001)
+
+    # Now we can combine together to pay l2:
+    inv = l2.rpc.invoice('any', "inv", "inv")
+
+    # If we specify different totals, this *won't work*
+    l1pay = executor.submit(l1.rpc.xpay, invstring=inv['bolt11'], amount_msat=10000, partial_msat=9000)
+    l3pay = executor.submit(l3.rpc.xpay, invstring=inv['bolt11'], amount_msat=10001, partial_msat=1001)
+
+    # BOLT #4:
+    # - SHOULD fail the entire HTLC set if `total_msat` is not
+    #   the same for all HTLCs in the set.
+    with pytest.raises(RpcError, match=r"Unexpected error \(final_incorrect_htlc_amount\) from final node"):
+        l3pay.result(TIMEOUT)
+    with pytest.raises(RpcError, match=r"Unexpected error \(final_incorrect_htlc_amount\) from final node"):
+        l1pay.result(TIMEOUT)
+
+    # But same amount, will combine forces!
+    l1pay = executor.submit(l1.rpc.xpay, invstring=inv['bolt11'], amount_msat=10000, partial_msat=9000)
+    l3pay = executor.submit(l3.rpc.xpay, invstring=inv['bolt11'], amount_msat=10000, partial_msat=1000)
+
+    l1pay.result(TIMEOUT)
+    l3pay.result(TIMEOUT)
