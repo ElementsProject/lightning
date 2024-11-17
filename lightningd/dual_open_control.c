@@ -1470,6 +1470,14 @@ wallet_commit_channel(struct lightningd *ld,
 		channel->scb->funding = *funding;
 		channel->scb->cid = channel->cid;
 		channel->scb->funding_sats = total_funding;
+
+		struct tlv_scb_tlvs *scb_tlvs = tlv_scb_tlvs_new(channel);
+		scb_tlvs->shachain = &channel->their_shachain.chain;
+		scb_tlvs->basepoints = &channel_info->theirbase;
+		scb_tlvs->opener = &channel->opener;
+		scb_tlvs->remote_to_self_delay = &channel_info->their_config.to_self_delay;
+
+		channel->scb->tlvs = scb_tlvs;
 	} else
 		channel->scb = NULL;
 
