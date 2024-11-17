@@ -98,7 +98,7 @@ ${fieldname} = ${f.size('*plen')} ? tal_arr(${ctx}, ${typename}, 0) : NULL;
 	% if f.type_obj.is_assignable():
 		tmp = fromwire_${type_}(cursor, plen);
 	% elif f.is_varlen() and f.type_obj.is_varsize():
-		tmp = fromwire_${type_}(${ctx}, cursor, plen);
+		tmp = fromwire_${type_}(${fieldname}, cursor, plen);
 	% else:
 		fromwire_${type_}(cursor, plen, &tmp);
 	% endif
