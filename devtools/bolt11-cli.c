@@ -5,6 +5,7 @@
 #include <bitcoin/script.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
+#include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/bech32.h>
@@ -38,6 +39,32 @@ static void tal_freefn(void *ptr)
 	tal_free(ptr);
 }
 
+/* pubkey/scid/feebase/feeprop/expiry,... */
+static void add_route(struct bolt11 *b11, const char *routestr)
+{
+	struct route_info *rarr;
+	char **rparts = tal_strsplit(tmpctx, routestr, ",", STR_EMPTY_OK);
+
+	rarr = tal_arr(b11->routes, struct route_info, tal_count(rparts)-1);
+	for (size_t i = 0; rparts[i]; i++) {
+		char **parts = tal_strsplit(tmpctx, rparts[i], "/", STR_EMPTY_OK);
+		if (tal_count(parts) != 6)
+			errx(ERROR_USAGE,
+			     "Bad route %s (expected 5 fields with / separators)",
+			     rparts[i]);
+		if (!node_id_from_hexstr(parts[0], strlen(parts[0]),
+					 &rarr[i].pubkey))
+			errx(ERROR_USAGE, "Bad route publey %s", parts[0]);
+		if (!short_channel_id_from_str(parts[1], strlen(parts[1]),
+					       &rarr[i].short_channel_id))
+			errx(ERROR_USAGE, "Bad route scid %s", parts[1]);
+		rarr[i].fee_base_msat = atol(parts[2]);
+		rarr[i].fee_proportional_millionths = atol(parts[3]);
+		rarr[i].cltv_expiry_delta = atol(parts[4]);
+	}
+	tal_arr_expand(&b11->routes, rarr);
+}
+
 static char *fmt_time(const tal_t *ctx, u64 time)
 {
 	/* ctime is not sane.  Take pointer, returns \n in string. */
@@ -45,6 +72,143 @@ static char *fmt_time(const tal_t *ctx, u64 time)
 	const char *p = ctime(&t);
 
 	return tal_fmt(ctx, "%.*s", (int)strcspn(p, "\n"), p);
+}
+
+static bool sign_b11(const u5 *u5bytes,
+		     const u8 *hrpu8,
+		     secp256k1_ecdsa_recoverable_signature *rsig,
+		     struct privkey *privkey)
+{
+	struct hash_u5 hu5;
+	char *hrp;
+	struct sha256 sha;
+
+	hrp = tal_dup_arr(NULL, char, (char *)hrpu8, tal_count(hrpu8), 1);
+	hrp[tal_count(hrpu8)] = '\0';
+
+	hash_u5_init(&hu5, hrp);
+	hash_u5(&hu5, u5bytes, tal_count(u5bytes));
+	hash_u5_done(&hu5, &sha);
+	tal_free(hrp);
+
+        if (!secp256k1_ecdsa_sign_recoverable(secp256k1_ctx, rsig,
+                                              (const u8 *)&sha,
+                                              privkey->secret.data,
+                                              NULL, NULL))
+		abort();
+
+	return true;
+}
+
+static void encode(const tal_t *ctx,
+		   struct privkey *privkey,
+		   char *fields[])
+{
+	struct bolt11 *b11 = talz(ctx, struct bolt11);
+	struct pubkey me;
+	bool explicit_n = false;
+
+	b11->timestamp = time_now().ts.tv_sec;
+	b11->chain = chainparams_for_network("regtest");
+	b11->expiry = 3600;
+	b11->min_final_cltv_expiry = DEFAULT_FINAL_CLTV_DELTA;
+	list_head_init(&b11->extra_fields);
+
+	if (!pubkey_from_privkey(privkey, &me))
+		errx(ERROR_USAGE, "Invalid privkey!");
+	node_id_from_pubkey(&b11->receiver_id, &me);
+
+	while (*fields) {
+		const char *eq = strchr(*fields, '=');
+		const char *fname, *val;
+		char *endp;
+		unsigned long fieldnum;
+
+		if (!eq)
+			errx(ERROR_USAGE, "Field name must have =: %s", *fields);
+
+		fname = tal_strndup(ctx, *fields, eq - *fields);
+		val = eq + 1;
+
+		if (streq(fname, "currency")) {
+			b11->chain = chainparams_by_lightning_hrp(val);
+			if (!b11->chain)
+				errx(ERROR_USAGE, "Unknown currency %s", val);
+		} else if (streq(fname, "amount")) {
+			b11->msat = tal(b11, struct amount_msat);
+			if (!parse_amount_msat(b11->msat, val, strlen(val)))
+				errx(ERROR_USAGE, "Invalid amount %s", val);
+		} else if (streq(fname, "timestamp")) {
+			b11->timestamp = strtoul(val, &endp, 10);
+			if (!b11->timestamp || *endp != '\0')
+				errx(ERROR_USAGE, "Invalid amount %s", val);
+		/* Allow raw numbered fields */
+		} else if ((fieldnum = strtoul(fname, &endp, 10)) != 0
+			   && fieldnum < 256) {
+			struct bolt11_field *extra = tal(b11, struct bolt11_field);
+			extra->tag = fieldnum;
+			extra->data = tal_hexdata(extra, val, strlen(val));
+			if (!extra->data)
+				errx(ERROR_USAGE, "Invalid hex %s", val);
+			list_add_tail(&b11->extra_fields, &extra->list);
+		} else {
+			if (strlen(fname) != 1)
+				errx(ERROR_USAGE, "Unknown field %s", fname);
+			switch (*fname) {
+			case 'p':
+				if (!hex_decode(val, strlen(val),
+						&b11->payment_hash, sizeof(b11->payment_hash)))
+					errx(ERROR_USAGE, "Invalid payment_hash %s", val);
+				break;
+			case 's':
+				b11->payment_secret = tal(b11, struct secret);
+				if (!hex_decode(val, strlen(val),
+						b11->payment_secret, sizeof(*b11->payment_secret)))
+					errx(ERROR_USAGE, "Invalid payment_secret %s", val);
+				break;
+			case 'd':
+				b11->description = val;
+				break;
+			case 'm':
+				b11->metadata = tal_hexdata(b11, val, strlen(val));
+				if (!b11->metadata)
+					errx(ERROR_USAGE, "Invalid metadata %s", val);
+				break;
+			case 'n':
+				explicit_n = streq(val, "true");
+				break;
+			case 'h':
+				b11->description_hash = tal(b11, struct sha256);
+				if (!hex_decode(val, strlen(val),
+						b11->description_hash, sizeof(*b11->description_hash)))
+					errx(ERROR_USAGE, "Invalid description hash %s", val);
+				break;
+			case 'x':
+				b11->expiry = atol(val);
+				break;
+			case 'c':
+				b11->min_final_cltv_expiry = atol(val);
+				break;
+			case 'r':
+				if (!b11->routes)
+					b11->routes = tal_arr(b11, struct route_info *, 0);
+				add_route(b11, val);
+				break;
+			case '9':
+				b11->features = tal_hexdata(b11, val, strlen(val));
+				if (!b11->features)
+					errx(ERROR_USAGE, "Invalid hex features %s", val);
+				break;
+			case 'f':
+				errx(ERROR_USAGE, "FIXME: `f` unsupported!");
+			default:
+				errx(ERROR_USAGE, "Unknown letter %s", fname);
+			}
+		}
+		fields++;
+	}
+
+	printf("%s\n", bolt11_encode(tmpctx, b11, explicit_n, sign_b11, privkey));
 }
 
 int main(int argc, char *argv[])
@@ -59,7 +223,9 @@ int main(int argc, char *argv[])
 
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<decode> <bolt11>", "Show this message");
+			   "<decode> <bolt11> OR\n"
+			   "<encode> <privkey> [<field>=...]*",
+			   "Show this message");
 	opt_register_arg("--hashed-description", opt_set_charp, opt_show_charp,
 			 &description,
 			 "Description to check hashed description against");
@@ -73,8 +239,21 @@ int main(int argc, char *argv[])
 		errx(ERROR_USAGE, "Need at least one argument\n%s",
 		     opt_usage(argv[0], NULL));
 
+	if (streq(method, "encode")) {
+		struct privkey privkey;
+
+		if (!argv[2]
+		    || !hex_decode(argv[2], strlen(argv[2]), &privkey, sizeof(privkey)))
+			errx(ERROR_USAGE, "Need valid <privkey>\n%s",
+			     opt_usage(argv[0], NULL));
+		encode(ctx, &privkey, argv + 3);
+		tal_free(ctx);
+		common_shutdown();
+		return NO_ERROR;
+	}
+
 	if (!streq(method, "decode"))
-		errx(ERROR_USAGE, "Need decode argument\n%s",
+		errx(ERROR_USAGE, "Need encode or decode argument\n%s",
 		     opt_usage(argv[0], NULL));
 
 	if (!argv[2])
