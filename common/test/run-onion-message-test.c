@@ -306,7 +306,7 @@ int main(int argc, char *argv[])
 	json_strfield("unknown_tag_1", "68656c6c6f");
 
 	/* Create the onionmessage */
-	sphinx_path = sphinx_path_new(tmpctx, NULL);
+	sphinx_path = sphinx_path_new(tmpctx, NULL, 0);
 	for (size_t i = 0; i < ARRAY_SIZE(erd); i++) {
 		struct tlv_onionmsg_tlv *tlv = tlv_onionmsg_tlv_new(tmpctx);
 		u8 *onionmsg_tlv;

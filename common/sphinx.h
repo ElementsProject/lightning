@@ -182,7 +182,8 @@ u8 *unwrap_onionreply(const tal_t *ctx,
  * passed to `create_onionpacket` to generate the packet.
  */
 struct sphinx_path *sphinx_path_new(const tal_t *ctx,
-				    const u8 *associated_data);
+				    const u8 *associated_data,
+				    size_t associated_data_len);
 
 /**
  * Create a new empty sphinx_path with a given `session_key`.
@@ -192,6 +193,7 @@ struct sphinx_path *sphinx_path_new(const tal_t *ctx,
  */
 struct sphinx_path *sphinx_path_new_with_key(const tal_t *ctx,
 					     const u8 *associated_data,
+					     size_t associated_data_len,
 					     const struct secret *session_key);
 
 /**

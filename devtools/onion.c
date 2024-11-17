@@ -36,7 +36,8 @@ static void do_generate(int argc, char **argv,
 
 	memset(&session_key, 'A', sizeof(struct secret));
 
-	sp = sphinx_path_new_with_key(ctx, assocdata, &session_key);
+	sp = sphinx_path_new_with_key(ctx, assocdata, tal_bytelen(assocdata),
+				      &session_key);
 	sphinx_path_set_rendezvous(sp, rvnode_id);
 
 	for (int i = 0; i < num_hops; i++) {
@@ -218,7 +219,8 @@ static void runtest(const char *filename)
 	associated_data = json_tok_bin_from_hex(ctx, buffer, associated_data_tok);
 	session_key_raw = json_tok_bin_from_hex(ctx, buffer, session_key_tok);
 	memcpy(&session_key, session_key_raw, sizeof(session_key));
-	path = sphinx_path_new_with_key(ctx, associated_data, &session_key);
+	path = sphinx_path_new_with_key(ctx, associated_data, tal_bytelen(associated_data),
+					&session_key);
 
 	/* Unpack the hops and build up the path */
 	hopstok = json_get_member(buffer, gentok, "hops");

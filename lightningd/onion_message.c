@@ -236,7 +236,7 @@ static struct command_result *json_injectonionmessage(struct command *cmd,
 				    "experimental-onion-messages not enabled");
 
 	/* Create an onion which encodes this. */
-	sphinx_path = sphinx_path_new(cmd, NULL);
+	sphinx_path = sphinx_path_new(cmd, NULL, 0);
 	for (size_t i = 0; i < tal_count(hops); i++)
 		sphinx_add_hop(sphinx_path, &hops[i].node, hops[i].tlv);
 
