@@ -425,12 +425,18 @@ impl From<responses::CheckmessageResponse> for pb::CheckmessageResponse {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<responses::CloseResponse> for pb::CloseResponse {
     fn from(c: responses::CloseResponse) -> Self {
         Self {
+            #[allow(deprecated)]
             tx: c.tx.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            #[allow(deprecated)]
             txid: c.txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
+            // Field: Close.txids[]
+            txids: c.txids.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            // Field: Close.txs[]
+            txs: c.txs.map(|arr| arr.into_iter().map(|i| hex::decode(i).unwrap()).collect()).unwrap_or(vec![]), // Rule #3
             item_type: c.item_type as i32,
         }
     }

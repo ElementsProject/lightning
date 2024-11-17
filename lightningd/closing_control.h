@@ -14,7 +14,7 @@ const char *cmd_id_from_close_command(const tal_t *ctx,
 
 /* Resolve a close command for a channel that will be closed soon. */
 void resolve_close_command(struct lightningd *ld, struct channel *channel,
-			   bool cooperative, const struct bitcoin_tx *close_tx);
+			   bool cooperative, struct bitcoin_tx **close_txs);
 
 void peer_start_closingd(struct channel *channel,
 			 struct peer_fd *peer_fd);
