@@ -58,11 +58,13 @@ resolve_one_close_command(struct close_command *cc, bool cooperative,
 	struct json_stream *result = json_stream_success(cc->cmd);
 	const struct bitcoin_tx *close_tx = close_txs[tal_count(close_txs) - 1];
 
-	json_add_tx(result, "tx", close_tx);
+	if (command_deprecated_out_ok(cc->cmd, "tx", "v24.11", "v25.11"))
+		json_add_tx(result, "tx", close_tx);
 	if (!invalid_last_tx(close_tx)) {
 		struct bitcoin_txid txid;
 		bitcoin_txid(close_tx, &txid);
-		json_add_txid(result, "txid", &txid);
+		if (command_deprecated_out_ok(cc->cmd, "txid", "v24.11", "v25.11"))
+			json_add_txid(result, "txid", &txid);
 	}
 
 	json_array_start(result, "txs");

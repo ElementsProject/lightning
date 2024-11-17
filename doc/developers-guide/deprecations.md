@@ -34,6 +34,8 @@ hidden: false
 | decode.blinding                      | Field              | v24.11           | v25.05         | Renamed to `first_path_key` in BOLT 4 (available in `decode` from v24.11)                                                              |
 | onion_message_recv.blinding          | Hook Field         | v24.11           | v25.05         | Renamed to `first_path_key` in BOLT 4 (available in hook from v24.11)                                                                  |
 | decodepay                            | Command            | v24.11           | v25.11         | Use `decode` which is more powerful (since v23.05)                                                                                     |
+| close.tx                             | Field              | v24.11           | v25.11         | Use txs array instead                                                                                                                  |
+| close.txid                           | Field              | v24.11           | v25.11         | Use txids array instead                                                                                                                |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 
