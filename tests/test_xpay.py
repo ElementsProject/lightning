@@ -464,3 +464,15 @@ def test_xpay_takeover(node_factory, executor):
     inv = l3.rpc.invoice(100000, "test_xpay_takeover13", "test_xpay_takeover13")['bolt11']
     l1.rpc.pay(inv)
     l1.daemon.wait_for_log('Redirecting pay->xpay')
+
+
+def test_xpay_preapprove(node_factory):
+    l1, l2 = node_factory.line_graph(2, opts={'dev-hsmd-fail-preapprove': None})
+
+    inv = l2.rpc.invoice(100000, "test_xpay_preapprove", "test_xpay_preapprove")['bolt11']
+
+    with pytest.raises(RpcError, match=r"invoice was declined"):
+        l1.rpc.check('xpay', invstring=inv)
+
+    with pytest.raises(RpcError, match=r"invoice was declined"):
+        l1.rpc.xpay(inv)

@@ -1380,6 +1380,26 @@ static struct command_result *param_string_array(struct command *cmd, const char
 	return NULL;
 }
 
+static struct command_result *
+preapproveinvoice_succeed(struct command *cmd,
+			  const char *method,
+			  const char *buf,
+			  const jsmntok_t *result,
+			  struct payment *payment)
+{
+	struct xpay *xpay = xpay_of(cmd->plugin);
+
+	/* Now we can conclude `check` command */
+	if (command_check_only(cmd)) {
+		return command_check_done(cmd);
+	}
+
+	payment->unique_id = xpay->counter++;
+	payment->private_layer = tal_fmt(payment,
+					 "xpay-%"PRIu64, payment->unique_id);
+	return populate_private_layer(cmd, payment);
+}
+
 static struct command_result *json_xpay(struct command *cmd,
 					const char *buffer,
 					const jsmntok_t *params)
@@ -1388,16 +1408,17 @@ static struct command_result *json_xpay(struct command *cmd,
 	struct amount_msat *msat, *maxfee, *partial;
 	struct payment *payment = tal(cmd, struct payment);
 	unsigned int *retryfor;
+	struct out_req *req;
 	char *err;
 
-	if (!param(cmd, buffer, params,
-		   p_req("invstring", param_invstring, &payment->invstring),
-		   p_opt("amount_msat", param_msat, &msat),
-		   p_opt("maxfee", param_msat, &maxfee),
-		   p_opt("layers", param_string_array, &payment->layers),
-		   p_opt_def("retry_for", param_number, &retryfor, 60),
-		   p_opt("partial_msat", param_msat, &partial),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("invstring", param_invstring, &payment->invstring),
+			 p_opt("amount_msat", param_msat, &msat),
+			 p_opt("maxfee", param_msat, &maxfee),
+			 p_opt("layers", param_string_array, &payment->layers),
+			 p_opt_def("retry_for", param_number, &retryfor, 60),
+			 p_opt("partial_msat", param_msat, &partial),
+			 NULL))
 		return command_param_failed();
 
 	list_head_init(&payment->current_attempts);
@@ -1405,9 +1426,6 @@ static struct command_result *json_xpay(struct command *cmd,
 	payment->plugin = cmd->plugin;
 	payment->cmd = cmd;
 	payment->amount_being_routed = AMOUNT_MSAT(0);
-	payment->unique_id = xpay->counter++;
-	payment->private_layer = tal_fmt(payment,
-					 "xpay-%"PRIu64, payment->unique_id);
 	payment->group_id = pseudorand(INT64_MAX);
 	payment->total_num_attempts = payment->num_failures = 0;
 	payment->requests = tal_arr(payment, struct out_req *, 0);
@@ -1516,7 +1534,19 @@ static struct command_result *json_xpay(struct command *cmd,
 	} else
 		payment->maxfee = *maxfee;
 
-	return populate_private_layer(cmd, payment);
+	/* Now preapprove, then start payment. */
+	if (command_check_only(cmd)) {
+		req = jsonrpc_request_start(cmd, "check",
+					    &preapproveinvoice_succeed,
+					    &forward_error, payment);
+		json_add_string(req->js, "command_to_check", "preapproveinvoice");
+	} else {
+		req = jsonrpc_request_start(cmd, "preapproveinvoice",
+					    &preapproveinvoice_succeed,
+					    &forward_error, payment);
+	}
+	json_add_string(req->js, "bolt11", payment->invstring);
+	return send_outreq(req);
 }
 
 static struct command_result *getchaininfo_done(struct command *aux_cmd,
