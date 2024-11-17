@@ -67,6 +67,8 @@ struct payment {
 	struct sha256 payment_hash;
 	/* Amount we're trying to pay */
 	struct amount_msat amount;
+	/* Fullamount of invoice (usually the same as above) */
+	struct amount_msat full_amount;
 	/* Maximum fee we're prepare to pay */
 	struct amount_msat maxfee;
 	/* BOLT11 payment secret (NULL for BOLT12, it uses blinded paths) */
@@ -783,7 +785,7 @@ static void append_blinded_payloads(struct sphinx_path *sp,
 		 */
 		payload = onion_blinded_hop(NULL,
 					    final ? &attempt->delivers : NULL,
-					    final ? &attempt->payment->amount : NULL,
+					    final ? &attempt->payment->full_amount : NULL,
 					    final ? &final_cltv : NULL,
 					    path->path[i]->encrypted_recipient_data,
 					    first ? &path->first_path_key : NULL);
@@ -835,7 +837,7 @@ static const u8 *create_onion(const tal_t *ctx, struct attempt *attempt)
 					  take(onion_final_hop(NULL,
 							       attempt->delivers,
 							       attempt->payment->final_cltv + xpay->blockheight,
-							       attempt->payment->amount,
+							       attempt->payment->full_amount,
 							       attempt->payment->payment_secret,
 							       attempt->payment->payment_metadata)));
 	}
@@ -1333,7 +1335,7 @@ static struct command_result *json_xpay(struct command *cmd,
 					const jsmntok_t *params)
 {
 	struct xpay *xpay = xpay_of(cmd->plugin);
-	struct amount_msat *msat, *maxfee;
+	struct amount_msat *msat, *maxfee, *partial;
 	struct payment *payment = tal(cmd, struct payment);
 	unsigned int *retryfor;
 	char *err;
@@ -1344,6 +1346,7 @@ static struct command_result *json_xpay(struct command *cmd,
 		   p_opt("maxfee", param_msat, &maxfee),
 		   p_opt("layers", param_string_array, &payment->layers),
 		   p_opt_def("retry_for", param_number, &retryfor, 60),
+		   p_opt("partial_msat", param_msat, &partial),
 		   NULL))
 		return command_param_failed();
 
@@ -1372,7 +1375,7 @@ static struct command_result *json_xpay(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Invalid bolt12 invoice: %s", err);
 
-		payment->amount = amount_msat(*b12inv->invoice_amount);
+		payment->full_amount = amount_msat(*b12inv->invoice_amount);
 		if (msat)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Cannot override amount for bolt12 invoices");
@@ -1438,9 +1441,19 @@ static struct command_result *json_xpay(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "amount_msat unnecessary");
 		if (b11->msat)
-			payment->amount = *b11->msat;
+			payment->full_amount = *b11->msat;
 		else
-			payment->amount = *msat;
+			payment->full_amount = *msat;
+	}
+
+	if (partial) {
+		payment->amount = *partial;
+		if (amount_msat_greater(payment->amount, payment->full_amount))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "partial_msat must be less or equal to total amount %s",
+					    fmt_amount_msat(tmpctx, payment->full_amount));
+	} else {
+		payment->amount = payment->full_amount;
 	}
 
 	/* Default is 5sats, or 1%, whatever is greater */
