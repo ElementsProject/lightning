@@ -1469,18 +1469,51 @@ static struct command_result *json_xpay(struct command *cmd,
 	return populate_private_layer(cmd, payment);
 }
 
+static struct command_result *getchaininfo_done(struct command *aux_cmd,
+						const char *method,
+						const char *buf,
+						const jsmntok_t *result,
+						void *unused)
+{
+	struct xpay *xpay = xpay_of(aux_cmd->plugin);
+
+	/* We use headercount from the backend, in case we're still syncing */
+	if (!json_to_u32(buf, json_get_member(buf, result, "headercount"),
+			 &xpay->blockheight)) {
+		plugin_err(aux_cmd->plugin, "Bad getchaininfo '%.*s'",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+	}
+	return aux_command_done(aux_cmd);
+}
+
+static struct command_result *getinfo_done(struct command *aux_cmd,
+					   const char *method,
+					   const char *buf,
+					   const jsmntok_t *result,
+					   void *unused)
+{
+	struct xpay *xpay = xpay_of(aux_cmd->plugin);
+	const char *err;
+
+	err = json_scan(tmpctx, buf, result,
+			"{id:%}", JSON_SCAN(json_to_pubkey, &xpay->local_id));
+	if (err) {
+		plugin_err(aux_cmd->plugin, "Bad getinfo '%.*s': %s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result),
+			   err);
+	}
+	return aux_command_done(aux_cmd);
+}
+
 static const char *init(struct command *init_cmd,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
 	struct plugin *plugin = init_cmd->plugin;
 	struct xpay *xpay = xpay_of(plugin);
 	size_t num_cupdates_rejected;
-	struct json_out *js;
-	const char *response;
-
-	rpc_scan(init_cmd, "getinfo",
-		 take(json_out_obj(NULL, NULL, NULL)),
-		 "{id:%}", JSON_SCAN(json_to_pubkey, &xpay->local_id));
+	struct out_req *req;
 
 	xpay->global_gossmap = gossmap_load(xpay,
 					    GOSSIP_STORE_FILENAME,
@@ -1494,23 +1527,30 @@ static const char *init(struct command *init_cmd,
 			   "gossmap ignored %zu channel updates",
 			   num_cupdates_rejected);
 
-	/* We use headercount from the backend, in case we're still syncing */
-	js = json_out_new(NULL);
-	json_out_start(js, NULL, '{');
-	json_out_add(js, "last_height", false, "0");
-	json_out_end(js, '}');
-	json_out_finished(js);
-	rpc_scan(init_cmd, "getchaininfo", take(js),
-		 "{headercount:%}", JSON_SCAN(json_to_u32, &xpay->blockheight));
-
 	xpay->counter = 0;
 	if (!pubkey_from_hexstr("02" "0000000000000000000000000000000000000000000000000000000000000001", 66, &xpay->fakenode))
 		abort();
 
-	/* Create xpay layer for us to use */
-	jsonrpc_request_sync(tmpctx, init_cmd, "askrene-create-layer",
-			     json_out_obj(tmpctx, "layer", "xpay"),
-			     &response);
+	/* Cannot use rpc_scan, as we intercept rpc_command: would block. */
+	req = jsonrpc_request_start(aux_command(init_cmd), "getchaininfo",
+				    getchaininfo_done,
+				    plugin_broken_cb,
+				    "getchaininfo");
+	json_add_u32(req->js, "last_height", 0);
+	send_outreq(req);
+
+	req = jsonrpc_request_start(aux_command(init_cmd), "getinfo",
+				    getinfo_done,
+				    plugin_broken_cb,
+				    "getinfo");
+	send_outreq(req);
+
+	req = jsonrpc_request_start(aux_command(init_cmd), "askrene-create-layer",
+				    ignore_and_complete,
+				    plugin_broken_cb,
+				    "askrene-create-layer");
+	json_add_string(req->js, "layer", "xpay");
+	send_outreq(req);
 
 	return NULL;
 }
