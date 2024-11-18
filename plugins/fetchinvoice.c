@@ -840,10 +840,6 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	if (!offers_enabled)
-		return command_fail(cmd, LIGHTNINGD,
-				    "experimental-offers not enabled");
-
 	sent->wait_timeout = *timeout;
 	sent->their_paths = sent->offer->offer_paths;
 	if (sent->their_paths)
@@ -1315,10 +1311,6 @@ struct command_result *json_sendinvoice(struct command *cmd,
 		   p_opt_def("timeout", param_number, &timeout, 90),
 		   NULL))
 		return command_param_failed();
-
-	if (!offers_enabled)
-		return command_fail(cmd, LIGHTNINGD,
-				    "experimental-offers not enabled");
 
 	sent->dev_path_use_scidd = NULL;
 	sent->dev_reply_path = NULL;

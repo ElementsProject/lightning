@@ -33,7 +33,6 @@
 struct pubkey id;
 u32 blockheight;
 u16 cltv_final;
-bool offers_enabled;
 bool disable_connect;
 bool dev_invoice_bpath_scid;
 struct short_channel_id *dev_invoice_internal_scid;
@@ -199,9 +198,6 @@ static struct command_result *onion_message_recv(struct command *cmd,
 	const jsmntok_t *om, *secrettok, *replytok, *invreqtok, *invtok;
 	struct blinded_path *reply_path = NULL;
  	struct secret *secret;
-
-	if (!offers_enabled)
-		return command_hook_success(cmd);
 
 	om = json_get_member(buf, params, "onion_message");
 	secrettok = json_get_member(buf, om, "pathsecret");
@@ -1409,10 +1405,8 @@ static const char *init(struct command *init_cmd,
 	rpc_scan(init_cmd, "listconfigs",
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{configs:"
-		 "{cltv-final:{value_int:%},"
-		 "experimental-offers:{set:%}}}",
-		 JSON_SCAN(json_to_u16, &cltv_final),
-		 JSON_SCAN(json_to_bool, &offers_enabled));
+		 "{cltv-final:{value_int:%}}}",
+		 JSON_SCAN(json_to_u16, &cltv_final));
 
 	rpc_scan(init_cmd, "makesecret",
 		 take(json_out_obj(NULL, "string", BOLT12_ID_BASE_STRING)),

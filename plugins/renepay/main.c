@@ -60,10 +60,8 @@ static const char *init(struct command *init_cmd,
 	rpc_scan(init_cmd, "listconfigs",
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{configs:"
-		 "{max-locktime-blocks?:{value_int:%},"
-		 "experimental-offers:{set:%}}}",
-		 JSON_SCAN(json_to_number, &pay_plugin->maxdelay_default),
-		 JSON_SCAN(json_to_bool, &pay_plugin->exp_offers)
+		 "{max-locktime-blocks?:{value_int:%}}}",
+		 JSON_SCAN(json_to_number, &pay_plugin->maxdelay_default)
 		 );
 
 	pay_plugin->payment_map = tal(pay_plugin, struct payment_map);

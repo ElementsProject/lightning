@@ -9,8 +9,6 @@ struct plugin;
 
 /* This is me. */
 extern struct pubkey id;
-/* Are offers enabled? */
-extern bool offers_enabled;
 /* --fetchinvoice-noconnect */
 extern bool disable_connect;
 /* --cltv-final */
