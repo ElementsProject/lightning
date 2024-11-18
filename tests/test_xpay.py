@@ -139,8 +139,7 @@ def test_pay_fakenet(node_factory):
 
 
 def test_xpay_simple(node_factory):
-    l1, l2, l3, l4 = node_factory.get_nodes(4, opts={'experimental-offers': None,
-                                                     'may_reconnect': True})
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts={'may_reconnect': True})
     node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
     node_factory.join_nodes([l3, l4], announce_channels=False)
 
@@ -201,7 +200,7 @@ def test_xpay_simple(node_factory):
 
 
 def test_xpay_selfpay(node_factory):
-    l1 = node_factory.get_node(options={'experimental-offers': None})
+    l1 = node_factory.get_node()
 
     b11 = l1.rpc.invoice(1000, "test_xpay_selfpay1", "test_xpay_selfpay1")['bolt11']
     offer = l1.rpc.offer('any')
@@ -368,8 +367,7 @@ def test_xpay_partial_msat(node_factory, executor):
 
 def test_xpay_takeover(node_factory, executor):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
-                                         opts={'xpay-handle-pay': True,
-                                               'experimental-offers': None})
+                                         opts={'xpay-handle-pay': True})
 
     # xpay does NOT look like pay!
     l1.rpc.jsonschemas = {}

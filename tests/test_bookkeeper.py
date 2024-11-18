@@ -743,7 +743,7 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     When an 'invoice' type event comes through, we look up the description details
     to include about the item. Particularly useful for CSV outputs etc.
     """
-    l1, l2 = node_factory.line_graph(2, opts={'experimental-offers': None})
+    l1, l2 = node_factory.line_graph(2)
 
     # Send l2 funds via the channel
     bolt11_desc = 'test "bolt11" description, 🥰🪢'
