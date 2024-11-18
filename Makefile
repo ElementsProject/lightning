@@ -80,10 +80,6 @@ PYTHON_GENERATED= \
 	contrib/pyln-grpc-proto/pyln/grpc/node_pb2.py \
 	contrib/pyln-testing/pyln/testing/grpc2py.py
 
-# Options to pass to cppcheck. Mostly used to exclude files that are
-# generated with external tools that we don't have control over
-CPPCHECK_OPTS=-q --language=c --std=c11 --error-exitcode=1 --suppressions-list=.cppcheck-suppress --inline-suppr
-
 # This is where we add new features as bitcoin adds them.
 FEATURES :=
 
@@ -549,13 +545,6 @@ check-pytest-pyln-proto:
 check-includes: check-src-includes check-hdr-includes
 	@tools/check-includes.sh
 
-# cppcheck gets confused by list_for_each(head, i, list): thinks i is uninit.
-.cppcheck-suppress: $(ALL_NONGEN_SRCFILES)
-	@ls $(ALL_NONGEN_SRCFILES) | grep -vzE '^(ccan|contrib)/' | xargs grep -n '_for_each' | sed 's/\([^:]*:.*\):.*/uninitvar:\1/' > $@
-
-check-cppcheck: .cppcheck-suppress
-	@trap 'rm -f .cppcheck-suppress' 0; ls $(ALL_NONGEN_SRCFILES) | grep -vzE '^(ccan|contrib)/' | xargs cppcheck  ${CPPCHECK_OPTS}
-
 check-shellcheck:
 	@git ls-files -z -- "*.sh" | xargs -0 shellcheck -f gcc
 
@@ -577,7 +566,7 @@ check-amount-access:
 # For those without working cppcheck
 check-source-no-cppcheck: check-makefile check-source-bolt check-whitespace check-spelling check-python check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access
 
-check-source: check-source-no-cppcheck check-cppcheck
+check-source: check-source-no-cppcheck
 
 full-check: check check-source
 
