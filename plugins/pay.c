@@ -22,7 +22,6 @@
 /* Public key of this node. */
 static struct node_id my_id;
 static unsigned int maxdelay_default;
-static bool exp_offers;
 static bool disablempp = false;
 static struct channel_hint_set *global_hints;
 
@@ -648,10 +647,8 @@ static const char *init(struct command *init_cmd,
 	/* max-locktime-blocks deprecated in v24.05, but still grab it! */
 	rpc_scan(init_cmd, "listconfigs", take(json_out_obj(NULL, NULL, NULL)),
 		 "{configs:"
-		 "{max-locktime-blocks?:{value_int:%},"
-		 "experimental-offers:{set:%}}}",
-		 JSON_SCAN(json_to_number, &maxdelay_default),
-		 JSON_SCAN(json_to_bool, &exp_offers));
+		 "{max-locktime-blocks?:{value_int:%}}}",
+		 JSON_SCAN(json_to_number, &maxdelay_default));
 
 	plugin_set_memleak_handler(init_cmd->plugin, memleak_mark_payments);
 	return NULL;
@@ -1373,9 +1370,6 @@ static struct command_result *json_pay(struct command *cmd,
 		if (b12 == NULL)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Invalid bolt12: %s", b12_fail);
-		if (!exp_offers)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "experimental-offers disabled");
 
 		/* FIXME: We disable MPP for now */
 		/* p->features = tal_steal(p, b12->features); */

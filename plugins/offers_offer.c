@@ -470,10 +470,6 @@ struct command_result *json_offer(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	if (!offers_enabled)
-		return command_fail(cmd, LIGHTNINGD,
-				    "experimental-offers not enabled");
-
 	/* Doesn't make sense to have max quantity 1. */
 	if (offer->offer_quantity_max && *offer->offer_quantity_max == 1)
 		return command_fail_badparam(cmd, "quantity_max",
@@ -679,10 +675,6 @@ struct command_result *json_invoicerequest(struct command *cmd,
 		   p_opt_def("single_use", param_bool, &single_use, true),
 		   NULL))
 		return command_param_failed();
-
-	if (!offers_enabled)
-		return command_fail(cmd, LIGHTNINGD,
-				    "experimental-offers not enabled");
 
 	/* BOLT-offers #12:
 	 * - otherwise (not responding to an offer):
