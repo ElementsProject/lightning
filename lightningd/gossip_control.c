@@ -134,8 +134,13 @@ static void handle_init_cupdate(struct lightningd *ld, const u8 *msg)
 
 	channel = any_channel_by_scid(ld, scid, true);
 	if (!channel) {
-		log_broken(ld->log, "init_cupdate for unknown scid %s",
+		log_broken(ld->log, "init_cupdate for unknown scid %s: telling gossipd it's spent",
 			   fmt_short_channel_id(tmpctx, scid));
+		/* Presumably gossipd missed that it was already spent, so
+		 * tell it now! (We need a tal object for this, hence
+		 * tal_dup) */
+		gossipd_notify_spends(ld, ld->gossip_blockheight,
+				      tal_dup(tmpctx, struct short_channel_id, &scid));
 		return;
 	}
 
