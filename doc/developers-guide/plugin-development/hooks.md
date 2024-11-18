@@ -596,8 +596,6 @@ Because this is a chained hook, the daemon expects the result to be `{'result': 
 
 ### `onion_message_recv` and `onion_message_recv_secret`
 
-> 🚧 experimental-offers only
-
 These two hooks are almost identical, in that they are called when an onion message is received.
 
 `onion_message_recv` is used for unsolicited messages (where the source knows that it is sending to this node), and `onion_message_recv_secret` is used for messages which use a blinded path we supplied.  The latter hook will have a `pathsecret` field, the former never will.

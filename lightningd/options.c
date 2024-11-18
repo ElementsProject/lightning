@@ -1312,7 +1312,10 @@ static char *opt_set_anchor_zero_fee_htlc_tx(struct lightningd *ld)
 
 static char *opt_set_offers(struct lightningd *ld)
 {
-	/* FIXME: Deprecate */
+	if (!opt_deprecated_ok(ld, "experimental-offers", NULL,
+			       "v24.11", "v25.05"))
+		return "--experimental-offers has been deprecated (now the default)";
+
 	return NULL;
 }
 
@@ -1499,7 +1502,7 @@ static void register_opts(struct lightningd *ld)
 				 opt_hidden);
 	opt_register_early_noarg("--experimental-offers",
 				 opt_set_offers, ld,
-				 "EXPERIMENTAL: enable send and receive of offers");
+				 opt_hidden);
 	opt_register_early_noarg("--experimental-shutdown-wrong-funding",
 				 opt_set_shutdown_wrong_funding, ld,
 				 "EXPERIMENTAL: allow shutdown with alternate txids");

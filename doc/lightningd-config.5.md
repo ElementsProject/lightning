@@ -770,10 +770,6 @@ Experimental options are subject to breakage between releases: they
 are made available for advanced users who want to test proposed
 features.
 
-* **experimental-offers**
-
-  Specifying this enables `offers` functionality, which is in draft status ([bolt][bolt] #798) as [bolt12][bolt12].
-
 * **fetchinvoice-noconnect**
 
   Specifying this prevents `fetchinvoice`, `sendinvoice` and replying
