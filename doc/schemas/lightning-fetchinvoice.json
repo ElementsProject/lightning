@@ -3,7 +3,6 @@
   "type": "object",
   "rpc": "fetchinvoice",
   "title": "Command for fetch an invoice for an offer",
-  "warning": "experimental-offers only",
   "description": [
     "The **fetchinvoice** RPC command contacts the issuer of an *offer* to get an actual invoice that can be paid. It highlights any changes between the offer and the returned invoice.",
     "",

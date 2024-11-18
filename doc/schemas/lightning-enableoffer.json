@@ -3,7 +3,6 @@
   "type": "object",
   "rpc": "disableoffer",
   "title": "Command for re-enabling an offer",
-  "warning": "experimental-offers only",
   "description": [
     "The **enableoffer** RPC command enables an offer, after it has been disabled."
   ],

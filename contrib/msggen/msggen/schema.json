@@ -7042,7 +7042,7 @@
           "invstring": {
             "type": "string",
             "description": [
-              "The bolt11 form, but the final signature is ignored. Minimal sanity checks are done. (Note: if **experimental-offers** is enabled, *invstring* can actually be an unsigned bolt12 invoice)."
+              "The bolt11/bolt12 invoice, but the final signature is ignored. Minimal sanity checks are done."
             ]
           },
           "label": {
@@ -7092,7 +7092,7 @@
           "bolt12": {
             "type": "string",
             "description": [
-              "The bolt12 string instead of **bolt11** (**experimental-offers** only)."
+              "The bolt12 string instead of **bolt11**"
             ]
           },
           "payment_hash": {
@@ -7192,7 +7192,7 @@
           "local_offer_id": {
             "type": "hex",
             "description": [
-              "The *id* of our offer which created this invoice (**experimental-offers** only)."
+              "The *id* of our offer which created this invoice."
             ],
             "maxLength": 64,
             "minLength": 64
@@ -7200,7 +7200,7 @@
           "invreq_payer_note": {
             "type": "string",
             "description": [
-              "The optional *invreq_payer_note* from invoice_request which created this invoice (**experimental-offers** only)."
+              "The optional *invreq_payer_note* from invoice_request which created this invoice."
             ]
           }
         },
@@ -11588,7 +11588,7 @@
                 "bolt12": {
                   "type": "string",
                   "description": [
-                    "The bolt12 string (if supplied for pay: **experimental-offers** only)."
+                    "The bolt12 string (if supplied for pay)."
                   ]
                 },
                 "erroronion": {
@@ -12350,7 +12350,6 @@
       "added": "v22.11",
       "rpc": "disableinvoicerequest",
       "title": "Command for removing an invoice request",
-      "warning": "experimental-offers only",
       "description": [
         "The **disableinvoicerequest** RPC command disables an invoice_request, so that no further invoices will be accepted (and thus, no further payments made)..",
         "",
@@ -12458,7 +12457,6 @@
       "type": "object",
       "rpc": "disableoffer",
       "title": "Command for removing an offer",
-      "warning": "experimental-offers only",
       "description": [
         "The **disableoffer** RPC command disables an offer, so that no further invoices will be given out.",
         "",
@@ -12708,7 +12706,6 @@
       "type": "object",
       "rpc": "disableoffer",
       "title": "Command for re-enabling an offer",
-      "warning": "experimental-offers only",
       "description": [
         "The **enableoffer** RPC command enables an offer, after it has been disabled."
       ],
@@ -13369,7 +13366,6 @@
       "type": "object",
       "rpc": "fetchinvoice",
       "title": "Command for fetch an invoice for an offer",
-      "warning": "experimental-offers only",
       "description": [
         "The **fetchinvoice** RPC command contacts the issuer of an *offer* to get an actual invoice that can be paid. It highlights any changes between the offer and the returned invoice.",
         "",
@@ -16809,7 +16805,6 @@
       "added": "v22.11",
       "rpc": "invoicerequest",
       "title": "Command for offering payments",
-      "warning": "experimental-offers only",
       "description": [
         "The **invoicerequest** RPC command creates an `invoice_request` to send payments: it automatically enables the processing of an incoming invoice, and payment of it. The reader of the resulting `invoice_request` can use lightning-sendinvoice(7) to collect their payment."
       ],
@@ -23014,13 +23009,13 @@
                 "local_offer_id": {
                   "type": "hash",
                   "description": [
-                    "The *id* of our offer which created this invoice (**experimental-offers** only)."
+                    "The *id* of our offer which created this invoice."
                   ]
                 },
                 "invreq_payer_note": {
                   "type": "string",
                   "description": [
-                    "The optional *invreq_payer_note* from invoice_request which created this invoice (**experimental-offers** only)."
+                    "The optional *invreq_payer_note* from invoice_request which created this invoice."
                   ]
                 },
                 "created_index": {
@@ -23657,7 +23652,6 @@
       "type": "object",
       "rpc": "listoffers",
       "title": "Command for listing offers",
-      "warning": "experimental-offers only",
       "description": [
         "The **listoffers** RPC command list all offers, or with `offer_id`, only the offer with that offer_id (if it exists)."
       ],
@@ -23944,7 +23938,7 @@
                 "bolt12": {
                   "type": "string",
                   "description": [
-                    "The bolt12 string (if supplied for pay: **experimental-offers** only)."
+                    "The bolt12 string (if supplied for pay)."
                   ]
                 },
                 "created_index": {
@@ -28230,7 +28224,6 @@
       "type": "object",
       "rpc": "offer",
       "title": "Command for accepting payments",
-      "warning": "experimental-offers only",
       "description": [
         "The **offer** RPC command creates an offer (or returns an existing one), which is a precursor to creating one or more invoices. It automatically enables the processing of an incoming invoice_request, and issuing of invoices.",
         "",
@@ -29583,7 +29576,7 @@
           "bolt11": {
             "type": "string",
             "description": [
-              "Bolt11 invoice, if **experimental-offers** is enabled, it can actually be a bolt12 invoice, such as one received from lightningd-fetchinvoice(7). If it does not contain an amount, *amount_msat* is required, otherwise if it is specified it must be *null*."
+              "Bolt11 or bolt12 invoice (such as one received from lightningd-fetchinvoice(7)). For a bolt11 invoice, if it does not contain an amount, *amount_msat* is required, otherwise if it is specified it must be *null*."
             ]
           },
           "amount_msat": {
@@ -31502,7 +31495,6 @@
       "type": "object",
       "rpc": "sendinvoice",
       "title": "Command for send an invoice for an offer",
-      "warning": "experimental-offers only",
       "description": [
         "The **sendinvoice** RPC command creates and sends an invoice to the issuer of an *invoice_request* for it to pay: lightning-invoicerequest(7).",
         "",
@@ -31942,7 +31934,7 @@
           "bolt12": {
             "type": "string",
             "description": [
-              "The bolt12 string (if supplied: **experimental-offers** only)."
+              "The bolt12 string (if supplied)."
             ]
           },
           "partid": {
@@ -32327,7 +32319,7 @@
           "bolt12": {
             "type": "string",
             "description": [
-              "The bolt12 string (if supplied: **experimental-offers** only)."
+              "The bolt12 string (if supplied)."
             ]
           },
           "message": {},
@@ -36635,7 +36627,7 @@
           "bolt12": {
             "type": "string",
             "description": [
-              "The bolt12 string (if supplied for pay: **experimental-offers** only)."
+              "The bolt12 string (if supplied for pay)."
             ]
           },
           "message": {},

@@ -17,7 +17,7 @@
       "invstring": {
         "type": "string",
         "description": [
-          "The bolt11 form, but the final signature is ignored. Minimal sanity checks are done. (Note: if **experimental-offers** is enabled, *invstring* can actually be an unsigned bolt12 invoice)."
+          "The bolt11/bolt12 invoice, but the final signature is ignored. Minimal sanity checks are done."
         ]
       },
       "label": {
@@ -67,7 +67,7 @@
       "bolt12": {
         "type": "string",
         "description": [
-          "The bolt12 string instead of **bolt11** (**experimental-offers** only)."
+          "The bolt12 string instead of **bolt11**"
         ]
       },
       "payment_hash": {
@@ -167,7 +167,7 @@
       "local_offer_id": {
         "type": "hex",
         "description": [
-          "The *id* of our offer which created this invoice (**experimental-offers** only)."
+          "The *id* of our offer which created this invoice."
         ],
         "maxLength": 64,
         "minLength": 64
@@ -175,7 +175,7 @@
       "invreq_payer_note": {
         "type": "string",
         "description": [
-          "The optional *invreq_payer_note* from invoice_request which created this invoice (**experimental-offers** only)."
+          "The optional *invreq_payer_note* from invoice_request which created this invoice."
         ]
       }
     },

@@ -3,7 +3,6 @@
   "type": "object",
   "rpc": "listoffers",
   "title": "Command for listing offers",
-  "warning": "experimental-offers only",
   "description": [
     "The **listoffers** RPC command list all offers, or with `offer_id`, only the offer with that offer_id (if it exists)."
   ],

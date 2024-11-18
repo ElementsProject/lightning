@@ -4,7 +4,6 @@
   "added": "v22.11",
   "rpc": "disableinvoicerequest",
   "title": "Command for removing an invoice request",
-  "warning": "experimental-offers only",
   "description": [
     "The **disableinvoicerequest** RPC command disables an invoice_request, so that no further invoices will be accepted (and thus, no further payments made)..",
     "",

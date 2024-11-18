@@ -19,7 +19,7 @@
       "bolt11": {
         "type": "string",
         "description": [
-          "Bolt11 invoice, if **experimental-offers** is enabled, it can actually be a bolt12 invoice, such as one received from lightningd-fetchinvoice(7). If it does not contain an amount, *amount_msat* is required, otherwise if it is specified it must be *null*."
+          "Bolt11 or bolt12 invoice (such as one received from lightningd-fetchinvoice(7)). For a bolt11 invoice, if it does not contain an amount, *amount_msat* is required, otherwise if it is specified it must be *null*."
         ]
       },
       "amount_msat": {

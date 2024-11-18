@@ -169,7 +169,7 @@
             "bolt12": {
               "type": "string",
               "description": [
-                "The bolt12 string (if supplied for pay: **experimental-offers** only)."
+                "The bolt12 string (if supplied for pay)."
               ]
             },
             "erroronion": {

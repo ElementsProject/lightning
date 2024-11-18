@@ -155,13 +155,13 @@
             "local_offer_id": {
               "type": "hash",
               "description": [
-                "The *id* of our offer which created this invoice (**experimental-offers** only)."
+                "The *id* of our offer which created this invoice."
               ]
             },
             "invreq_payer_note": {
               "type": "string",
               "description": [
-                "The optional *invreq_payer_note* from invoice_request which created this invoice (**experimental-offers** only)."
+                "The optional *invreq_payer_note* from invoice_request which created this invoice."
               ]
             },
             "created_index": {
