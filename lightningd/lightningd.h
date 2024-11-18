@@ -75,9 +75,6 @@ struct config {
 	/* How long before we give up waiting for INIT msg */
 	u32 connection_timeout_secs;
 
-	/* EXPERIMENTAL: offers support */
-	bool exp_offers;
-
 	/* Allow dust reserves (including 0) when being called via
 	 * `fundchannel` or in the `openchannel` hook. This is a
 	 * slight spec incompatibility, but implementations do this
