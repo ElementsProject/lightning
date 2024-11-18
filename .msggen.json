@@ -7071,7 +7071,7 @@
         },
         "ListConfigs.configs.experimental-offers": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v24.11"
         },
         "ListConfigs.configs.experimental-offers.set": {
             "added": "pre-v0.10.1",
@@ -7083,7 +7083,7 @@
         },
         "ListConfigs.configs.experimental-onion-messages": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v24.08"
         },
         "ListConfigs.configs.experimental-onion-messages.set": {
             "added": "pre-v0.10.1",

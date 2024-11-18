@@ -36,6 +36,7 @@ hidden: false
 | decodepay                            | Command            | v24.11           | v25.11         | Use `decode` which is more powerful (since v23.05)                                                                                     |
 | close.tx                             | Field              | v24.11           | v25.11         | Use txs array instead                                                                                                                  |
 | close.txid                           | Field              | v24.11           | v25.11         | Use txids array instead                                                                                                                |
+| experimental-offers                  | Config             | v24.11           | v25.05         | Now the default                                                                                                                        |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 

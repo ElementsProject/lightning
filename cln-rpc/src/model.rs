@@ -8817,6 +8817,18 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsExperimentaloffers {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsExperimentalonionmessages {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsMaxlocktimeblocks {
 	    pub source: String,
 	    pub value_int: u32,
@@ -8980,18 +8992,6 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsExperimentaldualfund {
-	    pub set: bool,
-	    pub source: String,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct ListconfigsConfigsExperimentaloffers {
-	    pub set: bool,
-	    pub source: String,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct ListconfigsConfigsExperimentalonionmessages {
 	    pub set: bool,
 	    pub source: String,
 	}
@@ -9305,6 +9305,14 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigs {
 	    #[deprecated]
+	    #[serde(rename = "experimental-offers")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_offers: Option<ListconfigsConfigsExperimentaloffers>,
+	    #[deprecated]
+	    #[serde(rename = "experimental-onion-messages")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_onion_messages: Option<ListconfigsConfigsExperimentalonionmessages>,
+	    #[deprecated]
 	    #[serde(rename = "max-locktime-blocks")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub max_locktime_blocks: Option<ListconfigsConfigsMaxlocktimeblocks>,
@@ -9371,12 +9379,6 @@ pub mod responses {
 	    #[serde(rename = "experimental-dual-fund")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub experimental_dual_fund: Option<ListconfigsConfigsExperimentaldualfund>,
-	    #[serde(rename = "experimental-offers")]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub experimental_offers: Option<ListconfigsConfigsExperimentaloffers>,
-	    #[serde(rename = "experimental-onion-messages")]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub experimental_onion_messages: Option<ListconfigsConfigsExperimentalonionmessages>,
 	    #[serde(rename = "experimental-peer-storage")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub experimental_peer_storage: Option<ListconfigsConfigsExperimentalpeerstorage>,

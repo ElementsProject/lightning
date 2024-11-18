@@ -552,6 +552,10 @@
             }
           },
           "experimental-onion-messages": {
+            "deprecated": [
+              "v24.08",
+              "v25.02"
+            ],
             "type": "object",
             "additionalProperties": false,
             "required": [
@@ -576,6 +580,10 @@
           "experimental-offers": {
             "type": "object",
             "additionalProperties": false,
+            "deprecated": [
+              "v24.11",
+              "v25.05"
+            ],
             "required": [
               "set",
               "source"

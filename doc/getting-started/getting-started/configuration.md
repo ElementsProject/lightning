@@ -492,17 +492,6 @@ Supported features can be listed with `lightningd --list-features-only`
 
 A build _with_ `--enable-experimental-features` flag hard-codes some of below options as enabled, ignoring their command line flag. It may also add support for even more features. The safest way to determine the active configuration is by checking `listconfigs` or by looking at `our_features` (bits) in `getinfo`.
 
-- **experimental-onion-messages**
-
-  Specifying this enables sending, forwarding and receiving onion messages, which are in draft status in the [bolt](https://github.com/lightning/bolts) specifications (PR #759). A build with `--enable-experimental-features` usually enables this via  
-  experimental-offers, see below.
-
-- **experimental-offers**
-
-  Specifying this enables the `offers` and `fetchinvoice` plugins and corresponding functionality, which are in draft status [bolt](https://github.com/lightning/bolts)#798 as [bolt12](https://github.com/rustyrussell/lightning-rfc/blob/guilt/offers/12-offer-encoding.md).  
-  A build with `--enable-experimental-features` enables this permanently and usually  
-  enables experimental-onion-messages as well.
-
 - **fetchinvoice-noconnect**
 
   Specifying this prevents `fetchinvoice` and `sendinvoice` from trying to connect directly to the offering node as a last resort.
