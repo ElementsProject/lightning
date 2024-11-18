@@ -4225,22 +4225,6 @@ def test_mpp_overload_payee(node_factory, bitcoind):
     l1.rpc.pay(inv)
 
 
-@unittest.skipIf(TEST_NETWORK != 'regtest', "Canned offer is network specific")
-def test_offer_needs_option(node_factory):
-    """Make sure we don't make offers without offer command"""
-    l1 = node_factory.get_node()
-    with pytest.raises(RpcError, match='experimental-offers not enabled'):
-        l1.rpc.call('offer', {'amount': '1msat', 'description': 'test'})
-    with pytest.raises(RpcError, match='experimental-offers not enabled'):
-        l1.rpc.call('invoicerequest', {'amount': '2msat',
-                                       'description': 'simple test'})
-    with pytest.raises(RpcError, match='experimental-offers not enabled'):
-        l1.rpc.call('fetchinvoice', {'offer': 'lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqyqs5pr5v4ehg93pqfnwgkvdr57yzh6h92zg3qctvrm7w38djg67kzcm4yeg8vc4cq63s'})
-
-    # Decode still works though
-    assert l1.rpc.decode('lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqyqs5pr5v4ehg93pqfnwgkvdr57yzh6h92zg3qctvrm7w38djg67kzcm4yeg8vc4cq63s')['valid']
-
-
 def test_offer(node_factory, bitcoind):
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/currencyUSDAUD5000.py')
     l1 = node_factory.get_node(options={'plugin': plugin, 'experimental-offers': None})

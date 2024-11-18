@@ -1030,8 +1030,6 @@ static const struct config testnet_config = {
 	/* 1 minute should be enough for anyone! */
 	.connection_timeout_secs = 60,
 
-	.exp_offers = false,
-
 	.allowdustreserve = false,
 
 	.require_confirmed_inputs = false,
@@ -1109,8 +1107,6 @@ static const struct config mainnet_config = {
 
 	/* 1 minute should be enough for anyone! */
 	.connection_timeout_secs = 60,
-
-	.exp_offers = false,
 
 	.allowdustreserve = false,
 
@@ -1316,7 +1312,7 @@ static char *opt_set_anchor_zero_fee_htlc_tx(struct lightningd *ld)
 
 static char *opt_set_offers(struct lightningd *ld)
 {
-	ld->config.exp_offers = true;
+	/* FIXME: Deprecate */
 	return NULL;
 }
 
@@ -2066,7 +2062,7 @@ void add_config_deprecated(struct lightningd *ld,
 						      ->bits[INIT_FEATURE],
 						      OPT_ONION_MESSAGES));
 		} else if (opt->cb == (void *)opt_set_offers) {
-			json_add_bool(response, name0, ld->config.exp_offers);
+			json_add_bool(response, name0, true);
 		} else if (opt->cb == (void *)opt_set_shutdown_wrong_funding) {
 			json_add_bool(response, name0,
 				      feature_offered(ld->our_features
