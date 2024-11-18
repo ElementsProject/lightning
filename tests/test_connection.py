@@ -3533,11 +3533,13 @@ def test_wumbo_channels(node_factory, bitcoind):
     l1.rpc.close(l2.info['id'])
     bitcoind.generate_block(1, wait_for_mempool=1)
     wait_for(lambda: l1.channel_state(l2) == 'ONCHAIN')
+    wait_for(lambda: l2.channel_state(l1) == 'ONCHAIN')
 
     l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
     l1.rpc.fundchannel(l2.info['id'], 'all')
     bitcoind.generate_block(1, wait_for_mempool=1)
     wait_for(lambda: 'CHANNELD_NORMAL' in [c['state'] for c in l1.rpc.listpeerchannels(l2.info['id'])['channels']])
+    wait_for(lambda: 'CHANNELD_NORMAL' in [c['state'] for c in l2.rpc.listpeerchannels(l1.info['id'])['channels']])
 
     # Exact amount depends on fees, but it will be wumbo!
     chan = only_one([c for c in l1.rpc.listpeerchannels(l2.info['id'])['channels'] if c['state'] == 'CHANNELD_NORMAL'])
