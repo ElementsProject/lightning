@@ -283,6 +283,7 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
 
     # Make sure it's connected to l2 (otherwise we get TEMPORARY_CHANNEL_FAILURE)
     wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'])
+    wait_for(lambda: l1.rpc.getinfo()['blockheight'] == 104)
 
     # Payments will succced.
     l1.pay(l2, 1000)
