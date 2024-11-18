@@ -3,7 +3,6 @@
   "type": "object",
   "rpc": "offer",
   "title": "Command for accepting payments",
-  "warning": "experimental-offers only",
   "description": [
     "The **offer** RPC command creates an offer (or returns an existing one), which is a precursor to creating one or more invoices. It automatically enables the processing of an incoming invoice_request, and issuing of invoices.",
     "",

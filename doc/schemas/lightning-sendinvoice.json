@@ -3,7 +3,6 @@
   "type": "object",
   "rpc": "sendinvoice",
   "title": "Command for send an invoice for an offer",
-  "warning": "experimental-offers only",
   "description": [
     "The **sendinvoice** RPC command creates and sends an invoice to the issuer of an *invoice_request* for it to pay: lightning-invoicerequest(7).",
     "",

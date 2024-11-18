@@ -3,7 +3,6 @@
   "type": "object",
   "rpc": "disableoffer",
   "title": "Command for removing an offer",
-  "warning": "experimental-offers only",
   "description": [
     "The **disableoffer** RPC command disables an offer, so that no further invoices will be given out.",
     "",
