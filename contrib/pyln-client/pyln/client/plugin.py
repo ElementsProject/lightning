@@ -474,34 +474,24 @@ class Plugin(object):
         else:
             return self.options[name].default
 
-    def async_method(self, method_name: str, category: Optional[str] = None,
-                     desc: Optional[str] = None,
-                     long_desc: Optional[str] = None,
+    def async_method(self, method_name: str,
                      deprecated: Optional[Union[bool, List[str]]] = None) -> NoneDecoratorType:
         """Decorator to add an async plugin method to the dispatch table.
 
         Internally uses add_method.
         """
         def decorator(f: Callable[..., None]) -> Callable[..., None]:
-            for attr, attr_name in [(category, "Category"), (desc, "Description"), (long_desc, "Long description")]:
-                if attr is not None:
-                    self.log("{} is deprecated but defined in method {}; it will be ignored by Core Lightning".format(attr_name, method_name), level="warn")
             self.add_method(method_name, f, background=True, deprecated=deprecated)
             return f
         return decorator
 
-    def method(self, method_name: str, category: Optional[str] = None,
-               desc: Optional[str] = None,
-               long_desc: Optional[str] = None,
+    def method(self, method_name: str,
                deprecated: Union[bool, List[str]] = None) -> JsonDecoratorType:
         """Decorator to add a plugin method to the dispatch table.
 
         Internally uses add_method.
         """
         def decorator(f: Callable[..., JSONType]) -> Callable[..., JSONType]:
-            for attr, attr_name in [(category, "Category"), (desc, "Description"), (long_desc, "Long description")]:
-                if attr is not None:
-                    self.log("{} is deprecated but defined in method {}; it will be ignored by Core Lightning".format(attr_name, method_name), level="warn")
             self.add_method(method_name, f, background=False, deprecated=deprecated)
             return f
         return decorator
