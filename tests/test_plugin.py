@@ -3466,8 +3466,7 @@ def test_block_added_notifications(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_sql(node_factory, bitcoind):
-    opts = {'experimental-offers': None,
-            'experimental-dual-fund': None,
+    opts = {'experimental-dual-fund': None,
             'dev-allow-localhost': None,
             'may_reconnect': True}
     l2opts = {'lease-fee-basis': 50,

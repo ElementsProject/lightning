@@ -842,7 +842,7 @@ def test_rune_bolt11_parse(node_factory):
 
 
 def test_rune_bolt12_parse(node_factory):
-    l1, l2 = node_factory.line_graph(2, opts={'experimental-offers': None})
+    l1, l2 = node_factory.line_graph(2)
 
     # Two invoices.
     l1inv_1msat = l2.rpc.fetchinvoice(l1.rpc.offer(1, "inv_1msat")['bolt12'])['invoice']
