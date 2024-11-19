@@ -6745,3 +6745,26 @@ def test_fetchinvoice_with_payer_metadata(node_factory, bitcoind):
     inv3 = l1.rpc.call('fetchinvoice', {'offer': offer['bolt12'], 'amount_msat': '1sat', 'payer_note': 'Payment For vincenzopalazzo', 'payer_metadata': b'macros'.hex()})['invoice']
     decode3 = l1.rpc.call('decode', {'string': inv3})
     assert decode1['invreq_payer_id'] == decode3['invreq_payer_id']
+
+
+def test_pay_unannounced_routehint(node_factory, bitcoind):
+    """Tests whether sender can pay recipient through unannounced channels with
+    2 hops where the second hop uses a route hint."""
+
+    l1, l2, l3 = node_factory.get_nodes(3)
+
+    # l1 and l3 are connected with unannounced channels to l2
+    node_factory.join_nodes([l1, l2], announce_channels=False)
+    node_factory.join_nodes([l2, l3], announce_channels=False)
+    scid23 = l3.rpc.listpeerchannels(l2.info['id'])['channels'][0]['alias']['remote']
+    routel2l3 = [{'id': l2.info['id'],
+                  'short_channel_id': scid23,
+                  'fee_base_msat': 1000,
+                  'fee_proportional_millionths': 10,
+                  'cltv_expiry_delta': 6}]
+    inv = l3.dev_invoice(amount_msat=2100000,
+                         label='test_pay_unannounced_routehint',
+                         description='desc',
+                         dev_routes=[routel2l3])
+    result = l1.rpc.pay(inv['bolt11'])
+    assert result["status"] == "complete", f"pay result is {result}"
