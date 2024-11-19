@@ -82,7 +82,7 @@ enum query_option_flags {
  *     - MAY ignore the channel.
  */
 #define GOSSIP_PRUNE_INTERVAL(dev_fast_gossip_prune_flag) \
-	DEV_FAST_GOSSIP(dev_fast_gossip_prune_flag, 60, 1209600)
+	DEV_FAST_GOSSIP(dev_fast_gossip_prune_flag, 120, 1209600)
 
 /* How long after seeing lockin until we announce the channel. */
 #define GOSSIP_ANNOUNCE_DELAY(dev_fast_gossip_flag) \

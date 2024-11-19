@@ -47,10 +47,10 @@ def test_gossip_pruning(node_factory, bitcoind):
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels()['channels']] == [True] * 4)
     wait_for(lambda: [c['active'] for c in l3.rpc.listchannels()['channels']] == [True] * 4)
 
-    # All of them should send a keepalive message (after 30 seconds)
+    # All of them should send a keepalive message (after 120-30 seconds)
     l1.daemon.wait_for_logs([
         'Sending keepalive channel_update for {}'.format(scid1),
-    ], timeout=50)
+    ], timeout=100)
     l2.daemon.wait_for_logs([
         'Sending keepalive channel_update for {}'.format(scid1),
         'Sending keepalive channel_update for {}'.format(scid2),
@@ -66,9 +66,9 @@ def test_gossip_pruning(node_factory, bitcoind):
     # Now kill l2, so that l1 and l3 will prune from their view after 60 seconds
     l2.stop()
 
-    # We check every 60/4 seconds, and takes 60 seconds since last update.
+    # We check every 120/4 seconds, and takes 120 seconds since last update.
     l1.daemon.wait_for_log("Pruning channel {} from network view".format(scid2),
-                           timeout=80)
+                           timeout=150)
     l3.daemon.wait_for_log("Pruning channel {} from network view".format(scid1))
 
     assert scid2 not in [c['short_channel_id'] for c in l1.rpc.listchannels()['channels']]
@@ -2310,10 +2310,10 @@ def test_gossip_force_broadcast_channel_msgs(node_factory, bitcoind):
                             '--hex',
                             '--network={}'.format(TEST_NETWORK),
                             '--max-messages={}'.format(7),
-                            '--timeout-after={}'.format(30),
+                            '--timeout-after={}'.format(120),
                             '{}@localhost:{}'.format(l1.info['id'], l1.port)],
                            check=True,
-                           timeout=30 + TIMEOUT, stdout=subprocess.PIPE).stdout.decode('utf-8').split()
+                           timeout=120 + TIMEOUT, stdout=subprocess.PIPE).stdout.decode('utf-8').split()
 
     tally = {key: 0 for key in types.values()}
     for l in lines:

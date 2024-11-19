@@ -860,7 +860,7 @@ static void dev_register_opts(struct lightningd *ld)
 	clnopt_noarg("--dev-fast-gossip-prune", OPT_DEV,
 		     opt_set_bool,
 		     &ld->dev_fast_gossip_prune,
-		     "Make gossip pruning 30 seconds");
+		     "Make gossip pruning 120 seconds");
 	clnopt_witharg("--dev-gossip-time", OPT_DEV|OPT_SHOWINT,
 		       opt_set_u32, opt_show_u32,
 		       &ld->dev_gossip_time,
