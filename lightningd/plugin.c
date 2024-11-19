@@ -2564,12 +2564,23 @@ void plugins_set_builtin_plugins_dir(struct plugins *plugins,
 	}
 }
 
+static bool release_request(const char *id,
+			    struct jsonrpc_request *req,
+			    struct plugin *plugin)
+{
+	tal_del_destructor2(req, destroy_request, plugin);
+	return true;
+}
+
 void shutdown_plugins(struct lightningd *ld)
 {
 	struct plugin *p, *next;
 
 	/* Tell them all to shutdown; if they care. */
 	list_for_each_safe(&ld->plugins->plugins, p, next, list) {
+		/* Clear all pending requests, so we don't try to answer them. */
+		strmap_iterate(&p->pending_requests, release_request, p);
+		strmap_clear(&p->pending_requests);
 		/* Kill immediately, deletes self from list. */
 		if (p->plugin_state != INIT_COMPLETE || !notify_plugin_shutdown(ld, p))
 			tal_free(p);
