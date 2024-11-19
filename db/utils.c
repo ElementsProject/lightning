@@ -175,7 +175,7 @@ bool db_step(struct db_stmt *stmt)
 
 void db_exec_prepared_v2(struct db_stmt *stmt TAKES)
 {
-	trace_span_start("db_query_prepared", stmt);
+	trace_span_start("db_exec_prepared", stmt);
 	trace_span_tag(stmt, "query", stmt->query->query);
 	bool ret = stmt->db->config->exec_fn(stmt);
 	trace_span_end(stmt);
