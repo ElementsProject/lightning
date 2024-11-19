@@ -376,6 +376,7 @@ static struct command_result *prev_payment(struct command *cmd,
 			    " label and offer");
 }
 
+/* FIXME(vincenzopalazzo): move this to comm/bolt12.h */
 static struct command_result *param_b12_invreq(struct command *cmd,
 					       const char *name,
 					       const char *buffer,

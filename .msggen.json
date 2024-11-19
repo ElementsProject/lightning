@@ -1248,6 +1248,7 @@
         "FetchinvoiceRequest": {
             "FetchInvoice.amount_msat": 2,
             "FetchInvoice.offer": 1,
+            "FetchInvoice.payer_metadata": 9,
             "FetchInvoice.payer_note": 8,
             "FetchInvoice.quantity": 3,
             "FetchInvoice.recurrence_counter": 4,
@@ -5607,6 +5608,10 @@
         },
         "FetchInvoice.offer": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "FetchInvoice.payer_metadata": {
+            "added": "v24.11",
             "deprecated": null
         },
         "FetchInvoice.payer_note": {

@@ -819,6 +819,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 {
 	struct amount_msat *msat;
 	const char *rec_label, *payer_note;
+	u8 *payer_metadata;
 	struct out_req *req;
 	struct tlv_invoice_request *invreq;
 	struct sent *sent = tal(cmd, struct sent);
@@ -835,6 +836,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 		   p_opt("recurrence_label", param_string, &rec_label),
 		   p_opt_def("timeout", param_number, &timeout, 60),
 		   p_opt("payer_note", param_string, &payer_note),
+		   p_opt("payer_metadata", param_bin_from_hex, &payer_metadata),
 		   p_opt("dev_path_use_scidd", param_dev_scidd, &sent->dev_path_use_scidd),
 		   p_opt("dev_reply_path", param_dev_reply_path, &sent->dev_reply_path),
 		   NULL))
@@ -938,6 +940,10 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "needs recurrence_counter");
 
+		if (payer_metadata)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Cannot set payer_metadata for recurring offers");
+
 		/* BOLT-offers-recurrence #12:
 		 *    - if the offer contained `recurrence_base` with
 		 *      `start_any_period` non-zero:
@@ -998,13 +1004,18 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "unnecessary recurrence_start");
 
-		/* BOLT-offers #12:
-		 * - MUST set `invreq_metadata` to an unpredictable series of
-		 *   bytes.
-		 */
-		invreq->invreq_metadata = tal_arr(invreq, u8, 16);
-		randombytes_buf(invreq->invreq_metadata,
-				tal_bytelen(invreq->invreq_metadata));
+		/* if the payer force to use the payer_metadata */
+		if (payer_metadata) {
+			invreq->invreq_metadata = tal_steal(invreq, payer_metadata);
+		} else {
+			/* BOLT-offers #12:
+			 * - MUST set `invreq_metadata` to an unpredictable series of
+			 *   bytes.
+			 */
+			invreq->invreq_metadata = tal_arr(invreq, u8, 16);
+			randombytes_buf(invreq->invreq_metadata,
+					tal_bytelen(invreq->invreq_metadata));
+		}
 	}
 
 	/* We derive transient payer_id from invreq_metadata */
@@ -1044,7 +1055,6 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 							payer_note,
 							strlen(payer_note),
 							0);
-
 	/* Make the invoice request (fills in payer_key and payer_info) */
 	req = jsonrpc_request_start(cmd, "createinvoicerequest",
 				    &invreq_done,
