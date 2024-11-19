@@ -3229,7 +3229,8 @@ def test_autoclean(node_factory):
                 assert only_one(invs)['status'] == 'unpaid'
         time.sleep(1)
 
-    assert l3.rpc.autoclean_status()['autoclean']['expiredinvoices']['cleaned'] == 1
+    # We can actually race between the delete and this being updated!
+    wait_for(lambda: l3.rpc.autoclean_status()['autoclean']['expiredinvoices']['cleaned'] == 1)
 
     # Keeps settings across restarts
     l3.restart()
