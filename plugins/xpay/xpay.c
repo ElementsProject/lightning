@@ -1617,6 +1617,16 @@ static void start_aging_timer(struct plugin *plugin)
 	notleak(global_timer(plugin, time_from_sec(60), age_layer, NULL));
 }
 
+static struct command_result *xpay_layer_created(struct command *aux_cmd,
+						 const char *method,
+						 const char *buf,
+						 const jsmntok_t *result,
+						 void *unused)
+{
+	start_aging_timer(aux_cmd->plugin);
+	return aux_command_done(aux_cmd);
+}
+
 static const char *init(struct command *init_cmd,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
@@ -1656,14 +1666,13 @@ static const char *init(struct command *init_cmd,
 	send_outreq(req);
 
 	req = jsonrpc_request_start(aux_command(init_cmd), "askrene-create-layer",
-				    ignore_and_complete,
+				    xpay_layer_created,
 				    plugin_broken_cb,
 				    "askrene-create-layer");
 	json_add_string(req->js, "layer", "xpay");
 	json_add_bool(req->js, "persistent", true);
 	send_outreq(req);
 
-	start_aging_timer(plugin);
 	return NULL;
 }
 
