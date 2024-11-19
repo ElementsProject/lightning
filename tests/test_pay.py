@@ -6702,3 +6702,34 @@ def test_parallel_channels_reserve(node_factory, bitcoind):
     receipt = only_one(l3.rpc.listinvoices("inv")["invoices"])
     assert receipt["status"] == "paid"
     assert receipt["amount_received_msat"] == total_msat
+
+
+def test_fetchinvoice_with_payer_metadata(node_factory, bitcoind):
+    # We remove the conversion plugin on l3, causing it to get upset.
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts=[{'experimental-offers': None},
+                                           {'experimental-offers': None}])
+
+    # Simple default offer first.
+    offer = l2.rpc.call('offer', {'amount': 'any'})
+    assert offer['created'] is True
+
+    # Fetch an invoice for a monthly payroll for two different people, one is macros and the other is vincenzopalazzo.
+    # Now the payroll software has a bug and injects the wrong payer_node description (this often happens with wire descriptions).
+    inv1 = l1.rpc.call('fetchinvoice', {'offer': offer['bolt12'], 'amount_msat': '1sat', 'payer_note': 'Payment For vincenzopalazzo', 'payer_metadata': b'macros'.hex()})['invoice']
+    inv2 = l1.rpc.call('fetchinvoice', {'offer': offer['bolt12'], 'amount_msat': '1sat', 'payer_note': 'Payment For vincenzopalazzo', 'payer_metadata': b'vincenzopalazzo'.hex()})['invoice']
+    assert inv1 != inv2
+    # At this point, macros noticed the bug in the payroll system and reported a
+    # 'not paid for the current month' issue. The payroll system can verify that
+    # there is a bug in the fetchinvoice, but it can also prove that the payment was sent
+    # to macros because the payroll system can generate the `payer_id` with the `macros` metadata.
+    decode1 = l1.rpc.call('decode', {'string': inv1})
+    decode2 = l1.rpc.call('decode', {'string': inv2})
+    assert decode1['invreq_payer_id'] != decode2['invreq_payer_id']
+
+    # Delay to avoid sending too many onion messages per second!
+    time.sleep(1)
+
+    inv3 = l1.rpc.call('fetchinvoice', {'offer': offer['bolt12'], 'amount_msat': '1sat', 'payer_note': 'Payment For vincenzopalazzo', 'payer_metadata': b'macros'.hex()})['invoice']
+    decode3 = l1.rpc.call('decode', {'string': inv3})
+    assert decode1['invreq_payer_id'] == decode3['invreq_payer_id']
