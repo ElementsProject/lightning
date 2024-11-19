@@ -547,8 +547,18 @@ static void populate_layer(struct askrene *askrene,
 			   const char *layername TAKES,
 			   const u8 *data)
 {
-	struct layer *layer = new_layer(askrene, layername, true);
+	struct layer *layer;
 	size_t len = tal_bytelen(data);
+
+	/* FIXME: They can race us, creating a layer while we're loading! */
+	layer = find_layer(askrene, layername);
+	if (layer) {
+		/* We promised to take this! */
+		if (taken(layername))
+			tal_free(layername);
+	} else {
+		layer = new_layer(askrene, layername, true);
+	}
 
 	plugin_log(askrene->plugin, LOG_DBG,
 		   "Loaded level %s (%zu bytes)",
