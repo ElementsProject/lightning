@@ -5784,7 +5784,9 @@ def test_onionmessage_ratelimit(node_factory):
         for _ in range(8):
             l1.rpc.fetchinvoice(offer['bolt12'])
 
-    assert l1.daemon.is_in_log('WARNING: Ratelimited onion_message: exceeded one per 250msec')
+    # Normally l2 gets upset, but actually l1 can get upset with replies!
+    assert (l1.daemon.is_in_log('WARNING: Ratelimited onion_message: exceeded one per 250msec')
+            or l2.daemon.is_in_log('WARNING: Ratelimited onion_message: exceeded one per 250msec'))
 
     # It will recover though!
     time.sleep(0.250)
