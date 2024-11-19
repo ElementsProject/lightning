@@ -827,18 +827,18 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	u64 *quantity;
 	u32 *recurrence_counter, *recurrence_start;
 
-	if (!param(cmd, buffer, params,
-		   p_req("offer", param_offer, &sent->offer),
-		   p_opt("amount_msat", param_msat, &msat),
-		   p_opt("quantity", param_u64, &quantity),
-		   p_opt("recurrence_counter", param_number, &recurrence_counter),
-		   p_opt("recurrence_start", param_number, &recurrence_start),
-		   p_opt("recurrence_label", param_string, &rec_label),
-		   p_opt_def("timeout", param_number, &timeout, 60),
-		   p_opt("payer_note", param_string, &payer_note),
-		   p_opt("payer_metadata", param_bin_from_hex, &payer_metadata),
-		   p_opt("dev_path_use_scidd", param_dev_scidd, &sent->dev_path_use_scidd),
-		   p_opt("dev_reply_path", param_dev_reply_path, &sent->dev_reply_path),
+	if (!param_check(cmd, buffer, params,
+			 p_req("offer", param_offer, &sent->offer),
+			 p_opt("amount_msat", param_msat, &msat),
+			 p_opt("quantity", param_u64, &quantity),
+			 p_opt("recurrence_counter", param_number, &recurrence_counter),
+			 p_opt("recurrence_start", param_number, &recurrence_start),
+			 p_opt("recurrence_label", param_string, &rec_label),
+			 p_opt_def("timeout", param_number, &timeout, 60),
+			 p_opt("payer_note", param_string, &payer_note),
+			 p_opt("payer_metadata", param_bin_from_hex, &payer_metadata),
+			 p_opt("dev_path_use_scidd", param_dev_scidd, &sent->dev_path_use_scidd),
+			 p_opt("dev_reply_path", param_dev_reply_path, &sent->dev_reply_path),
 		   NULL))
 		return command_param_failed();
 
@@ -1055,6 +1055,11 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 							payer_note,
 							strlen(payer_note),
 							0);
+
+	/* If only checking, we're done now */
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
 	/* Make the invoice request (fills in payer_key and payer_info) */
 	req = jsonrpc_request_start(cmd, "createinvoicerequest",
 				    &invreq_done,
