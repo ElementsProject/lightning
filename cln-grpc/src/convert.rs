@@ -4682,6 +4682,7 @@ impl From<requests::FetchinvoiceRequest> for pb::FetchinvoiceRequest {
         Self {
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             offer: c.offer, // Rule #2 for type string
+            payer_metadata: c.payer_metadata, // Rule #2 for type string?
             payer_note: c.payer_note, // Rule #2 for type string?
             quantity: c.quantity, // Rule #2 for type u64?
             recurrence_counter: c.recurrence_counter, // Rule #2 for type u64?
@@ -6066,6 +6067,7 @@ impl From<pb::FetchinvoiceRequest> for requests::FetchinvoiceRequest {
         Self {
             amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
             offer: c.offer, // Rule #1 for type string
+            payer_metadata: c.payer_metadata, // Rule #1 for type string?
             payer_note: c.payer_note, // Rule #1 for type string?
             quantity: c.quantity, // Rule #1 for type u64?
             recurrence_counter: c.recurrence_counter, // Rule #1 for type u64?

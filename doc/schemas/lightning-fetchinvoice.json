@@ -62,6 +62,13 @@
           "To ask the issuer to include in the fetched invoice."
         ]
       },
+      "payer_metadata": {
+        "type": "string",
+        "description": [
+          "Derive the payer_id from the specified payer_metadata. Please be sure that `payer_metdata` can not be derived by anyone, so put some secret into it."
+        ],
+        "added": "v24.11"
+      },
       "dev_reply_path": {
         "hidden": true
       },
