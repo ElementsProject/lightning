@@ -104,11 +104,8 @@ def test_splice_disconnect_commit(node_factory, bitcoind, executor):
     # Splice should be abandoned via tx_abort
 
     # Wait until nodes are reconnected
-    l1.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
-    l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
-
-    l1.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_READY')
-    l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_READY')
+    l1.daemon.wait_for_log(r'billboard: Channel ready for use.')
+    l2.daemon.wait_for_log(r'billboard: Channel ready for use.')
 
     # Check that the splice doesn't generate a unilateral close transaction
     time.sleep(5)
