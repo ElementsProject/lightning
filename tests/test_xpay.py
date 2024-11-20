@@ -188,8 +188,7 @@ def test_xpay_simple(node_factory):
         l1.rpc.xpay(b11)
 
     # Failure from l3 (with blinded path)
-    # FIXME: We return wrong error here!
-    with pytest.raises(RpcError, match=r"Failed after 1 attempts\. Unexpected error \(invalid_onion_payload\) from intermediate node: disabling the invoice's blinded path \(0x0x0/[01]\) for this payment\. Then routing failed: We could not find a usable set of paths\.  The destination has disabled 1 of 1 channels, leaving capacity only 0msat of 10605000msat\."):
+    with pytest.raises(RpcError, match=r"Failed after 1 attempts. We got an error from inside the blinded path 0x0x0/1: we assume it means insufficient capacity. Then routing failed: We could not find a usable set of paths.  The shortest path is [0-9x]*->[0-9x]*->0x0x0, but 0x0x0/1 layer xpay-7 says max is 99999msat"):
         l1.rpc.xpay(b12)
 
     # Restart, try pay already paid one again.
