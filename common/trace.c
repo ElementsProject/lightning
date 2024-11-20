@@ -250,6 +250,7 @@ void trace_span_start(const char *name, const void *key)
 
 	current = s;
 	DTRACE_PROBE1(lightningd, span_start, s->id);
+	trace_print_backtrace(current, stderr);
 }
 
 void trace_span_remote(u8 trace_id[TRACE_ID_SIZE], u8 span_id[SPAN_ID_SIZE])
@@ -265,9 +266,9 @@ void trace_span_end(const void *key)
 
 	if (s != current) {
 		fprintf(stderr, "Ending current span with another span. This is the current span:\n");
+		trace_print_backtrace(s, stderr);
 		trace_print_backtrace(current, stderr);
 		fprintf(stderr, "Whereas span to end is this:\n");
-		trace_print_backtrace(s, stderr);
 		fprintf(stderr, "The spans have to match.\n");
 		abort();
 	}
