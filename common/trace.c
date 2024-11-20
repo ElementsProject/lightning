@@ -96,6 +96,13 @@ static void trace_inject_traceparent(void)
 	}
 }
 
+static void trace_free(void)
+{
+	current = NULL;
+	free(active_spans);
+	active_spans = NULL;
+}
+
 static void trace_init(void) {
 	if (active_spans)
 		return;
@@ -103,6 +110,7 @@ static void trace_init(void) {
 
 	current = NULL;
 	trace_inject_traceparent();
+	atexit(trace_free);
 }
 
 /**
