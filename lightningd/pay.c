@@ -1844,6 +1844,7 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 	const u8 *failmsg;
 	struct htlc_out *hout;
 	const struct wallet_payment *prev_payment;
+	const char *explanation;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("onion", param_bin_from_hex, &onion),
@@ -1915,12 +1916,13 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 			       cmd->ld->accept_extra_tlv_types,
 			       *msat, *cltv,
 			       &failtlvtype,
-			       &failtlvpos);
+			       &failtlvpos,
+			       &explanation);
 	if (!payload) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Onion decode for %s failed at type %"PRIu64" offset %zu",
+				    "Onion decode for %s failed at type %"PRIu64" offset %zu (%s)",
 				    tal_hex(tmpctx, rs->raw_payload),
-				    failtlvtype, failtlvpos);
+				    failtlvtype, failtlvpos, explanation);
 	}
 
 	if (payload->final) {

@@ -3,10 +3,12 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
+#include <ccan/tal/str/str.h>
 #include <common/blindedpath.h>
 #include <common/ecdh.h>
 #include <common/onion_decode.h>
 #include <common/sphinx.h>
+#include <inttypes.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 
 /* BOLT #4:
@@ -62,17 +64,22 @@ static u64 ceil_div(u64 a, u64 b)
 	return (a + b - 1) / b;
 }
 
-static bool handle_blinded_forward(struct onion_payload *p,
+static bool handle_blinded_forward(const tal_t *ctx,
+				   struct onion_payload *p,
 				   struct amount_msat amount_in,
 				   u32 cltv_expiry,
 				   const struct tlv_payload *tlv,
 				   const struct tlv_encrypted_data_tlv *enc,
-				   u64 *failtlvtype)
+				   u64 *failtlvtype,
+				   const char **explanation)
 {
 	u64 amt = amount_in.millisatoshis; /* Raw: allowed to wrap */
 
-	if (!check_nonfinal_tlv(tlv, failtlvtype))
+	if (!check_nonfinal_tlv(tlv, failtlvtype)) {
+		if (explanation)
+			*explanation = tal_fmt(ctx, "unexpected tlv type %"PRIu64, *failtlvtype);
 		return false;
+	}
 
 	/* BOLT #4:
 	 * - If it is not the final node:
@@ -81,6 +88,8 @@ static bool handle_blinded_forward(struct onion_payload *p,
 	 *     contain either `short_channel_id` or `next_node_id`.
 	 */
 	if (!enc->short_channel_id && !enc->next_node_id) {
+		if (explanation)
+			*explanation = tal_fmt(ctx, "neither short_channel_id nor next_node_id present");
 		*failtlvtype = TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
 		return false;
 	}
@@ -104,6 +113,8 @@ static bool handle_blinded_forward(struct onion_payload *p,
 	 *     contain `payment_relay`.
 	 */
 	if (!enc->payment_relay) {
+		if (explanation)
+			*explanation = tal_fmt(ctx, "missing payment_relay");
 		*failtlvtype = TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
 		return false;
 	}
@@ -117,13 +128,18 @@ static bool handle_blinded_forward(struct onion_payload *p,
 	return true;
 }
 
-static bool handle_blinded_terminal(struct onion_payload *p,
+static bool handle_blinded_terminal(const tal_t *ctx,
+				    struct onion_payload *p,
 				    const struct tlv_payload *tlv,
 				    const struct tlv_encrypted_data_tlv *enc,
-				    u64 *failtlvtype)
+				    u64 *failtlvtype,
+				    const char **explanation)
 {
-	if (!check_final_tlv(tlv, failtlvtype))
+	if (!check_final_tlv(tlv, failtlvtype)) {
+		if (explanation)
+			*explanation = tal_fmt(ctx, "unexpected tlv type %"PRIu64, *failtlvtype);
 		return false;
+	}
 
 	/* BOLT #4:
 	 *   - MUST return an error if `amt_to_forward`, `outgoing_cltv_value`
@@ -132,16 +148,22 @@ static bool handle_blinded_terminal(struct onion_payload *p,
 	 *     for the payment.
 	 */
 	if (!tlv->amt_to_forward) {
+		if (explanation)
+			*explanation = tal_fmt(ctx, "missing amt_to_forward");
 		*failtlvtype = TLV_PAYLOAD_AMT_TO_FORWARD;
 		return false;
 	}
 
 	if (!tlv->outgoing_cltv_value) {
+		if (explanation)
+			*explanation = tal_fmt(ctx, "missing outgoing_cltv_value");
 		*failtlvtype = TLV_PAYLOAD_OUTGOING_CLTV_VALUE;
 		return false;
 	}
 
 	if (!tlv->total_amount_msat) {
+		if (explanation)
+			*explanation = tal_fmt(ctx, "missing total_amount_msat");
 		*failtlvtype = TLV_PAYLOAD_TOTAL_AMOUNT_MSAT;
 		return false;
 	}
@@ -173,7 +195,8 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 				   struct amount_msat amount_in,
 				   u32 cltv_expiry,
 				   u64 *failtlvtype,
-				   size_t *failtlvpos)
+				   size_t *failtlvpos,
+				   const char **explanation)
 {
 	struct onion_payload *p = tal(ctx, struct onion_payload);
 	const u8 *cursor = rs->raw_payload;
@@ -191,6 +214,8 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	if (!cursor || len > max) {
 		*failtlvtype = 0;
 		*failtlvpos = tal_bytelen(rs->raw_payload);
+		if (explanation)
+			*explanation = tal_fmt(ctx, "Too short for initial length");
 		return tal_free(p);
 	}
 
@@ -201,6 +226,8 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 			  TLVS_ARRAY_SIZE_tlv_payload,
 			  p->tlv, &p->tlv->fields, accepted_extra_tlvs,
 			  failtlvpos, failtlvtype)) {
+		if (explanation)
+			*explanation = tal_fmt(ctx, "Unparseable TLV");
 		return tal_free(p);
 	}
 
@@ -225,12 +252,16 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		if (path_key) {
 			if (p->tlv->current_path_key) {
 				*failtlvtype = TLV_PAYLOAD_CURRENT_PATH_KEY;
+				if (explanation)
+					*explanation = tal_fmt(ctx, "current_path_key was present");
 				goto field_bad;
 			}
 			p->path_key = tal_dup(p, struct pubkey, path_key);
 		} else {
 			if (!p->tlv->current_path_key) {
 				*failtlvtype = TLV_PAYLOAD_CURRENT_PATH_KEY;
+				if (explanation)
+					*explanation = tal_fmt(ctx, "current_path_key was not present");
 				goto field_bad;
 			}
 			p->path_key = tal_dup(p, struct pubkey,
@@ -248,6 +279,8 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		enc = decrypt_encrypted_data(tmpctx, &p->blinding_ss,
 					     p->tlv->encrypted_recipient_data);
 		if (!enc) {
+			if (explanation)
+				*explanation = tal_fmt(ctx, "encrypted_recipient_data decryption failed");
 			*failtlvtype = TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
 			goto field_bad;
 		}
@@ -259,6 +292,10 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 			 *    `encrypted_recipient_data.payment_constraints.max_cltv_expiry`.
 			 */
 			if (cltv_expiry > enc->payment_constraints->max_cltv_expiry) {
+				if (explanation)
+					*explanation = tal_fmt(ctx, "cltv_expiry %u > payment_constraint %u",
+							       cltv_expiry,
+							       enc->payment_constraints->max_cltv_expiry);
 				*failtlvtype = TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
 				goto field_bad;
 			}
@@ -271,6 +308,10 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 			 */
 			if (amount_msat_less(amount_in,
 					     amount_msat(enc->payment_constraints->htlc_minimum_msat))) {
+				if (explanation)
+					*explanation = tal_fmt(ctx, "amount_in %s < payment_constraint min %"PRIu64,
+							       fmt_amount_msat(tmpctx, amount_in),
+							       enc->payment_constraints->htlc_minimum_msat);
 				*failtlvtype = TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
 				goto field_bad;
 			}
@@ -299,21 +340,26 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		/* No features, this is easy */
 		if (!memeqzero(enc->allowed_features,
 			       tal_bytelen(enc->allowed_features))) {
+			if (explanation)
+				*explanation = tal_fmt(ctx, "non-zero allowed_features (%s)",
+						       tal_hex(tmpctx, enc->allowed_features));
 			*failtlvtype = TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
 			goto field_bad;
 		}
 
 		if (enc->short_channel_id && enc->next_node_id) {
+			if (explanation)
+				*explanation = tal_fmt(ctx, "both scid and next_node_id present");
 			*failtlvtype = TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
 			goto field_bad;
 		}
 
 		if (!p->final) {
-			if (!handle_blinded_forward(p, amount_in, cltv_expiry,
-						    p->tlv, enc, failtlvtype))
+			if (!handle_blinded_forward(ctx, p, amount_in, cltv_expiry,
+						    p->tlv, enc, failtlvtype, explanation))
 				goto field_bad;
 		} else {
-			if (!handle_blinded_terminal(p, p->tlv, enc, failtlvtype))
+			if (!handle_blinded_terminal(ctx, p, p->tlv, enc, failtlvtype, explanation))
 				goto field_bad;
 		}
 
@@ -336,6 +382,9 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	 *        is present.
 	 */
 	if (path_key || p->tlv->current_path_key) {
+		if (explanation)
+			*explanation = tal_fmt(ctx, "%s set outside blinded route",
+					       path_key ? "update_add_htlc->path_key" : "current_path_key");
 		*failtlvtype = TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
 		goto field_bad;
 	}
@@ -348,10 +397,14 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	 *     `outgoing_cltv_value` are not present.
 	 */
 	if (!p->tlv->amt_to_forward) {
+		if (explanation)
+			*explanation = tal_fmt(ctx, "missing amt_to_forward");
 		*failtlvtype = TLV_PAYLOAD_AMT_TO_FORWARD;
 		goto field_bad;
 	}
 	if (!p->tlv->outgoing_cltv_value) {
+		if (explanation)
+			*explanation = tal_fmt(ctx, "missing outgoing_cltv_value");
 		*failtlvtype = TLV_PAYLOAD_OUTGOING_CLTV_VALUE;
 		goto field_bad;
 	}
@@ -367,6 +420,8 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	 */
 	if (!p->final) {
 		if (!p->tlv->short_channel_id) {
+			if (explanation)
+				*explanation = tal_fmt(ctx, "missing short_channel_id");
 			*failtlvtype = TLV_PAYLOAD_SHORT_CHANNEL_ID;
 			goto field_bad;
 		}

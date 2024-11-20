@@ -292,6 +292,7 @@ static struct onion_payload *decode_onion(const tal_t *ctx,
 	struct privkey pk;
 	struct pubkey current_pubkey;
 	struct node_id current_node_id;
+	const char *explanation;
 
 	op = parse_onionpacket(tmpctx, onion_routing_packet,
 			       TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE),
@@ -335,11 +336,11 @@ static struct onion_payload *decode_onion(const tal_t *ctx,
 			       rs, path_key,
 			       NULL,
 			       amount,
-			       cltv, &failtlvtype, &failtlvpos);
+			       cltv, &failtlvtype, &failtlvpos, &explanation);
 	if (!payload) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed tlvtype %"PRIu64" at %zu",
-			      failtlvtype, failtlvpos);
+			      "Failed tlvtype %"PRIu64" at %zu: %s",
+			      failtlvtype, failtlvpos, explanation);
 	}
 
 	/* Find ourselves in the gossmap, so we know our channels */

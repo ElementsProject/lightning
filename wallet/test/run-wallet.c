@@ -742,7 +742,8 @@ struct onion_payload *onion_decode(const tal_t *ctx UNNEEDED,
 				   struct amount_msat amount_in UNNEEDED,
 				   u32 cltv_expiry UNNEEDED,
 				   u64 *failtlvtype UNNEEDED,
-				   size_t *failtlvpos UNNEEDED)
+				   size_t *failtlvpos UNNEEDED,
+				   const char **explanation UNNEEDED)
 { fprintf(stderr, "onion_decode called!\n"); abort(); }
 /* Generated stub for onion_final_hop */
 u8 *onion_final_hop(const tal_t *ctx UNNEEDED,
