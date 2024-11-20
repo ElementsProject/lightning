@@ -96,6 +96,22 @@ static void trace_inject_traceparent(void)
 	}
 }
 
+/* Recursively print the span stack from top to bottom */
+static void trace_print_backtrace(const struct span *s, FILE *dest)
+{
+	char span_id[HEX_SPAN_ID_SIZE];
+	assert(s != NULL);
+
+	hex_encode(s->id, SPAN_ID_SIZE, span_id, HEX_SPAN_ID_SIZE);
+
+	/* Top-to-bottom, so start with the parent and then print
+	 * ourselves. */
+	if (s->parent != NULL) {
+		trace_print_backtrace(s->parent, dest);
+	}
+	fprintf(dest, "> %s (%s)\n", s->name, span_id);
+}
+
 static void trace_free(void)
 {
 	current = NULL;
@@ -248,7 +264,11 @@ void trace_span_end(const void *key)
 	assert(s && "Span to end not found");
 
 	if (s != current) {
-		fprintf(stderr, "Ending current span %s with a span %s, is this a mixup?\n", current->name, s->name);
+		fprintf(stderr, "Ending current span with another span. This is the current span:\n");
+		trace_print_backtrace(current, stderr);
+		fprintf(stderr, "Whereas span to end is this:\n");
+		trace_print_backtrace(s, stderr);
+		fprintf(stderr, "The spans have to match.\n");
 		abort();
 	}
 
