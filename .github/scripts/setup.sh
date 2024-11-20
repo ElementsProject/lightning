@@ -28,6 +28,7 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      libsqlite3-dev \
      libtool \
      libxml2-utils \
+     systemtap-sdt-dev \
      locales \
      net-tools \
      postgresql \
