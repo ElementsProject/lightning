@@ -2833,14 +2833,15 @@ static struct commitsig *interactive_send_commitments(struct peer *peer,
 
 static struct wally_psbt_output *find_channel_output(struct peer *peer,
 						   struct wally_psbt *psbt,
-						   u32 *chan_output_index)
+						   u32 *chan_output_index,
+						   const struct pubkey *remote_funding_pubkey)
 {
 	const u8 *wit_script;
 	u8 *scriptpubkey;
 
 	wit_script = bitcoin_redeem_2of2(tmpctx,
 					 &peer->channel->funding_pubkey[LOCAL],
-					 &peer->splicing->remote_funding_pubkey);
+					 remote_funding_pubkey);
 
 	scriptpubkey = scriptpubkey_p2wsh(tmpctx, wit_script);
 
@@ -3334,7 +3335,8 @@ static void resume_splice_negotiation(struct peer *peer,
 					 &peer->channel->funding_pubkey[LOCAL],
 					 &peer->channel->funding_pubkey[REMOTE]);
 
-	find_channel_output(peer, current_psbt, &chan_output_index);
+	find_channel_output(peer, current_psbt, &chan_output_index,
+			    &peer->channel->funding_pubkey[REMOTE]);
 
 	splice_funding_index = find_channel_funding_input(current_psbt,
 							  &peer->channel->funding);
@@ -3758,7 +3760,8 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 							  &peer->channel->funding);
 
 	new_chan_output = find_channel_output(peer, ictx->current_psbt,
-					      &outpoint.n);
+					      &outpoint.n,
+					      &peer->splicing->remote_funding_pubkey);
 
 	both_amount = check_balances(peer, our_role, ictx->current_psbt,
 				     outpoint.n, splice_funding_index);
@@ -3983,7 +3986,8 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	psbt_sort_by_serial_id(ictx->current_psbt);
 
 	new_chan_output = find_channel_output(peer, ictx->current_psbt,
-					      &chan_output_index);
+					      &chan_output_index,
+					      &peer->splicing->remote_funding_pubkey);
 
 	splice_funding_index = find_channel_funding_input(ictx->current_psbt,
 							  &peer->channel->funding);
