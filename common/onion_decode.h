@@ -16,6 +16,7 @@
  * @cltv_expiry: Incoming HTLC cltv_expiry
  * @failtlvtype: (out) the tlv type which failed to parse.
  * @failtlvpos: (out) the offset in the tlv which failed to parse.
+ * @explanation: (out) if non-NULL, a string describing the problem on failure.
  *
  * If the payload is not valid, returns NULL.
  */
@@ -26,5 +27,6 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 				   struct amount_msat amount_in,
 				   u32 cltv_expiry,
 				   u64 *failtlvtype,
-				   size_t *failtlvpos);
+				   size_t *failtlvpos,
+				   const char **explanation);
 #endif /* LIGHTNING_COMMON_ONION_DECODE_H */

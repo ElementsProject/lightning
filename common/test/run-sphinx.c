@@ -67,6 +67,9 @@ struct tlv_encrypted_data_tlv *decrypt_encrypted_data(const tal_t *ctx UNNEEDED,
 /* Generated stub for ecdh */
 void ecdh(const struct pubkey *point UNNEEDED, struct secret *ss UNNEEDED)
 { fprintf(stderr, "ecdh called!\n"); abort(); }
+/* Generated stub for fmt_amount_msat */
+char *fmt_amount_msat(const tal_t *ctx UNNEEDED, struct amount_msat msat UNNEEDED)
+{ fprintf(stderr, "fmt_amount_msat called!\n"); abort(); }
 /* Generated stub for fromwire_amount_msat */
 struct amount_msat fromwire_amount_msat(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_amount_msat called!\n"); abort(); }

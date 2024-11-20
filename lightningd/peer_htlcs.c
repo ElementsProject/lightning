@@ -927,6 +927,7 @@ struct htlc_accepted_hook_payload {
 	u8 *next_onion;
 	u64 failtlvtype;
 	size_t failtlvpos;
+	const char *failexplanation;
 };
 
 static void
@@ -1017,7 +1018,8 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 						hin->msat,
 						hin->cltv_expiry,
 						&request->failtlvtype,
-						&request->failtlvpos);
+						&request->failtlvpos,
+						&request->failexplanation);
 	}
 
 	fwdtok = json_get_member(buffer, toks, "forward_to");
@@ -1176,8 +1178,9 @@ htlc_accepted_hook_final(struct htlc_accepted_hook_payload *request STEALS)
 	/* *Now* we barf if it failed to decode */
 	if (!request->payload) {
 		log_debug(channel->log,
-			  "Failing HTLC because of an invalid payload (TLV %"PRIu64" pos %zu)",
-			  request->failtlvtype, request->failtlvpos);
+			  "Failing HTLC because of an invalid payload (TLV %"PRIu64" pos %zu): %s",
+			  request->failtlvtype, request->failtlvpos,
+			  request->failexplanation);
 		local_fail_in_htlc(hin,
 				   take(towire_invalid_onion_payload(
 						NULL, request->failtlvtype,
@@ -1438,7 +1441,8 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 					     hin->msat,
 					     hin->cltv_expiry,
 					     &hook_payload->failtlvtype,
-					     &hook_payload->failtlvpos);
+					     &hook_payload->failtlvpos,
+					     &hook_payload->failexplanation);
 	hook_payload->ld = ld;
 	hook_payload->hin = hin;
 	hook_payload->channel = channel;
