@@ -201,7 +201,6 @@ def setup_test_nodes(node_factory, bitcoind):
         options = [
             {
                 'experimental-dual-fund': None,
-                'experimental-offers': None,
                 'may_reconnect': True,
                 'dev-hsmd-no-preapprove-check': None,
                 'allow-deprecated-apis': True,

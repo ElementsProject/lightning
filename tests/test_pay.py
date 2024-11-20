@@ -6706,9 +6706,7 @@ def test_parallel_channels_reserve(node_factory, bitcoind):
 
 def test_fetchinvoice_with_payer_metadata(node_factory, bitcoind):
     # We remove the conversion plugin on l3, causing it to get upset.
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
-                                     opts=[{'experimental-offers': None},
-                                           {'experimental-offers': None}])
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
 
     # Simple default offer first.
     offer = l2.rpc.call('offer', {'amount': 'any'})
