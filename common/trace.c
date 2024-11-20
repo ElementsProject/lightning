@@ -246,7 +246,11 @@ void trace_span_end(const void *key)
 	size_t numkey = trace_key(key);
 	struct span *s = trace_span_find(numkey);
 	assert(s && "Span to end not found");
-	assert(s == current && "Ending a span that isn't the current one");
+
+	if (s != current) {
+		fprintf(stderr, "Ending current span %s with a span %s, is this a mixup?\n", current->name, s->name);
+		abort();
+	}
 
 	struct timeabs now = time_now();
 	s->end_time = (now.ts.tv_sec * 1000000) + now.ts.tv_nsec / 1000;
