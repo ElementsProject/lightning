@@ -45,6 +45,7 @@ RUN apt-get -qq update && \
 	qemu-user-static \
 	shellcheck \
 	software-properties-common \
+	systemtap-sdt-dev \
 	sudo \
 	tcl \
 	unzip \

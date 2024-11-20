@@ -22,6 +22,7 @@ RUN apt-get update \
 	libsodium23 \
 	libtool \
 	m4 \
+        systemtap-sdt-dev \
 	sudo \
 	unzip \
 	wget \

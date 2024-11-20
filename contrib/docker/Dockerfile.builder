@@ -35,7 +35,8 @@ RUN apt-get -qq update && \
 	lowdown \
 	wget \
 	jq \
-	gettext \
+        gettext \
+        systemtap-sdt-dev \
 	xsltproc \
 	zlib1g-dev && \
 	rm -rf /var/lib/apt/lists/*

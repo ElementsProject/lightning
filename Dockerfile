@@ -80,6 +80,7 @@ RUN apt-get update -qq && \
         python3-pip \
         python3-venv \
         python3-setuptools \
+        systemtap-sdt-dev \
         libev-dev \
         libevent-dev \
         qemu-user-static \

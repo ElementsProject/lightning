@@ -17,16 +17,17 @@ RUN apt-get update \
 	file \
 	gettext \
 	git \
-    curl \
-    libsqlite3-dev \
+        curl \
+        libsqlite3-dev \
 	libpq-dev \
 	libsodium23 \
 	libtool \
 	m4 \
+        systemtap-sdt-dev \
 	sudo \
 	unzip \
 	wget \
-    jq \
+        jq \
 	zip
 
 # Configure /repo/.git as 'safe.directory'

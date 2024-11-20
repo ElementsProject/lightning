@@ -9,19 +9,20 @@ RUN dnf update -y && \
 		'Development Tools' && \
 	dnf install -y \
 		clang \
-		libsq3-devel \
-		python3-devel \
-		python3-mako \
-        python3-pip \
-        python3-virtualenv \
-		python3-setuptools \
-		redhat-lsb \
-		net-tools \
-		valgrind \
-		wget \
 		git \
 		jq \
-		xz \
+		libsq3-devel \
+		net-tools \
+		python3-devel \
+		python3-mako \
+		python3-setuptools \
+		redhat-lsb \
+		valgrind \
+		wget \
+                python3-pip \
+                python3-virtualenv \
+                systemtap-sdt-devel \
+                xz \
 		zlib-devel && \
 	dnf clean all
 
