@@ -155,38 +155,14 @@ static bool blind_error_return(const struct htlc_in *hin)
 	return false;
 }
 
-static struct failed_htlc *mk_failed_htlc_badonion(const tal_t *ctx,
-						   const struct htlc_in *hin,
-						   enum onion_wire badonion)
-{
-	struct failed_htlc *f = tal(ctx, struct failed_htlc);
-
-	if (blind_error_return(hin))
-		badonion = WIRE_INVALID_ONION_BLINDING;
-
-	f->id = hin->key.id;
-	f->onion = NULL;
-	f->badonion = badonion;
-	f->sha256_of_onion = tal(f, struct sha256);
-	sha256(f->sha256_of_onion, hin->onion_routing_packet,
-	       sizeof(hin->onion_routing_packet));
-	return f;
-}
-
 static struct failed_htlc *mk_failed_htlc(const tal_t *ctx,
 					  const struct htlc_in *hin,
 					  const struct onionreply *failonion)
 {
 	struct failed_htlc *f = tal(ctx, struct failed_htlc);
 
+	/* Inside a blinded path, override return */
 	if (blind_error_return(hin)) {
-		return mk_failed_htlc_badonion(ctx, hin,
-					       WIRE_INVALID_ONION_BLINDING);
-	}
-
-	/* Also, at head of the blinded path, return "normal" invalid
-	 * onion blinding. */
-	if (hin->payload && hin->payload->path_key) {
 		struct sha256 sha;
 		sha256(&sha, hin->onion_routing_packet,
 		       sizeof(hin->onion_routing_packet));
@@ -200,6 +176,25 @@ static struct failed_htlc *mk_failed_htlc(const tal_t *ctx,
 	/* Wrap onion error */
 	f->onion = wrap_onionreply(f, hin->shared_secret, failonion);
 
+	return f;
+}
+
+static struct failed_htlc *mk_failed_htlc_badonion(const tal_t *ctx,
+						   const struct htlc_in *hin,
+						   enum onion_wire badonion)
+{
+	struct failed_htlc *f = tal(ctx, struct failed_htlc);
+
+	/* Inside a blinded path, override return */
+	if (blind_error_return(hin))
+		return mk_failed_htlc(ctx, hin, NULL);
+
+	f->id = hin->key.id;
+	f->onion = NULL;
+	f->badonion = badonion;
+	f->sha256_of_onion = tal(f, struct sha256);
+	sha256(f->sha256_of_onion, hin->onion_routing_packet,
+	       sizeof(hin->onion_routing_packet));
 	return f;
 }
 
@@ -1478,8 +1473,14 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 fail:
 	/* In a blinded path, *all* failures are "invalid_onion_blinding" */
 	if (hin->path_key) {
-		*failmsg = tal_free(*failmsg);
-		*badonion = WIRE_INVALID_ONION_BLINDING;
+		struct sha256 hash;
+
+		*badonion = 0;
+		tal_free(*failmsg);
+
+		sha256(&hash, hin->onion_routing_packet,
+		       sizeof(hin->onion_routing_packet));
+		*failmsg = towire_invalid_onion_blinding(ctx, &hash);
 	}
 	return false;
 }
