@@ -1788,8 +1788,8 @@ static void splice_abort(struct peer *peer, const char *fmt, ...)
 	va_end(ap);
 
 	if (have_i_signed_inflight(peer, inflight))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Tried to abort a splice where I have already"
+		peer_failed_err(peer->pps, &peer->channel_id,
+			      "I needed to abort a splice where I have already"
 			      " sent my signatures");
 
 	status_info("We are initiating tx_abort for reason: %s", reason);

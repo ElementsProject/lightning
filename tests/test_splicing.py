@@ -230,10 +230,6 @@ def test_invalid_splice(node_factory, bitcoind):
     assert len(list(mempool.keys())) == 1
     assert result['txid'] in list(mempool.keys())
 
-    # Wait until nodes are reconnected
-    l1.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
-    l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
-
     bitcoind.generate_block(6, wait_for_mempool=1)
 
     l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')

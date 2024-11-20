@@ -17,5 +17,5 @@ def test_agressive_restart(node_factory, bitcoind):
     for _ in range(20):
         l1.rpc.stfu_channels([chan_id])
         l1.rpc.abort_channels([chan_id])
-        l1.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
-        l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
+        l1.daemon.wait_for_log(r'Restarting channeld after tx_abort')
+        l2.daemon.wait_for_log(r'Restarting channeld after tx_abort')
