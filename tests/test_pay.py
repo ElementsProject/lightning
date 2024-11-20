@@ -5992,7 +5992,6 @@ def test_enableoffer(node_factory):
         l1.rpc.enableoffer(offer_id=offer1['offer_id'])
 
 
-@pytest.mark.xfail(strict=True)
 def test_offer_with_private_channels_multyhop2(node_factory):
     """We should be able to fetch an invoice through a private path and pay the invoice"""
     l1, l2, l3, l4, l5 = node_factory.line_graph(5, fundchannel=False)

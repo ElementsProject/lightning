@@ -351,8 +351,13 @@ static struct command_result *block_added_notify(struct command *cmd,
 						 const char *buf,
 						 const jsmntok_t *params)
 {
-	json_scan(cmd, buf, params, "{block:{height:%}}",
-		  JSON_SCAN(json_to_u32, &blockheight));
+	const char *err = json_scan(cmd, buf, params, "{block_added:{height:%}}",
+				    JSON_SCAN(json_to_u32, &blockheight));
+	if (err)
+		plugin_err(cmd->plugin, "Failed to parse block_added (%.*s): %s",
+			   json_tok_full_len(params),
+			   json_tok_full(buf, params),
+			   err);
 	return notification_handled(cmd);
 }
 
