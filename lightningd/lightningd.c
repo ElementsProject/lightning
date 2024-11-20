@@ -1175,7 +1175,7 @@ int main(int argc, char *argv[])
 	bool try_reexec;
 	size_t num_channels;
 
-	trace_span_start("lightningd/startup", argv);
+	trace_span_start("lightningd/startup", &exit_code);
 
 	/*~ What happens in strange locales should stay there. */
 	setup_locale();
@@ -1409,7 +1409,7 @@ int main(int argc, char *argv[])
 	/*~ Now handle sigchld, so we can clean up appropriately. */
 	sigchld_conn = notleak(io_new_conn(ld, sigchld_rfd, sigchld_rfd_in, ld));
 
-	trace_span_end(argv);
+	trace_span_end(&exit_code);
 
 	/*~ Mark ourselves live.
 	 *
