@@ -264,6 +264,7 @@ void trace_span_start(const char *name, const void *key)
 
 	current = s;
 	DTRACE_PROBE1(lightningd, span_start, s->id);
+	trace_check_tree();
 }
 
 void trace_span_remote(u8 trace_id[TRACE_ID_SIZE], u8 span_id[SPAN_ID_SIZE])
@@ -282,6 +283,8 @@ void trace_span_end(const void *key)
 	s->end_time = (now.ts.tv_sec * 1000000) + now.ts.tv_nsec / 1000;
 	DTRACE_PROBE1(lightningd, span_end, s->id);
 	trace_emit(s);
+
+	trace_check_tree();
 
 	/* Reset the context span we are in. */
 	current = s->parent;
