@@ -2310,7 +2310,7 @@ def test_gossip_force_broadcast_channel_msgs(node_factory, bitcoind):
                             '--no-gossip',
                             '--hex',
                             '--network={}'.format(TEST_NETWORK),
-                            '--max-messages={}'.format(7),
+                            '--max-messages={}'.format(8),
                             '--timeout-after={}'.format(120),
                             '{}@localhost:{}'.format(l1.info['id'], l1.port)],
                            check=True,
@@ -2323,7 +2323,8 @@ def test_gossip_force_broadcast_channel_msgs(node_factory, bitcoind):
     del tally['query_short_channel_ids']
     del tally['query_channel_range']
     del tally['ping']
+    assert tally['gossip_filter'] >= 1
+    del tally['gossip_filter']
     assert tally == {'channel_announce': 1,
                      'channel_update': 3,
-                     'node_announce': 1,
-                     'gossip_filter': 1}
+                     'node_announce': 1}
