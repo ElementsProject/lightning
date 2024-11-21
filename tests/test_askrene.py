@@ -552,22 +552,26 @@ def test_getroutes(node_factory):
                             'delay': 99 + 6}]])
 
 
-@pytest.mark.skip
 def test_getroutes_fee_fallback(node_factory):
     """Test getroutes call takes into account fees, if excessive"""
 
     # 0 -> 1 -> 3: high capacity, high fee (1%)
     # 0 -> 2 -> 3: low capacity, low fee.
+    # (We disable reverse, since it breaks median calc!)
     gsfile, nodemap = generate_gossip_store([GenChannel(0, 1,
                                                         capacity_sats=20000,
-                                                        forward=GenChannel.Half(propfee=10000)),
+                                                        forward=GenChannel.Half(propfee=10000),
+                                                        reverse=GenChannel.Half(enabled=False)),
                                              GenChannel(0, 2,
-                                                        capacity_sats=10000),
+                                                        capacity_sats=10000,
+                                                        reverse=GenChannel.Half(enabled=False)),
                                              GenChannel(1, 3,
                                                         capacity_sats=20000,
-                                                        forward=GenChannel.Half(propfee=10000)),
+                                                        forward=GenChannel.Half(propfee=10000),
+                                                        reverse=GenChannel.Half(enabled=False)),
                                              GenChannel(2, 3,
-                                                        capacity_sats=10000)])
+                                                        capacity_sats=10000,
+                                                        reverse=GenChannel.Half(enabled=False))])
     # Set up l1 with this as the gossip_store
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
@@ -1204,6 +1208,13 @@ def test_real_biases(node_factory, bitcoind):
                 amount_after = amount_through_chan(chan, route2['routes'])
                 if amount_after < amount_before:
                     num_changed[bias] += 1
+                else:
+                    # We bias -4 against 83x88x31908/0 going to node 83, and this is violated.
+                    # Both routes contain three paths, all via 83x88x31908/0.
+                    # The first amounts  49490584, 1018832, 49490584,
+                    # The second amounts 25254708, 25254708, 49490584,
+                    # Due to fees and rounding, we actually spend 1msat more on the second case!
+                    assert (n, bias, chan) == (83, 4, '83x88x31908/0')
 
             # Undo bias
             l1.rpc.askrene_bias_channel(layer='biases', short_channel_id_dir=chan, bias=0)
