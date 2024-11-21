@@ -142,7 +142,7 @@ bool db_query_prepared_canfail(struct db_stmt *stmt)
 	bool ret;
 	assert(stmt->query->readonly);
 	trace_span_start("db_query_prepared", stmt);
-	trace_span_tag(&ret, "query", stmt->query->query);
+	trace_span_tag(stmt, "query", stmt->query->query);
 	ret = stmt->db->config->query_fn(stmt);
 	stmt->executed = true;
 	list_del_from(&stmt->db->pending_statements, &stmt->list);
