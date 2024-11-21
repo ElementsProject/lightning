@@ -1412,6 +1412,14 @@ int main(int argc, char *argv[])
 	/*~ Now handle sigchld, so we can clean up appropriately. */
 	sigchld_conn = notleak(io_new_conn(ld, sigchld_rfd, sigchld_rfd_in, ld));
 
+	/* This span was started before handing control to `io_loop`
+	 * which suspends active spans in-between processing
+	 * events. Depending on how the `io_loop` was interrupted, the
+	 * current context span may have been suspended. We need to
+	 * manually resume it for this case. Notice that resuming is
+	 * idempotent, and doing so repeatedly is safe.
+	 */
+	trace_span_resume(argv);
 	trace_span_end(argv);
 
 	/*~ Mark ourselves live.
