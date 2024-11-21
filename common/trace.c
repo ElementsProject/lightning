@@ -182,16 +182,8 @@ static struct span *trace_span_slot(void)
 	return s;
 }
 
-static const struct span *trace_span_root(const struct span *s)
-{
-	if (s->parent)
-		return trace_span_root(s->parent);
-	return s;
-}
-
 static void trace_emit(struct span *s)
 {
-	const struct span *root = trace_span_root(s);
 	char span_id[HEX_SPAN_ID_SIZE];
 	char trace_id[HEX_TRACE_ID_SIZE];
 	char parent_span_id[HEX_SPAN_ID_SIZE];
@@ -203,7 +195,7 @@ static void trace_emit(struct span *s)
 		return;
 
 	hex_encode(s->id, SPAN_ID_SIZE, span_id, HEX_SPAN_ID_SIZE);
-	hex_encode(root->trace_id, TRACE_ID_SIZE, trace_id, HEX_TRACE_ID_SIZE);
+	hex_encode(s->trace_id, TRACE_ID_SIZE, trace_id, HEX_TRACE_ID_SIZE);
 
 	if (s->parent)
 		hex_encode(s->parent_id, SPAN_ID_SIZE, parent_span_id, HEX_SPAN_ID_SIZE);
@@ -267,6 +259,7 @@ void trace_span_start(const char *name, const void *key)
 		randombytes_buf(s->trace_id, TRACE_ID_SIZE);
 	} else {
 		memcpy(s->parent_id, current->id, SPAN_ID_SIZE);
+		memcpy(s->trace_id, current->trace_id, TRACE_ID_SIZE);
 	}
 
 	current = s;
