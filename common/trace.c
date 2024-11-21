@@ -33,6 +33,8 @@
  */
 #define TRACEPARENT_LEN (2 + 1 + 32 + 1 + 16 + 1 + 2)
 
+#define TRACE_DBG(args...) fprintf(stderr, args)
+
 const char *trace_service_name = "lightningd";
 
 struct span_tag {
@@ -96,6 +98,45 @@ static void trace_inject_traceparent(void)
 	}
 }
 
+/** Quickly print out the entries in the `active_spans`. */
+static void trace_spans_print(void)
+{
+	for (size_t j = 0; j < MAX_ACTIVE_SPANS; j++) {
+		struct span *s = &active_spans[j], *parent = s->parent;
+		TRACE_DBG(" > %zu: %s (key=%zu, parent=%s, "
+			  "parent_key=%zu)\n",
+			  j, s->name, s->key, parent ? parent->name : "-",
+			  parent ? parent->key : 0);
+	}
+}
+
+/** Small helper to check for consistency in the linking. The idea is
+ * that we should be able to reach the root (a span without a
+ * `parent`) in less than `MAX_ACTIVE_SPANS` steps. */
+static void trace_check_tree(void)
+{
+	/* `current` is either NULL or a valid entry. */
+
+	/* Walk the tree structure from leaves to their roots. It
+	 * should not take more than `MAX_ACTIVE_SPANS`. */
+	struct span *c;
+	for (size_t i = 0; i < MAX_ACTIVE_SPANS; i++) {
+		c = &active_spans[i];
+		for (int j = 0; j < MAX_ACTIVE_SPANS; j++)
+			if (c->parent == NULL)
+				break;
+			else
+				c = c->parent;
+		if (c->parent != NULL) {
+			TRACE_DBG("Cycle in the trace tree structure!\n");
+			trace_spans_print();
+			abort();
+		}
+
+		assert(c->parent == NULL);
+	}
+}
+
 static void trace_init(void) {
 	if (active_spans)
 		return;
@@ -119,6 +160,9 @@ static struct span *trace_span_find(size_t key)
 		if (active_spans[i].key == key)
 			return &active_spans[i];
 
+	/* Return NULL to signal that there is no such span yet. Used
+	 * to check for accidental collisions that'd reuse the span
+	 * `key`. */
 	return NULL;
 }
 
@@ -127,13 +171,14 @@ static struct span *trace_span_find(size_t key)
  */
 static struct span *trace_span_slot(void)
 {
+	/* Empty slots are defined as having `key=NULL`, so search for
+	 * that, and we should get an empty slot. */
 	struct span *s = trace_span_find(0);
 
 	/* Might end up here if we have more than MAX_ACTIVE_SPANS
 	 * concurrent spans. */
 	assert(s);
 	assert(s->parent == NULL);
-	assert(s != current);
 	return s;
 }
 
@@ -278,18 +323,21 @@ void trace_span_tag(const void *key, const char *name, const char *value)
 	span->tags[s].value = tal_strdup(span->tags, value);
 }
 
-void trace_span_suspend(const void *key)
+void trace_span_suspend_(const void *key, const char *lbl)
 {
 	size_t numkey = trace_key(key);
 	struct span *span = trace_span_find(numkey);
+	TRACE_DBG("Suspending span %s (%zu)\n", current->name, current->key);
+	assert(current == span);
 	current = NULL;
 	DTRACE_PROBE1(lightningd, span_suspend, span->id);
 }
 
-void trace_span_resume(const void *key)
+void trace_span_resume_(const void *key, const char *lbl)
 {
 	size_t numkey = trace_key(key);
 	current = trace_span_find(numkey);
+	TRACE_DBG("Resuming span %s (%zu)\n", current->name, current->key);
 	DTRACE_PROBE1(lightningd, span_resume, current->id);
 }
 
@@ -303,8 +351,8 @@ void trace_cleanup(void)
 
 void trace_span_start(const char *name, const void *key) {}
 void trace_span_end(const void *key) {}
-void trace_span_suspend(const void *key) {}
-void trace_span_resume(const void *key) {}
+void trace_span_suspend_(const void *key, const char *lbl) {}
+void trace_span_resume_(const void *key, const char *lbl) {}
 void trace_span_tag(const void *key, const char *name, const char *value) {}
 void trace_cleanup(void) {}
 
