@@ -172,6 +172,20 @@ static void handle_peer_update_data(struct lightningd *ld, const u8 *msg)
 	channel_gossip_set_remote_update(ld, &update, source);
 }
 
+/* gossipd would like a connection to this peer for more gossiping. */
+static void handle_connect_to_peer(struct subd *gossip, const u8 *msg)
+{
+	struct node_id *id = tal(tmpctx, struct node_id);
+	struct wireaddr *addrs;
+	if (!fromwire_gossipd_connect_to_peer(tmpctx, msg, id, &addrs))
+		log_broken(gossip->ld->log, "malformed peer connect request"
+			   " from gossipd %s", tal_hex(msg, msg));
+	else
+		log_debug(gossip->ld->log, "asked to connect to %s",
+			  fmt_node_id(msg, id));
+	/* TODO: send node_id and address to connectd. */
+}
+
 static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 {
 	enum gossipd_wire t = fromwire_peektype(msg);
@@ -208,6 +222,9 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 		handle_peer_update_data(gossip->ld, msg);
 		tal_free(msg);
 		break;
+	case WIRE_GOSSIPD_CONNECT_TO_PEER:
+		/* Please try connecting to this peer for more gossip. */
+		handle_connect_to_peer(gossip, msg);
 	}
 	return 0;
 }

@@ -90,3 +90,9 @@ subtypedata,peer_update,htlc_maximum_msat,amount_msat,
 msgtype,gossipd_remote_channel_update,3010
 msgdata,gossipd_remote_channel_update,source_node,?node_id,
 msgdata,gossipd_remote_channel_update,peer_update,peer_update,
+
+# Ask lightningd to connect to a peer.
+msgtype,gossipd_connect_to_peer,3011
+msgdata,gossipd_connect_to_peer,id,node_id,
+msgdata,gossipd_connect_to_peer,num,u16,
+msgdata,gossipd_connect_to_peer,addrs,wireaddr,num,
