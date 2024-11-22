@@ -67,7 +67,7 @@ struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm UNNEEDED)
 { fprintf(stderr, "gossmap_manage_get_gossmap called!\n"); abort(); }
 /* Generated stub for gossmap_manage_get_node_addresses */
 struct wireaddr *gossmap_manage_get_node_addresses(const tal_t *ctx UNNEEDED,
-						   struct gossmap_manage *gm UNNEEDED,
+						   struct gossmap *gossmap UNNEEDED,
 						   const struct node_id *node_id UNNEEDED)
 { fprintf(stderr, "gossmap_manage_get_node_addresses called!\n"); abort(); }
 /* Generated stub for gossmap_max_node_idx */
@@ -92,9 +92,9 @@ struct gossmap_node *gossmap_nth_node(const struct gossmap *map UNNEEDED,
 				      const struct gossmap_chan *chan UNNEEDED,
 				      int n UNNEEDED)
 { fprintf(stderr, "gossmap_nth_node called!\n"); abort(); }
-/* Generated stub for gossmap_num_nodes */
-size_t gossmap_num_nodes(const struct gossmap *map UNNEEDED)
-{ fprintf(stderr, "gossmap_num_nodes called!\n"); abort(); }
+/* Generated stub for gossmap_random_node */
+struct gossmap_node *gossmap_random_node(const struct gossmap *map UNNEEDED)
+{ fprintf(stderr, "gossmap_random_node called!\n"); abort(); }
 /* Generated stub for memleak_scan_intmap_ */
 void memleak_scan_intmap_(struct htable *memtable UNNEEDED, const struct intmap *m UNNEEDED)
 { fprintf(stderr, "memleak_scan_intmap_ called!\n"); abort(); }

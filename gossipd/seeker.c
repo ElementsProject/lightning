@@ -990,7 +990,7 @@ static struct node_and_addrs *get_random_node(const tal_t *ctx,
 		gossmap_node_get_id(gossmap, node, found_node->id);
 		found_node->addrs =
 			gossmap_manage_get_node_addresses(found_node,
-							  seeker->daemon->gm,
+							  gossmap,
 							  found_node->id);
 		if (found_node->addrs && tal_count(found_node->addrs) != 0)
 			return found_node;
