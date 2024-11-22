@@ -970,6 +970,10 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_ignore,
 		     NULL,
 		     "Fire up a terminal window with a debugger in it on initialization");
+	clnopt_witharg("--autoconnect-seeker-peers", OPT_SHOWINT,
+		       opt_set_u32, opt_show_u32,
+		       &ld->autoconnect_seeker_peers,
+		       "Seeker autoconnects to maintain this minimum number of gossip peers");
 }
 
 static const struct config testnet_config = {

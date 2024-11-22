@@ -2864,6 +2864,7 @@ message ListconfigsResponse {
 	optional uint64 commit_fee = 69;
 	optional Amount min_emergency_msat = 70;
 	optional uint32 commit_feerate_offset = 71;
+	optional uint32 autoconnect_seeker_peers = 72;
 }
 
 message ListconfigsConfigs {
@@ -2937,6 +2938,7 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsRequireconfirmedinputs require_confirmed_inputs = 68;
 	optional ListconfigsConfigsCommitfee commit_fee = 69;
 	optional ListconfigsConfigsCommitfeerateoffset commit_feerate_offset = 70;
+	optional ListconfigsConfigsAutoconnectseekerpeers autoconnect_seeker_peers = 71;
 }
 
 message ListconfigsConfigsConf {
@@ -3298,6 +3300,11 @@ message ListconfigsConfigsCommitfee {
 }
 
 message ListconfigsConfigsCommitfeerateoffset {
+	uint32 value_int = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsAutoconnectseekerpeers {
 	uint32 value_int = 1;
 	string source = 2;
 }

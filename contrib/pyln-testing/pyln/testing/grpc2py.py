@@ -2108,6 +2108,13 @@ def listconfigs_configs_announce_addr_dns2py(m):
     })
 
 
+def listconfigs_configs_autoconnect_seeker_peers2py(m):
+    return remove_default({
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
 def listconfigs_configs_autolisten2py(m):
     return remove_default({
         "source": m.source,  # PrimitiveField in generate_composite
@@ -2582,6 +2589,7 @@ def listconfigs2py(m):
         "announce_addr_discovered": m.announce_addr_discovered,  # PrimitiveField in generate_composite
         "announce_addr_discovered_port": m.announce_addr_discovered_port,  # PrimitiveField in generate_composite
         "announce_addr_dns": m.announce_addr_dns,  # PrimitiveField in generate_composite
+        "autoconnect_seeker_peers": m.autoconnect_seeker_peers,  # PrimitiveField in generate_composite
         "autolisten": m.autolisten,  # PrimitiveField in generate_composite
         "bind_addr": m.bind_addr,  # PrimitiveField in generate_composite
         "bookkeeper_db": m.bookkeeper_db,  # PrimitiveField in generate_composite

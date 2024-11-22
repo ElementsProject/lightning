@@ -419,6 +419,9 @@ struct lightningd {
 
 	/* Explicitly re-enabled deprecated APIs. */
 	const char **api_begs;
+
+	/* Minimum number of peers seeker should maintain. */
+	u32 autoconnect_seeker_peers;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.
