@@ -210,6 +210,64 @@ static struct oneshot *gossip_stream_timer(struct peer *peer)
 			    wake_gossip, peer);
 }
 
+/* Statistically, how many peers to we tell about each channel? */
+#define GOSSIP_SPAM_REDUNDANCY 5
+
+/* BOLT #7:
+ * A node:
+ *   - MUST NOT relay any gossip messages it did not generate itself,
+ *     unless explicitly requested.
+ */
+/* i.e. the strong implication is that we spam our own gossip aggressively!
+ * "Look at me!"  "Look at me!!!!".
+ */
+static void spam_new_peer(struct peer *peer, struct gossmap *gossmap)
+{
+	struct gossmap_node *me;
+	const u8 *msg;
+	u64 send_threshold;
+
+	/* Find ourselves; if no channels, nothing to send */
+	me = gossmap_find_node(gossmap, &peer->daemon->id);
+	if (!me)
+		return;
+
+	send_threshold = -1ULL;
+
+	/* Just in case we have many peers and not all are connecting or
+	 * some other corner case, send everything to first few. */
+	if (peer_htable_count(peer->daemon->peers) > GOSSIP_SPAM_REDUNDANCY
+	    && me->num_chans > GOSSIP_SPAM_REDUNDANCY) {
+		send_threshold = -1ULL / me->num_chans * GOSSIP_SPAM_REDUNDANCY;
+	}
+
+	for (size_t i = 0; i < me->num_chans; i++) {
+		struct gossmap_chan *chan = gossmap_nth_chan(gossmap, me, i, NULL);
+
+		/* We set this so we'll send a fraction of all our channels */
+		if (pseudorand_u64() > send_threshold)
+			continue;
+
+		/* Send channel_announce */
+		msg = gossmap_chan_get_announce(NULL, gossmap, chan);
+		inject_peer_msg(peer, take(msg));
+
+		/* Send both channel_updates (if they exist): both help people
+		 * use our channel, so we care! */
+		for (int dir = 0; dir < 2; dir++) {
+			if (!gossmap_chan_set(chan, dir))
+				continue;
+			msg = gossmap_chan_get_update(NULL, gossmap, chan, dir);
+			inject_peer_msg(peer, take(msg));
+		}
+	}
+
+	/* If we have one, we should send our own node_announcement */
+	msg = gossmap_node_get_announce(NULL, gossmap, me);
+	if (msg)
+		inject_peer_msg(peer, take(msg));
+}
+
 void setup_peer_gossip_store(struct peer *peer,
 			     const struct feature_set *our_features,
 			     const u8 *their_features)
@@ -229,6 +287,8 @@ void setup_peer_gossip_store(struct peer *peer,
 	 */
 	peer->gs.gossip_timer = NULL;
 	peer->gs.active = false;
+
+	spam_new_peer(peer, gossmap);
 	return;
 }
 

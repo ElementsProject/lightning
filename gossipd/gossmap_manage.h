@@ -95,14 +95,6 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm);
 
 /**
- * gossmap_manage_new_peer: send all our own gossip to this peer.
- * @gm: the gossmap_manage context
- * @peer: the node_id of the peer.
- */
-void gossmap_manage_new_peer(struct gossmap_manage *gm,
-			     const struct node_id *peer);
-
-/**
  * gossmap_manage_get_node_addresses: get addresses for this node.
  * @ctx: the allocation context
  * @gossmap: the gossmap
