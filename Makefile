@@ -232,6 +232,20 @@ ALL_C_HEADERS :=
 # Extra (non C) targets that should be built by default.
 DEFAULT_TARGETS :=
 
+# Installation directories
+exec_prefix = $(PREFIX)
+bindir = $(exec_prefix)/bin
+libexecdir = $(exec_prefix)/libexec
+pkglibexecdir = $(libexecdir)/$(PKGNAME)
+plugindir = $(pkglibexecdir)/plugins
+datadir = $(PREFIX)/share
+docdir = $(datadir)/doc/$(PKGNAME)
+mandir = $(datadir)/man
+man1dir = $(mandir)/man1
+man5dir = $(mandir)/man5
+man7dir = $(mandir)/man7
+man8dir = $(mandir)/man8
+
 # M1 macos machines with homebrew will install the native libraries in
 # /opt/homebrew instead of /usr/local, most likely because they
 # emulate x86_64 compatibility via Rosetta, and wanting to keep the
@@ -757,20 +771,6 @@ update-mocks/%: % $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
 
 unittest/%: % bolt-precheck
 	BOLTDIR=$(LOCAL_BOLTDIR) $(VG) $(VG_TEST_ARGS) $* > /dev/null
-
-# Installation directories
-exec_prefix = $(PREFIX)
-bindir = $(exec_prefix)/bin
-libexecdir = $(exec_prefix)/libexec
-pkglibexecdir = $(libexecdir)/$(PKGNAME)
-plugindir = $(pkglibexecdir)/plugins
-datadir = $(PREFIX)/share
-docdir = $(datadir)/doc/$(PKGNAME)
-mandir = $(datadir)/man
-man1dir = $(mandir)/man1
-man5dir = $(mandir)/man5
-man7dir = $(mandir)/man7
-man8dir = $(mandir)/man8
 
 # Commands
 MKDIR_P = mkdir -p
