@@ -319,6 +319,10 @@ struct daemon {
 	bool dev_exhausted_fds;
 	/* Allow connections in, but don't send anything */
 	bool dev_handshake_no_reply;
+	/* --dev-no-reconnect */
+	bool dev_no_reconnect;
+	/* --dev-fast-reconnect */
+	bool dev_fast_reconnect;
  };
 
 /* Called by io_tor_connect once it has a connection out. */
