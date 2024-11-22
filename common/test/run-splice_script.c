@@ -345,10 +345,8 @@ int main(int argc, char *argv[])
 	splice_to_json(tmpctx, result, js);
 
 	str = json_out_contents(js->jout, &len);
-
-	printf("%.*s\n", (int)len, str);
-
 	assert(str);
+	printf("%.*s\n", (int)len, str);
 
 	toks = json_parse_simple(tmpctx, str, len);
 
