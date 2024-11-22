@@ -180,6 +180,9 @@ struct connecting {
 	/* The ID of the peer (not necessarily unique, in transit!) */
 	struct node_id id;
 
+	/* Are we queued waiting, to avoid too many connections at once? */
+	bool waiting;
+
 	/* We iterate through the tal_count(addrs) */
 	size_t addrnum;
 	struct wireaddr_internal *addrs;
@@ -321,6 +324,9 @@ struct daemon {
 	/* What (even) custom messages we accept */
 	u16 *custom_msgs;
 
+	/* Timer which releases one pending connection per second. */
+	struct oneshot *connect_release_timer;
+
 	/* Hack to speed up gossip timer */
 	bool dev_fast_gossip;
 	/* Hack to avoid ping timeouts */
@@ -367,4 +373,8 @@ void destroy_peer(struct peer *peer);
 
 /* Remove a random connection, when under stress. */
 void close_random_connection(struct daemon *daemon);
+
+/* If connections are waiting to avoid flooding lightningd, release one now */
+void release_one_waiting_connection(struct daemon *daemon, const char *why);
+
 #endif /* LIGHTNING_CONNECTD_CONNECTD_H */

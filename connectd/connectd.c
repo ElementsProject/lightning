@@ -831,6 +831,25 @@ static void schedule_reconnect_if_important(struct daemon *daemon,
 		imp->reconnect_secs = max_delay;
 }
 
+/* If another connection is waiting, unqueue it now.  Called once a
+ * second, or when subds are first connected.  This limits how many
+ * things we tell connectd about at once. */
+void release_one_waiting_connection(struct daemon *daemon, const char *why)
+{
+	struct connecting *c;
+	struct connecting_htable_iter it;
+
+	c = connecting_htable_pick(daemon->connecting, pseudorand_u64(), &it);
+	for (size_t i = 0; i < connecting_htable_count(daemon->connecting); i++) {
+		if (c->waiting) {
+			status_peer_debug(&c->id, "Unblocking for %s", why);
+			c->waiting = false;
+			try_connect_one_addr(c);
+			break;
+		}
+	}
+}
+
 static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
 			   enum jsonrpc_errcode errcode,
@@ -851,7 +870,13 @@ static void connect_failed(struct daemon *daemon,
 	msg = towire_connectd_connect_failed(NULL, id, errcode, errmsg);
 	daemon_conn_send(daemon->master, take(msg));
 
+	/* If we're supposed to schedule a reconnect, do so */
 	schedule_reconnect_if_important(daemon, id);
+
+	/* We limit thundering herd: let one out if waiting. */
+	release_one_waiting_connection(daemon,
+				       tal_fmt(tmpctx, "%s connect failure",
+					       fmt_node_id(tmpctx, id)));
 }
 
 /* add errors to error list */
@@ -984,6 +1009,7 @@ static void try_connect_one_addr(struct connecting *connect)
 	struct sockaddr_in6 *sa6;
 
 	assert(!connect->conn);
+	assert(!connect->waiting);
 
 	/* Out of addresses? */
 	if (connect->addrnum == tal_count(connect->addrs)) {
@@ -1555,6 +1581,20 @@ setup_listeners(const tal_t *ctx,
 	return listen_fds;
 }
 
+/* Every second we release one connection, so we don't get stuck even
+ * if there are many peers to connect to and lightningd doesn't attach
+ * subds to any of them. */
+static void release_one_connection_from_timer(struct daemon *daemon)
+{
+	release_one_waiting_connection(daemon, "timer");
+
+	daemon->connect_release_timer
+		= new_reltimer(&daemon->timers,
+			       daemon,
+			       time_from_sec(1),
+			       release_one_connection_from_timer,
+			       daemon);
+}
 
 /*~ Parse the incoming connect init message from lightningd ("master") and
  * assign config variables to the daemon; it should be the first message we
@@ -1661,6 +1701,9 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	/* 500 bytes per second, not 1M per second */
 	if (dev_throttle_gossip)
 		daemon->gossip_stream_limit = 500;
+
+	/* Does nothing (no peers yet!) but arms timer */
+	release_one_connection_from_timer(daemon);
 }
 
 /* Returning functions in C is ugly! */
@@ -1867,8 +1910,13 @@ static void try_connect_peer(struct daemon *daemon,
 	connecting_htable_add(daemon->connecting, connect);
 	tal_add_destructor(connect, destroy_connecting);
 
-	/* Now we kick it off by recursively trying connect->addrs[connect->addrnum] */
-	try_connect_one_addr(connect);
+	/* We wait for another to be destroyed if too many are in
+	 * progress (useful for startup of large nodes) */
+	connect->waiting = (connecting_htable_count(daemon->connecting) > 10);
+	if (connect->waiting)
+		status_peer_debug(id, "Too many connections, waiting...");
+	else
+		try_connect_one_addr(connect);
 }
 
 static void destroy_important_id(struct important_id *imp)
