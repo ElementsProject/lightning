@@ -95,18 +95,6 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm);
 
 /**
- * gossmap_manage_get_node_addresses: get addresses for this node.
- * @ctx: the allocation context
- * @gossmap: the gossmap
- * @node_id: the node_id to look up
- *
- * Returns NULL if we don't have node_announcement for it.
- */
-struct wireaddr *gossmap_manage_get_node_addresses(const tal_t *ctx,
-						   struct gossmap *gossmap,
-						   const struct node_id *node_id);
-
-/**
  * gossmap_manage_tell_lightningd_locals: tell lightningd our latest updates.
  * @daemon: the gossip daemon
  * @gm: the gossmap_manage context

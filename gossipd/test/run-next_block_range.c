@@ -62,20 +62,27 @@ struct short_channel_id gossmap_chan_scid(const struct gossmap *map UNNEEDED,
 struct gossmap_chan *gossmap_find_chan(const struct gossmap *map UNNEEDED,
 				       const struct short_channel_id *scid UNNEEDED)
 { fprintf(stderr, "gossmap_find_chan called!\n"); abort(); }
+/* Generated stub for gossmap_first_node */
+struct gossmap_node *gossmap_first_node(const struct gossmap *map UNNEEDED)
+{ fprintf(stderr, "gossmap_first_node called!\n"); abort(); }
 /* Generated stub for gossmap_manage_get_gossmap */
 struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm UNNEEDED)
 { fprintf(stderr, "gossmap_manage_get_gossmap called!\n"); abort(); }
-/* Generated stub for gossmap_manage_get_node_addresses */
-struct wireaddr *gossmap_manage_get_node_addresses(const tal_t *ctx UNNEEDED,
-						   struct gossmap *gossmap UNNEEDED,
-						   const struct node_id *node_id UNNEEDED)
-{ fprintf(stderr, "gossmap_manage_get_node_addresses called!\n"); abort(); }
 /* Generated stub for gossmap_max_node_idx */
 u32 gossmap_max_node_idx(const struct gossmap *map UNNEEDED)
 { fprintf(stderr, "gossmap_max_node_idx called!\n"); abort(); }
+/* Generated stub for gossmap_next_node */
+struct gossmap_node *gossmap_next_node(const struct gossmap *map UNNEEDED,
+				       const struct gossmap_node *prev UNNEEDED)
+{ fprintf(stderr, "gossmap_next_node called!\n"); abort(); }
 /* Generated stub for gossmap_node_byidx */
 struct gossmap_node *gossmap_node_byidx(const struct gossmap *map UNNEEDED, u32 idx UNNEEDED)
 { fprintf(stderr, "gossmap_node_byidx called!\n"); abort(); }
+/* Generated stub for gossmap_node_get_announce */
+u8 *gossmap_node_get_announce(const tal_t *ctx UNNEEDED,
+			      const struct gossmap *map UNNEEDED,
+			      const struct gossmap_node *n UNNEEDED)
+{ fprintf(stderr, "gossmap_node_get_announce called!\n"); abort(); }
 /* Generated stub for gossmap_node_get_id */
 void gossmap_node_get_id(const struct gossmap *map UNNEEDED,
 			 const struct gossmap_node *node UNNEEDED,
@@ -142,7 +149,7 @@ void status_fmt(enum log_level level UNNEEDED,
 
 { fprintf(stderr, "status_fmt called!\n"); abort(); }
 /* Generated stub for towire_gossipd_connect_to_peer */
-u8 *towire_gossipd_connect_to_peer(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, const struct wireaddr *addrs UNNEEDED)
+u8 *towire_gossipd_connect_to_peer(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "towire_gossipd_connect_to_peer called!\n"); abort(); }
 /* Generated stub for towire_sciddir_or_pubkey */
 void towire_sciddir_or_pubkey(u8 **pptr UNNEEDED,

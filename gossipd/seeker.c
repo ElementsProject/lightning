@@ -969,13 +969,8 @@ static bool seek_any_unknown_nodes(struct seeker *seeker)
 	return true;
 }
 
-struct node_and_addrs {
-	struct node_id *id;
-	struct wireaddr *addrs;
-};
-
-/* Find a random node with an address in the announcement. */
-static struct node_and_addrs *get_random_node(const tal_t *ctx,
+/* Find a random node with an announcement. */
+static struct node_id *get_random_node(const tal_t *ctx,
 				       struct seeker *seeker)
 {
 	struct gossmap *gossmap = gossmap_manage_get_gossmap(seeker->daemon->gm);
@@ -985,17 +980,21 @@ static struct node_and_addrs *get_random_node(const tal_t *ctx,
 		return NULL;
 
 	for (int i = 0; i<20; i++) {
-		struct node_and_addrs *found_node = tal(ctx, struct node_and_addrs);
-		found_node->id = tal(found_node, struct node_id);
-		gossmap_node_get_id(gossmap, node, found_node->id);
-		found_node->addrs =
-			gossmap_manage_get_node_addresses(found_node,
-							  gossmap,
-							  found_node->id);
-		if (found_node->addrs && tal_count(found_node->addrs) != 0)
-			return found_node;
-		tal_free(found_node);
+		struct node_id id;
+
+		gossmap_node_get_id(gossmap, node, &id);
+		/* Make sure it *has* an announcement, and we're not
+		 * already connected */
+		if (gossmap_node_get_announce(tmpctx, gossmap, node)
+		    && !find_peer(seeker->daemon, &id)) {
+			return tal_dup(ctx, struct node_id, &id);
+		}
+
+		node = gossmap_next_node(gossmap, node);
+		if (!node)
+			node = gossmap_first_node(gossmap);
 	}
+
 	return NULL;
 }
 
@@ -1003,6 +1002,7 @@ static struct node_and_addrs *get_random_node(const tal_t *ctx,
 static void maybe_get_new_peer(struct seeker *seeker)
 {
 	size_t connected_peers = peer_node_id_map_count(seeker->daemon->peers);
+	struct node_id *random_node;
 
 	/* Respect user-defined autoconnect peer limit. */
 	if (connected_peers >= seeker->daemon->autoconnect_seeker_peers)
@@ -1011,21 +1011,13 @@ static void maybe_get_new_peer(struct seeker *seeker)
 	status_debug("seeker: need more peers for gossip (have %zu)",
 		     connected_peers);
 
-	const struct node_and_addrs *random_node;
 	random_node = get_random_node(tmpctx, seeker);
 	if (!random_node) {
 		status_debug("seeker: no more potential peers found");
 		return;
 	}
 
-	if(!random_node->id)
-		status_broken("seeker: random gossip node missing node_id");
-
-	if(!random_node->addrs || tal_count(random_node->addrs) == 0)
-		status_broken("seeker: random gossip node missing address");
-
-	u8 *msg = towire_gossipd_connect_to_peer(NULL, random_node->id,
-						 random_node->addrs);
+	u8 *msg = towire_gossipd_connect_to_peer(NULL, random_node);
 	daemon_conn_send(seeker->daemon->master, take(msg));
 	tal_free(random_node);
 }
