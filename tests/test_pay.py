@@ -5707,7 +5707,10 @@ def test_offer_paths(node_factory, bitcoind):
     assert paths[0]['first_scid_dir'] == chan['direction']
     assert paths[1]['first_node_id'] == l3.info['id']
 
-    l5 = node_factory.get_node(options=opts)
+    # We want to force l5 to connect manually, so don't have gossipd
+    # connect for itself!
+    l5 = node_factory.get_node(options={'dev-allow-localhost': None,
+                                        'autoconnect-seeker-peers': 0})
 
     # Get all the gossip, so we have addresses
     l5.rpc.connect(l1.info['id'], 'localhost', l1.port)
