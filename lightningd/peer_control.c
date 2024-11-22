@@ -91,6 +91,7 @@ void peer_set_dbid(struct peer *peer, u64 dbid)
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		      const struct node_id *id,
 		      const struct wireaddr_internal *addr,
+		      const struct wireaddr *last_known_addr,
 		      const u8 *their_features,
 		      bool connected_incoming)
 {
@@ -102,6 +103,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->id = *id;
 	peer->uncommitted_channel = NULL;
 	peer->addr = *addr;
+	peer->last_known_addr = tal_dup_or_null(peer, struct wireaddr, last_known_addr);
 	peer->connected_incoming = connected_incoming;
 	peer->remote_addr = NULL;
 	list_head_init(&peer->channels);
@@ -1673,6 +1675,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	struct peer_connected_hook_payload *hook_payload;
 	u64 connectd_counter;
 	const char *cmd_id;
+	struct wireaddr *last_known_addr;
 
 	hook_payload = tal(NULL, struct peer_connected_hook_payload);
 	hook_payload->ld = ld;
@@ -1691,15 +1694,31 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	 * now it's reconnected, we've gotta force them out. */
 	peer_channels_cleanup(ld, &id);
 
+	/* If we connected, and it's a normal address */
+	if (!hook_payload->incoming
+	    && hook_payload->addr.itype == ADDR_INTERNAL_WIREADDR
+	    && !hook_payload->addr.u.wireaddr.is_websocket) {
+		last_known_addr = &hook_payload->addr.u.wireaddr.wireaddr;
+	} else {
+		last_known_addr = NULL;
+	}
+
 	/* If we're already dealing with this peer, hand off to correct
 	 * subdaemon.  Otherwise, we'll hand to openingd to wait there. */
 	peer = peer_by_id(ld, &id);
-	if (!peer)
+	if (!peer) {
+		/* If we connected to them, we know this is a good address. */
 		peer = new_peer(ld, 0, &id, &hook_payload->addr,
+				last_known_addr,
 				take(their_features), hook_payload->incoming);
-	else {
+	} else {
 		tal_free(peer->their_features);
 		peer->their_features = tal_steal(peer, their_features);
+
+		/* Update known address. */
+		tal_free(peer->last_known_addr);
+		peer->last_known_addr = tal_dup_or_null(peer, struct wireaddr,
+							last_known_addr);
 	}
 
 	/* We track this, because messages can race between connectd and us.

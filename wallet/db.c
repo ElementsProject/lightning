@@ -1028,6 +1028,7 @@ static struct migration dbmigrations[] = {
 	 "  addrtype INTEGER)"), NULL},
     {NULL, insert_addrtype_to_addresses},
     {SQL("ALTER TABLE channel_funding_inflights ADD remote_funding BLOB DEFAULT NULL;"), NULL},
+    {SQL("ALTER TABLE peers ADD last_known_address BLOB DEFAULT NULL;"), NULL},
 };
 
 /**
