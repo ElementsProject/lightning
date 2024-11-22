@@ -1859,7 +1859,9 @@ def test_onchaind_replay(node_factory, bitcoind):
     _, txid, blocks = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
                                               'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
     assert blocks == 200
-    bitcoind.generate_block(200)
+
+    # We already mined 100
+    bitcoind.generate_block(100)
     # Could be RBF!
     l1.mine_txid_or_rbf(txid)
 
