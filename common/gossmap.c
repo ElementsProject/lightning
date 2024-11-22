@@ -1390,6 +1390,14 @@ struct gossmap_node *gossmap_next_node(const struct gossmap *map,
 	return node_iter(map, prev - map->node_arr + 1);
 }
 
+struct gossmap_node *gossmap_random_node(const struct gossmap *map)
+{
+	ptrint_t *pi = nodeidx_htable_pick(map->nodes, pseudorand_u64(), NULL);
+	if (pi)
+		return ptrint2node(pi);
+	return NULL;
+}
+
 size_t gossmap_num_chans(const struct gossmap *map)
 {
 	return chanidx_htable_count(map->channels);

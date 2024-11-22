@@ -12,6 +12,7 @@ msgdata,gossipd_init,id,node_id,
 msgdata,gossipd_init,dev_gossip_time,?u32,
 msgdata,gossipd_init,dev_fast_gossip,bool,
 msgdata,gossipd_init,dev_fast_gossip_prune,bool,
+msgdata,gossipd_init,autoconnect_seeker_peers,u32,
 
 # Gossipd tells us all our public channel_updates before init_reply.
 msgtype,gossipd_init_cupdate,3101
@@ -90,3 +91,9 @@ subtypedata,peer_update,htlc_maximum_msat,amount_msat,
 msgtype,gossipd_remote_channel_update,3010
 msgdata,gossipd_remote_channel_update,source_node,?node_id,
 msgdata,gossipd_remote_channel_update,peer_update,peer_update,
+
+# Ask lightningd to connect to a peer.
+msgtype,gossipd_connect_to_peer,3011
+msgdata,gossipd_connect_to_peer,id,node_id,
+msgdata,gossipd_connect_to_peer,num,u16,
+msgdata,gossipd_connect_to_peer,addrs,wireaddr,num,

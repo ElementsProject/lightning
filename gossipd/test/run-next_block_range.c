@@ -27,6 +27,9 @@ bool blinding_next_path_privkey(const struct privkey *e UNNEEDED,
 				const struct sha256 *h UNNEEDED,
 				struct privkey *next UNNEEDED)
 { fprintf(stderr, "blinding_next_path_privkey called!\n"); abort(); }
+/* Generated stub for daemon_conn_send */
+void daemon_conn_send(struct daemon_conn *dc UNNEEDED, const u8 *msg UNNEEDED)
+{ fprintf(stderr, "daemon_conn_send called!\n"); abort(); }
 /* Generated stub for find_peer */
 struct peer *find_peer(struct daemon *daemon UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "find_peer called!\n"); abort(); }
@@ -62,12 +65,22 @@ struct gossmap_chan *gossmap_find_chan(const struct gossmap *map UNNEEDED,
 /* Generated stub for gossmap_manage_get_gossmap */
 struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm UNNEEDED)
 { fprintf(stderr, "gossmap_manage_get_gossmap called!\n"); abort(); }
+/* Generated stub for gossmap_manage_get_node_addresses */
+struct wireaddr *gossmap_manage_get_node_addresses(const tal_t *ctx UNNEEDED,
+						   struct gossmap *gossmap UNNEEDED,
+						   const struct node_id *node_id UNNEEDED)
+{ fprintf(stderr, "gossmap_manage_get_node_addresses called!\n"); abort(); }
 /* Generated stub for gossmap_max_node_idx */
 u32 gossmap_max_node_idx(const struct gossmap *map UNNEEDED)
 { fprintf(stderr, "gossmap_max_node_idx called!\n"); abort(); }
 /* Generated stub for gossmap_node_byidx */
 struct gossmap_node *gossmap_node_byidx(const struct gossmap *map UNNEEDED, u32 idx UNNEEDED)
 { fprintf(stderr, "gossmap_node_byidx called!\n"); abort(); }
+/* Generated stub for gossmap_node_get_id */
+void gossmap_node_get_id(const struct gossmap *map UNNEEDED,
+			 const struct gossmap_node *node UNNEEDED,
+			 struct node_id *id UNNEEDED)
+{ fprintf(stderr, "gossmap_node_get_id called!\n"); abort(); }
 /* Generated stub for gossmap_nth_chan */
 struct gossmap_chan *gossmap_nth_chan(const struct gossmap *map UNNEEDED,
 				      const struct gossmap_node *node UNNEEDED,
@@ -79,6 +92,9 @@ struct gossmap_node *gossmap_nth_node(const struct gossmap *map UNNEEDED,
 				      const struct gossmap_chan *chan UNNEEDED,
 				      int n UNNEEDED)
 { fprintf(stderr, "gossmap_nth_node called!\n"); abort(); }
+/* Generated stub for gossmap_random_node */
+struct gossmap_node *gossmap_random_node(const struct gossmap *map UNNEEDED)
+{ fprintf(stderr, "gossmap_random_node called!\n"); abort(); }
 /* Generated stub for memleak_scan_intmap_ */
 void memleak_scan_intmap_(struct htable *memtable UNNEEDED, const struct intmap *m UNNEEDED)
 { fprintf(stderr, "memleak_scan_intmap_ called!\n"); abort(); }
@@ -125,6 +141,9 @@ void status_fmt(enum log_level level UNNEEDED,
 		const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "status_fmt called!\n"); abort(); }
+/* Generated stub for towire_gossipd_connect_to_peer */
+u8 *towire_gossipd_connect_to_peer(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, const struct wireaddr *addrs UNNEEDED)
+{ fprintf(stderr, "towire_gossipd_connect_to_peer called!\n"); abort(); }
 /* Generated stub for towire_sciddir_or_pubkey */
 void towire_sciddir_or_pubkey(u8 **pptr UNNEEDED,
 			      const struct sciddir_or_pubkey *sciddpk UNNEEDED)

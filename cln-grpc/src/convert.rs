@@ -2703,6 +2703,16 @@ impl From<responses::ListconfigsConfigsAnnounceaddrdns> for pb::ListconfigsConfi
 }
 
 #[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsAutoconnectseekerpeers> for pb::ListconfigsConfigsAutoconnectseekerpeers {
+    fn from(c: responses::ListconfigsConfigsAutoconnectseekerpeers) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_int: c.value_int, // Rule #2 for type u32
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::ListconfigsConfigsAutolisten> for pb::ListconfigsConfigsAutolisten {
     fn from(c: responses::ListconfigsConfigsAutolisten) -> Self {
         Self {
@@ -3342,6 +3352,7 @@ impl From<responses::ListconfigsConfigs> for pb::ListconfigsConfigs {
             announce_addr_discovered: c.announce_addr_discovered.map(|v| v.into()),
             announce_addr_discovered_port: c.announce_addr_discovered_port.map(|v| v.into()),
             announce_addr_dns: c.announce_addr_dns.map(|v| v.into()),
+            autoconnect_seeker_peers: c.autoconnect_seeker_peers.map(|v| v.into()),
             autolisten: c.autolisten.map(|v| v.into()),
             bind_addr: c.bind_addr.map(|v| v.into()),
             clear_plugins: c.clear_plugins.map(|v| v.into()),
@@ -3467,6 +3478,7 @@ impl From<responses::ListconfigsResponse> for pb::ListconfigsResponse {
             announce_addr_discovered_port: c.announce_addr_discovered_port, // Rule #2 for type integer?
             #[allow(deprecated)]
             announce_addr_dns: c.announce_addr_dns, // Rule #2 for type boolean?
+            autoconnect_seeker_peers: c.autoconnect_seeker_peers, // Rule #2 for type u32?
             #[allow(deprecated)]
             autolisten: c.autolisten, // Rule #2 for type boolean?
             #[allow(deprecated)]

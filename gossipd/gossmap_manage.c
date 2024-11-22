@@ -1435,7 +1435,7 @@ void gossmap_manage_tell_lightningd_locals(struct daemon *daemon,
 }
 
 struct wireaddr *gossmap_manage_get_node_addresses(const tal_t *ctx,
-						   struct gossmap_manage *gm,
+						   struct gossmap *gossmap,
 						   const struct node_id *node_id)
 {
 	struct gossmap_node *node;
@@ -1447,7 +1447,6 @@ struct wireaddr *gossmap_manage_get_node_addresses(const tal_t *ctx,
 	u8 rgb_color[3], alias[32];
 	struct tlv_node_ann_tlvs *na_tlvs;
 	struct wireaddr *wireaddrs;
-	struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
 
 	node = gossmap_find_node(gossmap, node_id);
 	if (!node)

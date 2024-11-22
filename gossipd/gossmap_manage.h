@@ -105,13 +105,13 @@ void gossmap_manage_new_peer(struct gossmap_manage *gm,
 /**
  * gossmap_manage_get_node_addresses: get addresses for this node.
  * @ctx: the allocation context
- * @gm: the gossmap_manage context
+ * @gossmap: the gossmap
  * @node_id: the node_id to look up
  *
  * Returns NULL if we don't have node_announcement for it.
  */
 struct wireaddr *gossmap_manage_get_node_addresses(const tal_t *ctx,
-						   struct gossmap_manage *gm,
+						   struct gossmap *gossmap,
 						   const struct node_id *node_id);
 
 /**

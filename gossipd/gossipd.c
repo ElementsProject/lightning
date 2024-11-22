@@ -186,12 +186,13 @@ static struct io_plan *handle_get_address(struct io_conn *conn,
 {
 	struct node_id id;
 	struct wireaddr *addrs;
+	struct gossmap *gossmap = gossmap_manage_get_gossmap(daemon->gm);
 
 	if (!fromwire_gossipd_get_addrs(msg, &id))
 		master_badmsg(WIRE_GOSSIPD_GET_ADDRS, msg);
 
 	addrs = gossmap_manage_get_node_addresses(tmpctx,
-						  daemon->gm,
+						  gossmap,
 						  &id);
 
 	daemon_conn_send(daemon->master,
@@ -432,7 +433,8 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 				     &daemon->id,
 				     &dev_gossip_time,
 				     &daemon->dev_fast_gossip,
-				     &daemon->dev_fast_gossip_prune)) {
+				     &daemon->dev_fast_gossip_prune,
+				     &daemon->autoconnect_seeker_peers)) {
 		master_badmsg(WIRE_GOSSIPD_INIT, msg);
 	}
 
@@ -636,6 +638,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT_REPLY:
 	case WIRE_GOSSIPD_GET_ADDRS_REPLY:
 	case WIRE_GOSSIPD_REMOTE_CHANNEL_UPDATE:
+	case WIRE_GOSSIPD_CONNECT_TO_PEER:
 		break;
 	}
 

@@ -8913,6 +8913,12 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsAutoconnectseekerpeers {
+	    pub source: String,
+	    pub value_int: u32,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsBindaddr {
 	    pub sources: Vec<String>,
 	    pub values_str: Vec<String>,
@@ -9339,6 +9345,9 @@ pub mod responses {
 	    #[serde(rename = "announce-addr-dns")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub announce_addr_dns: Option<ListconfigsConfigsAnnounceaddrdns>,
+	    #[serde(rename = "autoconnect-seeker-peers")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub autoconnect_seeker_peers: Option<ListconfigsConfigsAutoconnectseekerpeers>,
 	    #[serde(rename = "bind-addr")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bind_addr: Option<ListconfigsConfigsBindaddr>,
@@ -9750,6 +9759,9 @@ pub mod responses {
 	    #[deprecated]
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub plugins: Option<Vec<ListconfigsPlugins>>,
+	    #[serde(rename = "autoconnect-seeker-peers")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub autoconnect_seeker_peers: Option<u32>,
 	    #[serde(rename = "commit-feerate-offset")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub commit_feerate_offset: Option<u32>,

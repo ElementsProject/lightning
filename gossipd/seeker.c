@@ -5,6 +5,7 @@
 #include <ccan/asort/asort.h>
 #include <ccan/intmap/intmap.h>
 #include <ccan/tal/str/str.h>
+#include <common/daemon_conn.h>
 #include <common/decode_array.h>
 #include <common/gossmap.h>
 #include <common/memleak.h>
@@ -13,6 +14,7 @@
 #include <common/status.h>
 #include <common/timeout.h>
 #include <gossipd/gossipd.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <gossipd/gossmap_manage.h>
 #include <gossipd/queries.h>
 #include <gossipd/seeker.h>
@@ -22,6 +24,8 @@
 
 #define GOSSIP_SEEKER_RESYNC_INTERVAL(seeker) \
 	DEV_FAST_GOSSIP((seeker)->daemon->dev_fast_gossip, 30, 3600)
+
+#define SEEKER_GOSSIPERS 10
 
 enum seeker_state {
 	/* Still streaming gossip from single peer. */
@@ -83,7 +87,7 @@ struct seeker {
 	bool unknown_nodes;
 
 	/* Peers we've asked to stream us gossip (set to NULL if peer dies) */
-	struct peer *gossiper[10];
+	struct peer **gossiper;
 
 	/* A peer that told us about unknown gossip (set to NULL if peer dies). */
 	struct peer *preferred_peer;
@@ -150,8 +154,9 @@ struct seeker *new_seeker(struct daemon *daemon)
 	uintmap_init(&seeker->unknown_scids);
 	uintmap_init(&seeker->stale_scids);
 	seeker->random_peer = NULL;
-	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper); i++)
-		seeker->gossiper[i] = NULL;
+	u32 gossipers = daemon->autoconnect_seeker_peers > SEEKER_GOSSIPERS ?
+			daemon->autoconnect_seeker_peers : SEEKER_GOSSIPERS;
+	seeker->gossiper = tal_arrz(seeker, struct peer *, gossipers);
 	seeker->preferred_peer = NULL;
 	seeker->unknown_nodes = false;
 	seeker->last_full_sync_peer = NULL;
@@ -269,7 +274,7 @@ static void normal_gossip_start(struct seeker *seeker, struct peer *peer, bool a
 		return;
 
 	/* Make this one of our streaming gossipers if we aren't full */
-	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper); i++) {
+	for (size_t i = 0; i < tal_count(seeker->gossiper); i++) {
 		if (seeker->gossiper[i] == NULL) {
 			seeker->gossiper[i] = peer;
 			enable_stream = true;
@@ -887,7 +892,7 @@ static bool peer_is_not_gossipper(const struct peer *peer)
 	if (!peer->gossip_queries_feature)
 		return false;
 
-	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper); i++) {
+	for (size_t i = 0; i < tal_count(seeker->gossiper); i++) {
 		if (seeker->gossiper[i] == peer)
 			return false;
 	}
@@ -898,7 +903,7 @@ static bool peer_is_not_gossipper(const struct peer *peer)
 static void reset_gossip_performance_metrics(struct seeker *seeker)
 {
 	seeker->new_gossiper_elapsed = 0;
-	for (int i = 0; i < ARRAY_SIZE(seeker->gossiper); i++) {
+	for (int i = 0; i < tal_count(seeker->gossiper); i++) {
 		seeker->gossiper[i]->gossip_counter = 0;
 	}
 }
@@ -916,7 +921,7 @@ static void maybe_rotate_gossipers(struct seeker *seeker)
 		return;
 
 	/* If we have a slot free, fill it. */
-	for (i = 0; i < ARRAY_SIZE(seeker->gossiper); i++) {
+	for (i = 0; i < tal_count(seeker->gossiper); i++) {
 		if (!seeker->gossiper[i]) {
 			status_peer_debug(&peer->id, "seeker: filling slot %zu",
 					  i);
@@ -932,9 +937,10 @@ static void maybe_rotate_gossipers(struct seeker *seeker)
 	if (seeker->new_gossiper_elapsed < 5)
 		return;
 	u32 lowest_count = UINT_MAX;
-	for (int j = 0; j < ARRAY_SIZE(seeker->gossiper); j++) {
-		if (seeker-> gossiper[j]->gossip_counter < lowest_count) {
-			lowest_count = seeker-> gossiper[j]->gossip_counter;
+	lowest_idx = 0;
+	for (int j = 0; j < tal_count(seeker->gossiper); j++) {
+		if (seeker->gossiper[j]->gossip_counter < lowest_count) {
+			lowest_count = seeker->gossiper[j]->gossip_counter;
 			lowest_idx = j;
 		}
 	}
@@ -963,6 +969,67 @@ static bool seek_any_unknown_nodes(struct seeker *seeker)
 	return true;
 }
 
+struct node_and_addrs {
+	struct node_id *id;
+	struct wireaddr *addrs;
+};
+
+/* Find a random node with an address in the announcement. */
+static struct node_and_addrs *get_random_node(const tal_t *ctx,
+				       struct seeker *seeker)
+{
+	struct gossmap *gossmap = gossmap_manage_get_gossmap(seeker->daemon->gm);
+	struct gossmap_node *node = gossmap_random_node(gossmap);
+
+	if (!node)
+		return NULL;
+
+	for (int i = 0; i<20; i++) {
+		struct node_and_addrs *found_node = tal(ctx, struct node_and_addrs);
+		found_node->id = tal(found_node, struct node_id);
+		gossmap_node_get_id(gossmap, node, found_node->id);
+		found_node->addrs =
+			gossmap_manage_get_node_addresses(found_node,
+							  gossmap,
+							  found_node->id);
+		if (found_node->addrs && tal_count(found_node->addrs) != 0)
+			return found_node;
+		tal_free(found_node);
+	}
+	return NULL;
+}
+
+/* Ask lightningd for more peers if we're short on gossip streamers. */
+static void maybe_get_new_peer(struct seeker *seeker)
+{
+	size_t connected_peers = peer_node_id_map_count(seeker->daemon->peers);
+
+	/* Respect user-defined autoconnect peer limit. */
+	if (connected_peers >= seeker->daemon->autoconnect_seeker_peers)
+		return;
+
+	status_debug("seeker: need more peers for gossip (have %zu)",
+		     connected_peers);
+
+	const struct node_and_addrs *random_node;
+	random_node = get_random_node(tmpctx, seeker);
+	if (!random_node) {
+		status_debug("seeker: no more potential peers found");
+		return;
+	}
+
+	if(!random_node->id)
+		status_broken("seeker: random gossip node missing node_id");
+
+	if(!random_node->addrs || tal_count(random_node->addrs) == 0)
+		status_broken("seeker: random gossip node missing address");
+
+	u8 *msg = towire_gossipd_connect_to_peer(NULL, random_node->id,
+						 random_node->addrs);
+	daemon_conn_send(seeker->daemon->master, take(msg));
+	tal_free(random_node);
+}
+
 /* Periodic timer to see how our gossip is going. */
 static void seeker_check(struct seeker *seeker)
 {
@@ -987,7 +1054,7 @@ static void seeker_check(struct seeker *seeker)
 		check_probe(seeker, peer_gossip_probe_nannounces);
 		break;
 	case NORMAL:
-		/* FIXME: maybe_get_more_peers(seeker); */
+		maybe_get_new_peer(seeker);
 		maybe_rotate_gossipers(seeker);
 		if (!seek_any_unknown_scids(seeker)
 		    && !seek_any_stale_scids(seeker))
@@ -1112,7 +1179,7 @@ void seeker_peer_gone(struct seeker *seeker, const struct peer *peer)
 	if (seeker->random_peer == peer)
 		seeker->random_peer = NULL;
 
-	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper); i++) {
+	for (size_t i = 0; i < tal_count(seeker->gossiper); i++) {
 		if (seeker->gossiper[i] == peer)
 			seeker->gossiper[i] = NULL;
 	}

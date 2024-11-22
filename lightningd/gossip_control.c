@@ -172,6 +172,28 @@ static void handle_peer_update_data(struct lightningd *ld, const u8 *msg)
 	channel_gossip_set_remote_update(ld, &update, source);
 }
 
+/* gossipd would like a connection to this peer for more gossiping. */
+static void handle_connect_to_peer(struct subd *gossip, const u8 *msg)
+{
+	struct node_id *id = tal(tmpctx, struct node_id);
+	struct wireaddr *addrs;
+	if (!fromwire_gossipd_connect_to_peer(tmpctx, msg, id, &addrs)) {
+		log_broken(gossip->ld->log, "malformed peer connect request"
+			   " from gossipd %s", tal_hex(msg, msg));
+		return;
+	}
+	log_debug(gossip->ld->log, "attempting connection to %s "
+		  "for additional gossip", fmt_node_id(tmpctx, id));
+	u8 *connectmsg;
+	connectmsg = towire_connectd_connect_to_peer(NULL,
+						     id,
+						     addrs,
+						     NULL,	//addrhint,
+						     false,	//dns_fallback
+						     true);	//transient
+	subd_send_msg(gossip->ld->connectd, take(connectmsg));
+}
+
 static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 {
 	enum gossipd_wire t = fromwire_peektype(msg);
@@ -208,6 +230,9 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 		handle_peer_update_data(gossip->ld, msg);
 		tal_free(msg);
 		break;
+	case WIRE_GOSSIPD_CONNECT_TO_PEER:
+		/* Please try connecting to this peer for more gossip. */
+		handle_connect_to_peer(gossip, msg);
 	}
 	return 0;
 }
@@ -308,7 +333,8 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	    &ld->our_nodeid,
 	    ld->dev_gossip_time ? &ld->dev_gossip_time: NULL,
 	    ld->dev_fast_gossip,
-	    ld->dev_fast_gossip_prune);
+	    ld->dev_fast_gossip_prune,
+	    ld->autoconnect_seeker_peers);
 
 	subd_req(ld->gossip, ld->gossip, take(msg), -1, 0,
 		 gossipd_init_done, NULL);

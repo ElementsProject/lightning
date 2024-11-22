@@ -1620,6 +1620,7 @@
             "ListConfigs.configs.announce-addr-discovered": 54,
             "ListConfigs.configs.announce-addr-discovered-port": 55,
             "ListConfigs.configs.announce-addr-dns": 67,
+            "ListConfigs.configs.autoconnect-seeker-peers": 71,
             "ListConfigs.configs.autolisten": 51,
             "ListConfigs.configs.bind-addr": 49,
             "ListConfigs.configs.clear-plugins": 3,
@@ -1717,6 +1718,10 @@
         "ListconfigsConfigsAnnounce-addr-dns": {
             "ListConfigs.configs.announce-addr-dns.source": 2,
             "ListConfigs.configs.announce-addr-dns.value_bool": 1
+        },
+        "ListconfigsConfigsAutoconnect-seeker-peers": {
+            "ListConfigs.configs.autoconnect-seeker-peers.source": 2,
+            "ListConfigs.configs.autoconnect-seeker-peers.value_int": 1
         },
         "ListconfigsConfigsAutolisten": {
             "ListConfigs.configs.autolisten.source": 2,
@@ -1989,6 +1994,7 @@
             "ListConfigs.announce-addr-discovered": 52,
             "ListConfigs.announce-addr-discovered-port": 53,
             "ListConfigs.announce-addr-dns": 66,
+            "ListConfigs.autoconnect-seeker-peers": 72,
             "ListConfigs.autolisten": 49,
             "ListConfigs.bind-addr": 47,
             "ListConfigs.bookkeeper-db": 12,
@@ -6698,6 +6704,10 @@
             "added": "v22.11.1",
             "deprecated": "v23.08"
         },
+        "ListConfigs.autoconnect-seeker-peers": {
+            "added": "v24.11",
+            "deprecated": null
+        },
         "ListConfigs.autolisten": {
             "added": "pre-v0.10.1",
             "deprecated": "v23.08"
@@ -6852,6 +6862,18 @@
         },
         "ListConfigs.configs.announce-addr.values_str[]": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoconnect-seeker-peers": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoconnect-seeker-peers.source": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoconnect-seeker-peers.value_int": {
+            "added": "v24.11",
             "deprecated": null
         },
         "ListConfigs.configs.autolisten": {
