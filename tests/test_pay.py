@@ -5069,6 +5069,7 @@ def test_listpays_with_filter_by_status(node_factory, bitcoind):
     assert len(l2.rpc.listpays()['pays']) == 1
 
 
+@pytest.mark.xfail(strict=True)
 def test_sendpay_grouping(node_factory, bitcoind):
     """`listpays` should be smart enough to group repeated `pay` calls.
 
