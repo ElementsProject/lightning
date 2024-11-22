@@ -190,7 +190,6 @@ start_nodes() {
 		dev-bitcoind-poll=5
 		experimental-dual-fund
 		experimental-splicing
-		experimental-offers
 		funder-policy=match
 		funder-policy-mod=100
 		funder-min-their-funding=10000
