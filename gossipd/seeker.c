@@ -83,7 +83,7 @@ struct seeker {
 	bool unknown_nodes;
 
 	/* Peers we've asked to stream us gossip (set to NULL if peer dies) */
-	struct peer *gossiper[10];
+	struct peer **gossiper;
 
 	/* A peer that told us about unknown gossip (set to NULL if peer dies). */
 	struct peer *preferred_peer;
@@ -150,8 +150,7 @@ struct seeker *new_seeker(struct daemon *daemon)
 	uintmap_init(&seeker->unknown_scids);
 	uintmap_init(&seeker->stale_scids);
 	seeker->random_peer = NULL;
-	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper); i++)
-		seeker->gossiper[i] = NULL;
+	seeker->gossiper = tal_arrz(seeker, struct peer *, 10);
 	seeker->preferred_peer = NULL;
 	seeker->unknown_nodes = false;
 	seeker->last_full_sync_peer = NULL;
@@ -269,7 +268,7 @@ static void normal_gossip_start(struct seeker *seeker, struct peer *peer, bool a
 		return;
 
 	/* Make this one of our streaming gossipers if we aren't full */
-	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper); i++) {
+	for (size_t i = 0; i < tal_count(seeker->gossiper); i++) {
 		if (seeker->gossiper[i] == NULL) {
 			seeker->gossiper[i] = peer;
 			enable_stream = true;
@@ -887,7 +886,7 @@ static bool peer_is_not_gossipper(const struct peer *peer)
 	if (!peer->gossip_queries_feature)
 		return false;
 
-	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper); i++) {
+	for (size_t i = 0; i < tal_count(seeker->gossiper); i++) {
 		if (seeker->gossiper[i] == peer)
 			return false;
 	}
@@ -898,7 +897,7 @@ static bool peer_is_not_gossipper(const struct peer *peer)
 static void reset_gossip_performance_metrics(struct seeker *seeker)
 {
 	seeker->new_gossiper_elapsed = 0;
-	for (int i = 0; i < ARRAY_SIZE(seeker->gossiper); i++) {
+	for (int i = 0; i < tal_count(seeker->gossiper); i++) {
 		seeker->gossiper[i]->gossip_counter = 0;
 	}
 }
@@ -916,7 +915,7 @@ static void maybe_rotate_gossipers(struct seeker *seeker)
 		return;
 
 	/* If we have a slot free, fill it. */
-	for (i = 0; i < ARRAY_SIZE(seeker->gossiper); i++) {
+	for (i = 0; i < tal_count(seeker->gossiper); i++) {
 		if (!seeker->gossiper[i]) {
 			status_peer_debug(&peer->id, "seeker: filling slot %zu",
 					  i);
@@ -932,9 +931,10 @@ static void maybe_rotate_gossipers(struct seeker *seeker)
 	if (seeker->new_gossiper_elapsed < 5)
 		return;
 	u32 lowest_count = UINT_MAX;
-	for (int j = 0; j < ARRAY_SIZE(seeker->gossiper); j++) {
-		if (seeker-> gossiper[j]->gossip_counter < lowest_count) {
-			lowest_count = seeker-> gossiper[j]->gossip_counter;
+	lowest_idx = 0;
+	for (int j = 0; j < tal_count(seeker->gossiper); j++) {
+		if (seeker->gossiper[j]->gossip_counter < lowest_count) {
+			lowest_count = seeker->gossiper[j]->gossip_counter;
 			lowest_idx = j;
 		}
 	}
@@ -1112,7 +1112,7 @@ void seeker_peer_gone(struct seeker *seeker, const struct peer *peer)
 	if (seeker->random_peer == peer)
 		seeker->random_peer = NULL;
 
-	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper); i++) {
+	for (size_t i = 0; i < tal_count(seeker->gossiper); i++) {
 		if (seeker->gossiper[i] == peer)
 			seeker->gossiper[i] = NULL;
 	}
