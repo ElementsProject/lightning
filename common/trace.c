@@ -179,6 +179,13 @@ static struct span *trace_span_slot(void)
 	 * concurrent spans. */
 	assert(s);
 	assert(s->parent == NULL);
+
+	/* Be extra careful not to create cycles. If we return the
+	 * position that is pointed at by current then we can only
+	 * stub the trace by removing the parent link here. */
+	if (s == current)
+		current = NULL;
+
 	return s;
 }
 
