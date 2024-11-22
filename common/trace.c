@@ -33,7 +33,11 @@
  */
 #define TRACEPARENT_LEN (2 + 1 + 32 + 1 + 16 + 1 + 2)
 
+#ifdef TRACE_DEBUG
 #define TRACE_DBG(args...) fprintf(stderr, args)
+#else
+#define TRACE_DBG(args...)
+#endif
 
 const char *trace_service_name = "lightningd";
 
@@ -98,6 +102,8 @@ static void trace_inject_traceparent(void)
 	}
 }
 
+#ifdef TRACE_DEBUG
+
 /** Quickly print out the entries in the `active_spans`. */
 static void trace_spans_print(void)
 {
@@ -136,8 +142,12 @@ static void trace_check_tree(void)
 		assert(c->parent == NULL);
 	}
 }
+#else
+static inline void trace_check_tree(void) {}
+#endif
 
-static void trace_init(void) {
+static void trace_init(void)
+{
 	if (active_spans)
 		return;
 	active_spans = calloc(MAX_ACTIVE_SPANS, sizeof(struct span));
@@ -238,7 +248,8 @@ static void trace_span_clear(struct span *s)
 {
 	s->key = 0;
 	memset(s->id, 0, SPAN_ID_SIZE);
-	memset(s->trace_id, 0, TRACE_ID_SIZE);;
+	memset(s->trace_id, 0, TRACE_ID_SIZE);
+	;
 	s->parent = NULL;
 	s->name = tal_free(s->name);
 	s->tags = tal_free(s->tags);
@@ -250,6 +261,7 @@ void trace_span_start(const char *name, const void *key)
 	struct timeabs now = time_now();
 
 	trace_init();
+	trace_check_tree();
 
 	assert(trace_span_find(numkey) == NULL);
 	struct span *s = trace_span_slot();
@@ -270,8 +282,8 @@ void trace_span_start(const char *name, const void *key)
 	}
 
 	current = s;
-	DTRACE_PROBE1(lightningd, span_start, s->id);
 	trace_check_tree();
+	DTRACE_PROBE1(lightningd, span_start, s->id);
 }
 
 void trace_span_remote(u8 trace_id[TRACE_ID_SIZE], u8 span_id[SPAN_ID_SIZE])
@@ -286,12 +298,12 @@ void trace_span_end(const void *key)
 	assert(s && "Span to end not found");
 	assert(s == current && "Ending a span that isn't the current one");
 
+	trace_check_tree();
+
 	struct timeabs now = time_now();
 	s->end_time = (now.ts.tv_sec * 1000000) + now.ts.tv_nsec / 1000;
 	DTRACE_PROBE1(lightningd, span_end, s->id);
 	trace_emit(s);
-
-	trace_check_tree();
 
 	/* Reset the context span we are in. */
 	current = s->parent;
@@ -306,6 +318,7 @@ void trace_span_end(const void *key)
 		assert(current->parent == NULL);
 		current = NULL;
 	}
+	trace_check_tree();
 }
 
 void trace_span_tag(const void *key, const char *name, const char *value)

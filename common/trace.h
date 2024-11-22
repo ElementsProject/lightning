@@ -5,6 +5,7 @@
 
 #define SPAN_ID_SIZE 8
 #define TRACE_ID_SIZE 16
+#undef TRACE_DEBUG
 
 void trace_span_start(const char *name, const void *key);
 void trace_span_end(const void *key);
