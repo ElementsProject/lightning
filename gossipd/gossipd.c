@@ -186,12 +186,13 @@ static struct io_plan *handle_get_address(struct io_conn *conn,
 {
 	struct node_id id;
 	struct wireaddr *addrs;
+	struct gossmap *gossmap = gossmap_manage_get_gossmap(daemon->gm);
 
 	if (!fromwire_gossipd_get_addrs(msg, &id))
 		master_badmsg(WIRE_GOSSIPD_GET_ADDRS, msg);
 
 	addrs = gossmap_manage_get_node_addresses(tmpctx,
-						  daemon->gm,
+						  gossmap,
 						  &id);
 
 	daemon_conn_send(daemon->master,
