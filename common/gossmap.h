@@ -279,6 +279,9 @@ struct gossmap_node *gossmap_first_node(const struct gossmap *map);
 struct gossmap_node *gossmap_next_node(const struct gossmap *map,
 				       const struct gossmap_node *prev);
 
+/* Get me a random node */
+struct gossmap_node *gossmap_random_node(const struct gossmap *map);
+
 /* Unsorted iterate through (do not add/remove channels or nodes!) */
 size_t gossmap_num_chans(const struct gossmap *map);
 

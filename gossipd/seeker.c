@@ -979,41 +979,24 @@ static struct node_and_addrs *get_random_node(const tal_t *ctx,
 				       struct seeker *seeker)
 {
 	struct gossmap *gossmap = gossmap_manage_get_gossmap(seeker->daemon->gm);
-	if (gossmap_num_nodes(gossmap) < 1)
-		return NULL;
-	u32 max_idx = gossmap_max_node_idx(gossmap);
-	if (max_idx < 1)
+	struct gossmap_node *node = gossmap_random_node(gossmap);
+
+	if (!node)
 		return NULL;
 
-	struct gossmap_node *random_node;
-	struct node_and_addrs *found_node = NULL;
 	for (int i = 0; i<20; i++) {
-		u32 random = pseudorand(max_idx);
-		random_node = gossmap_node_byidx(gossmap, random);
-		if (!random_node) {
-			continue;
-		}
-		found_node = tal(ctx, struct node_and_addrs);
+		struct node_and_addrs *found_node = tal(ctx, struct node_and_addrs);
 		found_node->id = tal(found_node, struct node_id);
-		gossmap_node_get_id(gossmap, random_node, found_node->id);
-		if (node_id_eq(found_node->id, &seeker->daemon->id)) {
-			found_node = tal_free(found_node);
-			continue;
-		}
+		gossmap_node_get_id(gossmap, node, found_node->id);
 		found_node->addrs =
 			gossmap_manage_get_node_addresses(found_node,
 							  seeker->daemon->gm,
 							  found_node->id);
-		if (!found_node->addrs || tal_count(found_node->addrs) == 0) {
-			found_node = tal_free(found_node);
-			continue;
-		}
-
-		break;
+		if (found_node->addrs && tal_count(found_node->addrs) != 0)
+			return found_node;
+		tal_free(found_node);
 	}
-
-	return found_node;
-
+	return NULL;
 }
 
 /* Ask lightningd for more peers if we're short on gossip streamers. */
