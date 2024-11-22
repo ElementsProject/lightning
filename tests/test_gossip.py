@@ -2328,3 +2328,21 @@ def test_gossip_force_broadcast_channel_msgs(node_factory, bitcoind):
     assert tally == {'channel_announce': 1,
                      'channel_update': 3,
                      'node_announce': 1}
+
+
+def test_gossip_seeker_autoconnect(node_factory):
+    """Seeker should connect to additional peers and initiate connections if
+    necessary."""
+
+    port = node_factory.get_unused_port()
+    opts = [{}, {}, {'bind-addr': f'127.0.0.1:{port}',
+                     'announce-addr': f'127.0.0.1:{port}'}]
+    # l1, l2 = node_factory.get_nodes(2)
+    l1, l2, l3 = node_factory.line_graph(3, opts=opts, wait_for_announce=True)
+    # L1 and L3 should autoconnect with valid node announcement connection addresses
+    # Wait for seeker to decide to autoconnect
+    l1.daemon.wait_for_log('gossipd: seeker: need more peers for gossip')
+    l1.daemon.wait_for_log(r'lightningd: attempting connection to '
+                           rf'{l3.info["id"]} for additional gossip')
+    l1.daemon.wait_for_log('gossipd: seeker: starting gossip')
+    assert l3.info['id'] in [n['id'] for n in l1.rpc.listpeers()['peers']]
