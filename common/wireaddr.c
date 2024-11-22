@@ -767,6 +767,14 @@ void wireaddr_from_sockname(struct wireaddr_internal *addr,
 	strncpy(addr->u.sockname, sockname, sizeof(addr->u.sockname)-1);
 }
 
+void wireaddr_internal_from_wireaddr(struct wireaddr_internal *addr,
+				     const struct wireaddr *waddr)
+{
+	addr->itype = ADDR_INTERNAL_WIREADDR;
+	addr->u.wireaddr.is_websocket = false;
+	addr->u.wireaddr.wireaddr = *waddr;
+}
+
 bool wireaddr_to_sockname(const struct wireaddr_internal *addr,
 			  struct sockaddr_un *sun)
 {
