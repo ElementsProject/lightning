@@ -291,7 +291,7 @@ static void do_connect(struct delayed_reconnect *d)
 
 	/* We consider this transient unless we have a channel */
 	peer = peer_by_id(d->ld, &d->id);
-	transient = !peer || !peer_any_channel(peer, channel_state_wants_peercomms, NULL);
+	transient = !peer || !peer_any_channel_bystate(peer, channel_state_wants_peercomms, NULL);
 
 	connectmsg = towire_connectd_connect_to_peer(NULL,
 						     &d->id,
@@ -427,7 +427,7 @@ static void connect_failed(struct lightningd *ld,
 
 	/* If we have an active channel, then reconnect. */
 	peer = peer_by_id(ld, id);
-	if (peer && peer_any_channel(peer, channel_state_wants_peercomms, NULL)) {
+	if (peer && peer_any_channel_bystate(peer, channel_state_wants_peercomms, NULL)) {
 		try_reconnect(peer, peer, addrhint);
 	} else
 		log_peer_debug(ld->log, id, "Not reconnecting: %s",
