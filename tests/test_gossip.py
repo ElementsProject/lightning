@@ -69,7 +69,8 @@ def test_gossip_pruning(node_factory, bitcoind):
     # We check every 120/4 seconds, and takes 120 seconds since last update.
     l1.daemon.wait_for_log("Pruning channel {} from network view".format(scid2),
                            timeout=150)
-    l3.daemon.wait_for_log("Pruning channel {} from network view".format(scid1))
+    l3.daemon.wait_for_log("Pruning channel {} from network view".format(scid1),
+                           timeout=150)
 
     assert scid2 not in [c['short_channel_id'] for c in l1.rpc.listchannels()['channels']]
     assert scid1 not in [c['short_channel_id'] for c in l3.rpc.listchannels()['channels']]
