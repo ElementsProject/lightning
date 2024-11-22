@@ -327,6 +327,10 @@ struct daemon {
 	/* Timer which releases one pending connection per second. */
 	struct oneshot *connect_release_timer;
 
+	/* How many connection attempts do we allow at once
+	 * (--dev-limit-connectsion-inflight sets this to 1 for testing). */
+	size_t max_connect_in_flight;
+
 	/* Hack to speed up gossip timer */
 	bool dev_fast_gossip;
 	/* Hack to avoid ping timeouts */
