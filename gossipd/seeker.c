@@ -5,6 +5,7 @@
 #include <ccan/asort/asort.h>
 #include <ccan/intmap/intmap.h>
 #include <ccan/tal/str/str.h>
+#include <common/daemon_conn.h>
 #include <common/decode_array.h>
 #include <common/gossmap.h>
 #include <common/memleak.h>
@@ -13,6 +14,7 @@
 #include <common/status.h>
 #include <common/timeout.h>
 #include <gossipd/gossipd.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <gossipd/gossmap_manage.h>
 #include <gossipd/queries.h>
 #include <gossipd/seeker.h>
@@ -963,18 +965,81 @@ static bool seek_any_unknown_nodes(struct seeker *seeker)
 	return true;
 }
 
+struct node_and_addrs {
+	struct node_id *id;
+	struct wireaddr *addrs;
+};
+
+/* Find a random node with an address in the announcement. */
+static struct node_and_addrs *get_random_node(const tal_t *ctx,
+				       struct seeker *seeker)
+{
+	struct gossmap *gossmap = gossmap_manage_get_gossmap(seeker->daemon->gm);
+	if (gossmap_num_nodes(gossmap) < 1)
+		return NULL;
+	u32 max_idx = gossmap_max_node_idx(gossmap);
+	if (max_idx < 1)
+		return NULL;
+
+	struct gossmap_node *random_node;
+	struct node_and_addrs *found_node = NULL;
+	for (int i = 0; i<20; i++) {
+		u32 random = pseudorand(max_idx);
+		random_node = gossmap_node_byidx(gossmap, random);
+		if (!random_node) {
+			continue;
+		}
+		found_node = tal(ctx, struct node_and_addrs);
+		found_node->id = tal(found_node, struct node_id);
+		gossmap_node_get_id(gossmap, random_node, found_node->id);
+		if (node_id_eq(found_node->id, &seeker->daemon->id)) {
+			found_node = tal_free(found_node);
+			continue;
+		}
+		found_node->addrs =
+			gossmap_manage_get_node_addresses(found_node,
+							  seeker->daemon->gm,
+							  found_node->id);
+		if (!found_node->addrs || tal_count(found_node->addrs) == 0) {
+			found_node = tal_free(found_node);
+			continue;
+		}
+
+		break;
+	}
+
+	return found_node;
+
+}
+
 /* Ask lightningd for more peers if we're short on gossip streamers. */
 static void maybe_get_new_peer(struct seeker *seeker)
 {
 	size_t connected_peers = peer_node_id_map_count(seeker->daemon->peers);
-	if (connected_peers < tal_count(seeker->gossiper)) {
-		status_debug("seeker: have only %zu connected peers."
-			     " Should connect to more.",
-			     connected_peers);
 
+	if (connected_peers >= tal_count(seeker->gossiper))
+		return;
+
+	status_debug("seeker: need more peers for gossip (have %zu)",
+		     connected_peers);
+
+	const struct node_and_addrs *random_node;
+	random_node = get_random_node(tmpctx, seeker);
+	if (!random_node) {
+		status_debug("seeker: no more potential peers found");
+		return;
 	}
-	/* TODO: find random node announcement, see if we can connect,
-	 * ask lightningd to connect via towire_gossipd_connect_to_peer. */
+
+	if(!random_node->id)
+		status_broken("seeker: random gossip node missing node_id");
+
+	if(!random_node->addrs || tal_count(random_node->addrs) == 0)
+		status_broken("seeker: random gossip node missing address");
+
+	u8 *msg = towire_gossipd_connect_to_peer(NULL, random_node->id,
+						 random_node->addrs);
+	daemon_conn_send(seeker->daemon->master, take(msg));
+	tal_free(random_node);
 }
 
 /* Periodic timer to see how our gossip is going. */
@@ -1001,7 +1066,6 @@ static void seeker_check(struct seeker *seeker)
 		check_probe(seeker, peer_gossip_probe_nannounces);
 		break;
 	case NORMAL:
-		/* FIXME: maybe_get_more_peers(seeker); */
 		maybe_get_new_peer(seeker);
 		maybe_rotate_gossipers(seeker);
 		if (!seek_any_unknown_scids(seeker)
