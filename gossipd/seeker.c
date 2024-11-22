@@ -25,6 +25,8 @@
 #define GOSSIP_SEEKER_RESYNC_INTERVAL(seeker) \
 	DEV_FAST_GOSSIP((seeker)->daemon->dev_fast_gossip, 30, 3600)
 
+#define SEEKER_GOSSIPERS 10
+
 enum seeker_state {
 	/* Still streaming gossip from single peer. */
 	STARTING_UP,
@@ -152,7 +154,9 @@ struct seeker *new_seeker(struct daemon *daemon)
 	uintmap_init(&seeker->unknown_scids);
 	uintmap_init(&seeker->stale_scids);
 	seeker->random_peer = NULL;
-	seeker->gossiper = tal_arrz(seeker, struct peer *, 10);
+	u32 gossipers = daemon->autoconnect_seeker_peers > SEEKER_GOSSIPERS ?
+			daemon->autoconnect_seeker_peers : SEEKER_GOSSIPERS;
+	seeker->gossiper = tal_arrz(seeker, struct peer *, gossipers);
 	seeker->preferred_peer = NULL;
 	seeker->unknown_nodes = false;
 	seeker->last_full_sync_peer = NULL;
@@ -1017,7 +1021,8 @@ static void maybe_get_new_peer(struct seeker *seeker)
 {
 	size_t connected_peers = peer_node_id_map_count(seeker->daemon->peers);
 
-	if (connected_peers >= tal_count(seeker->gossiper))
+	/* Respect user-defined autoconnect peer limit. */
+	if (connected_peers >= seeker->daemon->autoconnect_seeker_peers)
 		return;
 
 	status_debug("seeker: need more peers for gossip (have %zu)",

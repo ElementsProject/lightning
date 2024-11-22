@@ -79,6 +79,9 @@ struct daemon {
 
 	/* Speed up pruning. */
 	bool dev_fast_gossip_prune;
+
+	/* Minimum gossip peers - seeker connects to random peers to fill. */
+	u32 autoconnect_seeker_peers;
 };
 
 struct range_query_reply {

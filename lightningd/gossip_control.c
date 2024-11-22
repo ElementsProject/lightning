@@ -333,7 +333,8 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	    &ld->our_nodeid,
 	    ld->dev_gossip_time ? &ld->dev_gossip_time: NULL,
 	    ld->dev_fast_gossip,
-	    ld->dev_fast_gossip_prune);
+	    ld->dev_fast_gossip_prune,
+	    ld->autoconnect_seeker_peers);
 
 	subd_req(ld->gossip, ld->gossip, take(msg), -1, 0,
 		 gossipd_init_done, NULL);
