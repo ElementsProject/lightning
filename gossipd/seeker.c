@@ -963,6 +963,20 @@ static bool seek_any_unknown_nodes(struct seeker *seeker)
 	return true;
 }
 
+/* Ask lightningd for more peers if we're short on gossip streamers. */
+static void maybe_get_new_peer(struct seeker *seeker)
+{
+	size_t connected_peers = peer_node_id_map_count(seeker->daemon->peers);
+	if (connected_peers < tal_count(seeker->gossiper)) {
+		status_debug("seeker: have only %zu connected peers."
+			     " Should connect to more.",
+			     connected_peers);
+
+	}
+	/* TODO: find random node announcement, see if we can connect,
+	 * ask lightningd to connect via towire_gossipd_connect_to_peer. */
+}
+
 /* Periodic timer to see how our gossip is going. */
 static void seeker_check(struct seeker *seeker)
 {
@@ -988,6 +1002,7 @@ static void seeker_check(struct seeker *seeker)
 		break;
 	case NORMAL:
 		/* FIXME: maybe_get_more_peers(seeker); */
+		maybe_get_new_peer(seeker);
 		maybe_rotate_gossipers(seeker);
 		if (!seek_any_unknown_scids(seeker)
 		    && !seek_any_stale_scids(seeker))
