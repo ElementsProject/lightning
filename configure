@@ -378,7 +378,11 @@ code=
 int main(void)
 {
 	gzFile f = gzopen("/dev/null", "wb");
-	return f != NULL ? 0 : 1;
+	if (f != NULL) {
+		gzclose(f);
+		return 0;
+	}
+	return 1;
 }
 /*END*/
 var=HAVE_GOOD_LIBSODIUM
