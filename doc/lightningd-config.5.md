@@ -645,6 +645,10 @@ its use disables autolisten.
 can be useful for maintenance and forensics, so is usually specified on
 the command line. Overrides all *addr* and *bind-addr* options.
 
+* **autoconnect-seeker-peers**=*NUMBER* (added in v24.11)
+
+  Sets the number of peers to gossip with: if we don't have this many connections, we will try to connect to random peers until we do.  The default is 10.
+
 * **autolisten**=*BOOL*
 
   By default, we bind (and maybe announce) on IPv4 and IPv6 interfaces if

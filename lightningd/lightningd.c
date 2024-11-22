@@ -370,6 +370,9 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * which is due for complete removal. */
 	ld->api_begs = tal_arr(ld, const char *, 0);
 
+	/* The gossip seeker automatically connects to a this many peers */
+	ld->autoconnect_seeker_peers = 10;
+
 	return ld;
 }
 

@@ -19817,6 +19817,31 @@
                     ]
                   }
                 }
+              },
+              "autoconnect-seeker-peers": {
+                "added": "v24.11",
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "value_int",
+                  "source"
+                ],
+                "properties": {
+                  "value_int": {
+                    "type": "u32",
+                    "added": "v24.11",
+                    "description": [
+                      "Field from config or cmdline, or default."
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "added": "v24.11",
+                    "description": [
+                      "Source of configuration setting."
+                    ]
+                  }
+                }
               }
             }
           },
@@ -20580,6 +20605,13 @@
             "added": "v23.11",
             "description": [
               "Additional commitment feerate applied by channel owner."
+            ]
+          },
+          "autoconnect-seeker-peers": {
+            "type": "u32",
+            "added": "v24.11",
+            "description": [
+              "Minimum number of gossip peers. Seeker connects to random nodes until this number is reached."
             ]
           }
         },
