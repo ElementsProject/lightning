@@ -777,11 +777,11 @@ static struct command_result *injectpaymentonion_succeeded(struct command *aux_c
 
 static void append_blinded_payloads(struct sphinx_path *sp,
 				    const struct attempt *attempt,
+				    u32 effective_bheight,
 				    size_t path_num)
 {
 	const struct blinded_path *path = attempt->payment->paths[path_num];
-	struct xpay *xpay = xpay_of(attempt->payment->plugin);
-	u32 final_cltv = attempt->payment->final_cltv + xpay->blockheight;
+	u32 final_cltv = attempt->payment->final_cltv + effective_bheight;
 
 	for (size_t i = 0; i < tal_count(path->path); i++) {
 		bool first = (i == 0);
@@ -813,7 +813,9 @@ static void append_blinded_payloads(struct sphinx_path *sp,
 	}
 }
 
-static const u8 *create_onion(const tal_t *ctx, struct attempt *attempt)
+static const u8 *create_onion(const tal_t *ctx,
+			      struct attempt *attempt,
+			      u32 effective_bheight)
 {
 	struct xpay *xpay = xpay_of(attempt->payment->plugin);
 	bool blinded_path = false;
@@ -834,7 +836,8 @@ static const u8 *create_onion(const tal_t *ctx, struct attempt *attempt)
 		if (pubkey_eq(&hop->next_node, &xpay->fakenode)
 		    && hop->scidd.scid.u64 < tal_count(attempt->payment->paths)) {
 			blinded_path = true;
-			append_blinded_payloads(sp, attempt, hop->scidd.scid.u64);
+			append_blinded_payloads(sp, attempt, effective_bheight,
+						hop->scidd.scid.u64);
 			/* This must be at the end, unless they put the fake nodeid
 			 * in a layer, in which case it doesn't matter what we put
 			 * in the rest of the onion. */
@@ -842,7 +845,7 @@ static const u8 *create_onion(const tal_t *ctx, struct attempt *attempt)
 		}
 		/* We tell it how much to send *out* */
 		payload = onion_nonfinal_hop(NULL, &hop->scidd.scid, hop->amount_out,
-					     hop->cltv_value_out + xpay->blockheight);
+					     hop->cltv_value_out + effective_bheight);
 		sphinx_add_hop_has_length(sp, node, take(payload));
 		node = &hop->next_node;
 	}
@@ -853,7 +856,7 @@ static const u8 *create_onion(const tal_t *ctx, struct attempt *attempt)
 		sphinx_add_hop_has_length(sp, node,
 					  take(onion_final_hop(NULL,
 							       attempt->delivers,
-							       attempt->payment->final_cltv + xpay->blockheight,
+							       attempt->payment->final_cltv + effective_bheight,
 							       attempt->payment->full_amount,
 							       attempt->payment->payment_secret,
 							       attempt->payment->payment_metadata)));
@@ -876,8 +879,10 @@ static struct command_result *do_inject(struct command *aux_cmd,
 	struct out_req *req;
 	const u8 *onion;
 	struct xpay *xpay = xpay_of(attempt->payment->plugin);
+	/* In case a block comes in, we give CLTVs an extra 1. */
+	u32 effective_bheight = xpay->blockheight + 1;
 
-	onion = create_onion(tmpctx, attempt);
+	onion = create_onion(tmpctx, attempt, effective_bheight);
 	/* FIXME: Handle this better! */
 	if (!onion) {
 		payment_failed(aux_cmd, attempt->payment, PAY_UNSPECIFIED_ERROR,
@@ -894,7 +899,7 @@ static struct command_result *do_inject(struct command *aux_cmd,
 	json_add_sha256(req->js, "payment_hash", &attempt->payment->payment_hash);
 	/* If no route, its the same as delivery (self-pay) */
 	json_add_amount_msat(req->js, "amount_msat", initial_sent(attempt));
-	json_add_u32(req->js, "cltv_expiry", initial_cltv_delta(attempt) + xpay->blockheight);
+	json_add_u32(req->js, "cltv_expiry", initial_cltv_delta(attempt) + effective_bheight);
 	json_add_u64(req->js, "partid", attempt->partid);
 	json_add_u64(req->js, "groupid", attempt->payment->group_id);
 	json_add_string(req->js, "invstring", attempt->payment->invstring);
