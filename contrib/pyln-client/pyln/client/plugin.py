@@ -948,9 +948,16 @@ class Plugin(object):
                 doc = "Undocumented RPC method from a plugin."
             doc = re.sub('\n+', ' ', doc)
 
+            # For compatibility with lightningd prior to 24.08, we must
+            # provide a description.  Ignored by 24.08 onwards,
+            description = method.description
+            if description is None:
+                description = ""
+
             methods.append({
                 'name': method.name,
-                'usage': method.get_usage()
+                'usage': method.get_usage(),
+                'description': description,
             })
 
         manifest = {
