@@ -177,13 +177,21 @@ static void handle_connect_to_peer(struct subd *gossip, const u8 *msg)
 {
 	struct node_id *id = tal(tmpctx, struct node_id);
 	struct wireaddr *addrs;
-	if (!fromwire_gossipd_connect_to_peer(tmpctx, msg, id, &addrs))
+	if (!fromwire_gossipd_connect_to_peer(tmpctx, msg, id, &addrs)) {
 		log_broken(gossip->ld->log, "malformed peer connect request"
 			   " from gossipd %s", tal_hex(msg, msg));
-	else
-		log_debug(gossip->ld->log, "asked to connect to %s",
-			  fmt_node_id(msg, id));
-	/* TODO: send node_id and address to connectd. */
+		return;
+	}
+	log_debug(gossip->ld->log, "attempting connection to %s "
+		  "for additional gossip", fmt_node_id(tmpctx, id));
+	u8 *connectmsg;
+	connectmsg = towire_connectd_connect_to_peer(NULL,
+						     id,
+						     addrs,
+						     NULL,	//addrhint,
+						     false,	//dns_fallback
+						     true);	//transient
+	subd_send_msg(gossip->ld->connectd, take(connectmsg));
 }
 
 static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
