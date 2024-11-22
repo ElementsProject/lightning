@@ -72,14 +72,6 @@ static struct command_result *connect_cmd_succeed(struct command *cmd,
 	return command_success(cmd, response);
 }
 
-/* FIXME: Reorder! */
-static void try_connect(const tal_t *ctx,
-			struct lightningd *ld,
-			const struct node_id *id,
-			u32 seconds_delay,
-			const struct wireaddr_internal *addrhint,
-			bool dns_fallback);
-
 struct id_and_addr {
 	struct node_id id;
 	const char *host;
@@ -244,7 +236,8 @@ static struct command_result *json_connect(struct command *cmd,
 					   &peer->addr);
 	}
 
-	try_connect(cmd, cmd->ld, &id_addr.id, 0, addr, true);
+	subd_send_msg(cmd->ld->connectd,
+		      take(towire_connectd_connect_to_peer(NULL, &id_addr.id, addr, true, true)));
 
 	/* Leave this here for peer_connected, connect_failed or peer_disconnect_done. */
 	new_connect(cmd->ld, &id_addr.id, cmd);
@@ -257,158 +250,6 @@ static const struct json_command connect_command = {
 };
 AUTODATA(json_command, &connect_command);
 
-/* We actually use this even if we don't need a delay, while we talk to
- * gossipd to get the addresses. */
-struct delayed_reconnect {
-	struct lightningd *ld;
-	struct node_id id;
-	struct wireaddr_internal *addrhint;
-	bool dns_fallback;
-};
-
-static const struct node_id *delayed_reconnect_keyof(const struct delayed_reconnect *d)
-{
-	return &d->id;
-}
-
-static bool node_id_delayed_reconnect_eq(const struct delayed_reconnect *d,
-					 const struct node_id *node_id)
-{
-	return node_id_eq(node_id, &d->id);
-}
-
-HTABLE_DEFINE_TYPE(struct delayed_reconnect,
-		   delayed_reconnect_keyof,
-		   node_id_hash, node_id_delayed_reconnect_eq,
-		   delayed_reconnect_map);
-
-/* We might be off a delay timer. */
-static void do_connect(struct delayed_reconnect *d)
-{
-	bool transient;
-	struct peer *peer;
-	u8 *connectmsg;
-
-	/* We consider this transient unless we have a channel */
-	peer = peer_by_id(d->ld, &d->id);
-	transient = !peer || !peer_any_channel_bystate(peer, channel_state_wants_peercomms, NULL);
-
-	connectmsg = towire_connectd_connect_to_peer(NULL,
-						     &d->id,
-						     d->addrhint,
-						     d->dns_fallback,
-						     transient);
-	subd_send_msg(d->ld->connectd, take(connectmsg));
-	tal_free(d);
-}
-
-static void destroy_delayed_reconnect(struct delayed_reconnect *d)
-{
-	delayed_reconnect_map_del(d->ld->delayed_reconnect_map, d);
-}
-
-static void try_connect(const tal_t *ctx,
-			struct lightningd *ld,
-			const struct node_id *id,
-			u32 seconds_delay,
-			const struct wireaddr_internal *addrhint,
-			bool dns_fallback)
-{
-	struct delayed_reconnect *d;
-	struct peer *peer;
-
-	/* Don't stack, unless this is an instant reconnect */
-	d = delayed_reconnect_map_get(ld->delayed_reconnect_map, id);
-	if (d) {
-		if (seconds_delay) {
-			log_peer_debug(ld->log, id, "Already reconnecting");
-			return;
-		}
-		tal_free(d);
-	}
-
-	d = tal(ctx, struct delayed_reconnect);
-	d->ld = ld;
-	d->id = *id;
-	d->addrhint = tal_dup_or_null(d, struct wireaddr_internal, addrhint);
-	d->dns_fallback = dns_fallback;
-	delayed_reconnect_map_add(ld->delayed_reconnect_map, d);
-	tal_add_destructor(d, destroy_delayed_reconnect);
-
-	if (!seconds_delay) {
-		do_connect(d);
-		return;
-	}
-
-	log_peer_debug(ld->log, id, "Will try reconnect in %u seconds",
-		       seconds_delay);
-	/* Update any channel billboards */
-	peer = peer_by_id(ld, id);
-	if (peer) {
-		struct channel *channel;
-		list_for_each(&peer->channels, channel, list) {
-			if (!channel_state_wants_peercomms(channel->state))
-				continue;
-			channel_set_billboard(channel, false,
-					      tal_fmt(tmpctx,
-						      "Will attempt reconnect "
-						      "in %u seconds",
-						      seconds_delay));
-		}
-		peer->last_connect_attempt = time_now();
-	}
-
-	/* We fuzz the timer by up to 1 second, to avoid getting into
-	 * simultanous-reconnect deadlocks with peer. */
-	notleak(new_reltimer(ld->timers, d,
-			     timerel_add(time_from_sec(seconds_delay),
-					 time_from_usec(pseudorand(1000000))),
-			     do_connect, d));
-}
-
-/*~ In C convention, constants are UPPERCASE macros.  Not everything needs to
- * be a constant, but it soothes the programmer's conscience to encapsulate
- * arbitrary decisions like these in one place. */
-#define INITIAL_WAIT_SECONDS	1
-#define MAX_WAIT_SECONDS	300
-
-void try_reconnect(const tal_t *ctx,
-		   struct peer *peer,
-		   const struct wireaddr_internal *addrhint)
-{
-	if (!peer->ld->reconnect)
-		return;
-	if (!peer->ld->reconnect_private) {
-		u32 public_channels = 0;
-		struct channel *channel;
-		list_for_each(&peer->channels, channel, list) {
-			if (channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
-				public_channels++;
-		}
-		if (public_channels == 0)
-			return;
-	}
-
-	/* Did we last attempt to connect recently?  Enter backoff mode. */
-	if (time_less(time_between(time_now(), peer->last_connect_attempt),
-		      time_from_sec(MAX_WAIT_SECONDS * 2))) {
-		u32 max = peer->ld->dev_fast_reconnect ? 3 : MAX_WAIT_SECONDS;
-		peer->reconnect_delay *= 2;
-		if (peer->reconnect_delay > max)
-			peer->reconnect_delay = max;
-	} else
-		peer->reconnect_delay = INITIAL_WAIT_SECONDS;
-
-	/* We only do DNS fallback lookups for manual connections, to
-	 * avoid stressing DNS servers for private nodes (sorry!) */
-	try_connect(ctx,
-		    peer->ld,
-		    &peer->id,
-		    peer->reconnect_delay,
-		    addrhint,
-		    false);
-}
-
 /* We were trying to connect, but they disconnected. */
 static void connect_failed(struct lightningd *ld,
 			   const struct node_id *id,
@@ -416,7 +257,6 @@ static void connect_failed(struct lightningd *ld,
 			   enum jsonrpc_errcode errcode,
 			   const char *errmsg)
 {
-	struct peer *peer;
 	struct connect *c;
 
 	/* We can have multiple connect commands: fail them all */
@@ -424,14 +264,6 @@ static void connect_failed(struct lightningd *ld,
 		/* They delete themselves from list */
 		was_pending(command_fail(c->cmd, errcode, "%s", errmsg));
 	}
-
-	/* If we have an active channel, then reconnect. */
-	peer = peer_by_id(ld, id);
-	if (peer && peer_any_channel_bystate(peer, channel_state_wants_peercomms, NULL)) {
-		try_reconnect(peer, peer, addrhint);
-	} else
-		log_peer_debug(ld->log, id, "Not reconnecting: %s",
-			       peer ? "no active channel" : "no channels");
 }
 
 void connect_failed_disconnect(struct lightningd *ld,
@@ -561,13 +393,40 @@ void connectd_start_shutdown(struct subd *connectd)
 	while (io_loop(NULL, NULL) != connectd);
 }
 
-static void startup_connect_one_done(struct lightningd *ld)
+void connectd_connect_to_peer(struct lightningd *ld,
+			      const struct peer *peer,
+			      bool is_important)
 {
-	if (!ld->num_startup_connects)
-		return;
+	/* Give connectd an address if we know it. */
+	struct wireaddr_internal *waddr;
+	if (peer->last_known_addr) {
+		waddr = tal(tmpctx, struct wireaddr_internal);
+		wireaddr_internal_from_wireaddr(waddr, peer->last_known_addr);
+	} else {
+		waddr = NULL;
+	}
+	subd_send_msg(peer->ld->connectd,
+		      take(towire_connectd_connect_to_peer(NULL, &peer->id,
+							   waddr, true,
+							   !is_important)));
+}
 
-	if (--ld->num_startup_connects == 0)
-		channel_gossip_startup_done(ld);
+void tell_connectd_peer_importance(struct peer *peer,
+				   bool was_important)
+{
+	bool is_important;
+
+	is_important = peer_any_channel(peer,
+					channel_important_filter, NULL, NULL);
+
+	/* If this changes the *peer* to important/unimportant, tell connectd */
+	if (was_important && !is_important) {
+		subd_send_msg(peer->ld->connectd,
+			      take(towire_connectd_downgrade_peer(NULL, &peer->id)));
+	} else if (!was_important && is_important) {
+		/* Tell connectd it's now important. */
+		connectd_connect_to_peer(peer->ld, peer, true);
+	}
 }
 
 static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fds)
@@ -579,7 +438,8 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_INIT:
 	case WIRE_CONNECTD_ACTIVATE:
 	case WIRE_CONNECTD_CONNECT_TO_PEER:
-	case WIRE_CONNECTD_DISCARD_PEER:
+	case WIRE_CONNECTD_DOWNGRADE_PEER:
+	case WIRE_CONNECTD_DISCONNECT_PEER:
 	case WIRE_CONNECTD_DEV_MEMLEAK:
 	case WIRE_CONNECTD_DEV_SUPPRESS_GOSSIP:
 	case WIRE_CONNECTD_DEV_REPORT_FDS:
@@ -604,7 +464,6 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 		break;
 
 	case WIRE_CONNECTD_PEER_CONNECTED:
-		startup_connect_one_done(connectd->ld);
 		peer_connected(connectd->ld, msg);
 		break;
 
@@ -617,7 +476,6 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 		break;
 
 	case WIRE_CONNECTD_CONNECT_FAILED:
-		startup_connect_one_done(connectd->ld);
 		handle_connect_failed(connectd->ld, msg);
 		break;
 
@@ -659,7 +517,7 @@ void force_peer_disconnect(struct lightningd *ld,
 	}
 
 	subd_send_msg(peer->ld->connectd,
-		      take(towire_connectd_discard_peer(NULL, &peer->id,
+		      take(towire_connectd_disconnect_peer(NULL, &peer->id,
 							peer->connectd_counter)));
 }
 
@@ -699,9 +557,6 @@ int connectd_init(struct lightningd *ld)
 	enum addr_listen_announce *listen_announce = ld->proposed_listen_announce;
 	const char *websocket_helper_path;
 	void *ret;
-
-	ld->delayed_reconnect_map = tal(ld, struct delayed_reconnect_map);
-	delayed_reconnect_map_init(ld->delayed_reconnect_map);
 
 	websocket_helper_path = subdaemon_path(tmpctx, ld,
 					       "lightning_websocketd");

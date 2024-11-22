@@ -1352,7 +1352,7 @@ send_error:
 							 channel->peer->connectd_counter,
 							 error)));
 	subd_send_msg(ld->connectd,
-		      take(towire_connectd_discard_peer(NULL,
+		      take(towire_connectd_disconnect_peer(NULL,
 							&channel->peer->id,
 							channel->peer->connectd_counter)));
 }
@@ -1408,7 +1408,7 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 			/* cppcheck-suppress uninitvar - false positive on c */
 									 c->error)));
 			subd_send_msg(ld->connectd,
-				      take(towire_connectd_discard_peer(NULL,
+				      take(towire_connectd_disconnect_peer(NULL,
 									&peer->id,
 									peer->connectd_counter)));
 			channel_fail_permanent(c, REASON_LOCAL,
@@ -1439,7 +1439,7 @@ send_error:
 							 peer->connectd_counter,
 							 error)));
 	subd_send_msg(ld->connectd,
-		      take(towire_connectd_discard_peer(NULL,
+		      take(towire_connectd_disconnect_peer(NULL,
 							&peer->id,
 							peer->connectd_counter)));
 }
@@ -1959,7 +1959,7 @@ send_error:
 							 peer->connectd_counter,
 							 error)));
 	subd_send_msg(ld->connectd,
-		      take(towire_connectd_discard_peer(NULL,
+		      take(towire_connectd_disconnect_peer(NULL,
 							&peer->id,
 							peer->connectd_counter)));
 	return;
@@ -2493,12 +2493,12 @@ command_find_channel(struct command *cmd,
 	}
 }
 
-static void setup_peer(struct peer *peer, u32 delay)
+static void setup_peer(struct peer *peer)
 {
 	struct channel *channel;
 	struct channel_inflight *inflight;
 	struct lightningd *ld = peer->ld;
-	bool connect = false;
+	bool connect = false, important = false;
 
 	list_for_each(&peer->channels, channel, list) {
 		switch (channel->state) {
@@ -2537,38 +2537,28 @@ static void setup_peer(struct peer *peer, u32 delay)
 
 		if (channel_state_wants_peercomms(channel->state))
 			connect = true;
+		if (channel_important_filter(channel, NULL))
+			important = true;
 	}
 
-	/* Make sure connectd knows to try reconnecting. */
-	if (connect) {
-		ld->num_startup_connects++;
-
-		/* To delay, make it seem like we just connected. */
-		if (delay > 0) {
-			peer->reconnect_delay = delay;
-			peer->last_connect_attempt = time_now();
-		}
-		try_reconnect(peer, peer, &peer->addr);
-	}
+	/* Make sure connectd knows to try reconnecting (unless
+	 * --dev-no-reconnect). */
+	if (connect && ld->reconnect)
+		connectd_connect_to_peer(ld, peer, important);
 }
 
 void setup_peers(struct lightningd *ld)
 {
 	struct peer *p;
-	/* Avoid thundering herd: after first five, delay by 1 second. */
-	int delay = -5;
 	struct peer_node_id_map_iter it;
 
 	for (p = peer_node_id_map_first(ld->peers, &it);
 	     p;
 	     p = peer_node_id_map_next(ld->peers, &it)) {
-		setup_peer(p, delay > 0 ? delay : 0);
-		delay++;
+		setup_peer(p);
 	}
 
-	/* In case there are no peers at all to connect to */
-	if (ld->num_startup_connects == 0)
-		channel_gossip_startup_done(ld);
+	channel_gossip_startup_done(ld);
 }
 
 /* Pull peers, channels and HTLCs from db, and wire them up. */

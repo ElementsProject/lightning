@@ -1387,7 +1387,6 @@ wallet_commit_channel(struct lightningd *ld,
 	bool anysegwit = !chainparams->is_elements && feature_negotiated(channel->peer->ld->our_features,
                         channel->peer->their_features,
                         OPT_SHUTDOWN_ANYSEGWIT);
-	bool any_active = peer_any_channel_bystate(channel->peer, channel_state_wants_peercomms, NULL);
 
 	if (!amount_sat_to_msat(&our_msat, our_funding)) {
 		log_broken(channel->log, "Unable to convert funds");
@@ -1520,15 +1519,6 @@ wallet_commit_channel(struct lightningd *ld,
 				false,
 				false);
 	wallet_inflight_add(ld->wallet, inflight);
-
-	/* We might have disconnected and decided we didn't need to
-	 * reconnect because no channels are active.  But the subd
-	 * just made it active! */
-	if (!any_active && channel->peer->connected == PEER_DISCONNECTED) {
-		try_reconnect(channel->peer, channel->peer,
-			      &channel->peer->addr);
-	}
-
 	return inflight;
 }
 
@@ -1592,7 +1582,7 @@ static void handle_peer_wants_to_close(struct subd *dualopend,
 								 channel->peer->connectd_counter,
 								 warning)));
 		subd_send_msg(ld->connectd,
-			      take(towire_connectd_discard_peer(NULL,
+			      take(towire_connectd_disconnect_peer(NULL,
 								&channel->peer->id,
 								channel->peer->connectd_counter)));
 		channel_fail_transient(channel, true, "Bad shutdown scriptpubkey %s",

@@ -363,7 +363,7 @@ static void handle_splice_abort(struct lightningd *ld,
 								 peer->connectd_counter,
 								 error)));
 		subd_send_msg(ld->connectd,
-			      take(towire_connectd_discard_peer(NULL,
+			      take(towire_connectd_disconnect_peer(NULL,
 								&peer->id,
 								peer->connectd_counter)));
 		return;
@@ -1251,7 +1251,7 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 								 channel->peer->connectd_counter,
 								 warning)));
 		subd_send_msg(ld->connectd,
-			      take(towire_connectd_discard_peer(NULL,
+			      take(towire_connectd_disconnect_peer(NULL,
 								&channel->peer->id,
 								channel->peer->connectd_counter)));
 		channel_fail_transient(channel, true, "Bad shutdown scriptpubkey %s",
