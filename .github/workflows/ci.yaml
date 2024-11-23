@@ -336,7 +336,7 @@ jobs:
         run: |
           env
           cat config.vars
-          (sleep 3600; top -b -n 1; PID=`top -b -n 1 | head -n 8 | tail -n 1 | awk '{print $1}'`; gdb --batch -ex "attach $PID" -ex "bt") &
+          (sleep 3600; top -b -n 1; ps auxwww) &
           VALGRIND=0 poetry run pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
 
   integration-sanitizers:
@@ -403,7 +403,7 @@ jobs:
 
       - name: Test
         run: |
-          (sleep 3600; top -b -n 1; PID=`top -b -n 1 | head -n 8 | tail -n 1 | awk '{print $1}'`; gdb --batch -ex "attach $PID" -ex "bt") &
+          (sleep 3600; top -b -n 1; ps auxwww) &
           poetry run pytest tests/ -vvv -n 2 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
 
   min-btc-support:
@@ -476,7 +476,7 @@ jobs:
         run: |
           env
           cat config.vars
-          (sleep 3600; top -b -n 1; PID=`top -b -n 1 | head -n 8 | tail -n 1 | awk '{print $1}'`; gdb --batch -ex "attach $PID" -ex "bt") &
+          (sleep 3600; top -b -n 1; ps auxwww) &
           VALGRIND=0 poetry run pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
 
   check-flake:
