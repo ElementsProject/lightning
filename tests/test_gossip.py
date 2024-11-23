@@ -30,7 +30,8 @@ def test_gossip_pruning(node_factory, bitcoind):
     """ Create channel and see it being updated in time before pruning
     """
     l1, l2, l3 = node_factory.get_nodes(3, opts={'dev-fast-gossip-prune': None,
-                                                 'allow_bad_gossip': True})
+                                                 'allow_bad_gossip': True,
+                                                 'autoconnect-seeker-peers': 0})
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
@@ -2336,13 +2337,14 @@ def test_gossip_seeker_autoconnect(node_factory):
     necessary."""
 
     port = node_factory.get_unused_port()
-    opts = [{'autoconnect-seeker-peers': 0, 'may_reconnect': True},
+    opts = [{'may_reconnect': True,
+             'autoconnect-seeker-peers': 0},
             {'may_reconnect': True},
             {'bind-addr': f'127.0.0.1:{port}',
              'announce-addr': f'127.0.0.1:{port}'}]
     l1, l2, l3 = node_factory.line_graph(3, opts=opts, wait_for_announce=True)
-    l2.daemon.wait_for_log('gossipd: seeker: need more peers for gossip')
-    time.sleep(1)
+    l1.daemon.wait_for_log('seeker: chosen for periodic full sync')
+    time.sleep(10)
     # The seeker wants more peers, but l1 should not autoconnect due to option.
     assert not l1.daemon.is_in_log(r'lightningd: attempting connection to ')
 
@@ -2350,7 +2352,6 @@ def test_gossip_seeker_autoconnect(node_factory):
     del l1.daemon.opts['autoconnect-seeker-peers']
     l1.restart()
     # L1 and L3 should autoconnect with valid node announcement connection addresses.
-    l1.daemon.wait_for_log('gossipd: seeker: need more peers for gossip')
     l1.daemon.wait_for_log(r'lightningd: attempting connection to '
                            rf'{l3.info["id"]} for additional gossip')
     l1.daemon.wait_for_log('gossipd: seeker: starting gossip')
