@@ -4182,13 +4182,16 @@ def test_ping_timeout(node_factory):
     # Disconnects after this, but doesn't know it.
     l1_disconnects = ['xWIRE_PING']
 
+    # We remove the gossip_queries feature: otherwise the peer can try to do
+    # a gossip sync, and so we never get the period of no-traffic required to
+    # trigger a ping!
     l1, l2 = node_factory.get_nodes(2, opts=[{'dev-no-reconnect': None,
+                                              'dev-force-features': -7,
                                               'disconnect': l1_disconnects},
-                                             {'dev-no-ping-timer': None}])
+                                             {'dev-no-ping-timer': None,
+                                              'dev-force-features': -7}])
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    # This can take 10 seconds (dev-fast-gossip means timer fires every 5 seconds)
-    l1.daemon.wait_for_log('seeker: startup peer finished', timeout=15)
     # Ping timers runs at 15-45 seconds, *but* only fires if also 60 seconds
     # after previous traffic.
     l1.daemon.wait_for_log('dev_disconnect: xWIRE_PING', timeout=60 + 45 + 5)
