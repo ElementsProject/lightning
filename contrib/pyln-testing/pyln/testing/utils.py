@@ -816,6 +816,8 @@ class LightningNode(object):
             self.daemon.opts["experimental-dual-fund"] = None
         if EXPERIMENTAL_SPLICING:
             self.daemon.opts["experimental-splicing"] = None
+        # Avoid test flakes cause by this option unless explicitly set.
+        self.daemon.opts.update({"autoconnect-seeker-peers": 0})
 
         if options is not None:
             self.daemon.opts.update(options)
