@@ -4705,10 +4705,13 @@ def test_fetchinvoice_autoconnect(node_factory, bitcoind):
 
 def test_fetchinvoice_disconnected_reply(node_factory, bitcoind):
     """We ask for invoice, but reply path doesn't lead directly from recipient"""
+
+    # We disable the seeker autoconnecting!
     l1, l2, l3 = node_factory.get_nodes(3,
                                         opts={'may_reconnect': True,
                                               'dev-no-reconnect': None,
-                                              'dev-allow-localhost': None})
+                                              'dev-allow-localhost': None,
+                                              'autoconnect-seeker-peers': 0})
     l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # Make l1, l2 public (so l3 can auto connect).
