@@ -7,6 +7,9 @@ LIGHTNINGD_TEST_PROGRAMS := $(LIGHTNINGD_TEST_OBJS:.o=)
 ALL_C_SOURCES += $(LIGHTNINGD_TEST_SRC)
 ALL_TEST_PROGRAMS += $(LIGHTNINGD_TEST_PROGRAMS)
 
+# run-find_my_abspath.c includes lightningd.c, which includes header_versions_gen.h
+lightningd/test/run-find_my_abspath.o: header_versions_gen.h
+
 LIGHTNINGD_TEST_COMMON_OBJS :=			\
 	common/amount.o				\
 	common/autodata.o			\
