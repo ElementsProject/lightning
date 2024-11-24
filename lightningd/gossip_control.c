@@ -175,18 +175,18 @@ static void handle_peer_update_data(struct lightningd *ld, const u8 *msg)
 /* gossipd would like a connection to this peer for more gossiping. */
 static void handle_connect_to_peer(struct subd *gossip, const u8 *msg)
 {
-	struct node_id *id = tal(tmpctx, struct node_id);
-	struct wireaddr *addrs;
-	if (!fromwire_gossipd_connect_to_peer(tmpctx, msg, id, &addrs)) {
+	struct node_id id;
+
+	if (!fromwire_gossipd_connect_to_peer(msg, &id)) {
 		log_broken(gossip->ld->log, "malformed peer connect request"
 			   " from gossipd %s", tal_hex(msg, msg));
 		return;
 	}
 	log_debug(gossip->ld->log, "attempting connection to %s "
-		  "for additional gossip", fmt_node_id(tmpctx, id));
+		  "for additional gossip", fmt_node_id(tmpctx, &id));
 	u8 *connectmsg;
 	connectmsg = towire_connectd_connect_to_peer(NULL,
-						     id,
+						     &id,
 						     NULL,	//addrhint,
 						     false,	//dns_fallback
 						     true);	//transient
