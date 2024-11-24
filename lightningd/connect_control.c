@@ -282,19 +282,12 @@ HTABLE_DEFINE_TYPE(struct delayed_reconnect,
 		   node_id_hash, node_id_delayed_reconnect_eq,
 		   delayed_reconnect_map);
 
-static void gossipd_got_addrs(struct subd *subd,
-			      const u8 *msg,
-			      const int *fds,
-			      struct delayed_reconnect *d)
+/* We might be off a delay timer. */
+static void do_connect(struct delayed_reconnect *d)
 {
-	struct wireaddr *addrs;
-	u8 *connectmsg;
-	struct peer *peer;
 	bool transient;
-
-	if (!fromwire_gossipd_get_addrs_reply(tmpctx, msg, &addrs))
-		fatal("Gossipd gave bad GOSSIPD_GET_ADDRS_REPLY %s",
-		      tal_hex(msg, msg));
+	struct peer *peer;
+	u8 *connectmsg;
 
 	/* We consider this transient unless we have a channel */
 	peer = peer_by_id(d->ld, &d->id);
@@ -302,20 +295,11 @@ static void gossipd_got_addrs(struct subd *subd,
 
 	connectmsg = towire_connectd_connect_to_peer(NULL,
 						     &d->id,
-						     addrs,
 						     d->addrhint,
 						     d->dns_fallback,
 						     transient);
 	subd_send_msg(d->ld->connectd, take(connectmsg));
 	tal_free(d);
-}
-
-/* We might be off a delay timer.  Now ask gossipd about public addresses. */
-static void do_connect(struct delayed_reconnect *d)
-{
-	u8 *msg = towire_gossipd_get_addrs(NULL, &d->id);
-
-	subd_req(d, d->ld->gossip, take(msg), -1, 0, gossipd_got_addrs, d);
 }
 
 static void destroy_delayed_reconnect(struct delayed_reconnect *d)
@@ -428,9 +412,9 @@ void try_reconnect(const tal_t *ctx,
 /* We were trying to connect, but they disconnected. */
 static void connect_failed(struct lightningd *ld,
 			   const struct node_id *id,
+			   const struct wireaddr_internal *addrhint,
 			   enum jsonrpc_errcode errcode,
-			   const char *errmsg,
-			   const struct wireaddr_internal *addrhint)
+			   const char *errmsg)
 {
 	struct peer *peer;
 	struct connect *c;
@@ -454,8 +438,8 @@ void connect_failed_disconnect(struct lightningd *ld,
 			       const struct node_id *id,
 			       const struct wireaddr_internal *addrhint)
 {
-	connect_failed(ld, id, CONNECT_DISCONNECTED_DURING,
-		       "disconnected during connection", addrhint);
+	connect_failed(ld, id, addrhint, CONNECT_DISCONNECTED_DURING,
+		       "disconnected during connection");
 }
 
 static void handle_connect_failed(struct lightningd *ld, const u8 *msg)
@@ -463,14 +447,12 @@ static void handle_connect_failed(struct lightningd *ld, const u8 *msg)
 	struct node_id id;
 	enum jsonrpc_errcode errcode;
 	char *errmsg;
-	struct wireaddr_internal *addrhint;
 
-	if (!fromwire_connectd_connect_failed(tmpctx, msg, &id, &errcode, &errmsg,
-					      &addrhint))
+	if (!fromwire_connectd_connect_failed(tmpctx, msg, &id, &errcode, &errmsg))
 		fatal("Connect gave bad CONNECTD_CONNECT_FAILED message %s",
 		      tal_hex(msg, msg));
 
-	connect_failed(ld, &id, errcode, errmsg, addrhint);
+	connect_failed(ld, &id, NULL, errcode, errmsg);
 }
 
 const char *connect_any_cmd_id(const tal_t *ctx,

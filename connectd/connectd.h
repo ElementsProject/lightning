@@ -170,9 +170,6 @@ struct connecting {
 	size_t addrnum;
 	struct wireaddr_internal *addrs;
 
-	/* NULL if there wasn't a hint. */
-	struct wireaddr_internal *addrhint;
-
 	/* How far did we get? */
 	const char *connstate;
 

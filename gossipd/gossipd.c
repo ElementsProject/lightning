@@ -176,27 +176,6 @@ static void connectd_peer_gone(struct daemon *daemon, const u8 *msg)
 	tal_free(peer);
 }
 
-/*~ lightningd asks us if we know any addresses for a given id. */
-static struct io_plan *handle_get_address(struct io_conn *conn,
-					  struct daemon *daemon,
-					  const u8 *msg)
-{
-	struct node_id id;
-	struct wireaddr *addrs;
-	struct gossmap *gossmap = gossmap_manage_get_gossmap(daemon->gm);
-
-	if (!fromwire_gossipd_get_addrs(msg, &id))
-		master_badmsg(WIRE_GOSSIPD_GET_ADDRS, msg);
-
-	addrs = gossmap_manage_get_node_addresses(tmpctx,
-						  gossmap,
-						  &id);
-
-	daemon_conn_send(daemon->master,
-			 take(towire_gossipd_get_addrs_reply(NULL, addrs)));
-	return daemon_conn_read_next(conn, daemon->master);
-}
-
 static void handle_recv_gossip(struct daemon *daemon, const u8 *outermsg)
 {
 	struct node_id source;
@@ -609,9 +588,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		inject_gossip(daemon, msg);
 		goto done;
 
-	case WIRE_GOSSIPD_GET_ADDRS:
-		return handle_get_address(conn, daemon, msg);
-
 	case WIRE_GOSSIPD_DEV_MEMLEAK:
 		if (daemon->developer) {
 			dev_gossip_memleak(daemon, msg);
@@ -633,7 +609,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT_REPLY:
-	case WIRE_GOSSIPD_GET_ADDRS_REPLY:
 	case WIRE_GOSSIPD_REMOTE_CHANNEL_UPDATE:
 	case WIRE_GOSSIPD_CONNECT_TO_PEER:
 		break;
