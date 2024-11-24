@@ -1488,9 +1488,7 @@ static struct channel *stub_chan(struct command *cmd,
 	if (!peer) {
 		struct wireaddr_internal wint;
 
-		wint.itype = ADDR_INTERNAL_WIREADDR;
-		wint.u.wireaddr.is_websocket = false;
-		wint.u.wireaddr.wireaddr = addr;
+		wireaddr_internal_from_wireaddr(&wint, &addr);
 		peer = new_peer(cmd->ld,
 				0,
 				&nodeid,
