@@ -154,9 +154,6 @@ static void connectd_new_peer(struct daemon *daemon, const u8 *msg)
 	peer_node_id_map_add(daemon->peers, peer);
 	tal_add_destructor(peer, destroy_peer);
 
-	/* Send everything we know about our own channels */
-	gossmap_manage_new_peer(daemon->gm, &peer->id);
-
 	/* This sends the initial timestamp filter. */
 	seeker_setup_peer_gossip(daemon->seeker, peer);
 }
