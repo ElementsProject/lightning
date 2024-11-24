@@ -1441,7 +1441,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 
 	/* Add another utxo that's CSV-locked for 5 blocks */
 	assert(parse_wireaddr_internal(tmpctx, "localhost:1234", 0, false, &addr) == NULL);
-	channel.peer = new_peer(ld, 0, &id, &addr, NULL, false);
+	channel.peer = new_peer(ld, 0, &id, &addr, NULL, NULL, false);
 	channel.dbid = 1;
 	channel.type = channel_type_anchors_zero_fee_htlc(tmpctx);
 	memset(&u.outpoint, 3, sizeof(u.outpoint));
@@ -1767,7 +1767,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	c1.first_blocknum = 1;
 	assert(parse_wireaddr_internal(tmpctx, "localhost:1234", 0, false, &addr) == NULL);
 	c1.final_key_idx = 1337;
-	p = new_peer(ld, 0, &id, &addr, NULL, false);
+	p = new_peer(ld, 0, &id, &addr, NULL, NULL, false);
 	c1.peer = p;
 	c1.dbid = wallet_get_channel_dbid(w);
 	c1.state = CHANNELD_NORMAL;
@@ -1935,7 +1935,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 	assert(parse_wireaddr_internal(tmpctx, "localhost:1234", 0, false, &addr) == NULL);
 
 	/* new channel! */
-	p = new_peer(ld, 0, &id, &addr, NULL, false);
+	p = new_peer(ld, 0, &id, &addr, NULL, NULL, false);
 
 	funding_sats = AMOUNT_SAT(4444444);
 	our_sats = AMOUNT_SAT(3333333);
