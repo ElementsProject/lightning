@@ -287,6 +287,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
