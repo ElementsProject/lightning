@@ -1546,9 +1546,9 @@ static const struct wireaddr *best_remote_addr(const tal_t *ctx,
 			continue;
 		if (peer->remote_addr->type != atype)
 			continue;
-		daddr.preferred = peer_any_channel(peer,
-						   channel_state_relationship,
-						   NULL);
+		daddr.preferred = peer_any_channel_bystate(peer,
+							   channel_state_relationship,
+							   NULL);
 		daddr.addr = *peer->remote_addr;
 		daddr.addr.port = ld->config.ip_discovery_port;
 		log_debug(ld->log, "best_remote_addr: peer %s gave addr %s (%s)",
@@ -2647,7 +2647,8 @@ static struct command_result *json_disconnect(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
 	}
 
-	channel = peer_any_channel(peer, channel_state_wants_peercomms, NULL);
+	channel = peer_any_channel_bystate(peer, channel_state_wants_peercomms,
+					   NULL);
 	if (channel && !*force) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Peer has (at least one) channel in state %s",
@@ -3195,7 +3196,8 @@ static struct command_result *param_dev_channel(struct command *cmd,
 	if (res)
 		return res;
 
-	*channel = peer_any_channel(peer, channel_state_wants_peercomms, &more_than_one);
+	*channel = peer_any_channel_bystate(peer, channel_state_wants_peercomms,
+					    &more_than_one);
 	if (!*channel)
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "No channel with that peer");

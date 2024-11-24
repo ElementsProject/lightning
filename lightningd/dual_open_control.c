@@ -1387,7 +1387,7 @@ wallet_commit_channel(struct lightningd *ld,
 	bool anysegwit = !chainparams->is_elements && feature_negotiated(channel->peer->ld->our_features,
                         channel->peer->their_features,
                         OPT_SHUTDOWN_ANYSEGWIT);
-	bool any_active = peer_any_channel(channel->peer, channel_state_wants_peercomms, NULL);
+	bool any_active = peer_any_channel_bystate(channel->peer, channel_state_wants_peercomms, NULL);
 
 	if (!amount_sat_to_msat(&our_msat, our_funding)) {
 		log_broken(channel->log, "Unable to convert funds");
