@@ -28,6 +28,8 @@ msgdata,connectd_init,dev_no_ping_timer,bool,
 # Allow incoming connections, but don't talk.
 msgdata,connectd_init,dev_noreply,bool,
 msgdata,connectd_init,dev_throttle_gossip,bool,
+msgdata,connectd_init,dev_no_reconnect,bool,
+msgdata,connectd_init,dev_fast_reconnect,bool,
 
 # Connectd->master, here are the addresses I bound, can announce.
 msgtype,connectd_init_reply,2100
