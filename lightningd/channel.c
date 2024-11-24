@@ -487,6 +487,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 		channel->scb = tal(channel, struct scb_chan);
 		channel->scb->id = dbid;
 		channel->scb->unused = 0;
+		/* More useful to have last_known_addr, if avail */
+		if (peer->last_known_addr)
+			channel->scb->addr = *peer->last_known_addr;
 		channel->scb->addr = peer->addr.u.wireaddr.wireaddr;
 		channel->scb->node_id = peer->id;
 		channel->scb->funding = *funding;
