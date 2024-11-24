@@ -53,6 +53,9 @@ struct peer {
 	struct wireaddr_internal addr;
 	bool connected_incoming;
 
+	/* If we ever successfully connected out to an address, this is non-NULL */
+	struct wireaddr *last_known_addr;
+
 	/* They send what they see as our address as remote_addr */
 	struct wireaddr *remote_addr;
 
@@ -71,6 +74,7 @@ struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid);
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		      const struct node_id *id,
 		      const struct wireaddr_internal *addr,
+		      const struct wireaddr *last_known_addr,
 		      const u8 *their_features TAKES,
 		      bool connected_incoming);
 

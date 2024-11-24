@@ -239,6 +239,7 @@ struct logger *new_logger(const tal_t *ctx UNNEEDED, struct log_book *record UNN
 struct peer *new_peer(struct lightningd *ld UNNEEDED, u64 dbid UNNEEDED,
 		      const struct node_id *id UNNEEDED,
 		      const struct wireaddr_internal *addr UNNEEDED,
+		      const struct wireaddr *last_known_addr UNNEEDED,
 		      const u8 *their_features TAKES UNNEEDED,
 		      bool connected_incoming UNNEEDED)
 { fprintf(stderr, "new_peer called!\n"); abort(); }

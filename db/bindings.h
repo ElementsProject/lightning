@@ -103,6 +103,9 @@ struct bitcoin_tx *db_col_psbt_to_tx(const tal_t *ctx, struct db_stmt *stmt, con
 
 struct onionreply *db_col_onionreply(const tal_t *ctx,
 					struct db_stmt *stmt, const char *colname);
+struct wireaddr *db_col_wireaddr(const tal_t *ctx,
+				 struct db_stmt *stmt,
+				 const char *colname);
 
 #define db_col_arr(ctx, stmt, colname, type)			\
 	((type *)db_col_arr_((ctx), (stmt), (colname),		\
