@@ -750,7 +750,9 @@ int connectd_init(struct lightningd *ld)
 				   ld->dev_disconnect_fd >= 0,
 				   ld->dev_no_ping_timer,
 				   ld->dev_handshake_no_reply,
-				   ld->dev_throttle_gossip);
+				   ld->dev_throttle_gossip,
+				   !ld->reconnect,
+				   ld->dev_fast_reconnect);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);
