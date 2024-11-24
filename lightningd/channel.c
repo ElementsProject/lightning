@@ -653,26 +653,54 @@ const char *channel_state_str(enum channel_state state)
 	return "unknown";
 }
 
-struct channel *peer_any_channel(struct peer *peer,
-				 bool (*channel_state_filter)(enum channel_state),
-				 bool *others)
+#define peer_any_channel(peer, filter, arg, others)		\
+	peer_any_channel_((peer),				\
+			  typesafe_cb_preargs(bool, void *,		\
+					      (filter), (arg),		\
+					      const struct channel *),	\
+			  (arg),					\
+			  others)
+
+struct channel *peer_any_channel_(struct peer *peer,
+				  bool (*filter)(const struct channel *,
+						 void *arg),
+				  void *arg,
+				  bool *others)
 {
 	struct channel *channel, *ret = NULL;
 
 	list_for_each(&peer->channels, channel, list) {
-		if (channel_state_filter && !channel_state_filter(channel->state))
+		if (filter && !filter(channel, arg))
 			continue;
 		/* Already found one? */
 		if (ret) {
-			if (others)
-				*others = true;
+			*others = true;
 		} else {
 			if (others)
 				*others = false;
 			ret = channel;
 		}
+
+		/* Don't keep searching if others is NULL (they don't care). */
+		if (!others)
+			break;
 	}
 	return ret;
+}
+
+static bool filter_by_state(const struct channel *c,
+			    bool (*channel_state_filter)(enum channel_state))
+{
+	return channel_state_filter(c->state);
+}
+
+struct channel *peer_any_channel_bystate(struct peer *peer,
+					 bool (*channel_state_filter)(enum channel_state),
+					 bool *others)
+{
+	return peer_any_channel(peer,
+				filter_by_state, channel_state_filter,
+				others);
 }
 
 struct channel_inflight *channel_inflight_find(struct channel *channel,

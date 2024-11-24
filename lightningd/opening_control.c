@@ -108,7 +108,7 @@ wallet_commit_channel(struct lightningd *ld,
 	u64 static_remotekey_start;
 	u32 lease_start_blockheight = 0; /* No leases on v1 */
 	struct timeabs timestamp;
-	bool any_active = peer_any_channel(uc->peer, channel_state_wants_peercomms, NULL);
+	bool any_active = peer_any_channel_bystate(uc->peer, channel_state_wants_peercomms, NULL);
 	struct channel_stats zero_channel_stats;
 	enum addrtype addrtype;
 
