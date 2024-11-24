@@ -71,14 +71,6 @@ msgdata,gossipd_addgossip,known_channel,?amount_sat,
 msgtype,gossipd_addgossip_reply,3144
 msgdata,gossipd_addgossip_reply,err,wirestring,
 
-# Lightningd asks gossipd for any known addresses for that node.
-msgtype,gossipd_get_addrs,3050
-msgdata,gossipd_get_addrs,id,node_id,
-
-msgtype,gossipd_get_addrs_reply,3150
-msgdata,gossipd_get_addrs_reply,num,u16,
-msgdata,gossipd_get_addrs_reply,addrs,wireaddr,num
-
 subtype,peer_update
 subtypedata,peer_update,scid,short_channel_id,
 subtypedata,peer_update,fee_base,u32,

@@ -60,8 +60,7 @@ msgdata,connectd_scid_map,node_id,node_id,
 msgtype,connectd_connect_to_peer,2001
 msgdata,connectd_connect_to_peer,id,node_id,
 msgdata,connectd_connect_to_peer,len,u32,
-msgdata,connectd_connect_to_peer,addrs,wireaddr,len
-msgdata,connectd_connect_to_peer,addrhint,?wireaddr_internal,
+msgdata,connectd_connect_to_peer,addrs,wireaddr_internal,len
 msgdata,connectd_connect_to_peer,dns_fallback,bool,
 msgdata,connectd_connect_to_peer,transient,bool,
 
@@ -70,7 +69,6 @@ msgtype,connectd_connect_failed,2020
 msgdata,connectd_connect_failed,id,node_id,
 msgdata,connectd_connect_failed,failcode,enum jsonrpc_errcode,
 msgdata,connectd_connect_failed,failreason,wirestring,
-msgdata,connectd_connect_failed,addrhint,?wireaddr_internal,
 
 # Connectd -> master: we got a peer.
 msgtype,connectd_peer_connected,2002
