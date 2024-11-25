@@ -211,7 +211,7 @@ struct anchor_details *create_anchor_details(const tal_t *ctx,
 /* total_weight includes the commitment tx we're trying to push! */
 static struct wally_psbt *anchor_psbt(const tal_t *ctx,
 				      struct channel *channel,
-				      struct one_anchor *anch,
+				      const struct one_anchor *anch,
 				      struct utxo **utxos,
 				      u32 feerate_target,
 				      size_t total_weight)
@@ -255,16 +255,54 @@ static struct wally_psbt *anchor_psbt(const tal_t *ctx,
 	return psbt;
 }
 
+/* Get UTXOs, create a PSBT to spend this */
+static struct wally_psbt *try_anchor_psbt(const tal_t *ctx,
+					  struct channel *channel,
+					  const struct one_anchor *anch,
+					  u32 feerate_target,
+					  size_t base_weight,
+					  size_t *total_weight,
+					  struct amount_sat *fee_spent,
+					  u32 *feerate,
+					  struct utxo ***utxos)
+{
+	struct lightningd *ld = channel->peer->ld;
+	struct wally_psbt *psbt;
+	struct amount_sat fee;
+
+	/* Ask for some UTXOs which could meet this feerate */
+	*total_weight = base_weight;
+	*utxos = wallet_utxo_boost(ctx,
+				   ld->wallet,
+				   get_block_height(ld->topology),
+				   anch->info.commitment_fee,
+				   feerate_target,
+				   total_weight);
+
+	/* Create a new candidate PSBT */
+	psbt = anchor_psbt(ctx, channel, anch, *utxos, feerate_target,
+			   *total_weight);
+	*fee_spent = psbt_compute_fee(psbt);
+
+	/* Add in base commitment fee to calculate *overall* package feerate */
+	if (!amount_sat_add(&fee, *fee_spent, anch->info.commitment_fee))
+		abort();
+	if (!amount_feerate(feerate, fee, *total_weight))
+		abort();
+
+	return psbt;
+}
+
 /* If it's possible and worth it, return signed tx.  Otherwise NULL. */
 static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 				       struct channel *channel,
 				       struct one_anchor *anch)
 {
 	struct lightningd *ld = channel->peer->ld;
-	struct utxo **utxos COMPILER_WANTS_INIT("gcc -O3 CI");
-	size_t base_weight, weight;
-	struct amount_sat fee, diff;
+	size_t base_weight, psbt_weight;
+	struct amount_sat psbt_fee, diff;
 	struct bitcoin_tx *tx;
+	struct utxo **psbt_utxos;
 	struct wally_psbt *psbt, *signed_psbt;
 	struct amount_msat total_value;
 	const u8 *msg;
@@ -282,30 +320,23 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 	for (int i = tal_count(anch->adet->vals) - 1; i >= 0; --i) {
 		const struct deadline_value *val = &anch->adet->vals[i];
 		u32 feerate, feerate_target;
+		size_t weight;
+		struct amount_sat fee;
 		struct wally_psbt *candidate_psbt;
+		struct utxo **utxos;
 
-		/* Calculate the total value for the current deadline
-		 * and all the following */
+
 		if (!amount_msat_accumulate(&total_value, val->msat))
-			return NULL;
+			abort();
 
 		feerate_target = feerate_for_target(ld->topology, val->block);
-
-		/* Ask for some UTXOs which could meet this feerate */
-		weight = base_weight;
-		utxos = wallet_utxo_boost(tmpctx,
-					  ld->wallet,
-					  get_block_height(ld->topology),
-					  anch->info.commitment_fee,
-					  feerate_target,
-					  &weight);
-
-		/* Create a new candidate PSBT */
-		candidate_psbt = anchor_psbt(tmpctx, channel, anch, utxos, feerate_target, weight);
-		if (!candidate_psbt)
-			continue;
-
-		fee = psbt_compute_fee(candidate_psbt);
+		candidate_psbt = try_anchor_psbt(tmpctx, channel, anch,
+						 feerate_target,
+						 base_weight,
+						 &weight,
+						 &fee,
+						 &feerate,
+						 &utxos);
 
 		/* Is it even worth spending this fee to meet the deadline? */
 		if (!amount_msat_greater_sat(total_value, fee)) {
@@ -317,13 +348,6 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 				  val->block, feerate_target);
 			break;
 		}
-
-		/* Add in base commitment fee */
-		if (!amount_sat_add(&fee,
-				    fee, anch->info.commitment_fee))
-			abort();
-		if (!amount_feerate(&feerate, fee, weight))
-			abort();
 
 		if (feerate < feerate_target) {
 			/* We might have had lower feerates which worked: only complain if
@@ -339,6 +363,9 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 				    "We want to bump commit_tx to feerate %uperkw, but can only bump to %uperkw with %zu UTXOs!",
 				    feerate_target, feerate, tal_count(utxos));
 			psbt = candidate_psbt;
+			psbt_fee = fee;
+			psbt_weight = weight;
+			psbt_utxos = utxos;
 			/* We don't expect to do any better at higher feerates */
 			break;
 		}
@@ -349,6 +376,9 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 			  fmt_amount_msat(tmpctx, val->msat),
 			  val->block, feerate);
 		psbt = candidate_psbt;
+		psbt_fee = fee;
+		psbt_weight = weight;
+		psbt_utxos = utxos;
 	}
 
 	/* No psbt was worth it? */
@@ -357,27 +387,27 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 
 	/* Higher enough than previous to be valid RBF?
 	 * We assume 1 sat per vbyte as minrelayfee */
-	if (!amount_sat_sub(&diff, fee, anch->anchor_spend_fee)
-	    || amount_sat_less(diff, amount_sat(weight / 4)))
+	if (!amount_sat_sub(&diff, psbt_fee, anch->anchor_spend_fee)
+	    || amount_sat_less(diff, amount_sat(psbt_weight / 4)))
 		return NULL;
 
 	log_debug(channel->log,
 		  "Anchorspend for %s commit tx fee %s (w=%zu), commit_tx fee %s (w=%u):"
 		  " package feerate %"PRIu64" perkw",
 		  anch->commit_side == LOCAL ? "local" : "remote",
-		  fmt_amount_sat(tmpctx, fee),
-		  weight - anch->info.commitment_weight,
+		  fmt_amount_sat(tmpctx, psbt_fee),
+		  psbt_weight - anch->info.commitment_weight,
 		  fmt_amount_sat(tmpctx, anch->info.commitment_fee),
 		  anch->info.commitment_weight,
-		  (fee.satoshis + anch->info.commitment_fee.satoshis) /* Raw: debug log */
-		  * 1000 / weight);
+		  (psbt_fee.satoshis + anch->info.commitment_fee.satoshis) /* Raw: debug log */
+		  * 1000 / psbt_weight);
 
 	/* OK, HSM, sign it! */
 	msg = towire_hsmd_sign_anchorspend(NULL,
 					   &channel->peer->id,
 					   channel->dbid,
 					   cast_const2(const struct utxo **,
-						       utxos),
+						       psbt_utxos),
 					   psbt);
 	msg = hsm_sync_req(tmpctx, ld, take(msg));
 	if (!fromwire_hsmd_sign_anchorspend_reply(tmpctx, msg, &signed_psbt))
@@ -389,14 +419,14 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 			   fmt_wally_psbt(tmpctx, signed_psbt));
 		log_broken(channel->log, "Before signing PSBT was %s",
 			   fmt_wally_psbt(tmpctx, psbt));
-		for (size_t i = 0; i < tal_count(utxos); i++) {
-			const struct unilateral_close_info *ci = utxos[i]->close_info;
+		for (size_t i = 0; i < tal_count(psbt_utxos); i++) {
+			const struct unilateral_close_info *ci = psbt_utxos[i]->close_info;
 
 			log_broken(channel->log, "UTXO %zu: %s amt=%s keyidx=%u",
 				   i,
-				   fmt_bitcoin_outpoint(tmpctx, &utxos[i]->outpoint),
-				   fmt_amount_sat(tmpctx, utxos[i]->amount),
-				   utxos[i]->keyindex);
+				   fmt_bitcoin_outpoint(tmpctx, &psbt_utxos[i]->outpoint),
+				   fmt_amount_sat(tmpctx, psbt_utxos[i]->amount),
+				   psbt_utxos[i]->keyindex);
 			if (ci) {
 				log_broken(channel->log,
 					   "... close from channel %"PRIu64" peer %s (%s) commitment %s csv %u",
@@ -411,7 +441,7 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 	}
 
 	/* Update fee so we know for next time */
-	anch->anchor_spend_fee = fee;
+	anch->anchor_spend_fee = psbt_fee;
 
 	tx = tal(ctx, struct bitcoin_tx);
 	tx->chainparams = chainparams;
