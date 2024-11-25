@@ -4673,3 +4673,38 @@ def test_connect_transient_pending(node_factory, bitcoind, executor):
             fut1.result(TIMEOUT)
         else:
             fut2.result(TIMEOUT)
+
+
+def test_connect_ratelimit(node_factory, bitcoind):
+    """l1 has 5 peers, restarts, make sure we limit"""
+    nodes = node_factory.get_nodes(6,
+                                   opts=[{'dev-limit-connections-inflight': None, 'may_reconnect': True}] + [{'may_reconnect': True}] * 5)
+
+    l1 = nodes[0]
+    nodes = nodes[1:]
+
+    addr = l1.rpc.newaddr()['bech32']
+    for n in nodes:
+        bitcoind.rpc.sendtoaddress(addr, (FUNDAMOUNT + 1000000) / 10**8)
+    bitcoind.generate_block(1, wait_for_mempool=len(nodes))
+    sync_blockheight(bitcoind, [l1])
+
+    for n in nodes:
+        l1.rpc.connect(n.info['id'], 'localhost', n.port)
+        l1.rpc.fundchannel(n.info['id'], FUNDAMOUNT)
+
+    # Make sure all channels are established and announced.
+    bitcoind.generate_block(6, wait_for_mempool=len(nodes))
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == len(nodes) * 2)
+
+    assert not l1.daemon.is_in_log('Unblocking for')
+
+    l1.restart()
+
+    # The first will be ok, but others should block and be unblocked.
+    l1.daemon.wait_for_logs((['Unblocking for ']
+                             + ['Too many connections, waiting'])
+                            * (len(nodes) - 1))
+
+    # And now they're all connected
+    wait_for(lambda: [p['connected'] for p in l1.rpc.listpeers()['peers']] == [True] * len(nodes))

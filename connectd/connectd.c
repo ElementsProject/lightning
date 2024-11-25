@@ -1607,7 +1607,7 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	enum addr_listen_announce *proposed_listen_announce;
 	struct wireaddr *announceable;
 	char *tor_password;
-	bool dev_disconnect, dev_throttle_gossip;
+	bool dev_disconnect, dev_throttle_gossip, dev_limit_connections_inflight;
 	char *errstr;
 
 	/* Fields which require allocation are allocated off daemon */
@@ -1631,7 +1631,8 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 				    &daemon->dev_handshake_no_reply,
 				    &dev_throttle_gossip,
 				    &daemon->dev_no_reconnect,
-				    &daemon->dev_fast_reconnect)) {
+				    &daemon->dev_fast_reconnect,
+				    &dev_limit_connections_inflight)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTD_INIT, msg);
@@ -1701,6 +1702,9 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	/* 500 bytes per second, not 1M per second */
 	if (dev_throttle_gossip)
 		daemon->gossip_stream_limit = 500;
+
+	if (dev_limit_connections_inflight)
+		daemon->max_connect_in_flight = 1;
 
 	/* Does nothing (no peers yet!) but arms timer */
 	release_one_connection_from_timer(daemon);
@@ -1912,7 +1916,8 @@ static void try_connect_peer(struct daemon *daemon,
 
 	/* We wait for another to be destroyed if too many are in
 	 * progress (useful for startup of large nodes) */
-	connect->waiting = (connecting_htable_count(daemon->connecting) > 10);
+	connect->waiting = (connecting_htable_count(daemon->connecting)
+			    > daemon->max_connect_in_flight);
 	if (connect->waiting)
 		status_peer_debug(id, "Too many connections, waiting...");
 	else
@@ -2516,6 +2521,7 @@ int main(int argc, char *argv[])
 	timers_init(&daemon->timers, time_mono());
 	daemon->gossmap_raw = NULL;
 	daemon->shutting_down = false;
+	daemon->max_connect_in_flight = 10;
 	daemon->dev_suppress_gossip = false;
 	daemon->custom_msgs = NULL;
 	daemon->dev_exhausted_fds = false;
