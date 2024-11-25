@@ -77,7 +77,7 @@ static bool find_anchor_output(struct channel *channel,
 	return false;
 }
 
-static bool merge_deadlines(struct channel *channel, struct anchor_details *adet)
+static void merge_deadlines(struct channel *channel, struct anchor_details *adet)
 {
 	size_t dst;
 
@@ -97,11 +97,9 @@ static bool merge_deadlines(struct channel *channel, struct anchor_details *adet
 				   "Cannot add deadlines %s + %s!",
 				   fmt_amount_msat(tmpctx, adet->vals[dst].msat),
 				   fmt_amount_msat(tmpctx, adet->vals[i].msat));
-			return false;
 		}
 	}
 	tal_resize(&adet->vals, dst+1);
-	return true;
 }
 
 static void add_one_anchor(struct anchor_details *adet,
@@ -157,6 +155,9 @@ struct anchor_details *create_anchor_details(const tal_t *ctx,
 		add_one_anchor(adet, &local_anchor, LOCAL);
 	}
 
+	log_debug(channel->log, "We have %zu anchor points to use",
+		  tal_count(adet->anchors));
+
 	/* This happens in several cases:
 	 * 1. Mutual close tx.
 	 * 2. There's no to-us output and no HTLCs */
@@ -177,6 +178,9 @@ struct anchor_details *create_anchor_details(const tal_t *ctx,
 		if (hin->key.channel != channel)
 			continue;
 
+		if (!hin->preimage)
+			continue;
+
 		v.msat = hin->msat;
 		v.block = hin->cltv_expiry;
 		tal_arr_expand(&adet->vals, v);
@@ -185,8 +189,6 @@ struct anchor_details *create_anchor_details(const tal_t *ctx,
 	for (hout = htlc_out_map_first(ld->htlcs_out, &outi);
 	     hout;
 	     hout = htlc_out_map_next(ld->htlcs_out, &outi)) {
-		if (hout->key.channel != channel)
-			continue;
 		struct deadline_value v;
 
 		if (hout->key.channel != channel)
@@ -201,11 +203,8 @@ struct anchor_details *create_anchor_details(const tal_t *ctx,
 	if (tal_count(adet->vals) == 0)
 		return tal_free(adet);
 
-	if (!merge_deadlines(channel, adet))
-		return tal_free(adet);
+	merge_deadlines(channel, adet);
 
-	log_debug(channel->log, "We have %zu anchor points to use",
-		  tal_count(adet->anchors));
 	return adet;
 }
 
