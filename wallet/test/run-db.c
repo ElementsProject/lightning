@@ -178,6 +178,7 @@ struct channel *new_channel(struct peer *peer UNNEEDED, u64 dbid UNNEEDED,
 			    u64 remote_static_remotekey_start UNNEEDED,
 			    const struct channel_type *type STEALS UNNEEDED,
 			    enum side closer UNNEEDED,
+			    u32 close_attempt_height UNNEEDED,
 			    enum state_change reason UNNEEDED,
 			    /* NULL or stolen */
 			    const struct bitcoin_outpoint *shutdown_wrong_funding STEALS UNNEEDED,

@@ -295,6 +295,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->old_feerate_timeout.ts.tv_nsec = 0;
 	/* closer not yet known */
 	channel->closer = NUM_SIDES;
+	channel->close_attempt_height = 0;
 	channel->close_blockheight = NULL;
 	/* In case someone looks at channels before open negotiation,
 	 * initialize this with default */
@@ -437,6 +438,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u64 remote_static_remotekey_start,
 			    const struct channel_type *type STEALS,
 			    enum side closer,
+			    u32 close_attempt_height,
 			    enum state_change reason,
 			    /* NULL or stolen */
 			    const struct bitcoin_outpoint *shutdown_wrong_funding,
@@ -607,6 +609,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	list_head_init(&channel->inflights);
 
 	channel->closer = closer;
+	channel->close_attempt_height = close_attempt_height;
 	channel->close_blockheight = NULL;
 	channel->state_change_cause = reason;
 	channel->ignore_fee_limits = ignore_fee_limits;

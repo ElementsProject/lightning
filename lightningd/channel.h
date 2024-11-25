@@ -305,6 +305,9 @@ struct channel {
 	/* the one that initiated a bilateral close, NUM_SIDES if unknown. */
 	enum side closer;
 
+	/* Block height we tried to close at (0 = not tried) */
+	u32 close_attempt_height;
+
 	/* Block height we saw closing tx at */
 	u32 *close_blockheight;
 
@@ -413,6 +416,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u64 remote_static_remotekey_start,
 			    const struct channel_type *type STEALS,
 			    enum side closer,
+			    u32 close_attempt_height,
 			    enum state_change reason,
 			    /* NULL or stolen */
 			    const struct bitcoin_outpoint *shutdown_wrong_funding STEALS,

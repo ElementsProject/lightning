@@ -1999,7 +1999,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 			   &pk, NULL,
 			   1000, 100,
 			   NULL, 0, 0, channel_type_static_remotekey(NULL),
-			   LOCAL, REASON_UNKNOWN,
+			   LOCAL, 0, REASON_UNKNOWN,
 			   NULL,
 			   new_height_states(w, LOCAL,
 					     &lease_blockheight_start),
