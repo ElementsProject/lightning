@@ -79,8 +79,7 @@ static void try_connect_one_addr(struct connecting *connect);
 static void try_connect_peer(struct daemon *daemon,
 			     const struct node_id *id,
 			     struct wireaddr_internal *addrs TAKES,
-			     bool dns_fallback,
-			     bool transient);
+			     bool dns_fallback);
 
 /* We track peers which are important, and try to reconnect (with backoff) */
 static void schedule_reconnect_if_important(struct daemon *daemon,
@@ -175,7 +174,6 @@ static struct peer *new_peer(struct daemon *daemon,
 			     const u8 *their_features,
 			     enum is_websocket is_websocket,
 			     struct io_conn *conn STEALS,
-			     enum connection_prio prio,
 			     int *fd_for_subd)
 {
 	struct peer *peer = tal(daemon, struct peer);
@@ -192,7 +190,6 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->peer_outq = msg_queue_new(peer, false);
 	peer->last_recv_time = time_now();
 	peer->is_websocket = is_websocket;
-	peer->prio = prio;
 	peer->dev_writes_enabled = NULL;
 	peer->dev_read_enabled = true;
 	peer->scid_queries = NULL;
@@ -338,7 +335,6 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	int subd_fd;
 	bool option_gossip_queries;
 	struct connecting *connect;
-	enum connection_prio prio;
 
 	/* We remove any previous connection immediately, on the assumption it's dead */
 	peer = peer_htable_get(daemon->peers, id);
@@ -393,22 +389,15 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	}
 
 	if (connect) {
-		if (connect->transient)
-			prio = PRIO_TRANSIENT;
-		else
-			prio = PRIO_DELIBERATE;
-
 		/*~ Now we've connected, disable the callback which would
 		 * cause us to to try the next address on failure. */
 		io_set_finish(connect->conn, NULL, NULL);
 		tal_free(connect);
-	} else {
-		prio = PRIO_UNSOLICITED;
 	}
 
 	/* This contains the per-peer state info; gossipd fills in pps->gs */
 	peer = new_peer(daemon, id, cs, their_features, is_websocket, conn,
-			prio, &subd_fd);
+			&subd_fd);
 	/* Only takes over conn if it succeeds. */
 	if (!peer)
 		return io_close(conn);
@@ -541,24 +530,17 @@ static struct io_plan *conn_in(struct io_conn *conn,
 }
 
 /* How much is peer worth (when considering disconnect)? */
-static size_t peer_score(enum connection_prio prio,
+static size_t peer_score(struct daemon *daemon,
+			 const struct node_id *id,
 			 struct subd **subds)
 {
-#define PEER_SCORE_MAX 3
-
-	switch (prio) {
-	case PRIO_DELIBERATE:
-		/* We definitely want this one */
-		return 3;
-	case PRIO_TRANSIENT:
-		/* We're explicitly told to dispose of these! */
-		return 0;
-	case PRIO_UNSOLICITED:
-		/* It has subds now?  Higher prio */
-		if (tal_count(subds))
-			return 2;
+#define PEER_SCORE_MAX 2
+	/* Explicitly important! */
+	if (important_id_htable_get(daemon->important_ids, id))
+		return 2;
+	/* Otherwise, prefer ones which aren't talking. */
+	if (tal_count(subds))
 		return 1;
-	}
 	return 0;
 }
 
@@ -577,7 +559,7 @@ void close_random_connection(struct daemon *daemon)
 	for (c = connecting_htable_first(daemon->connecting, &cit);
 	     c;
 	     c = connecting_htable_next(daemon->connecting, &cit)) {
-		if (!c->transient)
+		if (important_id_htable_get(daemon->important_ids, &c->id))
 			continue;
 
 		/* This could be the one caller is trying right now */
@@ -597,7 +579,7 @@ void close_random_connection(struct daemon *daemon)
 	peer = peer_htable_pick(daemon->peers, pseudorand_u64(), &it);
 
 	for (size_t i = 0; i < peer_htable_count(daemon->peers); i++) {
-		size_t score = peer_score(peer->prio, peer->subds);
+		size_t score = peer_score(daemon, &peer->id, peer->subds);
 		if (score < best_peer_score) {
 			best_peer = peer;
 			best_peer_score = score;
@@ -615,7 +597,7 @@ void close_random_connection(struct daemon *daemon)
 
 	/* Don't close active peer if we closed an attempt */
 	if (closed_connect_attempt
-	    && best_peer_score > peer_score(PRIO_UNSOLICITED, NULL))
+	    && best_peer_score > 1)
 		return;
 
 	status_debug("due to stress, randomly closing peer %s (score %zu)",
@@ -812,7 +794,7 @@ static void reconnect(struct important_id *imp)
 	/* Do gossmap lookup to find any addresses from there, and append. */
 	append_gossmap_addresses(&addrs, imp->daemon, &imp->id);
 
-	try_connect_peer(imp->daemon, &imp->id, take(addrs), false, false);
+	try_connect_peer(imp->daemon, &imp->id, take(addrs), false);
 }
 
 static void schedule_reconnect_if_important(struct daemon *daemon,
@@ -1813,8 +1795,7 @@ static bool addr_in(const struct wireaddr_internal *needle,
 static void try_connect_peer(struct daemon *daemon,
 			     const struct node_id *id,
 			     struct wireaddr_internal *addrs TAKES,
-			     bool dns_fallback,
-			     bool transient)
+			     bool dns_fallback)
 {
 	bool use_proxy = daemon->always_use_proxy;
 	struct connecting *connect;
@@ -1826,12 +1807,8 @@ static void try_connect_peer(struct daemon *daemon,
 
 	/* Already existing?  Must have crossed over, it'll know soon. */
 	peer = peer_htable_get(daemon->peers, id);
-	if (peer) {
-		/* Note if we explicitly tried to connect non-transiently */
-		if (!transient)
-			peer->prio = PRIO_DELIBERATE;
+	if (peer)
 		return;
-	}
 
 	/* If we're trying to connect it right now, that's OK. */
 	if ((connect = find_connecting(daemon, id))) {
@@ -1887,7 +1864,6 @@ static void try_connect_peer(struct daemon *daemon,
 	connect->connstate = "Connection establishment";
 	connect->errors = tal_strdup(connect, "");
 	connect->conn = NULL;
-	connect->transient = transient;
 	connecting_htable_add(daemon->connecting, connect);
 	tal_add_destructor(connect, destroy_connecting);
 
@@ -1950,7 +1926,7 @@ static void connect_to_peer(struct daemon *daemon, const u8 *msg)
 	/* Do gossmap lookup to find any addresses from there, and append. */
 	append_gossmap_addresses(&addrs, daemon, &id);
 
-	try_connect_peer(daemon, &id, addrs, dns_fallback, transient);
+	try_connect_peer(daemon, &id, addrs, dns_fallback);
 }
 
 /* lightningd tells us a peer should be disconnected. */
