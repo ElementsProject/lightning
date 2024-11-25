@@ -4198,3 +4198,24 @@ def test_onchain_reestablish_reply(node_factory, bitcoind, executor):
     # Then we get the error, close.
     l3.daemon.wait_for_log("peer_in WIRE_ERROR")
     wait_for(lambda: only_one(l3.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'AWAITING_UNILATERAL')
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
+def test_onchain_slow_anchor(node_factory, bitcoind):
+    """We still use anchors for non-critical closes"""
+    l1, l2 = node_factory.line_graph(2)
+
+    # Don't let l1 succeed in sending commit tx
+    def censoring_sendrawtx(r):
+        return {'id': r['id'], 'result': {}}
+
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', censoring_sendrawtx)
+
+    close_start_depth = bitcoind.rpc.getblockchaininfo()['blocks']
+
+    # Make l1 close unilaterally.
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    l1.rpc.close(l2.info['id'], unilateraltimeout=1)
+
+    # We will have a super-low-prio anchor spend.
+    l1.daemon.wait_for_log(r"Low-priority anchorspend aiming for block {} \(feerate 253\)".format(close_start_depth + 2016))
