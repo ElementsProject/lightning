@@ -91,6 +91,13 @@ void channel_fail_permanent(struct channel *channel UNNEEDED,
 			    const char *fmt UNNEEDED,
 			    ...)
 { fprintf(stderr, "channel_fail_permanent called!\n"); abort(); }
+/* Generated stub for channel_fail_saw_onchain */
+void channel_fail_saw_onchain(struct channel *channel UNNEEDED,
+			      enum state_change reason UNNEEDED,
+			      const struct bitcoin_tx *tx UNNEEDED,
+			      const char *fmt UNNEEDED,
+			      ...)
+{ fprintf(stderr, "channel_fail_saw_onchain called!\n"); abort(); }
 /* Generated stub for channel_fail_transient */
 void channel_fail_transient(struct channel *channel UNNEEDED,
 			    bool disconnect UNNEEDED,

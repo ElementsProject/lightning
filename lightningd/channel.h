@@ -752,6 +752,14 @@ void channel_fail_permanent(struct channel *channel,
 			    enum state_change reason,
 			    const char *fmt,
 			    ...);
+
+/* Channel has failed, give up on it, specifically because we saw this tx spend it. */
+void channel_fail_saw_onchain(struct channel *channel,
+			      enum state_change reason,
+			      const struct bitcoin_tx *tx,
+			      const char *fmt,
+			      ...);
+
 /* Forget the channel. This is only used for the case when we "receive" error
  * during CHANNELD_AWAITING_LOCKIN if we are "fundee". */
 void channel_fail_forget(struct channel *channel, const char *fmt, ...);
