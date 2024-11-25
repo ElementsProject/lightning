@@ -270,7 +270,7 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 	struct amount_msat total_value;
 	const u8 *msg;
 
-	/* Estimate weight of spend tx plus commitment_tx (not including any UTXO we add) */
+	/* Estimate weight of anchorspend tx plus commitment_tx (not including any UTXO we add) */
 	base_weight = bitcoin_tx_core_weight(2, 1)
 		+ bitcoin_tx_input_weight(false,
 					  bitcoin_tx_input_sig_weight()
