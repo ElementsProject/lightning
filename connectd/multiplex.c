@@ -5,6 +5,7 @@
 #include <bitcoin/block.h>
 #include <bitcoin/chainparams.h>
 #include <ccan/io/io.h>
+#include <ccan/tal/str/str.h>
 #include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
 #include <common/dev_disconnect.h>
@@ -1357,8 +1358,13 @@ void peer_connect_subd(struct daemon *daemon, const u8 *msg, int fd)
 
 	/* If peer said something, we created this and queued msg. */
 	subd = find_subd(peer, &channel_id);
-	if (!subd)
+	if (!subd) {
 		subd = new_subd(peer, &channel_id);
+		/* Implies lightningd is ready for another peer. */
+		release_one_waiting_connection(peer->daemon,
+					       tal_fmt(tmpctx, "%s given a subd",
+						       fmt_node_id(tmpctx, &id)));
+	}
 
 	assert(!subd->conn);
 
