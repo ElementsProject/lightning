@@ -59,6 +59,7 @@ msgdata,connectd_scid_map,scid,short_channel_id,
 msgdata,connectd_scid_map,node_id,node_id,
 
 # Master -> connectd: connect to a peer.
+# If !transient, we will keep trying to connect.
 msgtype,connectd_connect_to_peer,2001
 msgdata,connectd_connect_to_peer,id,node_id,
 msgdata,connectd_connect_to_peer,len,u32,
@@ -102,10 +103,14 @@ msgdata,connectd_peer_spoke,channel_id,channel_id,
 # If msgtype == WIRE_ERROR, this is the string.
 msgdata,connectd_peer_spoke,error,?wirestring,
 
-# master -> connectd: peer no longer wanted, you can disconnect.
-msgtype,connectd_discard_peer,2015
-msgdata,connectd_discard_peer,id,node_id,
-msgdata,connectd_discard_peer,counter,u64,
+# master -> connectd: peer no longer reqeuired, don't keep reconnecting.
+msgtype,connectd_downgrade_peer,2015
+msgdata,connectd_downgrade_peer,id,node_id,
+
+# master -> connectd: force disconnect of peer.
+msgtype,connectd_disconnect_peer,2016
+msgdata,connectd_disconnect_peer,id,node_id,
+msgdata,connectd_disconnect_peer,counter,u64,
 
 # master -> connectd: give message to peer.
 msgtype,connectd_peer_send_msg,2003

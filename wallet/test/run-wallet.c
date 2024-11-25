@@ -187,6 +187,11 @@ void connect_succeeded(struct lightningd *ld UNNEEDED, const struct peer *peer U
 		       bool incoming UNNEEDED,
 		       const struct wireaddr_internal *addr UNNEEDED)
 { fprintf(stderr, "connect_succeeded called!\n"); abort(); }
+/* Generated stub for connectd_connect_to_peer */
+void connectd_connect_to_peer(struct lightningd *ld UNNEEDED,
+			      const struct peer *peer UNNEEDED,
+			      bool is_important UNNEEDED)
+{ fprintf(stderr, "connectd_connect_to_peer called!\n"); abort(); }
 /* Generated stub for create_anchor_details */
 struct anchor_details *create_anchor_details(const tal_t *ctx UNNEEDED,
 					     struct channel *channel UNNEEDED,
@@ -1001,6 +1006,10 @@ void subkey_from_hmac(const char *prefix UNNEEDED,
 		      const struct secret *base UNNEEDED,
 		      struct secret *key UNNEEDED)
 { fprintf(stderr, "subkey_from_hmac called!\n"); abort(); }
+/* Generated stub for tell_connectd_peer_importance */
+void tell_connectd_peer_importance(struct peer *peer UNNEEDED,
+				   bool was_important UNNEEDED)
+{ fprintf(stderr, "tell_connectd_peer_importance called!\n"); abort(); }
 /* Generated stub for tlv_hsmd_dev_preinit_tlvs_new */
 struct tlv_hsmd_dev_preinit_tlvs *tlv_hsmd_dev_preinit_tlvs_new(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "tlv_hsmd_dev_preinit_tlvs_new called!\n"); abort(); }
@@ -1044,9 +1053,9 @@ u8 *towire_channeld_offer_htlc(const tal_t *ctx UNNEEDED, struct amount_msat amo
 /* Generated stub for towire_channeld_sending_commitsig_reply */
 u8 *towire_channeld_sending_commitsig_reply(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channeld_sending_commitsig_reply called!\n"); abort(); }
-/* Generated stub for towire_connectd_discard_peer */
-u8 *towire_connectd_discard_peer(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 counter UNNEEDED)
-{ fprintf(stderr, "towire_connectd_discard_peer called!\n"); abort(); }
+/* Generated stub for towire_connectd_disconnect_peer */
+u8 *towire_connectd_disconnect_peer(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 counter UNNEEDED)
+{ fprintf(stderr, "towire_connectd_disconnect_peer called!\n"); abort(); }
 /* Generated stub for towire_connectd_peer_connect_subd */
 u8 *towire_connectd_peer_connect_subd(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 counter UNNEEDED, const struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "towire_connectd_peer_connect_subd called!\n"); abort(); }
@@ -1156,11 +1165,6 @@ u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
 		      const struct channel_id *channel UNNEEDED,
 		      const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_warningfmt called!\n"); abort(); }
-/* Generated stub for try_reconnect */
-void try_reconnect(const tal_t *ctx UNNEEDED,
-		   struct peer *peer UNNEEDED,
-		   const struct wireaddr_internal *addrhint UNNEEDED)
-{ fprintf(stderr, "try_reconnect called!\n"); abort(); }
 /* Generated stub for unsigned_channel_update */
 u8 *unsigned_channel_update(const tal_t *ctx UNNEEDED,
 			    const struct channel *channel UNNEEDED,

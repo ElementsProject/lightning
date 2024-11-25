@@ -506,8 +506,10 @@ def test_disconnect_opener(node_factory):
                        '=WIRE_TX_COMPLETE']
 
     l1 = node_factory.get_node(disconnect=disconnects,
-                               may_reconnect=EXPERIMENTAL_DUAL_FUND)
-    l2 = node_factory.get_node(may_reconnect=EXPERIMENTAL_DUAL_FUND)
+                               may_reconnect=EXPERIMENTAL_DUAL_FUND,
+                               options={'dev-no-reconnect': None})
+    l2 = node_factory.get_node(may_reconnect=EXPERIMENTAL_DUAL_FUND,
+                               options={'dev-no-reconnect': None})
 
     l1.fundwallet(2000000)
 
