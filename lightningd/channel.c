@@ -987,27 +987,17 @@ const char *channel_change_state_reason_str(enum state_change reason)
 	abort();
 }
 
-void channel_fail_permanent(struct channel *channel,
-			    enum state_change reason,
-			    const char *fmt,
-			    ...)
+static void channel_fail_perm(struct channel *channel,
+			      enum state_change reason,
+			      const char *why,
+			      const struct bitcoin_tx *spent_by)
 {
+	struct lightningd *ld = channel->peer->ld;
+
 	/* Don't do anything if it's an stub channel because
 	 * peer has already closed it unilatelrally. */
 	if (channel->scid && is_stub_scid(*channel->scid))
 		return;
-
-	struct lightningd *ld = channel->peer->ld;
-	va_list ap;
-	char *why;
-	/* Do we want to rebroadcast close transactions? If we're
-	 * witnessing the close on-chain there is no point in doing
-	 * this. */
-	bool rebroadcast;
-
-	va_start(ap, fmt);
-	why = tal_vfmt(tmpctx, fmt, ap);
-	va_end(ap);
 
 	log_unusual(channel->log,
 		    "Peer permanent failure in %s: %s (reason=%s)",
@@ -1021,14 +1011,6 @@ void channel_fail_permanent(struct channel *channel,
 
 	channel_set_owner(channel, NULL);
 
-	/* Drop non-cooperatively (unilateral) to chain. If we detect
-	 * the close from the blockchain (i.e., reason is
-	 * REASON_ONCHAIN, or FUNDING_SPEND_SEEN) then we can observe
-	 * passively, and not broadcast our own unilateral close, as
-	 * it doesn't stand a chance anyway. */
-	rebroadcast = !(channel->state == ONCHAIN ||
-			channel->state == FUNDING_SPEND_SEEN);
-
 	if (channel_state_wants_onchain_fail(channel->state))
 		channel_set_state(channel,
 				  channel->state,
@@ -1036,13 +1018,50 @@ void channel_fail_permanent(struct channel *channel,
 				  reason,
 				  why);
 
-	/* Drop non-cooperatively (unilateral) to chain. */
-	drop_to_chain(ld, channel, false, rebroadcast);
+	/* Drop non-cooperatively (unilateral) to chain. If we detect
+	 * the close from the blockchain, then we can observe
+	 * passively, and not broadcast our own unilateral close, as
+	 * it doesn't stand a chance anyway. */
+	drop_to_chain(ld, channel, false, spent_by);
 
 	if (channel_state_open_uncommitted(channel->state))
 		delete_channel(channel);
+}
 
-	tal_free(why);
+void channel_fail_permanent(struct channel *channel,
+			    enum state_change reason,
+			    const char *fmt,
+			    ...)
+{
+	va_list ap;
+	char *why;
+
+	va_start(ap, fmt);
+	why = tal_vfmt(tmpctx, fmt, ap);
+	va_end(ap);
+
+	channel_fail_perm(channel, reason, why, NULL);
+}
+
+void channel_fail_saw_onchain(struct channel *channel,
+			      enum state_change reason,
+			      const struct bitcoin_tx *tx,
+			      const char *fmt,
+			      ...)
+{
+	va_list ap;
+	char *why;
+	struct bitcoin_txid txid;
+
+	va_start(ap, fmt);
+	why = tal_vfmt(tmpctx, fmt, ap);
+	va_end(ap);
+
+	bitcoin_txid(tx, &txid);
+	tal_append_fmt(&why, ": onchain txid %s",
+		       fmt_bitcoin_txid(tmpctx, &txid));
+
+	channel_fail_perm(channel, reason, why, tx);
 }
 
 void channel_fail_forget(struct channel *channel, const char *fmt, ...)

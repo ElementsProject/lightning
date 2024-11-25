@@ -342,15 +342,16 @@ static enum watch_result closed_inflight_depth_cb(struct lightningd *ld,
 
 	/* This is now the main tx. */
 	update_channel_from_inflight(ld, inflight->channel, inflight);
-	channel_fail_permanent(inflight->channel,
-			       REASON_UNKNOWN,
-			       "Inflight tx %s confirmed after mutual close",
-			       fmt_bitcoin_txid(tmpctx, txid));
+	channel_fail_saw_onchain(inflight->channel,
+				 REASON_UNKNOWN,
+				 tx,
+				 "Inflight tx confirmed after mutual close");
 	return DELETE_WATCH;
 }
 
 void drop_to_chain(struct lightningd *ld, struct channel *channel,
-		   bool cooperative, bool rebroadcast)
+		   bool cooperative,
+		   const struct bitcoin_tx *unilateral_tx)
 {
 	struct channel_inflight *inflight;
 	const char *cmd_id;
@@ -389,10 +390,19 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		log_broken(channel->log,
 			   "Cannot broadcast our commitment tx:"
 			   " it's invalid! (ancient channel?)");
-	} else if (!rebroadcast && !cooperative) {
+	} else if (unilateral_tx) {
+		struct bitcoin_txid txid;
+		const struct bitcoin_tx **txs = tal_arr(tmpctx, const struct bitcoin_tx *, 1);
+		bitcoin_txid(unilateral_tx, &txid);
+
 		log_unusual(channel->log,
 			    "Not dropping our unilateral close onchain since "
-			    "we already saw theirs confirm.");
+			    "we already saw %s confirm.",
+			    fmt_bitcoin_txid(tmpctx, &txid));
+
+		/* If we were waiting for a close, this is it (expects array of txs!) */
+		txs[0] = unilateral_tx;
+		resolve_close_command(ld, channel, cooperative, txs);
 	} else {
 		const struct bitcoin_tx **txs = tal_arr(tmpctx, const struct bitcoin_tx*, 0);
 
@@ -459,10 +469,10 @@ void resend_closing_transactions(struct lightningd *ld)
 			case CLOSED:
 				continue;
 			case CLOSINGD_COMPLETE:
-				drop_to_chain(ld, channel, true, true);
+				drop_to_chain(ld, channel, true, NULL);
 				continue;
 			case AWAITING_UNILATERAL:
-				drop_to_chain(ld, channel, false, true);
+				drop_to_chain(ld, channel, false, NULL);
 				continue;
 			}
 			abort();
