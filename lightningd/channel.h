@@ -765,7 +765,7 @@ void channel_set_state(struct channel *channel,
 		       enum channel_state old_state,
 		       enum channel_state state,
 		       enum state_change reason,
-		       char *why);
+		       const char *why);
 
 const char *channel_change_state_reason_str(enum state_change reason);
 
