@@ -969,15 +969,19 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_limit_connections_inflight,
 		     "Throttle connection limiting down for testing.");
+	clnopt_witharg("--autoconnect-seeker-peers", OPT_SHOWINT,
+		       opt_set_u32, opt_show_u32,
+		       &ld->autoconnect_seeker_peers,
+		       "Seeker autoconnects to maintain this minimum number of gossip peers");
+	clnopt_witharg("--dev-low-prio-anchor-blocks", OPT_DEV|OPT_SHOWINT,
+		       opt_set_u32, opt_show_u32,
+		       &ld->dev_low_prio_anchor_blocks,
+		       "How many blocks to aim for low-priority anchor closes (default: 2016)");
 	/* This is handled directly in daemon_developer_mode(), so we ignore it here */
 	clnopt_noarg("--dev-debug-self", OPT_DEV,
 		     opt_ignore,
 		     NULL,
 		     "Fire up a terminal window with a debugger in it on initialization");
-	clnopt_witharg("--autoconnect-seeker-peers", OPT_SHOWINT,
-		       opt_set_u32, opt_show_u32,
-		       &ld->autoconnect_seeker_peers,
-		       "Seeker autoconnects to maintain this minimum number of gossip peers");
 }
 
 static const struct config testnet_config = {
