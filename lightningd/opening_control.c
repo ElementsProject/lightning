@@ -216,6 +216,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      static_remotekey_start, static_remotekey_start,
 			      type,
 			      NUM_SIDES, /* closer not yet known */
+			      0, /* no close_attempt_height */
 			      uc->fc ? REASON_USER : REASON_REMOTE,
 			      NULL,
 			      take(new_height_states(NULL, uc->fc ? LOCAL : REMOTE,
@@ -1592,6 +1593,7 @@ static struct channel *stub_chan(struct command *cmd,
 			      0, 0,
 			      type,
 			      NUM_SIDES, /* closer not yet known */
+			      0, /* no close_attempt_height */
 			      REASON_REMOTE,
 			      NULL,
 			      take(new_height_states(ld->wallet, LOCAL,

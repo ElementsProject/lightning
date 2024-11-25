@@ -1874,6 +1874,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   db_col_u64(stmt, "remote_static_remotekey_start"),
 			   type,
 			   db_col_int(stmt, "closer"),
+			   db_col_int(stmt, "close_attempt_height"),
 			   state_change_in_db(db_col_int(stmt, "state_change_reason")),
 			   shutdown_wrong_funding,
 			   take(height_states),
@@ -2089,6 +2090,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", out_payments_fulfilled"
 					", out_msatoshi_offered"
 					", out_msatoshi_fulfilled"
+					", close_attempt_height"
 					" FROM channels"
                                         " WHERE state != ?;")); //? 0
 	db_bind_int(stmt, CLOSED);
@@ -2337,8 +2339,9 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  remote_htlc_minimum_msat=?," // 50
 					"  remote_htlc_maximum_msat=?," // 51
 					"  last_stable_connection=?," // 52
-					"  require_confirm_inputs_remote=?" // 53
-					" WHERE id=?")); // 54
+					"  require_confirm_inputs_remote=?," // 53
+					"  close_attempt_height=?" // 54
+					" WHERE id=?")); // 55
 	db_bind_u64(stmt, chan->their_shachain.id);
 	if (chan->scid)
 		db_bind_short_channel_id(stmt, *chan->scid);
@@ -2437,6 +2440,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_bind_u64(stmt, chan->last_stable_connection);
 
 	db_bind_int(stmt, chan->req_confirmed_ins[REMOTE]);
+	db_bind_int(stmt, chan->close_attempt_height);
 	db_bind_u64(stmt, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 

@@ -369,6 +369,12 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 	/* If this was triggered by a close command, get a copy of the cmd id */
 	cmd_id = cmd_id_from_close_command(tmpctx, ld, channel);
 
+	/* Set close attempt height (for anchor rexmission) */
+	if (channel->close_attempt_height == 0) {
+		channel->close_attempt_height = get_block_height(ld->topology);
+		wallet_channel_save(channel->peer->ld->wallet, channel);
+	}
+
 	/* BOLT #2:
 	 *
 	 * - if `next_revocation_number` is greater than expected
