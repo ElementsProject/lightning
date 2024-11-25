@@ -138,9 +138,12 @@ async fn handle_notification(plugin: Plugin<PluginState>, value: serde_json::Val
             log::debug!("Failed to parse notification from lightningd {:?}", err);
         }
         Ok(notification) => {
-            if let Err(err) = plugin.state().events.send(notification) {
-                log::warn!("Failed to broadcast notification {:?}", err)
-            }
+	    /* Depending on whether or not there is a wildcard
+	     * subscription we may receive notifications for which we
+	     * don't have a handler. We suppress the `SendError` which
+	     * would indicate there is no subscriber for the given
+	     * topic. */
+	    let _ = plugin.state().events.send(notification);
         }
     };
     Ok(())
