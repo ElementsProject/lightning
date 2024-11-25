@@ -48,7 +48,11 @@ struct anchor_details {
 };
 
 struct deadline_value {
+	/* If false, don't stress about this target, always treat it as >= 12 blocks away */
+	bool important;
+	/* Target we want this in block by */
 	u32 block;
+	/* Amount this is worth to us */
 	struct amount_msat msat;
 };
 
@@ -77,9 +81,14 @@ static bool find_anchor_output(struct channel *channel,
 	return false;
 }
 
+/* Sorts deadlines into increasing block order, merges dups */
 static void merge_deadlines(struct channel *channel, struct anchor_details *adet)
 {
 	size_t dst;
+
+	/* Below requires len >= 1 */
+	if (tal_count(adet->vals) == 0)
+		return;
 
 	/* Sort into block-ascending order */
 	asort(adet->vals, tal_count(adet->vals), cmp_deadline_value, NULL);
@@ -87,6 +96,7 @@ static void merge_deadlines(struct channel *channel, struct anchor_details *adet
 	/* Merge deadlines. */
 	dst = 0;
 	for (size_t i = 1; i < tal_count(adet->vals); i++) {
+		assert(adet->vals[i].important);
 		if (adet->vals[i].block != adet->vals[dst].block) {
 			dst = i;
 			continue;
@@ -126,6 +136,8 @@ struct anchor_details *create_anchor_details(const tal_t *ctx,
 	struct htlc_out_map_iter outi;
 	struct anchor_details *adet = tal(ctx, struct anchor_details);
 	struct local_anchor_info *infos, local_anchor;
+	struct deadline_value v;
+	u32 final_deadline;
 
 	/* If we don't have an anchor, we can't do anything. */
 	if (!channel_type_has_anchors(channel->type))
@@ -173,8 +185,6 @@ struct anchor_details *create_anchor_details(const tal_t *ctx,
 	for (hin = htlc_in_map_first(ld->htlcs_in, &ini);
 	     hin;
 	     hin = htlc_in_map_next(ld->htlcs_in, &ini)) {
-		struct deadline_value v;
-
 		if (hin->key.channel != channel)
 			continue;
 
@@ -183,27 +193,36 @@ struct anchor_details *create_anchor_details(const tal_t *ctx,
 
 		v.msat = hin->msat;
 		v.block = hin->cltv_expiry;
+		v.important = true;
 		tal_arr_expand(&adet->vals, v);
 	}
 
 	for (hout = htlc_out_map_first(ld->htlcs_out, &outi);
 	     hout;
 	     hout = htlc_out_map_next(ld->htlcs_out, &outi)) {
-		struct deadline_value v;
-
 		if (hout->key.channel != channel)
 			continue;
 
 		v.msat = hout->msat;
 		v.block = hout->cltv_expiry;
+		v.important = true;
 		tal_arr_expand(&adet->vals, v);
 	}
 
-	/* No htlcs in flight?  No reason to boost. */
-	if (tal_count(adet->vals) == 0)
-		return tal_free(adet);
-
 	merge_deadlines(channel, adet);
+
+	/* Include final "unimportant" one, to make sure we eventually boost */
+	assert(channel->close_attempt_height);
+	if (tal_count(adet->vals) == 0)
+		final_deadline = channel->close_attempt_height;
+	else
+		final_deadline = adet->vals[tal_count(adet->vals) - 1].block;
+
+	/* "Two weeks later" */
+	v.block = final_deadline + 2016;
+	v.msat = AMOUNT_MSAT(0);
+	v.important = false;
+	tal_arr_expand(&adet->vals, v);
 
 	return adet;
 }
@@ -305,6 +324,7 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 	struct utxo **psbt_utxos;
 	struct wally_psbt *psbt, *signed_psbt;
 	struct amount_msat total_value;
+	const struct deadline_value *unimportant_deadline;
 	const u8 *msg;
 
 	/* Estimate weight of anchorspend tx plus commitment_tx (not including any UTXO we add) */
@@ -317,6 +337,8 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 
 	total_value = AMOUNT_MSAT(0);
 	psbt = NULL;
+	unimportant_deadline = NULL;
+
 	for (int i = tal_count(anch->adet->vals) - 1; i >= 0; --i) {
 		const struct deadline_value *val = &anch->adet->vals[i];
 		u32 feerate, feerate_target;
@@ -324,6 +346,12 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 		struct amount_sat fee;
 		struct wally_psbt *candidate_psbt;
 		struct utxo **utxos;
+
+		/* We only cover important deadlines here */
+		if (!val->important) {
+			unimportant_deadline = val;
+			continue;
+		}
 
 
 		if (!amount_msat_accumulate(&total_value, val->msat))
@@ -379,6 +407,36 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 		psbt_fee = fee;
 		psbt_weight = weight;
 		psbt_utxos = utxos;
+	}
+
+	/* No psbt, but only have an unimportant deadline? */
+	if (!psbt && unimportant_deadline == &anch->adet->vals[0]) {
+		u32 block_target, feerate_target, feerate;
+
+		/* We're not in a hurry.  Never aim for < 12 blocks away */
+		block_target = unimportant_deadline->block;
+		if (block_target < get_block_height(ld->topology) + 12)
+			block_target = get_block_height(ld->topology) + 12;
+		feerate_target = feerate_for_target(ld->topology, block_target);
+
+		log_debug(channel->log,
+			  "Low-priority anchorspend aiming for block %u (feerate %u)",
+			  block_target, feerate_target);
+		psbt = try_anchor_psbt(tmpctx, channel, anch,
+				       feerate_target,
+				       base_weight,
+				       &psbt_weight,
+				       &psbt_fee,
+				       &feerate,
+				       &psbt_utxos);
+		/* Don't bother with anchor if we don't add UTXOs */
+		if (tal_count(psbt_utxos) == 0) {
+			if (!psbt)
+				log_unusual(channel->log,
+					    "No utxos to bump commit_tx to feerate %uperkw!",
+					    feerate_target);
+			psbt = tal_free(psbt);
+		}
 	}
 
 	/* No psbt was worth it? */
