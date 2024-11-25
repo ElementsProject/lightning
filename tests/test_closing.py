@@ -4219,3 +4219,32 @@ def test_onchain_slow_anchor(node_factory, bitcoind):
 
     # We will have a super-low-prio anchor spend.
     l1.daemon.wait_for_log(r"Low-priority anchorspend aiming for block {} \(feerate 253\)".format(close_start_depth + 2016))
+
+    # Restart with reduced block time.
+    l1.stop()
+    l1.daemon.opts['dev-low-prio-anchor-blocks'] = 20
+    l1.start()
+
+    l1.daemon.wait_for_log("Low-priority anchorspend aiming for block {}".format(close_start_depth + 20))
+    l1.daemon.wait_for_log("Anchorspend for local commit tx")
+
+    # Won't go under 12 blocks though.
+
+    # Make sure it sees all these blocks at once, to avoid test flakes!
+    l1.stop()
+    bitcoind.generate_block(7)
+    l1.start()
+
+    height = bitcoind.rpc.getblockchaininfo()['blocks']
+    l1.daemon.wait_for_log(r"Low-priority anchorspend aiming for block {} \(feerate 7458\)".format(height + 13))
+    l1.daemon.wait_for_log(r"Anchorspend for local commit tx fee 12335sat \(w=714\), commit_tx fee 4545sat \(w=768\): package feerate 11390 perkw")
+    assert not l1.daemon.is_in_log("Low-priority anchorspend aiming for block {}".format(height + 12))
+
+    bitcoind.generate_block(1)
+    height = bitcoind.rpc.getblockchaininfo()['blocks']
+    l1.daemon.wait_for_log(r"Low-priority anchorspend aiming for block {} \(feerate 7500\)".format(height + 12))
+    # Note: fee is too similar, so won't try to RBF, so no "Anchorspend for local commit tx"
+
+    bitcoind.generate_block(1)
+    height = bitcoind.rpc.getblockchaininfo()['blocks']
+    l1.daemon.wait_for_log(r"Low-priority anchorspend aiming for block {} \(feerate 7500\)".format(height + 12))

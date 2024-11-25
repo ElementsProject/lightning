@@ -307,6 +307,9 @@ struct lightningd {
 	bool dev_throttle_gossip;
 	bool dev_suppress_gossip;
 
+	/* How long to aim for low-priority commitment closes */
+	u32 dev_low_prio_anchor_blocks;
+
 	/* Speedup reconnect delay, for testing. */
 	bool dev_fast_reconnect;
 

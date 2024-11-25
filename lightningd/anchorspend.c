@@ -219,7 +219,7 @@ struct anchor_details *create_anchor_details(const tal_t *ctx,
 		final_deadline = adet->vals[tal_count(adet->vals) - 1].block;
 
 	/* "Two weeks later" */
-	v.block = final_deadline + 2016;
+	v.block = final_deadline + ld->dev_low_prio_anchor_blocks;
 	v.msat = AMOUNT_MSAT(0);
 	v.important = false;
 	tal_arr_expand(&adet->vals, v);

@@ -143,6 +143,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_no_htlc_timeout = false;
 	ld->dev_no_version_checks = false;
 	ld->dev_max_funding_unconfirmed = 2016;
+	ld->dev_low_prio_anchor_blocks = 2016;
 	ld->dev_ignore_modern_onion = false;
 	ld->dev_disable_commit = -1;
 	ld->dev_no_ping_timer = false;
