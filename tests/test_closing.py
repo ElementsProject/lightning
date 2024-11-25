@@ -2399,35 +2399,45 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind, chainparams, ancho
     assert account_balance(l2, channel_id) == 0
     assert account_balance(l1, channel_id) == 0
 
-    # Graph of coin_move events we expect
-    expected_1 = {
-        '0': [('wallet', ['deposit'], ['withdrawal'], 'A')],
-        # This is ugly, but this wallet deposit is either unspent or used
-        # in the next channel open
-        'A': [('wallet', ['deposit'], None, None), ('cid1', ['channel_open', 'opener'], ['channel_close'], 'B')],
-        'B': [('wallet', ['deposit'], None, None), ('cid1', ['htlc_timeout'], ['to_wallet'], 'C')],
-        'C': [('wallet', ['deposit'], None, None)],
-    }
-
-    expected_2 = {
-        'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
-        'B': [('external', ['to_them'], None, None), ('external', ['htlc_timeout'], None, None)],
-    }
-
+    # Graph of coin_move events we expect!
     if anchors:
-        expected_1['B'].append(('external', ['anchor'], None, None))
-        expected_2['B'].append(('external', ['anchor'], None, None))
-        expected_1['B'].append(('wallet', ['anchor', 'ignored'], None, None))
-        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
+        expected_1 = {
+            # Initial wallet deposit
+            '0': [('wallet', ['deposit'], ['withdrawal'], 'A')],
+            # Funding tx
+            'A': [('wallet', ['deposit'], None, None), ('cid1', ['channel_open', 'opener'], ['channel_close'], 'B')],
+            # Commitment tx
+            'B': [('wallet', ['deposit'], None, None), ('cid1', ['htlc_timeout'], ['to_wallet'], 'C'), ('external', ['anchor'], None, None), ('wallet', ['anchor', 'ignored'], None, None)],
+            # HTLC timeout tx
+            'C': [('wallet', ['deposit'], None, None)],
+        }
 
-    # FIXME: Why does this fail?
-    if not anchors:
-        tags = check_utxos_channel(l1, [channel_id], expected_1)
-        check_utxos_channel(l2, [channel_id], expected_2, tags)
+        expected_2 = {
+            # Funding tx
+            'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
+            # Commitment tx
+            'B': [('external', ['to_them'], None, None), ('external', ['htlc_timeout'], None, None), ('external', ['anchor'], None, None), ('wallet', ['anchor', 'ignored'], None, None)],
+        }
+    else:
+        expected_1 = {
+            '0': [('wallet', ['deposit'], ['withdrawal'], 'A')],
+            # This is ugly, but this wallet deposit is either unspent or used
+            # in the next channel open
+            'A': [('wallet', ['deposit'], None, None), ('cid1', ['channel_open', 'opener'], ['channel_close'], 'B')],
+            'B': [('wallet', ['deposit'], None, None), ('cid1', ['htlc_timeout'], ['to_wallet'], 'C')],
+            'C': [('wallet', ['deposit'], None, None)],
+        }
+
+        expected_2 = {
+            'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
+            'B': [('external', ['to_them'], None, None), ('external', ['htlc_timeout'], None, None)],
+        }
+
+    tags = check_utxos_channel(l1, [channel_id], expected_1)
+    check_utxos_channel(l2, [channel_id], expected_2, tags)
 
     # Check 'bkpr-inspect' and 'bkpr-listbalances'
-    # The wallet events aren't in the channel's events
-    del expected_1['0']
+    del expected_1['0']  # Tx '0' was the initial deposit, its not in channel's events
     expected_1['A'] = expected_1['A'][1:]
     check_inspect_channel(l1, channel_id, expected_1)
 
