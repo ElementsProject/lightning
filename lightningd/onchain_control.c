@@ -342,7 +342,7 @@ static void handle_onchain_log_coin_move(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	/* Any 'ignored' payments get registed to the wallet */
+	/* Any 'ignored' payments get registered to the wallet */
 	if (!mvt->account_name)
 		mvt->account_name = fmt_channel_id(mvt,
 						   &channel->cid);
