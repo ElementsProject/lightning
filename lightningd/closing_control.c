@@ -52,7 +52,7 @@ struct close_command {
 /* Resolve a single close command. */
 static void
 resolve_one_close_command(struct close_command *cc, bool cooperative,
-			  struct bitcoin_tx **close_txs)
+			  const struct bitcoin_tx **close_txs)
 {
 	assert(tal_count(close_txs));
 	struct json_stream *result = json_stream_success(cc->cmd);
@@ -107,7 +107,7 @@ const char *cmd_id_from_close_command(const tal_t *ctx,
 
 /* Resolve a close command for a channel that will be closed soon. */
 void resolve_close_command(struct lightningd *ld, struct channel *channel,
-			   bool cooperative, struct bitcoin_tx **close_txs)
+			   bool cooperative, const struct bitcoin_tx **close_txs)
 {
 	struct close_command *cc;
 	struct close_command *n;

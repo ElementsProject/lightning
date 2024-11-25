@@ -394,7 +394,7 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 			    "Not dropping our unilateral close onchain since "
 			    "we already saw theirs confirm.");
 	} else {
-		struct bitcoin_tx **txs = tal_arr(tmpctx, struct bitcoin_tx*, 0);
+		const struct bitcoin_tx **txs = tal_arr(tmpctx, const struct bitcoin_tx*, 0);
 
 		/* We need to drop *every* commitment transaction to chain */
 		if (!cooperative && !list_empty(&channel->inflights)) {
