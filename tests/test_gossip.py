@@ -2327,9 +2327,14 @@ def test_gossip_force_broadcast_channel_msgs(node_factory, bitcoind):
     del tally['query_channel_range']
     del tally['ping']
     del tally['gossip_filter']
-    assert tally == {'channel_announce': 1,
-                     'channel_update': 3,
-                     'node_announce': 1}
+
+    # We can actually get *4* channel_updates, if timing is right.  Allow it.
+    assert tally in ({'channel_announce': 1,
+                      'channel_update': 3,
+                      'node_announce': 1},
+                     {'channel_announce': 1,
+                      'channel_update': 4,
+                      'node_announce': 1})
 
 
 def test_gossip_seeker_autoconnect(node_factory):
