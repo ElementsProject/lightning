@@ -819,6 +819,10 @@ struct channel *find_channel_by_alias(const struct peer *peer,
  * might need to CPFP the fee if it force closes!) */
 bool have_anchor_channel(struct lightningd *ld);
 
+/* Do we consider this channel "important" for connectd to maintain
+ * connection to peer? */
+bool channel_important_filter(const struct channel *channel, void *unused);
+
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,
 			 const struct bitcoin_signature *sig);

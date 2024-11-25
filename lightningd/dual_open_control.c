@@ -1318,6 +1318,11 @@ wallet_update_channel_commit(struct lightningd *ld,
 	/* We can't call channel_set_state here: channel isn't in db, so
 	 * really this is a "channel creation" event. */
 	if (channel->state == DUALOPEND_OPEN_COMMIT_READY) {
+		bool was_important;
+
+		/* Does peer currently have an important channel? */
+		was_important = peer_any_channel(channel->peer,
+						 channel_important_filter, NULL, NULL);
 		log_info(channel->log, "State changed from %s to %s",
 			 channel_state_name(channel),
 			 channel_state_str(DUALOPEND_OPEN_COMMITTED));
@@ -1331,6 +1336,7 @@ wallet_update_channel_commit(struct lightningd *ld,
 					     DUALOPEND_OPEN_COMMITTED,
 					     REASON_REMOTE,
 					     "Commitment transaction committed");
+		tell_connectd_peer_importance(channel->peer, was_important);
 	}
 
 	/* Update in database */
@@ -1387,7 +1393,7 @@ wallet_commit_channel(struct lightningd *ld,
 	bool anysegwit = !chainparams->is_elements && feature_negotiated(channel->peer->ld->our_features,
                         channel->peer->their_features,
                         OPT_SHUTDOWN_ANYSEGWIT);
-	bool any_active = peer_any_channel_bystate(channel->peer, channel_state_wants_peercomms, NULL);
+	bool was_important;
 
 	if (!amount_sat_to_msat(&our_msat, our_funding)) {
 		log_broken(channel->log, "Unable to convert funds");
@@ -1409,11 +1415,16 @@ wallet_commit_channel(struct lightningd *ld,
 		return NULL;
 	}
 
+	/* Does peer currently have an important channel? */
+	was_important = peer_any_channel(channel->peer,
+					 channel_important_filter, NULL, NULL);
+
 	assert(channel->state == DUALOPEND_OPEN_INIT);
 	log_info(channel->log, "State changed from %s to %s",
 		 channel_state_name(channel),
 		 channel_state_str(DUALOPEND_OPEN_COMMIT_READY));
 	channel->state = DUALOPEND_OPEN_COMMIT_READY;
+	tell_connectd_peer_importance(channel->peer, was_important);
 	notify_channel_state_changed(channel->peer->ld,
 				     &channel->peer->id,
 				     &channel->cid,
@@ -1520,15 +1531,6 @@ wallet_commit_channel(struct lightningd *ld,
 				false,
 				false);
 	wallet_inflight_add(ld->wallet, inflight);
-
-	/* We might have disconnected and decided we didn't need to
-	 * reconnect because no channels are active.  But the subd
-	 * just made it active! */
-	if (!any_active && channel->peer->connected == PEER_DISCONNECTED) {
-		try_reconnect(channel->peer, channel->peer,
-			      &channel->peer->addr);
-	}
-
 	return inflight;
 }
 
@@ -1592,7 +1594,7 @@ static void handle_peer_wants_to_close(struct subd *dualopend,
 								 channel->peer->connectd_counter,
 								 warning)));
 		subd_send_msg(ld->connectd,
-			      take(towire_connectd_discard_peer(NULL,
+			      take(towire_connectd_disconnect_peer(NULL,
 								&channel->peer->id,
 								channel->peer->connectd_counter)));
 		channel_fail_transient(channel, true, "Bad shutdown scriptpubkey %s",

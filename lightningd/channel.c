@@ -5,7 +5,6 @@
 #include <common/fee_states.h>
 #include <common/json_command.h>
 #include <common/wire_error.h>
-#include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/channel.h>
@@ -886,12 +885,37 @@ struct channel_state_change *new_channel_state_change(const tal_t *ctx,
 	return c;
 }
 
+bool channel_important_filter(const struct channel *channel, void *unused)
+{
+	/* Wants to talk */
+	if (!channel_state_wants_peercomms(channel->state))
+		return false;
+
+	/* If nothing is committed yet, only maintain connection if
+	 * we're the opener */
+	if (channel_state_pre_open(channel->state) && channel->opener == REMOTE)
+		return false;
+
+	/* If we don't reconnect for private channels. */
+	if (!channel->peer->ld->reconnect_private
+	    && !(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
+		return false;
+
+	return true;
+}
+
 void channel_set_state(struct channel *channel,
 		       enum channel_state old_state,
 		       enum channel_state state,
 		       enum state_change reason,
 		       char *why)
 {
+	bool was_important;
+
+	/* Does peer currently have an important channel? */
+	was_important = peer_any_channel(channel->peer,
+					 channel_important_filter, NULL, NULL);
+
 	/* set closer, if known */
 	if (channel_state_closing(state) && channel->closer == NUM_SIDES) {
 		if (reason == REASON_LOCAL)   channel->closer = LOCAL;
@@ -946,6 +970,8 @@ void channel_set_state(struct channel *channel,
 					     reason,
 					     why);
 	}
+
+	tell_connectd_peer_importance(channel->peer, was_important);
 }
 
 const char *channel_change_state_reason_str(enum state_change reason)
@@ -1002,7 +1028,6 @@ void channel_fail_permanent(struct channel *channel,
 	 * it doesn't stand a chance anyway. */
 	rebroadcast = !(channel->state == ONCHAIN ||
 			channel->state == FUNDING_SPEND_SEEN);
-	drop_to_chain(ld, channel, false, rebroadcast);
 
 	if (channel_state_wants_onchain_fail(channel->state))
 		channel_set_state(channel,
@@ -1010,6 +1035,9 @@ void channel_fail_permanent(struct channel *channel,
 				  AWAITING_UNILATERAL,
 				  reason,
 				  why);
+
+	/* Drop non-cooperatively (unilateral) to chain. */
+	drop_to_chain(ld, channel, false, rebroadcast);
 
 	if (channel_state_open_uncommitted(channel->state))
 		delete_channel(channel);

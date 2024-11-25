@@ -156,6 +156,33 @@ HTABLE_DEFINE_TYPE(struct peer,
 		   peer_eq_node_id,
 		   peer_htable);
 
+/* Node id, with any addresses we were explicitly given for it */
+struct important_id {
+	struct daemon *daemon;
+
+	struct node_id id;
+	struct wireaddr_internal *addrs;
+	size_t reconnect_secs;
+};
+
+static const struct node_id *important_id_keyof(const struct important_id *imp)
+{
+	return &imp->id;
+}
+
+static bool important_id_eq_node_id(const struct important_id *imp,
+				    const struct node_id *id)
+{
+	return node_id_eq(&imp->id, id);
+}
+
+/*~ This defines 'struct important_id_htable' */
+HTABLE_DEFINE_TYPE(struct important_id,
+		   important_id_keyof,
+		   node_id_hash,
+		   important_id_eq_node_id,
+		   important_id_htable);
+
 /*~ Peers we're trying to reach: we iterate through addrs until we succeed
  * or fail. */
 struct connecting {
@@ -245,8 +272,11 @@ struct daemon {
 	 * have disconnected. */
 	struct peer_htable *peers;
 
-	/* Peers we are trying to reach */
+	/* Peers we are trying to reach right now. */
 	struct connecting_htable *connecting;
+
+	/* Important (non-transient) peers we should reconnect to */
+	struct important_id_htable *important_ids;
 
 	/* Connection to main daemon. */
 	struct daemon_conn *master;

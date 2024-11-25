@@ -324,13 +324,14 @@ static void peer_closing_complete(struct channel *channel, const u8 *msg)
 	if (channel->state != CLOSINGD_SIGEXCHANGE)
 		return;
 
-	/* Channel gets dropped to chain cooperatively. */
-	drop_to_chain(channel->peer->ld, channel, true, true /* rebroadcast */);
 	channel_set_state(channel,
 			  CLOSINGD_SIGEXCHANGE,
 			  CLOSINGD_COMPLETE,
 			  REASON_UNKNOWN,
 			  "Closing complete");
+
+	/* Channel gets dropped to chain cooperatively. */
+	drop_to_chain(channel->peer->ld, channel, true, true /* rebroadcast */);
 }
 
 static void peer_closing_notify(struct channel *channel, const u8 *msg)
