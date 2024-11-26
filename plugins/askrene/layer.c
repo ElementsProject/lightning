@@ -151,6 +151,32 @@ struct layer {
 	struct node_id *disabled_nodes;
 };
 
+/* FIXME: Reorder! */
+static struct local_channel *add_local_channel(struct layer *layer,
+					       const struct node_id *n1,
+					       const struct node_id *n2,
+					       struct short_channel_id scid,
+					       struct amount_msat capacity);
+static struct local_update *add_update_channel(struct layer *layer,
+					       const struct short_channel_id_dir *scidd,
+					       const bool *enabled,
+					       const struct amount_msat *htlc_min,
+					       const struct amount_msat *htlc_max,
+					       const struct amount_msat *base_fee,
+					       const u32 *proportional_fee,
+					       const u16 *delay);
+static const struct constraint *add_constraint(struct layer *layer,
+					       const struct short_channel_id_dir *scidd,
+					       u64 timestamp,
+					       const struct amount_msat *min,
+					       const struct amount_msat *max);
+static const struct bias *set_bias(struct layer *layer,
+				   const struct short_channel_id_dir *scidd,
+				   const char *description TAKES,
+				   s8 bias_factor);
+static void add_disabled_node(struct layer *layer, const struct node_id *node);
+static struct layer *add_layer(struct askrene *askrene, const char *name TAKES, bool persistent);
+
 struct layer *new_temp_layer(const tal_t *ctx, struct askrene *askrene, const char *name TAKES)
 {
 	struct layer *l = tal(ctx, struct layer);
@@ -287,7 +313,7 @@ static void load_channel(struct plugin *plugin,
 	capacity = fromwire_amount_msat(cursor, len);
 
 	if (*cursor)
-		layer_add_local_channel(layer, &n1, &n2, scid, capacity);
+		add_local_channel(layer, &n1, &n2, scid, capacity);
 }
 
 static void towire_save_channel_update(u8 **data, const struct local_update *lu)
@@ -360,13 +386,13 @@ static void load_channel_update(struct plugin *plugin,
 	}
 
 	if (*cursor)
-		layer_add_update_channel(layer, &scidd,
-					 enabled,
-					 htlc_min,
-					 htlc_max,
-					 base_fee,
-					 proportional_fee,
-					 delay);
+		add_update_channel(layer, &scidd,
+				   enabled,
+				   htlc_min,
+				   htlc_max,
+				   base_fee,
+				   proportional_fee,
+				   delay);
 }
 
 static void towire_save_channel_constraint(u8 **data, const struct constraint *c)
@@ -413,7 +439,7 @@ static void load_channel_constraint(struct plugin *plugin,
 		max = &max_val;
 	}
 	if (*cursor)
-		layer_add_constraint(layer, &scidd, timestamp, min, max);
+		add_constraint(layer, &scidd, timestamp, min, max);
 }
 
 static void towire_save_channel_bias(u8 **data, const struct bias *bias)
@@ -450,7 +476,7 @@ static void load_channel_bias(struct plugin *plugin,
 	description = fromwire_wirestring(tmpctx, cursor, len);
 
 	if (*cursor)
-		layer_set_bias(layer, &scidd, take(description), bias_factor);
+		set_bias(layer, &scidd, take(description), bias_factor);
 }
 
 static void towire_save_disabled_node(u8 **data, const struct node_id *node)
@@ -479,7 +505,7 @@ static void load_disabled_node(struct plugin *plugin,
 
 	fromwire_node_id(cursor, len, &node);
 	if (*cursor)
-		layer_add_disabled_node(layer, &node);
+		add_disabled_node(layer, &node);
 }
 
 static void save_complete_layer(struct layer *layer)
@@ -538,11 +564,6 @@ static void save_complete_layer(struct layer *layer)
 	send_outreq(req);
 }
 
-void save_new_layer(struct layer *layer)
-{
-	return save_complete_layer(layer);
-}
-
 static void populate_layer(struct askrene *askrene,
 			   const char *layername TAKES,
 			   const u8 *data)
@@ -557,7 +578,7 @@ static void populate_layer(struct askrene *askrene,
 		if (taken(layername))
 			tal_free(layername);
 	} else {
-		layer = new_layer(askrene, layername, true);
+		layer = add_layer(askrene, layername, true);
 	}
 
 	plugin_log(askrene->plugin, LOG_DBG,
@@ -644,13 +665,24 @@ void remove_layer(struct layer *l)
 	tal_free(l);
 }
 
-struct layer *new_layer(struct askrene *askrene, const char *name TAKES, bool persistent)
+static struct layer *add_layer(struct askrene *askrene, const char *name TAKES, bool persistent)
 {
 	struct layer *l = new_temp_layer(askrene, askrene, name);
 	l->persistent = persistent;
+	assert(!find_layer(askrene, l->name));
 	list_add(&askrene->layers, &l->list);
 	tal_add_destructor2(l, destroy_layer, askrene);
 	return l;
+}
+
+struct layer *new_layer(struct askrene *askrene,
+			const char *name TAKES,
+			bool persistent)
+{
+	struct layer *layer = add_layer(askrene, name, persistent);
+	if (persistent)
+		save_complete_layer(layer);
+	return layer;
 }
 
 struct layer *find_layer(struct askrene *askrene, const char *name)
@@ -668,7 +700,7 @@ const char *layer_name(const struct layer *layer)
 	return layer->name;
 }
 
-static struct local_channel *new_local_channel(struct layer *layer,
+static struct local_channel *add_local_channel(struct layer *layer,
 					       const struct node_id *n1,
 					       const struct node_id *n2,
 					       struct short_channel_id scid,
@@ -687,8 +719,8 @@ static struct local_channel *new_local_channel(struct layer *layer,
 	lc->scid = scid;
 	lc->capacity = capacity;
 
+	assert(!local_channel_hash_get(layer->local_channels, scid));
 	local_channel_hash_add(layer->local_channels, lc);
-	save_channel(layer, lc);
 	return lc;
 }
 
@@ -698,18 +730,19 @@ void layer_add_local_channel(struct layer *layer,
 			     struct short_channel_id scid,
 			     struct amount_msat capacity)
 {
-	assert(!local_channel_hash_get(layer->local_channels, scid));
-	new_local_channel(layer, src, dst, scid, capacity);
+	struct local_channel *lc;
+	lc = add_local_channel(layer, src, dst, scid, capacity);
+	save_channel(layer, lc);
 }
 
-void layer_add_update_channel(struct layer *layer,
-			      const struct short_channel_id_dir *scidd,
-			      const bool *enabled,
-			      const struct amount_msat *htlc_min,
-			      const struct amount_msat *htlc_max,
-			      const struct amount_msat *base_fee,
-			      const u32 *proportional_fee,
-			      const u16 *delay)
+static struct local_update *add_update_channel(struct layer *layer,
+					       const struct short_channel_id_dir *scidd,
+					       const bool *enabled,
+					       const struct amount_msat *htlc_min,
+					       const struct amount_msat *htlc_max,
+					       const struct amount_msat *base_fee,
+					       const u32 *proportional_fee,
+					       const u16 *delay)
 {
 	struct local_update *lu;
 
@@ -747,13 +780,31 @@ void layer_add_update_channel(struct layer *layer,
 		tal_free(lu->delay);
 		lu->delay = tal_dup(lu, u16, delay);
 	}
+	return lu;
+}
+
+void layer_add_update_channel(struct layer *layer,
+			      const struct short_channel_id_dir *scidd,
+			      const bool *enabled,
+			      const struct amount_msat *htlc_min,
+			      const struct amount_msat *htlc_max,
+			      const struct amount_msat *base_fee,
+			      const u32 *proportional_fee,
+			      const u16 *delay)
+{
+	struct local_update *lu;
+
+	lu = add_update_channel(layer, scidd, enabled,
+				htlc_min, htlc_max,
+				base_fee, proportional_fee,
+				delay);
 	save_channel_update(layer, lu);
 }
 
-const struct bias *layer_set_bias(struct layer *layer,
-				  const struct short_channel_id_dir *scidd,
-				  const char *description TAKES,
-				  s8 bias_factor)
+static const struct bias *set_bias(struct layer *layer,
+				   const struct short_channel_id_dir *scidd,
+				   const char *description TAKES,
+				   s8 bias_factor)
 {
 	struct bias *bias;
 
@@ -769,13 +820,23 @@ const struct bias *layer_set_bias(struct layer *layer,
 	bias->bias = bias_factor;
 	bias->description = tal_strdup_or_null(bias, description);
 
-	save_channel_bias(layer, bias);
-
 	/* Don't bother keeping around zero biases */
 	if (bias_factor == 0) {
 		bias_hash_del(layer->biases, bias);
 		bias = tal_free(bias);
 	}
+	return bias;
+}
+
+const struct bias *layer_set_bias(struct layer *layer,
+				  const struct short_channel_id_dir *scidd,
+				  const char *description TAKES,
+				  s8 bias_factor)
+{
+	const struct bias *bias;
+
+	bias = set_bias(layer, scidd, description, bias_factor);
+	save_channel_bias(layer, bias);
 	return bias;
 }
 
@@ -827,11 +888,11 @@ void layer_apply_constraints(const struct layer *layer,
 	}
 }
 
-const struct constraint *layer_add_constraint(struct layer *layer,
-					      const struct short_channel_id_dir *scidd,
-					      u64 timestamp,
-					      const struct amount_msat *min,
-					      const struct amount_msat *max)
+static const struct constraint *add_constraint(struct layer *layer,
+					       const struct short_channel_id_dir *scidd,
+					       u64 timestamp,
+					       const struct amount_msat *min,
+					       const struct amount_msat *max)
 {
 	struct constraint *c = tal(layer, struct constraint);
 	c->scidd = *scidd;
@@ -847,6 +908,18 @@ const struct constraint *layer_add_constraint(struct layer *layer,
 	c->timestamp = timestamp;
 
 	constraint_hash_add(layer->constraints, c);
+	return c;
+}
+
+const struct constraint *layer_add_constraint(struct layer *layer,
+					      const struct short_channel_id_dir *scidd,
+					      u64 timestamp,
+					      const struct amount_msat *min,
+					      const struct amount_msat *max)
+{
+	const struct constraint *c;
+
+	c = add_constraint(layer, scidd, timestamp, min, max);
 	save_channel_constraint(layer, c);
 	return c;
 }
@@ -891,9 +964,14 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 	return num_removed;
 }
 
-void layer_add_disabled_node(struct layer *layer, const struct node_id *node)
+static void add_disabled_node(struct layer *layer, const struct node_id *node)
 {
 	tal_arr_expand(&layer->disabled_nodes, *node);
+}
+
+void layer_add_disabled_node(struct layer *layer, const struct node_id *node)
+{
+	add_disabled_node(layer, node);
 	save_disabled_node(layer, node);
 }
 

@@ -23,9 +23,6 @@ struct layer *find_layer(struct askrene *askrene, const char *name);
 /* Create new layer by name. */
 struct layer *new_layer(struct askrene *askrene, const char *name TAKES, bool persistent);
 
-/* Save new (persistent) layer */
-void save_new_layer(struct layer *layer);
-
 /* New temporary layer (not in askrene's hash table) */
 struct layer *new_temp_layer(const tal_t *ctx, struct askrene *askrene, const char *name TAKES);
 
