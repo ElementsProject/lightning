@@ -212,7 +212,7 @@ static struct oneshot *gossip_stream_timer(struct peer *peer)
 }
 
 /* Statistically, how many peers to we tell about each channel? */
-#define GOSSIP_SPAM_REDUNDANCY 5
+#define GOSSIP_SPAM_REDUNDANCY 50
 
 /* BOLT #7:
  * A node:
