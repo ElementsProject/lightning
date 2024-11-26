@@ -171,9 +171,6 @@ struct multifundchannel_command {
 	multiple `multifundchannel` commands in parallel, or
 	in very close sequence, which might confuse us with
 	*which* debug message belongs with *which* command.
-
-	We actually just reuse the id from the cmd.
-	Store it here for easier access.
 	*/
 	u64 id;
 
