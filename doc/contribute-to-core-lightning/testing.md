@@ -78,6 +78,7 @@ PYTEST_TESTS="tests/"                 - Target a specific set of blackbox tests
 SLOW_MACHINE=[0|1]                    - Set sensible defaults for running tests
                                         in resource-constrained environments.
 VALGRIND=[0|1]                        - Run the tests with Valgrind.
+GENERATE_EXAMPLES=[0|1]               - Generate examples for RPC documentation.
 ```
 
 #### Troubleshooting
