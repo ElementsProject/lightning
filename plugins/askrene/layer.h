@@ -40,7 +40,7 @@ const struct local_channel *layer_find_local_channel(const struct layer *layer,
 struct amount_msat local_channel_capacity(const struct local_channel *lc);
 
 /* Load any persistent layers */
-void load_layers(struct askrene *askrene);
+void load_layers(struct askrene *askrene, struct command *init_cmd);
 
 /* Check local channel matches these */
 bool layer_check_local_channel(const struct local_channel *lc,

@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/htable/htable_type.h>
+#include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
 #include <common/gossmap.h>
 #include <common/json_stream.h>
@@ -683,16 +684,7 @@ static void populate_layer(struct askrene *askrene,
 	struct layer *layer;
 	size_t len = tal_bytelen(data);
 
-	/* FIXME: They can race us, creating a layer while we're loading! */
-	layer = find_layer(askrene, layername);
-	if (layer) {
-		/* We promised to take this! */
-		if (taken(layername))
-			tal_free(layername);
-	} else {
-		layer = add_layer(askrene, layername, true);
-	}
-
+	layer = add_layer(askrene, layername, true);
 	plugin_log(askrene->plugin, LOG_DBG,
 		   "Loaded level %s (%zu bytes)",
 		   layer->name, len);
@@ -727,18 +719,26 @@ static void populate_layer(struct askrene *askrene,
 			   layer->name);
 }
 
-static struct command_result *listdatastore_done(struct command *aux_cmd,
-						 const char *method,
-						 const char *buf,
-						 const jsmntok_t *result,
-						 struct askrene *askrene)
+void load_layers(struct askrene *askrene, struct command *init_cmd)
 {
+	struct json_out *params = json_out_new(init_cmd);
+	const jsmntok_t *result;
+	const char *buf;
 	const jsmntok_t *datastore, *t, *key, *data;
 	size_t i;
 
-	plugin_log(aux_cmd->plugin, LOG_DBG, "datastore = %.*s",
-		   json_tok_full_len(result),
-		   json_tok_full(buf, result));
+
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	json_out_addstr(params, NULL, "askrene");
+	json_out_addstr(params, NULL, "layers");
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+
+	result = jsonrpc_request_sync(tmpctx, init_cmd,
+				      "listdatastore",
+				      params, &buf);
+
 	datastore = json_get_member(buf, result, "datastore");
 	json_for_each_arr(i, t, datastore) {
 		const char *layername;
@@ -754,21 +754,6 @@ static struct command_result *listdatastore_done(struct command *aux_cmd,
 			       take(layername),
 			       json_tok_bin_from_hex(tmpctx, buf, data));
 	}
-	return command_still_pending(aux_cmd);
-}
-
-void load_layers(struct askrene *askrene)
-{
-	struct out_req *req = jsonrpc_request_start(askrene->layer_cmd,
-						    "listdatastore",
-						    listdatastore_done,
-						    plugin_broken_cb,
-						    askrene);
-	json_array_start(req->js, "key");
-	json_add_string(req->js, NULL, "askrene");
-	json_add_string(req->js, NULL, "layers");
-	json_array_end(req->js);
-	send_outreq(req);
 }
 
 void remove_layer(struct layer *l)
