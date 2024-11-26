@@ -302,8 +302,8 @@
             "channel_id": "channelid0230000230000230000230000230000230000230000230000230000",
             "short_channel_id": "111x1x1",
             "alias": {
-              "local": "9100000x13000000x63000",
-              "remote": "3500000x7300000x11000"
+              "local": "121x131x141",
+              "remote": "151x161x171"
             },
             "opener": "local",
             "closer": "local",
@@ -329,7 +329,7 @@
             "min_to_us_msat": 489809898,
             "max_to_us_msat": 1000000000,
             "last_commitment_txid": "txidcloselastcommitment00000100001000010000100001000010000100001",
-            "last_commitment_fee_msat": 2896000,
+            "last_commitment_fee_msat": 2895000,
             "close_cause": "user",
             "last_stable_connection": 1738500000
           },
@@ -338,8 +338,8 @@
             "channel_id": "channelid0250000250000250000250000250000250000250000250000250000",
             "short_channel_id": "115x1x1",
             "alias": {
-              "local": "6500000x1100000x23000",
-              "remote": "5300000x1300000x55000"
+              "local": "122x132x142",
+              "remote": "152x162x172"
             },
             "opener": "local",
             "closer": "local",
@@ -365,7 +365,7 @@
             "min_to_us_msat": 500000000,
             "max_to_us_msat": 1000000000,
             "last_commitment_txid": "txidcloselastcommitment00000200002000020000200002000020000200002",
-            "last_commitment_fee_msat": 2895000,
+            "last_commitment_fee_msat": 2896000,
             "close_cause": "user",
             "last_stable_connection": 1738500000
           }
