@@ -14,7 +14,8 @@
 #include <plugins/spender/multifundchannel.h>
 #include <plugins/spender/openchannel.h>
 
-extern const struct chainparams *chainparams;
+/* Global counter to create unique mfc->id values */
+static u64 mfc_id;
 
 /* Which destinations has a value of "all", or -1.  */
 static struct multifundchannel_destination *all_dest(const struct multifundchannel_command *mfc)
@@ -1999,7 +2000,7 @@ json_multifundchannel(struct command *cmd,
 	/* Should exist; it would only nonexist if it were a notification.  */
 	assert(cmd->id);
 
-	mfc->id = *cmd->id;
+	mfc->id = ++mfc_id;
 	mfc->cmd = cmd;
 
 	/* Steal destinations array, and set up mfc pointers */
