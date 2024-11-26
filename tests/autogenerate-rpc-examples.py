@@ -29,7 +29,7 @@ ALL_RPC_EXAMPLES = {}
 EXAMPLES_JSON = {}
 LOG_FILE = './tests/autogenerate-examples-status.log'
 TEMP_EXAMPLES_FILE = './tests/autogenerate-examples.json'
-IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'askrene-listreservations', 'askrene-remove-layer', 'askrene-create-channel', 'askrene-create-layer', 'askrene-bias-channel', 'askrene-reserve', 'askrene-listlayers', 'askrene-age', 'askrene-inform-channel', 'askrene-update-channel', 'getroutes', 'askrene-disable-node', 'askrene-unreserve']
+IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template']
 
 # Constants for replacing values in examples
 NEW_VALUES_LIST = {
@@ -1021,6 +1021,54 @@ def generate_offers_renepay_examples(l1, l2, inv_l21, inv_l34):
         return offer_l23, inv_req_l1_l22
     except Exception as e:
         logger.error(f'Error in generating offers or renepay examples: {e}')
+        raise
+
+
+def generate_askrene_examples(l1, l2, l3, c12, c23_2):
+    """Generates askrene related examples"""
+    try:
+        logger.info('Askrene Start...')
+
+        def direction(src, dst):
+            if src < dst:
+                return 0
+            return 1
+
+        direction12 = direction(l1.info['id'], l2.info['id'])
+        direction23 = direction(l2.info['id'], l3.info['id'])
+        scid12dir = f'{c12}/{direction12}'
+        scid23dir = f'{c23_2}/{direction23}'
+        update_example(node=l2, method='askrene-create-layer', params={'layer': 'test_layers'})
+        update_example(node=l2, method='askrene-disable-node', params={'layer': 'test_layers', 'node': l1.info['id']})
+        update_example(node=l2, method='askrene-update-channel', params=['test_layers', '0x0x1/0'])
+        update_example(node=l2, method='askrene-create-channel', params={'layer': 'test_layers', 'source': l3.info['id'], 'destination': l1.info['id'], 'short_channel_id': '0x0x1', 'capacity_msat': '1000000sat'})
+        update_example(node=l2, method='askrene-update-channel', params={'layer': 'test_layers', 'short_channel_id_dir': '0x0x1/0', 'htlc_minimum_msat': 100, 'htlc_maximum_msat': 900000000, 'fee_base_msat': 1, 'fee_proportional_millionths': 2, 'cltv_expiry_delta': 18})
+        askrene_inform_channel_res1 = update_example(node=l2, method='askrene-inform-channel', params={'layer': 'test_layers', 'short_channel_id_dir': '0x0x1/1', 'amount_msat': 100000, 'inform': 'unconstrained'})
+        update_example(node=l2, method='askrene-bias-channel', params={'layer': 'test_layers', 'short_channel_id_dir': scid12dir, 'bias': 1})
+        update_example(node=l2, method='askrene-bias-channel', params=['test_layers', scid12dir, -5, 'bigger bias'])
+        askrene_listlayers_res1 = update_example(node=l2, method='askrene-listlayers', params=['test_layers'])
+        update_example(node=l2, method='askrene-listlayers', params={})
+        ts1 = only_one(only_one(askrene_listlayers_res1['layers'])['constraints'])['timestamp']
+        update_example(node=l2, method='askrene-age', params={'layer': 'test_layers', 'cutoff': ts1 + 1})
+        update_example(node=l2, method='askrene-remove-layer', params={'layer': 'test_layers'})
+        update_example(node=l1, method='getroutes', params={'source': l1.info['id'], 'destination': l3.info['id'], 'amount_msat': 1250000, 'layers': [], 'maxfee_msat': 125000, 'final_cltv': 0})
+        update_example(node=l1, method='askrene-reserve', params={'path': [{'short_channel_id_dir': scid12dir, 'amount_msat': 1250_000}, {'short_channel_id_dir': scid23dir, 'amount_msat': 1250_001}]})
+        update_example(node=l1, method='askrene-reserve', params={'path': [{'short_channel_id_dir': scid12dir, 'amount_msat': 1250_000_000_000}, {'short_channel_id_dir': scid23dir, 'amount_msat': 1250_000_000_000}]})
+        time.sleep(2)
+        askrene_listreservations_res1 = l1.rpc.askrene_listreservations()
+        askrene_listreservations_res1 = update_list_responses(askrene_listreservations_res1, list_key='reservations', slice_upto=5, update_func=lambda x, i: REPLACE_RESPONSE_VALUES.extend([{'data_keys': ['command_id'], 'original_value': x['command_id'], 'new_value': f'\"-c:askrene-reserve#6{(i + 1) * 2}/cln:askrene-reserve#12{(i + 1) * 2}\"'}]), sort=True, sort_key='amount_msat')
+        update_example(node=l1, method='askrene-listreservations', params={}, response=askrene_listreservations_res1)
+        update_example(node=l1, method='askrene-unreserve', params={'path': [{'short_channel_id_dir': scid12dir, 'amount_msat': 1250_000}, {'short_channel_id_dir': scid23dir, 'amount_msat': 1250_001}]})
+        update_example(node=l1, method='askrene-unreserve', params={'path': [{'short_channel_id_dir': scid12dir, 'amount_msat': 1250_000_000_000}, {'short_channel_id_dir': scid23dir, 'amount_msat': 1250_000_000_000}]})
+        REPLACE_RESPONSE_VALUES.extend([
+            {'data_keys': ['any', 'short_channel_id_dir'], 'original_value': scid12dir, 'new_value': f"{NEW_VALUES_LIST['c12']}/{direction12}"},
+            {'data_keys': ['short_channel_id_dir'], 'original_value': scid23dir, 'new_value': f"{NEW_VALUES_LIST['c23_2']}/{direction23}"},
+            {'data_keys': ['cutoff'], 'original_value': ts1 + 1, 'new_value': NEW_VALUES_LIST['time_at_800']},
+            {'data_keys': ['timestamp'], 'original_value': askrene_inform_channel_res1['constraints'][0]['timestamp'], 'new_value': NEW_VALUES_LIST['time_at_800']},
+        ])
+        logger.info('Askrene Done!')
+    except Exception as e:
+        logger.error(f'Error in generating askrene examples: {e}')
         raise
 
 
@@ -2043,6 +2091,7 @@ def test_generate_examples(node_factory, bitcoind, executor):
         generate_datastore_examples(l2)
         generate_bookkeeper_examples(l2, l3, c23res2['channel_id'])
         offer_l23, inv_req_l1_l22 = generate_offers_renepay_examples(l1, l2, inv_l21, inv_l34)
+        generate_askrene_examples(l1, l2, l3, c12, c23_2)
         generate_wait_examples(l1, l2, bitcoind, executor)
         address_l22 = generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l22, rune_l21, bitcoind)
         generate_splice_examples(node_factory, bitcoind)

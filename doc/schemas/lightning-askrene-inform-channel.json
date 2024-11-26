@@ -111,5 +111,29 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:askrene-inform-channel#1",
+        "method": "askrene-inform-channel",
+        "params": {
+          "layer": "test_layers",
+          "short_channel_id_dir": "0x0x1/1",
+          "amount_msat": 100000,
+          "inform": "unconstrained"
+        }
+      },
+      "response": {
+        "constraints": [
+          {
+            "layer": "test_layers",
+            "short_channel_id_dir": "0x0x1/1",
+            "timestamp": 1738000000,
+            "minimum_msat": 100000
+          }
+        ]
+      }
+    }
   ]
 }

@@ -245,5 +245,29 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:askrene-create-layer#1",
+        "method": "askrene-create-layer",
+        "params": {
+          "layer": "test_layers"
+        }
+      },
+      "response": {
+        "layers": [
+          {
+            "layer": "test_layers",
+            "persistent": false,
+            "disabled_nodes": [],
+            "created_channels": [],
+            "channel_updates": [],
+            "constraints": [],
+            "biases": []
+          }
+        ]
+      }
+    }
   ]
 }

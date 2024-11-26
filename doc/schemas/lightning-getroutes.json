@@ -172,5 +172,45 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:getroutes#1",
+        "method": "getroutes",
+        "params": {
+          "source": "nodeid010101010101010101010101010101010101010101010101010101010101",
+          "destination": "nodeid030303030303030303030303030303030303030303030303030303030303",
+          "amount_msat": 1250000,
+          "layers": [],
+          "maxfee_msat": 125000,
+          "final_cltv": 0
+        }
+      },
+      "response": {
+        "probability_ppm": 997501,
+        "routes": [
+          {
+            "probability_ppm": 997501,
+            "amount_msat": 1250000,
+            "final_cltv": 0,
+            "path": [
+              {
+                "short_channel_id_dir": "109x1x1/1",
+                "next_node_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
+                "amount_msat": 1250026,
+                "delay": 12
+              },
+              {
+                "short_channel_id_dir": "123x1x1/0",
+                "next_node_id": "nodeid030303030303030303030303030303030303030303030303030303030303",
+                "amount_msat": 1250013,
+                "delay": 6
+              }
+            ]
+          }
+        ]
+      }
+    }
   ]
 }

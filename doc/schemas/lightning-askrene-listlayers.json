@@ -247,5 +247,118 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:askrene-listlayers#1",
+        "method": "askrene-listlayers",
+        "params": [
+          "test_layers"
+        ]
+      },
+      "response": {
+        "layers": [
+          {
+            "layer": "test_layers",
+            "persistent": false,
+            "disabled_nodes": [
+              "nodeid010101010101010101010101010101010101010101010101010101010101"
+            ],
+            "created_channels": [
+              {
+                "source": "nodeid010101010101010101010101010101010101010101010101010101010101",
+                "destination": "nodeid030303030303030303030303030303030303030303030303030303030303",
+                "short_channel_id": "0x0x1",
+                "capacity_msat": 1000000000
+              }
+            ],
+            "channel_updates": [
+              {
+                "short_channel_id_dir": "0x0x1/0",
+                "htlc_minimum_msat": 100,
+                "htlc_maximum_msat": 900000000,
+                "fee_base_msat": 1,
+                "fee_proportional_millionths": 2,
+                "cltv_expiry_delta": 18
+              }
+            ],
+            "constraints": [
+              {
+                "short_channel_id_dir": "0x0x1/1",
+                "timestamp": 1738000000,
+                "minimum_msat": 100000
+              }
+            ],
+            "biases": [
+              {
+                "short_channel_id_dir": "109x1x1/1",
+                "description": "bigger bias",
+                "bias": -5
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "id": "example:askrene-listlayers#2",
+        "method": "askrene-listlayers",
+        "params": {}
+      },
+      "response": {
+        "layers": [
+          {
+            "layer": "test_layers",
+            "persistent": false,
+            "disabled_nodes": [
+              "nodeid010101010101010101010101010101010101010101010101010101010101"
+            ],
+            "created_channels": [
+              {
+                "source": "nodeid010101010101010101010101010101010101010101010101010101010101",
+                "destination": "nodeid030303030303030303030303030303030303030303030303030303030303",
+                "short_channel_id": "0x0x1",
+                "capacity_msat": 1000000000
+              }
+            ],
+            "channel_updates": [
+              {
+                "short_channel_id_dir": "0x0x1/0",
+                "htlc_minimum_msat": 100,
+                "htlc_maximum_msat": 900000000,
+                "fee_base_msat": 1,
+                "fee_proportional_millionths": 2,
+                "cltv_expiry_delta": 18
+              }
+            ],
+            "constraints": [
+              {
+                "short_channel_id_dir": "0x0x1/1",
+                "timestamp": 1738000000,
+                "minimum_msat": 100000
+              }
+            ],
+            "biases": [
+              {
+                "short_channel_id_dir": "109x1x1/1",
+                "description": "bigger bias",
+                "bias": -5
+              }
+            ]
+          },
+          {
+            "layer": "xpay",
+            "persistent": true,
+            "disabled_nodes": [],
+            "created_channels": [],
+            "channel_updates": [],
+            "constraints": [],
+            "biases": []
+          }
+        ]
+      }
+    }
   ]
 }
