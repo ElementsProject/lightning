@@ -63,13 +63,14 @@ To add conditional fields:
    generate the Markdown syntax as `[*index* [*start*] [*limit*]]`.
 
 ## Generating Examples in Schema
-The `tests/autogenerate-rpc-examples.py` test script regenerates RPC examples for methods defined 
-in `doc/schemas/lightning-*.json`. These examples are located at the end of each schema page, 
-detailing `shell` and `json` request formats along with their corresponding `json` responses.
-The script utilizes the pytest suite to automate this task by running a test, `test_generate_examples`,
-that sets up test nodes, records RPC requests, and captures responses. Any new RPC command's examples 
-should also be included in this scripts. This test only executes example generation if `GENERATE_EXAMPLES=True`
-is set, preventing accidental overwrites from unrelated tests.
+The `tests/autogenerate-rpc-examples.py` test script regenerates RPC examples for methods defined
+in `doc/schemas/lightning-*.json`, if the environment variable `GENERATE_EXAMPLES` is set to 1.
+These examples are located at the end of each schema page, detailing `shell` and `json` request
+formats along with their corresponding `json` responses. The script utilizes the pytest suite to
+automate this task by running a test, `test_generate_examples`, that sets up test nodes, records
+RPC requests, and captures responses. Any new RPC command's examples should also be included in
+this scripts. This test only executes example generation if `GENERATE_EXAMPLES=1` is set,
+preventing accidental overwrites from unrelated tests.
 
 ### Adding New Examples
 1. Define a New Function (if needed):
@@ -93,7 +94,7 @@ is set, preventing accidental overwrites from unrelated tests.
 	where `n` can be any number of repetitions. OR by manually running the test multiple times with:
 
 	```bash
-	rm -rf /tmp/ltests* && make -s && VALGRIND=0 TIMEOUT=40 TEST_DEBUG=1 pytest -vvv -n 6 tests/autogenerate-rpc-examples.py
+	rm -rf /tmp/ltests* && make -s && VALGRIND=0 TIMEOUT=40 TEST_DEBUG=1 GENERATE_EXAMPLES=1 pytest -vvv tests/autogenerate-rpc-examples.py
 	```
 
 	- Identify changing values, and add them to `REPLACE_RESPONSE_VALUES`:
@@ -116,7 +117,7 @@ environment variable with a comma-separated list of method names. Eg. `REGENERAT
 only regenerate examples for the `getinfo` and `connect` RPCs.
 2. To regenerate specific examples, set the REGENERATE environment variable:
 ```bash
-REGENERATE='getinfo,connect' VALGRIND=0 TIMEOUT=10 TEST_DEBUG=1 pytest -vvv -n 6 tests/autogenerate-rpc-examples.py
+REGENERATE='getinfo,connect' VALGRIND=0 TIMEOUT=10 TEST_DEBUG=1 GENERATE_EXAMPLES=1 pytest -vvv tests/autogenerate-rpc-examples.py
 ```
 3. Logs are saved in `tests/autogenerate-examples-status.log`, and JSON data is in `tests/autogenerate-examples.json`.
 4. Run `make` after the script completes to ensure schema updates are applied in other places too, such as `...msggen/schema.json`.
