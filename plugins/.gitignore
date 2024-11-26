@@ -19,3 +19,5 @@ recover
 cln-askrene
 recklessrpc
 exposesecret
+clnrest-requirements.txt
+wss-proxy-requirements.txt

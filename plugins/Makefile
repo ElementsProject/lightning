@@ -303,8 +303,21 @@ ifneq ($(RUST),0)
 DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc
 endif
 
+ifneq ($(NO_PYTHON), 1)
+PLUGIN_REQUIREMENTS_TXT := plugins/wss-proxy-requirements.txt plugins/clnrest-requirements.txt
+plugins/wss-proxy-requirements.txt: plugins/wss-proxy/pyproject.toml plugins/wss-proxy/poetry.lock
+	cd plugins/wss-proxy && poetry export --without-hashes > ../../$@
+
+
+plugins/clnrest-requirements.txt: plugins/clnrest/pyproject.toml plugins/clnrest/poetry.lock
+	cd plugins/clnrest && poetry export --without-hashes > ../../$@
+
+all-programs: $(PLUGIN_REQUIREMENTS_TXT)
+endif
+
 clean: plugins-clean
 plugins-clean:
+	$(RM) $(PLUGIN_REQUIREMENTS_TXT)
 	$(RM) $(PLUGINS) $(CLN_PLUGIN_EXAMPLES)
 	$(RM) plugins/sql-schema_gen.h
 
