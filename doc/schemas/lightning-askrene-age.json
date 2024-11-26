@@ -59,5 +59,21 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:askrene-age#1",
+        "method": "askrene-age",
+        "params": {
+          "layer": "test_layers",
+          "cutoff": 1738000000
+        }
+      },
+      "response": {
+        "layer": "test_layers",
+        "num_removed": 1
+      }
+    }
   ]
 }

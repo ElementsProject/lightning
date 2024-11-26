@@ -35,5 +35,17 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:askrene-remove-layer#1",
+        "method": "askrene-remove-layer",
+        "params": {
+          "layer": "test_layers"
+        }
+      },
+      "response": {}
+    }
   ]
 }

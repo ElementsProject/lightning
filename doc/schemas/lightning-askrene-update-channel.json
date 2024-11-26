@@ -78,5 +78,34 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:askrene-update-channel#1",
+        "method": "askrene-update-channel",
+        "params": [
+          "test_layers",
+          "0x0x1/0"
+        ]
+      },
+      "response": {}
+    },
+    {
+      "request": {
+        "id": "example:askrene-update-channel#2",
+        "method": "askrene-update-channel",
+        "params": {
+          "layer": "test_layers",
+          "short_channel_id_dir": "0x0x1/0",
+          "htlc_minimum_msat": 100,
+          "htlc_maximum_msat": 900000000,
+          "fee_base_msat": 1,
+          "fee_proportional_millionths": 2,
+          "cltv_expiry_delta": 18
+        }
+      },
+      "response": {}
+    }
   ]
 }

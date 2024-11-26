@@ -99,5 +99,49 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:askrene-bias-channel#1",
+        "method": "askrene-bias-channel",
+        "params": {
+          "layer": "test_layers",
+          "short_channel_id_dir": "109x1x1/1",
+          "bias": 1
+        }
+      },
+      "response": {
+        "biases": [
+          {
+            "layer": "test_layers",
+            "short_channel_id_dir": "109x1x1/1",
+            "bias": 1
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "id": "example:askrene-bias-channel#2",
+        "method": "askrene-bias-channel",
+        "params": [
+          "test_layers",
+          "109x1x1/1",
+          -5,
+          "bigger bias"
+        ]
+      },
+      "response": {
+        "biases": [
+          {
+            "layer": "test_layers",
+            "short_channel_id_dir": "109x1x1/1",
+            "description": "bigger bias",
+            "bias": -5
+          }
+        ]
+      }
+    }
   ]
 }
