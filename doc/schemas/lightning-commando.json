@@ -91,38 +91,15 @@
         "method": "commando",
         "params": {
           "peer_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
-          "rune": "_RWaZZRI7wAYU2hqlFBmYgC_dFczcpAdI_9O87YbDpg9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl",
-          "method": "getinfo",
-          "params": {}
+          "rune": "zFMd1fjhrAYxUeFA54TjloZqOt8JrA_i_nYwIgXkag49MA==",
+          "method": "newaddr",
+          "params": {
+            "addresstype": "p2tr"
+          }
         }
       },
       "response": {
-        "id": "nodeid020202020202020202020202020202020202020202020202020202020202",
-        "alias": "SILENTARTIST",
-        "color": "022d22",
-        "num_peers": 3,
-        "num_pending_channels": 0,
-        "num_active_channels": 3,
-        "num_inactive_channels": 1,
-        "address": [],
-        "binding": [
-          {
-            "type": "ipv4",
-            "address": "127.0.0.1",
-            "port": 19735
-          }
-        ],
-        "version": "v24.11rc1",
-        "blockheight": 130,
-        "network": "regtest",
-        "fees_collected_msat": 106,
-        "lightning-dir": "/tmp/.lightning/regtest",
-        "our_features": {
-          "init": "08a0882a8a59a1",
-          "node": "88a0882a8a59a1",
-          "channel": "",
-          "invoice": "02000002024100"
-        }
+        "p2tr": "bcrt1p338x07070707070707070707070707070707070707070707070707070707"
       }
     },
     {

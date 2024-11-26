@@ -2695,6 +2695,14 @@
             "source": "default",
             "plugin": "/root/lightning/plugins/offers"
           },
+          "dev-no-plugin-checksum": {
+            "set": true,
+            "source": "cmdline"
+          },
+          "dev-no-version-checks": {
+            "set": true,
+            "source": "cmdline"
+          },
           "developer": {
             "set": true,
             "source": "cmdline"

@@ -90,14 +90,14 @@
         "id": "example:listaddresses#1",
         "method": "listaddresses",
         "params": [
-          "bcrt1phtprcvhz842sxe8qw0yryvc0g6n6dw2puweklcpnfye273kjpfhs0d6d2e"
+          "bcrt1p2gppccw6ywewmg74qqxxmqfdpjds3rpr0mf22y9tm9xcc0muggwsea9nkf"
         ]
       },
       "response": {
         "addresses": [
           {
-            "keyidx": 13,
-            "p2tr": "bcrt1phtprcvhz842sxe8qw0yryvc0g6n6dw2puweklcpnfye273kjpfhs0d6d2e"
+            "keyidx": 14,
+            "p2tr": "bcrt1p2gppccw6ywewmg74qqxxmqfdpjds3rpr0mf22y9tm9xcc0muggwsea9nkf"
           }
         ]
       }
@@ -120,97 +120,6 @@
           {
             "keyidx": 7,
             "p2tr": "bcrt1pn45xgkyj54usdu98plm4zgcp4c5jvvfxmyexwcm5kc3gyfsrjmasd6ctsf"
-          }
-        ]
-      }
-    },
-    {
-      "request": {
-        "id": "example:listaddresses#3",
-        "method": "listaddresses",
-        "params": {}
-      },
-      "response": {
-        "addresses": [
-          {
-            "keyidx": 1,
-            "bech32": "bcrt1qyusnugshkn6kh5vmdjpe8hylvxlxjy3ns0hmrs"
-          },
-          {
-            "keyidx": 2,
-            "p2tr": "bcrt1pmeuewfgl24n06v9868kts5v92494zexrvg0hc0sdmgwwnxm6t9sqdwfqjx"
-          },
-          {
-            "keyidx": 3,
-            "bech32": "bcrt1qv8ksdsrr9tegfmy7ryhfwav0cprf9jpfqdfr4m"
-          },
-          {
-            "keyidx": 4,
-            "p2tr": "bcrt1p3femk2q5x0ettk65v8r80z4z4lfguqgau67sg7v6txgkvtrp675qyc4gu2"
-          },
-          {
-            "keyidx": 5,
-            "p2tr": "bcrt1pshtjqf083lgghds3r8cfs74sqs04q4s6mfhpxrry2dpahrzyc2hslyvm7n"
-          },
-          {
-            "keyidx": 6,
-            "bech32": "bcrt1qkpw662yvzdy5ttdg8nw4eh4el0uc7m2ythw0h3"
-          },
-          {
-            "keyidx": 7,
-            "p2tr": "bcrt1pn45xgkyj54usdu98plm4zgcp4c5jvvfxmyexwcm5kc3gyfsrjmasd6ctsf"
-          },
-          {
-            "keyidx": 8,
-            "p2tr": "bcrt1pxu96ugcrazch0y4rfmsy4k5x56etsn7hdgq3gwatmzvu0mv7sdeql5x9qe"
-          },
-          {
-            "keyidx": 9,
-            "bech32": "bcrt1q5czetq5cqrxsnxqx0wkm85v8eup7yvjy3vlnr7"
-          },
-          {
-            "keyidx": 10,
-            "p2tr": "bcrt1plk4hcq06uuxq3c93lxk2ejs3pff3y8n4m322yhn4gfqk7dp2atmsj2vr99"
-          },
-          {
-            "keyidx": 11,
-            "p2tr": "bcrt1pvn0zt2s8cv6shrtx8yd0zh90hwx4wpuqjrplfzpucnmde7kr4q3qx3fjfh"
-          },
-          {
-            "keyidx": 12,
-            "bech32": "bcrt1qcqqvkswps3e6ck3jmqf86f9tcaeke5z04d3tv4"
-          },
-          {
-            "keyidx": 13,
-            "p2tr": "bcrt1phtprcvhz842sxe8qw0yryvc0g6n6dw2puweklcpnfye273kjpfhs0d6d2e"
-          },
-          {
-            "keyidx": 14,
-            "p2tr": "bcrt1p2gppccw6ywewmg74qqxxmqfdpjds3rpr0mf22y9tm9xcc0muggwsea9nkf"
-          },
-          {
-            "keyidx": 15,
-            "p2tr": "bcrt1p9dwaqcfmdef574edhn6rzxmxumxghvr79pvj3hdklfterern0p6qx77a44"
-          },
-          {
-            "keyidx": 16,
-            "bech32": "bcrt1qswadp7rqx7m0zx2tffhzmqfansdrpfesr2la7k"
-          },
-          {
-            "keyidx": 17,
-            "p2tr": "bcrt1pqr02nvastyzya4q3lcjd00l56xemhhgf59srfgyk5jchtal44s8sjt683e"
-          },
-          {
-            "keyidx": 18,
-            "bech32": "bcrt1qnk3lx7dch2ygmd8447wr7rj2yu0y92zl9wqf60"
-          },
-          {
-            "keyidx": 19,
-            "p2tr": "bcrt1pnsdhwv72k277x6uzajv6ld84tmfu6env4ajy8amprpk8pjfn9n9s3fjvxv"
-          },
-          {
-            "keyidx": 20,
-            "p2tr": "bcrt1p9n7h55ahdhmhlakvusfh8xlq98j9780punc9dx84xafcr8xulxmqwn4aa9"
           }
         ]
       }

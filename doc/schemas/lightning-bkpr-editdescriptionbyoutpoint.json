@@ -286,7 +286,7 @@
             "currency": "bcrt",
             "outpoint": "txidbk0101010101010101010101010101010101010101010101010101010101:1",
             "timestamp": 1738510000,
-            "blockheight": 105,
+            "blockheight": 110,
             "description": "edited utxo description"
           }
         ]

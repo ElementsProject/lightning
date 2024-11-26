@@ -3301,7 +3301,7 @@
                 "currency": "bcrt",
                 "outpoint": "txidbk0101010101010101010101010101010101010101010101010101010101:1",
                 "timestamp": 1738510000,
-                "blockheight": 105,
+                "blockheight": 110,
                 "description": "edited utxo description"
               }
             ]
@@ -6343,38 +6343,15 @@
             "method": "commando",
             "params": {
               "peer_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
-              "rune": "_RWaZZRI7wAYU2hqlFBmYgC_dFczcpAdI_9O87YbDpg9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl",
-              "method": "getinfo",
-              "params": {}
+              "rune": "zFMd1fjhrAYxUeFA54TjloZqOt8JrA_i_nYwIgXkag49MA==",
+              "method": "newaddr",
+              "params": {
+                "addresstype": "p2tr"
+              }
             }
           },
           "response": {
-            "id": "nodeid020202020202020202020202020202020202020202020202020202020202",
-            "alias": "SILENTARTIST",
-            "color": "022d22",
-            "num_peers": 3,
-            "num_pending_channels": 0,
-            "num_active_channels": 3,
-            "num_inactive_channels": 1,
-            "address": [],
-            "binding": [
-              {
-                "type": "ipv4",
-                "address": "127.0.0.1",
-                "port": 19735
-              }
-            ],
-            "version": "v24.11rc1",
-            "blockheight": 130,
-            "network": "regtest",
-            "fees_collected_msat": 106,
-            "lightning-dir": "/tmp/.lightning/regtest",
-            "our_features": {
-              "init": "08a0882a8a59a1",
-              "node": "88a0882a8a59a1",
-              "channel": "",
-              "invoice": "02000002024100"
-            }
+            "p2tr": "bcrt1p338x07070707070707070707070707070707070707070707070707070707"
           }
         },
         {
@@ -17062,14 +17039,14 @@
             "id": "example:listaddresses#1",
             "method": "listaddresses",
             "params": [
-              "bcrt1phtprcvhz842sxe8qw0yryvc0g6n6dw2puweklcpnfye273kjpfhs0d6d2e"
+              "bcrt1p2gppccw6ywewmg74qqxxmqfdpjds3rpr0mf22y9tm9xcc0muggwsea9nkf"
             ]
           },
           "response": {
             "addresses": [
               {
-                "keyidx": 13,
-                "p2tr": "bcrt1phtprcvhz842sxe8qw0yryvc0g6n6dw2puweklcpnfye273kjpfhs0d6d2e"
+                "keyidx": 14,
+                "p2tr": "bcrt1p2gppccw6ywewmg74qqxxmqfdpjds3rpr0mf22y9tm9xcc0muggwsea9nkf"
               }
             ]
           }
@@ -17092,97 +17069,6 @@
               {
                 "keyidx": 7,
                 "p2tr": "bcrt1pn45xgkyj54usdu98plm4zgcp4c5jvvfxmyexwcm5kc3gyfsrjmasd6ctsf"
-              }
-            ]
-          }
-        },
-        {
-          "request": {
-            "id": "example:listaddresses#3",
-            "method": "listaddresses",
-            "params": {}
-          },
-          "response": {
-            "addresses": [
-              {
-                "keyidx": 1,
-                "bech32": "bcrt1qyusnugshkn6kh5vmdjpe8hylvxlxjy3ns0hmrs"
-              },
-              {
-                "keyidx": 2,
-                "p2tr": "bcrt1pmeuewfgl24n06v9868kts5v92494zexrvg0hc0sdmgwwnxm6t9sqdwfqjx"
-              },
-              {
-                "keyidx": 3,
-                "bech32": "bcrt1qv8ksdsrr9tegfmy7ryhfwav0cprf9jpfqdfr4m"
-              },
-              {
-                "keyidx": 4,
-                "p2tr": "bcrt1p3femk2q5x0ettk65v8r80z4z4lfguqgau67sg7v6txgkvtrp675qyc4gu2"
-              },
-              {
-                "keyidx": 5,
-                "p2tr": "bcrt1pshtjqf083lgghds3r8cfs74sqs04q4s6mfhpxrry2dpahrzyc2hslyvm7n"
-              },
-              {
-                "keyidx": 6,
-                "bech32": "bcrt1qkpw662yvzdy5ttdg8nw4eh4el0uc7m2ythw0h3"
-              },
-              {
-                "keyidx": 7,
-                "p2tr": "bcrt1pn45xgkyj54usdu98plm4zgcp4c5jvvfxmyexwcm5kc3gyfsrjmasd6ctsf"
-              },
-              {
-                "keyidx": 8,
-                "p2tr": "bcrt1pxu96ugcrazch0y4rfmsy4k5x56etsn7hdgq3gwatmzvu0mv7sdeql5x9qe"
-              },
-              {
-                "keyidx": 9,
-                "bech32": "bcrt1q5czetq5cqrxsnxqx0wkm85v8eup7yvjy3vlnr7"
-              },
-              {
-                "keyidx": 10,
-                "p2tr": "bcrt1plk4hcq06uuxq3c93lxk2ejs3pff3y8n4m322yhn4gfqk7dp2atmsj2vr99"
-              },
-              {
-                "keyidx": 11,
-                "p2tr": "bcrt1pvn0zt2s8cv6shrtx8yd0zh90hwx4wpuqjrplfzpucnmde7kr4q3qx3fjfh"
-              },
-              {
-                "keyidx": 12,
-                "bech32": "bcrt1qcqqvkswps3e6ck3jmqf86f9tcaeke5z04d3tv4"
-              },
-              {
-                "keyidx": 13,
-                "p2tr": "bcrt1phtprcvhz842sxe8qw0yryvc0g6n6dw2puweklcpnfye273kjpfhs0d6d2e"
-              },
-              {
-                "keyidx": 14,
-                "p2tr": "bcrt1p2gppccw6ywewmg74qqxxmqfdpjds3rpr0mf22y9tm9xcc0muggwsea9nkf"
-              },
-              {
-                "keyidx": 15,
-                "p2tr": "bcrt1p9dwaqcfmdef574edhn6rzxmxumxghvr79pvj3hdklfterern0p6qx77a44"
-              },
-              {
-                "keyidx": 16,
-                "bech32": "bcrt1qswadp7rqx7m0zx2tffhzmqfansdrpfesr2la7k"
-              },
-              {
-                "keyidx": 17,
-                "p2tr": "bcrt1pqr02nvastyzya4q3lcjd00l56xemhhgf59srfgyk5jchtal44s8sjt683e"
-              },
-              {
-                "keyidx": 18,
-                "bech32": "bcrt1qnk3lx7dch2ygmd8447wr7rj2yu0y92zl9wqf60"
-              },
-              {
-                "keyidx": 19,
-                "p2tr": "bcrt1pnsdhwv72k277x6uzajv6ld84tmfu6env4ajy8amprpk8pjfn9n9s3fjvxv"
-              },
-              {
-                "keyidx": 20,
-                "p2tr": "bcrt1p9n7h55ahdhmhlakvusfh8xlq98j9780punc9dx84xafcr8xulxmqwn4aa9"
               }
             ]
           }
@@ -17833,8 +17719,8 @@
                 "channel_id": "channelid0230000230000230000230000230000230000230000230000230000",
                 "short_channel_id": "111x1x1",
                 "alias": {
-                  "local": "9100000x13000000x63000",
-                  "remote": "3500000x7300000x11000"
+                  "local": "121x131x141",
+                  "remote": "151x161x171"
                 },
                 "opener": "local",
                 "closer": "local",
@@ -17860,7 +17746,7 @@
                 "min_to_us_msat": 489809898,
                 "max_to_us_msat": 1000000000,
                 "last_commitment_txid": "txidcloselastcommitment00000100001000010000100001000010000100001",
-                "last_commitment_fee_msat": 2896000,
+                "last_commitment_fee_msat": 2895000,
                 "close_cause": "user",
                 "last_stable_connection": 1738500000
               },
@@ -17869,8 +17755,8 @@
                 "channel_id": "channelid0250000250000250000250000250000250000250000250000250000",
                 "short_channel_id": "115x1x1",
                 "alias": {
-                  "local": "6500000x1100000x23000",
-                  "remote": "5300000x1300000x55000"
+                  "local": "122x132x142",
+                  "remote": "152x162x172"
                 },
                 "opener": "local",
                 "closer": "local",
@@ -17896,7 +17782,7 @@
                 "min_to_us_msat": 500000000,
                 "max_to_us_msat": 1000000000,
                 "last_commitment_txid": "txidcloselastcommitment00000200002000020000200002000020000200002",
-                "last_commitment_fee_msat": 2895000,
+                "last_commitment_fee_msat": 2896000,
                 "close_cause": "user",
                 "last_stable_connection": 1738500000
               }
@@ -20601,6 +20487,14 @@
                 "set": false,
                 "source": "default",
                 "plugin": "/root/lightning/plugins/offers"
+              },
+              "dev-no-plugin-checksum": {
+                "set": true,
+                "source": "cmdline"
+              },
+              "dev-no-version-checks": {
+                "set": true,
+                "source": "cmdline"
               },
               "developer": {
                 "set": true,
@@ -27415,7 +27309,7 @@
                   "bcrt1qm7k64cvd2ljw758ptwrrm8ny30u67ea3cfkxpn": 1000
                 },
                 {
-                  "bcrt1qswadp7rqx7m0zx2tffhzmqfansdrpfesr2la7k": 1000
+                  "bcrt1qdgvytwcw58uwlf3lqrej2eqaku6smn2mdvkycp": 1000
                 },
                 {
                   "bcrt1q68wfpfam8tu3a457jv7u8r64tdvqltgfs0kj84": 1000
@@ -27511,7 +27405,7 @@
             "params": {}
           },
           "response": {
-            "bech32": "bcrt1qcqqvkswps3e6ck3jmqf86f9tcaeke5z04d3tv4"
+            "bech32": "bcrt1qwx6am26cuw38y4863pd6swrce2g8mzhaxr9xp8"
           }
         },
         {
@@ -27523,7 +27417,7 @@
             }
           },
           "response": {
-            "p2tr": "bcrt1phtprcvhz842sxe8qw0yryvc0g6n6dw2puweklcpnfye273kjpfhs0d6d2e"
+            "p2tr": "bcrt1p2gppccw6ywewmg74qqxxmqfdpjds3rpr0mf22y9tm9xcc0muggwsea9nkf"
           }
         }
       ]

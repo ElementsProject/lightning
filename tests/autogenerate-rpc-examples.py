@@ -8,6 +8,7 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi  # type: ignore
+from pyln.testing.utils import GENERATE_EXAMPLES
 from utils import only_one, mine_funding_to_announce, sync_blockheight, wait_for, first_scid, serialize_payload_tlv, serialize_payload_final_tlv
 import sys
 import os
@@ -21,7 +22,10 @@ import ast
 import subprocess
 
 CWD = os.getcwd()
-GENERATE_EXAMPLES = True
+CLN_VERSION = 'v'
+with open(os.path.join('.version'), 'r') as f:
+    CLN_VERSION = CLN_VERSION + f.read().strip()
+
 FUND_WALLET_AMOUNT_SAT = 200000000
 FUND_CHANNEL_AMOUNT_SAT = 10**6
 REGENERATING_RPCS = []
@@ -45,10 +49,6 @@ NEW_VALUES_LIST = {
     'hsm_secret_cdx_1': 'cl10leetsd35kw6r5de5kueedxyesqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqluplcg0lxenqd',
     'error_message_1': 'All addresses failed: 127.0.0.1:19736: Cryptographic handshake: peer closed connection (wrong key?). ',
     'configs_3_addr2': "127.0.0.1:19735",
-    'closed_channel_alias_local_1': '9100000x13000000x63000',
-    'closed_channel_alias_remote_1': '3500000x7300000x11000',
-    'closed_channel_alias_local_2': '6500000x1100000x23000',
-    'closed_channel_alias_remote_2': '5300000x1300000x55000',
     'bitcoin-rpcport': 18332,
     'grpc-port': 9736,
     'blockheight_110': 110,
@@ -77,6 +77,7 @@ NEW_VALUES_LIST = {
     'destination_4': 'bcrt1p00' + ('02' * 28),
     'destination_5': 'bcrt1p00' + ('03' * 28),
     'destination_6': 'bcrt1p00' + ('04' * 28),
+    'destination_7': 'bcrt1p338x' + ('07' * 28),
     'funding_serial_1': 17725655605188010000,
     'funding_serial_2': 17725655605188020000,
     'funding_serial_3': 17725655605188030000,
@@ -155,8 +156,6 @@ NEW_VALUES_LIST = {
     'utxo_1': 'utxo' + ('01' * 30),
     'ocs_txid_1': 'txidocsigned10' + ('11000' * 10),
     'ocs_txid_2': 'txidocsigned10' + ('12000' * 10),
-    'close_lc_txid_1': 'txidcloselastcommitment0' + ('00001' * 8),
-    'close_lc_txid_2': 'txidcloselastcommitment0' + ('00002' * 8),
     'c12_channel_id': 'channelid0' + ('120000' * 9),
     'c23_channel_id': 'channelid0' + ('230000' * 9),
     'c23_2_channel_id': 'channelid0' + ('230200' * 9),
@@ -293,6 +292,7 @@ REPLACE_RESPONSE_VALUES = [
     {'data_keys': ['outnum', 'funding_outnum', 'vout'], 'original_value': 0, 'new_value': NEW_VALUES_LIST['num_1']},
     {'data_keys': ['outnum', 'funding_outnum', 'vout'], 'original_value': 2, 'new_value': NEW_VALUES_LIST['num_1']},
     {'data_keys': ['outnum', 'funding_outnum', 'vout'], 'original_value': 3, 'new_value': NEW_VALUES_LIST['num_1']},
+    {'data_keys': ['type'], 'original_value': 'unilateral', 'new_value': 'mutual'},
 ]
 
 if os.path.exists(LOG_FILE):
@@ -454,6 +454,8 @@ def setup_test_nodes(node_factory, bitcoind):
                 'experimental-dual-fund': None,
                 'may_reconnect': True,
                 'dev-hsmd-no-preapprove-check': None,
+                'dev-no-plugin-checksum': None,
+                'dev-no-version-checks': None,
                 'allow-deprecated-apis': True,
                 'allow_bad_gossip': True,
                 'broken_log': '.*',
@@ -506,7 +508,7 @@ def setup_test_nodes(node_factory, bitcoind):
             {'data_keys': ['alias'], 'original_value': l2.info['alias'], 'new_value': NEW_VALUES_LIST['l2_alias']},
             {'data_keys': ['port'], 'original_value': l2.info['binding'][0]['port'], 'new_value': NEW_VALUES_LIST['l2_port']},
             {'data_keys': ['netaddr'], 'original_value': [f'127.0.0.1:{l2.info["binding"][0]["port"]}'], 'new_value': [NEW_VALUES_LIST['l2_addr']]},
-            {'data_keys': ['version'], 'original_value': l2.info['version'], 'new_value': l2.info['version'].split('-')[0]},
+            {'data_keys': ['version'], 'original_value': getinfo_res2['version'], 'new_value': CLN_VERSION},
             {'data_keys': ['blockheight'], 'original_value': getinfo_res2['blockheight'], 'new_value': NEW_VALUES_LIST['blockheight_110']},
             {'data_keys': ['alias'], 'original_value': l3.info['alias'], 'new_value': NEW_VALUES_LIST['l3_alias']},
             {'data_keys': ['port'], 'original_value': l3.info['binding'][0]['port'], 'new_value': NEW_VALUES_LIST['l3_port']},
@@ -772,7 +774,7 @@ def generate_runes_examples(l1, l2, l3):
         update_example(node=l2, method='createrune', params=[rune_l25['rune'], [['time<"$(($(date +%s) + 24*60*60))"', 'rate=2']]], description=["Before we give this to our peer, let's add two more restrictions: that it only be usable for 24 hours from now (`time<`), and that it can only be used twice a minute (`rate=2`). `date +%s` can give us the current time in seconds:"])
         update_example(node=l2, method='commando-listrunes', params={'rune': rune_l23['rune']})
         update_example(node=l2, method='commando-listrunes', params={})
-        commando_res1 = update_example(node=l1, method='commando', params={'peer_id': l2.info['id'], 'rune': rune_l22['rune'], 'method': 'getinfo', 'params': {}})
+        commando_res1 = update_example(node=l1, method='commando', params={'peer_id': l2.info['id'], 'rune': rune_l21['rune'], 'method': 'newaddr', 'params': {'addresstype': 'p2tr'}})
         update_example(node=l1, method='commando', params={'peer_id': l2.info['id'], 'rune': rune_l23['rune'], 'method': 'listpeers', 'params': [l3.info['id']]})
         inv_l23 = l2.rpc.invoice('any', 'lbl_l23', 'l23 description')
         commando_res3 = update_example(node=l1, method='commando', params={'peer_id': l2.info['id'], 'rune': rune_l24['rune'], 'method': 'pay', 'params': {'bolt11': inv_l23['bolt11'], 'amount_msat': 9900}})
@@ -807,7 +809,7 @@ def generate_runes_examples(l1, l2, l3):
             {'data_keys': ['last_used'], 'original_value': showrunes_res2['runes'][1]['last_used'], 'new_value': NEW_VALUES_LIST['time_at_800']},
             {'data_keys': ['last_used'], 'original_value': showrunes_res2['runes'][2]['last_used'], 'new_value': NEW_VALUES_LIST['time_at_800']},
             {'data_keys': ['any', 'bolt11'], 'original_value': inv_l23['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_l23']},
-            {'data_keys': ['blockheight'], 'original_value': commando_res1['blockheight'], 'new_value': NEW_VALUES_LIST['blockheight_130']},
+            {'data_keys': ['p2tr'], 'original_value': commando_res1['p2tr'], 'new_value': NEW_VALUES_LIST['destination_7']},
             {'data_keys': ['created_at'], 'original_value': commando_res3['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
             {'data_keys': ['payment_hash'], 'original_value': commando_res3['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_cmd_pay_1']},
             {'data_keys': ['payment_preimage'], 'original_value': commando_res3['payment_preimage'], 'new_value': NEW_VALUES_LIST['payment_preimage_cmd_1']},
@@ -873,7 +875,7 @@ def generate_bookkeeper_examples(l2, l3, c23_2_chan_id):
         update_example(node=l3, method='bkpr-editdescriptionbypaymentid', params={'payment_id': invoice['payment_id'], 'description': 'edited invoice description from description send some sats l2 to l3'})
         # Try to edit a payment_id that does not exist
         update_example(node=l3, method='bkpr-editdescriptionbypaymentid', params={'payment_id': 'c000' + ('01' * 30), 'description': 'edited invoice description for non existing payment id'})
-        update_example(node=l3, method='bkpr-editdescriptionbyoutpoint', params={'outpoint': utxo_event['outpoint'], 'description': 'edited utxo description'})
+        editdescriptionbyoutpoint_res1 = update_example(node=l3, method='bkpr-editdescriptionbyoutpoint', params={'outpoint': utxo_event['outpoint'], 'description': 'edited utxo description'})
         # Try to edit an outpoint that does not exist
         update_example(node=l3, method='bkpr-editdescriptionbyoutpoint', params={'outpoint': 'abcd' + ('02' * 30) + ':1', 'description': 'edited utxo description for non existing outpoint'})
 
@@ -972,6 +974,7 @@ def generate_bookkeeper_examples(l2, l3, c23_2_chan_id):
             {'data_keys': ['fees_paid_msat'], 'original_value': bkprinspect_res1['txs'][0]['fees_paid_msat'], 'new_value': NEW_VALUES_LIST['fees_paid_msat_1']},
             {'data_keys': ['timestamp'], 'original_value': bkprlistaccountevents_res1['events'][0]['timestamp'], 'new_value': NEW_VALUES_LIST['time_at_850']},
             {'data_keys': ['outpoint'], 'original_value': bkprlistaccountevents_res1['events'][0]['outpoint'], 'new_value': 'txidbk' + ('01' * 29) + ':1'},
+            {'data_keys': ['blockheight'], 'original_value': editdescriptionbyoutpoint_res1['updated'][0]['blockheight'], 'new_value': NEW_VALUES_LIST['blockheight_110']},
         ])
         logger.info('Bookkeeper Done!')
     except Exception as e:
@@ -1920,6 +1923,11 @@ def generate_list_examples(l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, 
         update_example(node=l1, method='listtransactions', params={}, response=listtransactions_res1)
         listclosedchannels_res1 = l2.rpc.listclosedchannels()
         listclosedchannels_res1 = update_list_responses(listclosedchannels_res1, list_key='closedchannels')
+        for i, closedchannel in enumerate(listclosedchannels_res1['closedchannels'], start=1):
+            closedchannel['last_commitment_fee_msat'] = 2894000 + (i * 1000)
+            closedchannel['last_commitment_txid'] = 'txidcloselastcommitment0' + (('0000' + str(i)) * 8)
+            closedchannel['last_stable_connection'] = NEW_VALUES_LIST['time_at_850']
+            closedchannel['alias'] = {'local': '12' + str(i) + 'x13' + str(i) + 'x14' + str(i), 'remote': '15' + str(i) + 'x16' + str(i) + 'x17' + str(i)}
         update_example(node=l2, method='listclosedchannels', params={}, response=listclosedchannels_res1)
 
         update_example(node=l2, method='listconfigs', params={'config': 'network'})
@@ -2008,18 +2016,9 @@ def generate_list_examples(l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, 
         update_example(node=l2, method='listinvoicerequests', params={}, response=listinvoicerequests_res2)
         update_example(node=l2, method='listaddresses', params=[address_l22['p2tr']])
         update_example(node=l2, method='listaddresses', params={'start': 6, 'limit': 2})
-        update_example(node=l2, method='listaddresses', params={})
         REPLACE_RESPONSE_VALUES.extend([
             {'data_keys': ['any', 'invreq_id'], 'original_value': inv_req_l1_l22['invreq_id'], 'new_value': NEW_VALUES_LIST['invreq_id_l1_l22']},
             {'data_keys': ['netaddr'], 'original_value': listpeers_res2['peers'][0]['netaddr'], 'new_value': [NEW_VALUES_LIST['l1_addr']]},
-            {'data_keys': ['local'], 'original_value': listclosedchannels_res1['closedchannels'][0]['alias']['local'], 'new_value': NEW_VALUES_LIST['closed_channel_alias_local_1']},
-            {'data_keys': ['remote'], 'original_value': listclosedchannels_res1['closedchannels'][0]['alias']['remote'], 'new_value': NEW_VALUES_LIST['closed_channel_alias_remote_1']},
-            {'data_keys': ['local'], 'original_value': listclosedchannels_res1['closedchannels'][1]['alias']['local'], 'new_value': NEW_VALUES_LIST['closed_channel_alias_local_2']},
-            {'data_keys': ['remote'], 'original_value': listclosedchannels_res1['closedchannels'][1]['alias']['remote'], 'new_value': NEW_VALUES_LIST['closed_channel_alias_remote_2']},
-            {'data_keys': ['last_commitment_txid'], 'original_value': listclosedchannels_res1['closedchannels'][0]['last_commitment_txid'], 'new_value': NEW_VALUES_LIST['close_lc_txid_1']},
-            {'data_keys': ['last_stable_connection'], 'original_value': listclosedchannels_res1['closedchannels'][0]['last_stable_connection'], 'new_value': NEW_VALUES_LIST['time_at_850']},
-            {'data_keys': ['last_commitment_txid'], 'original_value': listclosedchannels_res1['closedchannels'][1]['last_commitment_txid'], 'new_value': NEW_VALUES_LIST['close_lc_txid_2']},
-            {'data_keys': ['last_stable_connection'], 'original_value': listclosedchannels_res1['closedchannels'][1]['last_stable_connection'], 'new_value': NEW_VALUES_LIST['time_at_850']},
             {'data_keys': ['any'], 'original_value': listconfigs_res3['configs']['addr']['values_str'][0], 'new_value': NEW_VALUES_LIST['configs_3_addr2']},
             {'data_keys': ['value_int'], 'original_value': listconfigs_res3['configs']['bitcoin-rpcport']['value_int'], 'new_value': NEW_VALUES_LIST['bitcoin-rpcport']},
             {'data_keys': ['value_int'], 'original_value': listconfigs_res3['configs']['grpc-port']['value_int'], 'new_value': NEW_VALUES_LIST['grpc-port']},
@@ -2032,7 +2031,7 @@ def generate_list_examples(l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, 
         raise
 
 
-@unittest.skipIf(GENERATE_EXAMPLES is not True, 'Generates examples for doc/schema/lightning-*.json files.')
+@unittest.skipIf(not GENERATE_EXAMPLES, 'Generates examples for doc/schema/lightning-*.json files.')
 def test_generate_examples(node_factory, bitcoind, executor):
     """Re-generates examples for doc/schema/lightning-*.json files"""
     try:
