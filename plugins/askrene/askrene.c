@@ -1239,9 +1239,10 @@ static const char *init(struct command *init_cmd,
 	plugin_set_data(plugin, askrene);
 	plugin_set_memleak_handler(plugin, askrene_markmem);
 
-	/* Layer needs its own command to access datastore */
+	load_layers(askrene, init_cmd);
+
+	/* Layer needs its own command to write to the datastore */
 	askrene->layer_cmd = aux_command(init_cmd);
-	load_layers(askrene);
 	return NULL;
 }
 
