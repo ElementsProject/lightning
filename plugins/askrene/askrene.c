@@ -1090,11 +1090,8 @@ static struct command_result *json_askrene_create_layer(struct command *cmd,
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
-	if (!layer) {
+	if (!layer)
 		layer = new_layer(askrene, layername, *persistent);
-		if (*persistent)
-			save_new_layer(layer);
-	}
 
 	response = jsonrpc_stream_success(cmd);
 	json_add_layers(response, askrene, "layers", layer);
