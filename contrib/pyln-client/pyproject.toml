@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyln-client"
-version = "24.08.2"
+version = "24.11rc1"
 description = "Client library and plugin library for Core Lightning"
 authors = ["Christian Decker <decker.christian@gmail.com>"]
 license = "BSD-MIT"
