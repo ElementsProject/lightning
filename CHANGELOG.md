@@ -3,6 +3,201 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## v24.11rc1 - 2024-11-26
+
+This release named by Dusty Daemon.
+
+### Added
+
+ - Documentation: Test script generates all RPC documentation examples now (so they should now stay accurate and complete). ([#7756])
+ - JSON-RPC: `listaddresses` to list issued addresses from the node. ([#7800])
+ - Config: `autoconnect-seeker-peers`, allowing seeker to reach out to new nodes for additional gossip (default: 10). ([#7798])
+ - Protocol: `option_quiesce` enabled by default. ([#7586])
+ - JSON-RPC: `fetchinvoice` allows setting invreq_metadata via `payer_metadata` parameter. ([#7786])
+ - hsmtool: generatehsm can run non-interactive, taking options on the cmdline. ([#7102])
+ - Plugins: `pay` now has tracing support for various payment steps. ([#7803])
+ - JSON-RPC: `exposesecret` command for encouraging hsm_secret backups. ([#7647])
+ - JSON-RPC: `listpays` has `index`, `start` and `limit` parameters for listing control. ([#7385])
+ - Plugins: bookkeeper has a new RPC `bkpr-editdescriptionbypaymentid` which will update the description for any event with matching payment_id ([#7604])
+ - Config: `grpc-host` option for grpc plugin ([#7479])
+ - JSON-RPC: A new magic `dev-splice` command is added that can take a ‘splice script’ or json payload and perform any complex splice across multiple channels merging the result into a single transaction. Some features are disabled and will be added in time. ([#6980])
+ - JSON-RPC: low-level RPC command `addpsbtinput` to fund PSBTs directly and help with complex splices & dual-opens. ([#6980])
+ - JSON-RPC: `stfu_channels` and `abort_channels` are added for bulk multi-channel splice commands. These allow the user to pause (and resume) multiple channels in place. ([#6980])
+ - JSON-RPC: `injectpaymentonion` for initiating an HTLC like a peer would do. ([#7749])
+ - Documentation: Example documentation on generating custom gRPC ([#7731])
+ - Installation: Nix users can now install CLN from the new flake. ([#7656])
+ - JSON-RPC: `decode` now used modern BOLT 4 language for blinded paths, `first_path_key`. ([#7586])
+ - Plugins: `onion_message_recv` and `onion_message_recv_secret` hooks now used modern BOLT 4 language for blinded paths, `first_path_key`. ([#7586])
+ - JSON-RPC: keysend `maxfee` parameter for consistency with pay. ([#7227]) ([#7653])
+ - `hsmtool`: `getnodeid` command derives the node id from the hsm_secret, to verify it's the correct secret. ([#7644])
+
+## v24.11rc1 - 2024-11-26
+
+This release named by Dusty Daemon.
+
+### Added
+
+ - JSON-RPC: `listaddresses` to list issued addresses from the node. ([#7800])
+ - Config: `autoconnect-seeker-peers`, allowing seeker to reach out to new nodes for additional gossip (default: 10). ([#7798])
+ - Protocol: `option_quiesce` enabled by default. ([#7586])
+ - JSON-RPC: `fetchinvoice` allows setting invreq_metadata via `payer_metadata` parameter. ([#7786])
+ - hsmtool: generatehsm can run non-interactive, taking options on the cmdline. ([#7102])
+ - Plugins: `pay` now has tracing support for various payment steps. ([#7803])
+ - JSON-RPC: `exposesecret` command for encouraging hsm_secret backups. ([#7647])
+ - JSON-RPC: `listpays` has `index`, `start` and `limit` parameters for listing control. ([#7385])
+ - Plugins: bookkeeper has a new RPC `bkpr-editdescriptionbypaymentid` which will update the description for any event with matching payment_id ([#7604])
+ - Config: `grpc-host` option for grpc plugin ([#7479])
+ - JSON-RPC: A new magic `dev-splice` command is added that can take a ‘splice script’ or json payload and perform any complex splice across multiple channels merging the result into a single transaction. Some features are disabled and will be added in time. ([#6980])
+ - JSON-RPC: low-level RPC command `addpsbtinput` to fund PSBTs directly and help with complex splices & dual-opens. ([#6980])
+ - JSON-RPC: `stfu_channels` and `abort_channels` are added for bulk multi-channel splice commands. These allow the user to pause (and resume) multiple channels in place. ([#6980])
+ - JSON-RPC: `injectpaymentonion` for initiating an HTLC like a peer would do. ([#7749])
+ - Documentation: Example documentation on generating custom gRPC ([#7731])
+ - Installation: Nix users can now install CLN from the new flake. ([#7656])
+ - JSON-RPC: `decode` now used modern BOLT 4 language for blinded paths, `first_path_key`. ([#7586])
+ - Plugins: `onion_message_recv` and `onion_message_recv_secret` hooks now used modern BOLT 4 language for blinded paths, `first_path_key`. ([#7586])
+ - JSON-RPC: keysend `maxfee` parameter for consistency with pay. ([#7227]) ([#7653])
+ - `hsmtool`: `getnodeid` command derives the node id from the hsm_secret, to verify it's the correct secret. ([#7644])
+
+
+### Changed
+
+ - Plugins: grpc now starts on port 9736 by default (localhost, see `grpc-host`) ([#7479])
+ - Config: bolt12 now enabled by default (finally!) ([#7833])
+ - Protocol: we now connect to additional nodes for improved gossip (see `autoconnect-seeker-peers`) ([#7798])
+ - Protocol: we now create a low-priority (2016 down to 12 blocks fee target) anchor for low-fee unilateral closes even if there's no urgency. ([#7832])
+ - Protocol: splicing moved from test numbers to spec numbers. ([#7719])
+ - Protocol: Support added for peers that wish to rotate their funding pubkey during a splice. ([#7719])
+ - Startup: reconnecting to peers at startup should be significantly faster (dependent on machine speed). ([#7630])
+ - Protocol: we remember the last successful address we connected to for important peers. ([#7630])
+ - Protocol: Gossipd requests a full sync from a random peer every hour. ([#7768])
+ - JSON-RPC: Improved error messaging for splice commands. ([#7719])
+ - JSON-RPC: built-in plugins can now be stopped using "plugin stop". ([#7799])
+ - Wallet: Taproot addresses are used for unilateral-close change addresses. ([#7800])
+ - JSON-RPC: `close` now outputs txs & txids of all closing transactions (splice candidates can cause there to be multiple). ([#7466])
+ - JSON-RPC: `splice_update` can in some cases now return the remotely partiall signed psbt to the user, if so `signtures_secured` will be true. ([#6980])
+ - JSON-RPC: `splice_signed` parameters are switched in order to make `channel_id` an optional parameter, enabling multi-splice-signatures. ([#6980])
+ - `pay`: Discarding an overly long or expensive route does not blocklist channels anymore. ([#7494])
+ - Plugins: `cln-grpc` Upgrade tonic version and ([#7598])
+
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - Config: `experimental-offers` (it's now the default). ([#7833])
+ - Config: `experimental-quiesce`: it's now the default. ([#7586])
+ - JSON-RPC: `close` `tx` and `txid` field (use `txs` and `txids`) ([#7466])
+ - JSON-RPC: `decodepay`: use `decode`. ([#7551])
+ - JSON-RPC: `decode` `blinding` in blinded path: use `first_path_key`. ([#7586])
+ - JSON-RPC: `onion_message_recv` and `onion_message_recv_secret` hooks `blinding` in blinded path: use `first_path_key`. ([#7586])
+
+
+### Fixed
+
+ - JSON-RPC: `listforwards` `received-time` is always present (it could be missing for ancient nodes, now it will be 0) ([#7744])
+ - Plugins: `cln-grpc` now understands channel type `anchors/even` ([#7628])
+ - Plugins: `cln-grpc` no longer logs a warning if a notification does not have a handler ([#7867])
+ - JSON-RPC: `close` now correctly reports the txid of the remote onchain unilateral tx if it races with a peer close. ([#7593])
+ - Protocol: we no longer try to spend anchors if a commitment tx is already mined (reported by @niftynei). ([#7593])
+ - pyln-client: plugins now compatible with CLN <= 24.05 (broken in 24.08) ([#7852])
+ - Protocol: Receiving bolt12 payments where we have no public channels would fail a few blocks after startup. ([#7839])
+ - Protocol: entry to blinded paths returns more useful errors (e.g if it's the final node, you get a real error, otherwise you get invalid_onion_blinding). ([#7839])
+ - build: fix overzealous warning from clang 19. ([#7829])
+ - `gossipd` will no longer miss some channel closes on restart. ([#7343])
+ - `onchaind` can miss conclusion of final txs in some cases, will now replay independently. ([#7343])
+ - Plugins: `autoclean` is now gentler on the node when doing giant cleans. ([#7805])
+ - Plugins: libplugin plugins can now intercept `rpc_command` hook without deadlocking. ([#7750])
+ - Plugins: `pay`: debug logging now uses correct JSON ids. ([#7750])
+ - Tools: Fixed regtest directory location for giantnode script. ([#7791])
+ - JSON-RPC: `fetchinvoice` typo fixed about parameters name in err str ([#7787])
+ - Performance: `connectd` and `gossipd` message queues are much more efficient. ([#7767])
+ - Documentation: version strings in documentation should now be correvt ([#7694])
+ - Protocol: we could get confused on restart and not re-transmit our own channel_updates. ([#7737])
+ - connectd: crash on erroneous timeout. ([#7736])
+ - Performance: `pay` now only calls listpeerchannels once ([#7705])
+ - gossipd: crash errors with large gossip_store (>4MB) growth on longer-running nodes. ([#7729])
+ - Performance: `pay` pathfinding speedups for large nodes. ([#7726])
+ - Performance: `listchannels` performance improved on large nodes if deprecated options disabled (omitting call to `listpeerchannels`) ([#7704])
+ - pyln-testing: Fix file descriptor leak in bitcoind fixture. ([#7130]) ([#7669])
+ - JSON-RPC: `listpeerchannels` (and thus, pay) sped up on very large nodes. ([#7679])
+ - lightningd: no longer crash if a plugin dies during lightningd startup. ([#7673])
+ - cln-plugin: Change default log level filter back to INFO ([#7668])
+ - Logging: removed bogus "**BROKEN** plugin-topology: DEPRECATED API USED: listchannels.include_private" message. ([#7663])
+ - Documentation: schemas: Make description in `Wait(any)invoiceResponse` optional to handle BOLT12 ([#7667])
+ - Fixed intermittant bug where hsmd (particularly, but also lightningd) could use 100% CPU. ([#7661])
+ - Docker image created via github actions correctly reads the tag available on the HEAD. ([#7625])
+ - Build: Core lightning's version will not be suffixed with -modded anymore. ([#7625])
+
+
+### EXPERIMENTAL
+
+ - Plugins: `cln-xpay`, with associated `xpay` command for payments (plans to replace `pay` in future). ([#7799])
+ - Config: option `xpay-handle-pay` can be used to call xpay when pay is used in many cases (but output is different from pay!) ([#7799])
+ - Plugins: `askrene` which provides `getroutes` and a complete API for adding information in layers. ([#7782])
+
+
+[#7694]: https://github.com/ElementsProject/lightning/pull/7694
+[#7644]: https://github.com/ElementsProject/lightning/pull/7644
+[#7803]: https://github.com/ElementsProject/lightning/pull/7803
+[#7782]: https://github.com/ElementsProject/lightning/pull/7782
+[#7479]: https://github.com/ElementsProject/lightning/pull/7479
+[#7705]: https://github.com/ElementsProject/lightning/pull/7705
+[#7839]: https://github.com/ElementsProject/lightning/pull/7839
+[#7551]: https://github.com/ElementsProject/lightning/pull/7551
+[#7798]: https://github.com/ElementsProject/lightning/pull/7798
+[#7647]: https://github.com/ElementsProject/lightning/pull/7647
+[#7744]: https://github.com/ElementsProject/lightning/pull/7744
+[#7832]: https://github.com/ElementsProject/lightning/pull/7832
+[#7767]: https://github.com/ElementsProject/lightning/pull/7767
+[#7768]: https://github.com/ElementsProject/lightning/pull/7768
+[#7656]: https://github.com/ElementsProject/lightning/pull/7656
+[#7604]: https://github.com/ElementsProject/lightning/pull/7604
+[#7707]: https://github.com/ElementsProject/lightning/pull/7707
+[#7750]: https://github.com/ElementsProject/lightning/pull/7750
+[#7628]: https://github.com/ElementsProject/lightning/pull/7628
+[#7343]: https://github.com/ElementsProject/lightning/pull/7343
+[#7102]: https://github.com/ElementsProject/lightning/pull/7102
+[#7731]: https://github.com/ElementsProject/lightning/pull/7731
+[#7679]: https://github.com/ElementsProject/lightning/pull/7679
+[#7673]: https://github.com/ElementsProject/lightning/pull/7673
+[#7749]: https://github.com/ElementsProject/lightning/pull/7749
+[#7668]: https://github.com/ElementsProject/lightning/pull/7668
+[#7494]: https://github.com/ElementsProject/lightning/pull/7494
+[#7786]: https://github.com/ElementsProject/lightning/pull/7786
+[#7466]: https://github.com/ElementsProject/lightning/pull/7466
+[#7787]: https://github.com/ElementsProject/lightning/pull/7787
+[#7625]: https://github.com/ElementsProject/lightning/pull/7625
+[#7800]: https://github.com/ElementsProject/lightning/pull/7800
+[#7829]: https://github.com/ElementsProject/lightning/pull/7829
+[#6980]: https://github.com/ElementsProject/lightning/pull/6980
+[#7653]: https://github.com/ElementsProject/lightning/pull/7653
+[#7734]: https://github.com/ElementsProject/lightning/pull/7734
+[#7867]: https://github.com/ElementsProject/lightning/pull/7867
+[#7630]: https://github.com/ElementsProject/lightning/pull/7630
+[#7667]: https://github.com/ElementsProject/lightning/pull/7667
+[#7799]: https://github.com/ElementsProject/lightning/pull/7799
+[#7736]: https://github.com/ElementsProject/lightning/pull/7736
+[#7719]: https://github.com/ElementsProject/lightning/pull/7719
+[#7593]: https://github.com/ElementsProject/lightning/pull/7593
+[#7833]: https://github.com/ElementsProject/lightning/pull/7833
+[#7770]: https://github.com/ElementsProject/lightning/pull/7770
+[#7737]: https://github.com/ElementsProject/lightning/pull/7737
+[#7586]: https://github.com/ElementsProject/lightning/pull/7586
+[#7726]: https://github.com/ElementsProject/lightning/pull/7726
+[#7805]: https://github.com/ElementsProject/lightning/pull/7805
+[#7598]: https://github.com/ElementsProject/lightning/pull/7598
+[#7791]: https://github.com/ElementsProject/lightning/pull/7791
+[#7385]: https://github.com/ElementsProject/lightning/pull/7385
+[#7669]: https://github.com/ElementsProject/lightning/pull/7669
+[#7663]: https://github.com/ElementsProject/lightning/pull/7663
+[#7661]: https://github.com/ElementsProject/lightning/pull/7661
+[#7729]: https://github.com/ElementsProject/lightning/pull/7729
+[#7852]: https://github.com/ElementsProject/lightning/pull/7852
+[#7740]: https://github.com/ElementsProject/lightning/pull/7740
+[#7704]: https://github.com/ElementsProject/lightning/pull/7704
+[#7756]: https://github.com/ElementsProject/lightning/pull/7756
+[24.11rc1]: https://github.com/ElementsProject/lightning/releases/tag/v24.11rc1
+
 
 ## [24.08.2] - 2024-10-18: "Steel Backed-up Channels"
 
