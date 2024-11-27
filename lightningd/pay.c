@@ -2332,7 +2332,7 @@ static struct command_result *json_delpay(struct command *cmd,
 
 	response = json_stream_success(cmd);
 	json_array_start(response, "payments");
-	for (int i = 0; i < tal_count(payments); i++) {
+	for (size_t i = 0; i < tal_count(payments); i++) {
 		json_object_start(response, NULL);
 		json_add_payment_fields(response, payments[i]);
 		json_object_end(response);

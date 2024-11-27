@@ -106,7 +106,7 @@ static void create_flow_reservations(const struct route_query *rq,
 	struct amount_msat msat;
 
 	msat = flow->delivers;
-	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
+	for (size_t i = tal_count(flow->path) - 1; i >= 0; i--) {
 		const struct half_chan *h = flow_edge(flow, i);
 		struct amount_msat amount_to_reserve;
 		struct short_channel_id_dir scidd;
@@ -131,7 +131,7 @@ static void remove_flow_reservations(const struct route_query *rq,
 				     const struct flow *flow)
 {
 	struct amount_msat msat = flow->delivers;
-	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
+	for (size_t i = tal_count(flow->path) - 1; i >= 0; i--) {
 		const struct half_chan *h = flow_edge(flow, i);
 		struct amount_msat amount_to_reserve;
 		struct short_channel_id_dir scidd;
@@ -204,7 +204,7 @@ static enum why_capped flow_max_capacity(const struct route_query *rq,
 	struct amount_msat max_msat = AMOUNT_MSAT(-1ULL);
 	enum why_capped why_capped = CAPPED_CAPACITY;
 
-	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
+	for (size_t i = tal_count(flow->path) - 1; i >= 0; i--) {
 		const struct half_chan *h = flow_edge(flow, i);
 		struct amount_msat min, max, htlc_max;
 		struct short_channel_id_dir scidd;
@@ -283,7 +283,7 @@ static const char *constrain_flow(const tal_t *ctx,
 
 	/* Now, check if any of them violate htlc_min */
 	msat = flow->delivers;
-	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
+	for (size_t i = tal_count(flow->path) - 1; i >= 0; i--) {
 		const struct half_chan *h = flow_edge(flow, i);
 		struct amount_msat min;
 		struct short_channel_id_dir scidd;
@@ -355,7 +355,7 @@ static const char *flow_violates_min(const tal_t *ctx,
 				     const struct flow *flow)
 {
 	struct amount_msat msat = flow->delivers;
-	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
+	for (size_t i = tal_count(flow->path) - 1; i >= 0; i--) {
 		const struct half_chan *h = flow_edge(flow, i);
 		struct amount_msat min;
 		struct short_channel_id_dir scidd;

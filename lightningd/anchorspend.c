@@ -339,7 +339,7 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 	psbt = NULL;
 	unimportant_deadline = NULL;
 
-	for (int i = tal_count(anch->adet->vals) - 1; i >= 0; --i) {
+	for (size_t i = tal_count(anch->adet->vals) - 1; i >= 0; --i) {
 		const struct deadline_value *val = &anch->adet->vals[i];
 		u32 feerate, feerate_target;
 		size_t weight;

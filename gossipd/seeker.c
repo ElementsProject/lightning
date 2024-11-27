@@ -903,7 +903,7 @@ static bool peer_is_not_gossipper(const struct peer *peer)
 static void reset_gossip_performance_metrics(struct seeker *seeker)
 {
 	seeker->new_gossiper_elapsed = 0;
-	for (int i = 0; i < tal_count(seeker->gossiper); i++) {
+	for (size_t i = 0; i < tal_count(seeker->gossiper); i++) {
 		seeker->gossiper[i]->gossip_counter = 0;
 	}
 }

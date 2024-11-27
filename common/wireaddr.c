@@ -875,7 +875,7 @@ struct wireaddr *fromwire_wireaddr_array(const tal_t *ctx, const u8 *ser)
 
 bool all_tor_addresses(const struct wireaddr_internal *wireaddr)
 {
-	for (int i = 0; i < tal_count(wireaddr); i++) {
+	for (size_t i = 0; i < tal_count(wireaddr); i++) {
 		switch (wireaddr[i].itype) {
 		case ADDR_INTERNAL_SOCKNAME:
 			return false;

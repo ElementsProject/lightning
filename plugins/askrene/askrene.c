@@ -278,7 +278,7 @@ static const char *fmt_flow_full(const tal_t *ctx,
 								     total_delivered,
 								     delay_feefactor)));
 
-	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
+	for (size_t i = tal_count(flow->path) - 1; i >= 0; i--) {
 		struct short_channel_id_dir scidd;
 		struct amount_msat min, max;
 		scidd.scid = gossmap_chan_scid(rq->gossmap, flow->path[i]);

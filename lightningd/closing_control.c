@@ -68,12 +68,12 @@ resolve_one_close_command(struct close_command *cc, bool cooperative,
 	}
 
 	json_array_start(result, "txs");
-	for (int i = 0; i < tal_count(close_txs); i++)
+	for (size_t i = 0; i < tal_count(close_txs); i++)
 		json_add_tx(result, NULL, close_txs[i]);
 	json_array_end(result);
 
 	json_array_start(result, "txids");
-	for (int i = 0; i < tal_count(close_txs); i++) {
+	for (size_t i = 0; i < tal_count(close_txs); i++) {
 		if (invalid_last_tx(close_txs[i])) {
 			json_add_string(result, NULL, "INVALID_TXID");
 		} else {

@@ -398,7 +398,7 @@ static void fail(struct info *info,
 	failed->onion = create_onionreply(failed, &htlc->secrets[tal_count(htlc->secrets) - 1], msg);
 
 	/* We create backwards, using shared secrets to wrap */
-	for (int i = tal_count(htlc->secrets) - 1; i >= 0; i--)
+	for (size_t i = tal_count(htlc->secrets) - 1; i >= 0; i--)
 		failed->onion = wrap_onionreply(failed, &htlc->secrets[i], failed->onion);
 
 	msg = towire_channeld_got_commitsig(NULL,

@@ -329,7 +329,7 @@ static struct psbt_changeset *get_changes(const tal_t *ctx,
 							next_psbt);
 
 	/* Remove duplicate serial_ids from the change set. */
-	for (int i = 0; i < tal_count(set->added_ins); i++) {
+	for (size_t i = 0; i < tal_count(set->added_ins); i++) {
 		struct bitcoin_outpoint point;
 		wally_psbt_input_get_outpoint(&set->added_ins[i].input, &point);
 		if (psbt_get_serial_id(&set->added_ins[i].input.unknowns,
@@ -341,7 +341,7 @@ static struct psbt_changeset *get_changes(const tal_t *ctx,
 				tal_arr_remove(&set->added_ins, i--);
 		}
 	}
-	for (int i = 0; i < tal_count(set->added_outs); i++)
+	for (size_t i = 0; i < tal_count(set->added_outs); i++)
 		if (psbt_get_serial_id(&set->added_outs[i].output.unknowns,
 				       &serial_id))
 			if (psbt_find_serial_output(ictx->current_psbt,

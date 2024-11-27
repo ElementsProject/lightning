@@ -327,7 +327,7 @@ static void generate_header_padding(void *dst, size_t dstlen,
 	size_t fillerStart, fillerEnd, fillerSize;
 
 	memset(dst, 0, dstlen);
-	for (int i = 0; i < tal_count(path->hops) - 1; i++) {
+	for (size_t i = 0; i < tal_count(path->hops) - 1; i++) {
 		subkey_from_hmac("rho", &params[i].secret, &key);
 
 		/* Sum up how many bytes have been used by previous hops,
@@ -358,7 +358,7 @@ static void generate_prefill(void *dst, size_t dstlen,
 	size_t fillerStart, fillerSize;
 
 	memset(dst, 0, dstlen);
-	for (int i = 0; i < tal_count(path->hops); i++) {
+	for (size_t i = 0; i < tal_count(path->hops); i++) {
 		subkey_from_hmac("rho", &params[i].secret, &key);
 
 		/* Sum up how many bytes have been used by previous hops,

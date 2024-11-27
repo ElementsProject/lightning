@@ -170,7 +170,7 @@ static const char *describe_disabled(const tal_t *ctx,
 				     const struct gossmap_chan *c,
 				     const struct short_channel_id_dir *scidd)
 {
-	for (int i = tal_count(rq->layers) - 1; i >= 0; i--) {
+	for (size_t i = tal_count(rq->layers) - 1; i >= 0; i--) {
 		struct gossmap_node *dst = gossmap_nth_node(rq->gossmap, c, !scidd->dir);
 		struct node_id dstid;
 
@@ -192,7 +192,7 @@ static const char *describe_capacity(const tal_t *ctx,
 				     const struct short_channel_id_dir *scidd,
 				     struct amount_msat amount)
 {
-	for (int i = tal_count(rq->layers) - 1; i >= 0; i--) {
+	for (size_t i = tal_count(rq->layers) - 1; i >= 0; i--) {
 		if (layer_created(rq->layers[i], scidd->scid)) {
 			return tal_fmt(ctx, " (created by layer %s) isn't big enough to carry %s.",
 				       layer_name(rq->layers[i]),

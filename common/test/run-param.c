@@ -304,7 +304,7 @@ static void null_params(void)
 		     p_opt("5", param_u64, &intptrs[5]),
 		     p_opt("6", param_u64, &intptrs[6]),
 		     NULL));
-	for (int i = 0; i < tal_count(intptrs); ++i) {
+	for (size_t i = 0; i < tal_count(intptrs); ++i) {
 		assert(intptrs[i]);
 		assert(*intptrs[i] == i + 10);
 	}
@@ -400,14 +400,14 @@ static void add_members(struct param **params,
 			char **obj,
 			char **arr, unsigned int **ints)
 {
-	for (int i = 0; i < tal_count(ints); ++i) {
-		const char *name = tal_fmt(*params, "%i", i);
+	for (size_t i = 0; i < tal_count(ints); ++i) {
+		const char *name = tal_fmt(*params, "%i", (int)i);
 		if (i != 0) {
 			tal_append_fmt(obj, ", ");
 			tal_append_fmt(arr, ", ");
 		}
-		tal_append_fmt(obj, "\"%i\" : %i", i, i);
-		tal_append_fmt(arr, "%i", i);
+		tal_append_fmt(obj, "\"%i\" : %i", (int)i, (int)i);
+		tal_append_fmt(arr, "%i", (int)i);
 		param_add(params, name, true, NULL, NULL,
 			  typesafe_cb_preargs(struct command_result *, void **,
 					      param_number,
@@ -438,7 +438,7 @@ static void five_hundred_params(void)
 	/* first test object version */
 	struct json *j = json_parse(params, obj);
 	assert(param_arr(cmd, j->buffer, j->toks, params, false) == NULL);
-	for (int i = 0; i < tal_count(ints); ++i) {
+	for (size_t i = 0; i < tal_count(ints); ++i) {
 		assert(ints[i]);
 		assert(*ints[i] == i);
 		*ints[i] = 65535;
@@ -447,7 +447,7 @@ static void five_hundred_params(void)
 	/* now test array */
 	j = json_parse(params, arr);
 	assert(param_arr(cmd, j->buffer, j->toks, params, false) == NULL);
-	for (int i = 0; i < tal_count(ints); ++i) {
+	for (size_t i = 0; i < tal_count(ints); ++i) {
 		assert(*ints[i] == i);
 	}
 
