@@ -18,6 +18,7 @@ export TIMEOUT=900
 export VALGRIND=${VALGRIND:-0}
 export FUZZING=${FUZZING:-0}
 export LIGHTNINGD_POSTGRES_NO_VACUUM=1
+export GENERATE_EXAMPLES=${GENERATE_EXAMPLES:-0}
 
 pip3 install --upgrade pip
 pip3 install --user poetry
