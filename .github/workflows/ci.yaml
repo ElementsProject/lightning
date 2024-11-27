@@ -24,8 +24,6 @@ jobs:
     timeout-minutes: 30
     env:
       BOLTDIR: bolts
-      VALGRIND: 0
-      PYTEST_OPTS: --timeout=1200
     strategy:
       fail-fast: true
     steps:
@@ -87,6 +85,10 @@ jobs:
       - name: Configure
         run: ./configure --enable-debugbuild --enable-rust
       - name: Check source
+        env:
+          VALGRIND: 0
+          GENERATE_EXAMPLES: 1
+          PYTEST_OPTS: --timeout=1200
         run: make check-source BASE_REF="origin/${{ github.base_ref }}"
       - name: Check Generated Files have been updated
         run: make check-gen-updated
