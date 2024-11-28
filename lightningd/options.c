@@ -550,6 +550,7 @@ static char *opt_set_offline(struct lightningd *ld)
 	ld->reconnect = false;
 	ld->listen = false;
 	log_info(ld->log, "Started in offline mode!");
+	ld->autoconnect_seeker_peers=0;
 	return NULL;
 }
 
