@@ -1,0 +1,13 @@
+repos:
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  # Ruff version.
+  rev: v0.8.0
+  hooks:
+    # Run the linter.
+    - id: ruff
+      args: [ --diff ]
+      exclude: "contrib/pyln-grpc-proto/pyln/grpc/(primitives|node)_pb2(|_grpc).py"
+    # Run the formatter.
+    - id: ruff-format
+      args: [ --diff ]
+      exclude: "contrib/pyln-grpc-proto/pyln/grpc/(primitives|node)_pb2(|_grpc).py"
