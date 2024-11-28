@@ -84,10 +84,18 @@ is set, preventing accidental overwrites from unrelated tests.
 3. Update the Ignore List:
 	- Remove the RPC method name from `IGNORE_RPCS_LIST` to include it in the example generation.
 4. Run and Refine:
-	- Run the test multiple times to detect variable values in responses:
+	- Run the test to detect variable values in responses either with:
+	
+	```bash
+	make repeat-doc-examples n=5
+	```
+
+	where `n` can be any number of repetitions. OR by manually running the test multiple times with:
+
 	```bash
 	rm -rf /tmp/ltests* && make -s && VALGRIND=0 TIMEOUT=40 TEST_DEBUG=1 pytest -vvv -n 6 tests/autogenerate-rpc-examples.py
 	```
+
 	- Identify changing values, and add them to `REPLACE_RESPONSE_VALUES`:
 	```bash
 	REPLACE_RESPONSE_VALUES.extend([

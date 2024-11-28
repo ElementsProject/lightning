@@ -577,6 +577,17 @@ check-amount-access:
 	@! (git grep -nE "(->|\.)(milli)?satoshis" -- "*.c" "*.h" ":(exclude)common/amount.*" ":(exclude)*/test/*" | grep -v '/* Raw:')
 	@! git grep -nE "\\(struct amount_(m)?sat\\)" -- "*.c" "*.h" ":(exclude)common/amount.*" ":(exclude)*/test/*" | grep -vE "sizeof.struct amount_(m)?sat."
 
+repeat-doc-examples:
+	@for i in $$(seq 1 $(n)); do \
+		echo "----------------------------------" >> tests/autogenerate-examples-repeat.log; \
+		echo "Iteration $$i" >> tests/autogenerate-examples-repeat.log; \
+		echo "----------------------------------" >> tests/autogenerate-examples-repeat.log; \
+		VALGRIND=0 TIMEOUT=40 TEST_DEBUG=1 GENERATE_EXAMPLES=1 pytest -vvv tests/autogenerate-rpc-examples.py; \
+		git diff >> tests/autogenerate-examples-repeat.log; \
+		git reset --hard; \
+		echo "----------------------------------" >> tests/autogenerate-examples-repeat.log; \
+	done
+
 update-doc-examples:
 	TEST_DEBUG=1 VALGRIND=0 GENERATE_EXAMPLES=1 $(PYTEST) $(PYTEST_OPTS) --timeout=1200 tests/autogenerate-rpc-examples.py && $(MAKE) $(MSGGEN_GEN_ALL)
 
