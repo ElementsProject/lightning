@@ -37,28 +37,6 @@ const char *${enum_set['name']}_name(int e);
 bool ${enum_set['name']}_is_defined(u16 type);
 % endfor
 
-## Structs for subtypes + tlv messages
-% for struct in structs:
-struct ${struct.struct_name()} {
-        % for f in struct.fields.values():
-            % for c in f.field_comments:
-        /* ${c} */
-            % endfor
-        % if bool(f.len_field_of):
-<% continue %>
-        % endif
-            % if f.is_varlen() and f.type_obj.is_varsize():
-        ${f.type_obj.type_name()} **${f.name};
-            % elif f.is_varlen() or f.type_obj.is_varsize():
-        ${f.type_obj.type_name()} *${f.name};
-            % elif f.is_array():
-        ${f.type_obj.type_name()} ${f.name}[${f.count}];
-            % else:
-        ${f.type_obj.type_name()} ${f.name};
-            % endif
-        % endfor
-};
-% endfor
 ## Structs for TLVs
 % for tlv in tlvs.values():
 struct ${tlv.struct_name()} {
@@ -79,6 +57,29 @@ struct ${tlv.struct_name()} {
         struct ${msg.struct_name()} *${msg.name};
 	% endif
     % endfor
+};
+% endfor
+
+## Structs for subtypes + tlv messages
+% for struct in structs:
+struct ${struct.struct_name()} {
+        % for f in struct.fields.values():
+            % for c in f.field_comments:
+        /* ${c} */
+            % endfor
+        % if bool(f.len_field_of):
+<% continue %>
+        % endif
+            % if f.is_varlen() and f.type_obj.is_varsize():
+        ${f.type_obj.type_name()} **${f.name};
+            % elif f.is_varlen() or f.type_obj.is_varsize():
+        ${f.type_obj.type_name()} *${f.name};
+            % elif f.is_array():
+        ${f.type_obj.type_name()} ${f.name}[${f.count}];
+            % else:
+        ${f.type_obj.type_name()} ${f.name};
+            % endif
+        % endfor
 };
 % endfor
 
