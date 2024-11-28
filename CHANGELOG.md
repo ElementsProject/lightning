@@ -3,35 +3,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## v24.11rc1 - 2024-11-26
-
-This release named by Dusty Daemon.
-
-### Added
-
- - Documentation: Test script generates all RPC documentation examples now (so they should now stay accurate and complete). ([#7756])
- - JSON-RPC: `listaddresses` to list issued addresses from the node. ([#7800])
- - Config: `autoconnect-seeker-peers`, allowing seeker to reach out to new nodes for additional gossip (default: 10). ([#7798])
- - Protocol: `option_quiesce` enabled by default. ([#7586])
- - JSON-RPC: `fetchinvoice` allows setting invreq_metadata via `payer_metadata` parameter. ([#7786])
- - hsmtool: generatehsm can run non-interactive, taking options on the cmdline. ([#7102])
- - Plugins: `pay` now has tracing support for various payment steps. ([#7803])
- - JSON-RPC: `exposesecret` command for encouraging hsm_secret backups. ([#7647])
- - JSON-RPC: `listpays` has `index`, `start` and `limit` parameters for listing control. ([#7385])
- - Plugins: bookkeeper has a new RPC `bkpr-editdescriptionbypaymentid` which will update the description for any event with matching payment_id ([#7604])
- - Config: `grpc-host` option for grpc plugin ([#7479])
- - JSON-RPC: A new magic `dev-splice` command is added that can take a ‘splice script’ or json payload and perform any complex splice across multiple channels merging the result into a single transaction. Some features are disabled and will be added in time. ([#6980])
- - JSON-RPC: low-level RPC command `addpsbtinput` to fund PSBTs directly and help with complex splices & dual-opens. ([#6980])
- - JSON-RPC: `stfu_channels` and `abort_channels` are added for bulk multi-channel splice commands. These allow the user to pause (and resume) multiple channels in place. ([#6980])
- - JSON-RPC: `injectpaymentonion` for initiating an HTLC like a peer would do. ([#7749])
- - Documentation: Example documentation on generating custom gRPC ([#7731])
- - Installation: Nix users can now install CLN from the new flake. ([#7656])
- - JSON-RPC: `decode` now used modern BOLT 4 language for blinded paths, `first_path_key`. ([#7586])
- - Plugins: `onion_message_recv` and `onion_message_recv_secret` hooks now used modern BOLT 4 language for blinded paths, `first_path_key`. ([#7586])
- - JSON-RPC: keysend `maxfee` parameter for consistency with pay. ([#7227]) ([#7653])
- - `hsmtool`: `getnodeid` command derives the node id from the hsm_secret, to verify it's the correct secret. ([#7644])
-
-## v24.11rc1 - 2024-11-26
+## [24.11rc2] - 2024-11-28: "TBA"
 
 This release named by Dusty Daemon.
 
