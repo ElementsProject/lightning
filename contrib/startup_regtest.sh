@@ -72,6 +72,11 @@ else
 	# This mirrors "type" output above.
 fi
 
+# Test for cln-gprc
+if "$LIGHTNINGD" --help | grep -q grpc; then
+    HAVE_GRPC=1
+fi
+
 if [ -z "$LIGHTNING_DIR" ]; then
     # Default is to use the /tmp directory
     LIGHTNING_DIR=/tmp
@@ -204,6 +209,11 @@ funder-lease-requests-only=false
 		# If clnrest loads, add the port so it will run
 		if [ -n "$ACTIVATE_CLNREST" ]; then
 			echo "clnrest-port=$((3109+i))" >> "$LIGHTNING_DIR/l$i/config"
+		fi
+
+		# Grpc port too
+		if [ -n "$HAVE_GRPC" ]; then
+		    echo "grpc-port=$((9736+i))" >> "$LIGHTNING_DIR/l$i/config"
 		fi
 
 		# Start the lightning nodes
