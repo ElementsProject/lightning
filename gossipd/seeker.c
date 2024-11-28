@@ -815,6 +815,59 @@ static void probe_many_random_scids(struct seeker *seeker)
 	return probe_random_scids(seeker, 10000);
 }
 
+/* Find a random node with an announcement. */
+static struct node_id *get_random_node(const tal_t *ctx,
+				       struct seeker *seeker)
+{
+	struct gossmap *gossmap = gossmap_manage_get_gossmap(seeker->daemon->gm);
+	struct gossmap_node *node = gossmap_random_node(gossmap);
+
+	if (!node)
+		return NULL;
+
+	for (int i = 0; i<20; i++) {
+		struct node_id id;
+
+		gossmap_node_get_id(gossmap, node, &id);
+		/* Make sure it *has* an announcement, and we're not
+		 * already connected */
+		if (gossmap_node_get_announce(tmpctx, gossmap, node)
+		    && !find_peer(seeker->daemon, &id)) {
+			return tal_dup(ctx, struct node_id, &id);
+		}
+
+		node = gossmap_next_node(gossmap, node);
+		if (!node)
+			node = gossmap_first_node(gossmap);
+	}
+
+	return NULL;
+}
+
+/* Ask lightningd for more peers if we're short on gossip streamers. */
+static void maybe_get_new_peer(struct seeker *seeker)
+{
+	size_t connected_peers = peer_node_id_map_count(seeker->daemon->peers);
+	struct node_id *random_node;
+
+	/* Respect user-defined autoconnect peer limit. */
+	if (connected_peers >= seeker->daemon->autoconnect_seeker_peers)
+		return;
+
+	status_debug("seeker: need more peers for gossip (have %zu)",
+		     connected_peers);
+
+	random_node = get_random_node(tmpctx, seeker);
+	if (!random_node) {
+		status_debug("seeker: no more potential peers found");
+		return;
+	}
+
+	u8 *msg = towire_gossipd_connect_to_peer(NULL, random_node);
+	daemon_conn_send(seeker->daemon->master, take(msg));
+	tal_free(random_node);
+}
+
 static void check_firstpeer(struct seeker *seeker)
 {
 	struct peer *peer = seeker->random_peer;
@@ -826,6 +879,10 @@ static void check_firstpeer(struct seeker *seeker)
 		/* No peer?  Wait for a new one to join. */
 		if (!peer) {
 			status_debug("seeker: no peers, waiting");
+			if (seeker->new_gossiper_elapsed)
+				maybe_get_new_peer(seeker);
+			else
+				seeker->new_gossiper_elapsed++;
 			return;
 		}
 
@@ -903,7 +960,7 @@ static bool peer_is_not_gossipper(const struct peer *peer)
 static void reset_gossip_performance_metrics(struct seeker *seeker)
 {
 	seeker->new_gossiper_elapsed = 0;
-	for (int i = 0; i < tal_count(seeker->gossiper); i++) {
+	for (size_t i = 0; i < tal_count(seeker->gossiper); i++) {
 		if (seeker->gossiper[i])
 			seeker->gossiper[i]->gossip_counter = 0;
 	}
@@ -939,7 +996,7 @@ static void maybe_rotate_gossipers(struct seeker *seeker)
 		return;
 	u32 lowest_count = UINT_MAX;
 	lowest_idx = 0;
-	for (int j = 0; j < tal_count(seeker->gossiper); j++) {
+	for (size_t j = 0; j < tal_count(seeker->gossiper); j++) {
 		if (seeker->gossiper[j]->gossip_counter < lowest_count) {
 			lowest_count = seeker->gossiper[j]->gossip_counter;
 			lowest_idx = j;
@@ -968,59 +1025,6 @@ static bool seek_any_unknown_nodes(struct seeker *seeker)
 	seeker->unknown_nodes = false;
 	probe_many_random_scids(seeker);
 	return true;
-}
-
-/* Find a random node with an announcement. */
-static struct node_id *get_random_node(const tal_t *ctx,
-				       struct seeker *seeker)
-{
-	struct gossmap *gossmap = gossmap_manage_get_gossmap(seeker->daemon->gm);
-	struct gossmap_node *node = gossmap_random_node(gossmap);
-
-	if (!node)
-		return NULL;
-
-	for (int i = 0; i<20; i++) {
-		struct node_id id;
-
-		gossmap_node_get_id(gossmap, node, &id);
-		/* Make sure it *has* an announcement, and we're not
-		 * already connected */
-		if (gossmap_node_get_announce(tmpctx, gossmap, node)
-		    && !find_peer(seeker->daemon, &id)) {
-			return tal_dup(ctx, struct node_id, &id);
-		}
-
-		node = gossmap_next_node(gossmap, node);
-		if (!node)
-			node = gossmap_first_node(gossmap);
-	}
-
-	return NULL;
-}
-
-/* Ask lightningd for more peers if we're short on gossip streamers. */
-static void maybe_get_new_peer(struct seeker *seeker)
-{
-	size_t connected_peers = peer_node_id_map_count(seeker->daemon->peers);
-	struct node_id *random_node;
-
-	/* Respect user-defined autoconnect peer limit. */
-	if (connected_peers >= seeker->daemon->autoconnect_seeker_peers)
-		return;
-
-	status_debug("seeker: need more peers for gossip (have %zu)",
-		     connected_peers);
-
-	random_node = get_random_node(tmpctx, seeker);
-	if (!random_node) {
-		status_debug("seeker: no more potential peers found");
-		return;
-	}
-
-	u8 *msg = towire_gossipd_connect_to_peer(NULL, random_node);
-	daemon_conn_send(seeker->daemon->master, take(msg));
-	tal_free(random_node);
 }
 
 /* Periodic timer to see how our gossip is going. */
