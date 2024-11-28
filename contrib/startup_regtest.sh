@@ -145,8 +145,8 @@ wait_for_lightningd() {
 
 clnrest_status() {
 	logfile="$1"
-	active_str="plugin-clnrest.py: REST Server is starting"
-	disabled_str="plugin-clnrest.py: Killing plugin: disabled itself"
+	active_str="plugin-clnrest: REST Server is starting"
+	disabled_str="plugin-clnrest: Killing plugin: disabled itself"
 
 	if grep -q "$active_str" "$logfile"; then
 		echo "active"
