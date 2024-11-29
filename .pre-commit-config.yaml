@@ -11,3 +11,9 @@ repos:
     - id: ruff-format
       args: [ --diff ]
       exclude: "contrib/pyln-grpc-proto/pyln/grpc/(primitives|node)_pb2(|_grpc).py"
+
+- repo: https://github.com/shellcheck-py/shellcheck-py
+  rev: v0.11.0.1
+  hooks:
+    - id: shellcheck
+      args: [ -fgcc ]
