@@ -11,3 +11,9 @@ repos:
     - id: ruff-format
       args: [ --diff ]
       exclude: "contrib/pyln-grpc-proto/pyln/grpc/(primitives|node)_pb2(|_grpc).py"
+
+- repo: https://github.com/koalaman/shellcheck-precommit
+  rev: v0.10.0
+  hooks:
+    - id: shellcheck
+      args: [ -fgcc ]
