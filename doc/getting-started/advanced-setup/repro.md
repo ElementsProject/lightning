@@ -25,6 +25,10 @@ Note: Since your signature certifies the integrity of the resulting binaries, pl
 
 The build environments are a set of docker images that are created directly from the installation mediums and repositories from the OS provider. The following sections describe how to create those images. Don't worry, you only have to create each image once and can then reuse the images for future builds.
 
+## Script cl-repro
+
+The script `contrib/cl-repro.sh` covers below `Base image creation` and `Builder image setup` steps. You can skip these steps by simply running the `contrib/cl-repro.sh` script.
+
 ## Base image creation
 
 Depending on the distribution that we want to build for the instructions to create a base image can vary. In the following sections we discuss the specific instructions for each distribution, whereas the instructions are identical again once we have the base image.
@@ -92,10 +96,6 @@ Since we pass the `Dockerfile` through `stdin` the build command will not create
 sufficient to ensure that the resulting `cl-repro-<codename>` image is reproducible.
 
 The dockerfiles assume that the base image has the codename as its image name.
-
-## Script cl-repro
-
-The script `contrib/cl-repro.sh` covers above `Base image creation` and `Builder image setup` steps. You can skip these steps by simply running the `contrib/cl-repro.sh` script.
 
 # Building using the builder image
 
