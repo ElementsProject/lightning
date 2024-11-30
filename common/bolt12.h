@@ -75,12 +75,16 @@ char *invoice_encode(const tal_t *ctx, const struct tlv_invoice *bolt12_tlv);
  * is not expired).  It also checks signature.
  *
  * Note: blinded path features need to be checked by the caller before use!
+ * Note: expiration must be check by caller before use!
  */
 struct tlv_invoice *invoice_decode(const tal_t *ctx,
 				   const char *b12, size_t b12len,
 				   const struct feature_set *our_features,
 				   const struct chainparams *must_be_chain,
 				   char **fail);
+
+/* UINT64_MAX if no expiry. */
+u64 invoice_expiry(const struct tlv_invoice *invoice);
 
 /* This one only checks it decides, and optionally is correct chain/features */
 struct tlv_invoice *invoice_decode_minimal(const tal_t *ctx,

@@ -6770,7 +6770,6 @@ def test_pay_unannounced_routehint(node_factory, bitcoind):
     assert result["status"] == "complete", f"pay result is {result}"
 
 
-@pytest.mark.xfail(strict=True)
 def test_decode_expired_bolt12(node_factory):
     l1 = node_factory.get_node()
 
