@@ -17,3 +17,14 @@ repos:
   hooks:
     - id: shellcheck
       args: [ -fgcc ]
+
+- repo: local
+  hooks:
+    # Reimplementation of `make check-amount-access` for pygrep.
+    - id: check-amount-access
+      name: Check amount_msat and amount_sat members are not accessed directly
+      description: "Don't access amount_msat and amount_sat members directly without a good reason since it risks overflow."
+      language: pygrep
+      entry: (->|\.)(milli)?satoshis(?!.*\/\*\ Raw:)|(?<!sizeof)\(struct\ amount_(m)?sat\)
+      types: [ c ]
+      exclude: common/amount|.*/test/.*
