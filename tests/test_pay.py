@@ -6768,3 +6768,34 @@ def test_pay_unannounced_routehint(node_factory, bitcoind):
                          dev_routes=[routel2l3])
     result = l1.rpc.pay(inv['bolt11'])
     assert result["status"] == "complete", f"pay result is {result}"
+
+
+@pytest.mark.xfail(strict=True)
+def test_decode_expired_bolt12(node_factory):
+    l1 = node_factory.get_node()
+
+    assert l1.rpc.decode('lni1qqgr7gm5fdxs3maw5tx94yx3k2hzxzqrqc0xsz3pwpkxz7t9wf0nwvpkxacku6tzxdhkuemfwdmrv6rywgmkxu35dvcrq93pqvvhnlnvurnfanndnxjtcjnmxrkj92xtsupa6lwjm7hkr8s8zflqkkppqgr5egnuvnfxvhzgemdljrkr5xhapg9zkjd73nqnmgxeesclr0j5skfud3hx7vt6vdehxwfjwakkxwt909skuamydfek67t2vau8zwfc0qukkennw9ensv3nvee8g7rww9jkwmrjwuursanpds6hydmy5zvqxxtelekwpe57eekenf9uffanpmfz4r9cwq7a0hfdltmpncr3ylstqvk0f8p94n8sk8r5pwh5um0v5sgs3atjnk54ja7yxle4putgwrv3sqgr72f645z9yjhe6f0r0ccfwhyufr0h734m2url2yputu25w7yzauxsqv4wftn76zuzrk9mkw203nfsz0kkc4ksk2d6ahd3ecslhrp5ecel7k0zy5r4s46fyjcr5x6kwcry08runv9zrsqqqqqqqqqqqqqqzgqqqqqqqqqqqqqayjedltzjqqqqqq9yq3n5ft0l4qs03nycmga9uqvexwyq2x59y8326r256clag77sq9z5m9wm9jz4ned2qvrpu69syyp3j707dnswd8kwdkv6f0z20vcw6g4gewrs8hta6t067cv7quf8uzlsgqjjt30e2udf5y3d79xpp7fhxktd4qflyexnsn3zthx2u9g5hzt2j45ky7q3mchmq75cqzxlr2x09dlhg6pj958xwgpykl0aczwepj6q') == {
+        'invoice_amount_msat': 401000,
+        'invoice_created_at': 1732554239,
+        'invoice_node_id': '031979fe6ce0e69ece6d99a4bc4a7b30ed22a8cb8703dd7dd2dfaf619e07127e0b',
+        'invoice_paths': [{'first_node_id': '031979fe6ce0e69ece6d99a4bc4a7b30ed22a8cb8703dd7dd2dfaf619e07127e0b',
+                           'first_path_key': '032cf49c25accf0b1c740baf4e6deca41108f5729da95977c437f350f16870d918',
+                           'path': [{'blinded_node_id': '03f293aad04524af9d25e37e30975c9c48df7f46bb5707f5103c5f15477882ef0d',
+                                     'encrypted_recipient_data': 'ae4ae7ed0b821d8bbb394f8cd3013ed6c56d0b29baeddb1ce21fb8c34ce33ff59e2250758574924b03a1b567606479c7c9b0'}],
+                           'payinfo': {'cltv_expiry_delta': 18,
+                                       'features': '',
+                                       'fee_base_msat': 0,
+                                       'fee_proportional_millionths': 0}}],
+        'invoice_payment_hash': 'f8cc98da3a5e01993388051a8521e2ad0d54d63fd47bd001454d95db2c8559e5',
+        'invoice_relative_expiry': 7200,
+        'invreq_metadata': '3f23744b4d08efaea2cc5a90d1b2ae23',
+        'invreq_payer_id': '02074ca27c64d2665c48cedbf90ec3a1afd0a0a2b49be8cc13da0d9cc31f1be548',
+        'invreq_payer_note': 'lno1zcss92wmc9eyanwdjsmyjgxq98x9kfsqs823frtxnqeglrw88val5r7d',
+        'offer_amount_msat': 401000,
+        'offer_description': 'player_7067qnib3ongisv6hdr7cr4k00',
+        'offer_id': '0a32bd421b9c2b1d2cc1c49a5ff1aa8adb5ce02b6dde496358d874e9ca181276',
+        'offer_issuer_id': '031979fe6ce0e69ece6d99a4bc4a7b30ed22a8cb8703dd7dd2dfaf619e07127e0b',
+        'signature': '2525c5f9571a9a122df14c10f9373596da813f264d384e225dccae1514b896a9569627811de2fb07a98008df1a8cf2b7f7468322d0e672024b7dfdc09d90cb40',
+        'type': 'bolt12 invoice',
+        'valid': True,
+    }
