@@ -473,3 +473,51 @@ def test_xpay_preapprove(node_factory):
 
     with pytest.raises(RpcError, match=r"invoice was declined"):
         l1.rpc.xpay(inv)
+
+
+@pytest.mark.xfail(strict=True)
+def test_xpay_maxfee(node_factory, bitcoind, chainparams):
+    """Test which shows that we don't excees maxfee"""
+    outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
+    subprocess.check_output(['devtools/gossmap-compress',
+                             'decompress',
+                             '--node-map=3301=022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
+                             'tests/data/gossip-store-2024-09-22.compressed',
+                             outfile.name]).decode('utf-8').splitlines()
+    AMOUNT = 100_000_000
+
+    # l2 will warn l1 about its invalid gossip: ignore.
+    # We throttle l1's gossip to avoid massive log spam.
+    l1, l2 = node_factory.line_graph(2,
+                                     # This is in sats, so 1000x amount we send.
+                                     fundamount=AMOUNT,
+                                     opts=[{'gossip_store_file': outfile.name,
+                                            'subdaemon': 'channeld:../tests/plugins/channeld_fakenet',
+                                            'allow_warning': True,
+                                            'dev-throttle-gossip': None},
+                                           {'allow_bad_gossip': True}])
+
+    # l1 needs to know l2's shaseed for the channel so it can make revocations
+    hsmfile = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    # Needs peer node id and channel dbid (1, it's the first channel), prints out:
+    # "shaseed: xxxxxxx\n"
+    shaseed = subprocess.check_output(["tools/hsmtool", "dumpcommitments", l1.info['id'], "1", "0", hsmfile]).decode('utf-8').strip().partition(": ")[2]
+    l1.rpc.dev_peer_shachain(l2.info['id'], shaseed)
+
+    # This one triggers the bug!
+    n = 59
+    maxfee = 57966
+    preimage_hex = bytes([n + 100]).hex() + '00' * 31
+    hash_hex = sha256(bytes.fromhex(preimage_hex)).hexdigest()
+    inv = subprocess.check_output(["devtools/bolt11-cli",
+                                   "encode",
+                                   n.to_bytes(length=8, byteorder=sys.byteorder).hex() + '01' * 24,
+                                   f"currency={chainparams['bip173_prefix']}",
+                                   f"p={hash_hex}",
+                                   f"s={'00' * 32}",
+                                   f"d=Paying node {n} with maxfee",
+                                   f"amount={AMOUNT}msat"]).decode('utf-8').strip()
+
+    ret = l1.rpc.xpay(invstring=inv, maxfee=maxfee)
+    fee = ret['amount_sent_msat'] - ret['amount_msat']
+    assert fee <= maxfee
