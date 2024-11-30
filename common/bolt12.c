@@ -489,7 +489,6 @@ struct tlv_invoice *invoice_decode(const tal_t *ctx,
 				   char **fail)
 {
 	struct tlv_invoice *invoice;
-	u64 expiry, now;
 
 	invoice = invoice_decode_minimal(ctx, b12, b12len, our_features,
 					 must_be_chain, fail);
@@ -528,27 +527,6 @@ struct tlv_invoice *invoice_decode(const tal_t *ctx,
 	}
 
 	/* BOLT-offers #12:
-	 * - if `invoice_relative_expiry` is present:
-	 *   - MUST reject the invoice if the current time since 1970-01-01 UTC
-	 *     is greater than `invoice_created_at` plus `seconds_from_creation`.
-	 * - otherwise:
-	 *   - MUST reject the invoice if the current time since 1970-01-01 UTC
-	 *     is greater than `invoice_created_at` plus 7200.
-	 */
-	if (invoice->invoice_relative_expiry)
-		expiry = *invoice->invoice_relative_expiry;
-	else
-		expiry = 7200;
-	now = time_now().ts.tv_sec;
-	/* If it overflows, it's forever */
-	if (!add_overflows_u64(*invoice->invoice_created_at, expiry)
-	    && now > *invoice->invoice_created_at + expiry) {
-		*fail = tal_fmt(ctx, "expired %"PRIu64" seconds ago",
-				now - (*invoice->invoice_created_at + expiry));
-		return tal_free(invoice);
-	}
-
-	/* BOLT-offers #12:
 	 * - MUST reject the invoice if `invoice_paths` is not present or is
 	 *   empty. */
 	if (tal_count(invoice->invoice_paths) == 0) {
@@ -581,6 +559,30 @@ struct tlv_invoice *invoice_decode(const tal_t *ctx,
 	}
 
 	return invoice;
+}
+
+u64 invoice_expiry(const struct tlv_invoice *invoice)
+{
+	u64 expiry;
+
+	/* BOLT-offers #12:
+	 * - if `invoice_relative_expiry` is present:
+	 *   - MUST reject the invoice if the current time since 1970-01-01 UTC
+	 *     is greater than `invoice_created_at` plus `seconds_from_creation`.
+	 * - otherwise:
+	 *   - MUST reject the invoice if the current time since 1970-01-01 UTC
+	 *     is greater than `invoice_created_at` plus 7200.
+	 */
+	if (invoice->invoice_relative_expiry)
+		expiry = *invoice->invoice_relative_expiry;
+	else
+		expiry = 7200;
+
+	/* If it overflows, it's forever */
+	if (add_overflows_u64(*invoice->invoice_created_at, expiry))
+		return UINT64_MAX;
+
+	return *invoice->invoice_created_at + expiry;
 }
 
 static bool bolt12_has_invoice_prefix(const char *str)

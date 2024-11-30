@@ -107,6 +107,7 @@
     "- -1: Catchall nonspecific error.",
     "- 203: Permanent failure from destination (e.g. it said it didn't recognize invoice)",
     "- 205: Couldn't find, or find a way to, the destination.",
+    "- 207: Invoice has expired.",
     "- 219: Invoice has already been paid.",
     "- 209: Other payment error."
   ],
