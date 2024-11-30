@@ -1414,6 +1414,7 @@ static struct command_result *json_xpay(struct command *cmd,
 	struct payment *payment = tal(cmd, struct payment);
 	unsigned int *retryfor;
 	struct out_req *req;
+	u64 now, invexpiry;
 	char *err;
 
 	if (!param_check(cmd, buffer, params,
@@ -1448,6 +1449,7 @@ static struct command_result *json_xpay(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Invalid bolt12 invoice: %s", err);
 
+		invexpiry = invoice_expiry(b12inv);
 		payment->full_amount = amount_msat(*b12inv->invoice_amount);
 		if (msat)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -1517,7 +1519,15 @@ static struct command_result *json_xpay(struct command *cmd,
 			payment->full_amount = *b11->msat;
 		else
 			payment->full_amount = *msat;
+
+		invexpiry = b11->timestamp + b11->expiry;
 	}
+
+	now = time_now().ts.tv_sec;
+	if (now > invexpiry)
+		return command_fail(cmd, PAY_INVOICE_EXPIRED,
+				    "Invoice expired %"PRIu64" seconds ago",
+				    now - invexpiry);
 
 	if (partial) {
 		payment->amount = *partial;

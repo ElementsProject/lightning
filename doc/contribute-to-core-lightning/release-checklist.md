@@ -34,7 +34,7 @@ Here's a checklist for the release process.
 3. Confirm that the tag will show up for builds with `git describe`
 4. Push the tag to remote `git push --tags`.
 5. Draft a new `v<VERSION>rc1` release on Github and check `Set as a pre-release` option.
-6. Follow [reproducible build](https://docs.corelightning.org/docs/repro) for [Builder image setup](https://docs.corelightning.org/docs/repro#builder-image-setup). It will create builder images `cl-repro-<codename>` which are required for the next step.
+6. Run the script `contrib/cl-repro.sh` for [Builder image setup](https://docs.corelightning.org/docs/repro#builder-image-setup). This will create the required builder images `cl-repro-<codename>` for the next step.
 7. Run `tools/build-release.sh bin-Fedora-28-amd64 bin-Ubuntu sign` script to prepare required builds for the release. With `bin-Fedora-28-amd64 bin-Ubuntu sign`, it will build a zipfile, a non-reproducible Fedora, reproducible Ubuntu images. Once it is done, the script will sign the release contents and create SHA256SUMS and SHA256SUMS.asc in the release folder.
 8. Upload reproducible builds, SHA256SUMS and SHA256SUMS.asc from the release folder to newly drafted release.
 9. Announce rc1 release on core-lightning's release-chat channel on Discord & [BuildOnL2](https://community.corelightning.org/c/general-questions/).
@@ -117,7 +117,7 @@ Here's a checklist for the release process.
 7. Confirm that the tag is properly set up for builds by running `git describe`.
 8. Push the tag to the remote repository `git push --tags`.
 9. Create a new release draft for `v<VERSION>.<POINT_VERSION>` on GitHub, ensuring to check the `Set as a pre-release` option.
-10. Follow the [reproducible build](https://docs.corelightning.org/docs/repro) instructions for [Builder image setup](https://docs.corelightning.org/docs/repro#builder-image-setup) to create builder images named `cl-repro-<codename>` required for the next step.
+10. Execute the script contrib/cl-repro.sh for the [Builder image setup](https://docs.corelightning.org/docs/repro#builder-image-setup). This will generate the builder images `cl-repro-<codename>` needed for the next step.
 11. Run the following script to prepare the required builds `tools/build-release.sh bin-Fedora-28-amd64 bin-Ubuntu sign`.
 12. Upload the reproducible builds along with `SHA256SUMS` and `SHA256SUMS.asc` files from the release folder to the newly drafted release.
 13. Share the `SHA256SUMS` and `SHA256SUMS.asc` files with the team for verification and signing.
