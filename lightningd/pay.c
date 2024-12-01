@@ -219,7 +219,7 @@ json_add_routefail_info(struct json_stream *js,
 	json_add_num(js, "erring_index", erring_index);
 	json_add_num(js, "failcode", failcode);
 	/* FIXME: Better way to detect this? */
-	if (!strstarts(failcodename, "INVALID "))
+	if (!strstarts(failcodename, "UNKNOWN "))
 		json_add_string(js, "failcodename", failcodename);
 
 	if (erring_node != NULL)

@@ -839,7 +839,7 @@ void subd_send_msg(struct subd *sd, const u8 *msg_out)
 	u16 type = fromwire_peektype(msg_out);
 	/* FIXME: We should use unique upper bits for each daemon, then
 	 * have generate-wire.py add them, just assert here. */
-	if (strstarts(sd->msgname(type), "INVALID"))
+	if (strstarts(sd->msgname(type), "UNKNOWN"))
 		fatal("Sending %s an invalid message %s", sd->name, tal_hex(tmpctx, msg_out));
 	msg_enqueue(sd->outq, msg_out);
 }

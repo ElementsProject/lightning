@@ -1658,13 +1658,13 @@ bool channel_force_htlcs(struct channel *channel,
 
 const char *channel_add_err_name(enum channel_add_err e)
 {
-	static char invalidbuf[sizeof("INVALID ") + STR_MAX_CHARS(e)];
+	static char invalidbuf[sizeof("UNKNOWN ") + STR_MAX_CHARS(e)];
 
 	for (size_t i = 0; enum_channel_add_err_names[i].name; i++) {
 		if (enum_channel_add_err_names[i].v == e)
 			return enum_channel_add_err_names[i].name;
 	}
-	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
+	snprintf(invalidbuf, sizeof(invalidbuf), "UNKNOWN %i", e);
 	return invalidbuf;
 }
 

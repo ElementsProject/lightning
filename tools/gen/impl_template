@@ -24,7 +24,7 @@ ${i}
 
 const char *${enum_set['name']}_name(int e)
 {
-	static char invalidbuf[sizeof("INVALID ") + STR_MAX_CHARS(e)];
+	static char invalidbuf[sizeof("UNKNOWN ") + STR_MAX_CHARS(e)];
 
 	switch ((enum ${enum_set['name']})e) {
     % for msg in enum_set['set']:
@@ -32,7 +32,7 @@ const char *${enum_set['name']}_name(int e)
     % endfor
 	}
 
-	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
+	snprintf(invalidbuf, sizeof(invalidbuf), "UNKNOWN %i", e);
 	return invalidbuf;
 }
 
