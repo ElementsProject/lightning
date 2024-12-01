@@ -28,3 +28,11 @@ repos:
       entry: (->|\.)(milli)?satoshis(?!.*\/\*\ Raw:)|(?<!sizeof)\(struct\ amount_(m)?sat\)
       types: [ c ]
       exclude: common/amount|.*/test/.*
+
+    # Reimplementation of `make check-discouraged-functions` for pygrep.
+    - id: check-discouraged-functions
+      name: Check for usage of discouraged funtions
+      language: pygrep
+      entry: '[^a-z_/](?:fgets|fputs|gets|scanf|sprintf)\('
+      types: [ c ]
+      exclude: ccan|contrib
