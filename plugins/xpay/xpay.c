@@ -749,6 +749,25 @@ static struct amount_msat total_being_sent(const struct payment *payment)
 	return sum;
 }
 
+static struct amount_msat total_fees_being_sent(const struct payment *payment)
+{
+	struct attempt *attempt;
+	struct amount_msat sum = AMOUNT_MSAT(0);
+
+	list_for_each(&payment->current_attempts, attempt, list) {
+		struct amount_msat fee;
+		if (tal_count(attempt->hops) == 0)
+			continue;
+		if (!amount_msat_sub(&fee,
+				     attempt->hops[0].amount_in,
+				     attempt->delivers))
+			abort();
+		if (!amount_msat_accumulate(&sum, fee))
+			abort();
+	}
+	return sum;
+}
+
 static struct command_result *injectpaymentonion_succeeded(struct command *aux_cmd,
 							   const char *method,
 							   const char *buf,
@@ -1075,6 +1094,9 @@ static struct command_result *getroutes_done_err(struct command *aux_cmd,
 		return command_still_pending(aux_cmd);
 	}
 
+	/* FIXME: If we fail due to exceeding maxfee, we *could* try waiting for
+	 * any outstanding payments to fail and then try again? */
+
 	/* More elaborate explanation. */
 	if (amount_msat_eq(payment->amount_being_routed, payment->amount))
 		complaint = "Then routing failed";
@@ -1097,6 +1119,7 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 	struct xpay *xpay = xpay_of(aux_cmd->plugin);
 	struct out_req *req;
 	const struct pubkey *dst;
+	struct amount_msat maxfee;
 
 	/* If we get injectpaymentonion responses, they can wait */
 	payment->amount_being_routed = deliver;
@@ -1110,6 +1133,13 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 	if (pubkey_eq(&xpay->local_id, dst)) {
 		struct attempt *attempt = new_attempt(payment, deliver, NULL);
 		return do_inject(aux_cmd, attempt);
+	}
+
+	if (!amount_msat_sub(&maxfee, payment->maxfee, total_fees_being_sent(payment))) {
+		payment_log(payment, LOG_BROKEN, "more fees (%s) in flight than allowed (%s)!",
+			    fmt_amount_msat(tmpctx, total_fees_being_sent(payment)),
+			    fmt_amount_msat(tmpctx, payment->maxfee));
+		maxfee = AMOUNT_MSAT(0);
 	}
 
 	req = jsonrpc_request_start(aux_cmd, "getroutes",
@@ -1139,7 +1169,7 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 	for (size_t i = 0; i < tal_count(payment->layers); i++)
 		json_add_string(req->js, NULL, payment->layers[i]);
 	json_array_end(req->js);
-	json_add_amount_msat(req->js, "maxfee_msat", payment->maxfee);
+	json_add_amount_msat(req->js, "maxfee_msat", maxfee);
 	json_add_u32(req->js, "final_cltv", payment->final_cltv);
 
 	return send_payment_req(aux_cmd, payment, req);

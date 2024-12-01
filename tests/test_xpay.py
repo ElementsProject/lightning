@@ -475,7 +475,7 @@ def test_xpay_preapprove(node_factory):
         l1.rpc.xpay(inv)
 
 
-@pytest.mark.xfail(strict=True)
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'too dusty on elements')
 def test_xpay_maxfee(node_factory, bitcoind, chainparams):
     """Test which shows that we don't excees maxfee"""
     outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
