@@ -1757,7 +1757,7 @@ if __name__ == '__main__':
 
     NETWORK = 'regtest' if args.regtest else 'bitcoin'
     SUPPORTED_NETWORKS = ['bitcoin', 'regtest', 'liquid', 'liquid-regtest',
-                          'litecoin', 'signet', 'testnet']
+                          'litecoin', 'signet', 'testnet', 'testnet4']
     if args.version:
         report_version()
     elif args.cmd1 is None:
