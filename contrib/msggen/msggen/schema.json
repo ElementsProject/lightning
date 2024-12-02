@@ -23999,7 +23999,25 @@
                 "max_total_htlc_in_msat": {
                   "type": "msat",
                   "description": [
-                    "Max amount accept in a single payment."
+                    "Max amount accept in a single payment. This field is deprecated, use instead our_max_htlc_value_in_flight_msat"
+                  ],
+                  "deprecated": [
+                    "v24.11",
+                    "v25.05"
+                  ]
+                },
+                "their_max_htlc_value_in_flight_msat": {
+                  "type": "msat",
+                  "added": "v24.11",
+                  "description": [
+                    "Cap on total value of outstanding HTLCs offered to the remote node. This limits the total amount in flight we can send through this channel."
+                  ]
+                },
+                "our_max_htlc_value_in_flight_msat": {
+                  "type": "msat",
+                  "added": "v24.11",
+                  "description": [
+                    "Cap on total value of outstanding HTLCs we accept from the remote node. This limits the total amount in flight we can receive through this channel."
                   ]
                 },
                 "their_reserve_msat": {
