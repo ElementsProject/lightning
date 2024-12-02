@@ -29,8 +29,8 @@ static bool trace_eq(const struct trace *t1, const struct trace *t2)
 }
 
 /* struct thash */
-HTABLE_DEFINE_TYPE(struct trace, (const struct trace *), hash_trace, trace_eq,
-		   thash);
+HTABLE_DEFINE_NODUPS_TYPE(struct trace, (const struct trace *), hash_trace, trace_eq,
+			  thash);
 
 static struct thash htable
 = { HTABLE_INITIALIZER(htable.raw, thash_hash, NULL) };

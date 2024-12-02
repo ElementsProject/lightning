@@ -6416,6 +6416,12 @@ struct local_anchor_info *wallet_get_local_anchors(const tal_t *ctx,
 	return anchors;
 }
 
+void wallet_memleak_scan(struct htable *memtable, const struct wallet *w)
+{
+	memleak_scan_outpointfilter(memtable, w->utxoset_outpoints);
+	memleak_scan_outpointfilter(memtable, w->owned_outpoints);
+}
+
 struct issued_address_type *wallet_list_addresses(const tal_t *ctx, struct wallet *wallet,
 						   u64 liststart, const u32 *listlimit)
 {
