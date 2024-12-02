@@ -127,8 +127,8 @@ static size_t example_key_hash(u64 key)
 {
 	return siphash24(&seed, &key, sizeof(key));
 }
-HTABLE_DEFINE_TYPE(struct example, example_key, example_key_hash, example_eq_key,
-		   example_htable);
+HTABLE_DEFINE_NODUPS_TYPE(struct example, example_key, example_key_hash, example_eq_key,
+			  example_htable);
 
 static struct example *new_example(const tal_t *ctx, size_t i)
 {

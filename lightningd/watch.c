@@ -171,7 +171,7 @@ struct txwatch *find_txwatch_(struct chain_topology *topo,
 bool watching_txid(const struct chain_topology *topo,
 		   const struct bitcoin_txid *txid)
 {
-	return txwatch_hash_get(topo->txwatches, txid) != NULL;
+	return txwatch_hash_exists(topo->txwatches, txid);
 }
 
 struct txowatch *watch_txo(const tal_t *ctx,

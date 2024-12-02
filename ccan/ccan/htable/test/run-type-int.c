@@ -38,7 +38,7 @@ static bool cmp(const struct obj *obj, const unsigned int key)
 	return obj->key == key;
 }
 
-HTABLE_DEFINE_TYPE(struct obj, objkey, objhash, cmp, htable_obj);
+HTABLE_DEFINE_NODUPS_TYPE(struct obj, objkey, objhash, cmp, htable_obj);
 
 static void add_vals(struct htable_obj *ht,
 		     struct obj val[], unsigned int num)
@@ -112,14 +112,19 @@ static bool check_mask(struct htable *ht, const struct obj val[], unsigned num)
 	return true;
 }
 
+/* This variant allows duplicates! */
+HTABLE_DEFINE_DUPS_TYPE(struct obj, objkey, objhash, cmp, htable_obj_dups);
+
 int main(void)
 {
 	unsigned int i;
 	struct htable_obj ht, ht2;
+	struct htable_obj_dups ht_dups;
 	struct obj val[NUM_VALS], *result;
 	unsigned int dne;
 	void *p;
 	struct htable_obj_iter iter;
+	struct htable_obj_dups_iter dups_iter;
 
 	plan_tests(29);
 	for (i = 0; i < NUM_VALS; i++)
@@ -183,32 +188,35 @@ int main(void)
 	del_vals_bykey(&ht, val, NUM_VALS);
 	del_vals_bykey(&ht2, val, NUM_VALS);
 
+	/* Duplicates-allowed tests */
+	htable_obj_dups_init(&ht_dups);
 	/* Write two of the same value. */
 	val[1] = val[0];
-	htable_obj_add(&ht, &val[0]);
-	htable_obj_add(&ht, &val[1]);
+	htable_obj_dups_add(&ht_dups, &val[0]);
+	htable_obj_dups_add(&ht_dups, &val[1]);
 	i = 0;
 
-	result = htable_obj_getfirst(&ht, i, &iter);
+	result = htable_obj_dups_getfirst(&ht_dups, i, &dups_iter);
 	ok1(result == &val[0] || result == &val[1]);
 	if (result == &val[0]) {
-		ok1(htable_obj_getnext(&ht, i, &iter) == &val[1]);
-		ok1(htable_obj_getnext(&ht, i, &iter) == NULL);
+		ok1(htable_obj_dups_getnext(&ht_dups, i, &dups_iter) == &val[1]);
+		ok1(htable_obj_dups_getnext(&ht_dups, i, &dups_iter) == NULL);
 
 		/* Deleting first should make us iterate over the other. */
-		ok1(htable_obj_del(&ht, &val[0]));
-		ok1(htable_obj_getfirst(&ht, i, &iter) == &val[1]);
-		ok1(htable_obj_getnext(&ht, i, &iter) == NULL);
+		ok1(htable_obj_dups_del(&ht_dups, &val[0]));
+		ok1(htable_obj_dups_getfirst(&ht_dups, i, &dups_iter) == &val[1]);
+		ok1(htable_obj_dups_getnext(&ht_dups, i, &dups_iter) == NULL);
 	} else {
-		ok1(htable_obj_getnext(&ht, i, &iter) == &val[0]);
-		ok1(htable_obj_getnext(&ht, i, &iter) == NULL);
+		ok1(htable_obj_dups_getnext(&ht_dups, i, &dups_iter) == &val[0]);
+		ok1(htable_obj_dups_getnext(&ht_dups, i, &dups_iter) == NULL);
 
 		/* Deleting first should make us iterate over the other. */
-		ok1(htable_obj_del(&ht, &val[1]));
-		ok1(htable_obj_getfirst(&ht, i, &iter) == &val[0]);
-		ok1(htable_obj_getnext(&ht, i, &iter) == NULL);
+		ok1(htable_obj_dups_del(&ht_dups, &val[1]));
+		ok1(htable_obj_dups_getfirst(&ht_dups, i, &dups_iter) == &val[0]);
+		ok1(htable_obj_dups_getnext(&ht_dups, i, &dups_iter) == NULL);
 	}
 
+	htable_obj_dups_clear(&ht_dups);
 	htable_obj_clear(&ht);
 	htable_obj_clear(&ht2);
 	return exit_status();

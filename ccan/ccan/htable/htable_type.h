@@ -1,19 +1,23 @@
 /* Licensed under LGPLv2+ - see LICENSE file for details */
 #ifndef CCAN_HTABLE_TYPE_H
 #define CCAN_HTABLE_TYPE_H
+#include "config.h"
+#include <assert.h>
 #include <ccan/htable/htable.h>
 #include <ccan/compiler/compiler.h>
-#include "config.h"
 
 /**
- * HTABLE_DEFINE_TYPE - create a set of htable ops for a type
+ * HTABLE_DEFINE_NODUPS_TYPE/HTABLE_DEFINE_DUPS_TYPE - create a set of htable ops for a type
  * @type: a type whose pointers will be values in the hash.
  * @keyof: a function/macro to extract a key: <keytype> @keyof(const type *elem)
  * @hashfn: a hash function for a @key: size_t @hashfn(const <keytype> *)
  * @eqfn: an equality function keys: bool @eqfn(const type *, const <keytype> *)
  * @prefix: a prefix for all the functions to define (of form <name>_*)
  *
- * NULL values may not be placed into the hash table.
+ * There are two variants, one of which allows duplicate keys, and one which
+ * does not.  The defined functions differ in some cases, as shown below.
+ *
+ * NULL values may not be placed into the hash table (nor (void *)1).
  *
  * This defines the type hashtable type and an iterator type:
  *	struct <name>;
@@ -33,15 +37,18 @@
  *
  * Delete and delete-by key return true if it was in the set:
  *	bool <name>_del(struct <name> *ht, const <type> *e);
- *	bool <name>_delkey(struct <name> *ht, const <keytype> *k);
+ *	bool <name>_delkey(struct <name> *ht, const <keytype> *k) (NODUPS only);
  *
  * Delete by iterator:
  *	bool <name>_delval(struct <name> *ht, struct <name>_iter *i);
  *
- * Find and return the (first) matching element, or NULL:
- *	type *<name>_get(const struct @name *ht, const <keytype> *k);
+ * Find and return the matching element, or NULL:
+ *	type *<name>_get(const struct @name *ht, const <keytype> *k) (NODUPS only);
  *
- * Find and return all matching elements, or NULL:
+ * Test for an element:
+ *	bool <name>_exists(const struct @name *ht, const <keytype> *k);
+ *
+ * Find and return all matching elements, or NULL (DUPS only):
  *	type *<name>_getfirst(const struct @name *ht, const <keytype> *k,
  *			      struct <name>_iter *i);
  *	type *<name>_getnext(const struct @name *ht, const <keytype> *k,
@@ -59,7 +66,7 @@
  * You can use HTABLE_INITIALIZER like so:
  *	struct <name> ht = { HTABLE_INITIALIZER(ht.raw, <name>_hash, NULL) };
  */
-#define HTABLE_DEFINE_TYPE(type, keyof, hashfn, eqfn, name)		\
+#define HTABLE_DEFINE_TYPE_CORE(type, keyof, hashfn, eqfn, name)	\
 	struct name { struct htable raw; };				\
 	struct name##_iter { struct htable_iter i; };			\
 	static inline size_t name##_hash(const void *elem, void *priv)	\
@@ -89,66 +96,33 @@
 	{								\
 		return htable_copy(&dst->raw, &src->raw);		\
 	}								\
-	static inline bool name##_add(struct name *ht, const type *elem) \
-	{								\
-		return htable_add(&ht->raw, hashfn(keyof(elem)), elem);	\
-	}								\
 	static inline UNNEEDED bool name##_del(struct name *ht,		\
 					       const type *elem)	\
 	{								\
 		return htable_del(&ht->raw, hashfn(keyof(elem)), elem);	\
 	}								\
-	static inline UNNEEDED type *name##_get(const struct name *ht,	\
-				       const HTABLE_KTYPE(keyof, type) k) \
-	{								\
-		struct htable_iter i;					\
-		size_t h = hashfn(k);					\
-		void *c;						\
-									\
-		for (c = htable_firstval(&ht->raw,&i,h);		\
-		     c;							\
-		     c = htable_nextval(&ht->raw,&i,h)) {		\
-			if (eqfn(c, k))					\
-				return c;				\
-		}							\
-		return NULL;						\
-	}								\
 	static inline UNNEEDED type *name##_getmatch_(const struct name *ht, \
 				         const HTABLE_KTYPE(keyof, type) k, \
 				         size_t h,			\
 				         type *v,			\
-					 struct name##_iter *iter)	\
+					 struct htable_iter *iter)	\
 	{								\
 		while (v) {						\
 			if (eqfn(v, k))					\
 				break;					\
-			v = htable_nextval(&ht->raw, &iter->i, h);	\
+			v = htable_nextval(&ht->raw, iter, h);		\
 		}							\
 		return v;						\
 	}								\
-	static inline UNNEEDED type *name##_getfirst(const struct name *ht, \
-				         const HTABLE_KTYPE(keyof, type) k, \
-					 struct name##_iter *iter)	\
+	static inline UNNEEDED bool name##_exists(const struct name *ht,	\
+				       const HTABLE_KTYPE(keyof, type) k) \
 	{								\
+		struct htable_iter i;					\
 		size_t h = hashfn(k);					\
-		type *v = htable_firstval(&ht->raw, &iter->i, h);	\
-		return name##_getmatch_(ht, k, h, v, iter);			\
-	}								\
-	static inline UNNEEDED type *name##_getnext(const struct name *ht, \
-				         const HTABLE_KTYPE(keyof, type) k, \
-					 struct name##_iter *iter)	\
-	{								\
-		size_t h = hashfn(k);					\
-		type *v = htable_nextval(&ht->raw, &iter->i, h);	\
-		return name##_getmatch_(ht, k, h, v, iter);		\
-	}								\
-	static inline UNNEEDED bool name##_delkey(struct name *ht,	\
-					 const HTABLE_KTYPE(keyof, type) k) \
-	{								\
-		type *elem = name##_get(ht, k);				\
-		if (elem)						\
-			return name##_del(ht, elem);			\
-		return false;						\
+		void *v;						\
+									\
+		v = htable_firstval(&ht->raw, &i, h);			\
+		return name##_getmatch_(ht, k, h, v, &i) != NULL;	\
 	}								\
 	static inline UNNEEDED void name##_delval(struct name *ht,	\
 						  struct name##_iter *iter) \
@@ -176,6 +150,64 @@
 	{								\
 		return htable_prev(&ht->raw, &iter->i);			\
 	}
+
+#define HTABLE_DEFINE_NODUPS_TYPE(type, keyof, hashfn, eqfn, name)	\
+	HTABLE_DEFINE_TYPE_CORE(type, keyof, hashfn, eqfn, name)	\
+	static inline UNNEEDED type *name##_get(const struct name *ht,	\
+				       const HTABLE_KTYPE(keyof, type) k) \
+	{								\
+		struct htable_iter i;					\
+		size_t h = hashfn(k);					\
+		void *v;						\
+									\
+		v = htable_firstval(&ht->raw, &i, h);			\
+		return name##_getmatch_(ht, k, h, v, &i);			\
+	}								\
+	static inline bool name##_add(struct name *ht, const type *elem) \
+	{								\
+		/* Open-coded for slightly more efficiency */		\
+		const HTABLE_KTYPE(keyof, type) k = keyof(elem);	\
+		struct htable_iter i;					\
+		size_t h = hashfn(k);					\
+		void *v;						\
+									\
+		v = htable_firstval(&ht->raw, &i, h);			\
+		assert(!name##_getmatch_(ht, k, h, v, &i));		\
+		return htable_add(&ht->raw, h, elem);			\
+	}								\
+	static inline UNNEEDED bool name##_delkey(struct name *ht,	\
+					 const HTABLE_KTYPE(keyof, type) k) \
+	{								\
+		type *elem = name##_get(ht, k);				\
+		if (elem)						\
+			return name##_del(ht, elem);			\
+		return false;						\
+	}
+
+#define HTABLE_DEFINE_DUPS_TYPE(type, keyof, hashfn, eqfn, name)	\
+	HTABLE_DEFINE_TYPE_CORE(type, keyof, hashfn, eqfn, name)	\
+	static inline bool name##_add(struct name *ht, const type *elem) \
+	{								\
+		const HTABLE_KTYPE(keyof, type) k = keyof(elem);	\
+		return htable_add(&ht->raw, hashfn(k), elem);		\
+	}								\
+	static inline UNNEEDED type *name##_getfirst(const struct name *ht, \
+				         const HTABLE_KTYPE(keyof, type) k, \
+					 struct name##_iter *iter)	\
+	{								\
+		size_t h = hashfn(k);					\
+		type *v = htable_firstval(&ht->raw, &iter->i, h);	\
+		return name##_getmatch_(ht, k, h, v, &iter->i);		\
+	}								\
+	static inline UNNEEDED type *name##_getnext(const struct name *ht, \
+				         const HTABLE_KTYPE(keyof, type) k, \
+					 struct name##_iter *iter)	\
+	{								\
+		size_t h = hashfn(k);					\
+		type *v = htable_nextval(&ht->raw, &iter->i, h);	\
+		return name##_getmatch_(ht, k, h, v, &iter->i);		\
+	}
+
 
 #if HAVE_TYPEOF
 #define HTABLE_KTYPE(keyof, type) typeof(keyof((const type *)NULL))
