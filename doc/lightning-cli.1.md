@@ -26,6 +26,7 @@ OPTIONS
 * **--network**=*network*
 * **--mainnet**
 * **--testnet**
+* **--testnet4**
 * **--signet**
 * **--regtest**
 
