@@ -32,10 +32,10 @@ Here's a checklist for the release process.
 1. Merge the above PR.
 2. Tag it `git pull && git tag -s v<VERSION>rc1`. Note that you should get a prompt to give this tag a 'message'. Make sure you fill this in.
 3. Confirm that the tag will show up for builds with `git describe`
-4. Push the tag to remote `git push --tags` (pushing the tag will kickoff the "Release 🚀" CI action which builds the release targets).
+4. Push the tag to remote `git push --tags` (pushing the tag will kickoff the "Release 🚀" CI action which builds the release targets and a draft release).
 7. Run the script `contrib/cl-repro.sh` for [Builder image setup](https://docs.corelightning.org/docs/repro#builder-image-setup). This will create the required builder images `cl-repro-<codename>` for the next step.
 8. Sign the release locally by running `tools/build-release.sh --without-zip sign` which will sign the release contents and create SHA256SUMS and SHA256SUMS.asc in the release folder.  Compare these with `c-lightning-<release tag>`.zip on GitHub.
-9. Draft a new `v<VERSION>rc1` release on Github and check `Set as a pre-release` option.
+9. Check the generated draft `v<VERSION>rc1` release on Github and check `Set as a pre-release` option.  Add the SHA256SUMS.asc from your local release folder to newly drafted release, replacing it.
 9. Announce rc1 release on core-lightning's release-chat channel on Discord & [BuildOnL2](https://community.corelightning.org/c/general-questions/).
 10. Use `devtools/credit --verbose v<PREVIOUS-VERSION>` to get commits, days and contributors data for release note.
 11. Prepare release notes draft including information from above step, and share with the team for editing.
