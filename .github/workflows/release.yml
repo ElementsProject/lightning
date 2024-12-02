@@ -8,6 +8,13 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+[0-9a-z]+'
   workflow_dispatch:
+      create_release:
+        description: Create a draft release
+        default: no
+        type: choice
+        options:
+          - yes
+          - no
 
 jobs:
   check:
@@ -102,7 +109,7 @@ jobs:
           delete-merged: true
 
   release:
-    name: Sign release
+    name: Sign and prepare release draft
     needs:
       - check
       - artifact
@@ -130,18 +137,14 @@ jobs:
           trust_level: 5
 
       - name: Set default GPG key
-        run: |
-          gpg -K
-          gpg --list-secret-keys
-          echo "default-key ${{ steps.gpg.outputs.keyid }}" >> ~/.gnupg/gpg.conf
-          cat ~/.gnupg/gpg.conf
+        run: echo "default-key ${{ steps.gpg.outputs.keyid }}" >> ~/.gnupg/gpg.conf
 
       - name: Sign release
         run: |
           sudo apt-get install -y lowdown
           ./configure
-          # TODO: configure GPG key
           tools/build-release.sh --without-zip sign
+          mv release/SHA256SUMS.asc${{ steps.gpg.outputs.keyid  }} release/SHA256SUMS.asc
 
       - name: Upload signed artifact
         uses: actions/upload-artifact@v4
@@ -149,3 +152,30 @@ jobs:
           name: c-lightning-${{ env.version }}
           overwrite: true
           path: release/
+
+      - name: Determine release data
+        id: release_data
+        run: |
+          VERSION=${{ env.version }}
+          CHANGELOG_VERSION=${VERSION#v}
+          echo "CHANGELOG_VERSION=$CHANGELOG_VERSION"
+          echo "changelog_version=$CHANGELOG_VERSION" >> "$GITHUB_OUTPUT"
+
+          CHANGELOG_TITLE=$(grep "## \[${CHANGELOG_VERSION}\]" CHANGELOG.md)
+          echo "CHANGELOG_TITLE=$CHANGELOG_TITLE"
+          echo "changelog_title=$CHANGELOG_TITLE" >> "$GITHUB_OUTPUT"
+
+          RELEASE_TITLE=$(echo $CHANGELOG_TITLE | cut -d'"' -f2)
+          echo "RELEASE_TITLE=$RELEASE_TITLE"
+          echo "release_title=$RELEASE_TITLE" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare release draft
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.create_release == 'yes')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "${{ env.version }} ${{ steps.release_data.outputs.release_title }}"
+          tag_name: ${{ env.version }}
+          draft: true
+          prerelease: contains(env.version, "-rc")
+          files: release/*
+          fail_on_unmatched_files: true
