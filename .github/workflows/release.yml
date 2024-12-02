@@ -13,7 +13,7 @@ jobs:
   check:
     name: Check
     outputs:
-      version: steps.capture.outputs.version
+      version: ${{ steps.capture.outputs.version }}
     runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
@@ -37,10 +37,18 @@ jobs:
         id: capture
         run: echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
-  release:
-    name: Release
+  releases:
+    name: Releases
     needs: check
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false    # Let each build finish.
+      matrix:
+        target:
+          - 'bin-Fedora-28-amd64'
+          - 'bin-Ubuntu-focal'
+          - 'bin-Ubuntu-jammy'
+          - 'bin-Ubuntu-noble'
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
@@ -54,13 +62,41 @@ jobs:
           ./configure
 
       - name: Build environment setup
-        run: contrib/cl-repro.sh
+        run: |
+          distribution=$(echo ${{ matrix.target }} | cut -d'-' -f3)
+          echo "Building base image for ${distribution}"
+          sudo docker run --rm -v $(pwd):/build ubuntu:${distribution} bash -c "\
+              apt-get update && \
+              apt-get install -y debootstrap && \
+              debootstrap ${distribution} /build/${distribution}"
+          sudo tar -C ${distribution} -c . | docker import - ${distribution}
+
+          # Build Docker image
+          docker build -t cl-repro-${distribution} - < contrib/reprobuild/Dockerfile.${distribution}
+        if: contains(matrix.target, 'Ubuntu')
 
       - name: Build release
-        run: tools/build-release.sh bin-Fedora-28-amd64 bin-Ubuntu
+        run: tools/build-release.sh ${{ matrix.target }}
 
-      - name: Upload release artifacts
+      - name: Upload target artifacts
         uses: actions/upload-artifact@v4
         with:
           path: release/
+          name: ${{ matrix.target }}
           if-no-files-found: error
+
+  artifact:
+    name: Construct release artifact
+    needs:
+      - check
+      - releases
+    env:
+      version: ${{ needs.check.outputs.version }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Merge artifacts
+        uses: actions/upload-artifact/merge@v4
+        with:
+          name: c-lightning-${{ env.version }}
+          pattern: bin-*
+          delete-merged: true

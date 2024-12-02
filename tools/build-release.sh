@@ -153,8 +153,10 @@ for target in $TARGETS; do
         docker run --rm=true -w /build $TAG rm -rf /"$VERSION-$platform" /build
         echo "Fedora Image Built"
         ;;
-    Ubuntu)
-		for d in focal jammy noble; do
+    Ubuntu*)
+        distributions=${platform#Ubuntu-}
+        [ "$distributions" = "Ubuntu" ] && distributions="focal jammy noble"
+		for d in $distributions; do
             # Capitalize the first letter of distro
             D=$(echo "$d" | awk '{print toupper(substr($0,1,1))substr($0,2)}')
 			echo "Building Ubuntu $D Image"
