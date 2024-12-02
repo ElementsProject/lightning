@@ -97,7 +97,7 @@ Bitcoin control options:
 
 * **network**=*NETWORK*
 
-  Select the network parameters (*bitcoin*, *testnet*, *signet*, or *regtest*).
+  Select the network parameters (*bitcoin*, *testnet*, *testnet4*, *signet*, or *regtest*).
 This is not valid within the per-network configuration file.
 
 * **mainnet**
@@ -111,6 +111,10 @@ This is not valid within the per-network configuration file.
 * **testnet**
 
   Alias for *network=testnet*.
+
+* **testnet4**
+
+  Alias for *network=testnet4*.
 
 * **signet**
 
@@ -572,7 +576,7 @@ interfaces, '::' means 'bind to all IPv6 interfaces' (if you want to
 specify an IPv6 address *and* a port, use `[]` around the IPv6
 address, like `[::]:9750`).
   If 'PORT' is not specified, the default port 9735 is used for mainnet
-(testnet: 19735, signet: 39735, regtest: 19846).
+(testnet: 19735, signet: 39735, regtest: 19846, testnet4: 49735).
 If we can determine a public IP address from the resulting binding,
 the address is announced.
 
@@ -580,8 +584,8 @@ the address is announced.
 IPv4 or IPv6 address of the Tor control port (default port 9051),
 and this will be used to configure a Tor hidden service for port 9735
 in case of mainnet (bitcoin) network whereas other networks (testnet,
-signet, regtest) will set the same default ports they use for non-Tor
-addresses (see above).
+testnet4, signet, regtest) will set the same default ports they use for 
+non-Tor addresses (see above).
 The Tor hidden service will be configured to point to the
 first IPv4 or IPv6 address we bind to and is by default unique to
 your node's id.

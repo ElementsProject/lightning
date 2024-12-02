@@ -2972,6 +2972,10 @@
             "set": false,
             "source": "default"
           },
+          "testnet4": {
+            "set": false,
+            "source": "default"
+          },
           "watchtime-blocks": {
             "value_int": 5,
             "source": "cmdline"
