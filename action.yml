@@ -1,6 +1,0 @@
----
-name: 'Lightning CI'
-description: 'A preconfigured container with all Core Lightning dependencies'
-runs:
-  using: 'docker'
-  image: 'contrib/Dockerfile.tester'
