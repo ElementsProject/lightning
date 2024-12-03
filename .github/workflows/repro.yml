@@ -19,20 +19,25 @@ jobs:
       - name: Git checkout
         uses: actions/checkout@v4
 
-      - name: Build environment setup
+      - name: Build environment setup - ${{ matrix.version }}
         run: |
           echo "Building base image for ${{ matrix.version }}"
+          echo "STEP=Build environment setup" >> "$GITHUB_ENV"
           sudo docker run --rm -v $(pwd):/build ubuntu:${{ matrix.version }} bash -c "\
-              apt-get update && \
-              apt-get install -y debootstrap && \
-              debootstrap ${{ matrix.version }} /build/${{ matrix.version }}"
+            apt-get update && \
+            apt-get install -y debootstrap && \
+            debootstrap ${{ matrix.version }} /build/${{ matrix.version }}"
           sudo tar -C ${{ matrix.version }} -c . | docker import - ${{ matrix.version }}
 
-      - name: Builder image setup
-        run: docker build -t cl-repro-${{ matrix.version }} - < contrib/reprobuild/Dockerfile.${{ matrix.version }}
-
-      - name: Build using the builder image and store Git state
+      - name: Builder image setup - ${{ matrix.version }}
         run: |
+          echo "STEP=Builder image setup" >> "$GITHUB_ENV"
+          docker build -t cl-repro-${{ matrix.version }} - < contrib/reprobuild/Dockerfile.${{ matrix.version }}
+
+      - name: Build reproducible image and store Git state - ${{ matrix.version }}
+        run: |
+          echo "STEP=Build reproducible image and store Git state" >> "$GITHUB_ENV"
+
           # Create release directory.
           mkdir $GITHUB_WORKSPACE/release
 
@@ -40,21 +45,22 @@ jobs:
           docker run --name cl-build -v $GITHUB_WORKSPACE:/repo -e FORCE_MTIME=$(date +%F) -t cl-repro-${{ matrix.version }}
 
           # Commit the image in order to inspect the build later.
-          docker commit cl-build cl-release
+          docker commit cl-build cl-repro
 
           # Inspect the version.
-          docker run --rm -v $GITHUB_WORKSPACE:/repo -t cl-release bash -c "make version > /repo/release/version.txt"
+          docker run --rm -v $GITHUB_WORKSPACE:/repo -t cl-repro bash -c "make version > /repo/release/version.txt"
 
           # Inspect the Git tree state.
-          docker run --rm -v $GITHUB_WORKSPACE:/repo -t cl-release bash -c "\
+          docker run --rm -v $GITHUB_WORKSPACE:/repo -t cl-repro bash -c "\
               git --no-pager status > /repo/release/git.log && \
               git --no-pager diff >> /repo/release/git.log"
 
           # Change permissions on the release files for access by the runner environment.
           sudo chown -R runner $GITHUB_WORKSPACE/release
 
-      - name: Assert clean version and release
+      - name: Assert clean version - ${{ matrix.version }}
         run: |
+          echo "STEP=Assert clean version" >> "$GITHUB_ENV"
           echo 'Version:'
           cat release/version.txt
           echo -e
@@ -63,16 +69,45 @@ jobs:
           echo 'Release file:'
           ls -al release/clightning-*
           echo -e
-
           if [ -n "$(cat release/version.txt | sed -n '/-modded/p')" ] || \
-             [ -n "$(echo $releasefile | sed -n '/-modded/p')" ]
-          then
+             [ -n "$(echo $releasefile | sed -n '/-modded/p')" ]; then
             echo "Git Status and Diff:"
             cat release/git.log
             echo -e
-
             echo 'Error: release modded / dirty tree.'
             exit 1
           else
             echo 'Success! Clean release.'
           fi
+
+      - name: Upload release artifact - ${{ matrix.version }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.version }}
+          path: release
+          retention-days: 3 # Automatically delete after 3 days
+
+      - name: Send email on failure
+        if: ${{ failure() }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          from: ${{ secrets.EMAIL_USERNAME }}
+          to: ${{ vars.DISTRIBUTION_LIST }}
+          subject: "CI Failure: Step ${{ env.STEP }} failed for distro ${{ matrix.version }}"
+          convert_markdown: true
+          html_body: |
+            <html>
+              <body>
+                <p>GitHub Workflow ${{ github.workflow }} Failed! For more details, click on the action below.</p>
+                <strong>Failure Details:</strong><br/>
+                <strong>Event: </strong>${{ github.event_name }}<br/>
+                <strong>Job: </strong>${{ github.job }}<br/>
+                <strong>Distro: </strong>${{ matrix.version }}<br/>
+                <strong>Step: </strong>${{ env.STEP }}<br/>
+                <strong>Action: </strong><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}</a><br/>
+              </body>
+            </html>
