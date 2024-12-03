@@ -5,7 +5,7 @@ hidden: false
 createdAt: "2023-01-25T10:37:03.476Z"
 updatedAt: "2023-07-12T13:26:52.005Z"
 ---
-Reproducible builds close the final gap in the lifecycle of open-source projects by allowing maintainers to verify and certify that a given binary was indeed produced by compiling an unmodified version of the publicly available source. In particular the maintainer certifies that the binary corresponds a) to the exact version of the and b) that no malicious changes have been applied before or after the compilation.
+[Reproducible builds](https://reproducible-builds.org/) close the final gap in the lifecycle of open-source projects by allowing anyone to verify that a given binary was produced by compiling publicly available source code.
 
 Core Lightning has provided a manifest of the binaries included in a release, along with signatures from the maintainers since version 0.6.2.
 
@@ -14,12 +14,12 @@ The steps involved in creating reproducible builds are:
 - Creation of a known environment in which to build the source code
 - Removal of variance during the compilation (randomness, timestamps, etc)
 - Packaging of binaries
-- Creation of a manifest (`SHA256SUMS` file containing the crytographic hashes of the binaries and packages)
+- Creation of a manifest (`SHA256SUMS` file containing the cryptographic hashes of the binaries and packages)
 - Signing of the manifest by maintainers and volunteers that have reproduced the files in the manifest starting from the source.
 
-The bulk of these operations is handled by the [`repro-build.sh`](https://github.com/ElementsProject/lightning/blob/master/tools/repro-build.sh) script, but some manual operations are required to setup the build environment. Since a binary is built against platorm specific libraries we also need to replicate the steps once for each OS distribution and architecture, so the majority of this guide will describe how to set up those starting from a minimal trusted base. This minimal trusted base in most cases is the official installation medium from the OS provider.
+The bulk of these operations are handled by the [`repro-build.sh`](https://github.com/ElementsProject/lightning/blob/master/tools/repro-build.sh) script, but some manual operations are required to setup the build environment. Since a binary is built against platform specific libraries we also need to replicate the steps once for each OS distribution and architecture, so the majority of this guide will describe how to set up those starting from a minimal trusted base. This minimal trusted base in most cases is the official installation medium from the OS provider.
 
-Note: Since your signature certifies the integrity of the resulting binaries, please familiarize youself with both the [`repro-build.sh`](https://github.com/ElementsProject/lightning/blob/master/tools/repro-build.sh) script, as well as with the setup instructions for the build environments before signing anything.
+Note: Since your signature certifies the integrity of the resulting binaries, please familiarize yourself with both the [`repro-build.sh`](https://github.com/ElementsProject/lightning/blob/master/tools/repro-build.sh) script, as well as with the setup instructions for the build environments before signing anything.
 
 # Build Environment Setup
 
@@ -99,7 +99,7 @@ The dockerfiles assume that the base image has the codename as its image name.
 
 # Building using the builder image
 
-Finally, after building enviornment setup we can perform the actual build.  At this point we have a container image that has been prepared to build reproducibly. As you can see from the `Dockerfile` above we assume the source git repository gets mounted as `/repo` in the docker container. The container will clone the repository to an internal path, in order to keep the repository clean, build the artifacts there, and then copy them back to `/repo/release`.  
+Finally, after finishing the environment setup we can perform the actual build. At this point we have a container image that has been prepared to build reproducibly. As you can see from the `Dockerfile` above we assume the source git repository gets mounted as `/repo` in the docker container. The container will clone the repository to an internal path, in order to keep the repository clean, build the artifacts there, and then copy them back to `/repo/release`.  
 We'll need the release directory available for this, so create it now if it doesn't exist:`mkdir release`, then we can simply execute the following command inside the git repository (remember to checkout the tag you are trying to build):
 
 ```bash
@@ -144,7 +144,7 @@ gpg -sb --armor SHA256SUMS
 
 2: Copy above files in the lightning directory.
 
-3: Run `tools/build-release.sh --verify` script. It will build bineries for Ubuntu (Focal, Jammy & Noble), verify zip & ubuntu builds while copying Fedora checksums from the release captain's file.
+3: Run `tools/build-release.sh --verify` script. It will build binaries for Ubuntu (Focal, Jammy & Noble), verify zip & Ubuntu builds while copying Fedora checksums from the release captain's file.
 
 4. Then send the resulting `release/SHA256SUMS.asc` file to the release captain so it can be merged with the other signatures into `SHASUMS.asc`.
 
