@@ -8,6 +8,10 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+[0-9a-z]+'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version'
+        required: true
       create_release:
         description: Create a draft release
         default: no
@@ -28,14 +32,18 @@ jobs:
         with:
           fetch-tags: true
 
-      - name: Determine version from pushed tag
-        if: ${{ github.ref_type == 'tag' }}
-        run: echo "VERSION=${{ github.ref_name }}" >> "$GITHUB_ENV"
-
-      # Relevant for testing branches.
-      - name: Determine version from pushed branch tag
-        if: ${{ github.ref_type == 'branch' }}
-        run: echo "VERSION=$(git tag --points-at HEAD)" >> "$GITHUB_ENV"
+      - name: Determine version
+        run: |
+          if [[ "${{ github.event.inputs.version }}" != "" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [ "${{ github.ref_type }}" == "tag" ]; then
+            VERSION="${{ github.ref_name }}"
+          else
+            echo "No release version provided and no tag found."
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Determined version: $VERSION"
 
       - name: Validate release
         run: tools/check-release.sh --version=${VERSION}
@@ -170,7 +178,7 @@ jobs:
           echo "release_title=$RELEASE_TITLE" >> "$GITHUB_OUTPUT"
 
       - name: Prepare release draft
-        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.create_release == 'yes')
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'yes')
         uses: softprops/action-gh-release@v2
         with:
           name: "${{ env.version }} ${{ steps.release_data.outputs.release_title }}"
