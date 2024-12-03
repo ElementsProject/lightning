@@ -57,16 +57,16 @@ Depending on your host OS release you might not have `debootstrap` manifests for
 ```shell
 for v in focal jammy noble; do
   echo "Building base image for $v"
-  sudo docker run --rm -v $(pwd):/build ubuntu:$v \
+  docker run --rm -v $(pwd):/build ubuntu:$v \
 	bash -c "apt-get update && apt-get install -y debootstrap && debootstrap $v /build/$v"
-  sudo tar -C $v -c . | sudo docker import - $v
+  tar -C $v -c . | docker import - $v
 done
 ```
 
 Verify that the image corresponds to our expectation and is runnable:
 
 ```shell
-sudo docker run ubuntu:noble cat /etc/lsb-release
+docker run ubuntu:noble cat /etc/lsb-release
 ```
 
 Which should result in the following output for `noble`:
@@ -87,9 +87,9 @@ For this purpose we have a number of Dockerfiles in the [`contrib/reprobuild`](h
 We can then build the builder image by calling `docker build` and passing it the `Dockerfile`:
 
 ```shell
-sudo docker build -t cl-repro-focal - < contrib/reprobuild/Dockerfile.focal
-sudo docker build -t cl-repro-jammy - < contrib/reprobuild/Dockerfile.jammy
-sudo docker build -t cl-repro-noble - < contrib/reprobuild/Dockerfile.noble
+docker build -t cl-repro-focal - < contrib/reprobuild/Dockerfile.focal
+docker build -t cl-repro-jammy - < contrib/reprobuild/Dockerfile.jammy
+docker build -t cl-repro-noble - < contrib/reprobuild/Dockerfile.noble
 ```
 
 Since we pass the `Dockerfile` through `stdin` the build command will not create a context, i.e., the current directory is not passed to `docker` and it'll be independent of the currently checked out version. This also means that you will be able to reuse the docker image for future builds, and don't have to repeat this dance every time. Verifying the `Dockerfile` therefore is  
@@ -103,9 +103,9 @@ Finally, after building enviornment setup we can perform the actual build.  At t
 We'll need the release directory available for this, so create it now if it doesn't exist:`mkdir release`, then we can simply execute the following command inside the git repository (remember to checkout the tag you are trying to build):
 
 ```bash
-sudo docker run --rm -v $(pwd):/repo -ti cl-repro-focal
-sudo docker run --rm -v $(pwd):/repo -ti cl-repro-jammy
-sudo docker run --rm -v $(pwd):/repo -ti cl-repro-noble
+docker run --rm -v $(pwd):/repo -ti cl-repro-focal
+docker run --rm -v $(pwd):/repo -ti cl-repro-jammy
+docker run --rm -v $(pwd):/repo -ti cl-repro-noble
 ```
 
 The last few lines of output also contain the `sha256sum` hashes of all artifacts, so if you're just verifying the build those are the lines that are of interest to you:
