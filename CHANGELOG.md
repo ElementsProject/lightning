@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [24.11rc2] - 2024-11-28: "TBA"
+## [24.11rc3] - 2024-12-02: "The lightning-dev Mailing List"
 
 This release named by Dusty Daemon.
 
@@ -36,6 +36,9 @@ This release named by Dusty Daemon.
  - Plugins: grpc now starts on port 9736 by default (localhost, see `grpc-host`) ([#7479])
  - Config: bolt12 now enabled by default (finally!) ([#7833])
  - Protocol: we now connect to additional nodes for improved gossip (see `autoconnect-seeker-peers`) ([#7798])
+ - Protocol: Own-channel gossip is broadcast to more peers (up to 50, not 5). ([#7873])
+ - Build: Added architecture identifier to Ubuntu release ([#7797])
+ - Logging: connectd now logs unknown messages as "UNKNOWN" not "INVALID" to avoid freaking people out. ([#7892])
  - Protocol: we now create a low-priority (2016 down to 12 blocks fee target) anchor for low-fee unilateral closes even if there's no urgency. ([#7832])
  - Protocol: splicing moved from test numbers to spec numbers. ([#7719])
  - Protocol: Support added for peers that wish to rotate their funding pubkey during a splice. ([#7719])
@@ -66,6 +69,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 ### Fixed
 
+ - JSON-RPC: `decode` refused to decode expired bolt12 invoices. ([#7890])
  - JSON-RPC: `listforwards` `received-time` is always present (it could be missing for ancient nodes, now it will be 0) ([#7744])
  - Plugins: `cln-grpc` now understands channel type `anchors/even` ([#7628])
  - Plugins: `cln-grpc` no longer logs a warning if a notification does not have a handler ([#7867])
@@ -168,7 +172,11 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#7740]: https://github.com/ElementsProject/lightning/pull/7740
 [#7704]: https://github.com/ElementsProject/lightning/pull/7704
 [#7756]: https://github.com/ElementsProject/lightning/pull/7756
-[24.11rc1]: https://github.com/ElementsProject/lightning/releases/tag/v24.11rc1
+[#7873]: https://github.com/ElementsProject/lightning/pull/7873
+[#7890]: https://github.com/ElementsProject/lightning/pull/7890
+[#7797]: https://github.com/ElementsProject/lightning/pull/7797
+[#7892]: https://github.com/ElementsProject/lightning/pull/7892
+[24.11rc3]: https://github.com/ElementsProject/lightning/releases/tag/v24.11rc3
 
 
 ## [24.08.2] - 2024-10-18: "Steel Backed-up Channels"
