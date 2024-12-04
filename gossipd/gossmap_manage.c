@@ -445,7 +445,7 @@ struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
 /* Catch CI giving out-of-order gossip: definitely happens IRL though */
 static void bad_gossip(const struct node_id *source_peer, const char *str)
 {
-	status_peer_debug(source_peer, "Bad gossip order: %s", str);
+	status_peer_trace(source_peer, "Bad gossip order: %s", str);
 }
 
 /* Send peer a warning message, if non-NULL. */
@@ -585,7 +585,7 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 		return NULL;
 	}
 
-	status_debug("channel_announcement: Adding %s to pending...",
+	status_trace("channel_announcement: Adding %s to pending...",
 		     fmt_short_channel_id(tmpctx, scid));
 	if (!map_add(&gm->pending_ann_map, scid, pca)) {
 		/* Already pending?  Ignore */
@@ -613,7 +613,7 @@ void gossmap_manage_handle_get_txout_reply(struct gossmap_manage *gm, const u8 *
 	if (!fromwire_gossipd_get_txout_reply(msg, msg, &scid, &sat, &outscript))
 		master_badmsg(WIRE_GOSSIPD_GET_TXOUT_REPLY, msg);
 
-	status_debug("channel_announcement: got reply for %s...",
+	status_trace("channel_announcement: got reply for %s...",
 		     fmt_short_channel_id(tmpctx, scid));
 
 	pca = map_del(&gm->pending_ann_map, scid);
@@ -807,7 +807,7 @@ static const char *process_channel_update(const tal_t *ctx,
 	/* Used to evaluate gossip peers' performance */
 	peer_supplied_good_gossip(gm->daemon, source_peer, 1);
 
-	status_peer_debug(source_peer,
+	status_peer_trace(source_peer,
 			  "Received channel_update for channel %s/%d now %s",
 			  fmt_short_channel_id(tmpctx, scid),
 			  dir,
@@ -948,7 +948,7 @@ static void process_node_announcement(struct gossmap_manage *gm,
 	/* Used to evaluate gossip peers' performance */
 	peer_supplied_good_gossip(gm->daemon, source_peer, 1);
 
-	status_peer_debug(source_peer,
+	status_peer_trace(source_peer,
 			  "Received node_announcement for node %s",
 			  fmt_node_id(tmpctx, node_id));
 }
@@ -1263,7 +1263,7 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 	cd.scid = scid;
 
 	/* Remember locally so we can kill it in 12 blocks */
-	status_debug("channel %s closing soon due"
+	status_trace("channel %s closing soon due"
 		     " to the funding outpoint being spent",
 		     fmt_short_channel_id(tmpctx, scid));
 
