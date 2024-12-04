@@ -38,7 +38,7 @@ BITCOIND_CONFIG = {
 
 
 LIGHTNINGD_CONFIG = OrderedDict({
-    "log-level": "debug",
+    "log-level": "trace",
     "cltv-delta": 6,
     "cltv-final": 5,
     "watchtime-blocks": 5,

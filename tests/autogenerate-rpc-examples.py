@@ -458,6 +458,7 @@ def setup_test_nodes(node_factory, bitcoind):
                 'dev-no-version-checks': None,
                 'allow-deprecated-apis': True,
                 'allow_bad_gossip': True,
+                'log-level': 'debug',
                 'broken_log': '.*',
                 'dev-bitcoind-poll': 3,    # Default 1; increased to avoid rpc failures
             }.copy()

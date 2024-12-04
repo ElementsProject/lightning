@@ -159,7 +159,7 @@ void status_vfmt(enum log_level level,
 			size_t n = traces_suppressed;
 			traces_suppressed = 0;
 			/* Careful: recursion! */
-			status_debug("...[%zu debug/trace messages suppressed]...", n);
+			status_trace("...[%zu debug/trace messages suppressed]...", n);
 		} else if (traces_suppressed || qlen > TRACE_QUEUE_LIMIT) {
 			traces_suppressed++;
 			return;
