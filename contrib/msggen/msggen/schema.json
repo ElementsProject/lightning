@@ -15032,7 +15032,7 @@
                 "port": 19735
               }
             ],
-            "version": "v24.11rc1",
+            "version": "v24.11rc4",
             "blockheight": 110,
             "network": "regtest",
             "fees_collected_msat": 0,
