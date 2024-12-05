@@ -367,6 +367,11 @@ static void handle_custommsg_in(struct lightningd *ld, const u8 *msg)
 	plugin_hook_call_custommsg(ld, NULL, p);
 }
 
+static void handle_onionmsg_forward_fail(struct lightningd *ld, const u8 *msg)
+{
+	/* FIXME: Do something! */
+}
+
 static void connectd_start_shutdown_reply(struct subd *connectd,
 					  const u8 *reply,
 					  const int *fds UNUSED,
@@ -486,6 +491,10 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 
 	case WIRE_CONNECTD_CUSTOMMSG_IN:
 		handle_custommsg_in(connectd->ld, msg);
+		break;
+
+	case WIRE_CONNECTD_ONIONMSG_FORWARD_FAIL:
+		handle_onionmsg_forward_fail(connectd->ld, msg);
 		break;
 	}
 	return 0;

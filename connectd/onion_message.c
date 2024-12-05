@@ -36,8 +36,10 @@ void onionmsg_req(struct daemon *daemon, const u8 *msg)
 	}
 }
 
+/* Source is NULL if we're injecting, otherwise it's a forward */
 static const char *handle_onion(const tal_t *ctx,
 				struct daemon *daemon,
+				const struct node_id *source,
 				const struct pubkey *path_key,
 				const u8 *onion)
 {
@@ -53,6 +55,15 @@ static const char *handle_onion(const tal_t *ctx,
 				  &next_onion_msg, &next_node,
 				  &final_om, &final_alias, &final_path_id);
 	if (err) {
+		if (source) {
+			daemon_conn_send(daemon->master,
+					 take(towire_connectd_onionmsg_forward_fail(NULL,
+										    source,
+										    onion,
+										    path_key,
+										    NULL,
+										    NULL)));
+		}
 		return tal_steal(ctx, err);
 	}
 
@@ -90,6 +101,15 @@ static const char *handle_onion(const tal_t *ctx,
 
 			scid_to_node_id = scid_htable_get(daemon->scid_htable, next_node.scidd.scid);
 			if (!scid_to_node_id) {
+				if (source) {
+					daemon_conn_send(daemon->master,
+							 take(towire_connectd_onionmsg_forward_fail(NULL,
+												    source,
+												    onion,
+												    path_key,
+												    next_onion_msg,
+												    &next_node)));
+				}
 				return tal_fmt(ctx, "onion msg: unknown next scid %s",
 					       fmt_short_channel_id(tmpctx, next_node.scidd.scid));
 			}
@@ -100,6 +120,15 @@ static const char *handle_onion(const tal_t *ctx,
 
 		next_peer = peer_htable_get(daemon->peers, &next_node_id);
 		if (!next_peer) {
+			if (source) {
+				daemon_conn_send(daemon->master,
+						 take(towire_connectd_onionmsg_forward_fail(NULL,
+											    source,
+											    onion,
+											    path_key,
+											    next_onion_msg,
+											    &next_node)));
+			}
 			return tal_fmt(ctx, "onion msg: unknown next peer %s",
 				       fmt_sciddir_or_pubkey(tmpctx, &next_node));
 		}
@@ -109,7 +138,7 @@ static const char *handle_onion(const tal_t *ctx,
 }
 
 
-/* Peer sends an onion msg, or (if peer NULL) lightningd injects one. */
+/* Peer sends an onion msg. */
 void handle_onion_message(struct daemon *daemon,
 			  struct peer *peer, const u8 *msg)
 {
@@ -151,7 +180,7 @@ void handle_onion_message(struct daemon *daemon,
 		return;
 	}
 
-	handle_onion(tmpctx, daemon, &path_key, onion);
+	handle_onion(tmpctx, daemon, &peer->id, &path_key, onion);
 }
 
 void inject_onionmsg_req(struct daemon *daemon, const u8 *msg)
@@ -163,7 +192,7 @@ void inject_onionmsg_req(struct daemon *daemon, const u8 *msg)
 	if (!fromwire_connectd_inject_onionmsg(msg, msg, &path_key, &onionmsg))
 		master_badmsg(WIRE_CONNECTD_INJECT_ONIONMSG, msg);
 
-	err = handle_onion(tmpctx, daemon, &path_key, onionmsg);
+	err = handle_onion(tmpctx, daemon, NULL, &path_key, onionmsg);
 	daemon_conn_send(daemon->master,
 			 take(towire_connectd_inject_onionmsg_reply(NULL, err ? err : "")));
 }
