@@ -50,7 +50,7 @@ EXTERNAL_INCLUDE_FLAGS += -I external/libsodium/src/libsodium/include \
 			  -I $(TARGET_DIR)/libsodium-build/src/libsodium/include
 EXTERNAL_LIBS += ${TARGET_DIR}/libsodium.a
 else
-LDLIBS += -lsodium
+LDLIBS += $(SODIUM_LDLIBS)
 endif
 
 ifeq ($(HAVE_ZLIB),1)
