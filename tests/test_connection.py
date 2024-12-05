@@ -4725,3 +4725,23 @@ def test_connect_ratelimit(node_factory, bitcoind):
 
     # And now they're all connected
     wait_for(lambda: [p['connected'] for p in l1.rpc.listpeers()['peers']] == [True] * len(nodes))
+
+
+def test_onionmessage_forward_fail(node_factory, bitcoind):
+    # The plugin will try to connect to l3, so it needs an advertized address.
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[{},
+                                               {'dev-allow-localhost': None,
+                                                'may_reconnect': True,
+                                                'plugin': os.path.join(os.getcwd(), 'tests/plugins/onionmessage_forward_fail_notification.py'),
+                                                },
+                                               {'dev-allow-localhost': None,
+                                                'may_reconnect': True}])
+
+    offer = l3.rpc.offer(300, "test_onionmessage_forward_fail")
+    l2.rpc.disconnect(l3.info['id'], force=True)
+
+    # The plugin in l2 fixes up the connection, so this works!
+    l1.rpc.fetchinvoice(offer['bolt12'])
+
+    l2.daemon.is_in_log('plugin-onionmessage_forward_fail_notification.py: Received onionmessage_forward_fail')
