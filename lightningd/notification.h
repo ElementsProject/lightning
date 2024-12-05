@@ -99,6 +99,13 @@ void notify_openchannel_peer_sigs(struct lightningd *ld,
 void notify_channel_open_failed(struct lightningd *ld,
                                 const struct channel_id *cid);
 
+void notify_onionmessage_forward_fail(struct lightningd *ld,
+				      const struct node_id *source,
+				      const u8 *incoming,
+				      const struct pubkey *path_key,
+				      const u8 *outgoing,
+				      const struct sciddir_or_pubkey *next_node);
+
 /* Tell this plugin about deprecated flag for next: returns false
  * if doesn't subscribe */
 bool notify_deprecated_oneshot(struct lightningd *ld,

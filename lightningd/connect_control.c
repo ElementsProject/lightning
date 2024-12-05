@@ -369,7 +369,31 @@ static void handle_custommsg_in(struct lightningd *ld, const u8 *msg)
 
 static void handle_onionmsg_forward_fail(struct lightningd *ld, const u8 *msg)
 {
-	/* FIXME: Do something! */
+	struct node_id source;
+	u8 *incoming;
+	struct pubkey path_key;
+	u8 *outgoing;
+	struct sciddir_or_pubkey *next;
+
+	if (!fromwire_connectd_onionmsg_forward_fail(tmpctx, msg,
+						     &source,
+						     &incoming,
+						     &path_key,
+						     &outgoing,
+						     &next)) {
+		log_broken(ld->log, "Malformed onionmsg_forward_fail: %s",
+			   tal_hex(tmpctx, msg));
+		return;
+	}
+
+	if (tal_count(outgoing) && !next) {
+		log_broken(ld->log, "onionmsg_forward_fail missing next: %s",
+			   tal_hex(tmpctx, msg));
+		return;
+	}
+
+	notify_onionmessage_forward_fail(ld, &source, incoming,
+					 &path_key, outgoing, next);
 }
 
 static void connectd_start_shutdown_reply(struct subd *connectd,
