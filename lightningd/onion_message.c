@@ -160,39 +160,6 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 		plugin_hook_call_onion_message_recv(ld, NULL, payload);
 }
 
-struct onion_hop {
-	struct pubkey node;
-	u8 *tlv;
-};
-
-static struct command_result *param_onion_hops(struct command *cmd,
-					       const char *name,
-					       const char *buffer,
-					       const jsmntok_t *tok,
-					       struct onion_hop **hops)
-{
-	size_t i;
-	const jsmntok_t *t;
-
-	if (tok->type != JSMN_ARRAY || tok->size == 0)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "%s must be an (non-empty) array", name);
-
-	*hops = tal_arr(cmd, struct onion_hop, tok->size);
-	json_for_each_arr(i, t, tok) {
-		const char *err;
-
-		err = json_scan(cmd, buffer, t, "{id:%,tlv:%}",
-				JSON_SCAN(json_to_pubkey, &(*hops)[i].node),
-				JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex,
-					      &(*hops)[i].tlv));
-		if (err)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "%s[%zu]: %s", name, i, err);
-	}
-	return NULL;
-}
-
 static void inject_onionmsg_reply(struct subd *connectd,
 				  const u8 *reply,
 				  const int *fds UNUSED,
@@ -217,16 +184,12 @@ static struct command_result *json_injectonionmessage(struct command *cmd,
 						      const jsmntok_t *obj UNNEEDED,
 						      const jsmntok_t *params)
 {
-	struct onion_hop *hops;
 	struct pubkey *path_key;
-	struct sphinx_path *sphinx_path;
-	struct onionpacket *op;
-	struct secret *path_secrets;
-	size_t onion_size;
+	u8 *msg;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("path_key", param_pubkey, &path_key),
-			 p_req("hops", param_onion_hops, &hops),
+			 p_req("message", param_bin_from_hex, &msg),
 			 NULL))
 		return command_param_failed();
 
@@ -235,31 +198,16 @@ static struct command_result *json_injectonionmessage(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD,
 				    "experimental-onion-messages not enabled");
 
-	/* Create an onion which encodes this. */
-	sphinx_path = sphinx_path_new(cmd, NULL, 0);
-	for (size_t i = 0; i < tal_count(hops); i++)
-		sphinx_add_hop(sphinx_path, &hops[i].node, hops[i].tlv);
-
-	/* BOLT-onion-message #4:
-	 * - SHOULD set `onion_message_packet` `len` to 1366 or 32834.
-	 */
-	if (sphinx_path_payloads_size(sphinx_path) <= ROUTING_INFO_SIZE)
-		onion_size = ROUTING_INFO_SIZE;
-	else
-		onion_size = 32768; /* VERSION_SIZE + HMAC_SIZE + PUBKEY_SIZE == 66 */
-
-	op = create_onionpacket(tmpctx, sphinx_path, onion_size, &path_secrets);
-	if (!op)
+	if (tal_count(msg) > 65535) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Creating onion failed (tlvs too long?)");
+				    "onion message too long");
+	}
 
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
 	subd_req(cmd, cmd->ld->connectd,
-		 take(towire_connectd_inject_onionmsg(NULL,
-						      path_key,
-						      serialize_onionpacket(tmpctx, op))),
+		 take(towire_connectd_inject_onionmsg(NULL, path_key, msg)),
 		 -1, 0, inject_onionmsg_reply, cmd);
 	return command_still_pending(cmd);
 }

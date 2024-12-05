@@ -106,18 +106,42 @@ inject_onionmessage_(struct command *cmd,
 		     void *arg)
 {
 	struct out_req *req;
+	struct sphinx_path *sphinx_path;
+	struct onionpacket *op;
+	struct secret *path_secrets;
+	size_t onion_size;
 
-	req = jsonrpc_request_start(cmd, "injectonionmessage",
-				    cb, errcb, arg);
-	json_add_pubkey(req->js, "path_key", &omsg->first_path_key);
-	json_array_start(req->js, "hops");
-	for (size_t i = 0; i < tal_count(omsg->hops); i++) {
-		json_object_start(req->js, NULL);
-		json_add_pubkey(req->js, "id", &omsg->hops[i]->pubkey);
-		json_add_hex_talarr(req->js, "tlv", omsg->hops[i]->raw_payload);
-		json_object_end(req->js);
+	/* Create an onion which encodes this. */
+	sphinx_path = sphinx_path_new(tmpctx, NULL, 0);
+	for (size_t i = 0; i < tal_count(omsg->hops); i++)
+		sphinx_add_hop(sphinx_path,
+			       &omsg->hops[i]->pubkey, omsg->hops[i]->raw_payload);
+
+	/* BOLT #4:
+	 * - SHOULD set `onion_message_packet` `len` to 1366 or 32834.
+	 */
+	if (sphinx_path_payloads_size(sphinx_path) <= ROUTING_INFO_SIZE)
+		onion_size = ROUTING_INFO_SIZE;
+	else
+		onion_size = 32768; /* VERSION_SIZE + HMAC_SIZE + PUBKEY_SIZE == 66 */
+
+	op = create_onionpacket(tmpctx, sphinx_path, onion_size, &path_secrets);
+	if (!op) {
+		/* errcb expects a JSON message. */
+		const char *err;
+		jsmntok_t *toks;
+
+		err = tal_fmt(tmpctx, "{\"code\":%d,\"message\":\"Creating onion failed (tlvs too long?)\"}",
+			      JSONRPC2_INVALID_PARAMS);
+		toks = json_parse_simple(tmpctx, err, strlen(err));
+		assert(toks);
+		/* Not really an error from injectpaymentonion, but near enough */
+		return errcb(cmd, "injectpaymentonion", err, toks, arg);
 	}
-	json_array_end(req->js);
+
+	req = jsonrpc_request_start(cmd, "injectonionmessage", cb, errcb, arg);
+	json_add_pubkey(req->js, "path_key", &omsg->first_path_key);
+	json_add_hex_talarr(req->js, "message", serialize_onionpacket(tmpctx, op));
 	return send_outreq(req);
 }
 
