@@ -176,6 +176,45 @@ void notify_custommsg(struct lightningd *ld,
 	notify_send(ld, n);
 }
 
+static void onionmessage_forward_fail_serialize(struct json_stream *stream,
+						const struct node_id *source,
+						const u8 *incoming,
+						const struct pubkey *path_key,
+						const u8 *outgoing,
+						const struct sciddir_or_pubkey *next_node)
+{
+	json_add_node_id(stream, "source", source);
+	json_add_hex_talarr(stream, "incoming", incoming);
+	json_add_pubkey(stream, "path_key", path_key);
+	if (tal_count(outgoing) != 0) {
+		json_add_hex_talarr(stream, "outgoing", outgoing);
+		if (next_node->is_pubkey)
+			json_add_pubkey(stream, "next_node_id", &next_node->pubkey);
+		else
+			json_add_short_channel_id_dir(stream, "next_short_channel_id_dir",
+						      next_node->scidd);
+	}
+}
+
+REGISTER_NOTIFICATION(onionmessage_forward_fail);
+
+void notify_onionmessage_forward_fail(struct lightningd *ld,
+				      const struct node_id *source,
+				      const u8 *incoming,
+				      const struct pubkey *path_key,
+				      const u8 *outgoing,
+				      const struct sciddir_or_pubkey *next_node)
+{
+	struct jsonrpc_notification *n = notify_start("onionmessage_forward_fail");
+	onionmessage_forward_fail_serialize(n->stream,
+					    source,
+					    incoming,
+					    path_key,
+					    outgoing,
+					    next_node);
+	notify_send(ld, n);
+}
+
 static void invoice_payment_notification_serialize(struct json_stream *stream,
 						   struct amount_msat amount,
 						   const struct preimage *preimage,
