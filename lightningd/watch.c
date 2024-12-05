@@ -208,8 +208,8 @@ static bool txw_fire(struct txwatch *txw,
 
 	if (txw->depth == -1) {
 		log_debug(txw->topo->log,
-			  "Got first depth change ->%u for %s",
-			  txw->depth,
+			  "Got first depth change 0->%u for %s",
+			  depth,
 			  fmt_bitcoin_txid(tmpctx, &txw->txid));
 	} else {
 		/* zero depth signals a reorganization */
