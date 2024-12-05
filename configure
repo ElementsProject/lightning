@@ -355,6 +355,13 @@ if command -v "${PKG_CONFIG}" >/dev/null; then
     SQLITE3_LDLIBS="$("${PKG_CONFIG}" --silence-errors --libs sqlite3 || :)"
 fi
 
+SODIUM_CFLAGS=""
+SODIUM_LDLIBS="-lsodium"
+if command -v "${PKG_CONFIG}" >/dev/null; then
+    SODIUM_CFLAGS="$("${PKG_CONFIG}" --silence-errors --cflags libsodium || :)"
+    SODIUM_LDLIBS="$("${PKG_CONFIG}" --silence-errors --libs libsodium || :)"
+fi
+
 POSTGRES_INCLUDE=""
 POSTGRES_LDLIBS=""
 if command -v "${PG_CONFIG}" >/dev/null; then
@@ -365,7 +372,7 @@ fi
 # Clean up on exit.
 trap "rm -f $CONFIG_VAR_FILE.$$" 0
 
-$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER.$$ --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $CSANFLAGS -I$CPATH -L$LIBRARY_PATH $SQLITE3_CFLAGS $POSTGRES_INCLUDE <<EOF
+$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER.$$ --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $CSANFLAGS -I$CPATH -L$LIBRARY_PATH $SQLITE3_CFLAGS $SODIUM_CFLAGS $POSTGRES_INCLUDE <<EOF
 
 var=HAVE_ZLIB
 desc=zlib support
@@ -388,7 +395,7 @@ int main(void)
 var=HAVE_GOOD_LIBSODIUM
 desc=libsodium with IETF chacha20 variants
 style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
-link=-lsodium
+link=$SODIUM_LDLIBS
 code=
 #include <sodium.h>
 #include <stdio.h>
@@ -553,6 +560,8 @@ add_var SQLITE3_CFLAGS "$SQLITE3_CFLAGS"
 add_var SQLITE3_LDLIBS "$SQLITE3_LDLIBS"
 add_var POSTGRES_INCLUDE "$POSTGRES_INCLUDE"
 add_var POSTGRES_LDLIBS "$POSTGRES_LDLIBS"
+add_var SODIUM_CFLAGS "$SODIUM_CFLAGS"
+add_var SODIUM_LDLIBS "$SODIUM_LDLIBS"
 add_var VALGRIND "$VALGRIND"
 add_var DEBUGBUILD "$DEBUGBUILD"
 add_var COMPAT "$COMPAT" $CONFIG_HEADER.$$
