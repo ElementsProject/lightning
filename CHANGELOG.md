@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [24.11rc3] - 2024-12-02: "The lightning-dev Mailing List"
+## [24.11rc4] - 2024-12-02: "The lightning-dev Mailing List"
 
 This release named by Dusty Daemon.
 
@@ -15,6 +15,7 @@ This release named by Dusty Daemon.
  - JSON-RPC: `fetchinvoice` allows setting invreq_metadata via `payer_metadata` parameter. ([#7786])
  - hsmtool: generatehsm can run non-interactive, taking options on the cmdline. ([#7102])
  - Plugins: `pay` now has tracing support for various payment steps. ([#7803])
+ - Plugins: new notification `onionmessage_forward_fail`.
  - JSON-RPC: `exposesecret` command for encouraging hsm_secret backups. ([#7647])
  - JSON-RPC: `listpays` has `index`, `start` and `limit` parameters for listing control. ([#7385])
  - Plugins: bookkeeper has a new RPC `bkpr-editdescriptionbypaymentid` which will update the description for any event with matching payment_id ([#7604])
@@ -45,6 +46,7 @@ This release named by Dusty Daemon.
  - Startup: reconnecting to peers at startup should be significantly faster (dependent on machine speed). ([#7630])
  - Protocol: we remember the last successful address we connected to for important peers. ([#7630])
  - Protocol: Gossipd requests a full sync from a random peer every hour. ([#7768])
+ - JSON-RPC: `injectonionmessage` API simplified and documented.
  - JSON-RPC: Improved error messaging for splice commands. ([#7719])
  - JSON-RPC: built-in plugins can now be stopped using "plugin stop". ([#7799])
  - Wallet: Taproot addresses are used for unilateral-close change addresses. ([#7800])
@@ -99,6 +101,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - lightningd: no longer crash if a plugin dies during lightningd startup. ([#7673])
  - cln-plugin: Change default log level filter back to INFO ([#7668])
  - Logging: removed bogus "**BROKEN** plugin-topology: DEPRECATED API USED: listchannels.include_private" message. ([#7663])
+ - Logging: When DEBUG printing first tx depth, we printed the wrong value ([#7910])
  - Documentation: schemas: Make description in `Wait(any)invoiceResponse` optional to handle BOLT12 ([#7667])
  - Fixed intermittant bug where hsmd (particularly, but also lightningd) could use 100% CPU. ([#7661])
  - Docker image created via github actions correctly reads the tag available on the HEAD. ([#7625])
@@ -176,7 +179,8 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#7890]: https://github.com/ElementsProject/lightning/pull/7890
 [#7797]: https://github.com/ElementsProject/lightning/pull/7797
 [#7892]: https://github.com/ElementsProject/lightning/pull/7892
-[24.11rc3]: https://github.com/ElementsProject/lightning/releases/tag/v24.11rc3
+[#7910]: https://github.com/ElementsProject/lightning/pull/7910
+[24.11rc4]: https://github.com/ElementsProject/lightning/releases/tag/v24.11rc4
 
 
 ## [24.08.2] - 2024-10-18: "Steel Backed-up Channels"
