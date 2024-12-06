@@ -1,5 +1,5 @@
 [tool.poetry]
-package-mode=false
+package-mode = false
 name = "cln-meta-project"
 version = "0.1.0"
 description = "Just a helper to get our python dependencies under control"
@@ -15,22 +15,28 @@ clnrest = { path = "plugins/clnrest", develop = true }
 wss-proxy = { path = "plugins/wss-proxy", develop = true }
 Mako = "^1.1.6"
 websocket-client = "^1.2.3"
-grpcio-tools = "^1"
-grpcio = "^1"
+grpcio-tools = "1.66.2"
+grpcio = "1.66.2"
 # We want a specific version of protobuf to match CI's .github/scripts/setup.sh
-protobuf = "4.21.12"
+protobuf = "5.26.1"
 cryptography = "^42"
+rpds-py = "0.20.1"
+cffi = "1.17"
+greenlet = "3.1.1"
+psycopg2-binary = "2.9.10"
 
 [tool.poetry.group.dev.dependencies]
 # Test dependencies and inherited dependencies belong here
-crc32c = "^2.2.post0"  # Belongs to lnprototest
+crc32c = "^2.2.post0" # Belongs to lnprototest
 pytest-xdist = "^2.5.0"
 pytest-test-groups = "^1.0.3"
 pytest-timeout = "^2.1.0"
 flake8 = "^6.0"
 mypy = "^0.931"
 pytest-custom-exit-code = "0.3.0"
-pyln-testing = { path = "./contrib/pyln-testing", develop = true, extras = [ "grpc" ] }
+pyln-testing = { path = "./contrib/pyln-testing", develop = true, extras = [
+    "grpc",
+] }
 flaky = "^3.7.0"
 requests = "^2.31.0"
 
