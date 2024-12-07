@@ -860,7 +860,7 @@ int main(int argc, char *argv[])
 			     next);
 		}
 
-		if (net && (streq(net, "testnet") || streq(net, "signet")))
+		if (net && (streq(net, "testnet") || streq(net, "testnet4") || streq(net, "signet")))
 			version = BIP32_VER_TEST_PRIVATE;
 		else if (net && !streq(net, "bitcoin"))
 			errx(ERROR_USAGE, "Network '%s' not supported."
