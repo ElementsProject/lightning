@@ -124,7 +124,7 @@ The release captain is in charge of creating the manifest, whereas contributors 
 ## Script build-release
 1: Pull latest code from master
 
-2: Run the `tools/build-release.sh bin-Fedora-28-amd64 bin-Ubuntu sign` script. This will create a release directory, build binaries for Fedora, and build binaries for Ubuntu (Focal, Jammy, and Noble). Finally, it will sign the ZIP, Fedora, and Ubuntu builds.
+2: Run the `tools/build-release.sh bin-Fedora bin-Ubuntu sign` script. This will create a release directory, build binaries for Fedora, and build binaries for Ubuntu (Focal, Jammy, and Noble). Finally, it will sign the ZIP, Fedora, and Ubuntu builds.
 
 ## Manual
 The release captain creates the manifest as follows:
@@ -199,10 +199,12 @@ sha256sum -c SHA256SUMS
 Producing output similar to the following:
 
 ```shell
-sha256sum: clightning-v0.9.0-Fedora-28-amd64.tar.gz: No such file or directory
-clightning-v0.9.0-Fedora-28-amd64.tar.gz: FAILED open or read
-clightning-v0.9.0-Ubuntu-18.04.tar.xz: OK
-clightning-v0.9.0.zip: OK
+sha256sum: clightning-v24.11-Fedora-35-amd64.tar.gz: No such file or directory
+clightning-v24.11-Fedora-35-amd64.tar.gz: FAILED open or read
+clightning-v24.11-Ubuntu-20.04.tar.xz: OK
+clightning-v24.11-Ubuntu-22.04.tar.xz: OK
+clightning-v24.11-Ubuntu-24.04.tar.xz: OK
+clightning-v24.11.zip: OK
 sha256sum: WARNING: 1 listed file could not be read
 ```
 
