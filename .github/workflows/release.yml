@@ -60,7 +60,7 @@ jobs:
       fail-fast: false    # Let each build finish.
       matrix:
         target:
-          - 'bin-Fedora-28-amd64'
+          - 'bin-Fedora'
           - 'bin-Ubuntu-focal'
           - 'bin-Ubuntu-jammy'
           - 'bin-Ubuntu-noble'
