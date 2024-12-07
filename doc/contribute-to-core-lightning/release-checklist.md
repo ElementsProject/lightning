@@ -117,7 +117,7 @@ Here's a checklist for the release process.
 8. Push the tag to the remote repository `git push --tags`.
 9. Create a new release draft for `v<VERSION>.<POINT_VERSION>` on GitHub, ensuring to check the `Set as a pre-release` option.
 10. Execute the script contrib/cl-repro.sh for the [Builder image setup](https://docs.corelightning.org/docs/repro#builder-image-setup). This will generate the builder images `cl-repro-<codename>` needed for the next step.
-11. Run the following script to prepare the required builds `tools/build-release.sh bin-Fedora-28-amd64 bin-Ubuntu sign`.
+11. Run the following script to prepare the required builds `tools/build-release.sh bin-Fedora bin-Ubuntu sign`.
 12. Upload the reproducible builds along with `SHA256SUMS` and `SHA256SUMS.asc` files from the release folder to the newly drafted release.
 13. Share the `SHA256SUMS` and `SHA256SUMS.asc` files with the team for verification and signing.
 14. Append the signatures received from the team to the `SHA256SUMS.asc` file. Verify the file using `gpg --verify SHA256SUMS.asc`. Then re-upload the file.
