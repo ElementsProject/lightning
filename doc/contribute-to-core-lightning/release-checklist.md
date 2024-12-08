@@ -57,7 +57,7 @@ Here's a checklist for the release process.
 ## Tagging the Release
 
 1. Update the CHANGELOG.md; remove -rcN in both places, update the date and add title and namer.
-2. Update the contrib/pyln package versions: `make update-pyln-versions NEW_VERSION=<VERSION>`
+2. Update the contrib/pyln package versions: `make update-versions NEW_VERSION=<VERSION>`
 3. Add a PR with that release.
 4. Merge the PR, then:
    - `export VERSION=23.05`
