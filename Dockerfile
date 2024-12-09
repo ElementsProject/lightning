@@ -60,15 +60,17 @@ RUN apt-get update -qq && \
     apt-get install -qq -y --no-install-recommends \
         autoconf \
         automake \
+        bison \
         build-essential \
         ca-certificates \
         curl \
         dirmngr \
+        flex \
         gettext \
         git \
         gnupg \
         jq \
-        libpq-dev \
+        libicu-dev \
         libtool \
         libffi-dev \
         pkg-config \
@@ -88,13 +90,14 @@ RUN apt-get update -qq && \
         tclsh
 
 ENV PATH="/root/.local/bin:$PATH"
-ENV PYTHON_VERSION=3
+ENV PYTHON_VERSION=3 \
+    PIP_BREAK_SYSTEM_PACKAGES=1
 RUN curl -sSL https://install.python-poetry.org | python3 -
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1
 RUN pip3 install --upgrade pip setuptools wheel
 
 RUN wget -q https://zlib.net/fossils/zlib-1.2.13.tar.gz -O zlib.tar.gz && \
-    wget -q https://www.sqlite.org/2019/sqlite-src-3290000.zip -O sqlite.zip \
+    wget -q https://www.sqlite.org/2019/sqlite-src-3290000.zip -O sqlite.zip && \
     wget -q https://ftp.postgresql.org/pub/source/v17.1/postgresql-17.1.tar.gz -O postgres.tar.gz
 
 WORKDIR /opt/lightningd
@@ -108,6 +111,8 @@ RUN pip3 install -r requirements.txt && pip3 cache purge
 WORKDIR /
 
 FROM base-builder AS base-builder-linux-amd64
+
+ENV POSTGRES_CONFIG="--without-readline"
 
 FROM base-builder AS base-builder-linux-arm64
 ENV target_host=aarch64-linux-gnu \
@@ -129,12 +134,12 @@ QEMU_LD_PREFIX=/usr/${target_host} \
 HOST=${target_host} \
 TARGET=${target_host_rust} \
 RUSTUP_INSTALL_OPTS="--target ${target_host_rust} --default-host ${target_host_rust}" \
-PKG_CONFIG_PATH="/usr/${target_host}/lib/pkgconfig" \
-PG_CONFIG_PATH="/usr/${target_host}/bin/pg_config"
+PKG_CONFIG_PATH="/usr/${target_host}/lib/pkgconfig"
 
 ENV \
 ZLIB_CONFIG="--prefix=${QEMU_LD_PREFIX}" \
-SQLITE_CONFIG="--host=${target_host} --prefix=$QEMU_LD_PREFIX"
+SQLITE_CONFIG="--host=${target_host} --prefix=${QEMU_LD_PREFIX}" \
+POSTGRES_CONFIG="--without-readline --prefix=${QEMU_LD_PREFIX}"
 
 FROM base-builder AS base-builder-linux-arm
 
@@ -157,12 +162,11 @@ QEMU_LD_PREFIX=/usr/${target_host} \
 HOST=${target_host} \
 TARGET=${target_host_rust} \
 RUSTUP_INSTALL_OPTS="--target ${target_host_rust} --default-host ${target_host_rust}" \
-PKG_CONFIG_PATH="/usr/${target_host}/lib/pkgconfig" \
-PG_CONFIG_PATH="/usr/${target_host}/bin/pg_config"
+PKG_CONFIG_PATH="/usr/${target_host}/lib/pkgconfig"
 
 ENV \
 ZLIB_CONFIG="--prefix=${QEMU_LD_PREFIX}" \
-SQLITE_CONFIG="--host=${target_host} --prefix=$QEMU_LD_PREFIX" \
+SQLITE_CONFIG="--host=${target_host} --prefix=${QEMU_LD_PREFIX}" \
 POSTGRES_CONFIG="--without-readline --prefix=${QEMU_LD_PREFIX}"
 
 FROM base-builder-${TARGETOS}-${TARGETARCH} AS builder
@@ -195,6 +199,7 @@ RUN mkdir postgres && tar xvf postgres.tar.gz -C postgres --strip-components=1 \
     && cd ../../../../ && \
     rm postgres.tar.gz && \
     rm -rf postgres
+ENV PG_CONFIG_PATH=/usr/local/pgsql/bin/pg_config
 
 ENV RUST_PROFILE=release
 ENV PATH="/root/.cargo/bin:/root/.local/bin:$PATH"
@@ -250,8 +255,8 @@ RUN apt-get update -qq && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1
-ENV PYTHON_VERSION=3
+ENV PYTHON_VERSION=3 \
+    PIP_BREAK_SYSTEM_PACKAGES=1
 RUN pip3 install --upgrade pip setuptools wheel
 
 # Copy rustup_install_opts.txt file from builder
@@ -280,9 +285,8 @@ RUN apt-get update && \
       socat \
       inotify-tools \
       jq \
-      python3.9 \
-      python3-pip \
-      libpq5 && \
+      python3 \
+      python3-pip && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
