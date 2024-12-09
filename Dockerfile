@@ -7,7 +7,7 @@
 # * final: Creates the runtime image.
 
 ARG DEFAULT_TARGETPLATFORM="linux/amd64"
-ARG BASE_DISTRO="debian:bullseye-slim"
+ARG BASE_DISTRO="debian:bookworm-slim"
 
 FROM --platform=$BUILDPLATFORM ${BASE_DISTRO} AS base-downloader
 RUN set -ex \
@@ -76,7 +76,7 @@ RUN apt-get update -qq && \
         pkg-config \
         libssl-dev \
         protobuf-compiler \
-        python3.9 \
+        python3 \
         python3-dev \
         python3-mako \
         python3-pip \
@@ -89,13 +89,13 @@ RUN apt-get update -qq && \
         unzip \
         tclsh
 
-ENV PATH="/root/.local/bin:$PATH"
-ENV PYTHON_VERSION=3 \
-    PIP_BREAK_SYSTEM_PACKAGES=1
+ENV PATH="/root/.local/bin:$PATH" \
+    PYTHON_VERSION=3
 RUN curl -sSL https://install.python-poetry.org | python3 -
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1
-RUN pip3 install --upgrade pip setuptools wheel
-RUN poetry self add poetry-plugin-export
+RUN mkdir -p /root/.venvs && \
+    python3 -m venv /root/.venvs/cln && \
+    . /root/.venvs/cln/bin/activate && \
+    pip3 install --upgrade pip setuptools wheel
 
 RUN wget -q https://zlib.net/fossils/zlib-1.2.13.tar.gz -O zlib.tar.gz && \
     wget -q https://www.sqlite.org/2019/sqlite-src-3290000.zip -O sqlite.zip && \
@@ -108,7 +108,11 @@ RUN git clone --recursive /tmp/lightning . && \
 
 # Do not build python plugins (clnrest & wss-proxy) here, python doesn't support cross compilation.
 RUN sed -i '/^clnrest\|^wss-proxy/d' pyproject.toml && poetry export -o requirements.txt --without-hashes
-RUN pip3 install -r requirements.txt && pip3 cache purge
+RUN mkdir -p /root/.venvs && \
+    python3 -m venv /root/.venvs/cln && \
+    . /root/.venvs/cln/bin/activate && \
+    pip3 install -r requirements.txt && \
+    pip3 cache purge
 WORKDIR /
 
 FROM base-builder AS base-builder-linux-amd64
@@ -257,21 +261,24 @@ RUN apt-get update -qq && \
         build-essential \
         libffi-dev \
         libssl-dev \
-        python3.9 \
+        python3 \
         python3-dev \
-        python3-pip && \
+        python3-pip \
+        python3-venv && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-ENV PYTHON_VERSION=3 \
-    PIP_BREAK_SYSTEM_PACKAGES=1
-RUN pip3 install --upgrade pip setuptools wheel
+ENV PYTHON_VERSION=3
+RUN mkdir -p /root/.venvs && \
+    python3 -m venv /root/.venvs/cln && \
+    . /root/.venvs/cln/bin/activate && \
+    pip3 install --upgrade pip setuptools wheel
 
 # Copy rustup_install_opts.txt file from builder
 COPY --from=builder /tmp/rustup_install_opts.txt /tmp/rustup_install_opts.txt
 # Setup ENV $RUSTUP_INSTALL_OPTS for this stage
 RUN export $(cat /tmp/rustup_install_opts.txt)
-ENV PATH="/root/.cargo/bin:$PATH"
+ENV PATH="/root/.cargo/bin:/root/.venvs/cln/bin:$PATH"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y ${RUSTUP_INSTALL_OPTS}
 
 WORKDIR /opt/lightningd/plugins/clnrest
@@ -315,7 +322,7 @@ RUN --mount=type=bind,from=builder,source=/var/libpq,target=/var/libpq,rw \
     ldconfig
 
 COPY --from=builder /tmp/lightning_install/ /usr/local/
-COPY --from=builder-python /usr/local/lib/python3.9/dist-packages/ /usr/local/lib/python3.9/dist-packages/
+COPY --from=builder-python /root/.venvs/cln/lib/python3.11/site-packages /usr/local/lib/python3.11/dist-packages/
 COPY --from=downloader /opt/bitcoin/bin /usr/bin
 COPY --from=downloader /opt/litecoin/bin /usr/bin
 COPY tools/docker-entrypoint.sh entrypoint.sh
