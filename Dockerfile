@@ -7,7 +7,7 @@
 # * final: Creates the runtime image.
 
 ARG DEFAULT_TARGETPLATFORM="linux/amd64"
-ARG BASE_DISTRO="debian:bullseye-slim"
+ARG BASE_DISTRO="debian:bookworm-slim"
 
 FROM --platform=$BUILDPLATFORM ${BASE_DISTRO} AS base-downloader
 RUN set -ex \
@@ -60,21 +60,23 @@ RUN apt-get update -qq && \
     apt-get install -qq -y --no-install-recommends \
         autoconf \
         automake \
+        bison \
         build-essential \
         ca-certificates \
         curl \
         dirmngr \
+        flex \
         gettext \
         git \
         gnupg \
         jq \
-        libpq-dev \
+        libicu-dev \
         libtool \
         libffi-dev \
         pkg-config \
         libssl-dev \
         protobuf-compiler \
-        python3.9 \
+        python3 \
         python3-dev \
         python3-mako \
         python3-pip \
@@ -88,13 +90,14 @@ RUN apt-get update -qq && \
         tclsh
 
 ENV PATH="/root/.local/bin:$PATH"
-ENV PYTHON_VERSION=3
+ENV PYTHON_VERSION=3 \
+    PIP_BREAK_SYSTEM_PACKAGES=1
 RUN curl -sSL https://install.python-poetry.org | python3 -
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1
 RUN pip3 install --upgrade pip setuptools wheel
 
 RUN wget -q https://zlib.net/fossils/zlib-1.2.13.tar.gz -O zlib.tar.gz && \
-    wget -q https://www.sqlite.org/2019/sqlite-src-3290000.zip -O sqlite.zip
+    wget -q https://www.sqlite.org/2019/sqlite-src-3290000.zip -O sqlite.zip && \
+    wget -q https://ftp.postgresql.org/pub/source/v17.1/postgresql-17.1.tar.gz -O postgres.tar.gz
 
 WORKDIR /opt/lightningd
 COPY . /tmp/lightning
@@ -107,6 +110,8 @@ RUN pip3 install -r requirements.txt && pip3 cache purge
 WORKDIR /
 
 FROM base-builder AS base-builder-linux-amd64
+
+ENV POSTGRES_CONFIG="--without-readline"
 
 FROM base-builder AS base-builder-linux-arm64
 ENV target_host=aarch64-linux-gnu \
@@ -132,7 +137,8 @@ PKG_CONFIG_PATH="/usr/${target_host}/lib/pkgconfig"
 
 ENV \
 ZLIB_CONFIG="--prefix=${QEMU_LD_PREFIX}" \
-SQLITE_CONFIG="--host=${target_host} --prefix=$QEMU_LD_PREFIX"
+SQLITE_CONFIG="--host=${target_host} --prefix=${QEMU_LD_PREFIX}" \
+POSTGRES_CONFIG="--without-readline --prefix=${QEMU_LD_PREFIX}"
 
 FROM base-builder AS base-builder-linux-arm
 
@@ -159,7 +165,8 @@ PKG_CONFIG_PATH="/usr/${target_host}/lib/pkgconfig"
 
 ENV \
 ZLIB_CONFIG="--prefix=${QEMU_LD_PREFIX}" \
-SQLITE_CONFIG="--host=${target_host} --prefix=$QEMU_LD_PREFIX"
+SQLITE_CONFIG="--host=${target_host} --prefix=${QEMU_LD_PREFIX}" \
+POSTGRES_CONFIG="--without-readline --prefix=${QEMU_LD_PREFIX}"
 
 FROM base-builder-${TARGETOS}-${TARGETARCH} AS builder
 
@@ -178,6 +185,20 @@ RUN unzip sqlite.zip \
     && ./configure --enable-static --disable-readline --disable-threadsafe --disable-load-extension ${SQLITE_CONFIG} \
     && make \
     && make install && cd .. && rm sqlite.zip && rm -rf sqlite-*
+
+RUN mkdir postgres && tar xvf postgres.tar.gz -C postgres --strip-components=1 \
+    && cd postgres \
+    && ./configure ${POSTGRES_CONFIG} \
+    && cd src/include \
+    && make install \
+    && cd ../interfaces/libpq \
+    && make install \
+    && cd ../../bin/pg_config \
+    && make install \
+    && cd ../../../../ && \
+    rm postgres.tar.gz && \
+    rm -rf postgres
+ENV PG_CONFIG_PATH=/usr/local/pgsql/bin/pg_config
 
 ENV RUST_PROFILE=release
 ENV PATH="/root/.cargo/bin:/root/.local/bin:$PATH"
@@ -227,14 +248,14 @@ RUN apt-get update -qq && \
         build-essential \
         libffi-dev \
         libssl-dev \
-        python3.9 \
+        python3 \
         python3-dev \
         python3-pip && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1
-ENV PYTHON_VERSION=3
+ENV PYTHON_VERSION=3 \
+    PIP_BREAK_SYSTEM_PACKAGES=1
 RUN pip3 install --upgrade pip setuptools wheel
 
 # Copy rustup_install_opts.txt file from builder
@@ -263,9 +284,8 @@ RUN apt-get update && \
       socat \
       inotify-tools \
       jq \
-      python3.9 \
-      python3-pip \
-      libpq5 && \
+      python3 \
+      python3-pip && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -279,7 +299,7 @@ RUN mkdir $LIGHTNINGD_DATA && \
 VOLUME [ "/root/.lightning" ]
 
 COPY --from=builder /tmp/lightning_install/ /usr/local/
-COPY --from=builder-python /usr/local/lib/python3.9/dist-packages/ /usr/local/lib/python3.9/dist-packages/
+COPY --from=builder-python /usr/local/lib/python3.11/dist-packages/ /usr/local/lib/python3.11/dist-packages/
 COPY --from=downloader /opt/bitcoin/bin /usr/bin
 COPY --from=downloader /opt/litecoin/bin /usr/bin
 COPY tools/docker-entrypoint.sh entrypoint.sh
