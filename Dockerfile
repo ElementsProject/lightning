@@ -7,7 +7,7 @@
 # * final: Creates the runtime image.
 
 ARG DEFAULT_TARGETPLATFORM="linux/amd64"
-ARG BASE_DISTRO="debian:bullseye-slim"
+ARG BASE_DISTRO="debian:bookworm-slim"
 
 FROM --platform=$BUILDPLATFORM ${BASE_DISTRO} AS base-downloader
 RUN set -ex \
@@ -76,7 +76,7 @@ RUN apt-get update -qq && \
         pkg-config \
         libssl-dev \
         protobuf-compiler \
-        python3.9 \
+        python3 \
         python3-dev \
         python3-mako \
         python3-pip \
@@ -93,7 +93,6 @@ ENV PATH="/root/.local/bin:$PATH"
 ENV PYTHON_VERSION=3 \
     PIP_BREAK_SYSTEM_PACKAGES=1
 RUN curl -sSL https://install.python-poetry.org | python3 -
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1
 RUN pip3 install --upgrade pip setuptools wheel
 
 RUN wget -q https://zlib.net/fossils/zlib-1.2.13.tar.gz -O zlib.tar.gz && \
@@ -255,7 +254,7 @@ RUN apt-get update -qq && \
         build-essential \
         libffi-dev \
         libssl-dev \
-        python3.9 \
+        python3 \
         python3-dev \
         python3-pip && \
     apt-get clean && \
@@ -312,7 +311,7 @@ RUN --mount=type=bind,from=builder,source=/var/libpq,target=/var/libpq,rw \
     ldconfig /usr/local/pgsql/lib
 
 COPY --from=builder /tmp/lightning_install/ /usr/local/
-COPY --from=builder-python /usr/local/lib/python3.9/dist-packages/ /usr/local/lib/python3.9/dist-packages/
+COPY --from=builder-python /usr/local/lib/python3.11/dist-packages/ /usr/local/lib/python3.11/dist-packages/
 COPY --from=downloader /opt/bitcoin/bin /usr/bin
 COPY --from=downloader /opt/litecoin/bin /usr/bin
 COPY tools/docker-entrypoint.sh entrypoint.sh
