@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name = "cln-grpc-plugin"
-version = "0.2.0"
+version = "0.3.0"
 
 description = "A Core Lightning plugin that re-exposes the JSON-RPC over grpc. Authentication is done via mTLS."
 license = "MIT"
@@ -17,9 +17,9 @@ anyhow = "1.0"
 log = "0.4"
 rcgen = { version = "0.13.1", features = ["pem", "x509-parser"] }
 prost = "0.12"
-cln-grpc = { version = "0.2", features = ["server"], path = "../../cln-grpc"}
-cln-plugin = { version = "0.2", path = "../../plugins" }
-cln-rpc = { version = "0.2", path = "../../cln-rpc" }
+cln-grpc = { version = "0.3", features = ["server"], path = "../../cln-grpc"}
+cln-plugin = { version = "0.3", path = "../../plugins" }
+cln-rpc = { version = "0.3", path = "../../cln-rpc" }
 serde_json = "1.0.113"
 
 [dependencies.tokio]
