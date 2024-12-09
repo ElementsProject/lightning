@@ -1,6 +1,6 @@
 [package]
 name = "cln-plugin"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "MIT"
 description = "A CLN plugin library. Write your plugin in Rust."
@@ -27,4 +27,4 @@ tracing = { version = "^0.1", features = ["async-await", "log"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", ] }
-cln-grpc = { version = "0.2", path = "../cln-grpc" }
+cln-grpc = { version = "0.3", path = "../cln-grpc" }
