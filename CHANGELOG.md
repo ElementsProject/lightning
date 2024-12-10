@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [24.11rc4] - 2024-12-02: "The lightning-dev Mailing List"
+## [24.11] - 2024-12-09: "The lightning-dev Mailing List"
 
 This release named by Dusty Daemon.
 
@@ -180,7 +180,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#7797]: https://github.com/ElementsProject/lightning/pull/7797
 [#7892]: https://github.com/ElementsProject/lightning/pull/7892
 [#7910]: https://github.com/ElementsProject/lightning/pull/7910
-[24.11rc4]: https://github.com/ElementsProject/lightning/releases/tag/v24.11rc4
+[24.11]: https://github.com/ElementsProject/lightning/releases/tag/v24.11
 
 
 ## [24.08.2] - 2024-10-18: "Steel Backed-up Channels"

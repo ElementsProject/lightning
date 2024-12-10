@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyln-proto"
-version = "24.11rc4"
+version = "24.11"
 description = "This package implements some of the Lightning Network protocol in pure python. It is intended for protocol testing and some minor tooling only. It is not deemed secure enough to handle any amount of real funds (you have been warned!)."
 authors = ["Christian Decker <decker.christian@gmail.com>"]
 license = "BSD-MIT"
