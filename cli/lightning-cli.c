@@ -860,10 +860,8 @@ int main(int argc, char *argv[])
 		default:
 			if (handle_notify(resp, toks, notification_level,
 					  &last_was_progress)) {
-				/* +2 for \n\n */
-				size_t len = toks[0].end - toks[0].start + 2;
-				memmove(resp, resp + len, off - len);
-				off -= len;
+				memmove(resp, resp + toks[0].end, off - toks[0].end);
+				off -= toks[0].end;
 				jsmn_init(&parser);
 				toks[0].type = JSMN_UNDEFINED;
 				/* Don't force another read! */
