@@ -1639,6 +1639,10 @@ payment_waitsendpay_finished(struct command *cmd,
 	payment_result_infer(p->route, p->result);
 
 	if (p->result->state == PAYMENT_COMPLETE) {
+		paymod_log(p, LOG_INFORM,
+			   "HTLC result state=success, sent=%s, deliver=%s",
+			   fmt_amount_msat(tmpctx, p->result->amount_sent),
+			   fmt_amount_msat(tmpctx, p->final_amount));
 		payment_set_step(p, PAYMENT_STEP_SUCCESS);
 		return payment_continue(p);
 	}
@@ -1657,9 +1661,23 @@ payment_waitsendpay_finished(struct command *cmd,
 					    payment_addgossip_success,
 					    payment_addgossip_failure, p);
 		json_add_hex_talarr(req->js, "message", update);
+
+		paymod_log(p, LOG_INFORM,
+			   "HTLC result state=failed, sent=%s, todeliver=%s, "
+			   "code=%d (%s)",
+			   fmt_amount_msat(tmpctx, p->result->amount_sent),
+			   fmt_amount_msat(tmpctx, p->final_amount),
+			   p->result->code, p->result->failcodename);
+
 		return send_outreq(req);
 	}
 
+	paymod_log(
+	    p, LOG_INFORM,
+	    "HTLC result state=failed, sent=%s, todeliver=%s, code=%d (%s)",
+	    fmt_amount_msat(tmpctx, p->result->amount_sent),
+	    fmt_amount_msat(tmpctx, p->final_amount), p->result->code,
+	    p->result->failcodename);
 	return payment_addgossip_success(cmd, NULL, NULL, NULL, p);
 }
 
