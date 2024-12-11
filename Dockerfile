@@ -89,8 +89,8 @@ RUN apt-get update -qq && \
         unzip \
         tclsh
 
-ENV PATH="/root/.local/bin:$PATH"
-ENV PYTHON_VERSION=3 \
+ENV PATH="/root/.local/bin:$PATH" \
+    PYTHON_VERSION=3 \
     PIP_BREAK_SYSTEM_PACKAGES=1
 RUN curl -sSL https://install.python-poetry.org | python3 -
 RUN pip3 install --upgrade pip setuptools wheel
@@ -125,22 +125,21 @@ RUN apt-get install -qq -y --no-install-recommends \
         g++-${target_host}
 
 ENV AR=${target_host}-ar \
-AS=${target_host}-as \
-CC=${target_host}-gcc \
-CXX=${target_host}-g++ \
-LD=${target_host}-ld \
-STRIP=${target_host}-strip \
-QEMU_LD_PREFIX=/usr/${target_host} \
-HOST=${target_host} \
-TARGET=${target_host_rust} \
-RUSTUP_INSTALL_OPTS="--target ${target_host_rust} --default-host ${target_host_rust}" \
-PKG_CONFIG_PATH="/usr/${target_host}/lib/pkgconfig"
+    AS=${target_host}-as \
+    CC=${target_host}-gcc \
+    CXX=${target_host}-g++ \
+    LD=${target_host}-ld \
+    STRIP=${target_host}-strip \
+    QEMU_LD_PREFIX=/usr/${target_host} \
+    HOST=${target_host} \
+    TARGET=${target_host_rust} \
+    RUSTUP_INSTALL_OPTS="--target ${target_host_rust} --default-host ${target_host_rust}" \
+    PKG_CONFIG_PATH="/usr/${target_host}/lib/pkgconfig"
 
-ENV \
-ZLIB_CONFIG="--prefix=${QEMU_LD_PREFIX}" \
-SQLITE_CONFIG="--host=${target_host} --prefix=${QEMU_LD_PREFIX}" \
-POSTGRES_CONFIG="--without-readline --prefix=${QEMU_LD_PREFIX}" \
-PG_CONFIG="${QEMU_LD_PREFIX}/bin/pg_config"
+ENV ZLIB_CONFIG="--prefix=${QEMU_LD_PREFIX}" \
+    SQLITE_CONFIG="--host=${target_host} --prefix=${QEMU_LD_PREFIX}" \
+    POSTGRES_CONFIG="--without-readline --prefix=${QEMU_LD_PREFIX}" \
+    PG_CONFIG="${QEMU_LD_PREFIX}/bin/pg_config"
 
 FROM base-builder AS base-builder-linux-arm
 
@@ -154,22 +153,21 @@ RUN apt-get install -qq -y --no-install-recommends \
         g++-${target_host}
 
 ENV AR=${target_host}-ar \
-AS=${target_host}-as \
-CC=${target_host}-gcc \
-CXX=${target_host}-g++ \
-LD=${target_host}-ld \
-STRIP=${target_host}-strip \
-QEMU_LD_PREFIX=/usr/${target_host} \
-HOST=${target_host} \
-TARGET=${target_host_rust} \
-RUSTUP_INSTALL_OPTS="--target ${target_host_rust} --default-host ${target_host_rust}" \
-PKG_CONFIG_PATH="/usr/${target_host}/lib/pkgconfig"
+    AS=${target_host}-as \
+    CC=${target_host}-gcc \
+    CXX=${target_host}-g++ \
+    LD=${target_host}-ld \
+    STRIP=${target_host}-strip \
+    QEMU_LD_PREFIX=/usr/${target_host} \
+    HOST=${target_host} \
+    TARGET=${target_host_rust} \
+    RUSTUP_INSTALL_OPTS="--target ${target_host_rust} --default-host ${target_host_rust}" \
+    PKG_CONFIG_PATH="/usr/${target_host}/lib/pkgconfig"
 
-ENV \
-ZLIB_CONFIG="--prefix=${QEMU_LD_PREFIX}" \
-SQLITE_CONFIG="--host=${target_host} --prefix=${QEMU_LD_PREFIX}" \
-POSTGRES_CONFIG="--without-readline --prefix=${QEMU_LD_PREFIX}" \
-PG_CONFIG="${QEMU_LD_PREFIX}/bin/pg_config"
+ENV ZLIB_CONFIG="--prefix=${QEMU_LD_PREFIX}" \
+    SQLITE_CONFIG="--host=${target_host} --prefix=${QEMU_LD_PREFIX}" \
+    POSTGRES_CONFIG="--without-readline --prefix=${QEMU_LD_PREFIX}" \
+    PG_CONFIG="${QEMU_LD_PREFIX}/bin/pg_config"
 
 FROM base-builder-${TARGETOS}-${TARGETARCH} AS builder
 
@@ -206,8 +204,8 @@ RUN mkdir postgres && tar xvf postgres.tar.gz -C postgres --strip-components=1 \
 # Save libpq to a specific location to copy it into the final image.
 RUN mkdir /var/libpq && cp -a "$(${PG_CONFIG} --libdir)"/libpq.* /var/libpq
 
-ENV RUST_PROFILE=release
-ENV PATH="/root/.cargo/bin:/root/.local/bin:$PATH"
+ENV RUST_PROFILE=release \
+    PATH="/root/.cargo/bin:/root/.local/bin:$PATH"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y ${RUSTUP_INSTALL_OPTS}
 RUN rustup toolchain install stable --component rustfmt --allow-downgrade
 
@@ -295,10 +293,10 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-ENV LIGHTNINGD_DATA=/root/.lightning
-ENV LIGHTNINGD_RPC_PORT=9835
-ENV LIGHTNINGD_PORT=9735
-ENV LIGHTNINGD_NETWORK=bitcoin
+ENV LIGHTNINGD_DATA=/root/.lightning \
+    LIGHTNINGD_RPC_PORT=9835 \
+    LIGHTNINGD_PORT=9735 \
+    LIGHTNINGD_NETWORK=bitcoin
 
 RUN mkdir $LIGHTNINGD_DATA && \
     touch $LIGHTNINGD_DATA/config
