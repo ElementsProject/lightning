@@ -1774,7 +1774,7 @@ static struct command_result *handle_rpc_command(struct command *cmd,
 	method_tok = json_get_member(buf, rpc_tok, "method");
 	params_tok = json_get_member(buf, rpc_tok, "params");
 	id_tok = json_get_member(buf, rpc_tok, "id");
-	plugin_log(cmd->plugin, LOG_INFORM, "Got command %s",
+	plugin_log(cmd->plugin, LOG_DBG, "Got command %s",
 		   json_strdup(tmpctx, buf, method_tok));
 
 	if (!json_tok_streq(buf, method_tok, "pay"))
