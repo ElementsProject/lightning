@@ -24,6 +24,7 @@ def default_ln_port(network: str) -> int:
         "signet": 39735,
         "liquid-regtest": 20735,
         "liquid": 9735,
+        "testnet4": 49735,
     }
     return network_map[network]
 
