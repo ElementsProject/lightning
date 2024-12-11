@@ -9,6 +9,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/time/time.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <common/gossmods_listpeerchannels.h>
@@ -373,6 +374,8 @@ static const char *get_routes(const tal_t *ctx,
 	double delay_feefactor;
 	u32 mu;
 	const char *ret;
+	struct timerel time_delta;
+	struct timemono time_start = time_mono();
 
 	if (gossmap_refresh(askrene->gossmap)) {
 		/* FIXME: gossmap_refresh callbacks to we can update in place */
@@ -586,7 +589,9 @@ too_expensive:
 	}
 
 	gossmap_remove_localmods(askrene->gossmap, localmods);
-
+	time_delta = timemono_between(time_mono(), time_start);
+	rq_log(tmpctx, rq, LOG_DBG, "get_routes completed in %" PRIu64 " ms",
+	       time_to_msec(time_delta));
 	return NULL;
 
 	/* Explicit failure path keeps the compiler (gcc version 12.3.0 -O3) from
@@ -594,6 +599,9 @@ too_expensive:
 fail:
 	assert(ret != NULL);
 	gossmap_remove_localmods(askrene->gossmap, localmods);
+	time_delta = timemono_between(time_mono(), time_start);
+	rq_log(tmpctx, rq, LOG_DBG, "get_routes failed after %" PRIu64 " ms",
+	       time_to_msec(time_delta));
 	return ret;
 }
 
