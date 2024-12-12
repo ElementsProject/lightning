@@ -94,8 +94,9 @@ static inline bool payment_hash_eq(const struct payment *p,
 	       p->payment_info.payment_hash.u.u32[7] == h.u.u32[7];
 }
 
-HTABLE_DEFINE_TYPE(struct payment, payment_hash, payment_hash64,
-		   payment_hash_eq, payment_map);
+HTABLE_DEFINE_NODUPS_TYPE(struct payment, payment_hash, payment_hash64,
+			  payment_hash_eq,
+			  payment_map);
 
 struct payment *payment_new(
 	const tal_t *ctx,

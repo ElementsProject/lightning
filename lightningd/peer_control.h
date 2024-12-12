@@ -174,9 +174,9 @@ static bool peer_node_id_eq(const struct peer *peer,
 }
 
 /* Defines struct peer_node_id_map */
-HTABLE_DEFINE_TYPE(struct peer,
-		   peer_node_id, node_id_hash, peer_node_id_eq,
-		   peer_node_id_map);
+HTABLE_DEFINE_NODUPS_TYPE(struct peer,
+			  peer_node_id, node_id_hash, peer_node_id_eq,
+			  peer_node_id_map);
 
 static inline size_t dbid_hash(u64 dbid)
 {
@@ -194,8 +194,8 @@ static bool peer_dbid_eq(const struct peer *peer, u64 dbid)
 	return peer->dbid == dbid;
 }
 /* Defines struct peer_dbid_map */
-HTABLE_DEFINE_TYPE(struct peer,
-		   peer_dbid, dbid_hash, peer_dbid_eq,
-		   peer_dbid_map);
+HTABLE_DEFINE_NODUPS_TYPE(struct peer,
+			  peer_dbid, dbid_hash, peer_dbid_eq,
+			  peer_dbid_map);
 
 #endif /* LIGHTNING_LIGHTNINGD_PEER_CONTROL_H */

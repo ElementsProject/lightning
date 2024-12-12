@@ -20,14 +20,14 @@ const struct bitcoin_outpoint *txowatch_keyof(const struct txowatch *w);
 size_t txo_hash(const struct bitcoin_outpoint *out);
 bool txowatch_eq(const struct txowatch *w, const struct bitcoin_outpoint *out);
 
-HTABLE_DEFINE_TYPE(struct txowatch, txowatch_keyof, txo_hash, txowatch_eq,
-		   txowatch_hash);
+HTABLE_DEFINE_DUPS_TYPE(struct txowatch, txowatch_keyof, txo_hash, txowatch_eq,
+			txowatch_hash);
 
 const struct bitcoin_txid *txwatch_keyof(const struct txwatch *w);
 size_t txid_hash(const struct bitcoin_txid *txid);
 bool txwatch_eq(const struct txwatch *w, const struct bitcoin_txid *txid);
-HTABLE_DEFINE_TYPE(struct txwatch, txwatch_keyof, txid_hash, txwatch_eq,
-		   txwatch_hash);
+HTABLE_DEFINE_DUPS_TYPE(struct txwatch, txwatch_keyof, txid_hash, txwatch_eq,
+			txwatch_hash);
 
 
 struct txwatch *watch_txid_(const tal_t *ctx,

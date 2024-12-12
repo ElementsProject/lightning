@@ -132,11 +132,11 @@ static inline bool htlc_out_eq(const struct htlc_out *out,
 }
 
 
-HTABLE_DEFINE_TYPE(struct htlc_in, keyof_htlc_in, hash_htlc_key, htlc_in_eq,
-		   htlc_in_map);
+HTABLE_DEFINE_NODUPS_TYPE(struct htlc_in, keyof_htlc_in, hash_htlc_key, htlc_in_eq,
+			  htlc_in_map);
 
-HTABLE_DEFINE_TYPE(struct htlc_out, keyof_htlc_out, hash_htlc_key, htlc_out_eq,
-		   htlc_out_map);
+HTABLE_DEFINE_NODUPS_TYPE(struct htlc_out, keyof_htlc_out, hash_htlc_key, htlc_out_eq,
+			  htlc_out_map);
 
 struct htlc_in *find_htlc_in(const struct htlc_in_map *map,
 			     const struct channel *channel,
