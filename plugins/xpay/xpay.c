@@ -1446,11 +1446,13 @@ static struct command_result *json_xpay(struct command *cmd,
 	struct out_req *req;
 	u64 now, invexpiry;
 	char *err;
+	u64 *maxfeepercent_ppm;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("invstring", param_invstring, &payment->invstring),
 			 p_opt("amount_msat", param_msat, &msat),
 			 p_opt("maxfee", param_msat, &maxfee),
+			 p_opt("maxfeepercent", param_millionths, &maxfeepercent_ppm),
 			 p_opt("layers", param_string_array, &payment->layers),
 			 p_opt_def("retry_for", param_number, &retryfor, 60),
 			 p_opt("partial_msat", param_msat, &partial),
@@ -1569,15 +1571,46 @@ static struct command_result *json_xpay(struct command *cmd,
 		payment->amount = payment->full_amount;
 	}
 
-	/* Default is 5sats, or 1%, whatever is greater */
-	if (!maxfee) {
-		if (!amount_msat_fee(&payment->maxfee, payment->amount, 0, 1000000 / 100))
+	/* true if we have already computed the fee budget */
+	bool maxfee_set = false;
+
+	/* set maxfee through cmd option "maxfee" */
+	if (maxfee) {
+		payment->maxfee = *maxfee;
+		maxfee_set = true;
+	}
+
+	/* set maxfee through cmd option "maxfeepercent" */
+	if (maxfeepercent_ppm) {
+		struct amount_msat maxfee2;
+		if (!amount_msat_fee(&maxfee2, payment->amount, 0,
+				     *maxfeepercent_ppm / 100))
+			return command_fail(
+			    cmd, JSONRPC2_INVALID_PARAMS,
+			    "Invalid maxfeepercent: fee overflows");
+		if (!maxfee_set)
+			payment->maxfee = maxfee2;
+		else
+			/* one design choice: if we have two bounding limits
+			 * satisfy both. */
+			payment->maxfee =
+			    amount_msat_min(payment->maxfee, maxfee2);
+		maxfee_set = true;
+	}
+
+	/* Default is maxfee is 5sats, or 1%, whatever is greater */
+	if (!maxfee_set) {
+		if (!amount_msat_fee(&payment->maxfee, payment->amount, 0,
+				     1000000 / 100))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Invalid amount: fee overflows");
-		payment->maxfee = amount_msat_max(payment->maxfee,
-						  AMOUNT_MSAT(5000));
-	} else
-		payment->maxfee = *maxfee;
+		payment->maxfee =
+		    amount_msat_max(payment->maxfee, AMOUNT_MSAT(5000));
+		maxfee_set = true;
+	}
+
+	plugin_log(cmd->plugin, LOG_DBG, "maximum fee set to %s",
+		   fmt_amount_msat(tmpctx, payment->maxfee));
 
 	/* Now preapprove, then start payment. */
 	if (command_check_only(cmd)) {
@@ -1764,7 +1797,8 @@ static struct command_result *handle_rpc_command(struct command *cmd,
 	struct xpay *xpay = xpay_of(cmd->plugin);
 	const jsmntok_t *rpc_tok, *method_tok, *params_tok, *id_tok,
 		*bolt11 = NULL, *amount_msat = NULL, *maxfee = NULL,
-		*partial_msat = NULL, *retry_for = NULL;
+		*partial_msat = NULL, *retry_for = NULL,
+		*maxfeepercent = NULL;
 	struct json_stream *response;
 
 	if (!xpay->take_over_pay)
@@ -1808,6 +1842,8 @@ static struct command_result *handle_rpc_command(struct command *cmd,
 				maxfee = t + 1;
 			else if (json_tok_streq(buf, t, "partial_msat"))
 				partial_msat = t + 1;
+			else if (json_tok_streq(buf, t, "maxfeepercent"))
+				maxfeepercent = t + 1;
 			else {
 				plugin_log(cmd->plugin, LOG_INFORM,
 					   "Not redirecting pay (unknown arg %.*s)",
@@ -1841,6 +1877,8 @@ static struct command_result *handle_rpc_command(struct command *cmd,
 		json_add_tok(response, "retry_for", retry_for, buf);
 	if (maxfee)
 		json_add_tok(response, "maxfee", maxfee, buf);
+	if (maxfeepercent)
+		json_add_tok(response, "maxfeepercent", maxfeepercent, buf);
 	if (partial_msat)
 		json_add_tok(response, "partial_msat", partial_msat, buf);
 	json_object_end(response);

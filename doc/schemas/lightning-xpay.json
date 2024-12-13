@@ -31,7 +31,14 @@
         "description": [
           "*maxfee* creates an absolute limit on what fee we will pay."
         ],
-        "default": "5000msat, or 1% (whatever is greater)"
+        "default": "5000msat, or 1% (whatever is greater). The default value applies only if maxfeepercent is not specified."
+      },
+      "maxfeepercent": {
+        "type": "number",
+        "description": [
+          "An upper limit to the payment fees as a percentage of the amount."
+        ],
+        "added": "v24.11.1"
       },
       "layers": {
         "type": "array",
