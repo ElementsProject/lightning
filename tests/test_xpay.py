@@ -523,7 +523,6 @@ def test_xpay_maxfee(node_factory, bitcoind, chainparams):
     assert fee <= maxfee
 
 
-@pytest.mark.xfail(strict=True)
 def test_xpay_unannounced(node_factory):
     l1, l2 = node_factory.line_graph(2, announce_channels=False)
 
