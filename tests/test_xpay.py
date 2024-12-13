@@ -530,3 +530,21 @@ def test_xpay_maxfee(node_factory, bitcoind, chainparams):
     ret = l1.rpc.xpay(invstring=inv, maxfee=maxfee)
     fee = ret['amount_sent_msat'] - ret['amount_msat']
     assert fee <= maxfee
+
+
+@pytest.mark.xfail(strict=True)
+def test_xpay_unannounced(node_factory):
+    l1, l2 = node_factory.line_graph(2, announce_channels=False)
+
+    # BOLT 11, direct peer
+    b11 = l2.rpc.invoice('10000msat', 'test_xpay_unannounced', 'test_xpay_unannounced bolt11')['bolt11']
+    ret = l1.rpc.xpay(b11)
+    assert ret['failed_parts'] == 0
+    assert ret['successful_parts'] == 1
+    assert ret['amount_msat'] == 10000
+    assert ret['amount_sent_msat'] == 10000
+
+    # BOLT 12, direct peer
+    offer = l2.rpc.offer('any')['bolt12']
+    b12 = l1.rpc.fetchinvoice(offer, '100000msat')['invoice']
+    l1.rpc.xpay(b12)
