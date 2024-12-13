@@ -53,9 +53,6 @@ u8 *b32_decode(const tal_t *ctx UNNEEDED, const char *str UNNEEDED, size_t len U
 /* Generated stub for b32_encode */
 char *b32_encode(const tal_t *ctx UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "b32_encode called!\n"); abort(); }
-/* Generated stub for daemon_conn_queue_length */
-size_t daemon_conn_queue_length(const struct daemon_conn *dc UNNEEDED)
-{ fprintf(stderr, "daemon_conn_queue_length called!\n"); abort(); }
 /* Generated stub for daemon_conn_send */
 void daemon_conn_send(struct daemon_conn *dc UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "daemon_conn_send called!\n"); abort(); }
