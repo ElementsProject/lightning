@@ -86,6 +86,9 @@ void log_(struct logger *logger UNNEEDED, enum log_level level UNNEEDED,
 /* Generated stub for log_has_io_logging */
 bool log_has_io_logging(const struct logger *log UNNEEDED)
 { fprintf(stderr, "log_has_io_logging called!\n"); abort(); }
+/* Generated stub for log_has_trace_logging */
+bool log_has_trace_logging(const struct logger *log UNNEEDED)
+{ fprintf(stderr, "log_has_trace_logging called!\n"); abort(); }
 /* Generated stub for log_prefix */
 const char *log_prefix(const struct logger *logger UNNEEDED)
 { fprintf(stderr, "log_prefix called!\n"); abort(); }

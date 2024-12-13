@@ -15,11 +15,8 @@
 static int status_fd = -1;
 static struct daemon_conn *status_conn;
 volatile bool logging_io = false;
+bool logging_trace = false;
 static bool was_logging_io;
-
-/* If we're more than this many msgs deep, don't add debug messages. */
-#define TRACE_QUEUE_LIMIT 20
-static size_t traces_suppressed;
 
 static void got_sigusr1(int signal UNUSED)
 {
@@ -149,22 +146,10 @@ void status_vfmt(enum log_level level,
 {
 	char *str;
 
-	/* We only suppress async debug msgs.  IO messages are even spammier
-	 * but they only occur when explicitly asked for */
-	if ((level == LOG_DBG || level == LOG_TRACE) && status_conn) {
-		size_t qlen = daemon_conn_queue_length(status_conn);
+	/* These are spammy, so only log if requested (or IO logging)*/
+	if (level == LOG_TRACE && (!logging_trace && !logging_io))
+		return;
 
-		/* Once suppressing, we keep suppressing until we're empty */
-		if (traces_suppressed && qlen == 0) {
-			size_t n = traces_suppressed;
-			traces_suppressed = 0;
-			/* Careful: recursion! */
-			status_trace("...[%zu debug/trace messages suppressed]...", n);
-		} else if (traces_suppressed || qlen > TRACE_QUEUE_LIMIT) {
-			traces_suppressed++;
-			return;
-		}
-	}
 	str = tal_vfmt(NULL, fmt, ap);
 	status_send(take(towire_status_log(NULL, level, peer, str)));
 	tal_free(str);

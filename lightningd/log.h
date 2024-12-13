@@ -48,6 +48,8 @@ void logv(struct logger *logger, enum log_level level, const struct node_id *nod
 const char *log_prefix(const struct logger *logger);
 /* Is there any chance we do io-level logging for this node_id in log? */
 bool log_has_io_logging(const struct logger *log);
+/* How about trace logging? */
+bool log_has_trace_logging(const struct logger *log);
 
 void opt_register_logging(struct lightningd *ld);
 

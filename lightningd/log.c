@@ -478,6 +478,11 @@ bool log_has_io_logging(const struct logger *log)
 	return print_level(log->log_book, log->prefix, log->default_node_id, NULL) < LOG_TRACE;
 }
 
+bool log_has_trace_logging(const struct logger *log)
+{
+	return print_level(log->log_book, log->prefix, log->default_node_id, NULL) < LOG_DBG;
+}
+
 /* This may move entry! */
 static void add_entry(struct logger *log, struct log_entry **l)
 {
