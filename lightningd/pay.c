@@ -1985,7 +1985,7 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 	if (payload->forward_channel) {
 		next = any_channel_by_scid(cmd->ld,
 					   *payload->forward_channel,
-					   false);
+					   true);
 		if (!next)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Unknown scid %s",
