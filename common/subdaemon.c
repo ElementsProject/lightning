@@ -30,6 +30,8 @@ bool subdaemon_setup(int argc, char *argv[])
 	for (int i = 1; i < argc; i++) {
 		if (streq(argv[i], "--log-io"))
 			logging_io = true;
+		if (streq(argv[i], "--log-trace"))
+			logging_trace = true;
 	}
 
 	developer = daemon_developer_mode(argv);

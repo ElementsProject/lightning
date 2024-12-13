@@ -26,6 +26,8 @@ void status_vfmt(enum log_level level,
 
 /* Usually we only log the packet names, not contents. */
 extern volatile bool logging_io;
+/* Usually we don't bother with TRACE spam */
+extern bool logging_trace;
 
 /* This logs a debug summary if IO logging not enabled. */
 void status_peer_io(enum log_level iodir,

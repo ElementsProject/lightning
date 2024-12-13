@@ -205,6 +205,7 @@ static int subd(const char *path, const char *name,
 		bool debugging,
 		int *msgfd,
 		bool io_logging,
+		bool trace_logging,
 		bool developer,
 		va_list *ap)
 {
@@ -228,7 +229,7 @@ static int subd(const char *path, const char *name,
 
 	if (childpid == 0) {
 		size_t num_args;
-		char *args[] = { NULL, NULL, NULL, NULL, NULL };
+		char *args[] = { NULL, NULL, NULL, NULL, NULL, NULL };
 		int **fds = tal_arr(tmpctx, int *, 3);
 		int stdoutfd = STDOUT_FILENO, stderrfd = STDERR_FILENO;
 
@@ -259,6 +260,8 @@ static int subd(const char *path, const char *name,
 		args[num_args++] = tal_strdup(NULL, path);
 		if (io_logging)
 			args[num_args++] = "--log-io";
+		if (trace_logging)
+			args[num_args++] = "--log-trace";
 		if (debugging)
 			args[num_args++] = "--dev-debug-self";
 		if (developer)
@@ -742,9 +745,10 @@ static struct subd *new_subd(const tal_t *ctx,
 
 	sd->pid = subd(path, name, debugging(ld, name),
 		       &msg_fd,
-		       /* We only turn on subdaemon io logging if we're going
+		       /* We only turn on subdaemon io/trace logging if we're going
 			* to print it: too stressful otherwise! */
 		       log_has_io_logging(sd->log),
+		       log_has_trace_logging(sd->log),
 		       ld->developer,
 		       ap);
 	if (sd->pid == (pid_t)-1) {
