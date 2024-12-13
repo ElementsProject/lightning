@@ -4414,6 +4414,7 @@ impl From<responses::XpayResponse> for pb::XpayResponse {
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             failed_parts: c.failed_parts, // Rule #2 for type u64
             payment_preimage: c.payment_preimage.to_vec(), // Rule #2 for type secret
+            status: c.status.map(|v| v as i32),
             successful_parts: c.successful_parts, // Rule #2 for type u64
         }
     }
@@ -6105,6 +6106,7 @@ impl From<requests::XpayRequest> for pb::XpayRequest {
             // Field: Xpay.layers[]
             layers: c.layers.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             maxfee: c.maxfee.map(|f| f.into()), // Rule #2 for type msat?
+            maxfeepercent: c.maxfeepercent, // Rule #2 for type number?
             partial_msat: c.partial_msat.map(|f| f.into()), // Rule #2 for type msat?
             retry_for: c.retry_for, // Rule #2 for type u32?
         }
@@ -7740,6 +7742,7 @@ impl From<pb::XpayRequest> for requests::XpayRequest {
             invstring: c.invstring, // Rule #1 for type string
             layers: Some(c.layers.into_iter().map(|s| s.into()).collect()), // Rule #4
             maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
+            maxfeepercent: c.maxfeepercent, // Rule #1 for type number?
             partial_msat: c.partial_msat.map(|a| a.into()), // Rule #1 for type msat?
             retry_for: c.retry_for, // Rule #1 for type u32?
         }

@@ -4038,14 +4038,21 @@ message XpayRequest {
 	repeated string layers = 4;
 	optional uint32 retry_for = 5;
 	optional Amount partial_msat = 6;
+	optional double maxfeepercent = 7;
 }
 
 message XpayResponse {
+	// Xpay.status
+	enum XpayStatus {
+		COMPLETE = 0;
+		FAILED = 1;
+	}
 	bytes payment_preimage = 1;
 	uint64 failed_parts = 2;
 	uint64 successful_parts = 3;
 	Amount amount_msat = 4;
 	Amount amount_sent_msat = 5;
+	optional XpayStatus status = 6;
 }
 
 message StreamBlockAddedRequest {

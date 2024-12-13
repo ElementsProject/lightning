@@ -4592,6 +4592,8 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub maxfee: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maxfeepercent: Option<f64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub partial_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub retry_for: Option<u32>,
@@ -11648,8 +11650,39 @@ pub mod responses {
 	    }
 	}
 
+	/// ['Status of payment.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum XpayStatus {
+	    #[serde(rename = "complete")]
+	    COMPLETE = 0,
+	    #[serde(rename = "failed")]
+	    FAILED = 1,
+	}
+
+	impl TryFrom<i32> for XpayStatus {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<XpayStatus, anyhow::Error> {
+	        match c {
+	    0 => Ok(XpayStatus::COMPLETE),
+	    1 => Ok(XpayStatus::FAILED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum XpayStatus", o)),
+	        }
+	    }
+	}
+
+	impl ToString for XpayStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            XpayStatus::COMPLETE => "COMPLETE",
+	            XpayStatus::FAILED => "FAILED",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct XpayResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub status: Option<XpayStatus>,
 	    pub amount_msat: Amount,
 	    pub amount_sent_msat: Amount,
 	    pub failed_parts: u64,

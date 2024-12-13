@@ -507,6 +507,10 @@
         },
         "WaitsendpayStatus": {
             "complete": 0
+        },
+        "XpayStatus": {
+            "complete": 0,
+            "failed": 1
         }
     },
     "grpc-field-map": {
@@ -3727,6 +3731,7 @@
             "Xpay.invstring": 1,
             "Xpay.layers[]": 4,
             "Xpay.maxfee": 3,
+            "Xpay.maxfeepercent": 7,
             "Xpay.partial_msat": 6,
             "Xpay.retry_for": 5
         },
@@ -3735,6 +3740,7 @@
             "Xpay.amount_sent_msat": 5,
             "Xpay.failed_parts": 2,
             "Xpay.payment_preimage": 1,
+            "Xpay.status": 6,
             "Xpay.successful_parts": 3
         }
     },
@@ -12963,6 +12969,10 @@
             "added": "v24.11",
             "deprecated": null
         },
+        "Xpay.maxfeepercent": {
+            "added": "v24.11.1",
+            "deprecated": null
+        },
         "Xpay.partial_msat": {
             "added": "v24.11",
             "deprecated": null
@@ -12973,6 +12983,10 @@
         },
         "Xpay.retry_for": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "Xpay.status": {
+            "added": "v24.11.1",
             "deprecated": null
         },
         "Xpay.successful_parts": {

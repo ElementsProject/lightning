@@ -3223,6 +3223,7 @@ def injectpaymentonion2py(m):
 
 def xpay2py(m):
     return remove_default({
+        "status": str(m.status),  # EnumField in generate_composite
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
         "amount_sent_msat": amount2msat(m.amount_sent_msat),  # PrimitiveField in generate_composite
         "failed_parts": m.failed_parts,  # PrimitiveField in generate_composite
