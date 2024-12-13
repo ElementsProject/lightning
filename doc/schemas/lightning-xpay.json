@@ -73,7 +73,8 @@
       "failed_parts",
       "successful_parts",
       "amount_msat",
-      "amount_sent_msat"
+      "amount_sent_msat",
+      "status"
     ],
     "properties": {
       "payment_preimage": {
@@ -105,6 +106,17 @@
         "description": [
           "Total amount we sent (including fees)."
         ]
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "complete",
+          "failed"
+        ],
+        "description": [
+          "Status of payment."
+        ],
+        "added": "v24.11.1"
       }
     }
   },
@@ -142,7 +154,8 @@
         "failed_parts": 0,
         "successful_parts": 1,
         "amount_msat": 10000,
-        "amount_sent_msat": 10002
+        "amount_sent_msat": 10002,
+        "status": "complete"
       }
     },
     {
@@ -158,7 +171,8 @@
         "failed_parts": 0,
         "successful_parts": 1,
         "amount_msat": 1000,
-        "amount_sent_msat": 1000
+        "amount_sent_msat": 1000,
+        "status": "complete"
       }
     }
   ]

@@ -379,6 +379,7 @@ static void payment_succeeded(struct payment *payment,
 			     payment->total_num_attempts - payment->num_failures);
 		json_add_amount_msat(js, "amount_msat", payment->amount);
 		json_add_amount_msat(js, "amount_sent_msat", total_sent(payment, attempt));
+		json_add_string(js, "status", "complete");
 		was_pending(command_finished(payment->cmd, js));
 		payment->cmd = NULL;
 	}
