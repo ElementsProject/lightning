@@ -11,6 +11,7 @@ import pytest
 import subprocess
 import sys
 from hashlib import sha256
+from pathlib import Path
 import tempfile
 import unittest
 
@@ -525,6 +526,33 @@ def test_xpay_maxfee(node_factory, bitcoind, chainparams):
 
 def test_xpay_unannounced(node_factory):
     l1, l2 = node_factory.line_graph(2, announce_channels=False)
+
+    # BOLT 11, direct peer
+    b11 = l2.rpc.invoice('10000msat', 'test_xpay_unannounced', 'test_xpay_unannounced bolt11')['bolt11']
+    ret = l1.rpc.xpay(b11)
+    assert ret['failed_parts'] == 0
+    assert ret['successful_parts'] == 1
+    assert ret['amount_msat'] == 10000
+    assert ret['amount_sent_msat'] == 10000
+
+    # BOLT 12, direct peer
+    offer = l2.rpc.offer('any')['bolt12']
+    b12 = l1.rpc.fetchinvoice(offer, '100000msat')['invoice']
+    l1.rpc.xpay(b12)
+
+
+def test_xpay_zeroconf(node_factory):
+    zeroconf_plugin = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
+    l1, l2 = node_factory.get_nodes(2,
+                                    opts=[{},
+                                          {'plugin': zeroconf_plugin,
+                                           'zeroconf-allow': 'any'}])
+
+    l1.fundwallet(FUNDAMOUNT * 2)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.fundchannel(l2.info['id'], amount=FUNDAMOUNT, announce=False, mindepth=0)
+
+    wait_for(lambda: all([c['state'] == 'CHANNELD_NORMAL' for c in l1.rpc.listpeerchannels()['channels'] + l2.rpc.listpeerchannels()['channels']]))
 
     # BOLT 11, direct peer
     b11 = l2.rpc.invoice('10000msat', 'test_xpay_unannounced', 'test_xpay_unannounced bolt11')['bolt11']
