@@ -11,8 +11,8 @@
 #include <common/json_parse_simple.h>
 #include <common/splice_script.h>
 #include <ctype.h>
+#include <errno.h>
 #include <inttypes.h>
-#include <sys/errno.h>
 
 #define SCRIPT_DUMP_TOKENS 0
 #define SCRIPT_DUMP_SEGMENTS 0
