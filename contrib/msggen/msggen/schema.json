@@ -36428,10 +36428,10 @@
           },
           "response": {
             "payment_preimage": "paymentpreimgxp1010101010101010101010101010101010101010101010101",
-            "failed_parts": 0,
-            "successful_parts": 1,
             "amount_msat": 10000,
-            "amount_sent_msat": 10002
+            "amount_sent_msat": 10002,
+            "failed_parts": 0,
+            "successful_parts": 1
           }
         },
         {
@@ -36444,10 +36444,10 @@
           },
           "response": {
             "payment_preimage": "paymentpreimgxp2020202020202020202020202020202020202020202020202",
-            "failed_parts": 0,
-            "successful_parts": 1,
             "amount_msat": 1000,
-            "amount_sent_msat": 1000
+            "amount_sent_msat": 1000,
+            "failed_parts": 0,
+            "successful_parts": 1
           }
         }
       ]

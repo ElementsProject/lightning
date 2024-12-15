@@ -111,6 +111,11 @@ struct payment {
 
 	/* Requests currently outstanding */
 	struct out_req **requests;
+
+	/* Are we pretending to be "pay"? */
+	bool pay_compat;
+	/* When did we start? */
+	struct timeabs start_time;
 };
 
 /* One step in a path. */
@@ -374,11 +379,19 @@ static void payment_succeeded(struct payment *payment,
 	if (payment->cmd) {
 		js = jsonrpc_stream_success(payment->cmd);
 		json_add_preimage(js, "payment_preimage", preimage);
-		json_add_u64(js, "failed_parts", payment->num_failures);
-		json_add_u64(js, "successful_parts",
-			     payment->total_num_attempts - payment->num_failures);
 		json_add_amount_msat(js, "amount_msat", payment->amount);
 		json_add_amount_msat(js, "amount_sent_msat", total_sent(payment, attempt));
+		/* Pay's schema expects these fields */
+		if (payment->pay_compat) {
+			json_add_u64(js, "parts", payment->total_num_attempts);
+			json_add_sha256(js, "payment_hash", &payment->payment_hash);
+			json_add_string(js, "status", "complete");
+			json_add_u64(js, "created_at", (u64)payment->start_time.ts.tv_sec);
+		} else {
+			json_add_u64(js, "failed_parts", payment->num_failures);
+			json_add_u64(js, "successful_parts",
+				     payment->total_num_attempts - payment->num_failures);
+		}
 		was_pending(command_finished(payment->cmd, js));
 		payment->cmd = NULL;
 	}
@@ -1436,9 +1449,10 @@ preapproveinvoice_succeed(struct command *cmd,
 	return populate_private_layer(cmd, payment);
 }
 
-static struct command_result *json_xpay(struct command *cmd,
-					const char *buffer,
-					const jsmntok_t *params)
+static struct command_result *json_xpay_core(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *params,
+					     bool as_pay)
 {
 	struct xpay *xpay = xpay_of(cmd->plugin);
 	struct amount_msat *msat, *maxfee, *partial;
@@ -1468,6 +1482,8 @@ static struct command_result *json_xpay(struct command *cmd,
 	payment->requests = tal_arr(payment, struct out_req *, 0);
 	payment->prior_results = tal_strdup(payment, "");
 	payment->deadline = timemono_add(time_mono(), time_from_sec(*retryfor));
+	payment->start_time = time_now();
+	payment->pay_compat = as_pay;
 
 	if (bolt12_has_prefix(payment->invstring)) {
 		struct gossmap *gossmap = get_gossmap(xpay);
@@ -1593,6 +1609,20 @@ static struct command_result *json_xpay(struct command *cmd,
 	}
 	json_add_string(req->js, "bolt11", payment->invstring);
 	return send_outreq(req);
+}
+
+static struct command_result *json_xpay(struct command *cmd,
+					const char *buffer,
+					const jsmntok_t *params)
+{
+	return json_xpay_core(cmd, buffer, params, false);
+}
+
+static struct command_result *json_xpay_as_pay(struct command *cmd,
+					       const char *buffer,
+					       const jsmntok_t *params)
+{
+	return json_xpay_core(cmd, buffer, params, true);
 }
 
 static struct command_result *getchaininfo_done(struct command *aux_cmd,
@@ -1726,6 +1756,10 @@ static const struct plugin_command commands[] = {
 	{
 		"xpay",
 		json_xpay,
+	},
+	{
+		"xpay-as-pay",
+		json_xpay_as_pay,
 	},
 };
 
@@ -1930,7 +1964,7 @@ static struct command_result *handle_rpc_command(struct command *cmd,
 	json_object_start(response, "replace");
 	json_add_string(response, "jsonrpc", "2.0");
 	json_add_tok(response, "id", id_tok, buf);
-	json_add_string(response, "method", "xpay");
+	json_add_string(response, "method", "xpay-as-pay");
 	json_object_start(response, "params");
 	json_add_tok(response, "invstring", bolt11, buf);
 	if (amount_msat)
