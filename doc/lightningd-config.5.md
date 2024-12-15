@@ -540,8 +540,7 @@ command, so they invoices can also be paid onchain.
 
 * **xpay-handle-pay**=*BOOL* [plugin `xpay`, *dynamic*]
 
-  Setting this makes `xpay` intercept simply `pay` commands (default `false`).  Note that the
-response will be different from the normal pay command, however.
+  Setting this makes `xpay` intercept simply `pay` commands (default `false`).
 
 ### Networking options
 
