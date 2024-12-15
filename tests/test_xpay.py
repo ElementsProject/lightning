@@ -368,10 +368,6 @@ def test_xpay_takeover(node_factory, executor):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
                                          opts={'xpay-handle-pay': True})
 
-    # xpay does NOT look like pay!
-    l1.rpc.jsonschemas = {}
-    l2.rpc.jsonschemas = {}
-
     # Simple bolt11/bolt12 payment.
     inv = l3.rpc.invoice(100000, "test_xpay_takeover1", "test_xpay_takeover1")['bolt11']
     l1.rpc.pay(inv)
