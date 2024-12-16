@@ -1,0 +1,4 @@
+[codespell]
+
+count = true
+ignore-words = .codespellignore
