@@ -1013,6 +1013,9 @@ void tell_connectd_peer_importance(struct peer *peer UNNEEDED,
 /* Generated stub for tlv_hsmd_dev_preinit_tlvs_new */
 struct tlv_hsmd_dev_preinit_tlvs *tlv_hsmd_dev_preinit_tlvs_new(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "tlv_hsmd_dev_preinit_tlvs_new called!\n"); abort(); }
+/* Generated stub for tlv_scb_tlvs_new */
+struct tlv_scb_tlvs *tlv_scb_tlvs_new(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "tlv_scb_tlvs_new called!\n"); abort(); }
 /* Generated stub for to_canonical_invstr */
 const char *to_canonical_invstr(const tal_t *ctx UNNEEDED, const char *invstring UNNEEDED)
 { fprintf(stderr, "to_canonical_invstr called!\n"); abort(); }
