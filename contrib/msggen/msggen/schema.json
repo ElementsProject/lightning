@@ -16175,7 +16175,7 @@
           "amount_msat": {
             "type": "msat",
             "description": [
-              "The amount for the first HTLC in millisatoshis.  This is also the amount which will be forwarded to the first peer (if any) as we do not charge fees on our own payments."
+              "The amount for the first HTLC in millisatoshis.  This is also the amount which will be forwarded to the first peer (if any) as we do not charge fees on our own payments.  Note: this is shown in listsendpays as `amount_sent_msat`."
             ]
           },
           "cltv_expiry": {
@@ -16212,6 +16212,13 @@
             "type": "hash",
             "description": [
               "`localinvreqid` is used by offers to link a payment attempt to a local `invoice_request` offer created by lightningd-invoicerequest(7)."
+            ]
+          },
+          "destination_msat": {
+            "type": "msat",
+            "added": "v24.11.1",
+            "description": [
+              "Amount that is actually delivered to the destination (i.e. `amount_msat` minus fees), for showing in listsendpays (confusingly, as `amount_msat`)."
             ]
           }
         }

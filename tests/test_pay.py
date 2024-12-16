@@ -6114,6 +6114,7 @@ def test_injectpaymentonion_simple(node_factory, executor):
     assert lsp['partid'] == 1
     assert lsp['payment_hash'] == inv1['payment_hash']
     assert lsp['status'] == 'complete'
+    assert 'amount_msat' not in lsp
 
     # We FAIL on reattempt
     with pytest.raises(RpcError, match="Already paid this invoice") as err:
@@ -6175,6 +6176,7 @@ def test_injectpaymentonion_mpp(node_factory, executor):
         assert lsp['partid'] == 1 or lsp['partid'] == 2
         assert lsp['payment_hash'] == inv2['payment_hash']
         assert lsp['status'] == 'complete'
+        assert 'amount_msat' not in lsp
     assert len(lsps) == 2
 
 
@@ -6198,7 +6200,8 @@ def test_injectpaymentonion_3hop(node_factory, executor):
                                     amount_msat=1001,
                                     cltv_expiry=blockheight + 18 + 6 + 6,
                                     partid=1,
-                                    groupid=0)
+                                    groupid=0,
+                                    destination_msat=1000)
     assert sha256(bytes.fromhex(ret['payment_preimage'])).hexdigest() == inv3['payment_hash']
     assert only_one(l3.rpc.listinvoices("test_injectpaymentonion3")['invoices'])['status'] == 'paid'
     lsp = only_one(l1.rpc.listsendpays(inv3['bolt11'])['payments'])
@@ -6206,6 +6209,7 @@ def test_injectpaymentonion_3hop(node_factory, executor):
     assert lsp['partid'] == 1
     assert lsp['payment_hash'] == inv3['payment_hash']
     assert lsp['status'] == 'complete'
+    assert lsp['amount_msat'] == 1000
 
 
 def test_injectpaymentonion_selfpay(node_factory, executor):
