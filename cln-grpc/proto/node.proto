@@ -4029,6 +4029,7 @@ message InjectpaymentonionResponse {
 	uint64 created_at = 1;
 	uint64 completed_at = 2;
 	uint64 created_index = 3;
+	bytes payment_preimage = 4;
 }
 
 message XpayRequest {

@@ -4402,6 +4402,7 @@ impl From<responses::InjectpaymentonionResponse> for pb::InjectpaymentonionRespo
             completed_at: c.completed_at, // Rule #2 for type u64
             created_at: c.created_at, // Rule #2 for type u64
             created_index: c.created_index, // Rule #2 for type u64
+            payment_preimage: c.payment_preimage.to_vec(), // Rule #2 for type secret
         }
     }
 }
