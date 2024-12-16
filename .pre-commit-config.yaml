@@ -30,6 +30,13 @@ repos:
       entry: clang-format
       types: [ c ]
 
+- repo: https://github.com/codespell-project/codespell
+  rev: v2.3.0
+  hooks:
+    - id: codespell
+      description: Checks for common misspellings.
+      exclude: ccan|contrib|tests/fuzz/corpora
+
 - repo: local
   hooks:
     # Reimplementation of `make check-amount-access` for pygrep.
