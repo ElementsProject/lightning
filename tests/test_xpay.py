@@ -462,6 +462,17 @@ def test_xpay_takeover(node_factory, executor):
     l1.rpc.pay(inv)
     l1.daemon.wait_for_log('Redirecting pay->xpay')
 
+    # We get destination and amount_msat in listsendpays and listpays.
+    ret = only_one(l1.rpc.listsendpays(inv)['payments'])
+    assert ret['destination'] == l3.info['id']
+    assert ret['amount_msat'] == 100000
+    assert ret['amount_sent_msat'] > 100000
+
+    ret = only_one(l1.rpc.listpays(inv)['pays'])
+    assert ret['destination'] == l3.info['id']
+    assert ret['amount_msat'] == 100000
+    assert ret['amount_sent_msat'] > 100000
+
 
 def test_xpay_preapprove(node_factory):
     l1, l2 = node_factory.line_graph(2, opts={'dev-hsmd-fail-preapprove': None})

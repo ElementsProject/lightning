@@ -922,6 +922,7 @@ static struct command_result *do_inject(struct command *aux_cmd,
 	json_add_u64(req->js, "partid", attempt->partid);
 	json_add_u64(req->js, "groupid", attempt->payment->group_id);
 	json_add_string(req->js, "invstring", attempt->payment->invstring);
+	json_add_amount_msat(req->js, "destination_msat", attempt->delivers);
 	return send_payment_req(aux_cmd, attempt->payment, req);
 }
 
