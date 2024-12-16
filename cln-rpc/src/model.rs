@@ -11635,6 +11635,7 @@ pub mod responses {
 	    pub completed_at: u64,
 	    pub created_at: u64,
 	    pub created_index: u64,
+	    pub payment_preimage: Secret,
 	}
 
 	impl TryFrom<Response> for InjectpaymentonionResponse {

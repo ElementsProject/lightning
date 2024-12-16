@@ -1820,7 +1820,8 @@
         "InjectpaymentonionResponse": {
             "InjectPaymentOnion.completed_at": 2,
             "InjectPaymentOnion.created_at": 1,
-            "InjectPaymentOnion.created_index": 3
+            "InjectPaymentOnion.created_index": 3,
+            "InjectPaymentOnion.payment_preimage": 4
         },
         "InvoiceRequest": {
             "Invoice.amount_msat": 10,
@@ -7572,6 +7573,10 @@
             "deprecated": null
         },
         "InjectPaymentOnion.payment_hash": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "InjectPaymentOnion.payment_preimage": {
             "added": "v24.11",
             "deprecated": null
         },

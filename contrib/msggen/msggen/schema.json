@@ -16143,7 +16143,6 @@
     "lightning-injectpaymentonion.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
-      "additionalProperties": false,
       "rpc": "injectpaymentonion",
       "title": "Send a payment with a custom onion packet",
       "description": [
@@ -16151,6 +16150,7 @@
         "Compared to lightning-sendonion(7): the handling of blinded paths and self-payments is trivial, and the interface blocks until the payment succeeds or fails.  The call also fails if this payment_hash has already been successfully paid."
       ],
       "request": {
+        "additionalProperties": false,
         "required": [
           "onion",
           "payment_hash",
@@ -16217,6 +16217,7 @@
         }
       },
       "response": {
+        "additionalProperties": false,
         "required": [
           "created_index",
           "created_at",
@@ -16240,6 +16241,13 @@
             "type": "u64",
             "description": [
               "1-based index indicating order this payment was created in."
+            ]
+          },
+          "payment_preimage": {
+            "added": "v24.11",
+            "type": "secret",
+            "description": [
+              "The proof of payment: SHA256 of this is the invoice's **payment_hash**."
             ]
           }
         }

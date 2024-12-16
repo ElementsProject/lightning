@@ -3218,6 +3218,7 @@ def injectpaymentonion2py(m):
         "completed_at": m.completed_at,  # PrimitiveField in generate_composite
         "created_at": m.created_at,  # PrimitiveField in generate_composite
         "created_index": m.created_index,  # PrimitiveField in generate_composite
+        "payment_preimage": hexlify(m.payment_preimage),  # PrimitiveField in generate_composite
     })
 
 
