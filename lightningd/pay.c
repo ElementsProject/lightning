@@ -1788,7 +1788,8 @@ static void register_payment_and_waiter(struct command *cmd,
 					const char *label,
 					const char *invstring,
 					struct sha256 *local_invreq_id,
-					const struct secret *shared_secret)
+					const struct secret *shared_secret,
+					const struct node_id *destination TAKES)
 {
 	wallet_add_payment(cmd,
 			   cmd->ld->wallet,
@@ -1798,7 +1799,7 @@ static void register_payment_and_waiter(struct command *cmd,
 			   partid,
 			   groupid,
 			   PAYMENT_PENDING,
-			   NULL,
+			   destination,
 			   destination_msat,
 			   msat_sent,
 			   total_msat,
@@ -1845,6 +1846,7 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 	struct htlc_out *hout;
 	const struct wallet_payment *prev_payment;
 	const char *explanation;
+	struct node_id *destination;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("onion", param_bin_from_hex, &onion),
@@ -1926,6 +1928,28 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 				    failtlvtype, failtlvpos, explanation);
 	}
 
+	/* If we have and can decode invstring, we extract destination for listsendpays */
+	if (invstring) {
+		struct bolt11 *b11;
+		char *fail;
+
+		b11 = bolt11_decode(cmd, invstring, NULL, NULL, NULL, &fail);
+		if (b11) {
+			destination = &b11->receiver_id;
+		} else {
+			struct tlv_invoice *b12;
+
+			b12 = invoice_decode(cmd, invstring, strlen(invstring),
+					     NULL, NULL, &fail);
+			if (b12 && b12->invoice_node_id) {
+				destination = tal(cmd, struct node_id);
+				node_id_from_pubkey(destination, b12->invoice_node_id);
+			} else
+				destination = NULL;
+		}
+	} else
+		destination = NULL;
+
 	if (payload->final) {
 		struct selfpay *selfpay;
 
@@ -1944,7 +1968,8 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 					    *partid, *groupid,
 					    *destination_msat, *msat, AMOUNT_MSAT(0),
 					    label, invstring, local_invreq_id,
-					    &shared_secret);
+					    &shared_secret,
+					    destination);
 
 		/* Mark it pending now, though htlc_set_add might
 		 * not resolve immediately */
@@ -2058,7 +2083,8 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 				    *partid, *groupid,
 				    *destination_msat, *msat, AMOUNT_MSAT(0),
 				    label, invstring, local_invreq_id,
-				    &shared_secret);
+				    &shared_secret,
+				    destination);
 
 	/* If unknown, we set this equal (so accounting logs 0 fees) */
 	if (amount_msat_eq(*destination_msat, AMOUNT_MSAT(0)))
