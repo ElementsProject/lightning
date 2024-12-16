@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/link/link.h>
@@ -564,27 +565,39 @@ void logv(struct logger *log, enum log_level level,
 {
 	int save_errno = errno;
 	struct log_entry *l = new_log_entry(log, level, node_id);
+	char *log_msg = NULL;
 
 	/* This is WARN_UNUSED_RESULT, because everyone should somehow deal
 	 * with OOM, even though nobody does. */
-	if (vasprintf(&l->log, fmt, ap) == -1)
+	if (vasprintf(&log_msg, fmt, ap) == -1)
 		abort();
 
-	size_t log_len = strlen(l->log);
+	char **lines = tal_strsplit(
+	    log, json_escape_unescape(log, (struct json_escape *)log_msg), "\n",
+	    STR_NO_EMPTY);
 
-	/* Sanitize any non-printable characters, and replace with '?' */
-	for (size_t i=0; i<log_len; i++)
-		if (l->log[i] < ' ' || l->log[i] >= 0x7f)
-			l->log[i] = '?';
+	/* Split to lines and log them separately. */
+	for (size_t j = 0; lines[j]; j++) {
+		l->log = tal_strdup(log, lines[j]);
 
-	maybe_print(log, l);
-	maybe_notify_log(log, l);
+		/* Sanitize any non-printable characters, and replace with '?'
+		 */
+		size_t line_len = strlen(l->log);
+		for (size_t i = 0; i < line_len; i++)
+			if (l->log[i] < ' ' || l->log[i] >= 0x7f)
+				l->log[i] = '?';
 
-	add_entry(log, &l);
+		maybe_print(log, l);
+		maybe_notify_log(log, l);
+
+		add_entry(log, &l);
+	}
 
 	if (call_notifier)
 		notify_warning(log->log_book->ld, l);
 
+	tal_free(lines);
+	free(log_msg);
 	errno = save_errno;
 }
 
