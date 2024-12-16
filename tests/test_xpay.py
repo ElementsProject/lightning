@@ -436,17 +436,9 @@ def test_xpay_takeover(node_factory, executor):
     l1.rpc.pay(inv['bolt11'], amount_msat=10000, riskfactor=1)
     l1.daemon.wait_for_log(r'Not redirecting pay \(unknown arg \\"riskfactor\\"\)')
 
-    inv = l3.rpc.invoice('any', "test_xpay_takeover9", "test_xpay_takeover9")
-    l1.rpc.pay(inv['bolt11'], amount_msat=10000, maxfeepercent=1)
-    l1.daemon.wait_for_log(r'Not redirecting pay \(unknown arg \\"maxfeepercent\\"\)')
-
     inv = l3.rpc.invoice('any', "test_xpay_takeover10", "test_xpay_takeover10")
     l1.rpc.pay(inv['bolt11'], amount_msat=10000, maxdelay=200)
     l1.daemon.wait_for_log(r'Not redirecting pay \(unknown arg \\"maxdelay\\"\)')
-
-    inv = l3.rpc.invoice('any', "test_xpay_takeover11", "test_xpay_takeover11")
-    l1.rpc.pay(inv['bolt11'], amount_msat=10000, exemptfee=1)
-    l1.daemon.wait_for_log(r'Not redirecting pay \(unknown arg \\"exemptfee\\"\)')
 
     # Test that it's really dynamic.
     l1.rpc.setconfig('xpay-handle-pay', False)
@@ -472,6 +464,16 @@ def test_xpay_takeover(node_factory, executor):
     assert ret['destination'] == l3.info['id']
     assert ret['amount_msat'] == 100000
     assert ret['amount_sent_msat'] > 100000
+
+    # Test maxfeepercent.
+    inv = l3.rpc.invoice(100000, "test_xpay_takeover14", "test_xpay_takeover14")['bolt11']
+    with pytest.raises(RpcError, match=r"Could not find route without excessive cost"):
+        l1.rpc.pay(bolt11=inv, maxfeepercent=0.001, exemptfee=0)
+    l1.daemon.wait_for_log('plugin-cln-xpay: Converted maxfeepercent=0.001, exemptfee=0 to maxfee 1msat')
+
+    # Exemptfee default more than covers it.
+    l1.rpc.pay(bolt11=inv, maxfeepercent=0.25)
+    l1.daemon.wait_for_log('Converted maxfeepercent=0.25, exemptfee=UNSET to maxfee 5000msat')
 
 
 def test_xpay_preapprove(node_factory):
