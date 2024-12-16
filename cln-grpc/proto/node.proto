@@ -4023,6 +4023,7 @@ message InjectpaymentonionRequest {
 	optional string label = 7;
 	optional string invstring = 8;
 	optional bytes localinvreqid = 9;
+	optional Amount destination_msat = 10;
 }
 
 message InjectpaymentonionResponse {
