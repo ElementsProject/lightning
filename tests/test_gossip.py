@@ -40,6 +40,7 @@ def test_gossip_pruning(node_factory, bitcoind):
     scid2, _ = l2.fundchannel(l3, 10**6)
 
     mine_funding_to_announce(bitcoind, [l1, l2, l3])
+    wait_for(lambda: l1.rpc.listchannels(source=l1.info['id'])['channels'] != [])
     l1_initial_cupdate_timestamp = only_one(l1.rpc.listchannels(source=l1.info['id'])['channels'])['last_update']
 
     # Get timestamps of initial updates, so we can ensure they change.
