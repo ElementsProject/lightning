@@ -20,9 +20,9 @@ static void json_add_datastore(struct json_stream *response,
 
 		json_add_u64(response, "generation", generation);
 		json_add_hex(response, "hex", data, tal_bytelen(data));
-		str = utf8_str(response, data, tal_bytelen(data));
+		str = utf8_str(NULL, data, tal_bytelen(data));
 		if (str)
-			json_add_string(response, "string", str);
+			json_add_string(response, "string", take(str));
 	}
 }
 
