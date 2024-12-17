@@ -3,6 +3,34 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [24.11.1] - 2024-12-16: "The lightning-dev Mailing List II"
+
+Minor fixes, particularly for xpay users.
+
+### Changed
+
+ - JSON-RPC: `xpay` now gives the same JSON success return as documented by `pay` when `xpay-handle-pay` is set. ([#7938])
+ - JSON-RPC: With `xpay-handle-pay` set, xpay will now be used even if `pay` uses maxfeeprecent or exemptfee parameters (e.g. Zeus) ([#7942])
+ - JSON-RPC: `xpay` now populates more fields, so `listsendpays` and `listpays` show `destination` and `amount_msat` fields for xpay payments. ([#7941])
+ - Logging: we no longer suppress DEBUG messages from subdaemons. ([#7935])
+
+### Fixed
+
+ - JSON-RPC: xpay now works through unannounced channels. ([#7937])
+ - lightning-cli: fix "malformed response" bug ([#7924])
+ - Plugins: `xpay` no longer logs "Got command" at info level. ([#7933])
+ - Build: Alpine/OpenBSD compilation fix  ([#7940])
+
+[#7942]: https://github.com/ElementsProject/lightning/pull/7942
+[#7933]: https://github.com/ElementsProject/lightning/pull/7933
+[#7941]: https://github.com/ElementsProject/lightning/pull/7941
+[#7937]: https://github.com/ElementsProject/lightning/pull/7937
+[#7924]: https://github.com/ElementsProject/lightning/pull/7924
+[#7935]: https://github.com/ElementsProject/lightning/pull/7935
+[#7938]: https://github.com/ElementsProject/lightning/pull/7938
+[#7940]: https://github.com/ElementsProject/lightning/pull/7940
+[24.11.1]: https://github.com/ElementsProject/lightning/releases/tag/v24.11.1
+
 ## [24.11] - 2024-12-09: "The lightning-dev Mailing List"
 
 This release named by Dusty Daemon.
