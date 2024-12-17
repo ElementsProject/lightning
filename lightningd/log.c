@@ -564,7 +564,6 @@ void logv(struct logger *log, enum log_level level,
 	  const char *fmt, va_list ap)
 {
 	int save_errno = errno;
-	struct log_entry *l = new_log_entry(log, level, node_id);
 	char *log_msg = NULL;
 
 	/* This is WARN_UNUSED_RESULT, because everyone should somehow deal
@@ -572,18 +571,17 @@ void logv(struct logger *log, enum log_level level,
 	if (vasprintf(&log_msg, fmt, ap) == -1)
 		abort();
 
-	char **lines = tal_strsplit(
-	    log, json_escape_unescape(log, (struct json_escape *)log_msg), "\n",
-	    STR_NO_EMPTY);
+	const char *unescaped_log =
+	    json_escape_unescape(NULL, (struct json_escape *)log_msg);
+	if (!strchr(log_msg, '\\') || !unescaped_log) {
+		struct log_entry *l = new_log_entry(log, level, node_id);
 
-	/* Split to lines and log them separately. */
-	for (size_t j = 0; lines[j]; j++) {
-		l->log = tal_strdup(log, lines[j]);
+		l->log = strdup(log_msg);
+		size_t log_len = strlen(l->log);
 
 		/* Sanitize any non-printable characters, and replace with '?'
 		 */
-		size_t line_len = strlen(l->log);
-		for (size_t i = 0; i < line_len; i++)
+		for (size_t i = 0; i < log_len; i++)
 			if (l->log[i] < ' ' || l->log[i] >= 0x7f)
 				l->log[i] = '?';
 
@@ -591,13 +589,41 @@ void logv(struct logger *log, enum log_level level,
 		maybe_notify_log(log, l);
 
 		add_entry(log, &l);
+
+		if (call_notifier)
+			notify_warning(log->log_book->ld, l);
+	} else {
+		char **lines = tal_strsplit(unescaped_log, unescaped_log, "\n",
+					    STR_NO_EMPTY);
+
+		/* Split to lines and log them separately. */
+		for (size_t j = 0; lines[j]; j++) {
+			struct log_entry *l =
+			    new_log_entry(log, level, node_id);
+
+			l->log = strdup(lines[j]);
+
+			/* Sanitize any non-printable characters, and replace
+			 * with '?'
+			 */
+			size_t line_len = strlen(l->log);
+			for (size_t i = 0; i < line_len; i++)
+				if (l->log[i] < ' ' || l->log[i] >= 0x7f)
+					l->log[i] = '?';
+
+			maybe_print(log, l);
+			maybe_notify_log(log, l);
+
+			add_entry(log, &l);
+
+			if (call_notifier)
+				notify_warning(log->log_book->ld, l);
+		}
 	}
 
-	if (call_notifier)
-		notify_warning(log->log_book->ld, l);
-
-	tal_free(lines);
+	tal_free(unescaped_log);
 	free(log_msg);
+
 	errno = save_errno;
 }
 
