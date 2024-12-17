@@ -18,6 +18,29 @@ repos:
     - id: shellcheck
       args: [ -fgcc ]
 
+- repo: https://github.com/python-jsonschema/check-jsonschema
+  rev: 0.30.0
+  hooks:
+    - id: check-jsonschema
+      name: check doc JSON schemas
+      args: ["--schemafile", "doc/rpc-schema-draft.json"]
+      files: ^doc/schemas/.*\.json$
+      types: [ json ]
+
+    - id: check-metaschema
+      name: check doc JSON metaschemas
+      args: ["--verbose"]
+      files: ^doc/schemas/.*\.json$
+      types: [ json ]
+
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v5.0.0
+  hooks:
+    - id: pretty-format-json
+      args: [ "--indent", "2", "--no-sort-keys" ]
+      files: ^doc/schemas/.*\.json$
+      types: [ json ]
+
 - repo: https://github.com/codespell-project/codespell
   rev: v2.3.0
   hooks:
