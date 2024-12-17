@@ -374,6 +374,7 @@ static void payment_succeeded(struct payment *payment,
 			      const struct attempt *attempt)
 {
 	struct json_stream *js;
+	struct node_id dst;
 
 	/* Only succeed once */
 	if (payment->cmd) {
@@ -384,6 +385,8 @@ static void payment_succeeded(struct payment *payment,
 		/* Pay's schema expects these fields */
 		if (payment->pay_compat) {
 			json_add_u64(js, "parts", payment->total_num_attempts);
+			node_id_from_pubkey(&dst, &payment->destination);
+			json_add_node_id(js, "destination", &dst);
 			json_add_sha256(js, "payment_hash", &payment->payment_hash);
 			json_add_string(js, "status", "complete");
 			json_add_u64(js, "created_at", (u64)payment->start_time.ts.tv_sec);
