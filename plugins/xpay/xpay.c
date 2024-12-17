@@ -387,7 +387,7 @@ static void payment_succeeded(struct payment *payment,
 			json_add_pubkey(js, "destination", &payment->destination);
 			json_add_sha256(js, "payment_hash", &payment->payment_hash);
 			json_add_string(js, "status", "complete");
-			json_add_u64(js, "created_at", (u64)payment->start_time.ts.tv_sec);
+			json_add_timeabs(js, "created_at", payment->start_time);
 		} else {
 			json_add_u64(js, "failed_parts", payment->num_failures);
 			json_add_u64(js, "successful_parts",
