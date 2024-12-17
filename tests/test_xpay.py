@@ -442,14 +442,26 @@ def test_xpay_takeover(node_factory, executor):
 
     # There's no log for this though!
     inv = l3.rpc.invoice(100000, "test_xpay_takeover12", "test_xpay_takeover12")['bolt11']
-    l1.rpc.pay(inv)
+    realpay = l1.rpc.pay(inv)
     assert not l1.daemon.is_in_log('Redirecting pay->xpay',
                                    start=l1.daemon.logsearch_start)
 
     l1.rpc.setconfig('xpay-handle-pay', True)
     inv = l3.rpc.invoice(100000, "test_xpay_takeover13", "test_xpay_takeover13")['bolt11']
-    l1.rpc.pay(inv)
+    xpay = l1.rpc.pay(inv)
     l1.daemon.wait_for_log('Redirecting pay->xpay')
+
+    # They should look the same!  Same keys, same types
+    assert {k: type(v) for k, v in realpay.items()} == {k: type(v) for k, v in xpay.items()}
+    for f in ('created_at', 'payment_hash', 'payment_preimage'):
+        del realpay[f]
+        del xpay[f]
+    assert xpay == {'amount_msat': 100000,
+                    'amount_sent_msat': 100002,
+                    'destination': l3.info['id'],
+                    'parts': 1,
+                    'status': 'complete'}
+    assert realpay == xpay
 
     # We get destination and amount_msat in listsendpays and listpays.
     ret = only_one(l1.rpc.listsendpays(inv)['payments'])
