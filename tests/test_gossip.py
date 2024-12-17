@@ -2121,14 +2121,15 @@ def test_gossip_throttle(node_factory, bitcoind, chainparams):
                            '--no-gossip',
                            '--hex',
                            '--network={}'.format(TEST_NETWORK),
-                           '--max-messages={}'.format(expected),
+                           '--max-messages={}'.format(expected + 1),
                            '{}@localhost:{}'.format(l1.info['id'], l1.port),
                            query],
                           check=True,
                           timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
     time_fast = time.time() - start_fast
     assert time_fast < 2
-    out3 = [m for m in out3 if not m.startswith(b'0109')]
+    # Ignore gossip_timestamp_filter and reply_short_channel_ids_end
+    out3 = [m for m in out3 if not m.startswith(b'0109') and not m.startswith(b'0106')]
     assert set(out1) == set(out3)
 
     start_slow = time.time()
