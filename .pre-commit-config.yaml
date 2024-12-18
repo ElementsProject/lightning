@@ -60,6 +60,25 @@ repos:
       description: Checks for common misspellings.
       exclude: ccan|contrib|tests/fuzz/corpora
 
+- repo: https://github.com/compilerla/conventional-pre-commit
+  rev: v3.6.0
+  hooks:
+    - id: conventional-pre-commit
+      stages: [commit-msg]
+      args:
+        - --scopes=askrene,bkpr,channeld,cli,closingd,cln-grpc,cln-rpc,common,connectd,db,gossipd,hsmd,lightningd,onchaind,openingd,pay,pylightning,pyln-client,pyln-spec,pyln-testing,pytest,splice,tools,wallet,wire,xpay
+        - --verbose
+        - build
+        - chore
+        - ci
+        - docs
+        - feat
+        - fix
+        - style
+        - refactor
+        - perf
+        - test
+
 - repo: local
   hooks:
     # Reimplementation of `make check-amount-access` for pygrep.
