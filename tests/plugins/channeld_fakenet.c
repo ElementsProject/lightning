@@ -41,13 +41,32 @@
 #define PEER_FD 3
 #define HSM_FD 4
 
+/* Map public keys to the private key */
+struct node {
+	struct privkey p;
+	struct node_id id;
+	const char *name;
+};
+
+static const struct node_id *node_key(const struct node *n)
+{
+	return &n->id;
+}
+static bool node_cmp(const struct node *n, const struct node_id *node_id)
+{
+	return node_id_eq(&n->id, node_id);
+}
+HTABLE_DEFINE_TYPE(struct node, node_key, node_id_hash, node_cmp, node_map);
+
 struct info {
 	/* To talk to lightningd */
 	struct daemon_conn *dc;
 	/* The actual channel (to make sure we can fit!) */
 	struct channel *channel;
-	/* Cache of privkeys which have proven useful */
-	size_t *cached_node_idx;
+	/* Peer's privkey */
+	struct node *peer;
+	/* Fast lookup for node ids to get privkeys */
+	struct node_map *node_map;
 	/* Gossip map for lookup up our "channels" */
 	struct gossmap *gossmap;
 	/* To check cltv delays */
@@ -72,7 +91,7 @@ struct info {
 };
 
 /* FIXME: For the ecdh() function called by onion routines */
-static size_t current_nodeidx;
+static struct node *current_node;
 
 /* Core of an outgoing HTLC: freed by succeed() or fail() */
 struct fake_htlc {
@@ -106,40 +125,6 @@ struct reservation {
 	struct amount_msat amount;
 };
 
-static void make_privkey(size_t idx, struct privkey *pk)
-{
-	/* pyln-testing uses 'lightning-N' then all zeroes as hsm_secret. */
-	if (idx & 1) {
-		u32 salt = 0;
-		struct secret hsm_secret;
-		memset(&hsm_secret, 0, sizeof(hsm_secret));
-		snprintf((char *)&hsm_secret, sizeof(hsm_secret),
-			 "lightning-%zu", idx >> 1);
-
-		/* This maps hsm_secret -> node privkey */
-		hkdf_sha256(pk, sizeof(*pk),
-			    &salt, sizeof(salt),
-			    &hsm_secret, sizeof(hsm_secret),
-			    "nodeid", 6);
-		return;
-	}
-
-	/* gossmap-compress uses the node index (size_t, native endian), then all ones */
-	memset(pk, 1, sizeof(*pk));
-	idx >>= 1;
-	memcpy(pk, &idx, sizeof(idx));
-
-	struct pubkey pubkey;
-	pubkey_from_privkey(pk, &pubkey);
-}
-
-static const char *fmt_nodeidx(const tal_t *ctx, size_t idx)
-{
-	if (idx & 1)
-		return tal_fmt(ctx, "lightningd-%zu", idx >> 1);
-	return tal_fmt(ctx, "gossmap-node-%zu", idx >> 1);
-}
-
 /* Return deterministic value >= min < max for this channel */
 static u64 channel_range(const struct info *info,
 			 const struct short_channel_id_dir *scidd,
@@ -150,10 +135,8 @@ static u64 channel_range(const struct info *info,
 
 void ecdh(const struct pubkey *point, struct secret *ss)
 {
-	struct privkey pk;
-	make_privkey(current_nodeidx, &pk);
 	if (secp256k1_ecdh(secp256k1_ctx, ss->data, &point->pubkey,
-			   pk.secret.data, NULL, NULL) != 1)
+			   current_node->p.secret.data, NULL, NULL) != 1)
 		abort();
 }
 
@@ -270,7 +253,58 @@ static u8 *get_next_onion(const tal_t *ctx, const struct route_step *rs)
 	abort();
 }
 
-/* Sets current_nodeidx, *next_onion_packet, *shared_secret and *me, and decodes */
+static struct node *make_peer_node(const tal_t *ctx)
+{
+	struct node *n = tal(ctx, struct node);
+	u32 salt = 0;
+	struct secret hsm_secret;
+	struct pubkey pubkey;
+
+	memset(&hsm_secret, 0, sizeof(hsm_secret));
+	snprintf((char *)&hsm_secret, sizeof(hsm_secret),
+		 "lightning-2");
+
+	/* This maps hsm_secret -> node privkey */
+	hkdf_sha256(&n->p, sizeof(n->p),
+		    &salt, sizeof(salt),
+		    &hsm_secret, sizeof(hsm_secret),
+		    "nodeid", 6);
+	pubkey_from_privkey(&n->p, &pubkey);
+	node_id_from_pubkey(&n->id, &pubkey);
+	n->name = tal_fmt(n, "lightningd-2");
+
+	return n;
+}
+
+/* expected_id is NULL for initial node (aka l2) */
+static struct node *get_current_node(struct info *info,
+				     const struct node_id *expected_id)
+{
+	if (!expected_id)
+		return info->peer;
+
+	return node_map_get(info->node_map, expected_id);
+}
+
+static void populate_node_map(const struct gossmap *gossmap,
+			      struct node_map *node_map)
+{
+	for (size_t i = 0; i < gossmap_max_node_idx(gossmap); i++) {
+		struct node *n = tal(node_map, struct node);
+		struct pubkey pubkey;
+
+		/* gossmap-compress uses the node index (size_t, native endian), then all ones */
+		memset(&n->p, 1, sizeof(n->p));
+		memcpy(&n->p, &i, sizeof(i));
+		n->name = tal_fmt(n, "node#%zu", i);
+
+		pubkey_from_privkey(&n->p, &pubkey);
+		node_id_from_pubkey(&n->id, &pubkey);
+		node_map_add(node_map, n);
+	}
+}
+
+/* Sets current_node, *next_onion_packet, *shared_secret and *me, and decodes */
 static struct onion_payload *decode_onion(const tal_t *ctx,
 					  struct info *info,
 					  const u8 onion_routing_packet[],
@@ -278,7 +312,6 @@ static struct onion_payload *decode_onion(const tal_t *ctx,
 					  const struct sha256 *payment_hash,
 					  struct amount_msat amount,
 					  u32 cltv,
-					  const struct node_id *expected_id,
 					  u8 **next_onion_packet,
 					  struct secret *shared_secret,
 					  struct gossmap_node **me)
@@ -289,9 +322,6 @@ static struct onion_payload *decode_onion(const tal_t *ctx,
 	struct onion_payload *payload;
 	u64 failtlvtype;
 	size_t failtlvpos;
-	struct privkey pk;
-	struct pubkey current_pubkey;
-	struct node_id current_node_id;
 	const char *explanation;
 
 	op = parse_onionpacket(tmpctx, onion_routing_packet,
@@ -301,35 +331,13 @@ static struct onion_payload *decode_onion(const tal_t *ctx,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not parse onion (failcode %u)", failcode);
 
-	/* Try previously-useful keys first */
-	for (size_t i = 0; i < tal_count(info->cached_node_idx); i++) {
-		current_nodeidx = info->cached_node_idx[i];
-		if (!ecdh_maybe_blinding(&op->ephemeralkey, path_key, shared_secret))
-			abort();
-		rs = process_onionpacket(tmpctx, op, shared_secret,
-					 payment_hash->u.u8, sizeof(*payment_hash));
-		if (rs)
-			break;
-	}
-
-	if (!rs) {
-		/* Try a new one */
-		for (current_nodeidx = 0; current_nodeidx < 100000; current_nodeidx++) {
-			if (!ecdh_maybe_blinding(&op->ephemeralkey, path_key, shared_secret))
-				abort();
-			rs = process_onionpacket(tmpctx, op, shared_secret,
-						 payment_hash->u.u8, sizeof(*payment_hash));
-			if (rs)
-				break;
-		}
-		if (!rs)
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "Could not find privkey for onion");
-
-		/* Add to cache */
-		tal_arr_expand(&info->cached_node_idx, current_nodeidx);
-	}
-
+	if (!ecdh_maybe_blinding(&op->ephemeralkey, path_key, shared_secret))
+		abort();
+	rs = process_onionpacket(tmpctx, op, shared_secret,
+				 payment_hash->u.u8, sizeof(*payment_hash));
+	if (!rs)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Could not decode onion for %s", current_node->name);
 	*next_onion_packet = get_next_onion(ctx, rs);
 
 	payload = onion_decode(tmpctx,
@@ -344,26 +352,14 @@ static struct onion_payload *decode_onion(const tal_t *ctx,
 	}
 
 	/* Find ourselves in the gossmap, so we know our channels */
-	make_privkey(current_nodeidx, &pk);
-	pubkey_from_privkey(&pk, &current_pubkey);
-	node_id_from_pubkey(&current_node_id, &current_pubkey);
-
-	/* This means pay plugin messed up! */
-	if (expected_id && !node_id_eq(expected_id, &current_node_id))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Onion sent to %s, but encrypted to %s",
-			      fmt_node_id(tmpctx, expected_id),
-			      fmt_node_id(tmpctx, &current_node_id));
-
-	*me = gossmap_find_node(info->gossmap, &current_node_id);
+	*me = gossmap_find_node(info->gossmap, &current_node->id);
 	if (!*me)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Cannot find %s (%s) in gossmap",
-			      fmt_nodeidx(tmpctx, current_nodeidx),
-			      fmt_node_id(tmpctx, &current_node_id));
+			      current_node->name,
+			      fmt_node_id(tmpctx, &current_node->id));
 
-	status_debug("Unpacked onion for %s",
-		     fmt_nodeidx(tmpctx, current_nodeidx));
+	status_debug("Unpacked onion for %s", current_node->name);
 	return payload;
 }
 
@@ -382,7 +378,7 @@ static void fail(struct info *info,
 	towire_u16(&msg, failcode);
 
 	status_debug("Failing payment at %s due to %s",
-		     fmt_nodeidx(tmpctx, current_nodeidx),
+		     fmt_node_id(tmpctx, &current_node->id),
 		     onion_wire_name(failcode));
 
 	err = channel_fail_htlc(info->channel,
@@ -573,8 +569,7 @@ static void add_mpp(struct info *info,
 	struct preimage preimage;
 	struct multi_payment *mp;
 
-	status_debug("Received payment at %s",
-		     fmt_nodeidx(tmpctx, current_nodeidx));
+	status_debug("Received payment at %s", current_node->name);
 	mp = add_payment_part(info, htlc, payload);
 	if (!mp)
 		return;
@@ -706,6 +701,13 @@ static void forward_htlc(struct info *info,
 	struct delayed_forward *dfwd;
 	unsigned int msec_delay;
 
+	current_node = get_current_node(info, expected);
+	if (!current_node) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Could not find privkey for %s",
+			      fmt_node_id(tmpctx, expected));
+	}
+
 	/* Decode, and figure out who I am */
 	payload = decode_onion(tmpctx,
 			       info,
@@ -713,7 +715,6 @@ static void forward_htlc(struct info *info,
 			       path_key,
 			       &htlc->payment_hash,
 			       amount, cltv_expiry,
-			       expected,
 			       &next_onion_packet,
 			       &shared_secret,
 			       &me);
@@ -1291,7 +1292,10 @@ int main(int argc, char *argv[])
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Loading gossmap %s", strerror(errno));
 
-	info->cached_node_idx = tal_arr(info, size_t, 0);
+	info->node_map = tal(info, struct node_map);
+	node_map_init(info->node_map);
+	populate_node_map(info->gossmap, info->node_map);
+	info->peer = make_peer_node(info);
 	info->multi_payments = tal_arr(info, struct multi_payment *, 0);
 	info->reservations = tal_arr(info, struct reservation *, 0);
 	timers_init(&info->timers, time_mono());
