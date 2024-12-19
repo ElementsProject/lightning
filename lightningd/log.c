@@ -558,6 +558,30 @@ static void maybe_notify_log(struct logger *log,
 		notify_log(log->log_book->ld, l);
 }
 
+static void add_one_log_entry(struct logger *log, enum log_level level,
+			      const struct node_id *node_id, bool call_notifier,
+			      char *log_msg)
+{
+	struct log_entry *l = new_log_entry(log, level, node_id);
+
+	l->log = strdup(log_msg);
+	size_t log_len = strlen(l->log);
+
+	/* Sanitize any non-printable characters, and replace with '?'
+	 */
+	for (size_t i = 0; i < log_len; i++)
+		if (l->log[i] < ' ' || l->log[i] >= 0x7f)
+			l->log[i] = '?';
+
+	maybe_print(log, l);
+	maybe_notify_log(log, l);
+
+	add_entry(log, &l);
+
+	if (call_notifier)
+		notify_warning(log->log_book->ld, l);
+}
+
 void logv(struct logger *log, enum log_level level,
 	  const struct node_id *node_id,
 	  bool call_notifier,
@@ -565,63 +589,29 @@ void logv(struct logger *log, enum log_level level,
 {
 	int save_errno = errno;
 	char *log_msg = NULL;
+	const char *unescaped_log;
 
 	/* This is WARN_UNUSED_RESULT, because everyone should somehow deal
 	 * with OOM, even though nobody does. */
 	if (vasprintf(&log_msg, fmt, ap) == -1)
 		abort();
 
-	const char *unescaped_log =
-	    json_escape_unescape(NULL, (struct json_escape *)log_msg);
-	if (!strchr(log_msg, '\\') || !unescaped_log) {
-		struct log_entry *l = new_log_entry(log, level, node_id);
-
-		l->log = strdup(log_msg);
-		size_t log_len = strlen(l->log);
-
-		/* Sanitize any non-printable characters, and replace with '?'
-		 */
-		for (size_t i = 0; i < log_len; i++)
-			if (l->log[i] < ' ' || l->log[i] >= 0x7f)
-				l->log[i] = '?';
-
-		maybe_print(log, l);
-		maybe_notify_log(log, l);
-
-		add_entry(log, &l);
-
-		if (call_notifier)
-			notify_warning(log->log_book->ld, l);
-	} else {
+	/* Nothing to escape: simple copy */
+	if (!strchr(log_msg, '\\'))
+		add_one_log_entry(log, level, node_id, call_notifier, log_msg);
+	/* If it's weird, unescaping can fail */
+	else if ((unescaped_log = json_escape_unescape(
+		      tmpctx, (struct json_escape *)log_msg)) == NULL)
+		add_one_log_entry(log, level, node_id, call_notifier, log_msg);
+	else {
 		char **lines = tal_strsplit(unescaped_log, unescaped_log, "\n",
-					    STR_NO_EMPTY);
-
+					    STR_EMPTY_OK);
 		/* Split to lines and log them separately. */
-		for (size_t j = 0; lines[j]; j++) {
-			struct log_entry *l =
-			    new_log_entry(log, level, node_id);
-
-			l->log = strdup(lines[j]);
-
-			/* Sanitize any non-printable characters, and replace
-			 * with '?'
-			 */
-			size_t line_len = strlen(l->log);
-			for (size_t i = 0; i < line_len; i++)
-				if (l->log[i] < ' ' || l->log[i] >= 0x7f)
-					l->log[i] = '?';
-
-			maybe_print(log, l);
-			maybe_notify_log(log, l);
-
-			add_entry(log, &l);
-
-			if (call_notifier)
-				notify_warning(log->log_book->ld, l);
-		}
+		for (size_t i = 0; lines[i]; i++)
+			add_one_log_entry(log, level, node_id, call_notifier,
+					  lines[i]);
 	}
 
-	tal_free(unescaped_log);
 	free(log_msg);
 
 	errno = save_errno;
