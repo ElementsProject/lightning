@@ -1912,6 +1912,9 @@ static struct command_result *handle_rpc_command(struct command *cmd,
 	const char *maxfee = NULL;
 	struct json_stream *response;
 
+	/* pay extra params */
+	const jsmntok_t *maxfeepercent = NULL, *exemptfee = NULL;
+
 	if (!xpay->take_over_pay)
 		goto dont_redirect;
 
@@ -1945,7 +1948,7 @@ static struct command_result *handle_rpc_command(struct command *cmd,
 		if (amount_msat && json_tok_is_null(buf, amount_msat))
 			amount_msat = NULL;
 	} else if (params_tok->type == JSMN_OBJECT) {
-		const jsmntok_t *t, *maxfeepercent = NULL, *exemptfee = NULL;
+		const jsmntok_t *t;
 		size_t i;
 
 		json_for_each_obj(i, t, params_tok) {
@@ -1973,22 +1976,22 @@ static struct command_result *handle_rpc_command(struct command *cmd,
 				goto dont_redirect;
 			}
 		}
-		if (!bolt11) {
-			plugin_log(cmd->plugin, LOG_INFORM,
-				   "Not redirecting pay (missing bolt11 parameter)");
-			goto dont_redirect;
-		}
-		/* If this returns NULL, we let pay handle the weird case */
-		if (!calc_maxfee(cmd, &maxfee, buf,
-				 bolt11, amount_msat,
-				 exemptfee, maxfeepercent)) {
-			plugin_log(cmd->plugin, LOG_INFORM,
-				   "Not redirecting pay (weird maxfee params)");
-			goto dont_redirect;
-		}
 	} else {
 		plugin_log(cmd->plugin, LOG_INFORM,
 			   "Not redirecting pay (unexpected params type)");
+		goto dont_redirect;
+	}
+
+	if (!bolt11) {
+		plugin_log(cmd->plugin, LOG_INFORM,
+			   "Not redirecting pay (missing bolt11 parameter)");
+		goto dont_redirect;
+	}
+	/* If this returns NULL, we let pay handle the weird case */
+	if (!calc_maxfee(cmd, &maxfee, buf, bolt11, amount_msat, exemptfee,
+			 maxfeepercent)) {
+		plugin_log(cmd->plugin, LOG_INFORM,
+			   "Not redirecting pay (weird maxfee params)");
 		goto dont_redirect;
 	}
 
