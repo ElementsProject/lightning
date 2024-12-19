@@ -485,6 +485,29 @@ def test_xpay_takeover(node_factory, executor):
     l1.daemon.wait_for_log('Converted maxfeepercent=0.25, exemptfee=UNSET to maxfee 5000msat')
 
 
+def test_xpay_takeover_null_parms(node_factory, executor):
+    """Test passing through RPC a list of parameters some of which have null
+    json value."""
+    l1, l2, l3 = node_factory.line_graph(
+        3, wait_for_announce=True, opts={"xpay-handle-pay": True}
+    )
+
+    # Amount argument is null.
+    inv = l3.rpc.invoice(100000, "test_xpay_takeover1", "test_xpay_takeover1")["bolt11"]
+    l1.rpc.call("pay", [inv, None])
+    l1.daemon.wait_for_log("Redirecting pay->xpay")
+
+    # Amount argument is given
+    inv = l3.rpc.invoice("any", "test_xpay_takeover2", "test_xpay_takeover2")["bolt11"]
+    l1.rpc.call("pay", [inv, "100sat"])
+    l1.daemon.wait_for_log("Redirecting pay->xpay")
+
+    # bolt11 invoice cannot be NULL
+    with pytest.raises(RpcError, match=r"missing required parameter: bolt11"):
+        l1.rpc.call("pay", [None, "100sat"])
+    l1.daemon.wait_for_log(r"Not redirecting pay \(missing bolt11 parameter\)")
+
+
 def test_xpay_preapprove(node_factory):
     l1, l2 = node_factory.line_graph(2, opts={'dev-hsmd-fail-preapprove': None})
 
