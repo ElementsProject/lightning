@@ -1914,6 +1914,12 @@ static struct command_result *handle_rpc_command(struct command *cmd,
 		bolt11 = params_tok + 1;
 		if (params_tok->size == 2)
 			amount_msat = json_next(bolt11);
+
+		/* some arguments could have null values in the list */
+		if (bolt11 && json_tok_is_null(buf, bolt11))
+			bolt11 = NULL;
+		if (amount_msat && json_tok_is_null(buf, amount_msat))
+			amount_msat = NULL;
 	} else if (params_tok->type == JSMN_OBJECT) {
 		const jsmntok_t *t, *maxfeepercent = NULL, *exemptfee = NULL;
 		size_t i;
