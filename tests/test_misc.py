@@ -3040,8 +3040,8 @@ def test_restorefrompeer(node_factory, bitcoind):
     wait_for(lambda: l1.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN")
 
     # Check if funds are recovered.
-    assert l1.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN"
-    assert l2.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN"
+    wait_for(lambda: l1.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN")
+    wait_for(lambda: l2.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN")
 
 
 def test_commitfee_option(node_factory):
