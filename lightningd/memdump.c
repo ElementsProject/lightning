@@ -201,6 +201,7 @@ static bool lightningd_check_leaks(struct command *cmd)
 	memleak_scan_htable(memtable, &ld->htlc_sets->raw);
 	memleak_scan_htable(memtable, &ld->peers->raw);
 	memleak_scan_htable(memtable, &ld->peers_by_dbid->raw);
+	wallet_memleak_scan(memtable, ld->wallet);
 
 	/* Now delete ld and those which it has pointers to. */
 	memleak_scan_obj(memtable, ld);
