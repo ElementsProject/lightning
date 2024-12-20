@@ -626,6 +626,10 @@ void lockin_complete(struct channel *channel UNNEEDED,
 void logv(struct logger *logger UNNEEDED, enum log_level level UNNEEDED, const struct node_id *node_id UNNEEDED,
 	  bool call_notifier UNNEEDED, const char *fmt UNNEEDED, va_list ap UNNEEDED)
 { fprintf(stderr, "logv called!\n"); abort(); }
+/* Generated stub for memleak_scan_outpointfilter */
+void memleak_scan_outpointfilter(struct htable *memtable UNNEEDED,
+				 const struct outpointfilter *opf UNNEEDED)
+{ fprintf(stderr, "memleak_scan_outpointfilter called!\n"); abort(); }
 /* Generated stub for new_channel_mvt_invoice_hin */
 struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx UNNEEDED,
 						     struct htlc_in *hin UNNEEDED,

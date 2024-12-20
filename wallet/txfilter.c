@@ -103,11 +103,9 @@ void outpointfilter_add(struct outpointfilter *of,
 {
 	if (outpointfilter_matches(of, outpoint))
 		return;
-	/* Have to mark the entries as notleak since they'll not be
-	 * pointed to by anything other than the htable */
-	outpointset_add(of->set, notleak(tal_dup(of->set,
-						 struct bitcoin_outpoint,
-						 outpoint)));
+	outpointset_add(of->set, tal_dup(of->set,
+					 struct bitcoin_outpoint,
+					 outpoint));
 }
 
 bool outpointfilter_matches(struct outpointfilter *of,
@@ -119,7 +117,11 @@ bool outpointfilter_matches(struct outpointfilter *of,
 void outpointfilter_remove(struct outpointfilter *of,
 			   const struct bitcoin_outpoint *outpoint)
 {
-	outpointset_del(of->set, outpoint);
+	struct bitcoin_outpoint *o = outpointset_get(of->set, outpoint);
+	if (o) {
+		outpointset_del(of->set, o);
+		tal_free(o);
+	}
 }
 
 struct outpointfilter *outpointfilter_new(tal_t *ctx)
@@ -128,4 +130,9 @@ struct outpointfilter *outpointfilter_new(tal_t *ctx)
 	opf->set = tal(opf, struct outpointset);
 	outpointset_init(opf->set);
 	return opf;
+}
+
+void memleak_scan_outpointfilter(struct htable *memtable, const struct outpointfilter *opf)
+{
+	memleak_scan_htable(memtable, &opf->set->raw);
 }

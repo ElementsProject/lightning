@@ -64,4 +64,6 @@ bool outpointfilter_matches(struct outpointfilter *of,
 void outpointfilter_remove(struct outpointfilter *of,
 			   const struct bitcoin_outpoint *outpoint);
 
+void memleak_scan_outpointfilter(struct htable *memtable,
+				 const struct outpointfilter *opf);
 #endif /* LIGHTNING_WALLET_TXFILTER_H */
