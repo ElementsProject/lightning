@@ -35,8 +35,6 @@ jobs:
           python3.10 -m poetry install
           python3.10 -m pip install -U --user mako
 
-          sudo ln -s /usr/local/Cellar/gettext/0.20.1/bin/xgettext /usr/local/opt
-
       - name: Build and install
         run: |
           export CPATH=/opt/homebrew/include
