@@ -121,6 +121,10 @@ struct invoices *invoices_new(const tal_t *ctx UNNEEDED,
 void logv(struct logger *logger UNNEEDED, enum log_level level UNNEEDED, const struct node_id *node_id UNNEEDED,
 	  bool call_notifier UNNEEDED, const char *fmt UNNEEDED, va_list ap UNNEEDED)
 { fprintf(stderr, "logv called!\n"); abort(); }
+/* Generated stub for memleak_scan_outpointfilter */
+void memleak_scan_outpointfilter(struct htable *memtable UNNEEDED,
+				 const struct outpointfilter *opf UNNEEDED)
+{ fprintf(stderr, "memleak_scan_outpointfilter called!\n"); abort(); }
 /* Generated stub for new_channel */
 struct channel *new_channel(struct peer *peer UNNEEDED, u64 dbid UNNEEDED,
 			    /* NULL or stolen */

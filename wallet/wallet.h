@@ -1817,4 +1817,10 @@ struct issued_address_type {
  */
 struct issued_address_type *wallet_list_addresses(const tal_t *ctx, struct wallet *wallet,
 					 u64 liststart, const u32 *listlimit);
+
+
+/**
+ * wallet_memleak_scan - Check for memleaks in wallet.
+ */
+void wallet_memleak_scan(struct htable *memtable, const struct wallet *w);
 #endif /* LIGHTNING_WALLET_WALLET_H */
