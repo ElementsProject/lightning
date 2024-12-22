@@ -137,11 +137,11 @@ static bool peer_eq_node_id(const struct peer *peer,
 }
 
 /*~ This defines 'struct peer_htable' which contains 'struct peer' pointers. */
-HTABLE_DEFINE_TYPE(struct peer,
-		   peer_keyof,
-		   node_id_hash,
-		   peer_eq_node_id,
-		   peer_htable);
+HTABLE_DEFINE_NODUPS_TYPE(struct peer,
+			  peer_keyof,
+			  node_id_hash,
+			  peer_eq_node_id,
+			  peer_htable);
 
 /* Node id, with any addresses we were explicitly given for it */
 struct important_id {
@@ -164,11 +164,11 @@ static bool important_id_eq_node_id(const struct important_id *imp,
 }
 
 /*~ This defines 'struct important_id_htable' */
-HTABLE_DEFINE_TYPE(struct important_id,
-		   important_id_keyof,
-		   node_id_hash,
-		   important_id_eq_node_id,
-		   important_id_htable);
+HTABLE_DEFINE_NODUPS_TYPE(struct important_id,
+			  important_id_keyof,
+			  node_id_hash,
+			  important_id_eq_node_id,
+			  important_id_htable);
 
 /*~ Peers we're trying to reach: we iterate through addrs until we succeed
  * or fail. */
@@ -207,11 +207,11 @@ static bool connecting_eq_node_id(const struct connecting *connecting,
 
 /*~ This defines 'struct connecting_htable' which contains 'struct connecting'
  *  pointers. */
-HTABLE_DEFINE_TYPE(struct connecting,
-		   connecting_keyof,
-		   node_id_hash,
-		   connecting_eq_node_id,
-		   connecting_htable);
+HTABLE_DEFINE_NODUPS_TYPE(struct connecting,
+			  connecting_keyof,
+			  node_id_hash,
+			  connecting_eq_node_id,
+			  connecting_htable);
 
 struct scid_to_node_id {
 	struct short_channel_id scid;
@@ -231,11 +231,11 @@ static bool scid_to_node_id_eq_scid(const struct scid_to_node_id *scid_to_node_i
 
 /*~ This defines 'struct scid_htable' which maps short_channel_ids to peers:
  * we use this to forward onion messages which specify the next hop by scid/dir. */
-HTABLE_DEFINE_TYPE(struct scid_to_node_id,
-		   scid_to_node_id_keyof,
-		   short_channel_id_hash,
-		   scid_to_node_id_eq_scid,
-		   scid_htable);
+HTABLE_DEFINE_NODUPS_TYPE(struct scid_to_node_id,
+			  scid_to_node_id_keyof,
+			  short_channel_id_hash,
+			  scid_to_node_id_eq_scid,
+			  scid_htable);
 
 /*~ This is the global state, like `struct lightningd *ld` in lightningd. */
 struct daemon {

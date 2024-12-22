@@ -44,11 +44,11 @@ static inline bool per_htlc_cost_eq_key(const struct per_htlc_cost *phc,
 	return short_channel_id_dir_eq(scidd, &phc->scidd);
 }
 
-HTABLE_DEFINE_TYPE(struct per_htlc_cost,
-		   per_htlc_cost_key,
-		   hash_scidd,
-		   per_htlc_cost_eq_key,
-		   additional_cost_htable);
+HTABLE_DEFINE_NODUPS_TYPE(struct per_htlc_cost,
+			  per_htlc_cost_key,
+			  hash_scidd,
+			  per_htlc_cost_eq_key,
+			  additional_cost_htable);
 
 static bool have_layer(const char **layers, const char *name)
 {

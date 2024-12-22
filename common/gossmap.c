@@ -33,8 +33,8 @@ static size_t scid_hash(const struct short_channel_id scid)
 {
 	return siphash24(siphash_seed(), &scid, sizeof(scid));
 }
-HTABLE_DEFINE_TYPE(ptrint_t, chanidx_id, scid_hash, chanidx_eq_id,
-		   chanidx_htable);
+HTABLE_DEFINE_NODUPS_TYPE(ptrint_t, chanidx_id, scid_hash, chanidx_eq_id,
+			  chanidx_htable);
 
 static struct node_id nodeidx_id(const ptrint_t *pidx);
 static bool nodeidx_eq_id(const ptrint_t *pidx, const struct node_id id)
@@ -46,8 +46,8 @@ static size_t nodeid_hash(const struct node_id id)
 {
 	return siphash24(siphash_seed(), &id, PUBKEY_CMPR_LEN);
 }
-HTABLE_DEFINE_TYPE(ptrint_t, nodeidx_id, nodeid_hash, nodeidx_eq_id,
-		   nodeidx_htable);
+HTABLE_DEFINE_NODUPS_TYPE(ptrint_t, nodeidx_id, nodeid_hash, nodeidx_eq_id,
+			  nodeidx_htable);
 
 struct gossmap {
 	/* We updated this every time we reopen, so we know to update iterators! */

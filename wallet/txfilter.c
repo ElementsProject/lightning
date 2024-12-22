@@ -25,7 +25,8 @@ static bool scriptpubkey_eq(const u8 *a, const u8 *b)
 	return tal_arr_eq(a, b);
 }
 
-HTABLE_DEFINE_TYPE(u8, scriptpubkey_keyof, scriptpubkey_hash, scriptpubkey_eq, scriptpubkeyset);
+/* FIXME: Should we disallow dups here? */
+HTABLE_DEFINE_DUPS_TYPE(u8, scriptpubkey_keyof, scriptpubkey_hash, scriptpubkey_eq, scriptpubkeyset);
 
 struct txfilter {
 	struct scriptpubkeyset scriptpubkeyset;
@@ -45,8 +46,8 @@ static const struct bitcoin_outpoint *outpoint_keyof(const struct bitcoin_outpoi
 	return out;
 }
 
-HTABLE_DEFINE_TYPE(struct bitcoin_outpoint, outpoint_keyof, outpoint_hash, bitcoin_outpoint_eq,
-		   outpointset);
+HTABLE_DEFINE_NODUPS_TYPE(struct bitcoin_outpoint, outpoint_keyof, outpoint_hash, bitcoin_outpoint_eq,
+			  outpointset);
 
 struct outpointfilter {
 	struct outpointset *set;
@@ -95,7 +96,7 @@ bool txfilter_scriptpubkey_matches(const struct txfilter *filter, const u8 *scri
 {
 	if (!scriptPubKey)
 		return false;
-	return scriptpubkeyset_get(&filter->scriptpubkeyset, scriptPubKey) != NULL;
+	return scriptpubkeyset_exists(&filter->scriptpubkeyset, scriptPubKey);
 }
 
 void outpointfilter_add(struct outpointfilter *of,

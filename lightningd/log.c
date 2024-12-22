@@ -118,9 +118,9 @@ static bool node_id_cache_eq(const struct node_id_cache *nc,
 	return node_id_eq(&nc->node_id, node_id);
 }
 
-HTABLE_DEFINE_TYPE(struct node_id_cache,
-		   node_cache_id, node_id_hash, node_id_cache_eq,
-		   node_id_map);
+HTABLE_DEFINE_NODUPS_TYPE(struct node_id_cache,
+			  node_cache_id, node_id_hash, node_id_cache_eq,
+			  node_id_map);
 
 static const char *level_prefix(enum log_level level)
 {

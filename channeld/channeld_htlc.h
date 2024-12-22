@@ -56,7 +56,8 @@ static inline size_t htlc_hash(u64 id)
 {
 	return siphash24(siphash_seed(), &id, sizeof(id));
 }
-HTABLE_DEFINE_TYPE(struct htlc, htlc_key, htlc_hash, htlc_cmp, htlc_map);
+HTABLE_DEFINE_DUPS_TYPE(struct htlc, htlc_key, htlc_hash, htlc_cmp,
+			htlc_map);
 
 static inline struct htlc *htlc_get(struct htlc_map *htlcs, u64 id, enum side owner)
 {

@@ -31,7 +31,7 @@ static bool cmp(const char *obj, const char *key)
 	return strcmp(obj, key) == 0;
 }
 
-HTABLE_DEFINE_TYPE(char, strkey, hash_str, cmp, htable_str);
+HTABLE_DEFINE_NODUPS_TYPE(char, strkey, hash_str, cmp, htable_str);
 
 /* Nanoseconds per operation */
 static size_t normalize(const struct timeabs *start,

@@ -43,7 +43,7 @@ static void next_topology_timer(struct chain_topology *topo)
 static bool we_broadcast(const struct chain_topology *topo,
 			 const struct bitcoin_txid *txid)
 {
-	return outgoing_tx_map_get(topo->outgoing_txs, txid) != NULL;
+	return outgoing_tx_map_exists(topo->outgoing_txs, txid);
 }
 
 static void filter_block_txs(struct chain_topology *topo, struct block *b)

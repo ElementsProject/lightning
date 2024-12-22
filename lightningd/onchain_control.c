@@ -45,8 +45,8 @@ static bool replay_tx_eq_txid(const struct replay_tx *rtx,
 	return bitcoin_txid_eq(&rtx->txid, txid);
 }
 
-HTABLE_DEFINE_TYPE(struct replay_tx, replay_tx_keyof, txid_hash, replay_tx_eq_txid,
-		   replay_tx_hash);
+HTABLE_DEFINE_NODUPS_TYPE(struct replay_tx, replay_tx_keyof, txid_hash, replay_tx_eq_txid,
+			  replay_tx_hash);
 
 /* Helper for memleak detection */
 static void memleak_replay_tx_hash(struct htable *memtable,
