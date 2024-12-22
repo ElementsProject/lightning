@@ -56,7 +56,7 @@ static bool node_cmp(const struct node *n, const struct node_id *node_id)
 {
 	return node_id_eq(&n->id, node_id);
 }
-HTABLE_DEFINE_TYPE(struct node, node_key, node_id_hash, node_cmp, node_map);
+HTABLE_DEFINE_NODUPS_TYPE(struct node, node_key, node_id_hash, node_cmp, node_map);
 
 struct info {
 	/* To talk to lightningd */

@@ -244,7 +244,7 @@ void memswap(void *a, void *b, size_t n);
 #include <valgrind/memcheck.h>
 static inline void *memcheck_(const void *data, size_t len)
 {
-	(void)VALGRIND_CHECK_MEM_IS_DEFINED(data, len);
+	VALGRIND_CHECK_MEM_IS_DEFINED(data, len);
 	return (void *)data;
 }
 #else

@@ -31,8 +31,8 @@ static bool reserve_eq_scidd(const struct reserve *r,
 	return short_channel_id_dir_eq(scidd, &r->rhop.scidd);
 }
 
-HTABLE_DEFINE_TYPE(struct reserve, reserve_scidd, hash_scidd,
-		   reserve_eq_scidd, reserve_htable);
+HTABLE_DEFINE_DUPS_TYPE(struct reserve, reserve_scidd, hash_scidd,
+			reserve_eq_scidd, reserve_htable);
 
 struct reserve_htable *new_reserve_htable(const tal_t *ctx)
 {
