@@ -121,4 +121,8 @@ common/test/run-trace:					\
 	common/trace.o					\
 	wire/fromwire.o					\
 	wire/towire.o
+
+common/test/run-htable:					\
+	common/pseudorand.o
+
 check-units: $(COMMON_TEST_PROGRAMS:%=unittest/%)
