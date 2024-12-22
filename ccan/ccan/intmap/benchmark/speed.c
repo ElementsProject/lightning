@@ -59,7 +59,7 @@ static bool eqfn(const struct htable_elem *elem, const uint64_t index)
 {
 	return elem->index == index;
 }
-HTABLE_DEFINE_TYPE(struct htable_elem, keyof, hashfn, eqfn, hash);
+HTABLE_DEFINE_NODUPS_TYPE(struct htable_elem, keyof, hashfn, eqfn, hash);
 
 static bool check_val(intmap_index_t i, uint64_t *v, uint64_t *expected)
 {
