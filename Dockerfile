@@ -7,7 +7,7 @@
 # * final: Creates the runtime image.
 
 ARG DEFAULT_TARGETPLATFORM="linux/amd64"
-ARG BASE_DISTRO="debian:bullseye-slim"
+ARG BASE_DISTRO="debian:bookworm-slim"
 
 FROM --platform=$BUILDPLATFORM ${BASE_DISTRO} AS base-downloader
 RUN set -ex \
@@ -60,21 +60,23 @@ RUN apt-get update -qq && \
     apt-get install -qq -y --no-install-recommends \
         autoconf \
         automake \
+        bison \
         build-essential \
         ca-certificates \
         curl \
         dirmngr \
+        flex \
         gettext \
         git \
         gnupg \
         jq \
-        libpq-dev \
+        libicu-dev \
         libtool \
         libffi-dev \
         pkg-config \
         libssl-dev \
         protobuf-compiler \
-        python3.9 \
+        python3 \
         python3-dev \
         python3-mako \
         python3-pip \
@@ -87,14 +89,17 @@ RUN apt-get update -qq && \
         unzip \
         tclsh
 
-ENV PATH="/root/.local/bin:$PATH"
-ENV PYTHON_VERSION=3
+ENV PATH="/root/.local/bin:$PATH" \
+    PYTHON_VERSION=3
 RUN curl -sSL https://install.python-poetry.org | python3 -
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1
-RUN pip3 install --upgrade pip setuptools wheel
+RUN mkdir -p /root/.venvs && \
+    python3 -m venv /root/.venvs/cln && \
+    . /root/.venvs/cln/bin/activate && \
+    pip3 install --upgrade pip setuptools wheel
 
 RUN wget -q https://zlib.net/fossils/zlib-1.2.13.tar.gz -O zlib.tar.gz && \
-    wget -q https://www.sqlite.org/2019/sqlite-src-3290000.zip -O sqlite.zip
+    wget -q https://www.sqlite.org/2019/sqlite-src-3290000.zip -O sqlite.zip && \
+    wget -q https://ftp.postgresql.org/pub/source/v17.1/postgresql-17.1.tar.gz -O postgres.tar.gz
 
 WORKDIR /opt/lightningd
 COPY . /tmp/lightning
@@ -103,10 +108,17 @@ RUN git clone --recursive /tmp/lightning . && \
 
 # Do not build python plugins (clnrest & wss-proxy) here, python doesn't support cross compilation.
 RUN sed -i '/^clnrest\|^wss-proxy/d' pyproject.toml && poetry export -o requirements.txt --without-hashes
-RUN pip3 install -r requirements.txt && pip3 cache purge
+RUN mkdir -p /root/.venvs && \
+    python3 -m venv /root/.venvs/cln && \
+    . /root/.venvs/cln/bin/activate && \
+    pip3 install -r requirements.txt && \
+    pip3 cache purge
 WORKDIR /
 
 FROM base-builder AS base-builder-linux-amd64
+
+ENV POSTGRES_CONFIG="--without-readline" \
+    PG_CONFIG=/usr/local/pgsql/bin/pg_config
 
 FROM base-builder AS base-builder-linux-arm64
 ENV target_host=aarch64-linux-gnu \
@@ -119,20 +131,21 @@ RUN apt-get install -qq -y --no-install-recommends \
         g++-${target_host}
 
 ENV AR=${target_host}-ar \
-AS=${target_host}-as \
-CC=${target_host}-gcc \
-CXX=${target_host}-g++ \
-LD=${target_host}-ld \
-STRIP=${target_host}-strip \
-QEMU_LD_PREFIX=/usr/${target_host} \
-HOST=${target_host} \
-TARGET=${target_host_rust} \
-RUSTUP_INSTALL_OPTS="--target ${target_host_rust} --default-host ${target_host_rust}" \
-PKG_CONFIG_PATH="/usr/${target_host}/lib/pkgconfig"
+    AS=${target_host}-as \
+    CC=${target_host}-gcc \
+    CXX=${target_host}-g++ \
+    LD=${target_host}-ld \
+    STRIP=${target_host}-strip \
+    QEMU_LD_PREFIX=/usr/${target_host} \
+    HOST=${target_host} \
+    TARGET=${target_host_rust} \
+    RUSTUP_INSTALL_OPTS="--target ${target_host_rust} --default-host ${target_host_rust}" \
+    PKG_CONFIG_PATH="/usr/${target_host}/lib/pkgconfig"
 
-ENV \
-ZLIB_CONFIG="--prefix=${QEMU_LD_PREFIX}" \
-SQLITE_CONFIG="--host=${target_host} --prefix=$QEMU_LD_PREFIX"
+ENV ZLIB_CONFIG="--prefix=${QEMU_LD_PREFIX}" \
+    SQLITE_CONFIG="--host=${target_host} --prefix=${QEMU_LD_PREFIX}" \
+    POSTGRES_CONFIG="--without-readline --prefix=${QEMU_LD_PREFIX}" \
+    PG_CONFIG="${QEMU_LD_PREFIX}/bin/pg_config"
 
 FROM base-builder AS base-builder-linux-arm
 
@@ -146,20 +159,21 @@ RUN apt-get install -qq -y --no-install-recommends \
         g++-${target_host}
 
 ENV AR=${target_host}-ar \
-AS=${target_host}-as \
-CC=${target_host}-gcc \
-CXX=${target_host}-g++ \
-LD=${target_host}-ld \
-STRIP=${target_host}-strip \
-QEMU_LD_PREFIX=/usr/${target_host} \
-HOST=${target_host} \
-TARGET=${target_host_rust} \
-RUSTUP_INSTALL_OPTS="--target ${target_host_rust} --default-host ${target_host_rust}" \
-PKG_CONFIG_PATH="/usr/${target_host}/lib/pkgconfig"
+    AS=${target_host}-as \
+    CC=${target_host}-gcc \
+    CXX=${target_host}-g++ \
+    LD=${target_host}-ld \
+    STRIP=${target_host}-strip \
+    QEMU_LD_PREFIX=/usr/${target_host} \
+    HOST=${target_host} \
+    TARGET=${target_host_rust} \
+    RUSTUP_INSTALL_OPTS="--target ${target_host_rust} --default-host ${target_host_rust}" \
+    PKG_CONFIG_PATH="/usr/${target_host}/lib/pkgconfig"
 
-ENV \
-ZLIB_CONFIG="--prefix=${QEMU_LD_PREFIX}" \
-SQLITE_CONFIG="--host=${target_host} --prefix=$QEMU_LD_PREFIX"
+ENV ZLIB_CONFIG="--prefix=${QEMU_LD_PREFIX}" \
+    SQLITE_CONFIG="--host=${target_host} --prefix=${QEMU_LD_PREFIX}" \
+    POSTGRES_CONFIG="--without-readline --prefix=${QEMU_LD_PREFIX}" \
+    PG_CONFIG="${QEMU_LD_PREFIX}/bin/pg_config"
 
 FROM base-builder-${TARGETOS}-${TARGETARCH} AS builder
 
@@ -179,8 +193,25 @@ RUN unzip sqlite.zip \
     && make \
     && make install && cd .. && rm sqlite.zip && rm -rf sqlite-*
 
-ENV RUST_PROFILE=release
-ENV PATH="/root/.cargo/bin:/root/.local/bin:$PATH"
+RUN mkdir postgres && tar xvf postgres.tar.gz -C postgres --strip-components=1 \
+    && cd postgres \
+    && ./configure ${POSTGRES_CONFIG} \
+    && cd src/include \
+    && make install \
+    && cd ../interfaces/libpq \
+    && make install \
+    && cd ../../bin/pg_config \
+    && make install \
+    && cd ../../../../ && \
+    rm postgres.tar.gz && \
+    rm -rf postgres && \
+    ldconfig "$(${PG_CONFIG} --libdir)"
+
+# Save libpq to a specific location to copy it into the final image.
+RUN mkdir /var/libpq && cp -a "$(${PG_CONFIG} --libdir)"/libpq.* /var/libpq
+
+ENV RUST_PROFILE=release \
+    PATH="/root/.cargo/bin:/root/.local/bin:$PATH"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y ${RUSTUP_INSTALL_OPTS}
 RUN rustup toolchain install stable --component rustfmt --allow-downgrade
 
@@ -227,21 +258,24 @@ RUN apt-get update -qq && \
         build-essential \
         libffi-dev \
         libssl-dev \
-        python3.9 \
+        python3 \
         python3-dev \
-        python3-pip && \
+        python3-pip \
+        python3-venv && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1
 ENV PYTHON_VERSION=3
-RUN pip3 install --upgrade pip setuptools wheel
+RUN mkdir -p /root/.venvs && \
+    python3 -m venv /root/.venvs/cln && \
+    . /root/.venvs/cln/bin/activate && \
+    pip3 install --upgrade pip setuptools wheel
 
 # Copy rustup_install_opts.txt file from builder
 COPY --from=builder /tmp/rustup_install_opts.txt /tmp/rustup_install_opts.txt
 # Setup ENV $RUSTUP_INSTALL_OPTS for this stage
 RUN export $(cat /tmp/rustup_install_opts.txt)
-ENV PATH="/root/.cargo/bin:$PATH"
+ENV PATH="/root/.cargo/bin:/root/.venvs/cln/bin:$PATH"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y ${RUSTUP_INSTALL_OPTS}
 
 WORKDIR /opt/lightningd/plugins/clnrest
@@ -263,23 +297,29 @@ RUN apt-get update && \
       socat \
       inotify-tools \
       jq \
-      python3.9 \
-      python3-pip \
-      libpq5 && \
+      python3 \
+      python3-pip && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-ENV LIGHTNINGD_DATA=/root/.lightning
-ENV LIGHTNINGD_RPC_PORT=9835
-ENV LIGHTNINGD_PORT=9735
-ENV LIGHTNINGD_NETWORK=bitcoin
+ENV LIGHTNINGD_DATA=/root/.lightning \
+    LIGHTNINGD_RPC_PORT=9835 \
+    LIGHTNINGD_PORT=9735 \
+    LIGHTNINGD_NETWORK=bitcoin
 
 RUN mkdir $LIGHTNINGD_DATA && \
     touch $LIGHTNINGD_DATA/config
 VOLUME [ "/root/.lightning" ]
 
+# Take libpq directly from builder.
+RUN mkdir /var/libpq && mkdir -p /usr/local/pgsql/lib
+RUN --mount=type=bind,from=builder,source=/var/libpq,target=/var/libpq,rw \
+    cp -a /var/libpq/libpq.* /usr/local/pgsql/lib && \
+    echo "/usr/local/pgsql/lib" > /etc/ld.so.conf.d/libpq.conf && \
+    ldconfig
+
 COPY --from=builder /tmp/lightning_install/ /usr/local/
-COPY --from=builder-python /usr/local/lib/python3.9/dist-packages/ /usr/local/lib/python3.9/dist-packages/
+COPY --from=builder-python /usr/local/lib/python3.11/dist-packages/ /usr/local/lib/python3.11/dist-packages/
 COPY --from=downloader /opt/bitcoin/bin /usr/bin
 COPY --from=downloader /opt/litecoin/bin /usr/bin
 COPY tools/docker-entrypoint.sh entrypoint.sh
