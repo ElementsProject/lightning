@@ -69,8 +69,8 @@ static inline bool constraint_eq_scidd(const struct constraint *c,
 	return short_channel_id_dir_eq(scidd, &c->scidd);
 }
 
-HTABLE_DEFINE_TYPE(struct constraint, constraint_scidd, hash_scidd,
-		   constraint_eq_scidd, constraint_hash);
+HTABLE_DEFINE_DUPS_TYPE(struct constraint, constraint_scidd, hash_scidd,
+			constraint_eq_scidd, constraint_hash);
 
 static struct short_channel_id
 local_channel_scid(const struct local_channel *lc)
@@ -90,8 +90,8 @@ static inline bool local_channel_eq_scid(const struct local_channel *lc,
 	return short_channel_id_eq(scid, lc->scid);
 }
 
-HTABLE_DEFINE_TYPE(struct local_channel, local_channel_scid, hash_scid,
-		   local_channel_eq_scid, local_channel_hash);
+HTABLE_DEFINE_NODUPS_TYPE(struct local_channel, local_channel_scid, hash_scid,
+			  local_channel_eq_scid, local_channel_hash);
 
 static const struct short_channel_id_dir *
 local_update_scidd(const struct local_update *lu)
@@ -105,8 +105,8 @@ static inline bool local_update_eq_scidd(const struct local_update *lu,
 	return short_channel_id_dir_eq(scidd, &lu->scidd);
 }
 
-HTABLE_DEFINE_TYPE(struct local_update, local_update_scidd, hash_scidd,
-		   local_update_eq_scidd, local_update_hash);
+HTABLE_DEFINE_NODUPS_TYPE(struct local_update, local_update_scidd, hash_scidd,
+			  local_update_eq_scidd, local_update_hash);
 
 static const struct short_channel_id_dir *
 bias_scidd(const struct bias *bias)
@@ -120,8 +120,8 @@ static bool bias_eq_scidd(const struct bias *bias,
 	return short_channel_id_dir_eq(scidd, &bias->scidd);
 }
 
-HTABLE_DEFINE_TYPE(struct bias, bias_scidd, hash_scidd,
-		   bias_eq_scidd, bias_hash);
+HTABLE_DEFINE_NODUPS_TYPE(struct bias, bias_scidd, hash_scidd,
+			  bias_eq_scidd, bias_hash);
 
 struct layer {
 	/* Inside global list of layers */
@@ -207,7 +207,6 @@ static struct local_channel *add_local_channel(struct layer *layer,
 	lc->scid = scid;
 	lc->capacity = capacity;
 
-	assert(!local_channel_hash_get(layer->local_channels, scid));
 	local_channel_hash_add(layer->local_channels, lc);
 	return lc;
 }

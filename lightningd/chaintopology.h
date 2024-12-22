@@ -68,7 +68,8 @@ static inline bool block_eq(const struct block *b, const struct bitcoin_blkid *k
 {
 	return bitcoin_blkid_eq(&b->blkid, key);
 }
-HTABLE_DEFINE_TYPE(struct block, keyof_block_map, hash_sha, block_eq, block_map);
+HTABLE_DEFINE_NODUPS_TYPE(struct block, keyof_block_map, hash_sha, block_eq,
+			  block_map);
 
 /* Hash blocks by sha */
 static inline const struct bitcoin_txid *keyof_outgoing_tx_map(const struct outgoing_tx *t)
@@ -87,8 +88,9 @@ static inline bool outgoing_tx_eq(const struct outgoing_tx *b, const struct bitc
 {
 	return bitcoin_txid_eq(&b->txid, key);
 }
-HTABLE_DEFINE_TYPE(struct outgoing_tx, keyof_outgoing_tx_map,
-		   outgoing_tx_hash_sha, outgoing_tx_eq, outgoing_tx_map);
+HTABLE_DEFINE_DUPS_TYPE(struct outgoing_tx, keyof_outgoing_tx_map,
+			outgoing_tx_hash_sha, outgoing_tx_eq,
+			outgoing_tx_map);
 
 /* Our plugins give us a series of blockcount, feerate pairs. */
 struct feerate_est {

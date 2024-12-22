@@ -31,8 +31,8 @@ my_short_channel_id_dir_eq(const struct short_channel_id_dir *scidd_a,
 
 /* A htable for short_channel_id_dir, the structure itself is the element key.
  */
-HTABLE_DEFINE_TYPE(struct short_channel_id_dir, self_scidd, hash_scidd,
-		   my_short_channel_id_dir_eq, scidd_map);
+HTABLE_DEFINE_NODUPS_TYPE(struct short_channel_id_dir, self_scidd, hash_scidd,
+			  my_short_channel_id_dir_eq, scidd_map);
 
 struct disabledmap {
 	/* Channels we decided to disable for various reasons. */

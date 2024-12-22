@@ -26,9 +26,9 @@ const struct node_id *peer_node_id(const struct peer *peer);
 bool peer_node_id_eq(const struct peer *peer, const struct node_id *node_id);
 
 /* Defines struct peer_node_id_map */
-HTABLE_DEFINE_TYPE(struct peer,
-		   peer_node_id, node_id_hash, peer_node_id_eq,
-		   peer_node_id_map);
+HTABLE_DEFINE_NODUPS_TYPE(struct peer,
+			  peer_node_id, node_id_hash, peer_node_id_eq,
+			  peer_node_id_map);
 
 /*~ The core daemon structure: */
 struct daemon {

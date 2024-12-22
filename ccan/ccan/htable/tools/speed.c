@@ -33,7 +33,7 @@ static bool cmp(const struct object *object, const unsigned int *key)
 	return object->key == *key;
 }
 
-HTABLE_DEFINE_TYPE(struct object, objkey, hash_obj, cmp, htable_obj);
+HTABLE_DEFINE_NODUPS_TYPE(struct object, objkey, hash_obj, cmp, htable_obj);
 
 static unsigned int popcount(unsigned long val)
 {
