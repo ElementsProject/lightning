@@ -10,6 +10,7 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/timeout.h>
 #include <errno.h>
 #include <plugins/libplugin.h>
 
@@ -20,6 +21,7 @@
  */
 #define BITCOIND_MAX_PARALLEL 4
 #define RPC_TRANSACTION_ALREADY_IN_CHAIN -27
+#define BITCOIND_WARMUP_TIMER 30
 
 enum bitcoind_prio {
 	BITCOIND_LOW_PRIO,
@@ -1033,61 +1035,52 @@ static void parse_getnetworkinfo_result(struct plugin *p, const char *buf)
 	tal_free(result);
 }
 
+static void log_warm_up(struct plugin *p)
+{
+	plugin_log(p, LOG_UNUSUAL, "Waiting for bitcoind to warm up...");
+}
+
 static void wait_and_check_bitcoind(struct plugin *p)
 {
-	int in, from, status, ret;
+	int in, from, status;
 	pid_t child;
-	const char **cmd = gather_args(bitcoind, "getnetworkinfo", NULL);
-	bool printed = false;
+	const char **cmd =
+	    gather_args(bitcoind, "-rpcwait", "getnetworkinfo", NULL);
 	char *output = NULL;
 
-	for (;;) {
-		tal_free(output);
+	struct timers *timer = tal(cmd, struct timers);
+	timers_init(timer, time_mono());
+	new_reltimer(timer, timer, time_from_sec(BITCOIND_WARMUP_TIMER),
+		     log_warm_up, p);
 
-		child = pipecmdarr(&in, &from, &from, cast_const2(char **, cmd));
+	child = pipecmdarr(&in, &from, &from, cast_const2(char **, cmd));
 
-		if (bitcoind->rpcpass)
-			write_all(in, bitcoind->rpcpass, strlen(bitcoind->rpcpass));
+	if (bitcoind->rpcpass)
+		write_all(in, bitcoind->rpcpass, strlen(bitcoind->rpcpass));
 
-		close(in);
+	close(in);
 
-		if (child < 0) {
-			if (errno == ENOENT)
-				bitcoind_failure(p, "bitcoin-cli not found. Is bitcoin-cli "
-						    "(part of Bitcoin Core) available in your PATH?");
-			plugin_err(p, "%s exec failed: %s", cmd[0], strerror(errno));
-		}
+	if (child < 0) {
+		if (errno == ENOENT)
+			bitcoind_failure(
+			    p,
+			    "bitcoin-cli not found. Is bitcoin-cli "
+			    "(part of Bitcoin Core) available in your PATH?");
+		plugin_err(p, "%s exec failed: %s", cmd[0], strerror(errno));
+	}
 
-		output = grab_fd(cmd, from);
+	output = grab_fd(cmd, from);
 
-		while ((ret = waitpid(child, &status, 0)) < 0 && errno == EINTR);
-		if (ret != child)
-			bitcoind_failure(p, tal_fmt(bitcoind, "Waiting for %s: %s",
-						    cmd[0], strerror(errno)));
-		if (!WIFEXITED(status))
-			bitcoind_failure(p, tal_fmt(bitcoind, "Death of %s: signal %i",
-						   cmd[0], WTERMSIG(status)));
+	waitpid(child, &status, 0);
 
-		if (WEXITSTATUS(status) == 0)
-			break;
+	if (!WIFEXITED(status))
+		bitcoind_failure(p, tal_fmt(bitcoind, "Death of %s: signal %i",
+					    cmd[0], WTERMSIG(status)));
 
-		/* bitcoin/src/rpc/protocol.h:
-		 *	RPC_IN_WARMUP = -28, //!< Client still warming up
-		 */
-		if (WEXITSTATUS(status) != 28) {
-			if (WEXITSTATUS(status) == 1)
-				bitcoind_failure(p, "Could not connect to bitcoind using"
-						    " bitcoin-cli. Is bitcoind running?");
-			bitcoind_failure(p, tal_fmt(bitcoind, "%s exited with code %i: %s",
-						    cmd[0], WEXITSTATUS(status), output));
-		}
-
-		if (!printed) {
-			plugin_log(p, LOG_UNUSUAL,
-				   "Waiting for bitcoind to warm up...");
-			printed = true;
-		}
-		sleep(1);
+	if (WEXITSTATUS(status) != 0) {
+		bitcoind_failure(p,
+				 tal_fmt(bitcoind, "%s exited with code %i: %s",
+					 cmd[0], WEXITSTATUS(status), output));
 	}
 
 	parse_getnetworkinfo_result(p, output);
