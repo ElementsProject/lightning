@@ -223,7 +223,7 @@
                   "description": {
                     "type": "string",
                     "description": [
-                      "The bias (-100 to +100)"
+                      "Description/annotation for the bias"
                     ]
                   }
                 }
