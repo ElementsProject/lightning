@@ -1772,6 +1772,7 @@
             "GetRoutes.final_cltv": 7,
             "GetRoutes.finalcltv": 6,
             "GetRoutes.layers[]": 4,
+            "GetRoutes.maxdelay": 8,
             "GetRoutes.maxfee_msat": 5,
             "GetRoutes.source": 1
         },
@@ -3728,6 +3729,7 @@
             "Xpay.amount_msat": 2,
             "Xpay.invstring": 1,
             "Xpay.layers[]": 4,
+            "Xpay.maxdelay": 7,
             "Xpay.maxfee": 3,
             "Xpay.partial_msat": 6,
             "Xpay.retry_for": 5
@@ -7315,6 +7317,10 @@
         },
         "GetRoutes.layers[]": {
             "added": "v24.08",
+            "deprecated": null
+        },
+        "GetRoutes.maxdelay": {
+            "added": "v25.02",
             "deprecated": null
         },
         "GetRoutes.maxfee_msat": {
@@ -12967,6 +12973,10 @@
         },
         "Xpay.layers[]": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "Xpay.maxdelay": {
+            "added": "v25.02",
             "deprecated": null
         },
         "Xpay.maxfee": {

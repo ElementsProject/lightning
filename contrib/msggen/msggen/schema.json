@@ -15827,6 +15827,14 @@
             "description": [
               "Number of blocks for the final node.  We need to know this because no HTLC is allowed to have a CLTV delay more than 2016 blocks."
             ]
+          },
+          "maxdelay": {
+            "type": "u32",
+            "added": "v25.02",
+            "description": [
+              "Maximum number of blocks of delay for the route. Cannot be bigger than 2016."
+            ],
+            "default": "2016"
           }
         }
       },
@@ -36357,6 +36365,14 @@
             "description": [
               "Explicitly state that you are only paying some part of the invoice.  Presumably someone else is paying the rest (otherwise the payment will time out at the recipient)."
             ]
+          },
+          "maxdelay": {
+            "type": "u32",
+            "added": "v25.02",
+            "description": [
+              "A payment may be delayed for up to `maxdelay` blocks by another node; clients should be prepared for this worst case."
+            ],
+            "default": "2016"
           }
         }
       },

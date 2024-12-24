@@ -4336,6 +4336,8 @@ pub mod requests {
 	pub struct GetroutesRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub final_cltv: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maxdelay: Option<u32>,
 	    pub amount_msat: Amount,
 	    pub destination: PublicKey,
 	    pub layers: Vec<String>,
@@ -4591,6 +4593,8 @@ pub mod requests {
 	pub struct XpayRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maxdelay: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub maxfee: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
