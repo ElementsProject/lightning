@@ -192,6 +192,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/splice_script.o			\
 	common/setup.o				\
 	common/status_levels.o			\
+	common/timeout.o			\
 	common/utils.o				\
 	common/version.o			\
 	common/wireaddr.o			\
