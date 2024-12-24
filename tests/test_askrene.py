@@ -679,6 +679,55 @@ def test_getroutes_auto_sourcefree(node_factory):
                          final_cltv=99)
 
 
+def test_getroutes_maxdelay(node_factory):
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, forward=GenChannel.Half(propfee=10000, delay=80)),
+                                             GenChannel(0, 1, forward=GenChannel.Half(propfee=10001, delay=40))])
+
+    # Set up l1 with this as the gossip_store
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+
+    # Should prefer the cheaper channel
+    assert l1.rpc.getroutes(source=nodemap[0],
+                            destination=nodemap[1],
+                            amount_msat=1000,
+                            layers=[],
+                            maxfee_msat=1000,
+                            final_cltv=99) == {'probability_ppm': 999999,
+                                               'routes': [{'probability_ppm': 999999,
+                                                           'final_cltv': 99,
+                                                           'amount_msat': 1000,
+                                                           'path': [{'short_channel_id_dir': '0x1x0/1',
+                                                                     'next_node_id': nodemap[1],
+                                                                     'amount_msat': 1010,
+                                                                     'delay': 179}]}]}
+
+    # But use the channel with lower delay when needed
+    assert l1.rpc.getroutes(source=nodemap[0],
+                            destination=nodemap[1],
+                            amount_msat=1000,
+                            layers=[],
+                            maxfee_msat=2000,
+                            final_cltv=99,
+                            maxdelay=170) == {'probability_ppm': 999999,
+                                              'routes': [{'probability_ppm': 999999,
+                                                          'final_cltv': 99,
+                                                          'amount_msat': 1000,
+                                                          'path': [{'short_channel_id_dir': '0x1x1/1',
+                                                                    'next_node_id': nodemap[1],
+                                                                    'amount_msat': 1010,
+                                                                    'delay': 139}]}]}
+
+    # Excessive maxdelay parameter
+    with pytest.raises(RpcError, match="maximum delay allowed is 2016"):
+        l1.rpc.getroutes(source=nodemap[0],
+                         destination=nodemap[1],
+                         amount_msat=100000,
+                         layers=[],
+                         maxfee_msat=100,
+                         final_cltv=99,
+                         maxdelay=2017)
+
+
 def test_getroutes_auto_localchans(node_factory):
     """Test getroutes call with auto.localchans layer"""
     l1 = node_factory.get_node()

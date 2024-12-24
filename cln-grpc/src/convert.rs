@@ -6003,6 +6003,7 @@ impl From<requests::GetroutesRequest> for pb::GetroutesRequest {
             final_cltv: c.final_cltv, // Rule #2 for type u32?
             // Field: GetRoutes.layers[]
             layers: c.layers.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            maxdelay: c.maxdelay, // Rule #2 for type u32?
             maxfee_msat: Some(c.maxfee_msat.into()), // Rule #2 for type msat
             source: c.source.serialize().to_vec(), // Rule #2 for type pubkey
         }
@@ -6106,6 +6107,7 @@ impl From<requests::XpayRequest> for pb::XpayRequest {
             invstring: c.invstring, // Rule #2 for type string
             // Field: Xpay.layers[]
             layers: c.layers.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            maxdelay: c.maxdelay, // Rule #2 for type u32?
             maxfee: c.maxfee.map(|f| f.into()), // Rule #2 for type msat?
             partial_msat: c.partial_msat.map(|f| f.into()), // Rule #2 for type msat?
             retry_for: c.retry_for, // Rule #2 for type u32?
@@ -7640,6 +7642,7 @@ impl From<pb::GetroutesRequest> for requests::GetroutesRequest {
             destination: PublicKey::from_slice(&c.destination).unwrap(), // Rule #1 for type pubkey
             final_cltv: c.final_cltv, // Rule #1 for type u32?
             layers: c.layers.into_iter().map(|s| s.into()).collect(), // Rule #4
+            maxdelay: c.maxdelay, // Rule #1 for type u32?
             maxfee_msat: c.maxfee_msat.unwrap().into(), // Rule #1 for type msat
             source: PublicKey::from_slice(&c.source).unwrap(), // Rule #1 for type pubkey
         }
@@ -7742,6 +7745,7 @@ impl From<pb::XpayRequest> for requests::XpayRequest {
             amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
             invstring: c.invstring, // Rule #1 for type string
             layers: Some(c.layers.into_iter().map(|s| s.into()).collect()), // Rule #4
+            maxdelay: c.maxdelay, // Rule #1 for type u32?
             maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
             partial_msat: c.partial_msat.map(|a| a.into()), // Rule #1 for type msat?
             retry_for: c.retry_for, // Rule #1 for type u32?

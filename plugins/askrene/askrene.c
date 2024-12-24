@@ -323,6 +323,7 @@ static const char *get_routes(const tal_t *ctx,
 			      struct amount_msat amount,
 			      struct amount_msat maxfee,
 			      u32 finalcltv,
+			      u32 maxdelay,
 			      const char **layers,
 			      struct gossmap_localmods *localmods,
 			      const struct layer *local_layer,
@@ -418,18 +419,11 @@ static const char *get_routes(const tal_t *ctx,
 	}
 
 	/* Too much delay? */
-	/* BOLT #4:
-	 * ## `max_htlc_cltv` Selection
-	 *
-	 * This ... value is defined as 2016 blocks, based on historical value
-	 * deployed by Lightning implementations.
-	 */
-	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
-	while (finalcltv + flows_worst_delay(flows) > 2016) {
+	while (finalcltv + flows_worst_delay(flows) > maxdelay) {
 		delay_feefactor *= 2;
 		rq_log(tmpctx, rq, LOG_UNUSUAL,
 		       "The worst flow delay is %"PRIu64" (> %i), retrying with delay_feefactor %f...",
-		       flows_worst_delay(flows), 2016 - finalcltv, delay_feefactor);
+		       flows_worst_delay(flows), maxdelay - finalcltv, delay_feefactor);
 		flows = minflow(rq, rq, srcnode, dstnode, amount,
 				mu, delay_feefactor);
 		if (!flows || delay_feefactor > 10) {
@@ -487,7 +481,7 @@ too_expensive:
 		flows = new_flows;
 	}
 
-	if (finalcltv + flows_worst_delay(flows) > 2016) {
+	if (finalcltv + flows_worst_delay(flows) > maxdelay) {
 		ret = rq_log(ctx, rq, LOG_UNUSUAL,
 			     "Could not find route without excessive cost or delays");
 		goto fail;
@@ -601,7 +595,7 @@ struct getroutes_info {
 	struct command *cmd;
 	struct node_id *source, *dest;
 	struct amount_msat *amount, *maxfee;
-	u32 *finalcltv;
+	u32 *finalcltv, *maxdelay;
 	const char **layers;
 	struct additional_cost_htable *additional_costs;
 	/* Non-NULL if we are told to use "auto.localchans" */
@@ -621,7 +615,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 	err = get_routes(cmd, cmd,
 			 info->source, info->dest,
 			 *info->amount, *info->maxfee, *info->finalcltv,
-			 info->layers, localmods, info->local_layer,
+			 *info->maxdelay, info->layers, localmods, info->local_layer,
 			 &routes, &amounts, info->additional_costs, &probability);
 	if (err)
 		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", err);
@@ -751,6 +745,14 @@ static struct command_result *json_getroutes(struct command *cmd,
 					     const char *buffer,
 					     const jsmntok_t *params)
 {
+	/* BOLT #4:
+	 * ## `max_htlc_cltv` Selection
+	 *
+	 * This ... value is defined as 2016 blocks, based on
+	 * historical value deployed by Lightning implementations.
+	 */
+	/* FIXME: Typo in spec for CLTV in descripton! But it breaks our spelling check, so we omit it above */
+	const u32 maxdelay_allowed = 2016;
 	struct getroutes_info *info = tal(cmd, struct getroutes_info);
 
 	if (!param(cmd, buffer, params,
@@ -760,8 +762,16 @@ static struct command_result *json_getroutes(struct command *cmd,
 		   p_req("layers", param_layer_names, &info->layers),
 		   p_req("maxfee_msat", param_msat, &info->maxfee),
 		   p_req("final_cltv", param_u32, &info->finalcltv),
+		   p_opt_def("maxdelay", param_u32, &info->maxdelay,
+			     maxdelay_allowed),
 		   NULL))
 		return command_param_failed();
+
+	if (*info->maxdelay > maxdelay_allowed) {
+		return command_fail(cmd, PAY_USER_ERROR,
+				    "maximum delay allowed is %d",
+				    maxdelay_allowed);
+	}
 
 	info->cmd = cmd;
 	info->additional_costs = tal(info, struct additional_cost_htable);
