@@ -63,7 +63,7 @@ The [`lightning-listconfigs`](ref:lightning-listconfigs) command will output a v
 
 **network**=_NETWORK_
 
-- Select the network parameters (_bitcoin_, _testnet_, _signet_, or _regtest_).  
+- Select the network parameters (_bitcoin_, _testnet_, _testnet4_, _signet_, or _regtest_).  
   This is not valid within the per-network configuration file.
 
 - **mainnet**
@@ -73,6 +73,10 @@ The [`lightning-listconfigs`](ref:lightning-listconfigs) command will output a v
 - **testnet**
 
   Alias for _network=testnet_.
+
+- **testnet4**
+
+  Alias for _network=testnet4_.
 
 - **signet**
 
@@ -384,11 +388,11 @@ You can instead use _addr_ to override this (eg. to change the port), or precise
   Set an IP address (v4 or v6) or automatic Tor address to listen on and (maybe) announce as our node address.
 
   An empty 'IPADDRESS' is a special value meaning bind to IPv4 and/or IPv6 on all interfaces, '0.0.0.0' means bind to all IPv4 interfaces, '::' means 'bind to all IPv6 interfaces' (if you want to specify an IPv6 address _and_ a port, use `[]` around the IPv6 address, like `[::]:9750`).  
-  If 'PORT' is not specified, the default port 9735 is used for mainnet (testnet: 19735, signet: 39735, regtest: 19846). If we can determine a public IP address from the resulting binding,  
+  If 'PORT' is not specified, the default port 9735 is used for mainnet (testnet: 19735, signet: 39735, regtest: 19846, testnet4: 49735). If we can determine a public IP address from the resulting binding,  
   the address is announced.
 
   If the argument begins with 'autotor:' then it is followed by the IPv4 or IPv6 address of the Tor control port (default port 9051), and this will be used to configure a Tor hidden service for port 9735 in case of mainnet (bitcoin) network whereas other networks (testnet,  
-  signet, regtest) will set the same default ports they use for non-Tor addresses (see above).  
+  signet, regtest, testnet4) will set the same default ports they use for non-Tor addresses (see above).  
   The Tor hidden service will be configured to point to the first IPv4 or IPv6 address we bind to and is by default unique to your node's id.
 
   If the argument begins with 'statictor:' then it is followed by the IPv4 or IPv6 address of the Tor control port (default port 9051), and this will be used to configure a static Tor hidden service.  
