@@ -401,6 +401,17 @@ struct info {
 	size_t idx;
 };
 
+/* We refresh scb from both channel_state_changed notification and
+   on_commitment_revocation hook.  Both have to be terminated
+   differently. */
+static struct command_result *notification_or_hook_done(struct command *cmd)
+{
+	if (cmd->type == COMMAND_TYPE_NOTIFICATION)
+		return notification_handled(cmd);
+	assert(cmd->type == COMMAND_TYPE_HOOK);
+	return command_hook_success(cmd);
+}
+
 static struct command_result *after_send_scb_single(struct command *cmd,
 						    const char *method,
 						    const char *buf,
@@ -411,7 +422,7 @@ static struct command_result *after_send_scb_single(struct command *cmd,
 	if (--info->idx != 0)
 		return command_still_pending(cmd);
 
-	return notification_handled(cmd);
+	return notification_or_hook_done(cmd);
 }
 
 static struct command_result *after_send_scb_single_fail(struct command *cmd,
@@ -424,7 +435,7 @@ static struct command_result *after_send_scb_single_fail(struct command *cmd,
 	if (--info->idx != 0)
 		return command_still_pending(cmd);
 
-	return notification_handled(cmd);
+	return notification_or_hook_done(cmd);
 }
 
 static struct command_result *after_listpeers(struct command *cmd,
@@ -441,7 +452,7 @@ static struct command_result *after_listpeers(struct command *cmd,
         u8 *serialise_scb;
 
 	if (!peer_backup)
-		return notification_handled(cmd);
+		return notification_or_hook_done(cmd);
 
 	serialise_scb = towire_peer_storage(cmd,
 					    get_file_data(tmpctx, cmd->plugin));
@@ -485,7 +496,7 @@ static struct command_result *after_listpeers(struct command *cmd,
 	}
 
 	if (info->idx == 0)
-		return notification_handled(cmd);
+		return notification_or_hook_done(cmd);
 	return command_still_pending(cmd);
 }
 
@@ -507,7 +518,7 @@ static struct command_result *after_staticbackup(struct command *cmd,
 	req = jsonrpc_request_start(cmd,
                                     "listpeers",
                                     after_listpeers,
-                                    &forward_error,
+                                    plugin_broken_cb,
                                     info);
 	return send_outreq(req);
 }
@@ -528,13 +539,13 @@ static struct command_result *json_state_changed(struct command *cmd,
 		req = jsonrpc_request_start(cmd,
                                             "staticbackup",
                                             after_staticbackup,
-                                            &forward_error,
+					    log_broken_and_complete,
                                             NULL);
 
 		return send_outreq(req);
 	}
 
-	return notification_handled(cmd);
+	return notification_or_hook_done(cmd);
 }
 
 
@@ -776,6 +787,23 @@ static struct command_result *json_getemergencyrecoverdata(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
+static struct command_result *on_commitment_revocation(struct command *cmd,
+						       const char *buf,
+						       const jsmntok_t *params)
+{
+	struct out_req *req;
+
+	plugin_log(cmd->plugin, LOG_DBG, "Updated `emergency.recover` state after receiving new commitment secret.");
+
+	req = jsonrpc_request_start(cmd,
+				    "staticbackup",
+				    after_staticbackup,
+				    log_broken_and_complete,
+				    NULL);
+
+	return send_outreq(req);
+}
+
 static const char *init(struct command *init_cmd,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
@@ -817,7 +845,7 @@ static const struct plugin_notification notifs[] = {
 	{
 		"channel_state_changed",
 		json_state_changed,
-	}
+	},
 };
 
 static const struct plugin_hook hooks[] = {
@@ -829,6 +857,10 @@ static const struct plugin_hook hooks[] = {
 		"peer_connected",
 		peer_connected,
 	},
+	{
+		"commitment_revocation",
+		on_commitment_revocation,
+	}
 };
 
 static const struct plugin_command commands[] = {
