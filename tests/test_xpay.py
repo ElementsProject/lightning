@@ -433,10 +433,6 @@ def test_xpay_takeover(node_factory, executor):
     l1.rpc.pay(inv['bolt11'], amount_msat=10000, riskfactor=1)
     l1.daemon.wait_for_log(r'Not redirecting pay \(unknown arg \\"riskfactor\\"\)')
 
-    inv = l3.rpc.invoice('any', "test_xpay_takeover10", "test_xpay_takeover10")
-    l1.rpc.pay(inv['bolt11'], amount_msat=10000, maxdelay=200)
-    l1.daemon.wait_for_log(r'Not redirecting pay \(unknown arg \\"maxdelay\\"\)')
-
     # Test that it's really dynamic.
     l1.rpc.setconfig('xpay-handle-pay', False)
 
@@ -543,6 +539,15 @@ def test_xpay_maxfee(node_factory, bitcoind, chainparams):
     ret = l1.rpc.xpay(invstring=inv, maxfee=maxfee)
     fee = ret['amount_sent_msat'] - ret['amount_msat']
     assert fee <= maxfee
+
+
+def test_xpay_maxdelay(node_factory):
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+
+    inv = l2.rpc.invoice('10000msat', 'test_xpay_maxdelay', 'test_xpay_maxdelay')["bolt11"]
+
+    with pytest.raises(RpcError, match=r"Could not find route without excessive delays"):
+        l1.rpc.xpay(invstring=inv, maxdelay=1)
 
 
 def test_xpay_unannounced(node_factory):
