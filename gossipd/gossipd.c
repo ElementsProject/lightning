@@ -534,7 +534,10 @@ static void inject_gossip(struct daemon *daemon, const u8 *msg)
 	case WIRE_CHANNEL_UPDATE:
 		err = gossmap_manage_channel_update(tmpctx,
 						    daemon->gm,
-						    take(goss), NULL);
+						    goss, NULL);
+		if (err)
+			status_debug("update %s gave error %s",
+				     tal_hex(tmpctx, goss), err);
 		break;
 	default:
 		err = tal_fmt(tmpctx, "unknown gossip type %i",
