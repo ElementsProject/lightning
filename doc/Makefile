@@ -23,6 +23,8 @@ GENERATE_MARKDOWN := doc/lightning-addgossip.7 \
 	doc/lightning-batching.7 \
 	doc/lightning-bkpr-channelsapy.7 \
 	doc/lightning-bkpr-dumpincomecsv.7 \
+	doc/lightning-bkpr-editdescriptionbyoutpoint.7 \
+	doc/lightning-bkpr-editdescriptionbypaymentid.7 \
 	doc/lightning-bkpr-inspect.7 \
 	doc/lightning-bkpr-listaccountevents.7 \
 	doc/lightning-bkpr-listbalances.7 \

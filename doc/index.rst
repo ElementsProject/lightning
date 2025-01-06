@@ -31,6 +31,8 @@ Core Lightning Documentation
    lightning-batching <lightning-batching.7.md>
    lightning-bkpr-channelsapy <lightning-bkpr-channelsapy.7.md>
    lightning-bkpr-dumpincomecsv <lightning-bkpr-dumpincomecsv.7.md>
+   lightning-bkpr-editdescriptionbyoutpoint <lightning-bkpr-editdescriptionbyoutpoint.7.md>
+   lightning-bkpr-editdescriptionbypaymentid <lightning-bkpr-editdescriptionbypaymentid.7.md>
    lightning-bkpr-inspect <lightning-bkpr-inspect.7.md>
    lightning-bkpr-listaccountevents <lightning-bkpr-listaccountevents.7.md>
    lightning-bkpr-listbalances <lightning-bkpr-listbalances.7.md>
