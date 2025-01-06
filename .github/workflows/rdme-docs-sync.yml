@@ -10,7 +10,7 @@ on:
 
 jobs:
   rdme-docs-sync:  
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Check out repo 📚
         uses: actions/checkout@v4
