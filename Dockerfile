@@ -92,6 +92,7 @@ ENV PYTHON_VERSION=3
 RUN curl -sSL https://install.python-poetry.org | python3 -
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1
 RUN pip3 install --upgrade pip setuptools wheel
+RUN poetry self add poetry-plugin-export
 
 RUN wget -q https://zlib.net/fossils/zlib-1.2.13.tar.gz -O zlib.tar.gz && \
     wget -q https://www.sqlite.org/2019/sqlite-src-3290000.zip -O sqlite.zip
@@ -198,6 +199,7 @@ RUN ( ! [ "${target_host}" = "arm-linux-gnueabihf" ] ) || \
 # Ensure that the desired grpcio-tools & protobuf versions are installed
 # https://github.com/ElementsProject/lightning/pull/7376#issuecomment-2161102381
 RUN poetry lock --no-update && poetry install
+RUN poetry self add poetry-plugin-export
 
 # Ensure that git differences are removed before making bineries, to avoid `-modded` suffix
 # poetry.lock changed due to pyln-client, pyln-proto and pyln-testing version updates
