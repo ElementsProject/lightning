@@ -37,3 +37,4 @@ ENV PATH=/opt/venv/bin:${PATH}
 RUN python3 -m pip install pip wheel && \
     python3 -m virtualenv /opt/venv && \
     /opt/venv/bin/python3 -m pip install --force-reinstall -U pip poetry wheel
+RUN poetry self add poetry-plugin-export
