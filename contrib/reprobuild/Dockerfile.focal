@@ -49,7 +49,8 @@ RUN git clone https://github.com/pyenv/pyenv.git /root/.pyenv && \
 
 RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py && python3 /tmp/get-pip.py \
     && rm /tmp/get-pip.py \
-    && pip install poetry mako grpcio-tools==1.62.2
+    && pip install poetry mako grpcio-tools==1.62.2 && \
+    poetry self add poetry-plugin-export
 
 RUN wget https://sh.rustup.rs -O rustup-install.sh && \
     bash rustup-install.sh --default-toolchain none --quiet -y && \

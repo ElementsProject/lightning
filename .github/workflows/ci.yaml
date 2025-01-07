@@ -77,6 +77,7 @@ jobs:
         run: |
           bash -x .github/scripts/setup.sh
           pip install -U pip wheel poetry
+          poetry self add poetry-plugin-export
           # Export and then use pip to install into the current env
           poetry export -o /tmp/requirements.txt --without-hashes --with dev
           pip install -r /tmp/requirements.txt
@@ -145,6 +146,7 @@ jobs:
         run: |
           set -e
           pip3 install --user pip wheel poetry
+          poetry self add poetry-plugin-export
           poetry export -o requirements.txt --with dev --without-hashes
           python3 -m pip install -r requirements.txt
           ./configure --enable-debugbuild CC="$COMPILER" ${{ matrix.COPTFLAGS_VAR }}
@@ -193,6 +195,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq lowdown
           pip install -U pip wheel poetry
+          poetry self add poetry-plugin-export
           # Export and then use pip to install into the current env
           poetry export -o /tmp/requirements.txt --without-hashes --with dev
           pip install -r /tmp/requirements.txt
@@ -227,6 +230,7 @@ jobs:
         run: |
           bash -x .github/scripts/setup.sh
           pip install -U pip wheel poetry
+          poetry self add poetry-plugin-export
           # Export and then use pip to install into the current env
           poetry export -o /tmp/requirements.txt --without-hashes --with dev
           pip install -r /tmp/requirements.txt
