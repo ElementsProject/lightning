@@ -1,6 +1,3 @@
-[project]
-dependencies = ["pyln-client"]
-
 [tool.poetry]
 name = "testplugpyproj"
 version = "0.1.0"
