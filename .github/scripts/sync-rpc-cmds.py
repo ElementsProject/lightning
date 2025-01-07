@@ -70,7 +70,7 @@ def extract_rpc_commands(rst_content):
         commands = re.findall(
             r"\b([a-zA-Z0-9_-]+)" r"\s+<([^>]+)>\n", manpages_block.group(1)
         )
-        return commands
+        return [(re.sub(r"\blightning-", "", rpc_name), file_name) for rpc_name, file_name in commands]
     return []
 
 
@@ -102,7 +102,6 @@ def main():
     if commands_from_local:
         order = 0
         for name, file in commands_from_local:
-            # print(f"{name}\t\t{file}")
             with open("doc/" + file) as f:
                 body = f.read()
                 publishDoc(Action.ADD if name in commands_to_add else Action.UPDATE, name, body, order, headers)
