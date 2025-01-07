@@ -15,7 +15,7 @@
 #include <unistd.h>
 #include <wire/bolt12_wiregen.h>
 
-#define INVALID_ID UINT32_MAX
+#define INVALID_ID UINT64_MAX
 
 #define OP_NULL NULL
 #define OP_CALL (void *)1
@@ -107,7 +107,7 @@ static void add_hintchan(struct payment *payment, const struct node_id *src,
  */
 
 struct success_data {
-	u32 parts, created_at, groupid;
+	u64 parts, created_at, groupid;
 	struct amount_msat deliver_msat, sent_msat;
 	struct preimage preimage;
 };
@@ -130,7 +130,7 @@ static bool success_data_from_listsendpays(const char *buf,
 
 	json_for_each_arr(i, t, arr)
 	{
-		u32 groupid;
+		u64 groupid;
 		struct amount_msat this_msat, this_sent;
 
 		const jsmntok_t *status_tok = json_get_member(buf, t, "status");
@@ -158,10 +158,10 @@ static bool success_data_from_listsendpays(const char *buf,
 			    ",amount_sent_msat:%"
 			    ",created_at:%"
 			    ",payment_preimage:%}",
-			    JSON_SCAN(json_to_u32, &groupid),
+			    JSON_SCAN(json_to_u64, &groupid),
 			    JSON_SCAN(json_to_msat, &this_msat),
 			    JSON_SCAN(json_to_msat, &this_sent),
-			    JSON_SCAN(json_to_u32, &success->created_at),
+			    JSON_SCAN(json_to_u64, &success->created_at),
 			    JSON_SCAN(json_to_preimage, &success->preimage));
 
 			if (err)
@@ -941,12 +941,12 @@ static struct command_result *pendingsendpays_done(struct command *cmd,
 	size_t i;
 	const char *err;
 	const jsmntok_t *t, *arr;
-	u32 max_group_id = 0;
+	u64 max_group_id = 0;
 
 	/* Data for pending payments, this will be the one
 	 * who's result gets replayed if we end up suspending. */
-	u32 pending_group_id = INVALID_ID;
-	u32 max_pending_partid = 0;
+	u64 pending_group_id = INVALID_ID;
+	u64 max_pending_partid = 0;
 	struct amount_msat pending_sent = AMOUNT_MSAT(0),
 			   pending_msat = AMOUNT_MSAT(0);
 
@@ -978,14 +978,14 @@ static struct command_result *pendingsendpays_done(struct command *cmd,
 	// find if there is one pending group
 	json_for_each_arr(i, t, arr)
 	{
-		u32 groupid;
+		u64 groupid;
 		const char *status;
 
 		err = json_scan(tmpctx, buf, t,
 				"{status:%"
 				",groupid:%}",
 				JSON_SCAN_TAL(tmpctx, json_strdup, &status),
-				JSON_SCAN(json_to_u32, &groupid));
+				JSON_SCAN(json_to_u64, &groupid));
 
 		if (err)
 			plugin_err(pay_plugin->plugin,
@@ -1003,7 +1003,7 @@ static struct command_result *pendingsendpays_done(struct command *cmd,
 	 * pending sendpays. */
 	json_for_each_arr(i, t, arr)
 	{
-		u32 partid = 0, groupid;
+		u64 partid = 0, groupid;
 		struct amount_msat this_msat, this_sent;
 		const char *status;
 
@@ -1017,8 +1017,8 @@ static struct command_result *pendingsendpays_done(struct command *cmd,
 				",amount_msat:%"
 				",amount_sent_msat:%}",
 				JSON_SCAN_TAL(tmpctx, json_strdup, &status),
-				JSON_SCAN(json_to_u32, &partid),
-				JSON_SCAN(json_to_u32, &groupid),
+				JSON_SCAN(json_to_u64, &partid),
+				JSON_SCAN(json_to_u64, &groupid),
 				JSON_SCAN(json_to_msat, &this_msat),
 				JSON_SCAN(json_to_msat, &this_sent));
 
@@ -1066,9 +1066,9 @@ static struct command_result *pendingsendpays_done(struct command *cmd,
 
 		plugin_log(pay_plugin->plugin, LOG_DBG,
 			   "There are pending sendpays to this invoice. "
-			   "groupid = %" PRIu32 " "
+			   "groupid = %" PRIu64 " "
 			   "delivering = %s, "
-			   "last_partid = %" PRIu32,
+			   "last_partid = %" PRIu64,
 			   pending_group_id,
 			   fmt_amount_msat(tmpctx, payment->total_delivering),
 			   max_pending_partid);
