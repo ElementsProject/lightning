@@ -117,19 +117,19 @@ static inline bool routekey_equal(const struct route *route,
 HTABLE_DEFINE_NODUPS_TYPE(struct route, route_get_key, routekey_hash, routekey_equal,
 			  route_map);
 
-struct route *new_route(const tal_t *ctx, u32 groupid,
-			u32 partid, struct sha256 payment_hash,
+struct route *new_route(const tal_t *ctx, u64 groupid,
+			u64 partid, struct sha256 payment_hash,
 			struct amount_msat amount,
 			struct amount_msat amount_sent);
 
 struct route *flow_to_route(const tal_t *ctx,
-			    u32 groupid, u32 partid, struct sha256 payment_hash,
+			    u64 groupid, u64 partid, struct sha256 payment_hash,
 			    u32 final_cltv, struct gossmap *gossmap,
 			    struct flow *flow,
 			    bool blinded_destination);
 
 struct route **flows_to_routes(const tal_t *ctx,
-			       u32 groupid, u32 partid,
+			       u64 groupid, u64 partid,
 			       struct sha256 payment_hash, u32 final_cltv,
 			       struct gossmap *gossmap, struct flow **flows);
 

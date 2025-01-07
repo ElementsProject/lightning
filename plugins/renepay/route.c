@@ -1,8 +1,8 @@
 #include "config.h"
 #include <plugins/renepay/route.h>
 
-struct route *new_route(const tal_t *ctx, u32 groupid,
-			u32 partid, struct sha256 payment_hash,
+struct route *new_route(const tal_t *ctx, u64 groupid,
+			u64 partid, struct sha256 payment_hash,
 			struct amount_msat amount_deliver,
 			struct amount_msat amount_sent)
 {
@@ -32,7 +32,7 @@ struct route *new_route(const tal_t *ctx, u32 groupid,
  * @gossmap: global gossmap
  * @flow: the flow to convert to route */
 struct route *flow_to_route(const tal_t *ctx,
-			    u32 groupid, u32 partid, struct sha256 payment_hash,
+			    u64 groupid, u64 partid, struct sha256 payment_hash,
 			    u32 final_cltv, struct gossmap *gossmap,
 			    struct flow *flow,
 			    bool blinded_destination)
@@ -83,7 +83,7 @@ function_fail:
 }
 
 struct route **flows_to_routes(const tal_t *ctx,
-			       u32 groupid, u32 partid,
+			       u64 groupid, u64 partid,
 			       struct sha256 payment_hash, u32 final_cltv,
 			       struct gossmap *gossmap, struct flow **flows)
 {
