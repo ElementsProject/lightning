@@ -5,7 +5,7 @@ on:
 jobs:
   smoke-test:
     name: Smoke Test macOS
-    runs-on: macos-latest
+    runs-on: macos-14
     timeout-minutes: 120
     strategy:
       fail-fast: true
@@ -27,25 +27,19 @@ jobs:
 
       - name: Install dependencies
         run: |
-          export PATH="/usr/local/opt:/Users/runner/.local/bin:/Users/runner/Library/Python/3.10/bin:$PATH"
+          export PATH="/usr/local/opt:/Users/runner/.local/bin:/opt/homebrew/bin/python3.10/bin:$PATH"
 
-          brew install wget autoconf automake libtool python@3.10 gnu-sed gettext libsodium protobuf
-
-          python3.10 -m pip install -U --user poetry wheel pip
+          brew install gnu-sed python@3.10 autoconf automake libtool protobuf
+          python3.10 -m pip install -U --user poetry==1.8.0 wheel pip mako
           python3.10 -m poetry install
-          python3.10 -m pip install -U --user mako
 
-          sudo ln -s /usr/local/Cellar/gettext/0.20.1/bin/xgettext /usr/local/opt
-
-      - name: Build and install
+      - name: Build and install CLN
         run: |
           export CPATH=/opt/homebrew/include
           export LIBRARY_PATH=/opt/homebrew/lib
 
           python3.10 -m poetry run ./configure --disable-valgrind --disable-compat
           python3.10 -m poetry run make
-
-          # sudo PATH="/usr/local/opt:$PATH" LIBRARY_PATH=/opt/homebrew/lib CPATH=/opt/homebrew/include make install
 
       - name: Start bitcoind in regtest mode
         run: |
@@ -58,11 +52,11 @@ jobs:
           bitcoin-cli -regtest generatetoaddress 1 $(bitcoin-cli -regtest getnewaddress)
           sleep 2
 
-      - name: Start lightningd in regtest mode
+      - name: Start CLN in regtest mode
         run: |
           lightningd/lightningd --network=regtest --log-file=/tmp/l1.log --daemon
           sleep 5
 
-      - name: Verify lightningd is running
+      - name: Verify CLN is running
         run: |
           cli/lightning-cli --regtest getinfo
