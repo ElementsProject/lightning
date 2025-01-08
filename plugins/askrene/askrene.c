@@ -608,6 +608,12 @@ struct getroutes_info {
 	struct layer *local_layer;
 };
 
+static u64 time_delta_ms(struct timerel t)
+{
+	u64 msec = t.ts.tv_sec * 1000 + t.ts.tv_nsec / 1000000;
+	return msec;
+}
+
 static struct command_result *do_getroutes(struct command *cmd,
 					   struct gossmap_localmods *localmods,
 					   const struct getroutes_info *info)
@@ -617,12 +623,20 @@ static struct command_result *do_getroutes(struct command *cmd,
 	struct amount_msat *amounts;
 	struct route **routes;
 	struct json_stream *response;
+	struct timemono time_start;
+	struct timerel time_delta;
 
+	time_start = time_mono();
 	err = get_routes(cmd, cmd,
 			 info->source, info->dest,
 			 *info->amount, *info->maxfee, *info->finalcltv,
 			 info->layers, localmods, info->local_layer,
 			 &routes, &amounts, info->additional_costs, &probability);
+	time_delta = timemono_between(time_mono(), time_start);
+	plugin_log(cmd->plugin, LOG_INFORM,
+		   "get_routes completed in %" PRIu64 " ms",
+		   time_delta_ms(time_delta));
+
 	if (err)
 		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", err);
 
