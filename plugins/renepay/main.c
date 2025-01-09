@@ -96,9 +96,9 @@ static const char *init(struct command *init_cmd,
 	return NULL;
 }
 
-static struct command_result *json_paystatus(struct command *cmd,
-					     const char *buf,
-					     const jsmntok_t *params)
+static struct command_result *json_renepaystatus(struct command *cmd,
+						 const char *buf,
+						 const jsmntok_t *params)
 {
 	const char *invstring;
 	struct json_stream *ret;
@@ -161,8 +161,8 @@ static struct command_result * payment_start(struct payment *p)
 	return payment_continue(p);
 }
 
-static struct command_result *json_pay(struct command *cmd, const char *buf,
-				       const jsmntok_t *params)
+static struct command_result *json_renepay(struct command *cmd, const char *buf,
+					   const jsmntok_t *params)
 {
 	/* === Parse command line arguments === */
 	// TODO check if we leak some of these temporary variables
@@ -452,11 +452,11 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 static const struct plugin_command commands[] = {
 	{
 		"renepaystatus",
-		json_paystatus
+		json_renepaystatus
 	},
 	{
 		"renepay",
-		json_pay
+		json_renepay
 	},
 	{
 		"renesendpay",
