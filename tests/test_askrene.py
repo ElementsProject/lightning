@@ -367,6 +367,31 @@ def test_layer_persistence(node_factory):
     assert l1.rpc.askrene_listlayers() == {'layers': []}
 
 
+def test_layer_expiration(node_factory):
+    l1 = node_factory.get_nodes(1, opts={"disable-plugin": "cln-xpay"})[0]
+    expect = {
+        "layer": "tmp_layer",
+        "persistent": False,
+        "disabled_nodes": [],
+        "created_channels": [],
+        "channel_updates": [],
+        "constraints": [],
+        "biases": [],
+    }
+
+    assert l1.rpc.askrene_listlayers() == {"layers": []}
+    # Add a self-destructing layer
+    l1.rpc.askrene_create_layer(layer="tmp_layer", expiration=5)
+    assert l1.rpc.askrene_listlayers() == {"layers": [expect]}
+    time.sleep(6)
+    assert l1.rpc.askrene_listlayers() == {"layers": []}
+
+    with pytest.raises(
+        RpcError, match="A persistent layer cannot have an expiration time."
+    ):
+        l1.rpc.askrene_create_layer(layer="pers_layer", persistent=True, expiration=5)
+
+
 def check_route_as_expected(routes, paths):
     """Make sure all fields in paths are match those in routes"""
     def dict_subset_eq(a, b):

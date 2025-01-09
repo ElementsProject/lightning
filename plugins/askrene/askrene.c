@@ -14,6 +14,7 @@
 #include <common/gossmods_listpeerchannels.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <common/route.h>
 #include <errno.h>
 #include <math.h>
@@ -623,6 +624,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 			 *info->amount, *info->maxfee, *info->finalcltv,
 			 info->layers, localmods, info->local_layer,
 			 &routes, &amounts, info->additional_costs, &probability);
+
 	if (err)
 		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", err);
 
@@ -1060,6 +1062,27 @@ static struct command_result *json_askrene_disable_node(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
+static struct command_result *expire_layer_done(struct command *timer_cmd,
+						const char *method,
+						const char *buf,
+						const jsmntok_t *result,
+						void *unused)
+{
+	return timer_complete(timer_cmd);
+}
+
+static struct command_result *expire_layer(struct command *timer_cmd,
+					   struct layer *l)
+{
+	struct out_req *req;
+	req = jsonrpc_request_start(timer_cmd, "askrene-remove-layer",
+				    expire_layer_done, plugin_broken_cb, NULL);
+	json_add_string(req->js, "layer", layer_name(l));
+	plugin_log(timer_cmd->plugin, LOG_DBG, "removing expired layer '%s'",
+		   layer_name(l));
+	return send_outreq(req);
+}
+
 static struct command_result *json_askrene_create_layer(struct command *cmd,
 							const char *buffer,
 							const jsmntok_t *params)
@@ -1069,10 +1092,12 @@ static struct command_result *json_askrene_create_layer(struct command *cmd,
 	const char *layername;
 	struct json_stream *response;
 	bool *persistent;
+	u64 *expire_seconds;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("layer", param_string, &layername),
 			 p_opt_def("persistent", param_bool, &persistent, false),
+			 p_opt("expiration", param_u64, &expire_seconds),
 			 NULL))
 		return command_param_failed();
 
@@ -1086,12 +1111,22 @@ static struct command_result *json_askrene_create_layer(struct command *cmd,
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Layer already exists");
 	}
+	if (persistent && expire_seconds && *persistent == true) {
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "A persistent layer cannot have an expiration time.");
+	}
 
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
 	if (!layer)
 		layer = new_layer(askrene, layername, *persistent);
+
+	if (expire_seconds)
+		notleak(global_timer(cmd->plugin,
+				     time_from_sec(*expire_seconds),
+				     expire_layer, layer));
 
 	response = jsonrpc_stream_success(cmd);
 	json_add_layers(response, askrene, "layers", layer);
