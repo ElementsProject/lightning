@@ -91,7 +91,8 @@ RUN apt-get update -qq && \
 
 ENV PATH="/root/.local/bin:$PATH" \
     PYTHON_VERSION=3
-RUN curl -sSL https://install.python-poetry.org | python3 -
+RUN curl -sSL https://install.python-poetry.org | python3 - && \
+    poetry self add poetry-plugin-export
 RUN mkdir -p /root/.venvs && \
     python3 -m venv /root/.venvs/cln && \
     . /root/.venvs/cln/bin/activate && \
@@ -107,7 +108,9 @@ RUN git clone --recursive /tmp/lightning . && \
     git checkout $(git --work-tree=/tmp/lightning --git-dir=/tmp/lightning/.git rev-parse HEAD)
 
 # Do not build python plugins (clnrest & wss-proxy) here, python doesn't support cross compilation.
-RUN sed -i '/^clnrest\|^wss-proxy/d' pyproject.toml && poetry export -o requirements.txt --without-hashes
+RUN sed -i '/^clnrest\|^wss-proxy/d' pyproject.toml && \
+    poetry lock && \
+    poetry export -o requirements.txt --without-hashes
 RUN mkdir -p /root/.venvs && \
     python3 -m venv /root/.venvs/cln && \
     . /root/.venvs/cln/bin/activate && \
@@ -228,8 +231,8 @@ RUN ( ! [ "${target_host}" = "arm-linux-gnueabihf" ] ) || \
 
 # Ensure that the desired grpcio-tools & protobuf versions are installed
 # https://github.com/ElementsProject/lightning/pull/7376#issuecomment-2161102381
-RUN poetry lock --no-update && poetry install
-RUN poetry self add poetry-plugin-export
+RUN poetry lock && poetry install && \
+    poetry self add poetry-plugin-export
 
 # Ensure that git differences are removed before making bineries, to avoid `-modded` suffix
 # poetry.lock changed due to pyln-client, pyln-proto and pyln-testing version updates
