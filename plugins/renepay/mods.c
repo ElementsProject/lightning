@@ -584,7 +584,7 @@ static struct command_result *routehints_done(struct command *cmd UNUSED,
 	assert(payment->local_gossmods);
 
 	const struct node_id *destination = &payment->payment_info.destination;
-	const struct route_info **routehints = payment->payment_info.routehints;
+	struct route_info **routehints = payment->payment_info.routehints;
 	assert(routehints);
 	const size_t nhints = tal_count(routehints);
 	/* Hints are added to the local_gossmods. */

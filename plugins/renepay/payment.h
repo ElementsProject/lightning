@@ -101,41 +101,23 @@ HTABLE_DEFINE_NODUPS_TYPE(struct payment, payment_hash, payment_hash64,
 struct payment *payment_new(
 	const tal_t *ctx,
 	const struct sha256 *payment_hash,
-	const char *invstr TAKES,
-	const char *label TAKES,
-	const char *description TAKES,
-	const struct secret *payment_secret TAKES,
-	const u8 *payment_metadata TAKES,
-	const struct route_info **routehints TAKES,
-	const struct node_id *destination,
-	struct amount_msat amount,
-	struct amount_msat maxfee,
-	unsigned int maxdelay,
-	u64 retryfor,
-	u16 final_cltv,
-	/* Tweakable in --developer mode */
-	u64 base_fee_penalty_millionths,
-	u64 prob_cost_factor_millionths,
-	u64 riskfactor_millionths,
-	u64 min_prob_success_millionths,
-	u64 base_prob_success_millionths,
-	bool use_shadow,
-	const struct route_exclusion **exclusions);
+	const char *invstr TAKES);
 
-bool payment_update(
-	struct payment *p,
-	struct amount_msat maxfee,
-	unsigned int maxdelay,
-	u64 retryfor,
-	u16 final_cltv,
-	    /* Tweakable in --developer mode */
-	u64 base_fee_penalty_millionths,
-	u64 prob_cost_factor_millionths,
-	u64 riskfactor_millionths,
-	u64 min_prob_success_millionths,
-	u64 base_prob_success_millionths,
-	bool use_shadow,
-	const struct route_exclusion **exclusions);
+bool payment_set_constraints(
+		struct payment *p,
+		struct amount_msat amount,
+		struct amount_msat maxfee,
+		unsigned int maxdelay,
+		u64 retryfor,
+		u64 base_fee_penalty_millionths,
+		u64 prob_cost_factor_millionths,
+		u64 riskfactor_millionths,
+		u64 min_prob_success_millionths,
+		u64 base_prob_success_millionths,
+		bool use_shadow,
+		const struct route_exclusion **exclusions);
+
+bool payment_refresh(struct payment *p);
 
 struct amount_msat payment_sent(const struct payment *p);
 struct amount_msat payment_delivered(const struct payment *p);
