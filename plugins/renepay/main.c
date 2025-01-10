@@ -169,6 +169,7 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 	const char *invstr;
 	struct amount_msat *msat;
 	struct amount_msat *maxfee;
+	struct amount_msat *inv_msat = NULL;
 	u32 *maxdelay;
 	u32 *retryfor;
 	const char *description;
@@ -189,6 +190,9 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 	 * than zero. */
 	u64 *base_prob_success_millionths;
 
+	u64 invexpiry;
+	struct sha256 *payment_hash = NULL;
+
 	if (!param(cmd, buf, params,
 		   p_req("invstring", param_invstring, &invstr),
 		   p_opt("amount_msat", param_msat, &msat),
@@ -205,9 +209,6 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 		   p_opt("description", param_string, &description),
 		   p_opt("label", param_string, &label),
 		   p_opt("exclude", param_route_exclusion_array, &exclusions),
-
-		   // FIXME add support for offers
-		   // p_opt("localofferid", param_sha256, &local_offer_id),
 
 		   p_opt_dev("dev_use_shadow", param_bool, &use_shadow, true),
 
@@ -237,38 +238,56 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 
 	/* === Parse invoice === */
 
-	// FIXME: add support for bolt12 invoices
-	if (bolt12_has_prefix(invstr))
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "BOLT12 invoices are not yet supported.");
-
 	char *fail;
-	struct bolt11 *b11 =
-	    bolt11_decode(tmpctx, invstr, plugin_feature_set(cmd->plugin),
-			  description, chainparams, &fail);
-	if (b11 == NULL)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Invalid bolt11: %s", fail);
+	struct bolt11 *b11 = NULL;
+	struct tlv_invoice *b12 = NULL;
 
-	/* Sanity check */
-	if (feature_offered(b11->features, OPT_VAR_ONION) &&
-	    !b11->payment_secret)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Invalid bolt11:"
-				    " sets feature var_onion with no secret");
+	if (bolt12_has_prefix(invstr)) {
+		b12 = invoice_decode(tmpctx, invstr, strlen(invstr),
+				     plugin_feature_set(cmd->plugin),
+				     chainparams, &fail);
+		if (b12 == NULL)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Invalid bolt12 invoice: %s", fail);
 
-	if (b11->msat) {
-		// amount is written in the invoice
-		if (msat)
+		invexpiry = invoice_expiry(b12);
+		if (b12->invoice_amount) {
+			inv_msat = tal(tmpctx, struct amount_msat);
+			*inv_msat = amount_msat(*b12->invoice_amount);
+		}
+		payment_hash = b12->invoice_payment_hash;
+	} else {
+		b11 = bolt11_decode(tmpctx, invstr,
+				    plugin_feature_set(cmd->plugin),
+				    description, chainparams, &fail);
+		if (b11 == NULL)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Invalid bolt11 invoice: %s", fail);
+
+		/* Sanity check */
+		if (feature_offered(b11->features, OPT_VAR_ONION) &&
+		    !b11->payment_secret)
 			return command_fail(
 			    cmd, JSONRPC2_INVALID_PARAMS,
-			    "amount_msat parameter unnecessary");
-		msat = b11->msat;
-	} else {
-		// amount is not written in the invoice
-		if (!msat)
+			    "Invalid bolt11 invoice:"
+			    " sets feature var_onion with no secret");
+		inv_msat = b11->msat;
+		invexpiry = b11->timestamp + b11->expiry;
+		payment_hash = &b11->payment_hash;
+	}
+
+	/* === Set default values for non-trivial constraints  === */
+
+	// Obtain amount from invoice or from arguments
+	if (msat && inv_msat)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "amount_msat parameter cannot be specified "
+				    "on an invoice with an amount");
+	if (!msat) {
+		if (!inv_msat)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "amount_msat parameter required");
+		msat = tal_dup(tmpctx, struct amount_msat, inv_msat);
 	}
 
 	// Default max fee is 5 sats, or 0.5%, whichever is *higher*
@@ -278,46 +297,93 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 			fee = AMOUNT_MSAT(5000);
 		maxfee = tal_dup(tmpctx, struct amount_msat, &fee);
 	}
+	assert(msat);
+	assert(maxfee);
+	assert(maxdelay);
+	assert(retryfor);
+	assert(use_shadow);
+	assert(base_fee_penalty_millionths);
+	assert(prob_cost_factor_millionths);
+	assert(riskfactor_millionths);
+	assert(min_prob_success_millionths);
+	assert(base_prob_success_millionths);
+
+	/* === Is it expired? === */
 
 	const u64 now_sec = time_now().ts.tv_sec;
-	if (now_sec > (b11->timestamp + b11->expiry))
+	if (now_sec > invexpiry)
 		return command_fail(cmd, PAY_INVOICE_EXPIRED,
 				    "Invoice expired");
 
 	/* === Get payment === */
 
 	// one payment_hash one payment is not assumed, it is enforced
+	assert(payment_hash);
 	struct payment *payment =
-	    payment_map_get(pay_plugin->payment_map, b11->payment_hash);
+	    payment_map_get(pay_plugin->payment_map, *payment_hash);
 
 	if(!payment)
 	{
-		payment = payment_new(
-			tmpctx,
-			&b11->payment_hash,
-			take(invstr),
-			take(label),
-			take(description),
-			b11->payment_secret,
-			b11->metadata,
-			cast_const2(const struct route_info**, b11->routes),
-			&b11->receiver_id,
-			*msat,
-			*maxfee,
-			*maxdelay,
-			*retryfor,
-			b11->min_final_cltv_expiry,
-			*base_fee_penalty_millionths,
-			*prob_cost_factor_millionths,
-			*riskfactor_millionths,
-			*min_prob_success_millionths,
-			*base_prob_success_millionths,
-			use_shadow,
-			cast_const2(const struct route_exclusion**, exclusions));
-
+		payment = payment_new(tmpctx, payment_hash, invstr);
 		if (!payment)
 			return command_fail(cmd, PLUGIN_ERROR,
 					    "failed to create a new payment");
+
+		struct payment_info *pinfo = &payment->payment_info;
+		pinfo->label = tal_strdup_or_null(payment, label);
+		pinfo->description = tal_strdup_or_null(payment, description);
+
+		if (b11) {
+			pinfo->payment_secret =
+			    tal_steal(payment, b11->payment_secret);
+			pinfo->payment_metadata =
+			    tal_steal(payment, b11->metadata);
+			pinfo->routehints = tal_steal(payment, b11->routes);
+			pinfo->destination = b11->receiver_id;
+			pinfo->final_cltv = b11->min_final_cltv_expiry;
+
+			pinfo->blinded_paths = NULL;
+			pinfo->blinded_payinfos = NULL;
+		} else {
+			pinfo->payment_secret = NULL;
+			pinfo->routehints = NULL;
+			pinfo->payment_metadata = NULL;
+
+			pinfo->blinded_paths =
+			    tal_steal(payment, b12->invoice_paths);
+			pinfo->blinded_payinfos =
+			    tal_steal(payment, b12->invoice_blindedpay);
+
+			node_id_from_pubkey(&pinfo->destination,
+					    b12->invoice_node_id);
+
+			/* FIXME: there is a different cltv_final for each
+			 * blinded path, can we send this information to
+			 * askrene? */
+			u32 max_final_cltv = 0;
+			for (size_t i = 0; i < tal_count(pinfo->blinded_payinfos);
+			     i++) {
+				u32 final_cltv =
+				    pinfo->blinded_payinfos[i]->cltv_expiry_delta;
+				if (max_final_cltv < final_cltv)
+					max_final_cltv = final_cltv;
+			}
+			pinfo->final_cltv = max_final_cltv;
+		}
+
+		if (!payment_set_constraints(
+			payment, *msat, *maxfee, *maxdelay, *retryfor,
+			*base_fee_penalty_millionths,
+			*prob_cost_factor_millionths, *riskfactor_millionths,
+			*min_prob_success_millionths,
+			*base_prob_success_millionths, use_shadow,
+			cast_const2(const struct route_exclusion **,
+				    exclusions)) ||
+		    !payment_refresh(payment))
+			return command_fail(
+			    cmd, PLUGIN_ERROR,
+			    "failed to update the payment parameters");
+
 		if (!payment_register_command(payment, cmd))
 			return command_fail(cmd, PLUGIN_ERROR,
 					    "failed to register command");
@@ -338,20 +404,17 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 	}
 
 	if (payment->status == PAYMENT_FAIL) {
-		// FIXME: should we refuse to pay if the invoices are different?
-		// or should we consider this a new payment?
-		if (!payment_update(payment,
-				    *maxfee,
-				    *maxdelay,
-				    *retryfor,
-				    b11->min_final_cltv_expiry,
-				    *base_fee_penalty_millionths,
-				    *prob_cost_factor_millionths,
-				    *riskfactor_millionths,
-				    *min_prob_success_millionths,
-				    *base_prob_success_millionths,
-				    use_shadow,
-				    cast_const2(const struct route_exclusion**, exclusions)))
+		// FIXME: fail if invstring does not match
+		// FIXME: fail if payment_hash does not match
+		if (!payment_set_constraints(
+			payment, *msat, *maxfee, *maxdelay, *retryfor,
+			*base_fee_penalty_millionths,
+			*prob_cost_factor_millionths, *riskfactor_millionths,
+			*min_prob_success_millionths,
+			*base_prob_success_millionths, use_shadow,
+			cast_const2(const struct route_exclusion **,
+				    exclusions)) ||
+		    !payment_refresh(payment))
 			return command_fail(
 			    cmd, PLUGIN_ERROR,
 			    "failed to update the payment parameters");
