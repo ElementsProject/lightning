@@ -23,6 +23,7 @@ struct route **get_routes(const tal_t *ctx,
 
 			  u64 *next_partid,
 			  u64 groupid,
+			  bool blinded_destination,
 
 			  enum jsonrpc_errcode *ecode,
 			  const char **fail);

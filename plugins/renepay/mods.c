@@ -13,6 +13,7 @@
 #include <plugins/renepay/routebuilder.h>
 #include <plugins/renepay/routetracker.h>
 #include <unistd.h>
+#include <wire/bolt12_wiregen.h>
 
 #define INVALID_ID UINT32_MAX
 
@@ -508,7 +509,9 @@ REGISTER_PAYMENT_MODIFIER(refreshgossmap, refreshgossmap_cb);
 static void add_hintchan(struct payment *payment, const struct node_id *src,
 			 const struct node_id *dst, u16 cltv_expiry_delta,
 			 const struct short_channel_id scid, u32 fee_base_msat,
-			 u32 fee_proportional_millionths)
+			 u32 fee_proportional_millionths,
+			 const struct amount_msat *chan_htlc_min,
+			 const struct amount_msat *chan_htlc_max)
 {
 	assert(payment);
 	assert(payment->local_gossmods);
@@ -521,6 +524,12 @@ static void add_hintchan(struct payment *payment, const struct node_id *src,
 		struct short_channel_id_dir scidd;
 		/* We assume any HTLC is allowed */
 		struct amount_msat htlc_min = AMOUNT_MSAT(0), htlc_max = MAX_CAPACITY;
+
+		if (chan_htlc_min)
+			htlc_min = *chan_htlc_min;
+		if (chan_htlc_max)
+			htlc_max = *chan_htlc_max;
+
 		struct amount_msat fee_base = amount_msat(fee_base_msat);
 		bool enabled = true;
 		scidd.scid = scid;
@@ -597,7 +606,8 @@ static struct command_result *routehints_done(struct command *cmd UNUSED,
 			add_hintchan(payment, &r[j].pubkey, end,
 				     r[j].cltv_expiry_delta,
 				     r[j].short_channel_id, r[j].fee_base_msat,
-				     r[j].fee_proportional_millionths);
+				     r[j].fee_proportional_millionths,
+				     NULL, NULL);
 			end = &r[j].pubkey;
 		}
 	}
@@ -618,6 +628,8 @@ static struct command_result *routehints_done(struct command *cmd UNUSED,
 
 static struct command_result *routehints_cb(struct payment *payment)
 {
+	if (payment->payment_info.routehints == NULL)
+		return payment_continue(payment);
 	struct command *cmd = payment_command(payment);
 	assert(cmd);
 	struct out_req *req = jsonrpc_request_start(
@@ -628,6 +640,44 @@ static struct command_result *routehints_cb(struct payment *payment)
 }
 
 REGISTER_PAYMENT_MODIFIER(routehints, routehints_cb);
+
+
+/*****************************************************************************
+ * blindedhints
+ *
+ * Similar to routehints but for bolt12 invoices: create fake channel that
+ * connect the blinded path entry point to the destination node.
+ */
+
+static struct command_result *blindedhints_cb(struct payment *payment)
+{
+	if (payment->payment_info.blinded_paths == NULL)
+		return payment_continue(payment);
+
+	struct payment_info *pinfo = &payment->payment_info;
+	struct short_channel_id scid;
+	struct node_id src;
+
+	for (size_t i = 0; i < tal_count(pinfo->blinded_paths); i++) {
+		const struct blinded_payinfo *payinfo =
+		    pinfo->blinded_payinfos[i];
+		const struct blinded_path *path = pinfo->blinded_paths[i];
+
+		scid.u64 = i; // a fake scid
+		node_id_from_pubkey(&src, &path->first_node_id.pubkey);
+
+		add_hintchan(payment, &src, payment->routing_destination,
+			     payinfo->cltv_expiry_delta, scid,
+			     payinfo->fee_base_msat,
+			     payinfo->fee_proportional_millionths,
+			     &payinfo->htlc_minimum_msat,
+			     &payinfo->htlc_maximum_msat);
+	}
+	return payment_continue(payment);
+}
+
+REGISTER_PAYMENT_MODIFIER(blindedhints, blindedhints_cb);
+
 
 /*****************************************************************************
  * compute_routes
@@ -687,6 +737,11 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 	 * better to pass computed_routes as a reference? */
 	routetracker->computed_routes = tal_free(routetracker->computed_routes);
 
+	/* Send get_routes a note that it should discard the last hop because we
+	 * are actually solving a multiple destinations problem. */
+	bool blinded_destination =
+	    payment->payment_info.blinded_paths != NULL;
+
 	// TODO: add an algorithm selector here
 	/* We let this return an unlikely path, as it's better to try  once than
 	 * simply refuse.  Plus, models are not truth! */
@@ -694,7 +749,7 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 					    routetracker,
 					    &payment->payment_info,
 					    &pay_plugin->my_id,
-					    &payment->payment_info.destination,
+					    payment->routing_destination,
 					    pay_plugin->gossmap,
 					    pay_plugin->uncertainty,
 					    payment->disabledmap,
@@ -702,8 +757,10 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 					    feebudget,
 					    &payment->next_partid,
 					    payment->groupid,
+					    blinded_destination,
 					    &errcode,
 					    &err_msg);
+
 	/* Otherwise the error message remains a child of the routetracker. */
 	err_msg = tal_steal(tmpctx, err_msg);
 
@@ -1223,20 +1280,21 @@ void *payment_virtual_program[] = {
     /*6*/ OP_CALL, &getmychannels_pay_mod,
     /*8*/ OP_CALL, &refreshgossmap_pay_mod,
     /*10*/ OP_CALL, &routehints_pay_mod,
-    /*12*/OP_CALL, &channelfilter_pay_mod,
+    /*12*/ OP_CALL, &blindedhints_pay_mod,
+    /*14*/OP_CALL, &channelfilter_pay_mod,
     // TODO shadow_additions
     /* do */
-	    /*14*/ OP_CALL, &pendingsendpays_pay_mod,
-	    /*16*/ OP_CALL, &checktimeout_pay_mod,
-	    /*18*/ OP_CALL, &refreshgossmap_pay_mod,
-	    /*20*/ OP_CALL, &compute_routes_pay_mod,
-	    /*22*/ OP_CALL, &send_routes_pay_mod,
+	    /*16*/ OP_CALL, &pendingsendpays_pay_mod,
+	    /*18*/ OP_CALL, &checktimeout_pay_mod,
+	    /*20*/ OP_CALL, &refreshgossmap_pay_mod,
+	    /*22*/ OP_CALL, &compute_routes_pay_mod,
+	    /*24*/ OP_CALL, &send_routes_pay_mod,
 	    /*do*/
-		    /*24*/ OP_CALL, &sleep_pay_mod,
-		    /*26*/ OP_CALL, &collect_results_pay_mod,
+		    /*26*/ OP_CALL, &sleep_pay_mod,
+		    /*28*/ OP_CALL, &collect_results_pay_mod,
 	    /*while*/
-	    /*28*/ OP_IF, &nothaveresults_pay_cond, (void *)24,
+	    /*30*/ OP_IF, &nothaveresults_pay_cond, (void *)26,
     /* while */
-    /*31*/ OP_IF, &retry_pay_cond, (void *)14,
-    /*34*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
-    /*36*/ NULL};
+    /*33*/ OP_IF, &retry_pay_cond, (void *)16,
+    /*36*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
+    /*38*/ NULL};
