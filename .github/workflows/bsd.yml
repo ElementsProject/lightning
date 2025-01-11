@@ -5,6 +5,7 @@ on:
     branches:
       - "master"
   pull_request:
+  workflow_dispatch:
 
 jobs:
   testfreebsd:
@@ -30,7 +31,7 @@ jobs:
             gmake \
             git \
             python \
-            postgresql12-server \
+            postgresql16-server \
             autoconf \
             automake \
             libtool \
@@ -42,7 +43,7 @@ jobs:
 
             python3.8 -m ensurepip
             python3.8 -m pip install --upgrade pip
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2021-08-3z1
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2024-11-28
 
             cd /tmp/ || exit 1
             wget https://bitcoincore.org/bin/bitcoin-core-${{ matrix.bitcoind-version }}/bitcoin-${{ matrix.bitcoind-version }}-x86_64-linux-gnu.tar.gz
