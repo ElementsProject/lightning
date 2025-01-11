@@ -56,6 +56,10 @@ struct payment {
 	/* Localmods to apply to gossip_map for our own use. */
 	struct gossmap_localmods *local_gossmods;
 
+	/* Routes will be computed to reach this node, could be a fake node that
+	 * we use to handle multiple blinded paths. */
+	struct node_id *routing_destination;
+
 	struct disabledmap *disabledmap;
 
 	/* Flag to indicate wether we have collected enough results to make a
