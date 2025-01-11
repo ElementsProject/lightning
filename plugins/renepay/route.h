@@ -68,6 +68,9 @@ struct route {
 
 	/* result of waitsenday */
 	struct payment_result *result;
+
+	/* blinded path index if any */
+	int path_num;
 };
 
 static inline struct routekey routekey(const struct sha256 *hash, u64 groupid,
@@ -117,7 +120,8 @@ struct route *new_route(const tal_t *ctx, u32 groupid,
 struct route *flow_to_route(const tal_t *ctx,
 			    u32 groupid, u32 partid, struct sha256 payment_hash,
 			    u32 final_cltv, struct gossmap *gossmap,
-			    struct flow *flow);
+			    struct flow *flow,
+			    bool blinded_destination);
 
 struct route **flows_to_routes(const tal_t *ctx,
 			       u32 groupid, u32 partid,

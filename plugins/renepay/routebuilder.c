@@ -140,6 +140,7 @@ struct route **get_routes(const tal_t *ctx,
 
 			  u64 *next_partid,
 			  u64 groupid,
+			  bool blinded_destination,
 
 			  enum jsonrpc_errcode *ecode,
 			  const char **fail)
@@ -297,7 +298,8 @@ struct route **get_routes(const tal_t *ctx,
 			struct route *r = flow_to_route(
 			    this_ctx, groupid, *next_partid,
 			    payment_info->payment_hash,
-			    payment_info->final_cltv, gossmap, flows[i]);
+			    payment_info->final_cltv, gossmap, flows[i],
+			    blinded_destination);
 
 			if (!r) {
 				tal_report_error(
