@@ -34,6 +34,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        ref: ${{ github.ref }}  # Ensures the branch triggering the workflow is checked out
 
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
@@ -110,6 +112,7 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: .
+        file: ./Dockerfile
         push: true
         platforms: ${{ env.PLATFORMS }}
         tags: ${{ env.TAGS }}
