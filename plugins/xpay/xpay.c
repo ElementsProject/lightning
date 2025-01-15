@@ -73,6 +73,8 @@ struct payment {
 	struct amount_msat full_amount;
 	/* Maximum fee we're prepare to pay */
 	struct amount_msat maxfee;
+	/* Maximum delay on the route we're ok with */
+	u32 *maxdelay;
 	/* BOLT11 payment secret (NULL for BOLT12, it uses blinded paths) */
 	const struct secret *payment_secret;
 	/* BOLT11 payment metadata (NULL for BOLT12, it uses blinded paths) */
@@ -1186,6 +1188,7 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 	json_array_end(req->js);
 	json_add_amount_msat(req->js, "maxfee_msat", maxfee);
 	json_add_u32(req->js, "final_cltv", payment->final_cltv);
+	json_add_u32(req->js, "maxdelay", *payment->maxdelay);
 
 	return send_payment_req(aux_cmd, payment, req);
 }
@@ -1470,6 +1473,7 @@ static struct command_result *json_xpay_core(struct command *cmd,
 			 p_opt("layers", param_string_array, &payment->layers),
 			 p_opt_def("retry_for", param_number, &retryfor, 60),
 			 p_opt("partial_msat", param_msat, &partial),
+			 p_opt_def("maxdelay", param_u32, &payment->maxdelay, 2016),
 			 NULL))
 		return command_param_failed();
 
@@ -1884,7 +1888,7 @@ static struct command_result *handle_rpc_command(struct command *cmd,
 	struct xpay *xpay = xpay_of(cmd->plugin);
 	const jsmntok_t *rpc_tok, *method_tok, *params_tok, *id_tok,
 		*bolt11 = NULL, *amount_msat = NULL,
-		*partial_msat = NULL, *retry_for = NULL;
+		*partial_msat = NULL, *retry_for = NULL, *maxdelay = NULL;
 	const char *maxfee = NULL;
 	struct json_stream *response;
 
@@ -1933,6 +1937,8 @@ static struct command_result *handle_rpc_command(struct command *cmd,
 				maxfeepercent = t + 1;
 			else if (json_tok_streq(buf, t, "exemptfee"))
 				exemptfee = t + 1;
+			else if (json_tok_streq(buf, t, "maxdelay"))
+				maxdelay = t + 1;
 			else {
 				plugin_log(cmd->plugin, LOG_INFORM,
 					   "Not redirecting pay (unknown arg %.*s)",
@@ -1978,6 +1984,8 @@ static struct command_result *handle_rpc_command(struct command *cmd,
 		json_add_string(response, "maxfee", maxfee);
 	if (partial_msat)
 		json_add_tok(response, "partial_msat", partial_msat, buf);
+	if (maxdelay)
+		json_add_tok(response, "maxdelay", maxdelay, buf);
 	json_object_end(response);
 	json_object_end(response);
 	return command_finished(cmd, response);
