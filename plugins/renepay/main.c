@@ -17,6 +17,7 @@
 #include <plugins/renepay/mods.h>
 #include <plugins/renepay/payplugin.h>
 #include <plugins/renepay/routetracker.h>
+#include <plugins/renepay/sendpay.h>
 #include <stdio.h>
 
 // TODO(eduardo): notice that pending attempts performed with another
@@ -458,6 +459,10 @@ static const struct plugin_command commands[] = {
 	{
 		"renepay",
 		json_pay
+	},
+	{
+		"renesendpay",
+		json_renesendpay
 	},
 };
 
