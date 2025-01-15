@@ -94,8 +94,7 @@ With `-k` or `--insecure` option curl proceeds with the connection even if the S
 This option should be used only when testing with self signed certificate.
 
 ## Websocket Server
-Websocket server is available at `https://127.0.0.1:3010`. clnrest queues up notifications received for a second 
-then broadcasts them to all listeners. 
+Websocket server is available at `https://127.0.0.1:3010`. clnrest broadcasts notifications to all listeners. 
 
 This websocket server requires a `rune` with at least `readonly` access for authorization. The default method used
 for current validation is `listclnrest-notifications`. User can either provided a rune with minimum `readonly`
