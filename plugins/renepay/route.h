@@ -60,8 +60,10 @@ struct route {
 	struct route_hop *hops;
 
 	/* amounts are redundant here if we know the hops, however sometimes we
-	 * don't know the hops, eg. by calling listsendpays */
-	struct amount_msat amount, amount_sent;
+	 * don't know the hops, eg. by calling listsendpays, or if we have
+	 * blinded paths */
+	struct amount_msat amount_sent;
+	struct amount_msat amount_deliver;
 
 	/* Probability estimate (0-1) */
 	double success_prob;
@@ -142,11 +144,7 @@ const char *fmt_route_path(const tal_t *ctx, const struct route *route);
 static inline struct amount_msat route_delivers(const struct route *route)
 {
 	assert(route);
-	if (route->hops && tal_count(route->hops) > 0)
-		assert(amount_msat_eq(
-		    route->amount,
-		    route->hops[tal_count(route->hops) - 1].amount));
-	return route->amount;
+	return route->amount_deliver;
 }
 static inline struct amount_msat route_sends(const struct route *route)
 {
