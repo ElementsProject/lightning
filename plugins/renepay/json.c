@@ -50,7 +50,7 @@ struct route *tal_route_from_json(const tal_t *ctx, const char *buf,
 		goto fail;
 	if (!json_to_sha256(buf, hashtok, &route->key.payment_hash))
 		goto fail;
-	if (!json_to_msat(buf, amttok, &route->amount))
+	if (!json_to_msat(buf, amttok, &route->amount_deliver))
 		goto fail;
 	if (!json_to_msat(buf, senttok, &route->amount_sent))
 		goto fail;
