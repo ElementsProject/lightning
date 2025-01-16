@@ -3,7 +3,7 @@
 
 struct route *new_route(const tal_t *ctx, u32 groupid,
 			u32 partid, struct sha256 payment_hash,
-			struct amount_msat amount,
+			struct amount_msat amount_deliver,
 			struct amount_msat amount_sent)
 {
 	struct route *route = tal(ctx, struct route);
@@ -17,7 +17,7 @@ struct route *new_route(const tal_t *ctx, u32 groupid,
 	route->success_prob = 0.0;
 	route->result = NULL;
 
-	route->amount = amount;
+	route->amount_deliver = amount_deliver;
 	route->amount_sent = amount_sent;
 	route->path_num = -1;
 	return route;
@@ -67,7 +67,7 @@ struct route *flow_to_route(const tal_t *ctx,
 			goto function_fail;
 	}
 	route->success_prob = flow->success_prob;
-	route->amount = route->hops[pathlen - 1].amount;
+	route->amount_deliver = route->hops[pathlen - 1].amount;
 	route->amount_sent = route->hops[0].amount;
 
 	if (blinded_destination) {
