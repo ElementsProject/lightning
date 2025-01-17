@@ -26,7 +26,11 @@ struct payment_info {
 	const u8 *payment_metadata;
 
 	/* Extracted routehints */
-	const struct route_info **routehints;
+	struct route_info **routehints;
+
+	/* blinded paths */
+	struct blinded_path **blinded_paths;
+	struct blinded_payinfo **blinded_payinfos;
 
 	/* How much, what, where */
 	struct node_id destination;
@@ -44,6 +48,7 @@ struct payment_info {
 	// see common/gossip_constants.h:8:#define ROUTING_MAX_HOPS 20
 	// int max_num_hops;
 
+	u64 retryfor;
 	/* We promised this in pay() output */
 	struct timeabs start_time;
 

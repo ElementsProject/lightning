@@ -60,14 +60,19 @@ struct route {
 	struct route_hop *hops;
 
 	/* amounts are redundant here if we know the hops, however sometimes we
-	 * don't know the hops, eg. by calling listsendpays */
-	struct amount_msat amount, amount_sent;
+	 * don't know the hops, eg. by calling listsendpays, or if we have
+	 * blinded paths */
+	struct amount_msat amount_sent;
+	struct amount_msat amount_deliver;
 
 	/* Probability estimate (0-1) */
 	double success_prob;
 
 	/* result of waitsenday */
 	struct payment_result *result;
+
+	/* blinded path index if any */
+	int path_num;
 };
 
 static inline struct routekey routekey(const struct sha256 *hash, u64 groupid,
@@ -117,7 +122,8 @@ struct route *new_route(const tal_t *ctx, u32 groupid,
 struct route *flow_to_route(const tal_t *ctx,
 			    u32 groupid, u32 partid, struct sha256 payment_hash,
 			    u32 final_cltv, struct gossmap *gossmap,
-			    struct flow *flow);
+			    struct flow *flow,
+			    bool blinded_destination);
 
 struct route **flows_to_routes(const tal_t *ctx,
 			       u32 groupid, u32 partid,
@@ -138,11 +144,7 @@ const char *fmt_route_path(const tal_t *ctx, const struct route *route);
 static inline struct amount_msat route_delivers(const struct route *route)
 {
 	assert(route);
-	if (route->hops && tal_count(route->hops) > 0)
-		assert(amount_msat_eq(
-		    route->amount,
-		    route->hops[tal_count(route->hops) - 1].amount));
-	return route->amount;
+	return route->amount_deliver;
 }
 static inline struct amount_msat route_sends(const struct route *route)
 {

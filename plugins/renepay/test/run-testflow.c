@@ -691,7 +691,7 @@ static void test_flow_to_route(void)
 	F->dirs[0]=0;
 	deliver = AMOUNT_MSAT(250000000);
 	F->amount = deliver;
-	route = flow_to_route(this_ctx, 1, 1, payment_hash, 0, gossmap, F);
+	route = flow_to_route(this_ctx, 1, 1, payment_hash, 0, gossmap, F, false);
 	assert(route);
 
 	assert(amount_msat_eq(route->hops[0].amount, deliver));
@@ -707,7 +707,7 @@ static void test_flow_to_route(void)
 	F->dirs[1]=0;
 	deliver = AMOUNT_MSAT(250000000);
 	F->amount=deliver;
-	route = flow_to_route(this_ctx, 1, 1, payment_hash, 0, gossmap, F);
+	route = flow_to_route(this_ctx, 1, 1, payment_hash, 0, gossmap, F, false);
 	assert(route);
 
 	assert(amount_msat_eq(route->hops[0].amount, amount_msat(250050016)));
@@ -725,7 +725,7 @@ static void test_flow_to_route(void)
 	F->dirs[2]=0;
 	deliver = AMOUNT_MSAT(250000000);
 	F->amount=deliver;
-	route = flow_to_route(this_ctx, 1, 1, payment_hash, 0, gossmap, F);
+	route = flow_to_route(this_ctx, 1, 1, payment_hash, 0, gossmap, F, false);
 	assert(route);
 
 	assert(amount_msat_eq(route->hops[0].amount, amount_msat(250087534)));
@@ -745,7 +745,7 @@ static void test_flow_to_route(void)
 	F->dirs[3]=0;
 	deliver = AMOUNT_MSAT(250000000);
 	F->amount=deliver;
-	route = flow_to_route(this_ctx, 1, 1, payment_hash, 0, gossmap, F);
+	route = flow_to_route(this_ctx, 1, 1, payment_hash, 0, gossmap, F, false);
 	assert(route);
 
 	assert(amount_msat_eq(route->hops[0].amount, amount_msat(250112544)));

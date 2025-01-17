@@ -12,110 +12,37 @@
 
 static struct command_result *payment_finish(struct payment *p);
 
-struct payment *payment_new(
-	    const tal_t *ctx,
-	    const struct sha256 *payment_hash,
-	    const char *invstr TAKES,
-	    const char *label TAKES,
-	    const char *description TAKES,
-	    const struct secret *payment_secret TAKES,
-	    const u8 *payment_metadata TAKES,
-	    const struct route_info **routehints TAKES,
-	    const struct node_id *destination,
-	    struct amount_msat amount,
-	    struct amount_msat maxfee,
-	    unsigned int maxdelay,
-	    u64 retryfor,
-	    u16 final_cltv,
-	    /* Tweakable in --developer mode */
-	    u64 base_fee_penalty_millionths,
-	    u64 prob_cost_factor_millionths,
-	    u64 riskfactor_millionths,
-	    u64 min_prob_success_millionths,
-	    u64 base_prob_success_millionths,
-	    bool use_shadow,
-	    const struct route_exclusion **exclusions)
+struct payment *payment_new(const tal_t *ctx, const struct sha256 *payment_hash,
+			    const char *invstr TAKES)
 {
 	struct payment *p = tal(ctx, struct payment);
+	memset(p, 0, sizeof(struct payment));
+
 	struct payment_info *pinfo = &p->payment_info;
 
-	/* === Unique properties === */
 	assert(payment_hash);
 	pinfo->payment_hash = *payment_hash;
 
 	assert(invstr);
 	pinfo->invstr = tal_strdup(p, invstr);
 
-	pinfo->label = tal_strdup_or_null(p, label);
-	pinfo->description = tal_strdup_or_null(p, description);
-	pinfo->payment_secret = tal_dup_or_null(p, struct secret, payment_secret);
-	pinfo->payment_metadata = tal_dup_talarr(p, u8, payment_metadata);
-
-	if (taken(routehints))
-		pinfo->routehints = tal_steal(p, routehints);
-	else {
-		/* Deep copy */
-		pinfo->routehints =
-		    tal_dup_talarr(p, const struct route_info *, routehints);
-		for (size_t i = 0; i < tal_count(pinfo->routehints); i++)
-			pinfo->routehints[i] =
-			    tal_steal(pinfo->routehints, pinfo->routehints[i]);
-	}
-
-	assert(destination);
-	pinfo->destination = *destination;
-	pinfo->amount = amount;
-
-
-	/* === Payment attempt parameters === */
-	if (!amount_msat_add(&pinfo->maxspend, amount, maxfee))
-		pinfo->maxspend = AMOUNT_MSAT(UINT64_MAX);
-	pinfo->maxdelay = maxdelay;
-
-	pinfo->start_time = time_now();
-	pinfo->stop_time = timeabs_add(pinfo->start_time, time_from_sec(retryfor));
-
-	pinfo->final_cltv = final_cltv;
-
-	/* === Developer options === */
-	pinfo->base_fee_penalty = base_fee_penalty_millionths / 1e6;
-	pinfo->prob_cost_factor = prob_cost_factor_millionths / 1e6;
-	pinfo->delay_feefactor = riskfactor_millionths / 1e6;
-	pinfo->min_prob_success = min_prob_success_millionths / 1e6;
-	pinfo->base_prob_success = base_prob_success_millionths / 1e6;
-	pinfo->use_shadow = use_shadow;
-
-
-	/* === Public State === */
 	p->status = PAYMENT_PENDING;
 	p->preimage = NULL;
 	p->error_code = LIGHTNINGD;
 	p->error_msg = NULL;
 	p->total_sent = AMOUNT_MSAT(0);
 	p->total_delivering = AMOUNT_MSAT(0);
-	p->paynotes = tal_arr(p, const char *, 0);
+	p->paynotes = tal_arr(p, const char*, 0);
 	p->groupid = 1;
 
-
-	/* === Hidden State === */
 	p->exec_state = INVALID_STATE;
 	p->next_partid = 1;
 	p->cmd_array = tal_arr(p, struct command *, 0);
 	p->local_gossmods = NULL;
 	p->disabledmap = disabledmap_new(p);
-
-	for (size_t i = 0; i < tal_count(exclusions); i++) {
-		const struct route_exclusion *ex = exclusions[i];
-		if (ex->type == EXCLUDE_CHANNEL)
-			disabledmap_add_channel(p->disabledmap, ex->u.chan_id);
-		else
-			disabledmap_add_node(p->disabledmap, ex->u.node_id);
-	}
-
 	p->have_results = false;
 	p->retry = false;
 	p->waitresult_timer = NULL;
-
 	p->routetracker = new_routetracker(p, p);
 	return p;
 }
@@ -137,46 +64,10 @@ static void payment_cleanup(struct payment *p)
 	routetracker_cleanup(p->routetracker);
 }
 
-bool payment_update(
-		struct payment *p,
-		struct amount_msat maxfee,
-		unsigned int maxdelay,
-		u64 retryfor,
-		u16 final_cltv,
-		    /* Tweakable in --developer mode */
-		u64 base_fee_penalty_millionths,
-		u64 prob_cost_factor_millionths,
-		u64 riskfactor_millionths,
-		u64 min_prob_success_millionths,
-		u64 base_prob_success_millionths,
-		bool use_shadow,
-		const struct route_exclusion **exclusions)
-{
+/* Sets state values to ongoing payment */
+bool payment_refresh(struct payment *p){
 	assert(p);
 	struct payment_info *pinfo = &p->payment_info;
-
-	/* === Unique properties === */
-	// unchanged
-
-	/* === Payment attempt parameters === */
-	if (!amount_msat_add(&pinfo->maxspend, pinfo->amount, maxfee))
-		pinfo->maxspend = AMOUNT_MSAT(UINT64_MAX);
-	pinfo->maxdelay = maxdelay;
-
-	pinfo->start_time = time_now();
-	pinfo->stop_time = timeabs_add(pinfo->start_time, time_from_sec(retryfor));
-
-	pinfo->final_cltv = final_cltv;
-
-	/* === Developer options === */
-	pinfo->base_fee_penalty = base_fee_penalty_millionths / 1e6;
-	pinfo->prob_cost_factor = prob_cost_factor_millionths / 1e6;
-	pinfo->delay_feefactor = riskfactor_millionths / 1e6;
-	pinfo->min_prob_success = min_prob_success_millionths / 1e6;
-	pinfo->base_prob_success = base_prob_success_millionths / 1e6;
-	pinfo->use_shadow = use_shadow;
-
-
 	/* === Public State === */
 	p->status = PAYMENT_PENDING;
 
@@ -185,12 +76,11 @@ bool payment_update(
 	assert(p->preimage == NULL);
 
 	p->error_code = LIGHTNINGD;
-	p->error_msg = tal_free(p->error_msg);;
+	p->error_msg = tal_free(p->error_msg);
 	p->total_sent = AMOUNT_MSAT(0);
 	p->total_delivering = AMOUNT_MSAT(0);
 	// p->paynotes are unchanged, they accumulate messages
 	p->groupid++;
-
 
 	/* === Hidden State === */
 	p->exec_state = INVALID_STATE;
@@ -202,6 +92,49 @@ bool payment_update(
 	assert(tal_count(p->cmd_array) == 0);
 
 	p->local_gossmods = tal_free(p->local_gossmods);
+	p->have_results = false;
+	p->retry = false;
+	p->waitresult_timer = tal_free(p->waitresult_timer);
+
+	pinfo->start_time = time_now();
+	pinfo->stop_time =
+	    timeabs_add(pinfo->start_time, time_from_sec(pinfo->retryfor));
+
+	return true;
+}
+
+bool payment_set_constraints(
+		struct payment *p,
+		struct amount_msat amount,
+		struct amount_msat maxfee,
+		unsigned int maxdelay,
+		u64 retryfor,
+		u64 base_fee_penalty_millionths,
+		u64 prob_cost_factor_millionths,
+		u64 riskfactor_millionths,
+		u64 min_prob_success_millionths,
+		u64 base_prob_success_millionths,
+		bool use_shadow,
+		const struct route_exclusion **exclusions)
+{
+	assert(p);
+	struct payment_info *pinfo = &p->payment_info;
+
+	/* === Payment attempt parameters === */
+	pinfo->amount = amount;
+	if (!amount_msat_add(&pinfo->maxspend, pinfo->amount, maxfee))
+		pinfo->maxspend = AMOUNT_MSAT(UINT64_MAX);
+	pinfo->maxdelay = maxdelay;
+
+	pinfo->retryfor = retryfor;
+
+	/* === Developer options === */
+	pinfo->base_fee_penalty = base_fee_penalty_millionths / 1e6;
+	pinfo->prob_cost_factor = prob_cost_factor_millionths / 1e6;
+	pinfo->delay_feefactor = riskfactor_millionths / 1e6;
+	pinfo->min_prob_success = min_prob_success_millionths / 1e6;
+	pinfo->base_prob_success = base_prob_success_millionths / 1e6;
+	pinfo->use_shadow = use_shadow;
 
 	assert(p->disabledmap);
 	disabledmap_reset(p->disabledmap);
@@ -213,10 +146,6 @@ bool payment_update(
 		else
 			disabledmap_add_node(p->disabledmap, ex->u.node_id);
 	}
-
-	p->have_results = false;
-	p->retry = false;
-	p->waitresult_timer = tal_free(p->waitresult_timer);
 
 	return true;
 }
