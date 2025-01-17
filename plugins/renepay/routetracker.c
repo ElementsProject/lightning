@@ -330,14 +330,73 @@ struct command_result *route_sendpay_request(struct command *cmd,
 					     struct route *route TAKES,
 					     struct payment *payment)
 {
-	struct out_req *req =
-	    jsonrpc_request_start(cmd, "sendpay",
-				  sendpay_done, sendpay_failed, route);
+	const struct payment_info *pinfo = &payment->payment_info;
+	struct out_req *req = jsonrpc_request_start(
+	    cmd, "renesendpay", sendpay_done, sendpay_failed, route);
 
-	json_add_route(req->js, route, payment);
+	const size_t pathlen = tal_count(route->hops);
+	json_add_sha256(req->js, "payment_hash", &pinfo->payment_hash);
+	json_add_u64(req->js, "partid", route->key.partid);
+	json_add_u64(req->js, "groupid", route->key.groupid);
+	json_add_string(req->js, "invoice", pinfo->invstr);
+	json_add_node_id(req->js, "destination", &pinfo->destination);
+	json_add_amount_msat(req->js, "amount_msat", route->amount_deliver);
+	json_add_amount_msat(req->js, "total_amount_msat", pinfo->amount);
+	json_add_u32(req->js, "final_cltv", pinfo->final_cltv);
+
+	if (pinfo->label)
+		json_add_string(req->js, "label", pinfo->label);
+	if (pinfo->description)
+		json_add_string(req->js, "description", pinfo->description);
+
+	json_array_start(req->js, "route");
+	/* An empty route means a payment to oneself, pathlen=0 */
+	for (size_t j = 0; j < pathlen; j++) {
+		const struct route_hop *hop = &route->hops[j];
+		json_object_start(req->js, NULL);
+		json_add_node_id(req->js, "id", &hop->node_id);
+		json_add_short_channel_id(req->js, "channel", hop->scid);
+		json_add_amount_msat(req->js, "amount_msat", hop->amount);
+		json_add_num(req->js, "direction", hop->direction);
+		json_add_u32(req->js, "delay", hop->delay);
+		json_add_string(req->js, "style", "tlv");
+		json_object_end(req->js);
+	}
+	json_array_end(req->js);
+
+	/* Either we have a payment_secret for BOLT11 or blinded_paths for
+	 * BOLT12 */
+	if (pinfo->payment_secret)
+		json_add_secret(req->js, "payment_secret", pinfo->payment_secret);
+	else {
+		assert(pinfo->blinded_paths);
+		const struct blinded_path *bpath =
+		    pinfo->blinded_paths[route->path_num];
+
+		// FIXME: how can we support the case when the entry point is a
+		// scid?
+		assert(bpath->first_node_id.is_pubkey);
+		json_object_start(req->js, "blinded_path");
+		json_add_pubkey(req->js, "first_node_id",
+				&bpath->first_node_id.pubkey);
+		json_add_pubkey(req->js, "first_path_key",
+				&bpath->first_path_key);
+		json_array_start(req->js, "path");
+		for (size_t i = 0; i < tal_count(bpath->path); i++) {
+			const struct blinded_path_hop *hop = bpath->path[i];
+			json_object_start(req->js, NULL);
+			json_add_pubkey(req->js, "blinded_node_id",
+					&hop->blinded_node_id);
+			json_add_hex_talarr(req->js, "encrypted_recipient_data",
+					    hop->encrypted_recipient_data);
+			json_object_end(req->js);
+		}
+		json_array_end(req->js);
+		json_object_end(req->js);
+	}
 
 	route_map_add(payment->routetracker->sent_routes, route);
-	if(taken(route))
+	if (taken(route))
 		tal_steal(payment->routetracker->sent_routes, route);
 	return send_outreq(req);
 }
