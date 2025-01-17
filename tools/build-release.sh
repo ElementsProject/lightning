@@ -6,14 +6,17 @@ if [ "$1" = "--inside-docker" ]; then
     echo "Inside docker: starting build"
     VER="$2"
     PLTFM="$3"
+    PLTFMVER="$4"
+    ARCH="$5"
+    git config --global --add safe.directory /src/.git
     git clone /src /build
     cd /build || exit
     poetry export --without-hashes > /tmp/requirements.txt
     python3 -m pip install -r /tmp/requirements.txt
     ./configure
     make VERSION="$VER"
-    make install DESTDIR=/"$VER-$PLTFM" RUST_PROFILE=release
-    cd /"$VER-$PLTFM" && tar cvfz /release/clightning-"$VER-$PLTFM".tar.gz -- *
+    make install DESTDIR=/"$VER-$PLTFM-$PLTFMVER-$ARCH" RUST_PROFILE=release
+    cd /"$VER-$PLTFM-$PLTFMVER-$ARCH" && tar cvfz /release/clightning-"$VER-$PLTFM-$PLTFMVER-$ARCH".tar.gz -- *
     echo "Inside docker: build finished"
     exit 0
 fi
@@ -22,8 +25,8 @@ FORCE_UNCLEAN=false
 VERIFY_RELEASE=false
 WITHOUT_ZIP=false
 
-ALL_TARGETS="bin-Fedora-28-amd64 bin-Ubuntu docker sign"
-# ALL_TARGETS="bin-Fedora-28-amd64 bin-Ubuntu tarball deb docker sign"
+ALL_TARGETS="bin-Fedora bin-Ubuntu docker sign"
+# ALL_TARGETS="bin-Fedora bin-Ubuntu tarball deb docker sign"
 
 for arg; do
     case "$arg" in
@@ -46,7 +49,7 @@ for arg; do
         echo "Usage: [--force-version=<ver>] [--force-unclean] [--force-mtime=YYYY-MM-DD] [--verify] [TARGETS]"
         echo Known targets: "$ALL_TARGETS"
 	    echo "Example: tools/build-release.sh"
-	    echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 bin-Fedora-28-amd64 bin-Ubuntu sign"
+	    echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 bin-Fedora bin-Ubuntu sign"
 	    echo "Example: tools/build-release.sh --verify"
 	    echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 --verify"
         echo "Example: tools/build-release.sh docker"
@@ -151,13 +154,15 @@ for target in $TARGETS; do
     platform=${target#bin-}
     [ "$platform" != "$target" ] || continue
     case $platform in
-    Fedora-28-amd64)
+    Fedora*)
         echo "Building Fedora Image"
-        DOCKERFILE=contrib/docker/Dockerfile.builder.fedora
+        ARCH=amd64
         TAG=fedora
+        DOCKERFILE=contrib/docker/Dockerfile.builder.fedora
+        FEDORA_VERSION=$(grep -oP '^FROM fedora:\K[0-9]+' "$DOCKERFILE")
         docker build -f $DOCKERFILE -t $TAG --load .
-        docker run --rm=true -v "$(pwd)":/src:ro -v "$RELEASEDIR":/release $TAG /src/tools/build-release.sh --inside-docker "$VERSION" "$platform"
-        docker run --rm=true -w /build $TAG rm -rf /"$VERSION-$platform" /build
+        docker run --rm=true -v "$(pwd)":/src:ro -v "$RELEASEDIR":/release $TAG /src/tools/build-release.sh --inside-docker "$VERSION" "$platform" "$FEDORA_VERSION" "$ARCH"
+        docker run --rm=true -w /build $TAG rm -rf /"$VERSION-$platform-$FEDORA_VERSION-$ARCH" /build
         echo "Fedora Image Built"
         ;;
     Ubuntu*)
@@ -226,8 +231,8 @@ if [ "$VERIFY_RELEASE" = "true" ]; then
     # it gives a direct hint which specific checksums don't match if so.
     sha256sum --check --ignore-missing "${sumfile}"
     # Creating SHA256SUMS, except Fedora (copy that from theirs)
-    grep 'Fedora-28-amd64' "$sumfile" > SHA256SUMS
-    sha256sum clightning-"$VERSION"* | grep -v 'bin-Fedora-28-amd64' >> SHA256SUMS
+    grep 'Fedora-' "$sumfile" > SHA256SUMS
+    sha256sum clightning-"$VERSION"* | grep -v 'Fedora' >> SHA256SUMS
     # compare our and release captain's SHA256SUMS contents
     if cmp -s SHA256SUMS "$sumfile"; then
         echo "SHA256SUMS are Identical"
