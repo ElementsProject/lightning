@@ -140,7 +140,7 @@ def test_errors(node_factory, bitcoind):
 
     PAY_DESTINATION_PERM_FAIL = 203
     assert err.value.error["code"] == PAY_DESTINATION_PERM_FAIL
-    assert "WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS" in err.value.error["message"]
+    assert "Unknown invoice" in err.value.error["message"]
 
 
 @pytest.mark.openchannel("v1")

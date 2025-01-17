@@ -126,18 +126,28 @@ static struct command_result *update_gossip_failure(struct command *cmd UNUSED,
 {
 	assert(r);
 	assert(r->payment);
+	assert(r->route->result->erring_index);
 
-	/* FIXME it might be too strong assumption that erring_channel should
-	 * always be present here, but at least the documentation for
-	 * waitsendpay says it is present in the case of error. */
-	assert(r->route->result->erring_channel);
-	struct short_channel_id_dir scidd = {
-	    .scid = *r->route->result->erring_channel,
-	    .dir = *r->route->result->erring_direction};
+	const int index = *r->route->result->erring_index;
+	struct short_channel_id_dir scidd;
+
+	if (r->route->result->erring_channel) {
+		scidd.scid = *r->route->result->erring_channel;
+		scidd.dir = *r->route->result->erring_direction;
+	} else if (r->route->hops) {
+		assert(index < tal_count(r->route->hops));
+		const struct route_hop *hop = &r->route->hops[index];
+		scidd.scid = hop->scid;
+		scidd.dir = hop->direction;
+
+	} else /* don't have information to disable the erring channel */
+		goto finish;
+
 	payment_disable_chan(
-	    r->payment, scidd, LOG_INFORM,
-	    "addgossip failed (%.*s)", json_tok_full_len(result),
-	    json_tok_full(buf, result));
+	    r->payment, scidd, LOG_INFORM, "addgossip failed (%.*s)",
+	    json_tok_full_len(result), json_tok_full(buf, result));
+
+finish:
 	return update_gossip_done(cmd, method, buf, result, r);
 }
 
@@ -188,6 +198,7 @@ static void route_final_error(struct route *route, enum jsonrpc_errcode error,
 	route->final_msg = tal_strdup(route, what);
 }
 
+/* FIXME: do proper error handling for BOLT12 */
 static struct command_result *handle_failure(struct routefail *r)
 {
 	/* BOLT #4:
@@ -242,7 +253,12 @@ static struct command_result *handle_failure(struct routefail *r)
 	if (route->hops)
 		path_len = tal_count(route->hops);
 
-	assert(result->erring_index);
+	if (!result->erring_index) {
+		payment_note(
+		    payment, LOG_UNUSUAL,
+		    "The erring_index is unknown we skip error handling");
+		goto finish;
+	}
 
 	enum node_type node_type = UNKNOWN_NODE;
 	if (route->hops) {
@@ -254,23 +270,28 @@ static struct command_result *handle_failure(struct routefail *r)
 			node_type = INTERMEDIATE_NODE;
 	}
 
-	assert(result->erring_node);
-
 	switch (result->failcode) {
 	// intermediate only
 	case WIRE_INVALID_ONION_VERSION:
 	case WIRE_INVALID_ONION_HMAC:
 	case WIRE_INVALID_ONION_KEY:
-		if (node_type == FINAL_NODE)
+		switch (node_type) {
+		case FINAL_NODE:
 			payment_note(payment, LOG_UNUSUAL,
-				     "Final node %s reported strange "
+				     "Final node reported strange "
 				     "error code %04x (%s)",
-				     fmt_node_id(tmpctx, result->erring_node),
 				     result->failcode,
 				     onion_wire_name(result->failcode));
+			break;
+		case ORIGIN_NODE:
+		case INTERMEDIATE_NODE:
+		case UNKNOWN_NODE:
+			break;
+		}
 
 	case WIRE_INVALID_ONION_BLINDING:
-		if (node_type == FINAL_NODE) {
+		switch (node_type) {
+		case FINAL_NODE:
 			/* these errors from a final node mean a permanent
 			 * failure */
 			route_final_error(
@@ -278,52 +299,99 @@ static struct command_result *handle_failure(struct routefail *r)
 			    "Received error code %04x (%s) at final node.",
 			    result->failcode,
 			    onion_wire_name(result->failcode));
-		} else if (node_type == INTERMEDIATE_NODE ||
-			   node_type == ORIGIN_NODE) {
+
+			break;
+		case INTERMEDIATE_NODE:
+		case ORIGIN_NODE:
+			if (!route->hops)
+				break;
+
 			/* we disable the next node in the hop */
 			assert(*result->erring_index < path_len);
 			payment_disable_node(
-			    payment,
-			    route->hops[*result->erring_index].node_id, LOG_DBG,
-			    "received %s from previous hop",
+			    payment, route->hops[*result->erring_index].node_id,
+			    LOG_DBG, "received %s from previous hop",
 			    onion_wire_name(result->failcode));
+			break;
+		case UNKNOWN_NODE:
+			break;
 		}
 		break;
 
 	// final only
 	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
+		switch (node_type) {
+		case FINAL_NODE:
+			route_final_error(route, PAY_DESTINATION_PERM_FAIL,
+					  "Unknown invoice or wrong payment "
+					  "details at destination.");
+			break;
+		case ORIGIN_NODE:
+			route_final_error(
+			    route, PAY_UNSPECIFIED_ERROR,
+			    "Error code %04x (%s) reported at the origin.",
+			    failcode,
+			    onion_wire_name(failcode));
+			break;
+		case INTERMEDIATE_NODE:
+			if (!route->hops)
+				break;
+			payment_disable_node(
+			    payment,
+			    route->hops[*result->erring_index - 1].node_id,
+			    LOG_INFORM, "received error %s",
+			    onion_wire_name(failcode));
+			break;
+		case UNKNOWN_NODE:
+			break;
+		}
+		break;
 	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
 	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
-		if (node_type == INTERMEDIATE_NODE)
+		switch (node_type) {
+		case INTERMEDIATE_NODE:
 			payment_note(payment, LOG_UNUSUAL,
-				     "Intermediate node %s reported strange "
+				     "Intermediate node reported strange "
 				     "error code %04x (%s)",
-				     fmt_node_id(tmpctx, result->erring_node),
 				     result->failcode,
 				     onion_wire_name(result->failcode));
+			break;
+		case ORIGIN_NODE:
+		case FINAL_NODE:
+		case UNKNOWN_NODE:
+			break;
+		}
 
 	case WIRE_PERMANENT_NODE_FAILURE:
 	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
 	case WIRE_TEMPORARY_NODE_FAILURE:
 	case WIRE_INVALID_ONION_PAYLOAD:
-
-		if (node_type == FINAL_NODE) {
+		switch (node_type) {
+		case FINAL_NODE:
 			route_final_error(
 			    route, PAY_DESTINATION_PERM_FAIL,
 			    "Received error code %04x (%s) at final node.",
 			    result->failcode,
 			    onion_wire_name(result->failcode));
-		} else if (node_type == ORIGIN_NODE) {
+			break;
+		case ORIGIN_NODE:
 			route_final_error(
 			    route, PAY_UNSPECIFIED_ERROR,
 			    "Error code %04x (%s) reported at the origin.",
 			    result->failcode,
 			    onion_wire_name(result->failcode));
-		} else {
-			payment_disable_node(payment,
-					     *result->erring_node, LOG_INFORM,
-					     "received error %s",
-					     onion_wire_name(result->failcode));
+			break;
+		case INTERMEDIATE_NODE:
+			if (!route->hops)
+				break;
+			payment_disable_node(
+			    payment,
+			    route->hops[*result->erring_index - 1].node_id,
+			    LOG_INFORM, "received error %s",
+			    onion_wire_name(result->failcode));
+			break;
+		case UNKNOWN_NODE:
+			break;
 		}
 		break;
 
@@ -333,11 +401,11 @@ static struct command_result *handle_failure(struct routefail *r)
 	case WIRE_UNKNOWN_NEXT_PEER:
 	case WIRE_EXPIRY_TOO_FAR:
 	case WIRE_CHANNEL_DISABLED:
-		if (node_type == FINAL_NODE) {
+		switch (node_type) {
+		case FINAL_NODE:
 			payment_note(payment, LOG_UNUSUAL,
-				     "Final node %s reported strange "
+				     "Final node reported strange "
 				     "error code %04x (%s)",
-				     fmt_node_id(tmpctx, result->erring_node),
 				     result->failcode,
 				     onion_wire_name(result->failcode));
 
@@ -347,35 +415,56 @@ static struct command_result *handle_failure(struct routefail *r)
 			    result->failcode,
 			    onion_wire_name(result->failcode));
 
-		} else {
-			assert(result->erring_channel);
+			break;
+		case ORIGIN_NODE:
+			payment_note(payment, LOG_UNUSUAL,
+				     "First node reported strange "
+				     "error code %04x (%s)",
+				     result->failcode,
+				     onion_wire_name(result->failcode));
+
+			break;
+		case INTERMEDIATE_NODE:
+			if (!route->hops)
+				break;
 			struct short_channel_id_dir scidd = {
-			    .scid = *result->erring_channel,
-			    .dir = *result->erring_direction};
-			payment_disable_chan(
-			    payment, scidd, LOG_INFORM,
-			    "%s", onion_wire_name(result->failcode));
+			    .scid = route->hops[*result->erring_index].scid,
+			    .dir = route->hops[*result->erring_index].direction};
+			payment_disable_chan(payment, scidd, LOG_INFORM, "%s",
+					     onion_wire_name(result->failcode));
+
+			break;
+		case UNKNOWN_NODE:
+			break;
 		}
 		break;
 	// final only
 	case WIRE_MPP_TIMEOUT:
-
-		if (node_type == INTERMEDIATE_NODE) {
+		switch (node_type) {
+		case INTERMEDIATE_NODE:
 			/* Normally WIRE_MPP_TIMEOUT is raised by the final
 			 * node. If this is not the final node, then something
 			 * wrong is going on. We report it and disable that
 			 * node. */
 			payment_note(payment, LOG_UNUSUAL,
-				     "Intermediate node %s reported strange "
+				     "Intermediate node reported strange "
 				     "error code %04x (%s)",
-				     fmt_node_id(tmpctx, result->erring_node),
 				     result->failcode,
 				     onion_wire_name(result->failcode));
 
-			payment_disable_node(payment,
-					     *result->erring_node, LOG_INFORM,
-					     "received error %s",
-					     onion_wire_name(result->failcode));
+			if (!route->hops)
+				break;
+			payment_disable_node(
+			    payment,
+			    route->hops[*result->erring_index - 1].node_id,
+			    LOG_INFORM, "received error %s",
+			    onion_wire_name(result->failcode));
+
+			break;
+		case ORIGIN_NODE:
+		case FINAL_NODE:
+		case UNKNOWN_NODE:
+			break;
 		}
 		break;
 
@@ -384,12 +473,11 @@ static struct command_result *handle_failure(struct routefail *r)
 	case WIRE_INCORRECT_CLTV_EXPIRY:
 	case WIRE_FEE_INSUFFICIENT:
 	case WIRE_AMOUNT_BELOW_MINIMUM:
-
-		if (node_type == FINAL_NODE) {
+		switch (node_type) {
+		case FINAL_NODE:
 			payment_note(payment, LOG_UNUSUAL,
-				     "Final node %s reported strange "
+				     "Final node reported strange "
 				     "error code %04x (%s)",
-				     fmt_node_id(tmpctx, result->erring_node),
 				     result->failcode,
 				     onion_wire_name(result->failcode));
 
@@ -399,33 +487,44 @@ static struct command_result *handle_failure(struct routefail *r)
 			    result->failcode,
 			    onion_wire_name(result->failcode));
 
-		} else {
+			break;
+		case ORIGIN_NODE:
+			payment_note(payment, LOG_UNUSUAL,
+				     "First node reported strange "
+				     "error code %04x (%s)",
+				     result->failcode,
+				     onion_wire_name(result->failcode));
+
+			break;
+		case INTERMEDIATE_NODE:
+			if (!route->hops)
+				break;
 			/* Usually this means we need to update the channel
 			 * information and try again. To avoid hitting this
 			 * error again with the same channel we flag it. */
-			assert(result->erring_channel);
 			struct short_channel_id_dir scidd = {
-			    .scid = *result->erring_channel,
-			    .dir = *result->erring_direction};
-			payment_warn_chan(payment,
-					  scidd, LOG_INFORM,
+			    .scid = route->hops[*result->erring_index].scid,
+			    .dir = route->hops[*result->erring_index].direction};
+			payment_warn_chan(payment, scidd, LOG_INFORM,
 					  "received error %s",
 					  onion_wire_name(result->failcode));
-		}
 
+			break;
+		case UNKNOWN_NODE:
+			break;
+		}
 		break;
 	// intermediate only
 	case WIRE_TEMPORARY_CHANNEL_FAILURE:
-
-		if (node_type == FINAL_NODE) {
+		switch (node_type) {
+		case FINAL_NODE:
 			/* WIRE_TEMPORARY_CHANNEL_FAILURE could mean that the
 			 * next channel has not enough outbound liquidity or
 			 * cannot add another HTLC. A final node cannot raise
 			 * this error. */
 			payment_note(payment, LOG_UNUSUAL,
-				     "Final node %s reported strange "
+				     "Final node reported strange "
 				     "error code %04x (%s)",
-				     fmt_node_id(tmpctx, result->erring_node),
 				     result->failcode,
 				     onion_wire_name(result->failcode));
 
@@ -434,9 +533,16 @@ static struct command_result *handle_failure(struct routefail *r)
 			    "Received error code %04x (%s) at final node.",
 			    result->failcode,
 			    onion_wire_name(result->failcode));
-		}
 
+			break;
+		case INTERMEDIATE_NODE:
+		case ORIGIN_NODE:
+		case UNKNOWN_NODE:
+			break;
+		}
 		break;
 	}
+
+finish:
 	return routefail_end(take(r));
 }
