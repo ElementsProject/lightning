@@ -21,6 +21,7 @@ struct routefail {
 
 static struct command_result *update_gossip(struct routefail *r);
 static struct command_result *handle_failure(struct routefail *r);
+static void find_erring_node(struct route *route);
 
 struct command_result *routefail_start(const tal_t *ctx, struct route *route,
 				       struct command *cmd)
@@ -40,7 +41,58 @@ struct command_result *routefail_start(const tal_t *ctx, struct route *route,
 	r->route = route;
 	r->cmd = cmd;
 	assert(route->result);
+	find_erring_node(route);
 	return update_gossip(r);
+}
+
+/* The erring_node and erring_channel are necessary fields to handle the error.
+ * We might not know those values from listsendpays because the payment could
+ * have been paid with sendonion or similar RPCs, but if we know the route then
+ * we can deduce them just like lightningd's wallet would with a sendpay
+ * command. */
+static void find_erring_node(struct route *route)
+{
+	struct payment_result *result = route->result;
+	if (result->erring_node && result->erring_channel &&
+	    result->erring_direction)
+		return;
+
+	/* we need the hops, othewise our assumptions are wrong */
+	assert(route->hops);
+	assert(result->erring_index);
+	unsigned int index = *result->erring_index;
+	unsigned int path_len = tal_count(route->hops);
+
+	/* self-pay failure? */
+	assert(path_len > 0);
+	assert(index >= 0);
+	assert(path_len >= index);
+
+	if (index == path_len - 1) {
+		result->erring_channel = tal_dup(
+		    result, struct short_channel_id, &route->hops[index].scid);
+		result->erring_direction =
+		    tal_dup(result, int, &route->hops[index].direction);
+		result->erring_node = tal_dup(result, struct node_id,
+					      &route->hops[index].node_id);
+	} else {
+		result->erring_channel =
+		    tal_dup(result, struct short_channel_id,
+			    &route->hops[index + 1].scid);
+		result->erring_direction =
+		    tal_dup(result, int, &route->hops[index + 1].direction);
+
+		/* If the error is a BADONION, then it's on behalf of the
+		 * following node. */
+		if (result->failcode & BADONION)
+			result->erring_node =
+			    tal_dup(result, struct node_id,
+				    &route->hops[index + 1].node_id);
+		else
+			result->erring_node =
+			    tal_dup(result, struct node_id,
+				    &route->hops[index].node_id);
+	}
 }
 
 static struct command_result *routefail_end(struct routefail *r TAKES)
@@ -188,6 +240,7 @@ static void route_final_error(struct route *route, enum jsonrpc_errcode error,
 	route->final_msg = tal_strdup(route, what);
 }
 
+/* FIXME: do proper error handling for BOLT12 */
 static struct command_result *handle_failure(struct routefail *r)
 {
 	/* BOLT #4:
