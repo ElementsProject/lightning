@@ -106,8 +106,8 @@ static inline bool routekey_equal(const struct route *route,
 	       sha256_eq(&route->key.payment_hash, &k->payment_hash);
 }
 
-HTABLE_DEFINE_TYPE(struct route, route_get_key, routekey_hash, routekey_equal,
-		   route_map);
+HTABLE_DEFINE_NODUPS_TYPE(struct route, route_get_key, routekey_hash, routekey_equal,
+			  route_map);
 
 struct route *new_route(const tal_t *ctx, u32 groupid,
 			u32 partid, struct sha256 payment_hash,

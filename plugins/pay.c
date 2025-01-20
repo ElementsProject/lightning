@@ -327,8 +327,8 @@ static bool pay_mpp_eq(const struct pay_mpp *pm, const struct pay_sort_key *key)
 		&& pm->sortkey.groupid == key->groupid;
 }
 
-HTABLE_DEFINE_TYPE(struct pay_mpp, pay_mpp_key, pay_mpp_hash, pay_mpp_eq,
-		   pay_map);
+HTABLE_DEFINE_NODUPS_TYPE(struct pay_mpp, pay_mpp_key, pay_mpp_hash, pay_mpp_eq,
+			  pay_map);
 
 static void add_amount_sent(struct plugin *p,
 			    const char *invstring,

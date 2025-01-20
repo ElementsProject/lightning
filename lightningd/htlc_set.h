@@ -50,11 +50,11 @@ static inline bool htlc_set_eq(const struct htlc_set *set,
 	return sha256_eq(payment_hash, &set->payment_hash);
 }
 
-HTABLE_DEFINE_TYPE(struct htlc_set,
-		   keyof_htlc_set,
-		   hash_payment_hash,
-		   htlc_set_eq,
-		   htlc_set_map);
+HTABLE_DEFINE_NODUPS_TYPE(struct htlc_set,
+			  keyof_htlc_set,
+			  hash_payment_hash,
+			  htlc_set_eq,
+			  htlc_set_map);
 
 /* Handles arg: if it completes a set, calls invoice_try_pay */
 void htlc_set_add_(struct lightningd *ld,

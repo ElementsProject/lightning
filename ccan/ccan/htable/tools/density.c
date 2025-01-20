@@ -26,7 +26,7 @@ static bool cmp(const ptrint_t *p, uintptr_t k)
 	return key(p) == k;
 }
 
-HTABLE_DEFINE_TYPE(ptrint_t, key, hash_uintptr, cmp, htable_ptrint);
+HTABLE_DEFINE_NODUPS_TYPE(ptrint_t, key, hash_uintptr, cmp, htable_ptrint);
 
 /* Nanoseconds per operation */
 static size_t normalize(const struct timeabs *start,

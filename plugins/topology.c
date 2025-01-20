@@ -200,8 +200,8 @@ static struct command_result *json_getroute(struct command *cmd,
 	return send_outreq(req);
 }
 
-HTABLE_DEFINE_TYPE(struct node_id, node_id_keyof, node_id_hash, node_id_eq,
-		   node_map);
+HTABLE_DEFINE_NODUPS_TYPE(struct node_id, node_id_keyof, node_id_hash, node_id_eq,
+			  node_map);
 
 /* To avoid multiple fetches, we represent directions as a bitmap
  * so we can do two at once. */
