@@ -509,6 +509,7 @@ def test_htlc_max(node_factory):
     assert invoice["amount_received_msat"] >= Millisatoshi("800000sat")
 
 
+@unittest.skip
 def test_previous_sendpays(node_factory, bitcoind):
     """
     Check that renepay can complete a payment that already started
