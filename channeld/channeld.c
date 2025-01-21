@@ -3329,7 +3329,7 @@ static void resume_splice_negotiation(struct peer *peer,
 	struct bitcoin_tx *bitcoin_tx;
 	u32 splice_funding_index;
 	const u8 *msg, *sigmsg;
-	u32 chan_output_index;
+	u32 new_output_index;
 	struct pubkey *their_pubkey;
 	struct bitcoin_tx *final_tx;
 	struct bitcoin_txid final_txid;
@@ -3360,8 +3360,8 @@ static void resume_splice_negotiation(struct peer *peer,
 					 &peer->channel->funding_pubkey[LOCAL],
 					 &peer->channel->funding_pubkey[REMOTE]);
 
-	find_channel_output(peer, current_psbt, &chan_output_index,
-			    &peer->channel->funding_pubkey[REMOTE]);
+	find_channel_output(peer, current_psbt, &new_output_index,
+			    &inflight->remote_funding);
 
 	splice_funding_index = find_channel_funding_input(current_psbt,
 							  &peer->channel->funding);
@@ -3645,7 +3645,7 @@ static void resume_splice_negotiation(struct peer *peer,
 
 		final_tx = bitcoin_tx_with_psbt(tmpctx, current_psbt);
 		msg = towire_channeld_splice_confirmed_signed(tmpctx, final_tx,
-							      chan_output_index);
+							      new_output_index);
 		wire_sync_write(MASTER_FD, take(msg));
 	}
 }
