@@ -986,6 +986,17 @@ def test_limits_fake_gossmap(node_factory, bitcoind):
     # Must deliver exact amount.
     assert sum(r['amount_msat'] for r in routes["routes"]) == 800_000_001
 
+    # Won't evaluate route for 0msat.
+    with pytest.raises(RpcError, match="amount must be non-zero"):
+        l1.rpc.getroutes(
+            source=nodemap[0],
+            destination=nodemap[2],
+            amount_msat=0,
+            layers=["localchans", "auto.sourcefree"],
+            maxfee_msat=50_000_000,
+            final_cltv=10,
+        )
+
 
 def test_max_htlc(node_factory, bitcoind):
     """A route which looks good isn't actually, because of max htlc limits"""

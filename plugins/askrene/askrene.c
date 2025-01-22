@@ -755,17 +755,25 @@ static struct command_result *json_getroutes(struct command *cmd,
 	const u32 maxdelay_allowed = 2016;
 	struct getroutes_info *info = tal(cmd, struct getroutes_info);
 
-	if (!param(cmd, buffer, params,
-		   p_req("source", param_node_id, &info->source),
-		   p_req("destination", param_node_id, &info->dest),
-		   p_req("amount_msat", param_msat, &info->amount),
-		   p_req("layers", param_layer_names, &info->layers),
-		   p_req("maxfee_msat", param_msat, &info->maxfee),
-		   p_req("final_cltv", param_u32, &info->finalcltv),
-		   p_opt_def("maxdelay", param_u32, &info->maxdelay,
-			     maxdelay_allowed),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("source", param_node_id, &info->source),
+			 p_req("destination", param_node_id, &info->dest),
+			 p_req("amount_msat", param_msat, &info->amount),
+			 p_req("layers", param_layer_names, &info->layers),
+			 p_req("maxfee_msat", param_msat, &info->maxfee),
+			 p_req("final_cltv", param_u32, &info->finalcltv),
+			 p_opt_def("maxdelay", param_u32, &info->maxdelay,
+				   maxdelay_allowed),
+			 NULL))
 		return command_param_failed();
+
+	if (amount_msat_is_zero(*info->amount)) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "amount must be non-zero");
+	}
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	if (*info->maxdelay > maxdelay_allowed) {
 		return command_fail(cmd, PAY_USER_ERROR,
