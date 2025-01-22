@@ -61,4 +61,9 @@ u64 flows_worst_delay(struct flow **flows);
 const char *fmt_flows_step_scid(const tal_t *ctx,
 				const struct route_query *rq,
 				const struct flow *flow, size_t i);
+
+/* When we need to debug */
+const char *fmt_flow_full(const tal_t *ctx,
+			  const struct route_query *rq,
+			  const struct flow *flow);
 #endif /* LIGHTNING_PLUGINS_ASKRENE_FLOW_H */

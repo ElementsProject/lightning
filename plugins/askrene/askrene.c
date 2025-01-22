@@ -265,18 +265,12 @@ static const char *fmt_route(const tal_t *ctx,
 	return str;
 }
 
-static const char *fmt_flow_full(const tal_t *ctx,
-				 const struct route_query *rq,
-				 const struct flow *flow,
-				 struct amount_msat total_delivered,
-				 double delay_feefactor)
+const char *fmt_flow_full(const tal_t *ctx,
+			  const struct route_query *rq,
+			  const struct flow *flow)
 {
 	struct amount_msat amt = flow->delivers;
-	char *str = tal_fmt(ctx, "%s (linear cost %s)",
-			    fmt_amount_msat(tmpctx, amt),
-			    fmt_amount_msat(tmpctx, linear_flow_cost(flow,
-								     total_delivered,
-								     delay_feefactor)));
+	char *str = fmt_amount_msat(ctx, flow->delivers);
 
 	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
 		struct short_channel_id_dir scidd;
@@ -465,15 +459,21 @@ too_expensive:
 				       fmt_amount_msat(tmpctx, old_cost));
 				for (size_t i = 0; i < tal_count(flows); i++) {
 					rq_log(tmpctx, rq, LOG_BROKEN,
-					       "Flow %zu/%zu: %s", i, tal_count(flows),
-					       fmt_flow_full(tmpctx, rq, flows[i], amount, delay_feefactor));
+					       "Flow %zu/%zu: %s (linear cost %s)", i, tal_count(flows),
+					       fmt_flow_full(tmpctx, rq, flows[i]),
+					       fmt_amount_msat(tmpctx, linear_flow_cost(flows[i],
+											amount,
+											delay_feefactor)));
 				}
 				rq_log(tmpctx, rq, LOG_BROKEN, "Old flows cost %s:",
 				       fmt_amount_msat(tmpctx, new_cost));
 				for (size_t i = 0; i < tal_count(new_flows); i++) {
 					rq_log(tmpctx, rq, LOG_BROKEN,
-					       "Flow %zu/%zu: %s", i, tal_count(new_flows),
-					       fmt_flow_full(tmpctx, rq, new_flows[i], amount, delay_feefactor));
+					       "Flow %zu/%zu: %s (linear cost %s)", i, tal_count(new_flows),
+					       fmt_flow_full(tmpctx, rq, new_flows[i]),
+					       fmt_amount_msat(tmpctx, linear_flow_cost(new_flows[i],
+											amount,
+											delay_feefactor)));
 				}
 			}
 		}
