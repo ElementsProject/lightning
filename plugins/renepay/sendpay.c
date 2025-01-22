@@ -306,6 +306,16 @@ static struct command_result *sendonion_done(struct command *cmd,
 		json_add_hex_talarr(response, "payment_metadata",
 				    renesendpay->metadata);
 
+	if (renesendpay->shared_secrets) {
+		json_array_start(response, "shared_secrets");
+		for (size_t i = 0; i < tal_count(renesendpay->shared_secrets);
+		     i++) {
+			json_add_secret(response, NULL,
+					&renesendpay->shared_secrets[i]);
+		}
+		json_array_end(response);
+	}
+
 	/* FIXME: shall we report the blinded path, secret and route used? */
 	return command_finished(cmd, response);
 }
@@ -435,6 +445,7 @@ struct command_result *json_renesendpay(struct command *cmd,
 	renesendpay->label = tal_steal(renesendpay, label);
 	renesendpay->description = tal_steal(renesendpay, description);
 	renesendpay->metadata = tal_steal(renesendpay, metadata);
+	renesendpay->shared_secrets = NULL;
 
 	struct out_req *req =
 	    jsonrpc_request_start(cmd, "waitblockheight", waitblockheight_done,
