@@ -840,3 +840,11 @@ def test_description(node_factory):
         "renepay", {"invstring": inv_with_hash, "description": "paying for coffee"}
     )
     assert details["status"] == "complete"
+
+
+def test_offers(node_factory):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    offer = l3.rpc.offer("1000sat", "test_renepay_offers")['bolt12']
+    invoice = l1.rpc.fetchinvoice(offer)['invoice']
+    response = l1.rpc.call("renepay", {"invstring": invoice})
+    assert response["status"] == "complete"
