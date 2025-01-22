@@ -7,6 +7,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/bolt11.h>
 #include <common/bolt12.h>
+#include <common/daemon.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <common/gossmods_listpeerchannels.h>
@@ -1137,6 +1138,12 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 	struct out_req *req;
 	const struct pubkey *dst;
 	struct amount_msat maxfee;
+
+	/* I would normally assert here, but we have reports of this happening... */
+	if (amount_msat_is_zero(deliver)) {
+		payment_log(payment, LOG_BROKEN, "getroutes for 0msat!");
+		send_backtrace("getroutes for 0msat!");
+	}
 
 	/* If we get injectpaymentonion responses, they can wait */
 	payment->amount_being_routed = deliver;
