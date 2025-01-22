@@ -200,10 +200,14 @@ static void sphinx_append_final_hop(const tal_t *ctx,
 	assert(ret);
 }
 
-static const u8 *create_onion(const tal_t *ctx, struct renesendpay *renesendpay)
+static const u8 *create_onion(const tal_t *ctx,
+			      struct renesendpay *renesendpay,
+			      const struct node_id first_node,
+			      const size_t first_index)
 {
 	bool ret;
 	const tal_t *this_ctx = tal(ctx, tal_t);
+	struct node_id current_node = first_node;
 	struct pubkey node;
 	const u8 *payload;
 	const size_t pathlen = tal_count(renesendpay->route);
@@ -212,19 +216,20 @@ static const u8 *create_onion(const tal_t *ctx, struct renesendpay *renesendpay)
 	    sphinx_path_new(this_ctx, renesendpay->payment_hash.u.u8,
 			    sizeof(renesendpay->payment_hash.u.u8));
 
-	for (size_t i = 0; i < pathlen - 1; i++) {
+	for (size_t i = first_index; i < pathlen; i++) {
 		/* Encrypted message is for node[i] but the data is hop[i+1],
 		 * therein lays the problem with sendpay's API. */
-		ret = pubkey_from_node_id(&node, &renesendpay->route[i].node_id);
+		ret = pubkey_from_node_id(&node, &current_node);
 		assert(ret);
 
-		struct route_hop *hop = &renesendpay->route[i + 1];
+		struct route_hop *hop = &renesendpay->route[i];
 		payload =
 		    onion_nonfinal_hop(this_ctx, &hop->scid, hop->amount,
 				       hop->delay + renesendpay->blockheight);
 		// FIXME: better handle error here
 		ret = sphinx_add_hop_has_length(sp, &node, take(payload));
 		assert(ret);
+		current_node = renesendpay->route[i].node_id;
 	}
 
 	const u32 final_cltv = renesendpay->final_cltv + renesendpay->blockheight;
@@ -239,7 +244,7 @@ static const u8 *create_onion(const tal_t *ctx, struct renesendpay *renesendpay)
 		sphinx_append_final_hop(this_ctx,
 					sp,
 					renesendpay->payment_secret,
-					&renesendpay->destination,
+					&current_node,
 					renesendpay->deliver_amount,
 					renesendpay->total_amount,
 					final_cltv,
@@ -320,9 +325,13 @@ static struct command_result *waitblockheight_done(struct command *cmd,
 				    "renesendpay failed to read blockheight "
 				    "from waitblockheight response.");
 
-	const u8 *onion = create_onion(tmpctx, renesendpay);
-	struct out_req *req = jsonrpc_request_start(
-	    cmd, "sendonion", sendonion_done, sendpay_rpc_failure, renesendpay);
+	const u8 *onion;
+	struct out_req *req;
+
+	onion =
+	    create_onion(tmpctx, renesendpay, renesendpay->route[0].node_id, 1);
+	req = jsonrpc_request_start(cmd, "sendonion", sendonion_done,
+				    sendpay_rpc_failure, renesendpay);
 	json_add_hex_talarr(req->js, "onion", onion);
 	json_add_sha256(req->js, "payment_hash", &renesendpay->payment_hash);
 	json_add_u64(req->js, "partid", renesendpay->partid);
