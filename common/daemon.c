@@ -32,6 +32,9 @@ void send_backtrace(const char *why)
 	if (backtrace_state)
 		backtrace_print(backtrace_state, 0, stderr);
 
+	if (!bt_print)
+		return;
+
 	/* Now send to parent. */
 	bt_print("%s (version %s)", why, version());
 	if (backtrace_state)
@@ -75,7 +78,8 @@ static void crashdump(int sig)
 	send_backtrace(why);
 
 	/* Probably shouldn't return. */
-	bt_exit();
+	if (bt_exit)
+		bt_exit();
 
 	/* This time it will kill us instantly. */
 	kill(getpid(), sig);
