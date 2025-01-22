@@ -315,13 +315,25 @@ static struct amount_msat flow_remaining_capacity(const struct route_query *rq,
 	 * accidentally cap! */
 	remove_flow_reservations(rq, reservations, flow);
 	flow_max_capacity(rq, flow, &max, NULL, NULL);
-	create_flow_reservations(rq, reservations, flow);
 
-	if (!amount_msat_sub(&diff, max, flow->delivers))
-		plugin_err(rq->plugin, "Flow delivers %s but max only %s",
+	/* This seems to happen.  Which is strange, since flows should
+	   already be constrained. */
+	if (!amount_msat_sub(&diff, max, flow->delivers)) {
+		plugin_log(rq->plugin, LOG_BROKEN,
+			   "Flow delivers %s but max only %s? flow=%s",
 			   fmt_amount_msat(tmpctx, flow->delivers),
-			   fmt_amount_msat(tmpctx, max));
-
+			   fmt_amount_msat(tmpctx, max),
+			   fmt_flow_full(rq, rq, flow));
+		for (size_t i = 0; i < tal_count(*reservations); i++) {
+			plugin_log(rq->plugin, LOG_BROKEN,
+				   "Reservation #%zi: %s on %s",
+				   i,
+				   fmt_amount_msat(tmpctx, (*reservations)[i].amount),
+				   fmt_short_channel_id_dir(tmpctx, &(*reservations)[i].scidd));
+		}
+		diff = AMOUNT_MSAT(0);
+	}
+	create_flow_reservations(rq, reservations, flow);
 	return diff;
 }
 
