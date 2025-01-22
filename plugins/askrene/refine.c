@@ -385,6 +385,10 @@ static bool duplicate_one_flow(const struct route_query *rq,
 	for (size_t i = 0; i < tal_count(*flows); i++) {
 		struct flow *flow = (*flows)[i], *new_flow;
 		struct amount_msat max, new_amount;
+		/* Don't create 0 flow (shouldn't happen, but be sure) */
+		if (amount_msat_less(flow->delivers, AMOUNT_MSAT(2)))
+			continue;
+
 		if (flow_max_capacity(rq, flow, &max, NULL, NULL)
 		    != CAPPED_HTLC_MAX)
 			continue;
