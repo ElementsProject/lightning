@@ -1506,6 +1506,13 @@ static struct command_result *json_xpay_core(struct command *cmd,
 		if (msat)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Cannot override amount for bolt12 invoices");
+		/* FIXME: This is actually spec legal, since invoice_amount is
+		 * the *minumum* it will accept.  We could change this to
+		 * 1msat if required. */
+ 		if (amount_msat_is_zero(payment->full_amount))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Invalid bolt12 invoice with zero amount");
+
 		payment->route_hints = NULL;
 		payment->payment_secret = NULL;
 		payment->payment_metadata = NULL;
@@ -1572,6 +1579,9 @@ static struct command_result *json_xpay_core(struct command *cmd,
 		else
 			payment->full_amount = *msat;
 
+ 		if (amount_msat_is_zero(payment->full_amount))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Cannot pay bolt11 invoice with zero amount");
 		invexpiry = b11->timestamp + b11->expiry;
 	}
 
@@ -1587,6 +1597,9 @@ static struct command_result *json_xpay_core(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "partial_msat must be less or equal to total amount %s",
 					    fmt_amount_msat(tmpctx, payment->full_amount));
+		if (amount_msat_is_zero(payment->amount))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "partial_msat must be non-zero");
 	} else {
 		payment->amount = payment->full_amount;
 	}
