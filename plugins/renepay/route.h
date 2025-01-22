@@ -59,6 +59,9 @@ struct route {
 	/* The series of channels and nodes to traverse. */
 	struct route_hop *hops;
 
+	/* shared secrets to unwrap the onions */
+	struct secret *shared_secrets;
+
 	/* amounts are redundant here if we know the hops, however sometimes we
 	 * don't know the hops, eg. by calling listsendpays, or if we have
 	 * blinded paths */

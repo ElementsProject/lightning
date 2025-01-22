@@ -20,6 +20,7 @@ struct route *new_route(const tal_t *ctx, u32 groupid,
 	route->amount_deliver = amount_deliver;
 	route->amount_sent = amount_sent;
 	route->path_num = -1;
+	route->shared_secrets = NULL;
 	return route;
 }
 

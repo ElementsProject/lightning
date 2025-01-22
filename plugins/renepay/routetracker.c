@@ -195,13 +195,28 @@ static void route_pending_register(struct routetracker *routetracker,
 /* Callback function for sendpay request success. */
 static struct command_result *sendpay_done(struct command *cmd,
 					   const char *method UNUSED,
-					   const char *buf UNUSED,
-					   const jsmntok_t *result UNUSED,
+					   const char *buf,
+					   const jsmntok_t *result,
 					   struct route *route)
 {
 	assert(route);
 	struct payment *payment = route_get_payment_verify(route);
 	route_pending_register(payment->routetracker, route);
+
+	const jsmntok_t *t;
+	size_t i;
+	bool ret;
+
+	const jsmntok_t *secretstok =
+	    json_get_member(buf, result, "shared_secrets");
+	assert(secretstok->type == JSMN_ARRAY);
+
+	route->shared_secrets = tal_arr(route, struct secret, secretstok->size);
+	json_for_each_arr(i, t, secretstok)
+	{
+		ret = json_to_secret(buf, t, &route->shared_secrets[i]);
+		assert(ret);
+	}
 	return command_still_pending(cmd);
 }
 
