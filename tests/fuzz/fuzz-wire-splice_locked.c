@@ -5,18 +5,19 @@
 
 struct splice_locked {
 	struct channel_id channel_id;
+	struct bitcoin_txid txid;
 };
 
 static void *encode(const tal_t *ctx, const struct splice_locked *s)
 {
-	return towire_splice_locked(ctx, &s->channel_id);
+	return towire_splice_locked(ctx, &s->channel_id, &s->txid);
 }
 
 static struct splice_locked *decode(const tal_t *ctx, const void *p)
 {
 	struct splice_locked *s = tal(ctx, struct splice_locked);
 
-	if (fromwire_splice_locked(p, &s->channel_id))
+	if (fromwire_splice_locked(p, &s->channel_id, &s->txid))
 		return s;
 	return tal_free(s);
 }

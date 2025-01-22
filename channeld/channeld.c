@@ -511,13 +511,14 @@ static void check_mutual_splice_locked(struct peer *peer)
 }
 
 /* Our peer told us they saw our splice confirm on chain with `splice_locked`.
- * If we see it to we jump into tansitioning to post-splice, otherwise we mark
+ * If we see it to we jump into transitioning to post-splice, otherwise we mark
  * a flag and wait until we see it on chain too. */
 static void handle_peer_splice_locked(struct peer *peer, const u8 *msg)
 {
 	struct channel_id chanid;
+	struct bitcoin_txid splice_txid;
 
-	if (!fromwire_splice_locked(msg, &chanid))
+	if (!fromwire_splice_locked(msg, &chanid, &splice_txid))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad splice_locked %s", tal_hex(msg, msg));
 
@@ -5220,7 +5221,8 @@ static void peer_reconnect(struct peer *peer,
 				    " chain -- resending splice_locked");
 			peer_write(peer->pps,
 				   take(towire_splice_locked(NULL,
-							     &peer->channel_id)));
+							     &peer->channel_id,
+							     &inflight->outpoint.txid)));
 			peer->splice_state->locked_ready[LOCAL] = true;
 		} else if (bitcoin_txid_eq(remote_next_funding,
 					   &inflight->outpoint.txid)) {
@@ -5266,7 +5268,9 @@ static void peer_reconnect(struct peer *peer,
 			status_info("We have no pending splice but peer"
 				    " expects one; resending splice_lock");
 			peer_write(peer->pps,
-				   take(towire_splice_locked(NULL, &peer->channel_id)));
+				   take(towire_splice_locked(NULL,
+				   			     &peer->channel_id,
+				   			     &peer->channel->funding.txid)));
 		}
 		else {
 			splice_abort(peer, "next_funding_txid not recognized."
