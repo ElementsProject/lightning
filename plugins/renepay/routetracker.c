@@ -372,27 +372,8 @@ struct command_result *route_sendpay_request(struct command *cmd,
 		assert(pinfo->blinded_paths);
 		const struct blinded_path *bpath =
 		    pinfo->blinded_paths[route->path_num];
+		json_myadd_blinded_path(req->js, "blinded_path", bpath);
 
-		// FIXME: how can we support the case when the entry point is a
-		// scid?
-		assert(bpath->first_node_id.is_pubkey);
-		json_object_start(req->js, "blinded_path");
-		json_add_pubkey(req->js, "first_node_id",
-				&bpath->first_node_id.pubkey);
-		json_add_pubkey(req->js, "first_path_key",
-				&bpath->first_path_key);
-		json_array_start(req->js, "path");
-		for (size_t i = 0; i < tal_count(bpath->path); i++) {
-			const struct blinded_path_hop *hop = bpath->path[i];
-			json_object_start(req->js, NULL);
-			json_add_pubkey(req->js, "blinded_node_id",
-					&hop->blinded_node_id);
-			json_add_hex_talarr(req->js, "encrypted_recipient_data",
-					    hop->encrypted_recipient_data);
-			json_object_end(req->js);
-		}
-		json_array_end(req->js);
-		json_object_end(req->js);
 	}
 
 	route_map_add(payment->routetracker->sent_routes, route);

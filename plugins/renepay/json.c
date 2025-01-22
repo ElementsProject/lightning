@@ -327,3 +327,27 @@ void json_add_route(struct json_stream *js, const struct route *route,
 		json_add_string(js, "description", pinfo->description);
 
 }
+
+void json_myadd_blinded_path(struct json_stream *s,
+			     const char *fieldname,
+			     const struct blinded_path *blinded_path)
+{
+	// FIXME: how can we support the case when the entry point is a
+	// scid?
+	assert(blinded_path->first_node_id.is_pubkey);
+	json_object_start(s, fieldname);
+	json_add_pubkey(s, "first_node_id",
+			&blinded_path->first_node_id.pubkey);
+	json_add_pubkey(s, "first_path_key", &blinded_path->first_path_key);
+	json_array_start(s, "path");
+	for (size_t i = 0; i < tal_count(blinded_path->path); i++) {
+		const struct blinded_path_hop *hop = blinded_path->path[i];
+		json_object_start(s, NULL);
+		json_add_pubkey(s, "blinded_node_id", &hop->blinded_node_id);
+		json_add_hex_talarr(s, "encrypted_recipient_data",
+				    hop->encrypted_recipient_data);
+		json_object_end(s);
+	}
+	json_array_end(s);
+	json_object_end(s);
+}
