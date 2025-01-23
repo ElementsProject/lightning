@@ -253,6 +253,16 @@ static struct command_result *handle_failure(struct routefail *r)
 	if (route->hops)
 		path_len = tal_count(route->hops);
 
+	enum onion_wire failcode;
+	if(result->failcode)
+		failcode = *result->failcode;
+	else{
+		payment_note(
+		    payment, LOG_UNUSUAL,
+		    "The failcode is unknown we skip error handling");
+		goto finish;
+	}
+
 	if (!result->erring_index) {
 		payment_note(
 		    payment, LOG_UNUSUAL,
@@ -270,7 +280,7 @@ static struct command_result *handle_failure(struct routefail *r)
 			node_type = INTERMEDIATE_NODE;
 	}
 
-	switch (result->failcode) {
+	switch (failcode) {
 	// intermediate only
 	case WIRE_INVALID_ONION_VERSION:
 	case WIRE_INVALID_ONION_HMAC:
@@ -280,8 +290,8 @@ static struct command_result *handle_failure(struct routefail *r)
 			payment_note(payment, LOG_UNUSUAL,
 				     "Final node reported strange "
 				     "error code %04x (%s)",
-				     result->failcode,
-				     onion_wire_name(result->failcode));
+				     failcode,
+				     onion_wire_name(failcode));
 			break;
 		case ORIGIN_NODE:
 		case INTERMEDIATE_NODE:
@@ -297,8 +307,8 @@ static struct command_result *handle_failure(struct routefail *r)
 			route_final_error(
 			    route, PAY_DESTINATION_PERM_FAIL,
 			    "Received error code %04x (%s) at final node.",
-			    result->failcode,
-			    onion_wire_name(result->failcode));
+			    failcode,
+			    onion_wire_name(failcode));
 
 			break;
 		case INTERMEDIATE_NODE:
@@ -311,7 +321,7 @@ static struct command_result *handle_failure(struct routefail *r)
 			payment_disable_node(
 			    payment, route->hops[*result->erring_index].node_id,
 			    LOG_DBG, "received %s from previous hop",
-			    onion_wire_name(result->failcode));
+			    onion_wire_name(failcode));
 			break;
 		case UNKNOWN_NODE:
 			break;
@@ -353,8 +363,8 @@ static struct command_result *handle_failure(struct routefail *r)
 			payment_note(payment, LOG_UNUSUAL,
 				     "Intermediate node reported strange "
 				     "error code %04x (%s)",
-				     result->failcode,
-				     onion_wire_name(result->failcode));
+				     failcode,
+				     onion_wire_name(failcode));
 			break;
 		case ORIGIN_NODE:
 		case FINAL_NODE:
@@ -371,15 +381,15 @@ static struct command_result *handle_failure(struct routefail *r)
 			route_final_error(
 			    route, PAY_DESTINATION_PERM_FAIL,
 			    "Received error code %04x (%s) at final node.",
-			    result->failcode,
-			    onion_wire_name(result->failcode));
+			    failcode,
+			    onion_wire_name(failcode));
 			break;
 		case ORIGIN_NODE:
 			route_final_error(
 			    route, PAY_UNSPECIFIED_ERROR,
 			    "Error code %04x (%s) reported at the origin.",
-			    result->failcode,
-			    onion_wire_name(result->failcode));
+			    failcode,
+			    onion_wire_name(failcode));
 			break;
 		case INTERMEDIATE_NODE:
 			if (!route->hops)
@@ -388,7 +398,7 @@ static struct command_result *handle_failure(struct routefail *r)
 			    payment,
 			    route->hops[*result->erring_index - 1].node_id,
 			    LOG_INFORM, "received error %s",
-			    onion_wire_name(result->failcode));
+			    onion_wire_name(failcode));
 			break;
 		case UNKNOWN_NODE:
 			break;
@@ -406,22 +416,22 @@ static struct command_result *handle_failure(struct routefail *r)
 			payment_note(payment, LOG_UNUSUAL,
 				     "Final node reported strange "
 				     "error code %04x (%s)",
-				     result->failcode,
-				     onion_wire_name(result->failcode));
+				     failcode,
+				     onion_wire_name(failcode));
 
 			route_final_error(
 			    route, PAY_DESTINATION_PERM_FAIL,
 			    "Received error code %04x (%s) at final node.",
-			    result->failcode,
-			    onion_wire_name(result->failcode));
+			    failcode,
+			    onion_wire_name(failcode));
 
 			break;
 		case ORIGIN_NODE:
 			payment_note(payment, LOG_UNUSUAL,
 				     "First node reported strange "
 				     "error code %04x (%s)",
-				     result->failcode,
-				     onion_wire_name(result->failcode));
+				     failcode,
+				     onion_wire_name(failcode));
 
 			break;
 		case INTERMEDIATE_NODE:
@@ -431,7 +441,7 @@ static struct command_result *handle_failure(struct routefail *r)
 			    .scid = route->hops[*result->erring_index].scid,
 			    .dir = route->hops[*result->erring_index].direction};
 			payment_disable_chan(payment, scidd, LOG_INFORM, "%s",
-					     onion_wire_name(result->failcode));
+					     onion_wire_name(failcode));
 
 			break;
 		case UNKNOWN_NODE:
@@ -449,8 +459,8 @@ static struct command_result *handle_failure(struct routefail *r)
 			payment_note(payment, LOG_UNUSUAL,
 				     "Intermediate node reported strange "
 				     "error code %04x (%s)",
-				     result->failcode,
-				     onion_wire_name(result->failcode));
+				     failcode,
+				     onion_wire_name(failcode));
 
 			if (!route->hops)
 				break;
@@ -458,7 +468,7 @@ static struct command_result *handle_failure(struct routefail *r)
 			    payment,
 			    route->hops[*result->erring_index - 1].node_id,
 			    LOG_INFORM, "received error %s",
-			    onion_wire_name(result->failcode));
+			    onion_wire_name(failcode));
 
 			break;
 		case ORIGIN_NODE:
@@ -478,22 +488,22 @@ static struct command_result *handle_failure(struct routefail *r)
 			payment_note(payment, LOG_UNUSUAL,
 				     "Final node reported strange "
 				     "error code %04x (%s)",
-				     result->failcode,
-				     onion_wire_name(result->failcode));
+				     failcode,
+				     onion_wire_name(failcode));
 
 			route_final_error(
 			    route, PAY_DESTINATION_PERM_FAIL,
 			    "Received error code %04x (%s) at final node.",
-			    result->failcode,
-			    onion_wire_name(result->failcode));
+			    failcode,
+			    onion_wire_name(failcode));
 
 			break;
 		case ORIGIN_NODE:
 			payment_note(payment, LOG_UNUSUAL,
 				     "First node reported strange "
 				     "error code %04x (%s)",
-				     result->failcode,
-				     onion_wire_name(result->failcode));
+				     failcode,
+				     onion_wire_name(failcode));
 
 			break;
 		case INTERMEDIATE_NODE:
@@ -507,7 +517,7 @@ static struct command_result *handle_failure(struct routefail *r)
 			    .dir = route->hops[*result->erring_index].direction};
 			payment_warn_chan(payment, scidd, LOG_INFORM,
 					  "received error %s",
-					  onion_wire_name(result->failcode));
+					  onion_wire_name(failcode));
 
 			break;
 		case UNKNOWN_NODE:
@@ -525,14 +535,14 @@ static struct command_result *handle_failure(struct routefail *r)
 			payment_note(payment, LOG_UNUSUAL,
 				     "Final node reported strange "
 				     "error code %04x (%s)",
-				     result->failcode,
-				     onion_wire_name(result->failcode));
+				     failcode,
+				     onion_wire_name(failcode));
 
 			route_final_error(
 			    route, PAY_DESTINATION_PERM_FAIL,
 			    "Received error code %04x (%s) at final node.",
-			    result->failcode,
-			    onion_wire_name(result->failcode));
+			    failcode,
+			    onion_wire_name(failcode));
 
 			break;
 		case INTERMEDIATE_NODE:
