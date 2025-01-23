@@ -76,7 +76,7 @@ struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 						    const char *buffer,
 						    const jsmntok_t *toks)
 {
-	const jsmntok_t *idtok = json_get_member(buffer, toks, "id");
+	const jsmntok_t *idtok = json_get_member(buffer, toks, "created_index");
 	const jsmntok_t *hashtok =
 	    json_get_member(buffer, toks, "payment_hash");
 	const jsmntok_t *senttok =
@@ -85,28 +85,34 @@ struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 	const jsmntok_t *preimagetok =
 	    json_get_member(buffer, toks, "payment_preimage");
 	const jsmntok_t *codetok = json_get_member(buffer, toks, "code");
+	const jsmntok_t *msgtok = json_get_member(buffer, toks, "message");
 	const jsmntok_t *datatok = json_get_member(buffer, toks, "data");
-	const jsmntok_t *erridxtok, *msgtok, *failcodetok, *rawmsgtok,
+	const jsmntok_t *erridxtok, *failcodetok, *rawmsgtok,
 	    *failcodenametok, *errchantok, *errnodetok, *errdirtok;
 	struct payment_result *result;
 
 	/* Check if we have an error and need to descend into data to get
 	 * details. */
 	if (codetok != NULL && datatok != NULL) {
-		idtok = json_get_member(buffer, datatok, "id");
+		idtok = json_get_member(buffer, datatok, "create_index");
 		hashtok = json_get_member(buffer, datatok, "payment_hash");
 		senttok = json_get_member(buffer, datatok, "amount_sent_msat");
 		statustok = json_get_member(buffer, datatok, "status");
 	}
 
 	/* Initial sanity checks, all these fields must exist. */
-	if (idtok == NULL || idtok->type != JSMN_PRIMITIVE || hashtok == NULL ||
-	    hashtok->type != JSMN_STRING || senttok == NULL ||
-	    statustok == NULL || statustok->type != JSMN_STRING) {
+	if (hashtok == NULL || hashtok->type != JSMN_STRING ||
+	    senttok == NULL || statustok == NULL ||
+	    statustok->type != JSMN_STRING) {
 		return NULL;
 	}
 
 	result = tal(ctx, struct payment_result);
+
+	if (msgtok)
+		result->message = json_strdup(result, buffer, msgtok);
+	else
+		result->message = NULL;
 
 	if (codetok != NULL)
 		// u32? isn't this an int?
@@ -115,7 +121,12 @@ struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 	else
 		result->code = 0;
 
-	json_to_u64(buffer, idtok, &result->id);
+	if (idtok) {
+		result->created_index = tal(result, u64);
+		json_to_u64(buffer, idtok, result->created_index);
+	} else
+		result->created_index = NULL;
+
 	json_to_msat(buffer, senttok, &result->amount_sent);
 	if (json_tok_streq(buffer, statustok, "pending")) {
 		result->status = SENDPAY_PENDING;
@@ -133,7 +144,7 @@ struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 	}
 
 	/* Now extract the error details if the error code is not 0 */
-	if (result->code != 0) {
+	if (result->code != 0 && datatok) {
 		erridxtok = json_get_member(buffer, datatok, "erring_index");
 		errnodetok = json_get_member(buffer, datatok, "erring_node");
 		errchantok = json_get_member(buffer, datatok, "erring_channel");
@@ -142,17 +153,16 @@ struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 		failcodetok = json_get_member(buffer, datatok, "failcode");
 		failcodenametok =
 		    json_get_member(buffer, datatok, "failcodename");
-		msgtok = json_get_member(buffer, toks, "message");
 		rawmsgtok = json_get_member(buffer, datatok, "raw_message");
-		if (failcodetok == NULL ||
-		    failcodetok->type != JSMN_PRIMITIVE ||
+		/* check type for sanity */
+		if ((failcodetok != NULL &&
+		     failcodetok->type != JSMN_PRIMITIVE) ||
 		    (failcodenametok != NULL &&
 		     failcodenametok->type != JSMN_STRING) ||
 		    (erridxtok != NULL && erridxtok->type != JSMN_PRIMITIVE) ||
 		    (errnodetok != NULL && errnodetok->type != JSMN_STRING) ||
 		    (errchantok != NULL && errchantok->type != JSMN_STRING) ||
 		    (errdirtok != NULL && errdirtok->type != JSMN_PRIMITIVE) ||
-		    msgtok == NULL || msgtok->type != JSMN_STRING ||
 		    (rawmsgtok != NULL && rawmsgtok->type != JSMN_STRING))
 			goto fail;
 
@@ -168,9 +178,11 @@ struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 		else
 			result->failcodename = NULL;
 
-		json_to_u32(buffer, failcodetok, &result->failcode);
-		result->message = json_strdup(result, buffer, msgtok);
-
+		if(failcodetok){
+			result->failcode = tal(result, enum onion_wire);
+			json_to_u32(buffer, failcodetok, result->failcode);
+		}else
+			result->failcode = NULL;
 		if (erridxtok != NULL) {
 			result->erring_index = tal(result, u32);
 			json_to_u32(buffer, erridxtok, result->erring_index);

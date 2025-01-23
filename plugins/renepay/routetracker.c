@@ -102,7 +102,7 @@ void route_failure_register(struct routetracker *routetracker,
 	assert(result);
 
 	/* Update the knowledge in the uncertaity network. */
-	if (route->hops) {
+	if (route->hops && result->failcode) {
 		assert(result->erring_index);
 		int path_len = tal_count(route->hops);
 
@@ -123,7 +123,7 @@ void route_failure_register(struct routetracker *routetracker,
 						     route->hops[i].direction);
 		}
 
-		if (result->failcode == WIRE_TEMPORARY_CHANNEL_FAILURE &&
+		if (*result->failcode == WIRE_TEMPORARY_CHANNEL_FAILURE &&
 		    (last_good_channel + 1) < path_len) {
 			/* A WIRE_TEMPORARY_CHANNEL_FAILURE could mean not
 			 * enough liquidity to forward the payment or cannot add

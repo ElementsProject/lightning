@@ -29,13 +29,13 @@ enum sendpay_result_status {
 struct payment_result {
 	/* DB internal id */
 	// TODO check all this variables
-	u64 id;
+	u64 *created_index;
 	struct preimage *payment_preimage;
 	enum sendpay_result_status status;
 	struct amount_msat amount_sent;
 	enum jsonrpc_errcode code;
 	const char *failcodename;
-	enum onion_wire failcode;
+	enum onion_wire *failcode;
 	const u8 *raw_message;
 	const char *message;
 	u32 *erring_index;
