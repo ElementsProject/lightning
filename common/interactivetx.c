@@ -493,6 +493,12 @@ char *process_interactivetx_updates(const tal_t *ctx,
 						       " did not set"
 						       " interactivetx"
 						       " funding_tx");
+				if (tx_bytes)
+					return tal_fmt(ctx, "Peer used"
+						       " shared_input_txid %s,"
+						       " also included prevtx,"
+						       " only one is allowed.",
+						       fmt_bitcoin_txid(ctx, tlvs->shared_input_txid));
 				tx = ictx->funding_tx;
 			}
 			else {
