@@ -225,8 +225,8 @@ static char *send_next(const tal_t *ctx,
 
 		wally_psbt_input_get_outpoint(&in->input, &point);
 
-		/* If this the shared channel input, we send funding txid in
-		 * in tlvs and do not send prevtx */
+		/* If this is the shared channel input, we send funding txid in
+		 * tlvs and do not send prevtx */
  		if (ictx->shared_outpoint
  			&& bitcoin_outpoint_eq(&point, ictx->shared_outpoint)) {
 			struct tlv_tx_add_input_tlvs *tlvs = tal(tmpctx, struct tlv_tx_add_input_tlvs);
