@@ -297,15 +297,6 @@ REPLACE_RESPONSE_VALUES = [
 
 if os.path.exists(LOG_FILE):
     open(LOG_FILE, 'w').close()
-
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s',
-                    datefmt='%H:%M:%S',
-                    handlers=[
-                        logging.FileHandler(LOG_FILE),
-                        logging.StreamHandler()
-                    ])
-
 logger = logging.getLogger(__name__)
 
 
@@ -2035,6 +2026,19 @@ def generate_list_examples(l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, 
         raise
 
 
+@pytest.fixture(autouse=True)
+def setup_logging():
+    global logger
+    logger.setLevel(logging.DEBUG)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s", "%H:%M:%S")
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+    file_handler = logging.FileHandler(LOG_FILE)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+
 @unittest.skipIf(not GENERATE_EXAMPLES, 'Generates examples for doc/schema/lightning-*.json files.')
 def test_generate_examples(node_factory, bitcoind, executor):
     """Re-generates examples for doc/schema/lightning-*.json files"""
@@ -2055,9 +2059,9 @@ def test_generate_examples(node_factory, bitcoind, executor):
                 for node in ast.walk(tree):
                     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'update_example':
                         for keyword in node.keywords:
-                            if (keyword.arg == 'method' and isinstance(keyword.value, ast.Str)):
-                                if keyword.value.s not in methods:
-                                    methods.append(keyword.value.s)
+                            if (keyword.arg == 'method' and isinstance(keyword.value, ast.Constant)):
+                                if keyword.value.value not in methods:
+                                    methods.append(keyword.value.value)
                 return methods
             except Exception as e:
                 logger.error(f'Error in listing all examples: {e}')
@@ -2105,5 +2109,5 @@ def test_generate_examples(node_factory, bitcoind, executor):
         update_examples_in_schema_files()
         logger.info('All Done!!!')
     except Exception as e:
-        logger.error(e)
+        logger.error(e, exc_info=True)
         sys.exit(1)

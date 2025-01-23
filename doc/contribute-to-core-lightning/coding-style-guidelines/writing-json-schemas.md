@@ -94,7 +94,7 @@ preventing accidental overwrites from unrelated tests.
 	where `n` can be any number of repetitions. OR by manually running the test multiple times with:
 
 	```bash
-	rm -rf /tmp/ltests* && make -s && VALGRIND=0 TIMEOUT=40 TEST_DEBUG=1 GENERATE_EXAMPLES=1 pytest -vvv tests/autogenerate-rpc-examples.py
+	rm -rf /tmp/ltests* && make -s && VALGRIND=0 TIMEOUT=40 TEST_DEBUG=1 GENERATE_EXAMPLES=1 pytest -vvv -s tests/autogenerate-rpc-examples.py
 	```
 
 	- Identify changing values, and add them to `REPLACE_RESPONSE_VALUES`:
@@ -117,7 +117,7 @@ environment variable with a comma-separated list of method names. Eg. `REGENERAT
 only regenerate examples for the `getinfo` and `connect` RPCs.
 2. To regenerate specific examples, set the REGENERATE environment variable:
 ```bash
-REGENERATE='getinfo,connect' VALGRIND=0 TIMEOUT=10 TEST_DEBUG=1 GENERATE_EXAMPLES=1 pytest -vvv tests/autogenerate-rpc-examples.py
+REGENERATE='getinfo,connect' VALGRIND=0 TIMEOUT=10 TEST_DEBUG=1 GENERATE_EXAMPLES=1 pytest -vvv -s tests/autogenerate-rpc-examples.py
 ```
 3. Logs are saved in `tests/autogenerate-examples-status.log`, and JSON data is in `tests/autogenerate-examples.json`.
 4. Run `make` after the script completes to ensure schema updates are applied in other places too, such as `...msggen/schema.json`.
