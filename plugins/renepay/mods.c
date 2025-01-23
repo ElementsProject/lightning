@@ -258,13 +258,8 @@ static struct command_result *selfpay_success(struct command *cmd,
 					      const char *method UNUSED,
 					      const char *buf,
 					      const jsmntok_t *tok,
-					      struct route *route)
+					      struct payment *payment)
 {
-	tal_steal(tmpctx, route); // discard this route when tmpctx clears
-	struct payment *payment =
-		    payment_map_get(pay_plugin->payment_map, route->key.payment_hash);
-	assert(payment);
-
 	struct preimage preimage;
 	const char *err;
 	err = json_scan(tmpctx, buf, tok, "{payment_preimage:%}",
@@ -282,18 +277,17 @@ static struct command_result *selfpay_failure(struct command *cmd,
 					      const char *method UNUSED,
 					      const char *buf,
 					      const jsmntok_t *tok,
-					      struct route *route)
+					      struct payment *payment)
 {
-	tal_steal(tmpctx, route); // discard this route when tmpctx clears
-	struct payment *payment =
-		    payment_map_get(pay_plugin->payment_map, route->key.payment_hash);
-	assert(payment);
-	struct payment_result *result = tal_sendpay_result_from_json(tmpctx, buf, tok);
-	if (result == NULL)
-		plugin_err(pay_plugin->plugin,
+	struct payment_result *result =
+	    tal_sendpay_result_from_json(tmpctx, buf, tok);
+	if (result == NULL) {
+		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
 			   "Unable to parse sendpay failure: %.*s",
 			   json_tok_full_len(tok), json_tok_full(buf, tok));
-
+		return payment_fail(payment, LIGHTNINGD,
+				    "Self pay failed for unknown reason");
+	}
 	return payment_fail(payment, result->code, "%s", result->message);
 }
 
@@ -310,17 +304,32 @@ static struct command_result *selfpay_cb(struct payment *payment)
 			   "Selfpay: cannot get a valid cmd.");
 
 	struct payment_info *pinfo = &payment->payment_info;
-	/* Self-payment routes are not part of the routetracker, we build them
-	 * on-the-fly here and release them on success or failure. */
-	struct route *route =
-	    new_route(payment, payment->groupid,
-		      /*partid=*/0, pinfo->payment_hash,
-		      pinfo->amount, pinfo->amount);
 	struct out_req *req;
-	req = jsonrpc_request_start(cmd, "sendpay",
-				    selfpay_success, selfpay_failure, route);
-	route->hops = tal_arr(route, struct route_hop, 0);
-	json_add_route(req->js, route, payment);
+	req = jsonrpc_request_start(cmd, "renesendpay", selfpay_success,
+				    selfpay_failure, payment);
+	json_add_sha256(req->js, "payment_hash", &pinfo->payment_hash);
+	json_add_u64(req->js, "partid", 0);
+	json_add_u64(req->js, "groupid", payment->groupid);
+	json_add_string(req->js, "invoice", pinfo->invstr);
+	json_add_node_id(req->js, "destination", &pinfo->destination);
+	json_add_amount_msat(req->js, "amount_msat", pinfo->amount);
+	json_add_amount_msat(req->js, "total_amount_msat", pinfo->amount);
+	json_add_u32(req->js, "final_cltv", pinfo->final_cltv);
+	if (pinfo->label)
+		json_add_string(req->js, "label", pinfo->label);
+	if (pinfo->description)
+		json_add_string(req->js, "description", pinfo->description);
+	/* An empty route means a payment to oneself, pathlen=0 */
+	json_array_start(req->js, "route");
+	json_array_end(req->js);
+	if (pinfo->payment_secret)
+		json_add_secret(req->js, "payment_secret",
+				pinfo->payment_secret);
+	else {
+		assert(pinfo->blinded_paths);
+		const struct blinded_path *bpath = pinfo->blinded_paths[0];
+		json_myadd_blinded_path(req->js, "blinded_path", bpath);
+	}
 	return send_outreq(req);
 }
 

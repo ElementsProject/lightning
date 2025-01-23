@@ -145,7 +145,7 @@ static struct command_result *sendpay_rpc_failure(struct command *cmd,
 		json_to_u32(buffer, codetok, &errcode);
 	else
 		errcode = LIGHTNINGD;
-
+	// FIXME: make this response more useful, maybe similar to waitsendpay
 	return command_fail(
 	    cmd, errcode, "renesendpay failed to error in RPC: %.*s",
 	    json_tok_full_len(toks), json_tok_full(buffer, toks));
@@ -297,6 +297,11 @@ static struct command_result *sendonion_done(struct command *cmd,
 			     renesendpay->total_amount);
 	json_add_string(response, "invoice", renesendpay->invoice);
 
+	const jsmntok_t *preimagetok =
+	    json_get_member(buffer, toks, "payment_preimage");
+	if (preimagetok)
+		json_add_tok(response, "payment_preimage", preimagetok, buffer);
+
 	if (renesendpay->label)
 		json_add_string(response, "label", renesendpay->label);
 	if (renesendpay->description)
@@ -338,31 +343,55 @@ static struct command_result *waitblockheight_done(struct command *cmd,
 	const u8 *onion;
 	struct out_req *req;
 
-	onion =
-	    create_onion(tmpctx, renesendpay, renesendpay->route[0].node_id, 1);
-	req = jsonrpc_request_start(cmd, "sendonion", sendonion_done,
-				    sendpay_rpc_failure, renesendpay);
-	json_add_hex_talarr(req->js, "onion", onion);
+	if (tal_count(renesendpay->route) > 0) {
+		onion = create_onion(tmpctx, renesendpay,
+				     renesendpay->route[0].node_id, 1);
+		req = jsonrpc_request_start(cmd, "sendonion", sendonion_done,
+					    sendpay_rpc_failure, renesendpay);
+		json_add_hex_talarr(req->js, "onion", onion);
+
+		json_add_amount_msat(req->js, "amount_msat",
+				     renesendpay->deliver_amount);
+
+		const struct route_hop *hop = &renesendpay->route[0];
+		json_object_start(req->js, "first_hop");
+		json_add_amount_msat(req->js, "amount_msat", hop->amount);
+		json_add_num(req->js, "delay",
+			     hop->delay + renesendpay->blockheight);
+		json_add_node_id(req->js, "id", &hop->node_id);
+		json_add_short_channel_id(req->js, "channel", hop->scid);
+		json_object_end(req->js);
+
+		json_array_start(req->js, "shared_secrets");
+		for (size_t i = 0; i < tal_count(renesendpay->shared_secrets);
+		     i++) {
+			json_add_secret(req->js, NULL,
+					&renesendpay->shared_secrets[i]);
+		}
+		json_array_end(req->js);
+
+		json_add_node_id(req->js, "destination",
+				 &renesendpay->destination);
+
+	} else {
+		/* self payment */
+		onion = NULL;
+		req = jsonrpc_request_start(cmd, "sendpay", sendonion_done,
+					    sendpay_rpc_failure, renesendpay);
+		json_array_start(req->js, "route");
+		json_array_end(req->js);
+		json_add_amount_msat(req->js, "amount_msat",
+				     renesendpay->total_amount);
+		if(renesendpay->payment_secret)
+			json_add_secret(req->js, "payment_secret", renesendpay->payment_secret);
+		else{
+			// FIXME: get payment_secret from blinded path
+		}
+	}
+
 	json_add_sha256(req->js, "payment_hash", &renesendpay->payment_hash);
 	json_add_u64(req->js, "partid", renesendpay->partid);
 	json_add_u64(req->js, "groupid", renesendpay->groupid);
-	json_add_node_id(req->js, "destination", &renesendpay->destination);
-	json_add_amount_msat(req->js, "amount_msat", renesendpay->deliver_amount);
-
-	const struct route_hop *hop = &renesendpay->route[0];
-	json_object_start(req->js, "first_hop");
-	json_add_amount_msat(req->js, "amount_msat", hop->amount);
-	json_add_num(req->js, "delay", hop->delay + renesendpay->blockheight);
-	json_add_node_id(req->js, "id", &hop->node_id);
-	json_add_short_channel_id(req->js, "channel", hop->scid);
-	json_object_end(req->js);
-
-	json_array_start(req->js, "shared_secrets");
-	for (size_t i = 0; i < tal_count(renesendpay->shared_secrets); i++) {
-		json_add_secret(req->js, NULL, &renesendpay->shared_secrets[i]);
-	}
-	json_array_end(req->js);
-
 	if (renesendpay->label)
 		json_add_string(req->js, "label", renesendpay->label);
 	if (renesendpay->description)
@@ -431,7 +460,11 @@ struct command_result *json_renesendpay(struct command *cmd,
 	renesendpay->partid = *partid;
 	renesendpay->groupid = *groupid;
 
-	renesendpay->sent_amount = renesendpay->route[0].amount;
+	if (tal_count(renesendpay->route) > 0)
+		renesendpay->sent_amount = renesendpay->route[0].amount;
+	else /* this might be a self pay */
+		renesendpay->sent_amount = *amount;
+
 	renesendpay->total_amount = *total_amount;
 	renesendpay->deliver_amount = *amount;
 	renesendpay->final_cltv = *final_cltv;
