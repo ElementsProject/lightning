@@ -43,7 +43,7 @@ struct uncertainty *uncertainty_new(const tal_t *ctx);
 struct chan_extra_map *
 uncertainty_get_chan_extra_map(struct uncertainty *uncertainty);
 
-const struct chan_extra *
+struct chan_extra *
 uncertainty_add_channel(struct uncertainty *uncertainty,
 			const struct short_channel_id scid,
 			struct amount_msat capacity);

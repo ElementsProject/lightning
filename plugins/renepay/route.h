@@ -170,7 +170,8 @@ static inline u32 route_delay(const struct route *route)
 {
 	assert(route);
 	assert(route->hops);
-	assert(tal_count(route->hops) > 0);
+	if (tal_count(route->hops) == 0)
+		return 0;
 	const size_t pathlen = tal_count(route->hops);
 	assert(route->hops[0].delay >= route->hops[pathlen - 1].delay);
 	return route->hops[0].delay - route->hops[pathlen - 1].delay;

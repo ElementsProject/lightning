@@ -65,6 +65,8 @@ route_check_constraints(struct route *route, struct gossmap *gossmap,
 	assert(route);
 	assert(route->hops);
 	const size_t pathlen = tal_count(route->hops);
+	if (pathlen == 0)
+		return RENEPAY_NOERROR;
 	if (!amount_msat_eq(route->amount_deliver,
 			    route->hops[pathlen - 1].amount))
 		return RENEPAY_PRECONDITION_ERROR;

@@ -92,6 +92,13 @@ static struct command_result *payment_rpc_failure(struct command *cmd,
 	    json_tok_full_len(toks), json_tok_full(buffer, toks));
 }
 
+static void add_hintchan(struct payment *payment, const struct node_id *src,
+			 const struct node_id *dst, u16 cltv_expiry_delta,
+			 const struct short_channel_id scid, u32 fee_base_msat,
+			 u32 fee_proportional_millionths,
+			 const struct amount_msat *chan_htlc_min,
+			 const struct amount_msat *chan_htlc_max);
+
 /*****************************************************************************
  * previoussuccess
  *
@@ -249,88 +256,23 @@ REGISTER_PAYMENT_MODIFIER(initial_sanity_checks, initial_sanity_checks_cb);
 
 /*****************************************************************************
  * selfpay
- *
- * Checks if the payment destination is the sender's node and perform a self
- * payment.
  */
-
-static struct command_result *selfpay_success(struct command *cmd,
-					      const char *method UNUSED,
-					      const char *buf,
-					      const jsmntok_t *tok,
-					      struct payment *payment)
-{
-	struct preimage preimage;
-	const char *err;
-	err = json_scan(tmpctx, buf, tok, "{payment_preimage:%}",
-			JSON_SCAN(json_to_preimage, &preimage));
-	if (err)
-		plugin_err(
-		    cmd->plugin, "selfpay didn't have payment_preimage: %.*s",
-		    json_tok_full_len(tok), json_tok_full(buf, tok));
-
-
-	payment_note(payment, LOG_DBG, "Paid with self-pay.");
-	return payment_success(payment, &preimage);
-}
-static struct command_result *selfpay_failure(struct command *cmd,
-					      const char *method UNUSED,
-					      const char *buf,
-					      const jsmntok_t *tok,
-					      struct payment *payment)
-{
-	struct payment_result *result =
-	    tal_sendpay_result_from_json(tmpctx, buf, tok);
-	if (result == NULL) {
-		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
-			   "Unable to parse sendpay failure: %.*s",
-			   json_tok_full_len(tok), json_tok_full(buf, tok));
-		return payment_fail(payment, LIGHTNINGD,
-				    "Self pay failed for unknown reason");
-	}
-	return payment_fail(payment, result->code, "%s", result->message);
-}
 
 static struct command_result *selfpay_cb(struct payment *payment)
 {
-	if (!node_id_eq(&pay_plugin->my_id,
-			&payment->payment_info.destination)) {
-		return payment_continue(payment);
+	/* A different approach to self-pay: create a fake channel from the
+	 * bolt11 destination to the routing_destination (a fake node_id). */
+	if (!payment->payment_info.blinded_paths) {
+		struct amount_msat htlc_min = AMOUNT_MSAT(0);
+		struct amount_msat htlc_max = AMOUNT_MSAT((u64)1000*100000000);
+		struct short_channel_id scid = {.u64 = 0};
+		add_hintchan(payment, &payment->payment_info.destination,
+			     payment->routing_destination,
+			     /* cltv delta = */ 0, scid,
+			     /* base fee = */ 0,
+			     /* ppm = */ 0, &htlc_min, &htlc_max);
 	}
-
-	struct command *cmd = payment_command(payment);
-	if (!cmd)
-		plugin_err(pay_plugin->plugin,
-			   "Selfpay: cannot get a valid cmd.");
-
-	struct payment_info *pinfo = &payment->payment_info;
-	struct out_req *req;
-	req = jsonrpc_request_start(cmd, "renesendpay", selfpay_success,
-				    selfpay_failure, payment);
-	json_add_sha256(req->js, "payment_hash", &pinfo->payment_hash);
-	json_add_u64(req->js, "partid", 0);
-	json_add_u64(req->js, "groupid", payment->groupid);
-	json_add_string(req->js, "invoice", pinfo->invstr);
-	json_add_node_id(req->js, "destination", &pinfo->destination);
-	json_add_amount_msat(req->js, "amount_msat", pinfo->amount);
-	json_add_amount_msat(req->js, "total_amount_msat", pinfo->amount);
-	json_add_u32(req->js, "final_cltv", pinfo->final_cltv);
-	if (pinfo->label)
-		json_add_string(req->js, "label", pinfo->label);
-	if (pinfo->description)
-		json_add_string(req->js, "description", pinfo->description);
-	/* An empty route means a payment to oneself, pathlen=0 */
-	json_array_start(req->js, "route");
-	json_array_end(req->js);
-	if (pinfo->payment_secret)
-		json_add_secret(req->js, "payment_secret",
-				pinfo->payment_secret);
-	else {
-		assert(pinfo->blinded_paths);
-		const struct blinded_path *bpath = pinfo->blinded_paths[0];
-		json_myadd_blinded_path(req->js, "blinded_path", bpath);
-	}
-	return send_outreq(req);
+	return payment_continue(payment);
 }
 
 REGISTER_PAYMENT_MODIFIER(selfpay, selfpay_cb);
@@ -513,7 +455,12 @@ REGISTER_PAYMENT_MODIFIER(refreshgossmap, refreshgossmap_cb);
  * Use route hints from the invoice to update the local gossmods and uncertainty
  * network.
  */
-// TODO check how this is done in pay.c
+
+static void uncertainty_remove_channel(struct chan_extra *ce,
+				       struct uncertainty *uncertainty)
+{
+	chan_extra_map_del(uncertainty->chan_extra_map, ce);
+}
 
 static void add_hintchan(struct payment *payment, const struct node_id *src,
 			 const struct node_id *dst, u16 cltv_expiry_delta,
@@ -526,7 +473,7 @@ static void add_hintchan(struct payment *payment, const struct node_id *src,
 	assert(payment->local_gossmods);
 
 	const char *errmsg;
-	const struct chan_extra *ce =
+	struct chan_extra *ce =
 	    uncertainty_find_channel(pay_plugin->uncertainty, scid);
 
 	if (!ce) {
@@ -573,6 +520,15 @@ static void add_hintchan(struct payment *payment, const struct node_id *src,
 			    fmt_short_channel_id(tmpctx, scid));
 			goto function_error;
 		}
+		/* We want these channel hints destroyed when the local_gossmods
+		 * are freed. */
+		/* FIXME: these hints are global in the uncertainty network if
+		 * two payments happen concurrently we will have race
+		 * conditions. The best way to avoid this is to use askrene and
+		 * it's layered API. */
+		tal_steal(payment->local_gossmods, ce);
+		tal_add_destructor2(ce, uncertainty_remove_channel,
+				    pay_plugin->uncertainty);
 	} else {
 		/* The channel is pubic and we already keep track of it in the
 		 * gossmap and uncertainty network. It would be wrong to assume
@@ -748,8 +704,7 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 
 	/* Send get_routes a note that it should discard the last hop because we
 	 * are actually solving a multiple destinations problem. */
-	bool blinded_destination =
-	    payment->payment_info.blinded_paths != NULL;
+	bool blinded_destination = true;
 
 	// TODO: add an algorithm selector here
 	/* We let this return an unlikely path, as it's better to try  once than
@@ -1284,9 +1239,9 @@ REGISTER_PAYMENT_CONDITION(retry, retry_cb);
 // add check pre-approved invoice
 void *payment_virtual_program[] = {
     /*0*/ OP_CALL, &previoussuccess_pay_mod,
-    /*2*/ OP_CALL, &selfpay_pay_mod,
-    /*4*/ OP_CALL, &knowledgerelax_pay_mod,
-    /*6*/ OP_CALL, &getmychannels_pay_mod,
+    /*2*/ OP_CALL, &knowledgerelax_pay_mod,
+    /*4*/ OP_CALL, &getmychannels_pay_mod,
+    /*6*/ OP_CALL, &selfpay_pay_mod,
     /*8*/ OP_CALL, &refreshgossmap_pay_mod,
     /*10*/ OP_CALL, &routehints_pay_mod,
     /*12*/ OP_CALL, &blindedhints_pay_mod,

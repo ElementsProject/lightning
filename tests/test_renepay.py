@@ -110,7 +110,7 @@ def test_errors(node_factory, bitcoind):
     node_factory.join_nodes([l1, l2, l4], wait_for_announce=True, fundamount=1000000)
     node_factory.join_nodes([l1, l3, l5], wait_for_announce=True, fundamount=1000000)
 
-    failmsg = r"Destination is unknown in the network gossip."
+    failmsg = r"failed to find a feasible flow"
     with pytest.raises(RpcError, match=failmsg):
         l1.rpc.call("renepay", {"invstring": inv})
 
@@ -848,3 +848,11 @@ def test_offers(node_factory):
     invoice = l1.rpc.fetchinvoice(offer)['invoice']
     response = l1.rpc.call("renepay", {"invstring": invoice})
     assert response["status"] == "complete"
+
+
+def test_offer_selfpay(node_factory):
+    """We can fetch an pay our own offer"""
+    l1 = node_factory.get_node()
+    offer = l1.rpc.offer(amount="2msat", description="test_offer_path_self")["bolt12"]
+    inv = l1.rpc.fetchinvoice(offer)["invoice"]
+    l1.rpc.call("renepay", {"invstring": inv})

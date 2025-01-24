@@ -435,8 +435,6 @@ static struct command_result *waitblockheight_done(struct command *cmd,
 				     renesendpay->sent_amount);
 		json_add_amount_msat(req->js, "destination_msat",
 				     renesendpay->deliver_amount);
-		json_add_amount_msat(req->js, "destination_msat",
-				     renesendpay->deliver_amount);
 		json_add_u32(req->js, "cltv_expiry",
 			     initial_cltv_delta(renesendpay) +
 				 renesendpay->blockheight);
