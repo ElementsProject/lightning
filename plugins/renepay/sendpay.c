@@ -342,6 +342,13 @@ static struct command_result *renesendpay_done(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
+static u32 initial_cltv_delta(const struct renesendpay *renesendpay)
+{
+	if (tal_count(renesendpay->route) == 0)
+		return renesendpay->final_cltv;
+	return renesendpay->route[0].delay;
+}
+
 static struct command_result *waitblockheight_done(struct command *cmd,
 						   const char *method UNUSED,
 						   const char *buffer,
@@ -389,30 +396,51 @@ static struct command_result *waitblockheight_done(struct command *cmd,
 
 		json_add_node_id(req->js, "destination",
 				 &renesendpay->destination);
-
+		json_add_sha256(req->js, "payment_hash",
+				&renesendpay->payment_hash);
+		json_add_u64(req->js, "partid", renesendpay->partid);
+		json_add_u64(req->js, "groupid", renesendpay->groupid);
+		if (renesendpay->label)
+			json_add_string(req->js, "label", renesendpay->label);
+		if (renesendpay->description)
+			json_add_string(req->js, "description",
+					renesendpay->description);
+		if (renesendpay->invoice)
+			json_add_string(req->js, "bolt11",
+					renesendpay->invoice);
 	} else {
-		/* self payment */
-		onion = NULL;
-		req = jsonrpc_request_start(cmd, "sendpay", renesendpay_done,
-					    rpc_fail, renesendpay);
-		json_array_start(req->js, "route");
-		json_array_end(req->js);
-		json_add_amount_msat(req->js, "amount_msat",
-				     renesendpay->total_amount);
-		if(renesendpay->payment_secret)
-			json_add_secret(req->js, "payment_secret", renesendpay->payment_secret);
-	}
+		/* This is either a self-payment or a payment through a blinded
+		 * path that starts at our node. */
+		// FIXME: do this with injectpaymentonion.
+		// FIXME: we could make all payments with injectpaymentonion but
+		// we need to make sure first that we don't lose older features,
+		// like for example to be able to show in listsendpays the
+		// recepient of the payment.
+		onion = create_onion(tmpctx, renesendpay, pay_plugin->my_id, 0);
+		req = jsonrpc_request_start(cmd, "injectpaymentonion",
+					    renesendpay_done, rpc_fail,
+					    renesendpay);
 
-	json_add_sha256(req->js, "payment_hash", &renesendpay->payment_hash);
-	json_add_u64(req->js, "partid", renesendpay->partid);
-	json_add_u64(req->js, "groupid", renesendpay->groupid);
-	if (renesendpay->label)
-		json_add_string(req->js, "label", renesendpay->label);
-	if (renesendpay->description)
-		json_add_string(req->js, "description",
-				renesendpay->description);
-	if (renesendpay->invoice)
-		json_add_string(req->js, "bolt11", renesendpay->invoice);
+		json_add_hex_talarr(req->js, "onion", onion);
+		json_add_sha256(req->js, "payment_hash",
+				&renesendpay->payment_hash);
+		json_add_u64(req->js, "partid", renesendpay->partid);
+		json_add_u64(req->js, "groupid", renesendpay->groupid);
+		if (renesendpay->label)
+			json_add_string(req->js, "label", renesendpay->label);
+		if (renesendpay->invoice)
+			json_add_string(req->js, "invstring",
+					renesendpay->invoice);
+		json_add_amount_msat(req->js, "amount_msat",
+				     renesendpay->sent_amount);
+		json_add_amount_msat(req->js, "destination_msat",
+				     renesendpay->deliver_amount);
+		json_add_amount_msat(req->js, "destination_msat",
+				     renesendpay->deliver_amount);
+		json_add_u32(req->js, "cltv_expiry",
+			     initial_cltv_delta(renesendpay) +
+				 renesendpay->blockheight);
+	}
 
 	return send_outreq(req);
 }
