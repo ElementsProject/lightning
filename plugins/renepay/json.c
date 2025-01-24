@@ -76,6 +76,8 @@ struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 						    const char *buffer,
 						    const jsmntok_t *toks)
 {
+	// FIXME: we will be getting onionreply try to decode these with
+	// shared_secrets
 	const jsmntok_t *idtok = json_get_member(buffer, toks, "created_index");
 	const jsmntok_t *hashtok =
 	    json_get_member(buffer, toks, "payment_hash");

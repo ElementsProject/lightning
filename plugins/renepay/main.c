@@ -345,7 +345,6 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 
 			pinfo->blinded_paths = NULL;
 			pinfo->blinded_payinfos = NULL;
-			payment->routing_destination = &pinfo->destination;
 		} else {
 			pinfo->payment_secret = NULL;
 			pinfo->routehints = NULL;
@@ -371,19 +370,18 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 					max_final_cltv = final_cltv;
 			}
 			pinfo->final_cltv = max_final_cltv;
-
-			/* When dealing with BOLT12 blinded paths we compute the
-			 * routing targeting a fake node to enable
-			 * multi-destination minimum-cost-flow. Every blinded
-			 * path entry node will be linked to this fake node
-			 * using fake channels as well. */
-			payment->routing_destination =
-			    tal(payment, struct node_id);
-			if (!node_id_from_hexstr(
-				"02""0000000000000000000000000000000000000000000000000000000000000001",
-				66, payment->routing_destination))
-				abort();
 		}
+		/* When dealing with BOLT12 blinded paths we compute the
+		 * routing targeting a fake node to enable
+		 * multi-destination minimum-cost-flow. Every blinded
+		 * path entry node will be linked to this fake node
+		 * using fake channels as well. This is also useful for
+		 * solving self-payments. */
+		payment->routing_destination = tal(payment, struct node_id);
+		if (!node_id_from_hexstr("0200000000000000000000000000000000000"
+					 "00000000000000000000000000001",
+					 66, payment->routing_destination))
+			abort();
 
 		if (!payment_set_constraints(
 			payment, *msat, *maxfee, *maxdelay, *retryfor,

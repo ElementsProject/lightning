@@ -147,12 +147,12 @@ uncertainty_get_chan_extra_map(struct uncertainty *uncertainty)
 }
 
 /* Add channel to the Uncertainty Network if it doesn't already exist. */
-const struct chan_extra *
+struct chan_extra *
 uncertainty_add_channel(struct uncertainty *uncertainty,
 			const struct short_channel_id scid,
 			struct amount_msat capacity)
 {
-	const struct chan_extra *ce =
+	struct chan_extra *ce =
 	    chan_extra_map_get(uncertainty->chan_extra_map, scid);
 	if (ce)
 		return ce;
