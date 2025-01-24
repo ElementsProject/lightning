@@ -2,6 +2,7 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/onion_encode.h>
+#include <plugins/renepay/json.h>
 #include <plugins/renepay/payplugin.h>
 #include <plugins/renepay/sendpay.h>
 
@@ -133,22 +134,37 @@ struct renesendpay {
 	unsigned int blockheight;
 };
 
-static struct command_result *sendpay_rpc_failure(struct command *cmd,
-						  const char *method UNUSED,
-						  const char *buffer,
-						  const jsmntok_t *toks,
-						  struct renesendpay *renesendpay)
+static struct command_result *rpc_fail(struct command *cmd,
+				       const char *method,
+				       const char *buffer,
+				       const jsmntok_t *toks,
+				       struct renesendpay *renesendpay)
 {
+	plugin_log(cmd->plugin, LOG_UNUSUAL,
+		   "renesendpay failed calling %s: %.*s", method,
+		   json_tok_full_len(toks), json_tok_full(buffer, toks));
 	const jsmntok_t *codetok = json_get_member(buffer, toks, "code");
+	const jsmntok_t *msgtok = json_get_member(buffer, toks, "message");
+	const char *msg;
+	if (msgtok)
+		msg = json_strdup(tmpctx, buffer, msgtok);
+	else
+		msg = "";
 	u32 errcode;
 	if (codetok != NULL)
 		json_to_u32(buffer, codetok, &errcode);
 	else
-		errcode = LIGHTNINGD;
-	// FIXME: make this response more useful, maybe similar to waitsendpay
-	return command_fail(
-	    cmd, errcode, "renesendpay failed to error in RPC: %.*s",
-	    json_tok_full_len(toks), json_tok_full(buffer, toks));
+		errcode = PLUGIN_ERROR;
+	struct json_stream *response = jsonrpc_stream_fail(
+	    cmd, errcode,
+	    tal_fmt(tmpctx, "%s failed: %s", method, msg ? msg : "\"\""));
+	json_object_start(response, "data");
+	json_add_sha256(response, "payment_hash", &renesendpay->payment_hash);
+	json_add_string(response, "status", "failed");
+	json_add_amount_msat(response, "amount_sent_msat",
+			     renesendpay->sent_amount);
+	json_object_end(response);
+	return command_finished(cmd, response);
 }
 
 static void sphinx_append_blinded_path(const tal_t *ctx,
@@ -261,37 +277,6 @@ static const u8 *create_onion(const tal_t *ctx,
 	return onion;
 }
 
-static struct command_result *sendpay_fail(struct command *cmd,
-					   const char *method UNUSED,
-					   const char *buffer,
-					   const jsmntok_t *toks,
-					   struct renesendpay *renesendpay)
-{
-	plugin_log(cmd->plugin, LOG_UNUSUAL,
-		   "renesendpay failed calling sendpay: %.*s",
-		   json_tok_full_len(toks), json_tok_full(buffer, toks));
-	const jsmntok_t *codetok = json_get_member(buffer, toks, "code");
-	const jsmntok_t *msgtok = json_get_member(buffer, toks, "message");
-	const char *msg = NULL;
-	if (msgtok)
-		msg = json_strdup(tmpctx, buffer, msgtok);
-	u32 errcode;
-	if (codetok != NULL)
-		json_to_u32(buffer, codetok, &errcode);
-	else
-		errcode = PLUGIN_ERROR;
-	struct json_stream *response = jsonrpc_stream_fail(
-	    cmd, errcode,
-	    tal_fmt(tmpctx, "sendpay failed: %s", msg ? msg : "\"\""));
-	json_object_start(response, "data");
-	json_add_sha256(response, "payment_hash", &renesendpay->payment_hash);
-	json_add_string(response, "status", "failed");
-	json_add_amount_msat(response, "amount_sent_msat",
-			     renesendpay->sent_amount);
-	json_object_end(response);
-	return command_finished(cmd, response);
-}
-
 static struct command_result *renesendpay_done(struct command *cmd,
 					       const char *method UNUSED,
 					       const char *buffer,
@@ -357,39 +342,6 @@ static struct command_result *renesendpay_done(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
-static struct command_result *waitblockheight_fail(struct command *cmd,
-						   const char *method UNUSED,
-						   const char *buffer,
-						   const jsmntok_t *toks,
-						   struct renesendpay *renesendpay)
-{
-	plugin_log(cmd->plugin, LOG_UNUSUAL,
-		   "renesendpay failed calling waitblockheight: %.*s",
-		   json_tok_full_len(toks), json_tok_full(buffer, toks));
-	const jsmntok_t *codetok = json_get_member(buffer, toks, "code");
-	const jsmntok_t *msgtok = json_get_member(buffer, toks, "message");
-	const char *msg;
-	if (msgtok)
-		msg = json_strdup(tmpctx, buffer, msgtok);
-	else
-		msg = "";
-	u32 errcode;
-	if (codetok != NULL)
-		json_to_u32(buffer, codetok, &errcode);
-	else
-		errcode = PLUGIN_ERROR;
-	struct json_stream *response = jsonrpc_stream_fail(
-	    cmd, errcode,
-	    tal_fmt(tmpctx, "waitblockheight failed: %s", msg ? msg : "\"\""));
-	json_object_start(response, "data");
-	json_add_sha256(response, "payment_hash", &renesendpay->payment_hash);
-	json_add_string(response, "status", "failed");
-	json_add_amount_msat(response, "amount_sent_msat",
-			     renesendpay->sent_amount);
-	json_object_end(response);
-	return command_finished(cmd, response);
-}
-
 static struct command_result *waitblockheight_done(struct command *cmd,
 						   const char *method UNUSED,
 						   const char *buffer,
@@ -412,7 +364,7 @@ static struct command_result *waitblockheight_done(struct command *cmd,
 		onion = create_onion(tmpctx, renesendpay,
 				     renesendpay->route[0].node_id, 1);
 		req = jsonrpc_request_start(cmd, "sendonion", renesendpay_done,
-					    sendpay_rpc_failure, renesendpay);
+					    rpc_fail, renesendpay);
 		json_add_hex_talarr(req->js, "onion", onion);
 
 		json_add_amount_msat(req->js, "amount_msat",
@@ -442,16 +394,13 @@ static struct command_result *waitblockheight_done(struct command *cmd,
 		/* self payment */
 		onion = NULL;
 		req = jsonrpc_request_start(cmd, "sendpay", renesendpay_done,
-					    sendpay_fail, renesendpay);
+					    rpc_fail, renesendpay);
 		json_array_start(req->js, "route");
 		json_array_end(req->js);
 		json_add_amount_msat(req->js, "amount_msat",
 				     renesendpay->total_amount);
 		if(renesendpay->payment_secret)
 			json_add_secret(req->js, "payment_secret", renesendpay->payment_secret);
-		else{
-			// FIXME: get payment_secret from blinded path
-		}
 	}
 
 	json_add_sha256(req->js, "payment_hash", &renesendpay->payment_hash);
@@ -547,7 +496,7 @@ struct command_result *json_renesendpay(struct command *cmd,
 
 	struct out_req *req =
 	    jsonrpc_request_start(cmd, "waitblockheight", waitblockheight_done,
-				  waitblockheight_fail, renesendpay);
+				  rpc_fail, renesendpay);
 	json_add_num(req->js, "blockheight", 0);
 	return send_outreq(req);
 }
