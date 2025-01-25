@@ -59,11 +59,38 @@ enum dev_disconnect_out dev_disconnect_out(const struct node_id *id, int pkt_typ
 		next_dev_disconnect();
 
 	if (!dev_disconnect_line[0]
+	    || dev_disconnect_line[0] == DEV_DISCONNECT_IN_AFTER_RECV
 	    || !streq(peer_wire_name(pkt_type), dev_disconnect_line+1))
 		return DEV_DISCONNECT_OUT_NORMAL;
 
 	if (--dev_disconnect_count != 0) {
 		return DEV_DISCONNECT_OUT_NORMAL;
+	}
+
+	if (lseek(dev_disconnect_fd, dev_disconnect_len+1, SEEK_CUR) < 0) {
+		err(1, "lseek failure");
+	}
+
+	status_peer_debug(id, "dev_disconnect: %s (%s)",
+			  dev_disconnect_line,
+			  peer_wire_name(pkt_type));
+	return dev_disconnect_line[0];
+}
+
+enum dev_disconnect_in dev_disconnect_in(const struct node_id *id, int pkt_type)
+{
+	if (dev_disconnect_fd == -1)
+		return DEV_DISCONNECT_IN_NORMAL;
+
+	if (!dev_disconnect_count)
+		next_dev_disconnect();
+
+	if (dev_disconnect_line[0] != DEV_DISCONNECT_IN_AFTER_RECV
+	    || !streq(peer_wire_name(pkt_type), dev_disconnect_line+1))
+		return DEV_DISCONNECT_IN_NORMAL;
+
+	if (--dev_disconnect_count != 0) {
+		return DEV_DISCONNECT_IN_NORMAL;
 	}
 
 	if (lseek(dev_disconnect_fd, dev_disconnect_len+1, SEEK_CUR) < 0) {
