@@ -320,15 +320,15 @@ static void remove_channel(struct gossmap_manage *gm,
 	}
 }
 
+/* If we don't know, we assume it's good */
 static u32 get_timestamp(struct gossmap *gossmap,
 			 const struct gossmap_chan *chan,
 			 int dir)
 {
 	u32 timestamp;
 
-	/* 0 is sufficient for our needs */
 	if (!gossmap_chan_set(chan, dir))
-		return 0;
+		return UINT32_MAX;
 
 	gossmap_chan_get_update_details(gossmap, chan, dir,
 					&timestamp,
