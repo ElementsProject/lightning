@@ -21,6 +21,7 @@ import re
 import time
 import unittest
 import websocket
+import signal
 import ssl
 
 
@@ -4715,12 +4716,20 @@ def test_connect_ratelimit(node_factory, bitcoind):
 
     assert not l1.daemon.is_in_log('Unblocking for')
 
-    l1.restart()
+    l1.stop()
+    # Suspend the others, to make sure they cannot respond too fast.
+    for n in nodes:
+        os.kill(n.daemon.proc.pid, signal.SIGSTOP)
+    l1.start()
 
     # The first will be ok, but others should block and be unblocked.
     l1.daemon.wait_for_logs((['Unblocking for ']
                              + ['Too many connections, waiting'])
                             * (len(nodes) - 1))
+
+    # Resume them
+    for n in nodes:
+        os.kill(n.daemon.proc.pid, signal.SIGCONT)
 
     # And now they're all connected
     wait_for(lambda: [p['connected'] for p in l1.rpc.listpeers()['peers']] == [True] * len(nodes))
