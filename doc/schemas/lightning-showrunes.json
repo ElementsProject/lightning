@@ -374,6 +374,127 @@
               }
             ],
             "restrictions_as_english": "id equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518 AND method equal to listpeers AND pnum equal to 1 AND pnameid starts with 0266e4598d1d3c415f57 OR parr0 starts with 0266e4598d1d3c415f57"
+          },
+          {
+            "rune": "iP1FQEsFmPsu-XW7w8uXIJaJb7jU9PqOfkmXlOyWMuA9NSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5fG1ldGhvZD1wYXl8bWV0aG9kPXhwYXkmbWV0aG9kL2xpc3RkYXRhc3RvcmUmbWV0aG9kL3BheXxwZXI9MWRheSZtZXRob2QvcGF5fHBuYW1lYW1vdW50X21zYXQ8MTAwMDAwMDAxJm1ldGhvZC94cGF5fHBlcj0xZGF5Jm1ldGhvZC94cGF5fHBuYW1lYW1vdW50X21zYXQ8MTAwMDAwMDAx",
+            "unique_id": "5",
+            "restrictions": [
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "method",
+                    "value": "list",
+                    "condition": "^",
+                    "english": "method starts with list"
+                  },
+                  {
+                    "fieldname": "method",
+                    "value": "get",
+                    "condition": "^",
+                    "english": "method starts with get"
+                  },
+                  {
+                    "fieldname": "method",
+                    "value": "summary",
+                    "condition": "=",
+                    "english": "method equal to summary"
+                  },
+                  {
+                    "fieldname": "method",
+                    "value": "pay",
+                    "condition": "=",
+                    "english": "method equal to pay"
+                  },
+                  {
+                    "fieldname": "method",
+                    "value": "xpay",
+                    "condition": "=",
+                    "english": "method equal to xpay"
+                  }
+                ],
+                "english": "method starts with list OR method starts with get OR method equal to summary OR method equal to pay OR method equal to xpay"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "method",
+                    "value": "listdatastore",
+                    "condition": "/",
+                    "english": "method unequal to listdatastore"
+                  }
+                ],
+                "english": "method unequal to listdatastore"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "method",
+                    "value": "pay",
+                    "condition": "/",
+                    "english": "method unequal to pay"
+                  },
+                  {
+                    "fieldname": "per",
+                    "value": "1day",
+                    "condition": "=",
+                    "english": "per equal to 1day"
+                  }
+                ],
+                "english": "method unequal to pay OR per equal to 1day"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "method",
+                    "value": "pay",
+                    "condition": "/",
+                    "english": "method unequal to pay"
+                  },
+                  {
+                    "fieldname": "pnameamount_msat",
+                    "value": "100000001",
+                    "condition": "<",
+                    "english": "pnameamount_msat < 100000001"
+                  }
+                ],
+                "english": "method unequal to pay OR pnameamount_msat < 100000001"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "method",
+                    "value": "xpay",
+                    "condition": "/",
+                    "english": "method unequal to xpay"
+                  },
+                  {
+                    "fieldname": "per",
+                    "value": "1day",
+                    "condition": "=",
+                    "english": "per equal to 1day"
+                  }
+                ],
+                "english": "method unequal to xpay OR per equal to 1day"
+              },
+              {
+                "alternatives": [
+                  {
+                    "fieldname": "method",
+                    "value": "xpay",
+                    "condition": "/",
+                    "english": "method unequal to xpay"
+                  },
+                  {
+                    "fieldname": "pnameamount_msat",
+                    "value": "100000001",
+                    "condition": "<",
+                    "english": "pnameamount_msat < 100000001"
+                  }
+                ],
+                "english": "method unequal to xpay OR pnameamount_msat < 100000001"
+              }
+            ],
+            "restrictions_as_english": "method starts with list OR method starts with get OR method equal to summary OR method equal to pay OR method equal to xpay AND method unequal to listdatastore AND method unequal to pay OR per equal to 1day AND method unequal to pay OR pnameamount_msat < 100000001 AND method unequal to xpay OR per equal to 1day AND method unequal to xpay OR pnameamount_msat < 100000001"
           }
         ]
       }
