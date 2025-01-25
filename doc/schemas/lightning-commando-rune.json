@@ -105,8 +105,25 @@
     "* `!`: only passes if the *name* does *not* exist. e.g. `pnamedestination!`.",
     "Every other operator except `#` fails if *name* does not exist!"
   ],
+  "sharing_runes": [
+    "Because anyone can add a restriction to a rune, you can always turn a normal rune into a read-only rune, or restrict access for 30 minutes from the time you give it to someone. Adding restrictions before sharing runes is best practice.",
+    "",
+    "If a rune has a ratelimit, any derived rune will have the same id, and thus will compete for that ratelimit. You might want to consider adding a tighter ratelimit to a rune before sharing it, so you will keep the remainder. For example, if you rune has a limit of 60 times per minute, adding a limit of 5 times per minute and handing that rune out means you can still use your original rune 55 times per minute."
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> wrote the original Python commando.py plugin, the in-tree commando plugin, and this manual page.",
+    "",
+    "Christian Decker came up with the name \"commando\", which almost excuses his previous adoption of the name \"Eltoo\"."
+  ],
+  "see_also": [
+    "lightning-commando(7)",
+    "lightning-decode(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
   "usage": [
-    "You can use lightning-decode(7) to examine runes you have been given:",
+    "- You can use lightning-decode(7) to examine runes you have been given:",
     "",
     "```shell",
     "lightning-cli decode tU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y",
@@ -155,24 +172,13 @@
     "   ],",
     "   \"valid\": true",
     "}",
+    "```",
+    "",
+    "- You can use lightning-checkrune(7) to verify whether a rune is valid for a specific method and its parameters:",
+    "",
+    "```shell",
+    "lightning-cli checkrune -k 'rune'=tU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y 'method'='invoice' 'params'='{\"amount_msat\": 100000001, \"label\": \"invoicelabel\"', \"description\": \"Checking rune validity\"}'",
     "```"
-  ],
-  "sharing_runes": [
-    "Because anyone can add a restriction to a rune, you can always turn a normal rune into a read-only rune, or restrict access for 30 minutes from the time you give it to someone. Adding restrictions before sharing runes is best practice.",
-    "",
-    "If a rune has a ratelimit, any derived rune will have the same id, and thus will compete for that ratelimit. You might want to consider adding a tighter ratelimit to a rune before sharing it, so you will keep the remainder. For example, if you rune has a limit of 60 times per minute, adding a limit of 5 times per minute and handing that rune out means you can still use your original rune 55 times per minute."
-  ],
-  "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> wrote the original Python commando.py plugin, the in-tree commando plugin, and this manual page.",
-    "",
-    "Christian Decker came up with the name \"commando\", which almost excuses his previous adoption of the name \"Eltoo\"."
-  ],
-  "see_also": [
-    "lightning-commando(7)",
-    "lightning-decode(7)"
-  ],
-  "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {
@@ -365,6 +371,60 @@
       "response": {
         "rune": "7nvN7uG2CyTOXe3dYQL38YVdGsnD6d5VNNyeHVl6inc9NCZpZD0wMjY2ZTQ1OThkMWQzYzQxNWY1NzJhODQ4ODgzMGI2MGY3ZTc0NGVkOTIzNWViMGIxYmE5MzI4M2IzMTVjMDM1MTgmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjY2ZTQ1OThkMWQzYzQxNWY1N3xwYXJyMF4wMjY2ZTQ1OThkMWQzYzQxNWY1NyZ0aW1lPCIkKCgkKGRhdGUgKyVzKSArIDI0KjYwKjYwKSkifHJhdGU9Mg==",
         "unique_id": "4"
+      }
+    },
+    {
+      "description": [
+        "Now, let us create a rune with `read-only` restrictions, extended to only allow sending payments of `less than 100,000 sats per day` using either the `pay` or `xpay` method. Ideally, the condition would look something like:",
+        "",
+        "`[[\"method^list or method^get or ((method=pay or method=xpay) and per=1day and pnameamount\\_msat<100000001)\"],[\"method/listdatastore\"]]`.",
+        "",
+        "However, since brackets and AND conditions within OR are currently not supported for rune creation, we can restructure the conditions as follows:",
+        "",
+        "- method^list|method^get|method=summary|method=pay|method=xpay",
+        "- method/listdatastore",
+        "- method/pay|per=1day",
+        "- method/pay|pnameamount\\_msat<100000001",
+        "- method/xpay|per=1day",
+        "- method/xpay|pnameamount\\_msat<100000001"
+      ],
+      "request": {
+        "id": "example:commando-rune#9",
+        "method": "commando-rune",
+        "params": {
+          "restrictions": [
+            [
+              "method^list",
+              "method^get",
+              "method=summary",
+              "method=pay",
+              "method=xpay"
+            ],
+            [
+              "method/listdatastore"
+            ],
+            [
+              "method/pay",
+              "per=1day"
+            ],
+            [
+              "method/pay",
+              "pnameamount_msat<100000001"
+            ],
+            [
+              "method/xpay",
+              "per=1day"
+            ],
+            [
+              "method/xpay",
+              "pnameamount_msat<100000001"
+            ]
+          ]
+        }
+      },
+      "response": {
+        "rune": "QqgK4ZNJOwMjhUAQhHcnkTBXRoLghhPcJVR_Zew97ug9NSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5fG1ldGhvZD1wYXl8bWV0aG9kPXhwYXkmbWV0aG9kL2xpc3RkYXRhc3RvcmUmbWV0aG9kL3BheXxwZXI9MWRheSZtZXRob2QvcGF5fHBuYW1lYW1vdW50X21zYXQ8MTAwMDAwMDAxJm1ldGhvZC94cGF5fHBlcj0xZGF5Jm1ldGhvZC94cGF5fHBuYW1lYW1vdW50X21zYXQ8MTAwMDAwMDAx",
+        "unique_id": "5"
       }
     }
   ]

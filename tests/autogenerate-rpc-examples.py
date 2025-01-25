@@ -767,6 +767,19 @@ def generate_runes_examples(l1, l2, l3):
         update_example(node=l2, method='createrune', params={'restrictions': [[f'id={l1.info["id"]}'], ['method=listpeers'], ['pnum=1'], [f'pnameid={l1.info["id"]}', f'parr0={l1.info["id"]}']]}, description=["Let's create a rune which lets a specific peer run listpeers on themselves:"])
         rune_l25 = update_example(node=l2, method='createrune', params={'restrictions': [[f'id={l1.info["id"]}'], ['method=listpeers'], ['pnum=1'], [f'pnameid^{trimmed_id}', f'parr0^{trimmed_id}']]}, description=["This allows `listpeers` with 1 argument (`pnum=1`), which is either by name (`pnameid`), or position (`parr0`). We could shorten this in several ways: either allowing only positional or named parameters, or by testing the start of the parameters only. Here's an example which only checks the first 10 bytes of the `listpeers` parameter:"])
         update_example(node=l2, method='createrune', params=[rune_l25['rune'], [['time<"$(($(date +%s) + 24*60*60))"', 'rate=2']]], description=["Before we give this to our peer, let's add two more restrictions: that it only be usable for 24 hours from now (`time<`), and that it can only be used twice a minute (`rate=2`). `date +%s` can give us the current time in seconds:"])
+        update_example(node=l2, method='createrune', params={'restrictions': [['method^list', 'method^get', 'method=summary', 'method=pay', 'method=xpay'], ['method/listdatastore'], ['method/pay', 'per=1day'], ['method/pay', 'pnameamount_msat<100000001'], ['method/xpay', 'per=1day'], ['method/xpay', 'pnameamount_msat<100000001']]},
+                       description=['Now, let us create a rune with `read-only` restrictions, extended to only allow sending payments of `less than 100,000 sats per day` using either the `pay` or `xpay` method. Ideally, the condition would look something like:',
+                                    '',
+                                    '`[["method^list or method^get or ((method=pay or method=xpay) and per=1day and pnameamount\\_msat<100000001)"],["method/listdatastore"]]`.',
+                                    '',
+                                    'However, since brackets and AND conditions within OR are currently not supported for rune creation, we can restructure the conditions as follows:',
+                                    '',
+                                    '- method^list|method^get|method=summary|method=pay|method=xpay',
+                                    '- method/listdatastore',
+                                    '- method/pay|per=1day',
+                                    '- method/pay|pnameamount\\_msat<100000001',
+                                    '- method/xpay|per=1day',
+                                    '- method/xpay|pnameamount\\_msat<100000001'])
         update_example(node=l2, method='commando-listrunes', params={'rune': rune_l23['rune']})
         update_example(node=l2, method='commando-listrunes', params={})
         commando_res1 = update_example(node=l1, method='commando', params={'peer_id': l2.info['id'], 'rune': rune_l21['rune'], 'method': 'newaddr', 'params': {'addresstype': 'p2tr'}})
@@ -799,6 +812,19 @@ def generate_runes_examples(l1, l2, l3):
         update_example(node=l1, method='commando-rune', params={'restrictions': [[f'id={l1.info["id"]}'], ['method=listpeers'], ['pnum=1'], [f'pnameid={l1.info["id"]}', f'parr0={l1.info["id"]}']]}, description=["Let's create a rune which lets a specific peer run listpeers on themselves:"])
         rune_l15 = update_example(node=l1, method='commando-rune', params={'restrictions': [[f'id={l1.info["id"]}'], ['method=listpeers'], ['pnum=1'], [f'pnameid^{trimmed_id}', f'parr0^{trimmed_id}']]}, description=["This allows `listpeers` with 1 argument (`pnum=1`), which is either by name (`pnameid`), or position (`parr0`). We could shorten this in several ways: either allowing only positional or named parameters, or by testing the start of the parameters only. Here's an example which only checks the first 10 bytes of the `listpeers` parameter:"])
         update_example(node=l1, method='commando-rune', params=[rune_l15['rune'], [['time<"$(($(date +%s) + 24*60*60))"', 'rate=2']]], description=["Before we give this to our peer, let's add two more restrictions: that it only be usable for 24 hours from now (`time<`), and that it can only be used twice a minute (`rate=2`). `date +%s` can give us the current time in seconds:"])
+        update_example(node=l1, method='commando-rune', params={'restrictions': [['method^list', 'method^get', 'method=summary', 'method=pay', 'method=xpay'], ['method/listdatastore'], ['method/pay', 'per=1day'], ['method/pay', 'pnameamount_msat<100000001'], ['method/xpay', 'per=1day'], ['method/xpay', 'pnameamount_msat<100000001']]},
+                       description=['Now, let us create a rune with `read-only` restrictions, extended to only allow sending payments of `less than 100,000 sats per day` using either the `pay` or `xpay` method. Ideally, the condition would look something like:',
+                                    '',
+                                    '`[["method^list or method^get or ((method=pay or method=xpay) and per=1day and pnameamount\\_msat<100000001)"],["method/listdatastore"]]`.',
+                                    '',
+                                    'However, since brackets and AND conditions within OR are currently not supported for rune creation, we can restructure the conditions as follows:',
+                                    '',
+                                    '- method^list|method^get|method=summary|method=pay|method=xpay',
+                                    '- method/listdatastore',
+                                    '- method/pay|per=1day',
+                                    '- method/pay|pnameamount\\_msat<100000001',
+                                    '- method/xpay|per=1day',
+                                    '- method/xpay|pnameamount\\_msat<100000001'])
         REPLACE_RESPONSE_VALUES.extend([
             {'data_keys': ['last_used'], 'original_value': showrunes_res1['runes'][0]['last_used'], 'new_value': NEW_VALUES_LIST['time_at_800']},
             {'data_keys': ['last_used'], 'original_value': showrunes_res2['runes'][1]['last_used'], 'new_value': NEW_VALUES_LIST['time_at_800']},

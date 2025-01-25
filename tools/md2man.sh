@@ -17,7 +17,7 @@ TITLELINE="$(head -n1 "$SOURCE")"
 # because it is used in the examples to run it in the shell, eg. $(lightning-cli listpeerchannels)
 SOURCE=$(tail -n +3 "$SOURCE" | sed -E '
     :a;N;$!ba;
-    s#\s*<details>\s*<summary>\s*<span style="font-size: 1\.5em; font-weight: bold;">EXAMPLES</span><br>\s*</summary>#\n\nEXAMPLES\n------------\n#g;
+    s#EXAMPLES\n------------#\nEXAMPLES\n------------\n#g;
     s#Request:#Request:\n#g;
     s#Response:#Response:\n#g;
     s#(\(lightning-cli)#\x1#ig;

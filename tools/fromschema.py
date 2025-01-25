@@ -7,8 +7,8 @@ import json
 import re
 
 # To maintain the sequence of the before return value (body) and after return value (footer) sections in the markdown file
-BODY_KEY_SEQUENCE = ['reliability', 'usage', 'restriction_format', 'permitted_sqlite3_functions', 'treatment_of_types', 'tables', 'notes', 'notifications', 'sharing_runes', 'riskfactor_effect_on_routing', 'recommended_riskfactor_values', 'optimality', 'randomization']
-FOOTER_KEY_SEQUENCE = ['errors', 'trivia', 'author', 'see_also', 'resources', 'example_notifications', 'examples']
+BODY_KEY_SEQUENCE = ['reliability', 'restriction_format', 'permitted_sqlite3_functions', 'treatment_of_types', 'tables', 'notes', 'notifications', 'sharing_runes', 'riskfactor_effect_on_routing', 'recommended_riskfactor_values', 'optimality', 'randomization']
+FOOTER_KEY_SEQUENCE = ['errors', 'trivia', 'author', 'see_also', 'resources', 'usage', 'example_notifications', 'examples']
 
 
 def output_title(title, underline='-', num_leading_newlines=1, num_trailing_newlines=2):
@@ -82,7 +82,7 @@ def output_conditional_params(conditional_sub_array, condition):
     # Join all keys with the separator
     keysfoundstr = format(esc_underscores(separator.join(conditional_sub_array)))
     # Print the merged keys
-    output('{}{}'.format(fmt_paramname(keysfoundstr, True, False), '' if condition == 'dependentUpon' else ' '))
+    output('{}'.format(fmt_paramname(keysfoundstr, True, condition != 'dependentUpon')))
 
 
 def output_type(properties, is_optional):
@@ -323,26 +323,6 @@ def create_shell_command(rpc, example):
     output('```\n')
 
 
-def create_expandable(title, rpc, examples):
-    """Output example/s with request and response in collapsible header"""
-    output('\n<details>\n')
-    output('<summary>\n')
-    output(f'<span style="font-size: 1.5em; font-weight: bold;">{title}</span><br>\n')
-    output('</summary>\n\n')
-    for i, example in enumerate(examples):
-        output('{}**Example {}**: {}\n'.format('' if i == 0 else '\n', i + 1, '\n'.join(example.get('description', ''))))
-        output('\nRequest:\n')
-        create_shell_command(rpc, example)
-        output('```json\n')
-        output(json.dumps(example['request'], indent=2).strip() + '\n')
-        output('```\n')
-        output('\nResponse:\n')
-        output('```json\n')
-        output(json.dumps(example['response'], indent=2).strip() + '\n')
-        output('```\n')
-    output('</details>')
-
-
 def generate_header(schema):
     """Generate lines for rpc title and synopsis with request parameters"""
     output_title(esc_underscores(''.join(['lightning-', schema['rpc'], ' -- ', schema['title']])), '=', 0, 1)
@@ -368,7 +348,7 @@ def generate_header(schema):
             output('{}*{}* '.format('' if 'required' in request and toplevels[i] in request['required'] else '[', esc_underscores(toplevels[i])))
             output_conditional_params(dependent_upon_obj[toplevels[i]], 'dependentUpon')
             toplevels = [key for key in toplevels if key not in dependent_upon_obj[toplevels[i]]]
-            output('{}'.format('' if 'required' in request and toplevels[i] in request['required'] else ']'))
+            output('{}'.format('' if 'required' in request and toplevels[i] in request['required'] else '] '))
         else:
             # Search for the parameter in any conditional sub-arrays (oneOfMany, pairedWith)
             condition, foundinsubarray = search_key_in_conditional_array(request, toplevels[i])
@@ -500,7 +480,18 @@ def generate_footer(schema):
                 output(json.dumps(notification, indent=2).strip() + '\n')
                 output('```')
         elif key == 'examples' and len(schema[key]) > 0:
-            create_expandable('EXAMPLES', schema['rpc'], schema.get('examples', []))
+            output_title(key.replace('_', ' ').upper(), '-', 1)
+            for i, example in enumerate(schema.get('examples', [])):
+                output('\n{}**Example {}**: {}\n'.format('' if i == 0 else '\n', i + 1, '\n'.join(example.get('description', ''))))
+                output('\nRequest:\n')
+                create_shell_command(schema['rpc'], example)
+                output('```json\n')
+                output(json.dumps(example['request'], indent=2).strip() + '\n')
+                output('```\n')
+                output('\nResponse:\n')
+                output('```json\n')
+                output(json.dumps(example['response'], indent=2).strip() + '\n')
+                output('```')
         else:
             output_title(key.replace('_', ' ').upper(), '-', 1)
             outputs(schema[key], '\n')
