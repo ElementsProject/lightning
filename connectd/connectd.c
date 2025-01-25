@@ -2017,6 +2017,7 @@ static void peer_downgrade(struct daemon *daemon, const u8 *msg)
 	if (!fromwire_connectd_downgrade_peer(msg, &id))
 		master_badmsg(WIRE_CONNECTD_DOWNGRADE_PEER, msg);
 
+	status_peer_debug(&id, "peer_downgrade");
 	tal_free(important_id_htable_get(daemon->important_ids, &id));
 }
 
