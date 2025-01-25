@@ -56,6 +56,7 @@ struct io_conn {
 static struct secret notsosecret;
 static bool no_gossip = false, all_gossip = false;
 static unsigned long max_messages = -1UL;
+static u16 *accept_messages = NULL;
 
 /* Empty stubs to make us compile */
 void status_peer_io(enum log_level iodir,
@@ -98,6 +99,18 @@ void ecdh(const struct pubkey *point, struct secret *ss)
 /* We don't want to discard *any* messages. */
 bool is_unknown_msg_discardable(const u8 *cursor)
 {
+	return false;
+}
+
+static bool accept_message(const u8 *msg)
+{
+	u16 type = fromwire_peektype(msg);
+	if (!accept_messages)
+		return true;
+	for (size_t i = 0; i < tal_count(accept_messages); i++) {
+		if (type == accept_messages[i])
+			return true;
+	}
 	return false;
 }
 
@@ -240,6 +253,10 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 			msg = sync_crypto_read(NULL, peer_fd, cs);
 			if (!msg)
 				err(1, "Reading msg");
+			if (!accept_message(msg)) {
+				tal_free(msg);
+				continue;
+			}
 			if (hex) {
 				printf("%s\n", tal_hex(msg, msg));
 			} else {
@@ -248,8 +265,8 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 				    || !write_all(STDOUT_FILENO, msg, tal_bytelen(msg)))
 					err(1, "Writing out msg");
 			}
-			tal_free(msg);
 			--max_messages;
+			tal_free(msg);
 		}
 	}
 
@@ -284,6 +301,15 @@ static char *opt_set_features(const char *arg, u8 **features)
 	return NULL;
 }
 
+static char *opt_set_filter(const char *arg, u16 **accept)
+{
+	char **elems = tal_strsplit(tmpctx, arg, ",", STR_EMPTY_OK);
+	*accept = tal_arr(NULL, u16, tal_count(elems)-1);
+	for (size_t i = 0; elems[i]; i++)
+		(*accept)[i] = atoi(elems[i]);
+	return NULL;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_conn *conn = tal(NULL, struct io_conn);
@@ -306,6 +332,8 @@ int main(int argc, char *argv[])
 			   "Stream complete gossip history at start");
 	opt_register_noarg("--no-gossip", opt_set_bool, &no_gossip,
 			   "Suppress all gossip at start");
+	opt_register_arg("--filter", opt_set_filter, NULL, &accept_messages,
+			 "Only process these message types");
 	opt_register_arg("--max-messages", opt_set_ulongval, opt_show_ulongval,
 			 &max_messages,
 			 "Terminate after reading this many messages");
