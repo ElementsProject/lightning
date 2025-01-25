@@ -944,7 +944,7 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     l2.daemon.wait_for_logs([r'Got dualopend reestablish',
                              r'No commitment, not sending our sigs',
                              # This is a BROKEN log, it's expected!
-                             r'dualopend daemon died before signed PSBT returned'])
+                             r'dualopend daemon died before signed PSBT returned|dualopend: Owning subdaemon dualopend died'])
 
     # We don't have the commtiments yet, there's no scratch_txid
     inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
