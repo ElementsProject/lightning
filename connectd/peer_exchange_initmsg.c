@@ -280,21 +280,21 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	peer->msg = cryptomsg_encrypt_msg(peer, &peer->cs, take(peer->msg));
 
 	next = read_init;
-	switch (dev_disconnect(&peer->id, WIRE_INIT)) {
-	case DEV_DISCONNECT_BEFORE:
+	switch (dev_disconnect_out(&peer->id, WIRE_INIT)) {
+	case DEV_DISCONNECT_OUT_BEFORE:
 		dev_sabotage_fd(io_conn_fd(conn), true);
 		break;
-	case DEV_DISCONNECT_AFTER:
+	case DEV_DISCONNECT_OUT_AFTER:
 		next = dev_peer_write_postclose;
 		break;
-	case DEV_DISCONNECT_BLACKHOLE:
+	case DEV_DISCONNECT_OUT_BLACKHOLE:
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Blackhole not supported during handshake");
 		break;
-	case DEV_DISCONNECT_NORMAL:
-	case DEV_DISCONNECT_DROP:
+	case DEV_DISCONNECT_OUT_NORMAL:
+	case DEV_DISCONNECT_OUT_DROP:
 		break;
-	case DEV_DISCONNECT_DISABLE_AFTER:
+	case DEV_DISCONNECT_OUT_DISABLE_AFTER:
 		next = dev_peer_write_post_sabotage;
 		break;
 	}

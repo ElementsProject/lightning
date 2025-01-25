@@ -415,25 +415,25 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 {
 	int type = fromwire_peektype(msg);
 
-	switch (dev_disconnect(&peer->id, type)) {
-	case DEV_DISCONNECT_BEFORE:
+	switch (dev_disconnect_out(&peer->id, type)) {
+	case DEV_DISCONNECT_OUT_BEFORE:
 		if (taken(msg))
 			tal_free(msg);
 		return io_close(peer->to_peer);
-	case DEV_DISCONNECT_AFTER:
+	case DEV_DISCONNECT_OUT_AFTER:
 		/* Disallow reads from now on */
 		peer->dev_read_enabled = false;
 		/* Using io_close here can lose the data we're about to send! */
 		next = io_sock_shutdown_cb;
 		break;
-	case DEV_DISCONNECT_BLACKHOLE:
+	case DEV_DISCONNECT_OUT_BLACKHOLE:
 		/* Disable both reads and writes from now on */
 		peer->dev_read_enabled = false;
 		peer->dev_writes_enabled = talz(peer, u32);
 		break;
-	case DEV_DISCONNECT_NORMAL:
+	case DEV_DISCONNECT_OUT_NORMAL:
 		break;
-	case DEV_DISCONNECT_DROP:
+	case DEV_DISCONNECT_OUT_DROP:
 		/* Drop this message and continue */
 		if (taken(msg))
 			tal_free(msg);
@@ -441,7 +441,7 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 		io_wake(&peer->subds);
 		return msg_queue_wait(peer->to_peer, peer->peer_outq,
 				      next, peer);
-	case DEV_DISCONNECT_DISABLE_AFTER:
+	case DEV_DISCONNECT_OUT_DISABLE_AFTER:
 		peer->dev_read_enabled = false;
 		peer->dev_writes_enabled = tal(peer, u32);
 		*peer->dev_writes_enabled = 1;
