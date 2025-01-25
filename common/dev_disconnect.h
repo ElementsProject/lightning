@@ -23,6 +23,16 @@ enum dev_disconnect_out {
 /* Force a close fd before or after a certain packet type */
 enum dev_disconnect_out dev_disconnect_out(const struct node_id *id, int pkt_type);
 
+enum dev_disconnect_in {
+	/* Do nothing. */
+	DEV_DISCONNECT_IN_NORMAL = '=',
+	/* Close connection after receiving packet. */
+	DEV_DISCONNECT_IN_AFTER_RECV = '<',
+};
+
+/* Force a close fd after receiving a certain packet type */
+enum dev_disconnect_in dev_disconnect_in(const struct node_id *id, int pkt_type);
+
 /* Make next write on fd fail as if they'd disconnected. */
 void dev_sabotage_fd(int fd, bool close_fd);
 
