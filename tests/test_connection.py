@@ -653,13 +653,12 @@ def test_disconnect_half_signed_v2(node_factory):
 @pytest.mark.openchannel('v2')
 def test_reconnect_signed(node_factory):
     # This will fail *after* both sides consider channel opening.
-    disconnects = ['+WIRE_FUNDING_SIGNED']
+    disconnects = ['<WIRE_FUNDING_SIGNED']
     if EXPERIMENTAL_DUAL_FUND:
-        disconnects = ['+WIRE_COMMITMENT_SIGNED']
+        disconnects = ['<WIRE_COMMITMENT_SIGNED']
 
-    l1 = node_factory.get_node(may_reconnect=True)
-    l2 = node_factory.get_node(disconnect=disconnects,
-                               may_reconnect=True)
+    l1 = node_factory.get_node(may_reconnect=True, disconnect=disconnects)
+    l2 = node_factory.get_node(may_reconnect=True)
 
     l1.fundwallet(2000000)
 
