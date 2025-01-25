@@ -2058,9 +2058,7 @@ def test_gossip_throttle(node_factory, bitcoind, chainparams):
 
     # We expect: self-advertizement (3 messages for l1 and l4) plus
     # 4 node announcements, 3 channel announcements and 6 channel updates.
-    # We also expect it to send a timestamp filter message.
-    # (We won't take long enough to get a ping!)
-    expected = 4 + 4 + 3 + 6 + 1
+    expected = 4 + 4 + 3 + 6
 
     # l1 is unlimited
     start_fast = time.time()
@@ -2068,14 +2066,13 @@ def test_gossip_throttle(node_factory, bitcoind, chainparams):
                            '--all-gossip',
                            '--hex',
                            '--network={}'.format(TEST_NETWORK),
+                           '--filter=256,257,258',
                            '--max-messages={}'.format(expected),
                            '{}@localhost:{}'.format(l1.info['id'], l1.port)],
                           check=True,
                           timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
     time_fast = time.time() - start_fast
     assert time_fast < 2
-    # Remove timestamp filter, since timestamp will change!
-    out1 = [m for m in out1 if not m.startswith(b'0109')]
 
     # l4 is throttled
     start_slow = time.time()
@@ -2083,15 +2080,13 @@ def test_gossip_throttle(node_factory, bitcoind, chainparams):
                            '--all-gossip',
                            '--hex',
                            '--network={}'.format(TEST_NETWORK),
+                           '--filter=256,257,258',
                            '--max-messages={}'.format(expected),
                            '{}@localhost:{}'.format(l4.info['id'], l4.port)],
                           check=True,
                           timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
     time_slow = time.time() - start_slow
     assert time_slow > 3
-
-    # Remove timestamp filter, since timestamp will change!
-    out2 = [m for m in out2 if not m.startswith(b'0109')]
 
     # Contents should be identical (once uniquified, since each
     # doubles-up on its own gossip)
@@ -2121,15 +2116,14 @@ def test_gossip_throttle(node_factory, bitcoind, chainparams):
                            '--no-gossip',
                            '--hex',
                            '--network={}'.format(TEST_NETWORK),
-                           '--max-messages={}'.format(expected + 1),
+                           '--filter=256,257,258',
+                           '--max-messages={}'.format(expected),
                            '{}@localhost:{}'.format(l1.info['id'], l1.port),
                            query],
                           check=True,
                           timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
     time_fast = time.time() - start_fast
     assert time_fast < 2
-    # Ignore gossip_timestamp_filter and reply_short_channel_ids_end
-    out3 = [m for m in out3 if not m.startswith(b'0109') and not m.startswith(b'0106')]
     assert set(out1) == set(out3)
 
     start_slow = time.time()
@@ -2137,6 +2131,7 @@ def test_gossip_throttle(node_factory, bitcoind, chainparams):
                            '--no-gossip',
                            '--hex',
                            '--network={}'.format(TEST_NETWORK),
+                           '--filter=256,257,258',
                            '--max-messages={}'.format(expected),
                            '{}@localhost:{}'.format(l4.info['id'], l4.port),
                            query],
@@ -2144,7 +2139,6 @@ def test_gossip_throttle(node_factory, bitcoind, chainparams):
                           timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
     time_slow = time.time() - start_slow
     assert time_slow > 3
-    out4 = [m for m in out4 if not m.startswith(b'0109')]
     assert set(out2) == set(out4)
 
 
