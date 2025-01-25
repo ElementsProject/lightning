@@ -990,7 +990,8 @@ def test_reconnect_remote_sends_no_sigs(node_factory):
     # Make sure we get all the msgs!
     time.sleep(5)
 
-    l1.daemon.wait_for_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
+    l1.daemon.wait_for_logs(['peer_out WIRE_ANNOUNCEMENT_SIGNATURES',
+                             'peer_in WIRE_ANNOUNCEMENT_SIGNATURES'])
     l2.daemon.wait_for_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
 
     l1msgs = [l.split()[4] for l in l1.daemon.logs[l1needle:] if 'WIRE_ANNOUNCEMENT_SIGNATURES' in l]
