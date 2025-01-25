@@ -1136,6 +1136,13 @@ static struct subd *new_subd(struct peer *peer,
 	return subd;
 }
 
+static struct io_plan *close_peer_dev_disconnect(struct io_conn *peer_conn,
+						 struct peer *peer)
+{
+	assert(peer->to_peer == peer_conn);
+	return io_close_cb(peer_conn, peer);
+}
+
 static struct io_plan *read_hdr_from_peer(struct io_conn *peer_conn,
 					  struct peer *peer);
 static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
@@ -1145,7 +1152,8 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
        struct channel_id channel_id;
        struct subd *subd;
        enum peer_wire type;
-
+       struct io_plan *(*next_read)(struct io_conn *peer_conn,
+				    struct peer *peer) = read_hdr_from_peer;
 
        decrypted = cryptomsg_decrypt_body(tmpctx, &peer->cs,
 					  peer->peer_in);
@@ -1162,16 +1170,24 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
        if (!peer->dev_read_enabled)
 	       return read_hdr_from_peer(peer_conn, peer);
 
+       switch (dev_disconnect_in(&peer->id, type)) {
+       case DEV_DISCONNECT_IN_NORMAL:
+	       break;
+       case DEV_DISCONNECT_IN_AFTER_RECV:
+	       next_read = close_peer_dev_disconnect;
+	       break;
+       }
+
        /* We got something! */
        peer->last_recv_time = time_now();
 
        /* Don't process packets while we're closing */
        if (peer->draining)
-	       return read_hdr_from_peer(peer_conn, peer);
+	       return next_read(peer_conn, peer);
 
        /* If we swallow this, just try again. */
        if (handle_message_locally(peer, decrypted))
-	       return read_hdr_from_peer(peer_conn, peer);
+	       return next_read(peer_conn, peer);
 
        /* After this we should be able to match to subd by channel_id */
        if (!extract_channel_id(decrypted, &channel_id)) {
@@ -1186,7 +1202,7 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 					"Received %s: %s",
 					peer_wire_name(type), desc);
 		       if (type == WIRE_WARNING)
-			       return read_hdr_from_peer(peer_conn, peer);
+			       return next_read(peer_conn, peer);
 		       return io_close(peer_conn);
 	       }
 
@@ -1194,7 +1210,7 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 	       send_warning(peer, "Unexpected message %s: %s",
 			    peer_wire_name(type),
 			    tal_hex(tmpctx, decrypted));
-	       return read_hdr_from_peer(peer_conn, peer);
+	       return next_read(peer_conn, peer);
        }
 
        /* If we don't find a subdaemon for this, create a new one. */
@@ -1237,7 +1253,7 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
        }
 
        /* Wait for them to wake us */
-       return io_wait(peer_conn, &peer->peer_in, read_hdr_from_peer, peer);
+       return io_wait(peer_conn, &peer->peer_in, next_read, peer);
 }
 
 static struct io_plan *read_body_from_peer(struct io_conn *peer_conn,

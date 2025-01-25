@@ -61,6 +61,13 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 
 	status_peer_io(LOG_IO_IN, &peer->id, msg);
 
+	switch (dev_disconnect_in(&peer->id, fromwire_peektype(msg))) {
+	case DEV_DISCONNECT_IN_NORMAL:
+		break;
+	case DEV_DISCONNECT_IN_AFTER_RECV:
+		return io_close(conn);
+	}
+
 	/* BOLT #1:
 	 *
 	 * A receiving node:
