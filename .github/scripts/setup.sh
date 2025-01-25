@@ -20,12 +20,18 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      gcc-arm-none-eabi \
      gettext \
      git \
+     gnupg \
      jq \
      libc6-dev-arm64-cross \
      libc6-dev-armhf-cross \
+     libev-dev \
+     libevent-dev \
+     libffi-dev \
+     libicu-dev \
      libpq-dev \
      libprotobuf-c-dev \
      libsqlite3-dev \
+     libssl-dev \
      libtool \
      libxml2-utils \
      locales \
@@ -43,6 +49,7 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      software-properties-common \
      sudo \
      tcl \
+     tclsh \
      unzip \
      valgrind \
      wget \
