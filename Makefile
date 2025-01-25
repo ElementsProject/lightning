@@ -595,7 +595,7 @@ check-doc-examples: update-doc-examples
 	git diff --exit-code HEAD
 
 # For those without working cppcheck
-check-source-no-cppcheck: check-makefile check-source-bolt check-whitespace check-spelling check-python check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-doc-examples
+check-source-no-cppcheck: check-makefile check-source-bolt check-whitespace check-spelling check-python check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access
 
 check-source: check-source-no-cppcheck
 

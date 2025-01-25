@@ -88,7 +88,6 @@ jobs:
       - name: Check source
         env:
           VALGRIND: 0
-          GENERATE_EXAMPLES: 1
           PYTEST_OPTS: --timeout=1200
         run: make check-source BASE_REF="origin/${{ github.base_ref }}"
       - name: Check Generated Files have been updated
@@ -480,6 +479,48 @@ jobs:
         run: |
           poetry run pytest tests/ -vvv -n 2 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
 
+  update-docs-examples:
+    name: Update examples in doc schemas 
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+    env:
+      VALGRIND: 0
+      GENERATE_EXAMPLES: 1
+      PYTEST_OPTS: --timeout=1200
+      TEST_NETWORK: regtest
+    needs:
+      - compile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+          pip install -U pip wheel poetry
+          poetry self add poetry-plugin-export
+          poetry export -o /tmp/requirements.txt --without-hashes --with dev
+          pip install -r /tmp/requirements.txt
+      - name: Install bitcoind
+        env:
+          TEST_NETWORK: regtest
+        run: .github/scripts/install-bitcoind.sh
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: cln-compile-gcc.tar.bz2
+      - name: Unpack pre-built CLN
+        run: |
+          tar -xaf cln-compile-gcc.tar.bz2
+      - name: Test
+        run: |
+          make -j $(nproc) check-doc-examples
+
   min-btc-support:
     name: Test minimum supported BTC v${{ matrix.MIN_BTC_VERSION }} with ${{ matrix.NAME }}
     runs-on: ubuntu-22.04
@@ -582,6 +623,7 @@ jobs:
       - check-units
       - integration-valgrind
       - integration-sanitizers
+      - update-docs-examples
       - min-btc-support
       - check-flake
     steps:
