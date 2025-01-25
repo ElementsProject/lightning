@@ -70,8 +70,14 @@ def test_splice_disconnect_sig(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_splice_disconnect_commit(node_factory, bitcoind, executor):
-    l1 = node_factory.get_node(options={'experimental-splicing': None}, may_reconnect=True)
-    l2 = node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'],
+    l1 = node_factory.get_node(options={'experimental-splicing': None, 'dev-no-reconnect': None},
+                               may_reconnect=True)
+    # Note: for dual-fund, there's a COMMITMENT_SIGNED for the initial tx, before splicing!
+    if EXPERIMENTAL_DUAL_FUND:
+        disconnects = ['+WIRE_COMMITMENT_SIGNED*2']
+    else:
+        disconnects = ['+WIRE_COMMITMENT_SIGNED']
+    l2 = node_factory.get_node(disconnect=disconnects,
                                options={'experimental-splicing': None, 'dev-no-reconnect': None},
                                may_reconnect=True)
     l1.openchannel(l2, 1000000)
@@ -91,15 +97,13 @@ def test_splice_disconnect_commit(node_factory, bitcoind, executor):
 
     l2.daemon.wait_for_log(r'dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
 
-    print("Killing l2 without sending WIRE_COMMITMENT_SIGNED")
-    l2.daemon.kill()
+    l1.daemon.kill()
 
-    # Restart l1, without disconnect stuff.
-    del l2.daemon.opts['dev-no-reconnect']
-    del l2.daemon.opts['dev-disconnect']
+    # Restart l1, should reconnect
+    del l1.daemon.opts['dev-no-reconnect']
 
     # Should reconnect, and reestablish the splice.
-    l2.start()
+    l1.start()
 
     # Splice should be abandoned via tx_abort
 
