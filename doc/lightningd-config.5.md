@@ -314,15 +314,21 @@ If there is no `hsm_secret` yet, `lightningd` will create a new encrypted secret
 If you have an unencrypted `hsm_secret` you want to encrypt on-disk, or vice versa,
 see lightning-hsmtool(8).
 
+* **grpc-scheme**=*scheme* [plugin `cln-grpc`]
+
+  The scheme on which the gRPC plugin will listen for incoming connections. The 
+  default is `https`. The interface supports both `http` and `https`.
+  However, `http` can only be used if `grpc-host` is set to a loopback address
+  which is `127.0.0.1` for IPv4.
 
 * **grpc-host**=*HOST* [plugin `cln-grpc`]
 
-  Defines the GRPC server host. Default is 127.0.0.1.
+  The IP address for the gRPC plugin to listen for incoming connections;
+  The default is the IPv4 loopback address `127.0.0.1`.
 
 * **grpc-port**=*portnum* [plugin `cln-grpc`]
 
-  The port number for the GRPC plugin to listen for incoming
-connections. Default is 9736.
+  The port number for the GRPC plugin to listen for incoming connections. Default is 9736.
 
 * **grpc-msg-buffer-size**=*number* [plugin `cln-grpc`]
 
