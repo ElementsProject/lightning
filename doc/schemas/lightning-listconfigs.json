@@ -2678,6 +2678,10 @@
             "value_int": 3,
             "source": "cmdline"
           },
+          "dev-crash-after": {
+            "value_str": "3600",
+            "source": "cmdline"
+          },
           "dev-fail-on-subdaemon-fail": {
             "set": true,
             "source": "cmdline"
