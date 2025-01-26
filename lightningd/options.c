@@ -811,6 +811,31 @@ static char *opt_ignore(void *unused)
 	return NULL;
 }
 
+static void handle_alarm(int sig)
+{
+	abort();
+}
+
+static char *opt_set_crash_timeout(const char *arg, struct lightningd *ld)
+{
+	struct sigaction act;
+	u32 time;
+	char *errstr = opt_set_u32(arg, &time);
+	if (errstr)
+		return errstr;
+
+	/* In case we're *REALLY* stuck, use alarm() */
+	memset(&act, 0, sizeof(act));
+	act.sa_handler = handle_alarm;
+	act.sa_flags = 0;
+
+	if (sigaction(SIGALRM, &act, NULL) != 0)
+		err(1, "Setting up SIGARLM handler");
+
+	alarm(time);
+	return NULL;
+}
+
 static void dev_register_opts(struct lightningd *ld)
 {
 	/* We might want to debug plugins, which are started before normal
@@ -978,6 +1003,10 @@ static void dev_register_opts(struct lightningd *ld)
 		       opt_set_u32, opt_show_u32,
 		       &ld->dev_low_prio_anchor_blocks,
 		       "How many blocks to aim for low-priority anchor closes (default: 2016)");
+	clnopt_witharg("--dev-crash-after", OPT_DEV,
+		       opt_set_crash_timeout, NULL,
+		       ld,
+		       "Crash if we are still going after this long.");
 	/* This is handled directly in daemon_developer_mode(), so we ignore it here */
 	clnopt_noarg("--dev-debug-self", OPT_DEV,
 		     opt_ignore,
@@ -2219,6 +2248,7 @@ bool is_known_opt_cb_arg(char *(*cb_arg)(const char *, void *))
 		|| cb_arg == (void *)opt_add_accept_htlc_tlv
 		|| cb_arg == (void *)opt_set_codex32_or_hex
 		|| cb_arg == (void *)opt_subd_dev_disconnect
+		|| cb_arg == (void *)opt_set_crash_timeout
 		|| cb_arg == (void *)opt_add_api_beg
 		|| cb_arg == (void *)opt_force_featureset
 		|| cb_arg == (void *)opt_force_privkey

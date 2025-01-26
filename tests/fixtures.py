@@ -18,6 +18,9 @@ class LightningNode(utils.LightningNode):
     def __init__(self, *args, **kwargs):
         utils.LightningNode.__init__(self, *args, **kwargs)
 
+        # This is a recent innovation, and we don't want to nail pyln-testing to this version.
+        self.daemon.opts['dev-crash-after'] = 3600
+
         # We have some valgrind suppressions in the `tests/`
         # directory, so we can add these to the valgrind configuration
         # (not generally true when running pyln-testing, hence why
