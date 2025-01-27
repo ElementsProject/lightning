@@ -6269,65 +6269,16 @@ void wallet_delete_blacklist(struct wallet *wallet, const struct rune_blacklist 
 
 void migrate_datastore_commando_runes(struct lightningd *ld, struct db *db)
 {
-	struct db_stmt *stmt;
-	const char **startkey, **k;
-	const u8 *data;
-	size_t max;
+	const char **startkey;
 
 	/* datastore routines expect a tal_arr */
 	startkey = tal_arr(tmpctx, const char *, 2);
-	startkey[0] = "commando";
-	startkey[1] = "runes";
 
-	for (stmt = db_datastore_first(tmpctx, db, startkey, &k, &data, NULL);
-	     stmt;
-	     stmt = db_datastore_next(tmpctx, stmt, startkey, &k, &data, NULL)) {
-		const char *err, *str;
-		struct rune *r;
-
-		str = db_col_strdup(tmpctx, stmt, "data");
-		r = rune_from_base64(tmpctx, str);
-		if (!r)
-			db_fatal(db, "Invalid commando rune %s", str);
-		err = rune_is_ours(ld, r);
-		if (err) {
-			log_unusual(ld->log,
-				    "Warning: removing commando"
-				    " rune %s (uid %s): %s",
-				    str, r->unique_id, err);
-		} else {
-			log_debug(ld->log, "Transferring commando rune to db: %s",
-				  str);
-			db_rune_insert(db, r);
-		}
-		db_datastore_remove(db, k);
-	}
-
-	/* Now convert blacklist */
-	startkey[0] = "commando";
-	startkey[1] = "blacklist";
-
-	data = db_datastore_get(tmpctx, db, startkey, NULL);
-	max = tal_bytelen(data);
-	while (max) {
-		struct rune_blacklist b;
-
-		b.start = fromwire_u64(&data, &max);
-		b.end = fromwire_u64(&data, &max);
-
-		if (!data)
-			db_fatal(db, "Invalid commando blacklist?");
-		log_debug(ld->log, "Transferring commando blacklist to db: %"PRIu64"-%"PRIu64,
-			  b.start, b.end);
-		db_insert_blacklist(db, &b);
-	}
-	db_datastore_remove(db, startkey);
-
-	/* Might as well clean up "rune_counter" while we're here, so
-	 * commando datastore is completely clean. */
+	/* We deleted this from the datastore on migration. */
 	startkey[0] = "commando";
 	startkey[1] = "rune_counter";
-	db_datastore_remove(db, startkey);
+	if (db_datastore_get(tmpctx, db, startkey, NULL))
+		db_fatal(db, "Commando runes still present?  Migration removed in v25.02: call Rusty!");
 }
 
 void migrate_runes_idfix(struct lightningd *ld, struct db *db)
