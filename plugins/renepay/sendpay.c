@@ -342,6 +342,46 @@ static struct command_result *renesendpay_done(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
+static struct command_result *renesendpay_finished(struct command *cmd,
+						   struct renesendpay *renesendpay)
+{
+	struct json_stream *response = jsonrpc_stream_success(cmd);
+	json_add_string(response, "message",
+			"Monitor status with listpays or waitsendpay");
+	json_add_sha256(response, "payment_hash", &renesendpay->payment_hash);
+	json_add_u64(response, "groupid", renesendpay->groupid);
+	json_add_u64(response, "partid", renesendpay->partid);
+	json_add_node_id(response, "destination", &renesendpay->destination);
+	json_add_amount_msat(response, "amount_sent_msat",
+			     renesendpay->sent_amount);
+	json_add_amount_msat(response, "amount_delivered_msat",
+			     renesendpay->deliver_amount);
+	json_add_amount_msat(response, "amount_total_msat",
+			     renesendpay->total_amount);
+	json_add_string(response, "invoice", renesendpay->invoice);
+	json_add_string(response, "status", "pending");
+
+	if (renesendpay->label)
+		json_add_string(response, "label", renesendpay->label);
+	if (renesendpay->description)
+		json_add_string(response, "description",
+				renesendpay->description);
+	if (renesendpay->metadata)
+		json_add_hex_talarr(response, "payment_metadata",
+				    renesendpay->metadata);
+
+	if (renesendpay->shared_secrets) {
+		json_array_start(response, "shared_secrets");
+		for (size_t i = 0; i < tal_count(renesendpay->shared_secrets);
+		     i++) {
+			json_add_secret(response, NULL,
+					&renesendpay->shared_secrets[i]);
+		}
+		json_array_end(response);
+	}
+	return command_finished(cmd, response);
+}
+
 static u32 initial_cltv_delta(const struct renesendpay *renesendpay)
 {
 	if (tal_count(renesendpay->route) == 0)
@@ -439,8 +479,8 @@ static struct command_result *waitblockheight_done(struct command *cmd,
 			     initial_cltv_delta(renesendpay) +
 				 renesendpay->blockheight);
 	}
-
-	return send_outreq(req);
+	send_outreq(req);
+	return renesendpay_finished(cmd, renesendpay);
 }
 
 struct command_result *json_renesendpay(struct command *cmd,

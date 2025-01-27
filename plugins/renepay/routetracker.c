@@ -209,14 +209,19 @@ static struct command_result *sendpay_done(struct command *cmd,
 
 	const jsmntok_t *secretstok =
 	    json_get_member(buf, result, "shared_secrets");
-	assert(secretstok->type == JSMN_ARRAY);
 
-	route->shared_secrets = tal_arr(route, struct secret, secretstok->size);
-	json_for_each_arr(i, t, secretstok)
-	{
-		ret = json_to_secret(buf, t, &route->shared_secrets[i]);
-		assert(ret);
-	}
+	if (secretstok) {
+		assert(secretstok->type == JSMN_ARRAY);
+
+		route->shared_secrets =
+		    tal_arr(route, struct secret, secretstok->size);
+		json_for_each_arr(i, t, secretstok)
+		{
+			ret = json_to_secret(buf, t, &route->shared_secrets[i]);
+			assert(ret);
+		}
+	} else
+		route->shared_secrets = NULL;
 	return command_still_pending(cmd);
 }
 
@@ -440,7 +445,8 @@ struct command_result *notification_sendpay_failure(struct command *cmd,
 	}
 
 	assert(route->result == NULL);
-	route->result = tal_sendpay_result_from_json(route, buf, sub);
+	route->result = tal_sendpay_result_from_json(route, buf, sub,
+						     route->shared_secrets);
 	if (route->result == NULL)
 		plugin_err(pay_plugin->plugin,
 			   "Unable to parse sendpay_failure: %.*s",
@@ -504,7 +510,8 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 	}
 
 	assert(route->result == NULL);
-	route->result = tal_sendpay_result_from_json(route, buf, sub);
+	route->result = tal_sendpay_result_from_json(route, buf, sub,
+						     route->shared_secrets);
 	if (route->result == NULL)
 		plugin_err(pay_plugin->plugin,
 			   "Unable to parse sendpay_success: %.*s",
