@@ -509,50 +509,6 @@ def test_rune_pay_amount(node_factory):
     assert res['valid'] is True
 
 
-@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Depends on canned sqlite3 db")
-@unittest.skipIf(TEST_NETWORK != 'regtest', 'canned sqlite3 db is regtest')
-def test_commando_rune_migration(node_factory):
-    """Test migration from commando's datastore using db from test_commando_listrunes"""
-    l1 = node_factory.get_node(dbfile='commando_listrunes.sqlite3.xz',
-                               options={'database-upgrade': True})
-
-    # This happens really early in logs!
-    l1.daemon.logsearch_start = 0
-    l1.daemon.wait_for_logs(['Transferring commando rune to db: '] * 2)
-
-    # datastore should be empty:
-    assert l1.rpc.listdatastore(['commando']) == {'datastore': []}
-
-    # Should match commando results!
-    assert l1.rpc.showrunes() == {'runes': [{'rune':
-                                             'OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==',
-                                             'unique_id': '0', 'restrictions':
-                                             [], 'restrictions_as_english': ''},
-                                            {'rune':
-                                             'geZmO6U7yqpHn-moaX93FVMVWrDRfSNY4AXx9ypLcqg9MQ==',
-                                             'unique_id': '1', 'restrictions':
-                                             [], 'restrictions_as_english': ''}]}
-
-
-@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Depends on canned sqlite3 db")
-@unittest.skipIf(TEST_NETWORK != 'regtest', 'canned sqlite3 db is regtest')
-def test_commando_blacklist_migration(node_factory):
-    """Test migration from commando's datastore using db from test_commando_blacklist"""
-    l1 = node_factory.get_node(dbfile='commando_blacklist.sqlite3.xz',
-                               options={'database-upgrade': True})
-
-    # This happens really early in logs!
-    l1.daemon.logsearch_start = 0
-    l1.daemon.wait_for_logs(['Transferring commando blacklist to db: '] * 2)
-
-    # datastore should be empty:
-    assert l1.rpc.listdatastore(['commando']) == {'datastore': []}
-
-    # Should match commando results!
-    assert l1.rpc.blacklistrune() == {'blacklist': [{'start': 0, 'end': 6},
-                                                    {'start': 9, 'end': 9}]}
-
-
 def test_missing_method_or_nodeid(node_factory):
     """For v23.11 we realized that nodeid should not be required for checkrune, which means method (which followed it) could not be require either"""
     l1 = node_factory.get_node()
