@@ -1749,20 +1749,12 @@ u64 wallet_get_rune_next_unique_id(const tal_t *ctx, struct wallet *wallet);
 struct rune_blacklist *wallet_get_runes_blacklist(const tal_t *ctx, struct wallet *wallet);
 
 /**
- * wallet_insert_blacklist -- Insert rune into blacklist
+ * wallet_set_blacklist -- Replace the blacklist
  *
  * @wallet: the wallet to save into
- * @entry: the new entry to insert
+ * @blist: the new blacklist
  */
-void wallet_insert_blacklist(struct wallet *wallet, const struct rune_blacklist *entry);
-
-/**
- * wallet_delete_blacklist -- Delete row from blacklist
- *
- * @wallet: the wallet to delete from
- * @entry: the entry to delete
- */
-void wallet_delete_blacklist(struct wallet *wallet, const struct rune_blacklist *entry);
+void wallet_set_blacklist(struct wallet *wallet, const struct rune_blacklist *blist);
 
 /**
  * wallet_set_local_anchor -- Set local anchor point for a remote commitment tx

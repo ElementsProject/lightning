@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/bitmap/bitmap.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/rune/rune.h>
 #include <ccan/tal/str/str.h>
@@ -19,6 +20,9 @@
 #include <lightningd/runes.h>
 #include <wallet/wallet.h>
 
+/* "640k should be enough for anybody!" */
+#define MAX_BLACKLIST_NUM 100000000
+
 static const u64 sec_per_nsec = 1000000000;
 
 struct cond_info {
@@ -36,7 +40,7 @@ struct runes {
 	struct lightningd *ld;
 	struct rune *master;
 	u64 next_unique_id;
-	struct rune_blacklist *blacklist;
+	BITMAP_DECLARE(blist_bitmap, MAX_BLACKLIST_NUM);
 };
 
 enum invoice_field {
@@ -179,12 +183,41 @@ struct runes *runes_early_init(struct lightningd *ld)
 	return runes;
 }
 
+static void blacklist_to_bitmap(const struct rune_blacklist *blist,
+				bitmap *bitmap, size_t nbits)
+{
+	bitmap_zero(bitmap, nbits);
+	for (size_t i = 0; i < tal_count(blist); i++) {
+		assert(blist[i].end < nbits);
+		bitmap_fill_range(bitmap, blist[i].start, blist[i].end+1);
+	}
+}
+
+static struct rune_blacklist *bitmap_to_blacklist(tal_t *ctx,
+						  const bitmap *bitmap, size_t nbits)
+{
+	struct rune_blacklist *blist = tal_arr(ctx, struct rune_blacklist, 0);
+	size_t i = 0;
+
+	while ((i = bitmap_ffs(bitmap, i, nbits)) != nbits) {
+		struct rune_blacklist b;
+		b.start = b.end = i;
+		while (b.end < nbits && bitmap_test_bit(bitmap, b.end + 1))
+			b.end++;
+		tal_arr_expand(&blist, b);
+		i = b.end + 1;
+	}
+	return blist;
+}
+
 void runes_finish_init(struct runes *runes)
 {
 	struct lightningd *ld = runes->ld;
+	struct rune_blacklist *blist;
 
 	runes->next_unique_id = wallet_get_rune_next_unique_id(runes, ld->wallet);
-	runes->blacklist = wallet_get_runes_blacklist(runes, ld->wallet);
+	blist = wallet_get_runes_blacklist(tmpctx, ld->wallet);
+	blacklist_to_bitmap(blist, runes->blist_bitmap, MAX_BLACKLIST_NUM);
 }
 
 struct rune_and_string {
@@ -301,12 +334,7 @@ static bool is_rune_blacklisted(const struct runes *runes, const struct rune *ru
 		return false;
 	}
 	uid = rune_unique_id(rune);
-	for (size_t i = 0; i < tal_count(runes->blacklist); i++) {
-		if (runes->blacklist[i].start <= uid && runes->blacklist[i].end >= uid) {
-			return true;
-		}
-	}
-	return false;
+	return uid < MAX_BLACKLIST_NUM && bitmap_test_bit(runes->blist_bitmap, uid);
 }
 
 static void join_strings(char **base, const char *connector, char *append)
@@ -595,32 +623,16 @@ static const struct json_command invokerune_command = {
 };
 AUTODATA(json_command, &invokerune_command);
 
-static void blacklist_merge(struct rune_blacklist *blacklist,
-			    const struct rune_blacklist *entry)
-{
-	if (entry->start < blacklist->start) {
-		blacklist->start = entry->start;
-	}
-	if (entry->end > blacklist->end) {
-		blacklist->end = entry->end;
-	}
-}
-
-static bool blacklist_before(const struct rune_blacklist *first,
-			     const struct rune_blacklist *second)
-{
-	// Is it before with a gap
-	return (first->end + 1) < second->start;
-}
-
-static struct command_result *list_blacklist(struct command *cmd)
+static struct command_result *list_blacklist(struct command *cmd,
+					     const struct rune_blacklist *blist)
 {
 	struct json_stream *js = json_stream_success(cmd);
+
 	json_array_start(js, "blacklist");
-	for (size_t i = 0; i < tal_count(cmd->ld->runes->blacklist); i++) {
+	for (size_t i = 0; i < tal_count(blist); i++) {
 		json_object_start(js, NULL);
-		json_add_u64(js, "start", cmd->ld->runes->blacklist[i].start);
-		json_add_u64(js, "end", cmd->ld->runes->blacklist[i].end);
+		json_add_u64(js, "start", blist[i].start);
+		json_add_u64(js, "end", blist[i].end);
 		json_object_end(js);
 	}
 	json_array_end(js);
@@ -633,7 +645,7 @@ static struct command_result *json_blacklistrune(struct command *cmd,
 						 const jsmntok_t *params)
 {
 	u64 *start, *end;
-	struct rune_blacklist *entry, *newblacklist;
+	struct rune_blacklist *blist;
 
 	if (!param_check(cmd, buffer, params,
 			 p_opt("start", param_u64, &start), p_opt("end", param_u64, &end), NULL))
@@ -643,53 +655,30 @@ static struct command_result *json_blacklistrune(struct command *cmd,
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Can not specify end without start");
 	}
 
+	if (!end) {
+		end = start;
+	}
+
+	if (*end >= MAX_BLACKLIST_NUM) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Cannot blacklist beyond %u", MAX_BLACKLIST_NUM);
+	}
+
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
 	if (!start) {
-		return list_blacklist(cmd);
-	}
-	if (!end) {
-		end = start;
-	}
-	entry = tal(cmd, struct rune_blacklist);
-	entry->start = *start;
-	entry->end = *end;
-
-	newblacklist = tal_arr(cmd->ld->runes, struct rune_blacklist, 0);
-
-	for (size_t i = 0; i < tal_count(cmd->ld->runes->blacklist); i++) {
-		/* if new entry if already merged just copy the old list */
-		if (entry == NULL) {
-			tal_arr_expand(&newblacklist, cmd->ld->runes->blacklist[i]);
-			continue;
-		}
-		/* old list has not reached the entry yet, so we are just copying it */
-		if (blacklist_before(&(cmd->ld->runes->blacklist)[i], entry)) {
-			tal_arr_expand(&newblacklist, cmd->ld->runes->blacklist[i]);
-			continue;
-		}
-		/* old list has passed the entry, time to put the entry in */
-		if (blacklist_before(entry, &(cmd->ld->runes->blacklist)[i])) {
-			tal_arr_expand(&newblacklist, *entry);
-			tal_arr_expand(&newblacklist, cmd->ld->runes->blacklist[i]);
-			wallet_insert_blacklist(cmd->ld->wallet, entry);
-			// mark entry as copied
-			entry = NULL;
-			continue;
-		}
-		/* old list overlaps combined into the entry we are adding */
-		blacklist_merge(entry, &(cmd->ld->runes->blacklist)[i]);
-		wallet_delete_blacklist(cmd->ld->wallet, &(cmd->ld->runes->blacklist)[i]);
-	}
-	if (entry != NULL) {
-		tal_arr_expand(&newblacklist, *entry);
-		wallet_insert_blacklist(cmd->ld->wallet, entry);
+		blist = bitmap_to_blacklist(cmd, cmd->ld->runes->blist_bitmap, MAX_BLACKLIST_NUM);
+		return list_blacklist(cmd, blist);
 	}
 
-	tal_free(cmd->ld->runes->blacklist);
-	cmd->ld->runes->blacklist = newblacklist;
-	return list_blacklist(cmd);
+	/* Include end */
+	bitmap_fill_range(cmd->ld->runes->blist_bitmap, *start, (*end)+1);
+
+	/* Convert to list once, use for db and for list_blacklist */
+	blist = bitmap_to_blacklist(cmd, cmd->ld->runes->blist_bitmap, MAX_BLACKLIST_NUM);
+	wallet_set_blacklist(cmd->ld->wallet, blist);
+
+	return list_blacklist(cmd, blist);
 }
 
 static const struct json_command blacklistrune_command = {
