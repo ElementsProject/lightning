@@ -13,7 +13,8 @@ struct route *tal_route_from_json(const tal_t *ctx, const char *buf,
 
 struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 						    const char *buffer,
-						    const jsmntok_t *toks);
+						    const jsmntok_t *toks,
+						    struct secret *shared_secrets);
 
 void json_add_payment(struct json_stream *s, const struct payment *payment);
 

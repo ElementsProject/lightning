@@ -1,5 +1,7 @@
 #include "config.h"
 #include <common/json_stream.h>
+#include <common/onionreply.h>
+#include <common/sphinx.h>
 #include <plugins/renepay/json.h>
 
 /* See if this notification is about one of our flows. */
@@ -72,12 +74,103 @@ fail:
 	return tal_free(route);
 }
 
+static bool get_data_details_onionreply(struct payment_result *result,
+					const char *buffer,
+					const jsmntok_t *datatok,
+					struct secret *shared_secrets)
+{
+	const tal_t *this_ctx = tal(result, tal_t);
+	const jsmntok_t *onionreplytok;
+	struct onionreply *onionreply, *wonionreply;
+	const u8 *replymsg;
+	int index;
+
+	onionreplytok = json_get_member(buffer, datatok, "onionreply");
+	if (!onionreplytok || !shared_secrets)
+		goto fail;
+	onionreply = new_onionreply(
+	    this_ctx,
+	    take(json_tok_bin_from_hex(this_ctx, buffer, onionreplytok)));
+	assert(onionreply);
+	/* FIXME: It seems that lightningd will unwrap top portion of the
+	 * onionreply for us before serializing it, while unwrap_onionreply will
+	 * try to do the entire unwraping. It would be a better API if either
+	 * lightningd unwraps the entire thing or it doesn't do any unwraping.
+	 * Also it wouldn't hurt if injectpaymentonion accepted the shared
+	 * secrets to allow lightningd do the decoding for us. */
+	wonionreply = wrap_onionreply(this_ctx, &shared_secrets[0], onionreply);
+	replymsg = unwrap_onionreply(this_ctx, shared_secrets,
+				     tal_count(shared_secrets),
+				     wonionreply, &index);
+	if (replymsg) {
+		result->failcode = tal(result, enum onion_wire);
+		*result->failcode = fromwire_peektype(replymsg);
+
+		result->erring_index = tal(result, u32);
+		*result->erring_index = index;
+	}
+	tal_free(this_ctx);
+	return true;
+fail:
+	tal_free(this_ctx);
+	return false;
+}
+
+static bool get_data_details(struct payment_result *result,
+			     const char *buffer,
+			     const jsmntok_t *datatok)
+{
+
+	const jsmntok_t *erridxtok, *failcodetok, *errnodetok, *errchantok,
+	    *errdirtok, *rawmsgtok, *failcodenametok;
+	erridxtok = json_get_member(buffer, datatok, "erring_index");
+	failcodetok = json_get_member(buffer, datatok, "failcode");
+
+	if (!erridxtok || !failcodetok)
+		return false;
+	result->failcode = tal(result, enum onion_wire);
+	json_to_u32(buffer, failcodetok, result->failcode);
+
+	result->erring_index = tal(result, u32);
+	json_to_u32(buffer, erridxtok, result->erring_index);
+
+	// search for other fields
+	errnodetok = json_get_member(buffer, datatok, "erring_node");
+	errchantok = json_get_member(buffer, datatok, "erring_channel");
+	errdirtok = json_get_member(buffer, datatok, "erring_direction");
+	failcodenametok = json_get_member(buffer, datatok, "failcodename");
+	rawmsgtok = json_get_member(buffer, datatok, "raw_message");
+
+	if (errnodetok != NULL) {
+		result->erring_node = tal(result, struct node_id);
+		json_to_node_id(buffer, errnodetok, result->erring_node);
+	}
+
+	if (errchantok != NULL) {
+		result->erring_channel = tal(result, struct short_channel_id);
+		json_to_short_channel_id(buffer, errchantok,
+					 result->erring_channel);
+	}
+	if (errdirtok != NULL) {
+		result->erring_direction = tal(result, int);
+		json_to_int(buffer, errdirtok, result->erring_direction);
+	}
+	if (rawmsgtok != NULL)
+		result->raw_message =
+		    json_tok_bin_from_hex(result, buffer, rawmsgtok);
+
+	if (failcodenametok != NULL)
+		result->failcodename =
+		    json_strdup(result, buffer, failcodenametok);
+
+	return true;
+}
+
 struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 						    const char *buffer,
-						    const jsmntok_t *toks)
+						    const jsmntok_t *toks,
+						    struct secret *shared_secrets)
 {
-	// FIXME: we will be getting onionreply try to decode these with
-	// shared_secrets
 	const jsmntok_t *idtok = json_get_member(buffer, toks, "created_index");
 	const jsmntok_t *hashtok =
 	    json_get_member(buffer, toks, "payment_hash");
@@ -89,8 +182,6 @@ struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 	const jsmntok_t *codetok = json_get_member(buffer, toks, "code");
 	const jsmntok_t *msgtok = json_get_member(buffer, toks, "message");
 	const jsmntok_t *datatok = json_get_member(buffer, toks, "data");
-	const jsmntok_t *erridxtok, *failcodetok, *rawmsgtok,
-	    *failcodenametok, *errchantok, *errnodetok, *errdirtok;
 	struct payment_result *result;
 
 	/* Check if we have an error and need to descend into data to get
@@ -110,6 +201,7 @@ struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 	}
 
 	result = tal(ctx, struct payment_result);
+	memset(result, 0, sizeof(struct payment_result));
 
 	if (msgtok)
 		result->message = json_strdup(result, buffer, msgtok);
@@ -147,77 +239,12 @@ struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 
 	/* Now extract the error details if the error code is not 0 */
 	if (result->code != 0 && datatok) {
-		erridxtok = json_get_member(buffer, datatok, "erring_index");
-		errnodetok = json_get_member(buffer, datatok, "erring_node");
-		errchantok = json_get_member(buffer, datatok, "erring_channel");
-		errdirtok =
-		    json_get_member(buffer, datatok, "erring_direction");
-		failcodetok = json_get_member(buffer, datatok, "failcode");
-		failcodenametok =
-		    json_get_member(buffer, datatok, "failcodename");
-		rawmsgtok = json_get_member(buffer, datatok, "raw_message");
-		/* check type for sanity */
-		if ((failcodetok != NULL &&
-		     failcodetok->type != JSMN_PRIMITIVE) ||
-		    (failcodenametok != NULL &&
-		     failcodenametok->type != JSMN_STRING) ||
-		    (erridxtok != NULL && erridxtok->type != JSMN_PRIMITIVE) ||
-		    (errnodetok != NULL && errnodetok->type != JSMN_STRING) ||
-		    (errchantok != NULL && errchantok->type != JSMN_STRING) ||
-		    (errdirtok != NULL && errdirtok->type != JSMN_PRIMITIVE) ||
-		    (rawmsgtok != NULL && rawmsgtok->type != JSMN_STRING))
+		/* try one, then try the other, then fail */
+		if (!get_data_details(result, buffer, datatok) &&
+		    !get_data_details_onionreply(result, buffer, datatok,
+						 shared_secrets))
 			goto fail;
-
-		if (rawmsgtok != NULL)
-			result->raw_message =
-			    json_tok_bin_from_hex(result, buffer, rawmsgtok);
-		else
-			result->raw_message = NULL;
-
-		if (failcodenametok != NULL)
-			result->failcodename =
-			    json_strdup(result, buffer, failcodenametok);
-		else
-			result->failcodename = NULL;
-
-		if(failcodetok){
-			result->failcode = tal(result, enum onion_wire);
-			json_to_u32(buffer, failcodetok, result->failcode);
-		}else
-			result->failcode = NULL;
-		if (erridxtok != NULL) {
-			result->erring_index = tal(result, u32);
-			json_to_u32(buffer, erridxtok, result->erring_index);
-		} else {
-			result->erring_index = NULL;
-		}
-
-		if (errdirtok != NULL) {
-			result->erring_direction = tal(result, int);
-			json_to_int(buffer, errdirtok,
-				    result->erring_direction);
-		} else {
-			result->erring_direction = NULL;
-		}
-
-		if (errnodetok != NULL) {
-			result->erring_node = tal(result, struct node_id);
-			json_to_node_id(buffer, errnodetok,
-					result->erring_node);
-		} else {
-			result->erring_node = NULL;
-		}
-
-		if (errchantok != NULL) {
-			result->erring_channel =
-			    tal(result, struct short_channel_id);
-			json_to_short_channel_id(buffer, errchantok,
-						 result->erring_channel);
-		} else {
-			result->erring_channel = NULL;
-		}
 	}
-
 	return result;
 fail:
 	return tal_free(result);
