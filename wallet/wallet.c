@@ -6234,37 +6234,20 @@ void wallet_rune_update_last_used(struct wallet *wallet, const struct rune *rune
 	tal_free(stmt);
 }
 
-static void db_insert_blacklist(struct db *db,
-				const struct rune_blacklist *entry)
+/* Hardly a common operation!  Delete and rewrite entire table */
+void wallet_set_blacklist(struct wallet *wallet, const struct rune_blacklist *blist)
 {
 	struct db_stmt *stmt;
+	stmt = db_prepare_v2(wallet->db, SQL("DELETE FROM runes_blacklist"));
+	db_exec_prepared_v2(take(stmt));
 
-	stmt = db_prepare_v2(db,
-			     SQL("INSERT INTO runes_blacklist VALUES (?,?)"));
-	db_bind_u64(stmt, entry->start);
-	db_bind_u64(stmt, entry->end);
-	db_exec_prepared_v2(stmt);
-	tal_free(stmt);
-}
-
-void wallet_insert_blacklist(struct wallet *wallet, const struct rune_blacklist *entry)
-{
-	db_insert_blacklist(wallet->db, entry);
-}
-
-void wallet_delete_blacklist(struct wallet *wallet, const struct rune_blacklist *entry)
-{
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(wallet->db,
-			     SQL("DELETE FROM runes_blacklist WHERE start_index = ? AND end_index = ?"));
-	db_bind_u64(stmt, entry->start);
-	db_bind_u64(stmt, entry->end);
-	db_exec_prepared_v2(stmt);
-	if (db_count_changes(stmt) != 1) {
-		db_fatal(wallet->db, "Failed to delete from runes_blacklist");
+	for (size_t i = 0; i < tal_count(blist); i++) {
+		stmt = db_prepare_v2(wallet->db,
+				     SQL("INSERT INTO runes_blacklist VALUES (?,?)"));
+		db_bind_u64(stmt, blist[i].start);
+		db_bind_u64(stmt, blist[i].end);
+		db_exec_prepared_v2(take(stmt));
 	}
-	tal_free(stmt);
 }
 
 void migrate_datastore_commando_runes(struct lightningd *ld, struct db *db)
