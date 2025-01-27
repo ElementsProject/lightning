@@ -229,12 +229,25 @@ static char *send_next(const tal_t *ctx,
 
 		/* If this is the shared channel input, we send funding txid in
 		 * tlvs and do not send prevtx */
+		if (ictx->shared_outpoint) {
+			status_debug("ictx->shared_outpoint=%s",
+				    fmt_bitcoin_outpoint(tmpctx,
+				    			 ictx->shared_outpoint));
+		}
+		else {
+			status_debug("ictx->shared_outpoint = NULL");
+		}
+		status_debug("point=%s", fmt_bitcoin_outpoint(tmpctx, &point));
+
  		if (ictx->shared_outpoint
  			&& bitcoin_outpoint_eq(&point, ictx->shared_outpoint)) {
-			struct tlv_tx_add_input_tlvs *tlvs = tal(tmpctx, struct tlv_tx_add_input_tlvs);
+			struct tlv_tx_add_input_tlvs *tlvs = tlv_tx_add_input_tlvs_new(tmpctx);
 			tlvs->shared_input_txid = tal_dup(tlvs,
 							  struct bitcoin_txid,
 							  &point.txid);
+			status_debug("Adding shared input %s",
+				     tal_hexstr(ctx, &serial_id,
+				     		sizeof(serial_id)));
  			msg = towire_tx_add_input(NULL, cid, serial_id,
 						  NULL, in->input.index,
 						  in->input.sequence, tlvs);
@@ -242,6 +255,9 @@ static char *send_next(const tal_t *ctx,
 			msg = towire_tx_add_input(NULL, cid, serial_id,
 						  prevtx, in->input.index,
 						  in->input.sequence, NULL);
+			status_debug("Adding splice input %s",
+				     tal_hexstr(ctx, &serial_id,
+				     		sizeof(serial_id)));
 		}
 
 		tal_arr_remove(&set->added_ins, 0);

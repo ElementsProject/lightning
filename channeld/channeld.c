@@ -4164,6 +4164,10 @@ static void splice_initiator_user_update(struct peer *peer, const u8 *inmsg)
 	ictx->tx_add_input_count = peer->splicing->tx_add_input_count;
 	ictx->tx_add_output_count = peer->splicing->tx_add_output_count;
 
+	ictx->shared_outpoint = tal(ictx, struct bitcoin_outpoint);
+	*ictx->shared_outpoint = peer->channel->funding;
+	ictx->funding_tx = bitcoin_tx_from_txid(peer, peer->channel->funding.txid);
+
 	/* If there no are no changes, we consider the splice user finalized */
 	if (!interactivetx_has_changes(ictx, ictx->desired_psbt)) {
 		splice_initiator_user_finalized(peer);
