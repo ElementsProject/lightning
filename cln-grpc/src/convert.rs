@@ -5878,6 +5878,7 @@ impl From<requests::BlacklistruneRequest> for pb::BlacklistruneRequest {
     fn from(c: requests::BlacklistruneRequest) -> Self {
         Self {
             end: c.end, // Rule #2 for type u64?
+            relist: c.relist, // Rule #2 for type boolean?
             start: c.start, // Rule #2 for type u64?
         }
     }
@@ -7522,6 +7523,7 @@ impl From<pb::BlacklistruneRequest> for requests::BlacklistruneRequest {
     fn from(c: pb::BlacklistruneRequest) -> Self {
         Self {
             end: c.end, // Rule #1 for type u64?
+            relist: c.relist, // Rule #1 for type boolean?
             start: c.start, // Rule #1 for type u64?
         }
     }

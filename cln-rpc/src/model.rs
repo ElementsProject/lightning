@@ -4086,6 +4086,8 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub end: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub relist: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub start: Option<u64>,
 	}
 

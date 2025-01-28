@@ -997,6 +997,7 @@
         },
         "BlacklistruneRequest": {
             "BlacklistRune.end": 2,
+            "BlacklistRune.relist": 3,
             "BlacklistRune.start": 1
         },
         "BlacklistruneResponse": {
@@ -5125,6 +5126,10 @@
         },
         "BlacklistRune.end": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "BlacklistRune.relist": {
+            "added": "v25.02",
             "deprecated": null
         },
         "BlacklistRune.start": {

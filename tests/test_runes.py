@@ -409,6 +409,39 @@ def test_blacklistrune(node_factory):
     blacklisted_rune = l1.rpc.showrunes(rune='geZmO6U7yqpHn-moaX93FVMVWrDRfSNY4AXx9ypLcqg9MQ==')['runes'][0]['blacklisted']
     assert blacklisted_rune is True
 
+    # Sigh.  Someone blacklisted too much, so we added this!
+    blacklist = l1.rpc.blacklistrune(start=10, relist=True)
+    assert blacklist == {'blacklist': [{'start': 0, 'end': 6},
+                                       {'start': 9, 'end': 9}]}
+
+    with pytest.raises(RpcError, match='Cannot blacklist beyond'):
+        l1.rpc.blacklistrune(start=100_000_000, relist=True)
+
+    blacklist = l1.rpc.blacklistrune(start=9, end=9, relist=True)
+    assert blacklist == {'blacklist': [{'start': 0, 'end': 6}]}
+
+    blacklist = l1.rpc.blacklistrune(start=1, end=2, relist=True)
+    assert blacklist == {'blacklist': [{'start': 0, 'end': 0},
+                                       {'start': 3, 'end': 6}]}
+
+    blacklist = l1.rpc.blacklistrune(start=4, relist=True)
+    assert blacklist == {'blacklist': [{'start': 0, 'end': 0},
+                                       {'start': 3, 'end': 3},
+                                       {'start': 5, 'end': 6}]}
+
+    blacklist = l1.rpc.blacklistrune(start=0, end=3, relist=True)
+    assert blacklist == {'blacklist': [{'start': 5, 'end': 6}]}
+
+    # Database should be persistent
+    l1.restart()
+
+    blacklist = l1.rpc.blacklistrune()
+    assert blacklist == {'blacklist': [{'start': 5, 'end': 6}]}
+
+    # Last deletion.
+    blacklist = l1.rpc.blacklistrune(start=0, end=99_999_999, relist=True)
+    assert blacklist == {'blacklist': []}
+
 
 def test_badrune(node_factory):
     """Test invalid UTF-8 encodings in rune: used to make us kill the offers plugin which implements decode, as it gave bad utf8!"""
