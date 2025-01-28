@@ -525,12 +525,8 @@ static const char *plugin_log_handle(struct plugin *plugin,
 		lines = tal_strsplit(tmpctx, log_msg, "\n", STR_EMPTY_OK);
 
 		for (size_t i = 0; lines[i]; i++) {
-			bool call_notifier2 = call_notifier;
-			/* Call notifier only for the last message to avoid Python errors. */
-			if (lines[i+1] != NULL)
-				call_notifier2 = false;
 			/* FIXME: Let plugin specify node_id? */
-			log_(plugin->log, level, NULL, call_notifier2, "%s", lines[i]);
+			log_(plugin->log, level, NULL, call_notifier, "%s", lines[i]);
 		}
 	} else {
 		log_(plugin->log, level, NULL, call_notifier, "%.*s",
