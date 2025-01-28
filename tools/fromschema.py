@@ -325,7 +325,7 @@ def create_shell_command(rpc, example):
 
 def generate_header(schema):
     """Generate lines for rpc title and synopsis with request parameters"""
-    output_title(esc_underscores(''.join(['lightning-', schema['rpc'], ' -- ', schema['title']])), '=', 0, 1)
+    output_title(esc_underscores(''.join([schema['rpc'], ' -- ', schema['title']])), '=', 0, 1)
     output_title('SYNOPSIS')
     # Add command level warning if exists
     if 'warning' in schema:
@@ -364,8 +364,8 @@ def generate_header(schema):
                 # Print the key as it is if it doesn't exist in conditional array
                 output('{}'.format(fmt_paramname(toplevels[i], False if 'required' in request and toplevels[i] in request['required'] else True)))
         i += 1
-    # lightning-plugin.json is an exception where all parameters cannot be printed deu to their dependency on different subcommands
-    # So, add ... at the end for lightning-plugin schema
+    # plugin.json is an exception where all parameters cannot be printed deu to their dependency on different subcommands
+    # So, add ... at the end for plugin schema
     if schema['rpc'] == 'plugin':
         output('...')
     output('\n')
