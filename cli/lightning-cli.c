@@ -699,7 +699,7 @@ int main(int argc, char *argv[])
 	 * not need to have lightningd running in this case. */
 	if (streq(method, "help") && format == DEFAULT_FORMAT && argc >= 3 && !commando) {
 		command = argv[2];
-		char *page = tal_fmt(ctx, "lightning-%s", command);
+		char *page = tal_fmt(ctx, "%s", command);
 
 		try_exec_man(page, NULL);
 
