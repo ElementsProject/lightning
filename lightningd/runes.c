@@ -646,9 +646,13 @@ static struct command_result *json_blacklistrune(struct command *cmd,
 {
 	u64 *start, *end;
 	struct rune_blacklist *blist;
+	bool *relist;
 
 	if (!param_check(cmd, buffer, params,
-			 p_opt("start", param_u64, &start), p_opt("end", param_u64, &end), NULL))
+			 p_opt("start", param_u64, &start),
+			 p_opt("end", param_u64, &end),
+			 p_opt_def("relist", param_bool, &relist, false),
+			 NULL))
 		return command_param_failed();
 
 	if (end && !start) {
@@ -659,7 +663,7 @@ static struct command_result *json_blacklistrune(struct command *cmd,
 		end = start;
 	}
 
-	if (*end >= MAX_BLACKLIST_NUM) {
+	if (end && *end >= MAX_BLACKLIST_NUM) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Cannot blacklist beyond %u", MAX_BLACKLIST_NUM);
 	}
 
@@ -672,7 +676,10 @@ static struct command_result *json_blacklistrune(struct command *cmd,
 	}
 
 	/* Include end */
-	bitmap_fill_range(cmd->ld->runes->blist_bitmap, *start, (*end)+1);
+	if (*relist)
+		bitmap_zero_range(cmd->ld->runes->blist_bitmap, *start, (*end)+1);
+	else
+		bitmap_fill_range(cmd->ld->runes->blist_bitmap, *start, (*end)+1);
 
 	/* Convert to list once, use for db and for list_blacklist */
 	blist = bitmap_to_blacklist(cmd, cmd->ld->runes->blist_bitmap, MAX_BLACKLIST_NUM);

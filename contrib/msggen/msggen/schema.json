@@ -4678,6 +4678,13 @@
             "description": [
               "Final rune unique id to blacklist (defaults to start)."
             ]
+          },
+          "relist": {
+            "type": "boolean",
+            "added": "v25.02",
+            "description": [
+              "Undo the blacklisting (if any) of every rune in range start to end (inclusive)"
+            ]
           }
         },
         "dependentUpon": {
@@ -4781,6 +4788,31 @@
             "blacklist": [
               {
                 "start": 0,
+                "end": 4
+              }
+            ]
+          }
+        },
+        {
+          "description": [
+            "This undoes the blacklisting of rune 3 only"
+          ],
+          "request": {
+            "id": "example:blacklistrune#4",
+            "method": "blacklistrune",
+            "params": {
+              "start": 3,
+              "relist": true
+            }
+          },
+          "response": {
+            "blacklist": [
+              {
+                "start": 0,
+                "end": 2
+              },
+              {
+                "start": 4,
                 "end": 4
               }
             ]

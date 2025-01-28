@@ -3693,6 +3693,7 @@ message BkpreditdescriptionbyoutpointUpdated {
 message BlacklistruneRequest {
 	optional uint64 start = 1;
 	optional uint64 end = 2;
+	optional bool relist = 3;
 }
 
 message BlacklistruneResponse {

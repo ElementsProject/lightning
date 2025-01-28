@@ -795,6 +795,8 @@ def generate_runes_examples(l1, l2, l3):
         update_example(node=l2, method='blacklistrune', params={'start': 1})
         update_example(node=l2, method='blacklistrune', params={'start': 0, 'end': 2})
         update_example(node=l2, method='blacklistrune', params={'start': 3, 'end': 4})
+        update_example(node=l2, method='blacklistrune', params={'start': 3, 'relist': True},
+                       description=['This undoes the blacklisting of rune 3 only'])
 
         # Commando runes
         rune_l11 = update_example(node=l1, method='commando-rune', params={}, description=['This creates a fresh rune which can do anything:'])
