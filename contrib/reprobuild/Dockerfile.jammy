@@ -53,7 +53,7 @@ RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py && python3 /tmp
 RUN wget https://sh.rustup.rs -O rustup-install.sh && \
     bash rustup-install.sh --default-toolchain none --quiet -y && \
     rm rustup-install.sh && \
-    /root/.cargo/bin/rustup install 1.73
+    /root/.cargo/bin/rustup install 1.75
 
 # Download protoc manually, it is in the update repos which we
 # disabled above, so `apt-get` can't find it anymore.
