@@ -70,7 +70,11 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp, u64 *len)
 	/* Don't ever overwrite the version header! */
 	assert(*len);
 
+	/* Never NULL */
+	assert(msg);
 	msglen = tal_count(msg);
+	/* All messages begin with a 16-bit type */
+	assert(msglen >= 2);
 	hdr.len = cpu_to_be16(msglen);
 	hdr.flags = 0;
 	hdr.crc = cpu_to_be32(crc32c(timestamp, msg, msglen));
