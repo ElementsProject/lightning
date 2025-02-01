@@ -5199,6 +5199,25 @@ static void peer_reconnect(struct peer *peer,
 						  true,
 						  false,
 						  true);
+		} else if (inflight->is_locked
+			   && bitcoin_txid_eq(remote_next_funding,
+					      &inflight->outpoint.txid)) {
+			if (!bitcoin_txid_eq(&inflight->outpoint.txid,
+					     &peer->splice_state->locked_txid))
+				peer_failed_err(peer->pps,
+						&peer->channel_id,
+						"Invalid splice was resumed %s,"
+						" should be %s",
+						fmt_bitcoin_txid(tmpctx,
+								 &inflight->outpoint.txid),
+						fmt_bitcoin_txid(tmpctx,
+								 &peer->splice_state->locked_txid));
+			status_info("Splice is not confirmed but locked on"
+				    " chain -- resending splice_locked");
+			peer_write(peer->pps,
+				   take(towire_splice_locked(NULL,
+							     &peer->channel_id)));
+			peer->splice_state->locked_ready[LOCAL] = true;
 		} else if (bitcoin_txid_eq(remote_next_funding,
 					   &inflight->outpoint.txid)) {
 			/* Don't send sigs unless we have theirs */
