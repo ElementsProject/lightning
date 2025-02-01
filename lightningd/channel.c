@@ -207,6 +207,7 @@ new_inflight(struct channel *channel,
 
 	inflight->i_am_initiator = i_am_initiator;
 	inflight->force_sign_first = force_sign_first;
+	inflight->locked_scid = NULL;
 	inflight->splice_locked_memonly = false;
 
 	list_add_tail(&channel->inflights, &inflight->list);
