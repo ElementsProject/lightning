@@ -3382,7 +3382,8 @@ static void resume_splice_negotiation(struct peer *peer,
 
 		msg = towire_channeld_update_inflight(NULL, current_psbt,
 						      their_commit->tx,
-						      &their_commit->commit_signature);
+						      &their_commit->commit_signature,
+						      inflight->is_locked);
 		wire_sync_write(MASTER_FD, take(msg));
 	}
 
@@ -3452,7 +3453,8 @@ static void resume_splice_negotiation(struct peer *peer,
 			    inflight->force_sign_first)
 		&& send_signature) {
 		msg = towire_channeld_update_inflight(NULL, current_psbt,
-						      NULL, NULL);
+						      NULL, NULL,
+						      inflight->is_locked);
 		wire_sync_write(MASTER_FD, take(msg));
 
 		msg = towire_channeld_splice_sending_sigs(tmpctx, &final_txid);
@@ -3621,7 +3623,8 @@ static void resume_splice_negotiation(struct peer *peer,
 	if (recv_signature) {
 		/* We let core validate our peer's signatures are correct. */
 		msg = towire_channeld_update_inflight(NULL, current_psbt, NULL,
-						      NULL);
+						      NULL,
+						      inflight->is_locked);
 		wire_sync_write(MASTER_FD, take(msg));
 	}
 
@@ -3852,6 +3855,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	new_inflight->last_tx = NULL;
 	new_inflight->i_am_initiator = false;
 	new_inflight->force_sign_first = peer->splicing->force_sign_first;
+	new_inflight->is_locked = false;
 
 	current_push_val = relative_splice_balance_fundee(peer, our_role,ictx->current_psbt,
 					  outpoint.n, splice_funding_index);
@@ -4076,6 +4080,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	new_inflight->last_tx = NULL;
 	new_inflight->i_am_initiator = true;
 	new_inflight->force_sign_first = peer->splicing->force_sign_first;
+	new_inflight->is_locked = false;
 
 	/* Switch over to using inflight psbt. This allows us to be reentrant.
 	 * On restart we *will* have inflight psbt but we will not have any
@@ -4106,7 +4111,8 @@ static void splice_initiator_user_finalized(struct peer *peer)
 
 	outmsg = towire_channeld_update_inflight(NULL, new_inflight->psbt,
 						 their_commit->tx,
-						 &their_commit->commit_signature);
+						 &their_commit->commit_signature,
+						 new_inflight->is_locked);
 	wire_sync_write(MASTER_FD, take(outmsg));
 
 	sign_first = do_i_sign_first(peer, new_inflight->psbt, our_role,
@@ -4275,7 +4281,8 @@ static void splice_initiator_user_signed(struct peer *peer, const u8 *inmsg)
 	 * restart and reestablish later. */
 	outmsg = towire_channeld_update_inflight(NULL, inflight->psbt,
 						 inflight->last_tx,
-						 &inflight->last_sig);
+						 &inflight->last_sig,
+						 inflight->is_locked);
 
 	wire_sync_write(MASTER_FD, take(outmsg));
 
@@ -5628,6 +5635,20 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 		} else if(splicing && !peer->splice_state->locked_ready[LOCAL]) {
 			assert(scid);
 
+			for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++) {
+				struct inflight *inflight = peer->splice_state->inflights[i];
+				if (bitcoin_txid_eq(&inflight->outpoint.txid,
+						    &txid)) {
+					inflight->is_locked = true;
+					msg = towire_channeld_update_inflight(NULL,
+									      inflight->psbt,
+									      NULL,
+									      NULL,
+									      inflight->is_locked);
+					wire_sync_write(MASTER_FD, take(msg));
+				}
+			}
+
 			msg = towire_splice_locked(NULL, &peer->channel_id);
 
 			peer->splice_state->locked_txid = txid;
@@ -6103,6 +6124,7 @@ static void init_channel(struct peer *peer)
 	struct penalty_base *pbases;
 	bool reestablish_only;
 	struct channel_type *channel_type;
+	bool found_locked_inflight;
 
 	assert(!(fcntl(MASTER_FD, F_GETFL) & O_NONBLOCK));
 
