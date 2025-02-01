@@ -1040,6 +1040,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channel_htlcs ADD updated_index BIGINT DEFAULT 0"), NULL},
     {SQL("CREATE INDEX channel_htlcs_updated_idx ON channel_htlcs (updated_index)"), NULL},
     {NULL, migrate_initialize_channel_htlcs_wait_indexes},
+    {SQL("ALTER TABLE channel_funding_inflights ADD locked_scid BIGINT DEFAULT 0;"), NULL},
 };
 
 /**
