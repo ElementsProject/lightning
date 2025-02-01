@@ -1414,8 +1414,9 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 				 ", i_am_initiator"
 				 ", force_sign_first"
 				 ", remote_funding"
+				 ", locked_scid"
 				 ") VALUES ("
-				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, inflight->channel->dbid);
 	db_bind_txid(stmt, &inflight->funding->outpoint.txid);
@@ -1458,6 +1459,10 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 		db_bind_pubkey(stmt, inflight->funding->splice_remote_funding);
 	else
 		db_bind_null(stmt);
+	if (inflight->locked_scid)
+		db_bind_short_channel_id(stmt, *inflight->locked_scid);
+	else
+		db_bind_null(stmt);
 
 	db_exec_prepared_v2(stmt);
 	assert(!stmt->error);
@@ -1486,17 +1491,18 @@ void wallet_inflight_save(struct wallet *w,
 	struct db_stmt *stmt;
 	/* The *only* thing you can update on an
 	 * inflight is the funding PSBT (to add sigs)
-	 * and the last_tx/last_sig if this is for a splice */
+	 * and the last_tx/last_sig or locked_scid if this is for a splice */
 	stmt = db_prepare_v2(w->db,
 			     SQL("UPDATE channel_funding_inflights SET"
 				 "  funding_psbt=?" // 0
 				 ", funding_tx_remote_sigs_received=?" // 1
 				 ", last_tx=?" // 2
 				 ", last_sig=?" // 3
+				 ", locked_scid=?" // 4
 				 " WHERE"
-				 "  channel_id=?" // 4
-				 " AND funding_tx_id=?" // 5
-				 " AND funding_tx_outnum=?")); // 6
+				 "  channel_id=?" // 5
+				 " AND funding_tx_id=?" // 6
+				 " AND funding_tx_outnum=?")); // 7
 	db_bind_psbt(stmt, inflight->funding_psbt);
 	db_bind_int(stmt, inflight->remote_tx_sigs);
 	if (inflight->last_tx) {
@@ -1506,11 +1512,29 @@ void wallet_inflight_save(struct wallet *w,
 		db_bind_null(stmt);
 		db_bind_null(stmt);
 	}
+	if (inflight->locked_scid)
+		db_bind_short_channel_id(stmt, *inflight->locked_scid);
+	else
+		db_bind_null(stmt);
 	db_bind_u64(stmt, inflight->channel->dbid);
 	db_bind_txid(stmt, &inflight->funding->outpoint.txid);
 	db_bind_int(stmt, inflight->funding->outpoint.n);
 
 	db_exec_prepared_v2(take(stmt));
+}
+
+static struct short_channel_id *db_col_optional_scid(const tal_t *ctx,
+						     struct db_stmt *stmt,
+						     const char *colname)
+{
+	struct short_channel_id *scid;
+
+	if (db_col_is_null(stmt, colname))
+		return NULL;
+
+	scid = tal(ctx, struct short_channel_id);
+	*scid = db_col_short_channel_id(stmt, colname);
+	return scid;
 }
 
 void wallet_channel_clear_inflights(struct wallet *w,
@@ -1604,6 +1628,8 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 				i_am_initiator,
 				force_sign_first);
 
+	inflight->locked_scid = db_col_optional_scid(inflight, stmt, "locked_scid");
+
 	/* last_tx is null for not yet committed
 	 * channels + static channel backup recoveries */
 	if (!db_col_is_null(stmt, "last_tx")) {
@@ -1655,6 +1681,7 @@ static bool wallet_channel_load_inflights(struct wallet *w,
 					", i_am_initiator"
 					", force_sign_first"
 					", remote_funding"
+					", locked_scid"
 					" FROM channel_funding_inflights"
 					" WHERE channel_id = ?"
 					" ORDER BY funding_feerate"));
@@ -1701,20 +1728,6 @@ static bool wallet_channel_config_load(struct wallet *w, const u64 id,
 	cc->max_dust_htlc_exposure_msat = db_col_amount_msat(stmt, "max_dust_htlc_exposure_msat");
 	tal_free(stmt);
 	return ok;
-}
-
-static struct short_channel_id *db_col_optional_scid(const tal_t *ctx,
-						     struct db_stmt *stmt,
-						     const char *colname)
-{
-	struct short_channel_id *scid;
-
-	if (db_col_is_null(stmt, colname))
-		return NULL;
-
-	scid = tal(ctx, struct short_channel_id);
-	*scid = db_col_short_channel_id(stmt, colname);
-	return scid;
 }
 
 static struct channel_state_change **wallet_state_change_get(const tal_t *ctx,
