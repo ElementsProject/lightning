@@ -6190,6 +6190,21 @@ static void init_channel(struct peer *peer)
 	peer->final_ext_key = tal_dup(peer, struct ext_key, &final_ext_key);
 	peer->splice_state->count = tal_count(peer->splice_state->inflights);
 
+	found_locked_inflight = false;
+	for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++) {
+		if (peer->splice_state->inflights[i]->is_locked) {
+			if (found_locked_inflight)
+				status_failed(STATUS_FAIL_INTERNAL_ERROR,
+					      "There should never be two splice"
+					      " candidates locked on chain at"
+					      " once. First %s. Second %s",
+					      fmt_bitcoin_txid(tmpctx, &peer->splice_state->locked_txid),
+					      fmt_bitcoin_txid(tmpctx, &peer->splice_state->inflights[i]->outpoint.txid));
+			peer->splice_state->locked_txid = peer->splice_state->inflights[i]->outpoint.txid;
+			found_locked_inflight = true;
+		}
+	}
+
 	status_debug("option_static_remotekey = %u,"
 		     " option_anchor_outputs = %u"
 		     " option_anchors_zero_fee_htlc_tx = %u",
