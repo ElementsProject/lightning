@@ -886,9 +886,10 @@ static void handle_update_inflight(struct lightningd *ld,
 	struct bitcoin_txid txid;
 	struct bitcoin_tx *last_tx;
 	struct bitcoin_signature *last_sig;
+	bool is_locked;
 
 	if (!fromwire_channeld_update_inflight(tmpctx, msg, &psbt, &last_tx,
-					       &last_sig)) {
+					       &last_sig, &is_locked)) {
 		channel_internal_error(channel,
 				       "bad channel_add_inflight %s",
 				       tal_hex(channel, msg));
@@ -915,6 +916,8 @@ static void handle_update_inflight(struct lightningd *ld,
 
 	if (last_sig)
 		inflight->last_sig = *last_sig;
+
+	inflight->is_locked = is_locked;
 
 	tal_wally_start();
 	if (wally_psbt_combine(inflight->funding_psbt, psbt) != WALLY_OK) {
@@ -1812,6 +1815,7 @@ bool peer_start_channeld(struct channel *channel,
 		infcopy->last_sig = inflight->last_sig;
 		infcopy->i_am_initiator = inflight->i_am_initiator;
 		infcopy->force_sign_first = inflight->force_sign_first;
+		infcopy->is_locked = inflight->is_locked;
 
 		tal_wally_start();
 		wally_psbt_clone_alloc(inflight->funding_psbt, 0, &infcopy->psbt);
