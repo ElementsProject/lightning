@@ -1689,37 +1689,58 @@ static bool have_they_signed_inflight(const struct peer *peer,
 
 /* This checks if local has signed everything but the funding input */
 static bool missing_user_signatures(const struct peer *peer,
-				    const struct inflight *inflight)
+				   enum tx_role our_role,
+				   struct wally_psbt *psbt)
 {
-	int sigs_needed;
 	u32 splice_funding_index;
-	const struct witness **outws;
-	enum tx_role our_role = inflight->i_am_initiator
-				? TX_INITIATOR : TX_ACCEPTER;
-
-	if (!inflight || !inflight->psbt)
+	if (!psbt) {
+		status_debug("missing_user_signatures called with NULL psbt");
 		return false;
+	}
 
-	splice_funding_index = find_channel_funding_input(inflight->psbt,
+	splice_funding_index = find_channel_funding_input(psbt,
 							  &peer->channel->funding);
-	sigs_needed = 0;
-	for (u32 i = 0; i < inflight->psbt->num_inputs; i++) {
-		struct wally_psbt_input *in = &inflight->psbt->inputs[i];
+	for (u32 i = 0; i < psbt->num_inputs; i++) {
+		struct wally_psbt_input *in = &psbt->inputs[i];
 		u64 in_serial;
 
 		if (!psbt_get_serial_id(&in->unknowns, &in_serial)) {
-			status_broken("PSBT input %"PRIu32" missing serial_id"
-				      " %s", i,
-				      fmt_wally_psbt(tmpctx, inflight->psbt));
+			status_broken("missing_user_signatures PSBT input %"
+				      PRIu32" missing serial_id %s", i,
+				      fmt_wally_psbt(tmpctx, psbt));
 			return true;
 		}
-		if (in_serial % 2 == our_role && i != splice_funding_index)
-			sigs_needed++;
+		status_debug("missing_user_signatures[%"PRIu32"], role: %"PRIu64
+			     ", our_role: %d, in->signatures: %zu"
+			     ", in->taproot_leaf_signatures.num_items: %zu"
+			     ", in->final_witness: %p"
+			     ", splice_funding_index: %"PRIu32
+			     ", wally_map_get_integer(0x13): %p",
+			     i, in_serial % 2, our_role,
+			     in->signatures.num_items,
+			     in->taproot_leaf_signatures.num_items,
+			     in->final_witness, splice_funding_index,
+			     wally_map_get_integer(&in->psbt_fields, 0x13));
+		if (in_serial % 2 == our_role && i != splice_funding_index) {
+			status_debug("missing_user_signatures passed role and"
+				     " not-funding-index check");
+			if (!in->signatures.num_items
+				&& !in->taproot_leaf_signatures.num_items
+				&& !in->final_witness
+				&& !wally_map_get_integer(&in->psbt_fields, 0x13)) {
+				status_debug("missing_user_signatures true");
+				return true;
+			}
+			status_debug("missing_user_signatures passed signature"
+				     " check");
+		}
+		else {
+			status_debug("missing_user_signatures skipping because"
+				     " not our role or is splice_funding");
+		}
 	}
-
-	outws = psbt_to_witnesses(tmpctx, inflight->psbt,
-				  our_role, splice_funding_index);
-	return tal_count(outws) != sigs_needed;
+	status_debug("missing_user_signatures false");
+	return false;
 }
 
 static void check_tx_abort(struct peer *peer, const u8 *msg)
@@ -4237,6 +4258,16 @@ static void splice_initiator_user_signed(struct peer *peer, const u8 *inmsg)
 			      fmt_bitcoin_txid(tmpctx, &signed_psbt_txid),
 			      fmt_bitcoin_txid(tmpctx, &current_psbt_txid));
 
+	if (missing_user_signatures(peer, TX_INITIATOR, signed_psbt)) {
+		msg = towire_channeld_splice_state_error(NULL, tal_fmt(tmpctx,
+							 "The PSBT is"
+							 " missing a signature."
+							 " Have you signed it"
+							 " with `signpsbt`?"));
+		wire_sync_write(MASTER_FD, take(msg));
+		return;
+	}
+
 	tal_free(inflight->psbt);
 	inflight->psbt = tal_steal(inflight, signed_psbt);
 
@@ -5031,9 +5062,13 @@ static void peer_reconnect(struct peer *peer,
 	inflight = last_inflight(peer);
 
 	if (inflight && (!inflight->last_tx || !inflight->remote_tx_sigs)) {
-		if (missing_user_signatures(peer, inflight)) {
-			status_info("Unable to resume splice as user sigs are"
-				    " missing.");
+		if (missing_user_signatures(peer,
+					    inflight->i_am_initiator
+					        ? TX_INITIATOR
+					        : TX_ACCEPTER,
+					    inflight->psbt)) {
+			status_info("Unable to resume splice as user sig(s)"
+				    " are missing.");
 			inflight = NULL;
 		} else {
 			status_info("Reconnecting to peer with pending inflight"

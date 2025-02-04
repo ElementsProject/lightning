@@ -813,7 +813,9 @@ static struct command_result *json_signpsbt(struct command *cmd,
 
 	if (tal_count(utxos) == 0)
 		return command_fail(cmd, LIGHTNINGD,
-				    "No wallet inputs to sign");
+				    "No wallet inputs to sign. Are you sure you"
+				    " added inputs to this PSBT? If not, then"
+				    " there is no need to sign it.");
 
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
