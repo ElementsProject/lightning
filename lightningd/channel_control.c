@@ -50,6 +50,8 @@ struct splice_command {
 	struct channel_id **channel_ids;
 	/* For multi-channel stfu command: the pending result */
 	struct stfu_result **results;
+	/* The user provided PSBT's version */
+	u32 user_psbt_ver;
 };
 
 void channel_update_feerates(struct lightningd *ld, const struct channel *channel)
@@ -399,6 +401,13 @@ static void handle_splice_confirmed_init(struct lightningd *ld,
 		return;
 	}
 
+	if (psbt->version != cc->user_psbt_ver
+	     && !psbt_set_version(psbt, cc->user_psbt_ver))
+		channel_internal_error(channel, "Splice failed to convert from"
+				       " internal version "PRIu32" to user"
+				       " version "PRIu32, psbt->version,
+				       cc->user_psbt_ver);
+
 	struct json_stream *response = json_stream_success(cc->cmd);
 	json_add_string(response, "psbt", fmt_wally_psbt(tmpctx, psbt));
 
@@ -432,6 +441,13 @@ static void handle_splice_confirmed_update(struct lightningd *ld,
 				       tal_hex(channel, msg));
 		return;
 	}
+
+	if (psbt->version != cc->user_psbt_ver
+	     && !psbt_set_version(psbt, cc->user_psbt_ver))
+		channel_internal_error(channel, "Splice failed to convert from"
+				       " internal version "PRIu32" to user"
+				       " version "PRIu32, psbt->version,
+				       cc->user_psbt_ver);
 
 	struct json_stream *response = json_stream_success(cc->cmd);
 	json_add_string(response, "psbt", fmt_wally_psbt(tmpctx, psbt));
@@ -2276,6 +2292,12 @@ static struct command_result *json_splice_init(struct command *cmd,
 	cc->channel = channel;
 	cc->channel_ids = NULL;
 	cc->results = NULL;
+	cc->user_psbt_ver = initialpsbt->version;
+
+	if (initialpsbt->version != 2 && !psbt_set_version(initialpsbt, 2))
+		return command_fail(cmd,
+				    SPLICE_INPUT_ERROR,
+				    "Splice failed to convert to v2");
 
 	msg = towire_channeld_splice_init(NULL, initialpsbt, *relative_amount,
 					  *feerate_per_kw, *force_feerate,
@@ -2322,6 +2344,12 @@ static struct command_result *json_splice_update(struct command *cmd,
 	cc->channel = channel;
 	cc->channel_ids = NULL;
 	cc->results = NULL;
+	cc->user_psbt_ver = psbt->version;
+
+	if (psbt->version != 2 && !psbt_set_version(psbt, 2))
+		return command_fail(cmd,
+				    SPLICE_INPUT_ERROR,
+				    "Splice failed to convert to v2");
 
 	subd_send_msg(channel->owner,
 		      take(towire_channeld_splice_update(NULL, psbt)));
@@ -2352,6 +2380,12 @@ static struct command_result *single_splice_signed(struct command *cmd,
 	cc->channel = channel;
 	cc->channel_ids = NULL;
 	cc->results = NULL;
+	cc->user_psbt_ver = psbt->version;
+
+	if (psbt->version != 2 && !psbt_set_version(psbt, 2))
+		return command_fail(cmd,
+				    SPLICE_INPUT_ERROR,
+				    "Splice failed to convert to v2");
 
 	msg = towire_channeld_splice_signed(tmpctx, psbt, sign_first);
 	subd_send_msg(channel->owner, take(msg));
@@ -2382,6 +2416,9 @@ static struct command_result *json_splice_signed(struct command *cmd,
 	if (!validate_psbt(psbt))
 		return command_fail(cmd, SPLICE_INPUT_ERROR,
 				    "PSBT failed to validate.");
+
+	log_debug(cmd->ld->log, "splice_signed input PSBT version %d",
+		  psbt->version);
 
 	/* If a single channel is specified, we do that and finish. */
 	if (channel) {
