@@ -444,8 +444,22 @@ static void check_mutual_splice_locked(struct peer *peer)
 
 	if (short_channel_id_eq(peer->short_channel_ids[LOCAL],
 				peer->splice_state->short_channel_id))
-		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Duplicate splice_locked events detected");
+		peer_failed_err(peer->pps, &peer->channel_id,
+				 "Duplicate splice_locked events detected"
+				 " by scid check");
+
+	if (!peer->splice_state->remote_locked_txid
+		|| !bitcoin_txid_eq(peer->splice_state->remote_locked_txid,
+				    &peer->splice_state->locked_txid))
+		peer_failed_err(peer->pps, &peer->channel_id,
+				"splice_locked message txid %s does not match"
+				" our locked txid %s",
+				peer->splice_state->remote_locked_txid
+					? fmt_bitcoin_txid(tmpctx,
+							   peer->splice_state->remote_locked_txid)
+					: "NULL",
+				fmt_bitcoin_txid(tmpctx,
+						 &peer->splice_state->locked_txid));
 
 	peer->splice_state->await_commitment_succcess = true;
 
@@ -473,7 +487,7 @@ static void check_mutual_splice_locked(struct peer *peer)
 			inflight = peer->splice_state->inflights[i];
 
 	if (!inflight)
-		peer_failed_warn(peer->pps, &peer->channel_id,
+		peer_failed_err(peer->pps, &peer->channel_id,
 				 "Unable to find inflight txid amoung %zu"
 				 " inflights. new funding txid: %s",
 				 tal_count(peer->splice_state->inflights),
@@ -487,7 +501,7 @@ static void check_mutual_splice_locked(struct peer *peer)
 				       inflight->amnt,
 				       inflight->splice_amnt);
 	if (error)
-		peer_failed_warn(peer->pps, &peer->channel_id,
+		peer_failed_err(peer->pps, &peer->channel_id,
 				 "Splice lock unable to update funding. %s",
 				 error);
 
@@ -508,6 +522,7 @@ static void check_mutual_splice_locked(struct peer *peer)
 
 	peer->splice_state->inflights = tal_free(peer->splice_state->inflights);
 	peer->splice_state->count = 0;
+	peer->splice_state->remote_locked_txid = tal_free(peer->splice_state->remote_locked_txid);
 }
 
 /* Our peer told us they saw our splice confirm on chain with `splice_locked`.
@@ -521,6 +536,16 @@ static void handle_peer_splice_locked(struct peer *peer, const u8 *msg)
 	if (!fromwire_splice_locked(msg, &chanid, &splice_txid))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad splice_locked %s", tal_hex(msg, msg));
+
+	if (peer->splice_state->remote_locked_txid)
+		peer_failed_err(peer->pps, &chanid,
+				"Peer sent duplicate splice_locked message %s",
+				tal_hex(tmpctx, msg));
+
+	peer->splice_state->remote_locked_txid = tal(peer->splice_state,
+						     struct bitcoin_txid);
+
+	*peer->splice_state->remote_locked_txid = splice_txid;
 
 	if (!channel_id_eq(&chanid, &peer->channel_id))
 		peer_failed_err(peer->pps, &chanid,
