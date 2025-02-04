@@ -393,3 +393,58 @@ void json_myadd_blinded_path(struct json_stream *s,
 	json_array_end(s);
 	json_object_end(s);
 }
+
+bool json_to_myroute(const char *buf,
+		     const jsmntok_t *tok,
+		     struct route *route)
+{
+	u64 probability_ppm;
+	u32 final_delay;
+	const char *err = json_scan(
+	    tmpctx, buf, tok, "{probability_ppm:%,amount_msat:%,final_cltv:%}",
+	    JSON_SCAN(json_to_u64, &probability_ppm),
+	    JSON_SCAN(json_to_msat, &route->amount_deliver),
+	    JSON_SCAN(json_to_u32, &final_delay));
+
+	if (err)
+		return false;
+	route->success_prob = probability_ppm * 1e-6;
+	const jsmntok_t *pathtok = json_get_member(buf, tok, "path");
+	if (!pathtok || pathtok->type != JSMN_ARRAY)
+		return false;
+
+	assert(route->hops == NULL);
+	route->hops = tal_arr(route, struct route_hop, pathtok->size);
+	size_t i;
+	const jsmntok_t *hoptok;
+	json_for_each_arr(i, hoptok, pathtok)
+	{
+		struct route_hop *hop = &route->hops[i];
+		struct short_channel_id_dir scidd;
+		struct amount_msat amount;
+		u32 delay;
+		err = json_scan(tmpctx, buf, hoptok,
+				"{short_channel_id_dir:%,next_node_id:%,amount_msat:%,delay:%}",
+				JSON_SCAN(json_to_short_channel_id_dir, &scidd),
+				JSON_SCAN(json_to_node_id, &hop->node_id),
+				JSON_SCAN(json_to_msat, &amount),
+				JSON_SCAN(json_to_u32, &delay));
+		if (err) {
+			route->hops = tal_free(route->hops);
+			return false;
+		}
+		hop->scid = scidd.scid;
+		hop->direction = scidd.dir;
+
+		/* FIXME: this convention is so weird. If we ever get to merge
+		 * PR 7639, remember to remove this index adjustment. */
+		if (i > 0) {
+			route->hops[i - 1].amount = amount;
+			route->hops[i - 1].delay = delay;
+		}
+	}
+	route->hops[i - 1].amount = route->amount_deliver;
+	route->hops[i - 1].delay = final_delay;
+	route->amount_sent = route->hops[0].amount;
+	return true;
+}
