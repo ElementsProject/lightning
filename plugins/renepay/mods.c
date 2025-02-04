@@ -646,23 +646,79 @@ REGISTER_PAYMENT_MODIFIER(blindedhints, blindedhints_cb);
 
 
 /*****************************************************************************
- * compute_routes
+ * getroutes
  *
- * Compute the payment routes.
+ * Call askrene-getroutes
  */
 
-static struct command_result *compute_routes_cb(struct payment *payment)
+
+static struct command_result *getroutes_done(struct command *cmd,
+					     const char *method,
+					     const char *buf,
+					     const jsmntok_t *tok,
+					     struct payment *payment)
 {
-	assert(payment->status == PAYMENT_PENDING);
 	struct routetracker *routetracker = payment->routetracker;
 	assert(routetracker);
 
-	if (routetracker->computed_routes &&
-	    tal_count(routetracker->computed_routes))
+	if (tal_count(routetracker->computed_routes) > 0)
 		plugin_err(pay_plugin->plugin,
 			   "%s: no previously computed routes expected.",
 			   __func__);
 
+	routetracker->computed_routes = tal_free(routetracker->computed_routes);
+	const jsmntok_t *routestok = json_get_member(buf, tok, "routes");
+	assert(routestok && routestok->type == JSMN_ARRAY);
+	routetracker->computed_routes =
+	    tal_arr(routetracker, struct route *, 0);
+
+	size_t i;
+	const jsmntok_t *r;
+	json_for_each_arr(i, r, routestok)
+	{
+		struct route *route = new_route(
+		    routetracker->computed_routes, payment->groupid,
+		    payment->next_partid++, payment->payment_info.payment_hash,
+		    AMOUNT_MSAT(0), AMOUNT_MSAT(0));
+		tal_arr_expand(&routetracker->computed_routes, route);
+		bool success = json_to_myroute(buf, r, route);
+		if (!success) {
+			plugin_err(
+			    pay_plugin->plugin,
+			    "%s: failed to parse route from getroutes, %.*s",
+			    __func__, json_tok_full_len(r),
+			    json_tok_full(buf, r));
+		}
+		assert(success);
+	}
+	return payment_continue(payment);
+}
+
+static struct command_result *getroutes_fail(struct command *cmd,
+					     const char *method,
+					     const char *buf,
+					     const jsmntok_t *tok,
+					     struct payment *payment)
+{
+	// FIXME: read the response
+	// if can we do something about his failure:
+	// 	disable channels or add biases
+	// 	return payment_continue(payment);
+	// else:
+	// 	return payment_fail(payment, PAY_STOPPED_RETRYING, "getroutes
+	// 	failed to find a feasible solution %s", explain_error(buf,
+	// tok));
+	const jsmntok_t *messtok = json_get_member(buf, tok, "message");
+	assert(messtok);
+	return payment_fail(
+	    payment, PAYMENT_PENDING,
+	    "getroutes failed to find a feasible solution: %.*s",
+	    json_tok_full_len(messtok), json_tok_full(buf, messtok));
+}
+
+static struct command_result *getroutes_cb(struct payment *payment)
+{
+	assert(payment->status == PAYMENT_PENDING);
 	struct amount_msat feebudget, fees_spent, remaining;
 
 	/* Total feebudget  */
@@ -693,57 +749,46 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 		return payment_continue(payment);
 	}
 
-	enum jsonrpc_errcode errcode;
-	const char *err_msg = NULL;
+	/* FIXME:
+	 * call getroutes:
+	 * 	input: source, destination, amount, maxfee, final_cltv,
+	 * 	maxdelay, layers: [auto.localchans, auto.sourcefree,
+	 * 	thispaymenthints, thispaymentexclude, renepayknowledge]
+	 *
+	 * possible outcomes:
+	 * 	success: then continue
+	 * 	fail with hint: try to fix and retry or fail payment
+	 * */
+	struct command *cmd = payment_command(payment);
+	struct out_req *req = jsonrpc_request_start(
+	    cmd, "getroutes", getroutes_done, getroutes_fail, payment);
 
-	gossmap_apply_localmods(pay_plugin->gossmap, payment->local_gossmods);
+	// FIXME: add an algorithm selection in askrene such that we could
+	// retrieve a single path route if necessary, see issue 8042
+	// FIXME: register layers before using then:
+	// 	-> register RENEPAY_LAYER on plugin startup
+	// 	-> register payment->payment_layer when payment is created
+	// 	-> payment_layer should auto clean
+	// 	-> register payment->command_layer when the payment execution
+	// 	starts
+	// 	-> command_layer should auto clean
 
-	/* get_routes returns the answer, we assign it to the computed_routes,
-	 * that's why we need to tal_free the older array. Maybe it would be
-	 * better to pass computed_routes as a reference? */
-	routetracker->computed_routes = tal_free(routetracker->computed_routes);
-
-	/* Send get_routes a note that it should discard the last hop because we
-	 * are actually solving a multiple destinations problem. */
-	bool blinded_destination = true;
-
-	// TODO: add an algorithm selector here
-	/* We let this return an unlikely path, as it's better to try  once than
-	 * simply refuse.  Plus, models are not truth! */
-	routetracker->computed_routes = get_routes(
-					    routetracker,
-					    &payment->payment_info,
-					    &pay_plugin->my_id,
-					    payment->routing_destination,
-					    pay_plugin->gossmap,
-					    pay_plugin->uncertainty,
-					    payment->disabledmap,
-					    remaining,
-					    feebudget,
-					    &payment->next_partid,
-					    payment->groupid,
-					    blinded_destination,
-					    &errcode,
-					    &err_msg);
-
-	/* Otherwise the error message remains a child of the routetracker. */
-	err_msg = tal_steal(tmpctx, err_msg);
-
-	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
-
-	/* Couldn't feasible route, we stop. */
-	if (!routetracker->computed_routes ||
-	    tal_count(routetracker->computed_routes) == 0) {
-		if (err_msg == NULL)
-			err_msg = tal_fmt(
-			    tmpctx, "get_routes returned NULL error message");
-		return payment_fail(payment, errcode, "%s", err_msg);
-	}
-
-	return payment_continue(payment);
+	json_add_node_id(req->js, "source", &pay_plugin->my_id);
+	json_add_node_id(req->js, "destination", payment->routing_destination);
+	json_add_amount_msat(req->js, "amount_msat", remaining);
+	json_add_amount_msat(req->js, "maxfee_msat", feebudget);
+	json_add_u32(req->js, "final_cltv", payment->payment_info.final_cltv);
+	json_array_start(req->js, "layers");
+	json_add_string(req->js, NULL, "auto.localchans");
+	json_add_string(req->js, NULL, "auto.sourcefree");
+	json_array_end(req->js);
+	// FIXME: add further constraints here if necessary when they become
+	// available in getroutes
+	// eg. json_add_u32(req->js, "maxdelay", payment->payment_info.maxdelay);
+	return send_outreq(req);
 }
 
-REGISTER_PAYMENT_MODIFIER(compute_routes, compute_routes_cb);
+REGISTER_PAYMENT_MODIFIER(getroutes, getroutes_cb);
 
 /*****************************************************************************
  * send_routes
@@ -1272,7 +1317,7 @@ void *payment_virtual_program[] = {
 	    /*16*/ OP_CALL, &pendingsendpays_pay_mod,
 	    /*18*/ OP_CALL, &checktimeout_pay_mod,
 	    /*20*/ OP_CALL, &refreshgossmap_pay_mod,
-	    /*22*/ OP_CALL, &compute_routes_pay_mod,
+	    /*22*/ OP_CALL, &getroutes_pay_mod,
 	    /*24*/ OP_CALL, &send_routes_pay_mod,
 	    /*do*/
 		    /*26*/ OP_CALL, &sleep_pay_mod,

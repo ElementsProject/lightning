@@ -25,4 +25,8 @@ void json_myadd_blinded_path(struct json_stream *s,
 			     const char *fieldname,
 			     const struct blinded_path *blinded_path);
 
+bool json_to_myroute(const char *buf,
+		     const jsmntok_t *tok,
+		     struct route *route);
+
 #endif /* LIGHTNING_PLUGINS_RENEPAY_JSON_H */
