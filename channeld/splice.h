@@ -21,6 +21,8 @@ struct splice_state {
 	bool await_commitment_succcess;
 	/* The txid of which splice inflight was confirmed */
 	struct bitcoin_txid locked_txid;
+	/* The txid our peer locked their splice on */
+	struct bitcoin_txid *remote_locked_txid;
 	/* The number of splices that are active (awaiting confirmation) */
 	u32 count;
 };
