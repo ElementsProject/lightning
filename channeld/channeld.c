@@ -454,8 +454,10 @@ static void check_mutual_splice_locked(struct peer *peer)
 		peer_failed_err(peer->pps, &peer->channel_id,
 				"splice_locked message txid %s does not match"
 				" our locked txid %s",
-				fmt_bitcoin_txid(tmpctx,
-						 peer->splice_state->remote_locked_txid),
+				peer->splice_state->remote_locked_txid
+					? fmt_bitcoin_txid(tmpctx,
+							   peer->splice_state->remote_locked_txid)
+					: "NULL",
 				fmt_bitcoin_txid(tmpctx,
 						 &peer->splice_state->locked_txid));
 
