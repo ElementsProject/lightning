@@ -84,7 +84,9 @@ class Method(object):
                 args.append("[%s]" % arg)
 
         if self.description is not None:
-            args.append("\n%s" % self.description)
+            doc = inspect.getdoc(self.func)
+            doc = re.sub('\n', '\n ', doc)
+            args.append(" \n %s" % doc)
 
         return " ".join(args)
 
