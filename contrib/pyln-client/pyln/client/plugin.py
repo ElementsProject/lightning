@@ -938,16 +938,6 @@ class Plugin(object):
                               'after': method.after})
                 continue
 
-            doc = inspect.getdoc(method.func)
-            if not doc:
-                self.log(
-                    'RPC method \'{}\' does not have a docstring.'.format(
-                        method.name
-                    )
-                )
-                doc = "Undocumented RPC method from a plugin."
-            doc = re.sub('\n+', ' ', doc)
-
             # For compatibility with lightningd prior to 24.08, we must
             # provide a description.  Ignored by 24.08 onwards,
             description = method.description
