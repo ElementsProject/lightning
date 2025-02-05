@@ -1148,6 +1148,28 @@ def test_cli(node_factory):
     assert [l for l in lines if not re.search(r'^help\[[0-9]*\].', l)] == ['format-hint=simple']
 
 
+def test_cli_multiline_help(node_factory):
+    l1 = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(), 'tests/plugins/multiline-help.py')})
+
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   'help']).decode('utf-8')
+    assert ("helpme msat  \n"
+            " This is a message which consumes multiple lines and thus should\n"
+            " be well-formatted by lightning-cli help\n" in out)
+
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   'help', 'helpme']).decode('utf-8')
+    assert out == ("helpme msat  \n"
+                   " This is a message which consumes multiple lines and thus should\n"
+                   " be well-formatted by lightning-cli help\n")
+
+
 def test_cli_commando(node_factory):
     l1, l2 = node_factory.line_graph(2, fundchannel=False,
                                      opts={'log-level': 'io', 'allow-deprecated-apis': True})
