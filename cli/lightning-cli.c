@@ -197,8 +197,8 @@ static void human_help(char *buffer, const jsmntok_t *result)
 	for (i = 0; i < tal_count(help); i++) {
 		const jsmntok_t *command;
 		command = json_get_member(buffer, help[i], "command");
-		printf("%.*s\n\n",
-		       command->end - command->start, buffer + command->start);
+		human_readable(buffer, command, '\n');
+		printf("\n");
 	}
 	tal_free(help);
 
