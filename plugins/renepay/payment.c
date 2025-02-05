@@ -44,6 +44,7 @@ struct payment *payment_new(const tal_t *ctx, const struct sha256 *payment_hash,
 	p->retry = false;
 	p->waitresult_timer = NULL;
 	p->routetracker = new_routetracker(p, p);
+	p->payment_layer = fmt_sha256(p, &pinfo->payment_hash);
 	return p;
 }
 

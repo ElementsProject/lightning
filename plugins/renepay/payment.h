@@ -73,6 +73,9 @@ struct payment {
 	struct plugin_timer *waitresult_timer;
 
 	struct routetracker *routetracker;
+
+	/* Knowledge layer concerning this payment. */
+	const char *payment_layer;
 };
 
 static inline const struct sha256 payment_hash(const struct payment *p)
