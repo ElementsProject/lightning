@@ -52,6 +52,30 @@ def test_splice(node_factory, bitcoind):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_nosign(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+
+    chan_id = l1.get_channel_id(l2)
+
+    # add extra sats to pay fee
+    funds_result = l1.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+
+    result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is True)
+    try:
+        l1.rpc.splice_signed(chan_id, result['psbt'])
+        assert(False)
+    except RpcError as e:
+        assert(e.error['code'] == 358)
+        assert(e.error['message'] == "The PSBT is missing a signature. Have you signed it with `signpsbt`?")
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_splice_gossip(node_factory, bitcoind):
     l1, l2, l3 = node_factory.line_graph(3, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
 
