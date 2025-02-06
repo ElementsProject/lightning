@@ -1032,20 +1032,23 @@ def test_max_htlc(node_factory, bitcoind):
                          final_cltv=10)
 
 
+@pytest.mark.xfail(strict=True)
 def test_min_htlc(node_factory, bitcoind):
-    """A route which looks good isn't actually, because of min htlc limits"""
+    """A route which looks good isn't actually, because of min htlc limits.  Should fall back!"""
     gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, capacity_sats=500_000,
                                                         forward=GenChannel.Half(htlc_min=2_000)),
                                              GenChannel(0, 1, capacity_sats=20_000)])
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
-    with pytest.raises(RpcError, match="Amount 1000msat below minimum 2000msat across 0x1x0/1"):
-        l1.rpc.getroutes(source=nodemap[0],
-                         destination=nodemap[1],
-                         amount_msat=1000,
-                         layers=[],
-                         maxfee_msat=20_000_000,
-                         final_cltv=10)
+    routes = l1.rpc.getroutes(source=nodemap[0],
+                              destination=nodemap[1],
+                              amount_msat=1000,
+                              layers=[],
+                              maxfee_msat=20_000_000,
+                              final_cltv=10)
+
+    check_route_as_expected(routes['routes'],
+                            [[{'short_channel_id_dir': '0x1x1/1', 'amount_msat': 1_000, 'delay': 10 + 6}]])
 
 
 def test_min_htlc_after_excess(node_factory, bitcoind):
