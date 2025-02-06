@@ -701,6 +701,10 @@ static bool map_catchup(struct gossmap *map, bool *changed)
 		if (map->map_end + reclen > map->map_size)
 			break;
 
+		/* FIXME: In corruption, we can see zeroes here: don't crash. */
+		if (be16_to_cpu(ghdr.len) < sizeof(be16))
+			break;
+
 		off = map->map_end + sizeof(ghdr);
 		type = map_be16(map, off);
 		if (type == WIRE_CHANNEL_ANNOUNCEMENT) {
