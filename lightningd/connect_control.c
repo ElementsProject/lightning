@@ -542,6 +542,9 @@ void force_peer_disconnect(struct lightningd *ld,
 		if (!c->owner)
 			continue;
 
+		if (!channel_state_wants_peercomms(c->state))
+			continue;
+
 		log_debug(c->log, "Forcing disconnect due to %s", why);
 		/* This frees c! */
 		if (channel_state_uncommitted(c->state))
