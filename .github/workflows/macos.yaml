@@ -30,8 +30,9 @@ jobs:
           export PATH="/usr/local/opt:/Users/runner/.local/bin:/opt/homebrew/bin/python3.10/bin:$PATH"
 
           brew install gnu-sed python@3.10 autoconf automake libtool protobuf
-          python3.10 -m pip install -U --user poetry==1.8.0 wheel pip mako
+          python3.10 -m pip install -U --user poetry==1.9.0 wheel pip mako
           python3.10 -m poetry install
+          python3.10 -m poetry self add poetry-plugin-export
 
       - name: Build and install CLN
         run: |
