@@ -311,8 +311,17 @@ include plugins/rest-plugin/Makefile
 DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc plugins/clnrest
 endif
 
+ifneq ($(NO_PYTHON), 1)
+PLUGIN_REQUIREMENTS_TXT := plugins/wss-proxy-requirements.txt
+plugins/wss-proxy-requirements.txt: plugins/wss-proxy/pyproject.toml plugins/wss-proxy/poetry.lock
+	cd plugins/wss-proxy && poetry export --without-hashes > ../../$@
+
+all-programs: $(PLUGIN_REQUIREMENTS_TXT)
+endif
+
 clean: plugins-clean
 plugins-clean:
+	$(RM) $(PLUGIN_REQUIREMENTS_TXT)
 	$(RM) $(PLUGINS) $(CLN_PLUGIN_EXAMPLES)
 	$(RM) plugins/sql-schema_gen.h
 
