@@ -137,6 +137,9 @@ endif
 # This is non-python plugins (PY_PLUGINS need their whole directory!)
 PLUGINS := $(C_PLUGINS)
 
+# Remove clnrest directory if exists which is the old python plugin code
+$(shell test -d plugins/clnrest && $(RM) -r plugins/clnrest || true)
+
 ifneq ($(RUST),0)
 # Builtin plugins must be in this plugins dir to work when we're executed
 # *without* make install.
