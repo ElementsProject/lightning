@@ -8,7 +8,7 @@ updatedAt: "2023-10-13T09:54:01.784Z"
 
 # CLNRest
 
-CLNRest is a lightweight Python-based built-in Core Lightning plugin (from v23.08) that transforms RPC calls into a REST service. 
+CLNRest is a lightweight Rust-based built-in Core Lightning plugin (from v23.08) that transforms RPC calls into a REST service. 
 It also broadcasts Core Lightning notifications to listeners connected to its websocket server. By generating REST API endpoints, 
 it enables the execution of Core Lightning's RPC methods behind the scenes and provides responses in JSON format.
 
@@ -34,9 +34,6 @@ An online demo for the REST interface is available at [REST API REFERENCE](ref:g
 
 
 ## Installation
-
-The plugin is built-in with Core Lightning but its python dependencies are not, and must be installed separately.
-Detailed installation instructions can be found [here](https://docs.corelightning.org/docs/installation#clnrest).
 
 Note: if you have the older c-lightning-REST plugin, you can configure Core Lightning with `disable-plugin=clnrest`
 option to avoid confusion with this one. You can also run both plugins simultaneously till all your applications
