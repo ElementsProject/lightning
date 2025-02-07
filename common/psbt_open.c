@@ -61,14 +61,17 @@ static int compare_outputs_at(const struct output_set *a,
 }
 
 static const u8 *linearize_input(const tal_t *ctx,
-				 const struct wally_psbt_input *in)
+				 const struct wally_psbt *parent,
+				 size_t index)
 {
+	struct wally_psbt *copy = clone_psbt(NULL, parent);
 	struct wally_psbt *psbt = create_psbt(NULL, 1, 0, 0);
+	struct wally_psbt_input dummy_in;
 	size_t byte_len;
 
-	psbt->inputs[0] = *in;
-	psbt->num_inputs++;
-
+	dummy_in = psbt->inputs[0];
+	psbt->inputs[0] = copy->inputs[index];
+	psbt->num_inputs = 1;
 
 	/* Sort the inputs, so serializing them is ok */
 	wally_map_sort(&psbt->inputs[0].unknowns, 0);
@@ -88,16 +91,22 @@ static const u8 *linearize_input(const tal_t *ctx,
 
 	const u8 *bytes = psbt_get_bytes(ctx, psbt, &byte_len);
 
-	/* Hide the inputs we added, so it doesn't get freed */
-	psbt->num_inputs--;
+	psbt->inputs[0] = dummy_in;
+	psbt->num_inputs = 0;
+
 	tal_free(psbt);
+	tal_free(copy);
+
 	return bytes;
 }
 
 static const u8 *linearize_output(const tal_t *ctx,
-				  const struct wally_psbt_output *out)
+				  const struct wally_psbt *parent,
+				  size_t index)
 {
-	struct wally_psbt *psbt = create_psbt(NULL, 1, 1, 0);
+	struct wally_psbt *copy = clone_psbt(NULL, parent);
+	struct wally_psbt *psbt = create_psbt(NULL, 0, 1, 0);
+	struct wally_psbt_output dummy_out;
 	size_t byte_len;
 	struct bitcoin_outpoint outpoint;
 
@@ -105,8 +114,10 @@ static const u8 *linearize_output(const tal_t *ctx,
 	memset(&outpoint, 1, sizeof(outpoint));
 	psbt_append_input(psbt, &outpoint, 0, NULL, NULL, NULL);
 
-	psbt->outputs[0] = *out;
-	psbt->num_outputs++;
+	dummy_out = psbt->outputs[0];
+	psbt->outputs[0] = copy->outputs[index];
+	psbt->num_outputs = 1;
+
 	/* Sort the outputs, so serializing them is ok */
 	wally_map_sort(&psbt->outputs[0].unknowns, 0);
 
@@ -120,9 +131,12 @@ static const u8 *linearize_output(const tal_t *ctx,
 
 	const u8 *bytes = psbt_get_bytes(ctx, psbt, &byte_len);
 
-	/* Hide the outputs we added, so it doesn't get freed */
-	psbt->num_outputs--;
+	psbt->outputs[0] = dummy_out;
+	psbt->num_outputs = 0;
+
 	tal_free(psbt);
+	tal_free(copy);
+
 	return bytes;
 }
 
@@ -131,10 +145,8 @@ static bool input_identical(const struct wally_psbt *a,
 			    const struct wally_psbt *b,
 			    size_t b_index)
 {
-	const u8 *a_in = linearize_input(tmpctx,
-					 &a->inputs[a_index]);
-	const u8 *b_in = linearize_input(tmpctx,
-					 &b->inputs[b_index]);
+	const u8 *a_in = linearize_input(tmpctx, a, a_index);
+	const u8 *b_in = linearize_input(tmpctx, b, b_index);
 
 	return tal_arr_eq(a_in, b_in);
 }
@@ -144,10 +156,8 @@ static bool output_identical(const struct wally_psbt *a,
 			     const struct wally_psbt *b,
 			     size_t b_index)
 {
-	const u8 *a_out = linearize_output(tmpctx,
-					   &a->outputs[a_index]);
-	const u8 *b_out = linearize_output(tmpctx,
-					   &b->outputs[b_index]);
+	const u8 *a_out = linearize_output(tmpctx, a, a_index);
+	const u8 *b_out = linearize_output(tmpctx, b, b_index);
 	return tal_arr_eq(a_out, b_out);
 }
 
