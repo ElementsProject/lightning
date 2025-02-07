@@ -4186,7 +4186,9 @@ static void splice_initiator_user_update(struct peer *peer, const u8 *inmsg)
 	assert(peer->splicing->current_psbt);
 	/* peer->splicing->current_psbt represents what PSBT we have sent to
 	 * our peer so far. */
-	ictx->current_psbt = peer->splicing->current_psbt;
+
+	/* clone the current psbt over to ictx */
+	ictx->current_psbt = clone_psbt(ictx, peer->splicing->current_psbt);
 	ictx->tx_add_input_count = peer->splicing->tx_add_input_count;
 	ictx->tx_add_output_count = peer->splicing->tx_add_output_count;
 
@@ -4213,10 +4215,12 @@ static void splice_initiator_user_update(struct peer *peer, const u8 *inmsg)
 	peer->splicing->tx_add_input_count = ictx->tx_add_input_count;
 	peer->splicing->tx_add_output_count = ictx->tx_add_output_count;
 
-	if (peer->splicing->current_psbt != ictx->current_psbt)
-		tal_free(peer->splicing->current_psbt);
+	/* clone the ictx psbt back onto current */
+	tal_free(peer->splicing->current_psbt);
 	peer->splicing->current_psbt = clone_psbt(peer->splicing,
 						  ictx->current_psbt);
+	tal_free(ictx->current_psbt);
+	ictx->current_psbt = NULL;
 
 	/* Peer may have modified our PSBT so we return it to the user here */
 	outmsg = towire_channeld_splice_confirmed_update(NULL,
