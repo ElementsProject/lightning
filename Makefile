@@ -377,7 +377,7 @@ ifneq ($(FUZZING),0)
 endif
 ifneq ($(RUST),0)
 	include cln-rpc/Makefile
-	include plugins/cln-rest/Makefile
+	include plugins/rest-plugin/Makefile
 endif
 include cln-grpc/Makefile
 

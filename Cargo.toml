@@ -8,5 +8,5 @@ members = [
   "cln-grpc",
   "plugins",
   "plugins/grpc-plugin",
-  "plugins/cln-rest"
+  "plugins/rest-plugin"
 ]
