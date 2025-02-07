@@ -127,12 +127,8 @@ struct hop {
 	struct pubkey next_node;
 	/* Via this channel */
 	struct short_channel_id_dir scidd;
-	/* This is amount the node needs (including fees) */
-	struct amount_msat amount_in;
 	/* ... to send this amount */
 	struct amount_msat amount_out;
-	/* This is the delay, including delay across node */
-	u32 cltv_value_in;
 	/* This is the delay, out from node. */
 	u32 cltv_value_out;
 };
@@ -347,14 +343,14 @@ static struct amount_msat initial_sent(const struct attempt *attempt)
 {
 	if (tal_count(attempt->hops) == 0)
 		return attempt->delivers;
-	return attempt->hops[0].amount_in;
+	return attempt->hops[0].amount_out;
 }
 
 static u32 initial_cltv_delta(const struct attempt *attempt)
 {
 	if (tal_count(attempt->hops) == 0)
 		return attempt->payment->final_cltv;
-	return attempt->hops[0].cltv_value_in;
+	return attempt->hops[0].cltv_value_out;
 }
 
 /* The current attempt is the first to succeed: we assume all the ones
@@ -776,7 +772,7 @@ static struct amount_msat total_fees_being_sent(const struct payment *payment)
 		if (tal_count(attempt->hops) == 0)
 			continue;
 		if (!amount_msat_sub(&fee,
-				     attempt->hops[0].amount_in,
+				     attempt->hops[0].amount_out,
 				     attempt->delivers))
 			abort();
 		if (!amount_msat_accumulate(&sum, fee))
@@ -1053,16 +1049,12 @@ static struct command_result *getroutes_done(struct command *aux_cmd,
 					",delay:%}",
 					JSON_SCAN(json_to_short_channel_id_dir,
 						  &hop->scidd),
-					JSON_SCAN(json_to_msat, &hop->amount_in),
+					JSON_SCAN(json_to_msat, &hop->amount_out),
 					JSON_SCAN(json_to_pubkey, &hop->next_node),
-					JSON_SCAN(json_to_u32, &hop->cltv_value_in));
+					JSON_SCAN(json_to_u32, &hop->cltv_value_out));
 			if (err)
 				plugin_err(aux_cmd->plugin, "Malformed routes: %s",
 					   err);
-			if (j > 0) {
-				hops[j-1].amount_out = hop->amount_in;
-				hops[j-1].cltv_value_out = hop->cltv_value_in;
-			}
 		}
 		hops[j-1].amount_out = delivers;
 		hops[j-1].cltv_value_out = payment->final_cltv;

@@ -526,6 +526,8 @@ too_expensive:
 			struct gossmap_node *far_end;
 			const struct half_chan *h = flow_edge(flows[i], j);
 
+			rh->amount = msat;
+			rh->delay = delay;
 			if (!amount_msat_add_fee(&msat, h->base_fee, h->proportional_fee))
 				plugin_err(rq->plugin, "Adding fee to amount");
 			delay += h->delay;
@@ -534,8 +536,6 @@ too_expensive:
 			rh->direction = flows[i]->dirs[j];
 			far_end = gossmap_nth_node(rq->gossmap, flows[i]->path[j], !flows[i]->dirs[j]);
 			gossmap_node_get_id(rq->gossmap, far_end, &rh->node_id);
-			rh->amount = msat;
-			rh->delay = delay;
 		}
 		(*amounts)[i] = flows[i]->delivers;
 		rq_log(tmpctx, rq, LOG_INFORM, "Flow %zu/%zu: %s",
