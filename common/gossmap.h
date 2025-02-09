@@ -45,37 +45,6 @@ struct gossmap_chan {
 struct gossmap *gossmap_load(const tal_t *ctx, const char *filename,
 			     size_t *num_channel_updates_rejected);
 
-/* Version which uses existing fd */
-#define gossmap_load_fd(ctx, fd, cupdate_fail, unknown_record, cbarg)	\
-	gossmap_load_fd_((ctx), (fd),					\
-			 typesafe_cb_preargs(void, void *, (cupdate_fail), (cbarg), \
-					     struct gossmap *,		\
-					     const struct short_channel_id_dir *, \
-					     u16 cltv_expiry_delta,	\
-					     u32 fee_base_msat,		\
-					     u32 fee_proportional_millionths), \
-			 typesafe_cb_preargs(bool, void *, (unknown_record), (cbarg), \
-					     struct gossmap *,		\
-					     int type,			\
-					     u64 off,			\
-					     size_t msglen),		\
-			 (cbarg))
-
-struct gossmap *gossmap_load_fd_(const tal_t *ctx, int fd,
-				 void (*cupdate_fail)(struct gossmap *map,
-						      const struct short_channel_id_dir *scidd,
-						      u16 cltv_expiry_delta,
-						      u32 fee_base_msat,
-						      u32 fee_proportional_millionths,
-						      void *cb_arg),
-				 bool (*unknown_record)(struct gossmap *map,
-							int type,
-							u64 off,
-							size_t msglen,
-							void *cb_arg),
-				 void *cb_arg);
-
-
 /* Call this before using to ensure it's up-to-date.  Returns true if something
  * was updated. Note: this can scramble node and chan indexes! */
 bool gossmap_refresh(struct gossmap *map, size_t *num_channel_updates_rejected);

@@ -427,11 +427,6 @@ struct gossip_store *gossip_store_new(const tal_t *ctx,
 	return gs;
 }
 
-int gossip_store_get_fd(const struct gossip_store *gs)
-{
-	return gs->fd;
-}
-
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg, u32 timestamp)
 {
 	u64 off = gs->len;

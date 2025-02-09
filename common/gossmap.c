@@ -55,7 +55,6 @@ struct gossmap {
 
 	/* The file descriptor and filename to monitor */
 	int fd;
-	/* NULL means we don't own fd */
 	const char *fname;
 
 	/* The memory map of the file: u8 for arithmetic portability */
@@ -661,9 +660,6 @@ static bool reopen_store(struct gossmap *map, u64 ended_off)
 {
 	int fd;
 
-	if (!map->fname)
-		errx(1, "Need to reopen, but not fname!");
-
 	fd = open(map->fname, O_RDONLY);
 	if (fd < 0)
 		err(1, "Failed to reopen %s", map->fname);
@@ -717,7 +713,7 @@ static bool map_catchup(struct gossmap *map, bool *changed)
 			remove_channel_by_deletemsg(map, off);
 		else if (type == WIRE_NODE_ANNOUNCEMENT)
 			node_announcement(map, off);
-		else if (type == WIRE_GOSSIP_STORE_ENDED && map->fname) {
+		else if (type == WIRE_GOSSIP_STORE_ENDED) {
 			/* This can recurse! */
 			if (!reopen_store(map, off))
 				return false;
@@ -788,8 +784,7 @@ static void destroy_map(struct gossmap *map)
 	for (size_t i = 0; i < tal_count(map->node_arr); i++)
 		free(map->node_arr[i].chan_idxs);
 
-	if (map->fname)
-		close(map->fd);
+	close(map->fd);
 }
 
 /* Local modifications.  We only expect a few, so we use a simple
@@ -1242,33 +1237,6 @@ struct gossmap *gossmap_load(const tal_t *ctx, const char *filename,
 	if (!load_gossip_store(map))
 		return tal_free(map);
 	map->cupdate_fail = NULL;
-	return map;
-}
-
-struct gossmap *gossmap_load_fd_(const tal_t *ctx, int fd,
-				 void (*cupdate_fail)(struct gossmap *map,
-						      const struct short_channel_id_dir *scidd,
-						      u16 cltv_expiry_delta,
-						      u32 fee_base_msat,
-						      u32 fee_proportional_millionths,
-						      void *cb_arg),
-				 bool (*unknown_record)(struct gossmap *map,
-							int type,
-							u64 off,
-							size_t msglen,
-							void *cb_arg),
-				 void *cb_arg)
-{
-	map = tal(ctx, struct gossmap);
-	map->fname = NULL;
-	map->fd = fd;
-	map->cupdate_fail = cupdate_fail;
-	map->unknown_record = unknown_record;
-	map->cb_arg = cb_arg;
-	tal_add_destructor(map, destroy_map);
-
-	if (!load_gossip_store(map))
-		return tal_free(map);
 	return map;
 }
 

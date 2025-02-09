@@ -38,14 +38,6 @@ struct gossip_store *gossip_store_new(const tal_t *ctx,
 				      struct chan_dying **dying);
 
 /**
- * Get the fd from the gossip_store.
- * @gs: the gossip_store.
- *
- * Used by gossmap_manage to create a gossmap.
- */
-int gossip_store_get_fd(const struct gossip_store *gs);
-
-/**
  * Get the (refreshed!) gossmap from the gossip_store.
  * @gs: gossip store
  */
