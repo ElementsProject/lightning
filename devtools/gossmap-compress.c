@@ -516,21 +516,9 @@ static const char *get_alias(const tal_t *ctx,
 	return tal_strndup(ctx, (const char *)alias, 32);
 }
 
-static void cupdate_bad(struct gossmap *map,
-			const struct short_channel_id_dir *scidd,
-			u16 cltv_expiry_delta,
-			u32 fee_base_msat,
-			u32 fee_proportional_millionths,
-			void *unused)
-{
-	warnx("Bad cupdate for %s, ignoring (delta=%u, fee=%u/%u)",
-	      fmt_short_channel_id_dir(tmpctx, scidd),
-	      cltv_expiry_delta, fee_base_msat, fee_proportional_millionths);
-}
-
 int main(int argc, char *argv[])
 {
-	int infd, outfd;
+	int outfd;
 	const struct pubkey **node_ids;
 	bool print_nodes = false;
 
@@ -553,10 +541,6 @@ int main(int argc, char *argv[])
 	if (argc != 4)
 		opt_usage_exit_fail("Needs 4 arguments");
 
-	infd = open(argv[2], O_RDONLY);
-	if (infd < 0)
-		opt_usage_exit_fail(tal_fmt(tmpctx, "Cannot open %s for reading: %s",
-					    argv[2], strerror(errno)));
 	outfd = open(argv[3], O_WRONLY|O_CREAT|O_TRUNC, 0666);
 	if (outfd < 0)
 		opt_usage_exit_fail(tal_fmt(tmpctx, "Cannot open %s for writing: %s",
@@ -570,9 +554,10 @@ int main(int argc, char *argv[])
 		bool *dirs;
 		gzFile outf = gzdopen(outfd, "wb9");
 
-		struct gossmap *gossmap = gossmap_load_fd(tmpctx, infd, cupdate_bad, NULL, NULL);
+		struct gossmap *gossmap = gossmap_load(tmpctx, argv[2], NULL);
 		if (!gossmap)
-			opt_usage_and_exit("Cannot read gossmap");
+			opt_usage_exit_fail(tal_fmt(tmpctx, "Cannot open %s for reading: %s",
+						    argv[2], strerror(errno)));
 
 		nodes = tal_arr(gossmap, struct gossmap_node *, gossmap_max_node_idx(gossmap));
 		for (node_count = 0, n = gossmap_first_node(gossmap);
@@ -713,7 +698,11 @@ int main(int argc, char *argv[])
 		} *chans;
 		const u8 version = GOSSIP_STORE_VER;
 		size_t disabled_count, node_limit;
-		gzFile inf = gzdopen(infd, "rb");
+		gzFile inf = gzopen(argv[2], "rb");
+
+		if (!inf)
+			opt_usage_exit_fail(tal_fmt(tmpctx, "Cannot open %s for reading: %s",
+						    argv[2], strerror(errno)));
 
 		if (gzread(inf, hdr, sizeof(hdr)) != sizeof(hdr)
 		    || !memeq(hdr, sizeof(hdr), GC_HEADER, GC_HEADERLEN))

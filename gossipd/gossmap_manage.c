@@ -407,26 +407,13 @@ static void start_prune_timer(struct gossmap_manage *gm)
 
 static void reprocess_queued_msgs(struct gossmap_manage *gm);
 
-static void report_bad_update(struct gossmap *map,
-			      const struct short_channel_id_dir *scidd,
-			      u16 cltv_expiry_delta,
-			      u32 fee_base_msat,
-			      u32 fee_proportional_millionths,
-			      struct gossmap_manage *gm)
-{
-	status_debug("Update for %s has silly values, disabling (cltv=%u, fee=%u+%u)",
-		     fmt_short_channel_id_dir(tmpctx, scidd),
-		     cltv_expiry_delta, fee_base_msat, fee_proportional_millionths);
-}
-
 struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
 					  struct daemon *daemon,
 					  struct chan_dying *dying_channels TAKES)
 {
 	struct gossmap_manage *gm = tal(ctx, struct gossmap_manage);
 
-	gm->fd = gossip_store_get_fd(daemon->gs);
-	gm->raw_gossmap = gossmap_load_fd(gm, gm->fd, report_bad_update, NULL, gm);
+	gm->raw_gossmap = gossmap_load(gm, GOSSIP_STORE_FILENAME, NULL);
 	assert(gm->raw_gossmap);
 	gm->daemon = daemon;
 
