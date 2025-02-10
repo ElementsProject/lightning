@@ -342,6 +342,16 @@ static u32 get_timestamp(struct gossmap *gossmap,
 	return timestamp;
 }
 
+static bool channel_already_dying(const struct chan_dying dying_channels[],
+				  struct short_channel_id scid)
+{
+	for (size_t i = 0; i < tal_count(dying_channels); i++) {
+		if (short_channel_id_eq(dying_channels[i].scid, scid))
+			return true;
+	}
+	return false;
+}
+
 /* Every half a week we look for dead channels (faster in dev) */
 static void prune_network(struct gossmap_manage *gm)
 {
@@ -378,6 +388,10 @@ static void prune_network(struct gossmap_manage *gm)
 			continue;
 
 		scid = gossmap_chan_scid(gossmap, chan);
+
+		/* If it's dying anyway, don't bother pruning. */
+		if (channel_already_dying(gm->dying_channels, scid))
+			continue;
 
 		/* Is it one of mine? */
 		if (gossmap_nth_node(gossmap, chan, 0) == me
@@ -1306,10 +1320,8 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 	}
 
 	/* Is it already dying?  It's lightningd re-telling us */
-	for (size_t i = 0; i < tal_count(gm->dying_channels); i++) {
-		if (short_channel_id_eq(gm->dying_channels[i].scid, scid))
-			return;
-	}
+	if (channel_already_dying(gm->dying_channels, scid))
+		return;
 
 	/* BOLT #7:
 	 *   - once its funding output has been spent OR reorganized out:
