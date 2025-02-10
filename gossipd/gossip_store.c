@@ -408,7 +408,7 @@ struct gossip_store *gossip_store_new(const tal_t *ctx,
 	return gs;
 }
 
-static void gossip_store_fsync(const struct gossip_store *gs)
+void gossip_store_fsync(const struct gossip_store *gs)
 {
 	if (fsync(gs->fd) != 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,

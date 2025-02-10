@@ -1354,9 +1354,70 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 	}
 }
 
+/* Fetch the part of the gossmap we didn't process via read() */
+static const u8 *fetch_tail_fd(const tal_t *ctx,
+			       int gossmap_fd,
+			       u64 map_used, u64 map_size)
+{
+	size_t len;
+	ssize_t r;
+	u8 *p;
+
+	/* Shouldn't happen... */
+	if (map_used > map_size)
+		return NULL;
+	len = map_size - map_used;
+	p = tal_arrz(ctx, u8, len);
+	r = pread(gossmap_fd, p, len, map_used);
+	if (r != len)
+		status_broken("Partial read on gossmap EOF (%zi vs %zu)",
+			      r, len);
+	return p;
+}
+
 struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm)
 {
+	u64 map_used, map_size, written_len;
+
 	gossmap_refresh(gm->raw_gossmap);
+
+	/* Sanity check that we see everything we wrote. */
+	map_used = gossmap_lengths(gm->raw_gossmap, &map_size);
+	written_len = gossip_store_len_written(gm->gs);
+
+	if (map_size != written_len) {
+		status_broken("gossmap size %"PRIu64" != written size %"PRIu64,
+			      map_size, written_len);
+		/* Push harder! */
+		gossip_store_fsync(gm->gs);
+		gossmap_refresh(gm->raw_gossmap);
+
+		/* Sanity check that we see everything we wrote. */
+		map_used = gossmap_lengths(gm->raw_gossmap, &map_size);
+		written_len = gossip_store_len_written(gm->gs);
+		if (map_used != written_len || map_size != map_used)
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "gossmap read inconsistent even after sync"
+				      " used=%"PRIu64" seen=%"PRIu64" written=%"PRIu64,
+				      map_used, map_size, written_len);
+	} else if (map_size != map_used) {
+		const u8 *remainder_fd, *remainder_mmap;
+
+		/* Sigh.  Did gossmap see something different (via mmap)
+		 * from what we see via read?  It's possible it's caught up
+		 * now, but just in case, log BOTH */
+		remainder_mmap = gossmap_fetch_tail(tmpctx, gm->raw_gossmap);
+		remainder_fd = fetch_tail_fd(tmpctx,
+					     gossmap_fd(gm->raw_gossmap),
+					     map_used, map_size);
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Gossmap failed to process entire gossip_store: "
+			      "at %"PRIu64" of %"PRIu64" remaining_mmap=%s remaining_fd=%s",
+			      map_used, map_size,
+			      tal_hex(tmpctx, remainder_mmap),
+			      tal_hex(tmpctx, remainder_fd));
+	}
+
 	return gm->raw_gossmap;
 }
 
