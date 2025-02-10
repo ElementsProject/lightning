@@ -5261,7 +5261,7 @@ def test_payerkey(node_factory):
     # Now we are supposed to put invreq_payer_id inside invreq, and lightningd
     # checks the derivation as a courtesy.  Fortunately, invreq_payer_id is last
     for n, k in zip(nodes, expected_keys):
-        # BOLT-offers #12:
+        # BOLT #12:
         #     1. type: 88 (`invreq_payer_id`)
         #     2. data:
         #        * [`point`:`key`]
@@ -5929,7 +5929,7 @@ def test_fetch_no_description_with_amount(node_factory):
     l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
 
     # Deprecated fields make schema checker upset.
-    # BOLT-offers #12:
+    # BOLT #12:
     #
     # - if offer_amount is set and offer_description is not set:
     #   - MUST NOT respond to the offer.

@@ -3,10 +3,10 @@
 #include "config.h"
 #include <wire/wire.h>
 
-/* BOLT-offers #12:
+/* BOLT #12:
  *
- * - MUST specify `offer_currency` `iso4217` as an ISO 4712 three-letter code.
- * - MUST specify `offer_amount` in the currency unit adjusted by the ISO 4712
+ * - MUST specify `offer_currency` `iso4217` as an ISO 4217 three-letter code.
+ * - MUST specify `offer_amount` in the currency unit adjusted by the ISO 4217
  * exponent (e.g. USD cents).
  */
 struct iso4217_name_and_divisor {

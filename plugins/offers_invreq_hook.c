@@ -121,7 +121,7 @@ test_field(struct command *cmd,
 	return NULL;
 }
 
-/* BOLT-offers-recurrence #12:
+/* BOLT-recurrence #12:
  * - if the invoice corresponds to an offer with `recurrence`:
  * ...
  *   - if it sets `relative_expiry`:
@@ -247,7 +247,7 @@ static struct command_result *found_best_peer(struct command *cmd,
 					      const struct chaninfo *best,
 					      struct invreq *ir)
 {
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - MUST include `invoice_paths` containing one or more paths to the node.
 	 * - MUST specify `invoice_paths` in order of most-preferred to
 	 *   least-preferred if it has a preference.
@@ -287,7 +287,7 @@ static struct command_result *found_best_peer(struct command *cmd,
 		etlvs[0]->payment_relay->fee_base_msat = best->feebase;
 		etlvs[0]->payment_relay->fee_proportional_millionths = best->feeppm;
 
-		/* BOLT-offers #12:
+		/* BOLT #12:
 		 * - if the expiry for accepting payment is not 7200 seconds
 		 *   after `invoice_created_at`:
 		 *     - MUST set `invoice_relative_expiry`
@@ -375,7 +375,7 @@ static struct command_result *check_period(struct command *cmd,
 	if (ir->invreq->offer_recurrence_base)
 		basetime = ir->invreq->offer_recurrence_base->basetime;
 
-	/* BOLT-offers-recurrence #12:
+	/* BOLT-recurrence #12:
 	 * - if the invoice corresponds to an offer with `recurrence`:
 	 *   - MUST set `recurrence_basetime` to the start of period #0 as
 	 *     calculated by [Period Calculation](#offer-period-calculation).
@@ -384,7 +384,7 @@ static struct command_result *check_period(struct command *cmd,
 
 	period_idx = *ir->invreq->invreq_recurrence_counter;
 
-	/* BOLT-offers-recurrence #12:
+	/* BOLT-recurrence #12:
 	 * - if the offer had `recurrence_base` and `start_any_period`
 	 *   was 1:
 	 *   - MUST fail the request if there is no `recurrence_start`
@@ -400,14 +400,14 @@ static struct command_result *check_period(struct command *cmd,
 			return err;
 		period_idx += *ir->invreq->invreq_recurrence_start;
 
-		/* BOLT-offers-recurrence #12:
+		/* BOLT-recurrence #12:
 		 * - MUST set (or not set) `recurrence_start` exactly as the
 		 *   invreq did.
 		 */
 		ir->inv->invreq_recurrence_start
 			= tal_dup(ir->inv, u32, ir->invreq->invreq_recurrence_start);
 	} else {
-		/* BOLT-offers-recurrence #12:
+		/* BOLT-recurrence #12:
 		 *
 		 * - otherwise:
 		 *   - MUST fail the request if there is a `recurrence_start`
@@ -420,7 +420,7 @@ static struct command_result *check_period(struct command *cmd,
 			return err;
 	}
 
-	/* BOLT-offers-recurrence #12:
+	/* BOLT-recurrence #12:
 	 * - if the offer has a `recurrence_limit`:
 	 *   - MUST fail the request if the period index is greater than
 	 *     `max_period`.
@@ -454,7 +454,7 @@ static struct command_result *check_period(struct command *cmd,
 
 	set_recurring_inv_expiry(ir->inv, paywindow_end);
 
-	/* BOLT-offers-recurrence #12:
+	/* BOLT-recurrence #12:
 	 *
 	 * - if `recurrence_counter` is non-zero:
 	 *...
@@ -561,9 +561,9 @@ static struct command_result *check_previous_invoice(struct command *cmd,
 	return send_outreq(req);
 }
 
-/* BOLT-offers #12:
+/* BOLT #12:
 
- * - MUST fail the request if `signature` is not correct as detailed in
+ * - MUST reject the invoice request if `signature` is not correct as detailed in
  *   [Signature Calculation](#signature-calculation) using the
  *   `invreq_payer_id`.
  *...
@@ -588,12 +588,12 @@ static struct command_result *invreq_amount_by_quantity(struct command *cmd,
 {
 	assert(ir->invreq->offer_amount);
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *     - MUST calculate the *expected amount* using the `offer_amount`:
 	 */
 	*raw_amt = *ir->invreq->offer_amount;
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - if `invreq_quantity` is present, multiply by `invreq_quantity`.`quantity`.
 	 */
 	if (ir->invreq->invreq_quantity) {
@@ -625,12 +625,12 @@ static struct command_result *invreq_base_amount_simple(struct command *cmd,
 
 		*amt = amount_msat(raw_amount);
 	} else {
-		/* BOLT-offers #12:
+		/* BOLT #12:
 		 *
 		 * The reader:
 		 *...
 		 *    - otherwise (no `offer_amount`):
-		 *      - MUST fail the request if it does not contain
+		 *      - MUST reject the invoice request if it does not contain
 		 *       `invreq_amount`.
 		 */
 		err = invreq_must_have(cmd, ir, invreq_amount);
@@ -646,9 +646,9 @@ static struct command_result *handle_amount_and_recurrence(struct command *cmd,
 							   struct invreq *ir,
 							   struct amount_msat base_inv_amount)
 {
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - if `invreq_amount` is present:
-	 *    - MUST fail the request if `invreq_amount`.`msat` is less than the
+	 *    - MUST reject the invoice request if `invreq_amount`.`msat` is less than the
 	 *      *expected amount*.
 	 */
 	if (ir->invreq->offer_amount && ir->invreq->invreq_amount) {
@@ -657,8 +657,8 @@ static struct command_result *handle_amount_and_recurrence(struct command *cmd,
 					   fmt_amount_msat(tmpctx,
 							   base_inv_amount));
 		}
-		/* BOLT-offers #12:
-		 *    - MAY fail the request if `invreq_amount`.`msat` greatly exceeds
+		/* BOLT #12:
+		 *    - MAY reject the invoice request if `invreq_amount`.`msat` greatly exceeds
 		 *      the *expected amount*.
 		 */
 		/* Much == 5? Easier to divide and compare, than multiply. */
@@ -671,7 +671,7 @@ static struct command_result *handle_amount_and_recurrence(struct command *cmd,
 		base_inv_amount = amount_msat(*ir->invreq->invreq_amount);
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - if `invreq_amount` is present:
 	 *   - MUST set `invoice_amount` to `invreq_amount`
 	 * - otherwise:
@@ -738,7 +738,7 @@ static struct command_result *convert_currency(struct command *cmd,
 	if (err)
 		return err;
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - MUST calculate the *expected amount* using the `offer_amount`:
 	 *   - if `offer_currency` is not the `invreq_chain` currency, convert to the
 	 *     `invreq_chain` currency.
@@ -776,9 +776,9 @@ static struct command_result *listoffers_done(struct command *cmd,
 	struct command_result *err;
 	struct amount_msat amt;
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *
-	 * - MUST fail the request if the offer fields do not exactly match a
+	 * - MUST reject the invoice request if the offer fields do not exactly match a
 	 *   valid, unexpired offer.
 	 */
 	if (arr->size == 0)
@@ -787,12 +787,12 @@ static struct command_result *listoffers_done(struct command *cmd,
 	/* Now, since we looked up by hash, we know that the entire offer
 	 * is faithfully mirrored in this invreq. */
 
-	/* BOLT-offers #4:
+	/* BOLT #4:
 	 *
-	 * The final recipient:
+	 * If it is the final recipient:
 	 *...
 	 * - MUST ignore the message if the `path_id` does not match
-	 * the blinded route it created
+	 *   the blinded route it created for this purpose
 	 */
 	offertok = arr + 1;
 	if (ir->secret) {
@@ -853,14 +853,14 @@ static struct command_result *listoffers_done(struct command *cmd,
 		return fail_invreq(cmd, ir, "Offer expired");
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - if `offer_quantity_max` is present:
-	 *   - MUST fail the request if there is no `invreq_quantity` field.
+	 *   - MUST reject the invoice request if there is no `invreq_quantity` field.
 	 *   - if `offer_quantity_max` is non-zero:
-	 *     - MUST fail the request if `invreq_quantity` is zero, OR greater than
+	 *     - MUST reject the invoice request if `invreq_quantity` is zero, OR greater than
 	 *       `offer_quantity_max`.
 	 * - otherwise:
-	 *   - MUST fail the request if there is an `invreq_quantity` field.
+	 *   - MUST reject the invoice request if there is an `invreq_quantity` field.
 	 */
 	if (ir->invreq->offer_quantity_max) {
 		err = invreq_must_have(cmd, ir, invreq_quantity);
@@ -884,8 +884,8 @@ static struct command_result *listoffers_done(struct command *cmd,
 			return err;
 	}
 
-	/* BOLT-offers #12:
-	 * - MUST fail the request if `signature` is not correct as
+	/* BOLT #12:
+	 * - MUST reject the invoice request if `signature` is not correct as
 	 *   detailed in [Signature Calculation](#signature-calculation) using
 	 *   the `invreq_payer_id`.
 	 */
@@ -899,21 +899,21 @@ static struct command_result *listoffers_done(struct command *cmd,
 	}
 
 	if (ir->invreq->offer_recurrence) {
-		/* BOLT-offers-recurrence #12:
+		/* BOLT-recurrence #12:
 		 *
 		 * - if the offer had a `recurrence`:
-		 *   - MUST fail the request if there is no `recurrence_counter`
+		 *   - MUST reject the invoice request if there is no `recurrence_counter`
 		 *     field.
 		 */
 		err = invreq_must_have(cmd, ir, invreq_recurrence_counter);
 		if (err)
 			return err;
 	} else {
-		/* BOLT-offers-recurrence #12:
+		/* BOLT-recurrence #12:
 		 * - otherwise (the offer had no `recurrence`):
-		 *   - MUST fail the request if there is a `recurrence_counter`
+		 *   - MUST reject the invoice request if there is a `recurrence_counter`
 		 *     field.
-		 *   - MUST fail the request if there is a `recurrence_start`
+		 *   - MUST reject the invoice request if there is a `recurrence_start`
 		 *     field.
 		 */
 		err = invreq_must_not_have(cmd, ir, invreq_recurrence_counter);
@@ -924,31 +924,31 @@ static struct command_result *listoffers_done(struct command *cmd,
 			return err;
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * A writer of an invoice:
 	 *...
 	 *  - if the invoice is in response to an `invoice_request`:
-	 *    - MUST copy all non-signature fields from the `invoice_request` (including
+	 *    - MUST copy all non-signature fields from the invoice request (including
 	 *      unknown fields).
 	 */
 	ir->inv = invoice_for_invreq(cmd, ir->invreq);
 	assert(ir->inv->invreq_payer_id);
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *   - if `offer_issuer_id` is present:
 	 *     - MUST set `invoice_node_id` to the `offer_issuer_id`
 	 */
 	/* FIXME: We always provide an offer_issuer_id! */
 	ir->inv->invoice_node_id = ir->inv->offer_issuer_id;
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - MUST set `invoice_created_at` to the number of seconds since
 	 *   Midnight 1 January 1970, UTC when the invoice was created.
 	 */
 	ir->inv->invoice_created_at = tal(ir->inv, u64);
 	*ir->inv->invoice_created_at = time_now().ts.tv_sec;
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - MUST set `invoice_payment_hash` to the SHA256 hash of the
 	 *   `payment_preimage` that will be given in return for payment.
 	 */
@@ -957,7 +957,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 	sha256(ir->inv->invoice_payment_hash,
 	       &ir->preimage, sizeof(ir->preimage));
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *  - or if it allows multiple parts to pay the invoice:
 	 *     - MUST set `invoice_features`.`features` bit `MPP/optional`
 	 */
@@ -993,12 +993,12 @@ struct command_result *handle_invoice_request(struct command *cmd,
 		return fail_invreq(cmd, ir, "Invalid invreq");
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * The reader:
 	 * ...
-	 *  - MUST fail the request if any non-signature TLV fields are outside the inclusive ranges: 0 to 159 and 1000000000 to 2999999999
+	 *  - MUST reject the invoice request if any non-signature TLV fields are outside the inclusive ranges: 0 to 159 and 1000000000 to 2999999999
 	 */
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * Each form is signed using one or more *signature TLV elements*:
 	 * TLV types 240 through 1000 (inclusive)
 	 */
@@ -1008,10 +1008,10 @@ struct command_result *handle_invoice_request(struct command *cmd,
 		return fail_invreq(cmd, ir, "Invalid high fields");
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *
 	 * The reader:
-	 *  - MUST fail the request if `invreq_payer_id` or `invreq_metadata`
+	 *  - MUST reject the invoice request if `invreq_payer_id` or `invreq_metadata`
 	 *    are not present.
 	 */
 	if (!ir->invreq->invreq_payer_id)
@@ -1019,12 +1019,12 @@ struct command_result *handle_invoice_request(struct command *cmd,
 	if (!ir->invreq->invreq_metadata)
 		return fail_invreq(cmd, ir, "Missing invreq_metadata");
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *
 	 * The reader:
 	 *...
 	 * - if `invreq_features` contains unknown _even_ bits that are non-zero:
-	 *   - MUST fail the request.
+	 *   - MUST reject the invoice request.
 	 */
 	bad_feature = features_unsupported(plugin_feature_set(cmd->plugin),
 					   ir->invreq->invreq_features,
@@ -1050,14 +1050,18 @@ struct command_result *handle_invoice_request(struct command *cmd,
 		}
 	}
 
-	/* BOLT-offers #12:
+	/* FIXME: quote is garbled, see: https://github.com/lightning/bolts/pull/1222 */
+	/* BOLT #12:
 	 *
 	 * The reader:
 	 *...
 	 * - if `invreq_chain` is not present:
-	 *   - MUST fail the request if bitcoin is not a supported chain.
+	 *   - MUST reject the invoice request if bitcoin is not a supported chain.
+	 * - if `invreq_bip_353_name` is present:
+	 *    - MUST reject the invoice request if `name` or `domain` contain any bytes which are not
+	 *      `0`-`9`, `a`-`z`, `A`-`Z`, `-`, `_` or `.`.
 	 * - otherwise:
-	 *   - MUST fail the request if `invreq_chain`.`chain` is not a
+	 *   - MUST reject the invoice request if `invreq_chain`.`chain` is not a
 	 *     supported chain.
 	 */
 	if (!bolt12_chain_matches(ir->invreq->invreq_chain, chainparams)) {
@@ -1066,7 +1070,7 @@ struct command_result *handle_invoice_request(struct command *cmd,
 				   tal_hex(tmpctx, ir->invreq->invreq_chain));
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *
 	 * - otherwise (no `offer_issuer_id` or `offer_paths`, not a response to our offer):
 	 */
@@ -1075,10 +1079,10 @@ struct command_result *handle_invoice_request(struct command *cmd,
 		return fail_invreq(cmd, ir, "Not based on an offer");
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *
 	 * - if `offer_issuer_id` or `offer_paths` are present (response to an offer):
-	 *   - MUST fail the request if the offer fields do not exactly match a
+	 *   - MUST reject the invoice request if the offer fields do not exactly match a
 	 *     valid, unexpired offer.
 	 */
 	invreq_offer_id(ir->invreq, &ir->offer_id);

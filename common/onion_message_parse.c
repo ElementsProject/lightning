@@ -57,7 +57,7 @@ static bool decrypt_forwarding_onionmsg(const struct pubkey *path_key,
 	if (encmsg->path_id)
 		return false;
 
-	/* BOLT-offers #4:
+	/* BOLT #4:
 	 * - if it is not the final node according to the onion encryption:
 	 *...
 	 *    - if `next_node_id` is present:

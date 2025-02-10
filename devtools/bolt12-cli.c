@@ -94,15 +94,15 @@ static bool print_offer_amount(const struct bitcoin_blkid *chains,
 	unsigned int minor_unit;
 	bool ok = true;
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - if a specific minimum `offer_amount` is required for successful payment:
 	 *   - MUST set `offer_amount` to the amount expected (per item).
 	 *   - if the currency for `offer_amount` is that of all entries in `chains`:
-	 *     - MUST specify `amount` in multiples of the minimum lightning-payable unit
+	 *     - MUST specify `offer_amount` in multiples of the minimum lightning-payable unit
 	 *       (e.g. milli-satoshis for bitcoin).
 	 *   - otherwise:
-	 *     - MUST specify `offer_currency` `iso4217` as an ISO 4712 three-letter code.
-	 *     - MUST specify `offer_amount` in the currency unit adjusted by the ISO 4712
+	 *     - MUST specify `offer_currency` `iso4217` as an ISO 4217 three-letter code.
+	 *     - MUST specify `offer_amount` in the currency unit adjusted by the ISO 4217
 	 *       exponent (e.g. USD cents).
 	 *   - MUST set `offer_description` to a complete description of the purpose
 	 *       of the payment.
@@ -183,7 +183,7 @@ static bool print_recurrance(const struct recurrence *recurrence,
 	const char *unit;
 	bool ok = true;
 
-	/* BOLT-offers-recurrence #12:
+	/* BOLT-recurrence #12:
 	 * Thus, each offer containing a recurring payment has:
 	 * 1. A `time_unit` defining 0 (seconds), 1 (days), 2 (months),
 	 *    3 (years).
@@ -363,7 +363,7 @@ static void print_relative_expiry(u64 *created_at, u32 *relative)
 	if (!created_at)
 		return;
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - if `invoice_relative_expiry` is present:
 	 *   - MUST reject the invoice if the current time since 1970-01-01 UTC
 	 *     is greater than `invoice_created_at` plus `seconds_from_creation`.
@@ -453,7 +453,7 @@ static u64 get_offer_type(const char *name)
 		const char *name;
 		u64 val;
 	} map[] = {
-		/* BOLT-offers #12:
+		/* BOLT #12:
 		 * 1. `tlv_stream`: `offer`
 		 * 2. types:
 		 *     1. type: 2 (`offer_chains`)
@@ -501,7 +501,7 @@ static u64 get_offer_type(const char *name)
 		{ "offer_issuer", 18 },
 		{ "offer_quantity_max", 20 },
 		{ "offer_issuer_id", 22 },
-		/* BOLT-offers #12:
+		/* BOLT #12:
 		 * 1. `tlv_stream`: `invoice_request`
 		 * 2. types:
 		 *     1. type: 0 (`invreq_metadata`)
@@ -581,7 +581,7 @@ static u64 get_offer_type(const char *name)
 		 { "invreq_paths", 90 },
 		 { "invreq_bip_353_name", 91 },
 		 { "signature", 240 },
-		/* BOLT-offers #12:
+		/* BOLT #12:
 		 * 1. `tlv_stream`: `invoice`
 		 * 2. types:
 		 *     1. type: 0 (`invreq_metadata`)
@@ -833,7 +833,7 @@ int main(int argc, char *argv[])
 							  *offer->offer_amount);
 		if (offer->offer_description)
 			well_formed &= print_utf8("offer_description", offer->offer_description);
-		/* BOLT-offers #12:
+		/* BOLT #12:
 		 *   - if `offer_amount` is set and `offer_description` is not set:
 		 *     - MUST NOT respond to the offer.
 		 */
@@ -853,7 +853,7 @@ int main(int argc, char *argv[])
 			print_u64("offer_quantity_max", *offer->offer_quantity_max);
 		if (offer->offer_issuer_id)
 			print_node_id("offer_issuer_id", offer->offer_issuer_id);
-		/* BOLT-offers #12:
+		/* BOLT #12:
 		 *
 		 *   - if neither `offer_issuer_id` nor `offer_paths` are set:
 		 *     - MUST NOT respond to the offer.

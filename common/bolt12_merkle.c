@@ -10,7 +10,7 @@
 #define SUPERVERBOSE(...)
 #endif
 
-/* BOLT-offers #12:
+/* BOLT #12:
  * Each form is signed using one or more *signature TLV elements*: TLV
  * types 240 through 1000 (inclusive).
  */
@@ -39,7 +39,7 @@ static void sha256_update_tlvfield(struct sha256_ctx *ctx,
 	sha256_update(ctx, field->value, field->length);
 }
 
-/* BOLT-offers #12:
+/* BOLT #12:
  * Thus we define H(`tag`,`msg`) as SHA256(SHA256(`tag`) || SHA256(`tag`) || `msg`)*/
 /* Create a sha256_ctx which has the tag part done. */
 static void h_simpletag_ctx(struct sha256_ctx *sctx, const char *tag)
@@ -55,7 +55,7 @@ static void h_simpletag_ctx(struct sha256_ctx *sctx, const char *tag)
 }
 
 
-/* BOLT-offers #12:
+/* BOLT #12:
  * The Merkle tree's leaves are, in TLV-ascending order for each tlv:
  * 1. The H("LnLeaf",tlv).
  * 2. The H("LnNonce"||first-tlv,tlv-type) where first-tlv is the numerically-first TLV entry in the stream, and tlv-type is the "type" field (1-9 bytes) of the current tlv.
@@ -108,7 +108,7 @@ static void calc_lnleaf(const struct tlv_field *field, struct sha256 *hash)
 	SUPERVERBOSE(") -> %s\n", fmt_sha256(tmpctx, hash));
 }
 
-/* BOLT-offers #12:
+/* BOLT #12:
  * The Merkle tree inner nodes are H("LnBranch", lesser-SHA256||greater-SHA256)
  */
 static struct sha256 *merkle_pair(const tal_t *ctx,
@@ -193,7 +193,7 @@ void merkle_tlv(const struct tlv_field *fields, struct sha256 *merkle)
 	tal_free(arr);
 }
 
-/* BOLT-offers #12:
+/* BOLT #12:
  * All signatures are created as per
  * [BIP-340](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki)
  * and tagged as recommended there.  Thus we define H(`tag`,`msg`) as

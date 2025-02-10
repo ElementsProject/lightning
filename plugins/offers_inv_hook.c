@@ -133,15 +133,15 @@ static struct command_result *listinvreqs_done(struct command *cmd,
 	struct out_req *req;
 	struct sha256 merkle, sighash;
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * A reader of an invoice:
 	 *...
 	 *   - if the invoice is a response to an `invoice_request`:
-	 *     - MUST reject the invoice if all fields in ranges 0 to 159 and 1000000000 to 2999999999 (inclusive) do not exactly match the `invoice_request`.
+	 *     - MUST reject the invoice if all fields in ranges 0 to 159 and 1000000000 to 2999999999 (inclusive) do not exactly match the invoice request.
 	 *     - if `offer_issuer_id` is present (invoice_request for an offer):
 	 *       - MUST reject the invoice if `invoice_node_id` is not equal to `offer_issuer_id`
 	 *     - otherwise, if `offer_paths` is present (invoice_request for an offer without id):
-	 *      - MUST reject the invoice if `invoice_node_id` is not equal to the final `blinded_node_id` it sent the `invoice_request` to.
+	 *      - MUST reject the invoice if `invoice_node_id` is not equal to the final `blinded_node_id` it sent the invoice request to.
 	 *     - otherwise (invoice_request without an offer):
 	 *       - MAY reject the invoice if it cannot confirm that `invoice_node_id` is correct, out-of-band.
 	 */
@@ -165,7 +165,7 @@ static struct command_result *listinvreqs_done(struct command *cmd,
 	/* We only save ones without offers to the db! */
 	assert(!inv->inv->offer_issuer_id && !inv->inv->offer_paths);
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - MUST reject the invoice if `signature` is not a valid signature
          *     using `invoice_node_id` as described in [Signature
          *     Calculation](#signature-calculation).
@@ -178,7 +178,7 @@ static struct command_result *listinvreqs_done(struct command *cmd,
 	if (!check_schnorr_sig(&sighash, &inv->inv->invoice_node_id->pubkey, inv->inv->signature))
 		return fail_inv(cmd, inv, "invalid invoice signature");
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - SHOULD confirm authorization if `invoice_amount`.`msat` is not
 	 *   within the amount range authorized.
 	 */
@@ -267,7 +267,7 @@ struct command_result *handle_invoice(struct command *cmd,
 
 	invoice_invreq_id(inv->inv, &inv->invreq_id);
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * A reader of an invoice:
 	 *  - MUST reject the invoice if `invoice_amount` is not present.
 	 *  - MUST reject the invoice if `invoice_created_at` is not present.
@@ -283,7 +283,7 @@ struct command_result *handle_invoice(struct command *cmd,
 	if (!inv->inv->invoice_node_id)
 		return fail_inv(cmd, inv, "Missing invoice_node_id");
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * A reader of an invoice:
 	 *...
 	 *  - if `invoice_features` contains unknown _odd_ bits that are non-zero:
@@ -300,7 +300,7 @@ struct command_result *handle_invoice(struct command *cmd,
 				bad_feature);
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * A reader of an invoice:
 	 *...
 	 *  - if `invoice_relative_expiry` is present:
@@ -315,7 +315,7 @@ struct command_result *handle_invoice(struct command *cmd,
 	if (time_now().ts.tv_sec > invexpiry)
 		return fail_inv(cmd, inv, "Expired invoice");
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * A reader of an invoice:
 	 *...
 	 *  - MUST reject the invoice if `invoice_paths` is not present or is empty.
@@ -336,7 +336,7 @@ struct command_result *handle_invoice(struct command *cmd,
 		return fail_inv(cmd, inv,
 				"Mismatch between invoice_blindedpay and invoice_paths");
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * A reader of an invoice:
 	 *...
 	 *  - For each `invoice_blindedpay`.`payinfo`:
