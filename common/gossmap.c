@@ -462,7 +462,7 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
 			   "gossmap: redundant channel_announce for %s, offsets %"PRIu64" and %"PRIu64"!",
 			   fmt_short_channel_id(tmpctx, scid),
 			   chan->cann_off, cannounce_off);
-		return NULL;
+		return chan;
 	}
 
 	/* gossipd writes WIRE_GOSSIP_STORE_CHANNEL_AMOUNT after this,
