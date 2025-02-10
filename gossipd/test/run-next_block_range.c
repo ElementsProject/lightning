@@ -68,6 +68,9 @@ struct gossmap_node *gossmap_first_node(const struct gossmap *map UNNEEDED)
 /* Generated stub for gossmap_manage_get_gossmap */
 struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm UNNEEDED)
 { fprintf(stderr, "gossmap_manage_get_gossmap called!\n"); abort(); }
+/* Generated stub for gossmap_manage_populated */
+bool gossmap_manage_populated(const struct gossmap_manage *gm UNNEEDED)
+{ fprintf(stderr, "gossmap_manage_populated called!\n"); abort(); }
 /* Generated stub for gossmap_max_node_idx */
 u32 gossmap_max_node_idx(const struct gossmap *map UNNEEDED)
 { fprintf(stderr, "gossmap_max_node_idx called!\n"); abort(); }

@@ -66,6 +66,9 @@ struct gossmap_manage {
 	/* gossip map itself (access via gossmap_manage_get_gossmap, so it's fresh!) */
 	struct gossmap *raw_gossmap;
 
+	/* The gossip_store, which writes to the gossip_store file */
+	struct gossip_store *gs;
+
 	/* Announcements we're checking, indexed by scid */
 	struct cannounce_map pending_ann_map;
 
@@ -87,6 +90,9 @@ struct gossmap_manage {
 
 	/* Occasional check for dead channels */
 	struct oneshot *prune_timer;
+
+	/* Are we populated yet? */
+	bool gossip_store_populated;
 };
 
 /* Timer recursion */
@@ -257,15 +263,15 @@ static void remove_channel(struct gossmap_manage *gm,
 	tal_free(map_del(&gm->early_ann_map, scid));
 
 	/* Put in tombstone marker. */
-	gossip_store_add(gm->daemon->gs,
+	gossip_store_add(gm->gs,
 			 towire_gossip_store_delete_chan(tmpctx, scid),
 			 0);
 
 	/* Delete from store */
-	gossip_store_del(gm->daemon->gs, chan->cann_off, WIRE_CHANNEL_ANNOUNCEMENT);
+	gossip_store_del(gm->gs, chan->cann_off, WIRE_CHANNEL_ANNOUNCEMENT);
 	for (int dir = 0; dir < 2; dir++) {
 		if (gossmap_chan_set(chan, dir))
-			gossip_store_del(gm->daemon->gs, chan->cupdate_off[dir], WIRE_CHANNEL_UPDATE);
+			gossip_store_del(gm->gs, chan->cupdate_off[dir], WIRE_CHANNEL_UPDATE);
 	}
 
 	/* Check for node_announcements which should no longer be there */
@@ -285,7 +291,7 @@ static void remove_channel(struct gossmap_manage *gm,
 
 		/* Last channel?  Delete node announce */
 		if (node->num_chans == 1) {
-			gossip_store_del(gm->daemon->gs, node->nann_off, WIRE_NODE_ANNOUNCEMENT);
+			gossip_store_del(gm->gs, node->nann_off, WIRE_NODE_ANNOUNCEMENT);
 			continue;
 		}
 
@@ -297,10 +303,10 @@ static void remove_channel(struct gossmap_manage *gm,
 
 			/* To maintain order, delete and re-add node_announcement */
 			nannounce = gossmap_node_get_announce(tmpctx, gossmap, node);
-			timestamp = gossip_store_get_timestamp(gm->daemon->gs, node->nann_off);
+			timestamp = gossip_store_get_timestamp(gm->gs, node->nann_off);
 
-			gossip_store_del(gm->daemon->gs, node->nann_off, WIRE_NODE_ANNOUNCEMENT);
-			offset = gossip_store_add(gm->daemon->gs, nannounce, timestamp);
+			gossip_store_del(gm->gs, node->nann_off, WIRE_NODE_ANNOUNCEMENT);
+			offset = gossip_store_add(gm->gs, nannounce, timestamp);
 		} else {
 			/* Are all remaining channels dying but we weren't?
 			 * Can happen if we removed this channel immediately
@@ -314,7 +320,7 @@ static void remove_channel(struct gossmap_manage *gm,
 		/* Be sure to set DYING flag when we move (ignore current
 		 * channel, we haven't reloaded gossmap yet!) */
 		if (all_node_channels_dying(gossmap, node, chan))
-			gossip_store_set_flag(gm->daemon->gs, offset,
+			gossip_store_set_flag(gm->gs, offset,
 					      GOSSIP_STORE_DYING_BIT,
 					      WIRE_NODE_ANNOUNCEMENT);
 	}
@@ -419,14 +425,43 @@ static void gossmap_logcb(struct daemon *daemon,
 	va_end(ap);
 }
 
+static bool setup_gossmap(struct gossmap_manage *gm,
+			  struct daemon *daemon,
+			  struct chan_dying **dying)
+{
+	*dying = NULL;
+
+	/* This compacts, and creates if necessary */
+	gm->gs = gossip_store_new(gm,
+				  daemon,
+				  &gm->gossip_store_populated,
+				  dying);
+	if (!gm->gs)
+		return false;
+
+	/* This actually loads it into memory */
+	gm->raw_gossmap = gossmap_load(gm, GOSSIP_STORE_FILENAME,
+				       gossmap_logcb, daemon);
+	if (!gm->raw_gossmap) {
+		gm->gs = tal_free(gm->gs);
+		return false;
+	}
+	return true;
+}
+
 struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
-					  struct daemon *daemon,
-					  struct chan_dying *dying_channels TAKES)
+					  struct daemon *daemon)
 {
 	struct gossmap_manage *gm = tal(ctx, struct gossmap_manage);
 
-	gm->raw_gossmap = gossmap_load(gm, GOSSIP_STORE_FILENAME,
-				       gossmap_logcb, daemon);
+	if (!setup_gossmap(gm, daemon, &gm->dying_channels)) {
+		tal_free(gm->dying_channels);
+		gossip_store_corrupt();
+		if (!setup_gossmap(gm, daemon, &gm->dying_channels))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Could not re-initialize %s", GOSSIP_STORE_FILENAME);
+	}
+	assert(gm->gs);
 	assert(gm->raw_gossmap);
 	gm->daemon = daemon;
 
@@ -436,7 +471,6 @@ struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
 	gm->early_cupdates = tal_arr(gm, struct pending_cupdate *, 0);
 	gm->pending_nannounces = tal_arr(gm, struct pending_nannounce *, 0);
 	gm->txf = txout_failures_new(gm, daemon);
-	gm->dying_channels = tal_dup_talarr(gm, struct chan_dying, dying_channels);
 
 	start_prune_timer(gm);
 	return gm;
@@ -477,9 +511,9 @@ static void node_announcements_not_dying(struct gossmap_manage *gm,
 		struct gossmap_node *n = gossmap_find_node(gossmap, &pca->node_id[i]);
 		if (!n || !gossmap_node_announced(n))
 			continue;
-		if (gossip_store_get_flags(gm->daemon->gs, n->nann_off, WIRE_NODE_ANNOUNCEMENT)
+		if (gossip_store_get_flags(gm->gs, n->nann_off, WIRE_NODE_ANNOUNCEMENT)
 		    & GOSSIP_STORE_DYING_BIT) {
-			gossip_store_clear_flag(gm->daemon->gs, n->nann_off,
+			gossip_store_clear_flag(gm->gs, n->nann_off,
 						GOSSIP_STORE_DYING_BIT,
 						WIRE_NODE_ANNOUNCEMENT);
 		}
@@ -555,8 +589,8 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 	    && !map_get(&gm->pending_ann_map, scid)
 	    && !map_get(&gm->early_ann_map, scid)) {
 		/* Set with timestamp 0 (we will update once we have a channel_update) */
-		gossip_store_add(gm->daemon->gs, announce, 0);
-		gossip_store_add(gm->daemon->gs,
+		gossip_store_add(gm->gs, announce, 0);
+		gossip_store_add(gm->gs,
 				 towire_gossip_store_channel_amount(tmpctx, *known_amount), 0);
 
 		node_announcements_not_dying(gm, gossmap, pca);
@@ -662,7 +696,7 @@ void gossmap_manage_handle_get_txout_reply(struct gossmap_manage *gm, const u8 *
 		status_broken("Redundant channel_announce for scid %s at off %"PRIu64" (gossmap %"PRIu64"/%"PRIu64", store %"PRIu64")",
 			      fmt_short_channel_id(tmpctx, scid), chan->cann_off,
 			      before_length_processed, before_total_length,
-			      gossip_store_len_written(gm->daemon->gs));
+			      gossip_store_len_written(gm->gs));
 		goto out;
 	} else {
 		u64 after_length_processed, after_total_length;
@@ -675,14 +709,14 @@ void gossmap_manage_handle_get_txout_reply(struct gossmap_manage *gm, const u8 *
 				      fmt_short_channel_id(tmpctx, scid), chan->cann_off,
 				      before_length_processed, before_total_length,
 				      after_length_processed, after_total_length,
-				      gossip_store_len_written(gm->daemon->gs));
+				      gossip_store_len_written(gm->gs));
 			goto out;
 		}
 	}
 
 	/* Set with timestamp 0 (we will update once we have a channel_update) */
-	gossip_store_add(gm->daemon->gs, pca->channel_announcement, 0);
-	gossip_store_add(gm->daemon->gs,
+	gossip_store_add(gm->gs, pca->channel_announcement, 0);
+	gossip_store_add(gm->gs,
 			 towire_gossip_store_channel_amount(tmpctx, sat), 0);
 
 	/* If we looking specifically for this, we no longer are. */
@@ -765,7 +799,7 @@ static const char *process_channel_update(const tal_t *ctx,
 	/* Do we have same or earlier update? */
 	if (gossmap_chan_set(chan, dir)) {
 		u32 prev_timestamp
-			= gossip_store_get_timestamp(gm->daemon->gs, chan->cupdate_off[dir]);
+			= gossip_store_get_timestamp(gm->gs, chan->cupdate_off[dir]);
 		if (prev_timestamp >= timestamp) {
 			/* Too old, ignore */
 			return NULL;
@@ -774,15 +808,15 @@ static const char *process_channel_update(const tal_t *ctx,
 		/* Is this the first update in either direction?  If so,
 		 * rewrite channel_announcement so timestamp is correct. */
 		if (!gossmap_chan_set(chan, !dir))
-			gossip_store_set_timestamp(gm->daemon->gs, chan->cann_off, timestamp);
+			gossip_store_set_timestamp(gm->gs, chan->cann_off, timestamp);
 	}
 
 	/* OK, apply the new one */
-	offset = gossip_store_add(gm->daemon->gs, update, timestamp);
+	offset = gossip_store_add(gm->gs, update, timestamp);
 
 	/* If channel is dying, make sure update is also marked dying! */
 	if (gossmap_chan_is_dying(gossmap, chan)) {
-		gossip_store_set_flag(gm->daemon->gs,
+		gossip_store_set_flag(gm->gs,
 				      offset,
 				      GOSSIP_STORE_DYING_BIT,
 				      WIRE_CHANNEL_UPDATE);
@@ -790,7 +824,7 @@ static const char *process_channel_update(const tal_t *ctx,
 
 	/* Now delete old */
 	if (gossmap_chan_set(chan, dir))
-		gossip_store_del(gm->daemon->gs, chan->cupdate_off[dir], WIRE_CHANNEL_UPDATE);
+		gossip_store_del(gm->gs, chan->cupdate_off[dir], WIRE_CHANNEL_UPDATE);
 
 	/* Is this an update for an incoming channel?  If so, keep lightningd updated */
 	gossmap_node_get_id(gossmap,
@@ -812,6 +846,9 @@ static const char *process_channel_update(const tal_t *ctx,
 			  fmt_short_channel_id(tmpctx, scid),
 			  dir,
 			  channel_flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE");
+
+	/* We're off zero, at least! */
+	gm->gossip_store_populated = true;
 
 	return NULL;
 }
@@ -925,7 +962,7 @@ static void process_node_announcement(struct gossmap_manage *gm,
 	/* Do we have a later one?  If so, ignore */
 	if (gossmap_node_announced(node)) {
 		u32 prev_timestamp
-			= gossip_store_get_timestamp(gm->daemon->gs, node->nann_off);
+			= gossip_store_get_timestamp(gm->gs, node->nann_off);
 		if (prev_timestamp >= timestamp) {
 			/* Too old, ignore */
 			return;
@@ -933,17 +970,17 @@ static void process_node_announcement(struct gossmap_manage *gm,
 	}
 
 	/* OK, apply the new one */
-	offset = gossip_store_add(gm->daemon->gs, nannounce, timestamp);
+	offset = gossip_store_add(gm->gs, nannounce, timestamp);
 	/* If all channels are dying, make sure this is marked too. */
 	if (all_node_channels_dying(gossmap, node, NULL)) {
-		gossip_store_set_flag(gm->daemon->gs, offset,
+		gossip_store_set_flag(gm->gs, offset,
 				      GOSSIP_STORE_DYING_BIT,
 				      WIRE_NODE_ANNOUNCEMENT);
 	}
 
 	/* Now delete old */
 	if (gossmap_node_announced(node))
-		gossip_store_del(gm->daemon->gs, node->nann_off, WIRE_NODE_ANNOUNCEMENT);
+		gossip_store_del(gm->gs, node->nann_off, WIRE_NODE_ANNOUNCEMENT);
 
 	/* Used to evaluate gossip peers' performance */
 	peer_supplied_good_gossip(gm->daemon, source_peer, 1);
@@ -1220,7 +1257,7 @@ void gossmap_manage_new_block(struct gossmap_manage *gm, u32 new_blockheight)
 		 * in particular, we might move a node_announcement twice! */
 		gossmap = gossmap_manage_get_gossmap(gm);
 		kill_spent_channel(gm, gossmap, gm->dying_channels[i].scid);
-		gossip_store_del(gm->daemon->gs,
+		gossip_store_del(gm->gs,
 				 gm->dying_channels[i].gossmap_offset,
 				 WIRE_GOSSIP_STORE_CHAN_DYING);
 		tal_arr_remove(&gm->dying_channels, i);
@@ -1269,11 +1306,11 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 
 	/* Save to gossip_store in case we restart */
 	msg = towire_gossip_store_chan_dying(tmpctx, cd.scid, cd.deadline);
-	cd.gossmap_offset = gossip_store_add(gm->daemon->gs, msg, 0);
+	cd.gossmap_offset = gossip_store_add(gm->gs, msg, 0);
 	tal_arr_expand(&gm->dying_channels, cd);
 
 	/* Mark it dying, so we don't gossip it */
-	gossip_store_set_flag(gm->daemon->gs, chan->cann_off,
+	gossip_store_set_flag(gm->gs, chan->cann_off,
 			      GOSSIP_STORE_DYING_BIT,
 			      WIRE_CHANNEL_ANNOUNCEMENT);
 	/* Channel updates too! */
@@ -1281,7 +1318,7 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 		if (!gossmap_chan_set(chan, dir))
 			continue;
 
-		gossip_store_set_flag(gm->daemon->gs,
+		gossip_store_set_flag(gm->gs,
 				      chan->cupdate_off[dir],
 				      GOSSIP_STORE_DYING_BIT,
 				      WIRE_CHANNEL_UPDATE);
@@ -1301,7 +1338,7 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 
 		/* Are all (other) channels dying? */
 		if (all_node_channels_dying(gossmap, n, chan)) {
-			gossip_store_set_flag(gm->daemon->gs,
+			gossip_store_set_flag(gm->gs,
 					      n->nann_off,
 					      GOSSIP_STORE_DYING_BIT,
 					      WIRE_NODE_ANNOUNCEMENT);
@@ -1372,4 +1409,9 @@ void gossmap_manage_tell_lightningd_locals(struct daemon *daemon,
 		daemon_conn_send(daemon->master,
 				 take(towire_gossipd_init_nannounce(NULL,
 								    nannounce)));
+}
+
+bool gossmap_manage_populated(const struct gossmap_manage *gm)
+{
+	return gm->gossip_store_populated;
 }

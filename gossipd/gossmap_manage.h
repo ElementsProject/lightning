@@ -7,8 +7,7 @@ struct gossmap_manage;
 struct chan_dying;
 
 struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
-					  struct daemon *daemon,
-					  struct chan_dying *dying_channels TAKES);
+					  struct daemon *daemon);
 
 /**
  * gossmap_manage_channel_announcement: process an incoming channel_announcement
@@ -103,4 +102,13 @@ struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm);
  */
 void gossmap_manage_tell_lightningd_locals(struct daemon *daemon,
 					   struct gossmap_manage *gm);
+
+/**
+ * gossmap_manage_populated - do we have some gossip?
+ * @gm: the gossmap_manage context.
+ *
+ *
+ * The seeker uses this if we're at startup and want complete gossip.
+ */
+bool gossmap_manage_populated(const struct gossmap_manage *gm);
 #endif /* LIGHTNING_GOSSIPD_GOSSMAP_MANAGE_H */
