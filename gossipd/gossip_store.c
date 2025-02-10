@@ -408,14 +408,37 @@ struct gossip_store *gossip_store_new(const tal_t *ctx,
 	return gs;
 }
 
+static void gossip_store_fsync(const struct gossip_store *gs)
+{
+	if (fsync(gs->fd) != 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "gossmap fsync failed: %s", strerror(errno));
+}
+
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg, u32 timestamp)
 {
-	u64 off = gs->len;
+	u64 off = gs->len, filelen;
+
+	/* Double check: this should always be EOF! */
+	filelen = lseek(gs->fd, 0, SEEK_END);
+	if (filelen != off) {
+		status_broken("gossip_store: file was len %"PRIu64
+			      ", expected %"PRIu64", trying fsync!",
+			      filelen, off);
+
+		gossip_store_fsync(gs);
+		filelen = lseek(gs->fd, 0, SEEK_END);
+		if (filelen != off)
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "gossip_store: file was len %"PRIu64
+				      ", expected %"PRIu64,
+				      filelen, off);
+	}
 
 	if (!append_msg(gs->fd, gossip_msg, timestamp, &gs->len)) {
-		status_broken("Failed writing to gossip store: %s",
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed writing to gossip store: %s",
 			      strerror(errno));
-		return 0;
 	}
 
 	/* By gossmap convention, offset is *after* hdr */
