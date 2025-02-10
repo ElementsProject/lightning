@@ -1275,7 +1275,7 @@ struct gossmap *gossmap_load_(const tal_t *ctx,
 		logcb(cbarg, LOG_BROKEN,
 		      "gossip_store only processed %"PRIu64
 		      " bytes of %"PRIu64" (expected %"PRIu64")",
-		      map->map_size, map->map_end, expected_len);
+		      map->map_end, map->map_size, expected_len);
 		return tal_free(map);
 	}
 	return map;
