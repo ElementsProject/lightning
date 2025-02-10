@@ -554,7 +554,7 @@ int main(int argc, char *argv[])
 		bool *dirs;
 		gzFile outf = gzdopen(outfd, "wb9");
 
-		struct gossmap *gossmap = gossmap_load(tmpctx, argv[2], NULL);
+		struct gossmap *gossmap = gossmap_load(tmpctx, argv[2], NULL, NULL);
 		if (!gossmap)
 			opt_usage_exit_fail(tal_fmt(tmpctx, "Cannot open %s for reading: %s",
 						    argv[2], strerror(errno)));

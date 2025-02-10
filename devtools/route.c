@@ -68,7 +68,6 @@ int main(int argc, char *argv[])
 	struct gossmap *map;
 	struct node_id dstid;
 	bool clean_topology = false;
-	size_t num_channel_updates_rejected;
 
 	common_setup(argv[0]);
 
@@ -83,14 +82,13 @@ int main(int argc, char *argv[])
 		opt_usage_exit_fail("Expect 3 arguments");
 
 	tstart = time_mono();
-	map = gossmap_load(NULL, argv[1], &num_channel_updates_rejected);
+	map = gossmap_load(NULL, argv[1], NULL, NULL);
 	if (!map)
 		err(1, "Loading gossip store %s", argv[1]);
 	tstop = time_mono();
 
-	printf("# Time to load: %"PRIu64" msec (%zu ignored)\n",
-	       time_to_msec(timemono_between(tstop, tstart)),
-	       num_channel_updates_rejected);
+	printf("# Time to load: %"PRIu64" msec\n",
+	       time_to_msec(timemono_between(tstop, tstart)));
 
 	if (clean_topology)
 		clean_topo(map, false);

@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
 	tal_add_destructor(gossfile, remove_file);
 	assert(write_all(fd, empty_map, sizeof(empty_map)));
 
-	gossmap = gossmap_load(tmpctx, gossfile, NULL);
+	gossmap = gossmap_load(tmpctx, gossfile, NULL, NULL);
 	assert(gossmap);
 
 	/* These are in ascending order, for easy direction setting */

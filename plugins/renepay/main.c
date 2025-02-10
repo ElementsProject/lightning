@@ -72,7 +72,8 @@ static const char *init(struct command *init_cmd,
 
 	pay_plugin->gossmap = gossmap_load(pay_plugin,
 					   GOSSIP_STORE_FILENAME,
-					   &num_channel_updates_rejected);
+					   plugin_gossmap_logcb,
+					   p);
 
 	if (!pay_plugin->gossmap)
 		plugin_err(p, "Could not load gossmap %s: %s",

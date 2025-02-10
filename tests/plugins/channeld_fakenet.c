@@ -1287,7 +1287,7 @@ int main(int argc, char *argv[])
 
 	status_setup_async(info->dc);
 
-	info->gossmap = gossmap_load(info, GOSSIP_STORE_FILENAME, NULL);
+	info->gossmap = gossmap_load(info, GOSSIP_STORE_FILENAME, NULL, NULL);
 	if (!info->gossmap)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Loading gossmap %s", strerror(errno));

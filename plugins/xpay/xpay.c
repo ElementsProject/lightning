@@ -46,7 +46,7 @@ static struct xpay *xpay_of(struct plugin *plugin)
 /* This refreshes the gossmap. */
 static struct gossmap *get_gossmap(struct xpay *xpay)
 {
-	gossmap_refresh(xpay->global_gossmap, NULL);
+	gossmap_refresh(xpay->global_gossmap);
 	return xpay->global_gossmap;
 }
 
@@ -1733,21 +1733,15 @@ static const char *init(struct command *init_cmd,
 {
 	struct plugin *plugin = init_cmd->plugin;
 	struct xpay *xpay = xpay_of(plugin);
-	size_t num_cupdates_rejected;
 	struct out_req *req;
 
 	xpay->global_gossmap = gossmap_load(xpay,
 					    GOSSIP_STORE_FILENAME,
-				      &num_cupdates_rejected);
+					    plugin_gossmap_logcb,
+					    plugin);
 	if (!xpay->global_gossmap)
 		plugin_err(plugin, "Could not load gossmap %s: %s",
 			   GOSSIP_STORE_FILENAME, strerror(errno));
-
-	if (num_cupdates_rejected)
-		plugin_log(plugin, LOG_DBG,
-			   "gossmap ignored %zu channel updates",
-			   num_cupdates_rejected);
-
 	xpay->counter = 0;
 	if (!pubkey_from_hexstr("02" "0000000000000000000000000000000000000000000000000000000000000001", 66, &xpay->fakenode))
 		abort();

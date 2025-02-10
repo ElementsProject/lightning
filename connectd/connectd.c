@@ -2287,11 +2287,24 @@ void update_recent_timestamp(struct daemon *daemon, struct gossmap *gossmap)
 				  recent);
 }
 
+static void connectd_logcb(struct daemon *daemon,
+			   enum log_level level,
+			   const char *fmt,
+			   ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	status_vfmt(level, NULL, fmt, ap);
+	va_end(ap);
+}
+
 /* This is called once we need it: otherwise, the gossip_store may not exist,
  * since we start at the same time as gossipd itself. */
 static void setup_gossip_store(struct daemon *daemon)
 {
-	daemon->gossmap_raw = gossmap_load(daemon, GOSSIP_STORE_FILENAME, NULL);
+	daemon->gossmap_raw = gossmap_load(daemon, GOSSIP_STORE_FILENAME,
+					   connectd_logcb, daemon);
 	if (!daemon->gossmap_raw)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Loading gossip_store %s: %s",
@@ -2307,7 +2320,7 @@ struct gossmap *get_gossmap(struct daemon *daemon)
 	if (!daemon->gossmap_raw)
 		setup_gossip_store(daemon);
 	else
-		gossmap_refresh(daemon->gossmap_raw, NULL);
+		gossmap_refresh(daemon->gossmap_raw);
 	return daemon->gossmap_raw;
 }
 
