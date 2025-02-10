@@ -654,12 +654,26 @@ static bool reopen_store(struct gossmap *map, u64 ended_off)
 	return gossmap_refresh(map);
 }
 
+/* Extra sanity check (if it's cheap): does crc match? */
+static bool csum_matches(const struct gossmap *map,
+			 u64 off,
+			 u32 timestamp,
+			 u16 msglen,
+			 u32 crc)
+{
+	/* Don't waste resources reading if we don't have mmap */
+	if (!map->mmap)
+		return true;
+
+	assert(off + msglen <= map->map_size);
+	return crc32c(timestamp, map->mmap + off, msglen) == crc;
+}
+
 /* Returns false only if unknown_cb returns false */
 static bool map_catchup(struct gossmap *map)
 {
 	size_t reclen;
 	bool changed = false;
-	u8 msgbuf[65535];
 
 	for (; map->map_end + sizeof(struct gossip_hdr) < map->map_size;
 	     map->map_end += reclen) {
@@ -692,9 +706,12 @@ static bool map_catchup(struct gossmap *map)
 		off = map->map_end + sizeof(ghdr);
 		type = map_be16(map, off);
 
-		map_copy(map, off, msgbuf, msglen);
-		if (be32_to_cpu(ghdr.crc)
-		    != crc32c(be32_to_cpu(ghdr.timestamp), msgbuf, msglen)) {
+		if (!csum_matches(map, off,
+				  be32_to_cpu(ghdr.timestamp),
+				  msglen,
+				  be32_to_cpu(ghdr.crc))) {
+			u8 msgbuf[65535];
+			map_copy(map, off, msgbuf, msglen);
 			map->logcb(map->cbarg,
 				   LOG_BROKEN,
 				   "Bad checksum on gossmap record @%"PRIu64
