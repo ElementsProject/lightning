@@ -58,8 +58,7 @@ BOLT12_PATCHES := $(sort $(wildcard wire/extracted_bolt12*.patch))
 # Explicit command to re-extract CSV from BOLTs and patch.
 # This is not a normal make depencency, since we don't want this
 # called implicitly.
-# Note: You will need to run extract-bolt12-csv manually!
-extract-bolt-csv: extract-peer-csv extract-onion-csv
+extract-bolt-csv: extract-peer-csv extract-onion-csv extract-bolt12-csv
 
 extract-peer-csv: wire/peer_wire.csv.raw
 	@set -e; T=wire/peer_wire.csv; trap "rm -f $$T.$$$$" 0; cp $< $$T.$$$$; for p in $(PEER_PATCHES); do echo APPLY $$p; patch $$T.$$$$ $$p; done; mv $$T.$$$$ $$T
