@@ -44,7 +44,17 @@ struct gossmap_chan {
 /* If num_channel_updates_rejected is not NULL, indicates how many channels we
  * marked inactive because their values were too high to be represented. */
 #define gossmap_load(ctx, filename, logcb, cbarg)			\
-	gossmap_load_((ctx), (filename),				\
+	gossmap_load_((ctx), (filename), (0),				\
+		      typesafe_cb_postargs(void, void *, (logcb), (cbarg), \
+					   enum log_level,		\
+					   const char *fmt,		\
+					   ...),			\
+		      (cbarg))
+
+/* If we're the author of the gossmap, it should have no redundant records, corruption, etc.
+ * So this fails if that's not the case. */
+#define gossmap_load_initial(ctx, filename, expected_len, logcb, cbarg)	\
+	gossmap_load_((ctx), (filename), (expected_len),			\
 		      typesafe_cb_postargs(void, void *, (logcb), (cbarg), \
 					   enum log_level,		\
 					   const char *fmt,		\
@@ -53,6 +63,7 @@ struct gossmap_chan {
 
 struct gossmap *gossmap_load_(const tal_t *ctx,
 			      const char *filename,
+			      u64 expected_len,
 			      void (*logcb)(void *cb_arg,
 					    enum log_level level,
 					    const char *fmt,

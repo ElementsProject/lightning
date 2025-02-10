@@ -429,9 +429,12 @@ static bool setup_gossmap(struct gossmap_manage *gm,
 			  struct daemon *daemon,
 			  struct chan_dying **dying)
 {
+	u64 expected_len;
+
 	*dying = NULL;
 
-	/* This compacts, and creates if necessary */
+	/* This does simple sanitry checks, compacts, and creates if
+	 * necessary */
 	gm->gs = gossip_store_new(gm,
 				  daemon,
 				  &gm->gossip_store_populated,
@@ -439,9 +442,12 @@ static bool setup_gossmap(struct gossmap_manage *gm,
 	if (!gm->gs)
 		return false;
 
-	/* This actually loads it into memory */
-	gm->raw_gossmap = gossmap_load(gm, GOSSIP_STORE_FILENAME,
-				       gossmap_logcb, daemon);
+	expected_len = gossip_store_len_written(gm->gs);
+
+	/* This actually loads it into memory, with strict checks. */
+	gm->raw_gossmap = gossmap_load_initial(gm, GOSSIP_STORE_FILENAME,
+					       expected_len,
+					       gossmap_logcb, daemon);
 	if (!gm->raw_gossmap) {
 		gm->gs = tal_free(gm->gs);
 		return false;

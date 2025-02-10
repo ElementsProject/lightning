@@ -437,7 +437,8 @@ void gossmap_remove_node(struct gossmap *map, struct gossmap_node *node)
  */
 static struct gossmap_chan *add_channel(struct gossmap *map,
 					u64 cannounce_off,
-					size_t msglen)
+					size_t msglen,
+					bool *redundant)
 {
 	/* Note that first two bytes are message type */
 	const u64 feature_len_off = 2 + (64 + 64 + 64 + 64);
@@ -455,6 +456,9 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
 	map_nodeid(map, cannounce_off + plus_scid_off + 8, &node_id[0]);
 	map_nodeid(map, cannounce_off + plus_scid_off + 8 + PUBKEY_CMPR_LEN, &node_id[1]);
 
+	if (redundant)
+		*redundant = false;
+
 	/* We should not get duplicates. */
 	scid.u64 = map_be64(map, cannounce_off + plus_scid_off);
 	chan = gossmap_find_chan(map, &scid);
@@ -463,6 +467,8 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
 			   "gossmap: redundant channel_announce for %s, offsets %"PRIu64" and %"PRIu64"!",
 			   fmt_short_channel_id(tmpctx, scid),
 			   chan->cann_off, cannounce_off);
+		if (redundant)
+			*redundant = true;
 		return chan;
 	}
 
@@ -669,11 +675,12 @@ static bool csum_matches(const struct gossmap *map,
 	return crc32c(timestamp, map->mmap + off, msglen) == crc;
 }
 
-/* Returns false only if unknown_cb returns false */
-static bool map_catchup(struct gossmap *map)
+/* Returns false only if must_be_clean is true. */
+static bool map_catchup(struct gossmap *map, bool must_be_clean, bool *changed)
 {
 	size_t reclen;
-	bool changed = false;
+
+	*changed = false;
 
 	for (; map->map_end + sizeof(struct gossip_hdr) < map->map_size;
 	     map->map_end += reclen) {
@@ -700,6 +707,8 @@ static bool map_catchup(struct gossmap *map)
 				   "Truncated gossmap record @%"PRIu64
 				   "/%"PRIu64" (len %zu): waiting",
 				   map->map_end, map->map_size, msglen);
+			if (must_be_clean)
+				return false;
  			break;
 		}
 
@@ -719,13 +728,18 @@ static bool map_catchup(struct gossmap *map)
 				   map->map_end, map->map_size,
 				   be32_to_cpu(ghdr.crc),
 				   tal_hexstr(tmpctx, msgbuf, msglen));
+			if (must_be_clean)
+				return false;
 			break;
 		}
 
 		if (type == WIRE_CHANNEL_ANNOUNCEMENT) {
+			bool redundant;
 			/* Don't read yet if amount field is not there! */
-			if (!add_channel(map, off, be16_to_cpu(ghdr.len)))
+			if (!add_channel(map, off, be16_to_cpu(ghdr.len), &redundant))
 				break;
+			if (redundant && must_be_clean)
+				return false;
 		} else if (type == WIRE_CHANNEL_UPDATE)
 			update_channel(map, off);
 		else if (type == WIRE_GOSSIP_STORE_DELETE_CHAN)
@@ -745,17 +759,21 @@ static bool map_catchup(struct gossmap *map)
 			map->logcb(map->cbarg, LOG_BROKEN,
 				   "Unknown record %u@%u (size %zu) in gossmap: ignoring",
 				   type, off, reclen - sizeof(ghdr));
+			if (must_be_clean)
+				return false;
 			continue;
 		}
 
-		changed = true;
+		*changed = true;
 	}
 
-	return changed;
+	return true;
 }
 
-static bool load_gossip_store(struct gossmap *map)
+static bool load_gossip_store(struct gossmap *map, bool must_be_clean)
 {
+	bool updated;
+
 	map->map_size = lseek(map->fd, 0, SEEK_END);
 	map->local_announces = NULL;
 	map->local_updates = NULL;
@@ -770,6 +788,8 @@ static bool load_gossip_store(struct gossmap *map)
 
 	/* We only support major version 0 */
 	if (GOSSIP_STORE_MAJOR_VERSION(map_u8(map, 0)) != 0) {
+		map->logcb(map->cbarg, LOG_BROKEN,
+			   "Unknown gossip_store version %u", map_u8(map, 0));
 		errno = EINVAL;
 		return false;
 	}
@@ -792,8 +812,7 @@ static bool load_gossip_store(struct gossmap *map)
 	map->freed_nodes = init_node_arr(map->node_arr, 0);
 
 	map->map_end = 1;
-	map_catchup(map);
-	return true;
+	return map_catchup(map, must_be_clean, &updated);
 }
 
 static void destroy_map(struct gossmap *map)
@@ -1063,7 +1082,7 @@ void gossmap_apply_localmods(struct gossmap *map,
 				continue;
 
 			/* Create new channel, pointing into local. */
-			chan = add_channel(map, map->map_size + mod->local_off, 0);
+			chan = add_channel(map, map->map_size + mod->local_off, 0, NULL);
 		}
 
 		/* Save old, update any fields they wanted to change */
@@ -1186,6 +1205,7 @@ void gossmap_remove_localmods(struct gossmap *map,
 bool gossmap_refresh(struct gossmap *map)
 {
 	off_t len;
+	bool changed;
 
 	/* You must remove local modifications before this. */
 	assert(!map->local_announces);
@@ -1205,7 +1225,8 @@ bool gossmap_refresh(struct gossmap *map)
 #endif /* __OpenBSD__ */
 		map->mmap = NULL;
 
-	return map_catchup(map);
+	map_catchup(map, false, &changed);
+	return changed;
 }
 
 static void log_stderr(void *cb_arg,
@@ -1226,6 +1247,7 @@ static void log_stderr(void *cb_arg,
 
 struct gossmap *gossmap_load_(const tal_t *ctx,
 			      const char *filename,
+			      u64 expected_len,
 			      void (*logcb)(void *cb_arg,
 					    enum log_level level,
 					    const char *fmt,
@@ -1245,8 +1267,17 @@ struct gossmap *gossmap_load_(const tal_t *ctx,
 	map->cbarg = cbarg;
 	tal_add_destructor(map, destroy_map);
 
-	if (!load_gossip_store(map))
+	if (!load_gossip_store(map, expected_len != 0))
 		return tal_free(map);
+	if (expected_len != 0
+	    && (map->map_size != map->map_end
+		|| map->map_size != expected_len)) {
+		logcb(cbarg, LOG_BROKEN,
+		      "gossip_store only processed %"PRIu64
+		      " bytes of %"PRIu64" (expected %"PRIu64")",
+		      map->map_size, map->map_end, expected_len);
+		return tal_free(map);
+	}
 	return map;
 }
 
