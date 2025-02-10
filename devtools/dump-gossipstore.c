@@ -78,14 +78,12 @@ int main(int argc, char *argv[])
 		if (read(fd, msg, msglen) != msglen)
 			errx(1, "%zu: Truncated file?", off);
 
-		if (be32_to_cpu(hdr.crc)
-		    != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen))
-			warnx("Checksum verification failed");
-
-		printf("%zu: %s%s%s", off,
+		printf("%zu: %s%s%s%s", off,
 		       deleted ? "DELETED " : "",
 		       push ? "PUSH " : "",
-		       dying ? "DYING " : "");
+		       dying ? "DYING " : "",
+		       be32_to_cpu(hdr.crc) != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen) ? "**BAD CHECKSUM** " : "");
+
 		if (print_timestamp)
 			printf("T=%u ", be32_to_cpu(hdr.timestamp));
 		if (deleted && !print_deleted) {
@@ -125,8 +123,8 @@ int main(int argc, char *argv[])
 			       fmt_short_channel_id(tmpctx, scid),
 			       blockheight);
 		} else {
-			warnx("Unknown message %u",
-			      fromwire_peektype(msg));
+			printf("Unknown message %u: %s\n",
+			       fromwire_peektype(msg), tal_hex(msg, msg));
 		}
 	end:
 		off += sizeof(hdr) + msglen;
