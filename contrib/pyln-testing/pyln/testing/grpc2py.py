@@ -1181,6 +1181,13 @@ def decode_invoice_paths2py(m):
     })
 
 
+def decode_invreq_bip_353_name2py(m):
+    return remove_default({
+        "domain": m.domain,  # PrimitiveField in generate_composite
+        "name": m.name,  # PrimitiveField in generate_composite
+    })
+
+
 def decode_invreq_paths_path2py(m):
     return remove_default({
         "blinded_node_id": hexlify(m.blinded_node_id),  # PrimitiveField in generate_composite
@@ -1337,6 +1344,8 @@ def decode2py(m):
         "warning_invalid_offer_currency": m.warning_invalid_offer_currency,  # PrimitiveField in generate_composite
         "warning_invalid_offer_description": m.warning_invalid_offer_description,  # PrimitiveField in generate_composite
         "warning_invalid_offer_issuer": m.warning_invalid_offer_issuer,  # PrimitiveField in generate_composite
+        "warning_invreq_bip_353_name_domain_invalid": m.warning_invreq_bip_353_name_domain_invalid,  # PrimitiveField in generate_composite
+        "warning_invreq_bip_353_name_name_invalid": m.warning_invreq_bip_353_name_name_invalid,  # PrimitiveField in generate_composite
         "warning_missing_invoice_amount": m.warning_missing_invoice_amount,  # PrimitiveField in generate_composite
         "warning_missing_invoice_blindedpay": m.warning_missing_invoice_blindedpay,  # PrimitiveField in generate_composite
         "warning_missing_invoice_created_at": m.warning_missing_invoice_created_at,  # PrimitiveField in generate_composite

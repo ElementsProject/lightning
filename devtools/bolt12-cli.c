@@ -395,6 +395,35 @@ static void print_msat(const char *fieldname, u64 amount)
 	printf("%s: %s\n", fieldname, fmt_amount_msat(tmpctx, amount_msat(amount)));
 }
 
+/* FIXME: Can name and domain be missing? */
+static bool print_bip353_name(const char *fieldname,
+			      const u8 *bip353_name, const u8 *bip353_domain)
+{
+	/* BOLT #12:
+	 *   - if `invreq_bip_353_name` is present:
+	 *    - MUST reject the invoice request if `name` or `domain`
+	 *      contain any bytes which are not `0`-`9`, `a`-`z`,
+	 *      `A`-`Z`, `-`, `_` or `.`.
+	 */
+	if (!bolt12_bip353_valid_string(bip353_name,
+					tal_bytelen(bip353_name))) {
+		fprintf(stderr, "Invalid chars in invreq_bip_353_name.name\n");
+		return false;
+	}
+	if (!bolt12_bip353_valid_string(bip353_domain,
+					tal_bytelen(bip353_domain))) {
+		fprintf(stderr, "Invalid chars in invreq_bip_353_name.domain\n");
+		return false;
+	}
+	if (bip353_name)
+		printf("%s.name: %.*s\n", fieldname,
+		       (int)tal_bytelen(bip353_name), (char *)bip353_name);
+	if (bip353_domain)
+		printf("%s.domain: %.*s\n", fieldname,
+		       (int)tal_bytelen(bip353_domain), (char *)bip353_domain);
+	return true;
+}
+
 static bool print_extra_fields(const struct tlv_field *fields)
 {
 	bool ok = true;
@@ -532,6 +561,12 @@ static u64 get_offer_type(const char *name)
 		 *     1. type: 90 (`invreq_paths`)
 		 *     2. data:
 		 *         * [`...*blinded_path`:`paths`]
+		 *     1. type: 91 (`invreq_bip_353_name`)
+		 *     2. data:
+		 *         * [`u8`:`name_len`]
+		 *         * [`name_len*byte`:`name`]
+		 *         * [`u8`:`domain_len`]
+		 *         * [`domain_len*byte`:`domain`]
 		 *     1. type: 240 (`signature`)
 		 *     2. data:
 		 *         * [`bip340sig`:`sig`]
@@ -544,6 +579,7 @@ static u64 get_offer_type(const char *name)
 		 { "invreq_payer_id", 88 },
 		 { "invreq_payer_note", 89 },
 		 { "invreq_paths", 90 },
+		 { "invreq_bip_353_name", 91 },
 		 { "signature", 240 },
 		/* BOLT-offers #12:
 		 * 1. `tlv_stream`: `invoice`
@@ -897,12 +933,16 @@ int main(int argc, char *argv[])
 		if (invreq->invreq_paths)
 			print_blindedpaths("invreq_paths", invreq->invreq_paths, NULL);
 		if (must_have(invreq, signature)) {
-			well_formed = print_signature("invoice_request",
-						      "signature",
-						      invreq->fields,
-						      invreq->invreq_payer_id,
-						      invreq->signature);
+			well_formed &= print_signature("invoice_request",
+						       "signature",
+						       invreq->fields,
+						       invreq->invreq_payer_id,
+						       invreq->signature);
 		}
+		if (invreq->invreq_bip_353_name)
+			well_formed &= print_bip353_name("invreq_bip_353_name",
+							 invreq->invreq_bip_353_name->name,
+							 invreq->invreq_bip_353_name->domain);
 		if (!print_extra_fields(invreq->fields))
 			well_formed = false;
 	} else if (streq(hrp, "lni")) {
@@ -990,6 +1030,10 @@ int main(int argc, char *argv[])
 			print_features("invoice_features", invoice->invoice_features);
 		if (must_have(invoice, invoice_node_id))
 			print_node_id("invoice_node_id", invoice->invoice_node_id);
+		if (invoice->invreq_bip_353_name)
+			well_formed &= print_bip353_name("invreq_bip_353_name",
+							 invoice->invreq_bip_353_name->name,
+							 invoice->invreq_bip_353_name->domain);
 		if (must_have(invoice, signature))
 			well_formed &= print_signature("invoice", "signature",
 						       invoice->fields,

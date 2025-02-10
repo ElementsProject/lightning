@@ -1706,6 +1706,9 @@ message DecodeResponse {
 	optional string warning_missing_offer_issuer_id = 84;
 	repeated DecodeInvreq_paths invreq_paths = 85;
 	optional string warning_empty_blinded_path = 86;
+	optional DecodeInvreq_bip_353_name invreq_bip_353_name = 87;
+	optional string warning_invreq_bip_353_name_name_invalid = 88;
+	optional string warning_invreq_bip_353_name_domain_invalid = 89;
 }
 
 message DecodeOffer_paths {
@@ -1734,6 +1737,11 @@ message DecodeInvreq_paths {
 message DecodeInvreq_pathsPath {
 	bytes blinded_node_id = 1;
 	bytes encrypted_recipient_data = 2;
+}
+
+message DecodeInvreq_bip_353_name {
+	optional string name = 1;
+	optional string domain = 2;
 }
 
 message DecodeInvoice_pathsPath {

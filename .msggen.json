@@ -1175,6 +1175,10 @@
             "Decode.invoice_paths[].path[].blinded_node_id": 1,
             "Decode.invoice_paths[].path[].encrypted_recipient_data": 2
         },
+        "DecodeInvreq_bip_353_name": {
+            "Decode.invreq_bip_353_name.domain": 2,
+            "Decode.invreq_bip_353_name.name": 1
+        },
         "DecodeInvreq_paths": {
             "Decode.invreq_paths[].blinding": 2,
             "Decode.invreq_paths[].first_node_id": 3,
@@ -1226,6 +1230,7 @@
             "Decode.invoice_recurrence_basetime": 48,
             "Decode.invoice_relative_expiry": 42,
             "Decode.invreq_amount_msat": 28,
+            "Decode.invreq_bip_353_name": 87,
             "Decode.invreq_chain": 27,
             "Decode.invreq_features": 29,
             "Decode.invreq_metadata": 25,
@@ -1274,6 +1279,8 @@
             "Decode.warning_invalid_offer_currency": 23,
             "Decode.warning_invalid_offer_description": 21,
             "Decode.warning_invalid_offer_issuer": 24,
+            "Decode.warning_invreq_bip_353_name_domain_invalid": 89,
+            "Decode.warning_invreq_bip_353_name_name_invalid": 88,
             "Decode.warning_missing_invoice_amount": 54,
             "Decode.warning_missing_invoice_blindedpay": 51,
             "Decode.warning_missing_invoice_created_at": 52,
@@ -5640,6 +5647,18 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "Decode.invreq_bip_353_name": {
+            "added": "v25.02",
+            "deprecated": null
+        },
+        "Decode.invreq_bip_353_name.domain": {
+            "added": "v25.02",
+            "deprecated": null
+        },
+        "Decode.invreq_bip_353_name.name": {
+            "added": "v25.02",
+            "deprecated": null
+        },
         "Decode.invreq_chain": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -5998,6 +6017,14 @@
         },
         "Decode.warning_invalid_offer_issuer": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Decode.warning_invreq_bip_353_name_domain_invalid": {
+            "added": "v25.02",
+            "deprecated": null
+        },
+        "Decode.warning_invreq_bip_353_name_name_invalid": {
+            "added": "v25.02",
             "deprecated": null
         },
         "Decode.warning_missing_invoice_amount": {

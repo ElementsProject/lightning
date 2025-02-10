@@ -1509,6 +1509,16 @@ impl From<responses::DecodeInvoice_fallbacks> for pb::DecodeInvoiceFallbacks {
 }
 
 #[allow(unused_variables)]
+impl From<responses::DecodeInvreq_bip_353_name> for pb::DecodeInvreqBip353Name {
+    fn from(c: responses::DecodeInvreq_bip_353_name) -> Self {
+        Self {
+            domain: c.domain, // Rule #2 for type string?
+            name: c.name, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::DecodeInvreq_pathsPath> for pb::DecodeInvreqPathsPath {
     fn from(c: responses::DecodeInvreq_pathsPath) -> Self {
         Self {
@@ -1587,6 +1597,7 @@ impl From<responses::DecodeResponse> for pb::DecodeResponse {
             invoice_recurrence_basetime: c.invoice_recurrence_basetime, // Rule #2 for type u64?
             invoice_relative_expiry: c.invoice_relative_expiry, // Rule #2 for type u32?
             invreq_amount_msat: c.invreq_amount_msat.map(|f| f.into()), // Rule #2 for type msat?
+            invreq_bip_353_name: c.invreq_bip_353_name.map(|v| v.into()),
             invreq_chain: c.invreq_chain.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             invreq_features: c.invreq_features.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             invreq_metadata: c.invreq_metadata.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
@@ -1635,6 +1646,8 @@ impl From<responses::DecodeResponse> for pb::DecodeResponse {
             warning_invalid_offer_currency: c.warning_invalid_offer_currency, // Rule #2 for type string?
             warning_invalid_offer_description: c.warning_invalid_offer_description, // Rule #2 for type string?
             warning_invalid_offer_issuer: c.warning_invalid_offer_issuer, // Rule #2 for type string?
+            warning_invreq_bip_353_name_domain_invalid: c.warning_invreq_bip_353_name_domain_invalid, // Rule #2 for type string?
+            warning_invreq_bip_353_name_name_invalid: c.warning_invreq_bip_353_name_name_invalid, // Rule #2 for type string?
             warning_missing_invoice_amount: c.warning_missing_invoice_amount, // Rule #2 for type string?
             warning_missing_invoice_blindedpay: c.warning_missing_invoice_blindedpay, // Rule #2 for type string?
             warning_missing_invoice_created_at: c.warning_missing_invoice_created_at, // Rule #2 for type string?

@@ -815,6 +815,7 @@ static bool json_add_invreq_fields(struct command *cmd,
 				   const struct pubkey *invreq_payer_id,
 				   const utf8 *invreq_payer_note,
 				   struct blinded_path **invreq_paths,
+				   struct tlv_invoice_request_invreq_bip_353_name *bip353,
 				   const u32 *invreq_recurrence_counter,
 				   const u32 *invreq_recurrence_start)
 {
@@ -851,6 +852,35 @@ static bool json_add_invreq_fields(struct command *cmd,
 	if (invreq_paths)
 		valid &= json_add_blinded_paths(cmd, js, "invreq_paths",
 						invreq_paths, NULL);
+
+	if (bip353) {
+		json_object_start(js, "invreq_bip_353_name");
+		if (bip353->name) {
+			json_add_str_fmt(js, "name", "%.*s",
+					 (int)tal_bytelen(bip353->name),
+					 (char *)bip353->name);
+		}
+		if (bip353->domain) {
+			json_add_str_fmt(js, "domain", "%.*s",
+					 (int)tal_bytelen(bip353->domain),
+					 (char *)bip353->domain);
+		}
+		json_object_end(js);
+
+		if (!bolt12_bip353_valid_string(bip353->name,
+						tal_bytelen(bip353->name))) {
+			valid = false;
+			json_add_string(js, "warning_invreq_bip_353_name_name_invalid",
+					"bip353 name field contains invalid characters");
+		}
+		if (!bolt12_bip353_valid_string(bip353->domain,
+						tal_bytelen(bip353->domain))) {
+			valid = false;
+			json_add_string(js, "warning_invreq_bip_353_name_domain_invalid",
+					"bip353 domain field contains invalid characters");
+		}
+	}
+
 	if (invreq_recurrence_counter) {
 		json_add_u32(js, "invreq_recurrence_counter",
 			     *invreq_recurrence_counter);
@@ -973,6 +1003,7 @@ static void json_add_invoice_request(struct command *cmd,
 					invreq->invreq_payer_id,
 					invreq->invreq_payer_note,
 					invreq->invreq_paths,
+					invreq->invreq_bip_353_name,
 					invreq->invreq_recurrence_counter,
 					invreq->invreq_recurrence_start);
 
@@ -1018,6 +1049,16 @@ static void json_add_b12_invoice(struct command *cmd,
 				 const struct tlv_invoice *invoice)
 {
 	bool valid = true;
+	/* FIXME: Technically, different types! */
+	struct tlv_invoice_request_invreq_bip_353_name *bip353;
+
+	if (invoice->invreq_bip_353_name) {
+		bip353 = tal(tmpctx, struct tlv_invoice_request_invreq_bip_353_name);
+		bip353->name = invoice->invreq_bip_353_name->name;
+		bip353->domain = invoice->invreq_bip_353_name->domain;
+	} else {
+		bip353 = NULL;
+	}
 
 	/* If there's an offer_issuer_id or offer_paths, then there's an offer. */
 	if (invoice->offer_issuer_id || invoice->offer_paths) {
@@ -1052,6 +1093,7 @@ static void json_add_b12_invoice(struct command *cmd,
 					invoice->invreq_payer_id,
 					invoice->invreq_payer_note,
 					invoice->invreq_paths,
+					bip353,
 					invoice->invreq_recurrence_counter,
 					invoice->invreq_recurrence_start);
 
