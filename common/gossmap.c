@@ -1,5 +1,6 @@
 #include "config.h"
 #include <assert.h>
+#include <ccan/crc32c/crc32c.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/err/err.h>
 #include <ccan/htable/htable_type.h>
@@ -658,15 +659,17 @@ static bool map_catchup(struct gossmap *map)
 {
 	size_t reclen;
 	bool changed = false;
+	u8 msgbuf[65535];
 
 	for (; map->map_end + sizeof(struct gossip_hdr) < map->map_size;
 	     map->map_end += reclen) {
 		struct gossip_hdr ghdr;
 		u64 off;
-		u16 type, flags;
+		u16 msglen, type, flags;
 
 		map_copy(map, map->map_end, &ghdr, sizeof(ghdr));
-		reclen = be16_to_cpu(ghdr.len) + sizeof(ghdr);
+		msglen = be16_to_cpu(ghdr.len);
+		reclen = msglen + sizeof(ghdr);
 
 		flags = be16_to_cpu(ghdr.flags);
 		if (flags & GOSSIP_STORE_DELETED_BIT)
@@ -677,11 +680,31 @@ static bool map_catchup(struct gossmap *map)
 			break;
 
 		/* FIXME: In corruption, we can see zeroes here: don't crash. */
-		if (be16_to_cpu(ghdr.len) < sizeof(be16))
-			break;
+		if (msglen < sizeof(be16)) {
+			map->logcb(map->cbarg,
+				   LOG_BROKEN,
+				   "Truncated gossmap record @%"PRIu64
+				   "/%"PRIu64" (len %zu): waiting",
+				   map->map_end, map->map_size, msglen);
+ 			break;
+		}
 
 		off = map->map_end + sizeof(ghdr);
 		type = map_be16(map, off);
+
+		map_copy(map, off, msgbuf, msglen);
+		if (be32_to_cpu(ghdr.crc)
+		    != crc32c(be32_to_cpu(ghdr.timestamp), msgbuf, msglen)) {
+			map->logcb(map->cbarg,
+				   LOG_BROKEN,
+				   "Bad checksum on gossmap record @%"PRIu64
+				   "/%"PRIu64" should be %u (%s): waiting",
+				   map->map_end, map->map_size,
+				   be32_to_cpu(ghdr.crc),
+				   tal_hexstr(tmpctx, msgbuf, msglen));
+			break;
+		}
+
 		if (type == WIRE_CHANNEL_ANNOUNCEMENT) {
 			/* Don't read yet if amount field is not there! */
 			if (!add_channel(map, off, be16_to_cpu(ghdr.len)))
