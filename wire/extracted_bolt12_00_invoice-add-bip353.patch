@@ -1,0 +1,14 @@
+--- wire/bolt12_wire.csv.raw	2025-01-23 16:17:55.387267448 +1030
++++ wire/bolt12_wire.csv	2025-01-23 16:18:15.515380646 +1030
+@@ -103,6 +103,11 @@
+ tlvdata,invoice,invreq_payer_note,note,utf8,...
+ tlvtype,invoice,invreq_paths,90
+ tlvdata,invoice,invreq_paths,paths,blinded_path,...
++tlvtype,invoice,invreq_bip_353_name,91
++tlvdata,invoice,invreq_bip_353_name,name_len,u8,
++tlvdata,invoice,invreq_bip_353_name,name,byte,name_len
++tlvdata,invoice,invreq_bip_353_name,domain_len,u8,
++tlvdata,invoice,invreq_bip_353_name,domain,byte,domain_len
+ tlvtype,invoice,invoice_paths,160
+ tlvdata,invoice,invoice_paths,paths,blinded_path,...
+ tlvtype,invoice,invoice_blindedpay,162
