@@ -1851,3 +1851,17 @@ int gossmap_fd(const struct gossmap *map)
 {
 	return map->fd;
 }
+
+const u8 *gossmap_fetch_tail(const tal_t *ctx, const struct gossmap *map)
+{
+	size_t len;
+	u8 *p;
+
+	/* Shouldn't happen... */
+	if (map->map_end > map->map_size)
+		return NULL;
+	len = map->map_size - map->map_end;
+	p = tal_arr(ctx, u8, len);
+	map_copy(map, map->map_size, p, len);
+	return p;
+}

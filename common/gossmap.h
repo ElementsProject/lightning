@@ -304,4 +304,7 @@ u64 gossmap_lengths(const struct gossmap *map, u64 *total);
 
 /* Debugging: connectd wants to enumerate fds */
 int gossmap_fd(const struct gossmap *map);
+
+/* Fetch unprocessed part of gossmap */
+const u8 *gossmap_fetch_tail(const tal_t *ctx, const struct gossmap *map);
 #endif /* LIGHTNING_COMMON_GOSSMAP_H */

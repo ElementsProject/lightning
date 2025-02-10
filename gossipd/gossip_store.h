@@ -110,5 +110,6 @@ void gossip_store_set_timestamp(struct gossip_store *gs, u64 offset, u32 timesta
  * For debugging.
  */
 u64 gossip_store_len_written(const struct gossip_store *gs);
+void gossip_store_fsync(const struct gossip_store *gs);
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_STORE_H */
