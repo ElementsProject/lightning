@@ -13,12 +13,11 @@
  *
  *	pubkey = basepoint + SHA256(per_commitment_point || basepoint) * G
  *
- * The `localpubkey` uses the local node's `payment_basepoint`;
- * The `remotepubkey` uses the remote node's `payment_basepoint`;
- * the `local_htlcpubkey` uses the local node's `htlc_basepoint`;
- * the `remote_htlcpubkey` uses the remote node's `htlc_basepoint`;
- * the `local_delayedpubkey` uses the local node's `delayed_payment_basepoint`;
- * and the `remote_delayedpubkey` uses the remote node's `delayed_payment_basepoint`.
+ * - The `localpubkey` uses the local node's `payment_basepoint`;
+ * - The `local_htlcpubkey` uses the local node's `htlc_basepoint`;
+ * - The `remote_htlcpubkey` uses the remote node's `htlc_basepoint`;
+ * - The `local_delayedpubkey` uses the local node's `delayed_payment_basepoint`;
+ * - The `remote_delayedpubkey` uses the remote node's `delayed_payment_basepoint`.
  *...
  * The `remotepubkey` is simply the remote node's `payment_basepoint`.
  */
