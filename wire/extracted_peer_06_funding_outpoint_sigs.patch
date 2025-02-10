@@ -8,8 +8,8 @@
  subtype,witness
  subtypedata,witness,len,u16,
  subtypedata,witness,witness_data,byte,len
-+tlvtype,txsigs_tlvs,funding_outpoint_sig,0
-+tlvdata,txsigs_tlvs,funding_outpoint_sig,sig,byte,...
++tlvtype,txsigs_tlvs,shared_input_signature,0
++tlvdata,txsigs_tlvs,shared_input_signature,signature,signature,
  msgtype,tx_init_rbf,72
  msgdata,tx_init_rbf,channel_id,channel_id,
  msgdata,tx_init_rbf,locktime,u32,

@@ -2,20 +2,18 @@ diff --git a/wire/peer_wire.csv b/wire/peer_wire.csv
 index 5b5803afc..41b57e85b 100644
 --- a/wire/peer_wire.csv
 +++ b/wire/peer_wire.csv
-@@ -206,6 +206,20 @@ subtypedata,lease_rates,channel_fee_max_base_msat,tu32,
+@@ -206,6 +206,18 @@ subtypedata,lease_rates,channel_fee_max_base_msat,tu32,
  msgtype,stfu,2
  msgdata,stfu,channel_id,channel_id,
  msgdata,stfu,initiator,u8,
-+msgtype,splice,75
++msgtype,splice,80
 +msgdata,splice,channel_id,channel_id,
-+msgdata,splice,chain_hash,chain_hash,
 +msgdata,splice,relative_satoshis,s64,
 +msgdata,splice,funding_feerate_perkw,u32,
 +msgdata,splice,locktime,u32,
 +msgdata,splice,funding_pubkey,point,
-+msgtype,splice_ack,76
++msgtype,splice_ack,81
 +msgdata,splice_ack,channel_id,channel_id,
-+msgdata,splice_ack,chain_hash,chain_hash,
 +msgdata,splice_ack,relative_satoshis,s64,
 +msgdata,splice_ack,funding_pubkey,point,
 +msgtype,splice_locked,77,
@@ -23,13 +21,14 @@ index 5b5803afc..41b57e85b 100644
  msgtype,shutdown,38
  msgdata,shutdown,channel_id,channel_id,
  msgdata,shutdown,len,u16,
-@@ -264,6 +250,9 @@ msgdata,commitment_signed,channel_id,channel_id,
+@@ -264,6 +250,10 @@ msgdata,commitment_signed,channel_id,channel_id,
  msgdata,commitment_signed,signature,signature,
  msgdata,commitment_signed,num_htlcs,u16,
  msgdata,commitment_signed,htlc_signature,signature,num_htlcs
 +msgdata,commitment_signed,splice_channel_id,commitment_signed_tlvs,
 +tlvtype,commitment_signed_tlvs,splice_info,0
-+tlvdata,commitment_signed_tlvs,splice_info,splice_channel_id,channel_id,
++tlvdata,commitment_signed_tlvs,splice_info,batch_size,u16,
++tlvdata,commitment_signed_tlvs,splice_info,funding_txid,channel_id,
  msgtype,revoke_and_ack,133
  msgdata,revoke_and_ack,channel_id,channel_id,
  msgdata,revoke_and_ack,per_commitment_secret,byte,32
