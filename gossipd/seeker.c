@@ -236,7 +236,7 @@ static void enable_gossip_stream(struct seeker *seeker, struct peer *peer,
 	u8 *msg;
 
 	/* If we have no gossip, always ask for everything */
-	if (!peer->daemon->gossip_store_populated)
+	if (!gossmap_manage_populated(peer->daemon->gm))
 		ask_for_all = true;
 
 	/* Modern timestamp_filter is a trinary: 0 = all, FFFFFFFF = none,

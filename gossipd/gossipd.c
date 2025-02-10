@@ -282,12 +282,8 @@ handled_msg_errmsg:
 		err = NULL;
 
 handled_msg:
-	if (err) {
+	if (err)
 		queue_peer_msg(daemon, &source, take(err));
-	} else {
-		/* Some peer gave us gossip, so we're not at zero. */
-		peer->daemon->gossip_store_populated = true;
-	}
 }
 
 /*~ connectd's input handler is very simple. */
@@ -401,7 +397,6 @@ bool timestamp_reasonable(const struct daemon *daemon, u32 timestamp)
 static void gossip_init(struct daemon *daemon, const u8 *msg)
 {
 	u32 *dev_gossip_time;
-	struct chan_dying *dying;
 
 	if (!fromwire_gossipd_init(daemon, msg,
 				     &chainparams,
@@ -422,13 +417,8 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 		tal_free(dev_gossip_time);
 	}
 
-	daemon->gs = gossip_store_new(daemon,
-				      daemon,
-				      &daemon->gossip_store_populated,
-				      &dying);
-
 	/* Gossmap manager starts up */
-	daemon->gm = gossmap_manage_new(daemon, daemon, take(dying));
+	daemon->gm = gossmap_manage_new(daemon, daemon);
 
 	/* Fire up the seeker! */
 	daemon->seeker = new_seeker(daemon);

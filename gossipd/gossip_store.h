@@ -31,6 +31,8 @@ struct chan_dying {
  * @daemon: the daemon context
  * @populated: set to false if store is empty/obviously partial.
  * @dying: an array of channels we found dying markers for.
+ *
+ * Returns NULL on error.
  */
 struct gossip_store *gossip_store_new(const tal_t *ctx,
 				      struct daemon *daemon,
@@ -38,10 +40,9 @@ struct gossip_store *gossip_store_new(const tal_t *ctx,
 				      struct chan_dying **dying);
 
 /**
- * Get the (refreshed!) gossmap from the gossip_store.
- * @gs: gossip store
+ * Move the old gossip store out the way.  Log a broken message about it.
  */
-struct gossmap *gossip_store_gossmap(struct gossip_store *gs);
+void gossip_store_corrupt(void);
 
 /**
  * Append a gossip message to the gossip_store
@@ -109,4 +110,5 @@ void gossip_store_set_timestamp(struct gossip_store *gs, u64 offset, u32 timesta
  * For debugging.
  */
 u64 gossip_store_len_written(const struct gossip_store *gs);
+
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_STORE_H */

@@ -191,7 +191,7 @@ static bool upgrade_field(u8 oldversion,
  * validity, but this code is written as simply and robustly as
  * possible!
  *
- * Returns fd of new store.
+ * Returns fd of new store, or -1 if it was grossly invalid.
  */
 static int gossip_store_compact(struct daemon *daemon,
 				u64 *total_len,
@@ -398,19 +398,18 @@ rename_new:
 	return new_fd;
 
 badmsg:
-	/* We truncate */
-	status_broken("gossip_store: %s (offset %"PRIu64"). Moving to %s.corrupt and truncating",
-		      bad, cur_off, GOSSIP_STORE_FILENAME);
+	/* Caller will presumably try gossip_store_reset. */
+	status_broken("gossip_store: %s (offset %"PRIu64").", bad, cur_off);
+	close(old_fd);
+	close(new_fd);
+	return -1;
+}
 
+void gossip_store_corrupt(void)
+{
+	status_broken("gossip_store: Moving to %s.corrupt",
+		      GOSSIP_STORE_FILENAME);
 	rename(GOSSIP_STORE_FILENAME, GOSSIP_STORE_FILENAME ".corrupt");
-	if (lseek(new_fd, 0, SEEK_SET) != 0
-	    || !write_all(new_fd, &version, sizeof(version))) {
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Overwriting new gossip_store file: %s",
-			      strerror(errno));
-	}
-	*total_len = sizeof(version);
-	goto rename_new;
 }
 
 struct gossip_store *gossip_store_new(const tal_t *ctx,
@@ -423,6 +422,8 @@ struct gossip_store *gossip_store_new(const tal_t *ctx,
 	gs->daemon = daemon;
 	*dying = tal_arr(ctx, struct chan_dying, 0);
 	gs->fd = gossip_store_compact(daemon, &gs->len, populated, dying);
+	if (gs->fd < 0)
+		return tal_free(gs);
 	tal_add_destructor(gs, gossip_store_destroy);
 	return gs;
 }
