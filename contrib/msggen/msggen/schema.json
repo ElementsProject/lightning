@@ -309,6 +309,14 @@
               "The bias, positive being good and negative being bad (0 being no bias).  Useful values are +/-1 through +/-10, though -100 through +100 are possible values."
             ]
           },
+          "relative": {
+            "type": "boolean",
+            "added": "v25.05",
+            "default": false,
+            "description": [
+              "The bias will be added to the previous value."
+            ]
+          },
           "description": {
             "type": "string",
             "description": [
@@ -29249,6 +29257,11 @@
                 "dynamic": false
               },
               {
+                "name": "/root/lightning/plugins/cln-lsps-client",
+                "active": true,
+                "dynamic": false
+              },
+              {
                 "name": "/root/lightning/plugins/bookkeeper",
                 "active": true,
                 "dynamic": false
@@ -29378,6 +29391,11 @@
               },
               {
                 "name": "/root/lightning/plugins/cln-grpc",
+                "active": true,
+                "dynamic": false
+              },
+              {
+                "name": "/root/lightning/plugins/cln-lsps-client",
                 "active": true,
                 "dynamic": false
               },

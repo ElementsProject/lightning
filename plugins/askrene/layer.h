@@ -59,7 +59,8 @@ void layer_add_local_channel(struct layer *layer,
 const struct bias *layer_set_bias(struct layer *layer,
 				  const struct short_channel_id_dir *scidd,
 				  const char *description TAKES,
-				  s8 bias_factor);
+				  s8 bias_factor,
+				  bool relative);
 
 /* Update details on a channel (could be in this layer, or another) */
 void layer_add_update_channel(struct layer *layer,
