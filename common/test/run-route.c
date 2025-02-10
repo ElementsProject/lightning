@@ -1,5 +1,6 @@
 #include "config.h"
 #include <assert.h>
+#include <ccan/crc32c/crc32c.h>
 #include <common/channel_type.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
@@ -51,9 +52,8 @@ static void write_to_store(int store_fd, const u8 *msg)
 
 	hdr.flags = cpu_to_be16(0);
 	hdr.len = cpu_to_be16(tal_count(msg));
-	/* We don't actually check these! */
-	hdr.crc = 0;
 	hdr.timestamp = 0;
+	hdr.crc = cpu_to_be32(crc32c(be32_to_cpu(hdr.timestamp), msg, tal_count(msg)));
 	assert(write(store_fd, &hdr, sizeof(hdr)) == sizeof(hdr));
 	assert(write(store_fd, msg, tal_count(msg)) == tal_count(msg));
 }
