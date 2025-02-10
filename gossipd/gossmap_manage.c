@@ -1278,6 +1278,8 @@ void gossmap_manage_new_block(struct gossmap_manage *gm, u32 new_blockheight)
 				 gm->dying_channels[i].gossmap_offset,
 				 WIRE_GOSSIP_STORE_CHAN_DYING);
 		tal_arr_remove(&gm->dying_channels, i);
+		/* Don't skip next one! */
+		i--;
 	}
 }
 
