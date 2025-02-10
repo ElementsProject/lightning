@@ -1035,6 +1035,21 @@ struct command_result *handle_invoice_request(struct command *cmd,
 				   bad_feature);
 	}
 
+	/* BOLT #12:
+	 * - if `invreq_bip_353_name` is present:
+	 *   - MUST reject the invoice request if `name` or `domain`
+	 *     contain any bytes which are not `0`-`9`, `a`-`z`,
+	 *     `A`-`Z`, `-`, `_` or `.`.
+	 */
+	if (ir->invreq->invreq_bip_353_name) {
+		if (!bolt12_bip353_valid_string(ir->invreq->invreq_bip_353_name->name,
+						tal_bytelen(ir->invreq->invreq_bip_353_name->name))
+		    || !bolt12_bip353_valid_string(ir->invreq->invreq_bip_353_name->domain,
+						   tal_bytelen(ir->invreq->invreq_bip_353_name->domain))) {
+			return fail_invreq(cmd, ir, "invalid bip353 name fields");
+		}
+	}
+
 	/* BOLT-offers #12:
 	 *
 	 * The reader:
