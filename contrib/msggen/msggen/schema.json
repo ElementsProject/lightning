@@ -13397,6 +13397,13 @@
             ],
             "added": "v24.11"
           },
+          "bip353": {
+            "type": "string",
+            "description": [
+              "BIP353 string (optionally with \u20bf) indicating where we fetched the offer from"
+            ],
+            "added": "v25.02"
+          },
           "dev_reply_path": {
             "hidden": true
           },

@@ -1946,6 +1946,7 @@ message FetchinvoiceRequest {
 	optional double timeout = 7;
 	optional string payer_note = 8;
 	optional string payer_metadata = 9;
+	optional string bip353 = 10;
 }
 
 message FetchinvoiceResponse {
