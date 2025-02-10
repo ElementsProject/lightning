@@ -116,7 +116,7 @@ static struct command_result *do_check_gossip(struct command *cmd, void *unused)
 {
 	find_exes_timer = NULL;
 
-	gossmap_refresh(global_gossmap, NULL);
+	gossmap_refresh(global_gossmap);
 
 	plugin_log(plugin, LOG_DBG, "Finding our node in gossip");
 
@@ -257,7 +257,6 @@ static const char *init(struct command *init_cmd,
 	lost_state_timer = global_timer(plugin, time_from_sec(STARTUP_TIME),
 					do_check_lost_peer, NULL);
 	u32 num_peers;
-	size_t num_cupdates_rejected;
 
 	/* Find number of peers */
 	rpc_scan(init_cmd, "getinfo",
@@ -268,16 +267,12 @@ static const char *init(struct command *init_cmd,
 
 	global_gossmap = notleak_with_children(gossmap_load(NULL,
 				      			    GOSSIP_STORE_FILENAME,
-				      			    &num_cupdates_rejected));
+				      			    plugin_gossmap_logcb,
+							    plugin));
 
 	if (!global_gossmap)
 		plugin_err(plugin, "Could not load gossmap %s: %s",
 			   GOSSIP_STORE_FILENAME, strerror(errno));
-
-	if (num_cupdates_rejected)
-		plugin_log(plugin, LOG_DBG,
-			   "gossmap ignored %zu channel updates",
-			   num_cupdates_rejected);
 
 	plugin_log(plugin, LOG_DBG, "Gossmap loaded!");
 

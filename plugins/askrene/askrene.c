@@ -334,7 +334,7 @@ static const char *get_routes(const tal_t *ctx,
 	u32 mu;
 	const char *ret;
 
-	if (gossmap_refresh(askrene->gossmap, NULL)) {
+	if (gossmap_refresh(askrene->gossmap)) {
 		/* FIXME: gossmap_refresh callbacks to we can update in place */
 		tal_free(askrene->capacities);
 		askrene->capacities = get_capacities(askrene, askrene->plugin, askrene->gossmap);
@@ -1245,7 +1245,8 @@ static const char *init(struct command *init_cmd,
 	askrene->plugin = plugin;
 	list_head_init(&askrene->layers);
 	askrene->reserved = new_reserve_htable(askrene);
-	askrene->gossmap = gossmap_load(askrene, GOSSIP_STORE_FILENAME, NULL);
+	askrene->gossmap = gossmap_load(askrene, GOSSIP_STORE_FILENAME,
+					plugin_gossmap_logcb, plugin);
 
 	if (!askrene->gossmap)
 		plugin_err(plugin, "Could not load gossmap %s: %s",

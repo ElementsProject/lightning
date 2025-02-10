@@ -1840,6 +1840,18 @@ void plugin_logv(struct plugin *p, enum log_level l,
 	jsonrpc_finish_and_send(p, js);
 }
 
+void plugin_gossmap_logcb(struct plugin *plugin,
+			  enum log_level level,
+			  const char *fmt,
+			  ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	plugin_logv(plugin, level, fmt, ap);
+	va_end(ap);
+}
+
 struct json_stream *plugin_notification_start(struct plugin *plugin,
 					      const char *method)
 {

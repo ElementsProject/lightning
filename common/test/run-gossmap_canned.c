@@ -326,7 +326,7 @@ int main(int argc, char *argv[])
 	fd = tmpdir_mkstemp(tmpctx, "run-gossip_canned.XXXXXX", &gossfile);
 	assert(write_all(fd, canned_map, sizeof(canned_map)));
 
-	map = gossmap_load(tmpctx, gossfile, NULL);
+	map = gossmap_load(tmpctx, gossfile, NULL, NULL);
 	assert(map);
 
 	/* There is a channel 1<->2 (103x1x0) */

@@ -24,7 +24,7 @@ static struct plugin *plugin;
 /* We load this on demand, since we can start before gossipd. */
 static struct gossmap *get_gossmap(void)
 {
-	gossmap_refresh(global_gossmap, NULL);
+	gossmap_refresh(global_gossmap);
 	return global_gossmap;
 }
 
@@ -702,8 +702,6 @@ static void memleak_mark(struct plugin *p, struct htable *memtable)
 static const char *init(struct command *init_cmd,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
-	size_t num_cupdates_rejected;
-
 	plugin = init_cmd->plugin;
 	rpc_scan(init_cmd, "getinfo",
 		 take(json_out_obj(NULL, NULL, NULL)),
@@ -711,15 +709,11 @@ static const char *init(struct command *init_cmd,
 
 	global_gossmap = gossmap_load(NULL,
 				      GOSSIP_STORE_FILENAME,
-				      &num_cupdates_rejected);
+				      plugin_gossmap_logcb, plugin);
 	if (!global_gossmap)
 		plugin_err(plugin, "Could not load gossmap %s: %s",
 			   GOSSIP_STORE_FILENAME, strerror(errno));
 
-	if (num_cupdates_rejected)
-		plugin_log(plugin, LOG_DBG,
-			   "gossmap ignored %zu channel updates",
-			   num_cupdates_rejected);
  	plugin_set_memleak_handler(plugin, memleak_mark);
 	return NULL;
 }

@@ -43,18 +43,14 @@ static struct gossmap *global_gossmap;
 
 static void init_gossmap(struct plugin *plugin)
 {
-	size_t num_cupdates_rejected;
 	global_gossmap
 		= notleak_with_children(gossmap_load(plugin,
 						     GOSSIP_STORE_FILENAME,
-						     &num_cupdates_rejected));
+						     plugin_gossmap_logcb,
+						     plugin));
 	if (!global_gossmap)
 		plugin_err(plugin, "Could not load gossmap %s: %s",
 			   GOSSIP_STORE_FILENAME, strerror(errno));
-	if (num_cupdates_rejected)
-		plugin_log(plugin, LOG_DBG,
-			   "gossmap ignored %zu channel updates",
-			   num_cupdates_rejected);
 }
 
 struct gossmap *get_gossmap(struct plugin *plugin)
@@ -62,7 +58,7 @@ struct gossmap *get_gossmap(struct plugin *plugin)
 	if (!global_gossmap)
 		init_gossmap(plugin);
 	else
-		gossmap_refresh(global_gossmap, NULL);
+		gossmap_refresh(global_gossmap);
 	return global_gossmap;
 }
 

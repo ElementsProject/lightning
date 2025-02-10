@@ -522,6 +522,12 @@ struct plugin_timer *command_timer_(struct command *cmd,
 void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...) PRINTF_FMT(3, 4);
 void plugin_logv(struct plugin *p, enum log_level l, const char *fmt, va_list ap);
 
+/* plogin_logv wrapper for gossmap */
+void plugin_gossmap_logcb(struct plugin *plugin,
+			  enum log_level level,
+			  const char *fmt,
+			  ...);
+
 /* Notify the caller of something. */
 struct json_stream *plugin_notify_start(struct command *cmd, const char *method);
 void plugin_notify_end(struct command *cmd, struct json_stream *js);

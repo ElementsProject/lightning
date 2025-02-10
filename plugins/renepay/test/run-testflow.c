@@ -534,7 +534,7 @@ static void test_flow_to_route(void)
 	tal_add_destructor(gossfile, remove_file);
 
 	assert(write_all(fd,canned_map,sizeof(canned_map)));
-	struct gossmap *gossmap = gossmap_load(this_ctx,gossfile,NULL);
+	struct gossmap *gossmap = gossmap_load(this_ctx,gossfile,NULL,NULL);
 	assert(gossmap);
 
 	// for(struct gossmap_node *node = gossmap_first_node(gossmap);
@@ -764,7 +764,7 @@ static void test_channel_maximum_forward(void)
 	tal_add_destructor(gossfile, remove_file);
 
 	assert(write_all(fd, canned_map, sizeof(canned_map)));
-	struct gossmap *gossmap = gossmap_load(this_ctx, gossfile, NULL);
+	struct gossmap *gossmap = gossmap_load(this_ctx, gossfile, NULL, NULL);
 	assert(gossmap);
 
 	struct short_channel_id scid12;

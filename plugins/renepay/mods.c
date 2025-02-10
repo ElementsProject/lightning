@@ -476,14 +476,7 @@ static struct command_result *refreshgossmap_cb(struct payment *payment)
 	assert(payment);
 	assert(payment->local_gossmods);
 
-	size_t num_channel_updates_rejected = 0;
-	bool gossmap_changed =
-	    gossmap_refresh(pay_plugin->gossmap, &num_channel_updates_rejected);
-
-	if (gossmap_changed && num_channel_updates_rejected)
-		plugin_log(pay_plugin->plugin, LOG_DBG,
-			   "gossmap ignored %zu channel updates",
-			   num_channel_updates_rejected);
+	bool gossmap_changed = gossmap_refresh(pay_plugin->gossmap);
 
 	if (gossmap_changed) {
 		gossmap_apply_localmods(pay_plugin->gossmap,

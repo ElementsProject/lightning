@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
 		amt = 8388607;
 	else
 		amt = atol(argv[1]);
-	gossmap = gossmap_load(tmpctx, "tests/data/routing_gossip_store", NULL);
+	gossmap = gossmap_load(tmpctx, "tests/data/routing_gossip_store", NULL, NULL);
 
 	nodes = tal_arr(tmpctx, const struct gossmap_node *, 0);
 	for (struct gossmap_node *n = gossmap_first_node(gossmap);

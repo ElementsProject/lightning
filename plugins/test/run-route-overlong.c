@@ -282,6 +282,12 @@ void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
 /* Generated stub for plugin_err */
 void   plugin_err(struct plugin *p UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "plugin_err called!\n"); abort(); }
+/* Generated stub for plugin_gossmap_logcb */
+void plugin_gossmap_logcb(struct plugin *plugin UNNEEDED,
+			  enum log_level level UNNEEDED,
+			  const char *fmt UNNEEDED,
+			  ...)
+{ fprintf(stderr, "plugin_gossmap_logcb called!\n"); abort(); }
 /* Generated stub for plugin_log */
 void plugin_log(struct plugin *p UNNEEDED, enum log_level l UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "plugin_log called!\n"); abort(); }
@@ -449,7 +455,7 @@ int main(int argc, char *argv[])
 	assert(write(store_fd, &gossip_version, sizeof(gossip_version))
 	       == sizeof(gossip_version));
 
-	global_gossmap = gossmap_load(tmpctx, gossipfilename, NULL);
+	global_gossmap = gossmap_load(tmpctx, gossipfilename, NULL, NULL);
 
 	for (size_t i = 0; i < NUM_NODES; i++) {
 		struct privkey tmp;
@@ -488,7 +494,7 @@ int main(int argc, char *argv[])
 			     1 << i);
 	}
 
-	assert(gossmap_refresh(global_gossmap, NULL));
+	assert(gossmap_refresh(global_gossmap));
 	for (size_t i = ROUTING_MAX_HOPS; i > 2; i--) {
 		struct gossmap_node *dst, *src;
 		struct route_hop *r;

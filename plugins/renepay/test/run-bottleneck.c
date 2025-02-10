@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
 	tal_add_destructor(gossfile, remove_file);
 	assert(write(fd, empty_map, sizeof(empty_map)) == sizeof(empty_map));
 
-	gossmap = gossmap_load(tmpctx, gossfile, NULL);
+	gossmap = gossmap_load(tmpctx, gossfile, NULL, NULL);
 	assert(gossmap);
 
 	for (size_t i = 0; i < NUM_NODES; i++) {
@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
  		       0, 0, 5,
  		       AMOUNT_SAT(1000 * 1000));
 
-	assert(gossmap_refresh(gossmap, NULL));
+	assert(gossmap_refresh(gossmap));
 	struct uncertainty *uncertainty = uncertainty_new(tmpctx);
 	int skipped_count =
 	    uncertainty_update(uncertainty, gossmap);

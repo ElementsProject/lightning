@@ -407,13 +407,26 @@ static void start_prune_timer(struct gossmap_manage *gm)
 
 static void reprocess_queued_msgs(struct gossmap_manage *gm);
 
+static void gossmap_logcb(struct daemon *daemon,
+			  enum log_level level,
+			  const char *fmt,
+			  ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	status_vfmt(level, NULL, fmt, ap);
+	va_end(ap);
+}
+
 struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
 					  struct daemon *daemon,
 					  struct chan_dying *dying_channels TAKES)
 {
 	struct gossmap_manage *gm = tal(ctx, struct gossmap_manage);
 
-	gm->raw_gossmap = gossmap_load(gm, GOSSIP_STORE_FILENAME, NULL);
+	gm->raw_gossmap = gossmap_load(gm, GOSSIP_STORE_FILENAME,
+				       gossmap_logcb, daemon);
 	assert(gm->raw_gossmap);
 	gm->daemon = daemon;
 
@@ -1298,7 +1311,7 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 
 struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm)
 {
-	gossmap_refresh(gm->raw_gossmap, NULL);
+	gossmap_refresh(gm->raw_gossmap);
 	return gm->raw_gossmap;
 }
 
