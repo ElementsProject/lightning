@@ -1098,18 +1098,20 @@ static struct command_result *json_askrene_bias_channel(struct command *cmd,
 	const char *description;
 	s8 *bias;
 	const struct bias *b;
+	bool *relative;
 
 	if (!param(cmd, buffer, params,
 		   p_req("layer", param_known_layer, &layer),
 		   p_req("short_channel_id_dir", param_short_channel_id_dir, &scidd),
 		   p_req("bias", param_s8_hundred, &bias),
+		   p_opt_def("relative", param_bool, &relative, false),
 		   p_opt("description", param_string, &description),
 		   NULL))
 		return command_param_failed();
 	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
 		   json_tok_full_len(params), json_tok_full(buffer, params));
 
-	b = layer_set_bias(layer, scidd, description, *bias);
+	b = layer_set_bias(layer, scidd, description, *bias, *relative);
 	response = jsonrpc_stream_success(cmd);
 	json_array_start(response, "biases");
 	if (b)
