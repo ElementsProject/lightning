@@ -1283,7 +1283,7 @@ def test_gossip_store_load_announce_before_update(node_factory):
 
 def test_gossip_store_load_amount_truncated(node_factory):
     """Make sure we can read canned gossip store with truncated amount"""
-    l1 = node_factory.get_node(start=False, broken_log=r'gossip_store: channel_announcement without amount \(offset 1\)|Moving to gossip_store.corrupt|plugin-cln-renepay:.*unable to fetch channel capacity')
+    l1 = node_factory.get_node(start=False, broken_log=r'gossip_store only processed 1 bytes of 445 \(expected 445\)|Moving to gossip_store.corrupt|plugin-cln-renepay:.*unable to fetch channel capacity')
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
         f.write(bytearray.fromhex("0c"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
@@ -1294,7 +1294,7 @@ def test_gossip_store_load_amount_truncated(node_factory):
 
     l1.start()
     # May preceed the Started msg waited for in 'start'.
-    wait_for(lambda: l1.daemon.is_in_log(r'\*\*BROKEN\*\* gossipd: gossip_store: channel_announcement without amount \(offset 1\)\.'))
+    wait_for(lambda: l1.daemon.is_in_log(r'\*\*BROKEN\*\* gossipd: gossip_store only processed 1 bytes of 445 \(expected 445\)'))
     wait_for(lambda: l1.daemon.is_in_log(r'\*\*BROKEN\*\* gossipd: gossip_store: Moving to gossip_store.corrupt'))
     wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 0/0/0/0 cannounce/cupdate/nannounce/delete from store in 0 bytes, now 1 bytes \(populated=false\)'))
     assert os.path.exists(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.corrupt'))

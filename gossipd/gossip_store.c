@@ -204,7 +204,6 @@ static int gossip_store_compact(struct daemon *daemon,
 	struct gossip_hdr hdr;
 	u8 oldversion, version = GOSSIP_STORE_VER;
 	struct stat st;
-	bool prev_chan_ann = false;
 	struct timeabs start = time_now();
 	const char *bad;
 
@@ -313,18 +312,8 @@ static int gossip_store_compact(struct daemon *daemon,
 		}
 
 		switch (fromwire_peektype(msg)) {
-		case WIRE_GOSSIP_STORE_CHANNEL_AMOUNT:
-			/* Previous channel_announcement may have been deleted */
-			if (prev_chan_ann)
-				cannounces++;
-			prev_chan_ann = false;
-			break;
 		case WIRE_CHANNEL_ANNOUNCEMENT:
-			if (prev_chan_ann) {
-				bad = "channel_announcement without amount";
-				goto badmsg;
-			}
-			prev_chan_ann = true;
+			cannounces++;
 			break;
 		case WIRE_GOSSIP_STORE_CHAN_DYING: {
 			struct chan_dying cd;
@@ -346,9 +335,6 @@ static int gossip_store_compact(struct daemon *daemon,
 		case WIRE_NODE_ANNOUNCEMENT:
 			nannounces++;
 			break;
-		default:
-			bad = "Unknown message";
-			goto badmsg;
 		}
 
 		if (!write_all(new_fd, &hdr, sizeof(hdr))
@@ -362,12 +348,6 @@ static int gossip_store_compact(struct daemon *daemon,
 	}
 
 	assert(*total_len == lseek(new_fd, 0, SEEK_END));
-
-	/* Unlikely, but a channel_announcement without an amount: we just truncate. */
-	if (prev_chan_ann) {
-		bad = "channel_announcement without amount";
-		goto badmsg;
-	}
 
 	/* If we have any contents, and the file is less than 1 hour
 	 * old, say "seems good" */
