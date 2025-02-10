@@ -26,7 +26,7 @@ CCANDIR := ccan
 
 # Where we keep the BOLT RFCs
 BOLTDIR := ../bolts/
-DEFAULT_BOLTVERSION := e0b1200ffa4220f3db6d518aa322f97e0a30cc1f
+DEFAULT_BOLTVERSION := 0809f77c7b57abe138c02697f573b52b470fb647
 # Can be overridden on cmdline.
 BOLTVERSION := $(DEFAULT_BOLTVERSION)
 
