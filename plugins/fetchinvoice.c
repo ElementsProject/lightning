@@ -18,6 +18,7 @@
 #include <common/onion_message.h>
 #include <common/overflows.h>
 #include <common/route.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <plugins/establish_onion_path.h>
 #include <plugins/fetchinvoice.h>
@@ -823,6 +824,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	struct out_req *req;
 	struct tlv_invoice_request *invreq;
 	struct sent *sent = tal(cmd, struct sent);
+	const char *bip353;
 	u32 *timeout;
 	u64 *quantity;
 	u32 *recurrence_counter, *recurrence_start;
@@ -837,6 +839,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 			 p_opt_def("timeout", param_number, &timeout, 60),
 			 p_opt("payer_note", param_string, &payer_note),
 			 p_opt("payer_metadata", param_bin_from_hex, &payer_metadata),
+			 p_opt("bip353", param_string, &bip353),
 			 p_opt("dev_path_use_scidd", param_dev_scidd, &sent->dev_path_use_scidd),
 			 p_opt("dev_reply_path", param_dev_reply_path, &sent->dev_reply_path),
 		   NULL))
@@ -1016,6 +1019,37 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 			randombytes_buf(invreq->invreq_metadata,
 					tal_bytelen(invreq->invreq_metadata));
 		}
+	}
+
+	/* BOLT #12:
+	 *  - if it received the offer from which it constructed this
+	 *    `invoice_request` using BIP 353 resolution:
+	 *     - MUST include `invreq_bip_353_name` with,
+	 *       - `name` set to the post-₿, pre-@ part of the BIP 353 HRN,
+	 *       - `domain` set to the post-@ part of the BIP 353 HRN.
+	 */
+	if (bip353) {
+		char *at;
+		if (!utf8_check(bip353, strlen(bip353)))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "invalid UTF-8 for bip353");
+		at = strchr(bip353, '@');
+		if (!at)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "missing @ for bip353");
+
+		/* Strip ₿ if present (0xE2 0x82 0xBF) */
+		if (strstarts(bip353, "₿"))
+			bip353 += strlen("₿");
+		invreq->invreq_bip_353_name
+			= tal(invreq, struct tlv_invoice_request_invreq_bip_353_name);
+		/* Not nul-terminated! */
+		invreq->invreq_bip_353_name->name
+			= tal_dup_arr(invreq->invreq_bip_353_name, u8,
+				      (const u8 *)bip353, at - bip353, 0);
+		invreq->invreq_bip_353_name->domain
+			= tal_dup_arr(invreq->invreq_bip_353_name, u8,
+				      (const u8 *)at + 1, strlen(at + 1), 0);
 	}
 
 	/* We derive transient payer_id from invreq_metadata */

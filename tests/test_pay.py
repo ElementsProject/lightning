@@ -4544,6 +4544,21 @@ def test_fetchinvoice(node_factory, bitcoind):
     # We've done 3 onion calls: sleep now to avoid hitting ratelimit!
     time.sleep(1)
 
+    # Test bip353.
+    inv1 = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'bip353': '₿rusty@blockstream.com'})['invoice']
+    assert l1.rpc.decode(inv1)['invreq_bip_353_name'] == {'name': 'rusty',
+                                                          'domain': 'blockstream.com'}
+    # Without ₿ works too.
+    inv1 = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'bip353': 'rusty@blockstream.com'})['invoice']
+    assert l1.rpc.decode(inv1)['invreq_bip_353_name'] == {'name': 'rusty',
+                                                          'domain': 'blockstream.com'}
+    # Needs @
+    with pytest.raises(RpcError, match="missing @"):
+        l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'bip353': 'rustyblockstream.com'})
+
+    # We've done 3 onion calls: sleep now to avoid hitting ratelimit!
+    time.sleep(1)
+
     # If we remove plugin, it can no longer give us an invoice.
     l3.rpc.plugin_stop(plugin)
 
