@@ -46,15 +46,15 @@ static struct command_result *param_amount(struct command *cmd,
 
 	offer->offer_amount = tal(offer, u64);
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *
-	 * - MUST specify `offer_currency` `iso4217` as an ISO 4712 three-letter code.
-	 * - MUST specify `offer_amount` in the currency unit adjusted by the ISO 4712
+	 * - MUST specify `offer_currency` `iso4217` as an ISO 4217 three-letter code.
+	 * - MUST specify `offer_amount` in the currency unit adjusted by the ISO 4217
 	 *   exponent (e.g. USD cents).
 	 */
 	if (tok->end - tok->start < ISO4217_NAMELEN)
 		return command_fail_badparam(cmd, name, buffer, tok,
-					     "should be 'any', msatoshis or <amount>[.<amount>]<ISO-4712>");
+					     "should be 'any', msatoshis or <amount>[.<amount>]<ISO-4217>");
 
 	isocode = find_iso4217(buffer + tok->end - ISO4217_NAMELEN, ISO4217_NAMELEN);
 	if (!isocode)
@@ -84,7 +84,7 @@ static struct command_result *param_amount(struct command *cmd,
 
 	if (!json_to_u64(buffer, &whole, offer->offer_amount))
 		return command_fail_badparam(cmd, name, buffer, tok,
-					     "should be 'any', msatoshis or <ISO-4712><amount>[.<amount>]");
+					     "should be 'any', msatoshis or <ISO-4217><amount>[.<amount>]");
 
 	for (size_t i = 0; i < isocode->minor_unit; i++) {
 		if (mul_overflows_u64(*offer->offer_amount, 10))
@@ -282,7 +282,7 @@ static struct command_result *found_best_peer(struct command *cmd,
 					      const struct chaninfo *best,
 					      struct offer_info *offinfo)
 {
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *   - if it is connected only by private channels:
 	 *     - MUST include `offer_paths` containing one or more paths to the node from
 	 *       publicly reachable nodes.
@@ -323,7 +323,7 @@ static struct command_result *found_best_peer(struct command *cmd,
 static struct command_result *maybe_add_path(struct command *cmd,
 					     struct offer_info *offinfo)
 {
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *   - if it is connected only by private channels:
 	 *     - MUST include `offer_paths` containing one or more paths to the node from
 	 *       publicly reachable nodes.
@@ -475,12 +475,12 @@ struct command_result *json_offer(struct command *cmd,
 		return command_fail_badparam(cmd, "quantity_max",
 					     buffer, params,
 					     "must be 0 or > 1");
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *
 	 * - if the chain for the invoice is not solely bitcoin:
 	 *   - MUST specify `offer_chains` the offer is valid for.
 	 * - otherwise:
-	 *   - MAY omit `offer_chains`, implying that bitcoin is only chain.
+	 *   - SHOULD omit `offer_chains`, implying that bitcoin is only chain.
 	 */
 	if (!streq(chainparams->network_name, "bitcoin")) {
 		offer->offer_chains = tal_arr(offer, struct bitcoin_blkid, 1);
@@ -506,7 +506,7 @@ struct command_result *json_offer(struct command *cmd,
 		offer->offer_description
 			= tal_dup_arr(offer, char, desc, strlen(desc), 0);
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *
 	 * - if `offer_amount` is set and `offer_description` is not set:
 	 *    - MUST NOT respond to the offer.
@@ -515,7 +515,7 @@ struct command_result *json_offer(struct command *cmd,
 		return command_fail_badparam(cmd, "description", buffer, params,
 					     "description is required for the user to know what it was they paid for");
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - if it sets `offer_issuer`:
 	 *   - SHOULD set it to identify the issuer of the invoice clearly.
 	 *   - if it includes a domain name:
@@ -527,7 +527,7 @@ struct command_result *json_offer(struct command *cmd,
 			= tal_dup_arr(offer, char, issuer, strlen(issuer), 0);
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - if it includes `offer_paths`:
 	 *...
 	 * - otherwise:
@@ -615,10 +615,10 @@ static struct command_result *found_best_peer_invrequest(struct command *cmd,
 		struct secret blinding_path_secret;
 		struct sha256 invreq_id;
 
-		/* BOLT-offers #12:
+		/* BOLT #12:
 		 *   - MUST set `invreq_paths` as it would set (or not set) `offer_paths` for an offer.
 		 */
-		/* BOLT-offers #12:
+		/* BOLT #12:
 		 *
 		 *   - if it is connected only by private channels:
 		 *     - MUST include `offer_paths` containing one or more paths to the node from
@@ -676,7 +676,7 @@ struct command_result *json_invoicerequest(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - otherwise (not responding to an offer):
 	 *   - MUST set `offer_description` to a complete description of the purpose of the payment.
 	 *   - MUST set (or not set) `offer_absolute_expiry` and `offer_issuer` as it would for an offer.
@@ -702,7 +702,7 @@ struct command_result *json_invoicerequest(struct command *cmd,
 			= tal_dup(invreq, struct bitcoin_blkid,
 				  &chainparams->genesis_blockhash);
 	}
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - if it sets `invreq_amount`:
 	 *   - MUST set `msat` in multiples of the minimum lightning-payable unit
 	 *       (e.g. milli-satoshis for bitcoin) for `invreq_chain` (or for bitcoin, if there is no `invreq_chain`).
@@ -710,14 +710,14 @@ struct command_result *json_invoicerequest(struct command *cmd,
 	invreq->invreq_amount
 		= tal_dup(invreq, u64, &msat->millisatoshis); /* Raw: wire */
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - MUST set `invreq_metadata` to an unpredictable series of bytes.
 	 */
 	invreq->invreq_metadata = tal_arr(invreq, u8, 16);
 	randombytes_buf(invreq->invreq_metadata,
 			tal_bytelen(invreq->invreq_metadata));
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - otherwise (not responding to an offer):
 	 *...
 	 *   - MUST set `invreq_payer_id` (as it would set `offer_issuer_id` for an offer).
@@ -725,7 +725,7 @@ struct command_result *json_invoicerequest(struct command *cmd,
 	/* FIXME: Allow invoicerequests using aliases! */
 	invreq->invreq_payer_id = tal_dup(invreq, struct pubkey, &id);
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - if it supports bolt12 invoice request features:
 	 *   - MUST set `invreq_features`.`features` to the bitmap of features.
 	 */

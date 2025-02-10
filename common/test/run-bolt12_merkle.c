@@ -97,7 +97,7 @@ static u8 *tlv(u64 type, const void *contents, size_t len)
 	return ret;
 }
 
-/* BOLT-offers #12:
+/* BOLT #12:
  * Thus we define H(`tag`,`msg`) as SHA256(SHA256(`tag`) ||
  * SHA256(`tag`) || `msg`) */
 
@@ -329,7 +329,7 @@ int main(int argc, char *argv[])
 	tlv_update_fields(invreq, tlv_invoice_request, &invreq->fields);
 	merkle_tlv(invreq->fields, &test_m);
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - MUST set `signature`.`sig` as detailed in [Signature Calculation](#signature-calculation) using the `invreq_payer_id`.
 	 */
 	invreq->signature = tal(invreq, struct bip340sig);

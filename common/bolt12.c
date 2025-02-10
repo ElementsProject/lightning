@@ -18,13 +18,13 @@ bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 			 size_t max_num_chains,
 			 const struct chainparams *must_be_chain)
 {
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *   - if the chain for the invoice is not solely bitcoin:
 	 *     - MUST specify `offer_chains` the offer is valid for.
 	 *   - otherwise:
-	 *     - MAY omit `offer_chains`, implying that bitcoin is only chain.
+	 *     - SHOULD omit `offer_chains`, implying that bitcoin is only chain.
 	 */
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * A reader of an offer:
 	 *...
 	 *  - if `offer_chains` is not set:
@@ -194,7 +194,7 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	if (*fail)
 		return tal_free(offer);
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * A reader of an offer:
 	 * - if the offer contains any TLV fields outside the inclusive ranges: 1 to 79 and 1000000000 to 1999999999:
 	 *   - MUST NOT respond to the offer.
@@ -214,7 +214,7 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 		return tal_free(offer);
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *
 	 * - if `offer_amount` is set and `offer_description` is not set:
 	 *    - MUST NOT respond to the offer.
@@ -224,7 +224,7 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 		return tal_free(offer);
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *
 	 *   - if neither `offer_issuer_id` nor `offer_paths` are set:
 	 *     - MUST NOT respond to the offer.
@@ -234,7 +234,7 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 		return tal_free(offer);
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *   - if `num_hops` is 0 in any `blinded_path` in `offer_paths`:
 	 *     - MUST NOT respond to the offer.
 	 */
@@ -287,10 +287,10 @@ struct tlv_invoice_request *invrequest_decode(const tal_t *ctx,
 	if (*fail)
 		return tal_free(invrequest);
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * The reader:
 	 *...
-	 *  - MUST fail the request if any non-signature TLV fields are outside the inclusive ranges: 0 to 159 and 1000000000 to 2999999999
+	 *  - MUST reject the invoice request if any non-signature TLV fields are outside the inclusive ranges: 0 to 159 and 1000000000 to 2999999999
 	 */
 	badf = any_field_outside_range(invrequest->fields, true,
 				       0, 159,
@@ -302,9 +302,9 @@ struct tlv_invoice_request *invrequest_decode(const tal_t *ctx,
 		return tal_free(invrequest);
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *   - if `num_hops` is 0 in any `blinded_path` in `invreq_paths`:
-	 *     - MUST fail the request.
+	 *     - MUST reject the invoice request.
 	 */
 	for (size_t i = 0; i < tal_count(invrequest->invreq_paths); i++) {
 		if (tal_count(invrequest->invreq_paths[i]->path) == 0) {
@@ -346,12 +346,11 @@ struct tlv_invoice *invoice_decode_minimal(const tal_t *ctx,
 		return NULL;
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - if `invreq_chain` is not present:
-	 *    - MUST fail the request if bitcoin is not a supported chain.
-	 *  - otherwise:
-	 *    - MUST fail the request if `invreq_chain`.`chain` is not a
-	 *      supported chain.
+	 *   - MUST reject the invoice if bitcoin is not a supported chain.
+	 * - otherwise:
+	 *   - MUST reject the invoice if `invreq_chain`.`chain` is not a supported chain.
 	 * - if `invoice_features` contains unknown _odd_ bits that are non-zero:
 	 *  - MUST ignore the bit.
 	 * - if `invoice_features` contains unknown _even_ bits that are non-zero:
@@ -412,7 +411,7 @@ static u64 time_change(u64 prevstart, u32 number,
 u64 offer_period_start(u64 basetime, size_t n,
 		       const struct recurrence *recur)
 {
-	/* BOLT-offers-recurrence #12:
+	/* BOLT-recurrence #12:
 	 * 1. A `time_unit` defining 0 (seconds), 1 (days), 2 (months),
 	 *    3 (years).
 	 */
@@ -437,13 +436,13 @@ void offer_period_paywindow(const struct recurrence *recurrence,
 			    u64 basetime, u64 period_idx,
 			    u64 *start, u64 *end)
 {
-	/* BOLT-offers-recurrence #12:
+	/* BOLT-recurrence #12:
 	 * - if the offer contains `recurrence_paywindow`:
 	 */
 	if (recurrence_paywindow) {
 		u64 pstart = offer_period_start(basetime, period_idx,
 						recurrence);
-		/* BOLT-offers-recurrence #12:
+		/* BOLT-recurrence #12:
 		 * - if the offer has a `recurrence_basetime` or the
 		 *    `recurrence_counter` is non-zero:
 		 *   - SHOULD NOT send an `invreq` for a period prior to
@@ -461,7 +460,7 @@ void offer_period_paywindow(const struct recurrence *recurrence,
 		    && recurrence_paywindow->seconds_after < 60)
 			*end = pstart + 60;
 	} else {
-		/* BOLT-offers-recurrence #12:
+		/* BOLT-recurrence #12:
 		 * - otherwise:
 		 *   - SHOULD NOT send an `invreq` with
 		 *     `recurrence_counter` is non-zero for a period whose
@@ -473,7 +472,7 @@ void offer_period_paywindow(const struct recurrence *recurrence,
 			*start = offer_period_start(basetime, period_idx-1,
 						    recurrence);
 
-		/* BOLT-offers-recurrence #12:
+		/* BOLT-recurrence #12:
 		 *     - SHOULD NOT send an `invreq` for a period which
 		 *       has already passed.
 		 */
@@ -502,7 +501,7 @@ struct tlv_invoice *invoice_decode(const tal_t *ctx,
 	if (*fail)
 		return tal_free(invoice);
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * A reader of an invoice:
 	 *   - MUST reject the invoice if `invoice_amount` is not present.
 	 *   - MUST reject the invoice if `invoice_created_at` is not present.
@@ -526,7 +525,7 @@ struct tlv_invoice *invoice_decode(const tal_t *ctx,
 		return tal_free(invoice);
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - MUST reject the invoice if `invoice_paths` is not present or is
 	 *   empty. */
 	if (tal_count(invoice->invoice_paths) == 0) {
@@ -534,7 +533,7 @@ struct tlv_invoice *invoice_decode(const tal_t *ctx,
 		return tal_free(invoice);
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - MUST reject the invoice if `num_hops` is 0 in any
          *   `blinded_path` in `invoice_paths`.
 	 */
@@ -546,7 +545,7 @@ struct tlv_invoice *invoice_decode(const tal_t *ctx,
 		return tal_free(invoice);
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - MUST reject the invoice if `invoice_blindedpay` is not present.
 	 * - MUST reject the invoice if `invoice_blindedpay` does not contain exactly one `blinded_payinfo` per `invoice_paths`.`blinded_path`.
 	 */
@@ -565,7 +564,7 @@ u64 invoice_expiry(const struct tlv_invoice *invoice)
 {
 	u64 expiry;
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * - if `invoice_relative_expiry` is present:
 	 *   - MUST reject the invoice if the current time since 1970-01-01 UTC
 	 *     is greater than `invoice_created_at` plus `seconds_from_creation`.
@@ -639,7 +638,7 @@ static void calc_offer(const u8 *tlvstream, struct sha256 *id)
 	size_t start1, len1, start2, len2;
 	struct sha256_ctx ctx;
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * A writer of an offer:
 	 * - MUST NOT set any TLV fields outside the inclusive ranges: 1 to 79 and 1000000000 to 1999999999.
 	 */
@@ -681,7 +680,7 @@ static void calc_invreq(const u8 *tlvstream, struct sha256 *id)
 	size_t start1, len1, start2, len2;
 	struct sha256_ctx ctx;
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * The writer:
 	 *...
 	 *   - MUST NOT set any non-signature TLV fields outside the inclusive ranges: 0 to 159 and 1000000000 to 2999999999
@@ -712,7 +711,7 @@ void invoice_invreq_id(const struct tlv_invoice *invoice, struct sha256 *id)
 }
 
 
-/* BOLT-offers #12:
+/* BOLT #12:
  * ## Requirements for Invoice Requests
  *
  * The writer:
@@ -744,11 +743,11 @@ struct tlv_invoice *invoice_for_invreq(const tal_t *ctx,
 
 	towire_tlv_invoice_request(&wire, invreq);
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * A writer of an invoice:
 	 *...
 	 * - if the invoice is in response to an `invoice_request`:
-	 *   - MUST copy all non-signature fields from the `invoice_request` (including
+	 *   - MUST copy all non-signature fields from the invoice request (including
 	 *     unknown fields).
 	 */
 	len1 = tlv_span(wire, 0, 159, &start1);
@@ -765,7 +764,7 @@ struct tlv_invoice *invoice_for_invreq(const tal_t *ctx,
 
 bool is_bolt12_signature_field(u64 typenum)
 {
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * Each form is signed using one or more *signature TLV elements*: TLV
 	 * types 240 through 1000 (inclusive). */
 	return typenum >= 240 && typenum <= 1000;

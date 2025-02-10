@@ -1404,7 +1404,7 @@ static struct command_result *json_pay(struct command *cmd,
 		node_id_from_pubkey(p->route_destination, &p->blindedpath->first_node_id.pubkey);
 		p->payment_metadata = NULL;
 		p->routes = NULL;
-		/* BOLT-offers #12:
+		/* BOLT #12:
 		 * - if `invoice_relative_expiry` is present:
 		 *   - MUST reject the invoice if the current time since
 		 *     1970-01-01 UTC is greater than `invoice_created_at` plus

@@ -1312,7 +1312,7 @@ static char *add_blindedpath(const tal_t *ctx,
 	struct short_channel_id scid;
 	struct node_id src, dst;
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *   - SHOULD prefer to use earlier `invoice_paths` over later ones if
 	 *     it has no other reason for preference.
 	 */
@@ -1335,7 +1335,7 @@ static char *add_blindedpath(const tal_t *ctx,
 
 	assert(path->first_node_id.is_pubkey);
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *   - For each `invoice_blindedpay`.`payinfo`:
 	 *     - MUST NOT use the corresponding `invoice_paths`.`path`
 	 *       if `payinfo`.`features` has any unknown even bits set.

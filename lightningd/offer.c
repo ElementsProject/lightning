@@ -314,7 +314,7 @@ static struct command_result *prev_payment(struct command *cmd,
 		if (!inv->invreq_recurrence_counter)
 			continue;
 
-		/* BOLT-offers-recurrence #12:
+		/* BOLT-recurrence #12:
 		 * - if the offer contained `recurrence_base` with
 		 *   `start_any_period` non-zero:
 		 *   - MUST include `recurrence_start`
@@ -500,7 +500,7 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *  - MUST set `signature`.`sig` as detailed in
 	 *  [Signature Calculation](#signature-calculation) using the `invreq_payer_id`.
 	 */

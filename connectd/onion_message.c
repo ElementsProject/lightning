@@ -84,7 +84,7 @@ static const char *handle_onion(const tal_t *ctx,
 
 		assert(next_onion_msg);
 
-		/* BOLT-offers #4:
+		/* BOLT #4:
 		 * - if it is not the final node according to the onion encryption:
 		 *...
 		 *    - if `next_node_id` is present:

@@ -5,7 +5,7 @@
 
 struct feature_set;
 
-/* BOLT-offers #12:
+/* BOLT #12:
  * - if `invoice_relative_expiry` is present:
  *   - MUST reject the invoice if the current time since 1970-01-01 UTC
  *     is greater than `invoice_created_at` plus `seconds_from_creation`.
@@ -161,7 +161,7 @@ struct tlv_invoice_request *invoice_request_for_offer(const tal_t *ctx,
 struct tlv_invoice *invoice_for_invreq(const tal_t *ctx,
 				       const struct tlv_invoice_request *invreq);
 
-/* BOLT-offers #12:
+/* BOLT #12:
  * Each form is signed using one or more *signature TLV elements*: TLV
  * types 240 through 1000 (inclusive). */
 bool is_bolt12_signature_field(u64 typenum);

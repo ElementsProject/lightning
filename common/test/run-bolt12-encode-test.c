@@ -245,9 +245,8 @@ int main(int argc, char *argv[])
 	print_valid_offer(offer, "with blinded path via Bob (0x424242...), path_key 020202...",
 			  "path is [id=02020202..., enc=0x00*16], [id=02020202..., enc=0x11*8]", NULL);
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *   - if it includes `offer_paths`:
-	 *     - SHOULD ignore any invoice_request which does not use the path.
 	 *     - MAY set `offer_issuer_id`.
 	 *   - otherwise:
 	 *      - MUST set `offer_issuer_id` to the node's public key to request the invoice from.
@@ -386,7 +385,7 @@ int main(int argc, char *argv[])
 			    "Malformed: invalid offer_issuer_id");
 
 	/* Now these are simply invalid, not bad encodings */
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 * A reader of an offer:
 	 *   - if the offer contains any TLV fields outside the inclusive ranges: 1 to 79 and 1000000000 to 1999999999:
 	 *     - MUST NOT respond to the offer.
@@ -416,7 +415,7 @@ int main(int argc, char *argv[])
 
 	offer->offer_features = tal_arr(offer, u8, 0);
 	set_feature_bit(&offer->offer_features, 22);
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *   - if `offer_features` contains unknown _even_ bits that are non-zero:
 	 *     - MUST NOT respond to the offer.
 	 *     - SHOULD indicate the unknown bit to the user.
@@ -424,8 +423,10 @@ int main(int argc, char *argv[])
 	print_invalid_offer(offer, "Contains unknown feature 22");
 	offer->offer_features = NULL;
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *   - if `offer_amount` is set and `offer_description` is not set:
+	 *     - MUST NOT respond to the offer.
+	 *   - if `offer_currency` is set and `offer_amount` is not set:
 	 *     - MUST NOT respond to the offer.
 	 *   - if neither `offer_issuer_id` nor `offer_paths` are set:
 	 *     - MUST NOT respond to the offer.
@@ -433,6 +434,10 @@ int main(int argc, char *argv[])
 	offer->offer_description = NULL;
 	print_invalid_offer(offer, "Missing offer_description and offer_amount");
 	offer->offer_description = tal_utf8(tmpctx, "Test vectors");
+
+	offer->offer_currency = tal_utf8(offer, "USD");
+	print_invalid_offer(offer, "Missing offer_amount with offer_currency");
+	offer->offer_currency = NULL;
 
 	offer->offer_issuer_id = NULL;
 	print_invalid_offer(offer, "Missing offer_issuer_id and no offer_path");

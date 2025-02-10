@@ -1647,7 +1647,7 @@ static void add_stub_blindedpath(const tal_t *ctx,
 	inv->invoice_paths = tal_arr(inv, struct blinded_path *, 1);
 	inv->invoice_paths[0] = tal_steal(inv->invoice_paths, path);
 
-	/* BOLT-offers #12:
+	/* BOLT #12:
 	 *  - MUST include `invoice_paths` containing one or more paths to the node.
 	 *  - MUST specify `invoice_paths` in order of most-preferred to least-preferred if it has a preference.
 	 *  - MUST include `invoice_blindedpay` with exactly one `blinded_payinfo` for each `blinded_path` in `paths`, in order.
@@ -1745,7 +1745,7 @@ static struct command_result *json_createinvoice(struct command *cmd,
 					    "Unparsable invoice '%s': %s",
 					    invstring, fail);
 
-		/* BOLT-offers #12:
+		/* BOLT #12:
 		 * A writer of an invoice:
 		 *...
 		 *   - MUST include `invoice_paths` containing one or more paths
@@ -1777,7 +1777,7 @@ static struct command_result *json_createinvoice(struct command *cmd,
 		} else
 			local_offer_id = NULL;
 
-		/* BOLT-offers #12:
+		/* BOLT #12:
 		 * A writer of an invoice:
 		 *...
 		 * - MUST set `invoice_amount` to the minimum amount it will
