@@ -798,3 +798,21 @@ const struct tlv_field *any_field_outside_range(const struct tlv_field *fields,
 	}
 	return NULL;
 }
+
+bool bolt12_bip353_valid_string(const u8 *str, size_t len)
+{
+	/* BOLT #12:
+	 * - if `invreq_bip_353_name` is present:
+	 *   - MUST reject the invoice request if `name` or `domain`
+	 *     contain any bytes which are not `0`-`9`, `a`-`z`,
+	 *     `A`-`Z`, `-`, `_` or `.`.
+	 */
+	for (size_t i = 0; i < len; i++) {
+		if (cisalnum(str[i]))
+			continue;
+		if (str[i] == '-' || str[i] == '_' || str[i] == '.')
+			continue;
+		return false;
+	}
+	return true;
+}

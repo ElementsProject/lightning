@@ -911,6 +911,30 @@
                 }
               }
             },
+            "invreq_bip_353_name": {
+              "type": "object",
+              "added": "v25.02",
+              "description": [
+                "BIP 353 name which this invoice request is for."
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "added": "v25.02",
+                  "description": [
+                    "The name (part before the @)."
+                  ]
+                },
+                "domain": {
+                  "type": "string",
+                  "added": "v25.02",
+                  "description": [
+                    "The domain (part after the @)."
+                  ]
+                }
+              }
+            },
             "invreq_recurrence_counter": {
               "type": "u32",
               "description": [
@@ -1016,6 +1040,7 @@
             "invreq_quantity": {},
             "invreq_payer_note": {},
             "invreq_paths": {},
+            "invreq_bip_353_name": {},
             "invreq_recurrence_counter": {},
             "invreq_recurrence_start": {},
             "warning_invalid_offer_description": {
@@ -1058,6 +1083,20 @@
               "type": "string",
               "description": [
                 "`invreq_payer_note` is not valid UTF8."
+              ]
+            },
+            "warning_invreq_bip_353_name_name_invalid": {
+              "type": "string",
+              "added": "v25.02",
+              "description": [
+                "`invreq_bip_353_name` name field contains unusual characters."
+              ]
+            },
+            "warning_invreq_bip_353_name_domain_invalid": {
+              "type": "string",
+              "added": "v25.02",
+              "description": [
+                "`invreq_bip_353_name` domain field contains unusual characters."
               ]
             },
             "warning_missing_invoice_request_signature": {
@@ -1510,6 +1549,30 @@
                 }
               }
             },
+            "invreq_bip_353_name": {
+              "type": "object",
+              "added": "v25.02",
+              "description": [
+                "BIP 353 name which this invoice request is for."
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "added": "v25.02",
+                  "description": [
+                    "The name (part before the @)."
+                  ]
+                },
+                "domain": {
+                  "type": "string",
+                  "added": "v25.02",
+                  "description": [
+                    "The domain (part after the @)."
+                  ]
+                }
+              }
+            },
             "invreq_recurrence_counter": {
               "type": "u32",
               "description": [
@@ -1811,6 +1874,7 @@
             "invreq_quantity": {},
             "invreq_payer_note": {},
             "invreq_paths": {},
+            "invreq_bip_353_name": {},
             "invreq_node_id": {},
             "invreq_recurrence_counter": {},
             "invreq_recurrence_start": {},

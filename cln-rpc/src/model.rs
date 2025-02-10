@@ -7395,6 +7395,14 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DecodeInvreq_bip_353_name {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub domain: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub name: Option<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DecodeExtra {
 	    pub data: String,
 	    pub tag: String,
@@ -7594,6 +7602,8 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub invreq_amount_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub invreq_bip_353_name: Option<DecodeInvreq_bip_353_name>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub invreq_chain: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub invreq_features: Option<String>,
@@ -7665,6 +7675,10 @@ pub mod responses {
 	    pub warning_invalid_offer_description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_invalid_offer_issuer: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_invreq_bip_353_name_domain_invalid: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_invreq_bip_353_name_name_invalid: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_missing_invoice_amount: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

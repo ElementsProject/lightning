@@ -175,4 +175,11 @@ const struct tlv_field *any_field_outside_range(const struct tlv_field *fields,
 						size_t r2_start, size_t r2_end);
 
 
+/* BOLT #12:
+ * - if `invreq_bip_353_name` is present:
+ *   - MUST reject the invoice request if `name` or `domain`
+ *     contain any bytes which are not `0`-`9`, `a`-`z`,
+ *     `A`-`Z`, `-`, `_` or `.`.
+ */
+bool bolt12_bip353_valid_string(const u8 *str, size_t strlen);
 #endif /* LIGHTNING_COMMON_BOLT12_H */
