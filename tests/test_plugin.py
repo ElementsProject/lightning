@@ -3263,7 +3263,7 @@ def test_autoclean(node_factory):
     # Now enable: they will get autocleaned
     l3.rpc.setconfig('autoclean-expiredinvoices-age', 2)
     wait_for(lambda: len(l3.rpc.listinvoices()['invoices']) == 2)
-    assert l3.rpc.autoclean_status()['autoclean']['expiredinvoices']['cleaned'] == 3
+    wait_for(lambda: l3.rpc.autoclean_status()['autoclean']['expiredinvoices']['cleaned'] == 3)
 
     # Reconnect, l1 pays invoice, we test paid expiry.
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
@@ -3281,7 +3281,7 @@ def test_autoclean(node_factory):
 
     wait_for(lambda: l3.rpc.listinvoices()['invoices'] == [])
     assert l3.rpc.autoclean_status()['autoclean']['expiredinvoices']['cleaned'] == 3
-    assert l3.rpc.autoclean_status()['autoclean']['paidinvoices']['cleaned'] == 1
+    wait_for(lambda: l3.rpc.autoclean_status()['autoclean']['paidinvoices']['cleaned'] == 1)
 
     assert only_one(l1.rpc.listpays(inv5['bolt11'])['pays'])['status'] == 'failed'
     assert only_one(l1.rpc.listpays(inv4['bolt11'])['pays'])['status'] == 'complete'
@@ -3289,7 +3289,7 @@ def test_autoclean(node_factory):
     l1.rpc.setconfig('autoclean-cycle', 5)
 
     wait_for(lambda: l1.rpc.listpays(inv5['bolt11'])['pays'] == [])
-    assert l1.rpc.autoclean_status()['autoclean']['failedpays']['cleaned'] == 1
+    wait_for(lambda: l1.rpc.autoclean_status()['autoclean']['failedpays']['cleaned'] == 1)
     assert l1.rpc.autoclean_status()['autoclean']['succeededpays']['cleaned'] == 0
 
     l1.rpc.setconfig('autoclean-succeededpays-age', 2)
@@ -3307,7 +3307,7 @@ def test_autoclean(node_factory):
     wait_for(lambda: l2.rpc.listforwards(status='failed')['forwards'] == [])
 
     assert len(l2.rpc.listforwards(status='settled')['forwards']) == 1
-    assert l2.rpc.autoclean_status()['autoclean']['failedforwards']['cleaned'] == 1
+    wait_for(lambda: l2.rpc.autoclean_status()['autoclean']['failedforwards']['cleaned'] == 1)
     assert l2.rpc.autoclean_status()['autoclean']['succeededforwards']['cleaned'] == 0
 
     amt_before = l2.rpc.getinfo()['fees_collected_msat']
@@ -3317,7 +3317,7 @@ def test_autoclean(node_factory):
     wait_for(lambda: l2.rpc.listforwards(status='settled')['forwards'] == [])
     assert l2.rpc.listforwards() == {'forwards': []}
     assert l2.rpc.autoclean_status()['autoclean']['failedforwards']['cleaned'] == 1
-    assert l2.rpc.autoclean_status()['autoclean']['succeededforwards']['cleaned'] == 1
+    wait_for(lambda: l2.rpc.autoclean_status()['autoclean']['succeededforwards']['cleaned'] == 1)
 
     # We still see correct total in getinfo!
     assert l2.rpc.getinfo()['fees_collected_msat'] == amt_before
