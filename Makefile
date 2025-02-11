@@ -369,17 +369,15 @@ include doc/Makefile
 include contrib/msggen/Makefile
 include devtools/Makefile
 include tools/Makefile
+ifneq ($(RUST),0)
+include cln-rpc/Makefile
+endif
 include plugins/Makefile
 include tests/plugins/Makefile
 
 ifneq ($(FUZZING),0)
 	include tests/fuzz/Makefile
 endif
-ifneq ($(RUST),0)
-	include cln-rpc/Makefile
-	include plugins/rest-plugin/Makefile
-endif
-include cln-grpc/Makefile
 
 ifneq ($V,1)
 MSGGEN_ARGS := -s

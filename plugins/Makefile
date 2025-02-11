@@ -307,6 +307,7 @@ target/${RUST_PROFILE}/clnrest: ${CLN_REST_PLUGIN_SRC}
 	cargo build ${CARGO_OPTS} --bin clnrest
 
 ifneq ($(RUST),0)
+include plugins/rest-plugin/Makefile
 DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc plugins/clnrest
 endif
 
