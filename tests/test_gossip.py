@@ -418,8 +418,8 @@ def test_gossip_jsonrpc(node_factory):
 
     # Just wait for the update to kick off and then check the effect
     needle = "Received node_announcement for node"
-    l1.daemon.wait_for_log(needle)
-    l2.daemon.wait_for_log(needle)
+    wait_for(lambda: l1.daemon.is_in_log(needle))
+    wait_for(lambda: l2.daemon.is_in_log(needle))
     l1.wait_channel_active(only_one(channels1)['short_channel_id'])
     l2.wait_channel_active(only_one(channels1)['short_channel_id'])
 
