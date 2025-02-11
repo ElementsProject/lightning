@@ -1699,6 +1699,7 @@
               "perkw": 3750,
               "perkb": 15000
             },
+            "owner": "onchaind",
             "direction": 0,
             "channel_id": "channelid1100011000110001100011000110001100011000110001100011000",
             "funding_txid": "channeltxid01050000500005000050000500005000050000500005000050000",
@@ -1801,7 +1802,7 @@
             "status": [
               "CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 2250 satoshi for tx:scratchid2030303030303030303030303030303030303030303030303030303",
               "ONCHAIN:Tracking mutual close transaction",
-              "ONCHAIN:All outputs resolved: waiting 99 more blocks before forgetting channel"
+              "ONCHAIN:All outputs resolved: waiting 96 more blocks before forgetting channel"
             ],
             "in_payments_offered": 0,
             "in_offered_msat": 0,
