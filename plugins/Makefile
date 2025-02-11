@@ -123,11 +123,6 @@ C_PLUGINS :=					\
 	plugins/spenderp			\
 	plugins/cln-askrene
 
-ifneq ($(NO_PYTHON), 1)
-PY_PLUGINS :=					\
-	plugins/wss-proxy/wss-proxy
-endif
-
 ifeq ($(HAVE_SQLITE3),1)
 C_PLUGINS += plugins/sql
 PLUGIN_ALL_SRC += $(PLUGIN_SQL_SRC)
@@ -139,6 +134,8 @@ PLUGINS := $(C_PLUGINS)
 
 # Remove clnrest directory if exists which is the old python plugin code
 $(shell test -d plugins/clnrest && $(RM) -r plugins/clnrest || true)
+# Remove wss-proxy directory if exists which is the old python plugin code
+$(shell test -d plugins/wss-proxy && $(RM) -r plugins/wss-proxy || true)
 
 ifneq ($(RUST),0)
 # Builtin plugins must be in this plugins dir to work when we're executed
@@ -147,8 +144,10 @@ plugins/cln-grpc: target/${RUST_PROFILE}/cln-grpc
 	@cp $< $@
 plugins/clnrest: target/${RUST_PROFILE}/clnrest
 	@cp $< $@
+plugins/wss-proxy: target/${RUST_PROFILE}/wss-proxy
+	@cp $< $@
 
-PLUGINS += plugins/cln-grpc plugins/clnrest
+PLUGINS += plugins/cln-grpc plugins/clnrest plugins/wss-proxy
 endif
 
 PLUGIN_COMMON_OBJS :=				\
@@ -300,15 +299,19 @@ CLN_PLUGIN_EXAMPLES := \
 CLN_PLUGIN_SRC = $(shell find plugins/src -name "*.rs")
 CLN_GRPC_PLUGIN_SRC = $(shell find plugins/grpc-plugin/src -name "*.rs")
 CLN_REST_PLUGIN_SRC = $(shell find plugins/rest-plugin/src -name "*.rs")
+CLN_WSS_PROXY_PLUGIN_SRC = $(shell find plugins/wss-proxy-plugin/src -name "*.rs")
 
 target/${RUST_PROFILE}/cln-grpc: ${CLN_PLUGIN_SRC} ${CLN_GRPC_PLUGIN_SRC} $(MSGGEN_GENALL) $(MSGGEN_GEN_ALL)
 	cargo build ${CARGO_OPTS} --bin cln-grpc
 target/${RUST_PROFILE}/clnrest: ${CLN_REST_PLUGIN_SRC}
 	cargo build ${CARGO_OPTS} --bin clnrest
+target/${RUST_PROFILE}/wss-proxy: ${CLN_WSS_PROXY_PLUGIN_SRC}
+	cargo build ${CARGO_OPTS} --bin wss-proxy
 
 ifneq ($(RUST),0)
 include plugins/rest-plugin/Makefile
-DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc plugins/clnrest
+include plugins/wss-proxy-plugin/Makefile
+DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc plugins/clnrest plugins/wss-proxy
 endif
 
 clean: plugins-clean
