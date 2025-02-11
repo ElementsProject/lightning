@@ -1,5 +1,5 @@
 #include "config.h"
-  #include <lightningd/log.h>
+#include <lightningd/log.h>
 
 static void db_log_(struct logger *log UNUSED, enum log_level level UNUSED, const struct node_id *node_id UNUSED, bool call_notifier UNUSED, const char *fmt UNUSED, ...)
 {
@@ -544,5 +544,6 @@ int main(int argc, char *argv[])
 
 	tal_free(ld);
 	common_shutdown();
+	trace_cleanup();
 	return !ok;
 }

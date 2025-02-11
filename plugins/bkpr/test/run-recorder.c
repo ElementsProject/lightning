@@ -1430,5 +1430,6 @@ int main(int argc, char *argv[])
 
 	tal_free(plugin);
 	common_shutdown();
+	trace_cleanup();
 	return !ok;
 }

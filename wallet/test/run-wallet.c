@@ -2341,6 +2341,7 @@ int main(int argc, const char *argv[])
 	 * database. */
 	if (ok) {
 		common_shutdown();
+		trace_cleanup();
 	}
 	return !ok;
 }
