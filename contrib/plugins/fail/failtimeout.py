@@ -9,8 +9,8 @@ import time
 
 
 def json_getmanifest(request, **kwargs):
-    # Timeout is 60 seconds, so wait more
-    time.sleep(61)
+    # Timeout is 120 seconds, so wait more
+    time.sleep(121)
     return {
         "options": [
         ],
