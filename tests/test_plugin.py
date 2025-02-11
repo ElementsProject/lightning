@@ -221,7 +221,7 @@ def test_plugin_dir(node_factory):
 
 def test_plugin_slowinit(node_factory):
     """Tests that the 'plugin' RPC command times out if plugin doesnt respond"""
-    os.environ['SLOWINIT_TIME'] = '61'
+    os.environ['SLOWINIT_TIME'] = '121'
     n = node_factory.get_node()
 
     with pytest.raises(RpcError, match=': timed out before replying to init'):
