@@ -80,6 +80,9 @@ void tal_arr_randomize_(void *arr, size_t elemsize)
 		size_t j = i + pseudorand(n - i);
 		char tmp[elemsize];
 
+		/* Technically, memcpy in place is undefined (src and dest overlap). */
+		if (j == i)
+			continue;
 		memcpy(tmp, carr + i * elemsize, elemsize);
 		memcpy(carr + i * elemsize, carr + j * elemsize, elemsize);
 		memcpy(carr + j * elemsize, tmp, elemsize);
