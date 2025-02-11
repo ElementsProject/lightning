@@ -351,8 +351,8 @@ fund_nodes() {
 
 		"$LCLI" -H --lightning-dir="$LIGHTNING_DIR"/l"$node1" connect "$L2_NODE_ID"@localhost:"$L2_NODE_PORT" > /dev/null
 
-		L1_WALLET_ADDR=$($LCLI -F --lightning-dir=$LIGHTNING_DIR/l"$node1" newaddr | sed -n 's/^bech32=\(.*\)/\1/p')
-		L2_WALLET_ADDR=$($LCLI -F --lightning-dir=$LIGHTNING_DIR/l"$node2" newaddr | sed -n 's/^bech32=\(.*\)/\1/p')
+		L1_WALLET_ADDR=$($LCLI -F --lightning-dir="$LIGHTNING_DIR"/l"$node1" newaddr | sed -n 's/^bech32=\(.*\)/\1/p')
+		L2_WALLET_ADDR=$($LCLI -F --lightning-dir="$LIGHTNING_DIR"/l"$node2" newaddr | sed -n 's/^bech32=\(.*\)/\1/p')
 
 		ensure_bitcoind_funds
 
@@ -383,7 +383,7 @@ fund_nodes() {
 
 		printf "%s" "Waiting for confirmation... "
 
-		while ! "$LCLI" -F --lightning-dir=$LIGHTNING_DIR/l"$node1" listchannels | grep -q "channels"
+		while ! "$LCLI" -F --lightning-dir="$LIGHTNING_DIR"/l"$node1" listchannels | grep -q "channels"
 		do
 			sleep 1
 		done
@@ -428,7 +428,7 @@ node_info() {
 }
 
 destroy_ln() {
-	rm -rf $LIGHTNING_DIR/l[0-9]*
+	rm -rf "$LIGHTNING_DIR"/l[0-9]*
 }
 
 start_elem() {
