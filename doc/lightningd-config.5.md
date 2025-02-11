@@ -715,11 +715,11 @@ authenticate to the Tor control port.
 
   Root url for Swagger UI. Default is `/`.
 
-* **wss-bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH|HOSTNAME\[:PORT\]* [plugin `wss-proxy.py`]
+* **wss-bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH|HOSTNAME\[:PORT\]* [plugin `wss-proxy`]
 
-  Sets the WSS address.
+  Sets the WSS address. This option can be used multiple times to add more addresses.
 
-* **wss-certs**=*PATH*  [plugin `wss-proxy.py`]
+* **wss-certs**=*PATH*  [plugin `wss-proxy`]
 
   Defines the path for WSS cert & key. Default path is same as RPC file path to utilize gRPC/clnrest's client certificate. If it is missing at the configured location, new identity (`client.pem` and `client-key.pem`) will be generated.
 
