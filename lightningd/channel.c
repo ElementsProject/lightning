@@ -486,7 +486,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 
 	/* If it's a unix domain socket connection, we don't save it */
 	if (peer->addr.itype == ADDR_INTERNAL_WIREADDR) {
-		channel->scb = tal(channel, struct scb_chan);
+		channel->scb = tal(channel, struct scb_chan_with_tlvs);
 		channel->scb->id = dbid;
 		channel->scb->unused = 0;
 		/* More useful to have last_known_addr, if avail */

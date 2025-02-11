@@ -1632,7 +1632,7 @@ static struct command_result *json_recoverchannel(struct command *cmd,
 	const jsmntok_t *scb, *t;
 	size_t i;
 	struct json_stream *response;
-	struct scb_chan *scb_chan = tal(cmd, struct scb_chan);
+	struct scb_chan_with_tlvs *scb_chan = tal(cmd, struct scb_chan_with_tlvs);
 
 	if (!param(cmd, buffer, params,
 		p_req("scb", param_array, &scb),
@@ -1653,7 +1653,7 @@ static struct command_result *json_recoverchannel(struct command *cmd,
 		enum side opener = LOCAL;
 		u16 remote_to_self_delay = 0;
 
-		scb_chan = fromwire_scb_chan(cmd ,&scb_arr, &scblen);
+		scb_chan = fromwire_scb_chan_with_tlvs(cmd, &scb_arr, &scblen);
 
 		if (scb_chan == NULL) {
 			log_broken(cmd->ld->log, "SCB is invalid!");

@@ -1462,7 +1462,7 @@ wallet_commit_channel(struct lightningd *ld,
 	channel->min_possible_feerate = commitment_feerate;
 	channel->max_possible_feerate = commitment_feerate;
 	if (channel->peer->addr.itype == ADDR_INTERNAL_WIREADDR) {
-		channel->scb = tal(channel, struct scb_chan);
+		channel->scb = tal(channel, struct scb_chan_with_tlvs);
 		channel->scb->id = channel->dbid;
 		channel->scb->unused = 0;
 		channel->scb->addr = channel->peer->addr.u.wireaddr.wireaddr;
