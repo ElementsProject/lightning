@@ -294,7 +294,7 @@ try_exec_man (const char *page, char *relative_to) {
 	case 0:
 		/* child, run man command. */
 		if (relative_to != NULL) {
-			page = tal_fmt(page, "%s/../doc/%s.7", relative_to, page);
+			page = tal_fmt(page, "%s/%s.7", relative_to, page);
 			execlp("man", "man", "-l", page, (char *)NULL);
 		}
 		else {
@@ -701,12 +701,18 @@ int main(int argc, char *argv[])
 		command = argv[2];
 		char *page = tal_fmt(ctx, "lightning-%s", command);
 
+		/* Try to find the page in the MANPATH and PATH. */
 		try_exec_man(page, NULL);
 
 		/* Try to find the page relative to this executable.
 		 * This handles the common scenario where lightning-cli
 		 * was built from source and hasn't been installed yet */
-		try_exec_man(page, dirname(argv[0]));
+		const char *dir = dirname(argv[0]);
+		try_exec_man(page, tal_fmt(page, "%s/../doc", dir));
+
+		/* Try to find the page relative to this executable, but in the
+		 * install directory hierarchy. */
+		try_exec_man(page, tal_fmt(page, "%s/../share/man/man7", dir));
 
 		tal_free(page);
 	}
