@@ -250,6 +250,7 @@ class Type(FieldSet):
         'wally_psbt',
         'wally_tx',
         'scb_chan',
+        'scb_chan_with_tlvs',
         'inflight',
     ]
 

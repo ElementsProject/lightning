@@ -20,6 +20,7 @@ static void test_error(struct lightningd *ld, bool fatal, const char *fmt, va_li
 	wallet_err = tal_vfmt(NULL, fmt, ap);
 }
 
+#include "common/scb_wiregen.c"
 #include "wallet/wallet.c"
 #include "lightningd/hsm_control.c"
 #include "lightningd/htlc_end.c"
@@ -277,6 +278,13 @@ u64 forward_index_update_status(struct lightningd *ld UNNEEDED,
 				struct amount_msat in_amount UNNEEDED,
 				const struct short_channel_id *out_channel UNNEEDED)
 { fprintf(stderr, "forward_index_update_status called!\n"); abort(); }
+/* Generated stub for fromwire_channel_id */
+bool fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+			 struct channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
+/* Generated stub for fromwire_channel_type */
+struct channel_type *fromwire_channel_type(const tal_t *ctx UNNEEDED, const u8 **cursor UNNEEDED, size_t *plen UNNEEDED)
+{ fprintf(stderr, "fromwire_channel_type called!\n"); abort(); }
 /* Generated stub for fromwire_channeld_dev_memleak_reply */
 bool fromwire_channeld_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_dev_memleak_reply called!\n"); abort(); }
@@ -349,6 +357,12 @@ bool fromwire_onchaind_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNE
 /* Generated stub for fromwire_openingd_dev_memleak_reply */
 bool fromwire_openingd_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_openingd_dev_memleak_reply called!\n"); abort(); }
+/* Generated stub for fromwire_tlv */
+bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+		  const struct tlv_record_type *types UNNEEDED, size_t num_types UNNEEDED,
+		  void *record UNNEEDED, struct tlv_field **fields UNNEEDED,
+		  const u64 *extra_types UNNEEDED, size_t *err_off UNNEEDED, u64 *err_type UNNEEDED)
+{ fprintf(stderr, "fromwire_tlv called!\n"); abort(); }
 /* Generated stub for get_block_height */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
@@ -1017,9 +1031,6 @@ void tell_connectd_peer_importance(struct peer *peer UNNEEDED,
 /* Generated stub for tlv_hsmd_dev_preinit_tlvs_new */
 struct tlv_hsmd_dev_preinit_tlvs *tlv_hsmd_dev_preinit_tlvs_new(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "tlv_hsmd_dev_preinit_tlvs_new called!\n"); abort(); }
-/* Generated stub for tlv_scb_tlvs_new */
-struct tlv_scb_tlvs *tlv_scb_tlvs_new(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "tlv_scb_tlvs_new called!\n"); abort(); }
 /* Generated stub for to_canonical_invstr */
 const char *to_canonical_invstr(const tal_t *ctx UNNEEDED, const char *invstring UNNEEDED)
 { fprintf(stderr, "to_canonical_invstr called!\n"); abort(); }
@@ -1033,9 +1044,15 @@ void topology_add_sync_waiter_(const tal_t *ctx UNNEEDED,
 /* Generated stub for towire_announcement_signatures */
 u8 *towire_announcement_signatures(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, struct short_channel_id short_channel_id UNNEEDED, const secp256k1_ecdsa_signature *node_signature UNNEEDED, const secp256k1_ecdsa_signature *bitcoin_signature UNNEEDED)
 { fprintf(stderr, "towire_announcement_signatures called!\n"); abort(); }
+/* Generated stub for towire_channel_id */
+void towire_channel_id(u8 **pptr UNNEEDED, const struct channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "towire_channel_id called!\n"); abort(); }
 /* Generated stub for towire_channel_reestablish */
 u8 *towire_channel_reestablish(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, u64 next_commitment_number UNNEEDED, u64 next_revocation_number UNNEEDED, const struct secret *your_last_per_commitment_secret UNNEEDED, const struct pubkey *my_current_per_commitment_point UNNEEDED, const struct tlv_channel_reestablish_tlvs *channel_reestablish UNNEEDED)
 { fprintf(stderr, "towire_channel_reestablish called!\n"); abort(); }
+/* Generated stub for towire_channel_type */
+void towire_channel_type(u8 **p UNNEEDED, const struct channel_type *channel_type UNNEEDED)
+{ fprintf(stderr, "towire_channel_type called!\n"); abort(); }
 /* Generated stub for towire_channeld_dev_memleak */
 u8 *towire_channeld_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channeld_dev_memleak called!\n"); abort(); }
@@ -1155,15 +1172,17 @@ u8 *towire_openingd_dev_memleak(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_permanent_channel_failure */
 u8 *towire_permanent_channel_failure(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_permanent_channel_failure called!\n"); abort(); }
-/* Generated stub for towire_scb_chan */
-void towire_scb_chan(u8 **p UNNEEDED, const struct scb_chan *scb_chan UNNEEDED)
-{ fprintf(stderr, "towire_scb_chan called!\n"); abort(); }
 /* Generated stub for towire_temporary_channel_failure */
 u8 *towire_temporary_channel_failure(const tal_t *ctx UNNEEDED, const u8 *channel_update UNNEEDED)
 { fprintf(stderr, "towire_temporary_channel_failure called!\n"); abort(); }
 /* Generated stub for towire_temporary_node_failure */
 u8 *towire_temporary_node_failure(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_temporary_node_failure called!\n"); abort(); }
+/* Generated stub for towire_tlv */
+void towire_tlv(u8 **pptr UNNEEDED,
+		const struct tlv_record_type *types UNNEEDED, size_t num_types UNNEEDED,
+		const void *record UNNEEDED)
+{ fprintf(stderr, "towire_tlv called!\n"); abort(); }
 /* Generated stub for towire_unknown_next_peer */
 u8 *towire_unknown_next_peer(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_unknown_next_peer called!\n"); abort(); }

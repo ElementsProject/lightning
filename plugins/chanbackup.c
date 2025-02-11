@@ -716,6 +716,7 @@ static struct command_result *after_latestscb(struct command *cmd,
 {
         u64 version;
 	u32 timestamp;
+	struct scb_chan_with_tlvs **scb_tlvs;
 	struct scb_chan **scb;
         struct json_stream *response;
         struct out_req *req;
@@ -728,29 +729,54 @@ static struct command_result *after_latestscb(struct command *cmd,
 		return command_finished(cmd, response);
         }
 
+	bool is_tlvs = false;
 	if (!fromwire_static_chan_backup(cmd,
                                          res,
                                          &version,
                                          &timestamp,
                                          &scb)) {
-		plugin_err(cmd->plugin, "Corrupted SCB on disk!");
+		if(!fromwire_static_chan_backup_with_tlvs(cmd,
+							  res,
+							  &version,
+							  &timestamp,
+							  &scb_tlvs)) {
+			plugin_err(cmd->plugin, "Corrupted SCB!");
+		}
+		is_tlvs = true;
 	}
 
 	if (version != VERSION) {
 		plugin_err(cmd->plugin,
-                           "Incompatible version, Contact the admin!");
+                           "Incompatible SCB file version on disk, contact the admin!");
 	}
 
-        req = jsonrpc_request_start(cmd, "recoverchannel",
+	req = jsonrpc_request_start(cmd, "recoverchannel",
 				    after_recover_rpc,
 				    &forward_error, NULL);
 
 	json_array_start(req->js, "scb");
-	for (size_t i=0; i<tal_count(scb); i++) {
-		u8 *scb_hex = tal_arr(cmd, u8, 0);
-		towire_scb_chan(&scb_hex,scb[i]);
-		json_add_hex(req->js, NULL, scb_hex, tal_bytelen(scb_hex));
+	if (is_tlvs) {
+		for (size_t i=0; i<tal_count(scb_tlvs); i++) {
+			u8 *scb_hex = tal_arr(cmd, u8, 0);
+			towire_scb_chan_with_tlvs(&scb_hex,scb_tlvs[i]);
+			json_add_hex(req->js, NULL, scb_hex, tal_bytelen(scb_hex));
+		}
+	} else {
+		for (size_t i=0; i<tal_count(scb); i++) {
+			u8 *scb_hex = tal_arr(cmd, u8, 0);
+			struct scb_chan_with_tlvs *tmp_scb_tlv = tal(cmd, struct scb_chan_with_tlvs);
+			tmp_scb_tlv->id = scb[i]->id;
+			tmp_scb_tlv->addr = scb[i]->addr;
+			tmp_scb_tlv->cid = scb[i]->cid;
+			tmp_scb_tlv->funding = scb[i]->funding;
+			tmp_scb_tlv->funding_sats = scb[i]->funding_sats;
+			tmp_scb_tlv->type = scb[i]->type;
+			tmp_scb_tlv->tlvs = tlv_scb_tlvs_new(cmd);
+			towire_scb_chan_with_tlvs(&scb_hex, tmp_scb_tlv);
+			json_add_hex(req->js, NULL, scb_hex, tal_bytelen(scb_hex));
+		}
 	}
+
 	json_array_end(req->js);
 
 	return send_outreq(req);
