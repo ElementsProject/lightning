@@ -2,7 +2,6 @@ use anyhow::{Context, Result};
 use cln_grpc::pb::node_server::NodeServer;
 use cln_plugin::{options, Builder, Plugin};
 use cln_rpc::notifications::Notification;
-use log::{debug, warn};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use tokio::sync::broadcast;
@@ -17,17 +16,19 @@ struct PluginState {
     events: broadcast::Sender<cln_rpc::notifications::Notification>,
 }
 
-const OPTION_GRPC_PORT: options::DefaultIntegerConfigOption = options::ConfigOption::new_i64_with_default(
-    "grpc-port",
-    9736,
-    "Which port should the grpc plugin listen for incoming connections?"
-);
+const OPTION_GRPC_PORT: options::DefaultIntegerConfigOption =
+    options::ConfigOption::new_i64_with_default(
+        "grpc-port",
+        9736,
+        "Which port should the grpc plugin listen for incoming connections?",
+    );
 
-const OPTION_GRPC_HOST: options::DefaultStringConfigOption = options::ConfigOption::new_str_with_default(
-    "grpc-host",
-    "127.0.0.1",
-    "Which host should the grpc listen for incomming connections?"
-);
+const OPTION_GRPC_HOST: options::DefaultStringConfigOption =
+    options::ConfigOption::new_str_with_default(
+        "grpc-host",
+        "127.0.0.1",
+        "Which host should the grpc listen for incomming connections?",
+    );
 
 const OPTION_GRPC_MSG_BUFFER_SIZE : options::DefaultIntegerConfigOption = options::ConfigOption::new_i64_with_default(
     "grpc-msg-buffer-size",
@@ -36,7 +37,10 @@ const OPTION_GRPC_MSG_BUFFER_SIZE : options::DefaultIntegerConfigOption = option
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
-    debug!("Starting grpc plugin");
+    std::env::set_var(
+        "CLN_PLUGIN_LOG",
+        "cln_plugin=info,cln_rpc=info,cln_grpc=debug,debug",
+    );
 
     let directory = std::env::current_dir()?;
 
@@ -76,7 +80,13 @@ async fn main() -> Result<()> {
 
     let (sender, _) = broadcast::channel(buffer_size);
 
-    let (identity, ca_cert) = tls::init(&directory)?;
+    let (identity, ca_cert) = match tls::init(&directory) {
+        Ok(o) => o,
+        Err(e) => {
+            log_error(e.to_string());
+            return Err(e);
+        }
+    };
 
     let state = PluginState {
         rpc_path: PathBuf::from(plugin.configuration().rpc_file.as_str()),
@@ -94,10 +104,10 @@ async fn main() -> Result<()> {
         // This will likely never be shown, if we got here our
         // parent process is exiting and not processing out log
         // messages anymore.
-            debug!("Plugin loop terminated")
+            log::debug!("Plugin loop terminated")
         }
         e = run_interface(bind_addr, state) => {
-            warn!("Error running grpc interface: {:?}", e)
+            log_error(format!("Error running grpc interface: {:?}", e));
         }
     }
     Ok(())
@@ -121,9 +131,10 @@ async fn run_interface(bind_addr: SocketAddr, state: PluginState) -> Result<()> 
         ))
         .serve(bind_addr);
 
-    debug!(
+    log::info!(
         "Connecting to {:?} and serving grpc on {:?}",
-        &state.rpc_path, &bind_addr
+        &state.rpc_path,
+        &bind_addr
     );
 
     server.await.context("serving requests")?;
@@ -138,13 +149,22 @@ async fn handle_notification(plugin: Plugin<PluginState>, value: serde_json::Val
             log::debug!("Failed to parse notification from lightningd {:?}", err);
         }
         Ok(notification) => {
-	    /* Depending on whether or not there is a wildcard
-	     * subscription we may receive notifications for which we
-	     * don't have a handler. We suppress the `SendError` which
-	     * would indicate there is no subscriber for the given
-	     * topic. */
-	    let _ = plugin.state().events.send(notification);
+            /* Depending on whether or not there is a wildcard
+             * subscription we may receive notifications for which we
+             * don't have a handler. We suppress the `SendError` which
+             * would indicate there is no subscriber for the given
+             * topic. */
+            let _ = plugin.state().events.send(notification);
         }
     };
     Ok(())
+}
+
+fn log_error(error: String) {
+    println!(
+        "{}",
+        serde_json::json!({"jsonrpc": "2.0",
+                          "method": "log",
+                          "params": {"level":"warn", "message":error}})
+    );
 }
