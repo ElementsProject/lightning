@@ -206,7 +206,7 @@ def test_grpc_default_port_auto_starts(node_factory):
     # Check that the plugin is active
     assert grpcplugin is not None
     # Check that the plugin is listening on the default port
-    assert l1.daemon.is_in_log(f'plugin-cln-grpc: Plugin logging initialized')
+    assert l1.daemon.is_in_log(r'serving grpc on 127.0.0.1:9736')
     # Check that the certificates are generated
     assert len([f for f in os.listdir(Path(l1.daemon.lightning_dir) / TEST_NETWORK) if re.match(r".*\.pem$", f)]) >= 6
 

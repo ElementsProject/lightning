@@ -8,7 +8,7 @@ use axum::{
 };
 use axum_server::tls_rustls::RustlsConfig;
 use certs::{do_certificates_exist, generate_certificates};
-use cln_plugin::Builder;
+use cln_plugin::{Builder, Plugin};
 use handlers::{
     call_rpc_method, handle_notification, header_inspection_middleware, list_methods,
     socketio_on_connect,
@@ -101,6 +101,26 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let plugin = plugin.start(state.clone()).await?;
 
+    tokio::select! {
+        _ = plugin.join() => {
+        /* This will likely never be shown, if we got here our
+         * parent process is exiting and not processing out log
+         * messages anymore.
+         */
+            log::debug!("Plugin loop terminated")
+        }
+        e = run_rest_server(plugin.clone(), clnrest_options, notify_rx) => {
+            log_error(format!("Error running rest interface: {:?}", e));
+        }
+    }
+    Ok(())
+}
+
+async fn run_rest_server(
+    plugin: Plugin<PluginState>,
+    clnrest_options: ClnrestOptions,
+    notify_rx: Receiver<serde_json::Value>,
+) -> Result<(), anyhow::Error> {
     let (socket_layer, socket_io) = SocketIo::new_layer();
 
     socket_io.ns("/", socketio_on_connect);
@@ -167,24 +187,24 @@ async fn main() -> Result<(), anyhow::Error> {
                 "REST server running at https://{}",
                 clnrest_options.address_str
             );
-            tokio::spawn(
-                axum_server::bind_rustls(clnrest_options.address, config)
-                    .serve(app.into_make_service_with_connect_info::<SocketAddr>()),
-            );
+
+            axum_server::bind_rustls(clnrest_options.address, config)
+                .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+                .await
+                .map_err(anyhow::Error::from)
         }
         ClnrestProtocol::Http => {
             log::info!(
                 "REST server running at http://{}",
                 clnrest_options.address_str
             );
-            tokio::spawn(
-                axum_server::bind(clnrest_options.address)
-                    .serve(app.into_make_service_with_connect_info::<SocketAddr>()),
-            );
+
+            axum_server::bind(clnrest_options.address)
+                .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+                .await
+                .map_err(anyhow::Error::from)
         }
     }
-
-    plugin.join().await
 }
 
 async fn notification_background_task(io: SocketIo, mut receiver: Receiver<serde_json::Value>) {
@@ -195,4 +215,13 @@ async fn notification_background_task(io: SocketIo, mut receiver: Receiver<serde
             Err(e) => log::info!("Could not emit notification from background task: {}", e),
         }
     }
+}
+
+fn log_error(error: String) {
+    println!(
+        "{}",
+        serde_json::json!({"jsonrpc": "2.0",
+                          "method": "log",
+                          "params": {"level":"warn", "message":error}})
+    );
 }
