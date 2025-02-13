@@ -857,10 +857,10 @@ s64 wallet_get_newindex(struct lightningd *ld, enum addrtype addrtype)
 	return newidx;
 }
 
-enum addrtype wallet_get_addrtype(struct wallet *wallet, u64 idx)
+bool wallet_get_addrtype(struct wallet *wallet, u64 idx,
+			 enum addrtype *addrtype)
 {
 	struct db_stmt *stmt;
-	enum addrtype type;
 
 	stmt = db_prepare_v2(wallet->db,
 			     SQL("SELECT addrtype"
@@ -872,12 +872,12 @@ enum addrtype wallet_get_addrtype(struct wallet *wallet, u64 idx)
 	/* Unknown means prior to v24.11 */
 	if (!db_step(stmt)) {
 		tal_free(stmt);
-		return ADDR_P2TR|ADDR_BECH32;
+		return false;
 	}
 
-	type = wallet_addrtype_in_db(db_col_int(stmt, "addrtype"));
+	*addrtype = wallet_addrtype_in_db(db_col_int(stmt, "addrtype"));
 	tal_free(stmt);
-	return type;
+	return true;
 }
 
 static void wallet_shachain_init(struct wallet *wallet,
