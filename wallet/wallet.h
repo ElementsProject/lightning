@@ -274,6 +274,7 @@ static inline enum channel_state channel_state_in_db(enum channel_state s)
 /* /!\ This is a DB ENUM, please do not change the numbering of any
  * already defined elements (adding is ok) /!\ */
 enum addrtype {
+	ADDR_P2SH_SEGWIT = 1,
 	ADDR_BECH32 = 2,
 	ADDR_P2TR = 4,
 	ADDR_ALL = (ADDR_BECH32 + ADDR_P2TR)
@@ -291,6 +292,10 @@ static inline enum addrtype wallet_addrtype_in_db(enum addrtype t)
 	case ADDR_ALL:
 		BUILD_ASSERT(ADDR_ALL == 6);
 		return t;
+	/* This existed, but is NEVER placed into db */
+	case ADDR_P2SH_SEGWIT:
+		BUILD_ASSERT(ADDR_P2SH_SEGWIT == 1);
+		break;
 	}
 	fatal("%s: %u is invalid", __func__, t);
 }

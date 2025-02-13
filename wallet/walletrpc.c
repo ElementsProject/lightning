@@ -75,6 +75,7 @@ encode_pubkey_to_addr(const tal_t *ctx,
 		goto done;
 	}
 
+	case ADDR_P2SH_SEGWIT:
 	case ADDR_ALL:
 		abort();
 	}
