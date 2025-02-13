@@ -4241,7 +4241,6 @@ def test_onchain_slow_anchor(node_factory, bitcoind):
 
 
 @pytest.mark.slow_test
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Depends on sqlite3 database location")
 def test_slow_startup_many_addresses(node_factory, bitcoind):
     l1, l2 = node_factory.get_nodes(2)
