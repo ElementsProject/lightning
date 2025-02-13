@@ -48,6 +48,10 @@ struct wallet {
 	 * the blockchain. This is currently all P2WSH outputs */
 	struct outpointfilter *utxoset_outpoints;
 
+	/* Our issued wallet addresses.  We update on lookup. */
+	u32 our_addresses_maxindex;
+	struct wallet_address_htable *our_addresses;
+
 	/* How many keys should we look ahead at most? */
 	u64 keyscan_gap;
 };

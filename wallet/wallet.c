@@ -7,6 +7,7 @@
 #include <channeld/channeld_wiregen.h>
 #include <common/blockheight_states.h>
 #include <common/fee_states.h>
+#include <common/memleak.h>
 #include <common/onionreply.h>
 #include <common/trace.h>
 #include <db/bindings.h>
@@ -64,6 +65,111 @@ static enum state_change state_change_in_db(enum state_change s)
 	fatal("%s: %u is invalid", __func__, s);
 }
 
+/* We keep a hash of these, for fast lookup */
+struct wallet_address {
+	u32 index;
+	enum addrtype addrtype;
+	const u8 *scriptpubkey;
+};
+
+static const u8 *wallet_address_keyof(const struct wallet_address *waddr)
+{
+	return waddr->scriptpubkey;
+}
+
+static bool wallet_address_eq_scriptpubkey(const struct wallet_address *waddr,
+					   const u8 *scriptpubkey)
+{
+	return tal_arr_eq(waddr->scriptpubkey, scriptpubkey);
+}
+
+HTABLE_DEFINE_NODUPS_TYPE(struct wallet_address,
+			  wallet_address_keyof,
+			  scriptpubkey_hash,
+			  wallet_address_eq_scriptpubkey,
+			  wallet_address_htable);
+
+static void our_addresses_add(struct wallet_address_htable *our_addresses,
+			      u32 index,
+			      const u8 *scriptpubkey TAKES,
+			      enum addrtype addrtype)
+{
+	struct wallet_address *waddr = tal(our_addresses, struct wallet_address);
+
+	waddr->index = index;
+	waddr->addrtype = addrtype;
+	waddr->scriptpubkey = tal_dup_talarr(waddr, u8, scriptpubkey);
+	wallet_address_htable_add(our_addresses, waddr);
+}
+
+static void our_addresses_add_for_index(struct wallet *w, u32 i)
+{
+	struct ext_key ext;
+	enum addrtype addrtype;
+	const u8 *scriptpubkey;
+	const u32 flags = BIP32_FLAG_KEY_PUBLIC | BIP32_FLAG_SKIP_HASH;
+
+	if (bip32_key_from_parent(w->ld->bip32_base, i,
+				  flags, &ext) != WALLY_OK) {
+		abort();
+	}
+
+	/* If we don't know (prior to 24.11), just add all
+	 * possibilities. */
+	/* FIXME: We could deprecate P2SH once we don't see
+	 * any, since we stopped publishing them in 24.02 */
+	if (!wallet_get_addrtype(w, i, &addrtype)) {
+		scriptpubkey = scriptpubkey_p2wpkh_derkey(NULL, ext.pub_key);
+		our_addresses_add(w->our_addresses,
+				  i,
+				  take(scriptpubkey_p2sh(NULL, scriptpubkey)),
+				  ADDR_P2SH_SEGWIT);
+		our_addresses_add(w->our_addresses,
+				  i,
+				  take(scriptpubkey),
+				  ADDR_BECH32);
+		scriptpubkey = scriptpubkey_p2tr_derkey(NULL, ext.pub_key);
+		our_addresses_add(w->our_addresses,
+				  i,
+				  take(scriptpubkey),
+				  ADDR_P2TR);
+		return;
+	}
+
+	switch (addrtype) {
+		/* This doesn't happen */
+	case ADDR_P2SH_SEGWIT:
+		abort();
+	case ADDR_BECH32:
+	case ADDR_ALL:
+		scriptpubkey = scriptpubkey_p2wpkh_derkey(NULL, ext.pub_key);
+		our_addresses_add(w->our_addresses,
+				  i,
+				  take(scriptpubkey),
+				  ADDR_BECH32);
+		if (addrtype != ADDR_ALL)
+			return;
+	/* Fall thru */
+	case ADDR_P2TR:
+		scriptpubkey = scriptpubkey_p2tr_derkey(NULL, ext.pub_key);
+		our_addresses_add(w->our_addresses,
+				  i,
+				  take(scriptpubkey),
+				  ADDR_P2TR);
+		return;
+	}
+	abort();
+}
+
+static void our_addresses_init(struct wallet *w)
+{
+	w->our_addresses_maxindex = 0;
+	w->our_addresses = tal(w, struct wallet_address_htable);
+	wallet_address_htable_init(w->our_addresses);
+
+	our_addresses_add_for_index(w, w->our_addresses_maxindex);
+}
+
 static void outpointfilters_init(struct wallet *w)
 {
 	struct db_stmt *stmt;
@@ -112,6 +218,10 @@ struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
 
 	trace_span_start("outpointfilters_init", wallet);
 	outpointfilters_init(wallet);
+	trace_span_end(wallet);
+
+	trace_span_start("our_addresses_init", wallet);
+	our_addresses_init(wallet);
 	trace_span_end(wallet);
 
 	db_commit_transaction(wallet->db);
@@ -6354,6 +6464,7 @@ void wallet_memleak_scan(struct htable *memtable, const struct wallet *w)
 {
 	memleak_scan_outpointfilter(memtable, w->utxoset_outpoints);
 	memleak_scan_outpointfilter(memtable, w->owned_outpoints);
+	memleak_scan_htable(memtable, &w->our_addresses->raw);
 }
 
 struct issued_address_type *wallet_list_addresses(const tal_t *ctx, struct wallet *wallet,

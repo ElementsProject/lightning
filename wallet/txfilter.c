@@ -7,7 +7,7 @@
 #include <wallet/txfilter.h>
 #include <wallet/wallet.h>
 
-static size_t scriptpubkey_hash(const u8 *out)
+size_t scriptpubkey_hash(const u8 *out)
 {
 	struct siphash24_ctx ctx;
 	siphash24_init(&ctx, siphash_seed());

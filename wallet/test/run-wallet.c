@@ -956,6 +956,9 @@ const char *rune_is_ours(struct lightningd *ld UNNEEDED, const struct rune *rune
 /* Generated stub for rune_unique_id */
 u64 rune_unique_id(const struct rune *rune UNNEEDED)
 { fprintf(stderr, "rune_unique_id called!\n"); abort(); }
+/* Generated stub for scriptpubkey_hash */
+size_t scriptpubkey_hash(const u8 *out UNNEEDED)
+{ fprintf(stderr, "scriptpubkey_hash called!\n"); abort(); }
 /* Generated stub for serialize_onionpacket */
 u8 *serialize_onionpacket(
 	const tal_t *ctx UNNEEDED,
