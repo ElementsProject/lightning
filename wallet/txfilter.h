@@ -66,4 +66,8 @@ void outpointfilter_remove(struct outpointfilter *of,
 
 void memleak_scan_outpointfilter(struct htable *memtable,
 				 const struct outpointfilter *opf);
+
+/* Useful for other callers */
+size_t scriptpubkey_hash(const u8 *out);
+
 #endif /* LIGHTNING_WALLET_TXFILTER_H */
