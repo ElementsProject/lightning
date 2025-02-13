@@ -606,8 +606,12 @@ s64 wallet_get_newindex(struct lightningd *ld, enum addrtype addrtype);
  * wallet_get_addrtype - get the address types for this key.
  * @wallet: (in) wallet
  * @keyidx: what address types we've published.
+ * @addrtype: filled in if true.
+ *
+ * If we don't know, returns false.
  */
-enum addrtype wallet_get_addrtype(struct wallet *w, u64 keyidx);
+bool wallet_get_addrtype(struct wallet *wallet, u64 idx,
+			 enum addrtype *addrtype);
 
 /**
  * wallet_shachain_add_hash -- wallet wrapper around shachain_add_hash
