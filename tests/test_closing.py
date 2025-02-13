@@ -18,6 +18,7 @@ import pytest
 import re
 import subprocess
 import threading
+import time
 import unittest
 
 
@@ -4237,3 +4238,42 @@ def test_onchain_slow_anchor(node_factory, bitcoind):
     bitcoind.generate_block(1)
     height = bitcoind.rpc.getblockchaininfo()['blocks']
     l1.daemon.wait_for_log(r"Low-priority anchorspend aiming for block {} \(feerate 7500\)".format(height + 12))
+
+
+@pytest.mark.slow_test
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Depends on sqlite3 database location")
+def test_slow_startup_many_addresses(node_factory, bitcoind):
+    l1, l2 = node_factory.get_nodes(2)
+
+    # Use really high key, to make scanning work hard.
+    l1.stop()
+    l1.db_manip("INSERT INTO vars (name, intval) VALUES ('bip32_max_index', 10000);")
+    l1.start()
+
+    NUM_CHANS = 20
+    FUND = 100000
+
+    addr = l1.rpc.newaddr()['bech32']
+    bitcoind.rpc.sendtoaddress(addr, (FUND * NUM_CHANS + 1000000) / 10**8)
+
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1])
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    channels = []
+    for _ in range(NUM_CHANS):
+        channels.append(l1.rpc.fundchannel(l2.info['id'], FUND)['channel_id'])
+        bitcoind.generate_block(1)
+        wait_for(lambda: all([c['state'] == 'CHANNELD_NORMAL' for c in l1.rpc.listpeerchannels()['channels']]))
+
+    for c in channels:
+        l1.rpc.close(c)
+
+    l1.stop()
+    start = time.time()
+    l1.start()
+    end = time.time()
+
+    # Normally less than a second: give it 10.
+    assert end - start < 10
