@@ -1025,8 +1025,8 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     # Re-try sending the same tx?
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1])
-    # Expect an error here
-    with pytest.raises(JSONRPCError, match=r"Transaction already in block chain"):
+    # Expect an error here (bitcoind > 28 gives the UTXO set message)
+    with pytest.raises(JSONRPCError, match=r"Transaction already in block chain|Transaction outputs already in utxo set"):
         bitcoind.rpc.sendrawtransaction(broadcast_tx['tx'])
 
     # Try an empty PSBT
