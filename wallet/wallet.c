@@ -895,55 +895,25 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 bool wallet_can_spend(struct wallet *w, const u8 *script,
 		      u32 *index)
 {
-	struct ext_key ext;
 	u64 bip32_max_index;
-	size_t script_len = tal_bytelen(script);
-	u32 i;
-	bool output_is_p2sh;
+	const struct wallet_address *waddr;
 
-	/* If not one of these, can't be for us. */
-	if (is_p2sh(script, script_len, NULL))
-		output_is_p2sh = true;
-	else if (is_p2wpkh(script, script_len, NULL))
-		output_is_p2sh = false;
-	else if (is_p2tr(script, script_len, NULL))
-		output_is_p2sh = false;
-	else
+	/* Update hash table if we need to */
+	bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
+	while (w->our_addresses_maxindex < bip32_max_index + w->keyscan_gap)
+		our_addresses_add_for_index(w, ++w->our_addresses_maxindex);
+
+	waddr = wallet_address_htable_get(w->our_addresses, script);
+	if (!waddr)
 		return false;
 
-	bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
-	for (i = 0; i <= bip32_max_index + w->keyscan_gap; i++) {
-		const u32 flags = BIP32_FLAG_KEY_PUBLIC | BIP32_FLAG_SKIP_HASH;
-		u8 *s;
+	/* If we found a used key in the keyscan_gap we should
+	 * remember that. */
+	if (waddr->index > bip32_max_index)
+		db_set_intvar(w->db, "bip32_max_index", waddr->index);
 
-		if (bip32_key_from_parent(w->ld->bip32_base, i,
-					  flags, &ext) != WALLY_OK) {
-			abort();
-		}
-		s = scriptpubkey_p2wpkh_derkey(w, ext.pub_key);
-		if (output_is_p2sh) {
-			u8 *p2sh = scriptpubkey_p2sh(w, s);
-			tal_free(s);
-			s = p2sh;
-		}
-		if (!scripteq(s, script)) {
-			/* Try taproot output now */
-			tal_free(s);
-			s = scriptpubkey_p2tr_derkey(w, ext.pub_key);
-			if (!scripteq(s, script))
-				s = tal_free(s);
-		}
-		tal_free(s);
-		if (s) {
-			/* If we found a used key in the keyscan_gap we should
-			 * remember that. */
-			if (i > bip32_max_index)
-				db_set_intvar(w->db, "bip32_max_index", i);
-			*index = i;
-			return true;
-		}
-	}
-	return false;
+	*index = waddr->index;
+	return true;
 }
 
 s64 wallet_get_newindex(struct lightningd *ld, enum addrtype addrtype)
