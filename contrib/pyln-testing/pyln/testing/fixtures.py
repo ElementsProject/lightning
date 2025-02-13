@@ -459,7 +459,7 @@ def jsonschemas():
     schemas = {}
     for fname in schemafiles:
         if fname.endswith('.json'):
-            base = fname.replace('.json', '')
+            base = fname.replace('lightning-', '').replace('.json', '')
             # Request is 0 and Response is 1
             schemas[base] = _load_schema(os.path.join('doc/schemas', fname))
     return schemas
