@@ -37,6 +37,7 @@ hidden: false
 | close.tx                             | Field              | v24.11           | v25.11         | Use txs array instead                                                                                                                  |
 | close.txid                           | Field              | v24.11           | v25.11         | Use txids array instead                                                                                                                |
 | experimental-offers                  | Config             | v24.11           | v25.05         | Now the default                                                                                                                        |
+| xpay.ignore_bolt12_mpp               | Field              | v25.05           | v25.11         | Try MPP even if the BOLT12 invoice doesn't explicitly allow it (CLN didn't until 25.02)                                                |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 

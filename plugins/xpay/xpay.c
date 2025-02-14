@@ -1560,7 +1560,10 @@ static struct command_result *json_xpay_core(struct command *cmd,
 			if (payment->payinfos[i]->cltv_expiry_delta > payment->final_cltv)
 				payment->final_cltv = payment->payinfos[i]->cltv_expiry_delta;
 		}
-		payment->disable_mpp = false;
+		/* We will start honoring this flag in future */
+		payment->disable_mpp = !feature_offered(b12inv->invoice_features, OPT_BASIC_MPP);
+		if (payment->disable_mpp && command_deprecated_in_ok(cmd, "ignore_bolt12_mpp", "v25.05", "v25.11"))
+			payment->disable_mpp = false;
 	} else {
 		struct bolt11 *b11
 			= bolt11_decode(tmpctx, payment->invstring,
