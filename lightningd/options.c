@@ -1714,7 +1714,7 @@ static void register_opts(struct lightningd *ld)
 		       ld,
 		       "Set to true to allow database upgrades even on non-final releases (WARNING: you won't be able to downgrade!)");
 	clnopt_witharg("--i-promise-to-fix-broken-api-user",
-		       OPT_MULTI,
+		       OPT_EARLY|OPT_MULTI,
 		       opt_add_api_beg, NULL,
 		       ld,
 		       "Re-enable a long-deprecated API (which will be removed entirely next version!)");
