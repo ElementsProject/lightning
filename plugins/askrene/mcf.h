@@ -16,6 +16,8 @@ struct route_query;
  * @target: the target to pay
  * @amount: the amount we want to reach @target
  * @mu: 0 = corresponds to only probabilities, 100 corresponds to only fee.
+ * @delay_feefactor: convert 1 block delay into msat.
+ * @single_part: don't do MCF at all, just create a single flow.
  *
  * @delay_feefactor converts 1 block delay into msat, as if it were an additional
  * fee.  So if a CLTV delay on a node is 5 blocks, that's treated as if it
@@ -29,7 +31,8 @@ struct flow **minflow(const tal_t *ctx,
 		      const struct gossmap_node *target,
 		      struct amount_msat amount,
 		      u32 mu,
-		      double delay_feefactor);
+		      double delay_feefactor,
+		      bool single_part);
 
 /* To sanity check: this is the approximation mcf uses for the cost
  * of each channel. */

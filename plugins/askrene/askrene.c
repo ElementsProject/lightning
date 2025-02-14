@@ -82,6 +82,7 @@ static struct command_result *param_layer_names(struct command *cmd,
 
 		/* Must be a known layer name */
 		if (streq((*arr)[i], "auto.localchans")
+		    || streq((*arr)[i], "auto.no_mpp_support")
 		    || streq((*arr)[i], "auto.sourcefree"))
 			continue;
 		if (!find_layer(get_askrene(cmd->plugin), (*arr)[i])) {
@@ -209,6 +210,44 @@ static struct layer *source_free_layer(const tal_t *ctx,
 	return layer;
 }
 
+/* We're going to abuse MCF, and take the largest flow it gives and ram everything
+ * through it.  This is more effective if there's at least a *chance* that can handle
+ * the full amount.
+ *
+ * It's far from perfect, but I have very little sympathy: if you want
+ * to receive amounts reliably, enable MPP.
+ */
+static struct layer *remove_small_channel_layer(const tal_t *ctx,
+						struct askrene *askrene,
+						struct amount_msat min_amount,
+						struct gossmap_localmods *localmods)
+{
+	struct layer *layer = new_temp_layer(ctx, askrene, "auto.no_mpp_support");
+	struct gossmap *gossmap = askrene->gossmap;
+	struct gossmap_chan *c;
+
+	/* We apply this so we see any created channels */
+	gossmap_apply_localmods(gossmap, localmods);
+
+	for (c = gossmap_first_chan(gossmap); c; c = gossmap_next_chan(gossmap, c)) {
+		struct short_channel_id_dir scidd;
+		if (amount_msat_greater_eq(gossmap_chan_get_capacity(gossmap, c),
+					   min_amount))
+			continue;
+
+		scidd.scid = gossmap_chan_scid(gossmap, c);
+		/* Layer will disable this in both directions */
+		for (scidd.dir = 0; scidd.dir < 2; scidd.dir++) {
+			const bool enabled = false;
+			layer_add_update_channel(layer, &scidd, &enabled,
+						 NULL, NULL, NULL, NULL, NULL);
+		}
+	}
+	gossmap_remove_localmods(gossmap, localmods);
+
+	return layer;
+}
+
 struct amount_msat get_additional_per_htlc_cost(const struct route_query *rq,
 						const struct short_channel_id_dir *scidd)
 {
@@ -321,6 +360,7 @@ static const char *get_routes(const tal_t *ctx,
 			      const char **layers,
 			      struct gossmap_localmods *localmods,
 			      const struct layer *local_layer,
+			      bool single_path,
 			      struct route ***routes,
 			      struct amount_msat **amounts,
 			      const struct additional_cost_htable *additional_costs,
@@ -355,8 +395,10 @@ static const char *get_routes(const tal_t *ctx,
 			if (streq(layers[i], "auto.localchans")) {
 				plugin_log(rq->plugin, LOG_DBG, "Adding auto.localchans");
 				l = local_layer;
+			} else if (streq(layers[i], "auto.no_mpp_support")) {
+				plugin_log(rq->plugin, LOG_DBG, "Adding auto.no_mpp_support, sorry");
+				l = remove_small_channel_layer(layers, askrene, amount, localmods);
 			} else {
-				/* Handled below, after other layers */
 				assert(streq(layers[i], "auto.sourcefree"));
 				plugin_log(rq->plugin, LOG_DBG, "Adding auto.sourcefree");
 				l = source_free_layer(layers, askrene, source, localmods);
@@ -406,7 +448,7 @@ static const char *get_routes(const tal_t *ctx,
 	/* First up, don't care about fees (well, just enough to tiebreak!) */
 	mu = 1;
 	flows = minflow(rq, rq, srcnode, dstnode, amount,
-			mu, delay_feefactor);
+			mu, delay_feefactor, single_path);
 	if (!flows) {
 		ret = explain_failure(ctx, rq, srcnode, dstnode, amount);
 		goto fail;
@@ -419,7 +461,7 @@ static const char *get_routes(const tal_t *ctx,
 		       "The worst flow delay is %"PRIu64" (> %i), retrying with delay_feefactor %f...",
 		       flows_worst_delay(flows), maxdelay - finalcltv, delay_feefactor);
 		flows = minflow(rq, rq, srcnode, dstnode, amount,
-				mu, delay_feefactor);
+				mu, delay_feefactor, single_path);
 		if (!flows || delay_feefactor > 10) {
 			ret = rq_log(ctx, rq, LOG_UNUSUAL,
 				     "Could not find route without excessive delays");
@@ -442,7 +484,7 @@ too_expensive:
 		       fmt_amount_msat(tmpctx, maxfee),
 		       mu);
 		new_flows = minflow(rq, rq, srcnode, dstnode, amount,
-				    mu > 100 ? 100 : mu, delay_feefactor);
+				    mu > 100 ? 100 : mu, delay_feefactor, single_path);
 		if (!flows || mu >= 100) {
 			ret = rq_log(ctx, rq, LOG_UNUSUAL,
 				     "Could not find route without excessive cost");
@@ -616,6 +658,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 			 info->source, info->dest,
 			 *info->amount, *info->maxfee, *info->finalcltv,
 			 *info->maxdelay, info->layers, localmods, info->local_layer,
+			 have_layer(info->layers, "auto.no_mpp_support"),
 			 &routes, &amounts, info->additional_costs, &probability);
 	if (err)
 		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", err);
