@@ -254,6 +254,7 @@ def test_xpay_fake_channeld(node_factory, bitcoind, chainparams):
                                        f"currency={chainparams['bip173_prefix']}",
                                        f"p={hash_hex}",
                                        f"s={'00' * 32}",
+                                       "9=020000",  # option_basic_mpp
                                        f"d=Paying node {n}",
                                        f"amount={AMOUNT}msat"]).decode('utf-8').strip()
         assert l1.rpc.decode(inv)['payee'] == nodeids[n]
@@ -286,6 +287,7 @@ def test_xpay_fake_channeld(node_factory, bitcoind, chainparams):
                                        "encode",
                                        n.to_bytes(length=8, byteorder=sys.byteorder).hex() + '01' * 24,
                                        f"p={hash_hex}",
+                                       "9=020000",  # option_basic_mpp
                                        f"s={'00' * 32}",
                                        f"d=Paying node {n}",
                                        f"amount={AMOUNT}msat"]).decode('utf-8').strip()
@@ -556,6 +558,7 @@ def test_xpay_maxfee(node_factory, bitcoind, chainparams):
                                    n.to_bytes(length=8, byteorder=sys.byteorder).hex() + '01' * 24,
                                    f"currency={chainparams['bip173_prefix']}",
                                    f"p={hash_hex}",
+                                   "9=020000",  # option_basic_mpp
                                    f"s={'00' * 32}",
                                    f"d=Paying node {n} with maxfee",
                                    f"amount={AMOUNT}msat"]).decode('utf-8').strip()
@@ -616,3 +619,34 @@ def test_xpay_zeroconf(node_factory):
     offer = l2.rpc.offer('any')['bolt12']
     b12 = l1.rpc.fetchinvoice(offer, '100000msat')['invoice']
     l1.rpc.xpay(b12)
+
+
+@pytest.mark.xfail(strict=True)
+def test_xpay_no_mpp(node_factory, chainparams):
+    """Suppress mpp, resulting in a single payment part"""
+    l1, l2, l3, l4 = node_factory.get_nodes(4)
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
+    node_factory.join_nodes([l1, l4, l3], wait_for_announce=True)
+
+    # Amount needs to be enought that it bothers splitting, but not
+    # so much that it can't pay without mpp.
+    AMOUNT = 500000000
+
+    # We create a version of this which doesn't support MPP
+    no_mpp = l3.rpc.invoice(AMOUNT, 'test_xpay_no_mpp2', 'test_xpay_no_mpp without mpp')
+    b11_no_mpp = subprocess.check_output(["devtools/bolt11-cli",
+                                          "encode",
+                                          # secret for l3
+                                          "dae24b3853e1443a176daba5544ee04f7db33ebe38e70bdfdb1da34e89512c10",
+                                          f"currency={chainparams['bip173_prefix']}",
+                                          f"p={no_mpp['payment_hash']}",
+                                          f"s={no_mpp['payment_secret']}",
+                                          f"d=Paying l3 without mpp",
+                                          f"amount={AMOUNT}"]).decode('utf-8').strip()
+
+    # This should not mpp!
+    ret = l1.rpc.xpay(b11_no_mpp)
+    assert ret['failed_parts'] == 0
+    assert ret['successful_parts'] == 1
+    assert ret['amount_msat'] == AMOUNT
+    assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 1
