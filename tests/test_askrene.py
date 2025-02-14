@@ -1032,7 +1032,6 @@ def test_max_htlc(node_factory, bitcoind):
                          final_cltv=10)
 
 
-@pytest.mark.xfail(strict=True)
 def test_min_htlc(node_factory, bitcoind):
     """A route which looks good isn't actually, because of min htlc limits.  Should fall back!"""
     gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, capacity_sats=500_000,
@@ -1056,7 +1055,7 @@ def test_min_htlc_after_excess(node_factory, bitcoind):
                                                         forward=GenChannel.Half(htlc_min=2_000))])
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
-    with pytest.raises(RpcError, match=r"ending 1999msat across 0x1x0/1 would violate htlc_min \(~2000msat\)"):
+    with pytest.raises(RpcError, match=r"We could not find a usable set of paths.  The shortest path is 0x1x0, but 0x1x0/1 below htlc_minumum_msat ~2000msat"):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
                          amount_msat=1999,

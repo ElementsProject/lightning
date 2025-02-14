@@ -617,6 +617,10 @@ init_linear_network(const tal_t *ctx, const struct pay_parameters *params)
 			if (!gossmap_chan_set(c, half) || !c->half[half].enabled)
 				continue;
 
+			/* If a channel insists on more than our total, remove it */
+			if (amount_msat_less(params->amount, gossmap_chan_htlc_min(c, half)))
+				continue;
+
 			const u32 chan_id = gossmap_chan_idx(gossmap, c);
 
 			const struct gossmap_node *next = gossmap_nth_node(gossmap,
