@@ -2696,7 +2696,7 @@ def test_commando(node_factory, executor):
     l1, l2 = node_factory.line_graph(2, fundchannel=False,
                                      opts={'log-level': 'io', 'allow-deprecated-apis': True})
 
-    rune = l1.rpc.commando_rune()['rune']
+    rune = l1.rpc.createrune()['rune']
 
     # Bad rune fails
     with pytest.raises(RpcError, match="Not authorized: Not derived from master"):
@@ -3116,7 +3116,7 @@ def test_commando_stress(node_factory, executor):
         'allow-deprecated-apis': True,
     })
 
-    rune = nodes[0].rpc.commando_rune()['rune']
+    rune = nodes[0].rpc.createrune()['rune']
     for n in nodes[1:]:
         n.connect(nodes[0])
 

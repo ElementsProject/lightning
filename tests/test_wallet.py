@@ -1725,7 +1725,7 @@ def test_hsmtool_makerune(node_factory):
     l1.start()
 
     # We have to generate a rune now, for commando to even start processing!
-    rune = l1.rpc.commando_rune()['rune']
+    rune = l1.rpc.createrune()['rune']
     assert rune == out
 
 

@@ -27,10 +27,10 @@ def test_createrune(node_factory):
     rune4 = l1.rpc.createrune(restrictions=[["id^022d223620a359a47ff7"], ["method=listpeers"]])
     assert rune4['rune'] == 'YPojv9qgHPa3im0eiqRb-g8aRq76OasyfltGGqdFUOU9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz'
     assert rune4['unique_id'] == '3'
-    rune5 = l1.rpc.commando_rune(rune4['rune'], [["pnamelevel!", "pnamelevel/io"]])
+    rune5 = l1.rpc.createrune(rune4['rune'], [["pnamelevel!", "pnamelevel/io"]])
     assert rune5['rune'] == 'Zm7A2mKkLnd5l6Er_OMAHzGKba97ij8lA-MpNYMw9nk9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8='
     assert rune5['unique_id'] == '3'
-    rune6 = l1.rpc.commando_rune(rune5['rune'], [["parr1!", "parr1/io"]])
+    rune6 = l1.rpc.createrune(rune5['rune'], [["parr1!", "parr1/io"]])
     assert rune6['rune'] == 'm_tyR0qqHUuLEbFJW6AhmBg-9npxVX2yKocQBFi9cvY9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8mcGFycjEhfHBhcnIxL2lv'
     assert rune6['unique_id'] == '3'
     rune7 = l1.rpc.createrune(restrictions=[["pnum=0"]])

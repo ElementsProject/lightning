@@ -1150,8 +1150,8 @@ def test_cli(node_factory):
 
 def test_cli_commando(node_factory):
     l1, l2 = node_factory.line_graph(2, fundchannel=False,
-                                     opts={'log-level': 'io', 'allow-deprecated-apis': True})
-    rune = l2.rpc.commando_rune()['rune']
+                                     opts={'log-level': 'io'})
+    rune = l2.rpc.createrune()['rune']
 
     # Invalid peer id.
     val = subprocess.run(['cli/lightning-cli',
