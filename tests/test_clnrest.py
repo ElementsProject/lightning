@@ -476,7 +476,8 @@ def test_old_params(node_factory):
     base_url = f'https://{rest_host}:{rest_port}'
     l1 = node_factory.get_node(options={'rest-port': rest_port,
                                         'rest-host': rest_host,
-                                        'allow-deprecated-apis': True},
+                                        'allow-deprecated-apis': True,
+                                        'i-promise-to-fix-broken-api-user': ['rest-port.clnrest-prefix', 'rest-host.clnrest-prefix']},
                                broken_log=r'DEPRECATED API USED rest-*')
 
     # This might happen really early!
@@ -490,7 +491,8 @@ def test_old_params(node_factory):
     l2 = node_factory.get_node(options={'rest-port': rest_port,
                                         'rest-host': rest_host,
                                         'plugin': plugin,
-                                        'allow-deprecated-apis': True},
+                                        'allow-deprecated-apis': True,
+                                        'i-promise-to-fix-broken-api-user': ['rest-port.clnrest-prefix', 'rest-host.clnrest-prefix']},
                                broken_log=r'DEPRECATED API USED rest-*')
 
     l2.daemon.logsearch_start = 0
