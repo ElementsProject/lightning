@@ -1211,7 +1211,7 @@ static void json_add_b12_invoice(struct command *cmd,
 					    invoice->invoice_fallbacks);
 
 	if (invoice->invoice_features)
-		json_add_hex_talarr(js, "features", invoice->invoice_features);
+		json_add_hex_talarr(js, "invoice_features", invoice->invoice_features);
 
 	if (invoice->invoice_node_id)
 		json_add_pubkey(js, "invoice_node_id", invoice->invoice_node_id);
