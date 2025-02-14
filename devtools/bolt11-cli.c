@@ -142,9 +142,10 @@ static void encode(const tal_t *ctx,
 			b11->timestamp = strtoul(val, &endp, 10);
 			if (!b11->timestamp || *endp != '\0')
 				errx(ERROR_USAGE, "Invalid amount %s", val);
-		/* Allow raw numbered fields */
+		/* Allow raw numbered fields (except 9, that's below) */
 		} else if ((fieldnum = strtoul(fname, &endp, 10)) != 0
-			   && fieldnum < 256) {
+			   && fieldnum < 256
+			   && fieldnum != 9) {
 			struct bolt11_field *extra = tal(b11, struct bolt11_field);
 			extra->tag = fieldnum;
 			extra->data = tal_hexdata(extra, val, strlen(val));
