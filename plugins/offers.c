@@ -62,6 +62,49 @@ struct gossmap *get_gossmap(struct plugin *plugin)
 	return global_gossmap;
 }
 
+/* BOLT #12:
+ *   - if it is connected only by private channels:
+ *     - MUST include `offer_paths` containing one or more paths to the node
+ *       from publicly reachable nodes.
+ */
+bool we_want_blinded_path(struct plugin *plugin)
+{
+	struct node_id local_nodeid;
+	const struct gossmap_node *node;
+	const u8 *nannounce;
+	const struct gossmap *gossmap = get_gossmap(plugin);
+	struct node_id our_id;
+	secp256k1_ecdsa_signature signature;
+	u32 timestamp;
+	u8 *addresses, *features;
+	u8 rgb_color[3], alias[32];
+	struct tlv_node_ann_tlvs *na_tlvs;
+
+	node_id_from_pubkey(&local_nodeid, &id);
+
+	node = gossmap_find_node(gossmap, &local_nodeid);
+	if (!node)
+		return true;
+
+	/* Matt Corallo also suggests we do this (for now) if we don't
+	 * advertize an address to connect to. */
+
+	/* We expect to know our own node announcements, but just in case. */
+	nannounce = gossmap_node_get_announce(tmpctx, gossmap, node);
+	if (!nannounce)
+		return true;
+
+	if (!fromwire_node_announcement(tmpctx, nannounce,
+					&signature, &features,
+					&timestamp,
+					&our_id, rgb_color, alias,
+					&addresses,
+					&na_tlvs))
+		return true;
+
+	return tal_count(fromwire_wireaddr_array(tmpctx, addresses)) == 0;
+}
+
 static struct command_result *finished(struct command *cmd,
 				       const char *method,
 				       const char *buf,

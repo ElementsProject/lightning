@@ -329,10 +329,7 @@ static struct command_result *maybe_add_path(struct command *cmd,
 	 *       publicly reachable nodes.
 	 */
 	if (!offinfo->offer->offer_paths) {
-		struct node_id local_nodeid;
-
-		node_id_from_pubkey(&local_nodeid, &id);
-		if (!gossmap_find_node(get_gossmap(cmd->plugin), &local_nodeid))
+		if (we_want_blinded_path(cmd->plugin))
 			return find_best_peer(cmd, OPT_ONION_MESSAGES,
 					      found_best_peer, offinfo);
 	}
@@ -661,7 +658,6 @@ struct command_result *json_invoicerequest(struct command *cmd,
 	struct tlv_invoice_request *invreq;
 	struct amount_msat *msat;
 	bool *single_use;
-	struct node_id local_nodeid;
 
 	invreq = tlv_invoice_request_new(cmd);
 
@@ -732,8 +728,7 @@ struct command_result *json_invoicerequest(struct command *cmd,
 
 	/* FIXME: We only set blinded path if private, we should allow
 	 * setting otherwise! */
-	node_id_from_pubkey(&local_nodeid, &id);
-	if (!gossmap_find_node(get_gossmap(cmd->plugin), &local_nodeid)) {
+	if (we_want_blinded_path(cmd->plugin)) {
 		struct invrequest_data *idata = tal(cmd, struct invrequest_data);
 		idata->invreq = invreq;
 		idata->single_use = *single_use;

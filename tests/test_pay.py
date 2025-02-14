@@ -5633,8 +5633,10 @@ def test_pay_partial_msat(node_factory, executor):
 
 def test_blindedpath_privchan(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
-                                     opts={'may_reconnect': True})
-    l3 = node_factory.get_node(options={'cltv-final': 120},
+                                     opts={'may_reconnect': True,
+                                           'dev-allow-localhost': None})
+    l3 = node_factory.get_node(options={'cltv-final': 120,
+                                        'dev-allow-localhost': None},
                                may_reconnect=True)
 
     # Private channel.
@@ -5672,6 +5674,25 @@ def test_blindedpath_privchan(node_factory, bitcoind):
     assert decode['invoice_paths'][0]['first_scid_dir'] == chan['direction']
 
     l1.rpc.pay(inv['invoice'])
+
+
+def test_blindedpath_noaddr(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts={'dev-allow-localhost': None})
+
+    # Another channel.
+    l3 = node_factory.get_node()
+
+    node_factory.join_nodes([l2, l3], wait_for_announce=True)
+    # Make sure l3 knows about l1-l2, so will add route hint.
+    wait_for(lambda: l3.rpc.listnodes(l1.info['id']) != {'nodes': []})
+
+    offer = l3.rpc.offer(1000, 'test_pay_blindedpath_nodeaddr')
+    assert only_one(l1.rpc.decode(offer['bolt12'])['offer_paths'])['first_node_id'] == l2.info['id']
+
+    # But l2 has a public address, so doesn't bother.
+    offer = l2.rpc.offer(1000, 'test_pay_blindedpath_nodeaddr')
+    assert 'offer_paths' not in l1.rpc.decode(offer['bolt12'])
 
 
 def test_blinded_reply_path_scid(node_factory):

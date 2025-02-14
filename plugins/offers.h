@@ -92,4 +92,6 @@ struct command_result *find_best_peer_(struct command *cmd,
 					    const struct chaninfo *),	\
 			(arg))
 
+/* Do we want a blinded path from a peer? */
+bool we_want_blinded_path(struct plugin *plugin);
 #endif /* LIGHTNING_PLUGINS_OFFERS_H */
