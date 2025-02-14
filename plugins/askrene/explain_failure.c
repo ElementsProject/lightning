@@ -252,7 +252,7 @@ const char *explain_failure(const tal_t *ctx,
 		const char *explanation;
 		struct short_channel_id_dir scidd;
 		struct gossmap_chan *c;
-		struct amount_msat cap_msat, min, max, htlc_max;
+		struct amount_msat cap_msat, min, max, htlc_max, htlc_min;
 
 		scidd.scid = hops[i].scid;
 		scidd.dir = hops[i].direction;
@@ -260,6 +260,7 @@ const char *explain_failure(const tal_t *ctx,
 		cap_msat = gossmap_chan_get_capacity(rq->gossmap, c);
 		get_constraints(rq, c, scidd.dir, &min, &max);
 		htlc_max = amount_msat(fp16_to_u64(c->half[scidd.dir].htlc_max));
+		htlc_min = amount_msat(fp16_to_u64(c->half[scidd.dir].htlc_min));
 
 		if (!gossmap_chan_set(c, scidd.dir))
 			explanation = "has no gossip";
@@ -274,6 +275,10 @@ const char *explain_failure(const tal_t *ctx,
 			explanation = tal_fmt(tmpctx,
 					      "exceeds htlc_maximum_msat ~%s",
 					      fmt_amount_msat(tmpctx, htlc_max));
+		else if (amount_msat_less(amount, htlc_min))
+			explanation = tal_fmt(tmpctx,
+					      "below htlc_minumum_msat ~%s",
+					      fmt_amount_msat(tmpctx, htlc_min));
 		else
 			continue;
 
