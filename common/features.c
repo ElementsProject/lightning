@@ -24,7 +24,10 @@ const char *feature_place_names[] = {
 	NULL,
 	"node",
 	"channel",
-	"invoice"
+	"invoice",
+	"bolt12_offer",
+	"bolt12_invreq",
+	"bolt12_invoice",
 };
 
 static const struct feature_style feature_styles[] = {

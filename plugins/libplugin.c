@@ -1475,6 +1475,12 @@ static struct feature_set *json_to_feature_set(struct plugin *plugin,
 			p = CHANNEL_FEATURE;
 		else if (json_tok_streq(buf, t, "invoice"))
 			p = BOLT11_FEATURE;
+		else if (json_tok_streq(buf, t, "bolt12_offer"))
+			p = BOLT12_OFFER_FEATURE;
+		else if (json_tok_streq(buf, t, "bolt12_invreq"))
+			p = BOLT12_INVREQ_FEATURE;
+		else if (json_tok_streq(buf, t, "bolt12_invoice"))
+			p = BOLT12_INVOICE_FEATURE;
 		else
 			continue;
 		fset->bits[p] = json_tok_bin_from_hex(fset, buf, t + 1);
