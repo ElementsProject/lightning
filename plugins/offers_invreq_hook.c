@@ -352,11 +352,7 @@ static struct command_result *found_best_peer(struct command *cmd,
 static struct command_result *add_blindedpaths(struct command *cmd,
 					       struct invreq *ir)
 {
-	struct node_id local_nodeid;
-
-	/* Don't bother if we're public */
-	node_id_from_pubkey(&local_nodeid, &id);
-	if (gossmap_find_node(get_gossmap(cmd->plugin), &local_nodeid))
+	if (!we_want_blinded_path(cmd->plugin))
 		create_invoicereq(cmd, ir);
 
 	return find_best_peer(cmd, OPT_ROUTE_BLINDING,
