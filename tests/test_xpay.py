@@ -649,3 +649,30 @@ def test_xpay_no_mpp(node_factory, chainparams):
     assert ret['successful_parts'] == 1
     assert ret['amount_msat'] == AMOUNT
     assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 1
+
+
+def test_xpay_bolt12_no_mpp(node_factory, chainparams):
+    """We should not (yet!) avoid mpp if BOLT12 invoice doesn't say we should"""
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=[{}, {}, {'dev-force-features': -17}, {}])
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
+    node_factory.join_nodes([l1, l4, l3], wait_for_announce=True)
+
+    # Amount needs to be enought that it bothers splitting, but not
+    # so much that it can't pay without mpp.
+    AMOUNT = 500000000
+
+    # l2 will advertize mpp, l3 won't.
+    l2offer = l2.rpc.offer(AMOUNT, 'test_xpay_bolt12_no_mpp')
+    invl2 = l1.rpc.fetchinvoice(l2offer['bolt12'])
+    l3offer = l3.rpc.offer(AMOUNT, 'test_xpay_bolt12_no_mpp')
+    invl3 = l1.rpc.fetchinvoice(l3offer['bolt12'])
+
+    assert l1.rpc.decode(invl2['invoice'])['invoice_features'] == "020000"
+    assert l1.rpc.decode(invl3['invoice'])['invoice_features'] == ""
+
+    # This will MPP ANYWAY, even though MPP is not specified!
+    ret = l1.rpc.xpay(invl3['invoice'])
+    assert ret['failed_parts'] == 0
+    assert ret['successful_parts'] == 2
+    assert ret['amount_msat'] == AMOUNT
+    assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 1
