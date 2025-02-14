@@ -621,7 +621,6 @@ def test_xpay_zeroconf(node_factory):
     l1.rpc.xpay(b12)
 
 
-@pytest.mark.xfail(strict=True)
 def test_xpay_no_mpp(node_factory, chainparams):
     """Suppress mpp, resulting in a single payment part"""
     l1, l2, l3, l4 = node_factory.get_nodes(4)

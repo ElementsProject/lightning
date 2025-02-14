@@ -76,6 +76,8 @@ struct payment {
 	struct amount_msat maxfee;
 	/* Maximum delay on the route we're ok with */
 	u32 *maxdelay;
+	/* Do we have to do it all in a single part? */
+	bool disable_mpp;
 	/* BOLT11 payment secret (NULL for BOLT12, it uses blinded paths) */
 	const struct secret *payment_secret;
 	/* BOLT11 payment metadata (NULL for BOLT12, it uses blinded paths) */
@@ -1192,6 +1194,8 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 	/* Add user-specified layers */
 	for (size_t i = 0; i < tal_count(payment->layers); i++)
 		json_add_string(req->js, NULL, payment->layers[i]);
+	if (payment->disable_mpp)
+		json_add_string(req->js, NULL, "auto.no_mpp_support");
 	json_array_end(req->js);
 	json_add_amount_msat(req->js, "maxfee_msat", maxfee);
 	json_add_u32(req->js, "final_cltv", payment->final_cltv);
@@ -1457,6 +1461,11 @@ preapproveinvoice_succeed(struct command *cmd,
 	payment->unique_id = xpay->counter++;
 	payment->private_layer = tal_fmt(payment,
 					 "xpay-%"PRIu64, payment->unique_id);
+
+	/* Now unique_id is set, we can log this message */
+	if (payment->disable_mpp)
+		payment_log(payment, LOG_INFORM, "No MPP support: this is going to be hard to pay");
+
 	return populate_private_layer(cmd, payment);
 }
 
@@ -1551,6 +1560,7 @@ static struct command_result *json_xpay_core(struct command *cmd,
 			if (payment->payinfos[i]->cltv_expiry_delta > payment->final_cltv)
 				payment->final_cltv = payment->payinfos[i]->cltv_expiry_delta;
 		}
+		payment->disable_mpp = false;
 	} else {
 		struct bolt11 *b11
 			= bolt11_decode(tmpctx, payment->invstring,
@@ -1586,6 +1596,7 @@ static struct command_result *json_xpay_core(struct command *cmd,
 		else
 			payment->full_amount = *msat;
 
+		payment->disable_mpp = !feature_offered(b11->features, OPT_BASIC_MPP);
  		if (amount_msat_is_zero(payment->full_amount))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Cannot pay bolt11 invoice with zero amount");
