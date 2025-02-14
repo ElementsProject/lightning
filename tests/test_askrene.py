@@ -551,6 +551,26 @@ def test_getroutes(node_factory):
                             'amount_msat': 5500005,
                             'delay': 99 + 6}]])
 
+    # We realize that this is impossible in a single path:
+    with pytest.raises(RpcError, match="The shortest path is 0x2x1, but 0x2x1/1 marked disabled by layer auto.no_mpp_support."):
+        l1.rpc.getroutes(source=nodemap[0],
+                         destination=nodemap[2],
+                         amount_msat=10000000,
+                         layers=['auto.no_mpp_support'],
+                         maxfee_msat=1000,
+                         final_cltv=99)
+
+    # But this will work.
+    check_getroute_paths(l1,
+                         nodemap[0],
+                         nodemap[2],
+                         9000000,
+                         [[{'short_channel_id_dir': '0x2x3/1',
+                            'next_node_id': nodemap[2],
+                            'amount_msat': 9000009,
+                            'delay': 99 + 6}]],
+                         layers=['auto.no_mpp_support'])
+
 
 def test_getroutes_fee_fallback(node_factory):
     """Test getroutes call takes into account fees, if excessive"""

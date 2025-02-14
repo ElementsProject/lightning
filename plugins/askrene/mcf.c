@@ -965,7 +965,8 @@ struct flow **minflow(const tal_t *ctx,
 		      const struct gossmap_node *target,
 		      struct amount_msat amount,
 		      u32 mu,
-		      double delay_feefactor)
+		      double delay_feefactor,
+		      bool single_part)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -1048,6 +1049,31 @@ struct flow **minflow(const tal_t *ctx,
 		goto fail;
 	}
 	tal_free(working_ctx);
+
+	/* This is dumb, but if you don't support MPP you don't deserve any
+	 * better.  Pile it into the largest part if not already. */
+	if (single_part) {
+		struct flow *best = flow_paths[0];
+		for (size_t i = 1; i < tal_count(flow_paths); i++) {
+			if (amount_msat_greater(flow_paths[i]->delivers, best->delivers))
+				best = flow_paths[i];
+		}
+		for (size_t i = 0; i < tal_count(flow_paths); i++) {
+			if (flow_paths[i] == best)
+				continue;
+			if (!amount_msat_accumulate(&best->delivers,
+						    flow_paths[i]->delivers)) {
+				rq_log(tmpctx, rq, LOG_BROKEN,
+				       "%s: failed to extract accumulate flow paths %s+%s",
+				       __func__,
+				       fmt_amount_msat(tmpctx, best->delivers),
+				       fmt_amount_msat(tmpctx, flow_paths[i]->delivers));
+				goto fail;
+			}
+		}
+		flow_paths[0] = best;
+		tal_resize(&flow_paths, 1);
+	}
 	return flow_paths;
 
 fail:
