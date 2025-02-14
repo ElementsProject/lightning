@@ -353,7 +353,7 @@ static struct command_result *add_blindedpaths(struct command *cmd,
 					       struct invreq *ir)
 {
 	if (!we_want_blinded_path(cmd->plugin))
-		create_invoicereq(cmd, ir);
+		return create_invoicereq(cmd, ir);
 
 	return find_best_peer(cmd, OPT_ROUTE_BLINDING,
 			      found_best_peer, ir);
