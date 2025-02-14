@@ -115,7 +115,7 @@ bool deprecated_ok_(bool deprecated_apis,
 	level = deprecation(start, end);
 	switch (level) {
 	case DEPRECATED_SOON:
-		return false;
+		return true;
 	case DEPRECATED:
 		/* Complain if we're disallowing becuase it's deprecated */
 		allow = deprecated_apis;
