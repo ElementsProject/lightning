@@ -2792,6 +2792,7 @@ def test_commando(node_factory, executor):
 def test_commando_rune(node_factory):
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={
         'allow-deprecated-apis': True,
+        'broken_log': 'DEPRECATED API USED commando-rune'
     })
 
     rune1 = l1.rpc.commando_rune()
@@ -2931,9 +2932,8 @@ def test_commando_rune(node_factory):
 
 
 def test_commando_listrunes(node_factory):
-    l1 = node_factory.get_node(options={
-        'allow-deprecated-apis': True,
-    })
+    l1 = node_factory.get_node(options={'allow-deprecated-apis': True},
+                               broken_log='DEPRECATED API USED commando-rune|DEPRECATED API USED commando-listrunes')
     rune = l1.rpc.commando_rune()
     assert rune == {
         'rune': 'OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==',
@@ -2975,6 +2975,7 @@ def test_commando_listrunes(node_factory):
 def test_commando_rune_pay_amount(node_factory):
     l1, l2 = node_factory.line_graph(2, opts={
         'allow-deprecated-apis': True,
+        'broken_log': 'DEPRECATED API USED commando-rune'
     })
 
     # This doesn't really work, since amount_msat is illegal if invoice
@@ -3029,6 +3030,7 @@ def test_commando_rune_pay_amount(node_factory):
 def test_commando_blacklist(node_factory):
     l1, l2 = node_factory.get_nodes(2, opts={
         'allow-deprecated-apis': True,
+        'broken_log': 'DEPRECATED API USED commando-rune|DEPRECATED API USED commando-blacklist|DEPRECATED API USED commando-listrunes',
     })
 
     l2.connect(l1)
@@ -3150,9 +3152,9 @@ def test_commando_stress(node_factory, executor):
 
 def test_commando_badrune(node_factory):
     """Test invalid UTF-8 encodings in rune: used to make us kill the offers plugin which implements decode, as it gave bad utf8!"""
-    l1 = node_factory.get_node(options={
-        'allow-deprecated-apis': True,
-    })
+    l1 = node_factory.get_node(options={'allow-deprecated-apis': True},
+                               broken_log='DEPRECATED API USED commando-rune')
+
     l1.rpc.decode('5zi6-ugA6hC4_XZ0R7snl5IuiQX4ugL4gm9BQKYaKUU9gCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl')
     rune = l1.rpc.commando_rune(restrictions="readonly")
 
