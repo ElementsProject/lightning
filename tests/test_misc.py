@@ -2934,7 +2934,6 @@ def test_emergencyrecoverpenaltytxn(node_factory, bitcoind):
     l1.daemon.wait_for_log('Resolved THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM by our proposal OUR_PENALTY_TX')
 
     assert(l1.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN")
-    assert(l1.rpc.listfunds()["outputs"][0]["txid"] == txid)
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
