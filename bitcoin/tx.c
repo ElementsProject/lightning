@@ -548,9 +548,13 @@ void bitcoin_tx_finalize(struct bitcoin_tx *tx)
 	assert(bitcoin_tx_check(tx));
 }
 
-struct bitcoin_tx *bitcoin_tx_with_psbt(const tal_t *ctx, struct wally_psbt *psbt STEALS)
+struct bitcoin_tx *bitcoin_tx_with_psbt(const tal_t *ctx, struct wally_psbt *psbt TAKES)
 {
 	size_t locktime;
+
+	if (!taken(psbt))
+		psbt = clone_psbt(NULL, psbt);
+
 	wally_psbt_get_locktime(psbt, &locktime);
 	struct bitcoin_tx *tx = bitcoin_tx(ctx, chainparams,
 					   psbt->num_inputs,

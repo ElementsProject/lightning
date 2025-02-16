@@ -501,7 +501,7 @@ struct bitcoin_tx *db_col_psbt_to_tx(const tal_t *ctx, struct db_stmt *stmt, con
 	struct wally_psbt *psbt = db_col_psbt(ctx, stmt, colname);
 	if (!psbt)
 		return NULL;
-	return bitcoin_tx_with_psbt(ctx, psbt);
+	return bitcoin_tx_with_psbt(ctx, take(psbt));
 }
 
 struct channel_type *db_col_channel_type(const tal_t *ctx, struct db_stmt *stmt,
