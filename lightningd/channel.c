@@ -220,12 +220,10 @@ void inflight_set_last_tx(struct channel_inflight *inflight,
 		          struct bitcoin_tx *last_tx,
 		          const struct bitcoin_signature last_sig)
 {
-	struct wally_psbt *last_tx_psbt_clone;
 	assert(inflight->last_tx == NULL);
 	assert(last_tx);
 
-	last_tx_psbt_clone = clone_psbt(inflight, last_tx->psbt);
-	inflight->last_tx = bitcoin_tx_with_psbt(inflight, last_tx_psbt_clone);
+	inflight->last_tx = bitcoin_tx_with_psbt(inflight, last_tx->psbt);
 	inflight->last_sig = last_sig;
 }
 

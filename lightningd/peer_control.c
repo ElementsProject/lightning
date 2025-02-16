@@ -2105,8 +2105,6 @@ void update_channel_from_inflight(struct lightningd *ld,
 				  struct channel *channel,
 				  const struct channel_inflight *inflight)
 {
-	struct wally_psbt *psbt_copy;
-
 	channel->funding = inflight->funding->outpoint;
 	channel->funding_sats = inflight->funding->total_funds;
 
@@ -2141,10 +2139,9 @@ void update_channel_from_inflight(struct lightningd *ld,
 							channel->opener,
 							&inflight->lease_blockheight_start);
 
-	/* Make a 'clone' of this tx */
-	psbt_copy = clone_psbt(channel, inflight->last_tx->psbt);
 	channel_set_last_tx(channel,
-			    bitcoin_tx_with_psbt(channel, psbt_copy),
+			    bitcoin_tx_with_psbt(channel,
+			    			 inflight->last_tx->psbt),
 			    &inflight->last_sig);
 
 	/* If the remote side rotated their pubkey during splice, update now */
