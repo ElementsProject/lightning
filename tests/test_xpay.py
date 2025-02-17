@@ -653,7 +653,8 @@ def test_xpay_no_mpp(node_factory, chainparams):
 
 def test_xpay_bolt12_no_mpp(node_factory, chainparams):
     """We should not (yet!) avoid mpp if BOLT12 invoice doesn't say we should"""
-    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=[{}, {}, {'dev-force-features': -17}, {}])
+    # l4 needs dev-allow-localhost so it considers itself to have an advertized address, and doesn't create a blinded path from l2/l4.
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=[{}, {}, {'dev-force-features': -17, 'dev-allow-localhost': None}, {}])
     node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
     node_factory.join_nodes([l1, l4, l3], wait_for_announce=True)
 
