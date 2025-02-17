@@ -359,12 +359,12 @@ pip install poetry
 If you don't have bitcoind installed locally you'll need to install that as well:
 
 ```shell
-brew install berkeley-db4 boost miniupnpc pkg-config libevent
+brew install boost cmake pkg-config libevent
 git clone https://github.com/bitcoin/bitcoin
 cd bitcoin
-./autogen.sh
-./configure
-make src/bitcoind src/bitcoin-cli && make install
+cmake -B build
+cmake --build build --target bitcoind bitcoin-cli
+cmake --install build --component bitcoind && cmake --install build --component bitcoin-cli
 ```
 
 Clone lightning:
