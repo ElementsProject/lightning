@@ -11,6 +11,7 @@
 static void *cln_wally_tal(size_t size)
 {
 	assert(wally_tal_ctx);
+	assert(tal_check(wally_tal_ctx, "cln_wally_tal ctx check"));
 	return tal_arr_label(wally_tal_ctx, u8, size, "cln_wally_tal");
 }
 

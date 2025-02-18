@@ -10,7 +10,7 @@
 #include <errno.h>
 #include <locale.h>
 
-const tal_t *wally_tal_ctx;
+const tal_t *wally_tal_ctx = NULL;
 secp256k1_context *secp256k1_ctx;
 const tal_t *tmpctx;
 
@@ -35,8 +35,14 @@ void tal_wally_start(void)
 void tal_wally_end(const tal_t *parent)
 {
 	tal_t *p;
+	if (!wally_tal_ctx) {
+		/* This makes valgrind show us backtraces! */
+		*(u8 *)wally_tal_ctx = '\0';
+		abort();
+	}
 	while ((p = tal_first(wally_tal_ctx)) != NULL) {
-		/* Refuse to make a loop! */
+		/* Refuse to make a loop!
+		 * Did you mean to use tal_wally_end_onto? */
 		assert(p != parent);
 		/* Don't steal backtrace from wally_tal_ctx! */
 		if (tal_name(p) && streq(tal_name(p), "backtrace")) {
@@ -45,6 +51,7 @@ void tal_wally_end(const tal_t *parent)
 		}
 		tal_steal(parent, p);
 	}
+	assert(tal_check(wally_tal_ctx, "tal_wally_end ctx check"));
 	wally_tal_ctx = tal_free(wally_tal_ctx);
 }
 
