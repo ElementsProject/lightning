@@ -32622,6 +32622,14 @@
             "description": [
               "Value of the config variable to be set or updated."
             ]
+          },
+          "transient": {
+            "type": "boolean",
+            "added": "v25.02",
+            "default": "False",
+            "description": [
+              "If set, this change does NOT try to alter the configuration files, so the change will be reverted on any restart."
+            ]
           }
         }
       },

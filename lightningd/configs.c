@@ -550,7 +550,8 @@ static void configvar_save(struct lightningd *ld,
 
 static struct command_result *setconfig_success(struct command *cmd,
 						const struct opt_table *ot,
-						const char *val)
+						const char *val,
+						bool transient)
 {
 	struct json_stream *response;
 	const char **names, *confline;
@@ -565,7 +566,8 @@ static struct command_result *setconfig_success(struct command *cmd,
 	else
 		confline = names[0];
 
-	configvar_save(cmd->ld, names, confline);
+	if (!transient)
+		configvar_save(cmd->ld, names, confline);
 
 	response = json_stream_success(cmd);
 	json_object_start(response, "config");
@@ -584,10 +586,12 @@ static struct command_result *json_setconfig(struct command *cmd,
 	const char *val;
 	char *err;
 	void *arg;
+	bool *transient;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("config", param_opt_dynamic_config, &ot),
 			 p_opt("val", param_string, &val),
+			 p_opt_def("transient", param_bool, &transient, false),
 			 NULL))
 		return command_param_failed();
 
@@ -608,7 +612,7 @@ static struct command_result *json_setconfig(struct command *cmd,
 					    "%s does not take a value",
 					    ot->names + 2);
 		if (is_plugin_opt(ot))
-			return plugin_set_dynamic_opt(cmd, ot, NULL,
+			return plugin_set_dynamic_opt(cmd, ot, NULL, *transient,
 						      setconfig_success);
 		err = ot->cb(arg);
 	} else {
@@ -618,7 +622,7 @@ static struct command_result *json_setconfig(struct command *cmd,
 					    "%s requires a value",
 					    ot->names + 2);
 		if (is_plugin_opt(ot))
-			return plugin_set_dynamic_opt(cmd, ot, val,
+			return plugin_set_dynamic_opt(cmd, ot, val, *transient,
 						      setconfig_success);
 		err = ot->cb_arg(val, arg);
 	}
@@ -628,7 +632,7 @@ static struct command_result *json_setconfig(struct command *cmd,
 				    "Error setting %s: %s", ot->names + 2, err);
 	}
 
-	return setconfig_success(cmd, ot, val);
+	return setconfig_success(cmd, ot, val, *transient);
 }
 
 static const struct json_command setconfig_command = {

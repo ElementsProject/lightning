@@ -3392,6 +3392,8 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SetconfigRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub transient: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub val: Option<String>,
 	    pub config: String,
 	}
