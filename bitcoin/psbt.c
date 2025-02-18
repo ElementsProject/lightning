@@ -102,6 +102,79 @@ struct wally_psbt *combine_psbt(const tal_t *ctx,
 	return combined_psbt;
 }
 
+static bool parent_or_grandparent(const tal_t *goal, const tal_t *child)
+{
+	const tal_t *parent = tal_parent(child);
+	if (!parent)
+		return false;
+	return parent == goal || parent_or_grandparent(goal, parent);
+}
+
+#define NULL_OR_MATCH_P(item, parent) \
+	((item) == NULL || parent_or_grandparent((parent), (item)))
+
+static void audit_map(const tal_t *ctx, const struct wally_map *map)
+{
+	assert(NULL_OR_MATCH_P(map->items, ctx));
+	for (size_t i = 0; i < map->num_items; i++) {
+		assert(NULL_OR_MATCH_P(map->items[i].key, ctx));
+		assert(NULL_OR_MATCH_P(map->items[i].value, ctx));
+		assert(!map->items[i].key
+			|| tal_bytelen(map->items[i].key)
+				== map->items[i].key_len);
+		assert(!map->items[i].value
+			|| tal_bytelen(map->items[i].value)
+				== map->items[i].value_len);
+	}
+}
+
+void audit_psbt(const tal_t *ctx, const struct wally_psbt *psbt)
+{
+	assert(psbt);
+	assert(NULL_OR_MATCH_P(psbt->tx, ctx));
+	assert(NULL_OR_MATCH_P(psbt->inputs, ctx));
+	assert(NULL_OR_MATCH_P(psbt->outputs, ctx));
+	audit_map(ctx, &psbt->unknowns);
+	audit_map(ctx, &psbt->global_xpubs);
+#ifndef WALLY_ABI_NO_ELEMENTS
+	audit_map(ctx, &psbt->global_scalars);
+#endif
+	for (size_t i = 0; i < psbt->num_inputs; i++) {
+		assert(NULL_OR_MATCH_P(psbt->inputs[i].utxo, ctx));
+		assert(NULL_OR_MATCH_P(psbt->inputs[i].witness_utxo, ctx));
+		assert(NULL_OR_MATCH_P(psbt->inputs[i].final_witness, ctx));
+		audit_map(ctx, &psbt->inputs[i].keypaths);
+		audit_map(ctx, &psbt->inputs[i].signatures);
+		audit_map(ctx, &psbt->inputs[i].unknowns);
+		audit_map(ctx, &psbt->inputs[i].preimages);
+		audit_map(ctx, &psbt->inputs[i].psbt_fields);
+		audit_map(ctx, &psbt->inputs[i].taproot_leaf_signatures);
+		audit_map(ctx, &psbt->inputs[i].taproot_leaf_scripts);
+		audit_map(ctx, &psbt->inputs[i].taproot_leaf_hashes);
+		audit_map(ctx, &psbt->inputs[i].taproot_leaf_paths);
+		/* DTODO: Investigate if taproot wally maps have child maps */
+#ifndef WALLY_ABI_NO_ELEMENTS
+		assert(NULL_OR_MATCH_P(psbt->inputs[i].pegin_tx, ctx));
+		assert(NULL_OR_MATCH_P(psbt->inputs[i].pegin_witness, ctx));
+		audit_map(ctx, &psbt->inputs[i].pset_fields);
+#endif
+	}
+	for (size_t i = 0; i < psbt->num_outputs; i++) {
+		assert(NULL_OR_MATCH_P(psbt->outputs[i].script, ctx));
+		assert(psbt->outputs[i].script_len
+			== tal_bytelen(psbt->outputs[i].script));
+		audit_map(ctx, &psbt->outputs[i].keypaths);
+		audit_map(ctx, &psbt->outputs[i].unknowns);
+		audit_map(ctx, &psbt->outputs[i].psbt_fields);
+		audit_map(ctx, &psbt->outputs[i].taproot_tree);
+		audit_map(ctx, &psbt->outputs[i].taproot_leaf_hashes);
+		audit_map(ctx, &psbt->outputs[i].taproot_leaf_paths);
+#ifndef WALLY_ABI_NO_ELEMENTS
+		audit_map(ctx, &psbt->outputs[i].pset_fields);
+#endif
+	}
+}
+
 bool psbt_is_finalized(const struct wally_psbt *psbt)
 {
 	size_t is_finalized;
