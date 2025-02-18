@@ -106,10 +106,12 @@ void psbt_finalize_input(const tal_t *ctx,
 					       redeem_script->value,
 					       redeem_script->value_len, 0);
 		u8 *final_scriptsig =
-			bitcoin_scriptsig_redeem(NULL,
+			bitcoin_scriptsig_redeem(ctx,
 						 take(redeemscript));
+		tal_wally_start();
 		wally_psbt_input_set_final_scriptsig(in, final_scriptsig, tal_bytelen(final_scriptsig));
-		wally_psbt_input_set_redeem_script(in, tal_arr(NULL, u8, 0), 0);
+		wally_psbt_input_set_redeem_script(in, tal_arr(in, u8, 0), 0);
+		tal_wally_end(ctx);
 	}
 }
 

@@ -4236,7 +4236,7 @@ static void splice_initiator_user_update(struct peer *peer, const u8 *inmsg)
 
 	/* Peer may have modified our PSBT so we return it to the user here */
 	outmsg = towire_channeld_splice_confirmed_update(NULL,
-							 ictx->current_psbt,
+							 peer->splicing->current_psbt,
 							 false, false);
 	wire_sync_write(MASTER_FD, take(outmsg));
 	audit_psbt(peer->splicing->current_psbt, peer->splicing->current_psbt);
@@ -4277,7 +4277,7 @@ static void splice_initiator_user_signed(struct peer *peer, const u8 *inmsg)
 		return;
 	}
 
-	if (!fromwire_channeld_splice_signed(inflight, inmsg, &signed_psbt,
+	if (!fromwire_channeld_splice_signed(tmpctx, inmsg, &signed_psbt,
 					     &peer->splicing->force_sign_first))
 		master_badmsg(WIRE_CHANNELD_SPLICE_SIGNED, inmsg);
 
