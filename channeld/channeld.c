@@ -3677,6 +3677,8 @@ static void resume_splice_negotiation(struct peer *peer,
 							      new_output_index);
 		wire_sync_write(MASTER_FD, take(msg));
 	}
+
+	audit_psbt(current_psbt, current_psbt);
 }
 
 static struct inflight *inflights_new(struct peer *peer)
@@ -3995,10 +3997,15 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 	outmsg = towire_channeld_splice_confirmed_init(NULL, psbt);
 	wire_sync_write(MASTER_FD, take(outmsg));
 
+	audit_psbt(psbt, psbt);
+
 	/* We reset current_psbt to empty as now it represends the difference
 	 * what we've sent our peer so far */
 	tal_free(peer->splicing->current_psbt);
 	peer->splicing->current_psbt = create_psbt(peer->splicing, 0, 0, 0);
+
+	audit_psbt(peer->splicing->current_psbt, peer->splicing->current_psbt);
+	assert(tal_parent(peer->splicing->current_psbt) != tmpctx);
 }
 
 /* This occurs when the user has marked they are done making changes to the
@@ -4102,6 +4109,8 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	new_inflight->force_sign_first = peer->splicing->force_sign_first;
 	new_inflight->locked_scid = NULL;
 
+	audit_psbt(ictx->current_psbt, ictx->current_psbt);
+
 	/* Switch over to using inflight psbt. This allows us to be reentrant.
 	 * On restart we *will* have inflight psbt but we will not have any
 	 * normal in-memory copy of the psbt: peer->splicing/ictx->current_psbt.
@@ -4144,6 +4153,9 @@ static void splice_initiator_user_finalized(struct peer *peer)
 							 true,
 							 !sign_first);
 	wire_sync_write(MASTER_FD, take(outmsg));
+
+	audit_psbt(new_inflight->psbt, new_inflight->psbt);
+	assert(tal_parent(new_inflight->psbt) != tmpctx);
 }
 
 /* During a splice the user may call splice_update mulitple times adding
@@ -4227,6 +4239,8 @@ static void splice_initiator_user_update(struct peer *peer, const u8 *inmsg)
 							 ictx->current_psbt,
 							 false, false);
 	wire_sync_write(MASTER_FD, take(outmsg));
+	audit_psbt(peer->splicing->current_psbt, peer->splicing->current_psbt);
+	assert(tal_parent(peer->splicing->current_psbt) != tmpctx);
 }
 
 /* This occurs when the user has signed the final version of the PSBT. At this
@@ -4317,7 +4331,13 @@ static void splice_initiator_user_signed(struct peer *peer, const u8 *inmsg)
 	sign_first = do_i_sign_first(peer, inflight->psbt, TX_INITIATOR,
 				     inflight->force_sign_first);
 
+	audit_psbt(inflight->psbt, inflight->psbt);
+	assert(tal_parent(inflight->psbt) != tmpctx);
+
 	resume_splice_negotiation(peer, false, false, true, sign_first);
+
+	audit_psbt(inflight->psbt, inflight->psbt);
+	assert(tal_parent(inflight->psbt) != tmpctx);
 }
 
 /* This occurs once our 'stfu' transition was successful. */
