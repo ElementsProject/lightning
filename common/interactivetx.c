@@ -588,7 +588,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 
 			tal_wally_start();
 			wally_psbt_input_set_utxo(in, tx->wtx);
-			tal_wally_end(ictx);
+			tal_wally_end(ictx->current_psbt);
 
 			psbt_input_set_serial_id(ictx->current_psbt,
 						 in, serial_id);
