@@ -4267,6 +4267,15 @@ static void splice_initiator_user_signed(struct peer *peer, const u8 *inmsg)
 		wire_sync_write(MASTER_FD, take(msg));
 		return;
 	}
+	if (!inflight) {
+		msg = towire_channeld_splice_state_error(NULL, "Can't sign a"
+							 " splice until the"
+							 " splice is finalized"
+							 " using"
+							 " splice_update");
+		wire_sync_write(MASTER_FD, take(msg));
+		return;
+	}
 
 	if (!fromwire_channeld_splice_signed(inflight, inmsg, &signed_psbt,
 					     &peer->splicing->force_sign_first))
