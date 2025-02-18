@@ -52,7 +52,8 @@ def test_shadow_routing(node_factory):
     Note there is a very low (0.5**10) probability that it fails.
     """
     # We need l3 for random walk
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts={'dev-allow-localhost': None})
 
     amount = 10000
     total_amount = 0
@@ -76,7 +77,7 @@ def test_mpp(node_factory):
     Try paying 1.2M sats from 1 to 6.
     """
     opts = [
-        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0, 'dev-allow-localhost': None},
     ]
     l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=opts * 6)
     node_factory.join_nodes(
@@ -843,7 +844,8 @@ def test_description(node_factory):
 
 
 def test_offers(node_factory):
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts={'dev-allow-localhost': None})
     offer = l3.rpc.offer("1000sat", "test_renepay_offers")['bolt12']
     invoice = l1.rpc.fetchinvoice(offer)['invoice']
     response = l1.rpc.call("renepay", {"invstring": invoice})

@@ -4438,7 +4438,8 @@ def test_fetchinvoice(node_factory, bitcoind):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
                                          opts=[{},
                                                {},
-                                               {'broken_log': "plugin-offers: Failed invreq.*Unknown command 'currencyconvert'"}])
+                                               {'broken_log': "plugin-offers: Failed invreq.*Unknown command 'currencyconvert'",
+                                                'dev-allow-localhost': None}])
 
     # Simple offer first.
     offer1 = l3.rpc.call('offer', {'amount': '2msat',
@@ -4534,6 +4535,7 @@ def test_fetchinvoice(node_factory, bitcoind):
                                    'description': 'offer3'})
     l4 = node_factory.get_node()
     l4.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    time.sleep(0.25)
     # ... even if we can't find ourselves.
     l4.rpc.call('fetchinvoice', {'offer': offer3['bolt12']})
     # ... even if we know it from gossmap
@@ -4585,7 +4587,8 @@ def test_fetchinvoice(node_factory, bitcoind):
 
 def test_fetchinvoice_recurrence(node_factory, bitcoind):
     """Test for our recurrence extension"""
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[{}, {'dev-allow-localhost': None}, {}])
 
     # Recurring offer.
     offer3 = l2.rpc.call('offer', {'amount': '1msat',
@@ -6419,9 +6422,10 @@ def test_injectpaymentonion_selfpay(node_factory, executor):
 
 def test_injectpaymentonion_blindedpath(node_factory, executor):
     l1, l2 = node_factory.line_graph(2,
-                                     wait_for_announce=True)
+                                     wait_for_announce=True,
+                                     # avoids trying to create a blinded path to next node
+                                     opts=[{}, {'dev-allow-localhost': None}])
     blockheight = l1.rpc.getinfo()['blockheight']
-
     # Test bolt12, with stub blinded path.
     offer = l2.rpc.offer('any')
     inv7 = l1.rpc.fetchinvoice(offer['bolt12'], '1000msat')
