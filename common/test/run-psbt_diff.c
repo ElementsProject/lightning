@@ -162,7 +162,7 @@ int main(int argc, const char *argv[])
 	tal_wally_start();
 	if (wally_psbt_clone_alloc(end, flags, &start) != WALLY_OK)
 		abort();
-	tal_wally_end(tmpctx);
+	tal_wally_end_onto(tmpctx, start, struct wally_psbt);
 	diff_count(start, end, 0, 0);
 	diff_count(end, start, 0, 0);
 
@@ -175,7 +175,7 @@ int main(int argc, const char *argv[])
 	tal_wally_start();
 	if (wally_psbt_clone_alloc(end, flags, &start) != WALLY_OK)
 		abort();
-	tal_wally_end(tmpctx);
+	tal_wally_end_onto(tmpctx, start, struct wally_psbt);
 	add_in_out_with_serial(end, 5, 2);
 	diff_count(start, end, 1, 0);
 	diff_count(end, start, 0, 1);
@@ -184,7 +184,7 @@ int main(int argc, const char *argv[])
 	tal_wally_start();
 	if (wally_psbt_clone_alloc(end, flags, &start) != WALLY_OK)
 		abort();
-	tal_wally_end(tmpctx);
+	tal_wally_end_onto(tmpctx, start, struct wally_psbt);
 	add_in_out_with_serial(end, 15, 3);
 	diff_count(start, end, 1, 0);
 	diff_count(end, start, 0, 1);
@@ -193,7 +193,7 @@ int main(int argc, const char *argv[])
 	tal_wally_start();
 	if (wally_psbt_clone_alloc(end, flags, &start) != WALLY_OK)
 		abort();
-	tal_wally_end(tmpctx);
+	tal_wally_end_onto(tmpctx, start, struct wally_psbt);
 	add_in_out_with_serial(end, 11, 4);
 	diff_count(start, end, 1, 0);
 	diff_count(end, start, 0, 1);
@@ -205,7 +205,7 @@ int main(int argc, const char *argv[])
 	tal_wally_start();
 	if (wally_psbt_clone_alloc(end, flags, &start) != WALLY_OK)
 		abort();
-	tal_wally_end(tmpctx);
+	tal_wally_end_onto(tmpctx, start, struct wally_psbt);
 	psbt_rm_output(end, 0);
 	psbt_rm_input(end, 0);
 	add_in_out_with_serial(end, 5, 5);
@@ -219,6 +219,7 @@ int main(int argc, const char *argv[])
 	psbt_input_set_unknown(start, &start->inputs[1], key, val, tal_bytelen(val));
 
 	/* Swap locations */
+	assert(end->inputs[1].unknowns.num_items > 1);
 	struct wally_map_item tmp;
 	tmp = end->inputs[1].unknowns.items[0];
 	end->inputs[1].unknowns.items[0] = end->inputs[1].unknowns.items[1];
@@ -231,6 +232,9 @@ int main(int argc, const char *argv[])
 	change_serials();
 
 	check_psbt_comparison();
+
+	audit_psbt(start, start);
+	audit_psbt(end, end);
 
 	/* No memory leaks please */
 	common_shutdown();
