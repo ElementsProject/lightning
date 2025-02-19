@@ -392,10 +392,10 @@
       "response": {
         "forwards": [
           {
-            "created_index": 12,
-            "updated_index": 7,
+            "created_index": 13,
+            "updated_index": 8,
             "in_channel": "109x1x1",
-            "in_htlc_id": 19,
+            "in_htlc_id": 20,
             "out_channel": "123x1x1",
             "out_htlc_id": 2,
             "in_msat": 50000501,
@@ -407,10 +407,10 @@
             "resolved_time": 1738500000
           },
           {
-            "created_index": 13,
-            "updated_index": 8,
+            "created_index": 14,
+            "updated_index": 9,
             "in_channel": "109x1x1",
-            "in_htlc_id": 20,
+            "in_htlc_id": 21,
             "out_channel": "123x1x1",
             "out_htlc_id": 3,
             "in_msat": 50000501,
