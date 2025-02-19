@@ -882,24 +882,10 @@ REGISTER_PAYMENT_MODIFIER(collect_results, collect_results_cb);
  *
  * The default ending of a payment.
  */
-static struct command_result *end_done(struct command *cmd UNUSED,
-				       const char *method UNUSED,
-				       const char *buf UNUSED,
-				       const jsmntok_t *result UNUSED,
-				       struct payment *payment)
+static struct command_result *end_cb(struct payment *payment)
 {
 	return payment_fail(payment, PAY_STOPPED_RETRYING,
 			    "Payment execution ended without success.");
-}
-static struct command_result *end_cb(struct payment *payment)
-{
-	struct command *cmd = payment_command(payment);
-	assert(cmd);
-	struct out_req *req =
-	    jsonrpc_request_start(cmd, "waitblockheight", end_done,
-				  payment_rpc_failure, payment);
-	json_add_num(req->js, "blockheight", 0);
-	return send_outreq(req);
 }
 
 REGISTER_PAYMENT_MODIFIER(end, end_cb);
