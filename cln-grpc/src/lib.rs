@@ -1,6 +1,8 @@
 // Huge json!() macros require lots of recursion
 #![recursion_limit = "1024"]
 
+pub use tonic;
+
 #[cfg(feature = "server")]
 mod convert;
 pub mod pb;
