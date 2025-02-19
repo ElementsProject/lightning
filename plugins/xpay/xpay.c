@@ -153,6 +153,9 @@ struct attempt {
 
 	/* Secrets, so we can decrypt error onions */
 	struct secret *shared_secrets;
+
+	/* Preimage, iff we succeeded. */
+	const struct preimage *preimage;
 };
 
 /* Wrapper for pending commands (ignores return) */
@@ -313,6 +316,71 @@ send_payment_req(struct command *aux_cmd,
 	return send_outreq(req);
 }
 
+/* For self-pay, we don't have hops. */
+static struct amount_msat initial_sent(const struct attempt *attempt)
+{
+	if (tal_count(attempt->hops) == 0)
+		return attempt->delivers;
+	return attempt->hops[0].amount_in;
+}
+
+static u32 initial_cltv_delta(const struct attempt *attempt)
+{
+	if (tal_count(attempt->hops) == 0)
+		return attempt->payment->final_cltv;
+	return attempt->hops[0].cltv_value_in;
+}
+
+/* We total up all attempts which succeeded in the past (if we're not
+ * in slow mode, that's only the one which just succeeded), and then we
+ * assume any others currently-in-flight will also succeed. */
+static struct amount_msat total_sent(const struct payment *payment)
+{
+	struct amount_msat total = AMOUNT_MSAT(0);
+	const struct attempt *i;
+
+	list_for_each(&payment->past_attempts, i, list) {
+		if (!i->preimage)
+			continue;
+		if (!amount_msat_accumulate(&total, initial_sent(i)))
+			abort();
+	}
+
+	list_for_each(&payment->current_attempts, i, list) {
+		if (!amount_msat_accumulate(&total, initial_sent(i)))
+			abort();
+	}
+	return total;
+}
+
+static void payment_succeeded(struct payment *payment,
+			      const struct preimage *preimage)
+{
+	struct json_stream *js;
+
+	/* Only succeed once */
+	if (payment->cmd) {
+		js = jsonrpc_stream_success(payment->cmd);
+		json_add_preimage(js, "payment_preimage", preimage);
+		json_add_amount_msat(js, "amount_msat", payment->amount);
+		json_add_amount_msat(js, "amount_sent_msat", total_sent(payment));
+		/* Pay's schema expects these fields */
+		if (payment->pay_compat) {
+			json_add_u64(js, "parts", payment->total_num_attempts);
+			json_add_pubkey(js, "destination", &payment->destination);
+			json_add_sha256(js, "payment_hash", &payment->payment_hash);
+			json_add_string(js, "status", "complete");
+			json_add_timeabs(js, "created_at", payment->start_time);
+		} else {
+			json_add_u64(js, "failed_parts", payment->num_failures);
+			json_add_u64(js, "successful_parts",
+				     payment->total_num_attempts - payment->num_failures);
+		}
+		was_pending(command_finished(payment->cmd, js));
+		payment->cmd = NULL;
+	}
+}
+
 static void payment_failed(struct command *aux_cmd,
 			   struct payment *payment,
 			   enum jsonrpc_errcode code,
@@ -342,65 +410,6 @@ static void payment_failed(struct command *aux_cmd,
 	/* If no commands outstanding, we can now clean up */
 	if (tal_count(payment->requests) == 0)
 		cleanup(aux_cmd, payment);
-}
-
-/* For self-pay, we don't have hops. */
-static struct amount_msat initial_sent(const struct attempt *attempt)
-{
-	if (tal_count(attempt->hops) == 0)
-		return attempt->delivers;
-	return attempt->hops[0].amount_in;
-}
-
-static u32 initial_cltv_delta(const struct attempt *attempt)
-{
-	if (tal_count(attempt->hops) == 0)
-		return attempt->payment->final_cltv;
-	return attempt->hops[0].cltv_value_in;
-}
-
-/* The current attempt is the first to succeed: we assume all the ones
- * in progress will succeed too */
-static struct amount_msat total_sent(const struct payment *payment,
-				     const struct attempt *attempt)
-{
-	struct amount_msat total = initial_sent(attempt);
-	const struct attempt *i;
-
-	list_for_each(&payment->current_attempts, i, list) {
-		if (!amount_msat_accumulate(&total, initial_sent(i)))
-			abort();
-	}
-	return total;
-}
-
-static void payment_succeeded(struct payment *payment,
-			      const struct preimage *preimage,
-			      const struct attempt *attempt)
-{
-	struct json_stream *js;
-
-	/* Only succeed once */
-	if (payment->cmd) {
-		js = jsonrpc_stream_success(payment->cmd);
-		json_add_preimage(js, "payment_preimage", preimage);
-		json_add_amount_msat(js, "amount_msat", payment->amount);
-		json_add_amount_msat(js, "amount_sent_msat", total_sent(payment, attempt));
-		/* Pay's schema expects these fields */
-		if (payment->pay_compat) {
-			json_add_u64(js, "parts", payment->total_num_attempts);
-			json_add_pubkey(js, "destination", &payment->destination);
-			json_add_sha256(js, "payment_hash", &payment->payment_hash);
-			json_add_string(js, "status", "complete");
-			json_add_timeabs(js, "created_at", payment->start_time);
-		} else {
-			json_add_u64(js, "failed_parts", payment->num_failures);
-			json_add_u64(js, "successful_parts",
-				     payment->total_num_attempts - payment->num_failures);
-		}
-		was_pending(command_finished(payment->cmd, js));
-		payment->cmd = NULL;
-	}
 }
 
 /* We usually add things we learned to the global layer, but not
@@ -807,7 +816,8 @@ static struct command_result *injectpaymentonion_succeeded(struct command *aux_c
 	list_add(&payment->past_attempts, &attempt->list);
 
 	attempt_info(attempt, "Success: preimage=%s", fmt_preimage(tmpctx, &preimage));
-	payment_succeeded(payment, &preimage, attempt);
+	attempt->preimage = tal_dup(attempt, struct preimage, &preimage);
+	payment_succeeded(payment, &preimage);
 
 	/* And we're no longer using the path. */
 	return unreserve_path(aux_cmd, attempt);
@@ -978,6 +988,7 @@ static struct attempt *new_attempt(struct payment *payment,
 
 	attempt->payment = payment;
 	attempt->delivers = delivers;
+	attempt->preimage = NULL;
 	attempt->partid = ++payment->total_num_attempts;
 	attempt->hops = tal_dup_talarr(attempt, struct hop, hops);
 	list_add_tail(&payment->current_attempts, &attempt->list);
