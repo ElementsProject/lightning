@@ -5,6 +5,7 @@
 #include <common/bolt11.h>
 #include <common/gossmods_listpeerchannels.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <plugins/renepay/json.h>
 #include <plugins/renepay/mcf.h>
 #include <plugins/renepay/mods.h>
@@ -1167,6 +1168,38 @@ static struct command_result *createlayer_fail(struct command *cmd,
 	return payment_continue(payment);
 }
 
+static struct command_result *remove_layer_done(struct command *cmd,
+						const char *method UNUSED,
+						const char *buf UNUSED,
+						const jsmntok_t *tok UNUSED,
+						struct payment *payment UNUSED)
+{
+	return timer_complete(cmd);
+}
+static struct command_result *remove_layer_fail(struct command *cmd,
+						const char *method,
+						const char *buf,
+						const jsmntok_t *tok,
+						struct payment *payment)
+{
+	plugin_log(cmd->plugin, LOG_UNUSUAL, "%s failed: '%.*s'", method,
+		   json_tok_full_len(tok), json_tok_full(buf, tok));
+	return remove_layer_done(cmd, method, buf, tok, payment);
+}
+
+static struct command_result *remove_payment_layer(struct command *cmd,
+						   struct payment *payment)
+{
+
+	struct out_req *req = jsonrpc_request_start(cmd, "askrene-remove-layer",
+						    remove_layer_done,
+						    remove_layer_fail, payment);
+	json_add_string(req->js, "layer", payment->payment_layer);
+	plugin_log(cmd->plugin, LOG_DBG, "removing payment layer: %s",
+		   payment->payment_layer);
+	return send_outreq(req);
+}
+
 static struct command_result *initpaymentlayer_cb(struct payment *payment)
 {
 	struct command *cmd = payment_command(payment);
@@ -1175,8 +1208,12 @@ static struct command_result *initpaymentlayer_cb(struct payment *payment)
 		createlayer_done, createlayer_fail, payment);
 	json_add_string(req->js, "layer", payment->payment_layer);
 	json_add_bool(req->js, "persistent", false);
-	// FIXME: add automatic expiration? see PR 7963
-	// json_add_u64(req->js, "expiration", 24*60*60); // 24 hours
+	/* Remove this payment layer after one hour. If the plugin crashes
+	 * unexpectedly, we might "leak" by forgetting to remove the layer, but
+	 * the layer is not persistent anyways, therefore restarting CLN will
+	 * remove it. */
+	notleak(global_timer(cmd->plugin, time_from_sec(3600),
+			     remove_payment_layer, payment));
 	return send_outreq(req);
 }
 
