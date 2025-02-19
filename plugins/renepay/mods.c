@@ -1122,17 +1122,29 @@ REGISTER_PAYMENT_MODIFIER(pendingsendpays, pendingsendpays_cb);
  * Reduce the knowledge of the network as time goes by.
  */
 
+static struct command_result *age_done(struct command *cmd,
+				       const char *method UNUSED,
+				       const char *buf UNUSED,
+				       const jsmntok_t *result UNUSED,
+				       struct payment *payment)
+{
+	return payment_continue(payment);
+}
+
 static struct command_result *knowledgerelax_cb(struct payment *payment)
 {
 	const u64 now_sec = time_now().ts.tv_sec;
-	enum renepay_errorcode err = uncertainty_relax(
-	    pay_plugin->uncertainty, now_sec - pay_plugin->last_time);
-	if (err)
-		plugin_err(pay_plugin->plugin,
-			   "uncertainty_relax failed with error %s",
-			   renepay_errorcode_name(err));
+	// const u64 time_delta = now_sec - pay_plugin->last_time;
 	pay_plugin->last_time = now_sec;
-	return payment_continue(payment);
+	/* FIXME: implement a Markovian state relaxation, the time delta is all
+	 * we need to provide. */
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
+	struct out_req *req = jsonrpc_request_start(
+	    cmd, "askrene-age", age_done, payment_rpc_failure, payment);
+	json_add_string(req->js, "layer", RENEPAY_LAYER);
+	json_add_u64(req->js, "cutoff", now_sec - TIMER_FORGET_SEC);
+	return send_outreq(req);
 }
 
 REGISTER_PAYMENT_MODIFIER(knowledgerelax, knowledgerelax_cb);
