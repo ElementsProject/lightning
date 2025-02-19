@@ -1200,16 +1200,19 @@ REGISTER_PAYMENT_MODIFIER(initpaymentlayer, initpaymentlayer_cb);
  * FIXME: shall we set these threshold parameters as plugin options?
  */
 
+static struct command_result *channelfilter_done(struct command *cmd,
+						 struct payment *payment)
+{
+	return payment_continue(payment);
+}
+
 static struct command_result *channelfilter_cb(struct payment *payment)
 {
 	assert(payment);
 	assert(pay_plugin->gossmap);
 	const double HTLC_MAX_FRACTION = 0.01; // 1%
 	const u64 HTLC_MAX_STOP_MSAT = 1000000000; // 1M sats
-
 	u64 disabled_count = 0;
-
-
 	u64 htlc_max_threshold = HTLC_MAX_FRACTION * payment->payment_info
 		.amount.millisatoshis; /* Raw: a fraction of this amount. */
 	/* Don't exclude channels with htlc_max above HTLC_MAX_STOP_MSAT even if
@@ -1217,7 +1220,11 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 	 * HTLC_MAX_FRACTION. */
 	htlc_max_threshold = MIN(htlc_max_threshold, HTLC_MAX_STOP_MSAT);
 
-	gossmap_apply_localmods(pay_plugin->gossmap, payment->local_gossmods);
+	struct command *cmd = payment_command(payment);
+	struct request_batch *batch = request_batch_new(
+	    cmd, NULL, log_payment_err, channelfilter_done, payment);
+	struct out_req *req;
+
 	for (const struct gossmap_node *node =
 		 gossmap_first_node(pay_plugin->gossmap);
 	     node; node = gossmap_next_node(pay_plugin->gossmap, node)) {
@@ -1232,19 +1239,24 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 				    .scid = gossmap_chan_scid(
 					pay_plugin->gossmap, chan),
 				    .dir = dir};
-				disabledmap_add_channel(payment->disabledmap,
-							scidd);
+				req = add_to_batch(cmd, batch,
+						   "askrene-update-channel");
+				json_add_string(req->js, "layer",
+						payment->payment_layer);
+				json_add_short_channel_id_dir(
+				    req->js, "short_channel_id_dir", scidd);
+				json_add_bool(req->js, "enabled", false);
+				send_outreq(req);
 				disabled_count++;
 			}
 		}
 	}
-	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
 	// FIXME: prune the network over other parameters, eg. capacity,
 	// fees, ...
 	plugin_log(pay_plugin->plugin, LOG_DBG,
 		   "channelfilter: disabling %" PRIu64 " channels.",
 		   disabled_count);
-	return payment_continue(payment);
+	return batch_done(cmd, batch);
 }
 
 REGISTER_PAYMENT_MODIFIER(channelfilter, channelfilter_cb);
