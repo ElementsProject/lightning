@@ -48,14 +48,12 @@ class Method(object):
     """
     def __init__(self, name: str, func: Callable[..., JSONType],
                  mtype: MethodType = MethodType.RPCMETHOD,
-                 deprecated: Union[bool, List[str]] = None,
-                 description: str = None):
+                 deprecated: Union[bool, List[str]] = None):
         self.name = name
         self.func = func
         self.mtype = mtype
         self.background = False
         self.deprecated = deprecated
-        self.description = description
         self.before: List[str] = []
         self.after: List[str] = []
 
@@ -82,9 +80,6 @@ class Method(object):
             # Keyword arg
             else:
                 args.append("[%s]" % arg)
-
-        if self.description is not None:
-            args.append("\n%s" % self.description)
 
         return " ".join(args)
 
@@ -354,8 +349,7 @@ class Plugin(object):
 
     def add_method(self, name: str, func: Callable[..., Any],
                    background: bool = False,
-                   deprecated: Optional[Union[bool, List[str]]] = None,
-                   description: str = None) -> None:
+                   deprecated: Optional[Union[bool, List[str]]] = None) -> None:
         """Add a plugin method to the dispatch table.
 
         The function will be expected at call time (see `_dispatch`)
@@ -392,7 +386,7 @@ class Plugin(object):
             )
 
         # Register the function with the name
-        method = Method(name, func, MethodType.RPCMETHOD, deprecated, description)
+        method = Method(name, func, MethodType.RPCMETHOD, deprecated)
         method.background = background
         self.methods[name] = method
 
@@ -506,36 +500,25 @@ class Plugin(object):
         else:
             return self.options[name].default
 
-    def async_method(self, method_name: str, category: Optional[str] = None,
-                     desc: Optional[str] = None,
-                     long_desc: Optional[str] = None,
+    def async_method(self, method_name: str,
                      deprecated: Optional[Union[bool, List[str]]] = None) -> NoneDecoratorType:
         """Decorator to add an async plugin method to the dispatch table.
 
         Internally uses add_method.
         """
         def decorator(f: Callable[..., None]) -> Callable[..., None]:
-            for attr, attr_name in [(category, "Category"), (desc, "Description"), (long_desc, "Long description")]:
-                if attr is not None:
-                    self.log("{} is deprecated but defined in method {}; it will be ignored by Core Lightning".format(attr_name, method_name), level="warn")
             self.add_method(method_name, f, background=True, deprecated=deprecated)
             return f
         return decorator
 
-    def method(self, method_name: str, category: Optional[str] = None,
-               desc: Optional[str] = None,
-               long_desc: Optional[str] = None,
-               deprecated: Union[bool, List[str]] = None,
-               description: str = None) -> JsonDecoratorType:
+    def method(self, method_name: str,
+               deprecated: Union[bool, List[str]] = None) -> JsonDecoratorType:
         """Decorator to add a plugin method to the dispatch table.
 
         Internally uses add_method.
         """
         def decorator(f: Callable[..., JSONType]) -> Callable[..., JSONType]:
-            for attr, attr_name in [(category, "Category"), (desc, "Description"), (long_desc, "Long description")]:
-                if attr is not None:
-                    self.log("{} is deprecated but defined in method {}; it will be ignored by Core Lightning".format(attr_name, method_name), level="warn")
-            self.add_method(method_name, f, background=False, deprecated=deprecated, description=f.__doc__)
+            self.add_method(method_name, f, background=False, deprecated=deprecated)
             return f
         return decorator
 
@@ -948,16 +931,9 @@ class Plugin(object):
                 doc = "Undocumented RPC method from a plugin."
             doc = re.sub('\n+', ' ', doc)
 
-            # For compatibility with lightningd prior to 24.08, we must
-            # provide a description.  Ignored by 24.08 onwards,
-            description = method.description
-            if description is None:
-                description = ""
-
             methods.append({
                 'name': method.name,
-                'usage': method.get_usage(),
-                'description': description,
+                'usage': method.get_usage()
             })
 
         manifest = {
