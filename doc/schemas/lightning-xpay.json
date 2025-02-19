@@ -157,7 +157,7 @@
       "response": {
         "payment_preimage": "paymentpreimgxp2020202020202020202020202020202020202020202020202",
         "amount_msat": 1000,
-        "amount_sent_msat": 1000,
+        "amount_sent_msat": 1001,
         "failed_parts": 0,
         "successful_parts": 1
       }
