@@ -34,12 +34,12 @@ static bool peer_backup;
 /* Helper to fetch out SCB from the RPC call */
 static bool json_to_scb_chan(const char *buffer,
 			     const jsmntok_t *tok,
-			     struct scb_chan ***channels)
+			     struct modern_scb_chan ***channels)
 {
 	size_t i;
 	const jsmntok_t *t;
 	*channels = tok->size ? tal_arr(tmpctx,
-					struct scb_chan *,
+					struct modern_scb_chan *,
 					tok->size) : NULL;
 
 	json_for_each_arr(i, t, tok) {
@@ -52,9 +52,9 @@ static bool json_to_scb_chan(const char *buffer,
 								   t)));
 		size_t scblen_tmp = tal_count(scb_tmp);
 
-		(*channels)[i] = fromwire_scb_chan(tmpctx,
-						   &scb_tmp,
-						   &scblen_tmp);
+		(*channels)[i] = fromwire_modern_scb_chan(tmpctx,
+							  &scb_tmp,
+							  &scblen_tmp);
 	}
 
 	return true;
@@ -63,15 +63,15 @@ static bool json_to_scb_chan(const char *buffer,
 /* This writes encrypted static backup in the recovery file */
 static void write_scb(struct plugin *p,
                       int fd,
-		      struct scb_chan **scb_chan_arr)
+		      struct modern_scb_chan **scb_chan_arr)
 {
 	u32 timestamp = time_now().ts.tv_sec;
 
-	u8 *decrypted_scb = towire_static_chan_backup(tmpctx,
-						      VERSION,
-						      timestamp,
-						      cast_const2(const struct scb_chan **,
-						      		  scb_chan_arr));
+	u8 *decrypted_scb = towire_static_chan_backup_with_tlvs(tmpctx,
+						      		VERSION,
+						      		timestamp,
+						      		cast_const2(const struct modern_scb_chan **,
+						      		  	    scb_chan_arr));
 
 	u8 *encrypted_scb = tal_arr(tmpctx,
 				    u8,
@@ -110,7 +110,7 @@ static void write_scb(struct plugin *p,
 
 /* checks if the SCB file exists, creates a new one in case it doesn't. */
 static void maybe_create_new_scb(struct plugin *p,
-				 struct scb_chan **channels)
+				 struct modern_scb_chan **channels)
 {
 
 	/* Note that this is opened for write-only, even though the permissions
@@ -234,6 +234,19 @@ static struct command_result *after_recover_rpc(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
+static struct modern_scb_chan *convert_from_legacy(const tal_t *ctx, struct legacy_scb_chan *legacy_scb_chan) {
+	struct modern_scb_chan *modern_scb_tlv = tal(ctx, struct modern_scb_chan);
+	modern_scb_tlv->id = legacy_scb_chan->id;
+	modern_scb_tlv->addr = legacy_scb_chan->addr;
+	modern_scb_tlv->node_id = legacy_scb_chan->node_id;
+	modern_scb_tlv->cid = legacy_scb_chan->cid;
+	modern_scb_tlv->funding = legacy_scb_chan->funding;
+	modern_scb_tlv->funding_sats = legacy_scb_chan->funding_sats;
+	modern_scb_tlv->type = legacy_scb_chan->type;
+	modern_scb_tlv->tlvs = tlv_scb_tlvs_new(ctx);
+	return modern_scb_tlv;
+}
+
 /* Recovers the channels by making RPC to `recoverchannel` */
 static struct command_result *json_emergencyrecover(struct command *cmd,
 						    const char *buf,
@@ -242,24 +255,32 @@ static struct command_result *json_emergencyrecover(struct command *cmd,
 	struct out_req *req;
 	u64 version;
 	u32 timestamp;
-	struct scb_chan **scb;
+	struct legacy_scb_chan **scb;
+	struct modern_scb_chan **scb_tlvs;
 
 	if (!param(cmd, buf, params, NULL))
 		return command_param_failed();
 
 	u8 *res = decrypt_scb(cmd->plugin);
-
+	bool is_tlvs = false;
 	if (!fromwire_static_chan_backup(cmd,
                                          res,
                                          &version,
                                          &timestamp,
                                          &scb)) {
-		plugin_err(cmd->plugin, "Corrupted SCB!");
+		if(!fromwire_static_chan_backup_with_tlvs(cmd,
+							  res,
+							  &version,
+							  &timestamp,
+							  &scb_tlvs)) {
+			plugin_err(cmd->plugin, "Corrupted SCB!");
+		}
+		is_tlvs = true;
 	}
 
-	if (version != VERSION) {
+	if ((version & 0x5555555555555555ULL) != (VERSION & 0x5555555555555555ULL)) {
 		plugin_err(cmd->plugin,
-                           "Incompatible SCB file version on disk, contact the admin!");
+                           "Incompatible emergencyrecover version: loaded version %"PRIu64", expected version %"PRIu64". Contact the admin!", version, VERSION);
 	}
 
 	req = jsonrpc_request_start(cmd, "recoverchannel",
@@ -267,17 +288,31 @@ static struct command_result *json_emergencyrecover(struct command *cmd,
 				    forward_error, NULL);
 
 	json_array_start(req->js, "scb");
-	for (size_t i=0; i<tal_count(scb); i++) {
-		u8 *scb_hex = tal_arr(cmd, u8, 0);
-		towire_scb_chan(&scb_hex,scb[i]);
-		json_add_hex(req->js, NULL, scb_hex, tal_bytelen(scb_hex));
+	if (is_tlvs) {
+		for (size_t i=0; i<tal_count(scb_tlvs); i++) {
+			u8 *scb_hex = tal_arr(cmd, u8, 0);
+			towire_modern_scb_chan(&scb_hex,scb_tlvs[i]);
+			json_add_hex_talarr(req->js, NULL, scb_hex);
+		}
+	} else {
+		plugin_notify_message(cmd, LOG_DBG, "Processing legacy emergency.recover file format. "
+				      "Please migrate to the latest file format for improved "
+				      "compatibility and fund recovery.");
+
+		for (size_t i=0; i<tal_count(scb); i++) {
+			u8 *scb_hex = tal_arr(cmd, u8, 0);
+			struct modern_scb_chan *tmp_scb = convert_from_legacy(cmd, scb[i]);
+			towire_modern_scb_chan(&scb_hex, tmp_scb);
+			json_add_hex_talarr(req->js, NULL, scb_hex);
+		}
 	}
+
 	json_array_end(req->js);
 
 	return send_outreq(req);
 }
 
-static void update_scb(struct plugin *p, struct scb_chan **channels)
+static void update_scb(struct plugin *p, struct modern_scb_chan **channels)
 {
 
 	/* If the temp file existed before, remove it */
@@ -363,8 +398,7 @@ static struct command_result *peer_after_listdatastore(struct command *cmd,
                                     NULL);
 
         json_add_node_id(req->js, "node_id", nodeid);
-        json_add_hex(req->js, "msg", payload,
-                     tal_bytelen(payload));
+	json_add_hex_talarr(req->js, "msg", payload);
 
         return send_outreq(req);
 }
@@ -401,6 +435,17 @@ struct info {
 	size_t idx;
 };
 
+/* We refresh scb from both channel_state_changed notification and
+   on_commitment_revocation hook.  Both have to be terminated
+   differently. */
+static struct command_result *notification_or_hook_done(struct command *cmd)
+{
+	if (cmd->type == COMMAND_TYPE_NOTIFICATION)
+		return notification_handled(cmd);
+	assert(cmd->type == COMMAND_TYPE_HOOK);
+	return command_hook_success(cmd);
+}
+
 static struct command_result *after_send_scb_single(struct command *cmd,
 						    const char *method,
 						    const char *buf,
@@ -411,7 +456,7 @@ static struct command_result *after_send_scb_single(struct command *cmd,
 	if (--info->idx != 0)
 		return command_still_pending(cmd);
 
-	return notification_handled(cmd);
+	return notification_or_hook_done(cmd);
 }
 
 static struct command_result *after_send_scb_single_fail(struct command *cmd,
@@ -424,7 +469,7 @@ static struct command_result *after_send_scb_single_fail(struct command *cmd,
 	if (--info->idx != 0)
 		return command_still_pending(cmd);
 
-	return notification_handled(cmd);
+	return notification_or_hook_done(cmd);
 }
 
 static struct command_result *after_listpeers(struct command *cmd,
@@ -441,7 +486,7 @@ static struct command_result *after_listpeers(struct command *cmd,
         u8 *serialise_scb;
 
 	if (!peer_backup)
-		return notification_handled(cmd);
+		return notification_or_hook_done(cmd);
 
 	serialise_scb = towire_peer_storage(cmd,
 					    get_file_data(tmpctx, cmd->plugin));
@@ -477,15 +522,14 @@ static struct command_result *after_listpeers(struct command *cmd,
 						    info);
 
 			json_add_node_id(req->js, "node_id", &node_id);
-			json_add_hex(req->js, "msg", serialise_scb,
-				     tal_bytelen(serialise_scb));
+			json_add_hex_talarr(req->js, "msg", serialise_scb);
 			info->idx++;
 			send_outreq(req);
 		}
 	}
 
 	if (info->idx == 0)
-		return notification_handled(cmd);
+		return notification_or_hook_done(cmd);
 	return command_still_pending(cmd);
 }
 
@@ -495,7 +539,7 @@ static struct command_result *after_staticbackup(struct command *cmd,
 					         const jsmntok_t *params,
 					         void *cb_arg UNUSED)
 {
-	struct scb_chan **scb_chan;
+	struct modern_scb_chan **scb_chan;
 	const jsmntok_t *scbs = json_get_member(buf, params, "scb");
 	struct out_req *req;
 	json_to_scb_chan(buf, scbs, &scb_chan);
@@ -507,7 +551,7 @@ static struct command_result *after_staticbackup(struct command *cmd,
 	req = jsonrpc_request_start(cmd,
                                     "listpeers",
                                     after_listpeers,
-                                    &forward_error,
+                                    plugin_broken_cb,
                                     info);
 	return send_outreq(req);
 }
@@ -528,13 +572,13 @@ static struct command_result *json_state_changed(struct command *cmd,
 		req = jsonrpc_request_start(cmd,
                                             "staticbackup",
                                             after_staticbackup,
-                                            &forward_error,
+					    log_broken_and_complete,
                                             NULL);
 
 		return send_outreq(req);
 	}
 
-	return notification_handled(cmd);
+	return notification_or_hook_done(cmd);
 }
 
 
@@ -580,8 +624,7 @@ static struct command_result *peer_connected(struct command *cmd,
                                     node_id);
 
         json_add_node_id(req->js, "node_id", node_id);
-        json_add_hex(req->js, "msg", serialise_scb,
-                     tal_bytelen(serialise_scb));
+	json_add_hex_talarr(req->js, "msg", serialise_scb);
 
         return send_outreq(req);
 }
@@ -705,7 +748,8 @@ static struct command_result *after_latestscb(struct command *cmd,
 {
         u64 version;
 	u32 timestamp;
-	struct scb_chan **scb;
+	struct modern_scb_chan **scb_tlvs;
+	struct legacy_scb_chan **scb;
         struct json_stream *response;
         struct out_req *req;
 
@@ -717,29 +761,54 @@ static struct command_result *after_latestscb(struct command *cmd,
 		return command_finished(cmd, response);
         }
 
+	bool is_tlvs = false;
 	if (!fromwire_static_chan_backup(cmd,
                                          res,
                                          &version,
                                          &timestamp,
                                          &scb)) {
-		plugin_err(cmd->plugin, "Corrupted SCB on disk!");
+		if(!fromwire_static_chan_backup_with_tlvs(cmd,
+							  res,
+							  &version,
+							  &timestamp,
+							  &scb_tlvs)) {
+			plugin_err(cmd->plugin, "Corrupted SCB!");
+		}
+		is_tlvs = true;
 	}
 
-	if (version != VERSION) {
+	if ((version & 0x5555555555555555ULL) != (VERSION & 0x5555555555555555ULL)) {
 		plugin_err(cmd->plugin,
-                           "Incompatible version, Contact the admin!");
+                           "Incompatible emergencyrecover version: loaded version %"PRIu64", expected version %"PRIu64". Contact the admin!", version, VERSION);
 	}
 
-        req = jsonrpc_request_start(cmd, "recoverchannel",
+	req = jsonrpc_request_start(cmd, "recoverchannel",
 				    after_recover_rpc,
 				    &forward_error, NULL);
 
 	json_array_start(req->js, "scb");
-	for (size_t i=0; i<tal_count(scb); i++) {
-		u8 *scb_hex = tal_arr(cmd, u8, 0);
-		towire_scb_chan(&scb_hex,scb[i]);
-		json_add_hex(req->js, NULL, scb_hex, tal_bytelen(scb_hex));
+	if (is_tlvs) {
+		for (size_t i=0; i<tal_count(scb_tlvs); i++) {
+			u8 *scb_hex = tal_arr(cmd, u8, 0);
+			towire_modern_scb_chan(&scb_hex,scb_tlvs[i]);
+			json_add_hex_talarr(req->js, NULL, scb_hex);
+		}
+	} else {
+		for (size_t i=0; i<tal_count(scb); i++) {
+			u8 *scb_hex = tal_arr(cmd, u8, 0);
+			struct modern_scb_chan *tmp_scb_tlv = tal(cmd, struct modern_scb_chan);
+			tmp_scb_tlv->id = scb[i]->id;
+			tmp_scb_tlv->addr = scb[i]->addr;
+			tmp_scb_tlv->cid = scb[i]->cid;
+			tmp_scb_tlv->funding = scb[i]->funding;
+			tmp_scb_tlv->funding_sats = scb[i]->funding_sats;
+			tmp_scb_tlv->type = scb[i]->type;
+			tmp_scb_tlv->tlvs = tlv_scb_tlvs_new(cmd);
+			towire_modern_scb_chan(&scb_hex, tmp_scb_tlv);
+			json_add_hex_talarr(req->js, NULL, scb_hex);
+		}
 	}
+
 	json_array_end(req->js);
 
 	return send_outreq(req);
@@ -771,16 +840,34 @@ static struct command_result *json_getemergencyrecoverdata(struct command *cmd,
 
 	filedata = get_file_data(tmpctx, cmd->plugin);
 	response = jsonrpc_stream_success(cmd);
-	json_add_hex(response, "filedata", filedata, tal_bytelen(filedata));
+	json_add_hex_talarr(response, "filedata", filedata);
+
 
 	return command_finished(cmd, response);
+}
+
+static struct command_result *on_commitment_revocation(struct command *cmd,
+						       const char *buf,
+						       const jsmntok_t *params)
+{
+	struct out_req *req;
+
+	plugin_log(cmd->plugin, LOG_DBG, "Updated `emergency.recover` state after receiving new commitment secret.");
+
+	req = jsonrpc_request_start(cmd,
+				    "staticbackup",
+				    after_staticbackup,
+				    log_broken_and_complete,
+				    NULL);
+
+	return send_outreq(req);
 }
 
 static const char *init(struct command *init_cmd,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
 {
-	struct scb_chan **scb_chan;
+	struct modern_scb_chan **scb_chan;
 	const char *info = "scb secret";
 	u8 *info_hex = tal_dup_arr(tmpctx, u8, (u8*)info, strlen(info), 0);
 	u8 *features;
@@ -817,7 +904,7 @@ static const struct plugin_notification notifs[] = {
 	{
 		"channel_state_changed",
 		json_state_changed,
-	}
+	},
 };
 
 static const struct plugin_hook hooks[] = {
@@ -829,6 +916,10 @@ static const struct plugin_hook hooks[] = {
 		"peer_connected",
 		peer_connected,
 	},
+	{
+		"commitment_revocation",
+		on_commitment_revocation,
+	}
 };
 
 static const struct plugin_command commands[] = {
