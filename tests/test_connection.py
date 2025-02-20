@@ -4756,7 +4756,6 @@ def test_onionmessage_forward_fail(node_factory, bitcoind):
     l2.daemon.is_in_log('plugin-onionmessage_forward_fail_notification.py: Received onionmessage_forward_fail')
 
 
-@pytest.mark.xfail(strict=True)
 def test_private_channel_no_reconnect(node_factory):
     l1, l2 = node_factory.line_graph(2,
                                      announce_channels=False,
