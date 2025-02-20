@@ -3873,6 +3873,11 @@ def test_sql(node_factory, bitcoind):
                         {'name': 'dust_limit_msat',
                          'type': 'msat'},
                         {'name': 'max_total_htlc_in_msat',
+                         'type': 'msat',
+                         'deprecated': 'v25.02'},
+                        {'name': 'their_max_htlc_value_in_flight_msat',
+                         'type': 'msat'},
+                        {'name': 'our_max_htlc_value_in_flight_msat',
                          'type': 'msat'},
                         {'name': 'their_reserve_msat',
                          'type': 'msat'},
@@ -4163,6 +4168,8 @@ def test_sql(node_factory, bitcoind):
             assert row[0] > 0
 
         for col in schema['columns']:
+            if 'deprecated' in col:
+                continue
             val = only_one(l2.rpc.sql("SELECT {} FROM {};".format(col['name'], table))['rows'][0])
             # Could be null
             if val is None:
@@ -4250,16 +4257,19 @@ def test_sql(node_factory, bitcoind):
 
 
 def test_sql_deprecated(node_factory, bitcoind):
-    # deprecated-apis breaks schemas...
-    l1 = node_factory.get_node(start=False, options={'allow-deprecated-apis': True})
-    l1.rpc.check_request_schemas = False
-    l1.start()
+    l1, l2 = node_factory.line_graph(2, opts=[{'allow-deprecated-apis': True}, {}])
 
-    # FIXME: we have no fields which have been deprecated since sql plugin was
-    # introduced.  When we do, add them here! (I manually tested a fake one)
+    # l1 allows it, l2 doesn't
+    ret = l1.rpc.sql("SELECT max_total_htlc_in_msat FROM peerchannels;")
+    assert ret == {'rows': [[-1]]}
 
-    #  ret = l1.rpc.sql("SELECT funding_local_msat, funding_remote_msat FROM peerchannels;")
-    #  assert ret == {'rows': []}
+    # It's deprecated in l2, so that will fail!
+    with pytest.raises(RpcError, match="Deprecated column table peerchannels.max_total_htlc_in_msat"):
+        l2.rpc.sql("SELECT max_total_htlc_in_msat FROM peerchannels;")
+
+    # But we can use a wildcard fine.
+    ret = l2.rpc.sql("SELECT COUNT(*) FROM peerchannels;")
+    assert ret == {'rows': [[1]]}
 
 
 def test_plugin_persist_option(node_factory):
