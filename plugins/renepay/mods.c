@@ -343,6 +343,7 @@ static void gossmod_cb(struct gossmap_localmods *mods,
 		       struct amount_msat htlcmin,
 		       struct amount_msat htlcmax,
 		       struct amount_msat spendable,
+		       struct amount_msat max_total_htlc,
 		       struct amount_msat fee_base,
 		       u32 fee_proportional,
 		       u16 cltv_delta,
@@ -354,9 +355,10 @@ static void gossmod_cb(struct gossmap_localmods *mods,
 	struct amount_msat min, max;
 
 	if (scidd->dir == node_id_idx(self, peer)) {
-		/* local channels can send up to what's spendable */
+		/* local channels can send up to what's spendable but there is a
+		 * limit also the total amount in-flight */
 		min = AMOUNT_MSAT(0);
-		max = spendable;
+		max = amount_msat_min(spendable, max_total_htlc);
 	} else {
 		/* remote channels can send up no more than spendable */
 		min = htlcmin;

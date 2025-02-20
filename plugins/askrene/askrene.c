@@ -699,6 +699,7 @@ static void add_localchan(struct gossmap_localmods *mods,
 			  struct amount_msat htlcmin,
 			  struct amount_msat htlcmax,
 			  struct amount_msat spendable,
+			  struct amount_msat max_total_htlc,
 			  struct amount_msat fee_base,
 			  u32 fee_proportional,
 			  u16 cltv_delta,
@@ -759,8 +760,10 @@ static void add_localchan(struct gossmap_localmods *mods,
 		additional_cost_htable_add(info->additional_costs, phc);
 	}
 
+	/* can't send more than expendable and no more than max_total_htlc */
+	struct amount_msat max_msat = amount_msat_min(spendable, max_total_htlc);
 	/* Known capacity on local channels (ts = max) */
-	layer_add_constraint(info->local_layer, scidd, UINT64_MAX, &spendable, &spendable);
+	layer_add_constraint(info->local_layer, scidd, UINT64_MAX, &max_msat, &max_msat);
 }
 
 static struct command_result *
