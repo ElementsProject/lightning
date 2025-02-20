@@ -546,6 +546,10 @@ command, so they invoices can also be paid onchain.
 
   Setting this makes `xpay` intercept simply `pay` commands (default `false`).
 
+* **xpay-slow-mode**=*BOOL* [plugin `xpay`, *dynamic*]
+
+  Setting this makes `xpay` wait until all parts have failed/succeeded before returning.  Usually this is unnecessary, as xpay will return on the first success (we have the preimage, if they don't take all the parts that's their problem) or failure (the destination could succeed another part, but it would mean it was only partially paid).  The default is `false`.
+
 ### Networking options
 
 Note that for simple setups, the implicit *autolisten* option does the

@@ -36,6 +36,8 @@ struct xpay {
 	u32 blockheight;
 	/* Do we take over "pay" commands? */
 	bool take_over_pay;
+	/* Are we to wait for all parts to complete before returning? */
+	bool slow_mode;
 };
 
 static struct xpay *xpay_of(struct plugin *plugin)
@@ -353,13 +355,26 @@ static struct amount_msat total_sent(const struct payment *payment)
 	return total;
 }
 
+/* Should we finish command now? */
+static bool should_finish_command(const struct payment *payment)
+{
+	const struct xpay *xpay = xpay_of(payment->plugin);
+
+	if (!xpay->slow_mode)
+		return true;
+
+	/* In slow mode, only finish when no remaining attempts
+	 * (caller has already moved it to past_attempts). */
+	return list_empty(&payment->current_attempts);
+}
+
 static void payment_succeeded(struct payment *payment,
 			      const struct preimage *preimage)
 {
 	struct json_stream *js;
 
 	/* Only succeed once */
-	if (payment->cmd) {
+	if (payment->cmd && should_finish_command(payment)) {
 		js = jsonrpc_stream_success(payment->cmd);
 		json_add_preimage(js, "payment_preimage", preimage);
 		json_add_amount_msat(js, "amount_msat", payment->amount);
@@ -388,6 +403,18 @@ static void payment_failed(struct command *aux_cmd,
 			   ...)
 	PRINTF_FMT(4,5);
 
+/* Returns NULL if no past attempts succeeded, otherwise the preimage */
+static const struct preimage *
+any_attempts_succeeded(const struct payment *payment)
+{
+	struct attempt *attempt;
+	list_for_each(&payment->past_attempts, attempt, list) {
+		if (attempt->preimage)
+			return attempt->preimage;
+	}
+	return NULL;
+}
+
 static void payment_failed(struct command *aux_cmd,
 			   struct payment *payment,
 			   enum jsonrpc_errcode code,
@@ -402,9 +429,18 @@ static void payment_failed(struct command *aux_cmd,
 	va_end(args);
 
 	/* Only fail once */
-	if (payment->cmd) {
-		was_pending(command_fail(payment->cmd, code, "%s", msg));
-		payment->cmd = NULL;
+	if (payment->cmd && should_finish_command(payment)) {
+		const struct preimage *preimage;
+
+		/* Corner case: in slow_mode, an earlier one could have
+		 * theoretically succeeded. */
+		preimage = any_attempts_succeeded(payment);
+		if (preimage)
+			payment_succeeded(payment, preimage);
+		else {
+			was_pending(command_fail(payment->cmd, code, "%s", msg));
+			payment->cmd = NULL;
+		}
 	}
 
 	/* If no commands outstanding, we can now clean up */
@@ -2057,6 +2093,7 @@ int main(int argc, char *argv[])
 	setup_locale();
 	xpay = tal(NULL, struct xpay);
 	xpay->take_over_pay = false;
+	xpay->slow_mode = false;
 	plugin_main(argv, init, take(xpay),
 		    PLUGIN_RESTARTABLE, true, NULL,
 		    commands, ARRAY_SIZE(commands),
@@ -2066,5 +2103,8 @@ int main(int argc, char *argv[])
 		    plugin_option_dynamic("xpay-handle-pay", "bool",
 					  "Make xpay take over pay commands it can handle.",
 					  bool_option, bool_jsonfmt, &xpay->take_over_pay),
+		    plugin_option_dynamic("xpay-slow-mode", "bool",
+					  "Wait until all parts have completed before returning success or failure",
+					  bool_option, bool_jsonfmt, &xpay->slow_mode),
 		    NULL);
 }

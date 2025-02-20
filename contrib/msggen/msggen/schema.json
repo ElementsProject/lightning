@@ -21207,6 +21207,12 @@
                 "source": "default",
                 "plugin": "/root/lightning/plugins/cln-xpay",
                 "dynamic": true
+              },
+              "xpay-slow-mode": {
+                "value_bool": false,
+                "source": "default",
+                "plugin": "/root/lightning/plugins/cln-xpay",
+                "dynamic": true
               }
             }
           }
