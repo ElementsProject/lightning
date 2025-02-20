@@ -4754,3 +4754,30 @@ def test_onionmessage_forward_fail(node_factory, bitcoind):
     l1.rpc.fetchinvoice(offer['bolt12'])
 
     l2.daemon.is_in_log('plugin-onionmessage_forward_fail_notification.py: Received onionmessage_forward_fail')
+
+
+@pytest.mark.xfail(strict=True)
+def test_private_channel_no_reconnect(node_factory):
+    l1, l2 = node_factory.line_graph(2,
+                                     announce_channels=False,
+                                     wait_for_announce=False,
+                                     opts={'dev-no-reconnect-private': None,
+                                           'may_reconnect': True})
+    l3, l4 = node_factory.line_graph(2,
+                                     announce_channels=True,
+                                     wait_for_announce=False,
+                                     opts={'dev-no-reconnect-private': None,
+                                           'may_reconnect': True})
+
+    # test for 'private' flag in rpc output
+    assert only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['private']
+
+    # l1 won't even *try* to reconnect on restart.
+    l1.restart()
+
+    # l3 will.
+    l3.restart()
+
+    wait_for(lambda: only_one(l3.rpc.listpeers()['peers'])['connected'] is True)
+
+    assert only_one(l1.rpc.listpeers()['peers'])['connected'] is False
