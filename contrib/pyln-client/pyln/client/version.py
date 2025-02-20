@@ -6,6 +6,9 @@ import re
 from typing import List, Optional, Protocol, runtime_checkable, Union
 
 
+_MODDED_PATTERN = "[0-9a-f]+-modded"
+
+
 @total_ordering
 @dataclass
 class NodeVersion:
@@ -51,6 +54,11 @@ class NodeVersion:
             other = NodeVersion(other)
         if not isinstance(other, NodeVersion):
             return False
+
+        if self.strict_equal(other):
+            return True
+        elif re.match(_MODDED_PATTERN, self.version):
+            return False
         else:
             self_parts = [p.num for p in self.to_parts()]
             other_parts = [p.num for p in other.to_parts()]
@@ -68,6 +76,13 @@ class NodeVersion:
             other = NodeVersion(other)
         if not isinstance(other, NodeVersion):
             return NotImplemented
+
+        # If we are in CI the version will by a hex ending on modded
+        # We will assume it is the latest version
+        if re.match(_MODDED_PATTERN, self.version):
+            return False
+        elif re.match(_MODDED_PATTERN, other.version):
+            return True
         else:
             self_parts = [p.num for p in self.to_parts()]
             other_parts = [p.num for p in other.to_parts()]
