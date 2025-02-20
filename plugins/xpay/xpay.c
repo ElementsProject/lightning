@@ -519,6 +519,21 @@ static const char *describe_scidd(struct attempt *attempt, size_t index)
 	return fmt_short_channel_id_dir(tmpctx, &scidd);
 }
 
+/* How much did previous successes deliver? */
+static struct amount_msat total_delivered(const struct payment *payment)
+{
+	struct amount_msat sum = AMOUNT_MSAT(0);
+	struct attempt *attempt;
+
+	list_for_each(&payment->past_attempts, attempt, list) {
+		if (!attempt->preimage)
+			continue;
+		if (!amount_msat_accumulate(&sum, attempt->delivers))
+			abort();
+	}
+	return sum;
+}
+
 static void update_knowledge_from_error(struct command *aux_cmd,
 					const char *buf,
 					const jsmntok_t *error,
@@ -531,7 +546,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 	int index;
 	enum onion_wire failcode;
 	bool from_final;
-	const char *failcode_name, *errmsg;
+	const char *failcode_name, *errmsg, *description;
 	enum jsonrpc_errcode ecode;
 
 	tok = json_get_member(buf, error, "code");
@@ -574,6 +589,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 	/* Garbled?  Blame random hop. */
 	if (!replymsg) {
 		index = pseudorand(tal_count(attempt->hops));
+		description = "Garbled error message";
 		add_result_summary(attempt, LOG_UNUSUAL,
 				   "We got a garbled error message, and chose to (randomly) to disable %s for this payment",
 				   describe_scidd(attempt, index));
@@ -609,13 +625,14 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 	} else
 		errmsg = failcode_name;
 
-	attempt_debug(attempt,
-		      "Error %s for path %s, from %s",
-		      errmsg,
-		      fmt_path(tmpctx, attempt),
-		      from_final ? "destination"
-		      : index == 0 ? "local node"
-		      : fmt_pubkey(tmpctx, &attempt->hops[index-1].next_node));
+	description = tal_fmt(tmpctx,
+			      "Error %s for path %s, from %s",
+			      errmsg,
+			      fmt_path(tmpctx, attempt),
+			      from_final ? "destination"
+			      : index == 0 ? "local node"
+			      : fmt_pubkey(tmpctx, &attempt->hops[index-1].next_node));
+	attempt_debug(attempt, "%s", description);
 
 	/* Final node sent an error */
 	if (from_final) {
@@ -735,7 +752,7 @@ disable_channel:
 				      attempt->hops[index].scidd);
 	json_add_bool(req->js, "enabled", false);
 	send_payment_req(aux_cmd, attempt->payment, req);
-	return;
+	goto check_previous_success;
 
 channel_capacity:
 	req = payment_ignored_req(aux_cmd, attempt, "askrene-inform-channel");
@@ -747,6 +764,21 @@ channel_capacity:
 	json_add_amount_msat(req->js, "amount_msat", attempt->hops[index].amount_out);
 	json_add_string(req->js, "inform", "constrained");
 	send_payment_req(aux_cmd, attempt->payment, req);
+
+check_previous_success:
+	/* If they give us the preimage but we didn't succeed in giving them
+	 * all the money, that's a win for us.  But either the destination is
+	 * buggy, or someone along the way lost money! */
+	if (any_attempts_succeeded(attempt->payment)) {
+		payment_log(attempt->payment, LOG_UNUSUAL,
+			    "Destination accepted partial payment,"
+			    " failed a part (%s), but accepted only %s of %s."
+			    "  Winning?!",
+			    description,
+			    fmt_amount_msat(tmpctx,
+					    total_delivered(attempt->payment)),
+			    fmt_amount_msat(tmpctx, attempt->payment->amount));
+	}
 }
 
 static struct command_result *unreserve_path(struct command *aux_cmd,
