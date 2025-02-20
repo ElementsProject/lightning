@@ -2912,6 +2912,65 @@ def test_emergencyrecover_old_format_handling(node_factory, bitcoind):
     l1.stop()
 
 
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Txid on elements is different")
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
+def test_emergencyrecoverpenaltytxn(node_factory, bitcoind):
+    """
+    Test test_emergencyrecoverpenaltytxn
+    """
+    l1, l2 = node_factory.get_nodes(2, [{'broken_log': r"onchaind-chan#[0-9]*: Could not find resolution for output .*: did \*we\* cheat\?",
+                                         'may_reconnect': True,
+                                         'allow_bad_gossip': True,
+                                         'rescan': 10},
+                                    {'broken_log': r"onchaind-chan#[0-9]*: Could not find resolution for output .*: did \*we\* cheat\?",
+                                        'may_reconnect': True}])
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    c12, _ = l2.fundchannel(l1, 10**5)
+    stubs = l1.rpc.emergencyrecover()["stubs"]
+    assert l1.daemon.is_in_log('channel {} already exists!'.format(_['channel_id']))
+
+    l2.rpc.pay(l1.rpc.invoice(25000000, 'lbl1', 'desc1')['bolt11'])
+
+    tx = l2.rpc.dev_sign_last_tx(l1.info['id'])['tx']
+
+    l2.rpc.pay(l1.rpc.invoice(25000000, 'lbl2', 'desc2')['bolt11'])
+
+    l1.stop()
+
+    # Now l2 cheats
+    bitcoind.rpc.sendrawtransaction(tx)
+    time.sleep(1)
+    bitcoind.generate_block(1)
+
+    # Deleting the database for the L1 node
+    os.unlink(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3"))
+
+    # Running emergencyrecover on L1 to stub the channel inside the database.
+    l1.start()
+    assert l1.daemon.is_in_log('Server started with public key')
+    stubs = l1.rpc.emergencyrecover()["stubs"]
+    assert len(stubs) == 1
+    assert stubs[0] == _["channel_id"]
+    l1.daemon.wait_for_log('peer_out WIRE_ERROR')
+
+    # Restarting so that L1
+    l1.restart()
+
+    # Wait till L1 detects that L2 has cheated and it needs to create a penalty transaction.
+    _, txid, blocks = l1.wait_for_onchaind_tx('OUR_PENALTY_TX',
+                                              'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM')
+    assert blocks == 0
+    bitcoind.generate_block(10, wait_for_mempool=[txid])
+    sync_blockheight(bitcoind, [l1, l2])
+
+    # And l1 should consider it resolved now.
+    l1.daemon.wait_for_log('Resolved THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM by our proposal OUR_PENALTY_TX')
+
+    assert(l1.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN")
+    assert(l1.rpc.listfunds()["outputs"][0]["txid"] == txid)
+
+
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
 def test_emergencyrecover(node_factory, bitcoind):
     """
