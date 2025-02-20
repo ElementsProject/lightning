@@ -36,6 +36,15 @@ static void memleak_mark(struct plugin *p, struct htable *memtable)
 	memleak_scan_htable(memtable, &pay_plugin->pending_routes->raw);
 }
 
+static struct command_result *createlayer_done(struct command *aux_cmd,
+					       const char *method,
+					       const char *buf,
+					       const jsmntok_t *result,
+					       void *unused)
+{
+	return aux_command_done(aux_cmd);
+}
+
 static const char *init(struct command *init_cmd,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
@@ -93,6 +102,12 @@ static const char *init(struct command *init_cmd,
 			   __func__, skipped_count);
 
 	plugin_set_memleak_handler(p, memleak_mark);
+	struct out_req *req =
+	    jsonrpc_request_start(aux_command(init_cmd), "askrene-create-layer",
+				  createlayer_done, plugin_broken_cb, NULL);
+	json_add_string(req->js, "layer", RENEPAY_LAYER);
+	json_add_bool(req->js, "persistent", true);
+	send_outreq(req);
 	return NULL;
 }
 
