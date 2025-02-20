@@ -83,3 +83,9 @@ def test_compare_spec_from_string():
 
     assert not list_spec.matches("v24.02rc1")
     assert not list_spec.matches("v23.11")
+
+
+def test_ci_modded_version_is_always_latest():
+    v1 = NodeVersion("1a86e50-modded")
+
+    assert v1 > NodeVersion("v24.02")
