@@ -31,7 +31,7 @@ static struct command_result *routefail_end(struct command *cmd,
 {
 	/* Notify the tracker that route has failed and routefail have completed
 	 * handling all possible errors cases. */
-	route_failure_register(r->payment->routetracker, r->route);
+	routetracker_add_to_final(r->payment->routetracker, r->route);
 	r = tal_free(r);
 	return notification_handled(cmd);
 }

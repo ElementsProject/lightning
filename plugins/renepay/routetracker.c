@@ -45,8 +45,8 @@ void routetracker_cleanup(struct routetracker *routetracker)
 	// TODO
 }
 
-static void routetracker_add_to_final(struct routetracker *routetracker,
-				      struct route *route)
+void routetracker_add_to_final(struct routetracker *routetracker,
+			       struct route *route)
 {
 	tal_arr_expand(&routetracker->finalized_routes, route);
 	tal_steal(routetracker->finalized_routes, route);
@@ -87,61 +87,9 @@ static void routetracker_add_to_final(struct routetracker *routetracker,
 	}
 }
 
-static void route_success_register(struct routetracker *routetracker,
-				   struct route *route)
-{
-	if(route->hops){
-		uncertainty_route_success(pay_plugin->uncertainty, route);
-	}
-	routetracker_add_to_final(routetracker, route);
-}
-void route_failure_register(struct routetracker *routetracker,
-			    struct route *route)
-{
-	struct payment_result *result = route->result;
-	assert(result);
-
-	/* Update the knowledge in the uncertaity network. */
-	if (route->hops && result->failcode) {
-		assert(result->erring_index);
-		int path_len = tal_count(route->hops);
-
-		/* index of the last channel before the erring node */
-		const int last_good_channel = *result->erring_index - 1;
-
-		if (last_good_channel >= path_len) {
-			plugin_err(pay_plugin->plugin,
-				   "last_good_channel (%d) >= path_len (%d)",
-				   last_good_channel, path_len);
-		}
-
-		/* All channels before the erring node could forward the
-		 * payment. */
-		for (int i = 0; i <= last_good_channel; i++) {
-			uncertainty_channel_can_send(pay_plugin->uncertainty,
-						     route->hops[i].scid,
-						     route->hops[i].direction);
-		}
-
-		if (*result->failcode == WIRE_TEMPORARY_CHANNEL_FAILURE &&
-		    (last_good_channel + 1) < path_len) {
-			/* A WIRE_TEMPORARY_CHANNEL_FAILURE could mean not
-			 * enough liquidity to forward the payment or cannot add
-			 * one more HTLC.
-			 */
-			uncertainty_channel_cannot_send(
-			    pay_plugin->uncertainty,
-			    route->hops[last_good_channel + 1].scid,
-			    route->hops[last_good_channel + 1].direction);
-		}
-	}
-	routetracker_add_to_final(routetracker, route);
-}
-
 static void remove_route(struct route *route, struct route_map *map)
 {
 	route_map_del(map, route);
-	uncertainty_remove_htlcs(pay_plugin->uncertainty, route);
 }
 
 /* This route is pending, ie. locked in HTLCs.
@@ -171,8 +119,6 @@ static void route_pending_register(struct routetracker *routetracker,
 			   "payment call",
 			   __func__,
 			   fmt_routekey(tmpctx, &route->key));
-
-	uncertainty_commit_htlcs(pay_plugin->uncertainty, route);
 
 	if (!tal_steal(pay_plugin->pending_routes, route) ||
 	    !route_map_add(pay_plugin->pending_routes, route) ||
@@ -518,6 +464,6 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 			   json_tok_full_len(sub), json_tok_full(buf, sub));
 
 	assert(route->result->status == SENDPAY_COMPLETE);
-	route_success_register(payment->routetracker, route);
+	routetracker_add_to_final(payment->routetracker, route);
 	return notification_handled(cmd);
 }

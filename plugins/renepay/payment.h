@@ -4,7 +4,6 @@
 #include <common/gossmap.h>
 #include <common/route.h>
 #include <plugins/libplugin.h>
-#include <plugins/renepay/disabledmap.h>
 #include <plugins/renepay/payment_info.h>
 
 enum payment_status { PAYMENT_PENDING, PAYMENT_SUCCESS, PAYMENT_FAIL };
@@ -52,9 +51,6 @@ struct payment {
 
 	/* Running commands that want this payment */
 	struct command **cmd_array;
-
-	/* Localmods to apply to gossip_map for our own use. */
-	struct gossmap_localmods *local_gossmods;
 
 	/* Routes will be computed to reach this node, could be a fake node that
 	 * we use to handle multiple blinded paths. */
