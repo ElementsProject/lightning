@@ -16,6 +16,9 @@ def node_cls():
 
 class LightningNode(utils.LightningNode):
     def __init__(self, *args, **kwargs):
+        # Yes, we really want to test the local development version, not
+        # something in out path.
+        kwargs["executable"] = "lightningd/lightningd"
         utils.LightningNode.__init__(self, *args, **kwargs)
 
         # This is a recent innovation, and we don't want to nail pyln-testing to this version.
@@ -49,10 +52,6 @@ class LightningNode(utils.LightningNode):
         if db_type == 'postgres':
             accts_db = self.db.provider.get_db('', 'accounts', 0)
             self.daemon.opts['bookkeeper-db'] = accts_db.get_dsn()
-
-        # Yes, we really want to test the local development version, not
-        # something in out path.
-        self.daemon.executable = 'lightningd/lightningd'
 
 
 class CompatLevel(object):

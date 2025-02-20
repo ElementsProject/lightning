@@ -596,10 +596,11 @@ class LightningD(TailableProc):
             port=9735,
             random_hsm=False,
             node_id=0,
+            executable=None,
     ):
         # We handle our own version of verbose, below.
         TailableProc.__init__(self, lightning_dir, verbose=False)
-        self.executable = 'lightningd'
+        self.executable = "lightningd" if executable is None else executable
         self.lightning_dir = lightning_dir
         self.port = port
         self.cmd_prefix = []
@@ -759,6 +760,7 @@ class LightningNode(object):
                  db=None, port=None, grpc_port=None, disconnect=None, random_hsm=None, options=None,
                  jsonschemas={},
                  valgrind_plugins=True,
+                 executable=None,
                  **kwargs):
         self.bitcoin = bitcoind
         self.executor = executor
@@ -781,6 +783,7 @@ class LightningNode(object):
         self.daemon = LightningD(
             lightning_dir, bitcoindproxy=bitcoind.get_proxy(),
             port=port, random_hsm=random_hsm, node_id=node_id,
+            executable=executable,
         )
 
         self.disconnect = disconnect
