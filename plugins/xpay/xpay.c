@@ -36,6 +36,8 @@ struct xpay {
 	u32 blockheight;
 	/* Do we take over "pay" commands? */
 	bool take_over_pay;
+	/* Are we to wait for all parts to complete before returning? */
+	bool slow_mode;
 };
 
 static struct xpay *xpay_of(struct plugin *plugin)
@@ -153,6 +155,9 @@ struct attempt {
 
 	/* Secrets, so we can decrypt error onions */
 	struct secret *shared_secrets;
+
+	/* Preimage, iff we succeeded. */
+	const struct preimage *preimage;
 };
 
 /* Wrapper for pending commands (ignores return) */
@@ -313,37 +318,6 @@ send_payment_req(struct command *aux_cmd,
 	return send_outreq(req);
 }
 
-static void payment_failed(struct command *aux_cmd,
-			   struct payment *payment,
-			   enum jsonrpc_errcode code,
-			   const char *fmt,
-			   ...)
-	PRINTF_FMT(4,5);
-
-static void payment_failed(struct command *aux_cmd,
-			   struct payment *payment,
-			   enum jsonrpc_errcode code,
-			   const char *fmt,
-			   ...)
-{
-	va_list args;
-	const char *msg;
-
-	va_start(args, fmt);
-	msg = tal_vfmt(tmpctx, fmt, args);
-	va_end(args);
-
-	/* Only fail once */
-	if (payment->cmd) {
-		was_pending(command_fail(payment->cmd, code, "%s", msg));
-		payment->cmd = NULL;
-	}
-
-	/* If no commands outstanding, we can now clean up */
-	if (tal_count(payment->requests) == 0)
-		cleanup(aux_cmd, payment);
-}
-
 /* For self-pay, we don't have hops. */
 static struct amount_msat initial_sent(const struct attempt *attempt)
 {
@@ -359,13 +333,20 @@ static u32 initial_cltv_delta(const struct attempt *attempt)
 	return attempt->hops[0].cltv_value_in;
 }
 
-/* The current attempt is the first to succeed: we assume all the ones
- * in progress will succeed too */
-static struct amount_msat total_sent(const struct payment *payment,
-				     const struct attempt *attempt)
+/* We total up all attempts which succeeded in the past (if we're not
+ * in slow mode, that's only the one which just succeeded), and then we
+ * assume any others currently-in-flight will also succeed. */
+static struct amount_msat total_sent(const struct payment *payment)
 {
-	struct amount_msat total = initial_sent(attempt);
+	struct amount_msat total = AMOUNT_MSAT(0);
 	const struct attempt *i;
+
+	list_for_each(&payment->past_attempts, i, list) {
+		if (!i->preimage)
+			continue;
+		if (!amount_msat_accumulate(&total, initial_sent(i)))
+			abort();
+	}
 
 	list_for_each(&payment->current_attempts, i, list) {
 		if (!amount_msat_accumulate(&total, initial_sent(i)))
@@ -374,18 +355,30 @@ static struct amount_msat total_sent(const struct payment *payment,
 	return total;
 }
 
+/* Should we finish command now? */
+static bool should_finish_command(const struct payment *payment)
+{
+	const struct xpay *xpay = xpay_of(payment->plugin);
+
+	if (!xpay->slow_mode)
+		return true;
+
+	/* In slow mode, only finish when no remaining attempts
+	 * (caller has already moved it to past_attempts). */
+	return list_empty(&payment->current_attempts);
+}
+
 static void payment_succeeded(struct payment *payment,
-			      const struct preimage *preimage,
-			      const struct attempt *attempt)
+			      const struct preimage *preimage)
 {
 	struct json_stream *js;
 
 	/* Only succeed once */
-	if (payment->cmd) {
+	if (payment->cmd && should_finish_command(payment)) {
 		js = jsonrpc_stream_success(payment->cmd);
 		json_add_preimage(js, "payment_preimage", preimage);
 		json_add_amount_msat(js, "amount_msat", payment->amount);
-		json_add_amount_msat(js, "amount_sent_msat", total_sent(payment, attempt));
+		json_add_amount_msat(js, "amount_sent_msat", total_sent(payment));
 		/* Pay's schema expects these fields */
 		if (payment->pay_compat) {
 			json_add_u64(js, "parts", payment->total_num_attempts);
@@ -401,6 +394,60 @@ static void payment_succeeded(struct payment *payment,
 		was_pending(command_finished(payment->cmd, js));
 		payment->cmd = NULL;
 	}
+}
+
+static void payment_give_up(struct command *aux_cmd,
+			    struct payment *payment,
+			    enum jsonrpc_errcode code,
+			    const char *fmt,
+			   ...)
+	PRINTF_FMT(4,5);
+
+/* Returns NULL if no past attempts succeeded, otherwise the preimage */
+static const struct preimage *
+any_attempts_succeeded(const struct payment *payment)
+{
+	struct attempt *attempt;
+	list_for_each(&payment->past_attempts, attempt, list) {
+		if (attempt->preimage)
+			return attempt->preimage;
+	}
+	return NULL;
+}
+
+/* We won't try sending any more.  Usually this means we return this
+ * failure to the user, but see below. */
+static void payment_give_up(struct command *aux_cmd,
+			    struct payment *payment,
+			    enum jsonrpc_errcode code,
+			    const char *fmt,
+			    ...)
+{
+	va_list args;
+	const char *msg;
+
+	va_start(args, fmt);
+	msg = tal_vfmt(tmpctx, fmt, args);
+	va_end(args);
+
+	/* Only fail once */
+	if (payment->cmd && should_finish_command(payment)) {
+		const struct preimage *preimage;
+
+		/* Corner case: in slow_mode, an earlier one could have
+		 * theoretically succeeded. */
+		preimage = any_attempts_succeeded(payment);
+		if (preimage)
+			payment_succeeded(payment, preimage);
+		else {
+			was_pending(command_fail(payment->cmd, code, "%s", msg));
+			payment->cmd = NULL;
+		}
+	}
+
+	/* If no commands outstanding, we can now clean up */
+	if (tal_count(payment->requests) == 0)
+		cleanup(aux_cmd, payment);
 }
 
 /* We usually add things we learned to the global layer, but not
@@ -474,6 +521,21 @@ static const char *describe_scidd(struct attempt *attempt, size_t index)
 	return fmt_short_channel_id_dir(tmpctx, &scidd);
 }
 
+/* How much did previous successes deliver? */
+static struct amount_msat total_delivered(const struct payment *payment)
+{
+	struct amount_msat sum = AMOUNT_MSAT(0);
+	struct attempt *attempt;
+
+	list_for_each(&payment->past_attempts, attempt, list) {
+		if (!attempt->preimage)
+			continue;
+		if (!amount_msat_accumulate(&sum, attempt->delivers))
+			abort();
+	}
+	return sum;
+}
+
 static void update_knowledge_from_error(struct command *aux_cmd,
 					const char *buf,
 					const jsmntok_t *error,
@@ -486,7 +548,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 	int index;
 	enum onion_wire failcode;
 	bool from_final;
-	const char *failcode_name, *errmsg;
+	const char *failcode_name, *errmsg, *description;
 	enum jsonrpc_errcode ecode;
 
 	tok = json_get_member(buf, error, "code");
@@ -495,18 +557,18 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 			   json_tok_full_len(error), json_tok_full(buf, error));
 
 	if (ecode == PAY_INJECTPAYMENTONION_ALREADY_PAID) {
-		payment_failed(aux_cmd, attempt->payment,
-			       PAY_INJECTPAYMENTONION_FAILED,
-			       "Already paid this invoice successfully");
+		payment_give_up(aux_cmd, attempt->payment,
+				PAY_INJECTPAYMENTONION_FAILED,
+				"Already paid this invoice successfully");
 		return;
 	}
 	if (ecode != PAY_INJECTPAYMENTONION_FAILED) {
-		payment_failed(aux_cmd, attempt->payment,
-			       PLUGIN_ERROR,
-			       "Unexpected injectpaymentonion error %i: %.*s",
-			       ecode,
-			       json_tok_full_len(error),
-			       json_tok_full(buf, error));
+		payment_give_up(aux_cmd, attempt->payment,
+				PLUGIN_ERROR,
+				"Unexpected injectpaymentonion error %i: %.*s",
+				ecode,
+				json_tok_full_len(error),
+				json_tok_full(buf, error));
 		return;
 	}
 
@@ -529,6 +591,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 	/* Garbled?  Blame random hop. */
 	if (!replymsg) {
 		index = pseudorand(tal_count(attempt->hops));
+		description = "Garbled error message";
 		add_result_summary(attempt, LOG_UNUSUAL,
 				   "We got a garbled error message, and chose to (randomly) to disable %s for this payment",
 				   describe_scidd(attempt, index));
@@ -564,13 +627,14 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 	} else
 		errmsg = failcode_name;
 
-	attempt_debug(attempt,
-		      "Error %s for path %s, from %s",
-		      errmsg,
-		      fmt_path(tmpctx, attempt),
-		      from_final ? "destination"
-		      : index == 0 ? "local node"
-		      : fmt_pubkey(tmpctx, &attempt->hops[index-1].next_node));
+	description = tal_fmt(tmpctx,
+			      "Error %s for path %s, from %s",
+			      errmsg,
+			      fmt_path(tmpctx, attempt),
+			      from_final ? "destination"
+			      : index == 0 ? "local node"
+			      : fmt_pubkey(tmpctx, &attempt->hops[index-1].next_node));
+	attempt_debug(attempt, "%s", description);
 
 	/* Final node sent an error */
 	if (from_final) {
@@ -607,10 +671,10 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 		case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
 			/* FIXME: Maybe this was actually a height
 			 * disagreement, so check height */
-			payment_failed(aux_cmd, attempt->payment,
-				       PAY_DESTINATION_PERM_FAIL,
-				       "Destination said it doesn't know invoice: %s",
-				       errmsg);
+			payment_give_up(aux_cmd, attempt->payment,
+					PAY_DESTINATION_PERM_FAIL,
+					"Destination said it doesn't know invoice: %s",
+					errmsg);
 			return;
 
 		case WIRE_MPP_TIMEOUT:
@@ -690,7 +754,7 @@ disable_channel:
 				      attempt->hops[index].scidd);
 	json_add_bool(req->js, "enabled", false);
 	send_payment_req(aux_cmd, attempt->payment, req);
-	return;
+	goto check_previous_success;
 
 channel_capacity:
 	req = payment_ignored_req(aux_cmd, attempt, "askrene-inform-channel");
@@ -702,6 +766,21 @@ channel_capacity:
 	json_add_amount_msat(req->js, "amount_msat", attempt->hops[index].amount_out);
 	json_add_string(req->js, "inform", "constrained");
 	send_payment_req(aux_cmd, attempt->payment, req);
+
+check_previous_success:
+	/* If they give us the preimage but we didn't succeed in giving them
+	 * all the money, that's a win for us.  But either the destination is
+	 * buggy, or someone along the way lost money! */
+	if (any_attempts_succeeded(attempt->payment)) {
+		payment_log(attempt->payment, LOG_UNUSUAL,
+			    "Destination accepted partial payment,"
+			    " failed a part (%s), but accepted only %s of %s."
+			    "  Winning?!",
+			    description,
+			    fmt_amount_msat(tmpctx,
+					    total_delivered(attempt->payment)),
+			    fmt_amount_msat(tmpctx, attempt->payment->amount));
+	}
 }
 
 static struct command_result *unreserve_path(struct command *aux_cmd,
@@ -807,7 +886,8 @@ static struct command_result *injectpaymentonion_succeeded(struct command *aux_c
 	list_add(&payment->past_attempts, &attempt->list);
 
 	attempt_info(attempt, "Success: preimage=%s", fmt_preimage(tmpctx, &preimage));
-	payment_succeeded(payment, &preimage, attempt);
+	attempt->preimage = tal_dup(attempt, struct preimage, &preimage);
+	payment_succeeded(payment, &preimage);
 
 	/* And we're no longer using the path. */
 	return unreserve_path(aux_cmd, attempt);
@@ -923,8 +1003,8 @@ static struct command_result *do_inject(struct command *aux_cmd,
 	onion = create_onion(tmpctx, attempt, effective_bheight);
 	/* FIXME: Handle this better! */
 	if (!onion) {
-		payment_failed(aux_cmd, attempt->payment, PAY_UNSPECIFIED_ERROR,
-			       "Could not create payment onion: path too long!");
+		payment_give_up(aux_cmd, attempt->payment, PAY_UNSPECIFIED_ERROR,
+				"Could not create payment onion: path too long!");
 		return command_still_pending(aux_cmd);
 	}
 
@@ -962,10 +1042,10 @@ static struct command_result *reserve_done_err(struct command *aux_cmd,
 					       const jsmntok_t *result,
 					       struct attempt *attempt)
 {
-	payment_failed(aux_cmd, attempt->payment, PAY_UNSPECIFIED_ERROR,
-		       "Reservation failed: '%.*s'",
-		       json_tok_full_len(result),
-		       json_tok_full(buf, result));
+	payment_give_up(aux_cmd, attempt->payment, PAY_UNSPECIFIED_ERROR,
+			"Reservation failed: '%.*s'",
+			json_tok_full_len(result),
+			json_tok_full(buf, result));
 	return command_still_pending(aux_cmd);
 }
 
@@ -978,6 +1058,7 @@ static struct attempt *new_attempt(struct payment *payment,
 
 	attempt->payment = payment;
 	attempt->delivers = delivers;
+	attempt->preimage = NULL;
 	attempt->partid = ++payment->total_num_attempts;
 	attempt->hops = tal_dup_talarr(attempt, struct hop, hops);
 	list_add_tail(&payment->current_attempts, &attempt->list);
@@ -1022,10 +1103,10 @@ static struct command_result *getroutes_done(struct command *aux_cmd,
 	/* Even if we're amazingly slow, we should make one attempt. */
 	if (payment->total_num_attempts > 0
 	    && time_greater_(time_mono().ts, payment->deadline.ts)) {
-		payment_failed(aux_cmd, payment, PAY_UNSPECIFIED_ERROR,
-			       "Timed out after after %"PRIu64" attempts. %s",
-			       payment->total_num_attempts,
-			       payment->prior_results);
+		payment_give_up(aux_cmd, payment, PAY_UNSPECIFIED_ERROR,
+				"Timed out after after %"PRIu64" attempts. %s",
+				payment->total_num_attempts,
+				payment->prior_results);
 		return command_still_pending(aux_cmd);
 	}
 
@@ -1110,7 +1191,7 @@ static struct command_result *getroutes_done_err(struct command *aux_cmd,
 
 	/* Simple case: failed immediately. */
 	if (payment->total_num_attempts == 0) {
-		payment_failed(aux_cmd, payment, code, "Failed: %s", msg);
+		payment_give_up(aux_cmd, payment, code, "Failed: %s", msg);
 		return command_still_pending(aux_cmd);
 	}
 
@@ -1123,12 +1204,12 @@ static struct command_result *getroutes_done_err(struct command *aux_cmd,
 	else
 		complaint = tal_fmt(tmpctx, "Then routing for remaining %s failed",
 				    fmt_amount_msat(tmpctx, payment->amount_being_routed));
-	payment_failed(aux_cmd, payment, PAY_UNSPECIFIED_ERROR,
-		       "Failed after %"PRIu64" attempts. %s%s: %s",
-		       payment->total_num_attempts,
-		       payment->prior_results,
-		       complaint,
-		       msg);
+	payment_give_up(aux_cmd, payment, PAY_UNSPECIFIED_ERROR,
+			"Failed after %"PRIu64" attempts. %s%s: %s",
+			payment->total_num_attempts,
+			payment->prior_results,
+			complaint,
+			msg);
 	return command_still_pending(aux_cmd);
 }
 
@@ -1420,7 +1501,7 @@ static struct command_result *populate_private_layer(struct command *cmd,
 	}
 
 	/* Nothing actually created yet, so this is the last point we don't use
-	 * "payment_failed" */
+	 * "payment_give_up" */
 	if (all_failed)
 		return command_fail(aux_cmd, PAY_ROUTE_NOT_FOUND,
 				    "No usable blinded paths: %s", errors);
@@ -2046,6 +2127,7 @@ int main(int argc, char *argv[])
 	setup_locale();
 	xpay = tal(NULL, struct xpay);
 	xpay->take_over_pay = false;
+	xpay->slow_mode = false;
 	plugin_main(argv, init, take(xpay),
 		    PLUGIN_RESTARTABLE, true, NULL,
 		    commands, ARRAY_SIZE(commands),
@@ -2055,5 +2137,8 @@ int main(int argc, char *argv[])
 		    plugin_option_dynamic("xpay-handle-pay", "bool",
 					  "Make xpay take over pay commands it can handle.",
 					  bool_option, bool_jsonfmt, &xpay->take_over_pay),
+		    plugin_option_dynamic("xpay-slow-mode", "bool",
+					  "Wait until all parts have completed before returning success or failure",
+					  bool_option, bool_jsonfmt, &xpay->slow_mode),
 		    NULL);
 }
