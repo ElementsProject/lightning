@@ -32,6 +32,7 @@ def test_equality_classes_in_node_versions():
     assert NodeVersion("v24.02") == NodeVersion("v24.02")
     assert NodeVersion("v24.02") == NodeVersion("v24.02rc1")
     assert NodeVersion("v24.02rc1") == NodeVersion("v24.02")
+    assert NodeVersion("v24.11-217-g77989b1-modded") == NodeVersion("v24.11")
 
     assert NodeVersion("v24.02") != NodeVersion("v24.02.1")
     assert NodeVersion("v24.02rc1") != NodeVersion("v24.02.1")
