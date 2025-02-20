@@ -70,7 +70,7 @@ struct ${struct.struct_name()} {
         % if bool(f.len_field_of):
 <% continue %>
         % endif
-            % if f.is_varlen() and f.type_obj.is_varsize():
+            % if not f.type_obj.is_tlv() and f.is_varlen() and f.type_obj.is_varsize():
         ${f.type_obj.type_name()} **${f.name};
             % elif f.is_varlen() or f.type_obj.is_varsize():
         ${f.type_obj.type_name()} *${f.name};
