@@ -396,10 +396,10 @@ static void payment_succeeded(struct payment *payment,
 	}
 }
 
-static void payment_failed(struct command *aux_cmd,
-			   struct payment *payment,
-			   enum jsonrpc_errcode code,
-			   const char *fmt,
+static void payment_give_up(struct command *aux_cmd,
+			    struct payment *payment,
+			    enum jsonrpc_errcode code,
+			    const char *fmt,
 			   ...)
 	PRINTF_FMT(4,5);
 
@@ -415,11 +415,13 @@ any_attempts_succeeded(const struct payment *payment)
 	return NULL;
 }
 
-static void payment_failed(struct command *aux_cmd,
-			   struct payment *payment,
-			   enum jsonrpc_errcode code,
-			   const char *fmt,
-			   ...)
+/* We won't try sending any more.  Usually this means we return this
+ * failure to the user, but see below. */
+static void payment_give_up(struct command *aux_cmd,
+			    struct payment *payment,
+			    enum jsonrpc_errcode code,
+			    const char *fmt,
+			    ...)
 {
 	va_list args;
 	const char *msg;
@@ -555,18 +557,18 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 			   json_tok_full_len(error), json_tok_full(buf, error));
 
 	if (ecode == PAY_INJECTPAYMENTONION_ALREADY_PAID) {
-		payment_failed(aux_cmd, attempt->payment,
-			       PAY_INJECTPAYMENTONION_FAILED,
-			       "Already paid this invoice successfully");
+		payment_give_up(aux_cmd, attempt->payment,
+				PAY_INJECTPAYMENTONION_FAILED,
+				"Already paid this invoice successfully");
 		return;
 	}
 	if (ecode != PAY_INJECTPAYMENTONION_FAILED) {
-		payment_failed(aux_cmd, attempt->payment,
-			       PLUGIN_ERROR,
-			       "Unexpected injectpaymentonion error %i: %.*s",
-			       ecode,
-			       json_tok_full_len(error),
-			       json_tok_full(buf, error));
+		payment_give_up(aux_cmd, attempt->payment,
+				PLUGIN_ERROR,
+				"Unexpected injectpaymentonion error %i: %.*s",
+				ecode,
+				json_tok_full_len(error),
+				json_tok_full(buf, error));
 		return;
 	}
 
@@ -669,10 +671,10 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 		case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
 			/* FIXME: Maybe this was actually a height
 			 * disagreement, so check height */
-			payment_failed(aux_cmd, attempt->payment,
-				       PAY_DESTINATION_PERM_FAIL,
-				       "Destination said it doesn't know invoice: %s",
-				       errmsg);
+			payment_give_up(aux_cmd, attempt->payment,
+					PAY_DESTINATION_PERM_FAIL,
+					"Destination said it doesn't know invoice: %s",
+					errmsg);
 			return;
 
 		case WIRE_MPP_TIMEOUT:
@@ -1001,8 +1003,8 @@ static struct command_result *do_inject(struct command *aux_cmd,
 	onion = create_onion(tmpctx, attempt, effective_bheight);
 	/* FIXME: Handle this better! */
 	if (!onion) {
-		payment_failed(aux_cmd, attempt->payment, PAY_UNSPECIFIED_ERROR,
-			       "Could not create payment onion: path too long!");
+		payment_give_up(aux_cmd, attempt->payment, PAY_UNSPECIFIED_ERROR,
+				"Could not create payment onion: path too long!");
 		return command_still_pending(aux_cmd);
 	}
 
@@ -1040,10 +1042,10 @@ static struct command_result *reserve_done_err(struct command *aux_cmd,
 					       const jsmntok_t *result,
 					       struct attempt *attempt)
 {
-	payment_failed(aux_cmd, attempt->payment, PAY_UNSPECIFIED_ERROR,
-		       "Reservation failed: '%.*s'",
-		       json_tok_full_len(result),
-		       json_tok_full(buf, result));
+	payment_give_up(aux_cmd, attempt->payment, PAY_UNSPECIFIED_ERROR,
+			"Reservation failed: '%.*s'",
+			json_tok_full_len(result),
+			json_tok_full(buf, result));
 	return command_still_pending(aux_cmd);
 }
 
@@ -1101,10 +1103,10 @@ static struct command_result *getroutes_done(struct command *aux_cmd,
 	/* Even if we're amazingly slow, we should make one attempt. */
 	if (payment->total_num_attempts > 0
 	    && time_greater_(time_mono().ts, payment->deadline.ts)) {
-		payment_failed(aux_cmd, payment, PAY_UNSPECIFIED_ERROR,
-			       "Timed out after after %"PRIu64" attempts. %s",
-			       payment->total_num_attempts,
-			       payment->prior_results);
+		payment_give_up(aux_cmd, payment, PAY_UNSPECIFIED_ERROR,
+				"Timed out after after %"PRIu64" attempts. %s",
+				payment->total_num_attempts,
+				payment->prior_results);
 		return command_still_pending(aux_cmd);
 	}
 
@@ -1189,7 +1191,7 @@ static struct command_result *getroutes_done_err(struct command *aux_cmd,
 
 	/* Simple case: failed immediately. */
 	if (payment->total_num_attempts == 0) {
-		payment_failed(aux_cmd, payment, code, "Failed: %s", msg);
+		payment_give_up(aux_cmd, payment, code, "Failed: %s", msg);
 		return command_still_pending(aux_cmd);
 	}
 
@@ -1202,12 +1204,12 @@ static struct command_result *getroutes_done_err(struct command *aux_cmd,
 	else
 		complaint = tal_fmt(tmpctx, "Then routing for remaining %s failed",
 				    fmt_amount_msat(tmpctx, payment->amount_being_routed));
-	payment_failed(aux_cmd, payment, PAY_UNSPECIFIED_ERROR,
-		       "Failed after %"PRIu64" attempts. %s%s: %s",
-		       payment->total_num_attempts,
-		       payment->prior_results,
-		       complaint,
-		       msg);
+	payment_give_up(aux_cmd, payment, PAY_UNSPECIFIED_ERROR,
+			"Failed after %"PRIu64" attempts. %s%s: %s",
+			payment->total_num_attempts,
+			payment->prior_results,
+			complaint,
+			msg);
 	return command_still_pending(aux_cmd);
 }
 
@@ -1499,7 +1501,7 @@ static struct command_result *populate_private_layer(struct command *cmd,
 	}
 
 	/* Nothing actually created yet, so this is the last point we don't use
-	 * "payment_failed" */
+	 * "payment_give_up" */
 	if (all_failed)
 		return command_fail(aux_cmd, PAY_ROUTE_NOT_FOUND,
 				    "No usable blinded paths: %s", errors);
