@@ -2669,6 +2669,7 @@
             "ListPeerChannels.channels[].next_fee_step": 15,
             "ListPeerChannels.channels[].next_feerate": 14,
             "ListPeerChannels.channels[].opener": 19,
+            "ListPeerChannels.channels[].our_max_htlc_value_in_flight_msat": 62,
             "ListPeerChannels.channels[].our_reserve_msat": 32,
             "ListPeerChannels.channels[].our_to_self_delay": 39,
             "ListPeerChannels.channels[].out_fulfilled_msat": 51,
@@ -2687,6 +2688,7 @@
             "ListPeerChannels.channels[].state": 3,
             "ListPeerChannels.channels[].state_changes[]": 42,
             "ListPeerChannels.channels[].status[]": 43,
+            "ListPeerChannels.channels[].their_max_htlc_value_in_flight_msat": 61,
             "ListPeerChannels.channels[].their_reserve_msat": 31,
             "ListPeerChannels.channels[].their_to_self_delay": 38,
             "ListPeerChannels.channels[].to_us_msat": 23,
@@ -10106,7 +10108,7 @@
         },
         "ListPeerChannels.channels[].max_total_htlc_in_msat": {
             "added": "v23.02",
-            "deprecated": null
+            "deprecated": "v25.02"
         },
         "ListPeerChannels.channels[].maximum_htlc_out_msat": {
             "added": "v23.02",
@@ -10134,6 +10136,10 @@
         },
         "ListPeerChannels.channels[].opener": {
             "added": "v23.02",
+            "deprecated": null
+        },
+        "ListPeerChannels.channels[].our_max_htlc_value_in_flight_msat": {
+            "added": "v25.02",
             "deprecated": null
         },
         "ListPeerChannels.channels[].our_reserve_msat": {
@@ -10226,6 +10232,10 @@
         },
         "ListPeerChannels.channels[].status[]": {
             "added": "v23.02",
+            "deprecated": null
+        },
+        "ListPeerChannels.channels[].their_max_htlc_value_in_flight_msat": {
+            "added": "v25.02",
             "deprecated": null
         },
         "ListPeerChannels.channels[].their_reserve_msat": {

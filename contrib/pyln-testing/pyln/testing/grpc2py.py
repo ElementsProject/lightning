@@ -1018,6 +1018,7 @@ def listpeerchannels_channels2py(m):
         "minimum_htlc_out_msat": amount2msat(m.minimum_htlc_out_msat),  # PrimitiveField in generate_composite
         "next_fee_step": m.next_fee_step,  # PrimitiveField in generate_composite
         "next_feerate": m.next_feerate,  # PrimitiveField in generate_composite
+        "our_max_htlc_value_in_flight_msat": amount2msat(m.our_max_htlc_value_in_flight_msat),  # PrimitiveField in generate_composite
         "our_reserve_msat": amount2msat(m.our_reserve_msat),  # PrimitiveField in generate_composite
         "our_to_self_delay": m.our_to_self_delay,  # PrimitiveField in generate_composite
         "out_fulfilled_msat": amount2msat(m.out_fulfilled_msat),  # PrimitiveField in generate_composite
@@ -1033,6 +1034,7 @@ def listpeerchannels_channels2py(m):
         "scratch_txid": hexlify(m.scratch_txid),  # PrimitiveField in generate_composite
         "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
         "spendable_msat": amount2msat(m.spendable_msat),  # PrimitiveField in generate_composite
+        "their_max_htlc_value_in_flight_msat": amount2msat(m.their_max_htlc_value_in_flight_msat),  # PrimitiveField in generate_composite
         "their_reserve_msat": amount2msat(m.their_reserve_msat),  # PrimitiveField in generate_composite
         "their_to_self_delay": m.their_to_self_delay,  # PrimitiveField in generate_composite
         "to_us_msat": amount2msat(m.to_us_msat),  # PrimitiveField in generate_composite

@@ -24432,7 +24432,25 @@
                 "max_total_htlc_in_msat": {
                   "type": "msat",
                   "description": [
-                    "Max amount accept in a single payment."
+                    "Max amount accept in a single payment. This field is deprecated, use instead our_max_htlc_value_in_flight_msat"
+                  ],
+                  "deprecated": [
+                    "v25.02",
+                    "v26.05"
+                  ]
+                },
+                "their_max_htlc_value_in_flight_msat": {
+                  "type": "msat",
+                  "added": "v25.02",
+                  "description": [
+                    "Cap on total value of outstanding HTLCs offered to the remote node. This limits the total amount in flight we can send through this channel."
+                  ]
+                },
+                "our_max_htlc_value_in_flight_msat": {
+                  "type": "msat",
+                  "added": "v25.02",
+                  "description": [
+                    "Cap on total value of outstanding HTLCs we accept from the remote node. This limits the total amount in flight we can receive through this channel."
                   ]
                 },
                 "their_reserve_msat": {
@@ -24905,6 +24923,8 @@
                       "fee_proportional_millionths": {},
                       "dust_limit_msat": {},
                       "max_total_htlc_in_msat": {},
+                      "our_max_total_htlc_in_msat": {},
+                      "their_max_total_htlc_in_msat": {},
                       "their_reserve_msat": {},
                       "our_reserve_msat": {},
                       "spendable_msat": {},
@@ -24923,6 +24943,8 @@
                       "msatoshi_total": {},
                       "dust_limit_satoshis": {},
                       "max_htlc_value_in_flight_msat": {},
+                      "our_max_htlc_value_in_flight_msat": {},
+                      "their_max_htlc_value_in_flight_msat": {},
                       "our_channel_reserve_satoshis": {},
                       "their_channel_reserve_satoshis": {},
                       "spendable_satoshis": {},
@@ -25002,6 +25024,8 @@
                       "fee_proportional_millionths": {},
                       "dust_limit_msat": {},
                       "max_total_htlc_in_msat": {},
+                      "our_max_total_htlc_in_msat": {},
+                      "their_max_total_htlc_in_msat": {},
                       "their_reserve_msat": {},
                       "our_reserve_msat": {},
                       "spendable_msat": {},
@@ -25020,6 +25044,8 @@
                       "msatoshi_total": {},
                       "dust_limit_satoshis": {},
                       "max_htlc_value_in_flight_msat": {},
+                      "our_max_htlc_value_in_flight_msat": {},
+                      "their_max_htlc_value_in_flight_msat": {},
                       "our_channel_reserve_satoshis": {},
                       "their_channel_reserve_satoshis": {},
                       "spendable_satoshis": {},
@@ -25098,6 +25124,8 @@
                       "fee_proportional_millionths": {},
                       "dust_limit_msat": {},
                       "max_total_htlc_in_msat": {},
+                      "our_max_total_htlc_in_msat": {},
+                      "their_max_total_htlc_in_msat": {},
                       "their_reserve_msat": {},
                       "our_reserve_msat": {},
                       "spendable_msat": {},
@@ -25116,6 +25144,8 @@
                       "msatoshi_total": {},
                       "dust_limit_satoshis": {},
                       "max_htlc_value_in_flight_msat": {},
+                      "our_max_htlc_value_in_flight_msat": {},
+                      "their_max_htlc_value_in_flight_msat": {},
                       "our_channel_reserve_satoshis": {},
                       "their_channel_reserve_satoshis": {},
                       "spendable_satoshis": {},
@@ -25196,6 +25226,8 @@
                       "fee_proportional_millionths": {},
                       "dust_limit_msat": {},
                       "max_total_htlc_in_msat": {},
+                      "our_max_total_htlc_in_msat": {},
+                      "their_max_total_htlc_in_msat": {},
                       "their_reserve_msat": {},
                       "our_reserve_msat": {},
                       "spendable_msat": {},
@@ -25214,6 +25246,8 @@
                       "msatoshi_total": {},
                       "dust_limit_satoshis": {},
                       "max_htlc_value_in_flight_msat": {},
+                      "our_max_htlc_value_in_flight_msat": {},
+                      "their_max_htlc_value_in_flight_msat": {},
                       "our_channel_reserve_satoshis": {},
                       "their_channel_reserve_satoshis": {},
                       "spendable_satoshis": {},
