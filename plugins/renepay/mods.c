@@ -7,15 +7,17 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <plugins/renepay/json.h>
-#include <plugins/renepay/mcf.h>
 #include <plugins/renepay/mods.h>
 #include <plugins/renepay/payplugin.h>
 #include <plugins/renepay/renepayconfig.h>
 #include <plugins/renepay/route.h>
-#include <plugins/renepay/routebuilder.h>
 #include <plugins/renepay/routetracker.h>
 #include <unistd.h>
 #include <wire/bolt12_wiregen.h>
+
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+#define MAX_CAPACITY (AMOUNT_MSAT(21000000 * MSAT_PER_BTC))
 
 #define OP_NULL NULL
 #define OP_CALL (void *)1
@@ -261,147 +263,6 @@ static struct command_result *initial_sanity_checks_cb(struct payment *payment)
 REGISTER_PAYMENT_MODIFIER(initial_sanity_checks, initial_sanity_checks_cb);
 
 /*****************************************************************************
- * getmychannels
- *
- * Calls listpeerchannels to get and updated state of the local channels.
- */
-
-static void
-uncertainty_update_from_listpeerchannels(struct uncertainty *uncertainty,
-				      const struct short_channel_id_dir *scidd,
-				      struct amount_msat max, bool enabled,
-				      const char *buf, const jsmntok_t *chantok)
-{
-	if (!enabled)
-		return;
-
-	struct amount_msat capacity, min, gap;
-	const char *errmsg = json_scan(tmpctx, buf, chantok, "{total_msat:%}",
-				       JSON_SCAN(json_to_msat, &capacity));
-	if (errmsg)
-		goto error;
-
-	if (!uncertainty_add_channel(pay_plugin->uncertainty, scidd->scid,
-				  capacity)) {
-		errmsg = tal_fmt(
-		    tmpctx,
-		    "Unable to find/add scid=%s in the uncertainty network",
-		    fmt_short_channel_id(tmpctx, scidd->scid));
-		goto error;
-	}
-
-	if (!amount_msat_scale(&gap, capacity, 0.1) ||
-	    !amount_msat_sub(&min, max, gap))
-		min = AMOUNT_MSAT(0);
-
-	// FIXME this does not include pending HTLC of ongoing payments!
-	/* Allow a gap between min and max so that we don't use up all of our
-	 * channels' spendable sats and avoid our local error:
-	 * WIRE_TEMPORARY_CHANNEL_FAILURE: Capacity exceeded - HTLC fee: Xsat
-	 *
-	 * */
-	if (!uncertainty_set_liquidity(pay_plugin->uncertainty, scidd, min,
-				       max)) {
-		errmsg = tal_fmt(
-		    tmpctx,
-		    "Unable to set liquidity to channel scidd=%s in the "
-		    "uncertainty network.",
-		    fmt_short_channel_id_dir(tmpctx, scidd));
-		goto error;
-	}
-	return;
-
-error:
-	plugin_log(
-	    pay_plugin->plugin, LOG_UNUSUAL,
-	    "Failed to update local channel %s from listpeerchannels rpc: %s",
-	    fmt_short_channel_id(tmpctx, scidd->scid),
-	    errmsg);
-}
-
-static void gossmod_cb(struct gossmap_localmods *mods,
-		       const struct node_id *self,
-		       const struct node_id *peer,
-		       const struct short_channel_id_dir *scidd,
-		       struct amount_msat capacity_msat,
-		       struct amount_msat htlcmin,
-		       struct amount_msat htlcmax,
-		       struct amount_msat spendable,
-		       struct amount_msat max_total_htlc,
-		       struct amount_msat fee_base,
-		       u32 fee_proportional,
-		       u16 cltv_delta,
-		       bool enabled,
-		       const char *buf,
-		       const jsmntok_t *chantok,
-		       struct payment *payment)
-{
-	struct amount_msat min, max;
-
-	if (scidd->dir == node_id_idx(self, peer)) {
-		/* local channels can send up to what's spendable but there is a
-		 * limit also the total amount in-flight */
-		min = AMOUNT_MSAT(0);
-		max = amount_msat_min(spendable, max_total_htlc);
-	} else {
-		/* remote channels can send up no more than spendable */
-		min = htlcmin;
-		max = amount_msat_min(spendable, htlcmax);
-	}
-
-	/* FIXME: features? */
-	gossmap_local_addchan(mods, self, peer, scidd->scid, capacity_msat,
-			      NULL);
-	gossmap_local_updatechan(mods, scidd,
-				 &enabled,
-				 &min, &max,
-				 &fee_base, &fee_proportional, &cltv_delta);
-
-	/* Is it disabled? */
-	if (!enabled)
-		payment_disable_chan(payment, *scidd, LOG_DBG,
-				     "listpeerchannels says not enabled");
-
-	/* Also update the uncertainty network by fixing the liquidity of the
-	 * outgoing channel. If we try to set the liquidity of the incoming
-	 * channel as well we would have conflicting information because our
-	 * knowledge model does not take into account channel reserves. */
-	if (scidd->dir == node_id_idx(self, peer))
-		uncertainty_update_from_listpeerchannels(
-		    pay_plugin->uncertainty, scidd, max, enabled, buf, chantok);
-}
-
-static struct command_result *getmychannels_done(struct command *cmd,
-						 const char *method UNUSED,
-						 const char *buf,
-						 const jsmntok_t *result,
-						 struct payment *payment)
-{
-	// FIXME: should local gossmods be global (ie. member of pay_plugin) or
-	// local (ie. member of payment)?
-	payment->local_gossmods = gossmods_from_listpeerchannels(
-	    payment, &pay_plugin->my_id, buf, result, /* zero_rates = */ true,
-	    gossmod_cb, payment);
-
-	return payment_continue(payment);
-}
-
-static struct command_result *getmychannels_cb(struct payment *payment)
-{
-	struct command *cmd = payment_command(payment);
-	if (!cmd)
-		plugin_err(pay_plugin->plugin,
-			   "getmychannels_pay_mod: cannot get a valid cmd.");
-
-	struct out_req *req = jsonrpc_request_start(
-	    cmd, "listpeerchannels", getmychannels_done,
-	    payment_rpc_failure, payment);
-	return send_outreq(req);
-}
-
-REGISTER_PAYMENT_MODIFIER(getmychannels, getmychannels_cb);
-
-/*****************************************************************************
  * refreshgossmap
  *
  * Update the gossmap.
@@ -411,24 +272,7 @@ static struct command_result *refreshgossmap_cb(struct payment *payment)
 {
 	assert(pay_plugin->gossmap); // gossmap must be already initialized
 	assert(payment);
-	assert(payment->local_gossmods);
-
-	bool gossmap_changed = gossmap_refresh(pay_plugin->gossmap);
-
-	if (gossmap_changed) {
-		gossmap_apply_localmods(pay_plugin->gossmap,
-					payment->local_gossmods);
-		int skipped_count = uncertainty_update(pay_plugin->uncertainty,
-						       pay_plugin->gossmap);
-		gossmap_remove_localmods(pay_plugin->gossmap,
-					 payment->local_gossmods);
-		if (skipped_count)
-			plugin_log(
-			    pay_plugin->plugin, LOG_UNUSUAL,
-			    "%s: uncertainty was updated but %d channels have "
-			    "been ignored.",
-			    __func__, skipped_count);
-	}
+	gossmap_refresh(pay_plugin->gossmap);
 	return payment_continue(payment);
 }
 
@@ -1351,24 +1195,23 @@ void *payment_virtual_program[] = {
     /*0*/ OP_CALL, &previoussuccess_pay_mod,
     /*2*/ OP_CALL, &initpaymentlayer_pay_mod,
     /*4*/ OP_CALL, &knowledgerelax_pay_mod,
-    /*6*/ OP_CALL, &getmychannels_pay_mod,
-    /*8*/ OP_CALL, &refreshgossmap_pay_mod,
-    /*10*/ OP_CALL, &routehints_pay_mod,
-    /*12*/ OP_CALL, &blindedhints_pay_mod,
-    /*14*/OP_CALL, &channelfilter_pay_mod,
+    /*6*/ OP_CALL, &refreshgossmap_pay_mod,
+    /*8*/ OP_CALL, &routehints_pay_mod,
+    /*10*/ OP_CALL, &blindedhints_pay_mod,
+    /*12*/OP_CALL, &channelfilter_pay_mod,
     // TODO shadow_additions
     /* do */
-	    /*16*/ OP_CALL, &pendingsendpays_pay_mod,
-	    /*18*/ OP_CALL, &checktimeout_pay_mod,
-	    /*20*/ OP_CALL, &refreshgossmap_pay_mod,
-	    /*22*/ OP_CALL, &getroutes_pay_mod,
-	    /*24*/ OP_CALL, &send_routes_pay_mod,
+	    /*14*/ OP_CALL, &pendingsendpays_pay_mod,
+	    /*16*/ OP_CALL, &checktimeout_pay_mod,
+	    /*18*/ OP_CALL, &refreshgossmap_pay_mod,
+	    /*20*/ OP_CALL, &getroutes_pay_mod,
+	    /*22*/ OP_CALL, &send_routes_pay_mod,
 	    /*do*/
-		    /*26*/ OP_CALL, &sleep_pay_mod,
-		    /*28*/ OP_CALL, &collect_results_pay_mod,
+		    /*24*/ OP_CALL, &sleep_pay_mod,
+		    /*26*/ OP_CALL, &collect_results_pay_mod,
 	    /*while*/
-	    /*30*/ OP_IF, &nothaveresults_pay_cond, (void *)26,
+	    /*28*/ OP_IF, &nothaveresults_pay_cond, (void *)24,
     /* while */
-    /*33*/ OP_IF, &retry_pay_cond, (void *)16,
-    /*36*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
-    /*38*/ NULL};
+    /*31*/ OP_IF, &retry_pay_cond, (void *)14,
+    /*34*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
+    /*36*/ NULL};
