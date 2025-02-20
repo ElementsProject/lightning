@@ -653,8 +653,11 @@ class LightningD(TailableProc):
         # In case you want specific ordering!
         self.early_opts = []
 
-        if VersionSpec.parse(">=v23.11").matches(self.cln_version):
-            self.early_opts.append('--developer')
+        try:
+            if VersionSpec.parse(">=v23.11").matches(self.cln_version):
+                self.early_opts.append('--developer')
+        except Exception:
+            raise ValueError(f"Invalid version {type(self.cln_version)} - {self.cln_version}")
 
     def cleanup(self):
         # To force blackhole to exit, disconnect file must be truncated!
