@@ -915,6 +915,38 @@ static unsigned int count_trailing_zeroes(uint64_t index)
 #endif
 }
 
+static void wallet_stub_shachain_init(struct wallet *wallet,
+				      struct wallet_shachain *chain)
+{
+	struct db_stmt *stmt;
+	stmt = db_prepare_v2(
+		wallet->db,
+		SQL("INSERT into shachains (min_index, num_valid) VALUES (?, ?);"));
+	db_bind_u64(stmt, chain->chain.min_index);
+	db_bind_u64(stmt, chain->chain.num_valid);
+	db_exec_prepared_v2(stmt);
+
+	chain->id = db_last_insert_id_v2(stmt);
+	tal_free(stmt);
+
+	for (u32 pos = 0; pos < chain->chain.num_valid; pos++) {
+		struct secret s;
+		CROSS_TYPE_ASSIGNMENT(&s, &chain->chain.known[pos].hash);
+
+		stmt = db_prepare_v2(
+			wallet->db,
+			SQL("INSERT INTO shachain_known (shachain_id, "
+				"pos, idx, hash) VALUES (?, ?, ?, ?);"));
+
+		db_bind_u64(stmt, chain->id);
+		db_bind_int(stmt, pos);
+		db_bind_u64(stmt, chain->chain.known[pos].index);
+		db_bind_secret(stmt, &s);
+
+		db_exec_prepared_v2(take(stmt));
+	}
+}
+
 bool wallet_shachain_add_hash(struct wallet *wallet,
 			      struct wallet_shachain *chain,
 			      uint64_t index,
@@ -2671,7 +2703,11 @@ void wallet_channel_insert(struct wallet *w, struct channel *chan)
 
 	wallet_channel_config_insert(w, &chan->our_config);
 	wallet_channel_config_insert(w, &chan->channel_info.their_config);
-	wallet_shachain_init(w, &chan->their_shachain);
+	if (chan->scid && is_stub_scid(*chan->scid)) {
+		wallet_stub_shachain_init(w, &chan->their_shachain);
+	} else {
+		wallet_shachain_init(w, &chan->their_shachain);
+	}
 
 	/* Now save path as normal */
 	wallet_channel_save(w, chan);
