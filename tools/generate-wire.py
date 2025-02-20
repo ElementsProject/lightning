@@ -249,8 +249,8 @@ class Type(FieldSet):
         'tx_parts',
         'wally_psbt',
         'wally_tx',
-        'scb_chan',
-        'scb_chan_with_tlvs',
+        'legacy_scb_chan',
+        'modern_scb_chan',
         'inflight',
     ]
 

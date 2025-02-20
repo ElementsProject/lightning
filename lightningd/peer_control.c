@@ -2371,7 +2371,7 @@ static void json_add_scb(struct command *cmd,
 	/* Update shachain & basepoints in SCB. */
 	c->scb->tlvs->shachain = &c->their_shachain.chain;
 	c->scb->tlvs->basepoints = &c->channel_info.theirbase;
-	towire_scb_chan_with_tlvs(&scb, c->scb);
+	towire_modern_scb_chan(&scb, c->scb);
 
 	json_add_hex_talarr(response, fieldname,
 			    scb);
