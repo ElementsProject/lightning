@@ -2884,6 +2884,35 @@ def test_getemergencyrecoverdata(node_factory):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
+def test_emergencyrecover_old_format_handling(node_factory, bitcoind):
+    """
+    Test test_emergencyrecover_old_format_handling
+    """
+    l1 = node_factory.get_node()
+
+    encrypted_data = (
+        "4e90ed80be3ddf666967ecdebc296cb0ec9f9f2e1adf3b1ef359d74ae40dd152"
+        "167572828e682105992d4cabe8b11edafe5069143950262ad42efa2cb629d7e9"
+        "b990c9c3de2fc3cc30ef13cfa94cd4f5a9f9a70ea7837f3d0bbd5442c5086d34"
+        "f0bc4d4343c9309109afa9350dc869f3eed66a4f52a46674bbe5bc4aedffd358"
+        "5d8522c96739b9db57a00f8cc17a0221f72f1fd8c1b661f34eed33cde97c84e0"
+        "43dc2abc7d862f49949d7a904a56b2fefef3bf0fd56a32635c8d23"
+    )
+
+    os.unlink(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "emergency.recover"))
+
+    with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "emergency.recover"), 'wb') as f:
+        f.write(bytes.fromhex(encrypted_data))
+
+    stubs = l1.rpc.emergencyrecover()["stubs"]
+    assert len(stubs) == 1
+    assert stubs[0] == '3497625a774a5e1839f1a4a6b23a6a06493817ae90ff4ed0a536f4202845de2f'
+    assert l1.daemon.is_in_log('Watching for funding txid: 2fde452820f436a5d04eff90ae173849066a3ab2a6a4f139185e4a775a629734')
+    assert l1.daemon.is_in_log('Processing legacy emergency.recover file format. *')
+    l1.stop()
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
 def test_emergencyrecover(node_factory, bitcoind):
     """
     Test emergencyrecover
