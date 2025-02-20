@@ -2551,6 +2551,11 @@ static void setup_peer(struct peer *peer)
 			break;
 		}
 
+		/* Don't reconnect for private channels if --dev-no-reconnect-private */
+		if (!channel->peer->ld->reconnect_private
+		    && !(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
+			continue;
+
 		if (channel_state_wants_peercomms(channel->state))
 			connect = true;
 		if (channel_important_filter(channel, NULL))
