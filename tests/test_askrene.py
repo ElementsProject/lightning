@@ -1277,7 +1277,8 @@ def test_real_biases(node_factory, bitcoind):
                             total += p['amount_msat']
                 return total
             amount_before = amount_through_chan(chan, route['routes'])
-
+            # remove any previous biases
+            l1.rpc.askrene_age('biases', int(time.time()) + 10)
             l1.rpc.askrene_bias_channel('biases', chan, -bias)
             route2 = l1.rpc.getroutes(source=l1.info['id'],
                                       destination=nodeids[n],

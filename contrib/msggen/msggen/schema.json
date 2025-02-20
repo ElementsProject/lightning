@@ -281,7 +281,7 @@
       "title": "Command to apply a manual bias to a channel in a layer",
       "added": "v24.11",
       "description": [
-        "The **askrene-bias-channel** RPC command tells askrene to favor or disfavor a channel when considering it for routing."
+        "The **askrene-bias-channel** RPC command tells askrene to favor or disfavor a channel when considering it for routing.  Repeated calls to askrene-bias-channel add up the biases up to +100 or down to -100."
       ],
       "request": {
         "required": [

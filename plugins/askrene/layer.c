@@ -10,6 +10,9 @@
 #include <plugins/askrene/layer.h>
 #include <wire/wire.h>
 
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
 /* Different elements in the datastore */
 enum dstore_layer_type {
 	/* We don't use type 0, which fromwire_u16 returns on trunction */
@@ -294,15 +297,18 @@ static const struct bias *set_bias(struct layer *layer,
 		bias = tal(layer, struct bias);
 		bias->scidd = *scidd;
 		bias_hash_add(layer->biases, bias);
+		bias->bias = 0;
 	} else {
 		tal_free(bias->description);
 	}
-
-	bias->bias = bias_factor;
+	int bias_sum = bias->bias + bias_factor;
+	bias_sum = MIN(100, bias_sum);
+	bias_sum = MAX(-100, bias_sum);
+	bias->bias = bias_sum;
 	bias->description = tal_strdup_or_null(bias, description);
 
 	/* Don't bother keeping around zero biases */
-	if (bias_factor == 0) {
+	if (bias->bias == 0) {
 		bias_hash_del(layer->biases, bias);
 		bias = tal_free(bias);
 	}
