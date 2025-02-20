@@ -612,10 +612,8 @@ class LightningD(TailableProc):
         self.opts = LIGHTNINGD_CONFIG.copy()
 
         # Query the version of the cln-binary
-        cln_version_proc = subprocess.run(
-            [self.executable, "--version"],
-            stdout=subprocess.PIPE)
-        self.cln_version = NodeVersion(cln_version_proc.stdout.decode('ascii').strip())
+        cln_version_proc = subprocess.check_output([self.executable, "--version"])
+        self.cln_version = NodeVersion(cln_version_proc.decode('ascii').strip())
 
         opts = {
             'lightning-dir': lightning_dir,
