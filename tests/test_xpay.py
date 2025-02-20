@@ -212,7 +212,8 @@ def test_xpay_selfpay(node_factory):
 
 @pytest.mark.slow_test
 @unittest.skipIf(TEST_NETWORK != 'regtest', '29-way split for node 17 is too dusty on elements')
-def test_xpay_fake_channeld(node_factory, bitcoind, chainparams):
+@pytest.mark.parametrize("slow_mode", [False, True])
+def test_xpay_fake_channeld(node_factory, bitcoind, chainparams, slow_mode):
     outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
     nodeids = subprocess.check_output(['devtools/gossmap-compress',
                                        'decompress',
@@ -239,6 +240,8 @@ def test_xpay_fake_channeld(node_factory, bitcoind, chainparams):
     shaseed = subprocess.check_output(["tools/hsmtool", "dumpcommitments", l1.info['id'], "1", "0", hsmfile]).decode('utf-8').strip().partition(": ")[2]
     l1.rpc.dev_peer_shachain(l2.info['id'], shaseed)
 
+    # Toggle whether we wait for all the parts to finish.
+    l1.rpc.setconfig('xpay-slow-mode', slow_mode)
     failed_parts = []
     for n in range(0, 100):
         if n in (62, 76, 80, 97):
@@ -677,3 +680,33 @@ def test_xpay_bolt12_no_mpp(node_factory, chainparams):
     assert ret['successful_parts'] == 2
     assert ret['amount_msat'] == AMOUNT
     assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 1
+
+
+def test_xpay_slow_mode(node_factory, bitcoind):
+    # l1 -> l2 -> l3 -> l5
+    #         \-> l4 -/^
+    l1, l2, l3, l4, l5 = node_factory.get_nodes(5, opts=[{'xpay-slow-mode': True},
+                                                         {}, {}, {}, {}])
+    node_factory.join_nodes([l2, l3, l5])
+    node_factory.join_nodes([l2, l4, l5])
+
+    # Make sure l1 can see all paths.
+    node_factory.join_nodes([l1, l2])
+    bitcoind.generate_block(5)
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 10)
+
+    # First try an MPP which fails
+    inv = l5.rpc.invoice(500000000, 'test_xpay_slow_mode_fail', 'test_xpay_slow_mode_fail', preimage='01' * 32)['bolt11']
+    l5.rpc.delinvoice('test_xpay_slow_mode_fail', status='unpaid')
+
+    with pytest.raises(RpcError, match=r"Destination said it doesn't know invoice: incorrect_or_unknown_payment_details"):
+        l1.rpc.xpay(inv)
+
+    # Now a successful one
+    inv = l5.rpc.invoice(500000000, 'test_xpay_slow_mode', 'test_xpay_slow_mode', preimage='00' * 32)['bolt11']
+
+    assert l1.rpc.xpay(inv) == {'payment_preimage': '00' * 32,
+                                'amount_msat': 500000000,
+                                'amount_sent_msat': 500010002,
+                                'failed_parts': 0,
+                                'successful_parts': 2}
