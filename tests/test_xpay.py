@@ -8,6 +8,7 @@ from utils import (
 
 import os
 import pytest
+import re
 import subprocess
 import sys
 from hashlib import sha256
@@ -710,3 +711,58 @@ def test_xpay_slow_mode(node_factory, bitcoind):
                                 'amount_sent_msat': 500010002,
                                 'failed_parts': 0,
                                 'successful_parts': 2}
+
+
+@pytest.mark.parametrize("slow_mode", [False, True])
+def test_fail_after_success(node_factory, bitcoind, executor, slow_mode):
+    # l1 -> l2 -> l3 -> l5
+    #         \-> l4 -/^
+    l1, l2, l3, l4, l5 = node_factory.get_nodes(5, opts=[{'xpay-slow-mode': slow_mode},
+                                                         {},
+                                                         {},
+                                                         {'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC']},
+                                                         {}])
+    node_factory.join_nodes([l2, l3, l5])
+    node_factory.join_nodes([l2, l4, l5])
+
+    # Make sure l1 can see all paths.
+    node_factory.join_nodes([l1, l2])
+    bitcoind.generate_block(5)
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 10)
+
+    inv = l5.rpc.invoice(500000000, 'test_xpay_slow_mode', 'test_xpay_slow_mode', preimage='00' * 32)['bolt11']
+    fut = executor.submit(l1.rpc.xpay, invstring=inv, retry_for=0)
+
+    # Part via l3 is fine.  Part via l4 is stuck, so we kill l4 and mine
+    # blocks to make l2 force close.
+    l4.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
+    l4.stop()
+
+    # Normally, we return as soon as first part succeeds.
+    if slow_mode is False:
+        assert fut.result(TIMEOUT) == {'payment_preimage': '00' * 32,
+                                       'amount_msat': 500000000,
+                                       'amount_sent_msat': 500010002,
+                                       'failed_parts': 0,
+                                       'successful_parts': 2}
+
+    # Time it out, l2 will collect it.
+    bitcoind.generate_block(13)
+    l2.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL: Offered HTLC 0 SENT_ADD_ACK_REVOCATION cltv 124 hit deadline')
+    bitcoind.generate_block(3, wait_for_mempool=1)
+
+    l1.daemon.wait_for_log(r"UNUSUAL.*Destination accepted partial payment, failed a part \(Error permanent_channel_failure for path ->022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59->0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199->032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e, from 022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59\)")
+    # Could be either way around, check both
+    line = l1.daemon.is_in_log(r"UNUSUAL.*Destination accepted partial payment, failed a part")
+    assert re.search(r'but accepted only 32000msat of 500000000msat\.  Winning\?!', line) or re.search(r'but accepted only 499968000msat of 500000000msat\.  Winning\?!', line)
+
+    if slow_mode is True:
+        # Now it succeeds, but notes that it only sent one part!
+        res = fut.result(TIMEOUT)
+        # Some variation due to floating point.
+        assert res['amount_sent_msat'] < 500000000
+        assert res == {'payment_preimage': '00' * 32,
+                       'amount_msat': 500000000,
+                       'amount_sent_msat': res['amount_sent_msat'],
+                       'failed_parts': 1,
+                       'successful_parts': 1}
