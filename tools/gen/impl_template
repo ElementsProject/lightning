@@ -66,6 +66,8 @@ towire_${type_obj.name}_array(${ptr}, ${fieldname}, ${f.size('tal_count(' + fiel
 towire_${type_obj.name}(${ptr}, ${f.name});
 % elif is_single_ptr:
 towire_${type_obj.name}(${ptr}, ${'*' if type_obj.is_assignable() else ''}${fieldname});
+%elif f.type_obj.is_tlv():
+towire_tlv_${type_obj.name}(${ptr}, ${'' if type_obj.is_assignable() or type_obj.is_varsize() else '&'}${fieldname});
 % else:
 towire_${type_obj.name}(${ptr}, ${'' if type_obj.is_assignable() or type_obj.is_varsize() else '&'}${fieldname});
 % endif
@@ -74,6 +76,8 @@ towire_${type_obj.name}(${ptr}, ${'' if type_obj.is_assignable() or type_obj.is_
 <%def name="fromwire_subtype_field(fieldname, f, ctx, is_ptr)">\
 <%
     type_ = f.type_obj.name
+    if f.type_obj.is_tlv():
+	type_ = 'tlv_' + type_
     typename = f.type_obj.type_name()
     if f.type_obj.is_varsize():
 	typename += ' *'
