@@ -3873,6 +3873,11 @@ def test_sql(node_factory, bitcoind):
                         {'name': 'dust_limit_msat',
                          'type': 'msat'},
                         {'name': 'max_total_htlc_in_msat',
+                         'type': 'msat',
+                         'deprecated': 'v25.02'},
+                        {'name': 'their_max_htlc_value_in_flight_msat',
+                         'type': 'msat'},
+                        {'name': 'our_max_htlc_value_in_flight_msat',
                          'type': 'msat'},
                         {'name': 'their_reserve_msat',
                          'type': 'msat'},
@@ -4163,6 +4168,8 @@ def test_sql(node_factory, bitcoind):
             assert row[0] > 0
 
         for col in schema['columns']:
+            if 'deprecated' in col:
+                continue
             val = only_one(l2.rpc.sql("SELECT {} FROM {};".format(col['name'], table))['rows'][0])
             # Could be null
             if val is None:
