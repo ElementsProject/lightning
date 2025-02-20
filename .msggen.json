@@ -3329,7 +3329,8 @@
             "SendOnion.onion": 1,
             "SendOnion.partid": 6,
             "SendOnion.payment_hash": 3,
-            "SendOnion.shared_secrets[]": 5
+            "SendOnion.shared_secrets[]": 5,
+            "SendOnion.total_amount_msat": 15
         },
         "SendonionResponse": {
             "SendOnion.amount_msat": 4,
@@ -11922,6 +11923,10 @@
         },
         "SendOnion.status": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SendOnion.total_amount_msat": {
+            "added": "v25.02",
             "deprecated": null
         },
         "SendOnion.updated_index": {
