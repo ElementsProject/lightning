@@ -51,7 +51,7 @@ bool ${enum_set['name']}_is_defined(u16 type)
 ## START PARTIALS
 ## Subtype and TLV-msg towire_
 <%def name="towire_subtype_field(fieldname, f, type_obj, is_single_ptr, ptr)">\
-% if f.is_array() or f.is_varlen():
+% if not f.type_obj.is_tlv() and (f.is_array() or f.is_varlen()):
     % if type_obj.has_array_helper():
 towire_${type_obj.name}_array(${ptr}, ${fieldname}, ${f.size('tal_count(' + fieldname + ')')});
     % else:
@@ -82,7 +82,7 @@ towire_${type_obj.name}(${ptr}, ${'' if type_obj.is_assignable() or type_obj.is_
     if f.type_obj.is_varsize():
 	typename += ' *'
 %>\
-% if f.is_array() or f.is_varlen():
+% if not f.type_obj.is_tlv() and (f.is_array() or f.is_varlen()):
     % if f.type_obj.has_array_helper():
     ## We assume array helpers only deal with things literally transcribed!!
 	% if f.is_varlen():
@@ -116,8 +116,10 @@ ${fieldname} = ${f.size('*plen')} ? tal_arr(${ctx}, ${typename}, 0) : NULL;
     % endif
     % if f.type_obj.is_assignable():
 ${ f.name if f.len_field_of else fieldname} = fromwire_${type_}(cursor, plen);
-    % elif f.type_obj.is_varsize():
+    % elif f.type_obj.is_varsize() and not f.type_obj.is_tlv():
 ${fieldname} = fromwire_${type_}(${ctx}, cursor, plen);
+    % elif f.type_obj.is_tlv() and f.is_varlen():
+${fieldname} = fromwire_${type_}(${ctx}, cursor, &(size_t){(size_t)${f.size()}});
     % else:
 fromwire_${type_}(cursor, plen, &${fieldname});
     % endif
@@ -138,7 +140,14 @@ fromwire_${type_}(cursor, plen, &${fieldname});
 ${static}void towire_${subtype.name}(u8 **p, const ${subtype.type_name()} *${subtype.name})
 {
 	% for f in subtype.get_len_fields():
+	 % if not subtype.find_data_field(f.len_field_of).type_obj.is_tlv():  # Check if this signify length of TLV.
 	${f.type_obj.type_name()} ${f.name} = tal_count(${subtype.name}->${f.len_field_of});
+	 % else:
+	 /* Length of serialized tlv. */
+	u8 *tmp = tal_arr(tmpctx, u8, 0);
+	towire_tlv_${subtype.find_data_field(f.len_field_of).type_obj.name}(&tmp, ${subtype.name}->${f.len_field_of});
+	${f.type_obj.type_name()} ${f.name} = tal_bytelen(tmp);
+   	 % endif
 	% endfor
 
 	% for f in subtype.fields.values():
