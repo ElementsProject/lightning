@@ -482,12 +482,12 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->owner = NULL;
 	memset(&channel->billboard, 0, sizeof(channel->billboard));
 	channel->billboard.transient = tal_strdup(channel, transient_billboard);
+	channel->channel_info = *channel_info;
 
 	/* If it's a unix domain socket connection, we don't save it */
 	if (peer->addr.itype == ADDR_INTERNAL_WIREADDR) {
-		channel->scb = tal(channel, struct scb_chan);
+		channel->scb = tal(channel, struct modern_scb_chan);
 		channel->scb->id = dbid;
-		channel->scb->unused = 0;
 		/* More useful to have last_known_addr, if avail */
 		if (peer->last_known_addr)
 			channel->scb->addr = *peer->last_known_addr;
@@ -497,6 +497,14 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 		channel->scb->cid = *cid;
 		channel->scb->funding_sats = funding_sats;
 		channel->scb->type = channel_type_dup(channel->scb, type);
+
+		struct tlv_scb_tlvs *scb_tlvs = tlv_scb_tlvs_new(channel);
+		scb_tlvs->shachain = &channel->their_shachain.chain;
+		scb_tlvs->basepoints = &channel->channel_info.theirbase;
+		scb_tlvs->opener = &channel->opener;
+		scb_tlvs->remote_to_self_delay = &channel->channel_info.their_config.to_self_delay;
+
+		channel->scb->tlvs = scb_tlvs;
 	} else
 		channel->scb = NULL;
 
@@ -542,7 +550,6 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	if (last_sig)
 		channel->last_sig = *last_sig;
 	channel->last_htlc_sigs = tal_steal(channel, last_htlc_sigs);
-	channel->channel_info = *channel_info;
 	channel->fee_states = dup_fee_states(channel, fee_states);
 	channel->shutdown_scriptpubkey[REMOTE]
 		= tal_steal(channel, remote_shutdown_scriptpubkey);

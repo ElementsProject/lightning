@@ -293,9 +293,6 @@ const u8 *psbt_fixup(const tal_t *ctx UNNEEDED, const u8 *psbtblob UNNEEDED)
 struct htlc_in *remove_htlc_in_by_dbid(struct htlc_in_map *remaining_htlcs_in UNNEEDED,
 				       u64 dbid UNNEEDED)
 { fprintf(stderr, "remove_htlc_in_by_dbid called!\n"); abort(); }
-/* Generated stub for rune_is_ours */
-const char *rune_is_ours(struct lightningd *ld UNNEEDED, const struct rune *rune UNNEEDED)
-{ fprintf(stderr, "rune_is_ours called!\n"); abort(); }
 /* Generated stub for rune_unique_id */
 u64 rune_unique_id(const struct rune *rune UNNEEDED)
 { fprintf(stderr, "rune_unique_id called!\n"); abort(); }
