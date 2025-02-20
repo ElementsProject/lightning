@@ -2906,6 +2906,88 @@ def test_getemergencyrecoverdata(node_factory):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
+def test_emergency_recover_old_format_handling(node_factory, bitcoind):
+    """
+    Test test_emergency_recover_old_format_handling
+    """
+    l1 = node_factory.get_node()
+
+    encrypted_data = (
+        "4e90ed80be3ddf666967ecdebc296cb0ec9f9f2e1adf3b1ef359d74ae40dd152"
+        "167572828e682105992d4cabe8b11edafe5069143950262ad42efa2cb629d7e9"
+        "b990c9c3de2fc3cc30ef13cfa94cd4f5a9f9a70ea7837f3d0bbd5442c5086d34"
+        "f0bc4d4343c9309109afa9350dc869f3eed66a4f52a46674bbe5bc4aedffd358"
+        "5d8522c96739b9db57a00f8cc17a0221f72f1fd8c1b661f34eed33cde97c84e0"
+        "43dc2abc7d862f49949d7a904a56b2fefef3bf0fd56a32635c8d23"
+    )
+
+    os.unlink(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "emergency.recover"))
+
+    with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "emergency.recover"), 'wb') as f:
+        f.write(bytes.fromhex(encrypted_data))
+
+    stubs = l1.rpc.emergencyrecover()["stubs"]
+    assert len(stubs) == 1
+    assert stubs[0] == '3497625a774a5e1839f1a4a6b23a6a06493817ae90ff4ed0a536f4202845de2f'
+    assert l1.daemon.is_in_log('Watching for funding txid: 2fde452820f436a5d04eff90ae173849066a3ab2a6a4f139185e4a775a629734')
+    assert l1.daemon.is_in_log('Processing legacy emergency.recover file format. *')
+    l1.stop()
+
+
+def test_emergencyrecoverpenaltytxn(node_factory, bitcoind):
+    l1, l2 = node_factory.get_nodes(2, [{'broken_log': r"onchaind-chan#[0-9]*: Could not find resolution for output .*: did \*we\* cheat\?",
+                                         'may_reconnect': True,
+                                         'allow_bad_gossip': True,
+                                         'rescan': 10},
+                                    {'broken_log': r"onchaind-chan#[0-9]*: Could not find resolution for output .*: did \*we\* cheat\?",
+                                        'may_reconnect': True}])
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    c12, _ = l2.fundchannel(l1, 10**5)
+    stubs = l1.rpc.emergencyrecover()["stubs"]
+    assert l1.daemon.is_in_log('channel {} already exists!'.format(_['channel_id']))
+
+    l2.rpc.pay(l1.rpc.invoice(25000000, 'lbl1', 'desc1')['bolt11'])
+
+    tx = l2.rpc.dev_sign_last_tx(l1.info['id'])['tx']
+
+    l2.rpc.pay(l1.rpc.invoice(25000000, 'lbl2', 'desc2')['bolt11'])
+
+    l1.stop()
+
+    # Now l2 cheats
+    bitcoind.rpc.sendrawtransaction(tx)
+    time.sleep(1)
+    bitcoind.generate_block(1)
+
+    # Deleting the database for the L1 node
+    os.unlink(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3"))
+
+    # Running emergencyrecover on L1 to stub the channel inside the database.
+    l1.start()
+    assert l1.daemon.is_in_log('Server started with public key')
+    stubs = l1.rpc.emergencyrecover()["stubs"]
+    assert len(stubs) == 1
+    assert stubs[0] == _["channel_id"]
+    l1.daemon.wait_for_log('peer_out WIRE_ERROR')
+
+    # Restarting so that L1
+    l1.restart()
+
+    # Wait till L1 detects that L2 has cheated and it needs to create a penalty transaction.
+    _, txid, blocks = l1.wait_for_onchaind_tx('OUR_PENALTY_TX',
+                                              'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM')
+    assert blocks == 0
+    bitcoind.generate_block(10, wait_for_mempool=[txid])
+    sync_blockheight(bitcoind, [l1, l2])
+
+    # And l1 should consider it resolved now.
+    l1.daemon.wait_for_log('Resolved THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM by our proposal OUR_PENALTY_TX')
+
+    assert(l1.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN")
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
 def test_emergencyrecover(node_factory, bitcoind):
     """
     Test emergencyrecover

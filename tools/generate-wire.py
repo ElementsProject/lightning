@@ -249,7 +249,8 @@ class Type(FieldSet):
         'tx_parts',
         'wally_psbt',
         'wally_tx',
-        'scb_chan',
+        'legacy_scb_chan',
+        'modern_scb_chan',
         'inflight',
     ]
 
@@ -589,6 +590,9 @@ def main(options, args=None, output=sys.stdout, lines=None):
                     count = 1
                 else:
                     count = tokens[4]
+
+                if tokens[3] in master.tlvs:
+                    type_obj.tlv = master.tlvs[tokens[3]]
 
                 subtype.add_data_field(tokens[2], type_obj, count, comments=list(comment_set),
                                        optional=optional)

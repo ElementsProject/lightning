@@ -334,7 +334,7 @@ struct channel {
 
 	/* `Channel-shell` of this channel
 	 * (Minimum information required to backup this channel). */
-	struct scb_chan *scb;
+	struct modern_scb_chan *scb;
 
 	/* Do we allow the peer to set any fee it wants? */
 	bool ignore_fee_limits;

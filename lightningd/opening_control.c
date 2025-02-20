@@ -1452,7 +1452,11 @@ static struct channel *stub_chan(struct command *cmd,
 				 struct bitcoin_outpoint funding,
 				 struct wireaddr addr,
 				 struct amount_sat funding_sats,
-				 struct channel_type *type)
+				 struct channel_type *type,
+				 struct shachain shachain,
+				 struct basepoints their_basepoint,
+				 enum side opener,
+				 u16 remote_to_self_delay)
 {
 	struct basepoints basepoints;
 	struct bitcoin_signature *sig;
@@ -1468,6 +1472,10 @@ static struct channel *stub_chan(struct command *cmd,
 	u32 blockht;
 	u32 feerate;
 	struct channel_stats zero_channel_stats;
+	struct wallet_shachain *their_shachain = tal(cmd, struct wallet_shachain);
+	their_shachain->chain = shachain;
+	their_shachain->id = 0;
+
 	u8 *dummy_sig = tal_hexdata(cmd,
 				    "30450221009b2e0eef267b94c3899fb0dc73750"
 				    "12e2cee4c10348a068fe78d1b82b4b1403602207"
@@ -1528,8 +1536,11 @@ static struct channel *stub_chan(struct command *cmd,
 	/* FIXME: Makeake these a pointer, so they could be NULL */
 	memset(our_config, 0, sizeof(struct channel_config));
 	memset(their_config, 0, sizeof(struct channel_config));
+	memset(channel_info, 0, sizeof(struct channel_info));
+
+	our_config->to_self_delay = remote_to_self_delay;
 	channel_info->their_config = *their_config;
-	channel_info->theirbase = basepoints;
+	channel_info->theirbase = their_basepoint;
 	channel_info->remote_fundingkey = pk;
 	channel_info->remote_per_commit = pk;
 	channel_info->old_remote_per_commit = pk;
@@ -1545,9 +1556,9 @@ static struct channel *stub_chan(struct command *cmd,
 
 	/* Channel Shell with Dummy data(mostly) */
 	channel = new_channel(peer, id,
-			      NULL, /* No shachain yet */
+			      their_shachain,
 			      CHANNELD_NORMAL,
-			      LOCAL,
+			      opener,
 			      NULL,
 			      "restored from static channel backup",
 			      0, false, false,
@@ -1574,7 +1585,7 @@ static struct channel *stub_chan(struct command *cmd,
 			      sig,
 			      NULL, /* No HTLC sigs */
 			      channel_info,
-			      new_fee_states(cmd, LOCAL, &feerate),
+			      new_fee_states(cmd, opener, &feerate),
 			      NULL, /* No shutdown_scriptpubkey[REMOTE] */
 			      NULL,
 			      1, false,
@@ -1582,7 +1593,7 @@ static struct channel *stub_chan(struct command *cmd,
 			      /* If we're fundee, could be a little before this
 			       * in theory, but it's only used for timing out. */
 			      get_network_blockheight(ld->topology),
-                              FEERATE_FLOOR,
+                              feerate,
                               funding_sats.satoshis / MINIMUM_TX_WEIGHT * 1000 /* Raw: convert to feerate */,
 			      &basepoints,
 			      &localFundingPubkey,
@@ -1596,7 +1607,7 @@ static struct channel *stub_chan(struct command *cmd,
 			      0, /* no close_attempt_height */
 			      REASON_REMOTE,
 			      NULL,
-			      take(new_height_states(ld->wallet, LOCAL,
+			      take(new_height_states(ld->wallet, opener,
 						    &blockht)),
 			      0, NULL, 0, 0, /* No leases on v1s */
 			      ld->config.htlc_minimum_msat,
@@ -1621,7 +1632,7 @@ static struct command_result *json_recoverchannel(struct command *cmd,
 	const jsmntok_t *scb, *t;
 	size_t i;
 	struct json_stream *response;
-	struct scb_chan *scb_chan = tal(cmd, struct scb_chan);
+	struct modern_scb_chan *scb_chan = tal(cmd, struct modern_scb_chan);
 
 	if (!param(cmd, buffer, params,
 		p_req("scb", param_array, &scb),
@@ -1636,12 +1647,48 @@ static struct command_result *json_recoverchannel(struct command *cmd,
 		char *token = json_strdup(tmpctx, buffer, t);
 		const u8 *scb_arr = tal_hexdata(cmd, token, strlen(token));
 		size_t scblen = tal_count(scb_arr);
+		struct shachain chain;
+		struct basepoints basepoints;
+		struct pubkey _localfundingpubkey;
+		enum side opener = LOCAL;
+		u16 remote_to_self_delay = 0;
 
-		scb_chan = fromwire_scb_chan(cmd ,&scb_arr, &scblen);
+		scb_chan = fromwire_modern_scb_chan(cmd, &scb_arr, &scblen);
 
 		if (scb_chan == NULL) {
 			log_broken(cmd->ld->log, "SCB is invalid!");
 			continue;
+		}
+
+		if (scb_chan->tlvs != NULL) {
+			if (scb_chan->tlvs->shachain == NULL) {
+				shachain_init(&chain);
+			} else {
+				chain = *scb_chan->tlvs->shachain;
+			}
+
+			if (scb_chan->tlvs->basepoints == NULL) {
+				get_channel_basepoints(cmd->ld,
+				&scb_chan->node_id,
+				scb_chan->id,
+				&basepoints,
+				&_localfundingpubkey);
+			} else {
+				basepoints = *scb_chan->tlvs->basepoints;
+			}
+
+			if (scb_chan->tlvs->opener != NULL)
+				opener = *scb_chan->tlvs->opener;
+
+			if (scb_chan->tlvs->remote_to_self_delay != NULL)
+				remote_to_self_delay = *scb_chan->tlvs->remote_to_self_delay;
+		} else {
+			shachain_init(&chain);
+			get_channel_basepoints(cmd->ld,
+			&scb_chan->node_id,
+			scb_chan->id,
+			&basepoints,
+			&_localfundingpubkey);
 		}
 
 		struct lightningd *ld = cmd->ld;
@@ -1652,7 +1699,11 @@ static struct command_result *json_recoverchannel(struct command *cmd,
 						   scb_chan->funding,
 						   scb_chan->addr,
 						   scb_chan->funding_sats,
-						   scb_chan->type);
+						   scb_chan->type,
+						   chain,
+						   basepoints,
+						   opener,
+						   remote_to_self_delay);
 
 		/* Returns NULL only when channel already exists, so we skip over it. */
 		if (channel == NULL)
