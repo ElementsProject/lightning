@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_PLUGINS_RENEPAY_PAYPLUGIN_H
-#define LIGHTNING_PLUGINS_RENEPAY_PAYPLUGIN_H
+#ifndef LIGHTNING_PLUGINS_RENEPAY_RENEPAY_H
+#define LIGHTNING_PLUGINS_RENEPAY_RENEPAY_H
 #include "config.h"
 #include <ccan/list/list.h>
 #include <common/node_id.h>
@@ -38,7 +38,7 @@
 // 	- with current knowledge there is no flow solution to destination
 
 /* Our convenient global data, here in one place. */
-struct pay_plugin {
+struct renepay {
 	/* From libplugin */
 	struct plugin *plugin;
 
@@ -82,7 +82,4 @@ struct pay_plugin {
 	u64 last_time;
 };
 
-/* Set in init */
-extern struct pay_plugin *pay_plugin;
-
-#endif /* LIGHTNING_PLUGINS_RENEPAY_PAYPLUGIN_H */
+#endif /* LIGHTNING_PLUGINS_RENEPAY_RENEPAY_H */

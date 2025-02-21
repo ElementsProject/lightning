@@ -1,9 +1,10 @@
 #include "config.h"
 #include <common/json_stream.h>
 #include <common/jsonrpc_errors.h>
-#include <plugins/renepay/payplugin.h>
+#include <plugins/renepay/renepay.h>
 #include <plugins/renepay/routefail.h>
 #include <plugins/renepay/routetracker.h>
+#include <plugins/renepay/utils.h>
 #include <wire/peer_wiregen.h>
 
 enum node_type {
@@ -31,7 +32,8 @@ static struct command_result *routefail_end(struct command *cmd,
 {
 	/* Notify the tracker that route has failed and routefail have completed
 	 * handling all possible errors cases. */
-	routetracker_add_to_final(r->payment->routetracker, r->route);
+	routetracker_add_to_final(r->payment, r->payment->routetracker,
+				  r->route);
 	r = tal_free(r);
 	return notification_handled(cmd);
 }
@@ -48,16 +50,15 @@ static struct command_result *log_routefail_err(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-struct command_result *routefail_start(const tal_t *ctx, struct route *route,
-				       struct command *cmd)
+struct command_result *routefail_start(const tal_t *ctx,
+				       struct payment *payment,
+				       struct route *route, struct command *cmd)
 {
 	assert(route);
 	struct routefail *r = tal(ctx, struct routefail);
-	struct payment *payment =
-		    payment_map_get(pay_plugin->payment_map, route->key.payment_hash);
 
 	if (payment == NULL)
-		plugin_err(pay_plugin->plugin,
+		plugin_err(cmd->plugin,
 			   "%s: payment with hash %s not found.",
 			   __func__,
 			   fmt_sha256(tmpctx, &route->key.payment_hash));

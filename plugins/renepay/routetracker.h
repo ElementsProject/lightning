@@ -47,7 +47,8 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 						    const char *buf,
 						    const jsmntok_t *params);
 
-void routetracker_add_to_final(struct routetracker *routetracker,
+void routetracker_add_to_final(struct payment *payment,
+			       struct routetracker *routetracker,
 			       struct route *route);
 
 // FIXME: double-check that we actually get one notification for each sendpay,

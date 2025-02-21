@@ -1,5 +1,5 @@
 PLUGIN_RENEPAY_SRC :=				\
-	plugins/renepay/main.c			\
+	plugins/renepay/renepay.c		\
 	plugins/renepay/payment.c		\
 	plugins/renepay/route.c			\
 	plugins/renepay/routetracker.c		\
@@ -11,7 +11,7 @@ PLUGIN_RENEPAY_SRC :=				\
 	plugins/renepay/json.c
 
 PLUGIN_RENEPAY_HDRS :=				\
-	plugins/renepay/payplugin.h		\
+	plugins/renepay/renepay.h		\
 	plugins/renepay/payment.h		\
 	plugins/renepay/payment_info.h		\
 	plugins/renepay/renepayconfig.h		\
