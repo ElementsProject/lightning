@@ -83,6 +83,7 @@ compile_commands.json
 target
 plugins/cln-grpc
 plugins/clnrest
+plugins/wss-proxy
 
 # Build directories
 bionic/

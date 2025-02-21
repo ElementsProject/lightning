@@ -746,7 +746,7 @@ clean: obsclean
 
 PYLNS=client proto testing
 # See doc/contribute-to-core-lightning/contributor-workflow.md
-update-versions: update-pyln-versions update-wss-proxy-version update-poetry-lock update-dot-version update-doc-examples
+update-versions: update-pyln-versions update-poetry-lock update-dot-version update-doc-examples
 
 update-pyln-versions: $(PYLNS:%=update-pyln-version-%)
 
@@ -759,12 +759,8 @@ pyln-release:  $(PYLNS:%=pyln-release-%)
 pyln-release-%:
 	cd contrib/pyln-$* && $(MAKE) prod-release
 
-update-wss-proxy-version:
-	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
-	cd plugins/wss-proxy && $(MAKE) upgrade-version
-
 update-poetry-lock:
-	poetry update wss-proxy pyln-client pyln-proto pyln-testing update-reckless-version
+	poetry update pyln-client pyln-proto pyln-testing update-reckless-version
 
 update-reckless-version:
 	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
