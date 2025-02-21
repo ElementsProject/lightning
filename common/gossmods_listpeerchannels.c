@@ -13,6 +13,7 @@ void gossmod_add_localchan(struct gossmap_localmods *mods,
 			   struct amount_msat htlcmin,
 			   struct amount_msat htlcmax,
 			   struct amount_msat spendable,
+			   struct amount_msat total_htlcmax,
 			   struct amount_msat fee_base,
 			   u32 fee_proportional,
 			   u16 cltv_delta,
@@ -52,6 +53,7 @@ gossmods_from_listpeerchannels_(const tal_t *ctx,
 					   struct amount_msat htlcmin,
 					   struct amount_msat htlcmax,
 					   struct amount_msat sr_able,
+					   struct amount_msat max_total_htlc,
 					   struct amount_msat fee_base,
 					   u32 fee_proportional,
 					   u16 cltv_delta,
@@ -72,6 +74,7 @@ gossmods_from_listpeerchannels_(const tal_t *ctx,
 		bool enabled;
 		struct node_id dst;
 		struct amount_msat capacity_msat, spendable, receivable, fee_base[NUM_SIDES], htlc_min[NUM_SIDES], htlc_max[NUM_SIDES];
+		struct amount_msat max_total_in_htlc, max_total_out_htlc;
 		u32 fee_proportional[NUM_SIDES], cltv_delta[NUM_SIDES];
 		const char *state, *err;
 
@@ -87,6 +90,8 @@ gossmods_from_listpeerchannels_(const tal_t *ctx,
 				"direction?:%,"
 				"spendable_msat?:%,"
 				"receivable_msat?:%,"
+				"our_max_htlc_value_in_flight_msat?:%,"
+				"their_max_htlc_value_in_flight_msat?:%,"
 				"peer_connected:%,"
 				"state:%,"
 				"peer_id:%,"
@@ -109,6 +114,8 @@ gossmods_from_listpeerchannels_(const tal_t *ctx,
 				JSON_SCAN(json_to_int, &scidd.dir),
 				JSON_SCAN(json_to_msat, &spendable),
 				JSON_SCAN(json_to_msat, &receivable),
+				JSON_SCAN(json_to_msat, &max_total_in_htlc),
+				JSON_SCAN(json_to_msat, &max_total_out_htlc),
 				JSON_SCAN(json_to_bool, &enabled),
 				JSON_SCAN_TAL(tmpctx, json_strdup, &state),
 				JSON_SCAN(json_to_node_id, &dst),
@@ -155,7 +162,7 @@ gossmods_from_listpeerchannels_(const tal_t *ctx,
 		/* We add both directions */
 		cb(mods, self, &dst, &scidd, capacity_msat,
 		   htlc_min[LOCAL], htlc_max[LOCAL],
-		   spendable, fee_base[LOCAL], fee_proportional[LOCAL],
+		   spendable, max_total_out_htlc, fee_base[LOCAL], fee_proportional[LOCAL],
 		   cltv_delta[LOCAL], enabled, buf, channel, cbarg);
 
 		/* If we didn't have a remote update, it's not usable yet */
@@ -166,7 +173,7 @@ gossmods_from_listpeerchannels_(const tal_t *ctx,
 
 		cb(mods, self, &dst, &scidd, capacity_msat,
 		   htlc_min[REMOTE], htlc_max[REMOTE],
-		   receivable, fee_base[REMOTE], fee_proportional[REMOTE],
+		   receivable, max_total_in_htlc, fee_base[REMOTE], fee_proportional[REMOTE],
 		   cltv_delta[REMOTE], enabled, buf, channel, cbarg);
 	}
 

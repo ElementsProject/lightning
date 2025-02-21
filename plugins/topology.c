@@ -355,6 +355,7 @@ static void gossmod_add_unknown_localchan(struct gossmap_localmods *mods,
 					  struct amount_msat min,
 					  struct amount_msat max,
 					  struct amount_msat spendable,
+					  struct amount_msat max_total_htlc,
 					  struct amount_msat fee_base,
 					  u32 fee_proportional,
 					  u16 cltv_delta,
@@ -367,7 +368,7 @@ static void gossmod_add_unknown_localchan(struct gossmap_localmods *mods,
 		return;
 
 	gossmod_add_localchan(mods, self, peer, scidd, capacity_msat,
-			      min, max, spendable,
+			      min, max, spendable, max_total_htlc,
 			      fee_base, fee_proportional, cltv_delta, enabled,
 			      buf, chantok, gossmap);
 }
