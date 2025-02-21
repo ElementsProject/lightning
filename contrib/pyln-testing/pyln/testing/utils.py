@@ -835,7 +835,11 @@ class LightningNode(object):
         if EXPERIMENTAL_SPLICING:
             self.daemon.opts["experimental-splicing"] = None
         # Avoid test flakes cause by this option unless explicitly set.
-        self.daemon.opts.update({"autoconnect-seeker-peers": 0})
+        try:
+            if VersionSpec.parse(">=v24.11").matches(self.cln_version):
+                self.daemon.opts.update({"autoconnect-seeker-peers": 0})
+        except Exception:
+            raise ValueError(f"Invalid version {type(self.cln_version)} - {self.cln_version}")
 
         if options is not None:
             self.daemon.opts.update(options)
