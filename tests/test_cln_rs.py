@@ -65,10 +65,10 @@ def test_plugin_start(node_factory):
 
     l1.rpc.setconfig("test-dynamic-option", True)
     assert l1.rpc.listconfigs("test-dynamic-option")["configs"]["test-dynamic-option"]["value_bool"]
-    wait_for(lambda: l1.daemon.is_in_log(r'cln-plugin-startup: Got dynamic option change: test-dynamic-option \\"true\\"'))
+    wait_for(lambda: l1.daemon.is_in_log(r'cln-plugin-startup: Got dynamic option change: test-dynamic-option "true"'))
     l1.rpc.setconfig("test-dynamic-option", False)
     assert not l1.rpc.listconfigs("test-dynamic-option")["configs"]["test-dynamic-option"]["value_bool"]
-    wait_for(lambda: l1.daemon.is_in_log(r'cln-plugin-startup: Got dynamic option change: test-dynamic-option \\"false\\"'))
+    wait_for(lambda: l1.daemon.is_in_log(r'cln-plugin-startup: Got dynamic option change: test-dynamic-option "false"'))
 
 
 def test_plugin_options_handle_defaults(node_factory):
