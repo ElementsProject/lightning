@@ -3,6 +3,8 @@
 
 #include "config.h"
 
+struct renepay *get_renepay(struct plugin *plugin);
+
 struct rpcbatch;
 
 struct rpcbatch *

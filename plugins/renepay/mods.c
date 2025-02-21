@@ -8,10 +8,11 @@
 #include <common/memleak.h>
 #include <plugins/renepay/json.h>
 #include <plugins/renepay/mods.h>
-#include <plugins/renepay/payplugin.h>
+#include <plugins/renepay/renepay.h>
 #include <plugins/renepay/renepayconfig.h>
 #include <plugins/renepay/route.h>
 #include <plugins/renepay/routetracker.h>
+#include <plugins/renepay/utils.h>
 #include <unistd.h>
 #include <wire/bolt12_wiregen.h>
 
@@ -32,7 +33,7 @@ struct command_result *payment_continue(struct payment *payment)
 	void *op = payment_virtual_program[payment->exec_state++];
 
 	if (op == OP_NULL) {
-		plugin_err(pay_plugin->plugin,
+		plugin_err(payment->plugin,
 			   "payment_continue reached the end of the virtual "
 			   "machine execution.");
 	} else if (op == OP_CALL) {
@@ -41,11 +42,11 @@ struct command_result *payment_continue(struct payment *payment)
 			payment_virtual_program[payment->exec_state++];
 
 		if (mod == NULL)
-			plugin_err(pay_plugin->plugin,
+			plugin_err(payment->plugin,
 				   "payment_continue expected payment_modifier "
 				   "but NULL found");
 
-		plugin_log(pay_plugin->plugin, LOG_DBG, "Calling modifier %s",
+		plugin_log(payment->plugin, LOG_DBG, "Calling modifier %s",
 			   mod->name);
 		return mod->step_cb(payment);
 	} else if (op == OP_IF) {
@@ -54,11 +55,11 @@ struct command_result *payment_continue(struct payment *payment)
 			payment_virtual_program[payment->exec_state++];
 
 		if (cond == NULL)
-			plugin_err(pay_plugin->plugin,
+			plugin_err(payment->plugin,
 				   "payment_continue expected pointer to "
 				   "condition but NULL found");
 
-		plugin_log(pay_plugin->plugin, LOG_DBG,
+		plugin_log(payment->plugin, LOG_DBG,
 			   "Calling payment condition %s", cond->name);
 
 		const u64 position_iftrue =
@@ -69,7 +70,7 @@ struct command_result *payment_continue(struct payment *payment)
 
 		return payment_continue(payment);
 	}
-	plugin_err(pay_plugin->plugin, "payment_continue op code not defined");
+	plugin_err(payment->plugin, "payment_continue op code not defined");
 	return NULL;
 }
 
@@ -121,7 +122,7 @@ struct success_data {
 };
 
 /* Extracts success data from listsendpays. */
-static bool success_data_from_listsendpays(const char *buf,
+static bool success_data_from_listsendpays(struct command *cmd, const char *buf,
 					   const jsmntok_t *arr,
 					   struct success_data *success)
 {
@@ -144,13 +145,13 @@ static bool success_data_from_listsendpays(const char *buf,
 		const jsmntok_t *status_tok = json_get_member(buf, t, "status");
 		if (!status_tok)
 			plugin_err(
-			    pay_plugin->plugin,
+			    cmd->plugin,
 			    "%s (line %d) missing status token from json.",
 			    __func__, __LINE__);
 		const char *status = json_strdup(tmpctx, buf, status_tok);
 		if (!status)
 			plugin_err(
-			    pay_plugin->plugin,
+			    cmd->plugin,
 			    "%s (line %d) failed to allocate status string.",
 			    __func__, __LINE__);
 
@@ -173,7 +174,7 @@ static bool success_data_from_listsendpays(const char *buf,
 			    JSON_SCAN(json_to_preimage, &success->preimage));
 
 			if (err)
-				plugin_err(pay_plugin->plugin,
+				plugin_err(cmd->plugin,
 					   "%s (line %d) json_scan of "
 					   "listsendpay returns the "
 					   "following error: %s",
@@ -185,7 +186,7 @@ static bool success_data_from_listsendpays(const char *buf,
 					     this_msat) ||
 			    !amount_msat_add(&success->sent_msat,
 					     success->sent_msat, this_sent))
-				plugin_err(pay_plugin->plugin,
+				plugin_err(cmd->plugin,
 					   "%s (line %d) amount_msat overflow.",
 					   __func__, __LINE__);
 
@@ -211,7 +212,7 @@ static struct command_result *previoussuccess_done(struct command *cmd,
 	}
 
 	struct success_data success;
-	if (!success_data_from_listsendpays(buf, arr, &success)) {
+	if (!success_data_from_listsendpays(cmd, buf, arr, &success)) {
 		/* There are no success sendpays. */
 		return payment_continue(payment);
 	}
@@ -270,9 +271,10 @@ REGISTER_PAYMENT_MODIFIER(initial_sanity_checks, initial_sanity_checks_cb);
 
 static struct command_result *refreshgossmap_cb(struct payment *payment)
 {
-	assert(pay_plugin->gossmap); // gossmap must be already initialized
 	assert(payment);
-	gossmap_refresh(pay_plugin->gossmap);
+	struct renepay *renepay = get_renepay(payment->plugin);
+	assert(renepay->gossmap); // gossmap must be already initialized
+	gossmap_refresh(renepay->gossmap);
 	return payment_continue(payment);
 }
 
@@ -454,7 +456,7 @@ static struct command_result *getroutes_done(struct command *cmd,
 	assert(routetracker);
 
 	if (tal_count(routetracker->computed_routes) > 0)
-		plugin_err(pay_plugin->plugin,
+		plugin_err(cmd->plugin,
 			   "%s: no previously computed routes expected.",
 			   __func__);
 
@@ -476,7 +478,7 @@ static struct command_result *getroutes_done(struct command *cmd,
 		bool success = json_to_myroute(buf, r, route);
 		if (!success) {
 			plugin_err(
-			    pay_plugin->plugin,
+			    cmd->plugin,
 			    "%s: failed to parse route from getroutes, %.*s",
 			    __func__, json_tok_full_len(r),
 			    json_tok_full(buf, r));
@@ -511,19 +513,20 @@ static struct command_result *getroutes_fail(struct command *cmd,
 
 static struct command_result *getroutes_cb(struct payment *payment)
 {
+	struct renepay *renepay = get_renepay(payment->plugin);
 	assert(payment->status == PAYMENT_PENDING);
 	struct amount_msat feebudget, fees_spent, remaining;
 
 	/* Total feebudget  */
 	if (!amount_msat_sub(&feebudget, payment->payment_info.maxspend,
 			     payment->payment_info.amount))
-		plugin_err(pay_plugin->plugin, "%s: fee budget is negative?",
+		plugin_err(payment->plugin, "%s: fee budget is negative?",
 			   __func__);
 
 	/* Fees spent so far */
 	if (!amount_msat_sub(&fees_spent, payment->total_sent,
 			     payment->total_delivering))
-		plugin_err(pay_plugin->plugin,
+		plugin_err(payment->plugin,
 			   "%s: total_delivering is greater than total_sent?",
 			   __func__);
 
@@ -535,7 +538,7 @@ static struct command_result *getroutes_cb(struct payment *payment)
 	if (!amount_msat_sub(&remaining, payment->payment_info.amount,
 			     payment->total_delivering) ||
 	    amount_msat_is_zero(remaining)) {
-		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
+		plugin_log(payment->plugin, LOG_UNUSUAL,
 			   "%s: Payment is pending with full amount already "
 			   "committed. We skip the computation of new routes.",
 			   __func__);
@@ -566,7 +569,7 @@ static struct command_result *getroutes_cb(struct payment *payment)
 	// 	starts
 	// 	-> command_layer should auto clean
 
-	json_add_node_id(req->js, "source", &pay_plugin->my_id);
+	json_add_node_id(req->js, "source", &renepay->my_id);
 	json_add_node_id(req->js, "destination", payment->routing_destination);
 	json_add_amount_msat(req->js, "amount_msat", remaining);
 	json_add_amount_msat(req->js, "maxfee_msat", feebudget);
@@ -599,7 +602,7 @@ static struct command_result *send_routes_cb(struct payment *payment)
 	assert(routetracker);
 	if (!routetracker->computed_routes ||
 	    tal_count(routetracker->computed_routes) == 0) {
-		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
+		plugin_log(payment->plugin, LOG_UNUSUAL,
 			   "%s: there are no routes to send, skipping.",
 			   __func__);
 		return payment_continue(payment);
@@ -682,7 +685,7 @@ static struct command_result *collect_results_cb(struct payment *payment)
 		if (!amount_msat_greater_eq(payment->total_delivering,
 					    payment->payment_info.amount)) {
 			plugin_log(
-			    pay_plugin->plugin, LOG_UNUSUAL,
+			    payment->plugin, LOG_UNUSUAL,
 			    "%s: received a success sendpay for this "
 			    "payment but the total delivering amount %s "
 			    "is less than the payment amount %s.",
@@ -796,7 +799,7 @@ static struct command_result *pendingsendpays_done(struct command *cmd,
 	}
 
 	struct success_data success;
-	if (success_data_from_listsendpays(buf, arr, &success)) {
+	if (success_data_from_listsendpays(cmd, buf, arr, &success)) {
 		/* Have success data, hence the payment is complete, we stop. */
 		payment->payment_info.start_time.ts.tv_sec = success.created_at;
 		payment->payment_info.start_time.ts.tv_nsec = 0;
@@ -827,7 +830,7 @@ static struct command_result *pendingsendpays_done(struct command *cmd,
 				JSON_SCAN(json_to_u64, &groupid));
 
 		if (err)
-			plugin_err(pay_plugin->plugin,
+			plugin_err(cmd->plugin,
 				   "%s json_scan of listsendpay returns the "
 				   "following error: %s",
 				   __func__, err);
@@ -864,7 +867,7 @@ static struct command_result *pendingsendpays_done(struct command *cmd,
 				JSON_SCAN(json_to_msat, &this_sent));
 
 		if (err)
-			plugin_err(pay_plugin->plugin,
+			plugin_err(cmd->plugin,
 				   "%s json_scan of listsendpay returns the "
 				   "following error: %s",
 				   __func__, err);
@@ -887,7 +890,7 @@ static struct command_result *pendingsendpays_done(struct command *cmd,
 					     this_msat) ||
 			    !amount_msat_add(&pending_sent, pending_sent,
 					     this_sent))
-				plugin_err(pay_plugin->plugin,
+				plugin_err(cmd->plugin,
 					   "%s (line %d) amount_msat overflow.",
 					   __func__, __LINE__);
 		}
@@ -911,7 +914,7 @@ static struct command_result *pendingsendpays_done(struct command *cmd,
 		payment->total_sent = pending_sent;
 		payment->total_delivering = pending_msat;
 
-		plugin_log(pay_plugin->plugin, LOG_DBG,
+		plugin_log(cmd->plugin, LOG_DBG,
 			   "There are pending sendpays to this invoice. "
 			   "groupid = %" PRIu64 " "
 			   "delivering = %s, "
@@ -964,9 +967,10 @@ static struct command_result *age_done(struct command *cmd,
 
 static struct command_result *knowledgerelax_cb(struct payment *payment)
 {
+	struct renepay *renepay = get_renepay(payment->plugin);
 	const u64 now_sec = time_now().ts.tv_sec;
-	// const u64 time_delta = now_sec - pay_plugin->last_time;
-	pay_plugin->last_time = now_sec;
+	// const u64 time_delta = now_sec - renepay->last_time;
+	renepay->last_time = now_sec;
 	/* FIXME: implement a Markovian state relaxation, the time delta is all
 	 * we need to provide. */
 	struct command *cmd = payment_command(payment);
@@ -1090,7 +1094,8 @@ static struct command_result *channelfilter_done(struct command *cmd,
 static struct command_result *channelfilter_cb(struct payment *payment)
 {
 	assert(payment);
-	assert(pay_plugin->gossmap);
+	struct renepay *renepay = get_renepay(payment->plugin);
+	assert(renepay->gossmap);
 	const double HTLC_MAX_FRACTION = 0.01; // 1%
 	const u64 HTLC_MAX_STOP_MSAT = 1000000000; // 1M sats
 	u64 disabled_count = 0;
@@ -1107,18 +1112,18 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 	struct out_req *req;
 
 	for (const struct gossmap_node *node =
-		 gossmap_first_node(pay_plugin->gossmap);
-	     node; node = gossmap_next_node(pay_plugin->gossmap, node)) {
+		 gossmap_first_node(renepay->gossmap);
+	     node; node = gossmap_next_node(renepay->gossmap, node)) {
 		for (size_t i = 0; i < node->num_chans; i++) {
 			int dir;
 			const struct gossmap_chan *chan = gossmap_nth_chan(
-			    pay_plugin->gossmap, node, i, &dir);
+			    renepay->gossmap, node, i, &dir);
 			const u64 htlc_max =
 			    fp16_to_u64(chan->half[dir].htlc_max);
 			if (htlc_max < htlc_max_threshold) {
 				struct short_channel_id_dir scidd = {
 				    .scid = gossmap_chan_scid(
-					pay_plugin->gossmap, chan),
+					renepay->gossmap, chan),
 				    .dir = dir};
 				req = add_to_batch(cmd, batch,
 						   "askrene-update-channel");
@@ -1134,7 +1139,7 @@ static struct command_result *channelfilter_cb(struct payment *payment)
 	}
 	// FIXME: prune the network over other parameters, eg. capacity,
 	// fees, ...
-	plugin_log(pay_plugin->plugin, LOG_DBG,
+	plugin_log(payment->plugin, LOG_DBG,
 		   "channelfilter: disabling %" PRIu64 " channels.",
 		   disabled_count);
 	return batch_done(cmd, batch);

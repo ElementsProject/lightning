@@ -3,8 +3,9 @@
 #include <common/json_stream.h>
 #include <common/onion_encode.h>
 #include <plugins/renepay/json.h>
-#include <plugins/renepay/payplugin.h>
+#include <plugins/renepay/renepay.h>
 #include <plugins/renepay/sendpay.h>
+#include <plugins/renepay/utils.h>
 
 static struct command_result *param_route_hops(struct command *cmd,
 					       const char *name,
@@ -395,6 +396,7 @@ static struct command_result *waitblockheight_done(struct command *cmd,
 						   const jsmntok_t *toks,
 						   struct renesendpay *renesendpay)
 {
+	struct renepay *renepay = get_renepay(cmd->plugin);
 	const char *err;
 	err = json_scan(tmpctx, buffer, toks, "{blockheight:%}",
 			JSON_SCAN(json_to_u32, &renesendpay->blockheight));
@@ -456,7 +458,7 @@ static struct command_result *waitblockheight_done(struct command *cmd,
 		// we need to make sure first that we don't lose older features,
 		// like for example to be able to show in listsendpays the
 		// recepient of the payment.
-		onion = create_onion(tmpctx, renesendpay, pay_plugin->my_id, 0);
+		onion = create_onion(tmpctx, renesendpay, renepay->my_id, 0);
 		req = jsonrpc_request_start(cmd, "injectpaymentonion",
 					    renesendpay_done, rpc_fail,
 					    renesendpay);

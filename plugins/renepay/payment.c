@@ -7,17 +7,18 @@
 #include <common/memleak.h>
 #include <plugins/renepay/json.h>
 #include <plugins/renepay/payment.h>
-#include <plugins/renepay/payplugin.h>
+#include <plugins/renepay/renepay.h>
 #include <plugins/renepay/routetracker.h>
 
 static struct command_result *payment_finish(struct payment *p);
 
 struct payment *payment_new(const tal_t *ctx, const struct sha256 *payment_hash,
-			    const char *invstr TAKES)
+			    const char *invstr TAKES,
+			    struct plugin *plugin)
 {
 	struct payment *p = tal(ctx, struct payment);
 	memset(p, 0, sizeof(struct payment));
-
+	p->plugin = plugin;
 	struct payment_info *pinfo = &p->payment_info;
 
 	assert(payment_hash);
@@ -157,7 +158,7 @@ struct amount_msat payment_fees(const struct payment *p)
 
 	if (!amount_msat_sub(&fees, sent, delivered))
 		plugin_err(
-		    pay_plugin->plugin,
+		    p->plugin,
 		    "Strange, sent amount (%s) is less than delivered (%s), "
 		    "aborting.",
 		    fmt_amount_msat(tmpctx, sent),
@@ -259,7 +260,7 @@ void payment_note(struct payment *p, enum log_level lvl, const char *fmt, ...)
 
 	tal_arr_expand(&p->paynotes, str);
 	/* Log at debug, unless it's weird... */
-	plugin_log(pay_plugin->plugin, lvl < LOG_UNUSUAL ? LOG_DBG : lvl, "%s",
+	plugin_log(p->plugin, lvl < LOG_UNUSUAL ? LOG_DBG : lvl, "%s",
 		   str);
 
 	for (size_t i = 0; i < tal_count(p->cmd_array); i++) {

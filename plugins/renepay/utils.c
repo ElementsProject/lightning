@@ -2,6 +2,11 @@
 #include <plugins/libplugin.h>
 #include <plugins/renepay/utils.h>
 
+struct renepay *get_renepay(struct plugin *plugin)
+{
+	return plugin_get_data(plugin, struct renepay);
+}
+
 struct rpcbatch {
 	size_t num_remaining;
 	struct command *cmd;
