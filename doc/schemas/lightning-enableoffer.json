@@ -1,7 +1,7 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "rpc": "disableoffer",
+  "rpc": "enableoffer",
   "title": "Command for re-enabling an offer",
   "description": [
     "The **enableoffer** RPC command enables an offer, after it has been disabled."
