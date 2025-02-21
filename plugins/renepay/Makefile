@@ -7,6 +7,7 @@ PLUGIN_RENEPAY_SRC :=				\
 	plugins/renepay/sendpay.c		\
 	plugins/renepay/mods.c			\
 	plugins/renepay/errorcodes.c		\
+	plugins/renepay/utils.c			\
 	plugins/renepay/json.c
 
 PLUGIN_RENEPAY_HDRS :=				\
@@ -20,6 +21,7 @@ PLUGIN_RENEPAY_HDRS :=				\
 	plugins/renepay/sendpay.h		\
 	plugins/renepay/mods.h			\
 	plugins/renepay/errorcodes.h		\
+	plugins/renepay/utils.h			\
 	plugins/renepay/json.c
 
 PLUGIN_RENEPAY_OBJS := $(PLUGIN_RENEPAY_SRC:.c=.o)
