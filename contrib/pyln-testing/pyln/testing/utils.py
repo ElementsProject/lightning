@@ -615,6 +615,12 @@ class LightningD(TailableProc):
         cln_version_proc = subprocess.check_output([self.executable, "--version"])
         self.cln_version = NodeVersion(cln_version_proc.decode('ascii').strip())
 
+        try:
+            if VersionSpec.parse("<=v24.02.2").matches(self.cln_version):
+                self.opts['log-level'] = "debug"
+        except Exception:
+            raise ValueError(f"Invalid version {type(self.cln_version)} - {self.cln_version}")
+
         opts = {
             'lightning-dir': lightning_dir,
             'addr': '127.0.0.1:{}'.format(port),
