@@ -38,6 +38,7 @@ hidden: false
 | close.txid                           | Field              | v24.11           | v25.11         | Use txids array instead                                                                                                                |
 | experimental-offers                  | Config             | v24.11           | v25.05         | Now the default                                                                                                                        |
 | xpay.ignore_bolt12_mpp               | Field              | v25.05           | v25.11         | Try MPP even if the BOLT12 invoice doesn't explicitly allow it (CLN didn't until 25.02)                                                |
+| listpeerchannels.max_total_htlc_in_msat | Field           | v25.02           | v26.02         | Use our_max_total_htlc_out_msat                                                                                                              |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 
