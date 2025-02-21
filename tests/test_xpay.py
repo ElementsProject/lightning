@@ -434,11 +434,11 @@ def test_xpay_takeover(node_factory, executor):
     # Other args fail.
     inv = l3.rpc.invoice('any', "test_xpay_takeover7", "test_xpay_takeover7")
     l1.rpc.pay(inv['bolt11'], amount_msat=10000, label='test_xpay_takeover7')
-    l1.daemon.wait_for_log(r'Not redirecting pay \(unknown arg \\"label\\"\)')
+    l1.daemon.wait_for_log(r'Not redirecting pay \(unknown arg "label"\)')
 
     inv = l3.rpc.invoice('any', "test_xpay_takeover8", "test_xpay_takeover8")
     l1.rpc.pay(inv['bolt11'], amount_msat=10000, riskfactor=1)
-    l1.daemon.wait_for_log(r'Not redirecting pay \(unknown arg \\"riskfactor\\"\)')
+    l1.daemon.wait_for_log(r'Not redirecting pay \(unknown arg "riskfactor"\)')
 
     # Test that it's really dynamic.
     l1.rpc.setconfig('xpay-handle-pay', False)
