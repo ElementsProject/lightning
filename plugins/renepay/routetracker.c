@@ -7,8 +7,8 @@
 #include <plugins/renepay/routetracker.h>
 #include <plugins/renepay/utils.h>
 
-static struct payment *route_get_payment_verify(struct renepay *renepay,
-						struct route *route)
+struct payment *route_get_payment_verify(struct renepay *renepay,
+					 struct route *route)
 {
 	struct payment *payment =
 	    payment_map_get(renepay->payment_map, route->key.payment_hash);
@@ -98,9 +98,9 @@ static void remove_route(struct route *route, struct route_map *map)
  *	- after a sendpay is accepted,
  *	- or after listsendpays reveals some pending route that we didn't
  *	previously know about. */
-static void route_pending_register(struct payment *payment,
-				   struct routetracker *routetracker,
-				   struct route *route)
+void route_pending_register(struct payment *payment,
+			    struct routetracker *routetracker,
+			    struct route *route)
 {
 	assert(route);
 	assert(routetracker);
@@ -138,95 +138,6 @@ static void route_pending_register(struct payment *payment,
 			   "%s: amount_msat arithmetic overflow.",
 			   __func__);
 	}
-}
-
-/* Callback function for sendpay request success. */
-static struct command_result *sendpay_done(struct command *cmd,
-					   const char *method UNUSED,
-					   const char *buf,
-					   const jsmntok_t *result,
-					   struct route *route)
-{
-	assert(route);
-	struct renepay *renepay = get_renepay(cmd->plugin);
-	struct payment *payment = route_get_payment_verify(renepay, route);
-	route_pending_register(payment, payment->routetracker, route);
-
-	const jsmntok_t *t;
-	size_t i;
-	bool ret;
-
-	const jsmntok_t *secretstok =
-	    json_get_member(buf, result, "shared_secrets");
-
-	if (secretstok) {
-		assert(secretstok->type == JSMN_ARRAY);
-
-		route->shared_secrets =
-		    tal_arr(route, struct secret, secretstok->size);
-		json_for_each_arr(i, t, secretstok)
-		{
-			ret = json_to_secret(buf, t, &route->shared_secrets[i]);
-			assert(ret);
-		}
-	} else
-		route->shared_secrets = NULL;
-	return command_still_pending(cmd);
-}
-
-/* sendpay really only fails immediately in two ways:
- * 1. We screwed up and misused the API.
- * 2. The first peer is disconnected.
- */
-static struct command_result *sendpay_failed(struct command *cmd,
-					     const char *method UNUSED,
-					     const char *buf,
-					     const jsmntok_t *tok,
-					     struct route *route)
-{
-	assert(route);
-	struct renepay *renepay = get_renepay(cmd->plugin);
-	struct payment *payment = route_get_payment_verify(renepay, route);
-	struct routetracker *routetracker = payment->routetracker;
-	assert(routetracker);
-
-	enum jsonrpc_errcode errcode;
-	const char *msg;
-	const char *err;
-
-	err = json_scan(tmpctx, buf, tok, "{code:%,message:%}",
-			JSON_SCAN(json_to_jsonrpc_errcode, &errcode),
-			JSON_SCAN_TAL(tmpctx, json_strdup, &msg));
-	if (err)
-		plugin_err(cmd->plugin,
-			   "Unable to parse sendpay error: %s, json: %.*s", err,
-			   json_tok_full_len(tok), json_tok_full(buf, tok));
-
-	payment_note(payment, LOG_INFORM,
-		     "Sendpay failed: partid=%" PRIu64
-		     " errorcode:%d message=%s",
-		     route->key.partid, errcode, msg);
-
-	if (errcode != PAY_TRY_OTHER_ROUTE) {
-		plugin_log(cmd->plugin, LOG_UNUSUAL,
-			   "Strange error from sendpay: %.*s",
-			   json_tok_full_len(tok), json_tok_full(buf, tok));
-	}
-
-	/* There is no new knowledge from this kind of failure.
-	 * We just disable this scid. */
-	struct short_channel_id_dir scidd_disable = {
-	    .scid = route->hops[0].scid, .dir = route->hops[0].direction};
-	payment_disable_chan(payment, scidd_disable, LOG_INFORM,
-			     "sendpay didn't like first hop: %s", msg);
-
-	if (!route_map_del(routetracker->sent_routes, route))
-		plugin_err(cmd->plugin,
-			   "%s: route (%s) is not marked as sent",
-			   __func__,
-			   fmt_routekey(tmpctx, &route->key));
-	tal_free(route);
-	return command_still_pending(cmd);
 }
 
 void payment_collect_results(struct payment *payment,
@@ -294,62 +205,6 @@ void payment_collect_results(struct payment *payment,
 	for (size_t i = 0; i < ncompleted; i++)
 		tal_free(routetracker->finalized_routes[i]);
 	tal_resize(&routetracker->finalized_routes, 0);
-}
-
-struct command_result *route_sendpay_request(struct command *cmd,
-					     struct route *route TAKES,
-					     struct payment *payment)
-{
-	const struct payment_info *pinfo = &payment->payment_info;
-	struct out_req *req = jsonrpc_request_start(
-	    cmd, "renesendpay", sendpay_done, sendpay_failed, route);
-
-	const size_t pathlen = tal_count(route->hops);
-	json_add_sha256(req->js, "payment_hash", &pinfo->payment_hash);
-	json_add_u64(req->js, "partid", route->key.partid);
-	json_add_u64(req->js, "groupid", route->key.groupid);
-	json_add_string(req->js, "invoice", pinfo->invstr);
-	json_add_node_id(req->js, "destination", &pinfo->destination);
-	json_add_amount_msat(req->js, "amount_msat", route->amount_deliver);
-	json_add_amount_msat(req->js, "total_amount_msat", pinfo->amount);
-	json_add_u32(req->js, "final_cltv", pinfo->final_cltv);
-
-	if (pinfo->label)
-		json_add_string(req->js, "label", pinfo->label);
-	if (pinfo->description)
-		json_add_string(req->js, "description", pinfo->description);
-
-	json_array_start(req->js, "route");
-	/* An empty route means a payment to oneself, pathlen=0 */
-	for (size_t j = 0; j < pathlen; j++) {
-		const struct route_hop *hop = &route->hops[j];
-		json_object_start(req->js, NULL);
-		json_add_node_id(req->js, "id", &hop->node_id);
-		json_add_short_channel_id(req->js, "channel", hop->scid);
-		json_add_amount_msat(req->js, "amount_msat", hop->amount);
-		json_add_num(req->js, "direction", hop->direction);
-		json_add_u32(req->js, "delay", hop->delay);
-		json_add_string(req->js, "style", "tlv");
-		json_object_end(req->js);
-	}
-	json_array_end(req->js);
-
-	/* Either we have a payment_secret for BOLT11 or blinded_paths for
-	 * BOLT12 */
-	if (pinfo->payment_secret)
-		json_add_secret(req->js, "payment_secret", pinfo->payment_secret);
-	else {
-		assert(pinfo->blinded_paths);
-		const struct blinded_path *bpath =
-		    pinfo->blinded_paths[route->path_num];
-		json_myadd_blinded_path(req->js, "blinded_path", bpath);
-
-	}
-
-	route_map_add(payment->routetracker->sent_routes, route);
-	if (taken(route))
-		tal_steal(payment->routetracker->sent_routes, route);
-	return send_outreq(req);
 }
 
 struct command_result *notification_sendpay_failure(struct command *cmd,
