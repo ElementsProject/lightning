@@ -51,6 +51,13 @@ void routetracker_add_to_final(struct payment *payment,
 			       struct routetracker *routetracker,
 			       struct route *route);
 
+void route_pending_register(struct payment *payment,
+			    struct routetracker *routetracker,
+			    struct route *route);
+
+struct payment *route_get_payment_verify(struct renepay *renepay,
+					 struct route *route);
+
 // FIXME: double-check that we actually get one notification for each sendpay,
 // ie. that after some time we don't have yet pending sendpays for old failed or
 // successful payments that we havent processed because we haven't received the
