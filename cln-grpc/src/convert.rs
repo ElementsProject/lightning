@@ -1298,7 +1298,7 @@ impl From<responses::ListpeerchannelsChannelsUpdates> for pb::ListpeerchannelsCh
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<responses::ListpeerchannelsChannels> for pb::ListpeerchannelsChannels {
     fn from(c: responses::ListpeerchannelsChannels) -> Self {
         Self {
@@ -1331,6 +1331,7 @@ impl From<responses::ListpeerchannelsChannels> for pb::ListpeerchannelsChannels 
             lost_state: c.lost_state, // Rule #2 for type boolean?
             max_accepted_htlcs: c.max_accepted_htlcs, // Rule #2 for type u32?
             max_to_us_msat: c.max_to_us_msat.map(|f| f.into()), // Rule #2 for type msat?
+            #[allow(deprecated)]
             max_total_htlc_in_msat: c.max_total_htlc_in_msat.map(|f| f.into()), // Rule #2 for type msat?
             maximum_htlc_out_msat: c.maximum_htlc_out_msat.map(|f| f.into()), // Rule #2 for type msat?
             min_to_us_msat: c.min_to_us_msat.map(|f| f.into()), // Rule #2 for type msat?
@@ -1339,6 +1340,7 @@ impl From<responses::ListpeerchannelsChannels> for pb::ListpeerchannelsChannels 
             next_fee_step: c.next_fee_step, // Rule #2 for type u32?
             next_feerate: c.next_feerate, // Rule #2 for type string?
             opener: c.opener as i32,
+            our_max_htlc_value_in_flight_msat: c.our_max_htlc_value_in_flight_msat.map(|f| f.into()), // Rule #2 for type msat?
             our_reserve_msat: c.our_reserve_msat.map(|f| f.into()), // Rule #2 for type msat?
             our_to_self_delay: c.our_to_self_delay, // Rule #2 for type u32?
             out_fulfilled_msat: c.out_fulfilled_msat.map(|f| f.into()), // Rule #2 for type msat?
@@ -1357,6 +1359,7 @@ impl From<responses::ListpeerchannelsChannels> for pb::ListpeerchannelsChannels 
             state: c.state as i32,
             // Field: ListPeerChannels.channels[].status[]
             status: c.status.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            their_max_htlc_value_in_flight_msat: c.their_max_htlc_value_in_flight_msat.map(|f| f.into()), // Rule #2 for type msat?
             their_reserve_msat: c.their_reserve_msat.map(|f| f.into()), // Rule #2 for type msat?
             their_to_self_delay: c.their_to_self_delay, // Rule #2 for type u32?
             to_us_msat: c.to_us_msat.map(|f| f.into()), // Rule #2 for type msat?
