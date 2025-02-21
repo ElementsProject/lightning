@@ -93,6 +93,7 @@ struct db_query {
 	sqlite3_stmt *stmt;
 	struct table_desc **tables;
 	const char *authfail;
+	bool has_wildcard;
 };
 
 struct table_desc {
@@ -292,11 +293,14 @@ static int sqlite_authorize(void *dbq_, int code,
 		if (!col->depr_start)
 			return SQLITE_OK;
 
-		/* Can this command see this? */
+		/* Can this command see this?  We have to allow this
+		* (as null) with "SELECT *" though! */
 		if (!command_deprecated_in_named_ok(dbq->cmd, td->cmdname,
 						    col->jsonname,
 						    col->depr_start,
 						    col->depr_end)) {
+			if (dbq->has_wildcard)
+				return SQLITE_IGNORE;
 			dbq->authfail = tal_fmt(dbq, "Deprecated column table %s.%s", a, b);
 			return SQLITE_DENY;
 		}
@@ -1051,6 +1055,10 @@ static struct command_result *json_sql(struct command *cmd,
 	dbq->tables = tal_arr(dbq, struct table_desc *, 0);
 	dbq->authfail = NULL;
 	dbq->cmd = cmd;
+	/* We might want to warn on SELECT *, since that is not really
+	 * recommended as fields change, but SELECT COUNT(*) is totally
+	 * legitimate.  So we suppress deprecation errors in this case */
+	dbq->has_wildcard = (strchr(query, '*') != NULL);
 
 	/* This both checks we're not altering, *and* tells us what
 	 * tables to refresh. */
