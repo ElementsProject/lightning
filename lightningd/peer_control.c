@@ -1148,6 +1148,12 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 				 channel->our_config.dust_limit);
 	json_add_amount_msat(response, "max_total_htlc_in_msat",
 			     channel->our_config.max_htlc_value_in_flight);
+	json_add_amount_msat(
+	    response, "their_max_htlc_value_in_flight_msat",
+	    channel->channel_info.their_config.max_htlc_value_in_flight);
+	json_add_amount_msat(
+	    response, "our_max_htlc_value_in_flight_msat",
+	    channel->our_config.max_htlc_value_in_flight);
 
 	/* The `channel_reserve_satoshis` is imposed on
 	 * the *other* side (see `channel_reserve_msat`
