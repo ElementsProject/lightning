@@ -601,12 +601,54 @@ static struct command_result *sendroutes_done(struct command *cmd,
 	return payment_continue(payment);
 }
 
+static struct command_result *unreserve_done(struct command *aux_cmd,
+					     const char *method UNUSED,
+					     const char *buf UNUSED,
+					     const jsmntok_t *result UNUSED,
+					     struct route *route UNUSED)
+{
+	return aux_command_done(aux_cmd);
+}
+
+static struct command_result *
+unreserve_fail(struct command *aux_cmd, const char *method, const char *buf,
+	       const jsmntok_t *result, struct route *route UNUSED)
+{
+	plugin_log(aux_cmd->plugin, LOG_UNUSUAL, "%s failed: %.*s", method,
+		   json_tok_full_len(result), json_tok_full(buf, result));
+	return aux_command_done(aux_cmd);
+}
+
+static void unreserve_route(struct route *route, struct command *aux_cmd)
+{
+	struct out_req *req =
+	    jsonrpc_request_start(aux_cmd, "askrene-unreserve", unreserve_done,
+				  unreserve_fail, route);
+	json_array_start(req->js, "path");
+	for (size_t i = 0; i < tal_count(route->hops); i++) {
+		const struct route_hop *hop = &route->hops[i];
+		struct short_channel_id_dir scidd = {.scid = hop->scid,
+						     .dir = hop->direction};
+		json_object_start(req->js, NULL);
+		json_add_short_channel_id_dir(req->js, "short_channel_id_dir",
+					      scidd);
+		json_add_amount_msat(req->js, "amount_msat", hop->amount);
+		json_object_end(req->js);
+	}
+	json_array_end(req->js);
+	send_outreq(req);
+}
+
 static struct command_result *reserve_done(struct command *cmd,
 					   const char *method UNUSED,
 					   const char *buf UNUSED,
 					   const jsmntok_t *result UNUSED,
-					   struct route *route UNUSED)
+					   struct route *route)
 {
+	/* A new command is issued to handle the destruction of this route.
+	 * I hope aux_cmd outlives the current payment session cmd. */
+	struct command *aux_cmd = aux_command(cmd);
+	tal_add_destructor2(route, unreserve_route, aux_cmd);
 	return command_still_pending(cmd);
 }
 
