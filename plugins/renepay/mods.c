@@ -601,6 +601,26 @@ static struct command_result *sendroutes_done(struct command *cmd,
 	return payment_continue(payment);
 }
 
+static struct command_result *reserve_done(struct command *cmd,
+					   const char *method UNUSED,
+					   const char *buf UNUSED,
+					   const jsmntok_t *result UNUSED,
+					   struct route *route UNUSED)
+{
+	return command_still_pending(cmd);
+}
+
+static struct command_result *reserve_fail(struct command *cmd,
+					   const char *method UNUSED,
+					   const char *buf UNUSED,
+					   const jsmntok_t *result UNUSED,
+					   struct route *route)
+{
+	plugin_log(cmd->plugin, LOG_UNUSUAL, "failed to reserve route (%s)",
+		   fmt_routekey(tmpctx, &route->key));
+	return command_still_pending(cmd);
+}
+
 /* Callback function for sendpay request success. */
 static struct command_result *
 renesendpay_done(struct command *cmd, const char *method UNUSED,
@@ -630,7 +650,22 @@ renesendpay_done(struct command *cmd, const char *method UNUSED,
 		}
 	} else
 		route->shared_secrets = NULL;
-	return command_still_pending(cmd);
+
+	struct out_req *req = jsonrpc_request_start(
+	    cmd, "askrene-reserve", reserve_done, reserve_fail, route);
+	json_array_start(req->js, "path");
+	for (i = 0; i < tal_count(route->hops); i++) {
+		const struct route_hop *hop = &route->hops[i];
+		struct short_channel_id_dir scidd = {.scid = hop->scid,
+						     .dir = hop->direction};
+		json_object_start(req->js, NULL);
+		json_add_short_channel_id_dir(req->js, "short_channel_id_dir",
+					      scidd);
+		json_add_amount_msat(req->js, "amount_msat", hop->amount);
+		json_object_end(req->js);
+	}
+	json_array_end(req->js);
+	return send_outreq(req);
 }
 
 /* FIXME: check when will renesendpay fail */
