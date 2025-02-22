@@ -582,6 +582,47 @@ static struct command_result *setconfig_success(struct command *cmd,
 	return command_success(cmd, response);
 }
 
+static bool file_writable(const char *fname)
+{
+	return access(fname, W_OK) == 0;
+}
+
+static bool dir_writable(const char *fname)
+{
+	return access(path_dirname(tmpctx, fname), W_OK) == 0;
+}
+
+/* Returns config file name if not writable */
+static const char *config_not_writable(const tal_t *ctx,
+				       struct command *cmd,
+				       const struct opt_table *ot)
+{
+	struct lightningd *ld = cmd->ld;
+	struct configvar *oldcv;
+	const char *fname;
+
+	/* If it exists before, we will need to replace that file (rename) */
+	oldcv = configvar_first(ld->configvars, opt_names_arr(tmpctx, ot));
+	if (oldcv && oldcv->file) {
+		/* We will rename */
+		if (!dir_writable(oldcv->file))
+			return oldcv->file;
+	}
+
+	/* If we don't have a setconfig file we'll have to create it, and
+	 * amend the config file. */
+	if (!ld->setconfig_file) {
+		fname = base_conf_file(tmpctx, ld, NULL);
+		if (!dir_writable(fname))
+			return tal_steal(ctx, fname);
+	} else {
+		/* We will try to append config.setconfig */
+		if (!file_writable(ld->setconfig_file))
+			return tal_strdup(ctx, ld->setconfig_file);
+	}
+	return NULL;
+}
+
 static struct command_result *json_setconfig(struct command *cmd,
 					     const char *buffer,
 					     const jsmntok_t *obj UNNEEDED,
@@ -600,10 +641,16 @@ static struct command_result *json_setconfig(struct command *cmd,
 			 NULL))
 		return command_param_failed();
 
-	log_debug(cmd->ld->log, "setconfig!");
-
 	/* We don't handle DYNAMIC MULTI, at least yet! */
 	assert(!(ot->type & OPT_MULTI));
+
+	if (!*transient) {
+		const char *fname = config_not_writable(cmd, cmd, ot);
+		if (fname)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Cannot write to config file %s",
+					    fname);
+	}
 
 	/* We use arg = NULL to tell callback it's only for testing */
 	if (command_check_only(cmd))
