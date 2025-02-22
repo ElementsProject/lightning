@@ -76,6 +76,39 @@ struct span {
 static struct span *active_spans = NULL;
 static struct span *current;
 
+/* Whether or not we're tracing things. We start in tracing mode, but
+ * may deactivate ourselves, most likely due to an API usage
+ * error. This is a sort of lame-duck mode, in which traces are
+ * no-ops. It is safer than crashing the entire daemon.
+ */
+static bool active = true;
+
+#define TRACE_ASSERT_RET(cond, msg, ret)                                       \
+	{                                                                      \
+		if (!active) {                                                 \
+			return ret;                                            \
+		} else if (!cond) {                                            \
+			fprintf(stderr,                                        \
+				"TRACE_ASSERT: Detected inconsistency in "     \
+				"tracing at %s:%d\n%s",                        \
+				__FILE__, __LINE__, msg);                      \
+			return ret;                                            \
+		}                                                              \
+	}
+
+#define TRACE_ASSERT(cond, msg)                                                \
+	{                                                                      \
+		if (!active) {                                                 \
+			return;                                                \
+		} else if (!cond) {                                            \
+			fprintf(stderr,                                        \
+				"TRACE_ASSERT: Detected inconsistency in "     \
+				"tracing at %s:%d\n%s",                        \
+				__FILE__, __LINE__, msg);                      \
+			return;                                                \
+		}                                                              \
+	}
+
 /* If the `CLN_TRACEPARENT` envvar is set, we inject that as the
  * parent for the startup. This allows us to integrate the startup
  * tracing with whatever tooling we build around it. This only has an
@@ -187,8 +220,8 @@ static struct span *trace_span_slot(void)
 
 	/* Might end up here if we have more than MAX_ACTIVE_SPANS
 	 * concurrent spans. */
-	assert(s);
-	assert(s->parent == NULL);
+	TRACE_ASSERT_RET(s, "MAX_ACTIVE_SPANS exceeded", NULL);
+	TRACE_ASSERT_RET(!s->parent, "New span already has a parent", NULL);
 
 	/* Be extra careful not to create cycles. If we return the
 	 * position that is pointed at by current then we can only
@@ -204,6 +237,11 @@ static void trace_emit(struct span *s)
 	char span_id[HEX_SPAN_ID_SIZE];
 	char trace_id[HEX_TRACE_ID_SIZE];
 	char parent_span_id[HEX_SPAN_ID_SIZE];
+
+	/* If we're not active we cannot emit spans, they might be
+	 * half-initialized. */
+	if (!active)
+		return;
 
 	/* If this is a remote span it's not up to us to emit it. Make
 	 * this a no-op. `trace_span_end` will take care of cleaning
@@ -263,7 +301,7 @@ void trace_span_start(const char *name, const void *key)
 	trace_init();
 	trace_check_tree();
 
-	assert(trace_span_find(numkey) == NULL);
+	TRACE_ASSERT((trace_span_find(numkey) == NULL), "Reused key");
 	struct span *s = trace_span_slot();
 	s->key = numkey;
 	randombytes_buf(s->id, SPAN_ID_SIZE);
@@ -295,8 +333,8 @@ void trace_span_end(const void *key)
 {
 	size_t numkey = trace_key(key);
 	struct span *s = trace_span_find(numkey);
-	assert(s && "Span to end not found");
-	assert(s == current && "Ending a span that isn't the current one");
+	TRACE_ASSERT(s, "Span to end not found");
+	TRACE_ASSERT((s == current),"Ending a span that isn't the current one");
 
 	trace_check_tree();
 
@@ -315,7 +353,7 @@ void trace_span_end(const void *key)
 	 * the root. And we should terminate that trace along with
 	 * this one. */
 	if (current && current->remote) {
-		assert(current->parent == NULL);
+		TRACE_ASSERT((current->parent == NULL), "Remote parent trace, but not local root?");
 		current = NULL;
 	}
 	trace_check_tree();
@@ -325,7 +363,7 @@ void trace_span_tag(const void *key, const char *name, const char *value)
 {
 	size_t numkey = trace_key(key);
 	struct span *span = trace_span_find(numkey);
-	assert(span);
+	TRACE_ASSERT(span, "Tagging a non-existent span.");
 
 	size_t s = tal_count(span->tags);
 	tal_resize(&span->tags, s + 1);
@@ -344,7 +382,7 @@ void trace_span_suspend_(const void *key, const char *lbl)
 	size_t numkey = trace_key(key);
 	struct span *span = trace_span_find(numkey);
 	TRACE_DBG("Suspending span %s (%zu)\n", current->name, current->key);
-	assert(current == span);
+	TRACE_ASSERT((current == span), "Suspending non-current span");
 	current = NULL;
 	DTRACE_PROBE1(lightningd, span_suspend, span->id);
 }
