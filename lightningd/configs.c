@@ -628,9 +628,6 @@ static struct command_result *json_setconfig(struct command *cmd,
 				    "Error setting %s: %s", ot->names + 2, err);
 	}
 
-	if (command_check_only(cmd))
-		return command_check_done(cmd);
-
 	return setconfig_success(cmd, ot, val);
 }
 
