@@ -62,6 +62,17 @@ struct wally_psbt *combine_psbt(const tal_t *ctx,
 				const struct wally_psbt *psbt1);
 
 /**
+ * audit_psbt - Audit the memory structure of the PSBT.
+ *
+ * This checks all known memory allocations in the PSBT and asserts that they
+ * are all allocated with 'ctx' being it's parent.
+ *
+ * ctx - the ctx all memory *should* be attached to
+ * psbt - the PSBT to audit.
+ * */
+void audit_psbt(const tal_t *ctx, const struct wally_psbt *psbt);
+
+/**
  * psbt_is_finalized - Check if tx is ready to be extracted
  *
  * The libwally library requires a transaction be *ready* for
