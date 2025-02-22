@@ -1861,7 +1861,8 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 					     &ld->config_filename,
 					     &ld->config_basedir,
 					     &ld->config_netdir,
-					     &ld->rpc_filename);
+					     &ld->rpc_filename,
+					     &ld->setconfig_file);
 
 	if (argc != 1)
 		errx(1, "no arguments accepted");
