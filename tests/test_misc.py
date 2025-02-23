@@ -4178,6 +4178,106 @@ def test_setconfig(node_factory, bitcoind):
         assert lines == ["# Created and update by setconfig, but you can edit this manually when node is stopped.", "min-capacity-sat=400000"]
 
 
+def test_setconfig_access(node_factory, bitcoind):
+    """Test that we correctly fail (not crash) if config file/dir not writable"""
+
+    # Disable bookkeeper, with its separate db which gets upset under CI.
+    l1 = node_factory.get_node(options={'disable-plugin': 'bookkeeper'})
+
+    netconfigfile = os.path.join(l1.daemon.opts.get("lightning-dir"), TEST_NETWORK, 'config')
+
+    # It's OK if the config file doesn't exist.
+    l1.rpc.check("setconfig", config="min-capacity-sat", val=1000000)
+
+    # But not if we can't create it.
+    os.chmod(os.path.dirname(netconfigfile), 0o550)
+    with pytest.raises(RpcError, match=f'Cannot write to config file {netconfigfile}'):
+        l1.rpc.check("setconfig", config="min-capacity-sat", val=1000000)
+
+    with pytest.raises(RpcError, match=f'Cannot write to config file {netconfigfile}'):
+        l1.rpc.setconfig(config="min-capacity-sat", val=1000000)
+
+    # Empty config file (we need to be able to write dir)
+    os.chmod(os.path.dirname(netconfigfile), 0o750)
+    with open(netconfigfile, 'w') as file:
+        pass
+    l1.restart()
+
+    # check will fail
+    os.chmod(os.path.dirname(netconfigfile), 0o550)
+    with pytest.raises(RpcError, match=f'Cannot write to config file {netconfigfile}'):
+        l1.rpc.check("setconfig", config="min-capacity-sat", val=1000000)
+
+    # real write will definitely fail
+    with pytest.raises(RpcError, match=f'Cannot write to config file {netconfigfile}'):
+        l1.rpc.setconfig(config="min-capacity-sat", val=1000000)
+
+    # Transient?  Don't care that we can't change it.
+    ret = l1.rpc.setconfig(config='min-capacity-sat', val=400001, transient=True)
+    assert ret == {'config':
+                   {'config': 'min-capacity-sat',
+                    'source': 'setconfig transient',
+                    'value_int': 400001,
+                    'dynamic': True}}
+
+    # db also needs to write directory!
+    os.chmod(os.path.dirname(netconfigfile), 0o750)
+
+    # Now put a setting in the main config file
+    l1.stop()
+    mainconfigfile = os.path.join(l1.daemon.opts.get("lightning-dir"), 'config')
+    with open(mainconfigfile, 'w') as file:
+        file.write("min-capacity-sat=100")
+    l1.start()
+
+    # We don't actually need to write file, just directoty.
+    os.chmod(mainconfigfile, 0o400)
+
+    l1.rpc.check("setconfig", config="min-capacity-sat", val=9999)
+    l1.rpc.setconfig(config="min-capacity-sat", val=9999)
+
+    # setconfig file exists, and its permissions matter!
+    setconfigfile = netconfigfile + ".setconfig"
+    os.chmod(setconfigfile, 0o400)
+    with pytest.raises(RpcError, match=f'Cannot write to config file {setconfigfile}'):
+        l1.rpc.check("setconfig", config="min-capacity-sat", val=1000000)
+
+    with pytest.raises(RpcError, match=f'Cannot write to config file {setconfigfile}'):
+        l1.rpc.setconfig(config="min-capacity-sat", val=1000000)
+
+    # Change location of setconfig file in another sub directory.
+    l1.stop()
+    includedir = os.path.join(os.path.dirname(netconfigfile), "include")
+    os.mkdir(includedir)
+    os.unlink(setconfigfile)
+    setconfigfile = os.path.join(includedir, "special.setconfig")
+    with open(netconfigfile, 'w') as file:
+        file.write(f"include {setconfigfile}")
+    with open(setconfigfile, 'w') as file:
+        pass
+    l1.start()
+
+    # Needs to be writable, to append.
+    os.chmod(setconfigfile, 0o400)
+    with pytest.raises(RpcError, match=f'Cannot write to config file {setconfigfile}'):
+        l1.rpc.check("setconfig", config="min-capacity-sat", val=1000000)
+
+    with pytest.raises(RpcError, match=f'Cannot write to config file {setconfigfile}'):
+        l1.rpc.setconfig(config="min-capacity-sat", val=1000000)
+
+    # But directory doesn't!
+    os.chmod(includedir, 0o500)
+    os.chmod(setconfigfile, 0o700)
+    assert l1.rpc.setconfig(config="min-capacity-sat", val=1000000) == {'config':
+                                                                        {'config': 'min-capacity-sat',
+                                                                         'source': f'{setconfigfile}:1',
+                                                                         'value_int': 1000000,
+                                                                         'dynamic': True}}
+
+    # Don't break pytest cleanup!
+    os.chmod(includedir, 0o700)
+
+
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
 def test_recover_command(node_factory, bitcoind):
     l1, l2 = node_factory.get_nodes(2)
