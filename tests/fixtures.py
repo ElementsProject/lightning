@@ -48,8 +48,7 @@ class LightningNode(utils.LightningNode):
                 self.daemon.opts['plugin={}'.format(dblog)] = None
                 self.daemon.opts['dblog-file'] = 'dblog.sqlite3'
 
-        # FIXME: make sure bookkeeper is not disabled
-        if db_type == 'postgres':
+        if db_type == 'postgres' and ('disable-plugin', 'bookkeeper') not in self.daemon.opts.items():
             accts_db = self.db.provider.get_db('', 'accounts', 0)
             self.daemon.opts['bookkeeper-db'] = accts_db.get_dsn()
 
