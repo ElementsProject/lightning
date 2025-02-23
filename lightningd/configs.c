@@ -355,17 +355,6 @@ static struct command_result *param_opt_dynamic_config(struct command *cmd,
 	return NULL;
 }
 
-/* FIXME: put in ccan/mem! */
-static size_t memcount(const void *mem, size_t len, char c)
-{
-	size_t count = 0;
-	for (size_t i = 0; i < len; i++) {
-		if (((char *)mem)[i] == c)
-			count++;
-	}
-	return count;
-}
-
 static void configvar_updated(struct lightningd *ld,
 			      enum configvar_src src,
 			      const char *fname,
@@ -385,20 +374,13 @@ static void configvar_updated(struct lightningd *ld,
 	configvar_finalize_overrides(ld->configvars);
 }
 
-/* Marker for our own insertions */
-#define INSERTED_BY_SETCONFIG "# Inserted by setconfig "
-
-static void configvar_append_file(struct lightningd *ld,
-				  const char *fname,
-				  enum configvar_src src,
-				  const char *confline,
-				  bool must_exist)
+static size_t append_to_file(struct lightningd *ld,
+			     const char *fname,
+			     const char *str,
+			     bool must_exist)
 {
 	int fd;
-	size_t num_lines;
-	const char *buffer, *insert;
-	bool needs_term;
-	time_t now = time(NULL);
+	const char *buffer;
 
 	fd = open(fname, O_RDWR|O_APPEND);
 	if (fd < 0) {
@@ -416,34 +398,31 @@ static void configvar_append_file(struct lightningd *ld,
 	if (!buffer)
 		fatal("Error reading %s: %s", fname, strerror(errno));
 
-	num_lines = memcount(buffer, tal_bytelen(buffer)-1, '\n');
-
 	/* If there's a last character and it's not \n, add one */
-	if (tal_bytelen(buffer) == 1)
-		needs_term = false;
-	else
-		needs_term = (buffer[tal_bytelen(buffer)-2] != '\n');
+	if (tal_bytelen(buffer) > 1
+	    && buffer[tal_bytelen(buffer)-2] != '\n')
+		str = tal_strcat(tmpctx, "\n", str);
 
-	/* Note: ctime() contains a \n! */
-	insert = tal_fmt(tmpctx, "%s"INSERTED_BY_SETCONFIG"%s%s\n",
-			 needs_term ? "\n": "",
-			 ctime(&now), confline);
-	if (write(fd, insert, strlen(insert)) != strlen(insert))
+	/* Always append a \n ourselves */
+	str = tal_strcat(tmpctx, str, "\n");
+	if (write(fd, str, strlen(str)) != strlen(str))
 		fatal("Could not write to config file %s: %s",
 		      fname, strerror(errno));
+	if (fsync(fd) != 0)
+		fatal("Syncing %s: %s", fname, strerror(errno));
+	close(fd);
 
-	configvar_updated(ld, src, fname, num_lines+2, confline);
+	/* 1-based counter of where new stuff appeared */
+	return strcount(buffer, "\n") + 1;
 }
 
-/* Returns true if it rewrote in place, otherwise it just comments out
- * if necessary */
-static bool configfile_replace_var(struct lightningd *ld,
+/* This comments out the config file entry or maybe replace one */
+static void configfile_replace_var(struct lightningd *ld,
 				   const struct configvar *cv,
-				   const char *confline)
+				   const char *replace)
 {
 	char *contents, **lines, *template;
 	int outfd;
-	bool replaced;
 
 	switch (cv->src) {
 	case CONFIGVAR_CMDLINE:
@@ -451,7 +430,7 @@ static bool configfile_replace_var(struct lightningd *ld,
 	case CONFIGVAR_PLUGIN_START:
 	case CONFIGVAR_SETCONFIG_TRANSIENT:
 		/* These can't be commented out */
-		return false;
+		abort();
 	case CONFIGVAR_EXPLICIT_CONF:
 	case CONFIGVAR_BASE_CONF:
 	case CONFIGVAR_NETWORK_CONF:
@@ -474,28 +453,15 @@ static bool configfile_replace_var(struct lightningd *ld,
 		      cv->configline,
 		      lines[cv->linenum - 1]);
 
-	/* If we already have # Inserted by setconfig above, just replace
-	 * those two! */
-	if (cv->linenum > 1
-	    && strstarts(lines[cv->linenum - 2], INSERTED_BY_SETCONFIG)) {
-		time_t now = time(NULL);
-		lines[cv->linenum - 2] = tal_fmt(lines,
-						 INSERTED_BY_SETCONFIG"%s",
-						 ctime(&now));
-		/* But trim final \n! (thanks ctime!) */
-		assert(strends(lines[cv->linenum - 2], "\n"));
-		lines[cv->linenum - 2][strlen(lines[cv->linenum - 2])-1] = '\0';
-		lines[cv->linenum - 1] = cast_const(char *, confline);
-		replaced = true;
-	} else {
-		/* Comment out, in-place */
-		lines[cv->linenum - 1]
-			= tal_fmt(lines, "# setconfig commented out: %s",
-				  lines[cv->linenum - 1]);
-		log_info(ld->log, "setconfig: commented out line %u of %s (%s)",
-			 cv->linenum, cv->file, cv->configline);
-		replaced = false;
-	}
+	if (replace)
+		lines[cv->linenum - 1] = cast_const(char *, replace);
+	else
+		lines[cv->linenum - 1] = tal_fmt(lines, "# setconfig commented out (see config.setconfig): %s",
+						 lines[cv->linenum - 1]);
+
+	log_info(ld->log, "setconfig: %s line %u of %s (%s)",
+		 replace ? "replaced" : "commented out",
+		 cv->linenum, cv->file, cv->configline);
 
 	template = tal_fmt(tmpctx, "%s.setconfig.XXXXXX", cv->file);
 	outfd = mkstemp(template);
@@ -512,12 +478,45 @@ static bool configfile_replace_var(struct lightningd *ld,
 		fatal("Renaming %s over %s: %s",
 		      template, cv->file, strerror(errno));
 	close(outfd);
+}
 
-	if (replaced) {
-		configvar_updated(ld, cv->src, cv->file, cv->linenum, confline);
-		return true;
+static const char *base_conf_file(const tal_t *ctx,
+				  struct lightningd *ld,
+				  bool *must_exist)
+{
+	/* Explicit --conf?  Edit that, otherwise network-specific config. */
+	if (ld->config_filename) {
+		if (must_exist)
+			*must_exist = true;
+		return ld->config_filename;
+	} else {
+		if (must_exist)
+			*must_exist = false;
+		return path_join(ctx, ld->config_netdir, "config");
 	}
-	return false;
+}
+
+static void create_setconfig_include(struct lightningd *ld)
+{
+	const char *lines;
+	time_t now = time(NULL);
+	const char *fname;
+	bool must_exist;
+
+	/* Usually config.setconfig, but could be different with --conf */
+	fname = base_conf_file(tmpctx, ld, &must_exist);
+	ld->setconfig_file = tal_fmt(ld, "%s.setconfig", fname);
+
+	/* We want to use a relative path here (ctime() includes \n!). */
+	lines = tal_fmt(tmpctx,
+			"# Inserted by setconfig %sinclude %s.setconfig",
+			ctime(&now), path_basename(tmpctx, fname));
+	append_to_file(ld, fname, lines, must_exist);
+
+	/* This creates the file */
+	append_to_file(ld, ld->setconfig_file,
+		       "# Created and update by setconfig, but you can edit this manually when node is stopped.",
+		       false);
 }
 
 static void configvar_save(struct lightningd *ld,
@@ -526,30 +525,29 @@ static void configvar_save(struct lightningd *ld,
 {
 	/* Simple case: set in a config file. */
 	struct configvar *oldcv;
+	size_t linenum;
 
+	/* If we don't already have "include config.setconfig" add it */
+	if (!ld->setconfig_file)
+		create_setconfig_include(ld);
+
+	/* Is it already set in the config? */
 	oldcv = configvar_first(ld->configvars, names);
-	if (oldcv) {
-		/* At least comment out, maybe replace */
-		if (configfile_replace_var(ld, oldcv, confline))
-			return;
+	if (oldcv && oldcv->file) {
+		/* If it's already in config.setconfig, replace */
+		if (streq(oldcv->file, ld->setconfig_file)) {
+			configfile_replace_var(ld, oldcv, confline);
+			linenum = oldcv->linenum;
+			goto replaced;
+		}
+		configfile_replace_var(ld, oldcv, NULL);
 	}
 
-	/* If they used --conf then append to that */
-	if (ld->config_filename)
-		configvar_append_file(ld,
-				      ld->config_filename,
-				      CONFIGVAR_EXPLICIT_CONF,
-				      confline, true);
-	else {
-		const char *fname;
+	linenum = append_to_file(ld, ld->setconfig_file, confline, true);
 
-		fname = path_join(tmpctx, ld->config_netdir, "config");
-		configvar_append_file(ld,
-				      fname,
-				      CONFIGVAR_NETWORK_CONF,
-				      confline,
-				      false);
-	}
+replaced:
+	configvar_updated(ld, CONFIGVAR_NETWORK_CONF,
+			  ld->setconfig_file, linenum, confline);
 }
 
 static struct command_result *setconfig_success(struct command *cmd,
