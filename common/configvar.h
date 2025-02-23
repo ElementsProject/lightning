@@ -11,6 +11,7 @@
  * 3. An implied config (~/.lightning/config) (and includes)
  * 4. A network config ((~/.lightning/<network>/config) (and includes)
  * 5. A plugin start parameter.
+ * 6. Setconfig called with transient=true
  *
  * Turns out we care: you can't set network in a network config for
  * example.
@@ -22,6 +23,7 @@ enum configvar_src {
 	CONFIGVAR_BASE_CONF,
 	CONFIGVAR_NETWORK_CONF,
 	CONFIGVAR_PLUGIN_START,
+	CONFIGVAR_SETCONFIG_TRANSIENT,
 };
 
 /* This represents the configuration variables specified; they are

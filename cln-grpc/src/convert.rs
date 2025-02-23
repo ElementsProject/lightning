@@ -5634,6 +5634,7 @@ impl From<requests::SetconfigRequest> for pb::SetconfigRequest {
     fn from(c: requests::SetconfigRequest) -> Self {
         Self {
             config: c.config, // Rule #2 for type string
+            transient: c.transient, // Rule #2 for type boolean?
             val: c.val, // Rule #2 for type string?
         }
     }
@@ -7280,6 +7281,7 @@ impl From<pb::SetconfigRequest> for requests::SetconfigRequest {
     fn from(c: pb::SetconfigRequest) -> Self {
         Self {
             config: c.config, // Rule #1 for type string
+            transient: c.transient, // Rule #1 for type boolean?
             val: c.val, // Rule #1 for type string?
         }
     }

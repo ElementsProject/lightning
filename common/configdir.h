@@ -27,7 +27,8 @@ struct configvar **initial_config_opts(const tal_t *ctx,
 				       char **config_filename,
 				       char **config_basedir,
 				       char **config_netdir,
-				       char **rpc_filename);
+				       char **rpc_filename,
+				       char **setconfig_file);
 
 /* This is called before we know all the options. */
 void parse_configvars_early(struct configvar **cvs, bool developer);

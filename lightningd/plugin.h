@@ -379,8 +379,10 @@ void json_add_config_plugin(struct json_stream *stream,
 struct command_result *plugin_set_dynamic_opt(struct command *cmd,
 					      const struct opt_table *ot,
 					      const char *val,
+					      bool transient,
 					      struct command_result *(*success)
 					      (struct command *,
 					       const struct opt_table *,
-					       const char *));
+					       const char *,
+					       bool));
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_H */

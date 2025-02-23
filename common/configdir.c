@@ -57,6 +57,7 @@ static struct configvar **gather_file_configvars(const tal_t *ctx,
 						 enum configvar_src src,
 						 const char *filename,
 						 bool must_exist,
+						 char **setconfig_file,
 						 size_t include_depth)
 {
 	char *contents, **lines;
@@ -70,6 +71,13 @@ static struct configvar **gather_file_configvars(const tal_t *ctx,
 		if (must_exist)
 			err(1, "Opening and reading %s", filename);
 		return cvs;
+	}
+
+	/* First .setconfig file is used for setconfig command */
+	if (setconfig_file
+	    && *setconfig_file == NULL
+	    && strends(filename, ".setconfig")) {
+		*setconfig_file = tal_strdup(ctx, filename);
 	}
 
 	/* Break into lines. */
@@ -93,6 +101,7 @@ static struct configvar **gather_file_configvars(const tal_t *ctx,
 							       take(path_dirname(NULL, filename)),
 							       included),
 						     true,
+						     setconfig_file,
 						     include_depth + 1);
 			cvs = configvar_join(ctx, take(cvs), take(sub));
 			continue;
@@ -291,7 +300,7 @@ void minimal_config_opts(const tal_t *ctx,
 			    config_filename,
 			    basedir,
 			    config_netdir,
-			    rpc_filename);
+			    rpc_filename, NULL);
 	tal_steal(ctx, *config_filename);
 	tal_steal(ctx, *basedir);
 	tal_steal(ctx, *config_netdir);
@@ -304,7 +313,8 @@ struct configvar **initial_config_opts(const tal_t *ctx,
 				       char **config_filename,
 				       char **config_basedir,
 				       char **config_netdir,
-				       char **rpc_filename)
+				       char **rpc_filename,
+				       char **setconfig_file)
 {
 	struct configvar **cmdline_cvs, **config_cvs, **cvs;
 
@@ -360,11 +370,15 @@ struct configvar **initial_config_opts(const tal_t *ctx,
 	cmdline_cvs = gather_cmdline_args(tmpctx, argc, argv, remove_args);
 	parse_configvars(cmdline_cvs, true, false, false);
 
+	if (setconfig_file)
+		*setconfig_file = NULL;
+
 	/* Base default or direct config can set network */
 	if (*config_filename) {
 		config_cvs = gather_file_configvars(NULL,
 						    CONFIGVAR_EXPLICIT_CONF,
-						    *config_filename, true, 0);
+						    *config_filename, true,
+						    setconfig_file, 0);
 	} else {
 		struct configvar **base_cvs, **net_cvs;
 		char *dir = path_join(tmpctx, take(path_cwd(NULL)), *config_basedir);
@@ -372,7 +386,8 @@ struct configvar **initial_config_opts(const tal_t *ctx,
 		base_cvs = gather_file_configvars(tmpctx,
 						  CONFIGVAR_BASE_CONF,
 						  path_join(tmpctx, dir, "config"),
-						  false, 0);
+						  false,
+						  setconfig_file, 0);
 		/* This might set network! */
 		parse_configvars(configvar_join(tmpctx, base_cvs, cmdline_cvs),
 				 true, false, false);
@@ -382,7 +397,7 @@ struct configvar **initial_config_opts(const tal_t *ctx,
 		net_cvs = gather_file_configvars(tmpctx,
 						 CONFIGVAR_NETWORK_CONF,
 						 path_join(tmpctx, dir, "config"),
-						 false, 0);
+						 false, setconfig_file, 0);
 		config_cvs = configvar_join(NULL, take(base_cvs), take(net_cvs));
 	}
 	cvs = configvar_join(ctx, take(config_cvs), cmdline_cvs);
