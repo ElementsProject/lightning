@@ -38,6 +38,14 @@
         "description": [
           "Value of the config variable to be set or updated."
         ]
+      },
+      "transient": {
+        "type": "boolean",
+        "added": "v25.02",
+        "default": "False",
+        "description": [
+          "If set, this change does NOT try to alter the configuration files, so the change will be reverted on any restart."
+        ]
       }
     }
   },
@@ -149,7 +157,7 @@
         "config": {
           "config": "autoclean-expiredinvoices-age",
           "value_int": 300,
-          "source": "/tmp/.lightning/regtest/config:2",
+          "source": "/tmp/.lightning/regtest/config.setconfig:2",
           "plugin": "/root/lightning/plugins/autoclean",
           "dynamic": true
         }
@@ -168,7 +176,7 @@
         "config": {
           "config": "min-capacity-sat",
           "value_int": 500000,
-          "source": "/tmp/.lightning/regtest/config:4",
+          "source": "/tmp/.lightning/regtest/config.setconfig:3",
           "dynamic": true
         }
       }

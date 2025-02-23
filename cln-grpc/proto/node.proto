@@ -2690,6 +2690,7 @@ message SetchannelChannels {
 message SetconfigRequest {
 	string config = 1;
 	optional string val = 2;
+	optional bool transient = 3;
 }
 
 message SetconfigResponse {

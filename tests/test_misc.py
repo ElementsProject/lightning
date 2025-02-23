@@ -4165,6 +4165,22 @@ def test_setconfig(node_factory, bitcoind):
         assert lines[2] == 'min-capacity-sat=400000'
         assert len(lines) == 3
 
+    # We can also set it transiently.
+    ret = l2.rpc.setconfig(config='min-capacity-sat', val=400001, transient=True)
+    assert ret == {'config':
+                   {'config': 'min-capacity-sat',
+                    'source': '{}:3'.format(configfile),
+                    'value_int': 400001,
+                    'dynamic': True}}
+
+    # So this won't change.
+    with open(configfile, 'r') as f:
+        lines = f.read().splitlines()
+        assert lines[0].startswith('# setconfig commented out: min-capacity-sat=500000')
+        assert lines[1].startswith('# Inserted by setconfig ')
+        assert lines[2] == 'min-capacity-sat=400000'
+        assert len(lines) == 3
+
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
 def test_recover_command(node_factory, bitcoind):
