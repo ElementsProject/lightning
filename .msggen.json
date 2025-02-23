@@ -3445,6 +3445,7 @@
         },
         "SetconfigRequest": {
             "SetConfig.config": 1,
+            "SetConfig.transient": 3,
             "SetConfig.val": 2
         },
         "SetconfigResponse": {
@@ -12208,6 +12209,10 @@
         },
         "SetConfig.config.value_str": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SetConfig.transient": {
+            "added": "v25.02",
             "deprecated": null
         },
         "SetConfig.val": {

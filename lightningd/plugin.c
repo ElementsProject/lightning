@@ -2284,9 +2284,11 @@ struct plugin_set_return {
 	struct command *cmd;
 	const char *val;
 	const char *optname;
+	bool transient;
 	struct command_result *(*success)(struct command *,
 					  const struct opt_table *,
-					  const char *);
+					  const char *,
+					  bool);
 };
 
 static void plugin_setconfig_done(const char *buffer,
@@ -2327,7 +2329,7 @@ static void plugin_setconfig_done(const char *buffer,
 	t = json_get_member(buffer, toks, "result");
 	if (!t)
 		goto bad_response;
-	was_pending(psr->success(psr->cmd, ot, psr->val));
+	was_pending(psr->success(psr->cmd, ot, psr->val, psr->transient));
 	return;
 
 bad_response:
@@ -2342,10 +2344,12 @@ bad_response:
 struct command_result *plugin_set_dynamic_opt(struct command *cmd,
 					      const struct opt_table *ot,
 					      const char *val,
+					      bool transient,
 					      struct command_result *(*success)
 					      (struct command *,
 					       const struct opt_table *,
-					       const char *))
+					       const char *,
+					       bool))
 {
 	struct plugin_opt *popt;
 	struct plugin *plugin;
@@ -2363,6 +2367,7 @@ struct command_result *plugin_set_dynamic_opt(struct command *cmd,
 	psr->val = val;
 	psr->optname = tal_strdup(psr, ot->names + 2);
 	psr->success = success;
+	psr->transient = transient;
 
 	if (command_check_only(cmd)) {
 		/* If plugin doesn't support check, we can't check */
