@@ -4058,6 +4058,7 @@ def test_config_whitespace(node_factory):
 def test_setconfig(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundchannel=False)
     configfile = os.path.join(l2.daemon.opts.get("lightning-dir"), TEST_NETWORK, 'config')
+    setconfigfile = configfile + ".setconfig"
 
     assert (l2.rpc.listconfigs('min-capacity-sat')['configs']
             == {'min-capacity-sat':
@@ -4093,16 +4094,13 @@ def test_setconfig(node_factory, bitcoind):
     ret = l2.rpc.setconfig(config='min-capacity-sat', val=500000)
     assert ret == {'config':
                    {'config': 'min-capacity-sat',
-                    'source': '{}:2'.format(configfile),
+                    'source': '{}:2'.format(setconfigfile),
                     'value_int': 500000,
                     'dynamic': True}}
 
-    with open(configfile, 'r') as f:
+    with open(setconfigfile, 'r') as f:
         lines = f.read().splitlines()
-        timeline = lines[0]
-        assert lines[0].startswith('# Inserted by setconfig ')
-        assert lines[1] == 'min-capacity-sat=500000'
-        assert len(lines) == 2
+        assert lines == ["# Created and update by setconfig, but you can edit this manually when node is stopped.", "min-capacity-sat=500000"]
 
     # Now we need to meet minumum
     with pytest.raises(RpcError, match='which is below 500000sat'):
@@ -4119,7 +4117,7 @@ def test_setconfig(node_factory, bitcoind):
 
     assert (l2.rpc.listconfigs('min-capacity-sat')['configs']
             == {'min-capacity-sat':
-                {'source': '{}:2'.format(configfile),
+                {'source': '{}:2'.format(setconfigfile),
                  'value_int': 500000,
                  'dynamic': True}})
 
@@ -4128,24 +4126,21 @@ def test_setconfig(node_factory, bitcoind):
     with pytest.raises(RpcError, match='which is below 500000sat'):
         l1.fundchannel(l2, 400000)
 
-    # Now, changing again will comment that one out!
+    # Now, changing again will replace that one!
     ret = l2.rpc.setconfig(config='min-capacity-sat', val=400000)
     assert ret == {'config':
                    {'config': 'min-capacity-sat',
-                    'source': '{}:2'.format(configfile),
+                    'source': '{}:2'.format(setconfigfile),
                     'value_int': 400000,
                     'dynamic': True}}
 
-    with open(configfile, 'r') as f:
+    with open(setconfigfile, 'r') as f:
         lines = f.read().splitlines()
-        assert lines[0].startswith('# Inserted by setconfig ')
-        # It will have changed timestamp since last time!
-        assert lines[0] != timeline
-        assert lines[1] == 'min-capacity-sat=400000'
-        assert len(lines) == 2
+        assert lines == ["# Created and update by setconfig, but you can edit this manually when node is stopped.", "min-capacity-sat=400000"]
 
     # If it's not set by setconfig, it will comment it out instead.
     l2.stop()
+    os.unlink(setconfigfile)
 
     with open(configfile, 'w') as f:
         f.write('min-capacity-sat=500000\n')
@@ -4154,16 +4149,20 @@ def test_setconfig(node_factory, bitcoind):
     ret = l2.rpc.setconfig(config='min-capacity-sat', val=400000)
     assert ret == {'config':
                    {'config': 'min-capacity-sat',
-                    'source': '{}:3'.format(configfile),
+                    'source': '{}:2'.format(setconfigfile),
                     'value_int': 400000,
                     'dynamic': True}}
 
+    with open(setconfigfile, 'r') as f:
+        lines = f.read().splitlines()
+        assert lines == ["# Created and update by setconfig, but you can edit this manually when node is stopped.", "min-capacity-sat=400000"]
+
     with open(configfile, 'r') as f:
         lines = f.read().splitlines()
-        assert lines[0].startswith('# setconfig commented out: min-capacity-sat=500000')
-        assert lines[1].startswith('# Inserted by setconfig ')
-        assert lines[2] == 'min-capacity-sat=400000'
-        assert len(lines) == 3
+        assert lines[1].startswith("# Inserted by setconfig ")
+        assert lines == ['# setconfig commented out (see config.setconfig): min-capacity-sat=500000',
+                         lines[1],
+                         'include config.setconfig']
 
     # We can also set it transiently.
     ret = l2.rpc.setconfig(config='min-capacity-sat', val=400001, transient=True)
@@ -4174,12 +4173,9 @@ def test_setconfig(node_factory, bitcoind):
                     'dynamic': True}}
 
     # So this won't change.
-    with open(configfile, 'r') as f:
+    with open(setconfigfile, 'r') as f:
         lines = f.read().splitlines()
-        assert lines[0].startswith('# setconfig commented out: min-capacity-sat=500000')
-        assert lines[1].startswith('# Inserted by setconfig ')
-        assert lines[2] == 'min-capacity-sat=400000'
-        assert len(lines) == 3
+        assert lines == ["# Created and update by setconfig, but you can edit this manually when node is stopped.", "min-capacity-sat=400000"]
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")

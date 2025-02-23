@@ -11,10 +11,10 @@ DESCRIPTION
 
 When lightningd(8) starts up it usually reads a general configuration
 file (default: **$HOME/.lightning/config**) then a network-specific
-configuration file (default: **$HOME/.lightning/testnet/config**).  This can
+configuration file (default: **$HOME/.lightning/bitcoin/config**).  This can
 be changed: see *--conf* and *--lightning-dir*.
 
-Note that some configuration options, marked *dynamic*m can be changed at runtime: see lightning-setconfig(7).
+Note that some configuration options, marked *dynamic* can be changed at runtime: see lightning-setconfig(7): by default this will write to a file called **config.setconfig** in the network-specific lightning directory, unless there is another config file with a name ending in ".setconfig".
 
 General configuration files are processed first, then network-specific
 ones, then command line options: later options override earlier ones
