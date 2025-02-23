@@ -42,6 +42,9 @@ static void json_add_source(struct json_stream *result,
 		case CONFIGVAR_PLUGIN_START:
 			source = "pluginstart";
 			break;
+		case CONFIGVAR_SETCONFIG_TRANSIENT:
+			source = "setconfig transient";
+			break;
 		}
 	}
 	json_add_string(result, fieldname, source);
@@ -376,7 +379,7 @@ static void configvar_updated(struct lightningd *ld,
 
 	log_info(ld->log, "setconfig: %s %s (updated %s:%u)",
 		 cv->optvar, cv->optarg ? cv->optarg : "SET",
-		 cv->file, cv->linenum);
+		 cv->file ? cv->file : "NULL", cv->linenum);
 
 	tal_arr_expand(&ld->configvars, cv);
 	configvar_finalize_overrides(ld->configvars);
@@ -446,6 +449,7 @@ static bool configfile_replace_var(struct lightningd *ld,
 	case CONFIGVAR_CMDLINE:
 	case CONFIGVAR_CMDLINE_SHORT:
 	case CONFIGVAR_PLUGIN_START:
+	case CONFIGVAR_SETCONFIG_TRANSIENT:
 		/* These can't be commented out */
 		return false;
 	case CONFIGVAR_EXPLICIT_CONF:
@@ -568,6 +572,9 @@ static struct command_result *setconfig_success(struct command *cmd,
 
 	if (!transient)
 		configvar_save(cmd->ld, names, confline);
+	else
+		configvar_updated(cmd->ld, CONFIGVAR_SETCONFIG_TRANSIENT, NULL, 0, confline);
+
 
 	response = json_stream_success(cmd);
 	json_object_start(response, "config");
