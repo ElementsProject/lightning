@@ -416,12 +416,41 @@ static size_t append_to_file(struct lightningd *ld,
 	return strcount(buffer, "\n") + 1;
 }
 
+static const char *grab_and_check(const tal_t *ctx,
+				  const char *fname,
+				  size_t linenum,
+				  const char *expected,
+				  char ***lines)
+{
+	char *contents;
+
+	contents = grab_file(tmpctx, fname);
+	if (!contents)
+		return tal_fmt(ctx, "Could not load configfile %s: %s",
+			       fname, strerror(errno));
+
+	/* These are 1-based! */
+	assert(linenum > 0);
+	*lines = tal_strsplit(ctx, contents, "\r\n", STR_EMPTY_OK);
+	if (linenum >= tal_count(*lines))
+		return tal_fmt(ctx, "Configfile %s no longer has %zu lines!",
+			       fname, linenum);
+
+	if (!streq((*lines)[linenum - 1], expected))
+		return tal_fmt(ctx, "Configfile %s line %zu changed from %s to %s!",
+			       fname, linenum,
+			       expected,
+			       (*lines)[linenum - 1]);
+	return NULL;
+}
+
 /* This comments out the config file entry or maybe replace one */
 static void configfile_replace_var(struct lightningd *ld,
 				   const struct configvar *cv,
 				   const char *replace)
 {
-	char *contents, **lines, *template;
+	char **lines, *template, *contents;
+	const char *err;
 	int outfd;
 
 	switch (cv->src) {
@@ -437,21 +466,11 @@ static void configfile_replace_var(struct lightningd *ld,
 		break;
 	}
 
-	contents = grab_file(tmpctx, cv->file);
-	if (!contents)
-		fatal("Could not load configfile %s: %s",
-		      cv->file, strerror(errno));
-
-	lines = tal_strsplit(contents, contents, "\r\n", STR_EMPTY_OK);
-	if (cv->linenum - 1 >= tal_count(lines))
-		fatal("Configfile %s no longer has %u lines!",
-		      cv->file, cv->linenum);
-
-	if (!streq(lines[cv->linenum - 1], cv->configline))
-		fatal("Configfile %s line %u changed from %s to %s!",
-		      cv->file, cv->linenum,
-		      cv->configline,
-		      lines[cv->linenum - 1]);
+	/* If it changed *now*, that's fatal: we already set it locally! */
+	err = grab_and_check(tmpctx, cv->file, cv->linenum, cv->configline,
+			     &lines);
+	if (err)
+		fatal("%s", err);
 
 	if (replace)
 		lines[cv->linenum - 1] = cast_const(char *, replace);
@@ -595,14 +614,12 @@ static bool dir_writable(const char *fname)
 /* Returns config file name if not writable */
 static const char *config_not_writable(const tal_t *ctx,
 				       struct command *cmd,
-				       const struct opt_table *ot)
+				       const struct configvar *oldcv)
 {
 	struct lightningd *ld = cmd->ld;
-	struct configvar *oldcv;
 	const char *fname;
 
 	/* If it exists before, we will need to replace that file (rename) */
-	oldcv = configvar_first(ld->configvars, opt_names_arr(tmpctx, ot));
 	if (oldcv && oldcv->file) {
 		/* We will rename */
 		if (!dir_writable(oldcv->file))
@@ -645,11 +662,32 @@ static struct command_result *json_setconfig(struct command *cmd,
 	assert(!(ot->type & OPT_MULTI));
 
 	if (!*transient) {
-		const char *fname = config_not_writable(cmd, cmd, ot);
+		const struct configvar *cv;
+		const char *fname;
+
+		cv = configvar_first(cmd->ld->configvars,
+				     opt_names_arr(tmpctx, ot));
+
+		fname = config_not_writable(cmd, cmd, cv);
 		if (fname)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Cannot write to config file %s",
 					    fname);
+
+		/* Check if old config has changed (so we couldn't be able
+		 * to comment it out! */
+		if (cv && cv->file) {
+			const char *changed;
+			char **lines;
+
+			changed = grab_and_check(tmpctx,
+						 cv->file, cv->linenum,
+						 cv->configline,
+						 &lines);
+			if (changed)
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "%s", changed);
+		}
 	}
 
 	/* We use arg = NULL to tell callback it's only for testing */

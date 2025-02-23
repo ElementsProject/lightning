@@ -4278,6 +4278,55 @@ def test_setconfig_access(node_factory, bitcoind):
     os.chmod(includedir, 0o700)
 
 
+def test_setconfig_changed(node_factory, bitcoind):
+    """Test that we correctly fail (not crash) if config file changed"""
+    l1 = node_factory.get_node(start=False)
+
+    netconfigfile = os.path.join(l1.daemon.opts.get("lightning-dir"), TEST_NETWORK, 'config')
+    with open(netconfigfile, 'w') as file:
+        file.write("min-capacity-sat=100")
+    l1.start()
+
+    assert l1.rpc.listconfigs(config="min-capacity-sat")['configs']['min-capacity-sat']['value_int'] == 100
+
+    # Change it underneath
+    with open(netconfigfile, 'w') as file:
+        file.write("#some comment\nmin-capacity-sat=100")
+
+    # This will fail.
+    with pytest.raises(RpcError, match=f'Configfile {netconfigfile} line 1 changed from min-capacity-sat=100 to #some comment!'):
+        l1.rpc.check("setconfig", config="min-capacity-sat", val=9999)
+    with pytest.raises(RpcError, match=f'Configfile {netconfigfile} line 1 changed from min-capacity-sat=100 to #some comment!'):
+        l1.rpc.setconfig(config="min-capacity-sat", val=9999)
+
+    # Restore it.
+    with open(netconfigfile, 'w') as file:
+        file.write("min-capacity-sat=100")
+
+    # Succeeds
+    l1.rpc.setconfig(config="min-capacity-sat", val=9999)
+
+    # Now mess with config.setconfig...
+    setconfigfile = netconfigfile + ".setconfig"
+    with open(setconfigfile, 'w') as file:
+        pass
+
+    # Now this will fail (truncated)
+    with pytest.raises(RpcError, match=f'Configfile {setconfigfile} no longer has 2 lines'):
+        l1.rpc.check("setconfig", config="min-capacity-sat", val=9999)
+    with pytest.raises(RpcError, match=f'Configfile {setconfigfile} no longer has 2 lines'):
+        l1.rpc.setconfig(config="min-capacity-sat", val=9999)
+
+    # This will fail (changed)
+    with open(setconfigfile, 'w') as file:
+        file.write("# Created and update by setconfig, but you can edit this manually when node is stopped.\nmin-capacity-sat=999")
+
+    with pytest.raises(RpcError, match=f'Configfile {setconfigfile} line 2 changed from min-capacity-sat=9999 to min-capacity-sat=999!'):
+        l1.rpc.check("setconfig", config="min-capacity-sat", val=9999)
+    with pytest.raises(RpcError, match=f'Configfile {setconfigfile} line 2 changed from min-capacity-sat=9999 to min-capacity-sat=999!'):
+        l1.rpc.setconfig(config="min-capacity-sat", val=9999)
+
+
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
 def test_recover_command(node_factory, bitcoind):
     l1, l2 = node_factory.get_nodes(2)
