@@ -4169,7 +4169,7 @@ def test_setconfig(node_factory, bitcoind):
     ret = l2.rpc.setconfig(config='min-capacity-sat', val=400001, transient=True)
     assert ret == {'config':
                    {'config': 'min-capacity-sat',
-                    'source': '{}:3'.format(configfile),
+                    'source': 'setconfig transient',
                     'value_int': 400001,
                     'dynamic': True}}
 
