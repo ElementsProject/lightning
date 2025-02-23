@@ -117,6 +117,9 @@ struct lightningd {
 	/* Our config basedir, network directory, and rpc file */
 	char *config_basedir, *config_netdir;
 
+	/* Where setconfig() should write to (or NULL if not set up yet) */
+	char *setconfig_file;
+
 	/* Location of the RPC socket. */
 	char *rpc_filename;
 	/* Mode of the RPC filename. */
