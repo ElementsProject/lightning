@@ -1268,6 +1268,7 @@ static void handle_onchaind_spend_to_us(struct channel *channel,
 	struct onchain_signing_info *info;
 	struct bitcoin_outpoint out;
 	struct amount_sat out_sats;
+	u32 sequence;
 
 	info = new_signing_info(msg, channel, WIRE_ONCHAIND_SPEND_TO_US);
 
@@ -1293,6 +1294,7 @@ static void handle_onchaind_spend_to_us(struct channel *channel,
 
 	if (!fromwire_onchaind_spend_to_us(info, msg,
 					   &out, &out_sats,
+					   &sequence,
 					   &info->minblock,
 					   &info->u.htlc_timedout.commit_num,
 					   &info->wscript)) {
@@ -1304,8 +1306,11 @@ static void handle_onchaind_spend_to_us(struct channel *channel,
 	/* No real deadline on this, it's just returning to our wallet. */
 	info->deadline_block =
 	    slow_sweep_deadline(channel->peer->ld->topology, channel);
+
+	/* sequence is usually channel->channel_info.their_config.to_self_delay,
+	 * but for leases it can be greater. */
 	create_onchain_tx(channel, &out, out_sats,
-			  channel->channel_info.their_config.to_self_delay, 0,
+			  sequence, 0,
 			  sign_tx_to_us, info,
 			  __func__);
 }

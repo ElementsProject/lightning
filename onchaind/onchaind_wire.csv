@@ -129,6 +129,7 @@ msgdata,onchaind_notify_coin_mvt,mvt,chain_coin_mvt,
 msgtype,onchaind_spend_to_us,5040
 msgdata,onchaind_spend_to_us,outpoint,bitcoin_outpoint,
 msgdata,onchaind_spend_to_us,outpoint_amount,amount_sat,
+msgdata,onchaind_spend_to_us,sequence,u32,
 msgdata,onchaind_spend_to_us,minblock,u32,
 msgdata,onchaind_spend_to_us,commit_num,u64,
 msgdata,onchaind_spend_to_us,wscript_len,u32,
