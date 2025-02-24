@@ -2332,7 +2332,7 @@ static void json_add_peer(struct lightningd *ld,
 		/* If peer reports our IP remote_addr, add that here */
 		if (p->remote_addr)
 			json_add_string(response, "remote_addr",
-					fmt_wireaddr(response, p->remote_addr));
+					fmt_wireaddr(tmpctx, p->remote_addr));
 	}
 
 	/* Note: If !PEER_CONNECTED, peer may use different features on reconnect */
