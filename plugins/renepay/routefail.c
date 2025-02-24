@@ -14,13 +14,39 @@ enum node_type {
 };
 
 struct routefail {
-	struct command *cmd;
 	struct payment *payment;
 	struct route *route;
 };
 
-static struct command_result *update_gossip(struct routefail *r);
-static struct command_result *handle_failure(struct routefail *r);
+static void update_gossip(struct command *cmd,
+			  struct request_batch *batch,
+			  struct routefail *r);
+
+static void handle_failure(struct command *cmd,
+			   struct request_batch *batch,
+			   struct routefail *r);
+
+static struct command_result *routefail_end(struct command *cmd,
+					    struct routefail *r)
+{
+	/* Notify the tracker that route has failed and routefail have completed
+	 * handling all possible errors cases. */
+	route_failure_register(r->payment->routetracker, r->route);
+	r = tal_free(r);
+	return notification_handled(cmd);
+}
+
+static struct command_result *log_routefail_err(struct command *cmd,
+						const char *method,
+						const char *buf,
+						const jsmntok_t *tok,
+						struct routefail *r)
+{
+	plugin_log(cmd->plugin, LOG_UNUSUAL,
+		   "routefail batch failed: %s failed: '%.*s'", method,
+		   json_tok_full_len(tok), json_tok_full(buf, tok));
+	return command_still_pending(cmd);
+}
 
 struct command_result *routefail_start(const tal_t *ctx, struct route *route,
 				       struct command *cmd)
@@ -38,20 +64,12 @@ struct command_result *routefail_start(const tal_t *ctx, struct route *route,
 
 	r->payment = payment;
 	r->route = route;
-	r->cmd = cmd;
-	assert(route->result);
-	return update_gossip(r);
-}
 
-static struct command_result *routefail_end(struct routefail *r TAKES)
-{
-	/* Notify the tracker that route has failed and routefail have completed
-	 * handling all possible errors cases. */
-	struct command *cmd = r->cmd;
-	route_failure_register(r->payment->routetracker, r->route);
-	if (taken(r))
-		r = tal_steal(tmpctx, r);
-	return notification_handled(cmd);
+	struct request_batch *batch =
+	    request_batch_new(cmd, NULL, log_routefail_err, routefail_end, r);
+	update_gossip(cmd, batch, r);
+	handle_failure(cmd, batch, r);
+	return batch_done(cmd, batch);
 }
 
 /*****************************************************************************
@@ -109,49 +127,9 @@ static u8 *channel_update_from_onion_error(const tal_t *ctx,
 	return patch_channel_update(ctx, take(channel_update));
 }
 
-static struct command_result *update_gossip_done(struct command *cmd UNUSED,
-						 const char *method UNUSED,
-						 const char *buf UNUSED,
-						 const jsmntok_t *result UNUSED,
-						 struct routefail *r)
-{
-	return handle_failure(r);
-}
-
-static struct command_result *update_gossip_failure(struct command *cmd UNUSED,
-						    const char *method UNUSED,
-						    const char *buf,
-						    const jsmntok_t *result,
-						    struct routefail *r)
-{
-	assert(r);
-	assert(r->payment);
-	assert(r->route->result->erring_index);
-
-	const int index = *r->route->result->erring_index;
-	struct short_channel_id_dir scidd;
-
-	if (r->route->result->erring_channel) {
-		scidd.scid = *r->route->result->erring_channel;
-		scidd.dir = *r->route->result->erring_direction;
-	} else if (r->route->hops) {
-		assert(index < tal_count(r->route->hops));
-		const struct route_hop *hop = &r->route->hops[index];
-		scidd.scid = hop->scid;
-		scidd.dir = hop->direction;
-
-	} else /* don't have information to disable the erring channel */
-		goto finish;
-
-	payment_disable_chan(
-	    r->payment, scidd, LOG_INFORM, "addgossip failed (%.*s)",
-	    json_tok_full_len(result), json_tok_full(buf, result));
-
-finish:
-	return update_gossip_done(cmd, method, buf, result, r);
-}
-
-static struct command_result *update_gossip(struct routefail *r)
+static void update_gossip(struct command *cmd,
+			  struct request_batch *batch,
+			  struct routefail *r)
 {
 	/* if there is no raw_message we continue */
 	if (!r->route->result->raw_message)
@@ -163,14 +141,12 @@ static struct command_result *update_gossip(struct routefail *r)
 	if (!update)
 		goto skip_update_gossip;
 
-	struct out_req *req =
-	    jsonrpc_request_start(r->cmd, "addgossip",
-				  update_gossip_done, update_gossip_failure, r);
+	struct out_req *req = add_to_batch(cmd, batch, "addgossip");
 	json_add_hex_talarr(req->js, "message", update);
-	return send_outreq(req);
+	send_outreq(req);
 
 skip_update_gossip:
-	return handle_failure(r);
+	return;
 }
 
 /*****************************************************************************
@@ -198,8 +174,42 @@ static void route_final_error(struct route *route, enum jsonrpc_errcode error,
 	route->final_msg = tal_strdup(route, what);
 }
 
+static void disable_node(struct command *cmd, struct request_batch *batch,
+			 struct routefail *r, struct node_id *node)
+{
+	struct out_req *req = add_to_batch(cmd, batch, "askrene-disable-node");
+	json_add_string(req->js, "layer", r->payment->payment_layer);
+	json_add_node_id(req->js, "node", node);
+	send_outreq(req);
+}
+
+static void disable_channel(struct command *cmd, struct request_batch *batch,
+			 struct routefail *r, struct short_channel_id_dir scidd)
+{
+	struct out_req *req =
+	    add_to_batch(cmd, batch, "askrene-udpate-channel");
+	json_add_string(req->js, "layer", r->payment->payment_layer);
+	json_add_short_channel_id_dir(req->js, "short_channel_id_dir", scidd);
+	json_add_bool(req->js, "enabled", false);
+	send_outreq(req);
+}
+
+static void bias_channel(struct command *cmd, struct request_batch *batch,
+			 struct routefail *r, struct short_channel_id_dir scidd,
+			 int bias)
+{
+	// FIXME: we want to increment the bias, not set it
+	struct out_req *req = add_to_batch(cmd, batch, "askrene-bias-channel");
+	json_add_string(req->js, "layer", r->payment->payment_layer);
+	json_add_short_channel_id_dir(req->js, "short_channel_id_dir", scidd);
+	json_add_num(req->js, "bias", bias);
+	send_outreq(req);
+}
+
 /* FIXME: do proper error handling for BOLT12 */
-static struct command_result *handle_failure(struct routefail *r)
+static void handle_failure(struct command *cmd,
+			   struct request_batch *batch,
+			   struct routefail *r)
 {
 	/* BOLT #4:
 	 *
@@ -322,6 +332,9 @@ static struct command_result *handle_failure(struct routefail *r)
 			    payment, route->hops[*result->erring_index].node_id,
 			    LOG_DBG, "received %s from previous hop",
 			    onion_wire_name(failcode));
+			disable_node(
+			    cmd, batch, r,
+			    &route->hops[*result->erring_index].node_id);
 			break;
 		case UNKNOWN_NODE:
 			break;
@@ -351,6 +364,9 @@ static struct command_result *handle_failure(struct routefail *r)
 			    route->hops[*result->erring_index - 1].node_id,
 			    LOG_INFORM, "received error %s",
 			    onion_wire_name(failcode));
+			disable_node(
+			    cmd, batch, r,
+			    &route->hops[*result->erring_index - 1].node_id);
 			break;
 		case UNKNOWN_NODE:
 			break;
@@ -399,6 +415,9 @@ static struct command_result *handle_failure(struct routefail *r)
 			    route->hops[*result->erring_index - 1].node_id,
 			    LOG_INFORM, "received error %s",
 			    onion_wire_name(failcode));
+			disable_node(
+			    cmd, batch, r,
+			    &route->hops[*result->erring_index - 1].node_id);
 			break;
 		case UNKNOWN_NODE:
 			break;
@@ -442,7 +461,7 @@ static struct command_result *handle_failure(struct routefail *r)
 			    .dir = route->hops[*result->erring_index].direction};
 			payment_disable_chan(payment, scidd, LOG_INFORM, "%s",
 					     onion_wire_name(failcode));
-
+			disable_channel(cmd, batch, r, scidd);
 			break;
 		case UNKNOWN_NODE:
 			break;
@@ -469,7 +488,9 @@ static struct command_result *handle_failure(struct routefail *r)
 			    route->hops[*result->erring_index - 1].node_id,
 			    LOG_INFORM, "received error %s",
 			    onion_wire_name(failcode));
-
+			disable_node(
+			    cmd, batch, r,
+			    &route->hops[*result->erring_index - 1].node_id);
 			break;
 		case ORIGIN_NODE:
 		case FINAL_NODE:
@@ -518,7 +539,7 @@ static struct command_result *handle_failure(struct routefail *r)
 			payment_warn_chan(payment, scidd, LOG_INFORM,
 					  "received error %s",
 					  onion_wire_name(failcode));
-
+			bias_channel(cmd, batch, r, scidd, -1);
 			break;
 		case UNKNOWN_NODE:
 			break;
@@ -554,5 +575,5 @@ static struct command_result *handle_failure(struct routefail *r)
 	}
 
 finish:
-	return routefail_end(take(r));
+	return;
 }
