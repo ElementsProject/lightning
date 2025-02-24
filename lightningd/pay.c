@@ -1329,7 +1329,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 	const char *label, *invstring, *description;
 	struct node_id *destination;
 	struct secret *path_secrets;
-	struct amount_msat *msat;
+	struct amount_msat *msat, *total_msat;
 	u64 *partid, *group;
 	struct sha256 *local_invreq_id = NULL;
 
@@ -1347,6 +1347,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 			 p_opt("localinvreqid", param_sha256, &local_invreq_id),
 			 p_opt("groupid", param_u64, &group),
 			 p_opt("description", param_string, &description),
+			 p_opt_def("total_amount_msat", param_msat, &total_msat, AMOUNT_MSAT(0)),
 			 NULL))
 		return command_param_failed();
 
@@ -1370,7 +1371,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 		return command_check_done(cmd);
 
 	return send_payment_core(ld, cmd, payment_hash, *partid, *group,
-				 first_hop, *msat, AMOUNT_MSAT(0),
+				 first_hop, *msat, *total_msat,
 				 label, invstring, description,
 				 packet, destination, NULL, NULL,
 				 path_secrets, local_invreq_id);

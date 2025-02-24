@@ -1353,6 +1353,8 @@ pub mod requests {
 	    pub localinvreqid: Option<Sha256>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub partid: Option<u16>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub total_amount_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub shared_secrets: Option<Vec<Secret>>,
 	    pub first_hop: SendonionFirstHop,
