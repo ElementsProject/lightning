@@ -101,6 +101,15 @@
           "Used to annotate the payment, and is returned by *waitsendpay* and *listsendpays*."
         ]
       },
+      "total_amount_msat": {
+        "type": "msat",
+        "description": [
+          "This is the full amount requested by the destination in the invoice. It is needed internally for multi-part payments.",
+          "Its default value is 0 msat for backwards compatibility."
+        ],
+        "default": "0",
+        "added": "v25.05"
+      },
       "destination": {
         "type": "pubkey",
         "description": [
