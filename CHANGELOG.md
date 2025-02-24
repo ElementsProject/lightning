@@ -3,6 +3,128 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [25.02rc1] - 2025-02-24:
+
+### Added
+
+ - Plugins: `chanbackup` turns our peers into watchtowers and enables SCB to create penalty txns. ([#7772])
+ - JSON-RPC: `fetchinvoice` BIP 353 name support (`bip353`). ([#7887])
+ - JSON-RPC: `blacklistrune` now has an option to un-blacklist (`relist`). ([#8037])
+ - JSON-RPC: `setconfig` now has a `transient` flag which means it won't rewrite your config file. ([#8095])
+ - Plugins: New nofitications `plugin_stopped` and `plugin_started`. ([#7508])
+ - xpay: `xpay-slow-mode` makes xpay wait for all parts of a payment to complete before returning success or failure. ([#8094])
+ - Plugins: `xpay` now supports a `maxdelay` parameter for better `xpay-handle-pay` compatibility. ([#7969])
+ - JSON-RPC: `listpeerchannels` new output fields `their_max_total_htlc_out_msat` and `our_max_total_htlc_out_msat` as the value of `max_htlc_value_in_flight` (as of BOLT02) set by the local and remote nodes on channel creation. ([#8084])
+ - Config: Added support for Bitcoin `testnet4`. ([#7894])
+
+
+### Changed
+
+ - Offers: we will use a blinded path if we have no advertized address (so payers wouldn't be able to connect directly). ([#8071])
+ - clnrest: clnrest is now a rust plugin. ([#7509])
+ - JSON-RPC: `blacklistrune` no longer supports of runes over id 100,000,000. ([#8037])
+ - Splicing: User is prevented from trying to splice unsigned PSBTs, protecting against potential issues. ([#8052])
+ - Splicing: Stricter tests for interop with Eclair. ([#8031])
+ - `xpay` now populates more fields, so `listsendpays` and `listpays` show `destination` and `amount_msat` fields for xpay payments. ([#7941])
+ - `xpay` now gives the same JSON success return as documented by `pay` when `xpay-handle-pay` is set. ([#7938])
+ - JSON-RPC: With `xpay-handle-pay` set, xpay will now be used even if `pay` uses maxfeeprecent or exemptfee parameters (e.g. Zeus.) ([#7942])
+ - Release: Docker images are now based on Debian Bookworm. ([#7921])
+ - lightning-cli: Plugin descriptions in `lightning-cli help` is now more readable with interpretation of \n characters. ([#8022])
+ - Release: Fixed version number and version check in source release zip packages. ([#8010])
+ - Logging: We no longer suppress DEBUG messages from subdaemons. ([#7935])
+ - lightning-cli: `help` messages using new-lines is now printed properly, enhancing readability and consistency. ([#8022])
+ - pyln-testing: pyln-testing is now compatible with older versions of Core Lightning. ([#7173])
+
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - JSON-RPC: `listpeerchannels` value `max_total_htlc_in_msat`: use `our_max_htlc_value_in_flight_msat` instead to follow spec naming convention. ([#8084])
+ - Config: `rest-port`, `rest-protocol`, `rest-host` and `rest-certs` disabled by default (use `clnrest-*`, or `i-promise-to-fix-broken-api-user=rest-port.clnrest-prefix` etc and PLEASE REPORT if you need this!) ([#8089])
+ - Config: `max-locktime-blocks` disabled by default (use `i-promise-to-fix-broken-api-user=max-locktime-blocks` and PLEASE REPORT if you need this!) ([#8089])
+
+
+### Removed
+
+
+### Fixed
+
+ - lightningd: Startup time vastly improved for large nodes with pending closes and many bitcoin addresses. ([#8019])
+ - renepay: No longer crashes on trying a payment after xpay. ([#7979])
+ - connectd: `dev-no-reconnect-private` is respected on restart. ([#8104])
+ - cln-grpc, clnrest: Errors that cause them to stop will now log correctly. ([#8085])
+ - Plugins: xpay doesn't simply give up if our total amount is less than `htlc_minimum_msat` on some channel. ([#8057])
+ - Plugins: xpay suppresses multi-part payment if an invoice doesn't allow it (please, fix your nodes!) ([#8059])
+ - JSON-RPC: xpay now works through unannounced channels. ([#7937])
+ - onchaind: Don't die if we fail an unrelated channel with the same peer. ([#8056])
+ - gossipd: More sanity checks that we are correctly updating the `gossip_store` file. ([#8053])
+ - gossipd: Corruption in the `gossip_store` no longer causes ever-longer startup times and no gossip updates. ([#8053])
+ - gossmap: Don't crash on ZFS while reading `gossip_store`. ([#8053])
+ - lightningd: Tell plugins our bolt12 features (so our bolt12 invoices explicitly allow MPP). ([#8059])
+ - lightningd: Allow more time for plugin startup so slow nodes don't time out on startup. ([#8060])
+ - bcli: `getblockfrompeer` no longer requests the block from the first peer only. ([#8069])
+ - lightning-cli: Fixed "malformed response" bug. ([#7924])
+ - lightning-cli: Fixed access to man pages from the installed directory. ([#8077])
+ - Protocol: We were overzealous in pruning channels if we hadn't seen one side's gossip update yet. ([#8027])
+ - xpay-handle-pay: Handle null parameters passed in the "param" list. ([#7958])
+ - Offers: `decode` for bolt12 invoices "features" field renamed to "invoice_features" (as documentation said.) ([#8059])
+ - JSON-RPC: `xpay` will refuse to make a 0msat payment (0msat invoice, partial payment, or manually-set on amountless invoice). ([#8024])
+ - JSON-RPC: `getroutes` will refuse, not crash, if asked to find a route for 0msat. ([#8024])
+ - build: Fixed linking against libsodium on macOS. ([#7908])
+ - Fixes Postgres driver availability for arm64 and arm32 Docker images. ([#7921])
+ - xpay: xpay no longer logs "Got command" at info level. ([#7933])
+ - contrib: `startup-regtest.sh` now only inspects the most recent run's logs for the active status of the clnrest plugin. ([#7509])
+ - build: libsodium configure check fixed to work with newer GCC. ([#7907])
+
+
+### EXPERIMENTAL
+
+
+[#8024]: https://github.com/ElementsProject/lightning/pull/8024
+[#7969]: https://github.com/ElementsProject/lightning/pull/7969
+[#7921]: https://github.com/ElementsProject/lightning/pull/7921
+[#8089]: https://github.com/ElementsProject/lightning/pull/8089
+[#8052]: https://github.com/ElementsProject/lightning/pull/8052
+[#8019]: https://github.com/ElementsProject/lightning/pull/8019
+[#7958]: https://github.com/ElementsProject/lightning/pull/7958
+[#8027]: https://github.com/ElementsProject/lightning/pull/8027
+[#7173]: https://github.com/ElementsProject/lightning/pull/7173
+[#7937]: https://github.com/ElementsProject/lightning/pull/7937
+[#8056]: https://github.com/ElementsProject/lightning/pull/8056
+[#8037]: https://github.com/ElementsProject/lightning/pull/8037
+[#8077]: https://github.com/ElementsProject/lightning/pull/8077
+[#7887]: https://github.com/ElementsProject/lightning/pull/7887
+[#7907]: https://github.com/ElementsProject/lightning/pull/7907
+[#7979]: https://github.com/ElementsProject/lightning/pull/7979
+[#8053]: https://github.com/ElementsProject/lightning/pull/8053
+[#7908]: https://github.com/ElementsProject/lightning/pull/7908
+[#7894]: https://github.com/ElementsProject/lightning/pull/7894
+[#7924]: https://github.com/ElementsProject/lightning/pull/7924
+[#8057]: https://github.com/ElementsProject/lightning/pull/8057
+[#8031]: https://github.com/ElementsProject/lightning/pull/8031
+[#8010]: https://github.com/ElementsProject/lightning/pull/8010
+[#8071]: https://github.com/ElementsProject/lightning/pull/8071
+[#7933]: https://github.com/ElementsProject/lightning/pull/7933
+[#7508]: https://github.com/ElementsProject/lightning/pull/7508
+[#8084]: https://github.com/ElementsProject/lightning/pull/8084
+[#8085]: https://github.com/ElementsProject/lightning/pull/8085
+[#8095]: https://github.com/ElementsProject/lightning/pull/8095
+[#7941]: https://github.com/ElementsProject/lightning/pull/7941
+[#8059]: https://github.com/ElementsProject/lightning/pull/8059
+[#8069]: https://github.com/ElementsProject/lightning/pull/8069
+[#8022]: https://github.com/ElementsProject/lightning/pull/8022
+[#7938]: https://github.com/ElementsProject/lightning/pull/7938
+[#7509]: https://github.com/ElementsProject/lightning/pull/7509
+[#8094]: https://github.com/ElementsProject/lightning/pull/8094
+[#8104]: https://github.com/ElementsProject/lightning/pull/8104
+[#7935]: https://github.com/ElementsProject/lightning/pull/7935
+[#7942]: https://github.com/ElementsProject/lightning/pull/7942
+[#7772]: https://github.com/ElementsProject/lightning/pull/7772
+[#8060]: https://github.com/ElementsProject/lightning/pull/8060
+[25.02rc1]: https://github.com/ElementsProject/lightning/releases/tag/v25.02rc1
+
+
 ## [24.11.1] - 2024-12-16: "The lightning-dev Mailing List II"
 
 Minor fixes, particularly for xpay users.
