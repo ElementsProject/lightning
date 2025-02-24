@@ -812,6 +812,8 @@ static struct command_result *json_getroutes(struct command *cmd,
 				   maxdelay_allowed),
 			 NULL))
 		return command_param_failed();
+	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
+		   json_tok_full_len(params), json_tok_full(buffer, params));
 
 	if (amount_msat_is_zero(*info->amount)) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -857,6 +859,8 @@ static struct command_result *json_askrene_reserve(struct command *cmd,
 		   p_req("path", param_reserve_path, &path),
 		   NULL))
 		return command_param_failed();
+	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
+		   json_tok_full_len(params), json_tok_full(buffer, params));
 
 	for (size_t i = 0; i < tal_count(path); i++)
 		reserve_add(askrene->reserved, &path[i], cmd->id);
@@ -877,6 +881,8 @@ static struct command_result *json_askrene_unreserve(struct command *cmd,
 		   p_req("path", param_reserve_path, &path),
 		   NULL))
 		return command_param_failed();
+	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
+		   json_tok_full_len(params), json_tok_full(buffer, params));
 
 	for (size_t i = 0; i < tal_count(path); i++) {
 		if (!reserve_remove(askrene->reserved, &path[i])) {
@@ -901,6 +907,8 @@ static struct command_result *json_askrene_listreservations(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   NULL))
 		return command_param_failed();
+	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
+		   json_tok_full_len(params), json_tok_full(buffer, params));
 
 	response = jsonrpc_stream_success(cmd);
 	json_add_reservations(response, askrene->reserved, "reservations");
@@ -925,6 +933,8 @@ static struct command_result *json_askrene_create_channel(struct command *cmd,
 			 p_req("capacity_msat", param_msat, &capacity),
 			 NULL))
 		return command_param_failed();
+	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
+		   json_tok_full_len(params), json_tok_full(buffer, params));
 
 	if (layer_find_local_channel(layer, *scid)) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -963,6 +973,8 @@ static struct command_result *json_askrene_update_channel(struct command *cmd,
 		   p_opt("cltv_expiry_delta", param_u16, &delay),
 		   NULL))
 		return command_param_failed();
+	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
+		   json_tok_full_len(params), json_tok_full(buffer, params));
 
 	layer_add_update_channel(layer, scidd,
 				 enabled,
@@ -1017,6 +1029,8 @@ static struct command_result *json_askrene_inform_channel(struct command *cmd,
 			 p_req("inform", param_inform, &inform),
 			 NULL))
 		return command_param_failed();
+	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
+		   json_tok_full_len(params), json_tok_full(buffer, params));
 
 	switch (*inform) {
 	case INFORM_CONSTRAINED:
@@ -1092,6 +1106,8 @@ static struct command_result *json_askrene_bias_channel(struct command *cmd,
 		   p_opt("description", param_string, &description),
 		   NULL))
 		return command_param_failed();
+	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
+		   json_tok_full_len(params), json_tok_full(buffer, params));
 
 	b = layer_set_bias(layer, scidd, description, *bias);
 	response = jsonrpc_stream_success(cmd);
@@ -1115,6 +1131,8 @@ static struct command_result *json_askrene_disable_node(struct command *cmd,
 		   p_req("node", param_node_id, &node),
 		   NULL))
 		return command_param_failed();
+	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
+		   json_tok_full_len(params), json_tok_full(buffer, params));
 
 	/* We save this in the layer, because they want us to disable all the channels
 	 * to the node at *use* time (a new channel might be gossiped!). */
@@ -1139,6 +1157,8 @@ static struct command_result *json_askrene_create_layer(struct command *cmd,
 			 p_opt_def("persistent", param_bool, &persistent, false),
 			 NULL))
 		return command_param_failed();
+	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
+		   json_tok_full_len(params), json_tok_full(buffer, params));
 
 	if (strstarts(layername, "auto."))
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -1173,6 +1193,8 @@ static struct command_result *json_askrene_remove_layer(struct command *cmd,
 		   p_req("layer", param_known_layer, &layer),
 		   NULL))
 		return command_param_failed();
+	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
+		   json_tok_full_len(params), json_tok_full(buffer, params));
 
 	remove_layer(layer);
 
@@ -1192,6 +1214,8 @@ static struct command_result *json_askrene_listlayers(struct command *cmd,
 		   p_opt("layer", param_known_layer, &layer),
 		   NULL))
 		return command_param_failed();
+	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
+		   json_tok_full_len(params), json_tok_full(buffer, params));
 
 	response = jsonrpc_stream_success(cmd);
 	json_add_layers(response, askrene, "layers", layer);
@@ -1212,6 +1236,8 @@ static struct command_result *json_askrene_age(struct command *cmd,
 		   p_req("cutoff", param_u64, &cutoff),
 		   NULL))
 		return command_param_failed();
+	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
+		   json_tok_full_len(params), json_tok_full(buffer, params));
 
 	num_removed = layer_trim_constraints(layer, *cutoff);
 
