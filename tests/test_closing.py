@@ -907,6 +907,7 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @pytest.mark.slow_test
+@pytest.mark.xfail(strict=True)
 def test_channel_lease_unilat_closes(node_factory, bitcoind):
     '''
     Check that channel leases work
@@ -978,6 +979,12 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     _, txid, blocks = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
                                               'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
     assert blocks == 4
+
+    # Note that l3 has the whole lease delay (minus blocks already mined)
+    _, _, l3blocks = l3.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
+                                             'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
+    assert l3blocks == 4032 - 6 - 2 - 1
+
     bitcoind.generate_block(blocks)
     l1.mine_txid_or_rbf(txid, numblocks=1)
     l1.daemon.wait_for_log('Resolved OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by our proposal OUR_DELAYED_RETURN_TO_WALLET')
@@ -1006,9 +1013,14 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
 
     l2.rpc.withdraw(l2.rpc.newaddr()['bech32'], "all", utxos=[utxo1])
 
-    # l3 cleans up their to-self after their lease expires
-    l3.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
-                            'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
+    # We actually mined this many blocks already, so we should see this message:
+    l3.daemon.wait_for_log('waiting confirmation that we spent DELAYED_OUTPUT_TO_US .* using OUR_DELAYED_RETURN_TO_WALLET')
+    l3.daemon.wait_for_log('sendrawtx exit 0')
+
+    # Depending on timing, l3 might have already got this to bitcoind before
+    # the last block.  But generate one just in case.
+    bitcoind.generate_block(1)
+    l3.daemon.wait_for_log('Resolved OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by our proposal OUR_DELAYED_RETURN_TO_WALLET')
 
     # We were making a journal_entry for anchors, but now we ignore them
     incomes = l2.rpc.bkpr_listincome()['income_events']
