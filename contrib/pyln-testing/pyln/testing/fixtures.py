@@ -497,6 +497,7 @@ def node_factory(request, directory, test_name, bitcoind, executor, db_provider,
     map_node_error(nf.nodes, checkBroken, "had BROKEN messages")
     map_node_error(nf.nodes, lambda n: not n.allow_warning and n.daemon.is_in_log(r' WARNING:'), "had warning messages")
     map_node_error(nf.nodes, checkReconnect, "had unexpected reconnections")
+    map_node_error(nf.nodes, get_trace_assert_errors, "had trace_assert errors")
 
     # On any bad gossip complaints, print out every nodes' gossip_store
     if map_node_error(nf.nodes, checkBadGossip, "had bad gossip messages"):
@@ -530,6 +531,10 @@ def prinErrlog(node):
         print(errors)
         print("-" * 80)
     return 1 if errors else 0
+
+
+def get_trace_assert_errors(node):
+    return 1 if node.daemon.is_in_log('TRACE_ASSERT') else 0
 
 
 def getValgrindErrors(node):
