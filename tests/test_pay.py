@@ -6862,3 +6862,79 @@ def test_decode_expired_bolt12(node_factory):
         'type': 'bolt12 invoice',
         'valid': True,
     }
+
+
+def test_sendonion_sendpay(node_factory, bitcoind):
+    """
+    Check that a payment initiated with sendpay can be completed by sendonion.
+    """
+    opts = [
+        {"disable-mpp": None, "fee-base": 1000, "fee-per-satoshi": 1000},
+    ]
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts=opts * 3)
+
+    total_amount = "10000sat"
+    # First case, do not overpay a pending MPP payment
+    invstr = l3.rpc.invoice("10000sat", "inv", "description")["bolt11"]
+    inv = l1.rpc.decode(invstr)
+    route2 = l1.rpc.getroute(inv["payee"], "2000sat", 10)["route"]
+    route8 = l1.rpc.getroute(inv["payee"], "8000sat", 10)["route"]
+
+    def pay_with_sendpay(invoice, route, groupid, partid):
+        l1.rpc.sendpay(
+            route=route,
+            payment_hash=invoice["payment_hash"],
+            payment_secret=invoice["payment_secret"],
+            amount_msat=invoice["amount_msat"],
+            groupid=groupid,
+            partid=partid,
+        )
+
+    def pay_with_sendonion(invoice, route, groupid, partid):
+        blockheight = l1.rpc.getinfo()["blockheight"]
+        # Need to shift the parameters by one hop
+        hops = []
+        for h, n in zip(route[:-1], route[1:]):
+            # We tell the node h about the parameters to use for n (a.k.a. h + 1)
+            hops.append(
+                {
+                    "pubkey": h["id"],
+                    "payload": serialize_payload_tlv(
+                        n["amount_msat"], n["delay"], n["channel"], blockheight
+                    ).hex(),
+                }
+            )
+        # The last hop has a special payload:
+        hops.append(
+            {
+                "pubkey": route[-1]["id"],
+                "payload": serialize_payload_final_tlv(
+                    route[-1]["amount_msat"],
+                    route[-1]["delay"],
+                    invoice["amount_msat"],
+                    blockheight,
+                    invoice["payment_secret"],
+                ).hex(),
+            }
+        )
+        onion = l1.rpc.createonion(hops=hops, assocdata=invoice["payment_hash"])
+        l1.rpc.call(
+            "sendonion",
+            {
+                "onion": onion["onion"],
+                "shared_secrets": onion["shared_secrets"],
+                "first_hop": route[0],
+                "payment_hash": invoice["payment_hash"],
+                "total_amount_msat": invoice["amount_msat"],
+                "groupid": groupid,
+                "partid": partid,
+            },
+        )
+
+    pay_with_sendpay(inv, route2, 1, 1)
+    pay_with_sendonion(inv, route8, 1, 2)
+
+    l1.wait_for_htlcs()
+    invoice = only_one(l3.rpc.listinvoices("inv")["invoices"])
+    # the receive amount should be exact
+    assert invoice["amount_received_msat"] == Millisatoshi(total_amount)

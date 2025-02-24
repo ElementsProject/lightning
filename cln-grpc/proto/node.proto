@@ -912,6 +912,7 @@ message SendonionRequest {
 	optional Amount amount_msat = 12;
 	optional bytes localinvreqid = 13;
 	optional string description = 14;
+	optional Amount total_amount_msat = 15;
 }
 
 message SendonionResponse {

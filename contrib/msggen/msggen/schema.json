@@ -30975,6 +30975,15 @@
             "description": [
               "If provided, it will be returned in *waitsendpay* and *listsendpays* results."
             ]
+          },
+          "total_amount_msat": {
+            "type": "msat",
+            "description": [
+              "This is the full amount requested by the destination in the invoice. It is needed internally for multi-part payments.",
+              "Its default value is 0 msat for backwards compatibility."
+            ],
+            "default": "0",
+            "added": "v25.05"
           }
         }
       },
