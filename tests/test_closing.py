@@ -907,7 +907,6 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @pytest.mark.slow_test
-@pytest.mark.xfail(strict=True)
 def test_channel_lease_unilat_closes(node_factory, bitcoind):
     '''
     Check that channel leases work

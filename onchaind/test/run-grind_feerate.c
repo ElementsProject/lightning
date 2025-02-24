@@ -332,7 +332,7 @@ u8 *towire_onchaind_spend_htlc_timeout(const tal_t *ctx UNNEEDED, const struct b
 u8 *towire_onchaind_spend_penalty(const tal_t *ctx UNNEEDED, const struct bitcoin_outpoint *outpoint UNNEEDED, struct amount_sat outpoint_amount UNNEEDED, const struct secret *remote_per_commitment_secret UNNEEDED, const u8 *stack_elem UNNEEDED, const u8 *wscript UNNEEDED)
 { fprintf(stderr, "towire_onchaind_spend_penalty called!\n"); abort(); }
 /* Generated stub for towire_onchaind_spend_to_us */
-u8 *towire_onchaind_spend_to_us(const tal_t *ctx UNNEEDED, const struct bitcoin_outpoint *outpoint UNNEEDED, struct amount_sat outpoint_amount UNNEEDED, u32 minblock UNNEEDED, u64 commit_num UNNEEDED, const u8 *wscript UNNEEDED)
+u8 *towire_onchaind_spend_to_us(const tal_t *ctx UNNEEDED, const struct bitcoin_outpoint *outpoint UNNEEDED, struct amount_sat outpoint_amount UNNEEDED, u32 sequence UNNEEDED, u32 minblock UNNEEDED, u64 commit_num UNNEEDED, const u8 *wscript UNNEEDED)
 { fprintf(stderr, "towire_onchaind_spend_to_us called!\n"); abort(); }
 /* Generated stub for towire_onchaind_spent_reply */
 u8 *towire_onchaind_spent_reply(const tal_t *ctx UNNEEDED, bool interested UNNEEDED)

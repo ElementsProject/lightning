@@ -1109,6 +1109,7 @@ static void resolve_htlc_tx(struct tracked_output ***outs,
 
 	msg = towire_onchaind_spend_to_us(NULL,
 					  &outpoint, amt,
+					  to_self_delay[LOCAL],
 					  rel_blockheight(out, to_self_delay[LOCAL]),
 					  commit_num,
 					  wscript);
@@ -2156,6 +2157,7 @@ static void our_unilateral_to_us(struct tracked_output ***outs,
 
 	msg = towire_onchaind_spend_to_us(NULL,
 					  outpoint, amt,
+					  sequence,
 					  rel_blockheight(out, sequence),
 					  commit_num,
 					  local_wscript);
