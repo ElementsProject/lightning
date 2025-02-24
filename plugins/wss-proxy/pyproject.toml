@@ -6,7 +6,7 @@ authors = ["ShahanaFarooqui <sfarooqui@blockstream.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-pyln-client = "^24.2"
+pyln-client = ">=24.11 <25.05"
 websockets = "^12.0"
 
 
