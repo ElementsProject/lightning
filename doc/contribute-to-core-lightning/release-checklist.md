@@ -24,7 +24,7 @@ Here's a checklist for the release process.
 2. Use `devtools/changelog.py` to collect the changelog entries from pull request commit messages and merge them into the manually maintained `CHANGELOG.md`.  This does API queries to GitHub, which are severely
    ratelimited unless you use an API token: set the `GH_TOKEN` environment variable to a Personal Access Token from <https://github.com/settings/tokens>
 3. Create a new CHANGELOG.md heading to `v<VERSION>rc1`, and create a link at the bottom. Note that you should exactly copy the date and name format from a previous release, as the `build-release.sh` script relies on this.
-4. Update the package versions: `make update-versions NEW_VERSION=<VERSION>`
+4. Update the package versions: `make update-versions NEW_VERSION=<VERSION>rc1`
 5. Create a PR with the above.
 
 ## Releasing -rc1
@@ -46,7 +46,7 @@ Here's a checklist for the release process.
 ## Releasing -rc2, ..., -rcN
 
 1. Update CHANGELOG.md by changing rc(N-1) to rcN. Update the changelog list with information from newly merged PRs also.
-2. Update the package versions: `make update-versions NEW_VERSION=<VERSION>`
+2. Update the package versions: `make update-versions NEW_VERSION=<VERSION>rcN`
 3. Add a PR with the rcN.
 4. Tag it `git pull && git tag -s v<VERSION>rcN && git push --tags`
 5. Draft a new `v<VERSION>rcN` pre-release on Github, upload reproducible builds, SHA256SUMS and SHA256SUMS.asc.
