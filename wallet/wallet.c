@@ -1356,8 +1356,9 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 				 ", i_am_initiator"
 				 ", force_sign_first"
 				 ", remote_funding"
+				 ", locked_onchain"
 				 ") VALUES ("
-				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, inflight->channel->dbid);
 	db_bind_txid(stmt, &inflight->funding->outpoint.txid);
@@ -1400,6 +1401,7 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 		db_bind_pubkey(stmt, inflight->funding->splice_remote_funding);
 	else
 		db_bind_null(stmt);
+	db_bind_int(stmt, inflight->is_locked);
 
 	db_exec_prepared_v2(stmt);
 	assert(!stmt->error);
@@ -1428,17 +1430,18 @@ void wallet_inflight_save(struct wallet *w,
 	struct db_stmt *stmt;
 	/* The *only* thing you can update on an
 	 * inflight is the funding PSBT (to add sigs)
-	 * and the last_tx/last_sig if this is for a splice */
+	 * and the last_tx/last_sig or locked_onchain if this is for a splice */
 	stmt = db_prepare_v2(w->db,
 			     SQL("UPDATE channel_funding_inflights SET"
 				 "  funding_psbt=?" // 0
 				 ", funding_tx_remote_sigs_received=?" // 1
 				 ", last_tx=?" // 2
 				 ", last_sig=?" // 3
+				 ", locked_onchain=?" // 4
 				 " WHERE"
-				 "  channel_id=?" // 4
-				 " AND funding_tx_id=?" // 5
-				 " AND funding_tx_outnum=?")); // 6
+				 "  channel_id=?" // 5
+				 " AND funding_tx_id=?" // 6
+				 " AND funding_tx_outnum=?")); // 7
 	db_bind_psbt(stmt, inflight->funding_psbt);
 	db_bind_int(stmt, inflight->remote_tx_sigs);
 	if (inflight->last_tx) {
@@ -1448,6 +1451,7 @@ void wallet_inflight_save(struct wallet *w,
 		db_bind_null(stmt);
 		db_bind_null(stmt);
 	}
+	db_bind_int(stmt, inflight->is_locked);
 	db_bind_u64(stmt, inflight->channel->dbid);
 	db_bind_txid(stmt, &inflight->funding->outpoint.txid);
 	db_bind_int(stmt, inflight->funding->outpoint.n);
@@ -1546,6 +1550,8 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 				i_am_initiator,
 				force_sign_first);
 
+	inflight->is_locked = db_col_int(stmt, "locked_onchain");
+
 	/* last_tx is null for not yet committed
 	 * channels + static channel backup recoveries */
 	if (!db_col_is_null(stmt, "last_tx")) {
@@ -1597,6 +1603,7 @@ static bool wallet_channel_load_inflights(struct wallet *w,
 					", i_am_initiator"
 					", force_sign_first"
 					", remote_funding"
+					", locked_onchain"
 					" FROM channel_funding_inflights"
 					" WHERE channel_id = ?"
 					" ORDER BY funding_feerate"));
