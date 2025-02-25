@@ -207,6 +207,26 @@ void payment_collect_results(struct payment *payment,
 	tal_resize(&routetracker->finalized_routes, 0);
 }
 
+static void get_erring_scidd_from_index(struct route *route)
+{
+	struct payment_result *result = route->result;
+	/* Both direction and short_channel_id are known, this step is not
+	 * necessary. */
+	if (result->erring_direction && result->erring_channel)
+		return;
+	/* If the hops or the index are not known, this step is not possible. */
+	if (!route->hops || !result->erring_index)
+		return;
+	/* Is this an error in the destination? */
+	if (*result->erring_index >= tal_count(route->hops))
+		return;
+	result->erring_channel =
+	    tal_dup(result, struct short_channel_id,
+		    &route->hops[*result->erring_index].scid);
+	result->erring_direction =
+	    tal_dup(result, int, &route->hops[*result->erring_index].direction);
+}
+
 struct command_result *notification_sendpay_failure(struct command *cmd,
 						    const char *buf,
 						    const jsmntok_t *params)
@@ -270,10 +290,10 @@ struct command_result *notification_sendpay_failure(struct command *cmd,
 			   status_str);
 		route->result->status = SENDPAY_FAILED;
 	}
-
+	get_erring_scidd_from_index(route);
 	/* we do some error processing steps before calling
 	 * route_failure_register. */
-	return routefail_start(payment, payment, route, cmd);
+	return routefail_start(cmd, payment, route);
 }
 
 struct command_result *notification_sendpay_success(struct command *cmd,
