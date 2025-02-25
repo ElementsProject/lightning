@@ -1869,8 +1869,26 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 	if (channel) {
 		/* In this case, we'll send an error below, but send reestablish reply first
 		 * in case they lost their state and need it */
-		if (msgtype == WIRE_CHANNEL_REESTABLISH && channel_state_closed(channel->state))
+		if (msgtype == WIRE_CHANNEL_REESTABLISH && channel_state_closed(channel->state)) {
+			/* Maybe we know it's closed, but they don't?  Happy to negotiate again. */
+			if (channel->state == CLOSINGD_COMPLETE) {
+				pfd = sockpair(tmpctx, channel, &other_fd, &error);
+				if (!pfd)
+					goto send_error;
+
+				/* Tell channeld to handle reestablish, then it will call closingd */
+				if (peer_start_channeld(channel,
+							pfd,
+							NULL, true,
+							NULL)) {
+					goto tell_connectd;
+				}
+				error = towire_warningfmt(tmpctx, &channel_id,
+							  "Trouble in paradise?");
+				goto send_error;
+			}
 			send_reestablish(ld, channel);
+		}
 
 		/* If we have a canned error for this channel, send it now */
 		if (channel->error) {
