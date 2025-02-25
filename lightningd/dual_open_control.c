@@ -2446,19 +2446,18 @@ json_openchannel_abort(struct command *cmd,
 static char *restart_dualopend(const tal_t *ctx, const struct lightningd *ld,
 			       struct channel *channel, bool from_abort)
 {
-	int fds[2];
-	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
-		log_broken(channel->log,
-			   "Failed to create socketpair: %s",
-			   strerror(errno));
+	struct peer_fd *pfd;
+	int other_fd;
+
+	pfd = sockpair(tmpctx, channel, &other_fd, NULL);
+	if (!pfd)
 		return tal_fmt(ctx, "Unable to create socket: %s",
 			       strerror(errno));
-	}
 
 	if (!peer_restart_dualopend(channel->peer,
-				    new_peer_fd(tmpctx, fds[0]),
+				    pfd,
 				    channel, from_abort)) {
-		close(fds[1]);
+		close(other_fd);
 		return tal_fmt(ctx, "Peer not connected");
 	}
 	subd_send_msg(ld->connectd,
@@ -2466,7 +2465,7 @@ static char *restart_dualopend(const tal_t *ctx, const struct lightningd *ld,
 							     &channel->peer->id,
 							     channel->peer->connectd_counter,
 							     &channel->cid)));
-	subd_send_fd(ld->connectd, fds[1]);
+	subd_send_fd(ld->connectd, other_fd);
 	return NULL;
 }
 
