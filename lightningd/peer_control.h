@@ -101,6 +101,12 @@ void channel_errmsg(struct channel *channel,
 		    bool disconnect,
 		    bool warning);
 
+/* Helper to create a peer_fd and an other fd from socketpair.
+ * Logs error to channel if it fails, and if warning non-NULL, creates
+ * a warning message */
+struct peer_fd *sockpair(const tal_t *ctx, struct channel *channel,
+			 int *otherfd, const u8 **warning);
+
 u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx);
 u8 *p2tr_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx);
 

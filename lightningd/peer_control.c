@@ -73,6 +73,26 @@
 #include <wire/onion_wire.h>
 #include <wire/wire_sync.h>
 
+/* Common pattern: create a sockpair for this channel, return one as a peer_fd */
+struct peer_fd *sockpair(const tal_t *ctx, struct channel *channel,
+			 int *otherfd, const u8 **warning)
+{
+	int fds[2];
+
+	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+		/* Note: preserves errno! */
+		log_broken(channel->log,
+			   "Failed to create socketpair: %s",
+			   strerror(errno));
+		if (warning)
+			*warning = towire_warningfmt(ctx, &channel->cid,
+						     "Trouble in paradise?");
+		return NULL;
+	}
+	*otherfd = fds[1];
+	return new_peer_fd(ctx, fds[0]);
+}
+
 static void destroy_peer(struct peer *peer)
 {
 	peer_node_id_map_del(peer->ld->peers, peer);
@@ -1291,7 +1311,8 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 static void connect_activate_subd(struct lightningd *ld, struct channel *channel)
 {
 	const u8 *error;
-	int fds[2];
+	struct peer_fd *pfd;
+	int other_fd;
 
 	/* If we have a canned error for this channel, send it now */
 	if (channel->error) {
@@ -1318,19 +1339,15 @@ static void connect_activate_subd(struct lightningd *ld, struct channel *channel
 	case DUALOPEND_OPEN_COMMITTED:
 	case DUALOPEND_AWAITING_LOCKIN:
 		assert(!channel->owner);
-		if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
-			log_broken(channel->log,
-				   "Failed to create socketpair: %s",
-				   strerror(errno));
-			error = towire_warningfmt(tmpctx, &channel->cid,
-						  "Trouble in paradise?");
+		pfd = sockpair(tmpctx, channel, &other_fd, &error);
+		if (!pfd)
 			goto send_error;
-		}
+
 		if (peer_restart_dualopend(channel->peer,
-					   new_peer_fd(tmpctx, fds[0]),
+					   pfd,
 					   channel, false))
 			goto tell_connectd;
-		close(fds[1]);
+		close(other_fd);
 		return;
 
 	case CHANNELD_AWAITING_LOCKIN:
@@ -1339,21 +1356,17 @@ static void connect_activate_subd(struct lightningd *ld, struct channel *channel
 	case CHANNELD_SHUTTING_DOWN:
 	case CLOSINGD_SIGEXCHANGE:
 		assert(!channel->owner);
-		if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
-			log_broken(channel->log,
-				   "Failed to create socketpair: %s",
-				   strerror(errno));
-			error = towire_warningfmt(tmpctx, &channel->cid,
-						  "Trouble in paradise?");
+		pfd = sockpair(tmpctx, channel, &other_fd, &error);
+		if (!pfd)
 			goto send_error;
-		}
+
 		if (peer_start_channeld(channel,
-					new_peer_fd(tmpctx, fds[0]),
+					pfd,
 					NULL, true,
 					NULL)) {
 			goto tell_connectd;
 		}
-		close(fds[1]);
+		close(other_fd);
 		return;
 	}
 	abort();
@@ -1364,7 +1377,7 @@ tell_connectd:
 							     &channel->peer->id,
 							     channel->peer->connectd_counter,
 							     &channel->cid)));
-	subd_send_fd(ld->connectd, fds[1]);
+	subd_send_fd(ld->connectd, other_fd);
 	return;
 
 send_error:
@@ -1838,8 +1851,9 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 	struct channel_id channel_id;
 	struct peer *peer;
 	bool dual_fund;
-	u8 *error;
-	int fds[2];
+	const u8 *error;
+	int other_fd;
+	struct peer_fd *pfd;
 	char *errmsg;
 
 	if (!fromwire_connectd_peer_spoke(msg, msg, &id, &connectd_counter, &msgtype, &channel_id, &errmsg))
@@ -1883,18 +1897,13 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 
 			log_debug(channel->log, "channel already active");
 			if (channel->state == DUALOPEND_AWAITING_LOCKIN) {
-				if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
-					log_broken(ld->log,
-						   "Failed to create socketpair: %s",
-						   strerror(errno));
-					error = towire_warningfmt(tmpctx, &channel_id,
-								  "Trouble in paradise?");
+				pfd = sockpair(tmpctx, channel, &other_fd, &error);
+				if (!pfd)
 					goto send_error;
-				}
-				if (peer_restart_dualopend(peer, new_peer_fd(tmpctx, fds[0]), channel, false))
+				if (peer_restart_dualopend(peer, pfd, channel, false))
 					goto tell_connectd;
 				/* FIXME: Send informative error? */
-				close(fds[1]);
+				close(other_fd);
 			}
 			return;
 		}
@@ -1925,19 +1934,13 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 		}
 		peer->uncommitted_channel = new_uncommitted_channel(peer);
 		peer->uncommitted_channel->cid = channel_id;
-		if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
-			log_broken(ld->log,
-				   "Failed to create socketpair: %s",
-				   strerror(errno));
-			error = towire_warningfmt(tmpctx, &channel_id,
-						  "Trouble in paradise?");
+		pfd = sockpair(tmpctx, channel, &other_fd, &error);
+		if (!pfd)
 			goto send_error;
-		}
-		if (peer_start_openingd(peer, new_peer_fd(tmpctx, fds[0]))) {
+		if (peer_start_openingd(peer, pfd))
 			goto tell_connectd;
-		}
 		/* FIXME: Send informative error? */
-		close(fds[1]);
+		close(other_fd);
 		return;
 
 	case WIRE_OPEN_CHANNEL2:
@@ -1950,18 +1953,14 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 					      peer->ld->config.fee_base,
 					      peer->ld->config.fee_per_satoshi);
 		channel->cid = channel_id;
-		if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
-			log_broken(ld->log,
-				   "Failed to create socketpair: %s",
-				   strerror(errno));
-			error = towire_warningfmt(tmpctx, &channel_id,
-						  "Trouble in paradise?");
+		pfd = sockpair(tmpctx, channel, &other_fd, &error);
+		if (!pfd)
 			goto send_error;
-		}
-		if (peer_start_dualopend(peer, new_peer_fd(tmpctx, fds[0]), channel))
+
+		if (peer_start_dualopend(peer, pfd, channel))
 			goto tell_connectd;
 		/* FIXME: Send informative error? */
-		close(fds[1]);
+		close(other_fd);
 		return;
 	}
 
@@ -1993,7 +1992,7 @@ tell_connectd:
 		      take(towire_connectd_peer_connect_subd(NULL, &id,
 							     peer->connectd_counter,
 							     &channel_id)));
-	subd_send_fd(ld->connectd, fds[1]);
+	subd_send_fd(ld->connectd, other_fd);
 }
 
 struct disconnect_command {

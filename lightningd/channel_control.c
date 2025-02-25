@@ -305,8 +305,9 @@ static void handle_splice_abort(struct lightningd *ld,
 	struct bitcoin_outpoint *outpoint;
 	struct channel_inflight *inflight;
 	char *reason;
-	u8 *error;
-	int fds[2];
+	const u8 *error;
+	struct peer_fd *pfd;
+	int other_fd;
 
 	if (!fromwire_channeld_splice_abort(tmpctx, msg, &did_i_abort,
 					    &outpoint, &reason)) {
@@ -346,16 +347,8 @@ static void handle_splice_abort(struct lightningd *ld,
 		  "Restarting channeld after tx_abort on %s channel",
 		  channel_state_name(channel));
 
-	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
-		log_broken(channel->log,
-			   "Failed to create socketpair: %s",
-			   strerror(errno));
-
-		error = towire_warningfmt(tmpctx, &channel->cid,
-					  "Trouble in paradise?");
-		log_peer_debug(ld->log, &channel->peer->id,
-			       "Telling connectd to send error %s",
-			       tal_hex(tmpctx, error));
+	pfd = sockpair(tmpctx, channel, &other_fd, &error);
+	if (!pfd) {
 		/* Get connectd to send error and close. */
 		subd_send_msg(ld->connectd,
 			      take(towire_connectd_peer_send_msg(NULL,
@@ -368,21 +361,17 @@ static void handle_splice_abort(struct lightningd *ld,
 								peer->connectd_counter)));
 		return;
 	}
-	log_debug(channel->log, "made the socket pair");
 
-	if (peer_start_channeld(channel, new_peer_fd(tmpctx, fds[0]), NULL,
-						     false, false)) {
-		log_info(channel->log, "Sending the peer fd to connectd");
+	if (peer_start_channeld(channel, pfd, NULL, false, false)) {
 		subd_send_msg(ld->connectd,
 			      take(towire_connectd_peer_connect_subd(NULL,
 			      					     &peer->id,
 								     peer->connectd_counter,
 								     &channel->cid)));
-		subd_send_fd(ld->connectd, fds[1]);
-		log_info(channel->log, "Sent the peer fd to channeld");
+		subd_send_fd(ld->connectd, other_fd);
 	} else {
 		log_info(channel->log, "peer_start_channeld failed");
-		close(fds[1]);
+		close(other_fd);
 	}
 }
 
