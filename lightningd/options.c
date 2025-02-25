@@ -209,24 +209,6 @@ static char *opt_add_accept_htlc_tlv(const char *arg,
 	return opt_set_u64(arg, &(*accept_extra_tlv_types)[n]);
 }
 
-static char *opt_set_accept_extra_tlv_types(const char *arg,
-					    struct lightningd *ld)
-{
-	char *ret, **elements = tal_strsplit(tmpctx, arg, ",", STR_NO_EMPTY);
-
-	if (!opt_deprecated_ok(ld, "accept-htlc-tlv-types", NULL,
-			       "v23.08", "v24.08")) {
-		return "Please use --accept-htlc-tlv-type multiple times";
-	}
-	for (int i = 0; elements[i] != NULL; i++) {
-		ret = opt_add_accept_htlc_tlv(elements[i],
-					      &ld->accept_extra_tlv_types);
-		if (ret)
-			return ret;
-	}
-	return NULL;
-}
-
 /* Returns the number of wireaddr types already announced */
 static size_t num_announced_types(enum wire_addr_type type, struct lightningd *ld)
 {
@@ -1628,9 +1610,6 @@ static void register_opts(struct lightningd *ld)
 			 &ld->tor_service_password,
 			 "Set a Tor hidden service password");
 
-	opt_register_arg("--accept-htlc-tlv-types",
-			 opt_set_accept_extra_tlv_types, NULL, ld,
-			 opt_hidden);
 	clnopt_witharg("--accept-htlc-tlv-type", OPT_MULTI|OPT_SHOWINT,
 		       opt_add_accept_htlc_tlv, NULL,
 		       &ld->accept_extra_tlv_types,
@@ -1971,7 +1950,6 @@ bool is_known_opt_cb_arg(char *(*cb_arg)(const char *, void *))
 	return cb_arg == (void *)opt_set_talstr
 		|| cb_arg == (void *)opt_add_proxy_addr
 		|| cb_arg == (void *)opt_force_feerates
-		|| cb_arg == (void *)opt_set_accept_extra_tlv_types
 		|| cb_arg == (void *)opt_add_plugin
 		|| cb_arg == (void *)opt_add_plugin_dir
 		|| cb_arg == (void *)opt_important_plugin
