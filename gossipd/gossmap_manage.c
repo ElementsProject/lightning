@@ -824,7 +824,7 @@ static const char *process_channel_update(const tal_t *ctx,
 		u32 prev_timestamp
 			= gossip_store_get_timestamp(gm->gs, chan->cupdate_off[dir]);
 		if (prev_timestamp >= timestamp) {
-			status_debug("Too-old update for %s",
+			status_trace("Too-old update for %s",
 				     fmt_short_channel_id(tmpctx, scid));
 			/* Too old, ignore */
 			return NULL;

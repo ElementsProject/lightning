@@ -543,7 +543,7 @@ static struct command_result *after_staticbackup(struct command *cmd,
 	const jsmntok_t *scbs = json_get_member(buf, params, "scb");
 	struct out_req *req;
 	json_to_scb_chan(buf, scbs, &scb_chan);
-	plugin_log(cmd->plugin, LOG_INFORM, "Updating the SCB");
+	plugin_log(cmd->plugin, LOG_DBG, "Updating the SCB");
 
 	update_scb(cmd->plugin, scb_chan);
 	struct info *info = tal(cmd, struct info);
