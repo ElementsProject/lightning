@@ -231,19 +231,9 @@ static char *opt_add_addr_withtype(const char *arg,
 	char const *err_msg;
 	struct wireaddr_internal wi;
 	bool dns_lookup_ok;
-	char *address;
-	u16 port;
 
 	assert(arg != NULL);
 	dns_lookup_ok = !ld->always_use_proxy && ld->config.use_dns;
-
-	/* Deprecated announce-addr-dns: autodetect DNS addresses. */
-	if (ld->announce_dns && (ala == ADDR_ANNOUNCE)
-	    && separate_address_and_port(tmpctx, arg, &address, &port)
-	    && is_dnsaddr(address)) {
-		log_unusual(ld->log, "Adding dns prefix to %s!", arg);
-		arg = tal_fmt(tmpctx, "dns:%s", arg);
-	}
 
 	err_msg = parse_wireaddr_internal(tmpctx, arg, ld->portnum,
 					  dns_lookup_ok, &wi);
@@ -1489,10 +1479,6 @@ static void register_opts(struct lightningd *ld)
 	opt_register_early_noarg("--experimental-anchors",
 				 opt_set_anchor_zero_fee_htlc_tx, ld,
 				 opt_hidden);
-	clnopt_witharg("--announce-addr-dns", OPT_EARLY|OPT_SHOWBOOL,
-		       opt_set_bool_arg, opt_show_bool,
-		       &ld->announce_dns,
-		       opt_hidden);
 
 	clnopt_noarg("--help|-h", OPT_EXITS,
 		     opt_lightningd_usage, ld, "Print this message.");
