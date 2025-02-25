@@ -267,31 +267,13 @@ static char *opt_add_addr_withtype(const char *arg,
 		case ADDR_TYPE_TOR_V3:
 			switch (ala) {
 			case ADDR_LISTEN:
-				if (!opt_deprecated_ok(ld, "bind-addr", "torv3",
-						       "v23.08", "v24.08"))
-					return tal_fmt(tmpctx,
-						       "Don't use --bind-addr=%s, use --announce-addr=%s",
-						       arg, arg);
-				log_unusual(ld->log,
-					    "You used `--bind-addr=%s` option with an .onion address,"
-					    " You are lucky in this node live some wizards and"
-					    " fairies, we have done this for you and don't announce, Be as hidden as wished",
-					    arg);
-				/* And we ignore it */
-				return NULL;
+				return tal_fmt(tmpctx,
+					       "Don't use --bind-addr=%s, use --announce-addr=%s",
+					       arg, arg);
 			case ADDR_LISTEN_AND_ANNOUNCE:
-				if (!opt_deprecated_ok(ld, "addr", "torv3",
-						       "v23.08", "v24.08"))
-					return tal_fmt(tmpctx,
-						       "Don't use --addr=%s, use --announce-addr=%s",
-						       arg, arg);
-				log_unusual(ld->log,
-					    "You used `--addr=%s` option with an .onion address,"
-					    " You are lucky in this node live some wizards and"
-					    " fairies, we have done this for you and don't announce, Be as hidden as wished",
-					    arg);
-				ala = ADDR_LISTEN;
-				break;
+				return tal_fmt(tmpctx,
+					       "Don't use --addr=%s, use --announce-addr=%s",
+					       arg, arg);
 			case ADDR_ANNOUNCE:
 				break;
 			}
@@ -326,12 +308,8 @@ static char *opt_add_addr_withtype(const char *arg,
 				return tal_fmt(tmpctx,
 					       "Cannot announce sockets, try --bind-addr=%s", arg);
 			case ADDR_LISTEN_AND_ANNOUNCE:
-				if (!opt_deprecated_ok(ld, "addr", "socket",
-						       "v23.08", "v24.08"))
-					return tal_fmt(tmpctx, "Don't use --addr=%s, use --bind-addr=%s",
-						       arg, arg);
-				ala = ADDR_LISTEN;
-				/* Fall thru */
+				return tal_fmt(tmpctx, "Don't use --addr=%s, use --bind-addr=%s",
+					       arg, arg);
 			case ADDR_LISTEN:
 				break;
 			}
