@@ -6983,83 +6983,6 @@ pub mod responses {
 	    pub total_funding_msat: Amount,
 	}
 
-	/// ['The channel state, in particular `CHANNELD_NORMAL` means the channel can be used normally.']
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-	pub enum ListpeerchannelsChannelsState {
-	    #[serde(rename = "OPENINGD")]
-	    OPENINGD = 0,
-	    #[serde(rename = "CHANNELD_AWAITING_LOCKIN")]
-	    CHANNELD_AWAITING_LOCKIN = 1,
-	    #[serde(rename = "CHANNELD_NORMAL")]
-	    CHANNELD_NORMAL = 2,
-	    #[serde(rename = "CHANNELD_SHUTTING_DOWN")]
-	    CHANNELD_SHUTTING_DOWN = 3,
-	    #[serde(rename = "CLOSINGD_SIGEXCHANGE")]
-	    CLOSINGD_SIGEXCHANGE = 4,
-	    #[serde(rename = "CLOSINGD_COMPLETE")]
-	    CLOSINGD_COMPLETE = 5,
-	    #[serde(rename = "AWAITING_UNILATERAL")]
-	    AWAITING_UNILATERAL = 6,
-	    #[serde(rename = "FUNDING_SPEND_SEEN")]
-	    FUNDING_SPEND_SEEN = 7,
-	    #[serde(rename = "ONCHAIN")]
-	    ONCHAIN = 8,
-	    #[serde(rename = "DUALOPEND_OPEN_INIT")]
-	    DUALOPEND_OPEN_INIT = 9,
-	    #[serde(rename = "DUALOPEND_AWAITING_LOCKIN")]
-	    DUALOPEND_AWAITING_LOCKIN = 10,
-	    #[serde(rename = "CHANNELD_AWAITING_SPLICE")]
-	    CHANNELD_AWAITING_SPLICE = 11,
-	    #[serde(rename = "DUALOPEND_OPEN_COMMITTED")]
-	    DUALOPEND_OPEN_COMMITTED = 12,
-	    #[serde(rename = "DUALOPEND_OPEN_COMMIT_READY")]
-	    DUALOPEND_OPEN_COMMIT_READY = 13,
-	}
-
-	impl TryFrom<i32> for ListpeerchannelsChannelsState {
-	    type Error = anyhow::Error;
-	    fn try_from(c: i32) -> Result<ListpeerchannelsChannelsState, anyhow::Error> {
-	        match c {
-	    0 => Ok(ListpeerchannelsChannelsState::OPENINGD),
-	    1 => Ok(ListpeerchannelsChannelsState::CHANNELD_AWAITING_LOCKIN),
-	    2 => Ok(ListpeerchannelsChannelsState::CHANNELD_NORMAL),
-	    3 => Ok(ListpeerchannelsChannelsState::CHANNELD_SHUTTING_DOWN),
-	    4 => Ok(ListpeerchannelsChannelsState::CLOSINGD_SIGEXCHANGE),
-	    5 => Ok(ListpeerchannelsChannelsState::CLOSINGD_COMPLETE),
-	    6 => Ok(ListpeerchannelsChannelsState::AWAITING_UNILATERAL),
-	    7 => Ok(ListpeerchannelsChannelsState::FUNDING_SPEND_SEEN),
-	    8 => Ok(ListpeerchannelsChannelsState::ONCHAIN),
-	    9 => Ok(ListpeerchannelsChannelsState::DUALOPEND_OPEN_INIT),
-	    10 => Ok(ListpeerchannelsChannelsState::DUALOPEND_AWAITING_LOCKIN),
-	    11 => Ok(ListpeerchannelsChannelsState::CHANNELD_AWAITING_SPLICE),
-	    12 => Ok(ListpeerchannelsChannelsState::DUALOPEND_OPEN_COMMITTED),
-	    13 => Ok(ListpeerchannelsChannelsState::DUALOPEND_OPEN_COMMIT_READY),
-	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListpeerchannelsChannelsState", o)),
-	        }
-	    }
-	}
-
-	impl ToString for ListpeerchannelsChannelsState {
-	    fn to_string(&self) -> String {
-	        match self {
-	            ListpeerchannelsChannelsState::OPENINGD => "OPENINGD",
-	            ListpeerchannelsChannelsState::CHANNELD_AWAITING_LOCKIN => "CHANNELD_AWAITING_LOCKIN",
-	            ListpeerchannelsChannelsState::CHANNELD_NORMAL => "CHANNELD_NORMAL",
-	            ListpeerchannelsChannelsState::CHANNELD_SHUTTING_DOWN => "CHANNELD_SHUTTING_DOWN",
-	            ListpeerchannelsChannelsState::CLOSINGD_SIGEXCHANGE => "CLOSINGD_SIGEXCHANGE",
-	            ListpeerchannelsChannelsState::CLOSINGD_COMPLETE => "CLOSINGD_COMPLETE",
-	            ListpeerchannelsChannelsState::AWAITING_UNILATERAL => "AWAITING_UNILATERAL",
-	            ListpeerchannelsChannelsState::FUNDING_SPEND_SEEN => "FUNDING_SPEND_SEEN",
-	            ListpeerchannelsChannelsState::ONCHAIN => "ONCHAIN",
-	            ListpeerchannelsChannelsState::DUALOPEND_OPEN_INIT => "DUALOPEND_OPEN_INIT",
-	            ListpeerchannelsChannelsState::DUALOPEND_AWAITING_LOCKIN => "DUALOPEND_AWAITING_LOCKIN",
-	            ListpeerchannelsChannelsState::CHANNELD_AWAITING_SPLICE => "CHANNELD_AWAITING_SPLICE",
-	            ListpeerchannelsChannelsState::DUALOPEND_OPEN_COMMITTED => "DUALOPEND_OPEN_COMMITTED",
-	            ListpeerchannelsChannelsState::DUALOPEND_OPEN_COMMIT_READY => "DUALOPEND_OPEN_COMMIT_READY",
-	        }.to_string()
-	    }
-	}
-
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeerchannelsChannels {
 	    #[deprecated]
@@ -7176,7 +7099,7 @@ pub mod responses {
 	    // Path `ListPeerChannels.channels[].opener`
 	    pub opener: ChannelSide,
 	    // Path `ListPeerChannels.channels[].state`
-	    pub state: ListpeerchannelsChannelsState,
+	    pub state: ChannelState,
 	    pub peer_connected: bool,
 	    pub peer_id: PublicKey,
 	}

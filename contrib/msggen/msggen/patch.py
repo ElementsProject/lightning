@@ -199,7 +199,6 @@ class OverridePatch(Patch):
         "ListPeers.peers[].channels[].closer": "ChannelSide",
         "ListPeers.peers[].channels[].features[]": "string",
         "ListPeers.peers[].channels[].opener": "ChannelSide",
-        "ListPeers.peers[].channels[].state_changes[].cause": "ChannelStateChangeCause",
         "ListPeers.peers[].channels[].state_changes[].old_state": "ChannelState",
         "ListPeers.peers[].channels[].htlcs[].state": "HtlcState",
         "ListPeerChannels.channels[].htlcs[].state": "HtlcState",
@@ -214,6 +213,9 @@ class OverridePatch(Patch):
         "AutoClean-Status.subsystem": "AutocleanSubsystem",
         "Plugin.subcommand": "PluginSubcommand",
         "Plugin.command": "PluginSubcommand",
+        "channel_state_changed.old_state": "ChannelState",
+        "channel_state_changed.new_state": "ChannelState",
+        "ListPeerChannels.channels[].state": "ChannelState",
     }
 
     def visit(self, f: model.Field, parent: Optional[model.Field] = None) -> None:

@@ -4463,4 +4463,29 @@ impl Node for Server
         };
         Ok(tonic::Response::new(result))
     }
+
+
+    type SubscribeChannelStateChangedStream = NotificationStream<pb::ChannelStateChangedNotification>;
+
+    async fn subscribe_channel_state_changed(
+        &self,
+        _request : tonic::Request<pb::StreamChannelStateChangedRequest>
+    ) -> Result<tonic::Response<Self::SubscribeChannelStateChangedStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::ChannelStateChanged(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
 }

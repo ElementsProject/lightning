@@ -165,6 +165,10 @@ grpc_notification_names = [
         "name": "custommsg",
         "typename": "CustomMsg"
     },
+    {
+        "name": "channel_state_changed",
+        "typename": "ChannelStateChanged"
+    }
 ]
 
 

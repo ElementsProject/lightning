@@ -37,6 +37,8 @@ enum ChannelState {
 	DualopendOpenInit = 9;
 	DualopendAwaitingLockin = 10;
 	ChanneldAwaitingSplice = 11;
+	DualopendOpenCommitted = 12;
+	DualopendOpenCommittReady = 13;
 }
 
 enum HtlcState {
@@ -61,8 +63,6 @@ enum HtlcState {
 	RcvdRemoveAckCommit = 18;
 	SentRemoveAckRevocation = 19;
 }
-
-message ChannelStateChangeCause {}
 
 message Outpoint {
 	bytes txid = 1;
