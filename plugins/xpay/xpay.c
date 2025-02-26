@@ -899,7 +899,7 @@ static void append_blinded_payloads(struct sphinx_path *sp,
 				    size_t path_num)
 {
 	const struct blinded_path *path = attempt->payment->paths[path_num];
-	u32 final_cltv = attempt->payment->final_cltv + effective_bheight;
+	u32 final_cltv = effective_bheight;
 
 	for (size_t i = 0; i < tal_count(path->path); i++) {
 		bool first = (i == 0);
@@ -1635,12 +1635,10 @@ static struct command_result *json_xpay_core(struct command *cmd,
 					    "Could not resolve any paths: unknown short_channel_id");
 		}
 
-		/* Use worst-case CLTV. */
+		/* We don't actually know the final_cltv for blinded
+		 * paths, we just know the cltv we use to enter the
+		 * final hop. */
 		payment->final_cltv = 0;
-		for (size_t i = 0; i < tal_count(payment->payinfos); i++) {
-			if (payment->payinfos[i]->cltv_expiry_delta > payment->final_cltv)
-				payment->final_cltv = payment->payinfos[i]->cltv_expiry_delta;
-		}
 		/* We will start honoring this flag in future */
 		payment->disable_mpp = !feature_offered(b12inv->invoice_features, OPT_BASIC_MPP);
 		if (payment->disable_mpp && command_deprecated_in_ok(cmd, "ignore_bolt12_mpp", "v25.05", "v25.11"))
