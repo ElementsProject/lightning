@@ -2,10 +2,13 @@
 #include <common/json_stream.h>
 #include <common/jsonrpc_errors.h>
 #include <plugins/renepay/renepay.h>
+#include <plugins/renepay/renepayconfig.h>
 #include <plugins/renepay/routefail.h>
 #include <plugins/renepay/routetracker.h>
 #include <plugins/renepay/utils.h>
 #include <wire/peer_wiregen.h>
+
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
 
 enum node_type {
 	FINAL_NODE,
@@ -99,6 +102,32 @@ static void bias_channel(struct routefail *r, struct short_channel_id_dir scidd,
 	json_add_string(req->js, "layer", r->payment->payment_layer);
 	json_add_short_channel_id_dir(req->js, "short_channel_id_dir", scidd);
 	json_add_num(req->js, "bias", bias);
+	send_outreq(req);
+}
+
+static void channel_can_send(struct routefail *r,
+			     struct short_channel_id_dir scidd,
+			     struct amount_msat amount)
+{
+	struct out_req *req = add_to_rpcbatch(
+	    r->batch, "askrene-inform-channel", NULL, log_routefail_err, r);
+	json_add_string(req->js, "layer", RENEPAY_LAYER);
+	json_add_short_channel_id_dir(req->js, "short_channel_id_dir", scidd);
+	json_add_amount_msat(req->js, "amount_msat", amount);
+	json_add_string(req->js, "inform", "unconstrained");
+	send_outreq(req);
+}
+
+static void channel_cannot_send(struct routefail *r,
+				struct short_channel_id_dir scidd,
+				struct amount_msat amount)
+{
+	struct out_req *req = add_to_rpcbatch(
+	    r->batch, "askrene-inform-channel", NULL, log_routefail_err, r);
+	json_add_string(req->js, "layer", RENEPAY_LAYER);
+	json_add_short_channel_id_dir(req->js, "short_channel_id_dir", scidd);
+	json_add_amount_msat(req->js, "amount_msat", amount);
+	json_add_string(req->js, "inform", "constrained");
 	send_outreq(req);
 }
 
@@ -301,6 +330,25 @@ static void handle_failure(struct routefail *r)
 			node_type = ORIGIN_NODE;
 		else
 			node_type = INTERMEDIATE_NODE;
+
+		/* All channels before the hop that failed have supposedly the
+		 * ability to forward the payment. This is information. */
+		const int last_good_channel =
+		    MIN(*result->erring_index, path_len) - 1;
+		for (int i = 0; i <= last_good_channel; i++) {
+			scidd.scid = route->hops[i].scid;
+			scidd.dir = route->hops[i].direction;
+			channel_can_send(r, scidd, route->hops[i].amount);
+		}
+		if (failcode == WIRE_TEMPORARY_CHANNEL_FAILURE &&
+		    (last_good_channel + 1) < path_len) {
+			scidd.scid = route->hops[last_good_channel + 1].scid;
+			scidd.dir =
+			    route->hops[last_good_channel + 1].direction;
+			channel_cannot_send(
+			    r, scidd,
+			    route->hops[last_good_channel + 1].amount);
+		}
 	}
 
 	switch (failcode) {

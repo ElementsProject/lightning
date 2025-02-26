@@ -345,6 +345,8 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 			   json_tok_full_len(sub), json_tok_full(buf, sub));
 
 	assert(route->result->status == SENDPAY_COMPLETE);
+	// FIXME: call askrene-inform-channel with inform=succeeded for this
+	// route
 	routetracker_add_to_final(payment, payment->routetracker, route);
 	return notification_handled(cmd);
 }
