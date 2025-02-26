@@ -235,9 +235,9 @@ void jsonrpc_notification_end(struct jsonrpc_notification *n);
  * start a JSONRPC request; id_prefix is non-NULL if this was triggered by
  * another JSONRPC request.
  */
-#define jsonrpc_request_start(ctx, method, id_prefix, id_as_string, log, notify_cb, response_cb, response_cb_arg) \
+#define jsonrpc_request_start(ctx, method, id_prefix, log, notify_cb, response_cb, response_cb_arg) \
 	jsonrpc_request_start_(					\
-	    (ctx), (method), (id_prefix), (id_as_string), (log), true, \
+	    (ctx), (method), (id_prefix), (log), true,		\
 	    typesafe_cb_preargs(void, void *, (notify_cb), (response_cb_arg),	\
 				const char *buffer,		\
 				const jsmntok_t *idtok,		\
@@ -249,9 +249,9 @@ void jsonrpc_notification_end(struct jsonrpc_notification *n);
 				const jsmntok_t *idtok),	\
 	    (response_cb_arg))
 
-#define jsonrpc_request_start_raw(ctx, method, id_prefix, id_as_string,log, notify_cb, response_cb, response_cb_arg) \
+#define jsonrpc_request_start_raw(ctx, method, id_prefix, log, notify_cb, response_cb, response_cb_arg) \
 	jsonrpc_request_start_(						\
-		(ctx), (method), (id_prefix), (id_as_string), (log), false, \
+		(ctx), (method), (id_prefix), (log), false,		\
 	    typesafe_cb_preargs(void, void *, (notify_cb), (response_cb_arg), \
 				const char *buffer,			\
 				const jsmntok_t *idtok,			\
@@ -266,7 +266,6 @@ void jsonrpc_notification_end(struct jsonrpc_notification *n);
 struct jsonrpc_request *jsonrpc_request_start_(
     const tal_t *ctx, const char *method,
     const char *id_prefix TAKES,
-    bool id_as_string,
     struct logger *log, bool add_header,
     void (*notify_cb)(const char *buffer,
 		      const jsmntok_t *idtok,

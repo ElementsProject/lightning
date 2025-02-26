@@ -695,7 +695,6 @@ void jsonrpc_request_end(struct jsonrpc_request *request UNNEEDED)
 struct jsonrpc_request *jsonrpc_request_start_(
     const tal_t *ctx UNNEEDED, const char *method UNNEEDED,
     const char *id_prefix TAKES UNNEEDED,
-    bool id_as_string UNNEEDED,
     struct logger *log UNNEEDED, bool add_header UNNEEDED,
     void (*notify_cb)(const char *buffer UNNEEDED,
 		      const jsmntok_t *idtok UNNEEDED,
@@ -908,6 +907,10 @@ bool peer_start_channeld(struct channel *channel UNNEEDED,
 			 bool reconnected UNNEEDED,
 			 bool reestablish_only UNNEEDED)
 { fprintf(stderr, "peer_start_channeld called!\n"); abort(); }
+/* Generated stub for peer_start_closingd */
+void peer_start_closingd(struct channel *channel UNNEEDED,
+			 struct peer_fd *peer_fd UNNEEDED)
+{ fprintf(stderr, "peer_start_closingd called!\n"); abort(); }
 /* Generated stub for peer_start_dualopend */
 bool peer_start_dualopend(struct peer *peer UNNEEDED, struct peer_fd *peer_fd UNNEEDED,
 			  struct channel *channel UNNEEDED)
