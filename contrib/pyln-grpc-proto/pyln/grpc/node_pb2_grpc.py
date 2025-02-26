@@ -674,6 +674,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.InjectpaymentonionRequest.SerializeToString,
                 response_deserializer=node__pb2.InjectpaymentonionResponse.FromString,
                 )
+        self.InjectOnionMessage = channel.unary_unary(
+                '/cln.Node/InjectOnionMessage',
+                request_serializer=node__pb2.InjectonionmessageRequest.SerializeToString,
+                response_deserializer=node__pb2.InjectonionmessageResponse.FromString,
+                )
         self.Xpay = channel.unary_unary(
                 '/cln.Node/Xpay',
                 request_serializer=node__pb2.XpayRequest.SerializeToString,
@@ -1506,6 +1511,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def InjectOnionMessage(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Xpay(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2210,6 +2221,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.InjectPaymentOnion,
                     request_deserializer=node__pb2.InjectpaymentonionRequest.FromString,
                     response_serializer=node__pb2.InjectpaymentonionResponse.SerializeToString,
+            ),
+            'InjectOnionMessage': grpc.unary_unary_rpc_method_handler(
+                    servicer.InjectOnionMessage,
+                    request_deserializer=node__pb2.InjectonionmessageRequest.FromString,
+                    response_serializer=node__pb2.InjectonionmessageResponse.SerializeToString,
             ),
             'Xpay': grpc.unary_unary_rpc_method_handler(
                     servicer.Xpay,
@@ -4497,6 +4513,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/InjectPaymentOnion',
             node__pb2.InjectpaymentonionRequest.SerializeToString,
             node__pb2.InjectpaymentonionResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def InjectOnionMessage(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/InjectOnionMessage',
+            node__pb2.InjectonionmessageRequest.SerializeToString,
+            node__pb2.InjectonionmessageResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

@@ -141,6 +141,7 @@ grpc_method_names = [
     "AskRene-Bias-Channel",
     "AskRene-ListReservations",
     "InjectPaymentOnion",
+    "InjectOnionMessage",
     "Xpay",
 ]
 

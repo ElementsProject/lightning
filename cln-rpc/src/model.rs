@@ -173,6 +173,7 @@ pub enum Request {
 	#[serde(rename = "askrene-listreservations")]
 	AskReneListReservations(requests::AskrenelistreservationsRequest),
 	InjectPaymentOnion(requests::InjectpaymentonionRequest),
+	InjectOnionMessage(requests::InjectonionmessageRequest),
 	Xpay(requests::XpayRequest),
 }
 
@@ -336,6 +337,7 @@ pub enum Response {
 	#[serde(rename = "askrene-listreservations")]
 	AskReneListReservations(responses::AskrenelistreservationsResponse),
 	InjectPaymentOnion(responses::InjectpaymentonionResponse),
+	InjectOnionMessage(responses::InjectonionmessageResponse),
 	Xpay(responses::XpayResponse),
 }
 
@@ -4593,6 +4595,29 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "injectpaymentonion"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct InjectonionmessageRequest {
+	    pub message: String,
+	    pub path_key: PublicKey,
+	}
+
+	impl From<InjectonionmessageRequest> for Request {
+	    fn from(r: InjectonionmessageRequest) -> Self {
+	        Request::InjectOnionMessage(r)
+	    }
+	}
+
+	impl IntoRequest for InjectonionmessageRequest {
+	    type Response = super::responses::InjectonionmessageResponse;
+	}
+
+	impl TypedRequest for InjectonionmessageRequest {
+	    type Response = super::responses::InjectonionmessageResponse;
+
+	    fn method(&self) -> &str {
+	        "injectonionmessage"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -11598,6 +11623,21 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::InjectPaymentOnion(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct InjectonionmessageResponse {
+	}
+
+	impl TryFrom<Response> for InjectonionmessageResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::InjectOnionMessage(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

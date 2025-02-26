@@ -4424,6 +4424,14 @@ impl From<responses::InjectpaymentonionResponse> for pb::InjectpaymentonionRespo
 }
 
 #[allow(unused_variables)]
+impl From<responses::InjectonionmessageResponse> for pb::InjectonionmessageResponse {
+    fn from(c: responses::InjectonionmessageResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::XpayResponse> for pb::XpayResponse {
     fn from(c: responses::XpayResponse) -> Self {
         Self {
@@ -6135,6 +6143,16 @@ impl From<requests::InjectpaymentonionRequest> for pb::InjectpaymentonionRequest
 }
 
 #[allow(unused_variables)]
+impl From<requests::InjectonionmessageRequest> for pb::InjectonionmessageRequest {
+    fn from(c: requests::InjectonionmessageRequest) -> Self {
+        Self {
+            message: hex::decode(&c.message).unwrap(), // Rule #2 for type hex
+            path_key: c.path_key.serialize().to_vec(), // Rule #2 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::XpayRequest> for pb::XpayRequest {
     fn from(c: requests::XpayRequest) -> Self {
         Self {
@@ -7780,6 +7798,16 @@ impl From<pb::InjectpaymentonionRequest> for requests::InjectpaymentonionRequest
             onion: hex::encode(&c.onion), // Rule #1 for type hex
             partid: c.partid, // Rule #1 for type u64
             payment_hash: Sha256::from_slice(&c.payment_hash).unwrap(), // Rule #1 for type hash
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::InjectonionmessageRequest> for requests::InjectonionmessageRequest {
+    fn from(c: pb::InjectonionmessageRequest) -> Self {
+        Self {
+            message: hex::encode(&c.message), // Rule #1 for type hex
+            path_key: PublicKey::from_slice(&c.path_key).unwrap(), // Rule #1 for type pubkey
         }
     }
 }

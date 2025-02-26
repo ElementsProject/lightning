@@ -140,6 +140,7 @@ service Node {
 	rpc AskReneBiasChannel(AskrenebiaschannelRequest) returns (AskrenebiaschannelResponse) {}
 	rpc AskReneListReservations(AskrenelistreservationsRequest) returns (AskrenelistreservationsResponse) {}
 	rpc InjectPaymentOnion(InjectpaymentonionRequest) returns (InjectpaymentonionResponse) {}
+	rpc InjectOnionMessage(InjectonionmessageRequest) returns (InjectonionmessageResponse) {}
 	rpc Xpay(XpayRequest) returns (XpayResponse) {}
 
 	rpc SubscribeBlockAdded(StreamBlockAddedRequest) returns (stream BlockAddedNotification) {}
@@ -4029,6 +4030,14 @@ message InjectpaymentonionResponse {
 	uint64 completed_at = 2;
 	uint64 created_index = 3;
 	bytes payment_preimage = 4;
+}
+
+message InjectonionmessageRequest {
+	bytes path_key = 1;
+	bytes message = 2;
+}
+
+message InjectonionmessageResponse {
 }
 
 message XpayRequest {
