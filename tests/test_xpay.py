@@ -768,7 +768,6 @@ def test_fail_after_success(node_factory, bitcoind, executor, slow_mode):
                        'successful_parts': 1}
 
 
-@pytest.mark.xfail(strict=True)
 def test_xpay_twohop_bug(node_factory):
     """From https://github.com/ElementsProject/lightning/issues/8119:
     Oh, interesting! I tried again and got a two-hop blinded path. xpay returned the same error you saw while pay was successful.
