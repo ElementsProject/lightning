@@ -3233,6 +3233,11 @@ def injectpaymentonion2py(m):
     })
 
 
+def injectonionmessage2py(m):
+    return remove_default({
+    })
+
+
 def xpay2py(m):
     return remove_default({
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite

@@ -1834,6 +1834,10 @@
             "Help.format-hint": 2,
             "Help.help[]": 1
         },
+        "InjectonionmessageRequest": {
+            "InjectOnionMessage.message": 2,
+            "InjectOnionMessage.path_key": 1
+        },
         "InjectpaymentonionRequest": {
             "InjectPaymentOnion.amount_msat": 3,
             "InjectPaymentOnion.cltv_expiry": 4,
@@ -7587,6 +7591,18 @@
         },
         "Help.help[].verbose": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "InjectOnionMessage": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "InjectOnionMessage.message": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "InjectOnionMessage.path_key": {
+            "added": "v24.11",
             "deprecated": null
         },
         "InjectPaymentOnion": {

@@ -4306,6 +4306,38 @@ impl Node for Server
 
     }
 
+    async fn inject_onion_message(
+        &self,
+        request: tonic::Request<pb::InjectonionmessageRequest>,
+    ) -> Result<tonic::Response<pb::InjectonionmessageResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::InjectonionmessageRequest = req.into();
+        debug!("Client asked for inject_onion_message");
+        trace!("inject_onion_message request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::InjectOnionMessage(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method InjectOnionMessage: {:?}", e)))?;
+        match result {
+            Response::InjectOnionMessage(r) => {
+               trace!("inject_onion_message response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call InjectOnionMessage",
+                    r
+                )
+            )),
+        }
+
+    }
+
     async fn xpay(
         &self,
         request: tonic::Request<pb::XpayRequest>,
