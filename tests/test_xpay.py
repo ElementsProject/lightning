@@ -766,3 +766,51 @@ def test_fail_after_success(node_factory, bitcoind, executor, slow_mode):
                        'amount_sent_msat': res['amount_sent_msat'],
                        'failed_parts': 1,
                        'successful_parts': 1}
+
+
+@pytest.mark.xfail(strict=True)
+def test_xpay_twohop_bug(node_factory):
+    """From https://github.com/ElementsProject/lightning/issues/8119:
+    Oh, interesting! I tried again and got a two-hop blinded path. xpay returned the same error you saw while pay was successful.
+
+lightning-cli xpay lni1qqgv5nalmz08ukj4av074kyk6pepq93pqvvhnlnvurnfanndnxjtcjnmxrkj92xtsupa6lwjm7hkr8s8zflqk5sz82v9gqzcyypu03lyetn3ayp8p5798mz4der4xexkxxxu8ck0m25gmjaaj3n5scaql5q0uquxfmcztl0gldv8mxy3sm8x5jscdz27u39fy6luxu8zcdn9j73l3upaypvngk89elemj7cvu9v57r28k65e4jtlsr0vd66yzwrw2uzyvjczq0sd8fk6vazvrxvnks7hdqkl3lar4ff4a2ccjpltacz8z6tw6lunvqzrlrvyu3rkyylgd0splzr0xs3cccmzmfllyu7k06gclf9wx5n463z5arlwz2frk9a6lnfrvjdh3znsppxc4v8ahdy7e0y3us5rww0lcdxqj6psx87tgwvm3u260gc25frw9c4t368cecy3f5flll87tgk2uva09mncqqe9qqq0vdm023df0eetknvgcxk5yuupg8j5a5jtdmpj0u5unp8f3g2gskpma8l53sd5vmsfcrlr4rm7y9n2y8qqqqp7sqqqq8espgsqqqqqqqqqqqqqqqqqqqqq73qqqqq2gpr8hefjt2pqdgsfqcr3r5kcckf6sgtmkwuds8wp5uc7j0zcj0d9lsgl47vl95y25q36nzhqxqsqqzczzqce08lxec8xnm8xmxdyh398kv8dy25vhpcrm47a9ha0vx0qwyn7p0cyqt925k662c9kelq545l944k3j9gdvmkfm2ev2pqpnslmx8qvuwx3jqg4u8ful39aq0tlzujjd2yagjndcd2q42r5hvydx0lxe58mdrgs
+{
+   "code": 209,
+   "message": "Failed after 1 attempts. We got an error from inside the blinded path 0x0x0/1: we assume it means insufficient capacity. Then routing failed: We could not find a usable set of paths.  The shortest path is 858132x1647x1->861005x2291x1->0x0x0, but 0x0x0/1 layer xpay-0 says max is 14999msat"
+}
+lightning-cli pay lni1qqgv5nalmz08ukj4av074kyk6pepq93pqvvhnlnvurnfanndnxjtcjnmxrkj92xtsupa6lwjm7hkr8s8zflqk5sz82v9gqzcyypu03lyetn3ayp8p5798mz4der4xexkxxxu8ck0m25gmjaaj3n5scaql5q0uquxfmcztl0gldv8mxy3sm8x5jscdz27u39fy6luxu8zcdn9j73l3upaypvngk89elemj7cvu9v57r28k65e4jtlsr0vd66yzwrw2uzyvjczq0sd8fk6vazvrxvnks7hdqkl3lar4ff4a2ccjpltacz8z6tw6lunvqzrlrvyu3rkyylgd0splzr0xs3cccmzmfllyu7k06gclf9wx5n463z5arlwz2frk9a6lnfrvjdh3znsppxc4v8ahdy7e0y3us5rww0lcdxqj6psx87tgwvm3u260gc25frw9c4t368cecy3f5flll87tgk2uva09mncqqe9qqq0vdm023df0eetknvgcxk5yuupg8j5a5jtdmpj0u5unp8f3g2gskpma8l53sd5vmsfcrlr4rm7y9n2y8qqqqp7sqqqq8espgsqqqqqqqqqqqqqqqqqqqqq73qqqqq2gpr8hefjt2pqdgsfqcr3r5kcckf6sgtmkwuds8wp5uc7j0zcj0d9lsgl47vl95y25q36nzhqxqsqqzczzqce08lxec8xnm8xmxdyh398kv8dy25vhpcrm47a9ha0vx0qwyn7p0cyqt925k662c9kelq545l944k3j9gdvmkfm2ev2pqpnslmx8qvuwx3jqg4u8ful39aq0tlzujjd2yagjndcd2q42r5hvydx0lxe58mdrgs
+{
+   "destination": "031979fe6ce0e69ece6d99a4bc4a7b30ed22a8cb8703dd7dd2dfaf619e07127e0b",
+   "payment_hash": "6a209060711d2d8c593a8217bb3b8d81dc1a731e93c5893da5fc11faf99f2d08",
+   "created_at": 1740526413.632475833,
+   "parts": 1,
+   "amount_msat": 16007,
+   "amount_sent_msat": 16010,
+   "payment_preimage": "c6c75b93dbbdbc5082350a4396afec0232ff4400ea0c9f053b977f4389f501bf",
+   "status": "complete"
+}
+    """
+    l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
+                                             opts=[{'cltv-delta': 50},
+                                                   {'cltv-delta': 100},
+                                                   {'cltv-delta': 200},
+                                                   {'cltv-final': 400}])
+
+    offer = l4.rpc.offer('any')
+    inv = l1.rpc.fetchinvoice(offer['bolt12'], '15000msat')['invoice']
+
+    # Inserts a blinded path
+    path = only_one(l1.rpc.decode(inv)['invoice_paths'])
+    assert path['first_node_id'] == l3.info['id']
+    assert len(path['path']) == 2
+    assert path['payinfo']['cltv_expiry_delta'] == 200 + 400
+
+    # This works.
+    l1.rpc.pay(inv)
+    # CLTV is blockheight (108) + 1 + 100 + 200 + 400
+    l1.daemon.wait_for_log(f'Adding HTLC 0 amount=15002msat cltv={108 + 1 + 100 + 200 + 400}')
+
+    inv = l1.rpc.fetchinvoice(offer['bolt12'], '15000msat')['invoice']
+    # This doesn't!
+    l1.rpc.xpay(inv)
+    l1.daemon.wait_for_log(f'Adding HTLC 1 amount=15002msat cltv={108 + 1 + 100 + 200 + 400}')
