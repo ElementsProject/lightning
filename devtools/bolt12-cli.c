@@ -266,8 +266,6 @@ static bool print_blindedpaths(const char *fieldname,
 			       struct blinded_path **paths,
 			       struct blinded_payinfo **blindedpay)
 {
-	size_t bp_idx = 0;
-
 	for (size_t i = 0; i < tal_count(paths); i++) {
 		struct blinded_path_hop **p = paths[i]->path;
 		printf("%s %zu/%zu: first_path_key %s ",
@@ -282,22 +280,24 @@ static bool print_blindedpaths(const char *fieldname,
 			       fmt_pubkey(tmpctx,
 					      &p[j]->blinded_node_id),
 			       tal_hex(tmpctx, p[j]->encrypted_recipient_data));
-			if (blindedpay) {
-				if (bp_idx < tal_count(blindedpay))
-					printf("fee=%u/%u,cltv=%u,features=%s",
-					       blindedpay[bp_idx]->fee_base_msat,
-					       blindedpay[bp_idx]->fee_proportional_millionths,
-					       blindedpay[bp_idx]->cltv_expiry_delta,
-					       tal_hex(tmpctx,
-						       blindedpay[bp_idx]->features));
-				bp_idx++;
-			}
+		}
+		if (i < tal_count(blindedpay)) {
+			printf(" blindedpay: fee=%u/%u,cltv=%u,features=%s",
+			       blindedpay[i]->fee_base_msat,
+			       blindedpay[i]->fee_proportional_millionths,
+			       blindedpay[i]->cltv_expiry_delta,
+			       tal_hex(tmpctx, blindedpay[i]->features));
 		}
 		printf("\n");
 	}
-	if (blindedpay && tal_count(blindedpay) != bp_idx) {
+	/* BOLT #12:
+	 *   - MUST reject the invoice if `invoice_blindedpay` does not
+	 *     contain exactly one `blinded_payinfo` per
+	 *     `invoice_paths`.`blinded_path`.
+	 */
+	if (blindedpay && tal_count(blindedpay) != tal_count(paths)) {
 		fprintf(stderr, "Expected %zu blindedpay fields, got %zu\n",
-			bp_idx, tal_count(blindedpay));
+			tal_count(paths), tal_count(blindedpay));
 		return false;
 	}
 	return true;
@@ -893,7 +893,11 @@ int main(int argc, char *argv[])
 			well_formed &= print_offer_amount(invreq->offer_chains,
 							  invreq->offer_currency,
 							  *invreq->offer_amount);
-		if (must_have(invreq, offer_description))
+		if (invreq->offer_amount && !invreq->offer_description) {
+			fprintf(stderr, "Missing offer_description (with offer_amount)\n");
+			well_formed = false;
+		}
+		if (invreq->offer_description)
 			well_formed &= print_utf8("offer_description", invreq->offer_description);
 		if (invreq->offer_features)
 			print_features("offer_features", invreq->offer_features);
@@ -971,7 +975,11 @@ int main(int argc, char *argv[])
 			well_formed &= print_offer_amount(invoice->offer_chains,
 							  invoice->offer_currency,
 							  *invoice->offer_amount);
-		if (must_have(invoice, offer_description))
+		if (invoice->offer_amount && !invoice->offer_description) {
+			fprintf(stderr, "Missing offer_description (with offer_amount)\n");
+			well_formed = false;
+		}
+		if (invoice->offer_description)
 			well_formed &= print_utf8("offer_description", invoice->offer_description);
 		if (invoice->offer_features)
 			print_features("offer_features", invoice->offer_features);

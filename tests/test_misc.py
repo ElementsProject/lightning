@@ -4680,3 +4680,13 @@ def test_listaddresses(node_factory):
     # start and limit from future
     addresses = l1.rpc.listaddresses(start=21, limit=5)["addresses"]
     assert len(addresses) == 0
+
+
+def test_bolt12_invoice_decode(node_factory):
+    """Test decode of a real invoice."""
+    l1 = node_factory.get_node()
+
+    inv = 'lni1qqg26r8checx54jang4393z59wa6293pqvvhnlnvurnfanndnxjtcjnmxrkj92xtsupa6lwjm7hkr8s8zflqk5sz82v9gqzcyypsvsgehgxpnlapwnahwt89fjrad8nzlxn0z0dmn46gqpk2qd2n8mdql5q0uqh34ry8vpl5zhy0ytqqtycqya6eg802fzrfec3sj6hj0vx0mnqtdypsz43dexx9tyt8ak270h957cedaw952ryqjzwgmzuvunqv53878sqzqg2upz426juplphy68fqqafavzzqm6msnsnsehgjmsnqhv39v7v3cqzraklvv0rl4sg654t44ujvetklp6urayt9vjprjgy35paec0a373khaj9r6cqg5x6u4qqvg24eqj3nn8gpfx3tv0075g5mmz6k6jezhnx6wh6s9atydz30ektzmhexua6ayuzuq53mayp8d5h8yhfdf373kzyzvecuqqep0zy8qljenhelz0awkws6p4llvg5tgcty6ev53l6pmgeqd5zmqgryr5wm968uchxmwr2k86qqtyymgze2y8qqqqqqqqqqq86qpgsqqqqqqqqqq05qqqqqqpq3qqqqqqq2gpr8hhtq82pqcel324ms8wd6vwphtm33l883xmh7hm2dwruc4v95xvn85kq46rw25q36nzhqxqsqqzczzqce08lxec8xnm8xmxdyh398kv8dy25vhpcrm47a9ha0vx0qwyn7p0cyqkm8qvweh5akjqjhlys34ys6gmm25jxrk3syearzr33qfk5czq8dxu04qq8njp0l3f0n6cuvyphqhtcjnaqg05vrgnhwzzmgm825383s'
+
+    assert l1.rpc.decode(inv)['valid'] is True
+    subprocess.run(["devtools/bolt12-cli", "decode", inv], check=True)
