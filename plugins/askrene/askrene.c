@@ -1022,11 +1022,11 @@ static struct command_result *json_askrene_inform_channel(struct command *cmd,
 	case INFORM_CONSTRAINED:
 		/* It didn't pass, so minimal assumption is that reserve was all used
 		 * then there we were one msat short. */
-		if (!amount_msat_sub(amount, *amount, AMOUNT_MSAT(1)))
-			*amount = AMOUNT_MSAT(0);
 		if (!reserve_accumulate(askrene->reserved, scidd, amount))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Amount overflow with reserves");
+		if (!amount_msat_sub(amount, *amount, AMOUNT_MSAT(1)))
+			*amount = AMOUNT_MSAT(0);
 		if (command_check_only(cmd))
 			return command_check_done(cmd);
 		c = layer_add_constraint(layer, scidd, time_now().ts.tv_sec,
