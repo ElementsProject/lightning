@@ -1072,7 +1072,6 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 	const char *name, *err;
 	enum opt_type optflags = 0;
 	bool set;
-	struct lightningd *ld = plugin->plugins->ld;
 
 	nametok = json_get_member(buffer, opt, "name");
 	typetok = json_get_member(buffer, opt, "type");
@@ -1134,15 +1133,10 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 			/* We used to allow (ignore) anything, now make sure it's 'false' */
 			if (!json_to_bool(buffer, defaulttok, &val)
 			    || val != false) {
-				if (!lightningd_deprecated_in_ok(ld, plugin->log,
-								 ld->deprecated_ok,
-								 "options.flag", "default-not-false",
-								 "v23.08", "v24.08", NULL)) {
-					return tal_fmt(plugin, "%s type flag default must be 'false' not %.*s",
-						       popt->name,
-						       json_tok_full_len(defaulttok),
-						       json_tok_full(buffer, defaulttok));
-				}
+				return tal_fmt(plugin, "%s type flag default must be 'false' not %.*s",
+					       popt->name,
+					       json_tok_full_len(defaulttok),
+					       json_tok_full(buffer, defaulttok));
 			}
 			defaulttok = NULL;
 		}
