@@ -24,6 +24,14 @@
             "channel": 2,
             "onchain_fee": 0
         },
+        "Channel_state_changedCause": {
+            "local": 1,
+            "onchain": 5,
+            "protocol": 4,
+            "remote": 3,
+            "unknown": 0,
+            "user": 2
+        },
         "CloseType": {
             "mutual": 0,
             "unilateral": 1,
@@ -1015,6 +1023,16 @@
             "channel_opened.funding_msat": 2,
             "channel_opened.funding_txid": 3,
             "channel_opened.id": 1
+        },
+        "ChannelStateChangedNotification": {
+            "channel_state_changed.cause": 7,
+            "channel_state_changed.channel_id": 2,
+            "channel_state_changed.message": 8,
+            "channel_state_changed.new_state": 6,
+            "channel_state_changed.old_state": 5,
+            "channel_state_changed.peer_id": 1,
+            "channel_state_changed.short_channel_id": 3,
+            "channel_state_changed.timestamp": 4
         },
         "CheckmessageRequest": {
             "CheckMessage.message": 1,
@@ -13088,6 +13106,42 @@
             "deprecated": null
         },
         "channel_opened.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "channel_state_changed": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "channel_state_changed.cause": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "channel_state_changed.channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "channel_state_changed.message": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "channel_state_changed.new_state": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "channel_state_changed.old_state": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "channel_state_changed.peer_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "channel_state_changed.short_channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "channel_state_changed.timestamp": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },

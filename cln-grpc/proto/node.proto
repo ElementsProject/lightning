@@ -147,6 +147,7 @@ service Node {
 	rpc SubscribeChannelOpened(StreamChannelOpenedRequest) returns (stream ChannelOpenedNotification) {}
 	rpc SubscribeConnect(StreamConnectRequest) returns (stream PeerConnectNotification) {}
 	rpc SubscribeCustomMsg(StreamCustomMsgRequest) returns (stream CustomMsgNotification) {}
+	rpc SubscribeChannelStateChanged(StreamChannelStateChangedRequest) returns (stream ChannelStateChangedNotification) {}
 }
 
 message GetinfoRequest {
@@ -1379,26 +1380,9 @@ message ListpeerchannelsResponse {
 }
 
 message ListpeerchannelsChannels {
-	// ListPeerChannels.channels[].state
-	enum ListpeerchannelsChannelsState {
-		OPENINGD = 0;
-		CHANNELD_AWAITING_LOCKIN = 1;
-		CHANNELD_NORMAL = 2;
-		CHANNELD_SHUTTING_DOWN = 3;
-		CLOSINGD_SIGEXCHANGE = 4;
-		CLOSINGD_COMPLETE = 5;
-		AWAITING_UNILATERAL = 6;
-		FUNDING_SPEND_SEEN = 7;
-		ONCHAIN = 8;
-		DUALOPEND_OPEN_INIT = 9;
-		DUALOPEND_AWAITING_LOCKIN = 10;
-		CHANNELD_AWAITING_SPLICE = 11;
-		DUALOPEND_OPEN_COMMITTED = 12;
-		DUALOPEND_OPEN_COMMIT_READY = 13;
-	}
 	bytes peer_id = 1;
 	bool peer_connected = 2;
-	ListpeerchannelsChannelsState state = 3;
+	ChannelState state = 3;
 	optional bytes scratch_txid = 4;
 	optional ListpeerchannelsChannelsFeerate feerate = 6;
 	optional string owner = 7;
@@ -4125,4 +4109,27 @@ message StreamCustomMsgRequest {
 message CustomMsgNotification {
 	bytes peer_id = 1;
 	bytes payload = 2;
+}
+
+message StreamChannelStateChangedRequest {
+}
+
+message ChannelStateChangedNotification {
+	// channel_state_changed.cause
+	enum Channel_state_changedCause {
+		UNKNOWN = 0;
+		LOCAL = 1;
+		USER = 2;
+		REMOTE = 3;
+		PROTOCOL = 4;
+		ONCHAIN = 5;
+	}
+	bytes peer_id = 1;
+	bytes channel_id = 2;
+	string short_channel_id = 3;
+	string timestamp = 4;
+	ChannelState old_state = 5;
+	ChannelState new_state = 6;
+	Channel_state_changedCause cause = 7;
+	string message = 8;
 }

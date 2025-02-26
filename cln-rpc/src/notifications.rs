@@ -18,6 +18,8 @@ pub enum Notification {
     Connect(ConnectNotification),
     #[serde(rename = "custommsg")]
     CustomMsg(CustomMsgNotification),
+    #[serde(rename = "channel_state_changed")]
+    ChannelStateChanged(ChannelStateChangedNotification),
 }
 
 
@@ -137,6 +139,66 @@ pub struct CustomMsgNotification {
     pub peer_id: PublicKey,
 }
 
+/// ['The cause of the state change.']
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub enum Channel_state_changedCause {
+    #[serde(rename = "unknown")]
+    UNKNOWN = 0,
+    #[serde(rename = "local")]
+    LOCAL = 1,
+    #[serde(rename = "user")]
+    USER = 2,
+    #[serde(rename = "remote")]
+    REMOTE = 3,
+    #[serde(rename = "protocol")]
+    PROTOCOL = 4,
+    #[serde(rename = "onchain")]
+    ONCHAIN = 5,
+}
+
+impl TryFrom<i32> for Channel_state_changedCause {
+    type Error = anyhow::Error;
+    fn try_from(c: i32) -> Result<Channel_state_changedCause, anyhow::Error> {
+        match c {
+    0 => Ok(Channel_state_changedCause::UNKNOWN),
+    1 => Ok(Channel_state_changedCause::LOCAL),
+    2 => Ok(Channel_state_changedCause::USER),
+    3 => Ok(Channel_state_changedCause::REMOTE),
+    4 => Ok(Channel_state_changedCause::PROTOCOL),
+    5 => Ok(Channel_state_changedCause::ONCHAIN),
+            o => Err(anyhow::anyhow!("Unknown variant {} for enum Channel_state_changedCause", o)),
+        }
+    }
+}
+
+impl ToString for Channel_state_changedCause {
+    fn to_string(&self) -> String {
+        match self {
+            Channel_state_changedCause::UNKNOWN => "UNKNOWN",
+            Channel_state_changedCause::LOCAL => "LOCAL",
+            Channel_state_changedCause::USER => "USER",
+            Channel_state_changedCause::REMOTE => "REMOTE",
+            Channel_state_changedCause::PROTOCOL => "PROTOCOL",
+            Channel_state_changedCause::ONCHAIN => "ONCHAIN",
+        }.to_string()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ChannelStateChangedNotification {
+    // Path `channel_state_changed.cause`
+    pub cause: Channel_state_changedCause,
+    // Path `channel_state_changed.new_state`
+    pub new_state: ChannelState,
+    // Path `channel_state_changed.old_state`
+    pub old_state: ChannelState,
+    pub channel_id: Sha256,
+    pub message: String,
+    pub peer_id: PublicKey,
+    pub short_channel_id: ShortChannelId,
+    pub timestamp: String,
+}
+
 pub mod requests{
 use serde::{Serialize, Deserialize};
 
@@ -158,6 +220,10 @@ use serde::{Serialize, Deserialize};
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct StreamCustomMsgRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamChannelStateChangedRequest {
     }
 
 }

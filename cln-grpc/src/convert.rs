@@ -4501,6 +4501,22 @@ impl From<notifications::CustomMsgNotification> for pb::CustomMsgNotification {
 }
 
 #[allow(unused_variables)]
+impl From<notifications::ChannelStateChangedNotification> for pb::ChannelStateChangedNotification {
+    fn from(c: notifications::ChannelStateChangedNotification) -> Self {
+        Self {
+            cause: c.cause as i32,
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
+            message: c.message, // Rule #2 for type string
+            new_state: c.new_state as i32,
+            old_state: c.old_state as i32,
+            peer_id: c.peer_id.serialize().to_vec(), // Rule #2 for type pubkey
+            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+            timestamp: c.timestamp, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::GetinfoRequest> for pb::GetinfoRequest {
     fn from(c: requests::GetinfoRequest) -> Self {
         Self {
@@ -6174,6 +6190,14 @@ impl From<notifications::requests::StreamCustomMsgRequest> for pb::StreamCustomM
     }
 }
 
+#[allow(unused_variables)]
+impl From<notifications::requests::StreamChannelStateChangedRequest> for pb::StreamChannelStateChangedRequest {
+    fn from(c: notifications::requests::StreamChannelStateChangedRequest) -> Self {
+        Self {
+        }
+    }
+}
+
 
 #[allow(unused_variables)]
 impl From<pb::GetinfoRequest> for requests::GetinfoRequest {
@@ -7810,6 +7834,14 @@ impl From<pb::StreamConnectRequest> for notifications::requests::StreamConnectRe
 #[allow(unused_variables)]
 impl From<pb::StreamCustomMsgRequest> for notifications::requests::StreamCustomMsgRequest {
     fn from(c: pb::StreamCustomMsgRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::StreamChannelStateChangedRequest> for notifications::requests::StreamChannelStateChangedRequest {
+    fn from(c: pb::StreamChannelStateChangedRequest) -> Self {
         Self {
         }
     }

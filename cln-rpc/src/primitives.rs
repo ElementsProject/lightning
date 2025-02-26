@@ -27,6 +27,8 @@ pub enum ChannelState {
     DUALOPEND_OPEN_INIT = 9,
     DUALOPEND_AWAITING_LOCKIN = 10,
     CHANNELD_AWAITING_SPLICE = 11,
+    DUALOPEND_OPEN_COMMITTED = 12,
+    DUALOPEND_OPEN_COMMIT_READY = 13,
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
@@ -69,18 +71,6 @@ pub enum ChannelTypeName {
     ZEROCONF_EVEN = 4,
     #[serde(rename = "anchors/even")]
     ANCHORS_EVEN = 5,
-}
-
-#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
-#[allow(non_camel_case_types)]
-#[serde(rename_all = "lowercase")]
-pub enum ChannelStateChangeCause {
-    UNKNOWN,
-    LOCAL,
-    USER,
-    REMOTE,
-    PROTOCOL,
-    ONCHAIN,
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
@@ -450,6 +440,8 @@ impl TryFrom<i32> for ChannelState {
             9 => Ok(ChannelState::DUALOPEND_OPEN_INIT),
             10 => Ok(ChannelState::DUALOPEND_AWAITING_LOCKIN),
             11 => Ok(ChannelState::CHANNELD_AWAITING_SPLICE),
+            12 => Ok(ChannelState::DUALOPEND_OPEN_COMMITTED),
+            13 => Ok(ChannelState::DUALOPEND_OPEN_COMMIT_READY),
             _ => Err(anyhow!("Invalid channel state {}", value)),
         }
     }
