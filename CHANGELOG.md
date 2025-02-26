@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [25.02rc1] - 2025-02-24:
+## [25.02rc2] - 2025-02-26:
 
 ### Added
 
@@ -63,6 +63,8 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - gossmap: Don't crash on ZFS while reading `gossip_store`. ([#8053])
  - lightningd: Tell plugins our bolt12 features (so our bolt12 invoices explicitly allow MPP). ([#8059])
  - lightningd: Allow more time for plugin startup so slow nodes don't time out on startup. ([#8060])
+ - `xpay`: Corrected the CLTV values in blinded paths which sometimes caused spurious failures. ([#8121])
+ - Protocol: We now renegotiate an interrupted close, even if we don't need it, instead of sending an error. ([#8116])
  - bcli: `getblockfrompeer` no longer requests the block from the first peer only. ([#8069])
  - lightning-cli: Fixed "malformed response" bug. ([#7924])
  - lightning-cli: Fixed access to man pages from the installed directory. ([#8077])
@@ -80,7 +82,12 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 ### EXPERIMENTAL
 
+ - onchaind: Correctly collect our own (delayed) funds if we have a unilateral close when we are still offering a lease. ([#8111])
 
+
+[#8111]: https://github.com/ElementsProject/lightning/pull/8111
+[#8121]: https://github.com/ElementsProject/lightning/pull/8121
+[#8116]: https://github.com/ElementsProject/lightning/pull/8116
 [#8024]: https://github.com/ElementsProject/lightning/pull/8024
 [#7969]: https://github.com/ElementsProject/lightning/pull/7969
 [#7921]: https://github.com/ElementsProject/lightning/pull/7921
@@ -122,7 +129,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#7942]: https://github.com/ElementsProject/lightning/pull/7942
 [#7772]: https://github.com/ElementsProject/lightning/pull/7772
 [#8060]: https://github.com/ElementsProject/lightning/pull/8060
-[25.02rc1]: https://github.com/ElementsProject/lightning/releases/tag/v25.02rc1
+[25.02rc2]: https://github.com/ElementsProject/lightning/releases/tag/v25.02rc2
 
 
 ## [24.11.1] - 2024-12-16: "The lightning-dev Mailing List II"
