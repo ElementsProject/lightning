@@ -589,17 +589,10 @@ static struct command_result *getroutes_cb(struct payment *payment)
 REGISTER_PAYMENT_MODIFIER(getroutes, getroutes_cb);
 
 /*****************************************************************************
- * send_routes
+ * reserve_routes
  *
- * This payment modifier takes the payment routes and starts the payment
- * request calling sendpay.
+ * Use askrene API to reserve liquidity on the computed routes.
  */
-
-static struct command_result *sendroutes_done(struct command *cmd,
-					      struct payment *payment)
-{
-	return payment_continue(payment);
-}
 
 static struct command_result *unreserve_done(struct command *aux_cmd,
 					     const char *method UNUSED,
@@ -663,6 +656,62 @@ static struct command_result *reserve_fail(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+static struct command_result *reserve_routes_done(struct command *cmd,
+						  struct payment *payment)
+{
+	return payment_continue(payment);
+}
+
+static void add_reserve_request(struct rpcbatch *batch, struct route *route)
+{
+	struct out_req *req = add_to_rpcbatch(
+	    batch, "askrene-reserve", reserve_done, reserve_fail, route);
+	json_array_start(req->js, "path");
+	for (int i = 0; i < tal_count(route->hops); i++) {
+		const struct route_hop *hop = &route->hops[i];
+		struct short_channel_id_dir scidd = {.scid = hop->scid,
+						     .dir = hop->direction};
+		json_object_start(req->js, NULL);
+		json_add_short_channel_id_dir(req->js, "short_channel_id_dir",
+					      scidd);
+		json_add_amount_msat(req->js, "amount_msat", hop->amount);
+		json_object_end(req->js);
+	}
+	json_array_end(req->js);
+	send_outreq(req);
+}
+
+static struct command_result *reserve_routes_cb(struct payment *payment)
+{
+	assert(payment);
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
+	struct rpcbatch *batch =
+	    rpcbatch_new(cmd, reserve_routes_done, payment);
+
+	for (size_t i = 0;
+	     i < tal_count(payment->routetracker->computed_routes); i++) {
+		struct route *route = payment->routetracker->computed_routes[i];
+		add_reserve_request(batch, route);
+	}
+	return rpcbatch_done(batch);
+}
+
+REGISTER_PAYMENT_MODIFIER(reserve_routes, reserve_routes_cb);
+
+/*****************************************************************************
+ * send_routes
+ *
+ * This payment modifier takes the payment routes and starts the payment
+ * request calling sendpay.
+ */
+
+static struct command_result *sendroutes_done(struct command *cmd,
+					      struct payment *payment)
+{
+	return payment_continue(payment);
+}
+
 /* Callback function for sendpay request success. */
 static struct command_result *
 renesendpay_done(struct command *cmd, const char *method UNUSED,
@@ -693,21 +742,7 @@ renesendpay_done(struct command *cmd, const char *method UNUSED,
 	} else
 		route->shared_secrets = NULL;
 
-	struct out_req *req = jsonrpc_request_start(
-	    cmd, "askrene-reserve", reserve_done, reserve_fail, route);
-	json_array_start(req->js, "path");
-	for (i = 0; i < tal_count(route->hops); i++) {
-		const struct route_hop *hop = &route->hops[i];
-		struct short_channel_id_dir scidd = {.scid = hop->scid,
-						     .dir = hop->direction};
-		json_object_start(req->js, NULL);
-		json_add_short_channel_id_dir(req->js, "short_channel_id_dir",
-					      scidd);
-		json_add_amount_msat(req->js, "amount_msat", hop->amount);
-		json_object_end(req->js);
-	}
-	json_array_end(req->js);
-	return send_outreq(req);
+	return command_still_pending(cmd);
 }
 
 /* FIXME: check when will renesendpay fail */
@@ -1427,13 +1462,14 @@ void *payment_virtual_program[] = {
 	    /*16*/ OP_CALL, &checktimeout_pay_mod,
 	    /*18*/ OP_CALL, &refreshgossmap_pay_mod,
 	    /*20*/ OP_CALL, &getroutes_pay_mod,
-	    /*22*/ OP_CALL, &send_routes_pay_mod,
+	    /*22*/ OP_CALL, &reserve_routes_pay_mod,
+	    /*24*/ OP_CALL, &send_routes_pay_mod,
 	    /*do*/
-		    /*24*/ OP_CALL, &sleep_pay_mod,
-		    /*26*/ OP_CALL, &collect_results_pay_mod,
+		    /*26*/ OP_CALL, &sleep_pay_mod,
+		    /*28*/ OP_CALL, &collect_results_pay_mod,
 	    /*while*/
-	    /*28*/ OP_IF, &nothaveresults_pay_cond, (void *)24,
+	    /*30*/ OP_IF, &nothaveresults_pay_cond, (void *)26,
     /* while */
-    /*31*/ OP_IF, &retry_pay_cond, (void *)14,
-    /*34*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
-    /*36*/ NULL};
+    /*33*/ OP_IF, &retry_pay_cond, (void *)14,
+    /*36*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
+    /*38*/ NULL};
