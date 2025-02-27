@@ -314,25 +314,25 @@ class NodeStub(object):
                 request_serializer=node__pb2.FetchinvoiceRequest.SerializeToString,
                 response_deserializer=node__pb2.FetchinvoiceResponse.FromString,
                 )
-        self.FundChannel_Cancel = channel.unary_unary(
-                '/cln.Node/FundChannel_Cancel',
-                request_serializer=node__pb2.Fundchannel_cancelRequest.SerializeToString,
-                response_deserializer=node__pb2.Fundchannel_cancelResponse.FromString,
+        self.FundChannelCancel = channel.unary_unary(
+                '/cln.Node/FundChannelCancel',
+                request_serializer=node__pb2.FundchannelCancelRequest.SerializeToString,
+                response_deserializer=node__pb2.FundchannelCancelResponse.FromString,
                 )
-        self.FundChannel_Complete = channel.unary_unary(
-                '/cln.Node/FundChannel_Complete',
-                request_serializer=node__pb2.Fundchannel_completeRequest.SerializeToString,
-                response_deserializer=node__pb2.Fundchannel_completeResponse.FromString,
+        self.FundChannelComplete = channel.unary_unary(
+                '/cln.Node/FundChannelComplete',
+                request_serializer=node__pb2.FundchannelCompleteRequest.SerializeToString,
+                response_deserializer=node__pb2.FundchannelCompleteResponse.FromString,
                 )
         self.FundChannel = channel.unary_unary(
                 '/cln.Node/FundChannel',
                 request_serializer=node__pb2.FundchannelRequest.SerializeToString,
                 response_deserializer=node__pb2.FundchannelResponse.FromString,
                 )
-        self.FundChannel_Start = channel.unary_unary(
-                '/cln.Node/FundChannel_Start',
-                request_serializer=node__pb2.Fundchannel_startRequest.SerializeToString,
-                response_deserializer=node__pb2.Fundchannel_startResponse.FromString,
+        self.FundChannelStart = channel.unary_unary(
+                '/cln.Node/FundChannelStart',
+                request_serializer=node__pb2.FundchannelStartRequest.SerializeToString,
+                response_deserializer=node__pb2.FundchannelStartResponse.FromString,
                 )
         self.GetLog = channel.unary_unary(
                 '/cln.Node/GetLog',
@@ -389,30 +389,30 @@ class NodeStub(object):
                 request_serializer=node__pb2.OfferRequest.SerializeToString,
                 response_deserializer=node__pb2.OfferResponse.FromString,
                 )
-        self.OpenChannel_Abort = channel.unary_unary(
-                '/cln.Node/OpenChannel_Abort',
-                request_serializer=node__pb2.Openchannel_abortRequest.SerializeToString,
-                response_deserializer=node__pb2.Openchannel_abortResponse.FromString,
+        self.OpenChannelAbort = channel.unary_unary(
+                '/cln.Node/OpenChannelAbort',
+                request_serializer=node__pb2.OpenchannelAbortRequest.SerializeToString,
+                response_deserializer=node__pb2.OpenchannelAbortResponse.FromString,
                 )
-        self.OpenChannel_Bump = channel.unary_unary(
-                '/cln.Node/OpenChannel_Bump',
-                request_serializer=node__pb2.Openchannel_bumpRequest.SerializeToString,
-                response_deserializer=node__pb2.Openchannel_bumpResponse.FromString,
+        self.OpenChannelBump = channel.unary_unary(
+                '/cln.Node/OpenChannelBump',
+                request_serializer=node__pb2.OpenchannelBumpRequest.SerializeToString,
+                response_deserializer=node__pb2.OpenchannelBumpResponse.FromString,
                 )
-        self.OpenChannel_Init = channel.unary_unary(
-                '/cln.Node/OpenChannel_Init',
-                request_serializer=node__pb2.Openchannel_initRequest.SerializeToString,
-                response_deserializer=node__pb2.Openchannel_initResponse.FromString,
+        self.OpenChannelInit = channel.unary_unary(
+                '/cln.Node/OpenChannelInit',
+                request_serializer=node__pb2.OpenchannelInitRequest.SerializeToString,
+                response_deserializer=node__pb2.OpenchannelInitResponse.FromString,
                 )
-        self.OpenChannel_Signed = channel.unary_unary(
-                '/cln.Node/OpenChannel_Signed',
-                request_serializer=node__pb2.Openchannel_signedRequest.SerializeToString,
-                response_deserializer=node__pb2.Openchannel_signedResponse.FromString,
+        self.OpenChannelSigned = channel.unary_unary(
+                '/cln.Node/OpenChannelSigned',
+                request_serializer=node__pb2.OpenchannelSignedRequest.SerializeToString,
+                response_deserializer=node__pb2.OpenchannelSignedResponse.FromString,
                 )
-        self.OpenChannel_Update = channel.unary_unary(
-                '/cln.Node/OpenChannel_Update',
-                request_serializer=node__pb2.Openchannel_updateRequest.SerializeToString,
-                response_deserializer=node__pb2.Openchannel_updateResponse.FromString,
+        self.OpenChannelUpdate = channel.unary_unary(
+                '/cln.Node/OpenChannelUpdate',
+                request_serializer=node__pb2.OpenchannelUpdateRequest.SerializeToString,
+                response_deserializer=node__pb2.OpenchannelUpdateResponse.FromString,
                 )
         self.Ping = channel.unary_unary(
                 '/cln.Node/Ping',
@@ -474,20 +474,20 @@ class NodeStub(object):
                 request_serializer=node__pb2.SignmessageRequest.SerializeToString,
                 response_deserializer=node__pb2.SignmessageResponse.FromString,
                 )
-        self.Splice_Init = channel.unary_unary(
-                '/cln.Node/Splice_Init',
-                request_serializer=node__pb2.Splice_initRequest.SerializeToString,
-                response_deserializer=node__pb2.Splice_initResponse.FromString,
+        self.SpliceInit = channel.unary_unary(
+                '/cln.Node/SpliceInit',
+                request_serializer=node__pb2.SpliceInitRequest.SerializeToString,
+                response_deserializer=node__pb2.SpliceInitResponse.FromString,
                 )
-        self.Splice_Signed = channel.unary_unary(
-                '/cln.Node/Splice_Signed',
-                request_serializer=node__pb2.Splice_signedRequest.SerializeToString,
-                response_deserializer=node__pb2.Splice_signedResponse.FromString,
+        self.SpliceSigned = channel.unary_unary(
+                '/cln.Node/SpliceSigned',
+                request_serializer=node__pb2.SpliceSignedRequest.SerializeToString,
+                response_deserializer=node__pb2.SpliceSignedResponse.FromString,
                 )
-        self.Splice_Update = channel.unary_unary(
-                '/cln.Node/Splice_Update',
-                request_serializer=node__pb2.Splice_updateRequest.SerializeToString,
-                response_deserializer=node__pb2.Splice_updateResponse.FromString,
+        self.SpliceUpdate = channel.unary_unary(
+                '/cln.Node/SpliceUpdate',
+                request_serializer=node__pb2.SpliceUpdateRequest.SerializeToString,
+                response_deserializer=node__pb2.SpliceUpdateResponse.FromString,
                 )
         self.DevSplice = channel.unary_unary(
                 '/cln.Node/DevSplice',
@@ -1079,13 +1079,13 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def FundChannel_Cancel(self, request, context):
+    def FundChannelCancel(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def FundChannel_Complete(self, request, context):
+    def FundChannelComplete(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1097,7 +1097,7 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def FundChannel_Start(self, request, context):
+    def FundChannelStart(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1169,31 +1169,31 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def OpenChannel_Abort(self, request, context):
+    def OpenChannelAbort(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def OpenChannel_Bump(self, request, context):
+    def OpenChannelBump(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def OpenChannel_Init(self, request, context):
+    def OpenChannelInit(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def OpenChannel_Signed(self, request, context):
+    def OpenChannelSigned(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def OpenChannel_Update(self, request, context):
+    def OpenChannelUpdate(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1271,19 +1271,19 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def Splice_Init(self, request, context):
+    def SpliceInit(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def Splice_Signed(self, request, context):
+    def SpliceSigned(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def Splice_Update(self, request, context):
+    def SpliceUpdate(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1862,25 +1862,25 @@ def add_NodeServicer_to_server(servicer, server):
                     request_deserializer=node__pb2.FetchinvoiceRequest.FromString,
                     response_serializer=node__pb2.FetchinvoiceResponse.SerializeToString,
             ),
-            'FundChannel_Cancel': grpc.unary_unary_rpc_method_handler(
-                    servicer.FundChannel_Cancel,
-                    request_deserializer=node__pb2.Fundchannel_cancelRequest.FromString,
-                    response_serializer=node__pb2.Fundchannel_cancelResponse.SerializeToString,
+            'FundChannelCancel': grpc.unary_unary_rpc_method_handler(
+                    servicer.FundChannelCancel,
+                    request_deserializer=node__pb2.FundchannelCancelRequest.FromString,
+                    response_serializer=node__pb2.FundchannelCancelResponse.SerializeToString,
             ),
-            'FundChannel_Complete': grpc.unary_unary_rpc_method_handler(
-                    servicer.FundChannel_Complete,
-                    request_deserializer=node__pb2.Fundchannel_completeRequest.FromString,
-                    response_serializer=node__pb2.Fundchannel_completeResponse.SerializeToString,
+            'FundChannelComplete': grpc.unary_unary_rpc_method_handler(
+                    servicer.FundChannelComplete,
+                    request_deserializer=node__pb2.FundchannelCompleteRequest.FromString,
+                    response_serializer=node__pb2.FundchannelCompleteResponse.SerializeToString,
             ),
             'FundChannel': grpc.unary_unary_rpc_method_handler(
                     servicer.FundChannel,
                     request_deserializer=node__pb2.FundchannelRequest.FromString,
                     response_serializer=node__pb2.FundchannelResponse.SerializeToString,
             ),
-            'FundChannel_Start': grpc.unary_unary_rpc_method_handler(
-                    servicer.FundChannel_Start,
-                    request_deserializer=node__pb2.Fundchannel_startRequest.FromString,
-                    response_serializer=node__pb2.Fundchannel_startResponse.SerializeToString,
+            'FundChannelStart': grpc.unary_unary_rpc_method_handler(
+                    servicer.FundChannelStart,
+                    request_deserializer=node__pb2.FundchannelStartRequest.FromString,
+                    response_serializer=node__pb2.FundchannelStartResponse.SerializeToString,
             ),
             'GetLog': grpc.unary_unary_rpc_method_handler(
                     servicer.GetLog,
@@ -1937,30 +1937,30 @@ def add_NodeServicer_to_server(servicer, server):
                     request_deserializer=node__pb2.OfferRequest.FromString,
                     response_serializer=node__pb2.OfferResponse.SerializeToString,
             ),
-            'OpenChannel_Abort': grpc.unary_unary_rpc_method_handler(
-                    servicer.OpenChannel_Abort,
-                    request_deserializer=node__pb2.Openchannel_abortRequest.FromString,
-                    response_serializer=node__pb2.Openchannel_abortResponse.SerializeToString,
+            'OpenChannelAbort': grpc.unary_unary_rpc_method_handler(
+                    servicer.OpenChannelAbort,
+                    request_deserializer=node__pb2.OpenchannelAbortRequest.FromString,
+                    response_serializer=node__pb2.OpenchannelAbortResponse.SerializeToString,
             ),
-            'OpenChannel_Bump': grpc.unary_unary_rpc_method_handler(
-                    servicer.OpenChannel_Bump,
-                    request_deserializer=node__pb2.Openchannel_bumpRequest.FromString,
-                    response_serializer=node__pb2.Openchannel_bumpResponse.SerializeToString,
+            'OpenChannelBump': grpc.unary_unary_rpc_method_handler(
+                    servicer.OpenChannelBump,
+                    request_deserializer=node__pb2.OpenchannelBumpRequest.FromString,
+                    response_serializer=node__pb2.OpenchannelBumpResponse.SerializeToString,
             ),
-            'OpenChannel_Init': grpc.unary_unary_rpc_method_handler(
-                    servicer.OpenChannel_Init,
-                    request_deserializer=node__pb2.Openchannel_initRequest.FromString,
-                    response_serializer=node__pb2.Openchannel_initResponse.SerializeToString,
+            'OpenChannelInit': grpc.unary_unary_rpc_method_handler(
+                    servicer.OpenChannelInit,
+                    request_deserializer=node__pb2.OpenchannelInitRequest.FromString,
+                    response_serializer=node__pb2.OpenchannelInitResponse.SerializeToString,
             ),
-            'OpenChannel_Signed': grpc.unary_unary_rpc_method_handler(
-                    servicer.OpenChannel_Signed,
-                    request_deserializer=node__pb2.Openchannel_signedRequest.FromString,
-                    response_serializer=node__pb2.Openchannel_signedResponse.SerializeToString,
+            'OpenChannelSigned': grpc.unary_unary_rpc_method_handler(
+                    servicer.OpenChannelSigned,
+                    request_deserializer=node__pb2.OpenchannelSignedRequest.FromString,
+                    response_serializer=node__pb2.OpenchannelSignedResponse.SerializeToString,
             ),
-            'OpenChannel_Update': grpc.unary_unary_rpc_method_handler(
-                    servicer.OpenChannel_Update,
-                    request_deserializer=node__pb2.Openchannel_updateRequest.FromString,
-                    response_serializer=node__pb2.Openchannel_updateResponse.SerializeToString,
+            'OpenChannelUpdate': grpc.unary_unary_rpc_method_handler(
+                    servicer.OpenChannelUpdate,
+                    request_deserializer=node__pb2.OpenchannelUpdateRequest.FromString,
+                    response_serializer=node__pb2.OpenchannelUpdateResponse.SerializeToString,
             ),
             'Ping': grpc.unary_unary_rpc_method_handler(
                     servicer.Ping,
@@ -2022,20 +2022,20 @@ def add_NodeServicer_to_server(servicer, server):
                     request_deserializer=node__pb2.SignmessageRequest.FromString,
                     response_serializer=node__pb2.SignmessageResponse.SerializeToString,
             ),
-            'Splice_Init': grpc.unary_unary_rpc_method_handler(
-                    servicer.Splice_Init,
-                    request_deserializer=node__pb2.Splice_initRequest.FromString,
-                    response_serializer=node__pb2.Splice_initResponse.SerializeToString,
+            'SpliceInit': grpc.unary_unary_rpc_method_handler(
+                    servicer.SpliceInit,
+                    request_deserializer=node__pb2.SpliceInitRequest.FromString,
+                    response_serializer=node__pb2.SpliceInitResponse.SerializeToString,
             ),
-            'Splice_Signed': grpc.unary_unary_rpc_method_handler(
-                    servicer.Splice_Signed,
-                    request_deserializer=node__pb2.Splice_signedRequest.FromString,
-                    response_serializer=node__pb2.Splice_signedResponse.SerializeToString,
+            'SpliceSigned': grpc.unary_unary_rpc_method_handler(
+                    servicer.SpliceSigned,
+                    request_deserializer=node__pb2.SpliceSignedRequest.FromString,
+                    response_serializer=node__pb2.SpliceSignedResponse.SerializeToString,
             ),
-            'Splice_Update': grpc.unary_unary_rpc_method_handler(
-                    servicer.Splice_Update,
-                    request_deserializer=node__pb2.Splice_updateRequest.FromString,
-                    response_serializer=node__pb2.Splice_updateResponse.SerializeToString,
+            'SpliceUpdate': grpc.unary_unary_rpc_method_handler(
+                    servicer.SpliceUpdate,
+                    request_deserializer=node__pb2.SpliceUpdateRequest.FromString,
+                    response_serializer=node__pb2.SpliceUpdateResponse.SerializeToString,
             ),
             'DevSplice': grpc.unary_unary_rpc_method_handler(
                     servicer.DevSplice,
@@ -3293,7 +3293,7 @@ class Node(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def FundChannel_Cancel(request,
+    def FundChannelCancel(request,
             target,
             options=(),
             channel_credentials=None,
@@ -3303,14 +3303,14 @@ class Node(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/cln.Node/FundChannel_Cancel',
-            node__pb2.Fundchannel_cancelRequest.SerializeToString,
-            node__pb2.Fundchannel_cancelResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/FundChannelCancel',
+            node__pb2.FundchannelCancelRequest.SerializeToString,
+            node__pb2.FundchannelCancelResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def FundChannel_Complete(request,
+    def FundChannelComplete(request,
             target,
             options=(),
             channel_credentials=None,
@@ -3320,9 +3320,9 @@ class Node(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/cln.Node/FundChannel_Complete',
-            node__pb2.Fundchannel_completeRequest.SerializeToString,
-            node__pb2.Fundchannel_completeResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/FundChannelComplete',
+            node__pb2.FundchannelCompleteRequest.SerializeToString,
+            node__pb2.FundchannelCompleteResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -3344,7 +3344,7 @@ class Node(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def FundChannel_Start(request,
+    def FundChannelStart(request,
             target,
             options=(),
             channel_credentials=None,
@@ -3354,9 +3354,9 @@ class Node(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/cln.Node/FundChannel_Start',
-            node__pb2.Fundchannel_startRequest.SerializeToString,
-            node__pb2.Fundchannel_startResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/FundChannelStart',
+            node__pb2.FundchannelStartRequest.SerializeToString,
+            node__pb2.FundchannelStartResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -3548,7 +3548,7 @@ class Node(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def OpenChannel_Abort(request,
+    def OpenChannelAbort(request,
             target,
             options=(),
             channel_credentials=None,
@@ -3558,14 +3558,14 @@ class Node(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/cln.Node/OpenChannel_Abort',
-            node__pb2.Openchannel_abortRequest.SerializeToString,
-            node__pb2.Openchannel_abortResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/OpenChannelAbort',
+            node__pb2.OpenchannelAbortRequest.SerializeToString,
+            node__pb2.OpenchannelAbortResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def OpenChannel_Bump(request,
+    def OpenChannelBump(request,
             target,
             options=(),
             channel_credentials=None,
@@ -3575,14 +3575,14 @@ class Node(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/cln.Node/OpenChannel_Bump',
-            node__pb2.Openchannel_bumpRequest.SerializeToString,
-            node__pb2.Openchannel_bumpResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/OpenChannelBump',
+            node__pb2.OpenchannelBumpRequest.SerializeToString,
+            node__pb2.OpenchannelBumpResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def OpenChannel_Init(request,
+    def OpenChannelInit(request,
             target,
             options=(),
             channel_credentials=None,
@@ -3592,14 +3592,14 @@ class Node(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/cln.Node/OpenChannel_Init',
-            node__pb2.Openchannel_initRequest.SerializeToString,
-            node__pb2.Openchannel_initResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/OpenChannelInit',
+            node__pb2.OpenchannelInitRequest.SerializeToString,
+            node__pb2.OpenchannelInitResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def OpenChannel_Signed(request,
+    def OpenChannelSigned(request,
             target,
             options=(),
             channel_credentials=None,
@@ -3609,14 +3609,14 @@ class Node(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/cln.Node/OpenChannel_Signed',
-            node__pb2.Openchannel_signedRequest.SerializeToString,
-            node__pb2.Openchannel_signedResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/OpenChannelSigned',
+            node__pb2.OpenchannelSignedRequest.SerializeToString,
+            node__pb2.OpenchannelSignedResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def OpenChannel_Update(request,
+    def OpenChannelUpdate(request,
             target,
             options=(),
             channel_credentials=None,
@@ -3626,9 +3626,9 @@ class Node(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/cln.Node/OpenChannel_Update',
-            node__pb2.Openchannel_updateRequest.SerializeToString,
-            node__pb2.Openchannel_updateResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/OpenChannelUpdate',
+            node__pb2.OpenchannelUpdateRequest.SerializeToString,
+            node__pb2.OpenchannelUpdateResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -3837,7 +3837,7 @@ class Node(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def Splice_Init(request,
+    def SpliceInit(request,
             target,
             options=(),
             channel_credentials=None,
@@ -3847,14 +3847,14 @@ class Node(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/cln.Node/Splice_Init',
-            node__pb2.Splice_initRequest.SerializeToString,
-            node__pb2.Splice_initResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/SpliceInit',
+            node__pb2.SpliceInitRequest.SerializeToString,
+            node__pb2.SpliceInitResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def Splice_Signed(request,
+    def SpliceSigned(request,
             target,
             options=(),
             channel_credentials=None,
@@ -3864,14 +3864,14 @@ class Node(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/cln.Node/Splice_Signed',
-            node__pb2.Splice_signedRequest.SerializeToString,
-            node__pb2.Splice_signedResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/SpliceSigned',
+            node__pb2.SpliceSignedRequest.SerializeToString,
+            node__pb2.SpliceSignedResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def Splice_Update(request,
+    def SpliceUpdate(request,
             target,
             options=(),
             channel_credentials=None,
@@ -3881,9 +3881,9 @@ class Node(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/cln.Node/Splice_Update',
-            node__pb2.Splice_updateRequest.SerializeToString,
-            node__pb2.Splice_updateResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/SpliceUpdate',
+            node__pb2.SpliceUpdateRequest.SerializeToString,
+            node__pb2.SpliceUpdateResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

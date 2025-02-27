@@ -38,8 +38,8 @@ impl From<responses::GetinfoBinding> for pb::GetinfoBinding {
 }
 
 #[allow(unused_variables)]
-impl From<responses::GetinfoOur_features> for pb::GetinfoOurFeatures {
-    fn from(c: responses::GetinfoOur_features) -> Self {
+impl From<responses::GetinfoOurFeatures> for pb::GetinfoOurFeatures {
+    fn from(c: responses::GetinfoOurFeatures) -> Self {
         Self {
             channel: hex::decode(&c.channel).unwrap(), // Rule #2 for type hex
             init: hex::decode(&c.init).unwrap(), // Rule #2 for type hex
@@ -467,8 +467,8 @@ impl From<responses::ConnectResponse> for pb::ConnectResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::CreateinvoicePaid_outpoint> for pb::CreateinvoicePaidOutpoint {
-    fn from(c: responses::CreateinvoicePaid_outpoint) -> Self {
+impl From<responses::CreateinvoicePaidOutpoint> for pb::CreateinvoicePaidOutpoint {
+    fn from(c: responses::CreateinvoicePaidOutpoint) -> Self {
         Self {
             outnum: c.outnum, // Rule #2 for type u32
             txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
@@ -733,8 +733,8 @@ impl From<responses::ListdatastoreResponse> for pb::ListdatastoreResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::ListinvoicesInvoicesPaid_outpoint> for pb::ListinvoicesInvoicesPaidOutpoint {
-    fn from(c: responses::ListinvoicesInvoicesPaid_outpoint) -> Self {
+impl From<responses::ListinvoicesInvoicesPaidOutpoint> for pb::ListinvoicesInvoicesPaidOutpoint {
+    fn from(c: responses::ListinvoicesInvoicesPaidOutpoint) -> Self {
         Self {
             outnum: c.outnum, // Rule #2 for type u32
             txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
@@ -924,8 +924,8 @@ impl From<responses::ListnodesNodesAddresses> for pb::ListnodesNodesAddresses {
 }
 
 #[allow(unused_variables)]
-impl From<responses::ListnodesNodesOption_will_fund> for pb::ListnodesNodesOptionWillFund {
-    fn from(c: responses::ListnodesNodesOption_will_fund) -> Self {
+impl From<responses::ListnodesNodesOptionWillFund> for pb::ListnodesNodesOptionWillFund {
+    fn from(c: responses::ListnodesNodesOptionWillFund) -> Self {
         Self {
             channel_fee_max_base_msat: Some(c.channel_fee_max_base_msat.into()), // Rule #2 for type msat
             channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths, // Rule #2 for type u32
@@ -964,8 +964,8 @@ impl From<responses::ListnodesResponse> for pb::ListnodesResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::WaitanyinvoicePaid_outpoint> for pb::WaitanyinvoicePaidOutpoint {
-    fn from(c: responses::WaitanyinvoicePaid_outpoint) -> Self {
+impl From<responses::WaitanyinvoicePaidOutpoint> for pb::WaitanyinvoicePaidOutpoint {
+    fn from(c: responses::WaitanyinvoicePaidOutpoint) -> Self {
         Self {
             outnum: c.outnum, // Rule #2 for type u32
             txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
@@ -997,8 +997,8 @@ impl From<responses::WaitanyinvoiceResponse> for pb::WaitanyinvoiceResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::WaitinvoicePaid_outpoint> for pb::WaitinvoicePaidOutpoint {
-    fn from(c: responses::WaitinvoicePaid_outpoint) -> Self {
+impl From<responses::WaitinvoicePaidOutpoint> for pb::WaitinvoicePaidOutpoint {
+    fn from(c: responses::WaitinvoicePaidOutpoint) -> Self {
         Self {
             outnum: c.outnum, // Rule #2 for type u32
             txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
@@ -1501,8 +1501,8 @@ impl From<responses::DecodeFallbacks> for pb::DecodeFallbacks {
 }
 
 #[allow(unused_variables)]
-impl From<responses::DecodeInvoice_fallbacks> for pb::DecodeInvoiceFallbacks {
-    fn from(c: responses::DecodeInvoice_fallbacks) -> Self {
+impl From<responses::DecodeInvoiceFallbacks> for pb::DecodeInvoiceFallbacks {
+    fn from(c: responses::DecodeInvoiceFallbacks) -> Self {
         Self {
             address: c.address, // Rule #2 for type string?
             hex: hex::decode(&c.hex).unwrap(), // Rule #2 for type hex
@@ -1512,8 +1512,8 @@ impl From<responses::DecodeInvoice_fallbacks> for pb::DecodeInvoiceFallbacks {
 }
 
 #[allow(unused_variables)]
-impl From<responses::DecodeInvreq_bip_353_name> for pb::DecodeInvreqBip353Name {
-    fn from(c: responses::DecodeInvreq_bip_353_name) -> Self {
+impl From<responses::DecodeInvreqBip353Name> for pb::DecodeInvreqBip353Name {
+    fn from(c: responses::DecodeInvreqBip353Name) -> Self {
         Self {
             domain: c.domain, // Rule #2 for type string?
             name: c.name, // Rule #2 for type string?
@@ -1522,8 +1522,8 @@ impl From<responses::DecodeInvreq_bip_353_name> for pb::DecodeInvreqBip353Name {
 }
 
 #[allow(unused_variables)]
-impl From<responses::DecodeInvreq_pathsPath> for pb::DecodeInvreqPathsPath {
-    fn from(c: responses::DecodeInvreq_pathsPath) -> Self {
+impl From<responses::DecodeInvreqPathsPath> for pb::DecodeInvreqPathsPath {
+    fn from(c: responses::DecodeInvreqPathsPath) -> Self {
         Self {
             blinded_node_id: c.blinded_node_id.serialize().to_vec(), // Rule #2 for type pubkey
             encrypted_recipient_data: hex::decode(&c.encrypted_recipient_data).unwrap(), // Rule #2 for type hex
@@ -1532,8 +1532,8 @@ impl From<responses::DecodeInvreq_pathsPath> for pb::DecodeInvreqPathsPath {
 }
 
 #[allow(unused_variables,deprecated)]
-impl From<responses::DecodeInvreq_paths> for pb::DecodeInvreqPaths {
-    fn from(c: responses::DecodeInvreq_paths) -> Self {
+impl From<responses::DecodeInvreqPaths> for pb::DecodeInvreqPaths {
+    fn from(c: responses::DecodeInvreqPaths) -> Self {
         Self {
             #[allow(deprecated)]
             blinding: c.blinding.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
@@ -1542,14 +1542,14 @@ impl From<responses::DecodeInvreq_paths> for pb::DecodeInvreqPaths {
             first_scid: c.first_scid.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
             first_scid_dir: c.first_scid_dir, // Rule #2 for type u32?
             // Field: Decode.invreq_paths[].path[]
-            path: c.path.into_iter().map(|i| i.into()).collect(), // Rule #3 for type DecodeInvreq_pathsPath
+            path: c.path.into_iter().map(|i| i.into()).collect(), // Rule #3 for type DecodeInvreqPathsPath
         }
     }
 }
 
 #[allow(unused_variables,deprecated)]
-impl From<responses::DecodeOffer_paths> for pb::DecodeOfferPaths {
-    fn from(c: responses::DecodeOffer_paths) -> Self {
+impl From<responses::DecodeOfferPaths> for pb::DecodeOfferPaths {
+    fn from(c: responses::DecodeOfferPaths) -> Self {
         Self {
             #[allow(deprecated)]
             blinding: c.blinding.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
@@ -1752,8 +1752,8 @@ impl From<responses::DisconnectResponse> for pb::DisconnectResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::FeeratesOnchain_fee_estimates> for pb::FeeratesOnchainFeeEstimates {
-    fn from(c: responses::FeeratesOnchain_fee_estimates) -> Self {
+impl From<responses::FeeratesOnchainFeeEstimates> for pb::FeeratesOnchainFeeEstimates {
+    fn from(c: responses::FeeratesOnchainFeeEstimates) -> Self {
         Self {
             htlc_success_satoshis: c.htlc_success_satoshis, // Rule #2 for type u64
             htlc_timeout_satoshis: c.htlc_timeout_satoshis, // Rule #2 for type u64
@@ -1857,8 +1857,8 @@ impl From<responses::FetchinvoiceChanges> for pb::FetchinvoiceChanges {
 }
 
 #[allow(unused_variables)]
-impl From<responses::FetchinvoiceNext_period> for pb::FetchinvoiceNextPeriod {
-    fn from(c: responses::FetchinvoiceNext_period) -> Self {
+impl From<responses::FetchinvoiceNextPeriod> for pb::FetchinvoiceNextPeriod {
+    fn from(c: responses::FetchinvoiceNextPeriod) -> Self {
         Self {
             counter: c.counter, // Rule #2 for type u64
             endtime: c.endtime, // Rule #2 for type u64
@@ -1881,8 +1881,8 @@ impl From<responses::FetchinvoiceResponse> for pb::FetchinvoiceResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::Fundchannel_cancelResponse> for pb::FundchannelCancelResponse {
-    fn from(c: responses::Fundchannel_cancelResponse) -> Self {
+impl From<responses::FundchannelCancelResponse> for pb::FundchannelCancelResponse {
+    fn from(c: responses::FundchannelCancelResponse) -> Self {
         Self {
             cancelled: c.cancelled, // Rule #2 for type string
         }
@@ -1890,8 +1890,8 @@ impl From<responses::Fundchannel_cancelResponse> for pb::FundchannelCancelRespon
 }
 
 #[allow(unused_variables)]
-impl From<responses::Fundchannel_completeResponse> for pb::FundchannelCompleteResponse {
-    fn from(c: responses::Fundchannel_completeResponse) -> Self {
+impl From<responses::FundchannelCompleteResponse> for pb::FundchannelCompleteResponse {
+    fn from(c: responses::FundchannelCompleteResponse) -> Self {
         Self {
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
             commitments_secured: c.commitments_secured, // Rule #2 for type boolean
@@ -1900,13 +1900,13 @@ impl From<responses::Fundchannel_completeResponse> for pb::FundchannelCompleteRe
 }
 
 #[allow(unused_variables)]
-impl From<responses::FundchannelChannel_type> for pb::FundchannelChannelType {
-    fn from(c: responses::FundchannelChannel_type) -> Self {
+impl From<responses::FundchannelChannelType> for pb::FundchannelChannelType {
+    fn from(c: responses::FundchannelChannelType) -> Self {
         Self {
             // Field: FundChannel.channel_type.bits[]
             bits: c.bits.into_iter().map(|i| i.into()).collect(), // Rule #3 for type u32
             // Field: FundChannel.channel_type.names[]
-            names: c.names.into_iter().map(|i| i.into()).collect(), // Rule #3 for type FundchannelChannel_typeNames
+            names: c.names.into_iter().map(|i| i.into()).collect(), // Rule #3 for type FundchannelChannelTypeNames
         }
     }
 }
@@ -1927,20 +1927,20 @@ impl From<responses::FundchannelResponse> for pb::FundchannelResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::Fundchannel_startChannel_type> for pb::FundchannelStartChannelType {
-    fn from(c: responses::Fundchannel_startChannel_type) -> Self {
+impl From<responses::FundchannelStartChannelType> for pb::FundchannelStartChannelType {
+    fn from(c: responses::FundchannelStartChannelType) -> Self {
         Self {
             // Field: FundChannel_Start.channel_type.bits[]
             bits: c.bits.into_iter().map(|i| i.into()).collect(), // Rule #3 for type u32
             // Field: FundChannel_Start.channel_type.names[]
-            names: c.names.into_iter().map(|i| i.into()).collect(), // Rule #3 for type Fundchannel_startChannel_typeNames
+            names: c.names.into_iter().map(|i| i.into()).collect(), // Rule #3 for type FundchannelStartChannelTypeNames
         }
     }
 }
 
 #[allow(unused_variables)]
-impl From<responses::Fundchannel_startResponse> for pb::FundchannelStartResponse {
-    fn from(c: responses::Fundchannel_startResponse) -> Self {
+impl From<responses::FundchannelStartResponse> for pb::FundchannelStartResponse {
+    fn from(c: responses::FundchannelStartResponse) -> Self {
         Self {
             channel_type: c.channel_type.map(|v| v.into()),
             close_to: c.close_to.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
@@ -2167,20 +2167,20 @@ impl From<responses::ListhtlcsResponse> for pb::ListhtlcsResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::MultifundchannelChannel_idsChannel_type> for pb::MultifundchannelChannelIdsChannelType {
-    fn from(c: responses::MultifundchannelChannel_idsChannel_type) -> Self {
+impl From<responses::MultifundchannelChannelIdsChannelType> for pb::MultifundchannelChannelIdsChannelType {
+    fn from(c: responses::MultifundchannelChannelIdsChannelType) -> Self {
         Self {
             // Field: MultiFundChannel.channel_ids[].channel_type.bits[]
             bits: c.bits.into_iter().map(|i| i.into()).collect(), // Rule #3 for type u32
             // Field: MultiFundChannel.channel_ids[].channel_type.names[]
-            names: c.names.into_iter().map(|i| i.into()).collect(), // Rule #3 for type MultifundchannelChannel_idsChannel_typeNames
+            names: c.names.into_iter().map(|i| i.into()).collect(), // Rule #3 for type MultifundchannelChannelIdsChannelTypeNames
         }
     }
 }
 
 #[allow(unused_variables)]
-impl From<responses::MultifundchannelChannel_ids> for pb::MultifundchannelChannelIds {
-    fn from(c: responses::MultifundchannelChannel_ids) -> Self {
+impl From<responses::MultifundchannelChannelIds> for pb::MultifundchannelChannelIds {
+    fn from(c: responses::MultifundchannelChannelIds) -> Self {
         Self {
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
             channel_type: c.channel_type.map(|v| v.into()),
@@ -2217,7 +2217,7 @@ impl From<responses::MultifundchannelResponse> for pb::MultifundchannelResponse 
     fn from(c: responses::MultifundchannelResponse) -> Self {
         Self {
             // Field: MultiFundChannel.channel_ids[]
-            channel_ids: c.channel_ids.into_iter().map(|i| i.into()).collect(), // Rule #3 for type MultifundchannelChannel_ids
+            channel_ids: c.channel_ids.into_iter().map(|i| i.into()).collect(), // Rule #3 for type MultifundchannelChannelIds
             // Field: MultiFundChannel.failed[]
             failed: c.failed.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             tx: hex::decode(&c.tx).unwrap(), // Rule #2 for type hex
@@ -2252,8 +2252,8 @@ impl From<responses::OfferResponse> for pb::OfferResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::Openchannel_abortResponse> for pb::OpenchannelAbortResponse {
-    fn from(c: responses::Openchannel_abortResponse) -> Self {
+impl From<responses::OpenchannelAbortResponse> for pb::OpenchannelAbortResponse {
+    fn from(c: responses::OpenchannelAbortResponse) -> Self {
         Self {
             channel_canceled: c.channel_canceled, // Rule #2 for type boolean
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
@@ -2263,20 +2263,20 @@ impl From<responses::Openchannel_abortResponse> for pb::OpenchannelAbortResponse
 }
 
 #[allow(unused_variables)]
-impl From<responses::Openchannel_bumpChannel_type> for pb::OpenchannelBumpChannelType {
-    fn from(c: responses::Openchannel_bumpChannel_type) -> Self {
+impl From<responses::OpenchannelBumpChannelType> for pb::OpenchannelBumpChannelType {
+    fn from(c: responses::OpenchannelBumpChannelType) -> Self {
         Self {
             // Field: OpenChannel_Bump.channel_type.bits[]
             bits: c.bits.into_iter().map(|i| i.into()).collect(), // Rule #3 for type u32
             // Field: OpenChannel_Bump.channel_type.names[]
-            names: c.names.into_iter().map(|i| i.into()).collect(), // Rule #3 for type Openchannel_bumpChannel_typeNames
+            names: c.names.into_iter().map(|i| i.into()).collect(), // Rule #3 for type OpenchannelBumpChannelTypeNames
         }
     }
 }
 
 #[allow(unused_variables)]
-impl From<responses::Openchannel_bumpResponse> for pb::OpenchannelBumpResponse {
-    fn from(c: responses::Openchannel_bumpResponse) -> Self {
+impl From<responses::OpenchannelBumpResponse> for pb::OpenchannelBumpResponse {
+    fn from(c: responses::OpenchannelBumpResponse) -> Self {
         Self {
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
             channel_type: c.channel_type.map(|v| v.into()),
@@ -2289,20 +2289,20 @@ impl From<responses::Openchannel_bumpResponse> for pb::OpenchannelBumpResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::Openchannel_initChannel_type> for pb::OpenchannelInitChannelType {
-    fn from(c: responses::Openchannel_initChannel_type) -> Self {
+impl From<responses::OpenchannelInitChannelType> for pb::OpenchannelInitChannelType {
+    fn from(c: responses::OpenchannelInitChannelType) -> Self {
         Self {
             // Field: OpenChannel_Init.channel_type.bits[]
             bits: c.bits.into_iter().map(|i| i.into()).collect(), // Rule #3 for type u32
             // Field: OpenChannel_Init.channel_type.names[]
-            names: c.names.into_iter().map(|i| i.into()).collect(), // Rule #3 for type Openchannel_initChannel_typeNames
+            names: c.names.into_iter().map(|i| i.into()).collect(), // Rule #3 for type OpenchannelInitChannelTypeNames
         }
     }
 }
 
 #[allow(unused_variables)]
-impl From<responses::Openchannel_initResponse> for pb::OpenchannelInitResponse {
-    fn from(c: responses::Openchannel_initResponse) -> Self {
+impl From<responses::OpenchannelInitResponse> for pb::OpenchannelInitResponse {
+    fn from(c: responses::OpenchannelInitResponse) -> Self {
         Self {
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
             channel_type: c.channel_type.map(|v| v.into()),
@@ -2315,8 +2315,8 @@ impl From<responses::Openchannel_initResponse> for pb::OpenchannelInitResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::Openchannel_signedResponse> for pb::OpenchannelSignedResponse {
-    fn from(c: responses::Openchannel_signedResponse) -> Self {
+impl From<responses::OpenchannelSignedResponse> for pb::OpenchannelSignedResponse {
+    fn from(c: responses::OpenchannelSignedResponse) -> Self {
         Self {
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
             tx: hex::decode(&c.tx).unwrap(), // Rule #2 for type hex
@@ -2326,20 +2326,20 @@ impl From<responses::Openchannel_signedResponse> for pb::OpenchannelSignedRespon
 }
 
 #[allow(unused_variables)]
-impl From<responses::Openchannel_updateChannel_type> for pb::OpenchannelUpdateChannelType {
-    fn from(c: responses::Openchannel_updateChannel_type) -> Self {
+impl From<responses::OpenchannelUpdateChannelType> for pb::OpenchannelUpdateChannelType {
+    fn from(c: responses::OpenchannelUpdateChannelType) -> Self {
         Self {
             // Field: OpenChannel_Update.channel_type.bits[]
             bits: c.bits.into_iter().map(|i| i.into()).collect(), // Rule #3 for type u32
             // Field: OpenChannel_Update.channel_type.names[]
-            names: c.names.into_iter().map(|i| i.into()).collect(), // Rule #3 for type Openchannel_updateChannel_typeNames
+            names: c.names.into_iter().map(|i| i.into()).collect(), // Rule #3 for type OpenchannelUpdateChannelTypeNames
         }
     }
 }
 
 #[allow(unused_variables)]
-impl From<responses::Openchannel_updateResponse> for pb::OpenchannelUpdateResponse {
-    fn from(c: responses::Openchannel_updateResponse) -> Self {
+impl From<responses::OpenchannelUpdateResponse> for pb::OpenchannelUpdateResponse {
+    fn from(c: responses::OpenchannelUpdateResponse) -> Self {
         Self {
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
             channel_type: c.channel_type.map(|v| v.into()),
@@ -2570,8 +2570,8 @@ impl From<responses::SignmessageResponse> for pb::SignmessageResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::Splice_initResponse> for pb::SpliceInitResponse {
-    fn from(c: responses::Splice_initResponse) -> Self {
+impl From<responses::SpliceInitResponse> for pb::SpliceInitResponse {
+    fn from(c: responses::SpliceInitResponse) -> Self {
         Self {
             psbt: c.psbt, // Rule #2 for type string
         }
@@ -2579,8 +2579,8 @@ impl From<responses::Splice_initResponse> for pb::SpliceInitResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::Splice_signedResponse> for pb::SpliceSignedResponse {
-    fn from(c: responses::Splice_signedResponse) -> Self {
+impl From<responses::SpliceSignedResponse> for pb::SpliceSignedResponse {
+    fn from(c: responses::SpliceSignedResponse) -> Self {
         Self {
             outnum: c.outnum, // Rule #2 for type u32?
             psbt: c.psbt, // Rule #2 for type string
@@ -2591,8 +2591,8 @@ impl From<responses::Splice_signedResponse> for pb::SpliceSignedResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::Splice_updateResponse> for pb::SpliceUpdateResponse {
-    fn from(c: responses::Splice_updateResponse) -> Self {
+impl From<responses::SpliceUpdateResponse> for pb::SpliceUpdateResponse {
+    fn from(c: responses::SpliceUpdateResponse) -> Self {
         Self {
             commitments_secured: c.commitments_secured, // Rule #2 for type boolean
             psbt: c.psbt, // Rule #2 for type string
@@ -3741,8 +3741,8 @@ impl From<responses::StaticbackupResponse> for pb::StaticbackupResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::BkprchannelsapyChannels_apy> for pb::BkprchannelsapyChannelsApy {
-    fn from(c: responses::BkprchannelsapyChannels_apy) -> Self {
+impl From<responses::BkprchannelsapyChannelsApy> for pb::BkprchannelsapyChannelsApy {
+    fn from(c: responses::BkprchannelsapyChannelsApy) -> Self {
         Self {
             account: c.account, // Rule #2 for type string
             apy_in: c.apy_in, // Rule #2 for type string
@@ -3775,7 +3775,7 @@ impl From<responses::BkprchannelsapyResponse> for pb::BkprchannelsapyResponse {
     fn from(c: responses::BkprchannelsapyResponse) -> Self {
         Self {
             // Field: Bkpr-ChannelsApy.channels_apy[]
-            channels_apy: c.channels_apy.into_iter().map(|i| i.into()).collect(), // Rule #3 for type BkprchannelsapyChannels_apy
+            channels_apy: c.channels_apy.into_iter().map(|i| i.into()).collect(), // Rule #3 for type BkprchannelsapyChannelsApy
         }
     }
 }
@@ -3903,8 +3903,8 @@ impl From<responses::BkprlistbalancesResponse> for pb::BkprlistbalancesResponse 
 }
 
 #[allow(unused_variables)]
-impl From<responses::BkprlistincomeIncome_events> for pb::BkprlistincomeIncomeEvents {
-    fn from(c: responses::BkprlistincomeIncome_events) -> Self {
+impl From<responses::BkprlistincomeIncomeEvents> for pb::BkprlistincomeIncomeEvents {
+    fn from(c: responses::BkprlistincomeIncomeEvents) -> Self {
         Self {
             account: c.account, // Rule #2 for type string
             credit_msat: Some(c.credit_msat.into()), // Rule #2 for type msat
@@ -3925,7 +3925,7 @@ impl From<responses::BkprlistincomeResponse> for pb::BkprlistincomeResponse {
     fn from(c: responses::BkprlistincomeResponse) -> Self {
         Self {
             // Field: Bkpr-ListIncome.income_events[]
-            income_events: c.income_events.into_iter().map(|i| i.into()).collect(), // Rule #3 for type BkprlistincomeIncome_events
+            income_events: c.income_events.into_iter().map(|i| i.into()).collect(), // Rule #3 for type BkprlistincomeIncomeEvents
         }
     }
 }
@@ -4108,8 +4108,8 @@ impl From<responses::AskrenelistlayersLayersBiases> for pb::AskrenelistlayersLay
 }
 
 #[allow(unused_variables)]
-impl From<responses::AskrenelistlayersLayersChannel_updates> for pb::AskrenelistlayersLayersChannelUpdates {
-    fn from(c: responses::AskrenelistlayersLayersChannel_updates) -> Self {
+impl From<responses::AskrenelistlayersLayersChannelUpdates> for pb::AskrenelistlayersLayersChannelUpdates {
+    fn from(c: responses::AskrenelistlayersLayersChannelUpdates) -> Self {
         Self {
             cltv_expiry_delta: c.cltv_expiry_delta.map(|v| v.into()), // Rule #2 for type u16?
             enabled: c.enabled, // Rule #2 for type boolean?
@@ -4135,8 +4135,8 @@ impl From<responses::AskrenelistlayersLayersConstraints> for pb::Askrenelistlaye
 }
 
 #[allow(unused_variables)]
-impl From<responses::AskrenelistlayersLayersCreated_channels> for pb::AskrenelistlayersLayersCreatedChannels {
-    fn from(c: responses::AskrenelistlayersLayersCreated_channels) -> Self {
+impl From<responses::AskrenelistlayersLayersCreatedChannels> for pb::AskrenelistlayersLayersCreatedChannels {
+    fn from(c: responses::AskrenelistlayersLayersCreatedChannels) -> Self {
         Self {
             capacity_msat: Some(c.capacity_msat.into()), // Rule #2 for type msat
             destination: c.destination.serialize().to_vec(), // Rule #2 for type pubkey
@@ -4157,7 +4157,7 @@ impl From<responses::AskrenelistlayersLayers> for pb::AskrenelistlayersLayers {
             // Field: AskRene-ListLayers.layers[].constraints[]
             constraints: c.constraints.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenelistlayersLayersConstraints
             // Field: AskRene-ListLayers.layers[].created_channels[]
-            created_channels: c.created_channels.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenelistlayersLayersCreated_channels
+            created_channels: c.created_channels.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenelistlayersLayersCreatedChannels
             // Field: AskRene-ListLayers.layers[].disabled_channels[]
             disabled_channels: c.disabled_channels.map(|arr| arr.into_iter().map(|i| i.to_string()).collect()).unwrap_or(vec![]), // Rule #3
             // Field: AskRene-ListLayers.layers[].disabled_nodes[]
@@ -4190,8 +4190,8 @@ impl From<responses::AskrenecreatelayerLayersBiases> for pb::AskrenecreatelayerL
 }
 
 #[allow(unused_variables)]
-impl From<responses::AskrenecreatelayerLayersChannel_updates> for pb::AskrenecreatelayerLayersChannelUpdates {
-    fn from(c: responses::AskrenecreatelayerLayersChannel_updates) -> Self {
+impl From<responses::AskrenecreatelayerLayersChannelUpdates> for pb::AskrenecreatelayerLayersChannelUpdates {
+    fn from(c: responses::AskrenecreatelayerLayersChannelUpdates) -> Self {
         Self {
             delay: c.delay.map(|v| v.into()), // Rule #2 for type u16?
             fee_base_msat: c.fee_base_msat.map(|f| f.into()), // Rule #2 for type msat?
@@ -4215,8 +4215,8 @@ impl From<responses::AskrenecreatelayerLayersConstraints> for pb::Askrenecreatel
 }
 
 #[allow(unused_variables)]
-impl From<responses::AskrenecreatelayerLayersCreated_channels> for pb::AskrenecreatelayerLayersCreatedChannels {
-    fn from(c: responses::AskrenecreatelayerLayersCreated_channels) -> Self {
+impl From<responses::AskrenecreatelayerLayersCreatedChannels> for pb::AskrenecreatelayerLayersCreatedChannels {
+    fn from(c: responses::AskrenecreatelayerLayersCreatedChannels) -> Self {
         Self {
             capacity_msat: Some(c.capacity_msat.into()), // Rule #2 for type msat
             destination: c.destination.serialize().to_vec(), // Rule #2 for type pubkey
@@ -4233,11 +4233,11 @@ impl From<responses::AskrenecreatelayerLayers> for pb::AskrenecreatelayerLayers 
             // Field: AskRene-Create-Layer.layers[].biases[]
             biases: c.biases.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             // Field: AskRene-Create-Layer.layers[].channel_updates[]
-            channel_updates: c.channel_updates.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenecreatelayerLayersChannel_updates
+            channel_updates: c.channel_updates.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenecreatelayerLayersChannelUpdates
             // Field: AskRene-Create-Layer.layers[].constraints[]
             constraints: c.constraints.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenecreatelayerLayersConstraints
             // Field: AskRene-Create-Layer.layers[].created_channels[]
-            created_channels: c.created_channels.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenecreatelayerLayersCreated_channels
+            created_channels: c.created_channels.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenecreatelayerLayersCreatedChannels
             // Field: AskRene-Create-Layer.layers[].disabled_channels[]
             disabled_channels: c.disabled_channels.map(|arr| arr.into_iter().map(|i| i.to_string()).collect()).unwrap_or(vec![]), // Rule #3
             // Field: AskRene-Create-Layer.layers[].disabled_nodes[]
@@ -4887,8 +4887,8 @@ impl From<requests::ListinvoicesRequest> for pb::ListinvoicesRequest {
 }
 
 #[allow(unused_variables)]
-impl From<requests::SendonionFirst_hop> for pb::SendonionFirstHop {
-    fn from(c: requests::SendonionFirst_hop) -> Self {
+impl From<requests::SendonionFirstHop> for pb::SendonionFirstHop {
+    fn from(c: requests::SendonionFirstHop) -> Self {
         Self {
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             delay: c.delay.into(), // Rule #2 for type u16
@@ -5259,8 +5259,8 @@ impl From<requests::FetchinvoiceRequest> for pb::FetchinvoiceRequest {
 }
 
 #[allow(unused_variables)]
-impl From<requests::Fundchannel_cancelRequest> for pb::FundchannelCancelRequest {
-    fn from(c: requests::Fundchannel_cancelRequest) -> Self {
+impl From<requests::FundchannelCancelRequest> for pb::FundchannelCancelRequest {
+    fn from(c: requests::FundchannelCancelRequest) -> Self {
         Self {
             id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
         }
@@ -5268,8 +5268,8 @@ impl From<requests::Fundchannel_cancelRequest> for pb::FundchannelCancelRequest 
 }
 
 #[allow(unused_variables)]
-impl From<requests::Fundchannel_completeRequest> for pb::FundchannelCompleteRequest {
-    fn from(c: requests::Fundchannel_completeRequest) -> Self {
+impl From<requests::FundchannelCompleteRequest> for pb::FundchannelCompleteRequest {
+    fn from(c: requests::FundchannelCompleteRequest) -> Self {
         Self {
             id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
             psbt: c.psbt, // Rule #2 for type string
@@ -5301,8 +5301,8 @@ impl From<requests::FundchannelRequest> for pb::FundchannelRequest {
 }
 
 #[allow(unused_variables)]
-impl From<requests::Fundchannel_startRequest> for pb::FundchannelStartRequest {
-    fn from(c: requests::Fundchannel_startRequest) -> Self {
+impl From<requests::FundchannelStartRequest> for pb::FundchannelStartRequest {
+    fn from(c: requests::FundchannelStartRequest) -> Self {
         Self {
             amount: Some(c.amount.into()), // Rule #2 for type sat
             announce: c.announce, // Rule #2 for type boolean?
@@ -5494,8 +5494,8 @@ impl From<requests::OfferRequest> for pb::OfferRequest {
 }
 
 #[allow(unused_variables)]
-impl From<requests::Openchannel_abortRequest> for pb::OpenchannelAbortRequest {
-    fn from(c: requests::Openchannel_abortRequest) -> Self {
+impl From<requests::OpenchannelAbortRequest> for pb::OpenchannelAbortRequest {
+    fn from(c: requests::OpenchannelAbortRequest) -> Self {
         Self {
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
         }
@@ -5503,8 +5503,8 @@ impl From<requests::Openchannel_abortRequest> for pb::OpenchannelAbortRequest {
 }
 
 #[allow(unused_variables)]
-impl From<requests::Openchannel_bumpRequest> for pb::OpenchannelBumpRequest {
-    fn from(c: requests::Openchannel_bumpRequest) -> Self {
+impl From<requests::OpenchannelBumpRequest> for pb::OpenchannelBumpRequest {
+    fn from(c: requests::OpenchannelBumpRequest) -> Self {
         Self {
             amount: Some(c.amount.into()), // Rule #2 for type sat
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
@@ -5515,8 +5515,8 @@ impl From<requests::Openchannel_bumpRequest> for pb::OpenchannelBumpRequest {
 }
 
 #[allow(unused_variables)]
-impl From<requests::Openchannel_initRequest> for pb::OpenchannelInitRequest {
-    fn from(c: requests::Openchannel_initRequest) -> Self {
+impl From<requests::OpenchannelInitRequest> for pb::OpenchannelInitRequest {
+    fn from(c: requests::OpenchannelInitRequest) -> Self {
         Self {
             amount: Some(c.amount.into()), // Rule #2 for type sat
             announce: c.announce, // Rule #2 for type boolean?
@@ -5534,8 +5534,8 @@ impl From<requests::Openchannel_initRequest> for pb::OpenchannelInitRequest {
 }
 
 #[allow(unused_variables)]
-impl From<requests::Openchannel_signedRequest> for pb::OpenchannelSignedRequest {
-    fn from(c: requests::Openchannel_signedRequest) -> Self {
+impl From<requests::OpenchannelSignedRequest> for pb::OpenchannelSignedRequest {
+    fn from(c: requests::OpenchannelSignedRequest) -> Self {
         Self {
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
             signed_psbt: c.signed_psbt, // Rule #2 for type string
@@ -5544,8 +5544,8 @@ impl From<requests::Openchannel_signedRequest> for pb::OpenchannelSignedRequest 
 }
 
 #[allow(unused_variables)]
-impl From<requests::Openchannel_updateRequest> for pb::OpenchannelUpdateRequest {
-    fn from(c: requests::Openchannel_updateRequest) -> Self {
+impl From<requests::OpenchannelUpdateRequest> for pb::OpenchannelUpdateRequest {
+    fn from(c: requests::OpenchannelUpdateRequest) -> Self {
         Self {
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
             psbt: c.psbt, // Rule #2 for type string
@@ -5693,8 +5693,8 @@ impl From<requests::SignmessageRequest> for pb::SignmessageRequest {
 }
 
 #[allow(unused_variables)]
-impl From<requests::Splice_initRequest> for pb::SpliceInitRequest {
-    fn from(c: requests::Splice_initRequest) -> Self {
+impl From<requests::SpliceInitRequest> for pb::SpliceInitRequest {
+    fn from(c: requests::SpliceInitRequest) -> Self {
         Self {
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
             feerate_per_kw: c.feerate_per_kw, // Rule #2 for type u32?
@@ -5706,8 +5706,8 @@ impl From<requests::Splice_initRequest> for pb::SpliceInitRequest {
 }
 
 #[allow(unused_variables)]
-impl From<requests::Splice_signedRequest> for pb::SpliceSignedRequest {
-    fn from(c: requests::Splice_signedRequest) -> Self {
+impl From<requests::SpliceSignedRequest> for pb::SpliceSignedRequest {
+    fn from(c: requests::SpliceSignedRequest) -> Self {
         Self {
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
             psbt: c.psbt, // Rule #2 for type string
@@ -5717,8 +5717,8 @@ impl From<requests::Splice_signedRequest> for pb::SpliceSignedRequest {
 }
 
 #[allow(unused_variables)]
-impl From<requests::Splice_updateRequest> for pb::SpliceUpdateRequest {
-    fn from(c: requests::Splice_updateRequest) -> Self {
+impl From<requests::SpliceUpdateRequest> for pb::SpliceUpdateRequest {
+    fn from(c: requests::SpliceUpdateRequest) -> Self {
         Self {
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
             psbt: c.psbt, // Rule #2 for type string
@@ -6570,7 +6570,7 @@ impl From<pb::ListinvoicesRequest> for requests::ListinvoicesRequest {
 }
 
 #[allow(unused_variables)]
-impl From<pb::SendonionFirstHop> for requests::SendonionFirst_hop {
+impl From<pb::SendonionFirstHop> for requests::SendonionFirstHop {
     fn from(c: pb::SendonionFirstHop) -> Self {
         Self {
             amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
@@ -6935,7 +6935,7 @@ impl From<pb::FetchinvoiceRequest> for requests::FetchinvoiceRequest {
 }
 
 #[allow(unused_variables)]
-impl From<pb::FundchannelCancelRequest> for requests::Fundchannel_cancelRequest {
+impl From<pb::FundchannelCancelRequest> for requests::FundchannelCancelRequest {
     fn from(c: pb::FundchannelCancelRequest) -> Self {
         Self {
             id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
@@ -6944,7 +6944,7 @@ impl From<pb::FundchannelCancelRequest> for requests::Fundchannel_cancelRequest 
 }
 
 #[allow(unused_variables)]
-impl From<pb::FundchannelCompleteRequest> for requests::Fundchannel_completeRequest {
+impl From<pb::FundchannelCompleteRequest> for requests::FundchannelCompleteRequest {
     fn from(c: pb::FundchannelCompleteRequest) -> Self {
         Self {
             id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
@@ -6975,7 +6975,7 @@ impl From<pb::FundchannelRequest> for requests::FundchannelRequest {
 }
 
 #[allow(unused_variables)]
-impl From<pb::FundchannelStartRequest> for requests::Fundchannel_startRequest {
+impl From<pb::FundchannelStartRequest> for requests::FundchannelStartRequest {
     fn from(c: pb::FundchannelStartRequest) -> Self {
         Self {
             amount: c.amount.unwrap().into(), // Rule #1 for type sat
@@ -7162,7 +7162,7 @@ impl From<pb::OfferRequest> for requests::OfferRequest {
 }
 
 #[allow(unused_variables)]
-impl From<pb::OpenchannelAbortRequest> for requests::Openchannel_abortRequest {
+impl From<pb::OpenchannelAbortRequest> for requests::OpenchannelAbortRequest {
     fn from(c: pb::OpenchannelAbortRequest) -> Self {
         Self {
             channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
@@ -7171,7 +7171,7 @@ impl From<pb::OpenchannelAbortRequest> for requests::Openchannel_abortRequest {
 }
 
 #[allow(unused_variables)]
-impl From<pb::OpenchannelBumpRequest> for requests::Openchannel_bumpRequest {
+impl From<pb::OpenchannelBumpRequest> for requests::OpenchannelBumpRequest {
     fn from(c: pb::OpenchannelBumpRequest) -> Self {
         Self {
             amount: c.amount.unwrap().into(), // Rule #1 for type sat
@@ -7183,7 +7183,7 @@ impl From<pb::OpenchannelBumpRequest> for requests::Openchannel_bumpRequest {
 }
 
 #[allow(unused_variables)]
-impl From<pb::OpenchannelInitRequest> for requests::Openchannel_initRequest {
+impl From<pb::OpenchannelInitRequest> for requests::OpenchannelInitRequest {
     fn from(c: pb::OpenchannelInitRequest) -> Self {
         Self {
             amount: c.amount.unwrap().into(), // Rule #1 for type sat
@@ -7201,7 +7201,7 @@ impl From<pb::OpenchannelInitRequest> for requests::Openchannel_initRequest {
 }
 
 #[allow(unused_variables)]
-impl From<pb::OpenchannelSignedRequest> for requests::Openchannel_signedRequest {
+impl From<pb::OpenchannelSignedRequest> for requests::OpenchannelSignedRequest {
     fn from(c: pb::OpenchannelSignedRequest) -> Self {
         Self {
             channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
@@ -7211,7 +7211,7 @@ impl From<pb::OpenchannelSignedRequest> for requests::Openchannel_signedRequest 
 }
 
 #[allow(unused_variables)]
-impl From<pb::OpenchannelUpdateRequest> for requests::Openchannel_updateRequest {
+impl From<pb::OpenchannelUpdateRequest> for requests::OpenchannelUpdateRequest {
     fn from(c: pb::OpenchannelUpdateRequest) -> Self {
         Self {
             channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
@@ -7358,7 +7358,7 @@ impl From<pb::SignmessageRequest> for requests::SignmessageRequest {
 }
 
 #[allow(unused_variables)]
-impl From<pb::SpliceInitRequest> for requests::Splice_initRequest {
+impl From<pb::SpliceInitRequest> for requests::SpliceInitRequest {
     fn from(c: pb::SpliceInitRequest) -> Self {
         Self {
             channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
@@ -7371,7 +7371,7 @@ impl From<pb::SpliceInitRequest> for requests::Splice_initRequest {
 }
 
 #[allow(unused_variables)]
-impl From<pb::SpliceSignedRequest> for requests::Splice_signedRequest {
+impl From<pb::SpliceSignedRequest> for requests::SpliceSignedRequest {
     fn from(c: pb::SpliceSignedRequest) -> Self {
         Self {
             channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
@@ -7382,7 +7382,7 @@ impl From<pb::SpliceSignedRequest> for requests::Splice_signedRequest {
 }
 
 #[allow(unused_variables)]
-impl From<pb::SpliceUpdateRequest> for requests::Splice_updateRequest {
+impl From<pb::SpliceUpdateRequest> for requests::SpliceUpdateRequest {
     fn from(c: pb::SpliceUpdateRequest) -> Self {
         Self {
             channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash

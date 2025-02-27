@@ -5,7 +5,7 @@
             "succeeded": 2,
             "unconstrained": 1
         },
-        "Bkpr-dumpincomecsvCsv_format": {
+        "Bkpr-dumpincomecsvCsvFormat": {
             "cointracker": 0,
             "harmony": 2,
             "koinly": 1,
@@ -24,7 +24,7 @@
             "channel": 2,
             "onchain_fee": 0
         },
-        "Channel_state_changedCause": {
+        "ChannelStateChangedCause": {
             "local": 1,
             "onchain": 5,
             "protocol": 4,
@@ -153,7 +153,7 @@
         "KeysendStatus": {
             "complete": 0
         },
-        "ListclosedchannelsClosedchannelsClose_cause": {
+        "ListclosedchannelsClosedchannelsCloseCause": {
             "local": 1,
             "onchain": 5,
             "protocol": 4,
@@ -161,7 +161,7 @@
             "unknown": 0,
             "user": 2
         },
-        "ListconfigsConfigsAnnounce-addr-discoveredValue_str": {
+        "ListconfigsConfigsAnnounce-addr-discoveredValueStr": {
             "auto": 2,
             "false": 1,
             "true": 0
@@ -582,7 +582,7 @@
             "AskRene-Create-Layer.layers[].biases[].description": 3,
             "AskRene-Create-Layer.layers[].biases[].short_channel_id_dir": 1
         },
-        "Askrene-create-layerLayersChannel_updates": {
+        "Askrene-create-layerLayersChannelUpdates": {
             "AskRene-Create-Layer.layers[].channel_updates[].delay": 5,
             "AskRene-Create-Layer.layers[].channel_updates[].fee_base_msat": 3,
             "AskRene-Create-Layer.layers[].channel_updates[].fee_proportional_millionths": 4,
@@ -595,7 +595,7 @@
             "AskRene-Create-Layer.layers[].constraints[].minimum_msat": 4,
             "AskRene-Create-Layer.layers[].constraints[].short_channel_id": 1
         },
-        "Askrene-create-layerLayersCreated_channels": {
+        "Askrene-create-layerLayersCreatedChannels": {
             "AskRene-Create-Layer.layers[].created_channels[].capacity_msat": 4,
             "AskRene-Create-Layer.layers[].created_channels[].destination": 2,
             "AskRene-Create-Layer.layers[].created_channels[].short_channel_id": 3,
@@ -655,7 +655,7 @@
             "AskRene-ListLayers.layers[].biases[].description": 3,
             "AskRene-ListLayers.layers[].biases[].short_channel_id_dir": 1
         },
-        "Askrene-listlayersLayersChannel_updates": {
+        "Askrene-listlayersLayersChannelUpdates": {
             "AskRene-ListLayers.layers[].channel_updates[].cltv_expiry_delta": 7,
             "AskRene-ListLayers.layers[].channel_updates[].enabled": 2,
             "AskRene-ListLayers.layers[].channel_updates[].fee_base_msat": 5,
@@ -672,7 +672,7 @@
             "AskRene-ListLayers.layers[].constraints[].short_channel_id_dir": 5,
             "AskRene-ListLayers.layers[].constraints[].timestamp": 6
         },
-        "Askrene-listlayersLayersCreated_channels": {
+        "Askrene-listlayersLayersCreatedChannels": {
             "AskRene-ListLayers.layers[].created_channels[].capacity_msat": 4,
             "AskRene-ListLayers.layers[].created_channels[].delay": 9,
             "AskRene-ListLayers.layers[].created_channels[].destination": 2,
@@ -821,7 +821,7 @@
             "AutoCleanInvoice.enabled": 1,
             "AutoCleanInvoice.expired_by": 2
         },
-        "Bkpr-channelsapyChannels_apy": {
+        "Bkpr-channelsapyChannelsApy": {
             "Bkpr-ChannelsApy.channels_apy[].account": 1,
             "Bkpr-ChannelsApy.channels_apy[].apy_in": 18,
             "Bkpr-ChannelsApy.channels_apy[].apy_in_initial": 19,
@@ -979,7 +979,7 @@
         "Bkpr-listbalancesResponse": {
             "Bkpr-ListBalances.accounts[]": 1
         },
-        "Bkpr-listincomeIncome_events": {
+        "Bkpr-listincomeIncomeEvents": {
             "Bkpr-ListIncome.income_events[].account": 1,
             "Bkpr-ListIncome.income_events[].credit_msat": 3,
             "Bkpr-ListIncome.income_events[].currency": 5,
@@ -1094,7 +1094,7 @@
             "Connect.features": 2,
             "Connect.id": 1
         },
-        "CreateinvoicePaid_outpoint": {
+        "CreateinvoicePaidOutpoint": {
             "CreateInvoice.paid_outpoint.outnum": 2,
             "CreateInvoice.paid_outpoint.txid": 1
         },
@@ -1184,20 +1184,20 @@
             "Decode.fallbacks[].type": 2,
             "Decode.fallbacks[].warning_invoice_fallbacks_version_invalid": 1
         },
-        "DecodeInvoice_fallbacks": {
+        "DecodeInvoiceFallbacks": {
             "Decode.invoice_fallbacks[].address": 3,
             "Decode.invoice_fallbacks[].hex": 2,
             "Decode.invoice_fallbacks[].version": 1
         },
-        "DecodeInvoice_pathsPath": {
+        "DecodeInvoicePathsPath": {
             "Decode.invoice_paths[].path[].blinded_node_id": 1,
             "Decode.invoice_paths[].path[].encrypted_recipient_data": 2
         },
-        "DecodeInvreq_bip_353_name": {
+        "DecodeInvreqBip353Name": {
             "Decode.invreq_bip_353_name.domain": 2,
             "Decode.invreq_bip_353_name.name": 1
         },
-        "DecodeInvreq_paths": {
+        "DecodeInvreqPaths": {
             "Decode.invreq_paths[].blinding": 2,
             "Decode.invreq_paths[].first_node_id": 3,
             "Decode.invreq_paths[].first_path_key": 6,
@@ -1205,11 +1205,11 @@
             "Decode.invreq_paths[].first_scid_dir": 1,
             "Decode.invreq_paths[].path[]": 5
         },
-        "DecodeInvreq_pathsPath": {
+        "DecodeInvreqPathsPath": {
             "Decode.invreq_paths[].path[].blinded_node_id": 1,
             "Decode.invreq_paths[].path[].encrypted_recipient_data": 2
         },
-        "DecodeOffer_paths": {
+        "DecodeOfferPaths": {
             "Decode.offer_paths[].blinding": 2,
             "Decode.offer_paths[].first_node_id": 1,
             "Decode.offer_paths[].first_path_key": 6,
@@ -1217,7 +1217,7 @@
             "Decode.offer_paths[].first_scid_dir": 4,
             "Decode.offer_paths[].path[]": 3
         },
-        "DecodeOffer_recurrencePaywindow": {
+        "DecodeOfferRecurrencePaywindow": {
             "Decode.offer_recurrence.paywindow.proportional_amount": 3,
             "Decode.offer_recurrence.paywindow.seconds_after": 2,
             "Decode.offer_recurrence.paywindow.seconds_before": 1
@@ -1497,7 +1497,7 @@
             "ExposeSecret.codex32": 2,
             "ExposeSecret.identifier": 1
         },
-        "FeeratesOnchain_fee_estimates": {
+        "FeeratesOnchainFeeEstimates": {
             "Feerates.onchain_fee_estimates.htlc_success_satoshis": 5,
             "Feerates.onchain_fee_estimates.htlc_timeout_satoshis": 4,
             "Feerates.onchain_fee_estimates.mutual_close_satoshis": 2,
@@ -1557,7 +1557,7 @@
             "FetchInvoice.changes.vendor": 4,
             "FetchInvoice.changes.vendor_removed": 3
         },
-        "FetchinvoiceNext_period": {
+        "FetchinvoiceNextPeriod": {
             "FetchInvoice.next_period.counter": 1,
             "FetchInvoice.next_period.endtime": 3,
             "FetchInvoice.next_period.paywindow_end": 5,
@@ -1581,9 +1581,23 @@
             "FetchInvoice.invoice": 1,
             "FetchInvoice.next_period": 3
         },
-        "FundchannelChannel_type": {
+        "FundchannelCancelRequest": {
+            "FundChannel_Cancel.id": 1
+        },
+        "FundchannelCancelResponse": {
+            "FundChannel_Cancel.cancelled": 1
+        },
+        "FundchannelChannelType": {
             "FundChannel.channel_type.bits[]": 1,
             "FundChannel.channel_type.names[]": 2
+        },
+        "FundchannelCompleteRequest": {
+            "FundChannel_Complete.id": 1,
+            "FundChannel_Complete.psbt": 2
+        },
+        "FundchannelCompleteResponse": {
+            "FundChannel_Complete.channel_id": 1,
+            "FundChannel_Complete.commitments_secured": 2
         },
         "FundchannelRequest": {
             "FundChannel.amount": 1,
@@ -1610,25 +1624,11 @@
             "FundChannel.tx": 1,
             "FundChannel.txid": 2
         },
-        "Fundchannel_cancelRequest": {
-            "FundChannel_Cancel.id": 1
-        },
-        "Fundchannel_cancelResponse": {
-            "FundChannel_Cancel.cancelled": 1
-        },
-        "Fundchannel_completeRequest": {
-            "FundChannel_Complete.id": 1,
-            "FundChannel_Complete.psbt": 2
-        },
-        "Fundchannel_completeResponse": {
-            "FundChannel_Complete.channel_id": 1,
-            "FundChannel_Complete.commitments_secured": 2
-        },
-        "Fundchannel_startChannel_type": {
+        "FundchannelStartChannelType": {
             "FundChannel_Start.channel_type.bits[]": 1,
             "FundChannel_Start.channel_type.names[]": 2
         },
-        "Fundchannel_startRequest": {
+        "FundchannelStartRequest": {
             "FundChannel_Start.amount": 2,
             "FundChannel_Start.announce": 4,
             "FundChannel_Start.channel_type[]": 9,
@@ -1639,7 +1639,7 @@
             "FundChannel_Start.push_msat": 6,
             "FundChannel_Start.reserve": 8
         },
-        "Fundchannel_startResponse": {
+        "FundchannelStartResponse": {
             "FundChannel_Start.channel_type": 3,
             "FundChannel_Start.close_to": 4,
             "FundChannel_Start.funding_address": 1,
@@ -1726,7 +1726,7 @@
             "Getinfo.binding[].subtype": 5,
             "Getinfo.binding[].type": 1
         },
-        "GetinfoOur_features": {
+        "GetinfoOurFeatures": {
             "Getinfo.our_features.channel": 3,
             "Getinfo.our_features.init": 1,
             "Getinfo.our_features.invoice": 4,
@@ -2565,7 +2565,7 @@
             "ListInvoices.invoices[].status": 4,
             "ListInvoices.invoices[].updated_index": 17
         },
-        "ListinvoicesInvoicesPaid_outpoint": {
+        "ListinvoicesInvoicesPaidOutpoint": {
             "ListInvoices.invoices[].paid_outpoint.outnum": 2,
             "ListInvoices.invoices[].paid_outpoint.txid": 1
         },
@@ -2595,7 +2595,7 @@
             "ListNodes.nodes[].addresses[].port": 2,
             "ListNodes.nodes[].addresses[].type": 1
         },
-        "ListnodesNodesOption_will_fund": {
+        "ListnodesNodesOptionWillFund": {
             "ListNodes.nodes[].option_will_fund.channel_fee_max_base_msat": 4,
             "ListNodes.nodes[].option_will_fund.channel_fee_max_proportional_thousandths": 5,
             "ListNodes.nodes[].option_will_fund.compact_lease": 6,
@@ -2968,23 +2968,16 @@
         "MakesecretResponse": {
             "MakeSecret.secret": 1
         },
-        "MultifundchannelChannel_ids": {
+        "MultifundchannelChannelIds": {
             "MultiFundChannel.channel_ids[].channel_id": 3,
             "MultiFundChannel.channel_ids[].channel_type": 4,
             "MultiFundChannel.channel_ids[].close_to": 5,
             "MultiFundChannel.channel_ids[].id": 1,
-            "MultiFundChannel.channel_ids[].outnum": 2,
-            "multifundchannel.channel_ids[].channel_id": 3,
-            "multifundchannel.channel_ids[].channel_type": 4,
-            "multifundchannel.channel_ids[].close_to": 5,
-            "multifundchannel.channel_ids[].id": 1,
-            "multifundchannel.channel_ids[].outnum": 2
+            "MultiFundChannel.channel_ids[].outnum": 2
         },
-        "MultifundchannelChannel_idsChannel_type": {
+        "MultifundchannelChannelIdsChannelType": {
             "MultiFundChannel.channel_ids[].channel_type.bits[]": 1,
-            "MultiFundChannel.channel_ids[].channel_type.names[]": 2,
-            "multifundchannel.channel_ids[].channel_type.bits[]": 1,
-            "multifundchannel.channel_ids[].channel_type.names[]": 2
+            "MultiFundChannel.channel_ids[].channel_type.names[]": 2
         },
         "MultifundchannelDestinations": {
             "MultiFundChannel.destinations[].amount": 2,
@@ -3098,25 +3091,25 @@
             "Offer.single_use": 3,
             "Offer.used": 5
         },
-        "Openchannel_abortRequest": {
+        "OpenchannelAbortRequest": {
             "OpenChannel_Abort.channel_id": 1
         },
-        "Openchannel_abortResponse": {
+        "OpenchannelAbortResponse": {
             "OpenChannel_Abort.channel_canceled": 2,
             "OpenChannel_Abort.channel_id": 1,
             "OpenChannel_Abort.reason": 3
         },
-        "Openchannel_bumpChannel_type": {
+        "OpenchannelBumpChannelType": {
             "OpenChannel_Bump.channel_type.bits[]": 1,
             "OpenChannel_Bump.channel_type.names[]": 2
         },
-        "Openchannel_bumpRequest": {
+        "OpenchannelBumpRequest": {
             "OpenChannel_Bump.amount": 4,
             "OpenChannel_Bump.channel_id": 1,
             "OpenChannel_Bump.funding_feerate": 3,
             "OpenChannel_Bump.initialpsbt": 2
         },
-        "Openchannel_bumpResponse": {
+        "OpenchannelBumpResponse": {
             "OpenChannel_Bump.channel_id": 1,
             "OpenChannel_Bump.channel_type": 2,
             "OpenChannel_Bump.commitments_secured": 4,
@@ -3124,11 +3117,11 @@
             "OpenChannel_Bump.psbt": 3,
             "OpenChannel_Bump.requires_confirmed_inputs": 6
         },
-        "Openchannel_initChannel_type": {
+        "OpenchannelInitChannelType": {
             "OpenChannel_Init.channel_type.bits[]": 1,
             "OpenChannel_Init.channel_type.names[]": 2
         },
-        "Openchannel_initRequest": {
+        "OpenchannelInitRequest": {
             "OpenChannel_Init.amount": 10,
             "OpenChannel_Init.announce": 5,
             "OpenChannel_Init.channel_type[]": 9,
@@ -3140,7 +3133,7 @@
             "OpenChannel_Init.initialpsbt": 2,
             "OpenChannel_Init.request_amt": 7
         },
-        "Openchannel_initResponse": {
+        "OpenchannelInitResponse": {
             "OpenChannel_Init.channel_id": 1,
             "OpenChannel_Init.channel_type": 3,
             "OpenChannel_Init.commitments_secured": 4,
@@ -3148,24 +3141,24 @@
             "OpenChannel_Init.psbt": 2,
             "OpenChannel_Init.requires_confirmed_inputs": 6
         },
-        "Openchannel_signedRequest": {
+        "OpenchannelSignedRequest": {
             "OpenChannel_Signed.channel_id": 1,
             "OpenChannel_Signed.signed_psbt": 2
         },
-        "Openchannel_signedResponse": {
+        "OpenchannelSignedResponse": {
             "OpenChannel_Signed.channel_id": 1,
             "OpenChannel_Signed.tx": 2,
             "OpenChannel_Signed.txid": 3
         },
-        "Openchannel_updateChannel_type": {
+        "OpenchannelUpdateChannelType": {
             "OpenChannel_Update.channel_type.bits[]": 1,
             "OpenChannel_Update.channel_type.names[]": 2
         },
-        "Openchannel_updateRequest": {
+        "OpenchannelUpdateRequest": {
             "OpenChannel_Update.channel_id": 1,
             "OpenChannel_Update.psbt": 2
         },
-        "Openchannel_updateResponse": {
+        "OpenchannelUpdateResponse": {
             "OpenChannel_Update.channel_id": 1,
             "OpenChannel_Update.channel_type": 2,
             "OpenChannel_Update.close_to": 6,
@@ -3334,7 +3327,7 @@
             "SendInvoice.status": 4,
             "SendInvoice.updated_index": 9
         },
-        "SendonionFirst_hop": {
+        "SendonionFirstHop": {
             "SendOnion.first_hop.amount_msat": 2,
             "SendOnion.first_hop.delay": 3,
             "SendOnion.first_hop.id": 1
@@ -3527,32 +3520,32 @@
         "SignpsbtResponse": {
             "SignPsbt.signed_psbt": 1
         },
-        "Splice_initRequest": {
+        "SpliceInitRequest": {
             "Splice_Init.channel_id": 1,
             "Splice_Init.feerate_per_kw": 4,
             "Splice_Init.force_feerate": 5,
             "Splice_Init.initialpsbt": 3,
             "Splice_Init.relative_amount": 2
         },
-        "Splice_initResponse": {
+        "SpliceInitResponse": {
             "Splice_Init.psbt": 1
         },
-        "Splice_signedRequest": {
+        "SpliceSignedRequest": {
             "Splice_Signed.channel_id": 1,
             "Splice_Signed.psbt": 2,
             "Splice_Signed.sign_first": 3
         },
-        "Splice_signedResponse": {
+        "SpliceSignedResponse": {
             "Splice_Signed.outnum": 3,
             "Splice_Signed.psbt": 4,
             "Splice_Signed.tx": 1,
             "Splice_Signed.txid": 2
         },
-        "Splice_updateRequest": {
+        "SpliceUpdateRequest": {
             "Splice_Update.channel_id": 1,
             "Splice_Update.psbt": 2
         },
-        "Splice_updateResponse": {
+        "SpliceUpdateResponse": {
             "Splice_Update.commitments_secured": 2,
             "Splice_Update.psbt": 1,
             "Splice_Update.signatures_secured": 3
@@ -3667,7 +3660,7 @@
             "Wait.subsystem": 1,
             "Wait.updated": 3
         },
-        "WaitanyinvoicePaid_outpoint": {
+        "WaitanyinvoicePaidOutpoint": {
             "WaitAnyInvoice.paid_outpoint.outnum": 2,
             "WaitAnyInvoice.paid_outpoint.txid": 1
         },
@@ -3699,7 +3692,7 @@
         "WaitblockheightResponse": {
             "WaitBlockHeight.blockheight": 1
         },
-        "WaitinvoicePaid_outpoint": {
+        "WaitinvoicePaidOutpoint": {
             "WaitInvoice.paid_outpoint.outnum": 2,
             "WaitInvoice.paid_outpoint.txid": 1
         },

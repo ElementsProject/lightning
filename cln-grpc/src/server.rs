@@ -2007,26 +2007,26 @@ impl Node for Server
         request: tonic::Request<pb::FundchannelCancelRequest>,
     ) -> Result<tonic::Response<pb::FundchannelCancelResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::Fundchannel_cancelRequest = req.into();
+        let req: requests::FundchannelCancelRequest = req.into();
         debug!("Client asked for fund_channel_cancel");
         trace!("fund_channel_cancel request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
             .await
             .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
-        let result = rpc.call(Request::FundChannel_Cancel(req))
+        let result = rpc.call(Request::FundChannelCancel(req))
             .await
             .map_err(|e| Status::new(
                Code::Unknown,
-               format!("Error calling method FundChannel_Cancel: {:?}", e)))?;
+               format!("Error calling method FundChannelCancel: {:?}", e)))?;
         match result {
-            Response::FundChannel_Cancel(r) => {
+            Response::FundChannelCancel(r) => {
                trace!("fund_channel_cancel response: {:?}", r);
                Ok(tonic::Response::new(r.into()))
             },
             r => Err(Status::new(
                 Code::Internal,
                 format!(
-                    "Unexpected result {:?} to method call FundChannel_Cancel",
+                    "Unexpected result {:?} to method call FundChannelCancel",
                     r
                 )
             )),
@@ -2039,26 +2039,26 @@ impl Node for Server
         request: tonic::Request<pb::FundchannelCompleteRequest>,
     ) -> Result<tonic::Response<pb::FundchannelCompleteResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::Fundchannel_completeRequest = req.into();
+        let req: requests::FundchannelCompleteRequest = req.into();
         debug!("Client asked for fund_channel_complete");
         trace!("fund_channel_complete request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
             .await
             .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
-        let result = rpc.call(Request::FundChannel_Complete(req))
+        let result = rpc.call(Request::FundChannelComplete(req))
             .await
             .map_err(|e| Status::new(
                Code::Unknown,
-               format!("Error calling method FundChannel_Complete: {:?}", e)))?;
+               format!("Error calling method FundChannelComplete: {:?}", e)))?;
         match result {
-            Response::FundChannel_Complete(r) => {
+            Response::FundChannelComplete(r) => {
                trace!("fund_channel_complete response: {:?}", r);
                Ok(tonic::Response::new(r.into()))
             },
             r => Err(Status::new(
                 Code::Internal,
                 format!(
-                    "Unexpected result {:?} to method call FundChannel_Complete",
+                    "Unexpected result {:?} to method call FundChannelComplete",
                     r
                 )
             )),
@@ -2103,26 +2103,26 @@ impl Node for Server
         request: tonic::Request<pb::FundchannelStartRequest>,
     ) -> Result<tonic::Response<pb::FundchannelStartResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::Fundchannel_startRequest = req.into();
+        let req: requests::FundchannelStartRequest = req.into();
         debug!("Client asked for fund_channel_start");
         trace!("fund_channel_start request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
             .await
             .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
-        let result = rpc.call(Request::FundChannel_Start(req))
+        let result = rpc.call(Request::FundChannelStart(req))
             .await
             .map_err(|e| Status::new(
                Code::Unknown,
-               format!("Error calling method FundChannel_Start: {:?}", e)))?;
+               format!("Error calling method FundChannelStart: {:?}", e)))?;
         match result {
-            Response::FundChannel_Start(r) => {
+            Response::FundChannelStart(r) => {
                trace!("fund_channel_start response: {:?}", r);
                Ok(tonic::Response::new(r.into()))
             },
             r => Err(Status::new(
                 Code::Internal,
                 format!(
-                    "Unexpected result {:?} to method call FundChannel_Start",
+                    "Unexpected result {:?} to method call FundChannelStart",
                     r
                 )
             )),
@@ -2487,26 +2487,26 @@ impl Node for Server
         request: tonic::Request<pb::OpenchannelAbortRequest>,
     ) -> Result<tonic::Response<pb::OpenchannelAbortResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::Openchannel_abortRequest = req.into();
+        let req: requests::OpenchannelAbortRequest = req.into();
         debug!("Client asked for open_channel_abort");
         trace!("open_channel_abort request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
             .await
             .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
-        let result = rpc.call(Request::OpenChannel_Abort(req))
+        let result = rpc.call(Request::OpenChannelAbort(req))
             .await
             .map_err(|e| Status::new(
                Code::Unknown,
-               format!("Error calling method OpenChannel_Abort: {:?}", e)))?;
+               format!("Error calling method OpenChannelAbort: {:?}", e)))?;
         match result {
-            Response::OpenChannel_Abort(r) => {
+            Response::OpenChannelAbort(r) => {
                trace!("open_channel_abort response: {:?}", r);
                Ok(tonic::Response::new(r.into()))
             },
             r => Err(Status::new(
                 Code::Internal,
                 format!(
-                    "Unexpected result {:?} to method call OpenChannel_Abort",
+                    "Unexpected result {:?} to method call OpenChannelAbort",
                     r
                 )
             )),
@@ -2519,26 +2519,26 @@ impl Node for Server
         request: tonic::Request<pb::OpenchannelBumpRequest>,
     ) -> Result<tonic::Response<pb::OpenchannelBumpResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::Openchannel_bumpRequest = req.into();
+        let req: requests::OpenchannelBumpRequest = req.into();
         debug!("Client asked for open_channel_bump");
         trace!("open_channel_bump request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
             .await
             .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
-        let result = rpc.call(Request::OpenChannel_Bump(req))
+        let result = rpc.call(Request::OpenChannelBump(req))
             .await
             .map_err(|e| Status::new(
                Code::Unknown,
-               format!("Error calling method OpenChannel_Bump: {:?}", e)))?;
+               format!("Error calling method OpenChannelBump: {:?}", e)))?;
         match result {
-            Response::OpenChannel_Bump(r) => {
+            Response::OpenChannelBump(r) => {
                trace!("open_channel_bump response: {:?}", r);
                Ok(tonic::Response::new(r.into()))
             },
             r => Err(Status::new(
                 Code::Internal,
                 format!(
-                    "Unexpected result {:?} to method call OpenChannel_Bump",
+                    "Unexpected result {:?} to method call OpenChannelBump",
                     r
                 )
             )),
@@ -2551,26 +2551,26 @@ impl Node for Server
         request: tonic::Request<pb::OpenchannelInitRequest>,
     ) -> Result<tonic::Response<pb::OpenchannelInitResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::Openchannel_initRequest = req.into();
+        let req: requests::OpenchannelInitRequest = req.into();
         debug!("Client asked for open_channel_init");
         trace!("open_channel_init request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
             .await
             .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
-        let result = rpc.call(Request::OpenChannel_Init(req))
+        let result = rpc.call(Request::OpenChannelInit(req))
             .await
             .map_err(|e| Status::new(
                Code::Unknown,
-               format!("Error calling method OpenChannel_Init: {:?}", e)))?;
+               format!("Error calling method OpenChannelInit: {:?}", e)))?;
         match result {
-            Response::OpenChannel_Init(r) => {
+            Response::OpenChannelInit(r) => {
                trace!("open_channel_init response: {:?}", r);
                Ok(tonic::Response::new(r.into()))
             },
             r => Err(Status::new(
                 Code::Internal,
                 format!(
-                    "Unexpected result {:?} to method call OpenChannel_Init",
+                    "Unexpected result {:?} to method call OpenChannelInit",
                     r
                 )
             )),
@@ -2583,26 +2583,26 @@ impl Node for Server
         request: tonic::Request<pb::OpenchannelSignedRequest>,
     ) -> Result<tonic::Response<pb::OpenchannelSignedResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::Openchannel_signedRequest = req.into();
+        let req: requests::OpenchannelSignedRequest = req.into();
         debug!("Client asked for open_channel_signed");
         trace!("open_channel_signed request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
             .await
             .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
-        let result = rpc.call(Request::OpenChannel_Signed(req))
+        let result = rpc.call(Request::OpenChannelSigned(req))
             .await
             .map_err(|e| Status::new(
                Code::Unknown,
-               format!("Error calling method OpenChannel_Signed: {:?}", e)))?;
+               format!("Error calling method OpenChannelSigned: {:?}", e)))?;
         match result {
-            Response::OpenChannel_Signed(r) => {
+            Response::OpenChannelSigned(r) => {
                trace!("open_channel_signed response: {:?}", r);
                Ok(tonic::Response::new(r.into()))
             },
             r => Err(Status::new(
                 Code::Internal,
                 format!(
-                    "Unexpected result {:?} to method call OpenChannel_Signed",
+                    "Unexpected result {:?} to method call OpenChannelSigned",
                     r
                 )
             )),
@@ -2615,26 +2615,26 @@ impl Node for Server
         request: tonic::Request<pb::OpenchannelUpdateRequest>,
     ) -> Result<tonic::Response<pb::OpenchannelUpdateResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::Openchannel_updateRequest = req.into();
+        let req: requests::OpenchannelUpdateRequest = req.into();
         debug!("Client asked for open_channel_update");
         trace!("open_channel_update request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
             .await
             .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
-        let result = rpc.call(Request::OpenChannel_Update(req))
+        let result = rpc.call(Request::OpenChannelUpdate(req))
             .await
             .map_err(|e| Status::new(
                Code::Unknown,
-               format!("Error calling method OpenChannel_Update: {:?}", e)))?;
+               format!("Error calling method OpenChannelUpdate: {:?}", e)))?;
         match result {
-            Response::OpenChannel_Update(r) => {
+            Response::OpenChannelUpdate(r) => {
                trace!("open_channel_update response: {:?}", r);
                Ok(tonic::Response::new(r.into()))
             },
             r => Err(Status::new(
                 Code::Internal,
                 format!(
-                    "Unexpected result {:?} to method call OpenChannel_Update",
+                    "Unexpected result {:?} to method call OpenChannelUpdate",
                     r
                 )
             )),
@@ -3031,26 +3031,26 @@ impl Node for Server
         request: tonic::Request<pb::SpliceInitRequest>,
     ) -> Result<tonic::Response<pb::SpliceInitResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::Splice_initRequest = req.into();
+        let req: requests::SpliceInitRequest = req.into();
         debug!("Client asked for splice_init");
         trace!("splice_init request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
             .await
             .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
-        let result = rpc.call(Request::Splice_Init(req))
+        let result = rpc.call(Request::SpliceInit(req))
             .await
             .map_err(|e| Status::new(
                Code::Unknown,
-               format!("Error calling method Splice_Init: {:?}", e)))?;
+               format!("Error calling method SpliceInit: {:?}", e)))?;
         match result {
-            Response::Splice_Init(r) => {
+            Response::SpliceInit(r) => {
                trace!("splice_init response: {:?}", r);
                Ok(tonic::Response::new(r.into()))
             },
             r => Err(Status::new(
                 Code::Internal,
                 format!(
-                    "Unexpected result {:?} to method call Splice_Init",
+                    "Unexpected result {:?} to method call SpliceInit",
                     r
                 )
             )),
@@ -3063,26 +3063,26 @@ impl Node for Server
         request: tonic::Request<pb::SpliceSignedRequest>,
     ) -> Result<tonic::Response<pb::SpliceSignedResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::Splice_signedRequest = req.into();
+        let req: requests::SpliceSignedRequest = req.into();
         debug!("Client asked for splice_signed");
         trace!("splice_signed request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
             .await
             .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
-        let result = rpc.call(Request::Splice_Signed(req))
+        let result = rpc.call(Request::SpliceSigned(req))
             .await
             .map_err(|e| Status::new(
                Code::Unknown,
-               format!("Error calling method Splice_Signed: {:?}", e)))?;
+               format!("Error calling method SpliceSigned: {:?}", e)))?;
         match result {
-            Response::Splice_Signed(r) => {
+            Response::SpliceSigned(r) => {
                trace!("splice_signed response: {:?}", r);
                Ok(tonic::Response::new(r.into()))
             },
             r => Err(Status::new(
                 Code::Internal,
                 format!(
-                    "Unexpected result {:?} to method call Splice_Signed",
+                    "Unexpected result {:?} to method call SpliceSigned",
                     r
                 )
             )),
@@ -3095,26 +3095,26 @@ impl Node for Server
         request: tonic::Request<pb::SpliceUpdateRequest>,
     ) -> Result<tonic::Response<pb::SpliceUpdateResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::Splice_updateRequest = req.into();
+        let req: requests::SpliceUpdateRequest = req.into();
         debug!("Client asked for splice_update");
         trace!("splice_update request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
             .await
             .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
-        let result = rpc.call(Request::Splice_Update(req))
+        let result = rpc.call(Request::SpliceUpdate(req))
             .await
             .map_err(|e| Status::new(
                Code::Unknown,
-               format!("Error calling method Splice_Update: {:?}", e)))?;
+               format!("Error calling method SpliceUpdate: {:?}", e)))?;
         match result {
-            Response::Splice_Update(r) => {
+            Response::SpliceUpdate(r) => {
                trace!("splice_update response: {:?}", r);
                Ok(tonic::Response::new(r.into()))
             },
             r => Err(Status::new(
                 Code::Internal,
                 format!(
-                    "Unexpected result {:?} to method call Splice_Update",
+                    "Unexpected result {:?} to method call SpliceUpdate",
                     r
                 )
             )),

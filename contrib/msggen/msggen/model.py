@@ -1,12 +1,13 @@
 from typing import List, Union, Optional
 import logging
+import re
 from copy import copy
 
 logger = logging.getLogger(__name__)
 
 
 def path2type(path):
-    typename = "".join([s.capitalize() for s in path.replace("[]", "").split(".")])
+    typename = "".join([s.capitalize() for s in re.split(r'_|\.', path.replace("[]", ""))])
     return typename
 
 
@@ -18,7 +19,6 @@ class FieldName:
         name = {
             "type": "item_type"
         }.get(self.name, self.name)
-
         name = name.replace(' ', '_').replace('-', '_').replace('[]', '').replace("/", "_")
         return name
 
@@ -188,7 +188,7 @@ class Notification:
 
 class Method:
     def __init__(self, name: str, request: Field, response: Field):
-        self.name = name
+        self.name = name.replace('_', '')
         self.name_raw = name
         self.request = request
         self.response = response
