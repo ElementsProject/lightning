@@ -79,7 +79,7 @@
         "method": "delforward",
         "params": {
           "in_channel": "109x1x1",
-          "in_htlc_id": 22,
+          "in_htlc_id": 21,
           "status": "failed"
         }
       },
