@@ -83,7 +83,8 @@ static struct command_result *param_layer_names(struct command *cmd,
 		/* Must be a known layer name */
 		if (streq((*arr)[i], "auto.localchans")
 		    || streq((*arr)[i], "auto.no_mpp_support")
-		    || streq((*arr)[i], "auto.sourcefree"))
+		    || streq((*arr)[i], "auto.sourcefree")
+		    || streq((*arr)[i], "auto.ignorelocalhtlclimits"))
 			continue;
 		if (!find_layer(get_askrene(cmd->plugin), (*arr)[i])) {
 			return command_fail_badparam(cmd, name, buffer, t,
@@ -204,6 +205,39 @@ static struct layer *source_free_layer(const tal_t *ctx,
 					 NULL, NULL, NULL,
 					 &zero_base_fee, &zero_prop_fee,
 					 &zero_delay);
+	}
+	gossmap_remove_localmods(gossmap, localmods);
+
+	return layer;
+}
+
+/* If we're the payer, the HTLC min/max limits do not apply. */
+static struct layer *
+source_ignorelimits_layer(const tal_t *ctx, struct askrene *askrene,
+			  const struct node_id *source,
+			  struct gossmap_localmods *localmods)
+{
+	struct gossmap *gossmap = askrene->gossmap;
+	const struct gossmap_node *srcnode;
+	const struct amount_msat htlc_min = AMOUNT_MSAT(0),
+				 htlc_max = AMOUNT_MSAT(UINT64_MAX);
+	struct layer *layer =
+	    new_temp_layer(ctx, askrene, "auto.ignorelocalhtlclimits");
+
+	/* We apply this so we see any created channels */
+	gossmap_apply_localmods(gossmap, localmods);
+
+	/* If we're not in map, we complain later */
+	srcnode = gossmap_find_node(gossmap, source);
+
+	for (size_t i = 0; srcnode && i < srcnode->num_chans; i++) {
+		struct short_channel_id_dir scidd;
+		const struct gossmap_chan *c;
+
+		c = gossmap_nth_chan(gossmap, srcnode, i, &scidd.dir);
+		scidd.scid = gossmap_chan_scid(gossmap, c);
+		layer_add_update_channel(layer, &scidd, NULL, &htlc_min,
+					 &htlc_max, NULL, NULL, NULL);
 	}
 	gossmap_remove_localmods(gossmap, localmods);
 
@@ -398,6 +432,12 @@ static const char *get_routes(const tal_t *ctx,
 			} else if (streq(layers[i], "auto.no_mpp_support")) {
 				plugin_log(rq->plugin, LOG_DBG, "Adding auto.no_mpp_support, sorry");
 				l = remove_small_channel_layer(layers, askrene, amount, localmods);
+			} else if (streq(layers[i],
+					 "auto.ignorelocalhtlclimits")) {
+				plugin_log(rq->plugin, LOG_DBG,
+					   "Adding auto.ignorelocalhtlclimits");
+				l = source_ignorelimits_layer(
+				    layers, askrene, source, localmods);
 			} else {
 				assert(streq(layers[i], "auto.sourcefree"));
 				plugin_log(rq->plugin, LOG_DBG, "Adding auto.sourcefree");
