@@ -1,4 +1,5 @@
 #include "config.h"
+#include <ccan/tal/str/str.h>
 #include <plugins/libplugin.h>
 #include <plugins/renepay/utils.h>
 
@@ -23,6 +24,44 @@ struct rpcbatch_aux {
 					const char *, const jsmntok_t *,
 					void *);
 };
+
+struct rpcaction {
+	const char *method;
+	void *arg;
+	void (*json_cb)(struct json_stream *, void *);
+	struct command_result *(*cb)(struct command *cmd, const char *,
+				     const char *, const jsmntok_t *, void *);
+	struct command_result *(*errcb)(struct command *cmd, const char *,
+					const char *, const jsmntok_t *,
+					void *);
+};
+
+struct rpcaction *rpcaction_new_(
+    const tal_t *ctx, const char *cmdname,
+    struct command_result *(*cb)(struct command *, const char *, const char *,
+				 const jsmntok_t *, void *),
+    struct command_result *(*errcb)(struct command *, const char *,
+				    const char *, const jsmntok_t *, void *),
+    void (*json_cb)(struct json_stream *, void *), void *arg)
+{
+	struct rpcaction *action = tal(ctx, struct rpcaction);
+	action->method = tal_strdup(action, cmdname);
+	action->arg = arg;
+	action->cb = cb;
+	action->errcb = errcb;
+	action->json_cb = json_cb;
+	return action;
+}
+
+struct out_req *rpcbatch_append_action(struct rpcbatch *batch,
+				       struct rpcaction *action)
+{
+	struct out_req *req = add_to_rpcbatch_(
+	    batch, action->method, action->cb, action->errcb, action->arg);
+	if (action->json_cb)
+		action->json_cb(req->js, action->arg);
+	return req;
+}
 
 struct rpcbatch *
 rpcbatch_new_(struct command *cmd,

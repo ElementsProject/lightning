@@ -56,4 +56,40 @@ struct out_req *add_to_rpcbatch_(
 
 struct command_result *rpcbatch_done(struct rpcbatch *batch);
 
+struct rpcaction *rpcaction_new_(
+    const tal_t *ctx, const char *cmdname,
+    struct command_result *(*cb)(struct command *, const char *, const char *,
+				 const jsmntok_t *, void *),
+    struct command_result *(*errcb)(struct command *, const char *,
+				    const char *, const jsmntok_t *, void *),
+    void (*json_cb)(struct json_stream *, void *), void *arg);
+
+/* Returns a new rpcaction object. An rpcaction represents a single step an
+ * rpcbatch. It can be created before the batch and then appended.
+ *
+ * @ctx: allocator
+ * @cmdname: RPC name
+ * @cb: callback function on success
+ * @errcb: callback function on failure
+ * @jsoncb: callback function to populate the json stream
+ * @arg: callback functions argument
+ * */
+#define rpcaction_new(ctx, cmdname, cb, errcb, jsoncb, arg)                    \
+	rpcaction_new_(                                                        \
+	    (ctx), (cmdname),                                                  \
+	    typesafe_cb_preargs(struct command_result *, void *, (cb), (arg),  \
+				struct command *command, const char *method,   \
+				const char *buf, const jsmntok_t *result),     \
+	    typesafe_cb_preargs(struct command_result *, void *, (errcb),      \
+				(arg), struct command *command,                \
+				const char *method, const char *buf,           \
+				const jsmntok_t *result),                      \
+	    typesafe_cb_preargs(void, void *, (jsoncb), (arg),                 \
+				struct json_stream *),                         \
+	    (arg))
+
+/* Append an action into a batch. */
+struct out_req *rpcbatch_append_action(struct rpcbatch *batch,
+				       struct rpcaction *action);
+
 #endif /* LIGHTNING_PLUGINS_RENEPAY_UTILS_H */
