@@ -2819,16 +2819,16 @@
             "channels_apy": [
               {
                 "account": "channelid0120000120000120000120000120000120000120000120000120000",
-                "routed_out_msat": 1001000,
-                "routed_in_msat": 510092209,
+                "routed_out_msat": 1000000,
+                "routed_in_msat": 510091208,
                 "lease_fee_paid_msat": 0,
                 "lease_fee_earned_msat": 0,
                 "pushed_out_msat": 0,
                 "pushed_in_msat": 0,
                 "our_start_balance_msat": 0,
                 "channel_start_balance_msat": 1000000000,
-                "fees_out_msat": 1,
-                "fees_in_msat": 107,
+                "fees_out_msat": 0,
+                "fees_in_msat": 106,
                 "utilization_out": "30.7060%",
                 "utilization_in": "10.0027%",
                 "utilization_in_initial": "50.0081%",
@@ -2881,16 +2881,16 @@
               },
               {
                 "account": "net",
-                "routed_out_msat": 1011191102,
-                "routed_in_msat": 510092209,
+                "routed_out_msat": 1011190102,
+                "routed_in_msat": 510091208,
                 "lease_fee_paid_msat": 0,
                 "lease_fee_earned_msat": 0,
                 "pushed_out_msat": 0,
                 "pushed_in_msat": 0,
                 "our_start_balance_msat": 2000000000,
                 "channel_start_balance_msat": 3000000000,
-                "fees_out_msat": 107,
-                "fees_in_msat": 107,
+                "fees_out_msat": 106,
+                "fees_in_msat": 106,
                 "utilization_out": "33.7060%",
                 "utilization_out_initial": "53.5591%",
                 "utilization_in": "13.0027%",
@@ -11004,7 +11004,7 @@
             "method": "delforward",
             "params": {
               "in_channel": "109x1x1",
-              "in_htlc_id": 22,
+              "in_htlc_id": 21,
               "status": "failed"
             }
           },
@@ -21756,10 +21756,10 @@
           "response": {
             "forwards": [
               {
-                "created_index": 13,
-                "updated_index": 8,
+                "created_index": 12,
+                "updated_index": 7,
                 "in_channel": "109x1x1",
-                "in_htlc_id": 20,
+                "in_htlc_id": 19,
                 "out_channel": "123x1x1",
                 "out_htlc_id": 2,
                 "in_msat": 50000501,
@@ -21771,10 +21771,10 @@
                 "resolved_time": 1738500000
               },
               {
-                "created_index": 14,
-                "updated_index": 9,
+                "created_index": 13,
+                "updated_index": 8,
                 "in_channel": "109x1x1",
-                "in_htlc_id": 21,
+                "in_htlc_id": 20,
                 "out_channel": "123x1x1",
                 "out_htlc_id": 3,
                 "in_msat": 50000501,
@@ -25413,8 +25413,8 @@
                   "remote_funds_msat": 0,
                   "pushed_msat": 0
                 },
-                "to_us_msat": 390492789,
-                "min_to_us_msat": 390492789,
+                "to_us_msat": 390492790,
+                "min_to_us_msat": 390492790,
                 "max_to_us_msat": 1000000000,
                 "total_msat": 1000000000,
                 "fee_base_msat": 1,
@@ -25425,8 +25425,8 @@
                 "our_max_htlc_value_in_flight_msat": 18446744073709552000,
                 "their_reserve_msat": 10000000,
                 "our_reserve_msat": 10000000,
-                "spendable_msat": 363951707,
-                "receivable_msat": 599507211,
+                "spendable_msat": 363951708,
+                "receivable_msat": 599507210,
                 "minimum_htlc_in_msat": 0,
                 "minimum_htlc_out_msat": 0,
                 "maximum_htlc_out_msat": 990000000,
@@ -25452,18 +25452,18 @@
                 "status": [
                   "CHANNELD_NORMAL:Channel ready for use."
                 ],
-                "in_payments_offered": 2,
-                "in_offered_msat": 1001000,
-                "in_payments_fulfilled": 2,
-                "in_fulfilled_msat": 1001000,
-                "out_payments_offered": 23,
-                "out_offered_msat": 665529798,
-                "out_payments_fulfilled": 17,
-                "out_fulfilled_msat": 610508211,
+                "in_payments_offered": 1,
+                "in_offered_msat": 1000000,
+                "in_payments_fulfilled": 1,
+                "in_fulfilled_msat": 1000000,
+                "out_payments_offered": 22,
+                "out_offered_msat": 665528797,
+                "out_payments_fulfilled": 16,
+                "out_fulfilled_msat": 610507210,
                 "htlcs": [
                   {
                     "direction": "out",
-                    "id": 18,
+                    "id": 17,
                     "amount_msat": 4000082,
                     "expiry": 181,
                     "payment_hash": "paymenthashdelpay30303030303030303030303030303030303030303030303",
@@ -25545,8 +25545,8 @@
                   "remote_funds_msat": 0,
                   "pushed_msat": 0
                 },
-                "to_us_msat": 390492789,
-                "min_to_us_msat": 390492789,
+                "to_us_msat": 390492790,
+                "min_to_us_msat": 390492790,
                 "max_to_us_msat": 1000000000,
                 "total_msat": 1000000000,
                 "fee_base_msat": 1,
@@ -25557,8 +25557,8 @@
                 "our_max_htlc_value_in_flight_msat": 18446744073709552000,
                 "their_reserve_msat": 10000000,
                 "our_reserve_msat": 10000000,
-                "spendable_msat": 363951707,
-                "receivable_msat": 599507211,
+                "spendable_msat": 363951708,
+                "receivable_msat": 599507210,
                 "minimum_htlc_in_msat": 0,
                 "minimum_htlc_out_msat": 0,
                 "maximum_htlc_out_msat": 990000000,
@@ -25584,18 +25584,18 @@
                 "status": [
                   "CHANNELD_NORMAL:Channel ready for use."
                 ],
-                "in_payments_offered": 2,
-                "in_offered_msat": 1001000,
-                "in_payments_fulfilled": 2,
-                "in_fulfilled_msat": 1001000,
-                "out_payments_offered": 23,
-                "out_offered_msat": 665529798,
-                "out_payments_fulfilled": 17,
-                "out_fulfilled_msat": 610508211,
+                "in_payments_offered": 1,
+                "in_offered_msat": 1000000,
+                "in_payments_fulfilled": 1,
+                "in_fulfilled_msat": 1000000,
+                "out_payments_offered": 22,
+                "out_offered_msat": 665528797,
+                "out_payments_fulfilled": 16,
+                "out_fulfilled_msat": 610507210,
                 "htlcs": [
                   {
                     "direction": "out",
-                    "id": 18,
+                    "id": 17,
                     "amount_msat": 4000082,
                     "expiry": 181,
                     "payment_hash": "paymenthashdelpay30303030303030303030303030303030303030303030303",
@@ -34385,7 +34385,7 @@
             "rows": [
               [
                 "nodeid020202020202020202020202020202020202020202020202020202020202",
-                490493791,
+                490493792,
                 1000000000,
                 "CHANNELD_NORMAL:Channel ready for use."
               ]
@@ -34406,7 +34406,7 @@
           "response": {
             "rows": [
               [
-                10
+                9
               ]
             ]
           }
@@ -36990,7 +36990,7 @@
           "response": {
             "payment_preimage": "paymentpreimgxp2020202020202020202020202020202020202020202020202",
             "amount_msat": 1000,
-            "amount_sent_msat": 1001,
+            "amount_sent_msat": 1000,
             "failed_parts": 0,
             "successful_parts": 1
           }
