@@ -12,7 +12,7 @@ use std::string::ToString;
 pub use bitcoin::hashes::sha256::Hash as Sha256;
 pub use bitcoin::secp256k1::PublicKey;
 
-#[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub enum ChannelState {
     OPENINGD = 0,
@@ -31,7 +31,7 @@ pub enum ChannelState {
     DUALOPEND_OPEN_COMMIT_READY = 13,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub enum HtlcState {
     SENT_ADD_HTLC = 0,
@@ -402,7 +402,7 @@ impl<'de> Deserialize<'de> for Outpoint {
     }
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ChannelSide {
     LOCAL,

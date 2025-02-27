@@ -48,8 +48,7 @@ typemap = {
     "integer": "i64",
 }
 
-header = f"""#![allow(non_camel_case_types)]
-//
+header = f"""
 // This file was automatically generated using the following command:
 //
 // ```bash
@@ -98,7 +97,7 @@ def gen_enum(e, meta):
 
     if e.deprecated:
         decl += "#[deprecated]\n"
-    decl += f"#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]\npub enum {e.typename} {{\n"
+    decl += f"#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]\n#[allow(non_camel_case_types)]\npub enum {e.typename} {{\n"
 
     m = meta["grpc-field-map"]
     m2 = meta["grpc-enum-map"]
@@ -395,7 +394,7 @@ class RustGenerator(IGenerator):
         )
 
         for method in service.methods:
-            if "-" in method.name_raw:
+            if "-" in method.name_raw or "_" in method.name_raw:
                 self.write(
                     f'#[serde(rename = "{method.name_raw.lower()}")]\n', numindent=1
                 )
@@ -415,7 +414,7 @@ class RustGenerator(IGenerator):
         )
 
         for method in service.methods:
-            if "-" in method.name_raw:
+            if "-" in method.name_raw or "_" in method.name_raw:
                 self.write(
                     f'#[serde(rename = "{method.name_raw.lower()}")]\n', numindent=1
                 )

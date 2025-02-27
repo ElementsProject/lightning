@@ -68,10 +68,10 @@ service Node {
 	rpc Disconnect(DisconnectRequest) returns (DisconnectResponse) {}
 	rpc Feerates(FeeratesRequest) returns (FeeratesResponse) {}
 	rpc FetchInvoice(FetchinvoiceRequest) returns (FetchinvoiceResponse) {}
-	rpc FundChannel_Cancel(Fundchannel_cancelRequest) returns (Fundchannel_cancelResponse) {}
-	rpc FundChannel_Complete(Fundchannel_completeRequest) returns (Fundchannel_completeResponse) {}
+	rpc FundChannelCancel(FundchannelCancelRequest) returns (FundchannelCancelResponse) {}
+	rpc FundChannelComplete(FundchannelCompleteRequest) returns (FundchannelCompleteResponse) {}
 	rpc FundChannel(FundchannelRequest) returns (FundchannelResponse) {}
-	rpc FundChannel_Start(Fundchannel_startRequest) returns (Fundchannel_startResponse) {}
+	rpc FundChannelStart(FundchannelStartRequest) returns (FundchannelStartResponse) {}
 	rpc GetLog(GetlogRequest) returns (GetlogResponse) {}
 	rpc FunderUpdate(FunderupdateRequest) returns (FunderupdateResponse) {}
 	rpc GetRoute(GetrouteRequest) returns (GetrouteResponse) {}
@@ -83,11 +83,11 @@ service Node {
 	rpc MultiFundChannel(MultifundchannelRequest) returns (MultifundchannelResponse) {}
 	rpc MultiWithdraw(MultiwithdrawRequest) returns (MultiwithdrawResponse) {}
 	rpc Offer(OfferRequest) returns (OfferResponse) {}
-	rpc OpenChannel_Abort(Openchannel_abortRequest) returns (Openchannel_abortResponse) {}
-	rpc OpenChannel_Bump(Openchannel_bumpRequest) returns (Openchannel_bumpResponse) {}
-	rpc OpenChannel_Init(Openchannel_initRequest) returns (Openchannel_initResponse) {}
-	rpc OpenChannel_Signed(Openchannel_signedRequest) returns (Openchannel_signedResponse) {}
-	rpc OpenChannel_Update(Openchannel_updateRequest) returns (Openchannel_updateResponse) {}
+	rpc OpenChannelAbort(OpenchannelAbortRequest) returns (OpenchannelAbortResponse) {}
+	rpc OpenChannelBump(OpenchannelBumpRequest) returns (OpenchannelBumpResponse) {}
+	rpc OpenChannelInit(OpenchannelInitRequest) returns (OpenchannelInitResponse) {}
+	rpc OpenChannelSigned(OpenchannelSignedRequest) returns (OpenchannelSignedResponse) {}
+	rpc OpenChannelUpdate(OpenchannelUpdateRequest) returns (OpenchannelUpdateResponse) {}
 	rpc Ping(PingRequest) returns (PingResponse) {}
 	rpc Plugin(PluginRequest) returns (PluginResponse) {}
 	rpc RenePayStatus(RenepaystatusRequest) returns (RenepaystatusResponse) {}
@@ -100,9 +100,9 @@ service Node {
 	rpc SetPsbtVersion(SetpsbtversionRequest) returns (SetpsbtversionResponse) {}
 	rpc SignInvoice(SigninvoiceRequest) returns (SigninvoiceResponse) {}
 	rpc SignMessage(SignmessageRequest) returns (SignmessageResponse) {}
-	rpc Splice_Init(Splice_initRequest) returns (Splice_initResponse) {}
-	rpc Splice_Signed(Splice_signedRequest) returns (Splice_signedResponse) {}
-	rpc Splice_Update(Splice_updateRequest) returns (Splice_updateResponse) {}
+	rpc SpliceInit(SpliceInitRequest) returns (SpliceInitResponse) {}
+	rpc SpliceSigned(SpliceSignedRequest) returns (SpliceSignedResponse) {}
+	rpc SpliceUpdate(SpliceUpdateRequest) returns (SpliceUpdateResponse) {}
 	rpc DevSplice(DevspliceRequest) returns (DevspliceResponse) {}
 	rpc UnreserveInputs(UnreserveinputsRequest) returns (UnreserveinputsResponse) {}
 	rpc UpgradeWallet(UpgradewalletRequest) returns (UpgradewalletResponse) {}
@@ -164,7 +164,7 @@ message GetinfoResponse {
 	uint32 num_inactive_channels = 7;
 	string version = 8;
 	string lightning_dir = 9;
-	optional GetinfoOur_features our_features = 10;
+	optional GetinfoOurFeatures our_features = 10;
 	uint32 blockheight = 11;
 	string network = 12;
 	Amount fees_collected_msat = 13;
@@ -174,7 +174,7 @@ message GetinfoResponse {
 	optional string warning_lightningd_sync = 17;
 }
 
-message GetinfoOur_features {
+message GetinfoOurFeatures {
 	bytes init = 1;
 	bytes node = 2;
 	bytes channel = 3;
@@ -593,10 +593,10 @@ message CreateinvoiceResponse {
 	optional bytes local_offer_id = 13;
 	optional string invreq_payer_note = 15;
 	optional uint64 created_index = 16;
-	optional CreateinvoicePaid_outpoint paid_outpoint = 17;
+	optional CreateinvoicePaidOutpoint paid_outpoint = 17;
 }
 
-message CreateinvoicePaid_outpoint {
+message CreateinvoicePaidOutpoint {
 	bytes txid = 1;
 	uint32 outnum = 2;
 }
@@ -891,17 +891,17 @@ message ListinvoicesInvoices {
 	optional string invreq_payer_note = 15;
 	optional uint64 created_index = 16;
 	optional uint64 updated_index = 17;
-	optional ListinvoicesInvoicesPaid_outpoint paid_outpoint = 18;
+	optional ListinvoicesInvoicesPaidOutpoint paid_outpoint = 18;
 }
 
-message ListinvoicesInvoicesPaid_outpoint {
+message ListinvoicesInvoicesPaidOutpoint {
 	bytes txid = 1;
 	uint32 outnum = 2;
 }
 
 message SendonionRequest {
 	bytes onion = 1;
-	SendonionFirst_hop first_hop = 2;
+	SendonionFirstHop first_hop = 2;
 	bytes payment_hash = 3;
 	optional string label = 4;
 	repeated bytes shared_secrets = 5;
@@ -937,7 +937,7 @@ message SendonionResponse {
 	optional uint64 updated_index = 15;
 }
 
-message SendonionFirst_hop {
+message SendonionFirstHop {
 	bytes id = 1;
 	Amount amount_msat = 2;
 	uint32 delay = 3;
@@ -1082,10 +1082,10 @@ message ListnodesNodes {
 	optional bytes color = 4;
 	optional bytes features = 5;
 	repeated ListnodesNodesAddresses addresses = 6;
-	optional ListnodesNodesOption_will_fund option_will_fund = 7;
+	optional ListnodesNodesOptionWillFund option_will_fund = 7;
 }
 
-message ListnodesNodesOption_will_fund {
+message ListnodesNodesOptionWillFund {
 	Amount lease_fee_base_msat = 1;
 	uint32 lease_fee_basis = 2;
 	uint32 funding_weight = 3;
@@ -1133,10 +1133,10 @@ message WaitanyinvoiceResponse {
 	optional bytes payment_preimage = 12;
 	optional uint64 created_index = 13;
 	optional uint64 updated_index = 14;
-	optional WaitanyinvoicePaid_outpoint paid_outpoint = 15;
+	optional WaitanyinvoicePaidOutpoint paid_outpoint = 15;
 }
 
-message WaitanyinvoicePaid_outpoint {
+message WaitanyinvoicePaidOutpoint {
 	bytes txid = 1;
 	uint32 outnum = 2;
 }
@@ -1165,10 +1165,10 @@ message WaitinvoiceResponse {
 	optional bytes payment_preimage = 12;
 	optional uint64 created_index = 13;
 	optional uint64 updated_index = 14;
-	optional WaitinvoicePaid_outpoint paid_outpoint = 15;
+	optional WaitinvoicePaidOutpoint paid_outpoint = 15;
 }
 
-message WaitinvoicePaid_outpoint {
+message WaitinvoicePaidOutpoint {
 	bytes txid = 1;
 	uint32 outnum = 2;
 }
@@ -1517,7 +1517,7 @@ message ListclosedchannelsResponse {
 
 message ListclosedchannelsClosedchannels {
 	// ListClosedChannels.closedchannels[].close_cause
-	enum ListclosedchannelsClosedchannelsClose_cause {
+	enum ListclosedchannelsClosedchannelsCloseCause {
 		UNKNOWN = 0;
 		LOCAL = 1;
 		USER = 2;
@@ -1547,7 +1547,7 @@ message ListclosedchannelsClosedchannels {
 	Amount max_to_us_msat = 21;
 	optional bytes last_commitment_txid = 22;
 	optional Amount last_commitment_fee_msat = 23;
-	ListclosedchannelsClosedchannelsClose_cause close_cause = 24;
+	ListclosedchannelsClosedchannelsCloseCause close_cause = 24;
 	optional uint64 last_stable_connection = 25;
 }
 
@@ -1628,7 +1628,7 @@ message DecodeResponse {
 	optional bytes offer_features = 13;
 	optional uint64 offer_absolute_expiry = 14;
 	optional uint64 offer_quantity_max = 15;
-	repeated DecodeOffer_paths offer_paths = 16;
+	repeated DecodeOfferPaths offer_paths = 16;
 	optional bytes offer_node_id = 17;
 	optional string warning_missing_offer_node_id = 20;
 	optional string warning_invalid_offer_description = 21;
@@ -1653,7 +1653,7 @@ message DecodeResponse {
 	optional uint32 invoice_relative_expiry = 42;
 	optional bytes invoice_payment_hash = 43;
 	optional Amount invoice_amount_msat = 44;
-	repeated DecodeInvoice_fallbacks invoice_fallbacks = 45;
+	repeated DecodeInvoiceFallbacks invoice_fallbacks = 45;
 	optional bytes invoice_features = 46;
 	optional bytes invoice_node_id = 47;
 	optional uint64 invoice_recurrence_basetime = 48;
@@ -1691,14 +1691,14 @@ message DecodeResponse {
 	optional DecodeRoutehintList routes = 82;
 	optional bytes offer_issuer_id = 83;
 	optional string warning_missing_offer_issuer_id = 84;
-	repeated DecodeInvreq_paths invreq_paths = 85;
+	repeated DecodeInvreqPaths invreq_paths = 85;
 	optional string warning_empty_blinded_path = 86;
-	optional DecodeInvreq_bip_353_name invreq_bip_353_name = 87;
+	optional DecodeInvreqBip353Name invreq_bip_353_name = 87;
 	optional string warning_invreq_bip_353_name_name_invalid = 88;
 	optional string warning_invreq_bip_353_name_domain_invalid = 89;
 }
 
-message DecodeOffer_paths {
+message DecodeOfferPaths {
 	optional bytes first_node_id = 1;
 	optional bytes blinding = 2;
 	optional uint32 first_scid_dir = 4;
@@ -1706,37 +1706,37 @@ message DecodeOffer_paths {
 	optional bytes first_path_key = 6;
 }
 
-message DecodeOffer_recurrencePaywindow {
+message DecodeOfferRecurrencePaywindow {
 	uint32 seconds_before = 1;
 	uint32 seconds_after = 2;
 	optional bool proportional_amount = 3;
 }
 
-message DecodeInvreq_paths {
+message DecodeInvreqPaths {
 	optional uint32 first_scid_dir = 1;
 	optional bytes blinding = 2;
 	optional bytes first_node_id = 3;
 	optional string first_scid = 4;
-	repeated DecodeInvreq_pathsPath path = 5;
+	repeated DecodeInvreqPathsPath path = 5;
 	optional bytes first_path_key = 6;
 }
 
-message DecodeInvreq_pathsPath {
+message DecodeInvreqPathsPath {
 	bytes blinded_node_id = 1;
 	bytes encrypted_recipient_data = 2;
 }
 
-message DecodeInvreq_bip_353_name {
+message DecodeInvreqBip353Name {
 	optional string name = 1;
 	optional string domain = 2;
 }
 
-message DecodeInvoice_pathsPath {
+message DecodeInvoicePathsPath {
 	bytes blinded_node_id = 1;
 	bytes encrypted_recipient_data = 2;
 }
 
-message DecodeInvoice_fallbacks {
+message DecodeInvoiceFallbacks {
 	uint32 version = 1;
 	bytes hex = 2;
 	optional string address = 3;
@@ -1871,7 +1871,7 @@ message FeeratesResponse {
 	optional string warning_missing_feerates = 1;
 	optional FeeratesPerkb perkb = 2;
 	optional FeeratesPerkw perkw = 3;
-	optional FeeratesOnchain_fee_estimates onchain_fee_estimates = 4;
+	optional FeeratesOnchainFeeEstimates onchain_fee_estimates = 4;
 }
 
 message FeeratesPerkb {
@@ -1914,7 +1914,7 @@ message FeeratesPerkwEstimates {
 	uint32 smoothed_feerate = 3;
 }
 
-message FeeratesOnchain_fee_estimates {
+message FeeratesOnchainFeeEstimates {
 	uint64 opening_channel_satoshis = 1;
 	uint64 mutual_close_satoshis = 2;
 	uint64 unilateral_close_satoshis = 3;
@@ -1939,7 +1939,7 @@ message FetchinvoiceRequest {
 message FetchinvoiceResponse {
 	string invoice = 1;
 	FetchinvoiceChanges changes = 2;
-	optional FetchinvoiceNext_period next_period = 3;
+	optional FetchinvoiceNextPeriod next_period = 3;
 }
 
 message FetchinvoiceChanges {
@@ -1950,7 +1950,7 @@ message FetchinvoiceChanges {
 	optional Amount amount_msat = 5;
 }
 
-message FetchinvoiceNext_period {
+message FetchinvoiceNextPeriod {
 	uint64 counter = 1;
 	uint64 starttime = 2;
 	uint64 endtime = 3;
@@ -1958,20 +1958,20 @@ message FetchinvoiceNext_period {
 	uint64 paywindow_end = 5;
 }
 
-message Fundchannel_cancelRequest {
+message FundchannelCancelRequest {
 	bytes id = 1;
 }
 
-message Fundchannel_cancelResponse {
+message FundchannelCancelResponse {
 	string cancelled = 1;
 }
 
-message Fundchannel_completeRequest {
+message FundchannelCompleteRequest {
 	bytes id = 1;
 	string psbt = 2;
 }
 
-message Fundchannel_completeResponse {
+message FundchannelCompleteResponse {
 	bytes channel_id = 1;
 	bool commitments_secured = 2;
 }
@@ -1999,15 +1999,15 @@ message FundchannelResponse {
 	bytes channel_id = 4;
 	optional bytes close_to = 5;
 	optional uint32 mindepth = 6;
-	optional FundchannelChannel_type channel_type = 7;
+	optional FundchannelChannelType channel_type = 7;
 }
 
-message FundchannelChannel_type {
+message FundchannelChannelType {
 	repeated uint32 bits = 1;
 	repeated ChannelTypeName names = 2;
 }
 
-message Fundchannel_startRequest {
+message FundchannelStartRequest {
 	bytes id = 1;
 	Amount amount = 2;
 	optional Feerate feerate = 3;
@@ -2019,16 +2019,16 @@ message Fundchannel_startRequest {
 	repeated uint32 channel_type = 9;
 }
 
-message Fundchannel_startResponse {
+message FundchannelStartResponse {
 	string funding_address = 1;
 	bytes scriptpubkey = 2;
-	optional Fundchannel_startChannel_type channel_type = 3;
+	optional FundchannelStartChannelType channel_type = 3;
 	optional bytes close_to = 4;
 	string warning_usage = 5;
 	optional uint32 mindepth = 6;
 }
 
-message Fundchannel_startChannel_type {
+message FundchannelStartChannelType {
 	repeated uint32 bits = 1;
 	repeated ChannelTypeName names = 2;
 }
@@ -2326,7 +2326,7 @@ message MultifundchannelRequest {
 message MultifundchannelResponse {
 	bytes tx = 1;
 	bytes txid = 2;
-	repeated MultifundchannelChannel_ids channel_ids = 3;
+	repeated MultifundchannelChannelIds channel_ids = 3;
 	repeated MultifundchannelFailed failed = 4;
 }
 
@@ -2342,15 +2342,15 @@ message MultifundchannelDestinations {
 	optional Amount reserve = 9;
 }
 
-message MultifundchannelChannel_ids {
+message MultifundchannelChannelIds {
 	bytes id = 1;
 	uint32 outnum = 2;
 	bytes channel_id = 3;
-	optional MultifundchannelChannel_idsChannel_type channel_type = 4;
+	optional MultifundchannelChannelIdsChannelType channel_type = 4;
 	optional bytes close_to = 5;
 }
 
-message MultifundchannelChannel_idsChannel_type {
+message MultifundchannelChannelIdsChannelType {
 	repeated uint32 bits = 1;
 	repeated ChannelTypeName names = 2;
 }
@@ -2410,38 +2410,38 @@ message OfferResponse {
 	optional string label = 7;
 }
 
-message Openchannel_abortRequest {
+message OpenchannelAbortRequest {
 	bytes channel_id = 1;
 }
 
-message Openchannel_abortResponse {
+message OpenchannelAbortResponse {
 	bytes channel_id = 1;
 	bool channel_canceled = 2;
 	string reason = 3;
 }
 
-message Openchannel_bumpRequest {
+message OpenchannelBumpRequest {
 	bytes channel_id = 1;
 	string initialpsbt = 2;
 	optional Feerate funding_feerate = 3;
 	Amount amount = 4;
 }
 
-message Openchannel_bumpResponse {
+message OpenchannelBumpResponse {
 	bytes channel_id = 1;
-	optional Openchannel_bumpChannel_type channel_type = 2;
+	optional OpenchannelBumpChannelType channel_type = 2;
 	string psbt = 3;
 	bool commitments_secured = 4;
 	uint64 funding_serial = 5;
 	optional bool requires_confirmed_inputs = 6;
 }
 
-message Openchannel_bumpChannel_type {
+message OpenchannelBumpChannelType {
 	repeated uint32 bits = 1;
 	repeated ChannelTypeName names = 2;
 }
 
-message Openchannel_initRequest {
+message OpenchannelInitRequest {
 	bytes id = 1;
 	string initialpsbt = 2;
 	optional Feerate commitment_feerate = 3;
@@ -2454,39 +2454,39 @@ message Openchannel_initRequest {
 	Amount amount = 10;
 }
 
-message Openchannel_initResponse {
+message OpenchannelInitResponse {
 	bytes channel_id = 1;
 	string psbt = 2;
-	optional Openchannel_initChannel_type channel_type = 3;
+	optional OpenchannelInitChannelType channel_type = 3;
 	bool commitments_secured = 4;
 	uint64 funding_serial = 5;
 	optional bool requires_confirmed_inputs = 6;
 }
 
-message Openchannel_initChannel_type {
+message OpenchannelInitChannelType {
 	repeated uint32 bits = 1;
 	repeated ChannelTypeName names = 2;
 }
 
-message Openchannel_signedRequest {
+message OpenchannelSignedRequest {
 	bytes channel_id = 1;
 	string signed_psbt = 2;
 }
 
-message Openchannel_signedResponse {
+message OpenchannelSignedResponse {
 	bytes channel_id = 1;
 	bytes tx = 2;
 	bytes txid = 3;
 }
 
-message Openchannel_updateRequest {
+message OpenchannelUpdateRequest {
 	bytes channel_id = 1;
 	string psbt = 2;
 }
 
-message Openchannel_updateResponse {
+message OpenchannelUpdateResponse {
 	bytes channel_id = 1;
-	optional Openchannel_updateChannel_type channel_type = 2;
+	optional OpenchannelUpdateChannelType channel_type = 2;
 	string psbt = 3;
 	bool commitments_secured = 4;
 	uint32 funding_outnum = 5;
@@ -2494,7 +2494,7 @@ message Openchannel_updateResponse {
 	optional bool requires_confirmed_inputs = 7;
 }
 
-message Openchannel_updateChannel_type {
+message OpenchannelUpdateChannelType {
 	repeated uint32 bits = 1;
 	repeated ChannelTypeName names = 2;
 }
@@ -2721,7 +2721,7 @@ message SignmessageResponse {
 	string zbase = 3;
 }
 
-message Splice_initRequest {
+message SpliceInitRequest {
 	bytes channel_id = 1;
 	sint64 relative_amount = 2;
 	optional string initialpsbt = 3;
@@ -2729,29 +2729,29 @@ message Splice_initRequest {
 	optional bool force_feerate = 5;
 }
 
-message Splice_initResponse {
+message SpliceInitResponse {
 	string psbt = 1;
 }
 
-message Splice_signedRequest {
+message SpliceSignedRequest {
 	bytes channel_id = 1;
 	string psbt = 2;
 	optional bool sign_first = 3;
 }
 
-message Splice_signedResponse {
+message SpliceSignedResponse {
 	bytes tx = 1;
 	bytes txid = 2;
 	optional uint32 outnum = 3;
 	string psbt = 4;
 }
 
-message Splice_updateRequest {
+message SpliceUpdateRequest {
 	bytes channel_id = 1;
 	string psbt = 2;
 }
 
-message Splice_updateResponse {
+message SpliceUpdateResponse {
 	string psbt = 1;
 	bool commitments_secured = 2;
 	optional bool signatures_secured = 3;
@@ -3295,12 +3295,12 @@ message ListconfigsConfigsDisabledns {
 
 message ListconfigsConfigsAnnounceaddrdiscovered {
 	// ListConfigs.configs.announce-addr-discovered.value_str
-	enum ListconfigsConfigsAnnounceaddrdiscoveredValue_str {
+	enum ListconfigsConfigsAnnounceaddrdiscoveredValueStr {
 		TRUE = 0;
 		FALSE = 1;
 		AUTO = 2;
 	}
-	ListconfigsConfigsAnnounceaddrdiscoveredValue_str value_str = 1;
+	ListconfigsConfigsAnnounceaddrdiscoveredValueStr value_str = 1;
 	string source = 2;
 }
 
@@ -3465,10 +3465,10 @@ message BkprchannelsapyRequest {
 }
 
 message BkprchannelsapyResponse {
-	repeated BkprchannelsapyChannels_apy channels_apy = 1;
+	repeated BkprchannelsapyChannelsApy channels_apy = 1;
 }
 
-message BkprchannelsapyChannels_apy {
+message BkprchannelsapyChannelsApy {
 	string account = 1;
 	Amount routed_out_msat = 2;
 	Amount routed_in_msat = 3;
@@ -3503,14 +3503,14 @@ message BkprdumpincomecsvRequest {
 
 message BkprdumpincomecsvResponse {
 	// Bkpr-DumpIncomeCsv.csv_format
-	enum BkprdumpincomecsvCsv_format {
+	enum BkprdumpincomecsvCsvFormat {
 		COINTRACKER = 0;
 		KOINLY = 1;
 		HARMONY = 2;
 		QUICKBOOKS = 3;
 	}
 	string csv_file = 1;
-	BkprdumpincomecsvCsv_format csv_format = 2;
+	BkprdumpincomecsvCsvFormat csv_format = 2;
 }
 
 message BkprinspectRequest {
@@ -3605,10 +3605,10 @@ message BkprlistincomeRequest {
 }
 
 message BkprlistincomeResponse {
-	repeated BkprlistincomeIncome_events income_events = 1;
+	repeated BkprlistincomeIncomeEvents income_events = 1;
 }
 
-message BkprlistincomeIncome_events {
+message BkprlistincomeIncomeEvents {
 	string account = 1;
 	string tag = 2;
 	Amount credit_msat = 3;
@@ -3778,22 +3778,22 @@ message AskrenelistlayersResponse {
 message AskrenelistlayersLayers {
 	string layer = 1;
 	repeated bytes disabled_nodes = 2;
-	repeated AskrenelistlayersLayersCreated_channels created_channels = 3;
+	repeated AskrenelistlayersLayersCreatedChannels created_channels = 3;
 	repeated AskrenelistlayersLayersConstraints constraints = 4;
 	optional bool persistent = 5;
 	repeated string disabled_channels = 6;
-	repeated AskrenelistlayersLayersChannel_updates channel_updates = 7;
+	repeated AskrenelistlayersLayersChannelUpdates channel_updates = 7;
 	repeated AskrenelistlayersLayersBiases biases = 8;
 }
 
-message AskrenelistlayersLayersCreated_channels {
+message AskrenelistlayersLayersCreatedChannels {
 	bytes source = 1;
 	bytes destination = 2;
 	string short_channel_id = 3;
 	Amount capacity_msat = 4;
 }
 
-message AskrenelistlayersLayersChannel_updates {
+message AskrenelistlayersLayersChannelUpdates {
 	string short_channel_id_dir = 1;
 	optional bool enabled = 2;
 	optional Amount htlc_minimum_msat = 3;
@@ -3830,20 +3830,20 @@ message AskrenecreatelayerLayers {
 	bool persistent = 2;
 	repeated bytes disabled_nodes = 3;
 	repeated string disabled_channels = 4;
-	repeated AskrenecreatelayerLayersCreated_channels created_channels = 5;
-	repeated AskrenecreatelayerLayersChannel_updates channel_updates = 6;
+	repeated AskrenecreatelayerLayersCreatedChannels created_channels = 5;
+	repeated AskrenecreatelayerLayersChannelUpdates channel_updates = 6;
 	repeated AskrenecreatelayerLayersConstraints constraints = 7;
 	repeated AskrenecreatelayerLayersBiases biases = 8;
 }
 
-message AskrenecreatelayerLayersCreated_channels {
+message AskrenecreatelayerLayersCreatedChannels {
 	bytes source = 1;
 	bytes destination = 2;
 	string short_channel_id = 3;
 	Amount capacity_msat = 4;
 }
 
-message AskrenecreatelayerLayersChannel_updates {
+message AskrenecreatelayerLayersChannelUpdates {
 	optional Amount htlc_minimum_msat = 1;
 	optional Amount htlc_maximum_msat = 2;
 	optional Amount fee_base_msat = 3;
@@ -4125,7 +4125,7 @@ message StreamChannelStateChangedRequest {
 
 message ChannelStateChangedNotification {
 	// channel_state_changed.cause
-	enum Channel_state_changedCause {
+	enum ChannelStateChangedCause {
 		UNKNOWN = 0;
 		LOCAL = 1;
 		USER = 2;
@@ -4139,6 +4139,6 @@ message ChannelStateChangedNotification {
 	string timestamp = 4;
 	ChannelState old_state = 5;
 	ChannelState new_state = 6;
-	Channel_state_changedCause cause = 7;
+	ChannelStateChangedCause cause = 7;
 	string message = 8;
 }
