@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [25.02rc2] - 2025-02-26:
+## [25.02rc3] - 2025-02-27:
 
 ### Added
 
@@ -20,7 +20,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
- - Offers: we will use a blinded path if we have no advertized address (so payers wouldn't be able to connect directly). ([#8071])
  - clnrest: clnrest is now a rust plugin. ([#7509])
  - JSON-RPC: `blacklistrune` no longer supports of runes over id 100,000,000. ([#8037])
  - Splicing: User is prevented from trying to splice unsigned PSBTs, protecting against potential issues. ([#8052])
@@ -129,7 +128,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#7942]: https://github.com/ElementsProject/lightning/pull/7942
 [#7772]: https://github.com/ElementsProject/lightning/pull/7772
 [#8060]: https://github.com/ElementsProject/lightning/pull/8060
-[25.02rc2]: https://github.com/ElementsProject/lightning/releases/tag/v25.02rc2
+[25.02rc3]: https://github.com/ElementsProject/lightning/releases/tag/v25.02rc3
 
 
 ## [24.11.1] - 2024-12-16: "The lightning-dev Mailing List II"
