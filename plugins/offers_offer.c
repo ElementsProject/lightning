@@ -329,7 +329,7 @@ static struct command_result *maybe_add_path(struct command *cmd,
 	 *       publicly reachable nodes.
 	 */
 	if (!offinfo->offer->offer_paths) {
-		if (we_want_blinded_path(cmd->plugin))
+		if (we_want_blinded_path(cmd->plugin, false))
 			return find_best_peer(cmd, OPT_ONION_MESSAGES,
 					      found_best_peer, offinfo);
 	}
@@ -726,9 +726,9 @@ struct command_result *json_invoicerequest(struct command *cmd,
 	 *   - MUST set `invreq_features`.`features` to the bitmap of features.
 	 */
 
-	/* FIXME: We only set blinded path if private, we should allow
+	/* FIXME: We only set blinded path if private/noaddr, we should allow
 	 * setting otherwise! */
-	if (we_want_blinded_path(cmd->plugin)) {
+	if (we_want_blinded_path(cmd->plugin, false)) {
 		struct invrequest_data *idata = tal(cmd, struct invrequest_data);
 		idata->invreq = invreq;
 		idata->single_use = *single_use;

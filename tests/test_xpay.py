@@ -789,11 +789,17 @@ lightning-cli pay lni1qqgv5nalmz08ukj4av074kyk6pepq93pqvvhnlnvurnfanndnxjtcjnmxr
    "status": "complete"
 }
     """
-    l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
-                                             opts=[{'cltv-delta': 50},
-                                                   {'cltv-delta': 100},
-                                                   {'cltv-delta': 200},
-                                                   {'cltv-final': 400}])
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[{'cltv-delta': 50},
+                                               {'cltv-delta': 100},
+                                               {'cltv-delta': 200}])
+
+    # Connect l3->l4 via private channel, to force blinded path
+    l4 = node_factory.get_node(options={'cltv-final': 400})
+    node_factory.join_nodes([l3, l4], announce_channels=False)
+
+    # Make sure l4 sees all the gossip
+    wait_for(lambda: len(l4.rpc.listchannels()['channels']) == 2 * 2)
 
     offer = l4.rpc.offer('any')
     inv = l1.rpc.fetchinvoice(offer['bolt12'], '15000msat')['invoice']
@@ -806,10 +812,10 @@ lightning-cli pay lni1qqgv5nalmz08ukj4av074kyk6pepq93pqvvhnlnvurnfanndnxjtcjnmxr
 
     # This works.
     l1.rpc.pay(inv)
-    # CLTV is blockheight (108) + 1 + 100 + 200 + 400
-    l1.daemon.wait_for_log(f'Adding HTLC 0 amount=15002msat cltv={108 + 1 + 100 + 200 + 400}')
+    # CLTV is blockheight (110) + 1 + 100 + 200 + 400
+    l1.daemon.wait_for_log(f'Adding HTLC 0 amount=15002msat cltv={110 + 1 + 100 + 200 + 400}')
 
     inv = l1.rpc.fetchinvoice(offer['bolt12'], '15000msat')['invoice']
     # This doesn't!
     l1.rpc.xpay(inv)
-    l1.daemon.wait_for_log(f'Adding HTLC 1 amount=15002msat cltv={108 + 1 + 100 + 200 + 400}')
+    l1.daemon.wait_for_log(f'Adding HTLC 1 amount=15002msat cltv={110 + 1 + 100 + 200 + 400}')
