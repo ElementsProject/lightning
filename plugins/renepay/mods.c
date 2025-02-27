@@ -594,42 +594,55 @@ REGISTER_PAYMENT_MODIFIER(getroutes, getroutes_cb);
  * Use askrene API to reserve liquidity on the computed routes.
  */
 
-static struct command_result *unreserve_done(struct command *aux_cmd,
-					     const char *method UNUSED,
-					     const char *buf UNUSED,
-					     const jsmntok_t *result UNUSED,
-					     struct route *route UNUSED)
+static struct command_result *
+unreserve_done(struct command *cmd, const char *method, const char *buf,
+	       const jsmntok_t *result, struct route *route UNUSED)
 {
-	return aux_command_done(aux_cmd);
+	route->unreserve_action = tal_free(route->unreserve_action);
+	return command_still_pending(cmd);
 }
 
 static struct command_result *
-unreserve_fail(struct command *aux_cmd, const char *method, const char *buf,
+unreserve_fail(struct command *cmd, const char *method, const char *buf,
 	       const jsmntok_t *result, struct route *route UNUSED)
 {
-	plugin_log(aux_cmd->plugin, LOG_UNUSUAL, "%s failed: %.*s", method,
+	plugin_log(cmd->plugin, LOG_UNUSUAL, "%s failed: %.*s", method,
 		   json_tok_full_len(result), json_tok_full(buf, result));
+	return command_still_pending(cmd);
+}
+
+static void json_unreserve(struct json_stream *js, struct route *route)
+{
+	json_array_start(js, "path");
+	for (size_t i = 0; i < tal_count(route->hops); i++) {
+		const struct route_hop *hop = &route->hops[i];
+		struct short_channel_id_dir scidd = {.scid = hop->scid,
+						     .dir = hop->direction};
+		json_object_start(js, NULL);
+		json_add_short_channel_id_dir(js, "short_channel_id_dir",
+					      scidd);
+		json_add_amount_msat(js, "amount_msat", hop->amount);
+		json_object_end(js);
+	}
+	json_array_end(js);
+}
+
+static struct command_result *unreserve_aux_final(struct command *aux_cmd,
+						  struct route *route)
+{
 	return aux_command_done(aux_cmd);
 }
 
 static void unreserve_route(struct route *route, struct command *aux_cmd)
 {
-	struct out_req *req =
-	    jsonrpc_request_start(aux_cmd, "askrene-unreserve", unreserve_done,
-				  unreserve_fail, route);
-	json_array_start(req->js, "path");
-	for (size_t i = 0; i < tal_count(route->hops); i++) {
-		const struct route_hop *hop = &route->hops[i];
-		struct short_channel_id_dir scidd = {.scid = hop->scid,
-						     .dir = hop->direction};
-		json_object_start(req->js, NULL);
-		json_add_short_channel_id_dir(req->js, "short_channel_id_dir",
-					      scidd);
-		json_add_amount_msat(req->js, "amount_msat", hop->amount);
-		json_object_end(req->js);
+	struct rpcbatch *batch =
+	    rpcbatch_new(aux_cmd, unreserve_aux_final, route);
+	if (route->unreserve_action) {
+		struct out_req *req =
+		    rpcbatch_append_action(batch, route->unreserve_action);
+		send_outreq(req);
 	}
-	json_array_end(req->js);
-	send_outreq(req);
+	rpcbatch_done(batch);
 }
 
 static struct command_result *reserve_done(struct command *cmd,
@@ -639,8 +652,15 @@ static struct command_result *reserve_done(struct command *cmd,
 					   struct route *route)
 {
 	/* A new command is issued to handle the destruction of this route.
-	 * I hope aux_cmd outlives the current payment session cmd. */
+	 * I hope aux_cmd outlives the current payment session cmd.
+	 * We encode this action as an entity of its own "struct rpcaction".
+	 * We can attach the unreserve action to the route destructor but also
+	 * if we need to unreserve after a notification we can do that as well
+	 * without repeating the same code again, just re-use the action. */
 	struct command *aux_cmd = aux_command(cmd);
+	route->unreserve_action =
+	    rpcaction_new(aux_cmd, "askrene-unreserve", unreserve_done,
+			  unreserve_fail, json_unreserve, route);
 	tal_add_destructor2(route, unreserve_route, aux_cmd);
 	return command_still_pending(cmd);
 }
@@ -664,6 +684,7 @@ static struct command_result *reserve_routes_done(struct command *cmd,
 
 static void add_reserve_request(struct rpcbatch *batch, struct route *route)
 {
+	assert(route->unreserve_action == NULL);
 	struct out_req *req = add_to_rpcbatch(
 	    batch, "askrene-reserve", reserve_done, reserve_fail, route);
 	json_array_start(req->js, "path");

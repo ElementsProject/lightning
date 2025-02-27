@@ -21,6 +21,7 @@ struct route *new_route(const tal_t *ctx, u64 groupid,
 	route->amount_sent = amount_sent;
 	route->path_num = -1;
 	route->shared_secrets = NULL;
+	route->unreserve_action = NULL;
 	return route;
 }
 

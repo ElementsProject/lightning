@@ -75,6 +75,9 @@ struct route {
 
 	/* blinded path index if any */
 	int path_num;
+
+	/* An rpcaction that calls askrene-unreserve. */
+	struct rpcaction *unreserve_action;
 };
 
 static inline struct routekey routekey(const struct sha256 *hash, u64 groupid,

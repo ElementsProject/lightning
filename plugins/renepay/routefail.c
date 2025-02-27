@@ -60,14 +60,24 @@ static struct command_result *routefail_done(struct command *cmd,
 	return notification_handled(cmd);
 }
 
-struct command_result *routefail_start(struct command *cmd,
-				       struct payment *payment,
-				       struct route *route)
+struct command_result *routesuccess_start(struct command *cmd,
+					  struct route *route)
 {
+	// FIXME: call askrene-inform-channel with inform=succeeded for this
+	// route
+	struct renepay *renepay = get_renepay(cmd->plugin);
+	struct payment *payment = route_get_payment_verify(renepay, route);
+	routetracker_add_to_final(payment, payment->routetracker, route);
+	return notification_handled(cmd);
+}
+
+struct command_result *routefail_start(struct command *cmd, struct route *route)
+{
+	struct renepay *renepay = get_renepay(cmd->plugin);
 	struct routefail *r = tal(cmd, struct routefail);
 	r->batch = rpcbatch_new(cmd, routefail_done, r);
 	r->route = route;
-	r->payment = payment;
+	r->payment = route_get_payment_verify(renepay, route);
 	update_gossip(r);
 	handle_failure(r);
 	return rpcbatch_done(r->batch);

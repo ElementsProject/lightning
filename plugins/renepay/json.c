@@ -67,6 +67,7 @@ struct route *tal_route_from_json(const tal_t *ctx, const char *buf,
 	route->final_msg = NULL;
 	route->final_error = LIGHTNINGD;
 	route->shared_secrets = NULL;
+	route->unreserve_action = NULL;
 
 	return route;
 fail:

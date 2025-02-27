@@ -291,9 +291,15 @@ struct command_result *notification_sendpay_failure(struct command *cmd,
 		route->result->status = SENDPAY_FAILED;
 	}
 	get_erring_scidd_from_index(route);
-	/* we do some error processing steps before calling
-	 * route_failure_register. */
-	return routefail_start(cmd, payment, route);
+
+	/* Unreserve first and then call routefail_start */
+	struct rpcbatch *batch = rpcbatch_new(cmd, routefail_start, route);
+	if (route->unreserve_action) {
+		struct out_req *req =
+		    rpcbatch_append_action(batch, route->unreserve_action);
+		send_outreq(req);
+	}
+	return rpcbatch_done(batch);
 }
 
 struct command_result *notification_sendpay_success(struct command *cmd,
@@ -345,8 +351,12 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 			   json_tok_full_len(sub), json_tok_full(buf, sub));
 
 	assert(route->result->status == SENDPAY_COMPLETE);
-	// FIXME: call askrene-inform-channel with inform=succeeded for this
-	// route
-	routetracker_add_to_final(payment, payment->routetracker, route);
-	return notification_handled(cmd);
+	/* Unreserve first and then call routesuccess_start */
+	struct rpcbatch *batch = rpcbatch_new(cmd, routesuccess_start, route);
+	if (route->unreserve_action) {
+		struct out_req *req =
+		    rpcbatch_append_action(batch, route->unreserve_action);
+		send_outreq(req);
+	}
+	return rpcbatch_done(batch);
 }
