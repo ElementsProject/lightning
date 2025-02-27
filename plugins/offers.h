@@ -93,5 +93,5 @@ struct command_result *find_best_peer_(struct command *cmd,
 			(arg))
 
 /* Do we want a blinded path from a peer? */
-bool we_want_blinded_path(struct plugin *plugin);
+bool we_want_blinded_path(struct plugin *plugin, bool for_payment);
 #endif /* LIGHTNING_PLUGINS_OFFERS_H */

@@ -67,7 +67,7 @@ struct gossmap *get_gossmap(struct plugin *plugin)
  *     - MUST include `offer_paths` containing one or more paths to the node
  *       from publicly reachable nodes.
  */
-bool we_want_blinded_path(struct plugin *plugin)
+bool we_want_blinded_path(struct plugin *plugin, bool for_payment)
 {
 	struct node_id local_nodeid;
 	const struct gossmap_node *node;
@@ -87,7 +87,11 @@ bool we_want_blinded_path(struct plugin *plugin)
 		return true;
 
 	/* Matt Corallo also suggests we do this (for now) if we don't
-	 * advertize an address to connect to. */
+	 * advertize an address to connect to, so they can fetch the
+	 * invoice for the offer, or send the invoice for the invoicerequest.
+	 * For actual payments they can use any route. */
+	if (for_payment)
+		return false;
 
 	/* We expect to know our own node announcements, but just in case. */
 	nannounce = gossmap_node_get_announce(tmpctx, gossmap, node);
