@@ -274,9 +274,6 @@ struct lightningd {
 	/* If they force db upgrade on or off this is set. */
 	bool *db_upgrade_ok;
 
-	/* Announce names in config as DNS records (recently BOLT 7 addition) */
-	bool announce_dns;
-
 	/* Indexes used by all the wait infra */
 	struct indexes indexes[NUM_WAIT_SUBSYSTEM];
 
