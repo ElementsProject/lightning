@@ -953,20 +953,11 @@ static char *plugin_opt_long_check(const char *arg, struct plugin_opt *popt)
 
 static char *plugin_opt_bool_check(const char *arg, struct plugin_opt *popt)
 {
-	/* FIXME: For some reason, '1' and '0' were allowed here? */
-	if (streq(arg, "1") || streq(arg, "0")) {
-		struct lightningd *ld = popt->plugin->plugins->ld;
-		if (!lightningd_deprecated_in_ok(ld, ld->log, ld->deprecated_ok,
-						 popt->name + 2, "0-or-1",
-						 "v23.08", "v24.08", NULL)) {
-			return "boolean plugin arguments must be true or false";
-		}
-	} else {
-		bool v;
-		char *ret = opt_set_bool_arg(arg, &v);
-		if (ret)
-			return ret;
-	}
+	bool v;
+	char *ret = opt_set_bool_arg(arg, &v);
+	if (ret)
+		return ret;
+
 	return plugin_opt_check(popt);
 }
 

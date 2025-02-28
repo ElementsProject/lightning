@@ -138,7 +138,7 @@ def test_option_types(node_factory):
     # the node should fail after start, and we get a stderr msg
     n.daemon.start(wait_for_initialized=False, stderr_redir=True)
     assert n.daemon.wait() == 1
-    assert n.daemon.is_in_stderr("--bool_opt=1: boolean plugin arguments must be true or false")
+    assert n.daemon.is_in_stderr("--bool_opt=1: Invalid argument '1'")
 
     # Flag opts shouldn't allow any input
     n = node_factory.get_node(options={
