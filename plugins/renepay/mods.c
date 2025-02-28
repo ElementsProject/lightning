@@ -503,12 +503,20 @@ static struct command_result *getroutes_fail(struct command *cmd,
 	// 	return payment_fail(payment, PAY_STOPPED_RETRYING, "getroutes
 	// 	failed to find a feasible solution %s", explain_error(buf,
 	// tok));
-	const jsmntok_t *messtok = json_get_member(buf, tok, "message");
-	assert(messtok);
-	return payment_fail(
-	    payment, PAYMENT_PENDING,
-	    "getroutes failed to find a feasible solution: %.*s",
-	    json_tok_full_len(messtok), json_tok_full(buf, messtok));
+	enum jsonrpc_errcode errcode;
+	const char *msg;
+	const char *err =
+	    json_scan(tmpctx, buf, tok, "{code:%,message:%}",
+		      JSON_SCAN(json_to_jsonrpc_errcode, &errcode),
+		      JSON_SCAN_TAL(tmpctx, json_strdup, &msg));
+	if (err)
+		plugin_err(cmd->plugin,
+			   "Unable to parse getroutes error: %s, json: %.*s",
+			   err, json_tok_full_len(tok),
+			   json_tok_full(buf, tok));
+	return payment_fail(payment, errcode,
+			    "getroutes failed to find a feasible solution: %s",
+			    msg);
 }
 
 static struct command_result *getroutes_cb(struct payment *payment)
