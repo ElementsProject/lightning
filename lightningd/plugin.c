@@ -363,7 +363,6 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 	p->notification_topics = tal_arr(p, const char *, 0);
 	p->subscriptions = NULL;
 	p->dynamic = false;
-	p->non_numeric_ids = false;
 	p->index = plugins->plugin_idx++;
 	p->stdout_conn = NULL;
 
@@ -1324,7 +1323,7 @@ static struct command_result *plugin_rpcmethod_check(struct command *cmd,
 
 	/* Send check command through, it says it can handle it! */
 	req = jsonrpc_request_start_raw(plugin, "check",
-					cmd->id, plugin->non_numeric_ids,
+					cmd->id,
 					plugin->log,
 					plugin_notify_cb,
 					plugin_rpcmethod_cb, cmd);
@@ -1368,7 +1367,7 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 		}
 	}
 	req = jsonrpc_request_start_raw(plugin, cmd->json_cmd->name,
-					cmd->id, plugin->non_numeric_ids,
+					cmd->id,
 					plugin->log,
 					plugin_notify_cb,
 					plugin_rpcmethod_cb, cmd);
@@ -1796,23 +1795,16 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 
 	tok = json_get_member(buffer, resulttok, "nonnumericids");
 	if (tok) {
-		if (!json_to_bool(buffer, tok, &plugin->non_numeric_ids))
+		bool non_numeric_ids;
+		if (!json_to_bool(buffer, tok, &non_numeric_ids))
 			return tal_fmt(plugin,
 				       "Invalid nonnumericids: %.*s",
 				       json_tok_full_len(tok),
 				       json_tok_full(buffer, tok));
-		if (!plugin->non_numeric_ids
-		    && !lightningd_deprecated_in_ok(ld, ld->log, ld->deprecated_ok,
-						    "plugin", "nonnumericids",
-						    "v23.08", "v24.08", NULL)) {
+		if (!non_numeric_ids) {
 			return tal_fmt(plugin,
 				       "Plugin does not allow nonnumericids");
 		}
-	} else {
-		/* Default is false in deprecated mode */
-		plugin->non_numeric_ids = !lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
-									"plugin", "nonnumericids",
-									"v23.08", "v24.08");
 	}
 
 	tok = json_get_member(buffer, resulttok, "cancheck");
@@ -2026,7 +2018,7 @@ const char *plugin_send_getmanifest(struct plugin *p, const char *cmd_id)
 	 * write-only on p->stdin */
 	p->stdout_conn = io_new_conn(p, stdoutfd, plugin_stdout_conn_init, p);
 	p->stdin_conn = io_new_conn(p, stdinfd, plugin_stdin_conn_init, p);
-	req = jsonrpc_request_start(p, "getmanifest", cmd_id, p->non_numeric_ids,
+	req = jsonrpc_request_start(p, "getmanifest", cmd_id,
 				    p->log, NULL, plugin_manifest_cb, p);
 	json_add_bool(req->stream, "allow-deprecated-apis",
 		      p->plugins->ld->deprecated_ok);
@@ -2236,7 +2228,7 @@ plugin_config(struct plugin *plugin)
 	struct jsonrpc_request *req;
 
 	plugin_set_timeout(plugin);
-	req = jsonrpc_request_start(plugin, "init", NULL, plugin->non_numeric_ids,
+	req = jsonrpc_request_start(plugin, "init", NULL,
 				    plugin->log, NULL, plugin_config_cb, plugin);
 	plugin_populate_init_request(plugin, req);
 	jsonrpc_request_end(req);
@@ -2360,7 +2352,6 @@ struct command_result *plugin_set_dynamic_opt(struct command *cmd,
 			return command_check_done(cmd);
 		req = jsonrpc_request_start(cmd, "check",
 					    cmd->id,
-					    plugin->non_numeric_ids,
 					    command_logger(cmd),
 					    NULL, plugin_setconfig_done,
 					    psr);
@@ -2368,7 +2359,6 @@ struct command_result *plugin_set_dynamic_opt(struct command *cmd,
 	} else {
 		req = jsonrpc_request_start(cmd, "setconfig",
 					    cmd->id,
-					    plugin->non_numeric_ids,
 					    command_logger(cmd),
 					    NULL, plugin_setconfig_done,
 					    psr);

@@ -104,7 +104,7 @@ The `rpcmethods` are methods that will be exposed via `lightningd`'s JSON-RPC ov
 
 The `subscriptions` array indicates what [Event Notifications](doc:event-notifications) your plugin wants to receive.  You should subscribe to `deprecated_oneshot` if you have any deprecated commands or output, so users can use the `deprecations` API to control it on a per-connection basis.  You can specify `*` here to subscribe to all other subscriptions (since *v23.08*).
 
-The `nonnumericids` indicates that the plugin can handle string JSON request `id` fields: prior to v22.11 lightningd used numbers for these, and the change to strings broke some plugins.  If not set, then strings will be used once this feature is removed after v23.05. See the [lightningd-rpc](ref:lightningd-rpc) documentation for how to handle JSON `id` fields!
+The `nonnumericids` indicates that the plugin can handle string JSON request `id` fields: prior to v22.11 lightningd used numbers for these, and the change to strings broke some plugins.  If present, this must be `true` (since v23.05).  See the [lightningd-rpc](ref:lightningd-rpc) documentation for how to handle JSON `id` fields!
 
 The `dynamic` indicates if the plugin can be managed after `lightningd` has been started using the [lightning-plugin](ref:lightning-plugin) JSON-RPC command. Critical plugins that should not be stopped should set it to false. Plugin `options` can be passed to dynamic plugins as argument to the `plugin` command .
 

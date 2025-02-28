@@ -1586,7 +1586,7 @@ void jsonrpc_notification_end(struct jsonrpc_notification *n)
 
 struct jsonrpc_request *jsonrpc_request_start_(
     const tal_t *ctx, const char *method,
-    const char *id_prefix, bool id_as_string, struct logger *log,
+    const char *id_prefix, struct logger *log,
     bool add_header,
     void (*notify_cb)(const char *buffer,
 		      const jsmntok_t *methodtok,
@@ -1600,27 +1600,24 @@ struct jsonrpc_request *jsonrpc_request_start_(
 	struct jsonrpc_request *r = tal(ctx, struct jsonrpc_request);
 	static u64 next_request_id = 0;
 
-	r->id_is_string = id_as_string;
-	if (r->id_is_string) {
-		if (id_prefix) {
-			/* Strip "" and otherwise sanity-check */
-			if (strstarts(id_prefix, "\"")
-			    && strlen(id_prefix) > 1
-			    && strends(id_prefix, "\"")) {
-				id_prefix = tal_strndup(tmpctx, id_prefix + 1,
-							strlen(id_prefix) - 2);
-			}
-			/* We could try escaping, but TBH they're
-			 * messing with us at this point! */
-			if (json_escape_needed(id_prefix, strlen(id_prefix)))
-				id_prefix = "weird-id";
+	r->id_is_string = true;
+	if (id_prefix) {
+		/* Strip "" and otherwise sanity-check */
+		if (strstarts(id_prefix, "\"")
+		    && strlen(id_prefix) > 1
+		    && strends(id_prefix, "\"")) {
+			id_prefix = tal_strndup(tmpctx, id_prefix + 1,
+						strlen(id_prefix) - 2);
+		}
+		/* We could try escaping, but TBH they're
+		 * messing with us at this point! */
+		if (json_escape_needed(id_prefix, strlen(id_prefix)))
+			id_prefix = "weird-id";
 
-			r->id = tal_fmt(r, "\"%s/cln:%s#%"PRIu64"\"",
-					id_prefix, method, next_request_id);
-		} else
-			r->id = tal_fmt(r, "\"cln:%s#%"PRIu64"\"", method, next_request_id);
+		r->id = tal_fmt(r, "\"%s/cln:%s#%"PRIu64"\"",
+				id_prefix, method, next_request_id);
 	} else {
-		r->id = tal_fmt(r, "%"PRIu64, next_request_id);
+		r->id = tal_fmt(r, "\"cln:%s#%"PRIu64"\"", method, next_request_id);
 	}
 	if (taken(id_prefix))
 		tal_free(id_prefix);

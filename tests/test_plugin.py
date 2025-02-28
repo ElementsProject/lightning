@@ -1617,9 +1617,8 @@ def test_libplugin(node_factory):
 
     myname = os.path.splitext(os.path.basename(sys.argv[0]))[0]
 
-    # Note: getmanifest always uses numeric ids, since it doesn't know
-    # yet whether strings are allowed:
-    l1.daemon.wait_for_log(r"test_libplugin: [0-9]*\[OUT\]")
+    # getmanifest assumes everyone handles string-based JSON ids:
+    l1.daemon.wait_for_log(r'test_libplugin: "[A-Za-z0-9:#]*/cln:getmanifest#[0-9]*"\[OUT\]')
 
     l1.daemon.wait_for_log("String name from datastore:.*object does not have member string")
     l1.daemon.wait_for_log("Hex name from datastore: 00010203")
