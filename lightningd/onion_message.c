@@ -33,12 +33,10 @@ static void json_add_blindedpath(struct plugin *plugin,
 		json_add_short_channel_id(stream, "first_scid", path->first_node_id.scidd.scid);
 		json_add_u32(stream, "first_scid_dir", path->first_node_id.scidd.dir);
 	}
-	if (lightningd_deprecated_in_ok(plugin->plugins->ld,
-					plugin->log,
-					plugin->plugins->ld->deprecated_ok,
-					"onion_message_recv", "blinding",
-					"v24.11", "v25.05",
-					NULL)) {
+	if (lightningd_deprecated_out_ok(plugin->plugins->ld,
+					 plugin->plugins->ld->deprecated_ok,
+					 "onion_message_recv", "blinding",
+					 "v24.11", "v25.05")) {
 		json_add_pubkey(stream, "blinding", &path->first_path_key);
 	}
 	json_add_pubkey(stream, "first_path_key", &path->first_path_key);
