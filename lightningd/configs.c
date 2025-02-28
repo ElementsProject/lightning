@@ -276,39 +276,6 @@ static struct command_result *json_listconfigs(struct command *cmd,
 		return command_param_failed();
 
 	response = json_stream_success(cmd);
-
-	if (!command_deprecated_out_ok(cmd, "configlist", "v23.08", "v24.08"))
-		goto modern;
-
-	if (!config)
-		json_add_string(response, "# version", version());
-
-	for (size_t i = 0; i < opt_count; i++) {
-		unsigned int len;
-		const char *name;
-
-		/* FIXME: Print out comment somehow? */
-		if (opt_table[i].type == OPT_SUBTABLE)
-			continue;
-
-		for (name = first_name(opt_table[i].names, &len);
-		     name;
-		     name = next_name(name, &len)) {
-			/* Skips over first -, so just need to look for one */
-			if (name[0] != '-')
-				continue;
-
-			if (!config || config == &opt_table[i]) {
-				add_config_deprecated(cmd->ld, response, &opt_table[i],
-						      name+1, len-1);
-			}
-			/* If we have more than one long name, first
-			 * is preferred */
-			break;
-		}
-	}
-
-modern:
 	json_object_start(response, "configs");
 	for (size_t i = 0; i < opt_count; i++) {
 		const char **names;
