@@ -331,11 +331,9 @@ The [`lightning-listconfigs`](ref:lightning-listconfigs) command will output a v
 
   The number of blocks to allow for payments we receive: if we have to, we might need to redeem this on-chain, so this is the number of blocks we have to do that.
 
-- **accept-htlc-tlv-types**=_types_
+- **accept-htlc-tlv-type**=_type_
 
-  Normally HTLC onions which contain unknown even fields are rejected.  
-  This option specifies that these (comma-separated) types are to be  
-  accepted, and ignored.
+  Normally HTLC onions which contain unknown even fields are rejected. This option specifies that this type is to be accepted, and ignored.  You can specify this multiple times.
 
 ### Cleanup control options:
 

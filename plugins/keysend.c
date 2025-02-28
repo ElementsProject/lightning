@@ -111,30 +111,6 @@ REGISTER_PAYMENT_MODIFIER(keysend, struct keysend_data *, keysend_init,
  * End of keysend modifier
  *****************************************************************************/
 
-/* Deprecated: comma-separated string containing integers */
-static bool json_accumulate_uintarr(const char *buffer,
-				    const jsmntok_t *tok,
-				    u64 **dest)
-{
-	char *str = json_strdup(NULL, buffer, tok);
-	char *endp, **elements = tal_strsplit(str, str, ",", STR_NO_EMPTY);
-	unsigned long long l;
-	u64 u;
-	for (int i = 0; elements[i] != NULL; i++) {
-		/* This is how the manpage says to do it.  Yech. */
-		errno = 0;
-		l = strtoull(elements[i], &endp, 0);
-		if (*endp || !str[0])
-			return false;
-		u = l;
-		if (errno || u != l)
-			return false;
-		tal_arr_expand(dest, u);
-	}
-	tal_free(str);
-	return NULL;
-}
-
 /* values_int is a JSON array of u64s */
 static bool jsonarr_accumulate_u64(const char *buffer,
 				   const jsmntok_t *tok,
@@ -171,15 +147,12 @@ static const char *init(struct command *init_cmd, const char *buf UNUSED,
 	 */
 	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
 	maxdelay_default = 2016;
-	/* accept-htlc-tlv-types deprecated in v23.08, but still grab it! */
 	/* max-locktime-blocks deprecated in v24.05, but still grab it! */
 	rpc_scan(init_cmd, "listconfigs", take(json_out_obj(NULL, NULL, NULL)),
 		 "{configs:{"
 		 "max-locktime-blocks?:{value_int:%},"
-		 "accept-htlc-tlv-types?:{value_str:%},"
 		 "accept-htlc-tlv-type:{values_int:%}}}",
 		 JSON_SCAN(json_to_u32, &maxdelay_default),
-		 JSON_SCAN(json_accumulate_uintarr, &accepted_extra_tlvs),
 		 JSON_SCAN(jsonarr_accumulate_u64, &accepted_extra_tlvs));
 
 	return NULL;
