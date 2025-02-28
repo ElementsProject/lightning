@@ -2104,13 +2104,6 @@ def wait2py(m):
     })
 
 
-def listconfigs_configs_accept_htlc_tlv_types2py(m):
-    return remove_default({
-        "source": m.source,  # PrimitiveField in generate_composite
-        "value_str": m.value_str,  # PrimitiveField in generate_composite
-    })
-
-
 def listconfigs_configs_addr2py(m):
     return remove_default({
         "sources": [m.sources for i in m.sources], # ArrayField[primitive] in generate_composite
@@ -2609,103 +2602,8 @@ def listconfigs_configs2py(m):
     })
 
 
-def listconfigs_important_plugins_options2py(m):
-    return remove_default({
-    })
-
-
-def listconfigs_important_plugins2py(m):
-    return remove_default({
-        "name": m.name,  # PrimitiveField in generate_composite
-        "path": m.path,  # PrimitiveField in generate_composite
-    })
-
-
-def listconfigs_plugins_options2py(m):
-    return remove_default({
-    })
-
-
-def listconfigs_plugins2py(m):
-    return remove_default({
-        "name": m.name,  # PrimitiveField in generate_composite
-        "path": m.path,  # PrimitiveField in generate_composite
-    })
-
-
 def listconfigs2py(m):
     return remove_default({
-        "#_version": m.# version,  # PrimitiveField in generate_composite
-        "disable_plugin": [m.disable_plugin for i in m.disable_plugin], # ArrayField[primitive] in generate_composite
-        "important_plugins": [listconfigs_important_plugins2py(i) for i in m.important_plugins],  # ArrayField[composite] in generate_composite
-        "plugins": [listconfigs_plugins2py(i) for i in m.plugins],  # ArrayField[composite] in generate_composite
-        "accept_htlc_tlv_types": m.accept_htlc_tlv_types,  # PrimitiveField in generate_composite
-        "addr": m.addr,  # PrimitiveField in generate_composite
-        "alias": m.alias,  # PrimitiveField in generate_composite
-        "allow_deprecated_apis": m.allow_deprecated_apis,  # PrimitiveField in generate_composite
-        "always_use_proxy": m.always_use_proxy,  # PrimitiveField in generate_composite
-        "announce_addr": m.announce_addr,  # PrimitiveField in generate_composite
-        "announce_addr_discovered": m.announce_addr_discovered,  # PrimitiveField in generate_composite
-        "announce_addr_discovered_port": m.announce_addr_discovered_port,  # PrimitiveField in generate_composite
-        "announce_addr_dns": m.announce_addr_dns,  # PrimitiveField in generate_composite
-        "autoconnect_seeker_peers": m.autoconnect_seeker_peers,  # PrimitiveField in generate_composite
-        "autolisten": m.autolisten,  # PrimitiveField in generate_composite
-        "bind_addr": m.bind_addr,  # PrimitiveField in generate_composite
-        "bookkeeper_db": m.bookkeeper_db,  # PrimitiveField in generate_composite
-        "bookkeeper_dir": m.bookkeeper_dir,  # PrimitiveField in generate_composite
-        "cltv_delta": m.cltv_delta,  # PrimitiveField in generate_composite
-        "cltv_final": m.cltv_final,  # PrimitiveField in generate_composite
-        "commit_fee": m.commit_fee,  # PrimitiveField in generate_composite
-        "commit_feerate_offset": m.commit_feerate_offset,  # PrimitiveField in generate_composite
-        "commit_time": m.commit_time,  # PrimitiveField in generate_composite
-        "conf": m.conf,  # PrimitiveField in generate_composite
-        "daemon": m.daemon,  # PrimitiveField in generate_composite
-        "database_upgrade": m.database_upgrade,  # PrimitiveField in generate_composite
-        "dev_allowdustreserve": m.dev_allowdustreserve,  # PrimitiveField in generate_composite
-        "developer": m.developer,  # PrimitiveField in generate_composite
-        "disable_dns": m.disable_dns,  # PrimitiveField in generate_composite
-        "encrypted_hsm": m.encrypted_hsm,  # PrimitiveField in generate_composite
-        "experimental_dual_fund": m.experimental_dual_fund,  # PrimitiveField in generate_composite
-        "experimental_offers": m.experimental_offers,  # PrimitiveField in generate_composite
-        "experimental_onion_messages": m.experimental_onion_messages,  # PrimitiveField in generate_composite
-        "experimental_peer_storage": m.experimental_peer_storage,  # PrimitiveField in generate_composite
-        "experimental_quiesce": m.experimental_quiesce,  # PrimitiveField in generate_composite
-        "experimental_shutdown_wrong_funding": m.experimental_shutdown_wrong_funding,  # PrimitiveField in generate_composite
-        "experimental_splicing": m.experimental_splicing,  # PrimitiveField in generate_composite
-        "experimental_upgrade_protocol": m.experimental_upgrade_protocol,  # PrimitiveField in generate_composite
-        "fee_base": m.fee_base,  # PrimitiveField in generate_composite
-        "fee_per_satoshi": m.fee_per_satoshi,  # PrimitiveField in generate_composite
-        "fetchinvoice_noconnect": m.fetchinvoice_noconnect,  # PrimitiveField in generate_composite
-        "force_feerates": m.force_feerates,  # PrimitiveField in generate_composite
-        "funding_confirms": m.funding_confirms,  # PrimitiveField in generate_composite
-        "htlc_maximum_msat": amount2msat(m.htlc_maximum_msat),  # PrimitiveField in generate_composite
-        "htlc_minimum_msat": amount2msat(m.htlc_minimum_msat),  # PrimitiveField in generate_composite
-        "ignore_fee_limits": m.ignore_fee_limits,  # PrimitiveField in generate_composite
-        "invoices_onchain_fallback": m.invoices_onchain_fallback,  # PrimitiveField in generate_composite
-        "large_channels": m.large_channels,  # PrimitiveField in generate_composite
-        "lightning_dir": m.lightning_dir,  # PrimitiveField in generate_composite
-        "log_file": m.log_file,  # PrimitiveField in generate_composite
-        "log_level": m.log_level,  # PrimitiveField in generate_composite
-        "log_prefix": m.log_prefix,  # PrimitiveField in generate_composite
-        "log_timestamps": m.log_timestamps,  # PrimitiveField in generate_composite
-        "max_concurrent_htlcs": m.max_concurrent_htlcs,  # PrimitiveField in generate_composite
-        "max_dust_htlc_exposure_msat": amount2msat(m.max_dust_htlc_exposure_msat),  # PrimitiveField in generate_composite
-        "max_locktime_blocks": m.max_locktime_blocks,  # PrimitiveField in generate_composite
-        "min_capacity_sat": m.min_capacity_sat,  # PrimitiveField in generate_composite
-        "min_emergency_msat": amount2msat(m.min_emergency_msat),  # PrimitiveField in generate_composite
-        "network": m.network,  # PrimitiveField in generate_composite
-        "offline": m.offline,  # PrimitiveField in generate_composite
-        "pid_file": m.pid_file,  # PrimitiveField in generate_composite
-        "proxy": m.proxy,  # PrimitiveField in generate_composite
-        "require_confirmed_inputs": m.require_confirmed_inputs,  # PrimitiveField in generate_composite
-        "rescan": m.rescan,  # PrimitiveField in generate_composite
-        "rgb": hexlify(m.rgb),  # PrimitiveField in generate_composite
-        "rpc_file": m.rpc_file,  # PrimitiveField in generate_composite
-        "rpc_file_mode": m.rpc_file_mode,  # PrimitiveField in generate_composite
-        "subdaemon": m.subdaemon,  # PrimitiveField in generate_composite
-        "tor_service_password": m.tor_service_password,  # PrimitiveField in generate_composite
-        "wallet": m.wallet,  # PrimitiveField in generate_composite
-        "watchtime_blocks": m.watchtime_blocks,  # PrimitiveField in generate_composite
     })
 
 

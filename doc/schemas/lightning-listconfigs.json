@@ -1544,28 +1544,6 @@
               }
             }
           },
-          "accept-htlc-tlv-types": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "value_str",
-              "source"
-            ],
-            "properties": {
-              "value_str": {
-                "type": "string",
-                "description": [
-                  "Field from config or cmdline, or default."
-                ]
-              },
-              "source": {
-                "type": "string",
-                "description": [
-                  "Source of configuration setting."
-                ]
-              }
-            }
-          },
           "tor-service-password": {
             "type": "object",
             "additionalProperties": false,
