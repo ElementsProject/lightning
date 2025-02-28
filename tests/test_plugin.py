@@ -2694,7 +2694,7 @@ def test_plugin_shutdown(node_factory):
 
 def test_commando(node_factory, executor):
     l1, l2 = node_factory.line_graph(2, fundchannel=False,
-                                     opts={'log-level': 'io', 'allow-deprecated-apis': True})
+                                     opts={'log-level': 'io'})
 
     rune = l1.rpc.createrune()['rune']
 
@@ -3114,9 +3114,7 @@ def test_commando_blacklist(node_factory):
 @pytest.mark.slow_test
 def test_commando_stress(node_factory, executor):
     """Stress test to slam commando with many large queries"""
-    nodes = node_factory.get_nodes(5, opts={
-        'allow-deprecated-apis': True,
-    })
+    nodes = node_factory.get_nodes(5)
 
     rune = nodes[0].rpc.createrune()['rune']
     for n in nodes[1:]:
