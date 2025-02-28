@@ -4752,7 +4752,7 @@
             "blacklist": [
               {
                 "start": 1,
-                "end": 3
+                "end": 1
               }
             ]
           }
@@ -4770,7 +4770,7 @@
             "blacklist": [
               {
                 "start": 0,
-                "end": 3
+                "end": 2
               }
             ]
           }

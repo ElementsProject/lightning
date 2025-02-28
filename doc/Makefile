@@ -34,10 +34,7 @@ GENERATE_MARKDOWN := doc/lightning-addgossip.7 \
 	doc/lightning-checkmessage.7 \
 	doc/lightning-checkrune.7 \
 	doc/lightning-close.7 \
-	doc/lightning-commando-blacklist.7 \
 	doc/lightning-commando.7 \
-	doc/lightning-commando-listrunes.7 \
-	doc/lightning-commando-rune.7 \
 	doc/lightning-connect.7 \
 	doc/lightning-createinvoice.7 \
 	doc/lightning-createonion.7 \
