@@ -655,10 +655,16 @@ def test_xpay_no_mpp(node_factory, chainparams):
     assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 1
 
 
-def test_xpay_bolt12_no_mpp(node_factory, chainparams):
-    """We should not (yet!) avoid mpp if BOLT12 invoice doesn't say we should"""
+@pytest.mark.parametrize("deprecations", [False, True])
+def test_xpay_bolt12_no_mpp(node_factory, chainparams, deprecations):
+    """In deprecated mode, we use MPP even if BOLT12 invoice doesn't say we should"""
     # l4 needs dev-allow-localhost so it considers itself to have an advertized address, and doesn't create a blinded path from l2/l4.
-    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=[{}, {}, {'dev-force-features': -17, 'dev-allow-localhost': None}, {}])
+    opts = [{}, {}, {'dev-force-features': -17, 'dev-allow-localhost': None}, {}]
+    if deprecations is True:
+        for o in opts:
+            o['allow-deprecated-apis'] = True
+
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=opts)
     node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
     node_factory.join_nodes([l1, l4, l3], wait_for_announce=True)
 
@@ -675,10 +681,12 @@ def test_xpay_bolt12_no_mpp(node_factory, chainparams):
     assert l1.rpc.decode(invl2['invoice'])['invoice_features'] == "020000"
     assert l1.rpc.decode(invl3['invoice'])['invoice_features'] == ""
 
-    # This will MPP ANYWAY, even though MPP is not specified!
     ret = l1.rpc.xpay(invl3['invoice'])
     assert ret['failed_parts'] == 0
-    assert ret['successful_parts'] == 2
+    if deprecations:
+        assert ret['successful_parts'] == 2
+    else:
+        assert ret['successful_parts'] == 1
     assert ret['amount_msat'] == AMOUNT
     assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 1
 
