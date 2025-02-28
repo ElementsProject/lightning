@@ -80,9 +80,6 @@ struct plugin {
 	 * C-lightning should terminate as well.  */
 	bool important;
 
-	/* Can this handle non-numeric JSON ids? */
-	bool non_numeric_ids;
-
 	/* Parameters for dynamically-started plugins. */
 	const char *parambuf;
 	const jsmntok_t *params;

@@ -1229,7 +1229,7 @@ static struct command_result *json_invoice(struct command *cmd,
 	}
 
 	req = jsonrpc_request_start(info, "listincoming",
-				    cmd->id, plugin->non_numeric_ids,
+				    cmd->id,
 				    command_logger(cmd),
 				    NULL, listincoming_done,
 				    info);

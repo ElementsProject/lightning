@@ -220,7 +220,6 @@ static struct command_result *json_checkmessage(struct command *cmd,
 		if (plugin) {
 			req = jsonrpc_request_start(cmd, "listnodes",
 						    cmd->id,
-						    plugin->non_numeric_ids,
 						    command_logger(cmd),
 						    NULL, listnodes_done,
 						    can);

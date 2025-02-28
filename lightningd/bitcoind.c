@@ -52,7 +52,7 @@ static void config_plugin(struct plugin *plugin)
 	void *ret;
 
 	req = jsonrpc_request_start(plugin, "init", NULL,
-				    plugin->non_numeric_ids, plugin->log,
+				    plugin->log,
 	                            NULL, plugin_config_cb, plugin);
 	plugin_populate_init_request(plugin, req);
 	jsonrpc_request_end(req);
@@ -361,7 +361,7 @@ void bitcoind_estimate_fees_(const tal_t *ctx,
 	call->cb = cb;
 	call->cb_arg = cb_arg;
 
-	req = jsonrpc_request_start(call, "estimatefees", NULL, true,
+	req = jsonrpc_request_start(call, "estimatefees", NULL,
 				    bitcoind->log,
 				    NULL, estimatefees_callback, call);
 	jsonrpc_request_end(req);
@@ -438,7 +438,7 @@ void bitcoind_sendrawtx_(const tal_t *ctx,
 	log_debug(bitcoind->log, "sendrawtransaction: %s", hextx);
 
 	req = jsonrpc_request_start(call, "sendrawtransaction",
-				    id_prefix, true,
+				    id_prefix,
 				    bitcoind->log,
 				    NULL, sendrawtx_callback,
 				    call);
@@ -531,7 +531,7 @@ void bitcoind_getrawblockbyheight_(const tal_t *ctx,
 	trace_span_start("plugin/bitcoind", call);
 	trace_span_tag(call, "method", "getrawblockbyheight");
 	trace_span_suspend(call);
-	req = jsonrpc_request_start(call, "getrawblockbyheight", NULL, true,
+	req = jsonrpc_request_start(call, "getrawblockbyheight", NULL,
 				    bitcoind->log,
 				    NULL,  getrawblockbyheight_callback,
 				    call);
@@ -606,7 +606,7 @@ void bitcoind_getchaininfo_(const tal_t *ctx,
 	call->cb = cb;
 	call->cb_arg = cb_arg;
 
-	req = jsonrpc_request_start(call, "getchaininfo", NULL, true,
+	req = jsonrpc_request_start(call, "getchaininfo", NULL,
 				    bitcoind->log,
 				    NULL, getchaininfo_callback, call);
 	json_add_u32(req->stream, "last_height", height);
@@ -677,7 +677,7 @@ void bitcoind_getutxout_(const tal_t *ctx,
 	call->cb = cb;
 	call->cb_arg = cb_arg;
 
-	req = jsonrpc_request_start(call, "getutxout", NULL, true,
+	req = jsonrpc_request_start(call, "getutxout", NULL,
 				    bitcoind->log,
 				    NULL, getutxout_callback, call);
 	json_add_txid(req->stream, "txid", &outpoint->txid);
