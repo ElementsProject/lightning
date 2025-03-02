@@ -362,7 +362,11 @@ static void replay_watch_tx(struct channel *channel,
 	rtx->blockheight = blockheight;
 	rtx->tx = clone_bitcoin_tx(rtx, tx);
 
-	replay_tx_hash_add(channel->onchaind_replay_watches, rtx);
+	/* We might already be watching, in which case don't re-add! */
+	if (replay_tx_hash_get(channel->onchaind_replay_watches, &rtx->txid))
+		tal_free(rtx);
+	else
+		replay_tx_hash_add(channel->onchaind_replay_watches, rtx);
 }
 
 /* We've finished replaying, turn any txs left into live watches */
