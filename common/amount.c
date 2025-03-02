@@ -581,11 +581,9 @@ bool amount_msat_fee(struct amount_msat *fee,
 	 *    - fee_base_msat + ( amount_to_forward * fee_proportional_millionths / 1000000 )
 	 */
 	fee_base.millisatoshis = fee_base_msat;
-
-	if (mul_overflows_u64(amt.millisatoshis, fee_proportional_millionths))
+	if (!amount_msat_mul_div(&fee_prop, amt, fee_proportional_millionths,
+				 1000000))
 		return false;
-	fee_prop.millisatoshis = amt.millisatoshis * fee_proportional_millionths
-		/ 1000000;
 
 	return amount_msat_add(fee, fee_base, fee_prop);
 }
