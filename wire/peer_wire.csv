@@ -223,6 +223,7 @@ msgdata,splice_ack,relative_satoshis,s64,
 msgdata,splice_ack,funding_pubkey,point,
 msgtype,splice_locked,77,
 msgdata,splice_locked,channel_id,channel_id,
+msgdata,splice_locked,splice_txid,sha256,
 msgtype,shutdown,38
 msgdata,shutdown,channel_id,channel_id,
 msgdata,shutdown,len,u16,

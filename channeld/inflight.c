@@ -25,6 +25,7 @@ struct inflight *fromwire_inflight(const tal_t *ctx, const u8 **cursor, size_t *
 	}
 	inflight->i_am_initiator = fromwire_bool(cursor, max);
 	inflight->force_sign_first = fromwire_bool(cursor, max);
+	inflight->is_locked = fromwire_bool(cursor, max);
 
 	return inflight;
 }
@@ -44,4 +45,5 @@ void towire_inflight(u8 **pptr, const struct inflight *inflight)
 	}
 	towire_bool(pptr, inflight->i_am_initiator);
 	towire_bool(pptr, inflight->force_sign_first);
+	towire_bool(pptr, inflight->is_locked);
 }
