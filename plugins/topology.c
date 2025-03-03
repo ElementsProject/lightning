@@ -200,14 +200,10 @@ static struct command_result *json_getroute(struct command *cmd,
 	return send_outreq(req);
 }
 
-HTABLE_DEFINE_NODUPS_TYPE(struct node_id, node_id_keyof, node_id_hash, node_id_eq,
-			  node_map);
-
 /* To avoid multiple fetches, we represent directions as a bitmap
  * so we can do two at once. */
 static void json_add_halfchan(struct json_stream *response,
 			      struct gossmap *gossmap,
-			      const struct node_map *connected,
 			      const struct gossmap_chan *c,
 			      int dirbits)
 {
@@ -215,7 +211,6 @@ static void json_add_halfchan(struct json_stream *response,
 	struct node_id node_id[2];
 	const u8 *chanfeatures;
 	struct amount_msat capacity_msat;
-	bool local_disable;
 
 	/* These are channel (not per-direction) properties */
 	chanfeatures = gossmap_chan_get_features(tmpctx, gossmap, c);
@@ -225,14 +220,6 @@ static void json_add_halfchan(struct json_stream *response,
 				    &node_id[i]);
 
 	capacity_msat = gossmap_chan_get_capacity(gossmap, c);
-
-	/* Deprecated: local channels are not "active" unless peer is connected. */
-	if (connected && node_id_eq(&node_id[0], &local_id))
-		local_disable = !node_map_get(connected, &node_id[1]);
-	else if (connected && node_id_eq(&node_id[1], &local_id))
-		local_disable = !node_map_get(connected, &node_id[0]);
-	else
-		local_disable = false;
 
 	for (int dir = 0; dir < 2; dir++) {
 		u32 timestamp;
@@ -253,35 +240,21 @@ static void json_add_halfchan(struct json_stream *response,
 		json_add_num(response, "direction", dir);
 		json_add_bool(response, "public", !gossmap_chan_is_localmod(gossmap, c));
 
-		if (gossmap_chan_is_localmod(gossmap, c)) {
-			/* Local additions don't have a channel_update
-			 * in gossmap.  This is deprecated anyway, but
-			 * fill in values from entry we added. */
-			timestamp = time_now().ts.tv_sec;
-			message_flags = (ROUTING_OPT_HTLC_MAX_MSAT|ROUTING_OPT_DONT_FORWARD);
-			channel_flags = node_id_idx(&node_id[dir], &node_id[!dir]);
-			fee_base_msat = c->half[dir].base_fee;
-			fee_proportional_millionths = c->half[dir].proportional_fee;
-			htlc_minimum_msat = amount_msat(fp16_to_u64(c->half[dir].htlc_min));
-			htlc_maximum_msat = amount_msat(fp16_to_u64(c->half[dir].htlc_max));
-		} else {
-			gossmap_chan_get_update_details(gossmap, c, dir,
-							&timestamp,
-							&message_flags,
-							&channel_flags,
-							NULL,
-							&fee_base_msat,
-							&fee_proportional_millionths,
-							&htlc_minimum_msat,
-							&htlc_maximum_msat);
-		}
+		gossmap_chan_get_update_details(gossmap, c, dir,
+						&timestamp,
+						&message_flags,
+						&channel_flags,
+						NULL,
+						&fee_base_msat,
+						&fee_proportional_millionths,
+						&htlc_minimum_msat,
+						&htlc_maximum_msat);
 
 		json_add_amount_msat(response, "amount_msat", capacity_msat);
 		json_add_num(response, "message_flags", message_flags);
 		json_add_num(response, "channel_flags", channel_flags);
 
-		json_add_bool(response, "active",
-			      c->half[dir].enabled && !local_disable);
+		json_add_bool(response, "active", c->half[dir].enabled);
 		json_add_num(response, "last_update", timestamp);
 		json_add_num(response, "base_fee_millisatoshi", fee_base_msat);
 		json_add_num(response, "fee_per_millionth",
@@ -296,135 +269,59 @@ static void json_add_halfchan(struct json_stream *response,
 	}
 }
 
-struct listchannels_opts {
+static struct command_result *json_listchannels(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *params)
+{
 	struct node_id *source;
 	struct node_id *destination;
 	struct short_channel_id *scid;
-};
-
-/* We record which local channels are valid; we could record which are
- * invalid, but our testsuite has some weirdness where it has local
- * channels in the store it knows nothing about. */
-static struct node_map *local_connected(const tal_t *ctx,
-					const char *buf,
-					const jsmntok_t *result)
-{
-	size_t i;
-	const jsmntok_t *channel, *channels = json_get_member(buf, result, "channels");
-	struct node_map *connected = tal(ctx, struct node_map);
-
-	node_map_init(connected);
-	tal_add_destructor(connected, node_map_clear);
-
-	json_for_each_arr(i, channel, channels) {
-		struct node_id id;
-		bool is_connected;
-		const char *err, *state;
-
-		err = json_scan(tmpctx, buf, channel,
-				"{peer_id:%,peer_connected:%,state:%}",
-				JSON_SCAN(json_to_node_id, &id),
-				JSON_SCAN(json_to_bool, &is_connected),
-				JSON_SCAN_TAL(tmpctx, json_strdup, &state));
-		if (err)
-			plugin_err(plugin, "Bad listpeerchannels response (%s): %.*s",
-				   err,
-				   json_tok_full_len(result),
-				   json_tok_full(buf, result));
-
-		if (!is_connected)
-			continue;
-
-		/* Must also have a channel in CHANNELD_NORMAL/splice */
-		if (streq(state, "CHANNELD_NORMAL")
-		    || streq(state, "CHANNELD_AWAITING_SPLICE")) {
-			node_map_add(connected,
-				     tal_dup(connected, struct node_id, &id));
-		}
-	}
-
-	return connected;
-}
-
-/* Only add a local entry if it's unknown publicly */
-static void gossmod_add_unknown_localchan(struct gossmap_localmods *mods,
-					  const struct node_id *self,
-					  const struct node_id *peer,
-					  const struct short_channel_id_dir *scidd,
-					  struct amount_msat capacity_msat,
-					  struct amount_msat min,
-					  struct amount_msat max,
-					  struct amount_msat spendable,
-					  struct amount_msat max_total_htlc,
-					  struct amount_msat fee_base,
-					  u32 fee_proportional,
-					  u16 cltv_delta,
-					  bool enabled,
-					  const char *buf UNUSED,
-					  const jsmntok_t *chantok UNUSED,
-					  struct gossmap *gossmap)
-{
-	if (gossmap_find_chan(gossmap, &scidd->scid))
-		return;
-
-	gossmod_add_localchan(mods, self, peer, scidd, capacity_msat,
-			      min, max, spendable, max_total_htlc,
-			      fee_base, fee_proportional, cltv_delta, enabled,
-			      buf, chantok, gossmap);
-}
-
-static struct command_result *listpeerchannels_done(struct command *cmd,
-						    const char *method,
-						    const char *buf,
-						    const jsmntok_t *result,
-						    struct listchannels_opts *opts)
-{
-	struct node_map *connected;
 	struct gossmap_chan *c;
 	struct json_stream *js;
-	struct gossmap *gossmap = get_gossmap();
-	struct gossmap_localmods *mods;
+	struct gossmap *gossmap;
 
-	/* In deprecated mode, re-add private channels */
-	if (command_deprecated_out_ok(cmd, "include_private", "v24.02", "v24.08")) {
-		connected = local_connected(opts, buf, result);
-		mods = gossmods_from_listpeerchannels(tmpctx, &local_id,
-						      buf, result, false,
-						      gossmod_add_unknown_localchan,
-						      gossmap);
-		gossmap_apply_localmods(gossmap, mods);
-	} else {
-		connected = NULL;
-		mods = NULL;
-	}
+	if (!param(cmd, buffer, params,
+		   p_opt("short_channel_id", param_short_channel_id,
+			 &scid),
+		   p_opt("source", param_node_id, &source),
+		   p_opt("destination", param_node_id, &destination),
+		   NULL))
+		return command_param_failed();
 
+	if (!!scid + !!source + !!destination > 1)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only specify one of "
+				    "`short_channel_id`, "
+				    "`source` or `destination`");
+
+	gossmap = get_gossmap();
 	js = jsonrpc_stream_success(cmd);
 	json_array_start(js, "channels");
-	if (opts->scid) {
-		c = gossmap_find_chan(gossmap, opts->scid);
+	if (scid) {
+		c = gossmap_find_chan(gossmap, scid);
 		if (c)
-			json_add_halfchan(js, gossmap, connected, c, 3);
-	} else if (opts->source) {
+			json_add_halfchan(js, gossmap, c, 3);
+	} else if (source) {
 		struct gossmap_node *src;
 
-		src = gossmap_find_node(gossmap, opts->source);
+		src = gossmap_find_node(gossmap, source);
 		if (src) {
 			for (size_t i = 0; i < src->num_chans; i++) {
 				int dir;
 				c = gossmap_nth_chan(gossmap, src, i, &dir);
-				json_add_halfchan(js, gossmap, connected,
+				json_add_halfchan(js, gossmap,
 						  c, 1 << dir);
 			}
 		}
-	} else if (opts->destination) {
+	} else if (destination) {
 		struct gossmap_node *dst;
 
-		dst = gossmap_find_node(gossmap, opts->destination);
+		dst = gossmap_find_node(gossmap, destination);
 		if (dst) {
 			for (size_t i = 0; i < dst->num_chans; i++) {
 				int dir;
 				c = gossmap_nth_chan(gossmap, dst, i, &dir);
-				json_add_halfchan(js, gossmap, connected,
+				json_add_halfchan(js, gossmap,
 						  c, 1 << !dir);
 			}
 		}
@@ -432,50 +329,12 @@ static struct command_result *listpeerchannels_done(struct command *cmd,
 		for (c = gossmap_first_chan(gossmap);
 		     c;
 		     c = gossmap_next_chan(gossmap, c)) {
-			json_add_halfchan(js, gossmap, connected, c, 3);
+			json_add_halfchan(js, gossmap, c, 3);
 		}
 	}
 
 	json_array_end(js);
-
-	if (mods)
-		gossmap_remove_localmods(gossmap, mods);
-
 	return command_finished(cmd, js);
-}
-
-static struct command_result *json_listchannels(struct command *cmd,
-						const char *buffer,
-						const jsmntok_t *params)
-{
-	struct listchannels_opts *opts = tal(cmd, struct listchannels_opts);
-	struct out_req *req;
-
-	if (!param(cmd, buffer, params,
-		   p_opt("short_channel_id", param_short_channel_id,
-			 &opts->scid),
-		   p_opt("source", param_node_id, &opts->source),
-		   p_opt("destination", param_node_id, &opts->destination),
-		   NULL))
-		return command_param_failed();
-
-	if (!!opts->scid + !!opts->source + !!opts->destination > 1)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Can only specify one of "
-				    "`short_channel_id`, "
-				    "`source` or `destination`");
-
-	// FIXME: Once this deprecation is removed, `listpeerchannels_done` can
-	// be embedded in the current function.
-	if (command_deprecated_out_ok(cmd, "include_private", "v24.02", "v24.08")) {
-		req = jsonrpc_request_start(cmd, "listpeerchannels",
-				    listpeerchannels_done, forward_error, opts);
-		return send_outreq(req);
-	}
-
-	// If deprecations are not necessary, call listpeerchannels_done directly,
-	// the output will not be used there.
-	return listpeerchannels_done(cmd, NULL, NULL, NULL, opts);
 }
 
 static void json_add_node(struct json_stream *js,
