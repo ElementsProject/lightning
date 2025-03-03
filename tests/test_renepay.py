@@ -640,6 +640,7 @@ def test_fees(node_factory):
     assert invoice["amount_received_msat"] == Millisatoshi("150000sat")
 
 
+@unittest.skip("Not supported by askrene")
 def test_local_htlcmax0(node_factory):
     """Testing a simple pay route when local channels have htlcmax=0."""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
