@@ -919,7 +919,7 @@ const char *gossmap_manage_channel_update(const tal_t *ctx,
 
 	/* Still waiting? */
 	if (map_get(&gm->pending_ann_map, scid)) {
-		status_debug("Enqueueing update for announcne %s",
+		status_debug("Enqueueing update for announce %s",
 			     tal_hex(tmpctx, update));
 		enqueue_cupdate(&gm->pending_cupdates,
 				scid,
