@@ -29,8 +29,7 @@
 #define ROUTING_OPT_HTLC_MAX_MSAT (1 << 0)
 #define ROUTING_OPT_DONT_FORWARD (1 << 1)
 
-/* This quote comes in a later version: mark it out temporarily */
-/* BOLT-FIXME #7:
+/* BOLT #7:
  *
  * - If the funding transaction has less than 6 confirmations:
  *   - MUST NOT send `channel_announcement`.
