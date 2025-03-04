@@ -5679,7 +5679,6 @@ def test_blindedpath_privchan(node_factory, bitcoind):
     l1.rpc.pay(inv['invoice'])
 
 
-@pytest.mark.xfail(strict=True)
 def test_blindedpath_noaddr(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
                                      opts={'dev-allow-localhost': None})

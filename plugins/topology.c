@@ -670,6 +670,7 @@ listpeerchannels_listincoming_done(struct command *cmd,
 		peer_features = gossmap_node_get_features(tmpctx, gossmap, peer);
 		if (peer_features)
 			json_add_hex_talarr(js, "peer_features", peer_features);
+		json_add_bool(js, "enabled", ourchan->half[!dir].enabled);
 		json_object_end(js);
 	}
 done:

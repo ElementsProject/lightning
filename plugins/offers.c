@@ -339,6 +339,7 @@ static struct command_result *listincoming_done(struct command *cmd,
 		u8 *features;
 		const char *err;
 		struct amount_msat feebase;
+		bool enabled;
 
 		err = json_scan(tmpctx, buf, t,
 				"{id:%,"
@@ -347,14 +348,16 @@ static struct command_result *listincoming_done(struct command *cmd,
 				"htlc_max_msat:%,"
 				"fee_base_msat:%,"
 				"fee_proportional_millionths:%,"
-				"cltv_expiry_delta:%}",
+				"cltv_expiry_delta:%,"
+				"enabled:%}",
 				JSON_SCAN(json_to_pubkey, &ci.id),
 				JSON_SCAN(json_to_msat, &ci.capacity),
 				JSON_SCAN(json_to_msat, &ci.htlc_min),
 				JSON_SCAN(json_to_msat, &ci.htlc_max),
 				JSON_SCAN(json_to_msat, &feebase),
 				JSON_SCAN(json_to_u32, &ci.feeppm),
-				JSON_SCAN(json_to_u32, &ci.cltv));
+				JSON_SCAN(json_to_u32, &ci.cltv),
+				JSON_SCAN(json_to_bool, &enabled));
 		if (err) {
 			plugin_log(cmd->plugin, LOG_BROKEN,
 				   "Could not parse listincoming: %s",
@@ -362,6 +365,10 @@ static struct command_result *listincoming_done(struct command *cmd,
 			continue;
 		}
 		ci.feebase = feebase.millisatoshis; /* Raw: feebase */
+
+		/* Don't pick a peer which is disconnected */
+		if (!enabled)
+			continue;
 
 		/* Not presented if there's no channel_announcement for peer:
 		 * we could use listpeers, but if it's private we probably
