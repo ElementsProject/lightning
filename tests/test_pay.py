@@ -4437,7 +4437,7 @@ def test_fetchinvoice(node_factory, bitcoind):
     # We remove the conversion plugin on l3, causing it to get upset.
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
                                          opts=[{},
-                                               {},
+                                               {'dev-allow-localhost': None},
                                                {'broken_log': "plugin-offers: Failed invreq.*Unknown command 'currencyconvert'",
                                                 'dev-allow-localhost': None}])
 
@@ -4535,7 +4535,6 @@ def test_fetchinvoice(node_factory, bitcoind):
                                    'description': 'offer3'})
     l4 = node_factory.get_node()
     l4.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    time.sleep(0.25)
     # ... even if we can't find ourselves.
     l4.rpc.call('fetchinvoice', {'offer': offer3['bolt12']})
     # ... even if we know it from gossmap
