@@ -4587,7 +4587,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_ERROR:
 	case WIRE_ONION_MESSAGE:
 	case WIRE_PEER_STORAGE:
-	case WIRE_YOUR_PEER_STORAGE:
+	case WIRE_PEER_STORAGE_RETRIEVAL:
 		abort();
 	}
 

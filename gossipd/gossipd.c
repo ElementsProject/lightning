@@ -262,7 +262,7 @@ static void handle_recv_gossip(struct daemon *daemon, const u8 *outermsg)
 	case WIRE_ACCEPT_CHANNEL2:
 	case WIRE_ONION_MESSAGE:
 	case WIRE_PEER_STORAGE:
-	case WIRE_YOUR_PEER_STORAGE:
+	case WIRE_PEER_STORAGE_RETRIEVAL:
 	case WIRE_STFU:
 	case WIRE_SPLICE:
 	case WIRE_SPLICE_ACK:
