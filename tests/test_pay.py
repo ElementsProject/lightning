@@ -5679,6 +5679,7 @@ def test_blindedpath_privchan(node_factory, bitcoind):
     l1.rpc.pay(inv['invoice'])
 
 
+@pytest.mark.xfail(strict=True)
 def test_blindedpath_noaddr(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
                                      opts={'dev-allow-localhost': None})
@@ -5695,6 +5696,11 @@ def test_blindedpath_noaddr(node_factory, bitcoind):
 
     # But l2 has a public address, so doesn't bother.
     offer = l2.rpc.offer(1000, 'test_pay_blindedpath_nodeaddr')
+    assert 'offer_paths' not in l1.rpc.decode(offer['bolt12'])
+
+    # If l2 is disconnected, l3 will *not* add a blinded path.
+    l2.rpc.disconnect(l3.info['id'], force=True)
+    offer = l3.rpc.offer(1000, 'test_pay_blindedpath_nodeaddr2')
     assert 'offer_paths' not in l1.rpc.decode(offer['bolt12'])
 
 
