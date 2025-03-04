@@ -25,6 +25,7 @@
  * never will send such a thing!) if they're not using anchors. */
 bool valid_shutdown_scriptpubkey(const u8 *scriptpubkey,
 				 bool anysegwit,
-				 bool allow_oldstyle);
+				 bool allow_oldstyle,
+				 bool option_simple_close);
 
 #endif /* LIGHTNING_COMMON_SHUTDOWN_SCRIPTPUBKEY_H */
