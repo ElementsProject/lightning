@@ -695,7 +695,6 @@ void jsonrpc_request_end(struct jsonrpc_request *request UNNEEDED)
 struct jsonrpc_request *jsonrpc_request_start_(
     const tal_t *ctx UNNEEDED, const char *method UNNEEDED,
     const char *id_prefix TAKES UNNEEDED,
-    bool id_as_string UNNEEDED,
     struct logger *log UNNEEDED, bool add_header UNNEEDED,
     void (*notify_cb)(const char *buffer UNNEEDED,
 		      const jsmntok_t *idtok UNNEEDED,
