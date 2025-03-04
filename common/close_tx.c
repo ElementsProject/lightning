@@ -29,7 +29,10 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 
 	/* BOLT #3:
 	 *
-	 * ## Closing Transaction
+	 * ## Legacy Closing Transaction
+	 *
+	 * This variant is used for `closing_signed` messages (i.e. where
+	 * `option_simple_close` is not negotiated).
 	 *
 	 * Note that there are two possible variants for each node.
 	 *

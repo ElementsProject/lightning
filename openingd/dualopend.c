@@ -1668,6 +1668,8 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 		case WIRE_FUNDING_CREATED:
 		case WIRE_FUNDING_SIGNED:
 		case WIRE_CLOSING_SIGNED:
+		case WIRE_CLOSING_COMPLETE:
+		case WIRE_CLOSING_SIG:
 		case WIRE_UPDATE_ADD_HTLC:
 		case WIRE_UPDATE_FULFILL_HTLC:
 		case WIRE_UPDATE_FAIL_HTLC:
@@ -2050,6 +2052,8 @@ static bool run_tx_interactive(struct state *state,
 		case WIRE_CHANNEL_READY:
 		case WIRE_SHUTDOWN:
 		case WIRE_CLOSING_SIGNED:
+		case WIRE_CLOSING_COMPLETE:
+		case WIRE_CLOSING_SIG:
 		case WIRE_UPDATE_ADD_HTLC:
 		case WIRE_UPDATE_FULFILL_HTLC:
 		case WIRE_UPDATE_FAIL_HTLC:
@@ -4231,6 +4235,8 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_FUNDING_CREATED:
 	case WIRE_FUNDING_SIGNED:
 	case WIRE_CLOSING_SIGNED:
+	case WIRE_CLOSING_COMPLETE:
+	case WIRE_CLOSING_SIG:
 	case WIRE_UPDATE_ADD_HTLC:
 	case WIRE_UPDATE_FULFILL_HTLC:
 	case WIRE_UPDATE_FAIL_HTLC:

@@ -15,6 +15,8 @@ static bool unknown_type(enum peer_wire t)
 	case WIRE_CHANNEL_READY:
 	case WIRE_SHUTDOWN:
 	case WIRE_CLOSING_SIGNED:
+	case WIRE_CLOSING_COMPLETE:
+	case WIRE_CLOSING_SIG:
 	case WIRE_UPDATE_ADD_HTLC:
 	case WIRE_UPDATE_FULFILL_HTLC:
 	case WIRE_UPDATE_FAIL_HTLC:
@@ -81,6 +83,8 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_CHANNEL_READY:
 	case WIRE_SHUTDOWN:
 	case WIRE_CLOSING_SIGNED:
+	case WIRE_CLOSING_COMPLETE:
+	case WIRE_CLOSING_SIG:
 	case WIRE_UPDATE_ADD_HTLC:
 	case WIRE_UPDATE_FULFILL_HTLC:
 	case WIRE_UPDATE_FAIL_HTLC:
@@ -302,6 +306,18 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 	case WIRE_CLOSING_SIGNED:
 		/* BOLT #2:
 		 * 1. type: 39 (`closing_signed`)
+		 * 2. data:
+		 *    * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_CLOSING_COMPLETE:
+		/* BOLT #2:
+		 * 1. type: 40 (`closing_complete`)
+		 * 2. data:
+		 *    * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_CLOSING_SIG:
+		/* BOLT #2:
+		 * 1. type: 41 (`closing_sig`)
 		 * 2. data:
 		 *    * [`channel_id`:`channel_id`]
 		 */
