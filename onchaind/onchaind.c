@@ -774,7 +774,7 @@ static bool resolved_by_proposal(struct tracked_output *out,
 		return false;
 
 	input = which_input_spends(tx_parts, &out->outpoint);
-	if (!input)
+	if (!input || !input->witness)
 		return false;
 	if (!onchain_witness_element_matches(out->proposal->welements, input))
 		return false;
