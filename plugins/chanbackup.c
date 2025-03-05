@@ -462,7 +462,7 @@ static struct command_result *after_send_scb_single(struct command *cmd,
 						    const jsmntok_t *params,
 						    struct info *info)
 {
-        plugin_log(cmd->plugin, LOG_INFORM, "Peer storage sent!");
+        plugin_log(cmd->plugin, LOG_DBG, "Peer storage sent!");
 	if (--info->idx != 0)
 		return command_still_pending(cmd);
 
@@ -774,8 +774,7 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
 					     	    datastore_failed,
 						    "Saving latestscb");
 	} else {
-		plugin_log(cmd->plugin, LOG_DBG,
-			   "Peer sent bad custom message for chanbackup!");
+		/* Any other message we ignore */
 		return command_hook_success(cmd);
         }
 }
