@@ -2,7 +2,8 @@
 #define LIGHTNING_PLUGINS_RENEPAY_RENEPAYCONFIG_H
 #include "config.h"
 
-#define RENEPAY_LAYER "renepay"
+/* Use the same global layer as xpay */
+#define RENEPAY_LAYER "xpay"
 
 #define MAX_NUM_ATTEMPTS 10
 
