@@ -3,7 +3,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [25.02rc3] - 2025-02-27:
+## [25.02] - 2025-03-04: "Onion Packet Filler Accreditation"
+
+This release named by @s373nZ.
 
 ### Added
 
@@ -62,6 +64,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - gossmap: Don't crash on ZFS while reading `gossip_store`. ([#8053])
  - lightningd: Tell plugins our bolt12 features (so our bolt12 invoices explicitly allow MPP). ([#8059])
  - lightningd: Allow more time for plugin startup so slow nodes don't time out on startup. ([#8060])
+ - lightningd: Fixed onchaind crash when seeing unrelated txs (usually when catching up with old closes.) ([#8137])
  - `xpay`: Corrected the CLTV values in blinded paths which sometimes caused spurious failures. ([#8121])
  - Protocol: We now renegotiate an interrupted close, even if we don't need it, instead of sending an error. ([#8116])
  - bcli: `getblockfrompeer` no longer requests the block from the first peer only. ([#8069])
@@ -72,6 +75,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - Offers: `decode` for bolt12 invoices "features" field renamed to "invoice_features" (as documentation said.) ([#8059])
  - JSON-RPC: `xpay` will refuse to make a 0msat payment (0msat invoice, partial payment, or manually-set on amountless invoice). ([#8024])
  - JSON-RPC: `getroutes` will refuse, not crash, if asked to find a route for 0msat. ([#8024])
+ - Blinded paths: offline peers no longer selected. ([#8138])
  - build: Fixed linking against libsodium on macOS. ([#7908])
  - Fixes Postgres driver availability for arm64 and arm32 Docker images. ([#7921])
  - xpay: xpay no longer logs "Got command" at info level. ([#7933])
@@ -84,6 +88,8 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - onchaind: Correctly collect our own (delayed) funds if we have a unilateral close when we are still offering a lease. ([#8111])
 
 
+[#8138]: https://github.com/ElementsProject/lightning/pull/8138
+[#8137]: https://github.com/ElementsProject/lightning/pull/8137
 [#8111]: https://github.com/ElementsProject/lightning/pull/8111
 [#8121]: https://github.com/ElementsProject/lightning/pull/8121
 [#8116]: https://github.com/ElementsProject/lightning/pull/8116
@@ -128,7 +134,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#7942]: https://github.com/ElementsProject/lightning/pull/7942
 [#7772]: https://github.com/ElementsProject/lightning/pull/7772
 [#8060]: https://github.com/ElementsProject/lightning/pull/8060
-[25.02rc3]: https://github.com/ElementsProject/lightning/releases/tag/v25.02rc3
+[25.02]: https://github.com/ElementsProject/lightning/releases/tag/v25.02
 
 
 ## [24.11.1] - 2024-12-16: "The lightning-dev Mailing List II"
