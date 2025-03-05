@@ -243,7 +243,7 @@ RUN ./configure --prefix=/tmp/lightning_install --enable-static && poetry run ma
 
 # Export the requirements for the plugins so we can install them in builder-python stage
 WORKDIR /opt/lightningd/plugins/wss-proxy
-RUN poetry export -o requirements.txt --without-hashes
+RUN poetry lock && poetry export -o requirements.txt --without-hashes
 WORKDIR /opt/lightningd
 RUN echo 'RUSTUP_INSTALL_OPTS="${RUSTUP_INSTALL_OPTS}"' > /tmp/rustup_install_opts.txt
 
