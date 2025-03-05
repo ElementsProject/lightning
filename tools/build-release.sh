@@ -124,6 +124,7 @@ mkdir -p "$RELEASEDIR"
 
 if [ "$WITHOUT_ZIP" = "false" ]; then
     # submodcheck needs to know if we have lowdown
+    touch config.vars
     ./configure --reconfigure
     # If it's a completely clean directory, we need submodules!
     make submodcheck
