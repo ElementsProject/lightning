@@ -386,6 +386,16 @@ static struct command_result *peer_after_listdatastore(struct command *cmd,
 	if (!peer_backup)
 		return command_hook_success(cmd);
 
+	/* BOLT #1:
+	 * - If it does store the message:
+	 *...
+	 *   - MUST send `peer_storage_retrieval` again after
+	 *     reconnection, after exchanging `init` messages.
+	 */
+	/* BOLT #1:
+	 * The sender of `peer_storage_retrieval`:
+	 *   - MUST include the last `blob` it stored for that peer.
+	 */
         u8 *payload = towire_peer_storage_retrieval(cmd, hexdata);
 
         plugin_log(cmd->plugin, LOG_DBG,
@@ -488,6 +498,15 @@ static struct command_result *after_listpeers(struct command *cmd,
 	if (!peer_backup)
 		return notification_or_hook_done(cmd);
 
+	/* BOLT #1:
+	 * The sender of `peer_storage`:
+	 *   - MAY send `peer_storage` whenever necessary.
+	 *   - MUST limit its `blob` to 65531 bytes.
+	 *   - MUST encrypt the data in a manner that ensures its integrity
+	 *     upon receipt.
+	 *   - SHOULD pad the `blob` to ensure its length is always exactly 65531 bytes.
+	 */
+	/* FIXME: We do not pad!  But this is because LDK doesn't store > 1k anyway */
 	serialise_scb = towire_peer_storage(cmd,
 					    get_file_data(tmpctx, cmd->plugin));
 
@@ -632,6 +651,13 @@ static struct command_result *failed_peer_restore(struct command *cmd,
 						  struct node_id *node_id,
 						  char *reason)
 {
+	/* BOLT #1:
+	 *
+	 * The receiver of `peer_storage_retrieval`:
+	 *   - when it receives `peer_storage_retrieval` with an outdated or irrelevant data:
+	 *     - MAY send a warning.
+	 */
+	/* We don't, we just complain in the logs a little! */
 	plugin_log(cmd->plugin, LOG_DBG, "PeerStorageFailed!: %s: %s",
 		   fmt_node_id(tmpctx, node_id),
 		   reason);
@@ -682,6 +708,21 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
 	}
 
 	if (fromwire_peer_storage(cmd, payload, &payload_deserialise)) {
+		/* BOLT #1:
+		 * The receiver of `peer_storage`:
+		 *   - If it offered `option_provide_storage`:
+		 *    - if it has an open channel with the sender:
+		 *      - MUST store the message.
+		 *    - MAY store the message anyway.
+		 */
+		/* FIXME: Only store peers we want to! */
+
+		/* BOLT #1:
+		 * - If it does store the message:
+		 *   - MAY delay storage to ratelimit peer to no more than one
+		 *     update per minute.
+		 *   - MUST replace the old `blob` with the latest received.
+		 */
 		return jsonrpc_set_datastore_binary(cmd,
 					     	    tal_fmt(cmd,
 						    	    "chanbackup/peers/%s",
