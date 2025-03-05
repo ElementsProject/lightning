@@ -27,9 +27,16 @@
 /* VERSION is the current version of the data encrypted in the file */
 #define VERSION ((u64)1)
 
-/* Global secret object to keep the derived encryption key for the SCB */
-static struct secret secret;
-static bool peer_backup;
+struct chanbackup {
+	bool peer_backup;
+	/* Global secret object to keep the derived encryption key for the SCB */
+	struct secret secret;
+};
+
+static struct chanbackup *chanbackup(struct plugin *plugin)
+{
+	return plugin_get_data(plugin, struct chanbackup);
+}
 
 /* Helper to fetch out SCB from the RPC call */
 static bool json_to_scb_chan(const char *buffer,
@@ -65,6 +72,7 @@ static void write_scb(struct plugin *p,
                       int fd,
 		      struct modern_scb_chan **scb_chan_arr)
 {
+	const struct chanbackup *cb = chanbackup(p);
 	u32 timestamp = time_now().ts.tv_sec;
 
 	u8 *decrypted_scb = towire_static_chan_backup_with_tlvs(tmpctx,
@@ -83,7 +91,7 @@ static void write_scb(struct plugin *p,
 
 	if (crypto_secretstream_xchacha20poly1305_init_push(&crypto_state,
 							    encrypted_scb,
-							    (&secret)->data) != 0)
+							    cb->secret.data) != 0)
 	{
 		plugin_err(p, "Can't encrypt the data!");
 		return;
@@ -183,6 +191,7 @@ static u8 *get_file_data(const tal_t *ctx, struct plugin *p)
 /* Returns decrypted SCB in form of a u8 array */
 static u8 *decrypt_scb(struct plugin *p)
 {
+	const struct chanbackup *cb = chanbackup(p);
 	u8 *filedata = get_file_data(tmpctx, p);
 
 	crypto_secretstream_xchacha20poly1305_state crypto_state;
@@ -198,7 +207,7 @@ static u8 *decrypt_scb(struct plugin *p)
 	/* The header part */
 	if (crypto_secretstream_xchacha20poly1305_init_pull(&crypto_state,
 							    filedata,
-							    (&secret)->data) != 0)
+							    cb->secret.data) != 0)
 	{
 		plugin_err(p, "SCB file is corrupted!");
 	}
@@ -383,7 +392,7 @@ static struct command_result *peer_after_listdatastore(struct command *cmd,
         	return command_hook_success(cmd);
         struct out_req *req;
 
-	if (!peer_backup)
+	if (!chanbackup(cmd->plugin)->peer_backup)
 		return command_hook_success(cmd);
 
 	/* BOLT #1:
@@ -495,7 +504,7 @@ static struct command_result *after_listpeers(struct command *cmd,
 	bool is_connected;
         u8 *serialise_scb;
 
-	if (!peer_backup)
+	if (!chanbackup(cmd->plugin)->peer_backup)
 		return notification_or_hook_done(cmd);
 
 	/* BOLT #1:
@@ -611,7 +620,7 @@ static struct command_result *peer_connected(struct command *cmd,
 	const char *err;
 	u8 *features;
 
-	if (!peer_backup)
+	if (!chanbackup(cmd->plugin)->peer_backup)
 		return command_hook_success(cmd);
 
 	serialise_scb = towire_peer_storage(cmd,
@@ -690,8 +699,9 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
         struct node_id node_id;
         u8 *payload, *payload_deserialise;
 	const char *err;
+	const struct chanbackup *cb = chanbackup(cmd->plugin);
 
-	if (!peer_backup)
+	if (!cb->peer_backup)
 		return command_hook_success(cmd);
 
 	err = json_scan(cmd, buf, params,
@@ -750,7 +760,7 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
                 /* The header part */
                 if (crypto_secretstream_xchacha20poly1305_init_pull(&crypto_state,
                                                                     payload_deserialise,
-                                                                    (&secret)->data) != 0)
+                                                                    cb->secret.data) != 0)
                         return failed_peer_restore(cmd, &node_id,
 						   "Peer altered our data");
 
@@ -904,6 +914,7 @@ static const char *init(struct command *init_cmd,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
 {
+	struct chanbackup *cb = tal(init_cmd->plugin, struct chanbackup);
 	struct modern_scb_chan **scb_chan;
 	const char *info = "scb secret";
 	u8 *info_hex = tal_dup_arr(tmpctx, u8, (u8*)info, strlen(info), 0);
@@ -914,7 +925,7 @@ static const char *init(struct command *init_cmd,
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{our_features:{init:%}}",
 		 JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &features));
-	peer_backup = feature_offered(features, OPT_PROVIDE_STORAGE);
+	cb->peer_backup = feature_offered(features, OPT_PROVIDE_STORAGE);
 
 	rpc_scan(init_cmd, "staticbackup",
 		 take(json_out_obj(NULL, NULL, NULL)),
@@ -925,8 +936,9 @@ static const char *init(struct command *init_cmd,
 		 		   tal_hexstr(tmpctx,
 				   	      info_hex,
 					      tal_bytelen(info_hex)))),
-		 "{secret:%}", JSON_SCAN(json_to_secret, &secret));
+		 "{secret:%}", JSON_SCAN(json_to_secret, &cb->secret));
 
+	plugin_set_data(init_cmd->plugin, cb);
 	plugin_log(init_cmd->plugin, LOG_DBG, "Chanbackup Initialised!");
 
 	/* flush the tmp file, if exists */
