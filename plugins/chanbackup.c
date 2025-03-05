@@ -61,7 +61,10 @@ HTABLE_DEFINE_NODUPS_TYPE(struct node_id,
 			  peer_map);
 
 struct chanbackup {
-	bool peer_backup;
+	/* Do we send/acccept peer backups? */
+	bool send_our_peer_backup;
+	bool handle_their_peer_backup;
+
 	/* Global secret object to keep the derived encryption key for the SCB */
 	struct secret secret;
 
@@ -449,18 +452,16 @@ static struct command_result
 	return command_hook_success(cmd);
 }
 
-static struct command_result *peer_after_send_scb(struct command *cmd,
-						  const char *method,
-						  const char *buf,
-						  const jsmntok_t *params,
-						  struct node_id *nodeid)
+static struct command_result *send_peers_scb(struct command *cmd,
+					     struct node_id *nodeid)
 {
 	const struct chanbackup *cb = chanbackup(cmd->plugin);
 	struct peer_backup *pb;
         struct out_req *req;
 	const u8 *msg;
 
-        plugin_log(cmd->plugin, LOG_DBG, "Peer storage sent!");
+	if (!cb->handle_their_peer_backup)
+		return command_hook_success(cmd);
 
 	/* Now send their backup, if any. */
 	pb = backup_map_get(cb->backups, nodeid);
@@ -482,6 +483,17 @@ static struct command_result *peer_after_send_scb(struct command *cmd,
 	json_add_hex_talarr(req->js, "msg", msg);
 
         return send_outreq(req);
+}
+
+static struct command_result *peer_after_send_scb(struct command *cmd,
+						  const char *method,
+						  const char *buf,
+						  const jsmntok_t *params,
+						  struct node_id *nodeid)
+{
+        plugin_log(cmd->plugin, LOG_DBG, "Peer storage sent!");
+
+	return send_peers_scb(cmd, nodeid);
 }
 
 static struct command_result *peer_after_send_scb_failed(struct command *cmd,
@@ -543,12 +555,12 @@ static struct command_result *send_to_peers(struct command *cmd)
 {
         struct out_req *req;
 	size_t *idx = tal(cmd, size_t);
-        u8 *serialise_scb;
+        u8 *serialise_scb, *data;
 	struct peer_map_iter it;
 	const struct node_id *peer;
 	struct chanbackup *cb = chanbackup(cmd->plugin);
 
-	if (!cb->peer_backup)
+	if (!cb->send_our_peer_backup)
 		return notification_or_hook_done(cmd);
 
 	/* BOLT #1:
@@ -560,8 +572,15 @@ static struct command_result *send_to_peers(struct command *cmd)
 	 *   - SHOULD pad the `blob` to ensure its length is always exactly 65531 bytes.
 	 */
 	/* FIXME: We do not pad!  But this is because LDK doesn't store > 1k anyway */
-	serialise_scb = towire_peer_storage(cmd,
-					    get_file_data(tmpctx, cmd->plugin));
+	data = get_file_data(tmpctx, cmd->plugin);
+	if (tal_bytelen(data) > 65531) {
+		plugin_log(cmd->plugin, LOG_UNUSUAL,
+			   "Peer backup would be %zu bytes.  That is too large: disabling peer backups!",
+			   tal_bytelen(data));
+		cb->send_our_peer_backup = false;
+		return notification_or_hook_done(cmd);
+	}
+	serialise_scb = towire_peer_storage(cmd, data);
 
 	*idx = 0;
 	for (peer = peer_map_pick(cb->peers, pseudorand_u64(), &it);
@@ -684,9 +703,6 @@ static struct command_result *peer_connected(struct command *cmd,
 	u8 *features;
 	struct chanbackup *cb = chanbackup(cmd->plugin);
 
-	if (!cb->peer_backup)
-		return command_hook_success(cmd);
-
 	serialise_scb = towire_peer_storage(cmd,
 					    get_file_data(tmpctx, cmd->plugin));
 	node_id = tal(cmd, struct node_id);
@@ -709,6 +725,9 @@ static struct command_result *peer_connected(struct command *cmd,
 	/* Remember this peer for future sends */
 	if (!peer_map_get(cb->peers, node_id))
 		peer_map_add(cb->peers, tal_dup(cb->peers, struct node_id, node_id));
+
+	if (!cb->send_our_peer_backup)
+		return send_peers_scb(cmd, node_id);
 
         req = jsonrpc_request_start(cmd,
                                     "sendcustommsg",
@@ -769,9 +788,6 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
 	const char *err;
 	const struct chanbackup *cb = chanbackup(cmd->plugin);
 
-	if (!cb->peer_backup)
-		return command_hook_success(cmd);
-
 	err = json_scan(cmd, buf, params,
 			"{payload:%,peer_id:%}",
 			JSON_SCAN_TAL(cmd, json_tok_bin_from_hex, &payload),
@@ -785,6 +801,9 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
 
 	if (fromwire_peer_storage(cmd, payload, &payload_deserialise)) {
 		struct peer_backup *pb;
+
+		if (!cb->handle_their_peer_backup)
+			return command_hook_success(cmd);
 
 		/* BOLT #1:
 		 * The receiver of `peer_storage`:
@@ -812,10 +831,13 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
 		pb->data = tal_steal(pb, payload_deserialise);
 		return commit_peer_backup(cmd, pb);
 	} else if (fromwire_peer_storage_retrieval(cmd, payload, &payload_deserialise)) {
+		crypto_secretstream_xchacha20poly1305_state crypto_state;
+
 		plugin_log(cmd->plugin, LOG_DBG,
                            "Received peer_storage from peer.");
 
-        	crypto_secretstream_xchacha20poly1305_state crypto_state;
+		if (!cb->send_our_peer_backup)
+			return command_hook_success(cmd);
 
                 if (tal_bytelen(payload_deserialise) < ABYTES +
 		    HEADER_LEN)
@@ -1056,7 +1078,11 @@ static const char *init(struct command *init_cmd,
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{our_features:{init:%}}",
 		 JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &features));
-	cb->peer_backup = feature_offered(features, OPT_PROVIDE_STORAGE);
+
+	/* If we unset this feature, we don't even *send* peer backups */
+	cb->handle_their_peer_backup
+		= cb->send_our_peer_backup
+		= feature_offered(features, OPT_PROVIDE_STORAGE);
 
 	rpc_scan(init_cmd, "staticbackup",
 		 take(json_out_obj(NULL, NULL, NULL)),
