@@ -423,31 +423,25 @@ static struct command_result
 	return command_hook_success(cmd);
 }
 
-static struct command_result *peer_after_listdatastore(struct command *cmd,
-						       const u8 *hexdata,
-						       struct node_id *nodeid)
+static struct command_result *peer_after_send_scb(struct command *cmd,
+						  const char *method,
+						  const char *buf,
+						  const jsmntok_t *params,
+						  struct node_id *nodeid)
 {
+	const struct chanbackup *cb = chanbackup(cmd->plugin);
+	struct peer_backup *pb;
         struct out_req *req;
+	const u8 *msg;
 
-	/* We use an empty record to indicate we *would* store data
-	 * for this peer, until we actually get data from them */
-        if (tal_bytelen(hexdata) == 0)
-        	return command_hook_success(cmd);
+        plugin_log(cmd->plugin, LOG_DBG, "Peer storage sent!");
 
-	if (!chanbackup(cmd->plugin)->peer_backup)
+	/* Now send their backup, if any. */
+	pb = backup_map_get(cb->backups, nodeid);
+	if (!pb || tal_bytelen(pb->data) == 0)
 		return command_hook_success(cmd);
 
-	/* BOLT #1:
-	 * - If it does store the message:
-	 *...
-	 *   - MUST send `peer_storage_retrieval` again after
-	 *     reconnection, after exchanging `init` messages.
-	 */
-	/* BOLT #1:
-	 * The sender of `peer_storage_retrieval`:
-	 *   - MUST include the last `blob` it stored for that peer.
-	 */
-        u8 *payload = towire_peer_storage_retrieval(cmd, hexdata);
+        msg = towire_peer_storage_retrieval(cmd, pb->data);
 
         plugin_log(cmd->plugin, LOG_DBG,
                    "sending their backup from our datastore");
@@ -459,26 +453,9 @@ static struct command_result *peer_after_listdatastore(struct command *cmd,
                                     NULL);
 
         json_add_node_id(req->js, "node_id", nodeid);
-	json_add_hex_talarr(req->js, "msg", payload);
+	json_add_hex_talarr(req->js, "msg", msg);
 
         return send_outreq(req);
-}
-
-static struct command_result *peer_after_send_scb(struct command *cmd,
-						  const char *method,
-						  const char *buf,
-						  const jsmntok_t *params,
-						  struct node_id *nodeid)
-{
-        plugin_log(cmd->plugin, LOG_DBG, "Peer storage sent!");
-
-	return jsonrpc_get_datastore_binary(cmd,
-				     	    tal_fmt(cmd,
-				     		    "chanbackup/peers/%s",
-						    fmt_node_id(tmpctx,
-								nodeid)),
-				     	    peer_after_listdatastore,
-				     	    nodeid);
 }
 
 static struct command_result *peer_after_send_scb_failed(struct command *cmd,
