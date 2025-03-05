@@ -121,9 +121,10 @@ def test_reserve(node_factory):
 
 def test_layers(node_factory):
     """Test manipulating information in layers"""
-    # remove xpay, since it creates a layer!
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
-                                         opts={'disable-plugin': 'cln-xpay'})
+    # remove xpay and renepay, since they create a layer!
+    l1, l2, l3 = node_factory.line_graph(
+        3, wait_for_announce=True, opts={"disable-plugin": ["cln-xpay", "cln-renepay"]}
+    )
 
     assert l2.rpc.askrene_listlayers() == {'layers': []}
     with pytest.raises(RpcError, match="Unknown layer"):
@@ -294,8 +295,9 @@ def test_layers(node_factory):
 
 def test_layer_persistence(node_factory):
     """Test persistence of layers across restart"""
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
-                                     opts={'disable-plugin': 'cln-xpay'})
+    l1, l2 = node_factory.line_graph(
+        2, wait_for_announce=True, opts={"disable-plugin": ["cln-xpay", "cln-renepay"]}
+    )
 
     assert l1.rpc.askrene_listlayers() == {'layers': []}
     with pytest.raises(RpcError, match="Unknown layer"):
