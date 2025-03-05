@@ -388,9 +388,12 @@ static struct command_result *peer_after_listdatastore(struct command *cmd,
 						       const u8 *hexdata,
 						       struct node_id *nodeid)
 {
+        struct out_req *req;
+
+	/* We use an empty record to indicate we *would* store data
+	 * for this peer, until we actually get data from them */
         if (tal_bytelen(hexdata) == 0)
         	return command_hook_success(cmd);
-        struct out_req *req;
 
 	if (!chanbackup(cmd->plugin)->peer_backup)
 		return command_hook_success(cmd);
@@ -582,6 +585,15 @@ static struct command_result *after_staticbackup(struct command *cmd,
 	return send_outreq(req);
 }
 
+static struct command_result *datastore_create_done(struct command *cmd,
+						    const char *method,
+						    const char *buf,
+						    const jsmntok_t *result,
+						    void *unused)
+{
+	return notification_or_hook_done(cmd);
+}
+
 static struct command_result *json_state_changed(struct command *cmd,
 					         const char *buf,
 					         const jsmntok_t *params)
@@ -602,6 +614,32 @@ static struct command_result *json_state_changed(struct command *cmd,
                                             NULL);
 
 		return send_outreq(req);
+	}
+
+	/* Once it has a normal channel, we will start storing its
+	 * backups: put an empty record in place. */
+	if (json_tok_streq(buf, statetok, "CHANNELD_NORMAL")) {
+		const jsmntok_t *nodeid_tok;
+		struct node_id node_id;
+
+		nodeid_tok = json_get_member(buf, notiftok, "peer_id");
+		if (!json_to_node_id(buf, nodeid_tok, &node_id))
+			plugin_err(cmd->plugin, "Invalid peer_id in %.*s",
+				   json_tok_full_len(notiftok),
+				   json_tok_full(buf, notiftok));
+
+		/* Might already exist, that's OK, just don't overwrite! */
+		return jsonrpc_set_datastore_binary(cmd,
+					     	    tal_fmt(cmd,
+						    	    "chanbackup/peers/%s",
+					     	     	    fmt_node_id(tmpctx,
+									&node_id)),
+						    /* Empty record */
+						    tal_arr(tmpctx, u8, 0),
+						    "must-create",
+					     	    datastore_create_done,
+					     	    datastore_create_done,
+						    NULL);
 	}
 
 	return notification_or_hook_done(cmd);
@@ -723,7 +761,10 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
 		 *      - MUST store the message.
 		 *    - MAY store the message anyway.
 		 */
-		/* FIXME: Only store peers we want to! */
+		/* We store if we have a datastore slot for it
+		 * (otherwise, this fails).  We create those once it
+		 * has a channel, though the user could also create an
+		 * empty one if they wanted to */
 
 		/* BOLT #1:
 		 * - If it does store the message:
@@ -737,7 +778,7 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
 					     	     	    fmt_node_id(tmpctx,
 									&node_id)),
 						    payload_deserialise,
-						    "create-or-replace",
+						    "must-replace",
 					     	    datastore_success,
 					     	    datastore_failed,
 						    "Saving chanbackup/peers/");
