@@ -12,6 +12,7 @@
 #include <common/hsm_encryption.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <common/scb_wiregen.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -27,15 +28,53 @@
 /* VERSION is the current version of the data encrypted in the file */
 #define VERSION ((u64)1)
 
+struct peer_backup {
+	struct node_id peer;
+	/* Empty if it's a placeholder */
+	const u8 *data;
+};
+
+static const struct node_id *peer_backup_keyof(const struct peer_backup *pb)
+{
+	return &pb->peer;
+}
+
+static bool peer_backup_eq_node_id(const struct peer_backup *pb,
+				   const struct node_id *id)
+{
+	return node_id_eq(&pb->peer, id);
+}
+
+HTABLE_DEFINE_NODUPS_TYPE(struct peer_backup,
+			  peer_backup_keyof,
+			  node_id_hash,
+			  peer_backup_eq_node_id,
+			  backup_map);
+
 struct chanbackup {
 	bool peer_backup;
 	/* Global secret object to keep the derived encryption key for the SCB */
 	struct secret secret;
+
+	/* Cache of backups for each peer we know about */
+	struct backup_map *backups;
 };
 
 static struct chanbackup *chanbackup(struct plugin *plugin)
 {
 	return plugin_get_data(plugin, struct chanbackup);
+}
+
+/* Must not already exist in map! */
+static struct peer_backup *add_to_backup_map(struct chanbackup *cb,
+					     const struct node_id *peer,
+					     const u8 *data TAKES)
+{
+	struct peer_backup *pb = tal(cb->backups, struct peer_backup);
+	pb->peer = *peer;
+	pb->data = tal_dup_talarr(pb, u8, data);
+	backup_map_add(cb->backups, pb);
+	return pb;
 }
 
 /* Helper to fetch out SCB from the RPC call */
@@ -585,19 +624,25 @@ static struct command_result *after_staticbackup(struct command *cmd,
 	return send_outreq(req);
 }
 
-static struct command_result *datastore_create_done(struct command *cmd,
-						    const char *method,
-						    const char *buf,
-						    const jsmntok_t *result,
-						    void *unused)
+/* Write to the datastore */
+static struct command_result *commit_peer_backup(struct command *cmd,
+						 const struct peer_backup *pb)
 {
-	return notification_or_hook_done(cmd);
+	return jsonrpc_set_datastore_binary(cmd,
+					    tal_fmt(cmd,
+						    "chanbackup/peers/%s",
+						    fmt_node_id(tmpctx,
+								&pb->peer)),
+					    pb->data,
+					    "create-or-replace",
+					    NULL, NULL, NULL);
 }
 
 static struct command_result *json_state_changed(struct command *cmd,
 					         const char *buf,
 					         const jsmntok_t *params)
 {
+	struct chanbackup *cb = chanbackup(cmd->plugin);
 	const jsmntok_t *notiftok = json_get_member(buf,
                                                     params,
                                                     "channel_state_changed"),
@@ -628,18 +673,13 @@ static struct command_result *json_state_changed(struct command *cmd,
 				   json_tok_full_len(notiftok),
 				   json_tok_full(buf, notiftok));
 
-		/* Might already exist, that's OK, just don't overwrite! */
-		return jsonrpc_set_datastore_binary(cmd,
-					     	    tal_fmt(cmd,
-						    	    "chanbackup/peers/%s",
-					     	     	    fmt_node_id(tmpctx,
-									&node_id)),
-						    /* Empty record */
-						    tal_arr(tmpctx, u8, 0),
-						    "must-create",
-					     	    datastore_create_done,
-					     	    datastore_create_done,
-						    NULL);
+		/* Create a placeholder if necessary */
+		if (!backup_map_get(cb->backups, &node_id)) {
+			struct peer_backup *pb
+				= add_to_backup_map(cb, &node_id,
+						    take(tal_arr(NULL, u8, 0)));
+			return commit_peer_backup(cmd, pb);
+		}
 	}
 
 	return notification_or_hook_done(cmd);
@@ -754,6 +794,8 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
 	}
 
 	if (fromwire_peer_storage(cmd, payload, &payload_deserialise)) {
+		struct peer_backup *pb;
+
 		/* BOLT #1:
 		 * The receiver of `peer_storage`:
 		 *   - If it offered `option_provide_storage`:
@@ -772,16 +814,13 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
 		 *     update per minute.
 		 *   - MUST replace the old `blob` with the latest received.
 		 */
-		return jsonrpc_set_datastore_binary(cmd,
-					     	    tal_fmt(cmd,
-						    	    "chanbackup/peers/%s",
-					     	     	    fmt_node_id(tmpctx,
-									&node_id)),
-						    payload_deserialise,
-						    "must-replace",
-					     	    datastore_success,
-					     	    datastore_failed,
-						    "Saving chanbackup/peers/");
+		pb = backup_map_get(cb->backups, &node_id);
+		if (!pb)
+			return command_hook_success(cmd);
+
+		tal_free(pb->data);
+		pb->data = tal_steal(pb, payload_deserialise);
+		return commit_peer_backup(cmd, pb);
 	} else if (fromwire_peer_storage_retrieval(cmd, payload, &payload_deserialise)) {
 		plugin_log(cmd->plugin, LOG_DBG,
                            "Received peer_storage from peer.");
@@ -951,6 +990,64 @@ static struct command_result *on_commitment_revocation(struct command *cmd,
 	return send_outreq(req);
 }
 
+static void setup_backup_map(struct command *init_cmd,
+			     struct chanbackup *cb)
+{
+	struct json_out *params = json_out_new(init_cmd);
+	const jsmntok_t *result;
+	const char *buf;
+	const jsmntok_t *datastore, *t;
+	size_t i, total = 0;
+
+	cb->backups = tal(cb, struct backup_map);
+	backup_map_init(cb->backups);
+
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	json_out_addstr(params, NULL, "chanbackup");
+	json_out_addstr(params, NULL, "peers");
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+
+	result = jsonrpc_request_sync(tmpctx, init_cmd,
+				      "listdatastore",
+				      take(params), &buf);
+
+	datastore = json_get_member(buf, result, "datastore");
+	json_for_each_arr(i, t, datastore) {
+		const jsmntok_t *keytok, *hextok;
+		struct node_id peer;
+		u8 *data;
+
+		/* Key is an array, first two elements are chanbackup, peers */
+		keytok = json_get_member(buf, t, "key") + 3;
+		hextok = json_get_member(buf, t, "hex");
+		/* In case someone creates a subdir? */
+		if (!hextok)
+			continue;
+		if (!json_to_node_id(buf, keytok, &peer))
+			plugin_err(init_cmd->plugin,
+				   "Could not parse datastore id '%.*s'",
+				   json_tok_full_len(keytok),
+				   json_tok_full(buf, keytok));
+		data = json_tok_bin_from_hex(NULL, buf, hextok);
+		/* Only count non-empty ones. */
+		if (tal_bytelen(data) != 0)
+			total++;
+		add_to_backup_map(cb, &peer, take(data));
+	}
+	if (total)
+		plugin_log(init_cmd->plugin, LOG_INFORM,
+			   "Loaded %zu stored backups for peers", total);
+}
+
+static void chanbackup_mark_mem(struct plugin *plugin,
+				struct htable *memtable)
+{
+	const struct chanbackup *cb = chanbackup(plugin);
+	memleak_scan_htable(memtable, &cb->backups->raw);
+}
+
 static const char *init(struct command *init_cmd,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
@@ -979,6 +1076,7 @@ static const char *init(struct command *init_cmd,
 					      tal_bytelen(info_hex)))),
 		 "{secret:%}", JSON_SCAN(json_to_secret, &cb->secret));
 
+	setup_backup_map(init_cmd, cb);
 	plugin_set_data(init_cmd->plugin, cb);
 	plugin_log(init_cmd->plugin, LOG_DBG, "Chanbackup Initialised!");
 
@@ -987,6 +1085,8 @@ static const char *init(struct command *init_cmd,
 
 	maybe_create_new_scb(init_cmd->plugin, scb_chan);
 
+	plugin_set_memleak_handler(init_cmd->plugin,
+				   chanbackup_mark_mem);
 	return NULL;
 }
 
