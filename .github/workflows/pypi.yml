@@ -59,9 +59,12 @@ jobs:
         echo "EVENT DISTLOCATION: ${{ github.event.inputs.dist-location }}"
         echo "DISTRIBUTION LOCATION: $DISTLOCATION"
   
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
     - name: Install Poetry
-      env:
-        WORKDIR: ${{ matrix.WORKDIR }}
       run: |
         curl -sSL https://install.python-poetry.org | python3 -
         echo "$HOME/.local/bin" >> $GITHUB_PATH
