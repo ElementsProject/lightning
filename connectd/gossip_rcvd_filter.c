@@ -67,6 +67,8 @@ static bool is_msg_gossip_broadcast(const u8 *cursor)
 	case WIRE_CHANNEL_READY:
 	case WIRE_SHUTDOWN:
 	case WIRE_CLOSING_SIGNED:
+	case WIRE_CLOSING_COMPLETE:
+	case WIRE_CLOSING_SIG:
 	case WIRE_UPDATE_ADD_HTLC:
 	case WIRE_UPDATE_FULFILL_HTLC:
 	case WIRE_UPDATE_FAIL_HTLC:
@@ -88,7 +90,7 @@ static bool is_msg_gossip_broadcast(const u8 *cursor)
 	case WIRE_TX_ACK_RBF:
 	case WIRE_TX_ABORT:
 	case WIRE_PEER_STORAGE:
-	case WIRE_YOUR_PEER_STORAGE:
+	case WIRE_PEER_STORAGE_RETRIEVAL:
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
 	case WIRE_STFU:

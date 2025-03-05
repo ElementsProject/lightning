@@ -245,10 +245,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->proposed_wireaddr = tal_arr(ld, struct wireaddr_internal, 0);
 	ld->proposed_listen_announce = tal_arr(ld, enum addr_listen_announce, 0);
 
-	/*~ The network is not yet ready for DNS names inside node_announcements,
-	 * so we disable this by default for now. */
-	ld->announce_dns = false;
-
 	ld->lease_rates = NULL;
 	ld->node_announcement = NULL;
 	ld->discovered_ip_v4 = NULL;

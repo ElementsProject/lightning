@@ -2694,16 +2694,6 @@ impl From<responses::WaitResponse> for pb::WaitResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::ListconfigsConfigsAccepthtlctlvtypes> for pb::ListconfigsConfigsAccepthtlctlvtypes {
-    fn from(c: responses::ListconfigsConfigsAccepthtlctlvtypes) -> Self {
-        Self {
-            source: c.source, // Rule #2 for type string
-            value_str: c.value_str, // Rule #2 for type string
-        }
-    }
-}
-
-#[allow(unused_variables)]
 impl From<responses::ListconfigsConfigsAddr> for pb::ListconfigsConfigsAddr {
     fn from(c: responses::ListconfigsConfigsAddr) -> Self {
         Self {
@@ -3428,7 +3418,6 @@ impl From<responses::ListconfigsConfigsWatchtimeblocks> for pb::ListconfigsConfi
 impl From<responses::ListconfigsConfigs> for pb::ListconfigsConfigs {
     fn from(c: responses::ListconfigsConfigs) -> Self {
         Self {
-            accept_htlc_tlv_types: c.accept_htlc_tlv_types.map(|v| v.into()),
             addr: c.addr.map(|v| v.into()),
             alias: c.alias.map(|v| v.into()),
             allow_deprecated_apis: c.allow_deprecated_apis.map(|v| v.into()),
@@ -3504,183 +3493,10 @@ impl From<responses::ListconfigsConfigs> for pb::ListconfigsConfigs {
 }
 
 #[allow(unused_variables)]
-impl From<responses::ListconfigsImportantpluginsOptions> for pb::ListconfigsImportantpluginsOptions {
-    fn from(c: responses::ListconfigsImportantpluginsOptions) -> Self {
-        Self {
-        }
-    }
-}
-
-#[allow(unused_variables)]
-impl From<responses::ListconfigsImportantplugins> for pb::ListconfigsImportantplugins {
-    fn from(c: responses::ListconfigsImportantplugins) -> Self {
-        Self {
-            name: c.name, // Rule #2 for type string
-            options: c.options.map(|v| v.into()),
-            path: c.path, // Rule #2 for type string
-        }
-    }
-}
-
-#[allow(unused_variables)]
-impl From<responses::ListconfigsPluginsOptions> for pb::ListconfigsPluginsOptions {
-    fn from(c: responses::ListconfigsPluginsOptions) -> Self {
-        Self {
-        }
-    }
-}
-
-#[allow(unused_variables)]
-impl From<responses::ListconfigsPlugins> for pb::ListconfigsPlugins {
-    fn from(c: responses::ListconfigsPlugins) -> Self {
-        Self {
-            name: c.name, // Rule #2 for type string
-            options: c.options.map(|v| v.into()),
-            path: c.path, // Rule #2 for type string
-        }
-    }
-}
-
-#[allow(unused_variables,deprecated)]
 impl From<responses::ListconfigsResponse> for pb::ListconfigsResponse {
     fn from(c: responses::ListconfigsResponse) -> Self {
         Self {
-            #[allow(deprecated)]
-            accept_htlc_tlv_types: c.accept_htlc_tlv_types, // Rule #2 for type string?
-            #[allow(deprecated)]
-            addr: c.addr, // Rule #2 for type string?
-            #[allow(deprecated)]
-            alias: c.alias, // Rule #2 for type string?
-            #[allow(deprecated)]
-            allow_deprecated_apis: c.allow_deprecated_apis, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            always_use_proxy: c.always_use_proxy, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            announce_addr: c.announce_addr, // Rule #2 for type string?
-            #[allow(deprecated)]
-            announce_addr_discovered: c.announce_addr_discovered, // Rule #2 for type string?
-            #[allow(deprecated)]
-            announce_addr_discovered_port: c.announce_addr_discovered_port, // Rule #2 for type integer?
-            #[allow(deprecated)]
-            announce_addr_dns: c.announce_addr_dns, // Rule #2 for type boolean?
-            autoconnect_seeker_peers: c.autoconnect_seeker_peers, // Rule #2 for type u32?
-            #[allow(deprecated)]
-            autolisten: c.autolisten, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            bind_addr: c.bind_addr, // Rule #2 for type string?
-            #[allow(deprecated)]
-            bookkeeper_db: c.bookkeeper_db, // Rule #2 for type string?
-            #[allow(deprecated)]
-            bookkeeper_dir: c.bookkeeper_dir, // Rule #2 for type string?
-            #[allow(deprecated)]
-            cltv_delta: c.cltv_delta, // Rule #2 for type u32?
-            #[allow(deprecated)]
-            cltv_final: c.cltv_final, // Rule #2 for type u32?
-            #[allow(deprecated)]
-            commit_fee: c.commit_fee, // Rule #2 for type u64?
-            commit_feerate_offset: c.commit_feerate_offset, // Rule #2 for type u32?
-            #[allow(deprecated)]
-            commit_time: c.commit_time, // Rule #2 for type u32?
-            #[allow(deprecated)]
-            conf: c.conf, // Rule #2 for type string?
             configs: c.configs.map(|v| v.into()),
-            #[allow(deprecated)]
-            daemon: c.daemon, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            database_upgrade: c.database_upgrade, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            dev_allowdustreserve: c.dev_allowdustreserve, // Rule #2 for type boolean?
-            developer: c.developer, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            disable_dns: c.disable_dns, // Rule #2 for type boolean?
-            // Field: ListConfigs.disable-plugin[]
-            disable_plugin: c.disable_plugin.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
-            #[allow(deprecated)]
-            encrypted_hsm: c.encrypted_hsm, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            experimental_dual_fund: c.experimental_dual_fund, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            experimental_offers: c.experimental_offers, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            experimental_onion_messages: c.experimental_onion_messages, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            experimental_peer_storage: c.experimental_peer_storage, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            experimental_quiesce: c.experimental_quiesce, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            experimental_shutdown_wrong_funding: c.experimental_shutdown_wrong_funding, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            experimental_splicing: c.experimental_splicing, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            experimental_upgrade_protocol: c.experimental_upgrade_protocol, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            fee_base: c.fee_base, // Rule #2 for type u32?
-            #[allow(deprecated)]
-            fee_per_satoshi: c.fee_per_satoshi, // Rule #2 for type u32?
-            #[allow(deprecated)]
-            fetchinvoice_noconnect: c.fetchinvoice_noconnect, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            force_feerates: c.force_feerates, // Rule #2 for type string?
-            #[allow(deprecated)]
-            funding_confirms: c.funding_confirms, // Rule #2 for type u32?
-            #[allow(deprecated)]
-            htlc_maximum_msat: c.htlc_maximum_msat.map(|f| f.into()), // Rule #2 for type msat?
-            #[allow(deprecated)]
-            htlc_minimum_msat: c.htlc_minimum_msat.map(|f| f.into()), // Rule #2 for type msat?
-            #[allow(deprecated)]
-            ignore_fee_limits: c.ignore_fee_limits, // Rule #2 for type boolean?
-            // Field: ListConfigs.important-plugins[]
-            important_plugins: c.important_plugins.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
-            invoices_onchain_fallback: c.invoices_onchain_fallback, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            large_channels: c.large_channels, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            lightning_dir: c.lightning_dir, // Rule #2 for type string?
-            #[allow(deprecated)]
-            log_file: c.log_file, // Rule #2 for type string?
-            #[allow(deprecated)]
-            log_level: c.log_level, // Rule #2 for type string?
-            #[allow(deprecated)]
-            log_prefix: c.log_prefix, // Rule #2 for type string?
-            #[allow(deprecated)]
-            log_timestamps: c.log_timestamps, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            max_concurrent_htlcs: c.max_concurrent_htlcs, // Rule #2 for type u32?
-            #[allow(deprecated)]
-            max_dust_htlc_exposure_msat: c.max_dust_htlc_exposure_msat.map(|f| f.into()), // Rule #2 for type msat?
-            #[allow(deprecated)]
-            max_locktime_blocks: c.max_locktime_blocks, // Rule #2 for type u32?
-            #[allow(deprecated)]
-            min_capacity_sat: c.min_capacity_sat, // Rule #2 for type u64?
-            min_emergency_msat: c.min_emergency_msat.map(|f| f.into()), // Rule #2 for type msat?
-            #[allow(deprecated)]
-            network: c.network, // Rule #2 for type string?
-            #[allow(deprecated)]
-            offline: c.offline, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            pid_file: c.pid_file, // Rule #2 for type string?
-            // Field: ListConfigs.plugins[]
-            plugins: c.plugins.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
-            #[allow(deprecated)]
-            proxy: c.proxy, // Rule #2 for type string?
-            #[allow(deprecated)]
-            require_confirmed_inputs: c.require_confirmed_inputs, // Rule #2 for type boolean?
-            #[allow(deprecated)]
-            rescan: c.rescan, // Rule #2 for type integer?
-            #[allow(deprecated)]
-            rgb: c.rgb.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
-            #[allow(deprecated)]
-            rpc_file: c.rpc_file, // Rule #2 for type string?
-            #[allow(deprecated)]
-            rpc_file_mode: c.rpc_file_mode, // Rule #2 for type string?
-            #[allow(deprecated)]
-            subdaemon: c.subdaemon, // Rule #2 for type string?
-            #[allow(deprecated)]
-            tor_service_password: c.tor_service_password, // Rule #2 for type string?
-            #[allow(deprecated)]
-            wallet: c.wallet, // Rule #2 for type string?
-            #[allow(deprecated)]
-            watchtime_blocks: c.watchtime_blocks, // Rule #2 for type u32?
         }
     }
 }
