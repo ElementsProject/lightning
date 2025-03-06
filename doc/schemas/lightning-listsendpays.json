@@ -144,7 +144,7 @@
             "amount_msat": {
               "type": "msat",
               "description": [
-                "The amount delivered to destination (if known)."
+                "The amount delivered to destination (if known). This field might not be present if the payment is still pending or if the amount delivered to the destination is not known."
               ]
             },
             "destination": {
@@ -326,7 +326,8 @@
       }
     },
     "pre_return_value_notes": [
-      "Note that the returned array is ordered by increasing *id*."
+      "Note that the returned array is ordered by increasing *id*.",
+      "If the `amount_msat` field is not present, it means the payment is still pending or the amount delivered to the destination is not known."
     ]
   },
   "author": [
