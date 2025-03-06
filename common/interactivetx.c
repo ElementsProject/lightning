@@ -157,6 +157,8 @@ static u8 *read_next_msg(const tal_t *ctx,
 		case WIRE_FUNDING_CREATED:
 		case WIRE_FUNDING_SIGNED:
 		case WIRE_CLOSING_SIGNED:
+		case WIRE_CLOSING_COMPLETE:
+		case WIRE_CLOSING_SIG:
 		case WIRE_UPDATE_ADD_HTLC:
 		case WIRE_UPDATE_FULFILL_HTLC:
 		case WIRE_UPDATE_FAIL_HTLC:
@@ -184,7 +186,7 @@ static u8 *read_next_msg(const tal_t *ctx,
 		case WIRE_SHUTDOWN:
 		case WIRE_STFU:
 		case WIRE_PEER_STORAGE:
-		case WIRE_YOUR_PEER_STORAGE:
+		case WIRE_PEER_STORAGE_RETRIEVAL:
 		case WIRE_SPLICE:
 		case WIRE_SPLICE_ACK:
 		case WIRE_SPLICE_LOCKED:
@@ -747,6 +749,8 @@ char *process_interactivetx_updates(const tal_t *ctx,
 		case WIRE_CHANNEL_READY:
 		case WIRE_SHUTDOWN:
 		case WIRE_CLOSING_SIGNED:
+		case WIRE_CLOSING_COMPLETE:
+		case WIRE_CLOSING_SIG:
 		case WIRE_UPDATE_ADD_HTLC:
 		case WIRE_UPDATE_FULFILL_HTLC:
 		case WIRE_UPDATE_FAIL_HTLC:
@@ -774,7 +778,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 		case WIRE_PING:
 		case WIRE_PONG:
 		case WIRE_PEER_STORAGE:
-		case WIRE_YOUR_PEER_STORAGE:
+		case WIRE_PEER_STORAGE_RETRIEVAL:
 		case WIRE_SPLICE:
 		case WIRE_SPLICE_ACK:
 		case WIRE_STFU:

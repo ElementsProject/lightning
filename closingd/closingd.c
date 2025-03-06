@@ -165,7 +165,7 @@ static void send_offer(struct per_peer_state *pps,
 
 	/* BOLT #3:
 	 *
-	 * ## Closing Transaction
+	 * ## Legacy Closing Transaction
 	 *...
 	 * Each node offering a signature... MAY eliminate its
 	 * own output.
