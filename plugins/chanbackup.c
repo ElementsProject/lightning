@@ -12,6 +12,7 @@
 #include <common/hsm_encryption.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <common/scb_wiregen.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -27,9 +28,82 @@
 /* VERSION is the current version of the data encrypted in the file */
 #define VERSION ((u64)1)
 
-/* Global secret object to keep the derived encryption key for the SCB */
-static struct secret secret;
-static bool peer_backup;
+/* How many peers do we send a backup to? */
+#define NUM_BACKUP_PEERS 2
+
+struct peer_backup {
+	struct node_id peer;
+	/* Empty if it's a placeholder */
+	const u8 *data;
+};
+
+static const struct node_id *peer_backup_keyof(const struct peer_backup *pb)
+{
+	return &pb->peer;
+}
+
+static bool peer_backup_eq_node_id(const struct peer_backup *pb,
+				   const struct node_id *id)
+{
+	return node_id_eq(&pb->peer, id);
+}
+
+HTABLE_DEFINE_NODUPS_TYPE(struct peer_backup,
+			  peer_backup_keyof,
+			  node_id_hash,
+			  peer_backup_eq_node_id,
+			  backup_map);
+
+HTABLE_DEFINE_NODUPS_TYPE(struct node_id,
+			  node_id_keyof,
+			  node_id_hash,
+			  node_id_eq,
+			  peer_map);
+
+struct chanbackup {
+	/* Do we send/acccept peer backups? */
+	bool send_our_peer_backup;
+	bool handle_their_peer_backup;
+
+	/* Global secret object to keep the derived encryption key for the SCB */
+	struct secret secret;
+
+	/* Cache of backups for each peer we know about */
+	struct backup_map *backups;
+
+	/* Cache of known peers which support backups (for sending) */
+	struct peer_map *peers;
+};
+
+static struct chanbackup *chanbackup(struct plugin *plugin)
+{
+	return plugin_get_data(plugin, struct chanbackup);
+}
+
+/* Must not already exist in map! */
+static struct peer_backup *add_to_backup_map(struct chanbackup *cb,
+					     const struct node_id *peer,
+					     const u8 *data TAKES)
+{
+	struct peer_backup *pb = tal(cb->backups, struct peer_backup);
+	pb->peer = *peer;
+	pb->data = tal_dup_talarr(pb, u8, data);
+	backup_map_add(cb->backups, pb);
+	return pb;
+}
+
+static void remove_peer(struct plugin *plugin, const struct node_id *node_id)
+{
+	struct chanbackup *cb = chanbackup(plugin);
+	struct node_id *peer;
+
+	/* Eliminate it (probably it's disconnected) */
+	peer = peer_map_get(cb->peers, node_id);
+	if (peer) {
+		peer_map_del(cb->peers, peer);
+		tal_free(peer);
+	}
+}
 
 /* Helper to fetch out SCB from the RPC call */
 static bool json_to_scb_chan(const char *buffer,
@@ -65,6 +139,7 @@ static void write_scb(struct plugin *p,
                       int fd,
 		      struct modern_scb_chan **scb_chan_arr)
 {
+	const struct chanbackup *cb = chanbackup(p);
 	u32 timestamp = time_now().ts.tv_sec;
 
 	u8 *decrypted_scb = towire_static_chan_backup_with_tlvs(tmpctx,
@@ -83,7 +158,7 @@ static void write_scb(struct plugin *p,
 
 	if (crypto_secretstream_xchacha20poly1305_init_push(&crypto_state,
 							    encrypted_scb,
-							    (&secret)->data) != 0)
+							    cb->secret.data) != 0)
 	{
 		plugin_err(p, "Can't encrypt the data!");
 		return;
@@ -183,6 +258,7 @@ static u8 *get_file_data(const tal_t *ctx, struct plugin *p)
 /* Returns decrypted SCB in form of a u8 array */
 static u8 *decrypt_scb(struct plugin *p)
 {
+	const struct chanbackup *cb = chanbackup(p);
 	u8 *filedata = get_file_data(tmpctx, p);
 
 	crypto_secretstream_xchacha20poly1305_state crypto_state;
@@ -198,7 +274,7 @@ static u8 *decrypt_scb(struct plugin *p)
 	/* The header part */
 	if (crypto_secretstream_xchacha20poly1305_init_pull(&crypto_state,
 							    filedata,
-							    (&secret)->data) != 0)
+							    cb->secret.data) != 0)
 	{
 		plugin_err(p, "SCB file is corrupted!");
 	}
@@ -358,7 +434,7 @@ static struct command_result
 				 const char *method,
 				 const char *buf,
 				 const jsmntok_t *params,
-				 void *cb_arg UNUSED)
+				 struct node_id *node_id)
 {
         plugin_log(cmd->plugin, LOG_DBG, "Sent their peer storage!");
 	return command_hook_success(cmd);
@@ -369,24 +445,30 @@ static struct command_result
 				     const char *method,
 				     const char *buf,
 				     const jsmntok_t *params,
-				     void *cb_arg UNUSED)
+				     struct node_id *node_id)
 {
         plugin_log(cmd->plugin, LOG_DBG, "Unable to send Peer storage!");
+	remove_peer(cmd->plugin, node_id);
 	return command_hook_success(cmd);
 }
 
-static struct command_result *peer_after_listdatastore(struct command *cmd,
-						       const u8 *hexdata,
-						       struct node_id *nodeid)
+static struct command_result *send_peers_scb(struct command *cmd,
+					     struct node_id *nodeid)
 {
-        if (tal_bytelen(hexdata) == 0)
-        	return command_hook_success(cmd);
+	const struct chanbackup *cb = chanbackup(cmd->plugin);
+	struct peer_backup *pb;
         struct out_req *req;
+	const u8 *msg;
 
-	if (!peer_backup)
+	if (!cb->handle_their_peer_backup)
 		return command_hook_success(cmd);
 
-        u8 *payload = towire_your_peer_storage(cmd, hexdata);
+	/* Now send their backup, if any. */
+	pb = backup_map_get(cb->backups, nodeid);
+	if (!pb || tal_bytelen(pb->data) == 0)
+		return command_hook_success(cmd);
+
+        msg = towire_peer_storage_retrieval(cmd, pb->data);
 
         plugin_log(cmd->plugin, LOG_DBG,
                    "sending their backup from our datastore");
@@ -395,10 +477,10 @@ static struct command_result *peer_after_listdatastore(struct command *cmd,
                                     "sendcustommsg",
                                     peer_after_send_their_peer_strg,
                                     peer_after_send_their_peer_strg_err,
-                                    NULL);
+                                    nodeid);
 
         json_add_node_id(req->js, "node_id", nodeid);
-	json_add_hex_talarr(req->js, "msg", payload);
+	json_add_hex_talarr(req->js, "msg", msg);
 
         return send_outreq(req);
 }
@@ -411,13 +493,7 @@ static struct command_result *peer_after_send_scb(struct command *cmd,
 {
         plugin_log(cmd->plugin, LOG_DBG, "Peer storage sent!");
 
-	return jsonrpc_get_datastore_binary(cmd,
-				     	    tal_fmt(cmd,
-				     		    "chanbackup/peers/%s",
-						    fmt_node_id(tmpctx,
-								nodeid)),
-				     	    peer_after_listdatastore,
-				     	    nodeid);
+	return send_peers_scb(cmd, nodeid);
 }
 
 static struct command_result *peer_after_send_scb_failed(struct command *cmd,
@@ -428,11 +504,13 @@ static struct command_result *peer_after_send_scb_failed(struct command *cmd,
 {
         plugin_log(cmd->plugin, LOG_DBG, "Peer storage send failed %.*s!",
 		   json_tok_full_len(params), json_tok_full(buf, params));
+	remove_peer(cmd->plugin, nodeid);
 	return command_hook_success(cmd);
 }
 
 struct info {
-	size_t idx;
+	size_t *idx;
+	struct node_id node_id;
 };
 
 /* We refresh scb from both channel_state_changed notification and
@@ -452,8 +530,8 @@ static struct command_result *after_send_scb_single(struct command *cmd,
 						    const jsmntok_t *params,
 						    struct info *info)
 {
-        plugin_log(cmd->plugin, LOG_INFORM, "Peer storage sent!");
-	if (--info->idx != 0)
+        plugin_log(cmd->plugin, LOG_DBG, "Peer storage sent!");
+	if (--(*info->idx) != 0)
 		return command_still_pending(cmd);
 
 	return notification_or_hook_done(cmd);
@@ -466,69 +544,98 @@ static struct command_result *after_send_scb_single_fail(struct command *cmd,
 							 struct info *info)
 {
         plugin_log(cmd->plugin, LOG_DBG, "Peer storage send failed!");
-	if (--info->idx != 0)
+	remove_peer(cmd->plugin, &info->node_id);
+	if (--(*info->idx) != 0)
 		return command_still_pending(cmd);
 
 	return notification_or_hook_done(cmd);
 }
 
-static struct command_result *after_listpeers(struct command *cmd,
-					      const char *method,
-					      const char *buf,
-					      const jsmntok_t *params,
-					      void *cb_arg UNUSED)
+static bool already_have_node_id(const struct node_id *ids,
+				 const struct node_id *id)
 {
-	const jsmntok_t *peers, *peer;
-        struct out_req *req;
-	size_t i;
-	struct info *info = tal(cmd, struct info);
-	bool is_connected;
-        u8 *serialise_scb;
+	for (size_t i = 0; i < tal_count(ids); i++)
+		if (node_id_eq(&ids[i], id))
+			return true;
 
-	if (!peer_backup)
-		return notification_or_hook_done(cmd);
+	return false;
+}
 
-	serialise_scb = towire_peer_storage(cmd,
-					    get_file_data(tmpctx, cmd->plugin));
+static const struct node_id *random_peers(const tal_t *ctx,
+					  const struct chanbackup *cb)
+{
+	struct peer_map_iter it;
+	const struct node_id *peer;
+	struct node_id *ids = tal_arr(ctx, struct node_id, 0);
 
-	peers = json_get_member(buf, params, "peers");
-
-	info->idx = 0;
-	json_for_each_arr(i, peer, peers) {
-		const char *err;
-		u8 *features;
-
-		/* If connected is false, features is missing, so this fails */
-		err = json_scan(cmd, buf, peer,
-				"{connected:%,features:%}",
-				JSON_SCAN(json_to_bool, &is_connected),
-				JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex,
-					      &features));
-		if (err || !is_connected)
-			continue;
-
-		/* We shouldn't have to check, but LND hangs up? */
-		if (feature_offered(features, OPT_PROVIDE_PEER_BACKUP_STORAGE)) {
-			const jsmntok_t *nodeid;
-			struct node_id node_id;
-
-			nodeid = json_get_member(buf, peer, "id");
-			json_to_node_id(buf, nodeid, &node_id);
-
-			req = jsonrpc_request_start(cmd,
-						    "sendcustommsg",
-						    after_send_scb_single,
-						    after_send_scb_single_fail,
-						    info);
-
-			json_add_node_id(req->js, "node_id", &node_id);
-			json_add_hex_talarr(req->js, "msg", serialise_scb);
-			info->idx++;
-			send_outreq(req);
+	/* Simple case: pick all of them */
+	if (peer_map_count(cb->peers) <= NUM_BACKUP_PEERS) {
+		for (peer = peer_map_first(cb->peers, &it);
+		     peer;
+		     peer = peer_map_next(cb->peers, &it)) {
+			tal_arr_expand(&ids, *peer);
+		}
+	} else {
+		while (peer_map_count(cb->peers) < NUM_BACKUP_PEERS) {
+			peer = peer_map_pick(cb->peers, pseudorand_u64(), &it);
+			if (already_have_node_id(ids, peer))
+				continue;
+			tal_arr_expand(&ids, *peer);
 		}
 	}
+	return ids;
+}
 
-	if (info->idx == 0)
+static struct command_result *send_to_peers(struct command *cmd)
+{
+        struct out_req *req;
+	size_t *idx = tal(cmd, size_t);
+        u8 *serialise_scb, *data;
+	const struct node_id *peers;
+	struct chanbackup *cb = chanbackup(cmd->plugin);
+
+	if (!cb->send_our_peer_backup)
+		return notification_or_hook_done(cmd);
+
+	/* BOLT #1:
+	 * The sender of `peer_storage`:
+	 *   - MAY send `peer_storage` whenever necessary.
+	 *   - MUST limit its `blob` to 65531 bytes.
+	 *   - MUST encrypt the data in a manner that ensures its integrity
+	 *     upon receipt.
+	 *   - SHOULD pad the `blob` to ensure its length is always exactly 65531 bytes.
+	 */
+	/* FIXME: We do not pad!  But this is because LDK doesn't store > 1k anyway */
+	data = get_file_data(tmpctx, cmd->plugin);
+	if (tal_bytelen(data) > 65531) {
+		plugin_log(cmd->plugin, LOG_UNUSUAL,
+			   "Peer backup would be %zu bytes.  That is too large: disabling peer backups!",
+			   tal_bytelen(data));
+		cb->send_our_peer_backup = false;
+		return notification_or_hook_done(cmd);
+	}
+	serialise_scb = towire_peer_storage(cmd, data);
+
+	peers = random_peers(tmpctx, cb);
+	*idx = tal_count(peers);
+	for (size_t i = 0; i < tal_count(peers); i++) {
+		struct info *info = tal(cmd, struct info);
+
+		info->idx = idx;
+		info->node_id = peers[i];
+
+		req = jsonrpc_request_start(cmd,
+					    "sendcustommsg",
+					    after_send_scb_single,
+					    after_send_scb_single_fail,
+					    info);
+
+		json_add_node_id(req->js, "node_id", &info->node_id);
+		json_add_hex_talarr(req->js, "msg", serialise_scb);
+		send_outreq(req);
+	}
+
+	if (*idx == 0)
 		return notification_or_hook_done(cmd);
 	return command_still_pending(cmd);
 }
@@ -541,25 +648,33 @@ static struct command_result *after_staticbackup(struct command *cmd,
 {
 	struct modern_scb_chan **scb_chan;
 	const jsmntok_t *scbs = json_get_member(buf, params, "scb");
-	struct out_req *req;
+
 	json_to_scb_chan(buf, scbs, &scb_chan);
 	plugin_log(cmd->plugin, LOG_DBG, "Updating the SCB");
 
 	update_scb(cmd->plugin, scb_chan);
-	struct info *info = tal(cmd, struct info);
-	info->idx = 0;
-	req = jsonrpc_request_start(cmd,
-                                    "listpeers",
-                                    after_listpeers,
-                                    plugin_broken_cb,
-                                    info);
-	return send_outreq(req);
+	return send_to_peers(cmd);
+}
+
+/* Write to the datastore */
+static struct command_result *commit_peer_backup(struct command *cmd,
+						 const struct peer_backup *pb)
+{
+	return jsonrpc_set_datastore_binary(cmd,
+					    tal_fmt(cmd,
+						    "chanbackup/peers/%s",
+						    fmt_node_id(tmpctx,
+								&pb->peer)),
+					    pb->data,
+					    "create-or-replace",
+					    NULL, NULL, NULL);
 }
 
 static struct command_result *json_state_changed(struct command *cmd,
 					         const char *buf,
 					         const jsmntok_t *params)
 {
+	struct chanbackup *cb = chanbackup(cmd->plugin);
 	const jsmntok_t *notiftok = json_get_member(buf,
                                                     params,
                                                     "channel_state_changed"),
@@ -578,6 +693,27 @@ static struct command_result *json_state_changed(struct command *cmd,
 		return send_outreq(req);
 	}
 
+	/* Once it has a normal channel, we will start storing its
+	 * backups: put an empty record in place. */
+	if (json_tok_streq(buf, statetok, "CHANNELD_NORMAL")) {
+		const jsmntok_t *nodeid_tok;
+		struct node_id node_id;
+
+		nodeid_tok = json_get_member(buf, notiftok, "peer_id");
+		if (!json_to_node_id(buf, nodeid_tok, &node_id))
+			plugin_err(cmd->plugin, "Invalid peer_id in %.*s",
+				   json_tok_full_len(notiftok),
+				   json_tok_full(buf, notiftok));
+
+		/* Create a placeholder if necessary */
+		if (!backup_map_get(cb->backups, &node_id)) {
+			struct peer_backup *pb
+				= add_to_backup_map(cb, &node_id,
+						    take(tal_arr(NULL, u8, 0)));
+			return commit_peer_backup(cmd, pb);
+		}
+	}
+
 	return notification_or_hook_done(cmd);
 }
 
@@ -593,9 +729,7 @@ static struct command_result *peer_connected(struct command *cmd,
         u8 *serialise_scb;
 	const char *err;
 	u8 *features;
-
-	if (!peer_backup)
-		return command_hook_success(cmd);
+	struct chanbackup *cb = chanbackup(cmd->plugin);
 
 	serialise_scb = towire_peer_storage(cmd,
 					    get_file_data(tmpctx, cmd->plugin));
@@ -612,10 +746,16 @@ static struct command_result *peer_connected(struct command *cmd,
 	}
 
 	/* We shouldn't have to check, but LND hangs up? */
-	if (!feature_offered(features, OPT_WANT_PEER_BACKUP_STORAGE)
-	    && !feature_offered(features, OPT_PROVIDE_PEER_BACKUP_STORAGE)) {
+	if (!feature_offered(features, OPT_PROVIDE_STORAGE)) {
 		return command_hook_success(cmd);
 	}
+
+	/* Remember this peer for future sends */
+	if (!peer_map_get(cb->peers, node_id))
+		peer_map_add(cb->peers, tal_dup(cb->peers, struct node_id, node_id));
+
+	if (!cb->send_our_peer_backup)
+		return send_peers_scb(cmd, node_id);
 
         req = jsonrpc_request_start(cmd,
                                     "sendcustommsg",
@@ -633,6 +773,13 @@ static struct command_result *failed_peer_restore(struct command *cmd,
 						  struct node_id *node_id,
 						  char *reason)
 {
+	/* BOLT #1:
+	 *
+	 * The receiver of `peer_storage_retrieval`:
+	 *   - when it receives `peer_storage_retrieval` with an outdated or irrelevant data:
+	 *     - MAY send a warning.
+	 */
+	/* We don't, we just complain in the logs a little! */
 	plugin_log(cmd->plugin, LOG_DBG, "PeerStorageFailed!: %s: %s",
 		   fmt_node_id(tmpctx, node_id),
 		   reason);
@@ -667,9 +814,7 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
         struct node_id node_id;
         u8 *payload, *payload_deserialise;
 	const char *err;
-
-	if (!peer_backup)
-		return command_hook_success(cmd);
+	const struct chanbackup *cb = chanbackup(cmd->plugin);
 
 	err = json_scan(cmd, buf, params,
 			"{payload:%,peer_id:%}",
@@ -683,21 +828,44 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
 	}
 
 	if (fromwire_peer_storage(cmd, payload, &payload_deserialise)) {
-		return jsonrpc_set_datastore_binary(cmd,
-					     	    tal_fmt(cmd,
-						    	    "chanbackup/peers/%s",
-					     	     	    fmt_node_id(tmpctx,
-									&node_id)),
-						    payload_deserialise,
-						    "create-or-replace",
-					     	    datastore_success,
-					     	    datastore_failed,
-						    "Saving chanbackup/peers/");
-	} else if (fromwire_your_peer_storage(cmd, payload, &payload_deserialise)) {
+		struct peer_backup *pb;
+
+		if (!cb->handle_their_peer_backup)
+			return command_hook_success(cmd);
+
+		/* BOLT #1:
+		 * The receiver of `peer_storage`:
+		 *   - If it offered `option_provide_storage`:
+		 *    - if it has an open channel with the sender:
+		 *      - MUST store the message.
+		 *    - MAY store the message anyway.
+		 */
+		/* We store if we have a datastore slot for it
+		 * (otherwise, this fails).  We create those once it
+		 * has a channel, though the user could also create an
+		 * empty one if they wanted to */
+
+		/* BOLT #1:
+		 * - If it does store the message:
+		 *   - MAY delay storage to ratelimit peer to no more than one
+		 *     update per minute.
+		 *   - MUST replace the old `blob` with the latest received.
+		 */
+		pb = backup_map_get(cb->backups, &node_id);
+		if (!pb)
+			return command_hook_success(cmd);
+
+		tal_free(pb->data);
+		pb->data = tal_steal(pb, payload_deserialise);
+		return commit_peer_backup(cmd, pb);
+	} else if (fromwire_peer_storage_retrieval(cmd, payload, &payload_deserialise)) {
+		crypto_secretstream_xchacha20poly1305_state crypto_state;
+
 		plugin_log(cmd->plugin, LOG_DBG,
                            "Received peer_storage from peer.");
 
-        	crypto_secretstream_xchacha20poly1305_state crypto_state;
+		if (!cb->send_our_peer_backup)
+			return command_hook_success(cmd);
 
                 if (tal_bytelen(payload_deserialise) < ABYTES +
 		    HEADER_LEN)
@@ -712,7 +880,7 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
                 /* The header part */
                 if (crypto_secretstream_xchacha20poly1305_init_pull(&crypto_state,
                                                                     payload_deserialise,
-                                                                    (&secret)->data) != 0)
+                                                                    cb->secret.data) != 0)
                         return failed_peer_restore(cmd, &node_id,
 						   "Peer altered our data");
 
@@ -736,8 +904,7 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
 					     	    datastore_failed,
 						    "Saving latestscb");
 	} else {
-		plugin_log(cmd->plugin, LOG_DBG,
-			   "Peer sent bad custom message for chanbackup!");
+		/* Any other message we ignore */
 		return command_hook_success(cmd);
         }
 }
@@ -863,10 +1030,72 @@ static struct command_result *on_commitment_revocation(struct command *cmd,
 	return send_outreq(req);
 }
 
+static void setup_backup_map(struct command *init_cmd,
+			     struct chanbackup *cb)
+{
+	struct json_out *params = json_out_new(init_cmd);
+	const jsmntok_t *result;
+	const char *buf;
+	const jsmntok_t *datastore, *t;
+	size_t i, total = 0;
+
+	cb->backups = tal(cb, struct backup_map);
+	backup_map_init(cb->backups);
+	cb->peers = tal(cb, struct peer_map);
+	peer_map_init(cb->peers);
+
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	json_out_addstr(params, NULL, "chanbackup");
+	json_out_addstr(params, NULL, "peers");
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+
+	result = jsonrpc_request_sync(tmpctx, init_cmd,
+				      "listdatastore",
+				      take(params), &buf);
+
+	datastore = json_get_member(buf, result, "datastore");
+	json_for_each_arr(i, t, datastore) {
+		const jsmntok_t *keytok, *hextok;
+		struct node_id peer;
+		u8 *data;
+
+		/* Key is an array, first two elements are chanbackup, peers */
+		keytok = json_get_member(buf, t, "key") + 3;
+		hextok = json_get_member(buf, t, "hex");
+		/* In case someone creates a subdir? */
+		if (!hextok)
+			continue;
+		if (!json_to_node_id(buf, keytok, &peer))
+			plugin_err(init_cmd->plugin,
+				   "Could not parse datastore id '%.*s'",
+				   json_tok_full_len(keytok),
+				   json_tok_full(buf, keytok));
+		data = json_tok_bin_from_hex(NULL, buf, hextok);
+		/* Only count non-empty ones. */
+		if (tal_bytelen(data) != 0)
+			total++;
+		add_to_backup_map(cb, &peer, take(data));
+	}
+	if (total)
+		plugin_log(init_cmd->plugin, LOG_INFORM,
+			   "Loaded %zu stored backups for peers", total);
+}
+
+static void chanbackup_mark_mem(struct plugin *plugin,
+				struct htable *memtable)
+{
+	const struct chanbackup *cb = chanbackup(plugin);
+	memleak_scan_htable(memtable, &cb->backups->raw);
+	memleak_scan_htable(memtable, &cb->peers->raw);
+}
+
 static const char *init(struct command *init_cmd,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
 {
+	struct chanbackup *cb = tal(init_cmd->plugin, struct chanbackup);
 	struct modern_scb_chan **scb_chan;
 	const char *info = "scb secret";
 	u8 *info_hex = tal_dup_arr(tmpctx, u8, (u8*)info, strlen(info), 0);
@@ -877,7 +1106,11 @@ static const char *init(struct command *init_cmd,
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{our_features:{init:%}}",
 		 JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &features));
-	peer_backup = feature_offered(features, OPT_WANT_PEER_BACKUP_STORAGE);
+
+	/* If we unset this feature, we don't even *send* peer backups */
+	cb->handle_their_peer_backup
+		= cb->send_our_peer_backup
+		= feature_offered(features, OPT_PROVIDE_STORAGE);
 
 	rpc_scan(init_cmd, "staticbackup",
 		 take(json_out_obj(NULL, NULL, NULL)),
@@ -888,8 +1121,10 @@ static const char *init(struct command *init_cmd,
 		 		   tal_hexstr(tmpctx,
 				   	      info_hex,
 					      tal_bytelen(info_hex)))),
-		 "{secret:%}", JSON_SCAN(json_to_secret, &secret));
+		 "{secret:%}", JSON_SCAN(json_to_secret, &cb->secret));
 
+	setup_backup_map(init_cmd, cb);
+	plugin_set_data(init_cmd->plugin, cb);
 	plugin_log(init_cmd->plugin, LOG_DBG, "Chanbackup Initialised!");
 
 	/* flush the tmp file, if exists */
@@ -897,6 +1132,8 @@ static const char *init(struct command *init_cmd,
 
 	maybe_create_new_scb(init_cmd->plugin, scb_chan);
 
+	plugin_set_memleak_handler(init_cmd->plugin,
+				   chanbackup_mark_mem);
 	return NULL;
 }
 

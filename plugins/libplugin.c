@@ -235,8 +235,7 @@ bool command_deprecated_out_ok(struct command *cmd,
 	return deprecated_ok(command_deprecated_ok_flag(cmd),
 			     tal_fmt(tmpctx, "%s.%s", cmd->methodname, fieldname),
 			     depr_start, depr_end,
-			     /* FIXME: Get api begs from lightningd! */
-			     NULL,
+			     cmd->plugin->beglist,
 			     NULL, NULL);
 }
 
@@ -930,7 +929,7 @@ struct command_result *jsonrpc_set_datastore_(struct command *cmd,
 	struct out_req *req;
 
 	if (!cb)
-		cb = ignore_cb;
+		cb = ignore_and_complete;
 	if (!errcb)
 		errcb = plugin_broken_cb;
 
