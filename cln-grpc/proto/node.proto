@@ -2876,76 +2876,6 @@ message ListconfigsRequest {
 
 message ListconfigsResponse {
 	optional ListconfigsConfigs configs = 1;
-	repeated ListconfigsPlugins plugins = 3;
-	repeated ListconfigsImportantplugins important_plugins = 4;
-	optional string conf = 5;
-	optional string lightning_dir = 6;
-	optional string network = 7;
-	optional bool allow_deprecated_apis = 8;
-	optional string rpc_file = 9;
-	repeated string disable_plugin = 10;
-	optional string bookkeeper_dir = 11;
-	optional string bookkeeper_db = 12;
-	optional bool always_use_proxy = 13;
-	optional bool daemon = 14;
-	optional string wallet = 15;
-	optional bool large_channels = 16;
-	optional bool experimental_dual_fund = 17;
-	optional bool experimental_splicing = 18;
-	optional bool experimental_onion_messages = 19;
-	optional bool experimental_offers = 20;
-	optional bool experimental_shutdown_wrong_funding = 21;
-	optional bool experimental_peer_storage = 22;
-	optional bool experimental_quiesce = 23;
-	optional bool experimental_upgrade_protocol = 24;
-	optional bool invoices_onchain_fallback = 25;
-	optional bool database_upgrade = 26;
-	optional bytes rgb = 27;
-	optional string alias = 28;
-	optional string pid_file = 29;
-	optional bool ignore_fee_limits = 30;
-	optional uint32 watchtime_blocks = 31;
-	optional uint32 max_locktime_blocks = 32;
-	optional uint32 funding_confirms = 33;
-	optional uint32 cltv_delta = 34;
-	optional uint32 cltv_final = 35;
-	optional uint32 commit_time = 36;
-	optional uint32 fee_base = 37;
-	optional sint64 rescan = 38;
-	optional uint32 fee_per_satoshi = 39;
-	optional uint32 max_concurrent_htlcs = 40;
-	optional Amount htlc_minimum_msat = 41;
-	optional Amount htlc_maximum_msat = 42;
-	optional Amount max_dust_htlc_exposure_msat = 43;
-	optional uint64 min_capacity_sat = 44;
-	optional string addr = 45;
-	optional string announce_addr = 46;
-	optional string bind_addr = 47;
-	optional bool offline = 48;
-	optional bool autolisten = 49;
-	optional string proxy = 50;
-	optional bool disable_dns = 51;
-	optional string announce_addr_discovered = 52;
-	optional sint64 announce_addr_discovered_port = 53;
-	optional bool encrypted_hsm = 54;
-	optional string rpc_file_mode = 55;
-	optional string log_level = 56;
-	optional string log_prefix = 57;
-	optional string log_file = 58;
-	optional bool log_timestamps = 59;
-	optional string force_feerates = 60;
-	optional string subdaemon = 61;
-	optional bool fetchinvoice_noconnect = 62;
-	optional string accept_htlc_tlv_types = 63;
-	optional string tor_service_password = 64;
-	optional bool dev_allowdustreserve = 65;
-	optional bool announce_addr_dns = 66;
-	optional bool require_confirmed_inputs = 67;
-	optional bool developer = 68;
-	optional uint64 commit_fee = 69;
-	optional Amount min_emergency_msat = 70;
-	optional uint32 commit_feerate_offset = 71;
-	optional uint32 autoconnect_seeker_peers = 72;
 }
 
 message ListconfigsConfigs {
@@ -3013,7 +2943,6 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsForcefeerates force_feerates = 62;
 	optional ListconfigsConfigsSubdaemon subdaemon = 63;
 	optional ListconfigsConfigsFetchinvoicenoconnect fetchinvoice_noconnect = 64;
-	optional ListconfigsConfigsAccepthtlctlvtypes accept_htlc_tlv_types = 65;
 	optional ListconfigsConfigsTorservicepassword tor_service_password = 66;
 	optional ListconfigsConfigsAnnounceaddrdns announce_addr_dns = 67;
 	optional ListconfigsConfigsRequireconfirmedinputs require_confirmed_inputs = 68;
@@ -3355,11 +3284,6 @@ message ListconfigsConfigsFetchinvoicenoconnect {
 	optional string plugin = 3;
 }
 
-message ListconfigsConfigsAccepthtlctlvtypes {
-	string value_str = 1;
-	string source = 2;
-}
-
 message ListconfigsConfigsTorservicepassword {
 	string value_str = 1;
 	string source = 2;
@@ -3388,24 +3312,6 @@ message ListconfigsConfigsCommitfeerateoffset {
 message ListconfigsConfigsAutoconnectseekerpeers {
 	uint32 value_int = 1;
 	string source = 2;
-}
-
-message ListconfigsPlugins {
-	string path = 1;
-	string name = 2;
-	optional ListconfigsPluginsOptions options = 3;
-}
-
-message ListconfigsPluginsOptions {
-}
-
-message ListconfigsImportantplugins {
-	string path = 1;
-	string name = 2;
-	optional ListconfigsImportantpluginsOptions options = 3;
-}
-
-message ListconfigsImportantpluginsOptions {
 }
 
 message StopRequest {

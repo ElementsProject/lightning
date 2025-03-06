@@ -200,27 +200,6 @@ static char *opt_force_feerates(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
-static char *fmt_force_feerates(const tal_t *ctx, const u32 *force_feerates)
-{
-	char *ret;
-	size_t last;
-
-	if (!force_feerates)
-		return NULL;
-
-	ret = tal_fmt(ctx, "%i", force_feerates[0]);
-	last = 0;
-	for (size_t i = 1; i < tal_count(force_feerates); i++) {
-		if (force_feerates[i] == force_feerates[i-1])
-			continue;
-		/* Different?  Catchup! */
-		for (size_t j = last + 1; j <= i; j++)
-			tal_append_fmt(&ret, "/%i", force_feerates[j]);
-		last = i;
-	}
-	return ret;
-}
-
 static char *opt_add_accept_htlc_tlv(const char *arg,
 				     u64 **accept_extra_tlv_types)
 {
@@ -228,24 +207,6 @@ static char *opt_add_accept_htlc_tlv(const char *arg,
 
 	tal_resize(accept_extra_tlv_types, n+1);
 	return opt_set_u64(arg, &(*accept_extra_tlv_types)[n]);
-}
-
-static char *opt_set_accept_extra_tlv_types(const char *arg,
-					    struct lightningd *ld)
-{
-	char *ret, **elements = tal_strsplit(tmpctx, arg, ",", STR_NO_EMPTY);
-
-	if (!opt_deprecated_ok(ld, "accept-htlc-tlv-types", NULL,
-			       "v23.08", "v24.08")) {
-		return "Please use --accept-htlc-tlv-type multiple times";
-	}
-	for (int i = 0; elements[i] != NULL; i++) {
-		ret = opt_add_accept_htlc_tlv(elements[i],
-					      &ld->accept_extra_tlv_types);
-		if (ret)
-			return ret;
-	}
-	return NULL;
 }
 
 /* Returns the number of wireaddr types already announced */
@@ -270,19 +231,9 @@ static char *opt_add_addr_withtype(const char *arg,
 	char const *err_msg;
 	struct wireaddr_internal wi;
 	bool dns_lookup_ok;
-	char *address;
-	u16 port;
 
 	assert(arg != NULL);
 	dns_lookup_ok = !ld->always_use_proxy && ld->config.use_dns;
-
-	/* Deprecated announce-addr-dns: autodetect DNS addresses. */
-	if (ld->announce_dns && (ala == ADDR_ANNOUNCE)
-	    && separate_address_and_port(tmpctx, arg, &address, &port)
-	    && is_dnsaddr(address)) {
-		log_unusual(ld->log, "Adding dns prefix to %s!", arg);
-		arg = tal_fmt(tmpctx, "dns:%s", arg);
-	}
 
 	err_msg = parse_wireaddr_internal(tmpctx, arg, ld->portnum,
 					  dns_lookup_ok, &wi);
@@ -306,31 +257,13 @@ static char *opt_add_addr_withtype(const char *arg,
 		case ADDR_TYPE_TOR_V3:
 			switch (ala) {
 			case ADDR_LISTEN:
-				if (!opt_deprecated_ok(ld, "bind-addr", "torv3",
-						       "v23.08", "v24.08"))
-					return tal_fmt(tmpctx,
-						       "Don't use --bind-addr=%s, use --announce-addr=%s",
-						       arg, arg);
-				log_unusual(ld->log,
-					    "You used `--bind-addr=%s` option with an .onion address,"
-					    " You are lucky in this node live some wizards and"
-					    " fairies, we have done this for you and don't announce, Be as hidden as wished",
-					    arg);
-				/* And we ignore it */
-				return NULL;
+				return tal_fmt(tmpctx,
+					       "Don't use --bind-addr=%s, use --announce-addr=%s",
+					       arg, arg);
 			case ADDR_LISTEN_AND_ANNOUNCE:
-				if (!opt_deprecated_ok(ld, "addr", "torv3",
-						       "v23.08", "v24.08"))
-					return tal_fmt(tmpctx,
-						       "Don't use --addr=%s, use --announce-addr=%s",
-						       arg, arg);
-				log_unusual(ld->log,
-					    "You used `--addr=%s` option with an .onion address,"
-					    " You are lucky in this node live some wizards and"
-					    " fairies, we have done this for you and don't announce, Be as hidden as wished",
-					    arg);
-				ala = ADDR_LISTEN;
-				break;
+				return tal_fmt(tmpctx,
+					       "Don't use --addr=%s, use --announce-addr=%s",
+					       arg, arg);
 			case ADDR_ANNOUNCE:
 				break;
 			}
@@ -365,12 +298,8 @@ static char *opt_add_addr_withtype(const char *arg,
 				return tal_fmt(tmpctx,
 					       "Cannot announce sockets, try --bind-addr=%s", arg);
 			case ADDR_LISTEN_AND_ANNOUNCE:
-				if (!opt_deprecated_ok(ld, "addr", "socket",
-						       "v23.08", "v24.08"))
-					return tal_fmt(tmpctx, "Don't use --addr=%s, use --bind-addr=%s",
-						       arg, arg);
-				ala = ADDR_LISTEN;
-				/* Fall thru */
+				return tal_fmt(tmpctx, "Don't use --addr=%s, use --bind-addr=%s",
+					       arg, arg);
 			case ADDR_LISTEN:
 				break;
 			}
@@ -1028,7 +957,7 @@ static const struct config testnet_config = {
 	.max_htlc_cltv = 2016,
 
 	/* We're fairly trusting, under normal circumstances. */
-	.anchor_confirms = 1,
+	.funding_confirms = 1,
 
 	/* Testnet blockspace is free. */
 	.max_concurrent_htlcs = 483,
@@ -1096,7 +1025,7 @@ static const struct config mainnet_config = {
 	.max_htlc_cltv = 2016,
 
 	/* We're fairly trusting, under normal circumstances. */
-	.anchor_confirms = 3,
+	.funding_confirms = 3,
 
 	/* While up to 483 htlcs are possible we do 30 by default (as eclair does) to save blockspace */
 	.max_concurrent_htlcs = 30,
@@ -1170,8 +1099,8 @@ static void check_config(struct lightningd *ld)
 	if (ld->config.max_concurrent_htlcs < 1 || ld->config.max_concurrent_htlcs > 483)
 		fatal("--max-concurrent-htlcs value must be between 1 and 483 it is: %u",
 		      ld->config.max_concurrent_htlcs);
-	if (ld->config.anchor_confirms == 0)
-		fatal("anchor-confirms must be greater than zero");
+	if (ld->config.funding_confirms == 0)
+		fatal("funding-confirms must be greater than zero");
 
 	if (ld->always_use_proxy && !ld->proxyaddr)
 		fatal("--always-use-proxy needs --proxy");
@@ -1329,10 +1258,7 @@ static char *opt_set_peer_storage(struct lightningd *ld)
 {
 	feature_set_or(ld->our_features,
 		       take(feature_set_for_feature(NULL,
-						    OPTIONAL_FEATURE(OPT_PROVIDE_PEER_BACKUP_STORAGE))));
-	feature_set_or(ld->our_features,
-		       take(feature_set_for_feature(NULL,
-						    OPTIONAL_FEATURE(OPT_WANT_PEER_BACKUP_STORAGE))));
+						    OPTIONAL_FEATURE(OPT_PROVIDE_STORAGE))));
 	return NULL;
 }
 
@@ -1371,14 +1297,6 @@ static char *opt_add_api_beg(const char *arg, struct lightningd *ld)
 {
 	tal_arr_expand(&ld->api_begs, arg);
 	return NULL;
-}
-
-static char *opt_set_announce_dns(const char *optarg, struct lightningd *ld)
-{
-	if (!opt_deprecated_ok(ld, "announce-addr-dns", NULL,
-			       "v23.08", "v24.08"))
-		return "--announce-addr-dns has been deprecated, use --bind-addr=dns:...";
-	return opt_set_bool_arg(optarg, &ld->announce_dns);
 }
 
 char *hsm_secret_arg(const tal_t *ctx,
@@ -1558,10 +1476,6 @@ static void register_opts(struct lightningd *ld)
 	opt_register_early_noarg("--experimental-anchors",
 				 opt_set_anchor_zero_fee_htlc_tx, ld,
 				 opt_hidden);
-	clnopt_witharg("--announce-addr-dns", OPT_EARLY|OPT_SHOWBOOL,
-		       opt_set_bool_arg, opt_show_bool,
-		       &ld->announce_dns,
-		       opt_hidden);
 
 	clnopt_noarg("--help|-h", OPT_EXITS,
 		     opt_lightningd_usage, ld, "Print this message.");
@@ -1583,7 +1497,7 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--max-locktime-blocks", opt_set_max_htlc_cltv, NULL,
 			 ld, opt_hidden);
 	clnopt_witharg("--funding-confirms", OPT_SHOWINT, opt_set_u32, opt_show_u32,
-			 &ld->config.anchor_confirms,
+			 &ld->config.funding_confirms,
 			 "Confirmations required for funding transaction");
 	clnopt_witharg("--require-confirmed-inputs", OPT_SHOWBOOL,
 		       opt_set_bool_arg, opt_show_bool,
@@ -1657,9 +1571,6 @@ static void register_opts(struct lightningd *ld)
 			 &ld->tor_service_password,
 			 "Set a Tor hidden service password");
 
-	opt_register_arg("--accept-htlc-tlv-types",
-			 opt_set_accept_extra_tlv_types, NULL, ld,
-			 opt_hidden);
 	clnopt_witharg("--accept-htlc-tlv-type", OPT_MULTI|OPT_SHOWINT,
 		       opt_add_accept_htlc_tlv, NULL,
 		       &ld->accept_extra_tlv_types,
@@ -1987,54 +1898,6 @@ void handle_opts(struct lightningd *ld)
 	check_config(ld);
 }
 
-static void json_add_opt_addrs(struct json_stream *response,
-			       const char *name0,
-			       const struct wireaddr_internal *wireaddrs,
-			       const enum addr_listen_announce *listen_announce,
-			       enum addr_listen_announce ala)
-{
-	for (size_t i = 0; i < tal_count(wireaddrs); i++) {
-		if (listen_announce[i] != ala)
-			continue;
-		json_add_string(response,
-				name0,
-				fmt_wireaddr_internal(name0, wireaddrs+i));
-	}
-}
-
-static void json_add_opt_log_to_files(struct json_stream *response,
-			       const char *name0,
-			       const char **logfiles)
-{
-	for (size_t i = 0; i < tal_count(logfiles); i++)
-		json_add_string(response, name0, logfiles[i]);
-}
-
-struct json_add_opt_alt_subdaemon_args {
-	const char *name0;
-	struct json_stream *response;
-};
-
-static bool json_add_opt_alt_subdaemon(const char *member,
-				       const char *value,
-				       struct json_add_opt_alt_subdaemon_args *argp)
-{
-	json_add_string(argp->response,
-			argp->name0,
-			tal_fmt(argp->name0, "%s:%s", member, value));
-	return true;
-}
-
-static void json_add_opt_subdaemons(struct json_stream *response,
-				    const char *name0,
-				    alt_subdaemon_map *alt_subdaemons)
-{
-	struct json_add_opt_alt_subdaemon_args args;
-	args.name0 = name0;
-	args.response = response;
-	strmap_iterate(alt_subdaemons, json_add_opt_alt_subdaemon, &args);
-}
-
 /* Canonicalize value they've given */
 bool opt_canon_bool(const char *val)
 {
@@ -2043,199 +1906,11 @@ bool opt_canon_bool(const char *val)
 	return b;
 }
 
-void add_config_deprecated(struct lightningd *ld,
-			   struct json_stream *response,
-			   const struct opt_table *opt,
-			   const char *name, size_t len)
-{
-	char *name0 = tal_strndup(tmpctx, name, len);
-	char *answer = NULL;
-	char buf[4096 + sizeof("...")];
-
-	/* Ignore dev settings. */
-	if (opt->type & OPT_DEV)
-		return;
-
-	/* Ignore things which just exit */
-	if (opt->type & OPT_EXITS)
-		return;
-
-	/* Ignore hidden options (deprecated) */
-	if (opt->desc == opt_hidden)
-		return;
-
-	/* We print plugin options under plugins[] or important-plugins[] */
-	if (is_plugin_opt(opt))
-		return;
-
-	if (opt->type & OPT_NOARG) {
-		if (opt->cb == (void *)opt_clear_plugins) {
-			/* FIXME: we can't recover this. */
-		} else if (is_restricted_ignored(opt->cb)) {
-			/* --testnet etc, turned into --network=. */
-		} else if (opt->cb == (void *)opt_set_bool) {
-			const bool *b = opt->u.carg;
-			json_add_bool(response, name0, *b);
-		} else if (opt->cb == (void *)opt_set_invbool) {
-			const bool *b = opt->u.carg;
-			json_add_bool(response, name0, !*b);
-		} else if (opt->cb == (void *)opt_set_offline) {
-			json_add_bool(response, name0,
-				      !ld->reconnect && !ld->listen);
-		} else if (opt->cb == (void *)opt_start_daemon) {
-			json_add_bool(response, name0,
-				      ld->daemon_parent_fd != -1);
-		} else if (opt->cb == (void *)opt_set_hsm_password) {
-			json_add_bool(response, "encrypted-hsm", ld->encrypted_hsm);
-		} else if (opt->cb == (void *)opt_set_wumbo) {
-			json_add_bool(response, name0,
-				      feature_offered(ld->our_features
-						      ->bits[INIT_FEATURE],
-						      OPT_LARGE_CHANNELS));
-		} else if (opt->cb == (void *)opt_set_dual_fund) {
-			json_add_bool(response, name0,
-				      feature_offered(ld->our_features
-						      ->bits[INIT_FEATURE],
-						      OPT_DUAL_FUND));
-		} else if (opt->cb == (void *)opt_set_splicing) {
-			json_add_bool(response, name0,
-				      feature_offered(ld->our_features
-						      ->bits[INIT_FEATURE],
-						      OPT_SPLICE));
-		} else if (opt->cb == (void *)opt_set_onion_messages) {
-			json_add_bool(response, name0,
-				      feature_offered(ld->our_features
-						      ->bits[INIT_FEATURE],
-						      OPT_ONION_MESSAGES));
-		} else if (opt->cb == (void *)opt_set_offers) {
-			json_add_bool(response, name0, true);
-		} else if (opt->cb == (void *)opt_set_shutdown_wrong_funding) {
-			json_add_bool(response, name0,
-				      feature_offered(ld->our_features
-						      ->bits[INIT_FEATURE],
-						      OPT_SHUTDOWN_WRONG_FUNDING));
-		} else if (opt->cb == (void *)opt_set_peer_storage) {
-			json_add_bool(response, name0,
-				      feature_offered(ld->our_features
-						      ->bits[INIT_FEATURE],
-						      OPT_PROVIDE_PEER_BACKUP_STORAGE));
-		} else if (opt->cb == (void *)opt_set_quiesce) {
-			json_add_bool(response, name0,
-				      feature_offered(ld->our_features
-						      ->bits[INIT_FEATURE],
-						      OPT_QUIESCE));
-		}
-		/* We ignore future additions, since these are deprecated anyway! */
-	} else if (opt->type & OPT_HASARG) {
-		if (opt->show == (void *)opt_show_charp) {
-			if (*(char **)opt->u.carg)
-				/* Don't truncate or quote! */
-				answer = tal_strdup(tmpctx,
-						    *(char **)opt->u.carg);
-		} else if (opt->show) {
-			strcpy(buf + sizeof(buf) - sizeof("..."), "...");
-			if (!opt->show(buf, sizeof(buf) - sizeof("..."), opt->u.carg))
-				buf[0] = '\0';
-
-			if (opt->type & OPT_CONCEAL) {
-				strcpy(buf, "...");
-			} else if ((opt->type & OPT_SHOWINT)
-				   || (opt->type & OPT_SHOWMSATS)) {
-				if (streq(buf, "")
-				    || strspn(buf, "-0123456789.") != strlen(buf))
-					errx(1, "Bad literal for %s: %s", name0, buf);
-				json_add_primitive(response, name0, buf);
-				return;
-			} else if (opt->type & OPT_SHOWBOOL) {
-				/* We allow variants here.  Json-ize */
-				json_add_bool(response, name0, opt_canon_bool(buf));
-				return;
-			}
-			answer = buf;
-		} else if (opt->cb_arg == (void *)opt_set_talstr
-			   || opt->cb_arg == (void *)opt_set_charp) {
-			const char *arg = *(char **)opt->u.carg;
-			if (arg)
-				answer = tal_fmt(name0, "%s", arg);
-		} else if (opt->cb_arg == (void *)arg_log_to_file) {
-			if (ld->logfiles)
-				json_add_opt_log_to_files(response, name0, ld->logfiles);
-		} else if (opt->cb_arg == (void *)opt_add_addr) {
-			json_add_opt_addrs(response, name0,
-					   ld->proposed_wireaddr,
-					   ld->proposed_listen_announce,
-					   ADDR_LISTEN_AND_ANNOUNCE);
-			return;
-		} else if (opt->cb_arg == (void *)opt_add_bind_addr) {
-			json_add_opt_addrs(response, name0,
-					   ld->proposed_wireaddr,
-					   ld->proposed_listen_announce,
-					   ADDR_LISTEN);
-			return;
-		} else if (opt->cb_arg == (void *)opt_add_announce_addr) {
-			json_add_opt_addrs(response, name0,
-					   ld->proposed_wireaddr,
-					   ld->proposed_listen_announce,
-					   ADDR_ANNOUNCE);
-			return;
-		} else if (opt->cb_arg == (void *)opt_subdaemon) {
-			json_add_opt_subdaemons(response, name0,
-						    &ld->alt_subdaemons);
-			return;
-		} else if (opt->cb_arg == (void *)opt_add_proxy_addr) {
-			if (ld->proxyaddr)
-				answer = fmt_wireaddr(name0, ld->proxyaddr);
-		} else if (opt->cb_arg == (void *)opt_add_plugin) {
-			json_add_opt_plugins(response, ld->plugins);
-		} else if (opt->cb_arg == (void *)opt_log_level) {
-			json_add_opt_log_levels(response, ld->log_book);
-		} else if (opt->cb_arg == (void *)opt_disable_plugin) {
-			json_add_opt_disable_plugins(response, ld->plugins);
-		} else if (opt->cb_arg == (void *)opt_force_feerates) {
-			answer = fmt_force_feerates(name0, ld->force_feerates);
-		} else if (opt->cb_arg == (void *)opt_set_db_upgrade) {
-			if (ld->db_upgrade_ok)
-				json_add_bool(response, name0,
-					      *ld->db_upgrade_ok);
-			return;
-		} else if (opt->cb_arg == (void *)opt_set_announce_dns) {
-			json_add_bool(response, name0, ld->announce_dns);
-			return;
-		} else if (opt->cb_arg == (void *)opt_important_plugin) {
-			/* Do nothing, this is already handled by
-			 * opt_add_plugin.  */
-		} else if (opt->cb_arg == (void *)opt_add_plugin_dir) {
-			/* FIXME: We actually treat it as if they specified
-			 * --plugin for each one, so ignore these */
-		} else if (opt->cb_arg == (void *)opt_add_accept_htlc_tlv) {
-			/* We ignore this: it's printed below: */
-		} else if (opt->cb_arg == (void *)opt_set_accept_extra_tlv_types) {
-			for (size_t i = 0;
-			     i < tal_count(ld->accept_extra_tlv_types);
-			     i++) {
-				if (i == 0)
-					answer = tal_fmt(name0, "%"PRIu64,
-							 ld->accept_extra_tlv_types[i]);
-				else
-					tal_append_fmt(&answer, ",%"PRIu64,
-						       ld->accept_extra_tlv_types[i]);
-			}
-		}
-		/* We ignore future additions, since these are deprecated anyway! */
-	}
-
-	if (answer) {
-		struct json_escape *esc = json_escape(NULL, answer);
-		json_add_escaped_string(response, name0, take(esc));
-	}
-}
-
 bool is_known_opt_cb_arg(char *(*cb_arg)(const char *, void *))
 {
 	return cb_arg == (void *)opt_set_talstr
 		|| cb_arg == (void *)opt_add_proxy_addr
 		|| cb_arg == (void *)opt_force_feerates
-		|| cb_arg == (void *)opt_set_accept_extra_tlv_types
 		|| cb_arg == (void *)opt_add_plugin
 		|| cb_arg == (void *)opt_add_plugin_dir
 		|| cb_arg == (void *)opt_important_plugin
