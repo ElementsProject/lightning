@@ -551,13 +551,47 @@ static struct command_result *after_send_scb_single_fail(struct command *cmd,
 	return notification_or_hook_done(cmd);
 }
 
+static bool already_have_node_id(const struct node_id *ids,
+				 const struct node_id *id)
+{
+	for (size_t i = 0; i < tal_count(ids); i++)
+		if (node_id_eq(&ids[i], id))
+			return true;
+
+	return false;
+}
+
+static const struct node_id *random_peers(const tal_t *ctx,
+					  const struct chanbackup *cb)
+{
+	struct peer_map_iter it;
+	const struct node_id *peer;
+	struct node_id *ids = tal_arr(ctx, struct node_id, 0);
+
+	/* Simple case: pick all of them */
+	if (peer_map_count(cb->peers) <= NUM_BACKUP_PEERS) {
+		for (peer = peer_map_first(cb->peers, &it);
+		     peer;
+		     peer = peer_map_next(cb->peers, &it)) {
+			tal_arr_expand(&ids, *peer);
+		}
+	} else {
+		while (peer_map_count(cb->peers) < NUM_BACKUP_PEERS) {
+			peer = peer_map_pick(cb->peers, pseudorand_u64(), &it);
+			if (already_have_node_id(ids, peer))
+				continue;
+			tal_arr_expand(&ids, *peer);
+		}
+	}
+	return ids;
+}
+
 static struct command_result *send_to_peers(struct command *cmd)
 {
         struct out_req *req;
 	size_t *idx = tal(cmd, size_t);
         u8 *serialise_scb, *data;
-	struct peer_map_iter it;
-	const struct node_id *peer;
+	const struct node_id *peers;
 	struct chanbackup *cb = chanbackup(cmd->plugin);
 
 	if (!cb->send_our_peer_backup)
@@ -582,14 +616,13 @@ static struct command_result *send_to_peers(struct command *cmd)
 	}
 	serialise_scb = towire_peer_storage(cmd, data);
 
-	*idx = 0;
-	for (peer = peer_map_pick(cb->peers, pseudorand_u64(), &it);
-	     peer;
-	     peer = peer_map_next(cb->peers, &it)) {
+	peers = random_peers(tmpctx, cb);
+	*idx = tal_count(peers);
+	for (size_t i = 0; i < tal_count(peers); i++) {
 		struct info *info = tal(cmd, struct info);
 
 		info->idx = idx;
-		info->node_id = *peer;
+		info->node_id = peers[i];
 
 		req = jsonrpc_request_start(cmd,
 					    "sendcustommsg",
@@ -599,12 +632,7 @@ static struct command_result *send_to_peers(struct command *cmd)
 
 		json_add_node_id(req->js, "node_id", &info->node_id);
 		json_add_hex_talarr(req->js, "msg", serialise_scb);
-		(*info->idx)++;
 		send_outreq(req);
-
-		/* Only send to NUM_BACKUP_PEERS for each update */
-		if (*info->idx == NUM_BACKUP_PEERS)
-			break;
 	}
 
 	if (*idx == 0)
