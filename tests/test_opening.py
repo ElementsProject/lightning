@@ -2685,3 +2685,74 @@ def test_multifunding_all_amount(node_factory, bitcoind):
 
     inv2 = l3.rpc.invoice(100000, 'i2', 'i2')['bolt11']
     l1.rpc.pay(inv2)
+
+
+@pytest.mark.parametrize("dopay", [True, False])  # Whether to send a payment or not
+def test_zeroconf_forget(node_factory, bitcoind, dopay: bool):
+    """Reprotest for #8147: We should not forget a channel on which we received a zeroconf payment.
+
+    The channel forgetting code actually uses the fact that we ever
+    had a non-zero amount in this channel.
+
+    """
+    blocks = 50
+    plugin_path = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
+    l1, l2 = node_factory.get_nodes(
+        2,
+        opts=[
+            {},
+            {
+                "plugin": str(plugin_path),
+                "zeroconf-allow": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+                "zeroconf-mindepth": "0",
+                "dev-max-funding-unconfirmed-blocks": blocks,
+            },
+        ],
+    )
+
+    # Make it such that l1 cannot broadcast transactions
+    def censoring_sendrawtx(tx):
+        return {"id": tx["id"], "result": {}}
+
+    l1.daemon.rpcproxy.mock_rpc("sendrawtransaction", censoring_sendrawtx)
+
+    l1.connect(l2)
+    l1.fundwallet(10**7)
+    l1.rpc.fundchannel(l2.info["id"], 10**6, mindepth=0)
+    sync_blockheight(bitcoind, [l1, l2])
+    wait_for(lambda: l2.rpc.listincoming()["incoming"] != [])
+
+    # If we are told to pay while still not confirmed we perform one
+    # payment. This causes us to have a non-zero stake in the channel,
+    # thus we should not forget the channel. If we don't then our
+    # stake will remain 0msat, hence we can forget the channel without
+    # risking any of our funds.
+    if dopay:
+        inv = l2.rpc.invoice(1, "payme", "my stake in the unconfirmed channel")
+        l1.rpc.pay(inv["bolt11"])
+        wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['to_us_msat'] == 1)
+
+    # Now stop, in order to cause catchup and re-evaluate whether to forget the channel
+    l2.stop()
+
+    # Now we generate enough blocks to cause l2 to forget the channel.
+    bitcoind.generate_block(blocks)  # > blocks
+    l2.start()
+
+    sync_blockheight(bitcoind, [l1, l2])
+
+    # It will have completed processing of last block before being able to process this one:
+    # This ensures l2 will have forgotten channel if it was going to.
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1, l2])
+
+    have_forgotten = l2.daemon.is_in_log(
+        r"Forgetting channel: It has been [0-9]+ blocks without the funding transaction"
+    )
+
+    if dopay:
+        assert not have_forgotten
+        assert len(l2.rpc.listpeerchannels()["channels"]) == 1
+    else:
+        assert have_forgotten
+        assert l2.rpc.listpeerchannels() == {"channels": []}
