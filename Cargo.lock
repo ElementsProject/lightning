@@ -380,7 +380,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "cln-grpc"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "bitcoin",
@@ -400,7 +400,7 @@ dependencies = [
 
 [[package]]
 name = "cln-grpc-plugin"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "cln-grpc",
@@ -416,7 +416,7 @@ dependencies = [
 
 [[package]]
 name = "cln-plugin"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -434,7 +434,7 @@ dependencies = [
 
 [[package]]
 name = "cln-rpc"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "bitcoin",
@@ -452,7 +452,7 @@ dependencies = [
 
 [[package]]
 name = "clnrest"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "axum 0.8.1",
