@@ -1958,8 +1958,12 @@ is_fundee_should_forget(struct lightningd *ld,
 	if (block_height - channel->first_blocknum < max_funding_unconfirmed)
 		return false;
 
-	/* If we've got funds in the channel, don't forget it */
+	/* If we've got funds in the channel initially, don't forget it */
 	if (!amount_sat_is_zero(channel->our_funds))
+		return false;
+
+	/* If we ever had a stake in the channel, don't forget it. */
+	if (!amount_msat_is_zero(channel->msat_to_us_max))
 		return false;
 
 	/* Ah forget it! */
