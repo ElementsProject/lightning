@@ -554,6 +554,20 @@ bool amount_msat_mul(struct amount_msat *res, struct amount_msat msat, u64 mul)
 	return true;
 }
 
+static bool amount_msat_mul_div(struct amount_msat *res,
+				struct amount_msat msat, u64 mul, u64 div)
+{
+	/* We avoid overflow in the operation (a/b)*x noticing that we can
+	 * decompose x = q_x * b + r_x, where q_x = floor(x/b) and
+	 * r_x = x mod b, then: x*(a/b) = a*q_x + a*r_x/b, which does not
+	 * overflow if a*b does not. */
+	if (mul_overflows_u64(mul, div))
+		return false;
+	u64 x = msat.millisatoshis;
+	res->millisatoshis = mul * (x / div) + (mul * (x % div)) / div;
+	return true;
+}
+
 bool amount_msat_fee(struct amount_msat *fee,
 		     struct amount_msat amt,
 		     u32 fee_base_msat,
@@ -567,11 +581,9 @@ bool amount_msat_fee(struct amount_msat *fee,
 	 *    - fee_base_msat + ( amount_to_forward * fee_proportional_millionths / 1000000 )
 	 */
 	fee_base.millisatoshis = fee_base_msat;
-
-	if (mul_overflows_u64(amt.millisatoshis, fee_proportional_millionths))
+	if (!amount_msat_mul_div(&fee_prop, amt, fee_proportional_millionths,
+				 1000000))
 		return false;
-	fee_prop.millisatoshis = amt.millisatoshis * fee_proportional_millionths
-		/ 1000000;
 
 	return amount_msat_add(fee, fee_base, fee_prop);
 }
@@ -606,9 +618,9 @@ struct amount_msat amount_msat_sub_fee(struct amount_msat in,
 	 */
 	if (!amount_msat_sub(&out, in, amount_msat(fee_base_msat)))
 		return AMOUNT_MSAT(0);
-	if (!amount_msat_mul(&out, out, 1000000))
+	if (!amount_msat_mul_div(&out, out, 1000000,
+				 1000000 + fee_proportional_millionths))
 		return AMOUNT_MSAT(0);
-	out = amount_msat_div(out, 1000000ULL + fee_proportional_millionths);
 
 	/* If we calc reverse, it must work! */
 	assert(within_fee(in, out, fee_base_msat, fee_proportional_millionths));
