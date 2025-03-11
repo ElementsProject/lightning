@@ -673,6 +673,7 @@ class LightningD(TailableProc):
             bitcoindproxy,
             lssd_port,
             port=9735,
+            grpc_port=None,
             random_hsm=False,
             node_id=0,
     ):
@@ -732,7 +733,7 @@ class LightningD(TailableProc):
                 opts['subdaemon'] = subdaemons[ndx - 1]
 
             print(f"starting node {node_id} with subdaemon {opts['subdaemon']}")
-            if SUBDAEMON == 'hsmd:remote_hsmd_socket':
+            if SUBDAEMON.startswith('hsmd:') and  SUBDAEMON.endswith('remote_hsmd_socket'):
                 self.use_vlsd = True
 
         for k, v in opts.items():
