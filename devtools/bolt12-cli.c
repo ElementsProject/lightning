@@ -641,6 +641,12 @@ static u64 get_offer_type(const char *name)
 		 *     1. type: 90 (`invreq_paths`)
 		 *     2. data:
 		 *         * [`...*blinded_path`:`paths`]
+		 *     1. type: 91 (`invreq_bip_353_name`)
+		 *     2. data:
+		 *         * [`u8`:`name_len`]
+		 *         * [`name_len*byte`:`name`]
+		 *         * [`u8`:`domain_len`]
+		 *         * [`domain_len*byte`:`domain`]
 		 *     1. type: 160 (`invoice_paths`)
 		 *     2. data:
 		 *         * [`...*blinded_path`:`paths`]
