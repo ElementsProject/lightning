@@ -4752,12 +4752,19 @@ def test_connect_ratelimit(node_factory, bitcoind):
     # Suspend the others, to make sure they cannot respond too fast.
     for n in nodes:
         os.kill(n.daemon.proc.pid, signal.SIGSTOP)
-    l1.start()
 
-    # The first will be ok, but others should block and be unblocked.
-    l1.daemon.wait_for_logs((['Unblocking for ']
-                             + ['Too many connections, waiting'])
-                            * (len(nodes) - 1))
+    try:
+        l1.start()
+
+        # The first will be ok, but others should block and be unblocked.
+        l1.daemon.wait_for_logs((['Unblocking for ']
+                                 + ['Too many connections, waiting'])
+                                * (len(nodes) - 1))
+    except Exception as err:
+        # Resume, so pytest doesn't hang!
+        for n in nodes:
+            os.kill(n.daemon.proc.pid, signal.SIGCONT)
+        raise err
 
     # Resume them
     for n in nodes:
