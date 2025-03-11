@@ -122,7 +122,8 @@ bool payment_set_constraints(
 		u64 min_prob_success_millionths,
 		u64 base_prob_success_millionths,
 		bool use_shadow,
-		const struct route_exclusion **exclusions);
+		const struct route_exclusion **exclusions,
+		bool mpp_enabled);
 
 bool payment_refresh(struct payment *p);
 

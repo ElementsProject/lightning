@@ -108,7 +108,8 @@ bool payment_set_constraints(
 		u64 min_prob_success_millionths,
 		u64 base_prob_success_millionths,
 		bool use_shadow,
-		const struct route_exclusion **exclusions)
+		const struct route_exclusion **exclusions,
+		bool mpp_enabled)
 {
 	// FIXME: add exclusions to a layer
 	assert(p);
@@ -129,6 +130,7 @@ bool payment_set_constraints(
 	pinfo->min_prob_success = min_prob_success_millionths / 1e6;
 	pinfo->base_prob_success = base_prob_success_millionths / 1e6;
 	pinfo->use_shadow = use_shadow;
+	pinfo->use_mpp = mpp_enabled;
 
 	return true;
 }

@@ -863,3 +863,60 @@ def test_unannounced(node_factory):
     b12 = l1.rpc.fetchinvoice(offer, "21sat")["invoice"]
     ret = l1.rpc.call("renepay", {"invstring": b12})
     assert ret["status"] == "complete"
+
+
+def test_renepay_no_mpp(node_factory, chainparams):
+    """Renepay should produce single route solutions for invoices that don't
+    signal their support for MPP."""
+    def test_bit(features, bit_pos):
+        return (features[bit_pos // 8] & (1 << (bit_pos % 8))) != 0
+
+    # l4 does not support MPP
+    l1, l2, l3, l4 = node_factory.get_nodes(
+        4, opts=[{}, {}, {}, {"dev-force-features": -17}]
+    )
+
+    # make it so such that it would be convenient to use MPP, eg. higher
+    # probability of success
+    amount = "900000sat"
+    start_channels(
+        [(l1, l2, 1000_000), (l2, l4, 1000_000), (l1, l3, 1000_000), (l3, l4, 1000_000)]
+    )
+
+    # a normal call to getroutes returns two routes
+    routes = l1.rpc.getroutes(
+        source=l1.info["id"],
+        destination=l4.info["id"],
+        amount_msat=amount,
+        layers=[],
+        maxfee_msat="1000sat",
+        final_cltv=0,
+    )["routes"]
+    assert len(routes) == 2
+
+    inv = l4.rpc.invoice(amount, "test_no_mpp", "test_no_mpp")["bolt11"]
+
+    # check that MPP feature is not present
+    features = bytearray.fromhex(l1.rpc.decode(inv)["features"])
+    features.reverse()
+    # var_onion_optin is compulsory
+    assert test_bit(features, 8)
+    # payment_secret is compulsory
+    assert test_bit(features, 14)
+    # basic_mpp should not be present
+    assert not test_bit(features, 16)
+    assert not test_bit(features, 17)
+
+    # pay with renepay
+    ret = l1.rpc.call("renepay", {"invstring": inv})
+    l1.wait_for_htlcs()
+
+    # check that payment succeed
+    # FIXME: lightningd on l4 will accept the MPP HTLCs (>1 routes) even if we
+    # have disabled the feature.
+    assert ret["status"] == "complete"
+    # check that number of parts was 1
+    assert ret["parts"] == 1
+    # check that destination received the payment
+    receipt = only_one(l4.rpc.listinvoices("test_no_mpp")["invoices"])
+    assert receipt["amount_received_msat"] == Millisatoshi(amount)

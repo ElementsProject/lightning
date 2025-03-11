@@ -181,6 +181,7 @@ static struct command_result *json_renepay(struct command *cmd, const char *buf,
 	const char *description;
 	const char *label;
 	struct route_exclusion **exclusions;
+	bool mpp_enabled = true;
 
 	// dev options
 	bool *use_shadow;
@@ -262,6 +263,8 @@ static struct command_result *json_renepay(struct command *cmd, const char *buf,
 			*inv_msat = amount_msat(*b12->invoice_amount);
 		}
 		payment_hash = b12->invoice_payment_hash;
+		mpp_enabled =
+		    feature_offered(b12->invoice_features, OPT_BASIC_MPP);
 	} else {
 		b11 = bolt11_decode(tmpctx, invstr,
 				    plugin_feature_set(cmd->plugin),
@@ -280,6 +283,7 @@ static struct command_result *json_renepay(struct command *cmd, const char *buf,
 		inv_msat = b11->msat;
 		invexpiry = b11->timestamp + b11->expiry;
 		payment_hash = &b11->payment_hash;
+		mpp_enabled = feature_offered(b11->features, OPT_BASIC_MPP);
 	}
 
 	/* === Set default values for non-trivial constraints  === */
@@ -396,7 +400,8 @@ static struct command_result *json_renepay(struct command *cmd, const char *buf,
 			*min_prob_success_millionths,
 			*base_prob_success_millionths, use_shadow,
 			cast_const2(const struct route_exclusion **,
-				    exclusions)) ||
+				    exclusions),
+			mpp_enabled) ||
 		    !payment_refresh(payment))
 			return command_fail(
 			    cmd, PLUGIN_ERROR,
@@ -431,7 +436,8 @@ static struct command_result *json_renepay(struct command *cmd, const char *buf,
 			*min_prob_success_millionths,
 			*base_prob_success_millionths, use_shadow,
 			cast_const2(const struct route_exclusion **,
-				    exclusions)) ||
+				    exclusions),
+			mpp_enabled) ||
 		    !payment_refresh(payment))
 			return command_fail(
 			    cmd, PLUGIN_ERROR,

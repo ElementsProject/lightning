@@ -587,6 +587,8 @@ static struct command_result *getroutes_cb(struct payment *payment)
 	json_add_string(req->js, NULL, "auto.sourcefree");
 	json_add_string(req->js, NULL, payment->payment_layer);
 	json_add_string(req->js, NULL, RENEPAY_LAYER);
+	if (!payment->payment_info.use_mpp)
+		json_add_string(req->js, NULL, "auto.no_mpp_support");
 	json_array_end(req->js);
 	// FIXME: add further constraints here if necessary when they become
 	// available in getroutes

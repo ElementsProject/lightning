@@ -277,7 +277,8 @@ void json_add_payment(struct json_stream *s, const struct payment *payment)
 
 	json_add_timeabs(s, "created_at", pinfo->start_time);
 	json_add_u64(s, "groupid", payment->groupid);
-	json_add_u64(s, "parts", payment->next_partid);
+	// all tried parts, not all successful parts
+	json_add_u64(s, "parts", payment_parts(payment));
 
 	switch (payment->status) {
 	case PAYMENT_SUCCESS:

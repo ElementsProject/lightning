@@ -86,6 +86,9 @@ struct payment_info {
 
 	/* --developer allows disabling shadow route */
 	bool use_shadow;
+
+	/* Use Multi-Path-Payments feature. */
+	bool use_mpp;
 };
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_PAYMENT_INFO_H */
