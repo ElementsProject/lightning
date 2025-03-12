@@ -761,10 +761,9 @@ struct wally_psbt *psbt_from_b64(const tal_t *ctx,
 				 size_t b64len)
 {
 	struct wally_psbt *psbt;
-	char *str = tal_strndup(tmpctx, b64, b64len);
 
 	tal_wally_start();
-	if (wally_psbt_from_base64(str, /* flags */ 0, &psbt) == WALLY_OK)
+	if (wally_psbt_from_base64_n(b64, b64len, /* flags */ 0, &psbt) == WALLY_OK)
 		tal_add_destructor(psbt, psbt_destroy);
 	else
 		psbt = NULL;
