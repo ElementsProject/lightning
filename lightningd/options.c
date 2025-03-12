@@ -957,7 +957,7 @@ static const struct config testnet_config = {
 	.max_htlc_cltv = 2016,
 
 	/* We're fairly trusting, under normal circumstances. */
-	.anchor_confirms = 1,
+	.funding_confirms = 1,
 
 	/* Testnet blockspace is free. */
 	.max_concurrent_htlcs = 483,
@@ -1025,7 +1025,7 @@ static const struct config mainnet_config = {
 	.max_htlc_cltv = 2016,
 
 	/* We're fairly trusting, under normal circumstances. */
-	.anchor_confirms = 3,
+	.funding_confirms = 3,
 
 	/* While up to 483 htlcs are possible we do 30 by default (as eclair does) to save blockspace */
 	.max_concurrent_htlcs = 30,
@@ -1099,8 +1099,8 @@ static void check_config(struct lightningd *ld)
 	if (ld->config.max_concurrent_htlcs < 1 || ld->config.max_concurrent_htlcs > 483)
 		fatal("--max-concurrent-htlcs value must be between 1 and 483 it is: %u",
 		      ld->config.max_concurrent_htlcs);
-	if (ld->config.anchor_confirms == 0)
-		fatal("anchor-confirms must be greater than zero");
+	if (ld->config.funding_confirms == 0)
+		fatal("funding-confirms must be greater than zero");
 
 	if (ld->always_use_proxy && !ld->proxyaddr)
 		fatal("--always-use-proxy needs --proxy");
@@ -1256,12 +1256,9 @@ static char *opt_set_shutdown_wrong_funding(struct lightningd *ld)
 
 static char *opt_set_peer_storage(struct lightningd *ld)
 {
-	feature_set_or(ld->our_features,
-		       take(feature_set_for_feature(NULL,
-						    OPTIONAL_FEATURE(OPT_PROVIDE_PEER_BACKUP_STORAGE))));
-	feature_set_or(ld->our_features,
-		       take(feature_set_for_feature(NULL,
-						    OPTIONAL_FEATURE(OPT_WANT_PEER_BACKUP_STORAGE))));
+	if (!opt_deprecated_ok(ld, "experimental-peer-storage", NULL,
+			       "v25.05", "v25.11"))
+		return "--experimental-peer-storage is now enabled by default";
 	return NULL;
 }
 
@@ -1471,7 +1468,7 @@ static void register_opts(struct lightningd *ld)
 				 "EXPERIMENTAL: allow shutdown with alternate txids");
 	opt_register_early_noarg("--experimental-peer-storage",
 				 opt_set_peer_storage, ld,
-				 "EXPERIMENTAL: enable peer backup storage and restore");
+				 opt_hidden);
 	opt_register_early_noarg("--experimental-quiesce",
 				 opt_set_quiesce, ld,
 				 "experimental: Advertise ability to quiesce"
@@ -1500,7 +1497,7 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--max-locktime-blocks", opt_set_max_htlc_cltv, NULL,
 			 ld, opt_hidden);
 	clnopt_witharg("--funding-confirms", OPT_SHOWINT, opt_set_u32, opt_show_u32,
-			 &ld->config.anchor_confirms,
+			 &ld->config.funding_confirms,
 			 "Confirmations required for funding transaction");
 	clnopt_witharg("--require-confirmed-inputs", OPT_SHOWBOOL,
 		       opt_set_bool_arg, opt_show_bool,
