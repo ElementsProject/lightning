@@ -547,6 +547,7 @@ static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
  * add a partial sig for each */
 static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 {
+	bool is_cache_enabled = false;
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		struct utxo *utxo = utxos[i];
 		for (size_t j = 0; j < psbt->num_inputs; j++) {
@@ -584,6 +585,11 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 							utxo->amount);
 			}
 			tal_wally_start();
+			if (!is_cache_enabled) {
+				/* Enable caching signature sub-hashes */
+				wally_psbt_signing_cache_enable(psbt, 0);
+				is_cache_enabled = true;
+			}
 			if (wally_psbt_sign(psbt, privkey.secret.data,
 					    sizeof(privkey.secret.data),
 					    EC_FLAG_GRIND_R) != WALLY_OK) {
