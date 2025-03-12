@@ -812,10 +812,10 @@ installdirs:
 
 # $(PLUGINS) is defined in plugins/Makefile.
 
-install-program: installdirs $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $(PY_PLUGINS)
+install-program: installdirs $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $(PY_PLUGINS) $(PLUGIN_REQUIREMENTS_TXT)
 	@$(NORMAL_INSTALL)
 	$(INSTALL_PROGRAM) $(BIN_PROGRAMS) $(DESTDIR)$(bindir)
-	$(INSTALL_PROGRAM) $(PKGLIBEXEC_PROGRAMS) $(DESTDIR)$(pkglibexecdir)
+	$(INSTALL_PROGRAM) $(PKGLIBEXEC_PROGRAMS) $(PLUGIN_REQUIREMENTS_TXT) $(DESTDIR)$(pkglibexecdir)
 	[ -z "$(PLUGINS)" ] || $(INSTALL_PROGRAM) $(PLUGINS) $(DESTDIR)$(plugindir)
 	for PY in $(PY_PLUGINS); do DIR=`dirname $$PY`; DST=$(DESTDIR)$(plugindir)/`basename $$DIR`; if [ -d $$DST ]; then rm -rf $$DST; fi; $(INSTALL_PROGRAM) -d $$DIR; cp -a $$DIR $$DST ; done
 
@@ -893,6 +893,10 @@ uninstall:
 	@for f in $(DOC_DATA); do \
 	  $(ECHO) rm -f $(DESTDIR)$(docdir)/`basename $$f`; \
 	  rm -f $(DESTDIR)$(docdir)/`basename $$f`; \
+	done
+	@for f in $(PLUGIN_REQUIREMENTS_TXT); do \
+	  $(ECHO) rm -f $(DESTDIR)$(pkglibexecdir)/`basename $$f`; \
+	  rm -f $(DESTDIR)$(pkglibexecdir)/`basename $$f`; \
 	done
 
 installcheck: all-programs
