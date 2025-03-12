@@ -348,6 +348,12 @@ static struct amount_msat linear_flows_cost(struct flow **flows,
 	return total;
 }
 
+static u64 time_delta_ms(struct timerel t)
+{
+	u64 msec = t.ts.tv_sec * 1000 + t.ts.tv_nsec / 1000000;
+	return msec;
+}
+
 /* Returns an error message, or sets *routes */
 static const char *get_routes(const tal_t *ctx,
 			      struct command *cmd,
@@ -373,6 +379,8 @@ static const char *get_routes(const tal_t *ctx,
 	double delay_feefactor;
 	u32 mu;
 	const char *ret;
+	struct timerel time_delta;
+	struct timemono time_start = time_mono();
 
 	if (gossmap_refresh(askrene->gossmap)) {
 		/* FIXME: gossmap_refresh callbacks to we can update in place */
@@ -586,7 +594,9 @@ too_expensive:
 	}
 
 	gossmap_remove_localmods(askrene->gossmap, localmods);
-
+	time_delta = timemono_between(time_mono(), time_start);
+	rq_log(tmpctx, rq, LOG_INFORM, "get_routes completed in %" PRIu64 " ms",
+	       time_delta_ms(time_delta));
 	return NULL;
 
 	/* Explicit failure path keeps the compiler (gcc version 12.3.0 -O3) from
@@ -594,6 +604,9 @@ too_expensive:
 fail:
 	assert(ret != NULL);
 	gossmap_remove_localmods(askrene->gossmap, localmods);
+	time_delta = timemono_between(time_mono(), time_start);
+	rq_log(tmpctx, rq, LOG_INFORM, "get_routes failed after %" PRIu64 " ms",
+	       time_delta_ms(time_delta));
 	return ret;
 }
 
