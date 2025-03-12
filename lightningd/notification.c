@@ -292,6 +292,37 @@ void notify_channel_opened(struct lightningd *ld,
 	notify_send(ld, n);
 }
 
+static void channel_closed_notification_serialize(struct json_stream *stream,
+							 struct lightningd *ld,
+							 const struct node_id *node_id,
+							 const struct bitcoin_txid *closing_txid,
+							 const struct channel_id *cid,
+							 const struct short_channel_id *scid,
+							 enum state_change cause)
+{
+	json_add_node_id(stream, "peer_id", node_id);
+	json_add_channel_id(stream, "channel_id", cid);
+	if (scid)
+		json_add_short_channel_id(stream, "short_channel_id", *scid);
+	else
+		json_add_null(stream, "short_channel_id");
+	json_add_txid(stream, "closing_txid", closing_txid);
+	json_add_string(stream, "cause", channel_change_state_reason_str(cause));
+}
+
+REGISTER_NOTIFICATION(channel_closed)
+
+void notify_channel_closed(struct lightningd *ld, const struct node_id *node_id,
+			   const struct bitcoin_txid *closing_txid,
+			   const struct channel_id *cid,
+			   const struct short_channel_id *scid,
+			   enum state_change cause)
+{
+	struct jsonrpc_notification *n = notify_start("channel_closed");
+	channel_closed_notification_serialize(n->stream, ld, node_id, closing_txid, cid, scid, cause);
+	notify_send(ld, n);
+}
+
 static void channel_state_changed_notification_serialize(struct json_stream *stream,
 							 const struct node_id *peer_id,
 							 const struct channel_id *cid,
