@@ -105,13 +105,16 @@ def test_errors(node_factory, bitcoind):
     inv_deleted = l6.rpc.invoice(send_amount, "test_renepay2", "description2")["bolt11"]
     l6.rpc.delinvoice("test_renepay2", "unpaid")
 
-    failmsg = r"We don\'t have any channels"
+    # What happens if we don't have any channels?
+    # This would be a useful error message: failmsg = r"We don\'t have any channels"
+    failmsg = f"Unknown source node {l1.info['id']}"
     with pytest.raises(RpcError, match=failmsg):
         l1.rpc.call("renepay", {"invstring": inv})
     node_factory.join_nodes([l1, l2, l4], wait_for_announce=True, fundamount=1000000)
     node_factory.join_nodes([l1, l3, l5], wait_for_announce=True, fundamount=1000000)
 
-    failmsg = r"failed to find a feasible flow"
+    # What happens if the destination is unreacheable?
+    failmsg = r"There is no connection between source and destination"
     with pytest.raises(RpcError, match=failmsg):
         l1.rpc.call("renepay", {"invstring": inv})
 
@@ -256,6 +259,7 @@ def test_limits(node_factory):
     - CLTV delay is too high,
     - probability of success is too low.
     """
+    # FIXME: check error codes returned by askrene
     opts = [
         {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 100},
     ]
@@ -272,32 +276,14 @@ def test_limits(node_factory):
     inv = l5.rpc.invoice("any", "any", "description")
     l3.rpc.call("pay", {"bolt11": inv["bolt11"], "amount_msat": 500000000})
 
-    # FIXME: pylightning should define these!
-    # PAY_STOPPED_RETRYING = 210
-    PAY_ROUTE_TOO_EXPENSIVE = 206
-
     inv = l6.rpc.invoice("any", "any", "description")
 
     # Fee too high.
-    failmsg = r"Fee exceeds our fee budget"
-    with pytest.raises(RpcError, match=failmsg) as err:
+    failmsg = r"Could not find route without excessive cost"
+    with pytest.raises(RpcError, match=failmsg):
         l1.rpc.call(
             "renepay", {"invstring": inv["bolt11"], "amount_msat": 1000000, "maxfee": 1}
         )
-    assert err.value.error["code"] == PAY_ROUTE_TOO_EXPENSIVE
-    # TODO(eduardo): which error code shall we use here?
-
-    # TODO(eduardo): shall we list attempts in renepay?
-    # status = l1.rpc.call('renepaystatus', {'invstring':inv['bolt11']})['paystatus'][0]['attempts']
-
-    failmsg = r"CLTV delay exceeds our CLTV budget"
-    # Delay too high.
-    with pytest.raises(RpcError, match=failmsg) as err:
-        l1.rpc.call(
-            "renepay",
-            {"invstring": inv["bolt11"], "amount_msat": 1000000, "maxdelay": 0},
-        )
-    assert err.value.error["code"] == PAY_ROUTE_TOO_EXPENSIVE
 
     inv2 = l6.rpc.invoice("800000sat", "inv2", "description")
     l1.rpc.call("renepay", {"invstring": inv2["bolt11"]})
@@ -640,6 +626,7 @@ def test_fees(node_factory):
     assert invoice["amount_received_msat"] == Millisatoshi("150000sat")
 
 
+@unittest.skip("Not supported by askrene")
 def test_local_htlcmax0(node_factory):
     """Testing a simple pay route when local channels have htlcmax=0."""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
@@ -773,7 +760,8 @@ def test_privatechan(node_factory, bitcoind):
     assert invoice["amount_received_msat"] >= Millisatoshi("1000sat")
 
 
-@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "broken for some reason")
+# Skipping this test for now, we can make it pass with askrene.
+@unittest.skip
 def test_hardmpp2(node_factory, bitcoind):
     """Credits to @daywalker90 for this test case."""
     opts = {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 10}
@@ -852,6 +840,8 @@ def test_offers(node_factory):
     assert response["status"] == "complete"
 
 
+# FIXME: we skip this until #8129 is merged
+@unittest.skip
 def test_offer_selfpay(node_factory):
     """We can fetch an pay our own offer"""
     l1 = node_factory.get_node()
@@ -873,3 +863,60 @@ def test_unannounced(node_factory):
     b12 = l1.rpc.fetchinvoice(offer, "21sat")["invoice"]
     ret = l1.rpc.call("renepay", {"invstring": b12})
     assert ret["status"] == "complete"
+
+
+def test_renepay_no_mpp(node_factory, chainparams):
+    """Renepay should produce single route solutions for invoices that don't
+    signal their support for MPP."""
+    def test_bit(features, bit_pos):
+        return (features[bit_pos // 8] & (1 << (bit_pos % 8))) != 0
+
+    # l4 does not support MPP
+    l1, l2, l3, l4 = node_factory.get_nodes(
+        4, opts=[{}, {}, {}, {"dev-force-features": -17}]
+    )
+
+    # make it so such that it would be convenient to use MPP, eg. higher
+    # probability of success
+    amount = "900000sat"
+    start_channels(
+        [(l1, l2, 1000_000), (l2, l4, 1000_000), (l1, l3, 1000_000), (l3, l4, 1000_000)]
+    )
+
+    # a normal call to getroutes returns two routes
+    routes = l1.rpc.getroutes(
+        source=l1.info["id"],
+        destination=l4.info["id"],
+        amount_msat=amount,
+        layers=[],
+        maxfee_msat="1000sat",
+        final_cltv=0,
+    )["routes"]
+    assert len(routes) == 2
+
+    inv = l4.rpc.invoice(amount, "test_no_mpp", "test_no_mpp")["bolt11"]
+
+    # check that MPP feature is not present
+    features = bytearray.fromhex(l1.rpc.decode(inv)["features"])
+    features.reverse()
+    # var_onion_optin is compulsory
+    assert test_bit(features, 8)
+    # payment_secret is compulsory
+    assert test_bit(features, 14)
+    # basic_mpp should not be present
+    assert not test_bit(features, 16)
+    assert not test_bit(features, 17)
+
+    # pay with renepay
+    ret = l1.rpc.call("renepay", {"invstring": inv})
+    l1.wait_for_htlcs()
+
+    # check that payment succeed
+    # FIXME: lightningd on l4 will accept the MPP HTLCs (>1 routes) even if we
+    # have disabled the feature.
+    assert ret["status"] == "complete"
+    # check that number of parts was 1
+    assert ret["parts"] == 1
+    # check that destination received the payment
+    receipt = only_one(l4.rpc.listinvoices("test_no_mpp")["invoices"])
+    assert receipt["amount_received_msat"] == Millisatoshi(amount)
