@@ -25,6 +25,13 @@
         "description": [
           "True if askrene should save and restore this layer.  As a side-effect, create-layer also succeeds if the layer already exists and persistent is true."
         ]
+      },
+      "expiration": {
+        "type": "u64",
+        "description": [
+          "Sets the number of seconds until this layer expires.  If this number is specified the layer will be automatically deleted at expiration.  A layer cannot be persistent and have an expiration time."
+        ],
+        "added": "v25.02"
       }
     }
   },
