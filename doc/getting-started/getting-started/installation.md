@@ -135,8 +135,8 @@ To build CLN for production:
 ```shell
 poetry install
 ./configure
-poetry run make -j$(($(nproc)-1))
-sudo make install
+RUST_PROFILE=release make
+sudo RUST_PROFILE=release make install
 ```
 
 > 📘 
