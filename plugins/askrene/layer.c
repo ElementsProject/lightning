@@ -10,6 +10,9 @@
 #include <plugins/askrene/layer.h>
 #include <wire/wire.h>
 
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
 /* Different elements in the datastore */
 enum dstore_layer_type {
 	/* We don't use type 0, which fromwire_u16 returns on trunction */
@@ -285,7 +288,8 @@ static const struct constraint *add_constraint(struct layer *layer,
 static const struct bias *set_bias(struct layer *layer,
 				   const struct short_channel_id_dir *scidd,
 				   const char *description TAKES,
-				   s8 bias_factor)
+				   s8 bias_factor,
+				   bool relative)
 {
 	struct bias *bias;
 
@@ -294,15 +298,18 @@ static const struct bias *set_bias(struct layer *layer,
 		bias = tal(layer, struct bias);
 		bias->scidd = *scidd;
 		bias_hash_add(layer->biases, bias);
+		bias->bias = 0;
 	} else {
 		tal_free(bias->description);
 	}
-
-	bias->bias = bias_factor;
+	int bias_new = relative ? bias->bias + bias_factor : bias_factor;
+	bias_new = MIN(100, bias_new);
+	bias_new = MAX(-100, bias_new);
+	bias->bias = bias_new;
 	bias->description = tal_strdup_or_null(bias, description);
 
 	/* Don't bother keeping around zero biases */
-	if (bias_factor == 0) {
+	if (bias->bias == 0) {
 		bias_hash_del(layer->biases, bias);
 		bias = tal_free(bias);
 	}
@@ -588,7 +595,7 @@ static void load_channel_bias(struct plugin *plugin,
 	description = fromwire_wirestring(tmpctx, cursor, len);
 
 	if (*cursor)
-		set_bias(layer, &scidd, take(description), bias_factor);
+		set_bias(layer, &scidd, take(description), bias_factor, false);
 }
 
 static void towire_save_disabled_node(u8 **data, const struct node_id *node)
@@ -818,11 +825,12 @@ void layer_add_update_channel(struct layer *layer,
 const struct bias *layer_set_bias(struct layer *layer,
 				  const struct short_channel_id_dir *scidd,
 				  const char *description TAKES,
-				  s8 bias_factor)
+				  s8 bias_factor,
+				  bool relative)
 {
 	const struct bias *bias;
 
-	bias = set_bias(layer, scidd, description, bias_factor);
+	bias = set_bias(layer, scidd, description, bias_factor, relative);
 	save_channel_bias(layer, bias);
 	return bias;
 }
