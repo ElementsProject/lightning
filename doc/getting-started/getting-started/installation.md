@@ -114,7 +114,7 @@ pip3 install pytest
 
 If you can't install `lowdown`, a version will be built in-tree.
 
-If you want to build the Rust plugins (currently, cln-grpc):
+If you want to build the Rust plugins (currently, cln-grpc and clnrest):
 
 ```shell
 sudo apt-get install -y cargo rustfmt protobuf-compiler
@@ -129,8 +129,8 @@ pip3 install --upgrade pip
 pip3 install mako
 pip3 install grpcio-tools
 ./configure
-make
-sudo make install
+RUST_PROFILE=release make
+sudo RUST_PROFILE=release make install
 ```
 
 > 📘 
