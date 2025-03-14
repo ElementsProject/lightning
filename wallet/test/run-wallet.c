@@ -690,10 +690,12 @@ struct uncommitted_channel *new_uncommitted_channel(struct peer *peer UNNEEDED)
 bool node_announcement_same(const u8 *nann1 UNNEEDED, const u8 *nann2 UNNEEDED)
 { fprintf(stderr, "node_announcement_same called!\n"); abort(); }
 /* Generated stub for notify_chain_mvt */
-void notify_chain_mvt(struct lightningd *ld UNNEEDED, const struct chain_coin_mvt *mvt UNNEEDED)
+void notify_chain_mvt(struct lightningd *ld UNNEEDED,
+		      const struct chain_coin_mvt *chain_mvt UNNEEDED)
 { fprintf(stderr, "notify_chain_mvt called!\n"); abort(); }
 /* Generated stub for notify_channel_mvt */
-void notify_channel_mvt(struct lightningd *ld UNNEEDED, const struct channel_coin_mvt *mvt UNNEEDED)
+void notify_channel_mvt(struct lightningd *ld UNNEEDED,
+			const struct channel_coin_mvt *chan_mvt UNNEEDED)
 { fprintf(stderr, "notify_channel_mvt called!\n"); abort(); }
 /* Generated stub for notify_channel_open_failed */
 void notify_channel_open_failed(struct lightningd *ld UNNEEDED,
@@ -929,10 +931,6 @@ bool peer_start_channeld(struct channel *channel UNNEEDED,
 			 bool reconnected UNNEEDED,
 			 bool reestablish_only UNNEEDED)
 { fprintf(stderr, "peer_start_channeld called!\n"); abort(); }
-/* Generated stub for peer_start_closingd */
-void peer_start_closingd(struct channel *channel UNNEEDED,
-			 struct peer_fd *peer_fd UNNEEDED)
-{ fprintf(stderr, "peer_start_closingd called!\n"); abort(); }
 /* Generated stub for peer_start_dualopend */
 bool peer_start_dualopend(struct peer *peer UNNEEDED, struct peer_fd *peer_fd UNNEEDED,
 			  struct channel *channel UNNEEDED)
@@ -2112,7 +2110,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 
 	/* do inflights get cleared when the channel is closed?*/
 	dbid = chan->dbid;
-	delete_channel(chan); /* Also clears up peer! */
+	delete_channel(chan, false); /* Also clears up peer! */
 	CHECK_MSG(count_inflights(w, dbid) == 0, "inflights cleaned up");
 	db_commit_transaction(w->db);
 	CHECK_MSG(!wallet_err, wallet_err);
