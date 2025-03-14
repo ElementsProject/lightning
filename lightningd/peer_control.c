@@ -2144,7 +2144,7 @@ void update_channel_from_inflight(struct lightningd *ld,
 				       "Updaing channel view for splice causes"
 				       " an invalid satoshi amount wrapping,"
 				       " channel: %s, initial funds: %s, splice"
-				       " banace change: %s",
+				       " balance change: "PRIi64,
 				       fmt_channel_id(tmpctx,
 						      &channel->cid),
 				       fmt_amount_sat(tmpctx, channel->our_funds),
