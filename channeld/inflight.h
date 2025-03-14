@@ -7,6 +7,7 @@
 #include <common/amount.h>
 
 struct inflight {
+	/* The new channel outpoint */
 	struct bitcoin_outpoint outpoint;
 	struct pubkey remote_funding;
 	struct amount_sat amnt;
