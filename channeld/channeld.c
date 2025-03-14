@@ -5647,6 +5647,7 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 	struct pubkey point;
 	bool splicing;
 	struct bitcoin_txid txid;
+	struct inflight *inflight_match;
 
 	if (!fromwire_channeld_funding_depth(tmpctx,
 					     msg,
@@ -5660,14 +5661,52 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 	if (peer->shutdown_sent[LOCAL])
 		return;
 
-	if (depth < peer->channel->minimum_depth) {
-		peer->depth_togo = peer->channel->minimum_depth - depth;
-	} else {
-		peer->depth_togo = 0;
+	if (splicing) {
+		if (depth < peer->channel->minimum_depth)
+			return;
 
-		/* For splicing we only update the short channel id on mutual
-		 * splice lock */
-		if (splicing) {
+		assert(peer->channel_ready[LOCAL]);
+		assert(peer->channel_ready[REMOTE]);
+
+		if(!peer->splice_state->locked_ready[LOCAL]) {
+			assert(scid);
+
+			inflight_match = NULL;
+			for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++) {
+				struct inflight *inflight = peer->splice_state->inflights[i];
+				if (bitcoin_txid_eq(&inflight->outpoint.txid,
+						    &txid)) {
+					if (inflight_match)
+						peer_failed_err(peer->pps,
+								&peer->channel_id,
+								"It should be"
+								" impossible"
+								" for two"
+								" inflights to"
+								"match, %s",
+								fmt_bitcoin_txid(tmpctx, &txid));
+					inflight->is_locked = true;
+					assert(inflight->psbt);
+					msg = towire_channeld_update_inflight(NULL,
+									      inflight->psbt,
+									      NULL,
+									      NULL,
+									      inflight->is_locked);
+					wire_sync_write(MASTER_FD, take(msg));
+					inflight_match = inflight;
+				}
+			}
+
+			if (!inflight_match) {
+				status_debug("Ignoring stale fudning depth"
+					     " notification %s for splice depth"
+					     " check",
+					     fmt_bitcoin_txid(tmpctx, &txid));
+				return;
+			}
+
+			/* For splicing we only update the short channel id on mutual
+			 * splice lock */
 			peer->splice_state->short_channel_id = *scid;
 			status_debug("Current channel id is %s, "
 				     "splice_short_channel_id now set to %s",
@@ -5675,19 +5714,37 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 							   peer->short_channel_ids[LOCAL]),
 				      fmt_short_channel_id(tmpctx,
 							   peer->splice_state->short_channel_id));
-		} else {
-			status_debug("handle_funding_depth: Setting short_channel_ids[LOCAL] to %s",
-				fmt_short_channel_id(tmpctx,
-						     (scid ? *scid : peer->local_alias)));
-			/* If we know an actual short_channel_id prefer to use
-			 * that, otherwise fill in the alias. From channeld's
-			 * point of view switching from zeroconf to an actual
-			 * funding scid is just a reorg. */
-			if (scid)
-				peer->short_channel_ids[LOCAL] = *scid;
-			else
-				peer->short_channel_ids[LOCAL] = peer->local_alias;
+
+			peer->splice_state->locked_txid = txid;
+
+			msg = towire_splice_locked(NULL, &peer->channel_id,
+						   &txid);
+
+			peer_write(peer->pps, take(msg));
+
+			peer->splice_state->locked_ready[LOCAL] = true;
+			check_mutual_splice_locked(peer);
 		}
+
+		return;
+	}
+
+	if (depth < peer->channel->minimum_depth) {
+		peer->depth_togo = peer->channel->minimum_depth - depth;
+	} else {
+		peer->depth_togo = 0;
+
+		status_debug("handle_funding_depth: Setting short_channel_ids[LOCAL] to %s",
+			fmt_short_channel_id(tmpctx,
+					     (scid ? *scid : peer->local_alias)));
+		/* If we know an actual short_channel_id prefer to use
+		 * that, otherwise fill in the alias. From channeld's
+		 * point of view switching from zeroconf to an actual
+		 * funding scid is just a reorg. */
+		if (scid)
+			peer->short_channel_ids[LOCAL] = *scid;
+		else
+			peer->short_channel_ids[LOCAL] = peer->local_alias;
 
 		if (!peer->channel_ready[LOCAL]) {
 			status_debug("channel_ready: sending commit index"
@@ -5709,33 +5766,6 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 
 			peer->channel_ready[LOCAL] = true;
 			check_mutual_channel_ready(peer);
-		} else if(splicing && !peer->splice_state->locked_ready[LOCAL]) {
-			assert(scid);
-
-			for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++) {
-				struct inflight *inflight = peer->splice_state->inflights[i];
-				if (bitcoin_txid_eq(&inflight->outpoint.txid,
-						    &txid)) {
-					inflight->is_locked = true;
-					assert(inflight->psbt);
-					msg = towire_channeld_update_inflight(NULL,
-									      inflight->psbt,
-									      NULL,
-									      NULL,
-									      inflight->is_locked);
-					wire_sync_write(MASTER_FD, take(msg));
-				}
-			}
-
-			peer->splice_state->locked_txid = txid;
-
-			msg = towire_splice_locked(NULL, &peer->channel_id,
-						   &txid);
-
-			peer_write(peer->pps, take(msg));
-
-			peer->splice_state->locked_ready[LOCAL] = true;
-			check_mutual_splice_locked(peer);
 		}
 	}
 
