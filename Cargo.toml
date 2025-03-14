@@ -4,9 +4,10 @@ strip = "debuginfo"
 [workspace]
 resolver = "2"
 members = [
-  "cln-rpc",
-  "cln-grpc",
-  "plugins",
-  "plugins/grpc-plugin",
-  "plugins/rest-plugin"
+    "cln-rpc",
+    "cln-grpc",
+    "plugins",
+    "plugins/grpc-plugin",
+    "plugins/rest-plugin",
+    "plugins/lsps-plugin",
 ]
