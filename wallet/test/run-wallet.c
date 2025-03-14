@@ -369,6 +369,9 @@ u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 /* Generated stub for get_network_blockheight */
 u32 get_network_blockheight(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_network_blockheight called!\n"); abort(); }
+/* Generated stub for hash_cid */
+size_t hash_cid(const struct channel_id *cid UNNEEDED)
+{ fprintf(stderr, "hash_cid called!\n"); abort(); }
 /* Generated stub for hsmd_wire_name */
 const char *hsmd_wire_name(int e UNNEEDED)
 { fprintf(stderr, "hsmd_wire_name called!\n"); abort(); }
@@ -690,12 +693,10 @@ struct uncommitted_channel *new_uncommitted_channel(struct peer *peer UNNEEDED)
 bool node_announcement_same(const u8 *nann1 UNNEEDED, const u8 *nann2 UNNEEDED)
 { fprintf(stderr, "node_announcement_same called!\n"); abort(); }
 /* Generated stub for notify_chain_mvt */
-void notify_chain_mvt(struct lightningd *ld UNNEEDED,
-		      const struct chain_coin_mvt *chain_mvt UNNEEDED)
+void notify_chain_mvt(struct lightningd *ld UNNEEDED, const struct chain_coin_mvt *mvt UNNEEDED)
 { fprintf(stderr, "notify_chain_mvt called!\n"); abort(); }
 /* Generated stub for notify_channel_mvt */
-void notify_channel_mvt(struct lightningd *ld UNNEEDED,
-			const struct channel_coin_mvt *chan_mvt UNNEEDED)
+void notify_channel_mvt(struct lightningd *ld UNNEEDED, const struct channel_coin_mvt *mvt UNNEEDED)
 { fprintf(stderr, "notify_channel_mvt called!\n"); abort(); }
 /* Generated stub for notify_channel_open_failed */
 void notify_channel_open_failed(struct lightningd *ld UNNEEDED,
