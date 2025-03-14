@@ -1228,13 +1228,9 @@ static struct command_result *param_invreq(struct command *cmd,
 	int badf;
 	struct sha256 merkle, sighash;
 
-	/* FIXME: quote is garbled, see: https://github.com/lightning/bolts/pull/1222 */
 	/* BOLT #12:
 	 *   - if `invreq_chain` is not present:
 	 *     - MUST reject the invoice request if bitcoin is not a supported chain.
-	 * - if `invreq_bip_353_name` is present:
-	 *    - MUST reject the invoice request if `name` or `domain` contain any bytes which are not
-	 *      `0`-`9`, `a`-`z`, `A`-`Z`, `-`, `_` or `.`.
 	 *   - otherwise:
 	 *     - MUST reject the invoice request if `invreq_chain`.`chain` is not a
 	 *       supported chain.
