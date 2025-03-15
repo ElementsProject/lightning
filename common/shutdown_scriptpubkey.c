@@ -1,6 +1,31 @@
 #include "config.h"
 #include <bitcoin/script.h>
 #include <common/shutdown_scriptpubkey.h>
+#include <wire/wire.h>
+
+/* BOLT #2:
+ * 4. if (and only if) `option_simple_close` is negotiated:
+ *    * `OP_RETURN` followed by one of:
+ *      * `6` to `75` inclusive followed by exactly that many bytes
+ *      * `76` followed by `76` to `80` followed by exactly that many bytes
+ */
+static bool is_valid_op_return(const u8 *scriptpubkey, size_t scriptpubkey_len)
+{
+	u8 v;
+
+	if (fromwire_u8(&scriptpubkey, &scriptpubkey_len) != OP_RETURN)
+		return false;
+
+	v = fromwire_u8(&scriptpubkey, &scriptpubkey_len);
+	if (v >= 6 && v <= 75)
+		return scriptpubkey_len == v;
+	if (v == 76) {
+		v = fromwire_u8(&scriptpubkey, &scriptpubkey_len);
+		if (v >= 76 && v <= 80)
+			return scriptpubkey_len == v;
+	}
+	return false;
+}
 
 /* BOLT #2:
  * 3. if (and only if) `option_shutdown_anysegwit` is negotiated:
@@ -48,7 +73,8 @@ static bool is_valid_witnessprog(const u8 *scriptpubkey, size_t scriptpubkey_len
 
 bool valid_shutdown_scriptpubkey(const u8 *scriptpubkey,
 				 bool anysegwit,
-				 bool allow_oldstyle)
+				 bool allow_oldstyle,
+				 bool option_simple_close)
 {
 	const size_t script_len = tal_bytelen(scriptpubkey);
 	if (allow_oldstyle) {
@@ -59,5 +85,6 @@ bool valid_shutdown_scriptpubkey(const u8 *scriptpubkey,
 
 	return is_p2wpkh(scriptpubkey, script_len, NULL)
 		|| is_p2wsh(scriptpubkey, script_len, NULL)
-		|| (anysegwit && is_valid_witnessprog(scriptpubkey, script_len));
+		|| (anysegwit && is_valid_witnessprog(scriptpubkey, script_len))
+		|| (option_simple_close && is_valid_op_return(scriptpubkey, script_len));
 }

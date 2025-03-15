@@ -229,7 +229,7 @@ char *validate_remote_upfront_shutdown(const tal_t *ctx,
 	*state_script = tal_steal(ctx, shutdown_scriptpubkey);
 
 	if (shutdown_scriptpubkey
-	    && !valid_shutdown_scriptpubkey(shutdown_scriptpubkey, anysegwit, !anchors))
+	    && !valid_shutdown_scriptpubkey(shutdown_scriptpubkey, anysegwit, !anchors, false))
 		return tal_fmt(tmpctx,
 			       "Unacceptable upfront_shutdown_script %s",
 			       tal_hex(tmpctx, shutdown_scriptpubkey));

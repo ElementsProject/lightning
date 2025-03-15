@@ -759,10 +759,10 @@ static struct command_result *json_close(struct command *cmd,
 	/* In theory, this could happen if the peer had anysegwit when channel was
 	 * established, and doesn't now.  Doesn't happen, and if it did we could
 	 * provide a new address manually. */
-	if (!valid_shutdown_scriptpubkey(close_to_script, anysegwit, false)) {
+	if (!valid_shutdown_scriptpubkey(close_to_script, anysegwit, false, false)) {
 		/* Explicit check for future segwits. */
 		if (!anysegwit &&
-		    valid_shutdown_scriptpubkey(close_to_script, true, false)) {
+		    valid_shutdown_scriptpubkey(close_to_script, true, false, false)) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Peer does not allow v1+ shutdown addresses");
 		}

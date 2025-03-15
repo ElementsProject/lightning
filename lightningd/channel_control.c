@@ -1227,7 +1227,7 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	 *   - if the `scriptpubkey` is not in one of the above forms:
 	 *     - SHOULD send a `warning`.
 	 */
-	if (!valid_shutdown_scriptpubkey(scriptpubkey, anysegwit, !anchors)) {
+	if (!valid_shutdown_scriptpubkey(scriptpubkey, anysegwit, !anchors, false)) {
 		u8 *warning = towire_warningfmt(NULL,
 						&channel->cid,
 						"Bad shutdown scriptpubkey %s",
