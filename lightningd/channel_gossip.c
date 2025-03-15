@@ -397,7 +397,7 @@ static void stash_remote_announce_sigs(struct channel *channel,
 	const char *err;
 
 	/* BOLT #7:
-	 * - if the `node_signature` OR the `bitcoin_signature` is NOT correct:
+	 * - If the `node_signature` OR the `bitcoin_signature` is NOT correct:
 	 *   - MAY send a `warning` and close the connection, or send an
          *     `error` and fail the channel.
 	 */
@@ -680,10 +680,13 @@ void channel_gossip_got_announcement_sigs(struct channel *channel,
 		return;
 	case CGOSSIP_ANNOUNCED:
 		/* BOLT #7:
-		 * - upon reconnection (once the above timing requirements
+		 * - Upon reconnection (once the above timing requirements
                  *   have been met):
-		 *     - MUST respond to the first `announcement_signatures`
-		 *       message with its own `announcement_signatures` message.
+		 *...
+		 *    - If it receives `announcement_signatures` for the
+		 *      funding transaction:
+		 *       - MUST respond with its own `announcement_signatures`
+		 *        message.
 		 */
 		send_channel_announce_sigs(channel);
 		check_channel_gossip(channel);
@@ -912,13 +915,11 @@ void channel_gossip_channel_reestablished(struct channel *channel)
 		return;
 	case CGOSSIP_NEED_PEER_SIGS:
 		/* BOLT #7:
-		 * - upon reconnection (once the above timing
-		 *  requirements have been met):
-		 * ...
-		 *   - if it has NOT received an
-		 *     `announcement_signatures` message:
-		 *     - SHOULD retransmit the
-		 *       `announcement_signatures` message.
+		 * - Upon reconnection (once the above timing requirements have
+		 *   been met):
+		 *    - If it has NOT previously received
+		 *      `announcement_signatures` for the funding transaction:
+		 *        - MUST send its own `announcement_signatures` message.
 		 */
 		send_private_cupdate(channel, true);
 		send_channel_announce_sigs(channel);

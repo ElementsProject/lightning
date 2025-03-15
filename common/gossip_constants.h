@@ -31,9 +31,8 @@
 
 /* BOLT #7:
  *
- * - MUST NOT send `announcement_signatures` messages until `channel_ready`
- *   has been sent and received AND the funding transaction has at least six
- *   confirmations.
+ * - If the funding transaction has less than 6 confirmations:
+ *   - MUST NOT send `channel_announcement`.
  */
 #define ANNOUNCE_MIN_DEPTH 6
 
