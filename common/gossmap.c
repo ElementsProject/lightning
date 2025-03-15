@@ -1792,6 +1792,8 @@ const void *gossmap_stream_next(const tal_t *ctx,
 		case WIRE_SPLICE_LOCKED:
 		case WIRE_SHUTDOWN:
 		case WIRE_CLOSING_SIGNED:
+		case WIRE_CLOSING_COMPLETE:
+		case WIRE_CLOSING_SIG:
 		case WIRE_UPDATE_ADD_HTLC:
 		case WIRE_UPDATE_FULFILL_HTLC:
 		case WIRE_UPDATE_FAIL_HTLC:
