@@ -76,6 +76,8 @@ static bool public_msg_type(enum peer_wire type)
 	case WIRE_TX_ABORT:
 	case WIRE_SHUTDOWN:
 	case WIRE_CLOSING_SIGNED:
+	case WIRE_CLOSING_COMPLETE:
+	case WIRE_CLOSING_SIG:
 	case WIRE_UPDATE_ADD_HTLC:
 	case WIRE_UPDATE_FULFILL_HTLC:
 	case WIRE_UPDATE_FAIL_HTLC:
