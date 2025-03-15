@@ -125,4 +125,6 @@ common/test/run-trace:					\
 common/test/run-htable:					\
 	common/pseudorand.o
 
+common/test/run-shutdown_scriptpubkey: wire/towire.o wire/fromwire.o
+
 check-units: $(COMMON_TEST_PROGRAMS:%=unittest/%)
