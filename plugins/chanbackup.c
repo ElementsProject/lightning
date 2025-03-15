@@ -386,7 +386,7 @@ static struct command_result *peer_after_listdatastore(struct command *cmd,
 	if (!peer_backup)
 		return command_hook_success(cmd);
 
-        u8 *payload = towire_your_peer_storage(cmd, hexdata);
+        u8 *payload = towire_peer_storage_retrieval(cmd, hexdata);
 
         plugin_log(cmd->plugin, LOG_DBG,
                    "sending their backup from our datastore");
@@ -508,7 +508,7 @@ static struct command_result *after_listpeers(struct command *cmd,
 			continue;
 
 		/* We shouldn't have to check, but LND hangs up? */
-		if (feature_offered(features, OPT_PROVIDE_PEER_BACKUP_STORAGE)) {
+		if (feature_offered(features, OPT_PROVIDE_STORAGE)) {
 			const jsmntok_t *nodeid;
 			struct node_id node_id;
 
@@ -612,8 +612,7 @@ static struct command_result *peer_connected(struct command *cmd,
 	}
 
 	/* We shouldn't have to check, but LND hangs up? */
-	if (!feature_offered(features, OPT_WANT_PEER_BACKUP_STORAGE)
-	    && !feature_offered(features, OPT_PROVIDE_PEER_BACKUP_STORAGE)) {
+	if (!feature_offered(features, OPT_PROVIDE_STORAGE)) {
 		return command_hook_success(cmd);
 	}
 
@@ -693,7 +692,7 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
 					     	    datastore_success,
 					     	    datastore_failed,
 						    "Saving chanbackup/peers/");
-	} else if (fromwire_your_peer_storage(cmd, payload, &payload_deserialise)) {
+	} else if (fromwire_peer_storage_retrieval(cmd, payload, &payload_deserialise)) {
 		plugin_log(cmd->plugin, LOG_DBG,
                            "Received peer_storage from peer.");
 
@@ -877,7 +876,7 @@ static const char *init(struct command *init_cmd,
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{our_features:{init:%}}",
 		 JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &features));
-	peer_backup = feature_offered(features, OPT_WANT_PEER_BACKUP_STORAGE);
+	peer_backup = feature_offered(features, OPT_PROVIDE_STORAGE);
 
 	rpc_scan(init_cmd, "staticbackup",
 		 take(json_out_obj(NULL, NULL, NULL)),
