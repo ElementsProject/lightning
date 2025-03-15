@@ -3136,7 +3136,7 @@ def test_restorefrompeer(node_factory, bitcoind):
     except RpcError as err:
         assert "disconnected during connection" in err.error['message']
 
-    l1.daemon.wait_for_log('peer_in WIRE_YOUR_PEER_STORAGE')
+    l1.daemon.wait_for_log('peer_in WIRE_PEER_STORAGE_RETRIEVAL')
 
     assert l1.rpc.restorefrompeer()['stubs'][0] == _['channel_id']
 

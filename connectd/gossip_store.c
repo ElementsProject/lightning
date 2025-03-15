@@ -93,7 +93,7 @@ static bool public_msg_type(enum peer_wire type)
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
 	case WIRE_ONION_MESSAGE:
 	case WIRE_PEER_STORAGE:
-	case WIRE_YOUR_PEER_STORAGE:
+	case WIRE_PEER_STORAGE_RETRIEVAL:
 	case WIRE_STFU:
 	case WIRE_SPLICE:
 	case WIRE_SPLICE_ACK:

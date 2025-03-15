@@ -23,6 +23,12 @@ msgdata,ping,ignored,byte,byteslen
 msgtype,pong,19
 msgdata,pong,byteslen,u16,
 msgdata,pong,ignored,byte,byteslen
+msgtype,peer_storage,7
+msgdata,peer_storage,len,u16,
+msgdata,peer_storage,blob,byte,len
+msgtype,peer_storage_retrieval,9
+msgdata,peer_storage_retrieval,len,u16,
+msgdata,peer_storage_retrieval,blob,byte,len
 tlvtype,n1,tlv1,1
 tlvdata,n1,tlv1,amount_msat,tu64,
 tlvtype,n1,tlv2,2
@@ -299,12 +305,6 @@ tlvtype,channel_reestablish_tlvs,current_channel_type,5
 tlvdata,channel_reestablish_tlvs,current_channel_type,type,byte,...
 tlvtype,channel_reestablish_tlvs,upgradable_channel_type,7
 tlvdata,channel_reestablish_tlvs,upgradable_channel_type,type,byte,...
-msgtype,peer_storage,7
-msgdata,peer_storage,len,u16,
-msgdata,peer_storage,blob,byte,len
-msgtype,your_peer_storage,9
-msgdata,your_peer_storage,len,u16,
-msgdata,your_peer_storage,blob,byte,len
 msgtype,announcement_signatures,259
 msgdata,announcement_signatures,channel_id,channel_id,
 msgdata,announcement_signatures,short_channel_id,short_channel_id,
