@@ -1,6 +1,9 @@
+pub mod client;
+use log::debug;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{self, Value};
 use std::fmt;
+use thiserror::Error;
 
 // Constants for JSON-RPC error codes
 const PARSE_ERROR: i64 = -32700;
@@ -8,6 +11,32 @@ const INVALID_REQUEST: i64 = -32600;
 const METHOD_NOT_FOUND: i64 = -32601;
 const INVALID_PARAMS: i64 = -32602;
 const INTERNAL_ERROR: i64 = -32603;
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
+    #[error("RPC error: {0}")]
+    Rpc(#[from] RpcError),
+    #[error("Transport error: {0}")]
+    Transport(#[from] TransportError),
+    #[error("Other error: {0}")]
+    Other(String),
+}
+
+impl Error {
+    pub fn other<T: core::fmt::Display>(v: T) -> Self {
+        return Self::Other(v.to_string());
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum TransportError {
+    #[error("Other error: {0}")]
+    Other(String),
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// Trait to convert a struct into a JSON-RPC RequestObject.
 pub trait JsonRpcRequest: Serialize {
@@ -42,15 +71,22 @@ where
         }
     }
 
-    fn from_response(resp: ResponseObject<T>) -> Result<T, RpcError> {
+    fn from_response(resp: ResponseObject<T>) -> Result<T>
+    where
+        T: core::fmt::Debug,
+    {
         match (resp.result, resp.error) {
             (Some(result), None) => Ok(result),
-            (None, Some(error)) => Err(error),
-            _ => Err(RpcError {
-                code: -32603,
-                message: "Invalid response format".into(),
-                data: None,
-            }),
+            (None, Some(error)) => Err(Error::Rpc(error)),
+            _ => {
+                debug!(
+                    "Invalid JSON-RPC response - missing both result and error fields, or both set: id={}",
+                    resp.id
+                );
+                Err(Error::Rpc(RpcError::internal_error(
+                    "not a valid json respone",
+                )))
+            }
         }
     }
 }
@@ -143,11 +179,11 @@ where
 
 impl<T> ResponseObject<T>
 where
-    T: DeserializeOwned + Serialize,
+    T: DeserializeOwned + Serialize + core::fmt::Debug,
 {
     /// Returns a potential data (result) if the code execution passed else it
     /// returns with RPC error, data (error details) if there was
-    pub fn into_inner(self) -> Result<T, RpcError> {
+    pub fn into_inner(self) -> Result<T> {
         T::from_response(self)
     }
 }
@@ -422,12 +458,17 @@ mod test_message_serialization {
 
         let response = response_object.into_inner();
         let err = response.unwrap_err();
-        assert_eq!(err.code, -32099);
-        assert_eq!(err.message, "something bad happened");
-        assert_eq!(
-            err.data,
-            serde_json::from_str("{\"f1\":\"v1\",\"f2\":2}").unwrap()
-        );
+        match err {
+            Error::Rpc(err) => {
+                assert_eq!(err.code, -32099);
+                assert_eq!(err.message, "something bad happened");
+                assert_eq!(
+                    err.data,
+                    serde_json::from_str("{\"f1\":\"v1\",\"f2\":2}").unwrap()
+                );
+            }
+            _ => assert!(false),
+        }
     }
 
     #[test]
