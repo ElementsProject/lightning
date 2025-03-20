@@ -484,6 +484,32 @@
         "StopResult": {
             "Shutdown complete": 0
         },
+        "WaitDetailsDirection": {
+            "in": 1,
+            "out": 0
+        },
+        "WaitDetailsState": {
+            "RCVD_ADD_ACK_COMMIT": 3,
+            "RCVD_ADD_ACK_REVOCATION": 14,
+            "RCVD_ADD_COMMIT": 11,
+            "RCVD_ADD_HTLC": 10,
+            "RCVD_ADD_REVOCATION": 2,
+            "RCVD_REMOVE_ACK_COMMIT": 18,
+            "RCVD_REMOVE_ACK_REVOCATION": 9,
+            "RCVD_REMOVE_COMMIT": 6,
+            "RCVD_REMOVE_HTLC": 5,
+            "RCVD_REMOVE_REVOCATION": 17,
+            "SENT_ADD_ACK_COMMIT": 13,
+            "SENT_ADD_ACK_REVOCATION": 4,
+            "SENT_ADD_COMMIT": 1,
+            "SENT_ADD_HTLC": 0,
+            "SENT_ADD_REVOCATION": 12,
+            "SENT_REMOVE_ACK_COMMIT": 8,
+            "SENT_REMOVE_ACK_REVOCATION": 19,
+            "SENT_REMOVE_COMMIT": 16,
+            "SENT_REMOVE_HTLC": 15,
+            "SENT_REMOVE_REVOCATION": 7
+        },
         "WaitDetailsStatus": {
             "complete": 5,
             "expired": 2,
@@ -502,6 +528,7 @@
         },
         "WaitSubsystem": {
             "forwards": 1,
+            "htlcs": 3,
             "invoices": 0,
             "sendpays": 2
         },
@@ -3635,10 +3662,14 @@
             "UtxoPsbt.reservations[]": 6
         },
         "WaitDetails": {
+            "Wait.details.amount_msat": 18,
             "Wait.details.bolt11": 4,
             "Wait.details.bolt12": 5,
+            "Wait.details.cltv_expiry": 13,
             "Wait.details.description": 3,
+            "Wait.details.direction": 16,
             "Wait.details.groupid": 7,
+            "Wait.details.htlc_id": 15,
             "Wait.details.in_channel": 9,
             "Wait.details.in_htlc_id": 10,
             "Wait.details.in_msat": 11,
@@ -3646,6 +3677,8 @@
             "Wait.details.out_channel": 12,
             "Wait.details.partid": 6,
             "Wait.details.payment_hash": 8,
+            "Wait.details.short_channel_id": 14,
+            "Wait.details.state": 17,
             "Wait.details.status": 1
         },
         "WaitRequest": {
@@ -12694,6 +12727,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "Wait.details.amount_msat": {
+            "added": "v25.05",
+            "deprecated": null
+        },
         "Wait.details.bolt11": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -12702,12 +12739,24 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "Wait.details.cltv_expiry": {
+            "added": "v25.05",
+            "deprecated": null
+        },
         "Wait.details.description": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "Wait.details.direction": {
+            "added": "v25.05",
+            "deprecated": null
+        },
         "Wait.details.groupid": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Wait.details.htlc_id": {
+            "added": "v25.05",
             "deprecated": null
         },
         "Wait.details.in_channel": {
@@ -12736,6 +12785,14 @@
         },
         "Wait.details.payment_hash": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Wait.details.short_channel_id": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.details.state": {
+            "added": "v25.05",
             "deprecated": null
         },
         "Wait.details.status": {

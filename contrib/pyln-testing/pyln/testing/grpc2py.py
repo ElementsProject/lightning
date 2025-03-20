@@ -2080,11 +2080,16 @@ def waitblockheight2py(m):
 
 def wait_details2py(m):
     return remove_default({
+        "direction": str(m.direction),  # EnumField in generate_composite
+        "state": str(m.state),  # EnumField in generate_composite
         "status": str(m.status),  # EnumField in generate_composite
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
         "bolt11": m.bolt11,  # PrimitiveField in generate_composite
         "bolt12": m.bolt12,  # PrimitiveField in generate_composite
+        "cltv_expiry": m.cltv_expiry,  # PrimitiveField in generate_composite
         "description": m.description,  # PrimitiveField in generate_composite
         "groupid": m.groupid,  # PrimitiveField in generate_composite
+        "htlc_id": m.htlc_id,  # PrimitiveField in generate_composite
         "in_channel": m.in_channel,  # PrimitiveField in generate_composite
         "in_htlc_id": m.in_htlc_id,  # PrimitiveField in generate_composite
         "in_msat": amount2msat(m.in_msat),  # PrimitiveField in generate_composite
@@ -2092,6 +2097,7 @@ def wait_details2py(m):
         "out_channel": m.out_channel,  # PrimitiveField in generate_composite
         "partid": m.partid,  # PrimitiveField in generate_composite
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
+        "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
     })
 
 
