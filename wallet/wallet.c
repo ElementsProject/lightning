@@ -6180,7 +6180,9 @@ struct wallet_htlc_iter *wallet_htlcs_first(const tal_t *ctx,
 					    enum side *owner,
 					    struct amount_msat *msat,
 					    struct sha256 *payment_hash,
-					    enum htlc_state *hstate)
+					    enum htlc_state *hstate,
+					    u64 *created_index,
+					    u64 *updated_index)
 {
 	struct wallet_htlc_iter *i = tal(ctx, struct wallet_htlc_iter);
 
@@ -6196,6 +6198,8 @@ struct wallet_htlc_iter *wallet_htlcs_first(const tal_t *ctx,
 					    ", h.msatoshi"
 					    ", h.payment_hash"
 					    ", h.hstate"
+					    ", h.id"
+					    ", h.updated_index"
 					    " FROM channel_htlcs h"
 					    " WHERE channel_id = ?"
 					    " ORDER BY id ASC"));
@@ -6211,6 +6215,8 @@ struct wallet_htlc_iter *wallet_htlcs_first(const tal_t *ctx,
 					    ", h.msatoshi"
 					    ", h.payment_hash"
 					    ", h.hstate"
+					    ", h.id"
+					    ", h.updated_index"
 					    " FROM channel_htlcs h"
 					    " JOIN channels ON channels.id = h.channel_id"
 					    " ORDER BY h.id ASC"));
@@ -6221,7 +6227,8 @@ struct wallet_htlc_iter *wallet_htlcs_first(const tal_t *ctx,
 
 	return wallet_htlcs_next(w, i,
 				 scid, htlc_id, cltv_expiry, owner, msat,
-				 payment_hash, hstate);
+				 payment_hash, hstate,
+				 created_index, updated_index);
 }
 
 struct wallet_htlc_iter *wallet_htlcs_next(struct wallet *w,
@@ -6232,7 +6239,9 @@ struct wallet_htlc_iter *wallet_htlcs_next(struct wallet *w,
 					   enum side *owner,
 					   struct amount_msat *msat,
 					   struct sha256 *payment_hash,
-					   enum htlc_state *hstate)
+					   enum htlc_state *hstate,
+					   u64 *created_index,
+					   u64 *updated_index)
 {
 	if (!db_step(iter->stmt))
 		return tal_free(iter);
@@ -6256,6 +6265,8 @@ struct wallet_htlc_iter *wallet_htlcs_next(struct wallet *w,
 	db_col_sha256(iter->stmt, "h.payment_hash", payment_hash);
 	*cltv_expiry = db_col_int(iter->stmt, "h.cltv_expiry");
 	*hstate = db_col_int(iter->stmt, "h.hstate");
+	*created_index = db_col_u64(iter->stmt, "h.id");
+	*updated_index = db_col_u64(iter->stmt, "h.updated_index");
 	return iter;
 }
 
