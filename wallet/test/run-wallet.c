@@ -929,10 +929,6 @@ bool peer_start_channeld(struct channel *channel UNNEEDED,
 			 bool reconnected UNNEEDED,
 			 bool reestablish_only UNNEEDED)
 { fprintf(stderr, "peer_start_channeld called!\n"); abort(); }
-/* Generated stub for peer_start_closingd */
-void peer_start_closingd(struct channel *channel UNNEEDED,
-			 struct peer_fd *peer_fd UNNEEDED)
-{ fprintf(stderr, "peer_start_closingd called!\n"); abort(); }
 /* Generated stub for peer_start_dualopend */
 bool peer_start_dualopend(struct peer *peer UNNEEDED, struct peer_fd *peer_fd UNNEEDED,
 			  struct channel *channel UNNEEDED)
@@ -2170,19 +2166,23 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	chan->state = CHANNELD_NORMAL;
 	chan->peer = peer;
 	chan->next_index[LOCAL] = chan->next_index[REMOTE] = 1;
+	chan->scid = tal(chan, struct short_channel_id);
 
 	memset(&in, 0, sizeof(in));
 	memset(&out, 0, sizeof(out));
 	memset(&in.payment_hash, 'A', sizeof(struct sha256));
 	memset(&out.payment_hash, 'A', sizeof(struct sha256));
 	memset(&payment_key, 'B', sizeof(payment_key));
+	assert(mk_short_channel_id(chan->scid, 1, 2, 3));
 	in.key.id = 42;
 	in.key.channel = chan;
+	in.cltv_expiry = 42;
 	in.msat = AMOUNT_MSAT(42);
 
 	out.in = &in;
 	out.key.id = 1337;
 	out.key.channel = chan;
+	out.cltv_expiry = 41;
 	out.msat = AMOUNT_MSAT(41);
 
 	/* Store the htlc_in */
@@ -2196,17 +2196,17 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	wallet_err = tal_free(wallet_err);
 
 	/* Update */
-	CHECK_MSG(transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, RCVD_ADD_HTLC, NULL, 0, 0, NULL, NULL, &we_filled)),
+	CHECK_MSG(transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, RCVD_ADD_HTLC, NULL, 0, 0, NULL, NULL, &we_filled, in.key.id, in.key.channel, REMOTE, &in.payment_hash, in.cltv_expiry, in.msat)),
 		  "Update HTLC with null payment_key failed");
 	CHECK_MSG(
-		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, &payment_key, 0, 0, NULL, NULL, &we_filled)),
+		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, &payment_key, 0, 0, NULL, NULL, &we_filled, in.key.id, in.key.channel, REMOTE, &in.payment_hash, in.cltv_expiry, in.msat)),
 	    "Update HTLC with payment_key failed");
 	onionreply = new_onionreply(tmpctx, tal_arrz(tmpctx, u8, 100));
 	CHECK_MSG(
-		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, 0, onionreply, NULL, &we_filled)),
+		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, 0, onionreply, NULL, &we_filled, in.key.id, in.key.channel, REMOTE, &in.payment_hash, in.cltv_expiry, in.msat)),
 	    "Update HTLC with failonion failed");
 	CHECK_MSG(
-		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, WIRE_INVALID_ONION_VERSION, NULL, NULL, &we_filled)),
+		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, WIRE_INVALID_ONION_VERSION, NULL, NULL, &we_filled, in.key.id, in.key.channel, REMOTE, &in.payment_hash, in.cltv_expiry, in.msat)),
 	    "Update HTLC with failcode failed");
 
 	CHECK_MSG(transaction_wrap(w->db, wallet_htlc_save_out(w, chan, &out)),
@@ -2218,7 +2218,7 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK(wallet_err);
 	wallet_err = tal_free(wallet_err);
 	CHECK_MSG(
-		transaction_wrap(w->db, wallet_htlc_update(w, out.dbid, SENT_ADD_ACK_REVOCATION, NULL, 0, 0, NULL, tal_arrz(tmpctx, u8, 100), &we_filled)),
+		transaction_wrap(w->db, wallet_htlc_update(w, out.dbid, SENT_ADD_ACK_REVOCATION, NULL, 0, 0, NULL, tal_arrz(tmpctx, u8, 100), &we_filled, out.key.id, out.key.channel, REMOTE, &out.payment_hash, out.cltv_expiry, out.msat)),
 	    "Update outgoing HTLC with failmsg failed");
 
 	/* Attempt to load them from the DB again */

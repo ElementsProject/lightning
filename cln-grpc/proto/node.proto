@@ -2846,6 +2846,11 @@ message WaitResponse {
 }
 
 message WaitDetails {
+	// Wait.details.direction
+	enum WaitDetailsDirection {
+		OUT = 0;
+		IN = 1;
+	}
 	// Wait.details.status
 	enum WaitDetailsStatus {
 		UNPAID = 0;
@@ -2880,11 +2885,6 @@ message WaitDetails {
 		RCVD_REMOVE_REVOCATION = 17;
 		RCVD_REMOVE_ACK_COMMIT = 18;
 		SENT_REMOVE_ACK_REVOCATION = 19;
-	}
-	// Wait.details.direction
-	enum WaitDetailsDirection {
-		OUT = 0;
-		IN = 1;
 	}
 	optional WaitDetailsStatus status = 1;
 	optional string label = 2;
