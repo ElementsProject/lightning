@@ -2146,12 +2146,14 @@ impl From<responses::ListhtlcsHtlcs> for pb::ListhtlcsHtlcs {
     fn from(c: responses::ListhtlcsHtlcs) -> Self {
         Self {
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            created_index: c.created_index, // Rule #2 for type u64?
             direction: c.direction as i32,
             expiry: c.expiry, // Rule #2 for type u32
             id: c.id, // Rule #2 for type u64
             payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
             state: c.state as i32,
+            updated_index: c.updated_index, // Rule #2 for type u64?
         }
     }
 }
@@ -5244,6 +5246,9 @@ impl From<requests::ListhtlcsRequest> for pb::ListhtlcsRequest {
     fn from(c: requests::ListhtlcsRequest) -> Self {
         Self {
             id: c.id, // Rule #2 for type string?
+            index: c.index.map(|v| v as i32),
+            limit: c.limit, // Rule #2 for type u32?
+            start: c.start, // Rule #2 for type u64?
         }
     }
 }
@@ -6916,6 +6921,9 @@ impl From<pb::ListhtlcsRequest> for requests::ListhtlcsRequest {
     fn from(c: pb::ListhtlcsRequest) -> Self {
         Self {
             id: c.id, // Rule #1 for type string?
+            index: c.index.map(|v| v.try_into().unwrap()),
+            limit: c.limit, // Rule #1 for type u32?
+            start: c.start, // Rule #1 for type u64?
         }
     }
 }

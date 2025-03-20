@@ -2292,7 +2292,15 @@ message ListpaysPays {
 }
 
 message ListhtlcsRequest {
+	// ListHtlcs.index
+	enum ListhtlcsIndex {
+		CREATED = 0;
+		UPDATED = 1;
+	}
 	optional string id = 1;
+	optional ListhtlcsIndex index = 2;
+	optional uint64 start = 3;
+	optional uint32 limit = 4;
 }
 
 message ListhtlcsResponse {
@@ -2312,6 +2320,8 @@ message ListhtlcsHtlcs {
 	ListhtlcsHtlcsDirection direction = 5;
 	bytes payment_hash = 6;
 	HtlcState state = 7;
+	optional uint64 created_index = 8;
+	optional uint64 updated_index = 9;
 }
 
 message MultifundchannelRequest {
@@ -2846,11 +2856,6 @@ message WaitResponse {
 }
 
 message WaitDetails {
-	// Wait.details.direction
-	enum WaitDetailsDirection {
-		OUT = 0;
-		IN = 1;
-	}
 	// Wait.details.status
 	enum WaitDetailsStatus {
 		UNPAID = 0;
@@ -2862,6 +2867,11 @@ message WaitDetails {
 		OFFERED = 6;
 		SETTLED = 7;
 		LOCAL_FAILED = 8;
+	}
+	// Wait.details.direction
+	enum WaitDetailsDirection {
+		OUT = 0;
+		IN = 1;
 	}
 	// Wait.details.state
 	enum WaitDetailsState {
