@@ -101,6 +101,9 @@ void get_channel_basepoints(struct lightningd *ld UNNEEDED,
 			    struct basepoints *local_basepoints UNNEEDED,
 			    struct pubkey *local_funding_pubkey UNNEEDED)
 { fprintf(stderr, "get_channel_basepoints called!\n"); abort(); }
+/* Generated stub for hash_cid */
+size_t hash_cid(const struct channel_id *cid UNNEEDED)
+{ fprintf(stderr, "hash_cid called!\n"); abort(); }
 /* Generated stub for htlc_in_check */
 struct htlc_in *htlc_in_check(const struct htlc_in *hin UNNEEDED, const char *abortstr UNNEEDED)
 { fprintf(stderr, "htlc_in_check called!\n"); abort(); }

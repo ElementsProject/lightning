@@ -28,6 +28,23 @@ struct closed_channel {
 	enum state_change state_change_cause;
 	bool leased;
 	u64 last_stable_connection;
+	/* NULL for older closed channels */
+	const struct shachain *their_shachain;
 };
+
+static inline const struct channel_id *keyof_closed_channel(const struct closed_channel *cc)
+{
+	return &cc->cid;
+}
+
+size_t hash_cid(const struct channel_id *cid);
+
+static inline bool closed_channel_eq_cid(const struct closed_channel *cc, const struct channel_id *cid)
+{
+	return channel_id_eq(cid, &cc->cid);
+}
+
+HTABLE_DEFINE_NODUPS_TYPE(struct closed_channel, keyof_closed_channel, hash_cid, closed_channel_eq_cid,
+			  closed_channel_map);
 
 #endif /* LIGHTNING_LIGHTNINGD_CLOSED_CHANNEL_H */

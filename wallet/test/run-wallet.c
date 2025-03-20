@@ -369,6 +369,9 @@ u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 /* Generated stub for get_network_blockheight */
 u32 get_network_blockheight(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_network_blockheight called!\n"); abort(); }
+/* Generated stub for hash_cid */
+size_t hash_cid(const struct channel_id *cid UNNEEDED)
+{ fprintf(stderr, "hash_cid called!\n"); abort(); }
 /* Generated stub for hsmd_wire_name */
 const char *hsmd_wire_name(int e UNNEEDED)
 { fprintf(stderr, "hsmd_wire_name called!\n"); abort(); }
@@ -926,13 +929,8 @@ bool peer_restart_dualopend(struct peer *peer UNNEEDED,
 bool peer_start_channeld(struct channel *channel UNNEEDED,
 			 struct peer_fd *peer_fd UNNEEDED,
 			 const u8 *fwd_msg UNNEEDED,
-			 bool reconnected UNNEEDED,
-			 bool reestablish_only UNNEEDED)
+			 bool reconnected UNNEEDED)
 { fprintf(stderr, "peer_start_channeld called!\n"); abort(); }
-/* Generated stub for peer_start_closingd */
-void peer_start_closingd(struct channel *channel UNNEEDED,
-			 struct peer_fd *peer_fd UNNEEDED)
-{ fprintf(stderr, "peer_start_closingd called!\n"); abort(); }
 /* Generated stub for peer_start_dualopend */
 bool peer_start_dualopend(struct peer *peer UNNEEDED, struct peer_fd *peer_fd UNNEEDED,
 			  struct channel *channel UNNEEDED)
@@ -2112,7 +2110,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 
 	/* do inflights get cleared when the channel is closed?*/
 	dbid = chan->dbid;
-	delete_channel(chan); /* Also clears up peer! */
+	delete_channel(chan, false); /* Also clears up peer! */
 	CHECK_MSG(count_inflights(w, dbid) == 0, "inflights cleaned up");
 	db_commit_transaction(w->db);
 	CHECK_MSG(!wallet_err, wallet_err);
