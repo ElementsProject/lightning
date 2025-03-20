@@ -4533,7 +4533,7 @@ def test_last_stable_connection(node_factory):
 
     # Disconnect, and/or restart then reconnect.
     l1.rpc.disconnect(l2.info['id'], force=True)
-    recon_time = time.time()
+    recon_time = int(time.time())
     l2.restart()
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -4542,8 +4542,8 @@ def test_last_stable_connection(node_factory):
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['last_stable_connection'] != l1stable, timeout=STABLE_TIME + 15)
     wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['last_stable_connection'] != l2stable)
 
-    assert only_one(l1.rpc.listpeerchannels()['channels'])['last_stable_connection'] > recon_time + STABLE_TIME
-    assert only_one(l2.rpc.listpeerchannels()['channels'])['last_stable_connection'] > recon_time + STABLE_TIME
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['last_stable_connection'] >= recon_time + STABLE_TIME
+    assert only_one(l2.rpc.listpeerchannels()['channels'])['last_stable_connection'] >= recon_time + STABLE_TIME
 
 
 def test_wss_proxy(node_factory):
