@@ -28,7 +28,9 @@ Core Lightning (previously c-lightning) is a lightweight, highly customizable an
 [![Irc][IRC-badge]][IRC]
 
 This implementation has been in production use on the Bitcoin mainnet since early 2018, with the launch of the [Blockstream Store][blockstream-store-blog].
-We recommend getting started by experimenting on `testnet` (or `regtest`), but the implementation is considered stable and can be safely used on mainnet.
+We recommend getting started by experimenting on `testnet` (`testnet4` or `regtest`), but the implementation is considered stable and can be safely used on mainnet.
+
+## Reach Out to Us
 
 Any help testing the implementation, reporting bugs, or helping with outstanding issues is very welcome.
 Don't hesitate to reach out to us on [Build-on-L2][bol2], or on the implementation-specific [mailing list][ml1], or on [CLN Discord][discord], or on [CLN Telegram][telegram], or on IRC at [dev][irc1]/[gen][irc2] channel.
