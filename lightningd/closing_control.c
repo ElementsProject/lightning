@@ -203,6 +203,9 @@ static struct amount_sat calc_tx_fee(struct amount_sat sat_in,
 
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		const struct wally_tx_output *txout = &tx->wtx->outputs[i];
+		/* We do not consider the fee output, which is present
+		 * in elementsd, and we identify it by its empty
+		 * script, */
 		if (chainparams->is_elements && !txout->script_len)
 			continue;
 
