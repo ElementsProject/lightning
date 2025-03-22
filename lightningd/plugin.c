@@ -308,13 +308,17 @@ static void destroy_plugin(struct plugin *p)
 static u32 file_checksum(struct lightningd *ld, const char *path)
 {
 	char *content;
+	u32 crc;
 
 	if (ld->dev_no_plugin_checksum)
 		return 0;
 
 	content = grab_file(tmpctx, path);
-	if (content == NULL) return 0;
-	return crc32c(0, content, tal_count(content));
+	crc = crc32c(0, content, tal_count(content));
+	/* We could leave this around, but we checksum many files in a loop,
+	 * causing 450MB of allocations at startup! */
+	tal_free(content);
+	return crc;
 }
 
 struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,

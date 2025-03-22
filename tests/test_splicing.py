@@ -96,13 +96,15 @@ def test_splice_gossip(node_factory, bitcoind):
     wait_for(lambda: only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['state'] == 'CHANNELD_AWAITING_SPLICE')
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'CHANNELD_AWAITING_SPLICE')
 
-    bitcoind.generate_block(6, wait_for_mempool=result['txid'])
+    bitcoind.generate_block(5, wait_for_mempool=result['txid'])
 
     # l3 will see channel dying, but still consider it OK for 12 blocks.
     l3.daemon.wait_for_log(f'gossipd: channel {pre_splice_scid} closing soon due to the funding outpoint being spent')
     assert len(l3.rpc.listchannels(short_channel_id=pre_splice_scid)['channels']) == 2
     assert len(l3.rpc.listchannels(source=l1.info['id'])['channels']) == 1
 
+    # Final one will allow splice announcement to proceed.
+    bitcoind.generate_block(1)
     wait_for(lambda: only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
 

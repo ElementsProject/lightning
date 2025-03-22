@@ -4437,7 +4437,7 @@ def test_fetchinvoice(node_factory, bitcoind):
     # We remove the conversion plugin on l3, causing it to get upset.
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
                                          opts=[{},
-                                               {},
+                                               {'dev-allow-localhost': None},
                                                {'broken_log': "plugin-offers: Failed invreq.*Unknown command 'currencyconvert'",
                                                 'dev-allow-localhost': None}])
 
@@ -4535,7 +4535,6 @@ def test_fetchinvoice(node_factory, bitcoind):
                                    'description': 'offer3'})
     l4 = node_factory.get_node()
     l4.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    time.sleep(0.25)
     # ... even if we can't find ourselves.
     l4.rpc.call('fetchinvoice', {'offer': offer3['bolt12']})
     # ... even if we know it from gossmap
@@ -5815,7 +5814,7 @@ def test_pay_legacy_forward(node_factory, bitcoind, executor):
 
 # CI is so slow under valgrind that this does not reach the ratelimit!
 @pytest.mark.slow_test
-def test_onionmessage_ratelimit(node_factory):
+def test_onionmessage_ratelimit(node_factory, executor):
     l1, l2 = node_factory.line_graph(2, fundchannel=False,
                                      opts={'allow_warning': True})
 
@@ -5823,9 +5822,13 @@ def test_onionmessage_ratelimit(node_factory):
                                   'description': 'simple test'})
 
     # Hopefully we can do this fast enough to reach ratelimit!
+    futs = []
+    for _ in range(8):
+        futs.append(executor.submit(l1.rpc.fetchinvoice, offer=offer['bolt12'], timeout=10))
+
     with pytest.raises(RpcError, match="Timeout waiting for response"):
-        for _ in range(8):
-            l1.rpc.fetchinvoice(offer['bolt12'])
+        for f in futs:
+            f.result(TIMEOUT)
 
     # Normally l2 gets upset, but actually l1 can get upset with replies!
     assert (l1.daemon.is_in_log('WARNING: Ratelimited onion_message: exceeded one per 250msec')
