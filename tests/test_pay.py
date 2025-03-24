@@ -5664,7 +5664,7 @@ def test_blindedpath_privchan(node_factory, bitcoind):
     l3.stop()
     l3.daemon.opts['dev-invoice-bpath-scid'] = None
     l3.start()
-    l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    wait_for(lambda: [p['connected'] for p in l3.rpc.listpeers(l2.info['id'])['peers']] == [True])
 
     chan = only_one(l1.rpc.listchannels(source=l2.info['id'])['channels'])
 
