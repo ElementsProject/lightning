@@ -231,7 +231,7 @@
         "destination": "nodeid020202020202020202020202020202020202020202020202020202020202",
         "created_at": 1738000000,
         "groupid": 1,
-        "parts": 2,
+        "parts": 1,
         "status": "complete",
         "payment_preimage": "paymentpreimager010101010101010101010101010101010101010101010101",
         "amount_sent_msat": 400000
@@ -252,7 +252,7 @@
         "destination": "nodeid030303030303030303030303030303030303030303030303030303030303",
         "created_at": 1738000000,
         "groupid": 1,
-        "parts": 2,
+        "parts": 1,
         "status": "complete",
         "payment_preimage": "paymentpreimager020202020202020202020202020202020202020202020202",
         "amount_sent_msat": 4000
