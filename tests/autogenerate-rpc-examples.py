@@ -367,7 +367,7 @@ def update_examples_in_schema_files():
         for method, method_examples in EXAMPLES_JSON.items():
             try:
                 global CWD
-                file_path = os.path.join(CWD, 'doc', 'schemas', f'lightning-{method}.json') if method != 'sql' else os.path.join(CWD, 'doc', 'schemas', f'lightning-{method}-template.json')
+                file_path = os.path.join(CWD, 'doc', 'schemas', f'{method}.json') if method != 'sql' else os.path.join(CWD, 'doc', 'schemas', f'{method}-template.json')
                 logger.info(f'Updating examples for {method} in file {file_path}')
                 with open(file_path, 'r+', encoding='utf-8') as file:
                     data = json.load(file)
@@ -2081,7 +2081,7 @@ def test_generate_examples(node_factory, bitcoind, executor):
                 for file_name in os.listdir('doc/schemas'):
                     if not file_name.endswith('.json'):
                         continue
-                    file_name_str = str(file_name).replace('lightning-', '').replace('.json', '')
+                    file_name_str = str(file_name).replace('.json', '')
                     # Log an error if the method is not in the list
                     if file_name_str not in ALL_RPC_EXAMPLES and file_name_str not in IGNORE_RPCS_LIST:
                         missing_examples = missing_examples + f"'{file_name_str}', "
