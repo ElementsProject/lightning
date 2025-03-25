@@ -498,7 +498,7 @@ static const char *plugin_log_handle(struct plugin *plugin,
 		 || level == LOG_IO_OUT) {
 		return tal_fmt(plugin,
 			       "Unknown log-level %.*s, valid values are "
-			       "\"debug\", \"info\", \"warn\", or \"error\".",
+			       "\"trace\", \"debug\", \"info\", \"warn\", or \"error\".",
 			       json_tok_full_len(leveltok),
 			       json_tok_full(plugin->buffer, leveltok));
 	}
