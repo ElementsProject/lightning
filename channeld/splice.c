@@ -11,6 +11,7 @@ struct splice_state *splice_state_new(const tal_t *ctx)
 	splice_state->locked_ready[REMOTE] = false;
 	splice_state->await_commitment_succcess = false;
 	splice_state->inflights = NULL;
+	splice_state->remote_locked_txid = NULL;
 
 	return splice_state;
 }

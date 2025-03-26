@@ -114,6 +114,7 @@ int main(int argc, char *argv[])
 	const struct wally_map_item *final_scriptsig = wally_map_get_integer(&tx2->psbt->inputs[0].psbt_fields, /* PSBT_IN_FINAL_SCRIPTSIG */ 0x07);
 	assert(final_scriptsig->value_len > 0);
 	assert(tx2->psbt->inputs[0].final_witness != NULL);
+	audit_psbt(tx2->psbt, tx2->psbt);
 
 	common_shutdown();
 	return 0;

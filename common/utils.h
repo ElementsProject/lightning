@@ -112,12 +112,32 @@ void clean_tmpctx(void);
 /* Call this before any libwally function which allocates. */
 void tal_wally_start(void);
 
-/* Then call this to reparent everything onto this parent */
+/* Then call this to reparent everything onto this parent.
+ *
+ * This method should *not* be used for creation of psbt objects,
+ * tal_wally_end_onto should be used instead!
+ *
+ * Typical usage is to end on the PSBT being modified.
+ */
 void tal_wally_end(const tal_t *parent);
 
 /* ... or this if you want to reparent onto something which is
  * allocated by libwally here.  Fixes up this from_wally obj to have a
- * proper tal_name, too! */
+ * proper tal_name, too!
+ *
+ * This results in a tal hierarchy like so:
+ * parent -> from_wally -> [everything wally allocated]
+ *
+ * This is typically used when allocating a new psbt and ensuring all the psbt's
+ * member objects are children of the PSBT itself.
+ *
+ * For example:
+ * struct wally_psbt *clone;
+ * tal_wally_start();
+ * if (wally_psbt_clone_alloc(psbt, 0, &clone) != WALLY_OK)
+ * 	abort();
+ * tal_wally_end_onto(ctx, clone, struct wally_psbt);
+ */
 #define tal_wally_end_onto(parent, from_wally, type)                           \
 	tal_wally_end_onto_(                                                   \
 	    (parent), (from_wally),                                            \
