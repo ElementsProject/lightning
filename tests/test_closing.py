@@ -4268,7 +4268,6 @@ def test_onchain_close_no_p2tr(node_factory, bitcoind):
     assert len(l1.rpc.listfunds()['outputs']) == 2
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "elementsd doesn't use p2tr anyway")
 def test_onchain_close_no_p2tr_migrate(node_factory, bitcoind):
