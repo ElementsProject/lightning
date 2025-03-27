@@ -717,6 +717,15 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("dev", payload)
 
+    def disableoffer(self, offer_id):
+        """
+        Disable an offer, so that no further invoices will be given out.
+        """
+        payload = {
+            "offer_id": offer_id,
+        }
+        return self.call("disableoffer", payload)
+
     def disconnect(self, peer_id, force=False):
         """
         Disconnect from peer with {peer_id}, optional {force} even if has active channel.
@@ -726,6 +735,15 @@ class LightningRpc(UnixDomainSocketRpc):
             "force": force,
         }
         return self.call("disconnect", payload)
+
+    def enableoffer(self, offer_id):
+        """
+        Enable an offer, after it has been disabled.
+        """
+        payload = {
+            "offer_id": offer_id,
+        }
+        return self.call("enableoffer", payload)
 
     def feerates(self, style, urgent=None, normal=None, slow=None):
         """
@@ -738,6 +756,26 @@ class LightningRpc(UnixDomainSocketRpc):
             "slow": slow
         }
         return self.call("feerates", payload)
+
+    def fetchinvoice(self, offer, amount_msat=None, quantity=None, recurrence_counter=None,
+                     recurrence_start=None, recurrence_label=None, timeout=None, payer_note=None,
+                     payer_metadata=None, bip353=None):
+        """
+        Fetch an invoice for an offer.
+        """
+        payload = {
+            "offer": offer,
+            "amount_msat": amount_msat,
+            "quantity": quantity,
+            "recurrence_counter": recurrence_counter,
+            "recurrence_start": recurrence_start,
+            "recurrence_label": recurrence_label,
+            "timeout": timeout,
+            "payer_note": payer_note,
+            "payer_metadata": payer_metadata,
+            "bip353": bip353,
+        }
+        return self.call("fetchinvoice", payload)
 
     def fundchannel(self, node_id, amount, feerate=None, announce=True,
                     minconf=None, utxos=None, push_msat=None, close_to=None,
@@ -981,6 +1019,18 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listnodes", payload)
 
+    def listoffers(self, offer_id=None, active_only=None):
+        """List offers
+
+        List all offers, or with {offer_id}, only the offer with that {offer_id} (if it exists).
+
+        """
+        payload = {
+            "offer_id": offer_id,
+            "active_only": active_only,
+        }
+        return self.call("listoffers", payload)
+
     def listpays(self, bolt11=None, payment_hash=None, status=None, index=None, start=None, limit=None):
         """
         Show outgoing payments, regarding {bolt11} or {payment_hash} if set
@@ -1073,6 +1123,29 @@ class LightningRpc(UnixDomainSocketRpc):
         """Get a new address of type {addresstype} of the internal wallet.
         """
         return self.call("newaddr", {"addresstype": addresstype})
+
+    def offer(self, amount, description=None, issuer=None, label=None, quantity_max=None, absolute_expiry=None,
+              recurrence=None, recurrence_base=None, recurrence_paywindow=None, recurrence_limit=None,
+              single_use=None, recurrence_start_any_period=None):
+        """
+        Create an offer (or returns an existing one), which is a precursor to creating one or more invoices.
+        It automatically enables the processing of an incoming invoice_request, and issuing of invoices.
+        """
+        payload = {
+            "amount": amount,
+            "description": description,
+            "issuer": issuer,
+            "label": label,
+            "quantity_max": quantity_max,
+            "absolute_expiry": absolute_expiry,
+            "recurrence": recurrence,
+            "recurrence_base": recurrence_base,
+            "recurrence_paywindow": recurrence_paywindow,
+            "recurrence_limit": recurrence_limit,
+            "single_use": single_use,
+            "recurrence_start_any_period": recurrence_start_any_period,
+        }
+        return self.call("offer", payload)
 
     def pay(self, bolt11, amount_msat=None, label=None, riskfactor=None,
             maxfeepercent=None, retry_for=None,
