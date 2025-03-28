@@ -591,10 +591,12 @@ struct utxo **wallet_utxo_boost(const tal_t *ctx,
  *
  * @w: (in) wallet holding the pubkeys to check against (privkeys are on HSM)
  * @script: (in) the script to check
+ * @script_len: (in) the length of @script
  * @index: (out) the bip32 derivation index that matched the script
  */
 bool wallet_can_spend(struct wallet *w,
 		      const u8 *script,
+		      size_t script_len,
 		      u32 *index);
 
 /**
