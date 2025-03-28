@@ -710,6 +710,7 @@ openchannel_hook_final(struct openchannel_hook_payload *payload STEALS)
 	u32 found_wallet_index;
 	if (wallet_can_spend(payload->openingd->ld->wallet,
 			     our_upfront_shutdown_script,
+			     tal_bytelen(our_upfront_shutdown_script),
 			     &found_wallet_index)) {
 		upfront_shutdown_script_wallet_index = tal(tmpctx, u32);
 		*upfront_shutdown_script_wallet_index = found_wallet_index;
@@ -1400,6 +1401,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	u32 found_wallet_index;
 	if (wallet_can_spend(fc->cmd->ld->wallet,
 			     fc->our_upfront_shutdown_script,
+			     tal_bytelen(fc->our_upfront_shutdown_script),
 			     &found_wallet_index)) {
 		upfront_shutdown_script_wallet_index = tal(tmpctx, u32);
 		*upfront_shutdown_script_wallet_index = found_wallet_index;
