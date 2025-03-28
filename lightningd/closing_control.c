@@ -484,6 +484,7 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 	if (wallet_can_spend(
 		    ld->wallet,
 		    channel->shutdown_scriptpubkey[LOCAL],
+		    tal_bytelen(channel->shutdown_scriptpubkey[LOCAL]),
 		    &index_val)) {
 		if (bip32_key_from_parent(
 			    ld->bip32_base,
@@ -742,7 +743,7 @@ static struct command_result *json_close(struct command *cmd,
 		}
 
 		/* If they give a local address, adjust final_key_idx. */
-		if (!wallet_can_spend(cmd->ld->wallet, close_to_script,
+		if (!wallet_can_spend(cmd->ld->wallet, close_to_script, tal_bytelen(close_to_script),
 				      &final_key_idx)) {
 			final_key_idx = channel->final_key_idx;
 		}
