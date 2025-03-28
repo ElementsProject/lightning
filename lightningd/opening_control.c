@@ -122,8 +122,14 @@ wallet_commit_channel(struct lightningd *ld,
 	/* FIXME: P2TR for elements! */
 	if (chainparams->is_elements)
 		addrtype = ADDR_BECH32;
-	else
+	else if (feature_negotiated(ld->our_features,
+				    uc->peer->their_features,
+				    OPT_SHUTDOWN_ANYSEGWIT))
 		addrtype = ADDR_P2TR;
+	else
+		/* They *may* update to OPT_SHUTDOWN_ANYSEGWIT by the
+		 * time we close, so be prepared for both. */
+		addrtype = ADDR_ALL;
 
 	/* Get a key to use for closing outputs from this tx */
 	final_key_idx = wallet_get_newindex(ld, addrtype);
