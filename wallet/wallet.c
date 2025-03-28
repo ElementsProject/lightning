@@ -65,40 +65,53 @@ static enum state_change state_change_in_db(enum state_change s)
 	fatal("%s: %u is invalid", __func__, s);
 }
 
+/* libwally uses pointer/size pairs */
+struct script_with_len {
+	const u8 *script;
+	size_t len;
+};
+
 /* We keep a hash of these, for fast lookup */
 struct wallet_address {
 	u32 index;
 	enum addrtype addrtype;
-	const u8 *scriptpubkey;
+	struct script_with_len swl;
 };
 
-static const u8 *wallet_address_keyof(const struct wallet_address *waddr)
+static size_t script_with_len_hash(const struct script_with_len *swl)
 {
-	return waddr->scriptpubkey;
+	return siphash24(siphash_seed(), swl->script, swl->len);
+}
+
+static const struct script_with_len *wallet_address_keyof(const struct wallet_address *waddr)
+{
+	return &waddr->swl;
 }
 
 static bool wallet_address_eq_scriptpubkey(const struct wallet_address *waddr,
-					   const u8 *scriptpubkey)
+					   const struct script_with_len *script)
 {
-	return tal_arr_eq(waddr->scriptpubkey, scriptpubkey);
+	return memeq(waddr->swl.script, waddr->swl.len, script->script, script->len);
 }
 
 HTABLE_DEFINE_NODUPS_TYPE(struct wallet_address,
 			  wallet_address_keyof,
-			  scriptpubkey_hash,
+			  script_with_len_hash,
 			  wallet_address_eq_scriptpubkey,
 			  wallet_address_htable);
 
 static void our_addresses_add(struct wallet_address_htable *our_addresses,
 			      u32 index,
 			      const u8 *scriptpubkey TAKES,
+			      size_t scriptpubkey_len,
 			      enum addrtype addrtype)
 {
 	struct wallet_address *waddr = tal(our_addresses, struct wallet_address);
 
 	waddr->index = index;
 	waddr->addrtype = addrtype;
-	waddr->scriptpubkey = tal_dup_talarr(waddr, u8, scriptpubkey);
+	waddr->swl.script = tal_dup_arr(waddr, u8, scriptpubkey, scriptpubkey_len, 0);
+	waddr->swl.len = scriptpubkey_len;
 	wallet_address_htable_add(our_addresses, waddr);
 }
 
@@ -119,19 +132,20 @@ static void our_addresses_add_for_index(struct wallet *w, u32 i)
 	/* FIXME: We could deprecate P2SH once we don't see
 	 * any, since we stopped publishing them in 24.02 */
 	if (!wallet_get_addrtype(w, i, &addrtype)) {
+		const u8 *addr;
 		scriptpubkey = scriptpubkey_p2wpkh_derkey(NULL, ext.pub_key);
+		addr = scriptpubkey_p2sh(NULL, scriptpubkey);
 		our_addresses_add(w->our_addresses,
-				  i,
-				  take(scriptpubkey_p2sh(NULL, scriptpubkey)),
+				  i, take(addr), tal_bytelen(addr),
 				  ADDR_P2SH_SEGWIT);
 		our_addresses_add(w->our_addresses,
 				  i,
-				  take(scriptpubkey),
+				  take(scriptpubkey), tal_bytelen(scriptpubkey),
 				  ADDR_BECH32);
 		scriptpubkey = scriptpubkey_p2tr_derkey(NULL, ext.pub_key);
 		our_addresses_add(w->our_addresses,
 				  i,
-				  take(scriptpubkey),
+				  take(scriptpubkey), tal_bytelen(scriptpubkey),
 				  ADDR_P2TR);
 		return;
 	}
@@ -146,6 +160,7 @@ static void our_addresses_add_for_index(struct wallet *w, u32 i)
 		our_addresses_add(w->our_addresses,
 				  i,
 				  take(scriptpubkey),
+				  tal_bytelen(scriptpubkey),
 				  ADDR_BECH32);
 		if (addrtype != ADDR_ALL)
 			return;
@@ -155,6 +170,7 @@ static void our_addresses_add_for_index(struct wallet *w, u32 i)
 		our_addresses_add(w->our_addresses,
 				  i,
 				  take(scriptpubkey),
+				  tal_bytelen(scriptpubkey),
 				  ADDR_P2TR);
 		return;
 	}
@@ -892,18 +908,19 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 	return true;
 }
 
-bool wallet_can_spend(struct wallet *w, const u8 *script,
+bool wallet_can_spend(struct wallet *w, const u8 *script, size_t script_len,
 		      u32 *index)
 {
 	u64 bip32_max_index;
 	const struct wallet_address *waddr;
+	struct script_with_len scriptwl = {script, script_len};
 
 	/* Update hash table if we need to */
 	bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
 	while (w->our_addresses_maxindex < bip32_max_index + w->keyscan_gap)
 		our_addresses_add_for_index(w, ++w->our_addresses_maxindex);
 
-	waddr = wallet_address_htable_get(w->our_addresses, script);
+	waddr = wallet_address_htable_get(w->our_addresses, &scriptwl);
 	if (!waddr)
 		return false;
 
@@ -2914,7 +2931,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 		if (!amount_asset_is_main(&asset))
 			continue;
 
-		if (!wallet_can_spend(w, txout->script, &index))
+		if (!wallet_can_spend(w, txout->script, txout->script_len, &index))
 			continue;
 
 		utxo = tal(w, struct utxo);
