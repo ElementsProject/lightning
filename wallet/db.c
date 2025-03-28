@@ -86,6 +86,8 @@ static void migrate_initialize_alias_local(struct lightningd *ld,
 					   struct db *db);
 static void insert_addrtype_to_addresses(struct lightningd *ld,
 					   struct db *db);
+static void migrate_initialize_channel_htlcs_wait_indexes(struct lightningd *ld,
+							  struct db *db);
 
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
@@ -1030,6 +1032,9 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channel_funding_inflights ADD remote_funding BLOB DEFAULT NULL;"), NULL},
     {SQL("ALTER TABLE peers ADD last_known_address BLOB DEFAULT NULL;"), NULL},
     {SQL("ALTER TABLE channels ADD close_attempt_height INTEGER DEFAULT 0;"), NULL},
+    {SQL("ALTER TABLE channel_htlcs ADD updated_index BIGINT DEFAULT 0"), NULL},
+    {SQL("CREATE INDEX channel_htlcs_updated_idx ON channel_htlcs (updated_index)"), NULL},
+    {NULL, migrate_initialize_channel_htlcs_wait_indexes},
 };
 
 /**
@@ -1843,6 +1848,16 @@ static void migrate_initialize_forwards_wait_indexes(struct lightningd *ld,
 					WAIT_INDEX_CREATED,
 					SQL("SELECT MAX(rowid) FROM forwards;"),
 					"MAX(rowid)");
+}
+
+static void migrate_initialize_channel_htlcs_wait_indexes(struct lightningd *ld,
+							  struct db *db)
+{
+	migrate_initialize_wait_indexes(db,
+					WAIT_SUBSYSTEM_FORWARD,
+					WAIT_INDEX_CREATED,
+					SQL("SELECT MAX(id) FROM channel_htlcs;"),
+					"MAX(id)");
 }
 
 static void complain_unfixed(struct lightningd *ld,

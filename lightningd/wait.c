@@ -23,6 +23,7 @@ static const char *subsystem_names[] = {
 	"forwards",
 	"sendpays",
 	"invoices",
+	"htlcs",
 };
 
 static const char *index_names[] = {
@@ -49,6 +50,7 @@ const char *wait_subsystem_name(enum wait_subsystem subsystem)
 	case WAIT_SUBSYSTEM_FORWARD:
 	case WAIT_SUBSYSTEM_SENDPAY:
 	case WAIT_SUBSYSTEM_INVOICE:
+	case WAIT_SUBSYSTEM_HTLCS:
 		return subsystem_names[subsystem];
 	}
 	abort();
@@ -98,17 +100,17 @@ static void json_add_index(struct json_stream *response,
 	json_object_end(response);
 }
 
-u64 wait_index_increment(struct lightningd *ld,
-			 enum wait_subsystem subsystem,
-			 enum wait_index index,
-			 ...)
+static u64 wait_index_bump(struct lightningd *ld,
+			   enum wait_subsystem subsystem,
+			   enum wait_index index,
+			   u64 num,
+			   va_list ap_master)
 {
 	struct waiter *i, *n;
-	va_list ap;
 	u64 *idxval = wait_index_ptr(ld, subsystem, index);
 
-	assert(!add_overflows_u64(*idxval, 1));
-	(*idxval)++;
+	assert(!add_overflows_u64(*idxval, num));
+	(*idxval) += num;
 
 	/* FIXME: We can optimize this!  It's always the max of the fields in
 	 * the table, *unless* we delete one.  So we can lazily write this on
@@ -121,6 +123,7 @@ u64 wait_index_increment(struct lightningd *ld,
 
 	list_for_each_safe(&ld->wait_commands, i, n, list) {
 		struct json_stream *response;
+		va_list ap;
 
 		if (*i->subsystem != subsystem)
 			continue;
@@ -130,7 +133,7 @@ u64 wait_index_increment(struct lightningd *ld,
 			continue;
 
 		response = json_stream_success(i->cmd);
-		va_start(ap, index);
+		va_copy(ap, ap_master);
 		json_add_index(response, subsystem, index, *idxval, &ap);
 		va_end(ap);
 		/* Delete before freeing */
@@ -139,6 +142,37 @@ u64 wait_index_increment(struct lightningd *ld,
 	}
 
 	return *idxval;
+}
+
+u64 wait_index_increment(struct lightningd *ld,
+			 enum wait_subsystem subsystem,
+			 enum wait_index index,
+			 ...)
+{
+	va_list ap;
+	u64 ret;
+
+	va_start(ap, index);
+	ret = wait_index_bump(ld, subsystem, index, 1, ap);
+	va_end(ap);
+
+	return ret;
+}
+
+void wait_index_increase(struct lightningd *ld,
+			 enum wait_subsystem subsystem,
+			 enum wait_index index,
+			 u64 num,
+			 ...)
+{
+	va_list ap;
+
+	if (num == 0)
+		return;
+
+	va_start(ap, num);
+	wait_index_bump(ld, subsystem, index, num, ap);
+	va_end(ap);
 }
 
 static struct command_result *param_subsystem(struct command *cmd,

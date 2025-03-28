@@ -10,8 +10,9 @@ enum wait_subsystem {
 	WAIT_SUBSYSTEM_FORWARD,
 	WAIT_SUBSYSTEM_SENDPAY,
 	WAIT_SUBSYSTEM_INVOICE,
+	WAIT_SUBSYSTEM_HTLCS,
 };
-#define NUM_WAIT_SUBSYSTEM (WAIT_SUBSYSTEM_INVOICE+1)
+#define NUM_WAIT_SUBSYSTEM (WAIT_SUBSYSTEM_HTLCS+1)
 
 enum wait_index {
 	WAIT_INDEX_CREATED,
@@ -47,6 +48,22 @@ const char *wait_subsystem_name(enum wait_subsystem subsystem);
 u64 LAST_ARG_NULL wait_index_increment(struct lightningd *ld,
 				       enum wait_subsystem subsystem,
 				       enum wait_index index,
+				       ...);
+
+/**
+ * wait_index_increase - increase an index, tell waiters.
+ * @ld: the lightningd
+ * @subsystem: subsystem for index
+ * @index: which index
+ * @num: number to add (if > 0).
+ * ...: name/value pairs, followed by NULL.
+ *
+ * A more generic version if wait_index_increment: if num is 0 it's a noop.
+ */
+void LAST_ARG_NULL wait_index_increase(struct lightningd *ld,
+				       enum wait_subsystem subsystem,
+				       enum wait_index index,
+				       u64 num,
 				       ...);
 
 /* For passing in index parameters. */
