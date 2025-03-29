@@ -551,6 +551,20 @@ class BitcoinD(TailableProc):
     def getnewaddress(self):
         return self.rpc.getnewaddress()
 
+    def save_blocks(self):
+        """Bundle up blocks into an array, for restore_blocks"""
+        blocks = []
+        numblocks = self.rpc.getblockcount()
+        for bnum in range(1, numblocks):
+            bhash = self.rpc.getblockhash(bnum)
+            blocks.append(self.rpc.getblock(bhash, False))
+        return blocks
+
+    def restore_blocks(self, blocks):
+        """Restore blocks from an array"""
+        for b in blocks:
+            self.rpc.submitblock(b)
+
 
 class ElementsD(BitcoinD):
     def __init__(self, bitcoin_dir="/tmp/bitcoind-test", rpcport=None):
