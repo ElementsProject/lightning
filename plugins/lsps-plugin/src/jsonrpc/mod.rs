@@ -2,6 +2,7 @@ pub mod client;
 use log::debug;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{self, Value};
+pub mod server;
 use std::fmt;
 use thiserror::Error;
 
@@ -171,7 +172,8 @@ where
     /// **REQUIRED**. The identifier of the original request this is a response.
     id: String,
     /// **REQUIRED on success**. The data if there is a request and non-errored.
-    /// MUST be `null` if there was an error.
+    /// MUST NOT exist if there was an error triggered during invocation.
+    #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<T>,
     /// **REQUIRED on error** An error type if there was a failure.
     error: Option<RpcError>,
