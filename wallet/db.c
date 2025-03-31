@@ -86,6 +86,8 @@ static void migrate_initialize_alias_local(struct lightningd *ld,
 					   struct db *db);
 static void insert_addrtype_to_addresses(struct lightningd *ld,
 					   struct db *db);
+static void migrate_convert_old_channel_keyidx(struct lightningd *ld,
+					       struct db *db);
 
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
@@ -1030,6 +1032,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channel_funding_inflights ADD remote_funding BLOB DEFAULT NULL;"), NULL},
     {SQL("ALTER TABLE peers ADD last_known_address BLOB DEFAULT NULL;"), NULL},
     {SQL("ALTER TABLE channels ADD close_attempt_height INTEGER DEFAULT 0;"), NULL},
+    {NULL, migrate_convert_old_channel_keyidx},
 };
 
 /**
@@ -2024,4 +2027,29 @@ static void insert_addrtype_to_addresses(struct lightningd *ld,
 		db_exec_prepared_v2(stmt);
 		tal_free(stmt);
 	}
+}
+
+/* If we said a channel final key was taproot-only, but actually the peer
+ * didn't support `option_shutdown_anysegwit`, we used the p2wpkh instead.  We
+ * don't have access to the peers' features in the db, so instead convert all
+ * the keys to ADDR_ALL.  Users with closed channels may still need to
+ * rescan! */
+static void migrate_convert_old_channel_keyidx(struct lightningd *ld,
+					       struct db *db)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db, SQL("UPDATE addresses"
+				     " SET addrtype = ?"
+				     " FROM channels "
+				     " WHERE addresses.keyidx = channels.shutdown_keyidx_local"
+				     " AND channels.state != ?"
+				     " AND channels.state != ?"
+				     " AND channels.state != ?"));
+	db_bind_int(stmt, wallet_addrtype_in_db(ADDR_ALL));
+	/* If we might have already seen onchain funds, we need to rescan */
+	db_bind_int(stmt, channel_state_in_db(FUNDING_SPEND_SEEN));
+	db_bind_int(stmt, channel_state_in_db(ONCHAIN));
+	db_bind_int(stmt, channel_state_in_db(CLOSED));
+	db_exec_prepared_v2(take(stmt));
 }
