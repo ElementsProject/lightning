@@ -813,7 +813,11 @@ where
                         match &self.wildcard_subscription {
                             Some(cb) => {
                                 let call = cb(plugin.clone(), params.clone());
-                                tokio::spawn(async move { call.await.unwrap() });
+                                tokio::spawn(async move {
+                                    if let Err(e) = call.await {
+                                        log::warn!("Wildcard notification handler error: '{}'", e)
+                                    }
+                                });
                             }
                             None => {}
                         };
@@ -823,7 +827,11 @@ where
                         match self.subscriptions.get(method) {
                             Some(cb) => {
                                 let call = cb(plugin.clone(), params.clone());
-                                tokio::spawn(async move { call.await.unwrap() });
+                                tokio::spawn(async move {
+                                    if let Err(e) = call.await {
+                                        log::warn!("Notification handler error: '{}'", e)
+                                    }
+                                });
                             }
                             None => {
                                 if self.wildcard_subscription.is_none() {
