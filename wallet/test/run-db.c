@@ -25,6 +25,17 @@ static void db_log_(struct logger *log UNUSED, enum log_level level UNUSED, cons
 /* Generated stub for bip32_pubkey */
 void bip32_pubkey(struct lightningd *ld UNNEEDED, struct pubkey *pubkey UNNEEDED, u32 index UNNEEDED)
 { fprintf(stderr, "bip32_pubkey called!\n"); abort(); }
+/* Generated stub for bitcoind_getrawblockbyheight_ */
+void bitcoind_getrawblockbyheight_(const tal_t *ctx UNNEEDED,
+				   struct bitcoind *bitcoind UNNEEDED,
+				   u32 height UNNEEDED,
+				   void (*cb)(struct bitcoind *bitcoind_ UNNEEDED,
+					      u32 height_ UNNEEDED,
+					      struct bitcoin_blkid *blkid UNNEEDED,
+					      struct bitcoin_block *blk UNNEEDED,
+					      void *arg) UNNEEDED,
+				   void *arg UNNEEDED)
+{ fprintf(stderr, "bitcoind_getrawblockbyheight_ called!\n"); abort(); }
 /* Generated stub for channel_gossip_get_remote_update */
 const struct peer_update *channel_gossip_get_remote_update(const struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_gossip_get_remote_update called!\n"); abort(); }
@@ -296,9 +307,6 @@ struct htlc_in *remove_htlc_in_by_dbid(struct htlc_in_map *remaining_htlcs_in UN
 /* Generated stub for rune_unique_id */
 u64 rune_unique_id(const struct rune *rune UNNEEDED)
 { fprintf(stderr, "rune_unique_id called!\n"); abort(); }
-/* Generated stub for scriptpubkey_hash */
-size_t scriptpubkey_hash(const u8 *out UNNEEDED)
-{ fprintf(stderr, "scriptpubkey_hash called!\n"); abort(); }
 /* Generated stub for sendpay_index_created */
 u64 sendpay_index_created(struct lightningd *ld UNNEEDED,
 			  const struct sha256 *payment_hash UNNEEDED,

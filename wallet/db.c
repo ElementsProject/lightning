@@ -1033,6 +1033,8 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE peers ADD last_known_address BLOB DEFAULT NULL;"), NULL},
     {SQL("ALTER TABLE channels ADD close_attempt_height INTEGER DEFAULT 0;"), NULL},
     {NULL, migrate_convert_old_channel_keyidx},
+    {SQL("INSERT INTO vars(name, intval)"
+	 "  VALUES('needs_p2wpkh_close_rescan', 1)"), NULL},
 };
 
 /**

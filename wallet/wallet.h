@@ -1826,6 +1826,13 @@ struct issued_address_type *wallet_list_addresses(const tal_t *ctx, struct walle
 
 
 /**
+ * wallet_begin_old_close_rescan: rescan for missing mutual close p2wpkh outputs.
+ *
+ * Once complete, we set a db var so we never do this again.
+ */
+void wallet_begin_old_close_rescan(struct lightningd *ld);
+
+/**
  * wallet_memleak_scan - Check for memleaks in wallet.
  */
 void wallet_memleak_scan(struct htable *memtable, const struct wallet *w);

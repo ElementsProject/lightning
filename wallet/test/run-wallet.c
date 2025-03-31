@@ -49,6 +49,17 @@ void add_node_announcement_sig(u8 *nannounce UNNEEDED,
 /* Generated stub for bigsize_put */
 size_t bigsize_put(u8 buf[BIGSIZE_MAX_LEN] UNNEEDED, bigsize_t v UNNEEDED)
 { fprintf(stderr, "bigsize_put called!\n"); abort(); }
+/* Generated stub for bitcoind_getrawblockbyheight_ */
+void bitcoind_getrawblockbyheight_(const tal_t *ctx UNNEEDED,
+				   struct bitcoind *bitcoind UNNEEDED,
+				   u32 height UNNEEDED,
+				   void (*cb)(struct bitcoind *bitcoind_ UNNEEDED,
+					      u32 height_ UNNEEDED,
+					      struct bitcoin_blkid *blkid UNNEEDED,
+					      struct bitcoin_block *blk UNNEEDED,
+					      void *arg) UNNEEDED,
+				   void *arg UNNEEDED)
+{ fprintf(stderr, "bitcoind_getrawblockbyheight_ called!\n"); abort(); }
 /* Generated stub for bitcoind_getutxout_ */
 void bitcoind_getutxout_(const tal_t *ctx UNNEEDED,
 			 struct bitcoind *bitcoind UNNEEDED,
@@ -967,9 +978,6 @@ void resolve_close_command(struct lightningd *ld UNNEEDED, struct channel *chann
 /* Generated stub for rune_unique_id */
 u64 rune_unique_id(const struct rune *rune UNNEEDED)
 { fprintf(stderr, "rune_unique_id called!\n"); abort(); }
-/* Generated stub for scriptpubkey_hash */
-size_t scriptpubkey_hash(const u8 *out UNNEEDED)
-{ fprintf(stderr, "scriptpubkey_hash called!\n"); abort(); }
 /* Generated stub for serialize_onionpacket */
 u8 *serialize_onionpacket(
 	const tal_t *ctx UNNEEDED,
