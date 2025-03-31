@@ -2917,7 +2917,8 @@ static void got_utxo(struct wallet *w,
 		     const struct wally_tx *wtx,
 		     size_t outnum,
 		     bool is_coinbase,
-		     const u32 *blockheight)
+		     const u32 *blockheight,
+		     struct bitcoin_outpoint *outpoint)
 {
 	struct utxo *utxo = tal(tmpctx, struct utxo);
 	const struct wally_tx_output *txout = &wtx->outputs[outnum];
@@ -2972,6 +2973,8 @@ static void got_utxo(struct wallet *w,
 	outpointfilter_add(w->owned_outpoints, &utxo->outpoint);
 
 	wallet_annotate_txout(w, &utxo->outpoint, TX_WALLET_DEPOSIT, 0);
+	if (outpoint)
+		*outpoint = utxo->outpoint;
 }
 
 int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
@@ -2991,7 +2994,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 		if (!wallet_can_spend(w, txout->script, txout->script_len, &keyindex))
 			continue;
 
-		got_utxo(w, keyindex, wtx, i, is_coinbase, blockheight);
+		got_utxo(w, keyindex, wtx, i, is_coinbase, blockheight, NULL);
 		num_utxos++;
 	}
 	return num_utxos;
@@ -6511,4 +6514,171 @@ struct issued_address_type *wallet_list_addresses(const tal_t *ctx, struct walle
 	}
 	tal_free(stmt);
 	return addresseslist;
+}
+
+struct missing {
+	size_t num_found;
+	struct missing_addr *addrs;
+};
+
+struct missing_addr {
+	u64 keyidx;
+	const u8 *scriptpubkey;
+};
+
+static void mutual_close_p2pkh_catch(struct bitcoind *bitcoind,
+				     u32 height,
+				     struct bitcoin_blkid *blkid,
+				     struct bitcoin_block *blk,
+				     struct missing *missing)
+{
+	struct wallet *w = bitcoind->ld->wallet;
+
+	/* Are we finished? */
+	if (!blkid) {
+		log_broken(bitcoind->ld->log,
+			   "Rescan finished! %zu outputs recovered.  Let's never do that again.",
+			   missing->num_found);
+		db_set_intvar(w->db, "needs_p2wpkh_close_rescan", 0);
+		/* Call is allocated off of this, so we can't free just yet */
+		tal_steal(tmpctx, missing);
+		return;
+	}
+
+	log_debug(bitcoind->ld->log, "Mutual close p2wpkh recovery block %u", height);
+	for (size_t i = 0; i < tal_count(blk->tx); i++) {
+		const struct wally_tx *wtx = blk->tx[i]->wtx;
+		for (size_t outnum = 0; outnum < wtx->num_outputs; outnum++) {
+			const struct wally_tx_output *txout = &wtx->outputs[outnum];
+			for (size_t n = 0; n < tal_count(missing->addrs); n++) {
+				struct bitcoin_outpoint outp;
+				log_debug(bitcoind->ld->log, "%zu out %zu: %s (seeking %s)",
+					  i, outnum,
+					  tal_hexstr(tmpctx, txout->script, txout->script_len),
+					  tal_hex(tmpctx, missing->addrs[n].scriptpubkey));
+				if (!memeq(txout->script, txout->script_len,
+					   missing->addrs[n].scriptpubkey,
+					   tal_bytelen(missing->addrs[n].scriptpubkey)))
+					continue;
+				got_utxo(w, missing->addrs[n].keyidx,
+					 wtx, outnum, i == 0, &height, &outp);
+				log_broken(bitcoind->ld->log, "Rescan found %s!",
+					   fmt_bitcoin_outpoint(tmpctx, &outp));
+				missing->num_found++;
+			}
+		}
+	}
+
+	/* Next block! */
+	bitcoind_getrawblockbyheight(missing, bitcoind, height + 1,
+				     mutual_close_p2pkh_catch, missing);
+}
+
+void wallet_begin_old_close_rescan(struct lightningd *ld)
+{
+	struct db_stmt *stmt;
+	u32 earliest_block = UINT32_MAX;
+	struct missing *missing;
+	int v = db_get_intvar(ld->wallet->db, "needs_p2wpkh_close_rescan", -1);
+	if (v == 0)
+		return;
+	assert(v == 1);
+
+	/* Channels where we might have already seen a mutual close,
+	 * which said their key was only taproot, but we didn't see an
+	 * output, may actually have closed to the p2wpkh address.
+	 * Some debugging help with ChatGPT here!
+	 */
+	stmt = db_prepare_v2(ld->wallet->db,
+			     SQL("SELECT "
+				 " full_channel_id"
+				 ", state"
+				 ", scid"
+				 ", shutdown_keyidx_local"
+				 " FROM channels"
+				 " JOIN addresses"
+				 "  ON channels.shutdown_keyidx_local = addresses.keyidx"
+				 " WHERE addresses.addrtype = ?"
+				 " AND NOT EXISTS ("
+				 "    SELECT 1"
+				 "    FROM outputs"
+				 "    WHERE outputs.keyindex = addresses.keyidx"
+				 ");"));
+	db_bind_int(stmt, wallet_addrtype_in_db(ADDR_P2TR));
+	db_query_prepared(stmt);
+
+	missing = tal(tmpctx, struct missing);
+	missing->num_found = 0;
+	missing->addrs = tal_arr(missing, struct missing_addr, 0);
+	while (db_step(stmt)) {
+		enum channel_state state;
+		struct short_channel_id scid;
+		struct channel_id cid;
+		struct missing_addr maddr;
+		struct ext_key ext;
+
+		state = channel_state_in_db(db_col_int(stmt, "state"));
+		switch (state) {
+		case DUALOPEND_OPEN_INIT:
+		case CHANNELD_AWAITING_LOCKIN:
+		case CHANNELD_NORMAL:
+		case CHANNELD_SHUTTING_DOWN:
+		case CLOSINGD_SIGEXCHANGE:
+		case DUALOPEND_OPEN_COMMITTED:
+		case DUALOPEND_AWAITING_LOCKIN:
+		case CHANNELD_AWAITING_SPLICE:
+		case DUALOPEND_OPEN_COMMIT_READY:
+			db_col_ignore(stmt, "full_channel_id");
+			db_col_ignore(stmt, "scid");
+			db_col_ignore(stmt, "shutdown_keyidx_local");
+			continue;
+		/* States where we may have already seen close */
+		case CLOSINGD_COMPLETE:
+		case AWAITING_UNILATERAL:
+		case FUNDING_SPEND_SEEN:
+		case ONCHAIN:
+		case CLOSED:
+			db_col_channel_id(stmt, "full_channel_id", &cid);
+			maddr.keyidx = db_col_u64(stmt, "shutdown_keyidx_local");
+
+			/* This can happen with zeroconf, but it's unusual.  In that case
+			 * we haven't even seen the open, let alone the close.*/
+			if (db_col_is_null(stmt, "scid"))
+				continue;
+
+			/* Don't search for close before open */
+			scid = db_col_short_channel_id(stmt, "scid");
+			if (short_channel_id_blocknum(scid) < earliest_block)
+				earliest_block = short_channel_id_blocknum(scid);
+
+			if (bip32_key_from_parent(ld->bip32_base, maddr.keyidx,
+						  BIP32_FLAG_KEY_PUBLIC | BIP32_FLAG_SKIP_HASH,
+						  &ext) != WALLY_OK) {
+				abort();
+			}
+			maddr.scriptpubkey = scriptpubkey_p2wpkh_derkey(missing, ext.pub_key);
+			tal_arr_expand(&missing->addrs, maddr);
+		}
+	}
+	tal_free(stmt);
+
+	/* No results?  We didn't have a problem, never test again. */
+	if (tal_count(missing->addrs) == 0) {
+		db_set_intvar(ld->wallet->db, "needs_p2wpkh_close_rescan", 0);
+		return;
+	}
+
+	/* We only released 24.11 in December, so don't go back before
+	* block 870000 which was mid-November */
+	if (streq(chainparams->network_name, "bitcoin") && earliest_block < 870000)
+		earliest_block = 870000;
+
+	log_broken(ld->log,
+		   "Potentially missing %zu outputs from previous closes: scanning from block %u",
+		   tal_count(missing->addrs), earliest_block);
+
+	/* This is not a leak, though it may take a while! */
+	tal_steal(ld, notleak(missing));
+	bitcoind_getrawblockbyheight(missing, ld->topology->bitcoind, earliest_block,
+				     mutual_close_p2pkh_catch, missing);
 }

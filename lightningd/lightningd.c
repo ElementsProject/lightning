@@ -1467,6 +1467,12 @@ int main(int argc, char *argv[])
 	if (ld->daemon_parent_fd != -1)
 		complete_daemonize(ld);
 
+	/*~ At one stage, we didn't catch mutual closes with old node to p2wkph
+	 * so now we start a scan if the db doesn't say we completed it. */
+	db_begin_transaction(ld->wallet->db);
+	wallet_begin_old_close_rescan(ld);
+	db_commit_transaction(ld->wallet->db);
+
 	/*~ Setting this (global) activates the crash log: we don't usually need
 	 * a backtrace if we fail during startup. */
 	crashlog = ld->log;
