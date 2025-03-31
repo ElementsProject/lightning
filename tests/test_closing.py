@@ -4277,7 +4277,6 @@ def test_onchain_slow_anchor(node_factory, bitcoind):
     l1.daemon.wait_for_log(r"Low-priority anchorspend aiming for block {} \(feerate 7500\)".format(height + 12))
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', "elementsd doesn't use p2tr anyway")
 def test_onchain_close_no_p2tr(node_factory, bitcoind):
     """Closing with a peer which doesn't support OPT_SHUTDOWN_ANYSEGWIT"""
