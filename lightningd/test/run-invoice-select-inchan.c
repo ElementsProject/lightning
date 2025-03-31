@@ -908,10 +908,6 @@ bool peer_start_channeld(struct channel *channel UNNEEDED,
 			 bool reconnected UNNEEDED,
 			 bool reestablish_only UNNEEDED)
 { fprintf(stderr, "peer_start_channeld called!\n"); abort(); }
-/* Generated stub for peer_start_closingd */
-void peer_start_closingd(struct channel *channel UNNEEDED,
-			 struct peer_fd *peer_fd UNNEEDED)
-{ fprintf(stderr, "peer_start_closingd called!\n"); abort(); }
 /* Generated stub for peer_start_dualopend */
 bool peer_start_dualopend(struct peer *peer UNNEEDED, struct peer_fd *peer_fd UNNEEDED,
 			  struct channel *channel UNNEEDED)
@@ -1045,8 +1041,7 @@ void wallet_delete_peer_if_unused(struct wallet *w UNNEEDED, u64 peer_dbid UNNEE
 /* Generated stub for wallet_extract_owned_outputs */
 int wallet_extract_owned_outputs(struct wallet *w UNNEEDED, const struct wally_tx *tx UNNEEDED,
 				 bool is_coinbase UNNEEDED,
-				 const u32 *blockheight UNNEEDED,
-				 struct amount_sat *total UNNEEDED)
+				 const u32 *blockheight UNNEEDED)
 { fprintf(stderr, "wallet_extract_owned_outputs called!\n"); abort(); }
 /* Generated stub for wallet_htlcs_load_in_for_channel */
 bool wallet_htlcs_load_in_for_channel(struct wallet *wallet UNNEEDED,
