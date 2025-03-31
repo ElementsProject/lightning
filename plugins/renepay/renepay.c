@@ -15,9 +15,10 @@
 #include <errno.h>
 #include <plugins/renepay/json.h>
 #include <plugins/renepay/mods.h>
-#include <plugins/renepay/payplugin.h>
+#include <plugins/renepay/renepay.h>
 #include <plugins/renepay/routetracker.h>
 #include <plugins/renepay/sendpay.h>
+#include <plugins/renepay/utils.h>
 #include <stdio.h>
 
 // TODO(eduardo): notice that pending attempts performed with another
@@ -25,29 +26,35 @@
 // it would be nice if listsendpay would give us the route of pending
 // sendpays.
 
-struct pay_plugin *pay_plugin;
-
 static void memleak_mark(struct plugin *p, struct htable *memtable)
 {
-	memleak_scan_obj(memtable, pay_plugin);
-	memleak_scan_htable(memtable,
-			    &pay_plugin->uncertainty->chan_extra_map->raw);
-	memleak_scan_htable(memtable, &pay_plugin->payment_map->raw);
-	memleak_scan_htable(memtable, &pay_plugin->pending_routes->raw);
+	struct renepay *renepay = get_renepay(p);
+	memleak_scan_obj(memtable, renepay);
+	memleak_scan_htable(memtable, &renepay->payment_map->raw);
+	memleak_scan_htable(memtable, &renepay->pending_routes->raw);
+}
+
+static struct command_result *createlayer_done(struct command *aux_cmd,
+					       const char *method,
+					       const char *buf,
+					       const jsmntok_t *result,
+					       void *unused)
+{
+	return aux_command_done(aux_cmd);
 }
 
 static const char *init(struct command *init_cmd,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
 	struct plugin *p = init_cmd->plugin;
+	struct renepay *renepay = get_renepay(p);
 	size_t num_channel_updates_rejected = 0;
 
-	tal_steal(p, pay_plugin);
-	pay_plugin->plugin = p;
-	pay_plugin->last_time = 0;
+	renepay->plugin = p;
+	renepay->last_time = 0;
 
 	rpc_scan(init_cmd, "getinfo", take(json_out_obj(NULL, NULL, NULL)),
-		 "{id:%}", JSON_SCAN(json_to_node_id, &pay_plugin->my_id));
+		 "{id:%}", JSON_SCAN(json_to_node_id, &renepay->my_id));
 
 	/* BOLT #4:
 	 * ## `max_htlc_cltv` Selection
@@ -56,43 +63,39 @@ static const char *init(struct command *init_cmd,
 	 * deployed by Lightning implementations.
 	 */
 	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
-	pay_plugin->maxdelay_default = 2016;
+	renepay->maxdelay_default = 2016;
 	/* max-locktime-blocks deprecated in v24.05, but still grab it! */
 	rpc_scan(init_cmd, "listconfigs",
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{configs:"
 		 "{max-locktime-blocks?:{value_int:%}}}",
-		 JSON_SCAN(json_to_number, &pay_plugin->maxdelay_default)
+		 JSON_SCAN(json_to_number, &renepay->maxdelay_default)
 		 );
 
-	pay_plugin->payment_map = tal(pay_plugin, struct payment_map);
-	payment_map_init(pay_plugin->payment_map);
+	renepay->payment_map = tal(renepay, struct payment_map);
+	payment_map_init(renepay->payment_map);
 
-	pay_plugin->pending_routes = tal(pay_plugin, struct route_map);
-	route_map_init(pay_plugin->pending_routes);
+	renepay->pending_routes = tal(renepay, struct route_map);
+	route_map_init(renepay->pending_routes);
 
-	pay_plugin->gossmap = gossmap_load(pay_plugin,
-					   GOSSIP_STORE_FILENAME,
-					   plugin_gossmap_logcb,
-					   p);
+	renepay->gossmap = gossmap_load(renepay, GOSSIP_STORE_FILENAME,
+					plugin_gossmap_logcb, p);
 
-	if (!pay_plugin->gossmap)
+	if (!renepay->gossmap)
 		plugin_err(p, "Could not load gossmap %s: %s",
 			   GOSSIP_STORE_FILENAME, strerror(errno));
 	if (num_channel_updates_rejected)
 		plugin_log(p, LOG_DBG,
 			   "gossmap ignored %zu channel updates",
 			   num_channel_updates_rejected);
-	pay_plugin->uncertainty = uncertainty_new(pay_plugin);
-	int skipped_count =
-	    uncertainty_update(pay_plugin->uncertainty, pay_plugin->gossmap);
-	if (skipped_count)
-		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
-			   "%s: uncertainty was updated but %d channels have "
-			   "been ignored.",
-			   __func__, skipped_count);
 
 	plugin_set_memleak_handler(p, memleak_mark);
+	struct out_req *req =
+	    jsonrpc_request_start(aux_command(init_cmd), "askrene-create-layer",
+				  createlayer_done, plugin_broken_cb, NULL);
+	json_add_string(req->js, "layer", RENEPAY_LAYER);
+	json_add_bool(req->js, "persistent", true);
+	send_outreq(req);
 	return NULL;
 }
 
@@ -100,6 +103,7 @@ static struct command_result *json_renepaystatus(struct command *cmd,
 						 const char *buf,
 						 const jsmntok_t *params)
 {
+	struct renepay *renepay = get_renepay(cmd->plugin);
 	const char *invstring;
 	struct json_stream *ret;
 
@@ -127,7 +131,7 @@ static struct command_result *json_renepaystatus(struct command *cmd,
 					    "Invalid bolt11: %s", fail);
 
 		struct payment *payment =
-		    payment_map_get(pay_plugin->payment_map, b11->payment_hash);
+		    payment_map_get(renepay->payment_map, b11->payment_hash);
 
 		if(payment)
 		{
@@ -140,8 +144,8 @@ static struct command_result *json_renepaystatus(struct command *cmd,
 		/* show all payments */
 		struct payment_map_iter it;
 		for (struct payment *p =
-			 payment_map_first(pay_plugin->payment_map, &it);
-		     p; p = payment_map_next(pay_plugin->payment_map, &it)) {
+			 payment_map_first(renepay->payment_map, &it);
+		     p; p = payment_map_next(renepay->payment_map, &it)) {
 			json_object_start(ret, NULL);
 			json_add_payment(ret, p);
 			json_object_end(ret);
@@ -156,7 +160,7 @@ static struct command_result * payment_start(struct payment *p)
 {
 	assert(p);
 	p->status = PAYMENT_PENDING;
-	plugin_log(pay_plugin->plugin, LOG_DBG, "Starting renepay");
+	plugin_log(p->plugin, LOG_DBG, "Starting renepay");
 	p->exec_state = 0;
 	return payment_continue(p);
 }
@@ -164,6 +168,7 @@ static struct command_result * payment_start(struct payment *p)
 static struct command_result *json_renepay(struct command *cmd, const char *buf,
 					   const jsmntok_t *params)
 {
+	struct renepay *renepay = get_renepay(cmd->plugin);
 	/* === Parse command line arguments === */
 	// TODO check if we leak some of these temporary variables
 
@@ -176,6 +181,7 @@ static struct command_result *json_renepay(struct command *cmd, const char *buf,
 	const char *description;
 	const char *label;
 	struct route_exclusion **exclusions;
+	bool mpp_enabled = true;
 
 	// dev options
 	bool *use_shadow;
@@ -203,7 +209,7 @@ static struct command_result *json_renepay(struct command *cmd, const char *buf,
 			     /* maxdelay has a configuration default value named
 			      * "max-locktime-blocks", this is retrieved at
 			      * init. */
-			     pay_plugin->maxdelay_default),
+			     renepay->maxdelay_default),
 
 		   p_opt_def("retry_for", param_number, &retryfor,
 			     60), // 60 seconds
@@ -257,6 +263,8 @@ static struct command_result *json_renepay(struct command *cmd, const char *buf,
 			*inv_msat = amount_msat(*b12->invoice_amount);
 		}
 		payment_hash = b12->invoice_payment_hash;
+		mpp_enabled =
+		    feature_offered(b12->invoice_features, OPT_BASIC_MPP);
 	} else {
 		b11 = bolt11_decode(tmpctx, invstr,
 				    plugin_feature_set(cmd->plugin),
@@ -275,6 +283,7 @@ static struct command_result *json_renepay(struct command *cmd, const char *buf,
 		inv_msat = b11->msat;
 		invexpiry = b11->timestamp + b11->expiry;
 		payment_hash = &b11->payment_hash;
+		mpp_enabled = feature_offered(b11->features, OPT_BASIC_MPP);
 	}
 
 	/* === Set default values for non-trivial constraints  === */
@@ -321,11 +330,12 @@ static struct command_result *json_renepay(struct command *cmd, const char *buf,
 	// one payment_hash one payment is not assumed, it is enforced
 	assert(payment_hash);
 	struct payment *payment =
-	    payment_map_get(pay_plugin->payment_map, *payment_hash);
+	    payment_map_get(renepay->payment_map, *payment_hash);
 
 	if(!payment)
 	{
-		payment = payment_new(tmpctx, payment_hash, invstr);
+		payment =
+		    payment_new(tmpctx, payment_hash, invstr, cmd->plugin);
 		if (!payment)
 			return command_fail(cmd, PLUGIN_ERROR,
 					    "failed to create a new payment");
@@ -390,7 +400,8 @@ static struct command_result *json_renepay(struct command *cmd, const char *buf,
 			*min_prob_success_millionths,
 			*base_prob_success_millionths, use_shadow,
 			cast_const2(const struct route_exclusion **,
-				    exclusions)) ||
+				    exclusions),
+			mpp_enabled) ||
 		    !payment_refresh(payment))
 			return command_fail(
 			    cmd, PLUGIN_ERROR,
@@ -401,8 +412,8 @@ static struct command_result *json_renepay(struct command *cmd, const char *buf,
 					    "failed to register command");
 
 		// good to go
-		payment = tal_steal(pay_plugin, payment);
-		payment_map_add(pay_plugin->payment_map, payment);
+		payment = tal_steal(renepay, payment);
+		payment_map_add(renepay->payment_map, payment);
 		return payment_start(payment);
 	}
 
@@ -425,7 +436,8 @@ static struct command_result *json_renepay(struct command *cmd, const char *buf,
 			*min_prob_success_millionths,
 			*base_prob_success_millionths, use_shadow,
 			cast_const2(const struct route_exclusion **,
-				    exclusions)) ||
+				    exclusions),
+			mpp_enabled) ||
 		    !payment_refresh(payment))
 			return command_fail(
 			    cmd, PLUGIN_ERROR,
@@ -480,12 +492,12 @@ int main(int argc, char *argv[])
 	setup_locale();
 
 	/* Most gets initialized in init(), but set debug options here. */
-	pay_plugin = tal(NULL, struct pay_plugin);
-	pay_plugin->debug_mcf = pay_plugin->debug_payflow = false;
+	struct renepay *renepay = tal(NULL, struct renepay);
+	renepay->debug_mcf = renepay->debug_payflow = false;
 
 	plugin_main(
 		argv,
-		init, NULL,
+		init, take(renepay),
 		PLUGIN_RESTARTABLE,
 		/* init_rpc */ true,
 		/* features */ NULL,
@@ -495,10 +507,10 @@ int main(int argc, char *argv[])
 		/* notification topics */ NULL, 0,
 		plugin_option("renepay-debug-mcf", "flag",
 			"Enable renepay MCF debug info.",
-			flag_option, NULL, &pay_plugin->debug_mcf),
+			flag_option, NULL, &renepay->debug_mcf),
 		plugin_option("renepay-debug-payflow", "flag",
 			"Enable renepay payment flows debug info.",
-			flag_option, NULL, &pay_plugin->debug_payflow),
+			flag_option, NULL, &renepay->debug_payflow),
 		NULL);
 
 	return 0;

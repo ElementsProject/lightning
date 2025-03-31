@@ -2,6 +2,9 @@
 #define LIGHTNING_PLUGINS_RENEPAY_RENEPAYCONFIG_H
 #include "config.h"
 
+/* Use the same global layer as xpay */
+#define RENEPAY_LAYER "xpay"
+
 #define MAX_NUM_ATTEMPTS 10
 
 /* Knowledge is proportionally decreased with time up to TIMER_FORGET_SEC when

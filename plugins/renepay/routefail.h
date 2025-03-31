@@ -6,7 +6,10 @@
 #include "config.h"
 #include <plugins/renepay/route.h>
 
-struct command_result *routefail_start(const tal_t *ctx, struct route *route,
-				       struct command *cmd);
+struct command_result *routefail_start(struct command *cmd,
+				       struct route *route);
+
+struct command_result *routesuccess_start(struct command *cmd,
+					  struct route *route);
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_ROUTEFAIL_H */
