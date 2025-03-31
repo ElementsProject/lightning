@@ -761,8 +761,7 @@ u32 wallet_blocks_maxheight(struct wallet *w);
  */
 int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *tx,
 				 bool is_coinbase,
-				 const u32 *blockheight,
-				 struct amount_sat *total);
+				 const u32 *blockheight);
 
 /**
  * wallet_htlc_save_in - store an htlc_in in the database

@@ -960,7 +960,6 @@ static void sendpsbt_done(struct bitcoind *bitcoind UNUSED,
 	struct lightningd *ld = sending->cmd->ld;
 	struct json_stream *response;
 	struct bitcoin_txid txid;
-	struct amount_sat change;
 
 	if (!success) {
 		/* Unreserve the inputs again. */
@@ -987,7 +986,7 @@ static void sendpsbt_done(struct bitcoind *bitcoind UNUSED,
 	wallet_transaction_add(ld->wallet, sending->wtx, 0, 0);
 
 	/* Extract the change output and add it to the DB */
-	wallet_extract_owned_outputs(ld->wallet, sending->wtx, false, NULL, &change);
+	wallet_extract_owned_outputs(ld->wallet, sending->wtx, false, NULL);
 	wally_txid(sending->wtx, &txid);
 
 	for (size_t i = 0; i < sending->psbt->num_outputs; i++)

@@ -2914,13 +2914,10 @@ void wallet_confirm_tx(struct wallet *w,
 
 int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 				 bool is_coinbase,
-				 const u32 *blockheight,
-				 struct amount_sat *total)
+				 const u32 *blockheight)
 {
 	int num_utxos = 0;
 
-	if (total)
-		*total = AMOUNT_SAT(0);
 	for (size_t i = 0; i < wtx->num_outputs; i++) {
 		const struct wally_tx_output *txout = &wtx->outputs[i];
 		struct utxo *utxo;
@@ -2982,12 +2979,6 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 			txfilter_add_scriptpubkey(w->ld->owned_txfilter, txout->script);
 
 		outpointfilter_add(w->owned_outpoints, &utxo->outpoint);
-
-		if (total && !amount_sat_add(total, *total, utxo->amount))
-			fatal("Cannot add utxo output %zu/%zu %s + %s",
-			      i, wtx->num_outputs,
-			      fmt_amount_sat(tmpctx, *total),
-			      fmt_amount_sat(tmpctx, utxo->amount));
 
 		wallet_annotate_txout(w, &utxo->outpoint, TX_WALLET_DEPOSIT, 0);
 		tal_free(utxo);
