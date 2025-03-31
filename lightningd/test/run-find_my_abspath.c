@@ -286,6 +286,9 @@ const char *version(void)
 void waitblockheight_notify_new_block(struct lightningd *ld UNNEEDED,
 				      u32 block_height UNNEEDED)
 { fprintf(stderr, "waitblockheight_notify_new_block called!\n"); abort(); }
+/* Generated stub for wallet_begin_old_close_rescan */
+void wallet_begin_old_close_rescan(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "wallet_begin_old_close_rescan called!\n"); abort(); }
 /* Generated stub for wallet_new */
 struct wallet *wallet_new(struct lightningd *ld UNNEEDED, struct timers *timers UNNEEDED)
 { fprintf(stderr, "wallet_new called!\n"); abort(); }
