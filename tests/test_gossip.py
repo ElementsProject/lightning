@@ -2358,3 +2358,16 @@ def test_gossip_seeker_autoconnect(node_factory):
                            rf'{l3.info["id"]} for additional gossip')
     l1.daemon.wait_for_log('gossipd: seeker: starting gossip')
     assert l3.info['id'] in [n['id'] for n in l1.rpc.listpeers()['peers']]
+
+
+def test_incoming_unreasonable(node_factory):
+    """Don't crash if we have a local incoming channel with unreasonable (i.e. internally-unrepresentable) fees"""
+    l1, l2, l3, l4 = node_factory.line_graph(4,
+                                             wait_for_announce=True,
+                                             opts={'allow_bad_gossip': True})
+
+    l2.rpc.setchannel(l3.info['id'], 100000000)
+    l4.rpc.setchannel(l3.info['id'], 100000000)
+    wait_for(lambda: [c['updates']['remote']['fee_base_msat'] for c in l3.rpc.listpeerchannels()['channels']] == [100000000, 100000000])
+    l3.restart()
+    l3.rpc.listincoming()
