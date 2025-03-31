@@ -4275,3 +4275,22 @@ def test_onchain_slow_anchor(node_factory, bitcoind):
     bitcoind.generate_block(1)
     height = bitcoind.rpc.getblockchaininfo()['blocks']
     l1.daemon.wait_for_log(r"Low-priority anchorspend aiming for block {} \(feerate 7500\)".format(height + 12))
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(TEST_NETWORK != 'regtest', "elementsd doesn't use p2tr anyway")
+def test_onchain_close_no_p2tr(node_factory, bitcoind):
+    """Closing with a peer which doesn't support OPT_SHUTDOWN_ANYSEGWIT"""
+    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True},
+                                              {'may_reconnect': True,
+                                               'dev-force-features': "-27"}])
+
+    assert len(l1.rpc.listfunds()['outputs']) == 1
+
+    l1.restart()
+    l1.rpc.close(l2.info['id'])
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1])
+
+    # We should see the output.
+    assert len(l1.rpc.listfunds()['outputs']) == 2
