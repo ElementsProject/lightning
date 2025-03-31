@@ -2912,6 +2912,68 @@ void wallet_confirm_tx(struct wallet *w,
 	db_exec_prepared_v2(take(stmt));
 }
 
+static void got_utxo(struct wallet *w,
+		     u64 keyindex,
+		     const struct wally_tx *wtx,
+		     size_t outnum,
+		     bool is_coinbase,
+		     const u32 *blockheight)
+{
+	struct utxo *utxo = tal(tmpctx, struct utxo);
+	const struct wally_tx_output *txout = &wtx->outputs[outnum];
+	struct amount_asset asset = wally_tx_output_get_amount(txout);
+
+	utxo->keyindex = keyindex;
+	utxo->is_p2sh = is_p2sh(txout->script, txout->script_len, NULL);
+	utxo->amount = amount_asset_to_sat(&asset);
+	utxo->status = OUTPUT_STATE_AVAILABLE;
+	wally_txid(wtx, &utxo->outpoint.txid);
+	utxo->outpoint.n = outnum;
+	utxo->close_info = NULL;
+	utxo->is_in_coinbase = is_coinbase;
+
+	utxo->blockheight = blockheight;
+	utxo->spendheight = NULL;
+	utxo->scriptPubkey = tal_dup_arr(utxo, u8, txout->script, txout->script_len, 0);
+	log_debug(w->log, "Owning output %zu %s (%s) txid %s%s%s",
+		  outnum,
+		  fmt_amount_sat(tmpctx, utxo->amount),
+		  utxo->is_p2sh ? "P2SH" : "SEGWIT",
+		  fmt_bitcoin_txid(tmpctx, &utxo->outpoint.txid),
+		  blockheight ? " CONFIRMED" : "",
+		  is_coinbase ? " COINBASE" : "");
+
+	/* We only record final ledger movements */
+	if (blockheight) {
+		struct chain_coin_mvt *mvt;
+
+		mvt = new_coin_wallet_deposit(tmpctx, &utxo->outpoint,
+					      *blockheight,
+					      utxo->amount,
+					      DEPOSIT);
+		notify_chain_mvt(w->ld, mvt);
+	}
+
+	if (!wallet_add_utxo(w, utxo, utxo->is_p2sh ? p2sh_wpkh : our_change)) {
+		/* In case we already know the output, make
+		 * sure we actually track its
+		 * blockheight. This can happen when we grab
+		 * the output from a transaction we created
+		 * ourselves. */
+		if (blockheight)
+			wallet_confirm_tx(w, &utxo->outpoint.txid, *blockheight);
+		return;
+	}
+
+	/* This is an unconfirmed change output, we should track it */
+	if (!utxo->is_p2sh && !blockheight)
+		txfilter_add_scriptpubkey(w->ld->owned_txfilter, txout->script);
+
+	outpointfilter_add(w->owned_outpoints, &utxo->outpoint);
+
+	wallet_annotate_txout(w, &utxo->outpoint, TX_WALLET_DEPOSIT, 0);
+}
+
 int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 				 bool is_coinbase,
 				 const u32 *blockheight)
@@ -2920,68 +2982,16 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 
 	for (size_t i = 0; i < wtx->num_outputs; i++) {
 		const struct wally_tx_output *txout = &wtx->outputs[i];
-		struct utxo *utxo;
-		u32 index;
+		u32 keyindex;
 		struct amount_asset asset = wally_tx_output_get_amount(txout);
-		struct chain_coin_mvt *mvt;
 
 		if (!amount_asset_is_main(&asset))
 			continue;
 
-		if (!wallet_can_spend(w, txout->script, txout->script_len, &index))
+		if (!wallet_can_spend(w, txout->script, txout->script_len, &keyindex))
 			continue;
 
-		utxo = tal(w, struct utxo);
-		utxo->keyindex = index;
-		utxo->is_p2sh = is_p2sh(txout->script, txout->script_len, NULL);
-		utxo->amount = amount_asset_to_sat(&asset);
-		utxo->status = OUTPUT_STATE_AVAILABLE;
-		wally_txid(wtx, &utxo->outpoint.txid);
-		utxo->outpoint.n = i;
-		utxo->close_info = NULL;
-		utxo->is_in_coinbase = is_coinbase;
-
-		utxo->blockheight = blockheight ? blockheight : NULL;
-		utxo->spendheight = NULL;
-		utxo->scriptPubkey = tal_dup_arr(utxo, u8, txout->script, txout->script_len, 0);
-		log_debug(w->log, "Owning output %zu %s (%s) txid %s%s%s",
-			  i,
-			  fmt_amount_sat(tmpctx, utxo->amount),
-			  utxo->is_p2sh ? "P2SH" : "SEGWIT",
-			  fmt_bitcoin_txid(tmpctx, &utxo->outpoint.txid),
-			  blockheight ? " CONFIRMED" : "",
-			  is_coinbase ? " COINBASE" : "");
-
-		/* We only record final ledger movements */
-		if (blockheight) {
-			mvt = new_coin_wallet_deposit(tmpctx, &utxo->outpoint,
-						      *blockheight,
-						      utxo->amount,
-						      DEPOSIT);
-			notify_chain_mvt(w->ld, mvt);
-		}
-
-		if (!wallet_add_utxo(w, utxo, utxo->is_p2sh ? p2sh_wpkh : our_change)) {
-			/* In case we already know the output, make
-			 * sure we actually track its
-			 * blockheight. This can happen when we grab
-			 * the output from a transaction we created
-			 * ourselves. */
-			if (blockheight)
-				wallet_confirm_tx(w, &utxo->outpoint.txid,
-						  *blockheight);
-			tal_free(utxo);
-			continue;
-		}
-
-		/* This is an unconfirmed change output, we should track it */
-		if (!utxo->is_p2sh && !blockheight)
-			txfilter_add_scriptpubkey(w->ld->owned_txfilter, txout->script);
-
-		outpointfilter_add(w->owned_outpoints, &utxo->outpoint);
-
-		wallet_annotate_txout(w, &utxo->outpoint, TX_WALLET_DEPOSIT, 0);
-		tal_free(utxo);
+		got_utxo(w, keyindex, wtx, i, is_coinbase, blockheight);
 		num_utxos++;
 	}
 	return num_utxos;
