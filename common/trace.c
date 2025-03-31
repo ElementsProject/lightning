@@ -10,9 +10,10 @@
 #include <common/trace.h>
 #include <sodium/randombytes.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #if HAVE_USDT
-#include <sys/sdt.h>
+  #include <sys/sdt.h>
 
 #define MAX_ACTIVE_SPANS 128
 
@@ -40,6 +41,7 @@
 #endif
 
 const char *trace_service_name = "lightningd";
+static bool disable_trace = false;
 
 struct span_tag {
 	char *name, *value;
@@ -176,6 +178,9 @@ static struct span *trace_span_find(size_t key)
 	return NULL;
 }
 
+/* FIXME: Forward declaration for minimal patch size */
+static void trace_span_clear(struct span *s);
+
 /**
  * Find an empty slot for a new span.
  */
@@ -187,7 +192,13 @@ static struct span *trace_span_slot(void)
 
 	/* Might end up here if we have more than MAX_ACTIVE_SPANS
 	 * concurrent spans. */
-	assert(s);
+	if (!s) {
+		fprintf(stderr, "%u: out of spans, disabling tracing\n", getpid());
+		for (size_t i = 0; i < MAX_ACTIVE_SPANS; i++)
+			trace_span_clear(&active_spans[i]);
+		disable_trace = true;
+		return NULL;
+	}
 	assert(s->parent == NULL);
 
 	/* Be extra careful not to create cycles. If we return the
@@ -260,11 +271,15 @@ void trace_span_start(const char *name, const void *key)
 	size_t numkey = trace_key(key);
 	struct timeabs now = time_now();
 
+	if (disable_trace)
+		return;
 	trace_init();
 	trace_check_tree();
 
 	assert(trace_span_find(numkey) == NULL);
 	struct span *s = trace_span_slot();
+	if (!s)
+		return;
 	s->key = numkey;
 	randombytes_buf(s->id, SPAN_ID_SIZE);
 	s->start_time = (now.ts.tv_sec * 1000000) + now.ts.tv_nsec / 1000;
@@ -293,6 +308,9 @@ void trace_span_remote(u8 trace_id[TRACE_ID_SIZE], u8 span_id[SPAN_ID_SIZE])
 
 void trace_span_end(const void *key)
 {
+	if (disable_trace)
+		return;
+
 	size_t numkey = trace_key(key);
 	struct span *s = trace_span_find(numkey);
 	assert(s && "Span to end not found");
@@ -323,6 +341,9 @@ void trace_span_end(const void *key)
 
 void trace_span_tag(const void *key, const char *name, const char *value)
 {
+	if (disable_trace)
+		return;
+
 	size_t numkey = trace_key(key);
 	struct span *span = trace_span_find(numkey);
 	assert(span);
@@ -341,6 +362,9 @@ void trace_span_tag(const void *key, const char *name, const char *value)
 
 void trace_span_suspend_(const void *key, const char *lbl)
 {
+	if (disable_trace)
+		return;
+
 	size_t numkey = trace_key(key);
 	struct span *span = trace_span_find(numkey);
 	TRACE_DBG("Suspending span %s (%zu)\n", current->name, current->key);
@@ -351,6 +375,9 @@ void trace_span_suspend_(const void *key, const char *lbl)
 
 void trace_span_resume_(const void *key, const char *lbl)
 {
+	if (disable_trace)
+		return;
+
 	size_t numkey = trace_key(key);
 	current = trace_span_find(numkey);
 	TRACE_DBG("Resuming span %s (%zu)\n", current->name, current->key);
