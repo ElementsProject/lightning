@@ -46,7 +46,7 @@ void onchain_failed_our_htlc(const struct channel *channel,
 void onchain_fulfilled_htlc(struct channel *channel,
 			    const struct preimage *preimage);
 
-void htlcs_notify_new_block(struct lightningd *ld, u32 height);
+void htlcs_notify_new_block(struct lightningd *ld);
 
 /* Only defined if COMPAT_V061 */
 void fixup_htlcs_out(struct lightningd *ld);
