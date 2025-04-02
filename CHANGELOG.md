@@ -3,6 +3,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [24.11.2] - 2025-04-03: "The lightning-dev Mailing List III"
+
+Important fixes for bugs in v24.11.
+
+### Fixed
+
+ - wallet: we could miss our own returned outputs on mutual closes if peer doesn't support option_shutdown_anysegwit.  Any missing outputs can be found by rescan after upgrade, or upgrading to v25.02.1 ([#8175])
+ - lightningd: incorrect spamming of log and potential crash on testnet case of duplicate HTLCs and slow closing. ([#8192])
+ - Protocol: Egregious anchor fee paid for unilateral close txs due to HTLC timeouts; it's not as urgent as our code made out! ([#8190])
+ - lightningd: occasional crash on bitcoind callback. ([#8186])
+ - autoclean/chanbackup: fixed tracepoint crash on large number of requests. ([#8188])
+ - autoclean: fixed occasional crash when tracepoints compiled in. ([#8198])
+ - `topology` crash on invoice creation if a peer had a really high feerate. ([#8187])
+
+[#8186]: https://github.com/ElementsProject/lightning/pull/8186
+[#8192]: https://github.com/ElementsProject/lightning/pull/8192
+[#8187]: https://github.com/ElementsProject/lightning/pull/8187
+[#8190]: https://github.com/ElementsProject/lightning/pull/8190
+[#8175]: https://github.com/ElementsProject/lightning/pull/8175
+[#8188]: https://github.com/ElementsProject/lightning/pull/8188
+[#8198]: https://github.com/ElementsProject/lightning/pull/8198
+[25.11.2]: https://github.com/ElementsProject/lightning/releases/tag/v24.11.2
+
 ## [24.11.1] - 2024-12-16: "The lightning-dev Mailing List II"
 
 Minor fixes, particularly for xpay users.
