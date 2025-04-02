@@ -33,6 +33,8 @@ impl Error {
 
 #[derive(Error, Debug)]
 pub enum TransportError {
+    #[error("Timeout")]
+    Timeout,
     #[error("Other error: {0}")]
     Other(String),
 }
