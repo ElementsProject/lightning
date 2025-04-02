@@ -1111,7 +1111,7 @@ send_outreq(const struct out_req *req)
 	 * callback. */
 	trace_span_start("jsonrpc", req);
 	trace_span_tag(req, "id", req->id);
-	trace_span_suspend(req);
+	trace_span_suspend_may_free(req);
 
 	ld_rpc_send(req->cmd->plugin, req->js);
 	notleak_with_children(req->cmd);
