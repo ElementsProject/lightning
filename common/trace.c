@@ -373,6 +373,28 @@ void trace_span_suspend_(const void *key, const char *lbl)
 	DTRACE_PROBE1(lightningd, span_suspend, span->id);
 }
 
+static void destroy_trace_span(const void *key)
+{
+	size_t numkey = trace_key(key);
+	struct span *span = trace_span_find(numkey);
+
+	/* It's usually ended normally. */
+	if (!span)
+		return;
+
+	/* Otherwise resume so we can terminate it */
+	trace_span_resume(key);
+	trace_span_end(key);
+}
+
+void trace_span_suspend_may_free_(const void *key, const char *lbl)
+{
+	if (disable_trace)
+		return;
+	trace_span_suspend_(key, lbl);
+	tal_add_destructor(key, destroy_trace_span);
+}
+
 void trace_span_resume_(const void *key, const char *lbl)
 {
 	if (disable_trace)
@@ -395,6 +417,7 @@ void trace_cleanup(void)
 void trace_span_start(const char *name, const void *key) {}
 void trace_span_end(const void *key) {}
 void trace_span_suspend_(const void *key, const char *lbl) {}
+void trace_span_suspend_may_free_(const void *key, const char *lbl) {}
 void trace_span_resume_(const void *key, const char *lbl) {}
 void trace_span_tag(const void *key, const char *name, const char *value) {}
 void trace_cleanup(void) {}
