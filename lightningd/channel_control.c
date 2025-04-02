@@ -363,7 +363,7 @@ static void handle_splice_abort(struct lightningd *ld,
 		return;
 	}
 
-	if (peer_start_channeld(channel, pfd, NULL, false, false)) {
+	if (peer_start_channeld(channel, pfd, NULL, false)) {
 		subd_send_msg(ld->connectd,
 			      take(towire_connectd_peer_connect_subd(NULL,
 			      					     &peer->id,
@@ -1641,8 +1641,7 @@ static void channel_control_errmsg(struct channel *channel,
 bool peer_start_channeld(struct channel *channel,
 			 struct peer_fd *peer_fd,
 			 const u8 *fwd_msg,
-			 bool reconnected,
-			 bool reestablish_only)
+			 bool reconnected)
 {
 	u8 *initmsg;
 	int hsmfd;
@@ -1865,7 +1864,6 @@ bool peer_start_channeld(struct channel *channel,
 					     ? NULL
 					     : (u32 *)&ld->dev_disable_commit,
 				       pbases,
-				       reestablish_only,
 				       ld->experimental_upgrade_protocol,
 				       cast_const2(const struct inflight **,
 						   inflights),

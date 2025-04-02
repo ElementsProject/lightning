@@ -1990,7 +1990,7 @@ static void handle_channel_locked(struct subd *dualopend,
 	channel_watch_funding(dualopend->ld, channel);
 
 	/* FIXME: LND sigs/update_fee msgs? */
-	peer_start_channeld(channel, peer_fd, NULL, false, NULL);
+	peer_start_channeld(channel, peer_fd, NULL, false);
 	return;
 }
 
