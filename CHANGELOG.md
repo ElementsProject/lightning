@@ -3,6 +3,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [25.02.1] - 2025-04-03: "Onion Packet Filler Accreditation II"
+
+Important fixes for bugs in v25.02.
+
+### Fixed
+
+ - wallet: we could miss our own returned outputs on mutual closes if peer doesn't support option_shutdown_anysegwit ([#8175])
+ - wallet: rescan for missing close outputs in case above bug happened ([#8175])
+ - lightningd: incorrect spamming of log and potential crash on testnet case of duplicate HTLCs and slow closing. ([#8192])
+ - Protocol: Egregious anchor fee paid for unilateral close txs due to HTLC timeouts; it's not as urgent as our code made out! ([#8190])
+ - lightningd: occasional crash on bitcoind callback. ([#8186])
+ - autoclean/chanbackup: fixed tracepoint crash on large number of requests. ([#8188])
+ - autoclean: fixed occasional crash when tracepoints compiled in. ([#8198])
+ - `topology` crash on invoice creation if a peer had a really high feerate. ([#8187])
+ - `make` cleans up old clnrest directory prior to building and installing the new plugin. ([#8201], [#8159])
+
+[#8186]: https://github.com/ElementsProject/lightning/pull/8186
+[#8192]: https://github.com/ElementsProject/lightning/pull/8192
+[#8187]: https://github.com/ElementsProject/lightning/pull/8187
+[#8190]: https://github.com/ElementsProject/lightning/pull/8190
+[#8175]: https://github.com/ElementsProject/lightning/pull/8175
+[#8188]: https://github.com/ElementsProject/lightning/pull/8188
+[#8198]: https://github.com/ElementsProject/lightning/pull/8198
+[#8159]: https://github.com/ElementsProject/lightning/pull/8159
+[#8201]: https://github.com/ElementsProject/lightning/pull/8201
+[25.02.1]: https://github.com/ElementsProject/lightning/releases/tag/v25.02.1
+
 ## [25.02] - 2025-03-04: "Onion Packet Filler Accreditation"
 
 This release named by @s373nZ.
