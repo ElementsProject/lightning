@@ -4,8 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0"
 async-trait = "0.1"
-dashmap = "6.1"
+cln-plugin = { version = "0.4", path = "../" }
+cln-rpc = { version = "0.4", path = "../../cln-rpc" }
 hex = "0.4"
 log = "0.4"
 rand = "0.9"
