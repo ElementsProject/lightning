@@ -304,6 +304,7 @@ CLN_REST_PLUGIN_SRC = $(shell find plugins/rest-plugin/src -name "*.rs")
 target/${RUST_PROFILE}/cln-grpc: ${CLN_PLUGIN_SRC} ${CLN_GRPC_PLUGIN_SRC} $(MSGGEN_GENALL) $(MSGGEN_GEN_ALL)
 	cargo build ${CARGO_OPTS} --bin cln-grpc
 target/${RUST_PROFILE}/clnrest: ${CLN_REST_PLUGIN_SRC}
+	@if [ -d "plugins/clnrest" ]; then rm -rf plugins/clnrest; fi
 	cargo build ${CARGO_OPTS} --bin clnrest
 
 ifneq ($(RUST),0)
