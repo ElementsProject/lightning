@@ -6552,10 +6552,6 @@ static void mutual_close_p2pkh_catch(struct bitcoind *bitcoind,
 			const struct wally_tx_output *txout = &wtx->outputs[outnum];
 			for (size_t n = 0; n < tal_count(missing->addrs); n++) {
 				struct bitcoin_outpoint outp;
-				log_debug(bitcoind->ld->log, "%zu out %zu: %s (seeking %s)",
-					  i, outnum,
-					  tal_hexstr(tmpctx, txout->script, txout->script_len),
-					  tal_hex(tmpctx, missing->addrs[n].scriptpubkey));
 				if (!memeq(txout->script, txout->script_len,
 					   missing->addrs[n].scriptpubkey,
 					   tal_bytelen(missing->addrs[n].scriptpubkey)))
