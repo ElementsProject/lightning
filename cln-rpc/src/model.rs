@@ -3736,7 +3736,7 @@ pub mod requests {
 	    }
 	}
 
-	/// ['The subsystem to get the next index value from.', '  `invoices`: corresponding to `listinvoices` (added in *v23.08*).', '  `sendpays`: corresponding to `listsendpays` (added in *v23.11*).', '  `forwards`: corresponding to `listforwards` (added in *v23.11*).']
+	/// ['The subsystem to get the next index value from.', '  `invoices`: corresponding to `listinvoices` (added in *v23.08*).', '  `sendpays`: corresponding to `listsendpays` (added in *v23.11*).', '  `forwards`: corresponding to `listforwards` (added in *v23.11*).', '  `htlcs`: corresponding to `listhtlcs` (added in *v25.05*).']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
 	pub enum WaitSubsystem {
@@ -3746,6 +3746,8 @@ pub mod requests {
 	    FORWARDS = 1,
 	    #[serde(rename = "sendpays")]
 	    SENDPAYS = 2,
+	    #[serde(rename = "htlcs")]
+	    HTLCS = 3,
 	}
 
 	impl TryFrom<i32> for WaitSubsystem {
@@ -3755,6 +3757,7 @@ pub mod requests {
 	    0 => Ok(WaitSubsystem::INVOICES),
 	    1 => Ok(WaitSubsystem::FORWARDS),
 	    2 => Ok(WaitSubsystem::SENDPAYS),
+	    3 => Ok(WaitSubsystem::HTLCS),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitSubsystem", o)),
 	        }
 	    }
@@ -3766,6 +3769,7 @@ pub mod requests {
 	            WaitSubsystem::INVOICES => "INVOICES",
 	            WaitSubsystem::FORWARDS => "FORWARDS",
 	            WaitSubsystem::SENDPAYS => "SENDPAYS",
+	            WaitSubsystem::HTLCS => "HTLCS",
 	        }.to_string()
 	    }
 	}
@@ -9493,6 +9497,138 @@ pub mod responses {
 	    }
 	}
 
+	/// ['Out if we offered this to the peer, in if they offered it.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum WaitDetailsDirection {
+	    #[serde(rename = "out")]
+	    OUT = 0,
+	    #[serde(rename = "in")]
+	    IN = 1,
+	}
+
+	impl TryFrom<i32> for WaitDetailsDirection {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<WaitDetailsDirection, anyhow::Error> {
+	        match c {
+	    0 => Ok(WaitDetailsDirection::OUT),
+	    1 => Ok(WaitDetailsDirection::IN),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitDetailsDirection", o)),
+	        }
+	    }
+	}
+
+	impl ToString for WaitDetailsDirection {
+	    fn to_string(&self) -> String {
+	        match self {
+	            WaitDetailsDirection::OUT => "OUT",
+	            WaitDetailsDirection::IN => "IN",
+	        }.to_string()
+	    }
+	}
+
+	/// ['The first 10 states are for `in`, the next 10 are for `out`.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum WaitDetailsState {
+	    #[serde(rename = "SENT_ADD_HTLC")]
+	    SENT_ADD_HTLC = 0,
+	    #[serde(rename = "SENT_ADD_COMMIT")]
+	    SENT_ADD_COMMIT = 1,
+	    #[serde(rename = "RCVD_ADD_REVOCATION")]
+	    RCVD_ADD_REVOCATION = 2,
+	    #[serde(rename = "RCVD_ADD_ACK_COMMIT")]
+	    RCVD_ADD_ACK_COMMIT = 3,
+	    #[serde(rename = "SENT_ADD_ACK_REVOCATION")]
+	    SENT_ADD_ACK_REVOCATION = 4,
+	    #[serde(rename = "RCVD_REMOVE_HTLC")]
+	    RCVD_REMOVE_HTLC = 5,
+	    #[serde(rename = "RCVD_REMOVE_COMMIT")]
+	    RCVD_REMOVE_COMMIT = 6,
+	    #[serde(rename = "SENT_REMOVE_REVOCATION")]
+	    SENT_REMOVE_REVOCATION = 7,
+	    #[serde(rename = "SENT_REMOVE_ACK_COMMIT")]
+	    SENT_REMOVE_ACK_COMMIT = 8,
+	    #[serde(rename = "RCVD_REMOVE_ACK_REVOCATION")]
+	    RCVD_REMOVE_ACK_REVOCATION = 9,
+	    #[serde(rename = "RCVD_ADD_HTLC")]
+	    RCVD_ADD_HTLC = 10,
+	    #[serde(rename = "RCVD_ADD_COMMIT")]
+	    RCVD_ADD_COMMIT = 11,
+	    #[serde(rename = "SENT_ADD_REVOCATION")]
+	    SENT_ADD_REVOCATION = 12,
+	    #[serde(rename = "SENT_ADD_ACK_COMMIT")]
+	    SENT_ADD_ACK_COMMIT = 13,
+	    #[serde(rename = "RCVD_ADD_ACK_REVOCATION")]
+	    RCVD_ADD_ACK_REVOCATION = 14,
+	    #[serde(rename = "SENT_REMOVE_HTLC")]
+	    SENT_REMOVE_HTLC = 15,
+	    #[serde(rename = "SENT_REMOVE_COMMIT")]
+	    SENT_REMOVE_COMMIT = 16,
+	    #[serde(rename = "RCVD_REMOVE_REVOCATION")]
+	    RCVD_REMOVE_REVOCATION = 17,
+	    #[serde(rename = "RCVD_REMOVE_ACK_COMMIT")]
+	    RCVD_REMOVE_ACK_COMMIT = 18,
+	    #[serde(rename = "SENT_REMOVE_ACK_REVOCATION")]
+	    SENT_REMOVE_ACK_REVOCATION = 19,
+	}
+
+	impl TryFrom<i32> for WaitDetailsState {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<WaitDetailsState, anyhow::Error> {
+	        match c {
+	    0 => Ok(WaitDetailsState::SENT_ADD_HTLC),
+	    1 => Ok(WaitDetailsState::SENT_ADD_COMMIT),
+	    2 => Ok(WaitDetailsState::RCVD_ADD_REVOCATION),
+	    3 => Ok(WaitDetailsState::RCVD_ADD_ACK_COMMIT),
+	    4 => Ok(WaitDetailsState::SENT_ADD_ACK_REVOCATION),
+	    5 => Ok(WaitDetailsState::RCVD_REMOVE_HTLC),
+	    6 => Ok(WaitDetailsState::RCVD_REMOVE_COMMIT),
+	    7 => Ok(WaitDetailsState::SENT_REMOVE_REVOCATION),
+	    8 => Ok(WaitDetailsState::SENT_REMOVE_ACK_COMMIT),
+	    9 => Ok(WaitDetailsState::RCVD_REMOVE_ACK_REVOCATION),
+	    10 => Ok(WaitDetailsState::RCVD_ADD_HTLC),
+	    11 => Ok(WaitDetailsState::RCVD_ADD_COMMIT),
+	    12 => Ok(WaitDetailsState::SENT_ADD_REVOCATION),
+	    13 => Ok(WaitDetailsState::SENT_ADD_ACK_COMMIT),
+	    14 => Ok(WaitDetailsState::RCVD_ADD_ACK_REVOCATION),
+	    15 => Ok(WaitDetailsState::SENT_REMOVE_HTLC),
+	    16 => Ok(WaitDetailsState::SENT_REMOVE_COMMIT),
+	    17 => Ok(WaitDetailsState::RCVD_REMOVE_REVOCATION),
+	    18 => Ok(WaitDetailsState::RCVD_REMOVE_ACK_COMMIT),
+	    19 => Ok(WaitDetailsState::SENT_REMOVE_ACK_REVOCATION),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitDetailsState", o)),
+	        }
+	    }
+	}
+
+	impl ToString for WaitDetailsState {
+	    fn to_string(&self) -> String {
+	        match self {
+	            WaitDetailsState::SENT_ADD_HTLC => "SENT_ADD_HTLC",
+	            WaitDetailsState::SENT_ADD_COMMIT => "SENT_ADD_COMMIT",
+	            WaitDetailsState::RCVD_ADD_REVOCATION => "RCVD_ADD_REVOCATION",
+	            WaitDetailsState::RCVD_ADD_ACK_COMMIT => "RCVD_ADD_ACK_COMMIT",
+	            WaitDetailsState::SENT_ADD_ACK_REVOCATION => "SENT_ADD_ACK_REVOCATION",
+	            WaitDetailsState::RCVD_REMOVE_HTLC => "RCVD_REMOVE_HTLC",
+	            WaitDetailsState::RCVD_REMOVE_COMMIT => "RCVD_REMOVE_COMMIT",
+	            WaitDetailsState::SENT_REMOVE_REVOCATION => "SENT_REMOVE_REVOCATION",
+	            WaitDetailsState::SENT_REMOVE_ACK_COMMIT => "SENT_REMOVE_ACK_COMMIT",
+	            WaitDetailsState::RCVD_REMOVE_ACK_REVOCATION => "RCVD_REMOVE_ACK_REVOCATION",
+	            WaitDetailsState::RCVD_ADD_HTLC => "RCVD_ADD_HTLC",
+	            WaitDetailsState::RCVD_ADD_COMMIT => "RCVD_ADD_COMMIT",
+	            WaitDetailsState::SENT_ADD_REVOCATION => "SENT_ADD_REVOCATION",
+	            WaitDetailsState::SENT_ADD_ACK_COMMIT => "SENT_ADD_ACK_COMMIT",
+	            WaitDetailsState::RCVD_ADD_ACK_REVOCATION => "RCVD_ADD_ACK_REVOCATION",
+	            WaitDetailsState::SENT_REMOVE_HTLC => "SENT_REMOVE_HTLC",
+	            WaitDetailsState::SENT_REMOVE_COMMIT => "SENT_REMOVE_COMMIT",
+	            WaitDetailsState::RCVD_REMOVE_REVOCATION => "RCVD_REMOVE_REVOCATION",
+	            WaitDetailsState::RCVD_REMOVE_ACK_COMMIT => "RCVD_REMOVE_ACK_COMMIT",
+	            WaitDetailsState::SENT_REMOVE_ACK_REVOCATION => "SENT_REMOVE_ACK_REVOCATION",
+	        }.to_string()
+	    }
+	}
+
 	/// ['Status of the payment.', 'Still ongoing, completed, failed locally, or failed after forwarding.', "Whether it's paid, unpaid or unpayable."]
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
@@ -9554,13 +9690,21 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitDetails {
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt11: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub cltv_expiry: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub direction: Option<WaitDetailsDirection>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub groupid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_id: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub in_channel: Option<ShortChannelId>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -9576,6 +9720,10 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_hash: Option<Sha256>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub short_channel_id: Option<ShortChannelId>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub state: Option<WaitDetailsState>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub status: Option<WaitDetailsStatus>,
 	}
 
@@ -9588,6 +9736,8 @@ pub mod responses {
 	    FORWARDS = 1,
 	    #[serde(rename = "sendpays")]
 	    SENDPAYS = 2,
+	    #[serde(rename = "htlcs")]
+	    HTLCS = 3,
 	}
 
 	impl TryFrom<i32> for WaitSubsystem {
@@ -9597,6 +9747,7 @@ pub mod responses {
 	    0 => Ok(WaitSubsystem::INVOICES),
 	    1 => Ok(WaitSubsystem::FORWARDS),
 	    2 => Ok(WaitSubsystem::SENDPAYS),
+	    3 => Ok(WaitSubsystem::HTLCS),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitSubsystem", o)),
 	        }
 	    }
@@ -9608,6 +9759,7 @@ pub mod responses {
 	            WaitSubsystem::INVOICES => "INVOICES",
 	            WaitSubsystem::FORWARDS => "FORWARDS",
 	            WaitSubsystem::SENDPAYS => "SENDPAYS",
+	            WaitSubsystem::HTLCS => "HTLCS",
 	        }.to_string()
 	    }
 	}

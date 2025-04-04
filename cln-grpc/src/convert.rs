@@ -2664,10 +2664,14 @@ impl From<responses::WaitblockheightResponse> for pb::WaitblockheightResponse {
 impl From<responses::WaitDetails> for pb::WaitDetails {
     fn from(c: responses::WaitDetails) -> Self {
         Self {
+            amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
+            cltv_expiry: c.cltv_expiry, // Rule #2 for type u32?
             description: c.description, // Rule #2 for type string?
+            direction: c.direction.map(|v| v as i32),
             groupid: c.groupid, // Rule #2 for type u64?
+            htlc_id: c.htlc_id, // Rule #2 for type u64?
             in_channel: c.in_channel.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
             in_htlc_id: c.in_htlc_id, // Rule #2 for type u64?
             in_msat: c.in_msat.map(|f| f.into()), // Rule #2 for type msat?
@@ -2675,6 +2679,8 @@ impl From<responses::WaitDetails> for pb::WaitDetails {
             out_channel: c.out_channel.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
             partid: c.partid, // Rule #2 for type u64?
             payment_hash: c.payment_hash.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
+            short_channel_id: c.short_channel_id.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+            state: c.state.map(|v| v as i32),
             status: c.status.map(|v| v as i32),
         }
     }
