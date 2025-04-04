@@ -67,7 +67,13 @@ static bool htlc_in_update_state(struct channel *channel,
 			   max_unsigned(channel->next_index[LOCAL],
 					channel->next_index[REMOTE]),
 			   hin->badonion, hin->failonion, NULL,
-			   hin->we_filled);
+			   hin->we_filled,
+			   hin->key.id,
+			   hin->key.channel,
+			   REMOTE,
+			   &hin->payment_hash,
+			   hin->cltv_expiry,
+			   hin->msat);
 
 	hin->hstate = newstate;
 	return true;
@@ -87,7 +93,13 @@ static bool htlc_out_update_state(struct channel *channel,
 			   max_unsigned(channel->next_index[LOCAL],
 					channel->next_index[REMOTE]),
 			   0, hout->failonion,
-			   hout->failmsg, &we_filled);
+			   hout->failmsg, &we_filled,
+			   hout->key.id,
+			   hout->key.channel,
+			   LOCAL,
+			   &hout->payment_hash,
+			   hout->cltv_expiry,
+			   hout->msat);
 
 	hout->hstate = newstate;
 	return true;
@@ -234,7 +246,13 @@ static void fail_in_htlc(struct htlc_in *hin,
 			   max_unsigned(hin->key.channel->next_index[LOCAL],
 					hin->key.channel->next_index[REMOTE]),
 			   hin->badonion,
-			   hin->failonion, NULL, &we_filled);
+			   hin->failonion, NULL, &we_filled,
+			   hin->key.id,
+			   hin->key.channel,
+			   REMOTE,
+			   &hin->payment_hash,
+			   hin->cltv_expiry,
+			   hin->msat);
 
 	tell_channeld_htlc_failed(hin, failed_htlc);
 }
@@ -1500,7 +1518,14 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 			   max_unsigned(channel->next_index[LOCAL],
 					channel->next_index[REMOTE]),
 			   0, hout->failonion,
-			   hout->failmsg, &we_filled);
+			   hout->failmsg, &we_filled,
+			   hout->key.id,
+			   hout->key.channel,
+			   LOCAL,
+			   &hout->payment_hash,
+			   hout->cltv_expiry,
+			   hout->msat);
+
 	/* Update channel stats */
 	channel_stats_incr_out_fulfilled(channel, hout->msat);
 
@@ -1761,7 +1786,13 @@ void onchain_failed_our_htlc(const struct channel *channel,
 			   max_unsigned(channel->next_index[LOCAL],
 					channel->next_index[REMOTE]),
 			   0, hout->failonion,
-			   hout->failmsg, &we_filled);
+			   hout->failmsg, &we_filled,
+			   hout->key.id,
+			   hout->key.channel,
+			   LOCAL,
+			   &hout->payment_hash,
+			   hout->cltv_expiry,
+			   hout->msat);
 
 	if (hout->am_origin) {
 		log_debug(channel->log, "HTLC id %"PRIu64" am origin",
