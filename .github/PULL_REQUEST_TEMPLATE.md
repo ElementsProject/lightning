@@ -1,5 +1,11 @@
 > [!IMPORTANT]
-> 25.02 FREEZE JANUARY 31ST: Non-bugfix PRs not ready by this date will wait for 25.05.
+>
+> 25.05 FREEZE MAY 12TH: Non-bugfix PRs not ready by this date will wait for 25.08.
+>
+> RC1 is scheduled on _May 23rd_, RC2 on _May 26th_, ...
+>
+> The final release is on MAY 29TH.
+
 
 ## Checklist
 Before submitting the PR, ensure the following tasks are completed. If an item is not applicable to your PR, please mark it as checked:
