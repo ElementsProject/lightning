@@ -17,10 +17,10 @@ Similarly, if you deprecate a field, add "deprecated": "VERSION" (where VERSION 
 
 ## How to Write a Schema
 
-Name the schema doc/schemas/lightning-`command`.json: the testsuite should pick it up and check all invocations of that command against it.
+Name the schema doc/schemas/`command`.json: the testsuite should pick it up and check all invocations of that command against it.
 The core lightning RPC commands use custom schema specification defined in [rpc-schema-draft](https://github.com/ElementsProject/lightning/doc/rpc-schema-draft.json).
 
-I recommend copying an existing one to start. If something goes wrong, try tools/fromscheme.py doc/schemas/lightning-`command`.json to see how far it got before it died.
+I recommend copying an existing one to start. If something goes wrong, try tools/fromscheme.py doc/schemas/`command`.json to see how far it got before it died.
 
 You should always list all fields which are _always_ present in `"required"`.
 
@@ -64,7 +64,7 @@ To add conditional fields:
 
 ## Generating Examples in Schema
 The `tests/autogenerate-rpc-examples.py` test script regenerates RPC examples for methods defined
-in `doc/schemas/lightning-*.json`, if the environment variable `GENERATE_EXAMPLES` is set to 1.
+in `doc/schemas/*.json`, if the environment variable `GENERATE_EXAMPLES` is set to 1.
 These examples are located at the end of each schema page, detailing `shell` and `json` request
 formats along with their corresponding `json` responses. The script utilizes the pytest suite to
 automate this task by running a test, `test_generate_examples`, that sets up test nodes, records
