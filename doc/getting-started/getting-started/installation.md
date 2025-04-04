@@ -44,7 +44,7 @@ See all of the docker images for Core Lightning on [Docker Hub](https://hub.dock
 
 # Third-party apps
 
-For a GUI experience, you can install and use Core Lightning via a variety of third-party applications such as [Ride the Lightning](https://www.ridethelightning.info/), [Umbrel](https://getumbrel.com/), [BTCPayServer](https://btcpayserver.org/), [Raspiblitz](https://raspiblitz.org/), [Embassy](https://start9.com/). 
+For a GUI experience, you can install and use Core Lightning via a variety of third-party applications such as [Ride the Lightning](https://www.ridethelightning.info/), [Umbrel](https://getumbrel.com/), [BTCPayServer](https://btcpayserver.org/), [Raspiblitz](https://raspiblitz.org/), and [Start9](https://start9.com/).
 
 Core Lightning is also available on nixOS via the [nix-bitcoin](https://github.com/fort-nix/nix-bitcoin/) project.
 
@@ -64,7 +64,7 @@ For actually doing development and running the tests, you will also need:
 - pip3: to install python-bitcoinlib
 - valgrind: for extra debugging checks
 
-You will also need a version of bitcoind with segregated witness and `estimatesmartfee` with `ECONOMICAL` mode support, such as the 0.16 or above.
+You will also need a version of bitcoind with segregated witness and `estimatesmartfee` with `ECONOMICAL` mode support. Version 0.16 or above should work.
 
 ## To Build on Ubuntu
 
@@ -80,6 +80,9 @@ sudo apt-get install -y \
 pip3 install --upgrade pip
 pip3 install --user poetry
 ```
+
+(If installing `poetry` with `pip` as above fails, try installing it with the [official poetry installer](https://python-poetry.org/docs/#installing-with-the-official-installer).)
+
 
 If you don't have Bitcoin installed locally you'll need to install that as well. It's now available via [snapd](https://snapcraft.io/bitcoin-core).
 
@@ -101,7 +104,7 @@ cd lightning
 Checkout a release tag:
 
 ```shell
-git checkout v24.05
+git checkout v25.02
 ```
 
 For development or running tests, get additional dependencies:
@@ -114,7 +117,7 @@ pip3 install pytest
 
 If you can't install `lowdown`, a version will be built in-tree.
 
-If you want to build the Rust plugins (currently, cln-grpc and clnrest, which changed from Python to Rust as of v25.02):
+If you want to build the Rust plugins (currently cln-grpc and clnrest, which changed from Python to Rust as of v25.02):
 
 ```shell
 sudo apt-get install -y cargo rustfmt protobuf-compiler
@@ -127,25 +130,22 @@ sudo apt-get install -y cargo rustfmt protobuf-compiler
 
 There are two ways to build core lightning, and this depends on how you want use it.
 
-To build cln to just install a tagged or master version you can use the following commands:
+To build CLN for production:
 
 ```shell
-pip3 install --upgrade pip
-pip3 install mako
-pip3 install grpcio-tools
+poetry install
 ./configure
-make
+poetry run make -j$(($(nproc)-1))
 sudo make install
 ```
 
 > 📘 
 > 
-> If you want disable Rust because you do not want use it or simple you do not want the grpc-plugin, you can use `./configure --disable-rust`.
+> If you want disable Rust because you do not want use it or you do not want `cln-grpc` or `clnrest`, you can use `./configure --disable-rust`.
 
-To build core lightning for development purpose you can use the following commands:
+To build CLN for development:
 
 ```shell
-pip3 install poetry
 poetry shell
 ```
 
