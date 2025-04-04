@@ -3,6 +3,7 @@ import logging
 import os
 import socket
 import sys
+import tempfile
 from contextlib import contextmanager
 from decimal import Decimal
 from json import JSONEncoder
@@ -256,6 +257,14 @@ class UnixSocket(object):
                 short_path = "/proc/self/fd/%d/%s" % (dirfd, basename)
                 self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
                 self.sock.connect(short_path)
+            elif (e.args[0] == "AF_UNIX path too long" and os.uname()[0] == "Darwin"):
+                temp_dir = tempfile.mkdtemp()
+                temp_link = os.path.join(temp_dir, "socket_link")
+                if os.path.exists(temp_link):
+                    os.unlink(temp_link)
+                os.symlink(self.path, temp_link)
+                self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                self.sock.connect(temp_link)
             else:
                 # There is no good way to recover from this.
                 raise
