@@ -67,7 +67,13 @@ static bool htlc_in_update_state(struct channel *channel,
 			   max_unsigned(channel->next_index[LOCAL],
 					channel->next_index[REMOTE]),
 			   hin->badonion, hin->failonion, NULL,
-			   hin->we_filled);
+			   hin->we_filled,
+			   hin->key.id,
+			   hin->key.channel,
+			   REMOTE,
+			   &hin->payment_hash,
+			   hin->cltv_expiry,
+			   hin->msat);
 
 	hin->hstate = newstate;
 	return true;
@@ -87,7 +93,13 @@ static bool htlc_out_update_state(struct channel *channel,
 			   max_unsigned(channel->next_index[LOCAL],
 					channel->next_index[REMOTE]),
 			   0, hout->failonion,
-			   hout->failmsg, &we_filled);
+			   hout->failmsg, &we_filled,
+			   hout->key.id,
+			   hout->key.channel,
+			   LOCAL,
+			   &hout->payment_hash,
+			   hout->cltv_expiry,
+			   hout->msat);
 
 	hout->hstate = newstate;
 	return true;
@@ -234,7 +246,13 @@ static void fail_in_htlc(struct htlc_in *hin,
 			   max_unsigned(hin->key.channel->next_index[LOCAL],
 					hin->key.channel->next_index[REMOTE]),
 			   hin->badonion,
-			   hin->failonion, NULL, &we_filled);
+			   hin->failonion, NULL, &we_filled,
+			   hin->key.id,
+			   hin->key.channel,
+			   REMOTE,
+			   &hin->payment_hash,
+			   hin->cltv_expiry,
+			   hin->msat);
 
 	tell_channeld_htlc_failed(hin, failed_htlc);
 }
@@ -1500,7 +1518,14 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 			   max_unsigned(channel->next_index[LOCAL],
 					channel->next_index[REMOTE]),
 			   0, hout->failonion,
-			   hout->failmsg, &we_filled);
+			   hout->failmsg, &we_filled,
+			   hout->key.id,
+			   hout->key.channel,
+			   LOCAL,
+			   &hout->payment_hash,
+			   hout->cltv_expiry,
+			   hout->msat);
+
 	/* Update channel stats */
 	channel_stats_incr_out_fulfilled(channel, hout->msat);
 
@@ -1761,7 +1786,13 @@ void onchain_failed_our_htlc(const struct channel *channel,
 			   max_unsigned(channel->next_index[LOCAL],
 					channel->next_index[REMOTE]),
 			   0, hout->failonion,
-			   hout->failmsg, &we_filled);
+			   hout->failmsg, &we_filled,
+			   hout->key.id,
+			   hout->key.channel,
+			   LOCAL,
+			   &hout->payment_hash,
+			   hout->cltv_expiry,
+			   hout->msat);
 
 	if (hout->am_origin) {
 		log_debug(channel->log, "HTLC id %"PRIu64" am origin",
@@ -2913,6 +2944,66 @@ void fixup_htlcs_out(struct lightningd *ld)
 }
 #endif /* COMPAT_V061 */
 
+static u64 htlcs_index_inc(struct lightningd *ld,
+			   u64 htlc_id,
+			   const struct channel *channel,
+			   const struct sha256 *payment_hash,
+			   enum side owner,
+			   u32 expiry,
+			   struct amount_msat amount,
+			   enum htlc_state hstate,
+			   enum wait_index idx)
+{
+	return wait_index_increment(ld, WAIT_SUBSYSTEM_HTLCS, idx,
+				    "state", htlc_state_name(hstate),
+				    "short_channel_id", fmt_short_channel_id(tmpctx, channel_scid_or_local_alias(channel)),
+				    "direction", owner == LOCAL ? "out": "in",
+				    "=htlc_id", tal_fmt(tmpctx, "%"PRIu64, htlc_id),
+				    "=cltv_expiry", tal_fmt(tmpctx, "%"PRIu32, expiry),
+				    "payment_hash", fmt_sha256(tmpctx, payment_hash),
+				    "=amount_msat", tal_fmt(tmpctx, "%"PRIu64, amount.millisatoshis), /* Raw: JSON output */
+				    NULL);
+}
+
+void htlcs_index_deleted(struct lightningd *ld,
+			 const struct channel *channel,
+			 u64 num_deleted)
+{
+	wait_index_increase(ld, WAIT_SUBSYSTEM_HTLCS, WAIT_INDEX_DELETED,
+			    num_deleted,
+			    "short_channel_id", fmt_short_channel_id(tmpctx, channel_scid_or_local_alias(channel)),
+			    NULL);
+}
+
+/* Fortuntely, dbids start at 1, not 0! */
+u64 htlcs_index_created(struct lightningd *ld,
+			u64 htlc_id,
+			const struct channel *channel,
+			const struct sha256 *payment_hash,
+			enum side owner,
+			u32 expiry,
+			struct amount_msat amount,
+			enum htlc_state hstate)
+{
+	return htlcs_index_inc(ld, htlc_id, channel, payment_hash, owner,
+			       expiry, amount, hstate,
+			       WAIT_INDEX_CREATED);
+}
+
+u64 htlcs_index_update_status(struct lightningd *ld,
+			      u64 htlc_id,
+			      const struct channel *channel,
+			      const struct sha256 *payment_hash,
+			      enum side owner,
+			      u32 expiry,
+			      struct amount_msat amount,
+			      enum htlc_state hstate)
+{
+	return htlcs_index_inc(ld, htlc_id, channel, payment_hash, owner,
+			       expiry, amount, hstate,
+			       WAIT_INDEX_UPDATED);
+}
+
 void htlcs_resubmit(struct lightningd *ld,
 		    struct htlc_in_map *unconnected_htlcs_in STEALS)
 {
@@ -3015,28 +3106,40 @@ static struct command_result *json_listhtlcs(struct command *cmd,
 	struct channel *chan;
 	struct wallet_htlc_iter *i;
 	struct short_channel_id scid;
-	u64 htlc_id;
+	u64 htlc_id, created_index, updated_index;
 	int cltv_expiry;
 	enum side owner;
 	struct amount_msat msat;
 	struct sha256 payment_hash;
 	enum htlc_state hstate;
+	enum wait_index *listindex;
+	u64 *liststart;
+	u32 *listlimit;
 
 	if (!param(cmd, buffer, params,
 		   p_opt("id", param_channel, &chan),
+		   p_opt("index", param_index, &listindex),
+		   p_opt_def("start", param_u64, &liststart, 0),
+		   p_opt("limit", param_u32, &listlimit),
 		   NULL))
 		return command_param_failed();
 
 	response = json_stream_success(cmd);
 	json_array_start(response, "htlcs");
 	for (i = wallet_htlcs_first(cmd, cmd->ld->wallet, chan,
+				    listindex, *liststart, listlimit,
 				    &scid, &htlc_id, &cltv_expiry, &owner, &msat,
-				    &payment_hash, &hstate);
+				    &payment_hash, &hstate,
+				    &created_index, &updated_index);
 	     i;
 	     i = wallet_htlcs_next(cmd->ld->wallet, i,
 				   &scid, &htlc_id, &cltv_expiry, &owner, &msat,
-				   &payment_hash, &hstate)) {
+				   &payment_hash, &hstate,
+				   &created_index, &updated_index)) {
 		json_object_start(response, NULL);
+		json_add_u64(response, "created_index", created_index);
+		if (updated_index != 0)
+			json_add_u64(response, "updated_index", updated_index);
 		json_add_short_channel_id(response, "short_channel_id", scid);
 		json_add_u64(response, "id", htlc_id);
 		json_add_u32(response, "expiry", cltv_expiry);

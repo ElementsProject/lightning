@@ -3226,9 +3226,41 @@ def test_listforwards_and_listhtlcs(node_factory, bitcoind):
     l1.wait_channel_active(c23)
     l1.wait_channel_active(c24)
 
+    # All variants of listhlcs will give empty results
+    assert l2.rpc.listhtlcs() == {'htlcs': []}
+    assert l2.rpc.listhtlcs(c12) == {'htlcs': []}
+    assert l2.rpc.listhtlcs(index='created') == {'htlcs': []}
+    assert l2.rpc.listhtlcs(id=c12, index='created') == {'htlcs': []}
+    assert l2.rpc.listhtlcs(index='created', start=2) == {'htlcs': []}
+    assert l2.rpc.listhtlcs(id=c12, index='created', start=2) == {'htlcs': []}
+    assert l2.rpc.listhtlcs(index='updated') == {'htlcs': []}
+    assert l2.rpc.listhtlcs(id=c12, index='updated') == {'htlcs': []}
+    assert l2.rpc.listhtlcs(index='updated', start=1) == {'htlcs': []}
+    assert l2.rpc.listhtlcs(id=c12, index='updated', start=1) == {'htlcs': []}
+    assert l2.rpc.listhtlcs(index='updated', start=2) == {'htlcs': []}
+    assert l2.rpc.listhtlcs(id=c12, index='updated', start=2) == {'htlcs': []}
+    assert l2.rpc.listhtlcs(index='updated', start=1, limit=1) == {'htlcs': []}
+    assert l2.rpc.listhtlcs(id=c12, index='updated', start=1, limit=1) == {'htlcs': []}
+
     # successful payments
     i31 = l3.rpc.invoice(1000, 'i31', 'desc')
     l1.rpc.pay(i31['bolt11'])
+
+    # 1 htlc in, 1 htlc out.
+    assert len(l2.rpc.listhtlcs()['htlcs']) == 2
+    assert len(l2.rpc.listhtlcs(c12)['htlcs']) == 1
+    assert len(l2.rpc.listhtlcs(index='created')['htlcs']) == 2
+    assert len(l2.rpc.listhtlcs(id=c12, index='created')['htlcs']) == 1
+    assert len(l2.rpc.listhtlcs(index='created', start=2)['htlcs']) == 1
+    assert len(l2.rpc.listhtlcs(id=c12, index='created', start=2)['htlcs']) == 0
+    assert len(l2.rpc.listhtlcs(index='updated')['htlcs']) == 2
+    assert len(l2.rpc.listhtlcs(id=c12, index='updated')['htlcs']) == 1
+    assert len(l2.rpc.listhtlcs(index='updated', start=1)['htlcs']) == 2
+    assert len(l2.rpc.listhtlcs(id=c12, index='updated', start=1)['htlcs']) == 1
+    assert len(l2.rpc.listhtlcs(index='updated', start=2)['htlcs']) == 2
+    assert len(l2.rpc.listhtlcs(id=c12, index='updated', start=2)['htlcs']) == 1
+    assert len(l2.rpc.listhtlcs(index='updated', start=1, limit=1)['htlcs']) == 1
+    assert len(l2.rpc.listhtlcs(id=c12, index='updated', start=1, limit=1)['htlcs']) == 1
 
     i41 = l4.rpc.invoice(2000, 'i41', 'desc')
     l1.rpc.pay(i41['bolt11'])
@@ -3291,13 +3323,18 @@ def test_listforwards_and_listhtlcs(node_factory, bitcoind):
     assert [h['direction'] for h in c1htlcs] == ['out'] * 3
     assert [h['state'] for h in c1htlcs] == ['RCVD_REMOVE_ACK_REVOCATION'] * 3
 
-    # These should be a mirror!
+    # These should be a mirror! (Except indexes)
     c2c1htlcs = l2.rpc.listhtlcs(c12)['htlcs']
     for h in c2c1htlcs:
         assert h['state'] == 'SENT_REMOVE_ACK_REVOCATION'
         assert h['direction'] == 'in'
         h['state'] = 'RCVD_REMOVE_ACK_REVOCATION'
         h['direction'] = 'out'
+        del h['created_index']
+        del h['updated_index']
+    for h in c1htlcs:
+        del h['created_index']
+        del h['updated_index']
     assert c2c1htlcs == c1htlcs
 
     # One channel at a time should result in all htlcs.
@@ -3309,11 +3346,49 @@ def test_listforwards_and_listhtlcs(node_factory, bitcoind):
     for h in allhtlcs:
         assert h in parthtlcs
 
-    # Now, close and forget.
-    l2.rpc.close(c24)
-    l2.rpc.close(c12)
+    # Ordering and limiting should work (with or without channel specified)
+    assert l2.rpc.listhtlcs(index='created', start=1)['htlcs'] == allhtlcs
+    assert l2.rpc.listhtlcs(index='created', start=1, limit=1)['htlcs'] == [allhtlcs[0]]
+    assert l2.rpc.listhtlcs(index='created', start=3, limit=100)['htlcs'] == allhtlcs[2:]
+    assert l2.rpc.listhtlcs(index='created', start=3, limit=1)['htlcs'] == [allhtlcs[2]]
+    assert l2.rpc.listhtlcs(id=c12, index='created', start=1)['htlcs'] == [allhtlcs[0], allhtlcs[2], allhtlcs[4]]
+    assert l2.rpc.listhtlcs(id=c12, index='created', start=2)['htlcs'] == [allhtlcs[2], allhtlcs[4]]
+    assert l2.rpc.listhtlcs(id=c12, index='created', start=2, limit=1)['htlcs'] == [allhtlcs[2]]
+    assert l2.rpc.listhtlcs(id=c12, index='created', start=3, limit=2)['htlcs'] == [allhtlcs[2], allhtlcs[4]]
 
-    bitcoind.generate_block(100, wait_for_mempool=3)
+    # Turns out this order is the same, but updated indexes are larger.
+    assert l2.rpc.listhtlcs(index='updated')['htlcs'] == allhtlcs
+    assert l2.rpc.listhtlcs(index='updated', start=1, limit=1)['htlcs'] == [allhtlcs[0]]
+    assert l2.rpc.listhtlcs(index='updated', start=allhtlcs[0]['updated_index'] + 1, limit=100)['htlcs'] == allhtlcs[1:]
+    assert l2.rpc.listhtlcs(index='updated', start=allhtlcs[1]['updated_index'] + 1, limit=1)['htlcs'] == [allhtlcs[2]]
+    assert l2.rpc.listhtlcs(id=c12, index='updated', start=allhtlcs[0]['updated_index'])['htlcs'] == [allhtlcs[0], allhtlcs[2], allhtlcs[4]]
+    assert l2.rpc.listhtlcs(id=c12, index='updated', start=allhtlcs[1]['updated_index'] + 1)['htlcs'] == [allhtlcs[2], allhtlcs[4]]
+    assert l2.rpc.listhtlcs(id=c12, index='updated', start=allhtlcs[2]['updated_index'], limit=1)['htlcs'] == [allhtlcs[2]]
+    assert l2.rpc.listhtlcs(id=c12, index='updated', start=allhtlcs[2]['updated_index'], limit=2)['htlcs'] == [allhtlcs[2], allhtlcs[4]]
+
+    # Now, close and forget (first mine c23 close)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    l2.rpc.close(c24)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    l2.rpc.close(c12)
+    # Not actually deleted yet.
+    assert l2.rpc.wait('htlcs', 'deleted', 0)['deleted'] == 0
+
+    # 99 blocks is not enough for them to be deleted.
+    bitcoind.generate_block(97)
+    assert l2.rpc.wait('htlcs', 'deleted', 0)['deleted'] == 0
+
+    # This will forget c23
+    bitcoind.generate_block(1)
+    assert l2.rpc.wait('htlcs', 'deleted', 1)['deleted'] == 1
+
+    # This will forget c24
+    bitcoind.generate_block(1)
+    assert l2.rpc.wait('htlcs', 'deleted', 2)['deleted'] == 2
+
+    # This will forget c12
+    bitcoind.generate_block(1)
+    assert l2.rpc.wait('htlcs', 'deleted', 3)['deleted'] == 5
 
     # Once channels are gone, htlcs are gone.
     for n in (l1, l2, l3, l4):
@@ -3422,6 +3497,85 @@ def test_listforwards_wait(node_factory, executor):
                        'details': {'in_channel': scid12,
                                    'in_htlc_id': 1,
                                    'status': 'failed'}}
+
+
+def test_listhtlcs_wait(node_factory, bitcoind, executor):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    scid12 = first_scid(l1, l2)
+    scid23 = first_scid(l2, l3)
+    waitres = l1.rpc.wait(subsystem='htlcs', indexname='created', nextvalue=0)
+    assert waitres == {'subsystem': 'htlcs',
+                       'created': 0}
+
+    # Now ask for 1.
+    waitcreate = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='created', nextvalue=1)
+    waitupdate = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='updated', nextvalue=1)
+    time.sleep(1)
+
+    amt1 = 1000
+    inv1 = l3.rpc.invoice(amt1, 'inv1', 'desc')
+    l1.rpc.pay(inv1['bolt11'])
+
+    waitres = waitcreate.result(TIMEOUT)
+    assert waitres == {'subsystem': 'htlcs',
+                       'created': 1,
+                       'details': {'short_channel_id': scid12,
+                                   'cltv_expiry': 120,
+                                   'direction': 'in',
+                                   'htlc_id': 0,
+                                   'payment_hash': inv1['payment_hash'],
+                                   'amount_msat': amt1 + 1,
+                                   'state': 'RCVD_ADD_COMMIT'}}
+    waitres = waitupdate.result(TIMEOUT)
+    assert waitres == {'subsystem': 'htlcs',
+                       'updated': 1,
+                       'details': {'short_channel_id': scid12,
+                                   'cltv_expiry': 120,
+                                   'direction': 'in',
+                                   'htlc_id': 0,
+                                   'payment_hash': inv1['payment_hash'],
+                                   'amount_msat': amt1 + 1,
+                                   'state': 'SENT_ADD_REVOCATION'}}
+
+    # There's a second new one too, for the outgoing, but we missed details
+    assert l2.rpc.wait(subsystem='htlcs', indexname='created', nextvalue=2) == {'created': 2, 'subsystem': 'htlcs'}
+
+    # Now check failure, and wait for OUTGOING.
+    amt2 = 42
+    inv2 = l3.rpc.invoice(amt2, 'inv2', 'invdesc2')
+    l3.rpc.delinvoice('inv2', 'unpaid')
+
+    waitcreate = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='created', nextvalue=4)
+    time.sleep(1)
+
+    with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
+        l1.rpc.pay(inv2['bolt11'])
+
+    waitres = waitcreate.result(TIMEOUT)
+    assert waitres == {'subsystem': 'htlcs',
+                       'created': 4,
+                       'details': {'short_channel_id': scid23,
+                                   'cltv_expiry': 114,
+                                   'direction': 'out',
+                                   'htlc_id': 1,
+                                   'payment_hash': inv2['payment_hash'],
+                                   'amount_msat': amt2,
+                                   'state': 'SENT_ADD_HTLC'}}
+
+    # Finally, check deletion (only when channel finally forgotten)
+    l1.rpc.close(l2.info['id'])
+
+    waitfut = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='deleted', nextvalue=1)
+    time.sleep(1)
+
+    bitcoind.generate_block(100, wait_for_mempool=1)
+
+    waitres = waitfut.result(TIMEOUT)
+    # Both will be deleted at once!  We just get told the channel.
+    assert waitres == {'subsystem': 'htlcs',
+                       'deleted': 2,
+                       'details': {'short_channel_id': scid12}}
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "modifies database, which is assumed sqlite3")
