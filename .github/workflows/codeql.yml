@@ -98,7 +98,56 @@ jobs:
         echo '  make release'
         exit 1
 
-    - name: Perform CodeQL Analysis
+    - name: Perform CodeQL Analysisname: CodeQL Advanced
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 0'
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        language: [ 'c-cpp' ]
+        build-mode: [ 'autobuild' ]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mako
+
+      - name: Initialize the CodeQL tools
+        uses: github/codeql-action/init@v2
+        with:
+          languages: ${{ matrix.language }}
+          config-file: .github/codeql/codeql-config.yml
+
+      - name: Autobuild
+        run: |
+          if [ "${{ matrix.build-mode }}" == "autobuild" ]; then
+            /opt/hostedtoolcache/CodeQL/2.20.7/x64/codeql/cpp/tools/autobuild.sh
+          else
+            echo "Manual build mode"
+          fi
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+        with:
+          upload: true
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}"
