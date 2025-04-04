@@ -30,6 +30,8 @@ jobs:
       - name: Git checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
           fetch-tags: true
 
       - name: Determine version
