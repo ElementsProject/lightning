@@ -3106,7 +3106,7 @@ static struct command_result *json_listhtlcs(struct command *cmd,
 	struct channel *chan;
 	struct wallet_htlc_iter *i;
 	struct short_channel_id scid;
-	u64 htlc_id;
+	u64 htlc_id, created_index, updated_index;
 	int cltv_expiry;
 	enum side owner;
 	struct amount_msat msat;
@@ -3122,12 +3122,17 @@ static struct command_result *json_listhtlcs(struct command *cmd,
 	json_array_start(response, "htlcs");
 	for (i = wallet_htlcs_first(cmd, cmd->ld->wallet, chan,
 				    &scid, &htlc_id, &cltv_expiry, &owner, &msat,
-				    &payment_hash, &hstate);
+				    &payment_hash, &hstate,
+				    &created_index, &updated_index);
 	     i;
 	     i = wallet_htlcs_next(cmd->ld->wallet, i,
 				   &scid, &htlc_id, &cltv_expiry, &owner, &msat,
-				   &payment_hash, &hstate)) {
+				   &payment_hash, &hstate,
+				   &created_index, &updated_index)) {
 		json_object_start(response, NULL);
+		json_add_u64(response, "created_index", created_index);
+		if (updated_index != 0)
+			json_add_u64(response, "updated_index", updated_index);
 		json_add_short_channel_id(response, "short_channel_id", scid);
 		json_add_u64(response, "id", htlc_id);
 		json_add_u32(response, "expiry", cltv_expiry);
