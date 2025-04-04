@@ -18,7 +18,7 @@ coincurve = "^20"
 cryptography = "^42"
 PySocks = "^1"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = "^7"
 
 [build-system]

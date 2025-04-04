@@ -12,7 +12,7 @@ packages = [
 [tool.poetry.dependencies]
 python = "^3.8"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pyln-proto = "^0.10.2"
 
 [build-system]
