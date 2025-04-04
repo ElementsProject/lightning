@@ -1057,7 +1057,6 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 	u32 minimum_depth, lease_expiry;
 	struct secret last_remote_per_commit_secret;
 	struct penalty_base *pbases;
-	bool reestablish_only;
 	struct channel_type *channel_type;
 	u32 feerate_min, feerate_max, feerate_penalty;
 	struct pubkey remote_per_commit;
@@ -1137,7 +1136,6 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 				    &channel_type,
 				    &dev_disable_commit,
 				    &pbases,
-				    &reestablish_only,
 				    &experimental_upgrade,
 				    &inflights,
 				    &local_alias))

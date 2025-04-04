@@ -479,7 +479,8 @@ channel_current_inflight(const struct channel *channel);
 /* What's the last feerate used for a funding tx on this channel? */
 u32 channel_last_funding_feerate(const struct channel *channel);
 
-void delete_channel(struct channel *channel STEALS);
+/* Only set completely_eliminate for never-existed channels */
+void delete_channel(struct channel *channel STEALS, bool completely_eliminate);
 
 const char *channel_state_name(const struct channel *channel);
 const char *channel_state_str(enum channel_state state);
