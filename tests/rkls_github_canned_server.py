@@ -27,7 +27,11 @@ def create_app(test_config=None):
                 "tree": []
             }
         # FIXME: Pull contents from directory
-        for file in os.listdir(f'tests/data/recklessrepo/{github_user}/{plugin_name}'):
+        base_path = 'tests/data/recklessrepo'
+        user_path = os.path.normpath(os.path.join(base_path, github_user, plugin_name))
+        if not user_path.startswith(base_path):
+            raise Exception("Invalid path")
+        for file in os.listdir(user_path):
             dir_json["tree"].append({"path": file})
         resp = flask.Response(response=json.dumps(dir_json),
                               headers={'Content-Type': 'application/json; charset=utf-8'})
