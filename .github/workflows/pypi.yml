@@ -1,4 +1,13 @@
----
+steps:
+  - name: Set version
+    run: |
+      TAG=$(git describe --tags --abbrev=0)
+      if [ -z "$TAG" ]; then
+        echo "No tags found!"
+        exit 1
+      fi
+      export VERSION=$TAG.post$(git rev-list $TAG..HEAD --count)
+      echo "VERSION=$VERSION" >> $GITHUB_ENV---
 name: Publish Python 🐍 distributions 📦 to PyPI and TestPyPI
 on:
   # Only deploy if we're the result of a PR being merged
