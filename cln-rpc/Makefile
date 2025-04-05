@@ -18,4 +18,4 @@ target/${RUST_PROFILE}/examples/cln-plugin-reentrant: ${CLN_RPC_SOURCES} plugins
 	cargo build ${CARGO_OPTS} --example cln-plugin-reentrant
 
 
-cln-rpc-all: ${CLN_RPC_GEN_ALL} ${CLN_RPC_EXAMPLES}
+cln-rpc-all: ${CLN_RPC_GENALL} ${CLN_RPC_EXAMPLES}
