@@ -1377,6 +1377,32 @@ tell_connectd:
 send_error:
 	log_debug(channel->log, "Telling connectd to send error %s",
 		       tal_hex(tmpctx, error));
+
+	/* LND does not respond to errors with a unilateral close
+	 * (https://github.com/lightningnetwork/lnd/blob/abb1e3463f3a83bbb843d5c399869dbe930ad94f/htlcswitch/link.go#L2119).
+	 * We fix this by sending a `ChannelReestablish` msg with `0` commitment numbers and an
+	 * invalid `your_last_per_commitment_secret`. */
+	if (is_stub_scid(*channel->scid)) {
+		struct secret your_last_per_commit_secret;
+		memset(&your_last_per_commit_secret, 1,
+			sizeof(your_last_per_commit_secret));
+
+		const u8 *msg = towire_channel_reestablish(tmpctx, &channel->cid,
+							   0,
+							   0,
+							   &your_last_per_commit_secret,
+							   &channel->channel_info.remote_per_commit,
+							   NULL);
+
+		log_debug(channel->log, "Sending a bogus channel_reestablish message to make the peer "
+					"unilaterally close the channel.");
+
+		subd_send_msg(ld->connectd,
+			      take(towire_connectd_peer_send_msg(NULL, &channel->peer->id,
+								 channel->peer->connectd_counter,
+								 msg)));
+	}
+
 	/* Get connectd to send error and close. */
 	subd_send_msg(ld->connectd,
 		      take(towire_connectd_peer_send_msg(NULL, &channel->peer->id,
