@@ -114,7 +114,7 @@ pip3 install pytest
 
 If you can't install `lowdown`, a version will be built in-tree.
 
-If you want to build the Rust plugins (currently, cln-grpc):
+If you want to build the Rust plugins (currently, cln-grpc and clnrest):
 
 ```shell
 sudo apt-get install -y cargo rustfmt protobuf-compiler
@@ -135,7 +135,7 @@ sudo make install
 
 > 📘 
 > 
-> If you want disable Rust because you do not want use it or simple you do not want the grpc-plugin, you can use `./configure --disable-rust`.
+> If you want disable Rust because you do not want use it or simple you do not want the grpc or rest plugins, you can use `./configure --disable-rust`.
 
 To build core lightning for development purpose you can use the following commands:
 
