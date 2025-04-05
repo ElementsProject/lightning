@@ -114,11 +114,16 @@ pip3 install pytest
 
 If you can't install `lowdown`, a version will be built in-tree.
 
-If you want to build the Rust plugins (currently, cln-grpc):
+If you want to build the Rust plugins (currently, cln-grpc and clnrest, which changed from Python to Rust as of v25.02):
 
 ```shell
 sudo apt-get install -y cargo rustfmt protobuf-compiler
 ```
+
+> 📘 
+> 
+> If your build fails because of your Rust version, you might want to check out [rustup](https://rustup.rs/) to install a newer version
+
 
 There are two ways to build core lightning, and this depends on how you want use it.
 
