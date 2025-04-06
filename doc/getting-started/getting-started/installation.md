@@ -134,8 +134,8 @@ pip3 install --upgrade pip
 pip3 install mako
 pip3 install grpcio-tools
 ./configure
-make
-sudo make install
+RUST_PROFILE=release make
+sudo RUST_PROFILE=release make install
 ```
 
 > 📘 
