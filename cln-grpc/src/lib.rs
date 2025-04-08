@@ -1,15 +1,15 @@
 // Huge json!() macros require lots of recursion
 #![recursion_limit = "1024"]
 
-#[cfg(feature = "server")]
-mod convert;
 pub mod pb;
 
-#[cfg(feature = "server")]
-mod server;
-
-#[cfg(feature = "server")]
-pub use crate::server::Server;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "server")] {
+        mod convert;
+        mod server;
+        pub use server::Server;
+    }
+}
 
 #[cfg(test)]
 mod test;

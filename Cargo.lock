@@ -384,6 +384,7 @@ version = "0.4.0"
 dependencies = [
  "anyhow",
  "bitcoin",
+ "cfg-if",
  "cln-rpc",
  "futures-core",
  "hex",
