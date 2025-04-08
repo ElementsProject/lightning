@@ -8,6 +8,7 @@ cfg_if::cfg_if! {
         mod convert;
         mod server;
         pub use server::Server;
+        pub use server::NotificationStream;
     }
 }
 
