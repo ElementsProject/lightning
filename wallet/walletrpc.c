@@ -729,7 +729,7 @@ static void match_psbt_outputs_to_wallet(struct wally_psbt *psbt,
 		const size_t script_len = psbt->outputs[outndx].script_len;
 		u32 index;
 
-		if (!wallet_can_spend(w, script, script_len, &index))
+		if (!wallet_can_spend(w, script, script_len, &index, NULL))
 			continue;
 
 		if (bip32_key_from_parent(
@@ -936,7 +936,7 @@ static void maybe_notify_new_external_send(struct lightningd *ld,
 	/* If it's going to our wallet, ignore */
 	script = wally_psbt_output_get_script(tmpctx,
 					      &psbt->outputs[outnum]);
-	if (wallet_can_spend(ld->wallet, script, tal_bytelen(script), &index))
+	if (wallet_can_spend(ld->wallet, script, tal_bytelen(script), &index, NULL))
 		return;
 
 	outpoint.txid = *txid;
