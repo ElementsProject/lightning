@@ -893,7 +893,8 @@ size_t bitcoin_tx_input_sig_weight(void)
 /* Input weight */
 size_t bitcoin_tx_input_weight(bool p2sh, size_t witness_weight)
 {
-	size_t weight = witness_weight;
+	/* We assume < 253 witness elements */
+	size_t weight = 1 + witness_weight;
 
 	/* Input weight: txid + index + sequence */
 	weight += (32 + 4 + 4) * 4;
@@ -914,8 +915,8 @@ size_t bitcoin_tx_input_weight(bool p2sh, size_t witness_weight)
 
 size_t bitcoin_tx_simple_input_witness_weight(void)
 {
-	/* Account for witness (1 byte count + sig + key) */
-	return 1 + (bitcoin_tx_input_sig_weight() + 1 + 33);
+	/* Account for witness (sig + key) */
+	return bitcoin_tx_input_sig_weight() + 1 + 33;
 }
 
 /* We only do segwit inputs, and we assume witness is sig + key  */

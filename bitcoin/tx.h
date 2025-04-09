@@ -315,7 +315,9 @@ size_t bitcoin_tx_output_weight(size_t outscript_len);
 /* Weight to push sig on stack. */
 size_t bitcoin_tx_input_sig_weight(void);
 
-/* Segwit input, but with parameter for witness weight (size) */
+/* Segwit input, but with parameter for witness weight (size).
+ * witness_weight must include the varint_size() for each witness element,
+ * but not the varint_size() for the number of elements. */
 size_t bitcoin_tx_input_weight(bool p2sh, size_t witness_weight);
 
 /* The witness weight for a simple (sig + key) input */
