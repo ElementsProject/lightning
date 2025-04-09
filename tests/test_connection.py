@@ -4780,3 +4780,62 @@ def test_private_channel_no_reconnect(node_factory):
     wait_for(lambda: only_one(l3.rpc.listpeers()['peers'])['connected'] is True)
 
     assert only_one(l1.rpc.listpeers()['peers'])['connected'] is False
+
+
+@unittest.skipIf(VALGRIND, "We assume machine is reasonably fast")
+def test_no_delay(node_factory):
+    """Is our Nagle disabling for critical messages working?"""
+    l1, l2 = node_factory.line_graph(2)
+
+    scid = only_one(l1.rpc.listpeerchannels()['channels'])['short_channel_id']
+    routestep = {
+        'amount_msat': 100,
+        'id': l2.info['id'],
+        'delay': 5,
+        'channel': scid
+    }
+    start = time.time()
+    # If we were stupid enough to leave Nagle enabled, this would add 200ms
+    # seconds delays each way!
+    for _ in range(100):
+        phash = random.randbytes(32).hex()
+        l1.rpc.sendpay([routestep], phash)
+        with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
+            l1.rpc.waitsendpay(phash)
+    end = time.time()
+    assert end < start + 100 * 0.2
+
+
+@unittest.skipIf(os.getenv('TEST_BENCH', '0') == '0', "For profiling")
+def test_bench(node_factory):
+    """Is our Nagle disabling for critical messages working?"""
+    l1, l2 = node_factory.get_nodes(2, opts={'start': False,
+                                             'commit-time': 0})
+
+    # memleak detection plays havoc with profiles.
+    del l1.daemon.env["LIGHTNINGD_DEV_MEMLEAK"]
+    del l2.daemon.env["LIGHTNINGD_DEV_MEMLEAK"]
+
+    l1.start()
+    l2.start()
+    node_factory.join_nodes([l1, l2])
+
+    scid = only_one(l1.rpc.listpeerchannels()['channels'])['short_channel_id']
+    routestep = {
+        'amount_msat': 100,
+        'id': l2.info['id'],
+        'delay': 5,
+        'channel': scid
+    }
+
+    start = time.time()
+    # If we were stupid enough to leave Nagle enabled, this would add 200ms
+    # seconds delays each way!
+    for _ in range(1000):
+        phash = random.randbytes(32).hex()
+        l1.rpc.sendpay([routestep], phash)
+        with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
+            l1.rpc.waitsendpay(phash)
+    end = time.time()
+    duration = end - start
+    assert duration == 0

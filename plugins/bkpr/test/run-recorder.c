@@ -225,6 +225,9 @@ bool param_check(struct command *cmd UNNEEDED,
 		 const char *buffer UNNEEDED,
 		 const jsmntok_t tokens[] UNNEEDED, ...)
 { fprintf(stderr, "param_check called!\n"); abort(); }
+/* Generated stub for pseudorand_u64 */
+uint64_t pseudorand_u64(void)
+{ fprintf(stderr, "pseudorand_u64 called!\n"); abort(); }
 /* Generated stub for toks_alloc */
 jsmntok_t *toks_alloc(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "toks_alloc called!\n"); abort(); }

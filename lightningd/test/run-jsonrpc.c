@@ -176,9 +176,9 @@ void towire_node_id(u8 **pptr UNNEEDED, const struct node_id *id UNNEEDED)
 /* Generated stub for trace_span_end */
 void trace_span_end(const void *key UNNEEDED)
 { fprintf(stderr, "trace_span_end called!\n"); abort(); }
-/* Generated stub for trace_span_start */
-void trace_span_start(const char *name UNNEEDED, const void *key UNNEEDED)
-{ fprintf(stderr, "trace_span_start called!\n"); abort(); }
+/* Generated stub for trace_span_start_ */
+void trace_span_start_(const char *name UNNEEDED, const void *key UNNEEDED)
+{ fprintf(stderr, "trace_span_start_ called!\n"); abort(); }
 /* Generated stub for trace_span_tag */
 void trace_span_tag(const void *key UNNEEDED, const char *name UNNEEDED, const char *value UNNEEDED)
 { fprintf(stderr, "trace_span_tag called!\n"); abort(); }

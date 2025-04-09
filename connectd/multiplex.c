@@ -307,8 +307,6 @@ void setup_peer_gossip_store(struct peer *peer,
 static void set_urgent_flag(struct peer *peer, bool urgent)
 {
 	int val;
-	int opt;
-	const char *optname;
 
 	if (urgent == peer->urgent)
 		return;
@@ -318,23 +316,13 @@ static void set_urgent_flag(struct peer *peer, bool urgent)
 	if (peer->is_websocket != NORMAL_SOCKET)
 		return;
 
-#ifdef TCP_CORK
-	opt = TCP_CORK;
-	optname = "TCP_CORK";
-#elif defined(TCP_NODELAY)
-	opt = TCP_NODELAY;
-	optname = "TCP_NODELAY";
-#else
-#error "Please report platform with neither TCP_CORK nor TCP_NODELAY?"
-#endif
-
 	val = urgent;
 	if (setsockopt(io_conn_fd(peer->to_peer),
-		       IPPROTO_TCP, opt, &val, sizeof(val)) != 0
+		       IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val)) != 0
 	    /* This actually happens in testing, where we blackhole the fd */
 	    && peer->daemon->dev_disconnect_fd == -1) {
-		status_broken("setsockopt %s=1 fd=%u: %s",
-			      optname, io_conn_fd(peer->to_peer),
+		status_broken("setsockopt TCP_NODELAY=1 fd=%u: %s",
+			      io_conn_fd(peer->to_peer),
 			      strerror(errno));
 	}
 	peer->urgent = urgent;

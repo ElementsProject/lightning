@@ -1,14 +1,14 @@
 #include "config.h"
 #include <assert.h>
+#include <ccan/endian/endian.h>
 #include <ccan/htable/htable.h>
 #include <ccan/str/hex/hex.h>
-#include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <ccan/time/time.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/pseudorand.h>
 #include <common/trace.h>
-#include <sodium/randombytes.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -16,9 +16,6 @@
   #include <sys/sdt.h>
 
 #define MAX_ACTIVE_SPANS 128
-
-#define HEX_SPAN_ID_SIZE (2*SPAN_ID_SIZE+1)
-#define HEX_TRACE_ID_SIZE (2 * TRACE_ID_SIZE + 1)
 
 /* The traceperent format is defined in W3C Trace Context RFC[1].
  * Its format is defined as
@@ -43,19 +40,23 @@
 const char *trace_service_name = "lightningd";
 static bool disable_trace = false;
 
+#define SPAN_MAX_TAGS 2
+
 struct span_tag {
-	char *name, *value;
+	const char *name;
+	const char *valuestr;
+	int valuelen;
 };
 
 struct span {
 	/* Our own id */
-	u8 id[SPAN_ID_SIZE];
+	u64 id;
 
 	/* 0 if we have no parent. */
-	u8 parent_id[SPAN_ID_SIZE];
+	u64 parent_id;
 
 	/* The trace_id for this span and all its children. */
-	u8 trace_id[TRACE_ID_SIZE];
+	u64 trace_id_hi, trace_id_lo;
 
 	u64 start_time;
 	u64 end_time;
@@ -64,8 +65,8 @@ struct span {
 	 * spans. */
 	size_t key;
 	struct span *parent;
-	struct span_tag *tags;
-	char *name;
+	struct span_tag tags[SPAN_MAX_TAGS];
+	const char *name;
 
 	/* Indicate whether this is a remote span, i.e., it was
 	inherited by some other process, which is in charge of
@@ -85,7 +86,9 @@ static struct span *current;
  * own parent. */
 static void trace_inject_traceparent(void)
 {
-	char *traceparent;
+	const char *traceparent;
+	be64 trace_hi, trace_lo, span;
+
 	traceparent = getenv("CLN_TRACEPARENT");
 	if (!traceparent)
 		return;
@@ -94,13 +97,17 @@ static void trace_inject_traceparent(void)
 	trace_span_start("", active_spans);
 	current->remote = true;
 	assert(current && !current->parent);
-	if (!hex_decode(traceparent + 3, 2*TRACE_ID_SIZE, current->trace_id,
-			TRACE_ID_SIZE) ||
-	    !hex_decode(traceparent + 36, 2*SPAN_ID_SIZE, current->id,
-			SPAN_ID_SIZE)) {
+
+	if (!hex_decode(traceparent + 3, 16, &trace_hi, sizeof(trace_hi))
+	    || !hex_decode(traceparent + 3 + 16, 16, &trace_lo, sizeof(trace_lo))
+	    || !hex_decode(traceparent + 3 + 16 + 16 + 1, 16, &span, sizeof(span))) {
 		/* We failed to parse the traceparent, abandon. */
 		fprintf(stderr, "Failed!");
 		trace_span_end(active_spans);
+	} else {
+		current->trace_id_hi = be64_to_cpu(trace_hi);
+		current->trace_id_lo = be64_to_cpu(trace_lo);
+		current->id = be64_to_cpu(span);
 	}
 }
 
@@ -210,11 +217,13 @@ static struct span *trace_span_slot(void)
 	return s;
 }
 
+#define MAX_BUF_SIZE 512
+
 static void trace_emit(struct span *s)
 {
-	char span_id[HEX_SPAN_ID_SIZE];
-	char trace_id[HEX_TRACE_ID_SIZE];
-	char parent_span_id[HEX_SPAN_ID_SIZE];
+	char span_id[hex_str_size(sizeof(s->id))];
+	char buffer[MAX_BUF_SIZE + 1];
+	size_t len;
 
 	/* If this is a remote span it's not up to us to emit it. Make
 	 * this a no-op. `trace_span_end` will take care of cleaning
@@ -222,34 +231,44 @@ static void trace_emit(struct span *s)
 	if (s->remote)
 		return;
 
-	hex_encode(s->id, SPAN_ID_SIZE, span_id, HEX_SPAN_ID_SIZE);
-	hex_encode(s->trace_id, TRACE_ID_SIZE, trace_id, HEX_TRACE_ID_SIZE);
-
-	if (s->parent)
-		hex_encode(s->parent_id, SPAN_ID_SIZE, parent_span_id, HEX_SPAN_ID_SIZE);
-
-	char *res = tal_fmt(
-	    NULL,
-	    "[{\"id\": \"%s\", \"name\": \"%s\", "
-	    "\"timestamp\": %" PRIu64 ", \"duration\": %" PRIu64 ",",
-	    span_id, s->name, s->start_time, s->end_time - s->start_time);
-
-	tal_append_fmt(&res, "\"localEndpoint\": { \"serviceName\": \"%s\"}, ",
-		       trace_service_name);
+	sprintf(span_id, "%016"PRIx64, s->id);
+	len = snprintf(buffer, MAX_BUF_SIZE,
+		       "[{\"id\": \"%s\", \"name\": \"%s\", "
+		       "\"timestamp\": %" PRIu64 ", \"duration\": %" PRIu64 ","
+		       "\"localEndpoint\": { \"serviceName\": \"%s\"}, ",
+		       span_id, s->name, s->start_time, s->end_time - s->start_time, trace_service_name);
 
 	if (s->parent != NULL) {
-		tal_append_fmt(&res, "\"parentId\": \"%s\",", parent_span_id);
+		len += snprintf(buffer + len, MAX_BUF_SIZE - len,
+				"\"parentId\": \"%016"PRIx64"\",",
+				s->parent_id);
+		if (len > MAX_BUF_SIZE)
+			len = MAX_BUF_SIZE;
 	}
 
-	tal_append_fmt(&res, "\"tags\": {");
-	for (size_t i = 0; i < tal_count(s->tags); i++) {
-		tal_append_fmt(&res, "%s\"%s\": \"%s\"", i == 0 ? "" : ", ",
-			       s->tags[i].name, s->tags[i].value);
+	len += snprintf(buffer + len, MAX_BUF_SIZE - len,
+			"\"tags\": {");
+	if (len > MAX_BUF_SIZE)
+		len = MAX_BUF_SIZE;
+	for (size_t i = 0; i < SPAN_MAX_TAGS; i++) {
+		if (!s->tags[i].name)
+			continue;
+		len += snprintf(buffer + len, MAX_BUF_SIZE - len,
+				"%s\"%s\": \"%.*s\"", i == 0 ? "" : ", ",
+				s->tags[i].name,
+				s->tags[i].valuelen,
+				s->tags[i].valuestr);
+		if (len > MAX_BUF_SIZE)
+			len = MAX_BUF_SIZE;
 	}
-
-	tal_append_fmt(&res, "}, \"traceId\": \"%s\"}]", trace_id);
-	DTRACE_PROBE2(lightningd, span_emit, span_id, res);
-	tal_free(res);
+	len += snprintf(buffer + len, MAX_BUF_SIZE - len,
+			"}, \"traceId\": \"%016"PRIx64"%016"PRIx64"\"}]",
+			s->trace_id_hi, s->trace_id_lo);
+	if (len > MAX_BUF_SIZE)
+		len = MAX_BUF_SIZE;
+	buffer[len] = '\0';
+	/* FIXME: span_id here is in hex, could be u64? */
+	DTRACE_PROBE2(lightningd, span_emit, span_id, buffer);
 }
 
 /**
@@ -257,16 +276,10 @@ static void trace_emit(struct span *s)
  */
 static void trace_span_clear(struct span *s)
 {
-	s->key = 0;
-	memset(s->id, 0, SPAN_ID_SIZE);
-	memset(s->trace_id, 0, TRACE_ID_SIZE);
-	;
-	s->parent = NULL;
-	s->name = tal_free(s->name);
-	s->tags = tal_free(s->tags);
+	memset(s, 0, sizeof(*s));
 }
 
-void trace_span_start(const char *name, const void *key)
+void trace_span_start_(const char *name, const void *key)
 {
 	size_t numkey = trace_key(key);
 	struct timeabs now = time_now();
@@ -281,19 +294,20 @@ void trace_span_start(const char *name, const void *key)
 	if (!s)
 		return;
 	s->key = numkey;
-	randombytes_buf(s->id, SPAN_ID_SIZE);
+	s->id = pseudorand_u64();
 	s->start_time = (now.ts.tv_sec * 1000000) + now.ts.tv_nsec / 1000;
 	s->parent = current;
-	s->tags = notleak(tal_arr(NULL, struct span_tag, 0));
-	s->name = notleak(tal_strdup(NULL, name));
+	s->name = name;
 
 	/* If this is a new root span we also need to associate a new
 	 * trace_id with it. */
 	if (!current) {
-		randombytes_buf(s->trace_id, TRACE_ID_SIZE);
+		s->trace_id_hi = pseudorand_u64();
+		s->trace_id_lo = pseudorand_u64();
 	} else {
-		memcpy(s->parent_id, current->id, SPAN_ID_SIZE);
-		memcpy(s->trace_id, current->trace_id, TRACE_ID_SIZE);
+		s->parent_id = current->id;
+		s->trace_id_hi = current->trace_id_hi;
+		s->trace_id_lo = current->trace_id_lo;
 	}
 
 	current = s;
@@ -301,7 +315,7 @@ void trace_span_start(const char *name, const void *key)
 	DTRACE_PROBE1(lightningd, span_start, s->id);
 }
 
-void trace_span_remote(u8 trace_id[TRACE_ID_SIZE], u8 span_id[SPAN_ID_SIZE])
+void trace_span_remote(u64 trace_id_hi, u64 trade_id_lo, u64 span_id)
 {
 	abort();
 }
@@ -344,20 +358,27 @@ void trace_span_tag(const void *key, const char *name, const char *value)
 	if (disable_trace)
 		return;
 
+	assert(name);
 	size_t numkey = trace_key(key);
 	struct span *span = trace_span_find(numkey);
 	assert(span);
 
-	size_t s = tal_count(span->tags);
-	tal_resize(&span->tags, s + 1);
-	span->tags[s].name = tal_strdup(span->tags, name);
-	if (strstarts(value, "\"")
-		&& strlen(value) > 1
-		&& strends(value, "\"")) {
-		value = tal_strndup(tmpctx, value + 1,
-			strlen(value) - 2);
+	for (size_t i = 0; i < SPAN_MAX_TAGS; i++) {
+		struct span_tag *t = &span->tags[i];
+		if (!t->name) {
+			t->name = name;
+			t->valuestr = value;
+			t->valuelen = strlen(value);
+			if (t->valuestr[0] == '"'
+			    && t->valuelen > 1
+			    && t->valuestr[t->valuelen-1] == '"') {
+				t->valuestr++;
+				t->valuelen--;
+			}
+			return;
+		}
 	}
-	span->tags[s].value = tal_strdup(span->tags, value);
+	abort();
 }
 
 void trace_span_suspend_(const void *key, const char *lbl)
@@ -414,7 +435,7 @@ void trace_cleanup(void)
 
 #else /* HAVE_USDT */
 
-void trace_span_start(const char *name, const void *key) {}
+void trace_span_start_(const char *name, const void *key) {}
 void trace_span_end(const void *key) {}
 void trace_span_suspend_(const void *key, const char *lbl) {}
 void trace_span_suspend_may_free_(const void *key, const char *lbl) {}

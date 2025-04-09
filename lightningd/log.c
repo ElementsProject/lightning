@@ -207,7 +207,14 @@ static void log_to_files(const char *log_prefix,
 			 struct log_file **log_files)
 {
 	char tstamp[sizeof("YYYY-mm-ddTHH:MM:SS.nnnZ ")];
-	char *entry, *nodestr;
+	char *entry, nodestr[hex_str_size(PUBKEY_CMPR_LEN)];
+	char buf[sizeof("%s%s%s %s-%s: %s\n")
+		 + strlen(log_prefix)
+		 + sizeof(tstamp)
+		 + strlen(level_prefix(level))
+		 + sizeof(nodestr)
+		 + strlen(entry_prefix)
+		 + strlen(str)];
 	bool filtered;
 
 	if (print_timestamps) {
@@ -218,9 +225,10 @@ static void log_to_files(const char *log_prefix,
 		tstamp[0] = '\0';
 
 	if (node_id)
-		nodestr = fmt_node_id(tmpctx, node_id);
+		hex_encode(node_id->k, sizeof(node_id->k),
+			   nodestr, sizeof(nodestr));
 	else
-		nodestr = "";
+		nodestr[0] = '\0';
 	if (level == LOG_IO_IN || level == LOG_IO_OUT) {
 		const char *dir = level == LOG_IO_IN ? "[IN]" : "[OUT]";
 		char *hex = tal_hexstr(NULL, io, io_len);
@@ -234,14 +242,15 @@ static void log_to_files(const char *log_prefix,
 					entry_prefix, str, dir, hex);
 		tal_free(hex);
 	} else {
+		entry = buf;
 		if (!node_id)
-			entry = tal_fmt(tmpctx, "%s%s%s %s: %s\n",
-					log_prefix, tstamp, level_prefix(level), entry_prefix, str);
+			sprintf(buf, "%s%s%s %s: %s\n",
+				log_prefix, tstamp, level_prefix(level), entry_prefix, str);
 		else
-			entry = tal_fmt(tmpctx, "%s%s%s %s-%s: %s\n",
-					log_prefix, tstamp, level_prefix(level),
-					nodestr,
-					entry_prefix, str);
+			sprintf(buf, "%s%s%s %s-%s: %s\n",
+				log_prefix, tstamp, level_prefix(level),
+				nodestr,
+				entry_prefix, str);
 	}
 
 	/* In complex configurations, we tell loggers to overshare: then we
