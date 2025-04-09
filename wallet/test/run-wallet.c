@@ -1385,12 +1385,12 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	db_begin_transaction(w->db);
 
 	/* Should work, it's the first time we add it */
-	CHECK_MSG(wallet_add_utxo(w, &u, p2sh_wpkh),
+	CHECK_MSG(wallet_add_utxo(w, &u, WALLET_OUTPUT_P2SH_WPKH),
 		  "wallet_add_utxo failed on first add");
 	CHECK_MSG(!wallet_err, wallet_err);
 
 	/* Should fail, we already have that UTXO */
-	CHECK_MSG(!wallet_add_utxo(w, &u, p2sh_wpkh),
+	CHECK_MSG(!wallet_add_utxo(w, &u, WALLET_OUTPUT_P2SH_WPKH),
 		  "wallet_add_utxo succeeded on second add");
 	CHECK_MSG(!wallet_err, wallet_err);
 
@@ -1404,7 +1404,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	/* Arbitrarily set scriptpubkey len to 20 */
 	u.scriptPubkey = tal_arr(w, u8, 20);
 	memset(u.scriptPubkey, 1, 20);
-	CHECK_MSG(wallet_add_utxo(w, &u, our_change),
+	CHECK_MSG(wallet_add_utxo(w, &u, WALLET_OUTPUT_OUR_CHANGE),
 		  "wallet_add_utxo with close_info");
 
 	/* Now select them */
@@ -1473,7 +1473,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	u.blockheight = blockheight;
 	u.scriptPubkey = tal_arr(w, u8, 20);
 	memset(u.scriptPubkey, 1, 20);
-	CHECK_MSG(wallet_add_utxo(w, &u, p2sh_wpkh),
+	CHECK_MSG(wallet_add_utxo(w, &u, WALLET_OUTPUT_P2SH_WPKH),
 		  "wallet_add_utxo with close_info no commitment_point");
 	CHECK_MSG(!wallet_err, wallet_err);
 
@@ -1555,7 +1555,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	memset(&u.outpoint, 4, sizeof(u.outpoint));
 	u.amount = AMOUNT_SAT(4);
 	u.close_info = tal_free(u.close_info);
-	CHECK_MSG(wallet_add_utxo(w, &u, p2wpkh),
+	CHECK_MSG(wallet_add_utxo(w, &u, WALLET_OUTPUT_P2WPKH),
 		  "wallet_add_utxo failed, p2wpkh");
 
 	utxos = tal_arr(w, const struct utxo *, 0);
