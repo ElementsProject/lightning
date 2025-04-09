@@ -75,8 +75,8 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
     ]
     bitcoind.generate_block(1)
 
-    l1.daemon.wait_for_log(r'Owning output.* \(SEGWIT\).* txid %s.* CONFIRMED' % closetxid)
-    l2.daemon.wait_for_log(r'Owning output.* \(SEGWIT\).* txid %s.* CONFIRMED' % closetxid)
+    l1.daemon.wait_for_log(r'Owning output.* \(p2tr\).* txid %s.* CONFIRMED' % closetxid)
+    l2.daemon.wait_for_log(r'Owning output.* \(p2tr\).* txid %s.* CONFIRMED' % closetxid)
 
     # Make sure both nodes have grabbed their close tx funds
     assert closetxid in set([o['txid'] for o in l1.rpc.listfunds()['outputs']])
@@ -334,11 +334,11 @@ def test_closing_specified_destination(node_factory, bitcoind, chainparams):
 
     # l1 can't spent the output to addr.
     for txid in closetxs.values():
-        assert not l1.daemon.is_in_log(r'Owning output.* \(SEGWIT\).* txid {}.* CONFIRMED'.format(txid))
+        assert not l1.daemon.is_in_log(r'Owning output.* \(p2tr\).* txid {}.* CONFIRMED'.format(txid))
 
     # Check the txid has at least 1 confirmation
     for n, txid in closetxs.items():
-        n.daemon.wait_for_log(r'Owning output.* \(SEGWIT\).* txid {}.* CONFIRMED'.format(txid))
+        n.daemon.wait_for_log(r'Owning output.* \(p2tr\).* txid {}.* CONFIRMED'.format(txid))
 
     for n in [l2, l3, l4]:
         # Make sure both nodes have grabbed their close tx funds

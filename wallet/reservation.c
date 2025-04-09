@@ -277,7 +277,7 @@ struct wally_psbt *psbt_using_utxos(const tal_t *ctx,
 		u32 this_nsequence;
 		struct bitcoin_tx *tx;
 
-		if (utxos[i]->is_p2sh) {
+		if (utxos[i]->utxotype == UTXO_P2SH_P2WPKH) {
 			bip32_pubkey(wallet->ld, &key, utxos[i]->keyindex);
 			scriptSig = bitcoin_scriptsig_p2sh_p2wpkh(tmpctx, &key);
 			redeemscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &key);
