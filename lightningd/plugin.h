@@ -19,6 +19,33 @@ enum plugin_state {
 	INIT_COMPLETE
 };
 
+struct plugin_subscription {
+	struct plugin *owner;
+	const char *topic;
+};
+
+static inline size_t hash_str(const char *str)
+{
+	return siphash24(siphash_seed(), str, strlen(str));
+}
+
+static inline const char *plugin_subscription_key(const struct plugin_subscription *ps)
+{
+	return ps->topic;
+}
+
+static inline bool plugin_subscription_eq_topic(const struct plugin_subscription *ps,
+						const char *topic)
+{
+	return streq(ps->topic, topic);
+}
+
+HTABLE_DEFINE_DUPS_TYPE(struct plugin_subscription,
+			plugin_subscription_key,
+			hash_str,
+			plugin_subscription_eq_topic,
+			plugin_subscription_htable);
+
 /**
  * A plugin, exposed as a stub so we can pass it as an argument.
  */
@@ -71,7 +98,7 @@ struct plugin {
 	const struct oneshot *timeout_timer;
 
 	/* An array of subscribed topics */
-	char **subscriptions;
+	struct plugin_subscription *subscriptions;
 
 	/* Our pending requests by their request ID */
 	STRMAP(struct jsonrpc_request *) pending_requests;
@@ -121,6 +148,9 @@ struct plugins {
 
 	/* Index to show what order they were added in */
 	u64 plugin_idx;
+
+	/* Table of who subscribed to what hooks/notifications */
+	struct plugin_subscription_htable *subscriptions;
 
 	/* Whether builtin plugins should be overridden as unimportant.  */
 	bool dev_builtin_plugins_unimportant;
