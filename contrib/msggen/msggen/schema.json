@@ -1,6 +1,6 @@
 {
   "methods": {
-    "lightning-addgossip.json": {
+    "addgossip.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "addgossip",
@@ -62,7 +62,7 @@
         }
       ]
     },
-    "lightning-addpsbtoutput.json": {
+    "addpsbtoutput.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.11",
@@ -195,7 +195,7 @@
         }
       ]
     },
-    "lightning-askrene-age.json": {
+    "askrene-age.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-age",
@@ -274,7 +274,7 @@
         }
       ]
     },
-    "lightning-askrene-bias-channel.json": {
+    "askrene-bias-channel.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-bias-channel",
@@ -421,7 +421,7 @@
         }
       ]
     },
-    "lightning-askrene-create-channel.json": {
+    "askrene-create-channel.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-create-channel",
@@ -509,7 +509,7 @@
         }
       ]
     },
-    "lightning-askrene-create-layer.json": {
+    "askrene-create-layer.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-create-layer",
@@ -782,7 +782,7 @@
         }
       ]
     },
-    "lightning-askrene-disable-node.json": {
+    "askrene-disable-node.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-disable-node",
@@ -844,7 +844,7 @@
         }
       ]
     },
-    "lightning-askrene-inform-channel.json": {
+    "askrene-inform-channel.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-inform-channel",
@@ -983,7 +983,7 @@
         }
       ]
     },
-    "lightning-askrene-listlayers.json": {
+    "askrene-listlayers.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-listlayers",
@@ -1347,7 +1347,7 @@
         }
       ]
     },
-    "lightning-askrene-listreservations.json": {
+    "askrene-listreservations.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-listreservations",
@@ -1456,7 +1456,7 @@
         }
       ]
     },
-    "lightning-askrene-remove-layer.json": {
+    "askrene-remove-layer.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-remove-layer",
@@ -1507,7 +1507,7 @@
         }
       ]
     },
-    "lightning-askrene-reserve.json": {
+    "askrene-reserve.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-reserve",
@@ -1608,7 +1608,7 @@
         }
       ]
     },
-    "lightning-askrene-unreserve.json": {
+    "askrene-unreserve.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-unreserve",
@@ -1709,7 +1709,7 @@
         }
       ]
     },
-    "lightning-askrene-update-channel.json": {
+    "askrene-update-channel.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "askrene-update-channel",
@@ -1820,7 +1820,7 @@
         }
       ]
     },
-    "lightning-autoclean-once.json": {
+    "autoclean-once.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "autoclean-once",
@@ -2058,7 +2058,7 @@
         }
       ]
     },
-    "lightning-autoclean-status.json": {
+    "autoclean-status.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "autoclean-status",
@@ -2550,7 +2550,7 @@
         }
       ]
     },
-    "lightning-batching.json": {
+    "batching.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "batching",
@@ -2601,7 +2601,7 @@
         }
       ]
     },
-    "lightning-bkpr-channelsapy.json": {
+    "bkpr-channelsapy.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "bkpr-channelsapy",
@@ -2907,7 +2907,7 @@
         }
       ]
     },
-    "lightning-bkpr-dumpincomecsv.json": {
+    "bkpr-dumpincomecsv.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "bkpr-dumpincomecsv",
@@ -3013,7 +3013,7 @@
         }
       ]
     },
-    "lightning-bkpr-editdescriptionbyoutpoint.json": {
+    "bkpr-editdescriptionbyoutpoint.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "additionalProperties": false,
@@ -3322,7 +3322,7 @@
         }
       ]
     },
-    "lightning-bkpr-editdescriptionbypaymentid.json": {
+    "bkpr-editdescriptionbypaymentid.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "additionalProperties": false,
@@ -3626,7 +3626,7 @@
         }
       ]
     },
-    "lightning-bkpr-inspect.json": {
+    "bkpr-inspect.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "bkpr-inspect",
@@ -3866,7 +3866,7 @@
         }
       ]
     },
-    "lightning-bkpr-listaccountevents.json": {
+    "bkpr-listaccountevents.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "bkpr-listaccountevents",
@@ -4211,7 +4211,7 @@
         }
       ]
     },
-    "lightning-bkpr-listbalances.json": {
+    "bkpr-listbalances.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "bkpr-listbalances",
@@ -4425,7 +4425,7 @@
         }
       ]
     },
-    "lightning-bkpr-listincome.json": {
+    "bkpr-listincome.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "pre-v0.10.1",
@@ -4650,7 +4650,7 @@
         }
       ]
     },
-    "lightning-blacklistrune.json": {
+    "blacklistrune.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.08",
@@ -4820,7 +4820,7 @@
         }
       ]
     },
-    "lightning-check.json": {
+    "check.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "check",
@@ -4923,7 +4923,7 @@
         }
       ]
     },
-    "lightning-checkmessage.json": {
+    "checkmessage.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "checkmessage",
@@ -5031,7 +5031,7 @@
         }
       ]
     },
-    "lightning-checkrune.json": {
+    "checkrune.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.08",
@@ -5152,7 +5152,7 @@
         }
       ]
     },
-    "lightning-close.json": {
+    "close.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "close",
@@ -5383,7 +5383,7 @@
         }
       ]
     },
-    "lightning-commando-blacklist.json": {
+    "commando-blacklist.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.05",
@@ -5504,7 +5504,7 @@
         }
       ]
     },
-    "lightning-commando-listrunes.json": {
+    "commando-listrunes.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.05",
@@ -6032,7 +6032,7 @@
         }
       ]
     },
-    "lightning-commando-rune.json": {
+    "commando-rune.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "deprecated": [
@@ -6463,7 +6463,7 @@
         }
       ]
     },
-    "lightning-commando.json": {
+    "commando.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "commando",
@@ -6621,7 +6621,7 @@
         }
       ]
     },
-    "lightning-connect.json": {
+    "connect.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "connect",
@@ -6854,7 +6854,7 @@
         }
       ]
     },
-    "lightning-createinvoice.json": {
+    "createinvoice.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "createinvoice",
@@ -7085,7 +7085,7 @@
         }
       ]
     },
-    "lightning-createonion.json": {
+    "createonion.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "createonion",
@@ -7253,7 +7253,7 @@
         }
       ]
     },
-    "lightning-createrune.json": {
+    "createrune.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.08",
@@ -7687,7 +7687,7 @@
         }
       ]
     },
-    "lightning-datastore.json": {
+    "datastore.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "datastore",
@@ -7880,7 +7880,7 @@
         }
       ]
     },
-    "lightning-datastoreusage.json": {
+    "datastoreusage.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.11",
@@ -8005,7 +8005,7 @@
         }
       ]
     },
-    "lightning-decode.json": {
+    "decode.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.05",
@@ -10483,7 +10483,7 @@
         }
       ]
     },
-    "lightning-decodepay.json": {
+    "decodepay.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.05",
@@ -10788,7 +10788,7 @@
         }
       ]
     },
-    "lightning-deldatastore.json": {
+    "deldatastore.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "deldatastore",
@@ -10923,7 +10923,7 @@
         }
       ]
     },
-    "lightning-delforward.json": {
+    "delforward.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "delforward",
@@ -11012,7 +11012,7 @@
         }
       ]
     },
-    "lightning-delinvoice.json": {
+    "delinvoice.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "delinvoice",
@@ -11353,7 +11353,7 @@
         }
       ]
     },
-    "lightning-delpay.json": {
+    "delpay.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "delpay",
@@ -11652,7 +11652,7 @@
         }
       ]
     },
-    "lightning-deprecations.json": {
+    "deprecations.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v24.02",
@@ -11717,7 +11717,7 @@
         }
       ]
     },
-    "lightning-dev-forget-channel.json": {
+    "dev-forget-channel.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "dev-forget-channel",
@@ -11848,7 +11848,7 @@
         }
       ]
     },
-    "lightning-dev-splice.json": {
+    "dev-splice.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "additionalProperties": false,
@@ -12280,7 +12280,7 @@
         "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
-    "lightning-disableinvoicerequest.json": {
+    "disableinvoicerequest.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v22.11",
@@ -12388,7 +12388,7 @@
         }
       ]
     },
-    "lightning-disableoffer.json": {
+    "disableoffer.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "disableoffer",
@@ -12496,7 +12496,7 @@
         }
       ]
     },
-    "lightning-disconnect.json": {
+    "disconnect.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "disconnect",
@@ -12569,7 +12569,7 @@
         }
       ]
     },
-    "lightning-emergencyrecover.json": {
+    "emergencyrecover.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "emergencyrecover",
@@ -12637,7 +12637,7 @@
         }
       ]
     },
-    "lightning-enableoffer.json": {
+    "enableoffer.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "enableoffer",
@@ -12749,7 +12749,7 @@
         }
       ]
     },
-    "lightning-exposesecret.json": {
+    "exposesecret.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "additionalProperties": false,
@@ -12836,7 +12836,7 @@
         }
       ]
     },
-    "lightning-feerates.json": {
+    "feerates.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "feerates",
@@ -13326,7 +13326,7 @@
         }
       ]
     },
-    "lightning-fetchinvoice.json": {
+    "fetchinvoice.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "fetchinvoice",
@@ -13564,7 +13564,7 @@
         }
       ]
     },
-    "lightning-fundchannel.json": {
+    "fundchannel.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "fundchannel",
@@ -13867,7 +13867,7 @@
         }
       ]
     },
-    "lightning-fundchannel_cancel.json": {
+    "fundchannel_cancel.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "fundchannel_cancel",
@@ -13959,7 +13959,7 @@
         }
       ]
     },
-    "lightning-fundchannel_complete.json": {
+    "fundchannel_complete.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "fundchannel_complete",
@@ -14072,7 +14072,7 @@
         }
       ]
     },
-    "lightning-fundchannel_start.json": {
+    "fundchannel_start.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "fundchannel_start",
@@ -14333,7 +14333,7 @@
         }
       ]
     },
-    "lightning-funderupdate.json": {
+    "funderupdate.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "funderupdate",
@@ -14665,7 +14665,7 @@
         }
       ]
     },
-    "lightning-fundpsbt.json": {
+    "fundpsbt.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "fundpsbt",
@@ -14917,7 +14917,7 @@
         }
       ]
     },
-    "lightning-getemergencyrecoverdata.json": {
+    "getemergencyrecoverdata.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "getemergencyrecoverdata",
@@ -14964,7 +14964,7 @@
         }
       ]
     },
-    "lightning-getinfo.json": {
+    "getinfo.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "getinfo",
@@ -15391,7 +15391,7 @@
         }
       ]
     },
-    "lightning-getlog.json": {
+    "getlog.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "getlog",
@@ -15670,7 +15670,7 @@
         }
       ]
     },
-    "lightning-getroute.json": {
+    "getroute.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "getroute",
@@ -16104,7 +16104,7 @@
         }
       ]
     },
-    "lightning-getroutes.json": {
+    "getroutes.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "getroutes",
@@ -16328,7 +16328,7 @@
         }
       ]
     },
-    "lightning-help.json": {
+    "help.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "help",
@@ -16434,7 +16434,7 @@
         }
       ]
     },
-    "lightning-injectonionmessage.json": {
+    "injectonionmessage.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "additionalProperties": false,
@@ -16492,7 +16492,7 @@
         }
       ]
     },
-    "lightning-injectpaymentonion.json": {
+    "injectpaymentonion.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "injectpaymentonion",
@@ -16658,7 +16658,7 @@
         }
       ]
     },
-    "lightning-invoice.json": {
+    "invoice.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "invoice",
@@ -16899,7 +16899,7 @@
         }
       ]
     },
-    "lightning-invoicerequest.json": {
+    "invoicerequest.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v22.11",
@@ -17061,7 +17061,7 @@
         }
       ]
     },
-    "lightning-keysend.json": {
+    "keysend.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "keysend",
@@ -17372,7 +17372,7 @@
         }
       ]
     },
-    "lightning-listaddresses.json": {
+    "listaddresses.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v24.11",
@@ -17500,7 +17500,7 @@
         }
       ]
     },
-    "lightning-listchannels.json": {
+    "listchannels.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "listchannels",
@@ -17840,7 +17840,7 @@
         }
       ]
     },
-    "lightning-listclosedchannels.json": {
+    "listclosedchannels.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.05",
@@ -18216,7 +18216,7 @@
         }
       ]
     },
-    "lightning-listconfigs.json": {
+    "listconfigs.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "listconfigs",
@@ -20428,7 +20428,7 @@
         }
       ]
     },
-    "lightning-listdatastore.json": {
+    "listdatastore.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "listdatastore",
@@ -20571,7 +20571,7 @@
         }
       ]
     },
-    "lightning-listforwards.json": {
+    "listforwards.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "listforwards",
@@ -21085,7 +21085,7 @@
         }
       ]
     },
-    "lightning-listfunds.json": {
+    "listfunds.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "listfunds",
@@ -21514,7 +21514,7 @@
         }
       ]
     },
-    "lightning-listhtlcs.json": {
+    "listhtlcs.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "listhtlcs",
@@ -21757,7 +21757,7 @@
         }
       ]
     },
-    "lightning-listinvoicerequests.json": {
+    "listinvoicerequests.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v22.11",
@@ -21906,7 +21906,7 @@
         }
       ]
     },
-    "lightning-listinvoices.json": {
+    "listinvoices.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "listinvoices",
@@ -22314,7 +22314,7 @@
         }
       ]
     },
-    "lightning-listnodes.json": {
+    "listnodes.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "listnodes",
@@ -22647,7 +22647,7 @@
         }
       ]
     },
-    "lightning-listoffers.json": {
+    "listoffers.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "listoffers",
@@ -22803,7 +22803,7 @@
         }
       ]
     },
-    "lightning-listpays.json": {
+    "listpays.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "listpays",
@@ -23103,7 +23103,7 @@
         }
       ]
     },
-    "lightning-listpeerchannels.json": {
+    "listpeerchannels.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.02",
@@ -24965,7 +24965,7 @@
         }
       ]
     },
-    "lightning-listpeers.json": {
+    "listpeers.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "listpeers",
@@ -25351,7 +25351,7 @@
         }
       ]
     },
-    "lightning-listsendpays.json": {
+    "listsendpays.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "listsendpays",
@@ -25804,7 +25804,7 @@
         }
       ]
     },
-    "lightning-listsqlschemas.json": {
+    "listsqlschemas.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.02",
@@ -26091,7 +26091,7 @@
         }
       ]
     },
-    "lightning-listtransactions.json": {
+    "listtransactions.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "listtransactions",
@@ -26319,7 +26319,7 @@
         }
       ]
     },
-    "lightning-makesecret.json": {
+    "makesecret.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "makesecret",
@@ -26397,7 +26397,7 @@
         }
       ]
     },
-    "lightning-multifundchannel.json": {
+    "multifundchannel.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "multifundchannel",
@@ -26876,7 +26876,7 @@
         }
       ]
     },
-    "lightning-multiwithdraw.json": {
+    "multiwithdraw.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "multiwithdraw",
@@ -27023,7 +27023,7 @@
         }
       ]
     },
-    "lightning-newaddr.json": {
+    "newaddr.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "newaddr",
@@ -27112,7 +27112,7 @@
         }
       ]
     },
-    "lightning-notifications.json": {
+    "notifications.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "notifications",
@@ -27208,7 +27208,7 @@
         }
       ]
     },
-    "lightning-offer.json": {
+    "offer.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "offer",
@@ -27429,7 +27429,7 @@
         }
       ]
     },
-    "lightning-openchannel_abort.json": {
+    "openchannel_abort.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "openchannel_abort",
@@ -27523,7 +27523,7 @@
         }
       ]
     },
-    "lightning-openchannel_bump.json": {
+    "openchannel_bump.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "openchannel_bump",
@@ -27786,7 +27786,7 @@
         }
       ]
     },
-    "lightning-openchannel_init.json": {
+    "openchannel_init.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "openchannel_init",
@@ -28060,7 +28060,7 @@
         }
       ]
     },
-    "lightning-openchannel_signed.json": {
+    "openchannel_signed.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "openchannel_signed",
@@ -28183,7 +28183,7 @@
         }
       ]
     },
-    "lightning-openchannel_update.json": {
+    "openchannel_update.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "openchannel_update",
@@ -28447,7 +28447,7 @@
         }
       ]
     },
-    "lightning-parsefeerate.json": {
+    "parsefeerate.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "parsefeerate",
@@ -28544,7 +28544,7 @@
         }
       ]
     },
-    "lightning-pay.json": {
+    "pay.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "pay",
@@ -28825,7 +28825,7 @@
         }
       ]
     },
-    "lightning-ping.json": {
+    "ping.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "ping",
@@ -28921,7 +28921,7 @@
         }
       ]
     },
-    "lightning-plugin.json": {
+    "plugin.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "additionalProperties": true,
@@ -29363,7 +29363,7 @@
         }
       ]
     },
-    "lightning-preapproveinvoice.json": {
+    "preapproveinvoice.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.02",
@@ -29431,7 +29431,7 @@
         }
       ]
     },
-    "lightning-preapprovekeysend.json": {
+    "preapprovekeysend.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.02",
@@ -29521,7 +29521,7 @@
         }
       ]
     },
-    "lightning-reckless.json": {
+    "reckless.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "reckless",
@@ -29609,13 +29609,51 @@
           }
         }
       },
+      "notes": [
+        "Reckless currently supports python and javascript plugins.",
+        "Running the first time will prompt the user that their lightningd's bitcoin config will be appended (or created) to inherit the reckless config file (this config is specific to bitcoin by default.). Management of plugins will subsequently modify this file.",
+        "",
+        "Available option flags:",
+        "**-d**, **--reckless-dir** *reckless_dir*: specify an alternative data directory for reckless to use. Useful if your .lightning is protected from execution.",
+        "",
+        "**-l**, **--lightning** *lightning\\_data\\_dir*: lightning data directory (defaults to $USER/.lightning)",
+        "",
+        "**-c**, **--conf** *lightning\\_config*: pass the config used by lightningd",
+        "",
+        "**-r**, **--regtest**: use the regtest network and config instead of bitcoin mainnet",
+        "",
+        "**-v**, **--verbose**: request additional debug output",
+        "",
+        "**--network**=*network*: specify bitcoin, regtest, liquid, liquid-regtest, litecoin, signet, or testnet networks. (default: bitcoin)",
+        "",
+        "**--version**: print the version of reckless and exit",
+        "",
+        "",
+        "Troubleshooting tips:",
+        "",
+        "Plugins must be executable. For python plugins, the shebang is invoked, so **python3** should be available in your environment. This can be verified with **which Python3**. The default reckless directory is $USER/.lightning/reckless and it should be possible for the lightningd user to execute files located here. If this is a problem, the option flag **reckless -d=<my_alternate_dir>** may be used to relocate the reckless directory from its default. Consider creating a permanent alias in this case.",
+        "Python plugins are installed to their own virtual environments. The environment is activated by a wrapper (named the same as the plugin) which then imports and executes the actual plugin entrypoint.",
+        "",
+        "For Plugin Developers:",
+        "",
+        "To make your plugin compatible with reckless install:",
+        "- Choose a unique plugin name: The plugin entrypoint is inferred. Naming your plugin executable the same as your plugin name will allow reckless to identify it correctly (file extensions are okay.)",
+        "- For python plugins, a requirements.txt is the preferred medium for python dependencies. A pyproject.toml will be used as a fallback, but test installation via `pip install -e .` - Poetry looks for additional files in the working directory, whereas with pip, any references to these will require something like `packages = [{ include = \"*.py\" }]` under the `[tool.poetry]` section.",
+        "- Additional repository sources may be added with `reckless source add https://my.repo.url/here` however, https://github.com/lightningd/plugins is included by default. Consider adding your plugin lightningd/plugins to make installation simpler.",
+        "- If your plugin is located in a subdirectory of your repo with a different name than your plugin, it will likely be overlooked."
+      ],
       "author": [
-        "Alex Myers <<alex@endothermic.dev>> is mainly responsible."
+        "Antoine Poinsot wrote the original reckless plugin on which this is based.",
+        "",
+        "Rusty Russell wrote the outline for the reckless utility's function",
+        "",
+        "Alex Myers <<alex@endothermic.dev>> is mainly responsible for the reckless code and this man page, with thanks to Christian Decker for extensive review."
       ],
       "see_also": [
         "reckless(7)"
       ],
       "resources": [
+        "Core-Lightning plugins repo: <https://github.com/lightningd/plugins>",
         "Main web site: <https://github.com/ElementsProject/lightning>"
       ],
       "examples": [
@@ -29713,7 +29751,7 @@
         }
       ]
     },
-    "lightning-recover.json": {
+    "recover.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "recover",
@@ -29790,7 +29828,7 @@
         }
       ]
     },
-    "lightning-recoverchannel.json": {
+    "recoverchannel.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "recoverchannel",
@@ -29872,7 +29910,7 @@
         }
       ]
     },
-    "lightning-renepay.json": {
+    "renepay.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "renepay",
@@ -30134,7 +30172,7 @@
         }
       ]
     },
-    "lightning-renepaystatus.json": {
+    "renepaystatus.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "renepaystatus",
@@ -30300,7 +30338,7 @@
         }
       ]
     },
-    "lightning-reserveinputs.json": {
+    "reserveinputs.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "reserveinputs",
@@ -30452,7 +30490,7 @@
         }
       ]
     },
-    "lightning-sendcustommsg.json": {
+    "sendcustommsg.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v0.10.1",
@@ -30529,7 +30567,7 @@
         }
       ]
     },
-    "lightning-sendinvoice.json": {
+    "sendinvoice.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "sendinvoice",
@@ -30764,7 +30802,7 @@
         }
       ]
     },
-    "lightning-sendonion.json": {
+    "sendonion.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "sendonion",
@@ -31126,7 +31164,7 @@
         }
       ]
     },
-    "lightning-sendpay.json": {
+    "sendpay.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "sendpay",
@@ -31530,7 +31568,7 @@
         }
       ]
     },
-    "lightning-sendpsbt.json": {
+    "sendpsbt.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "sendpsbt",
@@ -31613,7 +31651,7 @@
         }
       ]
     },
-    "lightning-setchannel.json": {
+    "setchannel.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "setchannel",
@@ -31838,7 +31876,7 @@
         }
       ]
     },
-    "lightning-setconfig.json": {
+    "setconfig.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.08",
@@ -32023,7 +32061,7 @@
         }
       ]
     },
-    "lightning-setpsbtversion.json": {
+    "setpsbtversion.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "setpsbtversion",
@@ -32111,7 +32149,7 @@
         }
       ]
     },
-    "lightning-showrunes.json": {
+    "showrunes.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.08",
@@ -32614,7 +32652,7 @@
         }
       ]
     },
-    "lightning-signinvoice.json": {
+    "signinvoice.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.02",
@@ -32698,7 +32736,7 @@
         }
       ]
     },
-    "lightning-signmessage.json": {
+    "signmessage.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "signmessage",
@@ -32794,7 +32832,7 @@
         }
       ]
     },
-    "lightning-signpsbt.json": {
+    "signpsbt.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "signpsbt",
@@ -32886,7 +32924,7 @@
         }
       ]
     },
-    "lightning-splice_init.json": {
+    "splice_init.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.08",
@@ -33026,7 +33064,7 @@
         }
       ]
     },
-    "lightning-splice_signed.json": {
+    "splice_signed.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.08",
@@ -33194,7 +33232,7 @@
         }
       ]
     },
-    "lightning-splice_update.json": {
+    "splice_update.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.08",
@@ -33360,7 +33398,7 @@
         }
       ]
     },
-    "lightning-sql-template.json": {
+    "sql-template.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.02",
@@ -33653,7 +33691,7 @@
         }
       ]
     },
-    "lightning-staticbackup.json": {
+    "staticbackup.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "staticbackup",
@@ -33712,7 +33750,7 @@
         }
       ]
     },
-    "lightning-stop.json": {
+    "stop.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "stop",
@@ -33760,7 +33798,7 @@
         }
       ]
     },
-    "lightning-txdiscard.json": {
+    "txdiscard.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "txdiscard",
@@ -33850,7 +33888,7 @@
         }
       ]
     },
-    "lightning-txprepare.json": {
+    "txprepare.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "txprepare",
@@ -33986,7 +34024,7 @@
         }
       ]
     },
-    "lightning-txsend.json": {
+    "txsend.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "txsend",
@@ -34082,7 +34120,7 @@
         }
       ]
     },
-    "lightning-unreserveinputs.json": {
+    "unreserveinputs.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "unreserveinputs",
@@ -34234,7 +34272,7 @@
         }
       ]
     },
-    "lightning-upgradewallet.json": {
+    "upgradewallet.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "upgradewallet",
@@ -34344,7 +34382,7 @@
         }
       ]
     },
-    "lightning-utxopsbt.json": {
+    "utxopsbt.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "utxopsbt",
@@ -34618,7 +34656,7 @@
         }
       ]
     },
-    "lightning-wait.json": {
+    "wait.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "added": "v23.08",
@@ -34990,7 +35028,7 @@
         }
       ]
     },
-    "lightning-waitanyinvoice.json": {
+    "waitanyinvoice.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "waitanyinvoice",
@@ -35268,7 +35306,7 @@
         }
       ]
     },
-    "lightning-waitblockheight.json": {
+    "waitblockheight.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "waitblockheight",
@@ -35359,7 +35397,7 @@
         }
       ]
     },
-    "lightning-waitinvoice.json": {
+    "waitinvoice.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "waitinvoice",
@@ -35641,7 +35679,7 @@
         }
       ]
     },
-    "lightning-waitsendpay.json": {
+    "waitsendpay.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "waitsendpay",
@@ -35901,7 +35939,7 @@
         }
       ]
     },
-    "lightning-withdraw.json": {
+    "withdraw.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "withdraw",
@@ -36040,7 +36078,7 @@
         }
       ]
     },
-    "lightning-xpay.json": {
+    "xpay.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "additionalProperties": false,
