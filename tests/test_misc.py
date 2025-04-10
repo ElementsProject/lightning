@@ -1,3 +1,4 @@
+import base64
 from bitcoin.rpc import RawProxy
 from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
@@ -2482,6 +2483,42 @@ def test_signmessage(node_factory):
     # check that checkmassage used with a wrong zbase format throws an RPC exception
     with pytest.raises(RpcError, match="zbase is not valid zbase32"):
         l2.rpc.checkmessage(message="wrong zbase format", zbase="wrong zbase format")
+
+
+def test_signmessagewithkey(node_factory, chainparams):
+    l1, l2 = node_factory.get_nodes(2)
+    message = "a test message"
+    addr_bech32 = l1.rpc.newaddr("bech32")["bech32"]
+    addr_other = l2.rpc.newaddr("bech32")["bech32"]
+    if TEST_NETWORK != "liquid-regtest":
+        # refuse to sign if the address is not a P2WPKH
+        addr_p2tr = l1.rpc.newaddr("p2tr")["p2tr"]
+        with pytest.raises(
+            RpcError, match=r"Address is not p2wpkh and it is not supported"
+        ):
+            l1.rpc.signmessagewithkey(message, addr_p2tr)
+
+    # refuse to sign if the address does not belong to us
+    with pytest.raises(
+        RpcError, match=r"Address is not found in the wallet\'s database"
+    ):
+        l1.rpc.signmessagewithkey(message, addr_other)
+    response = l1.rpc.signmessagewithkey(message, addr_bech32)
+    assert response["address"] == addr_bech32
+    signature = base64.b64decode(response["base64"])
+    assert signature.hex() == response["signature"]
+    assert (
+        subprocess.check_output(
+            [
+                "devtools/bip137-verifysignature",
+                message,
+                response["signature"],
+                response["address"],
+                chainparams["name"],
+            ]
+        ).decode("utf-8")
+        == "Signature is valid!\n"
+    )
 
 
 def test_include(node_factory):
