@@ -13,6 +13,11 @@ const METHOD_NOT_FOUND: i64 = -32601;
 const INVALID_PARAMS: i64 = -32602;
 const INTERNAL_ERROR: i64 = -32603;
 
+/// Error type for JSON-RPC related operations.
+///
+/// Encapsulates various error conditions that may occur during JSON-RPC
+/// operations, including serialization errors, transport issues, and
+/// protocol-specific errors.
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("JSON error: {0}")]
@@ -31,6 +36,8 @@ impl Error {
     }
 }
 
+/// Transport-specific errors that may occur when sending or receiving JSON-RPC
+/// messages.
 #[derive(Error, Debug)]
 pub enum TransportError {
     #[error("Timeout")]
@@ -39,9 +46,14 @@ pub enum TransportError {
     Other(String),
 }
 
+/// Convenience type alias for Result with the JSON-RPC Error type.
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Trait to convert a struct into a JSON-RPC RequestObject.
+/// Trait for types that can be converted into JSON-RPC request objects.
+///
+/// Implementing this trait allows a struct to be used as a typed JSON-RPC
+/// request, with an associated method name and automatic conversion to the
+/// request format.
 pub trait JsonRpcRequest: Serialize {
     const METHOD: &'static str;
     fn into_request(self, id: impl Into<Option<String>>) -> RequestObject<Self>
@@ -57,7 +69,10 @@ pub trait JsonRpcRequest: Serialize {
     }
 }
 
-/// Trait for converting JSON-RPC responses into typed results.
+/// Trait for types that can be converted from JSON-RPC response objects.
+///
+/// This trait provides methods for converting between typed response objects
+/// and JSON-RPC protocol response envelopes.
 pub trait JsonRpcResponse<T>
 where
     T: DeserializeOwned,
