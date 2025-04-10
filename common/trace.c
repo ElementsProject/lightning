@@ -46,8 +46,12 @@ const char *trace_service_name = "lightningd";
 static bool disable_trace = false;
 static FILE *trace_to_file = NULL;
 
+#define SPAN_MAX_TAGS 2
+
 struct span_tag {
-	char *name, *value;
+	const char *name;
+	const char *valuestr;
+	int valuelen;
 };
 
 struct span {
@@ -67,7 +71,7 @@ struct span {
 	 * spans. */
 	size_t key;
 	struct span *parent;
-	struct span_tag *tags;
+	struct span_tag tags[SPAN_MAX_TAGS];
 	const char *name;
 
 	bool suspended;
@@ -93,7 +97,6 @@ static void init_span(struct span *s,
 	randombytes_buf(s->id, SPAN_ID_SIZE);
 	s->start_time = (now.ts.tv_sec * 1000000) + now.ts.tv_nsec / 1000;
 	s->parent = parent;
-	s->tags = notleak(tal_arr(NULL, struct span_tag, 0));
 	s->name = name;
 	s->suspended = false;
 
@@ -286,9 +289,13 @@ static void trace_emit(struct span *s)
 	}
 
 	tal_append_fmt(&res, "\"tags\": {");
-	for (size_t i = 0; i < tal_count(s->tags); i++) {
-		tal_append_fmt(&res, "%s\"%s\": \"%s\"", i == 0 ? "" : ", ",
-			       s->tags[i].name, s->tags[i].value);
+	for (size_t i = 0; i < SPAN_MAX_TAGS; i++) {
+		if (!s->tags[i].name)
+			continue;
+		tal_append_fmt(&res, "%s\"%s\": \"%.*s\"", i == 0 ? "" : ", ",
+			       s->tags[i].name,
+			       s->tags[i].valuelen,
+			       s->tags[i].valuestr);
 	}
 
 	tal_append_fmt(&res, "}, \"traceId\": \"%s\"}]", trace_id);
@@ -311,7 +318,8 @@ static void trace_span_clear(struct span *s)
 
 	s->parent = NULL;
 	s->name = NULL;
-	s->tags = tal_free(s->tags);
+	for (size_t i = 0; i < SPAN_MAX_TAGS; i++)
+		s->tags[i].name = NULL;
 }
 
 void trace_span_start_(const char *name, const void *key)
@@ -385,16 +393,22 @@ void trace_span_tag(const void *key, const char *name, const char *value)
 	struct span *span = trace_span_find(numkey);
 	assert(span);
 
-	size_t s = tal_count(span->tags);
-	tal_resize(&span->tags, s + 1);
-	span->tags[s].name = tal_strdup(span->tags, name);
-	if (strstarts(value, "\"")
-		&& strlen(value) > 1
-		&& strends(value, "\"")) {
-		value = tal_strndup(tmpctx, value + 1,
-			strlen(value) - 2);
+	for (size_t i = 0; i < SPAN_MAX_TAGS; i++) {
+		struct span_tag *t = &span->tags[i];
+		if (!t->name) {
+			t->name = name;
+			t->valuestr = value;
+			t->valuelen = strlen(value);
+			if (t->valuestr[0] == '"'
+			    && t->valuelen > 1
+			    && t->valuestr[t->valuelen-1] == '"') {
+				t->valuestr++;
+				t->valuelen -= 2;
+			}
+			return;
+		}
 	}
-	span->tags[s].value = tal_strdup(span->tags, value);
+	abort();
 }
 
 void trace_span_suspend_(const void *key, const char *lbl)
