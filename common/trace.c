@@ -82,6 +82,36 @@ struct span {
 static struct span *active_spans = NULL;
 static struct span *current;
 
+static void init_span(struct span *s,
+		      size_t key,
+		      const char *name,
+		      struct span *parent)
+{
+	struct timeabs now = time_now();
+
+	s->key = key;
+	randombytes_buf(s->id, SPAN_ID_SIZE);
+	s->start_time = (now.ts.tv_sec * 1000000) + now.ts.tv_nsec / 1000;
+	s->parent = parent;
+	s->tags = notleak(tal_arr(NULL, struct span_tag, 0));
+	s->name = notleak(tal_strdup(NULL, name));
+	s->suspended = false;
+
+	/* If this is a new root span we also need to associate a new
+	 * trace_id with it. */
+	if (!s->parent) {
+		randombytes_buf(s->trace_id, TRACE_ID_SIZE);
+	} else {
+		memcpy(s->parent_id, parent->id, SPAN_ID_SIZE);
+		memcpy(s->trace_id, parent->trace_id, TRACE_ID_SIZE);
+	}
+}
+
+/* FIXME: forward decls for minimal patch size */
+static struct span *trace_span_slot(void);
+static size_t trace_key(const void *key);
+static void trace_span_clear(struct span *s);
+
 /* If the `CLN_TRACEPARENT` envvar is set, we inject that as the
  * parent for the startup. This allows us to integrate the startup
  * tracing with whatever tooling we build around it. This only has an
@@ -95,7 +125,10 @@ static void trace_inject_traceparent(void)
 		return;
 
 	assert(strlen(traceparent) == TRACEPARENT_LEN);
-	trace_span_start("", active_spans);
+	current = trace_span_slot();
+	assert(current);
+
+	init_span(current, trace_key(active_spans), "", NULL);
 	current->remote = true;
 	assert(current && !current->parent);
 	if (!hex_decode(traceparent + 3, 2*TRACE_ID_SIZE, current->trace_id,
@@ -104,7 +137,8 @@ static void trace_inject_traceparent(void)
 			SPAN_ID_SIZE)) {
 		/* We failed to parse the traceparent, abandon. */
 		fprintf(stderr, "Failed!");
-		trace_span_end(active_spans);
+		trace_span_clear(current);
+		current = NULL;
 	}
 }
 
@@ -190,9 +224,6 @@ static struct span *trace_span_find(size_t key)
 	 * `key`. */
 	return NULL;
 }
-
-/* FIXME: Forward declaration for minimal patch size */
-static void trace_span_clear(struct span *s);
 
 /**
  * Find an empty slot for a new span.
@@ -286,7 +317,6 @@ static void trace_span_clear(struct span *s)
 void trace_span_start(const char *name, const void *key)
 {
 	size_t numkey = trace_key(key);
-	struct timeabs now = time_now();
 
 	if (disable_trace)
 		return;
@@ -297,23 +327,7 @@ void trace_span_start(const char *name, const void *key)
 	struct span *s = trace_span_slot();
 	if (!s)
 		return;
-	s->key = numkey;
-	randombytes_buf(s->id, SPAN_ID_SIZE);
-	s->start_time = (now.ts.tv_sec * 1000000) + now.ts.tv_nsec / 1000;
-	s->parent = current;
-	s->tags = notleak(tal_arr(NULL, struct span_tag, 0));
-	s->name = notleak(tal_strdup(NULL, name));
-	s->suspended = false;
-
-	/* If this is a new root span we also need to associate a new
-	 * trace_id with it. */
-	if (!current) {
-		randombytes_buf(s->trace_id, TRACE_ID_SIZE);
-	} else {
-		memcpy(s->parent_id, current->id, SPAN_ID_SIZE);
-		memcpy(s->trace_id, current->trace_id, TRACE_ID_SIZE);
-	}
-
+	init_span(s, numkey, name, current);
 	current = s;
 	trace_check_tree();
 	DTRACE_PROBE1(lightningd, span_start, s->id);
@@ -358,14 +372,6 @@ void trace_span_end(const void *key)
 
 	/* Now reset the span */
 	trace_span_clear(s);
-
-	/* One last special case: if the parent is remote, it must be
-	 * the root. And we should terminate that trace along with
-	 * this one. */
-	if (current && current->remote) {
-		assert(current->parent == NULL);
-		current = NULL;
-	}
 	trace_check_tree();
 }
 
@@ -401,7 +407,7 @@ void trace_span_suspend_(const void *key, const char *lbl)
 	assert(current == span);
  	assert(!span->suspended);
 	span->suspended = true;
-	current = NULL;
+	current = current->parent;
 	DTRACE_PROBE1(lightningd, span_suspend, span->id);
 	if (trace_to_file) {
 		char span_id[HEX_SPAN_ID_SIZE];
