@@ -135,6 +135,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_GET_CHANNEL_BASEPOINTS:
 	case WIRE_HSMD_DEV_MEMLEAK:
 	case WIRE_HSMD_SIGN_MESSAGE:
+	case WIRE_HSMD_SIGN_MESSAGE_WITH_KEY:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
 	case WIRE_HSMD_SIGN_BOLT12:
 	case WIRE_HSMD_SIGN_BOLT12_2:
@@ -181,6 +182,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_GET_CHANNEL_BASEPOINTS_REPLY:
 	case WIRE_HSMD_DEV_MEMLEAK_REPLY:
 	case WIRE_HSMD_SIGN_MESSAGE_REPLY:
+	case WIRE_HSMD_SIGN_MESSAGE_WITH_KEY_REPLY:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_BOLT12_REPLY:
 	case WIRE_HSMD_SIGN_BOLT12_2_REPLY:
@@ -699,6 +701,51 @@ static u8 *handle_sign_message(struct hsmd_client *c, const u8 *msg_in)
 	}
 
 	return towire_hsmd_sign_message_reply(NULL, &rsig);
+}
+
+/* FIXME: implement BIP0322 signature scheme so that we can support any type of
+ * address. */
+/* Sign a message with a private key (see BIP137):
+ * signature = base64(SigRec(SHA256(SHA256(
+ *      "\x18Bitcoin Signed Message:\n" + var_int(len(message)) + message
+ *      )))) */
+static u8 *handle_sign_message_with_key(struct hsmd_client *c, const u8 *msg_in)
+{
+	u8 *msg;
+	u32 keyidx;
+	struct sha256_ctx sctx = SHA256_INIT;
+	struct sha256_double shad;
+	secp256k1_ecdsa_recoverable_signature rsig;
+	struct privkey privkey;
+	struct pubkey pubkey;
+
+	if (!fromwire_hsmd_sign_message_with_key(tmpctx, msg_in, &msg, &keyidx))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	/* double sha256 the message */
+	const char header[] = "\x18"
+			      "Bitcoin Signed Message:\n";
+	sha256_update(&sctx, (const u8 *)header, strlen(header));
+
+	u8 vt[VARINT_MAX_LEN];
+	size_t msg_len = tal_count(msg);
+	size_t vtlen = varint_put(vt, msg_len);
+	sha256_update(&sctx, vt, vtlen);
+
+	sha256_update(&sctx, msg, msg_len);
+	sha256_double_done(&sctx, &shad);
+
+	/* get the private key BIP32 */
+	bitcoin_key(&privkey, &pubkey, keyidx);
+
+	if (!secp256k1_ecdsa_sign_recoverable(
+		secp256k1_ctx, &rsig, shad.sha.u.u8, privkey.secret.data, NULL,
+		NULL)) {
+		return hsmd_status_bad_request(c, msg_in,
+					       "Failed to sign message");
+	}
+
+	return towire_hsmd_sign_message_with_key_reply(NULL, &rsig);
 }
 
 /*~ lightningd asks us to sign a liquidity ad offer */
@@ -2167,6 +2214,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_preapprove_keysend(client, msg);
 	case WIRE_HSMD_SIGN_MESSAGE:
 		return handle_sign_message(client, msg);
+	case WIRE_HSMD_SIGN_MESSAGE_WITH_KEY:
+		return handle_sign_message_with_key(client, msg);
 	case WIRE_HSMD_GET_CHANNEL_BASEPOINTS:
 		return handle_get_channel_basepoints(client, msg);
 	case WIRE_HSMD_CANNOUNCEMENT_SIG_REQ:
@@ -2249,6 +2298,7 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_GET_CHANNEL_BASEPOINTS_REPLY:
 	case WIRE_HSMD_DEV_MEMLEAK_REPLY:
 	case WIRE_HSMD_SIGN_MESSAGE_REPLY:
+	case WIRE_HSMD_SIGN_MESSAGE_WITH_KEY_REPLY:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_BOLT12_REPLY:
 	case WIRE_HSMD_SIGN_BOLT12_2_REPLY:
