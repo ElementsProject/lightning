@@ -68,7 +68,7 @@ struct span {
 	size_t key;
 	struct span *parent;
 	struct span_tag *tags;
-	char *name;
+	const char *name;
 
 	bool suspended;
 	/* Indicate whether this is a remote span, i.e., it was
@@ -94,7 +94,7 @@ static void init_span(struct span *s,
 	s->start_time = (now.ts.tv_sec * 1000000) + now.ts.tv_nsec / 1000;
 	s->parent = parent;
 	s->tags = notleak(tal_arr(NULL, struct span_tag, 0));
-	s->name = notleak(tal_strdup(NULL, name));
+	s->name = name;
 	s->suspended = false;
 
 	/* If this is a new root span we also need to associate a new
@@ -308,13 +308,13 @@ static void trace_span_clear(struct span *s)
 	s->key = 0;
 	memset(s->id, 0, SPAN_ID_SIZE);
 	memset(s->trace_id, 0, TRACE_ID_SIZE);
-	;
+
 	s->parent = NULL;
-	s->name = tal_free(s->name);
+	s->name = NULL;
 	s->tags = tal_free(s->tags);
 }
 
-void trace_span_start(const char *name, const void *key)
+void trace_span_start_(const char *name, const void *key)
 {
 	size_t numkey = trace_key(key);
 
@@ -380,6 +380,7 @@ void trace_span_tag(const void *key, const char *name, const char *value)
 	if (disable_trace)
 		return;
 
+	assert(name);
 	size_t numkey = trace_key(key);
 	struct span *span = trace_span_find(numkey);
 	assert(span);
@@ -468,7 +469,7 @@ void trace_cleanup(void)
 
 #else /* HAVE_USDT */
 
-void trace_span_start(const char *name, const void *key) {}
+void trace_span_start_(const char *name, const void *key) {}
 void trace_span_end(const void *key) {}
 void trace_span_suspend_(const void *key, const char *lbl) {}
 void trace_span_suspend_may_free_(const void *key, const char *lbl) {}
