@@ -7,6 +7,10 @@ edition = "2021"
 name = "cln-lsps-client"
 path = "src/client.rs"
 
+[[bin]]
+name = "cln-lsps-service"
+path = "src/service.rs"
+
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
