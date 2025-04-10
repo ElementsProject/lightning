@@ -32878,6 +32878,99 @@
         }
       ]
     },
+    "signmessagewithkey.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "signmessagewithkey",
+      "title": "Command to create a signature using a key from the wallet",
+      "description": [
+        "The **signmessagewithkey** RPC command creates a digital signature of *message* using the key associated with the address provided in the input.",
+        "The signature scheme follows the BIP137 specification."
+      ],
+      "added": "v25.05",
+      "request": {
+        "required": [
+          "message",
+          "address"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": [
+              "Less than 65536 characters long message to be signed by the node."
+            ]
+          },
+          "address": {
+            "type": "string",
+            "description": [
+              "A Bitcoin accepted type address for lookup in the list of addresses issued to date.",
+              "Only P2WPKH type addresses are supported"
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "address",
+          "pubkey",
+          "signature",
+          "base64"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": [
+              "The bitcoin address used for signing."
+            ]
+          },
+          "pubkey": {
+            "type": "pubkey",
+            "description": [
+              "The public key associated with the bitcoin address provided."
+            ]
+          },
+          "signature": {
+            "type": "hex",
+            "description": [
+              "The signature."
+            ]
+          },
+          "base64": {
+            "type": "string",
+            "description": [
+              "The signature encoded in base64."
+            ]
+          }
+        }
+      },
+      "author": [
+        "Lagrang3 <<lagrang3@protonmail.com>> is mainly responsible."
+      ],
+      "see_also": [],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:signmessagewithkey#1",
+            "method": "signmessagewithkey",
+            "params": {
+              "message": "a test message",
+              "address": "bcrt1qgrh5vtf63mtayzhxwp480aww3j3qfr5qpq65un"
+            }
+          },
+          "response": {
+            "address": "bcrt1qgrh5vtf63mtayzhxwp480aww3j3qfr5qpq65un",
+            "pubkey": "03bc4a456585ba21ba26af4a0e5399ec76410b2e0ca67db0f3bcb2f47b232fa4b0",
+            "signature": "28564edf260a72d991cbb38cf608e293124f8b8f478d13d4544fe27b9d76c65df1284ca395ccdfd3d5f151729ef18f56c028f5f860155d6aa4d0aaaa176a00db01",
+            "base64": "KFZO3yYKctmRy7OM9gjikxJPi49HjRPUVE/ie512xl3xKEyjlczf09XxUXKe8Y9WwCj1+GAVXWqk0KqqF2oA2wE="
+          }
+        }
+      ]
+    },
     "signpsbt.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
