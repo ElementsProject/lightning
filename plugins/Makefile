@@ -149,8 +149,10 @@ plugins/clnrest: target/${RUST_PROFILE}/clnrest
 	@cp $< $@
 plugins/cln-lsps-client: target/${RUST_PROFILE}/cln-lsps-client
 	@cp $< $@
+plugins/cln-lsps-service: target/${RUST_PROFILE}/cln-lsps-service
+	@cp $< $@
 
-PLUGINS += plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client
+PLUGINS += plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service
 endif
 
 PLUGIN_COMMON_OBJS :=				\
@@ -310,10 +312,12 @@ target/${RUST_PROFILE}/clnrest: ${CLN_REST_PLUGIN_SRC}
 	cargo build ${CARGO_OPTS} --bin clnrest
 target/${RUST_PROFILE}/cln-lsps-client: ${CLN_LSPS_PLUGIN_SRC}
 	cargo build ${CARGO_OPTS} --bin cln-lsps-client
+target/${RUST_PROFILE}/cln-lsps-service: ${CLN_LSPS_PLUGIN_SRC}
+	cargo build ${CARGO_OPTS} --bin cln-lsps-service
 
 ifneq ($(RUST),0)
 include plugins/rest-plugin/Makefile
-DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client
+DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service
 endif
 
 clean: plugins-clean
