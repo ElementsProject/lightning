@@ -32794,6 +32794,95 @@
         }
       ]
     },
+    "lightning-signmessagewithkey.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "signmessagewithkey",
+      "title": "Command to create a signature using a key from the wallet",
+      "description": [
+        "The **signmessagewithkey** RPC command creates a digital signature of *message* using the key associated with the address provided in the input.",
+        "The signature scheme follows the same convention as electrum wallet."
+      ],
+      "added": "v25.05",
+      "request": {
+        "required": [
+          "message",
+          "address"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": [
+              "Less than 65536 characters long message to be signed by the node."
+            ]
+          },
+          "address": {
+            "type": "string",
+            "description": [
+              "A Bitcoin accepted type, including a bech32, address for lookup in the list of addresses issued to date."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "keyidx",
+          "pubkey",
+          "signature",
+          "base64"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "keyidx": {
+            "type": "u64",
+            "description": [
+              "The key index of the address requested."
+            ]
+          },
+          "pubkey": {
+            "type": "pubkey",
+            "description": [
+              "The public key associated with the bitcoin address provided."
+            ]
+          },
+          "signature": {
+            "type": "hex",
+            "description": [
+              "The signature."
+            ]
+          },
+          "base64": {
+            "type": "string",
+            "description": [
+              "The signature encoded in base64."
+            ]
+          },
+          "bech32": {
+            "type": "string",
+            "description": [
+              "The bech32 (native segwit) address."
+            ]
+          },
+          "p2tr": {
+            "type": "string",
+            "description": [
+              "The taproot address."
+            ]
+          }
+        }
+      },
+      "author": [
+        "Lagrang3 <<lagrang3@protonmail.com>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-checkmessagewithkey(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": []
+    },
     "lightning-signpsbt.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
