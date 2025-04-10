@@ -168,7 +168,7 @@ static struct io_plan *do_handshake(struct io_conn *conn, void *side)
  * test_write interceptors implemented by the fuzz target. The handshake is
  * expected to always fail since the fuzzer should not be able to brute force a
  * valid handshake. */
-static void handshake(enum bolt8_side side)
+UNUSED static void handshake(enum bolt8_side side)
 {
 	struct io_conn *conn =
 	    io_new_conn(tmpctx, -1, do_handshake, (void *)side);
