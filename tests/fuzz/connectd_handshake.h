@@ -128,6 +128,7 @@ static void seeded_randombytes_buf(u8 *secret, size_t len)
 
 extern secp256k1_context *secp256k1_ctx;
 
+#ifndef STATE_FUZZ
 /* An interceptor that performs ECDH using the responder's private key. This is
  * expected to be called exactly once, by the responder, during Act 1. */
 void ecdh(const struct pubkey *point, struct secret *ss)
@@ -138,6 +139,7 @@ void ecdh(const struct pubkey *point, struct secret *ss)
 	assert(secp256k1_ecdh(secp256k1_ctx, ss->data, &point->pubkey,
 			      resp_priv.secret.data, NULL, NULL) == 1);
 }
+#endif
 
 /* A dummy function to call on handshake success. It should never be called
  * since the fuzzer should not be able to brute force a valid handshake. */
@@ -168,7 +170,7 @@ static struct io_plan *do_handshake(struct io_conn *conn, void *side)
  * test_write interceptors implemented by the fuzz target. The handshake is
  * expected to always fail since the fuzzer should not be able to brute force a
  * valid handshake. */
-static void handshake(enum bolt8_side side)
+UNUSED static void handshake(enum bolt8_side side)
 {
 	struct io_conn *conn =
 	    io_new_conn(tmpctx, -1, do_handshake, (void *)side);
