@@ -794,6 +794,43 @@ def test_getroutes_auto_localchans(node_factory):
                                  {'short_channel_id_dir': '1x2x1/1', 'amount_msat': 101000, 'delay': 99 + 6}]])
 
 
+def test_getroutes_auto_ignorelocalhtlclimits(node_factory):
+    """Test getroutes call with auto.ignorelocalhtlclimits layer"""
+    l1 = node_factory.get_node()
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, forward=GenChannel.Half(propfee=10000)),
+                                             GenChannel(1, 2, forward=GenChannel.Half(propfee=10000))],
+                                            nodemap={0: l1.info['id']})
+
+    # We get bad signature warnings, since our gossip is made up!
+    l2 = node_factory.get_node(allow_warning=True, gossip_store_file=gsfile.name)
+
+    # Now l2 believes l1 has an entire network behind it.
+    scid12, _ = l2.fundchannel(l1, 10**6, announce_channel=True)
+    # Set l2->l1 channel HTCL_max = 0
+    l2.rpc.setchannel(l1.info["id"], htlcmax=0)
+
+    # Cannot find a route unless we use auto.ignorelocalhtlclimits.
+    with pytest.raises(RpcError, match="We could not find a usable set of paths"):
+        l2.rpc.getroutes(source=l2.info['id'],
+                         destination=nodemap[2],
+                         amount_msat=100000,
+                         layers=["auto.localchans"],
+                         maxfee_msat=100000,
+                         final_cltv=99)
+
+    # This should work
+    scid21dir = f"{scid12}/{direction(l2.info['id'], l1.info['id'])}"
+    check_getroute_paths(l2,
+                         l2.info['id'],
+                         nodemap[2],
+                         100000,
+                         maxfee_msat=100000,
+                         layers=['auto.localchans', 'auto.ignorelocalhtlclimits'],
+                         paths=[[{'short_channel_id_dir': scid21dir, 'amount_msat': 102012, 'delay': 99 + 6 + 6 + 6},
+                                 {'short_channel_id_dir': '0x1x0/0', 'amount_msat': 102010, 'delay': 99 + 6 + 6},
+                                 {'short_channel_id_dir': '1x2x1/1', 'amount_msat': 101000, 'delay': 99 + 6}]])
+
+
 def test_fees_dont_exceed_constraints(node_factory):
     msat = 100000000
     max_msat = int(msat * 0.45)
