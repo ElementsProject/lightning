@@ -47,9 +47,16 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 						    const char *buf,
 						    const jsmntok_t *params);
 
-/* Notify the tracker that this route has failed. */
-void route_failure_register(struct routetracker *routetracker,
+void routetracker_add_to_final(struct payment *payment,
+			       struct routetracker *routetracker,
+			       struct route *route);
+
+void route_pending_register(struct payment *payment,
+			    struct routetracker *routetracker,
 			    struct route *route);
+
+struct payment *route_get_payment_verify(struct renepay *renepay,
+					 struct route *route);
 
 // FIXME: double-check that we actually get one notification for each sendpay,
 // ie. that after some time we don't have yet pending sendpays for old failed or
