@@ -56,9 +56,6 @@ struct span {
 	/* Our own id */
 	u64 id;
 
-	/* 0 if we have no parent. */
-	u64 parent_id;
-
 	/* The trace_id for this span and all its children. */
 	u64 trace_id_hi, trace_id_lo;
 
@@ -73,12 +70,6 @@ struct span {
 	const char *name;
 
 	bool suspended;
-	/* Indicate whether this is a remote span, i.e., it was
-	inherited by some other process, which is in charge of
-	emitting the span. This just means that we don't emit this
-	span ourselves, but we want to add child spans to the remote
-	span. */
-	bool remote;
 };
 
 static struct span *active_spans = NULL;
@@ -104,7 +95,6 @@ static void init_span(struct span *s,
 		s->trace_id_hi = pseudorand_u64();
 		s->trace_id_lo = pseudorand_u64();
 	} else {
-		s->parent_id = current->id;
 		s->trace_id_hi = current->trace_id_hi;
 		s->trace_id_lo = current->trace_id_lo;
 	}
@@ -134,7 +124,6 @@ static void trace_inject_traceparent(void)
 	assert(current);
 
 	init_span(current, trace_key(active_spans), "", NULL);
-	current->remote = true;
 	assert(current && !current->parent);
 
 	if (!hex_decode(traceparent + 3, 16, &trace_hi, sizeof(trace_hi))
@@ -271,12 +260,6 @@ static void trace_emit(struct span *s)
 	char buffer[MAX_BUF_SIZE + 1];
 	size_t len;
 
-	/* If this is a remote span it's not up to us to emit it. Make
-	 * this a no-op. `trace_span_end` will take care of cleaning
-	 * the in-memory span up. */
-	if (s->remote)
-		return;
-
 	snprintf(span_id, sizeof(span_id), "%016"PRIx64, s->id);
 	len = snprintf(buffer, MAX_BUF_SIZE,
 		       "[{\"id\":\"%s\",\"name\":\"%s\","
@@ -287,7 +270,7 @@ static void trace_emit(struct span *s)
 	if (s->parent != NULL) {
 		len += snprintf(buffer + len, MAX_BUF_SIZE - len,
 				"\"parentId\":\"%016"PRIx64"\",",
-				s->parent_id);
+				s->parent->id);
 		if (len > MAX_BUF_SIZE)
 			len = MAX_BUF_SIZE;
 	}
