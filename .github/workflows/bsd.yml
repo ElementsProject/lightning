@@ -23,6 +23,8 @@ jobs:
       uses: vmactions/freebsd-vm@v1
       with:
         usesh: true
+        sync: rsync
+        copyback: false
         prepare: |
           pkg install -y \
             bash \
