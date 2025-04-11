@@ -51,19 +51,8 @@ jobs:
         run: |
           PATH=/root/.local/bin:$PATH
           pip install --user -U wheel pip
-          pip install --user -U -r requirements.txt
-
-          # Install utilities that aren't dependencies, but make
-          # running tests easier/feasible on CI (and pytest which
-          # keeps breaking the rerunfailures plugin).
-          pip install --user -U \
-            blinker \
-            flake8 \
-            mako \
-            pytest-sentry \
-            pytest-test-groups==1.0.3 \
-            pytest-custom-exit-code==0.3.0 \
-            pytest-json-report
+          pip3 install --user poetry
+          poetry install
 
           git clone https://github.com/lightning/bolts.git ../bolts
           # fatal: unsafe repository ('/Users/runner/work/lightning/lightning' is owned by someone else)
@@ -82,7 +71,5 @@ jobs:
           EOF
 
           # Just run a "quick" test without memory checking
-          gmake
+          poetry run gmake
 
-          # Clean up to maximize rsync's chances of succeeding
-          gmake clean
