@@ -62,7 +62,7 @@ new_uncommitted_channel(struct peer *peer)
 	 *       funding transaction.
 	 */
 	 /* We override this in openchannel hook if we want zeroconf */
-	uc->minimum_depth = ld->config.anchor_confirms;
+	uc->minimum_depth = ld->config.funding_confirms;
 
 	/* Use default 1% reserve if not otherwise specified. If this
 	 * is not-NULL it will be used by openingd as absolute value

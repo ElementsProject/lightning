@@ -21,8 +21,8 @@ struct config {
 	/* How long do we let them lock up our funds? (blocks: 2016 by spec) */
 	u32 max_htlc_cltv;
 
-	/* How many confirms until we consider an anchor "settled". */
-	u32 anchor_confirms;
+	/* How many confirms until we consider a funding tx "settled". */
+	u32 funding_confirms;
 
 	/* Minimum CLTV to subtract from incoming HTLCs to outgoing */
 	u32 cltv_expiry_delta;
@@ -439,7 +439,7 @@ const char *subdaemon_path(const tal_t *ctx, const struct lightningd *ld, const 
 void test_subdaemons(const struct lightningd *ld);
 
 /* Notify lightningd about new blocks. */
-void notify_new_block(struct lightningd *ld, u32 block_height);
+void notify_new_block(struct lightningd *ld);
 
 /* Signal a clean exit from lightningd.
  * NOTE! This function **returns**.

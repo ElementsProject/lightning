@@ -822,7 +822,7 @@ static void updates_complete(struct chain_topology *topo)
 {
 	if (!bitcoin_blkid_eq(&topo->tip->blkid, &topo->prev_tip)) {
 		/* Tell lightningd about new block. */
-		notify_new_block(topo->bitcoind->ld, topo->tip->height);
+		notify_new_block(topo->bitcoind->ld);
 
 		/* Tell watch code to re-evaluate all txs. */
 		watch_topology_changed(topo);
@@ -838,7 +838,7 @@ static void updates_complete(struct chain_topology *topo)
 
 		/* Send out an account balance snapshot */
 		if (!first_update_complete) {
-			send_account_balance_snapshot(topo->ld, topo->tip->height);
+			send_account_balance_snapshot(topo->ld);
 			first_update_complete = true;
 		}
 	}
