@@ -371,6 +371,7 @@ include devtools/Makefile
 include tools/Makefile
 ifneq ($(RUST),0)
 include cln-rpc/Makefile
+include cln-grpc/Makefile
 endif
 include plugins/Makefile
 include tests/plugins/Makefile
