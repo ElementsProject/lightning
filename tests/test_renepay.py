@@ -321,17 +321,19 @@ def start_channels(connections):
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, nodes)
     txids = []
+    channel_ids = []
     for src, dst, fundamount in connections:
-        txids.append(
-            src.rpc.fundchannel(dst.info["id"], fundamount, announce=True)["txid"]
-        )
+        fc = src.rpc.fundchannel(dst.info["id"], fundamount, announce=True)
+        txids.append(fc["txid"])
+        channel_ids.append(fc['channel_id'])
 
-    # Confirm all channels and wait for them to become usable
+    # Confirm all channels
     bitcoind.generate_block(1, wait_for_mempool=txids)
     scids = []
-    for src, dst, fundamount in connections:
-        wait_for(lambda: src.channel_state(dst) == "CHANNELD_NORMAL")
-        scid = src.get_channel_scid(dst)
+    for conn, channel_id in zip(connections, channel_ids):
+        src = conn[0]
+        wait_for(lambda: ['short_channel_id' in c for c in src.rpc.listpeerchannels()['channels'] if c['channel_id'] == channel_id] == [True])
+        scid = only_one([c['short_channel_id'] for c in src.rpc.listpeerchannels()['channels'] if c['channel_id'] == channel_id])
         scids.append(scid)
 
     # Make sure they have all seen block so they don't complain about
