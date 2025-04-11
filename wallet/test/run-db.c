@@ -118,6 +118,31 @@ struct htlc_in *htlc_in_check(const struct htlc_in *hin UNNEEDED, const char *ab
 /* Generated stub for htlc_out_connect_htlc_in */
 void htlc_out_connect_htlc_in(struct htlc_out *hout UNNEEDED, struct htlc_in *hin UNNEEDED)
 { fprintf(stderr, "htlc_out_connect_htlc_in called!\n"); abort(); }
+/* Generated stub for htlcs_index_created */
+u64 htlcs_index_created(struct lightningd *ld UNNEEDED,
+			u64 htlc_id UNNEEDED,
+			const struct channel *channel UNNEEDED,
+			const struct sha256 *payment_hash UNNEEDED,
+			enum side owner UNNEEDED,
+			u32 expiry UNNEEDED,
+			struct amount_msat amount UNNEEDED,
+			enum htlc_state hstate UNNEEDED)
+{ fprintf(stderr, "htlcs_index_created called!\n"); abort(); }
+/* Generated stub for htlcs_index_deleted */
+void htlcs_index_deleted(struct lightningd *ld UNNEEDED,
+			 const struct channel *channel UNNEEDED,
+			 u64 num_deleted UNNEEDED)
+{ fprintf(stderr, "htlcs_index_deleted called!\n"); abort(); }
+/* Generated stub for htlcs_index_update_status */
+u64 htlcs_index_update_status(struct lightningd *ld UNNEEDED,
+			      u64 htlc_id UNNEEDED,
+			      const struct channel *channel UNNEEDED,
+			      const struct sha256 *payment_hash UNNEEDED,
+			      enum side owner UNNEEDED,
+			      u32 expiry UNNEEDED,
+			      struct amount_msat amount UNNEEDED,
+			      enum htlc_state hstate UNNEEDED)
+{ fprintf(stderr, "htlcs_index_update_status called!\n"); abort(); }
 /* Generated stub for inflight_set_last_tx */
 void inflight_set_last_tx(struct channel_inflight *inflight UNNEEDED,
 		          struct bitcoin_tx *last_tx STEALS UNNEEDED,
