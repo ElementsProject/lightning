@@ -45,11 +45,11 @@ jobs:
 
             python3.10 -m ensurepip
             python3.10 -m pip install --upgrade pip
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2024-11-28
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
 
 
         run: |
-          PATH=/root/.local/bin:$PATH
+          PATH=/root/.local/bin:$PATH:/root/.cargo/bin; export PATH
           pip install --user -U wheel pip
           pip3 install --user poetry
           poetry install
