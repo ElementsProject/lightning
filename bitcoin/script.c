@@ -550,13 +550,19 @@ bool is_p2tr(const u8 *script, size_t script_len, u8 xonly_pubkey[32])
 	return true;
 }
 
-bool is_known_scripttype(const u8 *script, size_t script_len)
+enum scriptpubkey_type scriptpubkey_type(const u8 *script, size_t script_len)
 {
-	return is_p2wpkh(script, script_len, NULL)
-		|| is_p2wsh(script, script_len, NULL)
-		|| is_p2sh(script, script_len, NULL)
-		|| is_p2pkh(script, script_len, NULL)
-		|| is_p2tr(script, script_len, NULL);
+	if (is_p2wpkh(script, script_len, NULL))
+		return scriptpubkey_type_p2wpkh;
+	if (is_p2wsh(script, script_len, NULL))
+		return scriptpubkey_type_p2wsh;
+	if (is_p2sh(script, script_len, NULL))
+		return scriptpubkey_type_p2sh;
+	if (is_p2pkh(script, script_len, NULL))
+		return scriptpubkey_type_p2pkh;
+	if (is_p2tr(script, script_len, NULL))
+		return scriptpubkey_type_p2tr;
+	return scriptpubkey_type_unknown;
 }
 
 bool is_known_segwit_scripttype(const u8 *script, size_t script_len)

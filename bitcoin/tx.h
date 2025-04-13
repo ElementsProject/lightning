@@ -17,6 +17,7 @@
 
 struct wally_psbt;
 struct ripemd160;
+enum scriptpubkey_type;
 
 struct bitcoin_txid {
 	struct sha256_double shad;
@@ -319,10 +320,10 @@ size_t bitcoin_tx_input_sig_weight(void);
 size_t bitcoin_tx_input_weight(bool p2sh, size_t witness_weight);
 
 /* The witness weight for a simple (sig + key) input */
-size_t bitcoin_tx_simple_input_witness_weight(void);
+size_t bitcoin_tx_simple_input_witness_weight(enum scriptpubkey_type spend_type);
 
 /* We only do segwit inputs, and we assume witness is sig + key  */
-size_t bitcoin_tx_simple_input_weight(bool p2sh);
+size_t bitcoin_tx_simple_input_weight(enum scriptpubkey_type spend_type);
 
 /* The witness for our 2of2 input (closing or commitment tx). */
 size_t bitcoin_tx_2of2_input_witness_weight(void);

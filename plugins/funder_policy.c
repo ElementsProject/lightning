@@ -128,8 +128,9 @@ default_lease_rates(const tal_t *ctx)
 
 	/* Let's set our default max weight to two inputs + an output
 	 * (use helpers b/c elements) */
+	/* Assume worst case although Taproot inputs will be lighter */
 	rates->funding_weight
-		= 2 * bitcoin_tx_simple_input_weight(false)
+		= 2 * bitcoin_tx_simple_input_weight(scriptpubkey_type_p2wpkh)
 		+ bitcoin_tx_output_weight(BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
 
 	return rates;
