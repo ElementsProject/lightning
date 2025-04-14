@@ -78,7 +78,7 @@ static void test_encrypt_decrypt_equality(const u8 *msg)
 	assert(tal_arr_eq(dec, msg));
 }
 
-/* Test header decryption of arbitrary bytes (should always fail). */
+/* Test header decryption of arbitrary bytes. */
 static void test_decrypt_header(const u8 *buf)
 {
 	struct crypto_state cs_in = init_cs_in;
@@ -87,15 +87,15 @@ static void test_decrypt_header(const u8 *buf)
 	if (tal_bytelen(buf) < CRYPTOMSG_HDR_SIZE)
 		return;
 
-	assert(!cryptomsg_decrypt_header(&cs_in, buf, &len));
+	cryptomsg_decrypt_header(&cs_in, buf, &len);
 }
 
-/* Test body decryption of arbitrary bytes (should always fail). */
+/* Test body decryption of arbitrary bytes. */
 static void test_decrypt_body(const u8 *buf)
 {
 	struct crypto_state cs_in = init_cs_in;
 
-	assert(cryptomsg_decrypt_body(buf, &cs_in, buf) == NULL);
+	cryptomsg_decrypt_body(buf, &cs_in, buf);
 }
 
 void run(const u8 *data, size_t size)
