@@ -41,6 +41,7 @@ jobs:
             gettext \
             sqlite3 \
             lowdown \
+            pkgconf \
             curl
 
             python3.10 -m ensurepip
