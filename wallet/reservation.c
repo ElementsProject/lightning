@@ -397,6 +397,13 @@ static struct command_result *finish_psbt(struct command *cmd,
 		change_outnum = psbt->num_outputs;
 		psbt_append_output(psbt, b32script, change);
 		/* Add additional weight of output */
+		log_debug(cmd->ld->log, "Adding change %s: weight %zu + change %zu = %zu",
+			  fmt_amount_sat(tmpctx, change),
+			  weight,
+			  bitcoin_tx_output_weight(
+				  chainparams->is_elements ? BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN : BITCOIN_SCRIPTPUBKEY_P2TR_LEN),
+			  weight + bitcoin_tx_output_weight(
+				  chainparams->is_elements ? BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN : BITCOIN_SCRIPTPUBKEY_P2TR_LEN));
 		weight += bitcoin_tx_output_weight(
 				chainparams->is_elements ? BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN : BITCOIN_SCRIPTPUBKEY_P2TR_LEN);
 	} else {
@@ -525,6 +532,8 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 			 NULL))
 		return command_param_failed();
 
+	log_debug(cmd->ld->log, "fundpsbt feerate = %uperkw", *feerate_per_kw);
+
 	/* If we have anchor channels, we definitely need to keep
 	 * emergency funds.  */
 	if (have_anchor_channel(cmd->ld))
@@ -574,6 +583,9 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 						    "impossible UTXO value");
 
 			/* But also adds weight */
+			log_debug(cmd->ld->log, "Adding utxo %s: weight %u + utxo_weight %u = %u",
+				  fmt_amount_sat(tmpctx, utxo->amount),
+				  *weight, utxo_weight, *weight + utxo_weight);
 			*weight += utxo_weight;
 			continue;
 		}
