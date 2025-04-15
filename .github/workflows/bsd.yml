@@ -43,6 +43,7 @@ jobs:
             lowdown \
             pkgconf \
             jq \
+            protobuf \
             curl
 
             python3.10 -m ensurepip
