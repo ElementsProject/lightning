@@ -2781,7 +2781,8 @@
             "ListPeerChannels.channels[].updates.remote.htlc_minimum_msat": 1
         },
         "ListpeerchannelsRequest": {
-            "ListPeerChannels.id": 1
+            "ListPeerChannels.id": 1,
+            "ListPeerChannels.short_channel_id": 2
         },
         "ListpeerchannelsResponse": {
             "ListPeerChannels.channels[]": 1
@@ -10336,6 +10337,10 @@
         },
         "ListPeerChannels.id": {
             "added": "v23.02",
+            "deprecated": null
+        },
+        "ListPeerChannels.short_channel_id": {
+            "added": "v25.05",
             "deprecated": null
         },
         "ListPeers": {

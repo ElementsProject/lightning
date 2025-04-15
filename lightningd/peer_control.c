@@ -2465,12 +2465,17 @@ static struct command_result *json_listpeerchannels(struct command *cmd,
 	struct node_id *peer_id;
 	struct peer *peer;
 	struct json_stream *response;
+	struct short_channel_id *scid;
 
-	/* FIME: filter by status */
-	if (!param(cmd, buffer, params,
-		   p_opt("id", param_node_id, &peer_id),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_opt("id", param_node_id, &peer_id),
+			 p_opt("short_channel_id", param_short_channel_id, &scid),
+			 NULL))
 		return command_param_failed();
+
+	if (scid && peer_id)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Cannot specify both short_channel_id and id");
 
 	response = json_stream_success(cmd);
 	json_array_start(response, "channels");
@@ -2479,6 +2484,10 @@ static struct command_result *json_listpeerchannels(struct command *cmd,
 		peer = peer_by_id(cmd->ld, peer_id);
 		if (peer)
 			json_add_peerchannels(cmd, response, peer);
+	} else if (scid) {
+		const struct channel *c = any_channel_by_scid(cmd->ld, *scid, true);
+		if (c)
+			json_add_channel(cmd, response, NULL, c, c->peer);
 	} else {
 		struct peer_node_id_map_iter it;
 

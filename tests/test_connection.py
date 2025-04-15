@@ -4780,3 +4780,16 @@ def test_private_channel_no_reconnect(node_factory):
     wait_for(lambda: only_one(l3.rpc.listpeers()['peers'])['connected'] is True)
 
     assert only_one(l1.rpc.listpeers()['peers'])['connected'] is False
+
+
+def test_listpeerchannels_by_scid(node_factory):
+    l1, l2, l3 = node_factory.line_graph(3, announce_channels=False)
+
+    chans = l2.rpc.listpeerchannels(l1.info['id'])
+    c = only_one(chans['channels'])
+    assert l2.rpc.listpeerchannels(short_channel_id=c['short_channel_id']) == chans
+    assert l2.rpc.listpeerchannels(short_channel_id=c['alias']['local']) == chans
+    assert l2.rpc.listpeerchannels(short_channel_id=c['alias']['remote']) == {'channels': []}
+
+    with pytest.raises(RpcError, match="Cannot specify both short_channel_id and id"):
+        l2.rpc.listpeerchannels(peer_id=l1.info['id'], short_channel_id='1x2x3')
