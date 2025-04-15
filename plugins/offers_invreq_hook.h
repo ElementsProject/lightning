@@ -7,5 +7,7 @@
 struct command_result *handle_invoice_request(struct command *cmd,
 					      const u8 *invreqbin,
 					      struct blinded_path *reply_path STEALS,
-					      const struct secret *secret TAKES);
+					      const struct secret *secret TAKES,
+					      const struct pubkey *blinded_node_id TAKES,
+					      const struct pubkey *path_pubkey TAKES);
 #endif /* LIGHTNING_PLUGINS_OFFERS_INVREQ_HOOK_H */

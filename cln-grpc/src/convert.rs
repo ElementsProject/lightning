@@ -5645,6 +5645,7 @@ impl From<requests::OfferRequest> for pb::OfferRequest {
             absolute_expiry: c.absolute_expiry, // Rule #2 for type u64?
             amount: c.amount, // Rule #2 for type string
             description: c.description, // Rule #2 for type string?
+            force_issuer_id: c.force_issuer_id, // Rule #2 for type boolean?
             issuer: c.issuer, // Rule #2 for type string?
             label: c.label, // Rule #2 for type string?
             optional_recurrence: c.optional_recurrence, // Rule #2 for type boolean?
@@ -7414,6 +7415,7 @@ impl From<pb::OfferRequest> for requests::OfferRequest {
             absolute_expiry: c.absolute_expiry, // Rule #1 for type u64?
             amount: c.amount, // Rule #1 for type string
             description: c.description, // Rule #1 for type string?
+            force_issuer_id: c.force_issuer_id, // Rule #1 for type boolean?
             issuer: c.issuer, // Rule #1 for type string?
             label: c.label, // Rule #1 for type string?
             optional_recurrence: c.optional_recurrence, // Rule #1 for type boolean?

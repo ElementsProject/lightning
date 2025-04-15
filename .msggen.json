@@ -3322,6 +3322,7 @@
             "Offer.absolute_expiry": 6,
             "Offer.amount": 1,
             "Offer.description": 2,
+            "Offer.force_issuer_id": 15,
             "Offer.issuer": 3,
             "Offer.label": 4,
             "Offer.optional_recurrence": 14,
@@ -11922,6 +11923,10 @@
         },
         "Offer.description": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Offer.force_issuer_id": {
+            "added": "v26.03",
             "deprecated": null
         },
         "Offer.issuer": {

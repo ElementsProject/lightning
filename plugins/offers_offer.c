@@ -264,6 +264,11 @@ static struct command_result *found_best_peer(struct command *cmd,
 		/* FIXME: Make this a warning in the result! */
 		plugin_log(cmd->plugin, LOG_UNUSUAL,
 			   "No incoming channel to public peer, so no blinded path");
+
+		/* The offer_issuer_id is reintroduced if it was not included */
+		if (!offinfo->offer->offer_issuer_id) {
+			offinfo->offer->offer_issuer_id = tal_dup(offinfo->offer, struct pubkey, &id);
+		}
 	} else {
 		struct pubkey *ids;
 		struct secret blinding_path_secret;
@@ -411,7 +416,7 @@ struct command_result *json_offer(struct command *cmd,
 	struct tlv_offer *offer;
 	struct offer_info *offinfo = tal(cmd, struct offer_info);
 	struct path **paths;
-	bool *proportional, *optional_recurrence;
+	bool *proportional, *optional_recurrence, *force_issuer_id;
 
 	offinfo->offer = offer = tlv_offer_new(offinfo);
 
@@ -440,6 +445,9 @@ struct command_result *json_offer(struct command *cmd,
 			 p_opt_def("optional_recurrence",
 				   param_bool,
 				   &optional_recurrence, false),
+			 p_opt_def("force_issuer_id",
+				   param_bool,
+				   &force_issuer_id, false),
 			 p_opt("dev_paths", param_paths, &paths),
 			 NULL))
 		return command_param_failed();
@@ -522,12 +530,16 @@ struct command_result *json_offer(struct command *cmd,
 
 	/* BOLT #12:
 	 * - if it includes `offer_paths`:
-	 *...
+	 *   - MAY set `offer_issuer_id`.
 	 * - otherwise:
 	 *   - MUST set `offer_issuer_id` to the node's public key to request the
 	 *     invoice from.
 	 */
-	offer->offer_issuer_id = tal_dup(offer, struct pubkey, &id);
+	/* Although `offer_issuer_id` is not required for payment when using
+	 * blinded paths, it can be forced is requested */
+	if (!we_want_blinded_path(cmd->plugin, false) || *force_issuer_id ) {
+	  offer->offer_issuer_id = tal_dup(offer, struct pubkey, &id);
+	}
 
 	/* Now rest of offer will not change: we use pathless offer to create secret. */
 	if (paths) {

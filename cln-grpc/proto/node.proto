@@ -2468,6 +2468,7 @@ message OfferRequest {
 	optional bool single_use = 11;
 	optional bool proportional_amount = 13;
 	optional bool optional_recurrence = 14;
+	optional bool force_issuer_id = 15;
 }
 
 message OfferResponse {

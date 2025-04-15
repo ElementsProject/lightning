@@ -479,7 +479,8 @@ static bool hsm_sign_b11(const u5 *u5bytes,
 }
 
 static void hsm_sign_b12_invoice(struct lightningd *ld,
-				 struct tlv_invoice *invoice)
+				 struct tlv_invoice *invoice,
+				 const struct pubkey* path_pubkey)
 {
 	struct sha256 merkle;
 	const u8 *msg;
@@ -487,7 +488,7 @@ static void hsm_sign_b12_invoice(struct lightningd *ld,
 	assert(!invoice->signature);
 
  	merkle_tlv(invoice->fields, &merkle);
-	msg = towire_hsmd_sign_bolt12(NULL, "invoice", "signature", &merkle, NULL);
+	msg = towire_hsmd_sign_bolt12(NULL, "invoice", "signature", &merkle, path_pubkey);
 
 	msg = hsm_sync_req(tmpctx, ld, take(msg));
 	invoice->signature = tal(invoice, struct bip340sig);
@@ -1672,6 +1673,7 @@ static struct command_result *json_createinvoice(struct command *cmd,
 	const char *invstring;
 	struct json_escape *label;
 	struct preimage *preimage;
+	struct pubkey *path_pubkey;
 	u64 inv_dbid;
 	struct sha256 payment_hash;
 	struct json_stream *response;
@@ -1685,6 +1687,7 @@ static struct command_result *json_createinvoice(struct command *cmd,
 			 p_req("invstring", param_invstring, &invstring),
 			 p_req("label", param_label, &label),
 			 p_req("preimage", param_preimage, &preimage),
+			 p_opt("path_pubkey", param_pubkey, &path_pubkey),
 			 NULL))
 		return command_param_failed();
 
@@ -1758,7 +1761,8 @@ static struct command_result *json_createinvoice(struct command *cmd,
 		if (inv->signature)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "invoice already signed");
-		hsm_sign_b12_invoice(cmd->ld, inv);
+
+		hsm_sign_b12_invoice(cmd->ld, inv, path_pubkey);
 		b12enc = invoice_encode(cmd, inv);
 
 		if (inv->offer_issuer_id || inv->offer_paths) {

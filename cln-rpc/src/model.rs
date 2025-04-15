@@ -3143,6 +3143,8 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub force_issuer_id: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub issuer: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub label: Option<String>,
