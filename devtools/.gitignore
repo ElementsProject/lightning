@@ -20,3 +20,4 @@ topology
 fp16
 rune
 gossmap-compress
+bip137-verifysignature

@@ -1,4 +1,4 @@
-DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/mkquery devtools/lightning-checkmessage devtools/topology devtools/route devtools/bolt12-cli devtools/encodeaddr devtools/features devtools/fp16 devtools/rune devtools/gossmap-compress
+DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/mkquery devtools/lightning-checkmessage devtools/topology devtools/route devtools/bolt12-cli devtools/encodeaddr devtools/features devtools/fp16 devtools/rune devtools/gossmap-compress devtools/bip137-verifysignature
 ifeq ($(HAVE_SQLITE3),1)
 DEVTOOLS += devtools/checkchannels
 endif
@@ -98,6 +98,8 @@ devtools/checkchannels: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o 
 devtools/mkquery: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/mkquery.o
 
 devtools/lightning-checkmessage: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/lightning-checkmessage.o
+
+devtools/bip137-verifysignature: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/bip137-verifysignature.o
 
 devtools/route: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/tlvstream.o common/gossmap.o common/fp16.o common/random_select.o common/route.o common/dijkstra.o devtools/clean_topo.o devtools/route.o
 
