@@ -49,6 +49,22 @@ u64 LAST_ARG_NULL wait_index_increment(struct lightningd *ld,
 				       enum wait_index index,
 				       ...);
 
+/**
+ * wait_index_increase - increase an index, tell waiters.
+ * @ld: the lightningd
+ * @subsystem: subsystem for index
+ * @index: which index
+ * @num: number to add (if > 0).
+ * ...: name/value pairs, followed by NULL.
+ *
+ * A more generic version if wait_index_increment: if num is 0 it's a noop.
+ */
+void LAST_ARG_NULL wait_index_increase(struct lightningd *ld,
+				       enum wait_subsystem subsystem,
+				       enum wait_index index,
+				       u64 num,
+				       ...);
+
 /* For passing in index parameters. */
 struct command_result *param_index(struct command *cmd, const char *name,
 				   const char *buffer,
