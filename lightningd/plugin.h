@@ -366,6 +366,9 @@ void plugins_set_builtin_plugins_dir(struct plugins *plugins,
 /* Is this option for a plugin? */
 bool is_plugin_opt(const struct opt_table *ot);
 
+/* Does any plugin care about this notification? */
+bool plugins_anyone_cares(struct plugins *plugins, const char *method);
+
 /* Add this field if this ot is owned by a plugin */
 void json_add_config_plugin(struct json_stream *stream,
 			    const struct plugins *plugins,
