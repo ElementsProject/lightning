@@ -673,9 +673,9 @@ def test_wait_invoices(node_factory, executor):
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'invoices',
                        'created': 1,
-                       'details': {'label': 'invlabel',
-                                   'bolt11': inv['bolt11'],
-                                   'status': 'unpaid'}}
+                       'invoices': {'label': 'invlabel',
+                                    'bolt11': inv['bolt11'],
+                                    'status': 'unpaid'}}
     assert only_one(l2.rpc.listinvoices('invlabel')['invoices'])['created_index'] == 1
     assert 'updated_index' not in only_one(l2.rpc.listinvoices('invlabel')['invoices'])
 
@@ -695,7 +695,7 @@ def test_wait_invoices(node_factory, executor):
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'invoices',
                        'updated': 1,
-                       'details': {'label': 'invlabel', 'status': 'paid'}}
+                       'invoices': {'label': 'invlabel', 'status': 'paid'}}
     assert only_one(l2.rpc.listinvoices('invlabel')['invoices'])['created_index'] == 1
     assert only_one(l2.rpc.listinvoices('invlabel')['invoices'])['updated_index'] == 1
 
@@ -712,7 +712,7 @@ def test_wait_invoices(node_factory, executor):
                        'updated': 2,
                        # FIXME: fill in details!
                        #  {'label': 'invlabel2', 'bolt11': inv2['bolt11'], 'status': 'expired'}
-                       'details': {'status': 'expired'}}
+                       'invoices': {'status': 'expired'}}
 
     assert only_one(l2.rpc.listinvoices('invlabel2')['invoices'])['created_index'] == 2
     assert only_one(l2.rpc.listinvoices('invlabel2')['invoices'])['updated_index'] == 2
@@ -729,9 +729,9 @@ def test_wait_invoices(node_factory, executor):
 
     assert waitres == {'subsystem': 'invoices',
                        'deleted': 1,
-                       'details': {'label': 'invlabel',
-                                   'bolt11': inv['bolt11'],
-                                   'status': 'paid'}}
+                       'invoices': {'label': 'invlabel',
+                                    'bolt11': inv['bolt11'],
+                                    'status': 'paid'}}
 
     # Second returns instantly, without any details.
     waitres = l2.rpc.call('wait', {'subsystem': 'invoices', 'indexname': 'deleted', 'nextvalue': 1})
@@ -746,9 +746,9 @@ def test_wait_invoices(node_factory, executor):
 
     assert waitres == {'subsystem': 'invoices',
                        'deleted': 2,
-                       'details': {'label': 'invlabel2',
-                                   'bolt11': inv2['bolt11'],
-                                   'status': 'expired'}}
+                       'invoices': {'label': 'invlabel2',
+                                    'bolt11': inv2['bolt11'],
+                                    'status': 'expired'}}
 
     # Creating a new on gives us 3, not another 2!
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'created', 'nextvalue': 3})
@@ -757,9 +757,9 @@ def test_wait_invoices(node_factory, executor):
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'invoices',
                        'created': 3,
-                       'details': {'label': 'invlabel2',
-                                   'bolt11': inv['bolt11'],
-                                   'status': 'unpaid'}}
+                       'invoices': {'label': 'invlabel2',
+                                    'bolt11': inv['bolt11'],
+                                    'status': 'unpaid'}}
     assert only_one(l2.rpc.listinvoices('invlabel2')['invoices'])['created_index'] == 3
     assert 'updated_index' not in only_one(l2.rpc.listinvoices('invlabel2')['invoices'])
 
@@ -770,7 +770,7 @@ def test_wait_invoices(node_factory, executor):
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'invoices',
                        'updated': 3,
-                       'details': {'label': 'invlabel2', 'description': 'invdesc2'}}
+                       'invoices': {'label': 'invlabel2', 'description': 'invdesc2'}}
 
 
 def test_invoice_deschash(node_factory, chainparams):

@@ -2681,12 +2681,53 @@ impl From<responses::WaitDetails> for pb::WaitDetails {
 }
 
 #[allow(unused_variables)]
+impl From<responses::WaitForwards> for pb::WaitForwards {
+    fn from(c: responses::WaitForwards) -> Self {
+        Self {
+            in_channel: c.in_channel.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+            in_htlc_id: c.in_htlc_id, // Rule #2 for type u64?
+            in_msat: c.in_msat.map(|f| f.into()), // Rule #2 for type msat?
+            out_channel: c.out_channel.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+            status: c.status.map(|v| v as i32),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::WaitInvoices> for pb::WaitInvoices {
+    fn from(c: responses::WaitInvoices) -> Self {
+        Self {
+            bolt11: c.bolt11, // Rule #2 for type string?
+            bolt12: c.bolt12, // Rule #2 for type string?
+            description: c.description, // Rule #2 for type string?
+            label: c.label, // Rule #2 for type string?
+            status: c.status.map(|v| v as i32),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::WaitSendpays> for pb::WaitSendpays {
+    fn from(c: responses::WaitSendpays) -> Self {
+        Self {
+            groupid: c.groupid, // Rule #2 for type u64?
+            partid: c.partid, // Rule #2 for type u64?
+            payment_hash: c.payment_hash.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
+            status: c.status.map(|v| v as i32),
+        }
+    }
+}
+
+#[allow(unused_variables,deprecated)]
 impl From<responses::WaitResponse> for pb::WaitResponse {
     fn from(c: responses::WaitResponse) -> Self {
         Self {
             created: c.created, // Rule #2 for type u64?
             deleted: c.deleted, // Rule #2 for type u64?
             details: c.details.map(|v| v.into()),
+            forwards: c.forwards.map(|v| v.into()),
+            invoices: c.invoices.map(|v| v.into()),
+            sendpays: c.sendpays.map(|v| v.into()),
             subsystem: c.subsystem as i32,
             updated: c.updated, // Rule #2 for type u64?
         }
