@@ -222,8 +222,11 @@ bool daemon_developer_mode(char *argv[])
 		kill(getpid(), SIGSTOP);
 	}
 
-	/* This checks for any tal_steal loops! */
-	add_steal_notifiers(NULL);
+	/* This checks for any tal_steal loops, but it's not free:
+	 * only use if we're already using the fairly heavy memleak
+	 * detection. */
+	if (getenv("LIGHTNINGD_DEV_MEMLEAK"))
+		add_steal_notifiers(NULL);
 
 	return true;
 }
