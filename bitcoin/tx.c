@@ -913,17 +913,32 @@ size_t bitcoin_tx_input_weight(bool p2sh, size_t witness_weight)
 	return weight;
 }
 
-size_t bitcoin_tx_simple_input_witness_weight(void)
+size_t bitcoin_tx_input_witness_weight(enum utxotype utxotype)
 {
-	/* Account for witness (sig + key) */
-	return bitcoin_tx_input_sig_weight() + 1 + 33;
-}
-
-/* We only do segwit inputs, and we assume witness is sig + key  */
-size_t bitcoin_tx_simple_input_weight(bool p2sh)
-{
-	return bitcoin_tx_input_weight(p2sh,
-				       bitcoin_tx_simple_input_witness_weight());
+	switch (utxotype) {
+	case UTXO_P2SH_P2WPKH:
+	case UTXO_P2WPKH:
+		/* Account for witness (sig + key) */
+		return bitcoin_tx_input_sig_weight() + 1 + 33;
+	case UTXO_P2WSH_FROM_CLOSE:
+		/* BOLT #3:
+		 * #### `to_remote` Output
+		 *
+		 * If `option_anchors` applies to the commitment
+		 * transaction, the `to_remote` output is encumbered by a one
+		 * block csv lock.
+		 *    <remotepubkey> OP_CHECKSIGVERIFY 1 OP_CHECKSEQUENCEVERIFY
+		 *
+		 * The output is spent by an input with `nSequence` field set
+		 * to `1` and witness: <remote_sig>
+		 * Otherwise, this output is a simple P2WPKH to `remotepubkey`.
+		 */
+		/* In practice, these predate anchors, so: */
+		return 1 + 1 + bitcoin_tx_input_sig_weight();
+	case UTXO_P2TR:
+		return 1 + 64;
+	}
+	abort();
 }
 
 size_t bitcoin_tx_2of2_input_witness_weight(void)
