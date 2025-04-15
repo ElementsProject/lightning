@@ -403,9 +403,7 @@ msgtype,hsmd_sign_bolt12,25
 msgdata,hsmd_sign_bolt12,messagename,wirestring,
 msgdata,hsmd_sign_bolt12,fieldname,wirestring,
 msgdata,hsmd_sign_bolt12,merkleroot,sha256,
-# This is for invreq payer_id (temporary keys)
-msgdata,hsmd_sign_bolt12,publictweaklen,u16,
-msgdata,hsmd_sign_bolt12,publictweak,u8,publictweaklen
+msgdata,hsmd_sign_bolt12,path_pubkey,?pubkey,
 
 #include <bitcoin/signature.h>
 msgtype,hsmd_sign_bolt12_reply,125
