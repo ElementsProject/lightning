@@ -4964,6 +4964,7 @@ impl From<requests::ListpeerchannelsRequest> for pb::ListpeerchannelsRequest {
     fn from(c: requests::ListpeerchannelsRequest) -> Self {
         Self {
             id: c.id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            short_channel_id: c.short_channel_id.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
         }
     }
 }
@@ -6640,6 +6641,7 @@ impl From<pb::ListpeerchannelsRequest> for requests::ListpeerchannelsRequest {
     fn from(c: pb::ListpeerchannelsRequest) -> Self {
         Self {
             id: c.id.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
+            short_channel_id: c.short_channel_id.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
         }
     }
 }

@@ -1008,13 +1008,15 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listpeers", payload)
 
-    def listpeerchannels(self, peer_id=None):
+    def listpeerchannels(self, peer_id=None, short_channel_id=None):
         """
         Show current peers channels, and if the {peer_id} is specified
-        all the channels for the peer are returned.
+        all the channels for the peer are returned, and if {short_channel_id} is
+        specified only that channel is returned.
         """
         payload = {
             "id": peer_id,
+            "short_channel_id": short_channel_id,
         }
         return self.call("listpeerchannels", payload)
 
