@@ -100,4 +100,6 @@ extern struct secret *dev_force_bip32_seed;
 extern bool dev_fail_preapprove;
 /* If they specify --dev-no-preapprove-check it ends up in here. */
 extern bool dev_no_preapprove_check;
+/* If they specify --dev-warn-on-overgrind it ends up in here. */
+extern bool dev_warn_on_overgrind;
 #endif /* LIGHTNING_HSMD_LIBHSMD_H */

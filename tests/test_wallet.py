@@ -301,9 +301,18 @@ def feerate_from_psbt(bitcoind, node, psbt):
     return fee / weight * 1000
 
 
+# I wish we could force libwally to use different entropy and thus force it to
+# create 71-byte sigs always!
+def did_short_sig(node):
+    # This can take a moment to appear in the log!
+    time.sleep(1)
+    return node.daemon.is_in_log('overgrind: short signature length')
+
+
 def test_txprepare(node_factory, bitcoind, chainparams):
     amount = 1000000
-    l1 = node_factory.get_node(random_hsm=True)
+    l1 = node_factory.get_node(random_hsm=True, options={'dev-warn-on-overgrind': None},
+                               broken_log='overgrind: short signature length')
     addr = chainparams['example_addr']
 
     # Add some funds to withdraw later
@@ -324,7 +333,8 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     assert len(decode['vin']) == 4
     assert len(decode['vout']) == 2 if not chainparams['feeoutput'] else 3
     # Feerate should be ~ as we asked for
-    assert normal_feerate_perkw - 1 < feerate_from_psbt(bitcoind, l1, prep['psbt']) < normal_feerate_perkw + 1
+    if not did_short_sig(l1):
+        assert normal_feerate_perkw - 1 < feerate_from_psbt(bitcoind, l1, prep['psbt']) < normal_feerate_perkw + 1
 
     # One output will be correct.
     outnum = [i for i, o in enumerate(decode['vout']) if o['value'] == Decimal(amount * 3) / 10**8][0]
@@ -353,7 +363,8 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     assert decode['vout'][0]['scriptPubKey']['type'] == 'witness_v0_keyhash'
     assert scriptpubkey_addr(decode['vout'][0]['scriptPubKey']) == addr
     # Feerate should be ~ as we asked for
-    assert normal_feerate_perkw - 1 < feerate_from_psbt(bitcoind, l1, prep2['psbt']) < normal_feerate_perkw + 1
+    if not did_short_sig(l1):
+        assert normal_feerate_perkw - 1 < feerate_from_psbt(bitcoind, l1, prep2['psbt']) < normal_feerate_perkw + 1
 
     # If I cancel the first one, I can get those first 4 outputs.
     discard = l1.rpc.txdiscard(prep['txid'])
@@ -373,7 +384,8 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     assert decode['vout'][0]['scriptPubKey']['type'] == 'witness_v0_keyhash'
     assert scriptpubkey_addr(decode['vout'][0]['scriptPubKey']) == addr
     # Feerate should be ~ as we asked for
-    assert normal_feerate_perkw - 1 < feerate_from_psbt(bitcoind, l1, prep3['psbt']) < normal_feerate_perkw + 1
+    if not did_short_sig(l1):
+        assert normal_feerate_perkw - 1 < feerate_from_psbt(bitcoind, l1, prep3['psbt']) < normal_feerate_perkw + 1
 
     # Cannot discard twice.
     with pytest.raises(RpcError, match=r'not an unreleased txid'):
@@ -395,7 +407,8 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     assert decode['vout'][0]['scriptPubKey']['type'] == 'witness_v0_keyhash'
     assert scriptpubkey_addr(decode['vout'][0]['scriptPubKey']) == addr
     # Feerate should be ~ as we asked for
-    assert normal_feerate_perkw - 1 < feerate_from_psbt(bitcoind, l1, prep4['psbt']) < normal_feerate_perkw + 1
+    if not did_short_sig(l1):
+        assert normal_feerate_perkw - 1 < feerate_from_psbt(bitcoind, l1, prep4['psbt']) < normal_feerate_perkw + 1
     l1.rpc.txdiscard(prep4['txid'])
 
     # Try passing in a utxo set
@@ -404,7 +417,8 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     prep5 = l1.rpc.txprepare([{addr:
                              Millisatoshi(amount * 3.5 * 1000)}], utxos=utxos)
     # Feerate should be ~ as we asked for
-    assert normal_feerate_perkw - 1 < feerate_from_psbt(bitcoind, l1, prep3['psbt']) < normal_feerate_perkw + 1
+    if not did_short_sig(l1):
+        assert normal_feerate_perkw - 1 < feerate_from_psbt(bitcoind, l1, prep3['psbt']) < normal_feerate_perkw + 1
 
     # Try passing unconfirmed utxos
     unconfirmed_utxo = l1.rpc.withdraw(l1.rpc.newaddr()["bech32"], 10**5)
@@ -445,7 +459,8 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     prep5 = l1.rpc.txprepare([{addr: Millisatoshi(amount * 3 * 1000)},
                               {addr: 'all'}])
     # Feerate should be ~ as we asked for
-    assert normal_feerate_perkw - 1 < feerate_from_psbt(bitcoind, l1, prep5['psbt']) < normal_feerate_perkw + 1
+    if not did_short_sig(l1):
+        assert normal_feerate_perkw - 1 < feerate_from_psbt(bitcoind, l1, prep5['psbt']) < normal_feerate_perkw + 1
     l1.rpc.txdiscard(prep5['txid'])
     with pytest.raises(RpcError, match=r"'all'"):
         prep5 = l1.rpc.txprepare([{addr: 'all'}, {addr: 'all'}])
@@ -453,7 +468,8 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     prep5 = l1.rpc.txprepare([{addr: Millisatoshi(amount * 3 * 500 + 100000)},
                               {addr: Millisatoshi(amount * 3 * 500 - 100000)}])
     # Feerate should be ~ as we asked for
-    assert normal_feerate_perkw - 1 < feerate_from_psbt(bitcoind, l1, prep5['psbt']) < normal_feerate_perkw + 1
+    if not did_short_sig(l1):
+        assert normal_feerate_perkw - 1 < feerate_from_psbt(bitcoind, l1, prep5['psbt']) < normal_feerate_perkw + 1
     decode = bitcoind.rpc.decoderawtransaction(prep5['unsigned_tx'])
     assert decode['txid'] == prep5['txid']
     # 4 inputs, 3 outputs(include change).
@@ -485,7 +501,8 @@ def test_txprepare(node_factory, bitcoind, chainparams):
 
 def test_txprepare_feerate(node_factory, bitcoind):
     # Make sure it works at different feerates!
-    l1, l2 = node_factory.get_nodes(2)
+    l1, l2 = node_factory.get_nodes(2, opts={'dev-warn-on-overgrind': None,
+                                             'broken_log': 'overgrind: short signature length'})
 
     # Add some funds to withdraw later
     for i in range(20):
@@ -499,7 +516,8 @@ def test_txprepare_feerate(node_factory, bitcoind):
     for addrtype in ('bech32', 'p2tr'):
         for feerate in range(255, 10000, 250):
             prep = l1.rpc.txprepare([{out_addrs[addrtype]: Millisatoshi(9000)}], f"{feerate}perkw")
-            assert feerate - 1 < feerate_from_psbt(bitcoind, l1, prep['psbt']) < feerate + 1
+            if not did_short_sig(l1):
+                assert feerate - 1 < feerate_from_psbt(bitcoind, l1, prep['psbt']) < feerate + 1
             l1.rpc.txdiscard(prep6['txid'])
 
 
