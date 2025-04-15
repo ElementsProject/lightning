@@ -88,6 +88,8 @@ static void insert_addrtype_to_addresses(struct lightningd *ld,
 					   struct db *db);
 static void migrate_convert_old_channel_keyidx(struct lightningd *ld,
 					       struct db *db);
+static void migrate_initialize_channel_htlcs_wait_indexes(struct lightningd *ld,
+							  struct db *db);
 
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
@@ -1035,6 +1037,9 @@ static struct migration dbmigrations[] = {
     {NULL, migrate_convert_old_channel_keyidx},
     {SQL("INSERT INTO vars(name, intval)"
 	 "  VALUES('needs_p2wpkh_close_rescan', 1)"), NULL},
+    {SQL("ALTER TABLE channel_htlcs ADD updated_index BIGINT DEFAULT 0"), NULL},
+    {SQL("CREATE INDEX channel_htlcs_updated_idx ON channel_htlcs (updated_index)"), NULL},
+    {NULL, migrate_initialize_channel_htlcs_wait_indexes},
 };
 
 /**
@@ -1848,6 +1853,16 @@ static void migrate_initialize_forwards_wait_indexes(struct lightningd *ld,
 					WAIT_INDEX_CREATED,
 					SQL("SELECT MAX(rowid) FROM forwards;"),
 					"MAX(rowid)");
+}
+
+static void migrate_initialize_channel_htlcs_wait_indexes(struct lightningd *ld,
+							  struct db *db)
+{
+	migrate_initialize_wait_indexes(db,
+					WAIT_SUBSYSTEM_FORWARD,
+					WAIT_INDEX_CREATED,
+					SQL("SELECT MAX(id) FROM channel_htlcs;"),
+					"MAX(id)");
 }
 
 static void complain_unfixed(struct lightningd *ld,
