@@ -12,6 +12,8 @@ struct onion_message_hook_payload {
 	/* Optional */
 	struct blinded_path *reply_path;
 	struct secret *pathsecret;
+	struct pubkey blinded_node_id;
+	struct pubkey path_pubkey;
 	struct tlv_onionmsg_tlv *om;
 };
 
@@ -48,6 +50,9 @@ static void onion_message_serialize(struct onion_message_hook_payload *payload,
 	json_object_start(stream, "onion_message");
 	if (payload->pathsecret)
 		json_add_secret(stream, "pathsecret", payload->pathsecret);
+
+	json_add_pubkey(stream, "blinded_node_id", &payload->blinded_node_id);
+	json_add_pubkey(stream, "path_pubkey", &payload->path_pubkey);
 
 	if (payload->reply_path)
 		json_add_blindedpath(plugin, stream, "reply_blindedpath",
@@ -114,7 +119,9 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 	if (!fromwire_connectd_got_onionmsg_to_us(payload, msg,
 						  &payload->pathsecret,
 						  &payload->reply_path,
-						  &submsg)) {
+						  &submsg,
+						  &payload->blinded_node_id,
+						  &payload->path_pubkey)) {
 		log_broken(ld->log, "bad got_onionmsg_tous: %s",
 			   tal_hex(tmpctx, msg));
 		return;
