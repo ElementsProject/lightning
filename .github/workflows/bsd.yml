@@ -42,6 +42,7 @@ jobs:
             sqlite3 \
             lowdown \
             pkgconf \
+            jq \
             curl
 
             python3.10 -m ensurepip
