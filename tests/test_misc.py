@@ -3048,7 +3048,8 @@ def test_recover_plugin(node_factory, bitcoind):
         feerates=(7500, 7500, 7500, 7500),
         options={
             'log-level': 'info',
-            'experimental-peer-storage': None
+            'experimental-peer-storage': None,
+            'dev-no-reconnect': None,
         },
     )
     l2 = node_factory.get_node(
@@ -3058,7 +3059,8 @@ def test_recover_plugin(node_factory, bitcoind):
         allow_bad_gossip=True,
         options={
             'log-level': 'info',
-            'experimental-peer-storage': None
+            'experimental-peer-storage': None,
+            'dev-no-reconnect': None,
         },
     )
 
