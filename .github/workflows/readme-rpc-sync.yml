@@ -5,7 +5,7 @@ on:
     branches:
       - 'master'
     paths:
-      - 'doc/schemas/lightning-*.json'
+      - 'doc/schemas/*.json'
       - 'doc/*.1.md'
       - 'doc/*.5.md'
       - 'doc/*.8.md'

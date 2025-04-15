@@ -122,8 +122,14 @@ wallet_commit_channel(struct lightningd *ld,
 	/* FIXME: P2TR for elements! */
 	if (chainparams->is_elements)
 		addrtype = ADDR_BECH32;
-	else
+	else if (feature_negotiated(ld->our_features,
+				    uc->peer->their_features,
+				    OPT_SHUTDOWN_ANYSEGWIT))
 		addrtype = ADDR_P2TR;
+	else
+		/* They *may* update to OPT_SHUTDOWN_ANYSEGWIT by the
+		 * time we close, so be prepared for both. */
+		addrtype = ADDR_ALL;
 
 	/* Get a key to use for closing outputs from this tx */
 	final_key_idx = wallet_get_newindex(ld, addrtype);
@@ -710,6 +716,7 @@ openchannel_hook_final(struct openchannel_hook_payload *payload STEALS)
 	u32 found_wallet_index;
 	if (wallet_can_spend(payload->openingd->ld->wallet,
 			     our_upfront_shutdown_script,
+			     tal_bytelen(our_upfront_shutdown_script),
 			     &found_wallet_index)) {
 		upfront_shutdown_script_wallet_index = tal(tmpctx, u32);
 		*upfront_shutdown_script_wallet_index = found_wallet_index;
@@ -1400,6 +1407,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	u32 found_wallet_index;
 	if (wallet_can_spend(fc->cmd->ld->wallet,
 			     fc->our_upfront_shutdown_script,
+			     tal_bytelen(fc->our_upfront_shutdown_script),
 			     &found_wallet_index)) {
 		upfront_shutdown_script_wallet_index = tal(tmpctx, u32);
 		*upfront_shutdown_script_wallet_index = found_wallet_index;

@@ -6,7 +6,8 @@
  *     - we discard the valid Act 1 packet
  *   2. initiator calls io_read() for the Act 2 packet
  *     - we inject the fuzzer-generated packet
- *   3. initiator fails to validate the packet
+ *   3. if packet is valid, initiator calls io_write() with an Act 3 packet
+ *     - we fail the handshake
  */
 #include "config.h"
 #include <assert.h>
@@ -18,20 +19,32 @@
 
 /* The io_write() interceptor.
  *
- * This should be called exactly once, when the initiator is writing out its Act
- * 1 packet. We check that the packet is initialized and discard it. */
+ * If the fuzzer-generated Act 2 packet was invalid, this should be called
+ * exactly once, when the initiator is writing out its Act 1 packet. Otherwise,
+ * if the Act 2 packet was valid, this should be called a second time, when the
+ * initiator is writing out its Act 3 packet. */
 static struct io_plan *
 test_write(struct io_conn *conn, const void *data, size_t len,
 	   struct io_plan *(*next)(struct io_conn *, struct handshake *),
 	   struct handshake *h)
 {
 	++write_count;
-	assert(write_count == 1 && "too many calls to io_write()");
+	if (write_count == 1) {
+		/* Initiator is sending the Act 1 packet. Check that it is
+		 * initialized and discard it. */
+		assert(len == ACT_ONE_SIZE);
+		memcheck(data, len);
 
-	assert(len == ACT_ONE_SIZE);
+		return next(conn, h);
+	}
+	assert(write_count == 2 && "too many calls to io_write()");
+
+	/* Act 2 packet validation succeeded. Initiator is sending the Act 3
+	 * packet. Check that it is initialized. */
+	assert(len == ACT_THREE_SIZE);
 	memcheck(data, len);
 
-	return next(conn, h);
+	return handshake_failed(conn, h);
 }
 
 /* The io_read() interceptor.

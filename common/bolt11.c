@@ -420,7 +420,7 @@ static const char *decode_f(struct bolt11 *b11,
 				       "f: witness v1 bad length %zu",
 				       tal_count(f));
 		}
-		if (tal_count(f) > 40) {
+		if (tal_count(f) > 40 || tal_count(f) < 2) {
 			return tal_fmt(b11,
 				       "f: witness v%"PRIu64" bad length %zu",
 				       version,

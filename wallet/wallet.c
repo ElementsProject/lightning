@@ -65,40 +65,53 @@ static enum state_change state_change_in_db(enum state_change s)
 	fatal("%s: %u is invalid", __func__, s);
 }
 
+/* libwally uses pointer/size pairs */
+struct script_with_len {
+	const u8 *script;
+	size_t len;
+};
+
 /* We keep a hash of these, for fast lookup */
 struct wallet_address {
 	u32 index;
 	enum addrtype addrtype;
-	const u8 *scriptpubkey;
+	struct script_with_len swl;
 };
 
-static const u8 *wallet_address_keyof(const struct wallet_address *waddr)
+static size_t script_with_len_hash(const struct script_with_len *swl)
 {
-	return waddr->scriptpubkey;
+	return siphash24(siphash_seed(), swl->script, swl->len);
+}
+
+static const struct script_with_len *wallet_address_keyof(const struct wallet_address *waddr)
+{
+	return &waddr->swl;
 }
 
 static bool wallet_address_eq_scriptpubkey(const struct wallet_address *waddr,
-					   const u8 *scriptpubkey)
+					   const struct script_with_len *script)
 {
-	return tal_arr_eq(waddr->scriptpubkey, scriptpubkey);
+	return memeq(waddr->swl.script, waddr->swl.len, script->script, script->len);
 }
 
 HTABLE_DEFINE_NODUPS_TYPE(struct wallet_address,
 			  wallet_address_keyof,
-			  scriptpubkey_hash,
+			  script_with_len_hash,
 			  wallet_address_eq_scriptpubkey,
 			  wallet_address_htable);
 
 static void our_addresses_add(struct wallet_address_htable *our_addresses,
 			      u32 index,
 			      const u8 *scriptpubkey TAKES,
+			      size_t scriptpubkey_len,
 			      enum addrtype addrtype)
 {
 	struct wallet_address *waddr = tal(our_addresses, struct wallet_address);
 
 	waddr->index = index;
 	waddr->addrtype = addrtype;
-	waddr->scriptpubkey = tal_dup_talarr(waddr, u8, scriptpubkey);
+	waddr->swl.script = tal_dup_arr(waddr, u8, scriptpubkey, scriptpubkey_len, 0);
+	waddr->swl.len = scriptpubkey_len;
 	wallet_address_htable_add(our_addresses, waddr);
 }
 
@@ -119,19 +132,20 @@ static void our_addresses_add_for_index(struct wallet *w, u32 i)
 	/* FIXME: We could deprecate P2SH once we don't see
 	 * any, since we stopped publishing them in 24.02 */
 	if (!wallet_get_addrtype(w, i, &addrtype)) {
+		const u8 *addr;
 		scriptpubkey = scriptpubkey_p2wpkh_derkey(NULL, ext.pub_key);
+		addr = scriptpubkey_p2sh(NULL, scriptpubkey);
 		our_addresses_add(w->our_addresses,
-				  i,
-				  take(scriptpubkey_p2sh(NULL, scriptpubkey)),
+				  i, take(addr), tal_bytelen(addr),
 				  ADDR_P2SH_SEGWIT);
 		our_addresses_add(w->our_addresses,
 				  i,
-				  take(scriptpubkey),
+				  take(scriptpubkey), tal_bytelen(scriptpubkey),
 				  ADDR_BECH32);
 		scriptpubkey = scriptpubkey_p2tr_derkey(NULL, ext.pub_key);
 		our_addresses_add(w->our_addresses,
 				  i,
-				  take(scriptpubkey),
+				  take(scriptpubkey), tal_bytelen(scriptpubkey),
 				  ADDR_P2TR);
 		return;
 	}
@@ -146,6 +160,7 @@ static void our_addresses_add_for_index(struct wallet *w, u32 i)
 		our_addresses_add(w->our_addresses,
 				  i,
 				  take(scriptpubkey),
+				  tal_bytelen(scriptpubkey),
 				  ADDR_BECH32);
 		if (addrtype != ADDR_ALL)
 			return;
@@ -155,6 +170,7 @@ static void our_addresses_add_for_index(struct wallet *w, u32 i)
 		our_addresses_add(w->our_addresses,
 				  i,
 				  take(scriptpubkey),
+				  tal_bytelen(scriptpubkey),
 				  ADDR_P2TR);
 		return;
 	}
@@ -892,18 +908,19 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 	return true;
 }
 
-bool wallet_can_spend(struct wallet *w, const u8 *script,
+bool wallet_can_spend(struct wallet *w, const u8 *script, size_t script_len,
 		      u32 *index)
 {
 	u64 bip32_max_index;
 	const struct wallet_address *waddr;
+	struct script_with_len scriptwl = {script, script_len};
 
 	/* Update hash table if we need to */
 	bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
 	while (w->our_addresses_maxindex < bip32_max_index + w->keyscan_gap)
 		our_addresses_add_for_index(w, ++w->our_addresses_maxindex);
 
-	waddr = wallet_address_htable_get(w->our_addresses, script);
+	waddr = wallet_address_htable_get(w->our_addresses, &scriptwl);
 	if (!waddr)
 		return false;
 
@@ -2895,85 +2912,89 @@ void wallet_confirm_tx(struct wallet *w,
 	db_exec_prepared_v2(take(stmt));
 }
 
+static void got_utxo(struct wallet *w,
+		     u64 keyindex,
+		     const struct wally_tx *wtx,
+		     size_t outnum,
+		     bool is_coinbase,
+		     const u32 *blockheight,
+		     struct bitcoin_outpoint *outpoint)
+{
+	struct utxo *utxo = tal(tmpctx, struct utxo);
+	const struct wally_tx_output *txout = &wtx->outputs[outnum];
+	struct amount_asset asset = wally_tx_output_get_amount(txout);
+
+	utxo->keyindex = keyindex;
+	utxo->is_p2sh = is_p2sh(txout->script, txout->script_len, NULL);
+	utxo->amount = amount_asset_to_sat(&asset);
+	utxo->status = OUTPUT_STATE_AVAILABLE;
+	wally_txid(wtx, &utxo->outpoint.txid);
+	utxo->outpoint.n = outnum;
+	utxo->close_info = NULL;
+	utxo->is_in_coinbase = is_coinbase;
+
+	utxo->blockheight = blockheight;
+	utxo->spendheight = NULL;
+	utxo->scriptPubkey = tal_dup_arr(utxo, u8, txout->script, txout->script_len, 0);
+	log_debug(w->log, "Owning output %zu %s (%s) txid %s%s%s",
+		  outnum,
+		  fmt_amount_sat(tmpctx, utxo->amount),
+		  utxo->is_p2sh ? "P2SH" : "SEGWIT",
+		  fmt_bitcoin_txid(tmpctx, &utxo->outpoint.txid),
+		  blockheight ? " CONFIRMED" : "",
+		  is_coinbase ? " COINBASE" : "");
+
+	/* We only record final ledger movements */
+	if (blockheight) {
+		struct chain_coin_mvt *mvt;
+
+		mvt = new_coin_wallet_deposit(tmpctx, &utxo->outpoint,
+					      *blockheight,
+					      utxo->amount,
+					      DEPOSIT);
+		notify_chain_mvt(w->ld, mvt);
+	}
+
+	if (!wallet_add_utxo(w, utxo, utxo->is_p2sh ? p2sh_wpkh : our_change)) {
+		/* In case we already know the output, make
+		 * sure we actually track its
+		 * blockheight. This can happen when we grab
+		 * the output from a transaction we created
+		 * ourselves. */
+		if (blockheight)
+			wallet_confirm_tx(w, &utxo->outpoint.txid, *blockheight);
+		return;
+	}
+
+	/* This is an unconfirmed change output, we should track it */
+	if (!utxo->is_p2sh && !blockheight)
+		txfilter_add_scriptpubkey(w->ld->owned_txfilter, txout->script);
+
+	outpointfilter_add(w->owned_outpoints, &utxo->outpoint);
+
+	wallet_annotate_txout(w, &utxo->outpoint, TX_WALLET_DEPOSIT, 0);
+	if (outpoint)
+		*outpoint = utxo->outpoint;
+}
+
 int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 				 bool is_coinbase,
-				 const u32 *blockheight,
-				 struct amount_sat *total)
+				 const u32 *blockheight)
 {
 	int num_utxos = 0;
 
-	if (total)
-		*total = AMOUNT_SAT(0);
 	for (size_t i = 0; i < wtx->num_outputs; i++) {
 		const struct wally_tx_output *txout = &wtx->outputs[i];
-		struct utxo *utxo;
-		u32 index;
+		u32 keyindex;
 		struct amount_asset asset = wally_tx_output_get_amount(txout);
-		struct chain_coin_mvt *mvt;
 
 		if (!amount_asset_is_main(&asset))
 			continue;
 
-		if (!wallet_can_spend(w, txout->script, &index))
+		if (!wallet_can_spend(w, txout->script, txout->script_len, &keyindex))
 			continue;
 
-		utxo = tal(w, struct utxo);
-		utxo->keyindex = index;
-		utxo->is_p2sh = is_p2sh(txout->script, txout->script_len, NULL);
-		utxo->amount = amount_asset_to_sat(&asset);
-		utxo->status = OUTPUT_STATE_AVAILABLE;
-		wally_txid(wtx, &utxo->outpoint.txid);
-		utxo->outpoint.n = i;
-		utxo->close_info = NULL;
-		utxo->is_in_coinbase = is_coinbase;
-
-		utxo->blockheight = blockheight ? blockheight : NULL;
-		utxo->spendheight = NULL;
-		utxo->scriptPubkey = tal_dup_arr(utxo, u8, txout->script, txout->script_len, 0);
-		log_debug(w->log, "Owning output %zu %s (%s) txid %s%s%s",
-			  i,
-			  fmt_amount_sat(tmpctx, utxo->amount),
-			  utxo->is_p2sh ? "P2SH" : "SEGWIT",
-			  fmt_bitcoin_txid(tmpctx, &utxo->outpoint.txid),
-			  blockheight ? " CONFIRMED" : "",
-			  is_coinbase ? " COINBASE" : "");
-
-		/* We only record final ledger movements */
-		if (blockheight) {
-			mvt = new_coin_wallet_deposit(tmpctx, &utxo->outpoint,
-						      *blockheight,
-						      utxo->amount,
-						      DEPOSIT);
-			notify_chain_mvt(w->ld, mvt);
-		}
-
-		if (!wallet_add_utxo(w, utxo, utxo->is_p2sh ? p2sh_wpkh : our_change)) {
-			/* In case we already know the output, make
-			 * sure we actually track its
-			 * blockheight. This can happen when we grab
-			 * the output from a transaction we created
-			 * ourselves. */
-			if (blockheight)
-				wallet_confirm_tx(w, &utxo->outpoint.txid,
-						  *blockheight);
-			tal_free(utxo);
-			continue;
-		}
-
-		/* This is an unconfirmed change output, we should track it */
-		if (!utxo->is_p2sh && !blockheight)
-			txfilter_add_scriptpubkey(w->ld->owned_txfilter, txout->script);
-
-		outpointfilter_add(w->owned_outpoints, &utxo->outpoint);
-
-		if (total && !amount_sat_add(total, *total, utxo->amount))
-			fatal("Cannot add utxo output %zu/%zu %s + %s",
-			      i, wtx->num_outputs,
-			      fmt_amount_sat(tmpctx, *total),
-			      fmt_amount_sat(tmpctx, utxo->amount));
-
-		wallet_annotate_txout(w, &utxo->outpoint, TX_WALLET_DEPOSIT, 0);
-		tal_free(utxo);
+		got_utxo(w, keyindex, wtx, i, is_coinbase, blockheight, NULL);
 		num_utxos++;
 	}
 	return num_utxos;
@@ -6493,4 +6514,167 @@ struct issued_address_type *wallet_list_addresses(const tal_t *ctx, struct walle
 	}
 	tal_free(stmt);
 	return addresseslist;
+}
+
+struct missing {
+	size_t num_found;
+	struct missing_addr *addrs;
+};
+
+struct missing_addr {
+	u64 keyidx;
+	const u8 *scriptpubkey;
+};
+
+static void mutual_close_p2pkh_catch(struct bitcoind *bitcoind,
+				     u32 height,
+				     struct bitcoin_blkid *blkid,
+				     struct bitcoin_block *blk,
+				     struct missing *missing)
+{
+	struct wallet *w = bitcoind->ld->wallet;
+
+	/* Are we finished? */
+	if (!blkid) {
+		log_broken(bitcoind->ld->log,
+			   "Rescan finished! %zu outputs recovered.  Let's never do that again.",
+			   missing->num_found);
+		db_set_intvar(w->db, "needs_p2wpkh_close_rescan", 0);
+		/* Call is allocated off of this, so we can't free just yet */
+		tal_steal(tmpctx, missing);
+		return;
+	}
+
+	log_debug(bitcoind->ld->log, "Mutual close p2wpkh recovery block %u", height);
+	for (size_t i = 0; i < tal_count(blk->tx); i++) {
+		const struct wally_tx *wtx = blk->tx[i]->wtx;
+		for (size_t outnum = 0; outnum < wtx->num_outputs; outnum++) {
+			const struct wally_tx_output *txout = &wtx->outputs[outnum];
+			for (size_t n = 0; n < tal_count(missing->addrs); n++) {
+				struct bitcoin_outpoint outp;
+				if (!memeq(txout->script, txout->script_len,
+					   missing->addrs[n].scriptpubkey,
+					   tal_bytelen(missing->addrs[n].scriptpubkey)))
+					continue;
+				got_utxo(w, missing->addrs[n].keyidx,
+					 wtx, outnum, i == 0, &height, &outp);
+				log_broken(bitcoind->ld->log, "Rescan found %s!",
+					   fmt_bitcoin_outpoint(tmpctx, &outp));
+				missing->num_found++;
+			}
+		}
+	}
+
+	/* Next block! */
+	bitcoind_getrawblockbyheight(missing, bitcoind, height + 1,
+				     mutual_close_p2pkh_catch, missing);
+}
+
+void wallet_begin_old_close_rescan(struct lightningd *ld)
+{
+	struct db_stmt *stmt;
+	u32 earliest_block = UINT32_MAX;
+	struct missing *missing;
+	int v = db_get_intvar(ld->wallet->db, "needs_p2wpkh_close_rescan", -1);
+	if (v == 0)
+		return;
+	assert(v == 1);
+
+	/* Channels where we might have already seen a mutual close,
+	 * which said their key was only taproot, but we didn't see an
+	 * output, may actually have closed to the p2wpkh address.
+	 * Some debugging help with ChatGPT here!
+	 */
+	stmt = db_prepare_v2(ld->wallet->db,
+			     SQL("SELECT "
+				 " full_channel_id"
+				 ", state"
+				 ", scid"
+				 ", shutdown_keyidx_local"
+				 " FROM channels"
+				 " JOIN addresses"
+				 "  ON channels.shutdown_keyidx_local = addresses.keyidx"
+				 " WHERE addresses.addrtype = ?"
+				 " AND NOT EXISTS ("
+				 "    SELECT 1"
+				 "    FROM outputs"
+				 "    WHERE outputs.keyindex = addresses.keyidx"
+				 ");"));
+	db_bind_int(stmt, wallet_addrtype_in_db(ADDR_P2TR));
+	db_query_prepared(stmt);
+
+	missing = tal(tmpctx, struct missing);
+	missing->num_found = 0;
+	missing->addrs = tal_arr(missing, struct missing_addr, 0);
+	while (db_step(stmt)) {
+		enum channel_state state;
+		struct short_channel_id scid;
+		struct channel_id cid;
+		struct missing_addr maddr;
+		struct ext_key ext;
+
+		state = channel_state_in_db(db_col_int(stmt, "state"));
+		switch (state) {
+		case DUALOPEND_OPEN_INIT:
+		case CHANNELD_AWAITING_LOCKIN:
+		case CHANNELD_NORMAL:
+		case CHANNELD_SHUTTING_DOWN:
+		case CLOSINGD_SIGEXCHANGE:
+		case DUALOPEND_OPEN_COMMITTED:
+		case DUALOPEND_AWAITING_LOCKIN:
+		case CHANNELD_AWAITING_SPLICE:
+		case DUALOPEND_OPEN_COMMIT_READY:
+			db_col_ignore(stmt, "full_channel_id");
+			db_col_ignore(stmt, "scid");
+			db_col_ignore(stmt, "shutdown_keyidx_local");
+			continue;
+		/* States where we may have already seen close */
+		case CLOSINGD_COMPLETE:
+		case AWAITING_UNILATERAL:
+		case FUNDING_SPEND_SEEN:
+		case ONCHAIN:
+		case CLOSED:
+			db_col_channel_id(stmt, "full_channel_id", &cid);
+			maddr.keyidx = db_col_u64(stmt, "shutdown_keyidx_local");
+
+			/* This can happen with zeroconf, but it's unusual.  In that case
+			 * we haven't even seen the open, let alone the close.*/
+			if (db_col_is_null(stmt, "scid"))
+				continue;
+
+			/* Don't search for close before open */
+			scid = db_col_short_channel_id(stmt, "scid");
+			if (short_channel_id_blocknum(scid) < earliest_block)
+				earliest_block = short_channel_id_blocknum(scid);
+
+			if (bip32_key_from_parent(ld->bip32_base, maddr.keyidx,
+						  BIP32_FLAG_KEY_PUBLIC | BIP32_FLAG_SKIP_HASH,
+						  &ext) != WALLY_OK) {
+				abort();
+			}
+			maddr.scriptpubkey = scriptpubkey_p2wpkh_derkey(missing, ext.pub_key);
+			tal_arr_expand(&missing->addrs, maddr);
+		}
+	}
+	tal_free(stmt);
+
+	/* No results?  We didn't have a problem, never test again. */
+	if (tal_count(missing->addrs) == 0) {
+		db_set_intvar(ld->wallet->db, "needs_p2wpkh_close_rescan", 0);
+		return;
+	}
+
+	/* We only released 24.11 in December, so don't go back before
+	* block 870000 which was mid-November */
+	if (streq(chainparams->network_name, "bitcoin") && earliest_block < 870000)
+		earliest_block = 870000;
+
+	log_broken(ld->log,
+		   "Potentially missing %zu outputs from previous closes: scanning from block %u",
+		   tal_count(missing->addrs), earliest_block);
+
+	/* This is not a leak, though it may take a while! */
+	tal_steal(ld, notleak(missing));
+	bitcoind_getrawblockbyheight(missing, ld->topology->bitcoind, earliest_block,
+				     mutual_close_p2pkh_catch, missing);
 }

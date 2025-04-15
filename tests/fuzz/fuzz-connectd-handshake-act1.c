@@ -4,7 +4,8 @@
  * The expected sequence of events for this test is:
  *   1. responder calls io_read() for the Act 1 packet
  *     - we inject the fuzzer-generated packet
- *   2. responder fails to validate the packet
+ *   2. if packet is valid, responder calls io_write() with an Act 2 packet
+ *     - we fail the handshake
  */
 #include "config.h"
 #include <assert.h>
@@ -15,14 +16,22 @@
 
 /* The io_write() interceptor.
  *
- * The handshake should fail during Act 1 packet validation, so this should
- * never be called. */
+ * If the fuzzer-generated Act 1 packet was valid, this should be called exactly
+ * once. Otherwise it should not be called at all. */
 static struct io_plan *
 test_write(struct io_conn *conn, const void *data, size_t len,
 	   struct io_plan *(*next)(struct io_conn *, struct handshake *),
 	   struct handshake *h)
 {
-	assert(false && "unexpected call to io_write()");
+	++write_count;
+	assert(write_count == 1 && "too many calls to io_write()");
+
+	/* Act 1 packet validation succeeded. Responder is sending the Act 2
+	 * packet. Check that it is initialized. */
+	assert(len == ACT_TWO_SIZE);
+	memcheck(data, len);
+
+	return handshake_failed(conn, h);
 }
 
 /* The io_read() interceptor.

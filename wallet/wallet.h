@@ -591,10 +591,12 @@ struct utxo **wallet_utxo_boost(const tal_t *ctx,
  *
  * @w: (in) wallet holding the pubkeys to check against (privkeys are on HSM)
  * @script: (in) the script to check
+ * @script_len: (in) the length of @script
  * @index: (out) the bip32 derivation index that matched the script
  */
 bool wallet_can_spend(struct wallet *w,
 		      const u8 *script,
+		      size_t script_len,
 		      u32 *index);
 
 /**
@@ -759,8 +761,7 @@ u32 wallet_blocks_maxheight(struct wallet *w);
  */
 int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *tx,
 				 bool is_coinbase,
-				 const u32 *blockheight,
-				 struct amount_sat *total);
+				 const u32 *blockheight);
 
 /**
  * wallet_htlc_save_in - store an htlc_in in the database
@@ -1823,6 +1824,13 @@ struct issued_address_type {
 struct issued_address_type *wallet_list_addresses(const tal_t *ctx, struct wallet *wallet,
 					 u64 liststart, const u32 *listlimit);
 
+
+/**
+ * wallet_begin_old_close_rescan: rescan for missing mutual close p2wpkh outputs.
+ *
+ * Once complete, we set a db var so we never do this again.
+ */
+void wallet_begin_old_close_rescan(struct lightningd *ld);
 
 /**
  * wallet_memleak_scan - Check for memleaks in wallet.

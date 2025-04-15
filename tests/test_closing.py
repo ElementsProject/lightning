@@ -4042,6 +4042,33 @@ def test_closing_cpfp(node_factory, bitcoind):
     # They should now see a single additional output each
     sync_blockheight(bitcoind, [l1, l2])
     assert len(l1.rpc.listfunds()['outputs']) == 2
+
+
+@pytest.mark.skip("Solely to generate the blockchain and test dbs, before we fixed output p2pkh watching")
+def test_onchain_p2tr_missed_txs(node_factory, bitcoind):
+    """Creates a blockchain and two nodes which have missed their p2wpkh close outputs: l1 is in state CLOSING_COMPLETE at block 103, so the close is not yet onchain, and l2 is in state CLOSED at block 203, so the close is long-gone."""
+    l1, l2, l3 = node_factory.line_graph(3, opts=[{'may_reconnect': True},
+                                                  {'may_reconnect': True,
+                                                   'dev-force-features': "-27"},
+                                                  {'may_reconnect': True}])
+
+    assert len(l1.rpc.listfunds()['outputs']) == 1
+    assert len(l2.rpc.listfunds()['outputs']) == 1
+
+    l1.restart()
+    l1.rpc.close(l2.info['id'])
+    l2.restart()
+    l2.rpc.close(l3.info['id'])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CLOSINGD_COMPLETE')
+    l1.stop()
+
+    print(f"L1's blockheight = {bitcoind.rpc.getblockcount()}")
+    bitcoind.generate_block(100, wait_for_mempool=2)
+    wait_for(lambda: l2.rpc.listpeerchannels()['channels'] == [])
+
+    print(bitcoind.save_blocks())
+    # Grab it from the logs.
+    assert False
     # This one will also have emergency change if anchors
     if 'anchors/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
         assert len(l2.rpc.listfunds()['outputs']) == 2
@@ -4248,3 +4275,21 @@ def test_onchain_slow_anchor(node_factory, bitcoind):
     bitcoind.generate_block(1)
     height = bitcoind.rpc.getblockchaininfo()['blocks']
     l1.daemon.wait_for_log(r"Low-priority anchorspend aiming for block {} \(feerate 7500\)".format(height + 12))
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "elementsd doesn't use p2tr anyway")
+def test_onchain_close_no_p2tr(node_factory, bitcoind):
+    """Closing with a peer which doesn't support OPT_SHUTDOWN_ANYSEGWIT"""
+    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True},
+                                              {'may_reconnect': True,
+                                               'dev-force-features': "-27"}])
+
+    assert len(l1.rpc.listfunds()['outputs']) == 1
+
+    l1.restart()
+    l1.rpc.close(l2.info['id'])
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1])
+
+    # We should see the output.
+    assert len(l1.rpc.listfunds()['outputs']) == 2

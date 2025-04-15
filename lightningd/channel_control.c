@@ -484,7 +484,6 @@ struct send_splice_info
 static void handle_tx_broadcast(struct send_splice_info *info)
 {
 	struct lightningd *ld = info->channel->peer->ld;
-	struct amount_sat unused;
 	struct json_stream *response;
 	struct bitcoin_txid txid;
 	u8 *tx_bytes;
@@ -496,7 +495,7 @@ static void handle_tx_broadcast(struct send_splice_info *info)
 	/* This might have spent UTXOs from our wallet */
 	num_utxos = wallet_extract_owned_outputs(ld->wallet,
 						 info->final_tx->wtx, false,
-						 NULL, &unused);
+						 NULL);
 	if (num_utxos)
 		wallet_transaction_add(ld->wallet, info->final_tx->wtx, 0, 0);
 

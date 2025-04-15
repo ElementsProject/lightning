@@ -50,7 +50,6 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 {
 	struct txfilter *filter = topo->bitcoind->ld->owned_txfilter;
 	size_t i;
-	struct amount_sat owned;
 
 	/* Now we see if any of those txs are interesting. */
 	const size_t num_txs = tal_count(b->full_txs);
@@ -77,11 +76,10 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 			}
 		}
 
-		owned = AMOUNT_SAT(0);
 		txid = b->txids[i];
 		if (txfilter_match(filter, tx)) {
 			wallet_extract_owned_outputs(topo->bitcoind->ld->wallet,
-						     tx->wtx, is_coinbase, &b->height, &owned);
+						     tx->wtx, is_coinbase, &b->height);
 			wallet_transaction_add(topo->ld->wallet, tx->wtx,
 					       b->height, i);
 			// invoice_check_onchain_payment(tx);

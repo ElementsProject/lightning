@@ -551,10 +551,11 @@ static void fill_from_update(struct gossmap *map,
 	    || hc->delay != delay) {
 		hc->htlc_max = 0;
 		hc->enabled = false;
-		logcb(cbarg, LOG_DBG,
-		      "Bad cupdate for %s, ignoring (delta=%u, fee=%u/%u)",
-		      fmt_short_channel_id_dir(tmpctx, scidd),
-		      delay, base_fee, proportional_fee);
+		if (logcb)
+			logcb(cbarg, LOG_DBG,
+			      "Bad cupdate for %s, ignoring (delta=%u, fee=%u/%u)",
+			      fmt_short_channel_id_dir(tmpctx, scidd),
+			      delay, base_fee, proportional_fee);
 	}
 }
 

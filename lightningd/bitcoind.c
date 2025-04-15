@@ -477,8 +477,14 @@ getrawblockbyheight_callback(const char *buf, const jsmntok_t *toks,
 	const char *block_str, *err;
 	struct bitcoin_blkid blkid;
 	struct bitcoin_block *blk;
+	const tal_t *ctx;
 	trace_span_resume(call);
 	trace_span_end(call);
+
+	/* Callback may free parent of call, so steal onto context to
+	 * free if it doesn't */
+	ctx = tal(NULL, char);
+	tal_steal(ctx, call);
 
 	/* If block hash is `null`, this means not found! Call the callback
 	 * with NULL values. */
@@ -506,7 +512,7 @@ getrawblockbyheight_callback(const char *buf, const jsmntok_t *toks,
 	call->cb(call->bitcoind, call->height, &blkid, blk, call->cb_arg);
 
 clean:
-	tal_free(call);
+	tal_free(ctx);
 }
 
 void bitcoind_getrawblockbyheight_(const tal_t *ctx,

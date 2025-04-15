@@ -1704,41 +1704,6 @@ static void check_already_failed(const struct channel *channel, struct htlc_out 
 	}
 }
 
-/* This case searches harder to see if there are any incoming HTLCs */
-static void fail_dangling_htlc_in(struct lightningd *ld,
-				  const struct sha256 *payment_hash)
-{
-	struct htlc_in *hin;
-	struct htlc_in_map_iter ini;
-
-	for (hin = htlc_in_map_first(ld->htlcs_in, &ini);
-	     hin;
-	     hin = htlc_in_map_next(ld->htlcs_in, &ini)) {
-		if (!sha256_eq(&hin->payment_hash, payment_hash))
-			continue;
-		if (hin->badonion) {
-			log_broken(hin->key.channel->log,
-				   "htlc %"PRIu64" already failed with badonion",
-				   hin->key.id);
-		} else if (hin->preimage) {
-			log_broken(hin->key.channel->log,
-				   "htlc %"PRIu64" already succeeded with preimage",
-				   hin->key.id);
-		} else if (hin->failonion) {
-			log_broken(hin->key.channel->log,
-				   "htlc %"PRIu64" already failed with failonion %s",
-				   hin->key.id,
-				   tal_hex(tmpctx, hin->failonion->contents));
-		} else {
-			log_broken(hin->key.channel->log,
-				   "htlc %"PRIu64" has matching hash: failing",
-				   hin->key.id);
-			local_fail_in_htlc(hin,
-					   take(towire_permanent_channel_failure(NULL)));
-		}
-	}
-}
-
 void onchain_failed_our_htlc(const struct channel *channel,
 			     const struct htlc_stub *htlc,
 			     const char *why,
@@ -1841,7 +1806,6 @@ void onchain_failed_our_htlc(const struct channel *channel,
 		/* Immediate corruption sanity check if this happens */
 		htable_check(&ld->htlcs_out->raw, "onchain_failed_our_htlc out");
 		htable_check(&ld->htlcs_in->raw, "onchain_failed_our_htlc in");
-		fail_dangling_htlc_in(ld, &hout->payment_hash);
 	}
 }
 

@@ -204,7 +204,12 @@ struct anchor_details *create_anchor_details(const tal_t *ctx,
 			continue;
 
 		v.msat = hout->msat;
-		v.block = hout->cltv_expiry;
+		/* Our real deadline here is the INCOMING htlc.  If it's us, use the default so we don't leak
+		 * too much information about it. */
+		if (hout->in)
+			v.block = hout->in->cltv_expiry;
+		else
+			v.block = hout->cltv_expiry + ld->config.cltv_expiry_delta;
 		v.important = true;
 		tal_arr_expand(&adet->vals, v);
 	}
