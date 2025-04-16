@@ -48,7 +48,7 @@ jobs:
             cd /tmp/ || exit 1
             wget https://bitcoincore.org/bin/bitcoin-core-${{ matrix.bitcoind-version }}/bitcoin-${{ matrix.bitcoind-version }}-x86_64-linux-gnu.tar.gz -O /tmp/bitcoin.tar.gz
             tar -xf /tmp/bitcoin.tar.gz
-            sudo mv bitcoin-${{ matrix.bitcoind-version }}/bin/* /usr/local/bin
+            mv bitcoin-${{ matrix.bitcoind-version }}/bin/* /usr/local/bin
             rm -rf /tmp/bitcoin.tar.gz bitcoin-${{ matrix.bitcoind-version }}
 
         run: |
