@@ -5297,6 +5297,9 @@ impl From<requests::ListhtlcsRequest> for pb::ListhtlcsRequest {
     fn from(c: requests::ListhtlcsRequest) -> Self {
         Self {
             id: c.id, // Rule #2 for type string?
+            index: c.index.map(|v| v as i32),
+            limit: c.limit, // Rule #2 for type u32?
+            start: c.start, // Rule #2 for type u64?
         }
     }
 }
@@ -6969,6 +6972,9 @@ impl From<pb::ListhtlcsRequest> for requests::ListhtlcsRequest {
     fn from(c: pb::ListhtlcsRequest) -> Self {
         Self {
             id: c.id, // Rule #1 for type string?
+            index: c.index.map(|v| v.try_into().unwrap()),
+            limit: c.limit, // Rule #1 for type u32?
+            start: c.start, // Rule #1 for type u64?
         }
     }
 }

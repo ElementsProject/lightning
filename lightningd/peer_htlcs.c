@@ -3112,15 +3112,22 @@ static struct command_result *json_listhtlcs(struct command *cmd,
 	struct amount_msat msat;
 	struct sha256 payment_hash;
 	enum htlc_state hstate;
+	enum wait_index *listindex;
+	u64 *liststart;
+	u32 *listlimit;
 
 	if (!param(cmd, buffer, params,
 		   p_opt("id", param_channel, &chan),
+		   p_opt("index", param_index, &listindex),
+		   p_opt_def("start", param_u64, &liststart, 0),
+		   p_opt("limit", param_u32, &listlimit),
 		   NULL))
 		return command_param_failed();
 
 	response = json_stream_success(cmd);
 	json_array_start(response, "htlcs");
 	for (i = wallet_htlcs_first(cmd, cmd->ld->wallet, chan,
+				    listindex, *liststart, listlimit,
 				    &scid, &htlc_id, &cltv_expiry, &owner, &msat,
 				    &payment_hash, &hstate,
 				    &created_index, &updated_index);
