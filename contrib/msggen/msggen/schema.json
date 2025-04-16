@@ -23126,6 +23126,13 @@
             "description": [
               "If supplied, limits the channels to just the peer with the given ID, if it exists."
             ]
+          },
+          "short_channel_id": {
+            "added": "v25.05",
+            "type": "short_channel_id",
+            "description": [
+              "If supplied, limits the channels to just this short_channel_id (or local alias), if it exists.  Cannot be used with 'id'."
+            ]
           }
         }
       },

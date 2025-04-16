@@ -1988,6 +1988,8 @@ pub mod requests {
 	pub struct ListpeerchannelsRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub id: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub short_channel_id: Option<ShortChannelId>,
 	}
 
 	impl From<ListpeerchannelsRequest> for Request {
