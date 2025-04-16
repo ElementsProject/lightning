@@ -27,7 +27,7 @@ jobs:
           pkg install -y \
             bash \
             wget \
-            python38 \
+            python3 \
             gmake \
             git \
             python \
@@ -41,8 +41,8 @@ jobs:
             lowdown \
             curl
 
-            python3.8 -m ensurepip
-            python3.8 -m pip install --upgrade pip
+            python3 -m ensurepip
+            python3 -m pip install --upgrade pip
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2024-11-28
 
             cd /tmp/ || exit 1
