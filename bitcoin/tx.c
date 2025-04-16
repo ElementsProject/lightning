@@ -912,17 +912,25 @@ size_t bitcoin_tx_input_weight(bool p2sh, size_t witness_weight)
 	return weight;
 }
 
-size_t bitcoin_tx_simple_input_witness_weight(void)
+size_t bitcoin_tx_simple_input_witness_weight(enum scriptpubkey_type spend_type)
 {
-	/* Account for witness (1 byte count + sig + key) */
-	return 1 + (bitcoin_tx_input_sig_weight() + 1 + 33);
+	size_t witness_weight = 1; /* byte count */
+
+	/* All spend types include a signature */
+	witness_weight += bitcoin_tx_input_sig_weight();
+
+	/* All spend types except P2TR include a public key */
+	if (spend_type != scriptpubkey_type_p2tr)
+		witness_weight += 1 + 33;
+
+	return witness_weight;
 }
 
-/* We only do segwit inputs, and we assume witness is sig + key  */
-size_t bitcoin_tx_simple_input_weight(bool p2sh)
+/* We only do segwit inputs */
+size_t bitcoin_tx_simple_input_weight(enum scriptpubkey_type spend_type)
 {
-	return bitcoin_tx_input_weight(p2sh,
-				       bitcoin_tx_simple_input_witness_weight());
+	return bitcoin_tx_input_weight(spend_type == scriptpubkey_type_p2sh,
+				       bitcoin_tx_simple_input_witness_weight(spend_type));
 }
 
 size_t bitcoin_tx_2of2_input_witness_weight(void)
