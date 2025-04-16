@@ -33,6 +33,7 @@
           "type": "object",
           "additionalProperties": false,
           "required": [
+            "created_index",
             "short_channel_id",
             "id",
             "expiry",
@@ -46,6 +47,20 @@
               "type": "short_channel_id",
               "description": [
                 "The channel that contains/contained the HTLC."
+              ]
+            },
+            "created_index": {
+              "added": "v25.05",
+              "type": "u64",
+              "description": [
+                "1-based index indicating order this htlc was created in."
+              ]
+            },
+            "updated_index": {
+              "added": "v25.05",
+              "type": "u64",
+              "description": [
+                "1-based index indicating order this htlc was changed (only present if it has changed since creation)."
               ]
             },
             "id": {
