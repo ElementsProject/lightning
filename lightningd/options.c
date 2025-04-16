@@ -936,6 +936,10 @@ static void dev_register_opts(struct lightningd *ld)
 		       opt_set_crash_timeout, NULL,
 		       ld,
 		       "Crash if we are still going after this long.");
+	clnopt_noarg("--dev-warn-on-overgrind", OPT_DEV,
+		       opt_set_bool,
+		       &ld->dev_hsmd_warn_on_overgrind,
+		       "Warn if we create signatures that are not exactly 71 bytes.");
 	/* This is handled directly in daemon_developer_mode(), so we ignore it here */
 	clnopt_noarg("--dev-debug-self", OPT_DEV,
 		     opt_ignore,

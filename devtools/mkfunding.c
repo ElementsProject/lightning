@@ -42,7 +42,7 @@ static struct bitcoin_tx *tx_spending_utxo(const tal_t *ctx,
 	struct bitcoin_tx *tx = bitcoin_tx(ctx, chainparams, 1, num_output,
 					   nlocktime);
 
-	assert(!utxo->is_p2sh);
+	assert(utxo->utxotype != UTXO_P2SH_P2WPKH);
 	bitcoin_tx_add_input(tx, &utxo->outpoint,
 			     nsequence, NULL, utxo->amount,
 			     utxo->scriptPubkey, NULL);
@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
 	if (argc != 1 + 7)
 		errx(1, "Usage: mkfunding <input-txid> <input-txout> <input-amount> <feerate-per-kw> <input-privkey> <local-funding-privkey> <remote-funding-privkey>");
 
-	input.is_p2sh = false;
+	input.utxotype = UTXO_P2WPKH;
 	input.close_info = NULL;
 
 	argnum = 1;

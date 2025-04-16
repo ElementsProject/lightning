@@ -349,7 +349,7 @@ static void json_add_utxo(struct json_stream *response,
 	json_add_num(response, "output", utxo->outpoint.n);
 	json_add_amount_sat_msat(response, "amount_msat", utxo->amount);
 
-	if (utxo->is_p2sh) {
+	if (utxo->utxotype == UTXO_P2SH_P2WPKH) {
 		struct pubkey key;
 		bip32_pubkey(wallet->ld, &key, utxo->keyindex);
 
@@ -693,7 +693,7 @@ static struct command_result *match_psbt_inputs_to_utxos(struct command *cmd,
 		if (!psbt->inputs[i].utxo && !psbt->inputs[i].witness_utxo) {
 			u8 *scriptPubKey;
 
-			if (utxo->is_p2sh) {
+			if (utxo->utxotype == UTXO_P2SH_P2WPKH) {
 				struct pubkey key;
 				u8 *redeemscript;
 				int wally_err;
@@ -729,7 +729,7 @@ static void match_psbt_outputs_to_wallet(struct wally_psbt *psbt,
 		const size_t script_len = psbt->outputs[outndx].script_len;
 		u32 index;
 
-		if (!wallet_can_spend(w, script, script_len, &index))
+		if (!wallet_can_spend(w, script, script_len, &index, NULL))
 			continue;
 
 		if (bip32_key_from_parent(
@@ -936,7 +936,7 @@ static void maybe_notify_new_external_send(struct lightningd *ld,
 	/* If it's going to our wallet, ignore */
 	script = wally_psbt_output_get_script(tmpctx,
 					      &psbt->outputs[outnum]);
-	if (wallet_can_spend(ld->wallet, script, tal_bytelen(script), &index))
+	if (wallet_can_spend(ld->wallet, script, tal_bytelen(script), &index, NULL))
 		return;
 
 	outpoint.txid = *txid;
@@ -997,6 +997,42 @@ static void sendpsbt_done(struct bitcoind *bitcoind UNUSED,
 	json_add_txid(response, "txid", &txid);
 	was_pending(command_success(sending->cmd, response));
 }
+
+static struct command_result *json_dev_finalizepsbt(struct command *cmd,
+						    const char *buffer,
+						    const jsmntok_t *obj,
+						    const jsmntok_t *params)
+{
+	struct wally_psbt *psbt;
+	struct wally_tx *wtx;
+	struct bitcoin_txid txid;
+	struct json_stream *response;
+
+	if (!param_check(cmd, buffer, params,
+			 p_req("psbt", param_psbt, &psbt),
+			 NULL))
+		return command_param_failed();
+
+	if (!psbt_finalize(psbt))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "PSBT not finalizeable");
+
+	wtx = psbt_final_tx(cmd, psbt);
+	wally_txid(wtx, &txid);
+
+	response = json_stream_success(cmd);
+	json_add_psbt(response, "psbt", psbt);
+	json_add_hex_talarr(response, "tx", linearize_wtx(tmpctx, wtx));
+	json_add_txid(response, "txid", &txid);
+	return command_success(cmd, response);
+}
+
+static const struct json_command dev_finalizepsbt_command = {
+	"dev-finalizepsbt",
+	json_dev_finalizepsbt,
+	true,
+};
+AUTODATA(json_command, &dev_finalizepsbt_command);
 
 static struct command_result *json_sendpsbt(struct command *cmd,
 					    const char *buffer,

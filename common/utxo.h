@@ -31,11 +31,13 @@ enum output_status {
 	OUTPUT_STATE_ANY = 255
 };
 
+const char *utxotype_to_str(enum utxotype utxotype);
+
 struct utxo {
 	struct bitcoin_outpoint outpoint;
 	struct amount_sat amount;
 	u32 keyindex;
-	bool is_p2sh;
+	enum utxotype utxotype;
 	enum output_status status;
 
 	/* Optional unilateral close information, NULL if this is just

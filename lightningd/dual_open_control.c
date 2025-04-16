@@ -696,7 +696,7 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 	if (wallet_can_spend(dualopend->ld->wallet,
 			     payload->our_shutdown_scriptpubkey,
 			     tal_bytelen(payload->our_shutdown_scriptpubkey),
-			     &found_wallet_index)) {
+			     &found_wallet_index, NULL)) {
 		our_shutdown_script_wallet_index = tal(tmpctx, u32);
 		*our_shutdown_script_wallet_index = found_wallet_index;
 	} else
@@ -3092,7 +3092,7 @@ static struct command_result *openchannel_init(struct command *cmd,
 	if (wallet_can_spend(cmd->ld->wallet,
 			     oa->our_upfront_shutdown_script,
 			     tal_bytelen(oa->our_upfront_shutdown_script),
-			     &found_wallet_index)) {
+			     &found_wallet_index, NULL)) {
 		our_upfront_shutdown_script_wallet_index = &found_wallet_index;
 	} else
 		our_upfront_shutdown_script_wallet_index = NULL;
@@ -3861,7 +3861,7 @@ static struct command_result *json_queryrates(struct command *cmd,
 	if (wallet_can_spend(cmd->ld->wallet,
 			     oa->our_upfront_shutdown_script,
 			     tal_bytelen(oa->our_upfront_shutdown_script),
-			     &found_wallet_index)) {
+			     &found_wallet_index, NULL)) {
 		our_upfront_shutdown_script_wallet_index = tal(tmpctx, u32);
 		*our_upfront_shutdown_script_wallet_index = found_wallet_index;
 	} else
@@ -4209,7 +4209,7 @@ bool peer_restart_dualopend(struct peer *peer,
 	if (wallet_can_spend(peer->ld->wallet,
 			     channel->shutdown_scriptpubkey[LOCAL],
 			     tal_bytelen(channel->shutdown_scriptpubkey[LOCAL]),
-			     &found_wallet_index)) {
+			     &found_wallet_index, NULL)) {
 		local_shutdown_script_wallet_index = tal(tmpctx, u32);
 		*local_shutdown_script_wallet_index = found_wallet_index;
 	} else

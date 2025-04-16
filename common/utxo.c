@@ -10,7 +10,7 @@ void towire_utxo(u8 **pptr, const struct utxo *utxo)
 	towire_bitcoin_outpoint(pptr, &utxo->outpoint);
 	towire_amount_sat(pptr, utxo->amount);
 	towire_u32(pptr, utxo->keyindex);
-	towire_bool(pptr, utxo->is_p2sh);
+	towire_u32(pptr, utxo->utxotype);
 
 	towire_u16(pptr, tal_count(utxo->scriptPubkey));
 	towire_u8_array(pptr, utxo->scriptPubkey, tal_count(utxo->scriptPubkey));
@@ -36,7 +36,7 @@ struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 	fromwire_bitcoin_outpoint(ptr, max, &utxo->outpoint);
 	utxo->amount = fromwire_amount_sat(ptr, max);
 	utxo->keyindex = fromwire_u32(ptr, max);
-	utxo->is_p2sh = fromwire_bool(ptr, max);
+	utxo->utxotype = fromwire_u32(ptr, max);
 
 	utxo->scriptPubkey = fromwire_tal_arrn(utxo, ptr, max, fromwire_u16(ptr, max));
 
@@ -64,14 +64,18 @@ struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 
 size_t utxo_spend_weight(const struct utxo *utxo, size_t min_witness_weight)
 {
-	size_t wit_weight = bitcoin_tx_simple_input_witness_weight();
+	size_t witness_weight;
+	bool p2sh = (utxo->utxotype == UTXO_P2SH_P2WPKH);
+
+	witness_weight = bitcoin_tx_input_witness_weight(utxo->utxotype);
+
 	/* If the min is less than what we'd use for a 'normal' tx,
 	 * we return the value with the greater added/calculated */
-	if (wit_weight < min_witness_weight)
-		return bitcoin_tx_input_weight(utxo->is_p2sh,
+	if (witness_weight < min_witness_weight)
+		return bitcoin_tx_input_weight(p2sh,
 					       min_witness_weight);
 
-	return bitcoin_tx_input_weight(utxo->is_p2sh, wit_weight);
+	return bitcoin_tx_input_weight(p2sh, witness_weight);
 }
 
 u32 utxo_is_immature(const struct utxo *utxo, u32 blockheight)
@@ -90,4 +94,19 @@ u32 utxo_is_immature(const struct utxo *utxo, u32 blockheight)
 		/* Non-coinbase outputs are always mature. */
 		return 0;
 	}
+}
+
+const char *utxotype_to_str(enum utxotype utxotype)
+{
+	switch (utxotype) {
+	case UTXO_P2SH_P2WPKH:
+		return "p2sh_p2wpkh";
+	case UTXO_P2WPKH:
+		return "p2wpkh";
+	case UTXO_P2WSH_FROM_CLOSE:
+		return "p2wsh_from_close";
+	case UTXO_P2TR:
+		return "p2tr";
+	}
+	abort();
 }

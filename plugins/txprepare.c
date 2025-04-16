@@ -285,6 +285,20 @@ static struct command_result *psbt_created(struct command *cmd,
 
 	/* If we have an "all" output, we now know its value ("excess_msat") */
 	if (txp->all_output_idx != -1) {
+		/* Subtract any other outputs they specified! */
+		for (size_t i = 0; i < tal_count(txp->outputs); i++) {
+			if (i == txp->all_output_idx)
+				continue;
+			if (!amount_sat_sub(&excess, excess, txp->outputs[i].amount)) {
+				return command_fail(cmd, FUND_CANNOT_AFFORD,
+						    "Could not afford output %zu", i);
+			}
+		}
+		if (amount_sat_less(excess, chainparams->dust_limit)) {
+			return command_fail(cmd, FUND_CANNOT_AFFORD,
+					    "Could not afford 'all' output: only %s left",
+					    fmt_amount_sat(tmpctx, excess));
+		}
 		txp->outputs[txp->all_output_idx].amount = excess;
 	}
 

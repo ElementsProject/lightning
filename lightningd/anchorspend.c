@@ -232,13 +232,14 @@ struct anchor_details *create_anchor_details(const tal_t *ctx,
 	return adet;
 }
 
-/* total_weight includes the commitment tx we're trying to push! */
+/* total_weight includes the commitment tx we're trying to push, and the anchor fee output */
 static struct wally_psbt *anchor_psbt(const tal_t *ctx,
 				      struct channel *channel,
 				      const struct one_anchor *anch,
 				      struct utxo **utxos,
 				      u32 feerate_target,
-				      size_t total_weight)
+				      size_t total_weight,
+				      bool insufficient_funds)
 {
 	struct lightningd *ld = channel->peer->ld;
 	struct wally_psbt *psbt;
@@ -263,12 +264,23 @@ static struct wally_psbt *anchor_psbt(const tal_t *ctx,
 				AMOUNT_SAT(330));
 	psbt_input_add_pubkey(psbt, psbt->num_inputs - 1, &channel->local_funding_pubkey, false);
 
-	/* A zero-output tx is invalid: we must have change, even if not really economic */
+	/* Calculate fee we need, given rate and weight */
+	fee = amount_tx_fee(feerate_target, total_weight);
+	/* Some fee already paid by commitment tx */
+	if (!amount_sat_sub(&fee, fee, anch->info.commitment_fee))
+		fee = AMOUNT_SAT(0);
+
+	/* How much do we have? */
 	change = psbt_compute_fee(psbt);
-	/* Assume we add a change output, what would the total fee be? */
-	fee = amount_tx_fee(feerate_target, total_weight + change_weight());
+
+	/* We have to pay dust, at least! */
 	if (!amount_sat_sub(&change, change, fee)
 	    || amount_sat_less(change, chainparams->dust_limit)) {
+		/* If we didn't run out of UTXOs, this implies our estimation was wrong! */
+		if (!insufficient_funds)
+			log_broken(channel->log, "anchor: could not afford fee %s from change %s, reducing fee",
+				   fmt_amount_sat(tmpctx, fee),
+				   fmt_amount_sat(tmpctx, psbt_compute_fee(psbt)));
 		change = chainparams->dust_limit;
 	}
 
@@ -293,19 +305,22 @@ static struct wally_psbt *try_anchor_psbt(const tal_t *ctx,
 	struct lightningd *ld = channel->peer->ld;
 	struct wally_psbt *psbt;
 	struct amount_sat fee;
+	bool insufficient_funds;
 
-	/* Ask for some UTXOs which could meet this feerate */
+	/* Ask for some UTXOs which could meet this feerate, and since
+	 * we need one output, meet the minumum output requirement */
 	*total_weight = base_weight;
 	*utxos = wallet_utxo_boost(ctx,
 				   ld->wallet,
 				   get_block_height(ld->topology),
 				   anch->info.commitment_fee,
+				   chainparams->dust_limit,
 				   feerate_target,
-				   total_weight);
+				   total_weight, &insufficient_funds);
 
 	/* Create a new candidate PSBT */
 	psbt = anchor_psbt(ctx, channel, anch, *utxos, feerate_target,
-			   *total_weight);
+			   *total_weight, insufficient_funds);
 	*fee_spent = psbt_compute_fee(psbt);
 
 	/* Add in base commitment fee to calculate *overall* package feerate */
@@ -333,11 +348,11 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 	const u8 *msg;
 
 	/* Estimate weight of anchorspend tx plus commitment_tx (not including any UTXO we add) */
-	base_weight = bitcoin_tx_core_weight(2, 1)
+	base_weight = bitcoin_tx_core_weight(1, 1)
 		+ bitcoin_tx_input_weight(false,
 					  bitcoin_tx_input_sig_weight()
 					  + 1 + tal_bytelen(anch->adet->anchor_wscript))
-		+ bitcoin_tx_output_weight(BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN)
+		+ change_weight()
 		+ anch->info.commitment_weight;
 
 	total_value = AMOUNT_MSAT(0);
@@ -370,15 +385,17 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 						 &fee,
 						 &feerate,
 						 &utxos);
+		log_debug(channel->log, "candidate_psbt total weight = %zu (commitment weight %u, anchor %zu)",
+			  weight, anch->info.commitment_weight, weight - anch->info.commitment_weight);
 
 		/* Is it even worth spending this fee to meet the deadline? */
 		if (!amount_msat_greater_sat(total_value, fee)) {
 			log_debug(channel->log,
-				  "Not worth fee %s for %s commit tx to get %s in %u blocks at feerate %uperkw",
+				  "Not worth fee %s for %s commit tx to get %s at block %u (%+i) at feerate %uperkw",
 				  fmt_amount_sat(tmpctx, fee),
 				  anch->commit_side == LOCAL ? "local" : "remote",
 				  fmt_amount_msat(tmpctx, val->msat),
-				  val->block, feerate_target);
+				  val->block, val->block - get_block_height(ld->topology), feerate_target);
 			break;
 		}
 
@@ -403,11 +420,11 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 			break;
 		}
 
-		log_debug(channel->log, "Worth fee %s for %s commit tx to get %s in %u blocks at feerate %uperkw",
+		log_debug(channel->log, "Worth fee %s for %s commit tx to get %s at block %u (%+i) at feerate %uperkw",
 			  fmt_amount_sat(tmpctx, fee),
 			  anch->commit_side == LOCAL ? "local" : "remote",
 			  fmt_amount_msat(tmpctx, val->msat),
-			  val->block, feerate);
+			  val->block, val->block - get_block_height(ld->topology), feerate);
 		psbt = candidate_psbt;
 		psbt_fee = fee;
 		psbt_weight = weight;
@@ -511,6 +528,7 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 	tx->wtx = psbt_final_tx(tx, signed_psbt);
 	assert(tx->wtx);
 	tx->psbt = tal_steal(tx, signed_psbt);
+	log_debug(channel->log, "anchor actual weight: %zu", bitcoin_tx_weight(tx));
 
 	return tx;
 }

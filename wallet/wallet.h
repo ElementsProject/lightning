@@ -82,34 +82,34 @@ static inline enum output_status output_status_in_db(enum output_status s)
 /* /!\ This is a DB ENUM, please do not change the numbering of any
  * already defined elements (adding is ok) /!\ */
 enum wallet_output_type {
-	p2sh_wpkh = 0,
-	to_local = 1,
-	htlc_offer = 3,
-	htlc_recv = 4,
-	our_change = 5,
-	p2wpkh = 6
+	WALLET_OUTPUT_P2SH_WPKH = 0,
+	WALLET_OUTPUT_TO_LOCAL = 1,
+	WALLET_OUTPUT_HTLC_OFFER = 3,
+	WALLET_OUTPUT_HTLC_RECV = 4,
+	WALLET_OUTPUT_OUR_CHANGE = 5,
+	WALLET_OUTPUT_P2WPKH = 6
 };
 
 static inline enum wallet_output_type wallet_output_type_in_db(enum wallet_output_type w)
 {
 	switch (w) {
-	case p2sh_wpkh:
-		BUILD_ASSERT(p2sh_wpkh == 0);
+	case WALLET_OUTPUT_P2SH_WPKH:
+		BUILD_ASSERT(WALLET_OUTPUT_P2SH_WPKH == 0);
 		return w;
-	case to_local:
-		BUILD_ASSERT(to_local == 1);
+	case WALLET_OUTPUT_TO_LOCAL:
+		BUILD_ASSERT(WALLET_OUTPUT_TO_LOCAL == 1);
 		return w;
-	case htlc_offer:
-		BUILD_ASSERT(htlc_offer == 3);
+	case WALLET_OUTPUT_HTLC_OFFER:
+		BUILD_ASSERT(WALLET_OUTPUT_HTLC_OFFER == 3);
 		return w;
-	case htlc_recv:
-		BUILD_ASSERT(htlc_recv == 4);
+	case WALLET_OUTPUT_HTLC_RECV:
+		BUILD_ASSERT(WALLET_OUTPUT_HTLC_RECV == 4);
 		return w;
-	case our_change:
-		BUILD_ASSERT(our_change == 5);
+	case WALLET_OUTPUT_OUR_CHANGE:
+		BUILD_ASSERT(WALLET_OUTPUT_OUR_CHANGE == 5);
 		return w;
-	case p2wpkh:
-		BUILD_ASSERT(p2wpkh == 6);
+	case WALLET_OUTPUT_P2WPKH:
+		BUILD_ASSERT(WALLET_OUTPUT_P2WPKH == 6);
 		return w;
 	}
 	fatal("%s: %u is invalid", __func__, w);
@@ -570,9 +570,11 @@ struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
  * @ctx: context to tal return array from
  * @w: the wallet
  * @blockheight: current height (to determine reserved status)
- * @fee_amount: amount already paying in fees
+ * @excess_sats: how much excess it's already got.
+ * @output_sats_required: minimum amount required to output
  * @feerate_target: feerate we want, in perkw.
  * @weight: (in)existing weight before any utxos added, (out)final weight with utxos added.
+ * @insufficient: (out) if non-NULL, set true if we run out of utxos, otherwise false.
  *
  * May not meet the feerate, but will spend all available utxos to try.
  * You may also need to create change, as it may exceed.
@@ -580,24 +582,26 @@ struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
 struct utxo **wallet_utxo_boost(const tal_t *ctx,
 				struct wallet *w,
 				u32 blockheight,
-				struct amount_sat fee_amount,
+				struct amount_sat excess_sats,
+				struct amount_sat output_sats_required,
 				u32 feerate_target,
-				size_t *weight);
+				size_t *weight,
+				bool *insufficient);
 
 /**
  * wallet_can_spend - Do we have the private key matching this scriptpubkey?
- *
- * FIXME: This is very slow with lots of inputs!
  *
  * @w: (in) wallet holding the pubkeys to check against (privkeys are on HSM)
  * @script: (in) the script to check
  * @script_len: (in) the length of @script
  * @index: (out) the bip32 derivation index that matched the script
+ * @addrtype: (out) if non-NULL, set to address type of script.
  */
 bool wallet_can_spend(struct wallet *w,
 		      const u8 *script,
 		      size_t script_len,
-		      u32 *index);
+		      u32 *index,
+		      enum addrtype *addrtype);
 
 /**
  * wallet_get_newindex - get a new index from the wallet.
