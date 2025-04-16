@@ -53,8 +53,8 @@ jobs:
 
         run: |
           PATH=/root/.local/bin:$PATH
-          pip install --user -U wheel pip
-          pip install --user -U -r requirements.txt
+          pip install --user -U wheel pip poetry
+          pip install --user -U .
 
           # Install utilities that aren't dependencies, but make
           # running tests easier/feasible on CI (and pytest which
