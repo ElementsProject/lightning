@@ -2694,6 +2694,21 @@ impl From<responses::WaitForwards> for pb::WaitForwards {
 }
 
 #[allow(unused_variables)]
+impl From<responses::WaitHtlcs> for pb::WaitHtlcs {
+    fn from(c: responses::WaitHtlcs) -> Self {
+        Self {
+            amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
+            cltv_expiry: c.cltv_expiry, // Rule #2 for type u32?
+            direction: c.direction.map(|v| v as i32),
+            htlc_id: c.htlc_id, // Rule #2 for type u64?
+            payment_hash: c.payment_hash.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
+            short_channel_id: c.short_channel_id.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+            state: c.state.map(|v| v as i32),
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::WaitInvoices> for pb::WaitInvoices {
     fn from(c: responses::WaitInvoices) -> Self {
         Self {
@@ -2726,6 +2741,7 @@ impl From<responses::WaitResponse> for pb::WaitResponse {
             deleted: c.deleted, // Rule #2 for type u64?
             details: c.details.map(|v| v.into()),
             forwards: c.forwards.map(|v| v.into()),
+            htlcs: c.htlcs.map(|v| v.into()),
             invoices: c.invoices.map(|v| v.into()),
             sendpays: c.sendpays.map(|v| v.into()),
             subsystem: c.subsystem as i32,
