@@ -13,9 +13,11 @@ void init(int *argc, char ***argv)
 
 void run(const uint8_t *data, size_t size)
 {
-	uint8_t *script_pubkey = tal_dup_arr(tmpctx, uint8_t, data, size, 0);
+	if(size == 22 || size == 23 || size == 25 || size == 34) {
+		uint8_t *script_pubkey = tal_dup_arr(tmpctx, uint8_t, data, size, 0);
 
-	encode_scriptpubkey_to_addr(tmpctx, chainparams, script_pubkey);
+		encode_scriptpubkey_to_addr(tmpctx, chainparams, script_pubkey);
 
-	clean_tmpctx();
+		clean_tmpctx();
+	}
 }
