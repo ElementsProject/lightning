@@ -46,10 +46,10 @@ jobs:
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2024-11-28
 
             cd /tmp/ || exit 1
-            wget https://bitcoincore.org/bin/bitcoin-core-${{ matrix.bitcoind-version }}/bitcoin-${{ matrix.bitcoind-version }}-x86_64-linux-gnu.tar.gz
-            tar -xf bitcoin-${{ matrix.bitcoind-version }}-x86_64-linux-gnu.tar.bz2
+            wget https://bitcoincore.org/bin/bitcoin-core-${{ matrix.bitcoind-version }}/bitcoin-${{ matrix.bitcoind-version }}-x86_64-linux-gnu.tar.gz -O /tmp/bitcoin.tar.gz
+            tar -xf /tmp/bitcoin.tar.gz
             sudo mv bitcoin-${{ matrix.bitcoind-version }}/bin/* /usr/local/bin
-            rm -rf bitcoin-${{ matrix.bitcoind-version }}-x86_64-linux-gnu.tar.gz bitcoin-${{ matrix.bitcoind-version }}
+            rm -rf /tmp/bitcoin.tar.gz bitcoin-${{ matrix.bitcoind-version }}
 
         run: |
           PATH=/root/.local/bin:$PATH
