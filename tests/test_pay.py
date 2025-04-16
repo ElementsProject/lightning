@@ -736,16 +736,16 @@ def test_wait_sendpay(node_factory, executor):
     l1.rpc.sendpay([routestep], inv['payment_hash'], payment_secret=inv['payment_secret'])
     assert wait_created.result(TIMEOUT) == {'subsystem': 'sendpays',
                                             'created': 1,
-                                            'details': {'groupid': 1,
-                                                        'partid': 0,
-                                                        'payment_hash': inv['payment_hash'],
-                                                        'status': 'pending'}}
+                                            'sendpays': {'groupid': 1,
+                                                         'partid': 0,
+                                                         'payment_hash': inv['payment_hash'],
+                                                         'status': 'pending'}}
     assert wait_updated.result(TIMEOUT) == {'subsystem': 'sendpays',
                                             'updated': 1,
-                                            'details': {'groupid': 1,
-                                                        'partid': 0,
-                                                        'payment_hash': inv['payment_hash'],
-                                                        'status': 'complete'}}
+                                            'sendpays': {'groupid': 1,
+                                                         'partid': 0,
+                                                         'payment_hash': inv['payment_hash'],
+                                                         'status': 'complete'}}
 
     l1.rpc.waitsendpay(inv['payment_hash'])['payment_preimage']
 
@@ -5481,10 +5481,10 @@ def test_sendpays_wait(node_factory, executor):
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'sendpays',
                        'created': 1,
-                       'details': {'status': 'pending',
-                                   'partid': 0,
-                                   'groupid': 1,
-                                   'payment_hash': inv1['payment_hash']}}
+                       'sendpays': {'status': 'pending',
+                                    'partid': 0,
+                                    'groupid': 1,
+                                    'payment_hash': inv1['payment_hash']}}
     assert only_one(l1.rpc.listsendpays(bolt11=inv1['bolt11'])['payments'])['created_index'] == 1
     assert only_one(l1.rpc.listsendpays(bolt11=inv1['bolt11'])['payments'])['updated_index'] == 1
 
@@ -5506,10 +5506,10 @@ def test_sendpays_wait(node_factory, executor):
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'sendpays',
                        'updated': 2,
-                       'details': {'status': 'complete',
-                                   'partid': 0,
-                                   'groupid': 1,
-                                   'payment_hash': inv2['payment_hash']}}
+                       'sendpays': {'status': 'complete',
+                                    'partid': 0,
+                                    'groupid': 1,
+                                    'payment_hash': inv2['payment_hash']}}
     assert only_one(l1.rpc.listsendpays(bolt11=inv2['bolt11'])['payments'])['created_index'] == 2
     assert only_one(l1.rpc.listsendpays(bolt11=inv2['bolt11'])['payments'])['updated_index'] == 2
 
@@ -5530,10 +5530,10 @@ def test_sendpays_wait(node_factory, executor):
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'sendpays',
                        'updated': 3,
-                       'details': {'status': 'failed',
-                                   'partid': 0,
-                                   'groupid': 1,
-                                   'payment_hash': inv3['payment_hash']}}
+                       'sendpays': {'status': 'failed',
+                                    'partid': 0,
+                                    'groupid': 1,
+                                    'payment_hash': inv3['payment_hash']}}
 
     # Order and pagination.
     assert [(p['created_index'], p['bolt11']) for p in l1.rpc.listsendpays(index='created')['payments']] == [(1, inv1['bolt11']), (2, inv2['bolt11']), (3, inv3['bolt11'])]
@@ -5558,10 +5558,10 @@ def test_sendpays_wait(node_factory, executor):
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'sendpays',
                        'deleted': 1,
-                       'details': {'status': 'failed',
-                                   'partid': 0,
-                                   'groupid': 1,
-                                   'payment_hash': inv3['payment_hash']}}
+                       'sendpays': {'status': 'failed',
+                                    'partid': 0,
+                                    'groupid': 1,
+                                    'payment_hash': inv3['payment_hash']}}
 
 
 def test_pay_routehint_minhtlc(node_factory, bitcoind):

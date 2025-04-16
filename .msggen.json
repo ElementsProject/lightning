@@ -221,6 +221,10 @@
             "SENT_REMOVE_HTLC": 15,
             "SENT_REMOVE_REVOCATION": 7
         },
+        "ListhtlcsIndex": {
+            "created": 0,
+            "updated": 1
+        },
         "ListinvoicesIndex": {
             "created": 0,
             "updated": 1
@@ -495,13 +499,56 @@
             "settled": 7,
             "unpaid": 0
         },
+        "WaitForwardsStatus": {
+            "failed": 2,
+            "local_failed": 3,
+            "offered": 0,
+            "settled": 1
+        },
+        "WaitHtlcsDirection": {
+            "in": 1,
+            "out": 0
+        },
+        "WaitHtlcsState": {
+            "RCVD_ADD_ACK_COMMIT": 3,
+            "RCVD_ADD_ACK_REVOCATION": 14,
+            "RCVD_ADD_COMMIT": 11,
+            "RCVD_ADD_HTLC": 10,
+            "RCVD_ADD_REVOCATION": 2,
+            "RCVD_REMOVE_ACK_COMMIT": 18,
+            "RCVD_REMOVE_ACK_REVOCATION": 9,
+            "RCVD_REMOVE_COMMIT": 6,
+            "RCVD_REMOVE_HTLC": 5,
+            "RCVD_REMOVE_REVOCATION": 17,
+            "SENT_ADD_ACK_COMMIT": 13,
+            "SENT_ADD_ACK_REVOCATION": 4,
+            "SENT_ADD_COMMIT": 1,
+            "SENT_ADD_HTLC": 0,
+            "SENT_ADD_REVOCATION": 12,
+            "SENT_REMOVE_ACK_COMMIT": 8,
+            "SENT_REMOVE_ACK_REVOCATION": 19,
+            "SENT_REMOVE_COMMIT": 16,
+            "SENT_REMOVE_HTLC": 15,
+            "SENT_REMOVE_REVOCATION": 7
+        },
         "WaitIndexname": {
             "created": 0,
             "deleted": 2,
             "updated": 1
         },
+        "WaitInvoicesStatus": {
+            "expired": 2,
+            "paid": 1,
+            "unpaid": 0
+        },
+        "WaitSendpaysStatus": {
+            "complete": 2,
+            "failed": 1,
+            "pending": 0
+        },
         "WaitSubsystem": {
             "forwards": 1,
+            "htlcs": 3,
             "invoices": 0,
             "sendpays": 2
         },
@@ -2517,15 +2564,20 @@
         },
         "ListhtlcsHtlcs": {
             "ListHtlcs.htlcs[].amount_msat": 4,
+            "ListHtlcs.htlcs[].created_index": 8,
             "ListHtlcs.htlcs[].direction": 5,
             "ListHtlcs.htlcs[].expiry": 3,
             "ListHtlcs.htlcs[].id": 2,
             "ListHtlcs.htlcs[].payment_hash": 6,
             "ListHtlcs.htlcs[].short_channel_id": 1,
-            "ListHtlcs.htlcs[].state": 7
+            "ListHtlcs.htlcs[].state": 7,
+            "ListHtlcs.htlcs[].updated_index": 9
         },
         "ListhtlcsRequest": {
-            "ListHtlcs.id": 1
+            "ListHtlcs.id": 1,
+            "ListHtlcs.index": 2,
+            "ListHtlcs.limit": 4,
+            "ListHtlcs.start": 3
         },
         "ListhtlcsResponse": {
             "ListHtlcs.htlcs[]": 1
@@ -3648,6 +3700,29 @@
             "Wait.details.payment_hash": 8,
             "Wait.details.status": 1
         },
+        "WaitForwards": {
+            "Wait.forwards.in_channel": 2,
+            "Wait.forwards.in_htlc_id": 3,
+            "Wait.forwards.in_msat": 4,
+            "Wait.forwards.out_channel": 5,
+            "Wait.forwards.status": 1
+        },
+        "WaitHtlcs": {
+            "Wait.htlcs.amount_msat": 5,
+            "Wait.htlcs.cltv_expiry": 4,
+            "Wait.htlcs.direction": 6,
+            "Wait.htlcs.htlc_id": 2,
+            "Wait.htlcs.payment_hash": 7,
+            "Wait.htlcs.short_channel_id": 3,
+            "Wait.htlcs.state": 1
+        },
+        "WaitInvoices": {
+            "Wait.invoices.bolt11": 4,
+            "Wait.invoices.bolt12": 5,
+            "Wait.invoices.description": 3,
+            "Wait.invoices.label": 2,
+            "Wait.invoices.status": 1
+        },
         "WaitRequest": {
             "Wait.indexname": 2,
             "Wait.nextvalue": 3,
@@ -3657,8 +3732,18 @@
             "Wait.created": 2,
             "Wait.deleted": 4,
             "Wait.details": 5,
+            "Wait.forwards": 7,
+            "Wait.htlcs": 9,
+            "Wait.invoices": 6,
+            "Wait.sendpays": 8,
             "Wait.subsystem": 1,
             "Wait.updated": 3
+        },
+        "WaitSendpays": {
+            "Wait.sendpays.groupid": 3,
+            "Wait.sendpays.partid": 2,
+            "Wait.sendpays.payment_hash": 4,
+            "Wait.sendpays.status": 1
         },
         "WaitanyinvoicePaidOutpoint": {
             "WaitAnyInvoice.paid_outpoint.outnum": 2,
@@ -9506,6 +9591,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListHtlcs.htlcs[].created_index": {
+            "added": "v25.05",
+            "deprecated": null
+        },
         "ListHtlcs.htlcs[].direction": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -9530,8 +9619,24 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListHtlcs.htlcs[].updated_index": {
+            "added": "v25.05",
+            "deprecated": null
+        },
         "ListHtlcs.id": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListHtlcs.index": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "ListHtlcs.limit": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "ListHtlcs.start": {
+            "added": "v25.05",
             "deprecated": null
         },
         "ListInvoiceRequests": {
@@ -12692,7 +12797,7 @@
         },
         "Wait.details": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v25.05"
         },
         "Wait.details.bolt11": {
             "added": "pre-v0.10.1",
@@ -12742,12 +12847,112 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "Wait.forwards": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.forwards.in_channel": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.forwards.in_htlc_id": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.forwards.in_msat": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.forwards.out_channel": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.forwards.status": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.htlcs": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.htlcs.amount_msat": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.htlcs.cltv_expiry": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.htlcs.direction": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.htlcs.htlc_id": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.htlcs.payment_hash": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.htlcs.short_channel_id": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.htlcs.state": {
+            "added": "v25.05",
+            "deprecated": null
+        },
         "Wait.indexname": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "Wait.invoices": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.invoices.bolt11": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.invoices.bolt12": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.invoices.description": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.invoices.label": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.invoices.status": {
+            "added": "v25.05",
+            "deprecated": null
+        },
         "Wait.nextvalue": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Wait.sendpays": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.sendpays.groupid": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.sendpays.partid": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.sendpays.payment_hash": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.sendpays.status": {
+            "added": "v25.05",
             "deprecated": null
         },
         "Wait.subsystem": {

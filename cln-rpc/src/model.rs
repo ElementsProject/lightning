@@ -2921,10 +2921,46 @@ pub mod requests {
 	        "listpays"
 	    }
 	}
+	/// ['This controls the ordering of results.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum ListhtlcsIndex {
+	    #[serde(rename = "created")]
+	    CREATED = 0,
+	    #[serde(rename = "updated")]
+	    UPDATED = 1,
+	}
+
+	impl TryFrom<i32> for ListhtlcsIndex {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<ListhtlcsIndex, anyhow::Error> {
+	        match c {
+	    0 => Ok(ListhtlcsIndex::CREATED),
+	    1 => Ok(ListhtlcsIndex::UPDATED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListhtlcsIndex", o)),
+	        }
+	    }
+	}
+
+	impl ToString for ListhtlcsIndex {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListhtlcsIndex::CREATED => "CREATED",
+	            ListhtlcsIndex::UPDATED => "UPDATED",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListhtlcsRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub id: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub index: Option<ListhtlcsIndex>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub limit: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub start: Option<u64>,
 	}
 
 	impl From<ListhtlcsRequest> for Request {
@@ -3736,7 +3772,7 @@ pub mod requests {
 	    }
 	}
 
-	/// ['The subsystem to get the next index value from.', '  `invoices`: corresponding to `listinvoices` (added in *v23.08*).', '  `sendpays`: corresponding to `listsendpays` (added in *v23.11*).', '  `forwards`: corresponding to `listforwards` (added in *v23.11*).']
+	/// ['The subsystem to get the next index value from.', '  `invoices`: corresponding to `listinvoices` (added in *v23.08*).', '  `sendpays`: corresponding to `listsendpays` (added in *v23.11*).', '  `forwards`: corresponding to `listforwards` (added in *v23.11*).', '  `htlcs`: corresponding to `listhtlcs` (added in *v25.05*).']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
 	pub enum WaitSubsystem {
@@ -3746,6 +3782,8 @@ pub mod requests {
 	    FORWARDS = 1,
 	    #[serde(rename = "sendpays")]
 	    SENDPAYS = 2,
+	    #[serde(rename = "htlcs")]
+	    HTLCS = 3,
 	}
 
 	impl TryFrom<i32> for WaitSubsystem {
@@ -3755,6 +3793,7 @@ pub mod requests {
 	    0 => Ok(WaitSubsystem::INVOICES),
 	    1 => Ok(WaitSubsystem::FORWARDS),
 	    2 => Ok(WaitSubsystem::SENDPAYS),
+	    3 => Ok(WaitSubsystem::HTLCS),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitSubsystem", o)),
 	        }
 	    }
@@ -3766,6 +3805,7 @@ pub mod requests {
 	            WaitSubsystem::INVOICES => "INVOICES",
 	            WaitSubsystem::FORWARDS => "FORWARDS",
 	            WaitSubsystem::SENDPAYS => "SENDPAYS",
+	            WaitSubsystem::HTLCS => "HTLCS",
 	        }.to_string()
 	    }
 	}
@@ -8656,6 +8696,10 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListhtlcsHtlcs {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
 	    // Path `ListHtlcs.htlcs[].direction`
 	    pub direction: ListhtlcsHtlcsDirection,
 	    // Path `ListHtlcs.htlcs[].state`
@@ -9579,6 +9623,302 @@ pub mod responses {
 	    pub status: Option<WaitDetailsStatus>,
 	}
 
+	/// ['Still ongoing, completed, failed locally, or failed after forwarding.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum WaitForwardsStatus {
+	    #[serde(rename = "offered")]
+	    OFFERED = 0,
+	    #[serde(rename = "settled")]
+	    SETTLED = 1,
+	    #[serde(rename = "failed")]
+	    FAILED = 2,
+	    #[serde(rename = "local_failed")]
+	    LOCAL_FAILED = 3,
+	}
+
+	impl TryFrom<i32> for WaitForwardsStatus {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<WaitForwardsStatus, anyhow::Error> {
+	        match c {
+	    0 => Ok(WaitForwardsStatus::OFFERED),
+	    1 => Ok(WaitForwardsStatus::SETTLED),
+	    2 => Ok(WaitForwardsStatus::FAILED),
+	    3 => Ok(WaitForwardsStatus::LOCAL_FAILED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitForwardsStatus", o)),
+	        }
+	    }
+	}
+
+	impl ToString for WaitForwardsStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            WaitForwardsStatus::OFFERED => "OFFERED",
+	            WaitForwardsStatus::SETTLED => "SETTLED",
+	            WaitForwardsStatus::FAILED => "FAILED",
+	            WaitForwardsStatus::LOCAL_FAILED => "LOCAL_FAILED",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct WaitForwards {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub in_channel: Option<ShortChannelId>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub in_htlc_id: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub in_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub out_channel: Option<ShortChannelId>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub status: Option<WaitForwardsStatus>,
+	}
+
+	/// ['Out if we offered this to the peer, in if they offered it.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum WaitHtlcsDirection {
+	    #[serde(rename = "out")]
+	    OUT = 0,
+	    #[serde(rename = "in")]
+	    IN = 1,
+	}
+
+	impl TryFrom<i32> for WaitHtlcsDirection {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<WaitHtlcsDirection, anyhow::Error> {
+	        match c {
+	    0 => Ok(WaitHtlcsDirection::OUT),
+	    1 => Ok(WaitHtlcsDirection::IN),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitHtlcsDirection", o)),
+	        }
+	    }
+	}
+
+	impl ToString for WaitHtlcsDirection {
+	    fn to_string(&self) -> String {
+	        match self {
+	            WaitHtlcsDirection::OUT => "OUT",
+	            WaitHtlcsDirection::IN => "IN",
+	        }.to_string()
+	    }
+	}
+
+	/// ['The first 10 states are for `in`, the next 10 are for `out`.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum WaitHtlcsState {
+	    #[serde(rename = "SENT_ADD_HTLC")]
+	    SENT_ADD_HTLC = 0,
+	    #[serde(rename = "SENT_ADD_COMMIT")]
+	    SENT_ADD_COMMIT = 1,
+	    #[serde(rename = "RCVD_ADD_REVOCATION")]
+	    RCVD_ADD_REVOCATION = 2,
+	    #[serde(rename = "RCVD_ADD_ACK_COMMIT")]
+	    RCVD_ADD_ACK_COMMIT = 3,
+	    #[serde(rename = "SENT_ADD_ACK_REVOCATION")]
+	    SENT_ADD_ACK_REVOCATION = 4,
+	    #[serde(rename = "RCVD_REMOVE_HTLC")]
+	    RCVD_REMOVE_HTLC = 5,
+	    #[serde(rename = "RCVD_REMOVE_COMMIT")]
+	    RCVD_REMOVE_COMMIT = 6,
+	    #[serde(rename = "SENT_REMOVE_REVOCATION")]
+	    SENT_REMOVE_REVOCATION = 7,
+	    #[serde(rename = "SENT_REMOVE_ACK_COMMIT")]
+	    SENT_REMOVE_ACK_COMMIT = 8,
+	    #[serde(rename = "RCVD_REMOVE_ACK_REVOCATION")]
+	    RCVD_REMOVE_ACK_REVOCATION = 9,
+	    #[serde(rename = "RCVD_ADD_HTLC")]
+	    RCVD_ADD_HTLC = 10,
+	    #[serde(rename = "RCVD_ADD_COMMIT")]
+	    RCVD_ADD_COMMIT = 11,
+	    #[serde(rename = "SENT_ADD_REVOCATION")]
+	    SENT_ADD_REVOCATION = 12,
+	    #[serde(rename = "SENT_ADD_ACK_COMMIT")]
+	    SENT_ADD_ACK_COMMIT = 13,
+	    #[serde(rename = "RCVD_ADD_ACK_REVOCATION")]
+	    RCVD_ADD_ACK_REVOCATION = 14,
+	    #[serde(rename = "SENT_REMOVE_HTLC")]
+	    SENT_REMOVE_HTLC = 15,
+	    #[serde(rename = "SENT_REMOVE_COMMIT")]
+	    SENT_REMOVE_COMMIT = 16,
+	    #[serde(rename = "RCVD_REMOVE_REVOCATION")]
+	    RCVD_REMOVE_REVOCATION = 17,
+	    #[serde(rename = "RCVD_REMOVE_ACK_COMMIT")]
+	    RCVD_REMOVE_ACK_COMMIT = 18,
+	    #[serde(rename = "SENT_REMOVE_ACK_REVOCATION")]
+	    SENT_REMOVE_ACK_REVOCATION = 19,
+	}
+
+	impl TryFrom<i32> for WaitHtlcsState {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<WaitHtlcsState, anyhow::Error> {
+	        match c {
+	    0 => Ok(WaitHtlcsState::SENT_ADD_HTLC),
+	    1 => Ok(WaitHtlcsState::SENT_ADD_COMMIT),
+	    2 => Ok(WaitHtlcsState::RCVD_ADD_REVOCATION),
+	    3 => Ok(WaitHtlcsState::RCVD_ADD_ACK_COMMIT),
+	    4 => Ok(WaitHtlcsState::SENT_ADD_ACK_REVOCATION),
+	    5 => Ok(WaitHtlcsState::RCVD_REMOVE_HTLC),
+	    6 => Ok(WaitHtlcsState::RCVD_REMOVE_COMMIT),
+	    7 => Ok(WaitHtlcsState::SENT_REMOVE_REVOCATION),
+	    8 => Ok(WaitHtlcsState::SENT_REMOVE_ACK_COMMIT),
+	    9 => Ok(WaitHtlcsState::RCVD_REMOVE_ACK_REVOCATION),
+	    10 => Ok(WaitHtlcsState::RCVD_ADD_HTLC),
+	    11 => Ok(WaitHtlcsState::RCVD_ADD_COMMIT),
+	    12 => Ok(WaitHtlcsState::SENT_ADD_REVOCATION),
+	    13 => Ok(WaitHtlcsState::SENT_ADD_ACK_COMMIT),
+	    14 => Ok(WaitHtlcsState::RCVD_ADD_ACK_REVOCATION),
+	    15 => Ok(WaitHtlcsState::SENT_REMOVE_HTLC),
+	    16 => Ok(WaitHtlcsState::SENT_REMOVE_COMMIT),
+	    17 => Ok(WaitHtlcsState::RCVD_REMOVE_REVOCATION),
+	    18 => Ok(WaitHtlcsState::RCVD_REMOVE_ACK_COMMIT),
+	    19 => Ok(WaitHtlcsState::SENT_REMOVE_ACK_REVOCATION),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitHtlcsState", o)),
+	        }
+	    }
+	}
+
+	impl ToString for WaitHtlcsState {
+	    fn to_string(&self) -> String {
+	        match self {
+	            WaitHtlcsState::SENT_ADD_HTLC => "SENT_ADD_HTLC",
+	            WaitHtlcsState::SENT_ADD_COMMIT => "SENT_ADD_COMMIT",
+	            WaitHtlcsState::RCVD_ADD_REVOCATION => "RCVD_ADD_REVOCATION",
+	            WaitHtlcsState::RCVD_ADD_ACK_COMMIT => "RCVD_ADD_ACK_COMMIT",
+	            WaitHtlcsState::SENT_ADD_ACK_REVOCATION => "SENT_ADD_ACK_REVOCATION",
+	            WaitHtlcsState::RCVD_REMOVE_HTLC => "RCVD_REMOVE_HTLC",
+	            WaitHtlcsState::RCVD_REMOVE_COMMIT => "RCVD_REMOVE_COMMIT",
+	            WaitHtlcsState::SENT_REMOVE_REVOCATION => "SENT_REMOVE_REVOCATION",
+	            WaitHtlcsState::SENT_REMOVE_ACK_COMMIT => "SENT_REMOVE_ACK_COMMIT",
+	            WaitHtlcsState::RCVD_REMOVE_ACK_REVOCATION => "RCVD_REMOVE_ACK_REVOCATION",
+	            WaitHtlcsState::RCVD_ADD_HTLC => "RCVD_ADD_HTLC",
+	            WaitHtlcsState::RCVD_ADD_COMMIT => "RCVD_ADD_COMMIT",
+	            WaitHtlcsState::SENT_ADD_REVOCATION => "SENT_ADD_REVOCATION",
+	            WaitHtlcsState::SENT_ADD_ACK_COMMIT => "SENT_ADD_ACK_COMMIT",
+	            WaitHtlcsState::RCVD_ADD_ACK_REVOCATION => "RCVD_ADD_ACK_REVOCATION",
+	            WaitHtlcsState::SENT_REMOVE_HTLC => "SENT_REMOVE_HTLC",
+	            WaitHtlcsState::SENT_REMOVE_COMMIT => "SENT_REMOVE_COMMIT",
+	            WaitHtlcsState::RCVD_REMOVE_REVOCATION => "RCVD_REMOVE_REVOCATION",
+	            WaitHtlcsState::RCVD_REMOVE_ACK_COMMIT => "RCVD_REMOVE_ACK_COMMIT",
+	            WaitHtlcsState::SENT_REMOVE_ACK_REVOCATION => "SENT_REMOVE_ACK_REVOCATION",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct WaitHtlcs {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub cltv_expiry: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub direction: Option<WaitHtlcsDirection>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_id: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_hash: Option<Sha256>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub short_channel_id: Option<ShortChannelId>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub state: Option<WaitHtlcsState>,
+	}
+
+	/// ["Whether it's paid, unpaid or unpayable."]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum WaitInvoicesStatus {
+	    #[serde(rename = "unpaid")]
+	    UNPAID = 0,
+	    #[serde(rename = "paid")]
+	    PAID = 1,
+	    #[serde(rename = "expired")]
+	    EXPIRED = 2,
+	}
+
+	impl TryFrom<i32> for WaitInvoicesStatus {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<WaitInvoicesStatus, anyhow::Error> {
+	        match c {
+	    0 => Ok(WaitInvoicesStatus::UNPAID),
+	    1 => Ok(WaitInvoicesStatus::PAID),
+	    2 => Ok(WaitInvoicesStatus::EXPIRED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitInvoicesStatus", o)),
+	        }
+	    }
+	}
+
+	impl ToString for WaitInvoicesStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            WaitInvoicesStatus::UNPAID => "UNPAID",
+	            WaitInvoicesStatus::PAID => "PAID",
+	            WaitInvoicesStatus::EXPIRED => "EXPIRED",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct WaitInvoices {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bolt11: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bolt12: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub status: Option<WaitInvoicesStatus>,
+	}
+
+	/// ['Status of the payment.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum WaitSendpaysStatus {
+	    #[serde(rename = "pending")]
+	    PENDING = 0,
+	    #[serde(rename = "failed")]
+	    FAILED = 1,
+	    #[serde(rename = "complete")]
+	    COMPLETE = 2,
+	}
+
+	impl TryFrom<i32> for WaitSendpaysStatus {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<WaitSendpaysStatus, anyhow::Error> {
+	        match c {
+	    0 => Ok(WaitSendpaysStatus::PENDING),
+	    1 => Ok(WaitSendpaysStatus::FAILED),
+	    2 => Ok(WaitSendpaysStatus::COMPLETE),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitSendpaysStatus", o)),
+	        }
+	    }
+	}
+
+	impl ToString for WaitSendpaysStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            WaitSendpaysStatus::PENDING => "PENDING",
+	            WaitSendpaysStatus::FAILED => "FAILED",
+	            WaitSendpaysStatus::COMPLETE => "COMPLETE",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct WaitSendpays {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub groupid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub partid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_hash: Option<Sha256>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub status: Option<WaitSendpaysStatus>,
+	}
+
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
 	pub enum WaitSubsystem {
@@ -9588,6 +9928,8 @@ pub mod responses {
 	    FORWARDS = 1,
 	    #[serde(rename = "sendpays")]
 	    SENDPAYS = 2,
+	    #[serde(rename = "htlcs")]
+	    HTLCS = 3,
 	}
 
 	impl TryFrom<i32> for WaitSubsystem {
@@ -9597,6 +9939,7 @@ pub mod responses {
 	    0 => Ok(WaitSubsystem::INVOICES),
 	    1 => Ok(WaitSubsystem::FORWARDS),
 	    2 => Ok(WaitSubsystem::SENDPAYS),
+	    3 => Ok(WaitSubsystem::HTLCS),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitSubsystem", o)),
 	        }
 	    }
@@ -9608,18 +9951,28 @@ pub mod responses {
 	            WaitSubsystem::INVOICES => "INVOICES",
 	            WaitSubsystem::FORWARDS => "FORWARDS",
 	            WaitSubsystem::SENDPAYS => "SENDPAYS",
+	            WaitSubsystem::HTLCS => "HTLCS",
 	        }.to_string()
 	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitResponse {
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub details: Option<WaitDetails>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub created: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub deleted: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub details: Option<WaitDetails>,
+	    pub forwards: Option<WaitForwards>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlcs: Option<WaitHtlcs>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub invoices: Option<WaitInvoices>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub sendpays: Option<WaitSendpays>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub updated: Option<u64>,
 	    // Path `Wait.subsystem`
