@@ -1300,6 +1300,30 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     return staged_src
 
 
+def location_from_name(plugin_name: str) -> (str, str):
+    """Maybe the location was passed in place of the plugin name.  Check
+    if this looks like a filepath or URL and return that as well as the
+    plugin name."""
+    if not Path(plugin_name).exists():
+        # No path included, return the name only.
+        return (None, plugin_name)
+
+    # Directory containing the plugin? The plugin name should match the dir.
+    if os.path.isdir(plugin_name):
+        return (Path(plugin_name).parent, Path(plugin_name).name)
+
+    # Possibly the entrypoint itself was passed?
+    elif os.path.isfile(plugin_name):
+        if Path(plugin_name).with_suffix('').name != Path(plugin_name).parent.name or \
+                not Path(plugin_name).parent.parent.exists():
+            # If the directory is not named for the plugin, we can't infer what
+            # should be done.
+            # FIXME: return InstInfo with entrypoint rather than source str.
+            return (None, plugin_name)
+        # We have to make inferences as to the naming here.
+        return (Path(plugin_name).parent.parent, Path(plugin_name).with_suffix('').name)
+
+
 def install(plugin_name: str) -> Union[str, None]:
     """Downloads plugin from source repos, installs and activates plugin.
     Returns the location of the installed plugin or "None" in the case of
@@ -1312,33 +1336,48 @@ def install(plugin_name: str) -> Union[str, None]:
     else:
         name = plugin_name
         commit = None
-    log.debug(f"Searching for {name}")
-    if search(name):
-        global LAST_FOUND
-        src = LAST_FOUND
-        src.commit = commit
-        log.debug(f'Retrieving {src.name} from {src.source_loc}')
-        try:
-            installed = _install_plugin(src)
-        except FileExistsError as err:
-            log.error(f'File exists: {err.filename}')
-            return None
-        LAST_FOUND = None
-        if not installed:
-            log.warning(f'{plugin_name}: installation aborted')
+    # Is the install request specifying a path to the plugin?
+    direct_location, name = location_from_name(name)
+    if direct_location:
+        logging.debug(f"install of {name} requested from {direct_location}")
+        src = InstInfo(name, direct_location, None)
+        if not src.get_inst_details():
+            src = None
+        # Treating a local git repo as a directory allows testing
+        # uncommitted changes.
+        if src and src.srctype == Source.LOCAL_REPO:
+            src.srctype = Source.DIRECTORY
+    if not direct_location or not src:
+        log.debug(f"direct_location {direct_location}, src: {src}")
+        log.debug(f"Searching for {name}")
+        if search(name):
+            global LAST_FOUND
+            src = LAST_FOUND
+            src.commit = commit
+            log.debug(f'Retrieving {src.name} from {src.source_loc}')
+        else:
             return None
 
-        # Match case of the containing directory
-        for dirname in os.listdir(RECKLESS_CONFIG.reckless_dir):
-            if dirname.lower() == installed.name.lower():
-                inst_path = Path(RECKLESS_CONFIG.reckless_dir)
-                inst_path = inst_path / dirname / installed.entry
-                RECKLESS_CONFIG.enable_plugin(inst_path)
-                enable(installed.name)
-                return f"{installed.source_loc}"
-        log.error(('dynamic activation failed: '
-                  f'{installed.name} not found in reckless directory'))
+    try:
+        installed = _install_plugin(src)
+    except FileExistsError as err:
+        log.error(f'File exists: {err.filename}')
         return None
+    LAST_FOUND = None
+    if not installed:
+        log.warning(f'{plugin_name}: installation aborted')
+        return None
+
+    # Match case of the containing directory
+    for dirname in os.listdir(RECKLESS_CONFIG.reckless_dir):
+        if dirname.lower() == installed.name.lower():
+            inst_path = Path(RECKLESS_CONFIG.reckless_dir)
+            inst_path = inst_path / dirname / installed.entry
+            RECKLESS_CONFIG.enable_plugin(inst_path)
+            enable(installed.name)
+            return f"{installed.source_loc}"
+    log.error(('dynamic activation failed: '
+              f'{installed.name} not found in reckless directory'))
     return None
 
 
@@ -1388,6 +1427,8 @@ def search(plugin_name: str) -> Union[InstInfo, None]:
         if srctype in [Source.DIRECTORY, Source.LOCAL_REPO,
                        Source.GITHUB_REPO, Source.OTHER_URL]:
             found = _source_search(plugin_name, source)
+            if found:
+                log.debug(f"{found}, {found.srctype}")
         if not found:
             continue
         log.info(f"found {found.name} in source: {found.source_loc}")
