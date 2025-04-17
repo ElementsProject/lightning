@@ -356,7 +356,7 @@ static enum watch_result closed_inflight_depth_cb(struct lightningd *ld,
 		return KEEP_WATCHING;
 
 	/* This is now the main tx. */
-	update_channel_from_inflight(ld, inflight->channel, inflight);
+	update_channel_from_inflight(ld, inflight->channel, inflight, false);
 	channel_fail_saw_onchain(inflight->channel,
 				 REASON_UNKNOWN,
 				 tx,
@@ -2129,12 +2129,18 @@ void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
 
 void update_channel_from_inflight(struct lightningd *ld,
 				  struct channel *channel,
-				  const struct channel_inflight *inflight)
+				  const struct channel_inflight *inflight,
+				  bool is_splice)
 {
 	channel->funding = inflight->funding->outpoint;
 	channel->funding_sats = inflight->funding->total_funds;
 
 	channel->our_funds = inflight->funding->our_funds;
+
+	/* At this point, our_msat *becomes* our_funds because the splice
+	 * confirms. Any excess millisats stay in our_msats */
+	if (is_splice)
+		channel->our_funds = amount_msat_to_sat_round_down(channel->our_msat);
 
 	if (!amount_sat_add_sat_s64(&channel->our_funds, channel->our_funds,
 				    inflight->funding->splice_amnt)) {

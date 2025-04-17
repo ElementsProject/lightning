@@ -128,7 +128,8 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 
 void update_channel_from_inflight(struct lightningd *ld,
 				  struct channel *channel,
-				  const struct channel_inflight *inflight);
+				  const struct channel_inflight *inflight,
+				  bool is_splice);
 
 void channel_watch_funding(struct lightningd *ld, struct channel *channel);
 
