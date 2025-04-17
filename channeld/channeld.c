@@ -51,6 +51,8 @@
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
+#define EXPERIMENTAL_UPGRADE_ENABLED 0
+
 /* stdin == requests, 3 == peer, 4 = HSM */
 #define MASTER_FD STDIN_FILENO
 #define HSM_FD 4
@@ -356,6 +358,7 @@ static bool handle_master_request_later(struct peer *peer, const u8 *msg)
 	return false;
 }
 
+#if EXPERIMENTAL_UPGRADE_ENABLED
 /* Compare, with false if either is NULL */
 static bool match_type(const u8 *t1, const u8 *t2)
 {
@@ -385,6 +388,7 @@ static void set_channel_type(struct channel *channel, const u8 *type)
 	wire_sync_write(MASTER_FD,
 			take(towire_channeld_upgraded(NULL, channel->type)));
 }
+#endif
 
 static void lock_signer_outpoint(const struct bitcoin_outpoint *outpoint)
 {
@@ -5165,6 +5169,7 @@ static bool capture_premature_msg(const u8 ***shit_lnd_says, const u8 *msg)
 	return true;
 }
 
+#if EXPERIMENTAL_UPGRADE_ENABLED
 /* Unwrap a channel_type into a raw byte array for the wire: can be NULL */
 static u8 *to_bytearr(const tal_t *ctx,
 		      const struct channel_type *channel_type TAKES)
@@ -5183,6 +5188,7 @@ static u8 *to_bytearr(const tal_t *ctx,
 		ret = tal_dup_talarr(ctx, u8, channel_type->features);
 	return ret;
 }
+#endif
 
 static void peer_reconnect(struct peer *peer,
 			   const struct secret *last_remote_per_commit_secret)
@@ -5219,6 +5225,7 @@ static void peer_reconnect(struct peer *peer,
 
 	send_tlvs = NULL;
 
+#if EXPERIMENTAL_UPGRADE_ENABLED
 	if (peer->experimental_upgrade) {
 		/* Subtle: we free tmpctx below as we loop, so tal off peer */
 		send_tlvs = tlv_channel_reestablish_tlvs_new(peer);
@@ -5257,6 +5264,7 @@ static void peer_reconnect(struct peer *peer,
 									  peer->channel)));
 		}
 	}
+#endif
 
 	inflight = last_inflight(peer);
 
@@ -5281,6 +5289,34 @@ static void peer_reconnect(struct peer *peer,
 				send_tlvs = tlv_channel_reestablish_tlvs_new(peer);
 			}
 			send_tlvs->next_funding = &inflight->outpoint.txid;
+		}
+	}
+
+	if (feature_negotiated(peer->our_features, peer->their_features,
+			       OPT_SPLICE)) {
+		if (!send_tlvs) {
+			/* Subtle: we free tmpctx below as we loop, so
+			 * tal off peer */
+			send_tlvs = tlv_channel_reestablish_tlvs_new(peer);
+		}
+
+		if (peer->channel_ready[REMOTE])
+			send_tlvs->your_last_funding_locked_txid = &peer->channel->funding.txid;
+
+		send_tlvs->my_current_funding_locked_txid = &peer->channel->funding.txid;
+
+		for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++) {
+			struct inflight *itr = peer->splice_state->inflights[i];
+			if (itr->locked_scid) {
+				send_tlvs->my_current_funding_locked_txid = &itr->outpoint.txid;
+				status_debug("Overriding send_tlvs->my_current_"
+					     "funding_locked_txid to %s because"
+					     " inflight is locked to scid %s",
+					     fmt_bitcoin_txid(tmpctx,
+					     		      &itr->outpoint.txid),
+					     fmt_short_channel_id(tmpctx,
+					     			  *itr->locked_scid));
+			}
 		}
 	}
 
@@ -5396,26 +5432,6 @@ static void peer_reconnect(struct peer *peer,
 						  true,
 						  false,
 						  true);
-		} else if (inflight->is_locked
-			   && bitcoin_txid_eq(remote_next_funding,
-					      &inflight->outpoint.txid)) {
-			if (!bitcoin_txid_eq(&inflight->outpoint.txid,
-					     &peer->splice_state->locked_txid))
-				peer_failed_err(peer->pps,
-						&peer->channel_id,
-						"Invalid splice was resumed %s,"
-						" should be %s",
-						fmt_bitcoin_txid(tmpctx,
-								 &inflight->outpoint.txid),
-						fmt_bitcoin_txid(tmpctx,
-								 &peer->splice_state->locked_txid));
-			status_info("Splice is not confirmed but locked on"
-				    " chain -- resending splice_locked");
-			peer_write(peer->pps,
-				   take(towire_splice_locked(NULL,
-							     &peer->channel_id,
-							     &inflight->outpoint.txid)));
-			peer->splice_state->locked_ready[LOCAL] = true;
 		} else if (bitcoin_txid_eq(remote_next_funding,
 					   &inflight->outpoint.txid)) {
 			/* Don't send sigs unless we have theirs */
@@ -5468,6 +5484,19 @@ static void peer_reconnect(struct peer *peer,
 			splice_abort(peer, "next_funding_txid not recognized."
 					     " Sending tx_abort.");
 		}
+	}
+
+	/* Re-send `splice_locked` if an inflight is locked */
+	for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++) {
+		struct inflight *itr = peer->splice_state->inflights[i];
+		if (!itr->locked_scid)
+			continue;
+
+		peer_write(peer->pps,
+			   take(towire_splice_locked(NULL,
+						     &peer->channel_id,
+						     &itr->outpoint.txid)));
+		peer->splice_state->locked_ready[LOCAL] = true;
 	}
 
 	/* BOLT #2:
@@ -5634,6 +5663,7 @@ static void peer_reconnect(struct peer *peer,
 	/* (If we had sent `closing_signed`, we'd be in closingd). */
 	maybe_send_shutdown(peer);
 
+#if EXPERIMENTAL_UPGRADE_ENABLED
 	if (recv_tlvs->desired_channel_type)
 		status_debug("They sent desired_channel_type [%s]",
 			     fmt_featurebits(tmpctx,
@@ -5711,6 +5741,7 @@ static void peer_reconnect(struct peer *peer,
 		if (type)
 			set_channel_type(peer->channel, type);
 	}
+#endif
 
 	tal_free(send_tlvs);
 
