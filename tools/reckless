@@ -1175,10 +1175,13 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
         log.debug(f'{clone_path} already exists - deleting')
         shutil.rmtree(clone_path)
     if src.srctype == Source.DIRECTORY:
+        full_source_path = Path(src.source_loc)
+        if src.subdir:
+            full_source_path /= src.subdir
         log.debug(("copying local directory contents from"
-                   f" {src.source_loc}"))
+                   f" {full_source_path}"))
         create_dir(clone_path)
-        shutil.copytree(src.source_loc, plugin_path)
+        shutil.copytree(full_source_path, plugin_path)
     elif src.srctype in [Source.LOCAL_REPO, Source.GITHUB_REPO,
                          Source.OTHER_URL, Source.GIT_LOCAL_CLONE]:
         # clone git repository to /tmp/reckless-...
