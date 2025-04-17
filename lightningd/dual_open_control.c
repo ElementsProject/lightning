@@ -1056,7 +1056,8 @@ static enum watch_result opening_depth_cb(struct lightningd *ld,
 				   &inflight->channel->peer->id);
 
 	if (depth >= inflight->channel->minimum_depth)
-		update_channel_from_inflight(ld, inflight->channel, inflight);
+		update_channel_from_inflight(ld, inflight->channel, inflight,
+					     false);
 
 	dualopend_tell_depth(inflight->channel, txid, depth);
 
