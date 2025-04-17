@@ -5277,6 +5277,26 @@ static void peer_reconnect(struct peer *peer,
 		}
 	}
 
+	if (feature_negotiated(peer->our_features, peer->their_features,
+			       OPT_SPLICE)) {
+		if (!send_tlvs) {
+			/* Subtle: we free tmpctx below as we loop, so
+			 * tal off peer */
+			send_tlvs = tlv_channel_reestablish_tlvs_new(peer);
+		}
+
+		if (peer->channel_ready[REMOTE])
+			send_tlvs->your_last_funding_locked_txid = &peer->channel->funding.txid;
+
+		send_tlvs->my_current_funding_locked_txid = &peer->channel->funding.txid;
+
+		for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++) {
+			struct inflight *inflight = peer->splice_state->inflights[i];
+			if (inflight->locked_scid)
+				send_tlvs->my_current_funding_locked_txid = &inflight->outpoint.txid;
+		}
+	}
+
 	/* BOLT #2:
 	 *
 	 *   - upon reconnection:
@@ -5397,26 +5417,6 @@ static void peer_reconnect(struct peer *peer,
 						  true,
 						  false,
 						  true);
-		} else if (inflight->is_locked
-			   && bitcoin_txid_eq(remote_next_funding,
-					      &inflight->outpoint.txid)) {
-			if (!bitcoin_txid_eq(&inflight->outpoint.txid,
-					     &peer->splice_state->locked_txid))
-				peer_failed_err(peer->pps,
-						&peer->channel_id,
-						"Invalid splice was resumed %s,"
-						" should be %s",
-						fmt_bitcoin_txid(tmpctx,
-								 &inflight->outpoint.txid),
-						fmt_bitcoin_txid(tmpctx,
-								 &peer->splice_state->locked_txid));
-			status_info("Splice is not confirmed but locked on"
-				    " chain -- resending splice_locked");
-			peer_write(peer->pps,
-				   take(towire_splice_locked(NULL,
-							     &peer->channel_id,
-							     &inflight->outpoint.txid)));
-			peer->splice_state->locked_ready[LOCAL] = true;
 		} else if (bitcoin_txid_eq(remote_next_funding,
 					   &inflight->outpoint.txid)) {
 			/* Don't send sigs unless we have theirs */
@@ -5469,6 +5469,19 @@ static void peer_reconnect(struct peer *peer,
 			splice_abort(peer, "next_funding_txid not recognized."
 					     " Sending tx_abort.");
 		}
+	}
+
+	/* Re-send `splice_locked` if an inflight is locked */
+	for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++) {
+		struct inflight *inflight = peer->splice_state->inflights[i];
+		if (!inflight->locked_scid)
+			continue;
+
+		peer_write(peer->pps,
+			   take(towire_splice_locked(NULL,
+						     &peer->channel_id,
+						     &inflight->outpoint.txid)));
+		peer->splice_state->locked_ready[LOCAL] = true;
 	}
 
 	/* BOLT #2:
