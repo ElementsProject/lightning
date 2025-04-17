@@ -6,6 +6,8 @@
 #include <tests/fuzz/wire.h>
 #include <wire/peer_wire.h>
 
+#define EXPERIMENTAL_UPGRADE_ENABLED 0
+
 struct channel_reestablish {
 	struct channel_id channel_id;
 	u64 next_commitment_number;
@@ -46,6 +48,11 @@ static bool equal(const struct channel_reestablish *x,
 
 	if (!tal_arr_eq(x->tlvs->next_funding, y->tlvs->next_funding))
 		return false;
+	if (!tal_arr_eq(x->tlvs->your_last_funding_locked_txid, y->tlvs->your_last_funding_locked_txid))
+		return false;
+	if (!tal_arr_eq(x->tlvs->my_current_funding_locked_txid, y->tlvs->my_current_funding_locked_txid))
+		return false;
+#if EXPERIMENTAL_UPGRADE_ENABLED
 	if (!tal_arr_eq(x->tlvs->next_to_send, y->tlvs->next_to_send))
 		return false;
 	if (!tal_arr_eq(x->tlvs->desired_channel_type, y->tlvs->desired_channel_type))
@@ -54,6 +61,9 @@ static bool equal(const struct channel_reestablish *x,
 		return false;
 	return tal_arr_eq(x->tlvs->upgradable_channel_type,
 			  y->tlvs->upgradable_channel_type);
+#else
+	return true;
+#endif
 }
 
 void run(const u8 *data, size_t size)
