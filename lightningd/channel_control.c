@@ -1112,6 +1112,11 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 				       " locked_txid %s",
 				       fmt_bitcoin_txid(tmpctx, &locked_txid));
 
+	wallet_htlcsigs_confirm_inflight(channel->peer->ld->wallet, channel,
+					 &inflight->funding->outpoint);
+
+	update_channel_from_inflight(channel->peer->ld, channel, inflight, true);
+
 	/* Stash prev funding data so we can log it after scid is updated
 	 * (to get the blockheight) */
 	prev_our_msats = channel->our_msat;
@@ -1121,11 +1126,6 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	channel->our_msat.millisatoshis += splice_amnt * 1000; /* Raw: splicing */
 	channel->msat_to_us_min.millisatoshis += splice_amnt * 1000; /* Raw: splicing */
 	channel->msat_to_us_max.millisatoshis += splice_amnt * 1000; /* Raw: splicing */
-
-	wallet_htlcsigs_confirm_inflight(channel->peer->ld->wallet, channel,
-					 &inflight->funding->outpoint);
-
-	update_channel_from_inflight(channel->peer->ld, channel, inflight);
 
 	/* Remember that we got the lockin */
 	wallet_channel_save(channel->peer->ld->wallet, channel);
