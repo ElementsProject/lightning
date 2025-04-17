@@ -84,7 +84,7 @@ struct channel_inflight {
 	/* Has this inflight reached sufficent depth on chain? This is needed
 	 * for splices that need to coordinate `splice_locked` with their
 	 * peer through reconnect flows. */
-	bool is_locked;
+	struct short_channel_id *locked_scid;
 
 	/* Note: This field is not stored in the database.
 	 *

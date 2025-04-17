@@ -3,6 +3,7 @@
 #include <bitcoin/psbt.h>
 #include <channeld/inflight.h>
 #include <wire/wire.h>
+#include <bitcoin/short_channel_id.h>
 
 struct inflight *fromwire_inflight(const tal_t *ctx, const u8 **cursor, size_t *max)
 {
@@ -25,7 +26,11 @@ struct inflight *fromwire_inflight(const tal_t *ctx, const u8 **cursor, size_t *
 	}
 	inflight->i_am_initiator = fromwire_bool(cursor, max);
 	inflight->force_sign_first = fromwire_bool(cursor, max);
-	inflight->is_locked = fromwire_bool(cursor, max);
+	int has_locked_scid = fromwire_u8(cursor, max);
+	if (has_locked_scid) {
+		inflight->locked_scid = tal(inflight, struct short_channel_id);
+		*inflight->locked_scid = fromwire_short_channel_id(cursor, max);
+	}
 
 	return inflight;
 }
@@ -45,5 +50,7 @@ void towire_inflight(u8 **pptr, const struct inflight *inflight)
 	}
 	towire_bool(pptr, inflight->i_am_initiator);
 	towire_bool(pptr, inflight->force_sign_first);
-	towire_bool(pptr, inflight->is_locked);
+	towire_u8(pptr, inflight->locked_scid ? 1 : 0);
+	if (inflight->locked_scid)
+		towire_short_channel_id(pptr, *inflight->locked_scid);
 }

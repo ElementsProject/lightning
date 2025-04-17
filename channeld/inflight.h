@@ -19,7 +19,7 @@ struct inflight {
 	struct bitcoin_signature last_sig;
 	bool i_am_initiator;
 	bool force_sign_first;
-	bool is_locked;
+	struct short_channel_id *locked_scid;
 };
 
 struct inflight *fromwire_inflight(const tal_t *ctx, const u8 **cursor, size_t *max);

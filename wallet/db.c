@@ -1030,7 +1030,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channel_funding_inflights ADD remote_funding BLOB DEFAULT NULL;"), NULL},
     {SQL("ALTER TABLE peers ADD last_known_address BLOB DEFAULT NULL;"), NULL},
     {SQL("ALTER TABLE channels ADD close_attempt_height INTEGER DEFAULT 0;"), NULL},
-    {SQL("ALTER TABLE channel_funding_inflights ADD locked_onchain INTEGER DEFAULT 0;"), NULL},
+    {SQL("ALTER TABLE channel_funding_inflights ADD locked_scid BIGINT DEFAULT 0;"), NULL},
 };
 
 /**

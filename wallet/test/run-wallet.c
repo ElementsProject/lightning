@@ -1642,7 +1642,10 @@ static bool channel_inflightseq(struct channel_inflight *i1,
 	CHECK(i1->lease_chan_max_msat == i2->lease_chan_max_msat);
 	CHECK(i1->lease_chan_max_ppt == i2->lease_chan_max_ppt);
 	CHECK(i1->lease_blockheight_start == i2->lease_blockheight_start);
-	CHECK(i1->is_locked == i2->is_locked);
+	CHECK(!i1->locked_scid == !i2->locked_scid);
+	if (i1->locked_scid)
+		CHECK(memeq(i1->locked_scid, sizeof(*i1->locked_scid),
+			    i2->locked_scid, sizeof(*i2->locked_scid)));
 	CHECK(i1->splice_locked_memonly == i2->splice_locked_memonly);
 
 	return true;
@@ -2066,7 +2069,8 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 				false,
 				false);
 	inflight->splice_locked_memonly = true;
-	inflight->is_locked = true;
+	inflight->locked_scid = tal(inflight, struct short_channel_id);
+	memset(inflight->locked_scid, 7, sizeof(struct short_channel_id));
 
 	inflight_set_last_tx(inflight, last_tx, sig);
 
@@ -2095,7 +2099,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 				false,
 				false);
 	inflight->splice_locked_memonly = false;
-	inflight->is_locked = false;
+	inflight->locked_scid = NULL;
 	inflight_set_last_tx(inflight, last_tx, sig);
 	wallet_inflight_add(w, inflight);
 	CHECK_MSG(c2 = wallet_channel_load(w, chan->dbid),
