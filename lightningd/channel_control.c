@@ -1125,7 +1125,7 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	wallet_htlcsigs_confirm_inflight(channel->peer->ld->wallet, channel,
 					 &inflight->funding->outpoint);
 
-	update_channel_from_inflight(channel->peer->ld, channel, inflight);
+	update_channel_from_inflight(channel->peer->ld, channel, inflight, true);
 
 	/* Remember that we got the lockin */
 	wallet_channel_save(channel->peer->ld->wallet, channel);
