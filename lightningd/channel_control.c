@@ -114,9 +114,9 @@ static void try_update_feerates(struct lightningd *ld, struct channel *channel)
 }
 
 static void try_update_blockheight(struct lightningd *ld,
-				   struct channel *channel,
-				   u32 blockheight)
+				   struct channel *channel)
 {
+	u32 blockheight = get_block_height(ld->topology);
 	u8 *msg;
 
 	/* We don't update the blockheight for non-leased chans */
@@ -1004,7 +1004,7 @@ void lockin_has_completed(struct channel *channel, bool record_push)
 	 * so update now. */
 	try_update_feerates(ld, channel);
 
-	try_update_blockheight(ld, channel, get_block_height(ld->topology));
+	try_update_blockheight(ld, channel);
 
 	/* Emit an event for the channel open (or channel proposal if blockheight
 	 * is zero) */
@@ -1877,8 +1877,7 @@ bool peer_start_channeld(struct channel *channel,
 	 * might not be what we expect: adjust now. */
 	if (channel->opener == LOCAL) {
 		try_update_feerates(ld, channel);
-		try_update_blockheight(ld, channel,
-				       get_block_height(ld->topology));
+		try_update_blockheight(ld, channel);
 	}
 
 	/* "Reestablished" if we've just opened. */
@@ -1924,9 +1923,10 @@ void channeld_tell_depth(struct channel *channel,
  * If so, we should forget the channel. */
 static bool
 is_fundee_should_forget(struct lightningd *ld,
-			struct channel *channel,
-			u32 block_height)
+			struct channel *channel)
 {
+	u32 block_height = get_block_height(ld->topology);
+
 	/* BOLT #2:
 	 *
 	 * A non-funding node (fundee):
@@ -1970,9 +1970,9 @@ is_fundee_should_forget(struct lightningd *ld,
 }
 
 /* Notify all channels of new blocks. */
-void channel_notify_new_block(struct lightningd *ld,
-			      u32 block_height)
+void channel_notify_new_block(struct lightningd *ld)
 {
+	u32 block_height = get_block_height(ld->topology);
 	struct peer *peer;
 	struct channel *channel;
 	struct channel **to_forget = tal_arr(NULL, struct channel *, 0);
@@ -1986,13 +1986,12 @@ void channel_notify_new_block(struct lightningd *ld,
 		list_for_each(&peer->channels, channel, list) {
 			if (channel_state_uncommitted(channel->state))
 				continue;
-			if (is_fundee_should_forget(ld, channel, block_height)) {
+			if (is_fundee_should_forget(ld, channel)) {
 				tal_arr_expand(&to_forget, channel);
 			} else
 				/* Let channels know about new blocks,
 				 * required for lease updates */
-				try_update_blockheight(ld, channel,
-						       block_height);
+				try_update_blockheight(ld, channel);
 		}
 	}
 
