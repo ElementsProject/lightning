@@ -243,7 +243,7 @@ struct anchor_details *create_anchor_details(const tal_t *ctx UNNEEDED,
 					     const struct bitcoin_tx *tx UNNEEDED)
 { fprintf(stderr, "create_anchor_details called!\n"); abort(); }
 /* Generated stub for delete_channel */
-void delete_channel(struct channel *channel STEALS UNNEEDED)
+void delete_channel(struct channel *channel STEALS UNNEEDED, bool completely_eliminate UNNEEDED)
 { fprintf(stderr, "delete_channel called!\n"); abort(); }
 /* Generated stub for depthcb_update_scid */
 bool depthcb_update_scid(struct channel *channel UNNEEDED,
@@ -362,6 +362,9 @@ u32 get_feerate(const struct fee_states *fee_states UNNEEDED,
 		enum side opener UNNEEDED,
 		enum side side UNNEEDED)
 { fprintf(stderr, "get_feerate called!\n"); abort(); }
+/* Generated stub for hash_cid */
+size_t hash_cid(const struct channel_id *cid UNNEEDED)
+{ fprintf(stderr, "hash_cid called!\n"); abort(); }
 /* Generated stub for hash_htlc_key */
 size_t hash_htlc_key(const struct htlc_key *htlc_key UNNEEDED)
 { fprintf(stderr, "hash_htlc_key called!\n"); abort(); }
@@ -904,8 +907,7 @@ bool peer_restart_dualopend(struct peer *peer UNNEEDED,
 bool peer_start_channeld(struct channel *channel UNNEEDED,
 			 struct peer_fd *peer_fd UNNEEDED,
 			 const u8 *fwd_msg UNNEEDED,
-			 bool reconnected UNNEEDED,
-			 bool reestablish_only UNNEEDED)
+			 bool reconnected UNNEEDED)
 { fprintf(stderr, "peer_start_channeld called!\n"); abort(); }
 /* Generated stub for peer_start_dualopend */
 bool peer_start_dualopend(struct peer *peer UNNEEDED, struct peer_fd *peer_fd UNNEEDED,

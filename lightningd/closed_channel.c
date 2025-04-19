@@ -10,6 +10,11 @@
 #include <lightningd/peer_control.h>
 #include <wallet/wallet.h>
 
+size_t hash_cid(const struct channel_id *cid)
+{
+	return siphash24(siphash_seed(), cid->id, sizeof(cid->id));
+}
+
 static void json_add_closed_channel(struct json_stream *response,
 				    const char *fieldname,
 				    const struct closed_channel *channel)
@@ -90,7 +95,8 @@ static struct command_result *json_listclosedchannels(struct command *cmd,
 {
 	struct node_id *peer_id;
 	struct json_stream *response;
-	struct closed_channel **chans;
+	struct closed_channel *cc;
+	struct closed_channel_map_iter it;
 
 	if (!param(cmd, buffer, params,
 		   p_opt("id", param_node_id, &peer_id),
@@ -100,15 +106,16 @@ static struct command_result *json_listclosedchannels(struct command *cmd,
 	response = json_stream_success(cmd);
 	json_array_start(response, "closedchannels");
 
-	chans = wallet_load_closed_channels(cmd, cmd->ld->wallet);
-	for (size_t i = 0; i < tal_count(chans); i++) {
+	for (cc = closed_channel_map_first(cmd->ld->closed_channels, &it);
+	     cc;
+	     cc = closed_channel_map_next(cmd->ld->closed_channels, &it)) {
 		if (peer_id) {
-			if (!chans[i]->peer_id)
+			if (!cc->peer_id)
 				continue;
-			if (!node_id_eq(chans[i]->peer_id, peer_id))
+			if (!node_id_eq(cc->peer_id, peer_id))
 				continue;
 		}
-		json_add_closed_channel(response, NULL, chans[i]);
+		json_add_closed_channel(response, NULL, cc);
 	}
 	json_array_end(response);
 

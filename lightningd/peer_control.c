@@ -44,6 +44,7 @@
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/channel_gossip.h>
+#include <lightningd/closed_channel.h>
 #include <lightningd/closing_control.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/dual_open_control.h>
@@ -519,7 +520,7 @@ void channel_errmsg(struct channel *channel,
 	if (channel_state_uncommitted(channel->state)) {
 		log_info(channel->log, "%s", "Unsaved peer failed."
 			 " Deleting channel.");
-		delete_channel(channel);
+		delete_channel(channel, false);
 		return;
 	}
 
@@ -1362,8 +1363,7 @@ static void connect_activate_subd(struct lightningd *ld, struct channel *channel
 
 		if (peer_start_channeld(channel,
 					pfd,
-					NULL, true,
-					NULL)) {
+					NULL, true)) {
 			goto tell_connectd;
 		}
 		close(other_fd);
@@ -1798,7 +1798,10 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	plugin_hook_call_peer_connected(ld, cmd_id, hook_payload);
 }
 
-static void send_reestablish(struct lightningd *ld, struct channel *channel)
+static void send_reestablish(struct peer *peer,
+			     const struct channel_id *cid,
+			     const struct shachain *their_shachain,
+			     u64 local_next_index)
 {
 	u8 *msg;
 	struct secret last_remote_per_commit_secret;
@@ -1811,30 +1814,42 @@ static void send_reestablish(struct lightningd *ld, struct channel *channel)
 	 *       - MUST set `your_last_per_commitment_secret` to the last
 	 *         `per_commitment_secret` it received
 	 */
-	num_revocations = revocations_received(&channel->their_shachain.chain);
+	num_revocations = revocations_received(their_shachain);
 	if (num_revocations == 0)
 		memset(&last_remote_per_commit_secret, 0,
 		       sizeof(last_remote_per_commit_secret));
-	else if (!shachain_get_secret(&channel->their_shachain.chain,
+	else if (!shachain_get_secret(their_shachain,
 				      num_revocations-1,
 				      &last_remote_per_commit_secret)) {
-		channel_fail_permanent(channel,
-				       REASON_LOCAL,
-				       "Could not get revocation secret %"PRIu64,
-				       num_revocations-1);
+		log_peer_broken(peer->ld->log, &peer->id,
+				"%s: cannot get shachain secret %"PRIu64" to send reestablish",
+				fmt_channel_id(tmpctx, cid), num_revocations-1);
 		return;
 	}
 
-	msg = towire_channel_reestablish(tmpctx, &channel->cid,
-					 channel->next_index[LOCAL],
+	/* BOLT #2:
+	 * The sending node:
+	 *   - MUST set `next_commitment_number` to the commitment number of the
+	 *   next `commitment_signed` it expects to receive.
+	 *   - MUST set `next_revocation_number` to the commitment number of the
+	 *   next `revoke_and_ack` message it expects to receive.
+	 *   - MUST set `my_current_per_commitment_point` to a valid point.
+	 *   - if `next_revocation_number` equals 0:
+	 *     - MUST set `your_last_per_commitment_secret` to all zeroes
+	 *   - otherwise:
+	 *     - MUST set `your_last_per_commitment_secret` to the last `per_commitment_secret` it received
+	 */
+	msg = towire_channel_reestablish(tmpctx, cid,
+					 local_next_index,
 					 num_revocations,
 					 &last_remote_per_commit_secret,
-					 &channel->channel_info.remote_per_commit,
+					 /* Any valid point works, since static_remotekey */
+					 &peer->ld->our_pubkey,
 					 /* No upgrade for you, since we're closed! */
 					 NULL);
-	subd_send_msg(ld->connectd,
-		      take(towire_connectd_peer_send_msg(NULL, &channel->peer->id,
-							 channel->peer->connectd_counter,
+	subd_send_msg(peer->ld->connectd,
+		      take(towire_connectd_peer_send_msg(NULL, &peer->id,
+							 peer->connectd_counter,
 							 msg)));
 }
 
@@ -1848,6 +1863,7 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 	u16 msgtype;
 	u64 connectd_counter;
 	struct channel *channel;
+	struct closed_channel *closed_channel;
 	struct channel_id channel_id;
 	struct peer *peer;
 	bool dual_fund;
@@ -1879,15 +1895,16 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 				/* Tell channeld to handle reestablish, then it will call closingd */
 				if (peer_start_channeld(channel,
 							pfd,
-							NULL, true,
-							NULL)) {
+							NULL, true)) {
 					goto tell_connectd;
 				}
 				error = towire_warningfmt(tmpctx, &channel_id,
 							  "Trouble in paradise?");
 				goto send_error;
 			}
-			send_reestablish(ld, channel);
+			send_reestablish(peer, &channel->cid,
+					 &channel->their_shachain.chain,
+					 channel->next_index[LOCAL]);
 		}
 
 		/* If we have a canned error for this channel, send it now */
@@ -1980,6 +1997,20 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 		/* FIXME: Send informative error? */
 		close(other_fd);
 		return;
+
+	case WIRE_CHANNEL_REESTABLISH:
+		/* Maybe a previously closed channel? */
+		closed_channel = closed_channel_map_get(peer->ld->closed_channels, &channel_id);
+		if (closed_channel && closed_channel->their_shachain) {
+			send_reestablish(peer, &closed_channel->cid,
+					 closed_channel->their_shachain,
+					 closed_channel->next_index[LOCAL]);
+			log_peer_info(ld->log, &peer->id, "Responded to reestablish for long-closed channel %s",
+				      fmt_channel_id(tmpctx, &channel_id));
+			error = towire_errorfmt(tmpctx, &channel_id,
+						"Channel is closed and forgotten");
+			goto send_error;
+		}
 	}
 
 	/* Weird message?  Log and reply with error. */
@@ -3423,7 +3454,7 @@ static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
 	forget->channel->error = towire_errorfmt(forget->channel,
 						 &forget->channel->cid,
 						 "dev_forget_channel");
-	delete_channel(forget->channel);
+	delete_channel(forget->channel, false);
 
 	was_pending(command_success(forget->cmd, response));
 }

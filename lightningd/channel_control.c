@@ -1,4 +1,5 @@
 #include "config.h"
+#include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
@@ -362,7 +363,7 @@ static void handle_splice_abort(struct lightningd *ld,
 		return;
 	}
 
-	if (peer_start_channeld(channel, pfd, NULL, false, false)) {
+	if (peer_start_channeld(channel, pfd, NULL, false)) {
 		subd_send_msg(ld->connectd,
 			      take(towire_connectd_peer_connect_subd(NULL,
 			      					     &peer->id,
@@ -1321,7 +1322,7 @@ static void forget(struct channel *channel)
 	channel->forgets = tal_arr(channel, struct command *, 0);
 
 	/* Forget the channel. */
-	delete_channel(channel);
+	delete_channel(channel, false);
 
 	for (size_t i = 0; i < tal_count(forgets); i++) {
 		assert(!forgets[i]->json_stream);
@@ -1640,8 +1641,7 @@ static void channel_control_errmsg(struct channel *channel,
 bool peer_start_channeld(struct channel *channel,
 			 struct peer_fd *peer_fd,
 			 const u8 *fwd_msg,
-			 bool reconnected,
-			 bool reestablish_only)
+			 bool reconnected)
 {
 	u8 *initmsg;
 	int hsmfd;
@@ -1864,7 +1864,6 @@ bool peer_start_channeld(struct channel *channel,
 					     ? NULL
 					     : (u32 *)&ld->dev_disable_commit,
 				       pbases,
-				       reestablish_only,
 				       ld->experimental_upgrade_protocol,
 				       cast_const2(const struct inflight **,
 						   inflights),
@@ -1927,18 +1926,8 @@ is_fundee_should_forget(struct lightningd *ld,
 			struct channel *channel,
 			u32 block_height)
 {
-	/* BOLT #2:
-	 *
-	 * A non-funding node (fundee):
-	 *   - SHOULD forget the channel if it does not see the
-	 * correct funding transaction after a timeout of 2016 blocks.
-	 */
-	u32 max_funding_unconfirmed;
-
-	if (ld->developer)
-		max_funding_unconfirmed = ld->dev_max_funding_unconfirmed;
-	else
-		max_funding_unconfirmed = 2016;
+	/* 2016 by default */
+	u32 max_funding_unconfirmed = ld->dev_max_funding_unconfirmed;
 
 	/* Only applies if we are fundee. */
 	if (channel->opener == LOCAL)
@@ -1969,15 +1958,41 @@ is_fundee_should_forget(struct lightningd *ld,
 	return true;
 }
 
+/* We want in ascending order, so oldest channels first */
+static int cmp_channel_start(struct channel *const *a, struct channel *const *b, void *unused)
+{
+	if ((*a)->first_blocknum < (*b)->first_blocknum)
+		return -1;
+	else if ((*a)->first_blocknum > (*b)->first_blocknum)
+		return 1;
+	return 0;
+}
+
 /* Notify all channels of new blocks. */
 void channel_notify_new_block(struct lightningd *ld,
 			      u32 block_height)
 {
 	struct peer *peer;
 	struct channel *channel;
-	struct channel **to_forget = tal_arr(NULL, struct channel *, 0);
+	struct channel **to_forget = tal_arr(tmpctx, struct channel *, 0);
 	size_t i;
 	struct peer_node_id_map_iter it;
+
+	/* BOLT #2:
+	 *
+	 * A non-funding node (fundee):
+	 *   - SHOULD forget the channel if it does not see the
+	 * correct funding transaction after a timeout of 2016 blocks.
+	 */
+
+	/* But we give some latitude!  Boltz reported that after a months-long
+	 * fee spike, they had some failed opens when the tx finally got mined.
+	 * They're individually cheap, keep the latest 100. */
+	size_t forgettable_channels_to_keep = 100;
+
+	/* For testing */
+	if (ld->dev_max_funding_unconfirmed != 2016)
+		forgettable_channels_to_keep = 1;
 
 	/* FIXME: keep separate block-aware channel structure instead? */
 	for (peer = peer_node_id_map_first(ld->peers, &it);
@@ -1986,13 +2001,12 @@ void channel_notify_new_block(struct lightningd *ld,
 		list_for_each(&peer->channels, channel, list) {
 			if (channel_state_uncommitted(channel->state))
 				continue;
-			if (is_fundee_should_forget(ld, channel, block_height)) {
+			if (is_fundee_should_forget(ld, channel, block_height))
 				tal_arr_expand(&to_forget, channel);
-			} else
-				/* Let channels know about new blocks,
-				 * required for lease updates */
-				try_update_blockheight(ld, channel,
-						       block_height);
+
+			/* Let channels know about new blocks,
+			 * required for lease updates */
+			try_update_blockheight(ld, channel, block_height);
 		}
 	}
 
@@ -2004,7 +2018,11 @@ void channel_notify_new_block(struct lightningd *ld,
 	 * just the freeing of the channel that occurs, but the
 	 * potential destruction of the peer that invalidates
 	 * memory the inner loop is accessing. */
-	for (i = 0; i < tal_count(to_forget); ++i) {
+	if (tal_count(to_forget) < forgettable_channels_to_keep)
+		return;
+
+	asort(to_forget, tal_count(to_forget), cmp_channel_start, NULL);
+	for (i = 0; i + forgettable_channels_to_keep < tal_count(to_forget); ++i) {
 		channel = to_forget[i];
 		/* Report it first. */
 		log_unusual(channel->log,
@@ -2017,11 +2035,9 @@ void channel_notify_new_block(struct lightningd *ld,
 			    block_height - channel->first_blocknum,
 			    fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
 		/* FIXME: Send an error packet for this case! */
-		/* And forget it. */
-		delete_channel(channel);
+		/* And forget it. COMPLETELY. */
+		delete_channel(channel, true);
 	}
-
-	tal_free(to_forget);
 }
 
 /* Since this could vanish while we're checking with bitcoind, we need to save
