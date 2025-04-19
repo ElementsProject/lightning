@@ -594,11 +594,3 @@ apk add libgcc libsodium sqlite-libs zlib
 Python plugins will be installed with the `poetry install` step mentioned above fron development setup. 
 
 Other users will need some Python packages if python plugins are used. Unfortunately there are some Python packages which are not packaged in Ubuntu, and so force installation will be needed (Flag `--user` is recommended which will install them in user's own .local directory, so at least the risk of breaking Python globally can be avoided!).
-
-### wss-proxy
-
-Below libraries are required for wss-proxy:
-
-```
-pip3 install --user pyln-client websockets
-```

@@ -8,5 +8,6 @@ members = [
   "cln-grpc",
   "plugins",
   "plugins/grpc-plugin",
-  "plugins/rest-plugin"
+  "plugins/rest-plugin",
+  "plugins/wss-proxy-plugin"
 ]
