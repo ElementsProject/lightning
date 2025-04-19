@@ -118,6 +118,7 @@ common/test/run-splice_script:				\
 common/test/run-trace:					\
 	common/amount.o                                 \
 	common/memleak.o				\
+	common/pseudorand.o				\
 	common/trace.o					\
 	wire/fromwire.o					\
 	wire/towire.o
