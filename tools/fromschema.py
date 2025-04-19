@@ -21,7 +21,7 @@ def output_title(title, underline='-', num_leading_newlines=1, num_trailing_newl
 
 def esc_underscores(s):
     """Backslash-escape underscores outside of backtick-enclosed spans"""
-    return ''.join(['\\_' if x == '_' else x for x in re.findall(r'[^`_\\]+|`(?:[^`\\]|\\.)*`|\\.|_', s)])
+    return ''.join(['\\_' if x == '_' else x for x in re.findall(r'(?ms:^[ \t]*```.*?^[ \t]*```)|[^`_\\\n]+|`(?:[^`\\]|\\.)*`|\\.|[_\n]', s)])
 
 
 def json_value(obj):
@@ -165,8 +165,8 @@ def output_member(propname, properties, is_optional, indent, print_type=True, pr
     output_range(properties)
 
     if 'description' in properties:
-        for i in range(0, len(properties['description'])):
-            output('{} {}{}'.format(':' if i == 0 else '', esc_underscores(properties['description'][i]), '' if i + 1 == len(properties['description']) else '\n'))
+        output(': ')
+        outputs(properties['description'], '\n ')
 
     if 'default' in properties:
         output(' The default is {}.'.format(esc_underscores(properties['default']) if isinstance(properties['default'], str) else properties['default']))
