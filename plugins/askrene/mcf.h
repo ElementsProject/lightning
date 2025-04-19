@@ -40,4 +40,14 @@ struct amount_msat linear_flow_cost(const struct flow *flow,
 				    struct amount_msat total_amount,
 				    double delay_feefactor);
 
+/* A wrapper to the min. cost flow solver that actually takes into consideration
+ * the extra msats per channel needed to pay for fees. */
+const char *default_routes(const tal_t *ctx, struct route_query *rq,
+			   const struct gossmap_node *srcnode,
+			   const struct gossmap_node *dstnode,
+			   struct amount_msat amount, bool single_path,
+			   struct amount_msat maxfee, u32 finalcltv,
+			   u32 maxdelay, struct flow ***flows,
+			   double *probability);
+
 #endif /* LIGHTNING_PLUGINS_ASKRENE_MCF_H */
