@@ -4,7 +4,6 @@
 #include <common/gossmap.h>
 #include <common/route.h>
 #include <plugins/libplugin.h>
-#include <plugins/renepay/disabledmap.h>
 #include <plugins/renepay/payment_info.h>
 
 enum payment_status { PAYMENT_PENDING, PAYMENT_SUCCESS, PAYMENT_FAIL };
@@ -53,9 +52,6 @@ struct payment {
 	/* Running commands that want this payment */
 	struct command **cmd_array;
 
-	/* Localmods to apply to gossip_map for our own use. */
-	struct gossmap_localmods *local_gossmods;
-
 	/* Routes will be computed to reach this node, could be a fake node that
 	 * we use to handle multiple blinded paths. */
 	struct node_id *routing_destination;
@@ -73,6 +69,12 @@ struct payment {
 	struct plugin_timer *waitresult_timer;
 
 	struct routetracker *routetracker;
+
+	/* Knowledge layer concerning this payment. */
+	const char *payment_layer;
+
+	/* For logs and access to global data. */
+	struct plugin *plugin;
 };
 
 static inline const struct sha256 payment_hash(const struct payment *p)
@@ -105,7 +107,8 @@ HTABLE_DEFINE_NODUPS_TYPE(struct payment, payment_hash, payment_hash64,
 struct payment *payment_new(
 	const tal_t *ctx,
 	const struct sha256 *payment_hash,
-	const char *invstr TAKES);
+	const char *invstr TAKES,
+	struct plugin *plugin);
 
 bool payment_set_constraints(
 		struct payment *p,

@@ -1,10 +1,14 @@
 #include "config.h"
 #include <common/json_stream.h>
 #include <common/jsonrpc_errors.h>
-#include <plugins/renepay/payplugin.h>
+#include <plugins/renepay/renepay.h>
+#include <plugins/renepay/renepayconfig.h>
 #include <plugins/renepay/routefail.h>
 #include <plugins/renepay/routetracker.h>
+#include <plugins/renepay/utils.h>
 #include <wire/peer_wiregen.h>
+
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
 
 enum node_type {
 	FINAL_NODE,
@@ -14,44 +18,127 @@ enum node_type {
 };
 
 struct routefail {
-	struct command *cmd;
+	struct rpcbatch *batch;
 	struct payment *payment;
 	struct route *route;
 };
 
-static struct command_result *update_gossip(struct routefail *r);
-static struct command_result *handle_failure(struct routefail *r);
-
-struct command_result *routefail_start(const tal_t *ctx, struct route *route,
-				       struct command *cmd)
+static bool get_erring_scidd(struct route *route,
+			     struct short_channel_id_dir *scidd)
 {
-	assert(route);
-	struct routefail *r = tal(ctx, struct routefail);
-	struct payment *payment =
-		    payment_map_get(pay_plugin->payment_map, route->key.payment_hash);
-
-	if (payment == NULL)
-		plugin_err(pay_plugin->plugin,
-			   "%s: payment with hash %s not found.",
-			   __func__,
-			   fmt_sha256(tmpctx, &route->key.payment_hash));
-
-	r->payment = payment;
-	r->route = route;
-	r->cmd = cmd;
-	assert(route->result);
-	return update_gossip(r);
+	assert(scidd);
+	if (!route->result->erring_direction || !route->result->erring_channel)
+		return false;
+	scidd->dir = *route->result->erring_direction;
+	scidd->scid = *route->result->erring_channel;
+	return true;
 }
 
-static struct command_result *routefail_end(struct routefail *r TAKES)
+static void update_gossip(struct routefail *r);
+
+static void handle_failure(struct routefail *r);
+
+static struct command_result *log_routefail_err(struct command *cmd,
+						const char *method,
+						const char *buf,
+						const jsmntok_t *tok,
+						struct routefail *r)
+{
+	plugin_log(cmd->plugin, LOG_UNUSUAL,
+		   "routefail batch failed: %s failed: '%.*s'", method,
+		   json_tok_full_len(tok), json_tok_full(buf, tok));
+	return command_still_pending(cmd);
+}
+
+static struct command_result *routefail_done(struct command *cmd,
+					    struct routefail *r)
 {
 	/* Notify the tracker that route has failed and routefail have completed
 	 * handling all possible errors cases. */
-	struct command *cmd = r->cmd;
-	route_failure_register(r->payment->routetracker, r->route);
-	if (taken(r))
-		r = tal_steal(tmpctx, r);
+	routetracker_add_to_final(r->payment, r->payment->routetracker, r->route);
+	tal_free(r);
 	return notification_handled(cmd);
+}
+
+struct command_result *routesuccess_start(struct command *cmd,
+					  struct route *route)
+{
+	// FIXME: call askrene-inform-channel with inform=succeeded for this
+	// route
+	struct renepay *renepay = get_renepay(cmd->plugin);
+	struct payment *payment = route_get_payment_verify(renepay, route);
+	routetracker_add_to_final(payment, payment->routetracker, route);
+	return notification_handled(cmd);
+}
+
+struct command_result *routefail_start(struct command *cmd, struct route *route)
+{
+	struct renepay *renepay = get_renepay(cmd->plugin);
+	struct routefail *r = tal(cmd, struct routefail);
+	r->batch = rpcbatch_new(cmd, routefail_done, r);
+	r->route = route;
+	r->payment = route_get_payment_verify(renepay, route);
+	update_gossip(r);
+	handle_failure(r);
+	return rpcbatch_done(r->batch);
+}
+
+static void disable_node(struct routefail *r, struct node_id *node)
+{
+	struct out_req *req = add_to_rpcbatch(r->batch, "askrene-disable-node",
+					      NULL, log_routefail_err, r);
+	json_add_string(req->js, "layer", r->payment->payment_layer);
+	json_add_node_id(req->js, "node", node);
+	send_outreq(req);
+}
+
+static void disable_channel(struct routefail *r,
+			    struct short_channel_id_dir scidd)
+{
+	struct out_req *req = add_to_rpcbatch(
+	    r->batch, "askrene-udpate-channel", NULL, log_routefail_err, r);
+	json_add_string(req->js, "layer", r->payment->payment_layer);
+	json_add_short_channel_id_dir(req->js, "short_channel_id_dir", scidd);
+	json_add_bool(req->js, "enabled", false);
+	send_outreq(req);
+}
+
+static void bias_channel(struct routefail *r, struct short_channel_id_dir scidd,
+			 int bias)
+{
+	// FIXME: we want to increment the bias, not set it
+	struct out_req *req = add_to_rpcbatch(r->batch, "askrene-bias-channel",
+					      NULL, log_routefail_err, r);
+	json_add_string(req->js, "layer", r->payment->payment_layer);
+	json_add_short_channel_id_dir(req->js, "short_channel_id_dir", scidd);
+	json_add_num(req->js, "bias", bias);
+	send_outreq(req);
+}
+
+static void channel_can_send(struct routefail *r,
+			     struct short_channel_id_dir scidd,
+			     struct amount_msat amount)
+{
+	struct out_req *req = add_to_rpcbatch(
+	    r->batch, "askrene-inform-channel", NULL, log_routefail_err, r);
+	json_add_string(req->js, "layer", RENEPAY_LAYER);
+	json_add_short_channel_id_dir(req->js, "short_channel_id_dir", scidd);
+	json_add_amount_msat(req->js, "amount_msat", amount);
+	json_add_string(req->js, "inform", "unconstrained");
+	send_outreq(req);
+}
+
+static void channel_cannot_send(struct routefail *r,
+				struct short_channel_id_dir scidd,
+				struct amount_msat amount)
+{
+	struct out_req *req = add_to_rpcbatch(
+	    r->batch, "askrene-inform-channel", NULL, log_routefail_err, r);
+	json_add_string(req->js, "layer", RENEPAY_LAYER);
+	json_add_short_channel_id_dir(req->js, "short_channel_id_dir", scidd);
+	json_add_amount_msat(req->js, "amount_msat", amount);
+	json_add_string(req->js, "inform", "constrained");
+	send_outreq(req);
 }
 
 /*****************************************************************************
@@ -109,49 +196,24 @@ static u8 *channel_update_from_onion_error(const tal_t *ctx,
 	return patch_channel_update(ctx, take(channel_update));
 }
 
-static struct command_result *update_gossip_done(struct command *cmd UNUSED,
-						 const char *method UNUSED,
-						 const char *buf UNUSED,
-						 const jsmntok_t *result UNUSED,
-						 struct routefail *r)
+static struct command_result *
+addgossip_fail(struct command *cmd, const char *method, const char *buf,
+	       const jsmntok_t *result, struct routefail *r)
 {
-	return handle_failure(r);
-}
-
-static struct command_result *update_gossip_failure(struct command *cmd UNUSED,
-						    const char *method UNUSED,
-						    const char *buf,
-						    const jsmntok_t *result,
-						    struct routefail *r)
-{
-	assert(r);
-	assert(r->payment);
-	assert(r->route->result->erring_index);
-
-	const int index = *r->route->result->erring_index;
 	struct short_channel_id_dir scidd;
-
-	if (r->route->result->erring_channel) {
-		scidd.scid = *r->route->result->erring_channel;
-		scidd.dir = *r->route->result->erring_direction;
-	} else if (r->route->hops) {
-		assert(index < tal_count(r->route->hops));
-		const struct route_hop *hop = &r->route->hops[index];
-		scidd.scid = hop->scid;
-		scidd.dir = hop->direction;
-
-	} else /* don't have information to disable the erring channel */
-		goto finish;
-
-	payment_disable_chan(
-	    r->payment, scidd, LOG_INFORM, "addgossip failed (%.*s)",
-	    json_tok_full_len(result), json_tok_full(buf, result));
-
-finish:
-	return update_gossip_done(cmd, method, buf, result, r);
+	if (get_erring_scidd(r->route, &scidd)) {
+		plugin_log(cmd->plugin, LOG_UNUSUAL,
+			   "failed to update gossip of erring channel %s",
+			   fmt_short_channel_id_dir(tmpctx, &scidd));
+		disable_channel(r, scidd);
+	} else {
+		plugin_log(cmd->plugin, LOG_UNUSUAL,
+			   "failed to update gossip of UNKNOWN erring channel");
+	}
+	return command_still_pending(cmd);
 }
 
-static struct command_result *update_gossip(struct routefail *r)
+static void update_gossip(struct routefail *r)
 {
 	/* if there is no raw_message we continue */
 	if (!r->route->result->raw_message)
@@ -163,14 +225,13 @@ static struct command_result *update_gossip(struct routefail *r)
 	if (!update)
 		goto skip_update_gossip;
 
-	struct out_req *req =
-	    jsonrpc_request_start(r->cmd, "addgossip",
-				  update_gossip_done, update_gossip_failure, r);
+	struct out_req *req = add_to_rpcbatch(
+	    r->batch, "addgossip", NULL, addgossip_fail, r);
 	json_add_hex_talarr(req->js, "message", update);
-	return send_outreq(req);
+	send_outreq(req);
 
 skip_update_gossip:
-	return handle_failure(r);
+	return;
 }
 
 /*****************************************************************************
@@ -199,7 +260,7 @@ static void route_final_error(struct route *route, enum jsonrpc_errcode error,
 }
 
 /* FIXME: do proper error handling for BOLT12 */
-static struct command_result *handle_failure(struct routefail *r)
+static void handle_failure(struct routefail *r)
 {
 	/* BOLT #4:
 	 *
@@ -248,6 +309,7 @@ static struct command_result *handle_failure(struct routefail *r)
 	assert(result);
 	struct payment *payment = r->payment;
 	assert(payment);
+	struct short_channel_id_dir scidd;
 
 	int path_len = 0;
 	if (route->hops)
@@ -278,6 +340,25 @@ static struct command_result *handle_failure(struct routefail *r)
 			node_type = ORIGIN_NODE;
 		else
 			node_type = INTERMEDIATE_NODE;
+
+		/* All channels before the hop that failed have supposedly the
+		 * ability to forward the payment. This is information. */
+		const int last_good_channel =
+		    MIN(*result->erring_index, path_len) - 1;
+		for (int i = 0; i <= last_good_channel; i++) {
+			scidd.scid = route->hops[i].scid;
+			scidd.dir = route->hops[i].direction;
+			channel_can_send(r, scidd, route->hops[i].amount);
+		}
+		if (failcode == WIRE_TEMPORARY_CHANNEL_FAILURE &&
+		    (last_good_channel + 1) < path_len) {
+			scidd.scid = route->hops[last_good_channel + 1].scid;
+			scidd.dir =
+			    route->hops[last_good_channel + 1].direction;
+			channel_cannot_send(
+			    r, scidd,
+			    route->hops[last_good_channel + 1].amount);
+		}
 	}
 
 	switch (failcode) {
@@ -322,6 +403,8 @@ static struct command_result *handle_failure(struct routefail *r)
 			    payment, route->hops[*result->erring_index].node_id,
 			    LOG_DBG, "received %s from previous hop",
 			    onion_wire_name(failcode));
+			disable_node(
+			    r, &route->hops[*result->erring_index].node_id);
 			break;
 		case UNKNOWN_NODE:
 			break;
@@ -351,6 +434,8 @@ static struct command_result *handle_failure(struct routefail *r)
 			    route->hops[*result->erring_index - 1].node_id,
 			    LOG_INFORM, "received error %s",
 			    onion_wire_name(failcode));
+			disable_node(
+			    r, &route->hops[*result->erring_index - 1].node_id);
 			break;
 		case UNKNOWN_NODE:
 			break;
@@ -399,6 +484,8 @@ static struct command_result *handle_failure(struct routefail *r)
 			    route->hops[*result->erring_index - 1].node_id,
 			    LOG_INFORM, "received error %s",
 			    onion_wire_name(failcode));
+			disable_node(
+			    r, &route->hops[*result->erring_index - 1].node_id);
 			break;
 		case UNKNOWN_NODE:
 			break;
@@ -437,12 +524,10 @@ static struct command_result *handle_failure(struct routefail *r)
 		case INTERMEDIATE_NODE:
 			if (!route->hops)
 				break;
-			struct short_channel_id_dir scidd = {
-			    .scid = route->hops[*result->erring_index].scid,
-			    .dir = route->hops[*result->erring_index].direction};
 			payment_disable_chan(payment, scidd, LOG_INFORM, "%s",
 					     onion_wire_name(failcode));
-
+			if (get_erring_scidd(r->route, &scidd))
+				disable_channel(r, scidd);
 			break;
 		case UNKNOWN_NODE:
 			break;
@@ -469,7 +554,8 @@ static struct command_result *handle_failure(struct routefail *r)
 			    route->hops[*result->erring_index - 1].node_id,
 			    LOG_INFORM, "received error %s",
 			    onion_wire_name(failcode));
-
+			disable_node(
+			    r, &route->hops[*result->erring_index - 1].node_id);
 			break;
 		case ORIGIN_NODE:
 		case FINAL_NODE:
@@ -512,13 +598,11 @@ static struct command_result *handle_failure(struct routefail *r)
 			/* Usually this means we need to update the channel
 			 * information and try again. To avoid hitting this
 			 * error again with the same channel we flag it. */
-			struct short_channel_id_dir scidd = {
-			    .scid = route->hops[*result->erring_index].scid,
-			    .dir = route->hops[*result->erring_index].direction};
 			payment_warn_chan(payment, scidd, LOG_INFORM,
 					  "received error %s",
 					  onion_wire_name(failcode));
-
+			if (get_erring_scidd(r->route, &scidd))
+				bias_channel(r, scidd, -1);
 			break;
 		case UNKNOWN_NODE:
 			break;
@@ -554,5 +638,5 @@ static struct command_result *handle_failure(struct routefail *r)
 	}
 
 finish:
-	return routefail_end(take(r));
+	return;
 }
