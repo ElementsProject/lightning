@@ -24,7 +24,10 @@
       "relative_amount": {
         "type": "integer",
         "description": [
-          "A positive or negative amount of satoshis to add or subtract from the channel. Note you may need to add a double dash (--) after splice_init if using a negative *relative_amount* so it is not interpretted as a command modifier. For example: ```shell lightning-cli splice_init -- $CHANNEL_ID -100000 ```."
+          "A positive or negative amount of satoshis to add or subtract from the channel. Note you may need to add a double dash (--) after splice_init if using a negative *relative_amount* so it is not interpretted as a command modifier. For example:",
+          "```shell",
+          "lightning-cli splice_init -- $CHANNEL_ID -100000",
+          "```"
         ]
       },
       "initialpsbt": {
