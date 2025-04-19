@@ -42,7 +42,7 @@ struct command_result *payment_continue(struct payment *payment)
 				   "payment_continue expected payment_modifier "
 				   "but NULL found");
 
-		plugin_log(pay_plugin->plugin, LOG_DBG, "Calling modifier %s",
+		plugin_log(pay_plugin->plugin, LOG_TRACE, "Calling modifier %s",
 			   mod->name);
 		return mod->step_cb(payment);
 	} else if (op == OP_IF) {
@@ -55,7 +55,7 @@ struct command_result *payment_continue(struct payment *payment)
 				   "payment_continue expected pointer to "
 				   "condition but NULL found");
 
-		plugin_log(pay_plugin->plugin, LOG_DBG,
+		plugin_log(pay_plugin->plugin, LOG_TRACE,
 			   "Calling payment condition %s", cond->name);
 
 		const u64 position_iftrue =
