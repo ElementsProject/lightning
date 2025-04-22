@@ -1305,6 +1305,12 @@ def location_from_name(plugin_name: str) -> (str, str):
     if this looks like a filepath or URL and return that as well as the
     plugin name."""
     if not Path(plugin_name).exists():
+        try:
+            parsed = urlparse(plugin_name)
+            if parsed.scheme in ['http', 'https']:
+                return (plugin_name, Path(plugin_name).with_suffix('').name)
+        except ValueError:
+            pass
         # No path included, return the name only.
         return (None, plugin_name)
 
@@ -1338,6 +1344,7 @@ def install(plugin_name: str) -> Union[str, None]:
         commit = None
     # Is the install request specifying a path to the plugin?
     direct_location, name = location_from_name(name)
+    src = None
     if direct_location:
         logging.debug(f"install of {name} requested from {direct_location}")
         src = InstInfo(name, direct_location, None)
@@ -1348,7 +1355,6 @@ def install(plugin_name: str) -> Union[str, None]:
         if src and src.srctype == Source.LOCAL_REPO:
             src.srctype = Source.DIRECTORY
     if not direct_location or not src:
-        log.debug(f"direct_location {direct_location}, src: {src}")
         log.debug(f"Searching for {name}")
         if search(name):
             global LAST_FOUND
