@@ -175,24 +175,24 @@ dijkstra_(const tal_t *ctx,
 	heapsize = tal_count(heap);
 
 	/*
-	 * 3. For the current node, consider all of its unvisited neighbouds
+	 * 3. For the current node, consider all of its unvisited neighbors
 	 * and calculate their tentative distances through the current
 	 * node. Compare the newly calculated tentative distance to the
 	 * current assigned value and assign the smaller one. For example, if
 	 * the current node A is marked with a distance of 6, and the edge
-	 * connecting it with a neighbour B has length 2, then the distance to
+	 * connecting it with a neighbor B has length 2, then the distance to
 	 * B through A will be 6 + 2 = 8. If B was previously marked with a
 	 * distance greater than 8 then change it to 8. Otherwise, the current
 	 * value will be kept.
 	 *
-	 * 4. When we are done considering all of the unvisited neighbouds of
+	 * 4. When we are done considering all of the unvisited neighbors of
 	 * the current node, mark the current node as visited and remove it
 	 * from the unvisited set. A visited node will never be checked again.
 	 *
 	 * 5. If the destination node has been marked visited (when planning a
 	 * route between two specific nodes) or if the smallest tentative
 	 * distance among the nodes in the unvisited set is infinity (when
-	 * planning a complete travedsal; occuds when there is no connection
+	 * planning a complete traversal; occurs when there is no connection
 	 * between the initial node and remaining unvisited nodes), then
 	 * stop. The algorithm has finished.
 	 *
