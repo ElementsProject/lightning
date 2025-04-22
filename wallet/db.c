@@ -2043,11 +2043,10 @@ static void migrate_convert_old_channel_keyidx(struct lightningd *ld,
 
 	stmt = db_prepare_v2(db, SQL("UPDATE addresses"
 				     " SET addrtype = ?"
-				     " FROM channels "
-				     " WHERE addresses.keyidx = channels.shutdown_keyidx_local"
-				     " AND channels.state != ?"
-				     " AND channels.state != ?"
-				     " AND channels.state != ?"));
+				     " WHERE keyidx IN (SELECT shutdown_keyidx_local FROM channels"
+				     "                  WHERE state != ?"
+				     "                  AND state != ?"
+				     "                  AND state != ?)"));
 	db_bind_int(stmt, wallet_addrtype_in_db(ADDR_ALL));
 	/* If we might have already seen onchain funds, we need to rescan */
 	db_bind_int(stmt, channel_state_in_db(FUNDING_SPEND_SEEN));
