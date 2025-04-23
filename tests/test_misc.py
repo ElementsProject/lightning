@@ -4751,3 +4751,27 @@ def test_tracing(node_factory):
 
         assert suspended == set()
         assert traces == set()
+
+    # Test parent trace
+    trace_fnamebase = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "l1.parent.trace")
+    l1.daemon.env["CLN_DEV_TRACE_FILE"] = trace_fnamebase
+    l1.daemon.env["CLN_TRACEPARENT"] = "00-00112233445566778899aabbccddeeff-0123456789abcdef-00"
+    l1.start()
+    l1.stop()
+
+    # The parent should set all the trace ids and span ids
+    for fname in glob.glob(f"{trace_fnamebase}.*"):
+        for linenum, l in enumerate(open(fname, "rt").readlines(), 1):
+            # In case an assertion fails
+            print(f"Parsing {fname}:{linenum}")
+            parts = l.split(maxsplit=2)
+            cmd = parts[0]
+            spanid = parts[1]
+            # This span doesn't actually appear anywhere
+            assert spanid != '0123456789abcdef'
+            if cmd == 'span_emit':
+                # Should be valid JSON
+                res = json.loads(parts[2])
+                assert res[0]['traceId'] == '00112233445566778899aabbccddeeff'
+                # Everyone has a parent!
+                assert 'parentId' in res[0]
