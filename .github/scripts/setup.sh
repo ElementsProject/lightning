@@ -54,6 +54,7 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      valgrind \
      wget \
      xsltproc \
+     systemtap-sdt-dev \
      zlib1g-dev
 
 echo "tester ALL=(root) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/tester
