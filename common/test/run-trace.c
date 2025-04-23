@@ -13,16 +13,20 @@ int main(int argx, char *argv[])
 	common_setup(argv[0]);
 
 	/* Create a bunch of nested spans to emit. */
-	for(int i=0; i<25000; i++) {
+	for(int i=0; i<2500000; i++) {
 		trace_span_start("a", &a);
+		trace_span_tag(&a, "method", "getrawblockbyheight");
 		trace_span_start("b", &b);
+		trace_span_tag(&b, "method", "getrawblockbyheight");
 
 		trace_span_start("c", &c);
+		trace_span_tag(&c, "method", "getrawblockbyheight");
 		trace_span_end(&c);
 
 		trace_span_end(&b);
 
 		trace_span_start("d", &d);
+		trace_span_tag(&d, "method", "getrawblockbyheight");
 		trace_span_end(&d);
 
 		trace_span_end(&a);
