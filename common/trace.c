@@ -1,5 +1,6 @@
 #include "config.h"
 #include <assert.h>
+#include <ccan/err/err.h>
 #include <ccan/htable/htable.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
@@ -8,6 +9,7 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/trace.h>
+#include <fcntl.h>
 #include <sodium/randombytes.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -42,6 +44,7 @@
 
 const char *trace_service_name = "lightningd";
 static bool disable_trace = false;
+static FILE *trace_to_file = NULL;
 
 struct span_tag {
 	char *name, *value;
@@ -151,11 +154,20 @@ static inline void trace_check_tree(void) {}
 
 static void trace_init(void)
 {
+	const char *dev_trace_file;
 	if (active_spans)
 		return;
 	active_spans = calloc(MAX_ACTIVE_SPANS, sizeof(struct span));
 
 	current = NULL;
+	dev_trace_file = getenv("CLN_DEV_TRACE_FILE");
+	if (dev_trace_file) {
+		const char *fname = tal_fmt(tmpctx, "%s.%u",
+					    dev_trace_file, (unsigned)getpid());
+		trace_to_file = fopen(fname, "a+");
+		if (!trace_to_file)
+			err(1, "Opening CLN_DEV_TRACE_FILE %s", fname);
+	}
 	trace_inject_traceparent();
 }
 
@@ -250,6 +262,10 @@ static void trace_emit(struct span *s)
 
 	tal_append_fmt(&res, "}, \"traceId\": \"%s\"}]", trace_id);
 	DTRACE_PROBE2(lightningd, span_emit, span_id, res);
+	if (trace_to_file) {
+		fprintf(trace_to_file, "span_emit %s %s\n", span_id, res);
+		fflush(trace_to_file);
+	}
 	tal_free(res);
 }
 
@@ -301,6 +317,12 @@ void trace_span_start(const char *name, const void *key)
 	current = s;
 	trace_check_tree();
 	DTRACE_PROBE1(lightningd, span_start, s->id);
+	if (trace_to_file) {
+		char span_id[HEX_SPAN_ID_SIZE];
+		hex_encode(s->id, SPAN_ID_SIZE, span_id, HEX_SPAN_ID_SIZE);
+		fprintf(trace_to_file, "span_start %s\n", span_id);
+		fflush(trace_to_file);
+	}
 }
 
 void trace_span_remote(u8 trace_id[TRACE_ID_SIZE], u8 span_id[SPAN_ID_SIZE])
@@ -323,6 +345,12 @@ void trace_span_end(const void *key)
 	struct timeabs now = time_now();
 	s->end_time = (now.ts.tv_sec * 1000000) + now.ts.tv_nsec / 1000;
 	DTRACE_PROBE1(lightningd, span_end, s->id);
+	if (trace_to_file) {
+		char span_id[HEX_SPAN_ID_SIZE];
+		hex_encode(s->id, SPAN_ID_SIZE, span_id, HEX_SPAN_ID_SIZE);
+		fprintf(trace_to_file, "span_end %s\n", span_id);
+		fflush(trace_to_file);
+	}
 	trace_emit(s);
 
 	/* Reset the context span we are in. */
@@ -375,6 +403,12 @@ void trace_span_suspend_(const void *key, const char *lbl)
 	span->suspended = true;
 	current = NULL;
 	DTRACE_PROBE1(lightningd, span_suspend, span->id);
+	if (trace_to_file) {
+		char span_id[HEX_SPAN_ID_SIZE];
+		hex_encode(span->id, SPAN_ID_SIZE, span_id, HEX_SPAN_ID_SIZE);
+		fprintf(trace_to_file, "span_suspend %s\n", span_id);
+		fflush(trace_to_file);
+	}
 }
 
 static void destroy_trace_span(const void *key)
@@ -387,6 +421,8 @@ static void destroy_trace_span(const void *key)
 		return;
 
 	/* Otherwise resume so we can terminate it */
+	if (trace_to_file)
+		fprintf(trace_to_file, "destroying span\n");
 	trace_span_resume(key);
 	trace_span_end(key);
 }
@@ -410,6 +446,12 @@ void trace_span_resume_(const void *key, const char *lbl)
 	current->suspended = false;
 	TRACE_DBG("Resuming span %s (%zu)\n", current->name, current->key);
 	DTRACE_PROBE1(lightningd, span_resume, current->id);
+	if (trace_to_file) {
+		char span_id[HEX_SPAN_ID_SIZE];
+		hex_encode(current->id, SPAN_ID_SIZE, span_id, HEX_SPAN_ID_SIZE);
+		fprintf(trace_to_file, "span_resume %s\n", span_id);
+		fflush(trace_to_file);
+	}
 }
 
 void trace_cleanup(void)
