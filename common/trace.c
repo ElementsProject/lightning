@@ -67,6 +67,7 @@ struct span {
 	struct span_tag *tags;
 	char *name;
 
+	bool suspended;
 	/* Indicate whether this is a remote span, i.e., it was
 	inherited by some other process, which is in charge of
 	emitting the span. This just means that we don't emit this
@@ -286,6 +287,7 @@ void trace_span_start(const char *name, const void *key)
 	s->parent = current;
 	s->tags = notleak(tal_arr(NULL, struct span_tag, 0));
 	s->name = notleak(tal_strdup(NULL, name));
+	s->suspended = false;
 
 	/* If this is a new root span we also need to associate a new
 	 * trace_id with it. */
@@ -369,6 +371,8 @@ void trace_span_suspend_(const void *key, const char *lbl)
 	struct span *span = trace_span_find(numkey);
 	TRACE_DBG("Suspending span %s (%zu)\n", current->name, current->key);
 	assert(current == span);
+ 	assert(!span->suspended);
+	span->suspended = true;
 	current = NULL;
 	DTRACE_PROBE1(lightningd, span_suspend, span->id);
 }
@@ -402,6 +406,8 @@ void trace_span_resume_(const void *key, const char *lbl)
 
 	size_t numkey = trace_key(key);
 	current = trace_span_find(numkey);
+ 	assert(current->suspended);
+	current->suspended = false;
 	TRACE_DBG("Resuming span %s (%zu)\n", current->name, current->key);
 	DTRACE_PROBE1(lightningd, span_resume, current->id);
 }
