@@ -184,10 +184,15 @@ static inline void trace_check_tree(void) {}
 static void trace_init(void)
 {
 	const char *dev_trace_file;
+	const char notleak_name[] = "struct span **NOTLEAK**";
+
 	if (active_spans)
 		return;
 
-	active_spans = notleak(tal_arrz(NULL, struct span, 1));
+	active_spans = tal_arrz(NULL, struct span, 1);
+	/* We're usually too early for memleak to be initialized, so mark
+	 * this notleak manually! */
+	tal_set_name(active_spans, notleak_name);
 
 	current = NULL;
 	dev_trace_file = getenv("CLN_DEV_TRACE_FILE");
