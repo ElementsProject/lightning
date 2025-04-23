@@ -2,7 +2,6 @@
 #include <assert.h>
 #include <ccan/endian/endian.h>
 #include <ccan/err/err.h>
-#include <ccan/htable/htable.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
@@ -17,8 +16,6 @@
 
 #if HAVE_USDT
   #include <sys/sdt.h>
-
-#define MAX_ACTIVE_SPANS 128
 
 /* The traceperent format is defined in W3C Trace Context RFC[1].
  * Its format is defined as
@@ -123,7 +120,7 @@ static void trace_inject_traceparent(void)
 	current = trace_span_slot();
 	assert(current);
 
-	init_span(current, trace_key(active_spans), "", NULL);
+	init_span(current, trace_key(&active_spans), "", NULL);
 	assert(current && !current->parent);
 
 	if (!hex_decode(traceparent + 3, 16, &trace_hi, sizeof(trace_hi))
@@ -145,7 +142,7 @@ static void trace_inject_traceparent(void)
 /** Quickly print out the entries in the `active_spans`. */
 static void trace_spans_print(void)
 {
-	for (size_t j = 0; j < MAX_ACTIVE_SPANS; j++) {
+	for (size_t j = 0; j < tal_count(active_spans); j++) {
 		struct span *s = &active_spans[j], *parent = s->parent;
 		TRACE_DBG(" > %zu: %s (key=%zu, parent=%s, "
 			  "parent_key=%zu)\n",
@@ -156,17 +153,17 @@ static void trace_spans_print(void)
 
 /** Small helper to check for consistency in the linking. The idea is
  * that we should be able to reach the root (a span without a
- * `parent`) in less than `MAX_ACTIVE_SPANS` steps. */
+ * `parent`) in less than the number of spans. */
 static void trace_check_tree(void)
 {
 	/* `current` is either NULL or a valid entry. */
 
 	/* Walk the tree structure from leaves to their roots. It
-	 * should not take more than `MAX_ACTIVE_SPANS`. */
+	 * should not take more than the number of spans. */
 	struct span *c;
-	for (size_t i = 0; i < MAX_ACTIVE_SPANS; i++) {
+	for (size_t i = 0; i < tal_count(active_spans); i++) {
 		c = &active_spans[i];
-		for (int j = 0; j < MAX_ACTIVE_SPANS; j++)
+		for (int j = 0; j < tal_count(active_spans); j++)
 			if (c->parent == NULL)
 				break;
 			else
@@ -189,7 +186,8 @@ static void trace_init(void)
 	const char *dev_trace_file;
 	if (active_spans)
 		return;
-	active_spans = calloc(MAX_ACTIVE_SPANS, sizeof(struct span));
+
+	active_spans = notleak(tal_arrz(NULL, struct span, 1));
 
 	current = NULL;
 	dev_trace_file = getenv("CLN_DEV_TRACE_FILE");
@@ -213,7 +211,7 @@ static size_t trace_key(const void *key)
 
 static struct span *trace_span_find(size_t key)
 {
-	for (size_t i = 0; i < MAX_ACTIVE_SPANS; i++)
+	for (size_t i = 0; i < tal_count(active_spans); i++)
 		if (active_spans[i].key == key)
 			return &active_spans[i];
 
@@ -232,14 +230,12 @@ static struct span *trace_span_slot(void)
 	 * that, and we should get an empty slot. */
 	struct span *s = trace_span_find(0);
 
-	/* Might end up here if we have more than MAX_ACTIVE_SPANS
-	 * concurrent spans. */
+	/* In the unlikely case this fails, double it */
 	if (!s) {
-		fprintf(stderr, "%u: out of spans, disabling tracing\n", getpid());
-		for (size_t i = 0; i < MAX_ACTIVE_SPANS; i++)
-			trace_span_clear(&active_spans[i]);
-		disable_trace = true;
-		return NULL;
+		TRACE_DBG("%u: out of %zu spans, doubling!\n",
+			  getpid(), tal_count(active_spans));
+		tal_resizez(&active_spans, tal_count(active_spans) * 2);
+		s = trace_span_find(0);
 	}
 	assert(s->parent == NULL);
 
@@ -460,8 +456,7 @@ void trace_span_resume_(const void *key, const char *lbl)
 
 void trace_cleanup(void)
 {
-	free(active_spans);
-	active_spans = NULL;
+	active_spans = tal_free(active_spans);
 }
 
 #else /* HAVE_USDT */
