@@ -3,6 +3,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [25.02.2] - 2025-04-22: "Onion Packet Filler Accreditation II"
+
+Important fixes for bugs in v25.02.1.
+
+### Fixed
+
+ - docker: Fixed broken docker image due to sqlite version not supporting an advanced query ([#8246])
+
+[#8246]: https://github.com/ElementsProject/lightning/pull/8246
+[25.02.2]: https://github.com/ElementsProject/lightning/releases/tag/v25.02.2
+
+
 ## [25.02.1] - 2025-04-03: "Onion Packet Filler Accreditation II"
 
 Important fixes for bugs in v25.02.
