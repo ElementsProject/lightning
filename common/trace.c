@@ -257,11 +257,15 @@ static struct span *trace_span_slot(void)
 	return s;
 }
 
+#define MAX_BUF_SIZE 2048
+
 static void trace_emit(struct span *s)
 {
 	char span_id[HEX_SPAN_ID_SIZE];
 	char trace_id[HEX_TRACE_ID_SIZE];
 	char parent_span_id[HEX_SPAN_ID_SIZE];
+	char buffer[MAX_BUF_SIZE + 1];
+	size_t len;
 
 	/* If this is a remote span it's not up to us to emit it. Make
 	 * this a no-op. `trace_span_end` will take care of cleaning
@@ -275,36 +279,46 @@ static void trace_emit(struct span *s)
 	if (s->parent)
 		hex_encode(s->parent_id, SPAN_ID_SIZE, parent_span_id, HEX_SPAN_ID_SIZE);
 
-	char *res = tal_fmt(
-	    NULL,
-	    "[{\"id\": \"%s\", \"name\": \"%s\", "
-	    "\"timestamp\": %" PRIu64 ", \"duration\": %" PRIu64 ",",
-	    span_id, s->name, s->start_time, s->end_time - s->start_time);
-
-	tal_append_fmt(&res, "\"localEndpoint\": { \"serviceName\": \"%s\"}, ",
-		       trace_service_name);
+	len = snprintf(buffer, MAX_BUF_SIZE,
+		       "[{\"id\":\"%s\",\"name\":\"%s\","
+		       "\"timestamp\":%"PRIu64",\"duration\":%"PRIu64","
+		       "\"localEndpoint\":{\"serviceName\":\"%s\"},",
+		       span_id, s->name, s->start_time, s->end_time - s->start_time, trace_service_name);
 
 	if (s->parent != NULL) {
-		tal_append_fmt(&res, "\"parentId\": \"%s\",", parent_span_id);
+		len += snprintf(buffer + len, MAX_BUF_SIZE - len,
+				"\"parentId\":\"%s\",",
+				parent_span_id);
+		if (len > MAX_BUF_SIZE)
+			len = MAX_BUF_SIZE;
 	}
 
-	tal_append_fmt(&res, "\"tags\": {");
+	len += snprintf(buffer + len, MAX_BUF_SIZE - len,
+			"\"tags\":{");
+	if (len > MAX_BUF_SIZE)
+		len = MAX_BUF_SIZE;
 	for (size_t i = 0; i < SPAN_MAX_TAGS; i++) {
 		if (!s->tags[i].name)
 			continue;
-		tal_append_fmt(&res, "%s\"%s\": \"%.*s\"", i == 0 ? "" : ", ",
-			       s->tags[i].name,
-			       s->tags[i].valuelen,
-			       s->tags[i].valuestr);
+		len += snprintf(buffer + len, MAX_BUF_SIZE - len,
+				"%s\"%s\":\"%.*s\"", i == 0 ? "" : ", ",
+				s->tags[i].name,
+				s->tags[i].valuelen,
+				s->tags[i].valuestr);
+		if (len > MAX_BUF_SIZE)
+			len = MAX_BUF_SIZE;
 	}
 
-	tal_append_fmt(&res, "}, \"traceId\": \"%s\"}]", trace_id);
-	DTRACE_PROBE2(lightningd, span_emit, span_id, res);
+	len += snprintf(buffer + len, MAX_BUF_SIZE - len,
+			"},\"traceId\":\"%s\"}]", trace_id);
+	if (len > MAX_BUF_SIZE)
+		len = MAX_BUF_SIZE;
+	buffer[len] = '\0';
+	DTRACE_PROBE2(lightningd, span_emit, span_id, buffer);
 	if (trace_to_file) {
-		fprintf(trace_to_file, "span_emit %s %s\n", span_id, res);
+		fprintf(trace_to_file, "span_emit %s %s\n", span_id, buffer);
 		fflush(trace_to_file);
 	}
-	tal_free(res);
 }
 
 /**
