@@ -13,6 +13,7 @@ from utils import (
 )
 
 import copy
+import glob
 import json
 import os
 import pytest
@@ -4697,3 +4698,56 @@ def test_bolt12_invoice_decode(node_factory):
 
     assert l1.rpc.decode(inv)['valid'] is True
     subprocess.run(["devtools/bolt12-cli", "decode", inv], check=True)
+
+
+@unittest.skipIf(env('HAVE_USDT') != '1', "Test requires tracing compiled in")
+def test_tracing(node_factory):
+    l1 = node_factory.get_node(start=False)
+    trace_fnamebase = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "l1.trace")
+    l1.daemon.env["CLN_DEV_TRACE_FILE"] = trace_fnamebase
+    l1.start()
+    l1.stop()
+
+    traces = set()
+    suspended = set()
+    for fname in glob.glob(f"{trace_fnamebase}.*"):
+        for linenum, l in enumerate(open(fname, "rt").readlines(), 1):
+            # In case an assertion fails
+            print(f"Parsing {fname}:{linenum}")
+            parts = l.split(maxsplit=2)
+            cmd = parts[0]
+            spanid = parts[1]
+            if cmd == 'span_emit':
+                assert spanid in traces
+                assert spanid not in suspended
+                # Should be valid JSON
+                res = json.loads(parts[2])
+
+                # This is an array for some reason
+                assert len(res) == 1
+                res = res[0]
+                assert res['id'] == spanid
+                assert res['localEndpoint'] == {"serviceName": "lightningd"}
+                expected_keys = ['id', 'name', 'timestamp', 'duration', 'tags', 'traceId', 'localEndpoint']
+                if 'parentId' in res:
+                    assert res['parentId'] in traces
+                    expected_keys.append('parentId')
+                assert set(res.keys()) == set(expected_keys)
+                traces.remove(spanid)
+            elif cmd == 'span_end':
+                assert spanid in traces
+            elif cmd == 'span_start':
+                assert spanid not in traces
+                traces.add(spanid)
+            elif cmd == 'span_suspend':
+                assert spanid in traces
+                assert spanid not in suspended
+                suspended.add(spanid)
+            elif cmd == 'span_resume':
+                assert spanid in traces
+                suspended.remove(spanid)
+            else:
+                assert False, "Unknown trace line"
+
+        assert suspended == set()
+        assert traces == set()
