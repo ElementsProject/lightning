@@ -269,9 +269,9 @@ void trace_span_end(const void *key UNNEEDED)
 /* Generated stub for trace_span_resume_ */
 void trace_span_resume_(const void *key UNNEEDED, const char *lbl UNNEEDED)
 { fprintf(stderr, "trace_span_resume_ called!\n"); abort(); }
-/* Generated stub for trace_span_start */
-void trace_span_start(const char *name UNNEEDED, const void *key UNNEEDED)
-{ fprintf(stderr, "trace_span_start called!\n"); abort(); }
+/* Generated stub for trace_span_start_ */
+void trace_span_start_(const char *name UNNEEDED, const void *key UNNEEDED)
+{ fprintf(stderr, "trace_span_start_ called!\n"); abort(); }
 /* Generated stub for txfilter_add_derkey */
 void txfilter_add_derkey(struct txfilter *filter UNNEEDED,
 			 const u8 derkey[PUBKEY_CMPR_LEN])
