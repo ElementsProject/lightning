@@ -232,10 +232,28 @@ static struct span *trace_span_slot(void)
 
 	/* In the unlikely case this fails, double it */
 	if (!s) {
+		/* Adjust current and parents when we reallocate! */
+		size_t num_active = tal_count(active_spans);
+		size_t current_off COMPILER_WANTS_INIT("11.4.0-1ubuntu1~22.04 -03");
+		size_t parent_off[num_active];
+		if (current)
+			current_off = current - active_spans;
+		for (size_t i = 0; i < num_active; i++) {
+			if (!active_spans[i].parent)
+				continue;
+			parent_off[i] = active_spans[i].parent - active_spans;
+		}
 		TRACE_DBG("%u: out of %zu spans, doubling!\n",
 			  getpid(), tal_count(active_spans));
 		tal_resizez(&active_spans, tal_count(active_spans) * 2);
 		s = trace_span_find(0);
+		if (current)
+			current = active_spans + current_off;
+		for (size_t i = 0; i < num_active; i++) {
+			if (!active_spans[i].parent)
+				continue;
+			active_spans[i].parent = active_spans + parent_off[i];
+		}
 	}
 	assert(s->parent == NULL);
 
