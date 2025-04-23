@@ -1,5 +1,6 @@
 #include "config.h"
 #include <assert.h>
+#include <ccan/endian/endian.h>
 #include <ccan/err/err.h>
 #include <ccan/htable/htable.h>
 #include <ccan/str/hex/hex.h>
@@ -8,9 +9,9 @@
 #include <ccan/time/time.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/pseudorand.h>
 #include <common/trace.h>
 #include <fcntl.h>
-#include <sodium/randombytes.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -18,9 +19,6 @@
   #include <sys/sdt.h>
 
 #define MAX_ACTIVE_SPANS 128
-
-#define HEX_SPAN_ID_SIZE (2*SPAN_ID_SIZE+1)
-#define HEX_TRACE_ID_SIZE (2 * TRACE_ID_SIZE + 1)
 
 /* The traceperent format is defined in W3C Trace Context RFC[1].
  * Its format is defined as
@@ -56,13 +54,13 @@ struct span_tag {
 
 struct span {
 	/* Our own id */
-	u8 id[SPAN_ID_SIZE];
+	u64 id;
 
 	/* 0 if we have no parent. */
-	u8 parent_id[SPAN_ID_SIZE];
+	u64 parent_id;
 
 	/* The trace_id for this span and all its children. */
-	u8 trace_id[TRACE_ID_SIZE];
+	u64 trace_id_hi, trace_id_lo;
 
 	u64 start_time;
 	u64 end_time;
@@ -94,7 +92,7 @@ static void init_span(struct span *s,
 	struct timeabs now = time_now();
 
 	s->key = key;
-	randombytes_buf(s->id, SPAN_ID_SIZE);
+	s->id = pseudorand_u64();
 	s->start_time = (now.ts.tv_sec * 1000000) + now.ts.tv_nsec / 1000;
 	s->parent = parent;
 	s->name = name;
@@ -103,10 +101,12 @@ static void init_span(struct span *s,
 	/* If this is a new root span we also need to associate a new
 	 * trace_id with it. */
 	if (!s->parent) {
-		randombytes_buf(s->trace_id, TRACE_ID_SIZE);
+		s->trace_id_hi = pseudorand_u64();
+		s->trace_id_lo = pseudorand_u64();
 	} else {
-		memcpy(s->parent_id, parent->id, SPAN_ID_SIZE);
-		memcpy(s->trace_id, parent->trace_id, TRACE_ID_SIZE);
+		s->parent_id = current->id;
+		s->trace_id_hi = current->trace_id_hi;
+		s->trace_id_lo = current->trace_id_lo;
 	}
 }
 
@@ -122,7 +122,9 @@ static void trace_span_clear(struct span *s);
  * own parent. */
 static void trace_inject_traceparent(void)
 {
-	char *traceparent;
+	const char *traceparent;
+	be64 trace_hi, trace_lo, span;
+
 	traceparent = getenv("CLN_TRACEPARENT");
 	if (!traceparent)
 		return;
@@ -134,14 +136,18 @@ static void trace_inject_traceparent(void)
 	init_span(current, trace_key(active_spans), "", NULL);
 	current->remote = true;
 	assert(current && !current->parent);
-	if (!hex_decode(traceparent + 3, 2*TRACE_ID_SIZE, current->trace_id,
-			TRACE_ID_SIZE) ||
-	    !hex_decode(traceparent + 36, 2*SPAN_ID_SIZE, current->id,
-			SPAN_ID_SIZE)) {
+
+	if (!hex_decode(traceparent + 3, 16, &trace_hi, sizeof(trace_hi))
+	    || !hex_decode(traceparent + 3 + 16, 16, &trace_lo, sizeof(trace_lo))
+	    || !hex_decode(traceparent + 3 + 16 + 16 + 1, 16, &span, sizeof(span))) {
 		/* We failed to parse the traceparent, abandon. */
 		fprintf(stderr, "Failed!");
 		trace_span_clear(current);
 		current = NULL;
+	} else {
+		current->trace_id_hi = be64_to_cpu(trace_hi);
+		current->trace_id_lo = be64_to_cpu(trace_lo);
+		current->id = be64_to_cpu(span);
 	}
 }
 
@@ -261,9 +267,7 @@ static struct span *trace_span_slot(void)
 
 static void trace_emit(struct span *s)
 {
-	char span_id[HEX_SPAN_ID_SIZE];
-	char trace_id[HEX_TRACE_ID_SIZE];
-	char parent_span_id[HEX_SPAN_ID_SIZE];
+	char span_id[hex_str_size(sizeof(s->id))];
 	char buffer[MAX_BUF_SIZE + 1];
 	size_t len;
 
@@ -273,12 +277,7 @@ static void trace_emit(struct span *s)
 	if (s->remote)
 		return;
 
-	hex_encode(s->id, SPAN_ID_SIZE, span_id, HEX_SPAN_ID_SIZE);
-	hex_encode(s->trace_id, TRACE_ID_SIZE, trace_id, HEX_TRACE_ID_SIZE);
-
-	if (s->parent)
-		hex_encode(s->parent_id, SPAN_ID_SIZE, parent_span_id, HEX_SPAN_ID_SIZE);
-
+	snprintf(span_id, sizeof(span_id), "%016"PRIx64, s->id);
 	len = snprintf(buffer, MAX_BUF_SIZE,
 		       "[{\"id\":\"%s\",\"name\":\"%s\","
 		       "\"timestamp\":%"PRIu64",\"duration\":%"PRIu64","
@@ -287,8 +286,8 @@ static void trace_emit(struct span *s)
 
 	if (s->parent != NULL) {
 		len += snprintf(buffer + len, MAX_BUF_SIZE - len,
-				"\"parentId\":\"%s\",",
-				parent_span_id);
+				"\"parentId\":\"%016"PRIx64"\",",
+				s->parent_id);
 		if (len > MAX_BUF_SIZE)
 			len = MAX_BUF_SIZE;
 	}
@@ -310,10 +309,12 @@ static void trace_emit(struct span *s)
 	}
 
 	len += snprintf(buffer + len, MAX_BUF_SIZE - len,
-			"},\"traceId\":\"%s\"}]", trace_id);
+			"},\"traceId\":\"%016"PRIx64"%016"PRIx64"\"}]",
+			s->trace_id_hi, s->trace_id_lo);
 	if (len > MAX_BUF_SIZE)
 		len = MAX_BUF_SIZE;
 	buffer[len] = '\0';
+	/* FIXME: span_id here is in hex, could be u64? */
 	DTRACE_PROBE2(lightningd, span_emit, span_id, buffer);
 	if (trace_to_file) {
 		fprintf(trace_to_file, "span_emit %s %s\n", span_id, buffer);
@@ -326,14 +327,7 @@ static void trace_emit(struct span *s)
  */
 static void trace_span_clear(struct span *s)
 {
-	s->key = 0;
-	memset(s->id, 0, SPAN_ID_SIZE);
-	memset(s->trace_id, 0, TRACE_ID_SIZE);
-
-	s->parent = NULL;
-	s->name = NULL;
-	for (size_t i = 0; i < SPAN_MAX_TAGS; i++)
-		s->tags[i].name = NULL;
+	memset(s, 0, sizeof(*s));
 }
 
 void trace_span_start_(const char *name, const void *key)
@@ -354,14 +348,12 @@ void trace_span_start_(const char *name, const void *key)
 	trace_check_tree();
 	DTRACE_PROBE1(lightningd, span_start, s->id);
 	if (trace_to_file) {
-		char span_id[HEX_SPAN_ID_SIZE];
-		hex_encode(s->id, SPAN_ID_SIZE, span_id, HEX_SPAN_ID_SIZE);
-		fprintf(trace_to_file, "span_start %s\n", span_id);
+		fprintf(trace_to_file, "span_start %016"PRIx64"\n", s->id);
 		fflush(trace_to_file);
 	}
 }
 
-void trace_span_remote(u8 trace_id[TRACE_ID_SIZE], u8 span_id[SPAN_ID_SIZE])
+void trace_span_remote(u64 trace_id_hi, u64 trade_id_lo, u64 span_id)
 {
 	abort();
 }
@@ -382,9 +374,7 @@ void trace_span_end(const void *key)
 	s->end_time = (now.ts.tv_sec * 1000000) + now.ts.tv_nsec / 1000;
 	DTRACE_PROBE1(lightningd, span_end, s->id);
 	if (trace_to_file) {
-		char span_id[HEX_SPAN_ID_SIZE];
-		hex_encode(s->id, SPAN_ID_SIZE, span_id, HEX_SPAN_ID_SIZE);
-		fprintf(trace_to_file, "span_end %s\n", span_id);
+		fprintf(trace_to_file, "span_end %016"PRIx64"\n", s->id);
 		fflush(trace_to_file);
 	}
 	trace_emit(s);
@@ -439,9 +429,7 @@ void trace_span_suspend_(const void *key, const char *lbl)
 	current = current->parent;
 	DTRACE_PROBE1(lightningd, span_suspend, span->id);
 	if (trace_to_file) {
-		char span_id[HEX_SPAN_ID_SIZE];
-		hex_encode(span->id, SPAN_ID_SIZE, span_id, HEX_SPAN_ID_SIZE);
-		fprintf(trace_to_file, "span_suspend %s\n", span_id);
+		fprintf(trace_to_file, "span_suspend %016"PRIx64"\n", span->id);
 		fflush(trace_to_file);
 	}
 }
@@ -482,9 +470,7 @@ void trace_span_resume_(const void *key, const char *lbl)
 	TRACE_DBG("Resuming span %s (%zu)\n", current->name, current->key);
 	DTRACE_PROBE1(lightningd, span_resume, current->id);
 	if (trace_to_file) {
-		char span_id[HEX_SPAN_ID_SIZE];
-		hex_encode(current->id, SPAN_ID_SIZE, span_id, HEX_SPAN_ID_SIZE);
-		fprintf(trace_to_file, "span_resume %s\n", span_id);
+		fprintf(trace_to_file, "span_resume %016"PRIx64"\n", current->id);
 		fflush(trace_to_file);
 	}
 }
