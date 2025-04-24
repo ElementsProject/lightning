@@ -3623,8 +3623,8 @@ def test_datastore_escapeing(node_factory):
 
 
 def test_datastore(node_factory):
-    # Suppress xpay, which makes a layer
-    l1 = node_factory.get_node(options={"disable-plugin": "cln-xpay"})
+    # Suppress xpay and renepay, which makes a layer
+    l1 = node_factory.get_node(options={"disable-plugin": ["cln-xpay", "cln-renepay"]})
 
     # Starts empty
     assert l1.rpc.listdatastore() == {'datastore': []}
@@ -3738,8 +3738,8 @@ def test_datastore(node_factory):
 
 
 def test_datastore_keylist(node_factory):
-    # Suppress xpay, which makes a layer
-    l1 = node_factory.get_node(options={"disable-plugin": "cln-xpay"})
+    # Suppress xpay and renepay, which makes a layer
+    l1 = node_factory.get_node(options={"disable-plugin": ["cln-xpay", "cln-renepay"]})
 
     # Starts empty
     assert l1.rpc.listdatastore() == {'datastore': []}
@@ -3801,7 +3801,9 @@ def test_datastore_keylist(node_factory):
 
 
 def test_datastoreusage(node_factory):
-    l1: LightningNode = node_factory.get_node(options={"disable-plugin": "cln-xpay"})
+    l1: LightningNode = node_factory.get_node(
+        options={"disable-plugin": ["cln-xpay", "cln-renepay"]}
+    )
     assert l1.rpc.datastoreusage() == {'datastoreusage': {'key': '[]', 'total_bytes': 0}}
 
     data = 'somedatatostoreinthedatastore'  # len 29
