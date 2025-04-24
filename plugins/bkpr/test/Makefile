@@ -17,6 +17,7 @@ BOOKKEEPER_TEST_COMMON_OBJS :=			\
 	common/key_derive.o			\
 	common/memleak.o			\
 	common/node_id.o			\
+	common/pseudorand.o			\
 	common/setup.o				\
 	common/trace.o				\
 	common/timeout.o			\
