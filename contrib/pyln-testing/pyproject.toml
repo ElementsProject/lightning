@@ -1,38 +1,37 @@
-[tool.poetry]
+[project]
 name = "pyln-testing"
 version = "25.05"
 description = "Test your Core Lightning integration, plugins or whatever you want"
-authors = ["Christian Decker <decker.christian@gmail.com>"]
-license = "BSD-MIT"
+authors = [{ name = "Christian Decker", email = "decker.christian@gmail.com" }]
+license = { text = "BSD-MIT" }
 readme = "README.md"
-
-packages = [
-  { include = "pyln/testing" },
+requires-python = ">=3.8,<4.0"
+dependencies = [
+  "pytest>=7.0.0",
+  "ephemeral-port-reserve>=1.1.4",
+  "psycopg2-binary>=2.9.0",
+  "python-bitcoinlib>=0.11.0",
+  "jsonschema>=4.4.0",
+  "pyln-client>=23",
+  "Flask>=2.0.0",
+  "cheroot>=8,<=10",
+  "psutil>=5.9.0",
+  "requests>=2.31.0",
 ]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-pytest = "^7"
-ephemeral-port-reserve = "^1.1.4"
-psycopg2-binary = "^2.9"
-python-bitcoinlib = "^0.11.0"
-jsonschema = "^4.4.0"
-pyln-client = ">=23"
-Flask = "^2"
-cheroot = ">=8 <=10"
-psutil = "^5.9"
-requests = "^2.31.0"
+[dependency-groups]
+dev = ["pyln-client", "pyln-grpc-proto"]
 
-grpcio = { version = "^1", optional = true }
-pyln-grpc-proto = { version = "^0.1", optional = true }
+[project.optional-dependencies]
+grpc = ["pyln-grpc-proto>=0.1", "grpcio>=1.0.0"]
 
-[tool.poetry.group.dev.dependencies]
-pyln-client = { path = "../pyln-client", develop = true}
-pyln-grpc-proto = { path = "../pyln-grpc-proto", develop = true, optional = true}
-
-[tool.poetry.extras]
-grpc = ["pyln-grpc-proto", "grpcio"]
+[tool.hatch.build.targets.wheel]
+packages = ["pyln"]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling>=1.0.0"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+pyln-client = { workspace = true }
+pyln-grpc-proto = { workspace = true }
