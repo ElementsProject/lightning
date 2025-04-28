@@ -1667,6 +1667,57 @@ def list_source():
     return sources_from_file()
 
 
+def update_plugin(plugin_name: str) -> Union[str, None]:
+    """Check for an installed plugin, if metadata for it exists, update
+    to the latest available while using the same source."""
+    log.info(f"updating {plugin_name}")
+    metadata_file = Path(RECKLESS_CONFIG.reckless_dir) / plugin_name / '.metadata'
+    if not metadata_file.exists():
+        log.warning(f"no metadata file for {plugin_name}")
+        return
+
+    metadata = {'installation date': None,
+                'installation time': None,
+                'original source': None,
+                'requested commit': None,
+                'installed commit': None,
+                }
+    with open(metadata_file, "r") as meta:
+        metadata_lines = meta.readlines()
+        for line_no, line in enumerate(metadata_lines):
+            if line_no > 0 and metadata_lines[line_no - 1].strip() in metadata:
+                metadata.update({metadata_lines[line_no - 1].strip(): line.strip()})
+    for key in metadata:
+        if metadata[key].lower() == 'none':
+            metadata[key] = None
+    log.debug(f'{plugin_name} installation metadata: {str(metadata)}')
+
+    src = InstInfo(plugin_name,
+                   metadata['original source'], None)
+    uninstall(plugin_name)
+    try:
+        installed = _install_plugin(src)
+    except FileExistsError as err:
+        log.error(f'File exists: {err.filename}')
+        return None
+    return _enable_installed(installed, plugin_name)
+
+
+def update_plugins(plugin_name: str):
+    """user requested plugin upgrade(s)"""
+    if plugin_name:
+        update_plugin(plugin_name)
+        return
+
+    log.info("updating all plugins")
+    for plugin in os.listdir(RECKLESS_CONFIG.reckless_dir):
+        if not (Path(RECKLESS_CONFIG.reckless_dir) / plugin).is_dir():
+            continue
+        if len(plugin) > 0 and plugin[0] == '.':
+            continue
+        update_plugin(plugin)
+
+
 def report_version() -> str:
     """return reckless version"""
     log.info(__VERSION__)
@@ -1762,6 +1813,9 @@ if __name__ == '__main__':
                                         'repository')
     source_rem.add_argument('targets', type=str, nargs='*')
     source_rem.set_defaults(func=remove_source)
+    update = cmd1.add_parser('update', help='update plugins to lastest version')
+    update.add_argument('targets', type=str, nargs='*')
+    update.set_defaults(func=update_plugins)
 
     help_cmd = cmd1.add_parser('help', help='for contextual help, use '
                                '"reckless <cmd> -h"')
@@ -1772,7 +1826,8 @@ if __name__ == '__main__':
                         help='print version and exit')
 
     all_parsers = [parser, install_cmd, uninstall_cmd, search_cmd, enable_cmd,
-                   disable_cmd, list_parse, source_add, source_rem, help_cmd]
+                   disable_cmd, list_parse, source_add, source_rem, help_cmd,
+                   update]
     for p in all_parsers:
         # This default depends on the .lightning directory
         p.add_argument('-d', '--reckless-dir', action=StoreIdempotent,
@@ -1853,19 +1908,25 @@ if __name__ == '__main__':
     if 'GITHUB_API_FALLBACK' in os.environ:
         GITHUB_API_FALLBACK = os.environ['GITHUB_API_FALLBACK']
 
-    if 'targets' in args:
-        # FIXME: Catch missing argument
+    if 'targets' in args: # and len(args.targets) > 0:
         if args.func.__name__ == 'help_alias':
             args.func(args.targets)
             sys.exit(0)
+        # Catch a missing argument so that we can overload functions.
+        if len(args.targets) == 0:
+            args.targets=[None]
         for target in args.targets:
             # Accept single item arguments, or a json array
-            target_list = unpack_json_arg(target)
-            if target_list:
-                for tar in target_list:
-                    log.add_result(args.func(tar))
-            else:
-                log.add_result(args.func(target))
+            try:
+                target_list = unpack_json_arg(target)
+                if target_list:
+                    for tar in target_list:
+                        log.add_result(args.func(tar))
+                else:
+                    log.add_result(args.func(target))
+            except TypeError:
+                if len(args.targets) == 1:
+                    log.add_result(args.func(target))
     elif 'func' in args:
         log.add_result(args.func())
 
