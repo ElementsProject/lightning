@@ -77,4 +77,28 @@ void local_fail_in_htlc_needs_update(struct htlc_in *hin,
 const u8 *failmsg_incorrect_or_unknown(const tal_t *ctx,
 				       struct lightningd *ld,
 				       struct amount_msat msat);
+
+/* For wallet.c to tell us when indexes changed */
+void htlcs_index_deleted(struct lightningd *ld,
+			 const struct channel *channel,
+			 u64 num_deleted);
+
+u64 htlcs_index_created(struct lightningd *ld,
+			u64 htlc_id,
+			const struct channel *channel,
+			const struct sha256 *payment_hash,
+			enum side owner,
+			u32 expiry,
+			struct amount_msat amount,
+			enum htlc_state hstate);
+
+u64 htlcs_index_update_status(struct lightningd *ld,
+			      u64 htlc_id,
+			      const struct channel *channel,
+			      const struct sha256 *payment_hash,
+			      enum side owner,
+			      u32 expiry,
+			      struct amount_msat amount,
+			      enum htlc_state hstate);
+
 #endif /* LIGHTNING_LIGHTNINGD_PEER_HTLCS_H */

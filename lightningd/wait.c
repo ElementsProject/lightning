@@ -23,6 +23,7 @@ static const char *subsystem_names[] = {
 	"forwards",
 	"sendpays",
 	"invoices",
+	"htlcs",
 };
 
 static const char *index_names[] = {
@@ -49,6 +50,7 @@ const char *wait_subsystem_name(enum wait_subsystem subsystem)
 	case WAIT_SUBSYSTEM_FORWARD:
 	case WAIT_SUBSYSTEM_SENDPAY:
 	case WAIT_SUBSYSTEM_INVOICE:
+	case WAIT_SUBSYSTEM_HTLCS:
 		return subsystem_names[subsystem];
 	}
 	abort();
@@ -84,7 +86,9 @@ static void json_add_index(struct command *cmd,
 		return;
 
 	va_copy(ap2, *ap);
-	if (command_deprecated_out_ok(cmd, "details", "v25.05", "v26.05")) {
+	/* "htlcs" never had details field: it came after! */
+	if (subsystem != WAIT_SUBSYSTEM_HTLCS
+	    && command_deprecated_out_ok(cmd, "details", "v25.05", "v26.05")) {
 		json_object_start(response, "details");
 		while ((name = va_arg(*ap, const char *)) != NULL) {
 			value = va_arg(*ap, const char *);
