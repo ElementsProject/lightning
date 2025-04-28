@@ -4342,6 +4342,8 @@ def test_multichan(node_factory, executor, bitcoind):
     assert l1htlcs == l1.rpc.listhtlcs(scid12)['htlcs']
     assert l1htlcs == [{"short_channel_id": scid12,
                         "id": 0,
+                        "created_index": 1,
+                        "updated_index": 9,
                         "expiry": 117,
                         "direction": "out",
                         "amount_msat": Millisatoshi(100001001),
@@ -4349,6 +4351,8 @@ def test_multichan(node_factory, executor, bitcoind):
                         "state": "RCVD_REMOVE_ACK_REVOCATION"},
                        {"short_channel_id": scid12,
                         "id": 1,
+                        "created_index": 2,
+                        "updated_index": 18,
                         "expiry": 117,
                         "direction": "out",
                         "amount_msat": Millisatoshi(100001001),
@@ -4356,6 +4360,8 @@ def test_multichan(node_factory, executor, bitcoind):
                         "state": "RCVD_REMOVE_ACK_REVOCATION"},
                        {"short_channel_id": scid12,
                         "id": 2,
+                        "created_index": 3,
+                        "updated_index": 27,
                         "expiry": 135,
                         "direction": "out",
                         "amount_msat": Millisatoshi(100001001),
@@ -4363,6 +4369,8 @@ def test_multichan(node_factory, executor, bitcoind):
                         "state": "RCVD_REMOVE_ACK_REVOCATION"},
                        {"short_channel_id": scid12,
                         "id": 3,
+                        "created_index": 4,
+                        "updated_index": 36,
                         "expiry": 135,
                         "direction": "out",
                         "amount_msat": Millisatoshi(100001001),
@@ -4373,7 +4381,16 @@ def test_multichan(node_factory, executor, bitcoind):
     for h in l1htlcs:
         h['direction'] = 'in'
         h['state'] = 'SENT_REMOVE_ACK_REVOCATION'
-    assert l2.rpc.listhtlcs(scid12)['htlcs'] == l1htlcs
+        # These won't match!
+        del h['created_index']
+        del h['updated_index']
+
+    l2htlcs = l2.rpc.listhtlcs(scid12)['htlcs']
+    for h in l2htlcs:
+        del h['created_index']
+        del h['updated_index']
+
+    assert l2htlcs == l1htlcs
 
 
 def test_mutual_reconnect_race(node_factory, executor, bitcoind):

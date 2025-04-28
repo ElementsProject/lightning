@@ -8662,6 +8662,10 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListhtlcsHtlcs {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
 	    // Path `ListHtlcs.htlcs[].direction`
 	    pub direction: ListhtlcsHtlcsDirection,
 	    // Path `ListHtlcs.htlcs[].state`

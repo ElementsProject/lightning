@@ -2560,12 +2560,14 @@
         },
         "ListhtlcsHtlcs": {
             "ListHtlcs.htlcs[].amount_msat": 4,
+            "ListHtlcs.htlcs[].created_index": 8,
             "ListHtlcs.htlcs[].direction": 5,
             "ListHtlcs.htlcs[].expiry": 3,
             "ListHtlcs.htlcs[].id": 2,
             "ListHtlcs.htlcs[].payment_hash": 6,
             "ListHtlcs.htlcs[].short_channel_id": 1,
-            "ListHtlcs.htlcs[].state": 7
+            "ListHtlcs.htlcs[].state": 7,
+            "ListHtlcs.htlcs[].updated_index": 9
         },
         "ListhtlcsRequest": {
             "ListHtlcs.id": 1
@@ -9583,6 +9585,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListHtlcs.htlcs[].created_index": {
+            "added": "v25.05",
+            "deprecated": null
+        },
         "ListHtlcs.htlcs[].direction": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -9605,6 +9611,10 @@
         },
         "ListHtlcs.htlcs[].state": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListHtlcs.htlcs[].updated_index": {
+            "added": "v25.05",
             "deprecated": null
         },
         "ListHtlcs.id": {

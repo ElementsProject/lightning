@@ -1715,10 +1715,12 @@ def listhtlcs_htlcs2py(m):
         "direction": str(m.direction),  # EnumField in generate_composite
         "state": str(m.state),  # EnumField in generate_composite
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
         "expiry": m.expiry,  # PrimitiveField in generate_composite
         "id": m.id,  # PrimitiveField in generate_composite
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
         "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
+        "updated_index": m.updated_index,  # PrimitiveField in generate_composite
     })
 
 
