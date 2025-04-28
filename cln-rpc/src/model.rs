@@ -2923,10 +2923,46 @@ pub mod requests {
 	        "listpays"
 	    }
 	}
+	/// ['This controls the ordering of results.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum ListhtlcsIndex {
+	    #[serde(rename = "created")]
+	    CREATED = 0,
+	    #[serde(rename = "updated")]
+	    UPDATED = 1,
+	}
+
+	impl TryFrom<i32> for ListhtlcsIndex {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<ListhtlcsIndex, anyhow::Error> {
+	        match c {
+	    0 => Ok(ListhtlcsIndex::CREATED),
+	    1 => Ok(ListhtlcsIndex::UPDATED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListhtlcsIndex", o)),
+	        }
+	    }
+	}
+
+	impl ToString for ListhtlcsIndex {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListhtlcsIndex::CREATED => "CREATED",
+	            ListhtlcsIndex::UPDATED => "UPDATED",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListhtlcsRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub id: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub index: Option<ListhtlcsIndex>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub limit: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub start: Option<u64>,
 	}
 
 	impl From<ListhtlcsRequest> for Request {

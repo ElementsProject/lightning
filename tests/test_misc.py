@@ -3229,9 +3229,41 @@ def test_listforwards_and_listhtlcs(node_factory, bitcoind):
     l1.wait_channel_active(c23)
     l1.wait_channel_active(c24)
 
+    # All variants of listhlcs will give empty results
+    assert l2.rpc.listhtlcs() == {'htlcs': []}
+    assert l2.rpc.listhtlcs(c12) == {'htlcs': []}
+    assert l2.rpc.listhtlcs(index='created') == {'htlcs': []}
+    assert l2.rpc.listhtlcs(id=c12, index='created') == {'htlcs': []}
+    assert l2.rpc.listhtlcs(index='created', start=2) == {'htlcs': []}
+    assert l2.rpc.listhtlcs(id=c12, index='created', start=2) == {'htlcs': []}
+    assert l2.rpc.listhtlcs(index='updated') == {'htlcs': []}
+    assert l2.rpc.listhtlcs(id=c12, index='updated') == {'htlcs': []}
+    assert l2.rpc.listhtlcs(index='updated', start=1) == {'htlcs': []}
+    assert l2.rpc.listhtlcs(id=c12, index='updated', start=1) == {'htlcs': []}
+    assert l2.rpc.listhtlcs(index='updated', start=2) == {'htlcs': []}
+    assert l2.rpc.listhtlcs(id=c12, index='updated', start=2) == {'htlcs': []}
+    assert l2.rpc.listhtlcs(index='updated', start=1, limit=1) == {'htlcs': []}
+    assert l2.rpc.listhtlcs(id=c12, index='updated', start=1, limit=1) == {'htlcs': []}
+
     # successful payments
     i31 = l3.rpc.invoice(1000, 'i31', 'desc')
     l1.rpc.pay(i31['bolt11'])
+
+    # 1 htlc in, 1 htlc out.
+    assert len(l2.rpc.listhtlcs()['htlcs']) == 2
+    assert len(l2.rpc.listhtlcs(c12)['htlcs']) == 1
+    assert len(l2.rpc.listhtlcs(index='created')['htlcs']) == 2
+    assert len(l2.rpc.listhtlcs(id=c12, index='created')['htlcs']) == 1
+    assert len(l2.rpc.listhtlcs(index='created', start=2)['htlcs']) == 1
+    assert len(l2.rpc.listhtlcs(id=c12, index='created', start=2)['htlcs']) == 0
+    assert len(l2.rpc.listhtlcs(index='updated')['htlcs']) == 2
+    assert len(l2.rpc.listhtlcs(id=c12, index='updated')['htlcs']) == 1
+    assert len(l2.rpc.listhtlcs(index='updated', start=1)['htlcs']) == 2
+    assert len(l2.rpc.listhtlcs(id=c12, index='updated', start=1)['htlcs']) == 1
+    assert len(l2.rpc.listhtlcs(index='updated', start=2)['htlcs']) == 2
+    assert len(l2.rpc.listhtlcs(id=c12, index='updated', start=2)['htlcs']) == 1
+    assert len(l2.rpc.listhtlcs(index='updated', start=1, limit=1)['htlcs']) == 1
+    assert len(l2.rpc.listhtlcs(id=c12, index='updated', start=1, limit=1)['htlcs']) == 1
 
     i41 = l4.rpc.invoice(2000, 'i41', 'desc')
     l1.rpc.pay(i41['bolt11'])
@@ -3316,6 +3348,29 @@ def test_listforwards_and_listhtlcs(node_factory, bitcoind):
     assert len(allhtlcs) == len(parthtlcs)
     for h in allhtlcs:
         assert h in parthtlcs
+
+    # Ordering and limiting should work (with or without channel specified)
+    assert l2.rpc.listhtlcs(index='created', start=1)['htlcs'] == allhtlcs
+    assert l2.rpc.listhtlcs(index='created', start=1, limit=1)['htlcs'] == [allhtlcs[0]]
+    assert l2.rpc.listhtlcs(index='created', start=3, limit=100)['htlcs'] == allhtlcs[2:]
+    assert l2.rpc.listhtlcs(index='created', start=3, limit=1)['htlcs'] == [allhtlcs[2]]
+    assert l2.rpc.listhtlcs(id=c12, index='created', start=1)['htlcs'] == [allhtlcs[0], allhtlcs[2], allhtlcs[4]]
+    assert l2.rpc.listhtlcs(id=c12, index='created', start=2)['htlcs'] == [allhtlcs[2], allhtlcs[4]]
+    assert l2.rpc.listhtlcs(id=c12, index='created', start=2, limit=1)['htlcs'] == [allhtlcs[2]]
+    assert l2.rpc.listhtlcs(id=c12, index='created', start=3, limit=2)['htlcs'] == [allhtlcs[2], allhtlcs[4]]
+
+    # Turns out this order is the same, but updated indexes are larger.
+    # Usually order is the same, but can be different!
+    updatedhtlcs = sorted(allhtlcs, key=lambda htlc: htlc['updated_index'])
+    assert l2.rpc.listhtlcs(index='updated')['htlcs'] == updatedhtlcs
+    assert l2.rpc.listhtlcs(index='updated', start=1, limit=1)['htlcs'] == [updatedhtlcs[0]]
+    assert l2.rpc.listhtlcs(index='updated', start=updatedhtlcs[0]['updated_index'] + 1, limit=100)['htlcs'] == updatedhtlcs[1:]
+    assert l2.rpc.listhtlcs(index='updated', start=updatedhtlcs[1]['updated_index'] + 1, limit=1)['htlcs'] == [updatedhtlcs[2]]
+    c12htlcs = [h for h in updatedhtlcs if h['short_channel_id'] == c12]
+    assert l2.rpc.listhtlcs(id=c12, index='updated', start=c12htlcs[0]['updated_index'])['htlcs'] == c12htlcs
+    assert l2.rpc.listhtlcs(id=c12, index='updated', start=c12htlcs[0]['updated_index'] + 1)['htlcs'] == [c12htlcs[1], c12htlcs[2]]
+    assert l2.rpc.listhtlcs(id=c12, index='updated', start=c12htlcs[2]['updated_index'], limit=1)['htlcs'] == [c12htlcs[2]]
+    assert l2.rpc.listhtlcs(id=c12, index='updated', start=c12htlcs[1]['updated_index'], limit=2)['htlcs'] == [c12htlcs[1], c12htlcs[2]]
 
     # Now, close and forget (first mine c23 close)
     bitcoind.generate_block(1, wait_for_mempool=1)
