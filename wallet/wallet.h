@@ -1691,7 +1691,9 @@ struct wallet_htlc_iter *wallet_htlcs_first(const tal_t *ctx,
 					    enum side *owner,
 					    struct amount_msat *msat,
 					    struct sha256 *payment_hash,
-					    enum htlc_state *hstate);
+					    enum htlc_state *hstate,
+					    u64 *created_index,
+					    u64 *updated_index);
 
 /**
  * Iterate through the htlcs table.
@@ -1709,7 +1711,9 @@ struct wallet_htlc_iter *wallet_htlcs_next(struct wallet *w,
 					   enum side *owner,
 					   struct amount_msat *msat,
 					   struct sha256 *payment_hash,
-					   enum htlc_state *hstate);
+					   enum htlc_state *hstate,
+					   u64 *created_index,
+					   u64 *updated_index);
 
 /* Make a PSBT from these utxos, or enhance @base if non-NULL. */
 struct wally_psbt *psbt_using_utxos(const tal_t *ctx,

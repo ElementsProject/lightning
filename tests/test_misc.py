@@ -3294,13 +3294,18 @@ def test_listforwards_and_listhtlcs(node_factory, bitcoind):
     assert [h['direction'] for h in c1htlcs] == ['out'] * 3
     assert [h['state'] for h in c1htlcs] == ['RCVD_REMOVE_ACK_REVOCATION'] * 3
 
-    # These should be a mirror!
+    # These should be a mirror! (Except indexes)
     c2c1htlcs = l2.rpc.listhtlcs(c12)['htlcs']
     for h in c2c1htlcs:
         assert h['state'] == 'SENT_REMOVE_ACK_REVOCATION'
         assert h['direction'] == 'in'
         h['state'] = 'RCVD_REMOVE_ACK_REVOCATION'
         h['direction'] = 'out'
+        del h['created_index']
+        del h['updated_index']
+    for h in c1htlcs:
+        del h['created_index']
+        del h['updated_index']
     assert c2c1htlcs == c1htlcs
 
     # One channel at a time should result in all htlcs.
@@ -3312,11 +3317,29 @@ def test_listforwards_and_listhtlcs(node_factory, bitcoind):
     for h in allhtlcs:
         assert h in parthtlcs
 
-    # Now, close and forget.
+    # Now, close and forget (first mine c23 close)
+    bitcoind.generate_block(1, wait_for_mempool=1)
     l2.rpc.close(c24)
+    bitcoind.generate_block(1, wait_for_mempool=1)
     l2.rpc.close(c12)
+    # Not actually deleted yet.
+    assert l2.rpc.wait('htlcs', 'deleted', 0)['deleted'] == 0
 
-    bitcoind.generate_block(100, wait_for_mempool=3)
+    # 99 blocks is not enough for them to be deleted.
+    bitcoind.generate_block(97)
+    assert l2.rpc.wait('htlcs', 'deleted', 0)['deleted'] == 0
+
+    # This will forget c23
+    bitcoind.generate_block(1)
+    assert l2.rpc.wait('htlcs', 'deleted', 1)['deleted'] == 1
+
+    # This will forget c24
+    bitcoind.generate_block(1)
+    assert l2.rpc.wait('htlcs', 'deleted', 2)['deleted'] == 2
+
+    # This will forget c12
+    bitcoind.generate_block(1)
+    assert l2.rpc.wait('htlcs', 'deleted', 3)['deleted'] == 5
 
     # Once channels are gone, htlcs are gone.
     for n in (l1, l2, l3, l4):

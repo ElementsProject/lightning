@@ -2313,6 +2313,8 @@ message ListhtlcsHtlcs {
 	ListhtlcsHtlcsDirection direction = 5;
 	bytes payment_hash = 6;
 	HtlcState state = 7;
+	optional uint64 created_index = 8;
+	optional uint64 updated_index = 9;
 }
 
 message MultifundchannelRequest {
