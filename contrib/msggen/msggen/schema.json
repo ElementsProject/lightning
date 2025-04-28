@@ -34748,6 +34748,9 @@
               "1-based index indicating order entry was deleted."
             ]
           },
+          "forwards": {},
+          "invoices": {},
+          "sendpays": {},
           "details": {}
         },
         "allOf": [
@@ -34773,6 +34776,10 @@
                 "details": {
                   "type": "object",
                   "additionalProperties": false,
+                  "deprecated": [
+                    "v25.05",
+                    "v26.05"
+                  ],
                   "properties": {
                     "status": {
                       "type": "string",
@@ -34810,6 +34817,53 @@
                       ]
                     }
                   }
+                },
+                "invoices": {
+                  "type": "object",
+                  "added": "v25.05",
+                  "additionalProperties": false,
+                  "properties": {
+                    "status": {
+                      "added": "v25.05",
+                      "type": "string",
+                      "enum": [
+                        "unpaid",
+                        "paid",
+                        "expired"
+                      ],
+                      "description": [
+                        "Whether it's paid, unpaid or unpayable."
+                      ]
+                    },
+                    "label": {
+                      "added": "v25.05",
+                      "type": "string",
+                      "description": [
+                        "Unique label supplied at invoice creation."
+                      ]
+                    },
+                    "description": {
+                      "added": "v25.05",
+                      "type": "string",
+                      "description": [
+                        "Description used in the invoice."
+                      ]
+                    },
+                    "bolt11": {
+                      "added": "v25.05",
+                      "type": "string",
+                      "description": [
+                        "The BOLT11 string."
+                      ]
+                    },
+                    "bolt12": {
+                      "added": "v25.05",
+                      "type": "string",
+                      "description": [
+                        "The BOLT12 string."
+                      ]
+                    }
+                  }
                 }
               }
             }
@@ -34836,6 +34890,10 @@
                 "details": {
                   "type": "object",
                   "additionalProperties": false,
+                  "deprecated": [
+                    "v25.05",
+                    "v26.05"
+                  ],
                   "properties": {
                     "status": {
                       "type": "string",
@@ -34874,6 +34932,54 @@
                       ]
                     }
                   }
+                },
+                "forwards": {
+                  "added": "v25.05",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "status": {
+                      "added": "v25.05",
+                      "type": "string",
+                      "enum": [
+                        "offered",
+                        "settled",
+                        "failed",
+                        "local_failed"
+                      ],
+                      "description": [
+                        "Still ongoing, completed, failed locally, or failed after forwarding."
+                      ]
+                    },
+                    "in_channel": {
+                      "added": "v25.05",
+                      "type": "short_channel_id",
+                      "description": [
+                        "Unique label supplied at invoice creation."
+                      ]
+                    },
+                    "in_htlc_id": {
+                      "added": "v25.05",
+                      "type": "u64",
+                      "description": [
+                        "The unique HTLC id the sender gave this (not present if incoming channel was closed before upgrade to v22.11)."
+                      ]
+                    },
+                    "in_msat": {
+                      "added": "v25.05",
+                      "type": "msat",
+                      "description": [
+                        "The value of the incoming HTLC."
+                      ]
+                    },
+                    "out_channel": {
+                      "added": "v25.05",
+                      "type": "short_channel_id",
+                      "description": [
+                        "The channel that the HTLC (trying to) forward to."
+                      ]
+                    }
+                  }
                 }
               }
             }
@@ -34900,6 +35006,10 @@
                 "details": {
                   "type": "object",
                   "additionalProperties": false,
+                  "deprecated": [
+                    "v25.05",
+                    "v26.05"
+                  ],
                   "properties": {
                     "status": {
                       "type": "string",
@@ -34925,6 +35035,46 @@
                       ]
                     },
                     "payment_hash": {
+                      "type": "hash",
+                      "description": [
+                        "The hash of the *payment_preimage* which will prove payment."
+                      ]
+                    }
+                  }
+                },
+                "sendpays": {
+                  "type": "object",
+                  "added": "v25.05",
+                  "additionalProperties": false,
+                  "properties": {
+                    "status": {
+                      "added": "v25.05",
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "failed",
+                        "complete"
+                      ],
+                      "description": [
+                        "Status of the payment."
+                      ]
+                    },
+                    "partid": {
+                      "added": "v25.05",
+                      "type": "u64",
+                      "description": [
+                        "Part number (for multiple parts to a single payment)."
+                      ]
+                    },
+                    "groupid": {
+                      "added": "v25.05",
+                      "type": "u64",
+                      "description": [
+                        "Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash."
+                      ]
+                    },
+                    "payment_hash": {
+                      "added": "v25.05",
                       "type": "hash",
                       "description": [
                         "The hash of the *payment_preimage* which will prove payment."
@@ -35009,6 +35159,12 @@
               "partid": 0,
               "groupid": 1,
               "payment_hash": "paymenthashwtspct20101010101010101010101010101010101010101010101"
+            },
+            "sendpays": {
+              "status": "pending",
+              "partid": 0,
+              "groupid": 1,
+              "payment_hash": "paymenthashwtspct20101010101010101010101010101010101010101010101"
             }
           }
         },
@@ -35026,6 +35182,12 @@
             "subsystem": "sendpays",
             "updated": 18,
             "details": {
+              "status": "complete",
+              "partid": 0,
+              "groupid": 1,
+              "payment_hash": "paymenthashwtspct20101010101010101010101010101010101010101010101"
+            },
+            "sendpays": {
               "status": "complete",
               "partid": 0,
               "groupid": 1,

@@ -2842,6 +2842,51 @@ message WaitResponse {
 	optional uint64 updated = 3;
 	optional uint64 deleted = 4;
 	optional WaitDetails details = 5;
+	optional WaitForwards forwards = 6;
+	optional WaitInvoices invoices = 7;
+	optional WaitSendpays sendpays = 8;
+}
+
+message WaitForwards {
+	// Wait.forwards.status
+	enum WaitForwardsStatus {
+		OFFERED = 0;
+		SETTLED = 1;
+		FAILED = 2;
+		LOCAL_FAILED = 3;
+	}
+	optional WaitForwardsStatus status = 1;
+	optional string in_channel = 2;
+	optional uint64 in_htlc_id = 3;
+	optional Amount in_msat = 4;
+	optional string out_channel = 5;
+}
+
+message WaitInvoices {
+	// Wait.invoices.status
+	enum WaitInvoicesStatus {
+		UNPAID = 0;
+		PAID = 1;
+		EXPIRED = 2;
+	}
+	optional WaitInvoicesStatus status = 1;
+	optional string label = 2;
+	optional string description = 3;
+	optional string bolt11 = 4;
+	optional string bolt12 = 5;
+}
+
+message WaitSendpays {
+	// Wait.sendpays.status
+	enum WaitSendpaysStatus {
+		PENDING = 0;
+		FAILED = 1;
+		COMPLETE = 2;
+	}
+	optional WaitSendpaysStatus status = 1;
+	optional uint64 partid = 2;
+	optional uint64 groupid = 3;
+	optional bytes payment_hash = 4;
 }
 
 message WaitDetails {

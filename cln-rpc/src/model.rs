@@ -9581,6 +9581,152 @@ pub mod responses {
 	    pub status: Option<WaitDetailsStatus>,
 	}
 
+	/// ['Still ongoing, completed, failed locally, or failed after forwarding.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum WaitForwardsStatus {
+	    #[serde(rename = "offered")]
+	    OFFERED = 0,
+	    #[serde(rename = "settled")]
+	    SETTLED = 1,
+	    #[serde(rename = "failed")]
+	    FAILED = 2,
+	    #[serde(rename = "local_failed")]
+	    LOCAL_FAILED = 3,
+	}
+
+	impl TryFrom<i32> for WaitForwardsStatus {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<WaitForwardsStatus, anyhow::Error> {
+	        match c {
+	    0 => Ok(WaitForwardsStatus::OFFERED),
+	    1 => Ok(WaitForwardsStatus::SETTLED),
+	    2 => Ok(WaitForwardsStatus::FAILED),
+	    3 => Ok(WaitForwardsStatus::LOCAL_FAILED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitForwardsStatus", o)),
+	        }
+	    }
+	}
+
+	impl ToString for WaitForwardsStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            WaitForwardsStatus::OFFERED => "OFFERED",
+	            WaitForwardsStatus::SETTLED => "SETTLED",
+	            WaitForwardsStatus::FAILED => "FAILED",
+	            WaitForwardsStatus::LOCAL_FAILED => "LOCAL_FAILED",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct WaitForwards {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub in_channel: Option<ShortChannelId>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub in_htlc_id: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub in_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub out_channel: Option<ShortChannelId>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub status: Option<WaitForwardsStatus>,
+	}
+
+	/// ["Whether it's paid, unpaid or unpayable."]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum WaitInvoicesStatus {
+	    #[serde(rename = "unpaid")]
+	    UNPAID = 0,
+	    #[serde(rename = "paid")]
+	    PAID = 1,
+	    #[serde(rename = "expired")]
+	    EXPIRED = 2,
+	}
+
+	impl TryFrom<i32> for WaitInvoicesStatus {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<WaitInvoicesStatus, anyhow::Error> {
+	        match c {
+	    0 => Ok(WaitInvoicesStatus::UNPAID),
+	    1 => Ok(WaitInvoicesStatus::PAID),
+	    2 => Ok(WaitInvoicesStatus::EXPIRED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitInvoicesStatus", o)),
+	        }
+	    }
+	}
+
+	impl ToString for WaitInvoicesStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            WaitInvoicesStatus::UNPAID => "UNPAID",
+	            WaitInvoicesStatus::PAID => "PAID",
+	            WaitInvoicesStatus::EXPIRED => "EXPIRED",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct WaitInvoices {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bolt11: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bolt12: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub status: Option<WaitInvoicesStatus>,
+	}
+
+	/// ['Status of the payment.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum WaitSendpaysStatus {
+	    #[serde(rename = "pending")]
+	    PENDING = 0,
+	    #[serde(rename = "failed")]
+	    FAILED = 1,
+	    #[serde(rename = "complete")]
+	    COMPLETE = 2,
+	}
+
+	impl TryFrom<i32> for WaitSendpaysStatus {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<WaitSendpaysStatus, anyhow::Error> {
+	        match c {
+	    0 => Ok(WaitSendpaysStatus::PENDING),
+	    1 => Ok(WaitSendpaysStatus::FAILED),
+	    2 => Ok(WaitSendpaysStatus::COMPLETE),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitSendpaysStatus", o)),
+	        }
+	    }
+	}
+
+	impl ToString for WaitSendpaysStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            WaitSendpaysStatus::PENDING => "PENDING",
+	            WaitSendpaysStatus::FAILED => "FAILED",
+	            WaitSendpaysStatus::COMPLETE => "COMPLETE",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct WaitSendpays {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub groupid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub partid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_hash: Option<Sha256>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub status: Option<WaitSendpaysStatus>,
+	}
+
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
 	pub enum WaitSubsystem {
@@ -9616,12 +9762,19 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitResponse {
+	    #[deprecated]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub details: Option<WaitDetails>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub created: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub deleted: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub details: Option<WaitDetails>,
+	    pub forwards: Option<WaitForwards>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub invoices: Option<WaitInvoices>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub sendpays: Option<WaitSendpays>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub updated: Option<u64>,
 	    // Path `Wait.subsystem`

@@ -68,28 +68,49 @@ static u64 *wait_index_ptr(struct lightningd *ld,
 	return &indexes->i[index];
 }
 
-static void json_add_index(struct json_stream *response,
+static void json_add_index(struct command *cmd,
+			   struct json_stream *response,
 			   enum wait_subsystem subsystem,
 			   enum wait_index index,
 			   u64 val,
 			   va_list *ap)
 {
 	const char *name, *value;
+	va_list ap2;
 	json_add_string(response, "subsystem", wait_subsystem_name(subsystem));
 	json_add_u64(response, wait_index_name(index), val);
 
 	if (!ap)
 		return;
 
-	json_object_start(response, "details");
-	while ((name = va_arg(*ap, const char *)) != NULL) {
-		value = va_arg(*ap, const char *);
+	va_copy(ap2, *ap);
+	if (command_deprecated_out_ok(cmd, "details", "v25.05", "v26.05")) {
+		json_object_start(response, "details");
+		while ((name = va_arg(*ap, const char *)) != NULL) {
+			value = va_arg(*ap, const char *);
+			if (!value)
+				continue;
+
+			/* This is a hack! */
+			if (name[0] == '=') {
+				/* Copy in literallty! */
+				json_add_jsonstr(response, name + 1, value, strlen(value));
+			} else {
+				json_add_string(response, name, value);
+			}
+		}
+		json_object_end(response);
+	}
+
+	json_object_start(response, wait_subsystem_name(subsystem));
+	while ((name = va_arg(ap2, const char *)) != NULL) {
+		value = va_arg(ap2, const char *);
 		if (!value)
 			continue;
 
 		/* This is a hack! */
 		if (name[0] == '=') {
-			/* Copy in literallty! */
+			/* Copy in literally! */
 			json_add_jsonstr(response, name + 1, value, strlen(value));
 		} else {
 			json_add_string(response, name, value);
@@ -131,7 +152,7 @@ u64 wait_index_increment(struct lightningd *ld,
 
 		response = json_stream_success(i->cmd);
 		va_start(ap, index);
-		json_add_index(response, subsystem, index, *idxval, &ap);
+		json_add_index(i->cmd, response, subsystem, index, *idxval, &ap);
 		va_end(ap);
 		/* Delete before freeing */
 		list_del_from(&ld->wait_commands, &i->list);
@@ -199,7 +220,7 @@ static struct command_result *json_wait(struct command *cmd,
 		struct json_stream *response;
 
 		response = json_stream_success(cmd);
-		json_add_index(response,
+		json_add_index(cmd, response,
 			       *waiter->subsystem,
 			       *waiter->index,
 			       val, NULL);
