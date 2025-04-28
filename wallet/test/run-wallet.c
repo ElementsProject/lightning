@@ -2160,6 +2160,7 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	struct htlc_in_map *htlcs_in = tal(ctx, struct htlc_in_map), *rem;
 	struct htlc_out_map *htlcs_out = tal(ctx, struct htlc_out_map);
 	struct onionreply *onionreply;
+	bool we_filled = false;
 
 	/* Make sure we have our references correct */
 	db_begin_transaction(w->db);
@@ -2199,17 +2200,17 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	wallet_err = tal_free(wallet_err);
 
 	/* Update */
-	CHECK_MSG(transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, RCVD_ADD_HTLC, NULL, 0, 0, NULL, NULL, false)),
+	CHECK_MSG(transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, RCVD_ADD_HTLC, NULL, 0, 0, NULL, NULL, &we_filled)),
 		  "Update HTLC with null payment_key failed");
 	CHECK_MSG(
-		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, &payment_key, 0, 0, NULL, NULL, false)),
+		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, &payment_key, 0, 0, NULL, NULL, &we_filled)),
 	    "Update HTLC with payment_key failed");
 	onionreply = new_onionreply(tmpctx, tal_arrz(tmpctx, u8, 100));
 	CHECK_MSG(
-		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, 0, onionreply, NULL, false)),
+		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, 0, onionreply, NULL, &we_filled)),
 	    "Update HTLC with failonion failed");
 	CHECK_MSG(
-		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, WIRE_INVALID_ONION_VERSION, NULL, NULL, false)),
+		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, WIRE_INVALID_ONION_VERSION, NULL, NULL, &we_filled)),
 	    "Update HTLC with failcode failed");
 
 	CHECK_MSG(transaction_wrap(w->db, wallet_htlc_save_out(w, chan, &out)),
@@ -2221,7 +2222,7 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK(wallet_err);
 	wallet_err = tal_free(wallet_err);
 	CHECK_MSG(
-		transaction_wrap(w->db, wallet_htlc_update(w, out.dbid, SENT_ADD_ACK_REVOCATION, NULL, 0, 0, NULL, tal_arrz(tmpctx, u8, 100), false)),
+		transaction_wrap(w->db, wallet_htlc_update(w, out.dbid, SENT_ADD_ACK_REVOCATION, NULL, 0, 0, NULL, tal_arrz(tmpctx, u8, 100), &we_filled)),
 	    "Update outgoing HTLC with failmsg failed");
 
 	/* Attempt to load them from the DB again */
