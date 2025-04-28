@@ -221,6 +221,10 @@
             "SENT_REMOVE_HTLC": 15,
             "SENT_REMOVE_REVOCATION": 7
         },
+        "ListhtlcsIndex": {
+            "created": 0,
+            "updated": 1
+        },
         "ListinvoicesIndex": {
             "created": 0,
             "updated": 1
@@ -2570,7 +2574,10 @@
             "ListHtlcs.htlcs[].updated_index": 9
         },
         "ListhtlcsRequest": {
-            "ListHtlcs.id": 1
+            "ListHtlcs.id": 1,
+            "ListHtlcs.index": 2,
+            "ListHtlcs.limit": 4,
+            "ListHtlcs.start": 3
         },
         "ListhtlcsResponse": {
             "ListHtlcs.htlcs[]": 1
@@ -9619,6 +9626,18 @@
         },
         "ListHtlcs.id": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListHtlcs.index": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "ListHtlcs.limit": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "ListHtlcs.start": {
+            "added": "v25.05",
             "deprecated": null
         },
         "ListInvoiceRequests": {

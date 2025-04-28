@@ -6192,6 +6192,9 @@ struct wallet_htlc_iter {
 struct wallet_htlc_iter *wallet_htlcs_first(const tal_t *ctx,
 					    struct wallet *w,
 					    const struct channel *chan,
+					    const enum wait_index *listindex,
+					    u64 liststart,
+					    const u32 *listlimit,
 					    struct short_channel_id *scid,
 					    u64 *htlc_id,
 					    int *cltv_expiry,
@@ -6209,7 +6212,8 @@ struct wallet_htlc_iter *wallet_htlcs_first(const tal_t *ctx,
 		assert(i->scid.u64 != 0);
 		assert(chan->dbid != 0);
 
-		i->stmt = db_prepare_v2(w->db,
+		if (listindex && *listindex == WAIT_INDEX_UPDATED) {
+			i->stmt = db_prepare_v2(w->db,
 					SQL("SELECT h.channel_htlc_id"
 					    ", h.cltv_expiry"
 					    ", h.direction"
@@ -6220,11 +6224,32 @@ struct wallet_htlc_iter *wallet_htlcs_first(const tal_t *ctx,
 					    ", h.updated_index"
 					    " FROM channel_htlcs h"
 					    " WHERE channel_id = ?"
-					    " ORDER BY id ASC"));
+					    " AND"
+					    "  updated_index >= ?"
+					    " ORDER BY h.updated_index ASC"
+					    " LIMIT ?;"));
+		} else {
+			i->stmt = db_prepare_v2(w->db,
+					SQL("SELECT h.channel_htlc_id"
+					    ", h.cltv_expiry"
+					    ", h.direction"
+					    ", h.msatoshi"
+					    ", h.payment_hash"
+					    ", h.hstate"
+					    ", h.id"
+					    ", h.updated_index"
+					    " FROM channel_htlcs h"
+					    " WHERE channel_id = ?"
+					    " AND"
+					    "  id >= ?"
+					    " ORDER BY h.id ASC"
+					    " LIMIT ?;"));
+		}
 		db_bind_u64(i->stmt, chan->dbid);
 	} else {
 		i->scid.u64 = 0;
-		i->stmt = db_prepare_v2(w->db,
+		if (listindex && *listindex == WAIT_INDEX_UPDATED) {
+			i->stmt = db_prepare_v2(w->db,
 					SQL("SELECT channels.scid"
 					    ", channels.alias_local"
 					    ", h.channel_htlc_id"
@@ -6237,8 +6262,34 @@ struct wallet_htlc_iter *wallet_htlcs_first(const tal_t *ctx,
 					    ", h.updated_index"
 					    " FROM channel_htlcs h"
 					    " JOIN channels ON channels.id = h.channel_id"
-					    " ORDER BY h.id ASC"));
+					    " WHERE h.updated_index >= ?"
+					    " ORDER BY h.updated_index ASC"
+					    " LIMIT ?;"));
+		} else {
+			i->stmt = db_prepare_v2(w->db,
+					SQL("SELECT channels.scid"
+					    ", channels.alias_local"
+					    ", h.channel_htlc_id"
+					    ", h.cltv_expiry"
+					    ", h.direction"
+					    ", h.msatoshi"
+					    ", h.payment_hash"
+					    ", h.hstate"
+					    ", h.id"
+					    ", h.updated_index"
+					    " FROM channel_htlcs h"
+					    " JOIN channels ON channels.id = h.channel_id"
+					    " WHERE h.id >= ?"
+					    " ORDER BY h.id ASC"
+					    " LIMIT ?;"));
+		}
 	}
+	db_bind_u64(i->stmt, liststart);
+	if (listlimit)
+		db_bind_int(i->stmt, *listlimit);
+	else
+		db_bind_int(i->stmt, INT_MAX);
+
 	/* FIXME: db_prepare should take ctx! */
 	tal_steal(i, i->stmt);
 	db_query_prepared(i->stmt);

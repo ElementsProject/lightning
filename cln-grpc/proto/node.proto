@@ -2293,7 +2293,15 @@ message ListpaysPays {
 }
 
 message ListhtlcsRequest {
+	// ListHtlcs.index
+	enum ListhtlcsIndex {
+		CREATED = 0;
+		UPDATED = 1;
+	}
 	optional string id = 1;
+	optional ListhtlcsIndex index = 2;
+	optional uint64 start = 3;
+	optional uint32 limit = 4;
 }
 
 message ListhtlcsResponse {
