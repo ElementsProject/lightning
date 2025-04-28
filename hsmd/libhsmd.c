@@ -2348,10 +2348,8 @@ u8 *hsmd_init(struct secret hsm_secret, const u64 hsmd_version,
 		WIRE_HSMD_REVOKE_COMMITMENT_TX,
 		WIRE_HSMD_SIGN_BOLT12_2,
 		WIRE_HSMD_BIP137_SIGN_MESSAGE,
-		WIRE_HSMD_PREAPPROVE_INVOICE_CHECK,
-		WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK,
 	};
-	const u32 *caps;
+	u32 *caps;
 
 	/*~ Don't swap this. */
 	sodium_mlock(secretstuff.hsm_secret.data,
@@ -2474,14 +2472,11 @@ u8 *hsmd_init(struct secret hsm_secret, const u64 hsmd_version,
 		    "derived secrets", strlen("derived secrets"));
 
 	/* Capabilities arg needs to be a tal array */
-	if (dev_no_preapprove_check) {
-		/* Skip preapprove capabilities */
-		caps = tal_dup_arr(tmpctx, u32,
-				   capabilities, ARRAY_SIZE(capabilities) - 2,
-				   0);
-	} else {
-		caps = tal_dup_arr(tmpctx, u32,
-				   capabilities, ARRAY_SIZE(capabilities), 0);
+	caps =
+	    tal_dup_arr(tmpctx, u32, capabilities, ARRAY_SIZE(capabilities), 0);
+	if (!dev_no_preapprove_check) {
+		tal_arr_expand(&caps, WIRE_HSMD_PREAPPROVE_INVOICE_CHECK);
+		tal_arr_expand(&caps, WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK);
 	}
 
 	/*~ Note: marshalling a bip32 tree only marshals the public side,
