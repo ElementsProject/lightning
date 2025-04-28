@@ -94,7 +94,7 @@ void delete_channel(struct channel *channel STEALS)
 
 	struct peer *peer = channel->peer;
 	if (channel->dbid != 0)
-		wallet_channel_close(channel->peer->ld->wallet, channel->dbid);
+		wallet_channel_close(channel->peer->ld->wallet, channel);
 
 	/* Tell the hsm to forget the channel, needs to be after it's
 	 * been forgotten here */
