@@ -727,8 +727,10 @@ maintainer-clean: distclean
 	$(RM) $(PYTHON_GENERATED)
 
 # We used to have gen_ files, now we have _gen files.
+# We used to generate doc/schemas/lightning-sql.json.
 obsclean:
 	$(RM) gen_*.h */gen_*.[ch] */*/gen_*.[ch]
+	$(RM) doc/schemas/lightning-sql.json
 
 clean: obsclean
 	$(RM) libccan.a $(CCAN_OBJS) $(CDUMP_OBJS) $(ALL_OBJS)
