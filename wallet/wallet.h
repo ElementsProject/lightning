@@ -696,7 +696,8 @@ void wallet_channel_clear_inflights(struct wallet *w,
 /**
  * After fully resolving a channel, only keep a lightweight stub
  */
-void wallet_channel_close(struct wallet *w, u64 wallet_id);
+void wallet_channel_close(struct wallet *w,
+			  const struct channel *chan);
 
 /**
  * Adds a channel state change history entry into the database
@@ -803,6 +804,11 @@ void wallet_htlc_save_out(struct wallet *wallet,
  * @failonion: the current failure onion message (from peer), or NULL.
  * @failmsg: the current local failure message, or NULL.
  * @we_filled: for htlc-ins, true if we originated the preimage.
+ * @htlc_id: the HTLC number from update_add_htlc.
+ * @scid: the short_channel_id it relates to
+ * @payment_hash: the payment hash
+ * @expiry: the cltv_expiry from update_add_htlc
+ * @amount: the amount from update_add_htlc.
  *
  * Used to update the state of an HTLC, either a `struct htlc_in` or a
  * `struct htlc_out` and optionally set the `payment_key` should the
@@ -815,7 +821,13 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			enum onion_wire badonion,
 			const struct onionreply *failonion,
 			const u8 *failmsg,
-			bool *we_filled);
+			const bool *we_filled,
+			u64 htlc_id,
+			const struct channel *channel,
+			enum side owner,
+			const struct sha256 *payment_hash,
+			u32 expiry,
+			struct amount_msat amount);
 
 /**
  * wallet_htlcs_load_in_for_channel - Load incoming HTLCs associated with chan from DB.

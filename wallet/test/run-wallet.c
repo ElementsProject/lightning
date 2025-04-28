@@ -2151,8 +2151,8 @@ static bool test_channel_config_crud(struct lightningd *ld, const tal_t *ctx)
 static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 {
 	struct db_stmt *stmt;
-	struct htlc_in in, *hin;
-	struct htlc_out out, *hout;
+	struct htlc_in in, in2, *hin;
+	struct htlc_out out, out2, *hout;
 	struct preimage payment_key;
 	struct channel *chan = tal(ctx, struct channel);
 	struct peer *peer = talz(ctx, struct peer);
@@ -2174,55 +2174,61 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	chan->state = CHANNELD_NORMAL;
 	chan->peer = peer;
 	chan->next_index[LOCAL] = chan->next_index[REMOTE] = 1;
+	chan->scid = tal(chan, struct short_channel_id);
 
 	memset(&in, 0, sizeof(in));
 	memset(&out, 0, sizeof(out));
 	memset(&in.payment_hash, 'A', sizeof(struct sha256));
 	memset(&out.payment_hash, 'A', sizeof(struct sha256));
 	memset(&payment_key, 'B', sizeof(payment_key));
+	assert(mk_short_channel_id(chan->scid, 1, 2, 3));
 	in.key.id = 42;
 	in.key.channel = chan;
+	in.cltv_expiry = 42;
 	in.msat = AMOUNT_MSAT(42);
 
 	out.in = &in;
 	out.key.id = 1337;
 	out.key.channel = chan;
+	out.cltv_expiry = 41;
 	out.msat = AMOUNT_MSAT(41);
 
 	/* Store the htlc_in */
 	CHECK_MSG(transaction_wrap(w->db, wallet_htlc_save_in(w, chan, &in)),
 		  tal_fmt(ctx, "Save htlc_in failed: %s", wallet_err));
 	CHECK_MSG(in.dbid != 0, "HTLC DB ID was not set.");
-	/* Saving again should get us a collision */
-	CHECK_MSG(!transaction_wrap(w->db, wallet_htlc_save_in(w, chan, &in)),
+	in2 = in;
+	/* Saving again should get us a collision (but overwrites dbid!) */
+	CHECK_MSG(!transaction_wrap(w->db, wallet_htlc_save_in(w, chan, &in2)),
 		  "Saving two HTLCs with the same data must not succeed.");
 	CHECK(wallet_err);
 	wallet_err = tal_free(wallet_err);
 
 	/* Update */
-	CHECK_MSG(transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, RCVD_ADD_HTLC, NULL, 0, 0, NULL, NULL, &we_filled)),
+	CHECK_MSG(transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, RCVD_ADD_HTLC, NULL, 0, 0, NULL, NULL, &we_filled, in.key.id, in.key.channel, REMOTE, &in.payment_hash, in.cltv_expiry, in.msat)),
 		  "Update HTLC with null payment_key failed");
 	CHECK_MSG(
-		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, &payment_key, 0, 0, NULL, NULL, &we_filled)),
+		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, &payment_key, 0, 0, NULL, NULL, &we_filled, in.key.id, in.key.channel, REMOTE, &in.payment_hash, in.cltv_expiry, in.msat)),
 	    "Update HTLC with payment_key failed");
 	onionreply = new_onionreply(tmpctx, tal_arrz(tmpctx, u8, 100));
 	CHECK_MSG(
-		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, 0, onionreply, NULL, &we_filled)),
+		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, 0, onionreply, NULL, &we_filled, in.key.id, in.key.channel, REMOTE, &in.payment_hash, in.cltv_expiry, in.msat)),
 	    "Update HTLC with failonion failed");
 	CHECK_MSG(
-		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, WIRE_INVALID_ONION_VERSION, NULL, NULL, &we_filled)),
+		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, WIRE_INVALID_ONION_VERSION, NULL, NULL, &we_filled, in.key.id, in.key.channel, REMOTE, &in.payment_hash, in.cltv_expiry, in.msat)),
 	    "Update HTLC with failcode failed");
 
 	CHECK_MSG(transaction_wrap(w->db, wallet_htlc_save_out(w, chan, &out)),
 		  tal_fmt(ctx, "Save htlc_out failed: %s", wallet_err));
 	CHECK_MSG(out.dbid != 0, "HTLC DB ID was not set.");
 
-	CHECK_MSG(!transaction_wrap(w->db, wallet_htlc_save_out(w, chan, &out)),
+	out2 = out;
+	CHECK_MSG(!transaction_wrap(w->db, wallet_htlc_save_out(w, chan, &out2)),
 		  "Saving two HTLCs with the same data must not succeed.");
 	CHECK(wallet_err);
 	wallet_err = tal_free(wallet_err);
 	CHECK_MSG(
-		transaction_wrap(w->db, wallet_htlc_update(w, out.dbid, SENT_ADD_ACK_REVOCATION, NULL, 0, 0, NULL, tal_arrz(tmpctx, u8, 100), &we_filled)),
+		transaction_wrap(w->db, wallet_htlc_update(w, out.dbid, SENT_ADD_ACK_REVOCATION, NULL, 0, 0, NULL, tal_arrz(tmpctx, u8, 100), &we_filled, out.key.id, out.key.channel, REMOTE, &out.payment_hash, out.cltv_expiry, out.msat)),
 	    "Update outgoing HTLC with failmsg failed");
 
 	/* Attempt to load them from the DB again */
@@ -2340,6 +2346,8 @@ int main(int argc, const char *argv[])
 	ld = tal(tmpctx, struct lightningd);
 	ld->config = test_config;
 	ld->hsm_capabilities = NULL;
+	memset(&ld->indexes[WAIT_SUBSYSTEM_HTLCS], 0,
+	       sizeof(ld->indexes[WAIT_SUBSYSTEM_HTLCS]));
 
 	/* Only elements in ld we should access */
 	ld->peers = tal(ld, struct peer_node_id_map);

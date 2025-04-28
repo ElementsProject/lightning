@@ -3427,6 +3427,85 @@ def test_listforwards_wait(node_factory, executor):
                                     'status': 'failed'}}
 
 
+def test_listhtlcs_wait(node_factory, bitcoind, executor):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    scid12 = first_scid(l1, l2)
+    scid23 = first_scid(l2, l3)
+    waitres = l1.rpc.wait(subsystem='htlcs', indexname='created', nextvalue=0)
+    assert waitres == {'subsystem': 'htlcs',
+                       'created': 0}
+
+    # Now ask for 1.
+    waitcreate = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='created', nextvalue=1)
+    waitupdate = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='updated', nextvalue=1)
+    time.sleep(1)
+
+    amt1 = 1000
+    inv1 = l3.rpc.invoice(amt1, 'inv1', 'desc')
+    l1.rpc.pay(inv1['bolt11'])
+
+    waitres = waitcreate.result(TIMEOUT)
+    assert waitres == {'subsystem': 'htlcs',
+                       'created': 1,
+                       'htlcs': {'short_channel_id': scid12,
+                                 'cltv_expiry': 120,
+                                 'direction': 'in',
+                                 'htlc_id': 0,
+                                 'payment_hash': inv1['payment_hash'],
+                                 'amount_msat': amt1 + 1,
+                                 'state': 'RCVD_ADD_COMMIT'}}
+    waitres = waitupdate.result(TIMEOUT)
+    assert waitres == {'subsystem': 'htlcs',
+                       'updated': 1,
+                       'htlcs': {'short_channel_id': scid12,
+                                 'cltv_expiry': 120,
+                                 'direction': 'in',
+                                 'htlc_id': 0,
+                                 'payment_hash': inv1['payment_hash'],
+                                 'amount_msat': amt1 + 1,
+                                 'state': 'SENT_ADD_REVOCATION'}}
+
+    # There's a second new one too, for the outgoing, but we missed details
+    assert l2.rpc.wait(subsystem='htlcs', indexname='created', nextvalue=2) == {'created': 2, 'subsystem': 'htlcs'}
+
+    # Now check failure, and wait for OUTGOING.
+    amt2 = 42
+    inv2 = l3.rpc.invoice(amt2, 'inv2', 'invdesc2')
+    l3.rpc.delinvoice('inv2', 'unpaid')
+
+    waitcreate = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='created', nextvalue=4)
+    time.sleep(1)
+
+    with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
+        l1.rpc.pay(inv2['bolt11'])
+
+    waitres = waitcreate.result(TIMEOUT)
+    assert waitres == {'subsystem': 'htlcs',
+                       'created': 4,
+                       'htlcs': {'short_channel_id': scid23,
+                                 'cltv_expiry': 114,
+                                 'direction': 'out',
+                                 'htlc_id': 1,
+                                 'payment_hash': inv2['payment_hash'],
+                                 'amount_msat': amt2,
+                                 'state': 'SENT_ADD_HTLC'}}
+
+    # Finally, check deletion (only when channel finally forgotten)
+    l1.rpc.close(l2.info['id'])
+
+    waitfut = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='deleted', nextvalue=1)
+    time.sleep(1)
+
+    bitcoind.generate_block(100, wait_for_mempool=1)
+
+    waitres = waitfut.result(TIMEOUT)
+    # Both will be deleted at once!  We just get told the channel.
+    assert waitres == {'subsystem': 'htlcs',
+                       'deleted': 2,
+                       'htlcs': {'short_channel_id': scid12}}
+
+
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "modifies database, which is assumed sqlite3")
 def test_listforwards_ancient(node_factory, bitcoind):
     """Test listforwards command with old records."""
