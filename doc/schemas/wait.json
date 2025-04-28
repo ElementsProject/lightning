@@ -21,12 +21,14 @@
           "The subsystem to get the next index value from.",
           "  `invoices`: corresponding to `listinvoices` (added in *v23.08*).",
           "  `sendpays`: corresponding to `listsendpays` (added in *v23.11*).",
-          "  `forwards`: corresponding to `listforwards` (added in *v23.11*)."
+          "  `forwards`: corresponding to `listforwards` (added in *v23.11*).",
+          "  `htlcs`: corresponding to `listhtlcs` (added in *v25.05*)."
         ],
         "enum": [
           "invoices",
           "forwards",
-          "sendpays"
+          "sendpays",
+          "htlcs"
         ]
       },
       "indexname": {
@@ -62,7 +64,8 @@
         "enum": [
           "invoices",
           "forwards",
-          "sendpays"
+          "sendpays",
+          "htlcs"
         ]
       },
       "created": {
@@ -86,6 +89,7 @@
       "forwards": {},
       "invoices": {},
       "sendpays": {},
+      "htlcs": {},
       "details": {}
     },
     "allOf": [
@@ -419,11 +423,115 @@
             }
           }
         }
+      },
+      {
+        "if": {
+          "additionalProperties": true,
+          "properties": {
+            "subsystem": {
+              "type": "string",
+              "enum": [
+                "htlcs"
+              ]
+            }
+          }
+        },
+        "then": {
+          "additionalProperties": false,
+          "properties": {
+            "subsystem": {},
+            "created": {},
+            "updated": {},
+            "deleted": {},
+            "htlcs": {
+              "added": "v25.05",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "SENT_ADD_HTLC",
+                    "SENT_ADD_COMMIT",
+                    "RCVD_ADD_REVOCATION",
+                    "RCVD_ADD_ACK_COMMIT",
+                    "SENT_ADD_ACK_REVOCATION",
+                    "RCVD_REMOVE_HTLC",
+                    "RCVD_REMOVE_COMMIT",
+                    "SENT_REMOVE_REVOCATION",
+                    "SENT_REMOVE_ACK_COMMIT",
+                    "RCVD_REMOVE_ACK_REVOCATION",
+                    "RCVD_ADD_HTLC",
+                    "RCVD_ADD_COMMIT",
+                    "SENT_ADD_REVOCATION",
+                    "SENT_ADD_ACK_COMMIT",
+                    "RCVD_ADD_ACK_REVOCATION",
+                    "SENT_REMOVE_HTLC",
+                    "SENT_REMOVE_COMMIT",
+                    "RCVD_REMOVE_REVOCATION",
+                    "RCVD_REMOVE_ACK_COMMIT",
+                    "SENT_REMOVE_ACK_REVOCATION"
+                  ],
+                  "added": "v25.05",
+                  "description": [
+                    "The first 10 states are for `in`, the next 10 are for `out`."
+                  ]
+                },
+                "htlc_id": {
+                  "added": "v25.05",
+                  "type": "u64",
+                  "description": [
+                    "The `id` field which uniquely identifies this HTLC for this channel and direction."
+                  ]
+                },
+                "short_channel_id": {
+                  "added": "v25.05",
+                  "type": "short_channel_id",
+                  "description": [
+                    "The channel that contains/contained the HTLC."
+                  ]
+                },
+                "cltv_expiry": {
+                  "added": "v25.05",
+                  "type": "u32",
+                  "description": [
+                    "The block number where this HTLC expires/expired."
+                  ]
+                },
+                "amount_msat": {
+                  "type": "msat",
+                  "added": "v25.05",
+                  "description": [
+                    "The value of the HTLC."
+                  ]
+                },
+                "direction": {
+                  "type": "string",
+                  "added": "v25.05",
+                  "enum": [
+                    "out",
+                    "in"
+                  ],
+                  "description": [
+                    "Out if we offered this to the peer, in if they offered it."
+                  ]
+                },
+                "payment_hash": {
+                  "added": "v25.05",
+                  "type": "hash",
+                  "description": [
+                    "Payment hash sought by HTLC."
+                  ]
+                }
+              }
+            }
+          }
+        }
       }
     ]
   },
   "reliability": [
-    "Indices can go forward by more than one; in particlar, if multiple objects were created and the one deleted, you could see this effect. Similarly, there are some places (e.g. invoice expiration) where we can update multiple entries at once.",
+    "Indices can go forward by more than one; in particular, if multiple objects were created and the one deleted, you could see this effect (a channel closing will delete all the htlcs, for example).  You can also see if it changes happen more rapidly than you can call wait again.",
     "",
     "Indices only monotoncally increase."
   ],
@@ -455,7 +563,8 @@
   "see_also": [
     "lightning-listinvoices(7)",
     "lightning-listforwards(7)",
-    "lightning-listsendpays(7)"
+    "lightning-listsendpays(7)",
+    "lightning-listhtlcs(7)"
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
