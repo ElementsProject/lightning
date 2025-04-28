@@ -58,6 +58,11 @@ Other commands include:
 **reckless** **source** **rm** *repo\_url*
 	remove a plugin repo for reckless to search.
 
+**reckless** **update** *[plugin\_name]*
+	install the latest commit of a single plugin, or omit to update all
+	reckless-installed plugins.  Does not automatically update if a plugin
+	was previously installed by requesting a specific git tag or commit.
+
 OPTIONS
 -------
 
