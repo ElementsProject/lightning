@@ -3360,19 +3360,19 @@ def test_listforwards_wait(node_factory, executor):
     waitres = waitcreate.result(TIMEOUT)
     assert waitres == {'subsystem': 'forwards',
                        'created': 1,
-                       'details': {'in_channel': scid12,
-                                   'in_htlc_id': 0,
-                                   'in_msat': Millisatoshi(amt1 + 1),
-                                   'out_channel': scid23,
-                                   'status': 'offered'}}
+                       'forwards': {'in_channel': scid12,
+                                    'in_htlc_id': 0,
+                                    'in_msat': Millisatoshi(amt1 + 1),
+                                    'out_channel': scid23,
+                                    'status': 'offered'}}
     waitres = waitupdate.result(TIMEOUT)
     assert waitres == {'subsystem': 'forwards',
                        'updated': 1,
-                       'details': {'in_channel': scid12,
-                                   'in_htlc_id': 0,
-                                   'in_msat': Millisatoshi(amt1 + 1),
-                                   'out_channel': scid23,
-                                   'status': 'settled'}}
+                       'forwards': {'in_channel': scid12,
+                                    'in_htlc_id': 0,
+                                    'in_msat': Millisatoshi(amt1 + 1),
+                                    'out_channel': scid23,
+                                    'status': 'settled'}}
 
     # Now check failure.
     amt2 = 42
@@ -3389,19 +3389,19 @@ def test_listforwards_wait(node_factory, executor):
     waitres = waitcreate.result(TIMEOUT)
     assert waitres == {'subsystem': 'forwards',
                        'created': 2,
-                       'details': {'in_channel': scid12,
-                                   'in_htlc_id': 1,
-                                   'in_msat': Millisatoshi(amt2 + 1),
-                                   'out_channel': scid23,
-                                   'status': 'offered'}}
+                       'forwards': {'in_channel': scid12,
+                                    'in_htlc_id': 1,
+                                    'in_msat': Millisatoshi(amt2 + 1),
+                                    'out_channel': scid23,
+                                    'status': 'offered'}}
     waitres = waitupdate.result(TIMEOUT)
     assert waitres == {'subsystem': 'forwards',
                        'updated': 2,
-                       'details': {'in_channel': scid12,
-                                   'in_htlc_id': 1,
-                                   'in_msat': Millisatoshi(amt2 + 1),
-                                   'out_channel': scid23,
-                                   'status': 'failed'}}
+                       'forwards': {'in_channel': scid12,
+                                    'in_htlc_id': 1,
+                                    'in_msat': Millisatoshi(amt2 + 1),
+                                    'out_channel': scid23,
+                                    'status': 'failed'}}
 
     # Order and pagination.
     assert [(p['created_index'], p['in_msat'], p['status']) for p in l2.rpc.listforwards(index='created')['forwards']] == [(1, Millisatoshi(amt1 + 1), 'settled'), (2, Millisatoshi(amt2 + 1), 'failed')]
@@ -3422,9 +3422,9 @@ def test_listforwards_wait(node_factory, executor):
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'forwards',
                        'deleted': 1,
-                       'details': {'in_channel': scid12,
-                                   'in_htlc_id': 1,
-                                   'status': 'failed'}}
+                       'forwards': {'in_channel': scid12,
+                                    'in_htlc_id': 1,
+                                    'status': 'failed'}}
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "modifies database, which is assumed sqlite3")

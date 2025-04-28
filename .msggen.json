@@ -495,10 +495,26 @@
             "settled": 7,
             "unpaid": 0
         },
+        "WaitForwardsStatus": {
+            "failed": 2,
+            "local_failed": 3,
+            "offered": 0,
+            "settled": 1
+        },
         "WaitIndexname": {
             "created": 0,
             "deleted": 2,
             "updated": 1
+        },
+        "WaitInvoicesStatus": {
+            "expired": 2,
+            "paid": 1,
+            "unpaid": 0
+        },
+        "WaitSendpaysStatus": {
+            "complete": 2,
+            "failed": 1,
+            "pending": 0
         },
         "WaitSubsystem": {
             "forwards": 1,
@@ -3649,6 +3665,20 @@
             "Wait.details.payment_hash": 8,
             "Wait.details.status": 1
         },
+        "WaitForwards": {
+            "Wait.forwards.in_channel": 2,
+            "Wait.forwards.in_htlc_id": 3,
+            "Wait.forwards.in_msat": 4,
+            "Wait.forwards.out_channel": 5,
+            "Wait.forwards.status": 1
+        },
+        "WaitInvoices": {
+            "Wait.invoices.bolt11": 4,
+            "Wait.invoices.bolt12": 5,
+            "Wait.invoices.description": 3,
+            "Wait.invoices.label": 2,
+            "Wait.invoices.status": 1
+        },
         "WaitRequest": {
             "Wait.indexname": 2,
             "Wait.nextvalue": 3,
@@ -3658,8 +3688,17 @@
             "Wait.created": 2,
             "Wait.deleted": 4,
             "Wait.details": 5,
+            "Wait.forwards": 6,
+            "Wait.invoices": 7,
+            "Wait.sendpays": 8,
             "Wait.subsystem": 1,
             "Wait.updated": 3
+        },
+        "WaitSendpays": {
+            "Wait.sendpays.groupid": 3,
+            "Wait.sendpays.partid": 2,
+            "Wait.sendpays.payment_hash": 4,
+            "Wait.sendpays.status": 1
         },
         "WaitanyinvoicePaidOutpoint": {
             "WaitAnyInvoice.paid_outpoint.outnum": 2,
@@ -12697,7 +12736,7 @@
         },
         "Wait.details": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v25.05"
         },
         "Wait.details.bolt11": {
             "added": "pre-v0.10.1",
@@ -12747,12 +12786,80 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "Wait.forwards": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.forwards.in_channel": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.forwards.in_htlc_id": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.forwards.in_msat": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.forwards.out_channel": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.forwards.status": {
+            "added": "v25.05",
+            "deprecated": null
+        },
         "Wait.indexname": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "Wait.invoices": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.invoices.bolt11": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.invoices.bolt12": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.invoices.description": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.invoices.label": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.invoices.status": {
+            "added": "v25.05",
+            "deprecated": null
+        },
         "Wait.nextvalue": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Wait.sendpays": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.sendpays.groupid": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.sendpays.partid": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.sendpays.payment_hash": {
+            "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.sendpays.status": {
+            "added": "v25.05",
             "deprecated": null
         },
         "Wait.subsystem": {
