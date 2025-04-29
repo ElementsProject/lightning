@@ -1321,7 +1321,7 @@ static void forget(struct channel *channel)
 	channel->forgets = tal_arr(channel, struct command *, 0);
 
 	/* Forget the channel. */
-	delete_channel(channel);
+	delete_channel(channel, false);
 
 	for (size_t i = 0; i < tal_count(forgets); i++) {
 		assert(!forgets[i]->json_stream);
@@ -2017,8 +2017,8 @@ void channel_notify_new_block(struct lightningd *ld,
 			    block_height - channel->first_blocknum,
 			    fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
 		/* FIXME: Send an error packet for this case! */
-		/* And forget it. */
-		delete_channel(channel);
+		/* And forget it. COMPLETELY. */
+		delete_channel(channel, true);
 	}
 
 	tal_free(to_forget);

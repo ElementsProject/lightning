@@ -67,7 +67,7 @@ void channel_unsaved_close_conn(struct channel *channel, const char *why)
 
 	assert(channel->owner);
 	channel_set_owner(channel, NULL);
-	delete_channel(channel);
+	delete_channel(channel, false);
 }
 
 static void channel_saved_err_broken_reconn(struct channel *channel,
@@ -3959,13 +3959,13 @@ static void dualopen_errmsg(struct channel *channel,
 	if (channel_state_uncommitted(channel->state)) {
 		log_info(channel->log, "%s", "Unsaved peer failed."
 			 " Deleting channel.");
-		delete_channel(channel);
+		delete_channel(channel, false);
 		return;
 	}
 	if ((warning || disconnect) && channel_state_open_uncommitted(channel->state)) {
 		log_info(channel->log, "%s", "Commit ready peer failed."
 			 " Deleting channel.");
-		delete_channel(channel);
+		delete_channel(channel, false);
 		return;
 	}
 
@@ -4009,7 +4009,7 @@ static void dualopen_errmsg(struct channel *channel,
 			if (channel_state_open_uncommitted(channel->state)) {
 				log_info(channel->log, "%s", "Commit ready peer can't reconnect."
 					 " Deleting channel.");
-				delete_channel(channel);
+				delete_channel(channel, false);
 				return;
 			}
 			char *err = restart_dualopend(tmpctx,
