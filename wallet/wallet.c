@@ -1763,7 +1763,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	alias[LOCAL] = db_col_optional_scid(tmpctx, stmt, "alias_local");
 	alias[REMOTE] = db_col_optional_scid(tmpctx, stmt, "alias_remote");
 
-	ok &= wallet_shachain_load(w, db_col_u64(stmt, "shachain_remote_id"),
+ 	ok &= wallet_shachain_load(w, db_col_u64(stmt, "shachain_remote_id"),
 				   &wshachain);
 
 	remote_shutdown_scriptpubkey = db_col_arr(tmpctx, stmt,
@@ -2033,6 +2033,7 @@ static struct closed_channel *wallet_stmt2closed_channel(const tal_t *ctx,
 							 struct db_stmt *stmt)
 {
 	struct closed_channel *cc = tal(ctx, struct closed_channel);
+	struct wallet_shachain wshachain;
 
 	/* Can be missing in older dbs! */
 	cc->peer_id = db_col_optional(cc, stmt, "p.node_id", node_id);
@@ -2065,6 +2066,11 @@ static struct closed_channel *wallet_stmt2closed_channel(const tal_t *ctx,
 	cc->state_change_cause
 		= state_change_in_db(db_col_int(stmt, "state_change_reason"));
 	cc->leased = !db_col_is_null(stmt, "lease_commit_sig");
+	/* This was deleted on channel closure for older dbs! */
+	if (wallet_shachain_load(w, db_col_u64(stmt, "shachain_remote_id"), &wshachain))
+		cc->their_shachain = tal_dup(cc, struct shachain, &wshachain.chain);
+	else
+		cc->their_shachain = NULL;
 
 	return cc;
 }
@@ -2099,6 +2105,7 @@ void wallet_load_closed_channels(struct wallet *w,
 					", state_change_reason"
 					", lease_commit_sig"
 					", last_stable_connection"
+					", shachain_remote_id"
 					" FROM channels"
 					" LEFT JOIN peers p ON p.id = peer_id"
                                         " WHERE state = ?;"));
@@ -2143,6 +2150,7 @@ void wallet_load_one_closed_channel(struct wallet *w,
 					", state_change_reason"
 					", lease_commit_sig"
 					", last_stable_connection"
+					", shachain_remote_id"
 					" FROM channels"
 					" LEFT JOIN peers p ON p.id = peer_id"
                                         " WHERE channels.id = ?;"));
@@ -2855,7 +2863,10 @@ void wallet_channel_close(struct wallet *w,
 			  const struct channel *chan)
 {
 	/* We keep the entry in the channel_configs table, since that might
-	 * help us debug some issues, and it is rather limited in size. */
+	 * help us debug some issues, and it is rather limited in size.  We
+	 * also keep shachains: it's limited and we can use it for sending
+	 * reestablish messages with enough information for nodes with lost
+	 * dbs to recover. */
 	struct db_stmt *stmt;
 
 	/* Delete entries from `channel_htlcs` */
@@ -2884,16 +2895,6 @@ void wallet_channel_close(struct wallet *w,
 	stmt = db_prepare_v2(w->db,
 			     SQL("DELETE FROM channel_funding_inflights "
 				 " WHERE channel_id=?"));
-	db_bind_u64(stmt, chan->dbid);
-	db_exec_prepared_v2(take(stmt));
-
-	/* Delete shachains */
-	stmt = db_prepare_v2(w->db, SQL("DELETE FROM shachains "
-					"WHERE id IN ("
-					"  SELECT shachain_remote_id "
-					"  FROM channels "
-					"  WHERE channels.id=?"
-					")"));
 	db_bind_u64(stmt, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 
@@ -2937,6 +2938,19 @@ void wallet_channel_delete(struct wallet *w, const struct channel *channel)
 	db_exec_prepared_v2(stmt);
 
 	assert(db_count_changes(stmt) == 2);
+	tal_free(stmt);
+
+	/* Delete shachains */
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM shachains "
+					"WHERE id IN ("
+					"  SELECT shachain_remote_id "
+					"  FROM channels "
+					"  WHERE channels.id=?"
+					")"));
+	db_bind_u64(stmt, channel->dbid);
+	db_exec_prepared_v2(stmt);
+
+	assert(db_count_changes(stmt) == 1);
 	tal_free(stmt);
 
 	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channels"
