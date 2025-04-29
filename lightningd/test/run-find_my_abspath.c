@@ -120,6 +120,9 @@ void handle_early_opts(struct lightningd *ld UNNEEDED, int argc UNNEEDED, char *
 /* Generated stub for handle_opts */
 void handle_opts(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "handle_opts called!\n"); abort(); }
+/* Generated stub for hash_cid */
+size_t hash_cid(const struct channel_id *cid UNNEEDED)
+{ fprintf(stderr, "hash_cid called!\n"); abort(); }
 /* Generated stub for hash_htlc_key */
 size_t hash_htlc_key(const struct htlc_key *htlc_key UNNEEDED)
 { fprintf(stderr, "hash_htlc_key called!\n"); abort(); }

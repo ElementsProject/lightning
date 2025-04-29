@@ -99,6 +99,8 @@ void delete_channel(struct channel *channel STEALS, bool completely_eliminate)
 		/* Never open at all, not ours. */
 		if (completely_eliminate)
 			wallet_channel_delete(ld->wallet, channel);
+		else
+			wallet_load_one_closed_channel(ld->wallet, ld->closed_channels, channel->dbid);
 	}
 
 	/* Tell the hsm to forget the channel, needs to be after it's

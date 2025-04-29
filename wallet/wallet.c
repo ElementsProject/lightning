@@ -2069,11 +2069,10 @@ static struct closed_channel *wallet_stmt2closed_channel(const tal_t *ctx,
 	return cc;
 }
 
-struct closed_channel **wallet_load_closed_channels(const tal_t *ctx,
-						    struct wallet *w)
+void wallet_load_closed_channels(struct wallet *w,
+				 struct closed_channel_map *cc_map)
 {
 	struct db_stmt *stmt;
-	struct closed_channel **chans = tal_arr(ctx, struct closed_channel *, 0);
 
 	/* We load all channels */
 	stmt = db_prepare_v2(w->db, SQL("SELECT "
@@ -2107,12 +2106,53 @@ struct closed_channel **wallet_load_closed_channels(const tal_t *ctx,
 	db_query_prepared(stmt);
 
 	while (db_step(stmt)) {
-		struct closed_channel *cc = wallet_stmt2closed_channel(chans,
+		struct closed_channel *cc = wallet_stmt2closed_channel(cc_map,
 								       w, stmt);
-		tal_arr_expand(&chans, cc);
+		closed_channel_map_add(cc_map, cc);
 	}
 	tal_free(stmt);
-	return chans;
+}
+
+void wallet_load_one_closed_channel(struct wallet *w,
+				    struct closed_channel_map *cc_map,
+				    u64 wallet_id)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT "
+					" p.node_id"
+					", full_channel_id"
+					", scid"
+					", alias_local"
+					", alias_remote"
+					", funder"
+					", closer"
+					", channel_flags"
+					", next_index_local"
+					", next_index_remote"
+					", next_htlc_id"
+					", funding_tx_id"
+					", funding_tx_outnum"
+					", funding_satoshi"
+					", push_msatoshi"
+					", msatoshi_local"
+					", msatoshi_to_us_min"
+					", msatoshi_to_us_max"
+					", last_tx"
+					", channel_type"
+					", state_change_reason"
+					", lease_commit_sig"
+					", last_stable_connection"
+					" FROM channels"
+					" LEFT JOIN peers p ON p.id = peer_id"
+                                        " WHERE channels.id = ?;"));
+	db_bind_u64(stmt, wallet_id);
+	db_query_prepared(stmt);
+
+	db_step(stmt);
+	closed_channel_map_add(cc_map,
+			       wallet_stmt2closed_channel(cc_map, w, stmt));
+	tal_free(stmt);
 }
 
 static void set_max_channel_dbid(struct wallet *w)
