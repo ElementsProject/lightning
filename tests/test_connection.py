@@ -2791,19 +2791,19 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     """Test that fundee will forget the channel if
     the funding tx has been unconfirmed for too long.
     """
-    # Keep this low (default is 2016), since everything
+    # Keep confirms low (default is 2016), since everything
     # is much slower in VALGRIND mode and wait_for_log
     # could time out before lightningd processes all the
-    # blocks.
-    blocks = 50
-    # opener
-    l1 = node_factory.get_node()
-    # peer
-    l2 = node_factory.get_node(options={"dev-max-funding-unconfirmed-blocks": blocks})
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # blocks.  This also reduces the number of "slow confirm" peers
+    # from 100, to 1.
+    blocks = 10
+    l1, l2, l3 = node_factory.line_graph(3, fundchannel=False,
+                                         opts={"dev-max-funding-unconfirmed-blocks": blocks})
 
-    # Give opener some funds.
+    # Give openers some funds.
     l1.fundwallet(10**7)
+    l3.fundwallet(10**7)
+    sync_blockheight(bitcoind, [l1, l2, l3])
 
     def mock_sendrawtransaction(r):
         return {'id': r['id'], 'error': {'code': 100, 'message': 'sendrawtransaction disabled'}}
@@ -2813,23 +2813,37 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
 
     # Prevent opener from broadcasting funding tx (any tx really).
     l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', mock_sendrawtransaction)
+    # (for EXPERIMENTAL_DUAL_FUND=1, have to prevent l2 doing it too!)
     l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', mock_donothing)
 
-    # Fund the channel.
-    # The process will complete, but opener will be unable
-    # to broadcast and confirm funding tx.
+    # l1 tries to open, fails.
     with pytest.raises(RpcError, match=r'sendrawtransaction disabled'):
         l1.rpc.fundchannel(l2.info['id'], 10**6)
 
-    # Generate blocks until unconfirmed.
-    bitcoind.generate_block(blocks)
+    # One block later, l3 tries, fails silently.
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1, l2, l3])
 
-    # fundee will forget channel!
-    # (Note that we let the last number be anything (hence the {}\d)
-    l2.daemon.wait_for_log(r'Forgetting channel: It has been {}\d blocks'.format(str(blocks)[:-1]))
+    l3.daemon.rpcproxy.mock_rpc('sendrawtransaction', mock_donothing)
+    l3.rpc.fundchannel(l2.info['id'], 10**6)
 
-    # fundee will also forget, but not disconnect from peer.
-    wait_for(lambda: l2.rpc.listpeerchannels(l1.info['id'])['channels'] == [])
+    # After 10 blocks, l1's is due to be forgotten, but doesn't since we let 1 linger.
+    bitcoind.generate_block(blocks - 1)
+    assert not l2.daemon.is_in_log(r'Forgetting channel')
+
+    if EXPERIMENTAL_DUAL_FUND:
+        state = 'DUALOPEND_AWAITING_LOCKIN'
+    else:
+        state = 'CHANNELD_AWAITING_LOCKIN'
+    assert [c['state'] for c in l2.rpc.listpeerchannels()['channels']] == [state] * 2
+
+    # But once l3 is also delayed, l1 gets kicked out.
+    bitcoind.generate_block(1)
+
+    # fundee will forget oldest channel: the one with l1!
+    l2.daemon.wait_for_log(rf'Forgetting channel: It has been {blocks + 1} blocks')
+    assert [c['state'] for c in l2.rpc.listpeerchannels()['channels']] == [state]
+    assert l2.rpc.listpeerchannels(l1.info['id']) == {'channels': []}
 
 
 @pytest.mark.openchannel('v2')
