@@ -5207,6 +5207,7 @@ static void peer_reconnect(struct peer *peer,
 	const u8 **premature_msgs = tal_arr(peer, const u8 *, 0);
 	struct inflight *inflight;
 	struct bitcoin_txid *local_next_funding, *remote_next_funding;
+	u64 send_next_commitment_number;
 
 	struct tlv_channel_reestablish_tlvs *send_tlvs, *recv_tlvs;
 
@@ -5268,6 +5269,7 @@ static void peer_reconnect(struct peer *peer,
 
 	inflight = last_inflight(peer);
 
+	send_next_commitment_number = peer->next_index[LOCAL];
 	if (inflight && (!inflight->last_tx || !inflight->remote_tx_sigs)) {
 		if (missing_user_signatures(peer,
 					    inflight->i_am_initiator
@@ -5289,6 +5291,12 @@ static void peer_reconnect(struct peer *peer,
 				send_tlvs = tlv_channel_reestablish_tlvs_new(peer);
 			}
 			send_tlvs->next_funding = &inflight->outpoint.txid;
+
+			/* Eclair wants us to decrement commitment number to
+			 * indicate that we would like them to re-send
+			 * commitment signatures */
+			/* DTODO: Add bolt reference */
+			send_next_commitment_number--;
 		}
 	}
 
@@ -5346,7 +5354,7 @@ static void peer_reconnect(struct peer *peer,
 	if (channel_has(peer->channel, OPT_STATIC_REMOTEKEY)) {
 		msg = towire_channel_reestablish
 			(NULL, &peer->channel_id,
-			 peer->next_index[LOCAL],
+			 send_next_commitment_number,
 			 peer->revocations_received,
 			 last_remote_per_commit_secret,
 			 /* Can send any (valid) point here */
@@ -5362,7 +5370,7 @@ static void peer_reconnect(struct peer *peer,
 		 */
 		msg = towire_channel_reestablish
 			(NULL, &peer->channel_id,
-			 peer->next_index[LOCAL],
+			 send_next_commitment_number,
 			 peer->revocations_received,
 			 last_remote_per_commit_secret,
 			 &my_current_per_commitment_point,
