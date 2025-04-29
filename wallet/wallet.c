@@ -1672,7 +1672,7 @@ static struct short_channel_id *db_col_optional_scid(const tal_t *ctx,
 	if (db_col_is_null(stmt, colname))
 		return NULL;
 
-	scid = tal(tmpctx, struct short_channel_id);
+	scid = tal(ctx, struct short_channel_id);
 	*scid = db_col_short_channel_id(stmt, colname);
 	return scid;
 }
