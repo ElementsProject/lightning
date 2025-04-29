@@ -91,20 +91,21 @@ static void destroy_channel(struct channel *channel)
 void delete_channel(struct channel *channel STEALS, bool completely_eliminate)
 {
 	const u8 *msg;
-
 	struct peer *peer = channel->peer;
+	struct lightningd *ld = peer->ld;
+
 	if (channel->dbid != 0) {
-		wallet_channel_close(channel->peer->ld->wallet, channel);
+		wallet_channel_close(ld->wallet, channel);
 		/* Never open at all, not ours. */
 		if (completely_eliminate)
-			wallet_channel_delete(channel->peer->ld->wallet, channel);
+			wallet_channel_delete(ld->wallet, channel);
 	}
 
 	/* Tell the hsm to forget the channel, needs to be after it's
 	 * been forgotten here */
-	if (hsm_capable(channel->peer->ld, WIRE_HSMD_FORGET_CHANNEL)) {
-		msg = towire_hsmd_forget_channel(NULL, &channel->peer->id, channel->dbid);
-		msg = hsm_sync_req(tmpctx, channel->peer->ld, take(msg));
+	if (hsm_capable(ld, WIRE_HSMD_FORGET_CHANNEL)) {
+		msg = towire_hsmd_forget_channel(NULL, &peer->id, channel->dbid);
+		msg = hsm_sync_req(tmpctx, ld, take(msg));
 		if (!fromwire_hsmd_forget_channel_reply(msg))
 			fatal("HSM gave bad hsm_forget_channel_reply %s", tal_hex(msg, msg));
 	}
