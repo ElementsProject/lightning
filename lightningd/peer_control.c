@@ -1362,8 +1362,7 @@ static void connect_activate_subd(struct lightningd *ld, struct channel *channel
 
 		if (peer_start_channeld(channel,
 					pfd,
-					NULL, true,
-					NULL)) {
+					NULL, true)) {
 			goto tell_connectd;
 		}
 		close(other_fd);
@@ -1879,8 +1878,7 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 				/* Tell channeld to handle reestablish, then it will call closingd */
 				if (peer_start_channeld(channel,
 							pfd,
-							NULL, true,
-							NULL)) {
+							NULL, true)) {
 					goto tell_connectd;
 				}
 				error = towire_warningfmt(tmpctx, &channel_id,

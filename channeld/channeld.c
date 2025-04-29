@@ -4987,8 +4987,7 @@ static u8 *to_bytearr(const tal_t *ctx,
 }
 
 static void peer_reconnect(struct peer *peer,
-			   const struct secret *last_remote_per_commit_secret,
-			   bool reestablish_only)
+			   const struct secret *last_remote_per_commit_secret)
 {
 	struct channel_id channel_id;
 	/* Note: BOLT #2 uses these names! */
@@ -5146,14 +5145,6 @@ static void peer_reconnect(struct peer *peer,
 	do {
 		clean_tmpctx();
 		msg = peer_read(tmpctx, peer->pps);
-
-		/* connectd promised us the msg was reestablish? */
-		if (reestablish_only) {
-			if (fromwire_peektype(msg) != WIRE_CHANNEL_REESTABLISH)
-				status_failed(STATUS_FAIL_INTERNAL_ERROR,
-					      "Expected reestablish, got: %s",
-					      tal_hex(tmpctx, msg));
-		}
 	} while (handle_peer_error_or_warning(peer->pps, msg) ||
 		 capture_premature_msg(&premature_msgs, msg));
 
@@ -5499,23 +5490,6 @@ static void peer_reconnect(struct peer *peer,
 
 		if (type)
 			set_channel_type(peer->channel, type);
-	}
-
-	/* Now stop, we've been polite long enough. */
-	if (reestablish_only) {
-		/* We've reestablished! */
-		wire_sync_write(MASTER_FD,
-				take(towire_channeld_reestablished(NULL)));
-
-		/* If we were successfully closing, we still go to closingd. */
-		if (shutdown_complete(peer)) {
-			send_shutdown_complete(peer);
-			daemon_shutdown();
-			exit(0);
-		}
-		peer_failed_err(peer->pps,
-				&peer->channel_id,
-				"Channel is already closed");
 	}
 
 	tal_free(send_tlvs);
@@ -6103,7 +6077,6 @@ static void init_channel(struct peer *peer)
 	u32 minimum_depth, lease_expiry;
 	struct secret last_remote_per_commit_secret;
 	struct penalty_base *pbases;
-	bool reestablish_only;
 	struct channel_type *channel_type;
 
 	assert(!(fcntl(MASTER_FD, F_GETFL) & O_NONBLOCK));
@@ -6159,7 +6132,6 @@ static void init_channel(struct peer *peer)
 				    &channel_type,
 				    &peer->dev_disable_commit,
 				    &pbases,
-				    &reestablish_only,
 				    &peer->experimental_upgrade,
 				    &peer->splice_state->inflights,
 				    &peer->local_alias)) {
@@ -6249,10 +6221,7 @@ static void init_channel(struct peer *peer)
 
 	/* OK, now we can process peer messages. */
 	if (reconnected)
-		peer_reconnect(peer, &last_remote_per_commit_secret,
-			       reestablish_only);
-	else
-		assert(!reestablish_only);
+		peer_reconnect(peer, &last_remote_per_commit_secret);
 
 	/* If we have a messages to send, send them immediately */
 	if (fwd_msg)
