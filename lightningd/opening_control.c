@@ -1301,7 +1301,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	}
 
 	if (!mindepth)
-		mindepth = tal_dup(cmd, u32, &cmd->ld->config.anchor_confirms);
+		mindepth = tal_dup(cmd, u32, &cmd->ld->config.funding_confirms);
 
 	if (push_msat && amount_msat_greater_sat(*push_msat, *amount))
 		return command_fail(cmd, FUND_CANNOT_AFFORD,

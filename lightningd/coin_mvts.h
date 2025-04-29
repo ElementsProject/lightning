@@ -36,5 +36,5 @@ struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
 						     struct htlc_out *hout,
 						     struct channel *channel);
 
-void send_account_balance_snapshot(struct lightningd *ld, u32 blockheight);
+void send_account_balance_snapshot(struct lightningd *ld);
 #endif /* LIGHTNING_LIGHTNINGD_COIN_MVTS_H */
