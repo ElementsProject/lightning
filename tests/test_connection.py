@@ -1393,7 +1393,7 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     except RpcError as err:
         assert "disconnected during connection" in err.error
 
-    l1.daemon.wait_for_log('Unknown channel .* for WIRE_CHANNEL_REESTABLISH')
+    l1.daemon.wait_for_log('Responded to reestablish for long-closed channel')
     wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 0)
     wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
 
