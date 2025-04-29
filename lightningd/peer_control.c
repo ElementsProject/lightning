@@ -519,7 +519,7 @@ void channel_errmsg(struct channel *channel,
 	if (channel_state_uncommitted(channel->state)) {
 		log_info(channel->log, "%s", "Unsaved peer failed."
 			 " Deleting channel.");
-		delete_channel(channel);
+		delete_channel(channel, false);
 		return;
 	}
 
@@ -3432,7 +3432,7 @@ static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
 	forget->channel->error = towire_errorfmt(forget->channel,
 						 &forget->channel->cid,
 						 "dev_forget_channel");
-	delete_channel(forget->channel);
+	delete_channel(forget->channel, false);
 
 	was_pending(command_success(forget->cmd, response));
 }

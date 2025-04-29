@@ -700,6 +700,11 @@ void wallet_channel_close(struct wallet *w,
 			  const struct channel *chan);
 
 /**
+ * If it was never used, we can forget it entirely after wallet_channel_close.
+ */
+void wallet_channel_delete(struct wallet *w, const struct channel *channel);
+
+/**
  * Adds a channel state change history entry into the database
  */
 void wallet_state_change_add(struct wallet *w,

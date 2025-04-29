@@ -243,7 +243,7 @@ struct anchor_details *create_anchor_details(const tal_t *ctx UNNEEDED,
 					     const struct bitcoin_tx *tx UNNEEDED)
 { fprintf(stderr, "create_anchor_details called!\n"); abort(); }
 /* Generated stub for delete_channel */
-void delete_channel(struct channel *channel STEALS UNNEEDED)
+void delete_channel(struct channel *channel STEALS UNNEEDED, bool completely_eliminate UNNEEDED)
 { fprintf(stderr, "delete_channel called!\n"); abort(); }
 /* Generated stub for depthcb_update_scid */
 bool depthcb_update_scid(struct channel *channel UNNEEDED,

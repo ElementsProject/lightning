@@ -88,13 +88,17 @@ static void destroy_channel(struct channel *channel)
 	list_del_from(&channel->peer->channels, &channel->list);
 }
 
-void delete_channel(struct channel *channel STEALS)
+void delete_channel(struct channel *channel STEALS, bool completely_eliminate)
 {
 	const u8 *msg;
 
 	struct peer *peer = channel->peer;
-	if (channel->dbid != 0)
+	if (channel->dbid != 0) {
 		wallet_channel_close(channel->peer->ld->wallet, channel);
+		/* Never open at all, not ours. */
+		if (completely_eliminate)
+			wallet_channel_delete(channel->peer->ld->wallet, channel);
+	}
 
 	/* Tell the hsm to forget the channel, needs to be after it's
 	 * been forgotten here */
@@ -1035,7 +1039,7 @@ static void channel_fail_perm(struct channel *channel,
 	drop_to_chain(ld, channel, false, spent_by);
 
 	if (channel_state_open_uncommitted(channel->state))
-		delete_channel(channel);
+		delete_channel(channel, false);
 }
 
 void channel_fail_permanent(struct channel *channel,
@@ -1093,7 +1097,7 @@ void channel_fail_forget(struct channel *channel, const char *fmt, ...)
 		channel->error = towire_errorfmt(channel,
 						 &channel->cid, "%s", why);
 
-	delete_channel(channel);
+	delete_channel(channel, false);
 	tal_free(why);
 }
 
@@ -1162,7 +1166,7 @@ void channel_internal_error(struct channel *channel, const char *fmt, ...)
 	/* Nothing ventured, nothing lost! */
 	if (channel_state_uncommitted(channel->state)) {
 		channel_set_owner(channel, NULL);
-		delete_channel(channel);
+		delete_channel(channel, false);
 		return;
 	}
 

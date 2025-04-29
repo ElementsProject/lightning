@@ -2814,12 +2814,8 @@ void wallet_channel_insert(struct wallet *w, struct channel *chan)
 void wallet_channel_close(struct wallet *w,
 			  const struct channel *chan)
 {
-	/* We keep a couple of dependent tables around as well, such as the
-	 * channel_configs table, since that might help us debug some issues,
-	 * and it is rather limited in size. Tables that can grow quite
-	 * considerably and that are of limited use after channel closure will
-	 * be pruned as well. */
-
+	/* We keep the entry in the channel_configs table, since that might
+	 * help us debug some issues, and it is rather limited in size. */
 	struct db_stmt *stmt;
 
 	/* Delete entries from `channel_htlcs` */
@@ -2861,6 +2857,24 @@ void wallet_channel_close(struct wallet *w,
 	db_bind_u64(stmt, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 
+	/* Delete transaction annotations */
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM transaction_annotations "
+					"WHERE channel=?"));
+	db_bind_u64(stmt, chan->dbid);
+	db_exec_prepared_v2(take(stmt));
+
+	/* Delete feerates */
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channel_feerates "
+					"WHERE channel_id=?"));
+	db_bind_u64(stmt, chan->dbid);
+	db_exec_prepared_v2(take(stmt));
+
+	/* Delete anchor information */
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM local_anchors "
+					"WHERE channel_id=?"));
+	db_bind_u64(stmt, chan->dbid);
+	db_exec_prepared_v2(take(stmt));
+
 	/* Set the channel to closed */
 	stmt = db_prepare_v2(w->db, SQL("UPDATE channels "
 					"SET state=? "
@@ -2868,6 +2882,32 @@ void wallet_channel_close(struct wallet *w,
 	db_bind_u64(stmt, channel_state_in_db(CLOSED));
 	db_bind_u64(stmt, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
+}
+
+/* Completely unused channels get wiped entirely (we've already closed it above) */
+void wallet_channel_delete(struct wallet *w, const struct channel *channel)
+{
+	struct db_stmt *stmt;
+
+	/* Delete channel configuration for both sides */
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channel_configs"
+					" WHERE id=? OR id=?"));
+	db_bind_u64(stmt, channel->channel_info.their_config.id);
+	db_bind_u64(stmt, channel->our_config.id);
+	db_exec_prepared_v2(stmt);
+
+	assert(db_count_changes(stmt) == 2);
+	tal_free(stmt);
+
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channels"
+					" WHERE state = ?"
+					" AND id=?"));
+	db_bind_u64(stmt, channel_state_in_db(CLOSED));
+	db_bind_u64(stmt, channel->dbid);
+	db_exec_prepared_v2(stmt);
+
+	assert(db_count_changes(stmt) == 1);
+	tal_free(stmt);
 }
 
 void wallet_channel_inflight_cleanup_incomplete(struct wallet *w, u64 wallet_id)
