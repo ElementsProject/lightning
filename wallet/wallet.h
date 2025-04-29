@@ -21,6 +21,7 @@ struct amount_msat;
 struct invoices;
 struct channel;
 struct channel_inflight;
+struct closed_channel_map;
 struct htlc_in;
 struct htlc_in_map;
 struct htlc_out;
@@ -733,13 +734,25 @@ bool wallet_init_channels(struct wallet *w);
 
 /**
  * wallet_load_closed_channels -- Loads dead channels.
- * @ctx: context to allocate returned array from
  * @w: wallet to load from
+ * @cc_map: the map to fill
  *
  * These will be all state CLOSED.
  */
-struct closed_channel **wallet_load_closed_channels(const tal_t *ctx,
-						    struct wallet *w);
+void wallet_load_closed_channels(struct wallet *w,
+				 struct closed_channel_map *cc_map);
+
+/**
+ * wallet_load_one_closed_channel -- Loads one single (just-closed) channel.
+ * @w: wallet to load from
+ * @cc_map: the map to fill
+ * @wallet_id: the id of the channel.
+ *
+ * Must be newly closed via wallet_channel_close().
+ */
+void wallet_load_one_closed_channel(struct wallet *w,
+				    struct closed_channel_map *cc_map,
+				    u64 wallet_id);
 
 /**
  * wallet_channel_stats_incr_* - Increase channel statistics.

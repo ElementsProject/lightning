@@ -380,6 +380,9 @@ u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 /* Generated stub for get_network_blockheight */
 u32 get_network_blockheight(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_network_blockheight called!\n"); abort(); }
+/* Generated stub for hash_cid */
+size_t hash_cid(const struct channel_id *cid UNNEEDED)
+{ fprintf(stderr, "hash_cid called!\n"); abort(); }
 /* Generated stub for hsmd_wire_name */
 const char *hsmd_wire_name(int e UNNEEDED)
 { fprintf(stderr, "hsmd_wire_name called!\n"); abort(); }
@@ -701,12 +704,10 @@ struct uncommitted_channel *new_uncommitted_channel(struct peer *peer UNNEEDED)
 bool node_announcement_same(const u8 *nann1 UNNEEDED, const u8 *nann2 UNNEEDED)
 { fprintf(stderr, "node_announcement_same called!\n"); abort(); }
 /* Generated stub for notify_chain_mvt */
-void notify_chain_mvt(struct lightningd *ld UNNEEDED,
-		      const struct chain_coin_mvt *chain_mvt UNNEEDED)
+void notify_chain_mvt(struct lightningd *ld UNNEEDED, const struct chain_coin_mvt *mvt UNNEEDED)
 { fprintf(stderr, "notify_chain_mvt called!\n"); abort(); }
 /* Generated stub for notify_channel_mvt */
-void notify_channel_mvt(struct lightningd *ld UNNEEDED,
-			const struct channel_coin_mvt *chan_mvt UNNEEDED)
+void notify_channel_mvt(struct lightningd *ld UNNEEDED, const struct channel_coin_mvt *mvt UNNEEDED)
 { fprintf(stderr, "notify_channel_mvt called!\n"); abort(); }
 /* Generated stub for notify_channel_open_failed */
 void notify_channel_open_failed(struct lightningd *ld UNNEEDED,
@@ -2118,7 +2119,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 
 	/* do inflights get cleared when the channel is closed?*/
 	dbid = chan->dbid;
-	delete_channel(chan, false); /* Also clears up peer! */
+	delete_channel(chan, true); /* Also clears up peer! */
 	CHECK_MSG(count_inflights(w, dbid) == 0, "inflights cleaned up");
 	db_commit_transaction(w->db);
 	CHECK_MSG(!wallet_err, wallet_err);
@@ -2364,6 +2365,8 @@ int main(int argc, const char *argv[])
 	ld->htlcs_out = tal(ld, struct htlc_out_map);
 	htlc_out_map_init(ld->htlcs_out);
 	list_head_init(&ld->wait_commands);
+	ld->closed_channels = tal(ld, struct closed_channel_map);
+	closed_channel_map_init(ld->closed_channels);
 
 	/* We do a runtime test here, so we still check compile! */
 	if (HAVE_SQLITE3) {
