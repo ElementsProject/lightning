@@ -362,6 +362,9 @@ u32 get_feerate(const struct fee_states *fee_states UNNEEDED,
 		enum side opener UNNEEDED,
 		enum side side UNNEEDED)
 { fprintf(stderr, "get_feerate called!\n"); abort(); }
+/* Generated stub for hash_cid */
+size_t hash_cid(const struct channel_id *cid UNNEEDED)
+{ fprintf(stderr, "hash_cid called!\n"); abort(); }
 /* Generated stub for hash_htlc_key */
 size_t hash_htlc_key(const struct htlc_key *htlc_key UNNEEDED)
 { fprintf(stderr, "hash_htlc_key called!\n"); abort(); }

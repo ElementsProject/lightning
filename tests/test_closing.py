@@ -4277,6 +4277,40 @@ def test_onchain_slow_anchor(node_factory, bitcoind):
     l1.daemon.wait_for_log(r"Low-priority anchorspend aiming for block {} \(feerate 7500\)".format(height + 12))
 
 
+def test_reestablish_closed_channels(node_factory, bitcoind):
+    """Even long-forgotten channels respond to WIRE_REESTABLISH"""
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True,
+                                              'dev-no-reconnect': None})
+
+    # We block l2 from seeing close, so it will try to reestablish.
+    def no_new_blocks(req):
+        return {"error": "go away"}
+    l2.daemon.rpcproxy.mock_rpc('getblockhash', no_new_blocks)
+
+    # Make a payment, make sure it's entirely finished before we close.
+    l1.rpc.pay(l2.rpc.invoice(200000000, 'test', 'test')['bolt11'])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    # l1 closes, unilaterally.
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    l1.rpc.close(l2.info['id'], unilateraltimeout=1)
+
+    # 5 blocks before we can spend to-us.
+    bitcoind.generate_block(5, wait_for_mempool=1)
+    # 100 more to forget channel
+    bitcoind.generate_block(100, wait_for_mempool=1)
+    wait_for(lambda: l1.rpc.listclosedchannels()['closedchannels'] != [])
+
+    # l2 reconnects, gets reestablish before error.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.daemon.wait_for_log('Responded to reestablish for long-closed channel')
+    l2.daemon.wait_for_log('peer_in WIRE_CHANNEL_REESTABLISH')
+    l2.daemon.wait_for_log('peer_in WIRE_ERROR')
+
+    # Make sure l2 was happy with the reestablish message.
+    assert not l2.daemon.is_in_log('bad reestablish')
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', "elementsd doesn't use p2tr anyway")
 def test_onchain_close_no_p2tr(node_factory, bitcoind):
     """Closing with a peer which doesn't support OPT_SHUTDOWN_ANYSEGWIT"""
