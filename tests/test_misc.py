@@ -2979,6 +2979,7 @@ def test_emergencyrecoverpenaltytxn(node_factory, bitcoind):
     stubs = l1.rpc.emergencyrecover()["stubs"]
     assert len(stubs) == 1
     assert stubs[0] == _["channel_id"]
+    l1.daemon.wait_for_log('Sending a bogus channel_reestablish message to make the peer unilaterally close the channel.')
     l1.daemon.wait_for_log('peer_out WIRE_ERROR')
 
     # Restarting so that L1
@@ -3026,7 +3027,10 @@ def test_emergencyrecover(node_factory, bitcoind):
     listfunds = l1.rpc.listfunds()["channels"][0]
     assert listfunds["short_channel_id"] == "1x1x1"
 
+    l1.daemon.wait_for_log('Sending a bogus channel_reestablish message to make the peer unilaterally close the channel.')
     l1.daemon.wait_for_log('peer_out WIRE_ERROR')
+
+    l2.daemon.wait_for_log('bad reestablish commitment_number: 0')
     l2.daemon.wait_for_log('State changed from CHANNELD_NORMAL to AWAITING_UNILATERAL')
 
     bitcoind.generate_block(5, wait_for_mempool=1)
@@ -3147,7 +3151,9 @@ def test_restorefrompeer(node_factory, bitcoind):
 
     assert l1.rpc.restorefrompeer()['stubs'][0] == _['channel_id']
 
+    l1.daemon.wait_for_log('Sending a bogus channel_reestablish message to make the peer unilaterally close the channel.')
     l1.daemon.wait_for_log('peer_out WIRE_ERROR')
+
     l2.daemon.wait_for_log('State changed from CHANNELD_NORMAL to AWAITING_UNILATERAL')
 
     bitcoind.generate_block(5, wait_for_mempool=1)
