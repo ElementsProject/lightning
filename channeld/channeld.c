@@ -5296,7 +5296,8 @@ static void peer_reconnect(struct peer *peer,
 			 * indicate that we would like them to re-send
 			 * commitment signatures */
 			/* DTODO: Add bolt reference */
-			send_next_commitment_number--;
+			if (!inflight->last_tx)
+				send_next_commitment_number--;
 		}
 	}
 
@@ -5437,7 +5438,7 @@ static void peer_reconnect(struct peer *peer,
 			status_info("Resuming splice negotation.");
 			resume_splice_negotiation(peer,
 						  false,
-						  true,
+						  !inflight->last_tx,
 						  false,
 						  true);
 		} else if (bitcoin_txid_eq(remote_next_funding,
@@ -5450,8 +5451,8 @@ static void peer_reconnect(struct peer *peer,
 			if (local_next_funding)
 				assume_stfu_mode(peer);
 			resume_splice_negotiation(peer,
-						  true,
-						  local_next_funding,
+						  next_commitment_number == peer->next_index[REMOTE] - 1,
+						  local_next_funding && !inflight->last_tx,
 						  true,
 						  local_next_funding);
 		} else if (bitcoin_txid_eq(remote_next_funding,
@@ -5615,7 +5616,10 @@ static void peer_reconnect(struct peer *peer,
 					 PRIu64,
 					 next_commitment_number);
 
-		retransmit_commitment_signed = true;
+		if (!recv_tlvs || !recv_tlvs->next_funding)
+			retransmit_commitment_signed = true;
+		else
+			retransmit_commitment_signed = false;
 
 	/* BOLT #2:
 	 *
