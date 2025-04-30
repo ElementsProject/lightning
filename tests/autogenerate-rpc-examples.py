@@ -1914,7 +1914,7 @@ def generate_list_examples(l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, 
                 output['amount_msat'] = 201998900000 + (i * 1000) + (k * 100)
         update_example(node=l1, method='listtransactions', params={}, response=listtransactions_res1)
         listclosedchannels_res1 = l2.rpc.listclosedchannels()
-        listclosedchannels_res1 = update_list_responses(listclosedchannels_res1, list_key='closedchannels')
+        listclosedchannels_res1 = update_list_responses(listclosedchannels_res1, list_key='closedchannels', slice_upto=2, update_func=None, sort=True, sort_key='channel_id')
         for i, closedchannel in enumerate(listclosedchannels_res1['closedchannels'], start=1):
             closedchannel['last_commitment_fee_msat'] = 2894000 + (i * 1000)
             closedchannel['last_commitment_txid'] = 'txidcloselastcommitment0' + (('0000' + str(i)) * 8)
