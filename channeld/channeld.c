@@ -61,6 +61,7 @@
 	((msg) == WIRE_SPLICE || \
 	(msg) == WIRE_SPLICE_ACK || \
 	(msg) == WIRE_TX_INIT_RBF || \
+	(msg) == WIRE_TX_ACK_RBF || \
 	(msg) == WIRE_TX_ABORT)
 
 #define SAT_MIN(a, b) (amount_sat_less((a), (b)) ? (a) : (b))
@@ -4097,14 +4098,41 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 	struct wally_psbt *psbt = peer->splicing->current_psbt;
 	u32 sequence = 0;
 	u8 *scriptPubkey;
+	enum peer_wire type;
+	struct tlv_tx_ack_rbf_tlvs *ack_rbf_tlvs;
 
-	if (!fromwire_splice_ack(inmsg,
-				 &channel_id,
-				 &peer->splicing->accepter_relative,
-				 &peer->splicing->remote_funding_pubkey))
-		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Bad wire_splice_ack %s",
-				 tal_hex(tmpctx, inmsg));
+	type = fromwire_peektype(inmsg);
+
+	if (type == WIRE_SPLICE_ACK) {
+		if (!fromwire_splice_ack(inmsg,
+					 &channel_id,
+					 &peer->splicing->accepter_relative,
+					 &peer->splicing->remote_funding_pubkey))
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Bad wire_splice_ack %s",
+					 tal_hex(tmpctx, inmsg));
+	} else if (type == WIRE_TX_ACK_RBF) {
+		if (!fromwire_tx_ack_rbf(tmpctx,
+					 inmsg,
+					 &channel_id,
+					 &ack_rbf_tlvs))
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Bad tx_ack_rbf %s",
+					 tal_hex(tmpctx, inmsg));
+
+		if (!ack_rbf_tlvs
+			|| !ack_rbf_tlvs->funding_output_contribution)
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "tx_ack_rbf must contain tlv with a"
+					 " funding_output_contribution value");
+		peer->splicing->accepter_relative = *ack_rbf_tlvs->funding_output_contribution;
+
+		if (!last_inflight(peer))
+			peer_failed_err(peer->pps, &peer->channel_id,
+					"Can't handle tx_ack_rbf because we"
+					" have no pending splice");
+		peer->splicing->remote_funding_pubkey = last_inflight(peer)->remote_funding;
+	}
 
 	if (!channel_id_eq(&channel_id, &peer->channel_id))
 		peer_failed_warn(peer->pps, &peer->channel_id,
@@ -4538,12 +4566,29 @@ static void splice_initiator_user_signed(struct peer *peer, const u8 *inmsg)
 /* This occurs once our 'stfu' transition was successful. */
 static void handle_splice_stfu_success(struct peer *peer)
 {
-	u8 *msg = towire_splice(tmpctx,
-				&peer->channel_id,
-				peer->splicing->opener_relative,
-				peer->splicing->feerate_per_kw,
-				peer->splicing->current_psbt->fallback_locktime,
-				&peer->channel->funding_pubkey[LOCAL]);
+	u8 *msg;
+	struct tlv_tx_init_rbf_tlvs *init_rbf_tlvs;
+	if (!last_inflight(peer)) {
+		msg = towire_splice(tmpctx,
+				    &peer->channel_id,
+				    peer->splicing->opener_relative,
+				    peer->splicing->feerate_per_kw,
+				    peer->splicing->current_psbt->fallback_locktime,
+				    &peer->channel->funding_pubkey[LOCAL]);
+	}
+	else { /* RBF attempt */
+		init_rbf_tlvs = tlv_tx_init_rbf_tlvs_new(tmpctx);
+		init_rbf_tlvs->funding_output_contribution = tal(init_rbf_tlvs, s64);
+		*init_rbf_tlvs->funding_output_contribution = peer->splicing->opener_relative;
+		init_rbf_tlvs->require_confirmed_inputs = NULL;
+
+		msg = towire_tx_init_rbf(tmpctx,
+					 &peer->channel_id,
+					 peer->splicing->current_psbt->fallback_locktime,
+					 peer->splicing->feerate_per_kw,
+					 init_rbf_tlvs);
+	}
+
 	peer->splice_state->await_commitment_succcess = false;
 	peer_write(peer->pps, take(msg));
 }
@@ -4617,8 +4662,9 @@ static void handle_splice_init(struct peer *peer, const u8 *inmsg)
 		return;
 	}
 
-	status_debug("Getting handle_splice_init psbt version %d",
-		     peer->splicing->current_psbt->version);
+	status_debug("Getting handle_splice_init psbt version %d (RBF?: %s)",
+		     peer->splicing->current_psbt->version,
+		     last_inflight(peer) ? "y" : "n");
 
 	if (skip_stfu) {
 		handle_splice_stfu_success(peer);
@@ -4793,6 +4839,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		splice_accepter(peer, msg);
 		return;
 	case WIRE_SPLICE_ACK:
+	case WIRE_TX_ACK_RBF:
 		splice_initiator(peer, msg);
 		return;
 	case WIRE_SPLICE_LOCKED:
@@ -4819,8 +4866,6 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_TX_SIGNATURES:
 		handle_unexpected_tx_sigs(peer, msg);
 		return;
-	case WIRE_TX_ACK_RBF:
-		break;
 
 	case WIRE_CHANNEL_REESTABLISH:
 		handle_unexpected_reestablish(peer, msg);
