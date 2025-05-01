@@ -730,6 +730,26 @@ static struct command_result *splice_signed_get_result(struct command *cmd,
 	return continue_splice(splice_cmd->cmd, splice_cmd);
 }
 
+static struct command_result *splice_signed_error_pkg(struct command *cmd,
+						      const char *methodname,
+						      const char *buf,
+						      const jsmntok_t *error,
+						      struct splice_index_pkg *pkg)
+{
+	struct splice_cmd *splice_cmd = pkg->splice_cmd;
+	struct abort_pkg *abort_pkg;
+
+	splice_cmd->wetrun = false;
+
+	abort_pkg = tal(cmd->plugin, struct abort_pkg);
+	abort_pkg->splice_cmd = tal_steal(abort_pkg, pkg->splice_cmd);
+	abort_pkg->str = tal_strndup(abort_pkg, buf + error->start,
+				     error->end - error->start);
+	abort_pkg->code = -1;
+
+	return make_error(cmd, abort_pkg, "splice_signed_error");
+}
+
 static struct command_result *splice_signed(struct command *cmd,
 					    struct splice_cmd *splice_cmd,
 					    size_t index)
@@ -743,7 +763,8 @@ static struct command_result *splice_signed(struct command *cmd,
 	pkg->index = index;
 
 	req = jsonrpc_request_start(cmd, "splice_signed",
-				    splice_signed_get_result, splice_error_pkg,
+				    splice_signed_get_result,
+				    splice_signed_error_pkg,
 				    pkg);
 
 	json_add_channel_id(req->js, "channel_id", action->channel_id);
