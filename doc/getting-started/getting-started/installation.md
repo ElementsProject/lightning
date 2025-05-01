@@ -135,7 +135,7 @@ To build CLN for production:
 ```shell
 poetry install
 ./configure
-RUST_PROFILE=release make
+RUST_PROFILE=release poetry run make
 sudo RUST_PROFILE=release make install
 ```
 
@@ -358,7 +358,7 @@ echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nf
 source ~/.bash_profile
 pyenv install 3.8.10
 pip install --upgrade pip
-pip install poetry
+pip install poetry==2.0.1
 ```
 
 If you don't have bitcoind installed locally you'll need to install that as well:
