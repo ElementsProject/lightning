@@ -15,7 +15,7 @@ python = "^3.8"
 pyln-proto = ">=23"
 pyln-bolt7 = ">=1.0"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = "^7"
 pyln-bolt7 = { path = "../pyln-spec/bolt7", develop = true }
 pyln-proto = { path = "../pyln-proto", develop = true}
