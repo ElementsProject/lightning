@@ -5408,6 +5408,10 @@ static void peer_reconnect(struct peer *peer,
 			send_tlvs->your_last_funding_locked_txid = &peer->channel->funding.txid;
 
 		send_tlvs->my_current_funding_locked_txid = &peer->channel->funding.txid;
+		status_debug("Setting send_tlvs->my_current_funding_locked_txid"
+			     " to %s",
+			     fmt_bitcoin_txid(tmpctx,
+			     		      &peer->channel->funding.txid));
 
 		for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++) {
 			struct inflight *itr = peer->splice_state->inflights[i];
@@ -5423,6 +5427,25 @@ static void peer_reconnect(struct peer *peer,
 			}
 		}
 	}
+
+	status_debug("Sending channel_reestablish with"
+		     " next_funding_tx_id: %s,"
+		     " your_last_funding_locked: %s,"
+		     " my_current_funding_locked: %s,"
+		     " next_local_commit_number: %"PRIu64",",
+		     send_tlvs && send_tlvs->next_funding
+		     	? fmt_bitcoin_txid(tmpctx,
+		     			   send_tlvs->next_funding)
+		     	: "NULL",
+		     send_tlvs && send_tlvs->your_last_funding_locked_txid
+		     	? fmt_bitcoin_txid(tmpctx,
+		     			   send_tlvs->your_last_funding_locked_txid)
+		     	: "NULL",
+		     send_tlvs && send_tlvs->my_current_funding_locked_txid
+		     	? fmt_bitcoin_txid(tmpctx,
+		     			   send_tlvs->my_current_funding_locked_txid)
+		     	: "NULL",
+		     send_next_commitment_number);
 
 	/* BOLT #2:
 	 *
