@@ -26,7 +26,7 @@ requests = "^2.31.0"
 grpcio = { version = "^1", optional = true }
 pyln-grpc-proto = { version = "^0.1", optional = true }
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pyln-client = { path = "../pyln-client", develop = true}
 pyln-grpc-proto = { path = "../pyln-grpc-proto", develop = true, optional = true}
 

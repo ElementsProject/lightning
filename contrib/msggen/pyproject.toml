@@ -11,7 +11,7 @@ include = ["msggen/schema.json"]
 [tool.poetry.dependencies]
 python = "^3.6"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = "^6.2.5"
 
 [build-system]
