@@ -60,6 +60,7 @@
 #define VALID_STFU_MESSAGE(msg) \
 	((msg) == WIRE_SPLICE || \
 	(msg) == WIRE_SPLICE_ACK || \
+	(msg) == WIRE_TX_INIT_RBF || \
 	(msg) == WIRE_TX_ABORT)
 
 #define SAT_MIN(a, b) (amount_sat_less((a), (b)) ? (a) : (b))
@@ -3898,6 +3899,9 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	struct amount_msat current_push_val;
 	const enum tx_role our_role = TX_ACCEPTER;
 	u8 *abort_msg;
+	enum peer_wire type;
+	struct tlv_tx_init_rbf_tlvs *init_rbf_tlvs;
+	struct tlv_tx_ack_rbf_tlvs *ack_rbf_tlvs;
 
 	/* Can't start a splice with another splice still active */
 	assert(!peer->splicing);
@@ -3906,14 +3910,46 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	ictx = new_interactivetx_context(tmpctx, our_role,
 					 peer->pps, peer->channel_id);
 
-	if (!fromwire_splice(inmsg,
-			     &channel_id,
-			     &peer->splicing->opener_relative,
-			     &funding_feerate_perkw,
-			     &locktime,
-			     &peer->splicing->remote_funding_pubkey))
-		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Bad wire_splice %s", tal_hex(tmpctx, inmsg));
+	type = fromwire_peektype(inmsg);
+
+	if (type == WIRE_SPLICE) {
+		if (!fromwire_splice(inmsg,
+				     &channel_id,
+				     &peer->splicing->opener_relative,
+				     &funding_feerate_perkw,
+				     &locktime,
+				     &peer->splicing->remote_funding_pubkey))
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Bad wire_splice %s",
+					 tal_hex(tmpctx, inmsg));
+		if (last_inflight(peer)) {
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Can't splice_init because we already"
+					 " have a pending splice (did you mean"
+					 " to splice RBF?)");
+		}
+	}
+	else if (type == WIRE_TX_INIT_RBF) {
+		if (!fromwire_tx_init_rbf(tmpctx, inmsg,
+					  &channel_id,
+					  &locktime,
+					  &funding_feerate_perkw,
+					  &init_rbf_tlvs))
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Bad tx_init_rbf %s",
+					 tal_hex(tmpctx, inmsg));
+		if (!init_rbf_tlvs
+			|| !init_rbf_tlvs->funding_output_contribution)
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "tx_init_rbf must contain tlv with a"
+					 " funding_output_contribution value");
+		peer->splicing->opener_relative = *init_rbf_tlvs->funding_output_contribution;
+		if (!last_inflight(peer))
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Can't tx_init_rbf because we have no"
+					 " pending splice");
+		peer->splicing->remote_funding_pubkey = last_inflight(peer)->remote_funding;
+	}
 
 	peer->splice_state->await_commitment_succcess = false;
 
@@ -3936,10 +3972,24 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	/* TODO: Add plugin hook for user to adjust accepter amount */
 	peer->splicing->accepter_relative = 0;
 
-	msg = towire_splice_ack(NULL,
-				&peer->channel_id,
-				peer->splicing->accepter_relative,
-				&peer->channel->funding_pubkey[LOCAL]);
+	if (type == WIRE_SPLICE) {
+		msg = towire_splice_ack(NULL,
+					&peer->channel_id,
+					peer->splicing->accepter_relative,
+					&peer->channel->funding_pubkey[LOCAL]);
+	} else if (type == WIRE_TX_INIT_RBF) {
+		ack_rbf_tlvs = tlv_tx_ack_rbf_tlvs_new(tmpctx);
+		ack_rbf_tlvs->funding_output_contribution = tal(ack_rbf_tlvs, s64);
+		*ack_rbf_tlvs->funding_output_contribution = 0;
+		ack_rbf_tlvs->require_confirmed_inputs = NULL;
+		msg = towire_tx_ack_rbf(NULL,
+					&peer->channel_id,
+					ack_rbf_tlvs);
+	} else {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "message type unsupported");
+		msg = NULL; /* Squelch unused warning */
+	}
 
 	peer->splicing->mode = true;
 
@@ -4739,6 +4789,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		handle_stfu(peer, msg);
 		return;
 	case WIRE_SPLICE:
+	case WIRE_TX_INIT_RBF:
 		splice_accepter(peer, msg);
 		return;
 	case WIRE_SPLICE_ACK:
@@ -4768,7 +4819,6 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_TX_SIGNATURES:
 		handle_unexpected_tx_sigs(peer, msg);
 		return;
-	case WIRE_TX_INIT_RBF:
 	case WIRE_TX_ACK_RBF:
 		break;
 
