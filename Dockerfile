@@ -90,7 +90,8 @@ RUN apt-get update -qq && \
         tclsh
 
 ENV PATH="/root/.local/bin:$PATH" \
-    PYTHON_VERSION=3
+    PYTHON_VERSION=3 \
+    POETRY_VERSION=2.0.1
 RUN curl -sSL https://install.python-poetry.org | python3 - && \
     poetry self add poetry-plugin-export
 RUN mkdir -p /root/.venvs && \
