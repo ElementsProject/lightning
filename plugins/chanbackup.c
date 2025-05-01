@@ -452,7 +452,7 @@ static struct command_result *after_send_scb_single(struct command *cmd,
 						    const jsmntok_t *params,
 						    struct info *info)
 {
-        plugin_log(cmd->plugin, LOG_INFORM, "Peer storage sent!");
+        plugin_log(cmd->plugin, LOG_TRACE, "Peer storage sent!");
 	if (--info->idx != 0)
 		return command_still_pending(cmd);
 
