@@ -353,6 +353,9 @@ struct channel {
 
 	/* Our change history. */
 	struct channel_state_change **state_changes;
+
+	/* Have we replied to announcement_signatures once? */
+	bool replied_to_announcement_sigs;
 };
 
 /* Is channel owned (and should be talking to peer) */

@@ -688,7 +688,10 @@ void channel_gossip_got_announcement_sigs(struct channel *channel,
 		 *       - MUST respond with its own `announcement_signatures`
 		 *        message.
 		 */
-		send_channel_announce_sigs(channel);
+		if(!channel->replied_to_announcement_sigs) {
+			send_channel_announce_sigs(channel);
+			channel->replied_to_announcement_sigs = true;
+		}
 		check_channel_gossip(channel);
 		return;
 	}
